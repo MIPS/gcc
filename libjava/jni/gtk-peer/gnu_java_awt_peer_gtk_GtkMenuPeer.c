@@ -40,13 +40,14 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkMenuPeer.h"
 
 static void
-accel_attach (GtkMenuItem *menu_item, gpointer *user_data)
+accel_attach (GtkMenuItem *menu_item,
+	      gpointer *user_data __attribute__((unused)))
 {
   GtkAccelGroup *accel;
 
   accel = gtk_menu_get_accel_group (GTK_MENU (menu_item->submenu));
-  gtk_accel_group_attach (accel, 
-    GTK_OBJECT (gtk_widget_get_toplevel (GTK_WIDGET(menu_item))));
+  _gtk_accel_group_attach (accel, 
+    G_OBJECT (gtk_widget_get_toplevel (GTK_WIDGET(menu_item))));
 }
 
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
@@ -65,7 +66,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
       if (GTK_WIDGET_REALIZED (GTK_WIDGET (ptr1)))
 	accel_attach (GTK_MENU_ITEM (ptr1), NULL);
       else
-	gtk_signal_connect (GTK_OBJECT (ptr1),
+	g_signal_connect (G_OBJECT (ptr1),
 			    "realize",
 			    GTK_SIGNAL_FUNC (accel_attach), 
 			    NULL);
@@ -91,9 +92,13 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   GtkWidget *menu_title, *menu;
   const char *str;
 
+  /* Create global reference and save it for future use */
+  NSA_SET_GLOBAL_REF (env, obj);
+
   str = (*env)->GetStringUTFChars (env, label, NULL);
 
   gdk_threads_enter ();
+  
   menu = gtk_menu_new ();
   
   menu_title = gtk_menu_item_new_with_label (str);
@@ -103,6 +108,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   gtk_widget_show (menu_title);
 
   NSA_SET_PTR (env, obj, menu_title);
+
   gdk_threads_leave ();
 
   (*env)->ReleaseStringUTFChars (env, label, str);

@@ -3,20 +3,20 @@
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -88,7 +88,7 @@ Boston, MA 02111-1307, USA.  */
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -122,7 +122,7 @@ union tree_node;
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
-drectve_section ()							\
+drectve_section (void)							\
 {									\
   if (in_section != in_drectve)						\
     {									\
@@ -131,6 +131,10 @@ drectve_section ()							\
     }									\
 }
 void drectve_section (void);
+
+/* Older versions of gas don't handle 'r' as data.
+   Explicitly set data flag with 'd'.  */  
+#define READONLY_DATA_SECTION_ASM_OP "\t.section .rdata,\"dr\""
 
 /* Switch to SECTION (an `enum in_section').
 
@@ -147,6 +151,7 @@ switch_to_section (enum in_section section, tree decl)		\
     {								\
       case in_text: text_section (); break;			\
       case in_data: data_section (); break;			\
+      case in_readonly_data: readonly_data_section (); break;	\
       case in_named: named_section (decl, NULL, 0); break;	\
       case in_drectve: drectve_section (); break;		\
       default: abort (); break;				\
@@ -225,7 +230,7 @@ do {							\
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    returns float values in the 387 and needs stack probes.
-   We also align doubles to 64-bits for MSVC default compatibility. */
+   We also align doubles to 64-bits for MSVC default compatibility.  */
 
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
@@ -359,6 +364,23 @@ extern int i386_pe_dllimport_name_p (const char *);
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set\t"
 #endif
+/* This implements the `alias' attribute, keeping any stdcall or
+   fastcall decoration.  */
+#undef	ASM_OUTPUT_DEF_FROM_DECLS
+#define	ASM_OUTPUT_DEF_FROM_DECLS(STREAM, DECL, TARGET) 		\
+  do									\
+    {									\
+      const char *alias;						\
+      rtx rtlname = XEXP (DECL_RTL (DECL), 0);				\
+      if (GET_CODE (rtlname) == SYMBOL_REF)				\
+	alias = XSTR (rtlname, 0);					\
+      else								\
+	abort ();							\
+      if (TREE_CODE (DECL) == FUNCTION_DECL)				\
+	i386_pe_declare_function_type (STREAM, alias,			\
+				       TREE_PUBLIC (DECL));		\
+      ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
+    } while (0)
 
 #undef TREE
 

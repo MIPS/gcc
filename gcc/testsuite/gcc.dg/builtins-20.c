@@ -8,6 +8,8 @@
 /* { dg-do link } */
 /* { dg-options "-O2 -ffast-math" } */
 
+#include "builtins-config.h"
+
 extern void link_error(void);
 
 void test1(double x)
@@ -42,6 +44,7 @@ void test1f(float x)
   if (cosf(x) != cosf(-x))
     link_error ();
 
+#ifdef HAVE_C99_RUNTIME
   if (sinf(x)/cosf(x) != tanf(x))
     link_error ();
 
@@ -53,6 +56,7 @@ void test1f(float x)
 
   if (cosf(x)*tanf(x) != sinf(x))
     link_error ();
+#endif
 }
 
 void test2f(float x, float y)
@@ -70,6 +74,7 @@ void test1l(long double x)
   if (cosl(x) != cosl(-x))
     link_error ();
 
+#ifdef HAVE_C99_RUNTIME
   if (sinl(x)/cosl(x) != tanl(x))
     link_error ();
 
@@ -81,6 +86,7 @@ void test1l(long double x)
 
   if (cosl(x)*tanl(x) != sinl(x))
     link_error ();
+#endif
 }
 
 void test2l(long double x, long double y)

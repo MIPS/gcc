@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,9 +56,11 @@ extern const char tree_code_type[];
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
-#define IS_EXPR_CODE_CLASS(CLASS) \
-  ((CLASS) == '<' || (CLASS) == '1' || (CLASS) == '2' || (CLASS) == 'e' \
-   || (CLASS) == 'r' || (CLASS) == 's')
+#define IS_EXPR_CODE_CLASS(CLASS) (strchr ("<12ers", (CLASS)) != 0)
+
+/* Returns nonzero iff NODE is an expression of some kind.  */
+
+#define EXPR_P(NODE) IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))
 
 /* Number of argument-words in each kind of tree-node.  */
 
@@ -256,6 +258,9 @@ struct tree_common GTY(())
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
 
+       TYPE_ALIGN_OK in
+	   ..._TYPE
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
@@ -268,8 +273,7 @@ struct tree_common GTY(())
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) \
-((NODE)->common.code = (ENUM_BITFIELD (tree_code)) (VALUE))
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
@@ -696,13 +700,13 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.pointer)
+#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char *pointer;
+  const char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -790,6 +794,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -1341,12 +1346,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\
@@ -1489,6 +1489,9 @@ struct tree_type GTY(())
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
 
+/* Value of the decls's visibility attribute */
+#define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
+
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
@@ -1629,6 +1632,16 @@ struct tree_type GTY(())
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
+/* Enumerate visibility settings.  */
+
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
+
 struct function;
 
 struct tree_decl GTY(())
@@ -1670,8 +1683,9 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned unused : 3;
-  /* three unused bits.  */
+  ENUM_BITFIELD(symbol_visibility) visibility : 2;
+  unsigned unused : 1;
+  /* one unused bit.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2005,15 +2019,6 @@ enum tls_model {
 
 extern enum tls_model flag_tls_default;
 
-/* Enumerate visibility settings.  */
-
-enum symbol_visibility
-{
-  VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
-};
 
 /* A pointer-to-function member type looks like:
 
@@ -2705,7 +2710,7 @@ extern tree get_file_function_name_long (const char *);
 extern tree get_set_constructor_bits (tree, char *, int);
 extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
-extern void set_decl_assembler_name (tree);
+extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
 
@@ -2934,6 +2939,7 @@ extern rtx emit_line_note (location_t);
 #define ECF_LIBCALL_BLOCK	4096
 
 extern int flags_from_decl_or_type (tree);
+extern int call_expr_flags (tree);
 
 extern int setjmp_call_p (tree);
 extern bool alloca_call_p (tree);
@@ -2967,7 +2973,6 @@ extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
 enum tls_model decl_tls_model (tree);
-enum symbol_visibility decl_visibility (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void notice_global_symbol (tree);
@@ -2977,8 +2982,9 @@ extern void emit_nop (void);
 extern void expand_computed_goto (tree);
 extern bool parse_output_constraint (const char **, int, int, int,
 				     bool *, bool *, bool *);
-extern void expand_asm_operands (tree, tree, tree, tree, int,
-				 const char *, int);
+extern bool parse_input_constraint (const char **, int, int, int, int,
+				    const char * const *, bool *, bool *);
+extern void expand_asm_operands (tree, tree, tree, tree, int, location_t);
 extern tree resolve_asm_operand_names (tree, tree, tree);
 extern int any_pending_cleanups (void);
 extern void init_stmt_for_function (void);
@@ -3007,7 +3013,7 @@ extern char *dwarf2out_cfi_label (void);
 
 /* Entry point to update the canonical frame address (CFA).  */
 
-extern void dwarf2out_def_cfa (const char *, unsigned, long);
+extern void dwarf2out_def_cfa (const char *, unsigned, HOST_WIDE_INT);
 
 /* Add the CFI for saving a register window.  */
 
@@ -3016,15 +3022,15 @@ extern void dwarf2out_window_save (const char *);
 /* Add a CFI to update the running total of the size of arguments pushed
    onto the stack.  */
 
-extern void dwarf2out_args_size (const char *, long);
+extern void dwarf2out_args_size (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving a register to the stack.  */
 
-extern void dwarf2out_reg_save (const char *, unsigned, long);
+extern void dwarf2out_reg_save (const char *, unsigned, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in the stack.  */
 
-extern void dwarf2out_return_save (const char *, long);
+extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in a register.  */
 

@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -569,6 +569,7 @@ static struct table_elt *last_jump_equiv_class;
    the insn.  */
 
 static int constant_pool_entries_cost;
+static int constant_pool_entries_regcost;
 
 /* This data describes a block that will be processed by cse_basic_block.  */
 
@@ -647,7 +648,7 @@ static void invalidate_skipped_block (rtx);
 static void cse_check_loop_start (rtx, rtx, void *);
 static void cse_set_around_loop (rtx, rtx, rtx);
 static rtx cse_basic_block (rtx, rtx, struct branch_path *, int);
-static void count_reg_usage (rtx, int *, rtx, int);
+static void count_reg_usage (rtx, int *, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
 static struct cse_reg_info * get_cse_reg_info (unsigned int);
@@ -1767,6 +1768,7 @@ struct check_dependence_data
 {
   enum machine_mode mode;
   rtx exp;
+  rtx addr;
 };
 
 static int
@@ -1774,7 +1776,8 @@ check_dependence (rtx *x, void *data)
 {
   struct check_dependence_data *d = (struct check_dependence_data *) data;
   if (*x && GET_CODE (*x) == MEM)
-    return true_dependence (d->exp, d->mode, *x, cse_rtx_varies_p);
+    return canon_true_dependence (d->exp, d->mode, d->addr, *x,
+		    		  cse_rtx_varies_p);
   else
     return 0;
 }
@@ -1796,6 +1799,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 {
   int i;
   struct table_elt *p;
+  rtx addr;
 
   switch (GET_CODE (x))
     {
@@ -1886,6 +1890,7 @@ invalidate (rtx x, enum machine_mode full_mode)
       return;
 
     case MEM:
+      addr = canon_rtx (get_addr (XEXP (x, 0)));
       /* Calculate the canonical version of X here so that
 	 true_dependence doesn't generate new RTL for X on each call.  */
       x = canon_rtx (x);
@@ -1913,6 +1918,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 		  if (!p->canon_exp)
 		    p->canon_exp = canon_rtx (p->exp);
 		  d.exp = x;
+		  d.addr = addr;
 		  d.mode = full_mode;
 		  if (for_each_rtx (&p->canon_exp, check_dependence, &d))
 		    remove_from_table (p, i);
@@ -3529,7 +3535,10 @@ fold_rtx (rtx x, rtx insn)
 	    rtx new;
 
 	    if (CONSTANT_P (constant) && GET_CODE (constant) != CONST_INT)
-	      constant_pool_entries_cost = COST (constant);
+	      {
+		constant_pool_entries_cost = COST (constant);
+		constant_pool_entries_regcost = approx_reg_cost (constant);
+	      }
 
 	    /* If we are loading the full constant, we have an equivalence.  */
 	    if (offset == 0 && mode == const_mode)
@@ -5412,7 +5421,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    {
 	      trial = src_folded, src_folded_cost = MAX_COST;
 	      if (src_folded_force_flag)
-		trial = force_const_mem (mode, trial);
+		{
+		  rtx forced = force_const_mem (mode, trial);
+		  if (forced)
+		    trial = forced;
+		}
 	    }
 	  else if (src
 		   && preferrable (src_cost, src_regcost,
@@ -5507,6 +5520,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      src_folded_force_flag = 1;
 	      src_folded = trial;
 	      src_folded_cost = constant_pool_entries_cost;
+	      src_folded_regcost = constant_pool_entries_regcost;
 	    }
 	}
 
@@ -5817,6 +5831,16 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    rtx dest = SET_DEST (sets[i].rtl);
 	    enum machine_mode mode
 	      = GET_MODE (src) == VOIDmode ? GET_MODE (dest) : GET_MODE (src);
+
+	    /* It's possible that we have a source value known to be
+	       constant but don't have a REG_EQUAL note on the insn.
+	       Lack of a note will mean src_eqv_elt will be NULL.  This
+	       can happen where we've generated a SUBREG to access a
+	       CONST_INT that is already in a register in a wider mode.
+	       Ensure that the source expression is put in the proper
+	       constant class.  */
+	    if (!classp)
+	      classp = sets[i].src_const_elt;
 
 	    if (sets[i].src_elt == 0)
 	      {
@@ -6666,7 +6690,19 @@ cse_set_around_loop (rtx x, rtx insn, rtx loop_start)
 			      abort ();
 			  }
 			else
-			  emit_insn_after (move, p);
+			  {
+			    if (CONSTANT_P (SET_SRC (set))
+				&& ! find_reg_equal_equiv_note (insn))
+			      set_unique_reg_note (insn, REG_EQUAL,
+						   SET_SRC (set));
+			    if (control_flow_insn_p (p))
+			      /* p can cause a control flow transfer so it
+				 is the last insn of a basic block.  We can't
+				 therefore use emit_insn_after.  */
+			      emit_insn_before (move, next_nonnote_insn (p));
+			    else
+			      emit_insn_after (move, p);
+			  }
 		      }
 		    break;
 		  }
@@ -6931,6 +6967,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
   cse_jumps_altered = 0;
   recorded_label_ref = 0;
   constant_pool_entries_cost = 0;
+  constant_pool_entries_regcost = 0;
   val.path_size = 0;
 
   init_recog ();
@@ -7071,6 +7108,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
   int to_usage = 0;
   rtx libcall_insn = NULL_RTX;
   int num_insns = 0;
+  int no_conflict = 0;
 
   /* This array is undefined before max_reg, so only allocate
      the space actually needed and adjust the start.  */
@@ -7150,11 +7188,26 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	      if ((p = find_reg_note (insn, REG_LIBCALL, NULL_RTX)))
 		libcall_insn = XEXP (p, 0);
 	      else if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-		libcall_insn = 0;
+		{
+		  /* Keep libcall_insn for the last SET insn of a no-conflict
+		     block to prevent changing the destination.  */
+		  if (! no_conflict)
+		    libcall_insn = 0;
+		  else
+		    no_conflict = -1;
+		}
+	      else if (find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
+		no_conflict = 1;
 	    }
 
 	  cse_insn (insn, libcall_insn);
 
+	  if (no_conflict == -1)
+	    {
+	      libcall_insn = 0;
+	      no_conflict = 0;
+	    }
+	    
 	  /* If we haven't already found an insn where we added a LABEL_REF,
 	     check this one.  */
 	  if (GET_CODE (insn) == INSN && ! recorded_label_ref
@@ -7293,14 +7346,10 @@ check_for_label_ref (rtx *rtl, void *data)
 
 /* Count the number of times registers are used (not set) in X.
    COUNTS is an array in which we accumulate the count, INCR is how much
-   we count each register usage.
-
-   Don't count a usage of DEST, which is the SET_DEST of a SET which
-   contains X in its SET_SRC.  This is because such a SET does not
-   modify the liveness of DEST.  */
+   we count each register usage.  */
 
 static void
-count_reg_usage (rtx x, int *counts, rtx dest, int incr)
+count_reg_usage (rtx x, int *counts, int incr)
 {
   enum rtx_code code;
   rtx note;
@@ -7313,8 +7362,7 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
   switch (code = GET_CODE (x))
     {
     case REG:
-      if (x != dest)
-	counts[REGNO (x)] += incr;
+      counts[REGNO (x)] += incr;
       return;
 
     case PC:
@@ -7331,25 +7379,23 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
       /* If we are clobbering a MEM, mark any registers inside the address
          as being used.  */
       if (GET_CODE (XEXP (x, 0)) == MEM)
-	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, NULL_RTX, incr);
+	count_reg_usage (XEXP (XEXP (x, 0), 0), counts, incr);
       return;
 
     case SET:
       /* Unless we are setting a REG, count everything in SET_DEST.  */
       if (GET_CODE (SET_DEST (x)) != REG)
-	count_reg_usage (SET_DEST (x), counts, NULL_RTX, incr);
-      count_reg_usage (SET_SRC (x), counts,
-		       SET_DEST (x),
-		       incr);
+	count_reg_usage (SET_DEST (x), counts, incr);
+      count_reg_usage (SET_SRC (x), counts, incr);
       return;
 
     case CALL_INSN:
-      count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, NULL_RTX, incr);
+      count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, incr);
       /* Fall through.  */
 
     case INSN:
     case JUMP_INSN:
-      count_reg_usage (PATTERN (x), counts, NULL_RTX, incr);
+      count_reg_usage (PATTERN (x), counts, incr);
 
       /* Things used in a REG_EQUAL note aren't dead since loop may try to
 	 use them.  */
@@ -7364,12 +7410,12 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
 	     Process all the arguments.  */
 	    do
 	      {
-		count_reg_usage (XEXP (eqv, 0), counts, NULL_RTX, incr);
+		count_reg_usage (XEXP (eqv, 0), counts, incr);
 		eqv = XEXP (eqv, 1);
 	      }
 	    while (eqv && GET_CODE (eqv) == EXPR_LIST);
 	  else
-	    count_reg_usage (eqv, counts, NULL_RTX, incr);
+	    count_reg_usage (eqv, counts, incr);
 	}
       return;
 
@@ -7379,19 +7425,15 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
 	  /* FUNCTION_USAGE expression lists may include (CLOBBER (mem /u)),
 	     involving registers in the address.  */
 	  || GET_CODE (XEXP (x, 0)) == CLOBBER)
-	count_reg_usage (XEXP (x, 0), counts, NULL_RTX, incr);
+	count_reg_usage (XEXP (x, 0), counts, incr);
 
-      count_reg_usage (XEXP (x, 1), counts, NULL_RTX, incr);
+      count_reg_usage (XEXP (x, 1), counts, incr);
       return;
 
     case ASM_OPERANDS:
-      /* If the asm is volatile, then this insn cannot be deleted,
-	 and so the inputs *must* be live.  */
-      if (MEM_VOLATILE_P (x))
-	dest = NULL_RTX;
       /* Iterate over just the inputs, not the constraints as well.  */
       for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, dest, incr);
+	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, incr);
       return;
 
     case INSN_LIST:
@@ -7405,10 +7447,10 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	count_reg_usage (XEXP (x, i), counts, dest, incr);
+	count_reg_usage (XEXP (x, i), counts, incr);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  count_reg_usage (XVECEXP (x, i, j), counts, dest, incr);
+	  count_reg_usage (XVECEXP (x, i, j), counts, incr);
     }
 }
 
@@ -7500,11 +7542,11 @@ dead_libcall_p (rtx insn, int *counts)
     new = XEXP (note, 0);
 
   /* While changing insn, we must update the counts accordingly.  */
-  count_reg_usage (insn, counts, NULL_RTX, -1);
+  count_reg_usage (insn, counts, -1);
 
   if (validate_change (insn, &SET_SRC (set), new, 0))
     {
-      count_reg_usage (insn, counts, NULL_RTX, 1);
+      count_reg_usage (insn, counts, 1);
       remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
       remove_note (insn, note);
       return true;
@@ -7515,14 +7557,14 @@ dead_libcall_p (rtx insn, int *counts)
       new = force_const_mem (GET_MODE (SET_DEST (set)), new);
       if (new && validate_change (insn, &SET_SRC (set), new, 0))
 	{
-	  count_reg_usage (insn, counts, NULL_RTX, 1);
+	  count_reg_usage (insn, counts, 1);
 	  remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
 	  remove_note (insn, note);
 	  return true;
 	}
     }
 
-  count_reg_usage (insn, counts, NULL_RTX, 1);
+  count_reg_usage (insn, counts, 1);
   return false;
 }
 
@@ -7546,7 +7588,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
   for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
-    count_reg_usage (insn, counts, NULL_RTX, 1);
+    count_reg_usage (insn, counts, 1);
 
   do
     {
@@ -7590,7 +7632,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
 	  if (! live_insn)
 	    {
-	      count_reg_usage (insn, counts, NULL_RTX, -1);
+	      count_reg_usage (insn, counts, -1);
 	      delete_insn_and_edges (insn);
 	      ndead++;
 	    }

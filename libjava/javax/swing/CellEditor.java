@@ -1,5 +1,5 @@
 /* CellEditor.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,9 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.util.*;
-import javax.swing.event.*;
+import java.util.EventObject;
+import javax.swing.event.CellEditorListener;
 
 /**
  * CellEditor
@@ -56,44 +55,44 @@ public interface CellEditor {
 	 * getCellEditorValue
 	 * @returns Object
 	 */
-	public Object getCellEditorValue();
+	Object getCellEditorValue();
 
 	/**
 	 * isCellEditable
 	 * @param event TODO
 	 * @returns boolean
 	 */
-	public boolean isCellEditable(EventObject event);
+	boolean isCellEditable(EventObject event);
 
 	/**
 	 * shouldSelectCell
 	 * @param event TODO
 	 * @returns boolean
 	 */
-	public boolean shouldSelectCell(EventObject event);
+	boolean shouldSelectCell(EventObject event);
 
 	/**
 	 * stopCellEditing
 	 * @returns boolean
 	 */
-	public boolean stopCellEditing();
+	boolean stopCellEditing();
 
 	/**
 	 * cancelCellEditing
 	 */
-	public void cancelCellEditing();
+	void cancelCellEditing();
 
 	/**
 	 * addCellEditorListener
 	 * @param value0 TODO
 	 */
-	public void addCellEditorListener(CellEditorListener listener);
+	void addCellEditorListener(CellEditorListener listener);
 
 	/**
 	 * removeCellEditorListener
 	 * @param listener TODO
 	 */
-	public void removeCellEditorListener(CellEditorListener listener);
+	void removeCellEditorListener(CellEditorListener listener);
 
 
 } // CellEditor

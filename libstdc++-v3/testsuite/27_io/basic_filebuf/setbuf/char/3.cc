@@ -23,7 +23,7 @@
 #include <fstream>
 #include <testsuite_hooks.h>
 
-void test02()
+void test03()
 {
   using namespace std;
 
@@ -32,17 +32,17 @@ void test02()
   const char* strlit = "how to tell a story and other essays: mark twain";
   const size_t strlitsize = std::strlen(strlit);
   filebuf fbuf01;
-  fbuf01.open("tmp", ios_base::out);
-
   // NB: +2 otherwise sputn is optimized to a direct write,
   // bypassing the buffer.
   fbuf01.pubsetbuf(buf, strlitsize + 2);
+  fbuf01.open("tmp_setbuf3", ios_base::out);
+
   fbuf01.sputn(strlit, strlitsize);
   VERIFY( std::strncmp(strlit, buf, strlitsize) == 0 );
 }
 
 int main() 
 {
-  test02();
+  test03();
   return 0;
 }

@@ -361,6 +361,10 @@ extern int setrlimit (int, const struct rlimit *);
 extern void abort (void);
 #endif
 
+#if defined (HAVE_DECL_SNPRINTF) && !HAVE_DECL_SNPRINTF
+extern int snprintf (char *, size_t, const char *, ...);
+#endif
+
 /* 1 if we have C99 designated initializers.  */
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
@@ -486,8 +490,8 @@ extern void abort (void);
    FIXME: provide a complete autoconf test for buggy enum bitfields.  */
 
 #if (GCC_VERSION > 2000)
-#define ENUM_BITFIELD(TYPE) enum TYPE
-#define CHAR_BITFIELD unsigned char
+#define ENUM_BITFIELD(TYPE) __extension__ enum TYPE
+#define CHAR_BITFIELD __extension__ unsigned char
 #else
 #define ENUM_BITFIELD(TYPE) unsigned int
 #define CHAR_BITFIELD unsigned int
@@ -549,7 +553,7 @@ typedef char _Bool;
 #define really_call_calloc calloc
 #define really_call_realloc realloc
 
-#if defined(FLEX_SCANNER) || defined(YYBISON)
+#if defined(FLEX_SCANNER) || defined(YYBISON) || defined(YYBYACC)
 /* Flex and bison use malloc and realloc.  Yuk.  Note that this means
    really_call_* cannot be used in a .l or .y file.  */
 #define malloc xmalloc
@@ -587,7 +591,12 @@ typedef char _Bool;
 	ENCODE_SECTION_INFO STRIP_NAME_ENCODING ASM_GLOBALIZE_LABEL	\
 	ASM_OUTPUT_MI_THUNK CONST_COSTS RTX_COSTS DEFAULT_RTX_COSTS	\
 	ADDRESS_COST MACHINE_DEPENDENT_REORG ASM_FILE_START ASM_FILE_END \
-	ASM_SIMPLIFY_DWARF_ADDR
+	ASM_SIMPLIFY_DWARF_ADDR INIT_TARGET_OPTABS INIT_SUBTARGET_OPTABS \
+	INIT_GOFAST_OPTABS MULSI3_LIBCALL MULDI3_LIBCALL DIVSI3_LIBCALL \
+	DIVDI3_LIBCALL UDIVSI3_LIBCALL UDIVDI3_LIBCALL MODSI3_LIBCALL	\
+	MODDI3_LIBCALL UMODSI3_LIBCALL UMODDI3_LIBCALL BUILD_VA_LIST_TYPE \
+	PRETEND_OUTGOING_VARARGS_NAMED STRUCT_VALUE_INCOMING_REGNUM	\
+	ASM_OUTPUT_SECTION_NAME
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -611,7 +620,12 @@ typedef char _Bool;
 	DBX_WORKING_DIRECTORY INSN_CACHE_DEPTH INSN_CACHE_SIZE		   \
 	INSN_CACHE_LINE_WIDTH INIT_SECTION_PREAMBLE NEED_ATEXIT ON_EXIT	   \
 	EXIT_BODY OBJECT_FORMAT_ROSE MULTIBYTE_CHARS MAP_CHARACTER	   \
-	LIBGCC_NEEDS_DOUBLE
+	LIBGCC_NEEDS_DOUBLE FINAL_PRESCAN_LABEL DEFAULT_CALLER_SAVES	   \
+	LOAD_ARGS_REVERSED MAX_INTEGER_COMPUTATION_MODE			   \
+	CONVERT_HARD_REGISTER_TO_SSA_P ASM_OUTPUT_MAIN_SOURCE_FILENAME	   \
+	FIRST_INSN_ADDRESS TEXT_SECTION SHARED_BSS_SECTION_ASM_OP	   \
+	PROMOTED_MODE EXPAND_BUILTIN_VA_END				   \
+	LINKER_DOES_NOT_WORK_WITH_DWARF2
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

@@ -33,6 +33,9 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
+#include <cerrno>  // For errno
+#include <cmath>  // For isinf, finite, finitef, fabs
+#include <cstdlib>  // For strof, strtold
 #include <locale>
 
 #ifdef _GLIBCXX_HAVE_IEEEFP_H
@@ -44,78 +47,8 @@ namespace std
   // Specializations for all types used in num_get.
   template<>
     void
-    __convert_to_v(const char* __s, long& __v, ios_base::iostate& __err, 
-		   const __c_locale&, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-      {
-	char* __sanity;
-	errno = 0;
-	long __l = strtol(__s, &__sanity, __base);
-	if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	  __v = __l;
-	else
-	  __err |= ios_base::failbit;
-      }
-    }
-
-  template<>
-    void
-    __convert_to_v(const char* __s, unsigned long& __v, 
-		   ios_base::iostate& __err, const __c_locale&, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{
-	  char* __sanity;
-	  errno = 0;
-	  unsigned long __ul = strtoul(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ul;
-	  else
-	    __err |= ios_base::failbit;
-	}
-    }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<>
-    void
-    __convert_to_v(const char* __s, long long& __v, ios_base::iostate& __err, 
-		   const __c_locale&, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{
-	  char* __sanity;
-	  errno = 0;
-	  long long __ll = strtoll(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ll;
-	  else
-	    __err |= ios_base::failbit;
-	}
-    }
-
-  template<>
-    void
-    __convert_to_v(const char* __s, unsigned long long& __v, 
-		   ios_base::iostate& __err, const __c_locale&, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{      
-	  char* __sanity;
-	  errno = 0;
-	  unsigned long long __ull = strtoull(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ull;
-	  else
-	    __err |= ios_base::failbit;
-	}  
-    }
-#endif
-
-  template<>
-    void
     __convert_to_v(const char* __s, float& __v, ios_base::iostate& __err, 
-		   const __c_locale&, int) 	      
+		   const __c_locale&) 	      
     {
       if (!(__err & ios_base::failbit))
 	{
@@ -143,7 +76,7 @@ namespace std
 	    errno = ERANGE;
 #endif
 #endif
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __f;
 	  else
 	    __err |= ios_base::failbit;
@@ -155,7 +88,7 @@ namespace std
   template<>
     void
     __convert_to_v(const char* __s, double& __v, ios_base::iostate& __err, 
-		   const __c_locale&, int) 
+		   const __c_locale&) 
     {
       if (!(__err & ios_base::failbit))
 	{
@@ -165,7 +98,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  double __d = strtod(__s, &__sanity);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __d;
 	  else
 	    __err |= ios_base::failbit;
@@ -177,7 +110,7 @@ namespace std
   template<>
     void
     __convert_to_v(const char* __s, long double& __v, 
-		   ios_base::iostate& __err, const __c_locale&, int) 
+		   ios_base::iostate& __err, const __c_locale&) 
     {
       if (!(__err & ios_base::failbit))
 	{
@@ -188,7 +121,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  long double __ld = strtold(__s, &__sanity);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __ld;
 #else
 	  typedef char_traits<char>::int_type int_type;
@@ -234,7 +167,7 @@ namespace std
 
 namespace __gnu_cxx
 {
-  const char* category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
+  const char* const category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
       "LC_NUMERIC",
@@ -247,5 +180,5 @@ namespace __gnu_cxx
 
 namespace std
 {
-  const char** locale::_S_categories = __gnu_cxx::category_names;
+  const char* const* const locale::_S_categories = __gnu_cxx::category_names;
 }  // namespace std

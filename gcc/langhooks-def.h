@@ -55,7 +55,7 @@ extern int lhd_unsafe_for_reeval (tree);
 extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
-extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int);
+extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 extern void lhd_print_error_function (struct diagnostic_context *,
 				      const char *);
 extern void lhd_set_decl_assembler_name (tree);
@@ -67,6 +67,7 @@ extern void lhd_register_builtin_type (tree, const char *);
 extern bool lhd_decl_ok_for_sibcall (tree);
 extern tree lhd_expr_size (tree);
 extern bool lhd_decl_uninit (tree);
+extern tree lhd_get_callee_fndecl (tree);
 extern size_t lhd_tree_size (enum tree_code);
 
 /* Declarations of default tree inlining hooks.  */
@@ -82,7 +83,7 @@ extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
-extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
+extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
@@ -119,6 +120,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 #define LANG_HOOKS_PRINT_IDENTIFIER	lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
+#define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_tree
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
 #define LANG_HOOKS_DECL_UNINIT		lhd_decl_uninit
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
@@ -297,6 +299,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_PRINT_TYPE, \
   LANG_HOOKS_PRINT_IDENTIFIER, \
   LANG_HOOKS_DECL_PRINTABLE_NAME, \
+  LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
   LANG_HOOKS_DECL_UNINIT, \

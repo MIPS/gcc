@@ -63,7 +63,6 @@ extern int target_flags;
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
-#define BITS_PER_UNIT 8
 #define BITS_PER_WORD 8
 #define UNITS_PER_WORD (BITS_PER_WORD / BITS_PER_UNIT)
 
@@ -862,21 +861,6 @@ extern int ip2k_reorg_merge_qimode;
 #define OUT_AS1(a,b) output_asm_insn (AS1 (a,b), operands)
 #define OUT_AS2(a,b,c) output_asm_insn (AS2 (a,b,c), operands)
 #define CR_TAB "\n\t"
-
-#define INIT_TARGET_OPTABS				\
-{							\
-  smul_optab->handlers[(int) SImode].libfunc		\
-    = gen_rtx_SYMBOL_REF (Pmode, "_mulsi3");		\
-							\
-  smul_optab->handlers[(int) DImode].libfunc		\
-    = gen_rtx_SYMBOL_REF (Pmode, "_muldi3");		\
-							\
-  cmp_optab->handlers[(int) HImode].libfunc		\
-    = gen_rtx_SYMBOL_REF (Pmode, "_cmphi2");		\
-							\
-  cmp_optab->handlers[(int) SImode].libfunc		\
-    = gen_rtx_SYMBOL_REF (Pmode, "_cmpsi2");		\
-}
 
 #define PREDICATE_CODES					\
   {"ip2k_ip_operand", {MEM}},				\

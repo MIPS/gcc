@@ -31,10 +31,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "params.h"
 #ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_MEMCHECK_H
-# include <memcheck.h>
+# ifdef HAVE_VALGRIND_MEMCHECK_H
+#  include <valgrind/memcheck.h>
+# elif defined HAVE_MEMCHECK_H
+#  include <memcheck.h>
 # else
-# include <valgrind.h>
+#  include <valgrind.h>
 # endif
 #else
 /* Avoid #ifdef:s when we can help it.  */
@@ -171,7 +173,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NUM_EXTRA_ORDERS ARRAY_SIZE (extra_order_size_table)
 
 #define RTL_SIZE(NSLOTS) \
-  (sizeof (struct rtx_def) + ((NSLOTS) - 1) * sizeof (rtunion))
+  (RTX_HDR_SIZE + (NSLOTS) * sizeof (rtunion))
 
 #define TREE_EXP_SIZE(OPS) \
   (sizeof (struct tree_exp) + ((OPS) - 1) * sizeof (tree))
@@ -185,7 +187,7 @@ static const size_t extra_order_size_table[] = {
   sizeof (struct tree_list),
   TREE_EXP_SIZE (2),
   RTL_SIZE (2),			/* MEM, PLUS, etc.  */
-  RTL_SIZE (9),		/* INSN, CALL_INSN, JUMP_INSN */
+  RTL_SIZE (9),			/* INSN */
 };
 
 /* The total number of orders.  */
@@ -399,13 +401,12 @@ static struct globals
      zero otherwise.  We allocate them all together, to enable a
      better runtime data access pattern.  */
   unsigned long **save_in_use;
-
 #ifdef GATHER_STATISTICS
   struct
   {
-    /* Total memory allocated with ggc_alloc */
+    /* Total memory allocated with ggc_alloc.  */
     unsigned long long total_allocated;
-    /* Total overhead for memory to be allocated with ggc_alloc */
+    /* Total overhead for memory to be allocated with ggc_alloc.  */
     unsigned long long total_overhead;
 
     /* Total allocations and overhead for sizes less than 32, 64 and 128.
@@ -421,6 +422,9 @@ static struct globals
     unsigned long long total_allocated_under128;
     unsigned long long total_overhead_under128;
   
+    /* The allocations for each of the allocation orders.  */
+    unsigned long long total_allocated_per_order[NUM_ORDERS];
+
     /* The overhead for each of the allocation orders.  */
     unsigned long long total_overhead_per_order[NUM_ORDERS];
   } stats;
@@ -469,7 +473,10 @@ static void poison_pages (void);
 void debug_print_page_list (int);
 static void push_depth (unsigned int);
 static void push_by_depth (page_entry *, unsigned long *);
-
+struct alloc_zone *rtl_zone = NULL;
+struct alloc_zone *tree_zone = NULL;
+struct alloc_zone *garbage_zone = NULL;
+
 /* Push an entry onto G.depth.  */
 
 inline static void
@@ -1021,6 +1028,22 @@ static unsigned char size_lookup[257] =
   8
 };
 
+/* Typed allocation function.  Does nothing special in this collector.  */
+
+void *
+ggc_alloc_typed (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size)
+{
+  return ggc_alloc (size);
+}
+
+/* Zone allocation function.  Does nothing special in this collector.  */
+
+void *
+ggc_alloc_zone (size_t size, struct alloc_zone *zone ATTRIBUTE_UNUSED)
+{
+  return ggc_alloc (size);
+}
+
 /* Allocate a chunk of memory of SIZE bytes.  Its contents are undefined.  */
 
 void *
@@ -1150,8 +1173,9 @@ ggc_alloc (size_t size)
 #ifdef GATHER_STATISTICS
   {
     G.stats.total_overhead += OBJECT_SIZE (order) - size;
-    G.stats.total_overhead_per_order[order] += OBJECT_SIZE (order) - size;
     G.stats.total_allocated += OBJECT_SIZE(order);
+    G.stats.total_overhead_per_order[order] += OBJECT_SIZE (order) - size;
+    G.stats.total_allocated_per_order[order] += OBJECT_SIZE (order);
 
     if (size <= 32){
       G.stats.total_overhead_under32 += OBJECT_SIZE (order) - size;
@@ -1378,6 +1402,20 @@ init_ggc (void)
   G.by_depth_max = INITIAL_PTE_COUNT;
   G.by_depth = xmalloc (G.by_depth_max * sizeof (page_entry *));
   G.save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
+}
+
+/* Start a new GGC zone.  */
+
+struct alloc_zone *
+new_ggc_zone (const char *name ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Destroy a GGC zone.  */
+void
+destroy_ggc_zone (struct alloc_zone *zone ATTRIBUTE_UNUSED)
+{
 }
 
 /* Increment the `GC context'.  Objects allocated in an outer context
@@ -1809,6 +1847,8 @@ ggc_print_statistics (void)
 
   /* Collect some information about the various sizes of
      allocation.  */
+  fprintf (stderr,
+           "Memory still allocated at the end of the compilation process\n");
   fprintf (stderr, "%-5s %10s  %10s  %10s\n",
 	   "Size", "Allocated", "Used", "Overhead");
   for (i = 0; i < NUM_ORDERS; ++i)
@@ -1850,6 +1890,8 @@ ggc_print_statistics (void)
 
 #ifdef GATHER_STATISTICS  
   {
+    fprintf (stderr, "\nTotal allocations and overheads during the compilation process\n");
+
     fprintf (stderr, "Total Overhead:                        %10lld\n",
              G.stats.total_overhead);
     fprintf (stderr, "Total Allocated:                       %10lld\n",
@@ -1869,9 +1911,13 @@ ggc_print_statistics (void)
              G.stats.total_allocated_under128);
    
     for (i = 0; i < NUM_ORDERS; i++)
-      if (G.stats.total_overhead_per_order[i])
-        fprintf (stderr, "Total Overhead  page size %7d:     %10lld\n",
-                 OBJECT_SIZE (i), G.stats.total_overhead_per_order[i]);
+      if (G.stats.total_allocated_per_order[i])
+        {
+          fprintf (stderr, "Total Overhead  page size %7d:     %10lld\n",
+                   OBJECT_SIZE (i), G.stats.total_overhead_per_order[i]);
+          fprintf (stderr, "Total Allocated page size %7d:     %10lld\n",
+                   OBJECT_SIZE (i), G.stats.total_allocated_per_order[i]);
+        }
   }
 #endif
 }
@@ -1894,7 +1940,7 @@ init_ggc_pch (void)
 
 void
 ggc_pch_count_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
 
@@ -1937,7 +1983,7 @@ ggc_pch_this_base (struct ggc_pch_data *d, void *base)
 
 char *
 ggc_pch_alloc_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
   char *result;
@@ -1966,9 +2012,10 @@ ggc_pch_prepare_write (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 void
 ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 		      FILE *f, void *x, void *newx ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
+  static const char emptyBytes[256];
 
   if (size <= 256)
     order = size_lookup[size];
@@ -1982,11 +2029,30 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
   if (fwrite (x, size, 1, f) != 1)
     fatal_error ("can't write PCH file: %m");
 
-  /* In the current implementation, SIZE is always equal to
-     OBJECT_SIZE (order) and so the fseek is never executed.  */
-  if (size != OBJECT_SIZE (order)
-      && fseek (f, OBJECT_SIZE (order) - size, SEEK_CUR) != 0)
-    fatal_error ("can't write PCH file: %m");
+  /* If SIZE is not the same as OBJECT_SIZE(order), then we need to pad the
+     object out to OBJECT_SIZE(order).  This happens for strings.  */
+
+  if (size != OBJECT_SIZE (order))
+    {
+      unsigned padding = OBJECT_SIZE(order) - size;
+
+      /* To speed small writes, we use a nulled-out array that's larger
+         than most padding requests as the source for our null bytes.  This
+         permits us to do the padding with fwrite() rather than fseek(), and
+         limits the chance the the OS may try to flush any outstanding
+         writes.  */
+      if (padding <= sizeof(emptyBytes))
+        {
+          if (fwrite (emptyBytes, 1, padding, f) != padding)
+            fatal_error ("can't write PCH file");
+        }
+      else
+        {
+          /* Larger than our buffer?  Just default to fseek.  */
+          if (fseek (f, padding, SEEK_CUR) != 0)
+            fatal_error ("can't write PCH file");
+        }
+    }
 
   d->written[order]++;
   if (d->written[order] == d->d.totals[order]
@@ -2068,7 +2134,7 @@ ggc_pch_read (FILE *f, void *addr)
   /* We've just read in a PCH file.  So, every object that used to be
      allocated is now free.  */
   clear_marks ();
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
   poison_pages ();
 #endif
 

@@ -36,57 +36,57 @@ typedef long _Atomic_word;
 
 static inline _Atomic_word
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __tmp1, __tmp2;
+  _Atomic_word __val_extended = __val;
 
-  __asm__ __volatile__("1:	ldx	[%2], %0\n\t"
-		       "	add	%0, %3, %1\n\t"
-		       "	casx	[%2], %0, %1\n\t"
+  __asm__ __volatile__("1:	ldx	[%3], %0\n\t"
+		       "	add	%0, %4, %1\n\t"
+		       "	casx	[%3], %0, %1\n\t"
 		       "	sub	%0, %1, %0\n\t"
 		       "	brnz,pn	%0, 1b\n\t"
 		       "	 nop"
-		       : "=&r" (__tmp1), "=&r" (__tmp2)
-		       : "r" (__mem), "r" (__val)
-		       : "memory");
+		       : "=&r" (__tmp1), "=&r" (__tmp2), "=m" (*__mem)
+		       : "r" (__mem), "r" (__val_extended), "m" (*__mem));
   return __tmp2;
 }
 
 static inline void
 __attribute__ ((__unused__))
-__atomic_add (volatile _Atomic_word* __mem, int __val)
+__atomic_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __tmp1, __tmp2;
+  _Atomic_word __val_extended = __val;
 
-  __asm__ __volatile__("1:	ldx	[%2], %0\n\t"
-		       "	add	%0, %3, %1\n\t"
-		       "	casx	[%2], %0, %1\n\t"
+  __asm__ __volatile__("1:	ldx	[%3], %0\n\t"
+		       "	add	%0, %4, %1\n\t"
+		       "	casx	[%3], %0, %1\n\t"
 		       "	sub	%0, %1, %0\n\t"
 		       "	brnz,pn	%0, 1b\n\t"
 		       "	 nop"
-		       : "=&r" (__tmp1), "=&r" (__tmp2)
-		       : "r" (__mem), "r" (__val)
-		       : "memory");
+		       : "=&r" (__tmp1), "=&r" (__tmp2), "=m" (*__mem)
+		       : "r" (__mem), "r" (__val_extended), "m" (*__mem));
 }
 
 #else /* __arch32__ */
 
 typedef int _Atomic_word;
 
-template <int __inst>
-struct __Atomicity_lock
-{
-  static unsigned char _S_atomicity_lock;
-};
+template<int __inst>
+  struct __Atomicity_lock
+  {
+    static unsigned char _S_atomicity_lock;
+  };
 
-template <int __inst>
+template<int __inst>
 unsigned char __Atomicity_lock<__inst>::_S_atomicity_lock = 0;
 
 template unsigned char __Atomicity_lock<0>::_S_atomicity_lock;
 
 static int
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word* __mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __result, __tmp;
 
@@ -108,7 +108,7 @@ __exchange_and_add (volatile _Atomic_word* __mem, int __val)
 
 static void
 __attribute__ ((__unused__))
-__atomic_add (volatile _Atomic_word* __mem, int __val)
+__atomic_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __tmp;
 

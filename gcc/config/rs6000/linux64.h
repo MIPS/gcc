@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -65,27 +66,34 @@
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
   do								\
     {								\
+      if (rs6000_alignment_string == 0)				\
+	rs6000_alignment_flags = MASK_ALIGN_NATURAL;		\
       if (TARGET_64BIT)						\
 	{							\
 	  if (DEFAULT_ABI != ABI_AIX)				\
 	    {							\
-	      DEFAULT_ABI = ABI_AIX;				\
+	      rs6000_current_abi = ABI_AIX;			\
 	      error (INVALID_64BIT, "call");			\
 	    }							\
-	  if (TARGET_RELOCATABLE)				\
+	  if (target_flags & MASK_RELOCATABLE)			\
 	    {							\
 	      target_flags &= ~MASK_RELOCATABLE;		\
 	      error (INVALID_64BIT, "relocatable");		\
 	    }							\
-	  if (TARGET_EABI)					\
+	  if (target_flags & MASK_EABI)				\
 	    {							\
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (TARGET_PROTOTYPE)					\
+	  if (target_flags & MASK_PROTOTYPE)			\
 	    {							\
 	      target_flags &= ~MASK_PROTOTYPE;			\
 	      error (INVALID_64BIT, "prototype");		\
+	    }							\
+          if ((target_flags & MASK_POWERPC64) == 0)		\
+	    {							\
+	      target_flags |= MASK_POWERPC64;			\
+	      error ("-m64 requires a PowerPC64 cpu");		\
 	    }							\
 	}							\
       else							\
@@ -202,8 +210,7 @@
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
 
-/* This now supports a natural alignment mode. */
-/* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
+/* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   ((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)	\
@@ -216,20 +223,18 @@
    ? MIN ((COMPUTED), 32)						\
    : (COMPUTED))
 
-/* AIX increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
+/* PowerPC64 Linux increases natural record alignment to doubleword if
+   the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)		\
-  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)			\
-   : (TARGET_64BIT						\
-      && (TREE_CODE (STRUCT) == RECORD_TYPE			\
-	  || TREE_CODE (STRUCT) == UNION_TYPE			\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-      && TYPE_FIELDS (STRUCT) != 0				\
-      && TARGET_ALIGN_NATURAL == 0				\
-      && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)			\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)		\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				\
+   : (TARGET_64BIT							\
+      && (TREE_CODE (STRUCT) == RECORD_TYPE				\
+	  || TREE_CODE (STRUCT) == UNION_TYPE				\
+	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
+      && TARGET_ALIGN_NATURAL == 0)					\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Indicate that jump tables go in the text section.  */
@@ -241,7 +246,7 @@
    reasonably assume that they follow the normal rules for structure
    layout treating the parameter area as any other block of memory,
    then map the reg param area to registers.  ie. pad updard.
-   Setting both of the following defines results in this behaviour.
+   Setting both of the following defines results in this behavior.
    Setting just the first one will result in aggregates that fit in a
    doubleword being padded downward, and others being padded upward.
    Not a bad idea as this results in struct { int x; } being passed

@@ -42,13 +42,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "target.h"
 #include "cgraph.h"
+#include "varray.h"
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
    different alias sets cannot alias each other, with one important
    exception.  Consider something like:
 
-     struct S {int i; double d; };
+     struct S { int i; double d; };
 
    a store to an `S' can alias something of either type `int' or type
    `double'.  (However, a store to an `int' cannot alias a `double'
@@ -73,7 +74,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    However, this is no actual entry for alias set zero.  It is an
    error to attempt to explicitly construct a subset of zero.  */
 
-typedef struct alias_set_entry
+struct alias_set_entry GTY(())
 {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   HOST_WIDE_INT alias_set;
@@ -85,12 +86,13 @@ typedef struct alias_set_entry
 
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
-  splay_tree children;
+  splay_tree GTY((param1_is (int), param2_is (int))) children;
 
   /* Nonzero if would have a child of zero: this effectively makes this
      alias set the same as alias set zero.  */
   int has_zero_child;
-} *alias_set_entry;
+};
+typedef struct alias_set_entry *alias_set_entry;
 
 static int rtx_equal_for_memref_p (rtx, rtx);
 static rtx find_symbolic_term (rtx);
@@ -205,24 +207,21 @@ char *reg_known_equiv_p;
 static bool copying_arguments;
 
 /* The splay-tree used to store the various alias set entries.  */
-static splay_tree alias_sets;
+static GTY ((param_is (struct alias_set_entry))) varray_type alias_sets;
 
 /* Returns a pointer to the alias set entry for ALIAS_SET, if there is
    such an entry, or NULL otherwise.  */
 
-static alias_set_entry
+static inline alias_set_entry
 get_alias_set_entry (HOST_WIDE_INT alias_set)
 {
-  splay_tree_node sn
-    = splay_tree_lookup (alias_sets, (splay_tree_key) alias_set);
-
-  return sn != 0 ? ((alias_set_entry) sn->value) : 0;
+  return (alias_set_entry)VARRAY_GENERIC_PTR (alias_sets, alias_set);
 }
 
 /* Returns nonzero if the alias sets for MEM1 and MEM2 are such that
    the two MEMs cannot alias each other.  */
 
-static int
+static inline int
 mems_in_disjoint_alias_sets_p (rtx mem1, rtx mem2)
 {
 #ifdef ENABLE_CHECKING
@@ -509,7 +508,7 @@ get_alias_set (tree t)
 
 		  if (pointed_to_alias_set == 0)
 		    /* It's not legal to make a subset of alias set zero.  */
-		    ;
+		    DECL_POINTER_ALIAS_SET (decl) = 0;
 		  else
 		    {
 		      DECL_POINTER_ALIAS_SET (decl) = new_alias_set ();
@@ -593,22 +592,32 @@ get_alias_set (tree t)
 
 /* Return a brand-new alias set.  */
 
+static GTY(()) HOST_WIDE_INT last_alias_set;
+
 HOST_WIDE_INT
 new_alias_set (void)
 {
-  static HOST_WIDE_INT last_alias_set;
-
   if (flag_strict_aliasing)
-    return ++last_alias_set;
+    {
+      if (!alias_sets)
+	VARRAY_GENERIC_PTR_INIT (alias_sets, 10, "alias sets");
+      else
+	VARRAY_GROW (alias_sets, last_alias_set + 2);
+      return ++last_alias_set;
+    }
   else
     return 0;
 }
 
-/* Indicate that things in SUBSET can alias things in SUPERSET, but
-   not vice versa.  For example, in C, a store to an `int' can alias a
-   structure containing an `int', but not vice versa.  Here, the
-   structure would be the SUPERSET and `int' the SUBSET.  This
-   function should be called only once per SUPERSET/SUBSET pair.
+/* Indicate that things in SUBSET can alias things in SUPERSET, but that
+   not everything that aliases SUPERSET also aliases SUBSET.  For example,
+   in C, a store to an `int' can alias a load of a structure containing an
+   `int', and vice versa.  But it can't alias a load of a 'double' member
+   of the same structure.  Here, the structure would be the SUPERSET and
+   `int' the SUBSET.  This relationship is also described in the comment at
+   the beginning of this file.
+
+   This function should be called only once per SUPERSET/SUBSET pair.
 
    It is illegal for SUPERSET to be zero; everything is implicitly a
    subset of alias set zero.  */
@@ -632,13 +641,12 @@ record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
-      superset_entry = xmalloc (sizeof (struct alias_set_entry));
+      superset_entry = ggc_alloc (sizeof (struct alias_set_entry));
       superset_entry->alias_set = superset;
       superset_entry->children
-	= splay_tree_new (splay_tree_compare_ints, 0, 0);
+	= splay_tree_new_ggc (splay_tree_compare_ints);
       superset_entry->has_zero_child = 0;
-      splay_tree_insert (alias_sets, (splay_tree_key) superset,
-			 (splay_tree_value) superset_entry);
+      VARRAY_GENERIC_PTR (alias_sets, superset) = superset_entry;
     }
 
   if (subset == 0)
@@ -688,7 +696,7 @@ record_component_aliases (tree type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* Recursively record aliases for the base classes, if there are any */
+      /* Recursively record aliases for the base classes, if there are any.  */
       if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
 	{
 	  int i;
@@ -716,29 +724,29 @@ record_component_aliases (tree type)
 /* Allocate an alias set for use in storing and reading from the varargs
    spill area.  */
 
+static GTY(()) HOST_WIDE_INT varargs_set = -1;
+
 HOST_WIDE_INT
 get_varargs_alias_set (void)
 {
-  static HOST_WIDE_INT set = -1;
+  if (varargs_set == -1)
+    varargs_set = new_alias_set ();
 
-  if (set == -1)
-    set = new_alias_set ();
-
-  return set;
+  return varargs_set;
 }
 
 /* Likewise, but used for the fixed portions of the frame, e.g., register
    save areas.  */
 
+static GTY(()) HOST_WIDE_INT frame_set = -1;
+
 HOST_WIDE_INT
 get_frame_alias_set (void)
 {
-  static HOST_WIDE_INT set = -1;
+  if (frame_set == -1)
+    frame_set = new_alias_set ();
 
-  if (set == -1)
-    set = new_alias_set ();
-
-  return set;
+  return frame_set;
 }
 
 /* Inside SRC, the source of a SET, find a base address.  */
@@ -2382,7 +2390,7 @@ nonlocal_mentioned_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2476,7 +2484,7 @@ nonlocal_referenced_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2552,7 +2560,7 @@ nonlocal_set_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2668,8 +2676,6 @@ init_alias_once (void)
   static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
     = gen_rtx_ADDRESS (Pmode, hard_frame_pointer_rtx);
 #endif
-
-  alias_sets = splay_tree_new (splay_tree_compare_ints, 0, 0);
 }
 
 /* Set MEMORY_MODIFIED when X modifies DATA (that is assumed

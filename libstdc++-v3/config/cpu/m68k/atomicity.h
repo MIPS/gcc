@@ -39,7 +39,7 @@ typedef int _Atomic_word;
 
 static inline _Atomic_word 
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   register _Atomic_word __result = *__mem;
   register _Atomic_word __temp;
@@ -47,9 +47,8 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
 			"add%.l %3,%1\n\t"
 			"cas%.l %0,%1,%2\n\t"
 			"jne 1b"
-			: "=d" (__result), "=&d" (__temp), "+m" (*__mem)
-			: "d" (__val), "0" (__result)
-			: "memory");
+			: "=d" (__result), "=&d" (__temp), "=m" (*__mem)
+			: "d" (__val), "0" (__result), "m" (*__mem));
   return __result;
 }
 
@@ -60,7 +59,7 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
    */
 static inline _Atomic_word
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __result;
   short __level, __tmpsr;
@@ -77,39 +76,42 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
 
 #else
 
-template <int __inst>
-struct __Atomicity_lock
-{
-  static volatile unsigned char _S_atomicity_lock;
-};
+template<int __inst>
+  struct __Atomicity_lock
+  {
+    static volatile unsigned char _S_atomicity_lock;
+  };
 
-template <int __inst>
+template<int __inst>
 volatile unsigned char __Atomicity_lock<__inst>::_S_atomicity_lock = 0;
 
 template volatile unsigned char __Atomicity_lock<0>::_S_atomicity_lock;
 
 static inline _Atomic_word 
 __attribute__ ((__unused__))
-__exchange_and_add (volatile _Atomic_word *__mem, int __val)
+__exchange_and_add(volatile _Atomic_word* __mem, int __val)
 {
   _Atomic_word __result;
 
-// bset with no immediate addressing
-#if defined(__mcf5200__) || defined(__mcf5300__) || defined(__mcf5400__)
+// bset with no immediate addressing (not SMP-safe)
+#if defined(__mcf5200__) || defined(__mcf5300__)
   __asm__ __volatile__("1: bset.b #7,%0@\n\tjbne 1b"
 		       : /* no outputs */
 		       : "a"(&__Atomicity_lock<0>::_S_atomicity_lock)
 		       : "cc", "memory");
 
-// bset with immediate addressing
-#elif defined(__mc68000__)
-  __asm__ __volatile__("1: bset.b #7,%0\n\tjbne 1b"
+// CPU32 and MCF5400 support test-and-set (SMP-safe).
+#elif defined(__mcpu32__) || defined(__mcf5400__)
+  __asm__ __volatile__("1: tas %0\n\tjbne 1b"
 		       : "+m"(__Atomicity_lock<0>::_S_atomicity_lock)
 		       : /* none */
 		       : "cc");
 
-#else // 680x0, cpu32, 5400 support test-and-set.
-  __asm__ __volatile__("1: tas %0\n\tjbne 1b"
+// Use bset with immediate addressing for 68000/68010 (not SMP-safe)
+// NOTE: TAS is available on the 68000, but unsupported by some Amiga
+// memory controllers.
+#else
+  __asm__ __volatile__("1: bset.b #7,%0\n\tjbne 1b"
 		       : "+m"(__Atomicity_lock<0>::_S_atomicity_lock)
 		       : /* none */
 		       : "cc");
@@ -127,11 +129,11 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
 
 static inline void
 __attribute__ ((__unused__))
-__atomic_add (volatile _Atomic_word* __mem, int __val)
+__atomic_add(volatile _Atomic_word* __mem, int __val)
 {
   // Careful: using add.l with a memory destination is not
   // architecturally guaranteed to be atomic.
-  (void) __exchange_and_add (__mem, __val);
+  (void) __exchange_and_add(__mem, __val);
 }
 
 #endif /* !_GLIBCXX_ATOMICITY_H */

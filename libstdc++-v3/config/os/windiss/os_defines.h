@@ -33,5 +33,6 @@
 
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
+#define __C9X__ 1 // for sinf etc
 
 #endif

@@ -958,6 +958,12 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
       SET_HARD_REG_BIT (* (HARD_REG_SET *) live, regno + nregs);
 }
 
+/* Make sure if MODE_ENTRY is defined the MODE_EXIT is defined
+   and vice versa.  */
+#if defined (MODE_ENTRY) != defined (MODE_EXIT)
+ #error "Both MODE_ENTRY and MODE_EXIT must be defined"
+#endif
+
 /* Find all insns that need a particular mode setting, and insert the
    necessary mode switches.  Return true if we did work.  */
 
@@ -990,7 +996,7 @@ optimize_mode_switching (FILE *file)
 	/* Create the list of segments within each basic block.
 	   If NORMAL_MODE is defined, allow for two extra
 	   blocks split from the entry and exit block.  */
-#ifdef NORMAL_MODE
+#if defined (MODE_ENTRY) && defined (MODE_EXIT)
 	entry_exit_extra = 2;
 #endif
 	bb_info[n_entities]
@@ -1003,7 +1009,7 @@ optimize_mode_switching (FILE *file)
   if (! n_entities)
     return 0;
 
-#ifdef NORMAL_MODE
+#if defined (MODE_ENTRY) && defined (MODE_EXIT)
   {
     /* Split the edge from the entry block and the fallthrough edge to the
        exit block, so that we can note that there NORMAL_MODE is supplied /
@@ -1052,8 +1058,8 @@ optimize_mode_switching (FILE *file)
 
 	  REG_SET_TO_HARD_REG_SET (live_now,
 				   bb->global_live_at_start);
-	  for (insn = bb->head;
-	       insn != NULL && insn != NEXT_INSN (bb->end);
+	  for (insn = BB_HEAD (bb);
+	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn))
@@ -1068,7 +1074,9 @@ optimize_mode_switching (FILE *file)
 		      add_seginfo (info + bb->index, ptr);
 		      RESET_BIT (transp[bb->index], j);
 		    }
-
+#ifdef MODE_AFTER
+		  last_mode = MODE_AFTER (last_mode, insn);
+#endif
 		  /* Update LIVE_NOW.  */
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		    if (REG_NOTE_KIND (link) == REG_DEAD)
@@ -1085,13 +1093,13 @@ optimize_mode_switching (FILE *file)
 	  /* Check for blocks without ANY mode requirements.  */
 	  if (last_mode == no_mode)
 	    {
-	      ptr = new_seginfo (no_mode, bb->end, bb->index, live_now);
+	      ptr = new_seginfo (no_mode, BB_END (bb), bb->index, live_now);
 	      add_seginfo (info + bb->index, ptr);
 	    }
 	}
-#ifdef NORMAL_MODE
+#if defined (MODE_ENTRY) && defined (MODE_EXIT)
       {
-	int mode = NORMAL_MODE (e);
+	int mode = MODE_ENTRY (e);
 
 	if (mode != no_mode)
 	  {
@@ -1109,7 +1117,7 @@ optimize_mode_switching (FILE *file)
 	    info[bb->index].computing = mode;
 
 	    if (pre_exit)
-	      info[pre_exit->index].seginfo->mode = mode;
+	      info[pre_exit->index].seginfo->mode = MODE_EXIT (e);
 	  }
       }
 #endif /* NORMAL_MODE */
@@ -1193,8 +1201,8 @@ optimize_mode_switching (FILE *file)
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
 		  emited = true;
-		  if (GET_CODE (src_bb->end) == JUMP_INSN)
-		    emit_insn_before (mode_set, src_bb->end);
+		  if (GET_CODE (BB_END (src_bb)) == JUMP_INSN)
+		    emit_insn_before (mode_set, BB_END (src_bb));
 		  /* It doesn't make sense to switch to normal mode
 		     after a CALL_INSN, so we're going to abort if we
 		     find one.  The cases in which a CALL_INSN may
@@ -1206,8 +1214,8 @@ optimize_mode_switching (FILE *file)
 		     the call (it wouldn't make sense, anyway).  In
 		     the case of EH edges, EH entry points also start
 		     in normal mode, so a similar reasoning applies.  */
-		  else if (GET_CODE (src_bb->end) == INSN)
-		    emit_insn_after (mode_set, src_bb->end);
+		  else if (GET_CODE (BB_END (src_bb)) == INSN)
+		    emit_insn_after (mode_set, BB_END (src_bb));
 		  else
 		    abort ();
 		  bb_info[j][src_bb->index].computing = mode;
@@ -1285,7 +1293,7 @@ optimize_mode_switching (FILE *file)
   if (need_commit)
     commit_edge_insertions ();
 
-#ifdef NORMAL_MODE
+#if defined (MODE_ENTRY) && defined (MODE_EXIT)
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 #else
   if (!need_commit && !emited)

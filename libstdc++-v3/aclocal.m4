@@ -1,4 +1,4 @@
-# generated automatically by aclocal 1.7.6 -*- Autoconf -*-
+# generated automatically by aclocal 1.7.8 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
 # Free Software Foundation, Inc.
@@ -396,12 +396,17 @@ AC_DEFUN(GLIBCXX_CHECK_WCHAR_T_SUPPORT, [
 
     # Checks for names injected into std:: by the c_std headers.
     AC_CHECK_FUNCS([btowc wctob fgetwc fgetws fputwc fputws fwide \
-    fwprintf fwscanf swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf \
-    vwprintf vwscanf wprintf wscanf getwc getwchar mbsinit mbrlen mbrtowc \
-    mbsrtowcs wcsrtombs putwc putwchar ungetwc wcrtomb wcstod wcstof wcstol \
+    fwprintf fwscanf swprintf swscanf vfwprintf vswprintf \
+    vwprintf wprintf wscanf getwc getwchar mbsinit mbrlen mbrtowc \
+    mbsrtowcs wcsrtombs putwc putwchar ungetwc wcrtomb wcstod wcstol \
     wcstoul wcscpy wcsncpy wcscat wcsncat wcscmp wcscoll wcsncmp wcsxfrm \
     wcscspn wcsspn wcstok wcsftime wcschr wcspbrk wcsrchr wcsstr],
     [],[ac_wfuncs=no])
+
+    # Checks for wide character functions that are not required
+    # for basic wchar_t support.  Don't disable support if they are missing.
+    # Injection of these is wrapped with guard macros.
+    AC_CHECK_FUNCS([vfwscanf vswscanf vwscanf wcstof iswblank],[],[])
 
     AC_MSG_CHECKING([for ISO C99 wchar_t support])
     if test x"$has_weof" = xyes &&
@@ -548,7 +553,7 @@ dnl Check whether poll is available in <poll.h>, and define HAVE_POLL.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_POLL, [
   AC_CACHE_VAL(glibcxx_cv_POLL, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <poll.h>],
       [struct pollfd pfd[1];
        pfd[0].events = POLLIN;
@@ -567,7 +572,7 @@ dnl Check whether writev is available in <sys/uio.h>, and define HAVE_WRITEV.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   AC_CACHE_VAL(glibcxx_cv_WRITEV, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <sys/uio.h>],
       [struct iovec iov[2];
        writev(0, iov, 0);],
@@ -577,6 +582,52 @@ AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   if test $glibcxx_cv_WRITEV = yes; then
     AC_DEFINE(HAVE_WRITEV)
   fi
+])
+
+
+dnl
+dnl Check whether int64_t is available in <stdint.h>, and define HAVE_INT64_T.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_INT64_T, [
+  AC_CACHE_VAL(glibcxx_cv_INT64_T, [
+    AC_TRY_COMPILE(
+      [#include <stdint.h>],
+      [int64_t var;],
+      [glibcxx_cv_INT64_T=yes],
+      [glibcxx_cv_INT64_T=no])
+  ])
+  if test $glibcxx_cv_INT64_T = yes; then
+    AC_DEFINE(HAVE_INT64_T)
+  fi
+])
+
+
+dnl
+dnl Check whether LFS support is available.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_LFS, [
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -fno-exceptions"	
+  AC_CACHE_VAL(glibcxx_cv_LFS, [
+    AC_TRY_LINK(
+      [#include <unistd.h>
+       #include <stdio.h>
+      ],
+      [FILE* fp;
+       fopen64("t", "w");
+       fseeko64(fp, 0, SEEK_CUR);
+       ftello64(fp);
+       lseek64(1, 0, SEEK_CUR);],	
+      [glibcxx_cv_LFS=yes],
+      [glibcxx_cv_LFS=no])
+  ])
+  if test $glibcxx_cv_LFS = yes; then
+    AC_DEFINE(_GLIBCXX_USE_LFS)
+  fi
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AC_LANG_RESTORE
 ])
 
 
@@ -831,6 +882,10 @@ AC_DEFUN(GLIBCXX_ENABLE_C99, [
                  [isunordered(0.0,0.0);],, [ac_c99_math=no])
   AC_MSG_RESULT($ac_c99_math)
 
+  if test x"$ac_c99_math" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_MATH)
+  fi
+
   # Check for the existence in <stdio.h> of vscanf, et. al.
   ac_c99_stdio=yes;
   AC_MSG_CHECKING([for ISO C99 support in <stdio.h>])
@@ -907,6 +962,10 @@ AC_DEFUN(GLIBCXX_ENABLE_C99, [
   fi;
   AC_MSG_RESULT($enable_c99)
 
+  if test x"$ac_99_math" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_MATH)
+  fi
+
   # Option parsed, now set things appropriately
   if test x"$enable_c99" = x"yes"; then
     AC_DEFINE(_GLIBCXX_USE_C99)
@@ -964,7 +1023,7 @@ AC_DEFUN(GLIBCXX_ENABLE_CLOCALE, [
   # Default to "generic".
   if test $enable_clocale_flag = auto; then
     case x${target_os} in
-      xlinux* | xgnu*)
+      xlinux* | xgnu* | xkfreebsd*-gnu | xknetbsd*-gnu)
         AC_EGREP_CPP([_GLIBCXX_ok], [
         #include <features.h>
         #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2)
@@ -1161,11 +1220,7 @@ AC_DEFUN(GLIBCXX_ENABLE_CSTDIO, [
       ;;
   esac
 
-  dnl Set directory for fpos.h
-  FPOS_H=$fpos_include_dir
-
   AC_SUBST(CSTDIO_H)
-  AC_SUBST(FPOS_H)
   AC_SUBST(BASIC_FILE_H)
   AC_SUBST(BASIC_FILE_CC)
 ])
@@ -1313,33 +1368,6 @@ AC_DEFUN(GLIBCXX_ENABLE_HOSTED, [
   GLIBCXX_CONDITIONAL(GLIBCXX_HOSTED, test $is_hosted = yes)
   AC_DEFINE_UNQUOTED(_GLIBCXX_HOSTED, $hosted_define,
     [Define to 1 if a full hosted library is built, or 0 if freestanding.])
-])
-
-
-dnl
-dnl Check for libunwind exception handling support.  If enabled, then
-dnl we assume that the _Unwind_* functions that make up the Unwind ABI
-dnl (_Unwind_RaiseException, _Unwind_Resume, etc.) are defined by
-dnl libunwind instead of libgcc, and that libstdc++ has a dependency
-dnl on libunwind as well as libgcc.
-dnl
-dnl --enable-libunwind-exceptions forces the use of libunwind.
-dnl --disable-libunwind-exceptions assumes there is no libunwind.
-dnl
-dnl Substs:
-dnl  LIBUNWIND_FLAG
-dnl
-AC_DEFUN(GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS, [
-  AC_MSG_CHECKING([for use of libunwind])
-  GLIBCXX_ENABLE(libunwind-exceptions,no,,
-    [force use of libunwind for exceptions])
-  AC_MSG_RESULT($use_libunwind_exceptions)
-  if test $enable_libunwind_exceptions = yes; then
-    LIBUNWIND_FLAG="-lunwind"
-  else
-    LIBUNWIND_FLAG=""
-  fi
-  AC_SUBST(LIBUNWIND_FLAG)
 ])
 
 
@@ -1968,7 +1996,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.7"])
 # Call AM_AUTOMAKE_VERSION so it can be traced.
 # This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-	 [AM_AUTOMAKE_VERSION([1.7.6])])
+	 [AM_AUTOMAKE_VERSION([1.7.8])])
 
 # Helper functions for option handling.                    -*- Autoconf -*-
 

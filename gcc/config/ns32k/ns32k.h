@@ -3,20 +3,20 @@
    2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -383,14 +383,7 @@ while (0)
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output.
-
-   Early documentation says SI and DI are not tieable if some reg can
-   be OK for SI but not for DI. However other ports (mips, i860, mvs
-   and tahoe) don't meet the above criterion. Evidently the real
-   requirement is somewhat laxer. Documentation was changed for gcc
-   2.8 but was not picked up by egcs (at least egcs 1.0). Having all
-   integer modes tieable definitely generates faster code. */
+   for any hard reg, then this must be 0 for correct output. */
 
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   ((FLOAT_MODE_P(MODE1) && FLOAT_MODE_P(MODE2)				\

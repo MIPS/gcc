@@ -53,9 +53,8 @@ public class GtkDialogPeer extends GtkWindowPeer
 
   void create ()
   {
-    create (GTK_WINDOW_TOPLEVEL,
-	    awtComponent.getWidth(),
-	    awtComponent.getHeight());
+    // Create a decorated dialog window.
+    create (GDK_WINDOW_TYPE_HINT_DIALOG, true);
   }
 
   public void getArgs (Component component, GtkArgList args)
@@ -69,13 +68,4 @@ public class GtkDialogPeer extends GtkWindowPeer
     args.add ("allow_shrink", dialog.isResizable ());
     args.add ("allow_grow", dialog.isResizable ());
   }
-
-  public void handleEvent (AWTEvent event)
-  {
-//     int id = event.getID();
-    
-//     if (id == WindowEvent.WINDOW_CLOSING)
-//       System.out.println ("got a closing event");
-  }
-
 }

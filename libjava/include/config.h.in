@@ -272,6 +272,9 @@
 /* Define if we should ignore arguments to main(). */
 #undef DISABLE_MAIN_ARGS
 
+/* Define if MinGW libgcj uses the Windows UNICODE OS API. */
+#undef MINGW_LIBGCJ_UNICODE
+
 /* Define if if the synchronization code should try to avoid pthread_self calls by caching thread IDs in a hashtable. */
 #undef SLOW_PTHREAD_SELF
 
@@ -353,11 +356,17 @@
 /* Define if you have the 'localtime_r' function. */
 #undef HAVE_LOCALTIME_R
 
+/* Define if usleep is declared in <unistd.h>. */
+#undef HAVE_USLEEP_DECL
+
 /* Define if using POSIX threads that have the mutexattr functions. */
 #undef HAVE_PTHREAD_MUTEXATTR_INIT
 
 /* Define if getuid() and friends are missing. */
 #undef NO_GETUID
+
+/* Define if your platform has a working backtrace() function. */
+#undef HAVE_BACKTRACE
 
 /* Define if your platform has a working backtrace() function. */
 #undef HAVE_BACKTRACE

@@ -66,6 +66,30 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM = 2, EXPAND_SUM,
    more information.  */
 #define OK_DEFER_POP (inhibit_defer_pop -= 1)
 
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction sequences, we will do a movstr or libcall instead.  */
+
+#ifndef MOVE_RATIO
+#if defined (HAVE_movstrqi) || defined (HAVE_movstrhi) || defined (HAVE_movstrsi) || defined (HAVE_movstrdi) || defined (HAVE_movstrti)
+#define MOVE_RATIO 2
+#else
+/* If we are optimizing for space (-Os), cut down the default move ratio.  */
+#define MOVE_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
+
+/* If a clear memory operation would take CLEAR_RATIO or more simple
+   move-instruction sequences, we will do a clrstr or libcall instead.  */
+
+#ifndef CLEAR_RATIO
+#if defined (HAVE_clrstrqi) || defined (HAVE_clrstrhi) || defined (HAVE_clrstrsi) || defined (HAVE_clrstrdi) || defined (HAVE_clrstrti)
+#define CLEAR_RATIO 2
+#else
+/* If we are optimizing for space, cut down the default clear ratio.  */
+#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
+
 enum direction {none, upward, downward};
 
 /* Structure to record the size of a sequence of arguments
@@ -331,10 +355,10 @@ extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+extern tree std_build_builtin_va_list (void);
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx std_expand_builtin_va_arg (tree, tree);
 extern rtx expand_builtin_va_arg (tree, tree);
-extern void default_init_builtins (void);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
@@ -498,7 +522,10 @@ extern tree find_placeholder (tree, tree *);
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-extern rtx expand_expr (tree, rtx, enum machine_mode, enum expand_modifier);
+#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
+  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
 
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */

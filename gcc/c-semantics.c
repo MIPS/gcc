@@ -592,7 +592,7 @@ genrtl_break_stmt (void)
 {
   emit_line_note (input_location);
   if ( ! expand_exit_something ())
-    error ("break statement not within loop or switch");
+    abort ();
 }
 
 /* Build a continue statement node and return it.  */
@@ -610,7 +610,7 @@ genrtl_continue_stmt (void)
 {
   emit_line_note (input_location);
   if (! expand_continue_loop (0))
-    error ("continue statement not within a loop");
+    abort ();
 }
 
 /* Generate the RTL for T, which is a SCOPE_STMT.  */
@@ -749,7 +749,7 @@ genrtl_asm_stmt (tree cv_qualifier, tree string, tree output_operands,
   else
     c_expand_asm_operands (string, output_operands, input_operands,
 			   clobbers, cv_qualifier != NULL_TREE,
-			   input_filename, input_line);
+			   input_location);
 }
 
 /* Generate the RTL for a CLEANUP_STMT.  */
@@ -758,7 +758,8 @@ void
 genrtl_cleanup_stmt (tree t)
 {
   tree decl = CLEANUP_DECL (t);
-  if (!decl || (DECL_SIZE (decl) && TREE_TYPE (decl) != error_mark_node))
+  if (!decl || !DECL_P (decl)
+      || (DECL_SIZE (decl) && TREE_TYPE (decl) != error_mark_node))
     expand_decl_cleanup_eh (decl, CLEANUP_EXPR (t), CLEANUP_EH_ONLY (t));
 }
 

@@ -88,9 +88,10 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OPERATOR, RID_THIS,
-  RID_THROW,    RID_TRUE,     RID_TRY,
-  RID_TYPENAME, RID_TYPEID,   RID_USING,
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
+  RID_THIS,     RID_THROW,    RID_TRUE,     
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_USING,
 
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
@@ -221,7 +222,8 @@ struct c_common_identifier GTY(())
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
-/* In a RECORD_TYPE, a sorted array of the fields of the type, not a tree for size reasons.  */
+/* In a RECORD_TYPE, a sorted array of the fields of the type, not a
+   tree for size reasons.  */
 struct sorted_fields_type GTY(())
 {
   int len;
@@ -552,7 +554,7 @@ extern int flag_isoc94;
 
 extern int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 extern int flag_hosted;
 
@@ -672,17 +674,6 @@ extern int flag_no_gnu_keywords;
    they can be inlined.  */
 
 extern int flag_implement_inlines;
-
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-extern int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-extern int flag_alt_external_templates;
 
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
@@ -1251,7 +1242,7 @@ extern tree build_return_stmt (tree);
    initializers and cleanups.  */
 #define COMPOUND_STMT_BODY_BLOCK(NODE)	TREE_LANG_FLAG_3 (NODE)
 
-extern void c_expand_asm_operands (tree, tree, tree, tree, int, const char *, int);
+extern void c_expand_asm_operands (tree, tree, tree, tree, int, location_t);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
@@ -1289,7 +1280,7 @@ extern tree finish_label_address_expr (tree);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 
-extern rtx c_expand_expr (tree, rtx, enum machine_mode, int);
+extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern int c_safe_from_p (rtx, tree);
 
@@ -1330,6 +1321,7 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
 extern bool c_decl_uninit (tree t);
+extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* The following have been moved here from c-tree.h, since they're needed
    in the ObjC++ world, too.  What is more, stub-objc.c could use a few

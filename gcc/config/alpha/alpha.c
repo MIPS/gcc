@@ -3,20 +3,20 @@
    2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -472,9 +472,9 @@ override_options (void)
   /* Tell the compiler when we're using VAX floating point.  */
   if (TARGET_FLOAT_VAX)
     {
-      real_format_for_mode[SFmode - QFmode] = &vax_f_format;
-      real_format_for_mode[DFmode - QFmode] = &vax_g_format;
-      real_format_for_mode[TFmode - QFmode] = NULL;
+      REAL_MODE_FORMAT (SFmode) = &vax_f_format;
+      REAL_MODE_FORMAT (DFmode) = &vax_g_format;
+      REAL_MODE_FORMAT (TFmode) = NULL;
     }
 }
 
@@ -1179,16 +1179,19 @@ alpha_fp_comparison_operator (rtx op, enum machine_mode mode)
 int
 divmod_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  switch (GET_CODE (op))
-    {
-    case DIV:  case MOD:  case UDIV:  case UMOD:
-      return 1;
+  enum rtx_code code = GET_CODE (op);
 
-    default:
-      break;
-    }
+  return (code == DIV || code == MOD || code == UDIV || code == UMOD);
+}
 
-  return 0;
+/* Return 1 if this is a float->int conversion operator.  */
+
+int
+fix_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  enum rtx_code code = GET_CODE (op);
+
+  return (code == FIX || code == UNSIGNED_FIX);
 }
 
 /* Return 1 if this memory address is a known aligned register plus
@@ -1216,9 +1219,10 @@ aligned_memory_operand (rtx op, enum machine_mode mode)
 	}
     }
 
-  if (GET_CODE (op) != MEM
-      || GET_MODE (op) != mode)
+  if (GET_CODE (op) != MEM)
     return 0;
+  if (MEM_ALIGN (op) >= 32)
+    return 1;
   op = XEXP (op, 0);
 
   /* LEGITIMIZE_RELOAD_ADDRESS creates (plus (plus reg const_hi) const_lo)
@@ -1258,8 +1262,9 @@ unaligned_memory_operand (rtx op, enum machine_mode mode)
 	}
     }
 
-  if (GET_CODE (op) != MEM
-      || GET_MODE (op) != mode)
+  if (GET_CODE (op) != MEM)
+    return 0;
+  if (MEM_ALIGN (op) >= 32)
     return 0;
   op = XEXP (op, 0);
 
@@ -2009,38 +2014,22 @@ split_small_symbolic_operand (rtx x)
    Technically we could copy them if we could set up a mapping from one
    sequence number to another, across the set of insns to be duplicated.
    This seems overly complicated and error-prone since interblock motion
-   from sched-ebb could move one of the pair of insns to a different block.  */
+   from sched-ebb could move one of the pair of insns to a different block.
+
+   Also cannot allow jsr insns to be duplicated.  If they throw exceptions,
+   then they'll be in a different block from their ldgp.  Which could lead
+   the bb reorder code to think that it would be ok to copy just the block
+   containing the call and branch to the block containing the ldgp.  */
 
 static bool
 alpha_cannot_copy_insn_p (rtx insn)
 {
-  rtx pat;
-
   if (!reload_completed || !TARGET_EXPLICIT_RELOCS)
     return false;
-
-  if (GET_CODE (insn) != INSN)
+  if (recog_memoized (insn) >= 0)
+    return get_attr_cannot_copy (insn);
+  else
     return false;
-  if (asm_noperands (insn) >= 0)
-    return false;
-
-  pat = PATTERN (insn);
-  if (GET_CODE (pat) != SET)
-    return false;
-  pat = SET_SRC (pat);
-  if (GET_CODE (pat) == UNSPEC_VOLATILE)
-    {
-      if (XINT (pat, 1) == UNSPECV_LDGP1
-	  || XINT (pat, 1) == UNSPECV_PLDGP2)
-	return true;
-    }
-  else if (GET_CODE (pat) == UNSPEC)
-    {
-      if (XINT (pat, 1) == UNSPEC_LDGP2)
-	return true;
-    }
-
-  return false;
 }
 
   
@@ -2889,13 +2878,24 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
 	    {
 	      rtx aligned_mem, bitnum;
 	      rtx scratch = gen_reg_rtx (SImode);
+	      rtx subtarget;
+	      bool copyout;
 
 	      get_aligned_mem (operands[1], &aligned_mem, &bitnum);
+
+	      subtarget = operands[0];
+	      if (GET_CODE (subtarget) == REG)
+		subtarget = gen_lowpart (DImode, subtarget), copyout = false;
+	      else
+		subtarget = gen_reg_rtx (DImode), copyout = true;
 
 	      emit_insn ((mode == QImode
 			  ? gen_aligned_loadqi
 			  : gen_aligned_loadhi)
-			 (operands[0], aligned_mem, bitnum, scratch));
+			 (subtarget, aligned_mem, bitnum, scratch));
+
+	      if (copyout)
+		emit_move_insn (operands[0], gen_lowpart (mode, subtarget));
 	    }
 	}
       else
@@ -2904,16 +2904,28 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
 	     code depend on parameter evaluation order which will cause
 	     bootstrap failures.  */
 
-	  rtx temp1 = gen_reg_rtx (DImode);
-	  rtx temp2 = gen_reg_rtx (DImode);
-	  rtx seq = ((mode == QImode
-		      ? gen_unaligned_loadqi
-		      : gen_unaligned_loadhi)
-		     (operands[0], get_unaligned_address (operands[1], 0),
-		      temp1, temp2));
+	  rtx temp1, temp2, seq, subtarget;
+	  bool copyout;
 
+	  temp1 = gen_reg_rtx (DImode);
+	  temp2 = gen_reg_rtx (DImode);
+
+	  subtarget = operands[0];
+	  if (GET_CODE (subtarget) == REG)
+	    subtarget = gen_lowpart (DImode, subtarget), copyout = false;
+	  else
+	    subtarget = gen_reg_rtx (DImode), copyout = true;
+
+	  seq = ((mode == QImode
+		  ? gen_unaligned_loadqi
+		  : gen_unaligned_loadhi)
+		 (subtarget, get_unaligned_address (operands[1], 0),
+		  temp1, temp2));
 	  alpha_set_memflags (seq, operands[1]);
 	  emit_insn (seq);
+
+	  if (copyout)
+	    emit_move_insn (operands[0], gen_lowpart (mode, subtarget));
 	}
       return true;
     }
@@ -3157,10 +3169,10 @@ alpha_emit_conditional_branch (enum rtx_code code)
 	  if (op1 == const0_rtx)
 	    cmp_code = NIL, branch_code = code;
 
-	  /* We want to use cmpcc/bcc when we can, since there is a zero delay
-	     bypass between logicals and br/cmov on EV5.  But we don't want to
-	     force valid immediate constants into registers needlessly.  */
-	  else if (GET_CODE (op1) == CONST_INT)
+	  /* If the constants doesn't fit into an immediate, but can
+ 	     be generated by lda/ldah, we adjust the argument and
+ 	     compare against zero, so we can use beq/bne directly.  */
+	  else if (GET_CODE (op1) == CONST_INT && (code == EQ || code == NE))
 	    {
 	      HOST_WIDE_INT v = INTVAL (op1), n = -v;
 
@@ -3774,11 +3786,15 @@ alpha_emit_xfloating_compare (enum rtx_code code, rtx op0, rtx op1)
 /* Emit an X_floating library function call for a conversion.  */
 
 void
-alpha_emit_xfloating_cvt (enum rtx_code code, rtx operands[])
+alpha_emit_xfloating_cvt (enum rtx_code orig_code, rtx operands[])
 {
   int noperands = 1, mode;
   rtx out_operands[2];
   const char *func;
+  enum rtx_code code = orig_code;
+
+  if (code == UNSIGNED_FIX)
+    code = FIX;
 
   func = alpha_lookup_xfloating_lib_func (code);
 
@@ -3801,7 +3817,8 @@ alpha_emit_xfloating_cvt (enum rtx_code code, rtx operands[])
     }
 
   alpha_emit_xfloating_libcall (func, operands[0], out_operands, noperands,
-				gen_rtx_fmt_e (code, GET_MODE (operands[0]),
+				gen_rtx_fmt_e (orig_code,
+					       GET_MODE (operands[0]),
 					       operands[1]));
 }
 
@@ -4452,7 +4469,8 @@ alpha_expand_block_move (rtx operands[])
 	 is held in the register.  Nor if there is not a mode that
 	 handles the exact size.  */
       mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 1);
-      if (mode != BLKmode
+      if (GET_CODE (tmp) == REG
+	  && mode != BLKmode
 	  && GET_MODE_SIZE (GET_MODE (tmp)) >= bytes)
 	{
 	  if (mode == TImode)
@@ -4572,7 +4590,7 @@ alpha_expand_block_move (rtx operands[])
       tmp = XEXP (XEXP (orig_dst, 0), 0);
 
       mode = mode_for_size (orig_bytes * BITS_PER_UNIT, MODE_INT, 1);
-      if (GET_MODE (tmp) == mode)
+      if (GET_CODE (tmp) == REG && GET_MODE (tmp) == mode)
 	{
 	  if (nregs == 1)
 	    {
@@ -5132,7 +5150,7 @@ alpha_multipass_dfa_lookahead (void)
 
 struct machine_function GTY(())
 {
-  /* For unicosmk. */
+  /* For unicosmk.  */
   /* List of call information words for calls from this function.  */
   struct rtx_def *first_ciw;
   struct rtx_def *last_ciw;
@@ -5141,7 +5159,7 @@ struct machine_function GTY(())
   /* List of deferred case vectors.  */
   struct rtx_def *addr_list;
 
-  /* For OSF. */
+  /* For OSF.  */
   const char *some_ld_name;
 };
 
@@ -5982,9 +6000,10 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
 
 /* Return true if TYPE must be returned in memory, instead of in registers.  */
 
-bool
-return_in_memory (tree type, enum machine_mode mode)
+static bool
+alpha_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 {
+  enum machine_mode mode = VOIDmode;
   int size;
 
   if (type)
@@ -6042,7 +6061,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
   enum mode_class class;
 
 #ifdef ENABLE_CHECKING
-  if (return_in_memory (valtype, mode))
+  if (valtype && alpha_return_in_memory (valtype, func))
     abort ();
 #endif
 
@@ -6086,10 +6105,10 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
   return gen_rtx_REG (mode, regnum);
 }
 
-tree
-alpha_build_va_list (void)
+static tree
+alpha_build_builtin_va_list (void)
 {
-  tree base, ofs, record, type_decl;
+  tree base, ofs, space, record, type_decl;
 
   if (TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK)
     return ptr_type_node;
@@ -6101,9 +6120,16 @@ alpha_build_va_list (void)
 
   /* C++? SET_IS_AGGR_TYPE (record, 1); */
 
+  /* Dummy field to prevent alignment warnings.  */
+  space = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  DECL_FIELD_CONTEXT (space) = record;
+  DECL_ARTIFICIAL (space) = 1;
+  DECL_IGNORED_P (space) = 1;
+
   ofs = build_decl (FIELD_DECL, get_identifier ("__offset"),
 		    integer_type_node);
   DECL_FIELD_CONTEXT (ofs) = record;
+  TREE_CHAIN (ofs) = space;
 
   base = build_decl (FIELD_DECL, get_identifier ("__base"),
 		     ptr_type_node);
@@ -6117,27 +6143,59 @@ alpha_build_va_list (void)
 }
 
 /* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments. 
+   variable number of arguments.  */
 
-   On the Alpha, we allocate space for all 12 arg registers, but only
-   push those that are remaining.  However, if NO registers need to be
-   saved, don't allocate any space.  This is not only because we won't
-   need the space, but because AP includes the current_pretend_args_size
-   and we don't want to mess up any ap-relative addresses already made.
-
-   If we are not to use the floating-point registers, save the integer
-   registers where we would put the floating-point registers.  This is
-   not the most efficient way to implement varargs with just one register
-   class, but it isn't worth doing anything more efficient in this rare
-   case.  */
-
-#if TARGET_ABI_OSF
-void
-alpha_setup_incoming_varargs(CUMULATIVE_ARGS cum,
-			     enum machine_mode mode ATTRIBUTE_UNUSED,
-			     tree type ATTRIBUTE_UNUSED,
-			     int *pretend_size, int no_rtl)
+static void
+alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum,
+			      enum machine_mode mode ATTRIBUTE_UNUSED,
+			      tree type ATTRIBUTE_UNUSED,
+			      int *pretend_size, int no_rtl)
 {
+#if TARGET_ABI_UNICOSMK
+  /* On Unicos/Mk, the standard subroutine __T3E_MISMATCH stores all register
+     arguments on the stack. Unfortunately, it doesn't always store the first
+     one (i.e. the one that arrives in $16 or $f16). This is not a problem
+     with stdargs as we always have at least one named argument there.  */
+  int num_reg_words = pcum->num_reg_words;
+  if (num_reg_words < 6)
+    {
+      if (!no_rtl)
+	{
+	  emit_insn (gen_umk_mismatch_args (GEN_INT (num_reg_words + 1)));
+	  emit_insn (gen_arg_home_umk ());
+	}
+      *pretend_size = 0;
+    }
+#elif TARGET_ABI_OPEN_VMS
+  /* For VMS, we allocate space for all 6 arg registers plus a count.
+
+     However, if NO registers need to be saved, don't allocate any space.
+     This is not only because we won't need the space, but because AP
+     includes the current_pretend_args_size and we don't want to mess up
+     any ap-relative addresses already made.  */
+  if (pcum->num_args < 6)
+    {
+      if (!no_rtl)
+	{
+	  emit_move_insn (gen_rtx_REG (DImode, 1), virtual_incoming_args_rtx);
+	  emit_insn (gen_arg_home ());
+	}
+      *pretend_size = 7 * UNITS_PER_WORD;
+    }
+#else
+  /* On OSF/1 and friends, we allocate space for all 12 arg registers, but
+     only push those that are remaining.  However, if NO registers need to
+     be saved, don't allocate any space.  This is not only because we won't
+     need the space, but because AP includes the current_pretend_args_size
+     and we don't want to mess up any ap-relative addresses already made.
+
+     If we are not to use the floating-point registers, save the integer
+     registers where we would put the floating-point registers.  This is
+     not the most efficient way to implement varargs with just one register
+     class, but it isn't worth doing anything more efficient in this rare
+     case.  */
+  CUMULATIVE_ARGS cum = *pcum;
+
   if (cum >= 6)
     return;
 
@@ -6160,8 +6218,8 @@ alpha_setup_incoming_varargs(CUMULATIVE_ARGS cum,
 			   6 - cum);
      }
   *pretend_size = 12 * UNITS_PER_WORD;
-}
 #endif
+}
 
 void
 alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
@@ -6644,7 +6702,7 @@ alpha_expand_builtin (tree exp, rtx target,
 /* These variables are used for communication between the following functions.
    They indicate various things about the current function being compiled
    that are used to tell what kind of prologue, epilogue and procedure
-   descriptior to generate.  */
+   descriptor to generate.  */
 
 /* Nonzero if we need a stack procedure.  */
 enum alpha_procedure_types {PT_NULL = 0, PT_REGISTER = 1, PT_STACK = 2};
@@ -6700,13 +6758,20 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
 
   /* We need to restore these for the handler.  */
   if (current_function_calls_eh_return)
-    for (i = 0; ; ++i)
-      {
-	unsigned regno = EH_RETURN_DATA_REGNO (i);
-	if (regno == INVALID_REGNUM)
-	  break;
-	imask |= 1UL << regno;
-      }
+    {
+      for (i = 0; ; ++i)
+	{
+	  unsigned regno = EH_RETURN_DATA_REGNO (i);
+	  if (regno == INVALID_REGNUM)
+	    break;
+	  imask |= 1UL << regno;
+	}
+
+      /* Glibc likes to use $31 as an unwind stopper for crt0.  To
+	 avoid hackery in unwind-dw2.c, we need to actively store a
+	 zero in the prologue of _Unwind_RaiseException et al.  */
+      imask |= 1UL << 31;
+    }
      
   /* If any register spilled, then spill the return address also.  */
   /* ??? This is required by the Digital stack unwind specification
@@ -6893,10 +6958,19 @@ alpha_does_function_need_gp (void)
   if (! TARGET_ABI_OSF)
     return 0;
 
+  /* We need the gp to load the address of __mcount.  */
   if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
+  /* The code emitted by alpha_output_mi_thunk_osf uses the gp.  */
   if (current_function_is_thunk)
+    return 1;
+
+  /* The nonlocal receiver pattern assumes that the gp is valid for
+     the nested function.  Reasonable because it's almost always set
+     correctly already.  For the cases where that's wrong, make sure
+     the nested function loads its gp on entry.  */
+  if (current_function_has_nonlocal_goto)
     return 1;
 
   /* If we need a GP (we have a LDSYM insn or a CALL_INSN), load it first. 
@@ -7098,15 +7172,14 @@ alpha_expand_prologue (void)
 	     and subtract it to sp. 
 
 	     Yes, that's correct -- we have to reload the whole constant
-	     into a temporary via ldah+lda then subtract from sp.  To
-	     ensure we get ldah+lda, we use a special pattern.  */
+	     into a temporary via ldah+lda then subtract from sp.  */
 
 	  HOST_WIDE_INT lo, hi;
 	  lo = ((frame_size & 0xffff) ^ 0x8000) - 0x8000;
 	  hi = frame_size - lo;
 
 	  emit_move_insn (ptr, GEN_INT (hi));
-	  emit_insn (gen_nt_lda (ptr, GEN_INT (lo)));
+	  emit_insn (gen_adddi3 (ptr, ptr, GEN_INT (lo)));
 	  seq = emit_insn (gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx,
 				       ptr));
 	}
@@ -7168,7 +7241,7 @@ alpha_expand_prologue (void)
 	}
 
       /* Now save any other registers required to be saved.  */
-      for (i = 0; i < 32; i++)
+      for (i = 0; i < 31; i++)
 	if (imask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
@@ -7177,7 +7250,25 @@ alpha_expand_prologue (void)
 	    reg_offset += 8;
 	  }
 
-      for (i = 0; i < 32; i++)
+      /* Store a zero if requested for unwinding.  */
+      if (imask & (1UL << 31))
+	{
+	  rtx insn, t;
+
+	  mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
+	  set_mem_alias_set (mem, alpha_sr_alias_set);
+	  insn = emit_move_insn (mem, const0_rtx);
+
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  t = gen_rtx_REG (Pmode, 31);
+	  t = gen_rtx_SET (VOIDmode, mem, t);
+	  t = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, t, REG_NOTES (insn));
+	  REG_NOTES (insn) = t;
+
+	  reg_offset += 8;
+	}
+
+      for (i = 0; i < 31; i++)
 	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant (sa_reg, reg_offset));
@@ -7588,7 +7679,7 @@ alpha_expand_epilogue (void)
       reg_offset += 8;
       imask &= ~(1UL << REG_RA);
 
-      for (i = 0; i < 32; ++i)
+      for (i = 0; i < 31; ++i)
 	if (imask & (1UL << i))
 	  {
 	    if (i == HARD_FRAME_POINTER_REGNUM && fp_is_frame_pointer)
@@ -7602,7 +7693,10 @@ alpha_expand_epilogue (void)
 	    reg_offset += 8;
 	  }
 
-      for (i = 0; i < 32; ++i)
+      if (imask & (1UL << 31))
+	reg_offset += 8;
+
+      for (i = 0; i < 31; ++i)
 	if (fmask & (1UL << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(sa_reg, reg_offset));
@@ -8759,7 +8853,7 @@ alpha_align_insns (unsigned int max_align,
 	  int nop_count = (align - ofs) / 4;
 	  rtx where;
 
-	  /* Insert nops before labels, branches, and calls to truely merge
+	  /* Insert nops before labels, branches, and calls to truly merge
 	     the execution of the nops with the previous instruction group.  */
 	  where = prev_nonnote_insn (i);
 	  if (where)
@@ -9669,7 +9763,7 @@ unicosmk_add_call_info_word (rtx x)
   ++machine->ciw_count;
 
   return GEN_INT (machine->ciw_count
-		  + strlen (current_function_name)/8 + 5);
+		  + strlen (current_function_name ())/8 + 5);
 }
 
 static char unicosmk_section_buf[100];
@@ -9987,6 +10081,35 @@ unicosmk_need_dex (rtx x ATTRIBUTE_UNUSED)
 
 #endif /* TARGET_ABI_UNICOSMK */
 
+static void
+alpha_init_libfuncs (void)
+{
+  if (TARGET_ABI_UNICOSMK)
+    {
+      /* Prevent gcc from generating calls to __divsi3.  */
+      set_optab_libfunc (sdiv_optab, SImode, 0);
+      set_optab_libfunc (udiv_optab, SImode, 0);
+
+      /* Use the functions provided by the system library
+	 for DImode integer division.  */
+      set_optab_libfunc (sdiv_optab, DImode, "$sldiv");
+      set_optab_libfunc (udiv_optab, DImode, "$uldiv");
+    }
+  else if (TARGET_ABI_OPEN_VMS)
+    {
+      /* Use the VMS runtime library functions for division and
+	 remainder.  */
+      set_optab_libfunc (sdiv_optab, SImode, "OTS$DIV_I");
+      set_optab_libfunc (sdiv_optab, DImode, "OTS$DIV_L");
+      set_optab_libfunc (udiv_optab, SImode, "OTS$DIV_UI");
+      set_optab_libfunc (udiv_optab, DImode, "OTS$DIV_UL");
+      set_optab_libfunc (smod_optab, SImode, "OTS$REM_I");
+      set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
+      set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
+      set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
+    }
+}
+
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
@@ -10033,6 +10156,9 @@ unicosmk_need_dex (rtx x ATTRIBUTE_UNUSED)
 
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
 #define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS alpha_init_libfuncs
 
 #if TARGET_ABI_UNICOSMK
 #undef TARGET_ASM_FILE_START
@@ -10084,6 +10210,26 @@ unicosmk_need_dex (rtx x ATTRIBUTE_UNUSED)
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG alpha_reorg
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY alpha_return_in_memory
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS alpha_setup_incoming_varargs
+#undef TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
+
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

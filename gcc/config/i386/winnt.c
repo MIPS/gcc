@@ -47,12 +47,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 static tree associated_type (tree);
-const char * gen_stdcall_suffix (tree);
-const char * gen_fastcall_suffix (tree);
-int i386_pe_dllexport_p (tree);
-int i386_pe_dllimport_p (tree);
-void i386_pe_mark_dllexport (tree);
-void i386_pe_mark_dllimport (tree);
+static const char * gen_stdcall_suffix (tree);
+static const char * gen_fastcall_suffix (tree);
+static int i386_pe_dllexport_p (tree);
+static int i386_pe_dllimport_p (tree);
+static void i386_pe_mark_dllexport (tree);
+static void i386_pe_mark_dllimport (tree);
 
 /* This is we how mark internal identifiers with dllimport or dllexport
    attributes.  */
@@ -124,7 +124,7 @@ ix86_handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
     }
 
-  /*  Report error if symbol is not accessible at global scope. */
+  /*  Report error if symbol is not accessible at global scope.  */
   if (!TREE_PUBLIC (node)
       && (TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL))
@@ -182,7 +182,7 @@ associated_type (tree decl)
 
 /* Return nonzero if DECL is a dllexport'd object.  */
 
-int
+static int
 i386_pe_dllexport_p (tree decl)
 {
   tree exp;
@@ -208,7 +208,7 @@ i386_pe_dllexport_p (tree decl)
 
 /* Return nonzero if DECL is a dllimport'd object.  */
 
-int
+static int
 i386_pe_dllimport_p (tree decl)
 {
   tree imp;
@@ -251,7 +251,7 @@ i386_pe_dllimport_p (tree decl)
 
       /* We ignore the dllimport attribute for inline member functions.
 	 This differs from MSVC behavior which treats it like GNUC
-	 'extern inline' extension.   */
+	 'extern inline' extension.  */
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
@@ -308,7 +308,7 @@ i386_pe_dllimport_name_p (const char *symbol)
 /* Mark a DECL as being dllexport'd.
    Note that we override the previous setting (eg: dllimport).  */
 
-void
+static void
 i386_pe_mark_dllexport (tree decl)
 {
   const char *oldname;
@@ -350,7 +350,7 @@ i386_pe_mark_dllexport (tree decl)
 
 /* Mark a DECL as being dllimport'd.  */
 
-void
+static void
 i386_pe_mark_dllimport (tree decl)
 {
   const char *oldname;
@@ -374,7 +374,7 @@ i386_pe_mark_dllimport (tree decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but do a sanity check to prevent assembler errors. */
+      /* Already done, but do a sanity check to prevent assembler errors.  */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
 	{
 	  error ("%Jfailure in redeclaration of '%D': dllimport'd "
@@ -406,11 +406,10 @@ i386_pe_mark_dllimport (tree decl)
    prefix consisting of FASTCALL_PREFIX and a suffix consisting of an
    atsign (@) followed by the number of bytes of arguments.  */
 
-const char *
+static const char *
 gen_fastcall_suffix (tree decl)
 {
   int total = 0;
-
   const char *asmname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   char *newsym;
 
@@ -446,7 +445,7 @@ gen_fastcall_suffix (tree decl)
    suffix consisting of an atsign (@) followed by the number of bytes of
    arguments */
 
-const char *
+static const char *
 gen_stdcall_suffix (tree decl)
 {
   int total = 0;
@@ -578,9 +577,7 @@ i386_pe_strip_name_encoding_full (const char *str)
    whereas symbols for functions using other calling conventions don't
    have a prefix (unless they are marked dllimport or dllexport).  */
 
-void i386_pe_output_labelref (stream, name)
-     FILE *stream;
-     const char *name;
+void i386_pe_output_labelref (FILE *stream, const char *name)
 {
   if (strncmp (name, DLL_IMPORT_PREFIX, strlen (DLL_IMPORT_PREFIX))
       == 0)
@@ -712,12 +709,22 @@ i386_pe_asm_named_section (const char *name, unsigned int flags)
 {
   char flagchars[8], *f = flagchars;
 
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_PE_SHARED)
-    *f++ = 's';
+  if ((flags & (SECTION_CODE | SECTION_WRITE)) == 0)
+    /* readonly data */
+    {
+      *f++ ='d';  /* This is necessary for older versions of gas.  */
+      *f++ ='r';
+    }
+  else	
+    {
+      if (flags & SECTION_CODE)
+        *f++ = 'x';
+      if (flags & SECTION_WRITE)
+        *f++ = 'w';
+      if (flags & SECTION_PE_SHARED)
+        *f++ = 's';
+    }
+
   *f = '\0';
 
   fprintf (asm_out_file, "\t.section\t%s,\"%s\"\n", name, flagchars);

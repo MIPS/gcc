@@ -73,9 +73,9 @@ gnu::java::net::PlainSocketImpl::create (jboolean stream)
 
   _Jv_platform_close_on_exec (sock);
 
-  // We use fnum in place of fd here.  From leaving fd null we avoid
+  // We use native_fd in place of fd here.  From leaving fd null we avoid
   // the double close problem in FileDescriptor.finalize.
-  fnum = sock;
+  native_fd = sock;
 }
 
 void
@@ -113,16 +113,15 @@ gnu::java::net::PlainSocketImpl::bind (::java::net::InetAddress *host, jint lpor
     throw new ::java::net::SocketException (JvNewStringUTF ("invalid length"));
 
   // Enable SO_REUSEADDR, so that servers can reuse ports left in TIME_WAIT.
-  ::setsockopt(fnum, SOL_SOCKET, SO_REUSEADDR, (char *) &i, sizeof(i));
+  ::setsockopt(native_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &i, sizeof(i));
   
-  if (_Jv_bind (fnum, ptr, len) == 0)
+  if (_Jv_bind (native_fd, ptr, len) == 0)
     {
-      address = host;
       socklen_t addrlen = sizeof(u);
 
       if (lport != 0)
         localport = lport;
-      else if (::getsockname (fnum, (sockaddr*) &u, &addrlen) == 0)
+      else if (::getsockname (native_fd, (sockaddr*) &u, &addrlen) == 0)
         localport = ntohs (u.address.sin_port);
       else
         goto error;
@@ -170,31 +169,31 @@ gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
 
   if (timeout > 0)
     {
-      int flags = ::fcntl (fnum, F_GETFL);
-      ::fcntl (fnum, F_SETFL, flags | O_NONBLOCK);
+      int flags = ::fcntl (native_fd, F_GETFL);
+      ::fcntl (native_fd, F_SETFL, flags | O_NONBLOCK);
       
-      if ((_Jv_connect (fnum, ptr, len) != 0) && (errno != EINPROGRESS))
+      if ((_Jv_connect (native_fd, ptr, len) != 0) && (errno != EINPROGRESS))
         goto error;
 
       fd_set fset;
       struct timeval tv;
       FD_ZERO(&fset);
-      FD_SET(fnum, &fset);
+      FD_SET(native_fd, &fset);
       tv.tv_sec = timeout / 1000;
       tv.tv_usec = (timeout % 1000) * 1000;
       int retval;
       
-      if ((retval = _Jv_select (fnum + 1, &fset, &fset, NULL, &tv)) < 0)
+      if ((retval = _Jv_select (native_fd + 1, &fset, &fset, NULL, &tv)) < 0)
         goto error;
       else if (retval == 0)
         throw new ::java::net::SocketTimeoutException
           (JvNewStringUTF ("Connect timed out"));
        // Set the socket back into a blocking state.
-       ::fcntl (fnum, F_SETFL, flags);
+       ::fcntl (native_fd, F_SETFL, flags);
     }
   else
     {
-      if (_Jv_connect (fnum, ptr, len) != 0)
+      if (_Jv_connect (native_fd, ptr, len) != 0)
         goto error;
     }
 
@@ -204,7 +203,7 @@ gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
   // A bind may not have been done on this socket; if so, set localport now.
   if (localport == 0)
     {
-      if (::getsockname (fnum, (sockaddr*) &u, &addrlen) == 0)
+      if (::getsockname (native_fd, (sockaddr*) &u, &addrlen) == 0)
         localport = ntohs (u.address.sin_port);
       else
         goto error;
@@ -220,7 +219,7 @@ gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
 void
 gnu::java::net::PlainSocketImpl::listen (jint backlog)
 {
-  if (::listen (fnum, backlog) != 0)
+  if (::listen (native_fd, backlog) != 0)
     {
       char* strerr = strerror (errno);
       throw new ::java::io::IOException (JvNewStringUTF (strerr));
@@ -235,23 +234,23 @@ gnu::java::net::PlainSocketImpl::accept (gnu::java::net::PlainSocketImpl *s)
   int new_socket = 0; 
 
   // Do timeouts via select since SO_RCVTIMEO is not always available.
-  if (timeout > 0 && fnum >= 0 && fnum < FD_SETSIZE)
+  if (timeout > 0 && native_fd >= 0 && native_fd < FD_SETSIZE)
     {
       fd_set fset;
       struct timeval tv;
       FD_ZERO(&fset);
-      FD_SET(fnum, &fset);
+      FD_SET(native_fd, &fset);
       tv.tv_sec = timeout / 1000;
       tv.tv_usec = (timeout % 1000) * 1000;
       int retval;
-      if ((retval = _Jv_select (fnum + 1, &fset, &fset, NULL, &tv)) < 0)
+      if ((retval = _Jv_select (native_fd + 1, &fset, &fset, NULL, &tv)) < 0)
         goto error;
       else if (retval == 0)
         throw new ::java::net::SocketTimeoutException (
 	                                  JvNewStringUTF("Accept timed out"));
     }
 
-  new_socket = _Jv_accept (fnum, (sockaddr*) &u, &addrlen);
+  new_socket = _Jv_accept (native_fd, (sockaddr*) &u, &addrlen);
 
   if (new_socket < 0)
     goto error;
@@ -277,7 +276,7 @@ gnu::java::net::PlainSocketImpl::accept (gnu::java::net::PlainSocketImpl *s)
   else
     throw new ::java::net::SocketException (JvNewStringUTF ("invalid family"));
 
-  s->fnum = new_socket;
+  s->native_fd = new_socket;
   s->localport = localport;
   s->address = new ::java::net::InetAddress (raddr, NULL);
   s->port = rport;
@@ -296,7 +295,7 @@ gnu::java::net::PlainSocketImpl::close()
   JvSynchronize sync (this);
 
   // should we use shutdown here? how would that effect so_linger?
-  int res = _Jv_close (fnum);
+  int res = _Jv_close (native_fd);
 
   if (res == -1)
     {
@@ -306,7 +305,7 @@ gnu::java::net::PlainSocketImpl::close()
         throw new ::java::io::IOException  (JvNewStringUTF (strerror (errno)));
     }
   // Safe place to reset the file pointer.
-  fnum = -1;
+  native_fd = -1;
   timeout = 0;
 }
 
@@ -319,7 +318,7 @@ gnu::java::net::PlainSocketImpl$SocketOutputStream::write(jint b)
 
   while (r != 1)
     {
-      r = _Jv_write (this$0->fnum, &d, 1);
+      r = _Jv_write (this$0->native_fd, &d, 1);
       if (r == -1)
         {
           if (::java::lang::Thread::interrupted())
@@ -352,7 +351,7 @@ gnu::java::net::PlainSocketImpl$SocketOutputStream::write(jbyteArray b, jint off
 
   while (len > 0)
     {
-      int r = _Jv_write (this$0->fnum, bytes, len);
+      int r = _Jv_write (this$0->native_fd, bytes, len);
 
       if (r == -1)
         {
@@ -389,32 +388,32 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(void)
 {
   jbyte b;
   jint timeout = this$0->timeout;
-  jint fnum = this$0->fnum;
+  jint native_fd = this$0->native_fd;
 
   // Do timeouts via select.
-  if (timeout > 0 && fnum >= 0 && fnum < FD_SETSIZE)
+  if (timeout > 0 && native_fd >= 0 && native_fd < FD_SETSIZE)
     {
       // Create the file descriptor set.
       fd_set read_fds;
       FD_ZERO (&read_fds);
-      FD_SET (fnum,&read_fds);
+      FD_SET (native_fd,&read_fds);
       // Create the timeout struct based on our internal timeout value.
       struct timeval timeout_value;
       timeout_value.tv_sec = timeout / 1000;
       timeout_value.tv_usec = (timeout % 1000) * 1000;
       // Select on the fds.
       int sel_retval =
-        _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
+        _Jv_select (native_fd + 1, &read_fds, NULL, NULL, &timeout_value);
       // If select returns 0 we've waited without getting data...
       // that means we've timed out.
       if (sel_retval == 0)
         throw new ::java::net::SocketTimeoutException
-          (JvNewStringUTF ("read timed out") );
+          (JvNewStringUTF ("Read timed out") );
       // If select returns ok we know we either got signalled or read some data...
       // either way we need to try to read.
     }
 
-  int r = _Jv_read (fnum, &b, 1);
+  int r = _Jv_read (native_fd, &b, 1);
 
   if (r == 0)
     return -1;
@@ -423,7 +422,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(void)
     {
       ::java::io::InterruptedIOException *iioe =
         new ::java::io::InterruptedIOException
-        (JvNewStringUTF("read interrupted"));
+        (JvNewStringUTF("Read interrupted"));
       iioe->bytesTransferred = r == -1 ? 0 : r;
       throw iioe;
     }
@@ -445,7 +444,7 @@ jint
 gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint offset, 
   jint count)
 {
-  jint fnum = this$0->fnum;
+  jint native_fd = this$0->native_fd;
   jint timeout = this$0->timeout;
 
   if (! buffer)
@@ -459,19 +458,19 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
   jbyte *bytes = elements (buffer) + offset;
 
   // Do timeouts via select.
-  if (timeout > 0 && fnum >= 0 && fnum < FD_SETSIZE)
+  if (timeout > 0 && native_fd >= 0 && native_fd < FD_SETSIZE)
     {
       // Create the file descriptor set.
       fd_set read_fds;
       FD_ZERO (&read_fds);
-      FD_SET (fnum, &read_fds);
+      FD_SET (native_fd, &read_fds);
       // Create the timeout struct based on our internal timeout value.
       struct timeval timeout_value;
       timeout_value.tv_sec = timeout / 1000;
       timeout_value.tv_usec =(timeout % 1000) * 1000;
       // Select on the fds.
       int sel_retval =
-        _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
+        _Jv_select (native_fd + 1, &read_fds, NULL, NULL, &timeout_value);
       // We're only interested in the 0 return.
       // error returns still require us to try to read 
       // the socket to see what happened.
@@ -479,13 +478,13 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
         {
           ::java::net::SocketTimeoutException *timeoutException =
             new ::java::net::SocketTimeoutException
-            (JvNewStringUTF ("read timed out"));
+            (JvNewStringUTF ("Read timed out"));
 	  throw timeoutException;
         }
     }
 
   // Read the socket.
-  int r = ::recv (fnum, (char *) bytes, count, 0);
+  int r = ::recv (native_fd, (char *) bytes, count, 0);
 
   if (r == 0)
     return -1;
@@ -494,7 +493,7 @@ gnu::java::net::PlainSocketImpl$SocketInputStream::read(jbyteArray buffer, jint 
     {
       ::java::io::InterruptedIOException *iioe =
         new ::java::io::InterruptedIOException
-        (JvNewStringUTF ("read interrupted"));
+        (JvNewStringUTF ("Read interrupted"));
       iioe->bytesTransferred = r == -1 ? 0 : r;
       throw iioe;
     }
@@ -521,7 +520,7 @@ gnu::java::net::PlainSocketImpl::available(void)
   bool num_set = false;
 
 #if defined(FIONREAD)
-  r = ::ioctl (fnum, FIONREAD, &num);
+  r = ::ioctl (native_fd, FIONREAD, &num);
 
   if (r == -1 && errno == ENOTTY)
     {
@@ -532,7 +531,7 @@ gnu::java::net::PlainSocketImpl::available(void)
   else
     num_set = true;
 #elif defined(HAVE_SELECT)
-  if (fnum < 0)
+  if (native_fd < 0)
     {
       errno = EBADF;
       r = -1;
@@ -549,15 +548,15 @@ gnu::java::net::PlainSocketImpl::available(void)
 
 #if defined(HAVE_SELECT)
   if (! num_set)
-    if (! num_set && fnum >= 0 && fnum < FD_SETSIZE)
+    if (! num_set && native_fd >= 0 && native_fd < FD_SETSIZE)
       {
         fd_set rd;
         FD_ZERO (&rd);
-        FD_SET (fnum, &rd);
+        FD_SET (native_fd, &rd);
         struct timeval tv;
         tv.tv_sec = 0;
         tv.tv_usec = 0;
-        r = _Jv_select (fnum + 1, &rd, NULL, NULL, &tv);
+        r = _Jv_select (native_fd + 1, &rd, NULL, NULL, &tv);
         if(r == -1)
           goto posix_error;
         num = r == 0 ? 0 : 1;
@@ -576,7 +575,7 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
   int val;
   socklen_t val_len = sizeof (val);
 
-  if (fnum < 0)
+  if (native_fd < 0)
     throw new ::java::net::SocketException (JvNewStringUTF ("Socket closed"));
 
   if (_Jv_IsInstanceOf (value, &::java::lang::Boolean::class$))
@@ -609,7 +608,7 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
     {
       case _Jv_TCP_NODELAY_ :
 #ifdef TCP_NODELAY
-        if (::setsockopt (fnum, IPPROTO_TCP, TCP_NODELAY, (char *) &val,
+        if (::setsockopt (native_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &val,
                           val_len) != 0)
           goto error;
 #else
@@ -619,21 +618,21 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
         return;
 
       case _Jv_SO_KEEPALIVE_ :
-        if (::setsockopt (fnum, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
+        if (::setsockopt (native_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
                           val_len) != 0)
           goto error;
-        break;
+        return;
       
       case _Jv_SO_BROADCAST_ :
         throw new ::java::net::SocketException
           (JvNewStringUTF ("SO_BROADCAST not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_SO_OOBINLINE_ :
-        if (::setsockopt (fnum, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
+        if (::setsockopt (native_fd, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
                           val_len) != 0)
           goto error;
-        break;
+        return;
 
       case _Jv_SO_LINGER_ :
 #ifdef SO_LINGER
@@ -641,7 +640,7 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
         l_val.l_onoff = (val != -1);
         l_val.l_linger = val;
 
-        if (::setsockopt (fnum, SOL_SOCKET, SO_LINGER, (char *) &l_val,
+        if (::setsockopt (native_fd, SOL_SOCKET, SO_LINGER, (char *) &l_val,
                           sizeof(l_val)) != 0)
           goto error;    
 #else
@@ -655,7 +654,7 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
 #if defined(SO_SNDBUF) && defined(SO_RCVBUF)
         int opt;
         optID == _Jv_SO_SNDBUF_ ? opt = SO_SNDBUF : opt = SO_RCVBUF;
-        if (::setsockopt (fnum, SOL_SOCKET, opt, (char *) &val, val_len) != 0)
+        if (::setsockopt (native_fd, SOL_SOCKET, opt, (char *) &val, val_len) != 0)
           goto error;    
 #else
         throw new ::java::lang::InternalError (
@@ -676,18 +675,18 @@ gnu::java::net::PlainSocketImpl::setOption (jint optID, ::java::lang::Object *va
       case _Jv_IP_MULTICAST_IF2_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_IF2: not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_IP_MULTICAST_LOOP_ :
         throw new ::java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_LOOP: not valid for TCP"));
-        break;
+        return;
 	
       case _Jv_IP_TOS_ :
-        if (::setsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+        if (::setsockopt (native_fd, SOL_SOCKET, IP_TOS, (char *) &val,
                           val_len) != 0)
           goto error;    
-        break;
+        return;
 	
       case _Jv_SO_REUSEADDR_ :
         throw new ::java::net::SocketException (
@@ -721,7 +720,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
     {
 #ifdef TCP_NODELAY
     case _Jv_TCP_NODELAY_ :
-      if (::getsockopt (fnum, IPPROTO_TCP, TCP_NODELAY, (char *) &val,
+      if (::getsockopt (native_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &val,
                         &val_len) != 0)
         goto error;
       else
@@ -734,7 +733,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
       
     case _Jv_SO_LINGER_ :
 #ifdef SO_LINGER
-      if (::getsockopt (fnum, SOL_SOCKET, SO_LINGER, (char *) &l_val,
+      if (::getsockopt (native_fd, SOL_SOCKET, SO_LINGER, (char *) &l_val,
                         &l_val_len) != 0)
         goto error;    
  
@@ -749,20 +748,20 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
       break;    
 
     case _Jv_SO_KEEPALIVE_ :
-      if (::getsockopt (fnum, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
+      if (::getsockopt (native_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
                         &val_len) != 0)
         goto error;
       else
         return new ::java::lang::Boolean (val != 0);
 
     case _Jv_SO_BROADCAST_ :
-      if (::getsockopt (fnum, SOL_SOCKET, SO_BROADCAST, (char *) &val,
+      if (::getsockopt (native_fd, SOL_SOCKET, SO_BROADCAST, (char *) &val,
                         &val_len) != 0)
         goto error;    
       return new ::java::lang::Boolean ((jboolean)val);
 	
     case _Jv_SO_OOBINLINE_ :
-      if (::getsockopt (fnum, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
+      if (::getsockopt (native_fd, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
                         &val_len) != 0)
         goto error;    
       return new ::java::lang::Boolean ((jboolean)val);
@@ -772,7 +771,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
 #if defined(SO_SNDBUF) && defined(SO_RCVBUF)
       int opt;
       optID == _Jv_SO_SNDBUF_ ? opt = SO_SNDBUF : opt = SO_RCVBUF;
-      if (::getsockopt (fnum, SOL_SOCKET, opt, (char *) &val, &val_len) != 0)
+      if (::getsockopt (native_fd, SOL_SOCKET, opt, (char *) &val, &val_len) != 0)
         goto error;    
       else
         return new ::java::lang::Integer (val);
@@ -787,7 +786,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
         {
           jbyteArray laddr;
 
-          if (::getsockname (fnum, (sockaddr*) &u, &addrlen) != 0)
+          if (::getsockname (native_fd, (sockaddr*) &u, &addrlen) != 0)
             goto error;
 
           if (u.address.sin_family == AF_INET)
@@ -826,7 +825,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
       break;
 	
     case _Jv_IP_TOS_ :
-      if (::getsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+      if (::getsockopt (native_fd, SOL_SOCKET, IP_TOS, (char *) &val,
                         &val_len) != 0)
         goto error;
       return new ::java::lang::Integer (val);
@@ -853,13 +852,13 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
 void
 gnu::java::net::PlainSocketImpl::shutdownInput (void)
 {
-  if (::shutdown (fnum, 0))
+  if (::shutdown (native_fd, 0))
     throw new ::java::net::SocketException (JvNewStringUTF (strerror (errno)));
 }
 
 void
 gnu::java::net::PlainSocketImpl::shutdownOutput (void)
 {
-  if (::shutdown (fnum, 1))
+  if (::shutdown (native_fd, 1))
     throw new ::java::net::SocketException (JvNewStringUTF (strerror (errno)));
 }

@@ -63,7 +63,7 @@
 
 #include <bits/concept_check.h>
 
-namespace std
+namespace __gnu_norm
 {
 
 // Forward declaration of operators < and ==, needed for friend declaration.
@@ -100,10 +100,10 @@ private:
                   _Identity<value_type>, key_compare, _Alloc> _Rep_type;
   _Rep_type _M_t;  // red-black tree representing multiset
 public:
-  typedef typename _Rep_type::const_pointer pointer;
-  typedef typename _Rep_type::const_pointer const_pointer;
-  typedef typename _Rep_type::const_reference reference;
-  typedef typename _Rep_type::const_reference const_reference;
+  typedef typename _Alloc::pointer pointer;
+  typedef typename _Alloc::const_pointer const_pointer;
+  typedef typename _Alloc::reference reference;
+  typedef typename _Alloc::const_reference const_reference;
   typedef typename _Rep_type::const_iterator iterator;
   typedef typename _Rep_type::const_iterator const_iterator;
   typedef typename _Rep_type::const_reverse_iterator reverse_iterator;
@@ -183,8 +183,8 @@ public:
 
   size_type count(const key_type& __x) const { return _M_t.count(__x); }
 
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-//214.  set::find() missing const overload
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 214.  set::find() missing const overload
   iterator find(const key_type& __x) { return _M_t.find(__x); }
   const_iterator find(const key_type& __x) const { return _M_t.find(__x); }
   iterator lower_bound(const key_type& __x) {
@@ -205,18 +205,6 @@ public:
   pair<const_iterator,const_iterator> equal_range(const key_type& __x) const {
     return _M_t.equal_range(__x);
   }
-#else
-  iterator find(const key_type& __x) const { return _M_t.find(__x); }
-  iterator lower_bound(const key_type& __x) const {
-    return _M_t.lower_bound(__x);
-  }
-  iterator upper_bound(const key_type& __x) const {
-    return _M_t.upper_bound(__x); 
-  }
-  pair<iterator,iterator> equal_range(const key_type& __x) const {
-    return _M_t.equal_range(__x);
-  }
-#endif
 
   template <class _K1, class _C1, class _A1>
   friend bool operator== (const multiset<_K1,_C1,_A1>&,
@@ -268,6 +256,6 @@ inline void swap(multiset<_Key,_Compare,_Alloc>& __x,
   __x.swap(__y);
 }
 
-} // namespace std
+} // namespace __gnu_norm
 
 #endif /* _MULTISET_H */

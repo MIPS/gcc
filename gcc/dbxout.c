@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -185,19 +185,28 @@ enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
    pair of the file number and the type number within the file.
    This is a stack of input files.  */
 
-struct dbx_file GTY(())
+struct dbx_file
 {
   struct dbx_file *next;
   int file_number;
   int next_type_number;
-  enum binclstatus bincl_status;      /* Keep track of lazy bincl.  */
-  const char *pending_bincl_name;     /* Name of bincl.  */
-  struct dbx_file *prev;              /* Chain to traverse all pending bincls.  */
+  enum binclstatus bincl_status;  /* Keep track of lazy bincl.  */
+  const char *pending_bincl_name; /* Name of bincl.  */
+  struct dbx_file *prev;          /* Chain to traverse all pending bincls.  */
 };
 
-/* This is the top of the stack.  */
+/* This is the top of the stack.  
+   
+   This is not saved for PCH, because restoring a PCH should not change it.
+   next_file_number does have to be saved, because the PCH may use some
+   file numbers; however, just before restoring a PCH, next_file_number
+   should always be 0 because we should not have needed any file numbers
+   yet.  */
 
-static GTY(()) struct dbx_file *current_file;
+#if (defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)) \
+    && defined (DBX_USE_BINCL)
+static struct dbx_file *current_file;
+#endif
 
 /* This is the next file number to use.  */
 
@@ -328,7 +337,6 @@ static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
 static void dbxout_typedefs (tree);
-static void dbxout_fptype_value (tree);
 static void dbxout_type_index (tree);
 #if DBX_CONTIN_LENGTH > 0
 static void dbxout_continue (void);
@@ -514,7 +522,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = ggc_alloc (sizeof *current_file);
+  current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -542,21 +550,19 @@ dbxout_init (const char *input_file_name)
   dbxout_typedefs (syms);
 }
 
-/* Output any typedef names for types described by TYPE_DECLs in SYMS,
-   in the reverse order from that which is found in SYMS.  */
+/* Output any typedef names for types described by TYPE_DECLs in SYMS.  */
 
 static void
 dbxout_typedefs (tree syms)
 {
-  if (syms)
+  for (; syms != NULL_TREE; syms = TREE_CHAIN (syms))
     {
-      dbxout_typedefs (TREE_CHAIN (syms));
       if (TREE_CODE (syms) == TYPE_DECL)
 	{
 	  tree type = TREE_TYPE (syms);
 	  if (TYPE_NAME (type)
 	      && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	      && COMPLETE_TYPE_P (type)
+	      && COMPLETE_OR_VOID_TYPE_P (type)
 	      && ! TREE_ASM_WRITTEN (TYPE_NAME (type)))
 	    dbxout_symbol (TYPE_NAME (type), 0);
 	}
@@ -628,7 +634,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = ggc_alloc (sizeof *n);
+  struct dbx_file *n = xmalloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -808,60 +814,6 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
   debug_free_queue ();
 }
 
-/* Output floating point type values used by the 'R' stab letter.
-   These numbers come from include/aout/stab_gnu.h in binutils/gdb.
-
-   There are only 3 real/complex types defined, and we need 7/6.
-   We use NF_SINGLE as a generic float type, and NF_COMPLEX as a generic
-   complex type.  Since we have the type size anyways, we don't really need
-   to distinguish between different FP types, we only need to distinguish
-   between float and complex.  This works fine with gdb.
-
-   We only use this for complex types, to avoid breaking backwards
-   compatibility for real types.  complex types aren't in ISO C90, so it is
-   OK if old debuggers don't understand the debug info we emit for them.  */
-
-/* ??? These are supposed to be IEEE types, but we don't check for that.
-   We could perhaps add additional numbers for non-IEEE types if we need
-   them.  */
-
-static void
-dbxout_fptype_value (tree type)
-{
-  char value = '0';
-  enum machine_mode mode = TYPE_MODE (type);
-
-  if (TREE_CODE (type) == REAL_TYPE)
-    {
-      if (mode == SFmode)
-	value = '1';
-      else if (mode == DFmode)
-	value = '2';
-      else if (mode == TFmode || mode == XFmode)
-	value = '6';
-      else
-	/* Use NF_SINGLE as a generic real type for other sizes.  */
-	value = '1';
-    }
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
-    {
-      if (mode == SCmode)
-	value = '3';
-      else if (mode == DCmode)
-	value = '4';
-      else if (mode == TCmode || mode == XCmode)
-	value = '5';
-      else
-	/* Use NF_COMPLEX as a generic complex type for other sizes.  */
-	value = '3';
-    }
-  else
-    abort ();
-
-  putc (value, asmfile);
-  CHARS (1);
-}
-
 /* Output the index of a type.  */
 
 static void
@@ -912,6 +864,11 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
+
+      /* If on of the nodes is an error_mark or its type is then return early. */
+      if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
+	return;
+
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
 	  /* Omit fields whose position or size are variable or too large to
@@ -1544,15 +1501,14 @@ dbxout_type (tree type, int full)
       break;
 
     case COMPLEX_TYPE:
-      /* Differs from the REAL_TYPE by its new data type number */
+      /* Differs from the REAL_TYPE by its new data type number.
+	 R3 is NF_COMPLEX.  We don't try to use any of the other NF_*
+	 codes since gdb doesn't care anyway.  */
 
       if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	{
-	  putc ('R', asmfile);
-	  CHARS (1);
-	  dbxout_fptype_value (type);
-	  putc (';', asmfile);
-	  CHARS (1);
+	  fputs ("R3;", asmfile);
+	  CHARS (3);
 	  print_wide_int (2 * int_size_in_bytes (TREE_TYPE (type)));
 	  fputs (";0;", asmfile);
 	  CHARS (3);
@@ -1722,8 +1678,10 @@ dbxout_type (tree type, int full)
 	    if (use_gnu_debug_info_extensions)
 	      {
 		have_used_extensions = 1;
-		putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-		putc (access == access_public_node ? '2' : '0', asmfile);
+                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
+                putc (access == access_public_node ? '2' :
+                      (access == access_protected_node ? '1' :'0'),
+                      asmfile);
 		CHARS (2);
 		if (TREE_VIA_VIRTUAL (child)
 		    && strcmp (lang_hooks.name, "GNU C++") == 0)
@@ -2091,11 +2049,6 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
   /* "Intercept" dbxout_symbol() calls like we do all debug_hooks.  */
   ++debug_nesting;
 
-  /* Cast avoids warning in old compilers.  */
-  current_sym_code = (STAB_CODE_TYPE) 0;
-  current_sym_value = 0;
-  current_sym_addr = 0;
-
   /* Ignore nameless syms, but don't ignore type tags.  */
 
   if ((DECL_NAME (decl) == 0 && TREE_CODE (decl) != TYPE_DECL)
@@ -2396,7 +2349,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		}
 	      else if (TREE_CODE (TREE_TYPE (decl)) == REAL_TYPE)
 		{
-		  /* don't know how to do this yet.  */
+		  /* Don't know how to do this yet.  */
 		}
 	      break;
 	    }
@@ -2622,10 +2575,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       else
 	dbxout_symbol_location (decl, subtype, "$real", XEXP (home, 0));
 
-      /* Cast avoids warning in old compilers.  */
-      current_sym_code = (STAB_CODE_TYPE) 0;
-      current_sym_value = 0;
-      current_sym_addr = 0;
       dbxout_prepare_symbol (decl);
 
       if (WORDS_BIG_ENDIAN)
@@ -2665,9 +2614,11 @@ dbxout_symbol_name (tree decl, const char *suffix, int letter)
 {
   const char *name;
 
-  if (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-    /* One slight hitch: if this is a VAR_DECL which is a static
-       class member, we must put out the mangled name instead of the
+  if (DECL_CONTEXT (decl) 
+      && (TYPE_P (DECL_CONTEXT (decl))
+	  || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL))
+    /* One slight hitch: if this is a VAR_DECL which is a class member
+       or a namespace member, we must put out the mangled name instead of the
        DECL_NAME.  Note also that static member (variable) names DO NOT begin
        with underscores in .stabs directives.  */
     name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -2693,6 +2644,14 @@ dbxout_prepare_symbol (tree decl ATTRIBUTE_UNUSED)
 
   dbxout_source_file (asmfile, filename);
 #endif
+
+  /* Initialize variables used to communicate each symbol's debug
+     information to dbxout_finish_symbol with zeroes.  */
+
+  /* Cast avoids warning in old compilers.  */
+  current_sym_code = (STAB_CODE_TYPE) 0;
+  current_sym_value = 0;
+  current_sym_addr = 0;
 }
 
 static void

@@ -291,6 +291,7 @@ extern "Java"
       class Collections$UnmodifiableSortedSet;
       class Comparator;
       class ConcurrentModificationException;
+      class Currency;
       class Date;
       class Dictionary;
       class EmptyStackException;
@@ -496,6 +497,7 @@ extern "C" void _Jv_RegisterClassHookDefault (jclass);
 
 typedef unsigned short _Jv_ushort __attribute__((__mode__(__HI__)));
 typedef unsigned int _Jv_uint __attribute__((__mode__(__SI__)));
+typedef unsigned int _Jv_ulong __attribute__((__mode__(__DI__)));
 
 struct _Jv_Utf8Const
 {

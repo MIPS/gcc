@@ -19,7 +19,20 @@
 #  if defined (_PTHREAD_ENV_DECC) || defined (_PTHREAD_ENV_EPCC) || defined (__PRAGMA_EXTERN_PREFIX)
 #   define _PTHREAD_USE_PTDNAM_
 #  endif
+#  if defined (_PTHREAD_ENV_DECC) || defined (__PRAGMA_EXTERN_PREFIX)
+#   define _PTHREAD_USE_PTDNAM_
+#  endif
 #endif  /* ALPHA_PTHREAD_CHECK */
+
+
+#if defined( ALPHA_PTHREAD_GCC_CHECK )
+# define _PTHREAD_ENV_INTELC
+#elif defined (__GNUC__)
+# define _PTHREAD_ENV_GCC
+#else
+# error <pthread.h>: unrecognized compiler.
+#endif
+#endif  /* ALPHA_PTHREAD_GCC_CHECK */
 
 
 #if defined( PTHREAD_PAGE_SIZE_CHECK )

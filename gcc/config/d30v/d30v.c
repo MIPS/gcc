@@ -46,15 +46,15 @@
 #include "target-def.h"
 #include "langhooks.h"
 
-static void d30v_print_operand_memory_reference PARAMS ((FILE *, rtx));
-static void d30v_build_long_insn PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
-					  rtx, rtx));
-static struct machine_function * d30v_init_machine_status PARAMS ((void));
-static void d30v_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void d30v_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static int d30v_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-static int d30v_issue_rate PARAMS ((void));
-static bool d30v_rtx_costs PARAMS ((rtx, int, int, int *));
+static void d30v_print_operand_memory_reference (FILE *, rtx);
+static void d30v_build_long_insn (HOST_WIDE_INT, HOST_WIDE_INT, rtx, rtx);
+static struct machine_function * d30v_init_machine_status (void);
+static void d30v_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void d30v_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static int d30v_adjust_cost (rtx, rtx, rtx, int);
+static int d30v_issue_rate (void);
+static bool d30v_rtx_costs (rtx, int, int, int *);
+static tree d30v_build_builtin_va_list (void);
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -104,6 +104,9 @@ enum reg_class reg_class_from_letter[256];
 #define TARGET_RTX_COSTS d30v_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST d30v_build_builtin_va_list
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2201,8 +2204,8 @@ d30v_setup_incoming_varargs (cum, mode, type, pretend_size, second_time)
 
 /* Create the va_list data type.  */
 
-tree
-d30v_build_va_list ()
+static tree
+d30v_build_builtin_va_list ()
 {
   tree f_arg_ptr, f_arg_num, record, type_decl;
   tree int_type_node;

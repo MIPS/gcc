@@ -1,4 +1,4 @@
-/* Target definitions for GNU compiler for Intel 80386 running Interix
+/* Target definitions for GCC for Intel 80386 running Interix
    Parts Copyright (C) 1991, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
    Parts:
@@ -7,20 +7,20 @@
      by Donn Terry (donn@softway.com).
      by Mumit Khan (khan@xraylith.wisc.edu).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387 and needs stack probes
    We also align doubles to 64-bits for MSVC default compatibility
-   We do bitfields MSVC-compatibly by default, too. */
+   We do bitfields MSVC-compatibly by default, too.  */
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
    (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE | \
@@ -140,18 +140,18 @@ Boston, MA 02111-1307, USA.  */
    generated assembly code more compact (and thus faster to assemble)
    as well as more readable, especially for targets like the i386
    (where the only alternative is to output character sequences as
-   comma separated lists of numbers).   */
+   comma separated lists of numbers).  */
 
 #define ASM_OUTPUT_LIMITED_STRING(FILE, STR)				\
   do									\
     {									\
-      register const unsigned char *_limited_str =			\
+      const unsigned char *_limited_str =				\
         (const unsigned char *) (STR);					\
-      register unsigned ch;						\
+      unsigned ch;							\
       fprintf ((FILE), "%s\"", STRING_ASM_OP);				\
       for (; (ch = *_limited_str); _limited_str++)			\
         {								\
-	  register int escape = ESCAPES[ch];				\
+	  int escape = ESCAPES[ch];					\
 	  switch (escape)						\
 	    {								\
 	    case 0:							\
@@ -181,13 +181,13 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ASCII(FILE, STR, LENGTH)				\
   do									\
     {									\
-      register const unsigned char *_ascii_bytes =			\
+      const unsigned char *_ascii_bytes =				\
         (const unsigned char *) (STR);					\
-      register const unsigned char *limit = _ascii_bytes + (LENGTH);	\
-      register unsigned bytes_in_chunk = 0;				\
+      const unsigned char *limit = _ascii_bytes + (LENGTH);		\
+      unsigned bytes_in_chunk = 0;					\
       for (; _ascii_bytes < limit; _ascii_bytes++)			\
         {								\
-	  register const unsigned char *p;				\
+	  const unsigned char *p;					\
 	  if (bytes_in_chunk >= 64)					\
 	    {								\
 	      fputc ('\n', (FILE));					\
@@ -242,7 +242,7 @@ Boston, MA 02111-1307, USA.  */
    available at runtime, so it's hopeless to try.
 
    And if the user tries to set the flag for objc, give an error
-   so he has some clue. */
+   so he has some clue.  */
 
 #undef  SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS					\
@@ -356,7 +356,7 @@ extern void i386_pe_unique_section (tree, int);
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-/* MSVC returns structs of up to 8 bytes via registers. */
+/* MSVC returns structs of up to 8 bytes via registers.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 

@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Kean Johnston (jkj@sco.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -60,7 +60,6 @@ Boston, MA 02111-1307, USA.  */
 #define DBX_REGISTER_NUMBER(n)	svr4_dbx_register_map[n]
 
 #define DWARF2_DEBUGGING_INFO		1
-#define DWARF_DEBUGGING_INFO		1
 #define DBX_DEBUGGING_INFO		1
 
 #undef PREFERRED_DEBUGGING_TYPE
@@ -146,7 +145,7 @@ Boston, MA 02111-1307, USA.  */
    assume that /usr/gnu is the prefix for the GNU tools, because thats
    where the SCO provided ones go. This is especially important for
    include and library search path ordering. We want to look in /usr/gnu
-   first, becuase frequently people are linking against -lintl, and they
+   first because frequently people are linking against -lintl, and they
    MEAN to link with gettext. What they get is the SCO intl library. Its
    a REAL pity that GNU gettext chose that name; perhaps in a future
    version they can be persuaded to change it to -lgnuintl and have a

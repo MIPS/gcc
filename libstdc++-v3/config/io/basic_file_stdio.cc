@@ -33,21 +33,26 @@
 
 #include <bits/basic_file.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
 
+#ifdef _GLIBCXX_HAVE_POLL
+#include <poll.h>
+#endif
+
+// Pick up ioctl on Solaris 2.8
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2
 #ifdef _GLIBCXX_HAVE_SYS_IOCTL_H
-#define BSD_COMP /* Get FIONREAD on Solaris2. */
+#define BSD_COMP 
 #include <sys/ioctl.h>
 #endif
 
 // Pick up FIONREAD on Solaris 2.5.
 #ifdef _GLIBCXX_HAVE_SYS_FILIO_H
 #include <sys/filio.h>
-#endif
-
-#ifdef _GLIBCXX_HAVE_POLL
-#include <poll.h>
 #endif
 
 #ifdef _GLIBCXX_HAVE_SYS_UIO_H
@@ -62,6 +67,8 @@
 #  define _GLIBCXX_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 # endif
 #endif
+
+#include <limits> // For <off_t>::max() and min()
 
 namespace std 
 {
@@ -127,14 +134,14 @@ namespace std
       {
  	_M_cfile = __file;
  	_M_cfile_created = false;
+	this->sync();
   	__ret = this;
       }
     return __ret;
   }
   
   __basic_file<char>*
-  __basic_file<char>::sys_open(int __fd, ios_base::openmode __mode, 
-			       bool __del) 
+  __basic_file<char>::sys_open(int __fd, ios_base::openmode __mode)
   {
     __basic_file* __ret = NULL;
     int __p_mode = 0;
@@ -144,12 +151,9 @@ namespace std
     _M_open_mode(__mode, __p_mode, __rw_mode, __c_mode);
     if (!this->is_open() && (_M_cfile = fdopen(__fd, __c_mode)))
       {
-	// Iff __del is true, then close will fclose the fd.
-	_M_cfile_created = __del;
-
+	_M_cfile_created = true;
 	if (__fd == 0)
 	  setvbuf(_M_cfile, reinterpret_cast<char*>(NULL), _IONBF, 0);
-
 	__ret = this;
       }
     return __ret;
@@ -168,7 +172,11 @@ namespace std
 
     if (!this->is_open())
       {
+#ifdef _GLIBCXX_USE_LFS
+	if ((_M_cfile = fopen64(__name, __c_mode)))
+#else
 	if ((_M_cfile = fopen(__name, __c_mode)))
+#endif
 	  {
 	    _M_cfile_created = true;
 	    __ret = this;
@@ -188,17 +196,17 @@ namespace std
   __basic_file<char>* 
   __basic_file<char>::close()
   { 
-    __basic_file* __retval = static_cast<__basic_file*>(NULL);
+    __basic_file* __ret = static_cast<__basic_file*>(NULL);
     if (this->is_open())
       {
 	if (_M_cfile_created)
 	  fclose(_M_cfile);
 	else
-	  fflush(_M_cfile);
+	  this->sync();
 	_M_cfile = 0;
-	__retval = this;
+	__ret = this;
       }
-    return __retval;
+    return __ret;
   }
  
   streamsize 
@@ -255,14 +263,18 @@ namespace std
     return __ret;
   }
 
-  streampos
-  __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
-			      ios_base::openmode /*__mode*/)
-  { return lseek(this->fd(), __off, __way); }
-
-  streampos
-  __basic_file<char>::seekpos(streampos __pos, ios_base::openmode /*__mode*/)
-  { return lseek(this->fd(), __pos, ios_base::beg); }
+  streamoff
+  __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way)
+  {
+#ifdef _GLIBCXX_USE_LFS
+    return lseek64(this->fd(), __off, __way);
+#else
+    if (__off > std::numeric_limits<off_t>::max()
+	|| __off < std::numeric_limits<off_t>::min())
+      return -1L;
+    return lseek(this->fd(), __off, __way);
+#endif
+  }
 
   int 
   __basic_file<char>::sync() 

@@ -5,8 +5,8 @@ RANLIB_FOR_TARGET = ` \
     if [ "$(host)" = "$(target)" ] ; then \
       echo ranlib; \
     else \
-       if [ -f $(bindir)/$(target_alias)-ranlib ] ; then \
-	  echo $(bindir)/$(target_alias)-ranlib ; \
+       if [ -f $(bindir)/$(target_noncanonical)-ranlib ] ; then \
+	  echo $(bindir)/$(target_noncanonical)-ranlib ; \
        else \
           t='$(program_transform_cross_name)'; echo ranlib | sed -e $$t ; \
        fi; \
@@ -39,7 +39,7 @@ LIBGCC2_CFLAGS = -Os -mrelax $(LIBGCC2_INCLUDES) $(TARGET_LIBGCC2_CFLAGS) $(LIBG
 
 MULTILIB_OPTIONS  = m68hc11/m68hc12 mshort fshort-double
 MULTILIB_DIRNAMES =
-MULTILIB_MATCHES  = m68hc11=m6811 m68hc12=m6812
+MULTILIB_MATCHES  = m68hc11=m6811 m68hc12=m6812 m68hc12=m68hcs12
 MULTILIB_EXCEPTIONS = -mnoshort -mno68hc11
 
 LIBGCC = stmp-multilib

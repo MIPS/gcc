@@ -44,6 +44,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    to gradually reduce the amount of conditional compilation that is
    scattered throughout GCC.  */
 
+#include "tm.h"
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -205,7 +207,7 @@ struct gcc_target
        correspondingly starts and finishes.  The function defined by
        init_dfa_pre_cycle_insn and init_dfa_post_cycle_insn are used
        to initialize the corresponding insns.  The default values of
-       the memebers result in not changing the automaton state when
+       the members result in not changing the automaton state when
        the new simulated processor cycle correspondingly starts and
        finishes.  */
     void (* init_dfa_pre_cycle_insn) (void);
@@ -251,6 +253,17 @@ struct gcc_target
        scheduling.  */
     void (* init_dfa_bubbles) (void);
     rtx (* dfa_bubble) (int);
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return true if there exists a
+       dependence which is considered costly by the target, between 
+       the insn passed as the first parameter, and the insn passed as 
+       the second parameter.  The third parameter is the INSN_DEPEND 
+       link that represents the dependence between the two insns.  The
+       fourth argument is the cost of the dependence as estimated by
+       the scheduler.  The last argument is the distance in cycles 
+       between the already scheduled insn (first parameter) and the
+       the second insn (second parameter).  */
+    bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
 
   /* Given two decls, merge their attributes and return the result.  */
@@ -288,6 +301,9 @@ struct gcc_target
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
+
+  /* Make any adjustments to libfunc names needed for this target.  */
+  void (* init_libfuncs) (void);
 
   /* Given a decl, a section name, and whether the decl initializer
      has relocs, choose attributes for the section.  */
@@ -365,6 +381,18 @@ struct gcc_target
      delayed-branch scheduling.  */
   void (* machine_dependent_reorg) (void);
 
+  /* Create the __builtin_va_list type.  */
+  tree (* build_builtin_va_list) (void);
+
+  /* Validity-checking routines for PCH files, target-specific.
+     get_pch_validity returns a pointer to the data to be stored,
+     and stores the size in its argument.  pch_valid_p gets the same
+     information back and returns NULL if the PCH is valid,
+     or an error message if not.
+  */
+  void * (* get_pch_validity) (size_t *);
+  const char * (* pch_valid_p) (const void *, size_t);
+
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */
@@ -398,13 +426,14 @@ struct gcc_target
     bool (*promote_prototypes) (tree fntype);
     rtx (*struct_value_rtx) (tree fndecl, int incoming);
     bool (*return_in_memory) (tree type, tree fndecl);
+    bool (*return_in_msb) (tree type);
     rtx (*expand_builtin_saveregs) (void);
     /* Returns pretend_argument_size.  */
     void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 				    tree type, int *pretend_arg_size, int second_time);
     bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
     /* Returns true if we should use SETUP_INCOMING_VARARGS and/or
-       STRICT_ARGUMENT_NAMING. */
+       targetm.calls.strict_argument_naming().  */
     bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
   } calls;
 };

@@ -49,7 +49,7 @@ proc g++_version { } {
 	set tmp [remote_exec host "$compiler -v"]
 	set status [lindex $tmp 0];
 	set output [lindex $tmp 1];
-	regexp "version.*$" $output version
+	regexp "version\[^\n\r\]*" $output version
 	if { $status == 0 && [info exists version] } then {
 	    if [is_remote host] {
 		clone_output "$compiler $version\n"
@@ -172,10 +172,14 @@ proc g++_link_flags { paths } {
     # unix.exp -- but that's not an option since it's part of DejaGNU
     # proper, so we do it here.  We really only need to do 
     # this on IRIX, but it shouldn't hurt to do it anywhere else.
-    setenv  LD_LIBRARY_PATH     $ld_library_path
-    setenv  SHLIB_PATH          $ld_library_path
-    setenv  LD_LIBRARYN32_PATH  $ld_library_path
-    setenv  LD_LIBRARY64_PATH   $ld_library_path
+    # Doing this does cause trouble when testing cross-compilers.
+    if {![is_remote target]} {
+	setenv  LD_LIBRARY_PATH     $ld_library_path
+	setenv  SHLIB_PATH          $ld_library_path
+	setenv  LD_LIBRARYN32_PATH  $ld_library_path
+	setenv  LD_LIBRARY64_PATH   $ld_library_path
+	setenv  DYLD_LIBRARY_PATH   $ld_library_path
+    }
 
     return "$flags"
 }
@@ -196,6 +200,7 @@ proc g++_init { args } {
     global TOOL_EXECUTABLE TOOL_OPTIONS
     global GXX_UNDER_TEST
     global TESTING_IN_BUILD_TREE
+    global target_triplet
 
     if ![info exists GXX_UNDER_TEST] then {
 	if [info exists TOOL_EXECUTABLE] {
@@ -258,6 +263,10 @@ proc g++_init { args } {
     # Make sure that lines are not wrapped.  That can confuse the
     # error-message parsing machinery.
     lappend ALWAYS_CXXFLAGS "additional_flags=-fmessage-length=0"
+
+    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	lappend ALWAYS_CXXFLAGS "ldflags=-multiply_defined suppress"
+       }
 
     verbose -log "ALWAYS_CXXFLAGS set to $ALWAYS_CXXFLAGS"
 

@@ -54,12 +54,18 @@ exception statement from your version. */
 #ifndef __GTKPEER_H__
 #define __GTKPEER_H__
 
+#ifndef __GNUC__
+#define __attribute__(x) /* nothing */
+#endif
+
 #ifdef JVM_SUN
 
 extern struct state_table *native_state_table;
+extern struct state_table *native_global_ref_table;
 
 #define NSA_INIT(env, clazz) \
-  native_state_table = init_state_table (env, clazz)
+   do {native_state_table = init_state_table (env, clazz); \
+   native_global_ref_table = init_state_table (env, clazz);} while (0)
 
 #define NSA_GET_PTR(env, obj) \
   get_state (env, obj, native_state_table)
@@ -69,6 +75,21 @@ extern struct state_table *native_state_table;
 
 #define NSA_DEL_PTR(env, obj) \
   remove_state_slot (env, obj, native_state_table)
+
+#define NSA_GET_GLOBAL_REF(env, obj) \
+  get_state (env, obj, native_global_ref_table)
+
+#define NSA_SET_GLOBAL_REF(env, obj) \
+  do {jobject *globRefPtr; \
+    globRefPtr = (jobject *) malloc (sizeof (jobject)); \
+    *globRefPtr = (*env)->NewGlobalRef (env, obj); \
+    set_state (env, obj, native_global_ref_table, (void *)globRefPtr);} while (0)
+
+#define NSA_DEL_GLOBAL_REF(env, obj) \
+  do {jobject *globRefPtr = get_state (env, obj, native_global_ref_table); \
+    remove_state_slot (env, obj, native_global_ref_table); \
+    (*env)->DeleteGlobalRef (env, *globRefPtr); \
+    free (globRefPtr);} while (0)
 
 #endif /* JVM_SUN */
 
@@ -343,6 +364,29 @@ struct graphics
 #define AWT_FOCUS_LOST 1004
 #define AWT_FOCUS_GAINED 1005
 
+#define AWT_WINDOW_OPENED 200
+#define AWT_WINDOW_CLOSING 201
+#define AWT_WINDOW_CLOSED 202
+#define AWT_WINDOW_ICONIFIED 203
+#define AWT_WINDOW_DEICONIFIED 204
+#define AWT_WINDOW_ACTIVATED 205
+#define AWT_WINDOW_DEACTIVATED 206
+#define AWT_WINDOW_GAINED_FOCUS 207
+#define AWT_WINDOW_LOST_FOCUS 208
+#define AWT_WINDOW_STATE_CHANGED 209
+
+#define AWT_FRAME_STATE_NORMAL 0
+#define AWT_FRAME_STATE_ICONIFIED 1
+#define AWT_FRAME_STATE_MAXIMIZED_HORIZ 2
+#define AWT_FRAME_STATE_MAXIMIZED_VERT 4
+#define AWT_FRAME_STATE_MAXIMIZED_BOTH 6
+
+#define AWT_STYLE_PLAIN  0
+#define AWT_STYLE_BOLD   1
+#define AWT_STYLE_ITALIC 2
+
+extern jmethodID setBoundsCallbackID;
+
 extern jmethodID postActionEventID;
 extern jmethodID postMenuActionEventID;
 extern jmethodID postMouseEventID;
@@ -351,37 +395,37 @@ extern jmethodID postExposeEventID;
 extern jmethodID postKeyEventID;
 extern jmethodID postFocusEventID;
 extern jmethodID postAdjustmentEventID;
+extern jmethodID choicePostItemEventID;
 extern jmethodID postItemEventID;
 extern jmethodID postListItemEventID;
 extern jmethodID postTextEventID;
+extern jmethodID postWindowEventID;
+
 extern jmethodID syncAttrsID;
 extern jclass gdkColor;
 extern jmethodID gdkColorID;
 extern JNIEnv *gdk_env;
 
-void
-gdk_window_get_root_geometry (GdkWindow *window,
-			      gint      *x,
-			      gint      *y,
-			      gint      *width,
-			      gint      *height,
-			      gint      *border,
-			      gint      *depth);
+extern GtkWindowGroup *global_gtk_window_group;
 
 void awt_event_handler (GdkEvent *event);
+
+gboolean pre_event_handler (GtkWidget *widget,
+                               GdkEvent *event,
+			       jobject peer);
 
 void connect_awt_hook (JNIEnv *env, jobject peer_obj, int nwindows, ...);
 
 void set_visible (GtkWidget *widget, jboolean visible);
 void set_parent (GtkWidget *widget, GtkContainer *parent);
 GtkLayout *find_gtk_layout (GtkWidget *parent);
-void setup_window (JNIEnv *env, jobject obj, GtkWidget *window, jint width, 
-		   jint height, jboolean visible);
+
+jint keyevent_state_to_awt_mods (GdkEvent *event);
 
 struct item_event_hook_info
 {
   jobject peer_obj;
-  jobject item_obj;
+  const char *label;
 };
 
 #endif /* __GTKPEER_H */

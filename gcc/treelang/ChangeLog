@@ -1,3 +1,87 @@
+2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (TREE_GENERATED): Delete reference to $(parsedir).
+	(treelang/parse.o, treelang/lex.o): Look for sources in build 
+	directory.  Use implicit rule.
+	(treelang/parse.c, treelang/parse.h treelang/lex.c): Always build in
+	doc directory.
+	(treelang.srcextra): Copy above back to source directory if requested.
+
+2004-01-07  Zack Weinberg  <zack@codesourcery.com>
+
+	* parse.y (yyerror): Mark the definition static.
+
+2003-12-04  James A. Morrison  <ja2morri@uwaterloo.ca>
+
+	* lex.l: Add \t as a whitespace character.
+	* treelang.texi (Lexical Syntax): Document a tab as whitespace.
+
+	* treelang.texi (What is GNU Treelang?): Fix a typo.
+	(Lexical Syntax): Create an itemize list of keywords.  Add commas to
+	paragraph defining names.
+
+2003-11-26  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (treelang.tags): Create TAGS.sub files in each
+	directory and TAGS files that include them for each front end.
+
+2003-11-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* .cvsignore: Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in (treelang.extraclean): Delete.
+
+2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* Make-lang.in: Remove obsolete comment.
+
+2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (dvi): Move targets to $(docobjdir).
+	(treelang.dvi): Simplify rule and adjust target.
+	(treelang.info): Simplify rule.
+	(parse.o): Correct dependencies.
+	(TREE_EXE): Delete doubled suffix append.
+
+2003-10-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (treelang.o): Depend on $(parsedir)/treelang/parse.h.
+	(lex.o): Likewise.
+
+2003-10-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (parse.o): Honor $(parsedir).
+	(lex.o): Likewise.
+	(lex.c): Likewise
+	(parse.c, parse.h): Likewise.
+	($(docobjdir)/treelang.info): Replace $(srcdir)/doc with $(docdir).
+	(dvi): Likewise.
+
+2003-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in ($(docobjdir)/treelang/treelang.info): Depend on
+	stmp-docobjdir.
+
+	* Make-lang.in (info): Use docobjdir.
+	($(srcdir)/treelang/treelang.info): Replace with ...
+	($(docobjdir)/treelang/treelang.info): ... this.
+	(install-info): New target.
+
+2003-10-12  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (treelang.install-info): Remove reference to
+	treelang.info.
+	(treelang.): Removed.
+
+2003-10-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (treelang.info): Replace with ...
+	(info): ... this.
+	* Make-lang.in (treelang.dvi): Replace with ...
+	(dvi): ... this.
+
 2003-09-21  Richard Henderson  <rth@redhat.com>
 
 	* treetree.c: Revert.

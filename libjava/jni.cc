@@ -767,9 +767,6 @@ static T
   obj = unwrap (obj);
   klass = unwrap (klass);
 
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -791,6 +788,7 @@ static T
       jvalue result;
       _Jv_CallAnyMethodA (obj, return_type, id,
 			  style == constructor,
+			  style == normal,
 			  arg_types, args, &result);
 
       return wrap_value (env, extract_from_jvalue<T>(result));
@@ -826,9 +824,6 @@ static T
   obj = unwrap (obj);
   klass = unwrap (klass);
 
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -857,6 +852,7 @@ static T
       jvalue result;
       _Jv_CallAnyMethodA (obj, return_type, id,
 			  style == constructor,
+			  style == normal,
 			  arg_types, arg_copy, &result);
 
       return wrap_value (env, extract_from_jvalue<T>(result));
@@ -877,9 +873,6 @@ static void
   obj = unwrap (obj);
   klass = unwrap (klass);
 
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -899,6 +892,7 @@ static void
 
       _Jv_CallAnyMethodA (obj, return_type, id,
 			  style == constructor,
+			  style == normal,
 			  arg_types, args, NULL);
     }
   catch (jthrowable t)
@@ -924,9 +918,6 @@ static void
 (JNICALL _Jv_JNI_CallAnyVoidMethodA) (JNIEnv *env, jobject obj, jclass klass,
 			              jmethodID id, jvalue *args)
 {
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -950,6 +941,7 @@ static void
 
       _Jv_CallAnyMethodA (obj, return_type, id,
 			  style == constructor,
+			  style == normal,
 			  arg_types, args, NULL);
     }
   catch (jthrowable t)
@@ -1306,12 +1298,14 @@ static const char *
 (JNICALL _Jv_JNI_GetStringUTFChars) (JNIEnv *env, jstring string, 
                                      jboolean *isCopy)
 {
-  string = unwrap (string);
-  jsize len = JvGetStringUTFLength (string);
   try
     {
+      string = unwrap (string);
+      if (string == NULL)
+	return NULL;
+      jsize len = JvGetStringUTFLength (string);
       char *r = (char *) _Jv_Malloc (len + 1);
-      JvGetStringUTFRegion (string, 0, len, r);
+      JvGetStringUTFRegion (string, 0, string->length(), r);
       r[len] = '\0';
 
       if (isCopy)
@@ -2385,7 +2379,7 @@ static jint
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetDefaultJavaVMInitArgs (void *args)
 {
   jint version = * (jint *) args;
@@ -2402,7 +2396,7 @@ JNI_GetDefaultJavaVMInitArgs (void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
 {
   JvAssert (! the_vm);
@@ -2467,7 +2461,7 @@ JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetCreatedJavaVMs (JavaVM **vm_buffer, jsize buf_len, jsize *n_vms)
 {
   if (buf_len <= 0)

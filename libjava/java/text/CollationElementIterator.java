@@ -53,6 +53,7 @@ package java.text;
  *
  * @author Aaron M. Renn <arenn@urbanophile.com>
  * @author Tom Tromey <tromey@cygnus.com>
+ * @author Guilhem Lavaux <guilhem.lavaux@free.fr>
  */
 public final class CollationElementIterator
 {
@@ -75,25 +76,41 @@ public final class CollationElementIterator
   /**
    * This is the index into the String where we are currently scanning.
    */
-  int index;
+  int textIndex;
 
   // A piece of lookahead.
   boolean lookahead_set;
   int lookahead;
 
   /**
-   * This method returns the collation ordering value of the next character
-   * in the string.  This method will return <code>NULLORDER</code> if the
+   * This method initializes a new instance of <code>CollationElementIterator</code>
+   * to iterate over the specified <code>String</code> using the rules in the
+   * specified <code>RuleBasedCollator</code>.
+   *
+   * @param collator The <code>RuleBasedCollation</code> used for calculating collation values
+   * @param text The <code>String</code> to iterate over.
+   */
+  CollationElementIterator(RuleBasedCollator collator, String text)
+  {
+    this.collator = collator;
+    
+    setText (text);    
+  }
+
+  /**
+   * This method returns the collation ordering value of the next character sequence
+   * in the string (it may be an extended character following collation rules).
+   * This method will return <code>NULLORDER</code> if the
    * end of the string was reached.
    *
    * @return The collation ordering value.
    */
-  public int next ()
+  public int next()
   {
-    if (index == text.length())
+    if (textIndex == text.length())
       return NULLORDER;
 
-    return collator.ceiNext(this);
+    return collator.ceiNext (this);
   }
 
   /**
@@ -104,7 +121,7 @@ public final class CollationElementIterator
    *
    * @return The primary order value of the specified collation value.  This is the high 16 bits.
    */
-  public static final int primaryOrder (int order)
+  public static final int primaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return order >>> 16;
@@ -114,9 +131,9 @@ public final class CollationElementIterator
    * This method resets the internal position pointer to read from the
    * beginning of the <code>String again.
    */
-  public void reset ()
+  public void reset()
   {
-    index = 0;
+    textIndex = 0;
   }
 
   /**
@@ -127,7 +144,7 @@ public final class CollationElementIterator
    *
    * @return The secondary order value of the specified collation value.  This is the bits 8-15.
    */
-  public static final short secondaryOrder (int order)
+  public static final short secondaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return (short) ((order >>> 8) & 255);
@@ -141,21 +158,38 @@ public final class CollationElementIterator
    *
    * @return The tertiary order value of the specified collation value.  This is the low eight bits.
    */
-  public static final short tertiaryOrder (int order)
+  public static final short tertiaryOrder(int order)
   {
     // From the JDK 1.2 spec.
     return (short) (order & 255);
   }
 
-  // Non-public constructor.
-  CollationElementIterator (String text, RuleBasedCollator collator)
+  /**
+   * This method sets the <code>String</code> that it is iterating over
+   * to the specified <code>String</code>.
+   *
+   * @param text The new <code>String</code> to iterate over.
+   *
+   * @since 1.2
+   */
+  public void setText(String text)
   {
     this.text = text;
-    this.index = 0;
+    this.textIndex = 0;
     this.lookahead_set = false;
     this.lookahead = 0;
-    this.collator = collator;
   }
 
-} // class CollationElementIterator
-
+  /**
+   * This method returns the current offset into the <code>String</code>
+   * that is being iterated over.
+   *
+   * @return The iteration index position.
+   *
+   * @since 1.2
+   */
+  public int getOffset()
+  {
+    return textIndex;
+  }
+}

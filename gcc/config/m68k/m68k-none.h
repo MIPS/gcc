@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler.  "naked" 68020.
    Copyright (C) 1994, 1996, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -82,6 +82,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{m68851}%{mno-68851}%{m68881}%{mno-68881}%{msoft-float:-mno-68881} %{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}%{m68040}%{m68020-40:-mc68040} %{m68020-60:-mc68040} %{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%(asm_cpu_default)}}}}}}}}}}}}}}}}}} \
+%{fPIC:--pcrel} %{fpic:--pcrel} %{msep-data:--pcrel} %{mid-shared-library:--pcrel} \
 "
 
 /* cc1/cc1plus always receives all the -m flags. If the specs strings above 
@@ -96,7 +97,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */

@@ -62,7 +62,7 @@
 /* Determine the machine type: */
 # if defined(__arm__) || defined(__thumb__)
 #    define ARM32
-#    if !defined(LINUX)
+#    if !defined(LINUX) && !defined(NETBSD)
 #      define NOSYS
 #      define mach_type_known
 #    endif
@@ -722,8 +722,7 @@
 #       define ALIGNMENT 8
 #       define CPP_WORDSZ 64
 #     else
-#       define ALIGNMENT 4	/* Guess.  Can someone verify?	*/
-				/* This was 2, but that didn't sound right. */
+#       define ALIGNMENT 4
 #     endif
 #     define OS_TYPE "LINUX"
       /* HEURISTIC1 has been reliably reported to fail for a 32-bit	*/
@@ -1689,8 +1688,13 @@
 #   ifdef NETBSD
 #       define OS_TYPE "NETBSD"
 #       define HEURISTIC2
-       extern char etext[];
-#       define DATASTART ((ptr_t)(etext))
+#	ifdef __ELF__
+#          define DATASTART GC_data_start
+#	   define DYNAMIC_LOADING
+#	else
+           extern char etext[];
+#          define DATASTART ((ptr_t)(etext))
+#	endif
 #       define USE_GENERIC_PUSH_REGS
 #   endif
 #   ifdef LINUX

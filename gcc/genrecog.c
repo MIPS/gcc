@@ -378,7 +378,7 @@ find_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -429,7 +429,7 @@ find_matching_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -633,7 +633,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	if (GET_CODE (dest) == STRICT_LOW_PART)
 	  dest = XEXP (dest, 0);
 
-	/* Find the referant for a DUP.  */
+	/* Find the referent for a DUP.  */
 
 	if (GET_CODE (dest) == MATCH_DUP
 	    || GET_CODE (dest) == MATCH_OP_DUP
@@ -812,7 +812,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	 beyond the end of the vector.  */
       test = new_decision_test (DT_veclen_ge, &place);
       test->u.veclen = XVECLEN (pattern, 2);
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
@@ -1734,6 +1734,20 @@ write_afterward (struct decision *start, struct decision *afterward,
     }
 }
 
+/* Emit a HOST_WIDE_INT as an integer constant expression.  We need to take
+   special care to avoid "decimal constant is so large that it is unsigned"
+   warnings in the resulting code.  */
+
+static void
+print_host_wide_int (HOST_WIDE_INT val)
+{
+  HOST_WIDE_INT min = (unsigned HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1);
+  if (val == min)
+    printf ("(" HOST_WIDE_INT_PRINT_DEC_C "-1)", val + 1);
+  else
+    printf (HOST_WIDE_INT_PRINT_DEC_C, val);
+}
+
 /* Emit a switch statement, if possible, for an initial sequence of
    nodes at START.  Return the first node yet untested.  */
 
@@ -1907,7 +1921,7 @@ write_switch (struct decision *start, int depth)
 	    case DT_elt_one_int:
 	    case DT_elt_zero_wide:
 	    case DT_elt_zero_wide_safe:
-	      printf (HOST_WIDE_INT_PRINT_DEC_C, p->tests->u.intval);
+	      print_host_wide_int (p->tests->u.intval);
 	      break;
 	    default:
 	      abort ();
@@ -1964,7 +1978,7 @@ write_cond (struct decision_test *p, int depth,
     case DT_elt_zero_wide:
     case DT_elt_zero_wide_safe:
       printf ("XWINT (x%d, 0) == ", depth);
-      printf (HOST_WIDE_INT_PRINT_DEC_C, p->u.intval);
+      print_host_wide_int (p->u.intval);
       break;
 
     case DT_veclen_ge:

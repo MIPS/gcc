@@ -45,8 +45,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.SocketOptions;
 import java.net.SocketException;
+import java.net.SocketOptions;
 import gnu.classpath.Configuration;
 
 /**
@@ -94,7 +94,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
   /**
    * This is the actual underlying file descriptor
    */
-  int fnum = -1;
+  int native_fd = -1;
 
   // FIXME: Is this necessary?  Could it help w/ DatagramSocket.getLocalAddress?
   // InetAddress address;
@@ -116,7 +116,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
   {
     synchronized (this)
       {
-	if (fnum != -1)
+	if (native_fd != -1)
 	  close();
       }
     super.finalize();
@@ -124,7 +124,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
 
   public int getNativeFD()
   {
-    return fnum;
+    return native_fd;
   }
 
   /**
@@ -211,8 +211,21 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    */
   public native Object getOption(int optID) throws SocketException;
   
-  private native void mcastGrp(InetAddress inetaddr, NetworkInterface netIf,
-		               boolean join) throws IOException;
+  /**
+   * Joins or leaves a broadcasting group on a given network interface.
+   * If the network interface is <code>null</code> the group is join/left on
+   * all locale network interfaces.
+   * 
+   * @param inetAddr The broadcast address.
+   * @param netIf The network interface to join the group on.
+   * @param join True to join a broadcasting group, fals to leave it.
+   *
+   * @exception IOException If an error occurs.
+   */
+  private native void mcastGrp(InetAddress inetAddr,
+		  	       NetworkInterface netIf,
+		               boolean join)
+    throws IOException;
 
   /**
    * Closes the socket

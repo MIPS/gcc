@@ -91,32 +91,42 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 
 # Sources present in the src directory.
 sources = \
-	allocator-inst.cc \
 	codecvt.cc \
 	complex_io.cc \
-	concept-inst.cc \
 	ctype.cc \
+	debug.cc \
 	demangle.cc \
-	ext-inst.cc \
-	fstream-inst.cc \
 	functexcept.cc \
-	globals.cc \
-	io-inst.cc \
+	globals_locale.cc \
+	globals_io.cc \
 	ios.cc \
-	istream-inst.cc \
+	ios_failure.cc \
+	ios_init.cc \
+	ios_locale.cc \
 	limits.cc \
+	list.cc \
 	locale.cc \
-	locale-inst.cc \
+	locale_init.cc \
+	locale_facets.cc \
 	localename.cc \
+	stdexcept.cc \
+	strstream.cc \
+	tree.cc \
+	allocator-inst.cc \
+	concept-inst.cc \
+	fstream-inst.cc \
+	ext-inst.cc \
+	io-inst.cc \
+	istream-inst.cc \
+	locale-inst.cc \
+	locale-misc-inst.cc \
 	misc-inst.cc \
 	ostream-inst.cc \
 	sstream-inst.cc \
-	stdexcept.cc \
-	stl_tree.cc \
 	streambuf-inst.cc \
 	string-inst.cc \
-	strstream.cc \
 	valarray-inst.cc \
+	wlocale-inst.cc \
 	wstring-inst.cc \
 	${host_sources} \
 	${host_sources_extra}
@@ -132,8 +142,7 @@ libstdc___la_LIBADD = \
 libstdc___la_DEPENDENCIES = ${version_dep} $(libstdc___la_LIBADD)
 
 libstdc___la_LDFLAGS = \
-	-version-info $(libtool_VERSION) ${version_arg} \
-	-lm $(LIBUNWIND_FLAG)
+	-version-info $(libtool_VERSION) ${version_arg} -lm 
 
 
 # Use special rules for the deprecated source files so that they find

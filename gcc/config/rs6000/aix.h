@@ -128,7 +128,7 @@
 #define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\
 %{p:-L/lib/profiled -L/usr/lib/profiled} %{!shared:%{g*:-lg}} -lc"
 
-/* This now supports a natural alignment mode. */
+/* This now supports a natural alignment mode.  */
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
@@ -139,14 +139,12 @@
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)				\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE						\
+    || TREE_CODE (STRUCT) == UNION_TYPE						\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)					\
+   && TARGET_ALIGN_NATURAL == 0							\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* The AIX ABI isn't explicit on whether aggregates smaller than a
@@ -155,7 +153,7 @@
    layout treating the parameter area as any other block of memory,
    then map the reg param area to registers, i.e., pad upward, which
    is the way IBM Compilers for AIX behave.
-   Setting both of the following defines results in this behaviour.  */
+   Setting both of the following defines results in this behavior.  */
 #define AGGREGATE_PADDING_FIXED 1
 #define AGGREGATES_PAD_UPWARD_ALWAYS 1
 
@@ -197,33 +195,6 @@
 
 /* Define cutoff for using external functions to save floating point.  */
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
-
-/* Optabs entries for the int->float routines and quad FP operations
-   using the standard AIX names.  */
-#define ADDTF3_LIBCALL "_xlqadd"
-#define DIVTF3_LIBCALL "_xlqdiv"
-#define MULTF3_LIBCALL "_xlqmul"
-#define SUBTF3_LIBCALL "_xlqsub"
-
-#define INIT_TARGET_OPTABS						\
-  do {									\
-    if (! TARGET_POWER2 && ! TARGET_POWERPC && TARGET_HARD_FLOAT)	\
-      {									\
-	fixdfsi_libfunc = init_one_libfunc (RS6000_ITRUNC);		\
-	fixunsdfsi_libfunc = init_one_libfunc (RS6000_UITRUNC);		\
-      }									\
-    if (TARGET_HARD_FLOAT)						\
-      {									\
-	add_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (ADDTF3_LIBCALL);				\
-	sub_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (SUBTF3_LIBCALL);				\
-	smul_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (MULTF3_LIBCALL);				\
-	sdiv_optab->handlers[(int) TFmode].libfunc			\
-	  = init_one_libfunc (DIVTF3_LIBCALL);				\
-      }									\
-  } while (0)
 
 /* __throw will restore its own return address to be the same as the
    return address of the function that the throw is being made to.
@@ -268,3 +239,8 @@
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
+
+/* No version of AIX fully supports AltiVec or 64-bit instructions in
+   32-bit mode.  */
+#define OS_MISSING_POWERPC64 1
+#define OS_MISSING_ALTIVEC 1

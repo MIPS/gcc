@@ -42,7 +42,10 @@ exception statement from your version. */
 
 #ifdef JVM_SUN
   struct state_table *native_state_table;
+  struct state_table *native_global_ref_table;
 #endif
+
+jmethodID setBoundsCallbackID;
 
 jmethodID postActionEventID;
 jmethodID postMenuActionEventID;
@@ -53,13 +56,18 @@ jmethodID postKeyEventID;
 jmethodID postFocusEventID;
 jmethodID postAdjustmentEventID;
 jmethodID postItemEventID;
+jmethodID choicePostItemEventID;
 jmethodID postListItemEventID;
 jmethodID postTextEventID;
+jmethodID postWindowEventID;
+
 JNIEnv *gdk_env;
 
 #ifdef PORTABLE_NATIVE_SYNC
 JavaVM *gdk_vm;
 #endif
+
+GtkWindowGroup *global_gtk_window_group;
 
 /*
  * Call gtk_init.  It is very important that this happen before any other
@@ -73,8 +81,8 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   char **argv;
   char *homedir, *rcpath = NULL;
 /*    jclass gtkgenericpeer; */
-  jclass gtkcomponentpeer, gtkwindowpeer, gtkscrollbarpeer, gtklistpeer,
-    gtkmenuitempeer, gtktextcomponentpeer;
+  jclass gtkcomponentpeer, gtkchoicepeer, gtkwindowpeer, gtkscrollbarpeer, gtklistpeer,
+    gtkmenuitempeer, gtktextcomponentpeer, window;
 
   NSA_INIT (env, clazz);
 
@@ -127,8 +135,13 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   /* setup cached IDs for posting GTK events to Java */
 /*    gtkgenericpeer = (*env)->FindClass (env,  */
 /*  				      "gnu/java/awt/peer/gtk/GtkGenericPeer"); */
+
+  window = (*env)->FindClass (env, "java/awt/Window");
+
   gtkcomponentpeer = (*env)->FindClass (env,
 				     "gnu/java/awt/peer/gtk/GtkComponentPeer");
+  gtkchoicepeer = (*env)->FindClass (env,
+				     "gnu/java/awt/peer/gtk/GtkChoicePeer");
   gtkwindowpeer = (*env)->FindClass (env,
 				     "gnu/java/awt/peer/gtk/GtkWindowPeer");
   gtkscrollbarpeer = (*env)->FindClass (env, 
@@ -145,13 +158,20 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
 /*  					   "postActionEvent",  */
 /*  					   "(Ljava/lang/String;I)V"); */
 
+  setBoundsCallbackID = (*env)->GetMethodID (env, window,
+					     "setBoundsCallback",
+					     "(IIII)V");
+
   postMenuActionEventID = (*env)->GetMethodID (env, gtkmenuitempeer,
 					       "postMenuActionEvent",
 					       "()V");
   postMouseEventID = (*env)->GetMethodID (env, gtkcomponentpeer, 
 					  "postMouseEvent", "(IJIIIIZ)V");
   postConfigureEventID = (*env)->GetMethodID (env, gtkwindowpeer, 
-					  "postConfigureEvent", "(IIIIIIII)V");
+					      "postConfigureEvent", "(IIII)V");
+  postWindowEventID = (*env)->GetMethodID (env, gtkwindowpeer,
+					   "postWindowEvent",
+					   "(ILjava/awt/Window;I)V");
   postExposeEventID = (*env)->GetMethodID (env, gtkcomponentpeer, 
 					  "postExposeEvent", "(IIII)V");
   postKeyEventID = (*env)->GetMethodID (env, gtkcomponentpeer,
@@ -164,19 +184,24 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit (JNIEnv *env, jclass clazz)
   postItemEventID = (*env)->GetMethodID (env, gtkcomponentpeer,
 					 "postItemEvent", 
 					 "(Ljava/lang/Object;I)V");
+  choicePostItemEventID = (*env)->GetMethodID (env, gtkchoicepeer,
+					 "choicePostItemEvent", 
+					 "(Ljava/lang/String;I)V");
   postListItemEventID = (*env)->GetMethodID (env, gtklistpeer,
 					     "postItemEvent",
 					     "(II)V");
   postTextEventID = (*env)->GetMethodID (env, gtktextcomponentpeer,
 					     "postTextEvent",
 					     "()V");
+  global_gtk_window_group = gtk_window_group_new ();
 }
 
 /*
  * Run gtk_main and block.
  */ 
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain (JNIEnv *env, jobject obj)
+Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)))
 {
   gdk_threads_enter ();
   gtk_main ();

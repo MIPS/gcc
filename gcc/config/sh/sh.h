@@ -4,20 +4,20 @@
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -576,7 +576,7 @@ do {									\
 #define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
 
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
-   longer. */
+   longer.  */
 #define INT_TYPE_SIZE 32
 
 /* Width in bits of a `long'.  */
@@ -742,8 +742,6 @@ extern char sh_register_names[][MAX_REGISTER_NAME_LENGTH + 1];
   "gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr",	\
   "rap"									\
 }
-
-#define DEBUG_REGISTER_NAMES SH_REGISTER_NAMES_INITIALIZER
 
 #define REGNAMES_ARR_INDEX_1(index) \
   (sh_register_names[index])
@@ -1254,7 +1252,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000ff },	\
 /* ALL_REGS:  */							\
   { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x01ffffff },	\
-}									 
+}
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1645,7 +1643,7 @@ extern enum reg_class reg_class_from_letter[];
 		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
 	    ? (TARGET_SHMEDIA ? DImode : SImode) : TYPE_MODE (VALTYPE)), \
 	   BASE_RETURN_VALUE_REG (TYPE_MODE (VALTYPE)))
-     
+
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 #define LIBCALL_VALUE(MODE) \
@@ -2035,10 +2033,6 @@ struct sh_args {
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = sh_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sh_va_start (valist, nextarg)
@@ -2073,7 +2067,7 @@ struct sh_args {
 
 #define EXIT_IGNORE_STACK 1
 
-/* 
+/*
    On the SH, the trampoline looks like
    2 0002 D202     	   	mov.l	l2,r2
    1 0000 D301     		mov.l	l1,r3
@@ -2881,7 +2875,7 @@ struct sh_args {
    used to use the encodings 245..260, but that doesn't make sense:
    PR_REG and PR_MEDIA_REG are actually the same register, and likewise
    the FP registers stay the same when switching between compact and media
-   mode.  Hence, we also need to use the same dwarf frame coloumns.
+   mode.  Hence, we also need to use the same dwarf frame columns.
    Likewise, we need to support unwind information for SHmedia registers
    even in compact code.  */
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
@@ -3151,6 +3145,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
   {"binary_logical_operator", {AND, IOR, XOR}},				\
+  {"cmpsi_operand", {SUBREG, REG, CONST_INT}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3189,7 +3184,7 @@ extern int rtx_equal_function_value_matters;
 #define any_register_operand register_operand
 
 /* Define this macro if it is advisable to hold scalars in registers
-   in a wider mode than that declared by the program.  In such cases, 
+   in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
    type, but kept valid in the wider mode.  The signedness of the
    extension may differ from that of the type.
@@ -3213,7 +3208,7 @@ extern int rtx_equal_function_value_matters;
 #define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 
 /* ??? Define ACCUMULATE_OUTGOING_ARGS?  This is more efficient than pushing
-   and poping arguments.  However, we do have push/pop instructions, and
+   and popping arguments.  However, we do have push/pop instructions, and
    rather limited offsets (4 bits) in load/store instructions, so it isn't
    clear if this would give better code.  If implemented, should check for
    compatibility problems.  */
@@ -3234,6 +3229,11 @@ extern int rtx_equal_function_value_matters;
    ? (TARGET_FMOVD ? FP_MODE_DOUBLE : FP_MODE_NONE) \
    : ACTUAL_NORMAL_MODE (ENTITY))
 
+#define MODE_ENTRY(ENTITY) NORMAL_MODE (ENTITY)
+
+#define MODE_EXIT(ENTITY) \
+  (sh_cfun_attr_renesas_p () ? FP_MODE_NONE : NORMAL_MODE (ENTITY))
+
 #define EPILOGUE_USES(REGNO)       ((TARGET_SH2E || TARGET_SH4)		\
 				    && (REGNO) == FPSCR_REG)
 
@@ -3241,6 +3241,13 @@ extern int rtx_equal_function_value_matters;
   (recog_memoized (INSN) >= 0						\
    ? get_attr_fp_mode (INSN)						\
    : FP_MODE_NONE)
+
+#define MODE_AFTER(MODE, INSN)                  \
+     (TARGET_HITACHI				\
+      && recog_memoized (INSN) >= 0		\
+      && get_attr_fp_set (INSN) != FP_SET_NONE  \
+      ? get_attr_fp_set (INSN)                  \
+      : (MODE))
 
 #define MODE_PRIORITY_TO_MODE(ENTITY, N) \
   ((TARGET_FPU_SINGLE != 0) ^ (N) ? FP_MODE_SINGLE : FP_MODE_DOUBLE)

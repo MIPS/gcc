@@ -25,7 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hashtable.h"
 
-#ifdef HAVE_ICONV
+#if defined HAVE_ICONV_H && defined HAVE_ICONV
 #include <iconv.h>
 #else
 #define HAVE_ICONV 0
@@ -35,10 +35,10 @@ typedef int iconv_t;  /* dummy */
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
-struct strbuf;
+struct _cpp_strbuf;
 
 typedef bool (*convert_f) (iconv_t, const unsigned char *, size_t,
-			   struct strbuf *);
+			   struct _cpp_strbuf *);
 struct cset_converter
 {
   convert_f func;
@@ -270,7 +270,7 @@ struct cpp_buffer
   const uchar *cur;		/* Current location.  */
   const uchar *line_base;	/* Start of current physical line.  */
   const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
-  
+
   const uchar *buf;		/* Entire character buffer.  */
   const uchar *rlimit;		/* Writable byte at end of file.  */
 
@@ -307,17 +307,16 @@ struct cpp_buffer
      include files has been calculated and stored in "dir" below.  */
   unsigned char search_cached;
 
-  /* At EOF, a buffer is automatically popped.  If RETURN_AT_EOF is
-     true, a CPP_EOF token is then returned.  Otherwise, the next
-     token from the enclosing buffer is returned.  */
-  bool return_at_eof;
-
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
   struct cpp_dir dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
   const uchar *saved_cur, *saved_rlimit;
+
+  /* Descriptor for converting from the input character set to the
+     source character set.  */
+  struct cset_converter input_cset_desc;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -335,7 +334,7 @@ struct cpp_reader
   struct lexer_state state;
 
   /* Source line tracking.  */
-  struct line_maps line_maps;
+  struct line_maps *line_table;
   const struct line_map *map;
   fileline line;
 
@@ -361,6 +360,8 @@ struct cpp_reader
 
   /* Chain of all hashed _cpp_file instances.  */
   struct _cpp_file *all_files;
+
+  struct _cpp_file *main_file;
 
   /* File and directory hash table.  */
   struct htab *file_hash;
@@ -515,9 +516,13 @@ extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In cppfiles.c */
+typedef struct _cpp_file _cpp_file;
+extern _cpp_file *_cpp_find_file (cpp_reader *, const char *fname,
+				  cpp_dir *start_dir, bool fake);
+extern bool _cpp_find_failed (_cpp_file *);
 extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
 extern void _cpp_fake_include (cpp_reader *, const char *);
-extern bool _cpp_stack_file (cpp_reader *, const char *);
+extern bool _cpp_stack_file (cpp_reader *, _cpp_file*, bool);
 extern bool _cpp_stack_include (cpp_reader *, const char *, int,
 				enum include_type);
 extern int _cpp_compare_file_date (cpp_reader *, const char *, int);
@@ -525,6 +530,8 @@ extern void _cpp_report_missing_guards (cpp_reader *);
 extern void _cpp_init_files (cpp_reader *);
 extern void _cpp_cleanup_files (cpp_reader *);
 extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
+extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
+extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
 
 /* In cppexp.c */
 extern bool _cpp_parse_expr (cpp_reader *);
@@ -556,6 +563,9 @@ extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 				 unsigned int, unsigned int);
 extern void _cpp_pop_buffer (cpp_reader *);
+extern uchar *_cpp_input_to_utf8 (cpp_reader *, const unsigned char *, cppchar_t);
+extern void _cpp_init_iconv_buffer (cpp_reader *, const char *);
+extern void _cpp_close_iconv_buffer (cpp_reader *);
 
 /* In cpptrad.c.  */
 extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);

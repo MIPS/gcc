@@ -496,11 +496,6 @@ enum reg_class
   if (! SECOND_TIME) \
     xstormy16_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE)
 
-/* Build up the stdarg/varargs va_list type tree, assigning it to NODE.  If not
-   defined, it is assumed that va_list is a void * pointer.  */
-#define BUILD_VA_LIST_TYPE(NODE) \
-  ((NODE) = xstormy16_build_va_list ())
-
 /* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
@@ -513,11 +508,6 @@ enum reg_class
    va_list as a tree, TYPE is the type passed to va_arg.  */
 #define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
   xstormy16_expand_builtin_va_arg (VALIST, TYPE)
-
-/* Implement the stdarg/varargs va_end macro.  VALIST is the variable of type
-   va_list as a tree.  */
-/* #define EXPAND_BUILTIN_VA_END(VALIST) */
-
 
 /* Trampolines for Nested Functions.  */
 
@@ -684,18 +674,6 @@ do {							\
 #define ASM_APP_ON "#APP\n"
 
 #define ASM_APP_OFF "#NO_APP\n"
-
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a `FUNCTION_DECL', a `VAR_DECL' or
-   `NULL_TREE'.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.
-
-   At present this macro is only used to support section attributes.  When this
-   macro is undefined, section attributes are disabled.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME) */
-
 
 /* Output of Data.  */
 

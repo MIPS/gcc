@@ -22,7 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef __XTENSA_PROTOS_H__
 #define __XTENSA_PROTOS_H__
 
-/* Functions to test whether an immediate fits in a given field. */
+/* Functions to test whether an immediate fits in a given field.  */
 extern int xtensa_simm7 (int);
 extern int xtensa_simm8 (int);
 extern int xtensa_simm8x256 (int);
@@ -96,7 +96,6 @@ extern int a7_overlap_mentioned_p (rtx);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern struct rtx_def *function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, int);
-extern tree xtensa_build_va_list (void);
 #endif /* TREE_CODE */
 
 extern int xtensa_mask_immediate (int);

@@ -71,6 +71,7 @@
 #define SUBTARGET_OVERRIDE_OPTIONS				  	\
 do {									\
   rs6000_altivec_abi = 1;						\
+  rs6000_altivec_vrsave = 1;						\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
@@ -97,9 +98,14 @@ do {									\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
+/* It's virtually impossible to predict all the possible combinations
+   of -mcpu and -maltivec and whatnot, so just supply
+   -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
+   assembler is asking for a .machine directive so we could get this
+   really right.  */
 #define ASM_SPEC "-arch ppc \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{maltivec|mcpu=*|mpowerpc64:-force_cpusubtype_ALL}}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
@@ -141,11 +147,29 @@ do {									\
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
 
-/* Always use the "debug" register names, they're what the assembler
-   wants to see.  */
-
+/* The assembler wants the alternate register names, but without
+   leading percent sign.  */
 #undef REGISTER_NAMES
-#define REGISTER_NAMES DEBUG_REGISTER_NAMES
+#define REGISTER_NAMES							\
+{									\
+     "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
+     "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",		\
+    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",		\
+    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",		\
+     "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",		\
+     "f8",  "f9", "f10", "f11", "f12", "f13", "f14", "f15",		\
+    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",		\
+    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
+     "mq",  "lr", "ctr",  "ap",						\
+    "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
+    "xer",								\
+     "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",             \
+     "v8",  "v9", "v10", "v11", "v12", "v13", "v14", "v15",             \
+    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
+    "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
+    "vrsave", "vscr",							\
+    "spe_acc", "spefscr"                                                \
+}
 
 /* This outputs NAME to FILE.  */
 
@@ -271,16 +295,14 @@ do {									\
 
 /* Darwin increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
-   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) \
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)           \
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
+    || TREE_CODE (STRUCT) == UNION_TYPE					\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
+   && TARGET_ALIGN_NATURAL == 0                         		\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
+   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) 		\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
@@ -298,3 +320,4 @@ do {									\
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+

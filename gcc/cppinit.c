@@ -124,7 +124,8 @@ init_library (void)
 
 /* Initialize a cpp_reader structure.  */
 cpp_reader *
-cpp_create_reader (enum c_lang lang, hash_table *table)
+cpp_create_reader (enum c_lang lang, hash_table *table,
+		   struct line_maps *line_table)
 {
   cpp_reader *pfile;
 
@@ -161,6 +162,9 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   CPP_OPTION (pfile, narrow_charset) = 0;
   CPP_OPTION (pfile, wide_charset) = 0;
 
+  /* Default the input character set to iso-8859-1 for now. */
+  CPP_OPTION (pfile, input_charset) = "ISO-8859-1";
+
   /* A fake empty "directory" used as the starting point for files
      looked up without a search path.  Name cannot be '/' because we
      don't want to prepend anything at all to filenames using it.  All
@@ -169,7 +173,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
 
   /* Initialize the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
-  linemap_init (&pfile->line_maps);
+  pfile->line_table = line_table;
   pfile->line = 1;
 
   /* Initialize lexer state.  */
@@ -259,7 +263,6 @@ cpp_destroy (cpp_reader *pfile)
       free (context);
     }
 
-  linemap_free (&pfile->line_maps);
   free (pfile);
 }
 
@@ -383,36 +386,37 @@ static void sanity_checks (cpp_reader *pfile)
      type precisions made by cpplib.  */
   test--;
   if (test < 1)
-    cpp_error (pfile, DL_ICE, "cppchar_t must be an unsigned type");
+    cpp_error (pfile, CPP_DL_ICE, "cppchar_t must be an unsigned type");
 
   if (CPP_OPTION (pfile, precision) > max_precision)
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "preprocessor arithmetic has maximum precision of %lu bits;"
 	       " target requires %lu bits",
 	       (unsigned long) max_precision,
 	       (unsigned long) CPP_OPTION (pfile, precision));
 
   if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "CPP arithmetic must be at least as precise as a target int");
 
   if (CPP_OPTION (pfile, char_precision) < 8)
-    cpp_error (pfile, DL_ICE, "target char is less than 8 bits wide");
+    cpp_error (pfile, CPP_DL_ICE, "target char is less than 8 bits wide");
 
   if (CPP_OPTION (pfile, wchar_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "target wchar_t is narrower than target char");
 
   if (CPP_OPTION (pfile, int_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "target int is narrower than target char");
 
   /* This is assumed in eval_token() and could be fixed if necessary.  */
   if (sizeof (cppchar_t) > sizeof (cpp_num_part))
-    cpp_error (pfile, DL_ICE, "CPP half-integer narrower than CPP character");
+    cpp_error (pfile, CPP_DL_ICE,
+	       "CPP half-integer narrower than CPP character");
 
   if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "CPP on this host cannot handle wide character constants over"
 	       " %lu bits, but the target requires %lu bits",
 	       (unsigned long) BITS_PER_CPPCHAR_T,
@@ -448,11 +452,10 @@ cpp_post_options (cpp_reader *pfile)
     mark_named_operators (pfile);
 }
 
-/* Setup for processing input from the file named FNAME,
-   or stdin if it is the empty string.  Return the original filename
-   on success (e.g. foo.i->foo.c), or NULL on failure.  */
-const char *
-cpp_read_main_file (cpp_reader *pfile, const char *fname)
+/* Setup for processing input from the file named FNAME, or stdin if
+   it is the empty string.  Returns true if the file was found.  */
+bool
+cpp_find_main_file (cpp_reader *pfile, const char *fname)
 {
   if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
     {
@@ -463,22 +466,13 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
       deps_add_default_target (pfile->deps, fname);
     }
 
-  if (!_cpp_stack_file (pfile, fname))
-    return NULL;
-
-  /* Set this here so the client can change the option if it wishes,
-     and after stacking the main file so we don't trace the main
-     file.  */
-  pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
-
-  /* For foo.i, read the original filename foo.c now, for the benefit
-     of the front ends.  */
-  if (CPP_OPTION (pfile, preprocessed))
-    read_original_filename (pfile);
+  pfile->main_file
+    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
+  if (_cpp_find_failed (pfile->main_file))
+    return false;
 
   if (CPP_OPTION (pfile, working_directory))
     {
-      const char *name = pfile->map->to_file;
       const char *dir = getpwd ();
       char *dir_with_slashes = alloca (strlen (dir) + 3);
 
@@ -487,14 +481,27 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
 
       if (pfile->cb.dir_change)
 	pfile->cb.dir_change (pfile, dir);
-      /* Emit file renames that will be recognized by
-	 read_directory_filename, since dir_change doesn't output
-	 anything.  */
-      _cpp_do_file_change (pfile, LC_RENAME, dir_with_slashes, 1, 0);
-      _cpp_do_file_change (pfile, LC_RENAME, name, 1, 0);
     }
+  return true;
+}
 
-  return pfile->map->to_file;
+/* This function reads the file, but does not start preprocessing.
+   This will generate at least one file change callback, and possibly
+   a line change callback.  */
+void
+cpp_push_main_file (cpp_reader *pfile)
+{
+  _cpp_stack_file (pfile, pfile->main_file, false);
+
+  /* For foo.i, read the original filename foo.c now, for the benefit
+     of the front ends.  */
+  if (CPP_OPTION (pfile, preprocessed))
+    read_original_filename (pfile);
+
+  /* Set this here so the client can change the option if it wishes,
+     and after stacking the main file so we don't trace the main
+     file.  */
+  pfile->line_table->trace_includes = CPP_OPTION (pfile, print_include_names);
 }
 
 /* For preprocessed files, if the first tokens are of the form # NUM.

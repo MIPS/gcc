@@ -106,6 +106,7 @@
    fpcmp,
    fpmul,fpdivs,fpdivd,
    fpsqrts,fpsqrtd,
+   fga,fgm_pack,fgm_mul,fgm_pdist,fgm_cmp,
    cmove,
    ialuX,
    multi,flushw,iflush,trap"
@@ -155,8 +156,12 @@
 	 (eq_attr "branch_type" "fcc")
 	   (if_then_else (match_operand 0 "fcc0_reg_operand" "")
 	     (if_then_else (eq_attr "empty_delay_slot" "true")
-	       (const_int 2)
-	       (const_int 1))
+	       (if_then_else (eq (symbol_ref "TARGET_V9") (const_int 0))
+		 (const_int 3)
+		 (const_int 2))
+	       (if_then_else (eq (symbol_ref "TARGET_V9") (const_int 0))
+		 (const_int 2)
+		 (const_int 1)))
 	     (if_then_else (lt (pc) (match_dup 2))
 	       (if_then_else (lt (minus (match_dup 2) (pc)) (const_int 260000))
 		 (if_then_else (eq_attr "empty_delay_slot" "true")
@@ -1916,7 +1921,7 @@
    st\t%r1, %0
    st\t%1, %0
    fzeros\t%0"
-  [(set_attr "type" "*,fpmove,*,*,load,fpload,store,fpstore,fpmove")])
+  [(set_attr "type" "*,fpmove,*,*,load,fpload,store,fpstore,fga")])
 
 (define_insn "*movsi_lo_sum"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -2188,7 +2193,7 @@
    ldd\t%1, %0
    std\t%1, %0
    fzero\t%0"
-  [(set_attr "type" "*,*,*,load,store,fpmove,fpload,fpstore,fpmove")
+  [(set_attr "type" "*,*,*,load,store,fpmove,fpload,fpstore,fga")
    (set_attr "fptype" "*,*,*,*,*,double,*,*,double")])
 
 (define_expand "movdi_pic_label_ref"
@@ -2636,7 +2641,7 @@
       abort();
     }
 }
-  [(set_attr "type" "fpmove,fpmove,*,*,*,*,load,fpload,fpstore,store")])
+  [(set_attr "type" "fpmove,fga,*,*,*,*,load,fpload,fpstore,store")])
 
 ;; Exactly the same as above, except that all `f' cases are deleted.
 ;; This is necessary to prevent reload from ever trying to use a `f' reg
@@ -2953,7 +2958,7 @@
   #
   #
   #"
-  [(set_attr "type" "fpmove,fpmove,load,store,store,load,store,*,*,*")
+  [(set_attr "type" "fga,fpmove,load,store,store,load,store,*,*,*")
    (set_attr "length" "*,*,*,*,*,*,*,2,2,2")
    (set_attr "fptype" "double,double,*,*,*,*,*,*,*,*")])
 
@@ -3000,7 +3005,7 @@
   ldx\t%1, %0
   stx\t%r1, %0
   #"
-  [(set_attr "type" "fpmove,fpmove,load,store,*,load,store,*")
+  [(set_attr "type" "fga,fpmove,load,store,*,load,store,*")
    (set_attr "length" "*,*,*,*,*,*,*,2")
    (set_attr "fptype" "double,double,*,*,*,*,*,*")])
 
@@ -4972,7 +4977,7 @@
    add\t%1, %2, %0
    sub\t%1, -%2, %0
    fpadd32s\t%1, %2, %0"
-  [(set_attr "type" "*,*,fp")])
+  [(set_attr "type" "*,*,fga")])
 
 (define_insn "*cmp_cc_plus"
   [(set (reg:CC_NOOV 100)
@@ -5128,7 +5133,7 @@
    sub\t%1, %2, %0
    add\t%1, -%2, %0
    fpsub32s\t%1, %2, %0"
-  [(set_attr "type" "*,*,fp")])
+  [(set_attr "type" "*,*,fga")])
 
 (define_insn "*cmp_minus_cc"
   [(set (reg:CC_NOOV 100)
@@ -5852,7 +5857,7 @@
   "@
   #
   fand\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -5864,7 +5869,7 @@
   "@
    and\t%1, %2, %0
    fand\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "andsi3"
@@ -5875,7 +5880,7 @@
   "@
    and\t%1, %2, %0
    fands\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
@@ -5947,7 +5952,7 @@
    operands[6] = gen_lowpart (SImode, operands[0]);
    operands[7] = gen_lowpart (SImode, operands[1]);
    operands[8] = gen_lowpart (SImode, operands[2]);"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -5959,7 +5964,7 @@
   "@
    andn\t%2, %1, %0
    fandnot1\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "*and_not_si"
@@ -5970,7 +5975,7 @@
   "@
    andn\t%2, %1, %0
    fandnot1s\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_expand "iordi3"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5987,7 +5992,7 @@
   "@
   #
   for\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -5999,7 +6004,7 @@
   "@
   or\t%1, %2, %0
   for\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "iorsi3"
@@ -6010,7 +6015,7 @@
   "@
    or\t%1, %2, %0
    fors\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
@@ -6048,7 +6053,7 @@
    operands[6] = gen_lowpart (SImode, operands[0]);
    operands[7] = gen_lowpart (SImode, operands[1]);
    operands[8] = gen_lowpart (SImode, operands[2]);"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -6060,7 +6065,7 @@
   "@
   orn\t%2, %1, %0
   fornot1\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "*or_not_si"
@@ -6071,7 +6076,7 @@
   "@
    orn\t%2, %1, %0
    fornot1s\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_expand "xordi3"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -6088,7 +6093,7 @@
   "@
   #
   fxor\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -6100,7 +6105,7 @@
   "@
   xor\t%r1, %2, %0
   fxor\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "*xordi3_sp64_dbl"
@@ -6119,7 +6124,7 @@
   "@
    xor\t%r1, %2, %0
    fxors\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
@@ -6173,7 +6178,7 @@
    operands[6] = gen_lowpart (SImode, operands[0]);
    operands[7] = gen_lowpart (SImode, operands[1]);
    operands[8] = gen_lowpart (SImode, operands[2]);"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -6185,7 +6190,7 @@
   "@
   xnor\t%r1, %2, %0
   fxnor\t%1, %2, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "*xor_not_si"
@@ -6196,7 +6201,7 @@
   "@
    xnor\t%r1, %2, %0
    fxnors\t%1, %2, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 ;; These correspond to the above in the case where we also (or only)
 ;; want to set the condition code.  
@@ -6459,7 +6464,7 @@
    operands[3] = gen_highpart (SImode, operands[1]);
    operands[4] = gen_lowpart (SImode, operands[0]);
    operands[5] = gen_lowpart (SImode, operands[1]);"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "length" "2,*")
    (set_attr "fptype" "double")])
 
@@ -6470,7 +6475,7 @@
   "@
    xnor\t%%g0, %1, %0
    fnot1\t%1, %0"
-  [(set_attr "type" "*,fp")
+  [(set_attr "type" "*,fga")
    (set_attr "fptype" "double")])
 
 (define_insn "one_cmplsi2"
@@ -6480,7 +6485,7 @@
   "@
   xnor\t%%g0, %1, %0
   fnot1s\t%1, %0"
-  [(set_attr "type" "*,fp")])
+  [(set_attr "type" "*,fga")])
 
 (define_insn "*cmp_cc_not"
   [(set (reg:CC 100)
@@ -7681,7 +7686,7 @@
   emit_insn (gen_rtx_USE (VOIDmode, valreg2));
 
   /* Construct the return.  */
-  expand_null_return ();
+  expand_naked_return ();
 
   DONE;
 })
@@ -8592,7 +8597,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(plus:SI (match_operand:SI 1 "register_operand" "r")
 		 (unspec:SI [(match_operand:SI 2 "register_operand" "r")
-			     (match_operand 3 "tld_symbolic_operand" "")]
+			     (match_operand 3 "tie_symbolic_operand" "")]
 			    UNSPEC_TLSIE)))]
   "TARGET_SUN_TLS && TARGET_ARCH32"
   "add\\t%1, %2, %0, %%tie_add(%a3)")
@@ -8601,7 +8606,7 @@
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "r")
 		 (unspec:DI [(match_operand:DI 2 "register_operand" "r")
-			     (match_operand 3 "tld_symbolic_operand" "")]
+			     (match_operand 3 "tie_symbolic_operand" "")]
 			    UNSPEC_TLSIE)))]
   "TARGET_SUN_TLS && TARGET_ARCH64"
   "add\\t%1, %2, %0, %%tie_add(%a3)")
@@ -8636,7 +8641,7 @@
   "TARGET_TLS && TARGET_ARCH64"
   "xor\\t%1, %%tle_lox10(%a2), %0")
 
-;; Now patterns combinding tldo_add{32,64} with some integer loads or stores
+;; Now patterns combining tldo_add{32,64} with some integer loads or stores
 (define_insn "*tldo_ldub_sp32"
   [(set (match_operand:QI 0 "register_operand" "=r")
 	(mem:QI (plus:SI (unspec:SI [(match_operand:SI 2 "register_operand" "r")

@@ -3,24 +3,24 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Names to predefine in the preprocessor for this target machine. */
+/* Names to predefine in the preprocessor for this target machine.  */
 
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
     }						\
   while (0)
 
-/* This declaration should be present. */
+/* This declaration should be present.  */
 extern int target_flags;
 
 #define MASK_ALL_DEBUG		0x00000FE0
@@ -127,13 +127,13 @@ extern int avr_asm_only_p;
 
 #define CAN_DEBUG_WITHOUT_FP
 /* Define this macro if debugging can be performed even without a
-   frame pointer.  If this macro is defined, GNU CC will turn on the
+   frame pointer.  If this macro is defined, GCC will turn on the
    `-fomit-frame-pointer' option whenever `-O' is specified.  */
 
-/* Define this if most significant byte of a word is the lowest numbered. */
+/* Define this if most significant byte of a word is the lowest numbered.  */
 #define BITS_BIG_ENDIAN 0
 
-/* Define this if most significant byte of a word is the lowest numbered. */
+/* Define this if most significant byte of a word is the lowest numbered.  */
 #define BYTES_BIG_ENDIAN 0
 
 /* Define this if most significant word of a multiword number is the lowest
@@ -144,7 +144,7 @@ extern int avr_asm_only_p;
 /* This is to get correct SI and DI modes in libgcc2.c (32 and 64 bits).  */
 #define UNITS_PER_WORD 4
 #else
-/* Width of a word, in units (bytes). */
+/* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 1
 #endif
 
@@ -157,16 +157,16 @@ extern int avr_asm_only_p;
    DImode or Dfmode ...  */
 #define MAX_FIXED_MODE_SIZE 32
 
-/* Allocation boundary (in *bits*) for storing arguments in argument list. */
+/* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 8
 
-/* Allocation boundary (in *bits*) for the code of a function. */
+/* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 8
 
-/* Alignment of field after `int : 0' in a structure. */
+/* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 8
 
-/* No data type wants to be aligned rounder than this. */
+/* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 8
 
 
@@ -211,7 +211,7 @@ extern int avr_asm_only_p;
 #define DOUBLE_TYPE_SIZE 32
 /* A C expression for the size in bits of the type `double' on the
    target machine.  If you don't define this, the default is two
-   words. */
+   words.  */
 
 
 #define LONG_DOUBLE_TYPE_SIZE 32
@@ -356,7 +356,7 @@ extern int avr_asm_only_p;
     32,33,34,35					\
     }
 /* If defined, an initializer for a vector of integers, containing the
-   numbers of hard registers in the order in which GNU CC should
+   numbers of hard registers in the order in which GCC should
    prefer to use them (from most preferred to least).
 
    If this macro is not defined, registers are used lowest numbered
@@ -366,7 +366,7 @@ extern int avr_asm_only_p;
    registers must always be saved and the save-multiple-registers
    instruction supports only sequences of consecutive registers.  On
    such machines, define `REG_ALLOC_ORDER' to be an initializer that
-   lists the highest numbered allocatable register first. */
+   lists the highest numbered allocatable register first.  */
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
 /* ORDER_REGS_FOR_LOCAL_ALLOC'
@@ -1014,7 +1014,7 @@ enum reg_class {
    stack when an instruction attempts to push NPUSHED bytes.
 
    If the target machine does not have a push instruction, do not
-   define this macro.  That directs GNU CC to use an alternate
+   define this macro.  That directs GCC to use an alternate
    strategy: to allocate the entire argument block and then store the
    arguments into it.
 
@@ -1147,7 +1147,7 @@ typedef struct avr_args {
    contains the name of the function, as a string.  LIBNAME is 0 when
    an ordinary C function call is being processed.  Thus, each time
    this macro is called, either LIBNAME or FNTYPE is nonzero, but
-   never both of them at once.   */
+   never both of them at once.  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (function_arg_advance (&CUM, MODE, TYPE, NAMED))
@@ -1160,7 +1160,7 @@ typedef struct avr_args {
 
    This macro need not do anything if the argument in question was
    passed on the stack.  The compiler knows how to track the amount
-   of stack space used for arguments without any special help. */
+   of stack space used for arguments without any special help.  */
 
 #define FUNCTION_ARG_REGNO_P(r) function_arg_regno_p(r)
 /* A C expression that is nonzero if REGNO is the number of a hard
@@ -1644,7 +1644,7 @@ do {									    \
 #define EXTRA_SECTION_FUNCTIONS						      \
 									      \
 void									      \
-progmem_section ()							      \
+progmem_section (void)							      \
 {									      \
   if (in_section != in_progmem)						      \
     {									      \
@@ -1931,7 +1931,7 @@ do {									 \
    output the additional assembler syntax for making that name weak,
    and a newline.
 
-   If you don't define this macro, GNU CC will not support weak
+   If you don't define this macro, GCC will not support weak
    symbols and you should not define the `SUPPORTS_WEAK' macro.
 */
 
@@ -2301,11 +2301,6 @@ extern int avr_case_values_threshold;
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   fprintf (FILE, "/* profiler %d */", (LABELNO))
 
-/* `FIRST_INSN_ADDRESS'
-   When the `length' insn attribute is used, this macro specifies the
-   value to be assigned to the address of the first insn in a
-   function.  If not specified, 0 is used.  */
-
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) (LENGTH =\
 					  adjust_insn_length (INSN, LENGTH))
 /* If defined, modifies the length assigned to instruction INSN as a
@@ -2320,33 +2315,33 @@ extern int avr_case_values_threshold;
    alignment may be required.  */
 
 #define TARGET_MEM_FUNCTIONS
-/* Define this macro if GNU CC should generate calls to the System V
+/* Define this macro if GCC should generate calls to the System V
    (and ANSI C) library functions `memcpy' and `memset' rather than
    the BSD functions `bcopy' and `bzero'.  */
 
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
 
-/* A C string constant that tells the GNU CC driver program options to
+/* A C string constant that tells the GCC driver program options to
    pass to CPP.  It can also specify how to translate options you
-   give to GNU CC into options for GNU CC to pass to the CPP.
+   give to GCC into options for GCC to pass to the CPP.
 
    Do not define this macro if it does not need to do anything.  */
 
 #define CC1_SPEC "%{profile:-p}"
-/* A C string constant that tells the GNU CC driver program options to
+/* A C string constant that tells the GCC driver program options to
    pass to `cc1'.  It can also specify how to translate options you
-   give to GNU CC into options for GNU CC to pass to the `cc1'.
+   give to GCC into options for GCC to pass to the `cc1'.
 
    Do not define this macro if it does not need to do anything.  */
 
 #define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
     %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
     %{!fexceptions:-fno-exceptions}"
-/* A C string constant that tells the GNU CC drvier program options to
+/* A C string constant that tells the GCC drvier program options to
    pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=*:-mmcu=%*}"
-/* A C string constant that tells the GNU CC driver program how to
+/* A C string constant that tells the GCC driver program how to
    run any programs which cleanup after the normal assembler.
    Normally, this is not needed.  See the file `mips.h' for an
    example of this.
@@ -2361,9 +2356,9 @@ extern int avr_case_values_threshold;
 %{mmcu=atmega16*|mmcu=atmega32*|mmcu=atmega64|mmcu=atmega128|mmcu=at94k:-m avr5}\
 %{mmcu=atmega64|mmcu=atmega128|mmcu=atmega162|mmcu=atmega169: -Tdata 0x800100} "
 
-/* A C string constant that tells the GNU CC driver program options to
+/* A C string constant that tells the GCC driver program options to
    pass to the linker.  It can also specify how to translate options
-   you give to GNU CC into options for GNU CC to pass to the linker.
+   you give to GCC into options for GCC to pass to the linker.
 
    Do not define this macro if it does not need to do anything.  */
 
@@ -2381,12 +2376,12 @@ extern int avr_case_values_threshold;
 
 #define LIBGCC_SPEC \
   "%{!mmcu=at90s1*:%{!mmcu=attiny1*:%{!mmcu=attiny28: -lgcc }}}"
-/* Another C string constant that tells the GNU CC driver program how
+/* Another C string constant that tells the GCC driver program how
    and when to place a reference to `libgcc.a' into the linker
    command line.  This constant is placed both before and after the
    value of `LIB_SPEC'.
 
-   If this macro is not defined, the GNU CC driver provides a default
+   If this macro is not defined, the GCC driver provides a default
    that passes the string `-lgcc' to the linker unless the `-shared'
    option is specified.  */
 
@@ -2476,26 +2471,10 @@ extern int avr_case_values_threshold;
 #define OUT_AS2(a,b,c) output_asm_insn (AS2(a,b,c), operands)
 #define CR_TAB "\n\t"
 
-/* Define this macro as a C statement that declares additional library
-   routines renames existing ones. `init_optabs' calls this macro
-   after initializing all the normal library routines.  */
-
-#define INIT_TARGET_OPTABS				\
-{							\
-  avr_init_once ();					\
-}
-
 /* Temporary register r0 */
 #define TMP_REGNO 0
 
 /* zero register r1 */
 #define ZERO_REGNO 1
-
-/* Temporary register which used for load immediate values to r0-r15  */
-#define LDI_REG_REGNO 31
-
-extern struct rtx_def *tmp_reg_rtx;
-extern struct rtx_def *zero_reg_rtx;
-extern struct rtx_def *ldi_reg_rtx;
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG

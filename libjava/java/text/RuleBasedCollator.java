@@ -35,7 +35,6 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package java.text;
 
 import java.util.Enumeration;
@@ -62,7 +61,10 @@ import java.util.Vector;
  * <li> Reset: '&amp;' : <text>
  * </ul>
  * The modifier character indicates that accents sort backward as is the
- * case with French.  The relational operators specify how the text 
+ * case with French.  The modifier applies to all rules <b>after</b>
+ * the modifier but before the next primary sequence. If placed at the end
+ * of the sequence if applies to all unknown accented character.
+ * The relational operators specify how the text 
  * argument relates to the previous term.  The relation characters have
  * the following meanings:
  * <ul>
@@ -113,6 +115,9 @@ import java.util.Vector;
  * anywhere in the previous rule string segment so the rule following the
  * reset rule cannot be inserted.
  * <p>
+ * "&lt; a &amp; A @ &lt; e &amp; E &lt; f&amp; F" - This sequence is equivalent to the following
+ * "&lt; a &amp; A &lt; E &amp; e &lt; f &amp; F".
+ * <p>
  * For a description of the various comparison strength types, see the
  * documentation for the <code>Collator</code> class.
  * <p>
@@ -134,23 +139,26 @@ import java.util.Vector;
  *
  * @author Aaron M. Renn <arenn@urbanophile.com>
  * @author Tom Tromey <tromey@cygnus.com>
- * @date March 25, 1999
+ * @author Guilhem Lavaux <guilhem@kaffe.org>
  */
-
-final class RBCElement
-{
-  String key;
-  char relation;
-
-  RBCElement (String key, char relation)
-  {
-    this.key = key;
-    this.relation = relation;
-  }
-}
-
 public class RuleBasedCollator extends Collator
 {
+  /**
+   * This class describes what rank has a character (or a sequence of characters) 
+   * in the lexicographic order. Each element in a rule has a collation element.
+   */
+  final class CollationElement
+  {
+    String key;
+    char relation;
+
+    CollationElement(String key, char relation)
+    {
+      this.key = key;
+      this.relation = relation;
+    }
+  }
+
   // True if we are using French-style accent ordering.
   private boolean frenchAccents;
 
@@ -166,7 +174,154 @@ public class RuleBasedCollator extends Collator
   // the prefix string.
   private Hashtable prefixes;
   
-  public Object clone ()
+  /**
+   * This method initializes a new instance of <code>RuleBasedCollator</code>
+   * with the specified collation rules.  Note that an application normally
+   * obtains an instance of <code>RuleBasedCollator</code> by calling the
+   * <code>getInstance</code> method of <code>Collator</code>.  That method
+   * automatically loads the proper set of rules for the desired locale.
+   *
+   * @param rules The collation rule string.
+   *
+   * @exception ParseException If the rule string contains syntax errors.
+   */
+  public RuleBasedCollator(String rules) throws ParseException
+  {
+    if (rules.equals(""))
+      throw new ParseException("empty rule set", 0);
+    
+    this.rules = rules;
+
+    // We keep each rule in order in a vector.  At the end we traverse
+    // the vector and compute collation values from it.
+    int insertion_index = 0;
+    Vector vec = new Vector ();
+
+    int index;
+    StringBuffer argument = new StringBuffer();
+    int len = rules.length();
+
+    for (index = 0; index < len; ++index)
+      {
+	char c = rules.charAt(index);
+
+	// Just skip whitespace.
+	if (Character.isWhitespace(c))
+	  continue;
+
+	// Modifier.
+	if (c == '@')
+	  {
+	    frenchAccents = true;
+	    continue;
+	  }
+
+	// Check for relation or reset operator.
+	if (! (c == '<' || c == ';' || c == ',' || c == '=' || c == '&'))
+	  throw new ParseException ("invalid character", index);
+
+	++index;
+	while (index < len)
+	  {
+	    if (! Character.isWhitespace(rules.charAt(index)))
+	      break;
+	    ++index;
+	  }
+	if (index == len)
+	  throw new ParseException ("missing argument", index);
+
+	int save = index;
+	index = text_argument (rules, index, argument);
+	if (argument.length() == 0)
+	  throw new ParseException ("invalid character", save);
+	String arg = argument.toString();
+	int item_index = -1;
+        
+        for (int j = 0; j < vec.size(); ++j)
+          {
+            CollationElement e = (CollationElement) vec.elementAt (j);
+
+            if (arg.equals (e.key))
+              {
+                item_index = j;
+                break;
+              }
+          }
+	
+	if (c != '&')
+	  {
+	    // If the argument already appears in the vector, then we
+	    // must remove it in order to re-order.
+	    if (item_index != -1)
+	      {
+		vec.removeElementAt(item_index);
+		if (insertion_index >= item_index)
+		  --insertion_index;
+	      }
+	    CollationElement r = new CollationElement (arg, c);
+	    vec.insertElementAt(r, insertion_index);
+	    ++insertion_index;
+	  }
+	else
+	  {
+	    // Reset.
+	    if (item_index == -1)
+	      throw
+		new ParseException ("argument to reset not previously seen",
+				    save);
+	    insertion_index = item_index + 1;
+	  }
+
+	// Ugly: in this case the resulting INDEX comes from
+	// text_argument, which returns the index of the next
+	// character we should examine.
+	--index;
+      }
+
+    // Now construct a hash table that maps strings onto their
+    // collation values.
+    int primary = 0;
+    int secondary = 0;
+    int tertiary = 0;
+    this.map = new Hashtable ();
+    this.prefixes = new Hashtable ();
+    Enumeration e = vec.elements();
+    while (e.hasMoreElements())
+      {
+	CollationElement r = (CollationElement) e.nextElement();
+	switch (r.relation)
+	  {
+	  case '<':
+	    ++primary;
+	    secondary = 0;
+	    tertiary = 0;
+	    break;
+	  case ';':
+	    ++secondary;
+	    tertiary = 0;
+	    break;
+	  case ',':
+	    ++tertiary;
+	    break;
+	  case '=':
+	    break;
+	  }
+	// This must match CollationElementIterator.
+	map.put(r.key, new Integer (primary << 16
+				    | secondary << 8 | tertiary));
+
+	// Make a map of all lookaheads we might need.
+	for (int i = r.key.length() - 1; i >= 1; --i)
+	  prefixes.put(r.key.substring(0, i), Boolean.TRUE);
+      }
+  }
+
+  /**
+   * This method creates a copy of this object.
+   *
+   * @return A copy of this object.
+   */
+  public Object clone()
   {
     RuleBasedCollator c = (RuleBasedCollator) super.clone ();
     c.map = (Hashtable) map.clone ();
@@ -183,7 +338,7 @@ public class RuleBasedCollator extends Collator
 	return cei.lookahead;
       }
 
-    int save = cei.index;
+    int save = cei.textIndex;
     int max = cei.text.length();
     String s = null;
 
@@ -212,7 +367,7 @@ public class RuleBasedCollator extends Collator
       }
 
     // Update state.
-    cei.index = i;
+    cei.textIndex = i;
 
     if (obj == null)
       {
@@ -255,14 +410,26 @@ public class RuleBasedCollator extends Collator
       }
   }
 
-  public int compare (String source, String target)
+  /**
+   * This method returns an integer which indicates whether the first
+   * specified <code>String</code> is less than, greater than, or equal to
+   * the second.  The value depends not only on the collation rules in
+   * effect, but also the strength and decomposition settings of this object.
+   *
+   * @param source The first <code>String</code> to compare.
+   * @param target A second <code>String</code> to compare to the first.
+   *
+   * @return A negative integer if source &lt; target, a positive integer
+   * if source &gt; target, or 0 if source == target.
+   */
+  public int compare(String source, String target)
   {
     CollationElementIterator cs, ct;
 
-    cs = new CollationElementIterator (source, this);
-    ct = new CollationElementIterator (target, this);
+    cs = new CollationElementIterator(this, source);
+    ct = new CollationElementIterator(this, target);
 
-    while (true)
+    for(;;)
       {
 	int os = next (cs, strength);
 	int ot = next (ct, strength);
@@ -288,7 +455,17 @@ public class RuleBasedCollator extends Collator
     return 0;
   }
 
-  public boolean equals (Object obj)
+  /**
+   * This method tests this object for equality against the specified 
+   * object.  This will be true if and only if the specified object is
+   * another reference to this object.
+   *
+   * @param obj The <code>Object</code> to compare against this object.
+   *
+   * @return <code>true</code> if the specified object is equal to this object,
+   * <code>false</code> otherwise.
+   */
+  public boolean equals(Object obj)
   {
     if (! (obj instanceof RuleBasedCollator) || ! super.equals(obj))
       return false;
@@ -299,38 +476,84 @@ public class RuleBasedCollator extends Collator
 	    && rules.equals(rbc.rules));
   }
 
-  public CollationElementIterator getCollationElementIterator (String source)
+  /**
+   * This method returns an instance for <code>CollationElementIterator</code>
+   * for the specified <code>String</code> under the collation rules for this
+   * object.
+   *
+   * @param source The <code>String</code> to return the
+   * <code>CollationElementIterator</code> instance for.
+   *
+   * @return A <code>CollationElementIterator</code> for the specified
+   * <code>String</code>.
+   */
+  public CollationElementIterator getCollationElementIterator(String source)
   {
-    StringBuffer expand = new StringBuffer (source.length());
-    int max = source.length();
-    for (int i = 0; i < max; ++i)
-      decomposeCharacter (source.charAt(i), expand);
-    return new CollationElementIterator (expand.toString(), this);
+    int len = source.length();
+    StringBuffer expand = new StringBuffer(len);
+    
+    for (int index = 0; index < len; ++index)
+      decomposeCharacter(source.charAt(index), expand);
+    
+    return new CollationElementIterator(this, expand.toString());
   }
 
-  public CollationElementIterator getCollationElementIterator (CharacterIterator source)
+  /**
+   * This method returns an instance of <code>CollationElementIterator</code>
+   * for the <code>String</code> represented by the specified
+   * <code>CharacterIterator</code>.
+   *
+   * @param source The <code>CharacterIterator</code> with the desired <code>String</code>.
+   *
+   * @return A <code>CollationElementIterator</code> for the specified <code>String</code>.
+   */
+  public CollationElementIterator getCollationElementIterator(CharacterIterator source)
   {
-    StringBuffer expand = new StringBuffer ();
-    for (char c = source.first ();
+    StringBuffer expand = new StringBuffer("");
+    
+    // Right now we assume that we will read from the beginning of the string.
+    for (char c = source.first();
 	 c != CharacterIterator.DONE;
-	 c = source.next ())
-      decomposeCharacter (c, expand);
+	 c = source.next())
+      decomposeCharacter(c, expand);
 
-    return new CollationElementIterator (expand.toString(), this);
+    return new CollationElementIterator(this, expand.toString());
   }
 
-  public CollationKey getCollationKey (String source)
+  /**
+   * This method returns an instance of <code>CollationKey</code> for the
+   * specified <code>String</code>.  The object returned will have a
+   * more efficient mechanism for its comparison function that could
+   * provide speed benefits if multiple comparisons are performed, such
+   * as during a sort.
+   *
+   * @param source The <code>String</code> to create a <code>CollationKey</code> for.
+   *
+   * @return A <code>CollationKey</code> for the specified <code>String</code>.
+   */
+  public CollationKey getCollationKey(String source)
   {
-    return new CollationKey (getCollationElementIterator (source), source,
-			     strength);
+    return new CollationKey(this, getCollationElementIterator(source), source,
+			    strength);
   }
 
-  public String getRules ()
+  /**
+   * This method returns a <code>String</code> containing the collation rules
+   * for this object.
+   *
+   * @return The collation rules for this object.
+   */
+  public String getRules()
   {
     return rules;
   }
 
-  public int hashCode ()
+  /**
+   * This method returns a hash value for this object.
+   *
+   * @return A hash value for this object.
+   */
+  public int hashCode()
   {
     return (frenchAccents ? 1231 : 1237
 	    ^ rules.hashCode()
@@ -341,8 +564,7 @@ public class RuleBasedCollator extends Collator
   private final boolean is_special (char c)
   {
     // Rules from JCL book.
-    return ((c >= 0x0009 && c <= 0x000d)
-	    || (c >= 0x0020 && c <= 0x002f)
+    return ((c >= 0x0021 && c <= 0x002f)
 	    || (c >= 0x003a && c <= 0x0040)
 	    || (c >= 0x005b && c <= 0x0060)
 	    || (c >= 0x007b && c <= 0x007e));
@@ -355,132 +577,22 @@ public class RuleBasedCollator extends Collator
     int len = rules.length();
     while (index < len)
       {
-	char c = rules.charAt(index);
-	if (c == '\'' && index + 2 < len
-	    && rules.charAt(index + 2) == '\''
-	    && is_special (rules.charAt(index + 1)))
-	  index += 2;
-	else if (is_special (c) || Character.isWhitespace(c))
+	char c = rules.charAt (index);
+	if (c == '\''
+            && index + 2 < len
+	    && rules.charAt (index + 2) == '\'')
+          {
+            result.append (rules.charAt (index + 1));
+            index += 2;
+          }
+	else if (is_special (c))
 	  return index;
-	result.append(c);
-	++index;
+        else if (!Character.isWhitespace (c))
+          result.append (c);
+        
+        ++index;
       }
     return index;
   }
 
-  public RuleBasedCollator (String rules) throws ParseException
-  {
-    this.rules = rules;
-    this.frenchAccents = false;
-
-    // We keep each rule in order in a vector.  At the end we traverse
-    // the vector and compute collation values from it.
-    int insertion_index = 0;
-    Vector vec = new Vector ();
-
-    StringBuffer argument = new StringBuffer ();
-
-    int len = rules.length();
-    for (int index = 0; index < len; ++index)
-      {
-	char c = rules.charAt(index);
-
-	// Just skip whitespace.
-	if (Character.isWhitespace(c))
-	  continue;
-
-	// Modifier.
-	if (c == '@')
-	  {
-	    frenchAccents = true;
-	    continue;
-	  }
-
-	// Check for relation or reset operator.
-	if (! (c == '<' || c == ';' || c == ',' || c == '=' || c == '&'))
-	  throw new ParseException ("invalid character", index);
-
-	++index;
-	while (index < len)
-	  {
-	    if (! Character.isWhitespace(rules.charAt(index)))
-	      break;
-	    ++index;
-	  }
-	if (index == len)
-	  throw new ParseException ("missing argument", index);
-
-	int save = index;
-	index = text_argument (rules, index, argument);
-	if (argument.length() == 0)
-	  throw new ParseException ("invalid character", save);
-	String arg = argument.toString();
-	int item_index = vec.indexOf(arg);
-	if (c != '&')
-	  {
-	    // If the argument already appears in the vector, then we
-	    // must remove it in order to re-order.
-	    if (item_index != -1)
-	      {
-		vec.removeElementAt(item_index);
-		if (insertion_index >= item_index)
-		  --insertion_index;
-	      }
-	    RBCElement r = new RBCElement (arg, c);
-	    vec.insertElementAt(r, insertion_index);
-	    ++insertion_index;
-	  }
-	else
-	  {
-	    // Reset.
-	    if (item_index == -1)
-	      throw
-		new ParseException ("argument to reset not previously seen",
-				    save);
-	    insertion_index = item_index + 1;
-	  }
-
-	// Ugly: in this case the resulting INDEX comes from
-	// text_argument, which returns the index of the next
-	// character we should examine.
-	--index;
-      }
-
-    // Now construct a hash table that maps strings onto their
-    // collation values.
-    int primary = 0;
-    int secondary = 0;
-    int tertiary = 0;
-    this.map = new Hashtable ();
-    this.prefixes = new Hashtable ();
-    Enumeration e = vec.elements();
-    while (e.hasMoreElements())
-      {
-	RBCElement r = (RBCElement) e.nextElement();
-	switch (r.relation)
-	  {
-	  case '<':
-	    ++primary;
-	    secondary = 0;
-	    tertiary = 0;
-	    break;
-	  case ';':
-	    ++secondary;
-	    tertiary = 0;
-	    break;
-	  case ',':
-	    ++tertiary;
-	    break;
-	  case '=':
-	    break;
-	  }
-	// This must match CollationElementIterator.
-	map.put(r.key, new Integer (primary << 16
-				    | secondary << 8 | tertiary));
-
-	// Make a map of all lookaheads we might need.
-	for (int i = r.key.length() - 1; i >= 1; --i)
-	  prefixes.put(r.key.substring(0, i), Boolean.TRUE);
-      }
-  }
 }

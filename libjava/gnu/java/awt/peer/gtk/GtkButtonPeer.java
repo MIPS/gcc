@@ -50,8 +50,11 @@ public class GtkButtonPeer extends GtkComponentPeer
     implements ButtonPeer
 {
   native void create ();
+  public native void connectJObject ();
+  public native void connectSignals ();
 
-  native void gtkSetFont(String xlfd, int size);
+  native void gtkSetFont(String name, int style, int size);
+  native void gtkWidgetSetForeground (int red, int green, int blue);
 
   public GtkButtonPeer (Button b)
   {
@@ -65,8 +68,7 @@ public class GtkButtonPeer extends GtkComponentPeer
 
   public void handleEvent (AWTEvent e)
   {
-    if (e.getID () == MouseEvent.MOUSE_CLICKED && isEnabled () 
-	&& !modalHasGrab ())
+    if (e.getID () == MouseEvent.MOUSE_CLICKED && isEnabled ())
       {
 	MouseEvent me = (MouseEvent) e;
 	if (!me.isConsumed ()
@@ -95,6 +97,6 @@ public class GtkButtonPeer extends GtkComponentPeer
 
   public void setFont (Font f)
   {
-    gtkSetFont(f.getName(), f.getSize());
+    gtkSetFont(f.getName(), f.getStyle(), f.getSize());
   }
 }

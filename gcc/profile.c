@@ -280,6 +280,22 @@ compute_branch_probabilities (void)
   gcov_type *exec_counts = get_exec_counts ();
   int exec_counts_pos = 0;
 
+  /* Very simple sanity checks so we catch bugs in our profiling code.  */
+  if (profile_info)
+    {
+      if (profile_info->run_max * profile_info->runs < profile_info->sum_max)
+	{
+	  error ("corrupted profile info: run_max * runs < sum_max");
+	  exec_counts = NULL;
+	}
+
+      if (profile_info->sum_all < profile_info->sum_max)
+	{
+	  error ("corrupted profile info: sum_all is smaller than sum_max");
+	  exec_counts = NULL;
+	}
+    }
+
   /* Attach extra info block to each bb.  */
 
   alloc_aux_for_blocks (sizeof (struct bb_info));
@@ -315,6 +331,11 @@ compute_branch_probabilities (void)
 	    if (exec_counts)
 	      {
 		e->count = exec_counts[exec_counts_pos++];
+		if (e->count > profile_info->sum_max)
+		  {
+		    error ("corrupted profile info: edge from %i to %i exceeds maximal count",
+			   bb->index, e->dest->index);
+		  }
 	      }
 	    else
 	      e->count = 0;
@@ -481,7 +502,7 @@ compute_branch_probabilities (void)
 	}
       for (e = bb->succ; e; e = e->succ_next)
 	{
-	  /* Function may return twice in the cased the called fucntion is
+	  /* Function may return twice in the cased the called function is
 	     setjmp or calls fork, but we can't represent this by extra
 	     edge from the entry, since extra edge from the exit is
 	     already present.  We get negative frequency from the entry
@@ -491,10 +512,10 @@ compute_branch_probabilities (void)
 	      || (e->count > bb->count
 		  && e->dest != EXIT_BLOCK_PTR))
 	    {
-	      rtx insn = bb->end;
+	      rtx insn = BB_END (bb);
 
 	      while (GET_CODE (insn) != CALL_INSN
-		     && insn != bb->head
+		     && insn != BB_HEAD (bb)
 		     && keep_with_call_p (insn))
 		insn = PREV_INSN (insn);
 	      if (GET_CODE (insn) == CALL_INSN)
@@ -513,7 +534,7 @@ compute_branch_probabilities (void)
 	  for (e = bb->succ; e; e = e->succ_next)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
 	  if (bb->index >= 0
-	      && any_condjump_p (bb->end)
+	      && any_condjump_p (BB_END (bb))
 	      && bb->succ->succ_next)
 	    {
 	      int prob;
@@ -533,15 +554,15 @@ compute_branch_probabilities (void)
 		index = 19;
 	      hist_br_prob[index]++;
 
-	      note = find_reg_note (bb->end, REG_BR_PROB, 0);
+	      note = find_reg_note (BB_END (bb), REG_BR_PROB, 0);
 	      /* There may be already note put by some other pass, such
 		 as builtin_expect expander.  */
 	      if (note)
 		XEXP (note, 0) = GEN_INT (prob);
 	      else
-		REG_NOTES (bb->end)
+		REG_NOTES (BB_END (bb))
 		  = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
-				       REG_NOTES (bb->end));
+				       REG_NOTES (BB_END (bb)));
 	      num_branches++;
 	    }
 	}
@@ -573,7 +594,7 @@ compute_branch_probabilities (void)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
 	  if (bb->index >= 0
-	      && any_condjump_p (bb->end)
+	      && any_condjump_p (BB_END (bb))
 	      && bb->succ->succ_next)
 	    num_branches++, num_never_executed;
 	}
@@ -871,7 +892,7 @@ branch_prob (void)
 
       FOR_EACH_BB (bb)
 	{
-	  rtx insn = bb->head;
+	  rtx insn = BB_HEAD (bb);
 	  int ignore_next_note = 0;
 
 	  offset = 0;
@@ -884,7 +905,7 @@ branch_prob (void)
 	  else
 	    insn = NEXT_INSN (insn);
 
-	  while (insn != bb->end)
+	  while (insn != BB_END (bb))
 	    {
 	      if (GET_CODE (insn) == NOTE)
 		{
@@ -967,8 +988,6 @@ branch_prob (void)
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
     }
 
-  if (flag_profile_values)
-    count_or_remove_death_notes (NULL, 1);
   remove_fake_edges ();
   free_aux_for_edges ();
   /* Re-merge split basic blocks and the mess introduced by

@@ -75,11 +75,12 @@ cplus_expand_constant (tree cst)
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 
 rtx
-cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
+cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
+		 rtx *alt_rtl)
 {
   tree type = TREE_TYPE (exp);
-  register enum machine_mode mode = TYPE_MODE (type);
-  register enum tree_code code = TREE_CODE (exp);
+  enum machine_mode mode = TYPE_MODE (type);
+  enum tree_code code = TREE_CODE (exp);
   rtx ret;
 
   /* No sense saving up arithmetic to be done
@@ -119,7 +120,7 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 			  modifier);
 
     default:
-      return c_expand_expr (exp, target, tmode, modifier);
+      return c_expand_expr (exp, target, tmode, modifier, alt_rtl);
     }
   abort ();
   /* NOTREACHED */

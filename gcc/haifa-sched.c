@@ -123,8 +123,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    This pass must update information that subsequent passes expect to
    be correct.  Namely: reg_n_refs, reg_n_sets, reg_n_deaths,
-   reg_n_calls_crossed, and reg_live_length.  Also, BLOCK_HEAD,
-   BLOCK_END.
+   reg_n_calls_crossed, and reg_live_length.  Also, BB_HEAD, BB_END.
 
    The information in the line number notes is carefully retained by
    this pass.  Notes that refer to the starting and ending of
@@ -517,6 +516,7 @@ static void ready_sort (struct ready_list *);
 static rtx ready_remove_first (struct ready_list *);
 
 static void queue_to_ready (struct ready_list *);
+static int early_queue_to_ready (state_t, struct ready_list *);
 
 static void debug_ready_list (struct ready_list *);
 
@@ -732,7 +732,7 @@ actual_hazard_this_instance (int unit, int instance, rtx insn, int clock, int co
    at time CLOCK.  The scheduler using only DFA description should
    never use the following function.  */
 
-HAIFA_INLINE static void
+static void
 schedule_unit (int unit, rtx insn, int clock)
 {
   int i;
@@ -764,7 +764,7 @@ schedule_unit (int unit, rtx insn, int clock)
    was COST.  The scheduler using only DFA description should never
    use the following function.  */
 
-HAIFA_INLINE static int
+static int
 actual_hazard (int unit, rtx insn, int clock, int cost)
 {
   int i;
@@ -972,7 +972,7 @@ priority (rtx insn)
 }
 
 /* Macros and functions for keeping the priority queue sorted, and
-   dealing with queueing and dequeueing of instructions.  */
+   dealing with queuing and dequeuing of instructions.  */
 
 #define SCHED_SORT(READY, N_READY)                                   \
 do { if ((N_READY) == 2)				             \
@@ -1247,6 +1247,7 @@ schedule_insn (rtx insn, struct ready_list *ready, int clock)
   rtx link;
   int advance = 0;
   int unit = 0;
+  int premature_issue = 0;
 
   if (!targetm.sched.use_dfa_pipeline_interface
       || !(*targetm.sched.use_dfa_pipeline_interface) ())
@@ -1290,12 +1291,19 @@ schedule_insn (rtx insn, struct ready_list *ready, int clock)
 	return 0;
     }
 
+  if (INSN_TICK (insn) > clock)
+    {
+      /* 'insn' has been prematurely moved from the queue to the
+	 ready list.  */
+      premature_issue = INSN_TICK (insn) - clock;
+    }
+
   for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
     {
       rtx next = XEXP (link, 0);
       int cost = insn_cost (insn, link, next);
 
-      INSN_TICK (next) = MAX (INSN_TICK (next), clock + cost);
+      INSN_TICK (next) = MAX (INSN_TICK (next), clock + cost + premature_issue);
 
       if ((INSN_DEP_COUNT (next) -= 1) == 0)
 	{
@@ -1423,8 +1431,8 @@ void
 get_block_head_tail (int b, rtx *headp, rtx *tailp)
 {
   /* HEAD and TAIL delimit the basic block being scheduled.  */
-  rtx head = BLOCK_HEAD (b);
-  rtx tail = BLOCK_END (b);
+  rtx head = BB_HEAD (BASIC_BLOCK (b));
+  rtx tail = BB_END (BASIC_BLOCK (b));
 
   /* Don't include any notes or labels at the beginning of the
      basic block, or notes at the ends of basic blocks.  */
@@ -1809,6 +1817,159 @@ queue_to_ready (struct ready_list *ready)
     }
 }
 
+/* Used by early_queue_to_ready.  Determines whether it is "ok" to
+   prematurely move INSN from the queue to the ready list.  Currently, 
+   if a target defines the hook 'is_costly_dependence', this function 
+   uses the hook to check whether there exist any dependences which are
+   considered costly by the target, between INSN and other insns that 
+   have already been scheduled.  Dependences are checked up to Y cycles
+   back, with default Y=1; The flag -fsched-stalled-insns-dep=Y allows
+   controlling this value. 
+   (Other considerations could be taken into account instead (or in 
+   addition) depending on user flags and target hooks.  */
+
+static bool 
+ok_for_early_queue_removal (rtx insn)
+{
+  int n_cycles;
+  rtx prev_insn = last_scheduled_insn;
+
+  if (targetm.sched.is_costly_dependence)
+    {
+      for (n_cycles = flag_sched_stalled_insns_dep; n_cycles; n_cycles--)
+	{
+	  for ( ; prev_insn; prev_insn = PREV_INSN (prev_insn))
+	    {
+	      rtx dep_link = 0;
+	      int dep_cost;
+
+	      if (GET_CODE (prev_insn) != NOTE)
+		{
+		  dep_link = find_insn_list (insn, INSN_DEPEND (prev_insn));
+		  if (dep_link)
+		    {
+		      dep_cost = insn_cost (prev_insn, dep_link, insn) ;
+		      if (targetm.sched.is_costly_dependence (prev_insn, insn, 
+				dep_link, dep_cost, 
+				flag_sched_stalled_insns_dep - n_cycles))
+			return false;
+		    }
+		}
+
+	      if (GET_MODE (prev_insn) == TImode) /* end of dispatch group */
+		break;
+	    }
+
+	  if (!prev_insn) 
+	    break;
+	  prev_insn = PREV_INSN (prev_insn);     
+	}
+    }
+
+  return true;
+}
+
+
+/* Remove insns from the queue, before they become "ready" with respect
+   to FU latency considerations.  */
+
+static int 
+early_queue_to_ready (state_t state, struct ready_list *ready)
+{
+  rtx insn;
+  rtx link;
+  rtx next_link;
+  rtx prev_link;
+  bool move_to_ready;
+  int cost;
+  state_t temp_state = alloca (dfa_state_size);
+  int stalls;
+  int insns_removed = 0;
+
+  /*
+     Flag '-fsched-stalled-insns=X' determines the aggressiveness of this 
+     function: 
+
+     X == 0: There is no limit on how many queued insns can be removed          
+             prematurely.  (flag_sched_stalled_insns = -1).
+
+     X >= 1: Only X queued insns can be removed prematurely in each 
+	     invocation.  (flag_sched_stalled_insns = X).
+
+     Otherwise: Early queue removal is disabled.
+         (flag_sched_stalled_insns = 0)
+  */
+
+  if (! flag_sched_stalled_insns)   
+    return 0;
+
+  for (stalls = 0; stalls <= MAX_INSN_QUEUE_INDEX; stalls++)
+    {
+      if ((link = insn_queue[NEXT_Q_AFTER (q_ptr, stalls)]))
+	{
+	  if (sched_verbose > 6)
+	    fprintf (sched_dump, ";; look at index %d + %d\n", q_ptr, stalls);
+
+	  prev_link = 0;
+	  while (link)
+	    {
+	      next_link = XEXP (link, 1);
+	      insn = XEXP (link, 0);
+	      if (insn && sched_verbose > 6)
+		print_rtl_single (sched_dump, insn);
+
+	      memcpy (temp_state, state, dfa_state_size);
+	      if (recog_memoized (insn) < 0) 
+		/* non-negative to indicate that it's not ready
+		   to avoid infinite Q->R->Q->R... */
+		cost = 0;
+	      else
+		cost = state_transition (temp_state, insn);
+
+	      if (sched_verbose >= 6)
+		fprintf (sched_dump, "transition cost = %d\n", cost);
+
+	      move_to_ready = false;
+	      if (cost < 0) 
+		{
+		  move_to_ready = ok_for_early_queue_removal (insn);
+		  if (move_to_ready == true)
+		    {
+		      /* move from Q to R */
+		      q_size -= 1;
+		      ready_add (ready, insn);
+
+		      if (prev_link)   
+			XEXP (prev_link, 1) = next_link;
+		      else
+			insn_queue[NEXT_Q_AFTER (q_ptr, stalls)] = next_link;
+
+		      free_INSN_LIST_node (link);
+
+		      if (sched_verbose >= 2)
+			fprintf (sched_dump, ";;\t\tEarly Q-->Ready: insn %s\n",
+				 (*current_sched_info->print_insn) (insn, 0));
+
+		      insns_removed++;
+		      if (insns_removed == flag_sched_stalled_insns)
+			/* remove only one insn from Q at a time */
+			return insns_removed;
+		    }
+		}
+
+	      if (move_to_ready == false)
+		prev_link = link;
+
+	      link = next_link;
+	    } /* while link */
+	} /* if link */    
+
+    } /* for stalls.. */
+
+  return insns_removed; 
+}
+
+
 /* Print the ready list for debugging purposes.  Callable from debugger.  */
 
 static void
@@ -2039,7 +2200,7 @@ choose_ready (struct ready_list *ready)
   else
     {
       /* Try to choose the better insn.  */
-      int index, i;
+      int index = 0, i;
       rtx insn;
 
       if (cached_first_cycle_multipass_dfa_lookahead != lookahead)
@@ -2251,6 +2412,20 @@ schedule_block (int b, int rgn_n_insns)
 	    }
 	  else
 	    {
+	      if (ready.n_ready == 0 
+		  && can_issue_more 
+		  && reload_completed) 
+		{
+		  /* Allow scheduling insns directly from the queue in case
+		     there's nothing better to do (ready list is empty) but
+		     there are still vacant dispatch slots in the current cycle.  */
+		  if (sched_verbose >= 6)
+		    fprintf(sched_dump,";;\t\tSecond chance\n");
+		  memcpy (temp_state, curr_state, dfa_state_size);
+		  if (early_queue_to_ready (temp_state, &ready))
+		    ready_sort (&ready);
+		}
+
 	      if (ready.n_ready == 0 || !can_issue_more
 		  || state_dead_lock_p (curr_state)
 		  || !(*current_sched_info->schedule_more_p) ())
@@ -2517,7 +2692,8 @@ set_priorities (rtx head, rtx tail)
 {
   rtx insn;
   int n_insn;
-
+  int sched_max_insns_priority = 
+	current_sched_info->sched_max_insns_priority;
   rtx prev_head;
 
   prev_head = PREV_INSN (head);
@@ -2526,6 +2702,7 @@ set_priorities (rtx head, rtx tail)
     return 0;
 
   n_insn = 0;
+  sched_max_insns_priority = 0;
   for (insn = tail; insn != prev_head; insn = PREV_INSN (insn))
     {
       if (GET_CODE (insn) == NOTE)
@@ -2533,7 +2710,14 @@ set_priorities (rtx head, rtx tail)
 
       n_insn++;
       (void) priority (insn);
+
+      if (INSN_PRIORITY_KNOWN (insn))
+	sched_max_insns_priority =
+	  MAX (sched_max_insns_priority, INSN_PRIORITY (insn)); 
     }
+  sched_max_insns_priority += 1;
+  current_sched_info->sched_max_insns_priority =
+	sched_max_insns_priority;
 
   return n_insn;
 }
@@ -2606,7 +2790,7 @@ sched_init (FILE *dump_file)
   h_i_d[0].luid = 0;
   luid = 1;
   FOR_EACH_BB (b)
-    for (insn = b->head;; insn = NEXT_INSN (insn))
+    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
       {
 	INSN_LUID (insn) = luid;
 
@@ -2618,7 +2802,7 @@ sched_init (FILE *dump_file)
 	if (GET_CODE (insn) != NOTE)
 	  ++luid;
 
-	if (insn == b->end)
+	if (insn == BB_END (b))
 	  break;
       }
 
@@ -2640,7 +2824,7 @@ sched_init (FILE *dump_file)
 
       FOR_EACH_BB (b)
 	{
-	  for (line = b->head; line; line = PREV_INSN (line))
+	  for (line = BB_HEAD (b); line; line = PREV_INSN (line))
 	    if (GET_CODE (line) == NOTE && NOTE_LINE_NUMBER (line) > 0)
 	      {
 		line_note_head[b->index] = line;
@@ -2648,7 +2832,7 @@ sched_init (FILE *dump_file)
 	      }
 	  /* Do a forward search as well, since we won't get to see the first
 	     notes in a basic block.  */
-	  for (line = b->head; line; line = NEXT_INSN (line))
+	  for (line = BB_HEAD (b); line; line = NEXT_INSN (line))
 	    {
 	      if (INSN_P (line))
 		break;
@@ -2667,16 +2851,16 @@ sched_init (FILE *dump_file)
   /* ??? Add a NOTE after the last insn of the last basic block.  It is not
      known why this is done.  */
 
-  insn = EXIT_BLOCK_PTR->prev_bb->end;
+  insn = BB_END (EXIT_BLOCK_PTR->prev_bb);
   if (NEXT_INSN (insn) == 0
       || (GET_CODE (insn) != NOTE
 	  && GET_CODE (insn) != CODE_LABEL
 	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
 	  && GET_CODE (NEXT_INSN (insn)) != BARRIER))
     {
-      emit_note_after (NOTE_INSN_DELETED, EXIT_BLOCK_PTR->prev_bb->end);
+      emit_note_after (NOTE_INSN_DELETED, BB_END (EXIT_BLOCK_PTR->prev_bb));
       /* Make insn to appear outside BB.  */
-      EXIT_BLOCK_PTR->prev_bb->end = PREV_INSN (EXIT_BLOCK_PTR->prev_bb->end);
+      BB_END (EXIT_BLOCK_PTR->prev_bb) = PREV_INSN (BB_END (EXIT_BLOCK_PTR->prev_bb));
     }
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before

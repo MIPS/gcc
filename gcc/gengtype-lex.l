@@ -30,9 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gengtype.h"
 #include "gengtype-yacc.h"
 
-#undef YY_USE_PROTOS
-#define YY_DECL int yylex ()
-
 static void update_lineno (const char *l, size_t len);
 
 struct fileloc lexer_line;
@@ -132,12 +129,45 @@ ITYPE	{IWORD}({WS}{IWORD})*
   do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
   update_lineno (yytext, yyleng);
 }
-[^[:alnum:]_]typedef{WS}{ID}{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?PARAMS {
+
+[^[:alnum:]_]typedef{WS}{ID}{WS}{ID}{WS}"(" {
+  char *namestart;
+  size_t namelen;
+  struct type *t;
+
+  for (namestart = yytext + yyleng - 2; ISSPACE (*namestart); namestart--)
+    ;
+  for (namelen = 1; !ISSPACE (namestart[-namelen]); namelen++)
+    ;
+  namestart -= namelen - 1;
+
+  t = create_scalar_type ("function type", sizeof ("function type")-1);
+  do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
+  update_lineno (yytext, yyleng);
+}
+
+[^[:alnum:]_]typedef{WS}{ID}{WS}?"*"?{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?PARAMS {
   char *namestart;
   size_t namelen;
   struct type *t;
 
   for (namestart = yytext + yyleng - 7; !ISIDNUM (*namestart); namestart--)
+    ;
+  for (namelen = 1; ISIDNUM (namestart[-namelen]); namelen++)
+    ;
+  namestart -= namelen - 1;
+
+  t = create_scalar_type ("function type", sizeof ("function type")-1);
+  do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
+  update_lineno (yytext, yyleng);
+}
+
+[^[:alnum:]_]typedef{WS}{ID}{WS}?"*"?{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?"(" {
+  char *namestart;
+  size_t namelen;
+  struct type *t;
+
+  for (namestart = yytext + yyleng - 2; !ISIDNUM (*namestart); namestart--)
     ;
   for (namelen = 1; ISIDNUM (namestart[-namelen]); namelen++)
     ;

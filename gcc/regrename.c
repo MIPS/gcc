@@ -1,5 +1,5 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -149,7 +149,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   HARD_REG_SET live;
 
   REG_SET_TO_HARD_REG_SET (live, b->global_live_at_start);
-  insn = b->head;
+  insn = BB_HEAD (b);
   while (t)
     {
       /* Search forward until the next reference to the register to be
@@ -230,7 +230,7 @@ regrename_optimize (void)
       CLEAR_HARD_REG_SET (regs_seen);
       while (all_chains)
 	{
-	  int new_reg, best_new_reg = -1;
+	  int new_reg, best_new_reg;
 	  int n_uses;
 	  struct du_chain *this = all_chains;
 	  struct du_chain *tmp, *last;
@@ -239,6 +239,8 @@ regrename_optimize (void)
 	  int i;
 
 	  all_chains = this->next_chain;
+
+	  best_new_reg = reg;
 
 #if 0 /* This just disables optimization opportunities.  */
 	  /* Only rename once we've seen the reg more than once.  */
@@ -320,8 +322,7 @@ regrename_optimize (void)
 		  break;
 	      if (! tmp)
 		{
-		  if (best_new_reg == -1
-		      || tick[best_new_reg] > tick[new_reg])
+		  if (tick[best_new_reg] > tick[new_reg])
 		    best_new_reg = new_reg;
 		}
 	    }
@@ -334,15 +335,16 @@ regrename_optimize (void)
 		fprintf (rtl_dump_file, " crosses a call");
 	    }
 
-	  if (best_new_reg == -1)
+	  if (best_new_reg == reg)
 	    {
+	      tick[reg] = ++this_tick;
 	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "; no available registers\n");
+		fprintf (rtl_dump_file, "; no available better choice\n");
 	      continue;
 	    }
 
 	  do_replace (this, best_new_reg);
-	  tick[best_new_reg] = this_tick++;
+	  tick[best_new_reg] = ++this_tick;
 
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
@@ -727,7 +729,7 @@ build_def_use (basic_block bb)
 
   open_chains = closed_chains = NULL;
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
@@ -952,7 +954,7 @@ build_def_use (basic_block bb)
 	      scan_rtx (insn, &XEXP (note, 0), NO_REGS, terminate_dead,
 			OP_IN, 0);
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -1337,15 +1339,19 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
     {
       enum machine_mode oldmode = vd->e[i].mode;
       rtx new;
+      unsigned int last;
 
-    if (TEST_HARD_REG_BIT (reg_class_contents[class], i)
-	&& (new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i,
-				     regno)))
-      {
-	ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
-        REG_ATTRS (new) = REG_ATTRS (reg);
-	return new;
-      }
+      for (last = i; last < i + HARD_REGNO_NREGS (i, mode); last++)
+	if (!TEST_HARD_REG_BIT (reg_class_contents[class], last))
+	  return NULL_RTX;
+
+      new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i, regno);
+      if (new)
+	{
+	  ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
+	  REG_ATTRS (new) = REG_ATTRS (reg);
+	  return new;
+	}
     }
 
   return NULL_RTX;
@@ -1523,7 +1529,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
   bool changed = false;
   rtx insn;
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       int n_ops, i, alt, predicated;
       bool is_asm;
@@ -1531,7 +1537,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 
       if (! INSN_P (insn))
 	{
-	  if (insn == bb->end)
+	  if (insn == BB_END (bb))
 	    break;
 	  else
 	    continue;
@@ -1707,7 +1713,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       if (set && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set)))
 	copy_value (SET_DEST (set), SET_SRC (set), vd);
 
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -1732,7 +1738,7 @@ copyprop_hardreg_forward (void)
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
-      /* ??? Ought to use more intelligent queueing of blocks.  */
+      /* ??? Ought to use more intelligent queuing of blocks.  */
       if (bb->pred)
 	for (bbp = bb; bbp && bbp != bb->pred->src; bbp = bbp->prev_bb);
       if (bb->pred

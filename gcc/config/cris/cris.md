@@ -31,7 +31,7 @@
 ;; There are several instructions that are orthogonal in size, and seems
 ;; they could be matched by a single pattern without a specified size
 ;; for the operand that is orthogonal.  However, this did not work on
-;; gcc-2.7.2 (and problably not on gcc-2.8.1), relating to that when a
+;; gcc-2.7.2 (and probably not on gcc-2.8.1), relating to that when a
 ;; constant is substituted into an operand, the actual mode must be
 ;; deduced from the pattern.  There is reasonable hope that that has been
 ;; fixed, so FIXME: try again.
@@ -77,7 +77,7 @@
 ;; The possible values are "yes", "no" and "has_slot".  Yes/no means if
 ;; the insn is slottable or not.  Has_slot means that the insn is a
 ;; return insn or branch insn (which are not considered slottable since
-;; that is generally true).  Having the semmingly illogical value
+;; that is generally true).  Having the seemingly illogical value
 ;; "has_slot" means we do not have to add another attribute just to say
 ;; that an insn has a delay-slot, since it also infers that it is not
 ;; slottable.  Better names for the attribute were found to be longer and
@@ -640,10 +640,12 @@
 
 (define_split
   [(parallel
-    [(set (mem (plus:SI
-		(mult:SI (match_operand:SI 0 "register_operand" "")
-			 (match_operand:SI 1 "const_int_operand" ""))
-		(match_operand:SI 2 "register_operand" "")))
+    [(set (match_operator
+	   6 "cris_mem_op"
+	   [(plus:SI
+	     (mult:SI (match_operand:SI 0 "register_operand" "")
+		      (match_operand:SI 1 "const_int_operand" ""))
+	     (match_operand:SI 2 "register_operand" ""))])
 	  (match_operand 3 "register_operand" ""))
      (set (match_operand:SI 4 "register_operand" "")
 	  (plus:SI (mult:SI (match_dup 0)
@@ -657,11 +659,12 @@
 			  (match_dup 1))
 		 (match_dup 4)))]
   "operands[5]
-     = gen_rtx_MEM (GET_MODE (operands[3]),
-		    gen_rtx_PLUS (SImode,
-				  gen_rtx_MULT (SImode,
-						operands[0], operands[1]),
-				  operands[2]));")
+     = replace_equiv_address (operands[6],
+			      gen_rtx_PLUS (SImode,
+					    gen_rtx_MULT (SImode,
+							  operands[0],
+							  operands[1]),
+					    operands[2]));")
 
 ;; move.s rx,[ry=rz+i]
 ;; FIXME: These could have anonymous mode for operand 2.
@@ -747,9 +750,11 @@
 
 (define_split
   [(parallel
-    [(set (mem (plus:SI
-		(match_operand:SI 0 "cris_bdap_operand" "")
-		(match_operand:SI 1 "cris_bdap_operand" "")))
+    [(set (match_operator
+	   4 "cris_mem_op"
+	   [(plus:SI
+	     (match_operand:SI 0 "cris_bdap_operand" "")
+	     (match_operand:SI 1 "cris_bdap_operand" ""))])
 	  (match_operand 2 "register_operand" ""))
      (set (match_operand:SI 3 "register_operand" "")
 	  (plus:SI (match_dup 0) (match_dup 1)))])]
@@ -757,9 +762,7 @@
   [(set (match_dup 4) (match_dup 2))
    (set (match_dup 3) (match_dup 0))
    (set (match_dup 3) (plus:SI (match_dup 3) (match_dup 1)))]
-  "operands[4]
-     = gen_rtx_MEM (GET_MODE (operands[2]),
-		    gen_rtx_PLUS (SImode, operands[0], operands[1]));")
+  "")
 
 ;; Clear memory side-effect patterns.  It is hard to get to the mode if
 ;; the MEM was anonymous, so there will be one for each mode.
@@ -1351,7 +1354,7 @@
   "movs.b %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
-;; To do a byte->word exension, extend to dword, exept that the top half
+;; To do a byte->word extension, extend to dword, exept that the top half
 ;; of the register will be clobbered.  FIXME: Perhaps this is not needed.
 
 (define_insn "extendqihi2"
@@ -3833,7 +3836,7 @@
 	  else
 	    abort ();
 
-	  operands[0] = gen_rtx_MEM (GET_MODE (operands[0]), op0);
+	  operands[0] = replace_equiv_address (operands[0], op0);
 	}
     }
 }")
@@ -3898,7 +3901,7 @@
 	  else
 	    abort ();
 
-	  operands[1] = gen_rtx_MEM (GET_MODE (operands[1]), op1);
+	  operands[1] = replace_equiv_address (operands[1], op1);
 	}
     }
 }")
@@ -4201,10 +4204,12 @@
 (define_split
   [(parallel
     [(set (match_operand 0 "register_operand" "")
-	   (mem (plus:SI
-		 (mult:SI (match_operand:SI 1 "register_operand" "")
-			  (match_operand:SI 2 "const_int_operand" ""))
-		 (match_operand:SI 3 "register_operand" ""))))
+	  (match_operator
+	   6 "cris_mem_op"
+	   [(plus:SI
+	     (mult:SI (match_operand:SI 1 "register_operand" "")
+		      (match_operand:SI 2 "const_int_operand" ""))
+	     (match_operand:SI 3 "register_operand" ""))]))
      (set (match_operand:SI 4 "register_operand" "")
 	   (plus:SI (mult:SI (match_dup 1)
 			     (match_dup 2))
@@ -4214,16 +4219,17 @@
   [(set (match_dup 4) (plus:SI (mult:SI (match_dup 1) (match_dup 2))
 				(match_dup 3)))
    (set (match_dup 0) (match_dup 5))]
-  "operands[5] = gen_rtx_MEM (GET_MODE (operands[0]), operands[3]);")
+  "operands[5] = replace_equiv_address (operands[6], operands[3]);")
 
 ;; move.S1 [rx=rx+i],ry
 
 (define_split
   [(parallel
     [(set (match_operand 0 "register_operand" "")
-	   (mem
-	    (plus:SI (match_operand:SI 1 "cris_bdap_operand" "")
-		     (match_operand:SI 2 "cris_bdap_operand" ""))))
+	  (match_operator
+	   5 "cris_mem_op"
+	   [(plus:SI (match_operand:SI 1 "cris_bdap_operand" "")
+		     (match_operand:SI 2 "cris_bdap_operand" ""))]))
      (set (match_operand:SI 3 "register_operand" "")
 	   (plus:SI (match_dup 1)
 		    (match_dup 2)))])]
@@ -4231,17 +4237,19 @@
     || rtx_equal_p (operands[3], operands[2]))"
   [(set (match_dup 3) (plus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (match_dup 4))]
-  "operands[4] = gen_rtx_MEM (GET_MODE (operands[0]), operands[3]);")
+  "operands[4] = replace_equiv_address (operands[5], operands[3]);")
 
 ;; move.S1 ry,[rx=rx+rz.S2]
 
 (define_split
   [(parallel
-    [(set (mem (plus:SI
-		 (mult:SI (match_operand:SI 0 "register_operand" "")
-			  (match_operand:SI 1 "const_int_operand" ""))
-		 (match_operand:SI 2 "register_operand" "")))
-	   (match_operand 3 "register_operand" ""))
+    [(set (match_operator
+	   6 "cris_mem_op"
+	   [(plus:SI
+	     (mult:SI (match_operand:SI 0 "register_operand" "")
+		      (match_operand:SI 1 "const_int_operand" ""))
+	     (match_operand:SI 2 "register_operand" ""))])
+	  (match_operand 3 "register_operand" ""))
      (set (match_operand:SI 4 "register_operand" "")
 	   (plus:SI (mult:SI (match_dup 0)
 			     (match_dup 1))
@@ -4251,16 +4259,17 @@
   [(set (match_dup 4) (plus:SI (mult:SI (match_dup 0) (match_dup 1))
 				(match_dup 2)))
    (set (match_dup 5) (match_dup 3))]
-  "operands[5] = gen_rtx_MEM (GET_MODE (operands[3]), operands[4]);")
+  "operands[5] = replace_equiv_address (operands[6], operands[4]);")
 
 ;; move.S1 ry,[rx=rx+i]
 
 (define_split
   [(parallel
-    [(set (mem
-	   (plus:SI (match_operand:SI 0 "cris_bdap_operand" "")
-		    (match_operand:SI 1 "cris_bdap_operand" "")))
-	   (match_operand 2 "register_operand" ""))
+    [(set (match_operator
+	   6 "cris_mem_op"
+	   [(plus:SI (match_operand:SI 0 "cris_bdap_operand" "")
+		     (match_operand:SI 1 "cris_bdap_operand" ""))])
+	  (match_operand 2 "register_operand" ""))
      (set (match_operand:SI 3 "register_operand" "")
 	   (plus:SI (match_dup 0)
 		   (match_dup 1)))])]
@@ -4268,7 +4277,7 @@
     || rtx_equal_p (operands[3], operands[1]))"
   [(set (match_dup 3) (plus:SI (match_dup 0) (match_dup 1)))
    (set (match_dup 5) (match_dup 2))]
-  "operands[5] = gen_rtx_MEM (GET_MODE (operands[2]), operands[3]);")
+  "operands[5] = replace_equiv_address (operands[6], operands[3]);")
 
 ;; clear.d [rx=rx+rz.S2]
 
@@ -4402,8 +4411,7 @@
   [(set (match_dup 4) (plus:SI (mult:SI (match_dup 1) (match_dup 2))
 				(match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 6)]))]
-  "operands[6] = gen_rtx_MEM (GET_MODE (XEXP (operands[5],0)),
-			   operands[4]);")
+  "operands[6] = replace_equiv_address (XEXP (operands[5], 0), operands[4]);")
 
 ;; mov(s|u).S1 [rx=rx+i],ry
 
@@ -4422,8 +4430,7 @@
     || rtx_equal_p (operands[2], operands[3]))"
   [(set (match_dup 3) (plus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (match_op_dup 4 [(match_dup 5)]))]
-  "operands[5] = gen_rtx_MEM (GET_MODE (XEXP (operands[4], 0)),
-			  operands[3]);")
+  "operands[5] = replace_equiv_address (XEXP (operands[4], 0), operands[3]);")
 
 ;; op.S1 [rx=rx+i],ry
 
@@ -4443,7 +4450,7 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 6)]))]
-  "operands[6] = gen_rtx_MEM (GET_MODE (operands[0]), operands[4]);")
+  "operands[6] = replace_equiv_address (XEXP (operands[5], 1), operands[4]);")
 
 ;; op.S1 [rx=rx+rz.S2],ry
 
@@ -4467,7 +4474,7 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 				(match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 1) (match_dup 7)]))]
-  "operands[7] = gen_rtx_MEM (GET_MODE (operands[0]), operands[5]);")
+  "operands[7] = replace_equiv_address (XEXP (operands[6], 1), operands[5]);")
 
 ;; op.S1 [rx=rx+rz.S2],ry (swapped)
 
@@ -4491,7 +4498,7 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 7) (match_dup 1)]))]
-  "operands[7] = gen_rtx_MEM (GET_MODE (operands[0]), operands[5]);")
+  "operands[7] = replace_equiv_address (XEXP (operands[6], 0), operands[5]);")
 
 ;; op.S1 [rx=rx+i],ry (swapped)
 
@@ -4511,7 +4518,7 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 6) (match_dup 1)]))]
-  "operands[6] = gen_rtx_MEM (GET_MODE (operands[0]), operands[4]);")
+  "operands[6] = replace_equiv_address (XEXP (operands[5], 0), operands[4]);")
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry
 
@@ -4538,8 +4545,8 @@
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 1) (match_dup 8)]))]
   "operands[8] = gen_rtx (GET_CODE (operands[7]), GET_MODE (operands[7]),
-			  gen_rtx_MEM (GET_MODE (XEXP (operands[7], 0)),
-				   operands[5]));")
+			  replace_equiv_address (XEXP (operands[7], 0),
+						 operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry
 
@@ -4563,8 +4570,8 @@
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 7)]))]
   "operands[7] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			   gen_rtx_MEM (GET_MODE (XEXP (operands[6], 0)),
-				    operands[4]));")
+			  replace_equiv_address (XEXP (operands[6], 0),
+						 operands[4]));")
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry (swapped, plus or bound)
 
@@ -4590,8 +4597,8 @@
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 8) (match_dup 1)]))]
   "operands[8] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			  gen_rtx_MEM (GET_MODE (XEXP (operands[6], 0)),
-				   operands[5]));")
+			  replace_equiv_address (XEXP (operands[6], 0),
+						 operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry (swapped, plus or bound)
 
@@ -4614,8 +4621,8 @@
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 7) (match_dup 1)]))]
   "operands[7] = gen_rtx (GET_CODE (operands[5]), GET_MODE (operands[5]),
-			  gen_rtx_MEM (GET_MODE (XEXP (operands[5], 0)),
-				   operands[4]));")
+			  replace_equiv_address (XEXP (operands[5], 0),
+						 operands[4]));")
 
 ;; Splits for addressing prefixes that have no side-effects, so we can
 ;; fill a delay slot.  Never split if we lose something, though.
@@ -4643,7 +4650,7 @@
   [(set (match_dup 2) (match_dup 4))
    (set (match_dup 0) (match_dup 3))]
   "operands[2] = gen_rtx_REG (Pmode, REGNO (operands[0]));
-   operands[3] = gen_rtx_MEM (GET_MODE (operands[0]), operands[2]);
+   operands[3] = replace_equiv_address (operands[1], operands[2]);
    operands[4] = XEXP (operands[1], 0);")
 
 ;; As the above, but MOVS and MOVU.
@@ -4661,7 +4668,7 @@
   [(set (match_dup 2) (match_dup 5))
    (set (match_dup 0) (match_op_dup 4 [(match_dup 3)]))]
   "operands[2] = gen_rtx_REG (Pmode, REGNO (operands[0]));
-   operands[3] = gen_rtx_MEM (GET_MODE (XEXP (operands[4], 0)), operands[2]);
+   operands[3] = replace_equiv_address (XEXP (operands[4], 0), operands[2]);
    operands[5] = XEXP (operands[1], 0);")
 
 ;; Various peephole optimizations.

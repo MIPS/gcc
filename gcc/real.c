@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -858,6 +858,8 @@ do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   else
     rr = r;
 
+  /* Make sure all fields in the result are initialized.  */
+  get_zero (rr, 0);
   rr->class = rvc_normal;
   rr->sign = sign;
 
@@ -2105,7 +2107,7 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2195,7 +2197,7 @@ real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
   const struct real_format *fmt;
   int np2;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2368,7 +2370,7 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2430,7 +2432,7 @@ real_to_target (long *buf, const REAL_VALUE_TYPE *r, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2455,7 +2457,7 @@ real_from_target (REAL_VALUE_TYPE *r, const long *buf, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2470,7 +2472,7 @@ significand_size (enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     return 0;
 
@@ -2534,9 +2536,10 @@ encode_ieee_single (const struct real_format *fmt, long *buf,
 		    const REAL_VALUE_TYPE *r)
 {
   unsigned long image, sig, exp;
+  unsigned long sign = r->sign;
   bool denormal = (r->sig[SIGSZ-1] & SIG_MSB) == 0;
 
-  image = r->sign << 31;
+  image = sign << 31;
   sig = (r->sig[SIGSZ-1] >> (HOST_BITS_PER_LONG - 24)) & 0x7fffff;
 
   switch (r->class)
@@ -3232,53 +3235,23 @@ encode_ibm_extended (const struct real_format *fmt, long *buf,
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
-  switch (r->class)
+  /* u = IEEE double precision portion of significand.  */
+  u = *r;
+  round_for_format (base_fmt, &u);
+  encode_ieee_double (base_fmt, &buf[0], &u);
+
+  if (r->class == rvc_normal)
     {
-    case rvc_zero:
-      /* Both doubles have sign bit set.  */
-      buf[0] = FLOAT_WORDS_BIG_ENDIAN ? r->sign << 31 : 0;
-      buf[1] = FLOAT_WORDS_BIG_ENDIAN ? 0 : r->sign << 31;
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      break;
-
-    case rvc_inf:
-    case rvc_nan:
-      /* Both doubles set to Inf / NaN.  */
-      encode_ieee_double (base_fmt, &buf[0], r);
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      return;
-
-    case rvc_normal:
-      /* u = IEEE double precision portion of significand.  */
-      u = *r;
-      clear_significand_below (&u, SIGNIFICAND_BITS - 53);
-
-      normalize (&u);
-      /* If the upper double is zero, we have a denormal double, so
-	 move it to the first double and leave the second as zero.  */
-      if (u.class == rvc_zero)
-	{
-	  v = u;
-	  u = *r;
-	  normalize (&u);
-	}
-      else
-	{
-	  /* v = remainder containing additional 53 bits of significand.  */
-	  do_add (&v, r, &u, 1);
-	  round_for_format (base_fmt, &v);
-	}
-
-      round_for_format (base_fmt, &u);
-
-      encode_ieee_double (base_fmt, &buf[0], &u);
+      do_add (&v, r, &u, 1);
+      round_for_format (base_fmt, &v);
       encode_ieee_double (base_fmt, &buf[2], &v);
-      break;
-
-    default:
-      abort ();
+    }
+  else
+    {
+      /* Inf, NaN, 0 are all representable as doubles, so the
+	 least-significant part can be 0.0.  */
+      buf[2] = 0;
+      buf[3] = 0;
     }
 }
 
@@ -4416,24 +4389,6 @@ const struct real_format real_internal_format =
     true
   };
 
-/* Set up default mode to format mapping for IEEE.  Everyone else has
-   to set these values in OVERRIDE_OPTIONS.  */
-
-const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
-{
-  NULL,				/* QFmode */
-  NULL,				/* HFmode */
-  NULL,				/* TQFmode */
-  &ieee_single_format,		/* SFmode */
-  &ieee_double_format,		/* DFmode */
-
-  /* We explicitly don't handle XFmode.  There are two formats,
-     pretty much equally common.  Choose one in OVERRIDE_OPTIONS.  */
-  NULL,				/* XFmode */
-  &ieee_quad_format		/* TFmode */
-};
-
-
 /* Calculate the square root of X in mode MODE, and store the result
    in R.  Return TRUE if the operation does not raise an exception.
    For details see "High Precision Division and Square Root",
@@ -4459,8 +4414,7 @@ real_sqrt (REAL_VALUE_TYPE *r, enum machine_mode mode,
   /* Negative arguments return NaN.  */
   if (real_isneg (x))
     {
-      /* Mode is ignored for canonical NaN.  */
-      real_nan (r, "", 1, SFmode);
+      get_canonical_qnan (r, 0);
       return false;
     }
 

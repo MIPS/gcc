@@ -1,6 +1,6 @@
 /* Analyze RTL for C-Compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -99,7 +99,7 @@ rtx_unstable_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -189,7 +189,7 @@ rtx_varies_p (rtx x, int for_alias)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -3023,6 +3023,11 @@ commutative_operand_precedence (rtx op)
 {
   /* Constants always come the second operand.  Prefer "nice" constants.  */
   if (GET_CODE (op) == CONST_INT)
+    return -7;
+  if (GET_CODE (op) == CONST_DOUBLE)
+    return -6;
+  op = avoid_constant_pool_reference (op);
+  if (GET_CODE (op) == CONST_INT)
     return -5;
   if (GET_CODE (op) == CONST_DOUBLE)
     return -4;
@@ -3167,7 +3172,7 @@ loc_mentioned_in_p (rtx *loc, rtx in)
 
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      if (loc == &in->fld[i].rtx)
+      if (loc == &in->u.fld[i].rtx)
 	return 1;
       if (fmt[i] == 'e')
 	{
@@ -3709,3 +3714,31 @@ hoist_insn_to_edge (rtx insn, edge e, rtx val, rtx new)
   end_sequence ();
   return new_insn;
 }
+
+/* Return true if LABEL is a target of JUMP_INSN.  This applies only
+   to non-complex jumps.  That is, direct unconditional, conditional,
+   and tablejumps, but not computed jumps or returns.  It also does
+   not apply to the fallthru case of a conditional jump.  */
+
+bool
+label_is_jump_target_p (rtx label, rtx jump_insn)
+{
+  rtx tmp = JUMP_LABEL (jump_insn);
+
+  if (label == tmp)
+    return true;
+
+  if (tablejump_p (jump_insn, NULL, &tmp))
+    {
+      rtvec vec = XVEC (PATTERN (tmp),
+			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
+      int i, veclen = GET_NUM_ELEM (vec);
+
+      for (i = 0; i < veclen; ++i)
+	if (XEXP (RTVEC_ELT (vec, i), 0) == label)
+	  return true;
+    }
+
+  return false;
+}
+

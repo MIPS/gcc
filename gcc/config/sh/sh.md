@@ -1,23 +1,23 @@
 ;;- Machine description for Renesas / SuperH SH.
-;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
-;;  Free Software Foundation, Inc.
+;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+;;  2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -152,7 +152,7 @@
   (UNSPECV_CONST8	6)
   (UNSPECV_WINDOW_END	10)
   (UNSPECV_CONST_END	11)
-])  
+])
 
 ;; -------------------------------------------------------------------------
 ;; Attributes
@@ -218,7 +218,7 @@
 ;; ftrc_s	fix_truncsfsi2_i4
 ;; dfdiv	double precision floating point divide (or square root)
 ;; cwb		ic_invalidate_line_i
-;; tls_load     load TLS related address 
+;; tls_load     load TLS related address
 ;; arith_media	SHmedia arithmetic, logical, and shift instructions
 ;; cbranch_media SHmedia conditional branch instructions
 ;; cmp_media	SHmedia compare instructions
@@ -279,6 +279,14 @@
 ;; Indicate what precision must be selected in fpscr for this insn, if any.
 
 (define_attr "fp_mode" "single,double,none" (const_string "none"))
+
+;; Indicate if the fpu mode is set by this instruction
+;; "unknown" must have the value as "none" in fp_mode, and means
+;; that the instruction/abi has left the processor in an unknown
+;; state.
+;; "none" means that nothing has changed and no mode is set.
+;; This attribute is only used for the Renesas ABI.
+(define_attr "fp_set" "single,double,unknown,none" (const_string "none"))
 
 ; If a conditional branch destination is within -252..258 bytes away
 ; from the instruction it can be 2 bytes long.  Something in the
@@ -697,11 +705,14 @@
 
 (define_expand "cmpsi"
   [(set (reg:SI T_REG)
-	(compare (match_operand:SI 0 "arith_operand" "")
+	(compare (match_operand:SI 0 "cmpsi_operand" "")
 		 (match_operand:SI 1 "arith_operand" "")))]
   "TARGET_SH1"
   "
 {
+  if (GET_CODE (operands[0]) == REG && REGNO (operands[0]) == T_REG
+      && GET_CODE (operands[1]) != CONST_INT)
+    operands[0] = copy_to_mode_reg (SImode, operands[0]);
   sh_compare_op0 = operands[0];
   sh_compare_op1 = operands[1];
   DONE;
@@ -1159,7 +1170,9 @@
 			    (match_operand:SI 2 "arith_reg_operand" "r"))
 		  (reg:SI T_REG)))
    (set (reg:SI T_REG)
-	(gtu:SI (minus:SI (match_dup 1) (match_dup 2)) (match_dup 1)))]
+	(gtu:SI (minus:SI (minus:SI (match_dup 1) (match_dup 2))
+			  (reg:SI T_REG))
+		(match_dup 1)))]
   "TARGET_SH1"
   "subc	%2,%0"
   [(set_attr "type" "arith")])
@@ -1232,7 +1245,7 @@
 (define_insn "use_sfunc_addr"
   [(set (reg:SI PR_REG)
 	(unspec:SI [(match_operand:SI 0 "register_operand" "r")] UNSPEC_SFUNC))]
-  "TARGET_SH1"
+  "TARGET_SH1 && check_use_sfunc_addr (insn, operands[0])"
   ""
   [(set_attr "length" "0")])
 
@@ -3155,7 +3168,7 @@
 
 (define_expand "extendhisi2"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-       (sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
+	(sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
   ""
   "")
 
@@ -3165,7 +3178,7 @@
   "TARGET_SH1"
   "@
 	exts.w	%1,%0
-   	mov.w	%1,%0"
+	mov.w	%1,%0"
   [(set_attr "type" "arith,load")])
 
 (define_insn "*extendhisi2_media"
@@ -3269,7 +3282,7 @@
 	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
   "TARGET_SHMEDIA"
   "@
-	and	%1, 255, %0
+	andi	%1, 255, %0
 	st%M0.b	%m0, %1"
   [(set_attr "type"   "arith_media,store")])
 
@@ -4387,7 +4400,7 @@
   [(set (match_operand:SF 0 "register_operand" "")
 	(match_operand:SF 1 "register_operand" ""))
    (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "X"))]
+   (clobber (match_scratch:SI 3 ""))]
   "TARGET_SH2E && reload_completed
    && true_regnum (operands[0]) == true_regnum (operands[1])"
   [(set (match_dup 0) (match_dup 0))]
@@ -4398,7 +4411,7 @@
   [(set (match_operand:DF 0 "register_operand" "")
 	(match_operand:DF 1 "register_operand" ""))
    (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "X"))]
+   (clobber (match_scratch:SI 3 ""))]
   "TARGET_SH4 && ! TARGET_FMOVD && reload_completed
    && FP_OR_XD_REGISTER_P (true_regnum (operands[0]))
    && FP_OR_XD_REGISTER_P (true_regnum (operands[1]))"
@@ -4793,7 +4806,7 @@
 					i * GET_MODE_SIZE (V2SFmode)));
       else
 	{
-	  x = gen_rtx_SUBREG (V2SFmode, operands[0], i * 2);
+	  x = gen_rtx_SUBREG (V2SFmode, operands[0], i * 8);
 	  alter_subreg (&x);
 	}
 
@@ -4803,7 +4816,7 @@
 					i * GET_MODE_SIZE (V2SFmode)));
       else
 	{
-	  y = gen_rtx_SUBREG (V2SFmode, operands[1], i * 2);
+	  y = gen_rtx_SUBREG (V2SFmode, operands[1], i * 8);
 	  alter_subreg (&y);
 	}
 
@@ -5065,7 +5078,7 @@
 ;; delay slot scheduling from the target.
 (define_insn "indirect_jump_scratch"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand 1 "const_int_operand" "")] UNSPEC_BBR)) 
+	(unspec:SI [(match_operand 1 "const_int_operand" "")] UNSPEC_BBR))
    (set (pc) (unspec [(const_int 0)] UNSPEC_BBR))]
   "TARGET_SH1"
   ""
@@ -5562,7 +5575,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 ;; This is a pc-rel call, using bsrf, for use with PIC.
 
@@ -5579,7 +5593,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 (define_insn_and_split "call_pcrel"
   [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" ""))
@@ -5607,7 +5622,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 (define_insn "call_compact"
   [(call (mem:SI (match_operand:SI 0 "arith_reg_operand" "r"))
@@ -5662,7 +5678,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 (define_insn "call_valuei_pcrel"
   [(set (match_operand 0 "" "=rf")
@@ -5678,7 +5695,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 (define_insn_and_split "call_value_pcrel"
   [(set (match_operand 0 "" "=rf")
@@ -5708,7 +5726,8 @@
    (set (attr "fp_mode")
 	(if_then_else (eq_attr "fpu_single" "yes")
 		      (const_string "single") (const_string "double")))
-   (set_attr "needs_delay_slot" "yes")])
+   (set_attr "needs_delay_slot" "yes")
+   (set_attr "fp_set" "unknown")])
 
 (define_insn "call_value_compact"
   [(set (match_operand 0 "" "=rf")
@@ -7432,6 +7451,10 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (sh_expand_t_scc (EQ, operands[0]))
+    DONE;
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (EQ);
 }")
 
@@ -7478,6 +7501,8 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LT);
 }")
 
@@ -7580,6 +7605,8 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GT);
 }")
 
@@ -7632,6 +7659,8 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   if (GET_MODE_CLASS (GET_MODE (sh_compare_op0)) == MODE_FLOAT)
     {
       if (TARGET_IEEE)
@@ -7671,6 +7700,8 @@ mov.l\\t1f,r0\\n\\
 				     sh_compare_op0, sh_compare_op1));
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GTU);
 }")
 
@@ -7695,6 +7726,8 @@ mov.l\\t1f,r0\\n\\
 				     sh_compare_op1, sh_compare_op0));
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LTU);
 }")
 
@@ -7724,6 +7757,8 @@ mov.l\\t1f,r0\\n\\
 
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LEU);
 }")
 
@@ -7754,6 +7789,8 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GEU);
 }")
 
@@ -7801,8 +7838,12 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
-   operands[1] = prepare_scc_operands (EQ);
-   operands[2] = gen_reg_rtx (SImode);
+  if (sh_expand_t_scc (NE, operands[0]))
+    DONE;
+  if (! rtx_equal_function_value_matters)
+    FAIL;
+  operands[1] = prepare_scc_operands (EQ);
+  operands[2] = gen_reg_rtx (SImode);
 }")
 
 (define_expand "sunordered"
@@ -8169,7 +8210,8 @@ mov.l\\t1f,r0\\n\\
   [(set (reg:PSI FPSCR_REG)
 	(xor:PSI (reg:PSI FPSCR_REG) (const_int 1048576)))]
   "TARGET_SH4"
-  "fschg")
+  "fschg"
+  [(set_attr "fp_set" "unknown")])
 
 (define_expand "addsf3"
   [(set (match_operand:SF 0 "arith_reg_operand" "")
@@ -9435,9 +9477,10 @@ mov.l\\t1f,r0\\n\\
   if (unit_size < 2)
     {
       if (GET_CODE (operands[1]) == CONST_INT && GET_CODE (elt1) == CONST_INT)
-	operands[1] = GEN_INT (TARGET_LITTLE_ENDIAN
-			       ? INTVAL (operands[1]) + (INTVAL (elt1) << 8)
-			       : (INTVAL (operands[1]) << 8) + INTVAL (elt1));
+	operands[1]
+	  = GEN_INT (TARGET_LITTLE_ENDIAN
+		     ? (INTVAL (operands[1]) & 0xff) + (INTVAL (elt1) << 8)
+		     : (INTVAL (operands[1]) << 8) + (INTVAL (elt1) & 0xff));
       else
 	{
 	  operands[0] = gen_rtx_REG (V2QImode, true_regnum (operands[0]));
@@ -10359,7 +10402,7 @@ mov.l\\t1f,r0\\n\\
 			(const_int 4294967295))
 		(ashift:DI (match_operand:DI 2 "arith_reg_or_0_operand" "rZ")
                            (const_int 32))))]
-				
+
   "TARGET_SHMEDIA"
   "mshflo.l	%N1, %N2, %0"
   [(set_attr "type" "arith_media")])
@@ -10370,7 +10413,7 @@ mov.l\\t1f,r0\\n\\
                            (const_int 32))
 		(and:DI (match_operand:DI 2 "arith_reg_or_0_operand" "rZ")
 			(const_int 4294967295))))]
-				
+
   "TARGET_SHMEDIA"
   "mshflo.l	%N2, %N1, %0"
   [(set_attr "type" "arith_media")])
@@ -10404,7 +10447,7 @@ mov.l\\t1f,r0\\n\\
 				 "rZ"))
 		(ashift:DI (match_operand:DI 2 "arith_reg_or_0_operand" "rZ")
                            (const_int 32))))]
-				
+
   "TARGET_SHMEDIA"
   "mshflo.l	%N1, %N2, %0"
   [(set_attr "type" "arith_media")])
@@ -10414,7 +10457,7 @@ mov.l\\t1f,r0\\n\\
 ;;	(vec_concat:V2SF (match_operand:SF 1 "register_operand" "rZ,0,f")
 	(vec_concat:V2SF (match_operand:SF 1 "register_operand" "rZ,f,f")
 			 (match_operand:SF 2 "register_operand" "rZ,f,f")))]
-				
+
   "TARGET_SHMEDIA"
   "@
 	mshflo.l	%N1, %N2, %0
@@ -10436,7 +10479,7 @@ mov.l\\t1f,r0\\n\\
 	(ior:DI (ashift:DI (match_operand:DI 1 "arith_reg_or_0_operand" "rZ")
                            (const_int 32))
 		(zero_extend:DI (match_operand:SI 2 "extend_reg_or_0_operand" "rZ"))))]
-				
+
   "TARGET_SHMEDIA"
   "mshflo.l	%N2, %N1, %0"
   [(set_attr "type" "arith_media")])
@@ -10545,7 +10588,7 @@ mov.l\\t1f,r0\\n\\
 			  (vec_select:SF (mult:V4SF (match_dup 1) (match_dup 2))
 					 (parallel [(const_int 3)])))))]
   "TARGET_SHMEDIA"
-  "fipr	%1, %2, %0"
+  "fipr.s	%1, %2, %0"
   [(set_attr "type" "fparith_media")])
 
 (define_insn "fsrra_s"
@@ -10571,7 +10614,7 @@ mov.l\\t1f,r0\\n\\
 				       (const_int 14) (const_int 3)]))
 	   (vec_select:V4SF (match_dup 2)
 			    (parallel [(const_int 1) (const_int 2)
-				      (const_int 3) (const_int 0)]))))
+				       (const_int 3) (const_int 0)]))))
 	 (plus:V4SF
 	  (mult:V4SF
 	   (vec_select:V4SF (match_dup 1)
@@ -10588,7 +10631,7 @@ mov.l\\t1f,r0\\n\\
 			    (parallel [(const_int 3) (const_int 0)
 				       (const_int 1) (const_int 2)]))))))]
   "TARGET_SHMEDIA"
-  "ftrv %1, %2, %0"
+  "ftrv.s %1, %2, %0"
   [(set_attr "type" "fparith_media")])
 
 (define_insn "nsb"
@@ -10674,17 +10717,30 @@ mov.l\\t1f,r0\\n\\
   "byterev	%1, %0"
   [(set_attr "type" "arith_media")])
 
+(define_insn "prefetch"
+  [(prefetch (match_operand:QI 0 "address_operand" "p")
+             (match_operand:SI 1 "const_int_operand" "n")
+             (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_SHMEDIA"
+  "*
+{
+  operands[0] = gen_rtx_MEM (QImode, operands[0]);
+  output_asm_insn (\"ld%M0.b    %m0,r63\", operands);
+  return \"\";
+}"
+  [(set_attr "type" "other")])
+
 ;; The following description  models the
-;; SH4 pipeline using the DFA based scheduler. 
-;; The DFA based description is better way to model 
+;; SH4 pipeline using the DFA based scheduler.
+;; The DFA based description is better way to model
 ;; a superscalar pipeline as compared to function unit
-;; reservation model.   
-;; 1. The function unit based model is oriented to describe at most one 
-;;    unit reservation by each insn. It is difficult to model unit reservations in multiple 
+;; reservation model.
+;; 1. The function unit based model is oriented to describe at most one
+;;    unit reservation by each insn. It is difficult to model unit reservations in multiple
 ;;    pipeline units by same insn. This can be done using DFA based description.
 ;; 2. The execution performance of DFA based scheduler does not depend on processor complexity.
-;; 3. Writing all unit reservations for an instruction class is more natural description 
-;;    of the pipeline and makes interface of the hazard recognizer simpler than the 
+;; 3. Writing all unit reservations for an instruction class is more natural description
+;;    of the pipeline and makes interface of the hazard recognizer simpler than the
 ;;    old function unit based model.
 ;; 4. The DFA model is richer and is a part of greater overall framework of RCSP.
 
@@ -10695,7 +10751,7 @@ mov.l\\t1f,r0\\n\\
 (define_automaton "inst_pipeline,fpu_pipe")
 
 ;; This unit is basically the decode unit of the processor.
-;; Since SH4 is a dual issue machine,it is as if there are two 
+;; Since SH4 is a dual issue machine,it is as if there are two
 ;; units so that any insn can be processed by either one
 ;; of the decoding unit.
 
@@ -10728,8 +10784,8 @@ mov.l\\t1f,r0\\n\\
 
 ;; The address calculator used for branch instructions.
 ;; This will be reserved after "issue" of branch instructions
-;; and this is to make sure that no two branch instructions 
-;; can be issued in parallel. 
+;; and this is to make sure that no two branch instructions
+;; can be issued in parallel.
 
 (define_cpu_unit "pcr_addrcalc" "inst_pipeline")
 
@@ -10751,14 +10807,14 @@ mov.l\\t1f,r0\\n\\
 
 (define_reservation "fpu" "F1+F2")
 
-;; This is to highlight the fact that f1 
+;; This is to highlight the fact that f1
 ;; cannot overlap with F1.
 
 (exclusion_set  "f1_1,f1_2" "F1")
 
 (define_insn_reservation "nil" 0 (eq_attr "type" "nil") "nothing")
 
-;; Although reg moves have a latency of zero 
+;; Although reg moves have a latency of zero
 ;; we need to highlight that they use D stage
 ;; for one cycle.
 
@@ -10806,7 +10862,7 @@ mov.l\\t1f,r0\\n\\
 ;; Latency: 	1
 ;; Issue Rate: 	1
 
-(define_insn_reservation "sh4_simple_arith" 1 
+(define_insn_reservation "sh4_simple_arith" 1
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "insn_class" "ex_group"))
   "issue,int")
@@ -10913,7 +10969,7 @@ mov.l\\t1f,r0\\n\\
 ;; Group:	CO
 ;; Latency: 	5
 ;; Issue Rate: 	5
-;; this instruction can be executed in any of the pipelines 
+;; this instruction can be executed in any of the pipelines
 ;; and blocks the pipeline for next 4 stages.
 
 (define_insn_reservation "sh4_return_from_exp" 5
@@ -10932,7 +10988,7 @@ mov.l\\t1f,r0\\n\\
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "cwb"))
   "d_lock*2,(d_lock+memory)*3,issue+load_store+memory,memory*2")
-		
+
 ;; LDS to PR,JSR
 ;; Group:	CO
 ;; Latency: 	3
@@ -10944,7 +11000,7 @@ mov.l\\t1f,r0\\n\\
 ;; scheduling.  For the function call case, it's really best that we end with
 ;; something that models an rts.
 
-(define_insn_reservation "sh4_lds_to_pr" 3 
+(define_insn_reservation "sh4_lds_to_pr" 3
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "prset") )
   "d_lock*2")
@@ -10957,17 +11013,17 @@ mov.l\\t1f,r0\\n\\
 ;; We could, of course, provide exact scheduling information for specific
 ;; sfuncs, if that should prove useful.
 
-(define_insn_reservation "sh4_call" 16 
+(define_insn_reservation "sh4_call" 16
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "call,sfunc"))
   "d_lock*16")
 
-;; LDS.L to PR 
+;; LDS.L to PR
 ;; Group:	CO
 ;; Latency: 	3
 ;; Issue Rate: 	2
 ;; The SX unit is blocked for last 2 cycles.
- 
+
 (define_insn_reservation "ldsmem_to_pr"  3
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "pload"))
@@ -10989,7 +11045,7 @@ mov.l\\t1f,r0\\n\\
 ;; Latency: 	2
 ;; Issue Rate: 	2
 
-(define_insn_reservation "sh4_prstore_mem" 2 
+(define_insn_reservation "sh4_prstore_mem" 2
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "pstore"))
   "d_lock*2,nothing,memory")
@@ -10998,7 +11054,7 @@ mov.l\\t1f,r0\\n\\
 ;; Group:	CO
 ;; Latency: 	4
 ;; Issue Rate: 	1
-;; F1 is blocked for last three cycles. 
+;; F1 is blocked for last three cycles.
 
 (define_insn_reservation "fpscr_load" 4
   (and (eq_attr "pipe_model" "sh4")
@@ -11079,7 +11135,7 @@ mov.l\\t1f,r0\\n\\
        (eq_attr "type" "dfp_conv"))
   "issue,F01,F1+F2,F2")
 
-;; Double-precision floating-point (FADD,FMUL,FSUB) 
+;; Double-precision floating-point (FADD,FMUL,FSUB)
 ;; Group:	FE
 ;; Latency: 	(7,8)/9
 ;; Issue Rate: 	1
@@ -11089,12 +11145,12 @@ mov.l\\t1f,r0\\n\\
        (eq_attr "type" "dfp_arith"))
   "issue,F01,F1+F2,fpu*4,F2")
 
-;; Double-precision FCMP (FCMP/EQ,FCMP/GT) 
+;; Double-precision FCMP (FCMP/EQ,FCMP/GT)
 ;; Group:	CO
 ;; Latency: 	3/5
 ;; Issue Rate: 	2
 
-(define_insn_reservation "fp_double_cmp" 3 
+(define_insn_reservation "fp_double_cmp" 3
   (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "dfp_cmp"))
   "d_lock,(d_lock+F01),F1+F2,F2")

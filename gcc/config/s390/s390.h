@@ -95,6 +95,7 @@ extern int target_flags;
 #define MASK_ZARCH                 0x20
 #define MASK_MVCLE                 0x40
 #define MASK_TPF                   0x80
+#define MASK_NO_FUSED_MADD         0x100
 
 #define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
 #define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
@@ -105,6 +106,8 @@ extern int target_flags;
 #define TARGET_ZARCH               (target_flags & MASK_ZARCH)
 #define TARGET_MVCLE               (target_flags & MASK_MVCLE)
 #define TARGET_TPF                 (target_flags & MASK_TPF)
+#define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
+#define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
 
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
@@ -116,23 +119,25 @@ extern int target_flags;
 #define TARGET_DEFAULT             0x3
 #endif
 
-#define TARGET_SWITCHES                                                \
-{ { "hard-float",    1, N_("Use hardware fp")},                        \
-  { "soft-float",   -1, N_("Don't use hardware fp")},                  \
-  { "backchain",     2, N_("Set backchain")},                          \
-  { "no-backchain", -2, N_("Don't set backchain (faster, but debug harder")}, \
-  { "small-exec",    4, N_("Use bras for executable < 64k")},          \
-  { "no-small-exec",-4, N_("Don't use bras")},                         \
-  { "debug",         8, N_("Additional debug prints")},                \
-  { "no-debug",     -8, N_("Don't print additional debug prints")},    \
-  { "64",           16, N_("64 bit ABI")},                             \
-  { "31",          -16, N_("31 bit ABI")},                             \
-  { "zarch",        32, N_("z/Architecture")},                         \
-  { "esa",         -32, N_("ESA/390 architecture")},                   \
-  { "mvcle",        64, N_("mvcle use")},                              \
-  { "no-mvcle",    -64, N_("mvc&ex")},                                 \
-  { "tpf",         128, N_("enable tpf OS code")},                     \
-  { "no-tpf",     -128, N_("disable tpf OS code")},                    \
+#define TARGET_SWITCHES                                                  \
+{ { "hard-float",      1, N_("Use hardware fp")},                        \
+  { "soft-float",     -1, N_("Don't use hardware fp")},                  \
+  { "backchain",       2, N_("Set backchain")},                          \
+  { "no-backchain",   -2, N_("Don't set backchain (faster, but debug harder")},\
+  { "small-exec",      4, N_("Use bras for executable < 64k")},          \
+  { "no-small-exec",  -4, N_("Don't use bras")},                         \
+  { "debug",           8, N_("Additional debug prints")},                \
+  { "no-debug",       -8, N_("Don't print additional debug prints")},    \
+  { "64",             16, N_("64 bit ABI")},                             \
+  { "31",            -16, N_("31 bit ABI")},                             \
+  { "zarch",          32, N_("z/Architecture")},                         \
+  { "esa",           -32, N_("ESA/390 architecture")},                   \
+  { "mvcle",          64, N_("mvcle use")},                              \
+  { "no-mvcle",      -64, N_("mvc&ex")},                                 \
+  { "tpf",           128, N_("enable tpf OS code")},                     \
+  { "no-tpf",       -128, N_("disable tpf OS code")},                    \
+  { "no-fused-madd", 256, N_("disable fused multiply/add instructions")},\
+  { "fused-madd",   -256, N_("enable fused multiply/add instructions")}, \
   { "", TARGET_DEFAULT, 0 } }
 
 #define TARGET_OPTIONS                                          \
@@ -240,7 +245,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    NONLOCAL needs twice Pmode to maintain both backchain and SP.  */
 #define STACK_SAVEAREA_MODE(LEVEL)      \
   (LEVEL == SAVE_FUNCTION ? VOIDmode    \
-  : LEVEL == SAVE_NONLOCAL ? (TARGET_64BIT ? TImode : DImode) : Pmode)
+  : LEVEL == SAVE_NONLOCAL ? (TARGET_64BIT ? OImode : TImode) : Pmode)
 
 /* Define target floating point format.  */
 #define TARGET_FLOAT_FORMAT \
@@ -308,7 +313,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    GPRs 6-15 are always call-saved.
    GPR 12 is fixed if used as GOT pointer.
    GPR 13 is always fixed (as literal pool pointer).
-   GPR 14 is always fixed (as return address).
+   GPR 14 is always fixed on S/390 machines (as return address).
    GPR 15 is always fixed (as stack pointer).
    The 'fake' hard registers are call-clobbered and fixed.
 
@@ -359,6 +364,11 @@ do								\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       }								\
+    if (TARGET_CPU_ZARCH)					\
+      {								\
+	fixed_regs[RETURN_REGNUM] = 0;				\
+	call_used_regs[RETURN_REGNUM] = 0;			\
+      }								\
     if (TARGET_64BIT)						\
       {								\
         for (i = 24; i < 32; i++)				\
@@ -373,7 +383,7 @@ do								\
 
 /* Preferred register allocation order.  */
 #define REG_ALLOC_ORDER                                         \
-{  1, 2, 3, 4, 5, 0, 14, 13, 12, 11, 10, 9, 8, 7, 6,            \
+{  1, 2, 3, 4, 5, 0, 13, 12, 11, 10, 9, 8, 7, 6, 14,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
    15, 32, 33, 34 }
@@ -526,21 +536,20 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
    (C) == 'd' ? GENERAL_REGS :                                          \
    (C) == 'f' ? FP_REGS : NO_REGS)
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)                                 \
-  ((C) == 'I' ? (unsigned long) (VALUE) < 256 :                         \
-   (C) == 'J' ? (unsigned long) (VALUE) < 4096 :                        \
-   (C) == 'K' ? (VALUE) >= -32768 && (VALUE) < 32768 :                  \
-   (C) == 'L' ? (unsigned long) (VALUE) < 65536 : 0)
+#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)                          \
+  s390_const_ok_for_constraint_p ((VALUE), (C), (STR))
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  1
+#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)  1
 
-#define EXTRA_CONSTRAINT(OP, C)                               	\
-  s390_extra_constraint ((OP), (C))
+#define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
+  s390_extra_constraint_str ((OP), (C), (STR))
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
   ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
 #define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
-  ((C) == 'U' || (C) == 'W')
+  ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
+#define CONSTRAINT_LEN(C, STR)                                   \
+  ((C) == 'N' ? 5 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 
@@ -697,33 +706,14 @@ CUMULATIVE_ARGS;
 
 /* Scalar return values.  */
 
-/* We return scalars in general purpose register 2 for integral values,
-   and floating point register 0 for fp values.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)				\
-  gen_rtx_REG ((INTEGRAL_TYPE_P (VALTYPE)			\
-		&& TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-	       || POINTER_TYPE_P (VALTYPE)			\
-	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_HARD_FLOAT ? 16 : 2)
+#define FUNCTION_VALUE(VALTYPE, FUNC) \
+  s390_function_value ((VALTYPE), VOIDmode)
 
-/* Define how to find the value returned by a library function assuming
-   the value has mode MODE.  */
-#define RET_REG(MODE) ((GET_MODE_CLASS (MODE) == MODE_INT       \
-                       || TARGET_SOFT_FLOAT ) ? 2 : 16)
-#define LIBCALL_VALUE(MODE)  gen_rtx (REG, MODE, RET_REG (MODE))
+#define LIBCALL_VALUE(MODE) \
+  s390_function_value (NULL, (MODE))
 
 /* Only gpr 2 and fpr 0 are ever used as return registers.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 2 || (N) == 16)
-
-
-/* Aggregate return values.  */
-
-/* The definition of this macro implies that there are cases where
-   a scalar value cannot be returned in registers.  */
-#define RETURN_IN_MEMORY(type)       				\
-  (TYPE_MODE (type) == BLKmode || 				\
-   GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_INT  ||	\
-   GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT)
 
 /* Structure value address is passed as invisible first argument (gpr 2).  */
 #define STRUCT_VALUE 0
@@ -744,9 +734,6 @@ CUMULATIVE_ARGS;
 
 
 /* Implementing the varargs macros.  */
-
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = s390_build_va_list ()
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   s390_va_start (valist, nextarg)
@@ -1018,6 +1005,7 @@ do {									\
 #define PREDICATE_CODES							\
   {"s_operand",       { SUBREG, MEM }},					\
   {"s_imm_operand",   { CONST_INT, CONST_DOUBLE, SUBREG, MEM }},	\
+  {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
   {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
   {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\
   {"load_multiple_operation", {PARALLEL}},			        \
@@ -1025,7 +1013,9 @@ do {									\
   {"const0_operand",  { CONST_INT, CONST_DOUBLE }},			\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
-  {"s390_plus_operand", { PLUS }},
+  {"s390_plus_operand", { PLUS }},					\
+  {"s390_alc_comparison", { LTU, GTU, LEU, GEU }},			\
+  {"s390_slb_comparison", { LTU, GTU, LEU, GEU }},
 
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */

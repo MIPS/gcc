@@ -4,20 +4,20 @@
    Free Software Foundation, Inc.
    Contributed by Roman Lechtchinsky (rl@cs.tu-berlin.de)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -223,30 +223,6 @@ do {								\
 #undef FUNCTION_ARG_PARTIAL_NREGS
 /* #define FUNCTION_ARG_PARTIAL_NREGS(CUM,MODE,TYPE,NAMED) 0 */
 
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.
-
-   On Unicos/Mk, the standard subroutine __T3E_MISMATCH stores all register
-   arguments on the stack. Unfortunately, it doesn't always store the first
-   one (i.e. the one that arrives in $16 or $f16). This is not a problem
-   with stdargs as we always have at least one named argument there.  */
-
-#undef SETUP_INCOMING_VARARGS
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
-{ if ((CUM).num_reg_words < 6)						\
-    {									\
-      if (! (NO_RTL))							\
-        {								\
-	  int start = (CUM).num_reg_words + 1;				\
-									\
-          emit_insn (gen_umk_mismatch_args (GEN_INT (start)));		\
-	  emit_insn (gen_arg_home_umk ());				\
-        }								\
-									\
-      PRETEND_SIZE = 0;							\
-    }									\
-}
-
 /* This ensures that $15 increments/decrements in leaf functions won't get
    eliminated.  */
 
@@ -314,7 +290,7 @@ SSIB_SECTION
 extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
-common_section ()		\
+common_section (void)		\
 {				\
   in_section = in_common;	\
 }
@@ -322,7 +298,7 @@ common_section ()		\
 extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
-ssib_section ()			\
+ssib_section (void)		\
 {				\
   in_section = in_ssib;		\
 }
@@ -484,11 +460,6 @@ ssib_section ()			\
          }						\
   } while(0)
 
-/*
-#define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME, RELOC)	\
-  unicosmk_output_section_name ((STREAM), (DECL), (NAME), (RELOC))
-*/
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION unicosmk_asm_named_section
 
@@ -504,28 +475,9 @@ ssib_section ()			\
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
-#undef DWARF_DEBUGGING_INFO
 #undef DWARF2_DEBUGGING_INFO
 #undef DWARF2_UNWIND_INFO
 #undef INCOMING_RETURN_ADDR_RTX
-
-
-/* We use the functions provided by the system library for integer
-   division.  */
-
-#undef UDIVDI3_LIBCALL
-#undef DIVDI3_LIBCALL
-#define UDIVDI3_LIBCALL	"$uldiv"
-#define DIVDI3_LIBCALL "$sldiv"
-
-/* This is necessary to prevent gcc from generating calls to __divsi3.  */
-
-#define INIT_TARGET_OPTABS					\
-  do {								\
-    sdiv_optab->handlers[(int) SImode].libfunc = NULL_RTX;	\
-    udiv_optab->handlers[(int) SImode].libfunc = NULL_RTX;	\
-  } while (0)
-
 #undef ASM_OUTPUT_SOURCE_LINE
 
 /* We don't need a start file.  */
@@ -538,7 +490,6 @@ ssib_section ()			\
 #undef LIB_SPEC
 #define LIB_SPEC "-L/opt/ctl/craylibs/craylibs -lu -lm -lc -lsma"
 
-#undef BUILD_VA_LIST_TYPE
 #undef EXPAND_BUILTIN_VA_START
 #undef EXPAND_BUILTIN_VA_ARG
 

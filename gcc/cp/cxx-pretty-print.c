@@ -91,7 +91,7 @@ pp_cxx_colon_colon (cxx_pretty_printer *pp)
 }
 
 
-/* Expressions. */
+/* Expressions.  */
 
 static inline bool
 is_destructor_name (tree name)
@@ -261,16 +261,14 @@ pp_cxx_qualified_id (cxx_pretty_printer *pp, tree t)
 }
 
 /* id-expression:
-      unaqualified-id
+      unqualified-id
       qualified-id   */
 static inline void
 pp_cxx_id_expression (cxx_pretty_printer *pp, tree t)
 {
   if (TREE_CODE (t) == OVERLOAD)
     t = OVL_CURRENT (t);
-  if ((TREE_CODE (t) == FUNCTION_DECL && DECL_FUNCTION_MEMBER_P (t))
-      || (pp_c_base (pp)->flags
-          & (pp_cxx_flag_qualified_id | pp_cxx_flag_global_scope)))
+  if (DECL_P (t) && DECL_CONTEXT (t))
     pp_cxx_qualified_id (pp, t);
   else
     pp_cxx_unqualified_id (pp, t);
@@ -621,7 +619,7 @@ pp_cxx_pm_expression (cxx_pretty_printer *pp, tree t)
           pp_cxx_qualified_id (pp, t);
           break;
         }
-      /* else fall through */
+      /* Else fall through.  */
     case MEMBER_REF:
     case DOTSTAR_EXPR:
       pp_cxx_pm_expression (pp, TREE_OPERAND (t, 0));
@@ -988,7 +986,7 @@ pp_cxx_simple_type_specifier (cxx_pretty_printer *pp, tree t)
       class-specifier
       enum-specifier
       elaborated-type-specifier
-      cv-qualifer   */
+      cv-qualifier   */
 
 static void
 pp_cxx_type_specifier_seq (cxx_pretty_printer *pp, tree t)
@@ -1057,7 +1055,7 @@ pp_cxx_ptr_operator (cxx_pretty_printer *pp, tree t)
           pp_cxx_cv_qualifier_seq (pp, t);
           break;
         }
-      /* else fall trhough.  */
+      /* else fall through.  */
 
     default:
       pp_unsupported_tree (pp, t);
@@ -1289,7 +1287,7 @@ pp_cxx_abstract_declarator (cxx_pretty_printer *pp, tree t)
 
 /* direct-abstract-declarator:
       direct-abstract-declarator(opt) ( parameter-declaration-clause )
-                           cv-quafilier-seq(opt) exception-specification(opt)
+                           cv-qualifier-seq(opt) exception-specification(opt)
       direct-abstract-declarator(opt) [ constant-expression(opt) ]
       ( abstract-declarator )  */
 static void
@@ -1481,7 +1479,7 @@ static void
 pp_cxx_original_namespace_definition (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_identifier (pp, "namespace");
-  if (DECL_NAME (t) != anonymous_namespace_name)
+  if (DECL_NAME (t))
     pp_cxx_unqualified_id (pp, t);
   pp_cxx_whitespace (pp);
   pp_cxx_left_brace (pp);
@@ -1586,7 +1584,7 @@ pp_cxx_canonical_template_parameter (cxx_pretty_printer *pp, tree parm)
 {
   const enum tree_code code = TREE_CODE (parm);
 
-  /* Brings type template parameters to the canonical forms  */
+  /* Brings type template parameters to the canonical forms.  */
   if (code == TEMPLATE_TYPE_PARM || code == TEMPLATE_TEMPLATE_PARM
       || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     parm = TEMPLATE_TYPE_PARM_INDEX (parm);

@@ -2,33 +2,35 @@
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Let mips.c know we need the IRIX 6 functions.  */
-#define TARGET_IRIX6 1
+/* No more special IRIX 5 handling.  */
+#undef TARGET_IRIX5
+#define TARGET_IRIX5 0
 
 /* Default to -mabi=n32 and -mips3.  */
 #undef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS { "mabi=n32" }
 
-/* IRIX 6 assembler does handle DWARF2 directives.  Override setting in
-   iris5.h file.  */
+/* The IRIX 6 O32 assembler cannot calculate label differences, while both
+   the N32/N64 assembler and gas can.  Override setting in iris5.h file.  */
 #undef DWARF2_UNWIND_INFO
+#define DWARF2_UNWIND_INFO !TARGET_SGI_O32_AS
 
 /* The IRIX 6 assembler will sometimes assign labels to the wrong
    section unless the labels are within .ent/.end blocks.  Therefore,
@@ -54,8 +56,14 @@ Boston, MA 02111-1307, USA.  */
 /* For IRIX 6, -mabi=64 implies TARGET_LONG64.  */
 /* This is handled in override_options.  */
 
+/* Default to the mips2 ISA for the O32 ABI.  */
 #undef SUBTARGET_CC1_SPEC
-#define SUBTARGET_CC1_SPEC ""
+#define SUBTARGET_CC1_SPEC "%{mabi=32: %{!mips*: -mips2}}"
+
+/* #line directives let the O32 assembler create object files that cause the
+   O32 linker to crash.  */
+#undef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC "%{mabi=32: %{.S:-P}}"
 
 /* We must pass -D_LONGLONG always, even when -ansi is used, because IRIX 6
    system header files require it.  This is OK, because gcc never warns
@@ -86,7 +94,8 @@ Boston, MA 02111-1307, USA.  */
 							\
      if (mips_abi == ABI_32)				\
       {							\
-	builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");	\
+	builtin_define ("_ABIO32=1");			\
+	builtin_define ("_MIPS_SIM=_ABIO32");		\
 	builtin_define ("_MIPS_SZLONG=32");		\
 	builtin_define ("_MIPS_SZPTR=32");		\
       }							\
@@ -146,7 +155,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Force the generation of dwarf .debug_frame sections even if not
    compiling -g.  This guarantees that we can unwind the stack.  */
-#define DWARF2_FRAME_INFO 1
+#define DWARF2_FRAME_INFO !TARGET_SGI_O32_AS
 
 /* The size in bytes of a DWARF field indicating an offset or length
    relative to a debug info section, specified to be 4 bytes in the DWARF-2
@@ -175,11 +184,6 @@ Boston, MA 02111-1307, USA.  */
 #undef MACHINE_TYPE
 #define MACHINE_TYPE "SGI running IRIX 6.x"
 
-/* IRIX 5 stuff that we don't need for IRIX 6.  */
-/* ??? We do need this for the -mabi=32 switch though.  */
-#undef ASM_OUTPUT_UNDEF_FUNCTION
-#undef ASM_DECLARE_FUNCTION_SIZE
-
 /* Stuff we need for IRIX 6 that isn't in IRIX 5.  */
 
 /* The SGI assembler doesn't like labels before the .ent, so we must output
@@ -188,25 +192,38 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL)			\
   do {									\
-    fputs ("\t.ent\t", STREAM);						\
-    assemble_name (STREAM, NAME);					\
-    fputs ("\n", STREAM);						\
-    assemble_name (STREAM, NAME);					\
-    fputs (":\n", STREAM);						\
+    if (mips_abi != ABI_32)						\
+      {									\
+        fputs ("\t.ent\t", STREAM);					\
+        assemble_name (STREAM, NAME);					\
+        fputs ("\n", STREAM);						\
+        assemble_name (STREAM, NAME);					\
+        fputs (":\n", STREAM);						\
+      }									\
   } while (0)
 
 /* Likewise, the SGI assembler doesn't like labels after the .end, so we
    must output the .end here.  */
+#undef ASM_DECLARE_FUNCTION_SIZE
 #define ASM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)			\
   do {									\
-    fputs ("\t.end\t", STREAM);						\
-    assemble_name (STREAM, NAME);					\
-    fputs ("\n", STREAM);						\
+    if (mips_abi == ABI_32)						\
+      {									\
+        tree name_tree = get_identifier (NAME);				\
+        TREE_ASM_WRITTEN (name_tree) = 1;				\
+      } 								\
+    else								\
+      {									\
+        fputs ("\t.end\t", STREAM);					\
+        assemble_name (STREAM, NAME);					\
+        fputs ("\n", STREAM);						\
+      }									\
   } while (0)
 
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
-#define FUNCTION_NAME_ALREADY_DECLARED
+#undef FUNCTION_NAME_ALREADY_DECLARED
+#define FUNCTION_NAME_ALREADY_DECLARED (mips_abi != ABI_32)
 
 #undef SET_ASM_OP	/* Has no equivalent.  See ASM_OUTPUT_DEF below.  */
 
@@ -243,16 +260,16 @@ Boston, MA 02111-1307, USA.  */
    on the mipsX option.  */
 /* If no mips[3,4] option given, give the appropriate default for mabi=X */
 #undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32} %{!mips*: %{!mabi*:-mips3} %{mabi=n32|mabi=64:-mips3}}"
+#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32} %{mabi=32:-32} %{!mips*: %{!mabi*:-mips3} %{mabi=32:-mips2} %{mabi=n32|mabi=64:-mips3}}"
 
 /* Must pass -g0 to the assembler, otherwise it may overwrite our
    debug info with its own debug info.  */
 /* Must pass -show instead of -v.  */
 /* Must pass -G 0 to the assembler, otherwise we may get warnings about
    GOT overflow.  */
-/* ??? We pass -w to disable all assembler warnings.  The `label should be
-   inside .ent/.end block' warning that we get for DWARF II debug info labels
-   is particularly annoying.  */
+/* Must pass -w to the assembler to quiet warnings about .ent/.end for dwarf2.  */
+#if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) == 0
+/* We have a separate file for gas.  */
 #undef SUBTARGET_MIPS_AS_ASM_SPEC
 #define SUBTARGET_MIPS_AS_ASM_SPEC "%{v:-show} -G 0 -w"
 
@@ -263,6 +280,7 @@ Boston, MA 02111-1307, USA.  */
    doing scheduling anyhow, just turn off optimization in the assembler.  */
 #undef SUBTARGET_ASM_OPTIMIZING_SPEC
 #define SUBTARGET_ASM_OPTIMIZING_SPEC "-O0"
+#endif
 
 /* The assembler now accepts .section pseudo-ops, but it does not allow
    one to change the section in the middle of a function, so we can't use
@@ -270,7 +288,12 @@ Boston, MA 02111-1307, USA.  */
    and dtor lists this way, so we use -init and -fini to invoke the
    do_global_* functions instead of running collect2.  */
 
-#define BSS_SECTION_ASM_OP	"\t.section\t.bss"
+#define BSS_SECTION_ASM_OP_32	"\t.data"
+#define BSS_SECTION_ASM_OP_64	"\t.section\t.bss"
+#define BSS_SECTION_ASM_OP			\
+  (mips_abi != ABI_32 && mips_abi != ABI_O64	\
+   ? BSS_SECTION_ASM_OP_64			\
+   : BSS_SECTION_ASM_OP_32)
 
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP_32	"\t.rdata"
@@ -280,8 +303,41 @@ Boston, MA 02111-1307, USA.  */
    ? READONLY_DATA_SECTION_ASM_OP_64		\
    : READONLY_DATA_SECTION_ASM_OP_32)
 
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  irix_asm_named_section
+
+/* The default definition in defaults.h cannot cope with the runtime-variable
+   definition of DWARF2_UNWIND_INFO above, so define here explicitly.  */
+#define EH_FRAME_SECTION_NAME ".eh_frame"
+
+/* MUST_USE_SJLJ_EXCEPTIONS has the same problem.  */
+#define MUST_USE_SJLJ_EXCEPTIONS (DWARF2_UNWIND_INFO == 0)
+
+/* The native IRIX 6 O32 assembler doesn't support named sections, while
+   the N32/N64 assembler does.  We need crt{begin, end}.o for the N32/N64
+   ABIs, but there's no way to disable them for just one multilib.
+   Therefore we provide dummy definitions to allow crtstuff.c to compile,
+   but the resulting files are not used for the O32 ABI.  */
+
+#if (defined _ABIO32 && _MIPS_SIM == _ABIO32) \
+  && ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GAS) == 0
+
+/* Provide dummy definitions.  */
+#define CTORS_SECTION_ASM_OP ""
+#define DTORS_SECTION_ASM_OP ""
+
+/* Undef so JCR_SECTION_NAME isn't defined and __JCR_{LIST, END}__ are not
+   used.  */
+#undef TARGET_ASM_NAMED_SECTION
+
+/* Undef so __EH_FRAME_BEGIN__/__FRAME_END__ are not used.  */
+#undef EH_FRAME_SECTION_NAME
+
+#endif /* _MIPS_SIM == _ABIO32 && !GAS */
+
 /* Define functions to read the name and flags of the current section.
-   They are used by iris6_asm_output_align.  */
+   They are used by irix_asm_output_align.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
@@ -320,13 +376,9 @@ current_section_flags (void)						\
   abort ();								\
 }
 
-/* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
-#define TARGET_ASM_NAMED_SECTION  iris6_asm_named_section
-
 /* SGI assembler needs all sorts of extra help to do alignment properly.  */
 #undef ASM_OUTPUT_ALIGN
-#define ASM_OUTPUT_ALIGN iris6_asm_output_align
+#define ASM_OUTPUT_ALIGN irix_asm_output_align
 
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
@@ -338,7 +390,10 @@ current_section_flags (void)						\
 #define ASM_OUTPUT_FILENAME(STREAM, NUM_SOURCE_FILENAMES, NAME) \
 do								\
   {								\
-    fprintf (STREAM, "\t#.file\t%d ", NUM_SOURCE_FILENAMES);	\
+    if (mips_abi == ABI_32)					\
+      fprintf (STREAM, "\t.file\t%d ", NUM_SOURCE_FILENAMES);	\
+    else							\
+      fprintf (STREAM, "\t#.file\t%d ", NUM_SOURCE_FILENAMES);	\
     output_quoted_string (STREAM, NAME);			\
     fputs ("\n", STREAM);					\
   }								\
@@ -369,12 +424,6 @@ while (0)
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
-/* Define the `__builtin_va_list' type for the ABI.  On IRIX 6, this
-   type is `char *'.  */
-#undef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = build_pointer_type (char_type_node)
-
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
@@ -388,8 +437,7 @@ while (0)
 /* Profiling is supported via libprof1.a not -lc_p as in IRIX 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC \
+#define IRIX6_STARTFILE_SPEC \
   "%{!shared: \
      %{mabi=32:%{pg:gcrt1.o%s} \
        %{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}} \
@@ -413,8 +461,10 @@ while (0)
            %{!p:/usr/lib32/mips4/crt1.o%s}}} \
        %{!mips4:%{pg:/usr/lib32/mips3/gcrt1.o%s} \
          %{!pg:%{p:/usr/lib32/mips3/mcrt1.o%s /usr/lib32/mips3/libprof1.a%s} \
-           %{!p:/usr/lib32/mips3/crt1.o%s}}}}} \
-   crtbegin.o%s"
+           %{!p:/usr/lib32/mips3/crt1.o%s}}}}}"
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%(irix6_startfile_spec) crtbegin.o%s"
 
 #undef LIB_SPEC
 #define LIB_SPEC \
@@ -433,10 +483,8 @@ while (0)
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  "crtend.o%s \
-   %{!shared: \
+#define IRIX6_ENDFILE_SPEC \
+  "%{!shared: \
      %{mabi=32:crtn.o%s}\
      %{mabi=n32:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}\
@@ -445,6 +493,9 @@ while (0)
      %{!mabi*:%{mips4:/usr/lib32/mips4/crtn.o%s}\
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}}"
 
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "crtend.o%s %(irix6_endfile_spec)"
+
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
 #undef LINK_SPEC
@@ -452,10 +503,24 @@ while (0)
 %{G*} %{EB} %{EL} %{mips1} %{mips2} %{mips3} %{mips4} \
 %{bestGnum} %{shared} %{non_shared} \
 %{call_shared} %{no_archive} %{exact_version} %{w} \
-%{!shared: %{!non_shared: %{!call_shared: -call_shared -no_unresolved}}} \
-%{rpath} -init __do_global_ctors -fini __do_global_dtors \
+%{!shared: %{!non_shared: %{!call_shared:%{!r: -call_shared -no_unresolved}}}} \
+%{rpath} %{!mabi=32: -init __do_global_ctors -fini __do_global_dtors} \
 %{shared:-hidden_symbol __do_global_ctors,__do_global_ctors_1,__do_global_dtors} \
 -_SYSTYPE_SVR4 -woff 131 \
 %{mabi=32: -32}%{mabi=n32: -n32}%{mabi=64: -64}%{!mabi*: -n32}"
 
+/* We need to disable collecting for the N32 and N64 ABIs.  */
+#define COLLECT_PARSE_FLAG(FLAG)				\
+do {								\
+  if (! strcmp (FLAG, "-n32") || ! strcmp (FLAG, "-64"))	\
+    do_collecting = 0;						\
+  if (! strcmp (FLAG, "-32") || ! strcmp (FLAG, "-o32"))	\
+    do_collecting = 1;						\
+} while (0)
+
 #define MIPS_TFMODE_FORMAT mips_extended_format
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "irix6_startfile_spec", IRIX6_STARTFILE_SPEC }, \
+  { "irix6_endfile_spec", IRIX6_ENDFILE_SPEC },

@@ -1,15 +1,15 @@
 /* Definitions for SH running Linux-based GNU systems using ELF
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Kazumoto Kojima <kkojima@rr.iij4u.or.jp>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-/* This was defined in linux.h.  Define it here also. */
+/* This was defined in linux.h.  Define it here also.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
 
 /* Don't assume anything about the header files.  */
@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #undef DWARF2_UNWIND_INFO
 #define DWARF2_UNWIND_INFO 1
 
+/* ??? Current SH linux linker has a problem for DW_EH_PE_textrel.  */
+#undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)                      \
   (flag_pic                                                             \
     ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
@@ -57,6 +59,8 @@ do { \
   builtin_define_std ("unix"); \
   builtin_define ("__gnu_linux__"); \
   builtin_define_std ("linux"); \
+  builtin_assert ("system=linux"); \
+  builtin_assert ("system=unix"); \
   builtin_assert ("system=posix"); \
 } while (0)
 
@@ -220,13 +224,24 @@ do { \
 									\
     /* mov.w 1f,r3; trapa #0x10; 1: .short 0x77  (sigreturn)  */	\
     /* mov.w 1f,r3; trapa #0x10; 1: .short 0xad  (rt_sigreturn)  */	\
-    if ((*(unsigned short *) (pc_+0)  == 0x9300)			\
-	&& (*(unsigned short *) (pc_+2)  == 0xc310)			\
-	&& (*(unsigned short *) (pc_+4)  == 0x0077))			\
+    /* Newer kernel uses pad instructions to avoid an SH-4 core bug.  */\
+    /* mov.w 1f,r3; trapa #0x10; or r0,r0; or r0,r0; or r0,r0; or r0,r0;\
+       or r0,r0; 1: .short 0x77  (sigreturn)  */			\
+    /* mov.w 1f,r3; trapa #0x10; or r0,r0; or r0,r0; or r0,r0; or r0,r0;\
+       or r0,r0; 1: .short 0xad  (rt_sigreturn)  */			\
+    if (((*(unsigned short *) (pc_+0)  == 0x9300)			\
+	 && (*(unsigned short *) (pc_+2)  == 0xc310)			\
+	 && (*(unsigned short *) (pc_+4)  == 0x0077))			\
+	|| (((*(unsigned short *) (pc_+0)  == 0x9305)			\
+	    && (*(unsigned short *) (pc_+2)  == 0xc310)			\
+	    && (*(unsigned short *) (pc_+14)  == 0x0077))))		\
       sc_ = (CONTEXT)->cfa;						\
-    else if ((*(unsigned short *) (pc_+0) == 0x9300)			\
-	&& (*(unsigned short *) (pc_+2)  == 0xc310)			\
-	&& (*(unsigned short *) (pc_+4)  == 0x00ad))			\
+    else if (((*(unsigned short *) (pc_+0) == 0x9300)			\
+	      && (*(unsigned short *) (pc_+2)  == 0xc310)		\
+	      && (*(unsigned short *) (pc_+4)  == 0x00ad))		\
+	     || (((*(unsigned short *) (pc_+0) == 0x9305)		\
+		 && (*(unsigned short *) (pc_+2)  == 0xc310)		\
+		 && (*(unsigned short *) (pc_+14)  == 0x00ad))))	\
       {									\
 	struct rt_sigframe {						\
 	  struct siginfo info;						\

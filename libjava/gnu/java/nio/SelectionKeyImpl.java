@@ -43,19 +43,17 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectionKey;
 
-public class SelectionKeyImpl extends AbstractSelectionKey
+public abstract class SelectionKeyImpl extends AbstractSelectionKey
 {
-  int fd;
   private int readyOps;
   private int interestOps;
   private SelectorImpl impl;
-  private SelectableChannel ch;
+  SelectableChannel ch;
 
-  public SelectionKeyImpl (SelectableChannel ch, SelectorImpl impl, int fd)
+  public SelectionKeyImpl (SelectableChannel ch, SelectorImpl impl)
   {
     this.ch  = ch;
     this.impl = impl;
-    this.fd  = fd;
   }
 
   public SelectableChannel channel ()
@@ -101,4 +99,6 @@ public class SelectionKeyImpl extends AbstractSelectionKey
   {
     return impl;
   }
+
+  public abstract int getNativeFD();
 }

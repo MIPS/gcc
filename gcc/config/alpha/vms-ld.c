@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -44,7 +44,7 @@ static char *vmsdwarf2spec = 0;
 /* File specification for vms-dwarf2eh.o.  */
 static char *vmsdwarf2ehspec = 0;
 
-/* verbose = 1 if -v passed.   */
+/* verbose = 1 if -v passed.  */
 static int verbose = 0;
 
 /* save_temps = 1 if -save-temps passed.  */
@@ -95,10 +95,10 @@ static void addarg (const char *);
 static int is_regular_file (char *);
 
 /* Translate a Unix syntax file specification FILESPEC into VMS syntax.
-   If indicators of VMS syntax found, return input string. */
+   If indicators of VMS syntax found, return input string.  */
 static char *to_host_file_spec (char *);
 
-/* Locate the library named LIB_NAME in the set of paths PATH_VAL. */
+/* Locate the library named LIB_NAME in the set of paths PATH_VAL.  */
 static char *locate_lib (char *, char *);
 
 /* Given a library name NAME, i.e. foo,  Look for libfoo.lib and then
@@ -106,15 +106,15 @@ static char *locate_lib (char *, char *);
 static const char *expand_lib (char *);
 
 /* Preprocess the number of args P_ARGC in ARGV.
-   Look for special flags, etc. that must be handled first. */
+   Look for special flags, etc. that must be handled first.  */
 static void preprocess_args (int *, char **);
 
 /* Preprocess the number of args P_ARGC in ARGV.  Look for
-   special flags, etc. that must be handled for the VMS linker. */
+   special flags, etc. that must be handled for the VMS linker.  */
 static void process_args (int *, char **);
 
 /* Action routine called by decc$to_vms. NAME is a file name or
-   directory name. TYPE is unused. */
+   directory name. TYPE is unused.  */
 static int translate_unix (char *, int);
 
 int main (int, char **);

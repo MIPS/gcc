@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"
+#include "intl.h"
 
 
 /* Hash table used to convert declarations into nodes.  */
@@ -106,7 +107,7 @@ cgraph_node (tree decl)
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE
-			        (DECL_ASSEMBLER_NAME (decl)), 1);
+			        (DECL_ASSEMBLER_NAME (decl)), INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -142,7 +143,7 @@ cgraph_node_for_identifier (tree id)
 
   slot = (struct cgraph_node **)
     htab_find_slot_with_hash (cgraph_hash, id,
-			      IDENTIFIER_HASH_VALUE (id), 0);
+			      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;
@@ -156,7 +157,16 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
   struct cgraph_edge *edge2;
 
-  edge->inline_call = false;
+  if (!DECL_SAVED_TREE (callee->decl))
+    edge->inline_failed = N_("function body not available");
+  else if (callee->local.redefined_extern_inline)
+    edge->inline_failed = N_("redefined extern inline functions are not "
+			     "considered for inlining");
+  else if (callee->local.inlinable)
+    edge->inline_failed = N_("function not considered for inlining");
+  else
+    edge->inline_failed = N_("function not inlinable");
+
   /* At the moment we don't associate calls with specific CALL_EXPRs
      as we probably ought to, so we must preserve inline_call flags to
      be the same in all copies of the same edge.  */
@@ -164,7 +174,7 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
     for (edge2 = caller->callees; edge2; edge2 = edge2->next_callee)
       if (edge2->callee == callee)
 	{
-	  edge->inline_call = edge2->inline_call;
+	  edge->inline_failed = edge2->inline_failed;
 	  break;
 	}
 
@@ -221,14 +231,14 @@ cgraph_remove_node (struct cgraph_node *node)
   if (node->previous)
     node->previous->next = node->next;
   else
-    cgraph_nodes = node;
+    cgraph_nodes = node->next;
   if (node->next)
     node->next->previous = node->previous;
   DECL_SAVED_TREE (node->decl) = NULL;
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-						     (node->decl)), 1);
+						     (node->decl)), NO_INSERT);
   htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
@@ -268,7 +278,7 @@ cgraph_mark_needed_node (struct cgraph_node *node)
   cgraph_mark_reachable_node (node);
 }
 
-/* Record call from CALLER to CALLEE  */
+/* Record call from CALLER to CALLEE.  */
 
 struct cgraph_edge *
 cgraph_record_call (tree caller, tree callee)
@@ -350,13 +360,15 @@ dump_cgraph (FILE *f)
 {
   struct cgraph_node *node;
 
-  fprintf (f, "\nCallgraph:\n\n");
+  fprintf (f, "callgraph:\n\n");
   for (node = cgraph_nodes; node; node = node->next)
     {
       struct cgraph_edge *edge;
-      fprintf (f, "%s", cgraph_node_name (node));
+      fprintf (f, "%s:", cgraph_node_name (node));
       if (node->local.self_insns)
         fprintf (f, " %i insns", node->local.self_insns);
+      if (node->global.insns && node->global.insns != node->local.self_insns)
+	fprintf (f, " (%i after inlining)", node->global.insns);
       if (node->origin)
 	fprintf (f, " nested in: %s", cgraph_node_name (node->origin));
       if (node->needed)
@@ -366,12 +378,12 @@ dump_cgraph (FILE *f)
       if (DECL_SAVED_TREE (node->decl))
 	fprintf (f, " tree");
 
+      if (node->local.local)
+	fprintf (f, " local");
       if (node->local.disregard_inline_limits)
 	fprintf (f, " always_inline");
       else if (node->local.inlinable)
 	fprintf (f, " inlinable");
-      if (node->global.insns && node->global.insns != node->local.self_insns)
-	fprintf (f, " %i insns after inlining", node->global.insns);
       if (node->global.cloned_times > 1)
 	fprintf (f, " cloned %ix", node->global.cloned_times);
 
@@ -379,7 +391,7 @@ dump_cgraph (FILE *f)
       for (edge = node->callers; edge; edge = edge->next_caller)
 	{
 	  fprintf (f, "%s ", cgraph_node_name (edge->caller));
-	  if (edge->inline_call)
+	  if (!edge->inline_failed)
 	    fprintf(f, "(inlined) ");
 	}
 
@@ -387,7 +399,7 @@ dump_cgraph (FILE *f)
       for (edge = node->callees; edge; edge = edge->next_callee)
 	{
 	  fprintf (f, "%s ", cgraph_node_name (edge->callee));
-	  if (edge->inline_call)
+	  if (!edge->inline_failed)
 	    fprintf(f, "(inlined) ");
 	}
       fprintf (f, "\n");
@@ -426,12 +438,10 @@ cgraph_varpool_node (tree decl)
   if (!cgraph_varpool_hash)
     cgraph_varpool_hash = htab_create_ggc (10, cgraph_varpool_hash_node,
 				           eq_cgraph_varpool_node, NULL);
-
-
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME (decl)),
-			      1);
+			      INSERT);
   if (*slot)
     return *slot;
   node = ggc_alloc_cleared (sizeof (*node));
@@ -440,6 +450,85 @@ cgraph_varpool_node (tree decl)
   cgraph_varpool_nodes = node;
   *slot = node;
   return node;
+}
+
+/* Set the DECL_ASSEMBLER_NAME and update cgraph hashtables.  */
+void
+change_decl_assembler_name (tree decl, tree name)
+{
+  struct cgraph_node *node = NULL;
+  struct cgraph_varpool_node *vnode = NULL;
+  void **slot;
+
+  if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+    {
+      SET_DECL_ASSEMBLER_NAME (decl, name);
+      return;
+    }
+  if (name == DECL_ASSEMBLER_NAME (decl))
+    return;
+
+  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
+      && DECL_RTL_SET_P (decl))
+    warning ("%D renamed after being referenced in assembly", decl);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL && cgraph_hash)
+    {
+      /* Take a look whether declaration is in the cgraph structure.  */
+      slot = 
+	htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
+				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							  (decl)), NO_INSERT);
+      if (slot)
+	node = *slot;
+
+      /* It is, verify that we are the canonical node for this decl.  */
+      if (node && node->decl == decl)
+	{
+	  node = *slot;
+	  htab_clear_slot (cgraph_hash, slot);
+      	 }
+       else
+	 node = NULL;
+    }
+  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl) && cgraph_varpool_hash)
+    {
+      /* Take a look whether declaration is in the cgraph structure.  */
+      slot = 
+	htab_find_slot_with_hash (cgraph_varpool_hash, DECL_ASSEMBLER_NAME (decl),
+				   IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							  (decl)), NO_INSERT);
+      if (slot)
+	vnode = *slot;
+
+      /* It is, verify that we are the canonical vnode for this decl.  */
+      if (vnode && vnode->decl == decl)
+	{
+	  vnode = *slot;
+	  htab_clear_slot (cgraph_varpool_hash, slot);
+      	 }
+       else
+	 vnode = NULL;
+    }
+  SET_DECL_ASSEMBLER_NAME (decl, name);
+  if (node)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), INSERT);
+      if (*slot)
+	abort ();
+      *slot = node;
+    }
+  if (vnode)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_varpool_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), INSERT);
+      if (*slot)
+	abort ();
+      *slot = vnode;
+    }
 }
 
 /* Try to find existing function for identifier ID.  */
@@ -456,7 +545,7 @@ cgraph_varpool_node_for_identifier (tree id)
 
   slot = (struct cgraph_varpool_node **)
     htab_find_slot_with_hash (cgraph_varpool_hash, id,
-			      IDENTIFIER_HASH_VALUE (id), 0);
+			      IDENTIFIER_HASH_VALUE (id), NO_INSERT);
   if (!slot)
     return NULL;
   return *slot;
@@ -529,5 +618,15 @@ cgraph_varpool_assemble_pending_decls (void)
   return changed;
 }
 
+/* Return true when the DECL can possibly be inlined.  */
+bool
+cgraph_function_possibly_inlined_p (tree decl)
+{
+  if (!cgraph_global_info_ready)
+    return (DECL_INLINE (decl)
+	    && (!flag_really_no_inline
+		|| (*lang_hooks.tree_inlining.disregard_inline_limits) (decl)));
+  return cgraph_node (decl)->global.inlined;
+}
 
 #include "gt-cgraph.h"

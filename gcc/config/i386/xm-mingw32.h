@@ -1,4 +1,4 @@
-/* Configuration for GNU C-compiler for hosting on Windows32.
+/* Configuration for GCC for hosting on Windows32.
    using GNU tools and the Windows32 API Library.
    Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003 Free Software
    Foundation, Inc.
@@ -25,5 +25,5 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef PATH_SEPARATOR
 #define PATH_SEPARATOR ';'
 
-/* This is the name of the null device on windows. */ 
+/* This is the name of the null device on windows.  */
 #define HOST_BIT_BUCKET "nul"

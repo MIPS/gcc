@@ -65,72 +65,8 @@
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
 
-namespace std
+namespace __gnu_norm
 {
-  /// @if maint Primary default version.  @endif
-  /**
-   *  @if maint
-   *  See bits/stl_deque.h's _Deque_alloc_base for an explanation.
-   *  @endif
-  */
-  template<typename _Tp, typename _Allocator, bool _IsStatic>
-    class _Vector_alloc_base
-    {
-    public:
-      typedef typename _Alloc_traits<_Tp, _Allocator>::allocator_type
-      allocator_type;
-
-      allocator_type
-      get_allocator() const { return _M_data_allocator; }
-  
-      _Vector_alloc_base(const allocator_type& __a)
-      : _M_data_allocator(__a), _M_start(0), _M_finish(0), _M_end_of_storage(0)
-      { }
-  
-    protected:
-      allocator_type _M_data_allocator;
-      _Tp*           _M_start;
-      _Tp*           _M_finish;
-      _Tp*           _M_end_of_storage;
-  
-      _Tp*
-      _M_allocate(size_t __n) { return _M_data_allocator.allocate(__n); }
-  
-      void
-      _M_deallocate(_Tp* __p, size_t __n)
-      { if (__p) _M_data_allocator.deallocate(__p, __n); }
-    };
-  
-  /// @if maint Specialization for instanceless allocators.  @endif
-  template<typename _Tp, typename _Allocator>
-    class _Vector_alloc_base<_Tp, _Allocator, true>
-    {
-    public:
-      typedef typename _Alloc_traits<_Tp, _Allocator>::allocator_type
-             allocator_type;
-  
-      allocator_type
-      get_allocator() const { return allocator_type(); }
-      
-      _Vector_alloc_base(const allocator_type&)
-      : _M_start(0), _M_finish(0), _M_end_of_storage(0)
-      { }
-  
-    protected:
-      _Tp* _M_start;
-      _Tp* _M_finish;
-      _Tp* _M_end_of_storage;
-  
-      typedef typename _Alloc_traits<_Tp, _Allocator>::_Alloc_type _Alloc_type;
-      
-      _Tp*
-      _M_allocate(size_t __n) { return _Alloc_type::allocate(__n); }
-  
-      void
-      _M_deallocate(_Tp* __p, size_t __n) { _Alloc_type::deallocate(__p, __n);}
-    };
-  
-  
   /**
    *  @if maint
    *  See bits/stl_deque.h's _Deque_base for an explanation.
@@ -138,20 +74,19 @@ namespace std
   */
   template<typename _Tp, typename _Alloc>
     struct _Vector_base
-    : public _Vector_alloc_base<_Tp, _Alloc,
-                                _Alloc_traits<_Tp, _Alloc>::_S_instanceless>
+    : public _Alloc
     {
     public:
-      typedef _Vector_alloc_base<_Tp, _Alloc,
-				 _Alloc_traits<_Tp, _Alloc>::_S_instanceless>
-         _Base;
-      typedef typename _Base::allocator_type allocator_type;
+      typedef _Alloc allocator_type;
+
+      allocator_type
+      get_allocator() const { return *static_cast<const _Alloc*>(this); }
 
       _Vector_base(const allocator_type& __a)
-      : _Base(__a) { }
+      : _Alloc(__a), _M_start(0), _M_finish(0), _M_end_of_storage(0) { }
       
       _Vector_base(size_t __n, const allocator_type& __a)
-      : _Base(__a)
+      : _Alloc(__a)
       {
 	this->_M_start = this->_M_allocate(__n);
 	this->_M_finish = this->_M_start;
@@ -161,12 +96,24 @@ namespace std
       ~_Vector_base() 
       { _M_deallocate(this->_M_start,
 		      this->_M_end_of_storage - this->_M_start); }
+
+    public:
+      _Tp*           _M_start;
+      _Tp*           _M_finish;
+      _Tp*           _M_end_of_storage;
+  
+      _Tp*
+      _M_allocate(size_t __n) { return _Alloc::allocate(__n); }
+  
+      void
+      _M_deallocate(_Tp* __p, size_t __n)
+      { if (__p) _Alloc::deallocate(__p, __n); }
     };
   
   
   /**
-   *  @brief  A standard container which offers fixed time access to individual
-   *  elements in any order.
+   *  @brief A standard container which offers fixed time access to
+   *  individual elements in any order.
    *
    *  @ingroup Containers
    *  @ingroup Sequences
@@ -177,10 +124,11 @@ namespace std
    *  <a href="tables.html#68">optional sequence requirements</a> with the
    *  %exception of @c push_front and @c pop_front.
    *
-   *  In some terminology a %vector can be described as a dynamic C-style array,
-   *  it offers fast and efficient access to individual elements in any order
-   *  and saves the user from worrying about memory and size allocation.
-   *  Subscripting ( @c [] ) access is also provided as with C-style arrays.
+   *  In some terminology a %vector can be described as a dynamic
+   *  C-style array, it offers fast and efficient access to individual
+   *  elements in any order and saves the user from worrying about
+   *  memory and size allocation.  Subscripting ( @c [] ) access is
+   *  also provided as with C-style arrays.
   */
   template<typename _Tp, typename _Alloc = allocator<_Tp> >
     class vector : protected _Vector_base<_Tp, _Alloc>
@@ -209,8 +157,7 @@ namespace std
     protected:
       /** @if maint
        *  These two functions and three data members are all from the
-       *  top-most base class, which varies depending on the type of
-       *  %allocator.  They should be pretty self-explanatory, as
+       *  base class.  They should be pretty self-explanatory, as
        *  %vector uses a simple contiguous allocation scheme.  @endif
        */
       using _Base::_M_allocate;
@@ -239,7 +186,8 @@ namespace std
       vector(size_type __n, const value_type& __value,
 	     const allocator_type& __a = allocator_type())
       : _Base(__n, __a)
-      { this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value); }
+      { this->_M_finish = std::uninitialized_fill_n(this->_M_start, 
+						    __n, __value); }
   
       /**
        *  @brief  Create a %vector with default elements.
@@ -277,11 +225,12 @@ namespace std
        *  Create a %vector consisting of copies of the elements from
        *  [first,last).
        *
-       *  If the iterators are forward, bidirectional, or random-access, then
-       *  this will call the elements' copy constructor N times (where N is
-       *  distance(first,last)) and do no memory reallocation.  But if only
-       *  input iterators are used, then this will do at most 2N calls to the
-       *  copy constructor, and logN memory reallocations.
+       *  If the iterators are forward, bidirectional, or
+       *  random-access, then this will call the elements' copy
+       *  constructor N times (where N is distance(first,last)) and do
+       *  no memory reallocation.  But if only input iterators are
+       *  used, then this will do at most 2N calls to the copy
+       *  constructor, and logN memory reallocations.
        */
       template<typename _InputIterator>
         vector(_InputIterator __first, _InputIterator __last,
@@ -294,9 +243,10 @@ namespace std
 	}
       
       /**
-       *  The dtor only erases the elements, and note that if the elements
-       *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  The dtor only erases the elements, and note that if the
+       *  elements themselves are pointers, the pointed-to memory is
+       *  not touched in any way.  Managing the pointer is the user's
+       *  responsibilty.
        */
       ~vector() { std::_Destroy(this->_M_start, this->_M_finish); }
   
@@ -347,13 +297,13 @@ namespace std
 	}
   
       /// Get a copy of the memory allocation object.
-      allocator_type
-      get_allocator() const { return _Base::get_allocator(); }
+      using _Base::get_allocator;
       
       // iterators
       /**
-       *  Returns a read/write iterator that points to the first element in the
-       *  %vector.  Iteration is done in ordinary element order.
+       *  Returns a read/write iterator that points to the first
+       *  element in the %vector.  Iteration is done in ordinary
+       *  element order.
        */
       iterator
       begin() { return iterator (this->_M_start); }
@@ -375,8 +325,9 @@ namespace std
       end() { return iterator (this->_M_finish); }
       
       /**
-       *  Returns a read-only (constant) iterator that points one past the last
-       *  element in the %vector.  Iteration is done in ordinary element order.
+       *  Returns a read-only (constant) iterator that points one past
+       *  the last element in the %vector.  Iteration is done in
+       *  ordinary element order.
        */
       const_iterator
       end() const { return const_iterator (this->_M_finish); }
@@ -398,9 +349,9 @@ namespace std
       rbegin() const { return const_reverse_iterator(end()); }
       
       /**
-       *  Returns a read/write reverse iterator that points to one before the
-       *  first element in the %vector.  Iteration is done in reverse element
-       *  order.
+       *  Returns a read/write reverse iterator that points to one
+       *  before the first element in the %vector.  Iteration is done
+       *  in reverse element order.
        */
       reverse_iterator
       rend() { return reverse_iterator(begin()); }
@@ -456,8 +407,8 @@ namespace std
       resize(size_type __new_size) { resize(__new_size, value_type()); }
       
       /**
-       *  Returns the total number of elements that the %vector can hold before
-       *  needing to allocate more memory.
+       *  Returns the total number of elements that the %vector can
+       *  hold before needing to allocate more memory.
        */
       size_type
       capacity() const
@@ -493,7 +444,8 @@ namespace std
       // element access
       /**
        *  @brief  Subscript access to the data contained in the %vector.
-       *  @param  n  The index of the element for which data should be accessed.
+       *  @param n The index of the element for which data should be
+       *  accessed.
        *  @return  Read/write reference to data.
        *
        *  This operator allows for easy, array-style, data access.
@@ -535,9 +487,9 @@ namespace std
        *  @return  Read/write reference to data.
        *  @throw  std::out_of_range  If @a n is an invalid index.
        *
-       *  This function provides for safer data access.  The parameter is first
-       *  checked that it is in the range of the vector.  The function throws
-       *  out_of_range if the check fails.
+       *  This function provides for safer data access.  The parameter
+       *  is first checked that it is in the range of the vector.  The
+       *  function throws out_of_range if the check fails.
        */
       reference
       at(size_type __n) { _M_range_check(__n); return (*this)[__n]; }
@@ -571,15 +523,15 @@ namespace std
       front() const { return *begin(); }
       
       /**
-       *  Returns a read/write reference to the data at the last element of the
-       *  %vector.
+       *  Returns a read/write reference to the data at the last
+       *  element of the %vector.
        */
       reference
       back() { return *(end() - 1); }
       
       /**
-       *  Returns a read-only (constant) reference to the data at the last
-       *  element of the %vector.
+       *  Returns a read-only (constant) reference to the data at the
+       *  last element of the %vector.
        */
       const_reference
       back() const { return *(end() - 1); }
@@ -612,8 +564,9 @@ namespace std
        *
        *  This is a typical stack operation. It shrinks the %vector by one.
        *
-       *  Note that no data is returned, and if the last element's data is
-       *  needed, it should be retrieved before pop_back() is called.
+       *  Note that no data is returned, and if the last element's
+       *  data is needed, it should be retrieved before pop_back() is
+       *  called.
        */
       void
       pop_back()
@@ -669,7 +622,8 @@ namespace std
        */
       template<typename _InputIterator>
         void
-        insert(iterator __position, _InputIterator __first, _InputIterator __last)
+        insert(iterator __position, _InputIterator __first, 
+	       _InputIterator __last)
         {
 	  // Check whether it's an integral type.  If so, it's not an iterator.
 	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
@@ -776,7 +730,8 @@ namespace std
         {
 	  this->_M_start = _M_allocate(__n);
 	  this->_M_end_of_storage = this->_M_start + __n;
-	  this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value);
+	  this->_M_finish = std::uninitialized_fill_n(this->_M_start, 
+						      __n, __value);
 	}
       
       // Called by the range constructor to implement [23.1.1]/9
@@ -829,7 +784,8 @@ namespace std
       // Called by the range assign to implement [23.1.1]/9
       template<typename _InputIterator>
         void
-        _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type)
+        _M_assign_dispatch(_InputIterator __first, _InputIterator __last, 
+			   __false_type)
         {
 	  typedef typename iterator_traits<_InputIterator>::iterator_category
 	    _IterCategory;
@@ -966,6 +922,6 @@ namespace std
     inline void
     swap(vector<_Tp,_Alloc>& __x, vector<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
+} // namespace __gnu_norm
 
 #endif /* _VECTOR_H */

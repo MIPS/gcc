@@ -38,8 +38,18 @@ exception statement from your version. */
 
 package javax.naming.spi;
 
-import java.util.*;
-import javax.naming.*;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.StringTokenizer;
+import javax.naming.CannotProceedException;
+import javax.naming.Context;
+import javax.naming.Name;
+import javax.naming.NamingException;
+import javax.naming.NoInitialContextException;
+import javax.naming.RefAddr;
+import javax.naming.Reference;
+import javax.naming.Referenceable;
+import javax.naming.StringRefAddr;
 
 public class NamingManager
 {
@@ -324,14 +334,19 @@ public class NamingManager
     // It is really unclear to me if this is right.
     try
       {
-	Object obj = getObjectInstance (null, cpe.getAltName (),
-					cpe.getAltNameCtx (), env);
+	Object obj = getObjectInstance (cpe.getResolvedObj(),
+					cpe.getAltName (),
+					cpe.getAltNameCtx (), 
+					env);
 	if (obj != null)
 	  return (Context) obj;
       }
     catch (Exception _)
       {
       }
+
+    // fix stack trace for re-thrown exception (message confusing otherwise)
+    cpe.fillInStackTrace();
 
     throw cpe;
   }

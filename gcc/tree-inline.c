@@ -119,8 +119,8 @@ static tree copy_body (inline_data *);
 static tree expand_call_inline (tree *, int *, void *);
 static void expand_calls_inline (tree *, inline_data *);
 static bool inlinable_function_p (tree);
-static int limits_allow_inlining (tree, inline_data *);
 static tree remap_decl (tree, inline_data *);
+static tree remap_type (tree, inline_data *);
 #ifndef INLINER_FOR_JAVA
 static tree initialize_inlined_parameters (inline_data *, tree, tree);
 static void remap_block (tree, tree, inline_data *);
@@ -146,6 +146,7 @@ remap_decl (tree decl, inline_data *id)
 
   /* See if we have remapped this declaration.  */
   n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
+
   /* If we didn't already have an equivalent for this declaration,
      create one now.  */
   if (!n)
@@ -153,29 +154,26 @@ remap_decl (tree decl, inline_data *id)
       tree t;
 
       /* Make a copy of the variable or label.  */
-      t = copy_decl_for_inlining (decl, fn,
-				  VARRAY_TREE (id->fns, 0));
+      t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0));
 
-      /* The decl T could be a dynamic array or other variable size type,
-	 in which case some fields need to be remapped because they may
-	 contain SAVE_EXPRs.  */
-      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
-	  && TYPE_DOMAIN (TREE_TYPE (t)))
-	{
-	  TREE_TYPE (t) = copy_node (TREE_TYPE (t));
-	  TYPE_DOMAIN (TREE_TYPE (t))
-	    = copy_node (TYPE_DOMAIN (TREE_TYPE (t)));
-	  walk_tree (&TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (t))),
-		     copy_body_r, id, NULL);
-	}
+      /* Remap types, if necessary.  */
+      TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
+      if (TREE_CODE (t) == TYPE_DECL)
+        DECL_ORIGINAL_TYPE (t) = remap_type (DECL_ORIGINAL_TYPE (t), id);
+      else if (TREE_CODE (t) == PARM_DECL)
+        DECL_ARG_TYPE_AS_WRITTEN (t)
+	  = remap_type (DECL_ARG_TYPE_AS_WRITTEN (t), id);
+
+      /* Remap sizes as necessary.  */
+      walk_tree (&DECL_SIZE (t), copy_body_r, id, NULL);
+      walk_tree (&DECL_SIZE_UNIT (t), copy_body_r, id, NULL);
 
 #ifndef INLINER_FOR_JAVA
       if (! DECL_NAME (t) && TREE_TYPE (t)
 	  && (*lang_hooks.tree_inlining.anon_aggr_type_p) (TREE_TYPE (t)))
 	{
 	  /* For a VAR_DECL of anonymous type, we must also copy the
-	     member VAR_DECLS here and rechain the
-	     DECL_ANON_UNION_ELEMS.  */
+	     member VAR_DECLS here and rechain the DECL_ANON_UNION_ELEMS.  */
 	  tree members = NULL;
 	  tree src;
 
@@ -200,6 +198,111 @@ remap_decl (tree decl, inline_data *id)
     }
 
   return (tree) n->value;
+}
+
+static tree
+remap_type (tree type, inline_data *id)
+{
+  splay_tree_node node;
+  tree new, t;
+
+  if (type == NULL)
+    return type;
+
+  /* See if we have remapped this type.  */
+  node = splay_tree_lookup (id->decl_map, (splay_tree_key) type);
+  if (node)
+    return (tree) node->value;
+
+  /* The type only needs remapping if it's variably modified.  */
+  if (! variably_modified_type_p (type))
+    {
+      splay_tree_insert (id->decl_map, (splay_tree_key) type,
+			 (splay_tree_value) type);
+      return type;
+    }
+  
+  /* We do need a copy.  build and register it now.  */
+  new = copy_node (type);
+  splay_tree_insert (id->decl_map, (splay_tree_key) type,
+		     (splay_tree_value) new);
+
+  /* This is a new type, not a copy of an old type.  Need to reassociate
+     variants.  We can handle everything except the main variant lazily.  */
+  t = TYPE_MAIN_VARIANT (type);
+  if (type != t)
+    {
+      t = remap_type (t, id);
+      TYPE_MAIN_VARIANT (new) = t;
+      TYPE_NEXT_VARIANT (new) = TYPE_MAIN_VARIANT (t);
+      TYPE_NEXT_VARIANT (t) = new;
+    }
+  else
+    {
+      TYPE_MAIN_VARIANT (new) = new;
+      TYPE_NEXT_VARIANT (new) = NULL;
+    }
+
+  /* Lazily create pointer and reference types.  */
+  TYPE_POINTER_TO (new) = NULL;
+  TYPE_REFERENCE_TO (new) = NULL;
+
+  switch (TREE_CODE (new))
+    {
+    case INTEGER_TYPE:
+    case REAL_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case CHAR_TYPE:
+      t = TYPE_MIN_VALUE (new);
+      if (t && TREE_CODE (t) != INTEGER_CST)
+        walk_tree (&TYPE_MIN_VALUE (new), copy_body_r, id, NULL);
+      t = TYPE_MAX_VALUE (new);
+      if (t && TREE_CODE (t) != INTEGER_CST)
+        walk_tree (&TYPE_MAX_VALUE (new), copy_body_r, id, NULL);
+      return new;
+    
+    case POINTER_TYPE:
+      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
+      if (TYPE_MODE (new) == ptr_mode)
+        TYPE_POINTER_TO (t) = new;
+      return new;
+
+    case REFERENCE_TYPE:
+      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
+      if (TYPE_MODE (new) == ptr_mode)
+        TYPE_REFERENCE_TO (t) = new;
+      return new;
+
+    case METHOD_TYPE:
+    case FUNCTION_TYPE:
+      TREE_TYPE (new) = remap_type (TREE_TYPE (new), id);
+      walk_tree (&TYPE_ARG_TYPES (new), copy_body_r, id, NULL);
+      return new;
+
+    case ARRAY_TYPE:
+      TREE_TYPE (new) = remap_type (TREE_TYPE (new), id);
+      TYPE_DOMAIN (new) = remap_type (TYPE_DOMAIN (new), id);
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
+      break;
+
+    case FILE_TYPE:
+    case SET_TYPE:
+    case OFFSET_TYPE:
+    default:
+      /* Shouldn't have been thought variable sized.  */
+      abort ();
+    }
+
+  walk_tree (&TYPE_SIZE (new), copy_body_r, id, NULL);
+  walk_tree (&TYPE_SIZE_UNIT (new), copy_body_r, id, NULL);
+
+  return new;
 }
 
 #ifndef INLINER_FOR_JAVA
@@ -525,6 +628,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       TREE_OPERAND (*tp, 0) = (tree) n->value;
     }
 #endif /* INLINER_FOR_JAVA */
+  /* Types may need remapping as well.  */
+  else if (TYPE_P (*tp))
+    *tp = remap_type (*tp, id);
+
   /* Otherwise, just copy the node.  Note that copy_tree_r already
      knows not to copy VAR_DECLs, etc., so this is safe.  */
   else
@@ -576,6 +683,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
       copy_tree_r (tp, walk_subtrees, NULL);
 
+      TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
+
       /* The copied TARGET_EXPR has never been expanded, even if the
 	 original node was expanded already.  */
       if (TREE_CODE (*tp) == TARGET_EXPR && TREE_OPERAND (*tp, 3))
@@ -620,9 +729,11 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree block)
 #ifdef INLINER_FOR_JAVA
   tree vars = NULL_TREE;
 #endif /* INLINER_FOR_JAVA */
+  int argnum = 0;
 
   /* Figure out what the parameters are.  */
-  parms = DECL_ARGUMENTS (fn);
+  parms = 
+DECL_ARGUMENTS (fn);
 
   /* Start with no initializations whatsoever.  */
   init_stmts = NULL_TREE;
@@ -640,9 +751,11 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree block)
       tree value;
       tree var_sub;
 
+      ++argnum;
+
       /* Find the initializer.  */
       value = (*lang_hooks.tree_inlining.convert_parm_for_inlining)
-	      (p, a ? TREE_VALUE (a) : NULL_TREE, fn);
+	      (p, a ? TREE_VALUE (a) : NULL_TREE, fn, argnum);
 
       /* If the parameter is never assigned to, we may not need to
 	 create a new variable here at all.  Instead, we may be able
@@ -891,10 +1004,11 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
   switch (TREE_CODE (node))
     {
     case CALL_EXPR:
-      /* Refuse to inline alloca call unless user explicitly forced so as this
-	 may change program's memory overhead drastically when the function
-	 using alloca is called in loop.  In GCC present in SPEC2000 inlining
-	 into schedule_block cause it to require 2GB of ram instead of 256MB.  */
+      /* Refuse to inline alloca call unless user explicitly forced so as
+	 this may change program's memory overhead drastically when the
+	 function using alloca is called in loop.  In GCC present in
+	 SPEC2000 inlining into schedule_block cause it to require 2GB of
+	 RAM instead of 256MB.  */
       if (alloca_call_p (node)
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
@@ -916,38 +1030,42 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  return node;
 	}
 
-      switch (DECL_FUNCTION_CODE (t))
-	{
-	  /* We cannot inline functions that take a variable number of
-	     arguments.  */
-	case BUILT_IN_VA_START:
-	case BUILT_IN_STDARG_START:
+      if (DECL_BUILT_IN (t))
+	switch (DECL_FUNCTION_CODE (t))
 	  {
-	    inline_forbidden_reason
-	      = N_("%Jfunction '%F' can never be inlined because it "
-		   "uses variable argument lists");
-	    return node;
-	  }
-	case BUILT_IN_LONGJMP:
-	  {
-	    /* We can't inline functions that call __builtin_longjmp at all.
-	       The non-local goto machinery really requires the destination
-	       be in a different function.  If we allow the function calling
-	       __builtin_longjmp to be inlined into the function calling
-	       __builtin_setjmp, Things will Go Awry.  */
-	    /* ??? Need front end help to identify "regular" non-local goto.  */
-            if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
-	      {
-		inline_forbidden_reason
-		  = N_("%Jfunction '%F' can never be inlined "
-		       "because it uses setjmp-longjmp exception handling");
-	        return node;
-	      }
-	  }
+	    /* We cannot inline functions that take a variable number of
+	       arguments.  */
+	  case BUILT_IN_VA_START:
+	  case BUILT_IN_STDARG_START:
+	  case BUILT_IN_NEXT_ARG:
+	  case BUILT_IN_VA_END:
+	    {
+	      inline_forbidden_reason
+		= N_("%Jfunction '%F' can never be inlined because it "
+		     "uses variable argument lists");
+	      return node;
+	    }
+	  case BUILT_IN_LONGJMP:
+	    {
+	      /* We can't inline functions that call __builtin_longjmp at
+		 all.  The non-local goto machinery really requires the
+		 destination be in a different function.  If we allow the
+		 function calling __builtin_longjmp to be inlined into the
+		 function calling __builtin_setjmp, Things will Go Awry.  */
+	      /* ??? Need front end help to identify "regular" non-local
+		 goto.  */
+	      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
+		{
+		  inline_forbidden_reason
+		    = N_("%Jfunction '%F' can never be inlined because "
+			 "it uses setjmp-longjmp exception handling");
+		  return node;
+		}
+	    }
 
-	default:
-	  break;
-	}
+	  default:
+	    break;
+	  }
       break;
 
 #ifndef INLINER_FOR_JAVA
@@ -1095,7 +1213,10 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (do_warning)
+      if (lookup_attribute ("always_inline",
+			    DECL_ATTRIBUTES (fn)))
+	sorry (inline_forbidden_reason, fn, fn);
+      else if (do_warning)
 	warning (inline_forbidden_reason, fn, fn);
 
       inlinable = false;
@@ -1105,97 +1226,6 @@ inlinable_function_p (tree fn)
   DECL_UNINLINABLE (fn) = !inlinable;
 
   return inlinable;
-}
-
-/* We can't inline functions that are too big.  Only allow a single
-   function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
-   allowance for extern inline functions, though.
-
-   Return nonzero if the function FN can be inlined into the inlining
-   context ID.  */
-
-static int
-limits_allow_inlining (tree fn, inline_data *id)
-{
-  int estimated_insns = 0;
-  size_t i;
-
-  /* Don't even bother if the function is not inlinable.  */
-  if (!inlinable_function_p (fn))
-    return 0;
-
-  /* Investigate the size of the function.  Return at once
-     if the function body size is too large.  */
-  if (!(*lang_hooks.tree_inlining.disregard_inline_limits) (fn))
-    {
-      int currfn_max_inline_insns;
-
-      /* If we haven't already done so, get an estimate of the number of
-	 instructions that will be produces when expanding this function.  */
-      if (!DECL_ESTIMATED_INSNS (fn))
-	DECL_ESTIMATED_INSNS (fn)
-	  = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
-      estimated_insns = DECL_ESTIMATED_INSNS (fn);
-
-      /* We may be here either because fn is declared inline or because
-	 we use -finline-functions.  For the second case, we are more
-	 restrictive.
-
-	 FIXME: -finline-functions should imply -funit-at-a-time, it's
-		about equally expensive but unit-at-a-time produces
-		better code.  */
-      currfn_max_inline_insns = DECL_DECLARED_INLINE_P (fn) ?
-		MAX_INLINE_INSNS_SINGLE : MAX_INLINE_INSNS_AUTO;
-
-      /* If the function is too big to be inlined, adieu.  */
-      if (estimated_insns > currfn_max_inline_insns)
-	return 0;
-
-      /* We now know that we don't disregard the inlining limits and that 
-	 we basically should be able to inline this function.
-	 We always allow inlining functions if we estimate that they are
-	 smaller than MIN_INLINE_INSNS.  Otherwise, investigate further.  */
-      if (estimated_insns > MIN_INLINE_INSNS)
-	{
-	  int sum_insns = (id ? id->inlined_insns : 0) + estimated_insns;
-
-	  /* In the extreme case that we have exceeded the recursive inlining
-	     limit by a huge factor (128), we just say no.
-
-	     FIXME:  Should not happen in real life, but people have reported
-		     that it actually does!?  */
-	  if (sum_insns > MAX_INLINE_INSNS * 128)
-	    return 0;
-
-	  /* If we did not hit the extreme limit, we use a linear function
-	     with slope -1/MAX_INLINE_SLOPE to exceedingly decrease the
-	     allowable size.  */
-	  else if (sum_insns > MAX_INLINE_INSNS)
-	    {
-	      if (estimated_insns > currfn_max_inline_insns
-			- (sum_insns - MAX_INLINE_INSNS) / MAX_INLINE_SLOPE)
-	        return 0;
-	    }
-	}
-    }
-
-  /* Don't allow recursive inlining.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (id->fns); ++i)
-    if (VARRAY_TREE (id->fns, i) == fn)
-      return 0;
-
-  if (DECL_INLINED_FNS (fn))
-    {
-      int j;
-      tree inlined_fns = DECL_INLINED_FNS (fn);
-
-      for (j = 0; j < TREE_VEC_LENGTH (inlined_fns); ++j)
-	if (TREE_VEC_ELT (inlined_fns, j) == VARRAY_TREE (id->fns, 0))
-	  return 0;
-    }
-
-  /* Go ahead, this function can be inlined.  */
-  return 1;
 }
 
 /* If *TP is a CALL_EXPR, replace it with its inline expansion.  */
@@ -1220,6 +1250,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   splay_tree st;
   tree args;
   tree return_slot_addr;
+  const char *reason;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1284,8 +1315,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     return NULL_TREE;
 
   /* Turn forward declarations into real ones.  */
-  if (flag_unit_at_a_time)
-    fn = cgraph_node (fn)->decl;
+  fn = cgraph_node (fn)->decl;
 
   /* If fn is a declaration of a function in a nested scope that was
      globally declared inline, we don't set its DECL_INITIAL.
@@ -1301,14 +1331,18 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if ((flag_unit_at_a_time
-       && (!DECL_SAVED_TREE (fn) || !cgraph_inline_p (id->current_decl, fn)))
-      || (!flag_unit_at_a_time && !limits_allow_inlining (fn, id)))
+  if (!cgraph_inline_p (id->current_decl, fn, &reason))
     {
-      if (warn_inline && DECL_INLINE (fn) && DECL_DECLARED_INLINE_P (fn)
-	  && !DECL_IN_SYSTEM_HEADER (fn))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
-	  warning ("%Jinlining failed in call to '%F'", fn, fn);
+	  sorry ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
+	  sorry ("called from here");
+	}
+      else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
+	       && !DECL_IN_SYSTEM_HEADER (fn)
+	       && strlen (reason))
+	{
+	  warning ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  warning ("called from here");
 	}
       return NULL_TREE;
@@ -1541,7 +1575,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->inlined_insns += DECL_ESTIMATED_INSNS (fn) - 1;
 
   /* Update callgraph if needed.  */
-  if (id->decl && flag_unit_at_a_time)
+  if (id->decl)
     {
       cgraph_remove_call (id->decl, fn);
       cgraph_create_edges (id->decl, *inlined_body);
@@ -1785,6 +1819,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
 	      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
 	      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
+	      WALK_SUBTREE (TREE_TYPE (*tp));
 	    }
 
 	  /* This can be tail-recursion optimized if we write it this way.  */
@@ -1831,7 +1866,8 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
     case BLOCK:
     case RECORD_TYPE:
     case CHAR_TYPE:
-      /* None of thse have subtrees other than those already walked
+    case PLACEHOLDER_EXPR:
+      /* None of these have subtrees other than those already walked
          above.  */
       break;
 
@@ -1966,8 +2002,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	TREE_CHAIN (*tp) = chain;
 #endif /* INLINER_FOR_JAVA */
     }
-  else if (TREE_CODE_CLASS (code) == 't' && !variably_modified_type_p (*tp))
-    /* Types only need to be copied if they are variably modified.  */
+  else if (TREE_CODE_CLASS (code) == 't')
     *walk_subtrees = 0;
 
   return NULL_TREE;

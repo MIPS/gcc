@@ -76,8 +76,8 @@ static void warn_ref_binding (tree, tree, tree);
 static tree
 cp_convert_to_pointer (tree type, tree expr, bool force)
 {
-  register tree intype = TREE_TYPE (expr);
-  register enum tree_code form;
+  tree intype = TREE_TYPE (expr);
+  enum tree_code form;
   tree rval;
 
   if (IS_AGGR_TYPE (intype))
@@ -306,8 +306,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 static tree
 convert_to_pointer_force (tree type, tree expr)
 {
-  register tree intype = TREE_TYPE (expr);
-  register enum tree_code form = TREE_CODE (intype);
+  tree intype = TREE_TYPE (expr);
+  enum tree_code form = TREE_CODE (intype);
   
   if (form == POINTER_TYPE)
     {
@@ -449,8 +449,8 @@ tree
 convert_to_reference (tree reftype, tree expr, int convtype,
                       int flags, tree decl)
 {
-  register tree type = TYPE_MAIN_VARIANT (TREE_TYPE (reftype));
-  register tree intype;
+  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (reftype));
+  tree intype;
   tree rval = NULL_TREE;
   tree rval_as_conversion = NULL_TREE;
   bool can_convert_intype_to_type;
@@ -612,8 +612,8 @@ cp_convert (tree type, tree expr)
 tree
 ocp_convert (tree type, tree expr, int convtype, int flags)
 {
-  register tree e = expr;
-  register enum tree_code code = TREE_CODE (type);
+  tree e = expr;
+  enum tree_code code = TREE_CODE (type);
 
   if (error_operand_p (e) || type == error_mark_node)
     return error_mark_node;
@@ -694,20 +694,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
-	{
-	  tree fn = NULL_TREE;
+	return cp_truthvalue_conversion (e);
 
-	  /* Common Ada/Pascal programmer's mistake.  We always warn
-             about this since it is so bad.  */
-	  if (TREE_CODE (expr) == FUNCTION_DECL)
-	    fn = expr;
-	  else if (TREE_CODE (expr) == ADDR_EXPR 
-		   && TREE_CODE (TREE_OPERAND (expr, 0)) == FUNCTION_DECL)
-	    fn = TREE_OPERAND (expr, 0);
-	  if (fn && !DECL_WEAK (fn))
-	    warning ("the address of `%D', will always be `true'", fn);
-	  return cp_truthvalue_conversion (e);
-	}
       return fold (convert_to_integer (type, e));
     }
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
@@ -782,7 +770,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
    no lvalue-rvalue and similar conversions happen [expr.static.cast/4,
    stmt.expr/1, expr.comma/1].  This permits dereferencing an incomplete type
    in a void context. The C++ standard does not define what an `access' to an
-   object is, but there is reason to beleive that it is the lvalue to rvalue
+   object is, but there is reason to believe that it is the lvalue to rvalue
    conversion -- if it were not, `*&*p = 1' would violate [expr]/4 in that it
    accesses `*p' not to calculate the value to be stored. But, dcl.type.cv/8
    indicates that volatile semantics should be the same between C and C++
@@ -829,7 +817,8 @@ convert_to_void (tree expr, const char *implicit)
         /* The second part of a compound expr contains the value.  */
         tree op1 = TREE_OPERAND (expr,1);
         tree new_op1 = convert_to_void
-	  (op1, implicit ? "right-hand operand of comma" : NULL);
+	  (op1, (implicit && !TREE_NO_UNUSED_WARNING (expr)
+		 ? "right-hand operand of comma" : NULL));
         
         if (new_op1 != op1)
 	  {
@@ -846,7 +835,7 @@ convert_to_void (tree expr, const char *implicit)
       /* These have already decayed to rvalue.  */
       break;
     
-    case CALL_EXPR:   /* we have a special meaning for volatile void fn() */
+    case CALL_EXPR:   /* We have a special meaning for volatile void fn().  */
       break;
     
     case INDIRECT_REF:
@@ -895,6 +884,7 @@ convert_to_void (tree expr, const char *implicit)
 	   of an overloaded function, and this is not one of them.  */
 	pedwarn ("%s cannot resolve address of overloaded function",
 		    implicit ? implicit : "void cast");
+	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       /* Only warn when there is no &.  */
@@ -955,8 +945,8 @@ convert (tree type, tree expr)
 tree
 convert_force (tree type, tree expr, int convtype)
 {
-  register tree e = expr;
-  register enum tree_code code = TREE_CODE (type);
+  tree e = expr;
+  enum tree_code code = TREE_CODE (type);
 
   if (code == REFERENCE_TYPE)
     return fold (convert_to_reference (type, e, CONV_C_CAST, LOOKUP_COMPLAIN,

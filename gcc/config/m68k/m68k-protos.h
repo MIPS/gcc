@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
    Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -38,6 +38,7 @@ extern const char *output_addsi3 (rtx *);
 extern const char *output_andsi3 (rtx *);
 extern const char *output_iorsi3 (rtx *);
 extern const char *output_xorsi3 (rtx *);
+extern void m68k_output_pic_call (rtx dest);
 extern void output_dbcc_and_branch (rtx *);
 extern int const_uint32_operand (rtx, enum machine_mode);
 extern int const_sint32_operand (rtx, enum machine_mode);
@@ -53,9 +54,6 @@ extern int standard_68881_constant_p (rtx);
 extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void notice_update_cc (rtx, rtx);
-#if 0
-extern void finalize_pic (rtx, enum machine_mode));
-#endif
 extern int general_src_operand (rtx, enum machine_mode);
 extern int nonimmediate_src_operand (rtx, enum machine_mode);
 extern int memory_src_operand (rtx, enum machine_mode);
@@ -64,6 +62,6 @@ extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 #endif /* RTX_CODE */
 
 extern int flags_in_68881 (void);
-extern int use_return_insn (void);
+extern bool use_return_insn (void);
 extern void override_options (void);
 extern void init_68881_table (void);

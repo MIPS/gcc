@@ -195,21 +195,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  /* ??? Looks like some of this could be combined.  */
-
-  /* If possible, obliterate the body of the function so that it can
-     be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
-    /* Keep the body; we're going to dump it.  */
-    ;
-  else if (DECL_INLINE (fndecl) && flag_inline_trees)
-    /* We might need the body of this function so that we can expand
-       it inline somewhere else.  */
-    ;
-  else
-    /* We don't need the body; blow it away.  */
-    DECL_SAVED_TREE (fndecl) = NULL;
-
   /* Since we don't need the RTL for this function anymore, stop pointing to
      it.  That's especially important for LABEL_DECLs, since you can reach all
      the instructions in the function from the CODE_LABEL stored in the

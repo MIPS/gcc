@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -84,7 +84,6 @@ static tree build_java_check_indexed_type (tree, tree);
 static tree case_identity (tree, tree); 
 static unsigned char peek_opcode_at_pc (struct JCF *, int, int);
 static int emit_init_test_initialization (void **entry, void * ptr);
-static int get_offset_table_index (tree);
 
 static GTY(()) tree operand_type[59];
 
@@ -108,7 +107,7 @@ int always_initialize_class_p;
 
    If a variable is on the quick stack, it means the value of variable
    when the quick stack was last flushed.  Conceptually, flush_quick_stack
-   saves all the the quick_stack elements in parellel.  However, that is
+   saves all the the quick_stack elements in parallel.  However, that is
    complicated, so it actually saves them (i.e. copies each stack value
    to is home virtual register) from low indexes.  This allows a quick_stack
    element at index i (counting from the bottom of stack the) to references
@@ -207,7 +206,7 @@ static void
 flush_quick_stack (void)
 {
   int stack_index = stack_pointer;
-  register tree prev, cur, next;
+  tree prev, cur, next;
 
   /* First reverse the quick_stack, and count the number of slots it has. */
   for (cur = quick_stack, prev = NULL_TREE; cur != NULL_TREE; cur = next)
@@ -457,7 +456,7 @@ pop_value (tree type)
 }
 
 
-/* Pop and discrad the top COUNT stack slots. */
+/* Pop and discard the top COUNT stack slots. */
 
 static void
 java_stack_pop (int count)
@@ -504,8 +503,9 @@ java_stack_swap (void)
   decl1 = find_stack_slot (stack_pointer - 1, type1);
   decl2 = find_stack_slot (stack_pointer - 2, type2);
   temp = copy_to_reg (DECL_RTL (decl1));
-  emit_move_insn (DECL_RTL (decl1), DECL_RTL (decl2));
-  emit_move_insn (DECL_RTL (decl2), temp);
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 1, type2)), 
+		  DECL_RTL (decl2));
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 2, type1)), temp);
   stack_type_map[stack_pointer - 1] = type2;
   stack_type_map[stack_pointer - 2] = type1;
 }
@@ -695,15 +695,13 @@ java_check_reference (tree expr, int check)
 {
   if (!flag_syntax_only && check)
     {
-      tree cond;
       expr = save_expr (expr);
-      cond = build (COND_EXPR, void_type_node,
+      expr = build (COND_EXPR, TREE_TYPE (expr),
 		    build (EQ_EXPR, boolean_type_node, expr, null_pointer_node),
 		    build (CALL_EXPR, void_type_node, 
 			   build_address_of (soft_nullpointer_node),
 			   NULL_TREE, NULL_TREE),
-		    empty_stmt_node);
-      expr = build (COMPOUND_EXPR, TREE_TYPE (expr), cond, expr);
+		    expr);
     }
 
   return expr;
@@ -1512,6 +1510,26 @@ build_field_ref (tree self_value, tree self_class, tree name)
       tree base_type = promote_type (base_class);
       if (base_type != TREE_TYPE (self_value))
 	self_value = fold (build1 (NOP_EXPR, base_type, self_value));
+      if (flag_indirect_dispatch
+	  && output_class != self_class)
+	/* FIXME: output_class != self_class is not exactly the right
+	   test.  What we really want to know is whether self_class is
+	   in the same translation unit as output_class.  If it is,
+	   we can make a direct reference.  */
+	{
+	  tree otable_index =
+	    build_int_2 (get_symbol_table_index 
+			 (field_decl, &TYPE_OTABLE_METHODS (output_class)), 0);
+	  tree field_offset = 
+	    build (ARRAY_REF, integer_type_node, TYPE_OTABLE_DECL (output_class), 
+		   otable_index);
+	  tree address 
+	    = fold (build (PLUS_EXPR, 
+			   build_pointer_type (TREE_TYPE (field_decl)),
+			   self_value, field_offset));
+	  return fold (build1 (INDIRECT_REF, TREE_TYPE (field_decl), address));
+	}
+
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
 					    self_value, check);
       return fold (build (COMPONENT_REF, TREE_TYPE (field_decl),
@@ -1746,8 +1764,21 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
   tree func;
   if (is_compiled_class (self_type))
     {
-      make_decl_rtl (method, NULL);
-      func = build1 (ADDR_EXPR, method_ptr_type_node, method);
+      if (!flag_indirect_dispatch
+	  || (!TREE_PUBLIC (method) && DECL_CONTEXT (method)))
+	{
+	  make_decl_rtl (method, NULL);
+	  func = build1 (ADDR_EXPR, method_ptr_type_node, method);
+	}
+      else
+	{
+	  tree table_index = 
+	    build_int_2 (get_symbol_table_index 
+			 (method, &TYPE_ATABLE_METHODS (output_class)), 0);
+	  func = 
+	    build (ARRAY_REF,  method_ptr_type_node, 
+		   TYPE_ATABLE_DECL (output_class), table_index);
+	}
     }
   else
     {
@@ -1818,27 +1849,29 @@ invoke_build_dtable (int is_invoke_interface, tree arg_list)
   return dtable;
 }
 
-/* Determine the index in the virtual offset table (otable) for a call to
-   METHOD. If this method has not been seen before, it will be added to the 
-   otable_methods. If it has, the existing otable slot will be reused. */
+/* Determine the index in SYMBOL_TABLE for a reference to the decl
+   T. If this decl has not been seen before, it will be added to the
+   otable_methods. If it has, the existing table slot will be
+   reused. */
 
-static int
-get_offset_table_index (tree method)
+int
+get_symbol_table_index (tree t, tree *symbol_table)
 {
   int i = 1;
   tree method_list;
-  
-  if (otable_methods == NULL_TREE)
+
+  if (*symbol_table == NULL_TREE)
     {
-      otable_methods = build_tree_list (method, method);
+      *symbol_table = build_tree_list (t, t);
       return 1;
     }
   
-  method_list = otable_methods;
+  method_list = *symbol_table;
   
   while (1)
     {
-      if (TREE_VALUE (method_list) == method)
+      tree value = TREE_VALUE (method_list);
+      if (value == t)
         return i;
       i++;
       if (TREE_CHAIN (method_list) == NULL_TREE)
@@ -1847,7 +1880,7 @@ get_offset_table_index (tree method)
         method_list = TREE_CHAIN (method_list);
     }
 
-  TREE_CHAIN (method_list) = build_tree_list (method, method);
+  TREE_CHAIN (method_list) = build_tree_list (t, t);
   return i;
 }
 
@@ -1862,8 +1895,11 @@ build_invokevirtual (tree dtable, tree method)
 
   if (flag_indirect_dispatch)
     {
-      otable_index = build_int_2 (get_offset_table_index (method), 0);
-      method_index = build (ARRAY_REF, integer_type_node, otable_decl, 
+      otable_index 
+	= build_int_2 (get_symbol_table_index 
+		       (method, &TYPE_OTABLE_METHODS (output_class)), 0);
+      method_index = build (ARRAY_REF, integer_type_node, 
+			    TYPE_OTABLE_DECL (output_class), 
 			    otable_index);
     }
   else
@@ -1926,8 +1962,12 @@ build_invokeinterface (tree dtable, tree method)
   
   if (flag_indirect_dispatch)
     {
-      otable_index = build_int_2 (get_offset_table_index (method), 0);
-      idx = build (ARRAY_REF, integer_type_node, otable_decl, otable_index);
+      otable_index =
+	build_int_2 (get_symbol_table_index 
+		     (method, &TYPE_OTABLE_METHODS (output_class)), 0);
+      idx = 
+	build (ARRAY_REF, integer_type_node, TYPE_OTABLE_DECL (output_class),
+	       otable_index);
     }
   else
     {
@@ -2408,7 +2448,8 @@ get_primitive_array_vtable (tree elt)
 
 struct rtx_def *
 java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
-		  int modifier /* Actually an enum expand_modifier.  */)
+		  int modifier /* Actually an enum expand_modifier. */,
+		  rtx *alt_rtl ATTRIBUTE_UNUSED)
 {
   tree current;
 
@@ -2573,7 +2614,7 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	  tree decl = BLOCK_EXPR_DECLS (catch);
 	  tree type = (decl ? TREE_TYPE (TREE_TYPE (decl)) : NULL_TREE);
 
-	  expand_start_catch (type);
+	  expand_start_catch (prepare_eh_table_type (type));
 	  expand_expr_stmt (TREE_OPERAND (current, 0));
 	  expand_end_catch ();
 	}
@@ -2807,8 +2848,9 @@ expand_byte_code (JCF *jcf, tree method)
 	  if (dead_code_index != -1)
 	    {
               /* We've just reached the end of a region of dead code.  */
-              warning ("unreachable bytecode from %d to before %d",
-                       dead_code_index, PC);
+	      if (extra_warnings)
+		warning ("unreachable bytecode from %d to before %d",
+			 dead_code_index, PC);
               dead_code_index = -1;
             }
 	}
@@ -2844,8 +2886,9 @@ expand_byte_code (JCF *jcf, tree method)
   if (dead_code_index != -1)
     {
       /* We've just reached the end of a region of dead code.  */
-      warning ("unreachable bytecode from %d to the end of the method", 
-              dead_code_index);
+      if (extra_warnings)
+	warning ("unreachable bytecode from %d to the end of the method", 
+		 dead_code_index);
     }
 }
 
@@ -3324,16 +3367,11 @@ force_evaluation_order (tree node)
 {
   if (flag_syntax_only)
     return node;
-  if (TREE_CODE_CLASS (TREE_CODE (node)) == '2')
-    {
-      if (TREE_SIDE_EFFECTS (TREE_OPERAND (node, 1)))
-	TREE_OPERAND (node, 0) = save_expr (TREE_OPERAND (node, 0));
-    }
-  else if (TREE_CODE (node) == CALL_EXPR
-           || TREE_CODE (node) == NEW_CLASS_EXPR
-           || (TREE_CODE (node) == COMPOUND_EXPR
-               && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
-               && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
+  if (TREE_CODE (node) == CALL_EXPR
+      || TREE_CODE (node) == NEW_CLASS_EXPR
+      || (TREE_CODE (node) == COMPOUND_EXPR
+	  && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
+	  && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
     {
       tree arg, cmp;
 

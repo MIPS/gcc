@@ -1,5 +1,5 @@
 /* GtkFramePeer.java -- Implements FramePeer with GTK
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,9 +41,11 @@ package gnu.java.awt.peer.gtk;
 import java.awt.Component;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.MenuBar;
 import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.PaintEvent;
 import java.awt.peer.FramePeer;
 import java.awt.peer.MenuBarPeer;
@@ -52,16 +54,41 @@ public class GtkFramePeer extends GtkWindowPeer
     implements FramePeer
 {
   int menuBarHeight = 0;
-  native int getMenuBarHeight ();
+  private MenuBarPeer menuBar;
+  native int getMenuBarHeight (MenuBarPeer bar);
 
   native public void setMenuBarPeer (MenuBarPeer bar);
+  native public void removeMenuBarPeer (MenuBarPeer bar);
 
   public void setMenuBar (MenuBar bar)
   {
-    if (bar == null)
-      setMenuBarPeer (null);
-    else
-      setMenuBarPeer ((MenuBarPeer) bar.getPeer ());
+    if (bar == null && menuBar != null)
+    {    
+      removeMenuBarPeer(menuBar); 
+      menuBar = null;
+      insets.top -= menuBarHeight;
+      menuBarHeight = 0;      
+      awtComponent.doLayout();
+    }
+    else if (bar != null)
+    {
+      if (menuBar != null)
+        removeMenuBarPeer(menuBar);
+      menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer();
+      setMenuBarPeer(menuBar);      
+    }
+  }
+
+  protected void postSizeAllocateEvent()
+  {
+    if (menuBar != null)
+    {
+      if (menuBarHeight != 0)
+        insets.top -= menuBarHeight;
+      menuBarHeight = getMenuBarHeight(menuBar);
+      insets.top += menuBarHeight;
+    }
+    awtComponent.doLayout();
   }
 
   public GtkFramePeer (Frame frame)
@@ -71,7 +98,9 @@ public class GtkFramePeer extends GtkWindowPeer
 
   void create ()
   {
-    create (GTK_WINDOW_TOPLEVEL);
+    // Create a normal decorated window.
+    create (GDK_WINDOW_TYPE_HINT_NORMAL, true);
+    setMenuBar(((Frame) awtComponent).getMenuBar());
   }
 
   public void getArgs (Component component, GtkArgList args)
@@ -92,32 +121,39 @@ public class GtkFramePeer extends GtkWindowPeer
 
   public Graphics getGraphics ()
   {
-    GdkGraphics g = new GdkGraphics (this);
-    g.translateNative (-insets.left, -insets.top);
+    Graphics g;
+    if (GtkToolkit.useGraphics2D ())
+      g = new GdkGraphics2D (this);
+    else
+      g = new GdkGraphics (this);
+    g.translate (-insets.left, -insets.top);
     return g;
   }
-
-  public void setBounds (int x, int y, int width, int height)
+  
+  protected void postConfigureEvent (int x, int y, int width, int height)
   {
-    super.setBounds (0, 0, width - insets.left - insets.right,
-		     height - insets.top - insets.bottom + menuBarHeight);
-  }
-
-  protected void postConfigureEvent (int x, int y, int width, int height,
-				     int top, int left, int bottom, int right)
-  {
-    if (((Frame)awtComponent).getMenuBar () != null)
+    int frame_x = x - insets.left;
+    // Add the height of the menubar (if none, menuBarHeight is 0 and has no
+    // effect). To move the frame down a bit so as to still fit in the window.
+    int frame_y = y - insets.top + menuBarHeight;
+    int frame_width = width + insets.left + insets.right;
+    // Add the height of the menubar to adjust the height so it still fits in
+    // the window.
+    int frame_height = height + insets.top + insets.bottom - menuBarHeight;
+    if (frame_x != awtComponent.getX()
+        || frame_y != awtComponent.getY()
+        || frame_width != awtComponent.getWidth()
+        || frame_height != awtComponent.getHeight())
       {
-	menuBarHeight = getMenuBarHeight ();
-	top += menuBarHeight;
+        setBoundsCallback ((Window) awtComponent,
+                           frame_x,
+                           frame_y,
+                           frame_width,
+                           frame_height);
       }
-
-    super.postConfigureEvent (0, 0,
-			      width + left + right,
-			      height + top + bottom - menuBarHeight,
-			      top, left, bottom, right);
+    awtComponent.validate();
   }
-
+  
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger)
   {
@@ -128,8 +164,6 @@ public class GtkFramePeer extends GtkWindowPeer
 
   protected void postExposeEvent (int x, int y, int width, int height)
   {
-//      System.out.println ("x + insets.left:" + (x + insets.left));
-//      System.out.println ("y + insets.top :" + (y + insets.top));
     q.postEvent (new PaintEvent (awtComponent, PaintEvent.PAINT,
 				 new Rectangle (x + insets.left, 
 						y + insets.top, 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,6 +77,9 @@ extern int target_flags;
 
 /* Nonzero if compiling with `G'-format floating point */
 #define TARGET_G_FLOAT (target_flags & MASK_G_FLOAT)
+
+/* Nonzero if ELF.  Redefined by vax/elf.h.  */
+#define TARGET_ELF 0
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -855,14 +858,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    used to replace branches can be expensive.  */
 
 #define BRANCH_COST 0
-
-/*
- * We can use the BSD C library routines for the libgcc calls that are
- * still generated, since that's what they boil down to anyways.
- */
-
-#define UDIVSI3_LIBCALL "*udiv"
-#define UMODSI3_LIBCALL "*urem"
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -937,6 +932,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
   return NORMAL; }
 
 /* Control the assembler format that we output.  */
+
+/* A C string constant describing how to begin a comment in the target
+   assembler language.  The compiler assumes that the comment will end at
+   the end of the line.  */
+
+#define ASM_COMMENT_START "#"
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1111,7 +1112,13 @@ VAX operand formatting codes:
 
 /* The purpose of D is to get around a quirk or bug in VAX assembler
    whereby -1 in a 64-bit immediate operand means 0x00000000ffffffff,
-   which is not a 64-bit minus one.  */
+   which is not a 64-bit minus one.  As a workaround, we output negative
+   values in hex.  */
+#if HOST_BITS_PER_WIDE_INT == 64
+#  define NEG_HWI_PRINT_HEX16 HOST_WIDE_INT_PRINT_HEX
+#else
+#  define NEG_HWI_PRINT_HEX16 "0xffffffff%08lx"
+#endif
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
   ((CODE) == '#' || (CODE) == '|')
@@ -1123,7 +1130,7 @@ VAX operand formatting codes:
   else if (CODE == 'C')							\
     fputs (rev_cond_name (X), FILE);					\
   else if (CODE == 'D' && GET_CODE (X) == CONST_INT && INTVAL (X) < 0)	\
-    fprintf (FILE, "$0xffffffff%08x", INTVAL (X));			\
+    fprintf (FILE, "$" NEG_HWI_PRINT_HEX16, INTVAL (X));		\
   else if (CODE == 'P' && GET_CODE (X) == CONST_INT)			\
     fprintf (FILE, "$" HOST_WIDE_INT_PRINT_DEC, INTVAL (X) + 1);	\
   else if (CODE == 'N' && GET_CODE (X) == CONST_INT)			\

@@ -578,7 +578,7 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
 		const struct line_map *map)
 {
   /* Just keep track of current file name.  */
-  cur_file = map->to_file;
+  cur_file = map == NULL ? NULL : map->to_file;
 }
 
 static void
@@ -590,10 +590,12 @@ read_scan_file (char *in_fname, int argc, char **argv)
   struct fn_decl *fn;
   int i, strings_processed;
   struct symbol_list *cur_symbols;
+  struct line_maps line_table;
 
   obstack_init (&scan_file_obstack);
 
-  scan_in = cpp_create_reader (CLK_GNUC89, NULL);
+  linemap_init (&line_table);
+  scan_in = cpp_create_reader (CLK_GNUC89, NULL, &line_table);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 
@@ -604,8 +606,9 @@ read_scan_file (char *in_fname, int argc, char **argv)
   options->inhibit_errors = 1;
   cpp_post_options (scan_in);
 
-  if (! cpp_read_main_file (scan_in, in_fname))
+  if (!cpp_find_main_file (scan_in, in_fname))
     exit (FATAL_EXIT_CODE);
+  cpp_push_main_file (scan_in);
 
   cpp_change_file (scan_in, LC_RENAME, "<built-in>");
   cpp_init_builtins (scan_in, true);
@@ -644,7 +647,7 @@ read_scan_file (char *in_fname, int argc, char **argv)
     }
 
   if (i < argc)
-    cpp_error (scan_in, DL_ERROR, "invalid option `%s'", argv[i]);
+    cpp_error (scan_in, CPP_DL_ERROR, "invalid option `%s'", argv[i]);
   if (cpp_errors (scan_in))
     exit (FATAL_EXIT_CODE);
 
@@ -669,7 +672,7 @@ read_scan_file (char *in_fname, int argc, char **argv)
 
       /* Scan the macro expansion of "getchar();".  */
       cpp_push_buffer (scan_in, getchar_call, sizeof(getchar_call) - 1,
-		       /* from_stage3 */ true, 1);
+		       /* from_stage3 */ true);
       for (;;)
 	{
 	  const cpp_token *t = cpp_get_token (scan_in);

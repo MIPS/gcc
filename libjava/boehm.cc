@@ -206,6 +206,8 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cDlabel);
       p = (ptr_t) c->protectionDomain;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cPlabel);
+      p = (ptr_t) c->hack_signers;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cSlabel);
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
@@ -331,11 +333,19 @@ void *
 _Jv_BuildGCDescr(jclass self)
 {
   jlong desc = 0;
+  jint bits_per_word = CHAR_BIT * sizeof (void *);
 
   // Note: for now we only consider a bitmap mark descriptor.  We
   // could also handle the case where the first N fields of a type are
   // references.  However, this is not very likely to be used by many
   // classes, and it is easier to compute things this way.
+
+  // The vtable pointer.
+  desc |= 1ULL << (bits_per_word - 1);
+#ifndef JV_HASH_SYNCHRONIZATION
+  // The sync_info field.
+  desc |= 1ULL << (bits_per_word - 2);
+#endif
 
   for (jclass klass = self; klass != NULL; klass = klass->getSuperclass())
     {
@@ -351,13 +361,12 @@ _Jv_BuildGCDescr(jclass self)
 	      if (off % sizeof (void *) != 0)
 		return (void *) (GCJ_DEFAULT_DESCR);
 	      off /= sizeof (void *);
-	      // Bottom 2 bits are reserved.
-	      off += 2;
 	      // If we find a field outside the range of our bitmap,
-	      // fall back to procedure marker.
-	      if (off > CHAR_BIT * sizeof (void *))
+	      // fall back to procedure marker. The bottom 2 bits are
+	      // reserved.
+	      if (off >= bits_per_word - 2)
 		return (void *) (GCJ_DEFAULT_DESCR);
-	      desc |= 1ULL << off;
+	      desc |= 1ULL << (bits_per_word - off - 1);
 	    }
 
 	  field = field->getNextField();

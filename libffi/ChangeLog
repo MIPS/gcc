@@ -1,3 +1,327 @@
+2004-01-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Set LD_LIBRARY_PATH_32 for
+	Solaris.
+
+2004-01-08  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/libffi.call/ffitest.h (allocate_mmap): Cast MAP_FAILED
+	to void *.
+
+2003-12-10  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libffi.call/cls_align_pointer.c: Cast pointers to
+	size_t instead of int.
+
+2003-12-04  Hosaka Yuji  <hos@tamanegi.org>
+
+	* testsuite/libffi.call/many_win32.c: Include <float.h>.
+	* testsuite/libffi.call/many_win32.c (main): Replace variable
+	int i with unsigned long ul.
+
+	* testsuite/libffi.call/cls_align_uint64.c: New test case.
+	* testsuite/libffi.call/cls_align_sint64.c: Likewise.
+	* testsuite/libffi.call/cls_align_uint32.c: Likewise.
+	* testsuite/libffi.call/cls_align_sint32.c: Likewise.
+	* testsuite/libffi.call/cls_align_uint16.c: Likewise.
+	* testsuite/libffi.call/cls_align_sint16.c: Likewise.
+	* testsuite/libffi.call/cls_align_float.c: Likewise.
+	* testsuite/libffi.call/cls_align_double.c: Likewise.
+	* testsuite/libffi.call/cls_align_longdouble.c: Likewise.
+	* testsuite/libffi.call/cls_align_pointer.c: Likewise.
+
+2003-12-02  Hosaka Yuji  <hos@tamanegi.org>
+
+	PR other/13221
+	* src/x86/ffi.c (ffi_prep_args, ffi_prep_incoming_args_SYSV):
+	Align arguments to 32 bits.
+
+2003-12-01  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR other/13221
+	* testsuite/libffi.call/cls_multi_sshort.c: New test case.
+	* testsuite/libffi.call/cls_multi_sshortchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_schar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_ushortchar.c: Likewise.
+	* testsuite/libffi.call/cls_multi_ushort.c: Likewise.
+
+	* testsuite/libffi.special/unwindtest.cc: Cosmetics.
+
+2003-11-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/libffi.call/ffitest.h: Include <fcntl.h>.
+	* testsuite/libffi.special/ffitestcxx.h: Likewise.
+
+2003-11-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.in: Rebuilt.
+	* configure: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Convert the mmap to
+	the right type.
+
+2003-11-21  Andreas Jaeger  <aj@suse.de>
+	    Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Add AC_FUNC_MMAP_BLACKLIST.
+	* configure.in: Call AC_FUNC_MMAP_BLACKLIST.
+	* Makefile.in: Rebuilt.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* fficonfig.h.in: Likewise.
+	* testsuite/lib/libffi-dg.exp: Add include dir.
+	* testsuite/libffi.call/ffitest.h: Add MMAP definitions.
+	* testsuite/libffi.special/ffitestcxx.h: Likewise.
+	* testsuite/libffi.call/closure_fn0.c: Use MMAP functionality
+	for ffi_closure if available.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_9byte2.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/nested_struct.c: Likewise.
+	* testsuite/libffi.call/nested_struct1.c: Likewise.
+	* testsuite/libffi.call/nested_struct2.c: Likewise.
+	* testsuite/libffi.call/nested_struct3.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Likewise.
+
+2003-11-20  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Make the -lgcc_s conditional.
+
+2003-11-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Add DYLD_LIBRARY_PATH for darwin.
+	Add -lgcc_s to additional flags.
+
+2003-11-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in, include/Makefile.am: PR libgcj/11147, install
+	the ffitarget.h header file in a gcc versioned and target
+	dependent place.
+	* configure: Regenerated.
+	* Makefile.in, include/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2003-11-09  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/closure_fn0.c: Print result and check
+	with dg-output to make debugging easier.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_9byte2.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+
+	* testsuite/libffi.special/unwindtest.cc: Make ffi_closure
+	static.
+
+2003-11-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_9byte2.c: New test case.
+	* testsuite/libffi.call/cls_9byte1.c: Likewise.
+	* testsuite/libffi.call/cls_64byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte1.c: Likewise.
+	* testsuite/libffi.call/cls_19byte.c: Likewise.
+	* testsuite/libffi.call/cls_18byte.c: Likewise.
+	* testsuite/libffi.call/closure_fn4.c: Likewise.
+	* testsuite/libffi.call/closure_fn5.c: Likewise.
+	* testsuite/libffi.call/cls_schar.c: Likewise.
+	* testsuite/libffi.call/cls_sint.c: Likewise.
+	* testsuite/libffi.call/cls_sshort.c: Likewise.
+	* testsuite/libffi.call/nested_struct2.c: Likewise.
+	* testsuite/libffi.call/nested_struct3.c: Likewise.
+
+2003-11-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_double.c: Do a check on the result.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/return_sc.c: Cleanup whitespaces.
+
+2003-11-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/prep_cif.c (ffi_prep_cif): Move the validity check after
+	the initialization.
+
+2003-10-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/java_raw_api.c (ffi_java_ptrarray_to_raw): Replace
+	FFI_ASSERT(FALSE) with FFI_ASSERT(0).
+
+2003-10-22  David Daney  <ddaney@avtrex.com>
+
+	* src/mips/ffitarget.h: Replace undefined UINT32 and friends with
+	__attribute__((__mode__(__SI__))) and friends.
+
+2003-10-22  Andreas Schwab  <schwab@suse.de>
+
+	* src/ia64/ffi.c: Replace FALSE/TRUE with false/true.
+
+2003-10-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in: AC_LINK_FILES(ffitarget.h).
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+	* fficonfig.h.in: Likewise.
+
+2003-10-21  Paolo Bonzini  <bonzini@gnu.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	Avoid that ffi.h includes fficonfig.h.
+
+	* Makefile.am (EXTRA_DIST): Include ffitarget.h files
+	(TARGET_SRC_MIPS_GCC): Renamed to TARGET_SRC_MIPS_IRIX.
+	(TARGET_SRC_MIPS_SGI): Removed.
+	(MIPS_GCC): Renamed to TARGET_SRC_MIPS_IRIX.
+	(MIPS_SGI): Removed.
+	(CLEANFILES): Removed.
+	(mostlyclean-am, clean-am, mostlyclean-sub, clean-sub): New
+	targets.
+	* acconfig.h: Removed.
+	* configure.in: Compute sizeofs only for double and long double.
+	Use them to define and subst HAVE_LONG_DOUBLE.  Include comments
+	into AC_DEFINE instead of using acconfig.h.  Create
+	include/ffitarget.h instead of include/fficonfig.h.  Rename
+	MIPS_GCC to MIPS_IRIX, drop MIPS_SGI since we are in gcc's tree.
+	AC_DEFINE EH_FRAME_FLAGS.
+	* include/Makefile.am (DISTCLEANFILES): New automake macro.
+	(hack_DATA): Add ffitarget.h.
+	* include/ffi.h.in: Remove all system specific definitions.
+	Declare raw API even if it is not installed, why bother?
+	Use limits.h instead of SIZEOF_* to define ffi_type_*.  Do
+	not define EH_FRAME_FLAGS, it is in fficonfig.h now.  Include
+	ffitarget.h instead of fficonfig.h.  Remove ALIGN macro.
+	(UINT_ARG, INT_ARG): Removed, use ffi_arg and ffi_sarg instead.
+	* include/ffi_common.h (bool): Do not define.
+	(ffi_assert): Accept failed assertion.
+	(ffi_type_test): Return void and accept file/line.
+	(FFI_ASSERT): Pass stringized failed assertion.
+	(FFI_ASSERT_AT): New macro.
+	(FFI_ASSERT_VALID_TYPE): New macro.
+	(UINT8, SINT8, UINT16, SINT16, UINT32, SINT32,
+	UINT64, SINT64): Define here with gcc's __attribute__ macro
+	instead of in ffi.h
+	(FLOAT32, ALIGN): Define here instead of in ffi.h
+	* include/ffi-mips.h: Removed.  Its content moved to
+	src/mips/ffitarget.h after separating assembly and C sections.
+	* src/alpha/ffi.c, src/alpha/ffi.c, src/java_raw_api.c
+	src/prep_cif.c, src/raw_api.c, src/ia64/ffi.c,
+	src/mips/ffi.c, src/mips/n32.S, src/mips/o32.S,
+	src/mips/ffitarget.h, src/sparc/ffi.c, src/x86/ffi64.c:
+	SIZEOF_ARG -> FFI_SIZEOF_ARG.
+	* src/ia64/ffi.c: Include stdbool.h (provided by GCC 2.95+).
+	* src/debug.c (ffi_assert): Accept stringized failed assertion.
+	(ffi_type_test): Rewritten.
+	* src/prep-cif.c (initialize_aggregate, ffi_prep_cif): Call
+	FFI_ASSERT_VALID_TYPE.
+	* src/alpha/ffitarget.h, src/arm/ffitarget.h,
+	src/ia64/ffitarget.h, src/m68k/ffitarget.h,
+	src/mips/ffitarget.h, src/powerpc/ffitarget.h,
+	src/s390/ffitarget.h, src/sh/ffitarget.h,
+	src/sh64/ffitarget.h, src/sparc/ffitarget.h,
+	src/x86/ffitarget.h: New files.
+	* src/alpha/osf.S, src/arm/sysv.S, src/ia64/unix.S,
+	src/m68k/sysv.S, src/mips/n32.S, src/mips/o32.S,
+	src/powerpc/aix.S, src/powerpc/darwin.S,
+	src/powerpc/ffi_darwin.c, src/powerpc/linux64.S,
+	src/powerpc/linux64_closure.S, src/powerpc/ppc_closure.S,
+	src/powerpc/sysv.S, src/s390/sysv.S, src/sh/sysv.S,
+	src/sh64/sysv.S, src/sparc/v8.S, src/sparc/v9.S,
+	src/x86/sysv.S, src/x86/unix64.S, src/x86/win32.S:
+	include fficonfig.h
+
+2003-10-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* src/mips/ffi.c: Use _ABIN32, _ABIO32 instead of external
+	_MIPS_SIM_NABI32, _MIPS_SIM_ABI32.
+
+2003-10-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/powerpc/ffi_darwin.c (ffi_prep_args): Declare bytes again.
+	Used when FFI_DEBUG = 1.
+
+2003-10-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* src/types.c (double, longdouble): Default POWERPC64 to 8 byte size
+	and align.
+
+2003-10-06  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* include/ffi_mips.h: Define FFI_MIPS_N32 for N32/N64 ABIs,
+	FFI_MIPS_O32 for O32 ABI.
+
+2003-10-01  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libffi-dg.exp: Set LD_LIBRARY_PATH_64 for
+	SPARC64. Cleanup whitespaces.
+
 2003-09-19  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/libffi.call/closure_fn0.c: Xfail mips, arm,

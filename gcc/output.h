@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,7 +71,7 @@ extern void final (rtx, FILE *, int, int);
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn (rtx, FILE *, int, int, int);
+extern rtx final_scan_insn (rtx, FILE *, int, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -437,6 +437,10 @@ extern rtx this_is_asm_operands;
 extern bool decl_readonly_section (tree, int);
 extern bool decl_readonly_section_1 (tree, int, int);
 
+/* This can be used to compute RELOC for the function above, when
+   given a constant expression.  */
+extern int compute_reloc_for_constant (tree);
+
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
 
@@ -447,6 +451,8 @@ extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
 extern void default_exception_section (void);
 
 /* Tell assembler to switch to the section for the EH frames.  */
+extern void named_section_eh_frame_section (void);
+extern void collect2_eh_frame_section (void);
 extern void default_eh_frame_section (void);
 
 /* Default target hook that outputs nothing to a stream.  */

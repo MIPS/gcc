@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -28,7 +28,6 @@ details.  */
 #include <java/lang/InternalError.h>
 #include <java/lang/IllegalAccessError.h>
 #include <java/lang/LinkageError.h>
-#include <java/lang/ClassFormatError.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/ClassCircularityError.h>
@@ -40,101 +39,6 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
-
-/////////// java.lang.ClassLoader native methods ////////////
-
-java::lang::Class *
-java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
-					jstring name,
-					jbyteArray data, 
-					jint offset,
-					jint length,
-					java::security::ProtectionDomain *pd)
-{
-#ifdef INTERPRETER
-  jclass klass;
-  klass = (jclass) JvAllocObject (&java::lang::Class::class$,
-				  sizeof (_Jv_InterpClass));
-  _Jv_InitNewClassFields (klass);
-
-  // Synchronize on the class, so that it is not attempted initialized
-  // until we're done loading.
-  JvSynchronize sync (klass);
-
-  // Record the defining loader.  For the system class loader, we
-  // record NULL.
-  if (loader != java::lang::ClassLoader::getSystemClassLoader())
-    klass->loader = loader;
-
-  if (name != 0)
-    {
-      _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
-
-      if (! _Jv_VerifyClassName (name2))
-	throw new java::lang::ClassFormatError
-	  (JvNewStringLatin1 ("erroneous class name"));
-
-      klass->name = name2;
-    }
-
-  try
-    {
-      _Jv_DefineClass (klass, data, offset, length);
-    }
-  catch (java::lang::Throwable *ex)
-    {
-      klass->state = JV_STATE_ERROR;
-      klass->notifyAll ();
-
-      _Jv_UnregisterClass (klass);
-
-      // If EX is not a ClassNotFoundException, that's ok, because we
-      // account for the possibility in defineClass().
-      throw ex;
-    }
-    
-  klass->protectionDomain = pd;
-
-  // if everything proceeded sucessfully, we're loaded.
-  JvAssert (klass->state == JV_STATE_LOADED);
-
-  return klass;
-
-#else // INTERPRETER
-
-  return 0;
-#endif
-}
-
-// Finish linking a class.  Only called from ClassLoader::resolveClass.
-void
-java::lang::VMClassLoader::linkClass0 (java::lang::Class *klass)
-{
-  _Jv_WaitForState (klass, JV_STATE_LINKED);
-}
-
-void
-java::lang::VMClassLoader::markClassErrorState0 (java::lang::Class *klass)
-{
-  klass->state = JV_STATE_ERROR;
-  klass->notifyAll ();
-}
-
-java::lang::ClassLoader *
-java::lang::VMClassLoader::getSystemClassLoaderInternal()
-{
-  _Jv_InitClass (&gnu::gcj::runtime::VMClassLoader::class$);
-  return gnu::gcj::runtime::VMClassLoader::instance;
-}
-
-jclass
-java::lang::VMClassLoader::getPrimitiveClass (jchar type)
-{
-  char sig[2];
-  sig[0] = (char) type;
-  sig[1] = '\0';
-  return _Jv_FindClassFromSignature (sig, NULL);
-}
 
 void
 _Jv_WaitForState (jclass klass, int state)
@@ -252,6 +156,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  int mod = f->getModifiers ();
 	  // If we have a static String field with a non-null initial
 	  // value, we know it points to a Utf8Const.
+	  _Jv_ResolveField(f, klass->loader);
 	  if (f->getClass () == &java::lang::String::class$
 	      && java::lang::reflect::Modifier::isStatic (mod))
 	    {
@@ -510,43 +415,11 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
   return klass;
 }
 
-void
-_Jv_InitNewClassFields (jclass ret)
-{
-  ret->next = NULL;
-  ret->name = NULL;
-  ret->accflags = 0;
-  ret->superclass = NULL;
-  ret->constants.size = 0;
-  ret->constants.tags = NULL;
-  ret->constants.data = NULL;
-  ret->methods = NULL;
-  ret->method_count = 0;
-  ret->vtable_method_count = 0;
-  ret->fields = NULL;
-  ret->size_in_bytes = 0;
-  ret->field_count = 0;
-  ret->static_field_count = 0;
-  ret->vtable = NULL;
-  ret->interfaces = NULL;
-  ret->loader = NULL;
-  ret->interface_count = 0;
-  ret->state = JV_STATE_NOTHING;
-  ret->thread = NULL;
-  ret->depth = 0;
-  ret->ancestors = NULL;
-  ret->idt = NULL;
-  ret->arrayclass = NULL;
-  ret->protectionDomain = NULL;
-  ret->chain = NULL;
-}
-
 jclass
 _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 	      java::lang::ClassLoader *loader)
 {
   jclass ret = (jclass) JvAllocObject (&java::lang::Class::class$);
-  _Jv_InitNewClassFields (ret);
   ret->name = name;
   ret->superclass = superclass;
   ret->loader = loader;

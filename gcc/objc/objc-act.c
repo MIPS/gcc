@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
+#include "tm_p.h"
 #include "expr.h"
 #include "c-tree.h"
 #include "c-common.h"
@@ -148,7 +149,7 @@ static tree build_private_template (tree);
 static void build_class_template (void);
 static void build_selector_template (void);
 static void build_category_template (void);
-static tree lookup_method_in_hash_lists (tree);
+static tree lookup_method_in_hash_lists (tree, int);
 static void build_super_template (void);
 static tree build_category_initializer (tree, tree, tree, tree, tree, tree);
 static tree build_protocol_initializer (tree, tree, tree, tree, tree);
@@ -183,8 +184,10 @@ static hash hash_lookup (hash *, tree);
 static void hash_add_attr (hash, tree);
 static tree lookup_method (tree, tree);
 static tree lookup_method_static (tree, tree, int);
+static void add_method_to_hash_list (hash *, tree);
 static tree add_class (tree);
 static void add_category (tree, tree);
+static inline tree lookup_category (tree, tree);
 
 enum string_section
 {
@@ -279,7 +282,7 @@ static tree build_shared_structure_initializer (tree, tree, tree, tree,
 static void generate_category (tree);
 static int is_objc_type_qualifier (tree);
 static tree adjust_type_for_id_default (tree);
-static tree check_duplicates (hash, int);
+static tree check_duplicates (hash, int, int);
 static tree receiver_is_class_object (tree, int, int);
 static int check_methods (tree, tree, int);
 static int conforms_to_protocol (tree, tree);
@@ -944,10 +947,9 @@ objc_check_decl (tree decl)
 
   if (TREE_CODE (type) != RECORD_TYPE)
     return;
-  if (TYPE_NAME (type) && (type = is_class_name (TYPE_NAME (type)))
-      && type != constant_string_type)
+  if (TYPE_NAME (type) && (type = is_class_name (TYPE_NAME (type))))
     error ("statically allocated instance of Objective-C class `%s'",
-	     IDENTIFIER_POINTER (type));
+	   IDENTIFIER_POINTER (type));
 }
 
 /* Implement static typing.  At this point, we know we have an interface.  */
@@ -3124,7 +3126,7 @@ objc_build_catch_epilogue (void)
 }
 
 tree
-objc_build_finally_prologue ()
+objc_build_finally_prologue (void)
 {
   /* { // begin FINALLY scope
        if (!_rethrowException) {
@@ -4555,8 +4557,7 @@ generate_ivars_list (tree type, const char *name, int size, tree list)
 
 /* Count only the fields occurring in T.  */
 static int
-ivar_list_length (t)
-     tree t;
+ivar_list_length (tree t)
 {
   int count = 0;
 
@@ -5064,6 +5065,18 @@ build_shared_structure_initializer (tree type, tree isa, tree super,
   return objc_build_constructor (type, nreverse (initlist));
 }
 
+/* Retrieve category interface CAT_NAME (if any) associated with CLASS.  */
+
+static inline tree
+lookup_category (tree class, tree cat_name)
+{
+  tree category = CLASS_CATEGORY_LIST (class);
+
+  while (category && CLASS_SUPER_NAME (category) != cat_name)
+    category = CLASS_CATEGORY_LIST (category);
+  return category;
+}
+
 /* static struct objc_category _OBJC_CATEGORY_<name> = { ... };  */
 
 static void
@@ -5078,15 +5091,8 @@ generate_category (tree cat)
 
   class_name_expr = add_objc_string (CLASS_NAME (cat), class_names);
 
-  category = CLASS_CATEGORY_LIST (implementation_template);
-
-  /* find the category interface from the class it is associated with */
-  while (category)
-    {
-      if (CLASS_SUPER_NAME (cat) == CLASS_SUPER_NAME (category))
-	break;
-      category = CLASS_CATEGORY_LIST (category);
-    }
+  category = lookup_category (implementation_template,
+				CLASS_SUPER_NAME (cat));
 
   if (category && CLASS_PROTOCOL_LIST (category))
     {
@@ -5481,7 +5487,7 @@ get_arg_type_list (tree meth, int context, int superflag)
 }
 
 static tree
-check_duplicates (hash hsh, int methods)
+check_duplicates (hash hsh, int methods, int is_class)
 {
   tree meth = NULL_TREE;
 
@@ -5494,15 +5500,23 @@ check_duplicates (hash hsh, int methods)
 	  /* We have two or more methods with the same name but
 	     different types.  */
 	  attr loop;
-	  char type = (TREE_CODE (meth) == INSTANCE_METHOD_DECL) ? '-' : '+';
 
 	  warning ("multiple %s named `%c%s' found",
-		   methods ? "methods" : "selectors", type,
+		   methods ? "methods" : "selectors",
+		   (is_class ? '+' : '-'),
 		   IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
 
-	  warn_with_method (methods ? "using" : "found", type, meth);
+	  warn_with_method (methods ? "using" : "found",
+			    ((TREE_CODE (meth) == INSTANCE_METHOD_DECL)
+			     ? '-'
+			     : '+'), 
+			    meth);
 	  for (loop = hsh->list; loop; loop = loop->next)
-	    warn_with_method ("also found", type, loop->value);
+	    warn_with_method ("also found",
+			      ((TREE_CODE (loop->value) == INSTANCE_METHOD_DECL)
+			       ? '-' 
+			       : '+'),
+			      loop->value);
         }
     }
   return meth;
@@ -5638,17 +5652,27 @@ build_message_expr (tree mess)
   return finish_message_expr (receiver, sel_name, method_params);
 }
 
+/* Look up method SEL_NAME that would be suitable for receiver
+   of type 'id' (if IS_CLASS is zero) or 'Class' (if IS_CLASS is
+   nonzero), and report on any duplicates.  */
+
 static tree
-lookup_method_in_hash_lists (tree sel_name)
+lookup_method_in_hash_lists (tree sel_name, int is_class)
 {
-  hash method_prototype = hash_lookup (nst_method_hash_list,
-				       sel_name);
+  hash method_prototype = NULL;
+
+  if (!is_class)
+    method_prototype = hash_lookup (nst_method_hash_list,
+				    sel_name);
 					
   if (!method_prototype)
-    method_prototype = hash_lookup (cls_method_hash_list,
-				    sel_name);
+    {
+      method_prototype = hash_lookup (cls_method_hash_list,
+				      sel_name);
+      is_class = 1;
+    }
 
-  return check_duplicates (method_prototype, 1);
+  return check_duplicates (method_prototype, 1, is_class);
 }
 
 /* The 'finish_message_expr' routine is called from within
@@ -5726,9 +5750,8 @@ finish_message_expr (tree receiver, tree sel_name, tree method_params)
 					    is_class != NULL_TREE);
       if (!method_prototype && !rprotos)
 	method_prototype
-	  = (is_class
-	     ? check_duplicates (hash_lookup (cls_method_hash_list, sel_name), 1)
-	     : lookup_method_in_hash_lists (sel_name));
+	  = lookup_method_in_hash_lists (sel_name,
+					 is_class != NULL_TREE);
     }
   else
     {
@@ -5867,21 +5890,18 @@ build_objc_method_call (int super_flag, tree method_prototype,
 
   if (flag_next_runtime)
     {
-#ifdef STRUCT_VALUE
       /* If we are returning a struct in memory, and the address
 	 of that memory location is passed as a hidden first
 	 argument, then change which messenger entry point this
 	 expr will call.  NB: Note that sender_cast remains
 	 unchanged (it already has a struct return type).  */
-      if ((TREE_CODE (ret_type) == RECORD_TYPE
-	   || TREE_CODE (ret_type) == UNION_TYPE)
-#if defined (DEFAULT_PCC_STRUCT_RETURN) && DEFAULT_PCC_STRUCT_RETURN == 0
-	   && RETURN_IN_MEMORY (ret_type)
-#endif
-	   && STRUCT_VALUE == 0)
+      if (!targetm.calls.struct_value_rtx (0, 0)
+	  && (TREE_CODE (ret_type) == RECORD_TYPE
+	      || TREE_CODE (ret_type) == UNION_TYPE)
+	  && targetm.calls.return_in_memory (ret_type, 0))
 	sender = (super_flag ? umsg_super_stret_decl :
 		flag_nil_receivers ? umsg_stret_decl : umsg_nonnil_stret_decl);
-#endif
+
       method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
@@ -6251,11 +6271,34 @@ lookup_method_static (tree interface, tree ident, int is_class)
   return is_class ? lookup_method_static (root_inter, ident, 0): NULL_TREE;
 }
 
+/* Add the method to the hash list if it doesn't contain an identical
+   method already. */
+static void
+add_method_to_hash_list (hash *hash_list, tree method)
+{
+  hash hsh;
+
+  if (!(hsh = hash_lookup (hash_list, METHOD_SEL_NAME (method))))
+    {
+      /* Install on a global chain.  */
+      hash_enter (hash_list, method);
+    }
+  else
+    {
+      /* Check types against those; if different, add to a list.  */
+      attr loop;
+      int already_there = comp_proto_with_proto (method, hsh->key);
+      for (loop = hsh->list; !already_there && loop; loop = loop->next)
+	already_there |= comp_proto_with_proto (method, loop->value);
+      if (!already_there)
+	hash_add_attr (hsh, method);
+    }
+}
+
 tree
-add_method (tree class, tree method, int is_class)
+objc_add_method (tree class, tree method, int is_class)
 {
   tree mth;
-  hash hsh;
 
   if (!(mth = lookup_method (is_class ? CLASS_CLS_METHODS (class) : CLASS_NST_METHODS (class), method)))
     {
@@ -6273,10 +6316,11 @@ add_method (tree class, tree method, int is_class)
     }
   else
     {
-      /* When processing an @interface for a class or category, give hard errors on methods with
-	 identical selectors but differing argument and/or return types. We do not do this for
-	 @implementations, because C/C++ will do it for us (i.e., there will be
-	 duplicate function definition errors).  */
+      /* When processing an @interface for a class or category, give hard
+	 errors on methods with identical selectors but differing argument
+	 and/or return types. We do not do this for @implementations, because
+	 C/C++ will do it for us (i.e., there will be duplicate function
+	 definition errors).  */
       if ((TREE_CODE (class) == CLASS_INTERFACE_TYPE
 	   || TREE_CODE (class) == CATEGORY_INTERFACE_TYPE)
 	  && !comp_proto_with_proto (method, mth))
@@ -6284,23 +6328,23 @@ add_method (tree class, tree method, int is_class)
 		is_class ? '+' : '-', IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
     }
 
-  if (!(hsh = hash_lookup (is_class
-			   ? cls_method_hash_list
-			   : nst_method_hash_list, METHOD_SEL_NAME (method))))
-    {
-      /* Install on a global chain.  */
-      hash_enter (is_class ? cls_method_hash_list : nst_method_hash_list, method);
-    }
+  if (is_class)
+    add_method_to_hash_list (cls_method_hash_list, method);
   else
     {
-      /* Check types against those; if different, add to a list.  */
-      attr loop;
-      int already_there = comp_proto_with_proto (method, hsh->key);
-      for (loop = hsh->list; !already_there && loop; loop = loop->next)
-	already_there |= comp_proto_with_proto (method, loop->value);
-      if (!already_there)
-	hash_add_attr (hsh, method);
+      add_method_to_hash_list (nst_method_hash_list, method);
+
+      /* Instance methods in root classes (and categories thereof)
+	 may acts as class methods as a last resort. */
+      if (TREE_CODE (class) == CATEGORY_INTERFACE_TYPE
+	  || TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
+	class = lookup_interface (CLASS_NAME (class));
+
+      if (TREE_CODE (class) != PROTOCOL_INTERFACE_TYPE
+	  && !CLASS_SUPER_NAME (class))
+	add_method_to_hash_list (cls_method_hash_list, method);
     }
+
   return method;
 }
 
@@ -6317,23 +6361,19 @@ static void
 add_category (tree class, tree category)
 {
   /* Put categories on list in reverse order.  */
-  tree cat = CLASS_CATEGORY_LIST (class);
+  tree cat = lookup_category (class, CLASS_SUPER_NAME (category));
 
-  while (cat)
+  if (cat)
     {
-      if (CLASS_SUPER_NAME (cat) == CLASS_SUPER_NAME (category))
-#ifdef OBJCPLUS
-	error ("duplicate interface declaration for category `%s(%s)'",
-#else	
-	warning ("duplicate interface declaration for category `%s(%s)'",
-#endif	
-		 IDENTIFIER_POINTER (CLASS_NAME (class)),
-		 IDENTIFIER_POINTER (CLASS_SUPER_NAME (category)));
-      cat = CLASS_CATEGORY_LIST (cat);
+      warning ("duplicate interface declaration for category `%s(%s)'",
+	       IDENTIFIER_POINTER (CLASS_NAME (class)),
+	       IDENTIFIER_POINTER (CLASS_SUPER_NAME (category)));
     }
-
-  CLASS_CATEGORY_LIST (category) = CLASS_CATEGORY_LIST (class);
-  CLASS_CATEGORY_LIST (class) = category;
+  else
+    {
+      CLASS_CATEGORY_LIST (category) = CLASS_CATEGORY_LIST (class);
+      CLASS_CATEGORY_LIST (class) = category;
+    }
 }
 
 /* Called after parsing each instance variable declaration. Necessary to
@@ -6951,15 +6991,7 @@ finish_class (tree class)
 
   else if (TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
     {
-      tree category = CLASS_CATEGORY_LIST (implementation_template);
-
-      /* Find the category interface from the class it is associated with.  */
-      while (category)
-	{
-	  if (CLASS_SUPER_NAME (class) == CLASS_SUPER_NAME (category))
-	    break;
-	  category = CLASS_CATEGORY_LIST (category);
-	}
+      tree category = lookup_category (implementation_template, CLASS_SUPER_NAME (class));
 
       if (category)
 	{
@@ -7324,62 +7356,42 @@ encode_next_bitfield (int width)
 }
 
 /* FORMAT will be OBJC_ENCODE_INLINE_DEFS or OBJC_ENCODE_DONT_INLINE_DEFS.  */
-
 static void
 encode_type (tree type, int curtype, int format)
 {
   enum tree_code code = TREE_CODE (type);
+  char c;
 
   if (code == INTEGER_TYPE)
     {
-      if (integer_zerop (TYPE_MIN_VALUE (type)))
+      switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	{
-	  /* Unsigned integer types.  */
-
-	  if (TYPE_MODE (type) == QImode)
-	    obstack_1grow (&util_obstack, 'C');
-	  else if (TYPE_MODE (type) == HImode)
-	    obstack_1grow (&util_obstack, 'S');
-	  else if (TYPE_MODE (type) == SImode)
-	    {
-	      if (type == long_unsigned_type_node)
-		obstack_1grow (&util_obstack, 'L');
-	      else
-		obstack_1grow (&util_obstack, 'I');
-	    }
-	  else if (TYPE_MODE (type) == DImode)
-	    obstack_1grow (&util_obstack, 'Q');
+	case 8:  c = TREE_UNSIGNED (type) ? 'C' : 'c'; break;
+	case 16: c = TREE_UNSIGNED (type) ? 'S' : 's'; break;
+	case 32: 
+	  if (type == long_unsigned_type_node
+	      || type == long_integer_type_node)
+	         c = TREE_UNSIGNED (type) ? 'L' : 'l';
+	  else
+	         c = TREE_UNSIGNED (type) ? 'I' : 'i';
+	  break;
+	case 64: c = TREE_UNSIGNED (type) ? 'Q' : 'q'; break;
+	default: abort ();
 	}
-
-      else
-	/* Signed integer types.  */
-	{
-	  if (TYPE_MODE (type) == QImode)
-	    obstack_1grow (&util_obstack, 'c');
-	  else if (TYPE_MODE (type) == HImode)
-	    obstack_1grow (&util_obstack, 's');
-	  else if (TYPE_MODE (type) == SImode)
-	    {
-	      if (type == long_integer_type_node)
-		obstack_1grow (&util_obstack, 'l');
-	      else
-		obstack_1grow (&util_obstack, 'i');
-	    }
-
-	  else if (TYPE_MODE (type) == DImode)
-	    obstack_1grow (&util_obstack, 'q');
-	}
+      obstack_1grow (&util_obstack, c);
     }
 
   else if (code == REAL_TYPE)
     {
       /* Floating point types.  */
-
-      if (TYPE_MODE (type) == SFmode)
-	obstack_1grow (&util_obstack, 'f');
-      else if (TYPE_MODE (type) == DFmode
-	       || TYPE_MODE (type) == TFmode)
-	obstack_1grow (&util_obstack, 'd');
+      switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
+	{
+	case 32:  c = 'f'; break;
+	case 64:
+	case 128: c = 'd'; break;
+	default: abort ();
+	}
+      obstack_1grow (&util_obstack, c);
     }
 
   else if (code == VOID_TYPE)
@@ -7773,12 +7785,34 @@ really_start_method (tree method, tree parmlist)
 				METHOD_SEL_NAME (method),
 				TREE_CODE (method) == CLASS_METHOD_DECL);
 
-      if (proto && ! comp_method_with_proto (method, proto))
+      if (proto)
 	{
-	  char type = (TREE_CODE (method) == INSTANCE_METHOD_DECL ? '-' : '+');
+	  if (!comp_method_with_proto (method, proto))
+	    {
+	      char type = (TREE_CODE (method) == INSTANCE_METHOD_DECL ? '-' : '+');
 
-	  warn_with_method ("conflicting types for", type, method);
-	  warn_with_method ("previous declaration of", type, proto);
+	      warn_with_method ("conflicting types for", type, method);
+	      warn_with_method ("previous declaration of", type, proto);
+	    }
+	}
+      else
+	{
+	  /* We have a method @implementation even though we did not
+	     see a corresponding @interface declaration (which is allowed
+	     by Objective-C rules).  Go ahead and place the method in
+	     the @interface anyway, so that message dispatch lookups
+	     will see it.  */
+	  tree interface = implementation_template;
+
+	  if (TREE_CODE (objc_implementation_context)
+	      == CATEGORY_IMPLEMENTATION_TYPE)
+	    interface = lookup_category
+			(interface,
+			 CLASS_SUPER_NAME (objc_implementation_context));
+
+	  if (interface)
+	    objc_add_method (interface, copy_node (method),
+			     TREE_CODE (method) == CLASS_METHOD_DECL);
 	}
     }
 }
@@ -8864,9 +8898,9 @@ finish_objc (void)
       for (slot = 0; slot < SIZEHASHTABLE; slot++)
 	{
 	  for (hsh = cls_method_hash_list[slot]; hsh; hsh = hsh->next)
-	    check_duplicates (hsh, 0);
+	    check_duplicates (hsh, 0, 1);
 	  for (hsh = nst_method_hash_list[slot]; hsh; hsh = hsh->next)
-	    check_duplicates (hsh, 0);
+	    check_duplicates (hsh, 0, 1);
 	}
     }
 

@@ -108,7 +108,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (const char *);
+static bool finish_options (const char *);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -203,7 +203,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
     }
 
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
-				ident_hash);
+				ident_hash, &line_table);
 
   cpp_opts = cpp_get_options (parse_in);
   cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
@@ -672,7 +672,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Fall through.  */
 
     case OPT_fall_virtual:
+    case OPT_falt_external_templates:
     case OPT_fenum_int_equiv:
+    case OPT_fexternal_templates:
     case OPT_fguiding_decls:
     case OPT_fhonor_std:
     case OPT_fhuge_objects:
@@ -695,15 +697,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_faccess_control:
       flag_access_control = value;
-      break;
-
-    case OPT_falt_external_templates:
-      flag_alt_external_templates = value;
-      if (value)
-	flag_external_templates = true;
-    cp_deprecated:
-      warning ("switch \"%s\" is deprecated, please see documentation "
-	       "for details", option->opt_text);
       break;
 
     case OPT_fasm:
@@ -798,10 +791,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fenforce_eh_specs:
       flag_enforce_eh_specs = value;
       break;
-
-    case OPT_fexternal_templates:
-      flag_external_templates = value;
-      goto cp_deprecated;
 
     case OPT_ffixed_form:
     case OPT_ffixed_line_length_:
@@ -1060,7 +1049,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
 /* Post-switch processing.  */
 bool
-c_common_post_options (const char **pfilename)
+c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
   /* Canonicalize the input and output filenames.  */
   if (in_fnames == NULL)
@@ -1152,9 +1141,6 @@ c_common_post_options (const char **pfilename)
   cpp_get_callbacks (parse_in)->file_change = cb_file_change;
   cpp_post_options (parse_in);
 
-  /* NOTE: we use in_fname here, not the one supplied.  */
-  *pfilename = cpp_read_main_file (parse_in, in_fnames[0]);
-
   saved_lineno = input_line;
   input_line = 0;
 
@@ -1186,8 +1172,8 @@ c_common_init (void)
 
   if (flag_preprocess_only)
     {
-      finish_options (in_fnames[0]);
-      preprocess_file (parse_in);
+      if (finish_options (in_fnames[0]))
+	preprocess_file (parse_in);
       return false;
     }
 
@@ -1221,10 +1207,10 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 
 	  /* Reset cpplib's macros and start a new file.  */
 	  cpp_undef_all (parse_in);
-	  cpp_read_main_file (parse_in, in_fnames[file_index]);
 	}
 
-      finish_options(in_fnames[file_index]);
+      if (! finish_options(in_fnames[file_index]))
+	break;
       if (file_index == 0)
 	pch_init();
       c_parse_file ();
@@ -1391,15 +1377,19 @@ add_prefixed_path (const char *suffix, size_t chain)
 
 /* Handle -D, -U, -A, -imacros, and the first -include.  
    TIF is the input file to which we will return after processing all
-   the includes.  */
-static void
+   the includes.  Returns true on success.  */
+static bool
 finish_options (const char *tif)
 {
+  this_input_filename = tif;
+  if (! cpp_find_main_file (parse_in, this_input_filename))
+    return false;
+
   if (!cpp_opts->preprocessed)
     {
       size_t i;
 
-      cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
+      cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
 
@@ -1439,37 +1429,41 @@ finish_options (const char *tif)
 
 	  if (opt->code == OPT_imacros
 	      && cpp_push_include (parse_in, opt->arg))
-	    cpp_scan_nooutput (parse_in);
+	    {
+	      /* Disable push_command_line_include callback for now.  */
+	      include_cursor = deferred_count + 1;
+	      cpp_scan_nooutput (parse_in);
+	    }
 	}
     }
 
   include_cursor = 0;
-  this_input_filename = tif;
   push_command_line_include ();
+  return true;
 }
 
 /* Give CPP the next file given by -include, if any.  */
 static void
 push_command_line_include (void)
 {
-  if (cpp_opts->preprocessed)
-    return;
-
   while (include_cursor < deferred_count)
     {
       struct deferred_opt *opt = &deferred_opts[include_cursor++];
 
-      if (opt->code == OPT_include && cpp_push_include (parse_in, opt->arg))
+      if (! cpp_opts->preprocessed && opt->code == OPT_include
+	  && cpp_push_include (parse_in, opt->arg))
 	return;
     }
 
   if (include_cursor == deferred_count)
     {
+      include_cursor++;
       /* Restore the line map from <command line>.  */
-      cpp_change_file (parse_in, LC_RENAME, this_input_filename);
+      if (! cpp_opts->preprocessed)
+	cpp_change_file (parse_in, LC_LEAVE, NULL);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
-      include_cursor++;
+      cpp_push_main_file (parse_in);
     }
 }
 
@@ -1483,7 +1477,7 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
   else
     fe_file_change (new_map);
 
-  if (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map))
+  if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
     push_command_line_include ();
 }
 

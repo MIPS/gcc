@@ -48,10 +48,11 @@
 #undef getchar
 #undef fputc
 #undef stderr
+#undef stdout
 #endif
 
 int
-get_char ()
+get_char (void)
 {
 #ifdef VMS
   return decc$getchar();
@@ -61,7 +62,7 @@ get_char ()
 }
 
 int
-get_int ()
+get_int (void)
 {
   int x;
 
@@ -70,29 +71,27 @@ get_int ()
 }
 
 void
-put_int (x)
-     int x;
+put_int (int x)
 {
-  printf ("%d", x);
+   /* Use fprintf rather than printf, since the latter is unbuffered
+      on vxworks */
+   fprintf (stdout, "%d", x);
 }
 
 void
-put_int_stderr (x)
-   int x;
+put_int_stderr (int x)
 {
   fprintf (stderr, "%d", x);
 }
 
 void
-put_char (c)
-     int c;
+put_char (int c)
 {
   putchar (c);
 }
 
 void
-put_char_stderr (c)
-     int c;
+put_char_stderr (int c)
 {
   fputc (c, stderr);
 }
@@ -100,8 +99,7 @@ put_char_stderr (c)
 #ifdef __vxworks
 
 char *
-mktemp (template)
-     char *template;
+mktemp (char *template)
 {
   return tmpnam (NULL);
 }

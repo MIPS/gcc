@@ -273,7 +273,7 @@ apply_pragma_weak (tree decl, tree value)
     }
 
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
-      && !DECL_WEAK (decl) /* don't complain about a redundant #pragma */
+      && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     warning ("%Japplying #pragma weak '%D' after first use results "
              "in unspecified behavior", decl, decl);
@@ -382,7 +382,7 @@ handle_pragma_redefine_extname (cpp_reader *dummy ATTRIBUTE_UNUSED)
       if (DECL_ASSEMBLER_NAME_SET_P (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != newname)
         warning ("#pragma redefine_extname conflicts with declaration");
-      SET_DECL_ASSEMBLER_NAME (decl, newname);
+      change_decl_assembler_name (decl, newname);
     }
   else
     add_to_renaming_pragma_list(oldname, newname);

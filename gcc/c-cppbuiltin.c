@@ -85,7 +85,7 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
   int dig, min_10_exp, max_10_exp;
   int decimal_dig;
 
-  fmt = real_format_for_mode[TYPE_MODE (type) - QFmode];
+  fmt = REAL_MODE_FORMAT (TYPE_MODE (type));
 
   /* The radix of the exponent representation.  */
   if (type == float_type_node)
@@ -308,9 +308,25 @@ c_cpp_builtins (cpp_reader *pfile)
   if (flag_exceptions)
     cpp_define (pfile, "__EXCEPTIONS");
 
-  /* represents the C++ ABI version, always defined so it can be used while
+  /* Represents the C++ ABI version, always defined so it can be used while
      preprocessing C and assembler.  */
-  cpp_define (pfile, "__GXX_ABI_VERSION=102");
+  if (flag_abi_version == 0)
+    /* Use a very large value so that:
+
+         #if __GXX_ABI_VERSION >= <value for version X>
+
+       will work whether the user explicitly says "-fabi-version=x" or
+       "-fabi-version=0".  Do not use INT_MAX because that will be
+       different from system to system.  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 999999);
+  else if (flag_abi_version == 1)
+    /* Due to an historical accident, this version had the value
+       "102".  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 102);
+  else
+    /* Newer versions have values 1002, 1003, ....  */
+    builtin_define_with_int_value ("__GXX_ABI_VERSION", 
+				   1000 + flag_abi_version);
 
   /* libgcc needs to know this.  */
   if (USING_SJLJ_EXCEPTIONS)

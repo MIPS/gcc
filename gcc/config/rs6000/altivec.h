@@ -118,6 +118,8 @@ extern int __altivec_link_error_invalid_argument ();
 
 #ifdef __cplusplus
 
+extern "C++" {
+
 /* Prototypes for builtins that take literals and must always be
    inlined.  */
 inline vector float vec_ctf (vector unsigned int, const char) __attribute__ ((always_inline));
@@ -1094,7 +1096,7 @@ vec_vcmpgtub (vector unsigned char a1, vector unsigned char a2)
 inline vector signed int
 vec_cmple (vector float a1, vector float a2)
 {
-  return (vector signed int) __builtin_altivec_vcmpgefp ((vector float) a1, (vector float) a2);
+  return (vector signed int) __builtin_altivec_vcmpgefp ((vector float) a2, (vector float) a1);
 }
 
 /* vec_cmplt */
@@ -5526,7 +5528,7 @@ vec_all_nlt (vector float a1, vector float a2)
 inline int
 vec_all_numeric (vector float a1)
 {
-  return __builtin_altivec_vcmpeqfp_p (__CR6_EQ, a1, a1);
+  return __builtin_altivec_vcmpeqfp_p (__CR6_LT, a1, a1);
 }
 
 /* vec_any_eq */
@@ -6117,6 +6119,8 @@ struct __vec_step_help<vector float>
 
 #define vec_step(t)  __vec_step_help<typeof(t)>::_S_elem
 
+}//extern "C++"
+
 #else /* not C++ */
 
 /* "... and so I think no man in a century will suffer as greatly as
@@ -6521,7 +6525,7 @@ __ch (__bin_args_eq (vector unsigned char, (a1), vector unsigned char, (a2)), \
       ((vector signed char) __builtin_altivec_vcmpgtub ((vector signed char) (a1), (vector signed char) (a2))), \
   __altivec_link_error_invalid_argument ())
 
-#define vec_cmple(a1, a2) __builtin_altivec_vcmpgefp ((a1), (a2))
+#define vec_cmple(a1, a2) __builtin_altivec_vcmpgefp ((a2), (a1))
 
 #define vec_cmplt(a2, a1) \
 __ch (__bin_args_eq (vector unsigned char, (a1), vector unsigned char, (a2)), \
@@ -8343,7 +8347,7 @@ __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
 
 #define vec_all_nlt(a1, a2) __builtin_altivec_vcmpgtfp_p (__CR6_EQ, (a2), (a1))
 
-#define vec_all_numeric(a1) __builtin_altivec_vcmpeqfp_p (__CR6_EQ, (a1), (a1))
+#define vec_all_numeric(a1) __builtin_altivec_vcmpeqfp_p (__CR6_LT, (a1), (a1))
 
 #define vec_any_eq(a1, a2) \
 __ch (__bin_args_eq (vector signed char, (a1), vector unsigned char, (a2)), \
@@ -8532,6 +8536,7 @@ __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
 #define vec_any_numeric(a1) __builtin_altivec_vcmpeqfp_p (__CR6_EQ_REV, (a1), (a1))
 
 #define vec_any_out(a1, a2) __builtin_altivec_vcmpbfp_p (__CR6_EQ_REV, (a1), (a2))
+
 
 #endif /* __cplusplus */
 

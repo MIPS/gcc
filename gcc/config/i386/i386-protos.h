@@ -1,21 +1,21 @@
-/* Definitions of target machine for GNU compiler for IA-32.
+/* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
    2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -59,7 +59,6 @@ extern int x86_64_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_szext_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_immediate_operand (rtx, enum machine_mode);
 extern int x86_64_zext_immediate_operand (rtx, enum machine_mode);
-extern int const_int_1_operand (rtx, enum machine_mode);
 extern int symbolic_operand (rtx, enum machine_mode);
 extern int tls_symbolic_operand (rtx, enum machine_mode);
 extern int global_dynamic_symbolic_operand (rtx, enum machine_mode);
@@ -203,7 +202,6 @@ extern rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 
 #ifdef TREE_CODE
 extern int ix86_return_pops_args (tree, tree, int);
-extern tree ix86_build_va_list (void);
 
 extern int ix86_data_alignment (tree, int);
 extern int ix86_local_alignment (tree, int);
@@ -219,6 +217,7 @@ extern int x86_field_alignment (tree, int);
 extern rtx ix86_tls_get_addr (void);
 extern bool ix86_must_pass_in_stack (enum machine_mode mode, tree);
 
+extern void ix86_expand_vector_init (rtx, rtx);
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);

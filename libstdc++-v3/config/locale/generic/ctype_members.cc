@@ -43,8 +43,11 @@ namespace std
     ctype_byname<char>::ctype_byname(const char* __s, size_t __refs)
     : ctype<char>(0, false, __refs) 
     { 	
-      _S_destroy_c_locale(_M_c_locale_ctype);
-      _S_create_c_locale(_M_c_locale_ctype, __s); 
+      if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
+	{
+	  _S_destroy_c_locale(_M_c_locale_ctype);
+	  _S_create_c_locale(_M_c_locale_ctype, __s); 
+	}
     }
 
 #ifdef _GLIBCXX_USE_WCHAR_T  
@@ -127,19 +130,18 @@ namespace std
   ctype<wchar_t>::
   do_is(mask __m, char_type __c) const
   { 
-    bool __ret = true;
-    bool __match_any = false;
-    const size_t __bitmasksize = 10; 
+    bool __ret = false;
+    // Generically, 15 (instead of 10) since we don't know the numerical
+    // encoding of the various categories in /usr/include/ctype.h.
+    const size_t __bitmasksize = 15; 
     for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
-      {
-	mask __bit = static_cast<mask>(1 << __bitcur);
-	if (__m & __bit)
-	  {
-	    __match_any = true;
-	    __ret &= iswctype(__c, _M_convert_to_wmask(__bit));
-	  }
-      }
-    return __ret & __match_any;    
+      if (__m & _M_bit[__bitcur]
+	  && iswctype(__c, _M_wmask[__bitcur]))
+	{
+	  __ret = true;
+	  break;
+	}
+    return __ret;    
   }
   
   const wchar_t* 
@@ -148,14 +150,13 @@ namespace std
   {
     for (;__lo < __hi; ++__vec, ++__lo)
       {
-	const size_t __bitmasksize = 10; 
+	// Generically, 15 (instead of 10) since we don't know the numerical
+	// encoding of the various categories in /usr/include/ctype.h.
+	const size_t __bitmasksize = 15; 
 	mask __m = 0;
 	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
-	  { 
-	    mask __bit = static_cast<mask>(1 << __bitcur);
-	    if (iswctype(*__lo, _M_convert_to_wmask(__bit)))
-	      __m |= __bit;
-	  }
+	  if (iswctype(*__lo, _M_wmask[__bitcur]))
+	    __m |= _M_bit[__bitcur];
 	*__vec = __m;
       }
     return __hi;
@@ -182,7 +183,7 @@ namespace std
   wchar_t
   ctype<wchar_t>::
   do_widen(char __c) const
-  { return btowc(static_cast<unsigned char>(__c)); }
+  { return _M_widen[static_cast<unsigned char>(__c)]; }
   
   const char* 
   ctype<wchar_t>::
@@ -190,7 +191,7 @@ namespace std
   {
     while (__lo < __hi)
       {
-	*__dest = btowc(static_cast<unsigned char>(*__lo));
+	*__dest = _M_widen[static_cast<unsigned char>(*__lo)];
 	++__lo;
 	++__dest;
       }
@@ -201,7 +202,9 @@ namespace std
   ctype<wchar_t>::
   do_narrow(wchar_t __wc, char __dfault) const
   { 
-    int __c = wctob(__wc);
+    if (__wc >= 0 && __wc < 128 && _M_narrow_ok)
+      return _M_narrow[__wc];
+    const int __c = wctob(__wc);
     return (__c == EOF ? __dfault : static_cast<char>(__c)); 
   }
 
@@ -210,14 +213,55 @@ namespace std
   do_narrow(const wchar_t* __lo, const wchar_t* __hi, char __dfault, 
 	    char* __dest) const
   {
-    while (__lo < __hi)
-      {
-	int __c = wctob(*__lo);
-	*__dest = (__c == EOF ? __dfault : static_cast<char>(__c));
-	++__lo;
-	++__dest;
-      }
+    if (_M_narrow_ok)
+      while (__lo < __hi)
+	{
+	  if (*__lo >= 0 && *__lo < 128)
+	    *__dest = _M_narrow[*__lo];
+	  else
+	    {
+	      const int __c = wctob(*__lo);
+	      *__dest = (__c == EOF ? __dfault : static_cast<char>(__c));
+	    }
+	  ++__lo;
+	  ++__dest;
+	}
+    else
+      while (__lo < __hi)
+	{
+	  const int __c = wctob(*__lo);
+	  *__dest = (__c == EOF ? __dfault : static_cast<char>(__c));
+	  ++__lo;
+	  ++__dest;
+	}
     return __hi;
+  }
+
+  void
+  ctype<wchar_t>::_M_initialize_ctype()
+  {
+    wint_t __i;
+    for (__i = 0; __i < 128; ++__i)
+      {
+	const int __c = wctob(__i);
+	if (__c == EOF)
+	  break;
+	else
+	  _M_narrow[__i] = static_cast<char>(__c);
+      }
+    if (__i == 128)
+      _M_narrow_ok = true;
+    else
+      _M_narrow_ok = false;
+    for (size_t __i = 0;
+	 __i < sizeof(_M_widen) / sizeof(wint_t); ++__i)
+      _M_widen[__i] = btowc(__i);
+
+    for (size_t __i = 0; __i <= 15; ++__i)
+      { 
+	_M_bit[__i] = static_cast<mask>(1 << __i);
+	_M_wmask[__i] = _M_convert_to_wmask(_M_bit[__i]);
+      }  
   }
 #endif //  _GLIBCXX_USE_WCHAR_T
 }

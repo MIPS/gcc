@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -57,17 +57,12 @@ static struct binding_level *make_binding_level (void);
 static tree create_primitive_vtable (const char *);
 static tree check_local_named_variable (tree, tree, int, int *);
 static tree check_local_unnamed_variable (tree, tree, tree);
-static void dump_function (enum tree_dump_index, tree);
 
 /* Name of the Cloneable class.  */
 tree java_lang_cloneable_identifier_node;
 
 /* Name of the Serializable class.  */
 tree java_io_serializable_identifier_node;
-
-/* Set to nonzero value in order to emit class initialization code
-   before static field references.  */
-extern int always_initialize_class_p;
 
 /* The DECL_MAP is a mapping from (index, type) to a decl node.
    If index < max_locals, it is the index of a local variable.
@@ -95,7 +90,7 @@ int current_pc;
 void
 indent (void)
 {
-  register unsigned i;
+  unsigned i;
 
   for (i = 0; i < binding_depth*2; i++)
     putc (' ', stderr);
@@ -117,7 +112,8 @@ push_jvm_slot (int index, tree decl)
   tmp = TREE_VEC_ELT (decl_map, index);
   while (tmp != NULL_TREE)
     {
-      if (TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp)))
+      if (TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp))
+	  && ! LOCAL_VAR_OUT_OF_SCOPE_P (tmp))
 	rtl = DECL_RTL_IF_SET (tmp);
       if (rtl != NULL)
 	break;
@@ -389,10 +385,17 @@ create_primitive_vtable (const char *name)
   return r;
 }
 
+static tree
+do_nothing (tree t)
+{
+  return t;
+}
+
+
 void
 java_init_decl_processing (void)
 {
-  register tree endlink;
+  tree endlink;
   tree field = NULL_TREE;
   tree t;
 
@@ -538,6 +541,28 @@ java_init_decl_processing (void)
   float_array_vtable = create_primitive_vtable ("float");
   double_array_vtable = create_primitive_vtable ("double");
 
+  one_elt_array_domain_type = build_index_type (integer_one_node);
+  utf8const_type = make_node (RECORD_TYPE);
+  PUSH_FIELD (utf8const_type, field, "hash", unsigned_short_type_node);
+  PUSH_FIELD (utf8const_type, field, "length", unsigned_short_type_node);
+  FINISH_RECORD (utf8const_type);
+  utf8const_ptr_type = build_pointer_type (utf8const_type);
+
+  atable_type = build_array_type (ptr_type_node, 
+				  one_elt_array_domain_type);
+  TYPE_NONALIASED_COMPONENT (atable_type) = 1;
+  atable_ptr_type = build_pointer_type (atable_type);
+
+  symbol_type = make_node (RECORD_TYPE);
+  PUSH_FIELD (symbol_type, field, "clname", utf8const_ptr_type);
+  PUSH_FIELD (symbol_type, field, "name", utf8const_ptr_type);
+  PUSH_FIELD (symbol_type, field, "signature", utf8const_ptr_type);
+  FINISH_RECORD (symbol_type);
+
+  symbols_array_type = build_array_type (symbol_type, 
+					 one_elt_array_domain_type);
+  symbols_array_ptr_type = build_pointer_type (symbols_array_type);
+
   /* As you're adding items here, please update the code right after
      this section, so that the filename containing the source code of
      the pre-defined class gets registered correctly. */
@@ -553,10 +578,6 @@ java_init_decl_processing (void)
     lookup_class (get_identifier ("java.lang.RuntimeException"));
   error_exception_type_node = 
     lookup_class (get_identifier ("java.lang.Error"));
-  class_not_found_type_node = 
-    lookup_class (get_identifier ("java.lang.ClassNotFoundException"));
-  no_class_def_found_type_node = 
-    lookup_class (get_identifier ("java.lang.NoClassDefFoundError"));
 
   rawdata_ptr_type_node
     = promote_type (lookup_class (get_identifier ("gnu.gcj.RawData")));
@@ -599,12 +620,6 @@ java_init_decl_processing (void)
   /* for lack of a better place to put this stub call */
   init_expr_processing();
 
-  utf8const_type = make_node (RECORD_TYPE);
-  PUSH_FIELD (utf8const_type, field, "hash", unsigned_short_type_node);
-  PUSH_FIELD (utf8const_type, field, "length", unsigned_short_type_node);
-  FINISH_RECORD (utf8const_type);
-  utf8const_ptr_type = build_pointer_type (utf8const_type);
-
   constants_type_node = make_node (RECORD_TYPE);
   PUSH_FIELD (constants_type_node, field, "size", unsigned_int_type_node);
   PUSH_FIELD (constants_type_node, field, "tags", ptr_type_node);
@@ -617,39 +632,11 @@ java_init_decl_processing (void)
   dtable_type = make_node (RECORD_TYPE);
   dtable_ptr_type = build_pointer_type (dtable_type);
 
-  one_elt_array_domain_type = build_index_type (integer_one_node);
   otable_type = build_array_type (integer_type_node, 
 				  one_elt_array_domain_type);
   TYPE_NONALIASED_COMPONENT (otable_type) = 1;
   otable_ptr_type = build_pointer_type (otable_type);
 
-  method_symbol_type = make_node (RECORD_TYPE);
-  PUSH_FIELD (method_symbol_type, field, "clname", utf8const_ptr_type);
-  PUSH_FIELD (method_symbol_type, field, "name", utf8const_ptr_type);
-  PUSH_FIELD (method_symbol_type, field, "signature", utf8const_ptr_type);
-  FINISH_RECORD (method_symbol_type);
-
-  method_symbols_array_type = build_array_type (method_symbol_type, 
-						one_elt_array_domain_type);
-  method_symbols_array_ptr_type = build_pointer_type 
-				  (method_symbols_array_type);
-
-  if (flag_indirect_dispatch)
-    {
-      otable_decl = build_decl (VAR_DECL, get_identifier ("otable"),
-				otable_type);
-      DECL_EXTERNAL (otable_decl) = 1;
-      TREE_STATIC (otable_decl) = 1;
-      TREE_READONLY (otable_decl) = 1;
-      pushdecl (otable_decl);
-  
-      otable_syms_decl = build_decl (VAR_DECL, get_identifier ("otable_syms"), 
-				     method_symbols_array_type);
-      TREE_STATIC (otable_syms_decl) = 1;
-      TREE_CONSTANT (otable_syms_decl) = 1;
-      pushdecl (otable_syms_decl);
-    }
-  
   PUSH_FIELD (object_type_node, field, "vtable", dtable_ptr_type);
   /* This isn't exactly true, but it is what we have in the source.
      There is an unresolved issue here, which is whether the vtable
@@ -685,7 +672,11 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "vtable", dtable_ptr_type);
   PUSH_FIELD (class_type_node, field, "otable", otable_ptr_type);
   PUSH_FIELD (class_type_node, field, "otable_syms", 
-  	      method_symbols_array_ptr_type);
+  	      symbols_array_ptr_type);
+  PUSH_FIELD (class_type_node, field, "atable", atable_ptr_type);
+  PUSH_FIELD (class_type_node, field, "atable_syms", 
+  	      symbols_array_ptr_type);
+  PUSH_FIELD (class_type_node, field, "catch_classes", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "interfaces",
 	      build_pointer_type (class_ptr_type));
   PUSH_FIELD (class_type_node, field, "loader", ptr_type_node);
@@ -697,6 +688,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
@@ -913,12 +905,12 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
-  lang_eh_runtime_type = prepare_eh_table_type;
+
+  lang_eh_runtime_type = do_nothing;
 
   init_jcf_parse ();
     
   initialize_builtins ();
-
   soft_fmod_node = built_in_decls[BUILT_IN_FMOD];
 #if 0
   soft_fmodf_node = built_in_decls[BUILT_IN_FMODF];
@@ -934,7 +926,7 @@ java_init_decl_processing (void)
 tree
 lookup_name (tree name)
 {
-  register tree val;
+  tree val;
   if (current_binding_level != global_binding_level
       && IDENTIFIER_LOCAL_VALUE (name))
     val = IDENTIFIER_LOCAL_VALUE (name);
@@ -949,7 +941,7 @@ lookup_name (tree name)
 static tree
 lookup_name_current_level (tree name)
 {
-  register tree t;
+  tree t;
 
   if (current_binding_level == global_binding_level)
     return IDENTIFIER_GLOBAL_VALUE (name);
@@ -969,8 +961,8 @@ lookup_name_current_level (tree name)
 void
 push_labeled_block (tree lb)
 {
-  register tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
-  register struct binding_level *b = current_binding_level;
+  tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
+  struct binding_level *b = current_binding_level;
   tree oldlocal = IDENTIFIER_LOCAL_VALUE (name);
   if (oldlocal != 0)
       b->shadowed = tree_cons (name, oldlocal, b->shadowed);
@@ -1010,9 +1002,9 @@ pop_labeled_block (void)
 tree
 pushdecl (tree x)
 {
-  register tree t;
-  register tree name = DECL_NAME (x);
-  register struct binding_level *b = current_binding_level;
+  tree t;
+  tree name = DECL_NAME (x);
+  struct binding_level *b = current_binding_level;
   
   if (TREE_CODE (x) != TYPE_DECL)
     DECL_CONTEXT (x) = current_function_decl;
@@ -1127,8 +1119,8 @@ pushdecl_force_head (tree x)
 tree
 pushdecl_top_level (tree x)
 {
-  register tree t;
-  register struct binding_level *b = current_binding_level;
+  tree t;
+  struct binding_level *b = current_binding_level;
 
   current_binding_level = global_binding_level;
   t = pushdecl (x);
@@ -1167,7 +1159,7 @@ make_binding_level (void)
 void
 pushlevel (int unused ATTRIBUTE_UNUSED)
 {
-  register struct binding_level *newlevel = NULL_BINDING_LEVEL;
+  struct binding_level *newlevel = NULL_BINDING_LEVEL;
 
 #if 0
   /* If this is the top level of a function,
@@ -1223,7 +1215,7 @@ pushlevel (int unused ATTRIBUTE_UNUSED)
 tree
 poplevel (int keep, int reverse, int functionbody)
 {
-  register tree link;
+  tree link;
   /* The chain of decls was accumulated in reverse order.
      Put it into forward order, just for cleanliness.  */
   tree decls;
@@ -1231,6 +1223,7 @@ poplevel (int keep, int reverse, int functionbody)
   tree block = 0;
   tree decl;
   int block_previously_created;
+    {
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   binding_depth--;
@@ -1271,12 +1264,13 @@ poplevel (int keep, int reverse, int functionbody)
 	&& DECL_INITIAL (decl) != 0
 	&& TREE_ADDRESSABLE (decl))
       {
-	/* If this decl was copied from a file-scope decl
-	   on account of a block-scope extern decl,
-	   propagate TREE_ADDRESSABLE to the file-scope decl.
-
-	   DECL_ABSTRACT_ORIGIN can be set to itself if warn_return_type is
-	   true, since then the decl goes through save_for_inline_copying.  */
+	  /* If this decl was copied from a file-scope decl on account
+	     of a block-scope extern decl, propagate TREE_ADDRESSABLE
+	     to the file-scope decl.
+	     
+	     DECL_ABSTRACT_ORIGIN can be set to itself if
+	     warn_return_type is true, since then the decl goes
+	     through save_for_inline_copying.  */
 	if (DECL_ABSTRACT_ORIGIN (decl) != 0
 	    && DECL_ABSTRACT_ORIGIN (decl) != decl)
 	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
@@ -1287,6 +1281,11 @@ poplevel (int keep, int reverse, int functionbody)
 	    pop_function_context ();
 	  }
       }
+      else if (TREE_CODE (decl) == VAR_DECL
+	       && DECL_LANG_SPECIFIC (decl) != NULL
+	       && DECL_LOCAL_SLOT_NUMBER (decl))
+	LOCAL_VAR_OUT_OF_SCOPE_P (decl) = 1;
+    }
 
   /* If there were any declarations in that level,
      or if this level is a function body,
@@ -1355,7 +1354,7 @@ poplevel (int keep, int reverse, int functionbody)
 #if 0
       for (link = named_labels; link; link = TREE_CHAIN (link))
 	{
-	  register tree label = TREE_VALUE (link);
+	  tree label = TREE_VALUE (link);
 
 	  if (DECL_INITIAL (label) == 0)
 	    {
@@ -1378,7 +1377,7 @@ poplevel (int keep, int reverse, int functionbody)
   /* Pop the current level, and free the structure for reuse.  */
 
   {
-    register struct binding_level *level = current_binding_level;
+    struct binding_level *level = current_binding_level;
     current_binding_level = current_binding_level->level_chain;
 
     level->level_chain = free_binding_level;
@@ -1817,12 +1816,11 @@ end_java_method (void)
 void
 java_expand_body (tree fndecl)
 {
-  const char *saved_input_filename = input_filename;
-  int saved_lineno = input_line;
+  location_t saved_location = input_location;
 
   current_function_decl = fndecl;
-  input_filename = DECL_SOURCE_FILE (fndecl);
-  input_line = DECL_SOURCE_LINE (fndecl);
+  input_location = DECL_SOURCE_LOCATION (fndecl);
+  output_class = current_class = DECL_CONTEXT (fndecl);
 
   timevar_push (TV_EXPAND);
 
@@ -1859,37 +1857,9 @@ java_expand_body (tree fndecl)
 
   timevar_pop (TV_EXPAND);
 
-  input_filename = saved_input_filename;
-  input_line = saved_lineno;
+  input_location = saved_location;
 
   current_function_decl = NULL_TREE;
-}
-
-/* Dump FUNCTION_DECL FN as tree dump PHASE. */
-
-static void
-dump_function (enum tree_dump_index phase, tree fn)
-{
-  FILE *stream;
-  int flags;
-
-  stream = dump_begin (phase, &flags);
-  if (stream)
-    {
-      dump_node (fn, TDF_SLIM | flags, stream);
-      dump_end (phase, stream);
-    }
-}
- 
-void java_optimize_inline (tree fndecl)
-{
-  if (flag_inline_trees)
-    {
-      timevar_push (TV_INTEGRATION);
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
-      dump_function (TDI_inlined, fndecl);
-    }
 }
 
 /* We pessimistically marked all methods and fields external until we

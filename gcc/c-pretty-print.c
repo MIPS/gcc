@@ -81,7 +81,7 @@ static void pp_c_assignment_expression (c_pretty_printer *, tree);
 /* declarations.  */
 
 
-/* Helper functions. */
+/* Helper functions.  */
 
 void
 pp_c_whitespace (c_pretty_printer *pp)
@@ -157,7 +157,7 @@ pp_c_cv_qualifier (c_pretty_printer *pp, const char *cv)
 
 /* Pretty-print T using the type-cast notation '( type-name )'.  */
 
-static inline void
+static void
 pp_c_type_cast (c_pretty_printer *pp, tree t)
 {
   pp_c_left_paren (pp);
@@ -223,7 +223,7 @@ pp_c_pointer (c_pretty_printer *pp, tree t)
   switch (TREE_CODE (t))
     {
     case POINTER_TYPE:
-      /* It is easier to handle C++ reference types here. */
+      /* It is easier to handle C++ reference types here.  */
     case REFERENCE_TYPE:
       if (TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE)
         pp_c_pointer (pp, TREE_TYPE (t));
@@ -417,7 +417,7 @@ pp_c_parameter_type_list (c_pretty_printer *pp, tree t)
       pointer
       pointer(opt) direct-abstract-declarator  */
 
-static inline void
+static void
 pp_c_abstract_declarator (c_pretty_printer *pp, tree t)
 {
   if (TREE_CODE (t) == POINTER_TYPE)
@@ -538,7 +538,7 @@ pp_c_declaration_specifiers (c_pretty_printer *pp, tree t)
       ( declarator )
       direct-declarator [ type-qualifier-list(opt) assignment-expression(opt) ]
       direct-declarator [ static type-qualifier-list(opt) assignment-expression(opt)]
-      direct-declarator [ type-qualifier-list static assignment-exression ]
+      direct-declarator [ type-qualifier-list static assignment-expression ]
       direct-declarator [ type-qualifier-list * ]
       direct-declaratpr ( parameter-type-list )
       direct-declarator ( identifier-list(opt) )  */
@@ -768,7 +768,7 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 
 /* Print out a CHARACTER literal.  */
 
-static inline void
+static void
 pp_c_character_constant (c_pretty_printer *pp, tree c)
 {
   tree type = TREE_TYPE (c);
@@ -843,7 +843,7 @@ pp_c_enumeration_constant (c_pretty_printer *pp, tree e)
 
 /* Print out a REAL value as a decimal-floating-constant.  */
 
-static inline void
+static void
 pp_c_floating_constant (c_pretty_printer *pp, tree r)
 {
   real_to_decimal (pp_buffer (pp)->digit_buffer, &TREE_REAL_CST (r),
@@ -884,7 +884,7 @@ pp_c_compound_literal (c_pretty_printer *pp, tree e)
       integer-constant
       floating-constant
       enumeration-constant
-      chatracter-constant   */
+      character-constant   */
 
 void
 pp_c_constant (c_pretty_printer *pp, tree e)
@@ -1106,7 +1106,7 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Pretty-print a brace-enclosed initializer-list.   */
+/* Pretty-print a brace-enclosed initializer-list.  */
 
 static void
 pp_c_brace_enclosed_initializer_list (c_pretty_printer *pp, tree l)
@@ -1217,7 +1217,7 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
       break;
 
     case COMPOUND_LITERAL_EXPR:
-      e = DECL_INITIAL (e);
+      e = DECL_INITIAL (COMPOUND_LITERAL_EXPR_DECL (e));
       /* Fall through.  */
     case CONSTRUCTOR:
       pp_initializer (pp, e);
@@ -1246,7 +1246,7 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list; E is expected to be a TREE_LIST  */
+/* Print out an expression-list; E is expected to be a TREE_LIST.  */
 
 void
 pp_c_expression_list (c_pretty_printer *pp, tree e)
@@ -1259,7 +1259,7 @@ pp_c_expression_list (c_pretty_printer *pp, tree e)
     }
 }
 
-/* Print out an expression-list in parens, as in a function call.   */
+/* Print out an expression-list in parens, as in a function call.  */
 
 void
 pp_c_call_argument_list (c_pretty_printer *pp, tree t)
@@ -1402,7 +1402,7 @@ pp_c_multiplicative_expression (c_pretty_printer *pp, tree e)
       additive-expression + multiplicative-expression
       additive-expression - multiplicative-expression   */
 
-static inline void
+static void
 pp_c_additive_expression (c_pretty_printer *pp, tree e)
 {
   enum tree_code code = TREE_CODE (e);
@@ -1431,7 +1431,7 @@ pp_c_additive_expression (c_pretty_printer *pp, tree e)
       shift-expression << additive-expression
       shift-expression >> additive-expression   */
 
-static inline void
+static void
 pp_c_shift_expression (c_pretty_printer *pp, tree e)
 {
   enum tree_code code = TREE_CODE (e);
@@ -1493,7 +1493,7 @@ pp_c_relational_expression (c_pretty_printer *pp, tree e)
       equality-expression == relational-expression
       equality-equality != relational-expression  */
 
-static inline void
+static void
 pp_c_equality_expression (c_pretty_printer *pp, tree e)
 {
   enum tree_code code = TREE_CODE (e);
@@ -1518,7 +1518,7 @@ pp_c_equality_expression (c_pretty_printer *pp, tree e)
       equality-expression
       AND-expression & equality-equality   */
 
-static inline void
+static void
 pp_c_and_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == BIT_AND_EXPR)
@@ -1537,7 +1537,7 @@ pp_c_and_expression (c_pretty_printer *pp, tree e)
      AND-expression
      exclusive-OR-expression ^ AND-expression  */
 
-static inline void
+static void
 pp_c_exclusive_or_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == BIT_XOR_EXPR)
@@ -1556,7 +1556,7 @@ pp_c_exclusive_or_expression (c_pretty_printer *pp, tree e)
      exclusive-OR-expression
      inclusive-OR-expression | exclusive-OR-expression  */
 
-static inline void
+static void
 pp_c_inclusive_or_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == BIT_IOR_EXPR)
@@ -1575,7 +1575,7 @@ pp_c_inclusive_or_expression (c_pretty_printer *pp, tree e)
       inclusive-OR-expression
       logical-AND-expression && inclusive-OR-expression  */
 
-static inline void
+static void
 pp_c_logical_and_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == TRUTH_ANDIF_EXPR)
@@ -1820,7 +1820,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
 /* statement:
       labeled-statement
-      coumpound-statement
+      compound-statement
       expression-statement
       selection-statement
       iteration-statement
@@ -1870,7 +1870,7 @@ pp_c_statement (c_pretty_printer *pp, tree stmt)
       pp_needs_newline (pp) = true;
       break;
 
-      /* coumpound-statement:
+      /* compound-statement:
             {  block-item-list(opt) }
 
          block-item-list:

@@ -251,13 +251,15 @@ extern const char *cris_elinux_stacksize_str;
       builtin_define_std ("CRIS");		\
       builtin_define_std ("GNU_CRIS");		\
       builtin_define ("__CRIS_ABI_version=2");	\
+      builtin_assert ("cpu=cris");		\
+      builtin_assert ("machine=cris");		\
     }						\
   while (0)
 
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
 
-/* Currently this just affects aligment.  FIXME:  Redundant with
+/* Currently this just affects alignment.  FIXME:  Redundant with
    TARGET_ALIGN_BY_32, or put machine stuff here?  */
 #define TARGET_MASK_SVINTO 1
 #define TARGET_SVINTO (target_flags & TARGET_MASK_SVINTO)
@@ -848,7 +850,7 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 /* If we would ever need an exact mapping between canonical register
    number and dwarf frame register, we would either need to include all
-   registers in the gcc decription (with some marked fixed of course), or
+   registers in the gcc description (with some marked fixed of course), or
    an inverse mapping from dwarf register to gcc register.  There is one
    need in dwarf2out.c:expand_builtin_init_dwarf_reg_sizes.  Right now, I
    don't see that we need exact correspondence between DWARF *frame*
@@ -1096,12 +1098,6 @@ struct cum_args {int regs;};
 
 
 /* Node: Library Calls */
-
-#define MULSI3_LIBCALL "__Mul"
-#define DIVSI3_LIBCALL "__Div"
-#define UDIVSI3_LIBCALL "__Udiv"
-#define MODSI3_LIBCALL "__Mod"
-#define UMODSI3_LIBCALL "__Umod"
 
 /* If you change this, you have to check whatever libraries and systems
    that use it.  */
@@ -1619,6 +1615,8 @@ call_ ## FUNC (void)						\
   {ZERO_EXTEND, SIGN_EXTEND}},				\
  {"cris_plus_or_bound_operator",			\
   {PLUS, UMIN}},					\
+ {"cris_mem_op",					\
+  {MEM}},						\
  {"cris_bdap_operand",					\
   {SUBREG, REG, LABEL_REF, SYMBOL_REF, MEM, CONST_INT,	\
    CONST_DOUBLE, CONST, SIGN_EXTEND}},			\

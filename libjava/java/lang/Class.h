@@ -125,6 +125,18 @@ struct _Jv_OffsetTable
   jint offsets[];
 };
 
+struct _Jv_AddressTable
+{
+  jint state;
+  void *addresses[];
+};
+
+struct _Jv_CatchClass
+{
+  java::lang::Class **address;
+  _Jv_Utf8Const *classname;
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -151,7 +163,8 @@ public:
   java::lang::reflect::Constructor *getDeclaredConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getDeclaredConstructors (void);
   java::lang::reflect::Field *getDeclaredField (jstring);
-  JArray<java::lang::reflect::Field *> *getDeclaredFields (void);
+  JArray<java::lang::reflect::Field *> *getDeclaredFields ();
+  JArray<java::lang::reflect::Field *> *getDeclaredFields (jboolean);
   java::lang::reflect::Method *getDeclaredMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getDeclaredMethods (void);
 
@@ -160,7 +173,7 @@ public:
 
   java::lang::reflect::Field *getField (jstring);
 private:
-  jint _getFields (JArray<java::lang::reflect::Field *> *result, jint offset);
+  JArray<java::lang::reflect::Field *> internalGetFields ();
   JArray<java::lang::reflect::Constructor *> *_getConstructors (jboolean);
   java::lang::reflect::Field *getField (jstring, jint);
   jint _getMethods (JArray<java::lang::reflect::Method *> *result,
@@ -191,6 +204,7 @@ public:
   java::net::URL        *getResource (jstring resourceName);
   java::io::InputStream *getResourceAsStream (jstring resourceName);
   JArray<jobject> *getSigners (void);
+  void setSigners(JArray<jobject> *);
 
   inline jclass getSuperclass (void)
     {
@@ -324,10 +338,11 @@ private:
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkOffsetTable (jclass);
+  friend void _Jv_LinkSymbolTable (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
+  friend void _Jv_linkExceptionClassTable (jclass);
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -357,6 +372,8 @@ private:
   friend void _Jv_PrepareClass (jclass);
   friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
+  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
+  
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;
@@ -404,6 +421,9 @@ private:
   _Jv_OffsetTable *otable;
   // Offset table symbols.
   _Jv_MethodSymbol *otable_syms;
+  _Jv_AddressTable *atable;
+  _Jv_MethodSymbol *atable_syms;
+  _Jv_CatchClass *catch_classes;
   // Interfaces implemented by this class.
   jclass *interfaces;
   // The class loader for this class.
@@ -425,6 +445,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Signers of this class (or null).
+  JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
   jclass chain;
 };

@@ -35,14 +35,17 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "recog.h"
 #include "expr.h"
+#include "optabs.h"
 #include "flags.h"
 #include "debug.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
 static void vax_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void vax_file_start (void);
+static void vax_init_libfuncs (void);
 static void vax_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				 HOST_WIDE_INT, tree);
 static int vax_address_cost_1 (rtx);
@@ -62,6 +65,9 @@ static bool vax_rtx_costs (rtx, int, int, int *);
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
 
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS vax_init_libfuncs
+
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
@@ -80,10 +86,8 @@ void
 override_options (void)
 {
   /* We're VAX floating point, not IEEE floating point.  */
-  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
-  real_format_for_mode[SFmode - QFmode] = &vax_f_format;
-  real_format_for_mode[DFmode - QFmode]
-    = (TARGET_G_FLOAT ? &vax_g_format : &vax_d_format);
+  if (TARGET_G_FLOAT)
+    REAL_MODE_FORMAT (DFmode) = &vax_g_format;
 }
 
 /* Generate the assembly code for function entry.  FILE is a stdio
@@ -139,6 +143,17 @@ vax_file_start (void)
 
   if (write_symbols == DBX_DEBUG)
     fprintf (asm_out_file, "___vax_%c_doubles:\n", ASM_DOUBLE_CHAR);
+}
+
+/* We can use the BSD C library routines for the libgcc calls that are
+   still generated, since that's what they boil down to anyways.  When
+   ELF, avoid the user's namespace.  */
+
+static void
+vax_init_libfuncs (void)
+{
+  set_optab_libfunc (udiv_optab, SImode, TARGET_ELF ? "*__udiv" : "*udiv");
+  set_optab_libfunc (umod_optab, SImode, TARGET_ELF ? "*__urem" : "*urem");
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */

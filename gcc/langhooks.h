@@ -47,7 +47,7 @@ struct lang_hooks_for_tree_inlining
   bool (*var_mod_type_p) (tree);
   int (*start_inlining) (tree);
   void (*end_inlining) (tree);
-  tree (*convert_parm_for_inlining) (tree, tree, tree);
+  tree (*convert_parm_for_inlining) (tree, tree, tree, int);
   int (*estimate_num_insns) (tree);
 };
 
@@ -283,7 +283,7 @@ struct lang_hooks
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int);
+  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.
@@ -377,6 +377,9 @@ struct lang_hooks
      information that might be interesting, such as function parameter
      types in C++.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
+
+  /* Given a CALL_EXPR, return a function decl that is its target.  */
+  tree (*lang_get_callee_fndecl) (tree);
 
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) (struct diagnostic_context *, const char *);

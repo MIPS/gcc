@@ -26,6 +26,13 @@ int vfscanf(FILE *, const char *, __builtin_va_list) __asm__ (_BSD_STRING(__USER
 #endif  /* BSD_STDIO_ATTRS_CONFLICT_CHECK */
 
 
+#if defined( HPUX11_SNPRINTF_CHECK )
+extern int snprintf(char *, size_t, const char *, ...);
+extern int snprintf(char *, _hpux_size_t, const char *, ...);
+extern int snprintf(char *, _hpux_size_t, const char *, ...);
+#endif  /* HPUX11_SNPRINTF_CHECK */
+
+
 #if defined( HPUX11_VSNPRINTF_CHECK )
 extern int vsnprintf(char *, _hpux_size_t, const char *, __gnuc_va_list);
 #endif  /* HPUX11_VSNPRINTF_CHECK */

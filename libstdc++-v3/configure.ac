@@ -56,8 +56,9 @@ fi
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
 #  no-dependencies:  turns off auto dependency generation (just for now)
-#  -Wall:  turns on all automake warnings
-AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall])
+#  -Wall:  turns on all automake warnings...
+#  -Wno-portability:  ...except this one, since GNU make is now required.
+AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall -Wno-portability])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -77,7 +78,6 @@ GLIBCXX_ENABLE_HOSTED
 
 # Check for support bits and g++ features that don't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
-GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 
 # Enable all the variable C++ runtime options.  
@@ -133,6 +133,12 @@ if $GLIBCXX_IS_NATIVE; then
   # For xsputn_2().
   AC_CHECK_HEADERS(sys/uio.h)
   GLIBCXX_CHECK_WRITEV
+
+  # For the __streamoff_base_type typedef.
+  GLIBCXX_CHECK_INT64_T
+
+  # For LFS support.
+  GLIBCXX_CHECK_LFS
 
   AC_LC_MESSAGES
 
@@ -214,6 +220,9 @@ else
     AC_DEFINE(HAVE_SQRTF)
     AC_DEFINE(HAVE_TANF)
     AC_DEFINE(HAVE_TANHF)
+
+    AC_DEFINE(HAVE_S_ISREG)
+    AC_DEFINE(HAVE_S_IFREG)
   else
     m4_include([crossconfig.m4])
   fi
@@ -261,9 +270,7 @@ GLIBCXX_CONFIGURE_TESTSUITE
 # uses it, and it only gets used in this file.)
 ATOMICITY_INC_SRCDIR=config/${atomicity_include_dir}
 OS_INC_SRCDIR=config/${os_include_dir}
-FPOS_INC_SRCDIR=config/${fpos_include_dir}
 AC_SUBST(ATOMICITY_INC_SRCDIR)
-AC_SUBST(FPOS_INC_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 
 # Determine cross-compile flags and AM_CONDITIONALs.
@@ -299,7 +306,7 @@ AC_SUBST(LIBSUPCXX_PICFLAGS)
 
 dnl In autoconf 2.5x, AC_OUTPUT is replaced by four AC_CONFIG_* macros,
 dnl which can all be called multiple times as needed, plus one (different)
-dnl AC_OUPUT macro.  This one lists the files to be created:
+dnl AC_OUTPUT macro.  This one lists the files to be created:
 AC_CONFIG_FILES( \
   Makefile \
   AC_FOREACH([DIR], glibcxx_SUBDIRS, [DIR/Makefile ])

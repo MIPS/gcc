@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("unix");		\
 	builtin_define_std ("linux");		\
 	builtin_define ("__gnu_linux__");	\
+	builtin_assert ("system=linux");	\
 	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
     }						\
@@ -249,6 +250,7 @@ do {									\
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
