@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "cpplib.h"
 #include "diagnostic.h"
 #include "debug.h"
 #include "timevar.h"
@@ -2552,6 +2553,13 @@ pushtag (tree name, tree type, int globalize)
     b->type_decls = binding_table_new (SCOPE_DEFAULT_HT_SIZE);
   binding_table_insert (b->type_decls, name, type);
 
+#if 0
+  if (global_bindings_p () && server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_1 (b->tags);
+    }
+#endif
+
   if (name)
     {
       /* Do C++ gratuitous typedefing.  */
@@ -4060,10 +4068,19 @@ pushdecl (tree x)
     }
 
   if (need_new_binding)
-    add_decl_to_level (x,
-		       DECL_NAMESPACE_SCOPE_P (x)
-		       ? NAMESPACE_LEVEL (CP_DECL_CONTEXT (x))
-		       : current_binding_level);
+    {
+      add_decl_to_level (x,
+			 DECL_NAMESPACE_SCOPE_P (x)
+			 ? NAMESPACE_LEVEL (CP_DECL_CONTEXT (x))
+			 : current_binding_level);
+      if (server_mode >= 0 && server_mode != 1
+	  && global_bindings_p ())
+	/*DECL_NAMESPACE_SCOPE_P (x))*/
+	{
+	  SET_DECL_FRAGMENT (x, current_c_fragment);
+	  note_fragment_binding_1 (x);
+	}
+    }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
 }
@@ -4416,6 +4433,21 @@ push_overloaded_decl (tree decl, int flags)
   tree old;
   tree new_binding;
   int doing_global = (namespace_bindings_p () || !(flags & PUSH_LOCAL));
+
+  if (server_mode >= 0 && server_mode != 1 && namespace_bindings_p ())
+    {
+      tree flags_node;
+      SET_DECL_FRAGMENT (decl, current_c_fragment);
+      switch (flags)
+	{
+	default: /* should never happen */
+	case 0:  flags_node = integer_zero_node;  break;
+	case 1:  flags_node = integer_one_node;  break;
+	case 2:  flags_node = integer_two_node;  break;
+	case 3:  flags_node = integer_three_node;  break;
+	}
+      note_fragment_binding_2 (flags_node, decl);
+    }
 
   timevar_push (TV_NAME_LOOKUP);
   if (doing_global)
@@ -6187,13 +6219,15 @@ initialize_predefined_identifiers (void)
     }
 }
 
+static int c_init_decl_done;
+
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *)0).
    Initialize the global binding level.
    Make definitions for built-in primitive functions.  */
 
 void
-cxx_init_decl_processing (void)
+init_cxx_decl_processing_once (void)
 {
   tree void_ftype;
   tree void_ftype_ptr;
@@ -6214,7 +6248,6 @@ cxx_init_decl_processing (void)
   my_friendly_assert (global_namespace == NULL_TREE, 375);
   global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
                                       void_type_node);
-  initial_push_namespace_scope (global_namespace);
 
   current_lang_name = NULL_TREE;
 
@@ -6245,6 +6278,8 @@ cxx_init_decl_processing (void)
 
   error_mark_list = build_tree_list (error_mark_node, error_mark_node);
   TREE_TYPE (error_mark_list) = error_mark_node;
+
+  initial_push_namespace_scope (global_namespace);
 
   /* Create the `std' namespace.  */
   push_namespace (std_identifier);
@@ -6382,6 +6417,27 @@ cxx_init_decl_processing (void)
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
+}
+
+void setup_globals ()
+{
+  current_function_decl = NULL;
+  /*  named_labels = NULL;*/
+  current_binding_level = NULL_BINDING_LEVEL;
+}
+
+void
+init_cxx_decl_processing_eachsrc (void)
+{
+  /* FIXME - combine with init_c_decl_processing_eachsrc. */
+  main_timestamp = ++c_timestamp;
+
+  if (c_init_decl_done++ != 0 && server_mode != 1)
+    {
+      initial_push_namespace_scope (global_namespace);
+
+      reset_cpp_hashnodes ();
+  }
 }
 
 /* Generate an initializer for a function naming variable from
@@ -12768,6 +12824,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
 	redeclare_class_template (t, current_template_parms);
     }
 
+  note_tag (t);
   TYPE_ATTRIBUTES (t) = attributes;
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -12997,6 +13054,7 @@ start_enum (tree name)
       enumtype = make_node (ENUMERAL_TYPE);
       pushtag (name, enumtype, 0);
     }
+  note_tag (enumtype);
 
   return enumtype;
 }
@@ -13163,6 +13221,11 @@ finish_enum (tree enumtype)
       TREE_TYPE (value) = enumtype;
       DECL_INITIAL (decl) = value;
       TREE_VALUE (values) = value;
+    }
+
+  if (server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_3 (enumtype, TYPE_VALUES (enumtype), TYPE_SIZE (enumtype));
     }
 
   /* Fix up all variant types of this enum type.  */
@@ -14529,6 +14592,77 @@ cp_missing_noreturn_ok_p (tree decl)
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);
 }
+
+void
+restore_fragment_bindings (tree bindings)
+{
+  int i;
+  int len;
+  struct cp_binding_level *b = current_binding_level;
+  if (bindings == NULL_TREE)
+    return;
+  len = TREE_VEC_LENGTH (bindings);
+  for (i = 0;  i < len;  )
+    {
+      tree x = TREE_VEC_ELT (bindings, i);
+
+      if (TREE_CODE (x) == INTEGER_CST)
+	{
+	  /* kludge, to avoid call to note_fragment_binding call here. FIXME */
+	  int save_server_mode = server_mode;
+	  server_mode = -1;
+	  push_overloaded_decl (TREE_VEC_ELT (bindings, i + 1),
+				TREE_INT_CST_LOW  (x));
+	  server_mode = save_server_mode;
+	  i += 2;
+	}
+      else if (TREE_CODE_CLASS (TREE_CODE (x)) == 'd')
+	{
+	  tree name = DECL_NAME (x);
+	  if (name != NULL_TREE)
+	    SET_IDENTIFIER_NAMESPACE_VALUE (name, x);
+	  add_decl_to_level (x, NAMESPACE_LEVEL (CP_DECL_CONTEXT (x)));
+	  i++;
+	}
+#if 0
+      else if (TREE_CODE (x) == TREE_LIST) /* pushtag */
+	{
+	  tree type = TREE_VALUE (x);
+	  tree name = TREE_PURPOSE (x);
+	  TREE_CHAIN (x) = b->tags;
+	  TYPE_SIZE (type) = NULL_TREE;
+	  TYPE_FIELDS (type) = NULL_TREE;
+	  b->tags = x;
+	  if (name)
+	    set_identifier_type_value_with_scope (name, type, b);
+	  i++;
+	}
+#endif
+      else if (TREE_CODE_CLASS (TREE_CODE (x)) == 't')
+	{ /* lookup_tag/pushtag/finish_struct */
+	  tree type = x;
+	  tree name = TYPE_NAME (type);
+	  if (name != NULL_TREE)
+	    {
+	      if (b->type_decls == NULL)
+		b->type_decls = binding_table_new (SCOPE_DEFAULT_HT_SIZE);
+	      if (binding_table_find (b->type_decls, name) == NULL)
+		{
+		  binding_table_insert (b->type_decls, name, type);
+		  TYPE_SIZE (type) = NULL_TREE;
+		  TYPE_FIELDS (type) = NULL_TREE;
+		}
+	    }
+	  if (TYPE_SIZE (type) == NULL_TREE)
+	    {
+	      TYPE_FIELDS (type) = TREE_VEC_ELT (bindings, i + 1);
+	      TYPE_SIZE (type) = TREE_VEC_ELT (bindings, i + 2);
+	    }
+	  i += 3;
+	}
+    }
+}
+
 
 #include "gt-cp-decl.h"
 #include "gtype-cp.h"

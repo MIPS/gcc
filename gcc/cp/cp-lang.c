@@ -46,8 +46,10 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_TREE_SIZE
 #define LANG_HOOKS_TREE_SIZE cp_tree_size
+#undef LANG_HOOKS_INIT_ONCE
+#define LANG_HOOKS_INIT_ONCE init_cxx_once
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT cxx_init
+#define LANG_HOOKS_INIT init_cxx_eachsrc
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH cxx_finish
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
@@ -105,8 +107,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
-
+/* This probably need to be changed - compare the C version.  FIXME. */
+#define LANG_HOOKS_WRITE_GLOBALS finish_file
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context

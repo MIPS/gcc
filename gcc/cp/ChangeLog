@@ -1,3 +1,27 @@
+2003-08-15  Per Bothner  <pbothner@apple.com>
+
+	* cp-lang.c (LANG_HOOKS_INIT_ONCE):  New book definition.
+	(LANG_HOOKS_INIT):  Update.
+	(LANG_HOOKS_WRITE_GLOBALS):  Now calls finish_file.
+	* class.c (finish_struct_1):  Maybe call note_fragment_binding_3.
+	* decl.c (pushtag, pushdecl):  Maybe call note_fragment_binding_1.
+	(finih_enum):  Maybe call note_fragment_binding_3.
+	(push_overloaded_decl):  Maybe call note_fragment_binding_2.
+	(c_init_decl_done):  New variable.
+	(cxx_init_decl_processing):  Split into init_cxx_decl_processing_once
+	and init_cxx_decl_processing_eachsrc.
+	(xref_tag, start_enum):  Call note_tag.
+	(restore_fragment_bindings):  New function.
+	* decl2.c (finish_file):  Reset ssdf_decls and priority_info_map.
+	* lang-specs.h:  Add --server support.
+	* lex.c (cxx_init):  Split into new functions init_cxx_once and
+	init_cxx_eachsrc.
+	(lang_clear_identifier):  New function.
+	* parser.c (cp_parser_declaration_seq_opt):  Increment and decrement
+	currently_nested while parsing a single declaration.
+	(cp_parser_linkage_specification):  Counteract the above,
+	* cp-tree.h:  Update declarations.
+
 2003-08-10  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/11789

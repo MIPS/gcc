@@ -3622,7 +3622,8 @@ extern void pushlevel				(int);
 extern void insert_block			(tree);
 extern void set_block				(tree);
 extern tree pushdecl				(tree);
-extern void cxx_init_decl_processing		(void);
+extern void init_cxx_decl_processing_once	(void);
+extern void init_cxx_decl_processing_eachsrc	(void);
 enum cp_tree_node_structure_enum cp_tree_node_structure 
   (union lang_tree_node *);
 extern bool cxx_mark_addressable		(tree);
@@ -3910,7 +3911,8 @@ extern tree make_aggr_type			(enum tree_code);
 extern void yyerror				(const char *);
 extern void yyhook				(int);
 extern int cp_type_qual_from_rid                (tree);
-extern bool cxx_init				(void);
+extern void init_cxx_once			(void);
+extern bool init_cxx_eachsrc			(void);
 extern void cxx_finish (void);
 
 /* in method.c */

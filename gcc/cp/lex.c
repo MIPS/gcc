@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
+#include "cpphash.h"
 #include "lex.h"
 #include "flags.h"
 #include "c-pragma.h"
@@ -381,8 +382,8 @@ init_cp_pragma (void)
    the exact order that things are done here.  It would be nice if the
    initialization done by this routine were moved to its subroutines,
    and the ordering dependencies clarified and reduced.  */
-bool
-cxx_init (void)
+void
+init_cxx_once (void)
 {
   static const enum tree_code stmt_codes[] = {
     c_common_stmt_codes,
@@ -391,9 +392,12 @@ cxx_init (void)
 
   INIT_STATEMENT_CODES (stmt_codes);
 
+  if (server_mode >= 0 && server_mode != 1)
+    create_builtins_fragment ();
+
   /* We cannot just assign to input_filename because it has already
      been initialized and will be used later as an N_BINCL for stabs+
-     debugging.  */
+     debugging.*/
   push_srcloc ("<internal>", 0);
 
   init_reswords ();
@@ -421,22 +425,55 @@ cxx_init (void)
   TREE_TYPE (enum_type_node) = enum_type_node;
   ridpointers[(int) RID_ENUM] = enum_type_node;
 
-  cxx_init_decl_processing ();
+  init_cxx_decl_processing_once ();
 
   /* Create the built-in __null node.  */
   null_node = build_int_2 (0, 0);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
   ridpointers[RID_NULL] = null_node;
 
+  init_c_common_once ();
+
+  init_cp_pragma ();
+
+  if (parse_in->do_note_macros)
+    {
+      parse_in->do_note_macros = 0;
+      cb_exit_fragment (parse_in, builtins_fragment);
+      parse_in->current_fragment = NULL;
+    }
+}
+
+int
+lang_clear_identifier (pfile, node, v)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     cpp_hashnode *node;
+     void *v ATTRIBUTE_UNUSED;
+{
+  tree tnode = HT_IDENT_TO_GCC_IDENT (node);
+  IDENTIFIER_NAMESPACE_BINDINGS (tnode) = NULL;
+  IDENTIFIER_BINDING (tnode) = NULL;
+  reset_hashnode (node);
+
+  return 1;
+}
+
+/* Initialize the C++ front end.  This function is very sensitive to
+   the exact order that things are done here.  It would be nice if the
+   initialization done by this routine were moved to its subroutines,
+   and the ordering dependencies clarified and reduced.  */
+bool
+init_cxx_eachsrc (void)
+{
+  init_cxx_decl_processing_eachsrc ();
+
   interface_unknown = 1;
 
-  if (c_common_init () == false)
+  if (init_c_common_eachsrc () == false)
     {
       pop_srcloc();
       return false;
     }
-
-  init_cp_pragma ();
 
   init_repo (main_input_filename);
 

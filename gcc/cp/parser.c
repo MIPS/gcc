@@ -5849,7 +5849,9 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 	}
 
       /* Parse the declaration itself.  */
+      currently_nested++;
       cp_parser_declaration (parser);
+      currently_nested--;
     }
 }
 
@@ -6510,8 +6512,11 @@ cp_parser_linkage_specification (cp_parser* parser)
     {
       /* Consume the `{' token.  */
       cp_lexer_consume_token (parser->lexer);
+      /* Cancel one level of nesting. */
+      currently_nested--;
       /* Parse the declarations.  */
       cp_parser_declaration_seq_opt (parser);
+      currently_nested++;
       /* Look for the closing `}'.  */
       cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
     }

@@ -5129,6 +5129,11 @@ finish_struct_1 (tree t)
      the base types we marked.  */
   finish_vtbls (t);
   
+  if (server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_3 (t, TYPE_FIELDS (t), TYPE_SIZE (t));
+    }
+
   /* Build the VTT for T.  */
   build_vtt (t);
 

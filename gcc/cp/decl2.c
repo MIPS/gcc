@@ -2900,6 +2900,8 @@ finish_file ()
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
+  ssdf_decls = NULL;
+  priority_info_map = NULL;
 
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */
