@@ -405,11 +405,11 @@ case "${host}" in
   ;;
 esac
 AC_FUNC_VFORK
-AC_FUNC_MMAP
+AC_FUNC_MMAP_ANYWHERE
 
 GCC_NEED_DECLARATIONS(bcopy bzero bcmp \
 	index rindex getenv atol sbrk abort atof strerror getcwd getwd \
-	strsignal putc_unlocked fputs_unlocked strstr)
+	strsignal putc_unlocked fputs_unlocked strstr environ)
 
 GCC_NEED_DECLARATIONS(malloc realloc calloc free, [
 #ifdef HAVE_MALLOC_H
@@ -513,6 +513,9 @@ changequote([,])dnl
 	mips*-*-*)
 		cpu_type=mips
 		;;
+ 	pj*-*-*)
+ 		cpu_type=pj
+ 		;;
 	powerpc*-*-*)
 		cpu_type=rs6000
 		;;
@@ -1272,6 +1275,27 @@ changequote(,)dnl
 changequote([,])dnl
 		tm_file=i386/i386-aout.h
 		tmake_file=i386/t-i386bare
+		;;
+changequote(,)dnl
+	i[34567]86-*-beospe*)
+changequote([,])dnl
+		xm_file=i386/xm-beos.h
+		xm_defines="USE_C_ALLOCA"
+		tmake_file=i386/t-beos
+		tm_file=i386/beos-pe.h
+		xmake_file=i386/x-beos
+		extra_objs=winnt.o
+		;;
+changequote(,)dnl
+	i[34567]86-*-beoself* | i[34567]86-*-beos*)
+changequote([,])dnl
+		xm_file=i386/xm-beos.h
+		tmake_file='i386/t-beos i386/t-crtpic'
+		tm_file=i386/beos-elf.h
+		xmake_file=i386/x-beos
+		extra_objs=winnt.o
+		extra_parts='crtbegin.o crtend.o'
+		fixincludes=Makefile.in
 		;;
 changequote(,)dnl
 	i[34567]86-*-bsdi* | i[34567]86-*-bsd386*)
@@ -2269,13 +2293,13 @@ changequote([,])dnl
 		extra_headers=math-68881.h
 		float_format=m68k
 		;;
-	m68k-*-rtemscoff*|m68k-*-rtems*)
+	m68k-*-rtemscoff*)
 		tmake_file="m68k/t-m68kbare t-rtems"
 		tm_file=m68k/rtems.h
 		extra_headers=math-68881.h
 		float_format=m68k
 		;;
-	m68k-*-rtemself*)
+	m68k-*-rtemself*|m68k-*-rtems*)
 		tmake_file="m68k/t-m68kbare t-rtems m68k/t-crtstuff"
 		tm_file=m68k/rtemself.h
 		extra_headers=math-68881.h
@@ -2808,7 +2832,6 @@ changequote([,])dnl
 		;;
 	mips64orion-*-rtems*)
 		tm_file="mips/elforion.h mips/elf64.h mips/rtems64.h"
-                tm_file="mips/elforion.h mips/elf64.h mips/rtems64.h"
 		tmake_file="mips/t-elf t-rtems"
 		;;
 	mipstx39el-*-elf*)
@@ -2911,6 +2934,16 @@ changequote([,])dnl
 #		xmake_file=pyr/x-pyr
 #		use_collect2=yes
 #		;;
+
+  	pj*-linux*)
+		tm_file="svr4.h pj/linux.h ${tm_file}"
+ 		;;
+  	pj-*)
+ 		;;
+  	pjl-*)
+		tm_file="svr4.h pj/pjl.h ${tm_file}"
+ 		;;
+
 	romp-*-aos*)
 		use_collect2=yes
 		;;
@@ -3252,16 +3285,16 @@ changequote([,])dnl
 		tmake_file=sparc/t-sunos41
 		xmake_file=x-lynx
 		;;
+	sparc-*-rtemsaout*)
+		tmake_file="sparc/t-sparcbare t-rtems"
+		tm_file=sparc/rtems.h
+		;;
 	sparc-*-rtems*|sparc-*-rtemself*)
 		tm_file="sparc/rtemself.h"
 		tmake_file="sparc/t-elf t-rtems"
 		extra_parts="crti.o crtn.o crtbegin.o crtend.o"
 		#float_format=i128
 		float_format=i64
-		;;
-	sparc-*-rtemsaout*)
-		tmake_file="sparc/t-sparcbare t-rtems"
-		tm_file=sparc/rtems.h
 		;;
 	sparcv9-*-solaris2*)
 		if test x$gnu_ld = xyes
@@ -3491,6 +3524,17 @@ changequote([,])dnl
 #		cpu_type=gmicro
 #		use_collect2=yes
 #		;;
+	v850-*-rtems*)
+		cpu_type=v850
+		tm_file="v850/rtems.h"
+		xm_file="v850/xm-v850.h"
+		tmake_file="v850/t-v850 t-rtems"
+		if test x$stabs = xyes
+		then
+			tm_file="${tm_file} dbx.h"
+		fi
+		use_collect2=no
+		;;
 	v850-*-*)
 		target_cpu_default="TARGET_CPU_generic"
 		cpu_type=v850
@@ -4528,15 +4572,26 @@ AC_ARG_WITH(gc,
     AC_MSG_ERROR([$withval is an invalid option to --with-gc])
     ;;
 esac],
-[if test $ac_cv_func_mmap_fixed_mapped = yes; then
-  GGC=ggc-page
-elif test $ac_cv_func_valloc = yes; then
+[if test $ac_cv_func_mmap_anywhere = yes \
+    || test $ac_cv_func_valloc = yes; then
   GGC=ggc-page
 else
   GGC=ggc-simple
 fi])
 AC_SUBST(GGC)
 echo "Using $GGC for garbage collection."
+
+# Build a new-abi (c++) system
+AC_ARG_ENABLE(new-gxx-abi,
+[  --enable-new-gxx-abi
+			  select the new abi for g++. You must select an ABI
+			  at configuration time, so that the correct runtime
+			  support is built. You cannot mix ABIs.],
+[AC_DEFINE(ENABLE_NEW_GXX_ABI)
+GXX_ABI_FLAG='-fnew-abi'
+echo "Building a new-abi g++ compiler."
+])
+AC_SUBST(GXX_ABI_FLAG)
 
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
