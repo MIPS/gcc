@@ -1,3 +1,8 @@
+2002-05-07  Geoffrey Keating  <geoffk@redhat.com>
+
+	* cp-tree.h [! ENABLE_TREE_CHECKING] (LANG_TYPE_PTRMEM_CHECK):
+	Correct typo.  Patch from k_fukui@highway.ne.jp.
+
 2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* semantics.c (current_stmt_tree): Update for change to
