@@ -1060,7 +1060,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       FOR_EACH_SUCC_EDGE (tmp, ENTRY_BLOCK_PTR, ix)
         if (tmp == e)
           {
-            VEC_ordered_remove (edge, ENTRY_BLOCK_PTR->succ_, ix);
+            VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succ_, ix);
             found = true;
             break;
           }

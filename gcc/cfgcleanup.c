@@ -493,7 +493,7 @@ try_forward_edges (int mode, basic_block b)
 
 		  new_target = t->dest;
 		  new_target_threaded = true;
-		  ix = 0;
+/*		  ix = 0; */
 		}
 	    }
 

@@ -362,7 +362,7 @@ remove_edge (edge e)
   FOR_EACH_SUCC_EDGE (tmp, src, ix)
     if (tmp == e)
       {
-	VEC_ordered_remove (edge, src->succ_, ix);
+	VEC_unordered_remove (edge, src->succ_, ix);
 	found = true;
 	break;
       }
@@ -374,7 +374,7 @@ remove_edge (edge e)
   FOR_EACH_PRED_EDGE (tmp, dest, ix)
     if (tmp == e)
       {
-	VEC_ordered_remove (edge, dest->pred_, ix);
+	VEC_unordered_remove (edge, dest->pred_, ix);
 	found = true;
 	break;
       }
@@ -398,7 +398,7 @@ redirect_edge_succ (edge e, basic_block new_succ)
   FOR_EACH_PRED_EDGE (tmp, e->dest, ix)
     if (tmp == e)
       {
-	VEC_ordered_remove (edge, e->dest->pred_, ix);	
+	VEC_unordered_remove (edge, e->dest->pred_, ix);	
 	found = true;
 	break;
       }
@@ -453,7 +453,7 @@ redirect_edge_pred (edge e, basic_block new_pred)
   FOR_EACH_SUCC_EDGE (tmp, e->src, ix)
     if (tmp == e)
       {
-	VEC_ordered_remove (edge, e->src->succ_, ix);
+	VEC_unordered_remove (edge, e->src->succ_, ix);
 	found = true;
 	break;
       }

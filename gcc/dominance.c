@@ -509,7 +509,10 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 	{
 	  /* If this block has a fake edge to exit, process that first.  */
 	  if (bitmap_bit_p (di->fake_exit_edge, bb->index))
-	    goto do_fake_exit_edge;
+	    {
+	      ix = -1;
+	      goto do_fake_exit_edge;
+	    }
 	}
 
       /* Search all direct predecessors for the smallest node with a path

@@ -339,7 +339,7 @@ construct_exit_block (void)
     {
       if (!(e->flags & EDGE_ABNORMAL))
 	{
-          redirect_edge_succ (e, exit_block);
+	  redirect_edge_succ (e, exit_block);
 	  ix--;
 	}
     }
