@@ -10575,6 +10575,45 @@ _ACEOF
 fi
     ;;
 
+  cris-*-*)
+    echo "$as_me:$LINENO: checking assembler for -no-mul-bug-abort option" >&5
+echo $ECHO_N "checking assembler for -no-mul-bug-abort option... $ECHO_C" >&6
+if test "${gcc_cv_as_cris_no_mul_bug+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_cris_no_mul_bug=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 15 \) \* 1000 + 91`
+  then gcc_cv_as_cris_no_mul_bug=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '.text' > conftest.s
+    if { ac_try='$gcc_cv_as -no-mul-bug-abort -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_cris_no_mul_bug=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_cris_no_mul_bug" >&5
+echo "${ECHO_T}$gcc_cv_as_cris_no_mul_bug" >&6
+if test $gcc_cv_as_cris_no_mul_bug = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_NO_MUL_BUG_ABORT_OPTION 1
+_ACEOF
+
+fi
+    ;;
+
   sparc*-*-*)
     echo "$as_me:$LINENO: checking assembler for .register" >&5
 echo $ECHO_N "checking assembler for .register... $ECHO_C" >&6

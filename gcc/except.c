@@ -1573,7 +1573,7 @@ static hashval_t
 t2r_hash (const void *pentry)
 {
   tree entry = (tree) pentry;
-  return TYPE_HASH (TREE_PURPOSE (entry));
+  return TREE_HASH (TREE_PURPOSE (entry));
 }
 
 static void
@@ -1582,7 +1582,7 @@ add_type_for_runtime (tree type)
   tree *slot;
 
   slot = (tree *) htab_find_slot_with_hash (type_to_runtime_map, type,
-					    TYPE_HASH (type), INSERT);
+					    TREE_HASH (type), INSERT);
   if (*slot == NULL)
     {
       tree runtime = (*lang_eh_runtime_type) (type);
@@ -1596,7 +1596,7 @@ lookup_type_for_runtime (tree type)
   tree *slot;
 
   slot = (tree *) htab_find_slot_with_hash (type_to_runtime_map, type,
-					    TYPE_HASH (type), NO_INSERT);
+					    TREE_HASH (type), NO_INSERT);
 
   /* We should have always inserted the data earlier.  */
   return TREE_VALUE (*slot);
@@ -1627,7 +1627,7 @@ static hashval_t
 ttypes_filter_hash (const void *pentry)
 {
   const struct ttypes_filter *entry = (const struct ttypes_filter *) pentry;
-  return TYPE_HASH (entry->t);
+  return TREE_HASH (entry->t);
 }
 
 /* Compare ENTRY with DATA (both struct ttypes_filter) for a @TTypes
@@ -1654,12 +1654,12 @@ ehspec_filter_hash (const void *pentry)
   tree list;
 
   for (list = entry->t; list ; list = TREE_CHAIN (list))
-    h = (h << 5) + (h >> 27) + TYPE_HASH (TREE_VALUE (list));
+    h = (h << 5) + (h >> 27) + TREE_HASH (TREE_VALUE (list));
   return h;
 }
 
-/* Add TYPE to cfun->eh->ttype_data, using TYPES_HASH to speed
-   up the search.  Return the filter value to be used.  */
+/* Add TYPE (which may be NULL) to cfun->eh->ttype_data, using TYPES_HASH
+   to speed up the search.  Return the filter value to be used.  */
 
 static int
 add_ttypes_entry (htab_t ttypes_hash, tree type)
@@ -1667,7 +1667,7 @@ add_ttypes_entry (htab_t ttypes_hash, tree type)
   struct ttypes_filter **slot, *n;
 
   slot = (struct ttypes_filter **)
-    htab_find_slot_with_hash (ttypes_hash, type, TYPE_HASH (type), INSERT);
+    htab_find_slot_with_hash (ttypes_hash, type, TREE_HASH (type), INSERT);
 
   if ((n = *slot) == NULL)
     {
@@ -1799,7 +1799,14 @@ emit_to_new_bb_before (rtx seq, rtx insn)
 {
   rtx last;
   basic_block bb;
+  edge e;
 
+  /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
+     call), we don't want it to go into newly created landing pad or other EH 
+     construct.  */
+  for (e = BLOCK_FOR_INSN (insn)->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      force_nonfallthru (e);
   last = emit_insn_before (seq, insn);
   if (GET_CODE (last) == BARRIER)
     last = PREV_INSN (last);

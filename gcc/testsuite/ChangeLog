@@ -1,3 +1,45 @@
+2004-03-07  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040307-1.c: New test case.
+
+2004-03-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-sdata-1.c: Restrict to mips*-*-elf*.
+
+2004-03-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20040306-1.c: New test.
+
+2004-03-06  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/sibcall-3.c (recurser_void1, recurser_void2): Make
+	them static.
+	* gcc.dg/sibcall-4.c (recurser_void1, recurser_void2): Likewise.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/14465
+	* gcc.dg/decl-6.c: New test.
+
+2004-03-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c: Add comments for each test.
+	Rename LOGPOW -> LOG_POW.
+	(SQRT_EXP, POW_EXP): New.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-sse-8.c: New test.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/14114
+	* gcc.dg/decl-5.c: New test.
+
+2004-03-05  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20040305-1.c: New test.
+
 2004-03-05  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR other/14354

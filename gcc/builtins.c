@@ -6452,8 +6452,8 @@ real_dconstp (tree expr, const REAL_VALUE_TYPE *value)
 }
 
 /* A subroutine of fold_builtin to fold the various logarithmic
-   functions.  EXP is the CALL_EXPR of a call to a builtin log*
-   function.  VALUE is the base of the log* function.  */
+   functions.  EXP is the CALL_EXPR of a call to a builtin logN
+   function.  VALUE is the base of the logN function.  */
 
 static tree
 fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
@@ -6467,7 +6467,7 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
       tree arg = TREE_VALUE (arglist);
       const enum built_in_function fcode = builtin_mathfn_code (arg);
 	
-      /* Optimize log*(1.0) = 0.0.  */
+      /* Optimize logN(1.0) = 0.0.  */
       if (real_onep (arg))
 	return build_real (type, dconst0);
 
@@ -6492,13 +6492,10 @@ fold_builtin_logarithm (tree exp, const REAL_VALUE_TYPE *value)
 		  && (fcode == BUILT_IN_EXP2
 		      || fcode == BUILT_IN_EXP2F
 		      || fcode == BUILT_IN_EXP2L))
-	      || (value == &dconst10
-		  && (fcode == BUILT_IN_EXP10
-		      || fcode == BUILT_IN_EXP10F
-		      || fcode == BUILT_IN_EXP10L))))
+	      || (value == &dconst10 && (BUILTIN_EXP10_P (fcode)))))
 	return convert (type, TREE_VALUE (TREE_OPERAND (arg, 1)));
 
-      /* Optimize log*(func()) for various exponential functions.  We
+      /* Optimize logN(func()) for various exponential functions.  We
          want to determine the value "x" and the power "exponent" in
          order to transform logN(x**exponent) into exponent*logN(x).  */
       if (flag_unsafe_math_optimizations)
@@ -7008,12 +7005,9 @@ fold_builtin_1 (tree exp)
 		return build_real (type, r);
 	    }
 
-	  /* Optimize sqrt(exp(x)) = exp(x*0.5).  */
+	  /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
 	  fcode = builtin_mathfn_code (arg);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_EXP
-		  || fcode == BUILT_IN_EXPF
-		  || fcode == BUILT_IN_EXPL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	      arg = fold (build (MULT_EXPR, type,
@@ -7231,12 +7225,9 @@ fold_builtin_1 (tree exp)
 		}
 	    }
 
-	  /* Optimize pow(exp(x),y) = exp(x*y).  */
+	  /* Optimize pow(expN(x),y) = expN(x*y).  */
 	  fcode = builtin_mathfn_code (arg0);
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_EXP
-		  || fcode == BUILT_IN_EXPF
-		  || fcode == BUILT_IN_EXPL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
 	      tree arg = TREE_VALUE (TREE_OPERAND (arg0, 1));
@@ -7246,10 +7237,7 @@ fold_builtin_1 (tree exp)
 	    }
 
 	  /* Optimize pow(sqrt(x),y) = pow(x,y*0.5).  */
-	  if (flag_unsafe_math_optimizations
-	      && (fcode == BUILT_IN_SQRT
-		  || fcode == BUILT_IN_SQRTF
-		  || fcode == BUILT_IN_SQRTL))
+	  if (flag_unsafe_math_optimizations && BUILTIN_SQRT_P (fcode))
 	    {
 	      tree narg0 = TREE_VALUE (TREE_OPERAND (arg0, 1));
 	      tree narg1 = fold (build (MULT_EXPR, type, arg1,

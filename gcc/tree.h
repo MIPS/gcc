@@ -101,6 +101,24 @@ enum built_in_function
 /* Names for the above.  */
 extern const char *const built_in_names[(int) END_BUILTINS];
 
+/* Helper macros for math builtins.  */
+
+#define BUILTIN_EXP10_P(FN) \
+ ((FN) == BUILT_IN_EXP10 || (FN) == BUILT_IN_EXP10F || (FN) == BUILT_IN_EXP10L \
+  || (FN) == BUILT_IN_POW10 || (FN) == BUILT_IN_POW10F || (FN) == BUILT_IN_POW10L)
+
+#define BUILTIN_EXPONENT_P(FN) (BUILTIN_EXP10_P (FN) \
+  || (FN) == BUILT_IN_EXP || (FN) == BUILT_IN_EXPF || (FN) == BUILT_IN_EXPL \
+  || (FN) == BUILT_IN_EXP2 || (FN) == BUILT_IN_EXP2F || (FN) == BUILT_IN_EXP2L)
+
+#define BUILTIN_SQRT_P(FN) \
+ ((FN) == BUILT_IN_SQRT || (FN) == BUILT_IN_SQRTF || (FN) == BUILT_IN_SQRTL)
+
+#define BUILTIN_CBRT_P(FN) \
+ ((FN) == BUILT_IN_CBRT || (FN) == BUILT_IN_CBRTF || (FN) == BUILT_IN_CBRTL)
+
+#define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
+
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
@@ -451,7 +469,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
-#define TYPE_HASH(TYPE) ((size_t) (TYPE) & 0777777)
+#define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
+
+/* A simple hash function for an arbitrary tree node.  This must not be
+   used in hash tables which are saved to a PCH.  */
+#define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
 
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
@@ -2664,7 +2686,7 @@ extern tree array_type_nelts (tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
 extern tree binfo_member (tree, tree);
-extern unsigned int attribute_hash_list (tree);
+
 extern int attribute_list_equal (tree, tree);
 extern int attribute_list_contained (tree, tree);
 extern int tree_int_cst_equal (tree, tree);
@@ -3373,7 +3395,6 @@ extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);
 extern tree type_hash_lookup (unsigned int, tree);
 extern void type_hash_add (unsigned int, tree);
-extern unsigned int type_hash_list (tree);
 extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);

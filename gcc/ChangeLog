@@ -1,3 +1,240 @@
+2004-03-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (tree_expr_nonnegative_p): Reformat checks for
+	builtins.
+
+2004-03-08  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/14471
+	* configure.ac (Target-specific assembler checks) <cris-*-*>: New
+	case, checking for -no-mul-bug-abort option.
+	* configure, config.in: Regenerate.
+	* doc/invoke.texi (CRIS Options): Document -mmul-bug-workaround
+	and -mno-mul-bug-workaround.
+	* config/cris/cris.md ("smulsi3_highpart", "umulsi3_highpart")
+	("mulsidi3", "umulsidi3"): Prefix output template with "%!".
+	("umulhisi3", "umulqihi3", "mulsi3", "mulqihi3", "mulhisi3"):
+	Ditto.  Make attribute "slottable" dependent on TARGET_MUL_BUG.
+	* config/cris/mulsi3.asm (__Mul) [__CRIS_arch_version >= 10]: Make
+	sure mulu.d is not last on cache-line.
+	* config/cris/cris.h (ASM_SPEC): Translate -mno-mul-bug-workaround
+	into -no-mul-bug-abort depending on HAVE_AS_MUL_BUG_ABORT_OPTION.
+	(TARGET_MASK_MUL_BUG, TARGET_MUL_BUG): New macros.
+	(TARGET_SWITCHES): New options -mmul-bug-workaround and
+	-mno-mul-bug-workaround.
+	(TARGET_DEFAULT): Include TARGET_MASK_MUL_BUG.
+	(PRINT_OPERAND_PUNCT_VALID_P): Include '!'.
+	* config/cris/cris.c (cris_operand_extend_operator): Clarify
+	relation to MULT in head comment.
+	(cris_op_str): Abort for MULT.
+	(cris_print_operand) <case '!'>: New case.
+
+2004-03-08  Alan Modra  <amodra@bigpond.net.au>
+
+	PR debug/11983
+	* dwarf2out.c (enum dw_val_class): Rename dw_val_class_float to
+	dw_val_class_vec.  Replace use throughout file.
+	(dw_float_const): Delete.
+	(dw_vec_const): New.
+	(dw_val_struct_union): Rename val_float to val_vec.  Replace use
+	throughout file.
+	(add_AT_vec): Rename from add_AT_float.  Add elt_size param.
+	(same_dw_val_p): Adjust vec comparison.  Use memcmp.
+	(size_of_die): Adjust dw_val_class_vec sizing.
+	(output_die): Output dw_val_class_vec.
+	(insert_int, extract_int, insert_float): New functions.
+	(add_const_value_attribute): Use insert_float for CONST_DOUBLE.
+	Handle CONST_VECTOR.
+	(add_location_or_const_value_attribute): Handle CONST_VECTOR.
+
+2004-03-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_parse_abi_options): SPE and
+	AltiVec abi cannot co-exist.
+
+	* config/rs6000/eabispe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Same.
+
+2004-03-07  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (emit_to_new_bb_before):  Break fallthru edges.
+
+2004-03-07  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("*lshrsi3_const"): Disable for 68HC12.
+	("*lshrsi3"): Also accept an immediate for 68HC12.
+	("*ashrsi3_const"): Likewise.
+	("*ashrsi3"): Likewise.
+	("*ashlsi3_const"): Likewise.
+	("*ashlsi3"): Likewise.
+	("cmphi_1_hc12"): Compare two hard register by pushing them and
+	comparing with a pop; don't use a split for that.
+	("cmphi split"): Disable compare split for 68HC12.
+
+	* config/m68hc11/m68hc11.c (m68hc11_notice_update_cc): Invalidate
+	the status operands if they have side effects.
+
+2004-03-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* defaults.h (LEGITIMIZE_ADDRESS): Provide a default
+	definition.
+	* config/arc/arc.h, config/fr30/fr30.h, config/frv/frv.h,
+	config/h8300/h8300.h, config/ia64/ia64.h,
+	config/mcore/mcore.h, config/mmix/mmix.h,
+	config/ns32k/ns32k.h, config/pdp11/pdp11.h,
+	config/stormy16/stormy16.h, config/v850/v850.h,
+	config/vax/vax.h (LEGITIMIZE_ADDRESS): Remove.
+	* doc/tm.texi (LEGITIMIZE_ADDRESS): Mention the default
+	definition.
+
+2004-03-07  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) <IOR_EXPR>: Fold x | x as x.
+	<XOR_EXPR>: Fold x ^ x as zero.
+	<AND_EXPR>: Fold x & x as x.
+
+2004-03-07  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) <EQ_EXPR>: Rewrite optimization to transform
+	"foo++ == const" into "++foo == const+incr".
+
+2004-03-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_in_small_data_p): Return false if
+	TARGET_ABICALLS.
+
+2004-03-06  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (m68hc11_gen_movhi): Use 2,-sp to push
+	the stack register.
+	(expand_prologue): Don't make an interrupt or a trap handler a far
+	symbol.
+	(m68hc11_initial_elimination_offset): Likewise.
+
+2004-03-06  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_in_small_data_p): False for functions.
+
+2004-03-06  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/ns32k/ns32k-protos.h: Add a prototype for
+	ns32k_notice_update_cc.
+	* config/ns32k/ns32k.c (ns32k_notice_update_cc): New.
+	* config/ns32k/ns32k.h (NOTICE_UPDATE_CC): Call
+	ns32k_notice_update_cc.
+
+2004-03-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("load_multiple", "*load_multiple_di",
+	"*load_multiple_si"): Allow only if reload_completed.
+	("store_multiple", "*store_multiple_di", "*store_multiple_si"):
+	Likewise.
+
+2004-03-06  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/vax/vax-protos.h: Add a prototype for
+	vax_notice_update_cc.
+	* config/vax/vax.c (vax_notice_update_cc): New.
+	* config/vax/vax.h (NOTICE_UPDATE_CC): Call
+	vax_notice_update_cc.
+
+2004-03-06  David Edelsohn  <edelsohn@gnu.org>
+
+	* collect2.c (main): Only export initfunc and finifunc if
+	LD_INIT_SWITCH not defined.
+	(scan_prog_file): Only export constructors and destructors if
+	LD_INIT_SWITCH not defined.  Only export symbols not found in
+	shared objects.
+
+2004-03-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md (icacheflush): Reorder operands to make match_scratch operand
+	last.
+	* pa.h (INITIALIZE_TRAMPOLINE): Remove unnecessary scratch argument
+	from calls to gen_icacheflush.
+
+2004-03-06  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.h (MASK_LONG_DOUBLE_128): New.
+	(TARGET_LONG_DOUBLE_128): New.
+	(TARGET_SWITCHES): Add long-double-{128,64}.
+	(TARGET_HAS_XFLOATING_LIBS): Default to TARGET_LONG_DOUBLE_128.
+	(LONG_DOUBLE_TYPE_SIZE): Honor TARGET_LONG_DOUBLE_128.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): New.
+	(WIDEST_HARDWARE_FP_SIZE): New.
+	(TARGET_CPU_CPP_BUILTINS): Define __LONG_DOUBLE_128__.
+	* config/alpha/alpha.c (override_options): Clear MASK_LONG_DOUBLE_128
+	if TARGET_VAX_FLOAT.
+	* config/alpha/osf5.h (LONG_DOUBLE_TYPE_SIZE): Remove.
+	(TARGET_DEFAULT): Set MASK_LONG_DOUBLE_128.
+
+2004-03-06  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_swapped_comparison_operator): Fix
+	botched rtx class conversion.
+
+2004-03-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree.h (BUILTIN_EXP10_P, BUILTIN_EXPONENT_P, BUILTIN_SQRT_P,
+	BUILTIN_CBRT_P, BUILTIN_ROOT_P): New macros.
+
+	* builtins.c (fold_builtin_logarithm, fold_builtin): Use new
+	macros.
+	* fold-const.c (fold_mathfn_compare, fold): Likewise.
+
+2004-03-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/14343
+	* config/i386/i386.md (movv2di_internal): Conditionalize on
+	TARGET_SSE, not TARGET_SSE2.
+
+2004-03-05  Chris Demetriou  <cgd@broadcom.com>
+
+	* config.gcc (mips64orion-*-elf*, mips64orionel-*-elf*): Delete
+	duplicated line.
+
+2004-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c: Consistently use logN not log* in comments.
+
+2004-03-05  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* rtl.h (mem_expr_equal_p): Function prototype added.
+	* cfgcleanup.c (merge_memattrs): New function.
+	(flow_find_cross_jump): Call merge_memattrs for matching insns.
+	* emit-rtl.c (mem_expr_equal_p): New function.
+
+2004-03-05  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/objc-act.c (synth_module_prologue): Const-qualify
+	objc_selector type if using the GNU runtime; fix generated
+	signatures for objc_msg_lookup and objc_msg_lookup_super
+	to match what GNU ObjC headers provide; reformat and clean up.
+	(synth_self_and_ucmd_args): Use previously constructed (and
+	hence possibly const-qualified) objc_selector type.
+
+2004-03-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/tm.texi (HARD_REGNO_RENAME_OK): Document.
+
+2004-03-05  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (TYPE_HASH): Use TYPE_UID.
+	(TREE_HASH): New macro with old definition of TYPE_HASH.
+	* tree.c (build_type_attribute_variant): Use iterative_hash_object.
+	(build_array_type, build_function_type): Likewise.
+	(build_method_type_directly): Likewise.
+	(build_offset_type, build_complex_type): Likewise.
+	(type_hash_list, attribute_hash_list): Likewise. Now static.
+	* except.c: s/TYPE_HASH/TREE_HASH/.
+
+2004-03-05  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (function_arg): Handle 16-byte aligned args.
+	(xtensa_va_start): Initialize __va_stk to ($arg_ptr - 32).  Adjust
+	__va_ndx by 2 words when referencing an argument on the stack.
+	(xtensa_va_arg): Handle 16-byte aligned args.  Adjust __va_ndx by 2
+	words when an arg on the stack is first seen.
+
 2004-03-05  Paul Brook  <paul@codesourcery.com>
 
 	* arm.h (ARM_FLAG_VFP): Remove.
