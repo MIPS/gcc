@@ -278,6 +278,11 @@ extern int pexecute PARAMS ((const char *, char * const *, const char *,
 
 extern int pwait PARAMS ((int, int *, int));
 
+/* Manage external piping.  */
+
+extern int get_last_pipe_input PARAMS ((void));
+extern void set_last_pipe_input PARAMS ((int));
+
 #if !HAVE_DECL_ASPRINTF
 /* Like sprintf but provides a pointer to malloc'd storage, which must
    be freed by the caller.  */

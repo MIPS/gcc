@@ -47,6 +47,24 @@ extern int errno;
 extern int execv ();
 extern int execvp ();
 
+/* Pipe waiting from last process, to be used as input for the next one.
+   Value is STDIN_FILE_NO if no pipe is waiting
+   (i.e. the next command is the first of a group).  */
+static int last_pipe_input;
+
+void
+set_last_pipe_input (fd)
+     int fd;
+{
+  last_pipe_input = fd;
+}
+
+int
+get_last_pipe_input ()
+{
+  return last_pipe_input;
+}
+
 int
 pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
      const char *program;
@@ -61,10 +79,6 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
   int pdes[2];
   int input_desc, output_desc;
   int retries, sleep_interval;
-  /* Pipe waiting from last process, to be used as input for the next one.
-     Value is STDIN_FILE_NO if no pipe is waiting
-     (i.e. the next command is the first of a group).  */
-  static int last_pipe_input;
 
   /* If this is the first process, initialize.  */
   if (flags & PEXECUTE_FIRST)
