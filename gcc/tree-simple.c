@@ -27,6 +27,8 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "tree-simple.h"
 #include "output.h"
+#include "rtl.h"
+#include "expr.h"
 
 /*  SIMPLE C Grammar
   

@@ -75,7 +75,7 @@ debug_call_graph (t)
    described above.  
    Not Yet Implemented : the dump of global variables and their use.  */
 
-void 
+static void 
 construct_call_graph (buffer, t, spc)
      output_buffer *buffer;
      tree t;
@@ -166,8 +166,11 @@ construct_call_graph (buffer, t, spc)
 		break;
 
 	      case COND_EXPR:
-		//print_callee (buffer, TREE_OPERAND (TREE_OPERAND (op0, 0), 1), spc);
-		//print_callee (buffer, TREE_OPERAND (TREE_OPERAND (op0, 0), 2), spc);
+#if 0
+		/* XXX: Why is this disabled?  */
+		print_callee (buffer, TREE_OPERAND (TREE_OPERAND (op0, 0), 1), spc);
+		print_callee (buffer, TREE_OPERAND (TREE_OPERAND (op0, 0), 2), spc);
+#endif
 		break;
 
 	      case COMPONENT_REF:
@@ -175,10 +178,12 @@ construct_call_graph (buffer, t, spc)
 		if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
 		    TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 		  print_callee (buffer, TREE_OPERAND (op0, 1), spc);
-		/* else
-		   We can have several levels of structures and a function 
+#if 0
+		else
+		/* We can have several levels of structures and a function 
 		   pointer inside.  This is not implemented yet...  */
-		//		  NIY;
+		  NIY;
+#endif
 		break;
 	      
 	      case ARRAY_REF:

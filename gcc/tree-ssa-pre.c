@@ -1,5 +1,5 @@
 /* SSA-PRE for trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GNU CC.
@@ -1734,11 +1734,9 @@ static
 void calculate_preorder ()
 {
   edge *stack;
-  int i;
   int sp;
   int prenum = 0;
   sbitmap visited;
-  basic_block bb;
 
   /* Allocate the preorder number arrays.  */
   pre_preorder = (int *) xcalloc (last_basic_block+1, sizeof (int));

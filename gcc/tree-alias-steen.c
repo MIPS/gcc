@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "errors.h"
 #include "expr.h"
 #include "diagnostic.h"
+#include "tree.h"  
 #include "tree-optimize.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -108,6 +109,7 @@ static alias_typevar get_alias_var_decl PARAMS ((tree));
 static alias_typevar get_alias_var PARAMS ((tree));
 static tree find_func_aliases PARAMS ((tree *, int *, void *));
 static tree find_func_decls PARAMS ((tree *, int *, void *));
+static alias_typevar create_fun_alias_var_ptf PARAMS ((tree, tree));
 static alias_typevar create_fun_alias_var PARAMS ((tree, int));
 static alias_typevar create_alias_var PARAMS ((tree));
 

@@ -1,3 +1,31 @@
+2002-07-23  Andreas Jaeger  <aj@suse.de>
+
+	* gengtype.c (open_base_files): Add tree.h.
+
+	* tree-alias-type.h: Remove inclusion of tree.h.
+
+	* tree-alias-steen.c: Include tree.h.
+	Add prototype for create_fun_alias_var_ptf.
+
+	* tree-alias-ecr.c: Add prototype for ECR_add_pending.
+
+	* tree-ssa-pre.c (calculate_preorder): Remove unused variables.
+
+	* tree-simple.c: Include expr.h and rtl.h for prototypes.
+
+	* tree-optimize.c: Include tree-alias-steen.h for prototypes.
+
+	* Makefile.in (tree-optimize.o): Add tree-alias-steen.h.
+	(tree-simple.o): Add expr.h and rtl.h.
+	(tree-alias-steen.o): Add tree.h.
+	
+	* diagnostic.h: Add declaration of debug_output_buffer.
+
+	* c-call-graph.c (construct_call_graph): Make static to follow
+	declaration.
+	(construct_call_graph): Use #if 0 instead of C++ comments to
+	disable code.
+
 2002-07-19  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_return_stmt): Do simplify a returned

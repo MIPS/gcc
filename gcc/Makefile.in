@@ -1377,7 +1377,8 @@ print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
 disjoint-set.o: disjoint-set.c disjoint-set.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) 
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-type.h
-tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) $(CONFIG_H) $(GGC_H) gt-tree-alias-steen.h tree-flow.h 
+tree-alias-steen.o: tree-alias-steen.c tree-alias-steen.h $(SYSTEM_H) \
+	$(CONFIG_H) $(GGC_H) $(TREE_H) gt-tree-alias-steen.h tree-flow.h 
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
@@ -1392,7 +1393,7 @@ tree-dfa.o : tree-dfa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(GGC_H) output.h diagnostic.h errors.h
 tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-steen.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h flags.h \
    langhooks.h toplev.h rtl.h
@@ -1404,7 +1405,8 @@ tree-dchain.o : tree-dchain.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(C_TREE_H) $(C_COMMON_H) tree-dchain.h
 c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
    $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) tree-flow.h
-tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) tree-simple.h
+tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
+	$(RTL_H) tree-simple.h
 c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) errors.h diagnostic.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \

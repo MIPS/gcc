@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GNU CC.
@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
+#include "tree-alias-steen.h"
 
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));

@@ -327,4 +327,6 @@ extern void verbatim			PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
 extern char *file_name_as_prefix	PARAMS ((const char *));
 
+extern void debug_output_buffer		PARAMS ((output_buffer *));
+
 #endif /* ! GCC_DIAGNOSTIC_H */
