@@ -5685,14 +5685,27 @@ choose_reload_regs (chain)
 
 	      /* If we found a spill reg, reject it unless it is free
 		 and of the desired class.  */
-	      if (equiv != 0
-		  && ((TEST_HARD_REG_BIT (reload_reg_used_at_all, regno)
+	      if (equiv != 0)
+		{
+		  int regs_used = 0;
+		  int bad_for_class = 0;
+		  int max_regno = regno + rld[r].nregs;
+
+		  for (i = regno; i < max_regno; i++)
+		    {
+		      regs_used |= TEST_HARD_REG_BIT (reload_reg_used_at_all,
+						      i);
+		      bad_for_class |= ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class], 
+							   i);
+		    }
+
+		  if ((regs_used
 		       && ! free_for_value_p (regno, rld[r].mode,
 					      rld[r].opnum, rld[r].when_needed,
 					      rld[r].in, rld[r].out, r, 1))
-		      || ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
-					      regno)))
-		equiv = 0;
+		      || bad_for_class)
+		    equiv = 0;
+		}
 
 	      if (equiv != 0 && ! HARD_REGNO_MODE_OK (regno, rld[r].mode))
 		equiv = 0;
@@ -9301,6 +9314,30 @@ reload_cse_move2add (first)
 	    }
 	}
       note_stores (PATTERN (insn), move2add_note_store, NULL);
+
+      /* If INSN is a conditional branch, we try to extract an
+	 implicit set out of it.  */
+      if (any_condjump_p (insn) && onlyjump_p (insn))
+	{
+	  rtx cnd = fis_get_condition (insn);
+
+	  if (cnd != NULL_RTX
+	      && GET_CODE (cnd) == NE
+	      && GET_CODE (XEXP (cnd, 0)) == REG
+	      /* The following two checks, which are also in
+		 move2add_note_store, are intended to reduce the
+		 number of calls to gen_rtx_SET to avoid memory
+		 allocation if possible.  */
+	      && SCALAR_INT_MODE_P (GET_MODE (XEXP (cnd, 0)))
+	      && HARD_REGNO_NREGS (REGNO (XEXP (cnd, 0)), GET_MODE (XEXP (cnd, 0))) == 1
+	      && GET_CODE (XEXP (cnd, 1)) == CONST_INT)
+	    {
+	      rtx implicit_set =
+		gen_rtx_SET (VOIDmode, XEXP (cnd, 0), XEXP (cnd, 1));
+	      move2add_note_store (SET_DEST (implicit_set), implicit_set, 0);
+	    }
+	}
+
       /* If this is a CALL_INSN, all call used registers are stored with
 	 unknown values.  */
       if (GET_CODE (insn) == CALL_INSN)

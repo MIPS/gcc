@@ -606,6 +606,13 @@ convert_move (to, from, unsignedp)
       return;
     }
 
+  if (GET_CODE (to) == CONCAT && GET_CODE (from) == CONCAT)
+    {
+      convert_move (XEXP (to, 0), XEXP (from, 0), unsignedp);
+      convert_move (XEXP (to, 1), XEXP (from, 1), unsignedp);
+      return;
+    }
+
   if (to_real != from_real)
     abort ();
 
@@ -1463,7 +1470,7 @@ convert_modes (mode, oldmode, x, unsignedp)
 int
 can_move_by_pieces (len, align)
      unsigned HOST_WIDE_INT len;
-     unsigned int align;
+     unsigned int align ATTRIBUTE_UNUSED;
 {
   return MOVE_BY_PIECES_P (len, align);
 }

@@ -1,3 +1,7 @@
+2003-06-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	Merge from mainline & fix fallout.
+
 2003-06-10  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl, Makefile.def: Introduce per-directory

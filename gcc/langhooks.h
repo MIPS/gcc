@@ -180,6 +180,9 @@ struct lang_hooks_for_decls
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) PARAMS ((void));
+
+  /* True if this decl may be called via a sibcall.  */
+  bool (*ok_for_sibcall) PARAMS ((tree));
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -202,16 +205,6 @@ struct lang_hooks
      initialization needed before any calls to handle_option.  Return
      the language mask to filter the switch array with.  */
   int (*init_options) PARAMS ((void));
-
-  /* Function called with an option vector as argument, to decode a
-     single option (typically starting with -f or -W or +).  It should
-     return the number of command-line arguments it uses if it handles
-     the option, or 0 and not complain if it does not recognize the
-     option.  If this function returns a negative number, then its
-     absolute value is the number of command-line arguments used, but,
-     in addition, no language-independent option processing should be
-     done for this option.  Obsoleted by handle_option.  */
-  int (*decode_option) PARAMS ((int, char **));
 
   /* Handle the switch CODE, which has real type enum opt_code from
      options.h.  If the switch takes an argument, it is passed in ARG

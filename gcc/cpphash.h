@@ -343,7 +343,7 @@ struct cpp_reader
   struct cpp_path *quote_include;	/* "" */
   struct cpp_path *bracket_include;	/* <> */
 
-  /* Multiple include optimisation.  */
+  /* Multiple include optimization.  */
   const cpp_hashnode *mi_cmacro;
   const cpp_hashnode *mi_ind_cmacro;
   bool mi_valid;
@@ -377,10 +377,6 @@ struct cpp_reader
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
-
-  /* True if we should warn about dollars in identifiers or numbers
-     for this translation unit.  */
-  bool warn_dollars;
 
   /* Opaque handle to the dependencies of mkdeps.c.  */
   struct deps *deps;

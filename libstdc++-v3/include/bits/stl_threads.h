@@ -1,6 +1,6 @@
 // Threading support -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,6 +47,8 @@
 
 #ifndef __SGI_STL_INTERNAL_THREADS_H
 #define __SGI_STL_INTERNAL_THREADS_H
+
+#include <cstddef>
 
 // The only supported threading model is GCC's own gthr.h abstraction layer.
 #include "bits/gthr.h"
@@ -208,8 +210,7 @@ namespace std
   private:
     void operator=(const _STL_auto_lock&);
     _STL_auto_lock(const _STL_auto_lock&);
-  };
-  
+  } __attribute__ ((__unused__));
 } // namespace std
 
 #endif 

@@ -1,3 +1,113 @@
+2003-06-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_CSTDIO): Simplify.
+	* aclocal.m4: Regenerate.
+	* Makefile.am (SUBDIRS): Remove libio.
+	* Makefile.in: Regenerate.
+	* configure.in: Same.
+	* configure: Regenerate.
+	* config/io/basic_file_libio.cc: Remove.
+	* config/io/basic_file_libio.h: Remove.	
+	* config/io/c_io_libio_codecvt.c: Remove.
+	* config/io/c_io_libio.h: Remove.	
+	* libio/*: Remove.
+	* src/Makefile.am: Same.
+	* src/Makefile.in: Regenerate.
+	* docs/html/configopts.html: Edits.	
+	* docs/html/explanations.html: Edits.
+	
+2003-06-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_alloc.h (__debug_alloc): Move out.
+	(__malloc_alloc): Same.
+	(__pool_alloc): Same.
+	(__new_alloc): Same.
+	Rename to..
+	* include/bits/allocator.h: ...this.
+	* include/bits/stl_deque.h: Modify comment.
+	* include/bits/stl_tree.h: Modify include.
+	* include/std/std_memory.h: Same.
+	* include/ext/rope: Same.
+	* include/ext/slist: Same.	
+	* include/std/std_vector.h: Same.
+	* include/std/std_stack.h: Same.
+	* include/std/std_queue.h: Same.
+	* include/std/std_list.h: Same.
+	* include/std/std_deque.h: Same.
+	* include/backward/alloc.h: Same.
+	* include/ext/debug_allocator.h: New.
+	* include/ext/malloc_allocator.h: New.	
+	* include/ext/pool_allocator.h: New.		
+	* include/ext/new_allocator.h: New.
+	* include/bits/pthread_allocimpl.h: Remove.
+	* include/bits/stl_pthread_alloc.h: Remove.	
+	* include/Makefile.am (ext_headers): Add.
+	* include/Makefile.in: Regenerate.
+	* src/stl-inst.cc: Use __gnu_cxx namespace.
+	* src/stl-inst.cc: Move to...
+	* src/allocator-inst.cc: Here.
+	* src/Makefile.am (sources): Update.
+	* src/Makefile.in: Regenerate.
+	* config/linker-map.gnu: Remove __pool_alloc bits.
+	* testsuite/ext/headers.cc: Add.
+	* testsuite/ext/allocators.cc: Fixup.
+	
+2003-06-11  Stefan Olsson  <stefan@snon.net>
+            Ola Rönnerup  <fnolis@home.se>
+	
+	* include/Makefile.am (ext_headers): Add.
+	* include/Makefile.in: Regenerate.
+	* include/ext/mt_allocator.h: New file.
+
+2003-06-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (close): Clean up a bit.
+
+	* include/bits/streambuf.tcc (sbumpc): Clean up a bit.
+
+	* include/std/std_fstream.h (_M_destroy_pback): _M_pback_cur_save
+	- the saved _M_in_cur, that is - cannot be null.
+	(sync): Constify a variable.
+
+	* include/std/std_streambuf.h: Tweak a comment.
+	(in_avail): Constify a variable.
+
+2003-06-10  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/17_intro/BUGS:  Update from 2.90.8 snapshot.
+	* docs/html/17_intro/CHECKLIST:  Bring up to date with respect to
+	correctness of container::iterator typedefs.  Fix whitespace.
+	* docs/html/20_util/howto.html, docs/html/ext/howto.html:  Add links
+	to allocator docs.
+	* docs/html/documentation.html:  Regenerate.
+
+	* include/bits/basic_string.h, include/bits/basic_string.tcc,
+	include/bits/deque.tcc, include/bits/list.tcc, include/bits/stl_algo.h,
+	include/bits/stl_algobase.h, include/bits/stl_bvector.h,
+	include/bits/stl_deque.h, include/bits/stl_iterator_base_funcs.h,
+	include/bits/stl_list.h, include/bits/stl_uninitialized.h,
+	include/bits/stl_vector.h, include/bits/vector.tcc,
+	include/ext/algorithm, include/ext/slist, include/std/std_bitset.h:
+	Change _Iter names to _Iterator, and __pos to __position.
+
+	* include/bits/stl_relops.h, include/bits/stl_numeric.h,
+	include/bits/stl_multiset.h, include/bits/stl_set.h:
+	Remove emacs markers.
+
+	* include/bits/stl_threads.h (_STL_auto_lock):  Add __unused__.
+
+2003-06-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (overflow): According to
+	27.5.2.4.5, overflow() returns not_eof(eof()).
+	* testsuite/27_io/basic_filebuf/overflow/char/2.cc: New.
+	* testsuite/27_io/basic_filebuf/overflow/char/2-unbuf.cc: Ditto.
+
+2003-06-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (_M_underflow): Check overflow return
+	value; tweak slightly.
+
 2003-06-09  Paolo Carlini  <pcarlini@unitus.it>
 
 	* include/bits/fstream.tcc (_M_underflow): Do not special

@@ -1,3 +1,43 @@
+2003-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10635
+	* typeck.c (build_c_cast): Check that the destination type is
+	complete.
+
+2003-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10432
+	* cp-tree.h (finish_declarator): Remove.
+	* decl.c (cp_finish_decl): Make sure to pop_nested_class even for
+	erroneous declarations.
+	* semantics.c (finish_declarator): Remove.
+
+2003-06-11  Roger Sayle  <roger@eyesopen.com>
+
+	* decl2.c (generate_ctor_or_dtor_function): Avoid expanding a 
+	global static constructor/destructor if it will be empty, i.e.
+	either doesn't call any ctors/dtors or only calls pure or const
+	ctors/dtors.
+
+2003-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (tm_p.h): Include it.
+	* Make-lang.in (cp/mangle.o): Depend on $(TM_P_H).
+
+	PR c++/11131
+	* tree.c (cp_cannot_inline_fn): Check for "inline" before
+	instantiation.
+
+2003-06-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10968
+	* pt.c (mark_decl_instantiated): Clear DECL_COMDAT.
+
+2003-06-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (start_cleanup_fn): Move static 'counter' out, mark with GTY.
+	(start_cleanup_cnt): New.
+
 2003-06-10  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/11131

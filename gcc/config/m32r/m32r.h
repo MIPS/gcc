@@ -176,8 +176,6 @@ Boston, MA 02111-1307, USA.  */
 #undef  ASM_SPEC
 #define ASM_SPEC "%{v} %(asm_cpu) %(relax)"
 
-#undef  ASM_FINAL_SPEC
-
 #define LINK_SPEC "%{v} %(link_cpu) %(relax)"
 
 #undef  STARTFILE_SPEC
@@ -657,6 +655,9 @@ extern unsigned int m32r_mode_class[];
  && GET_MODE_CLASS (MODE2) == MODE_INT		\
  && GET_MODE_SIZE (MODE1) <= UNITS_PER_WORD	\
  && GET_MODE_SIZE (MODE2) <= UNITS_PER_WORD)
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m32r_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* Register classes and constants.  */
 

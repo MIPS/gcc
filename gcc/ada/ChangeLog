@@ -1,3 +1,26 @@
+2003-06-12  Neil Booth  <neil@daikokuya.co.uk>
+
+	* misc.c (gnat_handle_option): Fix warnings.
+
+2003-06-11  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* Make-lang.in (gnatbind): Remove $(LIBIBERTY).
+
+2003-06-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update to handle command-line options.
+	* lang.opt: New file.
+	* misc.c: Include aoptions.h.
+	(cl_options_count, cl_options): Remove.
+	(gnat_handle_option): New.
+	(gnat_decode_option): Remove.
+	(LANG_HOOKS_DECODE_OPTION): Remove.
+	(LANG_HOOKS_HANDLE_OPTION): Override.
+
+2003-06-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* init.c, misc.c, trans.c, utils.c: Remove dead code.
+
 2003-06-09  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Replace "host_canonical" with "host" for autoconf

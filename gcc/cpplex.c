@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -192,7 +192,7 @@ warn_in_comment (pfile, note)
 
   /* Within comments we don't warn about trigraphs, unless the
      trigraph forms an escaped newline, as that may change
-     behaviour.  */
+     behavior.  */
   if (note->type != '/')
     return false;
 
@@ -402,9 +402,9 @@ forms_identifier_p (pfile, first)
 	return false;
 
       buffer->cur++;
-      if (pfile->warn_dollars && !pfile->state.skipping)
+      if (CPP_OPTION (pfile, warn_dollars) && !pfile->state.skipping)
 	{
-	  pfile->warn_dollars = false;
+	  CPP_OPTION (pfile, warn_dollars) = 0;
 	  cpp_error (pfile, DL_PEDWARN, "'$' in identifier or number");
 	}
 
@@ -710,7 +710,7 @@ _cpp_lex_token (pfile)
 
       /* Outside a directive, invalidate controlling macros.  At file
 	 EOF, _cpp_lex_direct takes care of popping the buffer, so we never
-	 get here and MI optimisation works.  */
+	 get here and MI optimization works.  */
       pfile->mi_valid = false;
 
       if (!pfile->state.skipping || result->type == CPP_EOF)

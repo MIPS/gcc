@@ -65,6 +65,7 @@ static int inline_init_test_initialization (void * *, void *);
 static bool java_can_use_bit_fields_p (void);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
+static bool java_decl_ok_for_sibcall (tree);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -251,6 +252,9 @@ struct language_function GTY(())
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
 
+#undef LANG_HOOKS_DECL_OK_FOR_SIBCALL
+#define LANG_HOOKS_DECL_OK_FOR_SIBCALL java_decl_ok_for_sibcall
+
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -270,16 +274,17 @@ java_handle_option (size_t scode, const char *arg, int value)
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
-      /* These can take an emtpy argument.  */
+      /* These can take an empty argument.  */
       if (code == OPT_fassume_compiled_
 	  || code == OPT_fclasspath_
-	  || code == OPT_fCLASSPATH_)
+	  || code == OPT_fCLASSPATH_
+	  || code == OPT_fbootclasspath_)
 	arg = "";
       else
-    {
+	{
 	  error ("missing argument to \"-%s\"", option->opt_text);
-      return 1;
-    }
+	  return 1;
+	}
     }
 
   switch (code)
@@ -303,6 +308,7 @@ java_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_MF:
       jcf_dependency_set_dep_file (arg);
+      dependency_tracking |= DEPEND_FILE_ALREADY_SET;
       break;
 
     case OPT_MM:
@@ -380,7 +386,7 @@ java_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fdump_:
       if (!dump_switch_p (option->opt_text + strlen ("f")))
-  return 0;
+	return 0;
       break;
 
     case OPT_femit_class_file:
@@ -1077,4 +1083,16 @@ java_dump_tree (void *dump_info, tree t)
     }
   return false;
 }
+
+/* Java calls can't, in general, be sibcalls because we need an
+   accurate stack trace in order to guarantee correct operation of
+   methods such as Class.forName(String) and
+   SecurityManager.getClassContext().  */
+
+static bool
+java_decl_ok_for_sibcall (tree decl)
+{
+  return decl != NULL && DECL_CONTEXT (decl) == current_class;
+}
+
 #include "gt-java-lang.h"

@@ -83,16 +83,6 @@ lhd_return_null_tree (t)
   return NULL_TREE;
 }
 
-/* Do nothing; the default hook to decode an option.  */
-
-int
-lhd_decode_option (argc, argv)
-     int argc ATTRIBUTE_UNUSED;
-     char **argv ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
 /* The default post options hook.  */
 
 bool
@@ -467,6 +457,16 @@ lhd_tree_size (c)
 {
   abort ();
   return 0;
+}
+
+/* Return true if decl, which is a function decl, may be called by a
+   sibcall.  */
+
+bool
+lhd_decl_ok_for_sibcall (decl)
+     tree decl ATTRIBUTE_UNUSED;
+{
+  return true;
 }
 
 /* lang_hooks.decls.final_write_globals: perform final processing on
