@@ -4410,6 +4410,7 @@ int track_dependencies;
 int track_declarations;
 int main_timestamp;
 int c_timestamp;
+bool nonempty_fragment_reused;
 /* Inside an incomplete enum, for example. */
 int currently_nested;
 
@@ -4608,10 +4609,14 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
 	}
       else
 	{
-	  if (warn_fragment_invalidation && ! fragment->empty)
+	  if (! fragment->empty)
 	    {
-	      inform ("reusing cached fragment");
-	      fprintf(stderr, "reuse %d lines (start:%d, end:%d)\n", fragment->end_line - fragment->start_line, fragment->start_line, fragment->end_line);
+	      nonempty_fragment_reused = true;
+	      if (warn_fragment_invalidation)
+		{
+		  inform ("reusing cached fragment");
+		  fprintf(stderr, "reuse %d lines (start:%d, end:%d)\n", fragment->end_line - fragment->start_line, fragment->start_line, fragment->end_line);
+		}
 	    }
 	  restore_fragment (fragment);
 	}

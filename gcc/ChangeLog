@@ -1,3 +1,11 @@
+2003-12-02  Per Bothner  <pbothner@apple.com>
+
+	* c-common.h (nonempty_fragment_reused):  New declaration.
+	* c-common.c (nonempty_fragment_reused):  New variable.
+	(cb_enter_fragment):  Set it.
+	* c-objc-common.c (init_c_objc_common_eachsrc):  Clear it.
+	* c-parse.in (program):  Use it in checking for empty source file.
+
 2003-12-02  Mike Stump  <mrs@apple.com>
 
 	* config/darwin-c.c: struct cpp_dir -> cpp_dir.

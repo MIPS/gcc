@@ -200,6 +200,7 @@ extern int track_dependencies;
 extern int track_declarations;
 extern int main_timestamp;
 extern int c_timestamp;
+extern bool nonempty_fragment_reused;
 extern GTY(()) struct c_include_fragment *current_c_fragment;
 extern GTY(()) struct c_include_fragment *builtins_c_fragment;
 extern struct cpp_fragment *builtins_fragment;

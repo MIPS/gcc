@@ -349,7 +349,7 @@ c_parse_init (void)
 
 %%
 program: /* empty */
-		{ if (pedantic)
+		{ if (pedantic && ! nonempty_fragment_reused)
 		    pedwarn ("ISO C forbids an empty source file");
 		}
 	| extdefs

@@ -270,6 +270,7 @@ init_c_objc_common_once ()
 bool
 init_c_objc_common_eachsrc (void)
 {
+  nonempty_fragment_reused = false;
   init_c_decl_processing_eachsrc ();
 
   cpp_do_macro_callbacks (parse_in, builtins_fragment);
