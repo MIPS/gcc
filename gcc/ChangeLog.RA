@@ -1,3 +1,10 @@
+2001-07-20  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (hardregset_to_string): You meant HOST_WIDE_INT_PRINT_HEX,
+	not "%x".  Also, just increase the static string length to avoid
+	overflow, as well.
+	Fixes crash on powerpc.
+
 2001-07-20  Michael Matz <matzmich@cs.tu-berlin.de>
 
 	* ra.c : (rtx_to_bits): Use SUBREG_BYTE, instead of calculating

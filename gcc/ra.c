@@ -3162,7 +3162,7 @@ static char *
 hardregset_to_string (s)
      HARD_REG_SET s;
 {
-  static char string[FIRST_PSEUDO_REGISTER / 4 + 30];
+  static char string[FIRST_PSEUDO_REGISTER + 30];
 #if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
   sprintf (string, "%x", s);
 #else
@@ -3170,7 +3170,7 @@ hardregset_to_string (s)
   int i = HARD_REG_SET_LONGS - 1;
   c += sprintf (c, "{ ");
   for (;i >= 0; i--)
-    c += sprintf (c, "%x%s", s[i], i ? ", " : "");
+    c += sprintf (c, HOST_WIDE_INT_PRINT_HEX "%s", s[i], i ? ", " : "");
   c += sprintf (c, " }");
 #endif
   return string;
