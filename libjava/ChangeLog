@@ -1,5 +1,11 @@
 2004-12-22  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicEditorPaneUI.java: New file.
+	* Makefile.am: Added javax/swing/plaf/basic/BasicEditorPaneUI.java.
+	* Makefile.in: Regenerated.
+
+2004-12-22  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/DefaultStyledDocument.java: New file.
 	* Makefile.am: Added javax/swing/text/DefaultStyledDocument.java.
 	* Makefile.in: Regenerated.

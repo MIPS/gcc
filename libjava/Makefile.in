@@ -1012,6 +1012,7 @@ javax/swing/plaf/basic/BasicComboBoxRenderer.java \
 javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicEditorPaneUI.java \
 javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
@@ -3240,6 +3241,7 @@ javax/swing/plaf/basic/BasicComboBoxRenderer.lo \
 javax/swing/plaf/basic/BasicComboPopup.lo \
 javax/swing/plaf/basic/BasicDesktopIconUI.lo \
 javax/swing/plaf/basic/BasicDesktopPaneUI.lo \
+javax/swing/plaf/basic/BasicEditorPaneUI.lo \
 javax/swing/plaf/basic/BasicFormattedTextFieldUI.lo \
 javax/swing/plaf/basic/BasicGraphicsUtils.lo \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.lo \
@@ -5513,6 +5515,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicComboPopup.P \
 .deps/javax/swing/plaf/basic/BasicDesktopIconUI.P \
 .deps/javax/swing/plaf/basic/BasicDesktopPaneUI.P \
+.deps/javax/swing/plaf/basic/BasicEditorPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicFormattedTextFieldUI.P \
 .deps/javax/swing/plaf/basic/BasicGraphicsUtils.P \
 .deps/javax/swing/plaf/basic/BasicIconFactory.P \

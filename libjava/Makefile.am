@@ -1416,6 +1416,7 @@ javax/swing/plaf/basic/BasicComboBoxRenderer.java \
 javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicEditorPaneUI.java \
 javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
