@@ -761,6 +761,51 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 		  record_cond_is_true (cond,
 				       block_avail_exprs_p,
 				       const_and_copies);
+
+		  /* A memory store, even an aliased store, creates a
+		     useful equivalence.  By exchanging the LHS and RHS,
+		     creating suitable vops and recording the result in
+		     the available expression table, we may be able to
+		     expose more redundant loads.  */
+		  if (!ann->has_volatile_ops
+		      && i == 0
+		      && (SSA_VAR_P (TREE_OPERAND (stmt, 1))
+			  || TREE_CONSTANT (TREE_OPERAND (stmt, 1))))
+		    {
+		      tree new;
+		      unsigned int j;
+
+		      /* Build a new statement with the RHS and LHS
+			 exchanged.  */
+		      new = build (MODIFY_EXPR, TREE_TYPE (stmt),
+				   TREE_OPERAND (stmt, 1),
+				   TREE_OPERAND (stmt, 0));
+
+		      /* Get an annotation and set up the real operands.  */
+		      get_stmt_ann (new);
+		      get_stmt_operands (new);
+
+		      /* Clear out the virtual operands on the new statement,
+			 we are going to set them explicitly below.  */
+		      get_stmt_ann (new)->vops = NULL;
+
+		      /* For each VDEF on the original statement, we want
+			 to create a VUSE of the VDEF result on the new
+			 statement.  */
+		      for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
+			{
+			  tree op;
+
+			  op = (tree) VDEF_RESULT (VARRAY_TREE (vdefs, i));
+			  add_vuse (op, new, NULL);
+			}
+
+		      /* Finally enter the statement into the available
+			 expression table.  */
+		      lookup_avail_expr (new,
+					 block_avail_exprs_p,
+					 const_and_copies);
+		    }
 		}
 	    }
 	}
