@@ -1,3 +1,7 @@
+2002-11-19  Steven Bosscher <steven.bosscher@usafa.af.mil>
+
+	* config/mips/vr.h (DRIVER_SELF_SPECS): Change %{<mgp32} to %<mgp32.
+
 2002-11-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* profile.c (index_counts_file): Fix obvious mistake.
