@@ -1,3 +1,12 @@
+2004-12-16  Geoffrey Keating  <geoffk@apple.com>
+	    Robert Bowdidge <bowdidge@apple.com>
+
+	* gcc.dg/cpp/subframework1.c: New.
+	* gcc.dg/cpp/frame/one.framework/Frameworks/OneSub.framework/Headers/A.h: New.
+	* gcc.dg/cpp/frame/one.framework/Frameworks/OneSub.framework/Headers/B.h: New.
+	* gcc.dg/cpp/frame/one.framework/Frameworks/OneSub.framework/Headers/C.h: New.
+	* gcc.dg/cpp/frame/one.framework/Headers/one-includeSubs.h: New.
+
 2004-12-09  Matt Austern  <austern@apple.com>
 
 	PR c++/18514
