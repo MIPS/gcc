@@ -249,7 +249,7 @@ in the following sections.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
--save-temps  -time}
+-save-temps  -time -fvar-tracking}
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
@@ -3170,6 +3170,9 @@ Also turns on @option{-dp} annotation.
 For each of the other indicated dump files (except for
 @file{@var{file}.00.rtl}), dump a representation of the control flow graph
 suitable for viewing with VCG to @file{@var{file}.@var{pass}.vcg}.
+@item V
+@opindex dV
+Dump after variable tracking, to @file{@var{file}.35.vartrack}.
 @item x
 @opindex dx
 Just generate RTL for a function instead of compiling it.  Usually used
@@ -3290,6 +3293,16 @@ The first number on each line is the ``user time,'' that is time spent
 executing the program itself.  The second number is ``system time,''
 time spent executing operating system routines on behalf of the program.
 Both numbers are in seconds.
+
+@item -fvar-tracking
+@opindex fvar-tracking
+Run variable tracking pass. It computes where variables are stored at each
+position in code. Better debugging information is then generated
+(if the debugging information format supports this information).
+
+It is enabled by default when compiling with optimization (@option{-Os},
+@option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
+the debug info format supports it.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name

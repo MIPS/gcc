@@ -764,7 +764,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
+ tree-inline.o unroll.o var-tracking.o varasm.o				   \
+ varray.o version.o vmsdbgout.o vpt.o					   \
  vrp.o alloc-pool.o xcoffout.o et-forest.o cgraph.o cgraphunit.o web.o	   \
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
@@ -1678,6 +1679,9 @@ lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H) \
    profile.h $(FIBHEAP_H)
+var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) flags.h \
+   $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(BASIC_BLOCK_H) \
+   output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H)
 vrp.o : vrp.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(BASIC_BLOCK_H) \
    hard-reg-set.h expr.h output.h alloc-pool.h sbitmap.h \
    $(FIBHEAP_H) $(HASHTAB_H)

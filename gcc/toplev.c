@@ -257,6 +257,7 @@ enum dump_file_index
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
+  DFI_vartrack,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -309,6 +310,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
+  { "vartrack",	'V', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
@@ -930,6 +932,13 @@ int flag_tracer = 0;
 
 int flag_unit_at_time = 0;
 
+/* Nonzero if we should track variables.  When
+   flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
+   to optimize, debug_info_level and debug_hooks in process_options ().  */
+ 
+#define AUTODETECT_FLAG_VAR_TRACKING 2
+int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1257,6 +1266,8 @@ static const lang_independent_options f_options[] =
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
+  {"var-tracking", &flag_var_tracking, 1,
+   N_("Perform variable tracking") },
 };
 
 /* Table of language-specific options.  */
@@ -3711,6 +3722,19 @@ rest_of_compilation (decl)
     }
   compute_alignments ();
 
+  if (flag_var_tracking)
+    {
+      /* Track the variables, ie. compute where the variable is stored
+       at each position in function.  */
+      timevar_push (TV_VAR_TRACKING);
+      open_dump_file (DFI_vartrack, decl);
+
+      variable_tracking_main ();
+
+      close_dump_file (DFI_vartrack, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_VAR_TRACKING);
+    }
+ 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
@@ -5381,6 +5405,16 @@ process_options ()
   if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
+
+  /* Now we know which debug output will be used so we can set
+     flag_var_tracking if user has not specified it.  */
+  if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
+    {
+      /* User has not specified -f(no-)var-tracking so autodetect it.  */
+      flag_var_tracking
+	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
+	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+    }
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike

@@ -799,6 +799,7 @@ extern const char * const reg_note_name[];
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
 #define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
+#define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -814,6 +815,12 @@ extern const char * const reg_note_name[];
 #define NOTE_PREDICTION_FLAGS(INSN) (XCINT(INSN, 4, NOTE)&0xff)
 #define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
 
+/* Variable declaration and the location of a variable.  */
+#define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
+						 0, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
+						1, VAR_LOCATION))
+  
 /* Codes that appear in the NOTE_LINE_NUMBER field
    for kinds of notes that are not line numbers.
 
@@ -896,6 +903,9 @@ enum insn_note
 
   /* Record a prediction.  Uses NOTE_PREDICTION.  */
   NOTE_INSN_PREDICTION,
+
+  /* The location of a variable.  */
+  NOTE_INSN_VAR_LOCATION,
 
   NOTE_INSN_MAX
 };
@@ -1652,6 +1662,9 @@ extern void note_stores			PARAMS ((rtx,
 extern void note_uses			PARAMS ((rtx *,
 						 void (*) (rtx *, void *),
 						 void *));
+extern void note_all_uses		PARAMS ((rtx,
+						 void (*) (rtx, void *),
+						 void *));
 extern rtx reg_set_last			PARAMS ((rtx, rtx));
 extern int dead_or_set_p		PARAMS ((rtx, rtx));
 extern int dead_or_set_regno_p		PARAMS ((rtx, unsigned int));
@@ -2321,6 +2334,9 @@ extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
 /* In tracer.c */
 extern void tracer			PARAMS ((void));
+
+/* In var-tracking.c */
+extern void variable_tracking_main	PARAMS ((void));
 
 /* In vrp.c */
 extern bool value_range_propagation	PARAMS ((void));

@@ -1,3 +1,78 @@
+2003-10-10  Josef Zlomek  <zlomekj@suse.cz>,
+            Daniel Berlin <dberlin@dberlin.org>
+
+	Josef Zlomek <zlomekj@suse.cz>
+	* Makefile.in (var-tracking.o): New.
+	* gengtype.c (adjust_field_rtx_def): NOTE_INSN_VAR_LOCATION was added.
+	* print-rtl.c (print_rtx): Likewise.
+        * rtl.c (note_insn_name): Likewise.
+        * rtl.def (VAR_LOCATION): New.
+        * rtl.h (NOTE_VAR_LOCATION): New.
+        (NOTE_VAR_LOCATION_DECL): New.
+        (NOTE_VAR_LOCATION_LOC): New.
+        (enum insn_note): NOTE_INSN_VAR_LOCATION was added.
+        (note_all_uses): New exported function.
+        (variable_tracking_main): New exported function.
+        * rtlanal.c (note_all_uses): New function.
+        * timevar.def (TV_VAR_TRACKING): New.
+        * toplev.c (enum dump_file_index): Added DFI_vartrack.
+        (dump_file): "vartrack" was added (-dV).
+        (flag_var_tracking): New.
+        (f_options): "var-tracking" was added.
+        (rest_of_compilation): Run variable tracking.
+	(process_options): If user has not specified flag_var_tracking set it
+	according to optimize, debug_info_level and debug_hooks.
+	* tree.h (frame_base_decl): New.
+        * var-tracking.c: New file.
+        * doc/invoke.texi: Added -dV and -fvar-tracking.
+        * doc/passes.texi: Added variable tracking pass.
+
+	Daniel Berlin <dberlin@dberlin.org>
+	* debug.h (struct gcc_debug_hooks): Added var_location debug hook.
+	* dbxout.c (dbx_debug_hooks): Likewise.
+	(xcoff_debug): Likewise.
+	* debug.c (do_nothing_debug_hooks): Likewise.
+	* dwarf2out.c (dwarf2_debug_hooks): Likewise.
+	* dwarfout.c (dwarf_debug_hooks): Likewise.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
+	* final.c (final_scan_insn): Call var_location debug hook for each 
+	NOTE_INSN_VAR_LOCATION. 
+        * dwarf2out.c (struct gcc_debug_hooks): Call dwarf2out_begin_function
+        at the beginning of function, call dwarf2out_var_location for
+        NOTE_INSN_VAR_LOCATION note.
+	(struct var_loc_node, struct var_loc_list_def, loclabel_num,
+	decl_loc_table, decl_loc_table_allocated, decl_loc_table_in_use,
+	DECL_LOC_TABLE_INCREMENT): New.
+	(lookup_decl_loc): New function.
+	(add_var_loc_to_decl): New function.
+	(output_loc_list): Fix bug, if separate_line_info_table_in_use
+	output addr instead of delta, Location list terminators should be
+	DWARF2_ADDR_SIZE long.
+	(output_die): Use dw2_asm_output_offset, not dw2_asm_output_delta, for
+	location list labels.
+	(based_loc_descr): Added parameter can_use_fbreg, DW_OP_fbreg is used
+	only if can_use_fbreg.
+	(mem_loc_descriptor): Added parameter can_use_fbreg, pass it to other
+	functions.
+	(loc_descriptor): Likewise. Process VAR_LOCATION.
+	(concat_loc_descriptor): Call loc_descriptor with can_use_fbreg == true.
+	(loc_descriptor_from_tree): Call mem_loc_descriptor with
+	can_use_fbreg == true.
+	(add_location_or_const_value_attribute): Added parameter enum
+	dwarf_attribute attr, generate attribute ATTR.  Create the location list.
+	(add_bound_info): Call loc_descriptor with can_use_fbreg == true.
+	(gen_formal_parameter_die): Call add_location_or_const_value_attribute
+	with attr == DW_AT_location.
+	(gen_subprogram_die): Generate the location list for DW_AT_frame_base
+	if frame_base_decl is defined and has a location list.
+	(gen_variable_die): Call add_location_or_const_value_attribute with
+	attr == DW_AT_location.
+        (dwarf2out_var_location): New function.
+        (dwarf2out_begin_function): New function.
+	(dwarf2out_init): Create decl_loc_table and initialize
+	decl_loc_table_allocated and decl_loc_table_in_use.
+
 2003-10-09  Josef Zlomek  <zlomekj@suse.cz>
 
 	Merge from mainline:
