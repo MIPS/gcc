@@ -284,15 +284,23 @@ fix_basic_block_boundaries (bb, last, head, tail)
 	         do the split and re-emit it back in case this will ever
 	         trigger problem.  */
 	      f = BASIC_BLOCK (bb - 1)->succ;
-	      while (!(f->flags & EDGE_FALLTHRU))
+	      while (f && !(f->flags & EDGE_FALLTHRU))
 		f = f->succ_next;
-	      curr_bb = split_edge (f);
-	      h = curr_bb->head;
-	      curr_bb->head = head;
-	      curr_bb->end = insn;
-	      /* Edge splitting created missplaced BASIC_BLOCK note, kill
-	         it.  */
-	      delete_insn (h);
+
+	      if (f)
+		{
+		  curr_bb = split_edge (f);
+		  h = curr_bb->head;
+		  curr_bb->head = head;
+		  curr_bb->end = insn;
+		  /* Edge splitting created missplaced BASIC_BLOCK note, kill
+		     it.  */
+		  delete_insn (h);
+		}
+	      /* It may happen that code got moved past unconditional jump in
+	         case the code is completely dead.  Kill it.  */
+	      else
+		delete_insn_chain (head, insn);
 	    }
 	  else
 	    {
