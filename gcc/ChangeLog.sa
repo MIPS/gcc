@@ -1,3 +1,16 @@
+2005-01-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (setup_pointers_and_addressables):
+	Structure fields need underlying type tags too.
+	Also don't unmark addressable on a structure unless it's fake
+	variables are not addressed.
+	(group_aliases): Must also deal with struct fields here.
+	(add_pointed_to_var): Don't forget the subvars in addresses_needed.
+	(push_fields_on_to_fieldstack): Should have been else if, not just if.
+	(create_overlap_variables_for): Experiment with some other heuristics.
+	* tree-ssa-operands.c (note_addressable): Var can be null.
+	Return early if we handled the component_ref.
+
 2005-01-08  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-flow-inline.h (ref_contains_array_ref): Move from 

@@ -1138,8 +1138,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	    subvar_t sv;
 	    for (sv = svars; sv; sv = sv->next)
 	      {
+		
 		if (offset == sv->offset && size == sv->size)
-		  add_stmt_operand (&sv->var, s_ann, flags);
+		    add_stmt_operand (&sv->var, s_ann, flags);
 		else if (offset >= sv->offset 
 			 && offset < (sv->offset + sv->size))
 		  add_stmt_operand (&sv->var, s_ann, flags & ~opf_kill_def);
@@ -1657,7 +1658,7 @@ note_addressable (tree var, stmt_ann_t s_ann)
     return;
   
   /* We take the address of all the fake variables, plus the real ones.  */
-  if (TREE_CODE (var) == COMPONENT_REF 
+  if (var && TREE_CODE (var) == COMPONENT_REF 
       && (ref = okay_component_ref_for_subvars (var, &offset, &size)))
     {
       subvar_t sv;
@@ -1676,6 +1677,7 @@ note_addressable (tree var, stmt_ann_t s_ann)
 		   && (offset + size > sv->offset))
 	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
 	}
+      return;
     }
   
   var = get_base_address (var);

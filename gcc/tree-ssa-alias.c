@@ -1319,7 +1319,9 @@ group_aliases (struct alias_info *ai)
 	  tree alias = VARRAY_TREE (aliases, j);
 	  var_ann_t ann = var_ann (alias);
 
-	  if (ann->mem_tag_kind == NOT_A_TAG && ann->may_aliases)
+	  if ((ann->mem_tag_kind == NOT_A_TAG 
+	       || ann->mem_tag_kind == STRUCT_FIELD)
+	      && ann->may_aliases)
 	    {
 	      tree new_alias;
 
@@ -1404,13 +1406,19 @@ setup_pointers_and_addressables (struct alias_info *ai)
     {
       tree var = referenced_var (i);
       var_ann_t v_ann = var_ann (var);
+      subvar_t svars;
 
       /* Name memory tags already have flow-sensitive aliasing
 	 information, so they need not be processed by
 	 compute_flow_insensitive_aliasing.  Similarly, type memory
 	 tags are already accounted for when we process their
-	 associated pointer.  */
-      if (v_ann->mem_tag_kind != NOT_A_TAG)
+	 associated pointer. 
+      
+         Structure fields, on the other hand, have to have some of this
+         information processed for them, but it's pointless to mark them
+         non-addressable (since they are fake variables anyway).  */
+      if (v_ann->mem_tag_kind != NOT_A_TAG
+	  && v_ann->mem_tag_kind != STRUCT_FIELD) 
 	continue;
 
       /* Remove the ADDRESSABLE flag from every addressable variable whose
@@ -1418,18 +1426,13 @@ setup_pointers_and_addressables (struct alias_info *ai)
          of ADDR_EXPR constants into INDIRECT_REF expressions and the
          removal of dead pointer assignments done by the early scalar
          cleanup passes.  */
-      if (TREE_ADDRESSABLE (var))
+      if (TREE_ADDRESSABLE (var) && v_ann->mem_tag_kind != STRUCT_FIELD)
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
-	      subvar_t svars;
-	      /* The address of VAR is not needed, remove the
-		 addressable bit, so that it can be optimized as a
-		 regular variable.  */
-	      mark_non_addressable (var);
-
+	      bool okay_to_mark = true;
 	      /* Since VAR is now a regular GIMPLE register, we will need
 		 to rename VAR into SSA afterwards.  */
 	      bitmap_set_bit (vars_to_rename, v_ann->uid);
@@ -1439,10 +1442,21 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		  && (svars = get_subvars_for_var (var)))
 		{
 		  subvar_t sv;
-		  
+
 		  for (sv = svars; sv; sv = sv->next)
-		    bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
+		    {	      
+		      var_ann_t svann = var_ann (sv->var);
+		      if (bitmap_bit_p (ai->addresses_needed, svann->uid))
+			okay_to_mark = false;
+		      bitmap_set_bit (vars_to_rename, svann->uid);
+		    }
 		}
+	      /* The address of VAR is not needed, remove the
+		 addressable bit, so that it can be optimized as a
+		 regular variable.  */
+	      if (okay_to_mark)
+		mark_non_addressable (var);
+
 	    }
 	  else
 	    {
@@ -1451,6 +1465,15 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		 clobber memory.  In those cases, we need to clobber
 		 all call-clobbered variables and all addressables.  */
 	      bitmap_set_bit (addressable_vars, v_ann->uid);
+	      if (AGGREGATE_TYPE_P (TREE_TYPE (var))
+		  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
+		  && (svars = get_subvars_for_var (var)))
+		{
+		  subvar_t sv;
+		  for (sv = svars; sv; sv = sv->next)
+		    bitmap_set_bit (addressable_vars, var_ann (sv->var)->uid);
+		}
+
 	    }
 	}
 
@@ -1458,20 +1481,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
          entry in ADDRESSABLE_VARS for VAR.  */
       if (may_be_aliased (var))
 	{
-	  subvar_t svars;
-	  
 	  create_alias_map_for (var, ai);
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	  if (AGGREGATE_TYPE_P (TREE_TYPE (var))
-	      && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-	      && (svars = get_subvars_for_var (var)))
-	    {
-	      subvar_t sv;
-
-	      for (sv = svars; sv; sv = sv->next)
-		bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
-	    }
-	  
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);	  
 	}
 
       /* Add pointer variables that have been dereferenced to the POINTERS
@@ -1991,7 +2002,11 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 	{
 	  subvar_t sv;
 	  for (sv = svars; sv; sv = sv->next)
-	    bitmap_set_bit (pi->pt_vars, var_ann (sv->var)->uid);
+	    {
+	      uid = var_ann (sv->var)->uid;
+	      bitmap_set_bit (ai->addresses_needed, uid);	      
+	      bitmap_set_bit (pi->pt_vars, uid);
+	    }
 	}
       else	
 	bitmap_set_bit (pi->pt_vars, uid);	  
@@ -2674,7 +2689,7 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_t) **fieldstack,
 	  VEC_safe_push (fieldoff_t, *fieldstack, pair);
 	}
     }
-  if (TREE_CODE (field) == FIELD_DECL)
+  else if (TREE_CODE (field) == FIELD_DECL)
     {
       pair = xmalloc (sizeof (struct fieldoff));
       pair->field = field;
@@ -2749,7 +2764,7 @@ create_overlap_variables_for (tree var)
       fieldoff_t fo;
       bool notokay = false;
       int i;
-     
+      int count = 0;
       /* Not all fields have DECL_SIZE set for some reason.  Also, we can't
 	 handle variable sized fields.  */
       for (i = 0; VEC_iterate (fieldoff_t, fieldstack, i, fo); i++)
@@ -2757,12 +2772,22 @@ create_overlap_variables_for (tree var)
 	  if (!DECL_SIZE (fo->field) 
 	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST)
 	    {
+#if 0
+	      HOST_WIDE_INT fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
+
+	      if (!((fo->offset <= up->minused
+		   && fo->offset + fosize <= up->minused)
+		    || fo->offset >= up->maxused))
+		{
+		  count++;
+		}
+#endif
 	      notokay = true;
 	      break;
 	    }
 	}
       /* Cleanup after ourselves if we can't create overlap variables.  */
-      if (notokay)
+      if (notokay || count > 8)
 	{
 	  while (VEC_length (fieldoff_t, fieldstack) != 0)
 	    {
@@ -2792,7 +2817,8 @@ create_overlap_variables_for (tree var)
 	    {
 	      free (fo);
 	      continue;
-	    }  
+	    }
+
 	  name = alloca (512);
 	  sv->offset = fo->offset;
 	  sv->size = fosize;
