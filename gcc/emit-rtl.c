@@ -1980,11 +1980,11 @@ set_mem_alias_set (mem, set)
      rtx mem;
      HOST_WIDE_INT set;
 {
-#ifdef ENABLE_CHECKING
+/*#ifdef ENABLE_CHECKING*/
   /* If the new and old alias sets don't conflict, something is wrong.  */
   if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
     abort ();
-#endif
+/*#endif*/
 
   MEM_ATTRS (mem) = get_mem_attrs (set, MEM_EXPR (mem), MEM_OFFSET (mem),
 				   MEM_SIZE (mem), MEM_ALIGN (mem),

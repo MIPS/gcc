@@ -384,7 +384,7 @@ int profile_arc_flag = 0;
 /* Nonzero if we should not attempt to generate thread-safe
    code to profile program flow graph arcs.  */
 
-int flag_unsafe_profile_arcs = 0;
+int flag_unsafe_profile_arcs = 1;
 
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 

@@ -1094,12 +1094,10 @@ branch_prob ()
 
   if (profile_arc_flag)
     {
-#ifdef __GTHREADS
       if (!flag_unsafe_profile_arcs)
         {
           insert_profiler_initialization ();
         }
-#endif
       instrument_edges (el);
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
     }
@@ -1371,11 +1369,9 @@ gen_edge_profiler (edgeno)
 
   start_sequence ();
 
-#ifdef __GTHREADS
   if (!flag_unsafe_profile_arcs)
     tmp = force_reg (Pmode, cfun->arc_counters_adress);
   else
-#endif
     tmp = force_reg (Pmode, profiler_label);
 
   tmp = plus_constant (tmp, GCOV_TYPE_SIZE / BITS_PER_UNIT * edgeno);
@@ -1454,14 +1450,12 @@ output_func_start_profiler ()
   ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 0);
   table_address = force_reg (Pmode,
 			     gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
-#ifdef __GTHREADS
   if (!flag_unsafe_profile_arcs)
     {
       ASM_GENERATE_INTERNAL_LABEL (buf1, "LPBF", 0);
       offset_address = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf1));
     }
   else
-#endif
     {
       offset_address = gen_rtx_CONST_INT (Pmode, 0);
     }

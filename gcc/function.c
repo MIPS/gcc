@@ -6462,7 +6462,6 @@ expand_main_function ()
 		     VOIDmode, 0);
 #endif
 
-#ifdef __GTHREADS
   if (profile_arc_flag && !flag_unsafe_profile_arcs)
     {
       rtx globc =
@@ -6474,7 +6473,6 @@ expand_main_function ()
 
       emit_move_insn (globc, gthr_act);
     }
-#endif
 }
 
 extern struct obstack permanent_obstack;
