@@ -1,3 +1,12 @@
+2003-09-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-iterator.h (tsi_iterator_update): Added TSI_CHAIN_START,
+	TSI_CHAIN_END, TSI_CONTINUE_LINKING and comments.
+	(tsi_link_chain_before, tsi_link_chain_after): Declare.
+	* tree.c (tsi_link_chain_before, tsi_link_chain_after): New.
+	(tsi_link_before, tsi_link_after): Handle new TSI_...
+	positions.
+
 2003-09-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* varray.c (element): Add entry for 'tree *'.
