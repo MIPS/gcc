@@ -1,3 +1,9 @@
+2003-12-15  Per Bothner  <pbothner@apple.com>
+
+	* decl.c (setup_globals):  ANSI-fy function header.
+	* lex.c (lang_clear_identifier):  Likewise.
+	* name-lookup.c (lookup_using_namespace_one):  Likewise.
+
 2003-10-29  Mike Stump  <mrs@apple.com>
 
 	* lang-specs.h: Use the server for PCH compiles.

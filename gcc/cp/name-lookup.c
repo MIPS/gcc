@@ -39,6 +39,8 @@ static void push_local_binding (tree, tree, int);
 static tree push_overloaded_decl (tree, int);
 static bool lookup_using_namespace (tree, cxx_binding *, tree,
                                     tree, int, tree *);
+static bool lookup_using_namespace_one (tree, cxx_binding *, tree,
+					tree, int, tree *);
 static bool qualified_lookup_using_namespace (tree, tree, cxx_binding *, int);
 static tree lookup_type_current_level (tree);
 static tree push_using_directive (tree);

@@ -445,10 +445,8 @@ init_cxx_once (void)
 }
 
 int
-lang_clear_identifier (pfile, node, v)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-     cpp_hashnode *node;
-     void *v ATTRIBUTE_UNUSED;
+lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
+		       cpp_hashnode *node, void *v ATTRIBUTE_UNUSED)
 {
   tree tnode = HT_IDENT_TO_GCC_IDENT (node);
   IDENTIFIER_NAMESPACE_BINDINGS (tnode) = NULL;

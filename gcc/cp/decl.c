@@ -3094,7 +3094,7 @@ init_cxx_decl_processing_once (void)
     flag_const_strings = 0;
 }
 
-void setup_globals ()
+void setup_globals (void)
 {
   /* We use a conditional symbol table, so there isn't anything
      special we need to do here.  */
