@@ -54,7 +54,6 @@ static rtx find_label_refs (rtx, rtx);
 static void make_edges (rtx, basic_block, basic_block, int);
 static void make_label_edge (sbitmap *, basic_block, rtx, int);
 static void make_eh_edge (sbitmap *, basic_block, rtx);
-static void find_bb_boundaries (basic_block);
 static void compute_outgoing_frequencies (basic_block);
 
 /* Return true if insn is something that should be contained inside basic
@@ -109,6 +108,8 @@ control_flow_insn_p (rtx insn)
 	      && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
 
     case CALL_INSN:
+      if (find_reg_note (insn, REG_NORETURN, 0))
+	return true;
       /* Call insn may return to the nonlocal goto handler.  */
       return ((nonlocal_goto_handler_labels
 	       && (0 == (note = find_reg_note (insn, REG_EH_REGION,
@@ -118,6 +119,11 @@ control_flow_insn_p (rtx insn)
 	      || can_throw_internal (insn));
 
     case INSN:
+      /* We represent EH manipulation via unspec followed by barrier.
+         Such instruction is control flow instruction even when there is
+         no other clue specifying it.  */
+      if (NEXT_INSN (insn) && GET_CODE (NEXT_INSN (insn)) == BARRIER)
+	return true;
       return (flag_non_call_exceptions && can_throw_internal (insn));
 
     case BARRIER:
@@ -645,10 +651,13 @@ enum state {BLOCK_NEW = 0, BLOCK_ORIGINAL, BLOCK_TO_SPLIT};
 #define SET_STATE(BB, STATE) ((BB)->aux = (void *) (size_t) (STATE))
 
 /* Scan basic block BB for possible BB boundaries inside the block
-   and create new basic blocks in the progress.  */
+   and create new basic blocks in the progress. 
 
-static void
-find_bb_boundaries (basic_block bb)
+   Collect and return a list of labels whose addresses are taken.  This
+   will be used in make_edges for use with computed gotos.  */
+
+static rtx
+find_bb_boundaries (rtx lvl, basic_block bb)
 {
   rtx insn = BB_HEAD (bb);
   rtx end = BB_END (bb);
@@ -656,7 +665,7 @@ find_bb_boundaries (basic_block bb)
   edge fallthru = NULL;
 
   if (insn == BB_END (bb))
-    return;
+    return lvl;
 
   if (GET_CODE (insn) == CODE_LABEL)
     insn = NEXT_INSN (insn);
@@ -665,6 +674,30 @@ find_bb_boundaries (basic_block bb)
   while (1)
     {
       enum rtx_code code = GET_CODE (insn);
+
+      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx note;
+
+	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+	    if (REG_NOTE_KIND (note) == REG_LABEL)
+	      {
+		rtx lab = XEXP (note, 0), next;
+
+		if ((next = next_nonnote_insn (lab)) != NULL
+			 && GET_CODE (next) == JUMP_INSN
+			 && (GET_CODE (PATTERN (next)) == ADDR_VEC
+			     || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+		  ;
+		else if (GET_CODE (lab) == NOTE)
+		  ;
+		else if (GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
+			 && find_reg_note (NEXT_INSN (insn), REG_LABEL, lab))
+		  ;
+		else
+		  lvl = alloc_EXPR_LIST (0, XEXP (note, 0), lvl);
+	      }
+	}
 
       /* On code label, split current basic block.  */
       if (code == CODE_LABEL)
@@ -708,6 +741,7 @@ find_bb_boundaries (basic_block bb)
      followed by cleanup at fallthru edge, so the outgoing edges may
      be dead.  */
   purge_dead_edges (bb);
+  return lvl;
 }
 
 /*  Assume that frequency of basic block B is known.  Compute frequencies
@@ -751,6 +785,7 @@ void
 find_many_sub_basic_blocks (sbitmap blocks)
 {
   basic_block bb, min, max;
+  rtx label_value_list = NULL;
 
   FOR_EACH_BB (bb)
     SET_STATE (bb,
@@ -758,7 +793,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 
   FOR_EACH_BB (bb)
     if (STATE (bb) == BLOCK_TO_SPLIT)
-      find_bb_boundaries (bb);
+      label_value_list = find_bb_boundaries (label_value_list, bb);
 
   FOR_EACH_BB (bb)
     if (STATE (bb) != BLOCK_ORIGINAL)
@@ -771,7 +806,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 
   /* Now re-scan and wire in all edges.  This expect simple (conditional)
      jumps at the end of each new basic blocks.  */
-  make_edges (NULL, min, max, 1);
+  make_edges (label_value_list, min, max, 1);
 
   /* Update branch probabilities.  Expect only (un)conditional jumps
      to be created with only the forward edges.  */
@@ -808,7 +843,7 @@ find_sub_basic_blocks (basic_block bb)
   basic_block next = bb->next_bb;
 
   min = bb;
-  find_bb_boundaries (bb);
+  find_bb_boundaries (NULL, bb);
   max = next->prev_bb;
 
   /* Now re-scan and wire in all edges.  This expect simple (conditional)
