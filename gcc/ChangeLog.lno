@@ -1,3 +1,10 @@
+2004-07-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR tree-optimization/16807
+	* loop-iv.c (dump_iv_info): Dump invariants correctly.
+	(iv_subreg, iv_extend): Express value of invariant purely in
+	base field.
+
 2004-07-30  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-loop-manip.c (tree_ssa_loop_version): Do not split latch edge.
