@@ -247,7 +247,7 @@ dump_c_node (buffer, node, spc)
 	  /* Print the argument types.  The last element in the list is a 
 	     VOID_TYPE.  The following avoid to print the last element.  */
 	  {
-	    tree tmp = TYPE_ARG_TYPES (TREE_TYPE (fnode));
+	    tree tmp = TYPE_ARG_TYPES (fnode);
 	    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
 	      {
 		dump_c_node (buffer, TREE_VALUE (tmp), spc);
@@ -501,7 +501,12 @@ dump_c_node (buffer, node, spc)
       break;
 
     case COMPONENT_REF:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      op0 = TREE_OPERAND (node, 0);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, '(');
+      dump_c_node (buffer, op0, spc);
+      if (op_prio (op0) < op_prio (node))
+	output_add_character (buffer, ')');
       output_add_character (buffer, '.');
       dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
       break;

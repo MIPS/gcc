@@ -25,6 +25,8 @@
 
 	* c-pretty-print.c (dump_c_node) [ARRAY_REF]: Wrap array in parens
 	as needed.
+	[COMPONENT_REF]: Likewise.
+	[POINTER_TYPE]: Fix pointer-to-function handling.
 	[ARRAY_TYPE]: Don't try to print an unknown dimension.
 
 	* tree-simple.c (is_simple_arraybase): New function.
