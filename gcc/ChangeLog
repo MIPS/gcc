@@ -1,3 +1,12 @@
+Thu Nov 28 08:57:26 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md (athlon-decodev): New reservation unit.
+	(athlon-direct0): New reservation.
+	(athlon-vector): New use athlon-decodev.
+	(athlon-double, athlon-direct): Better model.
+	(athlon_imul_k8): Use athlon-direct0.
+	(athlon_movlpd_load): New insn reservation.
+
 Wed Nov 27 20:34:13 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_sse_partial_regs_for_cvtsd2ss): New.
