@@ -24,36 +24,34 @@
 #include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
-class ClassType { };
-
 void test01()
 {
   bool test __attribute__((unused)) = true;
   using std::tr1::is_arithmetic;
-  using __gnu_test::test_category;
+  using namespace __gnu_test;
   
-  VERIFY( (test_category<is_arithmetic, void, false>()) );
+  VERIFY( (test_category<is_arithmetic, void>(false)) );
 
-  VERIFY( (test_category<is_arithmetic, char, true>()) );
-  VERIFY( (test_category<is_arithmetic, signed char, true>()) );
-  VERIFY( (test_category<is_arithmetic, unsigned char, true>()) );
+  VERIFY( (test_category<is_arithmetic, char>(true)) );
+  VERIFY( (test_category<is_arithmetic, signed char>(true)) );
+  VERIFY( (test_category<is_arithmetic, unsigned char>(true)) );
 #ifdef _GLIBCXX_USE_WCHAR_T
-  VERIFY( (test_category<is_arithmetic, wchar_t, true>()) );
+  VERIFY( (test_category<is_arithmetic, wchar_t>(true)) );
 #endif
-  VERIFY( (test_category<is_arithmetic, short, true>()) );
-  VERIFY( (test_category<is_arithmetic, unsigned short, true>()) );
-  VERIFY( (test_category<is_arithmetic, int, true>()) );
-  VERIFY( (test_category<is_arithmetic, unsigned int, true>()) );
-  VERIFY( (test_category<is_arithmetic, long, true>()) );
-  VERIFY( (test_category<is_arithmetic, unsigned long, true>()) );
-  VERIFY( (test_category<is_arithmetic, long long, true>()) );
-  VERIFY( (test_category<is_arithmetic, unsigned long long, true>()) );
-  VERIFY( (test_category<is_arithmetic, float, true>()) );
-  VERIFY( (test_category<is_arithmetic, double, true>()) );
-  VERIFY( (test_category<is_arithmetic, long double, true>()) );
+  VERIFY( (test_category<is_arithmetic, short>(true)) );
+  VERIFY( (test_category<is_arithmetic, unsigned short>(true)) );
+  VERIFY( (test_category<is_arithmetic, int>(true)) );
+  VERIFY( (test_category<is_arithmetic, unsigned int>(true)) );
+  VERIFY( (test_category<is_arithmetic, long>(true)) );
+  VERIFY( (test_category<is_arithmetic, unsigned long>(true)) );
+  VERIFY( (test_category<is_arithmetic, long long>(true)) );
+  VERIFY( (test_category<is_arithmetic, unsigned long long>(true)) );
+  VERIFY( (test_category<is_arithmetic, float>(true)) );
+  VERIFY( (test_category<is_arithmetic, double>(true)) );
+  VERIFY( (test_category<is_arithmetic, long double>(true)) );
 
   // Sanity check.
-  VERIFY( (test_category<is_arithmetic, ClassType, false>()) );
+  VERIFY( (test_category<is_arithmetic, ClassType>(false)) );
 }
 
 int main()

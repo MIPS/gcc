@@ -24,30 +24,27 @@
 #include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
-class ClassType { };
-
 void test01()
 {
   bool test __attribute__((unused)) = true;
   using std::tr1::is_array;
-  using __gnu_test::test_category;
+  using namespace __gnu_test;
 
-  typedef int        int_array[5];
-  typedef int        empty_int_array[];
-  typedef float*     pointer_array[5];
-  typedef float*     empty_pointer_array[];
-  typedef ClassType  ClassType_array[5];
-  typedef ClassType  empty_ClassType_array[];
-
-  VERIFY( (test_category<is_array, int_array, true>()) );
-  VERIFY( (test_category<is_array, empty_int_array, true>()) );
-  VERIFY( (test_category<is_array, pointer_array, true>()) );
-  VERIFY( (test_category<is_array, empty_pointer_array, true>()) );
-  VERIFY( (test_category<is_array, ClassType_array, true>()) );
-  VERIFY( (test_category<is_array, empty_ClassType_array, true>()) );
+  VERIFY( (test_category<is_array, int[2]>(true)) );
+  VERIFY( (test_category<is_array, int[]>(true)) );
+  VERIFY( (test_category<is_array, int[2][3]>(true)) );
+  VERIFY( (test_category<is_array, int[][3]>(true)) );
+  VERIFY( (test_category<is_array, float*[2]>(true)) );
+  VERIFY( (test_category<is_array, float*[]>(true)) );
+  VERIFY( (test_category<is_array, float*[2][3]>(true)) );
+  VERIFY( (test_category<is_array, float*[][3]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[2]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[2][3]>(true)) );
+  VERIFY( (test_category<is_array, ClassType[][3]>(true)) );
 
   // Sanity check.
-  VERIFY( (test_category<is_array, ClassType, false>()) );
+  VERIFY( (test_category<is_array, ClassType>(false)) );
 }
 
 int main()

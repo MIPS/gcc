@@ -24,35 +24,33 @@
 #include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
-class ClassType { };
-
 void test01()
 {
   bool test __attribute__((unused)) = true;
   using std::tr1::is_fundamental;
-  using __gnu_test::test_category;
+  using namespace __gnu_test;
   
-  VERIFY( (test_category<is_fundamental, void, true>()) );
-  VERIFY( (test_category<is_fundamental, char, true>()) );
-  VERIFY( (test_category<is_fundamental, signed char, true>()) );
-  VERIFY( (test_category<is_fundamental, unsigned char, true>()) );
+  VERIFY( (test_category<is_fundamental, void>(true)) );
+  VERIFY( (test_category<is_fundamental, char>(true)) );
+  VERIFY( (test_category<is_fundamental, signed char>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned char>(true)) );
 #ifdef _GLIBCXX_USE_WCHAR_T
-  VERIFY( (test_category<is_fundamental, wchar_t, true>()) );
+  VERIFY( (test_category<is_fundamental, wchar_t>(true)) );
 #endif
-  VERIFY( (test_category<is_fundamental, short, true>()) );
-  VERIFY( (test_category<is_fundamental, unsigned short, true>()) );
-  VERIFY( (test_category<is_fundamental, int, true>()) );
-  VERIFY( (test_category<is_fundamental, unsigned int, true>()) );
-  VERIFY( (test_category<is_fundamental, long, true>()) );
-  VERIFY( (test_category<is_fundamental, unsigned long, true>()) );
-  VERIFY( (test_category<is_fundamental, long long, true>()) );
-  VERIFY( (test_category<is_fundamental, unsigned long long, true>()) );
-  VERIFY( (test_category<is_fundamental, float, true>()) );
-  VERIFY( (test_category<is_fundamental, double, true>()) );
-  VERIFY( (test_category<is_fundamental, long double, true>()) );
+  VERIFY( (test_category<is_fundamental, short>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned short>(true)) );
+  VERIFY( (test_category<is_fundamental, int>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned int>(true)) );
+  VERIFY( (test_category<is_fundamental, long>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned long>(true)) );
+  VERIFY( (test_category<is_fundamental, long long>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned long long>(true)) );
+  VERIFY( (test_category<is_fundamental, float>(true)) );
+  VERIFY( (test_category<is_fundamental, double>(true)) );
+  VERIFY( (test_category<is_fundamental, long double>(true)) );
 
   // Sanity check.
-  VERIFY( (test_category<is_fundamental, ClassType, false>()) );
+  VERIFY( (test_category<is_fundamental, ClassType>(false)) );
 }
 
 int main()
