@@ -1536,16 +1536,6 @@ add_tree (t, list_p)
 
 /*  Create a new temporary variable declaration of type TYPE.  Returns the
     newly created decl and pushes it into the current binding.  */
-tree 
-create_tmp_var_noc (type, prefix)
-    tree type;
-    const char *prefix;
-{
-  return create_tmp_var (type, prefix);
-} 
-
-/*  Create a new temporary variable declaration of type TYPE.  Returns the
-    newly created decl and pushes it into the current binding.  */
 
 tree
 create_tmp_var (type, prefix)
