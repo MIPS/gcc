@@ -1,7 +1,23 @@
+2002-12-07  Roger Sayle  <roger@eyesopen.com>
+
+	* real.h (real_format): Add signbit field.
+	* real.c (ieee_single_format, ieee_double_format,
+	ieee_extended_motorola_format, ieee_extended_intel_96_format,
+	ieee_extended_intel_128_format, ibm_extended_format,
+	ieee_quad_format, vax_f_format, vax_d_format,
+	vax_g_format, i370_single_format, i370_double_format,
+	c4x_single_format, c4x_extended_format, real_internal_format):
+	Provide suitable signbit value, or -1 to avoid bit twiddling.
+
+	* optabs.c (expand_unop): Try implementing negation of
+	floating point modes by flipping the sign bit.
+	(expand_abs): Try implementing abs of floating point modes
+	by clearing the sign bit.
+
 Sat Dec  7 22:29:47 CET 2002  Jan Hubicka  <jh@suse.cz>
 
-	* i386.c (ix86_expand_int_movcc):  Use force_operand instead of constructing
-	insn directly.
+	* i386.c (ix86_expand_int_movcc):  Use force_operand instead
+	of constructing insn directly.
 
 2002-12-06  Per Bothner  <pbothner@apple.com>
 
