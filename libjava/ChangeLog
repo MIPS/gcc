@@ -1,3 +1,8 @@
+2004-05-18  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(gtkWidgetSetUsize): Remove method.
+
 2004-05-18  David Jee  <djee@redhat.com>
 
 	* java/awt/image/MemoryImageSource.java

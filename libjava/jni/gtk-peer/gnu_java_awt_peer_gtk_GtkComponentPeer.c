@@ -714,19 +714,6 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetPreferredDimensions
   (*env)->ReleaseIntArrayElements (env, jdims, dims, 0);
 }
 
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetUsize (JNIEnv *env, 
-    jobject obj, jint w, jint h)
-{
-  void *ptr;
-
-  ptr = NSA_GET_PTR (env, obj);
-  
-  gdk_threads_enter ();
-  gtk_widget_set_usize (GTK_WIDGET (ptr), w, h);
-  gdk_threads_leave ();
-}
-
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBounds
   (JNIEnv *env, jobject obj, jint x, jint y, jint width, jint height)
 {
