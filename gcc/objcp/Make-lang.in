@@ -115,7 +115,7 @@ $(parsedir)/objcp/objcp-parse.y : $(srcdir)/cp/cp-parse.in
 	  -e "/^ifobjcp$$/d" -e "/^end ifobjcp$$/d" \
 	  -e "/^...ifobjcp...$$/d" -e "/^...end ifobjcp...$$/d" \
 	  $(srcdir)/cp/cp-parse.in >>tmp-objcp-prs.y
-	$(SHELL) $(srcdir)/move-if-change tmp-objcp-prs.y $(parsedir)/objcp/objcp-parse.y
+	$(SHELL) $(srcdir)/../move-if-change tmp-objcp-prs.y $(parsedir)/objcp/objcp-parse.y
 
 # APPLE LOCAL separate outputdir
 objcp/objcp-act.o : $(srcdir)/objc/objc-act.c $(srcdir)/objcp/objcp-decl.h \

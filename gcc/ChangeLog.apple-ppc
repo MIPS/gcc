@@ -1,3 +1,8 @@
+2004-06-25  Mike Stump  <mrs@apple.com>
+
+	* objcp/Make-lang.in (objcp/objcp-parse.y): Update to use
+	move-if-change from top directory.
+
 2004-06-25  Stuart Hastings <stuart@apple.com>
 
 	Radar 3680191
