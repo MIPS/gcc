@@ -270,8 +270,8 @@ enum dump_file_index
   DFI_addressof,
   DFI_gcse,
   DFI_loop,
-  DFI_cse2,
   DFI_cfg,
+  DFI_cse2,
   DFI_bp,
   DFI_life,
   DFI_combine,
@@ -316,8 +316,8 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
-  { "cse2",	't', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
+  { "cse2",	't', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -2632,6 +2632,7 @@ rest_of_compilation (decl)
   int failure = 0;
   int rebuild_label_notes_after_reload;
   int register_life_up_to_date;
+  struct loops loops;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -3156,6 +3157,65 @@ rest_of_compilation (decl)
 
       ggc_collect ();
     }
+  /* Do control and data flow analysis; wrote some of the results to
+     the dump file.  */
+
+  timevar_push (TV_FLOW);
+  open_dump_file (DFI_cfg, decl);
+
+
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+
+  /* It may make more sense to mark constant functions after dead code is
+     eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
+     may insert code making function non-constant, but we still must consider
+     it as constant, otherwise -fbranch-probabilities will not read data back.
+
+     life_analyzis rarely eliminates modification of external memory.  */
+  mark_constant_function ();
+
+  if (optimize)
+    {
+      /* Discover and record the loop depth at the head of each basic
+	 block.  The loop infrastructure does the real job for us.  */
+      flow_loops_find (&loops, LOOP_TREE);
+
+      if (rtl_dump_file)
+	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
+    }
+
+  if (flag_tracer)
+    tracer ();
+
+  close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
+  timevar_pop (TV_FLOW);
+
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      open_dump_file (DFI_bp, decl);
+
+      branch_prob ();
+
+      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      timevar_pop (TV_BRANCH_PROB);
+    }
+  else if (flag_guess_branch_prob)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      open_dump_file (DFI_bp, decl);
+      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+
+      /* Estimate using heuristics if no profiling info is available.  */
+      if (flag_guess_branch_prob)
+	estimate_probability (&loops);
+
+      timevar_pop (TV_BRANCH_PROB);
+    }
+  if (optimize)
+    flow_loops_free (&loops);
 
   if (optimize > 0)
     {
@@ -3175,7 +3235,7 @@ rest_of_compilation (decl)
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in jump work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  delete_trivially_dead_insns (insns, max_reg_num (), 1);
 
 	  reg_scan (insns, max_reg_num (), 0);
 
@@ -3190,18 +3250,16 @@ rest_of_compilation (decl)
 	  timevar_pop (TV_JUMP);
 
 	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
 	  reg_scan (insns, max_reg_num (), 0);
 	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+	  purge_all_dead_edges (false);
 
 	  if (tem)
 	    {
 	      timevar_push (TV_JUMP);
 	      rebuild_jump_labels (insns);
-	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	      cleanup_cfg (CLEANUP_EXPENSIVE);
 	      /* CFG is no longer maintained up-to-date.  */
-	      free_bb_for_insn ();
 	      timevar_pop (TV_JUMP);
 	    }
 	}
@@ -3214,61 +3272,16 @@ rest_of_compilation (decl)
 
   cse_not_expected = 1;
 
-  regclass_init ();
-
-  /* Do control and data flow analysis; wrote some of the results to
-     the dump file.  */
-
   timevar_push (TV_FLOW);
-  open_dump_file (DFI_cfg, decl);
-
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-  check_function_return_warnings ();
-
-  /* It may make more sense to mark constant functions after dead code is
-     eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
-     may insert code making function non-constant, but we still must consider
-     it as constant, otherwise -fbranch-probabilities will not read data back.
-
-     life_analyzis rarely eliminates modification of external memory.
-   */
-  mark_constant_function ();
-
-  close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
-
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      open_dump_file (DFI_bp, decl);
-
-      branch_prob ();
-
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
-      timevar_pop (TV_BRANCH_PROB);
-    }
 
   open_dump_file (DFI_life, decl);
-  if (optimize)
-    {
-      struct loops loops;
 
-      /* Discover and record the loop depth at the head of each basic
-	 block.  The loop infrastructure does the real job for us.  */
-      flow_loops_find (&loops, LOOP_TREE);
+  regclass_init ();
 
-      /* Estimate using heuristics if no profiling info is available.  */
-      if (flag_guess_branch_prob)
-	estimate_probability (&loops);
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-      if (rtl_dump_file)
-	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
-
-      flow_loops_free (&loops);
-    }
-  if (flag_tracer)
-    tracer ();
+  check_function_return_warnings ();
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   timevar_pop (TV_FLOW);
 
