@@ -78,7 +78,7 @@ internal_pack_4 (g95_array_i4 * source)
   dest = destptr;
   src = source->data;
   stride0 = stride[0];
-  
+
 
   while (src)
     {

@@ -480,7 +480,7 @@ I_M4_DEPS = m4/iparm.m4 m4/types.m4
 I_M4_DEPS0 = $(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1 = $(I_M4_DEPS) m4/ifunction.m4
 
-EXTRA_DIST = autogen gcc_config.patch $(m4_files)
+EXTRA_DIST = $(m4_files)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs

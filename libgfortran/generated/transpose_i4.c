@@ -59,7 +59,7 @@ __transpose_4 (g95_array_i4 * ret, g95_array_i4 * source)
       for (x=0; x < xcount; x++)
         {
           *rptr = *sptr;
-          
+
           sptr += sxstride;
           rptr += rystride;
         }

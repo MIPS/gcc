@@ -78,7 +78,7 @@ internal_pack_8 (g95_array_i8 * source)
   dest = destptr;
   src = source->data;
   stride0 = stride[0];
-  
+
 
   while (src)
     {

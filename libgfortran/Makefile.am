@@ -401,5 +401,5 @@ $(gfor_built_specific2_c): m4/specific2.m4 m4/head.m4
 ## end of maintainer mode only rules
 endif
 
-EXTRA_DIST = autogen gcc_config.patch $(m4_files)
+EXTRA_DIST = $(m4_files)
 

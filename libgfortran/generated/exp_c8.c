@@ -91,7 +91,7 @@ csqrt (G95_COMPLEX_8 z)
   G95_REAL_8 re;
   G95_REAL_8 im;
   G95_COMPLEX_8 v;
-  
+
   re = REALPART (re);
   im = IMAGPART (im);
   if (im == 0.0)
@@ -109,7 +109,7 @@ csqrt (G95_COMPLEX_8 z)
   else if (re == 0.0)
     {
       G95_REAL_8 r;
-      
+
       r = sqrt (0.5 * fabs (im));
 
       COMPLEX_ASSIGN (v, copysign (r, im), r);

@@ -91,7 +91,7 @@ csqrtf (G95_COMPLEX_4 z)
   G95_REAL_4 re;
   G95_REAL_4 im;
   G95_COMPLEX_4 v;
-  
+
   re = REALPART (re);
   im = IMAGPART (im);
   if (im == 0.0)
@@ -109,7 +109,7 @@ csqrtf (G95_COMPLEX_4 z)
   else if (re == 0.0)
     {
       G95_REAL_4 r;
-      
+
       r = sqrtf (0.5 * fabs (im));
 
       COMPLEX_ASSIGN (v, copysignf (r, im), r);
