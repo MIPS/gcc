@@ -1,3 +1,10 @@
+2003-12-06  Andrew Pinski <apinski@apple.com>
+
+	partial PR libmudflap/12670
+	* mf-hooks1.c: Respect Darwin checks.  Conditionalize POSIX_SOURCE.
+	* mf-hooks2.c: Likewise.
+	* mf-hooks3.c: Likewise.
+
 2003-11-19  Frank Ch. Eigler  <fche@redhat.com>
 
 	libstdc++/11696
