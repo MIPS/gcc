@@ -1,3 +1,7 @@
+2003-08-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-inline.c (expand_calls_inline): Fix comments.
+
 2003-07-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa-ccp.o): Depend on $(EXPR_H).

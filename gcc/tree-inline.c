@@ -1279,12 +1279,12 @@ expand_calls_inline (tree *tp, inline_data *id)
         }
       else if (code == CATCH_EXPR)
         {
-	  /* Dive into the SWITCH_EXPR.  */
+	  /* Dive into the CATCH_EXPR.  */
 	  expand_calls_inline (&CATCH_BODY (*stmt_p), id);
         }
       else if (code == EH_FILTER_EXPR)
         {
-	  /* Dive into the SWITCH_EXPR.  */
+	  /* Dive into the EH_FILTER_EXPR.  */
 	  expand_calls_inline (&EH_FILTER_FAILURE (*stmt_p), id);
         }
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
@@ -1306,7 +1306,7 @@ expand_calls_inline (tree *tp, inline_data *id)
         }
       else if (code == COMPOUND_EXPR)
         {
-	  /* Dive into the BIND_EXPR, this should only happen at
+	  /* Dive into the COMPOUND_EXPR; this should only happen at
 	     the end of a function tree, so the recursion isn't nearly
 	     as bad as you might think.  */
 	  expand_calls_inline (&TREE_OPERAND (*stmt_p, 0), id);
