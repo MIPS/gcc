@@ -153,7 +153,8 @@ do {									\
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch_ld_spec",	DARWIN_ARCH_LD_SPEC },     \
-  { "darwin_arch", "ppc" },
+  /* APPLE LOCAL mainline */ \
+  { "darwin_arch", "%{m64:ppc64} %{!m64:ppc}" },
 /* APPLE LOCAL end .machine assembler directive */
 
 /* Output a .machine directive.  */
