@@ -1,3 +1,9 @@
+2004-06-11  David Jee  <djee@redhat.com>
+
+	* java/awt/MediaTracker.java
+	(addImage(Image,int)): Call imageUpdate() to udpate image status.
+	(addImage(Image,int,int,int)): Likewise.
+
 2004-06-11  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/AbstractDocument.java,

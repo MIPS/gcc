@@ -111,7 +111,8 @@ public class MediaTracker implements java.io.Serializable
     e.next = head;
     head = e;
     // Start tracking image status.
-    target.checkImage(image, e);
+    int flags = target.checkImage(image, e);
+    e.imageUpdate(image, flags, -1, -1, -1, -1);
   }
 
   public void addImage(Image image, int id, int width, int height)
@@ -124,7 +125,8 @@ public class MediaTracker implements java.io.Serializable
     e.height = height;
     head = e;
     // Start tracking image status.
-    target.checkImage(image, width, height, e);
+    int flags = target.checkImage(image, width, height, e);
+    e.imageUpdate(image, flags, -1, -1, width, height);
   }
 
   public boolean checkAll()
