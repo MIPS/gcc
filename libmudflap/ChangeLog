@@ -1,3 +1,12 @@
+2003-12-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.c (__mf_watch_or_not): Tweak tracing message.
+	* testsuite/libmudflap.c/fail21-frag.c: Defeat aliasing
+	optimizations.
+	* testsuite/libmudflap.c/pass25-frag.c: Ditto.
+	* testsuite/libmudflap.c/pass26-frag.c: Tolerate non-overlapping
+	(unoptimized) allocation of stack space.
+
 2003-12-07  Richard Henderson  <rth@redhat.com>
 
 	* testsuite/libmudflap.c/fail23-frag.c (main): Adjust addend to 11.

@@ -3,12 +3,12 @@
 #include <string.h>
 int main ()
 {
-int *p;
+volatile int *p;
 
 __mf_set_options ("-wipe-stack -no-check-initialization");
 
 {
-  int array [10];
+  volatile int array [10];
   p = & array[0];
 
   array[0] = 2;
@@ -20,11 +20,11 @@ __mf_set_options ("-wipe-stack -no-check-initialization");
 __mf_set_options ("-no-wipe-stack");
 
 { 
-  int array2[10];
+  volatile int array2[10];
 
  /* hope that this is allocated on top of old array[] */  
   if (p != & array2[0])
-    abort ();
+    exit (0);  /* Test is not applicable. */
 
   array2[5] = 6;
 
@@ -36,11 +36,11 @@ __mf_set_options ("-no-wipe-stack");
 }
 
 { 
-  int array3[10];
+  volatile int array3[10];
 
  /* hope that this is allocated on top of old array[] and array2[]*/  
   if (p != & array3[0])
-    abort ();
+    exit (0);  /* Test is not applicable. */
 
   array3[1] = 2;
 

@@ -2264,7 +2264,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   uintptr_t ptr_low = (uintptr_t) ptr;
   unsigned count = 0;
 
-  TRACE ("%s ptr=%p size=%lu",
+  TRACE ("%s ptr=%p size=%lu\n",
 	 (flag ? "watch" : "unwatch"), ptr, (unsigned long) sz);
   
   switch (__mf_opts.mudflap_mode)
@@ -2312,8 +2312,6 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
       }
       break;
     }
-
-  TRACE (" hits=%u\n", count);
 
   return count;
 }
