@@ -1,7 +1,17 @@
+Tue Nov  2 10:37:25 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.md (anddi3): Allow disjoint source operands.
+	(iordi3): Allow disjoint source operands.
+	(xordi3): Allow disjoint source operands.
+	(negdi2): Permit construction for ARM and Thumb.
+	(arm_negdi2): Renamed version of old negdi2 pattern.
+	(thumb_negdi2): New pattern: Only permit non-overlapping
+	source and destination.
+
 Mon Nov  1 14:21:00 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.c (thumb_expand_prologue): Add comments
-	explaining what is goin on in this function.
+	explaining what is going on in this function.
 
 Fri Oct 29 18:52:38 1999  Nick Clifton  <nickc@cygnus.com>
 

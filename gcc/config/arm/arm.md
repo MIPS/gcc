@@ -1579,9 +1579,9 @@
 }")
 
 (define_insn "anddi3"
-  [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
-	(and:DI (match_operand:DI 1 "s_register_operand" "%0,0")
-		(match_operand:DI 2 "s_register_operand" "r,0")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
+	(and:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
+		(match_operand:DI 2 "s_register_operand"   "r,r")))]
   "TARGET_ARM"
   "#"
 [(set_attr "length" "8")])
@@ -1991,9 +1991,9 @@
 [(set_attr "conds" "set")])
 
 (define_insn "iordi3"
-  [(set (match_operand:DI 0 "s_register_operand" "=&r")
-	(ior:DI (match_operand:DI 1 "s_register_operand" "%0")
-		(match_operand:DI 2 "s_register_operand" "r")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
+	(ior:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
+		(match_operand:DI 2 "s_register_operand"   "r,r")))]
   "TARGET_ARM"
   "#"
   [(set_attr "length" "8")]
@@ -2098,9 +2098,9 @@
 [(set_attr "conds" "set")])
 
 (define_insn "xordi3"
-  [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
-	(xor:DI (match_operand:DI 1 "s_register_operand" "%0,0")
-		(match_operand:DI 2 "s_register_operand" "r,0")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
+	(xor:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
+		(match_operand:DI 2 "s_register_operand"   "r,r")))]
   "TARGET_ARM"
   "#"
   [(set_attr "length" "8")]
@@ -2532,13 +2532,44 @@
 
 ;; Unary arithmetic insns
 
-(define_insn "negdi2"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(neg:DI (match_operand:DI 1 "s_register_operand" "?r,0")))]
+(define_expand "negdi2"
+ [(parallel
+   [(set (match_operand:DI          0 "s_register_operand" "")
+	  (neg:DI (match_operand:DI 1 "s_register_operand" "")))
+    (clobber (reg:CC 24))
+   ])
+  ]
+  "TARGET_EITHER"
+  "
+  if (TARGET_THUMB)
+    {
+      if (GET_CODE (operands[1]) != REG)
+        operands[1] = force_reg (SImode, operands[1]);
+     }
+   "
+)
+
+;; The constraints here are to prevent a *partial* overlap (where %Q0 == %R1).
+;; The second alternative is to allow the common case of a *full* overlap.
+(define_insn "*arm_negdi2"
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,r")
+	(neg:DI (match_operand:DI 1 "s_register_operand"  "?r,0")))
+   (clobber (reg:CC 24))
+  ]
   "TARGET_ARM"
   "rsbs\\t%Q0, %Q1, #0\;rsc\\t%R0, %R1, #0"
   [(set_attr "conds" "clob")
    (set_attr "length" "8")]
+)
+
+(define_insn "*thumb_negdi2"
+  [(set (match_operand:DI         0 "register_operand" "=&l")
+	(neg:DI (match_operand:DI 1 "register_operand"   "l")))
+   (clobber (reg:CC 24))
+  ]
+  "TARGET_THUMB"
+  "mov\\t%R0, #0\;neg\\t%Q0, %Q1\;sbc\\t%R0, %R1"
+  [(set_attr "length" "6")]
 )
 
 (define_expand "negsi2"
