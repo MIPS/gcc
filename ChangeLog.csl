@@ -1,5 +1,14 @@
 2004-09-24  Mark Mitchell <mark@codesourcery.com>
 
+	Revert:
+	2004-09-24  Mark Mitchell <mark@codesourcery.com>
+	* gcc/config/sol2-c.c (cmn_err_flag_specs): Add "#"
+	(cmn_err_char_table): Likewise.
+	(solaris_format_types): Likewise.
+	* gcc/testsuite/gcc.dg/format/cmn-err-1.c: Add "#" tests.
+
+2004-09-24  Mark Mitchell <mark@codesourcery.com>
+
 	* gcc/config/i386/sol2-10.h (LIBGCC_SPEC): Add support for -nolibgcc.
 
 	* gcc/config/sol2-c.c (cmn_err_flag_specs): Add "#"
