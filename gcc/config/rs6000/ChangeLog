@@ -1,3 +1,7 @@
+2000-02-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.md (mfcr+shift): Delete PowerPC64 version.
+
 2000-02-15  David Edelsohn  <edelsohn@gnu.org>
 
 	* rs6000.c (reg_or_u_cint_operand): New function.
@@ -19,6 +23,7 @@
 
 	* rs6000.md: Correct instructions length attributes and
 	constraints on unsigned compare instructions.
+	(*ne0): Disable for PowerPC64.
 
 2000-02-11  Geoff Keating  <geoffk@cygnus.com>
 
