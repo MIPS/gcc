@@ -85,11 +85,32 @@ proc check_effective_target_lp64_or_vect_no_align { } {
     return $answer
 }
 
+# Return 1 if the effective target is i?86-*-* or x86_64-*-* or if the 
+# effective target does not support a vector alignment mechanism.
+
+proc check_effective_target_86_or_vect_no_align { } {
+    if { [istarget "i?86-*-*"]
+	  || [istarget "x86_64-*-*"]
+	  || [is-effective-target vect_no_align] } {
+	set answer 1
+    } else {
+	set answer 0
+    }
+    return $answer
+}
+
 # Initialize `dg'.
 dg-init
 
 # Main loop.
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# Disable versioning.
+lappend DEFAULT_VECTCFLAGS "-fno-tree-vect-loop-version"
+
+# Main loop. Run tests in no_version directory.
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no_version/*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # Clean up.
