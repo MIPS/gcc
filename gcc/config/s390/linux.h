@@ -33,6 +33,13 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (Linux for S/390)");
 #endif
 
+/* Multilib default.  */
+
+#ifdef DEFAULT_TARGET_64BIT
+#define MULTILIB_DEFAULTS { "m64" }
+#else
+#define MULTILIB_DEFAULTS { "m31" }
+#endif
 
 /* Target specific type definitions.  */
 
