@@ -245,7 +245,10 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
 
   /* In all cases, the initializer is a constant.  */
   if (init)
-    TREE_CONSTANT (init) = 1;
+    {
+      TREE_CONSTANT (init) = 1;
+      TREE_INVARIANT (init) = 1;
+    }
 
   return init;
 }
@@ -724,10 +727,7 @@ build_vtbl_address (tree binfo)
   /* Now compute the address to use when initializing the vptr.  */
   vtbl = unshare_expr (BINFO_VTABLE (binfo_for));
   if (TREE_CODE (vtbl) == VAR_DECL)
-    {
-      vtbl = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (vtbl)), vtbl);
-      TREE_CONSTANT (vtbl) = 1;
-    }
+    vtbl = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (vtbl)), vtbl);
 
   return vtbl;
 }

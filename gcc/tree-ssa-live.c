@@ -120,7 +120,7 @@ register_ssa_partition (var_map map, tree ssa_var)
 	for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
 	  {
 	    arg = PHI_ARG_DEF (stmt, i);
-	    if (!TREE_CONSTANT (arg))
+	    if (phi_ssa_name_p (arg))
 	      register_ssa_partition (map, arg);
 	  }
     }
@@ -550,7 +550,7 @@ calculate_live_on_entry (var_map map)
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      var = PHI_ARG_DEF (phi, i);
-	      if (TREE_CONSTANT (var))
+	      if (!phi_ssa_name_p (var))
 	        continue;
 	      stmt = SSA_NAME_DEF_STMT (var);
 	      e = PHI_ARG_EDGE (phi, i);
@@ -742,7 +742,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 	  { 
 	    t = PHI_ARG_DEF (phi, i);
 	    e = PHI_ARG_EDGE (phi, i);
-	    if (TREE_CONSTANT (t) || e->src == ENTRY_BLOCK_PTR)
+	    if (!phi_ssa_name_p (t) || e->src == ENTRY_BLOCK_PTR)
 	      continue;
 	    set_if_valid (map, on_exit[e->src->index], t);
 	  }

@@ -132,7 +132,10 @@ copyprop_stmt (tree stmt)
     }
 
   if (modified)
-    modify_stmt (stmt);
+    {
+      fold_stmt (&stmt);
+      modify_stmt (stmt);
+    }
 }
 
 

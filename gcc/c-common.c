@@ -1209,6 +1209,7 @@ fix_string_type (tree value)
 			  build_index_type (build_int_2 (nchars - 1, 0)));
 
   TREE_CONSTANT (value) = 1;
+  TREE_INVARIANT (value) = 1;
   TREE_READONLY (value) = ! flag_writable_strings;
   TREE_STATIC (value) = 1;
   return value;
@@ -2503,9 +2504,6 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 {
   tree size_exp;
 
-  tree result;
-  tree folded;
-
   /* The result is a pointer of the same type that is being added.  */
 
   tree result_type = TREE_TYPE (ptrop);
@@ -2585,13 +2583,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
-
-  result = build (resultcode, result_type, ptrop, intop);
-
-  folded = fold (result);
-  if (folded == result)
-    TREE_CONSTANT (folded) = TREE_CONSTANT (ptrop) & TREE_CONSTANT (intop);
-  return folded;
+  return fold (build (resultcode, result_type, ptrop, intop));
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
@@ -4024,7 +4016,6 @@ finish_label_address_expr (tree label)
     {
       TREE_USED (label) = 1;
       result = build1 (ADDR_EXPR, ptr_type_node, label);
-      TREE_CONSTANT (result) = 1;
       /* The current function in not necessarily uninlinable.
 	 Computed gotos are incompatible with inlining, but the value
 	 here could be used only in a diagnostic, for example.  */

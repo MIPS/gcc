@@ -860,8 +860,12 @@ insert_copy_on_edge (edge e, tree dest, tree src)
 
   copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
   set_is_used (dest);
-  if (DECL_P (src))
+
+  if (TREE_CODE (src) == ADDR_EXPR)
+    src = TREE_OPERAND (src, 0);
+  if (TREE_CODE (src) == VAR_DECL || TREE_CODE (src) == PARM_DECL)
     set_is_used (src);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
@@ -988,7 +992,7 @@ eliminate_build (elim_graph g, basic_block B, int i)
 	    abort();
 	  Ti = PHI_ARG_DEF (phi, pi);
 	}
-      if (TREE_CONSTANT (Ti))
+      if (!phi_ssa_name_p (Ti))
         {
 	  /* Save constant copies until all other copies have been emitted
 	     on this edge.  */
@@ -1212,7 +1216,7 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	      abort ();
 
 	    tmp = PHI_ARG_DEF (phi, y);
-	    if (TREE_CONSTANT (tmp))
+	    if (!phi_ssa_name_p (tmp))
 	      {
 	        print_exprs_edge (stderr, e,
 				  "\nConstant argument in PHI. Can't insert :",
@@ -1527,7 +1531,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
 	    {
 	      arg = PHI_ARG_DEF (phi, x);
-	      if (TREE_CONSTANT (arg))
+	      if (!phi_ssa_name_p (arg))
 	        continue;
 	      p2 = var_to_partition (map, arg);
 #ifdef ENABLE_CHECKING

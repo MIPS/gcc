@@ -115,7 +115,7 @@ static void simulate_stmt (tree);
 static void substitute_and_fold (sbitmap);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
-static bool replace_uses_in (tree);
+static bool replace_uses_in (tree, bool *);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
 static void set_rhs (tree *, tree);
@@ -357,6 +357,7 @@ substitute_and_fold (sbitmap vars_to_rename)
 
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
+          bool replaced_address;
 	  tree stmt = bsi_stmt (i);
 
 	  /* Skip statements that have been folded already.  */
@@ -371,16 +372,11 @@ substitute_and_fold (sbitmap vars_to_rename)
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 
-	  if (replace_uses_in (stmt))
+	  if (replace_uses_in (stmt, &replaced_address))
 	    {
 	      fold_stmt (bsi_stmt_ptr (i));
 	      modify_stmt (stmt);
-
-	      /* If the statement is an assignment involving pointer
-		 dereferences, we may have exposed new symbols.  */
-	      if (TREE_CODE (stmt) == MODIFY_EXPR
-		  && (TREE_CODE (TREE_OPERAND (stmt, 0)) == INDIRECT_REF
-		      || TREE_CODE (TREE_OPERAND (stmt, 1)) == INDIRECT_REF))
+	      if (replaced_address)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
@@ -460,7 +456,7 @@ visit_phi_node (tree phi)
 	    tree rdef = PHI_ARG_DEF (phi, i);
 	    value *rdef_val, val;
 
-	    if (TREE_CONSTANT (rdef))
+	    if (is_gimple_min_invariant (rdef))
 	      {
 		val.lattice_val = CONSTANT;
 		val.const_val = rdef;
@@ -800,7 +796,7 @@ ccp_fold (tree stmt)
 	 replacement for an argument (as it would create non-gimple
 	 code).  But the new expression can still be used to derive
 	 other constants.  */
-      if (! retval && is_unchanging_value (op0))
+      if (! retval && is_gimple_min_invariant (op0))
 	return build1 (code, TREE_TYPE (rhs), op0);
     }
 
@@ -849,8 +845,8 @@ ccp_fold (tree stmt)
 	 code).  But the new expression can still be used to derive
 	 other constants.  */
       if (! retval
-	  && is_unchanging_value (op0)
-	  && is_unchanging_value (op1))
+	  && is_gimple_min_invariant (op0)
+	  && is_gimple_min_invariant (op1))
 	return build (code, TREE_TYPE (rhs), op0, op1);
     }
 
@@ -874,7 +870,7 @@ ccp_fold (tree stmt)
 	    orig[i] = *(VARRAY_TREE_PTR (uses, i));
 
 	  /* Substitute operands with their values and try to fold.  */
-	  replace_uses_in (stmt);
+	  replace_uses_in (stmt, NULL);
 	  retval = fold_builtin (rhs);
 
 	  /* Restore operands to their original form.  */
@@ -923,7 +919,7 @@ evaluate_stmt (tree stmt)
   else
     simplified = NULL_TREE;
 
-  if (simplified && is_unchanging_value (simplified))
+  if (simplified && is_gimple_min_invariant (simplified))
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
@@ -1366,14 +1362,19 @@ set_lattice_value (tree var, value val)
 
 
 /* Replace USE references in statement STMT with their immediate reaching
-   definition.  Return true if at least one reference was replaced.  */
+   definition.  Return true if at least one reference was replaced.  If
+   REPLACED_ADDRESSES_P is given, it will be set to true if an address
+   constant was replaced.  */
 
 static bool
-replace_uses_in (tree stmt)
+replace_uses_in (tree stmt, bool *replaced_addresses_p)
 {
   bool replaced = false;
   varray_type uses;
   size_t i;
+
+  if (replaced_addresses_p)
+    *replaced_addresses_p = false;
 
   get_stmt_operands (stmt);
 
@@ -1387,6 +1388,8 @@ replace_uses_in (tree stmt)
 	{
 	  *use = val->const_val;
 	  replaced = true;
+	  if (POINTER_TYPE_P (TREE_TYPE (*use)) && replaced_addresses_p)
+	    *replaced_addresses_p = true;
 	}
     }
 
@@ -1472,6 +1475,149 @@ likely_value (tree stmt)
   return ((found_constant || !uses) ? CONSTANT : VARYING);
 }
 
+/* Subroutine of fold_stmt called via walk_tree.  If *EXPR_P is of the 
+   form *&DECL, it is converted to DECL.  Similarly for offsets, which
+   get converted to array references if possible.  Return non-null if
+   the folding generates/exposes undefined code.  */
+
+static tree
+fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
+		      void *data)
+{
+  bool *changed_p = data;
+  tree expr = *expr_p;
+  tree offset, base, t;
+
+  if (TREE_CODE (expr) == INDIRECT_REF)
+    {
+      base = TREE_OPERAND (expr, 0);
+      offset = integer_zero_node;
+    }
+  else if (TREE_CODE (expr) == ARRAY_REF)
+    {
+      base = TREE_OPERAND (expr, 0);
+      offset = TREE_OPERAND (expr, 1);
+      if (TREE_CODE (offset) != INTEGER_CST)
+	return NULL_TREE;
+    }
+  else
+    return NULL_TREE;
+
+  /* We may well have constructed a double-nested PLUS_EXPR via multiple
+     substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
+     are sometimes added.  */
+  base = fold (base);
+  STRIP_NOPS (base);
+  TREE_OPERAND (expr, 0) = base;
+
+  /* One possibility is that the address reduces to a string constant.  */
+  t = fold_read_from_constant_string (expr);
+  if (t)
+    {
+      *expr_p = t;
+      *changed_p = true;
+      return NULL_TREE;
+    }
+
+  /* Add in any offset from a PLUS_EXPR.  */
+  if (TREE_CODE (base) == PLUS_EXPR)
+    {
+      tree offset2;
+
+      offset2 = TREE_OPERAND (base, 1);
+      if (TREE_CODE (offset2) != INTEGER_CST)
+	return NULL_TREE;
+      base = TREE_OPERAND (base, 0);
+
+      offset = fold (build (PLUS_EXPR, TREE_TYPE (offset), offset, offset2));
+    }
+
+  if (TREE_CODE (base) != ADDR_EXPR)
+    {
+      /* We can get here for out-of-range string constant accesses, 
+	 such as "_"[3].  Bail out of the entire substitution search
+	 and arrange for the entire statement to be replaced by a
+	 call to __builtin_trap.  In all likelyhood this will all be
+	 constant-folded away, but in the meantime we can't leave with
+	 something that get_expr_operands can't understand.  */
+      STRIP_NOPS (base);
+      if (TREE_CODE (base) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (base, 0)) == STRING_CST)
+	{
+	  /* FIXME: Except that this causes problems elsewhere with dead
+	     code not being deleted, and we abort in the rtl expanders 
+	     because we failed to remove some ssa_name.  In the meantime,
+	     just return zero.  */
+	  /* FIXME2: This condition should be signaled by
+	     fold_read_from_constant_string directly, rather than 
+	     re-checking for it here.  */
+#if 0
+	  return base;
+#else
+	  *expr_p = integer_zero_node;
+#endif
+	}
+
+      return NULL_TREE;
+    }
+  base = TREE_OPERAND (base, 0);
+
+  if (integer_zerop (offset))
+    {
+      /* If the variable is of ARRAY_TYPE, and we're actually dereferencing
+	 an element of the array, we need to build an array reference rather
+	 than re-use the existing INDIRECT_REF.  */
+      if (TREE_CODE (TREE_TYPE (base)) == ARRAY_TYPE
+	  && (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (base)))))
+	t = build (ARRAY_REF, TREE_TYPE (expr), base,
+		   TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (expr))));
+      else
+	t = base;
+    }
+  else
+    {
+      unsigned HOST_WIDE_INT lquo, lrem;
+      HOST_WIDE_INT hquo, hrem;
+      tree elt_size, min_idx, idx;
+
+      /* Ignore stupid user tricks of indexing non-array variables.  */
+      if (TREE_CODE (TREE_TYPE (base)) != ARRAY_TYPE
+	  || (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
+	      != TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (base)))))
+	return NULL_TREE;
+	
+      /* Whee.  Ignore indexing of variable sized types.  */
+      elt_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (base)));
+      if (TREE_CODE (elt_size) != INTEGER_CST)
+	return NULL_TREE;
+
+      /* If the division isn't exact, then don't do anything.  Equally
+	 invalid as the above indexing of non-array variables.  */
+      if (div_and_round_double (TRUNC_DIV_EXPR, 1,
+				TREE_INT_CST_LOW (offset),
+				TREE_INT_CST_HIGH (offset),
+				TREE_INT_CST_LOW (elt_size),
+				TREE_INT_CST_HIGH (elt_size),
+				&lquo, &hquo, &lrem, &hrem)
+	  || lrem || hrem)
+	return NULL_TREE;
+      idx = build_int_2_wide (lquo, hquo);
+
+      /* Re-bias the index by the min index of the array type.  */
+      min_idx = TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (base)));
+      idx = convert (TREE_TYPE (min_idx), idx);
+      if (!integer_zerop (min_idx))
+        idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx), idx, min_idx));
+
+      t = build (ARRAY_REF, TREE_TYPE (expr), base, idx);
+    }
+
+  *expr_p = t;
+  *changed_p = true;
+
+  return NULL_TREE;
+}
 
 /* Fold the statement pointed by STMT_P.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
@@ -1484,43 +1630,43 @@ fold_stmt (tree *stmt_p)
   bool changed = false;
 
   stmt = *stmt_p;
-  rhs = get_rhs (stmt);
-  if (rhs && !TREE_CONSTANT (rhs))
+
+  /* If we replaced constants and the statement makes pointer dereferences,
+     then we may need to fold instances of *&VAR into VAR, etc.  */
+  if (walk_tree (stmt_p, fold_indirect_refs_r, &changed, NULL))
     {
-      result = NULL_TREE;
+      *stmt_p
+	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
+				    NULL);
+      return true;
+    }
 
-      /* Check for builtins that CCP can handle using information not
-	 available in the generic fold routines.  */
-      if (TREE_CODE (rhs) == CALL_EXPR)
-	{
-	  tree callee = get_callee_fndecl (rhs);
-	  if (callee && DECL_BUILT_IN (callee))
-	    result = ccp_fold_builtin (stmt, rhs);
-	}
+  rhs = get_rhs (stmt);
+  result = NULL_TREE;
 
-      /* Optimize *"foo" into 'f'.  This is done here rather than
-         in fold to avoid problems with stuff like &*"foo".  */
-      if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
-	result = fold_read_from_constant_string (rhs);
+  /* Check for builtins that CCP can handle using information not
+     available in the generic fold routines.  */
+  if (TREE_CODE (rhs) == CALL_EXPR)
+    {
+      tree callee = get_callee_fndecl (rhs);
+      if (callee && DECL_BUILT_IN (callee))
+	result = ccp_fold_builtin (stmt, rhs);
+    }
 
-      /* If we couldn't fold the RHS, hand it over to the generic fold
-	 routines.  */
-      if (result == NULL_TREE)
-	result = fold (rhs);
+  /* If we couldn't fold the RHS, hand over to the generic fold routines.  */
+  if (result == NULL_TREE)
+    result = fold (rhs);
 
-      /* Strip away useless type conversions.  */
-      if (result != rhs)
-	{
-	  changed = true;
-	  STRIP_MAIN_TYPE_NOPS (result);
-	}
-
+  /* Strip away useless type conversions.  */
+  if (result != rhs)
+    {
+      changed = true;
+      STRIP_MAIN_TYPE_NOPS (result);
       set_rhs (stmt_p, result);
     }
 
   return changed;
 }
-
 
 /* Get the main expression from statement STMT.  */
 
@@ -1623,7 +1769,7 @@ get_default_value (tree var)
 
       if (TREE_READONLY (sym)
 	  && DECL_INITIAL (sym)
-	  && is_unchanging_value (DECL_INITIAL (sym)))
+	  && is_gimple_min_invariant (DECL_INITIAL (sym)))
 	{
 	  val.lattice_val = CONSTANT;
 	  val.const_val = DECL_INITIAL (sym);

@@ -91,7 +91,7 @@ static void remove_dead_stmts (void);
 static void remove_dead_stmt (block_stmt_iterator *);
 static void remove_dead_phis (basic_block);
 
-#define NECESSARY(stmt)	   stmt->common.unused_1
+#define NECESSARY(stmt)	   stmt->common.asm_written_flag
 
 /* Is a tree necessary?  */
 
@@ -113,7 +113,7 @@ static inline void
 mark_necessary (tree t)
 {
 #ifdef ENABLE_CHECKING
-  if (t == NULL || t == error_mark_node)
+  if (t == NULL || t == error_mark_node || DECL_P (t))
     abort ();
 #endif 
 

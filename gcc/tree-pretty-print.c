@@ -962,6 +962,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	pp_character (buffer, ')');
       break;
 
+    case VIEW_CONVERT_EXPR:
+      pp_string (buffer, "VIEW_CONVERT_EXPR<");
+      dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
+      pp_string (buffer, ">(");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
+      pp_character (buffer, ')');
+      break;
+
     case NON_LVALUE_EXPR:
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
       break;

@@ -1017,23 +1017,35 @@ generate_expr_as_of_bb (struct expr_info *ei ATTRIBUTE_UNUSED, tree expr,
 			int j, basic_block bb)
 {
   varray_type uses = use_ops (expr);
-  size_t k = 0;
+  bool replaced_constants = false;
+  size_t k;
+
   if (!uses)
     return;
+
   for (k = 0; k < VARRAY_ACTIVE_SIZE (uses); k++)
     {
       tree *vp = VARRAY_GENERIC_PTR (uses, k);
       tree v = *vp;
       tree phi;
+
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  if (names_match_p (PHI_RESULT (phi), v))
 	    {
 	      int opnum = opnum_of_phi (phi, j);
-	      *vp = PHI_ARG_DEF (phi, opnum);
+	      tree p = PHI_ARG_DEF (phi, opnum);
+	      *vp = p;
+	      if (!phi_ssa_name_p (p))
+		replaced_constants = true;
 	    }
 	}
     }
+
+  /* If we've substituted in new constants, we must be sure to
+     simplify the result lest we crash in get_expr_operands.  */
+  if (replaced_constants)
+    fold_stmt (&expr);
 }
 
 /* Make a copy of Z as it would look in BB j, using the PHIs in BB.  */

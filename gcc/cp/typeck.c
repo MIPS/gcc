@@ -1348,7 +1348,6 @@ decay_conversion (tree exp)
 	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!cxx_mark_addressable (exp))
 	    return error_mark_node;
-	  TREE_CONSTANT (adr) = staticp (exp);
 	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
 	  return adr;
 	}
@@ -2317,6 +2316,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       e2 = fold (build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx));
       e2 = build_indirect_ref (e2, NULL);
       TREE_CONSTANT (e2) = 1;
+      TREE_INVARIANT (e2) = 1;
 
       /* When using function descriptors, the address of the
 	 vtable entry is treated as a function pointer.  */
@@ -3389,15 +3389,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     build_type = result_type;
 
   {
-    register tree result = build (resultcode, build_type, op0, op1);
-    register tree folded;
-
-    folded = fold (result);
-    if (folded == result)
-      TREE_CONSTANT (folded) = TREE_CONSTANT (op0) & TREE_CONSTANT (op1);
+    tree result = fold (build (resultcode, build_type, op0, op1));
     if (final_type != 0)
-      return cp_convert (final_type, folded);
-    return folded;
+      result = cp_convert (final_type, result);
+    return result;
   }
 }
 
@@ -3461,11 +3456,7 @@ pointer_diff (register tree op0, register tree op1, register tree ptrtype)
   /* Do the division.  */
 
   result = build (EXACT_DIV_EXPR, restype, op0, cp_convert (restype, op1));
-
-  folded = fold (result);
-  if (folded == result)
-    TREE_CONSTANT (folded) = TREE_CONSTANT (op0) & TREE_CONSTANT (op1);
-  return folded;
+  return fold (result);
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -3587,8 +3578,6 @@ build_address (tree t)
     return error_mark_node;
 
   addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (t)), t);
-  if (staticp (t))
-    TREE_CONSTANT (addr) = 1;
 
   return addr;
 }
@@ -3598,16 +3587,9 @@ build_address (tree t)
 tree
 build_nop (tree type, tree expr)
 {
-  tree nop;
-
   if (type == error_mark_node || error_operand_p (expr))
     return expr;
-    
-  nop = build1 (NOP_EXPR, type, expr);
-  if (TREE_CONSTANT (expr))
-    TREE_CONSTANT (nop) = 1;
-  
-  return nop;
+  return build1 (NOP_EXPR, type, expr);
 }
 
 /* C++: Must handle pointers to members.
@@ -3643,9 +3625,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       else
 	{
 	  if (!noconvert)
-	   arg = default_conversion (arg);
+	    arg = default_conversion (arg);
 	  arg = build1 (NON_LVALUE_EXPR, TREE_TYPE (arg), arg);
-	  TREE_CONSTANT (arg) = TREE_CONSTANT (TREE_OPERAND (arg, 0));
 	}
       break;
 
@@ -3869,10 +3850,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
       if (TREE_CODE (argtype) == REFERENCE_TYPE)
 	{
-	  arg = build1
-	    (CONVERT_EXPR,
-	     build_pointer_type (TREE_TYPE (argtype)), arg);
-	  TREE_CONSTANT (arg) = TREE_CONSTANT (TREE_OPERAND (arg, 0));
+	  tree type = build_pointer_type (TREE_TYPE (argtype));
+	  arg = build1 (CONVERT_EXPR, type, arg);
 	  return arg;
 	}
       else if (pedantic && DECL_MAIN_P (arg))
@@ -3890,10 +3869,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  arg = TREE_OPERAND (arg, 0);
 	  if (TREE_CODE (TREE_TYPE (arg)) == REFERENCE_TYPE)
 	    {
-	      arg = build1
-		(CONVERT_EXPR,
-		 build_pointer_type (TREE_TYPE (TREE_TYPE (arg))), arg);
-	      TREE_CONSTANT (arg) = TREE_CONSTANT (TREE_OPERAND (arg, 0));
+	      tree type = build_pointer_type (TREE_TYPE (TREE_TYPE (arg)));
+	      arg = build1 (CONVERT_EXPR, type, arg);
 	    }
 	  else if (lvalue_p (arg))
 	    /* Don't let this be an lvalue.  */
@@ -5326,7 +5303,8 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   u = tree_cons (pfn_field, pfn,
 		 build_tree_list (delta_field, delta));
   u = build_constructor (type, u);
-  TREE_CONSTANT (u) = TREE_CONSTANT (pfn) && TREE_CONSTANT (delta);
+  TREE_CONSTANT (u) = TREE_CONSTANT (pfn) & TREE_CONSTANT (delta);
+  TREE_INVARIANT (u) = TREE_INVARIANT (pfn) & TREE_INVARIANT (delta);
   TREE_STATIC (u) = (TREE_CONSTANT (u)
 		     && (initializer_constant_valid_p (pfn, TREE_TYPE (pfn))
 			 != NULL_TREE)

@@ -56,8 +56,8 @@ int is_gimple_addr_expr_arg (tree);
 /* Returns 1 iff T is any valid GIMPLE lvalue.  */
 int is_gimple_lvalue (tree);
 
-/* Returns 1 iff T is a GIMPLE constant.  */
-int is_gimple_const (tree);
+/* Returns 1 iff T is a GIMPLE restricted function invariant.  */
+int is_gimple_min_invariant (tree);
 /* Returns 1 iff T is a GIMPLE rvalue.  */
 int is_gimple_val (tree);
 /* Returns 1 iff T is a valid rhs for a MODIFY_EXPR.  */

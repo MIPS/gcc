@@ -149,7 +149,7 @@ struct tree_common GTY(())
   unsigned private_flag : 1;
   unsigned protected_flag : 1;
   unsigned deprecated_flag : 1;
-  unsigned unused_1 : 1;
+  unsigned invariant_flag : 1;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -281,6 +281,12 @@ struct tree_common GTY(())
    visited:
 
    	Used in tree traversals to mark visited nodes.
+
+   invariant_flag:
+
+	TREE_INVARIANT in
+	    all expressions.
+
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -712,6 +718,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Nonzero if the node is not in GIMPLE form.  */
 #define TREE_NOT_GIMPLE(NODE) ((NODE)->common.not_gimple_flag)
+
+/* Value of expression is function invariant.  A strict subset of
+   TREE_CONSTANT, such an expression is constant over any one function
+   invocation, though not across different invocations.  May appear in
+   any expression node.  */
+#define TREE_INVARIANT(NODE) ((NODE)->common.invariant_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) ((NODE)->common.lang_flag_0)

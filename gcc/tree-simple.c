@@ -269,12 +269,13 @@ is_gimple_addr_expr_arg (tree t)
 	  || TREE_CODE (t) == IMAGPART_EXPR);
 }
 
-/*  Return nonzero if T is a constant.  This is one of the few predicates
-    that looks deeper than the TREE_CODE; this is necessary because, e.g.,
-    some GIMPLE PLUS_EXPRs are considered constants and some are not.  */
+/* Return nonzero if T is function invariant.  Or rather a restricted
+   form of function invariant.  This is one of the few predicates that
+   looks deeper than the TREE_CODE; this is necessary because, e.g.,
+   some GIMPLE PLUS_EXPRs are considered invariant and some are not.  */
 
 int
-is_gimple_const (tree t)
+is_gimple_min_invariant (tree t)
 {
   tree tmp = t;
 
@@ -282,26 +283,28 @@ is_gimple_const (tree t)
   STRIP_NOPS (tmp);
   if (TREE_CODE (tmp) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (tmp, 0)) == STRING_CST)
-    return 1;
+    return true;
 
-  if (TREE_CODE (t) == ADDR_EXPR
-      && DECL_P (TREE_OPERAND (t, 0))
-      && (TREE_STATIC (TREE_OPERAND (t, 0))
-	  || (DECL_EXTERNAL (TREE_OPERAND (t, 0))
-	      && !DECL_WEAK (TREE_OPERAND (t, 0)))))
-    return 1;
+  switch (TREE_CODE (t))
+    {
+    case ADDR_EXPR:
+      return TREE_INVARIANT (t);
 
-  if (TREE_CODE (t) == PLUS_EXPR
-      && TREE_CONSTANT (t)
-      && is_gimple_const (TREE_OPERAND (t, 0))
-      && is_gimple_const (TREE_OPERAND (t, 1)))
-    return 1;
+    case PLUS_EXPR:
+      return (TREE_INVARIANT (t)
+	      && is_gimple_min_invariant (TREE_OPERAND (t, 0))
+	      && is_gimple_min_invariant (TREE_OPERAND (t, 1)));
 
-  return (TREE_CODE (t) == INTEGER_CST
-	  || TREE_CODE (t) == REAL_CST
-	  || TREE_CODE (t) == STRING_CST
-	  || TREE_CODE (t) == COMPLEX_CST
-	  || TREE_CODE (t) == VECTOR_CST);
+    case INTEGER_CST:
+    case REAL_CST:
+    case STRING_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 /* Return nonzero if T looks like a valid GIMPLE statement.  */
@@ -448,19 +451,7 @@ is_gimple_val (tree t)
   if (TREE_CODE (t) == EXC_PTR_EXPR || TREE_CODE (t) == FILTER_EXPR)
     return 1;
 
-  /* Allow the address of a decl.  */
-  if (TREE_CODE (t) == ADDR_EXPR && DECL_P (TREE_OPERAND (t, 0)))
-    return 1;
-
-  /* Allow address of vla, so that we do not replace it in the call_expr of
-     stack_alloc builtin.  */
-  if (TREE_CODE (t) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
-      && DECL_SIZE_UNIT (TREE_OPERAND (t, 0))
-      && !TREE_CONSTANT (DECL_SIZE_UNIT (TREE_OPERAND (t, 0))))
-    return 1;
-
-  return (is_gimple_variable (t) || is_gimple_const (t));
+  return (is_gimple_variable (t) || is_gimple_min_invariant (t));
 }
 
 

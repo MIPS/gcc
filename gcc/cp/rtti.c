@@ -798,7 +798,6 @@ tinfo_base_init (tree desc, tree target)
 	 size_binop (MULT_EXPR,
 		     size_int (2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE),
 		     TYPE_SIZE_UNIT (vtable_entry_type)));
-      TREE_CONSTANT (vtable_ptr) = 1;
 
       TINFO_VTABLE_DECL (desc) = vtable_ptr;
     }
@@ -808,7 +807,10 @@ tinfo_base_init (tree desc, tree target)
   init = tree_cons (NULL_TREE, decay_conversion (name_decl), init);
   
   init = build_constructor (NULL_TREE, nreverse (init));
-  TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
+  TREE_HAS_CONSTRUCTOR (init) = 1;
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_STATIC (init) = 1;
   init = tree_cons (NULL_TREE, init, NULL_TREE);
   
   return init;
@@ -824,7 +826,10 @@ generic_initializer (tree desc, tree target)
   tree init = tinfo_base_init (desc, target);
   
   init = build_constructor (NULL_TREE, init);
-  TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
+  TREE_HAS_CONSTRUCTOR (init) = 1;
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_STATIC (init) = 1;
   return init;
 }
 
@@ -851,7 +856,10 @@ ptr_initializer (tree desc, tree target, bool *non_public_ptr)
                     init);
   
   init = build_constructor (NULL_TREE, nreverse (init));
-  TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
+  TREE_HAS_CONSTRUCTOR (init) = 1;
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_STATIC (init) = 1;
   return init;
 }
 
@@ -888,7 +896,10 @@ ptm_initializer (tree desc, tree target, bool *non_public_ptr)
 		    init);  
   
   init = build_constructor (NULL_TREE, nreverse (init));
-  TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
+  TREE_HAS_CONSTRUCTOR (init) = 1;
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_STATIC (init) = 1;
   return init;  
 }
 
@@ -956,7 +967,10 @@ class_initializer (tree desc, tree target, tree trail)
   
   TREE_CHAIN (init) = trail;
   init = build_constructor (NULL_TREE, init);
-  TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
+  TREE_HAS_CONSTRUCTOR (init) = 1;
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_STATIC (init) = 1;
   return init;  
 }
 

@@ -1,3 +1,10 @@
+2003-10-12  Richard Henderson  <rth@redhat.com>
+
+	* trans-array.c (gfc_trans_static_array_pointer): Set TREE_INVARIANT.
+	(gfc_trans_array_constructor_value): Likewise.
+	(gfc_conv_array_initializer): Likewise.
+	* trans-stmt.c (gfc_trans_character_select): Likewise.
+
 2003-11-12  Kejia Zhao  <kejia_zh@yahoo.com.cn>
 
 	* trans-intrinsic.c (integer_kind_info, real_kind_info): Remove.

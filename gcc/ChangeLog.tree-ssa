@@ -1,3 +1,63 @@
+2003-10-12  Richard Henderson  <rth@redhat.com>
+
+	* tree.h (struct tree_common): Rename unused_1 to invariant_flag.
+	(TREE_INVARIANT): New.
+	* builtins.c (build_string_literal): Set TREE_INVARIANT.
+	* c-common.c (fix_string_type): Likewise.
+	* c-typeck.c (build_external_ref): Likewise.
+	(build_c_cast, pop_init_level): Likewise.
+	* fold-const.c (fold_convert, fold): Likewise.
+	* tree.c (make_node, build_constructor): Likewise.
+	(build, build1): Likewise.
+	(staticp): Pass unknown component references to the language.
+	(save_expr): Check TREE_INVARIANT instead of TREE_CONSTANT.
+	(skip_simple_arithmetic): Likewise.
+	(stabilize_reference_1): Likewise.
+	* print-tree.c (print_node): Print TREE_INVARIANT.
+
+	* c-common.c (pointer_int_sum): Rely on build to set TREE_CONSTANT.
+	(finish_label_address_expr): Likewise.
+	* c-typeck.c (default_function_array_conversion): Likewise.
+	(parser_build_binary_op, pointer_diff): Likewise.
+	(build_unary_op, build_binary_op): Likewise.
+	* fold-const.c (non_lvalue): Likewise.
+
+	* tree-pretty-print.c (dump_generic_node): Handle VIEW_CONVERT_EXPR.
+
+2003-10-12  Richard Henderson  <rth@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_array_ref_to_plus): Subtract the array
+	domain minimum index.
+	(gimplify_addr_expr): Expand ARRAY_REFs.  Cope with Fortran
+	missing cast wierdnesses.
+	* tree-dfa.c (get_expr_operands): Handle (&v + c); abort on
+	other address invariants that should have been folded.
+	(vdefs_disappeared_p): New.
+	(mark_new_vars_to_rename): Use it.  Move from ...
+	* tree-ssa-dom.c: ... here.
+	* tree-flow-inline.h (is_unchanging_value): Remove; use
+	is_gimple_min_invariant everywhere instead.
+	(phi_ssa_name_p): New.
+	* tree-must-alias.c (find_addressable_vars): Process PHIs.
+	* tree-simple.c (is_gimple_min_invariant): Rename from
+	is_gimple_const; allow non-static variable addresses; update callers.
+	(is_gimple_val): Remove ADDR_EXPR checks.
+	* tree-simple.h: Update.
+	* tree-ssa-ccp.c (replace_uses_in): Add replaced_address argument.
+	(substitute_and_fold): Use that to mark_new_vars_to_rename.
+	(fold_indirect_refs_r): New.
+	(fold_stmt): Use it.  
+	* tree-ssa-copyprop.c (copyprop_stmt): Call fold_stmt.
+	* tree-ssa-dce.c (NECESSARY): Use asm_written_flag.
+	(mark_necessary): Reject DECLs.
+	* tree-ssa-live.c (register_ssa_partition): Use phi_ssa_name_p.
+	* tree-ssa-pre.c (generate_expr_as_of_bb): Call fold_stmt if we
+	replaced with constants.
+	* tree-ssa.c (insert_copy_on_edge): Unwrap ADDR_EXPRs to set_is_used.
+	(eliminate_build, coalesce_abnormal_edges, coalesce_vars): Use
+	phi_ssa_name_p.
+
 2003-10-09  Frank Ch. Eigler  <fche@redhat.com>
 
 	java/12211

@@ -1,3 +1,28 @@
+2003-10-12  Richard Henderson  <rth@redhat.com>
+
+	* call.c (call_builtin_trap): Use implicit_built_in_decls.
+	* class.c (build_base_path): Set TREE_INVARIANT.
+	(build_vtbl_ref_1, build_vtbl_initializer): Likewise.
+	* decl.c (build_enumerator): Likewise.
+	* init.c (build_zero_init): Likewise.
+	* pt.c (push_inline_template_parms_recursive): Likewise.
+	(build_template_parm_index, reduce_template_parm_level): Likewise.
+	(process_template_parm): Likewise.
+	* rtti.c (tinfo_base_init, generic_initializer): Likewise.
+	(ptr_initializer, ptm_initializer, class_initializer): Likewise.
+	* typeck.c (build_ptrmemfunc1): Likewise.
+	* typeck2.c (process_init_constructor): Likewise.
+
+	* calls.c (dfs_accumulate_vtbl_inits): Rely on build to set
+	TREE_CONSTANT.
+	(build_vtbl_initializer): Likewise.
+	* init.c (build_vtbl_address): Likewise.
+	* rtti.c (tinfo_base_init): Likewise.
+	* tree.c (make_ptrmem_cst): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	(get_member_function_from_ptrfunc, build_binary_op): Likewise.
+	(pointer_diff, build_address, build_nop, build_unary_op): Likewise.
+
 2003-09-30  Richard Henderson  <rth@redhat.com>
 
 	* decl.c (finish_function): Set cfun->function_end_locus.

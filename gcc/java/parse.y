@@ -12830,6 +12830,7 @@ patch_assignment (tree node, tree wfl_op1)
       )
     {
       TREE_CONSTANT (lvalue) = 1;
+      TREE_INVARIANT (lvalue) = 1;
       DECL_INITIAL (lvalue) = new_rhs;
     }
 
@@ -13382,6 +13383,7 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
 	{
 	  parse_warning_context (wfl_operator, "Evaluating this expression will result in an arithmetic exception being thrown");
 	  TREE_CONSTANT (node) = 0;
+	  TREE_INVARIANT (node) = 0;
 	}
 
       /* Change the division operator if necessary */
@@ -13968,6 +13970,7 @@ patch_string_cst (tree node)
     }
   TREE_TYPE (node) = string_ptr_type_node;
   TREE_CONSTANT (node) = 1;
+  TREE_INVARIANT (node) = 1;
   return node;
 }
 
@@ -14646,7 +14649,9 @@ patch_new_array_init (tree type, tree node)
   TREE_TYPE (init) = TREE_TYPE (TREE_CHAIN (TREE_CHAIN (TYPE_FIELDS (type))));
   TREE_TYPE (node) = promote_type (type);
   TREE_CONSTANT (init) = all_constant;
+  TREE_INVARIANT (init) = all_constant;
   TREE_CONSTANT (node) = all_constant;
+  TREE_INVARIANT (node) = all_constant;
   return node;
 }
 

@@ -334,6 +334,7 @@ make_node (enum tree_code code)
 
     case 'c':
       TREE_CONSTANT (t) = 1;
+      TREE_INVARIANT (t) = 1;
       break;
 
     case 'e':
@@ -481,9 +482,8 @@ build_constructor (tree type, tree vals)
       TREE_SIDE_EFFECTS (c) = TREE_SIDE_EFFECTS (vals);
       TREE_READONLY (c) = TREE_READONLY (vals);
       TREE_CONSTANT (c) = TREE_CONSTANT (vals);
+      TREE_INVARIANT (c) = TREE_INVARIANT (vals);
     }
-  else
-    TREE_CONSTANT (c) = 0;  /* safe side */
 
   return c;
 }
@@ -1310,11 +1310,18 @@ staticp (tree arg)
     case STRING_CST:
       return 1;
 
+    case COMPONENT_REF:
+      /* If the thing being referenced is not a field, then it is 
+	 something language specific.  */
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) != FIELD_DECL)
+	return (*lang_hooks.staticp) (arg);
+
       /* If we are referencing a bitfield, we can't evaluate an
 	 ADDR_EXPR at compile time and so it isn't a constant.  */
-    case COMPONENT_REF:
-      return (! DECL_BIT_FIELD (TREE_OPERAND (arg, 1))
-	      && staticp (TREE_OPERAND (arg, 0)));
+      if (DECL_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	return 0;
+
+      return staticp (TREE_OPERAND (arg, 0));
 
     case BIT_FIELD_REF:
       return 0;
@@ -1332,6 +1339,8 @@ staticp (tree arg)
       if (TREE_CODE (TYPE_SIZE (TREE_TYPE (arg))) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	return staticp (TREE_OPERAND (arg, 0));
+      else
+	return 0;
 
     default:
       if ((unsigned int) TREE_CODE (arg)
@@ -1376,7 +1385,8 @@ save_expr (tree expr)
      Since it is no problem to reevaluate literals, we just return the
      literal node.  */
   inner = skip_simple_arithmetic (t);
-  if (TREE_CONSTANT (inner)
+
+  if (TREE_INVARIANT (inner)
       || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
       || TREE_CODE (inner) == SAVE_EXPR
       || TREE_CODE (inner) == ERROR_MARK)
@@ -1401,6 +1411,7 @@ save_expr (tree expr)
      eliminated as dead.  */
   TREE_SIDE_EFFECTS (t) = 1;
   TREE_READONLY (t) = 1;
+  TREE_INVARIANT (t) = 1;
   return t;
 }
 
@@ -1428,9 +1439,9 @@ skip_simple_arithmetic (tree expr)
 	inner = TREE_OPERAND (inner, 0);
       else if (TREE_CODE_CLASS (TREE_CODE (inner)) == '2')
 	{
-	  if (TREE_CONSTANT (TREE_OPERAND (inner, 1)))
+	  if (TREE_INVARIANT (TREE_OPERAND (inner, 1)))
 	    inner = TREE_OPERAND (inner, 0);
-	  else if (TREE_CONSTANT (TREE_OPERAND (inner, 0)))
+	  else if (TREE_INVARIANT (TREE_OPERAND (inner, 0)))
 	    inner = TREE_OPERAND (inner, 1);
 	  else
 	    break;
@@ -2211,7 +2222,7 @@ stabilize_reference_1 (tree e)
      ignore things that are actual constant or that already have been
      handled by this function.  */
 
-  if (TREE_CONSTANT (e) || code == SAVE_EXPR)
+  if (TREE_INVARIANT (e))
     return e;
 
   switch (TREE_CODE_CLASS (code))
@@ -2264,6 +2275,7 @@ stabilize_reference_1 (tree e)
   TREE_READONLY (result) = TREE_READONLY (e);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (e);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (e);
+  TREE_INVARIANT (result) = 1;
 
   return result;
 }
@@ -2282,7 +2294,7 @@ build (enum tree_code code, tree tt, ...)
   int length;
   int i;
   int fro;
-  int constant;
+  bool constant, invariant;
   va_list p;
 
   va_start (p, tt);
@@ -2305,6 +2317,7 @@ build (enum tree_code code, tree tt, ...)
 	      || TREE_CODE_CLASS (code) == '1'
 	      || TREE_CODE_CLASS (code) == '2'
 	      || TREE_CODE_CLASS (code) == 'c');
+  invariant = constant;
 
   if (length == 2)
     {
@@ -2323,6 +2336,8 @@ build (enum tree_code code, tree tt, ...)
 	    TREE_READONLY (t) = 0;
 	  if (!TREE_CONSTANT (arg0))
 	    constant = 0;
+	  if (!TREE_INVARIANT (arg0))
+	    invariant = 0;
 	}
 
       if (arg1 && fro > 1)
@@ -2333,6 +2348,8 @@ build (enum tree_code code, tree tt, ...)
 	    TREE_READONLY (t) = 0;
 	  if (!TREE_CONSTANT (arg1))
 	    constant = 0;
+	  if (!TREE_INVARIANT (arg1))
+	    invariant = 0;
 	}
     }
   else if (length == 1)
@@ -2361,12 +2378,15 @@ build (enum tree_code code, tree tt, ...)
 		TREE_SIDE_EFFECTS (t) = 1;
 	      if (!TREE_CONSTANT (operand))
 		constant = 0;
+	      if (!TREE_INVARIANT (operand))
+		invariant = 0;
 	    }
 	}
     }
   va_end (p);
 
   TREE_CONSTANT (t) = constant;
+  TREE_INVARIANT (t) = invariant;
   
   if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
     {
@@ -2460,9 +2480,40 @@ build1 (enum tree_code code, tree type, tree node)
       TREE_READONLY (t) = 0;
       break;
 
+    case ADDR_EXPR:
+      if (node)
+	{
+	  /* Addresses of constants and static variables are constant;
+	     all other decl addresses are invariant.  */
+	  if (staticp (node))
+	    TREE_CONSTANT (t) = TREE_INVARIANT (t) = 1;
+	  else
+	    {
+	      /* Step past constant offsets.  */
+	      while (1)
+		{
+		  if (TREE_CODE (node) == COMPONENT_REF
+		      && TREE_CODE (TREE_OPERAND (node, 1)) == FIELD_DECL
+		      && ! DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
+		    ;
+		  else if (TREE_CODE (node) == ARRAY_REF
+		           && TREE_CONSTANT (TREE_OPERAND (node, 1)))
+		    ;
+		  else
+		    break;
+		  node = TREE_OPERAND (node, 0);
+		}
+	      if (DECL_P (node))
+	        TREE_INVARIANT (t) = 1;
+	    }
+	}
+      break;
+
     default:
       if (TREE_CODE_CLASS (code) == '1' && node && TREE_CONSTANT (node))
 	TREE_CONSTANT (t) = 1;
+      if (TREE_CODE_CLASS (code) == '1' && node && TREE_INVARIANT (node))
+	TREE_INVARIANT (t) = 1;
       break;
     }
 

@@ -1695,7 +1695,10 @@ fold_convert (tree t, tree arg1)
 	  return t;
 	}
     }
+
   TREE_CONSTANT (t) = 1;
+  TREE_INVARIANT (t) = 1;
+
   return t;
 }
 
@@ -1704,8 +1707,6 @@ fold_convert (tree t, tree arg1)
 tree
 non_lvalue (tree x)
 {
-  tree result;
-
   /* These things are certainly not lvalues.  */
   if (TREE_CODE (x) == NON_LVALUE_EXPR
       || TREE_CODE (x) == INTEGER_CST
@@ -1714,9 +1715,7 @@ non_lvalue (tree x)
       || TREE_CODE (x) == ADDR_EXPR)
     return x;
 
-  result = build1 (NON_LVALUE_EXPR, TREE_TYPE (x), x);
-  TREE_CONSTANT (result) = TREE_CONSTANT (x);
-  return result;
+  return build1 (NON_LVALUE_EXPR, TREE_TYPE (x), x);
 }
 
 /* Nonzero means lvalues are limited to those valid in pedantic ANSI C.
@@ -5474,6 +5473,7 @@ fold (tree expr)
 	      if (t == orig_t)
 		t = copy_node (t);
 	      TREE_CONSTANT (t) = TREE_CONSTANT (arg0);
+	      TREE_INVARIANT (t) = TREE_INVARIANT (arg0);
 	    }
 	  return t;
 	}
@@ -5501,6 +5501,7 @@ fold (tree expr)
 	  if (t == orig_t)
 	    t = copy_node (t);
 	  TREE_CONSTANT (t) = wins;
+	  TREE_INVARIANT (t) = wins;
 	}
       return t;
 

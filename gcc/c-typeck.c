@@ -1101,7 +1101,6 @@ default_function_array_conversion (tree exp)
 	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!c_mark_addressable (exp))
 	    return error_mark_node;
-	  TREE_CONSTANT (adr) = staticp (exp);
 	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
 	  return adr;
 	}
@@ -1617,6 +1616,7 @@ build_external_ref (tree id, int fun)
     {
       ref = DECL_INITIAL (ref);
       TREE_CONSTANT (ref) = 1;
+      TREE_INVARIANT (ref) = 1;
     }
   else if (current_function_decl != 0
 	   && !DECL_FILE_SCOPE_P (current_function_decl)
@@ -1999,14 +1999,12 @@ parser_build_binary_op (enum tree_code code, tree arg1, tree arg2)
     C_SET_EXP_ORIGINAL_CODE (result, code);
   else
     {
-      int flag = TREE_CONSTANT (result);
       /* We used to use NOP_EXPR rather than NON_LVALUE_EXPR
 	 so that convert_for_assignment wouldn't strip it.
 	 That way, we got warnings for things like p = (1 - 1).
 	 But it turns out we should not get those warnings.  */
       result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
       C_SET_EXP_ORIGINAL_CODE (result, code);
-      TREE_CONSTANT (result) = flag;
     }
 
   return result;
@@ -2038,7 +2036,6 @@ c_tree_expr_nonnegative_p (tree t)
 static tree
 pointer_diff (tree op0, tree op1)
 {
-  tree result, folded;
   tree restype = ptrdiff_type_node;
 
   tree target_type = TREE_TYPE (TREE_TYPE (op0));
@@ -2102,13 +2099,7 @@ pointer_diff (tree op0, tree op1)
   op1 = c_size_in_bytes (target_type);
 
   /* Divide by the size, in easiest possible way.  */
-
-  result = build (EXACT_DIV_EXPR, restype, op0, convert (restype, op1));
-
-  folded = fold (result);
-  if (folded == result)
-    TREE_CONSTANT (folded) = TREE_CONSTANT (op0) & TREE_CONSTANT (op1);
-  return folded;
+  return fold (build (EXACT_DIV_EXPR, restype, op0, convert (restype, op1)));
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -2466,12 +2457,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	else
 	  addr = build1 (code, argtype, arg);
 
-	/* Address of a static or external variable or
-	   file-scope function counts as a constant.  */
-	if (staticp (arg)
-	    && ! (TREE_CODE (arg) == FUNCTION_DECL
-		  && !DECL_FILE_SCOPE_P (arg)))
-	  TREE_CONSTANT (addr) = 1;
 	return addr;
       }
 
@@ -2977,6 +2962,7 @@ build_c_cast (tree type, tree expr)
 					      build_tree_list (field, value)),
 			   0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
+	  TREE_INVARIANT (t) = TREE_INVARIANT (value);
 	  return t;
 	}
       error ("cast to union type from type not present in union");
@@ -4844,7 +4830,7 @@ pop_init_level (int implicit)
 	  constructor = build_constructor (constructor_type,
 					   nreverse (constructor_elements));
 	  if (constructor_constant)
-	    TREE_CONSTANT (constructor) = 1;
+	    TREE_CONSTANT (constructor) = TREE_INVARIANT (constructor) = 1;
 	  if (constructor_constant && constructor_simple)
 	    TREE_STATIC (constructor) = 1;
 	}
@@ -7209,16 +7195,14 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
   {
     tree result = build (resultcode, build_type, op0, op1);
-    tree folded;
 
     /* Treat expressions in initializers specially as they can't trap.  */
-    folded = initializer_stack ? fold_initializer (result)
+    result = initializer_stack ? fold_initializer (result)
 			       : fold (result);
-    if (folded == result)
-      TREE_CONSTANT (folded) = TREE_CONSTANT (op0) & TREE_CONSTANT (op1);
+
     if (final_type != 0)
-      return convert (final_type, folded);
-    return folded;
+      result = convert (final_type, result);
+    return result;
   }
 }
 

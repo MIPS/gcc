@@ -13015,7 +13015,9 @@ build_enumerator (tree name, tree value, tree enumtype)
     decl = build_decl (CONST_DECL, name, type);
 
   DECL_CONTEXT (decl) = FROB_CONTEXT (context);
-  TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
+  TREE_CONSTANT (decl) = 1;
+  TREE_INVARIANT (decl) = 1;
+  TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
   if (context && context == current_class_type)

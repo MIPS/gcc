@@ -375,55 +375,53 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   if (code == INDIRECT_REF)
     {
       var_ann_t ann;
-      tree ptr = TREE_OPERAND (expr, 0);
-
-#if defined ENABLE_CHECKING
-      if (!SSA_VAR_P (ptr)
-	  && !TREE_CONSTANT (ptr)
-	  && TREE_CODE (ptr) != ADDR_EXPR)
-	abort ();
-#endif
+      tree *pptr = &TREE_OPERAND (expr, 0);
+      tree ptr = *pptr;
 
       if (SSA_VAR_P (ptr))
 	{
-	  ann = var_ann (TREE_CODE (ptr) == SSA_NAME ? SSA_NAME_VAR (ptr) : ptr);
+	  if (TREE_CODE (ptr) == SSA_NAME)
+	    ptr = SSA_NAME_VAR (ptr);
+	  ann = var_ann (ptr);
 	  if (ann->mem_tag)
 	    add_stmt_operand (&ann->mem_tag, stmt, flags|opf_force_vop,
 			      prev_vops);
 	}
-      else if (TREE_CODE (ptr) == ADDR_EXPR)
-	{
-	  /* Fold *&VAR into VAR, add an operand for VAR and return.  */
-	  tree var = TREE_OPERAND (ptr, 0);
-	  *expr_p = var;
 
-	  /* If VAR is of type ARRAY_TYPE, we can't return VAR because
-	     this INDIRECT_REF node is actually VAR[0].  */
-	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
-	    *expr_p = build (ARRAY_REF, TREE_TYPE (expr), var,
-			     integer_zero_node);
-
-	  add_stmt_operand (expr_p, stmt, flags, prev_vops);
-	  return;
-	}
-      else if (TREE_CONSTANT (ptr))
+      /* If a constant is used as a pointer, we can't generate a real
+	 operand for it but we mark the statement volatile to prevent
+	 optimizations from messing things up.  */
+      else if (TREE_CODE (ptr) == INTEGER_CST)
 	{
-	  /* If a constant is used as a pointer, we can't generate a real
-	     operand for it but we mark the statement volatile to prevent
-	     optimizations from messing things up.  */
 	  stmt_ann (stmt)->has_volatile_ops = true;
 	  return;
 	}
 
+      /* This single case might not have been folded to an array reference
+	 if the immediate doesn't exactly divide the referencd type.  This
+	 case is likely to be undefined in C, but perhaps not others.  */
+      else if (TREE_CODE (ptr) == PLUS_EXPR)
+	{
+	  if (TREE_CODE (TREE_OPERAND (ptr, 1)) != INTEGER_CST)
+	    abort ();
+	  ptr = TREE_OPERAND (ptr, 0);
+	  if (TREE_CODE (ptr) != ADDR_EXPR)
+	    abort ();
+	  pptr = &TREE_OPERAND (ptr, 0);
+	}
+
+      /* Everything else should have been folded elsewhere.  */
+      else
+	abort ();
 
       /* Add a USE operand for the base pointer.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
+      get_expr_operands (stmt, pptr, opf_none, prev_vops);
       return;
     }
 
   /* Treat array references as references to the virtual variable
-     representing the array.  The virtual variable for an ARRAY_REF is the
-     VAR_DECL for the array.  */
+     representing the array.  The virtual variable for an ARRAY_REF
+     is the VAR_DECL for the array.  */
   if (code == ARRAY_REF)
     {
       /* Add the virtual variable for the ARRAY_REF to VDEFS or VUSES
@@ -2888,6 +2886,129 @@ void
 add_referenced_tmp_var (tree var)
 {
   add_referenced_var (var, NULL);
+}
+
+/* Return true if VDEFS_AFTER contains fewer entries than VDEFS_BEFORE.
+   Note that this assumes that both varrays are VDEF operands for the same
+   statement.  */
+
+static inline bool
+vdefs_disappeared_p (varray_type vdefs_before, varray_type vdefs_after)
+{
+  /* If there was nothing before, nothing could've disappeared.  */
+  if (vdefs_before == NULL)
+    return false;
+     
+  /* All/some of them gone.  */
+  if (vdefs_after == NULL
+      || VARRAY_ACTIVE_SIZE (vdefs_before) > VARRAY_ACTIVE_SIZE (vdefs_after))
+    return true;
+
+  return false;
+}
+
+/* Add all the non-SSA variables found in STMT's operands to the bitmap
+   VARS_TO_RENAME.  */
+
+void
+mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
+{
+  varray_type ops;
+  size_t i;
+  sbitmap vars_in_vops_to_rename;
+  bool found_exposed_symbol = false;
+  varray_type vdefs_before, vdefs_after;
+
+  vars_in_vops_to_rename = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (vars_in_vops_to_rename);
+
+  /* Before re-scanning the statement for operands, mark the existing
+     virtual operands to be renamed again.  We do this because when new
+     symbols are exposed, the virtual operands that were here before due to
+     aliasing will probably be removed by the call to get_stmt_operand.
+     Therefore, we need to flag them to be renamed beforehand.
+
+     We flag them in a separate bitmap because we don't really want to
+     rename them if there are not any newly exposed symbols in the
+     statement operands.  */
+
+  vdefs_before = ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      if (!DECL_P (var))
+	var = SSA_NAME_VAR (var);
+      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
+    }
+
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VARRAY_TREE (ops, i);
+      if (!DECL_P (var))
+	var = SSA_NAME_VAR (var);
+      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
+    }
+
+  /* Now force an operand re-scan on the statement and mark any newly
+     exposed variables.  */
+  modify_stmt (stmt);
+  get_stmt_operands (stmt);
+
+  ops = def_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree *var_p = VARRAY_TREE_PTR (ops, i);
+      if (DECL_P (*var_p))
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	}
+    }
+
+  ops = use_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree *var_p = VARRAY_TREE_PTR (ops, i);
+      if (DECL_P (*var_p))
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	}
+    }
+
+  vdefs_after = ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      if (DECL_P (var))
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	}
+    }
+
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VARRAY_TREE (ops, i);
+      if (DECL_P (var))
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	}
+    }
+
+  /* If we found any newly exposed symbols, or if there are fewer VDEF
+     operands in the statement, add the variables we had set in
+     VARS_IN_VOPS_TO_RENAME to VARS_TO_RENAME.  We need to check for
+     vanishing VDEFs because in those cases, the names that were formerly
+     generated by this statement are not going to be available anymore.  */
+  if (found_exposed_symbol
+      || vdefs_disappeared_p (vdefs_before, vdefs_after))
+    sbitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
+
+  sbitmap_free (vars_in_vops_to_rename);
 }
 
 #include "gt-tree-dfa.h"

@@ -251,6 +251,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" readonly", file);
   if (TREE_CONSTANT (node))
     fputs (" constant", file);
+  if (TREE_INVARIANT (node))
+    fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
     fputs (" addressable", file);
   if (TREE_THIS_VOLATILE (node))

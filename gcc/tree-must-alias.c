@@ -137,6 +137,7 @@ find_addressable_vars (sbitmap addresses_needed)
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator si;
+      tree phi;
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
@@ -161,6 +162,24 @@ find_addressable_vars (sbitmap addresses_needed)
 	     statements that have promoted variables, but at this point we
 	     still don't know which (if any) variables can be promoted.  */
 	  modify_stmt (stmt);
+	}
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  int i;
+	  for (i = 0; i < PHI_NUM_ARGS (phi); ++i)
+	    {
+	      tree t = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (t) != ADDR_EXPR)
+		continue;
+	      t = TREE_OPERAND (t, 0);
+	      if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+		continue;
+	      SET_BIT (addresses_needed, var_ann (t)->uid);
+	    }
+
+	  /* ??? Can and should this be marked for modification?  */
 	}
     }
 }

@@ -348,6 +348,7 @@ prepare_eh_table_type (tree type)
       PUSH_FIELD_VALUE (cinit, "utf8", utf8_ref);
       FINISH_RECORD_CONSTRUCTOR (cinit);
       TREE_CONSTANT (cinit) = 1;
+      TREE_INVARIANT (cinit) = 1;
       decl = build_decl (VAR_DECL, get_identifier (buf), ctype);
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;

@@ -669,11 +669,13 @@ java_init_decl_processing (void)
       TREE_STATIC (otable_decl) = 1;
       TREE_READONLY (otable_decl) = 1;
       TREE_CONSTANT (otable_decl) = 1;
+      TREE_INVARIANT (otable_decl) = 1;
       pushdecl (otable_decl);  
       otable_syms_decl = build_decl (VAR_DECL, get_identifier ("otable_syms"), 
 				     symbols_array_type);
       TREE_STATIC (otable_syms_decl) = 1;
       TREE_CONSTANT (otable_syms_decl) = 1;
+      TREE_INVARIANT (otable_syms_decl) = 1;
       pushdecl (otable_syms_decl);
 
       atable_decl = build_decl (VAR_DECL, get_identifier ("atable"), atable_type);
@@ -681,11 +683,13 @@ java_init_decl_processing (void)
       TREE_STATIC (atable_decl) = 1;
       TREE_READONLY (atable_decl) = 1;
       TREE_CONSTANT (atable_decl) = 1;
+      TREE_INVARIANT (atable_decl) = 1;
       pushdecl (atable_decl);  
       atable_syms_decl = build_decl (VAR_DECL, get_identifier ("atable_syms"), 
 				     symbols_array_type);
       TREE_STATIC (atable_syms_decl) = 1;
       TREE_CONSTANT (atable_syms_decl) = 1;
+      TREE_INVARIANT (atable_syms_decl) = 1;
       pushdecl (atable_syms_decl);
     }
   

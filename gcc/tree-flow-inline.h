@@ -539,13 +539,6 @@ empty_bsi_stack (bsi_list_p list)
 
 
 static inline bool
-is_unchanging_value (tree val)
-{
-  return ((TREE_CONSTANT (val) || really_constant_p (val))
-	  && is_gimple_val (val));
-}
-
-static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
   /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
@@ -615,6 +608,22 @@ default_def (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->default_def : NULL_TREE;
+}
+
+/* PHI nodes should contain only ssa_names and invariants.  A test
+   for ssa_name is definitely simpler; don't let invalid contents
+   slip in in the meantime.  */
+
+static inline bool
+phi_ssa_name_p (tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    return true;
+#ifdef ENABLE_CHECKING
+  if (!is_gimple_min_invariant (t))
+    abort ();
+#endif
+  return false;
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

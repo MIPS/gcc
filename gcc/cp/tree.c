@@ -1929,9 +1929,6 @@ tree
 make_ptrmem_cst (tree type, tree member)
 {
   tree ptrmem_cst = make_node (PTRMEM_CST);
-  /* If would seem a great convenience if make_node would set
-     TREE_CONSTANT for things of class `c', but it does not.  */
-  TREE_CONSTANT (ptrmem_cst) = 1;
   TREE_TYPE (ptrmem_cst) = type;
   PTRMEM_CST_MEMBER (ptrmem_cst) = member;
   return ptrmem_cst;

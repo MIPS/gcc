@@ -470,6 +470,7 @@ extern tree get_virtual_var (tree);
 extern void add_vuse (tree, tree, voperands_t);
 extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
+extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -505,7 +506,6 @@ tree widen_bitfield (tree, tree, tree);
 extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
-extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree, enum tree_dump_index);
@@ -519,7 +519,6 @@ void fixup_var_scope (tree, tree);
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
-static inline bool is_unchanging_value (tree);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */

@@ -309,6 +309,7 @@ gfc_trans_static_array_pointer (gfc_symbol * sym)
   tmp = tree_cons (field, null_pointer_node, NULL_TREE);
   tmp = build1 (CONSTRUCTOR, type, tmp);
   TREE_CONSTANT (tmp) = 1;
+  TREE_INVARIANT (tmp) = 1;
   DECL_INITIAL (sym->backend_decl) = tmp;
 }
 
@@ -756,11 +757,13 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 
 	      init = build1 (CONSTRUCTOR, tmptype, nreverse (list));
 	      TREE_CONSTANT (init) = 1;
+	      TREE_INVARIANT (init) = 1;
 	      TREE_STATIC (init) = 1;
 	      /* Create a static variable to hold the data.  */
 	      tmp = gfc_create_var (tmptype, "data");
 	      TREE_STATIC (tmp) = 1;
 	      TREE_CONSTANT (tmp) = 1;
+	      TREE_INVARIANT (tmp) = 1;
 	      TREE_ADDRESSABLE (tmp) = 1;
 	      DECL_INITIAL (tmp) = init;
 	      init = tmp;
@@ -2779,6 +2782,7 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
   /* Create a constructor from the list of elements.  */
   tmp = build1 (CONSTRUCTOR, type, list);
   TREE_CONSTANT (tmp) = 1;
+  TREE_INVARIANT (tmp) = 1;
   return tmp;
 }
 

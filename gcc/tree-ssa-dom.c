@@ -522,7 +522,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	{
 	  tree t = PHI_ARG_DEF (phi, i);
 
-	  if (TREE_CODE (t) == SSA_NAME || TREE_CONSTANT (t))
+	  if (TREE_CODE (t) == SSA_NAME || is_gimple_min_invariant (t))
 	    {
 	      /* Ignore alternatives which are the same as our LHS.  */
 	      if (operand_equal_p (lhs, t, 0))
@@ -632,7 +632,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	     ORIG_P with its value in our constant/copy table.  */
 	  new = get_value_for (*orig_p, const_and_copies);
 	  if (new
-	      && (TREE_CODE (new) == SSA_NAME || TREE_CONSTANT (new))
+	      && (TREE_CODE (new) == SSA_NAME || is_gimple_min_invariant (new))
 	      && may_propagate_copy (*orig_p, new))
 	    *orig_p = new;
 	}
@@ -1125,7 +1125,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
       tree op0 = TREE_OPERAND (cond, 0);
       tree op1 = TREE_OPERAND (cond, 1);
 
-      if (TREE_CODE (op0) == SSA_NAME && TREE_CONSTANT (op1))
+      if (TREE_CODE (op0) == SSA_NAME && is_gimple_min_invariant (op1))
 	{
 	  int limit;
 	  tree low, high, cond_low, cond_high;
@@ -1411,7 +1411,7 @@ cprop_into_stmt (tree stmt)
 	      continue;
 
 	    /* Gather statistics.  */
-	    if (is_unchanging_value (val))
+	    if (is_gimple_min_invariant (val))
 	      opt_stats.num_const_prop++;
 	    else
 	      opt_stats.num_copy_prop++;
@@ -1433,7 +1433,7 @@ cprop_into_stmt (tree stmt)
 	       variables exposed by the folding of *&VAR expressions.  */
 	    if (TREE_CODE (val) == ADDR_EXPR
 		|| (POINTER_TYPE_P (TREE_TYPE (*op_p))
-		    && is_unchanging_value (val)))
+		    && is_gimple_min_invariant (val)))
 	      may_have_exposed_new_symbols = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
@@ -1601,7 +1601,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 
 #if defined ENABLE_CHECKING
 	  if (TREE_CODE (cached_lhs) != SSA_NAME
-	      && !is_unchanging_value (cached_lhs))
+	      && !is_gimple_min_invariant (cached_lhs))
 	    abort ();
 #endif
 
@@ -1609,7 +1609,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    fixup_var_scope (cached_lhs, stmt_ann (stmt)->scope);
 	  else if (TREE_CODE (cached_lhs) == ADDR_EXPR
 		   || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-		       && is_unchanging_value (cached_lhs)))
+		       && is_gimple_min_invariant (cached_lhs)))
 	    may_have_exposed_new_symbols = true;
 
 	  *expr_p = cached_lhs;
@@ -1631,7 +1631,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
       if (may_optimize_p)
 	{
 	  if (TREE_CODE (rhs) == SSA_NAME
-	      || is_unchanging_value (rhs))
+	      || is_gimple_min_invariant (rhs))
 	    set_value_for (TREE_OPERAND (stmt, 0), rhs, const_and_copies);
 	}
     }
@@ -1687,7 +1687,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	 we may be able to expose more redundant loads.  */
       if (!ann->has_volatile_ops
 	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
-	      || is_unchanging_value (TREE_OPERAND (stmt, 1)))
+	      || is_gimple_min_invariant (TREE_OPERAND (stmt, 1)))
 	  && !is_gimple_reg (TREE_OPERAND (stmt, 0)))
 	{
 	  tree new;
@@ -1919,7 +1919,7 @@ lookup_avail_expr (tree stmt,
      Constants and copy operations are handled by the constant/copy propagator
      in optimize_stmt.  */
   if (TREE_CODE (rhs) == SSA_NAME
-      || is_unchanging_value (rhs))
+      || is_gimple_min_invariant (rhs))
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, (insert ? INSERT : NO_INSERT));
@@ -2090,7 +2090,7 @@ get_eq_expr_value (tree if_stmt, int true_arm, varray_type *block_avail_exprs_p,
       tree op1 = TREE_OPERAND (cond, 1);
 
       if (TREE_CODE (op0) == SSA_NAME
-	  && (is_unchanging_value (op1) || TREE_CODE (op1) == SSA_NAME))
+	  && (is_gimple_min_invariant (op1) || TREE_CODE (op1) == SSA_NAME))
 	{
 	  tree inverted = invert_truthvalue (cond);
 
@@ -2248,109 +2248,4 @@ avail_expr_eq (const void *p1, const void *p2)
     }
 
   return false;
-}
-
-
-/* Add all the non-SSA variables found in STMT's operands to the bitmap
-   VARS_TO_RENAME.  */
-
-void
-mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
-{
-  varray_type ops;
-  size_t i;
-  sbitmap vars_in_vops_to_rename;
-  bool found_exposed_symbol = false;
-  varray_type vdefs_before, vdefs_after;
-  
-  vars_in_vops_to_rename = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (vars_in_vops_to_rename);
-
-  /* Before re-scanning the statement for operands, mark the existing
-     virtual operands to be renamed again.  We do this because when new
-     symbols are exposed, the virtual operands that were here before due to
-     aliasing will probably be removed by the call to get_stmt_operand.
-     Therefore, we need to flag them to be renamed beforehand.
-
-     We flag them in a separate bitmap because we don't really want to
-     rename them if there are not any newly exposed symbols in the
-     statement operands.  */
-  vdefs_before = ops = vdef_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
-      if (!DECL_P (var))
-	var = SSA_NAME_VAR (var);
-      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
-    }
-
-  ops = vuse_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree var = VARRAY_TREE (ops, i);
-      if (!DECL_P (var))
-	var = SSA_NAME_VAR (var);
-      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
-    }
-
-  /* Now force an operand re-scan on the statement and mark any newly
-     exposed variables.  */
-  modify_stmt (stmt);
-  get_stmt_operands (stmt);
-
-  ops = def_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree *var_p = VARRAY_TREE_PTR (ops, i);
-      if (DECL_P (*var_p))
-	{
-	  found_exposed_symbol = true;
-	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
-	}
-    }
-
-  ops = use_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree *var_p = VARRAY_TREE_PTR (ops, i);
-      if (DECL_P (*var_p))
-	{
-	  found_exposed_symbol = true;
-	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
-	}
-    }
-
-  vdefs_after = ops = vdef_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
-      if (DECL_P (var))
-	{
-	  found_exposed_symbol = true;
-	  SET_BIT (vars_to_rename, var_ann (var)->uid);
-	}
-    }
-
-  ops = vuse_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree var = VARRAY_TREE (ops, i);
-      if (DECL_P (var))
-	{
-	  found_exposed_symbol = true;
-	  SET_BIT (vars_to_rename, var_ann (var)->uid);
-	}
-    }
-
-  /* If we found any newly exposed symbols, or if VDEFs disappeared
-     altogether, add the variables we had set in VARS_IN_VOPS_TO_RENAME to
-     VARS_TO_RENAME.  We need to check for vanishing VDEFs because in those
-     cases, the names that were formerly generated by this statement are
-     not going to be available anymore.  */
-  if (found_exposed_symbol
-      || (vdefs_before != NULL
-	  && vdefs_after == NULL))
-    sbitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
-
-  sbitmap_free (vars_in_vops_to_rename);
 }

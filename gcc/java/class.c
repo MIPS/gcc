@@ -768,6 +768,7 @@ build_utf8_ref (tree name)
   PUSH_FIELD_VALUE (cinit, "data", string);
   FINISH_RECORD_CONSTRUCTOR (cinit);
   TREE_CONSTANT (cinit) = 1;
+  TREE_INVARIANT (cinit) = 1;
 
   /* Generate a unique-enough identifier.  */
   sprintf(buf, "_Utf%d", ++utf8_count);
@@ -1243,6 +1244,7 @@ get_dispatch_table (tree type, tree this_class_addr)
 		tree fdesc = build (FDESC_EXPR, nativecode_ptr_type_node, 
 				    method, build_int_2 (j, 0));
 		TREE_CONSTANT (fdesc) = 1;
+		TREE_INVARIANT (fdesc) = 1;
 	        list = tree_cons (NULL_TREE, fdesc, list);
 	      }
 	  else
@@ -1525,6 +1527,7 @@ make_class_data (tree type)
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
 				otable_syms_decl));
       TREE_CONSTANT (otable_decl) = 1;
+      TREE_INVARIANT (otable_decl) = 1;
     }
   if (atable_methods == NULL_TREE)
     {
@@ -1539,6 +1542,7 @@ make_class_data (tree type)
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
 				atable_syms_decl));
       TREE_CONSTANT (atable_decl) = 1;
+      TREE_INVARIANT (atable_decl) = 1;
     }
 
   PUSH_FIELD_VALUE (cons, "interfaces", interfaces);
@@ -2145,6 +2149,7 @@ build_symbol_entry (tree decl)
   PUSH_FIELD_VALUE (sym, "signature", signature);
   FINISH_RECORD_CONSTRUCTOR (sym);
   TREE_CONSTANT (sym) = 1;
+  TREE_INVARIANT (sym) = 1;
 
   return sym;
 } 
@@ -2183,6 +2188,7 @@ emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl
   PUSH_FIELD_VALUE (null_symbol, "signature", null_pointer_node);
   FINISH_RECORD_CONSTRUCTOR (null_symbol);
   TREE_CONSTANT (null_symbol) = 1;  
+  TREE_INVARIANT (null_symbol) = 1;  
   list = tree_cons (NULL_TREE, null_symbol, list);
 
   /* Put the list in the right order and make it a constructor. */

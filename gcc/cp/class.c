@@ -327,6 +327,7 @@ build_base_path (enum tree_code code,
 			 v_offset);
       v_offset = build_indirect_ref (v_offset, NULL);
       TREE_CONSTANT (v_offset) = 1;
+      TREE_INVARIANT (v_offset) = 1;
 
       offset = convert_to_integer (ptrdiff_type_node,
 				   size_diffop (offset, 
@@ -454,6 +455,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
 
   aref = build_array_ref (vtbl, idx);
   TREE_CONSTANT (aref) = 1;
+  TREE_INVARIANT (aref) = 1;
 
   return aref;
 }
@@ -7197,10 +7199,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
 
       /* Figure out the position to which the VPTR should point.  */
       vtbl = TREE_PURPOSE (l);
-      vtbl = build1 (ADDR_EXPR, 
-		     vtbl_ptr_type_node,
-		     vtbl);
-      TREE_CONSTANT (vtbl) = 1;
+      vtbl = build1 (ADDR_EXPR, vtbl_ptr_type_node, vtbl);
       index = size_binop (PLUS_EXPR,
 			  size_int (non_fn_entries),
 			  size_int (list_length (TREE_VALUE (l))));
@@ -7208,7 +7207,6 @@ dfs_accumulate_vtbl_inits (tree binfo,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
       vtbl = build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
-      TREE_CONSTANT (vtbl) = 1;
     }
 
   if (ctor_vtbl_p)
@@ -7377,8 +7375,6 @@ build_vtbl_initializer (tree binfo,
 	  /* Take the address of the function, considering it to be of an
 	     appropriate generic type.  */
 	  init = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
-	  /* The address of a function can't change.  */
-	  TREE_CONSTANT (init) = 1;
 	}
 
       /* And add it to the chain of initializers.  */
@@ -7395,6 +7391,7 @@ build_vtbl_initializer (tree binfo,
 				    TREE_OPERAND (init, 0),
 				    build_int_2 (i, 0));
 		TREE_CONSTANT (fdesc) = 1;
+		TREE_INVARIANT (fdesc) = 1;
 
 		vfun_inits = tree_cons (NULL_TREE, fdesc, vfun_inits);
 	      }

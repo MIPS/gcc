@@ -1345,17 +1345,44 @@ static void
 gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
 {
   tree array = TREE_OPERAND (*expr_p, 0);
-  tree idx = convert (sizetype, TREE_OPERAND (*expr_p, 1));
-  tree elttype = TREE_TYPE (TREE_TYPE (array));
+  tree arrtype = TREE_TYPE (array);
+  tree elttype = TREE_TYPE (arrtype);
   tree size = size_in_bytes (elttype);
   tree ptrtype = build_pointer_type (elttype);
-  tree offset = size_binop (MULT_EXPR, size, idx);
-  tree addr, result;
+  tree minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (arrtype));
+  enum tree_code add_code = PLUS_EXPR;
+  tree idx = TREE_OPERAND (*expr_p, 1);
+  tree offset, addr, result;
+
+  /* If the array domain does not start at zero, apply the offset.  */
+  if (!integer_zerop (minidx))
+    {
+      idx = convert (TREE_TYPE (minidx), idx);
+      idx = fold (build (MINUS_EXPR, TREE_TYPE (minidx), idx, minidx));
+    }
+
+  /* If the index is negative -- a technically invalid situation now
+     that we've biased the index back to zero -- then casting it to
+     unsigned has ill effects.  In particular, -1*4U/4U != -1.
+     Represent this as a subtraction of a positive rather than addition
+     of a negative.  This will prevent any conversion back to ARRAY_REF
+     from getting the wrong results from the division.  */
+  if (TREE_CODE (idx) == INTEGER_CST && tree_int_cst_sgn (idx) < 0)
+    {
+      idx = fold (build1 (NEGATE_EXPR, TREE_TYPE (idx), idx));
+      add_code = MINUS_EXPR;
+    }
+
+  /* Pointer arithmetic must be done in sizetype.  */
+  idx = convert (sizetype, idx);
+
+  /* Convert the index to a byte offset.  */
+  offset = size_binop (MULT_EXPR, size, idx);
 
   gimplify_expr (&array, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
 
   addr = build_addr_expr_with_type (array, ptrtype);
-  result = fold (build (PLUS_EXPR, ptrtype, addr, offset));
+  result = fold (build (add_code, ptrtype, addr, offset));
   *expr_p = build1 (INDIRECT_REF, elttype, result);
 }
 
@@ -2144,25 +2171,51 @@ gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
 static void
 gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
-  /* Check if we are dealing with an expression of the form '&*ptr'.
-     While the front end folds away '&*ptr' into 'ptr', these
-     expressions may be generated internally by the compiler (e.g.,
-     builtins like __builtin_va_end).  */
-  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) != INDIRECT_REF)
+  tree expr = *expr_p;
+  tree op0 = TREE_OPERAND (expr, 0);
+
+  switch (TREE_CODE (op0))
     {
+    case INDIRECT_REF:
+      /* Check if we are dealing with an expression of the form '&*ptr'.
+	 While the front end folds away '&*ptr' into 'ptr', these
+	 expressions may be generated internally by the compiler (e.g.,
+	 builtins like __builtin_va_end).  */
+      *expr_p = TREE_OPERAND (op0, 0);
+      break;
+
+    case ARRAY_REF:
+      /* Fold &a[6] to (&a + 6).  */
+      gimplify_array_ref_to_plus (&TREE_OPERAND (expr, 0), pre_p, post_p);
+
+      /* This added an INDIRECT_REF.  Fold it away.  */
+      op0 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
+
+      /* ??? The Fortran front end does questionable things with types here,
+	 wanting to create a pointer to an array by taking the address of
+	 an element of the array.  I think we're trying to create some sort
+	 of array slice or something.  Anyway, notice that the type of the
+	 ADDR_EXPR doesn't match the type of the current pointer and add a
+	 cast if necessary.  */
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
+	  != TYPE_MAIN_VARIANT (TREE_TYPE (op0)))
+	op0 = build1 (NOP_EXPR, TREE_TYPE (expr), op0);
+
+      *expr_p = op0;
+      break;
+
+    default:
       /* We use fb_either here because the C frontend sometimes takes
 	 the address of a call that returns a struct.  */
-      gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+      gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 		     is_gimple_addr_expr_arg, fb_either);
-      TREE_SIDE_EFFECTS (*expr_p)
-	= TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 0));
+      TREE_SIDE_EFFECTS (expr)
+	= TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0));
 
       /* Mark the RHS addressable.  */
-      (*lang_hooks.mark_addressable) (TREE_OPERAND (*expr_p, 0));
+      (*lang_hooks.mark_addressable) (TREE_OPERAND (expr, 0));
+      break;
     }
-  else
-    /* Fold &*EXPR into EXPR.  gimplify_expr will re-gimplify EXPR.  */
-    *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
 }
 
 /* Gimplify the operands of an ASM_EXPR.  Input operands should be a gimple
