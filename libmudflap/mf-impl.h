@@ -70,6 +70,9 @@ struct __mf_options
   /* Print verbose description of violations. */
   unsigned verbose_violations;
 
+  /* Abbreviate duplicate object descriptions.  */
+  unsigned abbreviate;
+
   /* Emit internal tracing message. */
   unsigned verbose_trace;
 

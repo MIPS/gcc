@@ -1,14 +1,15 @@
-#ifndef __MF_RUNTIME_H
-#define __MF_RUNTIME_H
-
-#define __NO_STRING_INLINES
-
 /* ------------------------------------------------------------------------ */
 /* Public libmudflap declarations */
 
-#ifndef HAVE_UINTPTR_T
-#define HAVE_UINTPTR_T
+
+/* XXX: need a better way of conditionally defining this type.  */
+#if HAVE_STDINT_H
+#include <stdint.h>
+#else
+# if !defined (HAVE_UINTPTR_T)
+# define HAVE_UINTPTR_T
 typedef unsigned long uintptr_t;
+# endif
 #endif
 
 #define MINPTR ((uintptr_t) 0)
@@ -50,9 +51,8 @@ extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 #define __MF_TYPE_GUESS 4
 #define __MF_TYPE_MAX __MF_TYPE_GUESS
 
-/* The "public" mudflap API */
+
+/* The public mudflap API */
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);
 extern void __mf_unregister (uintptr_t ptr, uintptr_t sz);
 extern void __mf_report ();
-
-#endif

@@ -24,6 +24,8 @@ XXX: libgcc license?
 #include "mf-runtime.h"
 #include "mf-impl.h"
 
+
+
 #ifndef max
 #define max(a,b) ((a) > (b) ? (a) : (b))
 #endif
@@ -88,6 +90,7 @@ __mf_set_default_options ()
   __mf_opts.tree_aging =    13037;
   __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
+  __mf_opts.abbreviate = 1;
   __mf_opts.verbose_violations = 0;
   __mf_opts.multi_threaded = 0;
   __mf_opts.free_queue_length = 4;
@@ -162,6 +165,9 @@ options [] =
     {"verbose-violations", 
      "print verbose messages when memory violations occur",
      set_option, 1, &__mf_opts.verbose_violations},
+    {"abbreviate", 
+     "abbreviate repetitive listings",
+     set_option, 1, &__mf_opts.abbreviate},
     /* XXX: this should be sensitive to gcc --enable-threading= setting */
     {"multi-threaded", 
      "support multiple threads",
@@ -405,64 +411,8 @@ resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
 
 #endif /* PIC */
 
-extern void __mf_init () CTOR;
-void __mf_init ()
-{
-  char *ov = 0;
-
-  __mf_state = starting;
-
-#ifdef PIC
-  __mf_resolve_dynamics ();
-#endif
-
-  __mf_set_default_options ();
-
-  ov = getenv ("MUDFLAP_OPTIONS");
-  if (ov)
-    {
-      if (__mf_process_opts (ov) == 0)
-	{
-	  fprintf (stderr, 
-		   "mudflap error: unknown options in "
-		   "environment variable MUDFLAP_OPTIONS\n");
-	  __mf_usage ();
-	  exit (1);
-	}
-    }
-
-  __mf_state = active;
-#define REG_RESERVED(obj) \
-  __mf_register ((uintptr_t) & obj, (uintptr_t) sizeof(obj), __MF_TYPE_NOACCESS, # obj)
-
-  REG_RESERVED (__mf_lookup_cache);
-  REG_RESERVED (__mf_lc_mask);
-  REG_RESERVED (__mf_lc_shift);
-  /* XXX: others of our statics?  */
-
-  /* XXX: bad hack: assumes Linux process layout */
-  if (__mf_opts.heur_argv_environ)
-    {
-      int foo = 0;
-      __mf_register ((uintptr_t) & foo,
-		     (uintptr_t) 0xC0000000 - (uintptr_t) (& foo),
-		     __MF_TYPE_GUESS,
-		     "argv/environ area");
-      /* XXX: separate heuristic? */
-      __mf_register ((uintptr_t) & errno,
-		     (uintptr_t) sizeof (errno),
-		     __MF_TYPE_GUESS,
-		     "errno area");
-    }
-}
 
 
-extern void __mf_fini () DTOR;
-void __mf_fini ()
-{
-  TRACE ("mf: __mf_fini\n");
-  __mf_report ();
-}
 
 /* ------------------------------------------------------------------------ */
 /* stats-related globals.  */
@@ -486,6 +436,7 @@ typedef struct __mf_object
   const char *name;
   unsigned check_count; /* Number of times __mf_check was called on this object.  */
   unsigned liveness; /* A measure of recent checking activity.  */
+  unsigned description_epoch; /* Last epoch __mf_describe_object printed this.  */
 
   uintptr_t alloc_pc;
   struct timeval alloc_time;
@@ -522,6 +473,79 @@ static void __mf_age_tree (__mf_object_tree_t *obj);
 static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
+
+
+
+/* ------------------------------------------------------------------------ */
+
+extern void __mf_init () CTOR;
+void __mf_init ()
+{
+  char *ov = 0;
+
+  __mf_state = starting;
+
+#ifdef PIC
+  __mf_resolve_dynamics ();
+#endif
+
+  __mf_set_default_options ();
+
+  ov = getenv ("MUDFLAP_OPTIONS");
+  if (ov)
+    {
+      if (__mf_process_opts (ov) == 0)
+	{
+	  fprintf (stderr, 
+		   "mudflap error: unknown options in "
+		   "environment variable MUDFLAP_OPTIONS\n");
+	  __mf_usage ();
+	  exit (1);
+	}
+    }
+
+  __mf_state = active;
+
+  /* Initialize to a non-zero description epoch. */
+  __mf_describe_object (NULL);
+
+#define REG_RESERVED(obj) \
+  __mf_register ((uintptr_t) & obj, (uintptr_t) sizeof(obj), __MF_TYPE_NOACCESS, # obj)
+
+  REG_RESERVED (__mf_lookup_cache);
+  REG_RESERVED (__mf_lc_mask);
+  REG_RESERVED (__mf_lc_shift);
+  /* XXX: others of our statics?  */
+
+  /* Prevent access to *NULL. */
+  __mf_register ((uintptr_t) 0, 1, __MF_TYPE_NOACCESS, "NULL");
+  __mf_lookup_cache[0].low = (uintptr_t) -1;
+
+  /* XXX: bad hack: assumes Linux process layout */
+  if (__mf_opts.heur_argv_environ)
+    {
+      int foo = 0;
+      __mf_register ((uintptr_t) & foo,
+		     (uintptr_t) 0xC0000000 - (uintptr_t) (& foo),
+		     __MF_TYPE_GUESS,
+		     "argv/environ area");
+      /* XXX: separate heuristic? */
+      __mf_register ((uintptr_t) & errno,
+		     (uintptr_t) sizeof (errno),
+		     __MF_TYPE_GUESS,
+		     "errno area");
+    }
+}
+
+
+extern void __mf_fini () DTOR;
+void __mf_fini ()
+{
+  TRACE ("mf: __mf_fini\n");
+  __mf_report ();
+}
+
+
 
 /* ------------------------------------------------------------------------ */
 /* __mf_check */
@@ -797,6 +821,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
       /* Clear the cache.  */
       /* XXX: why the entire cache? */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+      /* void slot 0 */
+      __mf_lookup_cache[0].low = (uintptr_t) -1;
       break;
 
     case mode_check:
@@ -974,6 +1000,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
     case mode_populate:
       /* Clear the cache.  */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+      /* void slot 0 */
+      __mf_lookup_cache[0].low = (uintptr_t) -1;
       break;
 
     case mode_check:
@@ -1018,6 +1046,9 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 		__mf_backtrace (& old_obj->data.dealloc_backtrace,
 				NULL, 2);
 
+	    /* Encourage this object to be displayed again in current epoch.  */
+	    old_obj->data.description_epoch --;
+
 	    /* Put this object into the cemetary.  This may require this plot to
 	       be recycled, and the previous resident to be designated del_obj.  */
 	    
@@ -1029,7 +1060,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	      
 	      del_obj = __mf_object_cemetary [row][plot];
 	      __mf_object_cemetary [row][plot] = old_obj;
-	      
+
 	      plot ++;
 	      if (plot == __mf_opts.persistent_count) plot = 0;
 	      __mf_object_dead_head [row] = plot;
@@ -1243,7 +1274,7 @@ __mf_adapt_cache ()
     if (shifted > weighted_avg_size)
       break;
     
-  VERBOSE_TRACE ("mf: adapt cache %u/%u/%u/%.0f/%.0f => "
+  VERBOSE_TRACE ("mf: adapt cache %u/%u/%lu/%.0f/%.0f => "
 		 "%.0f/%lu/%lu/%.0f%% => "
 		 "%08lx/%u\n",
 		 s.obj_count, s.live_obj_count, s.total_size,
@@ -1258,6 +1289,8 @@ __mf_adapt_cache ()
       __mf_lc_mask = new_mask;
       __mf_lc_shift = new_shift;
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+      /* void slot 0 */
+      __mf_lookup_cache[0].low = (uintptr_t) -1;
     }
 }
 
@@ -1507,13 +1540,28 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 static void
 __mf_describe_object (__mf_object_t *obj)
 {
-  /* if (UNLIKELY (__mf_state != active)) return; */
+  static unsigned epoch = 0;
+  if (obj == NULL)
+    {
+      epoch ++;
+      return;
+    }
+
+  if (__mf_opts.abbreviate && obj->description_epoch == epoch)
+    {
+      fprintf (stderr,
+	       "mudflap object %08lx: name=`%s'\n",
+	       (uintptr_t) obj, (obj->name ? obj->name : ""));
+      return;
+    }
+  else
+    obj->description_epoch = epoch;
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
 	   "bounds=[%08lx,%08lx] size=%lu area=%s checked=%u liveness=%u\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
-	   obj, (obj->name ? obj->name : ""), 
+	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
 	   (obj->type == __MF_TYPE_HEAP ? "heap" :
 	    obj->type == __MF_TYPE_STACK ? "stack" :
@@ -1636,6 +1684,7 @@ __mf_report ()
       unsigned l;
       /* Free up any remaining alloca()'d blocks.  */
       (void) CALL_WRAP (alloca, 0); /* XXX: doesn't work in shared mode. */
+      __mf_describe_object (NULL); /* Reset description epoch.  */
       l = __mf_report_leaks (__mf_object_root);
       fprintf (stderr, "number of leaked objects: %u\n", l);
     }

@@ -7,8 +7,6 @@ This file is part of GCC.
 XXX: libgcc license?
 */
 
-#include "mf-runtime.h"
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +16,7 @@ XXX: libgcc license?
 #include <execinfo.h>
 #include <assert.h>
 
+#include "mf-runtime.h"
 #include "mf-impl.h"
 
 #ifdef _MUDFLAP
@@ -61,6 +60,7 @@ XXX: libgcc license?
 /* malloc/free etc. */
 
 #ifdef WRAP_malloc
+#undef malloc
 WRAPPER(void *, malloc, size_t c)
 {
   size_t size_with_crumple_zones;
@@ -87,6 +87,7 @@ WRAPPER(void *, malloc, size_t c)
 
 
 #ifdef WRAP_calloc
+#undef calloc
 WRAPPER(void *, calloc, size_t c, size_t n)
 {
   size_t size_with_crumple_zones;
@@ -118,6 +119,7 @@ WRAPPER(void *, calloc, size_t c, size_t n)
 #endif
 
 #ifdef WRAP_realloc
+#undef realloc
 WRAPPER(void *, realloc, void *buf, size_t c)
 {
   DECLARE(void * , realloc, void *, size_t);
@@ -152,6 +154,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
 
 #ifdef WRAP_free
+#undef free
 WRAPPER(void, free, void *buf)
 {
   /* Use a circular queue to delay some number (__mf_opts.free_queue_length) of free()s.  */
@@ -226,6 +229,7 @@ WRAPPER(void, free, void *buf)
 
 
 #ifdef WRAP_dlopen
+#undef dlopen
 WRAPPER(void *, dlopen, const char *filename, int flag)
 {
   DECLARE(void * , dlopen, const char *filename, int flag);
@@ -238,6 +242,7 @@ WRAPPER(void *, dlopen, const char *filename, int flag)
 
 
 #ifdef WRAP_mmap
+#undef mmap
 WRAPPER(void *, mmap, 
 	void  *start,  size_t length, int prot, 
 	int flags, int fd, off_t offset)
@@ -285,6 +290,7 @@ WRAPPER(void *, mmap,
 
 
 #ifdef WRAP_munmap
+#undef munmap
 WRAPPER(int , munmap, void *start, size_t length)
 {
   DECLARE(int, munmap, void *, size_t);
@@ -318,6 +324,7 @@ WRAPPER(int , munmap, void *start, size_t length)
 /* This wrapper is a little different, as it's implemented in terms
    of the wrapped malloc/free functions. */
 #ifdef WRAP_alloca
+#undef alloca
 WRAPPER(void *, alloca, size_t c)
 {
   DECLARE (void *, malloc, size_t);
@@ -384,6 +391,7 @@ WRAPPER(void *, alloca, size_t c)
 /* str*,mem*,b* */
 
 #ifdef WRAP_memcpy
+#undef memcpy
 WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
 {
   DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
@@ -396,6 +404,7 @@ WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
 
 
 #ifdef WRAP_memmove
+#undef memmove
 WRAPPER(void *, memmove, void *dest, const void *src, size_t n)
 {
   DECLARE(void *, memmove, void *dest, const void *src, size_t n);
@@ -407,6 +416,7 @@ WRAPPER(void *, memmove, void *dest, const void *src, size_t n)
 #endif
 
 #ifdef WRAP_memset
+#undef memset
 WRAPPER(void *, memset, void *s, int c, size_t n)
 {
   DECLARE(void *, memset, void *s, int c, size_t n);
@@ -417,6 +427,7 @@ WRAPPER(void *, memset, void *s, int c, size_t n)
 #endif
 
 #ifdef WRAP_memcmp
+#undef memcmp
 WRAPPER(int, memcmp, const void *s1, const void *s2, size_t n)
 {
   DECLARE(int , memcmp, const void *s1, const void *s2, size_t n);
@@ -428,6 +439,7 @@ WRAPPER(int, memcmp, const void *s1, const void *s2, size_t n)
 #endif
 
 #ifdef WRAP_memchr
+#undef memchr
 WRAPPER(void *, memchr, const void *s, int c, size_t n)
 {
   DECLARE(void *, memchr, const void *s, int c, size_t n);
@@ -438,6 +450,7 @@ WRAPPER(void *, memchr, const void *s, int c, size_t n)
 #endif
 
 #ifdef WRAP_memrchr
+#undef memrchr
 WRAPPER(void *, memrchr, const void *s, int c, size_t n)
 {
   DECLARE(void *, memrchr, const void *s, int c, size_t n);
@@ -448,6 +461,7 @@ WRAPPER(void *, memrchr, const void *s, int c, size_t n)
 #endif
 
 #ifdef WRAP_strcpy
+#undef strcpy
 WRAPPER(char *, strcpy, char *dest, const char *src)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -468,6 +482,7 @@ WRAPPER(char *, strcpy, char *dest, const char *src)
 #endif
 
 #ifdef WRAP_strncpy
+#undef strncpy
 WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
 {
   DECLARE(size_t, strnlen, const char *s, size_t n);
@@ -484,6 +499,7 @@ WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
 #endif
 
 #ifdef WRAP_strcat
+#undef strcat
 WRAPPER(char *, strcat, char *dest, const char *src)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -501,6 +517,7 @@ WRAPPER(char *, strcat, char *dest, const char *src)
 #endif
 
 #ifdef WRAP_strncat
+#undef strncat
 WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
 {
 
@@ -540,6 +557,7 @@ WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
 #endif
 
 #ifdef WRAP_strcmp
+#undef strcmp
 WRAPPER(int, strcmp, const char *s1, const char *s2)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -557,6 +575,7 @@ WRAPPER(int, strcmp, const char *s1, const char *s2)
 #endif
 
 #ifdef WRAP_strcasecmp
+#undef strcasecmp
 WRAPPER(int, strcasecmp, const char *s1, const char *s2)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -574,6 +593,7 @@ WRAPPER(int, strcasecmp, const char *s1, const char *s2)
 #endif
 
 #ifdef WRAP_strncmp
+#undef strncmp
 WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
 {
   DECLARE(size_t, strnlen, const char *s, size_t n);
@@ -591,6 +611,7 @@ WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
 #endif
 
 #ifdef WRAP_strncasecmp
+#undef strncasecmp
 WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
   DECLARE(size_t, strnlen, const char *s, size_t n);
@@ -608,6 +629,7 @@ WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
 #endif
 
 #ifdef WRAP_strdup
+#undef strdup
 WRAPPER(char *, strdup, const char *s)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -643,6 +665,7 @@ WRAPPER(char *, strdup, const char *s)
 #endif
 
 #ifdef WRAP_strndup
+#undef strndup
 WRAPPER(char *, strndup, const char *s, size_t n)
 {
   DECLARE(size_t, strnlen, const char *s, size_t n);
@@ -679,6 +702,7 @@ WRAPPER(char *, strndup, const char *s, size_t n)
 #endif
 
 #ifdef WRAP_strchr
+#undef strchr
 WRAPPER(char *, strchr, const char *s, int c)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -693,6 +717,7 @@ WRAPPER(char *, strchr, const char *s, int c)
 #endif
 
 #ifdef WRAP_strrchr
+#undef strrchr
 WRAPPER(char *, strrchr, const char *s, int c)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -707,6 +732,7 @@ WRAPPER(char *, strrchr, const char *s, int c)
 #endif
 
 #ifdef WRAP_strstr
+#undef strstr
 WRAPPER(char *, strstr, const char *haystack, const char *needle)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -724,6 +750,7 @@ WRAPPER(char *, strstr, const char *haystack, const char *needle)
 #endif
 
 #ifdef WRAP_memmem
+#undef memmem
 WRAPPER(void *, memmem, 
 	const void *haystack, size_t haystacklen,
 	const void *needle, size_t needlelen)
@@ -739,6 +766,7 @@ WRAPPER(void *, memmem,
 #endif
 
 #ifdef WRAP_strlen
+#undef strlen
 WRAPPER(size_t, strlen, const char *s)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -752,6 +780,7 @@ WRAPPER(size_t, strlen, const char *s)
 #endif
 
 #ifdef WRAP_strnlen
+#undef strnlen
 WRAPPER(size_t, strnlen, const char *s, size_t n)
 {
   DECLARE(size_t, strnlen, const char *s, size_t n);
@@ -765,6 +794,7 @@ WRAPPER(size_t, strnlen, const char *s, size_t n)
 #endif
 
 #ifdef WRAP_bzero
+#undef bzero
 WRAPPER(void, bzero, void *s, size_t n)
 {
   DECLARE(void , bzero, void *s, size_t n);
@@ -785,6 +815,7 @@ WRAPPER(void, bzero, void *s, size_t n)
 #endif
 
 #ifdef WRAP_bcopy
+#undef bcopy
 WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
 {
   DECLARE(void , bcopy, const void *src, void *dest, size_t n);
@@ -806,6 +837,7 @@ WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
 #endif
 
 #ifdef WRAP_bcmp
+#undef bcmp
 WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
 {
   DECLARE(int , bcmp, const void *s1, const void *s2, size_t n);
@@ -818,6 +850,7 @@ WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
 #endif
 
 #ifdef WRAP_index
+#undef index
 WRAPPER(char *, index, const char *s, int c)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -832,6 +865,7 @@ WRAPPER(char *, index, const char *s, int c)
 #endif
 
 #ifdef WRAP_rindex
+#undef rindex
 WRAPPER(char *, rindex, const char *s, int c)
 {
   DECLARE(size_t, strlen, const char *s);
@@ -851,5 +885,6 @@ WRAPPER(char *, rindex, const char *s, int c)
 /* XXX: *printf,*scanf */
 
 
+/* XXX: setjmp, longjmp */
 
 /* ------------------------------------------------------------------------ */

@@ -1,3 +1,24 @@
+2002-11-05  Frank Ch. Eigler  <fche@redhat.com>
+
+	* test/fail20-frag.c: New test for NULL pointer dereferencing.
+	* Makefile.am (TESTS): Add it.
+	* test/pass-stratcliff.c: Add decls of stpcpy.
+	* configure.in: Test for <stdint.h>.  Generate mf-runtime.h in
+	build tree from config.h and new file mf-runtime.h.in.
+	* mf-runtime.h.in: Renamed from mf-runtime.h.  Tweak uintptr_t decl.
+	* Makefile.in, configure, config.h.in: Regenerated.
+	* mf-hooks.c: Add #undef for wrapped glibc str*/mem* macros.	
+	* mf-runtime.c (options, __mf_set_default_options): Support new 
+	default "abbreviate" option.
+	(__mf_object.description_epoch): New field.
+	(__mf_describe_object): Conditionally abbreviate objects already
+	displayed in current epoch.  Accept NULL input to increment epoch.
+	(__mf_fini, __mf_ini): Reset description epoch.
+	(__mf_register, __mf_unregister, __mf_adapt_cache, __mf_init): Ensure
+	that NULL pointer slot in lookup cache is invalidated.  Register a
+	NOACCESS region around NULL.
+	* mf-impl.h: Corresponding changes.
+
 2002-10-16  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/fail19-frag.c, pass24-frag.c, pass-stratcliff.c: New tests.

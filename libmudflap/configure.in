@@ -20,14 +20,13 @@ AC_SUBST(target_alias)
 
 AM_CONFIG_HEADER(config.h)
 
-# override for now
-#enable_shared=no
-#disable_shared=yes
-
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
+
+dnl Should check for this header for the host/target, not the build platform
+AC_CHECK_HEADERS(stdint.h)
 
 if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
    grep "enable shared" > /dev/null; then
@@ -38,3 +37,11 @@ fi
 AC_SUBST(LIBMUDFLAP_PICFLAGS)
 
 AC_OUTPUT(Makefile)
+
+(
+ echo '#ifndef __MF_RUNTIME_H'
+ echo '#define __MF_RUNTIME_H'
+ cat config.h
+ cat $srcdir/mf-runtime.h.in
+ echo '#endif'
+) > mf-runtime.h
