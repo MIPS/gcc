@@ -1,5 +1,8 @@
 2005-03-14  Ben Elliston  <bje@au.ibm.com>
 
+	* doc/rtl.texi (Machine Modes): Document SDmode, DDmode and
+	TDmode.
+
 	* config/i386/i386-modes.def: Add SDmode, DDmode, and TDmode.
 
 2005-03-11  Jon Grimm  <jgrimm2@us.ibm.com>

@@ -1081,6 +1081,22 @@ number.  This mode only has 80 meaningful bits (ten bytes).  Some
 processors require such numbers to be padded to twelve bytes, others
 to sixteen; this mode is used for either.
 
+@findex SDmode
+@item SDmode
+``Single Decimal Floating'' mode represents a four byte decimal
+floating point number (as distinct from conventional binary floating
+point).
+
+@findex DDmode
+@item DDmode
+``Double Decimal Floating'' mode represents an eight byte decimal
+floating point number.
+
+@findex TDmode
+@item TDmode
+``Tetra Decimal Floating'' mode represents a sixteen byte decimal
+floating point number all 128 of whose bits are meaningful.
+
 @findex TFmode
 @item TFmode
 ``Tetra Floating'' mode represents a sixteen byte floating point number
