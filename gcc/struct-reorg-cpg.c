@@ -418,7 +418,7 @@ field_wcp (struct data_structure *ds, struct field_order *first, int n,
            bool left)
 {
   int i;
-  HOST_WIDE_INT size = 0;
+  HOST_WIDE_INT size = 1;
   struct field_order *crr = first;
 
   for (i = 0; i < n; i++)
@@ -428,12 +428,12 @@ field_wcp (struct data_structure *ds, struct field_order *first, int n,
       if (! crr)
 	break;
 
-      size += field_size_in_bytes (ds->fields[crr->f_indx].decl);
+      size *= field_size_in_bytes (ds->fields[crr->f_indx].decl);
     }
   if (! crr)
     return 0;
 
-  return cp_relation (ds, first->f_indx, crr->f_indx) / pow (size, i - 1);
+  return cp_relation (ds, first->f_indx, crr->f_indx) / size;
 }
 
 #if 0

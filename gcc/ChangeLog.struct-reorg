@@ -1,3 +1,6 @@
+2004-12-05 Mostafa Hagog  <mustafa@il.ibm.com>
+	* struct-reorg-cpg.c (field_wcp): Remove the use of pow.
+
 2004-12-03  Dale Johannesen  <dalej@apple.com>
 
 	* tree-ssa-loop-ch.c (copy_loop_headers):  Don't divide by 0.
