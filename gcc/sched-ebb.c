@@ -152,6 +152,15 @@ static int
 rank (insn1, insn2)
      rtx insn1 ATTRIBUTE_UNUSED, insn2 ATTRIBUTE_UNUSED;
 {
+  basic_block bb1 = BLOCK_FOR_INSN (insn1);
+  basic_block bb2 = BLOCK_FOR_INSN (insn2);
+
+  if (bb1->count > bb2->count
+      || bb1->frequency > bb2->frequency)
+    return 1;
+  if (bb1->count < bb2->count
+      || bb1->frequency < bb2->frequency)
+    return -1;
   return 0;
 }
 
