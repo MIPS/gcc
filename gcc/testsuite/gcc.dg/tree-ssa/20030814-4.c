@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2 -fdump-tree-optimized" } */
+/* { dg-options "-O1 -fdump-tree-dom3 -fdump-tree-optimized" } */
     
 union tree_node;
 typedef union tree_node *tree;
@@ -33,7 +33,7 @@ blah (decl, set)
 
 /* There should be precisely one reference to pointer_alias_set.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "pointer_alias_set" 1 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "pointer_alias_set" 1 "dom3"} } */
 
 /* The assignment set = -1 in the ELSE clause of the last IF
    statement should be removed by the final cleanup phase.  */

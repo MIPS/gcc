@@ -77,8 +77,8 @@ struct tree_alias_ops *current_alias_ops;
     Note that this should contain all the alias_typevars that are
     local to this function.  We delete these from alias_vars before
     collection.  */
-static varray_type local_alias_vars;
-static varray_type local_alias_varnums;
+static GTY(()) varray_type local_alias_vars;
+static GTY(()) varray_type local_alias_varnums;
 tree pta_global_var;
 static tree currptadecl;
 static bitmap addrargs;						 

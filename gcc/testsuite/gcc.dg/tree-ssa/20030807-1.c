@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
     
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -23,20 +23,21 @@ struct rtx_def
 static int *uid_cuid;
 static int max_uid_cuid;
 
-static void
-bar ()
+static rtx
+bar (rtx r)
 {
-
-  rtx place = 0;
+  rtx place = r;
 
   if (place->fld[0].rtint <= max_uid_cuid
       && (place->fld[0].rtint > max_uid_cuid ? insn_cuid (place) :
 	  uid_cuid[place->fld[0].rtint]))
-    ;
+    return r;
+  
+  return 0;
 }
 
-/* There should be one IF conditional.  The two inner conditionals in the
+/* There should be three IF conditionals.  The two inner conditionals in the
    GIMPLE form are dead.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 3 "dom3"} } */
  
 

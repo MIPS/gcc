@@ -730,9 +730,6 @@ extern int flag_tree_ter;
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
 
-/* Enable promotion of virtual to real operands in must-alias situations.  */
-extern int flag_tree_must_alias;
-
 /* Enable loop optimization on tree-ssa.  */
 extern int flag_tree_loop;
 

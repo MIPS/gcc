@@ -719,9 +719,9 @@ ftree-loop-optimize
 Common
 Enable loop optimizations on trees
 
-ftree-must-alias
+ftree-sra
 Common
-Detect must-alias relations to remove pointer de-references
+Perform scalar replacement of aggregates
 
 ftree-points-to=
 Common Joined RejectNegative

@@ -680,6 +680,11 @@ get_stmt_operands (tree stmt)
 
   ann = get_stmt_ann (stmt);
 
+  /* Initially assume that the statement has no volatile operands.
+     Statements marked with 'has_volatile_ops' are not processed by the
+     optimizers.  */
+  ann->has_volatile_ops = false;
+
   /* Non-GIMPLE statements are just marked unmodified.  */
   if (TREE_NOT_GIMPLE (stmt))
     {
@@ -846,7 +851,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
       /* Taking the address of a variable does not represent a
 	 reference to it, but the fact that STMT takes its address will be
-	 of interest to some passes (e.g. must-alias resolution).  */
+	 of interest to some passes (e.g. alias resolution).  */
       add_stmt_operand (expr_p, stmt, 0, NULL);
 
       /* If the address is invariant, there may be no interesting variable
@@ -889,6 +894,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  ann = var_ann (ptr);
 	  if (ann->mem_tag)
 	    add_stmt_operand (&ann->mem_tag, stmt, flags, prev_vops);
+	  else if (!aliases_computed_p)
+	    {
+	      /* If the pointer does not have a memory tag and aliases have
+		 not been computed yet, mark the statement as having
+		 volatile operands to prevent DOM from entering it in
+		 equivalence tables and DCE from killing it.  */
+	      stmt_ann (stmt)->has_volatile_ops = true;
+	    }
 	}
 
       /* If a constant is used as a pointer, we can't generate a real
@@ -1107,11 +1120,24 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   else
     {
       /* The variable is not a GIMPLE register.  Add it (or its aliases) to
-	 virtual operands.  */
+	 virtual operands, unless the caller has specifically requested
+	 not to add virtual operands (used when adding operands inside an
+	 ADDR_EXPR expression).  */
       if (flags & opf_no_vops)
 	return;
 
       aliases = v_ann->may_aliases;
+
+      /* If alias information hasn't been computed yet, then addressable
+	 variables will not be an alias tag nor will they have aliases.  In
+	 this case, simply mark the statement as having volatile operands
+	 and return.  */
+      if (!aliases_computed_p && may_be_aliased (var))
+	{
+	  s_ann->has_volatile_ops = 1;
+	  return;
+	}
+
       if (aliases == NULL)
 	{
 	  /* The variable is not aliased or it is an alias tag.  */

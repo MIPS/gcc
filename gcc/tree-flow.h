@@ -281,6 +281,7 @@ static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
+static inline bool may_be_aliased (tree);
 
 
 /*---------------------------------------------------------------------------
@@ -327,6 +328,9 @@ extern GTY(()) varray_type call_clobbered_vars;
 
 #define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
+
+/* 'true' after aliases have been computed (see compute_may_aliases).  */
+extern bool aliases_computed_p;
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
@@ -456,7 +460,7 @@ extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
 extern void remove_decl (tree, tree);
 extern tree *find_decl_location (tree, tree);
-extern void compute_may_aliases (tree);
+extern void compute_may_aliases (tree, bitmap, enum tree_dump_index);
 extern void compute_reached_uses (int);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
@@ -500,6 +504,7 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
+
 extern unsigned int highest_ssa_version;
 extern void kill_redundant_phi_nodes (void);
 
@@ -527,9 +532,6 @@ void tree_ssa_loop_opt (tree, enum tree_dump_index);
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 static inline bool may_propagate_copy (tree, tree);
-
-/* In tree-must-alias.c  */
-void tree_compute_must_alias (tree, bitmap, enum tree_dump_index);
 
 /* In tree-eh.c  */
 extern void lower_eh_constructs (tree *);

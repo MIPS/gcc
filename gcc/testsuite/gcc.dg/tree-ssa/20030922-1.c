@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom3" } */
   
 
 union tree_node;
@@ -29,4 +29,4 @@ voidify_wrapper_expr (tree wrapper)
 
 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom3"} } */

@@ -253,7 +253,7 @@ in the following sections.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
--fdump-tree-must-alias@r{[}-@var{n}@r{]} -fdump-tree-dom@r{[}-@var{n}@r{]}@gol
+-fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
@@ -304,7 +304,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--fdisable-tree-ssa -ftree-dominator-opts -ftree-must-alias @gol
+-fdisable-tree-ssa -ftree-dominator-opts @gol
 -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3532,12 +3532,6 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
-@item must-alias
-@opindex fdump-tree-must-alias
-Dump each function after computing must-alias information and promoting
-virtual operands to real operands.  The file name is made by appending
-@file{.must-alias} to the source file name.
-
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -4306,13 +4300,6 @@ default at -O and higher.
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
-
-@item -ftree-must-alias
-Perform must-alias analysis on trees.  This analysis will attempt to
-convert pointer dereferences into direct variable references when a
-must-alias relation is found between a pointer P and an addressable varible
-VAR whose address has been taken by P.  This flag is enabled by default at
--O and higher.
 
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure

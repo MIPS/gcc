@@ -3379,6 +3379,7 @@ init_tree_ssa (void)
   init_phinodes ();
   memset (&ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
+  aliases_computed_p = false;
 }
 
 
@@ -3410,6 +3411,7 @@ delete_tree_ssa (void)
 
   global_var = NULL_TREE;
   call_clobbered_vars = NULL;
+  aliases_computed_p = false;
 }
 
 /* Return the current definition for variable VAR.  If none is found,

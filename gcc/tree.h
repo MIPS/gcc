@@ -3573,9 +3573,6 @@ enum tree_dump_index
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
-  TDI_pta,                      /* dump points-to information for each
-				   function.  */
-  TDI_alias,			/* dump aliasing information.  */
 
   /* Optimization passes.  The ordering and numbering of these phases must
      be the same as the one in optimize_function_tree.  */
@@ -3583,19 +3580,23 @@ enum tree_dump_index
   TDI_dom_1,
   TDI_ssa_2,
   TDI_dce_1,
-  TDI_loop,
-  TDI_mustalias,
+  TDI_pta,
+  TDI_alias,
   TDI_ssa_3,
-  TDI_tail1,			/* dump after tail recursion elimination  */
   TDI_sra,
   TDI_ssa_4,
-  TDI_ccp,
-  TDI_ssa_5,
-  TDI_pre,
   TDI_dom_2,
-  TDI_ssa_6,
+  TDI_ssa_5,
   TDI_dce_2,
-  TDI_tail2,			/* dump after tail recursion/tail call */
+  TDI_loop,
+  TDI_tail1,
+  TDI_ccp,
+  TDI_ssa_6,
+  TDI_pre,
+  TDI_dom_3,
+  TDI_ssa_7,
+  TDI_dce_3,
+  TDI_tail2,
   TDI_optimized,
   TDI_mudflap2,
 
@@ -3609,7 +3610,7 @@ enum tree_dump_index
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_RAW  	(1 << 2)	/* unparse the function */
+#define TDF_RAW  	(1 << 2)	/* don't unparse the function */
 #define TDF_DETAILS	(1 << 3)	/* show more detailed info about
 					   each pass */
 #define TDF_STATS	(1 << 4)	/* dump various statistics about

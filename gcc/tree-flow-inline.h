@@ -563,4 +563,11 @@ bsi_stmt_ptr (block_stmt_iterator i)
   return tsi_stmt_ptr (i.tsi);
 }
 
+static inline bool
+may_be_aliased (tree var)
+{
+  return (TREE_ADDRESSABLE (var)
+          || decl_function_context (var) != current_function_decl);
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -1,3 +1,57 @@
+2004-01-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (OBJS-common): Remove tree-must-alias.o
+	(tree-must-alias.o): Remove.
+	* common.opt (ftree-must-alias): Remove.
+	* flags.h (flag_tree_must_alias): Remove.  Update all users.
+	* timevar.def (TV_TREE_MUST_ALIAS): Remove.
+	* toplev.c (f_options): Remove entry for -ftree-must-alias.
+	* tree-alias-common.c (local_alias_vars): Add GTY marker.
+	(local_alias_varnums): Likewise.
+	* tree-dfa.c (aliases_computed_p): Declare.
+	(dump_variable): Show variable UID and dereferenced bits.
+	(compute_may_aliases): Add arguments 'vars_to_rename' and 'phase'.
+	Do not call create_alias_vars.
+	Call promote_call_clobbered_vars
+	Do debugging dumps.
+	Set 'aliases_computed_p' to true before returning.
+	(create_memory_tags): Call may_be_aliased.
+	Mark new memory tags for renaming.
+	(compute_alias_sets): Don't do debugging dumps.
+	(find_variable_in): Move from tree-must-alias.c
+	(remove_element_from): Likewise.
+	(find_addressable_vars): Likewise
+	(promote_call_clobbered_vars): New.
+	(get_memory_tag_for): Mark the tag volatile if the pointed-to type
+	is volatile.
+	* tree-dump.c (dump_files): Remove entry for tree-mustalias.
+	Add entries for tree-ssa7, tree-dom3 and tree-dce3.
+	* tree-flow-inline.h (may_be_aliased): New.
+	* tree-flow.h (may_be_aliased): Declare.
+	(aliases_computed_p): Declare.
+	(tree_compute_must_alias): Remove.
+	* tree-must-alias.c: Remove.
+	* tree-optimize.c: Include tree-alias-common.h.
+	(optimize_function_tree): Call create_alias_vars before going into
+	SSA form.
+	Do not compute aliases until after the first DOM and DCE passes.
+	Run DOM and DCE once more after computing may-aliases.
+	* tree-ssa-dom.c (propagate_copy): Merge the dereferenced bit flags
+	when copy propagating pointers.
+	* tree-ssa-operands.c (get_stmt_operands): Assume that the
+	statement has no volatile operands.
+	(get_expr_operands): When processing an INDIRECT_REF expressions,
+	mark the statement as having volatile operands if aliases have not
+	been computed.
+	(add_stmt_operand): If the variable may be aliased and aliasing has
+	not been computed yet, mark the statement as having volatile
+	operands.
+	* tree-ssa.c (init_tree_ssa): Set aliases_computed_p to false.
+	(delete_tree_ssa): Likewise.
+	* tree.h (tree_dump_index): Remove TDI_mustalias.
+	Add TDI_dom_3, TDI_ssa_7 and TDI_dce_3.
+	* doc/invoke.texi: Remove must-alias documentation.
+
 2004-01-07  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dce.c (find_useful_stmts): Do not consider PHIs for
