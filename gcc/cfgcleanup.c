@@ -1348,6 +1348,7 @@ try_crossjump_to_edge (mode, e1, e2)
   basic_block redirect_to, redirect_from, to_remove;
   rtx newpos1, newpos2;
   edge s;
+  rtx insn;
 
   /* Search backward through forwarder blocks.  We don't need to worry
      about multiple entry or chained forwarders, as they will be optimized
@@ -1480,6 +1481,32 @@ try_crossjump_to_edge (mode, e1, e2)
   to_remove = redirect_from->succ->dest;
 
   redirect_edge_and_branch_force (redirect_from->succ, redirect_to);
+
+  /*  The redirect_to may contain clobbers missing in to_remove.  This
+      is commonly the case when return value is undefined in some paths.
+      We must wallk trought the clobbers and remove these that clobber values
+      live in beggining of to_remove and not in the beggining of redirect_to.
+
+      If needed the same trick can be done without liveness information by
+      comparing clobbers and uses present in both blocks.  */
+  if (!(mode & CLEANUP_POST_REGSTACK))
+    {
+      if (!(mode & CLEANUP_UPDATE_LIFE))
+	abort ();
+      for (insn = redirect_to->head; insn != NEXT_INSN (redirect_to->end);
+	   insn = NEXT_INSN (insn))
+	if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == CLOBBER
+	    && REG_P (XEXP (PATTERN (insn), 0)))
+	  {
+	    unsigned int regno = REGNO (XEXP (PATTERN (insn), 0));
+	    if (REGNO_REG_SET_P (to_remove->global_live_at_start, regno)
+		&& !REGNO_REG_SET_P (redirect_to->global_live_at_start, regno))
+	      delete_insn (insn);
+	  }
+      IOR_REG_SET (redirect_to->global_live_at_start, 
+		   to_remove->global_live_at_start);
+    }
+
   flow_delete_block (to_remove);
 
   update_forwarder_flag (redirect_from);

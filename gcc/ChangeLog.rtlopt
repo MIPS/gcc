@@ -1,3 +1,7 @@
+Tue Dec 31 17:26:13 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_crossjump_to_edge):  Remove bohus clobbers.
+
 Tue Dec 31 12:45:41 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* sched-ebb.c (rank):  Use frequencies.
