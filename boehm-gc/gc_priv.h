@@ -445,10 +445,32 @@ void GC_print_callers (/* struct callinfo info[NFRAMES] */);
 		: "0"(1), "m"(*(addr)));
 	  return oldval;
        }
+       inline static void GC_clear(volatile unsigned int *addr) {
+          *(addr) = 0;
+       }
+#    elif defined(__alpha__)
+       inline static int GC_test_and_set(volatile unsigned int *addr) {
+        long oldval, temp;
+
+        __asm__ __volatile__(
+              "1:\tldl_l %0,%3\n"
+              "\tbne %0,2f\n"
+              "\tor $31,1,%1\n"
+              "\tstl_c %1,%2\n"
+              "\tbeq %1,1b\n"
+              "2:\tmb\n"
+              : "=&r"(oldval), "=&r"(temp), "=m"(*(addr))
+              : "m"(*(addr))
+              : "memory");
+        return (int)oldval;
+       }
+       inline static void GC_clear(volatile unsigned int *addr) {
+          __asm__ __volatile__("mb": : :"memory");
+          *(addr) = 0;
+       }
 #    else
        -- > Need implementation of GC_test_and_set()
 #    endif
-#    define GC_clear(addr) (*(addr) = 0)
 
      extern volatile unsigned int GC_allocate_lock;
 	/* This is not a mutex because mutexes that obey the (optional)     */
@@ -530,6 +552,10 @@ void GC_print_callers (/* struct callinfo info[NFRAMES] */);
      GC_API CRITICAL_SECTION GC_allocate_ml;
 #    define LOCK() EnterCriticalSection(&GC_allocate_ml);
 #    define UNLOCK() LeaveCriticalSection(&GC_allocate_ml);
+#  endif
+#  ifdef QUICK_THREADS
+#    define LOCK()
+#    define UNLOCK()
 #  endif
 #  ifndef SET_LOCK_HOLDER
 #      define SET_LOCK_HOLDER()
@@ -1626,6 +1652,10 @@ void GC_print_obj(/* ptr_t p */);
 			/* P points to somewhere inside an object with	*/
 			/* debugging info.  Print a human readable	*/
 			/* description of the object to stderr.		*/
+ptr_t GC_debug_object_start(/* ptr_t p */);
+                        /* P points to the start of an object that may  */
+                        /* have debug info at its head.  Return the     */
+                        /* start of the real data.                      */		
 extern void (*GC_check_heap)();
 			/* Check that all objects in the heap with 	*/
 			/* debugging info are intact.  Print 		*/

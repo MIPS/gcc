@@ -1,6 +1,13 @@
 1999-07-17  Bryce McKinlay  <bryce@albatross.co.nz>
 
-        * Imported Boehm GC 5.0a1
+	* Imported Boehm GC 5.0a1
+	* config.h: removed (now gcconfig.h)
+	* Makefile.am, Makefile.in, configure, configure.in: 'config.h' -> 
+	'gcconfig.h'
+	* alloc.c, dbg_mlc.c, gc.h, gc_priv.h, linux_threads.c, mark.c, 
+	misc.c, os_dep.c, solaris_pthreads.c: merge previous GC patches.
+	* gcconfig.h: don't define MPROTECT_VDB on Linux due to problems
+	with threads & blocking I/O.
 
 1999-06-30  Alexandre Oliva  <oliva@dcc.unicamp.br>
 

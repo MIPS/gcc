@@ -85,6 +85,16 @@ ptr_t p;
     return(FALSE);
 }
 
+/* Return start of object that might have debugging info.  */
+ptr_t GC_debug_object_start(p)
+ptr_t p;
+{
+    register word * result = (word *)((oh *)p + 1);
+    if (! GC_has_debug_info(p))
+        return(p);
+    return((ptr_t)result);
+}
+
 /* Store debugging info into p.  Return displaced pointer. */
 /* Assumes we don't hold allocation lock.		   */
 ptr_t GC_store_debug_info(p, sz, string, integer)
@@ -231,6 +241,35 @@ void GC_start_debugging()
     }
     if (!GC_debugging_started) {
     	GC_start_debugging();
+    }
+    ADD_CALL_CHAIN(result, ra);
+    return (GC_store_debug_info(result, (word)lb, s, (word)i));
+}
+
+# ifdef __STDC__
+    GC_PTR GC_debug_generic_malloc(size_t lb, int k, EXTRA_ARGS)
+# else
+    GC_PTR GC_debug_malloc(lb, k, s, i)
+    size_t lb;
+    int k;
+    char * s;
+    int i;
+#   ifdef GC_ADD_CALLER
+       --> GC_ADD_CALLER not implemented for K&R C
+#   endif
+# endif
+{
+    GC_PTR result = GC_generic_malloc(lb + DEBUG_BYTES, k);
+    
+    if (result == 0) {
+        GC_err_printf1("GC_debug_malloc(%ld) returning NIL (",
+                      (unsigned long) lb);
+        GC_err_puts(s);
+        GC_err_printf1(":%ld)\n", (unsigned long)i);
+        return(0);
+    }
+    if (!GC_debugging_started) {
+       GC_start_debugging();
     }
     ADD_CALL_CHAIN(result, ra);
     return (GC_store_debug_info(result, (word)lb, s, (word)i));

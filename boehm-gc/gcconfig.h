@@ -690,7 +690,9 @@
 	/* Probably needs to be more flexible, but I don't yet 		*/
 	/* fully understand how flexible.				*/
 #       if !defined(LINUX_THREADS) || !defined(REDIRECT_MALLOC)
-#	    define MPROTECT_VDB
+/* MPROTECT_VDB seems cause problems with blocking I/O calls and threads
+  in libgcj. Commented out here as a workaround. */
+// #	    define MPROTECT_VDB
 #	else
 	    /* We seem to get random errors in incremental mode,	*/
 	    /* possibly because Linux threads is itself a malloc client */

@@ -3141,7 +3141,7 @@ rm -f conftest.s*
 EOF
 
 cat >> $CONFIG_STATUS <<EOF
-ac_sources="config.h"
+ac_sources="gcconfig.h"
 ac_dests="boehm-config.h"
 EOF
 

@@ -123,8 +123,13 @@ package, we generate a dummy reference to `__pthread_kill_other_threads_np'
 which is a symbol defined in LinuxThreads, but (hopefully) not in other
 thread packages.
 */
+#if 0
+/* Note: on Caldera OpenLinux, this symbols is `local' in the
+   libpthread.so (but not in libpthread.a).  We don't really need
+   this, so we just comment it out.  */
 extern char * __pthread_initial_thread_bos;
 char **dummy_var_to_force_linux_threads = &__pthread_kill_other_threads_np;
+#endif
 
 #define LINUX_THREADS_STACK_SIZE  (2 * 1024 * 1024)
 
