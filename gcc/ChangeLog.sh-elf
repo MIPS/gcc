@@ -1,3 +1,7 @@
+2004-06-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-linux (MULTILIB_OPTIONS): Remove.
+
 2004-06-16  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* sh.h (SUPPORT_SH1, SUPPORT_SH2E, SUPPORT_SH4): Conditionanlly define.
