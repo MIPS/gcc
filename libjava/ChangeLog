@@ -1,3 +1,17 @@
+2004-05-12  David Jee  <djee@redhat.com>
+
+	* java/awt/image/RGBImageFilter.java:
+	Initialize origmodel as null.
+	(makeColor): Fix pixel component order.
+	(filterRGBPixels): Fix pixel iteration.
+	(setPixels): Add extra checks for index color model. Convert pixels
+	to default color model if necessary.
+	(convertColorModelToDefault): New override method for byte pixels.
+	(convertColorModelToDefault): For int pixels, fix pixel iteration.
+	(makeColorbyDefaultCM): New override method for byte pixels.
+	(makeColorbyDefaultCM): For int pixel, add color model as argument.
+	(makeColor): Fix pixel component order.
+
 2004-05-11  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/Box.java:
