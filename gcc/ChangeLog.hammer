@@ -1,3 +1,8 @@
+2004-02-18  Andreas Jaeger  <aj@suse.de>
+
+	* toplev.c: Include <alloc-pool.h> for dump_alloc_pool_statistics
+	prototype.
+
 2004-02-18  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_prologue_using_move, x86_epilogue_using_move): Disable for P4.
