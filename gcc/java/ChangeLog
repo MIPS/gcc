@@ -1,5 +1,9 @@
 2005-02-28  Tom Tromey  <tromey@redhat.com>
 
+	* builtins.cc (add): Only set DECL_EXTERNAL for static fields.
+
+2005-02-28  Tom Tromey  <tromey@redhat.com>
+
 	* decl.cc (pushdecl_primitive): New function.
 	(initialize_gcc_primitive_types): Use it.
 

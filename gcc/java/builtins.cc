@@ -174,7 +174,6 @@ tree_builtins::add (tree context, model_field *field)
 			    map_identifier (field->get_name ()),
 			    map_type (field->type ()));
   DECL_CONTEXT (result) = context;
-  DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
   TREE_PUBLIC (result) = 1;
   if (field->static_p ())
     SET_DECL_ASSEMBLER_NAME (result,
@@ -186,6 +185,8 @@ tree_builtins::add (tree context, model_field *field)
       TREE_CHAIN (result) = TYPE_FIELDS (context);
       TYPE_FIELDS (context) = result;
     }
+  else
+    DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
 
   fieldmap[field] = result;
 }
