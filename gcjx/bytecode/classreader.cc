@@ -318,6 +318,14 @@ class_reader::parse_constant_value ()
 
   ref_expression init;
   parse_constant_value (init);
+
+  // We handle boolean constant expressions specially here.
+  if (current_field->type () == primitive_boolean_type)
+    {
+      jint val = jint (init->value ());
+      init = new model_boolean_literal (where, val);
+    }
+
   current_field->set_initializer (init);
 }
 

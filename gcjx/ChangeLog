@@ -1,3 +1,8 @@
+2005-03-03  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/classreader.cc (parse_constant_value): Special case
+	initializers of boolean fields.
+
 2005-02-27  Tom Tromey  <tromey@redhat.com>
 
 	* header/cni.cc (write_includes): Changed argument types.
