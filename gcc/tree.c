@@ -194,7 +194,7 @@ tree_size (tree node)
 
 	case EPHI_NODE:		return (sizeof (struct tree_ephi_node)
 					+ (EPHI_ARG_CAPACITY (node) - 1) *
-					sizeof (struct phi_arg_d));
+					sizeof (struct ephi_arg_d));
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 	case EUSE_NODE:		return sizeof (struct tree_euse_node);

@@ -1259,23 +1259,42 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	dump_generic_node (buffer, EREF_NAME (node), spc, flags);
 	pp_string (buffer, ") ");
 	pp_character (buffer, '[');
-	pp_string (buffer, "class:");
+	pp_string (buffer, " class:");
 	pp_decimal_int (buffer, EREF_CLASS (node));
-	pp_string (buffer, " downsafe:");
-	pp_decimal_int (buffer, EPHI_DOWNSAFE (node));
-	pp_string (buffer, " can_be_avail:");
-	pp_decimal_int (buffer, EPHI_CAN_BE_AVAIL (node));
-	pp_string (buffer, " later:");
-	pp_decimal_int (buffer, EPHI_LATER (node));
+	if (EPHI_DOWNSAFE (node))
+	  pp_string (buffer, " downsafe");
+	if (EPHI_CANT_BE_AVAIL (node))
+	  pp_string (buffer, " cant_be_avail");
+	if (EPHI_STOPS (node))
+	  pp_string (buffer, " stops");
 	pp_string (buffer, " bb:");
 	pp_decimal_int (buffer, bb_for_stmt (node)->index);
 	pp_character (buffer, ']');
-	pp_string (buffer, " <");
-	for (i = 0; i < EPHI_NUM_ARGS (node); i++)
+	if (! (flags & TDF_SLIM))
 	  {
-	    newline_and_indent (buffer, spc + 4);
-	    dump_generic_node (buffer, EPHI_ARG_DEF (node, i),
-			       spc + 4, flags);
+	    pp_string (buffer, " <");
+	    for (i = 0; i < EPHI_NUM_ARGS (node); i++)
+	      {	    
+		if (EPHI_ARG_DEF (node, i))
+		  {
+		    newline_and_indent (buffer, spc + 2);
+		    pp_string (buffer, " edge ");
+		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->src->index);
+		    pp_string (buffer, "->");
+		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->dest->index);
+		    pp_string (buffer, " [ ");
+		    if (EPHI_ARG_HAS_REAL_USE (node, i))
+		      pp_string (buffer, " real use");
+		    if (EPHI_ARG_INJURED (node, i))
+		      pp_string (buffer, " injured");
+		    if (EPHI_ARG_STOPS (node, i))
+		      pp_string (buffer, " stops");
+		    pp_string (buffer, " ] ");
+		    pp_string (buffer, " defined by:");
+		    dump_generic_node (buffer, EPHI_ARG_DEF (node, i),
+				       spc + 4, flags | TDF_SLIM);
+		  }
+	      }
 	  }
 	pp_string (buffer, " >");
       }
@@ -1299,8 +1318,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_character (buffer, ']');
       break;
     case EUSE_NODE:
-      pp_string (buffer, "EUSE (");
+      pp_string (buffer, " EUSE (");
       dump_generic_node (buffer, EREF_NAME (node), spc, flags);
+
       pp_string (buffer, ") ");
       pp_character (buffer, '[');
       pp_string (buffer, "class:");
@@ -1309,26 +1329,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_decimal_int (buffer, EUSE_PHIOP (node));
       pp_string (buffer, " bb:");
       pp_decimal_int (buffer, bb_for_stmt (node)->index);
-      if (EUSE_PHIOP (node))
-	{
-	  pp_string (buffer, " has real use:");
-	  pp_decimal_int (buffer, EUSE_HAS_REAL_USE (node));
-	  if (!(flags & TDF_SLIM))
-	    {
-	      pp_string (buffer, " defined by:");
-	      newline_and_indent (buffer, spc + 4);
-	      /* If you remove the TDF_SLIM, you will get infinite
-		 loops due to cycles in the factored graph in some
-		 cases. They are *supposed* to occur, but we don't track
-		 which nodes we've already printed, thus, we need to
-		 stop at one level of printing. */
-	      dump_generic_node (buffer, EUSE_DEF (node),
-				 spc + 4, flags | TDF_SLIM);
-	    }
-	  newline_and_indent (buffer, spc);
-	}
-      pp_character (buffer, ']');
-
+      pp_string (buffer, " ]");
       break;
     case PHI_NODE:
       {

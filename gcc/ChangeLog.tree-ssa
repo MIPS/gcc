@@ -1,3 +1,80 @@
+2003-08-27  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (struct ephi_arg_d): New structure.
+	(struct eref_common): Remove non-used members, move some members
+	elsewhere. 
+	(struct ephi_node): Ditto.
+
+	* tree-optimize.c (optimize_function_tree): Move PRE before DCE.
+
+	* tree.c (tree_size): use sizeof (struct ephi_arg_d) for ephi's.
+
+	* tree-pretty-print.c (dump_generic_node): Re-teach to pretty
+	print euses/ephis/etc given new structures, members, and
+	relationships. 
+	
+	* tree-ssa-pre.c (fixup_domchildren): Removed.
+	(a_dom_b): Ditto.
+	(calculate_preorder): Ditto.
+	(defs_match_p): Ditto.
+	(defs_y_dom_x): Ditto.
+	(compute_can_be_avail): Ditto.
+	(reset_can_be_avail): Ditto.
+	(reset_later): Ditto.
+	(compute_later): Ditto.
+	(repair_*): Ditto.
+	(set_replacement): Ditto.
+	(remove_ephi): Ditto.
+	(set_expruse_def): Ditto.
+	(occ_compare): Ditto.
+	(defs_hash_expr): Ditto.
+	(compute_dt_preorder): Ditto
+	(search_dt_preorder): Ditto.
+	(ephi_operand_for_pred): Ditto.
+	(injured_ephi_operand): Ditto.
+	(compute_stops): New function.
+	(occ_identical_to): Ditto.
+	(require_phi): Ditto.
+	(do_ephi_df_search_1): Ditto.
+	(do_ephi_df_search): Ditto.
+	(any_operand_injured): Ditto.
+	(compute_du_info): Ditto.
+	(add_ephi_use): Ditto.
+	(insert_one_operand): Ditto.
+	(add_ephi_pred): Ditto.
+	(created_phi_preds): New bitmap.
+	(dfn) Removed static variable.
+	(idom_of_ephi): Ditto.
+	(avdefs): Move into expr_info).
+	(struct ephi_use_entry): New structure for EPHI uses. 	
+	(struct ephi_df_search): New structure for depth first searchs.
+	(cant_be_avail_search): Implementation of structure for
+	cant_be_avail search.
+	(stops_search): Ditto for stops.
+	(replacing_search): Ditto for replacing_search.
+	(do_proper_save): Arguments changed, callers updated.
+	(create_ephi_node): Use sizeof (struct ephi_arg_d).
+	(ephi_has_bottom): Rewrite for updated ephi-pred handling.
+	(ephi_will_be_avail): Rewrite in terms of CANT_BE_AVAIL and STOPS.
+	(expr_phi_insertion): Remove dead code.
+	Update for new flags.
+	(insert_occ_in_preorder_dt_order_1): Only insert one ephi-pred per
+	block.
+	Fix exit occurence handling.
+	(rename_1): Remove occs stuff.
+	Update for new ephi-pred handling.
+	(reset_down_safe): Update for new ephi-pred handling.
+	(compute_down_safe): Ditto.
+	(can_insert): Ditto.
+	(insert_one_operand): Split out from finalize_1.
+	(finalize_1): Update for new ephi-pred handling.
+	Only insert non-pointless, will-be-avail phis, rather than *all*
+	ephis.
+	(get_temp): New function. Hand us the right temporary for a given
+	EPHI/EUSE. 
+	(code_motion): Use EREF_TEMP again, now that we can do it
+	properly.
+	
 2003-08-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* builtins.c (expand_builtin): Handle STACK_ALLOC.
