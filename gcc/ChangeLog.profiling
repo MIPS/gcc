@@ -1,5 +1,9 @@
 2004-09-12  Jan Hubicka  <jh@suse.cz>
 
+	* cfgbuild.c:  Revert changes no longer needed.
+
+2004-09-12  Jan Hubicka  <jh@suse.cz>
+
 	Merge from mainline (tree-profiling-merge-20040912)
 	
 2004-09-09  Jan Hubicka  <jh@suse.cz>
