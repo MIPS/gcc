@@ -1,7 +1,72 @@
+2002-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (fold): Fix a typo.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/7370
+	* config/s390/s390.md ("*addsi3_inv"): New pattern.
+
+	PR target/8232
+	* config/s390/s390.md ("cmpstrsi"): Convert length operand
+	from SImode to Pmode.
+
+2002-10-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi: Formatting changes for conformance to HTML 4.01.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR opt/7409
+	* loop.c (loop_regs_scan): Mark registers used for function
+	argument passing as MAY_NOT_OPTIMIZE.
+
+2002-10-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7862
+	PR preprocessor/8190
+	* gcc.c (cpp_unique_options): Don't delete .d files.
+	Remove stray whitespace.
+
 2002-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP):
 	Handle TARGET_64BIT.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* Makefile.in (function.o): Depend on langhooks.h.
+	* alias.c (objects_must_conflict_p): Check honor_readonly when
+	examining TYPE_READONLY.
+	* function.c (assign_stack_temp_for_type): Likewise.
+
+2002-10-12  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* tree.c (tree_size): Revise expressions using TREE_CODE_LENGTH and
+	TREE_VEC_LENGTH to ensure values are promoted before doing subtraction.
+
+2002-10-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/compat.texi: Add info about C++ libraries.
+
+Thu Oct 10 19:47:41 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/5610
+	* invoke.texi (-msse-math): Kill
+	(-msse): Add note to mfpmath=sse.
+
+Thu Oct 10 17:38:29 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR ice/7951
+	* reload1.c (emit_input_reload_insns): Use constrain_operands
+	instead of constraint_accepts_reg_p to verify optimization.
+	(constraint_accepts_reg_p): Kill
+
+Thu Oct 10 17:05:22 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/7723
+	* i386.c (ix86_expand_vector_move): Do not generate const0->mem moves.
 
 2002-09-20  Jakub Jelinek  <jakub@redhat.com>
 
@@ -830,10 +895,6 @@ Sat Aug 10 19:56:31 CEST 2002  Jan Hubicka  <jh@suse.cz>
 2002-06-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/compile/20020604-1.c: New test.
-
-2002-05-15  Jakub Jelinek  <jakub@redhat.com>
-
-	* fold-const.c (fold): Fix a typo.
 
 2002-05-05  Jakub Jelinek  <jakub@redhat.com>
 

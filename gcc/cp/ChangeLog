@@ -1,3 +1,31 @@
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7176
+	* lex.c (do_identifier): Add another option for the parsing
+	parameter.
+	* parse.y (do_id): Use it.
+
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* cp-tree.h (variably_modified_type_p): New function.
+	(grokdeclarator) Tighten check for variably modified types as
+	fields.
+	* pt.c (convert_template_argument): Do not allow variably modified
+	types as template arguments.
+	* tree.c (variably_modified_type_p): New function.	
+
+2002-10-11  Jason Molenda  <jmolenda@apple.com>
+
+	* init.c (build_field_list): Provide uses_unions_p with a default
+	value.
+
+2002-10-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PRs C++/6803, C++/7721 and C++/7803
+	* decl.c (grokdeclarator): Gracefully handle template-name as
+	decl-specifier. 
+
 2002-10-09  Zack Weinberg  <zack@codesourcery.com>
 
 	PR c/7353

@@ -1,6 +1,33 @@
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/7370
+	* gcc.c-torture/compile/20021015-1.c: New test.
+
+	PR target/8232
+	* gcc.c-torture/compile/20021015-2.c: New test.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20021015-1.c: New test.
+
 2002-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20021014-1.c: New test.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* g++.dg/opt/const2.C: New test.
+
+	PR c++/7176
+	* g++.dg/parse/friend1.C: New test.
+	* g++.old-deja/g++.pt/memtemp64.C: Adjust.
+
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* g++.dg/ext/vlm1.C: New test.
+	* g++.dg/ext/vlm2.C: Likewise.
 
 2002-09-20  Jakub Jelinek  <jakub@redhat.com>
 
