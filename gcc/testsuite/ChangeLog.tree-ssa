@@ -1,3 +1,10 @@
+2003-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa: New file.
+	* g++.dg/tree-ssa/tree-ssa.exp: New file based on
+	gcc.dg/tree-ssa/tree-ssa.exp.
+	* g++.dg/tree-ssa/nothrow-1.C: New test.
+
 2003-11-11  Canqun Yang  <canqun@nudt.edu.cn>
 
 	* gfortran.fortran-torture/execute/stack_varsize.f90: New test.
