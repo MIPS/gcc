@@ -1,5 +1,11 @@
 2005-02-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/tree/DefaultMutableTreeNode.java:
+	Reworked Javadocs all over.
+	(getPathToRoot): Fixed direction of result array initialization.
+
+2005-02-10  Michael Koch  <konqueror@gmx.de>
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
 	 Fix includes for cairo 0.3.0 snappshot.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c:
