@@ -3949,6 +3949,11 @@ try_replace_reg (from, to, insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
+  /* If there is already a NOTE, update the expression in it with our
+     replacement.  */
+  if (note != 0)
+    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
+
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -3965,11 +3970,6 @@ try_replace_reg (from, to, insn)
       if (!success && note == 0 && set != 0)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
-
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  else if (note != 0)
-    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
