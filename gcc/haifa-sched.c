@@ -1952,7 +1952,7 @@ early_queue_to_ready (state_t state, struct ready_list *ready)
 
 		      insns_removed++;
 		      if (insns_removed == flag_sched_stalled_insns)
-			/* remove only one insn from Q at a time */
+			/* Remove only one insn from Q at a time.  */
 			return insns_removed;
 		    }
 		}
@@ -2226,17 +2226,6 @@ choose_ready (struct ready_list *ready)
       else
 	return ready_remove (ready, index);
     }
-}
-
-/* Called from backends from targetm.sched.reorder to emit stuff into
-   the instruction stream.  */
-
-rtx
-sched_emit_insn (rtx pat)
-{
-  rtx insn = emit_insn_after (pat, last_scheduled_insn);
-  last_scheduled_insn = insn;
-  return insn;
 }
 
 /* Use forward list scheduling to rearrange insns of block B in region RGN,
@@ -2867,6 +2856,9 @@ sched_init (FILE *dump_file)
      removing death notes.  */
   FOR_EACH_BB_REVERSE (b)
     find_insn_reg_weight (b->index);
+
+  if (targetm.sched.md_init_global)
+      (*targetm.sched.md_init_global) (sched_dump, sched_verbose, old_max_uid);
 }
 
 /* Free global data used during insn scheduling.  */
@@ -2886,5 +2878,8 @@ sched_finish (void)
   end_alias_analysis ();
   if (write_symbols != NO_DEBUG)
     free (line_note_head);
+
+  if (targetm.sched.md_finish_global)
+      (*targetm.sched.md_finish_global) (sched_dump, sched_verbose);
 }
 #endif /* INSN_SCHEDULING */

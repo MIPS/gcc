@@ -1,6 +1,6 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -226,7 +226,6 @@ extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern tree c_begin_compound_stmt (void);
-extern void c_expand_deferred_function (tree);
 extern void c_expand_decl_stmt (tree);
 extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
@@ -236,6 +235,7 @@ extern void merge_translation_unit_decls (void);
 extern int c_disregard_inline_limits (tree);
 extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
+extern tree c_objc_common_truthvalue_conversion (tree expr);
 extern int c_missing_noreturn_ok_p (tree);
 extern void c_objc_common_finish_file (void);
 extern int defer_fn (tree);
@@ -267,7 +267,7 @@ extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
 extern tree parser_build_binary_op (enum tree_code, tree, tree);
 extern int c_tree_expr_nonnegative_p (tree);
-extern void readonly_warning (tree, const char *);
+extern void readonly_error (tree, const char *);
 extern tree build_conditional_expr (tree, tree, tree);
 extern tree build_compound_expr (tree);
 extern tree c_cast_expr (tree, tree);
@@ -289,8 +289,8 @@ extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
 extern void c_finish_case (void);
-extern tree simple_asm_stmt (tree);
-extern tree build_asm_stmt (tree, tree, tree, tree, tree);
+extern tree build_asm_expr (tree, tree, tree, tree, bool);
+extern tree build_asm_stmt (tree, tree);
 extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 
 /* Set to 0 at beginning of a function definition, set to 1 if

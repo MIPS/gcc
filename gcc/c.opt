@@ -93,6 +93,10 @@ C ObjC C++ ObjC++ Joined Separate
 E
 C ObjC C++ ObjC++ Undocumented
 
+F
+C ObjC C++ ObjC++ Joined Separate
+-F <dir>	Add <dir> to the end of the main framework include path  
+
 H
 C ObjC C++ ObjC++
 Print the name of header files as they are used
@@ -399,6 +403,10 @@ Wunused-macros
 C ObjC C++ ObjC++
 Warn about macros defined in the main file that are not used
 
+Wvariadic-macros
+C ObjC C++ ObjC++
+Do not warn about using variadic macros when -pedantic
+
 Wwrite-strings
 C ObjC C++ ObjC++
 Give strings the type \"array of char\"
@@ -410,9 +418,6 @@ A synonym for -std=c89.  In a future version of GCC it will become synonymous wi
 d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
-
-fabi-version=
-C++ ObjC++ Joined UInteger
 
 faccess-control
 C++ ObjC++
@@ -481,6 +486,11 @@ C++ ObjC++
 fexec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fexec-charset=<cset>	Convert all strings and character constants to character set <cset>
+
+finput-charset=
+C ObjC C++ ObjC++ Joined RejectNegative
+-finput-charset=<cset>      Specify the default character set for source files.
+
 
 fexternal-templates
 C++ ObjC++

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
+#include "target.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -448,7 +449,8 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
       /* Interpret "-" or a non-switch as a file name.  */
       if (opt[0] != '-' || opt[1] == '\0')
 	{
-	  main_input_filename = opt;
+	  if (main_input_filename == NULL)
+	    main_input_filename = opt;
 	  add_input_filename (opt);
 	  n = 1;
 	  continue;
@@ -572,6 +574,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
       flag_web = 1;
+      flag_gcse_after_reload = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -593,10 +596,8 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
-#ifdef DEFAULT_SHORT_ENUMS
   /* Initialize how much space enums occupy, by default.  */
-  flag_short_enums = DEFAULT_SHORT_ENUMS;
-#endif
+  flag_short_enums = targetm.default_short_enums ();
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
@@ -832,6 +833,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_pie = value + value;
       break;
 
+    case OPT_fabi_version_:
+      flag_abi_version = value;
+      break;
+
     case OPT_falign_functions:
       align_functions = !value;
       break;
@@ -1029,6 +1034,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fgcse_sm:
       flag_gcse_sm = value;
+      break;
+
+    case OPT_fgcse_after_reload:
+      flag_gcse_after_reload = value;
       break;
 
     case OPT_fgcse_las:
@@ -1435,6 +1444,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_unwind_tables = value;
       break;
 
+    case OPT_fvar_tracking:
+      flag_var_tracking = value;
+      break;
+
     case OPT_fverbose_asm:
       flag_verbose_asm = value;
       break;
@@ -1445,10 +1458,6 @@ common_handle_option (size_t scode, const char *arg,
       
     case OPT_fwrapv:
       flag_wrapv = value;
-      break;
-
-    case OPT_fwritable_strings:
-      flag_writable_strings = value;
       break;
 
     case OPT_fzero_initialized_in_bss:

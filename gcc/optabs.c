@@ -105,7 +105,6 @@ static void prepare_cmp_insn (rtx *, rtx *, enum rtx_code *, rtx,
 static enum insn_code can_fix_p (enum machine_mode, enum machine_mode, int,
 				 int *);
 static enum insn_code can_float_p (enum machine_mode, enum machine_mode, int);
-static rtx ftruncify (rtx);
 static optab new_optab (void);
 static convert_optab new_convert_optab (void);
 static inline optab init_optab (enum rtx_code);
@@ -154,8 +153,11 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
       || NEXT_INSN (insns) == NULL_RTX)
     abort ();
 
-  if (GET_RTX_CLASS (code) != '1' && GET_RTX_CLASS (code) != '2'
-      && GET_RTX_CLASS (code) != 'c' && GET_RTX_CLASS (code) != '<')
+  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH
+      && GET_RTX_CLASS (code) != RTX_BIN_ARITH
+      && GET_RTX_CLASS (code) != RTX_COMM_COMPARE
+      && GET_RTX_CLASS (code) != RTX_COMPARE
+      && GET_RTX_CLASS (code) != RTX_UNARY)
     return 1;
 
   if (GET_CODE (target) == ZERO_EXTRACT)
@@ -191,7 +193,7 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
 	}
     }
 
-  if (GET_RTX_CLASS (code) == '1')
+  if (GET_RTX_CLASS (code) == RTX_UNARY)
     note = gen_rtx_fmt_e (code, GET_MODE (target), copy_rtx (op0));
   else
     note = gen_rtx_fmt_ee (code, GET_MODE (target), copy_rtx (op0), copy_rtx (op1));
@@ -719,7 +721,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      try to make the first operand a register.
      Even better, try to make it the same as the target.
      Also try to make the last operand a constant.  */
-  if (GET_RTX_CLASS (binoptab->code) == 'c'
+  if (GET_RTX_CLASS (binoptab->code) == RTX_COMM_ARITH
       || binoptab == smul_widen_optab
       || binoptab == umul_widen_optab
       || binoptab == smul_highpart_optab
@@ -2358,7 +2360,7 @@ expand_parity (enum machine_mode mode, rtx op0, rtx target)
 	      temp = expand_unop (wider_mode, popcount_optab, xop0, NULL_RTX,
 				  true);
 	      if (temp != 0)
-		temp = expand_binop (wider_mode, and_optab, temp, GEN_INT (1),
+		temp = expand_binop (wider_mode, and_optab, temp, const1_rtx,
 				     target, true, OPTAB_DIRECT);
 	      if (temp == 0)
 		delete_insns_since (last);
@@ -3337,9 +3339,9 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 	  rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
 
 	  if (note != 0)
-	    XEXP (note, 0) = GEN_INT (-1);
+	    XEXP (note, 0) = constm1_rtx;
 	  else
-	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, constm1_rtx,
 						  REG_NOTES (insn));
 	}
 
@@ -3649,6 +3651,16 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       *py = const0_rtx;
       *pmode = result_mode;
       return;
+    }
+
+  /* Don't allow operands to the compare to trap, as that can put the
+     compare and branch in different basic blocks.  */
+  if (flag_non_call_exceptions)
+    {
+      if (may_trap_p (x))
+	x = force_reg (mode, x);
+      if (may_trap_p (y))
+	y = force_reg (mode, y);
     }
 
   *px = x;
@@ -4434,6 +4446,9 @@ can_fix_p (enum machine_mode fixmode, enum machine_mode fltmode,
       return icode;
     }
 
+  /* FIXME: This requires a port to define both FIX and FTRUNC pattern
+     for this to work. We need to rework the fix* and ftrunc* patterns
+     and documentation.  */
   tab = unsignedp ? ufix_optab : sfix_optab;
   icode = tab->handlers[fixmode][fltmode].insn_code;
   if (icode != CODE_FOR_nothing
@@ -4673,15 +4688,8 @@ expand_float (rtx to, rtx from, int unsignedp)
     }
 }
 
-/* expand_fix: generate code to convert FROM to fixed point
-   and store in TO.  FROM must be floating point.  */
-
-static rtx
-ftruncify (rtx x)
-{
-  rtx temp = gen_reg_rtx (GET_MODE (x));
-  return expand_unop (GET_MODE (x), ftrunc_optab, x, temp, 0);
-}
+/* Generate code to convert FROM to fixed point and store in TO.  FROM
+   must be floating point.  */
 
 void
 expand_fix (rtx to, rtx from, int unsignedp)
@@ -4716,7 +4724,11 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	      from = convert_to_mode (fmode, from, 0);
 
 	    if (must_trunc)
-	      from = ftruncify (from);
+	      {
+		rtx temp = gen_reg_rtx (GET_MODE (from));
+		from = expand_unop (GET_MODE (from), ftrunc_optab, from,
+				    temp, 0);
+	      }
 
 	    if (imode != GET_MODE (to))
 	      target = gen_reg_rtx (imode);
@@ -5263,6 +5275,8 @@ init_optabs (void)
   cos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
+  log10_optab = init_optab (UNKNOWN);
+  log2_optab = init_optab (UNKNOWN);
   tan_optab = init_optab (UNKNOWN);
   atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);

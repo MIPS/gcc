@@ -1696,7 +1696,7 @@ xstormy16_expand_casesi (rtx index, rtx lower_bound, rtx range,
   emit_cmp_and_jump_insns (index, range, GTU, NULL_RTX, SImode, 1,
 			   default_label);
   int_index = gen_lowpart_common (HImode, index);
-  emit_insn (gen_ashlhi3 (int_index, int_index, GEN_INT (2)));
+  emit_insn (gen_ashlhi3 (int_index, int_index, const2_rtx));
   emit_jump_insn (gen_tablejump_pcrel (int_index, table));
 }
 
@@ -1856,7 +1856,7 @@ xstormy16_expand_arith (enum machine_mode mode, enum rtx_code code,
 	    continue;
 	  
 	  insn = gen_rtx_SET (VOIDmode, w_dest, gen_rtx_fmt_ee (code, mode,
-							 w_src0, w_src1));
+								w_src0, w_src1));
 	  break;
 
 	case NOT:
@@ -2170,10 +2170,13 @@ xstormy16_expand_builtin(tree exp, rtx target,
   return retval;
 }
 
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
 static bool
 xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return int_size_in_bytes (type) > UNITS_PER_WORD * NUM_ARGUMENT_REGISTERS;
+  HOST_WIDE_INT size = int_size_in_bytes (type);
+  return (size == -1 || size > UNITS_PER_WORD * NUM_ARGUMENT_REGISTERS);
 }
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -2201,8 +2204,6 @@ xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xstormy16_return_in_memory
 

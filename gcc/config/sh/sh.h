@@ -516,7 +516,11 @@ do {									\
       /* Never run scheduling before reload, since that can		\
 	 break global alloc, and generates slower code anyway due	\
 	 to the pressure on R0.  */					\
-      flag_schedule_insns = 0;						\
+      /* Enable sched1 for SH4; ready queue will be reordered by	\
+	 the target hooks when pressure is high. We can not do this for \
+	 SH3 and lower as they give spill failures for R0.  */		\
+      if (!TARGET_HARD_SH4) 						\
+        flag_schedule_insns = 0;		 			\
     }									\
 									\
   if (align_loops == 0)							\
@@ -572,8 +576,6 @@ do {									\
 #endif
 
 #define MAX_BITS_PER_WORD 64
-
-#define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
 
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
    longer.  */
@@ -1820,7 +1822,7 @@ struct sh_args {
 
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   do {								\
     (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
     (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
@@ -1851,7 +1853,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0, 0);	\
     (CUM).call_cookie						\
       = (CALL_COOKIE_RET_TRAMP					\
 	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
@@ -1860,7 +1862,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0, 0);	\
     (CUM).outgoing = 0;						\
   } while (0)
 
@@ -2097,7 +2099,7 @@ struct sh_args {
 #define TRAMPOLINE_ADJUST_ADDRESS(TRAMP) do				\
 {									\
   if (TARGET_SHMEDIA)							\
-    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), GEN_INT (1),	\
+    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), const1_rtx,	\
 				   gen_reg_rtx (Pmode), 0,		\
 				   OPTAB_LIB_WIDEN);			\
 } while (0)

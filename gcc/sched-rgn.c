@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -346,7 +346,7 @@ is_cfg_nonregular (void)
     for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
       {
 	code = GET_CODE (insn);
-	if (GET_RTX_CLASS (code) == 'i' && code != JUMP_INSN)
+	if (INSN_P (insn) && code != JUMP_INSN)
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
 

@@ -1,5 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -20,6 +20,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef CONFIG_DARWIN_H
+#define CONFIG_DARWIN_H
+
 /* The definitions in this file are common to all processor types
    running Darwin, which is the kernel for Mac OS X.  Darwin is
    basically a BSD user layer laid over a Mach kernel, then evolved
@@ -29,11 +32,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Although NeXT ran on many different architectures, as of Jan 2001
    the only supported Darwin targets are PowerPC and x86.  */
-
-/* Technically, STANDARD_EXEC_PREFIX should be /usr/libexec/, but in
-   practice this makes it hard to install new compilers elsewhere, so
-   leave it undefined and expect system builders to set configure args
-   correctly.  */
 
 /* One of Darwin's NeXT legacies is the Mach-O format, which is partly
    like a.out and partly like COFF, with additional features like
@@ -99,7 +97,13 @@ Boston, MA 02111-1307, USA.  */
    Note that an option name with a prefix that matches another option
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
-   match with the longer one.  */
+   match with the longer one.
+   
+   The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
+   in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
+   command-line option translations specific to the particular target
+   architecture.  */
+   
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -115,6 +119,7 @@ Boston, MA 02111-1307, USA.  */
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
+  { "-framework", "-Xlinker -framework -Xlinker" },  \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
@@ -126,8 +131,9 @@ Boston, MA 02111-1307, USA.  */
   { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
-  { "-unexported_symbols_list", "-Zunexported_symbols_list" }
-
+  { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  SUBTARGET_OPTION_TRANSLATE_TABLE
+  
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -170,10 +176,13 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "dylinker_install_name") ? 1 : \
    0)
 
-/* Machine dependent cpp options.  */
+/* Machine dependent cpp options.  __APPLE_CC__ is defined as the
+   Apple include files expect it to be defined and won't work if it
+   isn't.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}\
+    -D__APPLE_CC__=1"
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -390,9 +399,6 @@ do { text_section ();							\
         || DECL_INITIAL (DECL))                                         \
       (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
     ASM_OUTPUT_LABEL (FILE, xname);                                     \
-    /* Avoid generating stubs for functions we've just defined by	\
-       outputting any required stub name label now.  */			\
-    machopic_output_possible_stub_label (FILE, xname);			\
   } while (0)
 
 #define ASM_DECLARE_CONSTANT_NAME(FILE, NAME, EXP, SIZE)	\
@@ -710,7 +716,7 @@ objc_section_init (void)			\
 
 /* Emit an assembler directive to set visibility for a symbol.  Used
    to support visibility attribute and Darwin's private extern
-   feature. */
+   feature.  */
 #undef TARGET_ASM_ASSEMBLE_VISIBILITY
 #define TARGET_ASM_ASSEMBLE_VISIBILITY darwin_assemble_visibility
 
@@ -831,3 +837,13 @@ enum machopic_addr_class {
 #define ASM_APP_ON ""
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
+
+void darwin_register_frameworks (int);
+#define TARGET_EXTRA_INCLUDES darwin_register_frameworks
+
+void add_framework_path (char *);
+#define TARGET_OPTF add_framework_path
+
+#define TARGET_HAS_F_SETLKW
+
+#endif /* CONFIG_DARWIN_H */

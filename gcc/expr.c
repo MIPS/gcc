@@ -645,7 +645,7 @@ convert_move (rtx to, rtx from, int unsignedp)
       if (to_mode == full_mode)
 	return;
 
-      /* else proceed to integer conversions below */
+      /* else proceed to integer conversions below.  */
       from_mode = full_mode;
     }
 
@@ -682,7 +682,11 @@ convert_move (rtx to, rtx from, int unsignedp)
 		   != CODE_FOR_nothing))
 	{
 	  if (GET_CODE (to) == REG)
-	    emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
+	    {
+	      if (reg_overlap_mentioned_p (to, from))
+		from = force_reg (from_mode, from);
+	      emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
+	    }
 	  convert_move (gen_lowpart (word_mode, to), from, unsignedp);
 	  emit_unop_insn (code, to,
 			  gen_lowpart (word_mode, to), equiv_code);
@@ -1390,7 +1394,7 @@ block_move_libcall_safe_for_call_parm (void)
     tree fn, arg;
 
     fn = emit_block_move_libcall_fn (false);
-    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0);
+    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0, 3);
 
     arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
     for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
@@ -1417,6 +1421,7 @@ static bool
 emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 {
   rtx opalign = GEN_INT (align / BITS_PER_UNIT);
+  int save_volatile_ok = volatile_ok;
   enum machine_mode mode;
 
   /* Since this is a move insn, we don't care about volatility.  */
@@ -1466,7 +1471,7 @@ emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 	  if (pat)
 	    {
 	      emit_insn (pat);
-	      volatile_ok = 0;
+	      volatile_ok = save_volatile_ok;
 	      return true;
 	    }
 	  else
@@ -1474,7 +1479,7 @@ emit_block_move_via_movstr (rtx x, rtx y, rtx size, unsigned int align)
 	}
     }
 
-  volatile_ok = 0;
+  volatile_ok = save_volatile_ok;
   return false;
 }
 
@@ -4334,7 +4339,11 @@ store_expr (tree exp, rtx target, int want_value)
 			 (want_value & 2
 			  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
       else
-	emit_move_insn (target, temp);
+	{
+	  temp = force_operand (temp, target);
+	  if (temp != target)
+	    emit_move_insn (target, temp);
+	}
     }
 
   /* If we don't want a value, return NULL_RTX.  */
@@ -5583,6 +5592,20 @@ force_operand (rtx value, rtx target)
   rtx subtarget = get_subtarget (target);
   enum rtx_code code = GET_CODE (value);
 
+  /* Check for subreg applied to an expression produced by loop optimizer.  */
+  if (code == SUBREG
+      && GET_CODE (SUBREG_REG (value)) != REG
+      && GET_CODE (SUBREG_REG (value)) != MEM)
+    {
+      value = simplify_gen_subreg (GET_MODE (value),
+				   force_reg (GET_MODE (SUBREG_REG (value)),
+					      force_operand (SUBREG_REG (value),
+							     NULL_RTX)),
+				   GET_MODE (SUBREG_REG (value)),
+				   SUBREG_BYTE (value));
+      code = GET_CODE (value);
+    }
+
   /* Check for a PIC address load.  */
   if ((code == PLUS || code == MINUS)
       && XEXP (value, 0) == pic_offset_table_rtx
@@ -5605,7 +5628,7 @@ force_operand (rtx value, rtx target)
       return target;
     }
 
-  if (GET_RTX_CLASS (code) == '2' || GET_RTX_CLASS (code) == 'c')
+  if (ARITHMETIC_P (value))
     {
       op2 = XEXP (value, 1);
       if (!CONSTANT_P (op2) && !(GET_CODE (op2) == REG && op2 != subtarget))
@@ -5674,7 +5697,7 @@ force_operand (rtx value, rtx target)
 				      target, 1, OPTAB_LIB_WIDEN);
 	}
     }
-  if (GET_RTX_CLASS (code) == '1')
+  if (UNARY_P (value))
     {
       op1 = force_operand (XEXP (value, 0), NULL_RTX);
       return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
@@ -7217,12 +7240,19 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 					    - bitsize),
 				  op0, 1);
 
+	    /* If the result type is BLKmode, store the data into a temporary
+	       of the appropriate type, but with the mode corresponding to the
+	       mode for the data we have (op0's mode).  It's tempting to make
+	       this a constant type, since we know it's only being stored once,
+	       but that can cause problems if we are taking the address of this
+	       COMPONENT_REF because the MEM of any reference via that address
+	       will have flags corresponding to the type, which will not
+	       necessarily be constant.  */
 	    if (mode == BLKmode)
 	      {
-		rtx new = assign_temp (build_qualified_type
-				       ((*lang_hooks.types.type_for_mode)
-					(ext_mode, 0),
-					TYPE_QUAL_CONST), 0, 1, 1);
+		rtx new
+		  = assign_stack_temp_for_type
+		    (ext_mode, GET_MODE_BITSIZE (ext_mode), 0, type);
 
 		emit_move_insn (new, op0);
 		op0 = copy_rtx (new);
@@ -7855,12 +7885,12 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 		   ==
 		   TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))))))
 	{
-	  enum machine_mode innermode
-	    = TYPE_MODE (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)));
-	  optab other_optab = (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
-			? smul_widen_optab : umul_widen_optab);
-	  this_optab = (TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
-			? umul_widen_optab : smul_widen_optab);
+	  tree op0type = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0));
+	  enum machine_mode innermode = TYPE_MODE (op0type);
+	  bool zextend_p = TREE_UNSIGNED (op0type);
+	  optab other_optab = zextend_p ? smul_widen_optab : umul_widen_optab;
+	  this_optab = zextend_p ? umul_widen_optab : smul_widen_optab;
+
 	  if (mode == GET_MODE_WIDER_MODE (innermode))
 	    {
 	      if (this_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
@@ -7878,7 +7908,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 	      else if (other_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing
 		       && innermode == word_mode)
 		{
-		  rtx htem;
+		  rtx htem, hipart;
 		  op0 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
 				     NULL_RTX, VOIDmode, 0);
 		  if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
@@ -7891,12 +7921,12 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 				       NULL_RTX, VOIDmode, 0);
 		  temp = expand_binop (mode, other_optab, op0, op1, target,
 				       unsignedp, OPTAB_LIB_WIDEN);
-		  htem = expand_mult_highpart_adjust (innermode,
-						      gen_highpart (innermode, temp),
-						      op0, op1,
-						      gen_highpart (innermode, temp),
-						      unsignedp);
-		  emit_move_insn (gen_highpart (innermode, temp), htem);
+		  hipart = gen_highpart (innermode, temp);
+		  htem = expand_mult_highpart_adjust (innermode, hipart,
+						      op0, op1, hipart,
+						      zextend_p);
+		  if (htem != hipart)
+		    emit_move_insn (hipart, htem);
 		  return temp;
 		}
 	    }
@@ -8015,7 +8045,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
       /* First try to do it with a special MIN or MAX instruction.
 	 If that does not win, use a conditional jump to select the proper
 	 value.  */
-      this_optab = (TREE_UNSIGNED (type)
+      this_optab = (unsignedp
 		    ? (code == MIN_EXPR ? umin_optab : umax_optab)
 		    : (code == MIN_EXPR ? smin_optab : smax_optab));
 
@@ -8049,18 +8079,16 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 	  && ! can_compare_p (GE, mode, ccp_jump))
 	{
 	  if (code == MAX_EXPR)
-	    do_jump_by_parts_greater_rtx (mode, TREE_UNSIGNED (type),
-					  target, op1, NULL_RTX, op0);
+	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
+					  NULL_RTX, op0);
 	  else
-	    do_jump_by_parts_greater_rtx (mode, TREE_UNSIGNED (type),
-					  op1, target, NULL_RTX, op0);
+	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
+					  NULL_RTX, op0);
 	}
       else
 	{
-	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 1)));
 	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX,
-				   op0);
+				   unsignedp, mode, NULL_RTX, NULL_RTX, op0);
 	}
       emit_move_insn (target, op1);
       emit_label (op0);
@@ -9069,7 +9097,8 @@ is_aligning_offset (tree offset, tree exp)
      power of 2 and which is larger than BIGGEST_ALIGNMENT.  */
   if (TREE_CODE (offset) != BIT_AND_EXPR
       || !host_integerp (TREE_OPERAND (offset, 1), 1)
-      || compare_tree_int (TREE_OPERAND (offset, 1), BIGGEST_ALIGNMENT) <= 0
+      || compare_tree_int (TREE_OPERAND (offset, 1), 
+			   BIGGEST_ALIGNMENT / BITS_PER_UNIT) <= 0
       || !exact_log2 (tree_low_cst (TREE_OPERAND (offset, 1), 1) + 1) < 0)
     return 0;
 

@@ -171,8 +171,8 @@ get_condition (rtx insn)
 static int
 conditions_mutex_p (rtx cond1, rtx cond2)
 {
-  if (GET_RTX_CLASS (GET_CODE (cond1)) == '<'
-      && GET_RTX_CLASS (GET_CODE (cond2)) == '<'
+  if (COMPARISON_P (cond1)
+      && COMPARISON_P (cond2)
       && GET_CODE (cond1) == reverse_condition (GET_CODE (cond2))
       && XEXP (cond1, 0) == XEXP (cond2, 0)
       && XEXP (cond1, 1) == XEXP (cond2, 1))
@@ -1127,7 +1127,13 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
       tmp = SET_SRC (set);
       if (GET_CODE (tmp) == SUBREG)
 	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG)
+      if ((GET_CODE (tmp) == PLUS
+	   || GET_CODE (tmp) == MINUS)
+	  && GET_CODE (XEXP (tmp, 0)) == REG
+	  && REGNO (XEXP (tmp, 0)) == STACK_POINTER_REGNUM
+	  && dest_regno == STACK_POINTER_REGNUM)
+	src_regno = STACK_POINTER_REGNUM;
+      else if (GET_CODE (tmp) == REG)
 	src_regno = REGNO (tmp);
       else
 	goto end_call_group;
@@ -1156,7 +1162,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
   rtx loop_notes = 0;
 
   if (current_sched_info->use_cselib)
-    cselib_init ();
+    cselib_init (true);
 
   for (insn = head;; insn = NEXT_INSN (insn))
     {
@@ -1267,7 +1273,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
 	    rtx_region = GEN_INT (NOTE_EH_HANDLER (insn));
 	  else
-	    rtx_region = GEN_INT (0);
+	    rtx_region = const0_rtx;
 
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					rtx_region,

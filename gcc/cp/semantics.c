@@ -2042,7 +2042,16 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
-  TYPE_PACKED (t) = flag_pack_struct;
+  if (flag_pack_struct)
+    {
+      tree v;
+      TYPE_PACKED (t) = 1;
+      /* Even though the type is being defined for the first time
+	 here, there might have been a forward declaration, so there
+	 might be cv-qualified variants of T.  */
+      for (v = TYPE_NEXT_VARIANT (t); v; v = TYPE_NEXT_VARIANT (v))
+	TYPE_PACKED (v) = 1;
+    }
   /* Reset the interface data, at the earliest possible
      moment, as it might have been set via a class foo;
      before.  */
@@ -2524,6 +2533,12 @@ finish_id_expression (tree id_expression,
 	  if (integral_constant_expression_p)
 	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
+	  /* If we found a variable, then name lookup during the
+	     instantiation will always resolve to the same VAR_DECL
+	     (or an instantiation thereof).  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL)
+	    return decl;
 	  return id_expression;
 	}
 

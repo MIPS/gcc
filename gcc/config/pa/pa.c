@@ -1100,7 +1100,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
   if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 0)) == MULT
       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
       && shadd_constant_p (INTVAL (XEXP (XEXP (x, 0), 1)))
-      && (GET_RTX_CLASS (GET_CODE (XEXP (x, 1))) == 'o'
+      && (OBJECT_P (XEXP (x, 1))
 	  || GET_CODE (XEXP (x, 1)) == SUBREG)
       && GET_CODE (XEXP (x, 1)) != CONST)
     {
@@ -5554,8 +5554,8 @@ emit_hpdiv_const (rtx *operands, int unsignedp)
 
       emit_move_insn (gen_rtx_REG (SImode, 26), operands[1]);
       emit
-	(gen_rtx
-	 (PARALLEL, VOIDmode,
+	(gen_rtx_PARALLEL
+	 (VOIDmode,
 	  gen_rtvec (6, gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, 29),
 				     gen_rtx_fmt_ee (unsignedp ? UDIV : DIV,
 						     SImode,
@@ -9076,7 +9076,6 @@ pa_select_section (tree exp, int reloc,
       && !reloc)
     readonly_data_section ();
   else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
-	   && !(TREE_CODE (exp) == STRING_CST && flag_writable_strings)
 	   && !reloc)
     readonly_data_section ();
   else

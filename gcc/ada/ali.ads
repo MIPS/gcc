@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -81,9 +81,6 @@ package ALI is
 
    type Main_Program_Type is (None, Proc, Func);
    --  Indicator of whether unit can be used as main program
-
-   type Restrictions_String is array (All_Restrictions) of Character;
-   --  Type used to hold string from R line
 
    type ALIs_Record is record
 
@@ -187,9 +184,8 @@ package ALI is
       --  Set to True if file was compiled with zero cost exceptions.
       --  Not set if 'P' appears in Ignore_Lines.
 
-      Restrictions : Restrictions_String;
-      --  Copy of restrictions letters from R line.
-      --  Not set if 'R' appears in Ignore_Lines.
+      Restrictions : Restrictions_Info;
+      --  Restrictions information reconstructed from R lines
 
       First_Interrupt_State : Interrupt_State_Id;
       Last_Interrupt_State  : Interrupt_State_Id'Base;
@@ -422,11 +418,10 @@ package ALI is
    --  Set to blank by Initialize_ALI. Set to the appropriate queuing policy
    --  character if an ali file contains a P line setting the queuing policy.
 
-   Restrictions : Restrictions_String := (others => 'n');
-   --  This array records the cumulative contributions of R lines in all
-   --  ali files. An entry is changed will be set to v if any ali file
-   --  indicates that the restriction is violated, and otherwise will be
-   --  set to r if the restriction is specified by some unit.
+   Cumulative_Restrictions : Restrictions_Info;
+   --  This variable records the cumulative contributions of R lines in all
+   --  ali files, showing whether a restriction pragma exists anywhere, and
+   --  accumulating the aggregate knowledge of violations.
 
    Static_Elaboration_Model_Used : Boolean := False;
    --  Set to False by Initialize_ALI. Set to True if any ALI file for a
@@ -598,8 +593,10 @@ package ALI is
    No_Sdep_Id : constant Sdep_Id := Sdep_Id'First;
    --  Special value indicating no Sdep table entry
 
-   First_Sdep_Entry : constant Sdep_Id := No_Sdep_Id + 1;
-   --  Id of first actual entry in table
+   First_Sdep_Entry : Sdep_Id := No_Sdep_Id + 1;
+   --  Id of first Sdep entry for current ali file. This is initialized to
+   --  the first Sdep entry in the table, and then incremented appropriately
+   --  as successive ALI files are scanned.
 
    type Sdep_Record is record
 
@@ -813,14 +810,14 @@ package ALI is
    --  Initialize the ALI tables. Also resets all switch values to defaults.
 
    function Scan_ALI
-     (F            : File_Name_Type;
-      T            : Text_Buffer_Ptr;
-      Ignore_ED    : Boolean;
-      Err          : Boolean;
-      Read_Xref    : Boolean := False;
-      Read_Lines   : String := "";
-      Ignore_Lines : String := "X")
-      return         ALI_Id;
+     (F             : File_Name_Type;
+      T             : Text_Buffer_Ptr;
+      Ignore_ED     : Boolean;
+      Err           : Boolean;
+      Read_Xref     : Boolean := False;
+      Read_Lines    : String  := "";
+      Ignore_Lines  : String  := "X";
+      Ignore_Errors : Boolean := False) return ALI_Id;
    --  Given the text, T, of an ALI file, F, scan and store the information
    --  from the file, and return the Id of the resulting entry in the ALI
    --  table. Switch settings may be modified as described above in the
@@ -860,5 +857,12 @@ package ALI is
    --    Ignore_Lines and Read_Lines parameters are ignored (i.e. the
    --    use of True for Read_XREF is equivalent to specifying an
    --    argument of "UWDX" for Read_Lines.
+   --
+   --    Ignore_Errors is normally False. If it is set True, then Scan_ALI
+   --    will do its best to scan through a file and extract all information
+   --    it can, even if there are errors. In this case Err is only set if
+   --    Scan_ALI was completely unable to process the file (e.g. it did not
+   --    look like an ALI file at all). Ignore_Errors is intended to improve
+   --    the downward compatibility of new compilers with old tools.
 
 end ALI;

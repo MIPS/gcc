@@ -1503,6 +1503,7 @@ fixup_var_refs (rtx var, enum machine_mode promoted_mode, int unsignedp,
   rtx first_insn = get_insns ();
   struct sequence_stack *stack = seq_stack;
   tree rtl_exps = rtl_expr_chain;
+  int save_volatile_ok = volatile_ok;
 
   /* If there's a hash table, it must record all uses of VAR.  */
   if (ht)
@@ -1514,6 +1515,9 @@ fixup_var_refs (rtx var, enum machine_mode promoted_mode, int unsignedp,
       return;
     }
 
+  /* Volatile is valid in MEMs because all we're doing in changing the
+     address inside.  */
+  volatile_ok = 1;
   fixup_var_refs_insns (first_insn, var, promoted_mode, unsignedp,
 			stack == 0, may_share);
 
@@ -1541,6 +1545,8 @@ fixup_var_refs (rtx var, enum machine_mode promoted_mode, int unsignedp,
 	  end_sequence ();
 	}
     }
+
+  volatile_ok = save_volatile_ok;
 }
 
 /* REPLACEMENTS is a pointer to a list of the struct fixup_replacement and X is
@@ -4279,6 +4285,7 @@ assign_parms (tree fndecl)
   /* Total space needed so far for args on the stack,
      given as a constant and a tree-expression.  */
   struct args_size stack_args_size;
+  HOST_WIDE_INT extra_pretend_bytes = 0;
   tree fntype = TREE_TYPE (fndecl);
   tree fnargs = DECL_ARGUMENTS (fndecl), orig_fnargs;
   /* This is used for the arg pointer when referring to stack args.  */
@@ -4341,17 +4348,13 @@ assign_parms (tree fndecl)
     fnargs = split_complex_args (fnargs);
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 #endif
 
 #ifdef INIT_CUMULATIVE_INCOMING_ARGS
   INIT_CUMULATIVE_INCOMING_ARGS (args_so_far, fntype, NULL_RTX);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, fndecl, -1);
 #endif
 
   /* We haven't yet found an argument that we must push and pretend the
@@ -4392,7 +4395,8 @@ assign_parms (tree fndecl)
       /* Set NAMED_ARG if this arg should be treated as a named arg.  For
 	 most machines, if this is a varargs/stdarg function, then we treat
 	 the last named arg as if it were anonymous too.  */
-      named_arg = targetm.calls.strict_argument_naming (&args_so_far) ? 1 : ! last_named;
+      named_arg = (targetm.calls.strict_argument_naming (&args_so_far)
+		   ? 1 : !last_named);
 
       if (TREE_TYPE (parm) == error_mark_node
 	  /* This can happen after weird syntax errors
@@ -4547,12 +4551,9 @@ assign_parms (tree fndecl)
 	  partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, promoted_mode,
 						passed_type, named_arg);
 	  if (partial
-#ifndef MAYBE_REG_PARM_STACK_SPACE
 	      /* The caller might already have allocated stack space
 		 for the register parameters.  */
-	      && reg_parm_stack_space == 0
-#endif
-	      )
+	      && reg_parm_stack_space == 0)
 	    {
 	      /* Part of this argument is passed in registers and part
 		 is passed on the stack.  Ask the prologue code to extend
@@ -4569,15 +4570,19 @@ assign_parms (tree fndecl)
 		 bits.  We must preserve this invariant by rounding
 		 CURRENT_FUNCTION_PRETEND_ARGS_SIZE up to a stack
 		 boundary.  */
+
+	      /* We assume at most one partial arg, and it must be the first
+	         argument on the stack.  */
+	      if (extra_pretend_bytes || current_function_pretend_args_size)
+		abort ();
+
 	      pretend_bytes = partial * UNITS_PER_WORD;
 	      current_function_pretend_args_size
 		= CEIL_ROUND (pretend_bytes, STACK_BYTES);
 
-	      /* If PRETEND_BYTES != CURRENT_FUNCTION_PRETEND_ARGS_SIZE,
-		 insert the padding before the start of the first pretend
-		 argument.  */
-	      stack_args_size.constant
-		= (current_function_pretend_args_size - pretend_bytes);
+	      /* We want to align relative to the actual stack pointer, so
+	         don't include this in the stack size until later.  */
+	      extra_pretend_bytes = current_function_pretend_args_size;
 	    }
 	}
 #endif
@@ -4586,6 +4591,9 @@ assign_parms (tree fndecl)
       locate_and_pad_parm (promoted_mode, passed_type, in_regs,
 			   entry_parm ? partial : 0, fndecl,
 			   &stack_args_size, &locate);
+      /* Adjust offsets to include the pretend args.  */
+      locate.slot_offset.constant += extra_pretend_bytes - pretend_bytes;
+      locate.offset.constant += extra_pretend_bytes - pretend_bytes;
 
       {
 	rtx offset_rtx;
@@ -4644,7 +4652,7 @@ assign_parms (tree fndecl)
 	entry_parm = stack_parm;
 
       /* Record permanently how this parm was passed.  */
-      DECL_INCOMING_RTL (parm) = entry_parm;
+      set_decl_incoming_rtl (parm, entry_parm);
 
       /* If there is actually space on the stack for this parm,
 	 count it in stack_args_size; otherwise set stack_parm to 0
@@ -4653,21 +4661,15 @@ assign_parms (tree fndecl)
       if (entry_parm == stack_parm
 	  || (GET_CODE (entry_parm) == PARALLEL
 	      && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
-#if defined (REG_PARM_STACK_SPACE) && ! defined (MAYBE_REG_PARM_STACK_SPACE)
+#if defined (REG_PARM_STACK_SPACE)
 	  /* On some machines, even if a parm value arrives in a register
-	     there is still an (uninitialized) stack slot allocated for it.
-
-	     ??? When MAYBE_REG_PARM_STACK_SPACE is defined, we can't tell
-	     whether this parameter already has a stack slot allocated,
-	     because an arg block exists only if current_function_args_size
-	     is larger than some threshold, and we haven't calculated that
-	     yet.  So, for now, we just assume that stack slots never exist
-	     in this case.  */
+	     there is still an (uninitialized) stack slot allocated
+	     for it.  */
 	  || REG_PARM_STACK_SPACE (fndecl) > 0
 #endif
 	  )
 	{
-	  stack_args_size.constant += pretend_bytes + locate.size.constant;
+	  stack_args_size.constant += locate.size.constant;
 	  if (locate.size.var)
 	    ADD_PARM_SIZE (stack_args_size, locate.size.var);
 	}
@@ -4713,7 +4715,7 @@ assign_parms (tree fndecl)
 		&& INTVAL (XEXP (XVECEXP (entry_parm, 0, i), 1)) == 0)
 	      {
 		entry_parm = XEXP (XVECEXP (entry_parm, 0, i), 0);
-		DECL_INCOMING_RTL (parm) = entry_parm;
+		set_decl_incoming_rtl (parm, entry_parm);
 		break;
 	      }
 	}
@@ -5224,20 +5226,34 @@ assign_parms (tree fndecl)
 	{
 	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
 	    {
-	      SET_DECL_RTL (parm,
-			    gen_rtx_CONCAT (DECL_MODE (parm),
-					    DECL_RTL (fnargs),
-					    DECL_RTL (TREE_CHAIN (fnargs))));
-	      DECL_INCOMING_RTL (parm)
-		= gen_rtx_CONCAT (DECL_MODE (parm),
-				  DECL_INCOMING_RTL (fnargs),
-				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      rtx tmp, real, imag;
+	      enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
+
+	      real = DECL_RTL (fnargs);
+	      imag = DECL_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      SET_DECL_RTL (parm, tmp);
+
+	      real = DECL_INCOMING_RTL (fnargs);
+	      imag = DECL_INCOMING_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      set_decl_incoming_rtl (parm, tmp);
 	      fnargs = TREE_CHAIN (fnargs);
 	    }
 	  else
 	    {
 	      SET_DECL_RTL (parm, DECL_RTL (fnargs));
-	      DECL_INCOMING_RTL (parm) = DECL_INCOMING_RTL (fnargs);
+	      set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs));
 	    }
 	  fnargs = TREE_CHAIN (fnargs);
 	}
@@ -5265,16 +5281,16 @@ assign_parms (tree fndecl)
 
   last_parm_insn = get_last_insn ();
 
+  /* We have aligned all the args, so add space for the pretend args.  */
+  stack_args_size.constant += extra_pretend_bytes;
   current_function_args_size = stack_args_size.constant;
 
   /* Adjust function incoming argument size for alignment and
      minimum length.  */
 
 #ifdef REG_PARM_STACK_SPACE
-#ifndef MAYBE_REG_PARM_STACK_SPACE
   current_function_args_size = MAX (current_function_args_size,
 				    REG_PARM_STACK_SPACE (fndecl));
-#endif
 #endif
 
   current_function_args_size
@@ -5469,11 +5485,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   int part_size_in_regs;
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 
   /* If we have found a stack parm before we reach the end of the
      area reserved for registers, skip that area.  */
@@ -5686,7 +5698,7 @@ uninitialized_vars_warning (tree block)
 	     flow.c that the entire aggregate was initialized.
 	     Unions are troublesome because members may be shorter.  */
 	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  /* Global optimizations can make it difficult to determine if a
 	     particular variable has been initialized.  However, a VAR_DECL
@@ -5701,7 +5713,7 @@ uninitialized_vars_warning (tree block)
 		 decl, decl);
       if (extra_warnings
 	  && TREE_CODE (decl) == VAR_DECL
-	  && DECL_RTL (decl) != 0
+	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
@@ -6405,7 +6417,7 @@ allocate_struct_function (tree fndecl)
   if (fndecl == NULL)
     return;
 
-  DECL_SAVED_INSNS (fndecl) = cfun;
+  DECL_STRUCT_FUNCTION (fndecl) = cfun;
   cfun->decl = fndecl;
 
   result = DECL_RESULT (fndecl);
@@ -6430,8 +6442,8 @@ allocate_struct_function (tree fndecl)
 static void
 prepare_function_start (tree fndecl)
 {
-  if (fndecl && DECL_SAVED_INSNS (fndecl))
-    cfun = DECL_SAVED_INSNS (fndecl);
+  if (fndecl && DECL_STRUCT_FUNCTION (fndecl))
+    cfun = DECL_STRUCT_FUNCTION (fndecl);
   else
     allocate_struct_function (fndecl);
   init_emit ();
@@ -7645,14 +7657,37 @@ static void
 update_epilogue_consts (rtx dest, rtx x, void *data)
 {
   struct epi_info *p = (struct epi_info *) data;
+  rtx new;
 
   if (GET_CODE (dest) != REG || REGNO (dest) >= FIRST_PSEUDO_REGISTER)
     return;
-  else if (GET_CODE (x) == CLOBBER || ! rtx_equal_p (dest, SET_DEST (x))
-	   || GET_CODE (SET_SRC (x)) != CONST_INT)
+
+  /* If we are either clobbering a register or doing a partial set,
+     show we don't know the value.  */
+  else if (GET_CODE (x) == CLOBBER || ! rtx_equal_p (dest, SET_DEST (x)))
     p->const_equiv[REGNO (dest)] = 0;
-  else
+
+  /* If we are setting it to a constant, record that constant.  */
+  else if (GET_CODE (SET_SRC (x)) == CONST_INT)
     p->const_equiv[REGNO (dest)] = SET_SRC (x);
+
+  /* If this is a binary operation between a register we have been tracking
+     and a constant, see if we can compute a new constant value.  */
+  else if (ARITHMETIC_P (SET_SRC (x))
+	   && GET_CODE (XEXP (SET_SRC (x), 0)) == REG
+	   && REGNO (XEXP (SET_SRC (x), 0)) < FIRST_PSEUDO_REGISTER
+	   && p->const_equiv[REGNO (XEXP (SET_SRC (x), 0))] != 0
+	   && GET_CODE (XEXP (SET_SRC (x), 1)) == CONST_INT
+	   && 0 != (new = simplify_binary_operation
+		    (GET_CODE (SET_SRC (x)), GET_MODE (dest),
+		     p->const_equiv[REGNO (XEXP (SET_SRC (x), 0))],
+		     XEXP (SET_SRC (x), 1)))
+	   && GET_CODE (new) == CONST_INT)
+    p->const_equiv[REGNO (dest)] = new;
+
+  /* Otherwise, we can't do anything with this value.  */
+  else
+    p->const_equiv[REGNO (dest)] = 0;
 }
 
 /* Emit an insn to do the load shown in p->equiv_reg_src, if needed.  */

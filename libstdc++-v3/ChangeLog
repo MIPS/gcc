@@ -1,3 +1,1064 @@
+2004-03-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/fpos/14320-2.cc: Remove xfail.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/multiset/insert/1.cc: Test result string.
+
+	* testsuite/23_containers/bitset/invalidation/1.cc: Main always
+	returns 0.	
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/1.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+
+2004-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* scripts/testsuite_flags.in: Add "-D_GLIBCXX_ASSERT" to
+	CXXFLAGS_save.
+	* testsuite/lib/libstdc++.exp: Don't add it conditionally to
+	DEFAULT_CXXFLAGS. 
+	* testsuite/18_support/numeric_limits.cc: Remove "-D_GLIBCXX_ASSERT"
+	from the dg-options.
+	* testsuite/23_containers/vector/invalidation/1.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/2.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/3.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/4.cc: Likewise.
+	* testsuite/23_containers/vector/resize/1.cc: Likewise.
+	* testsuite/26_numerics/complex_value.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/1.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/3.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/2.cc: Likewise.
+	* testsuite/27_io/objects/char/5.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/5.cc: Likewise.
+	* testsuite/backward/11460.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+	* testsuite/21_strings/basic_string/compare/char/1.cc: Add
+	missing test variable.
+	* testsuite/21_strings/basic_string/compare/wchar_t/1.cc: Add
+	missing test variable.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/20_util/allocator/1.cc: Provide explicit
+	instantiations for non-weak systems.
+	* testsuite/20_util/binders.cc: Same.
+	* testsuite/20_util/allocator/8230.cc: Same.
+	* testsuite/20_util/allocator/10378.cc: Same.
+	* testsuite/22_locale/ctype/is/wchar_t/2.cc: Same.
+	* testsuite/22_locale/ctype/is/char/2.cc: Same.
+	* testsuite/thread/pthread7-rope.cc: Same.
+	* testsuite/thread/pthread6.cc: Same.	
+	* testsuite/thread/pthread5.cc: Same.		
+	* testsuite/thread/pthread4.cc: Same.	
+	* testsuite/thread/pthread1.cc: Same.
+	* testsuite/ext/rope.cc: Same.
+	* testsuite/ext/hash_set.cc: Same.
+	* testsuite/ext/hash_map.cc: Same.	
+	* testsuite/ext/concept_checks.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/9874.cc: Same.
+	* testsuite/25_algorithms/unique/2.cc: Same.
+	* testsuite/25_algorithms/unique/1.cc: Same.
+	* testsuite/25_algorithms/rotate.cc: Same.
+	* testsuite/25_algorithms/min_max.cc: Same.
+	* testsuite/25_algorithms/equal.cc: Same.	
+	* testsuite/24_iterators/rel_ops.cc: Same.
+	* testsuite/24_iterators/iterator.cc: Same.
+	* testsuite/24_iterators/insert_iterator.cc: Same.
+	* testsuite/24_iterators/front_insert_iterator.cc: Same.
+	* testsuite/24_iterators/back_insert_iterator.cc: Same.
+	* testsuite/23_containers/vector/resize/1.cc: Same.
+	* testsuite/23_containers/vector/modifiers/2.cc: Same.
+	* testsuite/23_containers/vector/modifiers/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.	
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/element_access/1.cc: Same.
+	* testsuite/23_containers/vector/cons/6513.cc: Same.
+	* testsuite/23_containers/vector/cons/3.cc: Same.
+	* testsuite/23_containers/vector/cons/2.cc: Same.
+	* testsuite/23_containers/vector/cons/1.cc: Same.
+	* testsuite/23_containers/vector/capacity/8230.cc: Same.
+	* testsuite/23_containers/vector/capacity/1.cc: Same.
+	* testsuite/23_containers/vector/bool/6886.cc: Same.
+	* testsuite/23_containers/stack/members/7158.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/queue/members/7157.cc: Same.
+	* testsuite/23_containers/priority_queue/members/7161.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.	
+	* testsuite/23_containers/multiset/insert/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/operators/1.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/invalidation/1.cc: Same.
+	* testsuite/23_containers/map/insert/1.cc: Same.
+	* testsuite/23_containers/list/operators/4.cc: Same.
+	* testsuite/23_containers/list/operators/3.cc: Same.
+	* testsuite/23_containers/list/operators/2.cc: Same.
+	* testsuite/23_containers/list/operators/1.cc: Same.
+	* testsuite/23_containers/list/modifiers/3.cc: Same.
+	* testsuite/23_containers/list/modifiers/2.cc: Same.
+	* testsuite/23_containers/list/modifiers/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.	
+	* testsuite/23_containers/list/cons/9.cc: Same.
+	* testsuite/23_containers/list/cons/8.cc: Same.
+	* testsuite/23_containers/list/cons/7.cc: Same.
+	* testsuite/23_containers/list/cons/6.cc: Same.
+	* testsuite/23_containers/list/cons/5.cc: Same.
+	* testsuite/23_containers/list/cons/4.cc: Same.
+	* testsuite/23_containers/list/cons/3.cc: Same.
+	* testsuite/23_containers/list/cons/2.cc: Same.
+	* testsuite/23_containers/list/cons/1.cc: Same.
+	* testsuite/23_containers/list/capacity/1.cc: Same.
+	* testsuite/23_containers/deque/operators/1.cc: Same.
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/deque/invalidation/3.cc: Same.
+	* testsuite/23_containers/deque/invalidation/2.cc: Same.
+	* testsuite/23_containers/deque/invalidation/1.cc: Same.
+	* testsuite/23_containers/deque/cons/2.cc: Same.
+	* testsuite/23_containers/deque/cons/1.cc: Same.
+
+	* src/allocator.cc: Add char, wchar_t instantiations
+	to match extern template declarations in memory.h.
+
+2004-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Fix warning regression.
+
+2004-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Deal properly with empty __digits and negative frac_digits,
+	clean-up a bit.
+
+2004-03-03  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/documentation.html: Regenerate.
+
+2004-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14320
+	* include/bits/postypes.h (class streamoff): Remove, now
+	streamoff is just typedef a 64 bit signed integer type.
+	(class fpos): Tweak consistently.
+	* testsuite/27_io/fpos/14320-1.cc: New.
+	* testsuite/27_io/fpos/14320-2.cc: New.
+	* testsuite/27_io/fpos/14320-3.cc: New.
+	* testsuite/27_io/fpos/14320-4.cc: New.
+	* testsuite/27_io/fpos/14320-5.cc: New.
+	* testsuite/27_io/fpos/mbstate_t/4_neg.cc: xfail for now.
+
+2004-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Reorganize a bit the main parsing loop, thus early detecting
+	an empty value component.
+	* testsuite/22_locale/money_get/get/char/16.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/16.cc: New.
+
+2004-03-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Support automake 1.8.2
+	* configure.ac (AM_INIT_AUTOMAKE): Add -Wno-override.
+	* po/Makefile.am (EXTRA_DIST): New.
+	* po/Makefile.in: Regenerate.
+	* Makefile.in: Same.
+	* include/Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* libsupc++/Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+
+	* include/Makefile.am (${host_builddir}/gthr-posix.h): Use
+	__GXX_WEAK__ instead of SUPPORTS_WEAK.
+	(${host_builddir}/gthr-default.h): Same.
+	(${host_builddir}/gthr.h): Same.
+	* acinclude.m4 (GLIBCXX_ENABLE_THREAD): Remove
+	_GLIBCXX_SUPPORTS_WEAK, as this behavior can be modified via
+	-fno-weak.
+	* aclocal.m4: Regenerate.
+	* acconfig.h: Remove _GLIBCXX_SUPPORTS_WEAK.
+	* config.h.in: Regenerate.
+	* configure: Same.
+	
+2004-03-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Support autoconf 2.59
+	* acinclude.m4: Quote correctly.
+	* aclocal.m4: Regenerate.
+	* linkage.m4: Same.
+
+2004-03-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/test.html: Add multilib RUNTESTFLAGS example.
+
+	* docs/html/18_support/howto.html: Add bit about writing to
+	stderr, mostly by Zack.
+	
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract,
+	money_get<>::do_get(string_type&)): ... and two more.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Fix thinkos in the switch from string_type& to string& as last
+	argument.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float):
+	Also when parsing exponent sign, first look for thousands_sep
+	and decimal_point; tweak a bit.
+	* testsuite/22_locale/num_get/get/char/15.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/15.cc: New.
+	
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int): Reorder some conditionals.
+
+2004-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Consistently with numpunct, enforce the requirements in
+	22.2.6.3, p3 for the thousands separators; tweak a bit.
+	* testsuite/22_locale/money_get/get/char/15.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/15.cc: New.
+	
+2004-03-01  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libstdc++.exp (v3-list-tests): Use 
+	testsuite_files from correct multilib blddir when running
+	testsuite.
+
+2004-02-29  Phil Edwards  <phil@codesourcery.com>
+
+	* testsuite/Makefile.am (check-abi, check-abi-verbose):  Copy
+	the summary file to the logfile.
+	* testsuite/Makefile.in:  Regenerate.
+
+2004-02-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/cpu/hppa/atomicity.h (__atomic_add): Make first argument
+	volatile.
+	* config/os/hpux/os_defines.h (_GLIBCXX_INST_ATOMICITY_LOCK): Use
+	__GXX_WEAK__ instead of _GLIBCXX_SUPPORTS_WEAK.
+
+2004-02-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float):
+	According to 22.2.3.1, p2, 'units' may be followed by 'e' with
+	no 'decimal-point' in the middle: in this case too we must fix
+	up __found_grouping; slightly tweak.
+	* testsuite/22_locale/num_get/get/char/14.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/14.cc: New.
+
+2004-02-27  Eric Christopher  <echristo@redhat.com>
+            Phil Edwards  <phil@codesourcery.com>
+
+	* testsuite/22_locale/collate/compare/wchar_t/2.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/compare/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/hash/wchar_t/2.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/hash/wchar_t/wrapped_locale.cc,
+	testsuite/22_locale/collate/transform/wchar_t/2.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_env.cc,
+	testsuite/22_locale/collate/transform/wchar_t/wrapped_locale.cc:
+	Use dg-require-iconv.
+	* testsuite/lib/libstdc++.exp:  Load target-supports.exp.
+
+2004-02-27  Phil Edwards  <phil@codesourcery.com>
+            Eric Christopher  <echristo@redhat.com>
+
+	* testsuite/config/default.exp:  Update with comments.
+	(${tool}_target_compile):  New wrapper routine.
+	* testsuite/lib/dg-options.exp:  New file, with dg-require-iconv.
+	* testsuite/lib/libstdc++.exp:  Update with comments and cosmetic
+	fixes.
+	(load_gcc_lib, v3track):  New routines.
+	(v3-init):  Rename to libstdc++_init.
+	* testsuite/libstdc++-dg/normal.exp:  No longer call v3-init.
+	Move DEFAULT_CXXFLAGS handling into libstdc++_init.
+
+2004-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/cpu/hppa/atomicity.h: Include c++config.h to get defines.
+
+	* src/misc-inst.cc (_S_atomicity_lock): Move to __gnu_cxx.
+
+	* config/os/irix/irix5.2/atomicity.h: Merge..
+	* config/os/irix/irix6.5/atomicity.h: Merge..
+	* config/os/irix/atomicity.h: ...into this.
+	* config/os/irix/atomic_word.h: New.
+	* configure.host: Set atomic_word_dir for irix.
+
+	* hppa/atomicity.h: Change __Atomicity_lock to _Atomicity_lock.
+	* i386/atomicity.h: Same.
+	* m68k/atomicity.h: Same.
+	* sparc/atomicity.h: Same.
+
+2004-02-27  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/atomicity.h: Use __gnu_cxx namespace. Remove
+	static, and inline keywords.
+
+2004-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int, money_get<>::_M_extract): If appropriate,
+	call reserve on the __tmp_gruping string.
+	(num_get<>::_M_extract_float): Don't append unnecessarily a
+	char() to the returned string.
+	* include/bits/locale_facets.tcc: Trivial reformattings.
+
+2004-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (money_get<>::_M_extract):
+	Change signature: now takes a plain string&.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Update consistently the definition; use the moneypunct cache
+	to parse the value; use swap to change __units.
+	(money_get<>::do_get(long double&)): Update call of _M_extract,
+	avoid ctype::narrow, not correct wrt the standard.
+	(money_get<>::do_get(string_type&)): Likewise, update call
+	of _M_extract, use ctype::widen.
+	* src/locale-inst.cc: Tweak instantiations of _M_extract.
+
+2004-02-26  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* testsuite/demangle/abi_examples/01.cc: Expect error -2.
+	* testsuite/demangle/abi_examples/02.cc: Likewise.
+	* testsuite/demangle/regression/cw-11.cc: Likewise.
+	* testsuite/demangle/regression/cw-16.cc: Change two expected
+	results to match libiberty demangler output.
+
+2004-02-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/10246
+        * libsupc++/Makefile.am: Use libiberty demangler.
+        (c_sources): Add cp-demangle.c.
+        * libsupc++/Makefile.in: Regenerate.
+        * src/Makefile.am (sources): Remove demangle.cc.
+        * src/Makefile.in: Regenerate.
+        * include/Makefile.am (bits_headers): Move demangle.h.
+	(ext_headers): ...here.
+        * include/Makefile.in: Regenerate.
+        * include/bits/demangle.h: Move...
+	* include/ext/demangle.h: ...here.
+        * src/demangle.cc: Remove.
+
+2004-02-26  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+        * include/bits/demangle.h: Add type template parameter to all
+        templates with just an Allocator template parameter.
+ 
+2004-02-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/atomicity.h: New, forward declarations for __atomic_add
+	and __exchange_and_add.
+	* config/cpu/generic/atomic_word.h: New, typdef for atomic word.
+	* config/cpu/cris/atomic_word.h: Same.
+	* config/cpu/sparc/atomic_word.h: Same.
+	* include/bits/ios_base.h (_Callback_list::_M_remove_reference):
+	Qualifiy with __gnu_cxx.
+	(_Callback_list::_M_add_reference): Same.
+	* include/bits/locale_classes.h (locale::facet::_M_add_reference): Add.
+	(locale::facet::_M_remove_reference): Same.
+	(locale::_Impl::_M_add_reference): Add.
+	(locale::_Impl::_M_remove_reference): Same.
+	* include/bits/basic_string.h (basic_string::_Rep::_M_refcopy): Same.
+	(basic_string::_Rep::_M_dispose): Same.
+	* src/ios.cc (ios_base::xalloc): Same.
+	* src/ios_init.cc (ios_base::Init::Init): Same.
+	(ios_base::Init::~Init): Same.
+	* src/locale.cc (locale::id::_M_id): Same.
+	* config/cpu/i486/atomicity.h: Use __gnu_cxx namespace. Remove
+	static, and inline keywords.
+	* config/cpu/alpha/atomicity.h: Same.
+	* config/cpu/cris/atomicity.h: Same.
+	* config/cpu/generic/atomicity.h: Same.
+	* config/cpu/hppa/atomicity.h: Same.
+	* config/cpu/i386/atomicity.h: Same.
+	* config/cpu/ia64/atomicity.h: Same.
+	* config/cpu/m68k/atomicity.h: Same.
+	* config/cpu/mips/atomicity.h: Same.
+	* config/cpu/powerpc/atomicity.h: Same.
+	* config/cpu/s390/atomicity.h: Same.
+	* config/cpu/sparc/atomicity.h: Same.
+	
+	* src/Makefile.am (host_sources): Add atomicity.cc.
+	(atomicity.cc): New rule.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am (host_headers): Remove host atomicity.h.
+	(host_headers): Add atomic_word.h.
+	(bits_headers): Add bits atomicity.h.
+	Change ATOMICITY_INC_SRCDIR to ATOMICITY_SRCDIR.
+	* include/Makefile.in: Regenerate.
+	* configure.host (atomic_word_dir): Add.
+	* configure.ac: Substitute ATOMIC_WORD_SRCDIR. Change
+	ATOMICITY_INC_SRCDIR to ATOMICITY_SRCDIR.
+	* configure: Regenerate.
+	* config/linker-map.gnu: Export __exchange_and_add, and __atomic_add.
+
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust line numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Same.	
+	
+2004-02-25  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/20_util/howto.html, docs/html/20_util/allocator.html,
+	docs/html/ext/howto.html, docs/html/ext/mt_allocator.html:
+	Fix markup, more <link> tags.
+
+2004-02-25  Carlo Wood  <carlo@alinoe.com>
+
+	* bits/demangle.h
+	namespace __gnu_cxx::demangler
+	(session<Allocator>::qualifier_list_Allocator): Add
+	(session<Allocator>::M_qualifier_list_alloc): Add
+	(session<Allocator>::decode_type_with_postfix):
+	Use M_qualifier_list_alloc instead of calling operator new/delete.
+
+2004-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14252
+	* include/bits/postypes.h (class streamoff): Add operator++(),
+	operator++(int), operator--() and operator--(int).
+	* testsuite/27_io/fpos/14252.cc: New.
+
+2004-02-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_int): Fix bounds
+	error in handling of hex constants.
+
+2004-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Prefer basic_string::append to operator+= and a temporary.
+
+2004-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/vterminate.cc (__gnu_cxx::__verbose_terminate_handler):
+	Only use fputs, not write.
+	
+2004-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/malloc_allocator.h: Add operators ==, !=.
+	* include/ext/new_allocator.h: Add operators ==, !=.
+	* include/ext/mt_allocator.h (__mt_alloc::tune): New.
+	(__mt_alloc::_S_get_options): New.
+	(__mt_alloc::_S_set_options): New.	
+	(__mt_alloc::_S_thread_key_destr): To _S_destroy_thread_key.
+	(__mt_alloc::_S_no_of_bins): To _S_bin_size.
+	Move functions out of line, simplify, format.
+	* src/allocator.cc: Simplify explicit instantiations.
+	* include/bits/allocator.h: Tweak.
+	
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Restructure formatting of value component, first dealing with
+	the non-decimal digits; use reserve.
+
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class money_get): Inherit
+	from money_base too; tweak declaration of _M_extract, now
+	parameterized on _Intl too.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Update definition to use the cache; call reserve on __res to
+	avoid multiple reallocations; fix parsing of sign component
+	according to 22.2.6.1.2, p3.
+	(money_get<>::do_get(long double&),
+	money_get<>::do_get(string_type&)): Update calls of _M_extract.	
+	* src/locale-inst.cc:  Add instantiations of
+	money_get::_M_extract<false> and money_get::_M_extract<true>.
+	* testsuite/22_locale/money_get/get/char/14.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/14.cc: Ditto.
+	
+2004-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/vterminate.cc
+	(__gnu_cxx::__verbose_terminate_handler): Guard against recursive
+	calls to terminate.
+	* src/demangle.cc (__cxa_demangle): Wrap in try-catch block.
+
+	* testsuite/testsuite_hooks.cc (__gnu_test::set_memory_limits): Do
+	not set RLIMIT_AS on HP-UX.
+
+2004-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_hooks.cc (__gnu_test::set_memory_limits): Do
+	not set RLIMIT_AS on HP-UX.
+
+2004-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (class money_base): Add { _S_minus,
+	_S_zero, _S_end } enum, _S_atoms.
+	(struct __moneypunct_cache<>): Parameterize on _Intl too; add
+	_M_grouping_size, _M_curr_symbol_size, _M_positive_sign_size,
+	_M_negative_sign_size, _M_atoms; tweak constructor consistently.
+	(__moneypunct_cache<>::~__moneypunct_cache): Update.
+	(__moneypunct_cache<>::_M_cache): Fill the cache.
+	(class moneypunct): Tweak __cache_type typedef.
+	(class money_put): Inherit from money_base too; tweak declaration
+	of _M_insert, now parameterized on _Intl.
+	* include/bits/locale_facets.tcc
+	(struct __use_cache<__moneypunct_cache<_CharT, _Intl> >): New.
+	(money_put<>::_M_insert): Update definition to use the cache;
+	call reserve on __res to avoid multiple reallocations.
+	(money_put<>::do_put(long double),
+	money_put<>::do_put(const string_type&): Update calls of _M_insert.
+	* config/locale/generic/monetary_members.cc
+	(moneypunct<char, true>::_M_initialize_moneypunct,
+	moneypunct<char, false>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, true>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, false>::_M_initialize_moneypunct): Update.
+	* config/locale/gnu/monetary_members.cc: Likewise.
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t, true>::~moneypunct(),
+	moneypunct<wchar_t, false>::~moneypunct()): Likewise.
+	* src/globals_locale.cc: Tweak fake_money_cache_c.
+	* src/locale-inst.cc: Add instantiations for
+	money_put::_M_insert<false> and money_put::_M_insert<true> and
+	__moneypunct_cache<C, false>, __moneypunct_cache<C, true>.
+	* src/locale_facets.cc: Define money_base::_S_atoms.
+	* src/locale_init.cc: Update placement new of
+	__moneypunct_cache<char, false>, __moneypunct_cache<char, true>,
+	__moneypunct_cache<wchar_t, false>, __moneypunct_cache<wchar_T, true>.
+
+	* config/locale/generic/numeric_members.cc: Clean up.
+	* config/locale/gnu/numeric_members.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/3.cc: Likewise.
+
+2004-02-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/27_io/basic_filebuf/showmanyc/char/9533-1.cc: Open
+	FIFO for writing with ios_base::in|ios_base::out.
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+	* testsuite/27_io/objects/char/7.cc: Likewise.
+	* testsuite/27_io/objects/char/9661-1.cc: Open FIFO for writing
+	with "r+".
+
+2004-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* 22_locale/collate/compare/wchar_t/2.cc: Change input-charset
+	from iso-8859-1 to ISO8859-1.
+	* 22_locale/collate/compare/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/compare/wchar_t/wrapped_locale.cc: Same.
+	* 22_locale/collate/hash/wchar_t/2.cc: Same.
+	* 22_locale/collate/hash/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/hash/wchar_t/wrapped_locale.cc: Same.
+	* 22_locale/collate/transform/wchar_t/2.cc: Same.
+	* 22_locale/collate/transform/wchar_t/wrapped_env.cc: Same.
+	* 22_locale/collate/transform/wchar_t/wrapped_locale.cc: Same.
+
+2004-02-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.h (money_get<>::_M_extract):
+	New, helper for do_get.
+	(money_put<>::_M_insert): Likewise, for do_put.
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract,
+	money_put<>::_M_insert): Define.
+	(money_get<>::do_get(long double&), money_get<>::do_get(
+	string_type&), money_put::do_put(long double),
+	money_put::do_put(const string_type&)): Use the helpers.
+
+2004-02-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/io/basic_file_stdio.cc (__gnu_internal::xwritev):
+	Rewrite, avoiding recursion.
+	(__gnu_internal::xwrite): Minor tweaks.
+
+2004-02-17  Stefan Olsson  <stefan@xapa.se>
+
+	* include/ext/mt_allocator.h: Removed the last
+	pointer. Deallocated blocks are now added to the front of
+	freelists as proposed by Felix Yen.  This gives roughly 10%
+	performance boost and saves some memory.
+	* docs/html/ext/mt_allocator.html: Change due to that deallocated
+	blocks now are added to the front of freelists. The reason to this
+	approach is also explained.
+
+2004-02-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
+	num_get<>::_M_extract_int, money_get<>::do_get): Simplify
+	grouping fidelity conditional.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_filebuf/overflow/char/13858.cc:
+	Qualify exception with std::.
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/overflow/wchar_t/13858.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/enc_filebuf/char/13189.cc: Don't check
+	for now that the catch block is not reached.
+	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Likewise.
+
+2004-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(string_type&)):
+	Fix parsing of the remaining sign characters.
+	* 22_locale/money_get/get/char/2.cc: Tweak: now, correctly,
+	the input is scanned 'til eof.
+	* 22_locale/money_get/get/char/4.cc: Likewise.
+	* 22_locale/money_get/get/wchar_t/2.cc: Likewise.
+	* 22_locale/money_get/get/wchar_t/4.cc: Likewise.
+	* 22_locale/money_get/get/char/8.cc: Tweak: override do_neg_format,
+	not do_pos_format: the former is the only one that matters during
+	input.
+	* 22_locale/money_get/get/wchar_t/8.cc: Likewise.
+
+	* 22_locale/money_get/get/char/6.cc: Minor tweak.
+	* 22_locale/money_get/get/wchar_t/6.cc: Likewise.
+
+2004-02-15  David Asher  <david.asher@cavium.com>
+
+	PR libstdc++/11352
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad): Don't
+	access __olds beyond __oldlen.
+
+2004-02-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Make
+	sure the exception is actually thrown.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+2004-02-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13858
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_convert_to_external):
+	In case of conversion errors, throw ios_failure; simplify.
+	* testsuite/27_io/basic_filebuf/overflow/char/13858.cc: New.
+	* testsuite/27_io/basic_filebuf/overflow/wchar_t/13858.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Tweak,
+	previously we didn't throw in case of conversion errors, instead
+	just returned eof().
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/3.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Ditto.
+
+	* include/bits/fstream.tcc (basic_filebuf<>::overflow):
+	Trivial simplification of a conditional.
+
+2004-02-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13731 (final part: writev)
+	* config/io/basic_file_stdio.cc (__gnu_internal::xwritev):
+	New, a wrapper around writev() handling partial writes.
+	(__basic_file<char>::xwrite): Move to __gnu_internal and make
+	static.
+	(__basic_file<char>::xsputn): Update call.
+	(__basic_file<char>::xsputn_2): Likewise.	
+	* config/io/basic_file_stdio.h (__basic_file<char>::xwrite):
+	Don't declare, now static.
+
+2004-02-11  Stefan Olsson  <stefan@xapa.se>
+
+	* docs/html/ext/mt_allocator.html: New.
+
+2004-02-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/20_util/allocator.html: New file, consolidate
+	allocator information here. Revamp.
+	* docs/html/documentation.html: Change links.
+	* docs/html/20_util/howto.html: Same.
+	* docs/html/ext/howto.html: Same.
+
+2004-02-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13731 (first part: write)
+	* config/io/basic_file_stdio.h (__basic_file<char>::xwrite):
+	New, declare.
+	* config/io/basic_file_stdio.cc (__basic_file<char>::xwrite):
+	Define it: a wrapper around write() handling partial write.
+	(__basic_file<char>::xsputn): Use it.
+	(__basic_file<char>::xsputn_2): Likewise.
+
+2004-02-11  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/14078
+	* include/std/std_istream.h (operator>>(__istream_type& (*)
+	(__istream_type&)), operator>>(__ios_type& (*)(__ios_type&)),
+	operator>>(ios_base& (*)(ios_base&))): Declare inline.
+	* include/std/std_ostream.h (operator<<(__ostream_type& (*)
+	(__ostream_type&)), operator<<(__ios_type& (*)(__ios_type&)),
+	operator<<(ios_base& (*) (ios_base&))): Likewise.
+	* testsuite/performance/27_io/fmtflags_manipulators.cc: New.
+
+2004-02-10  Loren J. Rittle  <ljrittle@acm.org>
+
+	PR libstdc++/14098
+	* config/linker-map.gnu: Add typeinfo and typeinfo name for
+	__gnu_cxx::stdio_sync_filebuf<char, std::char_traits<char> >.
+
+	PR libstdc++/14097
+	* config/linker-map.gnu: Add typeinfo and typeinfo name for
+	__gnu_cxx::stdio_filebuf<char, std::char_traits<char> >.
+
+2004-02-09  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/ext/pool_allocator.h: Include c++config.h.
+
+2004-02-09  Stefan Olsson  <stefan@xapa.se>
+
+	* include/ext/mt_allocator.h: thread_id is unused in non threaded
+	applications and now has a ifdef to remove it completely on
+	compilers without thread support. Include stdlib.h due to a
+	compiler warning on getenv().
+
+2004-02-09  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/configure.host: Explicitly check for atomicity.h file.
+
+2004-02-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14071
+	* src/locale_init.cc (locale::global(const locale&)): Use
+	locale::name() in order to decide whether calling setlocale.
+	* testsuite/22_locale/locale/global_locale_objects/14071.cc: New.
+
+	* include/bits/locale_classes.h (locale::_Impl::_M_check_same_name()):
+	Avoid computing &= unnecessarily.
+
+2004-02-09  James E Wilson  <wilson@specifixinc.com>
+
+	PR libstdc++/5625
+	* libsuspc++/eh_personality.cc (PERSONALITY_FUNCTION): Use
+	__builtin_extend_pointer.
+
+2004-02-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14072
+	* include/bits/basic_ios.tcc (basic_ios<>::_M_cache_locale):
+	Don't leave dangling pointers.
+	* testsuite/27_io/basic_ios/imbue/14072.cc: New.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Tweak, the num_put
+	facet is needed in the final test.
+
+2004-02-09  Bernardo Innocenti  <bernie@develer.com>
+
+	* crossconfig.m4: Don't enable _GLIBCXX_USE_LFS on *-uclinux*.
+	* configure: Regenerate.
+
+2004-02-08  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/14026
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Don't adjust 
+	uncaughtExceptions during nested catch rethrow.
+	* testsuite/18_support/14026.cc: New.
+
+2004-02-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (assign(const _CharT*, size_type)):
+	When working in place remember to set the state to sharable
+	(otherwise, _M_mutate does it).
+
+2004-02-08  Bernardo Innocenti  <bernie@develer.com>
+
+	* include/bits/allocator.h, include/bits/basic_ios.h,
+	include/bits/basic_ios.tcc, include/bits/basic_string.h,
+	include/bits/basic_string.tcc, include/bits/boost_concept_check.h,
+	include/bits/char_traits.h, include/bits/codecvt.h,
+	include/bits/concurrence.h, include/bits/cpp_type_traits.h,
+	include/bits/demangle.h, include/bits/deque.tcc,
+	include/bits/fstream.tcc, include/bits/functexcept.h,
+	include/bits/gslice.h, include/bits/gslice_array.h,
+	include/bits/indirect_array.h, include/bits/ios_base.h,
+	include/bits/istream.tcc, include/bits/list.tcc,
+	include/bits/locale_classes.h, include/bits/locale_facets.h,
+	include/bits/locale_facets.tcc, include/bits/localefwd.h,
+	include/bits/mask_array.h, include/bits/ostream.tcc,
+	include/bits/postypes.h, include/bits/slice_array.h,
+	include/bits/sstream.tcc, include/bits/stl_algo.h,
+	include/bits/stl_algobase.h, include/bits/stl_bvector.h,
+	include/bits/stl_construct.h, include/bits/stl_deque.h,
+	include/bits/stl_function.h, include/bits/stl_heap.h,
+	include/bits/stl_iterator.h, include/bits/stl_iterator_base_funcs.h,
+	include/bits/stl_list.h, include/bits/stl_map.h,
+	include/bits/stl_multimap.h, include/bits/stl_multiset.h,
+	include/bits/stl_numeric.h, include/bits/stl_pair.h,
+	include/bits/stl_queue.h, include/bits/stl_raw_storage_iter.h,
+	include/bits/stl_relops.h, include/bits/stl_set.h,
+	include/bits/stl_stack.h, include/bits/stl_tempbuf.h,
+	include/bits/stl_threads.h, include/bits/stl_tree.h,
+	include/bits/stl_uninitialized.h, include/bits/stl_vector.h,
+	include/bits/stream_iterator.h, include/bits/streambuf.tcc,
+	include/bits/streambuf_iterator.h,include/bits/stringfwd.h,
+	include/bits/type_traits.h, include/bits/valarray_after.h,
+	include/bits/valarray_array.h, include/bits/valarray_array.tcc,
+	include/bits/valarray_before.h, include/bits/vector.tcc: Remove
+	trailing whitespace.
+
+2004-02-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h: Fix comment.
+
+2004-02-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_construct.h: Wrap overlong lines, reformat
+	according to the coding standards.
+	* include/bits/stl_pair.h: Likewise.
+	* include/bits/stl_raw_storage_iter.h: Likewise.
+	* include/bits/stl_stack.h: Likewise.
+	* include/bits/stl_uninitialized.h: Likewise.
+	* include/bits/stream_iterator.h: Likewise.
+	* include/bits/streambuf_iterator.h: Likewise.
+	* include/bits/type_traits.h: Likewise.
+
+2004-02-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_filebuf/open/char/9507.cc:
+	Adjust timings.
+
+2004-02-05  Loren J. Rittle  <ljrittle@acm.org>
+
+	* scripts/check_performance: Support PCH.
+
+	* scripts/check_performance (CXX): Add -DNOTHREAD.
+	* testsuite/performance/20_util/allocator/insert.cc: Integrate
+	threaded tests from insert_insert.cc.  Tweak iterations,
+	remove special cases.
+	* testsuite/performance/20_util/allocator/insert_insert.cc:
+	Make all tests single-threaded. Tweak iterations.
+	* testsuite/performance/20_util/allocator/map_thread.cc:
+	Tweak iterations.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc:
+	Likewise.
+
+2004-02-05  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 12179
+	* .cvsignore: New.
+	* acinclude.m4 (GLIBCXX_EXPORT_INSTALL_INFO): Use 'gcc', not
+	'gcc-lib'.  Add comment about poorly-named variables.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2004-02-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(string_type&)):
+	Thousands-sep are always optional; thousands-sep are not allowed
+	after the decimal_point.
+	* testsuite/22_locale/money_get/get/char/12.cc: New.
+	* testsuite/22_locale/money_get/get/char/13.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/12.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/13.cc: New.
+
+	* testsuite/22_locale/money_get/get/char/1.cc: Clean-up.
+	* testsuite/22_locale/money_get/get/char/2.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/3.cc: Likewise.
+	* testsuite/22_locale/money_get/get/char/4.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/money_get/get/wchar_t/4.cc: Likewise.
+
+	* testsuite/22_locale/money_get/get/char/9.cc: Fix citation from
+	the standard.
+	* testsuite/22_locale/money_get/get/wchar_t/9.cc: Likewise.
+
+2004-02-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/os/irix/irix6.5/os_defines.h (_GLIBCXX_FIONREAD_TAKES_OFF_T):
+	Define.
+	* config/io/basic_file_stdio.cc (__basic_file<char>::showmanyc): Use
+	it to decide whether FIONREAD should take an off_t or int argument.
+
+2004-02-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_function.h: Minor formatting changes.
+
+2004-02-04  Zack Weinberg  <zack@codesourcery.com>
+
+	Revert previous change to config/abi/*/baseline_symbols.txt.
+
+2004-02-04  Benjamin Kosnik  <bkoz@redhat.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* config/io/basic_file_stdio.cc (__gnu_internal::fopen_mode):
+	New function.
+	(__basic_file<char>::sys_open, __basic_file<char>::open): Use it.
+	(__basic_file<char>::_M_open_mode): Delete.
+	* config/io/basic_file_stdio.cc: Delete declaration of _M_open_mode.
+
+	* testsuite/27_io/basic_filebuf/close/char/9964.cc
+	* testsuite/27_io/basic_filebuf/open/char/9507.cc:
+	Correct flags to filebuf::open calls.
+
+	* config/abi/alpha-freebsd5/baseline_symbols.txt
+	* config/abi/alpha-linux-gnu/baseline_symbols.txt
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt
+	* config/abi/i386-freebsd4/baseline_symbols.txt
+	* config/abi/i386-freebsd5/baseline_symbols.txt
+	* config/abi/i486-linux-gnu/baseline_symbols.txt
+	* config/abi/ia64-linux-gnu/baseline_symbols.txt
+	* config/abi/mips-linux-gnu/baseline_symbols.txt
+	* config/abi/sparc-freebsd5/baseline_symbols.txt
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt:
+	Remove entry for __basic_file<char>::_M_open_mode.
+
+2004-02-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/performance/20_util/allocator/insert.cc (main): Tweak.
+
+2004-02-04  Felix Yen  <fwy@alumni.brown.edu>
+
+	* testsuite/performance/20_util/producer_consumer.cc: New.
+	* testsuite/performance/20_util/allocator/insert_insert.cc: Two loops.
+
+2004-02-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/performance/20_util/allocator.cc: Move to..
+	* testsuite/performance/20_util/allocator/insert.cc: ...here.
+	* testsuite/performance/20_util/allocator_thread.cc: Move to...
+	* testsuite/performance/20_util/allocator/insert_insert.cc: ...here.
+	* testsuite/performance/20_util/allocator_map_thread.cc: Move to...
+	* testsuite/performance/20_util/allocator/map_thread.cc: ...here.
+
+2004-02-04  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/faq/index.html: Recommend using LD_LIBRARY_PATH.
+	* docs/html/faq/index.txt: Regenerate.
+
+2004-02-04  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/ext/debug_allocator.h: _M_extra now stands for the
+	number of extra objects instead of the number of extra bytes.
+	(debug_allocator::allocate): Adjust.
+	(debug_allocator::deallocate): Adjust.
+
+	* include/ext/pool_allocator.h: Fix typo.
+
+2004-02-03  Felix Yen  <fwy@alumni.brown.edu>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/performance/20_util/allocator.cc: Add map,
+	deque, set tests.
+	* testsuite/performance/20_util/allocator_thread.cc: Same.
+
+2004-02-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (insert(iterator)): Remove,
+	non-standard and already scheduled for removal.
+
+2004-02-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_iterator_base_funcs.h: Minor formatting
+	and indentation tweaks.
+	* include/bits/stl_iterator_base_types.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_tempbuf.h: Likewise.
+
+2004-02-02  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/gslice.h, include/bits/gslice_array.h,
+	include/bits/indirect_array.h, include/bits/mask_array.h,
+	include/bits/slice_array.h, include/bits/stl_numeric.h,
+	include/std/std_valarray.h:  Update copyright years.
+
+2004-02-02  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/gslice.h (gslice):  Document.
+	* include/bits/gslice_array.h (gslice_array):  Document.
+	* include/bits/indirect_array (indirect_array):  Document.
+	* include/bits/mask_array (mask_array):  Document.
+	* include/bits/slice_array.h (slice,slice_array):  Document.
+	* include/bits/stl_numeric.h (accumulate, inner_product, partial_sum,
+	adjacent_difference):  Document
+	* include/std/std_valarray.h (valarray):  Document.
+
+2004-02-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/19_diagnostics/howto.html: Move verbose terminate
+	documentation...
+	* docs/html/18_support/howto.html: Here.
+	* docs/html/documentation.html: Add reference here.
+
+2004-02-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c++locale_internal.h: Remove prototypes
+	of no longer used GLIBC thread locale functions.
+
+2004-02-02  Eric Christopher  <echristo@redhat.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* testsuite/22_locale/collate/compare/wchar_t/2.cc: Remove xfail. Use
+	-finput-charset.
+	* testsuite/22_locale/collate/compare/wchar_t/wrapped_env.cc: Ditto.
+	* testsuite/22_locale/collate/compare/wchar_t/wrapped_locale.cc: Ditto
+	* testsuite/22_locale/collate/hash/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/collate/hash/wchar_t/wrapped_env.cc: Ditto.
+	* testsuite/22_locale/collate/hash/wchar_t/wrapped_locale.cc: Ditto.
+	* testsuite/22_locale/collate/transform/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/collate/transform/wchar_t/wrapped_env.cc: Ditto.
+	* testsuite/22_locale/collate/transform/wchar_t/wrapped_locale.cc:
+	Ditto.
+
+2004-02-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_function.h: Additional minor tweaks.
+	* include/bits/stl_multiset.h: Likewise.
+
+	* include/bits/stl_queue.h: Minor tweaks.
+
+2004-02-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13976 (continued)
+	* include/ext/malloc_allocator.h (malloc_allocator::deallocate):
+	Make the second parameter unnamed, to void unused parameter
+	warnings.
+	* include/ext/new_allocator.h (new_allocator::deallocate): Ditto.
+
+2004-02-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13976
+	* include/ext/malloc_allocator.h (malloc_allocator::allocate):
+	Make the second parameter unnamed, to void unused parameter
+	warnings.
+	* include/ext/mt_allocator.h (__mt_alloc::allocate): Ditto.
+	* include/ext/new_allocator.h (new_allocator::allocate): Ditto.
+
 2004-02-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algo.h: Additional minor tweaks.
@@ -73,7 +1134,7 @@
 	* testsuite/21_strings/basic_string/cons/char/6.cc: New.
 	* testsuite/21_strings/basic_string/cons/wchar_t/6.cc: New.
 	* testsuite/performance/21_strings/string_cons_input_iterator.cc: New.
-	
+
 2004-01-30  Felix Yen  <fwy@alumni.brown.edu>
 
 	* testsuite/performance/20_util/allocator_thread.cc (do_loop):
@@ -84,7 +1145,7 @@
 	* src/demangle.cc: Add instantiations.
 	* src/Makefile.am: Remove special rules for demangle.lo, demangle.o.
 	* src/Makefile.in: Regenerate.
-	
+
 2004-01-30  David Edelsohn  <edelsohn@gnu.org>
 
 	* src/allocator.cc: Protect _S_get_thread_id() and
@@ -159,11 +1220,11 @@
 2004-01-29  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 
 	* config/local/generic/c_locale.h: Change ::malloc() to new char[].
-  	* config/local/gnu/c_locale.h: Change ::malloc() to new char[].
-  	* include/bits/stl_tempbuf.h: Convert _Temporary_buffer to use
+	* config/local/gnu/c_locale.h: Change ::malloc() to new char[].
+	* include/bits/stl_tempbuf.h: Convert _Temporary_buffer to use
 	std::get_temporary_buffer() instead of duplicating its code.
 	Update to C++STYLE conventions.
-  	* include/std/std_memory.h (get_temporary_buffer): Use ::operator
+	* include/std/std_memory.h (get_temporary_buffer): Use ::operator
 	new() instead of std::malloc().
 	(return_temporary_buffer): Use ::operator delete() instead of
 	std::free().
@@ -172,7 +1233,7 @@
 
 	* include/bits/allocator.h: Temporary switch to new_allocator as
 	the default to unjam bootstraps.
-	
+
 2004-01-28  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/Makefile.am (bits_headers): Remove allocator_traits.h.
@@ -188,7 +1249,7 @@
 	* src/Makefile.am (sources): Add allocator.cc.
 	* src/Makefile.in: Regenerate.
 	* testsuite/20_util/allocator/1.cc: Split second test into...
-	* testsuite/20_util/allocator/8230.cc: ...this. 
+	* testsuite/20_util/allocator/8230.cc: ...this.
 	* include/bits/stl_bvector.h (__gnu_norm): Change bit_vector
 	typedef to use std::allocatore. Format.
 	* include/ext/pool_allocator.h: Remove allocator_traits.h include,
@@ -204,14 +1265,14 @@
 	implementation details.
 
 	* include/ext/mt_allocator.h: Replace free with delete.
-	
+
 2004-01-28  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* src/globals_io.cc: Change to __gnu_internal namespace.
 	* src/globals_locale.cc: Same.
 	* src/locale_init.cc: Same.
 	* src/ios_init.cc: Same.
-	
+
 2004-01-28  Stefan Olsson  <stefan@snon.net>
 
 	* include/ext/mt_allocator.h: Replaced all malloc() calls with
@@ -240,7 +1301,7 @@
 	* include/bits/basic_string.h (_Rep::operator[]): Tweak
 	signature to take a size_type, consistently with the other
 	members.
-	
+
 2004-01-27  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/27_io/ios_base/storage/11584.cc: Correct new and
@@ -258,10 +1319,10 @@
 
 	PR libstdc++/11584
 	* include/bits/ios_base.h (ios_base::_M_grow_words):  Add
-        iword/pword selector.
+	iword/pword selector.
 	(ios_base::iword, ios_base::pword):  Use it.
 	* src/ios.cc (ios_base::_M_grow_words):  Clear _M_word_zero
-        iword or pword member on alloc failure.
+	iword or pword member on alloc failure.
 	* testsuite/27_io/ios_base/storage/11584.cc:  New test.
 
 2004-01-27  Ulrich Weigand  <uweigand@de.ibm.com>
@@ -280,7 +1341,7 @@
 
 	PR libstdc++/13884
 	* include/bits/sstream.tcc: Guard use of extern template.
-	
+
 2004-01-27  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.tcc
@@ -592,7 +1653,7 @@
 	_CharT, const _Alloc&)): Remove redundant try/catch.
 	(_M_mutate(size_type, size_type, size_type)): Ditto.
 	(_M_clone(const _Alloc&, size_type)): Ditto.
-	
+
 2004-01-18  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/basic_string.h (c_str()): Simplify, due to
@@ -628,7 +1689,7 @@
 2004-01-16  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/ext/enc_filebuf/char/13189.cc: Fix guards.
-	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Same.	
+	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Same.
 
 2004-01-16  Danny Smith  <dannysmith@users.sourceforge.net>
 
@@ -651,15 +1712,15 @@
 	... here, change signature to take a const char* and a size_t
 	for the grouping; not a template anymore.
 	(__add_grouping, num_put::_M_group_int, num_put::_M_group_float):
-	Likewise change signature and tweak consistently. 
+	Likewise change signature and tweak consistently.
 	(num_get::_M_extract_float, num_get::_M_extract_int,
 	num_put::_M_insert_int, num_put::_M_insert_float,
 	money_get::do_get(string_type&), money_get::do_put(string_type)):
-	Update callers. 
+	Update callers.
 	* config/locale/generic/numeric_members.cc
-	(numpunct<>::_M_initialize_numpunct): Assign the new member.	
+	(numpunct<>::_M_initialize_numpunct): Assign the new member.
 	* config/locale/gnu/numeric_members.cc
-	(numpunct<>::_M_initialize_numpunct): Likewise.	
+	(numpunct<>::_M_initialize_numpunct): Likewise.
 	* src/locale-inst.cc (__add_grouping): Tweak signature.
 	(__verify_grouping): Don't instantiate, not a template anymore.
 
@@ -674,13 +1735,13 @@
 	* include/ext/mt_allocator.h: Fixups.
 	* testsuite/performance/allocator.cc: Enable __mt_alloc tests.
 	* testsuite/performance/allocator_thread.cc: Same.
-	
+
 2004-01-13  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/performance/ifstream_extract_float.cc: Add higher
 	precision tests.
 	* testsuite/performance/ofstream_insert_float.cc: Same.
-	
+
 2004-01-13  Paolo Carlini  <pcarlini@suse.de>
 
 	* src/locale-misc-inst.cc (__convert_from_v(long),
@@ -806,7 +1867,7 @@
 	* testsuite/27_io/basic_filebuf/imbue/wchar_t/13582-3.cc: Ditto.
 	* testsuite/27_io/objects/wchar_t/13582-1_xin.cc: Ditto.
 	* testsuite/27_io/objects/wchar_t/13582-1_xin.in: Ditto.
-	
+
 2004-01-10  Paolo Carlini  <pcarlini@suse.de>
 
 	* docs/html/ext/lwg-active.html, docs/html/ext/lwg-defects.html:
@@ -836,35 +1897,35 @@
 	* config.h.in: Regenerate.
 	* aclocal.m4: Same.
 	* configure: Same.
-	
+
 2004-01-07  Gawain Bolton  <gp.bolton@computer.org>
 
 	* include/bits/stl_list.h:
 	* include/bits/list.tc:
 	* src/list.cc:
-        Performance enhancements for destructor, push_front(),
-        push_back(), pop_front(), pop_back(), sort()
-        Eliminated static_casts where possible.
-        Moved code out of header files into new src/list.cc
-        implementation file for library where possible.
-        Remove inheritance from iterator class and create separate
-        classes for non-constant and constant iterators.
+	Performance enhancements for destructor, push_front(),
+	push_back(), pop_front(), pop_back(), sort()
+	Eliminated static_casts where possible.
+	Moved code out of header files into new src/list.cc
+	implementation file for library where possible.
+	Remove inheritance from iterator class and create separate
+	classes for non-constant and constant iterators.
 	* include/bits/stl_tree.h (_Rb_tree class):
-	* src/tree.cc: 
-        Only erase contents in destructor.
-        Eliminate unnecessary initialization in assignment operator.
-        Optimize for the nominal case by not checking whether
-        container is empty in clear().
-        Re-order test in _M_insert() to improve performance.
-        Move initialization of new node's left & right pointers to
-        src/tree.cc to where new node's colour is initialized
-        and to reduce the amount of inline code.
-        Use  _M_leftmost() and _M_end() to improve readability where
-        appropriate.
-        Create separate classes for non-constant and constant
-        iterators to clarify code, avoid extra template parameters and 
-        casting away constness.		
-	
+	* src/tree.cc:
+	Only erase contents in destructor.
+	Eliminate unnecessary initialization in assignment operator.
+	Optimize for the nominal case by not checking whether
+	container is empty in clear().
+	Re-order test in _M_insert() to improve performance.
+	Move initialization of new node's left & right pointers to
+	src/tree.cc to where new node's colour is initialized
+	and to reduce the amount of inline code.
+	Use  _M_leftmost() and _M_end() to improve readability where
+	appropriate.
+	Create separate classes for non-constant and constant
+	iterators to clarify code, avoid extra template parameters and
+	casting away constness.
+
 2004-01-07  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* src/Makefile.am (sources): Add list.cc, tree.cc.
@@ -876,7 +1937,7 @@
 	* testsuite/23_containers/set/operators/1_neg.cc: Add excess errors.
 
 	* bits/stl_vector.h: Column wrap comments.
-	
+
 2004-01-07  Loren J. Rittle  <ljrittle@acm.org>
 
 	(re-open) PR libstdc++/12658
@@ -918,7 +1979,7 @@
 	redundant #include.
 
 2004-01-06  Benjamin Kosnik  <bkoz@redhat.com>
-            Stefan Olsson  <stefan@snon.net>
+	    Stefan Olsson  <stefan@snon.net>
 
 	* scripts/check_performance: Use -pthread.
 	* testsuite/performance/allocator.cc: Tweaks, add list.

@@ -1559,16 +1559,20 @@ build_offset_ref (tree type, tree name, bool address_p)
 	   a class derived from that class (_class.base.init_).  */
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (member))
 	{
+	  /* Build a representation of a the qualified name suitable
+	     for use as the operand to "&" -- even though the "&" is
+	     not actually present.  */
+	  member = build (OFFSET_REF, TREE_TYPE (member), decl, member);
 	  /* In Microsoft mode, treat a non-static member function as if
 	     it were a pointer-to-member.  */
 	  if (flag_ms_extensions)
 	    {
-	      member = build (OFFSET_REF, TREE_TYPE (member), decl, member);
 	      PTRMEM_OK_P (member) = 1;
 	      return build_unary_op (ADDR_EXPR, member, 0);
 	    }
-	  error ("invalid use of non-static member function `%D'", member);
-	  return error_mark_node;
+	  error ("invalid use of non-static member function `%D'", 
+		 TREE_OPERAND (member, 1));
+	  return member;
 	}
       else if (TREE_CODE (member) == FIELD_DECL)
 	{
@@ -2228,15 +2232,12 @@ build_new_1 (tree exp)
 	{
 	  enum tree_code dcode = has_array ? VEC_DELETE_EXPR : DELETE_EXPR;
 	  tree cleanup;
-	  int flags = (LOOKUP_NORMAL 
-		       | (globally_qualified_p * LOOKUP_GLOBAL));
 
 	  /* The Standard is unclear here, but the right thing to do
 	     is to use the same method for finding deallocation
 	     functions that we use for finding allocation functions.  */
-	  flags |= LOOKUP_SPECULATIVELY;
-
-	  cleanup = build_op_delete_call (dcode, alloc_node, size, flags,
+	  cleanup = build_op_delete_call (dcode, alloc_node, size, 
+					  globally_qualified_p,
 					  (placement_allocation_fn_p 
 					   ? alloc_call : NULL_TREE));
 
@@ -2435,7 +2436,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   /* Outermost wrapper: If pointer is null, punt.  */
   body = fold (build (COND_EXPR, void_type_node,
 		      fold (build (NE_EXPR, boolean_type_node, base,
-				   integer_zero_node)),
+				   convert (TREE_TYPE (base),
+					    integer_zero_node))),
 		      body, integer_zero_node));
   body = build1 (NOP_EXPR, void_type_node, body);
 
@@ -2786,9 +2788,9 @@ build_x_delete (tree addr, int which_delete, tree virtual_size)
   int use_global_delete = which_delete & 1;
   int use_vec_delete = !!(which_delete & 2);
   enum tree_code code = use_vec_delete ? VEC_DELETE_EXPR : DELETE_EXPR;
-  int flags = LOOKUP_NORMAL | (use_global_delete * LOOKUP_GLOBAL);
 
-  return build_op_delete_call (code, addr, virtual_size, flags, NULL_TREE);
+  return build_op_delete_call (code, addr, virtual_size, use_global_delete, 
+			       NULL_TREE);
 }
 
 /* Call the DTOR_KIND destructor for EXP.  FLAGS are as for
@@ -2852,23 +2854,35 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
+      bool complete_p = true;
+
       type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       if (TREE_CODE (type) == ARRAY_TYPE)
 	goto handle_array;
 
-      if (VOID_TYPE_P (type)
-	  /* We don't want to warn about delete of void*, only other
-	     incomplete types.  Deleting other incomplete types
-	     invokes undefined behavior, but it is not ill-formed, so
-	     compile to something that would even do The Right Thing
-	     (TM) should the type have a trivial dtor and no delete
-	     operator.  */
-	  || !complete_type_or_diagnostic (type, addr, 1)
-	  || !IS_AGGR_TYPE (type))
+      /* We don't want to warn about delete of void*, only other
+	  incomplete types.  Deleting other incomplete types
+	  invokes undefined behavior, but it is not ill-formed, so
+	  compile to something that would even do The Right Thing
+	  (TM) should the type have a trivial dtor and no delete
+	  operator.  */
+      if (!VOID_TYPE_P (type))
 	{
-	  /* Call the builtin operator delete.  */
-	  return build_builtin_delete_call (addr);
+	  complete_type (type);
+	  if (!COMPLETE_TYPE_P (type))
+	    {
+	      warning ("possible problem detected in invocation of "
+		       "delete operator:");
+	      cxx_incomplete_type_diagnostic (addr, type, 1);
+	      inform ("neither the destructor nor the class-specific "
+		      "operator delete will be called, even if they are "
+		      "declared when the class is defined.");
+	      complete_p = false;
+	    }
 	}
+      if (VOID_TYPE_P (type) || !complete_p || !IS_AGGR_TYPE (type))
+	/* Call the builtin operator delete.  */
+	return build_builtin_delete_call (addr);
       if (TREE_SIDE_EFFECTS (addr))
 	addr = save_expr (addr);
 
@@ -2907,8 +2921,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	return void_zero_node;
 
       return build_op_delete_call
-	(DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
-	 LOOKUP_NORMAL | (use_global_delete * LOOKUP_GLOBAL),
+	(DELETE_EXPR, addr, cxx_sizeof_nowarn (type), use_global_delete,
 	 NULL_TREE);
     }
   else
@@ -2943,7 +2956,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  do_delete = build_op_delete_call (DELETE_EXPR,
 					    addr,
 					    cxx_sizeof_nowarn (type),
-					    LOOKUP_NORMAL,
+					    /*global_p=*/false,
 					    NULL_TREE);
 	  /* Call the complete object destructor.  */
 	  auto_delete = sfk_complete_destructor;
@@ -2954,7 +2967,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  /* Make sure we have access to the member op delete, even though
 	     we'll actually be calling it from the destructor.  */
 	  build_op_delete_call (DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
-				LOOKUP_NORMAL, NULL_TREE);
+				/*global_p=*/false, NULL_TREE);
 	}
 
       expr = build_dtor_call (build_indirect_ref (addr, NULL),

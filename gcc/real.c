@@ -1769,7 +1769,7 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
   else if (*str == '+')
     str++;
 
-  if (str[0] == '0' && str[1] == 'x')
+  if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
     {
       /* Hexadecimal floating point.  */
       int pos = SIGNIFICAND_BITS - 4, d;
@@ -3230,20 +3230,27 @@ static void
 encode_ibm_extended (const struct real_format *fmt, long *buf,
 		     const REAL_VALUE_TYPE *r)
 {
-  REAL_VALUE_TYPE u, v;
+  REAL_VALUE_TYPE u, normr, v;
   const struct real_format *base_fmt;
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
+  /* Renormlize R before doing any arithmetic on it.  */
+  normr = *r;
+  if (normr.class == rvc_normal)
+    normalize (&normr);
+
   /* u = IEEE double precision portion of significand.  */
-  u = *r;
+  u = normr;
   round_for_format (base_fmt, &u);
   encode_ieee_double (base_fmt, &buf[0], &u);
 
-  if (r->class == rvc_normal)
+  if (u.class == rvc_normal)
     {
-      do_add (&v, r, &u, 1);
-      round_for_format (base_fmt, &v);
+      do_add (&v, &normr, &u, 1);
+      /* The low double won't need rounding, since we round to a 106 bit
+	 mantissa before calling this function, and we've just
+	 subtracted off the top 54 bits.  (53+1 because u is rounded.)  */
       encode_ieee_double (base_fmt, &buf[2], &v);
     }
   else

@@ -1,5 +1,5 @@
 /* Natural loop functions
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,29 +36,6 @@ struct lpt_decision
   unsigned times;
 };
 
-/* Description of loop for simple loop unrolling.  */
-struct loop_desc
-{
-  int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
-  rtx stride;		/* Value added to VAR in each iteration.  */
-  rtx var;		/* Loop control variable.  */
-  enum machine_mode inner_mode;
-			/* The mode from that it is extended.  */
-  enum rtx_code extend;	/* With this extend.  */
-  rtx var_alts;		/* List of definitions of its initial value.  */
-  rtx lim;		/* Expression var is compared with.  */
-  rtx lim_alts;		/* List of definitions of its initial value.  */
-  bool const_iter;      /* True if it iterates constant number of times.  */
-  unsigned HOST_WIDE_INT niter;
-			/* Number of iterations if it is constant.  */
-  bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
-  enum rtx_code cond;	/* Exit condition.  */
-  int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
-  edge out_edge;	/* The exit edge.  */
-  edge in_edge;		/* And the other one.  */
-  int n_branches;	/* Number of branches inside the loop.  */
-};
-
 /* Structure to hold information for each natural loop.  */
 struct loop
 {
@@ -76,11 +53,6 @@ struct loop
 
   /* For loop unrolling/peeling decision.  */
   struct lpt_decision lpt_decision;
-
-  /* Simple loop description.  */
-  int simple;
-  struct loop_desc desc;
-  int has_desc;
 
   /* Number of loop insns.  */
   unsigned ninsns;
@@ -278,7 +250,9 @@ extern int average_num_loop_insns (struct loop *);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
+extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
+extern unsigned num_loop_branches (const struct loop *);
 
 extern edge loop_preheader_edge (const struct loop *);
 extern edge loop_latch_edge (const struct loop *);
@@ -303,8 +277,6 @@ extern void force_single_succ_latches (struct loops *);
 extern void verify_loop_structure (struct loops *);
 
 /* Loop analysis.  */
-extern bool simple_loop_p (struct loop *, struct loop_desc *);
-extern rtx count_loop_iterations (struct loop_desc *, rtx, rtx);
 extern bool just_once_each_iteration_p (struct loop *, basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
 
@@ -321,6 +293,114 @@ extern struct loop *loopify (struct loops *, edge, edge, basic_block);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, rtx);
+
+/* Induction variable analysis.  */
+
+/* The description of induction variable.  The things are a bit complicated
+   due to need to handle subregs and extends.  The value of the object described
+   by it can be obtained as follows (all computations are done in extend_mode):
+
+   Value in i-th iteration is
+     delta + mult * extend_{extend_mode} (subreg_{mode} (base + i * step)).
+
+   If first_special is true, the value in the first iteration is
+     delta + mult * base
+     
+   If extend = NIL, first_special must be false, delta 0, mult 1 and value is
+     subreg_{mode} (base + i * step)
+
+   The get_iv_value function can be used to obtain these expressions.
+
+   ??? Add a third mode field that would specify the mode in that inner
+   computation is done, which would enable it to be different from the
+   outer one?  */
+
+struct rtx_iv
+{
+  /* Its base and step (mode of base and step is supposed to be extend_mode,
+     see the description above).  */
+  rtx base, step;
+
+  /* The type of extend applied to it (SIGN_EXTEND, ZERO_EXTEND or NIL).  */
+  enum rtx_code extend;
+
+  /* Operations applied in the extended mode.  */
+  rtx delta, mult;
+
+  /* The mode it is extended to.  */
+  enum machine_mode extend_mode;
+
+  /* The mode the variable iterates in.  */
+  enum machine_mode mode;
+
+  /* Whether we have already filled the remaining fields.  */
+  unsigned analysed : 1;
+
+  /* Whether the first iteration needs to be handled specially.  */
+  unsigned first_special : 1;
+};
+
+/* The description of an exit from the loop and of the number of iterations
+   till we take the exit.  */
+
+struct niter_desc
+{
+  /* The edge out of the loop.  */
+  edge out_edge;
+
+  /* The other edge leading from the condition.  */
+  edge in_edge;
+
+  /* True if we are able to say anything about number of iterations of the
+     loop.  */
+  bool simple_p;
+
+  /* True if the loop iterates the constant number of times.  */
+  bool const_iter;
+
+  /* Number of iterations if constant.  */
+  unsigned HOST_WIDEST_INT niter;
+
+  /* Upper bound on the number of iterations.  */
+  unsigned HOST_WIDEST_INT niter_max;
+
+  /* Assumptions under that the rest of the information is valid.  */
+  rtx assumptions;
+
+  /* Assumptions under that the loop ends before reaching the latch,
+     even if value of niter_expr says otherwise.  */
+  rtx noloop_assumptions;
+
+  /* Condition under that the loop is infinite.  */
+  rtx infinite;
+
+  /* Whether the comparison is signed.  */
+  bool signed_p;
+
+  /* The mode in that niter_expr should be computed.  */
+  enum machine_mode mode;
+
+  /* The number of iterations of the loop.  */
+  rtx niter_expr;
+};
+
+extern void iv_analysis_loop_init (struct loop *);
+extern rtx iv_get_reaching_def (rtx, rtx);
+extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
+extern rtx get_iv_value (struct rtx_iv *, rtx);
+extern void find_simple_exit (struct loop *, struct niter_desc *);
+extern void iv_number_of_iterations (struct loop *, rtx, rtx,
+				     struct niter_desc *);
+extern void iv_analysis_done (void);
+
+extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
+extern void free_simple_loop_desc (struct loop *loop);
+
+static inline struct niter_desc *
+simple_loop_desc (struct loop *loop)
+{
+  return loop->aux;
+}
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);

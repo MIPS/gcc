@@ -1,3 +1,621 @@
+2004-03-03  Per Bothner  <per@bothner.com>
+
+	* java/nio/channels/Channels.java (newInputStream, newOutputStream):
+	Optimize when argument is a FileChannelImpl.
+	(newInputStream(FileChannelImpl), newOutputStream(FileChannelImpl)):
+	New native methods.
+	* java/nio/channels/natChannels.cc:  New file for new native methods.
+	* Makefile.am:  Update accordingly.
+
+2004-03-02  Jan Hubicka  <jh@suse.cz>
+
+	* configure.host: Pass -fno-omit-frame-pointer for i386.
+	* configure.in: Likewise.
+	* configure: Regenerate.
+
+2004-03-01  Per Bothner  <per@bothner.com>
+
+	* java/lang/natPosixProcess.cc (startProcess):  Fix thinko.
+
+2004-02-29  Per Bothner  <per@bothner.com>
+
+	* java/nio/channels/FileChannelImpl.java:  Moved to package
+	gnu/java/nio/channels, since we need to refer to it from java.io.
+	* java/nio/channels/natFileChannelImpl.cc:  Removed file.
+	* gnu/java/nio/channels/FileChannelImpl.java:  New class, renamed
+	from java/nio/channels.  Don't depend on FileDescriptor.
+	(in, out, err):  New static fields.
+	(mode):  New field.
+	(SET, CUR, READ, WRITE, APPEND, EXCL, SYNC, DSYNC):  Moved constants
+	from FileDescriptor.
+	(by):  Removed MappedByteBuffer field.
+	(map):  New working implementation.
+	* gnu/java/nio/channels/natFileChannelPosix.cc:  New file, though
+	some code "ported" from natFileDescriptoPosix.cc.
+	* gnu/java/nio/channels/natFileChannelEcos.cc:  Likewise.
+	* gnu/java/nio/channels/natFileChannelWin32.cc  Likewise.
+	* java/io/FileDescriptor.java:  Implement on top of FileChannel.
+	Remove native methods.
+	* Makefile.am, configure.in:  Updated accordingly.
+
+	* gnu/java/nio/FileLockImpl.java (fd):  Remove field, replacing it by:
+	(ch):  New FileChannelImpl field.  Update constructor to match.
+	(releaseImpl):  Remove native method.  Instead ...
+	(release):  Call unlock on channel.
+	* gnu/java/nio/natFileLockImpl.cc:  Removed file.
+
+	* java/io/natFileDescriptorEcos.cc:  Remove file.
+	* java/io/natFileDescriptorPosix.cc:  Remove file.
+	* java/io/natFileDescriptorWin32.cc:  Remove file.
+	* java/io/FileInputStream.java (ch):  Change type to FileChannelImpl.
+	(<init>(File)):  Allocate a FileChannelImpl, not a FileDescriptor.
+	(<init>(FileChannelImpl)):  New package-private constructor.
+	(<init>(FileDescriptor)):  Extract FileChannelImpl from arg.
+	(available, close, read, skip):  Implement using FileChannelImpl.
+	(getFD):  Allocate FileDescriptor if needed.
+	(getChannel):  Is now trivial.
+	* java/io/FileOutputStream.java:  Corresponding changes.
+	* java/io/RandomAccessFile.java:  Corresponding changes.
+
+	* java/nio/MappedByteBuffer.java: (forceImpl, isLoadedImpl, loadImpl,
+	unmapImpl):  New dummy methods, to be overridden by subclass.
+	(finalize, isLoaded, load, force):  New methods.
+	* java/nio/MappedByteBufferImpl.java:  More-or-less rewrite.
+	Now works, at least for read mapping.
+
+	* java/lang/natPosixProcess.cc (startProcess):  Implement standard
+	streams using FileChannelImpl, not FileDescriptor.
+	* java/lang/natWin32Process.cc (startProcess):  Likewise.
+
+2004-02-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java: Compile fix, damn I commited the
+	wrong code.
+
+2004-02-28  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/io/ObjectInputStream.java
+	(readClassDescriptor): Keep elements of the mapping non null.
+	(checkTypeConsistency): New method.
+	(readFields): Fixed main loop and base logic. Small reindentation.
+	* java/io/ObjectStreamField.java
+	(lookupField): New method to update the field reference.
+	(checkFieldType): New method.
+	* java/io/ObjectStreamClass.java
+	(setClass, setFields): Call lookupField when building the field
+	database. Check the real field type.
+
+2004-02-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteOrder.java
+	(nativeOrder): Use equals() to compare strings.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileLockImpl.java
+	(finalize): Made protected.
+	* java/nio/channels/FileChannel.java
+	(MapMode.READ_ONLY): Made final.
+	(MapMode.READ_WRITE): Made final.
+	(MapMode.PRIVATE): Made final.
+	* java/nio/channels/SocketChannel.java
+	(open): Simplified code.
+	* java/nio/channels/spi/AbstractSelectableChannel.java
+	(registered): Unused, removed.
+	(keyFor): Check channel is open, only locate key
+	and not add a new one.
+	(register): Don't delete attachments.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/ComponentDataBlitOp.java
+	(INSTANCE): Made final.
+	* gnu/java/awt/image/ImageDecoder.java:
+	Reworked imports.
+	(cm): Unused, removed.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(send): Check if target address is resolved.
+
+2004-02-26  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Generate and install headers for inner classes in
+	java.nio.channels.Pipe and gnu.java.nio.PipeImpl.
+	* Makefile.in: Regenerated.
+
+2004-02-24  Anthony Green  <green@redhat.com>
+
+	* java/lang/StringBuffer.java: No need to NULL out remainder of
+	buffer since ensureCapacity_unsynchronized will have done this for
+	us.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/jar/Handler.java
+	(): Removed unneeded check for file != null. java.net.URL.getFile()
+	returns an empty string but never null.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/gcj/convert/Convert.java
+	(main): Use equals() to compare strings.
+
+2004-02-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java: Made several constants final.
+	(getRolloverSelectedIcon): Made public.
+	(getSelectedIcon): Made public.
+
+2004-02-16  Per Bothner  <per@bothner.com>
+
+	* java/nio/CharBufferImpl.java:  Inline super constructor.
+	* java/nio/DoubleBufferImpl.java:  Likewise.
+	* java/nio/FloatBufferImpl.java:  Likewise.
+	* java/nio/IntBufferImpl.java:  Likewise.
+	* java/nio/LongBufferImpl.java:  Likewise.
+	* java/nio/ShortBufferImpl.java:  Likewise.
+	* java/nio/CharBuffer.java:  Remove unused constructor.
+	* java/nio/DoubleBuffer.java:  Likewise.
+	* java/nio/FloatBuffer.java:  Likewise.
+	* java/nio/IntBuffer.java:  Likewise.
+	* java/nio/LongBuffer.java:  Likewise.
+	* java/nio/ShortBuffer.java:  Likewise.
+	* java/nio/CharViewBufferImpl.java:  New convenience constructor.
+	Fix buggy call to super constructor.
+	* java/nio/DoubleViewBufferImpl.java:  Likewise.
+	* java/nio/FloatViewBufferImpl.java:  Likewise.
+	* java/nio/IntViewBufferImpl.java:  Likewise.
+	* java/nio/LongViewBufferImpl.java:  Likewise.
+	* java/nio/ShortViewBufferImpl.java:  Likewise.
+	
+	* java/nio/ByteBuffer.java (endian):  Make non-private so other
+	java.nio classes can inherit it.
+	(<init>):  Don't bother clearing array_offset.
+	* java/nio/ByteBuffer.java (allocate):  Re-implement using wrap.
+	* java/nio/ByteBuffer.java (get(byte[],int,int)):  Check underflow.
+	Remove redundant test.
+
+	* java/nio/ByteBufferImpl.java (asCharBuffer, asShortBuffer,
+	asIntBuffer, asLongBuffer, asFloatBuffer, asDoubleBuffer):
+	Use new XxxViewBufferImpl constructors.
+	* java/nio/MappedByteBufferImpl.java:  Likewise.
+	* java/nio/DirectByteBufferImpl.java:  Likewise.
+
+	* java/nio/ByteBufferImpl.java:  Remove one constructor.
+	Inline super in remaining constructor.
+	* java/nio/ByteBuffer.java:  Remove unused constructor.
+
+	* java/nio/ByteBufferImpl.java (shiftDown):  New optimized method.
+
+	* java/nio/ByteBufferImpl.java (get, put):  Add array_offset.
+	* java/nio/DirectByteBufferImpl.java (owner):  New field.
+	(offset):  Remove unused field.
+	(<init>):  Modify one and add another constructor.  Change callers.
+	(allocateDirect):  Removed - not used.
+	(getImpl, putImpl):  Make static and pass address explicitly,
+	to make them useful for MappedByteBufferImpl.
+	(get, put):  Check for underflow.  Modify for new getImpl.
+	(getImpl):  New native method where target is array.
+	(get(byte[],int,int)):  Use the above.
+	(adjustAddress):  New static native method.
+	(slice, duplicate, asReadOnly):  New implementations.
+	* java/nio/natDirectByteBufferImpl.cc (getImpl, putImpl, shiftDown,
+	adjustAddress):  New or updated native methods.
+
+2004-02-15  Ito Kazumitsu  <kaz@maczuka.gcd.org>
+
+	* java/io/ObjectInputStream.java (readClassDescriptor): Avoid the
+        overflow of fieldmapping.
+
+2004-02-14  Sascha Brawer  <brawer@dandelis.ch>
+
+	* javax/swing/undo/UndoManager.java: Re-written from scratch.
+
+2004-02-14  Per Bothner  <per@bothner.com>
+
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java (close):
+	Set closed before calling implCloseChannel, as in the spec.
+
+2004-02-09  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/ToggleButtonModel.java: Remove dead class.
+	* javax/swing/plaf/basic/BasicDefaults.java: Remove dead class.
+	* javax/swing/plaf/basic/BasicButtonListener.java: New class.
+	* javax/swing/plaf/basic/BasicRootPaneUI.java: New class.
+	* Makefile.am: Update for new and removed files.
+	* Makefile.in: Regenerate.
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Initialize default hints.
+	* javax/swing/AbstractButton.java 
+	(AbstractButton): Initialize fields correctly in ctor.
+	* javax/swing/JCheckbox.java 
+	(JCheckBox): Override painting flags.
+	* javax/swing/DefaultButtonModel.java: Conform to sun.
+	* javax/swing/JComponent.java (paint): Fill with background color
+	if available.
+	(processComponentKeyEvent)
+	(processFocusEvent)
+	(processKeyEvent)
+	(processMouseMotionEvent): Remove event-consuming empty methods.
+	(getUIClassID): Return "ComponentUI" not "JComponent"
+	* javax/swing/JFrame.java: Remove some debugging chatter.
+	(JFrame): Subscribe to window events.
+	* javax/swing/JRadioButton.java 
+	(JRadioButton): Override painting flags.
+	* javax/swing/JRootPane.java 
+	(JRootPane): Set background from UIDefaults.
+	* javax/swing/JToggleButton.java 
+	(ToggleButtonModel): New inner class.
+	(JToggleButton): Override layout alighment.
+	* javax/swing/SwingUtilities.java:
+	(getLocalBounds): Return width and height, not x and y.
+	(calculateInnerArea): Use local bounds, not bounds.
+	(layoutCompoundLabel): Provide overridden form.
+	(layoutCompoundLabel): Correct bugs.
+	* javax/swing/UIDefaults.java: Correct comment.
+	* javax/swing/plaf/basic/BasicButtonUI.java: 
+	Move most logic into defaults, external listener.
+	(paintIcon): Implement icon painting.
+	(paint): Fix state painting to conform to changes in model.
+	* javax/swing/plaf/basic/BasicCheckBoxUI.java:
+	Remove most dead/wrong methods.
+	(getDefaultIcon): Return defaults.getIcon("CheckBox.icon").
+	* javax/swing/plaf/basic/BasicIconFactory.java:
+	(DummyIcon): New class.
+	(getMenuItemCheckIcon)
+	(getMenuItemArrowIcon) 
+	(getMenuArrowIcon)
+	(getCheckBoxMenuItemIcon)
+	(getRadioButtonMenuItemIcon)
+	(createEmptyFrameIcon): Return DummyIcons, not null.
+	(getCheckBoxIcon): Implement an icon that looks like sun's.
+	(getRadioButtonIcon): Implement an icon that looks like sun's.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java 
+	(initComponentDefaults): Fix impossible values, add some missing.
+	* javax/swing/plaf/basic/BasicPanelUI.java (gap): Remove field.
+	* javax/swing/plaf/basic/BasicRadioButtonUI.java:
+	Remove most dead/wrong methods.
+	(icon): New field.
+	(getDefaultIcon): New method.
+	* javax/swing/plaf/basic/BasicToggleButtonUI.java:
+	Remove most dead/wrong methods.
+	* javax/swing/plaf/metal/MetalLookAndFeel.java
+	(getDefaults): Return super.getDefaults(), not BasicDefaults.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics_clearRect):
+	Implement "clearing" as drawing, when on pixmap drawables.
+
+	* javax/swing/JButton.java (getUIClassID): 
+	* javax/swing/JCheckBox.java (getUIClassID):
+	* javax/swing/JEditorPane.java (getUIClassID):
+	* javax/swing/JLabel.java (getUIClassID): 
+	* javax/swing/JList.java (getUIClassID): 
+	* javax/swing/JOptionPane.java (getUIClassID): 
+	* javax/swing/JPanel.java (getUIClassID): 
+	* javax/swing/JPasswordField.java (uiClassID): 
+	* javax/swing/JRadioButton.java (getUIClassID): 
+	* javax/swing/JRootPane.java (getUIClassID): 
+	* javax/swing/JScrollPane.java (getUIClassID): 
+	* javax/swing/JTabbedPane.java (getUIClassID): 
+	* javax/swing/JToggleButton.java (getUIClassID): 
+	* javax/swing/JTree.java (getUIClassID): 
+	* javax/swing/JViewport.java (getUIClassID): 
+	* javax/swing/text/JTextComponent.java (getUIClassID):
+	Return "fooUI" not "Jfoo"
+
+2004-02-11  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(setReuseAddress): Use Boolean.valueOf() instead of creating a new
+	Boolean object.
+	(setBroadcast): Likewise.
+	* java/net/MulticastSocket.java
+	(setLoopbackMode): Likewise.
+	* java/net/ServerSocket.java
+	(setReuseAddress): Likewise.
+	* java/net/Socket.java
+	(setTcpNoDelay): Likewise.
+	(setSoLinger): Likewise.
+	(setOOBInline): Likewise.
+	(setKeepAlive): Likewise.
+	(setReuseAddress): Likewise.
+	* java/net/URLConnection.java
+	(setContentHandler): Replace == with equals().
+	* java/net/URLStreamHandler.java
+	(hostSEquals): Fix checking host addresses.
+	(toExternalForm): Dont check protocol for null. We know already its
+	not null.
+
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* java/awt/BorderLayout.java
+	(calcCompSize): Invisible components get zero dimensions.
+	* java/awt/Button.java
+	(setLabel): Set actionCommand.
+	* java/awt/Component.java
+	(show): Invalidate component and parent container.
+	(hide): Likewise.
+
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* java/awt/GridBagLayout.java
+	(GridBagLayout): New private field, internalcomptable.
+	(lookupInternalConstraints): New method.
+	(ArrangeGrid): Use components' MINSIZE. Use internalcomptable.
+	(GetLayoutInfo): Reimplement.
+	(calcCellSizes): Ignore rows/columns with size 0.
+
+2004-02-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/EmbeddedWindow.java
+	(setHandle): Use java.awt.Component.getPeer() instead of
+	java.awt.Component.peer directly.
+
+2004-02-10  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java
+	(gtkSetLabel): New native method definition.
+	(setLabel): Use gtkSetLabel.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetLabel): New method.
+
+2004-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/powerpc-signal.h: Revert 2004-01-21 change.
+	(INIT_SEGV, INIT_FPE): Provide powerpc64 versions.  Check return
+	from syscall for ppc32 versions.
+
+2004-02-08  Per Bothner  <per@bothner.com>
+
+	* java/nio/ByteBuffer.java (shiftDown):  New helper method.
+	* java/nio/natDirectByteBufferImpl.cc (shiftDown):  New implementation.
+	* java/nio/ByteBufferImpl.java (compact):  Use new shiftDown method.
+	* sava/nio/ByteBufferHelper.java:  Remove redundant 'final' specifiers.
+	Pass ByteOrder parameter to most methods, since the underlying
+	ByteBuffer's order isn't always what we should use.
+	* java/nio/ByteBufferImpl.java:  Pass byte-order various places.
+	* java/nio/DirectByteBufferImpl.java:  Likewise.
+	Use ByteBufferHelper methods.
+	* java/nio/MappedByteBufferImpl.java:  Likewise.
+	(compact):  Use shiftDown.
+	* java/nio/CharViewBufferImpl.java (<init>):  Pass byte-order.
+	(get, put):  Use ByteBufferHelper.
+	(compact):  Use new shiftDown method.
+	(duplicate(boolean)):  New helper method.
+	(duplicate, asReadOnlyBuffer):  Use it.
+	(order):  Return endian field.
+	* java/nio/DoubleViewBufferImpl.java:  Likewise.
+	* java/nio/FloatViewBufferImpl.java:  Likewise.
+	* java/nio/IntViewBufferImpl.java:  Likewise.
+	* java/nio/LongViewBufferImpl.java:  Likewise.
+	* java/nio/ShortViewBufferImpl.java:  Likewise.
+	* java/nio/CharViewBufferImpl.java (subsequence):  Redundant test.
+	* java/nio/DirectByteBufferImpl.java (shiftDown):  New native method.
+	(compact):  Re-implement using shiftDown.
+
+2004-02-08  Andreas Jaeger  <aj@suse.de>
+
+	* include/x86_64-signal.h: Fix typo.
+
+2004-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* include/i386-signal.h (MAKE_THROW_FRAME): Add volatile
+	qualifier to _regs.
+	(HANDLE_DIVIDE_OVERFLOW): Likewise.
+
+2004-02-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(currentClassLoader): Reverted to old version of this method.
+
+2004-02-06  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java: Made all calls
+	to dumpElement[ln] conditional on dump flag. (readObject): Changed to
+	use cached info from ObjectStreamClass. (readClassDescriptor):
+	Cache more information in ObjectStreamClass. (processResolution,
+	readFields): Use cached info from ObjectStreamClass.
+	(newObject): Throw exception instead of returning null for failure.
+	(getField, getMethod, callReadMethod, setBooleanField, setByteField,
+	setCharField, setDoubleField, setFloatField, setIntField,
+	setLongField, setShortField, setObjectField, readObjectParams):
+	Removed. (dumpElement, dumpElementln): Removed dump flag condition
+	check.
+	* java/io/ObjectStreamField.java (hasReadMethod): Removed.
+	(setClass): Added call to cacheMethods() (findMethod): New method.
+	(cacheMethods): New method. (ObjectStreamClass): Added call to
+	cacheMethods(). (setFields): Cache fields. (getClassUID): Use
+	AccessController.doPrivileged to invoke setAccessible.
+	(readObjectMethod, readResolveMethod, realClassIsSerializable,
+	realClassIsExternalizable, fieldMapping, firstNonSerializableParent):
+	New fields.
+	* java/io/ObjectStreamField.java (ObjectStreamField): New constructor.
+	(ObjectStreamField): Removed FIXME workaround. (getTypeString,
+	isPrimitive): Made safe for cases where type == null.
+	(setBooleanField, setByteField, setCharField, setShortField,
+	setIntField, setLongField, setFloatField, setDoubleField,
+	setObjectField): New methods.
+
+2004-02-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Component.java (getFont): Return a default font
+	instead of null.
+
+	* java/awt/Scrollbar.java (next_scrollbar_number): New field.
+	(Scrollbar (int, int, int, int, int)): Make default page
+	increment 10.
+	(setValues): Only call peer.setValues if one of the values has
+	changed.
+	(generateName): New method.
+	(getUniqueLong): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c
+	(range_scrollbar): Remove structure.
+	(post_adjustment_event): Remove function.
+	(post_change_event): Accept jobject argument.
+	(create): Cast jints to gdoubles.  Round scrollbar values to the
+	nearest integer.  Clamp min, max and value settings.
+	(connectJObject): Connect hook to widget->window.
+	(connectSignals): Remove range_scrollbar structure variables.
+	Remove "move-slider" connection.  Pass global peer reference to
+	"value-changed" callback.
+	(setLineIncrement): Cast jint value to gdouble.
+	(setPageIncrement): Likewise.
+	(setValues): Likewise.  Clamp min, max and value settings.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractCellEditor.java
+	(getCellEditorValue): Removed.
+	* javax/swing/Box.java: Reformated.
+	(serialVersionUID): New field.
+	* javax/swing/ButtonGroup.java:
+	Removed some weird whitespace.
+	* javax/swing/CellEditor.java: Reformated.
+	* javax/swing/CellRendererPane.java
+	(serialVersionUID): New field.
+	(AccessibleCellRendererPaneserialVersionUID): New field.
+	* javax/swing/DefaultListModel.java
+	(serialVersionUID): New field.
+	* javax/swing/JEditorPane.java
+	(serialVersionUID): New field.
+	(setPage): Throws IOException.
+	(addHyperlinkListener): Implemented.
+	(removeHyperlinkListener): Implemented.
+	(getHyperlinkListener): New method.
+	* javax/swing/JFileChooser.java
+	(serialVersionUID): New field.
+	(AccessibleJFileChooser.serialVersionUID): New field.
+	(addActionListener): Implemented.
+	(removeActionListener): Implemented.
+	(getActionListeners): New method.
+	* javax/swing/JFormattedTextField.java
+	(serialVersionUID): New field.
+	(AbstractFormatter.serialVersionUID): New field.
+	(clone): Throws CloneNotSupportedException
+	(setEditValid): Add missing argument.
+	(stringToValue): Throws ParseExcpetion.
+	(valueToString): Throws ParseException.
+	(commitEdit): Throws ParseException.
+	* javax/swing/JLabel.java
+	(serialVersionUID): New field.
+	* javax/swing/JList.java
+	(serialVersionUID): New field.
+	(addListSelectionListener): Reformated.
+	(removeListSelectionListener): Reformated.
+	(getListSelectionListeners): New method.
+	* javax/swing/colorchooser/AbstractColorChooserPanel.java:
+	Reformated.
+	(serialVersionUID): New field.
+	* javax/swing/table/AbstractTableModel.java
+	(getValueAt): Removed.
+	(getColumnCount): Removed.
+	(getRowCount): Removed.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/datatransfer/DataFlavor.java
+	(imageFlavor): Javadoc added.
+	(javaJVMLocalObjectType): Fixed.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Thread.java
+	(Thread): Reordered.
+	(setContextClassLoader): Fixed javadoc comment.
+	(setPriority): Reordered.
+	(yield): Reordered.
+	(initialize_native): Reordered.
+	(gen_name): Reordered.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Thread.java: Reordered fields, reformated much code,
+	no functional changes, some variables renamed, javadoc comments
+	merged.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/zip/Deflater.java,
+	java/util/zip/DeflaterOutputStream.java,
+	java/util/zip/GZIPInputStream.java:
+	Reformated and javadoc comments merged from classpath.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/NIOServerSocket.java
+	(impl): Unused, removed.
+	* gnu/java/nio/SocketChannelImpl.java
+	(finnishConnect): Don't throw NoConnectionPendingException if not
+	connected or no connection pending.
+
+2004-02-02  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/SwingUtilities.java: Many new functions.
+	* java/awt/Container.java (LightweightDispatcher): Reimplement.
+	* javax/swing/basic/BasicGraphicsUtils.java 
+	(getPreferredButtonSize): Start layout from top-left corner.
+
+2004-02-04  Olga Rodimina  <rodimina@redhat.com>
+
+	* java/awt/geom/AffineTransform.java: 
+	Corrected comments on the field definitions for
+	m11 and m10.
+	(shear): Fixed few errors that caused shear
+	transformation to be performed incorrectly.
+	(createInverse): Fixed to return correct
+	inverse of the given matrix.
+
+2004-02-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (startProcess): Handle case where
+	PATH or LD_LIBRARY_PATH is not set in parent environment.
+
+2004-02-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkListPeer.java,
+	java/awt/BorderLayout.java, java/awt/CardLayout.java,
+	java/awt/CheckboxGroup.java, java/awt/Choice.java,
+	java/awt/Component.java, java/awt/Container.java,
+	java/awt/FontMetrics.java, java/awt/GridBagLayout.java,
+	java/awt/LayoutManager2.java, java/awt/List.java,
+	java/awt/Menu.java, java/awt/MenuBar.java,
+	java/awt/MenuItem.java, java/awt/Polygon.java,
+	java/awt/Rectangle.java, java/awt/ScrollPane.java,
+	java/awt/Scrollbar.java, java/awt/TextArea.java,
+	java/awt/TextField.java,
+	java/awt/image/renderable/RenderContext.java,
+	javax/swing/JApplet.java: Fix handling of alias methods, where a
+	method has been deprecated in favour of a new one with the same
+	funtion but a different name.  Put the method implementation in
+	the deprecated method and have the new method call the
+	deprecated one.  Make all other code call the new method.
+
+2004-02-03  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(inChannelOperation): New field.
+	(isInChannelOperation): New accessor.
+	(setInChannelOperation): New modifier.
+	(receive): Use capacity() - position() of destination
+	buffer instead of remaining(). Set and reset our "in
+	channel operation indicator" before and after delegating
+	the receive to our datagram socket. Removed testing code.
+	Update destination buffer's current position if it is
+	backed by a byte array (hasArray() is true).
+	(send): Set and reset our "in channel operation indicator"
+	before and after delegating the send to our datagram socket.
+	Removed testing code. Update source buffer's current position
+	if it is backed by a byte array (hasArray() is true).
+	* gnu/java/nio/SocketChannelImpl.java (read(ByteBuffer)):
+	Use capacity() - position() of destination buffer instead
+	of remaining().
+	* java/net/DatagramSocket.java (receive): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this operation.
+	(send): Likewise.
+
 2004-02-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* configure.in: Add pkgconfig check for glib and gthread.

@@ -305,11 +305,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define DWARF2_GENERATE_TEXT_SECTION_LABEL 1
 #endif
 
-/* Supply a default definition for PROMOTE_PROTOTYPES.  */
-#ifndef PROMOTE_PROTOTYPES
-#define PROMOTE_PROTOTYPES	0
-#endif
-
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER  */
 
@@ -693,6 +688,19 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
 #define CASE_VECTOR_PC_RELATIVE 0
+#endif
+
+/* Register mappings for target machines without register windows.  */
+#ifndef INCOMING_REGNO
+#define INCOMING_REGNO(N) (N)
+#endif
+
+#ifndef OUTGOING_REGNO
+#define OUTGOING_REGNO(N) (N)
+#endif
+
+#ifndef SHIFT_COUNT_TRUNCATED
+#define SHIFT_COUNT_TRUNCATED 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

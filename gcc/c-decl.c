@@ -611,7 +611,7 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p))
 	    warning ("%Junused variable `%D'", p, p);
-	  /* fall through */
+	  /* Fall through.  */
 
 	default:
 	normal:
@@ -794,7 +794,7 @@ match_builtin_function_types (tree newtype, tree oldtype)
 
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
    mismatch involving an empty arglist vs a nonempty one and give clearer
-   diagnostics. */
+   diagnostics.  */
 static void
 diagnose_arglist_conflict (tree newdecl, tree olddecl,
 			   tree newtype, tree oldtype)
@@ -939,7 +939,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
      unless OLDDECL is a builtin.  OLDDECL will be discarded in any case.  */
   if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
     {
-      if (TREE_CODE (olddecl) != FUNCTION_DECL || !DECL_BUILT_IN (olddecl))
+      if (TREE_CODE (olddecl) != FUNCTION_DECL
+          || !DECL_BUILT_IN (olddecl) || !C_DECL_INVISIBLE (olddecl))
 	{
 	  error ("%J'%D' redeclared as different kind of symbol",
 		 newdecl, newdecl);
@@ -956,7 +957,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 
   if (!comptypes (oldtype, newtype, COMPARE_STRICT))
     {
-      if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_BUILT_IN (olddecl))
+      if (TREE_CODE (olddecl) == FUNCTION_DECL
+	  && DECL_BUILT_IN (olddecl) && C_DECL_INVISIBLE (olddecl))
 	{
 	  /* Accept harmless mismatch in function types.
 	     This is for the ffs and fprintf builtins.  */
@@ -968,7 +970,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      /* If types don't match for a built-in, throw away the
 		 built-in.  No point in calling locate_old_decl here, it
-		 won't print anything. */
+		 won't print anything.  */
 	      warning ("%Jconflicting types for built-in function '%D'",
 		       newdecl, newdecl);
 	      return false;
@@ -1014,7 +1016,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
       if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
-	return true;  /* allow OLDDECL to continue in use */
+	return true;  /* Allow OLDDECL to continue in use.  */
       
       error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
       locate_old_decl (olddecl, error);
@@ -1034,6 +1036,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	 can't validate the argument list) the built-in definition is
 	 overridden, but optionally warn this was a bad choice of name.  */
       if (DECL_BUILT_IN (olddecl)
+	  && C_DECL_INVISIBLE (olddecl)
 	  && (!TREE_PUBLIC (newdecl)
 	      || (DECL_INITIAL (newdecl)
 		  && !TYPE_ARG_TYPES (TREE_TYPE (newdecl)))))
@@ -1208,8 +1211,18 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
     }
-  else /* VAR_DECL */
+  else /* PARM_DECL, VAR_DECL */
     {
+      /* Redeclaration of a PARM_DECL is invalid unless this is the
+	 real position of a forward-declared parameter (GCC extension).  */
+      if (TREE_CODE (newdecl) == PARM_DECL
+	  && (!TREE_ASM_WRITTEN (olddecl) || TREE_ASM_WRITTEN (newdecl)))
+	{
+	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
       /* These bits are only type qualifiers when applied to objects.  */
       if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
 	{
@@ -1238,10 +1251,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && warn_redundant_decls
       /* Don't warn about a function declaration followed by a
 	 definition.  */
-    && !(TREE_CODE (newdecl) == FUNCTION_DECL
-	 && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
-    /* Don't warn about an extern followed by a definition.  */
-    && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl)))
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
+      /* Don't warn about an extern followed by a definition.  */
+      && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
+      /* Don't warn about forward parameter decls.  */
+      && !(TREE_CODE (newdecl) == PARM_DECL
+	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
     {
       warning ("%Jredundant redeclaration of '%D'", newdecl, newdecl);
       warned = true;
@@ -1428,20 +1444,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 
       if (DECL_BUILT_IN (olddecl))
 	{
-	  /* Get rid of any built-in function if we have a function
-	     definition.  */
-	  if (new_is_definition)
-	    {
-	      TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
-	      DECL_BUILT_IN_CLASS (olddecl) = NOT_BUILT_IN;
-	    }
-	  else
-	    {
-	      /* If redeclaring a builtin function, and not a definition,
-		 it stays built in.  */
-	      DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
-	      DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
-	    }
+	  /* If redeclaring a builtin function, it stays built in.  */
+	  DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
+	  DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	}
 
       /* Also preserve various other info from the definition.  */
@@ -1449,9 +1454,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	{
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-	  DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
+	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
-	  DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 
 	  /* Set DECL_INLINE on the declaration if we've got a body
@@ -1553,8 +1557,6 @@ record_external_decl (tree decl)
 static void
 warn_if_shadowing (tree x, tree old)
 {
-  const char *name;
-
   /* Nothing to shadow?  */
   if (old == 0
       /* Shadow warnings not wanted?  */
@@ -1571,13 +1573,14 @@ warn_if_shadowing (tree x, tree old)
       || (TREE_CODE (x) == PARM_DECL && current_scope->outer->parm_flag))
     return;
 
-  name = IDENTIFIER_POINTER (DECL_NAME (x));
   if (TREE_CODE (old) == PARM_DECL)
-    shadow_warning (SW_PARAM, name, old);
+    warning ("%Jdeclaration of '%D' shadows a parameter", x, x);
   else if (DECL_FILE_SCOPE_P (old))
-    shadow_warning (SW_GLOBAL, name, old);
+    warning ("%Jdeclaration of '%D' shadows a global declaration", x, x);
   else
-    shadow_warning (SW_LOCAL, name, old);
+    warning ("%Jdeclaration of '%D' shadows a previous local", x, x);
+
+  warning ("%Jshadowed declaration is here", old);
 }
 
 
@@ -2066,12 +2069,13 @@ define_label (location_t location, tree name)
   return label;
 }
 
-/* Return the list of declarations of the current scope.  */
+/* Return the list of declarations of the current scope.
+   This hook is optional and not implemented for C.  */
 
 tree
 getdecls (void)
 {
-  return current_scope->names;
+  return 0;
 }
 
 
@@ -6063,8 +6067,9 @@ finish_function (void)
       && current_function_returns_null)
     warning ("this function may return with or without a value");
 
-  /* We're leaving the context of this function, so zap cfun.  It's still in
-     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
+  /* We're leaving the context of this function, so zap cfun.
+     It's still in DECL_STRUCT_FUNCTION , and we'll restore it in
+     tree_rest_of_compilation.  */
   cfun = NULL;
 
   /* ??? Objc emits functions after finalizing the compilation unit.
@@ -6074,26 +6079,6 @@ finish_function (void)
   else
     c_expand_body (fndecl);
   current_function_decl = NULL;
-}
-
-/* Generate the RTL for a deferred function FNDECL.  */
-
-void
-c_expand_deferred_function (tree fndecl)
-{
-  /* DECL_INLINE or DECL_RESULT might got cleared after the inline
-     function was deferred, e.g. in duplicate_decls.  */
-  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
-    {
-      if (flag_inline_trees)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	}
-      c_expand_body (fndecl);
-      current_function_decl = NULL;
-    }
 }
 
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
@@ -6195,7 +6180,7 @@ check_for_loop_decls (void)
         }
     }
 
-  for (t = getdecls (); t; t = TREE_CHAIN (t))
+  for (t = current_scope->names; t; t = TREE_CHAIN (t))
     {
       if (TREE_CODE (t) != VAR_DECL && DECL_NAME (t))
 	error ("%Jdeclaration of non-variable '%D' in 'for' loop "
@@ -6237,7 +6222,7 @@ c_pop_function_context (struct function *f)
 {
   struct language_function *p = f->language;
 
-  if (DECL_SAVED_INSNS (current_function_decl) == 0
+  if (DECL_STRUCT_FUNCTION (current_function_decl) == 0
       && DECL_SAVED_TREE (current_function_decl) == NULL_TREE)
     {
       /* Stop pointing to the local nodes about to be freed.  */
@@ -6378,11 +6363,14 @@ void
 record_builtin_type (enum rid rid_index, const char *name, tree type)
 {
   tree id;
+  tree tdecl;
   if (name == 0)
     id = ridpointers[(int) rid_index];
   else
     id = get_identifier (name);
-  pushdecl (build_decl (TYPE_DECL, id, type));
+  tdecl = build_decl (TYPE_DECL, id, type);
+  pushdecl (tdecl);
+  debug_hooks->type_decl (tdecl, 0);
 }
 
 /* Build the void_list_node (void_type_node having been created).  */

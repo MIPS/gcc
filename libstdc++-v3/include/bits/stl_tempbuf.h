@@ -83,84 +83,87 @@ namespace std
       typedef value_type* pointer;
       typedef pointer     iterator;
       typedef ptrdiff_t   size_type;
-      
+
     protected:
       size_type  _M_original_len;
       size_type  _M_len;
       pointer    _M_buffer;
-      
+
       void
       _M_initialize_buffer(const _Tp&, __true_type) { }
 
       void
       _M_initialize_buffer(const _Tp& val, __false_type)
       { std::uninitialized_fill_n(_M_buffer, _M_len, val); }
-      
+
     public:
       /// As per Table mumble.
       size_type
       size() const
       { return _M_len; }
-      
+
       /// Returns the size requested by the constructor; may be >size().
       size_type
       requested_size() const
       { return _M_original_len; }
-      
+
       /// As per Table mumble.
       iterator
       begin()
       { return _M_buffer; }
-      
+
       /// As per Table mumble.
       iterator
       end()
       { return _M_buffer + _M_len; }
-      
+
       /**
        * Constructs a temporary buffer of a size somewhere between
        * zero and the size of the given range.
        */
       _Temporary_buffer(_ForwardIterator __first, _ForwardIterator __last);
-      
+
       ~_Temporary_buffer()
-      {  
+      {
 	std::_Destroy(_M_buffer, _M_buffer + _M_len);
 	std::return_temporary_buffer(_M_buffer);
       }
-      
+
     private:
       // Disable copy constructor and assignment operator.
       _Temporary_buffer(const _Temporary_buffer&);
-      void operator=(const _Temporary_buffer&);
+
+      void
+      operator=(const _Temporary_buffer&);
     };
-  
+
 
   template<typename _ForwardIterator, typename _Tp>
     _Temporary_buffer<_ForwardIterator, _Tp>::
     _Temporary_buffer(_ForwardIterator __first, _ForwardIterator __last)
-    : _M_original_len(std::distance(__first, __last)), 
-      _M_len(0) , _M_buffer(0)
+    : _M_original_len(std::distance(__first, __last)),
+      _M_len(0), _M_buffer(0)
     {
       // Workaround for a __type_traits bug in the pre-7.3 compiler.
       typedef typename __type_traits<_Tp>::has_trivial_default_constructor
 	      _Trivial;
 
       try
-      {
-	pair<pointer, size_type> __p(get_temporary_buffer<value_type>(_M_original_len));
-	_M_buffer = __p.first;
-	_M_len = __p.second;
-	if (_M_len > 0)
-	  _M_initialize_buffer(*__first, _Trivial());
-      }
+	{
+	  pair<pointer, size_type> __p(get_temporary_buffer<
+				       value_type>(_M_original_len));
+	  _M_buffer = __p.first;
+	  _M_len = __p.second;
+	  if (_M_len > 0)
+	    _M_initialize_buffer(*__first, _Trivial());
+	}
       catch(...)
-      { 
-	std::return_temporary_buffer(_M_buffer);
-	_M_buffer = 0; 
-	_M_len = 0;
-	__throw_exception_again; 
-      }
+	{
+	  std::return_temporary_buffer(_M_buffer);
+	  _M_buffer = 0;
+	  _M_len = 0;
+	  __throw_exception_again;
+	}
     }
 } // namespace std
 

@@ -183,6 +183,12 @@ struct gcc_target
     /* Finalize machine-dependent scheduling code.  */
     void (* md_finish) (FILE *, int);
 
+    /* Initialize machine-dependent function while scheduling code.  */
+    void (* md_init_global) (FILE *, int, int);
+
+    /* Finalize machine-dependent function wide scheduling code.  */
+    void (* md_finish_global) (FILE *, int);
+
     /* Reorder insns in a machine-dependent fashion, in two different
        places.  Default does nothing.  */
     int (* reorder) (FILE *, int, rtx *, int *, int);
@@ -410,6 +416,19 @@ struct gcc_target
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
 
+  /* True if the compiler should give an enum type only as many
+     bytes as it takes to represent the range of possible values of
+     that type.  */
+  bool (* default_short_enums) (void);
+
+  /* This target hook returns an rtx that is used to store the address
+     of the current frame into the built-in setjmp buffer.  */
+  rtx (* builtin_setjmp_frame_value) (void);
+
+  /* This target hook should add STRING_CST trees for any hard regs
+     the port wishes to automatically clobber for all asms.  */
+  tree (* md_asm_clobbers) (tree);
+
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */
@@ -449,7 +468,8 @@ struct gcc_target
     void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 				    tree type, int *pretend_arg_size, int second_time);
     bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
-    /* Returns true if we should use SETUP_INCOMING_VARARGS and/or
+    /* Returns true if we should use
+       targetm.calls.setup_incoming_varargs() and/or
        targetm.calls.strict_argument_naming().  */
     bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
   } calls;

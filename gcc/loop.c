@@ -263,6 +263,8 @@ static void replace_call_address (rtx, rtx, rtx);
 #endif
 static rtx skip_consec_insns (rtx, int);
 static int libcall_benefit (rtx);
+static rtx libcall_other_reg (rtx, rtx);
+static void record_excess_regs (rtx, rtx, rtx *);
 static void ignore_some_movables (struct loop_movables *);
 static void force_movables (struct loop_movables *);
 static void combine_movables (struct loop_movables *, struct loop_regs *);
@@ -1231,7 +1233,7 @@ scan_loop (struct loop *loop, int flags)
 /* Add elements to *OUTPUT to record all the pseudo-regs
    mentioned in IN_THIS but not mentioned in NOT_IN_THIS.  */
 
-void
+static void
 record_excess_regs (rtx in_this, rtx not_in_this, rtx *output)
 {
   enum rtx_code code;
@@ -1285,7 +1287,7 @@ record_excess_regs (rtx in_this, rtx not_in_this, rtx *output)
    If there are none, return 0.
    If there are one or more, return an EXPR_LIST containing all of them.  */
 
-rtx
+static rtx
 libcall_other_reg (rtx insn, rtx equiv)
 {
   rtx note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
@@ -1469,12 +1471,18 @@ force_movables (struct loop_movables *movables)
 	  m = 0;
 
 	/* Increase the priority of the moving the first insn
-	   since it permits the second to be moved as well.  */
+	   since it permits the second to be moved as well.
+	   Likewise for insns already forced by the first insn.  */
 	if (m != 0)
 	  {
+	    struct movable *m2;
+
 	    m->forces = m1;
-	    m1->lifetime += m->lifetime;
-	    m1->savings += m->savings;
+	    for (m2 = m1; m2; m2 = m2->forces)
+	      {
+		m2->lifetime += m->lifetime;
+		m2->savings += m->savings;
+	      }
 	  }
       }
 }
@@ -3493,37 +3501,6 @@ consec_sets_invariant_p (const struct loop *loop, rtx reg, int n_sets,
   /* If loop_invariant_p ever returned 2, we return 2.  */
   return 1 + (value & 2);
 }
-
-#if 0
-/* I don't think this condition is sufficient to allow INSN
-   to be moved, so we no longer test it.  */
-
-/* Return 1 if all insns in the basic block of INSN and following INSN
-   that set REG are invariant according to TABLE.  */
-
-static int
-all_sets_invariant_p (rtx reg, rtx insn, short *table)
-{
-  rtx p = insn;
-  int regno = REGNO (reg);
-
-  while (1)
-    {
-      enum rtx_code code;
-      p = NEXT_INSN (p);
-      code = GET_CODE (p);
-      if (code == CODE_LABEL || code == JUMP_INSN)
-	return 1;
-      if (code == INSN && GET_CODE (PATTERN (p)) == SET
-	  && GET_CODE (SET_DEST (PATTERN (p))) == REG
-	  && REGNO (SET_DEST (PATTERN (p))) == regno)
-	{
-	  if (! loop_invariant_p (loop, SET_SRC (PATTERN (p)), table))
-	    return 0;
-	}
-    }
-}
-#endif /* 0 */
 
 /* Look at all uses (not sets) of registers in X.  For each, if it is
    the single use, set USAGE[REGNO] to INSN; if there was a previous use in
@@ -3703,15 +3680,14 @@ rtx_equal_for_prefetch_p (rtx x, rtx y)
   if (code != GET_CODE (y))
     return 0;
 
-  code = GET_CODE (x);
-
-  if (GET_RTX_CLASS (code) == 'c')
+  if (COMMUTATIVE_ARITH_P (x))
     {
       return ((rtx_equal_for_prefetch_p (XEXP (x, 0), XEXP (y, 0))
 	       && rtx_equal_for_prefetch_p (XEXP (x, 1), XEXP (y, 1)))
 	      || (rtx_equal_for_prefetch_p (XEXP (x, 0), XEXP (y, 1))
 	          && rtx_equal_for_prefetch_p (XEXP (x, 1), XEXP (y, 0))));
     }
+
   /* Compare the elements.  If any pair of corresponding elements fails to
      match, return 0 for the whole thing.  */
 
@@ -8009,6 +7985,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
   struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
+  enum machine_mode mode;
   rtx jump_label;
   rtx final_value;
   rtx start_value;
@@ -8429,6 +8406,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
+	      mode = GET_MODE (reg);
 	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
@@ -8440,12 +8418,12 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      if (initial_value == const0_rtx
 		  && GET_CODE (comparison_value) == CONST_INT)
 		{
-		  start_value = GEN_INT (comparison_val - add_adjust);
+		  start_value
+		    = gen_int_mode (comparison_val - add_adjust, mode);
 		  loop_insn_hoist (loop, gen_move_insn (reg, start_value));
 		}
 	      else if (GET_CODE (initial_value) == CONST_INT)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx offset = GEN_INT (-INTVAL (initial_value) - add_adjust);
 		  rtx add_insn = gen_add3_insn (reg, comparison_value, offset);
 
@@ -8461,7 +8439,6 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		}
 	      else if (! add_adjust)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx sub_insn = gen_sub3_insn (reg, comparison_value,
 						initial_value);
 
@@ -8519,7 +8496,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0,
+				       mode, 0,
 				       XEXP (jump_label, 0));
 	      tem = get_insns ();
 	      end_sequence ();
@@ -8631,7 +8608,7 @@ maybe_eliminate_biv (const struct loop *loop, struct iv_class *bl,
       rtx note;
 
       /* If this is a libcall that sets a giv, skip ahead to its end.  */
-      if (GET_RTX_CLASS (code) == 'i')
+      if (INSN_P (p))
 	{
 	  note = find_reg_note (p, REG_LIBCALL, NULL_RTX);
 
@@ -9246,7 +9223,8 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
      the same tests as a function of STORE_FLAG_VALUE as find_comparison_args
      in cse.c  */
 
-  while (GET_RTX_CLASS (code) == '<'
+  while ((GET_RTX_CLASS (code) == RTX_COMPARE
+	  || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
 	 && op1 == CONST0_RTX (GET_MODE (op0))
 	 && op0 != want_reg)
     {
@@ -9336,7 +9314,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
-		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'))
+		   && COMPARISON_P (SET_SRC (set))))
 	      && (((GET_MODE_CLASS (mode) == MODE_CC)
 		   == (GET_MODE_CLASS (inner_mode) == MODE_CC))
 		  || mode == VOIDmode || inner_mode == VOIDmode))
@@ -9356,7 +9334,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
-		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'
+		   && COMPARISON_P (SET_SRC (set))
 		   && (((GET_MODE_CLASS (mode) == MODE_CC)
 			== (GET_MODE_CLASS (inner_mode) == MODE_CC))
 		       || mode == VOIDmode || inner_mode == VOIDmode))
@@ -9375,7 +9353,7 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 
       if (x)
 	{
-	  if (GET_RTX_CLASS (GET_CODE (x)) == '<')
+	  if (COMPARISON_P (x))
 	    code = GET_CODE (x);
 	  if (reverse_code)
 	    {
@@ -9821,7 +9799,7 @@ load_mems (const struct loop *loop)
     ;
   prev_ebb_head = p;
 
-  cselib_init ();
+  cselib_init (true);
 
   /* Build table of mems that get set to constant values before the
      loop.  */

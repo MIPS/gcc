@@ -115,8 +115,6 @@ const struct attribute_spec ip2k_attribute_table[];
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ip2k_init_libfuncs
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ip2k_return_in_memory
 
@@ -3430,7 +3428,7 @@ mdr_resequence_xy_yx (first_insn)
 	     appropriate, try to do the same thing with the second operand.
 	     Of course there are fewer operations that can match here
 	     because they must be commutative.  */
-          if (GET_RTX_CLASS (GET_CODE (XEXP (set, 1))) == 'c'
+          if (GET_RTX_CLASS (GET_CODE (XEXP (set, 1))) == RTX_COMM_ARITH
 	      && (GET_CODE (XEXP (XEXP (set, 1), 1)) == REG
 	          || GET_CODE (XEXP (XEXP (set, 1), 1)) == MEM)
 	      && rtx_equal_p (XEXP (set2, 0), XEXP (XEXP (set, 1), 1))
@@ -4106,12 +4104,11 @@ mdr_try_move_dp_reload (first_insn)
 static int
 ip2k_check_can_adjust_stack_ref (rtx x, int offset)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c')
+  if (ARITHMETIC_P (x))
     return (ip2k_check_can_adjust_stack_ref (XEXP (x, 0), offset)
 	    && ip2k_check_can_adjust_stack_ref (XEXP (x, 1), offset));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1')
+  if (UNARY_P (x))
     return ip2k_check_can_adjust_stack_ref (XEXP (x, 0), offset);
 
   switch (GET_CODE (x))
@@ -4152,15 +4149,14 @@ ip2k_check_can_adjust_stack_ref (rtx x, int offset)
 static void
 ip2k_adjust_stack_ref (rtx *x, int offset)
 {
-  if (GET_RTX_CLASS (GET_CODE (*x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (*x)) == 'c')
+  if (ARITHMETIC_P (*x))
     {
       ip2k_adjust_stack_ref (&XEXP (*x, 0), offset);
       ip2k_adjust_stack_ref (&XEXP (*x, 1), offset);
       return;
     }
 
-  if (GET_RTX_CLASS (GET_CODE (*x)) == '1')
+  if (UNARY_P (*x))
     {
       ip2k_adjust_stack_ref (&XEXP (*x, 0), offset);
       return;
@@ -4458,7 +4454,7 @@ mdr_try_propagate_clr_sequence (first_insn, regno)
 	      && GET_MODE_SIZE (GET_MODE (XEXP (set2, 1))) == 2
 	      && REGNO (XEXP (set2, 1)) == regno)
             {
-	      new_insn = gen_rtx_SET (VOIDmode, gen_rtx (CC0, VOIDmode),
+	      new_insn = gen_rtx_SET (VOIDmode, gen_rtx_CC0 (VOIDmode),
 				      gen_rtx_REG(QImode, regno + 1));
               new_insn = emit_insn_before (new_insn, try_insn);
 	    }
@@ -4644,21 +4640,6 @@ ip2k_xexp_not_uses_reg_for_mem (rtx x, unsigned int regno)
   if (regno & 1)
     regno &= 0xfffffffe;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
-    return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 2), regno));
-
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
-    return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno));
-
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
-    return ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno);
-
   switch (GET_CODE (x))
     {
     case REG:
@@ -4684,6 +4665,19 @@ ip2k_xexp_not_uses_reg_for_mem (rtx x, unsigned int regno)
       return 1;
 
     default:
+      if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
+	return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 2), regno));
+
+      if (BINARY_P (x))
+	return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno));
+
+      if (UNARY_P (x)
+	  || GET_RTX_CLASS (GET_CODE (x)) == '3')
+	return ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno);
+
       return 0;
     }
 }
@@ -5974,19 +5968,17 @@ ip2k_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 int
 ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 2), r, rsz));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
+  if (BINARY_P (x)
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
+  if (UNARY_P (x)
+      || GET_RTX_CLASS (GET_CODE (x)) == RTX_TERNARY)
     return ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz);
 
   return ip2k_xexp_not_uses_reg_p (x, r, rsz);
@@ -5998,19 +5990,17 @@ ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 int
 ip2k_composite_xexp_not_uses_cc0_p (rtx x)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
     return (ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 1))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 2)));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
+  if (BINARY_P (x))
     return (ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 1)));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
+  if (UNARY_P (x)
+      || GET_RTX_CLASS (GET_CODE (x)) == RTX_TERNARY)
     return ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0));
 
   return GET_CODE (x) != CC0;
@@ -6160,15 +6150,14 @@ int
 ip2k_unary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && GET_RTX_CLASS (GET_CODE (op)) == '1');
+	  && UNARY_P (op);
 }
 
 int
 ip2k_binary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (GET_RTX_CLASS (GET_CODE (op)) == 'c'
-	      || GET_RTX_CLASS (GET_CODE (op)) == '2'));
+	  && ARITHMETIC_P (op);
 }
 
 int
@@ -6201,7 +6190,13 @@ ip2k_unsigned_comparison_operator (rtx op, enum machine_mode mode)
 static bool
 ip2k_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return (TYPE_MODE (type) == BLKmode) ? int_size_in_bytes (type) > 8 : 0;
+  if (TYPE_MODE (type) == BLKmode)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      return (size == -1 || size > 8);
+    }
+  else
+    return false;
 }
 
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */

@@ -1028,7 +1028,7 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
    SIZE is the number of bytes of arguments passed on the stack.  */
 #define RETURN_POPS_ARGS(DECL, FUNTYPE, SIZE) 0
 
-/* Nonzero if we do not know how to pass TYPE solely in registers. */
+/* Nonzero if we do not know how to pass TYPE solely in registers.  */
 #define MUST_PASS_IN_STACK(MODE, TYPE)			\
   ((TYPE) != 0						\
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
@@ -1044,7 +1044,7 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
@@ -1724,15 +1724,6 @@ extern char m32r_punct_chars[256];
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (flag_pic ? SImode : Pmode)
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses. */
-/* It's not clear what PIC will look like or whether we want to use -fpic
-   for the embedded form currently being talked about.  For now require -fpic
-   to get pc relative switch tables.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

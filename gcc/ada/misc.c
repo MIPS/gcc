@@ -774,7 +774,7 @@ adjust_decl_rtl (tree decl)
       DECL_SIZE (decl) = TYPE_SIZE (new_type);
 
       if (TREE_CODE (decl) == PARM_DECL)
-	DECL_INCOMING_RTL (decl) = XEXP (DECL_INCOMING_RTL (decl), 0);
+	set_decl_incoming_rtl (decl, XEXP (DECL_INCOMING_RTL (decl), 0));
 
       /* If DECL_INITIAL was set, it should be updated to show that
 	 the decl is initialized to the address of that thing.
@@ -804,7 +804,7 @@ record_code_position (Node_Id gnat_node)
        addressable needs some fixups and also for above reason.  */
     save_gnu_tree (gnat_node,
 		   build (RTL_EXPR, void_type_node, NULL_TREE,
-			  (tree) emit_note (NOTE_INSN_DELETED)),
+			  (tree) emit_note (NOTE_INSN_DELETED), NULL_TREE),
 		   1);
 }
 
@@ -864,7 +864,7 @@ default_pass_by_ref (tree gnu_type)
 {
   CUMULATIVE_ARGS cum;
 
-  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0, 2);
 
   /* We pass aggregates by reference if they are sufficiently large.  The
      choice of constant here is somewhat arbitrary.  We also pass by

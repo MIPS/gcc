@@ -84,6 +84,14 @@ static void v_fatal (const char *, va_list)
      ATTRIBUTE_PRINTF (1,0) ATTRIBUTE_NORETURN;
 static void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 
+#ifdef TARGET_EXTRA_INCLUDES
+static void hook_void_int(int u ATTRIBUTE_UNUSED) { }
+
+struct target_c_incpath_s target_c_incpath = { hook_void_int };
+#endif
+
+struct line_maps line_table;
+
 sstring buf;
 
 int verbose = 0;
@@ -590,7 +598,6 @@ read_scan_file (char *in_fname, int argc, char **argv)
   struct fn_decl *fn;
   int i, strings_processed;
   struct symbol_list *cur_symbols;
-  struct line_maps line_table;
 
   obstack_init (&scan_file_obstack);
 
@@ -606,9 +613,8 @@ read_scan_file (char *in_fname, int argc, char **argv)
   options->inhibit_errors = 1;
   cpp_post_options (scan_in);
 
-  if (!cpp_find_main_file (scan_in, in_fname))
+  if (!cpp_read_main_file (scan_in, in_fname))
     exit (FATAL_EXIT_CODE);
-  cpp_push_main_file (scan_in);
 
   cpp_change_file (scan_in, LC_RENAME, "<built-in>");
   cpp_init_builtins (scan_in, true);

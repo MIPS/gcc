@@ -133,7 +133,8 @@ static int compute_argument_block_size (int, struct args_size *, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
-					     rtx *, int *, int *, int *);
+					     rtx *, int *, int *, int *,
+					     bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -1023,7 +1024,10 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    and may be modified by this routine.
 
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
-   flags which may may be modified by this routine.  */
+   flags which may may be modified by this routine. 
+
+   CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
+   the thunked-to function.  */
 
 static void
 initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
@@ -1034,7 +1038,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 CUMULATIVE_ARGS *args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
-				 int *must_preallocate, int *ecf_flags)
+				 int *must_preallocate, int *ecf_flags,
+				 bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1107,7 +1112,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	{
 	  /* If we're compiling a thunk, pass through invisible
              references instead of making a copy.  */
-	  if (current_function_is_thunk
+	  if (call_from_thunk_p
 #ifdef FUNCTION_ARG_CALLEE_COPIES
 	      || (FUNCTION_ARG_CALLEE_COPIES (*args_so_far, TYPE_MODE (type),
 					     type, argpos < n_named_args)
@@ -1344,11 +1349,6 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-      if (reg_parm_stack_space == 0)
-	args_size->constant = 0;
-#endif
-
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
       args_size->constant -= reg_parm_stack_space;
 #endif
@@ -1371,20 +1371,16 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 {
   int i;
 
-  /* If this function call is cse'able, precompute all the parameters.
-     Note that if the parameter is constructed into a temporary, this will
-     cause an additional copy because the parameter will be constructed
-     into a temporary location and then copied into the outgoing arguments.
-     If a parameter contains a call to alloca and this function uses the
-     stack, precompute the parameter.  */
+  /* If this is a libcall, then precompute all arguments so that we do not
+     get extraneous instructions emitted as part of the libcall sequence.
 
-  /* If we preallocated the stack space, and some arguments must be passed
-     on the stack, then we must precompute any parameter which contains a
-     function call which will store arguments on the stack.
-     Otherwise, evaluating the parameter may clobber previous parameters
-     which have already been stored into the stack.  (we have code to avoid
-     such case by saving the outgoing stack arguments, but it results in
-     worse code)  */
+     If this target defines ACCUMULATE_OUTGOING_ARGS to true, then we must
+     precompute all arguments that contain function calls.  Otherwise,
+     computing arguments for a subcall may clobber arguments for this call.
+
+     If this target defines ACCUMULATE_OUTGOING_ARGS to false, then we only
+     need to precompute arguments that change the stack pointer, such as calls
+     to alloca, and calls that do not pop all of their arguments.  */
 
   for (i = 0; i < num_actuals; i++)
     if ((flags & ECF_LIBCALL_BLOCK)
@@ -1734,11 +1730,7 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
   int reg_parm_stack_space = 0;
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 #endif
 
   before_call = get_last_insn ();
@@ -1773,11 +1765,11 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
 	      rtx insn = NULL_RTX, seq;
 
 	      /* Look for a call in the inline function code.
-	         If DECL_SAVED_INSNS (fndecl)->outgoing_args_size is
+	         If DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size is
 	         nonzero then there is a call and it is not necessary
 	         to scan the insns.  */
 
-	      if (DECL_SAVED_INSNS (fndecl)->outgoing_args_size == 0)
+	      if (DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size == 0)
 		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
 		  if (GET_CODE (insn) == CALL_INSN)
 		    break;
@@ -1801,8 +1793,9 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
 		     value of reg_parm_stack_space is wrong, but gives
 		     correct results on all supported machines.  */
 
-		  int adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
-				+ reg_parm_stack_space);
+		  int adjust =
+			(DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size
+			 + reg_parm_stack_space);
 
 		  start_sequence ();
 		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
@@ -2075,6 +2068,8 @@ expand_call (tree exp, rtx target, int ignore)
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
   tree fndecl = 0;
+  /* The type of the function being called.  */
+  tree fntype;
   rtx insn;
   int try_tail_call = 1;
   int try_tail_recursion = 1;
@@ -2183,11 +2178,12 @@ expand_call (tree exp, rtx target, int ignore)
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
     {
+      fntype = TREE_TYPE (fndecl);
       if (!flag_no_inline
 	  && fndecl != current_function_decl
 	  && DECL_INLINE (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)->inlinable)
+	  && DECL_STRUCT_FUNCTION (fndecl)
+	  && DECL_STRUCT_FUNCTION (fndecl)->inlinable)
 	is_integrable = 1;
       else if (! TREE_ADDRESSABLE (fndecl))
 	{
@@ -2218,15 +2214,15 @@ expand_call (tree exp, rtx target, int ignore)
      attributes set in the type.  */
   else
     {
+      fntype = TREE_TYPE (TREE_TYPE (p));
       if (ignore
-	  && lookup_attribute ("warn_unused_result",
-			       TYPE_ATTRIBUTES (TREE_TYPE (TREE_TYPE (p)))))
+	  && lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (fntype)))
 	warning ("ignoring return value of function "
 		 "declared with attribute warn_unused_result");
-      flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+      flags |= flags_from_decl_or_type (fntype);
     }
 
-  struct_value = targetm.calls.struct_value_rtx (fndecl ? TREE_TYPE (fndecl) : 0, 0);
+  struct_value = targetm.calls.struct_value_rtx (fntype, 0);
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -2260,11 +2256,7 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 #endif
 
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
@@ -2380,7 +2372,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  || (ACCUMULATE_OUTGOING_ARGS
 		      && stack_arg_under_construction
 		      && structure_value_addr == virtual_outgoing_args_rtx)
-		  ? copy_addr_to_reg (structure_value_addr)
+		  ? copy_addr_to_reg (convert_memory_address 
+				      (Pmode, structure_value_addr))
 		  : structure_value_addr);
 
       actparms
@@ -2394,14 +2387,6 @@ expand_call (tree exp, rtx target, int ignore)
   /* Count the arguments and set NUM_ACTUALS.  */
   for (p = actparms, num_actuals = 0; p; p = TREE_CHAIN (p))
     num_actuals++;
-
-  /* Start updating where the next arg would go.
-
-     On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The last argument in
-     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
-     or not.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl);
 
   /* Compute number of named args.
      Normally, don't include the last named arg if anonymous args follow.
@@ -2434,6 +2419,14 @@ expand_call (tree exp, rtx target, int ignore)
     /* If we know nothing, treat all args as named.  */
     n_named_args = num_actuals;
 
+  /* Start updating where the next arg would go.
+
+     On some machines (such as the PA) indirect calls have a different
+     calling convention than normal calls.  The fourth argument in
+     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
+     or not.  */
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
+
   /* Make a vector to hold all the information about each arg.  */
   args = alloca (num_actuals * sizeof (struct arg_data));
   memset (args, 0, num_actuals * sizeof (struct arg_data));
@@ -2444,7 +2437,8 @@ expand_call (tree exp, rtx target, int ignore)
 				   n_named_args, actparms, fndecl,
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
-				   &must_preallocate, &flags);
+				   &must_preallocate, &flags,
+				   CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {
@@ -2722,10 +2716,6 @@ expand_call (tree exp, rtx target, int ignore)
       if (pass && (flags & ECF_LIBCALL_BLOCK))
 	NO_DEFER_POP;
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-      reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-							 args_size.var);
-#endif
       /* Precompute any arguments as needed.  */
       if (pass)
 	precompute_arguments (flags, num_actuals, args);
@@ -3688,11 +3678,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE ((tree) 0);
-#endif
 #endif
 
   /* By default, library functions can not throw.  */
@@ -3777,7 +3763,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
   INIT_CUMULATIVE_LIBCALL_ARGS (args_so_far, outmode, fun);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0, nargs);
 #endif
 
   args_size.constant = 0;
@@ -3944,10 +3930,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       FUNCTION_ARG_ADVANCE (args_so_far, mode, (tree) 0, 1);
     }
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-						     args_size.var);
-#endif
   /* If this machine requires an external definition for library
      functions, write one out.  */
   assemble_external_libcall (fun);

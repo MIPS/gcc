@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -289,6 +289,14 @@ print_rtx (rtx in_rtx)
 			   (int) NOTE_PREDICTION_FLAGS (in_rtx));
 		else
 		  fprintf (outfile, " [ ERROR ]");
+		break;
+
+	      case NOTE_INSN_VAR_LOCATION:
+		fprintf (outfile, " (");
+		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));
+		fprintf (outfile, " ");
+		print_rtx (NOTE_VAR_LOCATION_LOC (in_rtx));
+		fprintf (outfile, ")");
 		break;
 
 	      default:

@@ -96,8 +96,11 @@ static void arc_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void arc_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arc_file_start (void);
 static void arc_internal_label (FILE *, const char *, unsigned long);
+static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					tree, int *, int);
 static bool arc_rtx_costs (rtx, int, int, int *);
 static int arc_address_cost (rtx);
+static void arc_external_libcall (rtx);
 static bool arc_return_in_memory (tree, tree);
 
 /* Initialize the GCC target structure.  */
@@ -118,6 +121,8 @@ static bool arc_return_in_memory (tree, tree);
 #define TARGET_ATTRIBUTE_TABLE arc_attribute_table
 #undef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL arc_internal_label
+#undef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL arc_external_libcall
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS arc_rtx_costs
@@ -131,10 +136,11 @@ static bool arc_return_in_memory (tree, tree);
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY arc_return_in_memory
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS arc_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -703,11 +709,11 @@ const_uint32_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 proper_comparison_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  enum rtx_code code = GET_CODE (op);
-
-  if (GET_RTX_CLASS (code) != '<')
+  enum rtx_code code;
+  if (!COMPARISON_P (op))
     return 0;
 
+  code = GET_CODE (op);
   if (GET_MODE (XEXP (op, 0)) == CCZNmode)
     return (code == EQ || code == NE);
   if (GET_MODE (XEXP (op, 0)) == CCZNCmode)
@@ -774,7 +780,7 @@ arc_double_limm_p (rtx value)
    aligned.  So we round the space up if necessary, and leave it to va_start
    to compensate.  */
 
-void
+static void
 arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
                             enum machine_mode mode,
                             tree type ATTRIBUTE_UNUSED,
@@ -2365,10 +2371,34 @@ arc_internal_label (FILE *stream, const char *prefix, unsigned long labelno)
   default_internal_label (stream, prefix, labelno);
 }
 
+/* Worker function for TARGET_ASM_EXTERNAL_LIBCALL.  */
+
+static void
+arc_external_libcall (rtx fun ATTRIBUTE_UNUSED)
+{
+#if 0
+/* On the ARC we want to have libgcc's for multiple cpus in one binary.
+   We can't use `assemble_name' here as that will call ASM_OUTPUT_LABELREF
+   and we'll get another suffix added on if -mmangle-cpu.  */
+  if (TARGET_MANGLE_CPU_LIBGCC)
+    {
+      fprintf (FILE, "\t.rename\t_%s, _%s%s\n",
+	       XSTR (SYMREF, 0), XSTR (SYMREF, 0),
+	       arc_mangle_suffix);
+    }
+#endif
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
 static bool
 arc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return (AGGREGATE_TYPE_P (type)
-	  || int_size_in_bytes (type) > 8
-	  || TREE_ADDRESSABLE (type));
+  if (AGGREGATE_TYPE_P (type))
+    return true;
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      return (size == -1 || size > 8);
+    }
 }

@@ -700,7 +700,7 @@ extern const enum reg_class reg_class_from_letter[];
 
    On MCore, the offset always starts at 0: the first parm reg is always
    the same reg.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -1126,25 +1126,6 @@ extern long mcore_current_compilation_timestamp;
         }							\
     }								\
   while (0)
-
-/* This says how to output an assembler line
-   to define an external symbol.  */
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)   \
-  do						\
-    {						\
-      fputs ("\t.import\t", (FILE));		\
-      assemble_name ((FILE), (NAME));		\
-      fputs ("\n", (FILE));			\
-    }						\
-  while (0)
-     
-#undef	ASM_OUTPUT_EXTERNAL
-/* RBE: we undefined this and let gas do it's "undefined is imported"
-   games. This is because when we use this, we get a marked 
-   reference through the call to assemble_name and this forces C++
-   inlined member functions (or any inlined function) to be instantiated
-   regardless of whether any call sites remain.
-   This makes this aspect of the compiler non-ABI compliant.  */
 
 /* This says how to output an assembler line
    to define a local common symbol....  */

@@ -244,8 +244,6 @@ int avr_case_values_threshold = 30000;
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG avr_reorg
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY avr_return_in_memory
 
@@ -4253,6 +4251,7 @@ _reg_unused_after (rtx insn, rtx reg)
 
   while ((insn = NEXT_INSN (insn)))
     {
+      rtx set;
       code = GET_CODE (insn);
 
 #if 0
@@ -4264,6 +4263,9 @@ _reg_unused_after (rtx insn, rtx reg)
 	return 1;
       /* else */
 #endif
+
+      if (!INSN_P (insn))
+	continue;
 
       if (code == JUMP_INSN)
 	return 0;
@@ -4322,17 +4324,14 @@ _reg_unused_after (rtx insn, rtx reg)
 	    return 1;
 	}
 
-      if (GET_RTX_CLASS (code) == 'i')
-	{
-	  rtx set = single_set (insn);
+      set = single_set (insn);
 
-	  if (set && reg_overlap_mentioned_p (reg, SET_SRC (set)))
-	    return 0;
-	  if (set && reg_overlap_mentioned_p (reg, SET_DEST (set)))
-	    return GET_CODE (SET_DEST (set)) != MEM;
-	  if (set == 0 && reg_overlap_mentioned_p (reg, PATTERN (insn)))
-	    return 0;
-	}
+      if (set && reg_overlap_mentioned_p (reg, SET_SRC (set)))
+	return 0;
+      if (set && reg_overlap_mentioned_p (reg, SET_DEST (set)))
+	return GET_CODE (SET_DEST (set)) != MEM;
+      if (set == 0 && reg_overlap_mentioned_p (reg, PATTERN (insn)))
+	return 0;
     }
   return 1;
 }
@@ -5384,9 +5383,13 @@ avr_asm_out_dtor (rtx symbol, int priority)
 static bool
 avr_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return ((TYPE_MODE (type) == BLKmode)
-	  ? int_size_in_bytes (type) > 8
-	  : 0);
+  if (TYPE_MODE (type) == BLKmode)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      return (size == -1 || size > 8);
+    }
+  else
+    return false;
 }
 
 #include "gt-avr.h"

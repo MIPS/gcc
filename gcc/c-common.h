@@ -330,8 +330,6 @@ extern void (*lang_expand_function_end) (void);
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
 extern int yyparse (void);
-extern void free_parser_stacks (void);
-
 extern stmt_tree current_stmt_tree (void);
 extern tree *current_scope_stmt_stack (void);
 extern void begin_stmt_tree (tree *);
@@ -347,8 +345,6 @@ extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
 
-enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
-extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
@@ -764,21 +760,6 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the 
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-extern int flag_abi_version;
-
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -935,9 +916,6 @@ extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
 
-/* Read the rest of the current #-directive line.  */
-extern char *get_directive_line (void);
-#define GET_DIRECTIVE_LINE() get_directive_line ()
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
 
@@ -1387,5 +1365,11 @@ extern tree objc_build_try_catch_finally_stmt (int, int);
    ObjC/ObjC++.  */
 extern void *objc_get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
+
+/* In c-ppoutput.c  */
+extern void init_pp_output (FILE *);
+extern void preprocess_file (cpp_reader *);
+extern void pp_file_change (const struct line_map *);
+extern void pp_dir_change (cpp_reader *, const char *);
 
 #endif /* ! GCC_C_COMMON_H */

@@ -23,8 +23,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_CP_OBJCP_COMMON
 
 /* In cp-objcp-common.c.  */
+static bool ok_to_generate_alias_set_for_type (tree);
+
 extern HOST_WIDE_INT cxx_get_alias_set (tree);
-extern bool ok_to_generate_alias_set_for_type (tree);
 extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
@@ -91,8 +92,6 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_BUILTIN_TYPE_DECLS
-#define LANG_HOOKS_BUILTIN_TYPE_DECLS cxx_builtin_type_decls
 #undef LANG_HOOKS_PUSHLEVEL
 #define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
 #undef LANG_HOOKS_POPLEVEL
@@ -103,6 +102,7 @@ extern void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
 #undef LANG_HOOKS_DECL_UNINIT
 #define LANG_HOOKS_DECL_UNINIT c_decl_uninit
+
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context

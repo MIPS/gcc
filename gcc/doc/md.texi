@@ -367,14 +367,14 @@ commutative arithmetic operators of RTL and whose mode is @var{mode}:
 
 @smallexample
 int
-commutative_operator (x, mode)
+commutative_integer_operator (x, mode)
      rtx x;
      enum machine_mode mode;
 @{
   enum rtx_code code = GET_CODE (x);
   if (GET_MODE (x) != mode)
     return 0;
-  return (GET_RTX_CLASS (code) == 'c'
+  return (GET_RTX_CLASS (code) == RTX_COMM_ARITH
           || code == EQ || code == NE);
 @}
 @end smallexample
@@ -488,25 +488,6 @@ An insn that matches this pattern might look like:
 @item (match_par_dup @var{n} [@var{subpat}@dots{}])
 Like @code{match_op_dup}, but for @code{match_parallel} instead of
 @code{match_operator}.
-
-@findex match_insn
-@item (match_insn @var{predicate})
-Match a complete insn.  Unlike the other @code{match_*} recognizers,
-@code{match_insn} does not take an operand number.
-
-The machine mode @var{m} of @code{match_insn} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
-
-@findex match_insn2
-@item (match_insn2 @var{n} @var{predicate})
-Match a complete insn.
-
-The machine mode @var{m} of @code{match_insn2} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
 
 @end table
 
@@ -1340,6 +1321,9 @@ available on some particular machines.
 @item f
 Floating-point register
 
+@item w
+VFP floating-point register
+
 @item F
 One of the floating-point constants 0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0
 or 10.0
@@ -1375,6 +1359,9 @@ An item in the constant pool
 @item S
 A symbol in the text segment of the current file
 @end table
+
+@item U
+A memory reference suitable for VFP load/store insns (reg+constant offset)
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1604,36 +1591,6 @@ Constant in range @minus{}2147483648 to 2147483647 or symbolic reference known t
 
 @item G
 Standard 80387 floating point constant
-@end table
-
-@item Intel 960---@file{i960.h}
-@table @code
-@item f
-Floating point register (@code{fp0} to @code{fp3})
-
-@item l
-Local register (@code{r0} to @code{r15})
-
-@item b
-Global register (@code{g0} to @code{g15})
-
-@item d
-Any local or global register
-
-@item I
-Integers from 0 to 31
-
-@item J
-0
-
-@item K
-Integers from @minus{}31 to 0
-
-@item G
-Floating point 0
-
-@item H
-Floating point 1
 @end table
 
 @item Intel IA-64---@file{ia64.h}
@@ -2889,6 +2846,9 @@ point mode @var{n} as a signed number and store in operand 0 (which
 has mode @var{n}).  This instruction's result is defined only when
 the value of operand 1 is an integer.
 
+If the machine description defines this pattern, it also needs to
+define the @code{ftrunc} pattern.
+
 @cindex @code{fixuns@var{mn}2} instruction pattern
 @item @samp{fixuns@var{m}@var{n}2}
 Convert operand 1 (valid for floating point mode @var{m}) to fixed
@@ -3033,6 +2993,13 @@ tested, should also use the above mechanism.  @xref{Jump Patterns}.
 
 The above discussion also applies to the @samp{mov@var{mode}cc} and
 @samp{s@var{cond}} patterns.
+
+@cindex @code{cbranch@var{mode}4} instruction pattern
+@item @samp{cbranch@var{mode}4}
+Conditional branch instruction combined with a compare instruction.
+Operand 0 is a comparison operator.  Operand 1 and operand 2 are the
+first and second operands of the comparison, respectively.  Operand 3
+is a @code{label_ref} that refers to the label to jump to.
 
 @cindex @code{jump} instruction pattern
 @item @samp{jump}
@@ -3859,6 +3826,15 @@ second operand.  If a machine only supports a constant as the second
 operand, only patterns that match a constant in the second operand need
 be supplied.
 
+@item
+For associative operators, a sequence of operators will always chain
+to the left; for instance, only the left operand of an integer @code{plus}
+can itself be a @code{plus}.  @code{and}, @code{ior}, @code{xor},
+@code{plus}, @code{mult}, @code{smin}, @code{smax}, @code{umin}, and
+@code{umax} are associative when applied to integers, and sometimes to
+floating-point.
+
+@item
 @cindex @code{neg}, canonicalization of
 @cindex @code{not}, canonicalization of
 @cindex @code{mult}, canonicalization of
@@ -4619,7 +4595,7 @@ Here is an example, taken from the 68000 machine description:
   "FP_REG_P (operands[0]) && ! FP_REG_P (operands[1])"
 @{
   rtx xoperands[2];
-  xoperands[1] = gen_rtx (REG, SImode, REGNO (operands[1]) + 1);
+  xoperands[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
 #ifdef MOTOROLA
   output_asm_insn ("move.l %1,(sp)", xoperands);
   output_asm_insn ("move.l %1,-(sp)", operands);

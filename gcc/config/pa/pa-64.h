@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for HPs using the
    64bit runtime model.
-   Copyright (C) 1999, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,8 +55,6 @@ Boston, MA 02111-1307, USA.  */
 #define SHORT_TYPE_SIZE 16
 #undef INT_TYPE_SIZE
 #define INT_TYPE_SIZE 32
-#undef MAX_LONG_TYPE_SIZE
-#define MAX_LONG_TYPE_SIZE 64
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 64
 #undef LONG_LONG_TYPE_SIZE

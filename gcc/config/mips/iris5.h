@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  IRIX version 5.
    Copyright (C) 1993, 1995, 1996, 1998, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define ABICALLS_ASM_OP "\t.option pic2"
 
+/* Dummy definition which allows EXTRA_SECTION_FUNCTIONS to be the same
+   for IRIX 5 and 6.  */
+#define BSS_SECTION_ASM_OP "\t.data"
+
 /* ??? This is correct, but not very useful, because there is no file that
    uses this macro.  */
 /* ??? The best way to handle global constructors under ELF is to use .init
@@ -48,11 +52,9 @@ Boston, MA 02111-1307, USA.  */
 /* Specify wchar_t types.  */
 #undef	WCHAR_TYPE
 #undef	WCHAR_TYPE_SIZE
-#undef	MAX_WCHAR_TYPE_SIZE
 
 #define WCHAR_TYPE     "int"
 #define WCHAR_TYPE_SIZE        INT_TYPE_SIZE
-#define MAX_WCHAR_TYPE_SIZE    64
 
 /* Plain char is unsigned in the SGI compiler.  */
 #undef DEFAULT_SIGNED_CHAR
@@ -133,8 +135,7 @@ Boston, MA 02111-1307, USA.  */
 -_SYSTYPE_SVR4"
 
 /* We now support shared libraries.  */
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC "\
+#define IRIX_STARTFILE_SPEC "\
 %{!static: \
   %{!shared:%{pg:gcrt1.o%s}%{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}}} \
 %{static: \
@@ -142,11 +143,16 @@ Boston, MA 02111-1307, USA.  */
   %{!pg:%{p:/usr/lib/nonshared/mcrt1.o%s libprof1.a%s} \
   %{!p:/usr/lib/nonshared/crt1.o%s}}}"
 
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%(irix_startfile_spec)"
+
 #undef LIB_SPEC
 #define LIB_SPEC "%{!shared:%{p:-lprof1} %{pg:-lprof1} -lc}"
 
+#define IRIX_ENDFILE_SPEC "%{!shared:crtn.o%s}"
+
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "%{!shared:crtn.o%s}"
+#define ENDFILE_SPEC "%(irix_endfile_spec)"
 
 /* We do not want to run mips-tfile!  */
 #undef ASM_FINAL_SPEC
@@ -192,14 +198,61 @@ Boston, MA 02111-1307, USA.  */
 #undef MIPS_DEFAULT_GVALUE
 #define MIPS_DEFAULT_GVALUE 0
 
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  irix_asm_named_section
+
+/* Define functions to read the name and flags of the current section.
+   They are used by irix_asm_output_align.  */
+
+#undef EXTRA_SECTION_FUNCTIONS
+#define EXTRA_SECTION_FUNCTIONS						\
+const char *								\
+current_section_name (void)						\
+{									\
+  switch (in_section)							\
+    {									\
+    case no_section:	return NULL;					\
+    case in_text:	return ".text";					\
+    case in_data:	return ".data";					\
+    case in_bss:	return ".bss";					\
+    case in_readonly_data:						\
+      if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
+	return ".rodata";						\
+      else								\
+	return ".rdata";						\
+    case in_named:							\
+      return in_named_name;						\
+    }									\
+  abort ();								\
+}									\
+									\
+unsigned int								\
+current_section_flags (void)						\
+{									\
+  switch (in_section)							\
+    {									\
+    case no_section:	return 0;					\
+    case in_text:	return SECTION_CODE;				\
+    case in_data:	return SECTION_WRITE;				\
+    case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
+    case in_readonly_data: return 0;					\
+    case in_named:	return get_named_section_flags (in_named_name);	\
+    }									\
+  abort ();								\
+}
+
 /* Some assemblers have a bug that causes backslash escaped chars in .ascii
-   to be misassembled, so we just completely avoid it.  */
+   to be misassembled, so avoid it by using .byte instead.  Write the original
+   string in a comment, partly to improve readability and partly for the sake
+   of scan-assembler-type tests.  */
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN)				\
 do {								\
   const unsigned char *s_ = (const unsigned char *)(PTR);	\
   unsigned len_ = (LEN);					\
   unsigned i_;							\
+  mips_output_ascii (FILE, (const char *) s_, len_, "\t# ");	\
   for (i_ = 0; i_ < len_; s_++, i_++)				\
     {								\
       if ((i_ % 8) == 0)					\
@@ -242,3 +295,8 @@ do {							\
 
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA 1
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "irix_startfile_spec", IRIX_STARTFILE_SPEC }, \
+  { "irix_endfile_spec", IRIX_ENDFILE_SPEC },

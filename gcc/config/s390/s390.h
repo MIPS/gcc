@@ -257,7 +257,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE 32
 #define LONG_TYPE_SIZE (TARGET_64BIT ? 64 : 32)
-#define MAX_LONG_TYPE_SIZE 64
 #define LONG_LONG_TYPE_SIZE 64
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
@@ -594,7 +593,7 @@ extern int current_function_outgoing_args_size;
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))
 
 /* In 31-bit mode, we need to mask off the high bit of return addresses.  */
-#define MASK_RETURN_ADDR (TARGET_64BIT ? GEN_INT (-1) : GEN_INT (0x7fffffff))
+#define MASK_RETURN_ADDR (TARGET_64BIT ? constm1_rtx : GEN_INT (0x7fffffff))
 
 
 /* Exception handling.  */
@@ -683,7 +682,7 @@ typedef struct s390_arg_structure
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN, N_NAMED_ARGS) \
   ((CUM).gprs=0, (CUM).fprs=0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)                    \
@@ -876,7 +875,7 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 #define SLOW_BYTE_ACCESS 1
 
 /* The maximum number of bytes that a single instruction can move quickly
-   between memory and registers or between two memory locations. */
+   between memory and registers or between two memory locations.  */
 #define MOVE_MAX (TARGET_64BIT ? 16 : 8)
 #define MAX_MOVE_MAX 16
 
@@ -970,6 +969,13 @@ extern int flag_pic;
 /* Print operand X (an rtx) in assembler syntax to file FILE.  */
 #define PRINT_OPERAND(FILE, X, CODE) print_operand (FILE, X, CODE)
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
+
+/* Output machine-dependent UNSPECs in address constants.  */
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+do {							\
+  if (!s390_output_addr_const_extra (FILE, (X)))	\
+    goto FAIL;						\
+} while (0);
 
 /* Output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)				\

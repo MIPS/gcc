@@ -77,12 +77,12 @@ namespace __gnu_cxx
       // NB: __n is permitted to be 0.  The C++ standard says nothing
       // about what the return value is when __n == 0.
       pointer
-      allocate(size_type __n, const void* __h = 0)
+      allocate(size_type __n, const void* = 0)
       { return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp))); }
 
       // __p is not permitted to be a null pointer.
       void
-      deallocate(pointer __p, size_type __n)
+      deallocate(pointer __p, size_type)
       { ::operator delete(__p); }
 
       size_type
@@ -98,6 +98,16 @@ namespace __gnu_cxx
       void 
       destroy(pointer __p) { __p->~_Tp(); }
     };
+
+  template<typename _Tp>
+    inline bool
+    operator==(const new_allocator<_Tp>&, const new_allocator<_Tp>&)
+    { return true; }
+  
+  template<typename _Tp>
+    inline bool
+    operator!=(const new_allocator<_Tp>&, const new_allocator<_Tp>&)
+    { return false; }
 } // namespace __gnu_cxx
 
 #endif

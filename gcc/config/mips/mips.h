@@ -169,18 +169,15 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_FIX_SB1       0x01000000   /* Work around SB-1 errata.  */
+#define MASK_FIX_R4000	   0x01000000	/* Work around R4000 errata.  */
+#define MASK_FIX_R4400	   0x02000000	/* Work around R4400 errata.  */
+#define MASK_FIX_SB1	   0x04000000	/* Work around SB-1 errata.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
-#define MASK_DEBUG_A	0		/* don't allow <label>($reg) addrs */
-#define MASK_DEBUG_B	0		/* GO_IF_LEGITIMATE_ADDRESS debug */
 #define MASK_DEBUG_C	0		/* don't expand seq, etc.  */
 #define MASK_DEBUG_D	0		/* don't do define_split's */
-#define MASK_DEBUG_E	0		/* function_arg debug */
-#define MASK_DEBUG_F	0		/* ??? */
 #define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
-#define MASK_DEBUG_I	0		/* unused */
 
 					/* Dummy switches used only in specs */
 #define MASK_MIPS_TFILE	0		/* flag for mips-tfile usage */
@@ -200,14 +197,9 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 					/* Debug Modes */
 #define TARGET_DEBUG_MODE	(target_flags & MASK_DEBUG)
-#define TARGET_DEBUG_A_MODE	(target_flags & MASK_DEBUG_A)
-#define TARGET_DEBUG_B_MODE	(target_flags & MASK_DEBUG_B)
 #define TARGET_DEBUG_C_MODE	(target_flags & MASK_DEBUG_C)
 #define TARGET_DEBUG_D_MODE	(target_flags & MASK_DEBUG_D)
-#define TARGET_DEBUG_E_MODE	(target_flags & MASK_DEBUG_E)
-#define TARGET_DEBUG_F_MODE	(target_flags & MASK_DEBUG_F)
 #define TARGET_DEBUG_G_MODE	(target_flags & MASK_DEBUG_G)
-#define TARGET_DEBUG_I_MODE	(target_flags & MASK_DEBUG_I)
 
 					/* Reg. Naming in .s ($21 vs. $a0) */
 #define TARGET_NAME_REGS	(target_flags & MASK_NAME_REGS)
@@ -258,6 +250,12 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 #define TARGET_FIX_SB1		(target_flags & MASK_FIX_SB1)
 
+					/* Work around R4000 errata.  */
+#define TARGET_FIX_R4000	(target_flags & MASK_FIX_R4000)
+
+					/* Work around R4400 errata.  */
+#define TARGET_FIX_R4400		(target_flags & MASK_FIX_R4400)
+
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
    which has its own conventions.  */
@@ -290,9 +288,22 @@ extern const struct mips_cpu_info *mips_tune_info;
   (!TARGET_MIPS16 && (!TARGET_ABICALLS || TARGET_EXPLICIT_RELOCS))
 
 /* True if .gpword or .gpdword should be used for switch tables.
-   Not all SGI assemblers support this.  */
+   There are some problems with using these directives with the
+   native IRIX tools:
 
-#define TARGET_GPWORD (TARGET_ABICALLS && (!TARGET_NEWABI || TARGET_GAS))
+      - It has been reported that some versions of the native n32
+	assembler mishandle .gpword, complaining that symbols are
+	global when they are in fact local.
+
+      - The native assemblers don't understand .gpdword.
+
+      - Although GAS does understand .gpdword, the native linker
+	mishandles the relocations GAS generates (R_MIPS_GPREL32
+	followed by R_MIPS_64).
+
+   We therefore disable GP-relative switch tables for n32 and n64
+   on IRIX targets.  */
+#define TARGET_GPWORD (TARGET_ABICALLS && !(TARGET_NEWABI && TARGET_IRIX))
 
 					/* Generate mips16 code */
 #define TARGET_MIPS16		(target_flags & MASK_MIPS16)
@@ -309,16 +320,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* Architecture target defines.  */
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
-#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
 #define TARGET_MIPS4120             (mips_arch == PROCESSOR_R4120)
-#define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
-#define TARGET_MIPS4KC              (mips_arch == PROCESSOR_4KC)
-#define TARGET_MIPS5KC              (mips_arch == PROCESSOR_5KC)
 #define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
-#define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
 /* Scheduling target defines.  */
@@ -331,9 +337,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
 #define TUNE_MIPS7000               (mips_tune == PROCESSOR_R7000)
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
-#define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
-#define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
+#define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
 
 /* IRIX specific stuff.  */
@@ -591,6 +596,14 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Work around errata for early SB-1 revision 2 cores")},		\
   {"no-fix-sb1",         -MASK_FIX_SB1,					\
      N_("Don't work around errata for early SB-1 revision 2 cores")},	\
+  {"fix-r4000",		  MASK_FIX_R4000,				\
+     N_("Work around R4000 errata")},					\
+  {"no-fix-r4000",	 -MASK_FIX_R4000,				\
+     N_("Don't work around R4000 errata")},				\
+  {"fix-r4400",		  MASK_FIX_R4400,				\
+     N_("Work around R4400 errata")},					\
+  {"no-fix-r4400",	 -MASK_FIX_R4400,				\
+     N_("Don't work around R4400 errata")},				\
   {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV,			\
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
@@ -613,21 +626,11 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Do not lift restrictions on GOT size") },			\
   {"debug",		  MASK_DEBUG,					\
      NULL},								\
-  {"debuga",		  MASK_DEBUG_A,					\
-     NULL},								\
-  {"debugb",		  MASK_DEBUG_B,					\
-     NULL},								\
   {"debugc",		  MASK_DEBUG_C,					\
      NULL},								\
   {"debugd",		  MASK_DEBUG_D,					\
      NULL},								\
-  {"debuge",		  MASK_DEBUG_E,					\
-     NULL},								\
-  {"debugf",		  MASK_DEBUG_F,					\
-     NULL},								\
   {"debugg",		  MASK_DEBUG_G,					\
-     NULL},								\
-  {"debugi",		  MASK_DEBUG_I,					\
      NULL},								\
   {"",			  (TARGET_DEFAULT				\
 			   | TARGET_CPU_DEFAULT				\
@@ -785,9 +788,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* True if the ABI can only work with 64-bit integer registers.  We
    generally allow ad-hoc variations for TARGET_SINGLE_FLOAT, but
    otherwise floating-point registers must also be 64-bit.  */
-#define ABI_NEEDS_64BIT_REGS	(mips_abi == ABI_64			\
-				 || mips_abi == ABI_O64			\
-				 || mips_abi == ABI_N32)
+#define ABI_NEEDS_64BIT_REGS	(TARGET_NEWABI || mips_abi == ABI_O64)
 
 /* Likewise for 32-bit regs.  */
 #define ABI_NEEDS_32BIT_REGS	(mips_abi == ABI_32)
@@ -1313,25 +1314,15 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
-/* Tell the preprocessor the maximum size of wchar_t.  */
-#ifndef MAX_WCHAR_TYPE_SIZE
-#ifndef WCHAR_TYPE_SIZE
-#define MAX_WCHAR_TYPE_SIZE 64
-#endif
-#endif
-
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
 #define LONG_TYPE_SIZE (TARGET_LONG64 ? 64 : 32)
 #define LONG_LONG_TYPE_SIZE 64
 
-#define MAX_LONG_TYPE_SIZE 64
-
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE \
-  (mips_abi == ABI_N32 || mips_abi == ABI_64 ? 128 : 64)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI ? 128 : 64)
 
 /* long double is not a fixed mode, but the idea is that, if we
    support long double, we also want a 128-bit integer type.  */
@@ -1354,8 +1345,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define POINTERS_EXTEND_UNSIGNED 0
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
-#define PARM_BOUNDARY ((mips_abi == ABI_O64 || mips_abi == ABI_N32 \
-			|| mips_abi == ABI_64 \
+#define PARM_BOUNDARY ((mips_abi == ABI_O64 \
+			|| TARGET_NEWABI \
 			|| (mips_abi == ABI_EABI && TARGET_64BIT)) ? 64 : 32)
 
 
@@ -1926,7 +1917,7 @@ extern const enum reg_class mips_regno_to_class[];
    'd'  General (aka integer) registers
         Normally this is GR_REGS, but in mips16 mode this is M16_REGS
    'y'  General registers (in both mips16 and non mips16 mode)
-   'e'	mips16 non argument registers (M16_NA_REGS)
+   'e'	Effective address registers (general registers except $25)
    't'  mips16 temporary register ($24)
    'f'	Floating point registers
    'h'	Hi register
@@ -2160,7 +2151,7 @@ extern enum reg_class mips_char_to_class[256];
 
 /* o32 and o64 reserve stack space for all argument registers.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 			\
-  ((mips_abi == ABI_32 || mips_abi == ABI_O64)		\
+  (TARGET_OLDABI					\
    ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
    : 0)
 
@@ -2171,10 +2162,7 @@ extern enum reg_class mips_char_to_class[256];
    `current_function_outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE
 
-#define STACK_BOUNDARY \
-  ((mips_abi == ABI_32 || mips_abi == ABI_O64 || mips_abi == ABI_EABI) \
-   ? 64 : 128)
-
+#define STACK_BOUNDARY ((TARGET_OLDABI || mips_abi == ABI_EABI) ? 64 : 128)
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) 0
 
@@ -2184,12 +2172,7 @@ extern enum reg_class mips_char_to_class[256];
 #define GP_RETURN (GP_REG_FIRST + 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
 
-#define MAX_ARGS_IN_REGISTERS \
-  ((mips_abi == ABI_32 || mips_abi == ABI_O64) ? 4 : 8)
-
-/* Largest possible value of MAX_ARGS_IN_REGISTERS.  */
-
-#define BIGGEST_MAX_ARGS_IN_REGISTERS 8
+#define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
 
 /* Symbolic macros for the first/last argument registers.  */
 
@@ -2218,8 +2201,7 @@ extern enum reg_class mips_char_to_class[256];
 
 #define FUNCTION_ARG_REGNO_P(N)					\
   ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
-    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)		\
-	&& ((N) % FP_INC == 0) && mips_abi != ABI_O64))		\
+    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)))		\
    && !fixed_regs[N])
 
 /* This structure has to cope with two different argument allocation
@@ -2287,7 +2269,7 @@ typedef struct mips_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)		\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (&CUM, FNTYPE, LIBNAME)				\
 
 /* Update the data in CUM to advance over an argument
@@ -2369,7 +2351,7 @@ typedef struct mips_args {
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */
 #define MIPS_STACK_ALIGN(LOC)						\
-  ((mips_abi == ABI_32 || mips_abi == ABI_O64 || mips_abi == ABI_EABI)	\
+  ((TARGET_OLDABI || mips_abi == ABI_EABI)				\
    ? ((LOC) + 7) & ~7							\
    : ((LOC) + 15) & ~15)
 
@@ -2392,7 +2374,7 @@ typedef struct mips_args {
   fprintf (FILE, "\t.set\tnoat\n");					\
   fprintf (FILE, "\tmove\t%s,%s\t\t# save current return address\n",	\
 	   reg_names[GP_REG_FIRST + 1], reg_names[GP_REG_FIRST + 31]);	\
-  if (mips_abi != ABI_N32 && mips_abi != ABI_64)			\
+  if (!TARGET_NEWABI)							\
     {									\
       fprintf (FILE,							\
 	       "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n", \
@@ -2526,21 +2508,6 @@ typedef struct mips_args {
 /* Maximum number of registers that can appear in a valid memory address.  */
 
 #define MAX_REGS_PER_ADDRESS 1
-
-/* A C compound statement with a conditional `goto LABEL;' executed
-   if X (an RTX) is a legitimate memory address on the target
-   machine for a memory operand of mode MODE.  */
-
-#if 1
-#define GO_PRINTF(x)	fprintf(stderr, (x))
-#define GO_PRINTF2(x,y)	fprintf(stderr, (x), (y))
-#define GO_DEBUG_RTX(x) debug_rtx(x)
-
-#else
-#define GO_PRINTF(x)
-#define GO_PRINTF2(x,y)
-#define GO_DEBUG_RTX(x)
-#endif
 
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
@@ -2738,6 +2705,7 @@ typedef struct mips_args {
 #define PREDICATE_CODES							\
   {"uns_arith_operand",		{ REG, CONST_INT, SUBREG, ADDRESSOF }},	\
   {"symbolic_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"general_symbolic_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"global_got_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"local_got_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"const_arith_operand",	{ CONST_INT }},				\
@@ -3179,28 +3147,7 @@ while (0)
 
 /* This says how to define a global common symbol.  */
 
-#define ASM_OUTPUT_ALIGNED_DECL_COMMON(STREAM, DECL, NAME, SIZE, ALIGN) \
-  do {									\
-    /* If the target wants uninitialized const declarations in		\
-       .rdata then don't put them in .comm */				\
-    if (TARGET_EMBEDDED_DATA && TARGET_UNINIT_CONST_IN_RODATA		\
-	&& TREE_CODE (DECL) == VAR_DECL && TREE_READONLY (DECL)		\
-	&& (DECL_INITIAL (DECL) == 0					\
-	    || DECL_INITIAL (DECL) == error_mark_node))			\
-      {									\
-	if (TREE_PUBLIC (DECL) && DECL_NAME (DECL))			\
-	  (*targetm.asm_out.globalize_label) (STREAM, NAME);		\
-	    								\
-	readonly_data_section ();					\
-	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
-	mips_declare_object (STREAM, NAME, "", ":\n\t.space\t%u\n",	\
-	    (SIZE));							\
-      }									\
-    else								\
-	mips_declare_object (STREAM, NAME, "\n\t.comm\t", ",%u\n",	\
-	  (SIZE));							\
-  } while (0)
-
+#define ASM_OUTPUT_ALIGNED_DECL_COMMON mips_output_aligned_decl_common
 
 /* This says how to define a local common symbol (ie, not visible to
    linker).  */
@@ -3301,7 +3248,7 @@ do {									\
 /* This is how to output a string.  */
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(STREAM, STRING, LEN)				\
-  mips_output_ascii (STREAM, STRING, LEN)
+  mips_output_ascii (STREAM, STRING, LEN, "\t.ascii\t")
 
 /* Output #ident as a in the read-only data section.  */
 #undef  ASM_OUTPUT_IDENT
@@ -3382,18 +3329,8 @@ while (0)
 /* See mips_expand_prologue's use of loadgp for when this should be
    true.  */
 
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS 		\
-					 && mips_abi != ABI_32		\
-					 && mips_abi != ABI_O64)
+#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS && !TARGET_OLDABI)
 
-
-#define DFMODE_NAN \
-	unsigned short DFbignan[4] = {0x7ff7, 0xffff, 0xffff, 0xffff}; \
-	unsigned short DFlittlenan[4] = {0xffff, 0xffff, 0xffff, 0xfff7}
-#define SFMODE_NAN \
-	unsigned short SFbignan[2] = {0x7fbf, 0xffff}; \
-	unsigned short SFlittlenan[2] = {0xffff, 0xffbf}
-
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
 

@@ -1178,7 +1178,7 @@ swap_rtx_condition_1 (rtx pat)
   const char *fmt;
   int i, r = 0;
 
-  if (GET_RTX_CLASS (GET_CODE (pat)) == '<')
+  if (COMPARISON_P (pat))
     {
       PUT_CODE (pat, swap_condition (GET_CODE (pat)));
       r = 1;
@@ -1654,7 +1654,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	      }
 
 	    /* Keep operand 1 matching with destination.  */
-	    if (GET_RTX_CLASS (GET_CODE (pat_src)) == 'c'
+	    if (COMMUTATIVE_ARITH_P (pat_src)
 		&& REG_P (*src1) && REG_P (*src2)
 		&& REGNO (*src1) != REGNO (*dest))
 	     {
@@ -2236,9 +2236,14 @@ subst_stack_regs (rtx insn, stack regstack)
 	for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
 	  {
 	    if (stack_regs_mentioned_p (XVECEXP (PATTERN (insn), 0, i)))
-	      control_flow_insn_deleted
-		|= subst_stack_regs_pat (insn, regstack,
-					 XVECEXP (PATTERN (insn), 0, i));
+	      {
+	        if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == CLOBBER)
+	           XVECEXP (PATTERN (insn), 0, i)
+		     = shallow_copy_rtx (XVECEXP (PATTERN (insn), 0, i));
+		control_flow_insn_deleted
+		  |= subst_stack_regs_pat (insn, regstack,
+					   XVECEXP (PATTERN (insn), 0, i));
+	      }
 	  }
       else
 	control_flow_insn_deleted

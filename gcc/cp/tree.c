@@ -693,14 +693,14 @@ list_hash_pieces (tree purpose, tree value, tree chain)
   hashval_t hashcode = 0;
   
   if (chain)
-    hashcode += TYPE_HASH (chain);
+    hashcode += TREE_HASH (chain);
   
   if (value)
-    hashcode += TYPE_HASH (value);
+    hashcode += TREE_HASH (value);
   else
     hashcode += 1007;
   if (purpose)
-    hashcode += TYPE_HASH (purpose);
+    hashcode += TREE_HASH (purpose);
   else
     hashcode += 1009;
   return hashcode;
@@ -991,7 +991,7 @@ build_exception_variant (tree type, tree raises)
   int type_quals = TYPE_QUALS (type);
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
-    if (TYPE_QUALS (v) == type_quals
+    if (check_qualified_type (v, type, type_quals)
         && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
       return v;
 
@@ -1641,17 +1641,6 @@ cp_tree_equal (tree t1, tree t2)
   return false;
 }
 
-/* Build a wrapper around a 'struct z_candidate' so we can use it as a
-   tree.  */
-
-tree
-build_zc_wrapper (struct z_candidate* ptr)
-{
-  tree t = make_node (WRAPPER);
-  WRAPPER_ZC (t) = ptr;
-  return t;
-}
-
 /* The type of ARG when used as an lvalue.  */
 
 tree
@@ -1779,7 +1768,10 @@ pod_type_p (tree t)
     return 1; /* pointer to non-member */
   if (TYPE_PTR_TO_MEMBER_P (t))
     return 1; /* pointer to member */
-  
+
+  if (TREE_CODE (t) == VECTOR_TYPE)
+    return 1; /* vectors are (small) arrays if scalars */
+
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
   if (CLASSTYPE_NON_POD_P (t))
@@ -1963,6 +1955,23 @@ make_ptrmem_cst (tree type, tree member)
   return ptrmem_cst;
 }
 
+/* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
+   return an existing type of an appropriate type already exists.  */
+
+tree
+cp_build_type_attribute_variant (tree type, tree attributes)
+{
+  tree new_type;
+
+  new_type = build_type_attribute_variant (type, attributes);
+  if (TREE_CODE (new_type) == FUNCTION_TYPE
+      && (TYPE_RAISES_EXCEPTIONS (new_type) 
+	  != TYPE_RAISES_EXCEPTIONS (type)))
+    new_type = build_exception_variant (new_type,
+					TYPE_RAISES_EXCEPTIONS (type));
+  return new_type;
+}
+
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
    traversal.  Called from walk_tree().  */
 
@@ -2063,8 +2072,12 @@ cp_cannot_inline_tree_fn (tree* fnp)
     return 1;
 
   /* Don't auto-inline anything that might not be bound within
-     this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+     this unit of translation.
+     Exclude comdat functions from this rule.  While they can be bound
+     to the other unit, they all must be the same.  This is especially
+     important so templates can inline.  */
+  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn)
+      && !DECL_COMDAT (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
       return 1;

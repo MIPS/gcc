@@ -452,6 +452,9 @@ enum group_termination
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   {"warn-altivec-long", &rs6000_warn_altivec_long_switch, \
+    N_("Warn about deprecated 'vector long ...' AltiVec type usage"), 0}, \
+   {"no-warn-altivec-long", &rs6000_warn_altivec_long_switch, "", 0}, \
    {"sched-costly-dep=", &rs6000_sched_costly_dep_str,                  \
     N_("Determine which dependences between insns are considered costly"), 0}, \
    {"insert-sched-nops=", &rs6000_sched_insert_nops_str,                \
@@ -519,6 +522,9 @@ extern const char *rs6000_sched_costly_dep_str;
 extern enum rs6000_dependence_cost rs6000_sched_costly_dep;
 extern const char *rs6000_sched_insert_nops_str;
 extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
+
+extern int rs6000_warn_altivec_long;
+extern const char *rs6000_warn_altivec_long_switch;
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -677,7 +683,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    target machine.  If you don't define this, the default is one
    word.  */
 #define LONG_TYPE_SIZE (TARGET_32BIT ? 32 : 64)
-#define MAX_LONG_TYPE_SIZE 64
 
 /* A C expression for the size in bits of the type `long long' on the
    target machine.  If you don't define this, the default is two
@@ -698,9 +703,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    the target machine.  If you don't define this, the default is two
    words.  */
 #define LONG_DOUBLE_TYPE_SIZE rs6000_long_double_type_size
-
-/* Constant which presents upper bound of the above value.  */
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -1437,7 +1439,7 @@ enum reg_class
    : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
    : 0)
 
-/* Defining, which contraints are memory contraints. Tells reload,
+/* Define which constraints are memory constraints.  Tell reload
    that any memory address can be reloaded by copying the 
    memory address into a base register if required.  */
 
@@ -1767,19 +1769,19 @@ typedef struct rs6000_args
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME, FALSE, FALSE)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
+  init_cumulative_args (&CUM, FNTYPE, LIBNAME, FALSE, FALSE, N_NAMED_ARGS)
 
 /* Similar, but when scanning the definition of a procedure.  We always
    set NARGS_PROTOTYPE large so we never return an EXPR_LIST.  */
 
-#define INIT_CUMULATIVE_INCOMING_ARGS(CUM,FNTYPE,LIBNAME) \
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME, TRUE, FALSE)
+#define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
+  init_cumulative_args (&CUM, FNTYPE, LIBNAME, TRUE, FALSE, 1000)
 
 /* Like INIT_CUMULATIVE_ARGS' but only used for outgoing libcalls.  */
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
-  init_cumulative_args (&CUM, NULL_TREE, LIBNAME, FALSE, TRUE)
+  init_cumulative_args (&CUM, NULL_TREE, LIBNAME, FALSE, TRUE, 0)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -2285,7 +2287,7 @@ do {								\
 #define SELECT_CC_MODE(OP,X,Y) \
   (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT ? CCFPmode	\
    : (OP) == GTU || (OP) == LTU || (OP) == GEU || (OP) == LEU ? CCUNSmode \
-   : (((OP) == EQ || (OP) == NE) && GET_RTX_CLASS (GET_CODE (X)) == '<'   \
+   : (((OP) == EQ || (OP) == NE) && COMPARISON_P (X)			  \
       ? CCEQmode : CCmode))
 
 /* Can the condition code MODE be safely reversed?  This is safe in
@@ -2915,9 +2917,11 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_ABS_V4SI,
   ALTIVEC_BUILTIN_ABS_V4SF,
   ALTIVEC_BUILTIN_ABS_V8HI,
-  ALTIVEC_BUILTIN_ABS_V16QI
+  ALTIVEC_BUILTIN_ABS_V16QI,
+  ALTIVEC_BUILTIN_COMPILETIME_ERROR,
+
   /* SPE builtins.  */
-  , SPE_BUILTIN_EVADDW,
+  SPE_BUILTIN_EVADDW,
   SPE_BUILTIN_EVAND,
   SPE_BUILTIN_EVANDC,
   SPE_BUILTIN_EVDIVWS,

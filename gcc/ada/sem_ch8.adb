@@ -41,6 +41,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
@@ -648,7 +649,6 @@ package body Sem_Ch8 is
       Id  : constant Entity_Id := Defining_Identifier (N);
       Dec : Node_Id;
       Nam : constant Node_Id   := Name (N);
-      S   : constant Entity_Id := Subtype_Mark (N);
       T   : Entity_Id;
       T2  : Entity_Id;
 
@@ -678,10 +678,23 @@ package body Sem_Ch8 is
             Set_Etype (Nam, T);
          end if;
 
-      else
-         Find_Type (S);
-         T := Entity (S);
+      elsif Present (Subtype_Mark (N)) then
+         Find_Type (Subtype_Mark (N));
+         T := Entity (Subtype_Mark (N));
          Analyze_And_Resolve (Nam, T);
+
+      --  Ada 0Y (AI-230): Access renaming
+
+      elsif Present (Access_Definition (N)) then
+         Find_Type (Subtype_Mark (Access_Definition (N)));
+         T := Access_Definition
+                (Related_Nod => N,
+                 N           => Access_Definition (N));
+         Analyze_And_Resolve (Nam, T);
+
+      else
+         pragma Assert (False);
+         null;
       end if;
 
       --  An object renaming requires an exact match of the type;
@@ -743,7 +756,6 @@ package body Sem_Ch8 is
          else
             Error_Msg_N ("expect object name in renaming", Nam);
          end if;
-
       end if;
 
       Set_Etype (Id, T2);
@@ -792,7 +804,7 @@ package body Sem_Ch8 is
          Error_Msg_N
            ("expect package name in renaming", Name (N));
 
-      --  Ada0Y (AI-50217): Limited withed packages can not be renamed
+      --  Ada 0Y (AI-50217): Limited withed packages can not be renamed
 
       elsif Ekind (Old_P) = E_Package
         and then From_With_Type (Old_P)
@@ -1166,10 +1178,49 @@ package body Sem_Ch8 is
             Old_S := Entity (Nam);
             New_S := Analyze_Subprogram_Specification (Spec);
 
-            if Ekind (Entity (Nam)) = E_Operator
-              and then Box_Present (Inst_Node)
-            then
-               Old_S := Find_Renamed_Entity (N, Name (N), New_S, Is_Actual);
+            --  Operator case
+
+            if Ekind (Entity (Nam)) = E_Operator then
+
+               --  Box present
+
+               if Box_Present (Inst_Node) then
+                  Old_S := Find_Renamed_Entity (N, Name (N), New_S, Is_Actual);
+
+               --  If there is an immediately visible homonym of the operator
+               --  and the declaration has a default, this is worth a warning
+               --  because the user probably did not intend to get the pre-
+               --  defined operator, visible in the generic declaration.
+               --  To find if there is an intended candidate, analyze the
+               --  renaming again in the current context.
+
+               elsif Scope (Old_S) = Standard_Standard
+                 and then Present (Default_Name (Inst_Node))
+               then
+                  declare
+                     Decl   : constant Node_Id := New_Copy_Tree (N);
+                     Hidden : Entity_Id;
+
+                  begin
+                     Set_Entity (Name (Decl), Empty);
+                     Analyze (Name (Decl));
+                     Hidden :=
+                       Find_Renamed_Entity (Decl, Name (Decl), New_S, True);
+
+                     if Present (Hidden)
+                       and then In_Open_Scopes (Scope (Hidden))
+                       and then Is_Immediately_Visible (Hidden)
+                       and then Comes_From_Source (Hidden)
+                       and then  Hidden /= Old_S
+                     then
+                        Error_Msg_Sloc := Sloc (Hidden);
+                        Error_Msg_N ("?default subprogram is resolved " &
+                                     "in the generic declaration " &
+                                     "('R'M 12.6(17))", N);
+                        Error_Msg_NE ("\?and will not use & #", N, Hidden);
+                     end if;
+                  end;
+               end if;
             end if;
 
          else
@@ -2150,9 +2201,8 @@ package body Sem_Ch8 is
       Elmt      : Elmt_Id;
 
       function Is_Primitive_Operator
-        (Op   : Entity_Id;
-         F    : Entity_Id)
-         return Boolean;
+        (Op : Entity_Id;
+         F  : Entity_Id) return Boolean;
       --  Check whether Op is a primitive operator of a use-visible type
 
       ---------------------------
@@ -2160,9 +2210,8 @@ package body Sem_Ch8 is
       ---------------------------
 
       function Is_Primitive_Operator
-        (Op   : Entity_Id;
-         F    : Entity_Id)
-         return Boolean
+        (Op : Entity_Id;
+         F  : Entity_Id) return Boolean
       is
          T : constant Entity_Id := Etype (F);
 
@@ -3392,7 +3441,7 @@ package body Sem_Ch8 is
          Set_Chars (Selector, Chars (Id));
       end if;
 
-      --  Ada0Y (AI-50217): Check usage of entities in limited withed units
+      --  Ada 0Y (AI-50217): Check usage of entities in limited withed units
 
       if Ekind (P_Name) = E_Package
         and then From_With_Type (P_Name)
@@ -4717,10 +4766,8 @@ package body Sem_Ch8 is
    -- Is_Appropriate_For_Record --
    -------------------------------
 
-   function Is_Appropriate_For_Record
-     (T    : Entity_Id)
-      return Boolean
-   is
+   function Is_Appropriate_For_Record (T : Entity_Id) return Boolean is
+
       function Has_Components (T1 : Entity_Id) return Boolean;
       --  Determine if given type has components (i.e. is either a record
       --  type or a type that has discriminants).
@@ -4954,6 +5001,10 @@ package body Sem_Ch8 is
       function Find_System (C_Unit : Node_Id) return Entity_Id;
       --  Scan context clause of compilation unit to find a with_clause
       --  for System.
+
+      -----------------
+      -- Find_System --
+      -----------------
 
       function Find_System (C_Unit : Node_Id) return Entity_Id is
          With_Clause : Node_Id;
@@ -5299,7 +5350,7 @@ package body Sem_Ch8 is
 
       Set_In_Use (P);
 
-      --  Ada0Y (AI-50217): Check restriction.
+      --  Ada 0Y (AI-50217): Check restriction.
 
       if From_With_Type (P) then
          Error_Msg_N ("limited withed package cannot appear in use clause", N);

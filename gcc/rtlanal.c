@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "target.h"
+#include "output.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "basic-block.h"
@@ -134,10 +136,14 @@ rtx_unstable_p (rtx x)
 int
 rtx_varies_p (rtx x, int for_alias)
 {
-  RTX_CODE code = GET_CODE (x);
+  RTX_CODE code;
   int i;
   const char *fmt;
 
+  if (!x)
+    return 0;
+
+  code = GET_CODE (x);
   switch (code)
     {
     case MEM:
@@ -1450,7 +1456,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
-			     ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
+			     ? hard_regno_nregs[inner_regno][GET_MODE (x)] : 1);
 
 	  return endregno > inner_regno && regno < inner_endregno;
 	}
@@ -1520,18 +1526,22 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 {
   unsigned int regno, endregno;
 
-  /* Overly conservative.  */
-  if (GET_CODE (x) == STRICT_LOW_PART
-      || GET_CODE (x) == ZERO_EXTRACT
-      || GET_CODE (x) == SIGN_EXTRACT)
-    x = XEXP (x, 0);
-
-  /* If either argument is a constant, then modifying X can not affect IN.  */
-  if (CONSTANT_P (x) || CONSTANT_P (in))
+  /* If either argument is a constant, then modifying X can not
+     affect IN.  Here we look at IN, we can profitably combine
+     CONSTANT_P (x) with the switch statement below.  */
+  if (CONSTANT_P (in))
     return 0;
 
+ recurse:
   switch (GET_CODE (x))
     {
+    case STRICT_LOW_PART:
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+      /* Overly conservative.  */
+      x = XEXP (x, 0);
+      goto recurse;
+
     case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -1574,15 +1584,18 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 	for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	  if (XEXP (XVECEXP (x, 0, i), 0) != 0
 	      && reg_overlap_mentioned_p (XEXP (XVECEXP (x, 0, i), 0), in))
-	      return 1;
+	    return 1;
 	return 0;
       }
 
     default:
-      break;
-    }
+#ifdef ENABLE_CHECKING
+      if (!CONSTANT_P (x))
+	abort ();
+#endif
 
-  abort ();
+      return 0;
+    }
 }
 
 /* Return the last value to which REG was set prior to INSN.  If we can't
@@ -2704,7 +2717,6 @@ int
 replace_label (rtx *x, void *data)
 {
   rtx l = *x;
-  rtx tmp;
   rtx old_label = ((replace_label_data *) data)->r1;
   rtx new_label = ((replace_label_data *) data)->r2;
   bool update_label_nuses = ((replace_label_data *) data)->update_label_nuses;
@@ -2712,12 +2724,10 @@ replace_label (rtx *x, void *data)
   if (l == NULL_RTX)
     return 0;
 
-  if (GET_CODE (l) == MEM
-      && (tmp = XEXP (l, 0)) != NULL_RTX
-      && GET_CODE (tmp) == SYMBOL_REF
-      && CONSTANT_POOL_ADDRESS_P (tmp))
+  if (GET_CODE (l) == SYMBOL_REF
+      && CONSTANT_POOL_ADDRESS_P (l))
     {
-      rtx c = get_pool_constant (tmp);
+      rtx c = get_pool_constant (l);
       if (rtx_referenced_p (old_label, c))
 	{
 	  rtx new_c, new_l;
@@ -2733,7 +2743,7 @@ replace_label (rtx *x, void *data)
 
 	  /* Add the new constant NEW_C to constant pool and replace
 	     the old reference to constant by new reference.  */
-	  new_l = force_const_mem (get_pool_mode (tmp), new_c);
+	  new_l = XEXP (force_const_mem (get_pool_mode (l), new_c), 0);
 	  *x = replace_rtx (l, l, new_l);
 	}
       return 0;
@@ -3022,37 +3032,60 @@ regno_use_in (unsigned int regno, rtx x)
 int
 commutative_operand_precedence (rtx op)
 {
+  enum rtx_code code = GET_CODE (op);
+  
   /* Constants always come the second operand.  Prefer "nice" constants.  */
-  if (GET_CODE (op) == CONST_INT)
+  if (code == CONST_INT)
     return -7;
-  if (GET_CODE (op) == CONST_DOUBLE)
+  if (code == CONST_DOUBLE)
     return -6;
   op = avoid_constant_pool_reference (op);
-  if (GET_CODE (op) == CONST_INT)
-    return -5;
-  if (GET_CODE (op) == CONST_DOUBLE)
-    return -4;
-  if (CONSTANT_P (op))
-    return -3;
 
-  /* SUBREGs of objects should come second.  */
-  if (GET_CODE (op) == SUBREG
-      && GET_RTX_CLASS (GET_CODE (SUBREG_REG (op))) == 'o')
-    return -2;
+  switch (GET_RTX_CLASS (code))
+    {
+    case RTX_CONST_OBJ:
+      if (code == CONST_INT)
+        return -5;
+      if (code == CONST_DOUBLE)
+        return -4;
+      return -3;
 
-  /* If only one operand is a `neg', `not',
-    `mult', `plus', or `minus' expression, it will be the first
-    operand.  */
-  if (GET_CODE (op) == NEG || GET_CODE (op) == NOT
-      || GET_CODE (op) == MULT || GET_CODE (op) == PLUS
-      || GET_CODE (op) == MINUS)
-    return 2;
+    case RTX_EXTRA:
+      /* SUBREGs of objects should come second.  */
+      if (code == SUBREG && OBJECT_P (SUBREG_REG (op)))
+        return -2;
 
-  /* Complex expressions should be the first, so decrease priority
-     of objects.  */
-  if (GET_RTX_CLASS (GET_CODE (op)) == 'o')
-    return -1;
-  return 0;
+      if (!CONSTANT_P (op))
+        return 0;
+      else
+	/* As for RTX_CONST_OBJ.  */
+	return -3;
+
+    case RTX_OBJ:
+      /* Complex expressions should be the first, so decrease priority
+         of objects.  */
+      return -1;
+
+    case RTX_COMM_ARITH:
+      /* Prefer operands that are themselves commutative to be first.
+         This helps to make things linear.  In particular,
+         (and (and (reg) (reg)) (not (reg))) is canonical.  */
+      return 4;
+
+    case RTX_BIN_ARITH:
+      /* If only one operand is a binary expression, it will be the first
+         operand.  In particular,  (plus (minus (reg) (reg)) (neg (reg)))
+         is canonical, although it will usually be further simplified.  */
+      return 2;
+  
+    case RTX_UNARY:
+      /* Then prefer NEG and NOT.  */
+      if (code == NEG || code == NOT)
+        return 1;
+
+    default:
+      return 0;
+    }
 }
 
 /* Return 1 iff it is necessary to swap operands of commutative operation
@@ -3304,7 +3337,7 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   nregs_xmode = hard_regno_nregs[xregno][xmode];
   nregs_ymode = hard_regno_nregs[xregno][ymode];
 
-  /* paradoxical subregs are always valid.  */
+  /* Paradoxical subregs are always valid.  */
   if (offset == 0
       && nregs_ymode > nregs_xmode
       && (GET_MODE_SIZE (ymode) > UNITS_PER_WORD
@@ -3711,7 +3744,7 @@ hoist_insn_to_edge (rtx insn, edge e, rtx val, rtx new)
     abort ();
 
   /* Do not use emit_insn_on_edge as we want to preserve notes and similar
-     stuff.  We also emit CALL_INSNS and firends.  */
+     stuff.  We also emit CALL_INSNS and friends.  */
   if (e->insns == NULL_RTX)
     {
       start_sequence ();
@@ -3754,3 +3787,107 @@ label_is_jump_target_p (rtx label, rtx jump_insn)
   return false;
 }
 
+
+/* Return an estimate of the cost of computing rtx X.
+   One use is in cse, to decide which expression to keep in the hash table.
+   Another is in rtl generation, to pick the cheapest way to multiply.
+   Other uses like the latter are expected in the future.  */
+
+int
+rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
+{
+  int i, j;
+  enum rtx_code code;
+  const char *fmt;
+  int total;
+
+  if (x == 0)
+    return 0;
+
+  /* Compute the default costs of certain things.
+     Note that targetm.rtx_costs can override the defaults.  */
+
+  code = GET_CODE (x);
+  switch (code)
+    {
+    case MULT:
+      total = COSTS_N_INSNS (5);
+      break;
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      total = COSTS_N_INSNS (7);
+      break;
+    case USE:
+      /* Used in loop.c and combine.c as a marker.  */
+      total = 0;
+      break;
+    default:
+      total = COSTS_N_INSNS (1);
+    }
+
+  switch (code)
+    {
+    case REG:
+      return 0;
+
+    case SUBREG:
+      /* If we can't tie these modes, make this expensive.  The larger
+	 the mode, the more expensive it is.  */
+      if (! MODES_TIEABLE_P (GET_MODE (x), GET_MODE (SUBREG_REG (x))))
+	return COSTS_N_INSNS (2
+			      + GET_MODE_SIZE (GET_MODE (x)) / UNITS_PER_WORD);
+      break;
+
+    default:
+      if ((*targetm.rtx_costs) (x, code, outer_code, &total))
+	return total;
+      break;
+    }
+
+  /* Sum the costs of the sub-rtx's, plus cost of this operation,
+     which is already in total.  */
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    if (fmt[i] == 'e')
+      total += rtx_cost (XEXP (x, i), code);
+    else if (fmt[i] == 'E')
+      for (j = 0; j < XVECLEN (x, i); j++)
+	total += rtx_cost (XVECEXP (x, i, j), code);
+
+  return total;
+}
+
+/* Return cost of address expression X.
+   Expect that X is properly formed address reference.  */
+
+int
+address_cost (rtx x, enum machine_mode mode)
+{
+  /* The address_cost target hook does not deal with ADDRESSOF nodes.  But,
+     during CSE, such nodes are present.  Using an ADDRESSOF node which
+     refers to the address of a REG is a good thing because we can then
+     turn (MEM (ADDRESSOF (REG))) into just plain REG.  */
+
+  if (GET_CODE (x) == ADDRESSOF && REG_P (XEXP ((x), 0)))
+    return -1;
+
+  /* We may be asked for cost of various unusual addresses, such as operands
+     of push instruction.  It is not worthwhile to complicate writing
+     of the target hook by such cases.  */
+
+  if (!memory_address_p (mode, x))
+    return 1000;
+
+  return (*targetm.address_cost) (x);
+}
+
+/* If the target doesn't override, compute the cost as with arithmetic.  */
+
+int
+default_address_cost (rtx x)
+{
+  return rtx_cost (x, MEM);
+}

@@ -40,6 +40,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
@@ -1472,6 +1473,45 @@ package body Freeze is
          --  Set True if we find at least one component with a component
          --  clause (used to warn about useless Bit_Order pragmas).
 
+         procedure Check_Itype (Desig : Entity_Id);
+         --  If the component subtype is an access to a constrained subtype
+         --  of an already frozen type, make the subtype frozen as well. It
+         --  might otherwise be frozen in the wrong scope, and a freeze node
+         --  on subtype has no effect.
+
+         -----------------
+         -- Check_Itype --
+         -----------------
+
+         procedure Check_Itype (Desig : Entity_Id) is
+         begin
+            if not Is_Frozen (Desig)
+              and then Is_Frozen (Base_Type (Desig))
+            then
+               Set_Is_Frozen (Desig);
+
+               --  In addition, add an Itype_Reference to ensure that the
+               --  access subtype is elaborated early enough. This cannot
+               --  be done if the subtype may depend on discriminants.
+
+               if Ekind (Comp) = E_Component
+                 and then Is_Itype (Etype (Comp))
+                 and then not Has_Discriminants (Rec)
+               then
+                  IR := Make_Itype_Reference (Sloc (Comp));
+                  Set_Itype (IR, Desig);
+
+                  if No (Result) then
+                     Result := New_List (IR);
+                  else
+                     Append (IR, Result);
+                  end if;
+               end if;
+            end if;
+         end Check_Itype;
+
+      --  Start of processing for Freeze_Record_Type
+
       begin
          --  If this is a subtype of a controlled type, declared without
          --  a constraint, the _controller may not appear in the component
@@ -1486,11 +1526,10 @@ package body Freeze is
             then
                Set_First_Entity (Rec, First_Entity (Base_Type (Rec)));
 
-            --  If this is an internal type without a declaration, as for
-            --  a record component, the base type may not yet be frozen,
-            --  and its controller has not been created. Add an explicit
-            --  freeze node for the itype, so it will be frozen after the
-            --  base type.
+            --  If this is an internal type without a declaration, as for a
+            --  record component, the base type may not yet be frozen, and its
+            --  controller has not been created. Add an explicit freeze node
+            --  for the itype, so it will be frozen after the base type.
 
             elsif Is_Itype (Rec)
               and then Has_Delayed_Freeze (Base_Type (Rec))
@@ -1547,40 +1586,19 @@ package body Freeze is
                            Loc, Result);
                      end if;
 
+                  elsif Is_Itype (Designated_Type (Etype (Comp))) then
+                     Check_Itype (Designated_Type (Etype (Comp)));
+
                   else
                      Freeze_And_Append
                        (Designated_Type (Etype (Comp)), Loc, Result);
                   end if;
                end;
 
-            --  If this is a constrained subtype of an already frozen type,
-            --  make the subtype frozen as well. It might otherwise be frozen
-            --  in the wrong scope, and a freeze node on subtype has no effect.
-
             elsif Is_Access_Type (Etype (Comp))
-              and then not Is_Frozen (Designated_Type (Etype (Comp)))
               and then Is_Itype (Designated_Type (Etype (Comp)))
-              and then Is_Frozen (Base_Type (Designated_Type (Etype (Comp))))
             then
-               Set_Is_Frozen (Designated_Type (Etype (Comp)));
-
-               --  In addition, add an Itype_Reference to ensure that the
-               --  access subtype is elaborated early enough. This cannot
-               --  be done if the subtype may depend on discriminants.
-
-               if Ekind (Comp) = E_Component
-                 and then Is_Itype (Etype (Comp))
-                 and then not Has_Discriminants (Rec)
-               then
-                  IR := Make_Itype_Reference (Sloc (Comp));
-                  Set_Itype (IR, Designated_Type (Etype (Comp)));
-
-                  if No (Result) then
-                     Result := New_List (IR);
-                  else
-                     Append (IR, Result);
-                  end if;
-               end if;
+               Check_Itype (Designated_Type (Etype (Comp)));
 
             elsif Is_Array_Type (Etype (Comp))
               and then Is_Access_Type (Component_Type (Etype (Comp)))
@@ -1891,6 +1909,35 @@ package body Freeze is
                S := Scope (S);
             end loop;
          end;
+
+      --  Similarly, an inlined instance body may make reference to global
+      --  entities, but these references cannot be the proper freezing point
+      --  for them, and the the absence of inlining freezing will take place
+      --  in their own scope. Normally instance bodies are analyzed after
+      --  the enclosing compilation, and everything has been frozen at the
+      --  proper place, but with front-end inlining an instance body is
+      --  compiled before the end of the enclosing scope, and as a result
+      --  out-of-order freezing must be prevented.
+
+      elsif Front_End_Inlining
+        and then  In_Instance_Body
+        and then Present (Scope (E))
+      then
+         declare
+            S : Entity_Id := Scope (E);
+         begin
+            while Present (S) loop
+               if Is_Generic_Instance (S) then
+                  exit;
+               else
+                  S := Scope (S);
+               end if;
+            end loop;
+
+            if No (S) then
+               return No_List;
+            end if;
+         end;
       end if;
 
       --  Here to freeze the entity
@@ -1982,7 +2029,6 @@ package body Freeze is
                   --  Loop through formals
 
                   Formal := First_Formal (E);
-
                   while Present (Formal) loop
                      F_Type := Etype (Formal);
                      Freeze_And_Append (F_Type, Loc, Result);

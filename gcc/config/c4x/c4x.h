@@ -1114,7 +1114,7 @@ typedef struct c4x_args
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (c4x_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
@@ -1151,10 +1151,10 @@ CUMULATIVE_ARGS;
 /* How Scalar Function Values Are Returned.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-	gen_rtx(REG, TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
 
 #define LIBCALL_VALUE(MODE) \
-	gen_rtx(REG, MODE, R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (MODE, R0_REGNO)	/* Return in R0.  */
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) ((REGNO) == R0_REGNO)
 

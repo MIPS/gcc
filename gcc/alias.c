@@ -1139,9 +1139,6 @@ rtx_equal_for_memref_p (rtx x, rtx y)
   /* Some RTL can be compared without a recursive examination.  */
   switch (code)
     {
-    case VALUE:
-      return CSELIB_VAL_PTR (x) == CSELIB_VAL_PTR (y);
-
     case REG:
       return REGNO (x) == REGNO (y);
 
@@ -1151,6 +1148,7 @@ rtx_equal_for_memref_p (rtx x, rtx y)
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
       /* There's no need to compare the contents of CONST_DOUBLEs or
@@ -1175,7 +1173,7 @@ rtx_equal_for_memref_p (rtx x, rtx y)
 		&& rtx_equal_for_memref_p (XEXP (x, 1), XEXP (y, 0))));
   /* For commutative operations, the RTX match if the operand match in any
      order.  Also handle the simple binary and unary cases without a loop.  */
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+  if (COMMUTATIVE_P (x))
     {
       rtx xop0 = canon_rtx (XEXP (x, 0));
       rtx yop0 = canon_rtx (XEXP (y, 0));
@@ -1186,14 +1184,14 @@ rtx_equal_for_memref_p (rtx x, rtx y)
 	      || (rtx_equal_for_memref_p (xop0, yop1)
 		  && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)), yop0)));
     }
-  else if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == '2')
+  else if (NON_COMMUTATIVE_P (x))
     {
       return (rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
 				      canon_rtx (XEXP (y, 0)))
 	      && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)),
 					 canon_rtx (XEXP (y, 1))));
     }
-  else if (GET_RTX_CLASS (code) == '1')
+  else if (UNARY_P (x))
     return rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
 				   canon_rtx (XEXP (y, 0)));
 
@@ -1263,7 +1261,7 @@ find_symbolic_term (rtx x)
   code = GET_CODE (x);
   if (code == SYMBOL_REF || code == LABEL_REF)
     return x;
-  if (GET_RTX_CLASS (code) == 'o')
+  if (OBJECT_P (x))
     return 0;
 
   fmt = GET_RTX_FORMAT (code);
@@ -1325,6 +1323,8 @@ find_base_term (rtx x)
 
     case VALUE:
       val = CSELIB_VAL_PTR (x);
+      if (!val)
+	return 0;
       for (l = val->locs; l; l = l->next)
 	if ((x = find_base_term (l->loc)) != 0)
 	  return x;
@@ -1502,14 +1502,17 @@ get_addr (rtx x)
   if (GET_CODE (x) != VALUE)
     return x;
   v = CSELIB_VAL_PTR (x);
-  for (l = v->locs; l; l = l->next)
-    if (CONSTANT_P (l->loc))
-      return l->loc;
-  for (l = v->locs; l; l = l->next)
-    if (GET_CODE (l->loc) != REG && GET_CODE (l->loc) != MEM)
-      return l->loc;
-  if (v->locs)
-    return v->locs->loc;
+  if (v)
+    {
+      for (l = v->locs; l; l = l->next)
+	if (CONSTANT_P (l->loc))
+	  return l->loc;
+      for (l = v->locs; l; l = l->next)
+	if (GET_CODE (l->loc) != REG && GET_CODE (l->loc) != MEM)
+	  return l->loc;
+      if (v->locs)
+	return v->locs->loc;
+    }
   return x;
 }
 
@@ -2658,9 +2661,6 @@ init_alias_once (void)
 {
   int i;
 
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(N) N
-#endif
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     /* Check whether this register can hold an incoming pointer
        argument.  FUNCTION_ARG_REGNO_P tests outgoing register

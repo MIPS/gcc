@@ -34,6 +34,7 @@ with Opt;
 with Osint;    use Osint;
 with Output;
 with Prj;      use Prj;
+with Prj.Com;
 with Prj.Env;
 with Prj.Ext;  use Prj.Ext;
 with Prj.Pars;
@@ -499,6 +500,7 @@ begin
          for Arg in Command_Arg + 1 .. Argument_Count loop
             declare
                The_Arg : constant String := Argument (Arg);
+
             begin
                --  Check if an argument file is specified
 
@@ -509,7 +511,7 @@ begin
                      Last     : Natural;
 
                   begin
-                     --  Open the file. Fail if the file cannot be found.
+                     --  Open the file and fail if the file cannot be found
 
                      begin
                         Open
@@ -707,6 +709,7 @@ begin
                         Fail ("-p and -P cannot be used together");
 
                      elsif Argv'Length = 2 then
+
                         --  There is space between -P and the project file
                         --  name. -P cannot be the last option.
 
@@ -794,10 +797,10 @@ begin
             Data : constant Prj.Project_Data :=
                      Prj.Projects.Table (Project);
 
-            Pkg  : constant Prj.Package_Id :=
-                              Prj.Util.Value_Of
-                                (Name        => Tool_Package_Name,
-                                 In_Packages => Data.Decl.Packages);
+            Pkg : constant Prj.Package_Id :=
+                    Prj.Util.Value_Of
+                      (Name        => Tool_Package_Name,
+                       In_Packages => Data.Decl.Packages);
 
             Element : Package_Element;
 
@@ -825,6 +828,7 @@ begin
                --  Pretty_Printer (for gnatpp) and Eliminate (for gnatelim)
                --  have an attributed Switches, an associative array, indexed
                --  by the name of the file.
+
                --  They also have an attribute Default_Switches, indexed
                --  by the name of the programming language.
 
@@ -833,7 +837,7 @@ begin
                      Default_Switches_Array :=
                        Prj.Util.Value_Of
                          (Name => Name_Default_Switches,
-                          In_Arrays => Packages.Table (Pkg).Decl.Arrays);
+                          In_Arrays => Element.Decl.Arrays);
                      The_Switches := Prj.Util.Value_Of
                        (Index => Name_Ada,
                         In_Array => Default_Switches_Array);
@@ -1322,6 +1326,47 @@ begin
                end if;
             end;
          end if;
+
+         --  For gnat pretty, if no file has been put on the command line,
+         --  call gnatpp with all the sources of the main project.
+
+         if The_Command = Pretty then
+            declare
+               Add_Sources : Boolean := True;
+               Unit_Data   : Prj.Com.Unit_Data;
+            begin
+               --  Check if there is at least one argument that is not a switch
+
+               for Index in 1 .. Last_Switches.Last loop
+                  if Last_Switches.Table (Index)(1) = '-' then
+                     Add_Sources := False;
+                     exit;
+                  end if;
+               end loop;
+
+               --  If all arguments were switches, add the path names of
+               --  all the sources of the main project.
+
+               if Add_Sources then
+                  for Unit in 1 .. Prj.Com.Units.Last loop
+                     Unit_Data := Prj.Com.Units.Table (Unit);
+
+                     for Kind in Prj.Com.Spec_Or_Body loop
+
+                        --  Put only sources that belong to the main project
+
+                        if Unit_Data.File_Names (Kind).Project = Project then
+                           Last_Switches.Increment_Last;
+                           Last_Switches.Table (Last_Switches.Last) :=
+                             new String'
+                               (Get_Name_String
+                                  (Unit_Data.File_Names (Kind).Display_Path));
+                        end if;
+                     end loop;
+                  end loop;
+               end if;
+            end;
+         end if;
       end if;
 
       --  Gather all the arguments and invoke the executable
@@ -1394,5 +1439,4 @@ exception
       else
          Set_Exit_Status (My_Exit_Status);
       end if;
-
 end GNATCmd;

@@ -174,7 +174,7 @@ extern int target_flags;
    address register) without having to know the specific register or the
    specific offset.  The setback is that there's a limited number of
    registers, and you'll not find out until link time whether you
-   should've compiled with -mno-base-addresses.  */
+   should have compiled with -mno-base-addresses.  */
 #define TARGET_MASK_BASE_ADDRESSES 128
 
 /* FIXME: Get rid of this one.  */
@@ -737,7 +737,7 @@ enum reg_class
 
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).regs = 0, (CUM).lib = ((LIBNAME) != 0))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\

@@ -1710,7 +1710,7 @@ finish_class (void)
   /* Emit deferred inline methods. */  
   for (method = type_methods; method != NULL_TREE; )
     {
-      if (! TREE_ASM_WRITTEN (method) && DECL_SAVED_INSNS (method) != 0)
+      if (! TREE_ASM_WRITTEN (method) && DECL_STRUCT_FUNCTION (method) != 0)
 	{
 	  output_inline_function (method);
 	  /* Scan the list again to see if there are any earlier
@@ -2053,7 +2053,7 @@ void
 layout_class_methods (tree this_class)
 {
   tree method_decl, dtable_count;
-  tree super_class;
+  tree super_class, type_name;
 
   if (TYPE_NVIRTUALS (this_class))
     return;
@@ -2070,7 +2070,8 @@ layout_class_methods (tree this_class)
   else
     dtable_count = integer_zero_node;
 
-  if (CLASS_ABSTRACT (TYPE_NAME (this_class)))
+  type_name = TYPE_NAME (this_class);
+  if (CLASS_ABSTRACT (type_name) || CLASS_INTERFACE (type_name))
     {
       /* An abstract class can have methods which are declared only in
 	 an implemented interface.  These are called "Miranda

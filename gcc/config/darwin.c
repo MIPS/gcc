@@ -1,5 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -82,7 +82,7 @@ machopic_classify_ident (tree ident)
 		     && name[5] == '_'));
   tree temp;
 
-  /* The PIC base symbol is always defined. */
+  /* The PIC base symbol is always defined.  */
   if (! strcmp (name, "<pic base>"))
     return MACHOPIC_DEFINED_DATA;
 
@@ -245,7 +245,7 @@ machopic_output_function_base_name (FILE *file)
 {
   const char *current_name;
 
-  /* If dynamic-no-pic is on, we should not get here. */
+  /* If dynamic-no-pic is on, we should not get here.  */
   if (MACHO_DYNAMIC_NO_PIC_P)
     abort ();
   current_name =
@@ -900,10 +900,6 @@ machopic_finish (FILE *asm_out_file)
       if (! TREE_USED (temp))
 	continue;
 
-      /* If the symbol is actually defined, we don't need a stub.  */
-      if (sym_name[0] == '!' && sym_name[1] == 'T')
-	continue;
-
       sym_name = darwin_strip_name_encoding (sym_name);
 
       sym = alloca (strlen (sym_name) + 2);
@@ -1096,37 +1092,6 @@ update_non_lazy_ptrs (const char *name)
     }
 }
 
-/* Function NAME is being defined, and its label has just been output.
-   If there's already a reference to a stub for this function, we can
-   just emit the stub label now and we don't bother emitting the stub later.  */
-
-void
-machopic_output_possible_stub_label (FILE *file, const char *name)
-{
-  tree temp;
-
-  /* Ensure we're looking at a section-encoded name.  */
-  if (name[0] != '!' || (name[1] != 't' && name[1] != 'T'))
-    return;
-
-  for (temp = machopic_stubs;
-       temp != NULL_TREE;
-       temp = TREE_CHAIN (temp))
-    {
-      const char *sym_name;
-
-      sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      if (sym_name[0] == '!' && (sym_name[1] == 'T' || sym_name[1] == 't')
-	  && ! strcmp (name+2, sym_name+2))
-	{
-	  ASM_OUTPUT_LABEL (file, IDENTIFIER_POINTER (TREE_PURPOSE (temp)));
-	  /* Avoid generating a stub for this.  */
-	  TREE_USED (temp) = 0;
-	  break;
-	}
-    }
-}
-
 /* Scan the list of stubs and update any recorded names whose
    stripped name matches the argument.  */
 
@@ -1173,8 +1138,7 @@ machopic_select_section (tree exp, int reloc,
 
   if (TREE_CODE (exp) == STRING_CST
       && ((size_t) TREE_STRING_LENGTH (exp)
-	  == strlen (TREE_STRING_POINTER (exp)) + 1)
-      && ! flag_writable_strings)
+	  == strlen (TREE_STRING_POINTER (exp)) + 1))
     cstring_section ();
   else if ((TREE_CODE (exp) == INTEGER_CST || TREE_CODE (exp) == REAL_CST)
 	   && flag_merge_constants)

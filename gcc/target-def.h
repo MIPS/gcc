@@ -217,6 +217,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SCHED_VARIABLE_ISSUE 0
 #define TARGET_SCHED_INIT 0
 #define TARGET_SCHED_FINISH 0
+#define TARGET_SCHED_INIT_GLOBAL 0
+#define TARGET_SCHED_FINISH_GLOBAL 0
 #define TARGET_SCHED_REORDER 0
 #define TARGET_SCHED_REORDER2 0
 #define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK 0
@@ -239,6 +241,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_VARIABLE_ISSUE,					\
    TARGET_SCHED_INIT,						\
    TARGET_SCHED_FINISH,						\
+   TARGET_SCHED_INIT_GLOBAL,					\
+   TARGET_SCHED_FINISH_GLOBAL,					\
    TARGET_SCHED_REORDER,					\
    TARGET_SCHED_REORDER2,					\
    TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK,			\
@@ -325,11 +329,17 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
 
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
-#define TARGET_PROMOTE_FUNCTION_RETURN default_promote_function_return
-#define TARGET_PROMOTE_PROTOTYPES default_promote_prototypes
+#define TARGET_DEFAULT_SHORT_ENUMS hook_bool_void_false
 
-#define TARGET_STRUCT_VALUE_RTX default_struct_value_rtx
+#define TARGET_BUILTIN_SETJMP_FRAME_VALUE default_builtin_setjmp_frame_value
+
+#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
+
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
+
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #define TARGET_RETURN_IN_MEMORY default_return_in_memory
 #define TARGET_RETURN_IN_MSB hook_bool_tree_false
 
@@ -390,6 +400,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BUILD_BUILTIN_VA_LIST,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_DEFAULT_SHORT_ENUMS,			\
+  TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
+  TARGET_MD_ASM_CLOBBERS,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\

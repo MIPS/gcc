@@ -48,14 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
 
-/* Register mappings for target machines without register windows.  */
-#ifndef INCOMING_REGNO
-#define INCOMING_REGNO(OUT) (OUT)
-#endif
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(IN) (IN)
-#endif
-
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
 #endif
@@ -498,13 +490,9 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
      the buffer and use the rest of it for the stack save area, which
      is machine-dependent.  */
 
-#ifndef BUILTIN_SETJMP_FRAME_VALUE
-#define BUILTIN_SETJMP_FRAME_VALUE virtual_stack_vars_rtx
-#endif
-
   mem = gen_rtx_MEM (Pmode, buf_addr);
   set_mem_alias_set (mem, setjmp_alias_set);
-  emit_move_insn (mem, BUILTIN_SETJMP_FRAME_VALUE);
+  emit_move_insn (mem, targetm.builtin_setjmp_frame_value ());
 
   mem = gen_rtx_MEM (Pmode, plus_constant (buf_addr, GET_MODE_SIZE (Pmode))),
   set_mem_alias_set (mem, setjmp_alias_set);
@@ -890,23 +878,6 @@ static enum machine_mode apply_result_mode[FIRST_PSEUDO_REGISTER];
    __builtin_apply_args.  0 indicates that the register is not
    used for calling a function.  */
 static int apply_args_reg_offset[FIRST_PSEUDO_REGISTER];
-
-/* Return the offset of register REGNO into the block returned by
-   __builtin_apply_args.  This is not declared static, since it is
-   needed in objc-act.c.  */
-
-int
-apply_args_register_offset (int regno)
-{
-  apply_args_size ();
-
-  /* Arguments are always put in outgoing registers (in the argument
-     block) if such make sense.  */
-#ifdef OUTGOING_REGNO
-  regno = OUTGOING_REGNO (regno);
-#endif
-  return apply_args_reg_offset[regno];
-}
 
 /* Return the size required for the block returned by __builtin_apply_args,
    and initialize apply_args_mode.  */
@@ -1662,6 +1633,14 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
       errno_set = true; builtin_optab = log_optab; break;
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+      errno_set = true; builtin_optab = log10_optab; break;
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
+      errno_set = true; builtin_optab = log2_optab; break;
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -4137,6 +4116,7 @@ expand_builtin_va_arg (tree valist, tree type)
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
       expand_builtin_trap ();
 
       /* This is dead code, but go ahead and finish so that the
@@ -4986,34 +4966,35 @@ expand_builtin_signbit (tree exp, rtx target)
   temp = expand_expr (arg, NULL_RTX, VOIDmode, 0);
   temp = gen_lowpart (imode, temp);
 
-  if (GET_MODE_BITSIZE (imode) < GET_MODE_BITSIZE (rmode))
-    temp = gen_lowpart (rmode, temp);
-  else if (GET_MODE_BITSIZE (imode) > GET_MODE_BITSIZE (rmode))
+  if (GET_MODE_BITSIZE (imode) > GET_MODE_BITSIZE (rmode))
     {
-      if (bitpos > GET_MODE_BITSIZE (rmode))
-	{
-	  temp = gen_highpart (rmode, temp);
-	  bitpos %= GET_MODE_BITSIZE (rmode);
-	}
-      else
-	temp = gen_lowpart (rmode, temp);
-    }
-
-  if (bitpos < HOST_BITS_PER_WIDE_INT)
-    {
-      hi = 0;
-      lo = (HOST_WIDE_INT) 1 << bitpos;
+      if (BITS_BIG_ENDIAN)
+	bitpos = GET_MODE_BITSIZE (imode) - 1 - bitpos;
+      temp = copy_to_mode_reg (imode, temp);
+      temp = extract_bit_field (temp, 1, bitpos, 1,
+				NULL_RTX, rmode, rmode,
+				GET_MODE_SIZE (imode));
     }
   else
     {
-      hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
-      lo = 0;
-    }
+      if (GET_MODE_BITSIZE (imode) < GET_MODE_BITSIZE (rmode))
+	temp = gen_lowpart (rmode, temp);
+      if (bitpos < HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (HOST_WIDE_INT) 1 << bitpos;
+	}
+      else
+	{
+	  hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
+	  lo = 0;
+	}
 
-  temp = force_reg (rmode, temp);
-  temp = expand_binop (rmode, and_optab, temp,
-		       immed_double_const (lo, hi, rmode),
-		       target, 1, OPTAB_LIB_WIDEN);
+      temp = force_reg (rmode, temp);
+      temp = expand_binop (rmode, and_optab, temp,
+			   immed_double_const (lo, hi, rmode),
+			   target, 1, OPTAB_LIB_WIDEN);
+    }
   return temp;
 }
 
@@ -5129,6 +5110,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOG:
     case BUILT_IN_LOGF:
     case BUILT_IN_LOGL:
+    case BUILT_IN_LOG10:
+    case BUILT_IN_LOG10F:
+    case BUILT_IN_LOG10L:
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+    case BUILT_IN_LOG2L:
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -5538,6 +5525,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EH_RETURN_DATA_REGNO:
       return expand_builtin_eh_return_data_regno (arglist);
 #endif
+    case BUILT_IN_EXTEND_POINTER:
+      return expand_builtin_extend_pointer (TREE_VALUE (arglist));
+
     case BUILT_IN_VA_START:
     case BUILT_IN_STDARG_START:
       return expand_builtin_va_start (arglist);

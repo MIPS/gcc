@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "machmode.h"
 #include "version.h"
 #include "input.h"
+#include "statistics.h"
 
 /* Codes of tree nodes */
 
@@ -210,6 +211,8 @@ struct tree_common GTY(())
        TREE_PROTECTED in
            BLOCK
 	   ..._DECL
+       CALL_FROM_THUNK_P in
+           CALL_EXPR 
 
    side_effects_flag:
 
@@ -265,6 +268,7 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -383,7 +387,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
-#define TYPE_HASH(TYPE) ((size_t) (TYPE) & 0777777)
+#define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
+
+/* A simple hash function for an arbitrary tree node.  This must not be
+   used in hash tables which are saved to a PCH.  */
+#define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
 
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
@@ -623,6 +631,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    argument list.  */
 #define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
+/* In a CALL_EXPR, means that the call is the jump from a thunk to the
+   thunked-to function.  */
+#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
+
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
    of this type is aligned at least to the alignment of the type, even if it
@@ -700,13 +712,13 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
+#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.pointer)
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char str[1];
+  const char *pointer;
 };
 
 /* In a COMPLEX_CST node.  */
@@ -1368,8 +1380,9 @@ struct tree_type GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->decl.u2.r)
 
-/* For FUNCTION_DECL, if it is inline, holds the saved insn chain.  */
-#define DECL_SAVED_INSNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
+/* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
+   that describes the status of this function.  */
+#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
 
 /* For FUNCTION_DECL, if it is built-in,
    this identifies which built-in operation it is.  */
@@ -1620,13 +1633,6 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
   (! DECL_CONTEXT (EXP)						\
@@ -1816,6 +1822,10 @@ enum tree_index
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
 
+  TI_PUBLIC,
+  TI_PROTECTED,
+  TI_PRIVATE,
+
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
@@ -1901,9 +1911,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 /* Base access nodes.  */
-#define access_public_node		NULL_TREE
-#define access_protected_node		size_zero_node
-#define access_private_node		size_one_node
+#define access_public_node		global_trees[TI_PUBLIC]
+#define access_protected_node	        global_trees[TI_PROTECTED]
+#define access_private_node		global_trees[TI_PRIVATE]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -2049,6 +2059,7 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
+extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2060,11 +2071,13 @@ extern size_t tree_size (tree);
    The TREE_CODE is the only argument.  Contents are initialized
    to zero except for a few of the common fields.  */
 
-extern tree make_node (enum tree_code);
+extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
+#define make_node(t) make_node_stat (t MEM_STAT_INFO)
 
 /* Make a copy of a node, with all the same contents.  */
 
-extern tree copy_node (tree);
+extern tree copy_node_stat (tree MEM_STAT_DECL);
+#define copy_node(t) copy_node_stat (t MEM_STAT_INFO)
 
 /* Make a copy of a chain of TREE_LIST nodes.  */
 
@@ -2072,7 +2085,8 @@ extern tree copy_list (tree);
 
 /* Make a TREE_VEC.  */
 
-extern tree make_tree_vec (int);
+extern tree make_tree_vec_stat (int MEM_STAT_DECL);
+#define make_tree_vec(t) make_tree_vec_stat (t MEM_STAT_INFO)
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -2106,15 +2120,40 @@ extern tree maybe_get_identifier (const char *);
 extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
 
+#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
+/* Use preprocessor trickery to map "build" to "buildN" where N is the
+   expected number of arguments.  This is used for both efficiency (no
+   varargs), and checking (verifying number of passed arguments).  */
+#define build(code, ...) \
+  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
+#define _buildN1(BASE, X)	_buildN2(BASE, X)
+#define _buildN2(BASE, X)	BASE##X
+#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
+#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
+#endif
+
+extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
+#define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
+extern tree build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define build1(c,t1,t2) build1_stat (c,t1,t2 MEM_STAT_INFO)
+extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+#define build2(c,t1,t2,t3) build2_stat (c,t1,t2,t3 MEM_STAT_INFO)
+extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+#define build3(c,t1,t2,t3,t4) build3_stat (c,t1,t2,t3,t4 MEM_STAT_INFO)
+extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
+			 tree MEM_STAT_DECL);
+#define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
+
 extern tree build_int_2_wide (unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_constructor (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_string (int, const char *);
-extern tree build1 (enum tree_code, tree, tree);
-extern tree build_tree_list (tree, tree);
-extern tree build_decl (enum tree_code, tree, tree);
+extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
+#define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
+extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree, tree);
 extern tree build_expr_wfl (tree, const char *, int, int);
 
@@ -2144,7 +2183,7 @@ extern tree array_type_nelts (tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
 extern tree binfo_member (tree, tree);
-extern unsigned int attribute_hash_list (tree);
+
 extern int attribute_list_equal (tree, tree);
 extern int attribute_list_contained (tree, tree);
 extern int tree_int_cst_equal (tree, tree);
@@ -2280,6 +2319,11 @@ extern tree merge_attributes (tree, tree);
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes (tree, tree);
 #endif
+
+/* Check whether CAND is suitable to be returned from get_qualified_type
+   (BASE, TYPE_QUALS).  */
+
+extern bool check_qualified_type (tree, tree, int);
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
@@ -2443,7 +2487,6 @@ extern tree size_int_type_wide (HOST_WIDE_INT, tree);
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
 extern tree get_pending_sizes (void);
-extern int is_pending_size (tree);
 extern void put_pending_size (tree);
 extern void put_pending_sizes (tree);
 
@@ -2468,7 +2511,8 @@ extern tree chainon (tree, tree);
 
 /* Make a new TREE_LIST node from specified PURPOSE, VALUE and CHAIN.  */
 
-extern tree tree_cons (tree, tree, tree);
+extern tree tree_cons_stat (tree, tree, tree MEM_STAT_DECL);
+#define tree_cons(t,q,w) tree_cons_stat (t,q,w MEM_STAT_INFO)
 
 /* Return the last tree node in a chain.  */
 
@@ -2713,6 +2757,8 @@ extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
+extern bool associative_tree_code (enum tree_code);
+extern bool commutative_tree_code (enum tree_code);
 
 
 /* In stmt.c */
@@ -2839,12 +2885,13 @@ extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);
 extern tree type_hash_lookup (unsigned int, tree);
 extern void type_hash_add (unsigned int, tree);
-extern unsigned int type_hash_list (tree);
 extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
+extern tree make_vector (enum machine_mode, tree, int);
+extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (tree);
 extern int real_twop (tree);
@@ -2899,7 +2946,6 @@ extern void indent_to (FILE *, int);
 #endif
 
 /* In expr.c */
-extern int apply_args_register_offset (int);
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
@@ -2996,7 +3042,6 @@ extern void expand_decl (tree);
 extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
-extern void expand_start_case_dummy (void);
 extern HOST_WIDE_INT all_cases_count (tree, int *);
 extern void check_for_full_enumeration_handling (tree);
 extern void declare_nonlocal_label (tree);
@@ -3073,6 +3118,7 @@ extern const char *dump_flag_name (enum tree_dump_index);
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl (tree, rtx);
+extern void set_decl_incoming_rtl (tree, rtx);
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

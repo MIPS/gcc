@@ -72,6 +72,7 @@ definitions and other extensions.  */
 #include "debug.h"
 #include "tree-inline.h"
 #include "cgraph.h"
+#include "target.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -1634,7 +1635,7 @@ switch_label:
 		}
 |	DEFAULT_TK REL_CL_TK
 		{
-		  tree lab = build (DEFAULT_EXPR, NULL_TREE, NULL_TREE);
+		  tree lab = make_node (DEFAULT_EXPR);
 		  EXPR_WFL_LINECOL (lab) = $1.location;
 		  java_method_add_stmt (current_function_decl, lab);
 		}
@@ -6524,7 +6525,8 @@ check_interface_throws_clauses (tree check_class_decl, tree class_decl)
 		 Also, multiple inheritance with conflicting throws
 		 clauses is fine in the absence of a concrete
 		 implementation.  */
-	      if (method != NULL_TREE && !METHOD_ABSTRACT (method))
+	      if (method != NULL_TREE && !METHOD_ABSTRACT (method)
+		  && !METHOD_INVISIBLE (iface_method))
 		{
 		  tree method_wfl = DECL_FUNCTION_WFL (method);
 		  check_throws_clauses (method, method_wfl, iface_method);
@@ -7990,7 +7992,7 @@ start_complete_expand_method (tree mdecl)
       /* TREE_CHAIN (tem) will change after pushdecl. */
       tree next = TREE_CHAIN (tem);
       tree type = TREE_TYPE (tem);
-      if (PROMOTE_PROTOTYPES
+      if (targetm.calls.promote_prototypes (type)
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
 	  && INTEGRAL_TYPE_P (type))
 	type = integer_type_node;
@@ -9868,7 +9870,14 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	    }
 
 	  if (not_accessible_p (TREE_TYPE (decl), decl, type, 0))
- 	    return not_accessible_field_error (qual_wfl, decl);
+	    {
+	      parse_error_context
+		(qual_wfl, "Can't access %s class '%s' from '%s'",
+		 java_accstring_lookup (get_access_flags_from_decl (decl)),
+		 IDENTIFIER_POINTER (DECL_NAME (decl)),
+		 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
+	      return 1;
+	    }
 	  check_deprecation (qual_wfl, decl);
 
 	  type = TREE_TYPE (decl);
@@ -15301,9 +15310,7 @@ build_assertion (int location, tree condition, tree value)
       MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (field);
       FIELD_SYNTHETIC (field) = 1;
 
-      if (!TYPE_DOT_CLASS (class_type))
-	build_dot_class_method (class_type);
-      classdollar = build_dot_class_method_invocation (class_type, class_type);
+      classdollar = build_incomplete_class_ref (location, class_type);
 
       /* Call CLASS.desiredAssertionStatus().  */
       id = build_wfl_node (get_identifier ("desiredAssertionStatus"));

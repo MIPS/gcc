@@ -1077,7 +1077,7 @@ c4x_expand_epilogue(void)
 					 gen_rtx_PLUS 
 					 (QImode, gen_rtx_REG (QImode,
 							       AR3_REGNO),
-					  GEN_INT(-1)))));
+					  constm1_rtx))));
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      
 	      /* We already have the return value and the fp,
@@ -2359,8 +2359,8 @@ c4x_rptb_insert (rtx insn)
     {
       /* We can not use the rptb insn.  Replace it so reorg can use
          the delay slots of the jump insn.  */
-      emit_insn_before (gen_addqi3 (count_reg, count_reg, GEN_INT (-1)), insn);
-      emit_insn_before (gen_cmpqi (count_reg, GEN_INT (0)), insn);
+      emit_insn_before (gen_addqi3 (count_reg, count_reg, constm1_rtx), insn);
+      emit_insn_before (gen_cmpqi (count_reg, const0_rtx), insn);
       emit_insn_before (gen_bge (start_label), insn);
       LABEL_NUSES (start_label)++;
       delete_insn (insn);
@@ -3475,7 +3475,7 @@ c4x_S_address_parse (rtx op, int *base, int *incdec, int *index, int *disp)
 	    return;
 	  }
       }
-      /* Fallthrough.  */
+      /* Fall through.  */
 
     default:
       fatal_insn ("invalid indirect (S) memory address", op);
@@ -3992,7 +3992,7 @@ legitimize_operands (enum rtx_code code, rtx *operands, enum machine_mode mode)
   /* When the shift count is greater than 32 then the result 
      can be implementation dependent.  We truncate the result to
      fit in 5 bits so that we do not emit invalid code when
-     optimising---such as trying to generate lhu2 with 20021124-1.c.  */
+     optimizing---such as trying to generate lhu2 with 20021124-1.c.  */
   if (((code == ASHIFTRT || code == LSHIFTRT || code == ASHIFT)
       && (GET_CODE (operands[2]) == CONST_INT))
       && INTVAL (operands[2]) > (GET_MODE_BITSIZE (mode) - 1))

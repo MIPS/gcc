@@ -117,6 +117,10 @@ const char *ia64_tune_string;
    avoid the normal second scheduling pass.  */
 static int ia64_flag_schedule_insns2;
 
+/* Determines whether we run variable tracking in machine dependent
+   reorganization.  */
+static int ia64_flag_var_tracking;
+
 /* Variables which are this size or smaller are put in the sdata/sbss
    sections.  */
 
@@ -253,7 +257,7 @@ static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
 static unsigned int ia64_rwreloc_section_type_flags (tree, const char *, int)
      ATTRIBUTE_UNUSED;
 
-static void ia64_hpux_add_extern_decl (const char *name)
+static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
@@ -859,7 +863,7 @@ int
 not_postinc_memory_operand (rtx op, enum machine_mode mode)
 {
   return (memory_operand (op, mode)
-	  && GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != 'a');
+	  && GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC);
 }
 
 /* Return 1 if this is a comparison operator, which accepts a normal 8-bit
@@ -1525,7 +1529,7 @@ ia64_split_tmode (rtx out[2], rtx in, bool reversed, bool dead)
 	      {
 		/* Again the postmodify cannot be made to match, but
 		   in this case it's more efficient to get rid of the
-		   postmodify entirely and fix up with an add insn. */
+		   postmodify entirely and fix up with an add insn.  */
 		out[1] = adjust_automodify_address (in, DImode, base, 8);
 		fixup = gen_adddi3 (base, base,
 				    GEN_INT (INTVAL (XEXP (offset, 1)) - 8));
@@ -3180,9 +3184,9 @@ ia64_expand_epilogue (int sibcall_p)
 	 It is unclear how to compute that number here.  */
       if (current_frame_info.n_input_regs != 0)
 	emit_insn (gen_alloc (gen_rtx_REG (DImode, fp),
-			      GEN_INT (0), GEN_INT (0),
+			      const0_rtx, const0_rtx,
 			      GEN_INT (current_frame_info.n_input_regs),
-			      GEN_INT (0)));
+			      const0_rtx));
     }
 }
 
@@ -3782,21 +3786,34 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
      named, and in a GR register when unnamed.  */
   else if (cum->prototype)
     {
-      if (! named)
-	return gen_rtx_REG (mode, basereg + cum->words + offset);
-      else
+      if (named)
 	return gen_rtx_REG (mode, FR_ARG_FIRST + cum->fp_regs);
+      /* In big-endian mode, an anonymous SFmode value must be represented
+         as (parallel:SF [(expr_list (reg:DI n) (const_int 0))]) to force
+	 the value into the high half of the general register.  */
+      else if (BYTES_BIG_ENDIAN && mode == SFmode)
+	return gen_rtx_PARALLEL (mode,
+		 gen_rtvec (1,
+                   gen_rtx_EXPR_LIST (VOIDmode,
+		     gen_rtx_REG (DImode, basereg + cum->words + offset),
+				      const0_rtx)));
+      else
+	return gen_rtx_REG (mode, basereg + cum->words + offset);
     }
   /* If there is no prototype, then FP values go in both FR and GR
      registers.  */
   else
     {
+      /* See comment above.  */
+      enum machine_mode inner_mode =
+	(BYTES_BIG_ENDIAN && mode == SFmode) ? DImode : mode;
+
       rtx fp_reg = gen_rtx_EXPR_LIST (VOIDmode,
 				      gen_rtx_REG (mode, (FR_ARG_FIRST
 							  + cum->fp_regs)),
 				      const0_rtx);
       rtx gr_reg = gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (mode,
+				      gen_rtx_REG (inner_mode,
 						   (basereg + cum->words
 						    + offset)),
 				      const0_rtx);
@@ -4339,7 +4356,7 @@ ia64_print_operand (FILE * file, rtx x, int code)
     case MEM:
       {
 	rtx addr = XEXP (x, 0);
-	if (GET_RTX_CLASS (GET_CODE (addr)) == 'a')
+	if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC)
 	  addr = XEXP (addr, 0);
 	fprintf (file, "[%s]", reg_names [REGNO (addr)]);
 	break;
@@ -4623,7 +4640,7 @@ ia64_asm_output_external (FILE *file, tree decl, const char *name)
     return;
 
   if (TARGET_HPUX_LD)
-    ia64_hpux_add_extern_decl (name);
+    ia64_hpux_add_extern_decl (decl);
   else
     {
       /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
@@ -4734,20 +4751,53 @@ ia64_override_options (void)
 
   if (TARGET_INLINE_FLOAT_DIV_LAT && TARGET_INLINE_FLOAT_DIV_THR)
     {
-      warning ("cannot optimize floating point division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+      if ((target_flags_explicit & MASK_INLINE_FLOAT_DIV_LAT)
+	   && (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR))
+	{
+	  warning ("cannot optimize floating point division for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_FLOAT_DIV_THR)
+	    target_flags &= ~MASK_INLINE_FLOAT_DIV_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_FLOAT_DIV_THR;
+	}
     }
 
   if (TARGET_INLINE_INT_DIV_LAT && TARGET_INLINE_INT_DIV_THR)
     {
-      warning ("cannot optimize integer division for both latency and throughput");
-      target_flags &= ~MASK_INLINE_INT_DIV_THR;
+      if ((target_flags_explicit & MASK_INLINE_INT_DIV_LAT)
+	   && (target_flags_explicit & MASK_INLINE_INT_DIV_THR))
+	{
+	  warning ("cannot optimize integer division for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_INT_DIV_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_INT_DIV_THR)
+	    target_flags &= ~MASK_INLINE_INT_DIV_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_INT_DIV_THR;
+	}
     }
 
   if (TARGET_INLINE_SQRT_LAT && TARGET_INLINE_SQRT_THR)
     {
-      warning ("cannot optimize square root for both latency and throughput");
-      target_flags &= ~MASK_INLINE_SQRT_THR;
+      if ((target_flags_explicit & MASK_INLINE_SQRT_LAT)
+	   && (target_flags_explicit & MASK_INLINE_SQRT_THR))
+	{
+	  warning ("cannot optimize square root for both latency and throughput");
+	  target_flags &= ~MASK_INLINE_SQRT_THR;
+	}
+      else 
+	{
+	  if (target_flags_explicit & MASK_INLINE_SQRT_THR)
+	    target_flags &= ~MASK_INLINE_SQRT_LAT;
+	  else
+	    target_flags &= ~MASK_INLINE_SQRT_THR;
+	}
     }
 
   if (TARGET_INLINE_SQRT_LAT)
@@ -4785,6 +4835,11 @@ ia64_override_options (void)
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
 
+  /* Variable tracking should be run after all optimizations which change order
+     of insns.  It also needs a valid CFG.  */
+  ia64_flag_var_tracking = flag_var_tracking;
+  flag_var_tracking = 0;
+
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
@@ -4820,7 +4875,6 @@ ia64_safe_type (rtx insn)
    never explicitly used in gcc generated code, it seems wasteful to
    do so (plus it would make the call and return patterns needlessly
    complex).  */
-#define REG_GP		(GR_REG (1))
 #define REG_RP		(BR_REG (0))
 #define REG_AR_CFM	(FIRST_PSEUDO_REGISTER + 1)
 /* This is used for volatile asms which may require a stop bit immediately
@@ -5105,7 +5159,7 @@ update_set_flags (rtx x, struct reg_flags *pflags, int *ppred, rtx *pcond)
       /* ... fall through ...  */
 
     default:
-      if (GET_RTX_CLASS (GET_CODE (src)) == '<'
+      if (COMPARISON_P (src)
 	  && GET_MODE_CLASS (GET_MODE (XEXP (src, 0))) == MODE_FLOAT)
 	/* Set pflags->is_fp to 1 so that we know we're dealing
 	   with a floating point comparison when processing the
@@ -5829,8 +5883,8 @@ errata_emit_nops (rtx insn)
 	  || GET_CODE (XEXP (SET_SRC (set), 0)) != POST_MODIFY)
       && GENERAL_REGNO_P (REGNO (SET_DEST (set))))
     {
-      if (GET_RTX_CLASS (GET_CODE (cond)) != '<'
-	  || ! REG_P (XEXP (cond, 0)))
+      if (!COMPARISON_P (cond)
+	  || !REG_P (XEXP (cond, 0)))
 	abort ();
 
       if (TEST_HARD_REG_BIT (prev_group->p_reg_set, REGNO (XEXP (cond, 0))))
@@ -6827,7 +6881,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   initiate_bundle_state_table ();
   index_to_bundle_states = xmalloc ((insn_num + 2)
 				    * sizeof (struct bundle_state *));
-  /* First (forward) pass -- generation of bundle states. */
+  /* First (forward) pass -- generation of bundle states.  */
   curr_state = get_free_bundle_state ();
   curr_state->insn = NULL;
   curr_state->before_nops_num = 0;
@@ -7080,7 +7134,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  ia64_emit_insn_before (b, insn);
 	  b = PREV_INSN (insn);
 	  insn = b;
-	  /* See comment above in analogous place for emiting nops
+	  /* See comment above in analogous place for emitting nops
 	     after the insn.  */
 	  template0 = template1;
 	  template1 = -1;
@@ -7097,7 +7151,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    abort ();
 	  if (pos % 3 == 0)
 	    {
-	      /* See comment above in analogous place for emiting nops
+	      /* See comment above in analogous place for emitting nops
 		 after the insn.  */
 	      if (template0 < 0)
 		abort ();
@@ -7151,7 +7205,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		       onto MFI because we will add nops before the
 		       insn.  It simplifies subsequent code a lot.  */
 		    PATTERN (last)
-		      = gen_bundle_selector (GEN_INT (2)); /* -> MFI */
+		      = gen_bundle_selector (const2_rtx); /* -> MFI */
 		  break;
 		}
 	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
@@ -7177,7 +7231,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	    for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
 	      {
 		/* Insert "MII;" template.  */
-		ia64_emit_insn_before (gen_bundle_selector (GEN_INT (0)),
+		ia64_emit_insn_before (gen_bundle_selector (const0_rtx),
 				       insn);
 		ia64_emit_insn_before (gen_nop (), insn);
 		ia64_emit_insn_before (gen_nop (), insn);
@@ -7424,7 +7478,7 @@ ia64_ld_address_bypass_p (rtx producer, rtx consumer)
 
 /* The following function returns TRUE if INSN produces address for a
    load/store insn.  We will place such insns into M slot because it
-   decreases its latency time. */
+   decreases its latency time.  */
 
 int
 ia64_produce_address_p (rtx insn)
@@ -7586,7 +7640,7 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      schedule_ebbs (rtl_dump_file);
+      schedule_ebbs (dump_file);
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
@@ -7594,13 +7648,13 @@ ia64_reorg (void)
 	  free (clocks);
 	}
       free (stops_p);
-      emit_insn_group_barriers (rtl_dump_file);
+      emit_insn_group_barriers (dump_file);
 
       ia64_final_schedule = 0;
       timevar_pop (TV_SCHED2);
     }
   else
-    emit_all_insn_group_barriers (rtl_dump_file);
+    emit_all_insn_group_barriers (dump_file);
 
   /* A call must not be the last instruction in a function, so that the
      return address is still within the function, so that unwinding works
@@ -7631,6 +7685,13 @@ ia64_reorg (void)
 
   fixup_errata ();
   emit_predicate_relation_info ();
+
+  if (ia64_flag_var_tracking)
+    {
+      timevar_push (TV_VAR_TRACKING);
+      variable_tracking_main ();
+      timevar_pop (TV_VAR_TRACKING);
+    }
 }
 
 /* Return true if REGNO is used by the epilogue.  */
@@ -8638,20 +8699,20 @@ ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
    We output the name if and only if TREE_SYMBOL_REFERENCED is set in
    order to avoid putting out names that are never really used.  */
 
-struct extern_func_list
+struct extern_func_list GTY(())
 {
-  struct extern_func_list *next; /* next external */
-  char *name;                    /* name of the external */
-} *extern_func_head = 0;
+  struct extern_func_list *next;
+  tree decl;
+};
+
+static GTY(()) struct extern_func_list *extern_func_head;
 
 static void
-ia64_hpux_add_extern_decl (const char *name)
+ia64_hpux_add_extern_decl (tree decl)
 {
-  struct extern_func_list *p;
+  struct extern_func_list *p = ggc_alloc (sizeof (struct extern_func_list));
 
-  p = (struct extern_func_list *) xmalloc (sizeof (struct extern_func_list));
-  p->name = xmalloc (strlen (name) + 1);
-  strcpy(p->name, name);
+  p->decl = decl;
   p->next = extern_func_head;
   extern_func_head = p;
 }
@@ -8661,29 +8722,29 @@ ia64_hpux_add_extern_decl (const char *name)
 static void
 ia64_hpux_file_end (void)
 {
-  while (extern_func_head)
+  struct extern_func_list *p;
+
+  for (p = extern_func_head; p; p = p->next)
     {
-      const char *real_name;
-      tree decl;
+      tree decl = p->decl;
+      tree id = DECL_NAME (decl);
 
-      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
-      decl = maybe_get_identifier (real_name);
+      if (!id)
+	abort ();
 
-      if (!decl
-	  || (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl)))
+      if (!TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (id))
         {
-	  if (decl)
-	    TREE_ASM_WRITTEN (decl) = 1;
-	  (*targetm.asm_out.globalize_label) (asm_out_file,
-					      extern_func_head->name);
+	  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+
+	  TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (asm_out_file, name);
 	  fputs (TYPE_ASM_OP, asm_out_file);
-	  assemble_name (asm_out_file, extern_func_head->name);
-	  putc (',', asm_out_file);
-	  fprintf (asm_out_file, TYPE_OPERAND_FMT, "function");
-	  putc ('\n', asm_out_file);
+	  assemble_name (asm_out_file, name);
+	  fprintf (asm_out_file, "," TYPE_OPERAND_FMT "\n", "function");
         }
-      extern_func_head = extern_func_head->next;
     }
+
+  extern_func_head = 0;
 }
 
 /* Rename all the TFmode libfuncs using the HPUX conventions.  */
@@ -8787,6 +8848,27 @@ ia64_rwreloc_section_type_flags (tree decl, const char *name, int reloc)
   return default_section_type_flags_1 (decl, name, reloc, true);
 }
 
+/* Returns true if FNTYPE (a FUNCTION_TYPE or a METHOD_TYPE) returns a
+   structure type and that the address of that type should be passed
+   in out0, rather than in r8.  */
+
+static bool
+ia64_struct_retval_addr_is_first_parm_p (tree fntype)
+{
+  tree ret_type = TREE_TYPE (fntype);
+
+  /* The Itanium C++ ABI requires that out0, rather than r8, be used
+     as the structure return address parameter, if the return value
+     type has a non-trivial copy constructor or destructor.  It is not
+     clear if this same convention should be used for other
+     programming languages.  Until G++ 3.4, we incorrectly used r8 for
+     these return values.  */
+  return (abi_version_at_least (2)
+	  && ret_type
+	  && TYPE_MODE (ret_type) == BLKmode 
+	  && TREE_ADDRESSABLE (ret_type)
+	  && strcmp (lang_hooks.name, "GNU C++") == 0);
+}
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for
@@ -8800,6 +8882,8 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		      tree function)
 {
   rtx this, insn, funexp;
+  unsigned int this_parmno;
+  unsigned int this_regno;
 
   reload_completed = 1;
   epilogue_completed = 1;
@@ -8813,16 +8897,23 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   current_frame_info.n_input_regs = 1;
   current_frame_info.need_regstk = (TARGET_REG_NAMES != 0);
 
-  if (!TARGET_REG_NAMES)
-    reg_names[IN_REG (0)] = ia64_reg_numbers[0];
-
   /* Mark the end of the (empty) prologue.  */
   emit_note (NOTE_INSN_PROLOGUE_END);
 
-  this = gen_rtx_REG (Pmode, IN_REG (0));
+  /* Figure out whether "this" will be the first parameter (the
+     typical case) or the second parameter (as happens when the
+     virtual function returns certain class objects).  */
+  this_parmno
+    = (ia64_struct_retval_addr_is_first_parm_p (TREE_TYPE (thunk))
+       ? 1 : 0);
+  this_regno = IN_REG (this_parmno);
+  if (!TARGET_REG_NAMES)
+    reg_names[this_regno] = ia64_reg_numbers[this_parmno];
+
+  this = gen_rtx_REG (Pmode, this_regno);
   if (TARGET_ILP32)
     {
-      rtx tmp = gen_rtx_REG (ptr_mode, IN_REG (0));
+      rtx tmp = gen_rtx_REG (ptr_mode, this_regno);
       REG_POINTER (tmp) = 1;
       if (delta && CONST_OK_FOR_I (delta))
 	{
@@ -8930,9 +9021,11 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */
 
 static rtx
-ia64_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+ia64_struct_value_rtx (tree fntype,
 		       int incoming ATTRIBUTE_UNUSED)
 {
+  if (fntype && ia64_struct_retval_addr_is_first_parm_p (fntype))
+    return NULL_RTX;
   return gen_rtx_REG (Pmode, GR_REG (8));
 }
 

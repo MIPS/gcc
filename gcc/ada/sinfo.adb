@@ -117,6 +117,15 @@ package body Sinfo is
       return Node2 (N);
    end Accept_Statement;
 
+   function Access_Definition
+     (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Component_Definition
+        or else NT (N).Nkind = N_Object_Renaming_Declaration);
+      return Node3 (N);
+   end Access_Definition;
+
    function Access_Types_To_Process
       (N : Node_Id) return Elist_Id is
    begin
@@ -852,7 +861,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_With_Clause);
-      return Flag15 (N);
+      return Flag14 (N);
    end Elaborate_All_Present;
 
    function Elaborate_Present
@@ -2031,7 +2040,8 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Compilation_Unit
-        or else NT (N).Nkind = N_Formal_Derived_Type_Definition);
+        or else NT (N).Nkind = N_Formal_Derived_Type_Definition
+        or else NT (N).Nkind = N_With_Clause);
       return Flag15 (N);
    end Private_Present;
 
@@ -2564,6 +2574,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Accept_Alternative);
       Set_Node2_With_Parent (N, Val);
    end Set_Accept_Statement;
+
+   procedure Set_Access_Definition
+     (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Component_Definition
+        or else NT (N).Nkind = N_Object_Renaming_Declaration);
+      Set_Node3_With_Parent (N, Val);
+   end Set_Access_Definition;
 
    procedure Set_Access_Types_To_Process
       (N : Node_Id; Val : Elist_Id) is
@@ -3299,7 +3318,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_With_Clause);
-      Set_Flag15 (N, Val);
+      Set_Flag14 (N, Val);
    end Set_Elaborate_All_Present;
 
    procedure Set_Elaborate_Present
@@ -4469,7 +4488,8 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Compilation_Unit
-        or else NT (N).Nkind = N_Formal_Derived_Type_Definition);
+        or else NT (N).Nkind = N_Formal_Derived_Type_Definition
+        or else NT (N).Nkind = N_With_Clause);
       Set_Flag15 (N, Val);
    end Set_Private_Present;
 

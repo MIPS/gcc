@@ -1,5 +1,6 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -55,8 +56,6 @@ static bool diagnostic_count_diagnostic (diagnostic_context *,
 static void diagnostic_action_after_output (diagnostic_context *,
 					    diagnostic_info *);
 static void real_abort (void) ATTRIBUTE_NORETURN;
-
-extern int rtl_dump_and_exit;
 
 /* A diagnostic_context surrogate for stderr.  */
 static diagnostic_context global_diagnostic_context;

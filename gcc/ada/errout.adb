@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,6 +37,7 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Erroutc;  use Erroutc;
 with Fname;    use Fname;
+with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -164,10 +165,9 @@ package body Errout is
    --  example, the entity A.B.C.D will output B.C. if N = 2.
 
    function Special_Msg_Delete
-     (Msg  : String;
-      N    : Node_Or_Entity_Id;
-      E    : Node_Or_Entity_Id)
-      return Boolean;
+     (Msg : String;
+      N   : Node_Or_Entity_Id;
+      E   : Node_Or_Entity_Id) return Boolean;
    --  This function is called from Error_Msg_NEL, passing the message Msg,
    --  node N on which the error is to be posted, and the entity or node E
    --  to be used for an & insertion in the message if any. The job of this
@@ -187,6 +187,14 @@ package body Errout is
    --  Class_Flag is set to True if the resulting entity should have
    --  'Class appended to its name (see Add_Class procedure), and is
    --  otherwise unchanged.
+
+   procedure VMS_Convert;
+   --  This procedure has no effect if called when the host is not OpenVMS.
+   --  If the host is indeed OpenVMS, then the error message stored in
+   --  Msg_Buffer is scanned for appearences of switch names which need
+   --  converting to corresponding VMS qualifer names. See Gnames/Vnames
+   --  table in Errout spec for precise definition of the conversion that
+   --  is performed by this routine in OpenVMS mode.
 
    -----------------------
    -- Change_Error_Text --
@@ -1795,6 +1803,8 @@ package body Errout is
    ----------------------------
 
    procedure Set_Msg_Insertion_Node is
+      K : Node_Kind;
+
    begin
       Suppress_Message :=
         Error_Msg_Node_1 = Error
@@ -1815,10 +1825,24 @@ package body Errout is
       else
          Set_Msg_Blank_Conditional;
 
-         --  Skip quotes for operator case
+         --  Output name
 
-         if Nkind (Error_Msg_Node_1) in N_Op then
+         K := Nkind (Error_Msg_Node_1);
+
+         --  If we have operator case, skip quotes since name of operator
+         --  itself will supply the required quotations. An operator can be
+         --  an applied use in an expression or an explicit operator symbol,
+         --  or an identifier whose name indicates it is an operator.
+
+         if K in N_Op
+           or else K = N_Operator_Symbol
+           or else K = N_Defining_Operator_Symbol
+           or else ((K = N_Identifier or else K = N_Defining_Identifier)
+                       and then Is_Operator_Name (Chars (Error_Msg_Node_1)))
+         then
             Set_Msg_Node (Error_Msg_Node_1);
+
+         --  Normal case, not an operator, surround with quotes
 
          else
             Set_Msg_Quote;
@@ -2243,6 +2267,8 @@ package body Errout is
                Set_Msg_Char (C);
          end case;
       end loop;
+
+      VMS_Convert;
    end Set_Msg_Text;
 
    ----------------
@@ -2302,10 +2328,9 @@ package body Errout is
    ------------------------
 
    function Special_Msg_Delete
-     (Msg  : String;
-      N    : Node_Or_Entity_Id;
-      E    : Node_Or_Entity_Id)
-      return Boolean
+     (Msg : String;
+      N   : Node_Or_Entity_Id;
+      E   : Node_Or_Entity_Id) return Boolean
    is
    begin
       --  Never delete messages in -gnatdO mode
@@ -2470,5 +2495,54 @@ package body Errout is
          Set_Msg_Char ('"');
       end if;
    end Unwind_Internal_Type;
+
+   -----------------
+   -- VMS_Convert --
+   -----------------
+
+   procedure VMS_Convert is
+      P : Natural;
+      L : Natural;
+      N : Natural;
+
+   begin
+      if not OpenVMS then
+         return;
+      end if;
+
+      P := Msg_Buffer'First;
+      loop
+         if P >= Msglen then
+            return;
+         end if;
+
+         if Msg_Buffer (P) = '-' then
+            for G in Gnames'Range loop
+               L := Gnames (G)'Length;
+
+               --  See if we have "-ggg switch", where ggg is Gnames entry
+
+               if P + L + 7 <= Msglen
+                 and then Msg_Buffer (P + 1 .. P + L) = Gnames (G).all
+                 and then Msg_Buffer (P + L + 1 .. P + L + 7) = " switch"
+               then
+                  --  Replace by "/vvv qualifier", where vvv is Vnames entry
+
+                  N := Vnames (G)'Length;
+                  Msg_Buffer (P + N + 11 .. Msglen + N - L + 3) :=
+                    Msg_Buffer (P + L + 8 .. Msglen);
+                  Msg_Buffer (P) := '/';
+                  Msg_Buffer (P + 1 .. P + N) := Vnames (G).all;
+                  Msg_Buffer (P + N + 1 .. P + N + 10) := " qualifier";
+                  P := P + N + 10;
+                  Msglen := Msglen + N - L + 3;
+                  exit;
+               end if;
+            end loop;
+         end if;
+
+         P := P + 1;
+      end loop;
+   end VMS_Convert;
 
 end Errout;

@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Check if a C++ type is safe for aliasing.
    Return TRUE if T safe for aliasing FALSE otherwise.  */
 
-bool
+static bool
 ok_to_generate_alias_set_for_type (tree t)
 {
   if (TYPE_PTRMEMFUNC_P (t))
@@ -168,7 +168,6 @@ cp_tree_size (enum tree_code code)
     case TEMPLATE_PARM_INDEX: 	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
-    case WRAPPER:		return sizeof (struct tree_wrapper);
     default:
       abort ();
     }

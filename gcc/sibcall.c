@@ -1,5 +1,5 @@
 /* Generic sibling call optimization support
-   Copyright (C) 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -173,10 +173,6 @@ skip_copy_to_return_value (rtx orig_insn)
      Further, the source must be the same as the pseudo into which the
      called function's return value was copied.  Otherwise we're returning
      some other value.  */
-
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(N) (N)
-#endif
 
   if (SET_DEST (set) == current_function_return_rtx
       && REG_P (SET_DEST (set))

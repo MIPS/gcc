@@ -1,6 +1,6 @@
 /* Language-specific hook definitions for C front end.
    Copyright (C) 1991, 1995, 1997, 1998,
-   1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,7 +36,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 enum c_language_kind c_language = clk_c;
 
-/* Lang hooks common to C and ObjC are declared in c-objc-common.h.  */
+/* Lang hooks common to C and ObjC are declared in c-objc-common.h;
+   consequently, there should be very few hooks below.  */
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
@@ -80,6 +81,9 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
 };
 #undef DEFTREECODE
+
+/* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
+   there should be very few (if any) routines below.  */
 
 void
 finish_file (void)

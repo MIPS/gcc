@@ -549,7 +549,7 @@ attr_hash_add_string (int hashcode, char *str)
    In some cases we cannot uniquify; then we return an ordinary
    impermanent rtx with ATTR_PERMANENT_P clear.
 
-   Args are like gen_rtx, but without the mode:
+   Args are as follows:
 
    rtx attr_rtx (code, [element1, ..., elementn])  */
 
@@ -565,7 +565,7 @@ attr_rtx_1 (enum rtx_code code, va_list p)
      Use that entry if one is found; otherwise create a new RTL and add it
      to the table.  */
 
-  if (GET_RTX_CLASS (code) == '1')
+  if (GET_RTX_CLASS (code) == RTX_UNARY)
     {
       rtx arg0 = va_arg (p, rtx);
 
@@ -591,9 +591,10 @@ attr_rtx_1 (enum rtx_code code, va_list p)
 	  XEXP (rt_val, 0) = arg0;
 	}
     }
-  else if (GET_RTX_CLASS (code) == 'c'
-	   || GET_RTX_CLASS (code) == '2'
-	   || GET_RTX_CLASS (code) == '<')
+  else if (GET_RTX_CLASS (code) == RTX_BIN_ARITH
+  	   || GET_RTX_CLASS (code) == RTX_COMM_ARITH
+  	   || GET_RTX_CLASS (code) == RTX_COMPARE
+  	   || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
     {
       rtx arg0 = va_arg (p, rtx);
       rtx arg1 = va_arg (p, rtx);
@@ -1026,7 +1027,6 @@ check_attr_test (rtx exp, int is_const, int lineno)
       XEXP (exp, 0) = check_attr_test (XEXP (exp, 0), is_const, lineno);
       break;
 
-    case MATCH_INSN:
     case MATCH_OPERAND:
       if (is_const)
 	fatal ("RTL operator \"%s\" not valid in constant attribute test",
@@ -4793,10 +4793,6 @@ write_test_expr (rtx exp, int flags)
       else
 	printf ("%s (operands[%d], %smode)",
 		XSTR (exp, 1), XINT (exp, 0), GET_MODE_NAME (GET_MODE (exp)));
-      break;
-
-    case MATCH_INSN:
-      printf ("%s (insn)", XSTR (exp, 0));
       break;
 
     /* Constant integer.  */

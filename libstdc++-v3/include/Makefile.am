@@ -92,6 +92,7 @@ bits_srcdir = ${glibcxx_srcdir}/include/bits
 bits_builddir = ./bits
 bits_headers = \
 	${bits_srcdir}/allocator.h \
+	${bits_srcdir}/atomicity.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
@@ -102,7 +103,6 @@ bits_headers = \
 	${bits_srcdir}/concept_check.h \
 	${bits_srcdir}/concurrence.h \
 	${bits_srcdir}/cpp_type_traits.h \
-	${bits_srcdir}/demangle.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
@@ -203,6 +203,7 @@ ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
 	${ext_srcdir}/debug_allocator.h \
+	${ext_srcdir}/demangle.h \
 	${ext_srcdir}/enc_filebuf.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
@@ -339,7 +340,7 @@ host_headers = \
 	${host_srcdir}/ctype_inline.h \
 	${host_srcdir}/ctype_noninline.h \
 	${host_srcdir}/os_defines.h \
-	${glibcxx_srcdir}/$(ATOMICITY_INC_SRCDIR)/atomicity.h 
+	${glibcxx_srcdir}/$(ATOMIC_WORD_SRCDIR)/atomic_word.h 
 
 # Non-installed host_header files.
 host_headers_noinst = \
@@ -504,6 +505,7 @@ uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
 
 ${host_builddir}/gthr.h: ${toplevel_srcdir}/gcc/gthr.h stamp-${host_alias}
 	sed -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
+	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/gthr.h > $@
 
@@ -517,14 +519,16 @@ ${host_builddir}/gthr-posix.h: ${toplevel_srcdir}/gcc/gthr-posix.h \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
-	    -e 's/\(${uppercase}*WEAK\)/_GLIBCXX_\1/g' \
+	    -e 's/SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    < ${toplevel_srcdir}/gcc/gthr-posix.h > $@
 
 ${host_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcxx_thread_h} \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
-	    -e 's/\(${uppercase}*WEAK\)/_GLIBCXX_\1/g' \
+	    -e 's/SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/${glibcxx_thread_h} > $@
 

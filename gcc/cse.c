@@ -601,7 +601,7 @@ static bool fixed_base_plus_p (rtx x);
 static int notreg_cost (rtx, enum rtx_code);
 static int approx_reg_cost_1 (rtx *, void *);
 static int approx_reg_cost (rtx);
-static int preferrable (int, int, int, int);
+static int preferable (int, int, int, int);
 static void new_basic_block (void);
 static void make_new_qty (unsigned int, enum machine_mode);
 static void make_regs_eqv (unsigned int, unsigned int);
@@ -639,6 +639,8 @@ static void record_jump_equiv (rtx, int);
 static void record_jump_cond (enum rtx_code, enum machine_mode, rtx, rtx,
 			      int);
 static void cse_insn (rtx, rtx);
+static void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
+				    int, int, int);
 static int addr_affects_sp_p (rtx);
 static void invalidate_from_clobbers (rtx);
 static rtx cse_process_notes (rtx, rtx);
@@ -761,7 +763,7 @@ approx_reg_cost (rtx x)
    Return a positive value if A is less desirable, or 0 if the two are
    equally good.  */
 static int
-preferrable (int cost_a, int regcost_a, int cost_b, int regcost_b)
+preferable (int cost_a, int regcost_a, int cost_b, int regcost_b)
 {
   /* First, get rid of cases involving expressions that are entirely
      unwanted.  */
@@ -810,109 +812,6 @@ notreg_cost (rtx x, enum rtx_code outer)
 	  : rtx_cost (x, outer) * 2);
 }
 
-/* Return an estimate of the cost of computing rtx X.
-   One use is in cse, to decide which expression to keep in the hash table.
-   Another is in rtl generation, to pick the cheapest way to multiply.
-   Other uses like the latter are expected in the future.  */
-
-int
-rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
-{
-  int i, j;
-  enum rtx_code code;
-  const char *fmt;
-  int total;
-
-  if (x == 0)
-    return 0;
-
-  /* Compute the default costs of certain things.
-     Note that targetm.rtx_costs can override the defaults.  */
-
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case MULT:
-      total = COSTS_N_INSNS (5);
-      break;
-    case DIV:
-    case UDIV:
-    case MOD:
-    case UMOD:
-      total = COSTS_N_INSNS (7);
-      break;
-    case USE:
-      /* Used in loop.c and combine.c as a marker.  */
-      total = 0;
-      break;
-    default:
-      total = COSTS_N_INSNS (1);
-    }
-
-  switch (code)
-    {
-    case REG:
-      return 0;
-
-    case SUBREG:
-      /* If we can't tie these modes, make this expensive.  The larger
-	 the mode, the more expensive it is.  */
-      if (! MODES_TIEABLE_P (GET_MODE (x), GET_MODE (SUBREG_REG (x))))
-	return COSTS_N_INSNS (2
-			      + GET_MODE_SIZE (GET_MODE (x)) / UNITS_PER_WORD);
-      break;
-
-    default:
-      if ((*targetm.rtx_costs) (x, code, outer_code, &total))
-	return total;
-      break;
-    }
-
-  /* Sum the costs of the sub-rtx's, plus cost of this operation,
-     which is already in total.  */
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    if (fmt[i] == 'e')
-      total += rtx_cost (XEXP (x, i), code);
-    else if (fmt[i] == 'E')
-      for (j = 0; j < XVECLEN (x, i); j++)
-	total += rtx_cost (XVECEXP (x, i, j), code);
-
-  return total;
-}
-
-/* Return cost of address expression X.
-   Expect that X is properly formed address reference.  */
-
-int
-address_cost (rtx x, enum machine_mode mode)
-{
-  /* The address_cost target hook does not deal with ADDRESSOF nodes.  But,
-     during CSE, such nodes are present.  Using an ADDRESSOF node which
-     refers to the address of a REG is a good thing because we can then
-     turn (MEM (ADDRESSSOF (REG))) into just plain REG.  */
-
-  if (GET_CODE (x) == ADDRESSOF && REG_P (XEXP ((x), 0)))
-    return -1;
-
-  /* We may be asked for cost of various unusual addresses, such as operands
-     of push instruction.  It is not worthwhile to complicate writing
-     of the target hook by such cases.  */
-
-  if (!memory_address_p (mode, x))
-    return 1000;
-
-  return (*targetm.address_cost) (x);
-}
-
-/* If the target doesn't override, compute the cost as with arithmetic.  */
-
-int
-default_address_cost (rtx x)
-{
-  return rtx_cost (x, MEM);
-}
 
 static struct cse_reg_info *
 get_cse_reg_info (unsigned int regno)
@@ -1214,7 +1113,7 @@ mention_regs (rtx x)
      call that expensive function in the most common case where the only
      use of the register is in the comparison.  */
 
-  if (code == COMPARE || GET_RTX_CLASS (code) == '<')
+  if (code == COMPARE || COMPARISON_P (x))
     {
       if (GET_CODE (XEXP (x, 0)) == REG
 	  && ! REGNO_QTY_VALID_P (REGNO (XEXP (x, 0))))
@@ -1513,7 +1412,7 @@ lookup_as_function (rtx x, enum rtx_code code)
    If necessary, update table showing constant values of quantities.  */
 
 #define CHEAPER(X, Y) \
- (preferrable ((X)->cost, (X)->regcost, (Y)->cost, (Y)->regcost) < 0)
+ (preferable ((X)->cost, (X)->regcost, (Y)->cost, (Y)->regcost) < 0)
 
 static struct table_elt *
 insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mode)
@@ -2953,8 +2852,7 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
      code on the Alpha for unaligned byte stores.  */
 
   if (flag_expensive_optimizations
-      && (GET_RTX_CLASS (GET_CODE (*loc)) == '2'
-	  || GET_RTX_CLASS (GET_CODE (*loc)) == 'c')
+      && ARITHMETIC_P (*loc)
       && GET_CODE (XEXP (*loc, 0)) == REG)
     {
       rtx op1 = XEXP (*loc, 1);
@@ -3068,7 +2966,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
       /* If ARG1 is a comparison operator and CODE is testing for
 	 STORE_FLAG_VALUE, get the inner arguments.  */
 
-      else if (GET_RTX_CLASS (GET_CODE (arg1)) == '<')
+      else if (COMPARISON_P (arg1))
 	{
 #ifdef FLOAT_STORE_FLAG_VALUE
 	  REAL_VALUE_TYPE fsfv;
@@ -3157,7 +3055,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 			   REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		   )
-		  && GET_RTX_CLASS (GET_CODE (p->exp)) == '<'))
+		  && COMPARISON_P (p->exp)))
 	    {
 	      x = p->exp;
 	      break;
@@ -3177,7 +3075,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 			    REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		    )
-		   && GET_RTX_CLASS (GET_CODE (p->exp)) == '<')
+		   && COMPARISON_P (p->exp))
 	    {
 	      reverse_code = 1;
 	      x = p->exp;
@@ -3210,7 +3108,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 	  else
 	    code = reversed;
 	}
-      else if (GET_RTX_CLASS (GET_CODE (x)) == '<')
+      else if (COMPARISON_P (x))
 	code = GET_CODE (x);
       arg1 = XEXP (x, 0), arg2 = XEXP (x, 1);
     }
@@ -3391,9 +3289,9 @@ fold_rtx (rtx x, rtx insn)
 		enum rtx_code eltcode = GET_CODE (elt->exp);
 
 	        /* Just check for unary and binary operations.  */
-	        if (GET_RTX_CLASS (GET_CODE (elt->exp)) == '1'
-		    && GET_CODE (elt->exp) != SIGN_EXTEND
-		    && GET_CODE (elt->exp) != ZERO_EXTEND
+	        if (UNARY_P (elt->exp)
+		    && eltcode != SIGN_EXTEND
+		    && eltcode != ZERO_EXTEND
 		    && GET_CODE (XEXP (elt->exp, 0)) == SUBREG
 		    && GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode
 		    && (GET_MODE_CLASS (mode)
@@ -3409,8 +3307,7 @@ fold_rtx (rtx x, rtx insn)
 		      new = simplify_unary_operation (GET_CODE (elt->exp), mode,
 						      op0, mode);
 		  }
-	        else if ((GET_RTX_CLASS (GET_CODE (elt->exp)) == '2'
-			  || GET_RTX_CLASS (GET_CODE (elt->exp)) == 'c')
+	        else if (ARITHMETIC_P (elt->exp)
 		         && eltcode != DIV && eltcode != MOD
 		         && eltcode != UDIV && eltcode != UMOD
 		         && eltcode != ASHIFTRT && eltcode != LSHIFTRT
@@ -3768,9 +3665,8 @@ fold_rtx (rtx x, rtx insn)
 	    if (validate_change (insn, &XEXP (x, i), replacements[j], 0))
 	      break;
 
-	    if (code == NE || code == EQ || GET_RTX_CLASS (code) == 'c'
-		|| code == LTGT || code == UNEQ || code == ORDERED
-		|| code == UNORDERED)
+	    if (GET_RTX_CLASS (code) == RTX_COMM_COMPARE
+		|| GET_RTX_CLASS (code) == RTX_COMM_ARITH)
 	      {
 		validate_change (insn, &XEXP (x, i), XEXP (x, 1 - i), 1);
 		validate_change (insn, &XEXP (x, 1 - i), replacements[j], 1);
@@ -3802,9 +3698,7 @@ fold_rtx (rtx x, rtx insn)
      operand unless the first operand is also a constant integer.  Otherwise,
      place any constant second unless the first operand is also a constant.  */
 
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c'
-      || code == LTGT || code == UNEQ || code == ORDERED
-      || code == UNORDERED)
+  if (COMMUTATIVE_P (x))
     {
       if (must_swap
 	  || swap_commutative_operands_p (const_arg0 ? const_arg0
@@ -3834,7 +3728,7 @@ fold_rtx (rtx x, rtx insn)
 
   switch (GET_RTX_CLASS (code))
     {
-    case '1':
+    case RTX_UNARY:
       {
 	int is_const = 0;
 
@@ -3857,7 +3751,8 @@ fold_rtx (rtx x, rtx insn)
       }
       break;
 
-    case '<':
+    case RTX_COMPARE:
+    case RTX_COMM_COMPARE:
       /* See what items are actually being compared and set FOLDED_ARG[01]
 	 to those values and CODE to the actual comparison code.  If any are
 	 constant, set CONST_ARG0 and CONST_ARG1 appropriately.  We needn't
@@ -4039,8 +3934,8 @@ fold_rtx (rtx x, rtx insn)
 #endif
       break;
 
-    case '2':
-    case 'c':
+    case RTX_BIN_ARITH:
+    case RTX_COMM_ARITH:
       switch (code)
 	{
 	case PLUS:
@@ -4245,7 +4140,7 @@ fold_rtx (rtx x, rtx insn)
 				       const_arg1 ? const_arg1 : folded_arg1);
       break;
 
-    case 'o':
+    case RTX_OBJ:
       /* (lo_sum (high X) X) is simply X.  */
       if (code == LO_SUM && const_arg0 != 0
 	  && GET_CODE (const_arg0) == HIGH
@@ -4253,15 +4148,15 @@ fold_rtx (rtx x, rtx insn)
 	return const_arg1;
       break;
 
-    case '3':
-    case 'b':
+    case RTX_TERNARY:
+    case RTX_BITFIELD_OPS:
       new = simplify_ternary_operation (code, mode, mode_arg0,
 					const_arg0 ? const_arg0 : folded_arg0,
 					const_arg1 ? const_arg1 : folded_arg1,
 					const_arg2 ? const_arg2 : XEXP (x, 2));
       break;
 
-    case 'x':
+    case RTX_EXTRA:
       /* Eliminate CONSTANT_P_RTX if its constant.  */
       if (code == CONSTANT_P_RTX)
 	{
@@ -4270,6 +4165,9 @@ fold_rtx (rtx x, rtx insn)
 	  if (optimize == 0 || !flag_gcse)
 	    return const0_rtx;
 	}
+      break;
+
+    default:
       break;
     }
 
@@ -5031,7 +4929,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* It is no longer clear why we used to do this, but it doesn't
 	 appear to still be needed.  So let's try without it since this
 	 code hurts cse'ing widened ops.  */
-      /* If source is a perverse subreg (such as QI treated as an SI),
+      /* If source is a paradoxical subreg (such as QI treated as an SI),
 	 treat it as volatile.  It may do the work of an SI in one context
 	 where the extra bits are not being used, but cannot replace an SI
 	 in general.  */
@@ -5424,14 +5322,14 @@ cse_insn (rtx insn, rtx libcall_insn)
 	     of equal cost, use this order:
 	     src_folded, src, src_eqv, src_related and hash table entry.  */
 	  if (src_folded
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_cost, src_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_eqv_cost, src_eqv_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_related_cost, src_related_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_elt_cost, src_elt_regcost) <= 0)
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_cost, src_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_eqv_cost, src_eqv_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_related_cost, src_related_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_elt_cost, src_elt_regcost) <= 0)
 	    {
 	      trial = src_folded, src_folded_cost = MAX_COST;
 	      if (src_folded_force_flag)
@@ -5442,22 +5340,22 @@ cse_insn (rtx insn, rtx libcall_insn)
 		}
 	    }
 	  else if (src
-		   && preferrable (src_cost, src_regcost,
-				   src_eqv_cost, src_eqv_regcost) <= 0
-		   && preferrable (src_cost, src_regcost,
-				   src_related_cost, src_related_regcost) <= 0
-		   && preferrable (src_cost, src_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_cost, src_regcost,
+				  src_eqv_cost, src_eqv_regcost) <= 0
+		   && preferable (src_cost, src_regcost,
+				  src_related_cost, src_related_regcost) <= 0
+		   && preferable (src_cost, src_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = src, src_cost = MAX_COST;
 	  else if (src_eqv_here
-		   && preferrable (src_eqv_cost, src_eqv_regcost,
-				   src_related_cost, src_related_regcost) <= 0
-		   && preferrable (src_eqv_cost, src_eqv_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_eqv_cost, src_eqv_regcost,
+				  src_related_cost, src_related_regcost) <= 0
+		   && preferable (src_eqv_cost, src_eqv_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_eqv_here), src_eqv_cost = MAX_COST;
 	  else if (src_related
-		   && preferrable (src_related_cost, src_related_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_related_cost, src_related_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
 	  else
 	    {
@@ -5647,7 +5545,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 #ifdef PUSH_ROUNDING
 	  /* Stack pushes invalidate the stack pointer.  */
 	  rtx addr = XEXP (dest, 0);
-	  if (GET_RTX_CLASS (GET_CODE (addr)) == 'a'
+	  if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC
 	      && XEXP (addr, 0) == stack_pointer_rtx)
 	    invalidate (stack_pointer_rtx, Pmode);
 #endif
@@ -5719,10 +5617,20 @@ cse_insn (rtx insn, rtx libcall_insn)
 	     and hope for the best.  */
 	  if (n_sets == 1)
 	    {
-	      rtx new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
+	      rtx new, note;
 
+	      new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
+
+	      /* Make sure to copy over REG_NON_LOCAL_GOTO.  */
+	      note = find_reg_note (insn, REG_NON_LOCAL_GOTO, 0);
+	      if (note)
+		{
+		  XEXP (note, 1) = NULL_RTX;
+		  REG_NOTES (new) = note;
+		}
+
 	      delete_insn (insn);
 	      insn = new;
 
@@ -6303,7 +6211,7 @@ invalidate_memory (void)
 static int
 addr_affects_sp_p (rtx addr)
 {
-  if (GET_RTX_CLASS (GET_CODE (addr)) == 'a'
+  if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC
       && GET_CODE (XEXP (addr, 0)) == REG
       && REGNO (XEXP (addr, 0)) == STACK_POINTER_REGNUM)
     {
@@ -6750,7 +6658,7 @@ cse_set_around_loop (rtx x, rtx insn, rtx loop_start)
    the current block.  The incoming structure's branch path, if any, is used
    to construct the output branch path.  */
 
-void
+static void
 cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
 			int follow_jumps, int after_loop, int skip_blocks)
 {
@@ -7183,7 +7091,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
       if (GET_MODE (insn) == QImode)
 	PUT_MODE (insn, VOIDmode);
 
-      if (GET_RTX_CLASS (code) == 'i')
+      if (GET_RTX_CLASS (code) == RTX_INSN)
 	{
 	  rtx p;
 
@@ -7662,8 +7570,8 @@ delete_trivially_dead_insns (rtx insns, int nreg)
     }
   while (ndead != nlastdead);
 
-  if (rtl_dump_file && ndead)
-    fprintf (rtl_dump_file, "Deleted %i trivially dead insns; %i iterations\n",
+  if (dump_file && ndead)
+    fprintf (dump_file, "Deleted %i trivially dead insns; %i iterations\n",
 	     ndead, niterations);
   /* Clean up.  */
   free (counts);
@@ -7694,7 +7602,7 @@ cse_change_cc_mode (rtx *loc, void *data)
 
 /* Change the mode of any reference to the register REGNO (NEWREG) to
    GET_MODE (NEWREG), starting at START.  Stop before END.  Stop at
-   any instruction after START which modifies NEWREG.  */
+   any instruction which modifies NEWREG.  */
 
 static void
 cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
@@ -7706,7 +7614,7 @@ cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
       if (! INSN_P (insn))
 	continue;
 
-      if (insn != start && reg_set_p (newreg, insn))
+      if (reg_set_p (newreg, insn))
 	return;
 
       for_each_rtx (&PATTERN (insn), cse_change_cc_mode, newreg);
@@ -7998,8 +7906,22 @@ cse_condition_code_reg (void)
 	  if (mode != GET_MODE (cc_src))
 	    abort ();
 	  if (mode != orig_mode)
-	    cse_change_cc_mode_insns (cc_src_insn, NEXT_INSN (last_insn),
-				      gen_rtx_REG (mode, REGNO (cc_reg)));
+	    {
+	      rtx newreg = gen_rtx_REG (mode, REGNO (cc_reg));
+
+	      /* Change the mode of CC_REG in CC_SRC_INSN to
+		 GET_MODE (NEWREG).  */
+	      for_each_rtx (&PATTERN (cc_src_insn), cse_change_cc_mode,
+			    newreg);
+	      for_each_rtx (&REG_NOTES (cc_src_insn), cse_change_cc_mode,
+			    newreg);
+
+	      /* Do the same in the following insns that use the
+		 current value of CC_REG within BB.  */
+	      cse_change_cc_mode_insns (NEXT_INSN (cc_src_insn),
+					NEXT_INSN (last_insn),
+					newreg);
+	    }
 	}
     }
 }

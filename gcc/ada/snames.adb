@@ -169,10 +169,12 @@ package body Snames is
      "locking_policy#" &
      "long_float#" &
      "no_run_time#" &
+     "no_strict_aliasing#" &
      "normalize_scalars#" &
      "polling#" &
      "persistent_data#" &
      "persistent_object#" &
+     "profile#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -334,6 +336,8 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_requeue#" &
+     "no_task_attributes#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &

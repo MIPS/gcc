@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "cgraph.h"
 #include "intl.h"
-
+#include "diagnostic.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -95,9 +95,6 @@ typedef struct inline_data
   int in_target_cleanup_p;
   /* A list of the functions current function has inlined.  */
   varray_type inlined_fns;
-  /* The approximate number of instructions we have inlined in the
-     current call stack.  */
-  int inlined_insns;
   /* We use the same mechanism to build clones that we do to perform
      inlining.  However, there are a few places where we need to
      distinguish between those two situations.  This flag is true if
@@ -130,6 +127,22 @@ static tree initialize_inlined_parameters (inline_data *, tree, tree, tree);
 static void remap_block (tree *, tree, inline_data *);
 static tree add_stmt_to_compound (tree, tree, tree);
 #endif /* INLINER_FOR_JAVA */
+
+/* Insert a tree->tree mapping for ID.  Despite the name suggests
+   that the trees should be variables, it is used for more than that.  */
+
+static void
+insert_decl_map (inline_data *id, tree key, tree value)
+{
+  splay_tree_insert (id->decl_map, (splay_tree_key) key,
+		     (splay_tree_value) value);
+
+  /* Always insert an identity map as well.  If we see this same new
+     node again, we won't want to duplicate it a second time.  */
+  if (key != value)
+    splay_tree_insert (id->decl_map, (splay_tree_key) value,
+		       (splay_tree_value) value);
+}
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
@@ -192,9 +205,8 @@ remap_decl (tree decl, inline_data *id)
 
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
-      n = splay_tree_insert (id->decl_map,
-			     (splay_tree_key) decl,
-			     (splay_tree_value) t);
+      insert_decl_map (id, decl, t);
+      return t;
     }
 
   return (tree) n->value;
@@ -217,15 +229,13 @@ remap_type (tree type, inline_data *id)
   /* The type only needs remapping if it's variably modified.  */
   if (! variably_modified_type_p (type))
     {
-      splay_tree_insert (id->decl_map, (splay_tree_key) type,
-			 (splay_tree_value) type);
+      insert_decl_map (id, type, type);
       return type;
     }
   
   /* We do need a copy.  build and register it now.  */
   new = copy_node (type);
-  splay_tree_insert (id->decl_map, (splay_tree_key) type,
-		     (splay_tree_value) new);
+  insert_decl_map (id, type, new);
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
@@ -395,9 +405,7 @@ remap_block (tree *block, tree decls, inline_data *id)
 	  *first_block = new_block;
 	}
       /* Remember the remapped block.  */
-      splay_tree_insert (id->decl_map,
-			 (splay_tree_key) old_block,
-			 (splay_tree_value) new_block);
+      insert_decl_map (id, old_block, new_block);
     }
   /* If this is the end of a scope, set the SCOPE_STMT_BLOCK to be the
      remapped block.  */
@@ -571,6 +579,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* If we're not returning anything just do the jump.  */
       else
 	*tp = goto_stmt;
+
+      /* We can't replace return label while inlining function
+	 because it is in the outer function.  */
+      insert_decl_map (id, id->ret_label, id->ret_label);
     }
   /* Local variables and labels need to be replaced by equivalent
      variables.  We don't want to copy static variables; there's only
@@ -611,9 +623,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
          will refer to it, so save a copy ready for remapping.  We
          save it in the decl_map, although it isn't a decl.  */
       tree new_block = copy_node (*tp);
-      splay_tree_insert (id->decl_map,
-			 (splay_tree_key) *tp,
-			 (splay_tree_value) new_block);
+      insert_decl_map (id, *tp, new_block);
       *tp = new_block;
     }
   else if (TREE_CODE (*tp) == EXIT_BLOCK_EXPR)
@@ -784,9 +794,7 @@ DECL_ARGUMENTS (fn);
 	      else if (TREE_TYPE (value) != TREE_TYPE (p))
 		value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
 
-	      splay_tree_insert (id->decl_map,
-				 (splay_tree_key) p,
-				 (splay_tree_value) value);
+	      insert_decl_map (id, p, value);
 	      continue;
 	    }
 	}
@@ -807,9 +815,7 @@ DECL_ARGUMENTS (fn);
       /* Register the VAR_DECL as the equivalent for the PARM_DECL;
 	 that way, when the PARM_DECL is encountered, it will be
 	 automatically replaced by the VAR_DECL.  */
-      splay_tree_insert (id->decl_map,
-			 (splay_tree_key) p,
-			 (splay_tree_value) var_sub);
+      insert_decl_map (id, p, var_sub);
 
       /* Declare this new variable.  */
 #ifndef INLINER_FOR_JAVA
@@ -947,9 +953,7 @@ declare_return_variable (struct inline_data *id, tree return_slot_addr,
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be
      automatically replaced by the VAR_DECL.  */
-  splay_tree_insert (id->decl_map,
-		     (splay_tree_key) result,
-		     (splay_tree_value) var);
+  insert_decl_map (id, result, var);
 
   /* Build the USE_STMT.  If the return type of the function was
      promoted, convert it back to the expected type.  */
@@ -1377,7 +1381,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      statements within the function to jump to.  The type of the
      statement expression is the return type of the function call.  */
   stmt = NULL;
-  expr = build (BLOCK, TREE_TYPE (TREE_TYPE (fn)), stmt);
+  expr = build (BLOCK, TREE_TYPE (TREE_TYPE (fn)));
 #endif /* INLINER_FOR_JAVA */
 
   /* Local declarations will be replaced by their equivalents in this
@@ -1569,11 +1573,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      the equivalent inlined version either.  */
   TREE_USED (*tp) = 1;
 
-  /* Our function now has more statements than it did before.  */
-  DECL_ESTIMATED_INSNS (VARRAY_TREE (id->fns, 0)) += DECL_ESTIMATED_INSNS (fn);
-  /* For accounting, subtract one for the saved call/ret.  */
-  id->inlined_insns += DECL_ESTIMATED_INSNS (fn) - 1;
-
   /* Update callgraph if needed.  */
   if (id->decl)
     {
@@ -1589,11 +1588,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     id->current_decl = old_decl;
   }
   VARRAY_POP (id->fns);
-
-  /* If we've returned to the top level, clear out the record of how
-     much inlining has been done.  */
-  if (VARRAY_ACTIVE_SIZE (id->fns) == id->first_inlined_fn)
-    id->inlined_insns = 0;
 
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
@@ -1626,6 +1620,12 @@ optimize_inline_calls (tree fn)
   inline_data id;
   tree prev_fn;
 
+  /* There is no point in performing inlining if errors have already
+     occurred -- and we might crash if we try to inline invalid
+     code.  */
+  if (errorcount || sorrycount)
+    return;
+
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
@@ -1634,9 +1634,6 @@ optimize_inline_calls (tree fn)
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
-  if (!DECL_ESTIMATED_INSNS (fn))
-    DECL_ESTIMATED_INSNS (fn) 
-      = (*lang_hooks.tree_inlining.estimate_num_insns) (fn);
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)
@@ -2018,6 +2015,7 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
 {
   splay_tree st = (splay_tree) st_;
   splay_tree_node n;
+  tree t;
 
   /* See if we already encountered this SAVE_EXPR.  */
   n = splay_tree_lookup (st, (splay_tree_key) *tp);
@@ -2025,7 +2023,7 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
   /* If we didn't already remap this SAVE_EXPR, do so now.  */
   if (!n)
     {
-      tree t = copy_node (*tp);
+      t = copy_node (*tp);
 
       /* The SAVE_EXPR is now part of the function into which we
 	 are inlining this body.  */
@@ -2033,19 +2031,19 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
       /* And we haven't evaluated it yet.  */
       SAVE_EXPR_RTL (t) = NULL_RTX;
       /* Remember this SAVE_EXPR.  */
-      n = splay_tree_insert (st,
-			     (splay_tree_key) *tp,
-			     (splay_tree_value) t);
+      splay_tree_insert (st, (splay_tree_key) *tp, (splay_tree_value) t);
       /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
       splay_tree_insert (st, (splay_tree_key) t, (splay_tree_value) t);
     }
   else
-    /* We've already walked into this SAVE_EXPR, so we needn't do it
-       again.  */
-    *walk_subtrees = 0;
+    {
+      /* We've already walked into this SAVE_EXPR; don't do it again.  */
+      *walk_subtrees = 0;
+      t = (tree) n->value;
+    }
 
   /* Replace this SAVE_EXPR with the copy.  */
-  *tp = (tree) n->value;
+  *tp = t;
 }
 
 #ifdef INLINER_FOR_JAVA

@@ -479,7 +479,7 @@ extern int target_flags;
 
 /* A combination of defining PROMOTE_MODE,
    TARGET_PROMOTE_FUNCTION_ARGS that always returns true,
-   PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
+   PROMOTE_FOR_CALL_ONLY and *not* defining TARGET_PROMOTE_PROTOTYPES gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
 #define CRIS_PROMOTED_MODE(MODE, UNSIGNEDP, TYPE) \
  (GET_MODE_CLASS (MODE) == MODE_INT && GET_MODE_SIZE (MODE) < 4) \
@@ -566,8 +566,6 @@ extern int target_flags;
 
 /* For compatibility and historical reasons, a char should be signed.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* No DEFAULT_SHORT_ENUMS, please.  */
 
 /* Note that WCHAR_TYPE_SIZE is used in cexp.y,
    where TARGET_SHORT is not available.  */
@@ -956,7 +954,7 @@ struct cum_args {int regs;};
 
 /* The regs member is an integer, the number of arguments got into
    registers so far.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL)	  \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
  ((CUM).regs = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\

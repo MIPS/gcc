@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,19 +102,6 @@ get_pending_sizes (void)
 
   pending_sizes = 0;
   return chain;
-}
-
-/* Return nonzero if EXPR is present on the pending sizes list.  */
-
-int
-is_pending_size (tree expr)
-{
-  tree t;
-
-  for (t = pending_sizes; t; t = TREE_CHAIN (t))
-    if (TREE_VALUE (t) == expr)
-      return 1;
-  return 0;
 }
 
 /* Add EXPR to the pending sizes list.  */
@@ -1595,9 +1582,12 @@ layout_type (tree type)
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
-      TYPE_MODE (type) = mode_for_size (2 * POINTER_SIZE, MODE_INT, 0);
-      TYPE_SIZE (type) = bitsize_int (2 * POINTER_SIZE);
-      TYPE_SIZE_UNIT (type) = size_int ((2 * POINTER_SIZE) / BITS_PER_UNIT);
+      /* It's hard to see what the mode and size of a function ought to
+	 be, but we do know the alignment is FUNCTION_BOUNDARY, so
+	 make it consistent with that.  */
+      TYPE_MODE (type) = mode_for_size (FUNCTION_BOUNDARY, MODE_INT, 0);
+      TYPE_SIZE (type) = bitsize_int (FUNCTION_BOUNDARY);
+      TYPE_SIZE_UNIT (type) = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
       break;
 
     case POINTER_TYPE:
@@ -2116,6 +2106,29 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
     }
 
   return mode;
+}
+
+/* Gets minimal and maximal values for MODE (signed or unsigned depending on
+   SIGN).  */
+
+void
+get_mode_bounds (enum machine_mode mode, int sign, rtx *mmin, rtx *mmax)
+{
+  int size = GET_MODE_BITSIZE (mode);
+
+  if (size > HOST_BITS_PER_WIDE_INT)
+    abort ();
+
+  if (sign)
+    {
+      *mmin = GEN_INT (-((unsigned HOST_WIDE_INT) 1 << (size - 1)));
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1);
+    }
+  else
+    {
+      *mmin = const0_rtx;
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1);
+    }
 }
 
 #include "gt-stor-layout.h"

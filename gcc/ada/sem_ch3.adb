@@ -43,6 +43,7 @@ with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Case; use Sem_Case;
@@ -691,7 +692,7 @@ package body Sem_Ch3 is
 
       Set_Is_Public          (Anon_Type, Is_Public (Scope (Anon_Type)));
 
-      --  Ada0Y (AI-50217): Propagate the attribute that indicates that the
+      --  Ada 0Y (AI-50217): Propagate the attribute that indicates that the
       --  designated type comes from the limited view (for back-end purposes).
 
       Set_From_With_Type     (Anon_Type, From_With_Type (Desig_Type));
@@ -861,7 +862,7 @@ package body Sem_Ch3 is
       --  access type is also imported, and therefore restricted in its use.
       --  The access type may already be imported, so keep setting otherwise.
 
-      --  Ada0Y (AI-50217): If the non-limited view of the designated type is
+      --  Ada 0Y (AI-50217): If the non-limited view of the designated type is
       --  available, use it as the designated type of the access type, so that
       --  the back-end gets a usable entity.
 
@@ -906,8 +907,22 @@ package body Sem_Ch3 is
    begin
       Generate_Definition (Id);
       Enter_Name (Id);
-      T := Find_Type_Of_Object (Subtype_Indication (Component_Definition (N)),
-                                N);
+
+      if Present (Subtype_Indication (Component_Definition (N))) then
+         T := Find_Type_Of_Object
+                (Subtype_Indication (Component_Definition (N)), N);
+
+      --  Ada 0Y (AI-230): Access Definition case
+
+      elsif Present (Access_Definition (Component_Definition (N))) then
+         T := Access_Definition
+                (Related_Nod => N,
+                 N => Access_Definition (Component_Definition (N)));
+
+      else
+         pragma Assert (False);
+         null;
+      end if;
 
       --  If the subtype is a constrained subtype of the enclosing record,
       --  (which must have a partial view) the back-end does not handle
@@ -944,9 +959,16 @@ package body Sem_Ch3 is
       --  and thus unconstrained. Regular components must be constrained.
 
       if Is_Indefinite_Subtype (T) and then Chars (Id) /= Name_uParent then
-         Error_Msg_N
-           ("unconstrained subtype in component declaration",
-            Subtype_Indication (Component_Definition (N)));
+         if Is_Class_Wide_Type (T) then
+            Error_Msg_N
+               ("class-wide subtype with unknown discriminants" &
+                 " in component declaration",
+                 Subtype_Indication (Component_Definition (N)));
+         else
+            Error_Msg_N
+              ("unconstrained subtype in component declaration",
+               Subtype_Indication (Component_Definition (N)));
+         end if;
 
       --  Components cannot be abstract, except for the special case of
       --  the _Parent field (case of extending an abstract tagged type)
@@ -1341,6 +1363,14 @@ package body Sem_Ch3 is
       --  the subtype of the object is constrained by the defaults, so it is
       --  worthile building the corresponding subtype.
 
+      function Count_Tasks (T : Entity_Id) return Uint;
+      --  This function is called when a library level object of type T
+      --  is declared. It's function is to count the static number of
+      --  tasks declared within the type (it is only called if Has_Tasks
+      --  is set for T). As a side effect, if an array of tasks with
+      --  non-static bounds or a variant record type is encountered,
+      --  Check_Restrictions is called indicating the count is unknown.
+
       ---------------------------
       -- Build_Default_Subtype --
       ---------------------------
@@ -1380,6 +1410,60 @@ package body Sem_Ch3 is
          Analyze (Decl);
          return Act;
       end Build_Default_Subtype;
+
+      -----------------
+      -- Count_Tasks --
+      -----------------
+
+      function Count_Tasks (T : Entity_Id) return Uint is
+         C : Entity_Id;
+         X : Node_Id;
+         V : Uint;
+
+      begin
+         if Is_Task_Type (T) then
+            return Uint_1;
+
+         elsif Is_Record_Type (T) then
+            if Has_Discriminants (T) then
+               Check_Restriction (Max_Tasks, N);
+               return Uint_0;
+
+            else
+               V := Uint_0;
+               C := First_Component (T);
+               while Present (C) loop
+                  V := V + Count_Tasks (Etype (C));
+                  Next_Component (C);
+               end loop;
+
+               return V;
+            end if;
+
+         elsif Is_Array_Type (T) then
+            X := First_Index (T);
+            V := Count_Tasks (Component_Type (T));
+            while Present (X) loop
+               C := Etype (X);
+
+               if not Is_Static_Subtype (C) then
+                  Check_Restriction (Max_Tasks, N);
+                  return Uint_0;
+               else
+                  V := V * (UI_Max (Uint_0,
+                                    Expr_Value (Type_High_Bound (C)) -
+                                    Expr_Value (Type_Low_Bound (C)) + Uint_1));
+               end if;
+
+               Next_Index (X);
+            end loop;
+
+            return V;
+
+         else
+            return Uint_0;
+         end if;
+      end Count_Tasks;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -1851,9 +1935,13 @@ package body Sem_Ch3 is
       end if;
 
       if Has_Task (Etype (Id)) then
-         Check_Restriction (Max_Tasks, N);
+         Check_Restriction (No_Tasking, N);
 
-         if not Is_Library_Level_Entity (Id) then
+         if Is_Library_Level_Entity (Id) then
+            Check_Restriction (Max_Tasks, N, Count_Tasks (Etype (Id)));
+
+         else
+            Check_Restriction (Max_Tasks, N);
             Check_Restriction (No_Task_Hierarchy, N);
             Check_Potentially_Blocking_Operation (N);
          end if;
@@ -1935,6 +2023,7 @@ package body Sem_Ch3 is
          Rewrite (N,
            Make_Object_Renaming_Declaration (Loc,
              Defining_Identifier => Id,
+             Access_Definition   => Empty,
              Subtype_Mark        => New_Occurrence_Of
                                       (Base_Type (Etype (Id)), Loc),
              Name                => E));
@@ -2451,7 +2540,7 @@ package body Sem_Ch3 is
 
       --  The full view, if present, now points to the current type
 
-      --  Ada0Y (AI-50217): If the type was previously decorated when imported
+      --  Ada 0Y (AI-50217): If the type was previously decorated when imported
       --  through a LIMITED WITH clause, it appears as incomplete but has no
       --  full view.
 
@@ -2536,6 +2625,12 @@ package body Sem_Ch3 is
                  and then Is_Remote_Access_To_Class_Wide_Type (Def_Id)
                then
                   Add_RACW_Features (Def_Id);
+               end if;
+
+               --  Set no strict aliasing flag if config pragma seen
+
+               if Opt.No_Strict_Aliasing then
+                  Set_No_Strict_Aliasing (Base_Type (Def_Id));
                end if;
 
             when N_Array_Type_Definition =>
@@ -2735,21 +2830,19 @@ package body Sem_Ch3 is
 
    begin
       if Nkind (Def) = N_Constrained_Array_Definition then
-
          Index := First (Discrete_Subtype_Definitions (Def));
-
-         --  Find proper names for the implicit types which may be public.
-         --  in case of anonymous arrays we use the name of the first object
-         --  of that type as prefix.
-
-         if No (T) then
-            Related_Id :=  Defining_Identifier (P);
-         else
-            Related_Id := T;
-         end if;
-
       else
          Index := First (Subtype_Marks (Def));
+      end if;
+
+      --  Find proper names for the implicit types which may be public.
+      --  in case of anonymous arrays we use the name of the first object
+      --  of that type as prefix.
+
+      if No (T) then
+         Related_Id :=  Defining_Identifier (P);
+      else
+         Related_Id := T;
       end if;
 
       Nb_Index := 1;
@@ -2761,8 +2854,21 @@ package body Sem_Ch3 is
          Nb_Index := Nb_Index + 1;
       end loop;
 
-      Element_Type := Process_Subtype (Subtype_Indication (Component_Def),
-                                       P, Related_Id, 'C');
+      if Present (Subtype_Indication (Component_Def)) then
+         Element_Type := Process_Subtype (Subtype_Indication (Component_Def),
+                                          P, Related_Id, 'C');
+
+      --  Ada 0Y (AI-230): Access Definition case
+
+      elsif Present (Access_Definition (Component_Def)) then
+         Element_Type := Access_Definition
+                           (Related_Nod => Related_Id,
+                            N           => Access_Definition (Component_Def));
+
+      else
+         pragma Assert (False);
+         null;
+      end if;
 
       --  Constrained array case
 
@@ -2898,8 +3004,7 @@ package body Sem_Ch3 is
       Discr           : Entity_Id;
       Discr_Con_Elist : Elist_Id;
       Discr_Con_El    : Elmt_Id;
-
-      Subt : Entity_Id;
+      Subt            : Entity_Id;
 
    begin
       --  Set the designated type so it is available in case this is
@@ -4580,8 +4685,16 @@ package body Sem_Ch3 is
       Indic := Subtype_Indication (Type_Def);
       Constraint_Present := (Nkind (Indic) = N_Subtype_Indication);
 
+      --  Check that the type has visible discriminants. The type may be
+      --  a private type with unknown discriminants whose full view has
+      --  discriminants which are invisible.
+
       if Constraint_Present then
-         if not Has_Discriminants (Parent_Base) then
+         if not Has_Discriminants (Parent_Base)
+           or else
+             (Has_Unknown_Discriminants (Parent_Base)
+                and then Is_Private_Type (Parent_Base))
+         then
             Error_Msg_N
               ("invalid constraint: type has no discriminant",
                  Constraint (Indic));
@@ -4910,9 +5023,17 @@ package body Sem_Ch3 is
             Set_Has_Unknown_Discriminants
               (Derived_Type, Has_Unknown_Discriminants (Parent_Type)
                              or else Unknown_Discriminants_Present (N));
-         else
-            Set_Has_Unknown_Discriminants
-              (Derived_Type, Has_Unknown_Discriminants (Parent_Type));
+
+         --  The partial view of the parent may have unknown discriminants,
+         --  but if the full view has discriminants and the parent type is
+         --  in scope they must be inherited.
+
+         elsif Has_Unknown_Discriminants (Parent_Type)
+           and then
+            (not Has_Discriminants (Parent_Type)
+              or else not In_Open_Scopes (Scope (Parent_Type)))
+         then
+            Set_Has_Unknown_Discriminants (Derived_Type);
          end if;
 
          if not Has_Unknown_Discriminants (Derived_Type)
@@ -6247,7 +6368,7 @@ package body Sem_Ch3 is
         and then not In_Instance
         and then not In_Inlined_Body
       then
-         --  Ada0Y (AI-287): Relax the strictness of the front-end in case of
+         --  Ada 0Y (AI-287): Relax the strictness of the front-end in case of
          --  limited aggregates and extension aggregates.
 
          if Extensions_Allowed
@@ -6293,10 +6414,16 @@ package body Sem_Ch3 is
                Set_Is_Immediately_Visible (D);
                Set_Homonym (D, Prev);
 
-               --  This restriction gets applied to the full type here; it
-               --  has already been applied earlier to the partial view
+               --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
+               --  record types
 
-               Check_Access_Discriminant_Requires_Limited (Parent (D), N);
+               if not Extensions_Allowed then
+
+                  --  This restriction gets applied to the full type here; it
+                  --  has already been applied earlier to the partial view
+
+                  Check_Access_Discriminant_Requires_Limited (Parent (D), N);
+               end if;
 
                Next_Discriminant (D);
             end loop;
@@ -7538,7 +7665,15 @@ package body Sem_Ch3 is
          T := Designated_Type (T);
       end if;
 
-      if not Has_Discriminants (T) then
+      --  Check that the type has visible discriminants. The type may be
+      --  a private type with unknown discriminants whose full view has
+      --  discriminants which are invisible.
+
+      if not Has_Discriminants (T)
+        or else
+          (Has_Unknown_Discriminants (T)
+             and then Is_Private_Type (T))
+      then
          Error_Msg_N ("invalid constraint: type has no discriminant", C);
          Fixup_Bad_Constraint;
          return;
@@ -11223,8 +11358,14 @@ package body Sem_Ch3 is
          end if;
 
          if Is_Access_Type (Discr_Type) then
-            Check_Access_Discriminant_Requires_Limited
-              (Discr, Discriminant_Type (Discr));
+
+            --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
+            --  record types
+
+            if not Extensions_Allowed then
+               Check_Access_Discriminant_Requires_Limited
+                 (Discr, Discriminant_Type (Discr));
+            end if;
 
             if Ada_83 and then Comes_From_Source (Discr) then
                Error_Msg_N

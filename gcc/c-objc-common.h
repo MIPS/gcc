@@ -51,7 +51,7 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_objc_common_truthvalue_conversion
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL

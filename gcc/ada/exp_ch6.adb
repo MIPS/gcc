@@ -51,6 +51,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch6;  use Sem_Ch6;
@@ -358,7 +359,7 @@ package body Exp_Ch6 is
       --  since we won't be able to generate the code to handle the
       --  recursion in any case.
 
-      if Restrictions (No_Implicit_Conditionals) then
+      if Restriction_Active (No_Implicit_Conditionals) then
          return;
       end if;
 
@@ -595,6 +596,10 @@ package body Exp_Ch6 is
                Init :=
                  Convert_To (Etype (Formal), New_Occurrence_Of (Var, Loc));
             end if;
+
+         elsif Ekind (Formal) = E_In_Parameter then
+            Init := New_Occurrence_Of (Var, Loc);
+
          else
             Init := Empty;
          end if;
@@ -1265,7 +1270,7 @@ package body Exp_Ch6 is
          --  if we can tell that the first parameter cannot possibly be null.
          --  This helps optimization and also generation of warnings.
 
-         if not Restrictions (No_Exception_Handlers)
+         if not Restriction_Active (No_Exception_Handlers)
            and then Is_RTE (Subp, RE_Raise_Exception)
          then
             declare
@@ -1914,11 +1919,42 @@ package body Exp_Ch6 is
       then
          if Is_Inlined (Subp) then
 
-            declare
+            Inlined_Subprogram : declare
                Bod         : Node_Id;
                Must_Inline : Boolean := False;
                Spec        : constant Node_Id := Unit_Declaration_Node (Subp);
                Scop        : constant Entity_Id := Scope (Subp);
+
+               function In_Unfrozen_Instance return Boolean;
+               --  If the subprogram comes from an instance in the same
+               --  unit, and the instance is not yet frozen, inlining might
+               --  trigger order-of-elaboration problems in gigi.
+
+               --------------------------
+               -- In_Unfrozen_Instance --
+               --------------------------
+
+               function In_Unfrozen_Instance return Boolean is
+                  S : Entity_Id := Scop;
+
+               begin
+                  while Present (S)
+                    and then S /= Standard_Standard
+                  loop
+                     if Is_Generic_Instance (S)
+                       and then Present (Freeze_Node (S))
+                       and then not Analyzed (Freeze_Node (S))
+                     then
+                        return True;
+                     end if;
+
+                     S := Scope (S);
+                  end loop;
+
+                  return False;
+               end In_Unfrozen_Instance;
+
+            --  Start of processing for Inlined_Subprogram
 
             begin
                --  Verify that the body to inline has already been seen,
@@ -1942,14 +1978,7 @@ package body Exp_Ch6 is
                then
                   Must_Inline := False;
 
-               --  If the subprogram comes from an instance in the same
-               --  unit, and the instance is not yet frozen, inlining might
-               --  trigger order-of-elaboration problems in gigi.
-
-               elsif Is_Generic_Instance (Scop)
-                 and then Present (Freeze_Node (Scop))
-                 and then not Analyzed (Freeze_Node (Scop))
-               then
+               elsif In_Unfrozen_Instance then
                   Must_Inline := False;
 
                else
@@ -1997,7 +2026,7 @@ package body Exp_Ch6 is
                        N, Subp);
                   end if;
                end if;
-            end;
+            end Inlined_Subprogram;
          end if;
       end if;
 
@@ -3004,7 +3033,7 @@ package body Exp_Ch6 is
 
          --  Create new exception handler
 
-         if Restrictions (No_Exception_Handlers) then
+         if Restriction_Active (No_Exception_Handlers) then
             Excep_Handlers := No_List;
 
          else
@@ -3162,6 +3191,34 @@ package body Exp_Ch6 is
          end;
       end if;
 
+      Scop := Scope (Spec_Id);
+
+      --  Add discriminal renamings to protected subprograms.
+      --  Install new discriminals for expansion of the next
+      --  subprogram of this protected type, if any.
+
+      if Is_List_Member (N)
+        and then Present (Parent (List_Containing (N)))
+        and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
+      then
+         Add_Discriminal_Declarations
+           (Declarations (N), Scop, Name_uObject, Loc);
+         Add_Private_Declarations (Declarations (N), Scop, Name_uObject, Loc);
+
+         --  Associate privals and discriminals with the next protected
+         --  operation body to be expanded. These are used to expand
+         --  references to private data objects and discriminants,
+         --  respectively.
+
+         Next_Op := Next_Protected_Operation (N);
+
+         if Present (Next_Op) then
+            Dec := Parent (Base_Type (Scop));
+            Set_Privals (Dec, Next_Op, Loc);
+            Set_Discriminals (Dec);
+         end if;
+      end if;
+
       --  Clear out statement list for stubbed procedure
 
       if Present (Corresponding_Spec (N)) then
@@ -3178,8 +3235,6 @@ package body Exp_Ch6 is
             return;
          end if;
       end if;
-
-      Scop := Scope (Spec_Id);
 
       --  Returns_By_Ref flag is normally set when the subprogram is frozen
       --  but subprograms with no specs are not frozen
@@ -3267,32 +3322,6 @@ package body Exp_Ch6 is
             Analyze (Rais);
             Pop_Scope;
          end;
-      end if;
-
-      --  Add discriminal renamings to protected subprograms.
-      --  Install new discriminals for expansion of the next
-      --  subprogram of this protected type, if any.
-
-      if Is_List_Member (N)
-        and then Present (Parent (List_Containing (N)))
-        and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
-      then
-         Add_Discriminal_Declarations
-           (Declarations (N), Scop, Name_uObject, Loc);
-         Add_Private_Declarations (Declarations (N), Scop, Name_uObject, Loc);
-
-         --  Associate privals and discriminals with the next protected
-         --  operation body to be expanded. These are used to expand
-         --  references to private data objects and discriminants,
-         --  respectively.
-
-         Next_Op := Next_Protected_Operation (N);
-
-         if Present (Next_Op) then
-            Dec := Parent (Base_Type (Scop));
-            Set_Privals (Dec, Next_Op, Loc);
-            Set_Discriminals (Dec);
-         end if;
       end if;
 
       --  If subprogram contains a parameterless recursive call, then we may
@@ -3391,14 +3420,17 @@ package body Exp_Ch6 is
       Prot_Id   : Entity_Id;
 
    begin
-      --  Deal with case of protected subprogram
+      --  Deal with case of protected subprogram. Do not generate
+      --  protected operation if operation is flagged as eliminated.
 
       if Is_List_Member (N)
         and then Present (Parent (List_Containing (N)))
         and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
         and then Is_Protected_Type (Scop)
       then
-         if No (Protected_Body_Subprogram (Subp)) then
+         if No (Protected_Body_Subprogram (Subp))
+           and then not Is_Eliminated (Subp)
+         then
             Prot_Decl :=
               Make_Subprogram_Declaration (Loc,
                 Specification =>

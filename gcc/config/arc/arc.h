@@ -623,7 +623,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
@@ -731,36 +731,6 @@ FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
 (((TYPE) ? TYPE_ALIGN (TYPE) : GET_MODE_BITSIZE (MODE)) <= PARM_BOUNDARY \
  ? PARM_BOUNDARY \
  : 2 * PARM_BOUNDARY)
-
-/* This macro offers an alternative
-   to using `__builtin_saveregs' and defining the macro
-   `EXPAND_BUILTIN_SAVEREGS'.  Use it to store the anonymous register
-   arguments into the stack so that all the arguments appear to have
-   been passed consecutively on the stack.  Once this is done, you
-   can use the standard implementation of varargs that works for
-   machines that pass all their arguments on the stack.
-
-   The argument ARGS_SO_FAR is the `CUMULATIVE_ARGS' data structure,
-   containing the values that obtain after processing of the named
-   arguments.  The arguments MODE and TYPE describe the last named
-   argument--its machine mode and its data type as a tree node.
-
-   The macro implementation should do two things: first, push onto the
-   stack all the argument registers *not* used for the named
-   arguments, and second, store the size of the data thus pushed into
-   the `int'-valued variable whose name is supplied as the argument
-   PRETEND_SIZE.  The value that you store here will serve as
-   additional offset for setting up the stack frame.
-
-   If the argument NO_RTL is nonzero, it means that the
-   arguments of the function are being analyzed for the second time.
-   This happens for an inline function, which is not actually
-   compiled until the end of the source file.  The macro
-   `SETUP_INCOMING_VARARGS' should not generate any instructions in
-   this case.  */
-
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_SIZE, NO_RTL) \
-arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 
 /* Function results.  */
 
@@ -779,7 +749,7 @@ arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 /* ??? What about r1 in DI/DF values.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
 
-/* Tell GCC to use RETURN_IN_MEMORY.  */
+/* Tell GCC to use TARGET_RETURN_IN_MEMORY.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
@@ -1102,25 +1072,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* A C statement (sans semicolon) to output on FILE an assembler pseudo-op to
-   declare a library function name external.  The name of the library function
-   is given by SYMREF, which has type RTX and is a SYMBOL_REF.  */
-#if 0
-/* On the ARC we want to have libgcc's for multiple cpus in one binary.
-   We can't use `assemble_name' here as that will call ASM_OUTPUT_LABELREF
-   and we'll get another suffix added on if -mmangle-cpu.  */
-extern const char *arc_mangle_cpu;
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, SYMREF) \
-do {							\
-  if (TARGET_MANGLE_CPU_LIBGCC)				\
-    {							\
-      fprintf (FILE, "\t.rename\t_%s, _%s%s\n",		\
-	       XSTR (SYMREF, 0), XSTR (SYMREF, 0),	\
-	       arc_mangle_suffix);			\
-    }							\
-} while (0)
-#endif
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 /* We mangle all user labels to provide protection from linking code
@@ -1234,15 +1185,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* It's not clear what PIC will look like or whether we want to use -fpic
-   for the embedded form currently being talked about.  For now require -fpic
-   to get pc relative switch tables.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

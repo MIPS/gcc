@@ -196,7 +196,6 @@ extern int	target_flags;
 #define DOUBLE_TYPE_SIZE 	64
 #define LONG_DOUBLE_TYPE_SIZE	64
 #define DEFAULT_SIGNED_CHAR	1
-#define MAX_WCHAR_TYPE_SIZE	32
 
 
 /* Register Basics.  */
@@ -466,7 +465,7 @@ typedef struct iq2000_args
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)		\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (& CUM, FNTYPE, LIBNAME)				\
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
@@ -866,8 +865,6 @@ while (0)
   {"power_of_2_operand",	{ CONST_INT }},
 
 #define CASE_VECTOR_MODE SImode
-
-#define CASE_VECTOR_PC_RELATIVE 0
 
 #define WORD_REGISTER_OPERATIONS
 

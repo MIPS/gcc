@@ -192,8 +192,6 @@ static bool iq2000_return_in_memory   (tree, tree);
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES	hook_bool_tree_true
 
-#undef  TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX		hook_rtx_tree_int_null
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY		iq2000_return_in_memory
 
@@ -359,7 +357,7 @@ cmp_op (rtx op, enum machine_mode mode)
   if (mode != GET_MODE (op))
     return 0;
 
-  return GET_RTX_CLASS (GET_CODE (op)) == '<';
+  return COMPARISON_P (op);
 }
 
 /* Return nonzero if the operand is either the PC or a label_ref.  */
@@ -1243,7 +1241,7 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
       /* For cmp0 != cmp1, build cmp0 == cmp1, and test for result == 0.  */
       emit_insn (gen_rtx_SET (VOIDmode, reg,
 			      gen_rtx_fmt_ee (test_code == NE ? EQ : test_code,
-				       CCmode, cmp0, cmp1)));
+					      CCmode, cmp0, cmp1)));
 
       test_code = test_code == NE ? EQ : NE;
       mode = CCmode;
@@ -1253,7 +1251,8 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
       break;
 
     default:
-      abort_with_insn (gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1), "bad test");
+      abort_with_insn (gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1),
+		       "bad test");
     }
 
   /* Generate the branch.  */
@@ -1268,8 +1267,9 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
 
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx_fmt_ee (test_code, mode,
-							      cmp0, cmp1),
+						     gen_rtx_fmt_ee (test_code,
+								     mode,
+								     cmp0, cmp1),
 						     label1, label2)));
 }
 
@@ -2331,7 +2331,7 @@ iq2000_expand_prologue (void)
      variable arguments.
 
      This is only needed if store_args_on_stack is true.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0, 0);
   regno = GP_ARG_FIRST;
 
   for (cur_arg = fnargs; cur_arg != 0; cur_arg = next_arg)
@@ -2583,11 +2583,10 @@ symbolic_expression_p (rtx x)
   if (GET_CODE (x) == CONST)
     return symbolic_expression_p (XEXP (x, 0));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1')
+  if (UNARY_P (x))
     return symbolic_expression_p (XEXP (x, 0));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '2')
+  if (ARITHMETIC_P (x))
     return (symbolic_expression_p (XEXP (x, 0))
 	    || symbolic_expression_p (XEXP (x, 1)));
 
@@ -2623,15 +2622,13 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
     {
       /* For embedded applications, always put an object in read-only data
 	 if possible, in order to reduce RAM usage.  */
-      if (((TREE_CODE (decl) == VAR_DECL
-	    && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
-	    && DECL_INITIAL (decl)
-	    && (DECL_INITIAL (decl) == error_mark_node
-		|| TREE_CONSTANT (DECL_INITIAL (decl))))
-	   /* Deal with calls from output_constant_def_contents.  */
-	   || (TREE_CODE (decl) != VAR_DECL
-	       && (TREE_CODE (decl) != STRING_CST
-		   || !flag_writable_strings))))
+      if ((TREE_CODE (decl) == VAR_DECL
+	   && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
+	   && DECL_INITIAL (decl)
+	   && (DECL_INITIAL (decl) == error_mark_node
+	       || TREE_CONSTANT (DECL_INITIAL (decl))))
+	  /* Deal with calls from output_constant_def_contents.  */
+	  || TREE_CODE (decl) != VAR_DECL)
 	readonly_data_section ();
       else
 	data_section ();
@@ -2640,15 +2637,13 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
     {
       /* For hosted applications, always put an object in small data if
 	 possible, as this gives the best performance.  */
-      if (((TREE_CODE (decl) == VAR_DECL
-		 && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
-		 && DECL_INITIAL (decl)
-		 && (DECL_INITIAL (decl) == error_mark_node
-		     || TREE_CONSTANT (DECL_INITIAL (decl))))
-		/* Deal with calls from output_constant_def_contents.  */
-		|| (TREE_CODE (decl) != VAR_DECL
-		    && (TREE_CODE (decl) != STRING_CST
-			|| !flag_writable_strings))))
+      if ((TREE_CODE (decl) == VAR_DECL
+	   && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
+	   && DECL_INITIAL (decl)
+	   && (DECL_INITIAL (decl) == error_mark_node
+	       || TREE_CONSTANT (DECL_INITIAL (decl))))
+	  /* Deal with calls from output_constant_def_contents.  */
+	  || TREE_CODE (decl) != VAR_DECL)
 	readonly_data_section ();
       else
 	data_section ();
@@ -2858,7 +2853,7 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
 	char *c;
 
 	c = strchr (buffer, '\0');
-	/* Generate the reversed comparision.  This takes four
+	/* Generate the reversed comparison.  This takes four
 	   bytes.  */
 	if (float_p)
 	  sprintf (c, "b%s\t%%Z2%s",

@@ -293,15 +293,24 @@ systems' @command{tar} programs will also work, only try GNU
 Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.13 (exactly), but @file{libiberty},
-@file{fastjar}, @file{libstdc++-v3}, and @file{gcc} require
-autoconf 2.57 (exactly).
+@file{fastjar}, @file{libstdc++-v3}, @file{libjava/libltdl}, @file{boehm-gc},
+@file{intl}, @file{libada}, and @file{gcc} require autoconf 2.57 (exactly).
 
-@item automake versions 1.4-p? and 1.7.?
+@item automake versions 1.4-gcj and 1.7.9
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
-associated @file{Makefile.in}.  Most directories require a 1.4 series
-automake; @file{libstdc++-v3} and @file{fastjar} requires a 1.7 series
-automake.
+associated @file{Makefile.in}.
+
+Much of GCC does not use automake, so directly edit the @file{Makefile.in}
+file.  Specifically this applies to the @file{gcc}, @file{intl},
+@file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
+of their subdirectories.
+
+The @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{fastjar}
+directories require automake 1.7.9.  However, the Java directories, which
+include @file{boehm-gc}, @file{libffi}, @file{libjava}, and @file{zlib},
+require a modified version of automake 1.4 downloadable from
+@uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
 
 @item gettext version 0.12 (or later)
 
@@ -327,7 +336,7 @@ Necessary to regenerate @file{fixinc/fixincl.x} from
 
 Necessary to run the @file{fixinc} @command{make check}.
 
-Necessary to regenerate the top level @file{Makefile.am} files from
+Necessary to regenerate the top level @file{Makefile.in} file from
 @file{Makefile.tpl} and @file{Makefile.def}.
 
 @item GNU Bison version 1.28 (or later)
@@ -530,7 +539,7 @@ provide a configure target when configuring a native compiler.
 @item
 @var{target} must be specified as @option{--target=@var{target}}
 when configuring a cross compiler; examples of valid targets would be
-i960-rtems, m68k-coff, sh-elf, etc.
+m68k-coff, sh-elf, etc.
 
 @item
 Specifying just @var{target} instead of @option{--target=@var{target}}
@@ -544,6 +553,10 @@ Use @var{options} to override several configure time options for
 GCC@.  A list of supported @var{options} follows; @samp{configure
 --help} may list other options, but those not listed below may not
 work and should not normally be used.
+
+Note that each @option{--enable} option has a corresponding
+@option{--disable} option and that each @option{--with} option has a
+corresponding @option{--without} option.
 
 @table @code
 @item --prefix=@var{dirname}
@@ -600,7 +613,7 @@ manual.)
 @item --with-gxx-include-dir=@var{dirname}
 Specify
 the installation directory for G++ header files.  The default is
-@file{@var{prefix}/include/g++-v3}.
+@file{@var{prefix}/include/c++/@var{version}}.
 
 @end table
 
@@ -926,12 +939,13 @@ and SPARC@.
 @itemx --with-arch=@var{cpu}
 @itemx --with-tune=@var{cpu}
 @itemx --with-abi=@var{abi}
+@itemx --with-fpu=@var{type}
 @itemx --with-float=@var{type}
 These configure options provide default values for the @option{-mschedule=},
-@option{-march=}, @option{-mtune=}, and @option{-mabi=} options and for
-@option{-mhard-float} or @option{-msoft-float}.  As with @option{--with-cpu},
-which switches will be accepted and acceptable values of the arguments depend
-on the target.
+@option{-march=}, @option{-mtune=}, @option{-mabi=}, and @option{-mfpu=}
+options and for @option{-mhard-float} or @option{-msoft-float}.  As with
+@option{--with-cpu}, which switches will be accepted and acceptable values
+of the arguments depend on the target.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -1018,17 +1032,11 @@ sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
 @samp{make bootstrap} @strong{does not} work anymore, as those
 language sub-directories might not have been configured!
 
-@item --disable-libgcj
-Specify that the run-time libraries
-used by GCJ should not be built.  This is useful in case you intend
-to use GCJ with some other run-time, or you're going to install it
-separately, or it just happens not to build on your particular
-machine.  In general, if the Java front end is enabled, the GCJ
-libraries will be enabled too, unless they're known to not work on
-the target platform.  If GCJ is enabled but @samp{libgcj} isn't built, you
-may need to port it; in this case, before modifying the top-level
-@file{configure.in} so that @samp{libgcj} is enabled by default on this platform,
-you may use @option{--enable-libgcj} to override the default.
+@item --disable-libada
+Specify that the run-time libraries and tools used by GNAT should not
+be built.  This can be useful for debugging, or for compatibility with
+previous Ada build procedures, when it was required to explicitly
+do a @samp{make -C gcc gnatlib_and_tools}.
 
 @item --with-dwarf2
 Specify that the compiler should
@@ -1123,10 +1131,6 @@ build procedure to use the host's @code{catgets} in this situation.
 Search for libiconv header files in @file{@var{dir}/include} and
 libiconv library files in @file{@var{dir}/lib}.
 
-@item --with-system-zlib
-Use installed zlib rather than that included with GCC@.  This option
-only applies if the Java front end is being built.
-
 @item --enable-obsolete
 Enable configuration for an obsoleted system.  If you attempt to
 configure GCC for a system (build, host, or target) which has been
@@ -1138,7 +1142,8 @@ is removed entirely in the next major release, unless someone steps
 forward to maintain the port.
 @end table
 
-Some options which only apply to building cross compilers:
+@subheading Cross-Compiler-Specific Options
+The following options only apply to building cross compilers.
 @table @code
 @item --with-sysroot
 @itemx --with-sysroot=@var{dir}
@@ -1186,9 +1191,141 @@ omitted from @file{libgcc.a} on the assumption that it will be provided by
 @samp{newlib}.
 @end table
 
-Note that each @option{--enable} option has a corresponding
-@option{--disable} option and that each @option{--with} option has a
-corresponding @option{--without} option.
+@subheading Java-Specific Options
+
+The following option applies to the build of the Java front end.
+
+@table @code
+@item --disable-libgcj
+Specify that the run-time libraries
+used by GCJ should not be built.  This is useful in case you intend
+to use GCJ with some other run-time, or you're going to install it
+separately, or it just happens not to build on your particular
+machine.  In general, if the Java front end is enabled, the GCJ
+libraries will be enabled too, unless they're known to not work on
+the target platform.  If GCJ is enabled but @samp{libgcj} isn't built, you
+may need to port it; in this case, before modifying the top-level
+@file{configure.in} so that @samp{libgcj} is enabled by default on this platform,
+you may use @option{--enable-libgcj} to override the default.
+
+@end table
+
+The following options apply to building @samp{libgcj}.
+
+@subsubheading General Options
+
+@table @code
+@item --disable-getenv-properties
+Don't set system properties from @env{GCJ_PROPERTIES}.
+
+@item --enable-hash-synchronization
+Use a global hash table for monitor locks. Ordinarily,
+@samp{libgcj}'s @samp{configure} script automatically makes
+the correct choice for this option for your platform. Only use
+this if you know you need the library to be configured differently.
+
+@item --enable-interpreter
+Enable the Java interpreter. The interpreter is automatically
+enabled by default on all platforms that support it. This option
+is really only useful if you want to disable the interpreter
+(using @option{--disable-interpreter}).
+
+@item --disable-java-net
+Disable java.net. This disables the native part of java.net only,
+using non-functional stubs for native method implementations.
+
+@item --disable-jvmpi
+Disable JVMPI support.
+
+@item --with-ecos
+Enable runtime eCos target support.
+
+@item --without-libffi
+Don't use @samp{libffi}. This will disable the interpreter and JNI
+support as well, as these require @samp{libffi} to work.
+
+@item --enable-libgcj-debug
+Enable runtime debugging code.
+
+@item --enable-libgcj-multifile
+If specified, causes all @file{.java} source files to be
+compiled into @file{.class} files in one invocation of
+@samp{gcj}. This can speed up build time, but is more
+resource-intensive. If this option is unspecified or
+disabled, @samp{gcj} is invoked once for each @file{.java}
+file to compile into a @file{.class} file.
+
+@item --with-libiconv-prefix=DIR
+Search for libiconv in @file{DIR/include} and @file{DIR/lib}.
+
+@item --enable-sjlj-exceptions
+Force use of @code{builtin_setjmp} for exceptions. @samp{configure}
+ordinarily picks the correct value based on the platform. Only use
+this option if you are sure you need a different setting.
+
+@item --with-system-zlib
+Use installed @samp{zlib} rather than that included with GCC@.
+
+@item --with-win32-nlsapi=ansi, unicows or unicode
+Indicates how MinGW @samp{libgcj} translates between UNICODE
+characters and the Win32 API.
+@table @code
+@item ansi
+Use the single-byte @code{char} and the Win32 A functions natively,
+translating to and from UNICODE when using these functions. If
+unspecified, this is the default.
+
+@item unicows
+Use the @code{WCHAR} and Win32 W functions natively. Adds
+@code{-lunicows} to @file{libgcj.spec} to link with @samp{libunicows}.
+@file{unicows.dll} needs to be deployed on Microsoft Windows 9X machines
+running built executables. @file{libunicows.a}, an open-source
+import library around Microsoft's @code{unicows.dll}, is obtained from
+@uref{http://libunicows.sourceforge.net/}, which also gives details
+on getting @file{unicows.dll} from Microsoft.
+
+@item unicode
+Use the @code{WCHAR} and Win32 W functions natively. Does @emph{not}
+add @code{-lunicows} to @file{libgcj.spec}. The built executables will
+only run on Microsoft Windows NT and above.
+@end table
+@end table
+
+@subsubheading AWT-Specific Options
+
+@table @code
+@item --with-x
+Use the X Window System.
+
+@item --enable-java-awt=PEER(S)
+Specifies the AWT peer library or libraries to build alongside
+@samp{libgcj}. If this option is unspecified or disabled, AWT
+will be non-functional. Current valid values are @option{gtk} and
+@option{xlib}. Multiple libraries should be separated by a
+comma (i.e. @option{--enable-java-awt=gtk,xlib}).
+
+@item --enable-gtk-cairo
+Build the cairo Graphics2D implementation on GTK.
+
+@item --enable-java-gc=TYPE
+Choose garbage collector. Defaults to @option{boehm} if unspecified.
+
+@item --disable-gtktest
+Do not try to compile and run a test GTK+ program.
+
+@item --disable-glibtest
+Do not try to compile and run a test GLIB program.
+
+@item --with-libart-prefix=PFX
+Prefix where libart is installed (optional).
+
+@item --with-libart-exec-prefix=PFX
+Exec prefix where libart is installed (optional).
+
+@item --disable-libarttest
+Do not try to compile and run a test libart program.
+
+@end table
 
 @html
 <hr />
@@ -1436,31 +1573,6 @@ GNAT-specific extensions), and GNU make.
 and has a sufficiently recent version; if too old a GNAT version is
 installed, the build will fail unless @option{--enable-languages} is
 used to disable building the Ada front end.
-
-At the moment, the GNAT library and several tools for GNAT are not built
-by @samp{make bootstrap}.  For a native build, you have to invoke
-@samp{make gnatlib_and_tools} in the @file{@var{objdir}/gcc}
-subdirectory before proceeding with the next steps.
-For a cross build, you need to invoke
-@samp{make gnatlib cross-gnattools ada.all.cross}.  For a canadian
-cross you only need to invoke @samp{make cross-gnattools}; the GNAT
-library would be the same as the one built for the cross compiler.
-
-For example, you can build a native Ada compiler by issuing the
-following commands (assuming @command{make} is GNU make):
-
-@smallexample
-    cd @var{objdir}
-    @var{srcdir}/configure --enable-languages=c,ada
-    cd @var{objdir}
-    make bootstrap
-    cd gcc
-    make gnatlib_and_tools
-    cd ..
-@end smallexample
-
-Currently, when compiling the Ada front end, you cannot use the parallel
-build feature described in the previous section.
 
 @section Building with profile feedback
 
@@ -2009,8 +2121,6 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#dos,,DOS}
 @item
-@uref{#dsp16xx,,dsp16xx}
-@item
 @uref{#*-*-freebsd*,,*-*-freebsd*}
 @item
 @uref{#h8300-hms,,h8300-hms}
@@ -2020,8 +2130,6 @@ GNU Compiler Collection on your machine.
 @uref{#hppa*-hp-hpux10,,hppa*-hp-hpux10}
 @item
 @uref{#hppa*-hp-hpux11,,hppa*-hp-hpux11}
-@item
-@uref{#i370-*-*,,i370-*-*}
 @item
 @uref{#*-*-linux-gnu,,*-*-linux-gnu}
 @item
@@ -2403,20 +2511,17 @@ and includes all the necessary compilation tools and libraries.
 @html
 <hr />
 @end html
-@heading @anchor{dsp16xx}dsp16xx
-A port to the AT&T DSP1610 family of processors.
-
-@html
-<hr />
-@end html
 @heading @anchor{*-*-freebsd*}*-*-freebsd*
 
-The version of binutils installed in @file{/usr/bin} is known to work unless
-otherwise specified in any per-architecture notes.  However, binutils
-2.12.1 or greater is known to improve overall testsuite results.
+The version of binutils installed in @file{/usr/bin} probably works with
+this release of GCC.  However, on FreeBSD 4, bootstrapping against the
+latest FSF binutils is known to improve overall testsuite results; and,
+on FreeBSD/alpha, using binutils 2.14 or later is required to build libjava.
 
 Support for FreeBSD 1 was discontinued in GCC 3.2.
 
+Support for FreeBSD 2 will be discontinued after GCC 3.4.  The
+following was true for GCC 3.1 but the current status is unknown.
 For FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
 configuration support and files as shipped with GCC 2.95 are still in
 place.  FreeBSD 2.2.7 has been known to bootstrap completely; however,
@@ -2433,9 +2538,9 @@ of the configuration used in the stock FreeBSD configuration of GCC.  In
 particular, @option{--enable-threads} is now configured by default.
 However, as a general user, do not attempt to replace the system
 compiler with this release.  Known to bootstrap and check with good
-results on FreeBSD 4.8-STABLE and 5-CURRENT@.  In the past, known to
+results on FreeBSD 4.9-STABLE and 5-CURRENT@.  In the past, known to
 bootstrap and check with good results on FreeBSD 3.0, 3.4, 4.0, 4.2,
-4.3, 4.4, 4.5-STABLE@.
+4.3, 4.4, 4.5, 4.8-STABLE@.
 
 In principle, @option{--enable-threads} is now compatible with
 @option{--enable-libgcj} on FreeBSD@.  However, it has only been built
@@ -2624,13 +2729,6 @@ This port still is undergoing significant development.
 @html
 <hr />
 @end html
-@heading @anchor{i370-*-*}i370-*-*
-This port is very preliminary and has many known bugs.  We hope to
-have a higher-quality port for this machine soon.
-
-@html
-<hr />
-@end html
 @heading @anchor{*-*-linux-gnu}*-*-linux-gnu
 
 Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
@@ -2776,6 +2874,18 @@ Support for AIX version 3 and older was discontinued in GCC 3.4.
 
 AIX Make frequently has problems with GCC makefiles.  GNU Make 3.79.1 or
 newer is recommended to build on this platform.
+
+To speed up the configuration phases of bootstrapping and installing GCC,
+one may use GNU Bash instead of AIX @command{/bin/sh}, e.g.,
+
+@smallexample
+   % CONFIG_SHELL=/opt/freeware/bin/bash
+   % export CONFIG_SHELL
+@end smallexample
+
+and then proceed as described in @uref{build.html,,the build instructions},
+where we strongly recommend using GNU make and specifying an absolute path
+to invoke @var{srcdir}/configure.
 
 Errors involving @code{alloca} when building GCC generally are due
 to an incorrect definition of @code{CC} in the Makefile or mixing files
@@ -3345,6 +3455,11 @@ When configuring on a Solaris 7 or later system that is running a kernel
 that supports only 32-bit binaries, one must configure with
 @option{--disable-multilib}, since we will not be able to build the
 64-bit target libraries.
+
+GCC 3.4 triggers a code generation bug in versions 5.4 (Sun ONE Studio 7)
+and 5.5 (Sun ONE Studio 8) of the Sun compiler, which causes a bootstrap
+failure in form of a miscompilation of the stage1 compiler by the Sun
+compiler.  This is Sun bug 4974440.  This is fixed with patch 112760-07.
 
 @html
 <hr />

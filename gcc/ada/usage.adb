@@ -134,9 +134,6 @@ begin
    Write_Switch_Char ("c");
    Write_Line ("Check syntax and semantics only (no code generation)");
 
-   Write_Switch_Char ("C");
-   Write_Line ("Compress names in external names and debug info tables");
-
    --  Line for -gnatd switch
 
    Write_Switch_Char ("d?");
@@ -440,6 +437,11 @@ begin
    Write_Line ("        r    check casing for identifier references");
    Write_Line ("        s    check separate subprogram specs present");
    Write_Line ("        t    check token separation rules");
+
+   --  Lines for -gnatyN switch
+
+   Write_Switch_Char ("yN");
+   Write_Line ("Cancel all previously set style checks");
 
    --  Lines for -gnatz switch
 

@@ -167,13 +167,26 @@ extern int target_flags;
 /* Define this if most significant byte of a word is the lowest numbered.  */
 #define BYTES_BIG_ENDIAN 0
 
-/* Define this if most significant word of a multiword number is numbered.  */
+/* Define this if most significant word of a multiword number is first.  */
 #define WORDS_BIG_ENDIAN 1
+
+/* Define that floats are in VAX order, not high word first as for ints.  */
+#define FLOAT_WORDS_BIG_ENDIAN 0
 
 /* Width of a word, in units (bytes). 
 
    UNITS OR BYTES - seems like units */
 #define UNITS_PER_WORD 2
+
+/* This machine doesn't use IEEE floats.  */
+/* Because the pdp11 (at least Unix) convention for 32 bit ints is
+   big endian, opposite for what you need for float, the vax float
+   conversion routines aren't actually used directly.  But the underlying
+   format is indeed the vax/pdp11 float format.  */
+#define TARGET_FLOAT_FORMAT VAX_FLOAT_FORMAT
+
+extern const struct real_format pdp11_f_format;
+extern const struct real_format pdp11_d_format;
 
 /* Maximum sized of reasonable data type 
    DImode or Dfmode ...*/
@@ -446,8 +459,8 @@ enum reg_class { NO_REGS, MUL_REGS, GENERAL_REGS, LOAD_FPU_REGS, NO_LOAD_FPU_REG
    operand as its first argument and the constraint letter as its
    second operand.
 
-   `Q'	is for memory references using take more than 1 instruction.
-   `R'	is for memory references which take 1 word for the instruction.  */
+   `Q'	is for memory references that require an extra word after the opcode.
+   `R'	is for memory references which are encoded within the opcode.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
   ((GET_CODE (OP) != MEM) ? 0						\
@@ -578,7 +591,7 @@ maybe ac0 ? - as option someday! */
    when the function gets a structure-value-address as an
    invisible first argument.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -678,7 +691,7 @@ extern int may_call_alloca;
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
-#define MAX_REGS_PER_ADDRESS 2
+#define MAX_REGS_PER_ADDRESS 1
 
 /* Recognize any constant value that is a valid address.  */
 
@@ -687,7 +700,8 @@ extern int may_call_alloca;
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (TARGET_FPU? 1: !(GET_CODE(X) == CONST_DOUBLE))
+#define LEGITIMATE_CONSTANT_P(X)                                        \
+  (GET_CODE (X) != CONST_DOUBLE || legitimate_const_double_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -866,12 +880,6 @@ extern int may_call_alloca;
    `tablejump' insn.  */
 #define CASE_TAKES_INDEX_RAW
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses. */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -894,7 +902,7 @@ extern int may_call_alloca;
 
 /* Give a comparison code (EQ, NE etc) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode
-   should be used. */
+   should be used.  */
 
 #define SELECT_CC_MODE(OP,X,Y)	\
 (GET_MODE_CLASS(GET_MODE(X)) == MODE_FLOAT? CCFPmode : CCmode)
@@ -999,7 +1007,7 @@ extern struct rtx_def *cc0_reg_rtx;
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.globl "
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
 
@@ -1020,7 +1028,7 @@ extern struct rtx_def *cc0_reg_rtx;
   fprintf (FILE, "\t%sL_%d\n", TARGET_UNIX_ASM ? "" : ".word ", VALUE)
 
 /* This is how to output an element of a case-vector that is relative.
-   Don't define this if it is not supported. */
+   Don't define this if it is not supported.  */
 
 /* #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, VALUE, REL) */
 
@@ -1078,9 +1086,11 @@ extern struct rtx_def *cc0_reg_rtx;
   else if (GET_CODE (X) == MEM)						\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) != SImode)	\
-    { char buf[30];							\
-      real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (X), sizeof (buf), 0, 1); \
-      fprintf (FILE, "$0F%s", buf); }					\
+    { REAL_VALUE_TYPE r;						\
+      long sval[2];							\
+      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
+      REAL_VALUE_TO_TARGET_DOUBLE (r, sval);				\
+      fprintf (FILE, "$%#o", sval[0] >> 16); }				\
   else { putc ('$', FILE); output_addr_const_pdp11 (FILE, X); }}
 
 /* Print a memory address as an operand to reference that memory location.  */

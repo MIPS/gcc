@@ -937,15 +937,16 @@ pushdecl (tree x)
 		  /* ARM $8.3 */
 		  if (b->kind == sk_function_parms)
 		    {
-		      error ("declaration of `%#D' shadows a parameter",
-			     name);
+		      error ("declaration of '%#D' shadows a parameter", x);
 		      err = true;
 		    }
 		}
 
 	      if (warn_shadow && !err)
-		shadow_warning (SW_PARAM,
-				IDENTIFIER_POINTER (name), oldlocal);
+		{
+		  warning ("declaration of '%#D' shadows a parameter", x);
+		  warning ("%Jshadowed declaration is here", oldlocal);
+		}
 	    }
 
 	  /* Maybe warn if shadowing something else.  */
@@ -958,17 +959,25 @@ pushdecl (tree x)
 	      if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE
 		       && current_class_ptr
 		       && !TREE_STATIC (name))
-		warning ("declaration of `%s' shadows a member of `this'",
-			    IDENTIFIER_POINTER (name));
+		{
+		  /* Location of previous decl is not useful in this case.  */
+		  warning ("declaration of '%D' shadows a member of 'this'",
+			   x);
+		}
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
-		shadow_warning (SW_LOCAL,
-				IDENTIFIER_POINTER (name), oldlocal);
+		{
+		  warning ("declaration of '%D' shadows a previous local", x);
+		  warning ("%Jshadowed declaration is here", oldlocal);
+		}
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
-		shadow_warning (SW_GLOBAL,
-				IDENTIFIER_POINTER (name), oldglobal);
+		{
+		  warning ("declaration of '%D' shadows a global declaration",
+			   x);
+		  warning ("%Jshadowed declaration is here", oldglobal);
+		}
 	    }
 	}
 
@@ -2485,15 +2494,30 @@ is_ancestor (tree root, tree child)
     }
 }
 
-/* Enter a class or namespace scope.  */
+/* Enter the class or namespace scope indicated by T.  Returns TRUE iff
+   pop_scope should be called later to exit this scope.  */
 
-void
+bool
 push_scope (tree t)
 {
+  bool pop = true;
+
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
-  else if CLASS_TYPE_P (t)
-    push_nested_class (t);
+  else if (CLASS_TYPE_P (t))
+    {
+      if (!at_class_scope_p ()
+	  || !same_type_p (current_class_type, t))
+	push_nested_class (t);
+      else
+	/* T is the same as the current scope.  There is therefore no
+	   need to re-enter the scope.  Since we are not actually
+	   pushing a new scope, our caller should not call
+	   pop_scope.  */
+	pop = false;
+    }
+
+  return pop;
 }
 
 /* Leave scope pushed by push_scope.  */
@@ -2726,6 +2750,41 @@ push_class_level_binding (tree name, tree x)
      as a template parameter.  */
   if (TYPE_BEING_DEFINED (current_class_type))
     check_template_shadow (x);
+
+  /* [class.mem]
+
+     If T is the name of a class, then each of the following shall
+     have a name different from T:
+
+     -- every static data member of class T;
+
+     -- every member of class T that is itself a type;
+
+     -- every enumerator of every member of class T that is an
+	enumerated type;
+
+     -- every member of every anonymous union that is a member of
+	class T.
+
+     (Non-static data members were also forbidden to have the same
+     name as T until TC1.)  */
+  if ((TREE_CODE (x) == VAR_DECL
+       || TREE_CODE (x) == CONST_DECL
+       || (TREE_CODE (x) == TYPE_DECL
+	   && !DECL_SELF_REFERENCE_P (x))
+       /* A data member of an anonymous union.  */
+       || (TREE_CODE (x) == FIELD_DECL
+	   && DECL_CONTEXT (x) != current_class_type))
+      && DECL_NAME (x) == constructor_name (current_class_type))
+    {
+      tree scope = context_for_name_lookup (x);
+      if (TYPE_P (scope) && same_type_p (scope, current_class_type))
+	{
+	  error ("`%D' has the same name as the class in which it is declared",
+		 x);
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
+	}
+    }
 
   /* If this declaration shadows a declaration from an enclosing
      class, then we will need to restore IDENTIFIER_CLASS_VALUE when
@@ -3036,7 +3095,7 @@ push_namespace (tree name)
       /* Make a new namespace, binding the name to it.  */
       d = build_lang_decl (NAMESPACE_DECL, name, void_type_node);
       DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
-      d = pushdecl (d);
+      pushdecl (d);
       if (anon)
 	{
 	  /* Clear DECL_NAME for the benefit of debugging back ends.  */
@@ -4235,7 +4294,8 @@ arg_assoc_class (struct arg_lookup *k, tree type)
 	    return true;
 
   /* Process template arguments.  */
-  if (CLASSTYPE_TEMPLATE_INFO (type))
+  if (CLASSTYPE_TEMPLATE_INFO (type) 
+      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (type)))
     {
       list = INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type));
       for (i = 0; i < TREE_VEC_LENGTH (list); ++i) 

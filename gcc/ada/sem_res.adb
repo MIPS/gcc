@@ -44,6 +44,7 @@ with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Aggr; use Sem_Aggr;
@@ -798,6 +799,22 @@ package body Sem_Res is
          end if;
 
          Require_Entity (N);
+      end if;
+
+      --  If the context expects a value, and the name is a procedure,
+      --  this is most likely a missing 'Access. Do not try to resolve
+      --  the parameterless call, error will be caught when the outer
+      --  call is analyzed.
+
+      if Is_Entity_Name (N)
+        and then Ekind (Entity (N)) = E_Procedure
+        and then not Is_Overloaded (N)
+        and then
+         (Nkind (Parent (N)) = N_Parameter_Association
+            or else Nkind (Parent (N)) = N_Function_Call
+            or else Nkind (Parent (N)) = N_Procedure_Call_Statement)
+      then
+         return;
       end if;
 
       --  Rewrite as call if overloadable entity that is (or could be, in
@@ -3659,7 +3676,7 @@ package body Sem_Res is
       Scop := Current_Scope;
 
       if Nam = Scop
-        and then not Restrictions (No_Recursion)
+        and then not Restriction_Active (No_Recursion)
         and then Check_Infinite_Recursion (N)
       then
          --  Here we detected and flagged an infinite recursion, so we do

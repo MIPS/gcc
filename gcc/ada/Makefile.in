@@ -136,6 +136,7 @@ THREADSLIB =
 GMEM_LIB =
 MISCLIB =
 SYMLIB =
+ADDR2LINE_SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
 SYMDEPS = $(LIBINTL_DEP)
 OUTPUT_OPTION = @OUTPUT_OPTION@
 
@@ -715,7 +716,7 @@ ifeq ($(strip $(filter-out sparc sun solaris%,$(targ))),)
 
   THREADSLIB = -lposix4 -lthread
   MISCLIB = -lposix4 -lnsl -lsocket
-  SYMLIB = -laddr2line -lbfd $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   SO_OPTS = -Wl,-h,
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -824,8 +825,10 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   s-parame.adb<5lparame.adb \
   system.ads<5lsystem.ads
 
-  TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
-  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
+  TOOLS_TARGET_PAIRS =  \
+    mlib-tgt.adb<5lml-tgt.adb
+
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -913,8 +916,6 @@ ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
     s-traceb.adb<7straceb.adb \
     g-soccon.ads<3gsoccon.ads \
     system.ads<5fsystem.ads
-
-    THREADSLIB =
   endif
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5gml-tgt.adb
@@ -964,7 +965,7 @@ ifeq ($(strip $(filter-out hppa% hp hpux11%,$(targ))),)
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5hml-tgt.adb
   TGT_LIB = /usr/lib/libcl.a
   THREADSLIB = -lpthread
-  SYMLIB = -laddr2line -lbfd $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   GMEM_LIB = gmemlib
   soext = .sl
   SO_OPTS = -Wl,+h,
@@ -1030,7 +1031,7 @@ ifeq ($(strip $(filter-out ibm aix%,$(manu) $(osys))),)
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5bml-tgt.adb
   GMEM_LIB = gmemlib
-  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
 
 endif
 
@@ -1117,7 +1118,7 @@ ifeq ($(strip $(filter-out alpha% dec osf%,$(targ))),)
   TOOLS_TARGET_PAIRS=mlib-tgt.adb<5aml-tgt.adb
 
   GMEM_LIB=gmemlib
-  SYMLIB = -laddr2line -lbfd $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   THREADSLIB = -lpthread -lmach -lexc -lrt
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   GNATLIB_SHARED = gnatlib-shared-default
@@ -1237,7 +1238,7 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
 
   TOOLS_TARGET_PAIRS=mlib-tgt.adb<5wml-tgt.adb
   MISCLIB = -lwsock32
-  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   GMEM_LIB = gmemlib
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   EXTRA_GNATTOOLS = ../../gnatdll$(exeext)
@@ -1287,7 +1288,7 @@ ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
   system.ads<5nsystem.ads
 
   TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
-  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
+  SYMLIB = $(ADDR2LINE_SYMLIB)
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -1381,6 +1382,7 @@ HIE_OBJS =  \
  s-fatflt.o \
  s-fatlfl.o \
  s-fatllf.o \
+ s-fatsfl.o \
  s-secsta.o \
  a-tags.o $(EXTRA_HIE_OBJS)
 
@@ -1427,8 +1429,7 @@ RAVEN_SOURCES = $(NON_COMPILABLE_RAVEN_SOURCES) $(COMPILABLE_RAVEN_SOURCES)
 
 # Objects to generate for the ravenscar run time
 
-RAVEN_OBJS = \
- $(HIE_OBJS) \
+RAVEN_LIBGNARL_OBJS = \
  s-parame.o  \
  s-purexc.o  \
  s-osinte.o  \
@@ -1441,12 +1442,17 @@ RAVEN_OBJS = \
  a-intnam.o  \
  a-reatim.o  \
  a-retide.o  \
+ s-osinte.o  \
  s-taprob.o  \
  s-tposen.o  \
  s-tasres.o  \
  s-tarest.o  \
  a-sytaco.o \
  a-taside.o $(EXTRA_RAVEN_OBJS)
+
+RAVEN_OBJS = \
+ $(HIE_OBJS) \
+ $(RAVEN_LIBGNARL_OBJS)
 
 # Default run time files
 
@@ -1860,32 +1866,26 @@ rts-zfp: force
 	   RTS_NAME=zfp RTS_SRCS="$(HIE_SOURCES)" \
 	   RTS_TARGET_PAIRS="$(HIE_NONE_TARGET_PAIRS)" \
 	   COMPILABLE_SOURCES="$(COMPILABLE_HIE_SOURCES)" 
-	-$(GNATMAKE) -Prts-zfp/zfp.gpr --GCC="../../../xgcc -B../../../"
+	$(GNATMAKE) -Prts-zfp/zfp.gpr --GCC="../../../xgcc -B../../../"
 	cd rts-zfp/adalib/ ; $(AR) r libgnat.a *.o
 	$(RM) rts-zfp/adalib/*.o
 	$(CHMOD) a-wx rts-zfp/adalib/*.ali
 	$(CHMOD) a-wx rts-zfp/adalib/libgnat.a
-
-rts-none: force
-	$(MAKE) $(FLAGS_TO_PASS) prepare-rts \
-	   RTS_NAME=none RTS_SRCS="$(HIE_SOURCES)" \
-	   RTS_TARGET_PAIRS="$(HIE_NONE_TARGET_PAIRS)" \
-	   COMPILABLE_SOURCES="$(COMPILABLE_HIE_SOURCES)" 
-	-$(GNATMAKE) -Prts-none/none.gpr --GCC="../../../xgcc -B../../../"
-	$(RM) rts-none/adalib/*.o
-	$(CHMOD) a-wx rts-none/adalib/*.ali
 
 rts-ravenscar: force
 	$(MAKE)  $(FLAGS_TO_PASS) prepare-rts \
 	   RTS_NAME=ravenscar RTS_SRCS="$(RAVEN_SOURCES)" \
 	   RTS_TARGET_PAIRS="$(HIE_RAVEN_TARGET_PAIRS)" \
 	   COMPILABLE_SOURCES="$(COMPILABLE_RAVEN_SOURCES)" 
-	-$(GNATMAKE) -Prts-ravenscar/ravenscar.gpr \
+	$(GNATMAKE) -Prts-ravenscar/ravenscar.gpr \
 	   --GCC="../../../xgcc -B../../../"
-	cd rts-ravenscar/adalib/ ; $(AR) r libgnat.a *.o
+	cd rts-ravenscar/adalib ; \
+	$(foreach FILE,$(RAVEN_LIBGNARL_OBJS), $(AR) r libgnarl.a $(FILE);) \
+	$(foreach FILE,$(HIE_OBJS), $(AR) r libgnat.a $(FILE);)
 	$(RM) rts-ravenscar/adalib/*.o
 	$(CHMOD) a-wx rts-ravenscar/adalib/*.ali
 	$(CHMOD) a-wx rts-ravenscar/adalib/libgnat.a
+	$(CHMOD) a-wx rts-ravenscar/adalib/libgnarl.a
 
 # Warning: this target assumes that LIBRARY_VERSION has been set correctly.
 gnatlib-shared-default:

@@ -114,6 +114,10 @@ gnat_to_gnu_type (Entity_Id gnat_entity)
 {
   tree gnu_decl;
 
+  /* The back end never attempts to annotate generic types */
+  if (Is_Generic_Type (gnat_entity) && type_annotate_only)
+     return void_type_node;
+
   /* Convert the ada entity type into a GCC TYPE_DECL node.  */
   gnu_decl = gnat_to_gnu_entity (gnat_entity, NULL_TREE, 0);
   if (TREE_CODE (gnu_decl) != TYPE_DECL)
@@ -1048,6 +1052,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	DECL_BY_REF_P (gnu_decl) = used_by_ref;
 	DECL_POINTS_TO_READONLY_P (gnu_decl) = used_by_ref && inner_const_flag;
 
+	/* If we have an address clause and we've made this indirect, it's
+	   not enough to merely mark the type as volatile since volatile
+	   references only conflict with other volatile references while this
+	   reference must conflict with all other references.  So ensure that
+	   the dereferenced value has alias set 0.  */
+	if (Present (Address_Clause (gnat_entity)) && used_by_ref)
+	  DECL_POINTER_ALIAS_SET (gnu_decl) = 0;
+
 	if (definition && DECL_SIZE (gnu_decl) != 0
 	    && gnu_block_stack != 0
 	    && TREE_VALUE (gnu_block_stack) != 0
@@ -1315,6 +1327,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
       layout_type (gnu_type);
 
+      /* If the type we are dealing with is to represent a packed array,
+	 we need to have the bits left justified on big-endian targets
+	 (see exp_packd.ads).  We build a record with a bitfield of the
+	 appropriate size to achieve this.  */
       if (Is_Packed_Array_Type (gnat_entity) && BYTES_BIG_ENDIAN)
 	{
 	  tree gnu_field_type = gnu_type;
@@ -1326,8 +1342,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  TYPE_NAME (gnu_type) = create_concat_name (gnat_entity, "LJM");
 	  TYPE_ALIGN (gnu_type) = TYPE_ALIGN (gnu_field_type);
 	  TYPE_PACKED (gnu_type) = 1;
+
+	  /* Don't notify the field as "addressable", since we won't be taking
+	     it's address and it would prevent create_field_decl from making a
+	     bitfield.  */
 	  gnu_field = create_field_decl (get_identifier ("OBJECT"),
-					 gnu_field_type, gnu_type, 1, 0, 0, 1),
+					 gnu_field_type, gnu_type, 1, 0, 0, 0);
+
 	  finish_record_type (gnu_type, gnu_field, 0, 0);
 	  TYPE_LEFT_JUSTIFIED_MODULAR_P (gnu_type) = 1;
 	  SET_TYPE_ADA_SIZE (gnu_type, bitsize_int (esize));
@@ -5357,7 +5378,7 @@ components_to_record (tree gnu_record_type,
 					  ? TYPE_SIZE (gnu_record_type) : 0),
 					 (all_rep_and_size
 					  ? bitsize_zero_node : 0),
-					 1);
+					 0);
 
 	  DECL_INTERNAL_P (gnu_field) = 1;
 	  DECL_QUALIFIER (gnu_field) = gnu_qual;
@@ -5388,7 +5409,7 @@ components_to_record (tree gnu_record_type,
 	    = create_field_decl (gnu_var_name, gnu_union_type, gnu_record_type,
 				 packed,
 				 all_rep ? TYPE_SIZE (gnu_union_type) : 0,
-				 all_rep ? bitsize_zero_node : 0, 1);
+				 all_rep ? bitsize_zero_node : 0, 0);
 
 	  DECL_INTERNAL_P (gnu_union_field) = 1;
 	  TREE_CHAIN (gnu_union_field) = gnu_field_list;

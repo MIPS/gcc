@@ -232,7 +232,7 @@ cgraph_finalize_function (tree decl, bool nested)
   /* We will never really output the function body, clear the SAVED_INSNS array
      early then.  */
   if (DECL_EXTERNAL (decl))
-    DECL_SAVED_INSNS (decl) = NULL;
+    DECL_STRUCT_FUNCTION (decl) = NULL;
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -327,10 +327,9 @@ cgraph_analyze_function (struct cgraph_node *node)
   cgraph_create_edges (decl, DECL_SAVED_TREE (decl));
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  if (!DECL_ESTIMATED_INSNS (decl))
-    DECL_ESTIMATED_INSNS (decl)
+  if (!node->local.self_insns)
+    node->local.self_insns
       = (*lang_hooks.tree_inlining.estimate_num_insns) (decl);
-  node->local.self_insns = DECL_ESTIMATED_INSNS (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = (*lang_hooks.tree_inlining.disregard_inline_limits) (decl);
@@ -482,7 +481,7 @@ cgraph_mark_functions_to_output (void)
 	  && !DECL_EXTERNAL (decl))
 	node->output = 1;
       else
-        DECL_SAVED_INSNS (decl) = NULL;
+        DECL_STRUCT_FUNCTION (decl) = NULL;
     }
 }
 
@@ -555,7 +554,7 @@ cgraph_postorder (struct cgraph_node **order)
   /* We have to deal with cycles nicely, so use a depth first traversal
      output algorithm.  Ignore the fact that some functions won't need
      to be output and put them into order as well, so we get dependencies
-     right through intline functions.  */
+     right throughout inline functions.  */
   for (node = cgraph_nodes; node; node = node->next)
     node->aux = NULL;
   for (node = cgraph_nodes; node; node = node->next)
@@ -862,7 +861,7 @@ cgraph_remove_unreachable_nodes (void)
 	  int local_insns;
 	  tree decl = node->decl;
 
-	  if (DECL_SAVED_INSNS (decl))
+	  if (DECL_STRUCT_FUNCTION (decl))
 	    local_insns = node->local.self_insns;
 	  else
 	    local_insns = 0;

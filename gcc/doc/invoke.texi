@@ -166,8 +166,7 @@ in the following sections.
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
--funsigned-bitfields  -funsigned-char @gol
--fwritable-strings}
+-funsigned-bitfields  -funsigned-char}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -232,7 +231,8 @@ in the following sections.
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
--Wunused-value  -Wunused-variable  -Wwrite-strings}
+-Wunused-value  -Wunused-variable  -Wwrite-strings @gol
+-Wvariadic-macros}
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -251,7 +251,7 @@ in the following sections.
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
--ftest-coverage  -ftime-report @gol
+-ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -359,15 +359,12 @@ in the following sections.
 -mcmodel=@var{code-model} @gol
 -m32  -m64  -mapp-regs  -mno-app-regs @gol
 -mfaster-structs  -mno-faster-structs @gol
--mflat  -mno-flat  -mfpu  -mno-fpu @gol
--mhard-float  -msoft-float @gol
+-mfpu  -mno-fpu  -mhard-float  -msoft-float @gol
 -mhard-quad-float  -msoft-quad-float @gol
 -mimpure-text  -mno-impure-text  -mlittle-endian @gol
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
--mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
--mcypress  -mf930  -mf934 @gol
--msparclite  -msupersparc  -mv8}
+-mv8plus  -mno-v8plus  -mvis  -mno-vis}
 
 @emph{ARM Options}
 @gccoptlist{-mapcs-frame  -mno-apcs-frame @gol
@@ -378,9 +375,9 @@ in the following sections.
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian  -mwords-little-endian @gol
 -malignment-traps  -mno-alignment-traps @gol
--msoft-float  -mhard-float  -mfpe @gol
+-mfloat-abi=@var{name}  soft-float  -mhard-float  -mfpe @gol
 -mthumb-interwork  -mno-thumb-interwork @gol
--mcpu=@var{name}  -march=@var{name}  -mfpe=@var{name}  @gol
+-mcpu=@var{name}  -march=@var{name}  -mfpu=@var{name}  @gol
 -mstructure-size-boundary=@var{n} @gol
 -mabort-on-noreturn @gol
 -mlong-calls  -mno-long-calls @gol
@@ -481,8 +478,9 @@ in the following sections.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
--mfix-sb1  -mno-fix-sb1  -mflush-func=@var{func} @gol
--mno-flush-func  -mbranch-likely  -mno-branch-likely}
+-mfix-r4000  -mno-fix-r4000  -mfix-sb1  -mno-fix-sb1 @gol
+-mflush-func=@var{func}  -mno-flush-func @gol
+-mbranch-likely  -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -491,7 +489,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -mpni -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -512,16 +510,6 @@ in the following sections.
 -mpa-risc-1-1  -mpa-risc-2-0  -mportable-runtime @gol
 -mschedule=@var{cpu-type}  -mspace-regs  -msio  -mwsio @gol
 -nolibdld  -static  -threads}
-
-@emph{Intel 960 Options}
-@gccoptlist{-m@var{cpu-type}  -masm-compat  -mclean-linkage @gol
--mcode-align  -mcomplex-addr  -mleaf-procedures @gol
--mic-compat  -mic2.0-compat  -mic3.0-compat @gol
--mintel-asm  -mno-clean-linkage  -mno-code-align @gol
--mno-complex-addr  -mno-leaf-procedures @gol
--mno-old-align  -mno-strict-align  -mno-tail-call @gol
--mnumerics  -mold-align  -msoft-float  -mstrict-align @gol
--mtail-call}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -608,10 +596,6 @@ in the following sections.
 -minline-int-divide-max-throughput  -mno-dwarf2-asm @gol
 -mfixed-range=@var{register-range}}
 
-@emph{D30V Options}
-@gccoptlist{-mextmem  -mextmemory  -monchip  -mno-asm-optimize @gol
--masm-optimize  -mbranch-cost=@var{n}  -mcond-exec=@var{n}}
-
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
@@ -650,6 +634,7 @@ in the following sections.
 -malloc-cc  -mfixed-cc  -mdword  -mno-dword @gol
 -mdouble  -mno-double @gol
 -mmedia  -mno-media  -mmuladd  -mno-muladd @gol
+-mfdpic -minline-plt -mgprel-ro -multilib-library-pic -mlinked-fp @gol
 -mlibrary-pic  -macc-4 -macc-8 @gol
 -mpack  -mno-pack  -mno-eflags  -mcond-move  -mno-cond-move @gol
 -mscc  -mno-scc  -mcond-exec  -mno-cond-exec @gol
@@ -1227,17 +1212,6 @@ These options control whether a bit-field is signed or unsigned, when the
 declaration does not use either @code{signed} or @code{unsigned}.  By
 default, such a bit-field is signed, because this is consistent: the
 basic integer types such as @code{int} are signed types.
-
-@item -fwritable-strings
-@opindex fwritable-strings
-Store string constants in the writable data segment and don't uniquize
-them.  This is for compatibility with old programs which assume they can
-write into string constants.
-
-Writing into string constants is a very bad idea; ``constants'' should
-be constant.
-
-This option is deprecated.
 @end table
 
 @node C++ Dialect Options
@@ -1273,7 +1247,7 @@ the version that conforms most closely to the C++ ABI specification.
 Therefore, the ABI obtained using version 0 will change as ABI bugs
 are fixed.
 
-The default is version 1.
+The default is version 2.
 
 @item -fno-access-control
 @opindex fno-access-control
@@ -1309,8 +1283,7 @@ been added for putting variables into BSS without making them common.
 Give string constants type @code{char *} instead of type @code{const
 char *}.  By default, G++ uses type @code{const char *} as required by
 the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant, unless you also use
-@option{-fwritable-strings}.
+actually modify the value of a string constant.
 
 This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
@@ -2981,6 +2954,13 @@ the warning messages, use @option{-Wno-long-long}.  Flags
 @option{-Wlong-long} and @option{-Wno-long-long} are taken into account
 only when @option{-pedantic} flag is used.
 
+@item -Wvariadic-macros
+@opindex Wvariadic-macros
+@opindex Wno-variadic-macros
+Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
+alternate syntax when in pedantic ISO C99 mode.  This is default.
+To inhibit the warning messages, use @option{-Wno-variadic-macros}.
+
 @item -Wdisabled-optimization
 @opindex Wdisabled-optimization
 Warn if a requested optimization pass is disabled.  This warning does
@@ -3331,6 +3311,7 @@ Dump callgraph and unit-at-a-time optimization @file{@var{file}.00.unit}.
 @item V
 @opindex dV
 Dump after the value profile transformations, to @file{@var{file}.13.vpt}.
+Also dump after variable tracking, to @file{@var{file}.35.vartrack}.
 @item w
 @opindex dw
 Dump after the second flow pass, to @file{@var{file}.27.flow2}.
@@ -3484,6 +3465,16 @@ The first number on each line is the ``user time,'' that is time spent
 executing the program itself.  The second number is ``system time,''
 time spent executing operating system routines on behalf of the program.
 Both numbers are in seconds.
+
+@item -fvar-tracking
+@opindex fvar-tracking
+Run variable tracking pass. It computes where variables are stored at each
+position in code. Better debugging information is then generated
+(if the debugging information format supports this information).
+
+It is enabled by default when compiling with optimization (@option{-Os},
+@option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
+the debug info format supports it.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name
@@ -5851,7 +5842,6 @@ that macro, which enables you to change the defaults.
 * MIPS Options::
 * i386 and x86-64 Options::
 * HPPA Options::
-* Intel 960 Options::
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
 * H8/300 Options::
@@ -5864,7 +5854,6 @@ that macro, which enables you to change the defaults.
 * AVR Options::
 * MCore Options::
 * IA-64 Options::
-* D30V Options::
 * S/390 and zSeries Options::
 * CRIS Options::
 * MMIX Options::
@@ -6213,20 +6202,6 @@ emulates the effect of the instruction.  Because of the trap handler overhead,
 this is much slower than calling the ABI library routines.  Thus the
 @option{-msoft-quad-float} option is the default.
 
-@item -mno-flat
-@itemx -mflat
-@opindex mno-flat
-@opindex mflat
-With @option{-mflat}, the compiler does not generate save/restore instructions
-and will use a ``flat'' or single register window calling convention.
-This model uses %i7 as the frame pointer and is compatible with the normal
-register window model.  Code from either may be intermixed.
-The local registers and the input registers (0--5) are still treated as
-``call saved'' registers and will be saved on the stack as necessary.
-
-With @option{-mno-flat} (the default), the compiler emits save/restore
-instructions (except for leaf functions) and is the normal mode of operation.
-
 @item -mno-unaligned-doubles
 @itemx -munaligned-doubles
 @opindex mno-unaligned-doubles
@@ -6269,55 +6244,6 @@ using @option{-mimpure-text}, you should compile all source code with
 
 This option is only available on SunOS and Solaris.
 
-@item -mv8
-@itemx -msparclite
-@opindex mv8
-@opindex msparclite
-These two options select variations on the SPARC architecture.
-
-By default (unless specifically configured for the Fujitsu SPARClite),
-GCC generates code for the V7 variant of the SPARC architecture.
-
-@option{-mv8} will give you SPARC-V8 code.  The only difference from V7
-code is that the compiler emits the integer multiply and integer
-divide instructions which exist in SPARC-V8 but not in SPARC-V7.
-
-@option{-msparclite} will give you SPARClite code.  This adds the integer
-multiply, integer divide step and scan (@code{ffs}) instructions which
-exist in SPARClite but not in SPARC-V7.
-
-These options are deprecated and will be deleted in a future GCC release.
-They have been replaced with @option{-mcpu=xxx}.
-
-@item -mcypress
-@itemx -msupersparc
-@itemx -mf930
-@itemx -mf934
-@opindex mcypress
-@opindex msupersparc
-@opindex -mf930
-@opindex -mf934
-These four options select the processor for which the code is optimized.
-
-With @option{-mcypress} (the default), the compiler optimizes code for the
-Cypress CY7C602 chip, as used in the SPARCStation/SPARCServer 3xx series.
-This is also appropriate for the older SPARCStation 1, 2, IPX etc.
-
-With @option{-msupersparc} the compiler optimizes code for the SuperSPARC cpu, as
-used in the SPARCStation 10, 1000 and 2000 series.  This flag also enables use
-of the SPARC-V8 instruction set.
-
-With @option{-mf930} the compiler optimizes code for the Fujitsu MB86930 chip,
-which is the original SPARClite, with no FPU.  This flag also enables use
-of the SPARClite instruction set and disables the FPU support.
-
-With @option{-mf934} the compiler optimizes code for the Fujitsu MB86934 chip,
-which is the more recent SPARClite with FPU.  This flag also enables use
-of the SPARClite instruction set and enables the FPU support.
-
-These options are deprecated and will be deleted in a future GCC release.
-They have been replaced with @option{-mcpu=xxx}.
-
 @item -mcpu=@var{cpu_type}
 @opindex mcpu
 Set the instruction set, register set, and instruction scheduling parameters
@@ -6342,6 +6268,41 @@ implementations.
     v9:             ultrasparc, ultrasparc3
 @end smallexample
 
+By default (unless configured otherwise), GCC generates code for the V7
+variant of the SPARC architecture.  With @option{-mcpu=cypress}, the compiler
+additionally optimizes it for the Cypress CY7C602 chip, as used in the
+SPARCStation/SPARCServer 3xx series.  This is also appropriate for the older
+SPARCStation 1, 2, IPX etc.
+
+With @option{-mcpu=v8}, GCC generates code for the V8 variant of the SPARC
+architecture.  The only difference from V7 code is that the compiler emits
+the integer multiply and integer divide instructions which exist in SPARC-V8
+but not in SPARC-V7.  With @option{-mcpu=supersparc}, the compiler additionally
+optimizes it for the SuperSPARC chip, as used in the SPARCStation 10, 1000 and
+2000 series.
+
+With @option{-mcpu=sparclite}, GCC generates code for the SPARClite variant of
+the SPARC architecture.  This adds the integer multiply, integer divide step
+and scan (@code{ffs}) instructions which exist in SPARClite but not in SPARC-V7.
+With @option{-mcpu=f930}, the compiler additionally optimizes it for the
+Fujitsu MB86930 chip, which is the original SPARClite, with no FPU.  With
+@option{-mcpu=f934}, the compiler additionally optimizes it for the Fujitsu
+MB86934 chip, which is the more recent SPARClite with FPU.
+
+With @option{-mcpu=sparclet}, GCC generates code for the SPARClet variant of
+the SPARC architecture.  This adds the integer multiply, multiply/accumulate,
+integer divide step and scan (@code{ffs}) instructions which exist in SPARClet
+but not in SPARC-V7.  With @option{-mcpu=tsc701}, the compiler additionally
+optimizes it for the TEMIC SPARClet chip.
+
+With @option{-mcpu=v9}, GCC generates code for the V9 variant of the SPARC
+architecture.  This adds 64-bit integer and floating-point move instructions,
+3 additional floating-point condition code registers and conditional move
+instructions.  With @option{-mcpu=ultrasparc}, the compiler additionally
+optimizes it for the Sun UltraSPARC I/II chips.  With
+@option{-mcpu=ultrasparc3}, the compiler additionally optimizes it for the
+Sun UltraSPARC III chip.
+
 @item -mtune=@var{cpu_type}
 @opindex mtune
 Set the instruction scheduling parameters for machine type
@@ -6359,15 +6320,16 @@ that select a particular cpu implementation.  Those are @samp{cypress},
 @itemx -mno-v8plus
 @opindex -mv8plus
 @opindex -mno-v8plus
-@option{-mv8plus} will give you SPARC-V8+ code.  The difference from V8 is
-that the global and out registers are considered 64-bit wide.  This is the
-default on Solaris in 32-bit mode for all SPARC-V9 processors.
+With @option{-mv8plus}, GCC generates code for the SPARC-V8+ ABI.  The
+difference from the V8 ABI is that the global and out registers are
+considered 64-bit wide.  This is enabled by default on Solaris in 32-bit
+mode for all SPARC-V9 processors.
 
 @item -mvis
 @itemx -mno-vis
 @opindex -mvis
 @opindex -mno-vis
-@option{-mvis} will give you code that takes advantage of the UltraSPARC
+With @option{-mvis}, GCC generates code that takes advantage of the UltraSPARC
 Visual Instruction Set extensions.  The default is @option{-mno-vis}.
 @end table
 
@@ -6528,6 +6490,16 @@ this option.  In particular, you need to compile @file{libgcc.a}, the
 library that comes with GCC, with @option{-msoft-float} in order for
 this to work.
 
+@item -mfloat-abi=@var{name}
+@opindex mfloat-abi
+Specifies which ABI to use for floating point values.  Permissible values
+are: @samp{soft}, @samp{softfp} and @samp{hard}.
+
+@samp{soft} and @samp{hard} are equivalent to @option{-msoft-float}
+and @option{-mhard-float} respectively.  @samp{softfp} allows the generation
+of floating point instructions, but still uses the soft-float calling
+conventions.
+
 @item -mlittle-endian
 @opindex mlittle-endian
 Generate code for a processor running in little-endian mode.  This is
@@ -6626,16 +6598,23 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6j},
+@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6}, @samp{armv6j},
 @samp{iwmmxt}, @samp{ep9312}.
 
-@item -mfpe=@var{number}
+@item -mfpu=@var{name}
+@itemx -mfpe=@var{number}
 @itemx -mfp=@var{number}
+@opindex mfpu
 @opindex mfpe
 @opindex mfp
-This specifies the version of the floating point emulation available on
-the target.  Permissible values are 2 and 3.  @option{-mfp=} is a synonym
-for @option{-mfpe=}, for compatibility with older versions of GCC@.
+This specifies what floating point hardware (or hardware emulation) is
+available on the target.  Permissible names are: @samp{fpa}, @samp{fpe2},
+@samp{fpe3}, @samp{maverick}, @samp{vfp}.  @option{-mfp} and @option{-mfpe}
+are synonyms for @option{-mpfu}=@samp{fpe}@var{number}, for compatibility
+with older versions of GCC@.
+
+If @option{-msoft-float} is specified this specifies the format of
+floating point values.
 
 @item -mstructure-size-boundary=@var{n}
 @opindex mstructure-size-boundary
@@ -7543,16 +7522,27 @@ names in the assembly language output using symbolic forms.
 @itemx -mno-longcall
 @opindex mlongcall
 @opindex mno-longcall
-Default to making all function calls via pointers, so that functions
-which reside further than 64 megabytes (67,108,864 bytes) from the
-current location can be called.  This setting can be overridden by the
-@code{shortcall} function attribute, or by @code{#pragma longcall(0)}.
+Default to making all function calls indirectly, using a register, so
+that functions which reside further than 32 megabytes (33,554,432
+bytes) from the current location can be called.  This setting can be
+overridden by the @code{shortcall} function attribute, or by
+@code{#pragma longcall(0)}.
 
 Some linkers are capable of detecting out-of-range calls and generating
 glue code on the fly.  On these systems, long calls are unnecessary and
 generate slower code.  As of this writing, the AIX linker can do this,
 as can the GNU linker for PowerPC/64.  It is planned to add this feature
 to the GNU linker for 32-bit PowerPC systems as well.
+
+On Darwin/PPC systems, @code{#pragma longcall} will generate ``jbsr
+callee, L42'', plus a ``branch island'' (glue code).  The two target
+addresses represent the callee and the ``branch island.'' The
+Darwin/PPC linker will prefer the first address and generate a ``bl
+callee'' if the PPC ``bl'' instruction will reach the callee directly;
+otherwise, the linker will generate ``bl L42'' to call the ``branch
+island.''  The ``branch island'' is appended to the body of the
+calling function; it computes the full 32-bit address of the callee
+and jumps to it.
 
 On Mach-O (Darwin) systems, this option directs the compiler emit to
 the glue for every direct call, and the Darwin linker decides whether
@@ -7988,24 +7978,14 @@ Use (do not use) assembler relocation operators when dealing with symbolic
 addresses.  The alternative, selected by @option{-mno-explicit-relocs},
 is to use assembler macros instead.
 
-@option{-mexplicit-relocs} is usually the default if GCC was
-configured to use an assembler that supports relocation operators.
-However, there are two exceptions:
-
-@itemize @bullet
-@item
-GCC is not yet able to generate explicit relocations for the combination
-of @option{-mabi=64} and @option{-mno-abicalls}.  This will be addressed
-in a future release.
-
-@item
-The combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
+@option{-mexplicit-relocs} is usually the default if GCC was configured
+to use an assembler that supports relocation operators.  However, the
+combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
 implies @option{-mno-explicit-relocs} unless explicitly overridden.
 This is because, when generating abicalls, the choice of relocation
 depends on whether a symbol is local or global.  In some rare cases,
 GCC will not be able to decide this until the whole compilation unit
 has been read.
-@end itemize
 
 @item -mrnames
 @itemx -mno-rnames
@@ -8068,6 +8048,20 @@ circumstances.
 Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
 
+@item -mfix-r4000
+@itemx -mno-fix-r4000
+@opindex mfix-r4000
+@opindex mno-fix-r4000
+Work around certain R4000 CPU errata:
+@itemize @minus
+@item
+A double-word or a variable shift may give an incorrect result if executed
+immediately after starting an integer division.
+@item
+A double-word or a variable shift may give an incorrect result if executed
+while an integer multiplication is in progress.
+@end itemize
+
 @item -mfix-sb1
 @itemx -mno-fix-sb1
 @opindex mfix-sb1
@@ -8128,11 +8122,20 @@ Intel PentiumMMX CPU based on Pentium core with MMX instruction set support.
 Intel PentiumPro CPU.
 @item pentium2
 Intel Pentium2 CPU based on PentiumPro core with MMX instruction set support.
-@item pentium3
+@item pentium3, pentium3m
 Intel Pentium3 CPU based on PentiumPro core with MMX and SSE instruction set
 support.
-@item pentium4
+@item pentium-m
+Low power version of Intel Pentium3 CPU with MMX, SSE and SSE2 instruction set
+support.  Used by Centrino notebooks.
+@item pentium4, pentium4m
 Intel Pentium4 CPU with MMX, SSE and SSE2 instruction set support.
+@item prescott
+Improved version of Intel Pentium4 CPU with MMX, SSE, SSE2 and SSE3 instruction
+set support.
+@item nocona
+Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
+SSE2 and SSE3 instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.
 @item k6-2, k6-3
@@ -8189,7 +8192,7 @@ These synonyms are deprecated.
 
 @item -mfpmath=@var{unit}
 @opindex march
-generate floating point arithmetics for selected unit @var{unit}.  the choices
+Generate floating point arithmetics for selected unit @var{unit}.  The choices
 for @var{unit} are:
 
 @table @samp
@@ -8215,24 +8218,17 @@ For i387 you need to use @option{-march=@var{cpu-type}}, @option{-msse} or
 @option{-msse2} switches to enable SSE extensions and make this option
 effective.  For x86-64 compiler, these extensions are enabled by default.
 
-The resulting code should be considerably faster in majority of cases and avoid
+The resulting code should be considerably faster in the majority of cases and avoid
 the numerical instability problems of 387 code, but may break some existing
 code that expects temporaries to be 80bit.
 
-This is the default choice for x86-64 compiler.
-
-@item pni
-Use all SSE extensions enabled by @option{-msse2} as well as the new
-SSE extensions in Prescott New Instructions. @option{-mpni} also
-enables 2 builtin functions, @code{__builtin_ia32_monitor} and
-@code{__builtin_ia32_mwait}, for new instructions @code{monitor} and
-@code{mwait}.
+This is the default choice for the x86-64 compiler.
 
 @item sse,387
 Attempt to utilize both instruction sets at once.  This effectively double the
 amount of available registers and on chips with separate execution units for
 387 and SSE the execution resources too.  Use this option with care, as it is
-still experimental, because gcc register allocator does not model separate
+still experimental, because the gcc register allocator does not model separate
 functional units well resulting in instable performance.
 @end table
 
@@ -8323,10 +8319,10 @@ Notice that neither of these options enable any extra precision over the x87
 standard of 80 bits for a @code{long double}.
 
 @strong{Warning:} if you override the default value for your target ABI, the
-structures and arrays containing @code{long double} will change their size as
-well as function calling convention for function taking @code{long double}
-will be modified.  Hence they will not be binary compatible with arrays or
-structures in code compiled without that switch.
+structures and arrays containing @code{long double} variables will change
+their size as well as function calling convention for function taking
+@code{long double} will be modified.  Hence they will not be binary
+compatible with arrays or structures in code compiled without that switch.
 
 
 @item -msvr3-shlib
@@ -8409,8 +8405,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse
 @item -msse2
 @itemx -mno-sse2
-@item -mpni
-@itemx -mno-pni
+@item -msse3
+@itemx -mno-sse3
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -8420,7 +8416,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of built-in functions that allow
-direct access to the MMX, SSE and 3Dnow extensions of the instruction set.
+direct access to the MMX, SSE, SSE2, SSE3 and 3Dnow extensions of the
+instruction set.
 
 @xref{X86 Built-in Functions}, for details of the functions enabled
 and disabled by these switches.
@@ -8678,6 +8675,53 @@ configure option, gcc's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
 `gcc -print-prog-name=ld`}.
 
+@item -mfdpic
+@opindex mfdpic
+
+Select the FDPIC ABI, that uses function descriptors to represent
+pointers to functions.  Without any PIC/PIE-related options, it
+implies @option{-fPIE}.  With @option{-fpic} or @option{-fpie}, it
+assumes GOT entries and small data are within a 12-bit range from the
+GOT base address; with @option{-fPIC} or @option{-fPIE}, GOT offsets
+are computed with 32 bits.
+
+@item -minline-plt
+@opindex minline-plt
+
+Enable inlining of PLT entries in function calls to functions that are
+not known to bind locally.  It has no effect without @option{-mfdpic}.
+It's enabled by default if optimizing for speed and compiling for
+shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
+optimization option such as @option{-O3} or above is present in the
+command line.
+
+@item -mgprel-ro
+@opindex mgprel-ro
+
+Enable the use of @code{GPREL} relocations in the FDPIC ABI for data
+that is known to be in read-only sections.  It's enabled by default,
+except for @option{-fpic} or @option{-fpie}: even though it may help
+make the global offset table smaller, it trades 1 instruction for 4.
+With @option{-fPIC} or @option{-fPIE}, it trades 3 instructions for 4,
+one of which may be shared by multiple symbols, and it avoids the need
+for a GOT entry for the referenced symbol, so it's more likely to be a
+win.  If it is not, @option{-mno-gprel-ro} can be used to disable it.
+
+@item -multilib-library-pic
+@opindex multilib-library-pic
+
+Link with the (library, not FD) pic libraries.  It's implied by
+@option{-mlibrary-pic}, as well as by @option{-fPIC} and
+@option{-fpic} without @option{-mfdpic}.  You should never have to use
+it explicitly.
+
+@item -mlinked-fp
+@opindex mlinked-fp
+
+Follow the EABI requirement of always creating a frame pointer whenever
+a stack frame is allocated.  This option is enabled by default and can
+be disabled with @option{-mno-linked-fp}.
+
 @item -mlong-calls
 @opindex mno-long-calls
 Generate code that uses long call sequences.  This ensures that a call
@@ -8729,118 +8773,6 @@ adding these link options.
 Add support for multithreading with the @dfn{dce thread} library
 under HP-UX.  This option sets flags for both the preprocessor and
 linker.
-@end table
-
-@node Intel 960 Options
-@subsection Intel 960 Options
-
-These @samp{-m} options are defined for the Intel 960 implementations:
-
-@table @gcctabopt
-@item -m@var{cpu-type}
-@opindex mka
-@opindex mkb
-@opindex mmc
-@opindex mca
-@opindex mcf
-@opindex msa
-@opindex msb
-Assume the defaults for the machine type @var{cpu-type} for some of
-the other options, including instruction scheduling, floating point
-support, and addressing modes.  The choices for @var{cpu-type} are
-@samp{ka}, @samp{kb}, @samp{mc}, @samp{ca}, @samp{cf},
-@samp{sa}, and @samp{sb}.
-The default is
-@samp{kb}.
-
-@item -mnumerics
-@itemx -msoft-float
-@opindex mnumerics
-@opindex msoft-float
-The @option{-mnumerics} option indicates that the processor does support
-floating-point instructions.  The @option{-msoft-float} option indicates
-that floating-point support should not be assumed.
-
-@item -mleaf-procedures
-@itemx -mno-leaf-procedures
-@opindex mleaf-procedures
-@opindex mno-leaf-procedures
-Do (or do not) attempt to alter leaf procedures to be callable with the
-@code{bal} instruction as well as @code{call}.  This will result in more
-efficient code for explicit calls when the @code{bal} instruction can be
-substituted by the assembler or linker, but less efficient code in other
-cases, such as calls via function pointers, or using a linker that doesn't
-support this optimization.
-
-@item -mtail-call
-@itemx -mno-tail-call
-@opindex mtail-call
-@opindex mno-tail-call
-Do (or do not) make additional attempts (beyond those of the
-machine-independent portions of the compiler) to optimize tail-recursive
-calls into branches.  You may not want to do this because the detection of
-cases where this is not valid is not totally complete.  The default is
-@option{-mno-tail-call}.
-
-@item -mcomplex-addr
-@itemx -mno-complex-addr
-@opindex mcomplex-addr
-@opindex mno-complex-addr
-Assume (or do not assume) that the use of a complex addressing mode is a
-win on this implementation of the i960.  Complex addressing modes may not
-be worthwhile on the K-series, but they definitely are on the C-series.
-The default is currently @option{-mcomplex-addr} for all processors except
-the CB and CC@.
-
-@item -mcode-align
-@itemx -mno-code-align
-@opindex mcode-align
-@opindex mno-code-align
-Align code to 8-byte boundaries for faster fetching (or don't bother).
-Currently turned on by default for C-series implementations only.
-
-@ignore
-@item -mclean-linkage
-@itemx -mno-clean-linkage
-@opindex mclean-linkage
-@opindex mno-clean-linkage
-These options are not fully implemented.
-@end ignore
-
-@item -mic-compat
-@itemx -mic2.0-compat
-@itemx -mic3.0-compat
-@opindex mic-compat
-@opindex mic2.0-compat
-@opindex mic3.0-compat
-Enable compatibility with iC960 v2.0 or v3.0.
-
-@item -masm-compat
-@itemx -mintel-asm
-@opindex masm-compat
-@opindex mintel-asm
-Enable compatibility with the iC960 assembler.
-
-@item -mstrict-align
-@itemx -mno-strict-align
-@opindex mstrict-align
-@opindex mno-strict-align
-Do not permit (do permit) unaligned accesses.
-
-@item -mold-align
-@opindex mold-align
-Enable structure-alignment compatibility with Intel's gcc release version
-1.3 (based on gcc 1.37).  This option implies @option{-mstrict-align}.
-
-@item -mlong-double-64
-@opindex mlong-double-64
-Implement type @samp{long double} as 64-bit floating point numbers.
-Without the option @samp{long double} is implemented by 80-bit
-floating point numbers.  The only reason we have it because there is
-no 128-bit @samp{long double} support in @samp{fp-bit.c} yet.  So it
-is only useful for people using soft-float targets.  Otherwise, we
-should recommend against use of it.
-
 @end table
 
 @node DEC Alpha Options
@@ -10034,50 +9966,6 @@ instruction that triggered the stop bit.  This can improve instruction
 scheduling, but does not always do so.
 @end table
 
-@node D30V Options
-@subsection D30V Options
-@cindex D30V Options
-
-These @samp{-m} options are defined for D30V implementations:
-
-@table @gcctabopt
-@item -mextmem
-@opindex mextmem
-Link the @samp{.text}, @samp{.data}, @samp{.bss}, @samp{.strings},
-@samp{.rodata}, @samp{.rodata1}, @samp{.data1} sections into external
-memory, which starts at location @code{0x80000000}.
-
-@item -mextmemory
-@opindex mextmemory
-Same as the @option{-mextmem} switch.
-
-@item -monchip
-@opindex monchip
-Link the @samp{.text} section into onchip text memory, which starts at
-location @code{0x0}.  Also link @samp{.data}, @samp{.bss},
-@samp{.strings}, @samp{.rodata}, @samp{.rodata1}, @samp{.data1} sections
-into onchip data memory, which starts at location @code{0x20000000}.
-
-@item -mno-asm-optimize
-@itemx -masm-optimize
-@opindex mno-asm-optimize
-@opindex masm-optimize
-Disable (enable) passing @option{-O} to the assembler when optimizing.
-The assembler uses the @option{-O} option to automatically parallelize
-adjacent short instructions where possible.
-
-@item -mbranch-cost=@var{n}
-@opindex mbranch-cost
-Increase the internal costs of branches to @var{n}.  Higher costs means
-that the compiler will issue more instructions to avoid doing a branch.
-The default is 2.
-
-@item -mcond-exec=@var{n}
-@opindex mcond-exec
-Specify the maximum number of conditionally executed instructions that
-replace a branch.  The default is 4.
-@end table
-
 @node S/390 and zSeries Options
 @subsection S/390 and zSeries Options
 @cindex S/390 and zSeries Options
@@ -10608,7 +10496,7 @@ Do not use multiply and add/subtract instructions.
 @item -mlibrary-pic
 @opindex mlibrary-pic
 
-Enable PIC support for building libraries
+Generate position-independent EABI code.
 
 @item -macc-4
 @opindex macc-4

@@ -464,7 +464,7 @@ struct cumulative_args { int ints, floats; };
    when the function gets a structure-value-address as an
    invisible first argument.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).ints = ((FNTYPE) != 0 && aggregate_value_p (TREE_TYPE ((FNTYPE)), 0) \
 		? 4 : 0),			\
   (CUM).floats = 0)
@@ -820,12 +820,6 @@ struct cumulative_args { int ints, floats; };
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE SImode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses. */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1

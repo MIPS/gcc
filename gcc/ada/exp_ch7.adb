@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,6 +46,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Targparm; use Targparm;
 with Sinfo;    use Sinfo;
@@ -914,7 +915,7 @@ package body Exp_Ch7 is
 
       return (Is_Class_Wide_Type (T)
                 and then not In_Finalization_Root (T)
-                and then not Restrictions (No_Finalization))
+                and then not Restriction_Active (No_Finalization))
         or else Is_Controlled (T)
         or else Has_Some_Controlled_Component (T)
         or else (Is_Concurrent_Type (T)
@@ -2192,7 +2193,6 @@ package body Exp_Ch7 is
       Spec         : Node_Id;
       Name         : Node_Id;
       Param        : Node_Id;
-      Unlock       : Node_Id;
       Param_Type   : Entity_Id;
       Pid          : Entity_Id := Empty;
       Cancel_Param : Entity_Id;
@@ -2207,7 +2207,7 @@ package body Exp_Ch7 is
          end if;
 
       elsif Is_Master then
-         if Restrictions (No_Task_Hierarchy) = False then
+         if Restriction_Active (No_Task_Hierarchy) = False then
             Append_To (Stmt, Build_Runtime_Call (Loc, RE_Complete_Master));
          end if;
 
@@ -2253,7 +2253,7 @@ package body Exp_Ch7 is
            and then Has_Entries (Pid)
          then
             if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
+              or else Restriction_Active (No_Entry_Queue) = False
               or else Number_Entries (Pid) > 1
             then
                Name := New_Reference_To (RTE (RE_Service_Entries), Loc);
@@ -2273,50 +2273,53 @@ package body Exp_Ch7 is
                         Selector_Name =>
                           Make_Identifier (Loc, Name_uObject)),
                     Attribute_Name => Name_Unchecked_Access))));
-         end if;
-
-         --  Unlock (_object._object'Access);
-
-         --  _object is the record used to implement the protected object.
-         --  It is a parameter to the protected subprogram.
-
-         --  If the protected object is controlled (i.e it has entries or
-         --  needs finalization for interrupt handling), call Unlock_Entries,
-         --  except if the protected object follows the ravenscar profile, in
-         --  which case call Unlock_Entry, otherwise call the simplified
-         --  version, Unlock.
-
-         if Has_Entries (Pid)
-           or else Has_Interrupt_Handler (Pid)
-           or else (Has_Attach_Handler (Pid) and then not Restricted_Profile)
-         then
-            if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
-              or else Number_Entries (Pid) > 1
-            then
-               Unlock := New_Reference_To (RTE (RE_Unlock_Entries), Loc);
-            else
-               Unlock := New_Reference_To (RTE (RE_Unlock_Entry), Loc);
-            end if;
 
          else
-            Unlock := New_Reference_To (RTE (RE_Unlock), Loc);
+            --  Unlock (_object._object'Access);
+
+            --  object is the record used to implement the protected object.
+            --  It is a parameter to the protected subprogram.
+
+            --  If the protected object is controlled (i.e it has entries or
+            --  needs finalization for interrupt handling), call
+            --  Unlock_Entries, except if the protected object follows the
+            --  ravenscar profile, in which case call Unlock_Entry, otherwise
+            --  call the simplified version, Unlock.
+
+            if Has_Entries (Pid)
+              or else Has_Interrupt_Handler (Pid)
+              or else (Has_Attach_Handler (Pid)
+                         and then not Restricted_Profile)
+            then
+               if Abort_Allowed
+                 or else Restriction_Active (No_Entry_Queue) = False
+                 or else Number_Entries (Pid) > 1
+               then
+                  Name := New_Reference_To (RTE (RE_Unlock_Entries), Loc);
+               else
+                  Name := New_Reference_To (RTE (RE_Unlock_Entry), Loc);
+               end if;
+
+            else
+               Name := New_Reference_To (RTE (RE_Unlock), Loc);
+            end if;
+
+            Append_To (Stmt,
+              Make_Procedure_Call_Statement (Loc,
+                Name => Name,
+                Parameter_Associations => New_List (
+                  Make_Attribute_Reference (Loc,
+                    Prefix =>
+                      Make_Selected_Component (Loc,
+                        Prefix =>
+                          New_Reference_To (Defining_Identifier (Param), Loc),
+                        Selector_Name =>
+                          Make_Identifier (Loc, Name_uObject)),
+                    Attribute_Name => Name_Unchecked_Access))));
          end if;
 
-         Append_To (Stmt,
-           Make_Procedure_Call_Statement (Loc,
-             Name => Unlock,
-             Parameter_Associations => New_List (
-               Make_Attribute_Reference (Loc,
-                 Prefix =>
-                   Make_Selected_Component (Loc,
-                     Prefix =>
-                       New_Reference_To (Defining_Identifier (Param), Loc),
-                     Selector_Name =>
-                       Make_Identifier (Loc, Name_uObject)),
-                 Attribute_Name => Name_Unchecked_Access))));
-
          if Abort_Allowed then
+
             --  Abort_Undefer;
 
             Append_To (Stmt,

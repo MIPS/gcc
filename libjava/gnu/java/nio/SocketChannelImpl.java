@@ -174,7 +174,7 @@ public final class SocketChannelImpl extends SocketChannel
     if (!isOpen())
       throw new ClosedChannelException();
     
-    if (!connectionPending)
+    if (!isConnected() && !connectionPending)
       throw new NoConnectionPendingException();
     
     if (isConnected())
@@ -226,7 +226,7 @@ public final class SocketChannelImpl extends SocketChannel
     int offset = 0;
     InputStream input = socket.getInputStream();
     int available = input.available();
-    int len = dst.remaining();
+    int len = dst.capacity() - dst.position();
 	
     if (available == 0)
       return 0;

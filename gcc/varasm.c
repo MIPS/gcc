@@ -210,16 +210,7 @@ data_section (void)
   if (in_section != in_data)
     {
       in_section = in_data;
-      if (flag_shared_data)
-	{
-#ifdef SHARED_SECTION_ASM_OP
-	  fprintf (asm_out_file, "%s\n", SHARED_SECTION_ASM_OP);
-#else
-	  fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
-#endif
-	}
-      else
-	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
+      fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
     }
 }
 
@@ -1011,7 +1002,7 @@ notice_global_symbol (tree decl)
       || GET_CODE (DECL_RTL (decl)) != MEM)
     return;
 
-  /* We win when global object is found, but it is usefull to know about weak
+  /* We win when global object is found, but it is useful to know about weak
      symbol as well so we can produce nicer unique names.  */
   if (DECL_WEAK (decl) || DECL_ONE_ONLY (decl))
     type = &weak_global_object_name;
@@ -2038,16 +2029,8 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      if (flag_writable_strings)
-	{
-	  p = (char *) &exp;
-	  len = sizeof exp;
-	}
-      else
-	{
-	  p = TREE_STRING_POINTER (exp);
-	  len = TREE_STRING_LENGTH (exp);
-	}
+      p = TREE_STRING_POINTER (exp);
+      len = TREE_STRING_LENGTH (exp);
       break;
 
     case COMPLEX_CST:
@@ -2163,9 +2146,6 @@ compare_constant (const tree t1, const tree t2)
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
-      if (flag_writable_strings)
-	return t1 == t2;
-
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
@@ -2368,10 +2348,7 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
-    desc->value = exp;
-  else
-    desc->value = copy_constant (exp);
+  desc->value = copy_constant (exp);
 
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
@@ -2453,9 +2430,9 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* The only constants that cannot safely be deferred, assuming the
-     context allows it, are strings under flag_writable_strings.  */
-  if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
+  /* We can always defer constants as long as the context allows
+     doing so.  */
+  if (defer)
     {
       /* Increment n_deferred_constants if it exists.  It needs to be at
 	 least as large as the number of constants actually referred to
@@ -2617,7 +2594,7 @@ const_desc_rtx_sym_eq (const void *a, const void *b)
 {
   const struct constant_descriptor_rtx *x = a;
   const struct constant_descriptor_rtx *y = b;
-  return x->sym == y->sym;
+  return XSTR (x->sym, 0) == XSTR (y->sym, 0);
 }
 
 /* This is the worker function for const_rtx_hash, called via for_each_rtx.  */
@@ -4495,7 +4472,7 @@ default_select_section (tree decl, int reloc,
 	readonly = true;
     }
   else if (TREE_CODE (decl) == STRING_CST)
-    readonly = !flag_writable_strings;
+    readonly = true;
   else if (! (flag_pic && reloc))
     readonly = true;
 
@@ -4553,12 +4530,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
-    {
-      if (flag_writable_strings)
-	return SECCAT_DATA;
-      else
-	return SECCAT_RODATA_MERGE_STR;
-    }
+    return SECCAT_RODATA_MERGE_STR;
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL

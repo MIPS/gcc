@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -1513,7 +1513,7 @@ detect_web_parts_to_rebuild (void)
      And because we sometimes delete insn referring to hardregs (when
      they became useless because they setup a rematerializable pseudo, which
      then was rematerialized), some of those uses will go away with the next
-     df_analyse().  This means we even _must_ delete those uses from
+     df_analyze().  This means we even _must_ delete those uses from
      the live_at_end[] bitmaps.  For simplicity we simply delete
      all of them.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1534,10 +1534,10 @@ detect_web_parts_to_rebuild (void)
 		      BITMAP_AND_COMPL);
   live_at_end += 2;
 
-  if (rtl_dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
+  if (dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
     {
       ra_debug_msg (DUMP_REBUILD, "need to check these uses:\n");
-      dump_sbitmap_file (rtl_dump_file, last_check_uses);
+      dump_sbitmap_file (dump_file, last_check_uses);
     }
   sbitmap_free (already_webs);
   BITMAP_XFREE (uses_as_bitmap);

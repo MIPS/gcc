@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -142,7 +142,7 @@ package body Debug is
    --  df
    --  dg
    --  dh
-   --  di
+   --  di  Ignore_Errors mode for reading ali files
    --  dj
    --  dk
    --  dl
@@ -470,10 +470,9 @@ package body Debug is
    --       testing high integrity mode.
 
    --  d.x  No exception handlers in generated code. This causes exception
-   --       handles to be eliminated from the generated code. They are still
+   --       handlers to be eliminated from the generated code. They are still
    --       fully compiled and analyzed, they just get eliminated from the
    --       code generation step.
-
 
    --  d1   Error messages have node numbers where possible. Normally error
    --       messages have only source locations. This option is useful when
@@ -527,6 +526,12 @@ package body Debug is
    --  de  Similar to the effect of -e (output complete list of elaboration
    --      dependencies) except that internal units are included in the
    --      listing.
+
+   --  di  Normally gnatbind calls Read_Ali with Ignore_Errors set to
+   --      False, since the binder really needs correct version ALI
+   --      files to do its job. This debug flag causes Ignore_Errors
+   --      mode to be set for the binder (and is particularly useful
+   --      for testing ignore errors mode).
 
    --  dn  List details of manipulation of Num_Pred values during execution of
    --      the algorithm used to determine a correct order of elaboration. This

@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -384,7 +384,7 @@ save_call_clobbered_regs (void)
       if (chain->is_caller_save_insn)
 	abort ();
 
-      if (GET_RTX_CLASS (code) == 'i')
+      if (INSN_P (insn))
 	{
 	  /* If some registers have been saved, see if INSN references
 	     any of them.  We must restore them before the insn if so.  */
@@ -685,6 +685,8 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
       && save_mode [regno] != GET_MODE (mem)
       && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]])
     mem = adjust_address (mem, save_mode[regno], 0);
+  else
+    mem = copy_rtx (mem);
   pat = gen_rtx_SET (VOIDmode,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno), mem);
@@ -757,6 +759,8 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
       && save_mode [regno] != GET_MODE (mem)
       && numregs == (unsigned int) hard_regno_nregs[regno][save_mode [regno]])
     mem = adjust_address (mem, save_mode[regno], 0);
+  else
+    mem = copy_rtx (mem);
   pat = gen_rtx_SET (VOIDmode, mem,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno));

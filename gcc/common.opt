@@ -179,6 +179,9 @@ Common
 fPIE
 Common
 
+fabi-version=
+Common Joined UInteger
+
 falign-functions
 Common
 Align the start of functions
@@ -368,7 +371,13 @@ Perform store motion after global common subexpression elimination
 
 fgcse-las
 Common
-Perform redundant load after store elimination in global common subexpression elimination
+Perform redundant load after store elimination in global common subexpression
+elimination
+
+fgcse-after-reload
+Common
+Perform global common subexpression elimination after register allocation
+has finished.
 
 fguess-branch-probability
 Common
@@ -715,6 +724,10 @@ funwind-tables
 Common
 Just generate unwind tables for exception handling
 
+fvar-tracking
+Common
+Perform variable tracking
+
 fverbose-asm
 Common
 Add extra commentary to assembler output
@@ -730,10 +743,6 @@ Construct webs and split unrelated uses of single variable
 fwrapv
 Common
 Assume signed arithmetic overflow wraps around
-
-fwritable-strings
-Common
-Store strings in writable data section
 
 fzero-initialized-in-bss
 Common

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -135,9 +135,15 @@ package body Sem_Ch10 is
    --  Place shadow entities for a limited_with package in the visibility
    --  structures for the current compilation. Implements Ada0Y (AI-50217).
 
-   procedure Install_Withed_Unit (With_Clause : Node_Id);
+   procedure Install_Withed_Unit
+     (With_Clause     : Node_Id;
+      Private_With_OK : Boolean := False);
+
    --  If the unit is not a child unit, make unit immediately visible.
    --  The caller ensures that the unit is not already currently installed.
+   --  The flag Private_With_OK is set true in Install_Private_With_Clauses,
+   --  which is called when compiling the private part of a package, or
+   --  installing the private declarations of a parent unit.
 
    procedure Install_Parents (Lib_Unit : Node_Id; Is_Private : Boolean);
    --  This procedure establishes the context for the compilation of a child
@@ -443,8 +449,8 @@ package body Sem_Ch10 is
 
          declare
             Save_Style_Check : constant Boolean := Style_Check;
-            Save_C_Restrict  : constant Save_Compilation_Unit_Restrictions :=
-                                 Compilation_Unit_Restrictions_Save;
+            Save_C_Restrict  : constant Save_Cunit_Boolean_Restrictions :=
+                                 Cunit_Boolean_Restrictions_Save;
 
          begin
             if not GNAT_Mode then
@@ -454,7 +460,7 @@ package body Sem_Ch10 is
             Semantics (Parent_Spec (Unit_Node));
             Version_Update (N, Parent_Spec (Unit_Node));
             Style_Check := Save_Style_Check;
-            Compilation_Unit_Restrictions_Restore (Save_C_Restrict);
+            Cunit_Boolean_Restrictions_Restore (Save_C_Restrict);
          end;
       end if;
 
@@ -607,8 +613,8 @@ package body Sem_Ch10 is
             Un    : Unit_Number_Type;
 
             Save_Style_Check : constant Boolean := Style_Check;
-            Save_C_Restrict  : constant Save_Compilation_Unit_Restrictions :=
-                                 Compilation_Unit_Restrictions_Save;
+            Save_C_Restrict  : constant Save_Cunit_Boolean_Restrictions :=
+                                 Cunit_Boolean_Restrictions_Save;
 
          begin
             Item := First (Context_Items (N));
@@ -670,7 +676,7 @@ package body Sem_Ch10 is
             end loop;
 
             Style_Check := Save_Style_Check;
-            Compilation_Unit_Restrictions_Restore (Save_C_Restrict);
+            Cunit_Boolean_Restrictions_Restore (Save_C_Restrict);
          end;
       end if;
 
@@ -958,9 +964,15 @@ package body Sem_Ch10 is
          then
             Comp_Unit := Cunit (Unum);
 
-            Set_Corresponding_Stub (Unit (Comp_Unit), N);
-            Analyze_Subunit (Comp_Unit);
-            Set_Library_Unit (N, Comp_Unit);
+            if Nkind (Unit (Comp_Unit)) /= N_Subunit then
+               Error_Msg_N
+                 ("expected SEPARATE subunit, found child unit",
+                  Cunit_Entity (Unum));
+            else
+               Set_Corresponding_Stub (Unit (Comp_Unit), N);
+               Analyze_Subunit (Comp_Unit);
+               Set_Library_Unit (N, Comp_Unit);
+            end if;
 
          elsif Unum = No_Unit
            and then Present (Nam)
@@ -1475,8 +1487,12 @@ package body Sem_Ch10 is
             end if;
          end if;
 
+         Set_Is_Immediately_Visible (Par_Unit, False);
+
          Analyze_Subunit_Context;
+
          Re_Install_Parents (Lib_Unit, Par_Unit);
+         Set_Is_Immediately_Visible (Par_Unit);
 
          --  If the context includes a child unit of the parent of the
          --  subunit, the parent will have been removed from visibility,
@@ -1590,8 +1606,8 @@ package body Sem_Ch10 is
       --  Set True if the unit currently being compiled is an internal unit
 
       Save_Style_Check : constant Boolean := Opt.Style_Check;
-      Save_C_Restrict  : constant Save_Compilation_Unit_Restrictions :=
-                           Compilation_Unit_Restrictions_Save;
+      Save_C_Restrict  : constant Save_Cunit_Boolean_Restrictions :=
+                           Cunit_Boolean_Restrictions_Save;
 
    begin
       if Limited_Present (N) then
@@ -1735,7 +1751,7 @@ package body Sem_Ch10 is
       --  Restore style checks and restrictions
 
       Style_Check := Save_Style_Check;
-      Compilation_Unit_Restrictions_Restore (Save_C_Restrict);
+      Cunit_Boolean_Restrictions_Restore (Save_C_Restrict);
 
       --  Record the reference, but do NOT set the unit as referenced, we
       --  want to consider the unit as unreferenced if this is the only
@@ -2473,7 +2489,7 @@ package body Sem_Ch10 is
       P_Name : constant Entity_Id  := Get_Parent_Entity (P_Unit);
       Withn  : Node_Id;
 
-      function Build_Ancestor_Name (P : Node_Id)  return Node_Id;
+      function Build_Ancestor_Name (P : Node_Id) return Node_Id;
       --  Build prefix of child unit name. Recurse if needed.
 
       function Build_Unit_Name return Node_Id;
@@ -2487,7 +2503,6 @@ package body Sem_Ch10 is
       function Build_Ancestor_Name (P : Node_Id) return Node_Id is
          P_Ref : constant Node_Id :=
                    New_Reference_To (Defining_Entity (P), Loc);
-
       begin
          if No (Parent_Spec (P)) then
             return P_Ref;
@@ -2505,7 +2520,6 @@ package body Sem_Ch10 is
 
       function Build_Unit_Name return Node_Id is
          Result : Node_Id;
-
       begin
          if No (Parent_Spec (P_Unit)) then
             return New_Reference_To (P_Name, Loc);
@@ -2541,6 +2555,7 @@ package body Sem_Ch10 is
       if Is_Child_Spec (P_Unit) then
          Implicit_With_On_Parent (P_Unit, N);
       end if;
+
       New_Nodes_OK := New_Nodes_OK - 1;
    end Implicit_With_On_Parent;
 
@@ -2767,6 +2782,7 @@ package body Sem_Ch10 is
                   if not (Private_Present (Parent (Lib_Spec))) then
                      P_Name := Defining_Entity (P);
                      Install_Private_Declarations (P_Name);
+                     Install_Private_With_Clauses (P_Name);
                      Set_Use (Private_Declarations (Specification (P)));
                   end if;
 
@@ -3124,9 +3140,33 @@ package body Sem_Ch10 is
         or else Private_Present (Parent (Lib_Unit))
       then
          Install_Private_Declarations (P_Name);
+         Install_Private_With_Clauses (P_Name);
          Set_Use (Private_Declarations (P_Spec));
       end if;
    end Install_Parents;
+
+   ----------------------------------
+   -- Install_Private_With_Clauses --
+   ----------------------------------
+
+   procedure Install_Private_With_Clauses (P : Entity_Id) is
+      Decl   : constant Node_Id := Unit_Declaration_Node (P);
+      Clause : Node_Id;
+
+   begin
+      if Nkind (Parent (Decl)) = N_Compilation_Unit then
+         Clause := First (Context_Items (Parent (Decl)));
+         while Present (Clause) loop
+            if Nkind (Clause) = N_With_Clause
+              and then Private_Present (Clause)
+            then
+               Install_Withed_Unit (Clause, Private_With_OK => True);
+            end if;
+
+            Next (Clause);
+         end loop;
+      end if;
+   end Install_Private_With_Clauses;
 
    ----------------------
    -- Install_Siblings --
@@ -3151,11 +3191,9 @@ package body Sem_Ch10 is
 
       begin
          Par := U_Name;
-
          while Present (Par)
            and then Par /= Standard_Standard
          loop
-
             if Par = E then
                return True;
             end if;
@@ -3173,9 +3211,7 @@ package body Sem_Ch10 is
       --  scope of each entity is an ancestor of the current unit.
 
       Item := First (Context_Items (N));
-
       while Present (Item) loop
-
          if Nkind (Item) = N_With_Clause
            and then not Implicit_With (Item)
            and then not Limited_Present (Item)
@@ -3225,7 +3261,6 @@ package body Sem_Ch10 is
             then
                Set_Is_Immediately_Visible (Scope (Id));
             end if;
-
          end if;
 
          Next (Item);
@@ -3248,6 +3283,10 @@ package body Sem_Ch10 is
       function In_Chain (E : Entity_Id) return Boolean;
       --  Check that the shadow entity is not already in the homonym
       --  chain, for example through a limited_with clause in a parent unit.
+
+      --------------
+      -- In_Chain --
+      --------------
 
       function In_Chain (E : Entity_Id) return Boolean is
          H : Entity_Id := Current_Entity (E);
@@ -3425,7 +3464,10 @@ package body Sem_Ch10 is
    -- Install_Withed_Unit --
    -------------------------
 
-   procedure Install_Withed_Unit (With_Clause : Node_Id) is
+   procedure Install_Withed_Unit
+     (With_Clause     : Node_Id;
+      Private_With_OK : Boolean := False)
+   is
       Uname : constant Entity_Id := Entity (Name (With_Clause));
       P     : constant Entity_Id := Scope (Uname);
 
@@ -3450,13 +3492,17 @@ package body Sem_Ch10 is
       end if;
 
       if P /= Standard_Standard then
+         if Private_Present (With_Clause)
+           and then not (Private_With_OK)
+         then
+            return;
 
          --  If the unit is not analyzed after analysis of the with clause,
          --  and it is an instantiation, then it awaits a body and is the main
          --  unit. Its appearance in the context of some other unit indicates
          --  a circular dependency (DEC suite perversity).
 
-         if not Analyzed (Uname)
+         elsif not Analyzed (Uname)
            and then Nkind (Parent (Uname)) = N_Package_Instantiation
          then
             Error_Msg_N
@@ -3488,7 +3534,12 @@ package body Sem_Ch10 is
          end if;
 
       elsif not Is_Immediately_Visible (Uname) then
-         Set_Is_Immediately_Visible (Uname);
+         if not Private_Present (With_Clause)
+           or else Private_With_OK
+         then
+            Set_Is_Immediately_Visible (Uname);
+         end if;
+
          Set_Context_Installed (With_Clause);
       end if;
 

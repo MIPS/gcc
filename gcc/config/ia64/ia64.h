@@ -84,17 +84,17 @@ extern int target_flags;
 
 #define MASK_INLINE_FLOAT_DIV_THR 0x00001000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_INT_DIV_LAT   0x00000800 /* inline div, min latency.  */
+#define MASK_INLINE_INT_DIV_LAT   0x00002000 /* inline div, min latency.  */
 
-#define MASK_INLINE_INT_DIV_THR   0x00001000 /* inline div, max throughput.  */
+#define MASK_INLINE_INT_DIV_THR   0x00004000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_SQRT_LAT      0x00002000 /* inline sqrt, min latency.  */
+#define MASK_INLINE_SQRT_LAT      0x00008000 /* inline sqrt, min latency.  */
 
-#define MASK_INLINE_SQRT_THR      0x00004000 /* inline sqrt, max throughput. */
+#define MASK_INLINE_SQRT_THR      0x00010000 /* inline sqrt, max throughput.  */
 
-#define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
+#define MASK_DWARF2_ASM 0x00020000	/* test dwarf2 line info via gas.  */
 
-#define MASK_EARLY_STOP_BITS 0x00002000 /* tune stop bits for the model.  */
+#define MASK_EARLY_STOP_BITS 0x00040000 /* tune stop bits for the model.  */
 
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
 
@@ -203,14 +203,21 @@ extern int ia64_tls_size;
       N_("Generate inline floating point division, optimize for latency") },\
   { "inline-float-divide-max-throughput", MASK_INLINE_FLOAT_DIV_THR,	\
       N_("Generate inline floating point division, optimize for throughput") },\
+  { "no-inline-float-divide", 						\
+      -(MASK_INLINE_FLOAT_DIV_LAT|MASK_INLINE_FLOAT_DIV_THR),		\
+      N_("Do not inline floating point division") },			\
   { "inline-int-divide-min-latency", MASK_INLINE_INT_DIV_LAT,		\
       N_("Generate inline integer division, optimize for latency") },	\
   { "inline-int-divide-max-throughput", MASK_INLINE_INT_DIV_THR,	\
       N_("Generate inline integer division, optimize for throughput") },\
+  { "no-inline-int-divide", -(MASK_INLINE_INT_DIV_LAT|MASK_INLINE_INT_DIV_THR),	\
+      N_("Do not inline integer division") },				\
   { "inline-sqrt-min-latency", MASK_INLINE_SQRT_LAT,			\
       N_("Generate inline square root, optimize for latency") },	\
   { "inline-sqrt-max-throughput", MASK_INLINE_SQRT_THR,			\
       N_("Generate inline square root, optimize for throughput") },     \
+  { "no-inline-sqrt", -(MASK_INLINE_SQRT_LAT|MASK_INLINE_SQRT_THR),	\
+      N_("Do not inline square root") },				\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -227,7 +234,7 @@ extern int ia64_tls_size;
 /* Default target_flags if no switches are specified  */
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT MASK_DWARF2_ASM
+#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_INLINE_FLOAT_DIV_THR)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -251,7 +258,7 @@ extern const char *ia64_tls_size_string;
 
 enum processor_type
 {
-  PROCESSOR_ITANIUM,			/* Original Itanium. */
+  PROCESSOR_ITANIUM,			/* Original Itanium.  */
   PROCESSOR_ITANIUM2,
   PROCESSOR_max
 };
@@ -428,8 +435,6 @@ while (0)
 #define SHORT_TYPE_SIZE 16
 
 #define LONG_TYPE_SIZE (TARGET_ILP32 ? 32 : 64)
-
-#define MAX_LONG_TYPE_SIZE 64
 
 #define LONG_LONG_TYPE_SIZE 64
 
@@ -833,6 +838,13 @@ while (0)
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
    && (((MODE1) == XFmode) == ((MODE2) == XFmode))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
+
+/* Specify the modes required to caller save a given hard regno.
+   We need to ensure floating pt regs are not saved as DImode.  */
+
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+   : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
 
@@ -1009,7 +1021,7 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
   (CLASS == FR_REGS && GET_CODE (X) == MEM && MEM_VOLATILE_P (X) ? NO_REGS   \
    : CLASS == FR_REGS && GET_CODE (X) == CONST_DOUBLE ? NO_REGS		     \
-   : GET_RTX_CLASS (GET_CODE (X)) != 'o'				     \
+   : !OBJECT_P (X)							     \
      && (CLASS == AR_M_REGS || CLASS == AR_I_REGS) ? NO_REGS		     \
    : CLASS)
 
@@ -1112,9 +1124,9 @@ enum reg_class
 #define CONSTRAINT_OK_FOR_R(VALUE) \
   (GET_CODE (VALUE) == CONST_INT && INTVAL (VALUE) >= 1 && INTVAL (VALUE) <= 4)
 /* Non-post-inc memory for asms and other unsavory creatures.  */
-#define CONSTRAINT_OK_FOR_S(VALUE)				\
-  (GET_CODE (VALUE) == MEM					\
-   && GET_RTX_CLASS (GET_CODE (XEXP ((VALUE), 0))) != 'a'	\
+#define CONSTRAINT_OK_FOR_S(VALUE)					\
+  (GET_CODE (VALUE) == MEM						\
+   && GET_RTX_CLASS (GET_CODE (XEXP ((VALUE), 0))) != RTX_AUTOINC	\
    && (reload_in_progress || memory_operand ((VALUE), VOIDmode)))
 /* Symbol ref to small-address-area: */
 #define CONSTRAINT_OK_FOR_T(VALUE)						\
@@ -1338,7 +1350,7 @@ typedef struct ia64_args
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 do {									\
   (CUM).words = 0;							\
   (CUM).int_regs = 0;							\

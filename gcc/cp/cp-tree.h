@@ -73,7 +73,6 @@ struct diagnostic_context;
    4: BINFO_NEW_VTABLE_MARKED.
       TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
-      NEED_TEMPORARY_P (in REF_BIND, BASE_CONV)
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
    5: C_IS_RESERVED_WORD (in IDENTIFIER_NODE)
       DECL_VTABLE_OR_VTT_P (in VAR_DECL)
@@ -214,12 +213,6 @@ struct diagnostic_context;
 
 #endif
 
-/* Returns TRUE if generated code should match ABI version N or
-   greater is in use.  */
-
-#define abi_version_at_least(N) \
-  (flag_abi_version == 0 || flag_abi_version >= (N))
-
 
 /* Language-dependent contents of an identifier.  */
 
@@ -344,14 +337,6 @@ struct tree_baselink GTY(())
   tree binfo;
   tree functions;
   tree access_binfo;
-};
-
-#define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
-
-struct tree_wrapper GTY(())
-{
-  struct tree_common common;
-  struct z_candidate *z_c;
 };
 
 /* The different kinds of ids that we ecounter.  */
@@ -484,7 +469,6 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
   struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
   struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
-  struct tree_wrapper GTY ((tag ("TS_CP_WRAPPER"))) wrapper;
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
 };
@@ -3316,9 +3300,6 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
      direct-initialization in cases where other parts of the compiler have
      already generated a temporary, such as reference initialization and the
      catch parameter.
-   LOOKUP_SPECULATIVELY means return NULL_TREE if we cannot find what we are
-     after.  Note, LOOKUP_COMPLAIN is checked and error messages printed
-     before LOOKUP_SPECULATIVELY is checked.
    LOOKUP_NO_CONVERSION means that user-defined conversions are not
      permitted.  Built-in conversions are permitted.
    LOOKUP_DESTRUCTOR means explicit call to destructor.
@@ -3336,7 +3317,6 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define LOOKUP_NORMAL (3)
 #define LOOKUP_NONVIRTUAL (8)
 #define LOOKUP_GLOBAL (16)
-#define LOOKUP_SPECULATIVELY (64)
 #define LOOKUP_ONLYCONVERTING (128)
 #define DIRECT_BIND (256)
 #define LOOKUP_NO_CONVERSION (512)
@@ -3521,7 +3501,7 @@ extern tree build_operator_new_call (tree, tree, tree *, tree *);
 extern tree build_new_method_call (tree, tree, tree, tree, int);
 extern tree build_special_member_call (tree, tree, tree, tree, int);
 extern tree build_new_op (enum tree_code, int, tree, tree, tree);
-extern tree build_op_delete_call (enum tree_code, tree, tree, int, tree);
+extern tree build_op_delete_call (enum tree_code, tree, tree, bool, tree);
 extern bool can_convert (tree, tree);
 extern bool can_convert_arg (tree, tree, tree);
 extern bool can_convert_arg_bad (tree, tree, tree);
@@ -3541,6 +3521,9 @@ extern tree perform_implicit_conversion (tree, tree);
 extern tree perform_direct_initialization_if_possible (tree, tree);
 extern tree in_charge_arg_for_name (tree);
 extern tree build_cxx_call (tree, tree, tree);
+#ifdef ENABLE_CHECKING
+extern void validate_conversion_obstack (void);
+#endif /* ENABLE_CHECKING */
 
 /* in class.c */
 extern tree build_base_path			(enum tree_code, tree, tree, int);
@@ -3707,7 +3690,6 @@ extern void register_dtor_fn                    (tree);
 extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *, tree *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
-extern tree cxx_builtin_type_decls              (void);
 extern void warn_extern_redeclared_static (tree, tree);
 
 extern bool have_extern_spec;
@@ -3721,7 +3703,7 @@ extern void maybe_retrofit_in_chrg (tree);
 extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
-extern tree delete_sanity (tree, tree, int, int);
+extern tree delete_sanity (tree, tree, bool, int);
 extern tree check_classfn (tree, tree, bool);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
@@ -3928,6 +3910,7 @@ extern tree template_for_substitution           (tree);
 extern tree build_non_dependent_expr            (tree);
 extern tree build_non_dependent_args            (tree);
 extern bool reregister_specialization           (tree, tree, tree);
+extern tree fold_non_dependent_expr             (tree);
 
 /* in repo.c */
 extern void repo_template_used (tree);
@@ -4144,7 +4127,6 @@ extern tree vec_binfo_member			(tree, tree);
 extern tree decl_namespace_context		(tree);
 extern tree lvalue_type				(tree);
 extern tree error_type				(tree);
-extern tree build_zc_wrapper			(struct z_candidate *);
 extern int varargs_function_p			(tree);
 extern int really_overloaded_fn			(tree);
 extern bool cp_tree_equal			(tree, tree);
@@ -4155,6 +4137,7 @@ extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst                     (tree, tree);
+extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)

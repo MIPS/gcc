@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.2.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -173,7 +173,6 @@ do {									\
 /* Width of wchar_t in bits.  */
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE (!TARGET_64BIT ? 16 : 32)
-#define MAX_WCHAR_TYPE_SIZE 32
 
 /* AIX V5 uses PowerPC nop (ori 0,0,0) instruction as call glue for PowerPC
    and "cror 31,31,31" for POWER architecture.  */

@@ -122,8 +122,6 @@ static int v850_interrupt_p = FALSE;
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY v850_return_in_memory
 
@@ -3400,13 +3398,6 @@ v850_select_section (tree exp,
 	    data_section ();
 	  break;
         }
-    }
-  else if (TREE_CODE (exp) == STRING_CST)
-    {
-      if (! flag_writable_strings)
-	readonly_data_section ();
-      else
-	data_section ();
     }
   else
     readonly_data_section ();

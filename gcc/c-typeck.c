@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "langhooks.h"
 #include "c-tree.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -700,6 +701,27 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
     {
     case ENUMERAL_TYPE:
       {
+      
+        /* Speed up the case where the type values are in the same order. */
+        tree tv1 = TYPE_VALUES (t1);
+        tree tv2 = TYPE_VALUES (t2);
+        
+        if (tv1 == tv2)
+          return 1;
+        
+        for (;tv1 && tv2; tv1 = TREE_CHAIN (tv2), tv2 = TREE_CHAIN (tv2))
+          {
+            if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
+              break;
+            if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
+              return 0;
+          }
+        
+        if (tv1 == NULL_TREE && tv2 == NULL_TREE)
+          return 1;
+        if (tv1 == NULL_TREE || tv2 == NULL_TREE)
+          return 0;
+        
 	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
 	  return 0;
 	
@@ -1708,6 +1730,10 @@ build_function_call (tree function, tree params)
 	 executions of the program must execute the code.  */
       warning ("function called through a non-compatible type");
 
+      /* We can, however, treat "undefined" any way we please.
+	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
+
       if (VOID_TYPE_P (return_type))
 	return trap;
       else
@@ -2259,7 +2285,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = c_common_truthvalue_conversion (arg);
+      arg = (*lang_hooks.truthvalue_conversion) (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -2361,10 +2387,10 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
 	/* Report a read-only lvalue.  */
 	if (TREE_READONLY (arg))
-	  readonly_warning (arg,
-			    ((code == PREINCREMENT_EXPR
-			      || code == POSTINCREMENT_EXPR)
-			     ? "increment" : "decrement"));
+	  readonly_error (arg,
+			  ((code == PREINCREMENT_EXPR
+			    || code == POSTINCREMENT_EXPR)
+			   ? "increment" : "decrement"));
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -2519,21 +2545,21 @@ lvalue_or_else (tree ref, const char *msgid)
 /* Warn about storing in something that is `const'.  */
 
 void
-readonly_warning (tree arg, const char *msgid)
+readonly_error (tree arg, const char *msgid)
 {
   if (TREE_CODE (arg) == COMPONENT_REF)
     {
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
-	readonly_warning (TREE_OPERAND (arg, 0), msgid);
+	readonly_error (TREE_OPERAND (arg, 0), msgid);
       else
-	pedwarn ("%s of read-only member `%s'", _(msgid),
-		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
+	error ("%s of read-only member `%s'", _(msgid),
+	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    pedwarn ("%s of read-only variable `%s'", _(msgid),
-	     IDENTIFIER_POINTER (DECL_NAME (arg)));
+    error ("%s of read-only variable `%s'", _(msgid),
+	   IDENTIFIER_POINTER (DECL_NAME (arg)));
   else
-    pedwarn ("%s of read-only location", _(msgid));
+    error ("%s of read-only location", _(msgid));
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -2632,7 +2658,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
 
-  ifexp = c_common_truthvalue_conversion (default_conversion (ifexp));
+  ifexp = (*lang_hooks.truthvalue_conversion) (default_conversion (ifexp));
 
   /* Promote both alternatives.  */
 
@@ -3116,7 +3142,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       || ((TREE_CODE (lhstype) == RECORD_TYPE
 	   || TREE_CODE (lhstype) == UNION_TYPE)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
-    readonly_warning (lhs, "assignment");
+    readonly_error (lhs, "assignment");
 
   /* If storing into a structure or union member,
      it has probably been given type `int'.
@@ -4111,6 +4137,9 @@ static int require_constant_elements;
    such as (struct foo) {...}.  */
 static tree constructor_decl;
 
+/* start_init saves the ASMSPEC arg here for really_start_incremental_init.  */
+static const char *constructor_asmspec;
+
 /* Nonzero if this is an initializer for a top-level decl.  */
 static int constructor_top_level;
 
@@ -4182,6 +4211,7 @@ struct initializer_stack
 {
   struct initializer_stack *next;
   tree decl;
+  const char *asmspec;
   struct constructor_stack *constructor_stack;
   struct constructor_range_stack *constructor_range_stack;
   tree elements;
@@ -4198,12 +4228,17 @@ struct initializer_stack *initializer_stack;
 /* Prepare to parse and output the initializer for variable DECL.  */
 
 void
-start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
+start_init (tree decl, tree asmspec_tree, int top_level)
 {
   const char *locus;
   struct initializer_stack *p = xmalloc (sizeof (struct initializer_stack));
+  const char *asmspec = 0;
+
+  if (asmspec_tree)
+    asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   p->decl = constructor_decl;
+  p->asmspec = constructor_asmspec;
   p->require_constant_value = require_constant_value;
   p->require_constant_elements = require_constant_elements;
   p->constructor_stack = constructor_stack;
@@ -4217,6 +4252,7 @@ start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
   initializer_stack = p;
 
   constructor_decl = decl;
+  constructor_asmspec = asmspec;
   constructor_designated = 0;
   constructor_top_level = top_level;
 
@@ -4273,6 +4309,7 @@ finish_init (void)
   free (spelling_base);
   
   constructor_decl = p->decl;
+  constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
   require_constant_elements = p->require_constant_elements;
   constructor_stack = p->constructor_stack;
@@ -5990,52 +6027,28 @@ process_init_element (tree value)
   constructor_range_stack = 0;
 }
 
-/* Build a simple asm-statement, from one string literal.  */
+/* Build a complete asm-statement, whose components are a CV_QUALIFIER
+   (guaranteed to be 'volatile' or null) and ARGS (represented using
+   an ASM_STMT node).  */
 tree
-simple_asm_stmt (tree expr)
+build_asm_stmt (tree cv_qualifier, tree args)
 {
-  STRIP_NOPS (expr);
-
-  if (TREE_CODE (expr) == ADDR_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-
-  if (TREE_CODE (expr) == STRING_CST)
-    {
-      tree stmt;
-
-      /* Simple asm statements are treated as volatile.  */
-      stmt = add_stmt (build_stmt (ASM_STMT, ridpointers[(int) RID_VOLATILE],
-				   expr, NULL_TREE, NULL_TREE, NULL_TREE));
-      ASM_INPUT_P (stmt) = 1;
-      return stmt;
-    }
-
-  error ("argument of `asm' is not a constant string");
-  return NULL_TREE;
+  if (!TREE_OPERAND (args, 0))
+    TREE_OPERAND (args, 0) = cv_qualifier;
+  return add_stmt (args);
 }
 
-/* Build an asm-statement, whose components are a CV_QUALIFIER, a
-   STRING, some OUTPUTS, some INPUTS, and some CLOBBERS.  */
-
+/* Build an asm-expr, whose components are a STRING, some OUTPUTS,
+   some INPUTS, and some CLOBBERS.  The latter three may be NULL.
+   SIMPLE indicates whether there was anything at all after the
+   string in the asm expression -- asm("blah") and asm("blah" : )
+   are subtly different.  We use a ASM_STMT node to represent this.  */
 tree
-build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs,
-		tree clobbers)
+build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
+		bool simple)
 {
   tree tail;
-
-  if (TREE_CODE (string) != STRING_CST)
-    {
-      error ("asm template is not a string constant");
-      return NULL_TREE;
-    }
-
-  if (cv_qualifier != NULL_TREE
-      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-    {
-      warning ("%s qualifier ignored on asm",
-	       IDENTIFIER_POINTER (cv_qualifier));
-      cv_qualifier = NULL_TREE;
-    }
+  tree args;
 
   /* We can remove output conversions that change the type,
      but not the mode.  */
@@ -6074,8 +6087,15 @@ build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs,
   for (tail = inputs; tail; tail = TREE_CHAIN (tail))
     TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
 
-  return add_stmt (build_stmt (ASM_STMT, cv_qualifier, string,
-			       outputs, inputs, clobbers));
+  args = build_stmt (ASM_STMT, 0, string, outputs, inputs, clobbers);
+
+  /* Simple asm statements are treated as volatile.  */
+  if (simple)
+    {
+      TREE_OPERAND (args, 0) = ridpointers[RID_VOLATILE];
+      ASM_INPUT_P (args) = 1;
+    }
+  return args;
 }
 
 /* Expand an ASM statement with operands, handling output operands
@@ -6129,7 +6149,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs,
 	      || ((TREE_CODE (type) == RECORD_TYPE
 		   || TREE_CODE (type) == UNION_TYPE)
 		  && C_TYPE_FIELDS_READONLY (type)))
-	    readonly_warning (o[i], "modification by `asm'");
+	    readonly_error (o[i], "modification by `asm'");
 	}
     }
 
@@ -6212,7 +6232,7 @@ c_expand_return (tree retval)
 	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
 		inner = TREE_OPERAND (inner, 0);
 
-	      if (TREE_CODE (inner) == VAR_DECL
+	      if (DECL_P (inner)
 		  && ! DECL_EXTERNAL (inner)
 		  && ! TREE_STATIC (inner)
 		  && DECL_CONTEXT (inner) == current_function_decl)
@@ -6539,8 +6559,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = c_common_truthvalue_conversion (op0);
-	  op1 = c_common_truthvalue_conversion (op1);
+	  op0 = (*lang_hooks.truthvalue_conversion) (op0);
+	  op1 = (*lang_hooks.truthvalue_conversion) (op1);
 	  converted = 1;
 	}
       break;
@@ -6777,6 +6797,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     default:
       break;
     }
+
+  if (code0 == ERROR_MARK || code1 == ERROR_MARK)
+    return error_mark_node;
 
   if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
        || code0 == VECTOR_TYPE)

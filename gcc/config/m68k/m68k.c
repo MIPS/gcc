@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 
-/* Structure describing stack frame layout. */
+/* Structure describing stack frame layout.  */
 struct m68k_frame
 {
   /* Stack pointer to frame pointer offset.  */
@@ -91,10 +91,6 @@ struct m68k_frame
 /* Current frame information calculated by m68k_compute_frame_layout().  */
 static struct m68k_frame current_frame;
 
-/* This flag is used to communicate between movhi and ASM_OUTPUT_CASE_END,
-   if SGS_SWITCH_TABLE.  */
-int switch_table_difference_label_flag;
-
 static rtx find_addr_reg (rtx);
 static const char *singlemove_string (rtx *);
 static void m68k_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -102,10 +98,6 @@ static void m68k_output_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef M68K_TARGET_COFF
 static void m68k_coff_asm_named_section (const char *, unsigned int);
 #endif /* M68K_TARGET_COFF */
-#ifdef HPUX_ASM
-static void m68k_hp320_internal_label (FILE *, const char *, unsigned long);
-static void m68k_hp320_file_start (void);
-#endif
 static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
 static rtx m68k_struct_value_rtx (tree, int);
@@ -175,10 +167,6 @@ int m68k_last_compare_had_fp_operands;
 #define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
-#ifdef HPUX_ASM
-#undef TARGET_ASM_INTERNAL_LABEL
-#define  TARGET_ASM_INTERNAL_LABEL m68k_hp320_internal_label
-#endif
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
@@ -499,25 +487,25 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	fprintf (stream, MOTOROLA ?
 			   "\tpea (%s)\n\tmove.l %s,%s\n" :
 			   "\tpea %s@\n\tmovel %s,%s\n",
-		 reg_names[FRAME_POINTER_REGNUM],
-		 reg_names[STACK_POINTER_REGNUM],
-		 reg_names[FRAME_POINTER_REGNUM]);
+		 M68K_REGNAME(FRAME_POINTER_REGNUM),
+		 M68K_REGNAME(STACK_POINTER_REGNUM),
+		 M68K_REGNAME(FRAME_POINTER_REGNUM));
       else if (fsize_with_regs < 0x8000)
 	asm_fprintf (stream, "\tlink" ASM_DOTW " %s,%I%wd\n",
-		     reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
+		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
       else if (TARGET_68020)
 	asm_fprintf (stream, "\tlink" ASM_DOTL " %s,%I%wd\n",
-		     reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
+		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
       else
 	/* Adding negative number is faster on the 68040.  */
 	asm_fprintf (stream, "\tlink" ASM_DOTW " %s,%I0\n"
 			     "\tadd" ASM_DOT "l %I%wd,%Rsp\n",
-		     reg_names[FRAME_POINTER_REGNUM], -fsize_with_regs);
+		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
 
       if (dwarf2out_do_frame ())
 	{
 	  char *l;
-          l = (char *) dwarf2out_cfi_label ();   
+          l = (char *) dwarf2out_cfi_label ();
 	  cfa_offset += 4;
 	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
 	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
@@ -585,17 +573,17 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
     }
 
-  /* If the stack limit is not a symbol, check it here.  
+  /* If the stack limit is not a symbol, check it here.
      This has the disadvantage that it may be too late...  */
   if (current_function_limit_stack)
     {
       if (REG_P (stack_limit_rtx))
 	asm_fprintf (stream, "\tcmp" ASM_DOT "l %s,%Rsp\n\ttrapcs\n",
-		     reg_names[REGNO (stack_limit_rtx)]);
+		     M68K_REGNAME(REGNO (stack_limit_rtx)));
       else if (GET_CODE (stack_limit_rtx) != SYMBOL_REF)
 	warning ("stack limit expression is not supported");
     }
-  
+
   if (current_frame.reg_no <= 2)
     {
       /* Store each separately in the same order moveml uses.
@@ -611,22 +599,22 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	    asm_fprintf (stream, MOTOROLA ?
 				   "\t%Omove.l %s,-(%Rsp)\n" :
 				   "\tmovel %s,%Rsp@-\n",
-			 reg_names[15 - i]);
+			 M68K_REGNAME(15 - i));
 	    if (dwarf2out_do_frame ())
 	      {
 		char *l = (char *) dwarf2out_cfi_label ();
 
 		cfa_offset += 4;
- 		if (! frame_pointer_needed)
- 		  dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
- 		dwarf2out_reg_save (l, 15 - i, -cfa_offset);
+		if (! frame_pointer_needed)
+		  dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
+		dwarf2out_reg_save (l, 15 - i, -cfa_offset);
 	      }
 	  }
     }
   else if (current_frame.reg_rev_mask)
     {
       if (TARGET_COLDFIRE)
-	/* The ColdFire does not support the predecrement form of the 
+	/* The ColdFire does not support the predecrement form of the
 	   MOVEM instruction, so we must adjust the stack pointer and
 	   then use the plain address register indirect mode.
 	   The required register save space was combined earlier with
@@ -661,22 +649,22 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       if (TARGET_ID_SHARED_LIBRARY)
 	{
 	  asm_fprintf (stream, "\tmovel %s@(%s), %s\n",
-		       reg_names[PIC_OFFSET_TABLE_REGNUM],
+		       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
 		       m68k_library_id_string,
-		       reg_names[PIC_OFFSET_TABLE_REGNUM]);
+		       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
 	}
       else
 	{
 	  if (MOTOROLA)
 	    asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
-	    		 reg_names[PIC_OFFSET_TABLE_REGNUM]);
+			 M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
 	  else
 	    {
 	      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
-			   reg_names[PIC_OFFSET_TABLE_REGNUM]);
+			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
 	      asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
-			   reg_names[PIC_OFFSET_TABLE_REGNUM],
-			   reg_names[PIC_OFFSET_TABLE_REGNUM]);
+			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
+			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
 	    }
 	}
     }
@@ -779,31 +767,31 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 		if (MOTOROLA)
 		  asm_fprintf (stream, "\t%Omove.l -%wd(%s,%Ra1.l),%s\n",
 			       offset,
-			       reg_names[FRAME_POINTER_REGNUM],
-			       reg_names[i]);
+			       M68K_REGNAME(FRAME_POINTER_REGNUM),
+			       M68K_REGNAME(i));
 		else
 		  asm_fprintf (stream, "\tmovel %s@(-%wd,%Ra1:l),%s\n",
-			       reg_names[FRAME_POINTER_REGNUM],
+			       M68K_REGNAME(FRAME_POINTER_REGNUM),
 			       offset,
-			       reg_names[i]);
+			       M68K_REGNAME(i));
 	      }
             else if (restore_from_sp)
 	      asm_fprintf (stream, MOTOROLA ?
 				     "\t%Omove.l (%Rsp)+,%s\n" :
 				     "\tmovel %Rsp@+,%s\n",
-			   reg_names[i]);
+			   M68K_REGNAME(i));
             else
 	      {
 	        if (MOTOROLA)
 		  asm_fprintf (stream, "\t%Omove.l -%wd(%s),%s\n",
 			       offset,
-			       reg_names[FRAME_POINTER_REGNUM],
-			       reg_names[i]);
+			       M68K_REGNAME(FRAME_POINTER_REGNUM),
+			       M68K_REGNAME(i));
 		else
 		  asm_fprintf (stream, "\tmovel %s@(-%wd),%s\n",
-			       reg_names[FRAME_POINTER_REGNUM],
+			       M68K_REGNAME(FRAME_POINTER_REGNUM),
 			       offset,
-			       reg_names[i]);
+			       M68K_REGNAME(i));
 	      }
             offset -= 4;
           }
@@ -816,7 +804,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
           if (big)
             {
               asm_fprintf (stream, "\tadd" ASM_DOT "l %s,%Ra1\n",
-	      		   reg_names[FRAME_POINTER_REGNUM]);
+			   M68K_REGNAME(FRAME_POINTER_REGNUM));
               asm_fprintf (stream, MOTOROLA ?
 				     "\tmovm.l (%Ra1),%I0x%x\n" :
 				     "\tmoveml %Ra1@,%I0x%x\n",
@@ -832,11 +820,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	      if (MOTOROLA)
 		asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
 			     current_frame.offset + fsize,
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.reg_mask);
 	      else
 		asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.offset + fsize,
 			     current_frame.reg_mask);
 	    }
@@ -848,11 +836,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	      if (MOTOROLA)
 		asm_fprintf (stream, "\tmovm.l -%wd(%s,%Ra1.l),%I0x%x\n",
 			     current_frame.offset + fsize,
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.reg_mask);
 	      else
 		asm_fprintf (stream, "\tmoveml %s@(-%wd,%Ra1:l),%I0x%x\n",
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.offset + fsize,
 			     current_frame.reg_mask);
 	    }
@@ -868,11 +856,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	      if (MOTOROLA)
 		asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
 			     current_frame.offset + fsize,
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.reg_mask);
 	      else
 		asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
-			     reg_names[FRAME_POINTER_REGNUM],
+			     M68K_REGNAME(FRAME_POINTER_REGNUM),
 			     current_frame.offset + fsize,
 			     current_frame.reg_mask);
 	    }
@@ -885,11 +873,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  if (MOTOROLA)
 	    asm_fprintf (stream, "\tfmovm -%wd(%s,%Ra1.l),%I0x%x\n",
 		         current_frame.foffset + fsize,
-		         reg_names[FRAME_POINTER_REGNUM],
+		         M68K_REGNAME(FRAME_POINTER_REGNUM),
 		         current_frame.fpu_rev_mask);
 	  else
 	    asm_fprintf (stream, "\tfmovem %s@(-%wd,%Ra1:l),%I0x%x\n",
-			 reg_names[FRAME_POINTER_REGNUM],
+			 M68K_REGNAME(FRAME_POINTER_REGNUM),
 			 current_frame.foffset + fsize,
 			 current_frame.fpu_rev_mask);
 	}
@@ -907,18 +895,17 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  if (MOTOROLA)
 	    asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
 			 current_frame.foffset + fsize,
-			 reg_names[FRAME_POINTER_REGNUM],
+			 M68K_REGNAME(FRAME_POINTER_REGNUM),
 			 current_frame.fpu_rev_mask);
 	  else
 	    asm_fprintf (stream, "\tfmovem %s@(-%wd),%I0x%x\n",
-			 reg_names[FRAME_POINTER_REGNUM],
+			 M68K_REGNAME(FRAME_POINTER_REGNUM),
 			 current_frame.foffset + fsize,
 			 current_frame.fpu_rev_mask);
 	}
     }
   if (frame_pointer_needed)
-    fprintf (stream, "\tunlk %s\n",
-	     reg_names[FRAME_POINTER_REGNUM]);
+    fprintf (stream, "\tunlk %s\n", M68K_REGNAME(FRAME_POINTER_REGNUM));
   else if (fsize_with_regs)
     {
       if (fsize_with_regs <= 8)
@@ -1022,9 +1009,7 @@ m68k_output_pic_call(rtx dest)
   else if (TARGET_PCREL)
     out = "bsr.l %o0";
   else if ((flag_pic == 1) || TARGET_68020)
-#ifdef HPUX_ASM
-    out = "bsr.l %0";
-#elif defined(USE_GAS)
+#if defined(USE_GAS)
     out = "bsr.l %0@PLTPC";
 #else
     out = "bsr %0@PLTPC";
@@ -1128,8 +1113,8 @@ output_dbcc_and_branch (rtx *operands)
     {
       case SImode:
         output_asm_insn (MOTOROLA ?
-			   "clr%.w %0\n\tsubq%.l %#1,%0\n\tjbpl %l1" :
-			   "clr%.w %0\n\tsubq%.l %#1,%0\n\tjpl %l1",
+			   "clr%.w %0\n\tsubq%.l #1,%0\n\tjbpl %l1" :
+			   "clr%.w %0\n\tsubq%.l #1,%0\n\tjpl %l1",
 			 operands);
         break;
 
@@ -1177,18 +1162,10 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
   loperands[4] = gen_label_rtx();
   if (operand2 != const0_rtx)
     {
-      if (MOTOROLA)
-#ifdef SGS_CMP_ORDER
-        output_asm_insn ("cmp%.l %0,%2\n\tjbne %l4\n\tcmp%.l %1,%3", loperands);
-#else
-        output_asm_insn ("cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1", loperands);
-#endif
-      else
-#ifdef SGS_CMP_ORDER
-        output_asm_insn ("cmp%.l %0,%2\n\tjne %l4\n\tcmp%.l %1,%3", loperands);
-#else
-        output_asm_insn ("cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1", loperands);
-#endif
+      output_asm_insn (MOTOROLA ?
+	  "cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1" :
+          "cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1",
+	loperands);
     }
   else
     {
@@ -1196,11 +1173,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
 	output_asm_insn ("tst%.l %0", loperands);
       else
 	{
-#ifdef SGS_CMP_ORDER
-	  output_asm_insn ("cmp%.w %0,%#0", loperands);
-#else
-	  output_asm_insn ("cmp%.w %#0,%0", loperands);
-#endif
+	  output_asm_insn ("cmp%.w #0,%0", loperands);
 	}
 
       output_asm_insn (MOTOROLA ? "jbne %l4" : "jne %l4", loperands);
@@ -1208,17 +1181,11 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
       if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[1]))
 	output_asm_insn ("tst%.l %1", loperands);
       else
-	{
-#ifdef SGS_CMP_ORDER
-	  output_asm_insn ("cmp%.w %1,%#0", loperands);
-#else
-	  output_asm_insn ("cmp%.w %#0,%1", loperands);
-#endif
-	}
+	output_asm_insn ("cmp%.w #0,%1", loperands);
     }
 
   loperands[5] = dest;
-  
+
   switch (op_code)
     {
       case EQ:
@@ -1694,7 +1661,7 @@ output_move_const_into_data_reg (rtx *operands)
       return "moveq %1,%0\n\tnot%.w %0";
     case NEGW :
       CC_STATUS_INIT;
-      return "moveq %#-128,%0\n\tneg%.w %0";
+      return "moveq #-128,%0\n\tneg%.w %0";
     case SWAP :
       {
 	unsigned u = i;
@@ -1796,23 +1763,12 @@ output_move_himode (rtx *operands)
       && GET_CODE (XEXP (XEXP (operands[1], 0), 0)) != PLUS)
     {
       rtx labelref = XEXP (XEXP (operands[1], 0), 1);
-#if MOTOROLA && !defined (SGS_SWITCH_TABLES)
-#ifdef SGS
-      asm_fprintf (asm_out_file, "\tset %LLI%d,.+2\n",
-		   CODE_LABEL_NUMBER (XEXP (labelref, 0)));
-#else /* not SGS */
-      asm_fprintf (asm_out_file, "\t.set %LLI%d,.+2\n",
-		   CODE_LABEL_NUMBER (XEXP (labelref, 0)));
-#endif /* not SGS */
-#else /* SGS_SWITCH_TABLES or not MOTOROLA */
-      (*targetm.asm_out.internal_label) (asm_out_file, "LI",
-				 CODE_LABEL_NUMBER (XEXP (labelref, 0)));
-#ifdef SGS_SWITCH_TABLES
-      /* Set flag saying we need to define the symbol
-	 LD%n (with value L%n-LI%n) at the end of the switch table.  */
-      switch_table_difference_label_flag = 1;
-#endif /* SGS_SWITCH_TABLES */
-#endif /* SGS_SWITCH_TABLES or not MOTOROLA */
+      if (MOTOROLA)
+	asm_fprintf (asm_out_file, "\t.set %LLI%d,.+2\n",
+		     CODE_LABEL_NUMBER (XEXP (labelref, 0)));
+      else
+	(*targetm.asm_out.internal_label) (asm_out_file, "LI",
+		     CODE_LABEL_NUMBER (XEXP (labelref, 0)));
     }
   return "move%.w %1,%0";
 }
@@ -1841,7 +1797,7 @@ output_move_qimode (rtx *operands)
       if (!reg_mentioned_p (stack_pointer_rtx, operands[1]))
 	{
 	  xoperands[3] = stack_pointer_rtx;
-	  output_asm_insn ("subq%.l %#2,%3\n\tmove%.b %1,%2", xoperands);
+	  output_asm_insn ("subq%.l #2,%3\n\tmove%.b %1,%2", xoperands);
 	}
       else
 	output_asm_insn ("move%.b %1,%-\n\tmove%.b %@,%2", xoperands);
@@ -1983,9 +1939,9 @@ output_move_double (rtx *operands)
     {
       operands[0] = XEXP (XEXP (operands[0], 0), 0);
       if (size == 12)
-        output_asm_insn ("sub%.l %#12,%0", operands);
+        output_asm_insn ("sub%.l #12,%0", operands);
       else
-        output_asm_insn ("subq%.l %#8,%0", operands);
+        output_asm_insn ("subq%.l #8,%0", operands);
       if (GET_MODE (operands[1]) == XFmode)
 	operands[0] = gen_rtx_MEM (XFmode, operands[0]);
       else if (GET_MODE (operands[0]) == DFmode)
@@ -1998,9 +1954,9 @@ output_move_double (rtx *operands)
     {
       operands[1] = XEXP (XEXP (operands[1], 0), 0);
       if (size == 12)
-        output_asm_insn ("sub%.l %#12,%1", operands);
+        output_asm_insn ("sub%.l #12,%1", operands);
       else
-        output_asm_insn ("subq%.l %#8,%1", operands);
+        output_asm_insn ("subq%.l #8,%1", operands);
       if (GET_MODE (operands[1]) == XFmode)
 	operands[1] = gen_rtx_MEM (XFmode, operands[1]);
       else if (GET_MODE (operands[1]) == DFmode)
@@ -2194,16 +2150,16 @@ compadr:
       if (addreg0)
 	{
 	  if (size == 12)
-	    output_asm_insn ("addq%.l %#8,%0", &addreg0);
+	    output_asm_insn ("addq%.l #8,%0", &addreg0);
 	  else
-	    output_asm_insn ("addq%.l %#4,%0", &addreg0);
+	    output_asm_insn ("addq%.l #4,%0", &addreg0);
 	}
       if (addreg1)
 	{
 	  if (size == 12)
-	    output_asm_insn ("addq%.l %#8,%0", &addreg1);
+	    output_asm_insn ("addq%.l #8,%0", &addreg1);
 	  else
-	    output_asm_insn ("addq%.l %#4,%0", &addreg1);
+	    output_asm_insn ("addq%.l #4,%0", &addreg1);
 	}
 
       /* Do that word.  */
@@ -2211,17 +2167,17 @@ compadr:
 
       /* Undo the adds we just did.  */
       if (addreg0)
-	output_asm_insn ("subq%.l %#4,%0", &addreg0);
+	output_asm_insn ("subq%.l #4,%0", &addreg0);
       if (addreg1)
-	output_asm_insn ("subq%.l %#4,%0", &addreg1);
+	output_asm_insn ("subq%.l #4,%0", &addreg1);
 
       if (size == 12)
 	{
 	  output_asm_insn (singlemove_string (middlehalf), middlehalf);
 	  if (addreg0)
-	    output_asm_insn ("subq%.l %#4,%0", &addreg0);
+	    output_asm_insn ("subq%.l #4,%0", &addreg0);
 	  if (addreg1)
-	    output_asm_insn ("subq%.l %#4,%0", &addreg1);
+	    output_asm_insn ("subq%.l #4,%0", &addreg1);
 	}
 
       /* Do low-numbered word.  */
@@ -2236,18 +2192,18 @@ compadr:
   if (size == 12)
     {
       if (addreg0)
-	output_asm_insn ("addq%.l %#4,%0", &addreg0);
+	output_asm_insn ("addq%.l #4,%0", &addreg0);
       if (addreg1)
-	output_asm_insn ("addq%.l %#4,%0", &addreg1);
+	output_asm_insn ("addq%.l #4,%0", &addreg1);
 
       output_asm_insn (singlemove_string (middlehalf), middlehalf);
     }
 
   /* Make any unoffsettable addresses point at high-numbered word.  */
   if (addreg0)
-    output_asm_insn ("addq%.l %#4,%0", &addreg0);
+    output_asm_insn ("addq%.l #4,%0", &addreg0);
   if (addreg1)
-    output_asm_insn ("addq%.l %#4,%0", &addreg1);
+    output_asm_insn ("addq%.l #4,%0", &addreg1);
 
   /* Do that word.  */
   output_asm_insn (singlemove_string (latehalf), latehalf);
@@ -2256,16 +2212,16 @@ compadr:
   if (addreg0)
     {
       if (size == 12)
-        output_asm_insn ("subq%.l %#8,%0", &addreg0);
+        output_asm_insn ("subq%.l #8,%0", &addreg0);
       else
-        output_asm_insn ("subq%.l %#4,%0", &addreg0);
+        output_asm_insn ("subq%.l #4,%0", &addreg0);
     }
   if (addreg1)
     {
       if (size == 12)
-        output_asm_insn ("subq%.l %#8,%0", &addreg1);
+        output_asm_insn ("subq%.l #8,%0", &addreg1);
       else
-        output_asm_insn ("subq%.l %#4,%0", &addreg1);
+        output_asm_insn ("subq%.l #4,%0", &addreg1);
     }
 
   return "";
@@ -2315,27 +2271,9 @@ output_addsi3 (rtx *operands)
       if (GET_CODE (operands[2]) == CONST_INT
 	  && (INTVAL (operands[2]) < -32768 || INTVAL (operands[2]) > 32767))
         return "move%.l %2,%0\n\tadd%.l %1,%0";
-#ifdef SGS
       if (GET_CODE (operands[2]) == REG)
-	return "lea 0(%1,%2.l),%0";
-      else
-	return "lea %c2(%1),%0";
-#else /* !SGS */
-      if (MOTOROLA)
-	{
-	  if (GET_CODE (operands[2]) == REG)
-	   return "lea (%1,%2.l),%0";
-	  else
-	   return "lea (%c2,%1),%0";
-	}
-      else /* !MOTOROLA (MIT syntax) */
-	{
-	  if (GET_CODE (operands[2]) == REG)
-	    return "lea %1@(0,%2:l),%0";
-	  else
-	    return "lea %1@(%c2),%0";
-	}
-#endif /* !SGS */
+	return MOTOROLA ? "lea (%1,%2.l),%0" : "lea %1@(0,%2:l),%0";
+      return MOTOROLA ? "lea (%c2,%1),%0" : "lea %1@(%c2),%0";
     }
   if (GET_CODE (operands[2]) == CONST_INT)
     {
@@ -2357,13 +2295,13 @@ output_addsi3 (rtx *operands)
 	      && INTVAL (operands[2]) <= 16)
 	    {
 	      operands[2] = GEN_INT (INTVAL (operands[2]) - 8);
-	      return "addq%.l %#8,%0\n\taddq%.l %2,%0";
+	      return "addq%.l #8,%0\n\taddq%.l %2,%0";
 	    }
 	  if (INTVAL (operands[2]) < -8
 	      && INTVAL (operands[2]) >= -16)
 	    {
 	      operands[2] = GEN_INT (- INTVAL (operands[2]) - 8);
-	      return "subq%.l %#8,%0\n\tsubq%.l %2,%0";
+	      return "subq%.l #8,%0\n\tsubq%.l %2,%0";
 	    }
 	}
       if (ADDRESS_REG_P (operands[0])
@@ -2497,7 +2435,7 @@ output_move_const_double (rtx *operands)
     {
       static char buf[40];
 
-      sprintf (buf, "fmovecr %%#0x%x,%%0", code & 0xff);
+      sprintf (buf, "fmovecr #0x%x,%%0", code & 0xff);
       return buf;
     }
   return "fmove%.d %1,%0";
@@ -2512,7 +2450,7 @@ output_move_const_single (rtx *operands)
     {
       static char buf[40];
 
-      sprintf (buf, "fmovecr %%#0x%x,%%0", code & 0xff);
+      sprintf (buf, "fmovecr #0x%x,%%0", code & 0xff);
       return buf;
     }
   return "fmove%.s %f1,%0";
@@ -2707,7 +2645,7 @@ print_operand (FILE *file, rtx op, int letter)
     {
       /* This is only for direct addresses with TARGET_PCREL */
       if (GET_CODE (op) != MEM || GET_CODE (XEXP (op, 0)) != SYMBOL_REF
-          || !TARGET_PCREL) 
+          || !TARGET_PCREL)
 	abort ();
       output_addr_const (file, XEXP (op, 0));
     }
@@ -2716,9 +2654,9 @@ print_operand (FILE *file, rtx op, int letter)
       if (letter == 'R')
 	/* Print out the second register name of a register pair.
 	   I.e., R (6) => 7.  */
-	fputs (reg_names[REGNO (op) + 1], file);
+	fputs (M68K_REGNAME(REGNO (op) + 1), file);
       else
-	fputs (reg_names[REGNO (op)], file);
+	fputs (M68K_REGNAME(REGNO (op)), file);
     }
   else if (GET_CODE (op) == MEM)
     {
@@ -2792,20 +2730,13 @@ print_operand (FILE *file, rtx op, int letter)
    offset is output in word mode (eg movel a5@(_foo:w), a0).  When generating
    -fPIC code the offset is output in long mode (eg movel a5@(_foo:l), a0) */
 
-#ifndef ASM_OUTPUT_CASE_FETCH
-# if MOTOROLA
-#  ifdef SGS
-#   define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
-	asm_fprintf (file, "%LLD%d(%Rpc,%s.", labelno, regname)
-#  else /* !SGS */
-#   define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
-	asm_fprintf (file, "%LL%d-%LLI%d.b(%Rpc,%s.", labelno, labelno, regname)
-#  endif /* !SGS */
-# else /* !MOTOROLA */
+#if MOTOROLA
 #  define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
+	asm_fprintf (file, "%LL%d-%LLI%d.b(%Rpc,%s.", labelno, labelno, regname)
+#else /* !MOTOROLA */
+# define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
 	asm_fprintf (file, "%Rpc@(%LL%d-%LLI%d-2:b,%s:", labelno, labelno, regname)
-# endif /* !MOTOROLA */
-#endif /* ASM_OUTPUT_CASE_FETCH */
+#endif /* !MOTOROLA */
 
 void
 print_operand_address (FILE *file, rtx addr)
@@ -2816,15 +2747,15 @@ print_operand_address (FILE *file, rtx addr)
   switch (GET_CODE (addr))
     {
       case REG:
-	fprintf (file, MOTOROLA ? "(%s)" : "%s@", reg_names[REGNO (addr)]);
+	fprintf (file, MOTOROLA ? "(%s)" : "%s@", M68K_REGNAME(REGNO (addr)));
 	break;
       case PRE_DEC:
 	fprintf (file, MOTOROLA ? "-(%s)" : "%s@-",
-	         reg_names[REGNO (XEXP (addr, 0))]);
+	         M68K_REGNAME(REGNO (XEXP (addr, 0))));
 	break;
       case POST_INC:
 	fprintf (file, MOTOROLA ? "(%s)+" : "%s@+",
-		 reg_names[REGNO (XEXP (addr, 0))]);
+		 M68K_REGNAME(REGNO (XEXP (addr, 0))));
 	break;
       case PLUS:
 	reg1 = reg2 = ireg = breg = offset = 0;
@@ -2933,14 +2864,14 @@ print_operand_address (FILE *file, rtx addr)
 	      {
 		ASM_OUTPUT_CASE_FETCH (file,
 			     CODE_LABEL_NUMBER (XEXP (addr, 0)),
-			     reg_names[REGNO (XEXP (ireg, 0))]);
+			     M68K_REGNAME(REGNO (XEXP (ireg, 0))));
 		fprintf (file, "w");
 	      }
 	    else
 	      {
 		ASM_OUTPUT_CASE_FETCH (file,
 			     CODE_LABEL_NUMBER (XEXP (addr, 0)),
-			     reg_names[REGNO (ireg)]);
+			     M68K_REGNAME(REGNO (ireg)));
 		fprintf (file, "l");
 	      }
 	    if (scale != 1)
@@ -2953,7 +2884,7 @@ print_operand_address (FILE *file, rtx addr)
 	  {
 	    ASM_OUTPUT_CASE_FETCH (file,
 			 CODE_LABEL_NUMBER (XEXP (addr, 0)),
-			 reg_names[REGNO (breg)]);
+			 M68K_REGNAME(REGNO (breg)));
 	    fprintf (file, "l)");
 	    break;
 	  }
@@ -2980,13 +2911,13 @@ print_operand_address (FILE *file, rtx addr)
 			  fprintf (file, ".w");
 		      }
 		  }
-		fprintf (file, "(%s", reg_names[REGNO (breg)]);
+		fprintf (file, "(%s", M68K_REGNAME(REGNO (breg)));
 		if (ireg != 0)
 		  putc (',', file);
 	      }
 	    else /* !MOTOROLA */
 	      {
-		fprintf (file, "%s@(", reg_names[REGNO (breg)]);
+		fprintf (file, "%s@(", M68K_REGNAME(REGNO (breg)));
 		if (addr != 0)
 		  {
 		    output_addr_const (file, addr);
@@ -3011,21 +2942,21 @@ print_operand_address (FILE *file, rtx addr)
 	      }
 	    if (ireg != 0 && GET_CODE (ireg) == SIGN_EXTEND)
 	      fprintf (file, MOTOROLA ? "%s.w" : "%s:w",
-		       reg_names[REGNO (XEXP (ireg, 0))]);
+		       M68K_REGNAME(REGNO (XEXP (ireg, 0))));
 	    else if (ireg != 0)
 	      fprintf (file, MOTOROLA ? "%s.l" : "%s:l",
-		       reg_names[REGNO (ireg)]);
+		       M68K_REGNAME(REGNO (ireg)));
 	    if (scale != 1)
 	      fprintf (file, MOTOROLA ? "*%d" : ":%d", scale);
 	    putc (')', file);
 	    break;
 	  }
 	else if (reg1 != 0 && GET_CODE (addr) == LABEL_REF
-		 && ! (flag_pic && reg1 == pic_offset_table_rtx))	
+		 && ! (flag_pic && reg1 == pic_offset_table_rtx))
 	  {
 	    ASM_OUTPUT_CASE_FETCH (file,
 			 CODE_LABEL_NUMBER (XEXP (addr, 0)),
-			 reg_names[REGNO (reg1)]);
+			 M68K_REGNAME(REGNO (reg1)));
 	    fprintf (file, "l)");
 	    break;
 	  }
@@ -3035,15 +2966,7 @@ print_operand_address (FILE *file, rtx addr)
 	    && INTVAL (addr) < 0x8000
 	    && INTVAL (addr) >= -0x8000)
 	  {
-	    if (MOTOROLA)
-#ifdef SGS
-	      /* Many SGS assemblers croak on size specifiers for constants.  */
-	      fprintf (file, "%d", (int) INTVAL (addr));
-#else
-	      fprintf (file, "%d.w", (int) INTVAL (addr));
-#endif
-	    else /* !MOTOROLA */
-	      fprintf (file, "%d:w", (int) INTVAL (addr));
+	    fprintf (file, MOTOROLA ? "%d.w" : "%d:w", (int) INTVAL (addr));
 	  }
 	else if (GET_CODE (addr) == CONST_INT)
 	  {
@@ -3417,28 +3340,6 @@ m68k_coff_asm_named_section (const char *name, unsigned int flags)
 
 #endif /* M68K_TARGET_COFF */
 
-#ifdef HPUX_ASM
-static void
-m68k_hp320_internal_label (FILE *stream, const char *prefix,
-                           unsigned long labelno)
-{
-  if (prefix[0] == 'L' && prefix[1] == 'I')
-    fprintf(stream, "\tset %s%ld,.+2\n", prefix, labelno);
-  else
-    fprintf (stream, "%s%ld:\n", prefix, labelno);
-}
-
-static void
-m68k_hp320_file_start (void)
-{
-  /* version 1: 68010.
-             2: 68020 without FPU.
-	     3: 68020 with FPU.  */
-  fprintf (asm_out_file, "\tversion %d\n",
-	   TARGET_68020 ? (TARGET_68881 ? 3 : 2) : 1);
-}
-#endif
-
 static void
 m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		      HOST_WIDE_INT delta,
@@ -3474,9 +3375,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       else if ((flag_pic == 1) || TARGET_68020)
 	{
 	  if (MOTOROLA)
-#ifdef HPUX_ASM
-	    fmt = "bra.l %0";
-#elif defined(USE_GAS)
+#if defined(USE_GAS)
 	    fmt = "bra.l %0@PLTPC";
 #else
 	    fmt = "bra %0@PLTPC";

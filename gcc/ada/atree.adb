@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1032,8 +1032,7 @@ package body Atree is
      (Source    : Node_Id;
       Map       : Elist_Id := No_Elist;
       New_Sloc  : Source_Ptr := No_Location;
-      New_Scope : Entity_Id := Empty)
-      return      Node_Id
+      New_Scope : Entity_Id := Empty) return Node_Id
    is
       Actual_Map : Elist_Id := Map;
       --  This is the actual map for the copy. It is initialized with the
@@ -1053,8 +1052,7 @@ package body Atree is
       --  Builds hash tables (number of elements >= threshold value)
 
       function Copy_Elist_With_Replacement
-        (Old_Elist : Elist_Id)
-         return      Elist_Id;
+        (Old_Elist : Elist_Id) return Elist_Id;
       --  Called during second phase to copy element list doing replacements.
 
       procedure Copy_Itype_With_Replacement (New_Itype : Entity_Id);
@@ -1167,8 +1165,7 @@ package body Atree is
       ---------------------------------
 
       function Copy_Elist_With_Replacement
-        (Old_Elist : Elist_Id)
-         return      Elist_Id
+        (Old_Elist : Elist_Id) return Elist_Id
       is
          M         : Elmt_Id;
          New_Elist : Elist_Id;
@@ -1243,8 +1240,7 @@ package body Atree is
       --------------------------------
 
       function Copy_List_With_Replacement
-        (Old_List : List_Id)
-         return     List_Id
+        (Old_List : List_Id) return List_Id
       is
          New_List : List_Id;
          E        : Node_Id;
@@ -1270,14 +1266,12 @@ package body Atree is
       --------------------------------
 
       function Copy_Node_With_Replacement
-        (Old_Node : Node_Id)
-         return     Node_Id
+        (Old_Node : Node_Id) return Node_Id
       is
          New_Node : Node_Id;
 
          function Copy_Field_With_Replacement
-           (Field : Union_Id)
-            return  Union_Id;
+           (Field : Union_Id) return Union_Id;
          --  Given Field, which is a field of Old_Node, return a copy of it
          --  if it is a syntactic field (i.e. its parent is Node), setting
          --  the parent of the copy to poit to New_Node. Otherwise returns
@@ -1288,8 +1282,7 @@ package body Atree is
          ---------------------------------
 
          function Copy_Field_With_Replacement
-           (Field : Union_Id)
-            return  Union_Id
+           (Field : Union_Id) return Union_Id
          is
          begin
             if Field = Union_Id (Empty) then
@@ -1829,13 +1822,13 @@ package body Atree is
 
    function New_Entity
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Entity_Id
+      New_Sloc      : Source_Ptr) return Entity_Id
    is
       Ent : Entity_Id;
 
       procedure New_Entity_Debugging_Output;
       --  Debugging routine for debug flag N
+      pragma Inline (New_Entity_Debugging_Output);
 
       ---------------------------------
       -- New_Entity_Debugging_Output --
@@ -1853,8 +1846,6 @@ package body Atree is
             Write_Eol;
          end if;
       end New_Entity_Debugging_Output;
-
-      pragma Inline (New_Entity_Debugging_Output);
 
    --  Start of processing for New_Entity
 
@@ -1901,13 +1892,13 @@ package body Atree is
 
    function New_Node
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Node_Id
+      New_Sloc      : Source_Ptr) return Node_Id
    is
       Nod : Node_Id;
 
       procedure New_Node_Debugging_Output;
       --  Debugging routine for debug flag N
+      pragma Inline (New_Node_Debugging_Output);
 
       --------------------------
       -- New_Debugging_Output --
@@ -1925,8 +1916,6 @@ package body Atree is
             Write_Eol;
          end if;
       end New_Node_Debugging_Output;
-
-      pragma Inline (New_Node_Debugging_Output);
 
    --  Start of processing for New_Node
 

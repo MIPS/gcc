@@ -505,8 +505,8 @@ const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_PPRO);
 const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4;
 const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4;
 const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_PPRO;
-const int x86_prologue_using_move = m_ATHLON_K8 | m_PENT4 | m_PPRO;
-const int x86_epilogue_using_move = m_ATHLON_K8 | m_PENT4 | m_PPRO;
+const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO;
+const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4;
@@ -524,6 +524,9 @@ const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
 const int x86_inter_unit_moves = ~(m_ATHLON_K8);
 const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_PPRO;
+/* Some CPU cores are not able to predict more than 4 branch instructions in
+   the 16 byte window.  */
+const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -803,9 +806,6 @@ static rtx gen_push (rtx);
 static int memory_address_length (rtx addr);
 static int ix86_flags_dependant (rtx, rtx, enum attr_type);
 static int ix86_agi_dependant (rtx, rtx, enum attr_type);
-static enum attr_ppro_uops ix86_safe_ppro_uops (rtx);
-static void ix86_dump_ppro_packet (FILE *);
-static void ix86_reorder_insn (rtx *, rtx *);
 static struct machine_function * ix86_init_machine_status (void);
 static int ix86_split_to_parts (rtx, rtx *, enum machine_mode);
 static int ix86_nsaved_regs (void);
@@ -813,16 +813,12 @@ static void ix86_emit_save_regs (void);
 static void ix86_emit_save_regs_using_mov (rtx, HOST_WIDE_INT);
 static void ix86_emit_restore_regs_using_mov (rtx, HOST_WIDE_INT, int);
 static void ix86_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void ix86_sched_reorder_ppro (rtx *, rtx *);
 static HOST_WIDE_INT ix86_GOT_alias_set (void);
 static void ix86_adjust_counter (rtx, HOST_WIDE_INT);
 static rtx ix86_expand_aligntest (rtx, int);
 static void ix86_expand_strlensi_unroll_1 (rtx, rtx, rtx);
 static int ix86_issue_rate (void);
 static int ix86_adjust_cost (rtx, rtx, rtx, int);
-static void ix86_sched_init (FILE *, int, int);
-static int ix86_sched_reorder (FILE *, int, rtx *, int *, int);
-static int ix86_variable_issue (FILE *, int, rtx, int);
 static int ia32_use_dfa_pipeline_interface (void);
 static int ia32_multipass_dfa_lookahead (void);
 static void ix86_init_mmx_sse_builtins (void);
@@ -883,7 +879,7 @@ static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
-static void k8_avoid_jump_misspredicts (void);
+static tree ix86_md_asm_clobbers (tree clobbers);
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor (rtx, int);
@@ -972,12 +968,6 @@ static void init_ext_80387_constants (void);
 #define TARGET_SCHED_ADJUST_COST ix86_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE ix86_issue_rate
-#undef TARGET_SCHED_VARIABLE_ISSUE
-#define TARGET_SCHED_VARIABLE_ISSUE ix86_variable_issue
-#undef TARGET_SCHED_INIT
-#define TARGET_SCHED_INIT ix86_sched_init
-#undef TARGET_SCHED_REORDER
-#define TARGET_SCHED_REORDER ix86_sched_reorder
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
   ia32_use_dfa_pipeline_interface
@@ -1025,11 +1015,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST ix86_build_builtin_va_list
 
+#undef TARGET_MD_ASM_CLOBBERS
+#define TARGET_MD_ASM_CLOBBERS ix86_md_asm_clobbers
+
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
-
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS ix86_setup_incoming_varargs
@@ -1090,9 +1080,10 @@ override_options (void)
 	{
 	  PTA_SSE = 1,
 	  PTA_SSE2 = 2,
-	  PTA_MMX = 4,
-	  PTA_PREFETCH_SSE = 8,
-	  PTA_3DNOW = 16,
+	  PTA_SSE3 = 4,
+	  PTA_MMX = 8,
+	  PTA_PREFETCH_SSE = 16,
+	  PTA_3DNOW = 32,
 	  PTA_3DNOW_A = 64,
 	  PTA_64BIT = 128
 	} flags;
@@ -1112,8 +1103,16 @@ override_options (void)
       {"pentiumpro", PROCESSOR_PENTIUMPRO, 0},
       {"pentium2", PROCESSOR_PENTIUMPRO, PTA_MMX},
       {"pentium3", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE},
-      {"pentium4", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 |
-				       PTA_MMX | PTA_PREFETCH_SSE},
+      {"pentium3m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE},
+      {"pentium-m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE | PTA_SSE2},
+      {"pentium4", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2
+				       | PTA_MMX | PTA_PREFETCH_SSE},
+      {"pentium4m", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2
+				        | PTA_MMX | PTA_PREFETCH_SSE},
+      {"prescott", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 | PTA_SSE3
+				        | PTA_MMX | PTA_PREFETCH_SSE},
+      {"nocona", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_64BIT
+				     | PTA_MMX | PTA_PREFETCH_SSE},
       {"k6", PROCESSOR_K6, PTA_MMX},
       {"k6-2", PROCESSOR_K6, PTA_MMX | PTA_3DNOW},
       {"k6-3", PROCESSOR_K6, PTA_MMX | PTA_3DNOW},
@@ -1127,6 +1126,8 @@ override_options (void)
 				      | PTA_3DNOW_A | PTA_SSE},
       {"athlon-mp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				      | PTA_3DNOW_A | PTA_SSE},
+      {"x86-64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+			       | PTA_SSE | PTA_SSE2 },
       {"k8", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
       {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
@@ -1169,7 +1170,7 @@ override_options (void)
   if (!ix86_tune_string)
     ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
   if (!ix86_arch_string)
-    ix86_arch_string = TARGET_64BIT ? "k8" : "i386";
+    ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
 
   if (ix86_cmodel_string != 0)
     {
@@ -1233,6 +1234,9 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_SSE2
 	    && !(target_flags_explicit & MASK_SSE2))
 	  target_flags |= MASK_SSE2;
+	if (processor_alias_table[i].flags & PTA_SSE3
+	    && !(target_flags_explicit & MASK_SSE3))
+	  target_flags |= MASK_SSE3;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
@@ -1390,8 +1394,8 @@ override_options (void)
   if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
-  /* Turn on SSE2 builtins for -mpni.  */
-  if (TARGET_PNI)
+  /* Turn on SSE2 builtins for -msse3.  */
+  if (TARGET_SSE3)
     target_flags |= MASK_SSE2;
 
   /* Turn on SSE builtins for -msse2.  */
@@ -1684,6 +1688,9 @@ ix86_comp_type_attributes (tree type1, tree type2)
   /* Check for mismatched return types (cdecl vs stdcall).  */
   if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
       != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
+    return 0;
+  if (ix86_function_regparm (type1, NULL)
+      != ix86_function_regparm (type2, NULL))
     return 0;
   return 1;
 }
@@ -3990,7 +3997,7 @@ ix86_comparison_operator (rtx op, enum machine_mode mode)
   enum rtx_code code = GET_CODE (op);
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
-  if (GET_RTX_CLASS (code) != '<')
+  if (!COMPARISON_P (op))
     return 0;
   inmode = GET_MODE (XEXP (op, 0));
 
@@ -4032,7 +4039,7 @@ ix86_carry_flag_operator (rtx op, enum machine_mode mode)
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
-  if (GET_RTX_CLASS (code) != '<')
+  if (!COMPARISON_P (op))
     return 0;
   inmode = GET_MODE (XEXP (op, 0));
   if (GET_CODE (XEXP (op, 0)) != REG
@@ -4064,7 +4071,7 @@ fcmov_comparison_operator (rtx op, enum machine_mode mode)
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
-  if (GET_RTX_CLASS (code) != '<')
+  if (!COMPARISON_P (op))
     return 0;
   inmode = GET_MODE (XEXP (op, 0));
   if (inmode == CCFPmode || inmode == CCFPUmode)
@@ -4183,8 +4190,7 @@ int
 arith_or_logical_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-          && (GET_RTX_CLASS (GET_CODE (op)) == 'c'
-              || GET_RTX_CLASS (GET_CODE (op)) == '2'));
+          && ARITHMETIC_P (op));
 }
 
 /* Returns 1 if OP is memory operand with a displacement.  */
@@ -4332,10 +4338,10 @@ standard_80387_constant_p (rtx x)
   if (x == CONST1_RTX (GET_MODE (x)))
     return 2;
 
-  /* For XFmode constants, try to find a special 80387 instruction on
-     those CPUs that benefit from them.  */
+  /* For XFmode constants, try to find a special 80387 instruction when
+     optimizing for size or on those CPUs that benefit from them.  */
   if (GET_MODE (x) == XFmode
-      && x86_ext_80387_constants & TUNEMASK)
+      && (optimize_size || x86_ext_80387_constants & TUNEMASK))
     {
       REAL_VALUE_TYPE r;
       int i;
@@ -7400,7 +7406,7 @@ print_operand (FILE *file, rtx x, int code)
 	case 'c':
 	  /* Check to see if argument to %c is really a constant
 	     and not a condition code which needs to be reversed.  */
-	  if (GET_RTX_CLASS (GET_CODE (x)) != '<')
+	  if (!COMPARISON_P (x))
 	  {
 	    output_operand_lossage ("operand is neither a constant nor a condition code, invalid operand code 'c'");
 	     return;
@@ -8423,7 +8429,7 @@ ix86_expand_binary_operator (enum rtx_code code, enum machine_mode mode,
   src2 = operands[2];
 
   /* Recognize <var1> = <value> <op> <var1> for commutative operators */
-  if (GET_RTX_CLASS (code) == 'c'
+  if (GET_RTX_CLASS (code) == RTX_COMM_ARITH
       && (rtx_equal_p (dst, src2)
 	  || immediate_operand (src1, mode)))
     {
@@ -8439,7 +8445,7 @@ ix86_expand_binary_operator (enum rtx_code code, enum machine_mode mode,
     {
       if (rtx_equal_p (dst, src1))
 	matching_memory = 1;
-      else if (GET_RTX_CLASS (code) == 'c'
+      else if (GET_RTX_CLASS (code) == RTX_COMM_ARITH
 	       && rtx_equal_p (dst, src2))
 	matching_memory = 2;
       else
@@ -8459,7 +8465,7 @@ ix86_expand_binary_operator (enum rtx_code code, enum machine_mode mode,
      or non-matching memory.  */
   if ((CONSTANT_P (src1)
        || (!matching_memory && GET_CODE (src1) == MEM))
-      && GET_RTX_CLASS (code) != 'c')
+      && GET_RTX_CLASS (code) != RTX_COMM_ARITH)
     src1 = force_reg (mode, src1);
 
   /* If optimizing, copy to regs to improve CSE */
@@ -8507,18 +8513,18 @@ ix86_binary_operator_ok (enum rtx_code code,
   if (GET_CODE (operands[1]) == MEM && GET_CODE (operands[2]) == MEM)
     return 0;
   /* If the operation is not commutable, source 1 cannot be a constant.  */
-  if (CONSTANT_P (operands[1]) && GET_RTX_CLASS (code) != 'c')
+  if (CONSTANT_P (operands[1]) && GET_RTX_CLASS (code) != RTX_COMM_ARITH)
     return 0;
   /* If the destination is memory, we must have a matching source operand.  */
   if (GET_CODE (operands[0]) == MEM
       && ! (rtx_equal_p (operands[0], operands[1])
-	    || (GET_RTX_CLASS (code) == 'c'
+	    || (GET_RTX_CLASS (code) == RTX_COMM_ARITH
 		&& rtx_equal_p (operands[0], operands[2]))))
     return 0;
   /* If the operation is not commutable and the source 1 is memory, we must
      have a matching destination.  */
   if (GET_CODE (operands[1]) == MEM
-      && GET_RTX_CLASS (code) != 'c'
+      && GET_RTX_CLASS (code) != RTX_COMM_ARITH
       && ! rtx_equal_p (operands[0], operands[1]))
     return 0;
   return 1;
@@ -11632,9 +11638,9 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
 	  emit_cmp_and_jump_insns (align_rtx, const0_rtx, EQ, NULL,
 				   Pmode, 1, align_4_label);
-	  emit_cmp_and_jump_insns (align_rtx, GEN_INT (2), EQ, NULL,
+	  emit_cmp_and_jump_insns (align_rtx, const2_rtx, EQ, NULL,
 				   Pmode, 1, align_2_label);
-	  emit_cmp_and_jump_insns (align_rtx, GEN_INT (2), GTU, NULL,
+	  emit_cmp_and_jump_insns (align_rtx, const2_rtx, GTU, NULL,
 				   Pmode, 1, align_3_label);
 	}
       else
@@ -11642,7 +11648,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 	  /* Since the alignment is 2, we have to check 2 or 0 bytes;
 	     check if is aligned to 4 - byte.  */
 
-	  align_rtx = expand_binop (Pmode, and_optab, scratch1, GEN_INT (2),
+	  align_rtx = expand_binop (Pmode, and_optab, scratch1, const2_rtx,
 				    NULL_RTX, 0, OPTAB_WIDEN);
 
 	  emit_cmp_and_jump_insns (align_rtx, const0_rtx, EQ, NULL,
@@ -11728,7 +11734,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 						     tmpreg)));
        /* Emit lea manually to avoid clobbering of flags.  */
        emit_insn (gen_rtx_SET (SImode, reg2,
-			       gen_rtx_PLUS (Pmode, out, GEN_INT (2))));
+			       gen_rtx_PLUS (Pmode, out, const2_rtx)));
 
        tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
        tmp = gen_rtx_EQ (VOIDmode, tmp, const0_rtx);
@@ -11755,9 +11761,9 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
        /* Not in the first two.  Move two bytes forward.  */
        emit_insn (gen_lshrsi3 (tmpreg, tmpreg, GEN_INT (16)));
        if (TARGET_64BIT)
-	 emit_insn (gen_adddi3 (out, out, GEN_INT (2)));
+	 emit_insn (gen_adddi3 (out, out, const2_rtx));
        else
-	 emit_insn (gen_addsi3 (out, out, GEN_INT (2)));
+	 emit_insn (gen_addsi3 (out, out, const2_rtx));
 
        emit_label (end_2_label);
 
@@ -12302,244 +12308,12 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
   return cost;
 }
 
-static union
-{
-  struct ppro_sched_data
-  {
-    rtx decode[3];
-    int issued_this_cycle;
-  } ppro;
-} ix86_sched_data;
-
-static enum attr_ppro_uops
-ix86_safe_ppro_uops (rtx insn)
-{
-  if (recog_memoized (insn) >= 0)
-    return get_attr_ppro_uops (insn);
-  else
-    return PPRO_UOPS_MANY;
-}
-
-static void
-ix86_dump_ppro_packet (FILE *dump)
-{
-  if (ix86_sched_data.ppro.decode[0])
-    {
-      fprintf (dump, "PPRO packet: %d",
-	       INSN_UID (ix86_sched_data.ppro.decode[0]));
-      if (ix86_sched_data.ppro.decode[1])
-	fprintf (dump, " %d", INSN_UID (ix86_sched_data.ppro.decode[1]));
-      if (ix86_sched_data.ppro.decode[2])
-	fprintf (dump, " %d", INSN_UID (ix86_sched_data.ppro.decode[2]));
-      fputc ('\n', dump);
-    }
-}
-
-/* We're beginning a new block.  Initialize data structures as necessary.  */
-
-static void
-ix86_sched_init (FILE *dump ATTRIBUTE_UNUSED,
-		 int sched_verbose ATTRIBUTE_UNUSED,
-		 int veclen ATTRIBUTE_UNUSED)
-{
-  memset (&ix86_sched_data, 0, sizeof (ix86_sched_data));
-}
-
-/* Shift INSN to SLOT, and shift everything else down.  */
-
-static void
-ix86_reorder_insn (rtx *insnp, rtx *slot)
-{
-  if (insnp != slot)
-    {
-      rtx insn = *insnp;
-      do
-	insnp[0] = insnp[1];
-      while (++insnp != slot);
-      *insnp = insn;
-    }
-}
-
-static void
-ix86_sched_reorder_ppro (rtx *ready, rtx *e_ready)
-{
-  rtx decode[3];
-  enum attr_ppro_uops cur_uops;
-  int issued_this_cycle;
-  rtx *insnp;
-  int i;
-
-  /* At this point .ppro.decode contains the state of the three
-     decoders from last "cycle".  That is, those insns that were
-     actually independent.  But here we're scheduling for the
-     decoder, and we may find things that are decodable in the
-     same cycle.  */
-
-  memcpy (decode, ix86_sched_data.ppro.decode, sizeof (decode));
-  issued_this_cycle = 0;
-
-  insnp = e_ready;
-  cur_uops = ix86_safe_ppro_uops (*insnp);
-
-  /* If the decoders are empty, and we've a complex insn at the
-     head of the priority queue, let it issue without complaint.  */
-  if (decode[0] == NULL)
-    {
-      if (cur_uops == PPRO_UOPS_MANY)
-	{
-	  decode[0] = *insnp;
-	  goto ppro_done;
-	}
-
-      /* Otherwise, search for a 2-4 uop unsn to issue.  */
-      while (cur_uops != PPRO_UOPS_FEW)
-	{
-	  if (insnp == ready)
-	    break;
-	  cur_uops = ix86_safe_ppro_uops (*--insnp);
-	}
-
-      /* If so, move it to the head of the line.  */
-      if (cur_uops == PPRO_UOPS_FEW)
-	ix86_reorder_insn (insnp, e_ready);
-
-      /* Issue the head of the queue.  */
-      issued_this_cycle = 1;
-      decode[0] = *e_ready--;
-    }
-
-  /* Look for simple insns to fill in the other two slots.  */
-  for (i = 1; i < 3; ++i)
-    if (decode[i] == NULL)
-      {
-	if (ready > e_ready)
-	  goto ppro_done;
-
-	insnp = e_ready;
-	cur_uops = ix86_safe_ppro_uops (*insnp);
-	while (cur_uops != PPRO_UOPS_ONE)
-	  {
-	    if (insnp == ready)
-	      break;
-	    cur_uops = ix86_safe_ppro_uops (*--insnp);
-	  }
-
-	/* Found one.  Move it to the head of the queue and issue it.  */
-	if (cur_uops == PPRO_UOPS_ONE)
-	  {
-	    ix86_reorder_insn (insnp, e_ready);
-	    decode[i] = *e_ready--;
-	    issued_this_cycle++;
-	    continue;
-	  }
-
-	/* ??? Didn't find one.  Ideally, here we would do a lazy split
-	   of 2-uop insns, issue one and queue the other.  */
-      }
-
- ppro_done:
-  if (issued_this_cycle == 0)
-    issued_this_cycle = 1;
-  ix86_sched_data.ppro.issued_this_cycle = issued_this_cycle;
-}
-
-/* We are about to being issuing insns for this clock cycle.
-   Override the default sort algorithm to better slot instructions.  */
-static int
-ix86_sched_reorder (FILE *dump ATTRIBUTE_UNUSED,
-		    int sched_verbose ATTRIBUTE_UNUSED, rtx *ready,
-		    int *n_readyp, int clock_var ATTRIBUTE_UNUSED)
-{
-  int n_ready = *n_readyp;
-  rtx *e_ready = ready + n_ready - 1;
-
-  /* Make sure to go ahead and initialize key items in
-     ix86_sched_data if we are not going to bother trying to
-     reorder the ready queue.  */
-  if (n_ready < 2)
-    {
-      ix86_sched_data.ppro.issued_this_cycle = 1;
-      goto out;
-    }
-
-  switch (ix86_tune)
-    {
-    default:
-      break;
-
-    case PROCESSOR_PENTIUMPRO:
-      ix86_sched_reorder_ppro (ready, e_ready);
-      break;
-    }
-
-out:
-  return ix86_issue_rate ();
-}
-
-/* We are about to issue INSN.  Return the number of insns left on the
-   ready queue that can be issued this cycle.  */
-
-static int
-ix86_variable_issue (FILE *dump, int sched_verbose, rtx insn,
-		     int can_issue_more)
-{
-  int i;
-  switch (ix86_tune)
-    {
-    default:
-      return can_issue_more - 1;
-
-    case PROCESSOR_PENTIUMPRO:
-      {
-	enum attr_ppro_uops uops = ix86_safe_ppro_uops (insn);
-
-	if (uops == PPRO_UOPS_MANY)
-	  {
-	    if (sched_verbose)
-	      ix86_dump_ppro_packet (dump);
-	    ix86_sched_data.ppro.decode[0] = insn;
-	    ix86_sched_data.ppro.decode[1] = NULL;
-	    ix86_sched_data.ppro.decode[2] = NULL;
-	    if (sched_verbose)
-	      ix86_dump_ppro_packet (dump);
-	    ix86_sched_data.ppro.decode[0] = NULL;
-	  }
-	else if (uops == PPRO_UOPS_FEW)
-	  {
-	    if (sched_verbose)
-	      ix86_dump_ppro_packet (dump);
-	    ix86_sched_data.ppro.decode[0] = insn;
-	    ix86_sched_data.ppro.decode[1] = NULL;
-	    ix86_sched_data.ppro.decode[2] = NULL;
-	  }
-	else
-	  {
-	    for (i = 0; i < 3; ++i)
-	      if (ix86_sched_data.ppro.decode[i] == NULL)
-		{
-		  ix86_sched_data.ppro.decode[i] = insn;
-		  break;
-		}
-	    if (i == 3)
-	      abort ();
-	    if (i == 2)
-	      {
-	        if (sched_verbose)
-	          ix86_dump_ppro_packet (dump);
-		ix86_sched_data.ppro.decode[0] = NULL;
-		ix86_sched_data.ppro.decode[1] = NULL;
-		ix86_sched_data.ppro.decode[2] = NULL;
-	      }
-	  }
-      }
-      return --ix86_sched_data.ppro.issued_this_cycle;
-    }
-}
-
 static int
 ia32_use_dfa_pipeline_interface (void)
 {
-  if (TARGET_PENTIUM || TARGET_ATHLON_K8)
+  if (TARGET_PENTIUM
+      || TARGET_PENTIUMPRO
+      || TARGET_ATHLON_K8)
     return 1;
   return 0;
 }
@@ -12553,8 +12327,12 @@ ia32_multipass_dfa_lookahead (void)
 {
   if (ix86_tune == PROCESSOR_PENTIUM)
     return 2;
+
+  if (ix86_tune == PROCESSOR_PENTIUMPRO)
+    return 1;
+
   else
-   return 0;
+    return 0;
 }
 
 
@@ -13071,13 +12849,13 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_cvtsd2ss, 0, IX86_BUILTIN_CVTSD2SS, 0, 0 },
   { MASK_SSE2, CODE_FOR_cvtss2sd, 0, IX86_BUILTIN_CVTSS2SD, 0, 0 },
 
-  /* PNI MMX */
-  { MASK_PNI, CODE_FOR_addsubv4sf3, "__builtin_ia32_addsubps", IX86_BUILTIN_ADDSUBPS, 0, 0 },
-  { MASK_PNI, CODE_FOR_addsubv2df3, "__builtin_ia32_addsubpd", IX86_BUILTIN_ADDSUBPD, 0, 0 },
-  { MASK_PNI, CODE_FOR_haddv4sf3, "__builtin_ia32_haddps", IX86_BUILTIN_HADDPS, 0, 0 },
-  { MASK_PNI, CODE_FOR_haddv2df3, "__builtin_ia32_haddpd", IX86_BUILTIN_HADDPD, 0, 0 },
-  { MASK_PNI, CODE_FOR_hsubv4sf3, "__builtin_ia32_hsubps", IX86_BUILTIN_HSUBPS, 0, 0 },
-  { MASK_PNI, CODE_FOR_hsubv2df3, "__builtin_ia32_hsubpd", IX86_BUILTIN_HSUBPD, 0, 0 }
+  /* SSE3 MMX */
+  { MASK_SSE3, CODE_FOR_addsubv4sf3, "__builtin_ia32_addsubps", IX86_BUILTIN_ADDSUBPS, 0, 0 },
+  { MASK_SSE3, CODE_FOR_addsubv2df3, "__builtin_ia32_addsubpd", IX86_BUILTIN_ADDSUBPD, 0, 0 },
+  { MASK_SSE3, CODE_FOR_haddv4sf3, "__builtin_ia32_haddps", IX86_BUILTIN_HADDPS, 0, 0 },
+  { MASK_SSE3, CODE_FOR_haddv2df3, "__builtin_ia32_haddpd", IX86_BUILTIN_HADDPD, 0, 0 },
+  { MASK_SSE3, CODE_FOR_hsubv4sf3, "__builtin_ia32_hsubps", IX86_BUILTIN_HSUBPS, 0, 0 },
+  { MASK_SSE3, CODE_FOR_hsubv2df3, "__builtin_ia32_hsubpd", IX86_BUILTIN_HSUBPD, 0, 0 }
 };
 
 static const struct builtin_description bdesc_1arg[] =
@@ -13125,10 +12903,10 @@ static const struct builtin_description bdesc_1arg[] =
 
   { MASK_SSE2, CODE_FOR_sse2_movq, 0, IX86_BUILTIN_MOVQ, 0, 0 },
 
-  /* PNI */
-  { MASK_PNI, CODE_FOR_movshdup, 0, IX86_BUILTIN_MOVSHDUP, 0, 0 },
-  { MASK_PNI, CODE_FOR_movsldup, 0, IX86_BUILTIN_MOVSLDUP, 0, 0 },
-  { MASK_PNI, CODE_FOR_movddup,  0, IX86_BUILTIN_MOVDDUP, 0, 0 }
+  /* SSE3 */
+  { MASK_SSE3, CODE_FOR_movshdup, 0, IX86_BUILTIN_MOVSHDUP, 0, 0 },
+  { MASK_SSE3, CODE_FOR_movsldup, 0, IX86_BUILTIN_MOVSLDUP, 0, 0 },
+  { MASK_SSE3, CODE_FOR_movddup,  0, IX86_BUILTIN_MOVDDUP, 0, 0 }
 };
 
 void
@@ -13754,23 +13532,23 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE2, "__builtin_ia32_pmaddwd128", v4si_ftype_v8hi_v8hi, IX86_BUILTIN_PMADDWD128);
 
   /* Prescott New Instructions.  */
-  def_builtin (MASK_PNI, "__builtin_ia32_monitor",
+  def_builtin (MASK_SSE3, "__builtin_ia32_monitor",
 	       void_ftype_pcvoid_unsigned_unsigned,
 	       IX86_BUILTIN_MONITOR);
-  def_builtin (MASK_PNI, "__builtin_ia32_mwait",
+  def_builtin (MASK_SSE3, "__builtin_ia32_mwait",
 	       void_ftype_unsigned_unsigned,
 	       IX86_BUILTIN_MWAIT);
-  def_builtin (MASK_PNI, "__builtin_ia32_movshdup",
+  def_builtin (MASK_SSE3, "__builtin_ia32_movshdup",
 	       v4sf_ftype_v4sf,
 	       IX86_BUILTIN_MOVSHDUP);
-  def_builtin (MASK_PNI, "__builtin_ia32_movsldup",
+  def_builtin (MASK_SSE3, "__builtin_ia32_movsldup",
 	       v4sf_ftype_v4sf,
 	       IX86_BUILTIN_MOVSLDUP);
-  def_builtin (MASK_PNI, "__builtin_ia32_lddqu",
+  def_builtin (MASK_SSE3, "__builtin_ia32_lddqu",
 	       v16qi_ftype_pcchar, IX86_BUILTIN_LDDQU);
-  def_builtin (MASK_PNI, "__builtin_ia32_loadddup",
+  def_builtin (MASK_SSE3, "__builtin_ia32_loadddup",
 	       v2df_ftype_pcdouble, IX86_BUILTIN_LOADDDUP);
-  def_builtin (MASK_PNI, "__builtin_ia32_movddup",
+  def_builtin (MASK_SSE3, "__builtin_ia32_movddup",
 	       v2df_ftype_v2df, IX86_BUILTIN_MOVDDUP);
 }
 
@@ -14487,7 +14265,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		      expand_expr (arg0, NULL_RTX, VOIDmode, 0));
       op0 = gen_reg_rtx (V2DFmode);
       emit_insn (gen_sse2_loadsd (op0, adjust_address (target, V2DFmode, 0)));
-      emit_insn (gen_sse2_shufpd (op0, op0, op0, GEN_INT (0)));
+      emit_insn (gen_sse2_shufpd (op0, op0, op0, const0_rtx));
       return op0;
 
     case IX86_BUILTIN_SETPD:
@@ -14505,7 +14283,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_LOADRPD:
       target = ix86_expand_unop_builtin (CODE_FOR_sse2_movapd, arglist,
 					 gen_reg_rtx (V2DFmode), 1);
-      emit_insn (gen_sse2_shufpd (target, target, target, GEN_INT (1)));
+      emit_insn (gen_sse2_shufpd (target, target, target, const1_rtx));
       return target;
 
     case IX86_BUILTIN_LOADPD1:
@@ -15717,7 +15495,7 @@ min_insn_size (rtx insn)
    window.  */
 
 static void
-k8_avoid_jump_misspredicts (void)
+ix86_avoid_jump_misspredicts (void)
 {
   rtx insn, start = get_insns ();
   int nbytes = 0, njumps = 0;
@@ -15737,8 +15515,8 @@ k8_avoid_jump_misspredicts (void)
     {
 
       nbytes += min_insn_size (insn);
-      if (rtl_dump_file)
-        fprintf(rtl_dump_file, "Insn %i estimated to %i bytes\n",
+      if (dump_file)
+        fprintf(dump_file, "Insn %i estimated to %i bytes\n",
 		INSN_UID (insn), min_insn_size (insn));
       if ((GET_CODE (insn) == JUMP_INSN
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
@@ -15762,33 +15540,31 @@ k8_avoid_jump_misspredicts (void)
 	}
       if (njumps < 0)
 	abort ();
-      if (rtl_dump_file)
-        fprintf(rtl_dump_file, "Interval %i to %i has %i bytes\n",
+      if (dump_file)
+        fprintf (dump_file, "Interval %i to %i has %i bytes\n",
 		INSN_UID (start), INSN_UID (insn), nbytes);
 
       if (njumps == 3 && isjump && nbytes < 16)
 	{
 	  int padsize = 15 - nbytes + min_insn_size (insn);
 
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
+	  if (dump_file)
+	    fprintf (dump_file, "Padding insn %i by %i bytes!\n",
+		     INSN_UID (insn), padsize);
           emit_insn_before (gen_align (GEN_INT (padsize)), insn);
 	}
     }
 }
 
-/* Implement machine specific optimizations.
-   At the moment we implement single transformation: AMD Athlon works faster
+/* AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
    by other jump instruction.  We avoid the penalty by inserting NOP just
    before the RET instructions in such cases.  */
 static void
-ix86_reorg (void)
+ix86_pad_returns (void)
 {
   edge e;
 
-  if (!TARGET_ATHLON_K8 || !optimize || optimize_size)
-    return;
   for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
   {
     basic_block bb = e->src;
@@ -15828,7 +15604,17 @@ ix86_reorg (void)
 	delete_insn (ret);
       }
   }
-  k8_avoid_jump_misspredicts ();
+}
+
+/* Implement machine specific optimizations.  We implement padding of returns
+   for K8 CPUs and pass to avoid 4 jumps in the single 16 byte window.  */
+static void
+ix86_reorg (void)
+{
+  if (TARGET_ATHLON_K8 && optimize && !optimize_size)
+    ix86_pad_returns ();
+  if (TARGET_FOUR_JUMP_LIMIT && optimize && !optimize_size)
+    ix86_avoid_jump_misspredicts ();
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix
@@ -15999,6 +15785,23 @@ ix86_expand_vector_init (rtx target, rtx vals)
       default:
 	abort ();
     }
+}
+
+/* Worker function for TARGET_MD_ASM_CLOBBERS.
+
+   We do this in the new i386 backend to maintain source compatibility
+   with the old cc0-based compiler.  */
+
+static tree
+ix86_md_asm_clobbers (tree clobbers)
+{
+  clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),	
+			clobbers);				
+  clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),	
+			clobbers);				
+  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),	
+			clobbers);				
+  return clobbers;
 }
 
 #include "gt-i386.h"

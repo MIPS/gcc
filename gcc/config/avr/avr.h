@@ -142,7 +142,6 @@ extern int avr_asm_only_p;
 #define INT_TYPE_SIZE (TARGET_INT8 ? 8 : 16)
 #define SHORT_TYPE_SIZE (INT_TYPE_SIZE == 8 ? INT_TYPE_SIZE : 16)
 #define LONG_TYPE_SIZE (INT_TYPE_SIZE == 8 ? 16 : 32)
-#define MAX_LONG_TYPE_SIZE 32
 #define LONG_LONG_TYPE_SIZE 64
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 32
@@ -381,7 +380,8 @@ typedef struct avr_args {
   int regno;			/* next available register number */
 } CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) init_cumulative_args (&(CUM), FNTYPE, LIBNAME, FNDECL)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
+  init_cumulative_args (&(CUM), FNTYPE, LIBNAME, FNDECL)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (function_arg_advance (&CUM, MODE, TYPE, NAMED))
@@ -771,20 +771,6 @@ extern int avr_case_values_threshold;
 #define DOLLARS_IN_IDENTIFIERS 0
 
 #define NO_DOLLAR_IN_LABEL 1
-
-#define GIV_SORT_CRITERION(X, Y)	\
-  if (GET_CODE ((X)->add_val) == CONST_INT		\
-      && GET_CODE ((Y)->add_val) == CONST_INT)		\
-    return INTVAL ((X)->add_val) - INTVAL ((Y)->add_val);
-
-/* `GIV_SORT_CRITERION(GIV1, GIV2)'
-   In some cases, the strength reduction optimization pass can
-   produce better code if this is defined.  This macro controls the
-   order that induction variables are combined.  This macro is
-   particularly useful if the target has limited addressing modes.
-   For instance, the SH target has only positive offsets in
-   addresses.  Thus sorting to put the smallest address first allows
-   the most combinations to be found.  */
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
   internal_error ("trampolines not supported")

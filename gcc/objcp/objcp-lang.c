@@ -37,7 +37,8 @@ Boston, MA 02111-1307, USA.  */
 
 enum c_language_kind c_language = clk_objcxx;
 
-/* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h.  */
+/* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
+   consequently, there should be very few hooks below.  */
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Objective-C++"
@@ -93,5 +94,14 @@ const char *const tree_code_name[] = {
 #include "objc-tree.def"
 };
 #undef DEFTREECODE
+
+/* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
+   there should be very few (if any) routines below.  */
+
+void
+finish_file (void)
+{
+  objc_finish_file ();
+}
 
 #include "gtype-objcp.h"

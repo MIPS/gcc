@@ -208,7 +208,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (!cgraph_function_possibly_inlined_p (fndecl))
     {
       DECL_SAVED_TREE (fndecl) = NULL;
-      if (DECL_SAVED_INSNS (fndecl) == 0
+      if (DECL_STRUCT_FUNCTION (fndecl) == 0
 	  && !cgraph_node (fndecl)->origin)
 	{
 	  /* Stop pointing to the local nodes about to be freed.
@@ -218,8 +218,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	     If rest_of_compilation set this to 0, leave it 0.  */
 	  if (DECL_INITIAL (fndecl) != 0)
 	    DECL_INITIAL (fndecl) = error_mark_node;
-
-	  DECL_ARGUMENTS (fndecl) = 0;
 	}
     }
 

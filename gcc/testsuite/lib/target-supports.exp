@@ -4,15 +4,15 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
 # gcc-patches@gcc.gnu.org
@@ -31,13 +31,13 @@ proc check_weak_available { } {
     global target_cpu
 
     # All mips targets should support it
-    
+
     if { [ string first "mips" $target_cpu ] >= 0 } {
         return 1
     }
 
     # All solaris2 targets should support it
-    
+
     if { [regexp ".*-solaris2.*" $target_triplet] } {
         return 1
     }
@@ -99,7 +99,8 @@ proc check_visibility_available { } {
 
 proc check_alias_available { } {
     global alias_available_saved
-    
+    global tool
+
     if [info exists alias_available_saved] {
         verbose "check_alias_available  returning saved $alias_available_saved" 2
     } else {
@@ -108,9 +109,10 @@ proc check_alias_available { } {
 	# Compile a small test program.  The definition of "g" is
 	# necessary to keep the Solaris assembler from complaining
 	# about the program.
+	puts $f "#ifdef __cplusplus\nextern \"C\"\n#endif\n"
 	puts $f "void g() {} void f() __attribute__((alias(\"g\")));"
 	close $f
-	set lines [gcc_target_compile "tmp.c" "tmp.o" object ""]
+	set lines [${tool}_target_compile "tmp.c" "tmp.o" object ""]
 	file delete "tmp.c"
 
 	if [string match "" $lines] then {
@@ -137,7 +139,7 @@ proc check_alias_available { } {
 		}
 	    }
 	}
-	
+
 	verbose "check_alias_available  returning $alias_available_saved" 2
     }
 
@@ -148,10 +150,11 @@ proc check_alias_available { } {
 
 proc check_gc_sections_available { } {
     global gc_sections_available_saved
+    global tool
 
     if {![info exists gc_sections_available_saved]} {
 	# Check if the ld used by gcc supports --gc-sections.
-	set gcc_ld [lindex [gcc_target_compile "-print-prog-name=ld" "" "none" ""] 0]
+	set gcc_ld [lindex [${tool}_target_compile "-print-prog-name=ld" "" "none" ""] 0]
 	set ld_output [remote_exec host "$gcc_ld" "--help"]
 	if { [ string first "--gc-sections" $ld_output ] >= 0 } {
 	    set gc_sections_available_saved 1
@@ -164,9 +167,32 @@ proc check_gc_sections_available { } {
 
 # Return true if profiling is supported on the target.
 
-proc check_profiling_available { } {
+proc check_profiling_available { test_what } {
     global profiling_available_saved
 
+    verbose "Profiling argument is <$test_what>" 1
+
+    # These conditions depend on the argument so examine them before
+    # looking at the cache variable.
+
+    # Support for -p on solaris2 relies on mcrt1.o which comes with the
+    # vendor compiler.  We cannot reliably predict the directory where the
+    # vendor compiler (and thus mcrt1.o) is installed so we can't
+    # necessarily find mcrt1.o even if we have it.
+    if { [istarget *-*-solaris2*] && [lindex $test_what 1] == "-p" } {
+	return 0
+    }
+
+    # Support for -p on irix relies on libprof1.a which doesn't appear to
+    # exist on any irix6 system currently posting testsuite results.
+    # Support for -pg on irix relies on gcrt1.o which doesn't exist yet.
+    # See: http://gcc.gnu.org/ml/gcc/2002-10/msg00169.html
+    if { [istarget mips*-*-irix*]
+    && ([lindex $test_what 1] == "-p" || [lindex $test_what 1] == "-pg") } {
+	return 0
+    }
+
+    # Now examine the cache variable.
     if {![info exists profiling_available_saved]} {
 	# Some targets don't have any implementation of __bb_init_func or are
 	# missing other needed machinery.
@@ -175,13 +201,44 @@ proc check_profiling_available { } {
 	     || [istarget strongarm*-*-elf]
 	     || [istarget xscale*-*-elf]
 	     || [istarget cris-*-*]
-	     || [istarget h8300-*-*] 
+	     || [istarget h8300-*-*]
 	     || [istarget *-*-windiss] } {
 	    set profiling_available_saved 0
 	} else {
 	    set profiling_available_saved 1
 	}
     }
-    
+
     return $profiling_available_saved
+}
+
+# Return true if iconv is supported on the target. In particular IBM-1047.
+
+proc check_iconv_available { test_what } {
+    global tool
+
+    set result ""
+
+    verbose "check_iconv_available compiling testfile" 1
+    set f [open "tmp.c" "w"]
+    # Compile a small test program.
+    puts $f "#include <iconv.h>\n"
+    puts $f "int main (void)\n {\n iconv_t cd; \n"
+    puts $f "cd = iconv_open (\"[lindex $test_what 1]\", \"UTF-8\");\n"
+    puts $f "if (cd == (iconv_t) -1)\n return 1;\n"
+    puts $f "return 0;\n}"
+    close $f
+
+    set lines [${tool}_target_compile "tmp.c" "tmp.x" executable ""]
+
+    set result [${tool}_load "./tmp.x" "" ""]
+    set status [lindex $result 0];
+
+    verbose "status is <$status>"
+
+    if { $status == "pass" } then {
+	return 1
+    }
+
+    return 0
 }

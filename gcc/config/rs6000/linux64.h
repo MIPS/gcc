@@ -543,6 +543,8 @@ while (0)
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#define TARGET_HAS_F_SETLKW
+
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
@@ -643,16 +645,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
 									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
-    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
-    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
-    (FS)->retaddr_column = CR0_REGNO;					\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].how = REG_SAVED_OFFSET;		\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].loc.offset 			\
+      = (long)&(sc_->regs->nip) - new_cfa_;				\
+    (FS)->retaddr_column = ARG_POINTER_REGNUM;				\
     goto SUCCESS;							\
   } while (0)
 
@@ -721,3 +717,6 @@ enum { SIGNAL_FRAMESIZE = 64 };
   } while (0)
 
 #endif
+
+
+#define OS_MISSING_POWERPC64 !TARGET_64BIT

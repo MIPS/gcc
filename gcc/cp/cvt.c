@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -552,9 +552,6 @@ convert_to_reference (tree reftype, tree expr, int convtype,
   if (flags & LOOKUP_COMPLAIN)
     error ("cannot convert type `%T' to type `%T'", intype, reftype);
 
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
-
   return error_mark_node;
 }
 
@@ -689,8 +686,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	    return rval;
 	  if (flags & LOOKUP_COMPLAIN)
 	    error ("`%#T' used where a `%T' was expected", intype, type);
-	  if (flags & LOOKUP_SPECULATIVELY)
-	    return NULL_TREE;
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
@@ -761,8 +756,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (flags & LOOKUP_COMPLAIN)
     error ("conversion from `%T' to non-scalar type `%T' requested",
 	      TREE_TYPE (expr), type);
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
   return error_mark_node;
 }
 
@@ -1041,8 +1034,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 
   /* The code for conversions from class type is currently only used for
      delete expressions.  Other expressions are handled by build_new_op.  */
-
-  if (! TYPE_HAS_CONVERSION (basetype))
+  if (!complete_type_or_else (basetype, expr))
+    return error_mark_node;
+  if (!TYPE_HAS_CONVERSION (basetype))
     return NULL_TREE;
 
   for (conv = lookup_conversions (basetype); conv; conv = TREE_CHAIN (conv))

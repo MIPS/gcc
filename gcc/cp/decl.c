@@ -1294,7 +1294,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  tree attribs = (*targetm.merge_type_attributes)
 	    (TREE_TYPE (olddecl), type);
 
-	  type = build_type_attribute_variant (type, attribs);
+	  type = cp_build_type_attribute_variant (type, attribs);
 	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = type;
 	}
 
@@ -1347,10 +1347,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	olddecl = TREE_VALUE (olddecl);
       cp_error_at ("previous declaration of `%#D'", olddecl);
 
-      /* New decl is completely inconsistent with the old one =>
-	 tell caller to replace the old one.  */
-
-      return NULL_TREE;
+      return error_mark_node;
     }
   else if (!types_match)
     {
@@ -1712,7 +1709,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      && DECL_LANG_SPECIFIC (olddecl))
 	    {
 	      DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
-	      DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
+	      DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	    }
 	}
 
@@ -1881,8 +1878,6 @@ duplicate_decls (tree newdecl, tree olddecl)
 		 regardless of declaration matches.  */
 	      SET_DECL_RTL (newdecl, DECL_RTL (olddecl));
 	    }
-	  else
-	    DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  /* Don't clear out the arguments if we're redefining a function.  */
@@ -2058,16 +2053,31 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      if ((TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == FUNCTION_DECL
-	   && (DECL_TEMPLATE_RESULT (newdecl)
-	       != DECL_TEMPLATE_RESULT (olddecl))
-	   && DECL_INITIAL (DECL_TEMPLATE_RESULT (newdecl))
-	   && DECL_INITIAL (DECL_TEMPLATE_RESULT (olddecl)))
-	  || (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL
-	      && COMPLETE_TYPE_P (TREE_TYPE (newdecl))
-	      && COMPLETE_TYPE_P (TREE_TYPE (olddecl))))
+      tree nt, ot;
+
+      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
+	{
+	  if (COMPLETE_TYPE_P (TREE_TYPE (newdecl))
+	      && COMPLETE_TYPE_P (TREE_TYPE (olddecl)))
+	    return "redefinition of `%#D'";
+	  return NULL;
+	}
+
+      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) != FUNCTION_DECL
+	  || (DECL_TEMPLATE_RESULT (newdecl) 
+	      == DECL_TEMPLATE_RESULT (olddecl)))
+	return NULL;
+
+      nt = DECL_TEMPLATE_RESULT (newdecl);
+      if (DECL_TEMPLATE_INFO (nt))
+	nt = DECL_TEMPLATE_RESULT (template_for_substitution (nt));
+      ot = DECL_TEMPLATE_RESULT (olddecl);
+      if (DECL_TEMPLATE_INFO (ot))
+	ot = DECL_TEMPLATE_RESULT (template_for_substitution (ot));
+      if (DECL_INITIAL (nt) && DECL_INITIAL (ot))
 	return "redefinition of `%#D'";
-      return 0;
+
+      return NULL;
     }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
@@ -2778,18 +2788,6 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
 
 
 
-/* A chain of TYPE_DECLs for the builtin types.  */
-
-static GTY(()) tree builtin_type_decls;
-
-/* Return a chain of TYPE_DECLs for the builtin types.  */
-
-tree
-cxx_builtin_type_decls (void)
-{
-  return builtin_type_decls;
-}
-
 /* Push the declarations of builtin types into the namespace.
    RID_INDEX is the index of the builtin type in the array
    RID_POINTERS.  NAME is the name used when looking up the builtin
@@ -2833,10 +2831,7 @@ record_builtin_type (enum rid rid_index,
     TYPE_NAME (type) = tdecl;
 
   if (tdecl)
-    {
-      TREE_CHAIN (tdecl) = builtin_type_decls;
-      builtin_type_decls = tdecl;
-    }
+    debug_hooks->type_decl (tdecl, 0);
 }
 
 /* Record one of the standard Java types.
@@ -3137,11 +3132,6 @@ cxx_init_decl_processing (void)
 
   /* Show we use EH for cleanups.  */
   using_eh_for_cleanups ();
-
-  /* Maintain consistency.  Perhaps we should just complain if they
-     say -fwritable-strings?  */
-  if (flag_writable_strings)
-    flag_const_strings = 0;
 }
 
 /* Generate an initializer for a function naming variable from
@@ -5582,8 +5572,7 @@ grokfndecl (tree ctype,
     }
 
   /* Members of anonymous types and local classes have no linkage; make
-     them internal.  */
-  /* FIXME what if it gets a name from typedef?  */
+     them internal.  If a typedef is made later, this will be changed.  */
   if (ctype && (TYPE_ANONYMOUS_P (ctype)
 		|| decl_function_context (TYPE_MAIN_DECL (ctype))))
     publicp = 0;
@@ -5771,6 +5760,7 @@ grokfndecl (tree ctype,
       if (old_decl)
 	{
 	  tree ok;
+	  bool pop_p;
 
 	  /* Since we've smashed OLD_DECL to its
 	     DECL_TEMPLATE_RESULT, we must do the same to DECL.  */
@@ -5779,9 +5769,10 @@ grokfndecl (tree ctype,
 
 	  /* Attempt to merge the declarations.  This can fail, in
 	     the case of some invalid specialization declarations.  */
-	  push_scope (ctype);
+	  pop_p = push_scope (ctype);
 	  ok = duplicate_decls (decl, old_decl);
-	  pop_scope (ctype);
+	  if (pop_p)
+	    pop_scope (ctype);
 	  if (!ok)
 	    {
 	      error ("no `%#D' member function declared in class `%T'",
@@ -5916,7 +5907,19 @@ grokvardecl (tree type,
       if (t)
 	{
 	  if (TYPE_ANONYMOUS_P (t))
-	    /* Ignore for now; `enum { foo } e' is pretty common.  */;
+	    {
+	      if (DECL_EXTERN_C_P (decl))
+		/* Allow this; it's pretty common in C.  */;
+	      else
+		{
+		  pedwarn ("non-local variable `%#D' uses anonymous type",
+			   decl);
+		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
+		    cp_pedwarn_at ("\
+`%#D' does not refer to the unqualified type, so it is not used for linkage",
+				   TYPE_NAME (t));
+		}
+	    }
 	  else
 	    pedwarn ("non-local variable `%#D' uses local type `%T'",
 			decl, t);
@@ -8304,13 +8307,6 @@ grokdeclarator (tree declarator,
 
 	    if (staticp)
 	      {
-		/* [class.mem] forbids static data members with the
-		   same name as the enclosing class.  Non-static data
-		   members are checked in check_field_decls.  */
-		if (constructor_name_p (declarator, current_class_type))
-		  pedwarn ("ISO C++ forbids static data member `%D' with same name as enclosing class",
-			   declarator);
-		  
 		/* C++ allows static class members.  All other work
 		   for this is done by grokfield.  */
 		decl = build_lang_decl (VAR_DECL, declarator, type);
@@ -8495,8 +8491,6 @@ require_complete_types_for_parms (tree parms)
 	  layout_decl (parms, 0);
 	  DECL_ARG_TYPE (parms) = type_passed_as (TREE_TYPE (parms));
 	}
-      else
-        TREE_TYPE (parms) = error_mark_node;
     }
 }
 
@@ -10288,9 +10282,6 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
   /* Start the statement-tree, start the tree now.  */
   begin_stmt_tree (&DECL_SAVED_TREE (decl1));
 
-  /* Don't double-count statements in templates.  */
-  DECL_ESTIMATED_INSNS (decl1) = 0;
-
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
 
@@ -10300,8 +10291,9 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
   if (!processing_template_decl && !(flags & SF_PRE_PARSED))
     {
       /* A specialization is not used to guide overload resolution.  */
-      if (!DECL_TEMPLATE_SPECIALIZATION (decl1)
-	  && ! DECL_FUNCTION_MEMBER_P (decl1))
+      if (!DECL_FUNCTION_MEMBER_P (decl1)
+	  && !(DECL_USE_TEMPLATE (decl1) && 
+	       PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl1))))
 	{
 	  tree olddecl = pushdecl (decl1);
 
@@ -10655,8 +10647,8 @@ finish_destructor_body (void)
       be looked up in the scope of the destructor's class and if
       found shall be accessible and unambiguous.  */
       exprstmt = build_op_delete_call
-	(DELETE_EXPR, current_class_ptr, virtual_size,
-	 LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
+	(DELETE_EXPR, current_class_ptr, virtual_size, 
+	 /*global_p=*/false, NULL_TREE);
 
       if_stmt = begin_if_stmt ();
       finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
@@ -10902,8 +10894,9 @@ finish_function (int flags)
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
 
-  /* We're leaving the context of this function, so zap cfun.  It's still in
-     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
+  /* We're leaving the context of this function, so zap cfun.
+     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
+     tree_rest_of_compilation.  */
   cfun = NULL;
   current_function_decl = NULL;
 
@@ -11224,8 +11217,6 @@ cxx_push_function_context (struct function * f)
     {
       tree fn = f->decl;
 
-      current_function_is_thunk = DECL_THUNK_P (fn);
-
       if (DECL_SAVED_FUNCTION_DATA (fn))
 	{
 	  /* If we already parsed this function, and we're just expanding it
@@ -11269,7 +11260,6 @@ cp_tree_node_structure (union lang_tree_node * t)
     case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:              return TS_CP_BASELINK;
-    case WRAPPER:		return TS_CP_WRAPPER;
     default:			return TS_CP_GENERIC;
     }
 }

@@ -988,6 +988,7 @@ package body Ch3 is
 
    --  OBJECT_RENAMING_DECLARATION ::=
    --    DEFINING_IDENTIFIER : SUBTYPE_MARK renames object_NAME;
+   --  | DEFINING_IDENTIFIER : ACCESS_DEFINITION renames object_NAME;
 
    --  EXCEPTION_RENAMING_DECLARATION ::=
    --    DEFINING_IDENTIFIER : exception renames exception_NAME;
@@ -1016,6 +1017,7 @@ package body Ch3 is
       Done    : out Boolean;
       In_Spec : Boolean)
    is
+      Acc_Node   : Node_Id;
       Decl_Node  : Node_Id;
       Type_Node  : Node_Id;
       Ident_Sloc : Source_Ptr;
@@ -1314,6 +1316,30 @@ package body Ch3 is
          elsif Token = Tok_Array then
             Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
             Set_Object_Definition (Decl_Node, P_Array_Type_Definition);
+
+         --  Ada 0Y (AI-230): Access Definition case
+
+         elsif Token = Tok_Access then
+            if not Extensions_Allowed then
+               Error_Msg_SP
+                 ("generalized use of anonymous access types " &
+                  "is an Ada 0Y extension");
+               Error_Msg_SP ("\unit must be compiled with -gnatX switch");
+            end if;
+
+            Acc_Node := P_Access_Definition;
+
+            if Token /= Tok_Renames then
+               Error_Msg_SC ("'RENAMES' expected");
+               raise Error_Resync;
+            end if;
+
+            Scan; --  past renames
+            No_List;
+            Decl_Node :=
+              New_Node (N_Object_Renaming_Declaration, Ident_Sloc);
+            Set_Access_Definition (Decl_Node, Acc_Node);
+            Set_Name (Decl_Node, P_Name);
 
          --  Subtype indication case
 
@@ -2011,7 +2037,8 @@ package body Ch3 is
    --  DISCRETE_SUBTYPE_DEFINITION ::=
    --    DISCRETE_SUBTYPE_INDICATION | RANGE
 
-   --  COMPONENT_DEFINITION ::= [aliased] SUBTYPE_INDICATION
+   --  COMPONENT_DEFINITION ::=
+   --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
    --  The caller has checked that the initial token is ARRAY
 
@@ -2082,12 +2109,34 @@ package body Ch3 is
 
       CompDef_Node := New_Node (N_Component_Definition, Token_Ptr);
 
-      if Token = Tok_Aliased then
-         Set_Aliased_Present (CompDef_Node, True);
-         Scan; -- past ALIASED
+      --  Ada 0Y (AI-230): Access Definition case
+
+      if Token = Tok_Access then
+         if not Extensions_Allowed then
+            Error_Msg_SP
+              ("generalized use of anonymous access types " &
+               "is an Ada 0Y extension");
+            Error_Msg_SP ("\unit must be compiled with -gnatX switch");
+         end if;
+
+         Set_Subtype_Indication (CompDef_Node, Empty);
+         Set_Aliased_Present    (CompDef_Node, False);
+         Set_Access_Definition  (CompDef_Node, P_Access_Definition);
+      else
+         Set_Access_Definition  (CompDef_Node, Empty);
+
+         if Token_Name = Name_Aliased then
+            Check_95_Keyword (Tok_Aliased, Tok_Identifier);
+         end if;
+
+         if Token = Tok_Aliased then
+            Set_Aliased_Present (CompDef_Node, True);
+            Scan; -- past ALIASED
+         end if;
+
+         Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
       end if;
 
-      Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
       Set_Component_Definition (Def_Node, CompDef_Node);
 
       return Def_Node;
@@ -2228,7 +2277,6 @@ package body Ch3 is
          Scan; -- past the left paren
 
          if Token = Tok_Box then
-
             if Ada_83 then
                Error_Msg_SC ("(Ada 83) unknown discriminant not allowed!");
             end if;
@@ -2724,7 +2772,8 @@ package body Ch3 is
    --    DEFINING_IDENTIFIER_LIST : COMPONENT_DEFINITION
    --      [:= DEFAULT_EXPRESSION];
 
-   --  COMPONENT_DEFINITION ::= [aliased] SUBTYPE_INDICATION
+   --  COMPONENT_DEFINITION ::=
+   --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
    --  Error recovery: cannot raise Error_Resync, if an error occurs,
    --  the scan is positioned past the following semicolon.
@@ -2791,21 +2840,39 @@ package body Ch3 is
 
             CompDef_Node := New_Node (N_Component_Definition, Token_Ptr);
 
-            if Token_Name = Name_Aliased then
-               Check_95_Keyword (Tok_Aliased, Tok_Identifier);
+            if Token = Tok_Access then
+               if not Extensions_Allowed then
+                  Error_Msg_SP
+                    ("Generalized use of anonymous access types " &
+                     "is an Ada0X extension");
+                  Error_Msg_SP ("\unit must be compiled with -gnatX switch");
+               end if;
+
+               Set_Subtype_Indication (CompDef_Node, Empty);
+               Set_Aliased_Present    (CompDef_Node, False);
+               Set_Access_Definition  (CompDef_Node, P_Access_Definition);
+            else
+
+               Set_Access_Definition (CompDef_Node, Empty);
+
+               if Token_Name = Name_Aliased then
+                  Check_95_Keyword (Tok_Aliased, Tok_Identifier);
+               end if;
+
+               if Token = Tok_Aliased then
+                  Scan; -- past ALIASED
+                  Set_Aliased_Present (CompDef_Node, True);
+               end if;
+
+               if Token = Tok_Array then
+                  Error_Msg_SC
+                    ("anonymous arrays not allowed as components");
+                  raise Error_Resync;
+               end if;
+
+               Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
             end if;
 
-            if Token = Tok_Aliased then
-               Scan; -- past ALIASED
-               Set_Aliased_Present (CompDef_Node, True);
-            end if;
-
-            if Token = Tok_Array then
-               Error_Msg_SC ("anonymous arrays not allowed as components");
-               raise Error_Resync;
-            end if;
-
-            Set_Subtype_Indication   (CompDef_Node, P_Subtype_Indication);
             Set_Component_Definition (Decl_Node, CompDef_Node);
             Set_Expression           (Decl_Node, Init_Expr_Opt);
 
@@ -3108,6 +3175,7 @@ package body Ch3 is
 
       if Prot_Flag then
          Scan; -- past PROTECTED
+
          if Token /= Tok_Procedure and then Token /= Tok_Function then
             Error_Msg_SC ("FUNCTION or PROCEDURE expected");
          end if;

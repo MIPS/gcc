@@ -289,7 +289,7 @@ extern int target_flags;
      NULL }}
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
+#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY | MASK_BIG_SWITCH)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -449,7 +449,6 @@ do {								\
 #define WORDS_BIG_ENDIAN 1
 
 #define MAX_BITS_PER_WORD 64
-#define MAX_LONG_TYPE_SIZE 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
@@ -542,10 +541,11 @@ do {								\
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 29
 
-/* Register which holds offset table for position-independent
+/* Register used to address the offset table for position-independent
    data references.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (flag_pic ? (TARGET_64BIT ? 27 : 19) : INVALID_REGNUM)
 
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
 /* Function to return the rtx used to save the pic offset table register
@@ -785,7 +785,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   (CUM).words = 0, 							\
   (CUM).incoming = 0,							\
   (CUM).indirect = (FNTYPE) && !(FNDECL),				\
@@ -1666,8 +1666,7 @@ do { 									\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
        && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
-   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'			\
-       && !(TREE_CODE (DECL) == STRING_CST && flag_writable_strings)))
+   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'))
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 

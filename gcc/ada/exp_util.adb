@@ -41,6 +41,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Eval; use Sem_Eval;
@@ -604,7 +605,7 @@ package body Exp_Util is
       --  If Discard_Names or No_Implicit_Heap_Allocations are in effect,
       --  generate a dummy declaration only.
 
-      if Restrictions (No_Implicit_Heap_Allocations)
+      if Restriction_Active (No_Implicit_Heap_Allocations)
         or else Global_Discard_Names
       then
          T_Id := Make_Defining_Identifier (Loc, New_Internal_Name ('J'));
@@ -1319,8 +1320,41 @@ package body Exp_Util is
    ----------------------
 
    procedure Force_Evaluation (Exp : Node_Id; Name_Req : Boolean := False) is
+      Component_In_Lhs : Boolean := False;
+      Par              : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req, Variable_Ref => True);
+      --  Loop to determine whether there is a component reference in
+      --  the left hand side if this appears on the left side of an
+      --  assignment statement. Needed to determine if form of result
+      --  must be a variable.
+
+      Par := Exp;
+      while Present (Par)
+        and then Nkind (Par) = N_Selected_Component
+      loop
+         if Nkind (Parent (Par)) = N_Assignment_Statement
+           and then Par = Name (Parent (Par))
+         then
+            Component_In_Lhs := True;
+            exit;
+         else
+            Par := Parent (Par);
+         end if;
+      end loop;
+
+      --  If the expression is a selected component, it is being evaluated
+      --  as part of a discriminant check. If it is part of a left-hand
+      --  side, this is the last use of its value and it is safe to create
+      --  a renaming for it, rather than a temporary. In addition, if it
+      --  is not an addressable field, creating a temporary may be a problem
+      --  for gigi, or might drop the value of the assignment. Therefore,
+      --  if the expression is on the lhs of an assignment, remove side
+      --  effects without requiring a temporary, and create a renaming.
+      --  (See remove_side_effects for details).
+
+      Remove_Side_Effects
+        (Exp, Name_Req, Variable_Ref => not Component_In_Lhs);
    end Force_Evaluation;
 
    ------------------------
@@ -2351,6 +2385,13 @@ package body Exp_Util is
 
    function Is_Possibly_Unaligned_Slice (P : Node_Id) return Boolean is
    begin
+      --  ??? GCC3 will eventually handle strings with arbitrary alignments,
+      --  but for now the following check must be disabled.
+
+      --  if get_gcc_version >= 3 then
+      --     return False;
+      --  end if;
+
       if Is_Entity_Name (P)
         and then Is_Object (Entity (P))
         and then Present (Renamed_Object (Entity (P)))
@@ -3256,8 +3297,7 @@ package body Exp_Util is
                  N_In        |
                  N_Not_In    |
                  N_And_Then  |
-                 N_Or_Else
-            =>
+                 N_Or_Else   =>
                return Side_Effect_Free (Left_Opnd  (N))
                  and then Side_Effect_Free (Right_Opnd (N));
 
@@ -3339,6 +3379,14 @@ package body Exp_Util is
 
             when N_Unchecked_Expression =>
                return Side_Effect_Free (Expression (N));
+
+            --  A literal is side effect free
+
+            when N_Character_Literal    |
+                 N_Integer_Literal      |
+                 N_Real_Literal         |
+                 N_String_Literal       =>
+               return True;
 
             --  We consider that anything else has side effects. This is a bit
             --  crude, but we are pretty close for most common cases, and we

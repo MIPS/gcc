@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define this to be a string constant containing `-D' options to define the
    predefined macros that identify this machine and system.  These macros will
-   be predefined unless the `-ansi' option is specified. */
+   be predefined unless the `-ansi' option is specified.  */
 
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
@@ -661,7 +661,7 @@ enum reg_class
    - if the type has variable size
    - if the type is marked as addressable (it is required to be constructed
      into the stack)
-   - if the type is a structure or union. */
+   - if the type is a structure or union.  */
 
 #define MUST_PASS_IN_STACK(MODE, TYPE)				\
    (((MODE) == BLKmode)						\
@@ -759,7 +759,8 @@ enum reg_class
    the function, as a string.  LIBNAME is 0 when an ordinary C function call is
    being processed.  Thus, each time this macro is called, either LIBNAME or
    FNTYPE is nonzero, but never both of them at once.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) (CUM) = 0
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
+  (CUM) = 0
 
 /* A C statement (sans semicolon) to update the summarizer variable CUM to
    advance past an argument in the argument list.  The values MODE, TYPE and
@@ -783,24 +784,6 @@ enum reg_class
 /*}}}*/ 
 /*{{{  How Scalar Function Values are Returned.  */ 
 
-/* A C expression to create an RTX representing the place where a function
-   returns a value of data type VALTYPE.  VALTYPE is a tree node representing a
-   data type.  Write `TYPE_MODE (VALTYPE)' to get the machine mode used to
-   represent that type.  On many machines, only the mode is relevant.
-   (Actually, on most machines, scalar values are returned in the same place
-   regardless of mode).
-
-   If `PROMOTE_FUNCTION_RETURN' is defined, you must apply the same promotion
-   rules specified in `PROMOTE_MODE' if VALTYPE is a scalar type.
-
-   If the precise function being called is known, FUNC is a tree node
-   (`FUNCTION_DECL') for it; otherwise, FUNC is a null pointer.  This makes it
-   possible to use a different value-returning convention for specific
-   functions when all their calls are known.
-
-   `FUNCTION_VALUE' is not used for return vales with aggregate data types,
-   because these are returned in another way.  See `STRUCT_VALUE_REGNUM' and
-   related macros, below.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
      gen_rtx_REG (TYPE_MODE (VALTYPE), RETURN_VALUE_REGNUM)
 
@@ -819,7 +802,7 @@ enum reg_class
 #define LIBCALL_VALUE(MODE) gen_rtx_REG (MODE, RETURN_VALUE_REGNUM)
 
 /* A C expression that is nonzero if REGNO is the number of a hard register in
-   which the values of called function may come back. */
+   which the values of called function may come back.  */
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) ((REGNO) == RETURN_VALUE_REGNUM)
 
@@ -834,12 +817,6 @@ enum reg_class
 
    If not defined, this defaults to the value 1.  */
 #define DEFAULT_PCC_STRUCT_RETURN 1
-
-/* If the structure value address is not passed in a register, define
-   `STRUCT_VALUE' as an expression returning an RTX for the place where the
-   address is passed.  If it returns 0, the address is passed as an "invisible"
-   first argument.  */
-#define STRUCT_VALUE 0
 
 /*}}}*/ 
 /*{{{  Generating Code for Profiling.  */ 
@@ -862,41 +839,6 @@ enum reg_class
   fprintf (FILE, "\t call @r0\n" );		\
   fprintf (FILE, ".word\tLP%d\n", LABELNO);	\
 }
-
-/*}}}*/ 
-/*{{{  Implementing the VARARGS Macros.  */ 
-
-/* This macro offers an alternative to using `__builtin_saveregs' and defining
-   the macro `EXPAND_BUILTIN_SAVEREGS'.  Use it to store the anonymous register
-   arguments into the stack so that all the arguments appear to have been
-   passed consecutively on the stack.  Once this is done, you can use the
-   standard implementation of varargs that works for machines that pass all
-   their arguments on the stack.
-
-   The argument ARGS_SO_FAR is the `CUMULATIVE_ARGS' data structure, containing
-   the values that obtain after processing of the named arguments.  The
-   arguments MODE and TYPE describe the last named argument--its machine mode
-   and its data type as a tree node.
-
-   The macro implementation should do two things: first, push onto the stack
-   all the argument registers *not* used for the named arguments, and second,
-   store the size of the data thus pushed into the `int'-valued variable whose
-   name is supplied as the argument PRETEND_ARGS_SIZE.  The value that you
-   store here will serve as additional offset for setting up the stack frame.
-
-   Because you must generate code to push the anonymous arguments at compile
-   time without knowing their data types, `SETUP_INCOMING_VARARGS' is only
-   useful on machines that have just a single category of argument register and
-   use it uniformly for all data types.
-
-   If the argument SECOND_TIME is nonzero, it means that the arguments of the
-   function are being analyzed for the second time.  This happens for an inline
-   function, which is not actually compiled until the end of the source file.
-   The macro `SETUP_INCOMING_VARARGS' should not generate any instructions in
-   this case.  */
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_ARGS_SIZE, SECOND_TIME) \
-  if (! SECOND_TIME) \
-    fr30_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE)
 
 /*}}}*/ 
 /*{{{  Trampolines for Nested Functions.  */ 
