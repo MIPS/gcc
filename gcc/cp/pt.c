@@ -11121,6 +11121,12 @@ instantiate_decl (tree d, int defer_ok)
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
+
+  /* APPLE LOCAL begin coalescing  */
+#ifdef MARK_TEMPLATE_COALESCED
+    MARK_TEMPLATE_COALESCED (d);
+#endif
+  /* APPLE LOCAL end coalescing  */
   
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */

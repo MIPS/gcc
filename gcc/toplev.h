@@ -78,6 +78,8 @@ extern void announce_function (tree);
 extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
+/* APPLE LOCAL unavailable */
+extern void warn_unavailable_use (tree);
 
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
@@ -109,6 +111,8 @@ extern bool version_flag;
 extern int target_flags_explicit;
 
 /* See toplev.c.  */
+/* APPLE LOCAL -faltivec */
+extern int flag_altivec;
 extern int flag_loop_optimize;
 extern int flag_crossjumping;
 extern int flag_if_conversion;

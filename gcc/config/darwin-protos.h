@@ -25,6 +25,8 @@ extern void machopic_validate_stub_or_non_lazy_ptr (const char *, int);
 extern const char *machopic_function_base_name (void);
 extern void machopic_output_function_base_name (FILE *);
 extern const char *machopic_stub_name (const char*);
+/* APPLE LOCAL coalescing  */
+extern int machopic_var_referred_to_p (const char*);
 
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_picsymbol_stub1_section (void);
@@ -75,6 +77,34 @@ extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
 
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+extern void darwin_pragma_pack (struct cpp_reader *);
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */
+extern void darwin_pragma_call_on_load (struct cpp_reader *);
+extern void darwin_pragma_call_on_unload (struct cpp_reader *);
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */
+/* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */
+extern void darwin_pragma_call_on_module_bind (struct cpp_reader *);
+/* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */
+/* APPLE LOCAL begin temporary pragmas 2001-07-05 sts */
+extern void darwin_pragma_cc_no_mach_text_sections (struct cpp_reader *);
+extern void darwin_pragma_cc_opt_off (struct cpp_reader *);
+extern void darwin_pragma_cc_opt_on (struct cpp_reader *);
+extern void darwin_pragma_cc_opt_restore (struct cpp_reader *);
+extern void darwin_pragma_cc_writable_strings (struct cpp_reader *);
+extern void darwin_pragma_cc_non_writable_strings (struct cpp_reader *);
+/* APPLE LOCAL end temporary pragmas 2001-07-05 sts */
+
+/* APPLE LOCAL begin coalescing  */
+extern void darwin_asm_named_section (const char *, unsigned int);
+extern unsigned int darwin_section_type_flags (tree, const char *, int);
+extern int darwin_set_section_for_var_p (tree, int, int);
+/* APPLE LOCAL end coalescing */
+
+/* APPLE LOCAL  double destructor  */
+extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
+
 extern void darwin_file_end (void);
 
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
@@ -108,6 +138,8 @@ extern void objc_class_names_section (void);
 extern void objc_meth_var_names_section (void);
 extern void objc_meth_var_types_section (void);
 extern void objc_cls_refs_section (void);
+/* APPLE LOCAL constant cfstrings */
+extern void cfstring_constant_object_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
 extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);
@@ -119,3 +151,6 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL C++ EH */
+extern void darwin_non_lazy_pcrel (FILE *file, rtx addr);
+

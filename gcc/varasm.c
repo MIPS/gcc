@@ -66,6 +66,10 @@ const char *weak_global_object_name;
 
 struct addr_const;
 struct constant_descriptor_rtx;
+/* APPLE LOCAL begin AltiVec */
+struct rtx_const;
+struct pool_constant;
+/* APPLE LOCAL end AltiVec */
 struct rtx_constant_pool;
 
 struct varasm_status GTY(())
@@ -818,6 +822,8 @@ make_decl_rtl (tree decl, const char *asmspec)
 
   x = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
+  /* APPLE LOCAL weak import */
+  SYMBOL_REF_WEAK_IMPORT (x) = DECL_WEAK_IMPORT (decl);
   SYMBOL_REF_DECL (x) = decl;
 
   x = gen_rtx_MEM (DECL_MODE (decl), x);
@@ -1484,6 +1490,27 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Switch to the appropriate section.  */
   variable_section (decl, reloc);
 
+  /* APPLE LOCAL begin zerofill turly 20020218  */
+#ifdef ASM_OUTPUT_ZEROFILL
+  /* We need a ZEROFILL COALESCED option!  */
+  if (flag_no_common
+      && ! dont_output_data
+      /* APPLE LOCAL coalescing */
+      && ! DECL_COALESCED (decl)
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    {
+      ASM_OUTPUT_ZEROFILL (asm_out_file, name,
+			   tree_low_cst (DECL_SIZE_UNIT (decl), 1),
+			   floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT));
+
+      /********************************/
+      /* NOTE THE EARLY RETURN HERE!! */
+      /********************************/
+      return;
+    }
+#endif
+  /* APPLE LOCAL end zerofill turly 20020218  */
+
   /* dbxout.c needs to know this.  */
   if (in_text_section ())
     DECL_IN_TEXT_SECTION (decl) = 1;
@@ -1977,6 +2004,8 @@ decode_addr_const (tree exp, struct addr_const *value)
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
+    /* APPLE LOCAL AltiVec */
+    case VECTOR_CST:
     case CONSTRUCTOR:
     case INTEGER_CST:
       x = output_constant_def (target, 1);
@@ -1994,6 +2023,38 @@ decode_addr_const (tree exp, struct addr_const *value)
   value->offset = offset;
 }
 
+/* We do RTX_UNSPEC + XINT (blah), so nothing can go after RTX_UNSPEC.  */
+/* APPLE LOCAL AltiVec */
+/* rearrange so >RTX_DOUBLE works */
+enum kind { RTX_UNKNOWN, RTX_VECTOR, RTX_DOUBLE, RTX_INT, RTX_UNSPEC };
+struct rtx_const GTY(())
+{
+  ENUM_BITFIELD(kind) kind : 16;
+  ENUM_BITFIELD(machine_mode) mode : 16;
+  union rtx_const_un {
+    REAL_VALUE_TYPE GTY ((tag ("4"))) du;
+    struct rtx_const_u_addr {
+      rtx base;
+      const char *symbol;
+      HOST_WIDE_INT offset;
+    } GTY ((tag ("1"))) addr;
+    struct rtx_const_u_di {
+      HOST_WIDE_INT high;
+      HOST_WIDE_INT low;
+    } GTY ((tag ("0"))) di;
+
+    /* The max vector size we have is 16 wide; two variants for
+       integral and floating point vectors.  */
+    struct rtx_const_int_vec {
+      HOST_WIDE_INT high;
+      HOST_WIDE_INT low;
+    } GTY ((tag ("2"))) int_vec[16];
+
+    REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
+
+  } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
+};
+
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
@@ -2050,6 +2111,17 @@ const_hash_1 (const tree exp)
     case COMPLEX_CST:
       return (const_hash_1 (TREE_REALPART (exp)) * 5
 	      + const_hash_1 (TREE_IMAGPART (exp)));
+
+    /* APPLE LOCAL begin AltiVec */
+    case VECTOR_CST:
+      {
+	int hash = 0;
+	tree t;
+	for ( t = TREE_VECTOR_CST_ELTS (exp); t; t = TREE_CHAIN (t))
+	  hash += const_hash_1 (TREE_VALUE (t)) * 11;
+	return hash;
+      }
+    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
@@ -2170,6 +2242,21 @@ compare_constant (const tree t1, const tree t2)
     case COMPLEX_CST:
       return (compare_constant (TREE_REALPART (t1), TREE_REALPART (t2))
 	      && compare_constant (TREE_IMAGPART (t1), TREE_IMAGPART (t2)));
+
+    /* APPLE LOCAL begin AltiVec */
+    case VECTOR_CST:
+      {
+	tree t1e, t2e;
+	for (t1e = TREE_VECTOR_CST_ELTS (t1), t2e = TREE_VECTOR_CST_ELTS (t2);
+	     t1e && t2e;
+	     t1e = TREE_CHAIN (t1e), t2e = TREE_CHAIN (t2e))
+	  {
+	    if (!compare_constant (t1e, t2e))
+	      return 0;
+	  }
+	return 1;
+      }
+    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
       typecode = TREE_CODE (TREE_TYPE (t1));
@@ -2303,6 +2390,17 @@ copy_constant (tree exp)
       return build_complex (TREE_TYPE (exp),
 			    copy_constant (TREE_REALPART (exp)),
 			    copy_constant (TREE_IMAGPART (exp)));
+
+    /* APPLE LOCAL AltiVec */
+    case VECTOR_CST:
+      {
+	tree list = copy_list (TREE_VECTOR_CST_ELTS (exp));
+	tree t, l;
+	for ( t = TREE_VECTOR_CST_ELTS (exp), l = list; t;
+	      t = TREE_CHAIN (t), l = TREE_CHAIN (l))
+	  TREE_VALUE (l) = copy_constant (TREE_VALUE (t));
+        return build_vector (TREE_TYPE (exp), list);
+      }
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -4032,6 +4130,16 @@ merge_weak (tree newdecl, tree olddecl)
     /* OLDDECL was weak, but NEWDECL was not explicitly marked as
        weak.  Just update NEWDECL to indicate that it's weak too.  */
     mark_weak (newdecl);
+
+  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  if (DECL_WEAK_IMPORT (olddecl) != DECL_WEAK_IMPORT (newdecl))
+    {
+      if (! DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl))
+	warning (
+		 "%Jinconsistent weak_import attribute with previous declaration of `%D'", newdecl, olddecl);
+      DECL_WEAK_IMPORT (newdecl) = 1;
+    }
+  /* APPLE LOCAL end weak_import ilr */
 }
 
 /* Declare DECL to be a weak symbol.  */
@@ -4116,6 +4224,16 @@ globalize_decl (tree decl)
       return;
     }
 #endif
+
+  /* APPLE LOCAL begin coalescing */
+  /* Weak definitions are used for coalesced symbols.  They're not the
+     same thing as weak references.  The naming is unfortunate. */
+#ifdef ASM_WEAK_DEFINITIONIZE_LABEL
+  if (DECL_COALESCED (decl) && flag_weak_coalesced_definitions)
+    ASM_WEAK_DEFINITIONIZE_LABEL (asm_out_file, name);
+#endif /* ASM_WEAK_DEFINITIONIZE_LABEL */
+  
+  /* APPLE LOCAL end coalescing */
 
   (*targetm.asm_out.globalize_label) (asm_out_file, name);
 }
@@ -4932,6 +5050,15 @@ default_globalize_label (FILE * stream, const char *name)
   putc ('\n', stream);
 }
 #endif /* GLOBAL_ASM_OP */
+
+/* APPLE LOCAL begin coalescing */
+int
+darwin_named_section_is (const char* name)
+{
+  return (in_section == in_named
+	  && strcmp (in_named_name, name) == 0);
+}
+/* APPLE LOCAL end coalescing */
 
 /* This is how to output an internal numbered label where PREFIX is
    the class of label and LABELNO is the number within the class.  */

@@ -1,4 +1,4 @@
-// { dg-do run { xfail *-*-aout *-*-coff *-*-hpux* *-*-hms } }
+// { dg-do run { xfail *-*-aout *-*-coff *-*-hpux* *-*-hms *-*-darwin* } }
 // On targets that don't support weak symbols, we require an explicit
 // instantiation of arr.
 

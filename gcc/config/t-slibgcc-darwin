@@ -28,3 +28,6 @@ SHLIB_INSTALL = \
 	  $$(DESTDIR)$$(slibdir)$(SHLIB_SLIBDIR_QUAL)/$(SHLIB_SOLINK)
 SHLIB_MKMAP = $(srcdir)/mkmap-symver.awk
 SHLIB_MAPFILES = $(srcdir)/libgcc-darwin.ver
+
+# APPLE LOCAL libcc_kext
+SHLIB_MULTILIB=.

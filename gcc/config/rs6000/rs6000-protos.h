@@ -28,13 +28,24 @@
 #ifdef RTX_CODE
 
 #ifdef TREE_CODE
+/* APPLE LOCAL begin AltiVec */
+extern struct rtx_def *expand_target_intrinsic (tree, rtx, enum machine_mode,
+						tree);
+extern int no_reg_parm_stack_space (CUMULATIVE_ARGS *, rtx);
+extern int function_ok_for_sibcall (tree);
+/* APPLE LOCAL end AltiVec */
+
+extern tree rearrange_arg_list (CUMULATIVE_ARGS *cum, tree args);
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, int, int, int);
+
 extern void rs6000_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
 extern struct rtx_def *rs6000_got_register (rtx);
 extern struct rtx_def *find_addr_reg (rtx);
 extern int any_operand (rtx, enum machine_mode);
+/* APPLE LOCAL AltiVec */
+extern int zero_m1_operand (rtx, enum machine_mode);
 extern int short_cint_operand (rtx, enum machine_mode);
 extern int u_short_cint_operand (rtx, enum machine_mode);
 extern int non_short_cint_operand (rtx, enum machine_mode);
@@ -42,6 +53,8 @@ extern int exact_log2_cint_operand (rtx, enum machine_mode);
 extern int gpc_reg_operand (rtx, enum machine_mode);
 extern int cc_reg_operand (rtx, enum machine_mode);
 extern int cc_reg_not_cr0_operand (rtx, enum machine_mode);
+/* APPLE LOCAL AltiVec */
+extern int reg_or_zero_operand (rtx, enum machine_mode);
 extern int reg_or_short_operand (rtx, enum machine_mode);
 extern int reg_or_neg_short_operand (rtx, enum machine_mode);
 extern int reg_or_aligned_short_operand (rtx, enum machine_mode);
@@ -88,6 +101,10 @@ extern bool legitimate_constant_pool_address_p (rtx);
 extern int expand_block_move (rtx[]);
 extern int load_multiple_operation (rtx, enum machine_mode);
 extern const char * rs6000_output_load_multiple (rtx[]);
+/* APPLE LOCAL begin AltiVec */
+extern int mov_generic_vector_mode (rtx operands[]);
+extern int mov_to_vrsave_operation (rtx, enum machine_mode);
+/* APPLE LOCAL end AltiVec */
 extern int store_multiple_operation (rtx, enum machine_mode);
 extern int branch_comparison_operator (rtx, enum machine_mode);
 extern int branch_positive_comparison_operator (rtx, enum machine_mode);
@@ -127,10 +144,13 @@ extern int mfcr_operation (rtx, enum machine_mode);
 extern int mtcrf_operation (rtx, enum machine_mode);
 extern int lmw_operation (rtx, enum machine_mode);
 extern struct rtx_def *create_TOC_reference (rtx);
+/* APPLE LOCAL RTX_COST for multiply */
+extern int rs6000_rtx_mult_cost (rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
-extern rtx rs6000_legitimize_reload_address (rtx, enum machine_mode,
+/* APPLE LOCAL pass reload addr by address */
+extern rtx rs6000_legitimize_reload_address (rtx *, enum machine_mode,
 			    int, int, int, int *);
 extern int rs6000_legitimate_address (enum machine_mode, rtx, int);
 extern bool rs6000_mode_dependent_address (rtx);
@@ -144,6 +164,10 @@ extern rtx rs6000_machopic_legitimize_pic_address (rtx orig,
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
+/* APPLE LOCAL begin AltiVec */
+extern void init_target_intrinsic (tree, int);
+extern union tree_node *select_target_overloaded_intrinsic (tree, tree);
+/* APPLE LOCAL end AltiVec */
 extern unsigned int rs6000_special_round_type_align (tree, int, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 					  tree, int);
@@ -169,9 +193,13 @@ extern enum direction function_arg_padding (enum machine_mode, tree);
 
 extern void optimization_options (int, int);
 extern void rs6000_override_options (const char *);
+/* APPLE LOCAL AltiVec */
+extern const char * choose_vec_easy (rtx, const char *, const char *);
 extern int direct_return (void);
 extern int first_reg_to_save (void);
 extern int first_fp_reg_to_save (void);
+/* APPLE LOCAL AltiVec */
+extern int first_vector_reg_to_save (void);
 extern void output_ascii (FILE *, const char *, int);
 extern void rs6000_gen_section_name (char **, const char *, const char *);
 extern void output_function_profiler (FILE *, int);
@@ -205,7 +233,11 @@ extern void rs6000_pragma_longcall (struct cpp_reader *);
 extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 
 #if TARGET_MACHO
-char *output_call (rtx, rtx *, int, int);
+void add_compiler_stub PARAMS ((tree, tree, int));
+void output_compiler_stub PARAMS ((void));
+int no_previous_def PARAMS ((tree));
+tree get_prev_label PARAMS ((tree));
+extern char* output_call PARAMS ((rtx, rtx *, int, int));
 #endif
 
 #endif  /* rs6000-protos.h */

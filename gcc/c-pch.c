@@ -35,6 +35,11 @@ Boston, MA 02111-1307, USA.  */
 #include "hosthooks.h"
 #include "target.h"
 
+/* APPLE LOCAL BEGIN pch distcc mrs */
+#include "flags.h"
+#include "cpphash.h"
+/* APPLE LOCAL END pch distcc mrs */
+
 /* This structure is read very early when validating the PCH, and
    might be read for a PCH which is for a completely different compiler
    for a different operating system.  Thus, it should really only contain
@@ -355,6 +360,25 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   unsigned long written;
   struct save_macro_data *smd;
   
+  /* APPLE LOCAL BEGIN pch distcc mrs */
+#if 0
+  /* MERGE FIXME: There is no 'print', and no 'outf'.  */
+  if (flag_pch_preprocess
+      && flag_preprocess_only)
+    {
+      fprintf (pfile->print.outf, "#include_pch \"%s\"\n", name);
+      pfile->print.line++;
+      pfile->print.printed = 0;
+    }
+
+  if (! flag_preprocess_only)
+    /* Before we wrote the file, we started a source file, so we have to start
+       one here to match.  */
+    /* MERGE FIXME: And there's no 'lineno'.  */
+    (*debug_hooks->start_source_file) (lineno, orig_name);
+  /* APPLE LOCAL END pch distcc mrs */
+#endif
+  
   f = fdopen (fd, "rb");
   if (f == NULL)
     {
@@ -376,9 +400,13 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
       long size = h.asm_size - written;
       if (size > 16384)
 	size = 16384;
-      if (fread (buf, size, 1, f) != 1
-	  || fwrite (buf, size, 1, asm_out_file) != 1)
-	cpp_errno (pfile, CPP_DL_ERROR, "reading");
+      /* APPLE LOCAL BEGIN pch distcc mrs */
+      if (fread (buf, size, 1, f) != 1)
+	cpp_errno (pfile, CPP_DL_ERROR, "reading");	
+      else if (!flag_preprocess_only
+	       && fwrite (buf, size, 1, asm_out_file) != 1)
+	cpp_errno (pfile, CPP_DL_ERROR, "writing");
+      /* APPLE LOCAL END pch distcc mrs */
       written += size;
     }
   free (buf);

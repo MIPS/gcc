@@ -53,6 +53,13 @@
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       builtin_define ("__MACH__");              \
       builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL begin AltiVec */				\
+      if (flag_altivec)						\
+        {							\
+	  builtin_define ("__ALTIVEC__");			\
+	  builtin_define_with_value ("__VEC__", "10106", 0);	\
+	}							\
+      /* APPLE LOCAL end AltiVec */				\
     }                                           \
   while (0)
 
@@ -96,7 +103,7 @@ do {									\
 #define CC1_SPEC "\
 %{gused: -feliminate-unused-debug-symbols %<gused }\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
-%{!static:%{!mdynamic-no-pic:-fPIC}}"
+%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 /* It's virtually impossible to predict all the possible combinations
    of -mcpu and -maltivec and whatnot, so just supply
@@ -130,26 +137,60 @@ do {									\
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
 
+/* APPLE LOCAL begin -pg fix */
+/* -pg has a problem which is normally concealed by -fPIC;
+   either -mdynamic-no-pic or -static exposes the -pg problem, causing the
+   crash.  FSF gcc for Darwin also has this bug.  The problem is that -pg
+   causes several int registers to be saved and restored although they may
+   not actually be used (config/rs6000/rs6000.c:first_reg_to_save()).  In the
+   rare case where none of them is actually used, a consistency check fails
+   (correctly).  This cannot happen with -fPIC because the PIC register (R31)
+   is always "used" in the sense checked by the consistency check.  The
+   easy fix, here, is therefore to mark R31 always "used" whenever -pg is on.
+   A better, but harder, fix would be to improve -pg's register-use
+   logic along the lines suggested by comments in the function listed above. */
+#undef PIC_OFFSET_TABLE_REGNUM
+#define PIC_OFFSET_TABLE_REGNUM ((flag_pic || profile_flag) \
+    ? RS6000_PIC_OFFSET_TABLE_REGNUM \
+    : INVALID_REGNUM)
+/* APPLE LOCAL end -pg fix */
+
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
 
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+  /* APPLE LOCAL AltiVec */ \
+  (RS6000_ALIGN (current_function_outgoing_args_size			\
    + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA)
+   + RS6000_SAVE_AREA, 16))
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
-   + (STACK_POINTER_OFFSET))
+  /* APPLE LOCAL AltiVec */ \
+  (RS6000_ALIGN (current_function_outgoing_args_size			\
+   + (STACK_POINTER_OFFSET), 16))
+
+/* APPLE LOCAL improve performance */
+/* Define cutoff for using external functions to save floating point.
+   For Darwin, use the function for more than a few registers.  */
+
+#define FP_SAVE_INLINE(FIRST_REG) (((FIRST_REG) > 60 && (FIRST_REG) < 64) || TARGET_LONG_BRANCH)
 
 /* These are used by -fbranch-probabilities */
 #define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__text2,regular,pure_instructions"
 
-/* Define cutoff for using external functions to save floating point.
-   Currently on Darwin, always use inline stores.  */
+/* APPLE LOCAL begin AltiVec */
+/* Define cutoff for using external functions to save vector registers.  */
+
+#define VECTOR_SAVE_INLINE(FIRST_REG) \
+  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) || TARGET_LONG_BRANCH)
+
+/* vector pixel and vector bool are aliases of other vector types.  */
+
+#define VECTOR_PIXEL_AND_BOOL_NOT_DISTINCT
+/* APPLE LOCAL end AltiVec */
 
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
@@ -212,11 +253,7 @@ do {									\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START ";"
 
-/* FP save and restore routines.  */
-#define	SAVE_FP_PREFIX "._savef"
-#define SAVE_FP_SUFFIX ""
-#define	RESTORE_FP_PREFIX "._restf"
-#define RESTORE_FP_SUFFIX ""
+/* APPLE LOCAL don't define SAVE_FP_PREFIX and friends */
 
 /* This is how to output an assembler line that says to advance
    the location counter to a multiple of 2**LOG bytes using the
@@ -288,38 +325,67 @@ do {									\
    ? GENERAL_REGS						\
    : (CLASS))
 
-/* Fix for emit_group_load (): force large constants to be pushed via regs.  */
-#define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 ff */
+/* This now supports the Macintosh power, mac68k, and natural 
+   alignment modes.  It now has one more parameter than the standard 
+   version of the ADJUST_FIELD_ALIGN macro.  
+   
+   The macro works as follows: We use the computed alignment of the 
+   field if we are in the natural alignment mode or if the field is 
+   a vector.  Otherwise, if we are in the mac68k alignment mode, we
+   use the minimum of the computed alignment and 16 (pegging at
+   2-byte alignment).  If we are in the power mode, we peg at 32
+   (word alignment) unless it is the first field of the struct, in 
+   which case we use the computed alignment.  */
+#undef ADJUST_FIELD_ALIGN
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED, FIRST_FIELD_P)	\
+  (TARGET_ALIGN_NATURAL ? (COMPUTED) :				\
+   (((COMPUTED) == RS6000_VECTOR_ALIGNMENT)			\
+    ? RS6000_VECTOR_ALIGNMENT					\
+    : (MIN ((COMPUTED), 					\
+    	    (TARGET_ALIGN_MAC68K ? 16 				\
+    	    			 : ((FIRST_FIELD_P) ? (COMPUTED) \
+    	    			 		    : 32))))))
 
-/* This now supports a natural alignment mode */
-/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED)))
+#undef ROUND_TYPE_ALIGN
+/* Macintosh alignment modes require more complicated handling
+   of alignment, so we replace the macro with a call to a
+   out-of-line function.  */
+union tree_node;
+extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs6000.c  */
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
+  round_type_align(STRUCT, COMPUTED, SPECIFIED)
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
 
-/* Darwin increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
-    || TREE_CODE (STRUCT) == UNION_TYPE					\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
-   && TARGET_ALIGN_NATURAL == 0                         		\
-   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
-   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) 		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
-   : MAX ((COMPUTED), (SPECIFIED)))
+/* APPLE LOCAL AltiVec */
+#undef DWARF_FRAME_REGISTERS
+#define DWARF_FRAME_REGISTERS 110
+
+/* APPLE LOCAL begin alignment */
+/* Make sure local alignments come from the type node, not the mode;
+   mode-based alignments are wrong for vectors.  */
+#undef LOCAL_ALIGNMENT
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX ((unsigned) ALIGN,	\
+					      TYPE_ALIGN (TYPE)))
+/* APPLE LOCAL end alignment */
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
    support 64 bit PowerPC either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 
+/* APPLE LOCAL begin branch cost */
+#undef BRANCH_COST
+/* Better code is generated by saying conditional branches take 1 tick.  */
+#define BRANCH_COST	1
+/* APPLE LOCAL end branch cost */
+
+/* APPLE LOCAL indirect calls in R12 */
+/* Address of indirect call must be computed here */
+#define MAGIC_INDIRECT_CALL_REG 12
+
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  */
 #define BOOL_TYPE_SIZE INT_TYPE_SIZE
 
-#undef REGISTER_TARGET_PRAGMAS
-#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
-
+/* APPLE LOCAL OS pragma hook */
+/* Register generic Darwin pragmas as "OS" pragmas.  */

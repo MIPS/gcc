@@ -39,6 +39,13 @@ enum debug_info_type
 /* Specify which kind of debugging info to generate.  */
 extern enum debug_info_type write_symbols;
 
+/* APPLE LOCAL begin Symbol Separation */
+extern enum debug_info_type orig_write_symbols;
+
+/* Nonzero means, try to look for separate symbol repositories.  */
+extern int flag_grepository;
+/* APPLE LOCAL end Symbol Separation */
+
 /* Names of debug_info_type, for error messages.  */
 extern const char *const debug_type_names[];
 
@@ -239,10 +246,38 @@ extern int flag_print_asm_name;
 
 extern int flag_signed_char;
 
+/* APPLE LOCAL coalescing  */
+extern int flag_export_coalesced;
+
+/* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+/* Nonzero means initial "\p" in string becomes a length byte and
+   string type becomes _unsigned_ char* .  */
+
+extern int flag_pascal_strings;
+/* APPLE LOCAL end Pascal strings 2001-07-05 zll */
+
 /* Nonzero means give an enum type only as many bytes as it needs.  */
 
 extern int flag_short_enums;
 
+/* APPLE LOCAL AltiVec */
+/* Nonzero means enable the AltiVec Programming Model.  */
+
+extern int flag_altivec;
+/* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin constant cfstrings */
+/* Nonzero means that: (1) the __CONSTANT_CFSTRINGS__ manifest constant
+   is defined, possibly allowing for conditional use of the
+   __builtin__CFStringMakeConstantString function (the latter is always
+   available, regardless of the setting of this flag), and (2) use
+   the CFString layout to create @"..." strings in ObjC/ObjC++.  */
+extern int flag_constant_cfstrings;
+/* Nonzero means that we should warn whenever non-ASCII characters appear
+   inside of @"..." literals (as they may be non-portable).  */
+extern int warn_nonportable_cfstrings;
+/* APPLE LOCAL end constant cfstrings */
+   
 /* Nonzero for -fcaller-saves: allocate values in regs that need to
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */
@@ -377,6 +412,13 @@ extern int flag_rerun_loop_opt;
    go inline.  */
 
 extern int flag_inline_functions;
+
+/* APPLE LOCAL begin -fobey-inline */
+/* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
+   of codesize.  */
+
+extern int flag_obey_inline;
+/* APPLE LOCAL end -fobey-inline */
 
 /* Nonzero for -fkeep-inline-functions: even if we make a function
    go inline everywhere, keep its definition around for debugging
@@ -825,5 +867,34 @@ extern int flag_abi_version;
    and the rounding mode is important.  */
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
   (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
+
+/* APPLE LOCAL begin -fast or -fastf or -fastcp */
+/* Nonzero if we should perform SPEC oriented optimizations for C.  */
+extern int flag_fast;
+/* Nonzero if we should perform SPEC oriented optimizations for C that is
+   produced by the NAG Fortan-to-C translator.  */
+extern int flag_fastf;
+/* Nonzero if we should perform SPEC oriented optimizations for C++.  */
+extern int flag_fastcp;
+/* APPLE LOCAL end -fast or -fastf -fastcp */
+
+/* APPLE LOCAL gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+/* Nonzero if generating debugger info for used symbols only.  */
+extern int flag_debug_only_used_symbols;
+#endif
+
+/* APPLE LOCAL BEGIN pch distcc mrs */
+/* True if PCH should omit from the -E output all lines from PCH files
+   found in PCH files.  */
+extern int flag_pch_preprocess;
+/* APPLE LOCAL END pch distcc mrs */
+
+/* APPLE LOCAL begin loop transpose */
+/* Nonzero if we should perform automatic loop transposition. */
+extern int flag_loop_transpose;
+/* APPLE LOCAL end loop transpose */
+
+extern int disable_typechecking_for_spec_flag;
 
 #endif /* ! GCC_FLAGS_H */

@@ -239,6 +239,10 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
+/* APPLE LOCAL Objective-C++ */
+#define D_OBJC		0x10	/* Objective C only */
+/* APPLE LOCAL AltiVec */
+#define D_ALTIVEC 	0x80	/* AltiVec keywords */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -266,6 +270,8 @@ static const struct resword reswords[] =
   { "__inline__",	RID_INLINE,	0 },
   { "__label__",	RID_LABEL,	0 },
   { "__null",		RID_NULL,	0 },
+   /* APPLE LOCAL private extern */
+  { "__private_extern__", RID_PRIVATE_EXTERN, 0 },
   { "__offsetof",       RID_OFFSETOF,   0 },
   { "__offsetof__",     RID_OFFSETOF,   0 },
   { "__real",		RID_REALPART,	0 },
@@ -343,7 +349,46 @@ static const struct resword reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
+  /* APPLE LOCAL begin Objective-C++ */
+  { "id",		RID_ID,			D_OBJC },
 
+  /* These objc keywords are recognized only immediately after
+     an '@'.  Note that some of these overlap with existing C++ keywords. */
+/*{ "class",		RID_AT_CLASS,		D_OBJC },  OVERLAP */
+  { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
+  { "defs",		RID_AT_DEFS,		D_OBJC },
+  { "encode",		RID_AT_ENCODE,		D_OBJC },
+  { "end",		RID_AT_END,		D_OBJC },
+  { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
+  { "interface",	RID_AT_INTERFACE,	D_OBJC },
+/*{ "private",		RID_AT_PRIVATE,		D_OBJC },  OVERLAP */
+/*{ "protected",	RID_AT_PROTECTED,	D_OBJC },  OVERLAP */
+  { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
+/*{ "public",		RID_AT_PUBLIC,		D_OBJC },  OVERLAP */
+  { "selector",		RID_AT_SELECTOR,	D_OBJC },
+
+  /* These are recognized only in protocol-qualifier context
+     (see above) */
+  { "bycopy",		RID_BYCOPY,		D_OBJC },
+  { "byref",		RID_BYREF,		D_OBJC },
+  { "in",		RID_IN,			D_OBJC },
+  { "inout",		RID_INOUT,		D_OBJC },
+  { "oneway",		RID_ONEWAY,		D_OBJC },
+  { "out",		RID_OUT,		D_OBJC },
+  /* APPLE LOCAL end Objective-C++ */
+
+  /* APPLE LOCAL AltiVec */
+  /* All keywords which follow are only recognized when
+     -faltivec is specified.  */
+  { "vec_step",		RID_ALTIVEC_VEC_STEP,	D_ALTIVEC },
+  { "__vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
+  { "__pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
+  { "__bool",		RID_ALTIVEC_BOOL,	D_ALTIVEC },
+  /* In addition, the following function solely as type 
+     specifiers, and are treated as ordinary identifiers
+     in other contexts.  */
+  { "vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
+  { "pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
 };
 
 void
@@ -354,6 +399,13 @@ init_reswords (void)
   int mask = ((flag_no_asm ? D_ASM : 0)
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
+  /* APPLE LOCAL AltiVec */
+  if (!flag_altivec)
+     mask |= D_ALTIVEC;
+
+  /* APPLE LOCAL objc++ */
+  mask |= D_OBJC;
+
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
@@ -363,6 +415,25 @@ init_reswords (void)
       if (! (reswords[i].disable & mask))
 	C_IS_RESERVED_WORD (id) = 1;
     }
+    
+  /* APPLE LOCAL begin private extern  Radar 2872481 ilr */
+  /* For C++ there is always a -D__private_extern__=extern on the
+     command line.  However, if -fpreprocessed was specified then
+     macros are not expanded so the -D is meaningless.  But this
+     replacement is required for C++.  There for we have to "pretend"
+     that '__private_extern__' is 'extern' and we can do this simply by
+     making the rid code for '__private_extern__' be the same as for
+     extern.  Note, we probably could always do this here since
+     '__private_extern__' is always to be treated like 'extern' for
+     c++.  But we'll be conservative and only do it when -fpreprocessed
+     is specified and depend on the macro substitution in all other
+     cases.  */
+  if (flag_preprocessed)
+    {
+      id = get_identifier ("__private_extern__");
+      C_RID_CODE (id) = RID_EXTERN;
+    }
+  /* APPLE LOCAL end private extern  Radar 2872481 ilr */
 }
 
 static void
@@ -427,6 +498,14 @@ cxx_init (void)
   init_repo (main_input_filename);
 
   pop_srcloc();
+
+  /* APPLE LOCAL gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+  /* By default we want to use -gused for C++ and Objective-C++.  */
+  if (flag_debug_only_used_symbols == -1)
+    flag_debug_only_used_symbols = 1;
+#endif
+
   return true;
 }
 

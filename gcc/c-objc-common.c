@@ -62,8 +62,9 @@ c_disregard_inline_limits (tree fn)
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
     return 1;
 
+  /* APPLE LOCAL obey inline */
   return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
-	  && DECL_EXTERNAL (fn));
+	  && (DECL_EXTERNAL (fn) || flag_obey_inline));
 }
 
 int
@@ -182,6 +183,13 @@ c_objc_common_init (void)
 	mesg_implicit_function_declaration = 0;
     }
 
+/* APPLE LOCAL gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+  /* By default we want to use -gused for C and Objective-C.  */
+  if (flag_debug_only_used_symbols == -1)
+    flag_debug_only_used_symbols = 1;
+#endif
+
   return true;
 }
 
@@ -232,6 +240,11 @@ finish_cdtor (tree body)
 void
 c_objc_common_finish_file (void)
 {
+  /* APPLE LOCAL Symbol Separation */
+  /* Write context information.  */
+  if (dbg_dir)
+    c_common_write_context ();
+
   if (pch_file)
     c_common_write_pch ();
 

@@ -23,6 +23,9 @@
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
 
+/* APPLE LOCAL fat builds */
+#define DEFAULT_TARGET_ARCH "ppc"
+
 /* Definitions for the object file format.  These are set at
    compile-time.  */
 
@@ -193,9 +196,23 @@ extern int target_flags;
 /* Use single field mfcr instruction.  */
 #define MASK_MFCRF		0x00080000
 
-/* The only remaining free bits are 0x00600000.  linux64.h uses
-   0x00100000, and sysv4.h uses 0x00800000 -> 0x40000000.
-   0x80000000 is not available because target_flags is signed.  */
+/* The only remaining free bits are 0x00700000. sysv4.h uses
+   0x00800000 -> 0x40000000, and 0x80000000 is not available
+   because target_flags is signed.  */
+
+/* APPLE LOCAL begin AltiVec */
+/* Disable updating VRSAVE register.  */
+#define	MASK_NO_VRSAVE		0x00400000
+/* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL long-branch  */
+/* gen call addr in register for >64M range */
+#define MASK_LONG_BRANCH	0x02000000
+
+/* APPLE LOCAL BEGIN fix-and-continue mrs  */
+#define MASK_FIX_AND_CONTINUE	0x04000000
+#define MASK_INDIRECT_ALL_DATA	0x08000000
+/* APPLE LOCAL END fix-and-continue mrs  */
 
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
@@ -215,6 +232,10 @@ extern int target_flags;
 #define TARGET_SCHED_PROLOG	(target_flags & MASK_SCHED_PROLOG)
 #define TARGET_ALTIVEC		(target_flags & MASK_ALTIVEC)
 #define TARGET_AIX_STRUCT_RET	(target_flags & MASK_AIX_STRUCT_RET)
+/* APPLE LOCAL AltiVec */
+#define TARGET_NO_VRSAVE	(target_flags & MASK_NO_VRSAVE)
+/* APPLE LOCAL long-branch  */
+#define TARGET_LONG_BRANCH	(target_flags & MASK_LONG_BRANCH)
 
 /* Define TARGET_MFCRF if the target assembler supports the optional
    field operand for mfcr and the target processor supports the
@@ -226,11 +247,12 @@ extern int target_flags;
 #define TARGET_MFCRF 0
 #endif
 
-
 #define TARGET_32BIT		(! TARGET_64BIT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
 #define TARGET_UPDATE		(! TARGET_NO_UPDATE)
 #define TARGET_FUSED_MADD	(! TARGET_NO_FUSED_MADD)
+/* APPLE LOCAL AltiVec */
+#define TARGET_VRSAVE		(! TARGET_NO_VRSAVE)
 
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
@@ -248,6 +270,10 @@ extern int target_flags;
 #endif
 
 #define TARGET_XL_CALL 0
+/* APPLE LOCAL BEGIN fix-and-continue mrs  */
+#define TARGET_FIX_AND_CONTINUE   (target_flags & MASK_FIX_AND_CONTINUE)
+#define TARGET_INDIRECT_ALL_DATA  (target_flags & MASK_INDIRECT_ALL_DATA)
+/* APPLE LOCAL END fix-and-continue mrs  */
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -346,6 +372,26 @@ extern int target_flags;
 			""},						\
   {"no-svr4-struct-return", MASK_AIX_STRUCT_RET,			\
 			""},						\
+  /* APPLE LOCAL AltiVec */						\
+  {"vrsave",		- MASK_NO_VRSAVE, ""},				\
+  {"no-vrsave",		MASK_NO_VRSAVE, ""},				\
+  /* APPLE LOCAL long-branch  */					\
+  {"long-branch",	MASK_LONG_BRANCH,				\
+	N_("Generate 32-bit call addresses (range > 64M)")},		\
+  {"no-long-branch",	-MASK_LONG_BRANCH, ""},				\
+  {"longcall",	MASK_LONG_BRANCH,					\
+	N_("Generate 32-bit call addresses (range > 64M)")},		\
+  {"no-longcall",	-MASK_LONG_BRANCH, ""},				\
+  /* APPLE LOCAL BEGIN fix-and-continue mrs  */				\
+  {"fix-and-continue",  MASK_FIX_AND_CONTINUE,				\
+      N_("Generate code suitable for fast turn around debugging")},	\
+  {"no-fix-and-continue", -MASK_FIX_AND_CONTINUE,			\
+      N_("Don't generate code suitable for fast turn around debugging")},\
+  {"indirect-data",	MASK_INDIRECT_ALL_DATA,				\
+      N_("Generate code suitable for fast turn around debugging")},	\
+  {"no-indirect-data",	-MASK_INDIRECT_ALL_DATA,			\
+      N_("Don't generate code suitable for fast turn around debugging")},\
+  /* APPLE LOCAL END fix-and-continue mrs  */				\
   {"mfcrf",		MASK_MFCRF,					\
 			N_("Generate single field mfcr instruction")},	\
   {"no-mfcrf",		- MASK_MFCRF,					\
@@ -539,6 +585,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define MASK_ALIGN_POWER   0x00000000
 #define MASK_ALIGN_NATURAL 0x00000001
 #define TARGET_ALIGN_NATURAL (rs6000_alignment_flags & MASK_ALIGN_NATURAL)
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 ff */
+#define MASK_ALIGN_MAC68K  0x00000002
+#define TARGET_ALIGN_MAC68K (rs6000_alignment_flags & MASK_ALIGN_MAC68K)
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
 #else
 #define TARGET_ALIGN_NATURAL 0
 #endif
@@ -728,6 +778,13 @@ extern const char *rs6000_warn_altivec_long_switch;
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
 
+/* Constants for alignment macros below.  */
+/* APPLE LOCAL Macintosh alignment */
+#define RS6000_DOUBLE_ALIGNMENT 64
+#define RS6000_LONGLONG_ALIGNMENT 64
+/* APPLE LOCAL AltiVec */
+#define RS6000_VECTOR_ALIGNMENT 128
+
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 128
 
@@ -909,6 +966,8 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define MAX_CR_REGNO 75
 #define XER_REGNO    76
 #define FIRST_ALTIVEC_REGNO	77
+/* APPLE LOCAL AltiVec */
+#define FIRST_SAVED_ALTIVEC_REGNO 97
 #define LAST_ALTIVEC_REGNO	108
 #define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO + 1)
 #define VRSAVE_REGNO		109
@@ -1053,6 +1112,8 @@ extern const char *rs6000_warn_altivec_long_switch;
    registers only can hold floating modes and DImode, and CR register only
    can hold CC modes.  We cannot put TImode anywhere except general
    register and it must be able to fit within the register set.  */
+/* APPLE LOCAL AltiVec */
+/* For AltiVec, VXXXmode's can fit only in the vector registers.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
   (INT_REGNO_P (REGNO) ?						\
@@ -1162,8 +1223,7 @@ extern const char *rs6000_warn_altivec_long_switch;
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
   if (DEFAULT_ABI == ABI_DARWIN						\
       && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
-    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
+      fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
       = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
   if (TARGET_ALTIVEC)                                                   \
@@ -1252,12 +1312,15 @@ enum reg_class
   BASE_REGS,
   GENERAL_REGS,
   FLOAT_REGS,
+  /* APPLE LOCAL AltiVec */
+  NON_SPECIAL_REGS,
   ALTIVEC_REGS,
   VRSAVE_REGS,
   VSCR_REGS,
   SPE_ACC_REGS,
   SPEFSCR_REGS,
-  NON_SPECIAL_REGS,
+  /* APPLE LOCAL AltiVec */
+  /* lose the NON_SPECIAL_REGS here */
   MQ_REGS,
   LINK_REGS,
   CTR_REGS,
@@ -1282,12 +1345,15 @@ enum reg_class
   "BASE_REGS",								\
   "GENERAL_REGS",							\
   "FLOAT_REGS",								\
+  /* APPLE LOCAL AltiVec */  \
+  "NON_SPECIAL_REGS",							\
   "ALTIVEC_REGS",							\
   "VRSAVE_REGS",							\
   "VSCR_REGS",								\
   "SPE_ACC_REGS",                                                       \
   "SPEFSCR_REGS",                                                       \
-  "NON_SPECIAL_REGS",							\
+  /* APPLE LOCAL AltiVec */  \
+  /* lose the NON_SPECIAL_REGS here */  \
   "MQ_REGS",								\
   "LINK_REGS",								\
   "CTR_REGS",								\
@@ -1311,12 +1377,15 @@ enum reg_class
   { 0xfffffffe, 0x00000000, 0x00000008, 0x00000000 }, /* BASE_REGS */	     \
   { 0xffffffff, 0x00000000, 0x00000008, 0x00000000 }, /* GENERAL_REGS */     \
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 }, /* FLOAT_REGS */       \
+  { 0xffffffff, 0xffffffff, 0x00000008, 0x00000000 }, /* NON_SPECIAL_REGS */ \
+  /* APPLE LOCAL AltiVec */  \
   { 0x00000000, 0x00000000, 0xffffe000, 0x00001fff }, /* ALTIVEC_REGS */     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00002000 }, /* VRSAVE_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00010000 }, /* SPEFSCR_REGS */     \
-  { 0xffffffff, 0xffffffff, 0x00000008, 0x00000000 }, /* NON_SPECIAL_REGS */ \
+  /* APPLE LOCAL AltiVec */  \
+  /* lose the NON_SPECIAL_REGS here */  \
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000 }, /* MQ_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000002, 0x00000000 }, /* LINK_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000004, 0x00000000 }, /* CTR_REGS */	     \
@@ -1372,12 +1441,23 @@ enum reg_class
    : (C) == 'z' ? XER_REGS	\
    : NO_REGS)
 
+/* APPLE LOCAL AltiVec */
+/* Allow the use of letters A, B, C, and D as constant contraints.  */
+#define EXTRA_CONSTANT_CONSTRAINTS
+
 /* The letters I, J, K, L, M, N, and P in a register constraint string
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
 
+   APPLE LOCAL begin AltiVec
+   (Additional letters for AltiVec)
+   `A' is a signed 5-bit constant
+   `B' is a unsigned 5-bit constant
+   `C' is a unsigned 4-bit constant
+   `D' is a unsigned 2-bit constant
+   APPLE LOCAL end AltiVec
    `I' is a signed 16-bit constant
    `J' is a constant with only the high-order 16 bits nonzero
    `K' is a constant with only the low-order 16 bits nonzero
@@ -1387,17 +1467,26 @@ enum reg_class
    `O' is the constant zero
    `P' is a constant whose negation is a signed 16-bit constant */
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-   ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & (~ (unsigned HOST_WIDE_INT) 0xffff0000)) == 0 \
-   : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
-   : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
+/* APPLE LOCAL begin AltiVec */
+/* Note that the original argument C results in an attempted macro
+   expansion inside the constraint letter 'C', so we have to change
+   the argument name to make this work.  */
+#define CONST_OK_FOR_LETTER_P(VALUE, CL)					\
+   ( (CL) == 'A' ? (unsigned HOST_WIDE_INT) ((VALUE) + 16) < 32			\
+   : (CL) == 'B' ? (unsigned HOST_WIDE_INT) (VALUE) < 32			\
+   : (CL) == 'C' ? (unsigned HOST_WIDE_INT) (VALUE) < 16			\
+   : (CL) == 'D' ? (unsigned HOST_WIDE_INT) (VALUE) < 4				\
+   : (CL) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
+   : (CL) == 'J' ? ((VALUE) & (~ (unsigned HOST_WIDE_INT) 0xffff0000)) == 0 \
+   : (CL) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
+   : (CL) == 'L' ? (((VALUE) & 0xffff) == 0				\
 		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
-   : (C) == 'M' ? (VALUE) > 31						\
-   : (C) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
-   : (C) == 'O' ? (VALUE) == 0						\
-   : (C) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
+   : (CL) == 'M' ? (VALUE) > 31						\
+   : (CL) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
+   : (CL) == 'O' ? (VALUE) == 0						\
+   : (CL) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
    : 0)
+/* APPLE LOCAL end AltiVec */
 
 /* Similar, but for floating constants, and defining letters G and H.
    Here VALUE is the CONST_DOUBLE rtx itself.
@@ -1528,6 +1617,9 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
+/* Offsets recorded in opcodes are a multiple of this alignment factor.  */
+#define DWARF_CIE_DATA_ALIGNMENT (-((int) (TARGET_32BIT ? 4 : 8)))
+
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
@@ -1559,9 +1651,10 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 /* Align an address */
 #define RS6000_ALIGN(n,a) (((n) + (a) - 1) & ~((a) - 1))
 
-/* Size of V.4 varargs area in bytes */
+/* APPLE LOCAL AltiVec */
+/* Size of V.4 varargs area in bytes.  Round to 0 mod 16. */
 #define RS6000_VARARGS_SIZE \
-  ((GP_ARG_NUM_REG * (TARGET_32BIT ? 4 : 8)) + (FP_ARG_NUM_REG * 8) + 8)
+  ((GP_ARG_NUM_REG * (TARGET_32BIT ? 4 : 8)) + (FP_ARG_NUM_REG * 8) + 8 + 8)
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1608,6 +1701,10 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    in a register.  The value is the number of bytes allocated to this
    area.  */
 #define REG_PARM_STACK_SPACE(FNDECL)	RS6000_REG_SAVE
+
+/* APPLE LOCAL AltiVec */
+#define NO_REG_PARM_STACK_SPACE(CUM,ENTRY) \
+  no_reg_parm_stack_space(&CUM, ENTRY)
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
@@ -1717,6 +1814,9 @@ typedef struct machine_function GTY(())
   int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* APPLE LOCAL volatile pic base reg in leaves */
+  /* Substitute PIC register in leaf functions */
+  int substitute_pic_base_reg;
   /* Some local-dynamic symbol.  */
   const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
@@ -1753,6 +1853,11 @@ typedef struct rs6000_args
   int stdarg;			/* Whether function is a stdarg function.  */
   int call_cookie;		/* Do special things for this call */
   int sysv_gregno;		/* next available GP register */
+  /* APPLE LOCAL begin AltiVec */
+  int num_vector;		/* # VECTOR args */
+  int is_incoming;		/* Is this a call or a function */
+  int is_varargs;		/* Is this a varargs call? */
+  /* APPLE LOCAL end AltiVec */
 } CUMULATIVE_ARGS;
 
 /* Define intermediate macro to compute the size (in registers) of an argument
@@ -1777,6 +1882,10 @@ typedef struct rs6000_args
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
   init_cumulative_args (&CUM, FNTYPE, LIBNAME, TRUE, FALSE, 1000)
+
+/* APPLE LOCAL AltiVec */
+#define REARRANGE_ARG_LIST(CUM,ARGS) \
+  rearrange_arg_list(&CUM, ARGS)
 
 /* Like INIT_CUMULATIVE_ARGS' but only used for outgoing libcalls.  */
 
@@ -2015,7 +2124,6 @@ typedef struct rs6000_args
    On the RS/6000, all integer constants are acceptable, most won't be valid
    for particular insns, though.  Only easy FP constants are
    acceptable.  */
-
 #define LEGITIMATE_CONSTANT_P(X)				\
   (((GET_CODE (X) != CONST_DOUBLE				\
      && GET_CODE (X) != CONST_VECTOR)				\
@@ -2126,7 +2234,8 @@ typedef struct rs6000_args
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
-  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+  /* APPLE LOCAL pass reload addr by address */				     \
+  (X) = rs6000_legitimize_reload_address (&(X), (MODE), (OPNUM),	     \
 			(int)(TYPE), (IND_LEVELS), &win);		     \
   if ( win )								     \
     goto WIN;								     \
@@ -2633,10 +2742,13 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 /* Define the codes that are matched by predicates in rs6000.c.  */
 
 #define PREDICATE_CODES							   \
-  {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},		   \
-  {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
-		    LABEL_REF, SUBREG, REG, MEM}},			   \
+  /* APPLE LOCAL begin AltiVec */                                          \
+  {"zero_m1_operand", {CONST_INT}},					   \
+  {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,             \
+                   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},                \
+  {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,           \
+                     LABEL_REF, SUBREG, REG, MEM}},                        \
+  /* APPLE LOCAL end AltiVec */                                            \
   {"short_cint_operand", {CONST_INT}},					   \
   {"u_short_cint_operand", {CONST_INT}},				   \
   {"non_short_cint_operand", {CONST_INT}},				   \
@@ -2644,6 +2756,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"gpc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
+  /* APPLE LOCAL AltiVec */                                                \
+  {"reg_or_zero_operand", {SUBREG, REG, CONST_INT}},                       \
   {"reg_or_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_aligned_short_operand", {SUBREG, REG, CONST_INT}},		   \
@@ -2685,6 +2799,10 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 		     CONST_DOUBLE, SYMBOL_REF}},			   \
   {"load_multiple_operation", {PARALLEL}},				   \
   {"store_multiple_operation", {PARALLEL}},				   \
+  /* APPLE LOCAL begin AltiVec */					   \
+  {"equality_operator", {EQ, NE}},					   \
+  {"vector_comparison_operator", {EQ, LT}},				   \
+  /* APPLE LOCAL end AltiVec */					   	   \
   {"vrsave_operation", {PARALLEL}},					   \
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
 				  GT, LEU, LTU, GEU, GTU,		   \
@@ -2713,6 +2831,28 @@ extern int flag_pic;
 extern int optimize;
 extern int flag_expensive_optimizations;
 extern int frame_pointer_needed;
+
+/* APPLE LOCAL begin AltiVec */
+enum {VRSAVE_OFF, VRSAVE_NORMAL, VRSAVE_ALLON};	/* #pragma altivec_vrsave  */
+extern int current_vrsave_save_type,	/* for the current function  */
+	   standard_vrsave_save_type;	/* state prior to current function  */
+
+/* In a FUNCTION_DECL, nonzero means the function is a target defined
+   intrinsic function.  */
+
+#define DECL_TARGET_INTRINSIC_P(NODE) \
+  decl_target_intrinsic_p (NODE)
+
+/* In a FUNCTION_DECL, nonzero means the function is a target defined
+   intrinsic function that is overloaded.  */
+
+#define DECL_TARGET_OVERLOADED_INTRINSIC_P(NODE) \
+  decl_target_overloaded_intrinsic_p (NODE)
+extern int decl_target_overloaded_intrinsic_p PARAMS ((tree));
+
+#define SELECT_TARGET_OVERLOADED_INTRINSIC(FUNCTION, PARAMS) \
+  select_target_overloaded_intrinsic(FUNCTION, PARAMS)
+/* APPLE LOCAL end AltiVec */
 
 enum rs6000_builtins
 {

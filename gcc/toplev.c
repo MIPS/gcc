@@ -108,6 +108,8 @@ static void init_asm_output (const char *);
 static void finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
+/* APPLE LOCAL interrupt signal handler (radar 2941633)  ilr */
+static void interrupt_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
 
@@ -138,6 +140,11 @@ static const char **save_argv;
    If there isn't any there, then this is the cc1 input file name.  */
 
 const char *main_input_filename;
+
+/* APPLE LOCAL fat builds */
+/* for radar 2865464  ilr */
+static int arch_specified = 0;
+/* APPLE LOCAL end fat builds */
 
 /* Current position in real source file.  */
 
@@ -309,11 +316,40 @@ int flag_signed_char;
 
 int flag_short_enums;
 
+/* APPLE LOCAL AltiVec */
+/* Nonzero means enable AltiVec extensions.  */
+int flag_altivec = 0;   /* Ignore for now */
+
+/* APPLE LOCAL begin -fast */
+/* Nonzero if we should perform SPEC oriented optimizations.  */
+int flag_fast = 0;
+int flag_fastf = 0;
+int flag_fastcp = 0;
+/* APPLE LOCAL end -fast */
+
+/* APPLE LOCAL begin constant cfstrings */
+/* Nonzero means that: (1) the __CONSTANT_CFSTRINGS__ manifest constant
+   is defined, possibly allowing for conditional use of the
+   __builtin__CFStringMakeConstantString function (the latter is always
+   available, regardless of the setting of this flag), and (2) use
+   the CFString layout to create @"..." strings in ObjC/ObjC++.  */
+int flag_constant_cfstrings;
+/* Nonzero means that we should warn whenever non-ASCII characters appear
+   inside of @"..." literals (as they may be non-portable).  */
+int warn_nonportable_cfstrings;
+/* APPLE LOCAL end constant cfstrings */
+   
 /* Nonzero for -fcaller-saves: allocate values in regs that need to
    be saved across function calls, if that produces overall better code.
    Optional now, so people can test it.  */
 
 int flag_caller_saves = 0;
+
+/* APPLE LOCAL begin -ffppc 2001-08-01 sts */
+/* Nonzero if the floating point precision control pass should
+   be performed. (x86 only really, but we pretend it's generic)  */
+int flag_fppc = 0;
+/* APPLE LOCAL end -ffppc 2001-08-01 sts */
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -563,6 +599,13 @@ int flag_rerun_loop_opt;
    good inline candidates.  */
 
 int flag_inline_functions;
+
+/* APPLE LOCAL begin -fobey-inline */
+/* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
+   of codesize.  */
+
+int flag_obey_inline;
+/* APPLE LOCAL end -fobey-inline */
 
 /* Nonzero for -fkeep-inline-functions: even if we make a function
    go inline everywhere, keep its definition around for debugging
@@ -840,9 +883,20 @@ int flag_tree_dse = 0;
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
+/* APPLE LOCAL begin loop transposition */
+/* Nonzero if we should perform automatic loop transposition. */
+int flag_loop_transpose = 0;
+/* APPLE LOCAL end loop transposition */
+
 /* Nonzero if we perform whole unit at a time compilation.  */
 
 int flag_unit_at_a_time = 0;
+
+/* APPLE LOCAL BEGIN pch distcc mrs */
+/* True if PCH should omit from the -E output all lines from PCH files
+   found in PCH files.  */
+int flag_pch_preprocess = 0;
+/* APPLE LOCAL END pch distcc mrs */
 
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
@@ -892,6 +946,40 @@ int flag_evaluation_order = 0;
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
 
+/* APPLE LOCAL begin Pascal strings 2001-07-12 sts */
+/* Nonzero means initial "\p" in string becomes a length byte and
+   string type becomes _unsigned_ char* .  Although currently this is
+   a C/C++-only flag, it may be of future use with other frontends,
+   thus we define it here.  */
+
+int flag_pascal_strings;
+/* APPLE LOCAL end Pascal strings 2001-07-12 sts */
+
+/* APPLE LOCAL begin coalescing turly 20020319 */
+/* Don't enable coalescing by default unless we have one of these
+   features in cctools.  */
+#if defined(APPLE_WEAK_SECTION_ATTRIBUTE) || defined(APPLE_WEAK_ASSEMBLER_DIRECTIVE)
+#define COALESCE_BY_DEFAULT 1
+#else
+#define COALESCE_BY_DEFAULT 0
+#endif
+/* Nonzero means that certain data and code items can be marked as
+   coalesced, which is a lesser form of ELF weak symbols.  */
+int flag_coalescing_enabled = COALESCE_BY_DEFAULT;
+
+/* Nonzero means mark template instantiations as coalesced.  */
+int flag_coalesce_templates = COALESCE_BY_DEFAULT;
+
+/* Nonzero means use the OS X 10.2 "weak_definitions" section attribute. 
+   If this is set, then explicit template instantiations DO NOT get
+   coalesced, but are plain old text or data instead.  */
+int flag_weak_coalesced_definitions = COALESCE_BY_DEFAULT;
+
+/* Coalesced symbols are private export by default.  This EXPERIMENTAL
+   flag will make them global instead. */
+int flag_export_coalesced = 0;
+/* APPLE LOCAL end coalescing turly 20020319 */
+
 /*  The version of the C++ ABI in use.  The following values are
     allowed:
 
@@ -928,6 +1016,8 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
+  /* APPLE LOCAL -faltivec */
+  {"altivec", &flag_altivec, 1 },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1 },
   {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1 },
   {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1 },
@@ -942,6 +1032,7 @@ static const lang_independent_options f_options[] =
   {"expensive-optimizations", &flag_expensive_optimizations, 1 },
   {"thread-jumps", &flag_thread_jumps, 1 },
   {"strength-reduce", &flag_strength_reduce, 1 },
+  {"loop-transpose", &flag_loop_transpose, 1, },
   {"unroll-loops", &flag_unroll_loops, 1 },
   {"unroll-all-loops", &flag_unroll_all_loops, 1 },
   {"old-unroll-loops", &flag_old_unroll_loops, 1 },
@@ -958,6 +1049,8 @@ static const lang_independent_options f_options[] =
   {"inline-functions", &flag_inline_functions, 1 },
   {"keep-inline-functions", &flag_keep_inline_functions, 1 },
   {"inline", &flag_no_inline, 0 },
+  /* APPLE LOCAL -fobey-inline */
+  {"obey-inline", &flag_obey_inline, 1, },
   {"keep-static-consts", &flag_keep_static_consts, 1 },
   {"syntax-only", &flag_syntax_only, 1 },
   {"shared-data", &flag_shared_data, 1 },
@@ -1049,6 +1142,16 @@ static const lang_independent_options f_options[] =
   {"mem-report", &mem_report, 1 },
   { "trapv", &flag_trapv, 1 },
   { "wrapv", &flag_wrapv, 1 },
+  /* APPLE LOCAL -ffppc 2001-08-01 sts */
+  { "fppc", &flag_fppc, 1 },
+  /* APPLE LOCAL begin coalescing  turly  */
+  { "coalesce", &flag_coalescing_enabled, 1 },
+  { "weak-coalesced", &flag_weak_coalesced_definitions, 1 },
+  { "coalesce-templates", &flag_coalesce_templates, 1 },
+  { "export-coalesced", &flag_export_coalesced, 1 },
+  /* APPLE LOCAL end coalescing  turly  */
+  /* APPLE LOCAL Pascal strings 2001-07-05 zll */
+  { "pascal-strings", &flag_pascal_strings, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
   { "var-tracking", &flag_var_tracking, 1},
   { "tree-gvn", &flag_tree_gvn, 1 },
@@ -1252,6 +1355,31 @@ floor_log2_wide (unsigned HOST_WIDE_INT x)
     x >>= 1;
   return log;
 }
+
+/* APPLE LOCAL begin interrupt signal handler (radar 2941633)  ilr */
+/* If the compilation is interrupted do some cleanup. Any files created
+   by the compilation are deleted.  The compilation is terminated from
+   here.  */
+static void
+interrupt_signal (int signo ATTRIBUTE_UNUSED)
+{
+  /* Close the dump files.  */
+  if (flag_gen_aux_info)
+    {
+      fclose (aux_info_file);
+      unlink (aux_info_file_name);
+    }
+
+  if (asm_out_file)
+    {
+      fclose (asm_out_file);
+      if (asm_file_name && *asm_file_name)
+      	unlink (asm_file_name);
+    }
+
+  exit (FATAL_EXIT_CODE);
+}
+/* APPLE LOCAL end interrupt signal handler */
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  In case the
@@ -1575,6 +1703,46 @@ warn_deprecated_use (tree node)
     }
 }
 
+/* APPLE LOCAL begin unavailable ilr */
+/* Warn about a use of an identifier which was marked deprecated.  */
+void
+warn_unavailable_use (tree node)
+{
+  if (node == 0)
+    return;
+
+  if (DECL_P (node))
+    warning ("`%s' is unavailable (declared at %s:%d)",
+	     IDENTIFIER_POINTER (DECL_NAME (node)),
+	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+  else if (TYPE_P (node))
+    {
+      const char *what = NULL;
+      tree decl = TYPE_STUB_DECL (node);
+
+      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	what = IDENTIFIER_POINTER (TYPE_NAME (node));
+      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+	       && DECL_NAME (TYPE_NAME (node)))
+	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+
+      if (what)
+	{
+	  if (decl)
+	    warning ("`%s' is unavailable (declared at %s:%d)", what,
+		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	  else
+	    warning ("`%s' is unavailable", what);
+	}
+      else if (decl)
+	warning ("type is unavailable (declared at %s:%d)",
+		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      else
+	warning ("type is unavailable");
+    }
+}
+/* APPLE LOCAL end unavailable ilr */
+
 /* Save the current INPUT_LOCATION on the top entry in the
    INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
    INPUT_LOCATION accordingly.  */
@@ -1676,6 +1844,19 @@ compile_file (void)
 	     IDENT_ASM_OP, version_string);
 #endif
 }
+
+/* This is called from various places for FUNCTION_DECL, VAR_DECL,
+   and TYPE_DECL nodes.
+
+   This does nothing for local (non-static) variables, unless the
+   variable is a register variable with an ASMSPEC.  In that case, or
+   if the variable is not an automatic, it sets up the RTL and
+   outputs any assembler code (label definition, storage allocation
+   and initialization).
+
+   DECL is the declaration.  If ASMSPEC is nonzero, it specifies
+   the assembler symbol name to be used.  TOP_LEVEL is nonzero
+   if this declaration is not within a function.  */
 
 /* Display help for target options.  */
 void
@@ -1849,7 +2030,12 @@ set_target_switch (const char *name)
       }
 #endif
 
-  if (!valid_target_option)
+  /* APPLE LOCAL begin fat builds */
+  /* Note, the driver guarantees that -arch will precede the -m
+     options so that arch_specified will be known by the time we get
+     here.  For Radar 2865464.  */
+  if (!valid_target_option && !arch_specified)
+    /* APPLE LOCAL end fat builds */
     error ("invalid option `%s'", name);
 }
 
@@ -1942,6 +2128,18 @@ print_switch_values (FILE *file, int pos, int max,
 	  continue;
 	if ((*p)[1] == 'd')
 	  continue;
+        /* APPLE LOCAL begin -fast or -fastf or -fastcp */
+        if ((flag_fast || flag_fastf || flag_fastcp)
+            && (*p)[0] == '-' && (*p)[1] == 'O')
+          {
+            int optimize_val;
+            if ((*p)[2] == 's' && (*p)[3] == '\0')
+              continue;
+            optimize_val = read_integral_parameter (*p+2, 0, -1);
+            if (optimize_val != 3)
+              continue;
+          }
+        /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
 	pos = print_single_switch (file, pos, max, indent, sep, term, *p, "");
       }
@@ -1957,8 +2155,15 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < ARRAY_SIZE (f_options); j++)
     if (*f_options[j].variable == f_options[j].on_value)
-      pos = print_single_switch (file, pos, max, indent, sep, term,
-				 "-f", f_options[j].string);
+      /* APPLE LOCAL begin 3372156 */
+      /* FSF candidate */
+      {
+	char value[256];
+	sprintf (value, "-f%s=%d", f_options[j].string,f_options[j].on_value);
+	pos = print_single_switch (file, pos, max, indent, sep, term,
+				   "", value);
+      }
+      /* APPLE LOCAL end 3372156 */
 
   /* Print target specific options.  */
 
@@ -2220,12 +2425,37 @@ general_init (const char *argv0)
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
 #endif
+  /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  ilr */
+  /* Handle compilation interrupts.  */
+  if (signal (SIGINT, SIG_IGN) != SIG_IGN)
+    signal (SIGINT, interrupt_signal);
+  if (signal (SIGKILL, SIG_IGN) != SIG_IGN)
+    signal (SIGINT, interrupt_signal);
+  if (signal (SIGTERM, SIG_IGN) != SIG_IGN)
+    signal (SIGTERM, interrupt_signal);
+  /* APPLE LOCAL end interrupt signal handler */
 #ifdef SIGFPE
   signal (SIGFPE, crash_signal);
 #endif
 
   /* Other host-specific signal setup.  */
   (*host_hooks.extra_signals)();
+
+  /* APPLE LOCAL begin setrlimit */
+#ifdef RLIMIT_STACK
+  /* Get rid of any avoidable limit on stack size.  */
+  {
+    struct rlimit rlim;
+
+    /* Set the stack limit huge.  (Compiles normally work within
+       a megabyte of stack, but the normal limit on OSX is 512K for
+       some reason.) */
+    getrlimit (RLIMIT_STACK, &rlim);
+    rlim.rlim_cur = rlim.rlim_max;
+    setrlimit (RLIMIT_STACK, &rlim);
+  }
+#endif /* RLIMIT_STACK defined */
+  /* APPLE LOCAL end setrlimit */
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */

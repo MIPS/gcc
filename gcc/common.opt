@@ -152,6 +152,12 @@ Wunused-variable
 Common
 Warn when a variable is unused
 
+; APPLE LOCAL begin fat builds
+arch
+Common Separate
+
+; APPLE LOCAL end fat builds
+
 aux-info
 Common Separate
 -aux-info <file>	Emit declaration information into <file>
@@ -210,6 +216,10 @@ Align the start of loops
 falign-loops=
 Common RejectNegative Joined UInteger
 
+faltivec
+Common
+Temporary, perhaps, to get NaG Fortran to work
+
 fargument-alias
 Common
 Specify that arguments may alias each other and globals
@@ -261,6 +271,16 @@ Common Joined RejectNegative
 fcaller-saves
 Common
 Save registers around function calls
+
+; APPLE LOCAL begin coalescing  turly
+fcoalesce
+Common
+Coalesce duplicate C++ functions and data
+
+fcoalesce-templates
+Common
+Coalesce duplicate C++ templates
+; APPLE LOCAL end coalescing  turly
 
 fcommon
 Common
@@ -329,6 +349,12 @@ Enable exception handling
 fexpensive-optimizations
 Common
 Perform a number of minor, expensive optimizations
+
+; APPLE LOCAL begin coalescing  turly
+fexport-coalesced
+Common
+EXPERIMENTAL: Export coalesced symbols from dylibs
+; APPLE LOCAL end coalescing  turly
 
 ffast-math
 Common
@@ -438,6 +464,10 @@ floop-optimize
 Common
 Perform loop optimizations
 
+floop-transpose
+Common
+Interchange loops to improve cache locality
+
 fmath-errno
 Common
 Set errno after built-in math functions
@@ -482,6 +512,12 @@ fnon-call-exceptions
 Common
 Support synchronous non-call exceptions
 
+; APPLE LOCAL begin -fobey-inline
+fobey-inline
+Common
+Obey 'inline' keyword and always inline, regardless of size
+; APPLE LOCAL end -fobey-inline
+
 fold-unroll-loops
 Common
 Perform loop unrolling when iteration count is known
@@ -506,6 +542,12 @@ fpack-struct
 Common
 Pack structure members together without holes
 
+; APPLE LOCAL begin Pascal strings 2001-07-05 zll
+fpascal-strings
+Common
+Allow Pascal-style string literals
+; APPLE LOCAL end Pascal strings 2001-07-05 zll
+
 fpcc-struct-return
 Common
 Return small aggregates in memory, not registers
@@ -529,6 +571,12 @@ Generate position-independent code if possible
 fpie
 Common
 Generate position-independent code for executables if possible
+
+; APPLE LOCAL begin -ffppc 2001-08-01 sts
+fppc
+Common
+Perform floating-point precision-control pass
+; APPLE LOCAL end -ffppc 2001-08-01 sts
 
 fprefetch-loop-arrays
 Common
@@ -803,6 +851,12 @@ fvpt
 Common
 Use expression value profiles in optimizations
 
+; APPLE LOCAL begin coalescing  turly
+fweak-coalesced
+Common
+Use the OS X 10.2 'weak_definitions' attribute when coalescing
+; APPLE LOCAL end coalescing  turly
+
 fweb
 Common
 Construct webs and split unrelated uses of single variable
@@ -851,6 +905,12 @@ gxcoff+
 Common JoinedOrMissing
 Generate debug information in extended XCOFF format
 
+; APPLE LOCAL begin -header-mapfile
+header-mapfile
+Common Separate
+
+; APPLE LOCAL end -header-mapfile
+
 m
 Common Joined
 
@@ -869,6 +929,12 @@ Issue warnings needed for strict compliance to the standard
 pedantic-errors
 Common
 Like -pedantic but issue them as errors
+
+; APPLE LOCAL begin -precomp-trustfile
+precomp-trustfile
+Common Separate
+
+; APPLE LOCAL end -precomp-trustfile
 
 quiet
 Common

@@ -123,10 +123,10 @@ java-warn = $(WERROR)
 # String length warnings
 jvspec.o-warn = -Wno-error
 
-jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
+jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS) 
 	rm -f $@
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS)
+		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS) 
 
 gcjh$(exeext): $(GCJH_OBJS) $(LIBDEPS)
 	rm -f $@

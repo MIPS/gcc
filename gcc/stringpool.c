@@ -122,6 +122,7 @@ get_identifier_with_length (const char *text, size_t length)
   return HT_IDENT_TO_GCC_IDENT (ht_node);
 }
 
+
 /* If an identifier with the name TEXT (a null-terminated string) has
    previously been referred to, return that node; otherwise return
    NULL_TREE.  */

@@ -1004,6 +1004,12 @@ static void init_ext_80387_constants (void);
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST ix86_address_cost
 
+/* APPLE LOCAL begin SSE stack alignment */
+#ifndef BASIC_STACK_BOUNDARY
+#define BASIC_STACK_BOUNDARY (32)
+#endif
+/* APPLE LOCAL end SSE stack alignment */
+
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS ix86_fixed_condition_code_regs
 #undef TARGET_CC_MODES_COMPATIBLE
@@ -1345,9 +1351,11 @@ override_options (void)
      The default of 128 bits is for Pentium III's SSE __m128, but we
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
+  /* APPLE LOCAL begin SSE stack alignment */
   ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 128 : 32
+				   ? TARGET_64BIT ? 128 : BASIC_STACK_BOUNDARY
 				   : 128);
+  /* APPLE LOCAL end SSE stack alignment */
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
@@ -1485,11 +1493,24 @@ override_options (void)
     internal_label_prefix_len = p - internal_label_prefix;
     *p = '\0';
   }
+
+  /* APPLE LOCAL begin dynamic-no-pic */
+  if (flag_pic == 1)
+    {
+      /* Darwin doesn't support -fpic.  */
+      warning ("-fpic is not supported; -fPIC assumed");  
+      flag_pic = 2;
+    }
+  /* APPLE LOCAL end dynamic-no-pic */
 }
 
 void
 optimization_options (int level, int size ATTRIBUTE_UNUSED)
 {
+  /* APPLE LOCAL disable strict aliasing; breaks too much existing code.  */
+#if TARGET_MACHO
+  flag_strict_aliasing = 0;
+#endif
   /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to
      make the problem with not enough registers even worse.  */
 #ifdef INSN_SCHEDULING
@@ -1529,6 +1550,11 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
+  /* APPLE LOCAL begin double destructor */
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+  SUBTARGET_ATTRIBUTE_TABLE
+#endif
+  /* APPLE LOCAL end double destructor */
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -2959,7 +2985,19 @@ ix86_build_builtin_va_list (void)
   return build_array_type (record, build_index_type (size_zero_node));
 }
 
-/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+/* Perform any needed actions needed for a function that is receiving a
+   variable number of arguments.
+
+   CUM is as above.
+
+   MODE and TYPE are the mode and type of the current parameter.
+
+   PRETEND_SIZE is a variable that should be set to the amount of stack
+   that must be pushed by the prolog to pretend that our caller pushed
+   it.
+
+   Normally, this macro will push all remaining incoming registers on the
+   stack and set PRETEND_SIZE to the length of the registers pushed.  */
 
 static void
 ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,

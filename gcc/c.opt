@@ -149,12 +149,22 @@ U
 C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
+; APPLE LOCAL -Wno-#warnings
+W#warnings
+C ObjC C++ ObjC++
+Enable #warning
+
 Wabi
 C++ ObjC++
 
 Wall
 C ObjC C++ ObjC++
 Enable most warning messages
+
+; APPLE LOCAL AltiVec
+Waltivec-long-deprecated
+C ObjC C++ ObjC++
+Warn about use of 'long' in AltiVec types
 
 Wbad-function-cast
 C ObjC
@@ -212,6 +222,11 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative
 Make implicit function declarations an error
 
+; APPLE LOCAL -Wextra-tokens
+Wextra-tokens
+C Objc C++ ObjC++
+Warn about extra tokens at the end of prepreprocessor directives
+
 Wfloat-equal
 C ObjC C++ ObjC++
 Warn if testing floating point numbers for equality
@@ -242,6 +257,11 @@ C ObjC
 Wformat=
 C ObjC C++ ObjC++ Joined
 
+; APPLE LOCAL -Wfour-char-constants
+Wfour-char-constants
+C ObjC C++ ObjC++
+Warn about multicharacter constants containing exactly four characters
+
 Winit-self
 C ObjC C++ ObjC++
 Warn about variables which are initialized to themselves.
@@ -269,6 +289,16 @@ Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
 
+; APPLE LOCAL Symbol Separation
+Winvalid-sr
+C ObjC C++ ObjC++
+Warn about symbol files that are found but not used
+
+; APPLE LOCAL -Wlong-double
+Wlong-double
+C ObjC C++ ObjC++
+Warn about \"long double\"
+
 Wlong-long
 C ObjC C++ ObjC++
 Do not warn about using \"long long\" when -pedantic
@@ -293,6 +323,11 @@ Wmissing-prototypes
 C ObjC
 Warn about global functions without prototypes
 
+; APPLE LOCAL -Wmost
+Wmost
+C ObjC C++ ObjC++ 
+Like -Wall but without -Wparentheses
+
 Wmultichar
 C ObjC C++ ObjC++
 Warn about use of multi-character character constants
@@ -300,6 +335,11 @@ Warn about use of multi-character character constants
 Wnested-externs
 C ObjC
 Warn about \"extern\" declarations not at file scope
+
+; APPLE LOCAL -Wnewline-eof
+Wnewline-eof
+C ObjC C++ ObjC++
+Warn about files missing a newline at the end of the file
 
 Wnon-template-friend
 C++ ObjC++
@@ -311,6 +351,11 @@ Warn about non-virtual destructors
 
 Wnonnull
 C ObjC
+
+; APPLE LOCAL constant cfstrings
+Wnonportable-cfstrings
+ObjC ObjC++
+Warn about non-ASCII characters or NULs in CFString literals
 
 Wold-style-cast
 C++ ObjC++
@@ -415,6 +460,11 @@ ansi
 C ObjC C++ ObjC++
 A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead
 
+; APPLE LOCAL fat builds
+arch
+C ObjC C++ ObjC++ Separate
+The architecture to build for.
+
 d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
@@ -430,9 +480,32 @@ falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
 
+; APPLE LOCAL AltiVec
+faltivec
+C C++ ObjC ObjC++
+Enable the AltiVec language extensions
+
+; APPLE LOCAL -fapple-kext
+fapple-kext
+C++
+Used for building Darwin kernel extensions
+
 fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
+
+; APPLE LOCAL fast, fastf, fastcp
+fast
+C
+Used for c optimization
+
+fastcp
+C++
+Used when C++ specific optimization is needed
+
+fastf
+C
+Used when c is generated from NAG fortran
 
 fbuiltin
 C ObjC C++ ObjC++
@@ -444,6 +517,11 @@ C ObjC C++ ObjC++ Joined
 fcheck-new
 C++ ObjC++
 Check the return value of new
+
+; APPLE LOCAL structor decloning
+fclone-structors
+C++ ObjC++
+Factor out certain duplicate code in constructors and destructors
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -457,6 +535,11 @@ fconst-strings
 C++ ObjC++
 Make string literals \"const char[]\" not \"char[]\"
 
+; APPLE LOCAL constant cfstrings
+fconstant-cfstrings
+C ObjC C++ ObjC++
+Enable __builtin__CFStringMakeConstantString
+
 fconstant-string-class=
 ObjC ObjC++ Joined
 -fconst-string-class=<name>	Use class <name> for constant strings
@@ -464,6 +547,10 @@ ObjC ObjC++ Joined
 fdefault-inline
 C++ ObjC++
 Inline member functions by default
+
+fdisable-typechecking-for-spec
+C C++
+Make crossfile type mismatches warnings not errors (for SPEC)
 
 fdollars-in-identifiers
 C ObjC C++ ObjC++
@@ -542,6 +629,11 @@ fimplicit-templates
 C++ ObjC++
 Emit implicit instantiations of templates
 
+; APPLE LOCAL -findirect-virtual-calls
+findirect-virtual-calls
+C++ ObjC++
+Always use the vtable to make direct calls to virtual functions
+
 flabels-ok
 C++ ObjC++
 
@@ -584,6 +676,11 @@ Enable optional diagnostics
 fpch-deps
 C ObjC C++ ObjC++
 
+; APPLE LOCAL pch distcc mrs
+fpch-preprocess
+C ObjC C++ ObjC++
+Enable PCH processing even when -E or -save-temps is used
+
 fpermissive
 C++ ObjC++
 Downgrade conformance errors to warnings
@@ -603,6 +700,11 @@ Enable automatic template instantiation
 frtti
 C++ ObjC++
 Generate run time type descriptor information
+
+; APPLE LOCAL Symbol Separation
+fsave-repository=
+C ObjC C++ ObjC++ Joined Separate
+Creates separate symbol repository
 
 fshort-double
 C ObjC C++ ObjC++
@@ -644,6 +746,11 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger
 ftemplate-depth-
 C++ ObjC++ Joined RejectNegative UInteger 
 -ftemplate-depth-<number>	Specify maximum template instantiation depth
+
+; APPLE LOCAL -fterminated-vtables
+fterminated-vtables
+C++ ObjC++
+Put zero word at the end of every vtable
 
 fthis-is-variable
 C++ ObjC++
@@ -692,6 +799,11 @@ gen-decls
 ObjC ObjC++
 Dump declarations to a .decl file
 
+; APPLE LOCAL -header-mapfile
+header-mapfile
+C ObjC C++ ObjC++ Separate
+
+
 idirafter
 C ObjC C++ ObjC++ Joined Separate
 -idirafter <dir>	Add <dir> to the end of the system include path
@@ -703,6 +815,7 @@ C ObjC C++ ObjC++ Joined Separate
 include
 C ObjC C++ ObjC++ Joined Separate
 -include <file>	Include the contents of <file> before other files
+
 
 iprefix
 C ObjC C++ ObjC++ Joined Separate

@@ -869,6 +869,37 @@ java_unsafe_for_reeval (tree t)
   return -1;
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Placeholders to make linking work, remove when altivec support is correct */
+
+int
+comptypes (type1, type2)
+     tree type1, type2;
+{
+  register tree t1 = type1;
+  register tree t2 = type2;
+  if (t1 == t2 || !t1 || !t2
+      || TREE_CODE (t1) == ERROR_MARK || TREE_CODE (t2) == ERROR_MARK)
+    return 1;
+  return 0;
+}
+
+tree
+default_conversion (exp)
+     tree exp;
+{
+  return exp;
+}
+
+tree
+lang_build_type_variant (type, constp, volatilep)
+     tree type;
+     int constp, volatilep;
+{
+  return type;
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.
    This variable is used to avoid multiple calls to the static

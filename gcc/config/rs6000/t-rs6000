@@ -18,6 +18,7 @@ rs6000-c.o: $(srcdir)/config/rs6000/rs6000-c.c \
 
 # The rs6000 backend doesn't cause warnings in these files.
 insn-conditions.o-warn =
+
 # The files below trigger warnings in tree-ssa because of the gimplifier
 # emitting code that confuse the compiler into thinking that some variables
 # are used uninitialized.

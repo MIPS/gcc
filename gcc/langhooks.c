@@ -420,6 +420,39 @@ lhd_tree_inlining_anon_aggr_type_p (tree t ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/* APPLE LOCAL new tree dump */
+/* Do nothing language hooks for dmp_tree().  */
+void 
+lhd_dump_tree_do_nothing (FILE *file ATTRIBUTE_UNUSED,
+			  tree node ATTRIBUTE_UNUSED,
+			  int indent ATTRIBUTE_UNUSED,
+			  int after_id ATTRIBUTE_UNUSED)
+{
+}
+
+int
+lhd_dump_tree_blank_line_do_nothing (tree previous_node ATTRIBUTE_UNUSED,
+				     tree current_node ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+int
+lhd_dump_tree_lineno_do_nothing (FILE *file ATTRIBUTE_UNUSED,
+				 tree node ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+int 
+lhd_dmp_tree3_do_nothing (FILE *file ATTRIBUTE_UNUSED,
+			  tree node ATTRIBUTE_UNUSED,
+			  int flags ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+/* APPLE LOCAL end new tree dump */
+
 /* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
    language-specific bookkeeping necessary for processing
    FN. start_inlining returns nonzero if inlining should proceed, zero if

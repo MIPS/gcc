@@ -53,6 +53,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FINISH cxx_finish
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
+#undef LANG_HOOKS_FINISH_FILE
+#define LANG_HOOKS_FINISH_FILE finish_file
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
 #undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
@@ -189,6 +191,22 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
 
+/* APPLE LOCAL begin Objective-C++  */
+/* Redefine the hooks that need to be different for ObjC++.  */
+#ifdef OBJCPLUS
+static void objcplus_init_options                   PARAMS ((void));
+#include "objc/objc-act.h"
+#undef LANG_HOOKS_NAME
+#define LANG_HOOKS_NAME "GNU Objective-C++"
+#undef LANG_HOOKS_INIT
+#define LANG_HOOKS_INIT objc_init
+#undef LANG_HOOKS_FINISH_FILE
+#define LANG_HOOKS_FINISH_FILE objc_finish_file
+#undef LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS objcplus_init_options
+#endif /* OBJCPLUS */
+/* APPLE LOCAL end Objective-C++ */
+
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -202,6 +220,12 @@ const char tree_code_type[] = {
 #include "c-common.def"
   'x',
 #include "cp-tree.def"
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+  'x',
+#include "objc-tree.def"
+#endif
+/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
 
@@ -217,6 +241,12 @@ const unsigned char tree_code_length[] = {
 #include "c-common.def"
   0,
 #include "cp-tree.def"
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+  0,
+#include "objc-tree.def"
+#endif
+/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
 
@@ -230,6 +260,12 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
   "@@dummy",
 #include "cp-tree.def"
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+  "@@dummy",
+#include "objc-tree.def"
+#endif
+/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
 
@@ -268,6 +304,16 @@ cxx_warn_unused_global_decl (tree decl)
 
   return true;
 }
+
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+static void 
+objcplus_init_options (void)
+{
+  flag_objc = 1;
+  cxx_init_options ();
+}
+#endif
 
 /* Langhook for expr_size: Tell the backend that the value of an expression
    of non-POD class type does not include any tail padding; a derived class
@@ -386,3 +432,20 @@ cxx_initialize_diagnostics (diagnostic_context *context)
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
 }
+
+/* APPLE LOCAL Objective-C++ */
+/* Include the GC roots here instead of in cp/decl.c, so we can
+   conditionalize on OBJCPLUS.  */
+#include "decl.h"
+#include "debug.h"
+#include "lex.h"
+#include "gt-cp-cp-tree-h.h"
+#include "gt-cp-decl-h.h"
+#ifdef OBJCPLUS
+tree objcp_dummy = 0;
+#include "gtype-objcp.h"
+#else
+tree cp_dummy = 0;
+#include "gtype-cp.h"
+#endif
+/* APPLE LOCAL end Objective-C++ */

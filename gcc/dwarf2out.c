@@ -248,6 +248,15 @@ typedef struct dw_fde_struct GTY(())
   const char *dw_fde_end;
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
+  /* APPLE LOCAL begin coalescing  */
+  const char *dw_real_name;
+  /* Is this symbol coalesced?  */
+  unsigned coalesced : 1;
+  /* Is this symbol an explicit instantiation?  */
+  unsigned explicit : 1;
+  unsigned public : 1;
+  unsigned private_extern : 1;
+  /* APPLE LOCAL end coalescing  */
   unsigned all_throwers_are_sibcalls : 1;
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
@@ -1589,9 +1598,100 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case PLUS:
 	case MINUS:
 	case LO_SUM:
-	  if (GET_CODE (XEXP (XEXP (dest, 0), 1)) != CONST_INT)
+	  /* APPLE LOCAL  begin 'reg + index' reg case.  */
+	  /* MERGE fixme 3537126 */
+	  offset = 0x696b6c6c;
+	  if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT)
+	    offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+#if 1
+	  /* If it's a 'reg + index', we need to find out what value
+	     the index reg has at this point.  (This can happen because
+	     some architectures have registers which can only be stored
+	     using a "reg + index" mode.)
+	     This method of finding out the index value is VERY FRAGILE.
+	     Ideally we'd try to add a note to the save insn, but...  */
+	  else if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == REG)
+	    {
+	      unsigned the_reg = REGNO (XEXP (XEXP (dest, 0), 1));
+	      rtx insn;
+
+	      /* The REG_FRAME_RELATED_EXPR can sometimes be out-of-date
+		 after the optimiser/inliner has done its stuff.  For example,
+
+		 (insn: (set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+					(reg:SI 6 r6)) [0 S16 A8])
+			     (reg:V16QI 108 v31))
+		  ...
+		  (expr_list:REG_FRAME_RELATED_EXPR
+				(set (mem:V16QI (plus:SI (reg/f:SI 1 r1)
+						(reg:SI 0 r0)) [0 S16 A8])
+				     (reg:V16QI 108 v31))
+
+		 Note that the optimiser has used R6 instead of the original
+		 R0 to store the SP offset.  Alas, we blindly look for R0
+		 here, since DEST is the REG_FRAME_RELATED_EXPR, so we need
+		 to check for that.
+
+		 This needs a rework from scratch, but it'll do for now.  */
+
+	      insn = XEXP (XEXP (XEXP (PATTERN (current_output_insn),
+			   0), 0), 1);
+	      if (GET_CODE (insn) == REG)
+		the_reg = REGNO (insn);
+
+	      insn = PREV_INSN (current_output_insn);
+	      for (; insn != NULL; insn = PREV_INSN (insn))
+		{
+		  if (GET_CODE (insn) != INSN
+		      || PATTERN (insn) == NULL)
+		    ;
+		  else if (GET_CODE (PATTERN (insn)) == SET)
+		    {
+		      rtx p = PATTERN (insn);
+		      if (SET_DEST (p) != NULL
+			  && GET_CODE (SET_DEST (p)) == REG
+			  && REGNO (SET_DEST (p)) == the_reg)
+			{
+			  if (GET_CODE (SET_SRC (p)) == CONST_INT)
+			    {
+			      offset = INTVAL (SET_SRC (p));
+			      break;
+			    }
+		          else
+			    abort ();
+		        }
+		    }
+		  else
+		  /* A label?  All bets are off.  */
+		  if (GET_CODE (PATTERN (insn)) == CODE_LABEL)
+		    abort ();
+		}
+
+	      /* DEST can also be something like:
+
+			(mem:V16QI (plus:SI (plus:SI (reg/f:SI 1 r1)
+						(const_int 147792 [0x24150]))
+					    (reg:SI 0 r0)) [0 S16 A8])
+
+		This is handled here by adjusting the offset appropriately.  */
+
+	      insn = XEXP (XEXP (dest, 0), 0);
+	      if (GET_CODE (insn) == PLUS && GET_CODE (XEXP (insn, 0)) == REG
+		  && GET_CODE (XEXP (insn, 1)) == CONST_INT)
+		{
+		  offset += INTVAL (XEXP (insn, 1));
+
+		  /* Set DEST to be the inner PLUS so that
+		     REGNO (XEXP (XEXP (dest, 0), 0) will be sensible.  */
+
+		  dest = XEXP (dest, 0);
+		}
+	    }
+#endif
+	  else
 	    abort ();
-	  offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+	  /* APPLE LOCAL  end 'reg + index' case.  */
+
 	  if (GET_CODE (XEXP (dest, 0)) == MINUS)
 	    offset = -offset;
 
@@ -1970,6 +2070,14 @@ output_call_frame_info (int for_eh)
   else
     named_section_flags (DEBUG_FRAME_SECTION, SECTION_DEBUG);
 
+  /* APPLE LOCAL begin coalescing  */
+#ifdef COALESCED_UNWIND_INFO
+  /* We could probably mark the CIE as coalesced as well, since they're
+     all the same (or are they?!)  */
+  ASM_OUTPUT_LABEL (asm_out_file, "EH_unwind_info");
+#endif
+  /* APPLE LOCAL end coalescing  */
+
   ASM_GENERATE_INTERNAL_LABEL (section_start_label, FRAME_BEGIN_LABEL, for_eh);
   ASM_OUTPUT_LABEL (asm_out_file, section_start_label);
 
@@ -2004,7 +2112,11 @@ output_call_frame_info (int for_eh)
 	 P	Indicates the presence of an encoding + language
 		personality routine in the CIE augmentation.  */
 
-      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      /* APPLE LOCAL coalescing */
+      fde_encoding = flag_export_coalesced
+	? ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1)
+	: ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      /* APPLE LOCAL end coalescing */
       per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
       lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
 
@@ -2098,6 +2210,18 @@ output_call_frame_info (int for_eh)
 	  && !fde->uses_eh_lsda)
 	continue;
 
+      /* APPLE LOCAL begin coalescing  */
+#ifdef COALESCED_UNWIND_INFO
+      ASM_OUTPUT_COAL_UNWIND_LABEL (asm_out_file, fde->dw_real_name,
+				    fde->coalesced, 
+				    fde->public && !fde->private_extern,
+				    fde->coalesced
+				      || fde->public
+				      || fde->private_extern
+				      || fde->explicit);
+#endif
+      /* APPLE LOCAL end coalescing  */
+
       (*targetm.asm_out.internal_label) (asm_out_file, FDE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l1, FDE_AFTER_SIZE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l2, FDE_END_LABEL, for_eh + i * 2);
@@ -2113,6 +2237,15 @@ output_call_frame_info (int for_eh)
 
       if (for_eh)
 	{
+	  /* APPLE LOCAL begin coalescing  */
+#ifdef COALESCED_UNWIND_INFO
+	  if (fde->coalesced)
+	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
+		   gen_rtx_SYMBOL_REF (Pmode, fde->dw_real_name),
+		   "FDE initial location");
+	  else
+#endif
+	  /* APPLE LOCAL end coalescing  */
 	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 		   gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
 		   "FDE initial location");
@@ -2256,6 +2389,22 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->nothrow = current_function_nothrow;
   fde->uses_eh_lsda = cfun->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = cfun->all_throwers_are_sibcalls;
+
+  /* APPLE LOCAL begin coalescing  */
+#ifdef COALESCED_UNWIND_INFO
+  fde->coalesced = DECL_COALESCED (current_function_decl);
+  /* Sorry about this hackery: this is the only way I can figure out
+     whether this is an explicit template instantiation.  Ick.
+     DECL_LANG_FLAG_1 is DECL_TEMPLATE_INSTANTIATED in cp-tree.h.  */
+  fde->explicit = !fde->coalesced && TREE_PUBLIC (current_function_decl)
+		  && (strstr (lang_hooks.name, "C++") != NULL)
+		  && DECL_LANG_FLAG_1 (current_function_decl);
+  fde->dw_real_name = xstrdup (IDENTIFIER_POINTER
+				(DECL_ASSEMBLER_NAME (current_function_decl)));
+  fde->public = TREE_PUBLIC(current_function_decl);
+  fde->private_extern = DECL_VISIBILITY(current_function_decl) == VISIBILITY_HIDDEN;
+#endif
+  /* APPLE LOCAL end coalescing  */
 
   args_size = old_args_size = 0;
 
@@ -3286,6 +3435,9 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_abstract_function,	/* outlining_inline_function */
   debug_nothing_rtx,		/* label */
   debug_nothing_int,		/* handle_pch */
+  /* APPLE LOCAL begin Symbol Separation */
+  NULL, NULL, NULL, NULL,
+  /* APPLE LOCAL end Symbol Separation */
   dwarf2out_var_location
 };
 #endif
@@ -3503,7 +3655,6 @@ struct var_loc_list_def GTY (())
   unsigned int decl_id;
 };
 typedef struct var_loc_list_def var_loc_list;
-
 
 /* Table of decl location linked lists.  */
 static GTY ((param_is (var_loc_list))) htab_t decl_loc_table;

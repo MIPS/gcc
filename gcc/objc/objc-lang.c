@@ -39,6 +39,10 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
+/* APPLE LOCAL begin Objective-C++ */
+#undef LANG_HOOKS_FINISH_FILE
+#define LANG_HOOKS_FINISH_FILE finish_file
+/* APPLE LOCAL end Objective-C++ */
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
 #undef LANG_HOOKS_HANDLE_OPTION

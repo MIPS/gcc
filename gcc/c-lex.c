@@ -106,6 +106,24 @@ init_c_lex (void)
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
+
+  /* APPLE LOCAL begin Symbol Separation */
+  /* Set up call back routines. These routines are used when separate symbol
+     repositories are used.  */
+  if (write_symbols != NO_DEBUG)
+    {
+      cb->restore_write_symbols = cb_restore_write_symbols;
+      cb->clear_write_symbols = cb_clear_write_symbols;
+      cb->is_builtin_identifier = cb_is_builtin_identifier;
+      cb->start_symbol_repository = cb_start_symbol_repository;
+      cb->end_symbol_repository = cb_end_symbol_repository;
+      if (flag_grepository)
+	{
+	  cpp_options *options = cpp_get_options (parse_in);
+	  options->use_ss = 1;
+	}
+    }
+  /* APPLE LOCAL end Symbol Separation */
 }
 
 struct c_fileinfo *
@@ -755,3 +773,57 @@ lex_charconst (const cpp_token *token)
   TREE_TYPE (value) = type;
   return value;
 }
+
+/* APPLE LOCAL begin AltiVec */
+int altivec_context = 0;
+   
+int
+altivec_treat_as_keyword (tree rid)
+{
+  enum rid rid_code = C_RID_CODE (rid);
+  /* If the AltiVec context is already enabled, see if we should
+     disable it.  */
+  if (altivec_context == 3 
+      || (altivec_context == 2 && ALTIVEC_IS_QUALIFIER (rid_code)))
+    /* Allow this one as a keyword, but no more thereafter.  */  
+    return altivec_context = 1; 
+    
+  /* Every AltiVec typespec must begin with 'vector' or '__vector'.
+     Check if we should enable the AltiVec context.  */
+  if (altivec_context == 0 && rid_code == RID_ALTIVEC_VECTOR)
+    {
+      tree next_tok;
+      enum rid next_code = RID_MAX;
+      enum cpp_ttype next_tok_type = c_lex (&next_tok);
+
+      /* Take a sneak peek at the next token in the stream.  */
+      if (next_tok_type == CPP_NAME)
+	next_code = C_RID_CODE (next_tok);
+      _cpp_backup_tokens (parse_in, 1);
+
+      if (next_code == RID_FLOAT || next_code == RID_ALTIVEC_PIXEL)
+        altivec_context = 3;
+      else if (ALTIVEC_IS_QUALIFIER (next_code) 
+               || next_code == RID_INT || next_code == RID_CHAR 
+	       || next_code == RID_LONG || next_code == RID_SHORT)
+	altivec_context = 2;
+    }
+  /* AltiVec keywords beginning with '__' are always let through.  */
+  return (!ALTIVEC_IS_CONTEXT_KEYWORD (rid_code) || altivec_context >= 2 
+	  || *IDENTIFIER_POINTER (rid) == '_');
+}
+/* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin Symbol Separation */
+
+/* Write context information in .cinfo file.
+   Use PCH routines directly. But set and restore cinfo_state before using them.  */
+void
+c_common_write_context (void)
+{
+  /* MERGE FIXME: This used to say 'lineno', not '0', but now we don't
+     have a 'lineno' variable (and it was probably always wrong).  */
+  (*debug_hooks->end_symbol_repository) (0);
+  cpp_write_symbol_deps (parse_in);
+}
+/* APPLE LOCAL end Symbol Separation */

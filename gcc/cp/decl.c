@@ -53,7 +53,9 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-flow.h"
 
-static tree grokparms (tree);
+/* APPLE LOCAL Objective-C++ */
+/* 'grokparms' is now extern, prototype moved to cp-tree.h.  */
+
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
@@ -114,7 +116,8 @@ static tree check_special_function_return_type
 	(special_function_kind, tree, tree);
 static tree push_cp_library_fn (enum tree_code, tree);
 static tree build_cp_library_fn (tree, enum tree_code, tree);
-static void store_parm_decls (tree);
+/* APPLE LOCAL Objective-C++ */
+/* 'store_parm_decls' is now extern, prototype moved to cp-tree.h.  */
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
@@ -237,10 +240,17 @@ int function_depth;
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
+/* APPLE LOCAL begin unavailable */
+/* An object declared as __attribute__((unavailable)) suppresses
+   any reports of being declared with unavailable or deprecated
+   items.  */
+/* APPLE LOCAL end unavailable */
    
 enum deprecated_states {
   DEPRECATED_NORMAL,
   DEPRECATED_SUPPRESS
+  /* APPLE LOCAL unavailable */
+  , DEPRECATED_UNAVAILABLE_SUPPRESS
 };
 
 static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
@@ -1297,6 +1307,9 @@ duplicate_decls (tree newdecl, tree olddecl)
 	olddecl = TREE_VALUE (olddecl);
       cp_error_at ("previous declaration of `%#D'", olddecl);
 
+      /* New decl is completely inconsistent with the old one =>
+	 tell caller to replace the old one.  */
+
       return error_mark_node;
     }
   else if (!types_match)
@@ -1828,6 +1841,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 		 regardless of declaration matches.  */
 	      SET_DECL_RTL (newdecl, DECL_RTL (olddecl));
 	    }
+	  else
+	    DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  /* Don't clear out the arguments if we're redefining a function.  */
@@ -2859,6 +2874,8 @@ initialize_predefined_identifiers (void)
   static const predefined_identifier predefined_identifiers[] = {
     { "C++", &lang_name_cplusplus, 0 },
     { "C", &lang_name_c, 0 },
+    /* APPLE LOCAL Objective-C++ */
+    { "Objective-C", &lang_name_objc, 0 },  /* this is DEPRECATED */
     { "Java", &lang_name_java, 0 },
     { CTOR_NAME, &ctor_identifier, 1 },
     { "__base_ctor", &base_ctor_identifier, 1 },
@@ -2885,6 +2902,45 @@ initialize_predefined_identifiers (void)
       if (pid->ctor_or_dtor_p)
 	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
     }
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  if (flag_apple_kext)
+    {
+      /* This is snarfed from the 2.95 cp-tree.h.  The mechanism is
+	 completely different from gcc3 (see cp-tree.h, and read the
+	 comment just above 'enum ptrmemfunc_vbit_where_t'.  Sigh.
+
+	 A 2.95 pointer-to-function member type looks like:
+
+	 struct {
+	   short __delta;
+	   short __index;
+	   union {
+	     P __pfn;
+	     short __delta2;
+	   } __pfn_or_delta2;
+	 };
+
+	 where P is a POINTER_TYPE to a METHOD_TYPE appropriate for the
+	 pointer to member.  The fields are used as follows:
+      
+	 If __INDEX is -1, then the function to call is non-virtual, and
+	 is located at the address given by __PFN.  
+      
+	 If __INDEX is zero, then this a NULL pointer-to-member.
+
+	 Otherwise, the function to call is virtual.  Then, __DELTA2 gives
+	 the offset from an instance of the object to the virtual function
+	 table, and __INDEX - 1 is the index into the vtable to use to
+	 find the function.
+      
+	 The value to use for the THIS parameter is the address of the
+	 object plus __DELTA.  */
+
+      delta2_identifier = get_identifier ("__delta2");
+      index_identifier = get_identifier ("__index");
+      pfn_or_delta2_identifier = get_identifier ("__pfn_or_delta2");
+    }
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
 }
 
 /* Create the predefined scalar types of C,
@@ -2974,6 +3030,11 @@ cxx_init_decl_processing (void)
   record_builtin_type (RID_MAX, NULL, string_type_node);
 #endif
 
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  if (flag_apple_kext)
+    delta_type_node = short_integer_type_node;
+  else
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
   delta_type_node = ptrdiff_type_node;
   vtable_index_type = ptrdiff_type_node;
 
@@ -3193,7 +3254,9 @@ builtin_function_1 (const char* name,
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
-  if (name[0] != '_' || name[1] != '_')
+  /* APPLE LOCAL AltiVec */
+  /* AltiVec builtins are always "declared".  */
+  if (class != BUILT_IN_MD && (name[0] != '_' || name[1] != '_'))
     DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
@@ -3231,7 +3294,13 @@ builtin_function (const char* name,
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
-  if (name[0] != '_')
+  /* APPLE LOCAL begin AltiVec */
+  /* Don't use `std' namespace for MD builtins.  */
+  /* APPLE LOCAL begin alloca not in std */
+  /* Don't use `std' namespace for alloca.  */
+  if (name[0] != '_' && class != BUILT_IN_MD && strcmp (name, "alloca"))
+    /* APPLE LOCAL end alloca not in std */
+    /* APPLE LOCAL end AltiVec */
     {
       push_namespace (std_identifier);
       builtin_function_1 (name, type, std_node, code, class, libname, attrs);
@@ -3344,6 +3413,15 @@ push_throw_library_fn (tree name, tree type)
   TREE_NOTHROW (fn) = 0;
   return fn;
 }
+
+/* APPLE LOCAL begin AltiVec */
+tree lang_build_type_variant PARAMS ((tree, int, int));
+tree
+lang_build_type_variant (tree type, int constp, int volatilep)
+{
+  return build_type_variant (type, constp, volatilep);
+}
+/* APPLE LOCAL end AltiVec */
 
 /* When we call finish_struct for an anonymous union, we create
    default copy constructors and such.  But, an anonymous union
@@ -3623,6 +3701,8 @@ start_decl (tree declarator,
   tree decl;
   tree type, tem;
   tree context;
+  /* APPLE LOCAL unavailable */
+  tree a;
 
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec)
@@ -3632,10 +3712,34 @@ start_decl (tree declarator,
       have_extern_spec = false;
     }
 
-  /* An object declared as __attribute__((deprecated)) suppresses
-     warnings of uses of other deprecated items.  */
+  /* APPLE LOCAL begin unavailable */
+  /* An object declared as __attribute__((unavailable)) suppresses
+     any reports of being declared with unavailable or deprecated
+     items.  An object declared as __attribute__((deprecated))
+     suppresses warnings of uses of other deprecated items.  */
+#ifdef A_LESS_INEFFICENT_WAY /* which I really don't want to do!  */
   if (lookup_attribute ("deprecated", attributes))
     deprecated_state = DEPRECATED_SUPPRESS;
+  else if (lookup_attribute ("unavailable", attributes))
+    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+#else /* a more efficient way doing what lookup_attribute would do */
+  for (a = attributes; a; a = TREE_CHAIN (a))
+    {
+      tree name = TREE_PURPOSE (a);
+      if (TREE_CODE (name) == IDENTIFIER_NODE)
+        if (is_attribute_p ("deprecated", name))
+	  {
+	    deprecated_state = DEPRECATED_SUPPRESS;
+	    break;
+	  }
+        if (is_attribute_p ("unavailable", name))
+	  {
+	    deprecated_state = DEPRECATED_UNAVAILABLE_SUPPRESS;
+	    break;
+	  }
+    }
+#endif
+  /* APPLE LOCAL end unavailable */
 
   attributes = chainon (attributes, prefix_attributes);
 
@@ -4070,6 +4174,14 @@ maybe_commonize_var (tree decl)
 	}
       else
 	{
+	  /* APPLE LOCAL begin coalescing  */
+#ifdef MAKE_DECL_COALESCED
+	  if (DECL_INTERFACE_KNOWN (current_function_decl))
+	    DECL_EXTERNAL (decl) = DECL_EXTERNAL (current_function_decl);
+	  TREE_PUBLIC (decl) = 1;
+	  MAKE_DECL_COALESCED (decl);
+#else
+	  /* APPLE LOCAL end coalescing */
 	  if (DECL_INITIAL (decl) == NULL_TREE
 	      || DECL_INITIAL (decl) == error_mark_node)
 	    {
@@ -4089,6 +4201,8 @@ maybe_commonize_var (tree decl)
 	      warning ("%J  you can work around this by removing the initializer",
 		       decl);
 	    }
+/* APPLE LOCAL coalescing */
+#endif
 	}
     }
   else if (DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
@@ -4587,6 +4701,17 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
      isn't stored in the tree, yet)  */
   if (defer_p && asmspec)
     make_decl_rtl (decl, asmspec);
+  /* APPLE LOCAL begin static const members  turly 20020110  */
+  /* Static const members which require runtime initialisation should
+     not be placed in readonly memory.  Avoid this by temporarily
+     whacking the TREE_READONLY bit.  */
+  else if (!defer_p && init != NULL_TREE && TREE_READONLY (decl) && toplev)
+    {
+      TREE_READONLY (decl) = 0;
+      rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
+      TREE_READONLY (decl) = 1;
+    }
+  /* APPLE LOCAL end static const members  turly 20020110  */
   /* If we're not deferring, go ahead and assemble the variable.  */
   else if (!defer_p)
     rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
@@ -5905,11 +6030,47 @@ build_ptrmemfunc_type (tree type)
     unqualified_variant
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  if (flag_apple_kext)
+    {
+      abort ();
+#if 0
+      /* MERGE FIXME */
+      tree u = make_aggr_type (UNION_TYPE);
+      SET_IS_AGGR_TYPE (u, 0);
+      fields = build_decl (FIELD_DECL, pfn_identifier, type);
+      TREE_CHAIN (fields) 
+	= build_decl (FIELD_DECL, delta2_identifier, delta_type_node);
+      finish_builtin_type (u, "__ptrmemfunc_type", fields, 1, ptr_type_node);
+      TYPE_NAME (u) = NULL_TREE;
+  
+      t = make_aggr_type (RECORD_TYPE);
+  
+      /* Let the front-end know this is a pointer to member function...  */
+      TYPE_PTRMEMFUNC_FLAG (t) = 1;
+      /* ... and not really an aggregate.  */
+      SET_IS_AGGR_TYPE (t, 0);
+  
+      fields = build_decl (FIELD_DECL, delta_identifier, delta_type_node);
+      TREE_CHAIN (fields) =
+	build_decl (FIELD_DECL, index_identifier, delta_type_node);
+      TREE_CHAIN (TREE_CHAIN (fields)) = 
+	build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
+      finish_builtin_type (t, "__ptrmemfunc_type", fields, 2, ptr_type_node);
+#endif
+    }
+  else
+    {
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
+
   t = make_aggr_type (RECORD_TYPE);
   /* Let the front-end know this is a pointer to member function...  */
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
+
+  /* APPLE LOCAL 2.95-ptmf-compatibility  turly 20020313  */
+    }
 
   field = build_decl (FIELD_DECL, pfn_identifier, type);
   fields = field;
@@ -6327,6 +6488,8 @@ grokdeclarator (tree declarator,
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
+  /* APPLE LOCAL AltiVec */
+  int explicit_bool = 0;
   int defaulted_int = 0;
   int extern_langp = 0;
   tree dependant_name = NULL_TREE;
@@ -6485,6 +6648,8 @@ grokdeclarator (tree declarator,
 
 	    if (C_IS_RESERVED_WORD (dname))
 	      {
+		/* APPLE LOCAL AltiVec */
+		if (!ALTIVEC_IS_CONTEXT_KEYWORD (C_RID_CODE (dname)))
 		error ("declarator-id missing; using reserved word `%D'",
 			  dname);
 		name = IDENTIFIER_POINTER (dname);
@@ -6707,20 +6872,58 @@ grokdeclarator (tree declarator,
 
       /* If the entire declaration is itself tagged as deprecated then
          suppress reports of deprecated items.  */
+      /* APPLE LOCAL begin unavailable */
+      /* If the entire declaration is itself tagged as unavailable then
+         suppress reports of unavailable/deprecated items.  If the
+         entire declaration is tagged as only deprecated we still
+         report unavailable uses.  */
       if (!adding_implicit_members && id && TREE_DEPRECATED (id))
         {
-	  if (deprecated_state != DEPRECATED_SUPPRESS)
-	    warn_deprecated_use (id);
+          if (TREE_UNAVAILABLE (id))
+            {
+              if (deprecated_state != DEPRECATED_UNAVAILABLE_SUPPRESS)
+              	warn_deprecated_use (id);
+              #if 0
+	      returned_attrs 
+		= chainon (returned_attrs, 
+			   build_tree_list (get_identifier ("unavailable"),
+					    NULL_TREE));
+	      #endif
+            }
+          else 
+            {
+              if (deprecated_state != DEPRECATED_SUPPRESS
+                  && deprecated_state != DEPRECATED_UNAVAILABLE_SUPPRESS)
+              	warn_deprecated_use (id);
+              #if 0
+	      returned_attrs 
+		= chainon (returned_attrs, 
+			   build_tree_list (get_identifier ("deprecated"),
+					    NULL_TREE));
+ 	      #endif
+           }
         }
+      /* APPLE LOCAL end unavailable */
 
       if (TREE_CODE (id) == IDENTIFIER_NODE)
 	{
+	  /* APPLE LOCAL begin AltiVec */
+	  if (id != ridpointers[(int) RID_BOOL] 
+	      && ALTIVEC_IS_CONTEXT_KEYWORD (C_RID_CODE (id)))
+	    {
+	      RIDBIT_SET ((int) C_RID_CODE (id), specbits);
+	      goto found;
+	    }
+	  /* APPLE LOCAL end AltiVec */
+
 	  if (id == ridpointers[(int) RID_INT]
 	      || id == ridpointers[(int) RID_CHAR]
 	      || id == ridpointers[(int) RID_BOOL]
 	      || id == ridpointers[(int) RID_WCHAR])
 	    {
-	      if (type)
+	      /* APPLE LOCAL AltiVec */
+	      /* If vector is used, bool is a type modifier.  */
+	      if (type && RIDBIT_NOTSETP (RID_ALTIVEC_VECTOR, specbits))
 		{
 		  if (id == ridpointers[(int) RID_BOOL])
 		    error ("`bool' is now a keyword");
@@ -6733,6 +6936,13 @@ grokdeclarator (tree declarator,
 		    explicit_int = 1;
 		  else if (id == ridpointers[(int) RID_CHAR])
 		    explicit_char = 1;
+		  /* APPLE LOCAL begin AltiVec */
+		  else if (id == ridpointers[(int) RID_BOOL])
+		    explicit_bool = 1;
+		  /* Don't record a bool type if vector is used.  */
+		  if (RIDBIT_NOTSETP (RID_ALTIVEC_VECTOR, specbits)
+		      || id != ridpointers[(int) RID_BOOL])
+		  /* APPLE LOCAL end AltiVec */
 		  type = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (id));
 		}
 	      goto found;
@@ -6816,6 +7026,15 @@ grokdeclarator (tree declarator,
     found: ;
     }
 
+  /* APPLE LOCAL begin AltiVec */
+  /* If there is no type, but we have vector pixel, make the type an int to
+     get past the error checks that follow.  Also deal with vector bool.  */
+  if (type == NULL_TREE
+      && RIDBIT_SETP (RID_ALTIVEC_VECTOR, specbits)
+      && (RIDBIT_SETP (RID_ALTIVEC_PIXEL, specbits) || explicit_bool))
+    type = integer_type_node;
+  /* APPLE LOCAL end AltiVec */
+  
 #if 0
   /* See the code below that used this.  */
   if (typedef_decl)
@@ -6880,6 +7099,8 @@ grokdeclarator (tree declarator,
       RIDBIT_RESET (RID_LONG, specbits);
       type = build_qualified_type (long_double_type_node,
 				   cp_type_quals (type));
+      /* APPLE LOCAL -Wlong-double dpatel */
+      warn_about_long_double ();
     }
 
   /* Check all other uses of type modifiers.  */
@@ -6909,6 +7130,13 @@ grokdeclarator (tree declarator,
       else if (RIDBIT_SETP (RID_SIGNED, specbits)
 	       && RIDBIT_SETP (RID_UNSIGNED, specbits))
 	error ("signed and unsigned given together for `%s'", name);
+      /* APPLE LOCAL begin AltiVec */	
+      /* Ignore the remaining checks for vector types.  */
+      else if (RIDBIT_SETP (RID_ALTIVEC_VECTOR, specbits))
+	ok = 1;
+      else if (TREE_CODE (type) != INTEGER_TYPE)
+	error ("long, short, signed or unsigned invalid for `%s'", name);
+      /* APPLE LOCAL end AltiVec */	
       else
 	{
 	  ok = 1;
@@ -8580,7 +8808,8 @@ check_default_argument (tree decl, tree arg)
 
    Also set last_function_parms to the chain of PARM_DECLs.  */
 
-static tree
+/* APPLE LOCAL Objective-C++ */
+tree
 grokparms (tree first_parm)
 {
   tree result = NULL_TREE;
@@ -9684,8 +9913,9 @@ start_enum (tree name)
   /* If this is the real definition for a previous forward reference,
      fill in the contents in the same object that used to be the
      forward reference.  */
-
-  if (name != NULL_TREE)
+  /* APPLE LOCAL do not forward reference anonymous enum */
+  /* Note that an anonymous enum cannot be forward-referenced.  */
+  if (name != NULL_TREE && !ANON_AGGRNAME_P (name))
     enumtype = lookup_tag (ENUMERAL_TYPE, name, b, 1);
 
   if (enumtype != NULL_TREE && TREE_CODE (enumtype) == ENUMERAL_TYPE)
@@ -10242,6 +10472,9 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
   /* Start the statement-tree, start the tree now.  */
   begin_stmt_tree (&DECL_SAVED_TREE (decl1));
 
+  /* Don't double-count statements in templates.  */
+  DECL_ESTIMATED_INSNS (decl1) = 0;
+
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
 
@@ -10388,6 +10621,9 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   begin_scope (sk_function_parms, decl1);
 
+  /* APPLE LOCAL weak_import (Radar 2809704) ilr */
+  cplus_decl_attributes (&decl1, attrs, (int)ATTR_FLAG_FUNCTION_DEF);
+
   ++function_depth;
 
   if (DECL_DESTRUCTOR_P (decl1))
@@ -10409,7 +10645,8 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
    Also install to binding contour return value identifier, if any.  */
 
-static void
+/* APPLE LOCAL Objective-C++ */
+/* static */ void         /* 'store_parm_decls' is extern for Obj-C++ */
 store_parm_decls (tree current_function_parms)
 {
   tree fndecl = current_function_decl;
@@ -11099,6 +11336,26 @@ cxx_maybe_build_cleanup (tree decl)
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
       tree rval;
+      /* APPLE LOCAL  begin double destructor  turly 20020214  */
+      special_function_kind dtor = sfk_complete_destructor;
+      if (flag_apple_kext
+	  && has_apple_kext_compatibility_attr_p (type))
+	{
+	  /* If we have a trivial operator delete (), we can go ahead and
+	     just use the deleting destructor, sfk_deleting_destructor.  */
+
+	  if (! has_empty_operator_delete_p (type) || pedantic)
+	    {
+	      cp_warning_at ("'%D' is an instance of a class which does "
+			 "not allow global or stack-based objects; it "
+			 "does not have an empty `operator delete', and "
+			 "so it will ** NOT ** be destructed.", decl);
+	      return 0;
+	    }
+	  dtor = sfk_deleting_destructor;
+	}
+      /* APPLE LOCAL  end double destructor  turly 20020214  */
+ 
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	rval = decl;
@@ -11114,7 +11371,8 @@ cxx_maybe_build_cleanup (tree decl)
 	flags |= LOOKUP_NONVIRTUAL;
 
       rval = build_delete (TREE_TYPE (rval), rval,
-			   sfk_complete_destructor, flags, 0);
+			   /* APPLE LOCAL  double destructor  */
+			   dtor, flags, 0);
 
       if (TYPE_USES_VIRTUAL_BASECLASSES (type)
 	  && ! TYPE_HAS_DESTRUCTOR (type))
@@ -11244,4 +11502,5 @@ cp_missing_noreturn_ok_p (tree decl)
 }
 
 #include "gt-cp-decl.h"
-#include "gtype-cp.h"
+/* APPLE LOCAL Objective-C++ */
+/* Move gtype-cp.h to cp-lang.c.  */

@@ -188,6 +188,18 @@ insn-conditions.o-warn = -Wno-error
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
 gengtype-yacc.o-warn = -Wno-error
 c-parse.o-warn = -Wno-error
+
+# APPLE LOCAL begin unclean apple code
+alloc-pool.o-warn = -Wno-long-double
+ggc-page.o-warn = -Wno-long-double
+darwin-c.o-warn = -Wno-error
+stub-objc.o-warn = -Wno-error
+timevar.o-warn = -Wno-error
+insn-output.o-warn = -Wno-error
+darwin.o-warn = -Wno-error
+insn-emit.o-warn = -Wno-error
+# APPLE LOCAL end unclean apple code
+
 # flex output may yield harmless "no previous prototype" warnings
 gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
@@ -508,11 +520,14 @@ INSTALL_LIBGCC = install-libgcc
 # Options to use when compiling libgcc2.a.
 #
 LIBGCC2_DEBUG_CFLAGS = -g
-LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+# APPLE LOCAL control opt level.  ilr
+LIBGCC2_CFLAGS = $(LIBGCC2_OPT) $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
 LIBGCC2_INCLUDES =
+# APPLE LOCAL control opt level.  ilr
+LIBGCC2_OPT = -O2
 
 # Additional target-dependent options for compiling libgcc2.a.
 TARGET_LIBGCC2_CFLAGS =
@@ -624,6 +639,24 @@ PROTOIZE_INSTALL_NAME := $(shell echo protoize|sed '$(program_transform_name)')
 UNPROTOIZE_INSTALL_NAME := $(shell echo unprotoize|sed '$(program_transform_name)')
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
 GCCBUG_INSTALL_NAME := $(shell echo gccbug|sed '$(program_transform_name)')
+
+# APPLE LOCAL begin order files  ilr
+# When configure --enable-build_gcc is specified then we know that the
+# makefile was created as a result of using build_gcc.  For such builds
+# we want to use the order files in the order-files directory.  The
+# makefile will test ORDER_FILES.  If it is not null then the appropriate
+# order file is added to the cc1* link.
+#ORDER_FILES = @enable_build_gcc@
+### ORDER FILES ARE CURRENTLY DISABLED.  TO ENABLE THEM REMOVE THE LINE ###
+### BELOW AND UNCOMMENT THE LINE ABOVE.                                 ###
+ORDER_FILES =
+ifeq ($(ORDER_FILES),yes)
+CC1_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1.order ]; then \
+		     echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1.order -e start ; fi`
+else
+CC1_ORDER_FLAGS =
+endif
+# APPLE LOCAL end order files  ilr
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
@@ -862,6 +895,8 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
+# APPLE LOCAL debugging
+  # c-idebug.o c-dmp-tree.o
 
 # Language-independent object files.
 
@@ -1152,9 +1187,10 @@ $(SPECS): xgcc$(exeext)
 gcc-cross: xgcc$(exeext)
 	cp xgcc$(exeext) gcc-cross$(exeext)
 
+# APPLE LOCAL order files  ilr
 cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
-		$(C_OBJS) $(BACKEND) $(LIBS)
+		$(C_OBJS) $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
 
 # Build the version of limits.h that we will install.
 xlimits.h: glimits.h limitx.h limity.h
@@ -1186,7 +1222,8 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	DPBIT_FUNCS='$(DPBIT_FUNCS)' \
 	TPBIT='$(TPBIT)' \
 	TPBIT_FUNCS='$(TPBIT_FUNCS)' \
-	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
+	APPLE_LOCAL='APPLE LOCAL libcc_kext' \
+	MULTILIBS=".; static;@static@fno-pic kext;@Dmalloc=kern_os_malloc@Dfree=kern_os_free@DLIBCC_KEXT@static@fno-pic@fno-exceptions$(KEXT_EXTRA_FLAGS)" \
 	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
 	SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_INSTALL='$(SHLIB_INSTALL)' \
@@ -1311,6 +1348,8 @@ c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 c-parse.o : c-parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(GGC_H) intl.h $(C_TREE_H) input.h flags.h toplev.h output.h $(CPPLIB_H) \
     varray.h gt-c-parse.h langhooks.h
+# APPLE LOCAL Objective-C++
+c-parse.o : langhooks.h
 
 srcextra: gcc.srcextra lang.srcextra
 
@@ -1341,8 +1380,8 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
     $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h
-stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
-    $(GGC_H) $(C_COMMON_H)
+# APPLE LOCAL Objective-C++
+stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
@@ -2040,6 +2079,23 @@ ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) pretty-print.c $(PRETTY_PRINT_H)
+
+# APPLE LOCAL debugging
+# Suppress all warnings explicitly for the idebug builds since there can be
+# many when, and if, -traditional-cpp is used.
+c-idebug.o : c-idebug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+  $(TREE_H) $(C_TREE_H) $(RTL_H) flags.h idebug.c
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -Wno-traditional -w $(srcdir)/c-idebug.c -o c-idebug.o
+
+# APPLE LOCAL begin new tree dump                                                                 
+dmp-tree.o : dmp-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) $(C_COMMON_H) \
+  langhooks.h dmp-tree.h $(TM_H) coretypes.h real.h
+c-dmp-tree.o : c-dmp-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
+   $(C_TREE_H) dmp-tree.h $(TM_H) coretypes.h
+# Additional dependencies for existing rules for new tree dump
+c-decl.o : dmp-tree.h
+tree.o   : dmp-tree.h
+# APPLE LOCAL end new tree dump
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -2848,10 +2904,12 @@ srcinfo: $(INFOFILES)
 
 TEXI_CPP_FILES = cpp.texi fdl.texi cppenv.texi cppopts.texi
 
+# APPLE LOCAL GPL compliance
 TEXI_GCC_FILES = gcc.texi gcc-common.texi frontends.texi standards.texi \
 	 invoke.texi extend.texi md.texi objc.texi gcov.texi trouble.texi \
 	 bugreport.texi service.texi contribute.texi compat.texi funding.texi \
-	 gnu.texi gpl.texi fdl.texi contrib.texi cppenv.texi cppopts.texi
+	 gnu.texi gpl.texi fdl.texi contrib.texi cppenv.texi cppopts.texi \
+	 sourcecode.texi
 
 TEXI_GCCINT_FILES = gccint.texi gcc-common.texi contribute.texi makefile.texi \
 	 configterms.texi portability.texi interface.texi passes.texi \
@@ -2867,6 +2925,38 @@ TEXI_CPPINT_FILES = cppinternals.texi
 # The *.1, *.7, *.info, and *.dvi files are being generated from implicit 
 # patterns.  To use them, put each of the specific targets with its
 # specific dependencies but no build commands.
+
+# APPLE LOCAL begin html mrs
+htmldir = doc/HTML/gcc-$(version)
+.PHONY: html
+doc: html
+html: $(htmldir)/gcc/index.html $(htmldir)/cpp/index.html
+
+$(htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
+	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/cpp
+	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
+	  -o $(htmldir)/cpp $(docdir)/cpp.texi
+
+$(htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
+	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gcc
+	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
+	  -o $(htmldir)/gcc $(docdir)/gcc.texi
+
+$(htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
+	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gccint
+	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
+	  -o $(htmldir)/gccint $(docdir)/gccint.texi
+
+$(htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
+	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/gccinstall
+	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
+	  -o $(htmldir)/gccinstall $(docdir)/install.texi
+
+$(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
+	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/cppinternals
+	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
+	  -o $(htmldir)/cppinternals $(docdir)/cppinternals.texi
+# APPLE LOCAL end html mrs
 
 doc/cpp.info: $(TEXI_CPP_FILES)
 doc/gcc.info: $(TEXI_GCC_FILES)

@@ -40,6 +40,9 @@ struct lang_identifier GTY(())
   tree symbol_value;
   tree tag_value;
   tree label_value;
+  /* APPLE LOCAL objc speedup dpatel */
+  /* For Objective-C Only */
+  tree interface_value;
 };
 
 /* The resulting tree type.  */
@@ -246,6 +249,8 @@ extern void merge_translation_unit_decls (void);
 extern int c_disregard_inline_limits (tree);
 extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
+/* APPLE LOCAL Objective-C++  */
+extern void finish_file (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
 extern void c_objc_common_finish_file (void);
@@ -259,6 +264,16 @@ extern bool c_warn_unused_global_decl (tree);
 
 #define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
 
+/* APPLE LOCAL begin new tree dump */
+/* in c-dmp-tree.c */
+extern void c_dump_identifier   		PARAMS ((FILE *, tree, int, int));
+extern void c_dump_decl	   			PARAMS ((FILE *, tree, int, int));
+extern void c_dump_type	   			PARAMS ((FILE *, tree, int, int));
+extern int  c_dump_blank_line_p 		PARAMS ((tree, tree));
+extern int  c_dump_lineno_p 			PARAMS ((FILE *, tree));
+extern int  c_dmp_tree3				PARAMS ((FILE *, tree, int));
+/* APPLE LOCAL end new tree dump */
+
 /* in c-typeck.c */
 
 /* For use with comptypes.  */
@@ -266,6 +281,10 @@ enum {
   COMPARE_STRICT = 0
 };
 
+/* APPLE LOCAL begin IMA aggregate types */ 
+extern int same_translation_unit_p (tree, tree);
+extern int tagged_types_tu_compatible_p (tree, tree, int);
+/* APPLE LOCAL end IMA aggregate types */
 extern tree require_complete_type (tree);
 extern int comptypes (tree, tree, int);
 extern tree c_size_in_bytes (tree);

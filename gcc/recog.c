@@ -2498,6 +2498,13 @@ constrain_operands (int strict)
 		  win = 1;
 		break;
 
+/* APPLE LOCAL: AltiVec */
+#ifdef EXTRA_CONSTANT_CONSTRAINTS
+	      case 'A':
+	      case 'B':
+	      case 'C':
+	      case 'D':
+#endif
 	      case 'I':
 	      case 'J':
 	      case 'K':

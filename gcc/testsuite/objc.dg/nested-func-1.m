@@ -1,3 +1,4 @@
+/* APPLE LOCAL file nested functions */
 /* Test basic nested C function functionality within ObjC
    methods.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */

@@ -222,4 +222,15 @@ namespace std
       }
     _M_callbacks = 0;
   }
+
+  /* APPLE LOCAL begin  make libstdc++ more fine-grained  */
+#ifdef APPLE_KEYMGR
+  /* This function used to live in functexcept.cc, but now lives here to
+     avoid dragging in all of IOS when some other function in functexcept.cc
+     is called.  */    
+  void
+  __throw_ios_failure(const char* __s)
+  { throw ios_base::failure(__s); }
+#endif  /* APPLE_KEYMGR  */
+  /* APPLE LOCAL end  make libstdc++ more fine-grained  */
 } // namespace std

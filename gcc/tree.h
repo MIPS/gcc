@@ -180,6 +180,9 @@ struct tree_common GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
+
+  /* APPLE LOCAL unavailable (Radar 2809697) ilr */
+  unsigned unavailable_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -270,6 +273,9 @@ struct tree_common GTY(())
            INTEGER_TYPE, ENUMERAL_TYPE, FIELD_DECL
        SAVE_EXPR_NOPLACEHOLDER in
 	   SAVE_EXPR
+       APPLE LOCAL weak import
+       IDENTIFIER_WEAK_IMPORT in
+	   IDENTIFIER
 
    asm_written_flag:
 
@@ -294,6 +300,13 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
+   APPLE LOCAL begin unavailable (Radar 2809697) ilr
+   unavailable_flag:
+
+	TREE_UNAVAILABLE in
+	   ..._DECL
+   APPLE LOCAL end unavailable ilr
 
    visited:
 
@@ -753,6 +766,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
+
+/* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+/* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
+   unavailable feature by __attribute__((unavailable)).  */
+#define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
+/* APPLE LOCAL end unavailable ilr */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -1731,6 +1750,12 @@ struct tree_type GTY(())
    values for parameters are encoded in the type of the function,
    not in the PARM_DECL slot.  */
 #define DECL_INITIAL(NODE) (DECL_CHECK (NODE)->decl.initial)
+/* APPLE LOCAL begin Altivec */
+/* Use decl.saved_tree for PARM_DECL to provide original argument list to
+   dbxout. Backend likes to rearrange vector parameters. */
+/* For a PARM_DECL, keep original argument vector.  */
+#define DECL_ORIGINAL_ARGUMENTS(NODE) (PARM_DECL_CHECK (NODE)->decl.saved_tree)
+/* APPLE LOCAL end Altivec */
 /* For a PARM_DECL, records the data type used to pass the argument,
    which may be different from the type seen in the program.  */
 #define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->decl.initial)
@@ -2000,6 +2025,18 @@ struct tree_type GTY(())
 /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
 
+/* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+/* Used to indicate that this DECL has weak-import linkage.  */
+#define DECL_WEAK_IMPORT(NODE) (DECL_CHECK (NODE)->decl.weak_import_flag)
+/* The same information in IDENTIFIERs.  */
+#define IDENTIFIER_WEAK_IMPORT(NODE) (IDENTIFIER_NODE_CHECK (NODE)->common.unsigned_flag)
+/* APPLE LOCAL end weak_import (Radar 2809704) ilr */
+
+/* APPLE LOCAL coalescing  */
+/* "coalesced" symbols are similar to, but have more restrictions than,
+   ELF-style "weak" symbols.  */
+#define DECL_COALESCED(NODE) (DECL_CHECK (NODE)->decl.coalesced_flag)
+
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_CHECK (NODE)->decl.transparent_union)
@@ -2063,6 +2100,13 @@ struct tree_type GTY(())
 /* Nonzero if an alias set has been assigned to this declaration.  */
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
+
+/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
+   the approximate number of statements in this function.  There is
+   no need for this number to be exact; it is only used in various
+   heuristics regarding optimization.  */
+#define DECL_ESTIMATED_INSNS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
@@ -2142,7 +2186,12 @@ struct tree_decl GTY(())
   unsigned lang_flag_7 : 1;
 
   unsigned needs_to_live_in_memory : 1;
-  /* 15 unused bits.  */
+  /* APPLE LOCAL weak_import (Radar 2809704) ilr */
+  unsigned weak_import_flag : 1;
+  /* APPLE LOCAL coalescing  */
+  unsigned coalesced_flag : 1;
+  /* APPLE LOCAL unused bits */
+  /* 13 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -2184,6 +2233,9 @@ struct tree_decl GTY(())
   } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
 
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
+  /* APPLE LOCAL begin Altivec */
+  /* In a PARM_DECL, this is tree_vec with original argument sequence */
+  /* APPLE LOCAL end Altivec */
   tree saved_tree;
 
   /* In a FUNCTION_DECL, these are function data which is to be kept
@@ -2362,6 +2414,12 @@ enum tree_index
   TI_V1DI_TYPE,
   TI_V16QI_TYPE,
   TI_V4DF_TYPE,
+  /* APPLE LOCAL begin AltiVec */
+  TI_VPIXEL_TYPE,
+  TI_BV16QI_TYPE,
+  TI_BV8HI_TYPE,
+  TI_BV4SI_TYPE,
+  /* APPLE LOCAL end AltiVec */
 
   TI_MAIN_IDENTIFIER,
 
@@ -2783,6 +2841,10 @@ enum attribute_flags
      name indicates known behavior, and should be silently ignored if they
      are not in fact compatible with the function type.  */
   ATTR_FLAG_BUILT_IN = 16
+  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  /* The attributes are being applied to a function definition.  */
+  ,ATTR_FLAG_FUNCTION_DEF = 16
+  /* APPLE LOCAL end weak_import ilr */
 };
 
 /* Default versions of target-overridable functions.  */
@@ -3626,6 +3688,13 @@ enum tree_dump_index
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.   */
+  /* APPLE LOCAL begin new tree dump */
+  TDI_dmp_tu,			/* dmp the whole translation unit */
+  TDI_dmp_class,		/* dmp class hierarchy */
+  TDI_dmp_original,		/* dmp each function before optimizing it */
+  TDI_dmp_optimized,		/* dmp each function after optimizing it */
+  TDI_dmp_inlined,		/* dmp each function after inlining within it */
+  /* APPLE LOCAL end new tree dump */
   TDI_all,			/* enable all the dumps.  */
   TDI_end
 };
@@ -3644,7 +3713,8 @@ enum tree_dump_index
 #define TDF_VOPS	(1 << 6)	/* display virtual operands */
 #define TDF_LINENO	(1 << 7)	/* display statement line numbers */
 #define TDF_UID		(1 << 8)	/* display decl UIDs */
-
+/* APPLE LOCAL new tree dump  ilr */
+#define TDF_DMP_TREE	(1 << 9)	/* use dmp_tree() to display nodes */
 
 typedef struct dump_info *dump_info_p;
 

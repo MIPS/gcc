@@ -2,7 +2,8 @@
    Note, gcc should omit these warnings in system header files.
    By Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 4/09/2001.  */
 /* { dg-do compile } */
-/* { dg-options "-Wtraditional" } */
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-Wtraditional -Wno-long-double" } */
 
 extern void foo_i (int);
 extern void foo_f (float);

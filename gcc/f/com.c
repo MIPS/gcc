@@ -636,6 +636,37 @@ static GTY(()) tree named_labels;
 
 static GTY(()) tree shadowed_labels;
 
+/* APPLE LOCAL begin AltiVec */
+/* Placeholders to make linking work, remove when altivec support is correct */
+
+int
+comptypes (type1, type2)
+     tree type1, type2;
+{
+  register tree t1 = type1;
+  register tree t2 = type2;
+  if (t1 == t2 || !t1 || !t2
+      || TREE_CODE (t1) == ERROR_MARK || TREE_CODE (t2) == ERROR_MARK)
+    return 1;
+  return 0;
+}
+
+tree
+default_conversion (exp)
+     tree exp;
+{
+  return exp;
+}
+
+tree
+lang_build_type_variant (type, constp, volatilep)
+     tree type;
+     int constp, volatilep;
+{
+  return type;
+}
+/* APPLE LOCAL end AltiVec */
+
 /* Return the subscript expression, modified to do range-checking.
 
    `array' is the array type to be checked against.

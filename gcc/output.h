@@ -516,4 +516,8 @@ extern bool default_valid_pointer_mode (enum machine_mode);
 
 extern int default_address_cost (rtx);
 
+/* APPLE LOCAL begin coalescing */
+extern int darwin_named_section_is (const char* name);
+/* APPLE LOCAL end coalescing */
+
 #endif /* ! GCC_OUTPUT_H */

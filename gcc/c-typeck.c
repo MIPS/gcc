@@ -51,8 +51,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static int missing_braces_mentioned;
 
 static tree qualify_type (tree, tree);
-static int same_translation_unit_p (tree, tree);
-static int tagged_types_tu_compatible_p (tree, tree, int);
 static int comp_target_types (tree, tree, int);
 static int function_types_compatible_p (tree, tree, int);
 static int type_lists_compatible_p (tree, tree, int);
@@ -617,7 +615,7 @@ comp_target_types (tree ttl, tree ttr, int reflexive)
    If the CONTEXT chain ends in a null, that type's context is still
    being parsed, so if two types have context chains ending in null,
    they're in the same translation unit.  */
-static int
+int
 same_translation_unit_p (tree t1, tree t2)
 {
   while (t1 && TREE_CODE (t1) != TRANSLATION_UNIT_DECL)
@@ -650,6 +648,10 @@ struct tagged_tu_seen {
   const struct tagged_tu_seen * next;
   tree t1;
   tree t2;
+/* APPLE LOCAL begin IMA speed up */
+  int  isEnum;
+  int  enumMatched;
+/* APPLE LOCAL end IMA speed up */
 };
 
 /* Can they be compatible with each other?  We choose to break the
@@ -663,7 +665,7 @@ static const struct tagged_tu_seen * tagged_tu_seen_base;
    units are being compiled.  See C99 6.2.7 paragraph 1 for the exact
    rules.  */
 
-static int
+int
 tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 {
   tree s1, s2;
@@ -698,45 +700,74 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
     const struct tagged_tu_seen * tts_i;
     for (tts_i = tagged_tu_seen_base; tts_i != NULL; tts_i = tts_i->next)
       if (tts_i->t1 == t1 && tts_i->t2 == t2)
-	return 1;
+/* APPLE LOCAL begin IMA speed up */
+	return tts_i->isEnum ? tts_i->enumMatched : 1;
+/* APPLE LOCAL end IMA speed up */
   }
   
   switch (TREE_CODE (t1))
     {
     case ENUMERAL_TYPE:
       {
-      
-        /* Speed up the case where the type values are in the same order. */
-        tree tv1 = TYPE_VALUES (t1);
-        tree tv2 = TYPE_VALUES (t2);
-        
-        if (tv1 == tv2)
-          return 1;
-        
+	struct tagged_tu_seen *tts;
+/* APPLE LOCAL begin IMA speed up */
+	int res;
+	bool done;
+	/* Speed up the case where the type values are in the same order. */
+	tree tv1 = TYPE_VALUES (t1);
+	tree tv2 = TYPE_VALUES (t2);
+	
+	if (tv1 == tv2)
+	  return 1;
+
+	res = 0;
+	done = false;
         for (;tv1 && tv2; tv1 = TREE_CHAIN (tv1), tv2 = TREE_CHAIN (tv2))
           {
             if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
               break;
             if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
-              return 0;
+	      {
+	        res = 0;
+		done = true;
+		break;
+	      }
           }
-        
-        if (tv1 == NULL_TREE && tv2 == NULL_TREE)
-          return 1;
-        if (tv1 == NULL_TREE || tv2 == NULL_TREE)
-          return 0;
-        
-	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
-	  return 0;
-	
-	for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
+    
+	if (!done)
+	  {
+            if (tv1 == NULL_TREE && tv2 == NULL_TREE)
+              res = 1, done = true;
+            else if (tv1 == NULL_TREE || tv2 == NULL_TREE)
+              res = 0, done = true;
+	  }
+
+	if (!done && list_length (TYPE_VALUES (t1)) == list_length (TYPE_VALUES (t2)))
+	{
+	  res = 1;
+	  for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
 	  {
 	    s2 = purpose_member (TREE_PURPOSE (s1), TYPE_VALUES (t2));
 	    if (s2 == NULL
 		|| simple_cst_equal (TREE_VALUE (s1), TREE_VALUE (s2)) != 1)
-	      return 0;
+	    {
+	      res = 0;
+	      break;
+	    }
 	  }
-	return 1;
+	}
+	if (tagged_tu_seen_base)
+	{
+	  tts = xmalloc(sizeof (struct tagged_tu_seen));
+	  tts->next = tagged_tu_seen_base;
+	  tts->t1 = t1;
+	  tts->t2 = t2;
+	  tts->isEnum = 1;
+	  tts->enumMatched = res;
+	  tagged_tu_seen_base = tts;
+	}
+	return res;
+/* APPLE LOCAL end IMA speed up */
       }
 
     case UNION_TYPE:
@@ -748,10 +779,14 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 	  {
 	    bool ok = false;
 	    struct tagged_tu_seen tts;
+	    const struct tagged_tu_seen * tts_i;
 
 	    tts.next = tagged_tu_seen_base;
 	    tts.t1 = t1;
 	    tts.t2 = t2;
+/* APPLE LOCAL begin IMA speed up */
+	    tts.isEnum = 0;
+/* APPLE LOCAL end IMA speed up */
 	    tagged_tu_seen_base = &tts;
 	
 	    if (DECL_NAME (s1) != NULL)
@@ -773,6 +808,15 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 		    ok = true;
 		    break;
 		  }
+	    tts_i = tagged_tu_seen_base;
+/* APPLE LOCAL begin IMA speed up */
+	    while (tts_i->isEnum)
+	    {
+	      const struct tagged_tu_seen* p = tts_i->next;
+	      free((struct tagged_tu_seen*)tts_i);
+	      tts_i = p;
+	    }
+/* APPLE LOCAL end IMA speed up */
 	    tagged_tu_seen_base = tts.next;
 	    if (! ok)
 	      return 0;
@@ -783,12 +827,16 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
     case RECORD_TYPE:
       {
 	struct tagged_tu_seen tts;
+	const struct tagged_tu_seen * tts_i;
 	
 	tts.next = tagged_tu_seen_base;
 	tts.t1 = t1;
 	tts.t2 = t2;
+/* APPLE LOCAL begin IMA speed up */
+	tts.isEnum = 0;
+/* APPLE LOCAL end IMA speed up */
 	tagged_tu_seen_base = &tts;
-	  
+
 	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2); 
 	     s1 && s2;
 	     s1 = TREE_CHAIN (s1), s2 = TREE_CHAIN (s2))
@@ -798,6 +846,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 		|| DECL_NAME (s1) != DECL_NAME (s2))
 	      break;
 	    result = comptypes (TREE_TYPE (s1), TREE_TYPE (s2), flags);
+
 	    if (result == 0)
 	      break;
 	    if (result == 2)
@@ -808,6 +857,16 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 				     DECL_FIELD_BIT_OFFSET (s2)) != 1)
 	      break;
 	  }
+
+	tts_i = tagged_tu_seen_base;
+/* APPLE LOCAL begin IMA speed up */
+	while (tts_i->isEnum)
+	{
+	  const struct tagged_tu_seen* p = tts_i->next;
+	  free((struct tagged_tu_seen*)tts_i);
+	  tts_i = p;
+	}
+/* APPLE LOCAL end IMA speed up */
 	tagged_tu_seen_base = tts.next;
 	if (s1 && s2)
 	  return 0;
@@ -1843,6 +1902,17 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 
       val = require_complete_type (val);
 
+      /* APPLE LOCAL begin AltiVec */
+      /* Ensure that a prototype is present if a vector type is involved.  */
+      if (typelist == 0 
+	  && TREE_CODE (TREE_TYPE (val)) == VECTOR_TYPE
+	  && !(DECL_BUILT_IN (fundecl)
+	       && (DECL_FUNCTION_CODE (fundecl) == BUILT_IN_NEXT_ARG
+		   || DECL_FUNCTION_CODE (fundecl) == BUILT_IN_CLASSIFY_TYPE)))
+	error ("vector argument %d requires a prototype for `%s'",
+	       parmnum + 1, IDENTIFIER_POINTER (name));
+      /* APPLE LOCAL end AltiVec */
+
       if (type != 0)
 	{
 	  /* Formal parm type is specified by a function prototype.  */
@@ -2840,6 +2910,15 @@ internal_build_compound_expr (tree list, int first_p)
       if (warn_unused_value
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
+	/* APPLE LOCAL begin AltiVec */
+	/* Inhibit bogus warnings for "vector int x = (vector
+	   int)(1,2,3,4);" Unfortunately, we have no way of knowing
+	   whether the expression we're currently parsing is part of a
+	   vector constant, so we just inhibit this warning when
+	   "-faltivec" was specified.  I know, I know, it's a crummy
+	   solution, but it'll do for now.  */
+	if (!(flag_altivec && !extra_warnings))
+	/* APPLE LOCAL end AltiVec */
         warning ("left-hand operand of comma expression has no effect");
     }
 
@@ -2917,6 +2996,17 @@ build_c_cast (tree type, tree expr)
       error ("cast to union type from type not present in union");
       return error_mark_node;
     }
+  /* APPLE LOCAL begin AltiVec */
+  /* Handle "(vector float)(vector unsigned long) (0x1,0x2,0x3,0x4)"
+     which means a vector float using the given values (with no
+     conversion.)  */
+  else if (TREE_CODE (type) == VECTOR_TYPE && TREE_CODE (expr) == VECTOR_CST
+	   && TREE_TYPE (expr) != type)
+    { 
+      TREE_TYPE (expr) = type;
+      return expr;
+    } 
+  /* APPLE LOCAL end AltiVec */
   else
     {
       tree otype, ovalue;
@@ -3045,6 +3135,13 @@ build_c_cast (tree type, tree expr)
       /* Replace a nonvolatile const static variable with its value.  */
       if (optimize && TREE_CODE (value) == VAR_DECL)
 	value = decl_constant_value (value);
+      /* APPLE LOCAL begin don't sign-extend pointers cast to integers */
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TYPE_PRECISION (type) > TYPE_PRECISION (otype)
+	  && TREE_UNSIGNED (type))
+        value = convert (c_common_type_for_size (POINTER_SIZE, 1), value);
+      /* APPLE LOCAL end don't sign-extend pointers cast to integers */
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -3869,13 +3966,21 @@ digest_init (tree type, tree init, int require_constant)
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
 	       != char_type_node)
+          /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+	      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
+	       != unsigned_char_type_node)
+          /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
 	      && TYPE_PRECISION (typ1) == TYPE_PRECISION (char_type_node))
 	    {
 	      error_init ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
-	       == char_type_node)
+          /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
+		== char_type_node)
+	       || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (inside_init)))
+		   == unsigned_char_type_node))
+          /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
 	      && TYPE_PRECISION (typ1) != TYPE_PRECISION (char_type_node))
 	    {
 	      error_init ("int-array initialized from non-wide string");

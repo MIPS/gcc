@@ -265,6 +265,10 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
+  /* APPLE LOCAL Objective-C++  */
+  /* Called at the end of the translation unit.  */
+  void (*finish_file) PARAMS ((void));
+  
   /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
   void (*parse_file) (int);
@@ -407,6 +411,19 @@ struct lang_hooks
   const struct attribute_spec *attribute_table;
   const struct attribute_spec *common_attribute_table;
   const struct attribute_spec *format_attribute_table;
+
+  /* APPLE LOCAL begin new tree dump */
+  /* Called to tree dump language-dependent parts of a class 'd',
+     class 't', IDENTIFIER_NODE nodes, conditional blank lines before
+     statements, and statment line numbers.  See dmp-tree.c for 
+     documentation.  */
+  void (*dump_decl)         PARAMS ((FILE *, tree, int, int));
+  void (*dump_type)         PARAMS ((FILE *, tree, int, int));
+  void (*dump_identifier)   PARAMS ((FILE *, tree, int, int));
+  int  (*dump_blank_line_p) PARAMS ((tree, tree));
+  int  (*dump_lineno_p)     PARAMS ((FILE *, tree));
+  int  (*dmp_tree3)         PARAMS ((FILE *, tree, int));
+  /* APPLE LOCAL end new tree dump */
 
   /* Function-related language hooks.  */
   struct lang_hooks_for_functions function;

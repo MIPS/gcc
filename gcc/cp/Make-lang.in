@@ -69,6 +69,15 @@ g++-cross$(exeext): g++$(exeext)
 	-rm -f g++-cross$(exeext)
 	cp g++$(exeext) g++-cross$(exeext)
 
+# APPLE LOCAL begin order files  ilr
+ifeq ($(ORDER_FILES),yes)
+CC1PLUS_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1plus.order ]; then \
+		         echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1plus.order -e start ; fi`
+else
+CC1PLUS_ORDER_FLAGS =
+endif
+# APPLE LOCAL end order files  ilr
+
 # The compiler itself.
 # Shared with C front end:
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
@@ -77,20 +86,29 @@ CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
 	c-simplify.o tree-inline.o
 
 # Language-specific object files.
-CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
+# APPLE LOCAL Objective-C++
+CXX_AND_OBJCP_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parser.o cp/ptree.o cp/rtti.o \
  cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
  cp/search.o cp/semantics.o cp/tree.o cp/repo.o cp/dump.o cp/optimize.o \
- cp/mangle.o cp/cp-lang.o cp/name-lookup.o cp/cxx-pretty-print.o \
+ cp/mangle.o cp/name-lookup.o cp/cxx-pretty-print.o \
  cp/cp-simplify.o tree-mudflap.o cp/cp-mudflap.o
 
+# APPLE LOCAL begin Objective-C++
+# APPLE LOCAL debugging
+CXX_OBJS = $(CXX_AND_OBJCP_OBJS) cp/cp-lang.o cp/cp-idebug.o \
+ stub-objc.o # cp/cp-dmp-tree.o
+# APPLE LOCAL end Objective-C++
+ 
 # Use strict warnings for this front end.
 cp-warn = $(STRICT_WARN) $(WERROR)
 
+# APPLE LOCAL order files  ilr
 cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
 		  libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) libcpp.a $(LIBS)
+	      $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) libcpp.a $(LIBS) \
+	      $(CC1PLUS_ORDER_FLAGS)
 
 # Special build rules.
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
@@ -261,6 +279,17 @@ cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h tree-simple.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h $(TM_P_H)
+
+# APPLE LOCAL debugging
+# Suppress all warnings explicitly for the idebug builds since there can be
+# many when, and if, -traditional-cpp is used.
+cp/cp-idebug.o: cp/cp-idebug.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h idebug.c
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
+		-w -Wno-traditional $(srcdir)/cp/cp-idebug.c -o cp/cp-idebug.o
+
+# APPLE LOCAL new tree dump
+cp/cp-dmp-tree.o: cp/cp-dmp-tree.c $(CXX_TREE_H) $(SYSTEM_H) $(TM_H) coretypes.h \
+  dmp-tree.h c-dmp-tree.c
 
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h \
   output.h

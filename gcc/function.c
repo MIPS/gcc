@@ -3130,6 +3130,11 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
 	  /* Don't even consider working with paradoxical subregs,
 	     or the moral equivalent seen here.  */
 	  else if (size_x <= size_sub
+		   /* APPLE LOCAL begin AltiVec */
+		   /* don't generate subregs of vectors */
+		   && GET_MODE_CLASS (GET_MODE (sub)) != MODE_VECTOR_INT
+		   && GET_MODE_CLASS (GET_MODE (sub)) != MODE_VECTOR_FLOAT
+		   /* APPLE LOCAL end */
 	           && int_mode_for_mode (GET_MODE (sub)) != BLKmode)
 	    {
 	      /* Do a bitfield insertion to mirror what would happen
@@ -3675,6 +3680,15 @@ instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
 	   mode = GET_MODE_WIDER_MODE (mode))
 	if (! memory_address_p (mode, addr))
 	  return;
+
+      /* APPLE LOCAL begin AltiVec */
+      /* If the address is a vector mode, check that.  These addressing modes
+	 may be more limited, so we don't want to always use them as the 
+	 limit.  */
+      if (VECTOR_MODE_P (GET_MODE (x))
+	  && ! memory_address_p (GET_MODE (x), addr))
+	return;
+      /* APPLE LOCAL end AltiVec */
     }
 
   /* Put back the address now that we have updated it and we either know
@@ -5205,6 +5219,8 @@ assign_parms (tree fndecl)
   /* We have aligned all the args, so add space for the pretend args.  */
   stack_args_size.constant += extra_pretend_bytes;
   current_function_args_size = stack_args_size.constant;
+  /* APPLE LOCAL sibcall 3007352 */
+  cfun->unrounded_args_size = stack_args_size.constant;
 
   /* Adjust function incoming argument size for alignment and
      minimum length.  */

@@ -38,6 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "cpplib.h"
 #include "target.h"
+/* APPLE LOCAL Symbol Separation */
+#include "debug.h"
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "c-tree.h"
@@ -348,6 +350,12 @@ int warn_format_nonliteral;
 
 int warn_format_security;
 
+/* APPLE LOCAL begin AltiVec */
+/* Nonzero means warn about deprecated use of 'long' vector types.  */
+
+int warn_altivec_long_deprecated = 1; /* radar 2841709 */
+/* APPLE LOCAL end AltiVec */
+
 /* Zero means that faster, ...NonNil variants of objc_msgSend...
    calls will be used in ObjC; passing nil receivers to such calls
    will most likely result in crashes.  */
@@ -448,6 +456,13 @@ int warn_implicit_int;
    non-NULL.  */
 
 int warn_nonnull;
+
+/* BEGIN APPLE LOCAL disable_typechecking_for_spec_flag */
+/* This makes type conflicts a warning, instead of an error,
+   to work around some problems with SPEC.  */
+
+int disable_typechecking_for_spec_flag;
+/* END APPLE LOCAL disable_typechecking_for_spec_flag */
 
 /* Warn about old-style parameter declaration.  */
 
@@ -601,6 +616,43 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
+/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 sts */
+/* Nonzero if all calls to virtual functions should cause indirection
+   through a vtable.  */
+int flag_indirect_virtual_calls;
+/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 sts */
+
+/* APPLE LOCAL begin terminated-vtables */
+/* Nonzero means append a zero word to vtables.  Used by darwin kernel
+   driver dynamic-loader to find the ends of vtables for patching.  */
+int flag_terminated_vtables = 0;
+/* APPLE LOCAL end terminated-vtables */
+
+/* APPLE LOCAL begin private extern  Radar 2872481 ilr */
+/* Nonzero if -fpreproceessed specified.  This is needed by
+   init_reswords() so that it can make __private_extern__ have the
+   same rid code as extern when -fpreprocessed is specified.  Normally
+   there is a -D on the command line for this.  But if -fpreprocessed
+   was specified then macros aren't expanded.  So we fake the token
+   value out using the rid code.  */
+int flag_preprocessed = 0;
+/* APPLE LOCAL end private extern  Radar 2872481 ilr */
+
+/* APPLE LOCAL begin apple-kext   Radar #2849864 ilr */
+/* Nonzero if we're compiling in a gcc2.95-compatibility mode.
+   Implies -fterminated-vtables and -findirect-virtual-calls,
+   only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
+   constructors-returning-this...  */
+int flag_apple_kext = 0;
+/* APPLE LOCAL end apple-kext ilr */
+
+/* APPLE LOCAL begin structor thunks */
+/* Nonzero if we prefer to clone con/de/structors.  Alternative is to
+   gen multiple tiny thunk-esque things that call/jump to a unified
+   con/de/structor.  This is a classic size/speed tradeoff.  */
+int flag_clone_structors = 0;
+/* APPLE LOCAL end structor thunks */
+
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -696,6 +748,19 @@ void (*lang_expand_function_end) (void);
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
 
+/* APPLE LOCAL begin -Wlong-double */
+/* Nonzero means warn about usage of long double.  */
+#ifdef CONFIG_DARWIN_H
+int warn_long_double = 1;
+#else
+int warn_long_double = 0;
+#endif
+/* APPLE LOCAL end -Wlong-double */
+
+/* APPLE LOCAL begin constant cfstrings */
+static void create_cfstring_template	PARAMS ((void));
+/* APPLE LOCAL end constant cfstrings */
+
 /* Information about how a function name is generated.  */
 struct fname_var_t
 {
@@ -771,6 +836,12 @@ static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_deprecated_attribute (tree *, tree, tree, int,
 					 bool *);
+/* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+static tree handle_unavailable_attribute (tree *, tree, tree, int,  bool *);
+/* APPLE LOCAL end unavailable ilr */
+/* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+static tree handle_weak_import_attribute (tree *, tree, tree, int, bool *);
+/* APPLE LOCAL end weak_import ilr */
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
 					  bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
@@ -841,6 +912,14 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_pure_attribute },
   { "deprecated",             0, 0, false, false, false,
 			      handle_deprecated_attribute },
+  /* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+  { "unavailable",            0, 0, false, false, false,
+			      handle_unavailable_attribute },
+  /* APPLE LOCAL end unavailable ilr */
+  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  { "weak_import",            0, 0, true, false, false,
+			      handle_weak_import_attribute },
+  /* APPLE LOCAL end weak_import ilr */
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, true,  false, false,
@@ -1080,6 +1159,99 @@ finish_fname_decls (void)
     }
   saved_function_name_decls = stack;
 }
+
+/* APPLE LOCAL begin AltiVec */
+
+/* Implement the vec_step keyword: Return the number of components in the
+   given vector type.
+   Note that the type of vec_step () is SIGNED, not unsigned.  */
+tree
+altivec_vec_step (tree type)
+{
+  enum tree_code code = TREE_CODE (type);
+
+  if (code != VECTOR_TYPE)
+    {
+      error ("operand of `vec_step' must be a vector type");
+      return ssize_int (0);
+    }
+
+  return size_binop (CEIL_DIV_EXPR, ssize_int (16),
+		     convert (ssizetype, c_sizeof (TREE_TYPE (type))));
+}
+
+/* Implement the vec_step keyword: Return the number of components in
+   the given vector type.  */
+
+tree
+altivec_vec_step_expr (tree expr)
+{
+  return altivec_vec_step (TREE_TYPE (expr));
+}
+/* Digest a vector constant.  */
+
+tree
+altivec_vector_constant (tree type, tree values)
+{
+  tree vtype, t1, t2, t3, t4;
+  tree valarray[16], valtail;
+  int valnum, elements;
+
+  /* Get the vector element type and number of elements.  */
+  vtype = TREE_TYPE (type);
+  elements = (TREE_INT_CST_LOW (TYPE_SIZE (type))
+	      / TREE_INT_CST_LOW (TYPE_SIZE (vtype)));
+
+  /* Walk the values list placing the converted constants into
+     valarray and counting the number of constants.  */
+  for (valtail = values, valnum = 0;
+       valtail;
+       valtail = TREE_CHAIN (valtail), valnum++)
+    {
+      register tree val = TREE_VALUE (valtail);
+      STRIP_NOPS (val);
+      if (TREE_CODE (val) != INTEGER_CST && TREE_CODE (val) != REAL_CST)
+	{
+	  error("expected a constant expression");
+	  return error_mark_node;
+	}
+      valarray[valnum] = convert_and_check (vtype, val);
+    }
+
+  /* Check for the correct number of elements.  */
+  if (valnum != 1 && valnum != elements)
+    {
+      error (valnum < elements
+	     ? "too few initializers" : "too many initializers");
+      return error_mark_node;
+    }
+
+  /* A single constant value is shorthand for a duplicated value.
+     Duplicate it now.  */
+  while (valnum < elements)
+    valarray[valnum++] = valarray[0];
+
+  /* Combine the constant [integer] values until there are exactly four.  */
+  while (elements > 4)
+    {
+      int i, j;
+      for (i = 2, j = 0; i <= elements; i += 2, j++)
+	{
+	  unsigned HOST_WIDE_INT a = TREE_INT_CST_LOW (valarray[i-2]);
+	  unsigned HOST_WIDE_INT b = TREE_INT_CST_LOW (valarray[i-1]);
+	  int bits = 128 / elements;
+	  valarray[j] = build_int_2 ((a << bits) | (b & ((1 << bits) - 1)),
+				     0);
+	}
+      elements /= 2;
+    }
+  t4 = tree_cons (0, valarray[3], 0);
+  t3 = tree_cons (0, valarray[2], t4);
+  t2 = tree_cons (0, valarray[1], t3);
+  t1 = tree_cons (0, valarray[0], t2);
+  return build_vector (type, t1);
+}
+/* APPLE LOCAL end AltiVec */
 
 /* Return the text name of the current function, suitably prettified
    by PRETTY_P.  */
@@ -3541,6 +3713,11 @@ c_common_nodes_and_builtins (void)
   (*targetm.init_builtins) ();
 
   main_identifier_node = get_identifier ("main");
+
+  /* APPLE LOCAL begin constant cfstrings */
+  if (flag_constant_cfstrings)
+    create_cfstring_template ();
+  /* APPLE LOCAL end constant cfstrings */
 }
 
 tree
@@ -5253,6 +5430,97 @@ handle_deprecated_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+/* Handle a "unavailable" attribute; arguments as in
+   struct attribute_spec.handler.  */
+   
+static tree
+handle_unavailable_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
+{
+  tree type = NULL_TREE;
+  int warn = 0;
+  const char *what = NULL;
+  
+  if (DECL_P (*node))
+    {
+      tree decl = *node;
+      type = TREE_TYPE (decl);
+      
+      if (TREE_CODE (decl) == TYPE_DECL
+      	  || TREE_CODE (decl) == PARM_DECL
+	  || TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == FIELD_DECL)
+	{
+	  TREE_DEPRECATED (decl) = 1;
+	  TREE_UNAVAILABLE (decl) = 1;
+	}
+      else
+	warn = 1;
+    }
+  else if (TYPE_P (*node))
+    {
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	*node = build_type_copy (*node);
+      TREE_DEPRECATED (*node) = 1;
+      TREE_UNAVAILABLE (*node) = 1;
+      type = *node;
+    }
+  else
+    warn = 1;
+  
+  if (warn)
+    {
+      *no_add_attrs = true;
+      if (type && TYPE_NAME (type))
+	{
+	  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (*node));
+	  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (type)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+	}
+      if (what)
+	warning ("`%s' attribute ignored for `%s'",
+		 IDENTIFIER_POINTER (name), what);
+      else
+	warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+    }
+
+  return NULL_TREE;
+}
+/* APPLE LOCAL end unavailable ilr */
+
+/* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+/* Handle a "weak_import" attribute; arguments as in
+   struct attribute_spec.handler.  If FLAGS contains
+   ATTR_FLAG_FUNCTION_DEF then the attribute is on a
+   function definition which is not allowed.  Only 
+   function prototypes and extern data definitions
+   are allowed.  */
+   
+static tree
+handle_weak_import_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
+{
+  /* See FIXME comment in c_common_attribute_table.  */
+  if ((flags & (int) ATTR_FLAG_FUNCTION_DEF) == 0 && DECL_EXTERNAL (*node))
+    DECL_WEAK_IMPORT (*node) = 1;
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+    
+  return NULL_TREE;
+}
+/* APPLE LOCAL end weak_import ilr */
+
 /* Keep a list of vector type nodes we created in handle_vector_size_attribute,
    to prevent us from duplicating type nodes unnecessarily.
    The normal mechanism to prevent duplicates is to use type_hash_canon, but
@@ -5745,6 +6013,165 @@ check_function_arguments_recurse (void (*callback)
 
   (*callback) (ctx, param, param_num);
 }
+
+/* APPLE LOCAL begin -Wlong-double dpatel */
+void
+warn_about_long_double (void)
+{
+  /* Nonzero means we already warned about long doubles.  */
+  static int warned_about_long_double = 0;  
+
+  if (warn_long_double
+      && ! warned_about_long_double
+      /* Oh, the fromage of it all...  For hysterical reasons, the
+         preprocessor does not recognize things in the system
+         frameworks as "system headers", which confuses some types
+         of warnings.  So instead of hacking the preprocessors in
+         obscure ways, test for and ignore system headers here.  */
+      && ! in_system_header
+      && ! strstr (input_filename, "/System/Library/Frameworks/")
+      && ! strstr (input_filename, "/usr/include/"))
+    {       
+      warning ("use of `long double' type; its size may change in a future release");
+      warning ("(Long double usage is reported only once for each file.");
+      warning ("To disable this warning, use -Wno-long-double.)");
+      warned_about_long_double = 1;
+    }       
+}
+/* APPLE LOCAL end -Wlong-double dpatel */
+
+/* APPLE LOCAL begin constant cfstrings */
+
+static GTY(()) tree cfstring_class_reference = NULL_TREE;
+static GTY(()) tree cfstring_object_template = NULL_TREE;
+
+static void
+create_cfstring_template (void)
+{
+  /* "extern int __CFConstantStringClassReference[];"  */
+  cfstring_class_reference = build_decl
+			     (VAR_DECL, 
+			      get_identifier ("__CFConstantStringClassReference"),
+			      build_array_type (integer_type_node, 0));
+  DECL_EXTERNAL (cfstring_class_reference) = 1;
+  TREE_PUBLIC (cfstring_class_reference) = 1;
+  TREE_USED (cfstring_class_reference) = 1;
+  DECL_ARTIFICIAL (cfstring_class_reference) = 1;
+  pushdecl (cfstring_class_reference);
+  rest_of_decl_compilation (cfstring_class_reference, 0, 0, 0);
+}
+
+tree
+build_cfstring_ascii (tree str)
+{
+  tree initlist, constructor;
+  int length;
+
+  length = TREE_STRING_LENGTH (str) - 1;
+  if (warn_nonportable_cfstrings)
+    {
+      const char *s = TREE_STRING_POINTER (str);
+      int l = 0;
+      
+      for (l = 0; l < length; l++)
+	if (s[l] <= 0 || s[l] >= 127)
+	  {
+	    warning ("%s in CFString literal", 
+		     s[l] ? "non-ASCII character" : "embedded NUL");
+	    break;
+	  }
+    }
+
+  initlist = build_tree_list
+	     (NULL_TREE, convert (const_ptr_type_node, 
+				  copy_node (build_unary_op 
+					     (ADDR_EXPR, 
+					      cfstring_class_reference, 0))));
+  initlist = tree_cons (NULL_TREE, convert (const_ptr_type_node, 
+					    build_int_2 (0x000007c8, 0)), initlist);
+  initlist = tree_cons
+	     (NULL_TREE, convert (const_ptr_type_node,
+				  copy_node (build_unary_op 
+					     (ADDR_EXPR, str, 1))), initlist);
+  initlist = tree_cons (NULL_TREE, convert (const_ptr_type_node, 
+				  build_int_2 (length, 0)), initlist);
+  
+  /* Because we're lazy, we'll treat CFStrings (internally) as arrays of pointers.  
+     This shouldn't matter, anyway.  */
+  cfstring_object_template = build_array_type (const_ptr_type_node, 0);	 
+  TYPE_ALIGN (cfstring_object_template) = TYPE_ALIGN (const_ptr_type_node);
+  /* NB: We are initializing 'cfstring_object_template' every time, instead of
+     once in create_cfstring_template() above, because the compiler appears
+     to clobber it on occasion.  Exercise for the student: eliminate the
+     clobbering.  Primary suspect: memory manager.  */
+     
+  constructor = build (CONSTRUCTOR, cfstring_object_template, 
+		       NULL_TREE, nreverse (initlist));
+  TREE_CONSTANT (constructor) = 1;
+  TREE_STATIC (constructor) = 1;
+  TREE_READONLY (constructor) = 1;
+
+  /* Fromage: The C++ flavor of 'build_unary_op' expects constructor nodes to have
+     the TREE_HAS_CONSTRUCTOR (...) bit set.  However, this file (c-common.c) is built
+     without any knowledge of C++ tree accessors; hence, we shall use the generic
+     accessor that TREE_HAS_CONSTRUCTOR actually maps to!  */
+  if (c_dialect_cxx ())
+     TREE_LANG_FLAG_4 (constructor) = 1;   /* TREE_HAS_CONSTRUCTOR  */
+     
+  return build_c_cast (const_ptr_type_node, copy_node 
+					    (build_unary_op (ADDR_EXPR, constructor, 1)));
+}     
+/* APPLE LOCAL end constant cfstrings */
+
+/* APPLE LOCAL begin Symbol Separation */
+/* Call debugger hooks to restore state of debugging symbol generation.
+   This is called at the end of header processing whose symbol repository was
+   available and valid.  */
+void
+cb_restore_write_symbols (void)
+{
+  (*debug_hooks->restore_write_symbols) ();
+}
+
+/* Call debugger hooks to clear state of debugging symbol generation.
+   This is called to stop generation of debugging info. for a header whose
+   valid context information is available.  */
+void
+cb_clear_write_symbols (const char *filename, unsigned long checksum)
+{
+  (*debug_hooks->clear_write_symbols) (filename, checksum);
+}
+
+/* Call debugger hooks to mark start of symbol repository.
+   Similar to start_source_file. Only difference is that checksum is added 
+   with BINCL stabs.  */
+void
+cb_start_symbol_repository (unsigned int lineno, const char *filename,
+			    unsigned long checksum)
+{
+  (*debug_hooks->start_symbol_repository) (lineno, filename, checksum);
+}
+
+/* Call debugger hoooks to makr end of symbol repository.
+   Identical to end_source_file.  */
+void
+cb_end_symbol_repository (unsigned int lineno)
+{
+  (*debug_hooks->end_symbol_repository) (lineno);
+}
+
+/* Decide if hashnode points to a tree used for builtin identifier.
+   This is used during context info writing to avoid collecting information
+   about builtins in cinfo files.  */
+int
+cb_is_builtin_identifier (cpp_hashnode *p)
+{
+  if (DECL_BUILT_IN_CLASS (HT_IDENT_TO_GCC_IDENT (HT_NODE (p))))
+    return 1;
+  else
+    return 0;
+}
+/* APPLE LOCAL end Symbol Separation */
 
 /* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
    line number from STMT_LINENO and handles DECL_STMT specially.  */

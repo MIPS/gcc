@@ -156,7 +156,8 @@ int
 vasprintf (result, format, args)
      char **result;
      const char *format;
-#if defined (_BSD_VA_LIST_) && defined (__FreeBSD__)
+     /* APPLE LOCAL  Agree with <stdio.h> prototype  */
+#if defined (_BSD_VA_LIST_) && (defined (__FreeBSD__) || defined (__APPLE__))
      _BSD_VA_LIST_ args;
 #else
      va_list args;

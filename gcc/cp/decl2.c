@@ -968,6 +968,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
       cp_finish_decl (value, init, NULL_TREE, flags);
       DECL_INITIAL (value) = init;
       DECL_IN_AGGR_P (value) = 1;
+      /* APPLE LOCAL Objective-C++ */
+      objc_check_decl (value);
       return value;
     }
   if (TREE_CODE (value) == FUNCTION_DECL)
@@ -1049,6 +1051,10 @@ grokbitfield (tree declarator, tree declspecs, tree width)
     }
 
   DECL_IN_AGGR_P (value) = 1;
+  
+  /* APPLE LOCAL Objective-C++ */
+  objc_check_decl (value);
+    
   return value;
 }
 
@@ -1555,6 +1561,9 @@ maybe_emit_vtables (tree ctype)
 {
   tree vtbl;
   tree primary_vtbl;
+  /* APPLE LOCAL begin coalescing radar 2997605 */
+  int coalesce_vtables;
+  /* APPLE LOCAL end coalescing radar 2997605 */
   bool needed = false;
 
   /* If the vtables for this class have already been emitted there is
@@ -1586,6 +1595,22 @@ maybe_emit_vtables (tree ctype)
   else if (TREE_PUBLIC (vtbl) && !DECL_COMDAT (vtbl))
     needed = true;
   
+  /* APPLE LOCAL begin coalescing radar 2997605 */
+  /* Check if we're going to coalesce these vtables.  On other systems
+     vtables are always weak.  We can't do that on OS X because
+     coalescing implies private extern, and making all vtables private
+     extern would break code that defines classes in dylibs.  So
+     instead we'll only coalesce vtables that would get emitted in
+     multiple translation units: implicit class template
+     instantiations, classes with no key methods, and classes whose
+     key methods weren't inline in the class definition but turned out
+     to be inline later. */
+  if (CLASSTYPE_USE_TEMPLATE (ctype))
+    coalesce_vtables = CLASSTYPE_IMPLICIT_INSTANTIATION (ctype);
+  else
+    coalesce_vtables = !CLASSTYPE_KEY_METHOD (ctype)
+      || DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (ctype));
+  /* APPLE LOCAL end coalescing radar 2997605 */
 
   /* The ABI requires that we emit all of the vtables if we emit any
      of them.  */
@@ -1635,6 +1660,13 @@ maybe_emit_vtables (tree ctype)
       /* Always make vtables weak.  */
       if (flag_weak)
 	comdat_linkage (vtbl);
+
+      /* APPLE LOCAL begin coalescing radar 2997605 */
+#ifdef MAKE_DECL_COALESCED
+      if (coalesce_vtables)
+	MAKE_DECL_COALESCED (vtbl);
+#endif /* MAKE_DECL_COALESCED */
+      /* APPLE LOCAL end coalescing radar 2997605 */
 
       rest_of_decl_compilation (vtbl, NULL, 1, 1);
 
@@ -1710,9 +1742,25 @@ import_export_decl (tree decl)
 	}
       else
 	comdat_linkage (decl);
+      /* APPLE LOCAL begin coalescing */
+      /* coalesce inline member functions */
+#ifdef MAKE_DECL_COALESCED
+      if (DECL_DECLARED_INLINE_P (decl))
+	{
+	  MAKE_DECL_COALESCED (decl);
+	}
+#endif /* MAKE_DECL_COALESCED */
+      /* APPLE LOCAL end coalescing */
     }
+  /* APPLE LOCAL begin coalesce inline functions */
   else
-    comdat_linkage (decl);
+    {
+      comdat_linkage (decl);
+#ifdef MAKE_DECL_COALESCED
+      MAKE_DECL_COALESCED(decl);
+#endif /* MAKE_DECL_COALESCED */
+    }
+  /* APPLE LOCAL end coalesce inline functions */
 
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -1735,7 +1783,9 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
       /* If -fno-rtti, we're not necessarily emitting this stuff with
 	 the class, so go ahead and emit it now.  This can happen when
 	 a class is used in exception handling.  */
-      && flag_rtti)
+      && flag_rtti
+      /* APPLE LOCAL Jaguar C++ abi compat mrs */
+      && abi_version_at_least (1))
     {
       DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
       DECL_COMDAT (decl) = 0;
@@ -1744,6 +1794,12 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
     {
       DECL_NOT_REALLY_EXTERN (decl) = 1;
       DECL_COMDAT (decl) = 1;
+      /* APPLE LOCAL coalescing  */
+#ifdef MAKE_DECL_COALESCED
+      TREE_PUBLIC (decl) = 1;
+      if (! is_in_library)
+	MAKE_DECL_COALESCED (decl);
+#endif /* MAKE_DECL_COALESCED */
     }
 
   /* Now override some cases.  */
@@ -1814,6 +1870,11 @@ get_guard (tree decl)
       if (TREE_PUBLIC (decl))
         DECL_WEAK (guard) = DECL_WEAK (decl);
       
+      /* APPLE LOCAL coalescing  */
+#ifdef MAKE_DECL_COALESCED
+      if (TREE_PUBLIC (decl) || DECL_COALESCED (decl))
+        MAKE_DECL_COALESCED (guard);
+#endif
       DECL_ARTIFICIAL (guard) = 1;
       TREE_USED (guard) = 1;
       pushdecl_top_level_and_finish (guard, NULL_TREE);
@@ -1920,6 +1981,14 @@ start_objects (int method_type, int initp)
     DECL_GLOBAL_DTOR_P (current_function_decl) = 1;
   DECL_LANG_SPECIFIC (current_function_decl)->decl_flags.u2sel = 1;
 
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (current_function_decl) = 
+      build_string (strlen (STATIC_INIT_SECTION), STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
+
   body = begin_compound_stmt (/*has_no_scope=*/false);
 
   /* We cannot allow these functions to be elided, even if they do not
@@ -2025,6 +2094,14 @@ start_static_storage_duration_function (unsigned count)
 			       type);
   TREE_PUBLIC (ssdf_decl) = 0;
   DECL_ARTIFICIAL (ssdf_decl) = 1;
+
+  /* APPLE LOCAL begin static structors in __StaticInit section */
+#ifdef STATIC_INIT_SECTION
+  if ( ! flag_apple_kext)
+    DECL_SECTION_NAME (ssdf_decl) = build_string (strlen (STATIC_INIT_SECTION),
+						  STATIC_INIT_SECTION);
+#endif
+  /* APPLE LOCAL end static structors in __StaticInit section */
 
   /* Put this function in the list of functions to be called from the
      static constructors and destructors.  */
@@ -2538,6 +2615,11 @@ finish_file (void)
   if (pch_file)
     c_common_write_pch ();
 
+  /* APPLE LOCAL Symbol Separation */
+  /* Write context information.  */
+  if (dbg_dir)
+    c_common_write_context ();
+
   /* Otherwise, GDB can get confused, because in only knows
      about source for LINENO-1 lines.  */
   input_line -= 1;
@@ -2783,6 +2865,22 @@ finish_file (void)
 	  import_export_decl (decl);
 	  if (DECL_NOT_REALLY_EXTERN (decl) && ! DECL_IN_AGGR_P (decl))
 	    DECL_EXTERNAL (decl) = 0;
+	  /* APPLE LOCAL begin  write used class statics  turly 20020226  */
+#ifdef MACHOPIC_VAR_REFERRED_TO_P
+	  else
+	  if (TREE_USED (decl) && DECL_INITIAL (decl) != 0
+	      && DECL_INITIAL (decl) != error_mark_node
+	      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR
+	      && DECL_EXTERNAL (decl)
+	      && MACHOPIC_VAR_REFERRED_TO_P (IDENTIFIER_POINTER (
+						DECL_ASSEMBLER_NAME (decl))))
+	    {
+	      /* Force a local copy of this decl to be written.  */
+	      DECL_EXTERNAL (decl) = 0;
+	      TREE_PUBLIC (decl) = 0;
+	    }
+#endif
+	  /* APPLE LOCAL end  write used class statics  turly 20020226  */
 	}
       if (pending_statics
 	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),

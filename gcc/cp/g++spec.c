@@ -46,6 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #define LIBSTDCXX_PROFILE "-lstdc++"
 #endif
 
+/* APPLE LOCAL begin radar 3554191 */
+extern unsigned int macosx_version_min_required; /* defined in gcc.c */
+/* APPLE LOCAL end radar 3554191 */
+
 void
 lang_specific_driver (int *in_argc, const char *const **in_argv,
 		      int *in_added_libraries)
@@ -240,6 +244,13 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 #ifndef ENABLE_SHARED_LIBGCC
   shared_libgcc = 0;
 #endif
+
+  /* APPLE LOCAL begin radar 3554191 */
+  {
+    if (macosx_version_min_required && macosx_version_min_required < 1040)
+      shared_libgcc = 0;
+  }
+  /* APPLE LOCAL end radar 3554191 */
 
   /* Make sure to have room for the trailing NULL argument.  */
   num_args = argc + added + need_math + shared_libgcc + (library > 0) + 1;

@@ -604,6 +604,14 @@ dump_node (tree t, int flags, FILE *stream)
   dump_queue_p dq;
   dump_queue_p next_dq;
 
+  /* APPLE LOCAL begin new tree dump  ilr */
+  /* The -fdmp-xxxx options indicate that we are to use dmp_tree() as
+     opposed to the dump format provided here.  */
+  if (flags & TDF_DMP_TREE)
+    if ((*lang_hooks.dmp_tree3) (stream, t, flags))
+      return;
+  /* APPLE LOCAL end new tree dump  ilr */
+
   /* Initialize the dump-information structure.  */
   di.stream = stream;
   di.index = 0;
@@ -643,7 +651,8 @@ struct dump_file_info
 
 /* Table of tree dump switches. This must be consistent with the
    TREE_DUMP_INDEX enumeration in tree.h */
-static struct dump_file_info dump_files[TDI_end] =
+/* APPLE LOCAL new tree dump  ilr */
+static struct dump_file_info dump_files[TDI_end*2] =
 {
   {NULL, NULL, 0, 0},
   {".tu", "translation-unit", 0, 0},
@@ -654,6 +663,13 @@ static struct dump_file_info dump_files[TDI_end] =
   {".inlined", "tree-inlined", 0, 0},
   {".dot", "tree-dot", 0, 0},
   {".xml", "call-graph", 0, 0},
+  /* APPLE LOCAL begin new tree dump  ilr */
+  {".dmp-tu", "dmp-translation-unit", 0, 0},
+  {".dmp-class", "dmp-class-hierarchy", 0, 0},
+  {".dmp-original", "dmp-tree-original", 0, 0},
+  {".dmp-optimized", "dmp-tree-optimized", 0, 0},
+  {".dmp-inlined", "dmp-tree-inlined", 0, 0},
+  /* APPLE LOCAL end new tree dump  ilr */
   {NULL, "tree-all", 0, 0},
 };
 
@@ -840,6 +856,14 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi)
       if (!end_ptr)
 	end_ptr = ptr + strlen (ptr);
       length = end_ptr - ptr;
+
+      /* APPLE LOCAL begin new tree dump  ilr */
+      if (strncmp (ptr, "dmp", 3) == 0)
+	{
+	  flags |= TDF_DMP_TREE;
+	  ptr += 3;
+	}
+      /* APPLE LOCAL end new tree dump  ilr */
 
       for (option_ptr = dump_options; option_ptr->name; option_ptr++)
 	if (strlen (option_ptr->name) == length

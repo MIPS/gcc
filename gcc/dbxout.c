@@ -88,6 +88,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "target.h"
 #include "langhooks.h"
+/* APPLE LOCAL begin Constructors return THIS  turly 20020315  */
+/* FIXME: dbxout.c should not need language-specific headers.  */
+#include "c-common.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -338,6 +341,13 @@ static void emit_pending_bincls         (void);
 #endif
 static inline void emit_pending_bincls_if_required (void);
 
+/* APPLE LOCAL begin Symbol Separtion */
+static void dbxout_restore_write_symbols (void);
+static void dbxout_clear_write_symbols (const char *, unsigned long);
+static void dbxout_start_symbol_repository (unsigned int, const char *, unsigned long);
+static void dbxout_end_symbol_repository (unsigned int);
+/* APPLE LOCAL end Symbol Separation */
+
 static void dbxout_init (const char *);
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
@@ -408,7 +418,13 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
-  dbxout_handle_pch,		         /* handle_pch */
+  dbxout_handle_pch,		/* handle_pch */
+  /* APPLE LOCAL begin Symbol Separation */
+  dbxout_restore_write_symbols,
+  dbxout_clear_write_symbols,
+  dbxout_start_symbol_repository,
+  dbxout_end_symbol_repository,
+  /* APPLE LOCAL end Symbol Separation */
   debug_nothing_rtx		         /* var_location */
 };
 #endif /* DBX_DEBUGGING_INFO  */
@@ -439,6 +455,12 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
+  /* APPLE LOCAL begin Symbol Separtion */
+  debug_nothing_void,           /* restore write_symbols */
+  debug_nothing_void,           /* clear write_symbols */
+  debug_nothing_void,           /* start repository */
+  debug_nothing_void,           /* end repository */
+  /* APPLE LOCAL end Symbol Separation */
   debug_nothing_rtx		         /* var_location */
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
@@ -501,9 +523,9 @@ dbxout_init (const char *input_file_name)
 #else /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
-	  fprintf (asmfile, ",%d,0,0,", N_SO);
-	  assemble_name (asmfile, ltext_label_name);
-	  fputc ('\n', asmfile);
+	  /* APPLE LOCAL begin 3109828 fix */
+	  fprintf (asmfile, ",%d,0,0,0\n", N_SO);
+	  /* APPLE LOCAL end 3109828 fix */
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	}
     }
@@ -516,10 +538,10 @@ dbxout_init (const char *input_file_name)
   /* Used to put `Ltext:' before the reference, but that loses on sun 4.  */
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
-  fprintf (asmfile, ",%d,0,0,", N_SO);
-  assemble_name (asmfile, ltext_label_name);
-  fputc ('\n', asmfile);
+  /* APPLE LOCAL begin 3109828 fix */
+  fprintf (asmfile, ",%d,0,0,0\n", N_SO);
   text_section ();
+  /* APPLE LOCAL end 3109828 fix */
   (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
 
@@ -544,6 +566,20 @@ dbxout_init (const char *input_file_name)
   current_file->prev = NULL;
   current_file->bincl_status = BINCL_NOT_REQUIRED;
   current_file->pending_bincl_name = NULL;
+#endif
+
+  /* Make sure that types `int' and `char' have numbers 1 and 2.
+     Definitions of other integer types will refer to those numbers.
+     (Actually it should no longer matter what their numbers are.
+     Also, if any types with tags have been defined, dbxout_symbol
+     will output them first, so the numbers won't be 1 and 2.  That
+     happens in C++.  So it's a good thing it should no longer matter).  */
+
+/* APPLE LOCAL gdb only used symbols */
+#ifndef DBX_ONLY_USED_SYMBOLS
+      dbxout_symbol (TYPE_NAME (integer_type_node), 0);
+      dbxout_symbol (TYPE_NAME (char_type_node), 0);
+/* APPLE LOCAL gdb only used symbols */
 #endif
 
   /* Get all permanent types that have typedef names, and output them
@@ -580,6 +616,59 @@ dbxout_typedefs (tree syms)
 	}
     }
 }
+
+/* APPLE LOCAL begin Symbol Separation */
+/* Restore write_symbols */
+static void
+dbxout_restore_write_symbols (void)
+{
+  if (flag_grepository)
+    write_symbols = orig_write_symbols;
+}
+
+/* Clear write_symbols and emit EXCL stab.  */
+static void
+dbxout_clear_write_symbols (const char *filename, unsigned long checksum)
+{
+  if (flag_grepository)
+    {
+      write_symbols = NO_DEBUG;
+      fprintf (asmfile, "%s", ASM_STABS_OP);
+      output_quoted_string (asmfile, filename);
+      fprintf (asmfile, ",%d,0,0,%ld\n", N_EXCL, checksum);
+    }
+}
+
+/* Start symbol repository */
+/* Add checksum with BINCL.  */
+static void
+dbxout_start_symbol_repository (unsigned int lineno ATTRIBUTE_UNUSED,
+				const char *filename ATTRIBUTE_UNUSED,
+				unsigned long checksum ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_USE_BINCL
+  struct dbx_file *n = (struct dbx_file *) xmalloc (sizeof *n);
+
+  n->next = current_file;
+  n->file_number = next_file_number++;
+  n->next_type_number = 1;
+  current_file = n;
+  fprintf (asmfile, "%s", ASM_STABS_OP);
+  output_quoted_string (asmfile, filename);
+  fprintf (asmfile, ",%d,0,0,%ld\n", N_BINCL, checksum);
+#endif
+}
+
+/* End symbol repository */
+static void
+dbxout_end_symbol_repository (unsigned int lineno ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_USE_BINCL
+  fprintf (asmfile, "%s%d,0,0,0\n", ASM_STABN_OP, N_EINCL);
+  current_file = current_file->next;
+#endif
+}
+/* APPLE LOCAL end Symbol Separation */
 
 #ifdef DBX_USE_BINCL
 /* Emit BINCL stab using given name.  */
@@ -648,6 +737,14 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 #ifdef DBX_USE_BINCL
   struct dbx_file *n = xmalloc (sizeof *n);
 
+  /* APPLE LOCAL begin Symbol Separation */
+  if (write_symbols == NO_DEBUG)
+    {
+      n = NULL;
+      return;
+    }
+  /* APPLE LOCAL end Symbol Separation */
+
   n->next = current_file;
   n->next_type_number = 1;
   /* Do not assign file number now. 
@@ -668,6 +765,11 @@ static void
 dbxout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
+  /* APPLE LOCAL begin Symbol Separation */
+  if (write_symbols == NO_DEBUG)
+    return;
+  /* APPLE LOCAL end Symbol Separation */
+
   /* Emit EINCL stab only if BINCL is not pending.  */
   if (current_file->bincl_status == BINCL_PROCESSED)
     fprintf (asmfile, "%s%d,0,0,0\n", ASM_STABN_OP, N_EINCL);
@@ -721,9 +823,8 @@ dbxout_source_file (FILE *file, const char *filename)
 				   source_label_number);
       fprintf (file, "%s", ASM_STABS_OP);
       output_quoted_string (file, filename);
-      fprintf (asmfile, ",%d,0,0,", N_SOL);
-      assemble_name (asmfile, ltext_label_name);
-      fputc ('\n', asmfile);
+      /* APPLE LOCAL 310928 fix */
+      fprintf (asmfile, ",%d,0,0,0\n", N_SOL);
       if (current_function_decl != NULL_TREE
 	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
 	; /* Don't change section amid function.  */
@@ -2218,7 +2319,14 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	int tag_needed = 1;
 	int did_output = 0;
 
-	if (DECL_NAME (decl))
+	if (DECL_NAME (decl)
+            /* APPLE LOCAL begin gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+            /* Do not generate a tag for incomplete records */
+            && (COMPLETE_TYPE_P (type) || TREE_CODE (type) == VOID_TYPE)
+#endif
+            /* APPLE LOCAL end gdb only used symbols */
+           )
 	  {
 	    /* Nonzero means we must output a tag as well as a typedef.  */
 	    tag_needed = 0;
@@ -3195,6 +3303,15 @@ dbxout_begin_function (tree decl)
 
   dbxout_parms (DECL_ARGUMENTS (decl));
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
+    /* APPLE LOCAL begin Constructors return THIS  turly 20020315  */
+#ifdef POSSIBLY_COMPILING_APPLE_KEXT_P
+    /* We cheat with kext constructors: DECL_RESULT is "this", but "this"
+       is actually the first parameter, so don't confuse matters by
+       outputting the same parameter twice.  */
+    if (!(POSSIBLY_COMPILING_APPLE_KEXT_P ()
+	  && DECL_RESULT (decl) == DECL_ARGUMENTS (decl)))
+#endif
+    /* APPLE LOCAL end Constructors return THIS  turly 20020315  */
     dbxout_symbol (DECL_RESULT (decl), 1);
 }
 #endif /* DBX_DEBUGGING_INFO */

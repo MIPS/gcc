@@ -1572,7 +1572,11 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_unary (NEG, mode, op1, mode);
 
 	  /* (-1 - a) is ~a.  */
-	  if (trueop0 == constm1_rtx)
+	  /* APPLE LOCAL  disallow (not (SYM))
+	     But not when a is relocatable (this arises temporarily when
+	     pulling 386 global addresses out of a loop).  */
+	  if (trueop0 == constm1_rtx
+	      && GET_CODE (op1) != SYMBOL_REF )
 	    return simplify_gen_unary (NOT, mode, op1, mode);
 
 	  /* Subtracting 0 has no effect unless the mode has signed zeros

@@ -223,6 +223,9 @@ struct lang_identifier GTY(())
   cxx_binding *bindings;
   tree class_value;
   tree class_template_info;
+  /* APPLE begin LOCAL objc speedup dpatel */
+  tree interface_value;
+  /* APPLE end LOCAL objc speedup dpatel */
   tree label_value;
   tree implicit_decl;
   tree error_locus;
@@ -536,6 +539,8 @@ enum cp_tree_index
     CPTI_LANG_NAME_C,
     CPTI_LANG_NAME_CPLUSPLUS,
     CPTI_LANG_NAME_JAVA,
+    /* APPLE LOCAL Objective-C++  */
+    CPTI_LANG_NAME_OBJC,
 
     CPTI_EMPTY_EXCEPT_SPEC,
     CPTI_NULL,
@@ -547,6 +552,12 @@ enum cp_tree_index
     CPTI_DCAST,
 
     CPTI_KEYED_CLASSES,
+
+    /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+    CPTI_DELTA2_IDENTIFIER,
+    CPTI_INDEX_IDENTIFIER,
+    CPTI_PFN_OR_DELTA2_IDENTIFIER,
+    /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
 
     CPTI_MAX
 };
@@ -619,6 +630,12 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define deleting_dtor_identifier        cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
 #define delta_identifier                cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier            cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+#define delta2_identifier		cp_global_trees[CPTI_DELTA2_IDENTIFIER]
+#define index_identifier		cp_global_trees[CPTI_INDEX_IDENTIFIER]
+#define pfn_or_delta2_identifier cp_global_trees[CPTI_PFN_OR_DELTA2_IDENTIFIER]
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
+
 /* The name of the parameter that contains a pointer to the VTT to use
    for this subobject constructor or destructor.  */
 #define vtt_parm_identifier             cp_global_trees[CPTI_VTT_PARM_IDENTIFIER]
@@ -631,6 +648,8 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define lang_name_c                     cp_global_trees[CPTI_LANG_NAME_C]
 #define lang_name_cplusplus             cp_global_trees[CPTI_LANG_NAME_CPLUSPLUS]
 #define lang_name_java                  cp_global_trees[CPTI_LANG_NAME_JAVA]
+/* APPLE LOCAL Objective-C++  */
+#define lang_name_objc                  cp_global_trees[CPTI_LANG_NAME_OBJC]
 
 /* Exception specifier used for throw().  */
 #define empty_except_spec               cp_global_trees[CPTI_EMPTY_EXCEPT_SPEC]
@@ -879,7 +898,8 @@ enum cplus_tree_code {
    CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,	\
    EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN
 
-enum languages { lang_c, lang_cplusplus, lang_java };
+/* APPLE LOCAL Objective-C++  */
+enum languages { lang_c, lang_cplusplus, lang_java, lang_objc };
 
 /* Macros to make error reporting functions' lives easier.  */
 #define TYPE_IDENTIFIER(NODE) (DECL_NAME (TYPE_NAME (NODE)))
@@ -2504,8 +2524,13 @@ struct lang_decl GTY(())
 /* Get the POINTER_TYPE to the METHOD_TYPE associated with this
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
    before using this macro.  */
-#define TYPE_PTRMEMFUNC_FN_TYPE(NODE) \
-  (TREE_TYPE (TYPE_FIELDS (NODE)))
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */	\
+#define TYPE_PTRMEMFUNC_FN_TYPE(NODE)					\
+  *((flag_apple_kext) ?							\
+	&(TREE_TYPE (TYPE_FIELDS (TREE_TYPE (TREE_CHAIN (		\
+				 TREE_CHAIN (TYPE_FIELDS (NODE))))))) :	\
+    &(TREE_TYPE (TYPE_FIELDS (NODE))))					\
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
 
 /* Returns `A' for a type like `int (A::*)(double)' */
 #define TYPE_PTRMEMFUNC_OBJECT_TYPE(NODE) \
@@ -3567,6 +3592,8 @@ extern void note_name_declared_in_class         (tree, tree);
 extern tree get_vtbl_decl_for_binfo             (tree);
 extern tree get_vtt_name                        (tree);
 extern tree get_primary_binfo                   (tree);
+/* APPLE LOCAL -findirect-virtual-calls 2001-10-30 sts */
+extern tree build_vfn_ref_using_vtable          (tree, tree);
 extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
 
@@ -3587,6 +3614,12 @@ extern void clone_function_decl                 (tree, int);
 extern void adjust_clone_args			(tree);
 
 /* decl.c */
+/* APPLE LOCAL msg send super */
+extern struct cp_binding_level *get_current_binding_level (void);
+/* APPLE LOCAL begin Objective-C++ */
+extern tree grokparms				(tree);
+extern void store_parm_decls 			(tree);
+/* APPLE LOCAL end Objective-C++ */
 extern void insert_block			(tree);
 extern void set_block				(tree);
 extern tree pushdecl				(tree);
@@ -4264,6 +4297,22 @@ extern tree mangle_ref_init_variable            (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
+
+/* APPLE LOCAL begin ddtor double destructor turly 20020215  */
+extern int has_apple_kext_compatibility_attr_p	PARAMS ((tree));
+extern int has_empty_operator_delete_p		PARAMS ((tree));
+extern int compound_body_is_empty_p		PARAMS ((tree));
+/* APPLE LOCAL end ddtor double destructor turly 20020215  */
+
+/* APPLE LOCAL begin new tree dump */
+/* in cp-dmp-tree.c */
+extern void cxx_dump_identifier   		PARAMS ((FILE *, tree, int, int));
+extern void cxx_dump_decl	   		PARAMS ((FILE *, tree, int, int));
+extern void cxx_dump_type	   		PARAMS ((FILE *, tree, int, int));
+extern int  cxx_dump_blank_line_p 		PARAMS ((tree, tree));
+extern int  cxx_dump_lineno_p 			PARAMS ((FILE *, tree));
+extern int  cxx_dmp_tree3			PARAMS ((FILE *, tree, int));
+/* APPLE LOCAL end new tree dump */
 
 /* in cp-simplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);

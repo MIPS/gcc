@@ -38,10 +38,14 @@ struct spec_function
    || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u' \
    || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x' \
    || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V' \
+   /* APPLE LOCAL framework headers */ \
+   || (CHAR) == 'F' \
    || (CHAR) == 'B' || (CHAR) == 'b')
 
 /* This defines which multi-letter switches take arguments.  */
 
+/* APPLE LOCAL Symbol Separation */
+/* Add save-repository in the list. */
 #define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "Tdata") || !strcmp (STR, "Ttext")	\
   || !strcmp (STR, "Tbss") || !strcmp (STR, "include")	\
@@ -49,7 +53,7 @@ struct spec_function
   || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
   || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
   || !strcmp (STR, "isystem") || !strcmp (STR, "-param") \
-  || !strcmp (STR, "specs") \
+  || !strcmp (STR, "save-repository") || !strcmp (STR, "specs") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
 
 

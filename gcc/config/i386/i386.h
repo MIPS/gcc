@@ -34,6 +34,9 @@ Boston, MA 02111-1307, USA.  */
    ADDR_BEG, ADDR_END, PRINT_IREG, PRINT_SCALE, PRINT_B_I_S, and many
    that start with ASM_ or end in ASM_OP.  */
 
+/* APPLE LOCAL fat builds */
+#define DEFAULT_TARGET_ARCH "i386"
+
 /* Define the specific costs for a given cpu */
 
 struct processor_costs {
@@ -774,7 +777,8 @@ extern int x86_prefetch_sse;
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY BITS_PER_WORD
+/* APPLE LOCAL 3232990 - compiler should obey -mpreferred-stack-boundary */
+#define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary)
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -825,7 +829,8 @@ extern int x86_prefetch_sse;
 #define BIGGEST_FIELD_ALIGNMENT 32
 #endif
 #else
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
+/* APPLE LOCAL Macintosh alignment */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED, FIRST_FIELD_P) \
    x86_field_alignment (FIELD, COMPUTED)
 #endif
 

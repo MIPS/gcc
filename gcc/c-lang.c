@@ -46,6 +46,10 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
+/* APPLE LOCAL begin Objective-C++ */
+#undef LANG_HOOKS_FINISH_FILE
+#define LANG_HOOKS_FINISH_FILE c_objc_common_finish_file
+/* APPLE LOCAL end Objective-C++ */
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
 #undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
@@ -142,6 +146,24 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
+
+/* APPLE LOCAL begin new tree dump */
+#if 0
+/* MERGE FIXME 3468690 */
+#undef LANG_HOOKS_DUMP_DECL
+#define LANG_HOOKS_DUMP_DECL c_dump_decl
+#undef LANG_HOOKS_DUMP_TYPE
+#define LANG_HOOKS_DUMP_TYPE c_dump_type
+#undef LANG_HOOKS_DUMP_IDENTIFIER
+#define LANG_HOOKS_DUMP_IDENTIFIER c_dump_identifier
+#undef LANG_HOOKS_DUMP_BLANK_LINE_P
+#define LANG_HOOKS_DUMP_BLANK_LINE_P c_dump_blank_line_p
+#undef LANG_HOOKS_DUMP_LINENO_P
+#define LANG_HOOKS_DUMP_LINENO_P c_dump_lineno_p
+#undef LANG_HOOKS_DMP_TREE3
+#define LANG_HOOKS_DMP_TREE3 c_dmp_tree3
+#endif
+/* APPLE LOCAL end new tree dump */
 
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations

@@ -289,6 +289,21 @@ define__GNUC__ (void)
 
   if (*v && *v != ' ' && *v != '-')
     abort ();
+
+  /* APPLE LOCAL begin Apple version */
+  {
+    const char *vt = version_string;
+    while (*vt != 0 && *vt != '(')
+      vt++;
+    while (*vt != 0 && ! ISDIGIT (*vt))
+      vt++;
+    for (q = vt; *q != 0 && ISDIGIT (*q); q++)
+      ;
+    if (q == vt || *q != ')')
+      abort ();
+    builtin_define_with_value_n ("__APPLE_CC__", vt, q - vt);
+  }
+  /* APPLE LOCAL end Apple version */
 }
 
 /* Hook that registers front end and target-specific built-ins.  */

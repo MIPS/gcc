@@ -1,16 +1,10 @@
+/* APPLE LOCAL file objc test suite */
 /* Test class methods inside categories.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
 
 #include <objc/Object.h>
-
-#ifdef __NEXT_RUNTIME__
-#define SUPERCLASS superclass
-#else
-#define SUPERCLASS superClass
-#endif
-
 extern int strcmp(const char *s1, const char *s2);
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
@@ -20,7 +14,7 @@ extern void abort(void);
 @end
 
 @implementation MyObject
-+ (Class)whatever1 { return [super SUPERCLASS]; }
++ (Class)whatever1 { return [super superclass]; }
 @end
 
 @interface MyObject (ThisWontCompile)
@@ -28,7 +22,7 @@ extern void abort(void);
 @end
  
 @implementation MyObject (ThisWontCompile)
-+(Class)whatever2 { return [super SUPERCLASS]; }
++(Class)whatever2 { return [super superclass]; }
 @end
 
 int main (int argc, const char * argv[])

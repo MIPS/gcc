@@ -632,6 +632,9 @@ gcc_AC_PROG_LN_S
 AC_PROG_RANLIB
 gcc_AC_PROG_INSTALL
 
+# APPLE LOCAL Mach time
+AC_CHECK_HEADERS(mach/mach_time.h)
+
 # See if cmp has --ignore-initial.
 gcc_AC_PROG_CMP_IGNORE_INITIAL
 

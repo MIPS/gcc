@@ -35,6 +35,16 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "target.h"
 
+/* APPLE LOCAL begin new tree dump */
+#ifdef ENABLE_DMP_TREE
+#include "dmp-tree.h"
+extern int cp_dump_tree_p PARAMS ((FILE *, const char *, tree, int));
+extern lang_dump_tree_p_t cp_prev_lang_dump_tree_p;
+extern int c_dump_tree_p PARAMS ((FILE *, const char *, tree, int));
+extern lang_dump_tree_p_t c_prev_lang_dump_tree_p;
+#endif
+/* APPLE LOCAL end new tree dump */
+
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
 static tree build_cplus_array_type_1 (tree, tree);
@@ -1767,10 +1777,8 @@ pod_type_p (tree t)
     return 1; /* pointer to non-member */
   if (TYPE_PTR_TO_MEMBER_P (t))
     return 1; /* pointer to member */
-
   if (TREE_CODE (t) == VECTOR_TYPE)
     return 1; /* vectors are (small) arrays if scalars */
-
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
   if (CLASSTYPE_NON_POD_P (t))

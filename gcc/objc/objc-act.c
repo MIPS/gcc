@@ -47,7 +47,14 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tm_p.h"
 #include "expr.h"
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+#include "cp-tree.h"
+#include "lex.h"
+#else
 #include "c-tree.h"
+#endif
+/* APPLE LOCAL end Objective-C++ */
 #include "c-common.h"
 #include "flags.h"
 #include "langhooks.h"
@@ -65,6 +72,23 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 
 #define OBJC_VOID_AT_END	build_tree_list (NULL_TREE, void_type_node)
+
+/* APPLE LOCAL begin Objective-C++ */
+/* When building Objective-C++, we are not linking against the C front-end
+   and so need to replicate the C tree-construction functions in some way.  */
+#ifdef OBJCPLUS
+#define OBJCP_REMAP_FUNCTIONS
+#include "objcp-decl.h"
+#endif  /* OBJCPLUS */
+/* APPLE LOCAL end Objective-C++ */
+
+/* APPLE LOCAL new tree dump */
+#ifdef ENABLE_DMP_TREE
+#include "dmp-tree.h"
+extern int c_dump_tree_p	PARAMS ((FILE *, const char *, tree, int));
+extern int objc_dump_tree_p	PARAMS ((FILE *, const char *, tree, int));
+extern lang_dump_tree_p_t	objc_prev_lang_dump_tree_p;
+#endif
 
 /* This is the default way of generating a method name.  */
 /* I am not sure it is really correct.
@@ -186,7 +210,8 @@ static void hash_add_attr (hash, tree);
 static tree lookup_method (tree, tree);
 static tree lookup_method_static (tree, tree, int);
 static void add_method_to_hash_list (hash *, tree);
-static tree add_class (tree);
+/* APPLE LOCAL objc speedup dpatel */
+static tree add_class (tree, tree);
 static void add_category (tree, tree);
 static inline tree lookup_category (tree, tree);
 
@@ -494,6 +519,19 @@ objc_init (void)
      raised it to 1, which will make the builtin functions appear
      not to be built in.  */
   input_line = 0;
+
+/* APPLE LOCAL new tree dump */
+#ifdef ENABLE_DMP_TREE
+  if (!objc_prev_lang_dump_tree_p)
+    objc_prev_lang_dump_tree_p = set_dump_tree_p (objc_dump_tree_p); 
+  /* At this point, objc_prev_lang_dump_tree_p should point at the C tree
+     dump routine (which, in the case of Objective-C++, points at the C++
+     tree dump routine in turn).  */
+  if (objc_prev_lang_dump_tree_p != &c_dump_tree_p)
+    abort ();
+       
+  SET_MAX_DMP_TREE_CODE (LAST_OBJC_TREE_CODE);
+#endif
 
   /* If gen_declaration desired, open the output file.  */
   if (flag_gen_declaration)
@@ -1141,6 +1179,12 @@ synth_module_prologue (void)
 {
   tree temp_type;
 
+  /* APPLE LOCAL begin Objective-C++  */
+#ifdef OBJCPLUS
+  push_lang_context (lang_name_c); /* extern "C" */
+#endif
+  /* APPLE LOCAL end Objective-C++ */
+
   /* Defined in `objc.h' */
   objc_object_id = get_identifier (TAG_OBJECT);
 
@@ -1320,7 +1364,13 @@ synth_module_prologue (void)
 #ifndef OBJCPLUS
   /* The C++ front-end does not appear to grok __attribute__((__unused__)).  */
   unused_list = build_tree_list (get_identifier ("__unused__"), NULL_TREE);
-#endif	
+#endif
+
+  /* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+  pop_lang_context ();
+#endif
+  /* APPLE LOCAL end Objective-C++ */
 }
 
 /* Ensure that the ivar list for NSConstantString/NXConstantString
@@ -1384,6 +1434,13 @@ build_objc_string_object (tree string)
 
   string = fix_string_type (string);
 
+    /* APPLE LOCAL begin constant cfstrings */
+  /* The '-fconstant-cfstrings' switch trumps any '-fconstant-string-class'
+     setting.  We must, however, cast the CFStringRef to id.  */
+  if (flag_constant_cfstrings)
+    return build_c_cast (id_type, build_cfstring_ascii (string));
+  /* APPLE LOCAL end constant cfstrings */  
+    
   constant_string_class = lookup_interface (constant_string_id);
   if (!constant_string_class
       || !(constant_string_type
@@ -1804,6 +1861,12 @@ build_module_descriptor (void)
 {
   tree decl_specs, field_decl, field_decl_chain;
 
+  /* APPLE LOCAL begin Objective-C++  */
+#ifdef OBJCPLUS
+  push_lang_context (lang_name_c); /* extern "C" */
+#endif
+  /* APPLE LOCAL end Objective-C++ */
+
   objc_module_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_MODULE));
 
@@ -1914,6 +1977,11 @@ build_module_descriptor (void)
     c_expand_expr_stmt (decelerator);
 
     finish_function ();
+    /* APPLE LOCAL begin Objective-C++  */
+#ifdef OBJCPLUS
+    pop_lang_context ();
+#endif
+    /* APPLE LOCAL end Objective-C++  */
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -2586,18 +2654,18 @@ objc_is_object_ptr (tree type)
 tree
 lookup_interface (tree ident)
 {
-  tree chain;
+  /* APPLE LOCAL objc speedup dpatel */
+  tree chain ATTRIBUTE_UNUSED;
 
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == TYPE_DECL)
     ident = DECL_NAME (ident);
 #endif
-  for (chain = interface_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      if (ident == CLASS_NAME (chain))
-      return chain;
-    }
-  return NULL_TREE;
+  /* APPLE LOCAL begin objc speedup dpatel */
+  return (ident && TREE_CODE (ident) == IDENTIFIER_NODE
+          ? IDENTIFIER_INTERFACE_VALUE (ident)
+          : NULL_TREE);
+  /* APPLE LOCAL end objc speedup dpatel */
 }
 
 /* Implement @defs (<classname>) within struct bodies.  */
@@ -6342,9 +6410,14 @@ objc_add_method (tree class, tree method, int is_class)
   return method;
 }
 
+/* APPLE LOCAL begin objc speedup dpatel */
+/* New parameter, name */
 static tree
-add_class (tree class)
+add_class (tree class, tree name)
 {
+  /* APPLE LOCAL end objc speedup dpatel */
+  IDENTIFIER_INTERFACE_VALUE (name) = class;
+
   /* Put interfaces on list in reverse order.  */
   TREE_CHAIN (class) = interface_chain;
   interface_chain = class;
@@ -6815,7 +6888,9 @@ start_class (enum tree_code code, tree class_name, tree super_name,
         {
 	  warning ("cannot find interface declaration for `%s'",
 		   IDENTIFIER_POINTER (class_name));
-	  add_class (implementation_template = objc_implementation_context);
+	  /* APPLE LOCAL objc speedup dpatel */
+	  /* Add second parameter class_name */
+	  add_class (implementation_template = objc_implementation_context, class_name);
         }
 
       /* If a super class has been specified in the implementation,
@@ -6848,8 +6923,10 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	warning ("duplicate interface declaration for class `%s'",
 #endif	
         IDENTIFIER_POINTER (class_name));
-      else
-        add_class (class);
+	else
+	/* APPLE LOCAL objc speedup dpatel */
+	/* Add second parameter, class_name */
+          add_class (class, class_name);
 
       if (protocol_list)
 	CLASS_PROTOCOL_LIST (class)
@@ -6915,6 +6992,12 @@ continue_class (tree class)
 
       /* code generation */
 
+      /* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+      push_lang_context (lang_name_c);
+#endif
+      /* APPLE LOCAL end Objective-C++ */
+
       ivar_context = build_private_template (implementation_template);
 
       if (!objc_class_template)
@@ -6937,14 +7020,34 @@ continue_class (tree class)
       else
 	cat_count++;
 
+      /* APPLE LOCAL begin Objective-C++  */
+#ifdef OBJCPLUS
+      pop_lang_context ();
+#endif /* OBJCPLUS */
+      /* APPLE LOCAL end Objective-C++ */
+
       return ivar_context;
     }
 
   else if (TREE_CODE (class) == CLASS_INTERFACE_TYPE)
     {
+/* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+      push_lang_context (lang_name_c);
+#endif /* OBJCPLUS */
+/* APPLE LOCAL end Objective-C++ */
       if (!CLASS_STATIC_TEMPLATE (class))
 	{
 	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
+
+          /* APPLE LOCAL begin 3261135 */
+          /* FSF Candidate */
+          /* Set the TREE_USED bit for this struct, so that stab generator can emit
+             stabs for this struct type.  */
+          if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
+            TREE_USED (TYPE_STUB_DECL (record)) = 1;
+          /* APPLE LOCAL end 3261135 */
+
 	  finish_struct (record, get_class_ivars (class, 0), NULL_TREE);
 	  CLASS_STATIC_TEMPLATE (class) = record;
 
@@ -6952,6 +7055,11 @@ continue_class (tree class)
 	  TREE_STATIC_TEMPLATE (record) = 1;
 	}
 
+    /* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+      pop_lang_context ();
+#endif /* OBJCPLUS */
+    /* APPLE LOCAL end Objective-C++ */
       return NULL_TREE;
     }
 
@@ -9086,5 +9194,7 @@ lookup_objc_ivar (tree id)
     return 0;
 }
 
+/* APPLE LOCAL objective-C++ */
+#include "gt-objc-objc-act-h.h"
 #include "gt-objc-objc-act.h"
 #include "gtype-objc.h"

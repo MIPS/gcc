@@ -65,4 +65,19 @@ typedef unsigned long RID_BIT_TYPE;	/* assumed at least 32 bits */
 #define RIDBIT_RESET_ALL(V) do { (V) = 0; } while (0)
 #endif
 
+/* APPLE LOCAL begin Objective-C++ */
+/* Parser/lexer state pertinent to ObjC++.  */
+extern int objc_receiver_context;
+extern int objc_declarator_context;
+extern int objc_msg_context;
+extern int objc_public_flag;
+extern int objc_need_raw_identifier;
+extern int objc_pq_context;
+
+#define OBJC_NEED_RAW_IDENTIFIER(VAL) \
+	do { if (flag_objc) objc_need_raw_identifier = VAL; } \
+	while (0)
+
+/* APPLE LOCAL end Objective-C++ */
+
 #endif /* ! GCC_CP_LEX_H */

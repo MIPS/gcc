@@ -54,6 +54,12 @@ extern int lhd_staticp (tree);
 extern int lhd_unsafe_for_reeval (tree);
 extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
+/* APPLE LOCAL new tree dump */
+extern void lhd_dump_tree_do_nothing (FILE *, tree, int, int);
+extern int  lhd_dump_tree_blank_line_do_nothing (tree, tree);
+extern int  lhd_dump_tree_lineno_do_nothing (FILE *, tree);
+extern int lhd_dmp_tree3_do_nothing (FILE *, tree, int);
+/* APPLE LOCAL end new tree dump */
 extern const char *lhd_decl_printable_name (tree, int);
 extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
@@ -97,6 +103,8 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
+/* APPLE LOCAL Objective-C++  */
+#define LANG_HOOKS_FINISH_FILE		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
@@ -124,6 +132,14 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_PRINT_DECL		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_TYPE		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_IDENTIFIER	lhd_print_tree_nothing
+/* APPLE LOCAL begin new tree dump */
+#define LANG_HOOKS_DUMP_DECL		lhd_dump_tree_do_nothing
+#define LANG_HOOKS_DUMP_TYPE		lhd_dump_tree_do_nothing
+#define LANG_HOOKS_DUMP_IDENTIFIER	lhd_dump_tree_do_nothing
+#define LANG_HOOKS_DUMP_BLANK_LINE_P	lhd_dump_tree_blank_line_do_nothing
+#define LANG_HOOKS_DUMP_LINENO_P	lhd_dump_tree_lineno_do_nothing
+#define LANG_HOOKS_DMP_TREE3		lhd_dmp_tree3_do_nothing
+/* APPLE LOCAL end new tree dump */
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_tree
@@ -286,6 +302,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_POST_OPTIONS, \
   LANG_HOOKS_INIT, \
   LANG_HOOKS_FINISH, \
+  /* APPLE LOCAL Objective-C++  */ \
+  LANG_HOOKS_FINISH_FILE, \
   LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \
   LANG_HOOKS_GET_ALIAS_SET, \
@@ -318,6 +336,14 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \
+/* APPLE LOCAL begin new tree dump */ \
+  LANG_HOOKS_DUMP_DECL, \
+  LANG_HOOKS_DUMP_TYPE, \
+  LANG_HOOKS_DUMP_IDENTIFIER, \
+  LANG_HOOKS_DUMP_BLANK_LINE_P, \
+  LANG_HOOKS_DUMP_LINENO_P, \
+  LANG_HOOKS_DMP_TREE3, \
+/* APPLE LOCAL end new tree dump */ \
   LANG_HOOKS_FUNCTION_INITIALIZER, \
   LANG_HOOKS_TREE_INLINING_INITIALIZER, \
   LANG_HOOKS_CALLGRAPH_INITIALIZER, \

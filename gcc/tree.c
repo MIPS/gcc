@@ -94,7 +94,8 @@ struct type_hash GTY(())
 };
 
 /* Initial size of the hash table (rounded to next prime).  */
-#define TYPE_HASH_INITIAL_SIZE 1000
+/* APPLE LOCAL fsf candidate */
+#define TYPE_HASH_INITIAL_SIZE 4111
 
 /* Now here is the hash table.  When recording a type, it is added to
    the slot whose index is the hash code.  Note that the hash table is
