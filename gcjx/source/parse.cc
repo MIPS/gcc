@@ -2516,6 +2516,7 @@ parse::any_method_declarator (const std::list<ref_annotation> &annos,
       member_type = brackets_opt (member_type);
       if (member_type != save)
 	{
+	  result->set_return_type (member_type);
 	  if (global->get_compiler ()->warn_deprecated ())
 	    std::cerr << format (new format_repr (format_type (global->get_compiler ()->warn_deprecated ()),
 						  save_loc,

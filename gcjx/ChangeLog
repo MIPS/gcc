@@ -1,5 +1,10 @@
 2005-01-25  Tom Tromey  <tromey@redhat.com>
 
+	* source/parse.cc (any_method_declarator): Update method return
+	type if brackets follow method name.
+
+2005-01-25  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/classwriter.cc (check_type): New method.
 	(write): Use it.
 	* bytecode/classwriter.hh (class_writer::check_type): Declare.
