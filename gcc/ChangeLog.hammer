@@ -1,3 +1,7 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* config.gcc (powerpc-*-linux*): Allow biarch builds.
+
 2004-01-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* system.h (ICE_EXIT_CODE): Define.
@@ -18,6 +22,7 @@
 	* config/rs6000/linux64.h (RELOCATABLE_NEEDS_FIXUP): Ditto for biarch
 	case.  Define as 0 for non-biarch.
 	(TARGET_RELOCATABLE): Don't define for biarch case.
+	* config/rs6000/sysv4.h (RELOCATABLE_NEEDS_FIXUP): Define as 1.
 
 	* mbchar.c (local_mbtowc): Ignore CROSS_COMPILE if NATIVE_CROSS.
 	(local_mb_cur_max): Likewise.
