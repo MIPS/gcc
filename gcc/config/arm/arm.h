@@ -800,32 +800,33 @@ extern const char * structure_size_string;
    trampled.  This effectively reduces the number of available registers by 1.
    XXX It is a hack, I know.
    XXX Is this still needed?  */
-#define CONDITIONAL_REGISTER_USAGE  			\
-{							\
-  if (obey_regdecls)					\
-    fixed_regs[0] = 1;					\
-  if (TARGET_SOFT_FLOAT || TARGET_THUMB)		\
-    {							\
-      int regno;					\
-      for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; ++regno)	\
-	fixed_regs[regno] = call_used_regs[regno] = 1;	\
-    }							\
-  if (flag_pic)						\
-    {							\
-      fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
-      call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;	\
-    }							\
-  else if (TARGET_APCS_STACK)				\
-    {							\
-      fixed_regs[10]     = 1;				\
-      call_used_regs[10] = 1;				\
-    }							\
-  if (TARGET_APCS_FRAME)				\
-    {							\
-      fixed_regs[HARD_FRAME_POINTER_REGNUM] = 1;	\
-      call_used_regs[HARD_FRAME_POINTER_REGNUM] = 1;	\
-    }							\
-  SUBTARGET_CONDITIONAL_REGISTER_USAGE 		        \
+#define CONDITIONAL_REGISTER_USAGE				\
+{								\
+  if (obey_regdecls)						\
+    fixed_regs[0] = 1;						\
+  if (TARGET_SOFT_FLOAT || TARGET_THUMB)			\
+    {								\
+      int regno;						\
+      for (regno = FIRST_ARM_FP_REGNUM;				\
+	   regno <= LAST_ARM_FP_REGNUM; ++regno)		\
+	fixed_regs[regno] = call_used_regs[regno] = 1;		\
+    }								\
+  if (flag_pic)							\
+    {								\
+      fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+      call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
+    }								\
+  else if (TARGET_APCS_STACK)					\
+    {								\
+      fixed_regs[10]     = 1;					\
+      call_used_regs[10] = 1;					\
+    }								\
+  if (TARGET_APCS_FRAME)					\
+    {								\
+      fixed_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;		\
+      call_used_regs[ARM_HARD_FRAME_POINTER_REGNUM] = 1;	\
+    }								\
+  SUBTARGET_CONDITIONAL_REGISTER_USAGE				\
 }
     
 /* These are a couple of extensions to the formats accecpted
@@ -940,9 +941,9 @@ extern const char * structure_size_string;
    If we have to have a frame pointer we might as well make use of it.
    APCS says that the frame pointer does not need to be pushed in leaf
    functions, or simple tail call functions.  */
-#define FRAME_POINTER_REQUIRED				\
-  (current_function_has_nonlocal_label			\
-   || (TARGET_APCS_FRAME && ! leaf_function_p ()))
+#define FRAME_POINTER_REQUIRED						\
+  (current_function_has_nonlocal_label					\
+   || (TARGET_ARM && TARGET_APCS_FRAME && ! leaf_function_p ()))
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -1584,7 +1585,8 @@ typedef struct
 	  /* PIC register is a fixed reg, so call_used_regs set.  */	\
 	  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])	\
 	    saved_hard_reg = 1, offset += 4;				\
-          for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; regno++) \
+          for (regno = FIRST_ARM_FP_REGNUM;				\
+	       regno <= LAST_ARM_FP_REGNUM; regno++)			\
 	    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
 	      offset += 12;						\
 	}								\

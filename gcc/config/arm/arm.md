@@ -248,6 +248,8 @@
 ;; Core unit
 ;;--------------------------------------------------------------------
 ;; Everything must spend at least one cycle in the core unit
+(define_function_unit "core" 1 0 (eq_attr "core_cycles" "single") 1 1)
+
 (define_function_unit "core" 1 0
   (and (eq_attr "ldsched" "yes") (eq_attr "type" "store1")) 1 1)
 
@@ -285,6 +287,10 @@
 (define_function_unit "core" 1 0 (eq_attr "type" "store3") 4 4)
 
 (define_function_unit "core" 1 0 (eq_attr "type" "store4") 5 5)
+
+(define_function_unit "core" 1 0
+  (and (eq_attr "core_cycles" "multi")
+       (eq_attr "type" "!mult,load,store1,store2,store3,store4")) 32 32)
 
 ;; Note: For DImode insns, there is normally no reason why operands should
 ;; not be in the same register, what we don't want is for something being
@@ -1115,7 +1121,8 @@
   else
     return \"mul\\t%0, %0, %2\";
   "
-  [(set_attr "length" "4,4,2")]
+  [(set_attr "length" "4,4,2")
+   (set_attr "type" "mult")]
 )
 
 (define_insn "*mulsi3_compare0"
@@ -2995,6 +3002,7 @@
   return \"ldrh\\t%0, %1\";
   "
   [(set_attr "length" "4")
+   (set_attr "type" "load")
    (set_attr "pool_range" "60")]
 )
 
@@ -3079,6 +3087,7 @@
   "TARGET_THUMB"
   "ldrb\\t%0, %1"
   [(set_attr "length" "2")
+   (set_attr "type" "load")
    (set_attr "pool_range" "32")]
 )
 
@@ -3216,6 +3225,7 @@
     return \"\";
   }"
   [(set_attr "length" "4")
+   (set_attr "type" "load")
    (set_attr "pool_range" "1020")]
 )
 
@@ -3531,6 +3541,7 @@
     return \"\";
   }"
   [(set_attr "length" "2,6")
+   (set_attr "type" "load,load")
    (set_attr "pool_range" "32,32")]
 )
 
@@ -3686,6 +3697,7 @@
     }
   }"
   [(set_attr "length" "4,4,6,2,2,6,4,4")
+   (set_attr "type" "*,*,*,load,store2,load,store2,*")
    (set_attr "pool_range" "*,*,*,*,*,1020,*,*")]
 )
 
@@ -3771,6 +3783,7 @@
    str\\t%1, %0
    mov\\t%0, %1"
   [(set_attr "length" "2,2,4,4,2,2,2,2,2")
+   (set_attr "type" "*,*,*,*,load,store1,load,store1,*")
    (set_attr "pool_range" "*,*,*,*,*,*,1020,*,*")]
 )
 
@@ -3838,7 +3851,7 @@
 
 (define_insn "pic_load_addr"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-        (unspec:SI [(match_operand:SI 1 "" "mX")] 3))]
+	(unspec:SI [(match_operand:SI 1 "" "mX")] 3))]
   "TARGET_EITHER && flag_pic"
   "ldr%?\\t%0, %1"
   [(set_attr "type" "load")
@@ -4263,6 +4276,7 @@
       return \"ldrh	%0, %1\";
     }"
   [(set_attr "length" "2,4,4,2,2,2")
+   (set_attr "type" "*,load,store1,*,*,*")
    (set_attr "pool_range" "*,64,*,*,*,*")]
 )
 
@@ -4545,6 +4559,7 @@
    mov\\t%0, %1
    mov\\t%0, %1"
   [(set_attr "length" "2")
+   (set_attr "type" "*,load,store1,*,*,*")
    (set_attr "pool_range" "*,32,*,*,*,*")]
 )
 
@@ -4626,6 +4641,7 @@
    mov\\t%0, %1
    mov\\t%0, %1"
   [(set_attr "length" "2")
+   (set_attr "type" "*,load,store1,load,store1,*,*")
    (set_attr "pool_range" "*,*,*,1020,*,*,*")]
 )
 
@@ -4771,6 +4787,7 @@
     }
   "
   [(set_attr "length" "4,2,2,6,4,4")
+   (set_attr "type" "*,load,store2,load,store2,*")
    (set_attr "pool_range" "*,*,*,1020,*,*")]
 )
 
@@ -5010,7 +5027,10 @@
    (clobber (match_scratch:SI 4 "=&l"))]
   "TARGET_THUMB"
   "* return thumb_output_move_mem_multiple (3, operands);"
-  [(set_attr "length" "4")]
+  [(set_attr "length" "4")
+;; This isn't entirely accurate...  It loads as well, but in terms of
+;; scheduling the following insn it is better to consider it as a store
+   (set_attr "type" "store3")]
 )
 
 (define_insn "movmem8b"
@@ -5024,7 +5044,10 @@
    (clobber (match_scratch:SI 3 "=&l"))]
   "TARGET_THUMB"
   "* return thumb_output_move_mem_multiple (2, operands);"
-  [(set_attr "length" "4")]
+  [(set_attr "length" "4")
+;; This isn't entirely accurate...  It loads as well, but in terms of
+;; scheduling the following insn it is better to consider it as a store
+   (set_attr "type" "store2")]
 )
 
 
@@ -5784,6 +5807,7 @@
     else
       return \"bl\\t%__call_via_%0\";
   }"
+  [(set_attr "type" "call")]
 )
 
 (define_insn "*call_value_indirect"
@@ -5800,6 +5824,7 @@
     else
       return \"bl\\t%__call_via_%1\";
   }"
+  [(set_attr "type" "call")]
 )
 
 (define_expand "call_value"
@@ -6032,8 +6057,8 @@
 		     (match_operand:SI 1 "arm_rhs_operand" "rI"))
 		(mem:SI (plus:SI (mult:SI (match_dup 0) (const_int 4))
 				 (label_ref (match_operand 2 "" ""))))
-		(clobber (reg:CC 24))
 		(label_ref (match_operand 3 "" ""))))
+	      (clobber (reg:CC 24))
 	      (use (label_ref (match_dup 2)))])]
   "TARGET_ARM"
   "*

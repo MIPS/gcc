@@ -2226,9 +2226,14 @@ arm_adjust_cost (insn, link, dep, cost)
   rtx i_pat, d_pat;
 
   /* XXX This is not strictly true for the FPA. */
-  if (REG_NOTE_KIND(link) == REG_DEP_ANTI
-      || REG_NOTE_KIND(link) == REG_DEP_OUTPUT)
+  if (REG_NOTE_KIND (link) == REG_DEP_ANTI
+      || REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
     return 0;
+
+  /* Call insns don't incur a stall, even if they follow a load.  */
+  if (REG_NOTE_KIND (link) == 0
+      && GET_CODE (insn) == CALL_INSN)
+    return 1;
 
   if ((i_pat = single_set (insn)) != NULL
       && GET_CODE (SET_SRC (i_pat)) == MEM
@@ -8310,6 +8315,10 @@ thumb_expand_epilogue ()
 	}
     }
       
+  /* Emit a USE (stack_pointer_rtx), so that the stack adjustment will
+     not be deleted.  */
+  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+
   if (profile_flag || profile_block_flag || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
 }

@@ -4,6 +4,21 @@ Thu Oct 28 11:05:13 1999  Richard Earnshaw <rearnsha@arm.com>
 	register.
 	(pic_load_addr): Fix constraints.
 
+	* arm.md (casesi_insn): Fix mis-applied patch.
+
+	* arm.md ("core" function unit): Add rules for single- and
+	multi-cycle insns.
+	(All TARGET_THUMB patterns): Add "type" attribute information
+	where needed.
+	* arm.c (arm_adjust_cost): Reduce the cost of a data dependency if
+	the following insn is a CALL.
+
+	* arm.c (thumb_expand_epilogue): Add a use of the adjusted stack
+	pointer.
+	* arm.h (CONDITIONAL_REGISTER_USAGE): Nail down the 
+	ARM_HARD_FRAME_POINTER_REGNUM when TARGET_APCS_FRAME.
+	(FRAME_POINTER_REQUIRED): Only check TARGET_APCS_FRAME if TARGET_ARM.
+	
 Thu Oct 28 10:00:48 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.c: Initialise arm_structure_size_boundary to
