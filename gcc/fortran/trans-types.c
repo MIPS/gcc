@@ -926,7 +926,8 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->ts.type == BT_CHARACTER)
     {
       if (sym->attr.dimension
-	  || sym->attr.pointer || sym->attr.allocatable || sym->attr.function)
+	  || sym->attr.pointer || sym->attr.allocatable
+	  || sym->attr.function || sym->attr.result)
 	type = build_pointer_type (type);
     }
 

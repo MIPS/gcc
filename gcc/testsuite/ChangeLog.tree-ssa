@@ -2,6 +2,7 @@
 
 	* gfortran.fortran-torture/execute/specifics.f90: New test.
 	* gfortran.fortran-torture/execute/intrinsic_achar.f90: New test.
+	* gfortran.fortran-torture/execute/strret.f90: Also test result vars.
 
 2003-10-01  Richard Henderson  <rth@redhat.com>
 

@@ -1,5 +1,9 @@
 2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
 
+	* trans-types.c (gfc_sym_type): Handle result variables.
+
+2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
+
 	* trans-intrinsic.c (gfc_conv_intrinsic_char): Don't use
 	gfc_get_character_type.
 
