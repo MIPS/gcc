@@ -1,5 +1,11 @@
 2004-07-31  Mark Wielaard  <mark@klomp.org>
 
+	* gnu/java/awt/EmbeddedWindow.java: Reindent.
+	* javax/swing/JButton.java: Reindent.
+	* javax/swing/JCheckBox.java: Reindent.
+
+2004-07-31  Mark Wielaard  <mark@klomp.org>
+
 	* Makefile.am (gtk_c_source_files): Added
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c.
 	(gtk_awt_peer_sources): Added

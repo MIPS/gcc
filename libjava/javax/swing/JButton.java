@@ -99,9 +99,8 @@ public class JButton extends AbstractButton
 
   public String getUIClassID()
   {
-	//Returns a string that specifies the name of the Look and Feel
-	//class that renders this component.
-	return "ButtonUI";
+    //Returns a string that specifies the name of the L&F class that renders this component.  
+    return "ButtonUI";
   }
 
   public boolean isDefaultButton()
