@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -143,7 +143,7 @@ static fibheapkey_t bb_to_key		PARAMS ((basic_block));
 static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
 						 int, int));
 static void connect_traces		PARAMS ((int, struct trace *));
-static bool copy_bb_p			PARAMS ((basic_block));
+static bool copy_bb_p			PARAMS ((basic_block, bool));
 static int get_uncond_jump_length	PARAMS ((void));
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
@@ -312,11 +312,25 @@ rotate_loop (back_edge, trace, trace_n)
       else
 	{
 	  basic_block prev_bb;
+	  
 	  for (prev_bb = trace->first;
 	       RBI (prev_bb)->next != back_edge->dest;
 	       prev_bb = RBI (prev_bb)->next)
 	    ;
 	  RBI (prev_bb)->next = RBI (best_bb)->next;
+
+	  /* Try to get rid of uncond jump to cond jump.  */
+	  if (prev_bb->succ && !prev_bb->succ->succ_next)
+	    {
+	      basic_block header = prev_bb->succ->dest;
+
+	      /* Duplicate HEADER if it is a small block containing condjump
+		 in the end.  */
+	      if (any_condjump_p (header->end) && copy_bb_p (header, false))
+		{
+		  copy_bb (header, prev_bb->succ, prev_bb, trace_n);
+		}
+	    }
 	}
     }
   else
@@ -543,7 +557,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			    if (another_edge != best_edge)
 			      break;
 				
-			  if (!another_edge && copy_bb_p (best_edge->dest))
+			  if (!another_edge && copy_bb_p (best_edge->dest,
+							  !optimize_size))
 			    {
 			      bb = copy_bb (best_edge->dest, best_edge, bb,
 					    *n_traces);
@@ -664,6 +679,7 @@ copy_bb (old_bb, e, bb, trace)
 	     "Duplicated bb %d (created bb %d)\n",
 	     old_bb->index, new_bb->index);
   RBI (new_bb)->visited = trace;
+  RBI (new_bb)->next = RBI (bb)->next;
   RBI (bb)->next = new_bb;
 
   if (new_bb->index >= array_size || last_basic_block > array_size)
@@ -904,7 +920,7 @@ connect_traces (n_traces, traces)
 	    {
 	      /* Try to connect the traces by duplication of 1 block.  */
 	      edge e2;
-	      basic_block next_bb;
+	      basic_block next_bb = NULL;
 
 	      for (e = traces[t].last->succ; e; e = e->succ_next)
 		if (e->dest != EXIT_BLOCK_PTR
@@ -945,7 +961,7 @@ connect_traces (n_traces, traces)
 			  }
 		      }
 		  }
-	      if (best && copy_bb_p (best->dest))
+	      if (best && next_bb && copy_bb_p (best->dest, !optimize_size))
 		{
 		  basic_block new_bb;
 
@@ -993,11 +1009,13 @@ connect_traces (n_traces, traces)
   FREE (start_of_trace);
 }
 
-/* Return true when BB can and should be copied.  */
+/* Return true when BB can and should be copied. CODE_MAY_GROW is true
+   when code size is allowed to grow by duplication.  */
 
 static bool
-copy_bb_p (bb)
+copy_bb_p (bb, code_may_grow)
      basic_block bb;
+     bool code_may_grow;
 {
   int size = 0;
   int max_size = uncond_jump_length;
@@ -1010,7 +1028,7 @@ copy_bb_p (bb)
   if (!cfg_layout_can_duplicate_bb_p (bb))
     return false;
 
-  if (!optimize_size && maybe_hot_bb_p (bb))
+  if (code_may_grow && maybe_hot_bb_p (bb))
     max_size *= 8;
 
   for (insn = bb->head; insn != NEXT_INSN (bb->end);
