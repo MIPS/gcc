@@ -780,7 +780,10 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
       if (TREE_TYPE (var) != TREE_TYPE (p)
 	  && POINTER_TYPE_P (TREE_TYPE (var))
 	  && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
-	var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
+	{
+	  insert_decl_map (id, var, var);
+	  var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
+	}
       else
 	var_sub = var;
 
