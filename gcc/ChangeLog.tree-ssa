@@ -1,3 +1,8 @@
+2003-06-02  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (simplify_expr): Only allow a cast from a 'val'.
+	* tree-simple.c (is_simple_cast): Likewise.
+
 2003-06-02  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (bsi_insert_before): Update end of block pointer if we

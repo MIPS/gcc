@@ -135,7 +135,7 @@ Boston, MA 02111-1307, USA.  */
 	      | call_expr
 	      | unop val
 	      | val binop val
-	      | '(' cast ')' varname
+	      | '(' cast ')' val
 
 	      (cast here stands for all valid C typecasts)
 
@@ -374,7 +374,7 @@ is_simple_condexpr (t)
 	      | '&' varname
 	      | call_expr
 	      | unop val
-	      | '(' cast ')' varname
+	      | '(' cast ')' val
 
 	      (cast here stands for all valid C typecasts)  */
 
@@ -730,7 +730,7 @@ is_simple_compref (t)
 #endif
 
 /*  Return nonzero if T is a typecast operation of the form
-    '(' cast ')' varname.  */
+    '(' cast ')' val.  */
 
 int
 is_simple_cast (t)
@@ -739,7 +739,7 @@ is_simple_cast (t)
   if (t == NULL_TREE)
     return 1;
 
-  return (is_simple_cast_op (t) && is_simple_varname (TREE_OPERAND (t, 0)));
+  return (is_simple_cast_op (t) && is_simple_val (TREE_OPERAND (t, 0)));
 }
 
 

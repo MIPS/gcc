@@ -492,7 +492,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	case FIX_FLOOR_EXPR:
 	case FIX_ROUND_EXPR:
 	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			 is_simple_varname, fb_rvalue);
+			 is_simple_val, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 
