@@ -1,3 +1,9 @@
+2002-08-31  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_build_check_statement_for): Tolerate dereference
+	of void pointers.
+	(mx_register_decl): Correct typo in below patch.
+
 2002-08-30  Graydon Hoare  <graydon@redhat.com>
 
 	* tree-mudflap.c (mx_register_decl): Mark declarations as

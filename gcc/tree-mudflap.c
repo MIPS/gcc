@@ -611,7 +611,7 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   tree t1_1;
   tree t1_2, t1_2_1;
   tree t1_3, t1_3_1;
-  tree t1_4, t1_4_1, t1_4_2;
+  tree t1_4, t1_4_1, t1_4_2, t1_4_size;
   tree t1_98;
   tree t1_99;
   tree t1;
@@ -653,6 +653,13 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, pushdecl (t1_3_1));
   TREE_CHAIN (t1_2) = t1_3;
   
+  t1_4_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ptrvalue)));
+  if (t1_4_size == NULL_TREE)
+    {
+      /* We may be dereferencing a void pointer.  */
+      t1_4_size = integer_one_node;
+    }
+
   /* Quick validity check.  */
   t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
 		  build (GT_EXPR, integer_type_node,
@@ -669,10 +676,7 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_value + sizeof(T) - 1 */
 				t1_2_1,
 				fold (build (MINUS_EXPR, mf_uintptr_type,
-					     convert (mf_uintptr_type,
-						      TYPE_SIZE_UNIT 
-						      (TREE_TYPE 
-						       (TREE_TYPE (ptrvalue)))),
+					     convert (mf_uintptr_type, t1_4_size),
 					     integer_one_node)))));
   
   /* Mark condition as UNLIKELY using __builtin_expect.  */
@@ -688,8 +692,7 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 					   convert (mf_uintptr_type, t1_2_1),
 					   tree_cons (NULL_TREE, 
 						      convert (mf_uintptr_type, 
-							       TYPE_SIZE_UNIT 
-							       (TREE_TYPE (TREE_TYPE (ptrvalue)))),
+							       t1_4_size),
 						      tree_cons (NULL_TREE,
 								 location_string,
 								 NULL_TREE))));
@@ -898,7 +901,7 @@ struct mf_xform_decls_data
 
 /* Destructively insert, between *posn and TREE_CHAIN(*posn), a pair of
    register / cleanup statements, corresponding to variable described in
-   decl, in the scope of the containing_stmt. Appending is done by  */
+   decl, in the scope of the containing_stmt. */
 
 static void
 mx_register_decl (posn, decl, containing_stmt)
@@ -911,10 +914,6 @@ mx_register_decl (posn, decl, containing_stmt)
       (! TREE_STATIC (decl)) &&
       mf_find_addrof (containing_stmt, decl))
     {
-
-      /* Hint to inhibit any fancy register optimizations on this variable. */
-      TREE_ADDRESSABLE(decl) = 1;
-
       /* Synthesize, for this DECL_STMT, a CLEANUP_DECL for the same
 	 VAR_DECL.  Arrange to call the __mf_register function now, and the
 	 __mf_unregister function later.  */
@@ -960,6 +959,9 @@ mx_register_decl (posn, decl, containing_stmt)
       
       tree register_fncall_stmt =
 	build1 (EXPR_STMT, void_type_node, register_fncall);
+
+      /* Hint to inhibit any fancy register optimizations on this variable. */
+      TREE_ADDRESSABLE(decl) = 1;
       
       /* Add the CLEANUP_STMT and register() call after *posn.  */
       TREE_CHAIN (cleanup_stmt) = register_fncall_stmt;
