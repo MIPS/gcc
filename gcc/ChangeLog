@@ -1,3 +1,8 @@
+Tue Nov 19 12:52:07 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* stor-layout.c (excess_unit_span): New function.
+	(place_field): Use it.
+
 2002-11-19  Andreas Schwab  <schwab@suse.de>
 
 	* unwind.h (_Unwind_GetTextRelBase): Revert last change, this is
