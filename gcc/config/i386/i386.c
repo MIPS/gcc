@@ -11127,7 +11127,10 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
   if (GET_CODE (count_exp) == CONST_INT)
     {
       count = INTVAL (count_exp);
-      if (!TARGET_INLINE_ALL_STRINGOPS && count > 64)
+      if ((!TARGET_INLINE_ALL_STRINGOPS
+	   && !TARGET_REP_MOVL_OPTIMAL
+	   && !optimize_size)
+	  && count > 64)
 	return 0;
     }
 
@@ -11361,7 +11364,10 @@ ix86_expand_clrstr (src, count_exp, align_exp)
   if (GET_CODE (count_exp) == CONST_INT)
     {
       count = INTVAL (count_exp);
-      if (!TARGET_INLINE_ALL_STRINGOPS && count > 64)
+      if ((!TARGET_INLINE_ALL_STRINGOPS
+	   && !TARGET_REP_MOVL_OPTIMAL
+	   && !optimize_size)
+	  && count > 64)
 	return 0;
     }
   /* Figure out proper mode for counter.  For 32bits it is always SImode,

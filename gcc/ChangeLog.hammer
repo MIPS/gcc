@@ -1,3 +1,10 @@
+2003-12-31  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_movstr, ix86_expand_clrstr): Use libcal
+	for large blocks only when not optimizing size or when REP_MOVL
+	is not optimal.
+	* i386.md (movstr expander): Enable when optimizing for size.
+
 2003-12-29  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (change_decl_assembler_name): Work around late renaming of
