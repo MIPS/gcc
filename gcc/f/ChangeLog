@@ -1,3 +1,7 @@
+2003-11-16  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* config-lang.in: Re-add.
+
 2003-11-03  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (dvi): Move targets to $(docobjdir).
