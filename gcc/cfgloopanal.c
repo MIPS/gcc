@@ -936,7 +936,7 @@ mark_irreducible_loops (loops)
 	           : e->dest->index + 1;
           if (closed[sidx])
 	    {
-	      if (mr[sidx] < mr[idx])
+	      if (mr[sidx] < mr[idx] && !closed[mr[sidx]])
 		mr[idx] = mr[sidx];
 	      continue;
 	    }
