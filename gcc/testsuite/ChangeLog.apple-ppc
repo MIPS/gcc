@@ -1,3 +1,10 @@
+2005-01-25  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3961973 (Part 3)
+	* gcc.dg/cast-lvalue-2.c: Add '-fno-non-lvalue-assign'.
+	* gcc.dg/lvalue1.c: Likewise.
+	* gcc.dg/lvalue-cond-1.c: Remove duplicated lines.
+
 2005-01-24  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3968938
