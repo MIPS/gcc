@@ -408,7 +408,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	     in such a way that the two INTEGER_CST nodes for "5" have
 	     different values but identical types.  In the latter
-	     case, the 5 is multipled by sizeof (int) in c-common.c
+	     case, the 5 is multiplied by sizeof (int) in c-common.c
 	     (pointer_int_sum) to convert it to a byte address, and
 	     yet the type of the node is left unchanged.  Argh.  What
 	     is consistent though is that the number value corresponds

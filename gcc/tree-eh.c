@@ -254,7 +254,7 @@ struct leh_tf_state
   /* Pointer to the TRY_FINALLY node under discussion.  The try_finally_expr
      is the original TRY_FINALLY_EXPR.  We need to retain this so that 
      outside_finally_tree can reliably reference the tree used in the
-     collect_finally_tree data structues.  */
+     collect_finally_tree data structures.  */
   tree try_finally_expr;
   tree *top_p;
 

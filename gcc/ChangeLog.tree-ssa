@@ -1,3 +1,20 @@
+2003-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* dominance.c: Fix comment typos.
+	* et-forest.c: Likewise.
+	* et-forest.h: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-eh.c: Likewise.
+	* tree-mudflap.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* tree-pretty-print.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-tailcall.c: Likewise.
+	* tree.def: Likewise.
+	* tree.h: Likewise.
+
 2003-12-18  Jason Merrill  <jason@redhat.com>
 
 	PR c++/12453

@@ -443,7 +443,7 @@ make_edges (void)
 
       /* ??? Can we have multiple outgoing edges here?  COND_EXPR
 	 always has two gotos, and I can't think how one would have
-	 achived this via EH.  */
+	 achieved this via EH.  */
       if (e != EXIT_BLOCK_PTR->prev_bb->succ || e->succ_next)
 	abort ();
 	
@@ -1702,7 +1702,7 @@ find_case_label_for_value (tree switch_expr, tree val)
 }
 
 /* If all the phi nodes in DEST have alternatives for E1 and E2 and
-   those alterantives are equal in each of the PHI nodes, then return
+   those alternatives are equal in each of the PHI nodes, then return
    nonzero, else return zero.  */
 
 static int
@@ -2243,7 +2243,7 @@ disband_implicit_edges (void)
       if (stmt && is_ctrl_stmt (stmt))
 	continue;
 
-      /* Find a fallthru edge and emit the goto if neccesary.  */
+      /* Find a fallthru edge and emit the goto if necessary.  */
       for (e = bb->succ; e; e = e->succ_next)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;

@@ -493,7 +493,7 @@ mf_xform_derefs_1 (tree_stmt_iterator *iter, tree *tp,
     {
     case ARRAY_REF:
       {
-	/* Omit checking if we can staticly determine that the access is
+	/* Omit checking if we can statically determine that the access is
 	   valid.  For non-addressable local arrays this is not optional,
 	   since we won't have called __mf_register for the object.  */
 	tree op0, op1;

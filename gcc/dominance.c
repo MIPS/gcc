@@ -537,7 +537,7 @@ assign_dfs_numbers (struct et_node *node, int *num)
   node->dfs_num_out = (*num)++;
 }
 
-/* Compute the data neccesary for fast resolving of dominator queries in a
+/* Compute the data necessary for fast resolving of dominator queries in a
    static dominator tree.  */
 
 static void

@@ -264,7 +264,7 @@ optimize_function_tree (tree fndecl, tree *chain)
   tree_ssa_finish (chain);
 }
 
-/* Do the actions requiered to finish with tree-ssa optimization
+/* Do the actions required to finish with tree-ssa optimization
    passes.  Return the final chain of statements in CHAIN.  */
 
 static void

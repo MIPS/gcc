@@ -296,7 +296,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
 
   /* Mark loop edges so we avoid threading across loop boundaries.
-     This may result in transformating natural loop into irreducible
+     This may result in transforming natural loop into irreducible
      region.  */
   mark_dfs_back_edges ();
 

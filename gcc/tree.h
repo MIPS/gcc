@@ -2184,7 +2184,7 @@ struct tree_decl GTY(())
    To reduce overhead, the nodes containing the statements are not trees.
    This avoids the overhead of tree_common on all linked list elements.
 
-   Use the interface in tree-interator.h to access this node.  */
+   Use the interface in tree-iterator.h to access this node.  */
 
 #define STATEMENT_LIST_HEAD(NODE) \
   (STATEMENT_LIST_CHECK (NODE)->stmt_list.head)

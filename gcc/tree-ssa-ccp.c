@@ -1534,7 +1534,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 /* A subroutine of fold_stmt_r.  Attempts to fold *(S+O) to S.X.
    BASE is a record type.  OFFSET is a byte displacement.  ORIG_TYPE
    is the desired result type.  */
-/* ??? This doesn't handle class inheritence.  */
+/* ??? This doesn't handle class inheritance.  */
 
 static tree
 maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,

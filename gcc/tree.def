@@ -894,7 +894,7 @@ DEFTREECODE (CATCH_EXPR, "catch_expr", 's', 2)
 DEFTREECODE (EH_FILTER_EXPR, "eh_filter_expr", 's', 2)
 
 /* Used to chain children of container statements together.
-   Use the interface in tree-interator.h to access this node.  */
+   Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", 'x', 0)
 
 /*

@@ -311,7 +311,7 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed,
 
       if (!*phis_constructed)
 	{
-	  /* Ensure that there is only one predecestor of the block.  */
+	  /* Ensure that there is only one predecessor of the block.  */
 	  if (first->pred->pred_next)
 	    first = split_edge (ENTRY_BLOCK_PTR->succ);
 	  /* Copy the args if needed.  */

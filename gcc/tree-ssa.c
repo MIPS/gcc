@@ -108,7 +108,7 @@ struct GTY(()) var_value_d
    The implementation of the node list and pred/succ list has been changed
    to a simple linear list of nodes and edges represented as pairs of nodes.
 
-   The predecessor and successor list.  Nodes are enterd in pairs, where
+   The predecessor and successor list.  Nodes are entered in pairs, where
    [0] ->PRED, [1]->SUCC.  All the even indexes in the array represent 
    predecessors, all the odd elements are successors. 
    
@@ -639,7 +639,7 @@ set_def_block (tree var, basic_block bb)
      to NEED_PHI_STATE_NO).
 
      If we are in any other state, then we either have multiple definitions
-     of this variable occuring in different blocks or we saw a use of the
+     of this variable occurring in different blocks or we saw a use of the
      variable which was not dominated by the block containing the
      definition(s).  In this case we may need a PHI node, so enter
      state NEED_PHI_STATE_MAYBE.  */
@@ -1705,7 +1705,7 @@ eliminate_virtual_phis (void)
 
 
 /* This routine will coalesce variables of the same type which do not 
-   interefere with each other. This will both reduce the memory footprint of
+   interfere with each other. This will both reduce the memory footprint of
    the stack, and allow us to coalesce together local copies of globals and
    scalarized component refs.  */
 
@@ -1829,7 +1829,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 
    When the use of a replaceable ssa_variable is encountered, the dependence
    list in version_info[] is moved to the "pending_dependence" list in case
-   the current expression is also replaceable. (To be deteremined later in 
+   the current expression is also replaceable. (To be determined later in 
    processing this stmt.) version_info[] for the version is then updated to 
    point to the defining stmt and the 'replaceable' bit is set.
 
@@ -2139,7 +2139,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   vuseops = VUSE_OPS (ann);
 
   /* Any expression which has no virtual operands and no real operands
-     should have been propagated if its possible to do anythig with them. 
+     should have been propagated if it's possible to do anything with them. 
      If this happens here, it probably exists that way for a reason, so we 
      won't touch it.   An example is:
          b_4 = &tab
@@ -2245,7 +2245,7 @@ mark_replaceable (temp_expr_table_p tab, tree var)
 }
 
 
-/* This function finishes any expression which is dependent on this paritition
+/* This function finishes any expression which is dependent on this partition
    as NOT replaceable.  clear_bit is used to determine whether partition_in_use
    should have iuts bit cleared. Since this can be called within an
    EXECUTE_IF_SET_IN_BITMAP, the bit can't always be cleared.  */
@@ -2379,7 +2379,7 @@ dump_replaceable_exprs (FILE *f, tree *expr)
 
 /* This function will rewrite the current program using the variable mapping
    found in 'map'. If the replacement vector 'values' is provided, any 
-   occurences of partitions with non-null entries in the vector will be 
+   occurrences of partitions with non-null entries in the vector will be 
    replaced with the expression in the vector instead of its mapped 
    variable.  */
 
@@ -2510,7 +2510,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
       dump_var_map (dump_file, map);
     }
 
-  /* Make sure even single occurence variables are in the list now.  */
+  /* Make sure even single occurrence variables are in the list now.  */
   if ((flags & SSANORM_COMBINE_TEMPS) == 0)
     compact_var_map (map, VARMAP_NORMAL);
 
@@ -2830,7 +2830,7 @@ htab_statistics (FILE *file, htab_t htab)
    STMT is the statement where SSA_NAME is created.
 
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
-      numbers.  If DEFINTION_BLOCK[SSA_NAME_VERSION] is set, it means that the
+      numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
       block in that array slot contains the definition of SSA_NAME.  */
 
 static bool
@@ -2931,7 +2931,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
    IDOM contains immediate dominator information for the flowgraph.
 
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
-      numbers.  If DEFINTION_BLOCK[SSA_NAME_VERSION] is set, it means that the
+      numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
       block in that array slot contains the definition of SSA_NAME.  */
 
 static bool
@@ -3541,7 +3541,7 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      (only happens on powerpc-darwin right now but can happen on any 
      target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
      precision of 1 while unsigned int is the same expect for a 
-     precision of 4 so testing of precision is nessary).  */
+     precision of 4 so testing of precision is necessary).  */
   else if (INTEGRAL_TYPE_P (inner_type) && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
