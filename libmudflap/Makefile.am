@@ -51,7 +51,11 @@ HOOKOBJS = \
  rindex-hook.lo \
  mmap-hook.lo \
  munmap-hook.lo \
- alloca-hook.lo
+ alloca-hook.lo \
+ asctime-hook.lo \
+ ctime-hook.lo \
+ gmtime-hook.lo \
+ localtime-hook.lo
 
 #.NOTPARALLEL: # Otherwise the following loop will be executed in parallel!
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h

@@ -1,4 +1,18 @@
-2003-04-27  Diego Novillo  <dnovillo@redhat.com>
+2002-04-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am (HOOKOBJS): Add *time related hooks.
+	* configure.in: Look for pthreads.h header.
+	* mf-hooks.c (asctime, ctime, gmtime, localtime): New wrappers.
+	* mf-runtime.c: Begin sketching some pthreads support.
+	(__mf_usage): Check for -lpthread presence.
+	(__mf_unregister): Confirm matching unregistration base.
+	(__mf_find_objects_rec): Reduce unnecessary recursion.
+	* mf-runtime.h.in: Add "nothrow" attribute to functions.  Add 
+	#defines for new hook functions.
+	* mf-impl.h: Corresponding changes.
+	* config.h.in, configure, Makefile.in: Regenerated.
+
+2002-04-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* testsuite/libmudflap.c/fail1-frag.c: Add volatile
 	modifiers to prevent being optimized away.

@@ -31,6 +31,8 @@ XXX: libgcc license?
 #include "mf-impl.h"
 
 
+/* ------------------------------------------------------------------------ */
+
 #ifndef max
 #define max(a,b) ((a) > (b) ? (a) : (b))
 #endif
@@ -39,9 +41,6 @@ XXX: libgcc license?
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
-#ifdef _MUDFLAP
-#error "Do not compile this file with -fmudflap!"
-#endif
 
 /* ------------------------------------------------------------------------ */
 /* Utility macros */
@@ -72,25 +71,28 @@ XXX: libgcc license?
 /* ------------------------------------------------------------------------ */
 /* Required globals.  */
 
-#ifndef LOOKUP_CACHE_MASK_DFL
 #define LOOKUP_CACHE_MASK_DFL 1023
-#endif
-#ifndef LOOKUP_CACHE_SIZE_MAX
 #define LOOKUP_CACHE_SIZE_MAX 4096 /* Allows max CACHE_MASK 0x0FFF */
-#endif
-#ifndef LOOKUP_CACHE_SHIFT_DFL
 #define LOOKUP_CACHE_SHIFT_DFL 2
-#endif
 
 struct __mf_cache __mf_lookup_cache [LOOKUP_CACHE_SIZE_MAX];
 uintptr_t __mf_lc_mask = LOOKUP_CACHE_MASK_DFL;
 unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 #define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
+
 struct __mf_options __mf_opts;
 enum __mf_state __mf_state = inactive;
+#ifdef HAVE_PTHREAD_H
+pthread_mutex_t __mf_biglock = PTHREAD_MUTEX_INITIALIZER;
+#endif
 #ifdef PIC
 struct __mf_dynamic __mf_dynamic;
+#endif
+
+#if HAVE_PTHREAD_H
+#pragma weak pthread_create
+const void *threads_active_p = (void *) pthread_create;
 #endif
 
 
@@ -256,7 +258,7 @@ __mf_usage ()
   struct option *opt;
 
   fprintf (stderr, 
-	   "This is a GCC \"mudflap\" memory-checked binary.\n"
+	   "This is a %sGCC \"mudflap\" memory-checked binary.\n"
 	   "Mudflap is Copyright (C) 2002-2003 Free Software Foundation, Inc.\n"
 	   "\n"
 	   "The mudflap code can be controlled by an environment variable:\n"
@@ -266,7 +268,13 @@ __mf_usage ()
 	   "\n"
 	   "where <options> is a space-separated list of \n"
 	   "any of the following options.  Use `-no-OPTION' to disable options.\n"
-	   "\n");
+	   "\n",
+#if HAVE_PTHREAD_H
+	   (threads_active_p ? "multi-threaded " : "single-threaded ")
+#else
+	    ""
+#endif
+	    );
 
   for (opt = options; opt->name; opt++)
     {
@@ -1116,18 +1124,17 @@ __mf_unregister (void *ptr, size_t sz)
 
 	/* XXX: handle unregistration of big old GUESS region, that has since
 	   been splintered.  */
+	old_obj = objs[0];
 
-	if (UNLIKELY (num_overlapping_objs != 1))
+	if (UNLIKELY (num_overlapping_objs != 1 ||
+		      ptr != old_obj->data.low)) /* XXX: what about sz? */
 	  {
-	    /* XXX: also: should check/assert ptr == old_obj->low ? */
 	    END_RECURSION_PROTECT;
 	    __mf_violation (ptr, sz,
 			    (uintptr_t) __builtin_return_address (0), NULL,
 			    __MF_VIOL_UNREGISTER);
 	    return;
 	  }
-	
-	old_obj = objs[0];
 
 	__mf_unlink_object (old_obj);
 	__mf_uncache_object (& old_obj->data);
@@ -1418,8 +1425,6 @@ __mf_adapt_cache ()
 
 
 
-
-
 /* __mf_find_object[s] */
 
 /* Find overlapping live objecs between [low,high].  Return up to
@@ -1443,7 +1448,8 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
   /* Traverse down left subtree. */
   count = 0;
   if (low < node->data.low)
-    count += __mf_find_objects_rec (low, high, & node->left, objs, max_objs);
+    count += __mf_find_objects_rec (low, min(high, node->data.low),
+				    & node->left, objs, max_objs);
 
   /* Track the used slots of objs[].  */
   if (count < max_objs)
@@ -1470,7 +1476,8 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
 
   /* Traverse down right subtree.  */
   if (high > node->data.high)
-    count += __mf_find_objects_rec (low, high, & node->right, objs, max_objs);
+    count += __mf_find_objects_rec (max (low, node->data.high), high,
+				    & node->right, objs, max_objs);
   /* There is no need to manipulate objs/max_objs any further.  */
 
 

@@ -17,6 +17,10 @@
 #error "Do not compile this file with -fmudflap!"
 #endif
 
+#if HAVE_PTHREAD_H
+#include <pthread.h>
+#endif
+
 
 /* Private definitions related to mf-runtime.h  */
 
@@ -181,6 +185,9 @@ struct __mf_dynamic
 /* Private global variables. */
 /* ------------------------------------------------------------------------ */
 
+#ifdef HAVE_PTHREAD_H
+extern pthread_mutex_t __mf_biglock;
+#endif
 extern enum __mf_state __mf_state;
 extern struct __mf_options __mf_opts;
 #ifdef PIC

@@ -14,6 +14,7 @@ XXX: libgcc license?
 #include <sys/types.h>
 #include <unistd.h>
 #include <assert.h>
+#include <time.h>
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
@@ -817,5 +818,72 @@ WRAPPER2(char *, rindex, const char *s, int c)
 
 
 /* XXX: setjmp, longjmp */
+
+#ifdef WRAP_asctime
+WRAPPER2(char *, asctime, struct tm *tm)
+{
+  static char *reg_result = NULL;
+  char *result;
+  MF_VALIDATE_EXTENT(tm, sizeof (struct tm), __MF_CHECK_READ, "asctime tm");
+  result = asctime (tm);
+  if (reg_result == NULL)
+    {
+      __mf_register (result, strlen (result)+1, __MF_TYPE_STATIC, "asctime string");
+      reg_result = result;
+    }
+  return result;
+}
+#endif
+
+#ifdef WRAP_ctime
+WRAPPER2(char *, ctime, const time_t *timep)
+{
+  static char *reg_result = NULL;
+  char *result;
+  MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "ctime time");
+  result = ctime (timep);
+  if (reg_result == NULL)
+    {
+      /* XXX: what if asctime and ctime return the same static ptr? */
+      __mf_register (result, strlen (result)+1, __MF_TYPE_STATIC, "ctime string");
+      reg_result = result;
+    }
+  return result;
+}
+#endif
+
+
+#ifdef WRAP_localtime
+WRAPPER2(struct tm*, localtime, const time_t *timep)
+{
+  static struct tm *reg_result = NULL;
+  struct tm *result;
+  MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "localtime time");
+  result = localtime (timep);
+  if (reg_result == NULL)
+    {
+      __mf_register (result, sizeof (struct tm), __MF_TYPE_STATIC, "localtime tm");
+      reg_result = result;
+    }
+  return result;
+}
+#endif
+
+#ifdef WRAP_gmtime
+WRAPPER2(struct tm*, gmtime, const time_t *timep)
+{
+  static struct tm *reg_result = NULL;
+  struct tm *result;
+  MF_VALIDATE_EXTENT(timep, sizeof (time_t), __MF_CHECK_READ, "gmtime time");
+  result = gmtime (timep);
+  if (reg_result == NULL)
+    {
+      __mf_register (result, sizeof (struct tm), __MF_TYPE_STATIC, "gmtime tm");
+      reg_result = result;
+    }
+  return result;
+}
+#endif
+
 
 /* ------------------------------------------------------------------------ */

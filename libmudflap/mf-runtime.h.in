@@ -1,8 +1,7 @@
+/* Public libmudflap declarations -*- C -*- */
+
 #ifndef MF_RUNTIME_H
 #define MF_RUNTIME_H
-
-/* Public libmudflap declarations  -*- C -*- */
-
 
 #if @MF_HAVE_STDINT_H@ /* autoconf HAVE_STDINT_H */
 #include <stdint.h>
@@ -46,9 +45,11 @@ extern unsigned char __mf_lc_shift;
 extern "C" {
 #endif
 
-extern void __mf_check (void *ptr, size_t sz, int type, const char *location);
-extern void __mf_register (void *ptr, size_t sz, int type, const char *name);
-extern void __mf_unregister (void *ptr, size_t sz);
+extern void __mf_check (void *ptr, size_t sz, int type, const char *location)
+       __attribute((nothrow));
+extern void __mf_register (void *ptr, size_t sz, int type, const char *name) 
+       __attribute((nothrow));
+extern void __mf_unregister (void *ptr, size_t sz) __attribute((nothrow));
 extern unsigned __mf_watch (void *ptr, size_t sz);
 extern unsigned __mf_unwatch (void *ptr, size_t sz);
 extern void __mf_report ();
@@ -87,6 +88,10 @@ extern int __mf_set_options (const char *opts);
 #define bcmp __mfwrap_bcmp 
 #define index __mfwrap_index 
 #define rindex __mfwrap_rindex
+#define asctime __mfwrap_asctime
+#define ctime __mfwrap_ctime
+#define gmtime __mfwrap_gmtime
+#define localtime __mfwrap_localtime
 
 /* Disable glibc macros.  */
 #define __NO_STRING_INLINES

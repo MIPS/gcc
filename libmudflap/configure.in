@@ -36,7 +36,7 @@ else
 fi
 AC_SUBST(MF_HAVE_UINTPTR_T)
 
-AC_CHECK_HEADERS(stdint.h execinfo.h signal.h)
+AC_CHECK_HEADERS(stdint.h execinfo.h signal.h pthread.h)
 AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 AC_CHECK_LIB(dl, dlsym)
 

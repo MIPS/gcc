@@ -136,8 +136,11 @@ HOOKOBJS = \
  rindex-hook.lo \
  mmap-hook.lo \
  munmap-hook.lo \
- alloca-hook.lo
-
+ alloca-hook.lo \
+ asctime-hook.lo \
+ ctime-hook.lo \
+ gmtime-hook.lo \
+ localtime-hook.lo
 
 libmudflap_la_LDFLAGS = 
 libmudflap_la_LIBADD = $(HOOKOBJS)
