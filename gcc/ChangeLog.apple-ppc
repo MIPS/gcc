@@ -1,3 +1,7 @@
+2004-09-17  Devang Patel  <dpatel@apple.com>
+
+	* gcc.c: Use .gch extension instead of .pch.
+
 2004-09-13  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3793575

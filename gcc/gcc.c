@@ -798,7 +798,7 @@ static const char *trad_capable_cpp =
 
 /* When making PCH file use this.  */
 static const char *pch = 
-"-o %g.s %{!o*:--output-pch=%i.pch} %W{o*:--output-pch=%*}%V";
+"-o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*}%V";
 
 /* We don't wrap .d files in %W{} since a missing .d file, and
    therefore no dependency entry, confuses make into thinking a .o
