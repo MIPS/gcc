@@ -5012,7 +5012,8 @@ default_unique_section (tree decl, int reloc)
 void
 default_unique_section_1 (tree decl, int reloc, int shlib)
 {
-  bool one_only = DECL_ONE_ONLY (decl);
+  /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
+  bool one_only = DECL_ONE_ONLY (decl) && !HAVE_GAS_COMDAT_GROUP;
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;

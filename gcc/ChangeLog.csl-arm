@@ -1,3 +1,8 @@
+2004-09-24  Paul Brook  <paul@codesourcery.com>
+
+	* vasasm.c (default_unique_section_1): Don't use .gnu.linkonce
+	when COMDAT is available.
+
 2004-09-22  Paul Brook  <paul@codesourcery.com>
 
 	* Makefile.in (USER_H): Add unwind-arm.h.
