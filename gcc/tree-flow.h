@@ -519,6 +519,7 @@ extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
+extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void build_dominator_tree (dominance_info);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
