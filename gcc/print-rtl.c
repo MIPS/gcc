@@ -102,6 +102,18 @@ print_mem_expr (FILE *outfile, tree expr)
       print_mem_expr (outfile, TREE_OPERAND (expr, 0));
       fputs (")", outfile);
     }
+  else if (TREE_CODE (expr) == ALIGN_INDIRECT_REF)
+    {
+      fputs (" (A*", outfile);
+      print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      fputs (")", outfile);
+    }
+  else if (TREE_CODE (expr) == MISALIGNED_INDIRECT_REF)
+    {
+      fputs (" (M*", outfile);
+      print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      fputs (")", outfile);
+    }
   else if (TREE_CODE (expr) == RESULT_DECL)
     fputs (" <result>", outfile);
   else
@@ -186,16 +198,15 @@ print_rtx (rtx in_rtx)
 	  if (RTX_FLAG (in_rtx, return_val))
 	    fputs ("/i", outfile);
 
-	  if (GET_MODE (in_rtx) != VOIDmode)
-	    {
-	      /* Print REG_NOTE names for EXPR_LIST and INSN_LIST.  */
-	      if (GET_CODE (in_rtx) == EXPR_LIST
-		  || GET_CODE (in_rtx) == INSN_LIST)
-		fprintf (outfile, ":%s",
-			 GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
-	      else
-		fprintf (outfile, ":%s", GET_MODE_NAME (GET_MODE (in_rtx)));
-	    }
+	  /* Print REG_NOTE names for EXPR_LIST and INSN_LIST.  */
+	  if (GET_CODE (in_rtx) == EXPR_LIST
+	      || GET_CODE (in_rtx) == INSN_LIST)
+	    fprintf (outfile, ":%s",
+		     GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
+
+	  /* For other rtl, print the mode if it's not VOID.  */
+	  else if (GET_MODE (in_rtx) != VOIDmode)
+	    fprintf (outfile, ":%s", GET_MODE_NAME (GET_MODE (in_rtx)));
 	}
     }
 

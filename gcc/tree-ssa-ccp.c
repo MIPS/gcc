@@ -136,7 +136,14 @@ get_default_value (tree var)
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;
 
-  if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
+  if (TREE_CODE (var) == SSA_NAME
+      && SSA_NAME_VALUE (var)
+      && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
+    {
+      val.lattice_val = CONSTANT;
+      val.const_val = SSA_NAME_VALUE (var);
+    }
+  else if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
     {
       /* Function arguments and volatile variables are considered VARYING.  */
       val.lattice_val = VARYING;
@@ -513,6 +520,7 @@ static void
 substitute_and_fold (void)
 {
   basic_block bb;
+  unsigned int i;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file,
@@ -586,6 +594,25 @@ substitute_and_fold (void)
 	      fprintf (dump_file, "\n");
 	    }
 	}
+    }
+
+  /* And transfer what we learned from VALUE_VECTOR into the
+     SSA_NAMEs themselves.  This probably isn't terribly important
+     since we probably constant propagated the values to their
+     use sites above.  */
+  for (i = 0; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+      value *value;
+
+      if (!name)
+	continue;
+
+      value = get_value (name);
+      if (value->lattice_val == CONSTANT
+          && is_gimple_reg (name)
+	  && is_gimple_min_invariant (value->const_val))
+	SSA_NAME_VALUE (name) = value->const_val;
     }
 }
 
@@ -2073,6 +2100,37 @@ fold_stmt (tree *stmt_p)
 }
 
 
+/* Convert EXPR into a GIMPLE value suitable for substitution on the
+   RHS of an assignment.  Insert the necessary statements before
+   iterator *SI_P.  */
+
+static tree
+convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
+{
+  tree_stmt_iterator ti;
+  tree stmt = bsi_stmt (*si_p);
+  tree tmp, stmts = NULL;
+
+  push_gimplify_context ();
+  tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+  pop_gimplify_context (NULL);
+
+  /* The replacement can expose previously unreferenced variables.  */
+  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
+    {
+      find_new_referenced_vars (tsi_stmt_ptr (ti));
+      mark_new_vars_to_rename (tsi_stmt (ti), vars_to_rename);
+    }
+
+  if (EXPR_HAS_LOCATION (stmt))
+    annotate_all_with_locus (&stmts, EXPR_LOCATION (stmt));
+
+  bsi_insert_before (si_p, stmts, BSI_SAME_STMT);
+
+  return tmp;
+}
+
+
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
 
@@ -2116,8 +2174,13 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
-	  if (set_rhs (stmtp, result))
-	    modify_stmt (*stmtp);
+	  if (!set_rhs (stmtp, result))
+	    {
+	      result = convert_to_gimple_builtin (&i, result);
+	      if (result && !set_rhs (stmtp, result))
+		abort ();
+	    }
+	  modify_stmt (*stmtp);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2143,6 +2206,8 @@ struct tree_opt_pass pass_fold_builtins =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_verify_ssa
+    | TODO_rename_vars,			/* todo_flags_finish */
   0					/* letter */
 };

@@ -282,6 +282,23 @@ struct gcc_target
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
 
+  /* Functions relating to vectorization.  */
+  struct vectorize
+  {
+    /* The following member value is a pointer to a function called
+       by the vectorizer, and when expanding a MISALIGNED_INDIREC_REF
+       expression.  If the hook returns true (false) then a move* pattern
+       to/from memory can (cannot) be generated for this mode even if the
+       memory location is unaligned.  */
+    bool (* misaligned_mem_ok) (enum machine_mode);
+
+    /* The following member values are pointers to functions called
+       by the vectorizer, and return the decl of the target builtin
+       function.  */
+    tree (* builtin_mask_for_load) (void);
+    tree (* builtin_mask_for_store) (void);
+  } vectorize;
+
   /* Return machine mode for filter value.  */
   enum machine_mode (* eh_return_filter_mode) (void);
 
@@ -323,6 +340,9 @@ struct gcc_target
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
+
+  /* Fold a target-specific builtin.  */
+  tree (* fold_builtin) (tree exp, bool ignore);
 
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for

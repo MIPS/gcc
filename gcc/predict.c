@@ -437,6 +437,15 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 	    = REG_BR_PROB_BASE - combined_probability;
 	}
     }
+  else if (bb->succ->succ_next)
+    {
+      int prob = INTVAL (XEXP (prob_note, 0));
+
+      BRANCH_EDGE (bb)->probability = prob;
+      FALLTHRU_EDGE (bb)->probability = REG_BR_PROB_BASE - prob;
+    }
+  else
+    bb->succ->probability = REG_BR_PROB_BASE;
 }
 
 /* Combine predictions into single probability and store them into CFG.
@@ -823,7 +832,7 @@ estimate_probability (struct loops *loops_info)
 	       && !last_basic_block_p (e->dest))
 	    predict_edge_def (e, PRED_EARLY_RETURN, TAKEN);
 
-	  /* Look for block we are guarding (ie we dominate it,
+	  /* Look for block we are guarding (i.e. we dominate it,
 	     but it doesn't postdominate us).  */
 	  if (e->dest != EXIT_BLOCK_PTR && e->dest != bb
 	      && dominated_by_p (CDI_DOMINATORS, e->dest, e->src)
@@ -944,8 +953,7 @@ expr_expected_value (tree expr, bitmap visited)
 	  return TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
 	}
     }
-  if (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
-      || TREE_CODE_CLASS (TREE_CODE (expr)) == '<')
+  if (BINARY_CLASS_P (expr) || COMPARISON_CLASS_P (expr))
     {
       tree op0, op1, res;
       op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
@@ -959,7 +967,7 @@ expr_expected_value (tree expr, bitmap visited)
 	return res;
       return NULL;
     }
-  if (TREE_CODE_CLASS (TREE_CODE (expr)) == '1')
+  if (UNARY_CLASS_P (expr))
     {
       tree op0, res;
       op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);

@@ -1,5 +1,4 @@
 // { dg-do run }
-// { dg-options "" }
 // PR c++/13989
 
 extern "C" void abort();

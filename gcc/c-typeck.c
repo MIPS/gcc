@@ -1452,26 +1452,6 @@ build_component_ref (tree datum, tree component)
   if (!objc_is_public (datum, component))
     return error_mark_node;
 
-  /* If DATUM is a COMPOUND_EXPR, move our reference inside it.
-     Ensure that the arguments are not lvalues; otherwise,
-     if the component is an array, it would wrongly decay to a pointer in
-     C89 mode.
-     We cannot do this with a COND_EXPR, because in a conditional expression
-     the default promotions are applied to both sides, and this would yield
-     the wrong type of the result; for example, if the components have
-     type "char".  */
-  switch (TREE_CODE (datum))
-    {
-    case COMPOUND_EXPR:
-      {
-	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
-	return build2 (COMPOUND_EXPR, TREE_TYPE (value),
-		       TREE_OPERAND (datum, 0), non_lvalue (value));
-      }
-    default:
-      break;
-    }
-
   /* See if there is a field or component with name COMPONENT.  */
 
   if (code == RECORD_TYPE || code == UNION_TYPE)
@@ -1855,9 +1835,18 @@ struct c_expr
 c_expr_sizeof_expr (struct c_expr expr)
 {
   struct c_expr ret;
-  ret.value = c_sizeof (TREE_TYPE (expr.value));
-  ret.original_code = ERROR_MARK;
-  pop_maybe_used (C_TYPE_VARIABLE_SIZE (TREE_TYPE (expr.value)));
+  if (expr.value == error_mark_node)
+    {
+      ret.value = error_mark_node;
+      ret.original_code = ERROR_MARK;
+      pop_maybe_used (false);
+    }
+  else
+    {
+      ret.value = c_sizeof (TREE_TYPE (expr.value));
+      ret.original_code = ERROR_MARK;
+      pop_maybe_used (C_TYPE_VARIABLE_SIZE (TREE_TYPE (expr.value)));
+    }
   return ret;
 }
 
@@ -1917,7 +1906,7 @@ build_function_call (tree function, tree params)
   if (!(TREE_CODE (fntype) == POINTER_TYPE
 	&& TREE_CODE (TREE_TYPE (fntype)) == FUNCTION_TYPE))
     {
-      error ("called object is not a function");
+      error ("called object %qE is not a function", function);
       return error_mark_node;
     }
 

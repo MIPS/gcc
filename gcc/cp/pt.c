@@ -5459,12 +5459,6 @@ instantiate_class_template (tree type)
   TYPE_HAS_CONST_INIT_REF (type) = TYPE_HAS_CONST_INIT_REF (pattern);
   TYPE_HAS_DEFAULT_CONSTRUCTOR (type) = TYPE_HAS_DEFAULT_CONSTRUCTOR (pattern);
   TYPE_HAS_CONVERSION (type) = TYPE_HAS_CONVERSION (pattern);
-  TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
-    = TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (pattern);
-  TYPE_USES_MULTIPLE_INHERITANCE (type)
-    = TYPE_USES_MULTIPLE_INHERITANCE (pattern);
-  TYPE_USES_VIRTUAL_BASECLASSES (type)
-    = TYPE_USES_VIRTUAL_BASECLASSES (pattern);
   TYPE_PACKED (type) = TYPE_PACKED (pattern);
   TYPE_ALIGN (type) = TYPE_ALIGN (pattern);
   TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (pattern);
@@ -7007,11 +7001,12 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	       single bad template instantiation.  */
 	    if (complain & tf_error
 #ifdef USE_MAPPED_LOCATION
-		&& last_loc != input_location)
+		&& last_loc != input_location
 #else
 		&& (last_loc.line != input_line
-		    || last_loc.file != input_filename))
+		    || last_loc.file != input_filename)
 #endif
+		  )
 	      {
 		if (TREE_CODE (type) == VOID_TYPE)
 		  error ("forming reference to void");
@@ -7323,11 +7318,23 @@ tsubst_baselink (tree baselink, tree object_type,
       }
     name = DECL_NAME (get_first_fn (fns));
     baselink = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
+    
+    /* If lookup found a single function, mark it as used at this
+       point.  (If it lookup found multiple functions the one selected
+       later by overload resolution will be marked as used at that
+       point.)  */
+    if (BASELINK_P (baselink))
+      fns = BASELINK_FUNCTIONS (baselink);
+    if (!template_id_p && !really_overloaded_fn (fns))
+      mark_used (OVL_CURRENT (fns));
+
+    /* Add back the template arguments, if present.  */
     if (BASELINK_P (baselink) && template_id_p)
       BASELINK_FUNCTIONS (baselink) 
 	= build_nt (TEMPLATE_ID_EXPR,
 		    BASELINK_FUNCTIONS (baselink),
 		    template_args);
+
     if (!object_type)
       object_type = current_class_type;
     return adjust_result_of_qualified_name_lookup (baselink, 

@@ -495,14 +495,16 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 
 
 /* Helper for ptr_is_dereferenced_by.  Called by walk_tree to look for
-   INDIRECT_REF nodes for the pointer passed in DATA.  */
+   (ALIGN/MISALIGNED_)INDIRECT_REF nodes for the pointer passed in DATA.  */
 
 static tree
 find_ptr_dereference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 {
   tree ptr = (tree) data;
 
-  if (TREE_CODE (*tp) == INDIRECT_REF
+  if ((TREE_CODE (*tp) == INDIRECT_REF
+       || TREE_CODE (*tp) == ALIGN_INDIRECT_REF
+       || TREE_CODE (*tp) == MISALIGNED_INDIRECT_REF)
       && TREE_OPERAND (*tp, 0) == ptr)
     return *tp;
 
@@ -510,8 +512,9 @@ find_ptr_dereference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 }
 
 
-/* Return true if STMT contains INDIRECT_REF <PTR>.  *IS_STORE is set
-   to 'true' if the dereference is on the LHS of an assignment.  */
+/* Return true if STMT contains (ALIGN/MISALIGNED_)INDIRECT_REF <PTR>.  
+   *IS_STORE is set to 'true' if the dereference is on the LHS of an 
+   assignment.  */
 
 static bool
 ptr_is_dereferenced_by (tree ptr, tree stmt, bool *is_store)
@@ -1347,6 +1350,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
 	      && v_ann->mem_tag_kind == NOT_A_TAG
+	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
 	      /* The address of VAR is not needed, remove the
@@ -2024,9 +2028,6 @@ create_memory_tag (tree type, bool is_type_tag)
      determine whether they should be considered globals.  */
   DECL_CONTEXT (tag) = current_function_decl;
 
-  /* If the pointed-to type is volatile, so is the tag.  */
-  TREE_THIS_VOLATILE (tag) = TREE_THIS_VOLATILE (type);
-
   /* Memory tags are by definition addressable.  This also prevents
      is_gimple_ref frome confusing memory tags with optimizable
      variables.  */
@@ -2124,6 +2125,9 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       alias_map->set = tag_set;
       ai->pointers[ai->num_pointers++] = alias_map;
     }
+
+  /* If the pointed-to type is volatile, so is the tag.  */
+  TREE_THIS_VOLATILE (tag) = TREE_THIS_VOLATILE (tag_type);
 
   /* Make sure that the type tag has the same alias set as the
      pointed-to type.  */
@@ -2223,7 +2227,12 @@ dump_alias_info (FILE *file)
   for (i = 1; i < num_ssa_names; i++)
     {
       tree ptr = ssa_name (i);
-      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      struct ptr_info_def *pi;
+      
+      if (ptr == NULL_TREE)
+	continue;
+
+      pi = SSA_NAME_PTR_INFO (ptr);
       if (!SSA_NAME_IN_FREE_LIST (ptr)
 	  && pi
 	  && pi->name_mem_tag)

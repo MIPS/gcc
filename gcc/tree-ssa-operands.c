@@ -75,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
    variable, and that same variable occurs in the same operands cache, then 
    the new cache vector will also get the same SSA_NAME.
 
-  ie, if a stmt had a VUSE of 'a_5', and 'a' occurs in the new operand 
+  i.e., if a stmt had a VUSE of 'a_5', and 'a' occurs in the new operand 
   vector for VUSE, then the new vector will also be modified such that 
   it contains 'a_5' rather than 'a'.
 
@@ -1009,6 +1009,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       add_stmt_operand (expr_p, stmt, flags);
       return;
 
+    case MISALIGNED_INDIRECT_REF:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+      /* fall through */
+
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       get_indirect_ref_operands (stmt, expr, flags);
       return;
@@ -1071,7 +1076,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (expr), opf_none);
+    case VEC_COND_EXPR:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
@@ -1159,6 +1165,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
 	return;
+      }
+
+    case REALIGN_LOAD_EXPR:
+      {
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
+        return;
       }
 
     case BLOCK:
@@ -1273,7 +1287,8 @@ get_asm_expr_operands (tree stmt)
       }
 }
 
-/* A subroutine of get_expr_operands to handle INDIRECT_REF.  */
+/* A subroutine of get_expr_operands to handle INDIRECT_REF,
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  */
 
 static void
 get_indirect_ref_operands (tree stmt, tree expr, int flags)

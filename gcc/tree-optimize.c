@@ -467,6 +467,7 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
+  NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
@@ -617,7 +618,7 @@ execute_pass_list (struct tree_opt_pass *pass)
 }
 
 
-/* update recursivly all inlined_to pointers of functions
+/* Update recursively all inlined_to pointers of functions
    inlined into NODE to INLINED_TO.  */
 static void
 update_inlined_to_pointers (struct cgraph_node *node,
@@ -629,7 +630,7 @@ update_inlined_to_pointers (struct cgraph_node *node,
       if (e->callee->global.inlined_to)
 	{
 	  e->callee->global.inlined_to = inlined_to;
-	  update_inlined_to_pointers (e->callee, node);
+	  update_inlined_to_pointers (e->callee, inlined_to);
 	}
     }
 }
@@ -710,15 +711,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	    cgraph_remove_edge (node->callees);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
+	  update_inlined_to_pointers (node, node);
 	  for (e = node->callees; e; e = e->next_callee)
-	    {
-	      if (e->callee->global.inlined_to)
-		{
-		  e->callee->global.inlined_to = node;
-		  update_inlined_to_pointers (e->callee, node);
-		}
-	      e->caller = node;
-	    }
+	    e->caller = node;
 	  cgraph_remove_node (saved_node);
 	}
     }

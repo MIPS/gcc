@@ -390,7 +390,7 @@ struct tree_common GTY(())
 	   ..._TYPE
 
        TREE_THIS_NOTRAP in
-          INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
+          (ALIGN/MISALIGNED_)INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
 
    deprecated_flag:
 
@@ -901,7 +901,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
    this only applies to an object when used appropriately: it doesn't
-   mean that writing a READONLY mem won't trap.
+   mean that writing a READONLY mem won't trap. Similarly for
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
 
    In ARRAY_REF and ARRAY_RANGE_REF means that we know that the index
    (or slice of the array) always belongs to the range of the array.
@@ -1145,8 +1146,9 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
-/* In INDIRECT_REF.  */
-#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
+/* In INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
+#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
+	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -1333,14 +1335,20 @@ struct tree_ssa_name GTY(())
   /* _DECL wrapped by this SSA name.  */
   tree var;
 
+  tree equiv;
+
   /* SSA version number.  */
   unsigned int version;
 
   /* Pointer attributes used for alias analysis.  */
   struct ptr_info_def *ptr_info;
 
-  /* Value for SSA name used by GVN.  */
-  tree GTY((skip)) value_handle;
+  /* Value for SSA name used by various passes.
+
+     Right now only invariants are allowed to persist beyond a pass in
+     this field; in the future we will allow VALUE_HANDLEs to persist
+     as well.  */
+  tree value_handle;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
@@ -3543,7 +3551,6 @@ extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
-extern tree simplify_builtin (tree, int);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 extern tree build_va_arg_indirect_ref (tree);

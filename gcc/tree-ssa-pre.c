@@ -511,8 +511,10 @@ bitmap_insert_into_set (bitmap_set_t set, tree expr)
   
   gcc_assert (val);
   if (!is_gimple_min_invariant (val))
+  {
     bitmap_set_bit (set->values, VALUE_HANDLE_ID (val));
-  bitmap_set_bit (set->expressions, SSA_NAME_VERSION (expr));
+    bitmap_set_bit (set->expressions, SSA_NAME_VERSION (expr));
+  }
 }
 
 /* Insert EXPR into SET.  */
@@ -523,6 +525,9 @@ insert_into_set (value_set_t set, tree expr)
   value_set_node_t newnode = pool_alloc (value_set_node_pool);
   tree val = get_value_handle (expr);
   gcc_assert (val);
+  
+  if (is_gimple_min_invariant (val))
+    return;
 
   /* For indexed sets, insert the value into the set value bitmap.
      For all sets, add it to the linked list and increment the list
@@ -1096,6 +1101,8 @@ clean (value_set_t set)
     }
 }
 
+DEF_VEC_MALLOC_P (basic_block);
+
 /* Compute the ANTIC set for BLOCK.
 
 ANTIC_OUT[BLOCK] = intersection of ANTIC_IN[b] for all succ(BLOCK), if
@@ -1162,24 +1169,23 @@ compute_antic_aux (basic_block block)
      them.  */
   else
     {
-      varray_type worklist;
+      VEC (basic_block) * worklist;
       edge e;
       size_t i;
       basic_block bprime, first;
 
-      VARRAY_BB_INIT (worklist, 1, "succ");
+      worklist = VEC_alloc (basic_block, 2);
       e = block->succ;
       while (e)
 	{
-	  VARRAY_PUSH_BB (worklist, e->dest);
+	  VEC_safe_push (basic_block, worklist, e->dest);
 	  e = e->succ_next;
 	}
-      first = VARRAY_BB (worklist, 0);
+      first = VEC_index (basic_block, worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
-      for (i = 1; i < VARRAY_ACTIVE_SIZE (worklist); i++)
+      for (i = 1; VEC_iterate (basic_block, worklist, i, bprime); i++)
 	{
-	  bprime = VARRAY_BB (worklist, i);
 	  node = ANTIC_OUT->head;
 	  while (node)
 	    {
@@ -1191,7 +1197,7 @@ compute_antic_aux (basic_block block)
 	      node = next;
 	    }
 	}
-      VARRAY_CLEAR (worklist);
+      VEC_free (basic_block, worklist);
     }
 
   /* Generate ANTIC_OUT - TMP_GEN */
@@ -1536,7 +1542,6 @@ insert_aux (basic_block block)
 									   eprime,
 									   stmts);
 				  bsi_insert_on_edge (pred, stmts);
-				  bsi_commit_edge_inserts (NULL);
 				  avail[bprime->index] = builtexpr;
 				}			      
 			    } 
@@ -1960,6 +1965,9 @@ static void
 fini_pre (void)
 {
   basic_block bb;
+  unsigned int i;
+
+  bsi_commit_edge_inserts (NULL);
 
   obstack_free (&grand_bitmap_obstack, NULL);
   free_alloc_pool (value_set_pool);
@@ -1987,6 +1995,20 @@ fini_pre (void)
     }
 
   BITMAP_XFREE (need_eh_cleanup);
+
+  /* Wipe out pointers to VALUE_HANDLEs.  In the not terribly distant
+     future we will want them to be persistent though.  */
+  for (i = 0; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+
+      if (!name)
+	continue;
+
+      if (SSA_NAME_VALUE (name)
+	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+	SSA_NAME_VALUE (name) = NULL;
+    }
 }
 
 
