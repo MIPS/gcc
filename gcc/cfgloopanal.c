@@ -1078,8 +1078,8 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
     return false;
 
   ei = exit_bb->succ;
-  if ((ei->flags & EDGE_FALLTHRU) && fallthru_out)
-    ei = exit_bb->succ->succ_next;
+  if (ei == exit_edge)
+    ei = ei->succ_next;
 
   desc->out_edge = exit_edge;
   desc->in_edge = ei;

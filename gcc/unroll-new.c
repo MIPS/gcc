@@ -125,13 +125,14 @@ peel_loop_completely (loops, loop, desc)
   free (remove_edges);
 
   /* Now remove the loop.  */
-  /* ??? How it is possible that we fail to find the edge here?  */
   for (e = RBI (desc->in_edge->src)->copy->succ;
        e && e->dest != RBI (desc->in_edge->dest)->copy;
        e = e->succ_next);
 
-  if (e)
-    remove_path (loops, e);
+  if (!e)
+    abort ();
+
+  remove_path (loops, e);
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n",npeel);
