@@ -1,3 +1,64 @@
+2004-04-15  Caroline Tice  <ctice@apple.com>
+
+	Fix various problems related to hot/cold partitioning (but not all of 
+	them yet).
+	* bb-reorder.c  (tm_p.h): Add new include statement.
+	(HAVE_return): Define HAVE_return appropriately if not already defined.  
+	(find_rarely_executed_basic_blocks_and_crossing_edges):  Modify to
+	only mark crossing edges if architecture supports named sections.
+	(fix_crossing_conditional_branches):  Add test for HAVE_return before
+	calling gen_return.
+	(fix_crossing_unconditional_branches): Change VOIDmode to Pmode in call
+	to gen_rtl_LABEL_REF.
+	(fix_edges_for_rarely_executed_code): Only "fix" branches and add
+	REG_CROSSING_JUMP notes if the architecture supports named sections.
+	(reorder_basic_blocks):  Change (* targetm.cannot_modify_jumps_p ())
+	into (targetm.cannot_modify_jumps_p ()).  Modify to only add
+	NOTE_INSN_UNLIKELY_EXECUTED_CODE notes if the architecture supports
+	named sections.
+	* cfglayout.c (fixup_reorder_chain):  Modify code that adds
+	NOTE_INSN_UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes, to only
+	do so if architecture supports named sections.
+	* cfgrtl.c (target.h): Add new include statement.
+	(force_nonfallthru_and_redirect):  Modify code that adds
+	NOTE_INSN_UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes, to only
+	do so if architecture supports named sections.
+	(commit_one_edge_insertion):  Likewise.
+	* dbxout.c (dbxout_source_file): Fix bug, when writing out source
+	location debug information, to not change to the wrong section.
+	* defaults.h (NORMAL_TEXT_SECTION_NAME):  Remove this definition.
+	(SECTION_FORMAT_STRING): Remove this definition.
+	* final.c (final_scan_insn): Remove unnecessary in_unlikely_text_section
+	test from if statement.  Modify code that switches sections to not
+	do so if architecture does not support named sections.  Cleaned up
+	if statement.
+	* ifcvt.c (if_convert): Modified test that disables optimization when
+	partitioning, to not disable it if the architecture does not support
+	named sections.
+	* passes.c (rest_of_compilation):  Removed flag_exceptions test from
+	code that calls partitioning, as this is already taken care of
+	in decode_options.
+	* predict.c (choose_function_section): Modify to NOT choose hot or
+	cold sections for the function decl if we are doing partitioning
+	optimization (want to leave it up to the hot/cold partitioning
+	optimization, which is more fine-grained).
+	* varasm.c (text_section): Restore code that outputs assembly for
+	the text section to its original code.
+	(unlikely_text_section):  Modify to always use named_section for
+	writing out section directive, remove unnecessary ifdef, and
+	use ASM_OUTPUT_LABEL for labelling the start of the
+	cold section.
+	(in_unlikely_text_section):  Modify to deal correctly with being in
+	a named section.
+	(function_section):  Restore code for generating section directives
+	to its original order.
+	* config/darwin.c (darwin_asm_named_section): Restore code that
+	generates section directive to its original state.
+	* config/i386/darwin.h (ASM_OUTPUT_ALIGN): Add in_unlikely_text_section ()
+	to an if test that tests for in_text_section ().
+	* config/rs6000/darwin.h (NORMAL_TEXT_SECTION_NAME):  Remove definition.
+	(SECTION_FORMAT_STRING):  Remove definition.
+
 2004-04-10  Paolo Bonzini  <bonzini@gnu.org>
 	    Richard Henderson  <rth@redhat.com>
 

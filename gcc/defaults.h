@@ -588,13 +588,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 /* APPLE LOCAL begin hot/cold partitioning  */
-#ifndef NORMAL_TEXT_SECTION_NAME
-#define NORMAL_TEXT_SECTION_NAME ".text"
-#endif
-
-#ifndef SECTION_FORMAT_STRING
-#define SECTION_FORMAT_STRING "\t.section\t%s\n\t.align 2\n"
-#endif
 
 #ifndef HAS_LONG_COND_BRANCH
 #define HAS_LONG_COND_BRANCH 0

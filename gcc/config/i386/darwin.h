@@ -118,6 +118,7 @@ Boston, MA 02111-1307, USA.  */
         {				\
           /* APPLE LOCAL coalescing */  \
           if (in_text_section ()	\
+              || in_unlikely_text_section () \
               || darwin_named_section_is ("__TEXT,__textcoal,coalesced") \
               || darwin_named_section_is ("__TEXT,__textcoal_nt,coalesced,no_toc") \
               || darwin_named_section_is (STATIC_INIT_SECTION)) \

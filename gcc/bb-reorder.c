@@ -82,6 +82,12 @@
 #include "obstack.h"
 #include "expr.h"
 #include "regs.h"
+#include "tm_p.h"
+
+#ifndef HAVE_return
+#define HAVE_return 0
+#define gen_return () NULL_RTX
+#endif 
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -1320,26 +1326,29 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
   /* Mark every edge that crosses between sections.  */
 
   i = 0;
-  FOR_EACH_BB (bb)
-    for (e = bb->succ; e; e = e->succ_next)
-      {
-	if (e->src != ENTRY_BLOCK_PTR
-	    && e->dest != EXIT_BLOCK_PTR
-	    && e->src->partition != e->dest->partition)
+  if (targetm.have_named_sections)
+    {
+      FOR_EACH_BB (bb)
+	for (e = bb->succ; e; e = e->succ_next)
 	  {
-	    e->crossing_edge = true;
-	    if (i == *max_idx)
+	    if (e->src != ENTRY_BLOCK_PTR
+		&& e->dest != EXIT_BLOCK_PTR
+		&& e->src->partition != e->dest->partition)
 	      {
-		*max_idx *= 2;
-		crossing_edges = xrealloc (crossing_edges,
-					   (*max_idx) * sizeof (edge));
+		e->crossing_edge = true;
+		if (i == *max_idx)
+		  {
+		    *max_idx *= 2;
+		    crossing_edges = xrealloc (crossing_edges,
+					       (*max_idx) * sizeof (edge));
+		  }
+		crossing_edges[i++] = e;
 	      }
-	    crossing_edges[i++] = e;
+	    else
+	      e->crossing_edge = false;
 	  }
-	else
-	  e->crossing_edge = false;
-      }
 
+    }
   *n_crossing_edges = i;
 }
 
@@ -1748,7 +1757,8 @@ fix_crossing_conditional_branches (void)
 						       (old_label), 
 						       BB_END (new_bb));
 		    }
-		  else if (GET_CODE (old_label) == RETURN)
+		  else if (HAVE_return
+			   && GET_CODE (old_label) == RETURN)
 		    new_jump = emit_jump_insn_after (gen_return (), 
 						     BB_END (new_bb));
 		  else
@@ -1833,7 +1843,7 @@ fix_crossing_unconditional_branches (void)
 		 reference of label, as target for jump.  */
 	      
 	      label = JUMP_LABEL (last_insn);
-	      label_addr = gen_rtx_LABEL_REF (VOIDmode, label);
+	      label_addr = gen_rtx_LABEL_REF (Pmode, label);
 	      LABEL_NUSES (label) += 1;
 	      
 	      /* Get a register to use for the indirect jump.  */
@@ -1938,26 +1948,36 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
   
   fix_up_fall_thru_edges ();
   
-  /* If the architecture does not have conditional branches that can
-     span all of memory, convert crossing conditional branches into
-     crossing unconditional branches.  */
-  
-  if (!HAS_LONG_COND_BRANCH)
-    fix_crossing_conditional_branches ();
-  
-  /* If the architecture does not have unconditional branches that
-     can span all of memory, convert crossing unconditional branches
-     into indirect jumps.  Since adding an indirect jump also adds
-     a new register usage, update the register usage information as
-     well.  */
-  
-  if (!HAS_LONG_UNCOND_BRANCH)
-    {
-      fix_crossing_unconditional_branches ();
-      reg_scan (get_insns(), max_reg_num (), 1);
-    }
+  /* Only do the parts necessary for writing separate sections if
+     the target architecture has the ability to write separate sections
+     (i.e. it has named sections).  Otherwise, the hot/cold partitioning
+     information will be used when reordering blocks to try to put all
+     the hot blocks together, then all the cold blocks, but no actual
+     section partitioning will be done.  */
 
-  add_reg_crossing_jump_notes ();
+  if (targetm.have_named_sections)
+    {
+      /* If the architecture does not have conditional branches that can
+	 span all of memory, convert crossing conditional branches into
+	 crossing unconditional branches.  */
+      
+      if (!HAS_LONG_COND_BRANCH)
+	fix_crossing_conditional_branches ();
+      
+      /* If the architecture does not have unconditional branches that
+	 can span all of memory, convert crossing unconditional branches
+	 into indirect jumps.  Since adding an indirect jump also adds
+	 a new register usage, update the register usage information as
+	 well.  */
+      
+      if (!HAS_LONG_UNCOND_BRANCH)
+	{
+	  fix_crossing_unconditional_branches ();
+	  reg_scan (get_insns(), max_reg_num (), 1);
+	}
+      
+      add_reg_crossing_jump_notes ();
+    }
 }
 
 /* APPLE LOCAL end hot/cold partitioning  */
@@ -1974,7 +1994,7 @@ reorder_basic_blocks (void)
   if (n_basic_blocks <= 1)
     return;
 
-  if ((* targetm.cannot_modify_jumps_p) ())
+  if (targetm.cannot_modify_jumps_p ())
     return;
 
   timevar_push (TV_REORDER_BLOCKS);
@@ -2011,7 +2031,8 @@ reorder_basic_blocks (void)
     dump_flow_info (dump_file);
 
   /* APPLE LOCAL begin hot/cold partitioning  */
-  if (flag_reorder_blocks_and_partition)
+  if (flag_reorder_blocks_and_partition
+      && targetm.have_named_sections)
     add_unlikely_executed_notes ();
   /* APPLE LOCAL end hot/cold partitioning  */
 

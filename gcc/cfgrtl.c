@@ -56,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "cfglayout.h"
 #include "expr.h"
+#include "target.h"
 
 /* Stubs in case we don't have a return insn.  */
 #ifndef HAVE_return
@@ -1100,7 +1101,8 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Make sure new block ends up in correct hot/cold section.  */
 
       jump_block->partition = e->src->partition;
-      if (flag_reorder_blocks_and_partition)
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
 	  if (e->src->partition == COLD_PARTITION)
 	    {
@@ -1594,6 +1596,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 
 	  bb->partition = e->src->partition;
 	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections
 	      && e->src != ENTRY_BLOCK_PTR
 	      && e->src->partition == COLD_PARTITION)
 	    {

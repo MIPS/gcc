@@ -212,8 +212,9 @@ text_section (void)
     {
       in_section = in_text;
       /* APPLE LOCAL begin hot/cold partitioning  */
-      fprintf (asm_out_file, SECTION_FORMAT_STRING, NORMAL_TEXT_SECTION_NAME);
-      /* APPLE LOCAl end hot/cold partitioning  */
+      fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      assemble_align (FUNCTION_BOUNDARY);
+      /* APPLE LOCAL end hot/cold partitioning  */
     }
 }
 
@@ -227,20 +228,21 @@ unlikely_text_section (void)
       &&  (in_section != in_named 
 	   || strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
     {
-#ifdef TARGET_ASM_NAMED_SECTION
-
       named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
-
-#else
+      assemble_align (FUNCTION_BOUNDARY);
       in_section = in_unlikely_executed_text;
-      fprintf (asm_out_file, SECTION_FORMAT_STRING, 
-	       UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
-#endif /* ifdef TARGET_ASM_NAMED_SECTION */
+
       if (!unlikely_section_label_printed)
 	{
-	  fprintf (asm_out_file, "__%s_unlikely_section:\n", 
+	  char *unlikely_section_name;
+	  unlikely_section_name = xmalloc ((strlen (current_function_name ()) 
+					    + 20) *
+					   sizeof (char));
+	  sprintf (unlikely_section_name, "_%s_unlikely_section:",
 		   current_function_name ());
+	  ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_name);
 	  unlikely_section_label_printed = true;
+	  free (unlikely_section_name);
 	}
     }
 }
@@ -294,7 +296,14 @@ in_text_section (void)
 int
 in_unlikely_text_section (void)
 {
-  return in_section == in_unlikely_executed_text;
+  bool ret_val;
+
+  ret_val = ((in_section == in_unlikely_executed_text)
+	     || (in_section == in_named
+		 && (strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME)
+		     == 0)));
+
+  return ret_val;
 }
 /* APPLE LOCAL end hot/cold partitioning  */
 
@@ -538,16 +547,13 @@ void
 function_section (tree decl)
 {
   /* APPLE LOCAL begin hot/cold partitioning  */
-  if (scan_ahead_for_unlikely_executed_note (get_insns()))
+  if (decl != NULL_TREE
+      && DECL_SECTION_NAME (decl) != NULL_TREE)
+    named_section (decl, (char *) 0, 0);
+  else if (scan_ahead_for_unlikely_executed_note (get_insns()))
     unlikely_text_section ();
   else
-    {
-      if (decl != NULL_TREE
-	  && DECL_SECTION_NAME (decl) != NULL_TREE)
-	named_section (decl, (char *) 0, 0);
-      else
-	text_section (); 
-    }
+    text_section (); 
   /* APPLE LOCAL end hot/cold partitioning  */
 }
 

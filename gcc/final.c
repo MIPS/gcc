@@ -1723,7 +1723,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	     are writing to appropriately.  */
 	  
 	  if (flag_reorder_blocks_and_partition
-	      && in_unlikely_text_section()
 	      && !scan_ahead_for_unlikely_executed_note (insn))
 	    text_section ();
 	  /* APPLE LOCAL end hot/cold partitioning  */
@@ -1919,7 +1918,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	 basic blocks into separate sections of the .o file, we need
 	 to ensure the jump table ends up in the correct section...  */
 
-      if (flag_reorder_blocks_and_partition)
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
 	  rtx tmp_table, tmp_label;
 	  if (GET_CODE (insn) == CODE_LABEL
@@ -1929,11 +1929,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    }
 	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
 	    unlikely_text_section ();
-	  else 
-	    {
-	      if (in_unlikely_text_section ())
-		text_section ();
-	    }
+	  else
+	    text_section ();
 	}
       /* APPLE LOCAL end hot/cold partitioning  */
 

@@ -1633,7 +1633,7 @@ rest_of_compilation (tree decl)
      sections of the .o file does not work well with exception handling.
      Don't call it if there are exceptions. */
 
-  if (flag_reorder_blocks_and_partition && !flag_exceptions)
+  if (flag_reorder_blocks_and_partition)
     {
       no_new_pseudos = 0;
       partition_hot_cold_basic_blocks ();

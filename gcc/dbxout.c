@@ -828,16 +828,14 @@ dbxout_source_file (FILE *file, const char *filename)
       output_quoted_string (file, filename);
       /* APPLE LOCAL 310928 fix */
       fprintf (asmfile, ",%d,0,0,0\n", N_SOL);
-      if (current_function_decl != NULL_TREE
-	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      if ((current_function_decl != NULL_TREE
+	   && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
+	  || flag_reorder_blocks_and_partition)
 	; /* Don't change section amid function.  */
       else
-	/* APPLE LOCAL begin hot/cold partitioning  */
-	{
-	  if (!in_text_section () && !in_unlikely_text_section ())
-	    text_section ();
-	}
-	/* APPLE LOCAL end hot/cold partitioning  */
+	text_section ();
+      /* APPLE LOCAL end hot/cold partitioning  */
       (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;

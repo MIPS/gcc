@@ -1558,12 +1558,7 @@ darwin_asm_named_section (name, flags)
      const char *name;
      unsigned int flags ATTRIBUTE_UNUSED;
 {
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  if (flag_reorder_blocks_and_partition)
-    fprintf (asm_out_file, SECTION_FORMAT_STRING, name);
-  else
-    fprintf (asm_out_file, ".section %s\n", name);
-  /* APPLE LOCAL end hot/cold partitioning  */
+  fprintf (asm_out_file, ".section %s\n", name);
 }
 
 unsigned int

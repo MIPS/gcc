@@ -3225,7 +3225,8 @@ if_convert (int x_life_data_ok)
 
   /* APPLE LOCAL begin hot/cold partitioning  */
   if ((! (* targetm.cannot_modify_jumps_p) ())
-      && (!flag_reorder_blocks_and_partition || !no_new_pseudos))
+      && (!flag_reorder_blocks_and_partition || !no_new_pseudos
+	  || !targetm.have_named_sections))
     mark_loop_exit_edges ();
   /* APPLE LOCAL end hot/cold partitioning  */
 

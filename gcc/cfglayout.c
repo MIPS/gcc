@@ -799,7 +799,8 @@ fixup_reorder_chain (void)
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source).  */
 	  e_fall->src->partition = bb->pred->src->partition;
-	  if (flag_reorder_blocks_and_partition)
+	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections)
 	    {
 	      if (bb->pred->src->partition == COLD_PARTITION)
 		{
