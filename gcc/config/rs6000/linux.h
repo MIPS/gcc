@@ -104,7 +104,7 @@
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
-#ifdef IN_LIBGCC2
+#if defined(IN_LIBGCC2) && !defined(inhibit_libc)
 #include <signal.h>
 
 /* During the 2.5 kernel series the kernel ucontext was changed, but
@@ -120,7 +120,6 @@ struct kernel_old_ucontext {
 };
 
 enum { SIGNAL_FRAMESIZE = 64 };
-#endif
 
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
@@ -187,3 +186,4 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)
+#endif
