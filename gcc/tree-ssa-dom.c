@@ -81,14 +81,14 @@ static struct opt_stats_d opt_stats;
 static bool addr_expr_propagated_p;
 
 /* Local functions.  */
-static void optimize_block (basic_block, tree);
+static void optimize_block (basic_block, tree, int);
 static void optimize_stmt (block_stmt_iterator, varray_type *);
 static tree get_value_for (tree, htab_t);
 static void set_value_for (tree, tree, htab_t);
 static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
 static tree lookup_avail_expr (tree, varray_type *, htab_t);
-static tree get_eq_expr_value (tree);
+static tree get_eq_expr_value (tree, int);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
@@ -117,7 +117,7 @@ tree_ssa_dominator_optimize (FILE *file, int flags)
   addr_expr_propagated_p = false;
 
   /* Now optimize the dominator tree.  */
-  optimize_block (ENTRY_BLOCK_PTR, NULL);
+  optimize_block (ENTRY_BLOCK_PTR, NULL, 0);
 
   htab_delete (const_and_copies);
   htab_delete (avail_exprs);
@@ -130,7 +130,6 @@ tree_ssa_dominator_optimize (FILE *file, int flags)
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
     }
-                                                                                
 
   return addr_expr_propagated_p;
 }
@@ -161,13 +160,14 @@ tree_ssa_dominator_optimize (FILE *file, int flags)
    constant propagator can find more propagation opportunities.  */
 
 static void
-optimize_block (basic_block bb, tree eq_expr_value)
+optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 {
   varray_type block_avail_exprs;
   bitmap children;
   unsigned long i;
   block_stmt_iterator si;
   tree prev_value = NULL_TREE;
+  tree eq_expr_value = NULL_TREE;
 
   /* Initialize the local stacks.
      
@@ -181,6 +181,13 @@ optimize_block (basic_block bb, tree eq_expr_value)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+
+  if (parent_block_last_stmt
+      && TREE_CODE (parent_block_last_stmt) == COND_EXPR
+      && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+    eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
+				       (edge_flags & EDGE_TRUE_VALUE) != 0);
+                                                                                
 
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
      new value for VAR, so that occurrences of VAR can be replaced with
@@ -206,17 +213,13 @@ optimize_block (basic_block bb, tree eq_expr_value)
 	{
 	  tree last = last_stmt (bb);
 	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      if (BASIC_BLOCK (i)->pred->flags & EDGE_TRUE_VALUE)
-		optimize_block (BASIC_BLOCK (i), get_eq_expr_value (last));
-	      else
-		optimize_block (BASIC_BLOCK (i), NULL_TREE);
-	    });
+	    optimize_block (BASIC_BLOCK (i), last,
+			    BASIC_BLOCK (i)->pred->flags));
 	}
       else
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    optimize_block (BASIC_BLOCK (i), NULL_TREE));
+	    optimize_block (BASIC_BLOCK (i), NULL_TREE, 0));
 	}
     }
 
@@ -573,23 +576,41 @@ lookup_avail_expr (tree stmt,
 }
 
 
-/* Given a conditional statement IF_STMT, return the assignment 'X = Y', if
-   the conditional is of the form 'X == Y'.  If the conditional is of the
-   form 'X'.  The assignment 'X = 1' is returned.  */
+/* Given a conditional statement IF_STMT, return the assignment 'X = Y'
+   known to be true depending on which arm of IF_STMT is taken.
+
+   Not all conditional statements will result in a useful assignment.
+   Return NULL_TREE in that case.  */
 
 static tree
-get_eq_expr_value (tree if_stmt)
+get_eq_expr_value (tree if_stmt, int true_arm)
 {
   tree cond, value;
 
   cond = COND_EXPR_COND (if_stmt);
 
-  /* If the conditional is a single variable 'X', return 'X = 1'.  */
+  /* If the conditional is a single variable 'X', return 'X = 1' for
+     the true arm and 'X = 0' on the false arm.   */
   if (SSA_VAR_P (cond))
-    return build (MODIFY_EXPR, TREE_TYPE (cond), cond, integer_one_node);
+    return build (MODIFY_EXPR, TREE_TYPE (cond), cond,
+		  (true_arm ? integer_one_node : integer_zero_node));
 
-  /* If the conditional is of the form 'X == Y', return 'X = Y'.  */
-  else if (TREE_CODE (cond) == EQ_EXPR
+  /* If the conditional is of the form 'X == Y', return 'X = Y' for the
+     true arm.  */
+  else if (true_arm
+	   && TREE_CODE (cond) == EQ_EXPR
+	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
+	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))
+	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
+    value = build (MODIFY_EXPR, TREE_TYPE (cond),
+		   TREE_OPERAND (cond, 0),
+		   TREE_OPERAND (cond, 1));
+
+  /* If the conditional is of the form 'X != Y', return 'X = Y' for the
+     false arm.  */
+  else if (! true_arm
+	   && TREE_CODE (cond) == NE_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
 	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
 	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))

@@ -1,4 +1,13 @@
-2003-07-16  Daniel Berlin  <dberlin@dberlin.org>
+2003-07-16  Jeff Law  <law@redhat.com>
+
+        * tree-ssa.c (rewrite_into_ssa): If we have done dominator
+        optimizations, then call cleanup_tree_cfg after rewriting is
+        complete.
+        * tree-ssa-dom.c (optimize_block): Get eq_expr_value for the
+        current block rather than having it passed in by the caller.
+        Propagate eq_expr_value into the false arm of a COND_EXPR.
+        (get_eq_expr_value): Return equivalences for the false
+        arm of a COND_EXPR if requested.
 
 	* c-decl.c (store_parm_decls): Also strip NON_LVALUE_EXPRs and
 	CONVERT_EXPRs when setting DECL_NONLOCAL.

@@ -388,6 +388,11 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   if (vars == NULL)
     sbitmap_free (vars_to_rename);
 
+  /* The dominator optimizations may have made some blocks unreachable,
+     go ahead and clean things up.  */
+  if (flag_tree_dom)
+    cleanup_tree_cfg ();
+
   /* Debugging dumps.  */
   if (dump_file)
     {
