@@ -123,6 +123,8 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
+    /* APPLE LOCAL Objective-C++ */
+    case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
 	  && DECL_LANG_SPECIFIC (ref)

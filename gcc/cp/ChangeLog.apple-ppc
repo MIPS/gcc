@@ -1,3 +1,9 @@
+2004-11-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3869280
+	* tree.c (lvalue_p_1): Determine lvalue-ness of CONST_DECLs the same
+	way as for VAR_DECLs.
+
 2004-11-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3863563 (fix from mainline)
