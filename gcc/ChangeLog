@@ -1,5 +1,10 @@
 2003-02-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/s390/s390.c (s390_simplify_dwarf_addr): Simplify
+	unspec 101.
+
+2003-02-18  Jakub Jelinek  <jakub@redhat.com>
+
 	* real.c (asctoeg): Handle denormals in hexadecimal notation.
 
 2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
