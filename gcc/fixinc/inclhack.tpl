@@ -116,10 +116,7 @@ for INPUT in ${INPUTLIST} ; do
 
 cd ${ORIGDIR}
 
-cd ${INPUT} || {
-  echo 'fixincludes:  input dir `'$INPUT"' is an invalid directory"
-  exit 1
-}
+cd ${INPUT} || continue
 
 #
 # # # # # # # # # # # # # # # # # # # # #
