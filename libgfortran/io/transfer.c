@@ -909,7 +909,8 @@ data_transfer_init (int read_flag)
   if (ioparm.library_return != LIBRARY_OK)
     return;
 
-  if (current_unit->flags.form == FORM_UNFORMATTED && ioparm.format != NULL)
+  if (current_unit->flags.form == FORM_UNFORMATTED
+      && (ioparm.format != NULL || ioparm.list_format))
     generate_error (ERROR_OPTION_CONFLICT,
 		    "Format present for UNFORMATTED data transfer");
 
