@@ -1,3 +1,7 @@
+2004-07-22  Steven Bosscher  <stevenb@suse.de>
+
+	* var-tracking.c (vt_stack_adjustments): Fix stack push thinko.
+
 2004-07-22  Andrew Pinski  <apinski@apple.com>
 
 	* basic-block.h (FOR_EACH_EDGE): Set e at the begining too.
