@@ -5210,6 +5210,11 @@ s390_return_addr_rtx (count, frame)
 {
   rtx addr;
 
+  /* Without backchain, we fail for all but the current frame.  */
+
+  if (!TARGET_BACKCHAIN && count > 0)
+    return NULL_RTX;
+
   /* For the current frame, we use the initial value of RETURN_REGNUM.
      This works both in leaf and non-leaf functions.  */
 
