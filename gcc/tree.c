@@ -5609,14 +5609,16 @@ needs_to_live_in_memory (tree t)
 	  || decl_function_context (t) != current_function_decl);
 }
 
-/* Checks that X is integer constant that fits in unsigned HOST_WIDE_INT.
-   Similar to host_integerp (x, 1), but does not fail if the value is
-   negative.  */
+/* Checks that X is integer constant that can be expressed in (unsigned)
+   HOST_WIDE_INT without loss of precision.  */
 
 bool
 cst_and_fits_in_hwi (tree x)
 {
   if (TREE_CODE (x) != INTEGER_CST)
+    return false;
+
+  if (TYPE_PRECISION (TREE_TYPE (x)) > HOST_BITS_PER_WIDE_INT)
     return false;
 
   return (TREE_INT_CST_HIGH (x) == 0
@@ -5631,6 +5633,9 @@ int_cst_value (tree x)
   unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
   unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
   bool negative = ((val >> (bits - 1)) & 1) != 0;
+
+  if (bits > HOST_BITS_PER_WIDE_INT)
+    abort ();
 
   if (negative)
     val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
@@ -5649,6 +5654,9 @@ build_int_cst (tree type, unsigned HOST_WIDE_INT val)
   bool signed_p = !TYPE_UNSIGNED (type);
   bool negative = ((val >> (bits - 1)) & 1) != 0;
   tree ival;
+
+  if (bits > HOST_BITS_PER_WIDE_INT)
+    abort ();
 
   if (signed_p && negative)
     {

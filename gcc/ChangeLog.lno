@@ -1,5 +1,31 @@
 2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c (find_bivs, find_givs_in_stmt_scev):
+	Ensure that step of the iv satisfies cst_and_fits_in_hwi.
+	(determine_use_iv_cost_outer): Preserve the fact that the cost
+	is infinity.
+	* tree-ssa-loop-prefetch.c (WRITE_CAN_USE_READ_PREFETCH,
+	READ_CAN_USE_WRITE_PREFETCH, HAVE_FORWARD_PREFETCH,
+	HAVE_BACKWARD_PREFETCH, ACCEPTABLE_MISS_RATE): New macros.
+	(struct mem_ref_group): Type of step changed to HOST_WIDE_INT.
+	(struct mem_ref): Type of delta changed to HOST_WIDE_INT.
+	(dump_mem_ref, find_or_create_group, record_ref,
+	struct ar_data, idx_analyze_ref, analyze_ref,
+	gather_memory_references_ref, issue_prefetch_ref): Updated to reflect
+	this.
+	(ddown): New function.
+	(prune_ref_by_self_reuse, prune_ref_by_group_reuse):
+	Implement.
+	(prune_ref_by_reuse): Use WRITE_CAN_USE_READ_PREFETCH and
+	READ_CAN_USE_WRITE_PREFETCH.
+	(prune_group_by_reuse): Add dumps.
+	(issue_prefetch_ref): Assert that PREFETCH_BLOCK is a power of 2.
+	* tree.c (cst_and_fits_in_hwi): Update comment and fix semantics.
+	(int_cst_value, build_int_cst): Check that we use them only for
+	types representable in HOST_WIDE_INT.
+
+2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):
 	Remove bogus check for chrec_contains_undetermined.
 

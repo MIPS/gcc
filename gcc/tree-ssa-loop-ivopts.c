@@ -1119,7 +1119,12 @@ find_bivs (struct ivopts_data *data)
       type = TREE_TYPE (PHI_RESULT (phi));
       base = convert (type, base);
       step = convert (type, step);
- 
+
+      /* FIXME: We do not handle induction variables whose step does
+	 not satisfy cst_and_fits_in_hwi.  */
+      if (!cst_and_fits_in_hwi (step))
+	continue;
+
       set_iv (data, PHI_RESULT (phi), base, step);
       found = true;
     }
@@ -1180,6 +1185,12 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
     return false;
 
   if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), base, step))
+    return false;
+
+  /* FIXME: We do not handle induction variables whose step does
+     not satisfy cst_and_fits_in_hwi.  */
+  if (!zero_p (*step)
+      && !cst_and_fits_in_hwi (*step))
     return false;
 
   if (contains_abnormal_ssa_name_p (*base))
@@ -3360,7 +3371,8 @@ determine_use_iv_cost_outer (struct ivopts_data *data,
 	 after we take it to determine the value of use.  */
       cost = get_computation_cost_at (data, use, cand, false, &depends_on,
 				      last_stmt (exit->src));
-      cost /= AVG_LOOP_NITER (loop);
+      if (cost != INFTY)
+	cost /= AVG_LOOP_NITER (loop);
     }
   else
     {
