@@ -432,13 +432,13 @@ namespace __gnu_cxx
       
       // Round up to power of 2 and figure out which bin to use.
       const size_t __which = _S_binmap[__bytes];
-      const size_t thread_id = _S_get_thread_id();
       const bin_record& __bin = _S_bin[__which];
 
       char* __c = reinterpret_cast<char*>(__p) - sizeof(block_record);
       block_record* block = reinterpret_cast<block_record*>(__c);
       
 #ifdef __GTHREADS
+      const size_t thread_id = _S_get_thread_id();
       if (__gthread_active_p())
 	{
 	  // Calculate the number of records to remove from our freelist.
