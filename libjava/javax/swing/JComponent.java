@@ -1878,11 +1878,14 @@ public abstract class JComponent extends Container implements Serializable
     if (ui != null)
       ui.uninstallUI(this);
 
+    ComponentUI oldUI = ui;
     ui = newUI;
 
     if (ui != null)
       ui.installUI(this);
 
+    firePropertyChange("UI", oldUI, newUI);
+    
     revalidate();
     repaint();
   }

@@ -1,5 +1,22 @@
 2004-08-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JComponent.java
+	(setUI): Fire PropertyChange.
+	* javax/swing/JLabel.java
+	(text): Renamed from labelText.
+	(horizontalAlignment): New default vlaue.
+	(icon): Renamed from activeIcon.
+	(displayedMnemonic): Renamed from mnemonicKey, added default value.
+	(displayedMnemonicIndex): Renamed from underlineChar.
+	(setDisplayedMnemonic): Reimplemented.
+	* javax/swing/JRadioButton.java
+	(JRadioButton): New constructors.
+	* javax/swing/JTextField.java
+	(JTextField): Throw exception if colums < 0, initialitialz
+	this.columns directly and initialize document with text conditionally.
+
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicFormattedTextFieldUI.java,
 	javax/swing/plaf/basic/BasicPasswordFieldUI.java,
 	javax/swing/plaf/basic/BasicTextAreaUI.java: New files.
