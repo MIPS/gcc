@@ -1,3 +1,11 @@
+2004-08-31  Robert Bowdidge <bowdidge@apple.com>
+
+	* Makefile.in: Move BOOT_CFLAGS above host makefile fragment include.
+	* configure.in: add test for powerpc-*-darwin* to specify makefile frag
+	* configure: regenerate
+	* config/mh-ppc-darwin: create file, override BOOT_CFLAGS for 
+	  -mdynamic-no-pic
+
 2004-08-19  Michael Koch  <konqueror@gmx.de>
 
 	* gcc/doc/install.texi: Update entry about automake for libjava.
