@@ -1894,4 +1894,35 @@ void java_optimize_inline (fndecl)
     }
 }
 
+/* We pessimistically marked all methods and fields external until we
+   knew what set of classes we were planning to compile.  Now mark those
+   associated with CLASS to be generated locally as not external.  */
+
+static void
+java_mark_decl_local (decl)
+     tree decl;
+{
+  DECL_EXTERNAL (decl) = 0;
+
+  /* If we've already constructed DECL_RTL, give encode_section_info
+     a second chance, now that we've changed the flags.  */
+  if (DECL_RTL_SET_P (decl))
+    make_decl_rtl (decl, NULL);
+}
+
+void
+java_mark_class_local (class)
+     tree class;
+{
+  tree t;
+
+  for (t = TYPE_FIELDS (class); t ; t = TREE_CHAIN (t))
+    if (FIELD_STATIC (t))
+      java_mark_decl_local (t);
+
+  for (t = TYPE_METHODS (class); t ; t = TREE_CHAIN (t))
+    if (!METHOD_ABSTRACT (t) && (!METHOD_NATIVE (t) || flag_jni))
+      java_mark_decl_local (t);
+}
+
 #include "gt-java-decl.h"
