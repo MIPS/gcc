@@ -1643,13 +1643,8 @@ ffelex_token_new_ ()
   return t;
 }
 
-/* ffelex_file_fixed -- Lex a given file in fixed source form
-
-   ffewhere wf;
-   FILE *f;
-   ffelex_file_fixed(wf,f);
-
-   Lexes the file according to Fortran 90 ANSI + VXT specifications.  */
+/* Transforms the input stream into lexemes, which are passed, in
+   complete statement chunks, to ffest_run.  */
 
 void
 ffelex_run (ffewhereFile wf, FILE *f, int free_form, int is_vxt,
@@ -2235,7 +2230,9 @@ ffelex_run (ffewhereFile wf, FILE *f, int free_form, int is_vxt,
 
  parse_nonraw_character:	/* :::::::::::::::::::: */
 
-  switch (lexeme->type)
+  /* The main lexeme-generating loop.  */
+
+  switch (type)
     {
     case FFELEX_typeNONE:
       if ((c >= '0' && c <= '9' && (type = FFELEX_typeNUMBER))
@@ -4320,23 +4317,4 @@ ffelex_token_uscore_from_names (ffelexToken t, ffeTokenLength start)
 			   t->where_col, t->wheretrack, start);
   nt->text = NULL;
   return nt;
-}
-
-/* ffelex_token_use -- Return another instance of a token
-
-   ffelexToken t;
-   t = ffelex_token_use(t);
-
-   In a sense, the new token is a copy of the old, though it might be the
-   same with just a new use count.
-
-   We use the use count method (easy).	*/
-
-ffelexToken
-ffelex_token_use (ffelexToken t)
-{
-  if (t == NULL)
-    assert ("_token_use: null token" == NULL);
-  t->uses++;
-  return t;
 }
