@@ -470,7 +470,7 @@ get_loop_level (const struct loop *loop)
     {
       l = get_loop_level (ploop);
       if (l >= mx)
-      mx = l + 1;
+	mx = l + 1;
     }
   return mx;
 }

@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-simple.h"
 #include "tree-ssa-operands.h"
+#include "tree-dg.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -40,12 +41,21 @@ typedef struct basic_block_def *basic_block;
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN, SSA_NAME_ANN };
+enum tree_ann_type
+{
+  TREE_ANN_COMMON,
+  VAR_ANN,
+  STMT_ANN,
+  SSA_NAME_ANN
+};
 
 struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+
+  /* Auxiliary info specific to a pass.  */
+  PTR GTY ((skip (""))) aux;
 };
 
 /* It is advantageous to avoid things like life analysis for variables which
@@ -194,7 +204,6 @@ struct dataflow_d GTY(())
 
 typedef struct dataflow_d *dataflow_t;
 
-
 struct stmt_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -223,6 +232,9 @@ struct stmt_ann_d GTY(())
 
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
+
+  /* Node representing this stmt in dependence graph.  */
+  dependence_node GTY ((skip (""))) dg_node;
 
   /* Statement operands.  */
   struct def_optype_d * GTY (()) def_ops;
@@ -258,6 +270,11 @@ struct ssa_name_ann_d GTY(())
 
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
+
+  /* This field indicates whether or not the variable may need PHI nodes.
+     See the enum's definition for more detailed information about the
+     states.  */
+  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
@@ -399,11 +416,13 @@ typedef struct {
 
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
+static inline block_stmt_iterator bsi_after_labels (basic_block);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
+extern block_stmt_iterator stmt_bsi (tree);
 
 extern void bsi_remove (block_stmt_iterator *);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
@@ -452,7 +471,8 @@ extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
-extern void debug_loop_ir (void);
+extern void tree_debug_loop (struct loop *);
+extern void tree_debug_loops (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
@@ -467,12 +487,13 @@ extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
-extern void bsi_insert_on_edge_immediate (edge, tree);
+extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
+extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 
 /* In tree-pretty-print.c.  */
@@ -552,9 +573,14 @@ extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
-extern void rewrite_into_ssa (void);
+extern void rewrite_into_ssa (bool);
+extern void rewrite_ssa_into_ssa (bitmap);
+
+void compute_global_livein (bitmap, bitmap);
+tree duplicate_ssa_name (tree, tree);
 
 extern unsigned int highest_ssa_version;
 
@@ -574,6 +600,34 @@ extern void propagate_value (tree *, tree);
 extern void replace_exp (tree *, tree);
 extern bool cprop_into_stmt (tree, varray_type);
 extern void cprop_into_successor_phis (basic_block, varray_type);
+
+/* In tree-ssa-dce.c.  */
+void tree_ssa_dce_no_cfg_changes (void);
+
+/* In tree-ssa-loop*.c  */
+struct loops *tree_loop_optimizer_init (FILE *, bool);
+void tree_ssa_lim (struct loops *loops);
+void tree_ssa_iv_optimize (struct loops *);
+void canonicalize_induction_variables (struct loops *loops);
+void test_unrolling_and_peeling (struct loops *loops);
+bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					 unsigned int, sbitmap,
+					 edge, edge *,
+					 unsigned int *, int);
+void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
+		tree *, tree *);
+void test_loop_versioning (struct loops *loops);
+struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
+				    basic_block *);
+void update_lv_condition (basic_block *, tree);
+bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void linear_transform_loops (struct loops *, varray_type);
+void loop_commit_inserts (void);
+void tree_ssa_unswitch_loops (struct loops *loops);
+unsigned estimate_loop_size (struct loop *loop);
+void rewrite_into_loop_closed_ssa (void);
+void verify_loop_closed_ssa (void);
+void compute_phi_arg_on_exit (edge, tree, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

@@ -563,40 +563,27 @@ mf_xform_derefs_1 (tree_stmt_iterator *iter, tree *tp,
     {
     case ARRAY_REF:
       {
-        /* Omit checking if we can statically determine that the access is
-           valid.  For non-addressable local arrays this is not optional,
-           since we won't have called __mf_register for the object.  */
-        tree op0, op1;
+	/* Omit checking if we can statically determine that the access is
+	   valid.  For non-addressable local arrays this is not optional,
+	   since we won't have called __mf_register for the object.  */
+	tree op0, op1;
 
-        op0 = TREE_OPERAND (t, 0);
-        op1 = TREE_OPERAND (t, 1);
-        while (TREE_CODE (op1) == INTEGER_CST)
-          {
-            tree dom = TYPE_DOMAIN (TREE_TYPE (op0));
+	op0 = TREE_OPERAND (t, 0);
+	op1 = TREE_OPERAND (t, 1);
+	while (in_array_bounds_p (op0, op1))
+	  {
+	    /* If we're looking at a non-external VAR_DECL, then the 
+	       access must be ok.  */
+	    if (TREE_CODE (op0) == VAR_DECL && !DECL_EXTERNAL (op0))
+	      return;
 
-            /* Test for index in range.  Break if not.  */
-            if (!dom)
-              break;
-            if (!TYPE_MIN_VALUE (dom) || !really_constant_p (TYPE_MIN_VALUE (dom)))
-              break;
-            if (!TYPE_MAX_VALUE (dom) || !really_constant_p (TYPE_MAX_VALUE (dom)))
-              break;
-            if (tree_int_cst_lt (op1, TYPE_MIN_VALUE (dom))
-                || tree_int_cst_lt (TYPE_MAX_VALUE (dom), op1))
-              break;
+	    /* Only continue if we're still looking at an array.  */
+	    if (TREE_CODE (op0) != ARRAY_REF)
+	      break;
 
-            /* If we're looking at a non-external VAR_DECL, then the 
-               access must be ok.  */
-            if (TREE_CODE (op0) == VAR_DECL && !DECL_EXTERNAL (op0))
-              return;
-
-            /* Only continue if we're still looking at an array.  */
-            if (TREE_CODE (op0) != ARRAY_REF)
-              break;
-
-            op1 = TREE_OPERAND (op0, 1);
-            op0 = TREE_OPERAND (op0, 0);
-          }
+	    op1 = TREE_OPERAND (op0, 1);
+	    op0 = TREE_OPERAND (op0, 0);
+	  }
       
         /* If we got here, we couldn't statically the check.  */
         ptr_type = build_pointer_type (type);

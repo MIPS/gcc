@@ -59,6 +59,7 @@
 #include "toplev.h"
 #include "varray.h"
 #include "flags.h"
+/* APPLE LOCAL */
 #include "target.h"
 
 /* Debugging support.  */

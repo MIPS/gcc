@@ -1119,8 +1119,8 @@ struct tree_phi_node GTY(())
 
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
-  int rewritten;
-
+  unsigned int rewritten:1;
+  
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 
@@ -2098,12 +2098,14 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
+/* APPLE LOCAL begin */
 /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
    the approximate number of statements in this function.  There is
    no need for this number to be exact; it is only used in various
    heuristics regarding optimization.  */
 #define DECL_ESTIMATED_INSNS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
+/* APPLE LOCAL end */
 
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
@@ -2679,7 +2681,9 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+extern tree build_vector_type (tree, int);
 extern tree array_type_nelts (tree);
+extern bool in_array_bounds_p (tree, tree);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
@@ -3369,6 +3373,8 @@ extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
+extern enum tree_code invert_tree_comparison (enum tree_code);
+extern enum tree_code swap_tree_comparison (enum tree_code);
 
 /* In builtins.c */
 extern tree fold_builtin (tree);
@@ -3628,13 +3634,6 @@ enum tree_dump_index
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.   */
-  /* APPLE LOCAL begin new tree dump */
-  TDI_dmp_tu,			/* dmp the whole translation unit */
-  TDI_dmp_class,		/* dmp class hierarchy */
-  TDI_dmp_original,		/* dmp each function before optimizing it */
-  TDI_dmp_optimized,		/* dmp each function after optimizing it */
-  TDI_dmp_inlined,		/* dmp each function after inlining within it */
-  /* APPLE LOCAL end new tree dump */
   TDI_all,			/* enable all the dumps.  */
   TDI_end
 };
@@ -3653,8 +3652,7 @@ enum tree_dump_index
 #define TDF_VOPS	(1 << 6)	/* display virtual operands */
 #define TDF_LINENO	(1 << 7)	/* display statement line numbers */
 #define TDF_UID		(1 << 8)	/* display decl UIDs */
-/* APPLE LOCAL new tree dump  ilr */
-#define TDF_DMP_TREE	(1 << 9)	/* use dmp_tree() to display nodes */
+
 
 typedef struct dump_info *dump_info_p;
 

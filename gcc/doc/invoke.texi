@@ -305,6 +305,9 @@ in the following sections.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
+-fdump-tree-scev @r{[}-@var{n}@r{]} @gol
+-fdump-tree-ddall @r{[}-@var{n}@r{]}@gol
+-fdump-tree-elck @r{[}-@var{n}@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
@@ -312,6 +315,7 @@ in the following sections.
 -fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vect@r{[}-@var{n}@r{]}@gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -366,6 +370,8 @@ in the following sections.
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-loop-optimize -ftree-sra @gol
+-fscalar-evolutions -fall-data-deps @gol
+-ftree-vectorize @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -570,7 +576,6 @@ in the following sections.
 
 @c APPLE LOCAL prune man page
 @end ignore
-
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -3778,6 +3783,22 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
+@item scev
+@opindex fdump-tree-scev
+Dump the information gathered by the scalar evolution analyzer.
+The file name is made by appending @file{.scev} to the source file name.
+
+@item ddall
+@opindex fdump-tree-ddall
+Dump all the data dependence relations.
+The file name is made by appending @file{.ddall} to the source file name.
+
+@item elck
+@opindex fdump-tree-elck
+Dump each function after performing checks elimination based on scalar
+evolution informations.  The file name is made by appending
+@file{.elck} to the source file name.
+
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -3818,6 +3839,11 @@ file name.
 @opindex fdump-tree-loop
 Dump each function after applying tree-level loop optimizations.  The file
 name is made by appending @file{.loop} to the source file name.
+
+@item vect
+@opindex fdump-tree-vect
+Dump each function after applying tree-level loop vectorization.  The file
+name is made by appending @file{.vect} to the source file name.
 
 @item all
 @opindex fdump-tree-all
@@ -4613,6 +4639,25 @@ usually increases code size.
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
+
+@item -ftree-vectorize
+Perform loop vectorization on trees.  This flag is disabled by
+default.
+
+@item -fscalar-evolutions
+Analyzes the scalar variables that determine the exit condition of a
+loop, and try to determine the number of iterations.  This pass is
+only used for verifying the correctness of the analyzer, and it is not
+enabled by default.
+
+@item -fall-data-deps
+Perform the data dependence analysis on all the data references.  This
+pass is only used for verifying the correctness of the analyzer, and
+it is not enabled by default.
+
+@item -ftree-elim-checks 
+Perform elimination of checks based on scalar evolution informations.
+This flag is disabled by default.  
 
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure
@@ -6974,29 +7019,6 @@ Visual Instruction Set extensions.  The default is @option{-mno-vis}.
 These @samp{-m} switches are supported in addition to the above
 on the SPARCLET processor.
 
-@table @gcctabopt
-@item -mlittle-endian
-@opindex mlittle-endian
-Generate code for a processor running in little-endian mode.
-
-@item -mlive-g0
-@opindex mlive-g0
-Treat register @code{%g0} as a normal register.
-GCC will continue to clobber it as necessary but will not assume
-it always reads as 0.
-
-@item -mbroken-saverestore
-@opindex mbroken-saverestore
-Generate code that does not use non-trivial forms of the @code{save} and
-@code{restore} instructions.  Early versions of the SPARCLET processor do
-not correctly handle @code{save} and @code{restore} instructions used with
-arguments.  They correctly handle them used without arguments.  A @code{save}
-instruction used without arguments increments the current window pointer
-but does not allocate a new stack frame.  It is assumed that the window
-overflow trap handler will properly handle this case as will interrupt
-handlers.
-@end table
-
 These @samp{-m} options are supported in addition to the above
 on SPARC-V9 processors in 64-bit environments:
 
@@ -7701,9 +7723,6 @@ The other options specify a specific processor.  Code generated under
 those options will run best on that processor, and may not run at all on
 others.
 
-The @option{-mcpu} options automatically enable or disable other
-@option{-m} options as follows:
-
 The @option{-mcpu} options automatically enable or disable the
 following options: @option{-maltivec}, @option{-mhard-float},
 @option{-mmfcrf}, @option{-mmultiple}, @option{-mnew-mnemonics},
@@ -8263,34 +8282,6 @@ These options are defined for all architectures running the Darwin operating
 system.  They are useful for compatibility with other Mac OS compilers.
 
 @table @gcctabopt
-@item -F@var{dir}
-@opindex F
-Add the framework directory @var{dir} to the head of the list of
-directories to be searched for header files.  These directories are
-interleaved with those specified by @option{-I} options and are
-scanned in a left-to-right order.
-
-A framework directory is a directory with frameworks in it.  A
-framework is a directory with a @samp{"Headers"} and/or
-@samp{"PrivateHeaders"} directory contained directly in it that ends
-in @samp{".framework"}.  The name of a framework is the name of this
-directory excluding the @samp{".framework"}.  Headers associated with
-the framework are found in one of those two directories, with
-@samp{"Headers"} being searched first.  A subframework is a framework
-directory that is in a framework's @samp{"Frameworks"} directory.
-Includes of subframework headers can only appear in a header of a
-framework that contains the subframework, or in a sibling subframework
-header.  Two subframeworks are siblings if they occur in the same
-framework.  A subframework should not have the same name as a
-framework, a warning will be issued if this is violated.  Currently a
-subframework cannot have subframeworks, in the future, the mechanism
-may be extended to support this.  The standard frameworks can be found
-in @samp{"/System/Library/Frameworks"}, @samp{"/Library/Frameworks"}
-and @samp{"/Local/Library/Frameworks"}.  An example include looks like
-@code{#include <Framework/header.h>}, where @samp{Framework} denotes
-the name of the framework and header.h is found in the
-@samp{"PrivateHeaders"} or @samp{"Headers"} directory.
-
 @item -all_load
 @opindex all_load
 Loads all members of static archive libraries.

@@ -2837,7 +2837,7 @@ init_alias_analysis (void)
 
   new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
   reg_seen = xmalloc (maxreg);
-  if (! reload_completed && flag_old_unroll_loops)
+  if (! reload_completed && flag_unroll_loops)
     {
       /* ??? Why are we realloc'ing if we're just going to zero it?  */
       alias_invariant = xrealloc (alias_invariant,

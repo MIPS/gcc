@@ -2165,9 +2165,6 @@ expand_call (tree exp, rtx target, int ignore)
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
 
-  /* See if we can find a DECL-node for the actual function.
-     As a result, decide whether this is a call to an integrable function.  */
-
   /* See if we can find a DECL-node for the actual function, and get the
      function attributes (flags) from the function decl or type node.  */
   fndecl = get_callee_fndecl (exp);

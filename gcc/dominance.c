@@ -118,7 +118,7 @@ static void link_roots (struct dom_info *, TBB, TBB);
 static void calc_idoms (struct dom_info *, enum cdi_direction);
 void debug_dominance_info (enum cdi_direction);
 
-/* Keeps track of the*/
+/* Keeps track of the numbers of nodes in dominance trees.  */
 static unsigned n_bbs_in_dom_tree[2];
 
 /* Helper macro for allocating and initializing an array,

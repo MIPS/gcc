@@ -29,15 +29,46 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "diagnostic.h"
-#include "basic-block.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
 #include "cfgloop.h"
+#include "tree-inline.h"
 #include "flags.h"
 #include "tree-inline.h"
 
+/* Initializes the loop structures.  DUMP is the file to that the details
+   about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
+   closed ssa form is enforced and redundant phi nodes created by creating
+   preheaders are cleaned up.  */
+
+struct loops *
+tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
+{
+  struct loops *loops = loop_optimizer_init (dump);
+
+  if (!loops)
+    return NULL;
+
+  if (!canonicalize_ssa)
+    return loops;
+
+  /* Creation of preheaders may create redundant phi nodes (if the loop is
+     entered by more than one edge, but the initial value of the induction
+     variable is the same on all of them).  */
+  kill_redundant_phi_nodes ();
+  rewrite_into_ssa (false);
+  bitmap_clear (vars_to_rename);
+
+  rewrite_into_loop_closed_ssa ();
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
+  return loops;
+}
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
@@ -48,13 +79,37 @@ tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
-  /* Does nothing for now except for checking that we are able to build the
-     loops.  */
+  loops = tree_loop_optimizer_init (dump_file, true);
 
-  loops = loop_optimizer_init (dump_file);
-  loop_optimizer_finalize (loops,
-			   (dump_flags & TDF_DETAILS
-			    ? dump_file : NULL));
+  if (loops)
+    {
+      /* Ensure there is a place to move the computations to.  */
+      create_preheaders (loops, CP_SIMPLE_PREHEADERS);
+
+#if 0
+      /* Test unrolling and peeling.  */
+      test_unrolling_and_peeling (loops);
+#endif
+
+#if 0
+      test_loop_versioning (loops);
+#endif
+
+      /* Move the expensive loop invariants.  */
+      tree_ssa_lim (loops);
+
+      /* Unswitch the loops.  */
+      if (flag_unswitch_loops)
+	tree_ssa_unswitch_loops (loops);
+
+      /* Optimize the induction variables.  */
+      tree_ssa_iv_optimize (loops);
+
+      loop_optimizer_finalize (loops,
+			       (dump_flags & TDF_DETAILS ? dump_file : NULL));
+
+      cleanup_tree_cfg ();
+    }
 }
 
 static bool
@@ -75,8 +130,8 @@ struct tree_opt_pass pass_loop =
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_ggc_collect,			/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
 };
 
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
@@ -299,14 +354,12 @@ copy_loop_headers (void)
   edge preheader_edge;
   varray_type bbs_to_duplicate = NULL;
 
-  loops = loop_optimizer_init (dump_file);
+  loops = tree_loop_optimizer_init (dump_file, false);
   if (!loops)
     return;
   
   /* We are not going to need or update dominators.  */
   free_dominance_info (CDI_DOMINATORS);
-
-  create_preheaders (loops, CP_SIMPLE_PREHEADERS);
 
   /* We do not try to keep the information about irreductible regions
      up-to-date.  */

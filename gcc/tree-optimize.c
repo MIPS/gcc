@@ -282,6 +282,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_return);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (DUP_PASS (pass_dce));
@@ -293,6 +294,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_lower_complex);
+  NEXT_PASS (DUP_PASS (pass_return));
   NEXT_PASS (pass_sra);
   NEXT_PASS (DUP_PASS (pass_rename_ssa_copies));
   NEXT_PASS (DUP_PASS (pass_dominator));
@@ -301,12 +303,13 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dse);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
-  NEXT_PASS (pass_loop);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_scev);
+  NEXT_PASS (pass_loop);
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_cd_dce);
@@ -320,6 +323,19 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
   NEXT_PASS (pass_del_cfg);
+  *p = NULL;
+
+  p = &pass_scev.sub;
+  NEXT_PASS (pass_scev_init);
+  NEXT_PASS (pass_scev_anal);
+  NEXT_PASS (pass_scev_depend);
+  NEXT_PASS (pass_scev_elim_checks);
+  NEXT_PASS (pass_scev_iv_canon);
+  NEXT_PASS (pass_scev_linear_transform);
+  NEXT_PASS (pass_ddg);
+  NEXT_PASS (pass_scev_vectorize);
+  NEXT_PASS (pass_delete_ddg);
+  NEXT_PASS (pass_scev_done);
   *p = NULL;
 
 #undef NEXT_PASS
@@ -339,9 +355,8 @@ execute_todo (unsigned int flags)
 {
   if (flags & TODO_rename_vars)
     {
-      if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	rewrite_into_ssa ();
-      BITMAP_XFREE (vars_to_rename);
+      rewrite_into_ssa (false);
+      bitmap_clear (vars_to_rename);
     }
 
   if ((flags & TODO_dump_func) && dump_file)
@@ -396,10 +411,6 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
     timevar_push (pass->tv_id);
-
-  /* If the pass is requesting ssa variable renaming, allocate the bitmap.  */
-  if (pass->todo_flags_finish & TODO_rename_vars)
-    vars_to_rename = BITMAP_XMALLOC ();
 
   /* Do it!  */
   if (pass->execute)
@@ -521,6 +532,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	  timevar_pop (TV_INTEGRATION);
 	}
     }
+
+  if (!vars_to_rename)
+    vars_to_rename = BITMAP_XMALLOC ();
 
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);

@@ -84,6 +84,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define FED_BY_SPEC_LOAD(insn)	(h_i_d[INSN_UID (insn)].fed_by_spec_load)
 #define IS_LOAD_INSN(insn)	(h_i_d[INSN_UID (insn)].is_load_insn)
 
+#define MAX_RGN_BLOCKS 10
+#define MAX_RGN_INSNS 100
+
 /* nr_inter/spec counts interblock/speculative motion for the function.  */
 static int nr_inter, nr_spec;
 
@@ -556,11 +559,12 @@ static bool
 too_large (int block, int *num_bbs, int *num_insns)
 {
   (*num_bbs)++;
-  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block)))
-                 - INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
-
-  return ((*num_bbs > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
-        || (*num_insns > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)));
+  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block))) -
+		   INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
+  if ((*num_bbs > MAX_RGN_BLOCKS) || (*num_insns > MAX_RGN_INSNS))
+    return 1;
+  else
+    return 0;
 }
 
 /* Update_loop_relations(blk, hdr): Check if the loop headed by max_hdr[blk]

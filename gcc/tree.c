@@ -2474,8 +2474,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   /* Expressions without side effects may be constant if their
      arguments are as well.  */
   constant = (TREE_CODE_CLASS (code) == '<'
-	   /* APPLE LOCAL AltiVec */
-	   || TREE_CODE_CLASS (code) == 'e'
+	      /* APPLE LOCAL Altivec */
+	      || TREE_CODE_CLASS (code) == 'e'
 	      || TREE_CODE_CLASS (code) == '2');
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);
@@ -5101,7 +5101,7 @@ build_common_tree_nodes (int signed_char)
   intSI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (SImode), 0);
   intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 0);
   intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 0);
-
+  
   unsigned_intQI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (QImode), 1);
   unsigned_intHI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (HImode), 1);
   unsigned_intSI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (SImode), 1);
@@ -5246,7 +5246,7 @@ reconstruct_complex_type (tree type, tree bottom)
   return outer;
 }
 
-/* Returns a vector tree node given a vector mode and inner type.  */
+/* Returns a vector tree node given a vector mode, the inner type.  */
 tree
 build_vector_type_for_mode (tree innertype, enum machine_mode mode)
 {
@@ -5254,7 +5254,6 @@ build_vector_type_for_mode (tree innertype, enum machine_mode mode)
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = innertype;
   TYPE_MODE (t) = mode;
-  TREE_UNSIGNED (t) = TREE_UNSIGNED (innertype);
   finish_vector_type (t);
   return t;
 }
@@ -5359,6 +5358,34 @@ is_essa_node (tree t)
   return false;
 }
 
+/* Checks whether IDX is in array bounds for ARRAY.  */
+
+bool
+in_array_bounds_p (tree array, tree idx)
+{
+  tree dom = TYPE_DOMAIN (TREE_TYPE (array));
+  tree min, max;
+
+  if (TREE_CODE (idx) != INTEGER_CST)
+    return false;
+	    
+  if (!dom)
+    return false;
+
+  min = TYPE_MIN_VALUE (dom);
+  max = TYPE_MAX_VALUE (dom);
+  if (!min
+      || !max
+      || TREE_CODE (min) != INTEGER_CST
+      || TREE_CODE (max) != INTEGER_CST)
+    return false;
+
+  if (tree_int_cst_lt (idx, min)
+      || tree_int_cst_lt (max, idx))
+    return false;
+
+  return true;
+}
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory
    location.  */

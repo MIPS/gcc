@@ -2279,10 +2279,19 @@ purge_dead_edges (basic_block bb)
   for (e = bb->succ; e; e = next)
     {
       next = e->succ_next;
+
       if (e->flags & EDGE_EH)
 	{
 	  if (can_throw_internal (BB_END (bb)))
-	    continue;
+	    {
+	      /* If the call was removed/moved somewhere else, cleanup the
+		 EDGE_ABNORMAL_CALL flag.  */
+	      if ((e->flags & EDGE_ABNORMAL_CALL)
+		  && GET_CODE (BB_END (bb)) != CALL_INSN)
+		e->flags &= ~EDGE_ABNORMAL_CALL;
+
+	      continue;
+	    }
 	}
       else if (e->flags & EDGE_ABNORMAL_CALL)
 	{

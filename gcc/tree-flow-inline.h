@@ -99,6 +99,14 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
+/* Return associated dependence_node with the statement.  */
+static inline dependence_node
+dg_node_for_stmt (tree t)
+{
+  stmt_ann_t ann = stmt_ann (t);
+  return ann ? ann->dg_node : NULL;
+}
+
 static inline varray_type
 may_aliases (tree var)
 {
@@ -522,6 +530,50 @@ bsi_start (basic_block bb)
 }
 
 static inline block_stmt_iterator
+bsi_after_labels (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  tree_stmt_iterator next;
+
+  bsi.bb = bb;
+
+  if (!bb->stmt_list)
+    {
+#ifdef ENABLE_CHECKING
+      if (bb->index >= 0)
+	abort ();
+#endif
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+      return bsi;
+    }
+
+  bsi.tsi = tsi_start (bb->stmt_list);
+  if (tsi_end_p (bsi.tsi))
+    return bsi;
+
+  /* Ensure that there are some labels.  The rationale is that we want
+     to insert after the bsi that is returned, and these insertions should
+     be placed at the start of the basic block.  This would not work if the
+     first statement was not label; rather fail here than enable the user
+     proceed in wrong way.  */
+  if (TREE_CODE (tsi_stmt (bsi.tsi)) != LABEL_EXPR)
+    abort ();
+
+  next = bsi.tsi;
+  tsi_next (&next);
+
+  while (!tsi_end_p (next)
+	 && TREE_CODE (tsi_stmt (next)) == LABEL_EXPR)
+    {
+      bsi.tsi = next;
+      tsi_next (&next);
+    }
+
+  return bsi;
+}
+
+static inline block_stmt_iterator
 bsi_last (basic_block bb)
 {
   block_stmt_iterator bsi;
@@ -568,6 +620,18 @@ static inline tree *
 bsi_stmt_ptr (block_stmt_iterator i)
 {
   return tsi_stmt_ptr (i.tsi);
+}
+
+/* Returns the loop of the statement STMT.  */
+
+static inline struct loop *
+loop_of_stmt (tree stmt)
+{
+  basic_block bb = bb_for_stmt (stmt);
+  if (!bb)
+    return NULL;
+
+  return bb->loop_father;
 }
 
 static inline bool

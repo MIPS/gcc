@@ -1254,10 +1254,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
-  if (flag_unroll_loops)
-    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
-  else
-    do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+  do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 
   if (flag_rerun_loop_opt)
@@ -1293,6 +1290,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
 /* Perform loop optimizations.  It might be better to do them a bit
    sooner, but we want the profile feedback to work more
    efficiently.  */
+
 static void
 rest_of_handle_loop2 (tree decl, rtx insns)
 {
@@ -1318,6 +1316,8 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   if (loops)
     {
       /* The optimizations:  */
+      move_loop_invariants (loops);
+
       if (flag_unswitch_loops)
 	unswitch_loops (loops);
 
@@ -1329,7 +1329,7 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 
 #ifdef HAVE_doloop_end
       if (flag_branch_on_count_reg && HAVE_doloop_end)
-        doloop_optimize_loops (loops);
+	doloop_optimize_loops (loops);
 #endif /* HAVE_doloop_end */
 
       loop_optimizer_finalize (loops, dump_file);
@@ -1609,7 +1609,8 @@ rest_of_compilation (tree decl)
   if (flag_tracer)
     rest_of_handle_tracer (decl, insns);
 
-  if (optimize > 0)
+  if (optimize > 0
+      && flag_loop_optimize2)
     rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)

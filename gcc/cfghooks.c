@@ -774,3 +774,4 @@ flow_call_edges_add (sbitmap blocks)
 
   return (cfg_hooks->flow_call_edges_add) (blocks);
 }
+

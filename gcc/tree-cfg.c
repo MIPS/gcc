@@ -67,15 +67,6 @@ static struct cfg_stats_d cfg_stats;
 /* Nonzero if we found a computed goto while building basic blocks.  */
 static bool found_computed_goto;
 
-/* If we found computed gotos, then they are all revectored to this
-   location.  We try to unfactor them after we have translated out
-   of SSA form.  */
-static GTY(()) tree factored_computed_goto_label;
-
-/* The factored computed goto.  We cache this so we can easily recover
-   the destination of computed gotos when unfactoring them.  */
-static GTY(()) tree factored_computed_goto;
-
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (void *, void *, basic_block);
 static void create_block_annotation (basic_block);
@@ -83,7 +74,6 @@ static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static void make_blocks (tree);
 static void factor_computed_gotos (void);
-static tree tree_block_label (basic_block bb);
 
 /* Edges.  */
 static void make_edges (void);
@@ -224,6 +214,7 @@ factor_computed_gotos (void)
   basic_block bb;
   tree factored_label_decl = NULL;
   tree var = NULL;
+  tree factored_computed_goto = NULL;
 
   /* We know there are one or more computed gotos in this function.
      Examine the last statement in each basic block to see if the block
@@ -247,6 +238,7 @@ factor_computed_gotos (void)
       if (computed_goto_p (last))
 	{
 	  tree assignment;
+	  tree factored_computed_goto_label;
 
 	  /* The first time we find a computed goto we need to create
 	     the factored goto block and the variable each original
@@ -1807,6 +1799,9 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      ssa_remove_edge (e);
 	      retval = true;
 	    }
+
+	  if (taken_edge->probability > REG_BR_PROB_BASE)
+	    taken_edge->probability = REG_BR_PROB_BASE;
 	}
       if (taken_edge->probability > REG_BR_PROB_BASE)
 	taken_edge->probability = REG_BR_PROB_BASE;
@@ -2466,20 +2461,11 @@ disband_implicit_edges (void)
 	abort ();
 
       label = tree_block_label (e->dest);
-      /* ??? Why bother putting this back together when rtl is just
-	 about to take it apart again?  */
-      if (factored_computed_goto_label
-	  && label == LABEL_EXPR_LABEL (factored_computed_goto_label))
-	label = GOTO_DESTINATION (factored_computed_goto);
-
       bsi_insert_after (&last,
 			build1 (GOTO_EXPR, void_type_node, label),
 			BSI_NEW_STMT);
       e->flags &= ~EDGE_FALLTHRU;
     }
-
-  factored_computed_goto = NULL;
-  factored_computed_goto_label = NULL;
 }
 
 /* Remove all the blocks and edges that make up the flowgraph.  */
@@ -2601,6 +2587,20 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
+/* Finds iterator for STMT.  */
+
+extern block_stmt_iterator
+stmt_bsi (tree stmt)
+{
+  block_stmt_iterator bsi;
+
+  for (bsi = bsi_start (bb_for_stmt (stmt)); !bsi_end_p (bsi); bsi_next (&bsi))
+    if (bsi_stmt (bsi) == stmt)
+      return bsi;
+
+  abort ();
+}
+
 /* Insert a statement, or statement list, before the given pointer.  */
 
 void
@@ -2698,10 +2698,12 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
    In all cases, the returned *BSI points to the correct location.  The
    return value is true if insertion should be done after the location,
-   or false if before the location.  */
+   or false if before the location.  If new basic block has to be created,
+   it is stored in *NEW_BB.  */
 
 static bool
-tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
+tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
+			   basic_block *new_bb)
 {
   basic_block dest, src;
   tree tmp;
@@ -2762,6 +2764,8 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 
   /* Otherwise, create a new basic block, and split this edge.  */
   dest = split_edge (e);
+  if (new_bb)
+    *new_bb = dest;
   e = dest->pred;
   goto restart;
 }
@@ -2804,7 +2808,7 @@ bsi_commit_edge_inserts_1 (edge e)
 
       PENDING_STMT (e) = NULL_TREE;
 
-      if (tree_find_edge_insert_loc (e, &bsi))
+      if (tree_find_edge_insert_loc (e, &bsi, NULL))
 	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       else
 	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
@@ -2821,21 +2825,25 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
-/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  */
+/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
+   be created, it is returned.  */
 /* ??? Why in the world do we need this?  Only PRE uses it.  */
 
-void
+basic_block
 bsi_insert_on_edge_immediate (edge e, tree stmt)
 {
   block_stmt_iterator bsi;
+  basic_block new_bb = NULL;
 
   if (PENDING_STMT (e))
     abort ();
 
-  if (tree_find_edge_insert_loc (e, &bsi))
+  if (tree_find_edge_insert_loc (e, &bsi, &new_bb))
     bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
   else
     bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+
+  return new_bb;
 }
 
 /*---------------------------------------------------------------------------
@@ -3562,11 +3570,21 @@ thread_jumps (void)
   edge e, next, last, old;
   basic_block bb, dest, tmp;
   tree phi;
-  int arg;
+  int arg, old_forwardable;
   bool retval = false;
 
+  mark_dfs_back_edges ();
   FOR_EACH_BB (bb)
-    bb_ann (bb)->forwardable = 1;
+    {
+      /* Prevent threading though loop headers.  This could create irreducible
+	 regions (for entry edges) or loops with shared headers (for latch
+	 edges).  */
+      for (e = bb->pred; e; e = e->pred_next)
+	if (e->flags & EDGE_DFS_BACK)
+	  break;
+
+      bb_ann (bb)->forwardable = (e == NULL);
+    }
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
@@ -3581,6 +3599,7 @@ thread_jumps (void)
       /* This block is now part of a forwarding path, mark it as not
 	 forwardable so that we can detect loops.   This bit will be
 	 reset below.  */
+      old_forwardable = bb_ann (bb)->forwardable;
       bb_ann (bb)->forwardable = 0;
 
       /* Examine each of our block's successors to see if it is
@@ -3604,11 +3623,6 @@ thread_jumps (void)
 	       last = dest->succ,
 	       dest = dest->succ->dest)
 	    {
-	      /* An infinite loop detected.  We redirect the edge anyway, so
-		 that the loop is shrinked into single basic block.  */
-	      if (!bb_ann (dest)->forwardable)
-		break;
-
 	      if (dest->succ->dest == EXIT_BLOCK_PTR)
 		break;
 
@@ -3668,7 +3682,7 @@ thread_jumps (void)
 
       /* Reset the forwardable bit on our block since it's no longer in
 	 a forwarding chain path.  */
-      bb_ann (bb)->forwardable = 1;
+      bb_ann (bb)->forwardable = old_forwardable;
     }
   return retval;
 }
@@ -3676,7 +3690,7 @@ thread_jumps (void)
 /* Return a non-special label in the head of basic block BLOCK.
    Create one if it doesn't exist.  */
 
-static tree
+tree
 tree_block_label (basic_block bb)
 {
   block_stmt_iterator i, s = bsi_start (bb);
@@ -3760,7 +3774,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
     return ret;
 
   if (e->dest == dest)
-    return NULL;
+    return e;
 
   label = tree_block_label (dest);
 
@@ -3912,11 +3926,18 @@ tree_duplicate_bb (basic_block bb)
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
+      tree copy;
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
 
-      bsi_insert_after (&bsi_tgt, unshare_expr (stmt), BSI_NEW_STMT);
+      copy = unshare_expr (stmt);
+
+      /* Copy also the virtual operands.  */
+      get_stmt_ann (copy);
+      copy_virtual_operands (copy, stmt);
+      
+      bsi_insert_after (&bsi_tgt, copy, BSI_NEW_STMT);
     }
 
   return new_bb;
@@ -4035,11 +4056,11 @@ print_pred_bbs (FILE *file,
     return;
   
   else if (e->pred_next == NULL)
-    fprintf (file, "bb_%d", e->src->index);
+    fprintf (file, "%d", e->src->index);
   
   else
     {
-      fprintf (file, "bb_%d, ", e->src->index);
+      fprintf (file, "%d ", e->src->index);
       print_pred_bbs (file, e->pred_next);
     }
 }
@@ -4054,11 +4075,11 @@ print_succ_bbs (FILE *file,
     return;
   
   else if (e->succ_next == NULL)
-    fprintf (file, "bb_%d", e->dest->index);
+    fprintf (file, "%d", e->dest->index);
   
   else
     {
-      fprintf (file, "bb_%d, ", e->dest->index);
+      fprintf (file, "%d ", e->dest->index);
       print_succ_bbs (file, e->succ_next);
     }
 }
@@ -4082,28 +4103,34 @@ print_loop (FILE *file,
 
   
   /* Print the loop's header.  */
-  fprintf (file, "%sloop_%d\n", s_indent, loop->num);
+  fprintf (file, "%s(loop (num %d)", s_indent, loop->num);
+  if (loop_nb_iterations (loop))
+    {
+      fprintf (file, " (nb_iterations ");
+      print_generic_expr (file, loop_nb_iterations (loop), 0);
+      fprintf (file, ")");
+    }
+  
+  else
+    fprintf (file, " (nb_iterations not_analyzed_yet)");
   
   /* Print the loop's body.  */
-  fprintf (file, "%s{\n", s_indent);
+  fprintf (file, " (body (\n");
   FOR_EACH_BB (bb)
     if (bb->loop_father == loop)
       {
 	/* Print the basic_block's header.  */
-	fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
+	fprintf (file, "%s  (bb (num %d) (preds ", s_indent, bb->index);
 	print_pred_bbs (file, bb->pred);
-	fprintf (file, "}, succs = {");
+	fprintf (file, ") (succs ");
 	print_succ_bbs (file, bb->succ);
-	fprintf (file, "})\n");
-	
-	/* Print the basic_block's body.  */
-	fprintf (file, "%s  {\n", s_indent);
+	fprintf (file, ") (stmts (\n");
 	tree_dump_bb (bb, file, indent + 4);
-	fprintf (file, "%s  }\n", s_indent);
+	fprintf (file, "%s  )))\n", s_indent);
       }
   
   print_loop (file, loop->inner, indent + 2);
-  fprintf (file, "%s}\n", s_indent);
+  fprintf (file, "%s)))\n", s_indent);
   print_loop (file, loop->next, indent);
 }
 
@@ -4123,9 +4150,17 @@ print_loop_ir (FILE *file)
 /* Debugging loops structure at tree level.  */
 
 void 
-debug_loop_ir (void)
+tree_debug_loops (void)
 {
   print_loop_ir (stderr);
+}
+
+/* Debugging loops structure at tree level.  */
+
+void 
+tree_debug_loop (struct loop *loop)
+{
+  print_loop (stderr, loop, 0);
 }
 
 /* Return 1 if BB ends with a call, possibly followed by some

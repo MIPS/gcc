@@ -557,19 +557,13 @@ timevar_print (FILE *fp)
   /* APPLE LOCAL time formatting */
   putc ('\n', fp);
   
-#endif /* defined (HAVE_USER_TIME) || defined (HAVE_SYS_TIME) 
+#ifdef ENABLE_CHECKING
+  fprintf (fp, "Extra diagnostic checks enabled; compiler may run slowly.\n");
+  fprintf (fp, "Configure with --disable-checking to disable checks.\n");
+#endif
+
+#endif /* defined (HAVE_USER_TIME) || defined (HAVE_SYS_TIME)
 	  || defined (HAVE_WALL_TIME) */
-}
-
-/* Returns time (user + system) used so far by the compiler process,
-   in microseconds.  */
-
-long
-get_run_time ()
-{
-  struct timevar_time_def total_elapsed;
-  timevar_get (TV_TOTAL, &total_elapsed);
-  return total_elapsed.user + total_elapsed.sys;
 }
 
 /* Prints a message to stderr stating that time elapsed in STR is

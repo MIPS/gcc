@@ -6476,7 +6476,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
   if (cfun->static_chain_decl)
     {
       rtx x;
-
       expand_var (cfun->static_chain_decl);
       x = expand_expr (cfun->static_chain_decl, NULL_RTX,
 		       VOIDmode, EXPAND_WRITE);

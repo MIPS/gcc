@@ -2457,6 +2457,20 @@ extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (void);
 
+/* In stor-layout.c.  */
+extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+
+/* In doloop.c.  */
+extern rtx doloop_condition_get (rtx);
+
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
+
+/* In loop-iv.c  */
+extern rtx canon_condition (rtx);
+extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+
 /* In var-tracking.c */
 extern void variable_tracking_main (void);
 

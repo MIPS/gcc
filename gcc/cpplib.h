@@ -451,6 +451,7 @@ struct cpp_callbacks
   void (*def_pragma) (cpp_reader *, unsigned int);
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
+
   missing_header_cb missing_header;
 
   /* APPLE LOCAL begin Symbol Separation */

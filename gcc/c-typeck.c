@@ -721,7 +721,6 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 	/* Speed up the case where the type values are in the same order. */
 	tree tv1 = TYPE_VALUES (t1);
 	tree tv2 = TYPE_VALUES (t2);
-	
 	if (tv1 == tv2)
 	  return 1;
 

@@ -3641,7 +3641,6 @@ struct var_loc_node GTY ((chain_next ("%h.next")))
   const char * GTY (()) label;
   struct var_loc_node * GTY (()) next;
 };
-
 /* Variable location list.  */
 struct var_loc_list_def GTY (())
 {
@@ -5465,7 +5464,6 @@ equate_decl_number_to_die (tree decl, dw_die_ref decl_die)
 }
 
 /* Add a variable location node to the linked list for DECL.  */
-
 static void
 add_var_loc_to_decl (tree decl, struct var_loc_node *loc)
 {
@@ -8148,7 +8146,6 @@ subrange_type_die (tree type, dw_die_ref context_die)
     subtype_die = gen_enumeration_type_die (TREE_TYPE (type), context_die);
   else
     subtype_die = base_type_die (TREE_TYPE (type));
-
   subrange_die = new_die (DW_TAG_subrange_type, context_die, type);
 
   if (name != NULL)

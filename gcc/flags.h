@@ -313,18 +313,6 @@ extern int flag_float_store;
 
 extern int flag_strength_reduce;
 
-/* Nonzero enables loop unrolling in unroll.c.  Only loops for which the
-   number of iterations can be calculated at compile-time (UNROLL_COMPLETELY,
-   UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
-   unrolled.  */
-
-extern int flag_old_unroll_loops;
-
-/* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
-   This is generally not a win.  */
-
-extern int flag_old_unroll_all_loops;
-
 /* Nonzero forces all invariant computations in loops to be moved
    outside the loop.  */
 
@@ -338,6 +326,12 @@ extern int flag_prefetch_loop_arrays;
    strength reduced.  */
 
 extern int flag_reduce_all_givs;
+
+/* Nonzero enables loop unrolling.  */
+extern int flag_unroll_loops;
+
+/* Nonzero enables loop unswitching.  */
+extern int flag_unswitch_loops;
 
 /* Nonzero for -fcse-follow-jumps:
    have cse follow jumps to do a more extensive job.  */
@@ -767,6 +761,24 @@ extern int flag_tree_ccp;
 
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
+
+/* Enable SSA-CHREC on trees.  */
+extern int flag_scalar_evolutions;
+
+/* Enable the analysis of all the data dependences.  */
+extern int flag_all_data_deps;
+
+/* Enable linear loop transforms on trees. */
+extern int flag_tree_loop_linear;
+
+/* Enable the elimination of checks on trees.  */
+extern int flag_tree_elim_checks;
+
+/* Enable data dependence graph.  */
+extern int flag_ddg;
+
+/* Enable loop vectorization on trees */
+extern int flag_tree_vectorize;
 
 /* Enable SSA->normal pass memory location coalescing.  */
 extern int flag_tree_combine_temps;

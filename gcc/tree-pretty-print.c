@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "langhooks.h"
+#include "tree-fold-const.h"
+#include "tree-chrec.h"
 #include "tree-iterator.h"
 
 /* Local functions, macros and variables.  */
@@ -1472,6 +1474,54 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
       break;
 
+    case POLYNOMIAL_CHREC:
+      pp_string (buffer, "{");
+      dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
+      pp_string (buffer, ", +, ");
+      dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
+      pp_string (buffer, "}_");
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
+      is_stmt = false;
+      break;
+
+    case EXPONENTIAL_CHREC:
+      pp_string (buffer, "{");
+      dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
+      pp_string (buffer, ", *, ");
+      dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
+      pp_string (buffer, "}_");
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
+      is_stmt = false;
+      break;
+      
+    case PEELED_CHREC:
+      pp_string (buffer, "(");
+      dump_generic_node (buffer, CHREC_LEFT (node), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, CHREC_RIGHT (node), spc, flags, false);
+      pp_string (buffer, ")_");
+      dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
+      is_stmt = false;
+      break;
+
+    case INTERVAL_CHREC:
+      if (node == chrec_top)
+	pp_string (buffer, "[-oo, +oo]");
+      else if (node == chrec_bot)
+	pp_string (buffer, "[+oo, -oo]");
+      else if (node == chrec_not_analyzed_yet)
+	pp_string (buffer, "not_analyzed_yet");
+      else
+	{
+	  pp_string (buffer, "[");
+	  dump_generic_node (buffer, CHREC_LOW (node), spc, flags, false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, CHREC_UP (node), spc, flags, false);
+	  pp_string (buffer, "]");
+	}
+      is_stmt = false;
+      break;
+      
     default:
       NIY;
     }

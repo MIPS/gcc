@@ -30,3 +30,4 @@ extern void copy_bbs (basic_block *, unsigned, basic_block *,
 /* APPLE LOCAL begin hot/cold partitioning  */
 extern bool scan_ahead_for_unlikely_executed_note (rtx);
 /* APPLE LOCAL end hot/cold partitioning  */
+

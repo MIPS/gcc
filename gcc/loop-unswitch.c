@@ -370,7 +370,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
   /* Unswitch the loop on this condition.  */
   nloop = unswitch_loop (loops, loop, bbs[i], cond, cinsn);
   if (!nloop)
-  abort ();
+    abort ();
 
   /* Invoke itself on modified loops.  */
   unswitch_single_loop (loops, nloop, rconds, num + 1);
@@ -463,7 +463,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
-		   loop->header->rbi->copy->pred, switch_bb);
+		   loop->header->rbi->copy->pred, switch_bb, true);
 
   /* Remove branches that are now unreachable in new loops.  */
   remove_path (loops, true_edge);

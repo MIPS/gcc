@@ -737,7 +737,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     "computable number of iterations\n");
 
   /* nunroll = total number of copies of the original loop body in
-     unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
+     unrolled loop (i.e. if it is 2, we have to duplicate loop body once).  */
   nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
   nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
@@ -1241,7 +1241,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
 
   loop->lpt_decision.decision = LPT_UNROLL_STUPID;
   loop->lpt_decision.times = i - 1;
-      
+
   if (dump_file)
     fprintf (dump_file,
 	     ";; Decided to unroll the loop stupidly, %d times.\n",

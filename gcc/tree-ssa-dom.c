@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "timevar.h"
+#include "cfgloop.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
@@ -539,6 +540,10 @@ tree_ssa_dominator_optimize (void)
 {
   basic_block bb;
   struct dom_walk_data walk_data;
+  struct loops *loops;
+
+  /* Compute the natural loops.  */
+  loops = loop_optimizer_init (NULL);
 
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transforming natural loop into irreducible
@@ -626,7 +631,7 @@ tree_ssa_dominator_optimize (void)
       if (cfg_altered
 	  && bitmap_first_set_bit (vars_to_rename) >= 0)
 	{
-	  rewrite_into_ssa ();
+	  rewrite_into_ssa (false);
 	  bitmap_clear (vars_to_rename);
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
@@ -642,6 +647,8 @@ tree_ssa_dominator_optimize (void)
 
   /* Remove any unreachable blocks left behind and linearize the CFG.  */
   cleanup_tree_cfg ();
+
+  loop_optimizer_finalize (loops, NULL);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -1634,7 +1641,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
 	{
 	  tree rhs_def_operand;
 
@@ -1662,7 +1670,9 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
+      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);

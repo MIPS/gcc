@@ -114,7 +114,8 @@ make_ssa_name (tree var, tree stmt)
 #if defined ENABLE_CHECKING
   if ((!DECL_P (var)
        && TREE_CODE (var) != INDIRECT_REF)
-      || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
+      || (stmt
+	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
 	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif
@@ -166,6 +167,9 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
+  if (!var)
+    return;
+
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
      However, it should only end up on our free list one time.   We
      keep a status bit in the SSA_NAME node itself to indicate it has

@@ -177,6 +177,22 @@ typedef struct edge_def *edge;
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
+/* Returns the block at the beginning of the edge.  */
+
+static inline struct basic_block_def *
+edge_source (edge e)
+{
+  return e->src;
+}
+
+/* Returns the block at the end of the edge.  */
+
+static inline struct basic_block_def *
+edge_destination (edge e)
+{
+  return e->dest;
+}
+
 /* Counter summary from the last set of coverage counts read by
    profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;
@@ -299,6 +315,7 @@ typedef struct reorder_block_def
   /* Used by loop copying.  */
   basic_block copy;
   int duplicated;
+  int copy_number;
 
   /* These fields are used by bb-reorder pass.  */
   int visited;
@@ -685,6 +702,11 @@ extern void reorder_basic_blocks (void);
 /* APPLE LOCAL begin hot/cold partitioning  */
 extern void partition_hot_cold_basic_blocks (void);
 /* APPLE LOCAL end hot/cold partitioning  */
+
+/* In cfg.c */
+extern void alloc_rbi_pool (void);
+extern void initialize_bb_rbi (basic_block bb);
+extern void free_rbi_pool (void);
 
 /* In cfg.c */
 extern void alloc_rbi_pool (void);

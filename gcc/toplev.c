@@ -409,22 +409,10 @@ int flag_thread_jumps;
 
 int flag_strength_reduce = 0;
 
-/* Nonzero enables loop unrolling in unroll.c.  Only loops for which the
-   number of iterations can be calculated at compile-time (UNROLL_COMPLETELY,
-   UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
-   unrolled.  */
-
-int flag_old_unroll_loops;
-
-/* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
-   This is generally not a win.  */
-
-int flag_old_unroll_all_loops;
-
-/* Enables unrolling of simple loops in loop-unroll.c.  */
+/* Enables unrolling of simple loops.  */
 int flag_unroll_loops;
 
-/* Enables unrolling of all loops in loop-unroll.c.  */
+/* Enables unrolling of all loops.  */
 int flag_unroll_all_loops;
 
 /* Nonzero enables loop peeling.  */
@@ -532,6 +520,10 @@ int flag_web;
 /* Nonzero means perform loop optimizer.  */
 
 int flag_loop_optimize;
+
+/* Nonzero means perform second pass of the loop optimizer.  */
+
+int flag_loop_optimize2;
 
 /* Nonzero means perform crossjumping.  */
 
@@ -859,6 +851,24 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable the analysis of the scalar evolutions on trees.  */
+int flag_scalar_evolutions = 0;
+
+/* Enable the analysis of all data dependences.  */
+int flag_all_data_deps = 0;
+
+/* Enable data dependence graph.  */
+int flag_ddg = 0;
+
+/* Enable the elimination of checks on trees.  */
+int flag_tree_elim_checks = 0;
+
+/* Enable linear loop transforms on trees.  */
+int flag_tree_loop_linear = 0;
+
+/* Enable loop vectorization on trees */
+int flag_tree_vectorize = 0;
+
 /* Enable loop header copying on tree-ssa.  */
 int flag_tree_ch = 0;
 
@@ -1036,8 +1046,6 @@ static const lang_independent_options f_options[] =
   {"loop-transpose", &flag_loop_transpose, 1, },
   {"unroll-loops", &flag_unroll_loops, 1 },
   {"unroll-all-loops", &flag_unroll_all_loops, 1 },
-  {"old-unroll-loops", &flag_old_unroll_loops, 1 },
-  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1 },
   {"peel-loops", &flag_peel_loops, 1 },
   {"unswitch-loops", &flag_unswitch_loops, 1 },
   {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1 },
@@ -1160,13 +1168,19 @@ static const lang_independent_options f_options[] =
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
+  { "scalar-evolutions", &flag_scalar_evolutions, 1 },
+  { "all-data-deps", &flag_all_data_deps, 1 },
+  { "tree-elim-checks", &flag_tree_elim_checks, 1 },
+  { "tree-ddg", &flag_ddg, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-copyrename", &flag_tree_copyrename, 1 },
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
   { "tree-ch", &flag_tree_ch, 1 },
-  { "tree-loop-optimize", &flag_tree_loop, 1 }
+  { "tree-loop-optimize", &flag_tree_loop, 1 },
+  { "tree-loop-linear", &flag_tree_loop_linear, 1},
+  { "tree-vectorize", &flag_tree_vectorize, 1}
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -1847,19 +1861,6 @@ compile_file (void)
 #endif
 }
 
-/* This is called from various places for FUNCTION_DECL, VAR_DECL,
-   and TYPE_DECL nodes.
-
-   This does nothing for local (non-static) variables, unless the
-   variable is a register variable with an ASMSPEC.  In that case, or
-   if the variable is not an automatic, it sets up the RTL and
-   outputs any assembler code (label definition, storage allocation
-   and initialization).
-
-   DECL is the declaration.  If ASMSPEC is nonzero, it specifies
-   the assembler symbol name to be used.  TOP_LEVEL is nonzero
-   if this declaration is not within a function.  */
-
 /* Display help for target options.  */
 void
 display_target_options (void)
@@ -2528,25 +2529,19 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  if (flag_unroll_loops)
-    {
-      flag_old_unroll_loops = 0;
-      flag_old_unroll_all_loops = 0;
-    }
-
-  if (flag_old_unroll_all_loops)
-    flag_old_unroll_loops = 1;
+  if (flag_loop_optimize2)
+    flag_loop_optimize = 0;
 
   /* Old loop unrolling requires that strength_reduction be on also.  Silently
      turn on strength reduction here if it isn't already on.  Also, the loop
      unrolling code assumes that cse will be run after loop, so that must
      be turned on also.  */
-  if (flag_old_unroll_loops)
+  if (flag_unroll_loops)
     {
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
     }
-  if (flag_unroll_loops || flag_peel_loops)
+  if (flag_peel_loops)
     flag_rerun_cse_after_loop = 1;
 
   if (flag_non_call_exceptions)
@@ -2766,6 +2761,7 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+  init_set_costs ();
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the

@@ -612,6 +612,9 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       /* Free basic blocks from get_loop_body.  */
       free (bbs);
     }
+      
+  if (simpleloops)
+    iv_analysis_done ();
 }
 
 /* Statically estimate the probability that a branch will be taken and produce

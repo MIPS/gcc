@@ -1099,15 +1099,20 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
-      flag_loop_optimize = 1;
+      flag_loop_optimize2 = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
-      flag_tree_loop = 0;
+      flag_tree_loop = 1;
+      flag_tree_vectorize = 0;
       flag_tree_pre = 1;
+      flag_scalar_evolutions = 0;
+      flag_all_data_deps = 0;
+      flag_tree_elim_checks = 0;
+      flag_ddg = 0;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
@@ -1708,6 +1713,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_loop_optimize = value;
       break;
 
+    case OPT_floop_optimize2:
+      flag_loop_optimize2 = value;
+      break;
+
     case OPT_fmath_errno:
       flag_errno_math = value;
       break;
@@ -1751,14 +1760,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fnon_call_exceptions:
       flag_non_call_exceptions = value;
-      break;
-
-    case OPT_fold_unroll_all_loops:
-      flag_old_unroll_all_loops = value;
-      break;
-
-    case OPT_fold_unroll_loops:
-      flag_old_unroll_loops = value;
       break;
 
     case OPT_fomit_frame_pointer:
@@ -2057,6 +2058,30 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_dce:
       flag_tree_dce = value;
+      break;
+
+    case OPT_fscalar_evolutions:
+      flag_scalar_evolutions = value;
+      break;
+
+    case OPT_fall_data_deps:
+      flag_all_data_deps = value;
+      break;
+
+    case OPT_ftree_loop_linear:
+      flag_tree_loop_linear = value;
+      break;
+
+    case OPT_ftree_elim_checks:
+      flag_tree_elim_checks = value;
+      break;
+
+    case OPT_ftree_ddg:
+      flag_ddg = value;
+      break;
+
+    case OPT_ftree_vectorize:
+      flag_tree_vectorize = value;
       break;
 
     case OPT_ftree_combine_temps:

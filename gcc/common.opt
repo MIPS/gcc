@@ -216,9 +216,13 @@ Align the start of loops
 falign-loops=
 Common RejectNegative Joined UInteger
 
-faltivec
+fall-data-deps
 Common
-Temporary, perhaps, to get NaG Fortran to work
+Analyze all the data dependences 
+
+ftree-ddg
+Common
+Enable data dependence graph
 
 fargument-alias
 Common
@@ -468,6 +472,10 @@ floop-transpose
 Common
 Interchange loops to improve cache locality
 
+floop-optimize2
+Common
+Perform loop optimizations, new passes
+
 fmath-errno
 Common
 Set errno after built-in math functions
@@ -649,6 +657,10 @@ frounding-math
 Common
 Disable optimizations that assume default FP rounding behavior
 
+fscalar-evolutions
+Common
+Enable the analysis of scalar evolutions on trees
+
 fsched-interblock
 Common
 Enable scheduling across basic blocks
@@ -800,6 +812,14 @@ ftree-dse
 Common
 Enable dead store elimination
 
+ftree-elim-checks
+Common
+Eliminate checks based on scalar evolution informations
+
+ftree-loop-linear
+Common
+Enable linear loop transforms on trees
+
 ftree-loop-optimize
 Common
 Enable loop optimizations on trees
@@ -818,6 +838,10 @@ Perform scalar replacement of aggregates
 ftree-ter
 Common
 Replace temporary expressions in the SSA->normal pass
+
+ftree-vectorize
+Common
+Enable loop vectorization on trees
 
 funit-at-a-time
 Common
