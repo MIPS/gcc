@@ -130,16 +130,18 @@ c_simplify_function_tree (fndecl)
     return 1;
 
   /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_simple, &dump_flags);
+  dump_file = dump_begin (TDI_original, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
+      fprintf (dump_file, "%s()\n",
 	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
-      if (dump_flags & TDF_UNPARSE)
-	print_c_tree (dump_file, fnbody);
-      else
+      if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, fnbody);
+
+      dump_end (TDI_original, dump_file);
     }
 
   /* Create a new binding level for the temporaries created by the
@@ -156,15 +158,16 @@ c_simplify_function_tree (fndecl)
   poplevel (1, 1, 0);
 
   /* Debugging dump after simplification.  */
+  dump_file = dump_begin (TDI_simple, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "\n%s()    (SIMPLIFIED)\n",
+      fprintf (dump_file, "%s()\n",
 	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
-      if (dump_flags & TDF_UNPARSE)
-	print_c_tree (dump_file, fnbody);
-      else
+      if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, fnbody);
 
       dump_end (TDI_simple, dump_file);
     }

@@ -829,7 +829,7 @@ static const struct dump_option_value_info dump_options[] =
 {
   {"address", TDF_ADDRESS},
   {"slim", TDF_SLIM},
-  {"unparse", TDF_UNPARSE},
+  {"raw", TDF_RAW},
   {"details", TDF_DETAILS},
   {"refs", TDF_REFS},
   {"rdefs", TDF_RDEFS},
@@ -849,11 +849,15 @@ dump_begin (phase, flag_ptr)
 {
   FILE *stream;
   char *name;
+  char dump_id[10];
 
   if (!dump_files[phase].state)
     return NULL;
 
-  name = concat (dump_base_name, dump_files[phase].suffix, NULL);
+  if (snprintf (dump_id, sizeof (dump_id), ".t%02d", phase) < 0)
+    dump_id[0] = '\0';
+
+  name = concat (dump_base_name, dump_id, dump_files[phase].suffix, NULL);
   stream = fopen (name, dump_files[phase].state < 0 ? "w" : "a");
   if (!stream)
     error ("could not open dump file `%s'", name);
@@ -893,6 +897,21 @@ dump_end (phase, stream)
      FILE *stream;
 {
   fclose (stream);
+}
+
+/* Enable all SSA-related tree dumps.  */
+
+void
+dump_enable_all_ssa ()
+{
+  dump_files[TDI_original].state = -1;
+  dump_files[TDI_optimized].state = -1;
+  dump_files[TDI_cfg].state = -1;
+  dump_files[TDI_dot].state = -1;
+  dump_files[TDI_ssa_pre].state = -1;
+  dump_files[TDI_ccp].state = -1;
+  dump_files[TDI_ssa].state = -1;
+  dump_files[TDI_simple].state = -1;
 }
 
 /* Parse ARG as a dump switch. Return non-zero if it is, and store the

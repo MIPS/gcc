@@ -3094,7 +3094,7 @@ enum tree_dump_index
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
-#define TDF_UNPARSE	(1 << 2)	/* unparse the function */
+#define TDF_RAW  	(1 << 2)	/* unparse the function */
 #define TDF_DETAILS	(1 << 3)	/* show how each statement is simplified */
 #define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
 #define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
@@ -3107,7 +3107,8 @@ extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
 extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
 extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
-extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
+extern void dump_enable_all_ssa         PARAMS ((void));
+const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

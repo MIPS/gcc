@@ -880,8 +880,10 @@ int flag_tree_points_to = 0;
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ssa_ccp = 0;
 
-/* Nonzero if we perform superblock formation.  */
+/* Enable SSA-CCP on trees.  */
+int flag_dump_tree_all_ssa = 0;
 
+/* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
 /* Values of the -falign-* flags: how much to align labels in code.
@@ -1198,6 +1200,8 @@ static const lang_independent_options f_options[] =
    N_("Enable Steensgaard's points-to analysis on trees") },
   { "tree-ssa-ccp", &flag_tree_ssa_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
+  { "dump-tree-all-ssa", &flag_dump_tree_all_ssa, 1,
+   N_("Enable all SSA-related tree dumps") },
 };
 
 /* Table of language-specific options.  */
@@ -5051,6 +5055,9 @@ process_options ()
      tree SSA code can only use SIMPLE trees.  */
   if (flag_tree_ssa && flag_disable_simple)
     warning ("-fdisable-simple also disables optimizations on trees");
+
+  if (flag_dump_tree_all_ssa)
+    dump_enable_all_ssa ();
 }
 
 /* Language-independent initialization, before language-dependent

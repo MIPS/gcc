@@ -153,10 +153,10 @@ tree_ssa_ccp (fndecl)
       fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
 	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
-      if (dump_flags & TDF_UNPARSE)
-	print_c_tree (dump_file, fnbody);
-      else
+      if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, fnbody);
     }
 
   VARRAY_TREE_INIT (decl_map, next_decl_uid, "Decl map");
@@ -234,10 +234,10 @@ tree_ssa_ccp (fndecl)
       fprintf (dump_file, "\n%s()    (OPTIMIZED)\n",
 	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 
-      if (dump_flags & TDF_UNPARSE)
-	print_c_tree (dump_file, fnbody);
-      else
+      if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, fnbody);
     }
 
   free (values);

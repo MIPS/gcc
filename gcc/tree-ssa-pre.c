@@ -1804,18 +1804,6 @@ tree_perform_ssapre ()
   basic_block bb;
   size_t j, k;
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
-  /* Debugging dump before SSA PRE */
-  dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
-  if (dump_file)
-    {
-      fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
-               IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-      
-      if (dump_flags & TDF_UNPARSE)
-        print_c_tree (dump_file, fn);
-      else
-        dump_node (fn, TDF_SLIM | dump_flags, dump_file);
-    }
   
   /* Compute immediate dominators.  */
   pre_idom = calculate_dominance_info (CDI_DOMINATORS);
@@ -1906,13 +1894,13 @@ tree_perform_ssapre ()
   /* Debugging dump after SSA PRE */
   if (dump_file)
     {
-      fprintf (dump_file, "\n%s()    (OPTIMIZED)\n",
+      fprintf (dump_file, "%s()\n",
                IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
       
-      if (dump_flags & TDF_UNPARSE)
-        print_c_tree (dump_file, fn);
-      else
+      if (dump_flags & TDF_RAW)
         dump_node (fn, TDF_SLIM | dump_flags, dump_file);
+      else
+        print_c_tree (dump_file, fn);
       dump_end (TDI_ssa_pre, dump_file);
     }
   

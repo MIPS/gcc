@@ -675,6 +675,9 @@ extern int flag_tree_points_to;
 /* Enable SSA-CCP on trees.  */
 extern int flag_tree_ssa_ccp;
 
+/* Enable all SSA-related tree dumps.  */
+extern int flag_dump_tree_all_ssa;
+
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

@@ -1,3 +1,32 @@
+2002-07-19  Ben Elliston  <bje@redhat.com>
+ 
+ 	* tree-ssa-pre.c (tree_perform_ssapre): Don't dump the original
+ 	tree before applying this optimisation.
+ 
+ 	* flags.h (flag_dump_tree_all_ssa): New flag.
+ 	* toplev.c (flag_dump_tree_all_ssa): New flag.
+ 	(f_options): Add "dump-tree-all-ssa" option.
+ 	(process_options): Process flag_dump_tree_all_ssa.
+ 	* tree.h (dump_enable_all_ssa): Declare.
+ 	* tree-dump.c (dump_enable_all_ssa): New function.
+ 	* doc/invoke.texi (Option Summary): Add -fdump-tree-all-ssa and
+ 	-fdump-tree-ssapre options.
+ 	(Debugging Options): Describe in more detail.
+ 	* c-simplify.c (c_simplify_function_tree): Dump the original tree
+ 	only if a TDI_original dump is requested, rather than TDI_simple.
+ 
+ 	* tree-dump.c (dump_begin): Include phase number in dump filename.
+ 
+2002-07-18  Ben Elliston  <bje@redhat.com>
+ 
+ 	* tree-dump.c (dump_files): Rename "unparse" to "raw".
+ 	* tree.h (TDF_UNPARSE): Rename from this ..
+ 	(TDF_RAW): .. to this.
+ 	* tree-ssa-pre.c (tree_perform_ssapre): Use TDF_RAW and invert the
+ 	logical sense of this flag.
+ 	* tree-ssa-ccp.c (tree_ssa_ccp): Likewise.
+ 	* c-simplify.c (c_simplify_function_tree): Likewise.
+ 
 2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (calculate_preorder): New function.
