@@ -198,6 +198,24 @@ public class ScrollPaneLayout
     return null;
   }
 
+  private static void maybeSetPreferredSize(JComponent src, Dimension dim)
+  {
+    Dimension tmp = null;
+    if (src != null)
+      tmp = src.getPreferredSize();
+    if (tmp != null)
+      dim.setSize(tmp);        
+  }
+
+  private static void maybeSetMinimumSize(JComponent src, Dimension dim)
+  {
+    Dimension tmp = null;
+    if (src != null)
+      tmp = src.getMinimumSize();
+    if (tmp != null)
+      dim.setSize(tmp);
+  }
+
   public Dimension preferredLayoutSize(Container parent) 
   {
     if (parent != null && parent instanceof JScrollPane)
@@ -228,28 +246,28 @@ public class ScrollPaneLayout
             if (insets != null)
               insetsSize.setSize(insets.left + insets.right,
                                  insets.top + insets.bottom);
-           
-            if (viewport != null &&
-                viewport.getView() != null &&
-                viewport.getView() instanceof Scrollable)
+
+            if (viewport != null)
               {
-                Scrollable tmp = (Scrollable) viewport.getView();
-                viewportSize.setSize(tmp.getPreferredScrollableViewportSize());
+                Component view = null;
+                Scrollable scr = null;
+                Dimension pref = null;
+                
+                view = viewport.getView();
+                if (view != null && view instanceof Scrollable)
+                  scr = (Scrollable) view;
+                if (scr != null)
+                  pref = scr.getPreferredScrollableViewportSize();
+                if (pref == null)
+                  pref = viewport.getPreferredSize();
+                if (pref != null)
+                  viewportSize.setSize(pref);
               }
-            else if (viewport != null && viewport.getPreferredSize() != null)
-              viewportSize.setSize(viewport.getPreferredSize());
-            
-            if (colHead != null && colHead.getPreferredSize() != null)
-              columnHeaderSize.setSize(colHead.getPreferredSize());
-            
-            if (rowHead != null && rowHead.getPreferredSize() != null)
-              rowHeaderSize.setSize(rowHead.getPreferredSize());
-
-            if (vsb != null && vsb.getPreferredSize() != null)
-              verticalScrollBarSize.setSize(vsb.getPreferredSize());
-
-            if (hsb != null && hsb.getPreferredSize() != null)
-              horizontalScrollBarSize.setSize(hsb.getPreferredSize());
+                       
+            maybeSetPreferredSize(colHead, columnHeaderSize);
+            maybeSetPreferredSize(rowHead, rowHeaderSize);
+            maybeSetPreferredSize(vsb, verticalScrollBarSize);
+            maybeSetPreferredSize(hsb, horizontalScrollBarSize);
 
             return new Dimension(insetsSize.width 
                                  + viewportSize.width
@@ -299,25 +317,16 @@ public class ScrollPaneLayout
             if (insets != null)
               insetsSize.setSize(insets.left + insets.right,
                                  insets.top + insets.bottom);
-            
-            if (viewport != null && viewport.getMinimumSize() != null)
-              viewportSize.setSize(viewport.getMinimumSize());
-            
-            if (colHead != null && colHead.getMinimumSize() != null)
-              columnHeaderSize.setSize(colHead.getMinimumSize());
-            
-            if (rowHead != null && rowHead.getMinimumSize() != null)
-              rowHeaderSize.setSize(rowHead.getMinimumSize());
-            
-            if (vsb != null
-                && vsbPolicy != VERTICAL_SCROLLBAR_NEVER
-                && vsb.getMinimumSize() != null)
-              verticalScrollBarSize.setSize(vsb.getMinimumSize());
 
-            if (hsb != null 
-                && hsbPolicy != HORIZONTAL_SCROLLBAR_NEVER
-                && hsb.getMinimumSize() != null)
-              horizontalScrollBarSize.setSize(hsb.getMinimumSize());
+            maybeSetMinimumSize(viewport, viewportSize);
+            maybeSetMinimumSize(colHead, columnHeaderSize);
+            maybeSetMinimumSize(rowHead, rowHeaderSize);
+            
+            if (vsbPolicy != VERTICAL_SCROLLBAR_NEVER)
+              maybeSetMinimumSize(vsb, verticalScrollBarSize);
+
+            if (hsbPolicy != HORIZONTAL_SCROLLBAR_NEVER)
+              maybeSetMinimumSize(hsb, horizontalScrollBarSize);
             
             return new Dimension(insetsSize.width 
                                  + viewportSize.width
@@ -425,10 +434,20 @@ public class ScrollPaneLayout
               rowHead.setBounds(new Rectangle(x1, y2, x2-x1, y3-y2));
 
             if (showVsb)
-	      vsb.setBounds(new Rectangle(x3, y2, x4-x3, y3-y2));
+              {
+                vsb.setVisible(true);
+                vsb.setBounds(new Rectangle(x3, y2, x4-x3, y3-y2));
+              }
+            else if (vsb != null)
+              vsb.setVisible(false);
 
             if (showHsb)
-              hsb.setBounds(new Rectangle(x2, y3, x3-x2, y4-y3));
+              {
+                hsb.setVisible(true);
+                hsb.setBounds(new Rectangle(x2, y3, x3-x2, y4-y3));
+              }
+            else if (hsb != null)
+              hsb.setVisible(false);
 
             if (upperLeft != null)
               upperLeft.setBounds(new Rectangle(x1, y1, x2-x1, y2-y1));

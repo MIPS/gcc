@@ -1,3 +1,9 @@
+2004-07-16  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/plaf/basic/BasicSplitPaneUI.java: Minor layout fixes.
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java: Likewise.
+	* javax/swing/ScrollPaneLayout.java: Likewise.
+
 2004-07-16  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/plaf/basic/BasicSliderUI.java:
