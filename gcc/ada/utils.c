@@ -1663,7 +1663,7 @@ create_label_decl (label_name)
 
   DECL_CONTEXT (label_decl)     = current_function_decl;
   DECL_MODE (label_decl)        = VOIDmode;
-  annotate_with_file_line (label_decl, input_filename, lineno);
+  annotate_with_file_line (label_decl, input_filename, input_line);
 
   return label_decl;
 }
