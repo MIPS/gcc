@@ -1,3 +1,7 @@
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
+	* include/verify.h: New file.
+
 2005-01-11  Michael Koch  <konqueror@gmx.de>
 
 	PR libgcj/13972

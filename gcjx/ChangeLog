@@ -1,5 +1,21 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/verify.cc (verify_fail): Take 'char*' argument.
+	(get_type_val_for_signature): Don't use std::string.
+	(verify_dimensions): Likewise.
+	(state::merge): Likewise.
+	(state::state_mergeable_p): Likewise.
+	(push_type): Likewise.
+	(compute_jump): Likewise.
+	(note_branch_target): Likewise.
+	(skip_padding): Likewise.
+	(branch_prepass): Likewise.
+	(check_pool_index): Likewise.
+	(verify_instructions_0): Likewise.
+	* verify.h (vfy_get_interface_count): Removed.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/verify.cc (EITHER): New constant.
 	(type::compatible): Handle EITHER.
 	(type::equals): New method.

@@ -204,12 +204,11 @@ private:
     return val;
   }
 
-  __attribute__ ((__noreturn__)) void verify_fail (const std::string &s,
-						   jint pc = -1)
+  __attribute__ ((__noreturn__)) void verify_fail (const char *s, jint pc = -1)
   {
     if (pc == -1)
       pc = start_PC;
-    vfy_fail (s.c_str (), pc, current_class, current_method);
+    vfy_fail (s, pc, current_class, current_method);
   }
 
   // This enum holds a list of tags for all the different types we
@@ -483,8 +482,11 @@ private:
 	rt = void_type;
 	break;
       default:
-        verify_fail (std::string () +
-                     "invalid character '" + sig + "' in signature");
+	{
+	  char buf[50];
+	  sprintf (buf, "invalid character '%c' in signature", char (sig));
+	  verify_fail (buf);
+	}
       }
     return rt;
   }
@@ -857,9 +859,13 @@ private:
         verifier->verify_fail ("internal error in type::verify_dimensions ()");
 
       if (klass->count_dimensions () < ndims)
-        verifier->verify_fail (std::string () + "array type has fewer "
-                               + "dimensions (" + klass->count_dimensions ()
-                               + ") than required (" + ndims + ")");
+	{
+	  char buf[100];
+	  sprintf (buf, "array type has fewer dimensions (%d) than "
+		   "required (%d)", klass->count_dimensions (),
+		   ndims);
+	  verifier->verify_fail (buf);
+	}
     }
 
     // Merge OLD_TYPE into this.  On error throw exception.  Return
@@ -1090,8 +1096,12 @@ private:
 
       // Merge stacks.
       if (state_old->stacktop != stacktop)  // FIXME stackdepth instead?
-        verifier->verify_fail (std::string () + "stack sizes differ: "
-                               + state_old->stacktop + " and " + stacktop);
+	{
+	  char buf[30];
+	  sprintf (buf, "stack sizes differ: %d and %d", state_old->stacktop,
+		   stacktop);
+	  verifier->verify_fail (buf);
+	}
       for (int i = 0; i < state_old->stacktop; ++i)
 	{
 	  if (stack[i].merge (state_old->stack[i], false, verifier))
@@ -1144,8 +1154,12 @@ private:
       // we've found two execution paths that reach a branch target
       // with different stack depths.  FIXME stackdepth instead?
       if (stacktop != other->stacktop)
-        verifier->verify_fail (std::string () + "stack sizes differ: "
-                               + stacktop + " and " + other->stacktop);
+	{
+	  char buf[50];
+	  sprintf (buf, "stack sizes differ: %d and %d", stacktop,
+		   other->stacktop);
+	  verifier->verify_fail (buf);
+	}
 
       for (int i = 0; i < stacktop; ++i)
 	if (! stack[i].state_mergeable_p (other->stack[i]))
@@ -1244,10 +1258,13 @@ private:
 
     int depth = t.depth ();
     if (current_state->stackdepth + depth > current_method->max_stack)
-      verify_fail (std::string () + "stack overflow; "
-                   + "current depth=" +current_state->stackdepth + ", "
-                   + "max_stack=" + current_method->max_stack + ", "
-                   + "pushing " + depth);
+      {
+	char buf[100];
+	sprintf (buf, "stack overflow; current depth=%d, max_stack=%d, "
+		 "pushing %d", current_state->stackdepth,
+		 current_method->max_stack, depth);
+	verify_fail (buf);
+      }
     current_state->stack[current_state->stacktop++] = t;
     current_state->stackdepth += depth;
   }
@@ -1351,9 +1368,12 @@ private:
   {
     int npc = start_PC + offset;
     if (npc < 0 || npc >= current_method->code_length)
-      verify_fail (std::string () + "branch out of range: "
-                   + "destination=" + npc + ", "
-                   + "code_length=" + current_method->code_length, start_PC);
+      {
+	char buf[100];
+	sprintf (buf, "branch out of range: destination=%d, code_length=%d",
+		 npc, current_method->code_length);
+	verify_fail (buf, start_PC);
+      }
     return npc;
   }
 
@@ -1473,9 +1493,11 @@ private:
     // fetching the target and we haven't yet checked the next
     // instruction.
     if (pc < PC && ! (flags[pc] & FLAG_INSN_START))
-      verify_fail (std::string () + "branch to " + pc
-		   + " not to instruction start",
-		   start_PC);
+      {
+	char buf[30];
+	sprintf (buf, "branch to %d not to instruction start", pc);
+	verify_fail (buf, start_PC);
+      }
     flags[pc] |= FLAG_BRANCH_TARGET;
   }
 
@@ -1485,7 +1507,11 @@ private:
       {
         jint b = get_byte ();
         if (b != 0)
-          verify_fail (std::string () + "found nonzero padding byte " + b);
+	  {
+	    char buf[30];
+	    sprintf (buf, "found nonzero padding byte %d", b);
+	    verify_fail (buf);
+	  }
       }
   }
 
@@ -1801,10 +1827,12 @@ private:
 	      jint low = get_int ();
 	      jint high = get_int ();
 	      if (low > high)
-	        verify_fail (std::string ()
-	                     + "invalid tableswitch: low=" + low + ", "
-	                     + "high=" + high,
-	                     start_PC);
+		{
+		  char buf[50];
+		  sprintf (buf, "invalid tableswitch: low=%d, high=%d",
+			   low, high);
+		  verify_fail (buf, start_PC);
+		}
 	      for (int i = low; i <= high; ++i)
 		note_branch_target (compute_jump (get_int ()));
 	    }
@@ -1908,8 +1936,11 @@ private:
   void check_pool_index (int index)
   {
     if (index < 0 || index >= vfy_get_constants_size (current_method))
-      verify_fail (std::string () + "constant pool index "
-		   + index + " out of range", start_PC);
+      {
+	char buf[50];
+	sprintf (buf, "constant pool index %d out of range", index);
+	verify_fail (buf, start_PC);
+      }
   }
 
   type check_class_constant (int index)
@@ -2846,10 +2877,12 @@ private:
 		  nargs = get_byte ();
 		  jint dummy_byte = get_byte ();
 		  if (dummy_byte != 0)
-		    verify_fail (std::string ()
-				 + "invokeinterface dummy byte is "
-				 + dummy_byte
-		                 + " instead of 0");
+		    {
+		      char buf[50];
+		      sprintf (buf, "invokeinterface dummy byte is %d "
+			       "instead of 0", dummy_byte);
+		      verify_fail (buf);
+		    }
 		}
 
 	      bool is_init = false;
@@ -2905,9 +2938,14 @@ private:
 
 	      vfy_jclass klass = class_type.klass->getclass (this);
 	      if (! vfy_has_method (klass, method_name, method_descriptor))
-		verify_fail (std::string () + "method '" + method_name + "' "
-		             + "with descriptor '" + method_descriptor + "' "
-		             + "not found");
+		{
+		  const char *mn = vfy_string_bytes (method_name);
+		  const char *md = vfy_string_bytes (method_descriptor);
+		  char buf[50 + strlen (mn) + strlen (md)];
+		  sprintf (buf, "method '%s' with descriptor '%s' not found",
+			   mn, md);
+		  verify_fail (buf);
+		}
 	    }
 	    break;
 
@@ -3015,9 +3053,12 @@ private:
 	      type atype = check_class_constant (get_ushort ());
 	      int dim = get_byte ();
 	      if (dim < 1)
-	        verify_fail (std::string ()
-	                     + "too few dimensions to multianewarray: " + dim,
-	                     start_PC);
+		{
+		  char buf[50];
+		  sprintf (buf, "too few dimensions to multianewarray: %d",
+			   dim);
+		  verify_fail (buf, start_PC);
+		}
 	      atype.verify_dimensions (dim, this);
 	      for (int i = 0; i < dim; ++i)
 		pop_type (int_type);

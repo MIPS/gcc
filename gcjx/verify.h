@@ -242,11 +242,6 @@ inline bool vfy_iface_iterator_done (vfy_jclass klass,
   return iter == assert_cast<model_class *> (klass)->get_interfaces ().end ();
 }
 
-inline int vfy_get_interface_count (vfy_jclass klass)
-{
-  return assert_cast<model_class *> (klass)->get_interfaces ().size ();
-}
-
 inline vfy_jclass vfy_get_interface (vfy_jclass, vfy_iface_iterator &iter)
 {
   return (*iter)->type ();
