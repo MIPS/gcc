@@ -626,22 +626,14 @@ template<typename _Alloc>
     vector(const allocator_type& __a = allocator_type())
     : _Bvector_base<_Alloc>(__a) { }
 
-    vector(size_type __n, bool __value, 
+    explicit
+    vector(size_type __n, const bool& __value = bool(), 
 	   const allocator_type& __a = allocator_type())
     : _Bvector_base<_Alloc>(__a)
     {
       _M_initialize(__n);
       std::fill(this->_M_impl._M_start._M_p, this->_M_impl._M_end_of_storage, 
 		__value ? ~0 : 0);
-    }
-
-    explicit
-    vector(size_type __n)
-    : _Bvector_base<_Alloc>(allocator_type())
-    {
-      _M_initialize(__n);
-      std::fill(this->_M_impl._M_start._M_p, 
-		this->_M_impl._M_end_of_storage, 0);
     }
 
     vector(const vector& __x)
@@ -717,7 +709,7 @@ template<typename _Alloc>
     }
 
     void
-    assign(size_t __n, bool __x)
+    assign(size_type __n, const bool& __x)
     { _M_fill_assign(__n, __x); }
 
     template<class _InputIterator>
@@ -831,7 +823,7 @@ template<typename _Alloc>
     }
 
     iterator
-    insert(iterator __position, bool __x = bool())
+    insert(iterator __position, const bool& __x = bool())
     {
       const difference_type __n = __position - begin();
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage
@@ -895,7 +887,7 @@ template<typename _Alloc>
     }
 
     void
-    insert(iterator __position, size_type __n, bool __x)
+    insert(iterator __position, size_type __n, const bool& __x)
     { _M_fill_insert(__position, __n, __x); }
 
     void

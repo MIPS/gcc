@@ -144,15 +144,9 @@ namespace _GLIBCXX_STD
       /**
        *  @brief  Default constructor creates no elements.
        */
-      map()
-      : _M_t(_Compare(), allocator_type()) { }
-
-      // for some reason this was made a separate function
-      /**
-       *  @brief  Default constructor creates no elements.
-       */
       explicit
-      map(const _Compare& __comp, const allocator_type& __a = allocator_type())
+      map(const _Compare& __comp = _Compare(),
+	  const allocator_type& __a = allocator_type())
       : _M_t(__comp, __a) { }
 
       /**
@@ -169,20 +163,6 @@ namespace _GLIBCXX_STD
        *  @brief  Builds a %map from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
-       *
-       *  Create a %map consisting of copies of the elements from [first,last).
-       *  This is linear in N if the range is already sorted, and NlogN
-       *  otherwise (where N is distance(first,last)).
-       */
-      template <typename _InputIterator>
-        map(_InputIterator __first, _InputIterator __last)
-	: _M_t(_Compare(), allocator_type())
-        { _M_t.insert_unique(__first, __last); }
-
-      /**
-       *  @brief  Builds a %map from a range.
-       *  @param  first  An input iterator.
-       *  @param  last  An input iterator.
        *  @param  comp  A comparison functor.
        *  @param  a  An allocator object.
        *
@@ -192,7 +172,8 @@ namespace _GLIBCXX_STD
        */
       template <typename _InputIterator>
         map(_InputIterator __first, _InputIterator __last,
-	    const _Compare& __comp, const allocator_type& __a = allocator_type())
+	    const _Compare& __comp = _Compare(),
+	    const allocator_type& __a = allocator_type())
 	: _M_t(__comp, __a)
         { _M_t.insert_unique(__first, __last); }
 

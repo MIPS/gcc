@@ -1,3 +1,23 @@
+2004-10-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (map::map(const _Compare&,
+	const allocator_type&), map::map(_InputIterator, _InputIterator,
+	const _Compare&, const allocator_type&)): Implement according to
+	the letter of the standard, i.e., don't use two overloads.
+	* include/bits/stl_multimap.h: Likewise for multimap.
+	* include/bits/stl_multiset.h: Likewise for multiset.
+	* include/bits/stl_set.h: Likewise for set.
+
+	* include/bits/stl_bvector.h (vector::vector(size_type, bool,
+	const allocator_type&)): Don't use two overloads; fix the
+	signature, the second argument is by const ref.
+
+	* include/bits/stl_bvector.h (assign(size_t, bool)): Fix the
+	signature: according to the standard the second argument is by
+	const ref.
+	(insert(iterator, bool)): Likewise.
+	(insert(iterator, size_type, bool)): Likewise for the third arg.
+
 2004-10-03  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20041003.

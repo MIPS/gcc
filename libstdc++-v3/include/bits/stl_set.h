@@ -145,33 +145,16 @@ namespace _GLIBCXX_STD
       //@}
 
       // allocation/deallocation
-      ///  Default constructor creates no elements.
-      set()
-      : _M_t(_Compare(), allocator_type()) {}
-
       /**
        *  @brief  Default constructor creates no elements.
        *
        *  @param  comp  Comparator to use.
        *  @param  a  Allocator to use.
        */
-      explicit set(const _Compare& __comp,
-		   const allocator_type& __a = allocator_type())
+      explicit
+      set(const _Compare& __comp = _Compare(),
+	  const allocator_type& __a = allocator_type())
       : _M_t(__comp, __a) {}
-
-      /**
-       *  @brief  Builds a %set from a range.
-       *  @param  first  An input iterator.
-       *  @param  last  An input iterator.
-       *
-       *  Create a %set consisting of copies of the elements from [first,last).
-       *  This is linear in N if the range is already sorted, and NlogN
-       *  otherwise (where N is distance(first,last)).
-       */
-      template<class _InputIterator>
-        set(_InputIterator __first, _InputIterator __last)
-        : _M_t(_Compare(), allocator_type())
-        { _M_t.insert_unique(__first, __last); }
 
       /**
        *  @brief  Builds a %set from a range.
@@ -186,7 +169,7 @@ namespace _GLIBCXX_STD
        */
       template<class _InputIterator>
         set(_InputIterator __first, _InputIterator __last,
-	    const _Compare& __comp,
+	    const _Compare& __comp = _Compare(),
 	    const allocator_type& __a = allocator_type())
 	: _M_t(__comp, __a)
         { _M_t.insert_unique(__first, __last); }
