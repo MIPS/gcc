@@ -17084,7 +17084,9 @@ cp_parser_objc_encode_expression (cp_parser* parser)
   tree type;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@encode'.  */
-  type = cp_parser_objc_typename (parser);
+  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  type = complete_type (cp_parser_type_id (parser));
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
   if (!type)
     {
@@ -17101,6 +17103,7 @@ static tree
 cp_parser_objc_defs_expression (cp_parser *parser)
 {
   tree name;
+
   cp_lexer_consume_token (parser->lexer);  /* Eat '@defs'.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   name = cp_parser_identifier (parser);

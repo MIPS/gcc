@@ -1,3 +1,10 @@
+2005-02-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3987120
+	* parser.c (cp_parser_objc_encode_expression): Call
+	'complete_type (cp_parser_type_id ())' instead of
+	'cp_parser_objc_typename ()' to retrieve argument type.
+
 2005-02-02  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3978104

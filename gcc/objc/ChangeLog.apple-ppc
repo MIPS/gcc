@@ -1,3 +1,10 @@
+2005-02-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3987972
+	* objc-act.c (objc_start_function): Reset
+	'current_function_returns_value' and 'current_function_returns_null'
+	global flags.
+
 2005-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013

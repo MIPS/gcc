@@ -7975,6 +7975,11 @@ objc_start_function (tree name, tree type, tree attrs,
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
+  /* APPLE LOCAL begin Objective-C */
+  current_function_returns_value = 0;  /* Assume, until we see it does.  */
+  current_function_returns_null = 0;
+  /* APPLE LOCAL end Objective-C */
+
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
   DECL_INITIAL (fndecl) = error_mark_node;
