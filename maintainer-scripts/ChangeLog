@@ -1,0 +1,68 @@
+2001-06-25  Phil Edwards  <pme@sources.redhat.com>
+
+	* update_version:  Add command-line argument capability, also
+	bump version for libstdc++-v3, and exit with the return code from
+	the cvs commit.
+	* crontab:  Call update_version with arguments instead of
+	calling update_branch_version.
+	* update_branch_version:  Remove.
+
+2001-06-08  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* update_web_docs: Only update the install documentation for the 
+	CVS HEAD.
+
+2001-06-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_web_docs, doc_exclude: Check out files that may be in the
+	Attic.  Check out texinfo.tex.  Don't generate anything from
+	c-tree.texi.  Generate PostScript output from manuals.
+
+2001-06-04  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* update_web_docs (WWWBASE_PREFORMATTED, PREPROCESS): New
+	variables.
+	Fix a comment and add another one.
+	Generate the installation documentation in HTML format from
+	gcc/doc/install.texi.
+
+2001-05-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_web_docs: Don't generate HTML from gxxint.texi.  Don't
+	run texi2html on manuals that aren't present.
+
+2001-03-18  Phil Edwards  <pme@sources.redhat.com>
+
+	* update_web_docs_libstdcxx:  New script.
+	* crontab:  Call said script.
+
+2001-03-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_version, update_branch_version: Check out with gcc
+	directory instead of using egcs link.
+
+2001-03-17  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_web_docs: Don't strip leading -r from argument following
+	-r, or leading -d from argument following -d.  Bug pointed out by
+	Matt Kraai.
+
+	* update_web_docs: Handle -r and -d options to generate docs for a
+	release or branch in a subdirectory.  Determine names of G77 news
+	and bugs files and contributors file after updated docs have been
+	installed, not before.  Don't remove files from a subdirectory.
+	Don't generate manuals for gcov (included in the GCC manual) or
+	iostream (obsolete).  Do generate manuals for cppinternals, gcj
+	and porting.  Update regular expressions for detecting whether
+	files have really changed when regenerated.
+
+2001-03-15  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_web_docs: Use /usr/local/bin/texi2html rather than
+	gccadmin's local copy.
+
+2001-03-10  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* crontab, doc_exclude, update_branch_version, update_version,
+	update_web_docs: New files (as currently used by gccadmin).
+	* README: New file.
