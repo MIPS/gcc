@@ -1,6 +1,12 @@
+1999-06-08  Richard Henderson  <rth@cygnus.com>
+
+	* loop.c (loop_emit_jump_insn_before): Return the jump insn.
+	(loop_emit_jump_insn_after): Likewise.
+	(check_dbra_loop): Correct last change to use the return value.
+
 1999-06-27  Richard Henderson  <rth@cygnus.com>
 
-	* loop.c (strength_reduce): Disable until it's fixed on mainline.
+	* loop.c (recombine_givs): Disable until it's fixed on mainline.
 
 1999-06-27  Richard Henderson  <rth@cygnus.com>
 

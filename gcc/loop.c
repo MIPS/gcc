@@ -8397,7 +8397,8 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 				       XEXP (jump_label, 0));
 	      tem = gen_sequence ();
 	      end_sequence ();
-	      loop_emit_jump_insn_before (tem, loop_end, XEXP (jump_label, 0));
+	      tem = loop_emit_jump_insn_before (tem, loop_end,
+						XEXP (jump_label, 0));
 
 	      if (nonneg)
 		{
@@ -10560,7 +10561,7 @@ replace_label (x, data)
 }
 
 /* Like emit_jump_insn_before, except initialize the jump insn's
-   JUMP_LABEL to LABEL.  */
+   JUMP_LABEL to LABEL.  Return the jump instruction.  */
 
 static rtx
 loop_emit_jump_insn_before (insn, before, label)
@@ -10573,13 +10574,13 @@ loop_emit_jump_insn_before (insn, before, label)
     if (GET_CODE (p) == JUMP_INSN)
       {
 	JUMP_LABEL (p) = label;
-	return ret;
+	return p;
       }
   abort ();
 }
 
 /* Like emit_jump_insn_after, except initialize the jump insn's
-   JUMP_LABEL to LABEL.  */
+   JUMP_LABEL to LABEL.  Return the jump instruction.  */
 
 static rtx
 loop_emit_jump_insn_after (insn, after, label)
@@ -10592,7 +10593,7 @@ loop_emit_jump_insn_after (insn, after, label)
     if (GET_CODE (p) == JUMP_INSN)
       {
 	JUMP_LABEL (p) = label;
-	return ret;
+	return p;
       }
   abort ();
 }
