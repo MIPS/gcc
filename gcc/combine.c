@@ -7237,7 +7237,7 @@ force_to_mode (x, mode, mask, reg, just_select)
       if (op_mode != GET_MODE (x) || op0 != XEXP (x, 0))
 	{
 	  x = gen_binary (code, op_mode, op0, XEXP (x, 1));
-	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	  if (GET_CODE (x) == code && GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    x = simplify_shift_const (x, GET_CODE (x), op_mode,
 				      XEXP (x, 0), INTVAL (XEXP (x, 1)));
 	}
