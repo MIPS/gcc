@@ -1306,6 +1306,7 @@ javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
 javax/swing/plaf/basic/BasicInternalFrameUI.java \
@@ -1316,6 +1317,7 @@ javax/swing/plaf/basic/BasicMenuBarUI.java \
 javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicPasswordFieldUI.java \
 javax/swing/plaf/basic/BasicPopupMenuUI.java \
 javax/swing/plaf/basic/BasicPopupMenuSeparatorUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
@@ -1331,6 +1333,7 @@ javax/swing/plaf/basic/BasicSpinnerUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \

@@ -1,3 +1,13 @@
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicFormattedTextFieldUI.java,
+	javax/swing/plaf/basic/BasicPasswordFieldUI.java,
+	javax/swing/plaf/basic/BasicTextAreaUI.java: New files.
+	* javax/swing/text/FieldView.java
+	(paint): Just call super method for now.
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerated.
+
 2004-08-11  Ka-Hing Cheung  <kahing@javabsp.org>
 
 	* javax/swing/AbstractSpinnerModel.java,
