@@ -134,6 +134,7 @@ extern rtx rs6000_machopic_legitimize_pic_address PARAMS ((rtx orig, enum machin
 
 extern bool rs6000_tls_referenced_p PARAMS ((rtx));
 extern int rs6000_tls_symbol_ref PARAMS ((rtx, enum machine_mode));
+extern void rs6000_output_dwarf_dtprel (FILE*, int, rtx);
 
 #endif /* RTX_CODE */
 

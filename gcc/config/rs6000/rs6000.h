@@ -250,6 +250,13 @@ extern int target_flags;
 #define HAVE_AS_TLS 0
 #endif
 
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#ifdef HAVE_AS_TLS
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  rs6000_output_dwarf_dtprel (FILE, SIZE, X)
+#endif
+
 #ifdef IN_LIBGCC2
 /* For libgcc2 we make sure this is a compile time constant */
 #if defined (__64BIT__) || defined (__powerpc64__)

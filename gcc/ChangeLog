@@ -1,3 +1,10 @@
+2004-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_dwarf_dtprel): Add
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_output_dwarf_dtprel): New.
+	* config/rs6000/rs6000.h (ASM_OUTPUT_DWARF_DTPREL): Define.
+
 2004-02-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (override_options): Error if -m64 and selected

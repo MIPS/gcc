@@ -2068,6 +2068,30 @@ rs6000_legitimize_address (x, oldx, mode)
     return NULL_RTX;
 }
 
+/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+   We need to emit DTP-relative relocations.  */
+
+void
+rs6000_output_dwarf_dtprel (file, size, x)
+     FILE *file;
+     int size;
+     rtx x;
+{
+  switch (size)
+    {
+    case 4:
+      fputs ("\t.long\t", file);
+      break;
+    case 8:
+      fputs ("\t.llong\t", file);
+      break;
+    default:
+      abort ();
+    }
+  output_addr_const (file, x);
+  fputs ("@dtprel+0x8000", file);
+}
+
 /* Construct the SYMBOL_REF for the __tls_get_addr function.  */
 
 static rtx
