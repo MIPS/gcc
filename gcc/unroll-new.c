@@ -585,10 +585,6 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   edge e;
   sbitmap wont_exit;
 
-  /* We are handling incorrectly situation, where the loop condition is false
-     and number of iterations get negative, so disable the code for now.  */
-  return 0;
-
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
   max_unroll = i - 1;
