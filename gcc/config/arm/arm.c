@@ -389,7 +389,7 @@ arm_override_options ()
 	 switch that require certain abilities from the cpu.  */
       sought = 0;
       
-      if (TARGET_INTERWORK)
+      if (TARGET_INTERWORK || TARGET_THUMB)
 	{
 	  sought |= (FL_THUMB | FL_MODE32);
 	  
@@ -402,12 +402,9 @@ arm_override_options ()
 	     below will always be able to find a compatible processor.  */
 	  insn_flags &= ~ FL_MODE26;
 	}
-      
-      if (! TARGET_APCS_32)
-	sought |= FL_MODE26;
 
-      if (TARGET_THUMB)
-	sought |= FL_THUMB;
+      else if (! TARGET_APCS_32)
+	sought |= FL_MODE26;
       
       if (sought != 0 && ((sought & insn_flags) != sought))
 	{
@@ -546,14 +543,14 @@ arm_override_options ()
     warning ("Passing floating point arguments in fp regs not yet supported");
   
   /* Initialise boolean versions of the flags, for use in the arm.md file.  */
-  arm_fast_multiply = insn_flags & FL_FAST_MULT;
-  arm_arch4         = insn_flags & FL_ARCH4;
-  arm_arch5         = insn_flags & FL_ARCH5;
+  arm_fast_multiply = (insn_flags & FL_FAST_MULT) != 0;
+  arm_arch4         = (insn_flags & FL_ARCH4) != 0;
+  arm_arch5         = (insn_flags & FL_ARCH5) != 0;
   
-  arm_ld_sched      = tune_flags & FL_LDSCHED;
-  arm_is_strong     = tune_flags & FL_STRONG;
-  arm_is_6_or_7     = ((tune_flags & (FL_MODE26 | FL_MODE32))
-		       && !(tune_flags & FL_ARCH4));
+  arm_ld_sched      = (tune_flags & FL_LDSCHED) != 0;
+  arm_is_strong     = (tune_flags & FL_STRONG) != 0;
+  arm_is_6_or_7     = (((tune_flags & (FL_MODE26 | FL_MODE32))
+		       && !(tune_flags & FL_ARCH4))) != 0;
   
   /* Default value for floating point code... if no co-processor
      bus, then schedule for emulated floating point.  Otherwise,

@@ -1,3 +1,26 @@
+Tue Oct 26 11:27:12 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/thumb.c (output_thumb_prologue): Fix bug creating
+	stack backtrace structure.
+
+	* config/arm/arm-protos.h: Add prototypes for functions defined in
+	arm/pe.h.
+	
+	* config/arm/arm.c (arm_override_options): Correct initialization
+	of arm_fast_multiply, arm_arch4, arm_arch5, arm_ld_sched,
+	arm_is_strong, and arm_is_6_or_7. [Patch from Jeff Law]
+	Also fix selection of attributes of default processor.
+	
+	* config/arm/coff.h: Delete needless #include.
+	
+	* config/arm/pe.c: Delete unused code.
+	
+	* config/arm/pe.h (CPP_DEFINES): Delete
+	(SUBTARGET_CPP_SPEC): Define.
+	(ASM_DECLARE_FUNCTION_NAME): Use ARM_DECLARE_FUNCTION_NAME.
+	
+	* config/arm/t-pe: Add -DInhibit_libc to allof libgcc.a to build.
+
 Mon Oct 25 00:42:35 1999  Jeffrey A Law  (law@cygnus.com)
 
 	* loop.c (note_set_pseudo_multiple_uses_retval): New variable.

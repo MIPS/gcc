@@ -934,7 +934,7 @@ output_thumb_prologue (f)
 	  offset += 4;
       
       asm_fprintf (f, "\tadd\t%r, %r, #%d\n",
-		   SP_REGNUM, work_register, offset + 16 + current_function_pretend_args_size);
+		   work_register, SP_REGNUM, offset + 16 + current_function_pretend_args_size);
       
       asm_fprintf (f, "\tstr\t%r, [%r, #%d]\n", work_register, SP_REGNUM, offset + 4);
 
