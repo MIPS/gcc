@@ -1244,6 +1244,7 @@ extern void objc_declare_class (tree);
 extern void objc_declare_protocols (tree);
 extern tree objc_method_ellipsis (void);
 extern int objc_is_public (tree, tree);
+extern int objc_is_type_qualifier (tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
 extern tree objc_build_selector_expr (tree);

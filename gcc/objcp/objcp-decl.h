@@ -42,8 +42,6 @@ extern int objcp_comptypes (tree, tree, int);
 extern void objcp_pushlevel (int);
 extern tree objcp_builtin_function (const char *, tree, int, 
 				    enum built_in_class, const char *, tree);
-
-extern int objcp_lookup_identifier	 (tree, tree *, int);
 						 
 /* Now "cover up" the corresponding C++ functions if required (NB: the 
    OBJCP_ORIGINAL_FUNCTION macro, shown below, can still be used to

@@ -3843,9 +3843,20 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
       if (idk == CP_ID_KIND_UNQUALIFIED
 	  && TREE_CODE (postfix_expression) == IDENTIFIER_NODE
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
-	/* It is not a Koenig lookup function call.  */
-	postfix_expression
-	  = unqualified_name_lookup_error (postfix_expression);
+	{
+	  /* We may be referring to an Objective-C++ instance variable.  */
+	  if (c_dialect_objc ())
+	    {
+	      tree ivar = objc_lookup_ivar (postfix_expression);
+
+	      if (ivar)
+		return ivar;
+	    }
+
+	  /* It is not a Koenig lookup function call.  */
+	  postfix_expression
+	    = unqualified_name_lookup_error (postfix_expression);
+	}
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -15465,6 +15476,8 @@ cp_parser_objc_message_receiver (cp_parser* parser)
 {
   tree rcv;
 
+  /* An Objective-C message receiver may be either (1) a type
+     or (2) an expression.  */
   cp_parser_parse_tentatively (parser);
   rcv = cp_parser_type_name (parser);
 
@@ -15626,7 +15639,7 @@ cp_parser_objc_expression (cp_parser* parser)
       return cp_parser_objc_message_expression (parser);
     case CPP_OBJC_STRING:
       return cp_parser_objc_literal_expression (parser);
-    case CPP_NAME:
+    case CPP_KEYWORD:
       switch (kwd->keyword)
 	{
 	case RID_AT_ENCODE:
@@ -15739,10 +15752,29 @@ cp_parser_objc_typename (cp_parser* parser)
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
     {
-      tree typespecs, absdecl;
+      tree typespecs = NULL_TREE, absdecl;
+      cp_token *token;
 
       cp_lexer_consume_token (parser->lexer);  /* Eat '('.  */
-      typespecs = cp_parser_type_specifier_seq (parser);
+      token = cp_lexer_peek_token (parser->lexer);
+
+      /* We need to allow for ObjC qualifiers such as "in", "out",
+	 "inout", "oneway" and "byref" here.  */
+      while (token->value && objc_is_type_qualifier (token->value))
+	{
+	  typespecs = tree_cons (NULL_TREE,
+				 token->value,
+				 typespecs);
+	  cp_lexer_consume_token (parser->lexer);
+	  token = cp_lexer_peek_token (parser->lexer);
+	}
+
+      /* An ObjC type name may consist of just type qualifiers, in which
+	 case the type shall default to 'id'.  */
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
+	typespecs = chainon (cp_parser_type_specifier_seq (parser),
+			     typespecs);
+
       cp_parser_parse_tentatively (parser);
       absdecl = cp_parser_declarator (parser,
 				      CP_PARSER_DECLARATOR_ABSTRACT,

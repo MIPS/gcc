@@ -31,6 +31,7 @@
 #include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "c-common.h"
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "except.h"
@@ -971,8 +972,14 @@ finish_compound_stmt (tree compound_stmt)
   if (COMPOUND_STMT_NO_SCOPE (compound_stmt))
     r = NULL_TREE;
   else
-    r = do_poplevel ();
+    {
+      /* Destroy any ObjC "super" receivers that may have been
+	 created.  */
+      if (c_dialect_objc ())
+	objc_clear_super_receiver ();
 
+      r = do_poplevel ();
+    }
   RECHAIN_STMTS (compound_stmt, COMPOUND_BODY (compound_stmt));
 
   /* When we call finish_stmt we will lose LAST_EXPR_TYPE.  But, since

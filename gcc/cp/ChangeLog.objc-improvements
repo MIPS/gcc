@@ -1,3 +1,16 @@
+2004-06-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* lang-specs.h: Bring over from mainline.
+	* parser.c (cp_parser_postfix_expression): Add call to
+	objc_lookup_ivar() as a last resort.
+	(cp_parser_objc_message_receiver): Add comment.
+	(cp_parser_objc_expression): Objective-C keywords are marked with
+	CPP_KEYWORD, not CPP_NAME.
+	(cp_parser_objc_typename): Add handling for "in", "out", "inout",
+	"oneway", "byref" and "bycopy" protocol arg qualifiers.
+	* semantics.c: Include c-common.h.
+	(finish_compound_stmt): Call objc_clear_super_receiver() if needed.
+
 2004-06-07  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (cp/pt.o): Depend on cp/cp-objcp-common.h;

@@ -1,3 +1,9 @@
+2004-06-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-common.h (objc_is_type_qualifier): New prototype.
+	* stub-objc.c (objc_is_type_qualifier, objc_clear_super_receiver):
+	New stubs.
+
 2004-03-04  Ziemowit Laski  <zlaski@apple.com>
 
 	* Makefile.in (c-parse.o): Depend on $(C_COMMON_H).

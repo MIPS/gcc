@@ -109,7 +109,7 @@ objcp_tsubst_copy_and_build (tree t, tree args, tsubst_flags_t complain,
 
   /* The following two can only occur in Objective-C++.  */
 
-  switch (TREE_CODE (t))
+  switch ((int) TREE_CODE (t))
     {
     case MESSAGE_SEND_EXPR:
       return objc_finish_message_expr
@@ -120,6 +120,9 @@ objcp_tsubst_copy_and_build (tree t, tree args, tsubst_flags_t complain,
     case CLASS_REFERENCE_EXPR:
       return objc_get_class_reference
 	(RECUR (TREE_OPERAND (t, 0)));
+
+    default:
+      break;
     }
 
   return NULL_TREE;

@@ -1,3 +1,14 @@
+2004-06-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* lang-specs.h: Add missing initializer, analogously to
+	cp/lang-specs.h.
+	* objcp-decl.c (objcp_build_compound_expr): Handle tail
+	of list recursively.
+	(objcp_lookup_identifier): Remove.
+	* objcp-decl.h (objcp_lookup_identifier): Remove prototype.
+	* objcp-lang.c (objcp_tsubst_copy_and_build): Provide cast
+	and 'default' label to squash warnings.
+
 2004-06-07  Ziemowit Laski  <zlaski@apple.com>
 
 	* objcp-lang.c (objcp_tsubst_copy_and_build): New function.
@@ -27,7 +38,7 @@
 	* objcp-decl.c (objcp_start_struct): Mimic what the C++ front-end
 	does when starting a struct declaration.
 	(objcp_finish_struct): Mimic what the C++ front-end does when
-	finish a struct declaration.
+	finishing a struct declaration.
 	(objcp_xref_tag): Remove redundant test.
 	(objcp_lookup_identifier): Call objc_lookup_ivar() instead
 	of lookup_objc_ivar().

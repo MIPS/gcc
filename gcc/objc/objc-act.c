@@ -309,7 +309,6 @@ static tree generate_dispatch_table (tree, const char *, int, tree);
 static tree build_shared_structure_initializer (tree, tree, tree, tree,
 						tree, int, tree, tree, tree);
 static void generate_category (tree);
-static int is_objc_type_qualifier (tree);
 static tree adjust_type_for_id_default (tree);
 static tree check_duplicates (hash, int, int);
 static tree receiver_is_class_object (tree, int, int);
@@ -5464,8 +5463,8 @@ synth_id_with_class_suffix (const char *preamble, tree ctxt)
   return get_identifier (string);
 }
 
-static int
-is_objc_type_qualifier (tree node)
+int
+objc_is_type_qualifier (tree node)
 {
   return (TREE_CODE (node) == IDENTIFIER_NODE
 	  && (node == ridpointers [(int) RID_CONST]
@@ -5501,7 +5500,7 @@ adjust_type_for_id_default (tree type)
           && !(TREE_VALUE (type)
                && TREE_CODE (TREE_VALUE (type)) == INDIRECT_REF))
         error ("can not use an object as parameter to a method\n");
-      if (!is_objc_type_qualifier (TREE_VALUE (chain)))
+      if (!objc_is_type_qualifier (TREE_VALUE (chain)))
 	return type;
     }
 
@@ -5914,6 +5913,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   while (TREE_CODE (rtype) == COMPOUND_EXPR
 	      || TREE_CODE (rtype) == MODIFY_EXPR
 	      || TREE_CODE (rtype) == NOP_EXPR
+	      || TREE_CODE (rtype) == CONVERT_EXPR
 	      || TREE_CODE (rtype) == COMPONENT_REF)
     rtype = TREE_OPERAND (rtype, 0);
   self = (rtype == self_decl);
@@ -6183,6 +6183,9 @@ build_protocol_reference (tree p)
       TREE_PUBLIC (decl) = 0;
       TREE_USED (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
+#ifdef OBJCPLUS
+      DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
+#endif  
 
       make_decl_rtl (decl, 0);
       pushdecl_top_level (decl);

@@ -57,6 +57,12 @@ objc_is_reserved_word (tree ident ATTRIBUTE_UNUSED)
 }
 
 int
+objc_is_type_qualifier (tree ident ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+int
 objc_comptypes (tree lhs ATTRIBUTE_UNUSED, tree rhs ATTRIBUTE_UNUSED,
                 int reflexive ATTRIBUTE_UNUSED)
 {
@@ -152,6 +158,11 @@ objc_start_category_implementation (tree name ATTRIBUTE_UNUSED,
 
 void
 objc_continue_implementation (void)
+{
+}
+
+void
+objc_clear_super_receiver (void)
 {
 }
 

@@ -184,9 +184,12 @@ objcp_build_compound_expr (tree list)
 {
   tree rest = TREE_CHAIN (list);
 
-  TREE_CHAIN (list) = NULL_TREE;
+  if (TREE_CHAIN (rest))
+    rest = objcp_build_compound_expr (rest);
+  else
+    rest = TREE_VALUE (rest);
 
-  return build_compound_expr (list, rest);
+  return build_compound_expr (TREE_VALUE (list), rest);
 }
 
 int
@@ -226,20 +229,6 @@ objcp_builtin_function (const char *name, tree type, int code,
     decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
-}
-
-int
-objcp_lookup_identifier (tree token, tree *id, int check_conflict)
-{
-  tree objc_id = objc_lookup_ivar (token);
-  
-  if (!check_conflict || (objc_id && IS_SUPER (objc_id)))
-    *id = objc_id;
-  else if (objc_id && *id && IDENTIFIER_BINDING (token)) 
-    warning ("local declaration of `%s' hides instance variable",
-	     IDENTIFIER_POINTER (token));
-
-  return (objc_id != NULL_TREE);
 }
 
 #include "gt-objcp-objcp-decl.h"

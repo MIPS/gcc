@@ -1,3 +1,13 @@
+2004-06-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (is_objc_type_qualifier): Rename to
+	'objc_is_type_qualifier' and make extern.
+	(adjust_type_for_id_default): Call objc_is_type_qualifier() instead
+	of is_objc_type_qualifier().
+	(objc_finish_message_expr): Handle CONVERT_EXPRs in receiver.
+	(build_protocol_reference): Mark as DECL_THIS_STATIC in ObjC++ to
+	squash redeclaration errors.
+
 2004-06-07  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (objc_finish_file): Instantiate templates before calling

@@ -1,3 +1,9 @@
+2004-06-09  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/proto-qual-1.mm: New test case.
+	* obj-c++.dg/super-class-1.mm: New test case.
+	* obj-c++.dg/template-3.mm: New test case.
+
 2004-06-07  David Ayers  <d.ayers@inode.at>
 	    Ziemowit Laski  <zlaski@apple.com>
 

@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 	%(cc1_options) %2 %{+e1*}\
        %{!fsyntax-only:%(invoke_as)}}}}",
      CPLUSPLUS_CPP_SPEC, 0, 0},
-  {".mii", "@objective-c++-cpp-output", 0},
+  {".mii", "@objective-c++-cpp-output", 0, 0},
   {"@objective-c++-cpp-output",
    "%{!M:%{!MM:%{!E:\
     cc1objplus -fpreprocessed %i %(cc1_options) %2 %{+e*}\
