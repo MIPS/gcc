@@ -40,8 +40,8 @@ package java.awt.image;
 
 import java.awt.*;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.geom.*;
-import gnu.java.awt.peer.gtk.GdkGraphics2D;
 
 
 /**
@@ -172,7 +172,7 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
       // If it is not, then source image should be converted to color model
       // of the destination image
 
-      GdkGraphics2D gr = (GdkGraphics2D) dst.createGraphics ();
+      Graphics2D gr = (Graphics2D) dst.createGraphics ();
       gr.setRenderingHints (hints);	
       gr.drawImage (src, transform, null);
       return dst;

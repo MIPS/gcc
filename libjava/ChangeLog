@@ -1,3 +1,9 @@
+2004-03-08  David Jee  <djee@redhat.com>
+
+	* java/awt/image/AffineTransformOp.java:
+	(filter): Use Graphics2D interface instead of directly using the
+	GdkGraphics2D peer.
+
 2004-03-05  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkButtonPeer.java
