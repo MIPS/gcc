@@ -1,5 +1,5 @@
 /* Glue to interface gcj with bytecode verifier.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -334,6 +334,24 @@ vfy_throwable_type ()
   return k;
 }
 
+vfy_jclass
+vfy_unsuitable_type (void)
+{
+  return TYPE_SECOND;
+}
+
+vfy_jclass
+vfy_return_address_type (void)
+{
+  return TYPE_RETURN_ADDR;
+}
+
+vfy_jclass
+vfy_null_type (void)
+{
+  return TYPE_NULL;
+}
+
 int
 vfy_fail (const char *message, int pc, vfy_jclass ignore1 ATTRIBUTE_UNUSED,
 	  vfy_method *ignore2 ATTRIBUTE_UNUSED)
@@ -361,14 +379,24 @@ vfy_get_primitive_type (int type)
 }
 
 void
-vfy_note_stack_depth (int pc, int depth)
+vfy_note_stack_depth (vfy_method *method, int pc, int depth)
 {
   tree label = lookup_label (pc);
-  LABEL_TYPE_STATE (label) = make_tree_vec (depth);
+  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth);
 }
 
 void
-vfy_note_type (int pc, int slot, vfy_jclass type)
+vfy_note_stack_type (vfy_method *method, int pc, int slot, vfy_jclass type)
+{
+  slot += method->max_locals;
+
+  tree label = lookup_label (pc);
+  tree vec = LABEL_TYPE_STATE (label);
+  TREE_VEC_ELT (vec, slot) = type;
+}
+
+void
+vfy_note_local_type (vfy_method *method, int pc, int slot, vfy_jclass type)
 {
   tree label = lookup_label (pc);
   tree vec = LABEL_TYPE_STATE (label);

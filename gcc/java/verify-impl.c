@@ -210,8 +210,8 @@ typedef struct verifier_context
 } verifier_context;
 
 /* The current verifier's state data. This is maintained by
-{push/pop}_verifier_context to provide a shorthand form to access the
-verification state. */
+   {push/pop}_verifier_context to provide a shorthand form to access
+   the verification state. */
 static GTY(()) verifier_context *vfr;
 
 /* Local function declarations.  */
@@ -3258,10 +3258,73 @@ verify_instructions_0 (void)
     }
 }
 
-static void verify_instructions (void)
+/* This turns a `type' into something suitable for use by the type map
+   in the other parts of the compiler.  In particular, reference types
+   are mapped to Object, primitive types are unchanged, and other
+   types are mapped using special functions declared in verify.h.  */
+static vfy_jclass
+collapse_type (type *t)
 {
+  switch (t->key)
+    {
+    case void_type:
+    case boolean_type:
+    case char_type:
+    case float_type:
+    case double_type:
+    case byte_type:
+    case short_type:
+    case int_type:
+    case long_type:
+      return vfy_get_primitive_type (t->key);
+
+    case unsuitable_type:
+    case continuation_type:
+      return vfy_unsuitable_type ();
+
+    case return_address_type:
+      return vfy_return_address_type ();
+
+    case null_type:
+      return vfy_null_type ();
+
+    case reference_type:
+    case uninitialized_reference_type:
+      return vfy_object_type ();
+    }
+
+  abort ();
+}
+
+static void
+verify_instructions (void)
+{
+  int i;
+
   branch_prepass ();
   verify_instructions_0 ();
+
+  /* Now tell the rest of the compiler about the types we've found.  */
+  for (i = 0; i < vfr->current_method->code_length; ++i)
+    {
+      int j;
+      struct state *curr;
+
+      if (! vfr->states[i])
+	continue;
+
+      curr = vfr->states[i]->val;
+      vfy_note_stack_depth (vfr->current_method, i, curr->stackdepth);
+
+      /* Tell the compiler about each local variable.  */
+      for (j = 0; j < vfr->current_method->max_locals; ++j)
+	vfy_note_stack_type (vfr->current_method, i, j,
+			     collapse_type (&curr->locals[j]));
+      /* Tell the compiler about each stack slot.  */
+      for (j = 0; j < curr->stackdepth; ++j)
+	vfy_note_stack_type (vfr->current_method, i, j,
+			     collapse_type (&curr->stack[j]));
+    }
 }
 
 #if 0

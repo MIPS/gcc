@@ -1,5 +1,22 @@
 2004-10-15  Tom Tromey  <tromey@redhat.com>
 
+	* verify-impl.c (vfr): Fixed comment formatting.
+	(collapse_type): New function.
+	(verify_instructions): Notify compiler about type map.
+	* verify.h (vfy_note_stack_depth): Updated.
+	(vfy_note_stack_type): Likewise.
+	(vfy_note_local_type): Likewise.
+	(vfy_unsuitable_type, vfy_return_address_type, vfy_null_type):
+	Declare.
+	* verify-glue.c (vfy_note_stack_depth): Correctly size type
+	state.  Added `method' argument.
+	(vfy_note_stack_type): Renamed from vfy_note_type.  Added `method'
+	argument.
+	(vfy_note_local_type): New function.
+	(vfy_unsuitable_type): Likewise.
+	(vfy_return_address_type): Likewise.
+	(vfy_null_type): Likewise.
+
 	* verify.h (VFY_IN_GCC): Removed.
 	(VFY_WANT_TYPEMAP): Removed.
 	* verify-impl.c (verify_instructions_0): Removed useless "\".
