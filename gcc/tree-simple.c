@@ -593,6 +593,8 @@ is_simple_unary_expr (t)
   /* Addition to the original grammar.  Allow BIT_FIELD_REF nodes where
      operand 0 is a SIMPLE identifier and operands 1 and 2 are SIMPLE
      values.  */
+  /* FIXME: This breaks stage2.  I still haven't figured out why.  When
+	    fixing remember to undo a similar change in simplify_expr.  */
   if (TREE_CODE (t) == BIT_FIELD_REF)
     return 1;
 #if 0

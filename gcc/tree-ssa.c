@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
 #include "bitmap.h"
+
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */
 

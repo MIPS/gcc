@@ -94,11 +94,12 @@ static void insert_after_loop_body PARAMS ((tree, basic_block));
 
 /* {{{ tree_find_basic_blocks()
    
-   Entry point to the CFG builder for trees.  */
+   Entry point to the CFG builder for trees.  FNBODY is the body of the
+   function to process.  */
 
 void
-tree_find_basic_blocks (t)
-     tree t;
+tree_find_basic_blocks (fnbody)
+     tree fnbody;
 {
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
@@ -116,7 +117,7 @@ tree_find_basic_blocks (t)
   VARRAY_BB_INIT (binding_stack, 5, "binding_stack");
 
   /* Find the basic blocks for the flowgraph.  */
-  make_blocks (t, NULL, NULL, NULL);
+  make_blocks (fnbody, NULL, NULL, NULL);
 
   if (n_basic_blocks > 0)
     {

@@ -100,27 +100,33 @@ static int stmt_expr_level;
 
 /* Simplification of statement trees.  */
 
-/** {{{ simplify_tree ()
+/** {{{ c_simplify_function_tree ()
 
-    Entry point to the simplification pass.  FN is the FUNCTION_DECL node
-    for the function we want to simplify.  */
+    Entry point to the simplification pass.  FNDECL is the FUNCTION_DECL
+    node for the function we want to simplify.  */
 
-void
-simplify_tree (fn)
-     tree fn;
+int
+c_simplify_function_tree (fndecl)
+     tree fndecl;
 {
-  tree fn_body;
+  tree fnbody;
 
-  /* Don't bother doing anything if the program has errors.  */
-  if (errorcount || sorrycount)
-    return;
-
-  fn_body = COMPOUND_BODY (DECL_SAVED_TREE (fn));
-  if (fn_body == NULL)
-    return;
+  fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
+  if (fnbody == NULL)
+    return 1;
 
   /* Debugging dumps.  */
   dump_file = dump_begin (TDI_simple, &dump_flags);
+  if (dump_file)
+    {
+      fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
+	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_UNPARSE)
+	print_c_tree (dump_file, fnbody);
+      else
+	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+    }
 
   /* Create a new binding level for the temporaries created by the
      simplification process.  */
@@ -128,16 +134,29 @@ simplify_tree (fn)
 
   /* Simplify the function's body.  */
   stmt_expr_level = 0;
-  simplify_stmt (fn_body);
+  simplify_stmt (fnbody);
 
   /* Declare the new temporary variables.  */
-  declare_tmp_vars (getdecls(), fn_body);
+  declare_tmp_vars (getdecls(), fnbody);
 
   /* Restore the binding level.  */
   poplevel (1, 1, 0);
 
+  /* Debugging dump after simplification.  */
   if (dump_file)
-    dump_end (TDI_simple, dump_file);
+    {
+      fprintf (dump_file, "\n%s()    (SIMPLIFIED)\n",
+	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_UNPARSE)
+	print_c_tree (dump_file, fnbody);
+      else
+	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+
+      dump_end (TDI_simple, dump_file);
+    }
+
+  return 1;
 }
 
 /* }}} */
@@ -1072,6 +1091,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
       simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt);
       break;
 
+    /* FIXME: This breaks stage2.  I still haven't figured out why.  When
+	      fixing remember to undo a similar change in
+	      is_simple_unary_expr.  */
     case BIT_FIELD_REF:
 #if 0
       simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id);

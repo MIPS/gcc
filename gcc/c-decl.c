@@ -6885,55 +6885,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Invoke the SSA tree optimizer.  */
   if (flag_tree_ssa)
-    {
-      FILE *dump_file;
-      int dump_flags;
-      tree fn = DECL_SAVED_TREE (fndecl);
-
-      /* Debugging dump before simplification.  */
-      dump_file = dump_begin (TDI_simple, &dump_flags);
-      if (dump_file)
-	{
-          fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
-                  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-	  if (dump_flags & TDF_UNPARSE)
-	    print_c_tree (dump_file, fn);
-	  else
-	    dump_node (fn, TDF_SLIM | dump_flags, dump_file);
-
-	  dump_end (TDI_simple, dump_file);
-        }
-
-      /* Simplify the function.  */
-      simplify_tree (fndecl);
-
-#if 0
-      /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
-      double_chain_stmts (fn);
-      break_continue_elimination (fndecl);
-      goto_elimination (fndecl);
-      double_chain_free (fn);
-#endif
-
-      /* Debugging dump after simplification.  */
-      dump_file = dump_begin (TDI_simple, &dump_flags);
-      if (dump_file)
-        {
-          fprintf (dump_file, "\n%s()    (SIMPLIFIED)\n",
-                  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-	  if (dump_flags & TDF_UNPARSE)
-	    print_c_tree (dump_file, fn);
-	  else
-	    dump_node (fn, TDF_SLIM | dump_flags, dump_file);
-
-	  dump_end (TDI_simple, dump_file);
-        }
-
-      /* Apply the SSA optimizations.  */
-      optimize_tree (fn);
-    }
+    optimize_function_tree (fndecl);
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

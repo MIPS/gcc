@@ -1,3 +1,41 @@
+2002-06-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (BOOT_CFLAGS): Remove -ftree-ssa.
+	* c-decl.c (c_expand_body): Call optimize_function_tree if tree SSA
+	is enabled.
+	* c-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define.
+	* c-simplify.c (simplify_tree): Rename to c_simplify_function_tree.
+	Update all callers.
+	Dump function body before and after simplification if
+	-fdump-tree-simple is used.
+	(simplify_expr): Document FIXME for simplification of BIT_FIELD_REF
+	nodes.
+	* c-tree.h (simplify_tree): Rename to c_simplify_function_tree.
+	* langhooks-def.h (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define
+	(LANGHOOKS_INITIALIZER): Add LANG_HOOKS_SIMPLIFY_FUNCTION_TREE.
+	(lhd_simplify_function_tree): Declare.
+	* langhooks.c (lhd_simplify_function_tree): New function.
+	* langhooks.h (lang_hooks): Add simplify_function_tree function
+	pointer.
+	* toplev.c (parse_options_and_default_flags): Set flag_tree_ssa to
+	1 at optimization levels >= 1.
+	Revert to default warning when -Wuninitialized is used without -O.
+	* tree-cfg.c (tree_find_basic_blocks): Rename argument 't' to
+	'fnbody'.
+	* tree-optimize.c: Include langhooks.h.
+	(optimize_tree): Rename to optimize_function_tree.  Update all
+	users.
+	Rename argument 't' to 'fndecl'.
+	Call simplify langhook before building SSA.
+	(build_tree_ssa): Rename argument 't' to 'fndecl'.
+	Adjust call to tree_find_basic_blocks to pass body of the function.
+	* tree-optimize.h (optimize_tree): Rename to
+	optimize_function_tree.
+	* tree-simple.c (is_simple_unary_expr): Document FIXME on
+	BIT_FIELD_REF nodes.
+	* tree-ssa.c: Add whitespace.
+	* testsuite/lib/c-torture.exp: Remove -ftree-ssa flag.
+
 2002-06-03  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-cfg.c (insert_before_*):  For insertion into FOR_INIT's, if

@@ -351,6 +351,8 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
+  int (*simplify_function_tree) PARAMS ((tree));
+
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */
 };

@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* {{{ Function prototypes.  */
 
-void optimize_tree PARAMS ((tree));
+void optimize_function_tree PARAMS ((tree));
 void build_tree_ssa PARAMS ((tree));
 
 /* }}} */

@@ -33,24 +33,41 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
+#include "langhooks.h"
 
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));
 
-/* {{{ optimize_tree()
+
+/* {{{ optimize_function_tree ()
 
    Main entry point to the tree SSA transformation routines.  */
 
 void
-optimize_tree (t)
-     tree t;
+optimize_function_tree (fndecl)
+     tree fndecl;
 {
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
   
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!(*lang_hooks.simplify_function_tree) (fndecl))
+    return;
+
+#if 0
+  /* Transform BREAK_STMTs, CONTINUE_STMTs, SWITCH_STMTs and GOTO_STMTs.  */
+  double_chain_stmts (fn);
+  break_continue_elimination (fndecl);
+  goto_elimination (fndecl);
+  double_chain_free (fn);
+#endif
+
   /* Build the SSA representation for the function.  */
-  build_tree_ssa (t); 
+  build_tree_ssa (fndecl); 
+
+  /* Begin optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     if (flag_tree_ssa_pre)
       tree_perform_ssapre ();
@@ -68,14 +85,14 @@ optimize_tree (t)
    Main entry point to the tree SSA analysis routines.  */
 
 void
-build_tree_ssa (t)
-     tree t;
+build_tree_ssa (fndecl)
+     tree fndecl;
 {
   /* Initialize flow data.  */
   init_flow ();
   init_tree_flow ();
 
-  tree_find_basic_blocks (t);
+  tree_find_basic_blocks (DECL_SAVED_TREE (fndecl));
 
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {

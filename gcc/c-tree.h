@@ -388,7 +388,7 @@ extern tree static_ctors;
 extern tree static_dtors;
 
 /* In c-simplify.c  */
-extern void simplify_tree PARAMS ((tree));
+extern int c_simplify_function_tree PARAMS ((tree));
 
 /* In c-pretty-print.c  */
 extern void print_c_tree  PARAMS ((FILE*, tree));

@@ -33,14 +33,14 @@ if ![info exists TORTURE_OPTIONS] {
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
     set TORTURE_OPTIONS [list \
-	{ -O0 -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O1 -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O2 -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O3 -fomit-frame-pointer -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O3 -fomit-frame-pointer -funroll-loops -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -O3 -g -ftree-ssa -Wunreachable-code -Wuninitialized } \
-	{ -Os -ftree-ssa -Wunreachable-code -Wuninitialized } ]
+	{ -O0 } \
+	{ -O1 } \
+	{ -O2 } \
+	{ -O3 -fomit-frame-pointer } \
+	{ -O3 -fomit-frame-pointer -funroll-loops } \
+	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions } \
+	{ -O3 -g } \
+	{ -Os } ]
 }
 
 
