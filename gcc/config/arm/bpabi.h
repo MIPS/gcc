@@ -30,6 +30,7 @@
 #define TARGET_UNWIND_INFO 1
 
 /* Section 4.1 of the AAPCS requires the use of VFP format.  */
+#undef FPUTYPE_DEFAULT
 #define FPUTYPE_DEFAULT (FPUTYPE_VFP)
 
 /* The ARM BPABI functions return a boolean; they use no special
@@ -101,5 +102,6 @@
     }							\
   while (false)
 
+#undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS() \
   TARGET_BPABI_CPP_BUILTINS()

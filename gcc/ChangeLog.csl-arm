@@ -1,3 +1,15 @@
+2004-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (arm*-*-linux-gnueabi): Add it.
+	* config/arm/bpabi.h (FPUTYPE_DEFAULT): Undefine it before
+	redefining it.
+	(TARGET_OS_CPP_BUILTINS): Likeiwse.
+	* config/arm/linux-eabi.h: New file.
+	* config/arm/linux-elf.h (LINUX_TARGET_INTERPRETER): New macro.
+	(LINUX_TARET_LINK_SPEC): Likewise.
+	(LINK_SPEC): Use it.
+	* config/arm/t-linux-eabi: New file.
+	
 2004-11-19  Paul Brook  <paul@codesourcery.com>
 
 	* unwind-arm.h: Don't include stdio.h.  Add prototype for abort().
