@@ -1,3 +1,7 @@
+2004-02-04  Jeff Law  <law@redhat.com>
+
+	* domwalk.c: Update comments.
+
 2004-02-04  Brian Booth  <bbooth@redhat.com>
 
 	PR opt/13755
