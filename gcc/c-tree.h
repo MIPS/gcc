@@ -206,7 +206,6 @@ extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (int);
 extern tree grokfield (tree, tree, tree);
 extern tree groktypename (tree);
-extern tree groktypename_in_parm_context (tree);
 extern tree implicitly_declare (tree);
 extern int  in_parm_level_p (void);
 extern void keep_next_level (void);
@@ -315,8 +314,6 @@ extern int system_header_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;

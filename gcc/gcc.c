@@ -885,6 +885,8 @@ static const struct compiler default_compilers[] =
      and be given a more meaningful error than "file not used since
      linking is not done".  */
   {".m",  "#Objective-C", 0}, {".mi",  "#Objective-C", 0},
+  {".mm", "#Objective-C++", 0}, {".M", "#Objective-C++", 0},
+  {".mii", "#Objective-C++", 0},
   {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
   {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
   {".CPP", "#C++", 0}, {".ii", "#C++", 0},
@@ -930,8 +932,8 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)\
                     -o %g.s %{!o*:--output-pch=%i.gch}\
                     %W{o*:--output-pch=%*}%V}}}}}}", 0},
-  {".i", "@cpp-output", 0},
-  {"@cpp-output",
+  {".i", "@c-cpp-output", 0},
+  {"@c-cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {".s", "@assembler", 0},
   {"@assembler",

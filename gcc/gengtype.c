@@ -1125,7 +1125,7 @@ get_file_basename (const char *f)
       s2 = lang_dir_names [i];
       l1 = strlen (s1);
       l2 = strlen (s2);
-      if (l1 >= l2 && !memcmp (s1, s2, l2))
+      if (s1 > f && s1[-1] == '/')
         {
           basename -= l2 + 1;
           if ((basename - f - 1) != srcdir_len)
@@ -1229,11 +1229,26 @@ get_output_file_with_visibility (const char *input_file)
       memcpy (s, ".h", sizeof (".h"));
       for_name = basename;
     }
+  /* Some headers get used by more than one front-end; hence, it
+     would be inappropriate to spew them out to a single gtype-<lang>.h
+     (and gengtype doesn't know how to direct spewage into multiple
+     gtype-<lang>.h headers at this time).  Instead, we pair up these
+     headers with source files (and their special purpose gt-*.h headers).  */
   else if (strcmp (basename, "c-common.h") == 0)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
-  else
+  else if (strcmp (basename, "cp/cp-tree.h") == 0)
+    output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
+  else if (strcmp (basename, "cp/decl.h") == 0)
+    output_name = "gt-cp-decl.h", for_name = "cp/decl.c";
+  else if (strcmp (basename, "cp/lex.h") == 0)
+    output_name = "gt-cp-decl2.h", for_name = "cp/decl2.c";
+  else if (strcmp (basename, "cp/name-lookup.h") == 0)
+    output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
+  else if (strcmp (basename, "objc/objc-act.h") == 0)
+    output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
+  else 
     {
       size_t i;
 

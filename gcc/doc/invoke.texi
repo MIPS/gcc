@@ -808,9 +808,10 @@ Specify explicitly the @var{language} for the following input files
 name suffix).  This option applies to all following input files until
 the next @option{-x} option.  Possible values for @var{language} are:
 @smallexample
-c  c-header  cpp-output
+c  c-header  c-cpp-output
 c++  c++-header  c++-cpp-output
-objective-c  objective-c-header  objc-cpp-output
+objective-c  objective-c-header  objective-c-cpp-output
+objective-c++ objective-c++-header objective-c++-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input  ratfor

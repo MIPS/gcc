@@ -47,7 +47,14 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tm_p.h"
 #include "expr.h"
+
+#ifdef OBJCPLUS
+#include "cp-tree.h"
+#include "lex.h"
+#else
 #include "c-tree.h"
+#endif
+
 #include "c-common.h"
 #include "flags.h"
 #include "objc-act.h"
@@ -64,6 +71,13 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 
 #define OBJC_VOID_AT_END	build_tree_list (NULL_TREE, void_type_node)
+
+/* When building Objective-C++, we are not linking against the C front-end
+   and so need to replicate the C tree-construction functions in some way.  */
+#ifdef OBJCPLUS
+#define OBJCP_REMAP_FUNCTIONS
+#include "objcp-decl.h"
+#endif  /* OBJCPLUS */
 
 /* This is the default way of generating a method name.  */
 /* I am not sure it is really correct.
@@ -220,7 +234,6 @@ static void encode_type (tree, int, int);
 static void encode_field_decl (tree, int, int);
 
 static void really_start_method (tree, tree);
-static int comp_method_with_proto (tree, tree);
 static int objc_types_are_equivalent (tree, tree);
 static int comp_proto_with_proto (tree, tree);
 static tree get_arg_type_list (tree, int, int);
@@ -486,7 +499,11 @@ generate_struct_by_value_array (void)
 bool
 objc_init (void)
 {
+#ifdef OBJCPLUS
+  if (cxx_init () == false)
+#else
   if (c_objc_common_init () == false)
+#endif
     return false;
 
   /* Force the line number back to 0; check_newline will have
@@ -542,7 +559,12 @@ void
 finish_file (void)
 {
   mark_referenced_methods ();
+
+#ifdef OBJCPLUS
+  cp_finish_file ();
+#else
   c_objc_common_finish_file ();
+#endif
 
   /* Finalize Objective-C runtime data.  No need to generate tables
      and code if only checking syntax.  */
@@ -947,7 +969,7 @@ objc_check_decl (tree decl)
 
   if (TREE_CODE (type) != RECORD_TYPE)
     return;
-  if (TYPE_NAME (type) && (type = is_class_name (TYPE_NAME (type))))
+  if (OBJC_TYPE_NAME (type) && (type = is_class_name (OBJC_TYPE_NAME (type))))
     error ("statically allocated instance of Objective-C class `%s'",
 	   IDENTIFIER_POINTER (type));
 }
@@ -1139,6 +1161,10 @@ static void
 synth_module_prologue (void)
 {
   tree temp_type;
+
+#ifdef OBJCPLUS
+  push_lang_context (lang_name_c); /* extern "C" */
+#endif
 
   /* Defined in `objc.h' */
   objc_object_id = get_identifier (TAG_OBJECT);
@@ -1336,7 +1362,11 @@ synth_module_prologue (void)
 #ifndef OBJCPLUS
   /* The C++ front-end does not appear to grok __attribute__((__unused__)).  */
   unused_list = build_tree_list (get_identifier ("__unused__"), NULL_TREE);
-#endif	
+#endif	  
+
+#ifdef OBJCPLUS
+  pop_lang_context ();
+#endif
 }
 
 /* Ensure that the ivar list for NSConstantString/NXConstantString
@@ -1820,6 +1850,10 @@ build_module_descriptor (void)
 {
   tree decl_specs, field_decl, field_decl_chain;
 
+#ifdef OBJCPLUS
+  push_lang_context (lang_name_c); /* extern "C" */
+#endif
+
   objc_module_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_MODULE));
 
@@ -1930,6 +1964,10 @@ build_module_descriptor (void)
     c_expand_expr_stmt (decelerator);
 
     finish_function ();
+
+#ifdef OBJCPLUS
+    pop_lang_context ();
+#endif
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -2551,11 +2589,11 @@ is_class_name (tree ident)
       && identifier_global_value (ident))
     ident = identifier_global_value (ident);
   while (ident && TREE_CODE (ident) == TYPE_DECL && DECL_ORIGINAL_TYPE (ident))
-    ident = TYPE_NAME (DECL_ORIGINAL_TYPE (ident));
+    ident = OBJC_TYPE_NAME (DECL_ORIGINAL_TYPE (ident));
 
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == RECORD_TYPE)
-    ident = TYPE_NAME (ident);
+    ident = OBJC_TYPE_NAME (ident);
   if (ident && TREE_CODE (ident) == TYPE_DECL)
     ident = DECL_NAME (ident);
 #endif
@@ -2737,7 +2775,7 @@ objc_exit_block (void)
 
   objc_clear_super_receiver ();
 #ifdef OBJCPLUS
-  finish_compound_stmt (0, block);
+  finish_compound_stmt (block);
 #else
   scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
   inner = poplevel (KEEP_MAYBE, 1, 0);
@@ -5465,8 +5503,9 @@ get_arg_type_list (tree meth, int context, int superflag)
   /* Build a list of argument types.  */
   for (akey = METHOD_SEL_ARGS (meth); akey; akey = TREE_CHAIN (akey))
     {
-      tree arg_decl = groktypename_in_parm_context (TREE_TYPE (akey));
-      chainon (arglist, build_tree_list (NULL_TREE, TREE_TYPE (arg_decl)));
+      tree arg_type = groktypename (TREE_TYPE (akey));
+
+      chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
 
   if (METHOD_ADD_ARGS (meth) == objc_ellipsis_node)
@@ -5742,7 +5781,10 @@ finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	  rtype = NULL_TREE;
 	}
       else
-	is_class = TYPE_NAME (rtype) = get_identifier ("Class");
+	{
+	  is_class = get_identifier ("Class");
+	  OBJC_SET_TYPE_NAME (rtype, is_class);
+	}
 
       if (rprotos)
 	method_prototype
@@ -5760,10 +5802,10 @@ finish_message_expr (tree receiver, tree sel_name, tree method_params)
       if (TREE_CODE (rtype) == POINTER_TYPE)
 	rtype = TREE_TYPE (rtype);
       /* Traverse typedef aliases */
-      while (TREE_CODE (rtype) == RECORD_TYPE && TYPE_NAME (rtype)
-	     && TREE_CODE (TYPE_NAME (rtype)) == TYPE_DECL
-	     && DECL_ORIGINAL_TYPE (TYPE_NAME (rtype)))
-	rtype = DECL_ORIGINAL_TYPE (TYPE_NAME (rtype));
+      while (TREE_CODE (rtype) == RECORD_TYPE && OBJC_TYPE_NAME (rtype)
+	     && TREE_CODE (OBJC_TYPE_NAME (rtype)) == TYPE_DECL
+	     && DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (rtype)))
+	rtype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (rtype));
       saved_rtype = rtype;
       if (TYPED_OBJECT (rtype))
 	{
@@ -6921,6 +6963,10 @@ continue_class (tree class)
 
       /* code generation */
 
+#ifdef OBJCPLUS
+      push_lang_context (lang_name_c);
+#endif
+
       ivar_context = build_private_template (implementation_template);
 
       if (!objc_class_template)
@@ -6943,11 +6989,19 @@ continue_class (tree class)
       else
 	cat_count++;
 
+#ifdef OBJCPLUS
+      pop_lang_context ();
+#endif /* OBJCPLUS */
+
       return ivar_context;
     }
 
   else if (TREE_CODE (class) == CLASS_INTERFACE_TYPE)
     {
+#ifdef OBJCPLUS
+      push_lang_context (lang_name_c);
+#endif /* OBJCPLUS */
+
       if (!CLASS_STATIC_TEMPLATE (class))
 	{
 	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
@@ -6957,6 +7011,10 @@ continue_class (tree class)
 	  /* Mark this record as a class template for static typing.  */
 	  TREE_STATIC_TEMPLATE (record) = 1;
 	}
+
+#ifdef OBJCPLUS
+      pop_lang_context ();
+#endif /* OBJCPLUS */
 
       return NULL_TREE;
     }
@@ -7573,10 +7631,10 @@ start_method_def (tree method)
 			      (build_tree_list (arg_spec, arg_decl),
 			       NULL_TREE));
 
-#ifndef OBJCPLUS	
+#ifndef OBJCPLUS
 	      /* Unhook: restore the abstract declarator.  */
 	      TREE_OPERAND (last_expr, 0) = NULL_TREE;
-#endif	
+#endif
 	    }
 
 	  else
@@ -7614,34 +7672,22 @@ warn_with_method (const char *message, int mtype, tree method)
            message, mtype, gen_method_decl (method, errbuf));
 }
 
-/* Return 1 if METHOD is consistent with PROTO.  */
-
-static int
-comp_method_with_proto (tree method, tree proto)
-{
-  /* Create a function template node at most once.  */
-  if (!function1_template)
-    function1_template = make_node (FUNCTION_TYPE);
-
-  /* Install argument types - normally set by build_function_type.  */
-  TYPE_ARG_TYPES (function1_template) = get_arg_type_list (proto, METHOD_DEF, 0);
-
-  /* install return type */
-  TREE_TYPE (function1_template) = groktypename (TREE_TYPE (proto));
-
-  return comptypes (TREE_TYPE (METHOD_DEFINITION (method)), function1_template,
-		    false);
-}
-
-/* Return 1 if TYPE1 is equivalent to TYPE2.  */
+/* Return 1 if TYPE1 is equivalent to TYPE2
+   for purposes of method overloading.  */
 
 static int
 objc_types_are_equivalent (tree type1, tree type2)
 {
   if (type1 == type2)
     return 1;
+
+  /* Strip away indirections.  */
+  while ((TREE_CODE (type1) == ARRAY_TYPE || TREE_CODE (type1) == POINTER_TYPE)
+	 && (TREE_CODE (type1) == TREE_CODE (type2)))
+    type1 = TREE_TYPE (type1), type2 = TREE_TYPE (type2);
   if (TYPE_MAIN_VARIANT (type1) != TYPE_MAIN_VARIANT (type2))
     return 0;
+
   type1 = TYPE_PROTOCOL_LIST (type1);
   type2 = TYPE_PROTOCOL_LIST (type2);
   if (list_length (type1) == list_length (type2))
@@ -7654,7 +7700,8 @@ objc_types_are_equivalent (tree type1, tree type2)
   return 0;
 }
 
-/* Return 1 if PROTO1 is equivalent to PROTO2.  */
+/* Return 1 if PROTO1 is equivalent to PROTO2
+   for purposes of method overloading.  */
 
 static int
 comp_proto_with_proto (tree proto1, tree proto2)
@@ -7787,7 +7834,7 @@ really_start_method (tree method, tree parmlist)
 
       if (proto)
 	{
-	  if (!comp_method_with_proto (method, proto))
+	  if (!comp_proto_with_proto (method, proto))
 	    {
 	      char type = (TREE_CODE (method) == INSTANCE_METHOD_DECL ? '-' : '+');
 
@@ -9090,4 +9137,3 @@ lookup_objc_ivar (tree id)
 }
 
 #include "gt-objc-objc-act.h"
-#include "gtype-objc.h"

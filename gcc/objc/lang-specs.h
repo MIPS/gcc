@@ -34,8 +34,8 @@ Boston, MA 02111-1307, USA.  */
 	%{!save-temps:%{!no-integrated-cpp:\
 	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-runtime-info} %{gen-decls}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
-  {".mi", "@objc-cpp-output", 0},
-  {"@objc-cpp-output",
+  {".mi", "@objective-c-cpp-output", 0},
+  {"@@objective-c-cpp-output",
      "%{!M:%{!MM:%{!E:cc1obj -fpreprocessed %i %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
 			     %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"@objective-c-header",

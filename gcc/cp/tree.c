@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "debug.h"
 #include "target.h"
 
 static tree bot_manip (tree *, int *, void *);

@@ -38,6 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "target.h"
 #include "cgraph.h"
+#include "c-pretty-print.h"
+#include "c-objc-common.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
 static tree start_cdtor (int);
@@ -329,6 +331,20 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       return false;
     }
 
-  pp_string (pp, n);
+  pp_base_string (pp, n);
   return true;
 }
+
+void
+c_initialize_diagnostics (diagnostic_context *context)
+{
+  pretty_printer *base = context->printer;
+  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
+  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  pp_c_pretty_printer_init (pp);
+  context->printer = (pretty_printer *) pp;
+
+  /* It is safe to free this object because it was previously malloc()'d.  */
+  free (base);
+}
+

@@ -1,0 +1,8 @@
+2004-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* config-lang.in: New file.
+	* Make-lang.in: New file.
+	* lang-specs.h: New file.
+	* objcp-decl.c: New file.
+	* objcp-decl.h: New file.
+	* objcp-lang.c: New file.

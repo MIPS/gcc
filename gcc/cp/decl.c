@@ -407,6 +407,34 @@ pop_labels (tree block)
   named_labels = NULL;
 }
 
+/* The following two routines are used to interface to Objective-C++.
+   The binding level is purposely treated as an opaque type.  */
+
+void *
+get_current_scope (void)
+{
+  return current_binding_level;
+}
+
+void
+objc_mark_locals_volatile (void *enclosing_blk)
+{
+  struct cp_binding_level *scope;
+
+  for (scope = current_binding_level;
+       scope && scope != enclosing_blk && scope->kind == sk_block;
+       scope = scope->level_chain)
+    {
+      tree decl;
+
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+        {
+          DECL_REGISTER (decl) = 0;
+          TREE_THIS_VOLATILE (decl) = 1;
+        }
+    }
+}
+
 /* Exit a binding level.
    Pop the level off, and restore the state of the identifier-decl mappings
    that were in effect when this level was entered.
@@ -11263,4 +11291,3 @@ cp_missing_noreturn_ok_p (tree decl)
 }
 
 #include "gt-cp-decl.h"
-#include "gtype-cp.h"

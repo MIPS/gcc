@@ -118,6 +118,7 @@ tree build_encode_expr (tree);
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
 #define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
+
 /* We need to distinguish TYPE_PROTOCOL_LISTs from TYPE_CONTEXTs, both of which
    are stored in the same accessor slot.  */
 #define TYPE_PROTOCOL_LIST(TYPE)				\
@@ -126,12 +127,11 @@ tree build_encode_expr (tree);
 	 ? (TYPE)->type.context : NULL_TREE)
 #define SET_TYPE_PROTOCOL_LIST(TYPE, P) (TYPE_CHECK (TYPE)->type.context = (P))
 
-/* Set by `continue_class' and checked by `is_public'.  */
-
 #define TREE_STATIC_TEMPLATE(record_type) (TREE_PUBLIC (record_type))
 #define TYPED_OBJECT(type) \
        (TREE_CODE (type) == RECORD_TYPE && TREE_STATIC_TEMPLATE (type))
 #define OBJC_TYPE_NAME(type) TYPE_NAME(type)
+#define OBJC_SET_TYPE_NAME(type, name) (TYPE_NAME (type) = name)
 
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 

@@ -3731,6 +3731,7 @@ extern void cplus_decl_attributes (tree *, tree, int);
 extern void defer_fn (tree);
 extern void finish_anon_union (tree);
 extern tree finish_table (tree, tree, tree, int);
+extern void cp_finish_file (void);
 extern tree coerce_new_type (tree);
 extern tree coerce_delete_type (tree);
 extern void comdat_linkage (tree);

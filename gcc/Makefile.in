@@ -680,7 +680,7 @@ PREDICT_H = predict.h predict.def
 CPPLIB_H = cpplib.h line-map.h
 PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
-C_PRETTY_PRINT_H = $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
+C_PRETTY_PRINT_H = c-pretty-print.h $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
 
 # target overrides
 ifneq ($(tmake_file),)
@@ -839,10 +839,10 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
   c-incpath.o cppdefault.o c-ppoutput.o c-cppbuiltin.o prefix.o \
-  c-objc-common.o c-dump.o c-pch.o $(C_TARGET_OBJS)
+  c-objc-common.o c-dump.o c-pch.o c-pretty-print.o $(C_TARGET_OBJS)
 
 # Language-specific object files for C.
-C_OBJS = c-parse.o c-lang.o c-pretty-print.o stub-objc.o $(C_AND_OBJC_OBJS)
+C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 
@@ -1295,7 +1295,8 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
-    $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h
+    $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h \
+    c-objc-common.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1305,9 +1306,9 @@ c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(C_COMMON_H) $(TREE_H) $(CPPLIB_H) cpphash.h $(TM_P_H) c-pragma.h
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-    $(C_TREE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) $(C_TREE_H) \
+    $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) $(C_TREE_H) \
     flags.h toplev.h tree-inline.h $(DIAGNOSTIC_H) $(VARRAY_H) \
-    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h
+    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h $(C_PRETTY_PRINT_H) c-objc-common.h
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \

@@ -1,6 +1,6 @@
-/* Language-dependent hooks for C++.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Alexandre Oliva  <aoliva@redhat.com>
+/* Language-dependent hooks for Objective-C++.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
+   Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
 
@@ -27,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "c-common.h"
 #include "toplev.h"
+#include "objc-act.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
@@ -34,14 +35,14 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "cp-objcp-common.h"
 
-enum c_language_kind c_language = clk_cxx;
+enum c_language_kind c_language = clk_objcxx;
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h.  */
 
 #undef LANG_HOOKS_NAME
-#define LANG_HOOKS_NAME "GNU C++"
+#define LANG_HOOKS_NAME "GNU Objective-C++"
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT cxx_init
+#define LANG_HOOKS_INIT objc_init
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -56,6 +57,8 @@ const char tree_code_type[] = {
 #include "c-common.def"
   'x',
 #include "cp-tree.def"
+  'x',
+#include "objc-tree.def"
 };
 #undef DEFTREECODE
 
@@ -71,6 +74,8 @@ const unsigned char tree_code_length[] = {
 #include "c-common.def"
   0,
 #include "cp-tree.def"
+  0,
+#include "objc-tree.def"
 };
 #undef DEFTREECODE
 
@@ -84,13 +89,9 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
   "@@dummy",
 #include "cp-tree.def"
+  "@@dummy",
+#include "objc-tree.def"
 };
 #undef DEFTREECODE
 
-void
-finish_file (void)
-{
-  cp_finish_file ();
-}
-
-#include "gtype-cp.h"
+#include "gtype-objcp.h"
