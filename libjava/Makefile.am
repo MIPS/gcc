@@ -543,8 +543,37 @@ endif
 
 libgcj-@gcc_version@.jar: classes.stamp
 	-@rm -f libgcj-@gcc_version@.jar
+## The following is an attempt to have libgcj-*.jar files
+## from the same GCC version identical accross the architectures.
+	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+	for d in `find java gnu javax org external -type d \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d' -e 's,external/[^/]*/,,'`; do \
+	  mkdir -p $$JARDIR/$$d; \
+	done; \
+	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+	for f in `find java gnu javax org -type f -name '*.class' \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d'`; do \
+	  cp $$f $$JARDIR/$$f; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+	done; \
+## Now include the classes from external/.
+	for f in `find external/sax external/w3c_dom -type f -name '*.class' \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d'`; do \
+	  ff=`echo $$f | sed 's,external/[^/]*/,,'`; \
+	  cp $$f $$JARDIR/$$ff; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$ff; \
+	done; \
+	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+	cd $$JARDIR; \
 ## Note that we explicitly want to include directory information.
-	(find java gnu javax org -type d -o -type f -name '*.class'; \
+	(find java gnu javax org -type d -o -type f | LC_ALL=C sort; \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
 ## Gross but easy.
 	for file in $(all_property_files); do \
@@ -552,18 +581,9 @@ libgcj-@gcc_version@.jar: classes.stamp
 	  echo $(srcdir); \
 	  echo $$file; \
 	done) | \
-	  sed -e '/\/xlib/d' -e '/\/\.libs/d' -e '/\/\.deps/d' | \
-	  $(ZIP) -cfM0E@ $@
-## Now include the classes from external/.
-	for dir in sax w3c_dom; do \
-	  (cd external/$$dir; \
-	  find org -type f -name '*.class' -print | while read file; do \
-	    echo "x-C" | sed -e 's/^.//'; \
-	    echo external/$$dir; \
-	    echo $$file; \
-          done) | \
-	  $(ZIP) -ufM0E@ $@; \
-	done
+	  $(ZIP) -cfM0E@ ../libjava/$@ || exit 1; \
+	cd -; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 CLEANFILES = libgcj-@gcc_version@.jar classes.stamp
 

@@ -26641,23 +26641,41 @@ $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDEN
 
 libgcj-@gcc_version@.jar: classes.stamp
 	-@rm -f libgcj-@gcc_version@.jar
-	(find java gnu javax org -type d -o -type f -name '*.class'; \
+	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+	for d in `find java gnu javax org external -type d \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d' -e 's,external/[^/]*/,,'`; do \
+	  mkdir -p $$JARDIR/$$d; \
+	done; \
+	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+	for f in `find java gnu javax org -type f -name '*.class' \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d'`; do \
+	  cp $$f $$JARDIR/$$f; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+	done; \
+	for f in `find external/sax external/w3c_dom -type f -name '*.class' \
+		  | sed -e '/\/xlib/d' -e '/\/\.libs/d' \
+			-e '/\/\.deps/d'`; do \
+	  ff=`echo $$f | sed 's,external/[^/]*/,,'`; \
+	  cp $$f $$JARDIR/$$ff; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$ff; \
+	done; \
+	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+	cd $$JARDIR; \
+	(find java gnu javax org -type d -o -type f | LC_ALL=C sort; \
 	for file in $(all_property_files); do \
 	  echo "x-C" | sed -e 's/^.//'; \
 	  echo $(srcdir); \
 	  echo $$file; \
 	done) | \
-	  sed -e '/\/xlib/d' -e '/\/\.libs/d' -e '/\/\.deps/d' | \
-	  $(ZIP) -cfM0E@ $@
-	for dir in sax w3c_dom; do \
-	  (cd external/$$dir; \
-	  find org -type f -name '*.class' -print | while read file; do \
-	    echo "x-C" | sed -e 's/^.//'; \
-	    echo external/$$dir; \
-	    echo $$file; \
-          done) | \
-	  $(ZIP) -ufM0E@ $@; \
-	done
+	  $(ZIP) -cfM0E@ ../libjava/$@ || exit 1; \
+	cd -; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
