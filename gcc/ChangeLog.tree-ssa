@@ -1,3 +1,7 @@
+2004-04-13  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: Revert all changes from 2004-04-12.
+
 2004-04-12  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (struct expr_hash_elt): Add new field for hash value.
