@@ -218,6 +218,11 @@ record_effective_endpoints ()
       next_insn = NEXT_INSN (end);
     }
   function_tail_eff_head = next_insn;
+  if (function_tail_eff_head)
+    {
+      NEXT_INSN (PREV_INSN (function_tail_eff_head)) = NULL;
+      set_last_insn (PREV_INSN (function_tail_eff_head));
+    }
 }
 
 /* Allocate and initialize a new scope structure with scope level LEVEL,
@@ -401,6 +406,7 @@ rebuild_scope_notes (root)
 {
   scope scope = root;
   rtx insn = get_insns ();
+  rtx note;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -413,7 +419,10 @@ rebuild_scope_notes (root)
 	  scope = INSN_SCOPE (insn);
 	}
     }
+  /* change_scope emits before the insn, not after.  */
+  note = emit_note (NULL, NOTE_INSN_DELETED);
   change_scope (get_last_insn (), scope, root);
+  delete_insn (note);
 }
 
 /* Free the storage associated with the scope tree at S.  */
@@ -856,7 +865,7 @@ cfg_layout_duplicate_bb (bb, e)
 	{
 	case INSN:
 	  new = emit_insn (copy_insn (PATTERN (insn)));
-	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
 	  INSN_SCOPE (new) = INSN_SCOPE (insn);
 	  if (REG_NOTES (insn))
 	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
@@ -870,7 +879,7 @@ cfg_layout_duplicate_bb (bb, e)
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    abort ();
 	  new = emit_jump_insn (copy_insn (PATTERN (insn)));
-	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
 	  INSN_SCOPE (new) = INSN_SCOPE (insn);
 	  if (REG_NOTES (insn))
 	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
@@ -881,7 +890,7 @@ cfg_layout_duplicate_bb (bb, e)
 
 	case CALL_INSN:
 	  new = emit_call_insn (copy_insn (PATTERN (insn)));
-	  VARRAY_GROW (insn_scope, INSN_UID (new));
+	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
 	  INSN_SCOPE (new) = INSN_SCOPE (insn);
 	  if (REG_NOTES (insn))
 	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
@@ -973,20 +982,12 @@ cfg_layout_duplicate_bb (bb, e)
   new_bb->flags = bb->flags;
   for (s = bb->succ; s; s = s->succ_next)
     {
-      n = (edge) xcalloc (1, sizeof (*n));
-      n_edges++;
-      n->src = new_bb;
-      n->dest = s->dest;
-      n->flags = s->flags;
+      n = make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
       if (bb->count)
 	n->count = s->count * e->count / bb->count;
       else
 	n->count = 0;
-      n->succ_next = new_bb->succ;
-      new_bb->succ = n;
-      n->pred_next = n->dest->pred;
-      n->dest->pred = n;
     }
 
   new_bb->count = e->count;
@@ -1050,11 +1051,13 @@ cfg_layout_finalize ()
   /* Dump the newly formed tree - this makes visible the changes
      done by reorder_blocks - it should contain duplicated regions when
      needed.  */
+  VARRAY_FREE (insn_scope);
   if (rtl_dump_file)
     {
+      VARRAY_GENERIC_PTR_INIT (insn_scope, get_max_uid (), "insn scopes");
       scope_tree = build_scope_tree ();
       dump_scope_tree (rtl_dump_file, scope_tree);
       free_scope_tree (scope_tree);
+      VARRAY_FREE (insn_scope);
     }
-  VARRAY_FREE (insn_scope);
 }

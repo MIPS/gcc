@@ -917,6 +917,10 @@ int flag_merge_constants = 1;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* Nonzero if we perform superblock formation.  */
+
+int flag_tracer = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1025,6 +1029,8 @@ lang_independent_options f_options[] =
    N_("When possible do not generate stack frames") },
   {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
    N_("Optimize sibling and tail recursive calls") },
+  {"tracer", &flag_tracer, 1,
+   N_("Perform superblock formation via tail duplication") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -3276,6 +3282,8 @@ rest_of_compilation (decl)
 
       flow_loops_free (&loops);
     }
+  if (flag_tracer)
+    tracer ();
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   timevar_pop (TV_FLOW);
 
@@ -4742,6 +4750,7 @@ toplev_main (argc, argv)
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
+      flag_tracer = 1;
     }
 
   if (optimize >= 3)
