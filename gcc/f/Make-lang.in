@@ -209,7 +209,7 @@ $(srcdir)/f/intdoc.texi: $(INTDOC_DEPS) $(srcdir)/f/intdoc.in
 	$(MAKE) f/intdoc$(build_exeext)
 	f/intdoc$(build_exeext) > $(srcdir)/f/intdoc.texi
 
-f/intdoc$(build_exeext): $(INTDOC_DEPS) f/intdoc.h0 hconfig.h \
+f/intdoc$(build_exeext): $(INTDOC_DEPS) f/intdoc.h0 bconfig.h \
   $(SYSTEM_H) coretypes.h $(TM_H) $(BUILD_LIBDEPS)
 	  $(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
 		  $(srcdir)/f/intdoc.c $(BUILD_LIBS) -o f/intdoc$(build_exeext)
@@ -218,7 +218,7 @@ f/intdoc.h0: f/intdoc.in f/ansify$(build_exeext)
 	f/ansify$(build_exeext) $(srcdir)/f/intdoc.in \
 		< $(srcdir)/f/intdoc.in > f/intdoc.h0
 
-f/ansify$(build_exeext): f/ansify.c hconfig.h $(SYSTEM_H) coretypes.h $(TM_H)
+f/ansify$(build_exeext): f/ansify.c bconfig.h $(SYSTEM_H) coretypes.h $(TM_H)
 	  $(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) $(INCLUDES) \
 	  	$(srcdir)/f/ansify.c -o f/ansify$(build_exeext)
 
@@ -382,7 +382,7 @@ f/expr.o: f/expr.c f/proj.h $(CONFIG_H) $(SYSTEM_H) f/expr.h f/bld.h f/bld-op.de
  f/top.h f/lex.h f/type.h f/lab.h f/storag.h f/symbol.h f/symbol.def f/equiv.h \
  f/global.h f/name.h f/intrin.h f/intrin.def f/implic.h f/src.h f/st.h \
  f/stamp-str real.h coretypes.h $(TM_H)
-f/fini.o: f/fini.c f/proj.h hconfig.h $(SYSTEM_H) f/malloc.h coretypes.h $(TM_H)
+f/fini.o: f/fini.c f/proj.h bconfig.h $(SYSTEM_H) f/malloc.h coretypes.h $(TM_H)
 f/global.o: f/global.c f/proj.h $(CONFIG_H) $(SYSTEM_H) f/global.h f/info.h \
  f/info-b.def f/info-k.def f/info-w.def f/target.h $(TREE_H) f/bad.h f/bad.def \
  f/where.h glimits.h f/top.h f/malloc.h f/lex.h f/type.h f/name.h f/symbol.h \

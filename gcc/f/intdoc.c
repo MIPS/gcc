@@ -22,7 +22,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* From f/proj.h, which uses #error -- not all C compilers
    support that, and we want *this* program to be compilable
    by pretty much any C compiler.  */
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"

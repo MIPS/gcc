@@ -1,3 +1,15 @@
+2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in configure configure.in dummy-conditions.c fix-header.c
+	gcov-iov.c gen-protos.c genattr.c genattrtab.c genautomata.c
+	gencheck.c gencodes.c genconditions.c genconfig.c genconstants.c
+	genemit.c genextract.c genflags.c gengenrtl.c gengtype-lex.l
+	gengtype-yacc.y gengtype.c genopinit.c genoutput.c genpeep.c
+	genpreds.c genrecog.c gensupport.c mkconfig.sh read-rtl.c
+	scan-decls.c scan.c config/sh/sh.h doc/configfiles.texi
+	doc/install-old.texi: Replace hconfig.h with bconfig.h.
+	* Makefile.in: Replace HCONFIG_H with BCONFIG_H.
+
 2002-12-02  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* config/rs6000/rs6000.md (ffssi): Convert to expander.

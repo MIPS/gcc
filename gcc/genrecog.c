@@ -50,7 +50,7 @@
    the new rtl is returned in an INSN list, and LAST_INSN will point
    to the last recognized insn in the old sequence.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"

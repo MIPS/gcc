@@ -1,3 +1,9 @@
+2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-lang.in, ansify.c, intdoc.c, proj.h: Replace hconfig.h with
+	bconfig.h.
+	* fini.c, proj.h: Replace USE_HCONFIG with USE_BCONFIG
+
 2002-11-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* proj.h, ansify.c, g77spec.c, intdoc.c:

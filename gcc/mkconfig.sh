@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # Generate gcc's various configuration headers: config.h, tconfig.h,
-# the misnamed hconfig.h, tm.h, and tm_p.h.
+# the misnamed bconfig.h, tm.h, and tm_p.h.
 # $1 is the file to generate.  DEFINES, HEADERS, and possibly
 # TARGET_CPU_DEFAULT are expected to be set in the environment.
 

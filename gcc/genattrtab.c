@@ -100,7 +100,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define ATTR_PERMANENT_P(RTX) (RTX_FLAG((RTX), integrated))
 #define ATTR_EQ_ATTR_P(RTX) (RTX_FLAG((RTX), volatil))
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"

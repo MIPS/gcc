@@ -26,7 +26,7 @@
    most of the programs that generate code from the machine
    description can simply ignore the entire pattern.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -75,7 +75,7 @@ write_header ()
 /* Generated automatically by the program `genconditions' from the target\n\
    machine description file.  */\n\
 \n\
-#include \"hconfig.h\"\n\
+#include \"bconfig.h\"\n\
 #include \"insn-constants.h\"\n");
 
   puts ("\
