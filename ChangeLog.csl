@@ -1,7 +1,7 @@
 2004-10-26  Mark Mitchell <mark@codesourcery.com>
 
-	* gcc/config/sol2.h (X86_FILE_START_VERSION_DIRECTIVE): Define
-	to false.
+	* gcc/config/i386/sol2.h (X86_FILE_START_VERSION_DIRECTIVE): 
+	Define to false.
 
 2004-10-25  Mark Mitchell <mark@codesourcery.com>
 
