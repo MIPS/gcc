@@ -1,3 +1,7 @@
+2003-10-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/ext/asm3.C: Update expected error text.
+
 2003-10-16  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* gcc.dg/noreturn-1.c: Adjust expected error lines.
