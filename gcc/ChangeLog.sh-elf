@@ -1,5 +1,10 @@
 2004-06-15  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* combine.c (distribute_notes): Comment typo fix.
+
+	* combine.c (distribute_notes): When checking if the register in
+	a REG_DEAD note is set, also check REG_INC.
+
 	* cfglayout.c (fixup_reorder_chain): Handle case where the
 	destination od E_TAKEN is EXIT_BLOCK_PTR.
 

@@ -11948,7 +11948,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 
 	  /* If the register is set or already dead at PLACE, we needn't do
 	     anything with this note if it is still a REG_DEAD note.
-	     We can here if it is set at all, not if is it totally replace,
+	     We check here if it is set at all, not if is it totally replaced,
 	     which is what `dead_or_set_p' checks, so also check for it being
 	     set partially.  */
 
@@ -11963,6 +11963,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2)
 		SET_BIT (refresh_blocks, this_basic_block->index);
 
 	      if (dead_or_set_p (place, XEXP (note, 0))
+		  || find_reg_note (place, REG_INC, XEXP (note, 0))
 		  || reg_bitfield_target_p (XEXP (note, 0), PATTERN (place)))
 		{
 		  /* Unless the register previously died in PLACE, clear
