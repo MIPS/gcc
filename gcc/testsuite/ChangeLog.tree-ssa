@@ -1,5 +1,9 @@
 2003-08-14  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030708-1.c: There should only be one conditional.
+	* gcc.dg/tree-ssa/20030714-2.c: New test.
+	* gcc.dg/tree-ssa/20030731-1.c: New test.
+
 	* gcc.dg/tree-ssa/20030711-2.c: Update slightly to avoid
 	dereferences of constant addresses.
  

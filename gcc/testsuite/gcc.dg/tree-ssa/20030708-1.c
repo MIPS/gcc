@@ -35,7 +35,7 @@ nonlocal_mentioned_p (x)
    more than one, then the dominator optimizations failed.  */
 /* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 1 "ssa"} } */
                                                                                 
-/* There should be two IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */
+/* There should be one IF conditional.  */
+/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */
                                                                                 
 
