@@ -1063,6 +1063,15 @@ finish_named_return_value (return_id, init)
   DECL_UNINLINABLE (current_function_decl) = 1;
 }
 
+/* Begin processing a mem-initializer-list.  */
+
+void
+begin_mem_initializers ()
+{
+  if (! DECL_CONSTRUCTOR_P (current_function_decl))
+    error ("only constructors take base initializers");
+}
+
 /* The INIT_LIST is a list of mem-initializers, in the order they were
    written by the user.  The TREE_VALUE of each node is a list of
    initializers for a particular subobject.  The TREE_PURPOSE is a
@@ -1435,6 +1444,35 @@ finish_id_expr (expr)
   if (TREE_TYPE (expr) == error_mark_node)
     expr = error_mark_node;
   return expr;
+}
+
+/* Finish a compound-literal expression.  TYPE is the type to which
+   the INITIALIZER_LIST is being cast.  */
+
+tree
+finish_compound_literal (type, initializer_list)
+     tree type;
+     tree initializer_list;
+{
+  tree compound_literal;
+
+  /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
+  compound_literal = build_nt (CONSTRUCTOR, NULL_TREE,
+			       initializer_list);
+  /* Mark it as a compound-literal.  */
+  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+  /* Check the initialization.  */
+  compound_literal = digest_init (type, compound_literal, NULL);
+  /* If the TYPE was an array type with an unknown bound, then we can
+     figure out the dimension now.  For example, something like:
+
+       `(int []) { 2, 3 }'
+     
+     implies that the array has two elements.  */
+  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+    complete_array_type (type, compound_literal, 1);
+
+  return compound_literal;
 }
 
 /* Return the declaration for the function-name variable indicated by

@@ -1013,8 +1013,6 @@ cp_lexer_stop_debugging (lexer)
    - va_arg?
  */
 
-/* FIXME: Get rid of record_type_node and its ilk.  */
-
 /* Flags that are passed to some parsing functions.  These values can
    be bitwise-ored together.  */
 
@@ -2430,7 +2428,6 @@ cp_parser_primary_expression (parser, idk)
 	       What if some of them have dependent types and some of
 	       them do not?  Presumably, such a name should be treated
 	       as a dependent name.  */
-	    /* FIXME: Calls are supposed to be handled specially.  */
 	    /* Assume the name is not dependent.  */
 	    dependent_p = false;
 	    /* A template-id where the name of the template was not
@@ -3214,8 +3211,8 @@ cp_parser_postfix_expression (parser)
 		if (pedantic)
 		  pedwarn ("ISO C++ forbids compound-literals");
 		/* Form the representation of the compound-literal.  */
-		postfix_expression = 
-		  finish_compound_literal (type, initializer_list);
+		postfix_expression 
+		  = finish_compound_literal (type, initializer_list);
 		break;
 	      }
 	  }
@@ -3320,7 +3317,7 @@ cp_parser_postfix_expression (parser)
 	      postfix_expression 
 		= finish_call_expr (postfix_expression, args, /*koenig=*/0);
 	    else
-	      my_friendly_abort (20010801);
+	      abort ();
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_PARSER_ID_KIND_NONE;
@@ -3495,7 +3492,7 @@ cp_parser_postfix_expression (parser)
     }
 
   /* We should never get here.  */
-  my_friendly_abort (20010624);
+  abort ();
   return error_mark_node;
 }
 
@@ -3649,13 +3646,9 @@ cp_parser_unary_expression (parser)
 	    operand = cp_parser_sizeof_operand (parser, keyword);
 
 	    if (keyword == RID_SIZEOF)
-	      return (TYPE_P (operand)
-		      ? c_sizeof (operand)
-		      : expr_sizeof (operand));
-	    
-	    return (TYPE_P (operand)
-		    ? c_alignof (operand)
-		    : grok_alignof (operand));
+	      return finish_sizeof (operand);
+
+	    return finish_alignof (operand);
 	  }
 
 	case RID_NEW:
@@ -3770,7 +3763,7 @@ cp_parser_unary_expression (parser)
 	  return build_x_unary_op (BIT_NOT_EXPR, cast_expression);
 
 	default:
-	  my_friendly_abort (20010417);
+	  abort ();
 	  return error_mark_node;
 	}
     }
@@ -3905,7 +3898,6 @@ cp_parser_new_type_id (parser)
   tree type_specifier_seq;
   tree declarator;
   const char *saved_message;
-  bool friend_p;
 
   /* The type-specifier sequence must not contain type definitions.
      (It cannot contain declarations of new types either, but if they
@@ -3923,8 +3915,7 @@ cp_parser_new_type_id (parser)
 
   /* Compute the type of the storage to be allocated.  */
   return grokdeclarator (declarator, type_specifier_seq, TYPENAME,
-			 /*initialized=*/0, /*attrlist=*/NULL_TREE,
-			 &friend_p);
+			 /*initialized=*/0, /*attrlist=*/NULL);
 }
 
 /* Parse an (optional) new-declarator.
@@ -6254,7 +6245,6 @@ cp_parser_conversion_type_id (parser)
 {
   tree type_specifiers;
   tree declarator;
-  bool friend_p;
 
   /* Parse the type-specifiers.  */
   type_specifiers = cp_parser_type_specifier_seq (parser);
@@ -6265,8 +6255,7 @@ cp_parser_conversion_type_id (parser)
   declarator = cp_parser_conversion_declarator_opt (parser);
 
   return grokdeclarator (declarator, type_specifiers, TYPENAME,
-			 /*initialized=*/0, /*attrlist=*/NULL_TREE,
-			 &friend_p);
+			 /*initialized=*/0, /*attrlist=*/NULL);
 }
 
 /* Parse an (optional) conversion-declarator.
@@ -6395,8 +6384,9 @@ cp_parser_mem_initializer_list (parser)
    mem-initializer:
      mem-initializer-id ( expression-list [opt] )  
 
-   Returns a TREE_LIST.  The TREE_PURPOSE is the TYPE or 
-   FIELD_DECL to initialize; the TREE_VALUE is expression-list.  */
+   Returns a TREE_LIST.  The TREE_PURPOSE is the TYPE (for a base
+   class) or FIELD_DECL (for a non-static data member) to initialize;
+   the TREE_VALUE is the expression-list.  */
 
 static tree
 cp_parser_mem_initializer (parser)
@@ -6948,7 +6938,7 @@ cp_parser_type_parameter (parser)
 	  identifier = NULL_TREE;
 
 	/* Create the parameter.  */
-	parameter = finish_template_type_parm (class_type, identifier);
+	parameter = finish_template_type_parm (class_type_node, identifier);
 
 	/* If the next token is an `=', we have a default argument.  */
 	if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
@@ -7400,7 +7390,6 @@ cp_parser_explicit_instantiation (parser)
     {
       tree declarator;
       tree decl;
-      bool friend_p;
 
       /* Parse the declarator.  */
       declarator 
@@ -7408,7 +7397,7 @@ cp_parser_explicit_instantiation (parser)
 				/*abstract_p=*/false, 
 				/*ctor_dtor_or_conv_p=*/NULL);
       decl = grokdeclarator (declarator, decl_specifiers, 
-			     NORMAL, 0, NULL_TREE, &friend_p);
+			     NORMAL, 0, NULL);
       /* Do the explicit instantiation.  */
       do_decl_instantiation (decl, extension_specifier);
     }
@@ -11372,7 +11361,7 @@ cp_parser_base_specifier (parser)
 	access_node = access_private_node;
 	break;
       default:
-	my_friendly_abort (20010619);
+	abort ();
       }
   else
     switch (access)
@@ -11390,7 +11379,7 @@ cp_parser_base_specifier (parser)
 	access_node = access_private_virtual_node;
 	break;
       default:
-	my_friendly_abort (20010619);
+	abort ();
       }
 
   /* Look for the optional `::' operator.  */
@@ -12120,7 +12109,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
       if (!CLASS_TYPE_P (type))
 	return error_mark_node;
       /* If it was a class type, return the destructor.  */
-      return CLASSTYPE_DESTRUCTOR (type);
+      return CLASSTYPE_DESTRUCTORS (type);
     }
 
   /* By this point, the NAME should be an ordinary identifier.  If
@@ -13160,8 +13149,6 @@ cp_parser_sizeof_operand (parser, keyword)
       /* If all went well, then we're done.  */
       if (cp_parser_parse_definitely (parser))
 	{
-	  bool friend_p;
-
 	  /* Build a list of decl-specifiers; right now, we have only
 	     a single type-specifier.  */
 	  type = build_tree_list (NULL_TREE,
@@ -13172,8 +13159,7 @@ cp_parser_sizeof_operand (parser, keyword)
 				 type,
 				 TYPENAME,
 				 /*initialized=*/0,
-				 /*attrlist=*/NULL_TREE,
-				 &friend_p);
+				 /*attrlist=*/NULL);
 	}
     }
 

@@ -9474,6 +9474,48 @@ compute_array_index_type (name, size)
   return build_index_type (itype);
 }
 
+/* Returns the scope (if any) in which the entity declared by
+   DECLARATOR will be located.  If the entity was declared with an
+   unqualified name, NULL_TREE is returned.  */
+
+tree
+get_scope_of_declarator (declarator)
+     tree declarator;
+{
+  if (!declarator)
+    return NULL_TREE;
+  
+  switch (TREE_CODE (declarator))
+    {
+    case CALL_EXPR:
+    case ARRAY_REF:
+    case INDIRECT_REF:
+    case ADDR_EXPR:
+      /* For any of these, the main declarator is the first operand.  */
+      return get_scope_of_declarator (TREE_OPERAND
+				      (declarator, 0));
+
+    case SCOPE_REF:
+      /* For a pointer-to-member, continue descending.  */
+      if (TREE_CODE (TREE_OPERAND (declarator, 1))
+	  == INDIRECT_REF)
+	return get_scope_of_declarator (TREE_OPERAND
+					(declarator, 1));
+      /* Otherwise, if the declarator-id is a SCOPE_REF, the scope in
+	 which the declaration occurs is the first operand.  */
+      return TREE_OPERAND (declarator, 0);
+
+    case TREE_LIST:
+      /* Attributes to be applied. The declarator is TREE_VALUE.  */
+      return get_scope_of_declarator (TREE_VALUE (declarator));
+      
+    default:
+      /* Otherwise, we have a declarator-id which is not a qualified
+	 name; the entity will be declared in the current scope.  */
+      return NULL_TREE;
+    }
+}
+
 /* Returns an ARRAY_TYPE for an array with SIZE elements of the
    indicated TYPE.  If non-NULL, NAME is the NAME of the declaration
    with this type.  */
@@ -12983,9 +13025,7 @@ xref_tag_from_type (old, id, globalize)
    struct, or union.  */
 
 void
-xref_basetypes (code_type_node, name, ref, binfo)
-     tree code_type_node;
-     tree name ATTRIBUTE_UNUSED;
+xref_basetypes (ref, binfo)
      tree ref;
      tree binfo;
 {
@@ -12997,20 +13037,13 @@ xref_basetypes (code_type_node, name, ref, binfo)
   int i, len;
   enum tag_types tag_code;
 
-  /* If we are called from the parser, code_type_node will sometimes be a
-     TREE_LIST.  This indicates that the user wrote
-     "class __attribute__ ((foo)) bar".  Extract the attributes so that
-     tree_low_cst doesn't crash.  */
-  if (TREE_CODE (code_type_node) == TREE_LIST)
-    code_type_node = TREE_VALUE (code_type_node);
-
-  tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
-
-  if (tag_code == union_type)
+  if (TREE_CODE (ref) == UNION_TYPE)
     {
       error ("derived union `%T' invalid", ref);
       return;
     }
+
+  tag_code = (CLASSTYPE_DECLARED_CLASS (ref) ? class_type : record_type);
 
   len = list_length (binfo);
 

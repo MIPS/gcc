@@ -1,3 +1,87 @@
+2002-06-25  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md: Change \\{t,n} to \{t,n}.
+
+2002-06-25  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpplib.c (do_include_common): Revert to correct line number
+	if -traditional.
+	* cpptrad.c (scan_out_logical_line): Treat null directive as
+	white space.  Invlidate MI optimization for non-whitespace
+	text outside a directive.
+
+2002-06-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (SHELL): Set to @SHELL@.
+	* fixinc/Makefile.in (SHELL): Likewise.
+
+	* mips.md (fixuns_truncdfsi2, fixuns_truncdfdi2,
+	fixuns_truncsfsi2, fixuns_truncsfdi2): Avoid automatic aggregate
+	initialization.
+
+2002-06-24  Jeff Law <law@redhat.com>
+
+	* flow.c (propagate_one_insn): When removing an insn
+	with a REG_LIBCALL note but not the entire libcall sequence,
+	delete the associated REG_RETVAL note.
+
+Mon Jun 24 21:05:09 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* lib1funcs.asm (sdivsi3): Add optimized SH64 implementations.
+	(udivsi3): Likewise.  Rewrite SH1 implementation.
+	(udivdi3, divdi3, umoddi3, moddi3): New SHmedia functions.
+	* sh.md (R20_REG, R21_REG, R22_REG, R23_REG, FR23_REG): New constants.
+	(udivsi3_i1_media, divsi3_i1_media): Fix clobber list.
+	* config/sh/t-sh64 (LIB1ASMFUNCS): (_udivdi3, _divdi3, _umoddi3): Add.
+	(_moddi3): Likewise.
+
+	* lib1funcs.asm (ic_invalidate): Add data cache line writeback.
+
+	* sh.h (FUNCTION_ARG_ADVANCE): Take SHCOMPACT_FORCE_ON_STACK
+	arguments into account for stack_regs.
+
+2002-06-24  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* doc/extend.texi: Change `@dots{}' to `/* @r{@dots{}} */'
+	in examples.
+	
+2002-06-24  Art Haas  <ahaas@neosoft.com>
+
+	* doc/extend.texi (Other Builtins): Change `...' to `@dots{}'.
+	* doc/tm.texi (Frame Layout): Likewise.
+
+2002-06-20  Steve Ellcey  <sje@cup.hp.com>
+	* gcc/config.gcc (ia64*-*-hpux*): Set use_collect2 to no.
+	Set float_format to i128.
+
+2002-06-24  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.c (INIT_TARGET_OPTABS): If ARCH64, set the
+	32-bit ABI libfuncs to NULL.
+
+	* config/sparc/sparc.md: Use define_insn_and_split.  Use braced
+	strings instead of quoted strings for code blocks.
+
+	* expmed.c (expand_divmod): Do not set optab1/optab2 to the shift
+	optabs if op1 is const0_rtx.
+
+	* Makefile.in (GTFILES): Add basic-block.h
+	* basic-block.h (label_value_list, tail_recursion_label_list):
+	Mark with GTY.
+
+2002-06-24  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpptrad.c (scan_out_logical_line): Check recursing only when
+	we know we have a macro invocation in the function-like case.
+	Only call _cpp_handle_directive if we know we have a good
+	directive, or we want to reject a bad directive.
+
+2002-06-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* doloop.c (doloop_valid_p): Correct comment.
+	(doloop_modify_runtime <abs_inc != 1>): Simplify.
+	(doloop_modify_runtime <do-while>): Don't emit code when NE.
+
 Thu Jun 20 00:26:53 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* config.gcc: Add support for ip2k.
@@ -324,6 +408,45 @@ Thu Jun 20 17:25:29 CEST 2002  JAn HUbicka  <jh@suse.cz>
 Thu Jun 20 12:14:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (xorqi_1_slp, xorqi_2_slp): New patterns.
+
+2002-06-16  Aldy Hernandez  <aldyh@redhat.com>
+	
+	* gcc.c-torture/execute/simd-1.c: New.
+
+	* gcc.dg/simd-1.c: New.
+
+	* doc/extend.texi (Vector Extensions): Document that we can
+	specify simd types not specifically supported by the hardware.
+	Document that simd types can be used as function arguments.
+	Document that signness does make a difference in SIMD types.
+	Misc cleanups and revisions to the vector extensions section.
+
+	* simplify-rtx.c (simplify_subreg): Simplify subregs of vector
+	constants.
+
+	* expr.c (vector_mode_valid_p): New.
+
+	* expr.h: Add vector_mode_valid_p.
+
+	* defaults.h (VECTOR_MODE_SUPPORTED_P): Set default.
+
+	* c-common.c (type_for_mode): Always build vector nodes regardless
+	of VECTOR_MODE_SUPPORTED_P.
+	(handle_mode_attribute): Error if we can't emulate a nonexisting
+	vector mode.
+	(handle_vector_size_attribute): Same.
+
+	* optabs.c (expand_binop): Open-code vector operations.
+	(expand_unop): Open-code vector unops.
+	(expand_vector_binop): New.
+	(expand_vector_unop): New.
+	
+	* c-typeck.c (build_binary_op): Allow vectors in binops.
+	Allow vectors in conditional operatiors.
+	(build_unary_op): Allow vectors in unary minus.
+
+	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Conditionalize on
+	TARGET_ALTIVEC.
 
 2002-05-20  Richard Henderson  <rth@redhat.com>
 
