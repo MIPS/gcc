@@ -865,7 +865,8 @@ struct tree_opt_pass pass_align_analysis =
   PROP_alignment,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0					/* letter */
 };
 /* Get the lattice + alignment  info associated with var */
 

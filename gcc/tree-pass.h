@@ -64,6 +64,8 @@ struct tree_opt_pass
   /* Flags indicating common sets things to do before and after.  */
   unsigned int todo_flags_start;
   unsigned int todo_flags_finish;
+
+  int letter;
 };
 
 /* Pass properties.  */

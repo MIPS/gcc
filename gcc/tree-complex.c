@@ -557,5 +557,6 @@ struct tree_opt_pass pass_lower_complex =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_verify_flow /* todo_flags_finish */
+    | TODO_verify_stmts | TODO_verify_flow, /* todo_flags_finish */
+  0					/* letter */
 };

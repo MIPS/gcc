@@ -1,3 +1,15 @@
+2004-09-06  Paolo Bonzini  <bonzini@gcc.gnu.org>
+
+	* tree-pass.h (struct tree_opt_pass): Add LETTER field.
+	* cfgexpand.c, gimple-low.c, passes.c, predict.c, tree-alias-common.c, 
+	tree-cfg.c, tree-complex.c, tree-dfa.c, tree-eh.c, tree-into-ssa.c, 
+	tree-mudflap.c, tree-nomudflap.c, tree-nrv.c, tree-optimize.c, 
+	tree-outof-ssa.c, tree-profile.c, tree-sra.c, tree-ssa-alias.c, 
+	tree-ssa-align.c, tree-ssa-ccp.c, tree-ssa-copyrename.c, 
+	tree-ssa-dce.c, tree-ssa-dom.c, tree-ssa-dse.c, tree-ssa-forwprop.c, 
+	tree-ssa-loop-ch.c, tree-ssa-loop.c, tree-ssa-phiopt.c, tree-ssa-pre.c, 
+	tree-ssa.c, tree-tailcall.c: Adjust.
+
 2004-09-03  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (tree-ssa-loop-niter.o): Depends on TREE_DATA_REF_H.

@@ -72,7 +72,8 @@ static struct tree_opt_pass pass_gimple =
   PROP_gimple_any,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
@@ -98,7 +99,8 @@ static struct tree_opt_pass pass_all_optimizations =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
@@ -127,7 +129,8 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Pass: do the actions required to finish with tree-ssa optimization
@@ -170,7 +173,8 @@ static struct tree_opt_pass pass_free_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -197,7 +201,8 @@ static struct tree_opt_pass pass_init_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Iterate over the pass tree allocating dump file numbers.  We want

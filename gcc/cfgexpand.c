@@ -446,6 +446,7 @@ struct tree_opt_pass pass_expand =
   PROP_rtl,                             /* properties_provided */
   PROP_gimple_leh,			/* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  'r'					/* letter */
 };
 

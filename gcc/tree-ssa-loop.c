@@ -99,7 +99,8 @@ struct tree_opt_pass pass_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_ggc_collect,			/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer initialization.  */
@@ -130,7 +131,8 @@ struct tree_opt_pass pass_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop invariant motion pass.  */
@@ -163,7 +165,8 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop unswitching pass.  */
@@ -196,7 +199,8 @@ struct tree_opt_pass pass_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Canonical induction variable creation pass.  */
@@ -229,7 +233,8 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Record bounds on numbers of iterations of loops.  */
@@ -257,7 +262,8 @@ struct tree_opt_pass pass_record_bounds =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0 			              	/* todo_flags_finish */
+  0, 			              	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* A pass for testing of loop infrastructure.  */
@@ -291,7 +297,8 @@ struct tree_opt_pass pass_loop_test =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Marks loops that cannot be removed in DCE, since they are possibly
@@ -326,7 +333,8 @@ struct tree_opt_pass pass_mark_maybe_inf_loops =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Removal of redundant checks.  */
@@ -360,7 +368,8 @@ struct tree_opt_pass pass_elim_checks =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Vectorizer.  */
@@ -394,7 +403,8 @@ struct tree_opt_pass pass_vectorize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_write_loop_closed  /* todo_flags_finish */
+  TODO_dump_func | TODO_write_loop_closed,  /* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Complete unrolling of loops.  */
@@ -427,7 +437,8 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop nest optimizations.  */
@@ -460,7 +471,8 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Prefetching.  */
@@ -493,7 +505,8 @@ struct tree_opt_pass pass_loop_prefetch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Induction variable optimizations.  */
@@ -526,7 +539,8 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer finalization.  */
@@ -558,6 +572,7 @@ struct tree_opt_pass pass_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 

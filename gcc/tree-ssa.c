@@ -1011,7 +1011,8 @@ struct tree_opt_pass pass_redundant_phi =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars 
-    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+    | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Emit warnings for uninitialized variables.  This is done in two passes.
@@ -1151,7 +1152,8 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 struct tree_opt_pass pass_late_warn_uninitialized =
@@ -1167,5 +1169,6 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };

@@ -1656,7 +1656,8 @@ struct tree_opt_pass pass_lower_eh =
   PROP_gimple_leh,			/* properties_provided */
   PROP_gimple_lcf,			/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 
