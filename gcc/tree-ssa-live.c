@@ -234,8 +234,10 @@ compact_var_map (var_map map, int flags)
   if (map->compact_to_partition)
     {
       free (map->compact_to_partition);
-      map->partition_to_compact = NULL;
+      map->compact_to_partition = NULL;
     }
+
+  map->num_partitions = map->partition_size;
 
   if (flags & VARMAP_NO_SINGLE_DEFS)
     rv = root_var_init (map);
@@ -584,7 +586,6 @@ calculate_live_on_entry (var_map map)
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  var = PHI_RESULT (phi);
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      var = PHI_ARG_DEF (phi, i);

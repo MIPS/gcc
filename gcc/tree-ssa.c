@@ -1130,6 +1130,28 @@ eliminate_build (elim_graph g, basic_block B, int i)
   for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
     {
       T0 = var_to_partition_to_var (g->map, PHI_RESULT (phi));
+      /* Ignore results which are not in partitions.  */
+      if (T0 == NULL_TREE)
+        {
+#ifdef ENABLE_CHECKING
+	  /* There should be no arguments of this PHI which are in
+	     the partition list, or we get incorrect results.  */
+	  for (pi = 0; pi < PHI_NUM_ARGS (phi); pi++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, pi);
+	      if (TREE_CODE (arg) == SSA_NAME
+		  && var_to_partition (g->map, arg) != NO_PARTITION)
+		{
+		  fprintf (stderr, "Argument of PHI is in a partition :(");
+		  print_generic_expr (stderr, arg, TDF_SLIM);
+		  fprintf (stderr, "), but the result is not :");
+		  print_generic_stmt (stderr, phi, TDF_SLIM);
+		  abort();
+		}
+	    }
+#endif
+	  continue;
+	}
       if (PHI_ARG_EDGE (phi, i) == g->e)
 	Ti = PHI_ARG_DEF (phi, i);
       else
@@ -1341,7 +1363,6 @@ print_exprs_edge (FILE *f, edge e, const char *str1, tree expr1,
 static void
 coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 {
-
   basic_block bb;
   edge e;
   tree phi, var, tmp;
@@ -1359,8 +1380,12 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	    /* Visit each PHI on the destination side of this abnormal
 	       edge, and attempt to coalesce the argument with the result.  */
 	    var = PHI_RESULT (phi);
-
 	    x = var_to_partition (map, var);
+
+	    /* Ignore results which are not relevant.  */
+	    if (x == NO_PARTITION)
+	      continue;
+
 	    y = phi_arg_from_edge (phi, e);
 	    if (y == -1)
 	      abort ();
@@ -1643,7 +1668,27 @@ eliminate_extraneous_phis (var_map map)
         {
 	  next = TREE_CHAIN (phi);
 	  if (var_to_partition_to_var (map, PHI_RESULT (phi)) == NULL_TREE)
-	    remove_phi_node (phi, NULL_TREE, bb);
+	    {
+#ifdef ENABLE_CHECKING
+	      int i;
+	      /* There should be no arguments of this PHI which are in
+		 the partition list, or we get incorrect results.  */
+	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	        {
+		  tree arg = PHI_ARG_DEF (phi, i);
+		  if (TREE_CODE (arg) == SSA_NAME 
+		      && var_to_partition (map, arg) != NO_PARTITION)
+		    {
+		      fprintf (stderr, "Argument of PHI is in a partition :(");
+		      print_generic_expr (stderr, arg, TDF_SLIM);
+		      fprintf (stderr, "), but the result is not :");
+		      print_generic_stmt (stderr, phi, TDF_SLIM);
+		      abort();
+		    }
+		}
+#endif
+	      remove_phi_node (phi, NULL_TREE, bb);
+	    }
 	}
     }
 }
@@ -1684,10 +1729,11 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  p = var_to_partition (map, PHI_RESULT (phi));
-#ifdef ENABLE_CHECKING
+
+	  /* Skip virtual PHI nodes.  */
 	  if (p == NO_PARTITION)
-	    abort();
-#endif
+	    continue;
+
 	  make_live_on_entry (liveinfo, bb, p);
 
 	  /* Each argument is a potential copy operation. Add any arguments 
@@ -2318,84 +2364,20 @@ dump_replaceable_exprs (FILE *f, tree *expr)
 }
 
 
-/* Take function FNDECL out of SSA form.
+/* This function will rewrite the current program using the variable mapping
+   found in 'map'. If the replacement vector 'values' is provided, any 
+   occurences of partitions with non-null entries in the vector will be 
+   replaced with the expression in the vector instead of its mapped 
+   variable.  */
 
-   PHASE indicates which dump file from the DUMP_FILES array to use when
-   dumping debugging information.  */
-
-void
-rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
+static void
+rewrite_trees (var_map map, tree *values)
 {
+  elim_graph g;
   basic_block bb;
   block_stmt_iterator si;
   edge e;
-  var_map map;
-  tree phi, next;
-  elim_graph g;
-  tree_live_info_p liveinfo;
-  tree *values = NULL;
-  int var_flags = 0;
-
-  timevar_push (TV_TREE_SSA_TO_NORMAL);
-
-  dump_file = dump_begin (phase, &dump_flags);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
-
-  if (flag_tree_ter)
-    var_flags = SSA_VAR_MAP_REF_COUNT;
-  map = create_ssa_var_map (var_flags);
-  eliminate_extraneous_phis (map);
-
-  /* Shrink the map to include only referenced variables.  */
-  if (flag_tree_combine_temps)
-    compact_var_map (map, VARMAP_NORMAL);
-  else
-    compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
-
-  liveinfo = coalesce_ssa_name (map);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "After Coalescing:\n");
-      dump_var_map (dump_file, map);
-    }
-  if (!flag_tree_combine_temps)
-    compact_var_map (map, VARMAP_NORMAL);
-
-  /* This is the final var list, so assign real variables to the different
-     partitions.  */
-  assign_vars (map);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "After Root variable replacement:\n");
-      dump_var_map (dump_file, map);
-    }
-
-  if (flag_tree_ter)
-    {
-      values = find_replaceable_exprs (map);
-      if (values && dump_file && (dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (dump_file, values);
-    }
-
-  if (flag_tree_combine_temps && liveinfo)
-    {
-      coalesce_vars (map, liveinfo);
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "After variable memory coalescing:\n");
-	  dump_var_map (dump_file, map);
-	}
-    }
-
-  if (liveinfo)
-    delete_tree_live_info (liveinfo);
+  tree phi;
 
   /* Replace PHI nodes with any required copies.  */
   g = new_elim_graph (map->num_partitions);
@@ -2465,21 +2447,142 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
         {
 	  for (e = bb->pred; e; e = e->pred_next)
 	    eliminate_phi (e, phi_arg_from_edge (phi, e), g);
-	  for ( ; phi; phi = next)
-	    {
-	      next = TREE_CHAIN (phi);
-	      remove_phi_node (phi, NULL_TREE, bb);
-	    }
 	}
     }
 
   delete_elim_graph (g);
 
+  /* If any copies were inserted on edges, actually insert them now.  */
+  bsi_commit_edge_inserts (0, NULL);
+
+}
+
+/* Remove the variables specified in a var map from SSA form.  */
+void
+remove_ssa_form (var_map map)
+{
+  tree_live_info_p liveinfo;
+  basic_block bb;
+  tree phi, next;
+  FILE *save;
+
+  save = dump_file;
+  dump_file = NULL;
+
+  compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
+  liveinfo = coalesce_ssa_name (map);
+  compact_var_map (map, VARMAP_NORMAL);
+  assign_vars (map);
+  if (liveinfo)
+    delete_tree_live_info (liveinfo);
+  rewrite_trees (map, NULL);
+
+  /* Remove phi nodes which have been translated back to real variables.  */
+  FOR_EACH_BB (bb)
+    {
+      for (phi = phi_nodes (bb); phi; phi = next)
+	{
+	  next = TREE_CHAIN (phi);
+	  if (var_to_partition (map, PHI_RESULT (phi)) != NO_PARTITION)
+	    remove_phi_node (phi, NULL_TREE, bb);
+	}
+    }
+
+  dump_file = save;
+}
+
+/* Take function FNDECL out of SSA form.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
+
+void
+rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
+{
+  basic_block bb;
+  var_map map;
+  tree phi, next;
+  tree_live_info_p liveinfo;
+  tree *values = NULL;
+  int var_flags = 0;
+
+  timevar_push (TV_TREE_SSA_TO_NORMAL);
+
+  dump_file = dump_begin (phase, &dump_flags);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
+
+  if (flag_tree_ter)
+    var_flags = SSA_VAR_MAP_REF_COUNT;
+  map = create_ssa_var_map (var_flags);
+
+  /* Shrink the map to include only referenced variables.  */
+  compact_var_map (map, VARMAP_NORMAL);
+
+  eliminate_extraneous_phis (map);
+
+  /* Dont build live range info for single def variables.  */
+  if (!flag_tree_combine_temps)
+    compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_var_map (dump_file, map);
+
+  liveinfo = coalesce_ssa_name (map);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "After Coalescing:\n");
+      dump_var_map (dump_file, map);
+    }
+
+  if (!flag_tree_combine_temps)
+    compact_var_map (map, VARMAP_NORMAL);
+
+  /* This is the final var list, so assign real variables to the different
+     partitions.  */
+  assign_vars (map);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "After Root variable replacement:\n");
+      dump_var_map (dump_file, map);
+    }
+
+  if (flag_tree_ter)
+    {
+      values = find_replaceable_exprs (map);
+      if (values && dump_file && (dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (dump_file, values);
+    }
+
+  if (flag_tree_combine_temps && liveinfo)
+    {
+      coalesce_vars (map, liveinfo);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "After variable memory coalescing:\n");
+	  dump_var_map (dump_file, map);
+	}
+    }
+
+  if (liveinfo)
+    delete_tree_live_info (liveinfo);
+
+  rewrite_trees (map, values);
+
   if (values)
     free (values);
 
-  /* If any copies were inserted on edges, actually insert them now.  */
-  bsi_commit_edge_inserts (0, NULL);
+  FOR_EACH_BB (bb)
+    {
+      for (phi = phi_nodes (bb); phi; phi = next)
+	{
+	  next = TREE_CHAIN (phi);
+	  remove_phi_node (phi, NULL_TREE, bb);
+	}
+    }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);

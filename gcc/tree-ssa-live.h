@@ -62,11 +62,13 @@ extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
 extern void compact_var_map (var_map, int);
+extern void remove_ssa_form (var_map);
 
 static inline int num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
+static inline tree version_to_var (var_map, int);
 static inline int version_ref_count (var_map, tree);
 
 #define SSA_VAR_MAP_REF_COUNT	 0x01
@@ -102,6 +104,20 @@ partition_to_var (var_map map, int i)
   return map->partition_to_var[i];
 }
 
+/* Given an SSA version number, return the var it is associated with.  */
+
+static inline tree version_to_var (var_map map, int version)
+{
+  int part;
+  part = partition_find (map->var_partition, version);
+  if (map->partition_to_compact)
+    part = map->partition_to_compact[part];
+  if (part == NO_PARTITION)
+    return NULL_TREE;
+  
+  return partition_to_var (map, part);
+}
+ 
 /* Given a variable, return the partition number which contains it.  
    NO_PARTITION is returned if its not in any partition.  */
 

@@ -1,3 +1,21 @@
+2003-11-21  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (compact_var_map): Fix typo.  Clear correct field.
+	(calculate_live_on_entry): Remove unneeded stmt.
+	* tree-ssa-live.h (version_to_var): New.  Return variable associated 
+	with a specific SSA version.
+	* tree-ssa.c (eliminate_build): Add check that ignored results don't
+	have important arguments.  Allow ignored results.
+	(coalesce_abnormal_edges): Allow non-relevant results to be ignored.
+	(eliminate_extraneous_phis): Allow non-relevant results.  Check that
+	no important arguments are being missed.
+	(coalesce_vars): Non-partition variables are allowed now, just ignored.
+	(rewrite_trees): New.  Split out from rewrite_out_of_ssa.  Perform tree
+	rewriting step.
+	(remove_ssa_form): New.  Allow rewriting of just specified variables.
+	(rewrite_out_of_ssa): Use rewrite_trees and reorganize slightly to
+	accommodate typechecking in eliminate_extraneous_phis.
+
 2003-11-21  Jan Hubicka  <jh@suse.cz>
 
 	* parser.c (cp_parser_postfix_expression): Initialize 's' to
