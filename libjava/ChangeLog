@@ -1,5 +1,34 @@
 2004-12-31  Michael Koch  <konqueror@gmx.de>
 
+	* javax/imageio/IIOParam.java
+	(setSourceBands): New method.
+	(setSourceSubsampling): Likewise.
+	* javax/imageio/ImageReadParam.java
+	(setDestination): Likewise.
+	(setDestinationBands): Likewise.
+	(setSourceProgressivePasses): Likewise.
+	* javax/imageio/metadata/IIOInvalidTreeException.java
+	(serialVersionUID): New static field.
+	* javax/imageio/metadata/IIOMetadataNode.java
+	(IIOMetadataNode): Don't explicitely implement org.w3c.dom.Node.
+	(parent): Dont initailize with default value explicitely.
+	(Object): Likewise.
+	(removeAttribute): Doesn't throws org.w3c.dom.DOMException.
+	(removeAttributeNode): Likewise.
+	(removeAttributeNS): Likewise.
+	(setAttribute): Likewise.
+	(setAttributeNode): Likewise.
+	(setAttributeNodeNS): Likewise.
+	(setAttributeNS): Likewise.
+	(appendChild): Likewise.
+	(getNodeValue): Likewise.
+	(insertBefore): Likewise.
+	(removeChild): Likewise.
+	(replaceChild): Likewise.
+	(setPrefix): Likewise.
+
+2004-12-31  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/LookAndFeel.java
 	(getDesktopPropertyValue): New method.
 

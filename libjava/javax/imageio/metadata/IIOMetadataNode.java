@@ -51,13 +51,14 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class IIOMetadataNode implements Element, Node, NodeList
+public class IIOMetadataNode
+  implements Element, NodeList
 {
   private String name;
   private HashMap attrs = new HashMap();
   private List children = new ArrayList();
-  private IIOMetadataNode parent = null;
-  private Object obj = null;
+  private IIOMetadataNode parent;
+  private Object obj;
   
   public IIOMetadataNode()
   {
@@ -105,6 +106,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   {
     return getAttributeNode(localName);
   }
+
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#getAttributeNS(java.lang.String, java.lang.String)
    */
@@ -137,7 +139,8 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#getElementsByTagNameNS(java.lang.String, java.lang.String)
    */
-  public NodeList getElementsByTagNameNS(String namespaceURI, String localName) {
+  public NodeList getElementsByTagNameNS(String namespaceURI, String localName)
+  {
     IIONodeList list = new IIONodeList();
     getElementsRecurse(list, name);
     return list;
@@ -170,7 +173,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#removeAttribute(java.lang.String)
    */
-  public void removeAttribute(String name) throws DOMException
+  public void removeAttribute(String name)
   {
     attrs.remove(name);
   }
@@ -178,7 +181,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#removeAttributeNode(org.w3c.dom.Attr)
    */
-  public Attr removeAttributeNode(Attr oldAttr) throws DOMException
+  public Attr removeAttributeNode(Attr oldAttr)
   {
     return (Attr)attrs.remove(oldAttr.getName());
   }
@@ -187,14 +190,14 @@ public class IIOMetadataNode implements Element, Node, NodeList
    * @see org.w3c.dom.Element#removeAttributeNS(java.lang.String, java.lang.String)
    */
   public void removeAttributeNS(String namespaceURI, String localName)
-      throws DOMException
   {
     removeAttribute(localName);
   }
+  
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#setAttribute(java.lang.String, java.lang.String)
    */
-  public void setAttribute(String name, String value) throws DOMException
+  public void setAttribute(String name, String value)
   {
     Attr attr = (Attr) getAttributeNode(name);
     if (attr != null)
@@ -206,7 +209,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#setAttributeNode(org.w3c.dom.Attr)
    */
-  public Attr setAttributeNode(Attr newAttr) throws DOMException
+  public Attr setAttributeNode(Attr newAttr)
   {
     return (Attr)attrs.put(newAttr.getName(), newAttr);
   }
@@ -214,7 +217,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#setAttributeNodeNS(org.w3c.dom.Attr)
    */
-  public Attr setAttributeNodeNS(Attr newAttr) throws DOMException
+  public Attr setAttributeNodeNS(Attr newAttr)
   {
     return (Attr)attrs.put(newAttr.getName(), newAttr);
   }
@@ -222,8 +225,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Element#setAttributeNS(java.lang.String, java.lang.String, java.lang.String)
    */
-  public void setAttributeNS(String namespaceURI, String qualifiedName,
-      String value) throws DOMException
+  public void setAttributeNS(String namespaceURI, String qualifiedName, String value)
   {
     setAttribute(qualifiedName, value);    
   }
@@ -250,7 +252,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#appendChild(org.w3c.dom.Node)
    */
-  public Node appendChild(Node newChild) throws DOMException
+  public Node appendChild(Node newChild)
   {
     if (newChild == null)
       throw new IllegalArgumentException("Child node is null");
@@ -367,7 +369,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#getNodeValue()
    */
-  public String getNodeValue() throws DOMException
+  public String getNodeValue()
   {
     return null;
   }
@@ -428,7 +430,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#insertBefore(org.w3c.dom.Node, org.w3c.dom.Node)
    */
-  public Node insertBefore(Node newChild, Node refChild) throws DOMException
+  public Node insertBefore(Node newChild, Node refChild)
   {
     if (newChild == null)
       throw new IllegalArgumentException();
@@ -463,7 +465,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#removeChild(org.w3c.dom.Node)
    */
-  public Node removeChild(Node oldChild) throws DOMException
+  public Node removeChild(Node oldChild)
   {
     if (oldChild == null)
       throw new IllegalArgumentException();
@@ -476,7 +478,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#replaceChild(org.w3c.dom.Node, org.w3c.dom.Node)
    */
-  public Node replaceChild(Node newChild, Node oldChild) throws DOMException
+  public Node replaceChild(Node newChild, Node oldChild)
   {
     if (newChild == null)
       throw new IllegalArgumentException();
@@ -495,7 +497,7 @@ public class IIOMetadataNode implements Element, Node, NodeList
   /* (non-Javadoc)
    * @see org.w3c.dom.Node#setPrefix(java.lang.String)
    */
-  public void setPrefix(String prefix) throws DOMException
+  public void setPrefix(String prefix)
   {
   }
 }

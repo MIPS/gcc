@@ -44,6 +44,8 @@ import org.w3c.dom.Node;
 
 public class IIOInvalidTreeException extends IIOException
 {
+  private static final long serialVersionUID = -1314083172544132777L;
+
   protected Node offendingNode;
 
   public IIOInvalidTreeException(String message, Node offendingNode)
