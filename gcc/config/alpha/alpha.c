@@ -1589,13 +1589,13 @@ alpha_encode_section_info (decl)
 
   /* A variable is considered "local" if it is defined in this module.  */
 
-  if (DECL_EXTERNAL (decl))
+  if (! TREE_PUBLIC (decl) || MODULE_LOCAL_P (decl))
+    is_local = true;
+  else if (DECL_EXTERNAL (decl))
     is_local = false;
   /* Linkonce and weak data is never local.  */
   else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
     is_local = false;
-  else if (! TREE_PUBLIC (decl))
-    is_local = true;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
   else if (flag_pic)

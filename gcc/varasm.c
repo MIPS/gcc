@@ -167,6 +167,7 @@ static unsigned min_align		PARAMS ((unsigned, unsigned));
 static void output_constructor		PARAMS ((tree, HOST_WIDE_INT,
 						 unsigned int));
 static void globalize_decl		PARAMS ((tree));
+static void maybe_assemble_visibility	PARAMS ((tree));
 static int in_named_entry_eq		PARAMS ((const PTR, const PTR));
 static hashval_t in_named_entry_hash	PARAMS ((const PTR));
 #ifdef ASM_OUTPUT_BSS
@@ -1238,6 +1239,8 @@ assemble_start_function (decl, fnname)
 	}
 
       globalize_decl (decl);
+
+      maybe_assemble_visibility (decl);
     }
 
   /* Do any machine/system dependent processing of the function name */
@@ -1591,16 +1594,36 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   DECL_ALIGN (decl) = align;
   set_mem_align (decl_rtl, align);
 
+  if (TREE_PUBLIC (decl))
+    maybe_assemble_visibility (decl);
+
+  /* Output any data that we will need to use the address of.  */
+  if (DECL_INITIAL (decl) == error_mark_node)
+    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
+  else if (DECL_INITIAL (decl))
+    reloc = output_addressed_constants (DECL_INITIAL (decl));
+  resolve_unique_section (decl, reloc, flag_data_sections);
+
   /* Handle uninitialized definitions.  */
 
-  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node)
-      /* If the target can't output uninitialized but not common global data
-	 in .bss, then we have to use .data.  */
-#if ! defined ASM_EMIT_BSS
-      && DECL_COMMON (decl)
+  /* If the decl has been given an explicit section name, then it
+     isn't common, and shouldn't be handled as such.  */
+  if (DECL_SECTION_NAME (decl) || dont_output_data)
+    ;
+  /* We don't implement common thread-local data at present.  */
+  else if (DECL_THREAD_LOCAL (decl))
+    {
+      if (DECL_COMMON (decl))
+	sorry ("thread-local COMMON data not implemented");
+    }
+#ifndef ASM_EMIT_BSS
+  /* If the target can't output uninitialized but not common global data
+     in .bss, then we have to use .data.  */
+  else if (!DECL_COMMON (decl))
+    ;
 #endif
-      && DECL_SECTION_NAME (decl) == NULL_TREE
-      && ! dont_output_data)
+  else if (DECL_INITIAL (decl) == 0
+	   || DECL_INITIAL (decl) == error_mark_node)
     {
       unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
       unsigned HOST_WIDE_INT rounded = size;
@@ -1636,14 +1659,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     globalize_decl (decl);
 
-  /* Output any data that we will need to use the address of.  */
-  if (DECL_INITIAL (decl) == error_mark_node)
-    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
-  else if (DECL_INITIAL (decl))
-    reloc = output_addressed_constants (DECL_INITIAL (decl));
-
   /* Switch to the appropriate section.  */
-  resolve_unique_section (decl, reloc, flag_data_sections);
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
@@ -5170,7 +5186,11 @@ assemble_alias (decl, target)
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
   if (TREE_PUBLIC (decl))
-    globalize_decl (decl);
+    {
+      globalize_decl (decl);
+
+      maybe_assemble_visibility (decl);
+    }
 
 #ifdef ASM_OUTPUT_DEF_FROM_DECLS
   ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
@@ -5195,6 +5215,40 @@ assemble_alias (decl, target)
   TREE_USED (decl) = 1;
   TREE_ASM_WRITTEN (decl) = 1;
   TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
+}
+
+/* Emit an assembler directive to set symbol for DECL visibility to
+   VISIBILITY_TYPE.  */
+
+void
+assemble_visibility (decl, visibility_type)
+     tree decl;
+     const char *visibility_type ATTRIBUTE_UNUSED;
+{
+  const char *name;
+
+  STRIP_NAME_ENCODING (name, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+
+#ifdef HAVE_GAS_HIDDEN
+  fprintf (asm_out_file, "\t.%s\t%s\n", visibility_type, name);
+#else
+  warning ("visibility attribute not supported in this configuration; ignored");
+#endif
+}
+
+/* A helper function to call assemble_visibility when needed for a decl.  */
+
+static void
+maybe_assemble_visibility (decl)
+     tree decl;
+{
+  tree visibility = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
+  if (visibility)
+    {
+      const char *type
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (visibility)));
+      assemble_visibility (decl, type);
+    }
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -5280,13 +5334,24 @@ default_section_type_flags (decl, name, reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= SECTION_TLS | SECTION_WRITE;
+
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_BSS;
+
+  if (strcmp (name, ".tdata") == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS;
 
   return flags;
 }
@@ -5330,6 +5395,8 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'M';
   if (flags & SECTION_STRINGS)
     *f++ = 'S';
+  if (flags & SECTION_TLS)
+    *f++ = 'T';
   *f = '\0';
 
   if (flags & SECTION_BSS)

@@ -3564,7 +3564,6 @@ c_expand_expr (exp, target, tmode, modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
-	bool return_target = false;
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -3592,20 +3591,8 @@ c_expand_expr (exp, target, tmode, modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
-		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
-		  /* If the last expression is a variable whose RTL is the
-		     same as our target, just return the target; if it
-		     isn't valid expanding the decl would produce different
-		     RTL, and store_expr would try to do a copy.  */
-		  return_target = true;
-		else
-		  {
-		    /* Otherwise, note that we want the value from the last
-		       expression.  */
-		    TREE_ADDRESSABLE (expr) = 1;
-		    preserve_result = true;
-		  }
+	        TREE_ADDRESSABLE (expr) = 1;
+		preserve_result = true;
 	      }
 	  }
 
@@ -3613,9 +3600,7 @@ c_expand_expr (exp, target, tmode, modifier)
 	expand_end_stmt_expr (rtl_expr);
 
 	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (return_target)
-	  result = target;
-	else if (preserve_result && GET_CODE (result) == MEM)
+	if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -3719,56 +3704,6 @@ c_staticp (exp)
       && TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (exp)))
     return 1;
   return 0;
-}
-
-/* Tree code classes.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-static const char c_tree_code_type[] = {
-  'x',
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-static const int c_tree_code_length[] = {
-  0,
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-static const char *const c_tree_code_name[] = {
-  "@@dummy",
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Adds the tree codes specific to the C front end to the list of all
-   tree codes.  */
-
-void
-add_c_tree_codes ()
-{
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_type,
-	  (int) LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_length,
-	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_name,
-	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
-  lang_unsafe_for_reeval = c_unsafe_for_reeval;
 }
 
 #define CALLED_AS_BUILT_IN(NODE) \

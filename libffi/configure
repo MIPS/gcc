@@ -2403,6 +2403,7 @@ powerpc-*-darwin*) TARGET=POWERPC_DARWIN; TARGETDIR=powerpc;;
 powerpc-*-aix*) TARGET=POWERPC_AIX; TARGETDIR=powerpc;;
 rs6000-*-aix*) TARGET=POWERPC_AIX; TARGETDIR=powerpc;;
 arm*-*-linux-*) TARGET=ARM; TARGETDIR=arm;;
+s390-*-linux-*) TARGET=S390; TARGETDIR=s390;;
 esac
 
 if test $TARGETDIR = unknown; then
@@ -2516,6 +2517,15 @@ if test x$TARGET = xARM; then
 else
   ARM_TRUE='#'
   ARM_FALSE=
+fi
+
+
+if test x$TARGET = xS390; then
+  S390_TRUE=
+  S390_FALSE='#'
+else
+  S390_TRUE='#'
+  S390_FALSE=
 fi
 
 echo $ac_n "checking how to run the C preprocessor""... $ac_c" 1>&6
@@ -3738,6 +3748,8 @@ s%@POWERPC_DARWIN_TRUE@%$POWERPC_DARWIN_TRUE%g
 s%@POWERPC_DARWIN_FALSE@%$POWERPC_DARWIN_FALSE%g
 s%@ARM_TRUE@%$ARM_TRUE%g
 s%@ARM_FALSE@%$ARM_FALSE%g
+s%@S390_TRUE@%$S390_TRUE%g
+s%@S390_FALSE@%$S390_FALSE%g
 s%@CPP@%$CPP%g
 s%@ALLOCA@%$ALLOCA%g
 s%@TARGET@%$TARGET%g

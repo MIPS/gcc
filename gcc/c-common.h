@@ -58,7 +58,7 @@ enum rid
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
   /* C extensions */
-  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX,
+  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX, RID_THREAD,
 
   /* C++ */
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
@@ -749,7 +749,6 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
-extern void add_c_tree_codes		        PARAMS ((void));
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));

@@ -111,6 +111,8 @@ INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 
 ## ################################################################
 
+rpath_def = $(shell if test "$(toolexeclibdir)" != /usr/lib; then echo -rpath $(toolexeclibdir); fi)
+
 ##
 ## How to build libgcj.a and libgcj.jar
 ##
@@ -410,7 +412,7 @@ EXTRA_jv_convert_SOURCES = $(convert_source_files)
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
 jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 jv_convert_LINK = $(GCJLINK)
 ## We don't explicitly link in the libraries we need; libgcj.la brings
 ## in all dependencies.  We need the -L so that gcj can find libgcj
@@ -429,7 +431,7 @@ gij_SOURCES = gij.cc
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gij_LDFLAGS = $(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gij_LDADD = -L$(here)/.libs libgcj.la
@@ -441,7 +443,7 @@ rmic_SOURCES =
 ## This is a dummy definition.
 EXTRA_rmic_SOURCES = $(rmi_java_source_files)
 rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 rmic_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 rmic_LDADD = -L$(here)/.libs libgcj.la
@@ -453,7 +455,7 @@ rmiregistry_SOURCES =
 ## This is a dummy definition.
 EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
 rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 rmiregistry_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 rmiregistry_LDADD = -L$(here)/.libs libgcj.la

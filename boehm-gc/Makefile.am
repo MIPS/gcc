@@ -48,7 +48,8 @@ EXTRA_libgcjgc_convenience_la_SOURCES = $(EXTRA_GC_SOURCES)
 # linuxthread semaphore functions get linked:
 libgcjgc_la_LIBADD = @addobjs@ $(THREADLIBS)
 libgcjgc_la_DEPENDENCIES = @addobjs@
-libgcjgc_la_LDFLAGS = -version-info 1:1:0 -rpath $(toolexeclibdir)
+libgcjgc_la_LDFLAGS = @LIBGCJGC_EXTRA_LDFLAGS@ -version-info 1:1:0 \
+		      -rpath $(toolexeclibdir)
 
 libgcjgc_convenience_la_LIBADD = @addobjs@
 libgcjgc_convenience_la_DEPENDENCIES = @addobjs@

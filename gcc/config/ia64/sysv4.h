@@ -42,8 +42,7 @@ extern int size_directive_output;
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
 do {									\
-  if ((DECL)								\
-      && XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0] == SDATA_NAME_FLAG_CHAR) \
+  if ((DECL) && sdata_symbolic_operand (XEXP (DECL_RTL (DECL), 0), Pmode)) \
     sbss_section ();							\
   else									\
     bss_section ();							\
@@ -62,8 +61,8 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   const char *name_ = NAME;			\
-  if (*name_ == SDATA_NAME_FLAG_CHAR)		\
-    name_++;					\
+  if (*name_ == ENCODE_SECTION_INFO_CHAR)	\
+    name_ += 2;					\
   if (*name_ == '*')				\
     name_++;					\
   else						\
@@ -149,9 +148,11 @@ do {									\
 	0	.text
 	1	.rodata
 	2	.data
-	3	.sdata
-	4	.bss
+	3	.bss
+	4	.sdata
 	5	.sbss
+	6	.tdata
+	7	.tbss
 */
 #define DO_SELECT_SECTION(SECNUM, DECL, RELOC)				\
   do									\
@@ -167,9 +168,10 @@ do {									\
 	}								\
       else if (TREE_CODE (DECL) == VAR_DECL)				\
 	{								\
-	  if (XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0]			\
-	      == SDATA_NAME_FLAG_CHAR)					\
-	    SECNUM = 3;							\
+	  if (DECL_THREAD_LOCAL (DECL))					\
+	    SECNUM = 6;							\
+	  else if (sdata_symbolic_operand (XEXP (DECL_RTL (DECL), 0), Pmode))\
+	    SECNUM = 4;							\
 	  /* ??? We need the extra RELOC check, because the default	\
 	     is to only check RELOC if flag_pic is set, and we don't	\
 	     set flag_pic (yet?).  */					\
@@ -184,13 +186,18 @@ do {									\
 	    SECNUM = 0x201;						\
 	  else								\
 	    SECNUM = 0x301;						\
+									\
+	  if (SECNUM >= 2						\
+	      && (!DECL_INITIAL (DECL)					\
+		  || DECL_INITIAL (DECL) == error_mark_node))		\
+	    SECNUM++;							\
 	}								\
       /* This could be a CONSTRUCTOR containing ADDR_EXPR of a VAR_DECL, \
 	 in which case we can't put it in a shared library rodata.  */	\
       else if (flag_pic && (RELOC))					\
-	SECNUM = 3;							\
-      else								\
 	SECNUM = 2;							\
+      else								\
+	SECNUM = 1;							\
     }									\
   while (0)
 
@@ -206,8 +213,8 @@ do {									\
 	text_section,							\
 	const_section,							\
 	data_section,							\
-	sdata_section,							\
 	bss_section,							\
+	sdata_section,							\
 	sbss_section							\
       };								\
 									\
@@ -217,6 +224,12 @@ do {									\
 									\
       switch (sec)							\
 	{								\
+	case 6:								\
+	  named_section (NULL_TREE, ".tdata", RELOC);			\
+	  break;							\
+	case 7:								\
+	  named_section (NULL_TREE, ".tbss", RELOC);			\
+	  break;							\
 	case 0x101:							\
 	  mergeable_string_section (DECL, ALIGN, 0);			\
 	  break;							\
@@ -244,9 +257,11 @@ do {									\
 	{ ".text.",   ".gnu.linkonce.t." },				\
 	{ ".rodata.", ".gnu.linkonce.r." },				\
 	{ ".data.",   ".gnu.linkonce.d." },				\
-	{ ".sdata.",  ".gnu.linkonce.s." },				\
 	{ ".bss.",    ".gnu.linkonce.b." },				\
-	{ ".sbss.",   ".gnu.linkonce.sb." }				\
+	{ ".sdata.",  ".gnu.linkonce.s." },				\
+	{ ".sbss.",   ".gnu.linkonce.sb." },				\
+	{ ".tdata.",  ".gnu.linkonce.td." },				\
+	{ ".tbss.",   ".gnu.linkonce.tb." }				\
       };								\
 									\
       int nlen, plen, sec;						\

@@ -98,6 +98,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
+#ifndef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS false
+#endif
+
 #ifndef TARGET_ASM_EXCEPTION_SECTION
 #define TARGET_ASM_EXCEPTION_SECTION default_exception_section
 #endif
@@ -194,9 +198,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   TARGET_SECTION_TYPE_FLAGS,			\
+  TARGET_CANNOT_MODIFY_JUMPS_P,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
-  TARGET_CANNOT_MODIFY_JUMPS_P			\
+  TARGET_HAVE_TLS				\
 }
 
 #include "hooks.h"

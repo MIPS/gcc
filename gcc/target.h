@@ -178,6 +178,10 @@ struct gcc_target
   /* ??? Should be merged with SELECT_SECTION and UNIQUE_SECTION.  */
   unsigned int (* section_type_flags) PARAMS ((tree, const char *, int));
 
+  /* True if new jumps cannot be created, to replace existing ones or
+     not, at the current point in the compilation.  */
+  bool (* cannot_modify_jumps_p) PARAMS ((void));
+
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
 
@@ -185,9 +189,8 @@ struct gcc_target
      false if we're using collect2 for the job.  */
   bool have_ctors_dtors;
 
-  /* True if new jumps cannot be created, to replace existing ones or
-     not, at the current point in the compilation.  */
-  bool (* cannot_modify_jumps_p) PARAMS ((void));
+  /* True if thread-local storage is supported.  */
+  bool have_tls;
 };
 
 extern struct gcc_target targetm;

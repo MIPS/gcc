@@ -58,37 +58,6 @@ static void unsave_expr_now_r PARAMS ((tree));
 
 struct obstack permanent_obstack;
 
-/* Table indexed by tree code giving a string containing a character
-   classifying the tree code.  Possibilities are
-   t, d, s, c, r, <, 1, 2 and e.  See tree.def for details.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-char tree_code_type[MAX_TREE_CODES] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-int tree_code_length[MAX_TREE_CODES] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-const char *tree_code_name[MAX_TREE_CODES] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
 /* Statistics-gathering stuff.  */
 typedef enum
 {
@@ -1510,12 +1479,13 @@ staticp (arg)
     case FUNCTION_DECL:
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
-      return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case VAR_DECL:
-      return (TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
+	      && ! DECL_THREAD_LOCAL (arg)
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case CONSTRUCTOR:
       return TREE_STATIC (arg);

@@ -682,11 +682,14 @@ int flag_shared_data;
 int flag_delayed_branch;
 
 /* Nonzero if we are compiling pure (sharable) code.
-   Value is 1 if we are doing reasonable (i.e. simple
-   offset into offset table) pic.  Value is 2 if we can
-   only perform register offsets.  */
+   Value is 1 if we are doing "small" pic; value is 2 if we're doing
+   "large" pic.  */
 
 int flag_pic;
+
+/* Set to the default thread-local storage (tls) model to use.  */
+
+enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -3609,6 +3612,7 @@ display_help ()
   printf (_("  -finline-limit=<number> Limits the size of inlined functions to <number>\n"));
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
+  printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {
@@ -3886,6 +3890,19 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+    }
+  else if ((option_value = skip_leading_substring (arg, "tls-model=")))
+    {
+      if (strcmp (option_value, "global-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (strcmp (option_value, "local-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_DYNAMIC;
+      else if (strcmp (option_value, "initial-exec") == 0)
+	flag_tls_default = TLS_MODEL_INITIAL_EXEC;
+      else if (strcmp (option_value, "local-exec") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
+      else
+	warning ("`%s': unknown tls-model option", arg - 2);
     }
 #ifdef INSN_SCHEDULING
   else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
@@ -4908,16 +4925,6 @@ process_options ()
     warning ("this target machine does not have delayed branches");
 #endif
 
-  /* Some operating systems do not allow profiling without a frame
-     pointer.  */
-  if (!TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-      && profile_flag
-      && flag_omit_frame_pointer)
-    {
-      error ("profiling does not work without a frame pointer");
-      flag_omit_frame_pointer = 0;
-    }
-    
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)
     {
@@ -5044,11 +5051,6 @@ lang_independent_init ()
   decl_printable_name = decl_name;
   lang_expand_expr = (lang_expand_expr_t) do_abort;
 
-  /* Set the language-dependent identifier size.  */
-  tree_code_length[(int) IDENTIFIER_NODE]
-    = ((lang_hooks.identifier_size - sizeof (struct tree_common)
-	+ sizeof (tree) - 1) / sizeof (tree));
-
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
   ggc_add_rtx_root (&stack_limit_rtx, 1);
@@ -5058,6 +5060,9 @@ lang_independent_init ()
   init_stringpool ();
   init_obstacks ();
 
+  /* init_emit_once uses reg_raw_mode and therefore must be called
+     after init_regs which initialized reg_raw_mode.  */
+  init_regs ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -5066,7 +5071,7 @@ lang_independent_init ()
 #endif
 		    || flag_test_coverage
 		    || warn_notreached);
-  init_regs ();
+  init_fake_stack_mems ();
   init_alias_once ();
   init_stmt ();
   init_loop ();

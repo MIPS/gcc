@@ -388,7 +388,7 @@ built with the GCC @option{-fprofile-arcs} option is executed.  A
 separate @file{.da} file is created for each source file compiled with
 this option, and the name of the @file{.da} file is stored as an
 absolute pathname in the resulting object file.  This path name is
-derived from the source file name by substituting a @file{.da} suffix.
+derived from the object file name by substituting a @file{.da} suffix.
 
 The format of the @file{.da} file is fairly simple.  The first 8-byte
 number is the number of counts in the file, followed by the counts

@@ -28,13 +28,15 @@ extern int ix86_frame_pointer_required PARAMS ((void));
 extern void ix86_setup_frame_addresses PARAMS ((void));
 
 extern void ix86_asm_file_end PARAMS ((FILE *));
-extern void load_pic_register PARAMS ((void));
 extern HOST_WIDE_INT ix86_initial_elimination_offset PARAMS((int, int));
 extern void ix86_expand_prologue PARAMS ((void));
 extern void ix86_expand_epilogue PARAMS ((int));
 
 extern void ix86_output_addr_vec_elt PARAMS ((FILE *, int));
 extern void ix86_output_addr_diff_elt PARAMS ((FILE *, int, int));
+
+extern void ix86_encode_section_info PARAMS ((tree));
+extern const char *ix86_strip_name_encoding PARAMS ((const char *));
 
 #ifdef RTX_CODE
 extern int ix86_aligned_p PARAMS ((rtx));
@@ -51,6 +53,11 @@ extern int x86_64_immediate_operand PARAMS ((rtx, enum machine_mode));
 extern int x86_64_zext_immediate_operand PARAMS ((rtx, enum machine_mode));
 extern int const_int_1_operand PARAMS ((rtx, enum machine_mode));
 extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
+extern int tls_symbolic_operand PARAMS ((rtx, enum machine_mode));
+extern int global_dynamic_symbolic_operand PARAMS ((rtx, enum machine_mode));
+extern int local_dynamic_symbolic_operand PARAMS ((rtx, enum machine_mode));
+extern int initial_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
+extern int local_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int pic_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int constant_call_address_operand PARAMS ((rtx, enum machine_mode));
@@ -84,6 +91,9 @@ extern int ix86_expand_movstr PARAMS ((rtx, rtx, rtx, rtx));
 extern int ix86_expand_clrstr PARAMS ((rtx, rtx, rtx));
 extern int ix86_expand_strlen PARAMS ((rtx, rtx, rtx, rtx));
 
+extern bool legitimate_constant_p PARAMS ((rtx));
+extern bool constant_address_p PARAMS ((rtx));
+extern bool legitimate_pic_operand_p PARAMS ((rtx));
 extern int legitimate_pic_address_disp_p PARAMS ((rtx));
 extern int legitimate_address_p PARAMS ((enum machine_mode, rtx, int));
 extern rtx legitimize_pic_address PARAMS ((rtx, rtx));
@@ -92,15 +102,18 @@ extern rtx legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern void print_reg PARAMS ((rtx, int, FILE*));
 extern void print_operand PARAMS ((FILE*, rtx, int));
 extern void print_operand_address PARAMS ((FILE*, rtx));
+extern bool output_addr_const_extra PARAMS ((FILE*, rtx));
 
 extern void split_di PARAMS ((rtx[], int, rtx[], rtx[]));
 extern void split_ti PARAMS ((rtx[], int, rtx[], rtx[]));
 
+extern const char *output_set_got PARAMS ((rtx));
 extern const char *output_387_binary_op PARAMS ((rtx, rtx*));
 extern const char *output_fix_trunc PARAMS ((rtx, rtx*));
 extern const char *output_fp_compare PARAMS ((rtx, rtx*, int, int));
 
 extern void i386_dwarf_output_addr_const PARAMS ((FILE*, rtx));
+extern void i386_output_dwarf_dtprel PARAMS ((FILE*, int, rtx));
 extern rtx i386_simplify_dwarf_addr PARAMS ((rtx));
 
 extern void ix86_expand_clear PARAMS ((rtx));
@@ -121,6 +134,7 @@ extern void ix86_expand_branch PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
 extern int ix86_expand_fp_movcc PARAMS ((rtx[]));
+extern void ix86_expand_call PARAMS ((rtx, rtx, rtx, rtx, rtx));
 extern void x86_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx ix86_zero_extend_to_Pmode PARAMS ((rtx));
 extern void ix86_split_long_move PARAMS ((rtx[]));
@@ -180,6 +194,8 @@ extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int))
 #endif
 
 #endif
+
+extern rtx ix86_tls_get_addr PARAMS ((void));
 
 #ifdef TREE_CODE
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));

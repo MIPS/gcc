@@ -184,6 +184,7 @@ INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
+rpath_def = $(shell if test "$(toolexeclibdir)" != /usr/lib; then echo -rpath $(toolexeclibdir); fi)
 
 nat_files = $(nat_source_files:.cc=.lo)
 x_nat_files = $(x_nat_source_files:.cc=.lo)
@@ -263,7 +264,7 @@ CONVERT_DIR = gnu/gcj/convert
 jv_convert_SOURCES = 
 EXTRA_jv_convert_SOURCES = $(convert_source_files)
 jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 
 jv_convert_LINK = $(GCJLINK)
 jv_convert_LDADD = -L$(here)/.libs libgcj.la
@@ -272,7 +273,7 @@ jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
 
 
 gij_SOURCES = gij.cc
-gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gij_LDFLAGS = $(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 gij_LDADD = -L$(here)/.libs libgcj.la
 gij_DEPENDENCIES = libgcj.la libgcj.spec
@@ -280,7 +281,7 @@ gij_DEPENDENCIES = libgcj.la libgcj.spec
 rmic_SOURCES = 
 EXTRA_rmic_SOURCES = $(rmi_java_source_files)
 rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 
 rmic_LINK = $(GCJLINK)
 rmic_LDADD = -L$(here)/.libs libgcj.la
@@ -289,7 +290,7 @@ rmic_DEPENDENCIES = libgcj.la libgcj.spec
 rmiregistry_SOURCES = 
 EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
 rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+	$(rpath_def) -shared-libgcc $(THREADLDFLAGS)
 
 rmiregistry_LINK = $(GCJLINK)
 rmiregistry_LDADD = -L$(here)/.libs libgcj.la

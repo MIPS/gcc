@@ -46,7 +46,7 @@ enum tree_code {
    and `x' for anything else (TREE_LIST, IDENTIFIER, etc).  */
 
 #define MAX_TREE_CODES 256
-extern char tree_code_type[MAX_TREE_CODES];
+extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
 /* Returns non-zero iff CLASS is the tree-code class of an
@@ -57,12 +57,12 @@ extern char tree_code_type[MAX_TREE_CODES];
 
 /* Number of argument-words in each kind of tree-node.  */
 
-extern int tree_code_length[MAX_TREE_CODES];
+extern const unsigned char tree_code_length[];
 #define TREE_CODE_LENGTH(CODE)	tree_code_length[(int) (CODE)]
 
 /* Names of tree components.  */
 
-extern const char *tree_code_name[MAX_TREE_CODES];
+extern const char *const tree_code_name[];
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */
@@ -1614,6 +1614,10 @@ struct tree_type
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
+/* In a VAR_DECL, nonzero if the data should be allocated from 
+   thread-local storage.  */
+#define DECL_THREAD_LOCAL(NODE) (VAR_DECL_CHECK (NODE)->decl.thread_local_flag)
+
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  Usually a COMPOUND_STMT, but in C++ this may also
    be a RETURN_INIT, CTOR_INITIALIZER, or TRY_BLOCK.  */
@@ -1792,7 +1796,8 @@ struct tree_decl
   unsigned non_addressable : 1;
   unsigned user_align : 1;
   unsigned uninlinable : 1;
-  /* Three unused bits.  */
+  unsigned thread_local_flag : 1;
+  /* Two unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2290,6 +2295,11 @@ extern tree merge_attributes		PARAMS ((tree, tree));
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
+
+/* Return true if DECL will be always resolved to a symbol defined in the
+   same module (shared library or program).  */
+#define MODULE_LOCAL_P(DECL) \
+  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,

@@ -444,7 +444,7 @@ static int constraint_accepts_reg_p	PARAMS ((const char *, rtx));
 static void reload_cse_regs_1		PARAMS ((rtx));
 static int reload_cse_noop_set_p	PARAMS ((rtx));
 static int reload_cse_simplify_set	PARAMS ((rtx, rtx));
-static int reload_cse_simplify_operands	PARAMS ((rtx));
+static int reload_cse_simplify_operands	PARAMS ((rtx, rtx));
 static void reload_combine		PARAMS ((void));
 static void reload_combine_note_use	PARAMS ((rtx *, rtx));
 static void reload_combine_note_store	PARAMS ((rtx, rtx, void *));
@@ -459,7 +459,7 @@ static HOST_WIDE_INT sext_for_mode	PARAMS ((enum machine_mode,
 static void failed_reload		PARAMS ((rtx, int));
 static int set_reload_reg		PARAMS ((int, int));
 static void reload_cse_delete_noop_set	PARAMS ((rtx, rtx));
-static void reload_cse_simplify		PARAMS ((rtx));
+static void reload_cse_simplify		PARAMS ((rtx, rtx));
 void fixup_abnormal_edges		PARAMS ((void));
 extern void dump_needs			PARAMS ((struct insn_chain *));
 
@@ -7161,8 +7161,7 @@ emit_reload_insns (chain)
 		    for (k = 1; k < nnr; k++)
 		      reg_last_reload_reg[nregno + k]
 			= (nr == nnr
-			   ? gen_rtx_REG (reg_raw_mode[REGNO (rld[r].reg_rtx) + k],
-					  REGNO (rld[r].reg_rtx) + k)
+			   ? regno_reg_rtx[REGNO (rld[r].reg_rtx) + k]
 			   : 0);
 
 		  /* Now do the inverse operation.  */
@@ -7211,8 +7210,7 @@ emit_reload_insns (chain)
 		    for (k = 1; k < nnr; k++)
 		      reg_last_reload_reg[nregno + k]
 			= (nr == nnr
-			   ? gen_rtx_REG (reg_raw_mode[REGNO (rld[r].reg_rtx) + k],
-					  REGNO (rld[r].reg_rtx) + k)
+			   ? regno_reg_rtx[REGNO (rld[r].reg_rtx) + k]
 			   : 0);
 
 		  /* Unless we inherited this reload, show we haven't
@@ -8061,8 +8059,9 @@ reload_cse_noop_set_p (set)
 
 /* Try to simplify INSN.  */
 static void
-reload_cse_simplify (insn)
+reload_cse_simplify (insn, testreg)
      rtx insn;
+     rtx testreg;
 {
   rtx body = PATTERN (insn);
 
@@ -8089,7 +8088,7 @@ reload_cse_simplify (insn)
       if (count > 0)
 	apply_change_group ();
       else
-	reload_cse_simplify_operands (insn);
+	reload_cse_simplify_operands (insn, testreg);
     }
   else if (GET_CODE (body) == PARALLEL)
     {
@@ -8132,7 +8131,7 @@ reload_cse_simplify (insn)
       if (count > 0)
 	apply_change_group ();
       else
-	reload_cse_simplify_operands (insn);
+	reload_cse_simplify_operands (insn, testreg);
     }
 }
 
@@ -8158,6 +8157,7 @@ reload_cse_regs_1 (first)
      rtx first;
 {
   rtx insn;
+  rtx testreg = gen_raw_REG (VOIDmode, -1);
 
   cselib_init ();
   init_alias_analysis ();
@@ -8165,7 +8165,7 @@ reload_cse_regs_1 (first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
-	reload_cse_simplify (insn);
+	reload_cse_simplify (insn, testreg);
 
       cselib_process_insn (insn);
     }
@@ -8336,8 +8336,9 @@ reload_cse_simplify_set (set, insn)
    hard registers.  */
 
 static int
-reload_cse_simplify_operands (insn)
+reload_cse_simplify_operands (insn, testreg)
      rtx insn;
+     rtx testreg;
 {
   int i, j;
 
@@ -8357,7 +8358,6 @@ reload_cse_simplify_operands (insn)
   int *op_alt_regno[MAX_RECOG_OPERANDS];
   /* Array of alternatives, sorted in order of decreasing desirability.  */
   int *alternative_order;
-  rtx reg = gen_rtx_REG (VOIDmode, -1);
 
   extract_insn (insn);
 
@@ -8441,8 +8441,8 @@ reload_cse_simplify_operands (insn)
 	  if (! TEST_HARD_REG_BIT (equiv_regs[i], regno))
 	    continue;
 
-	  REGNO (reg) = regno;
-	  PUT_MODE (reg, mode);
+	  REGNO (testreg) = regno;
+	  PUT_MODE (testreg, mode);
 
 	  /* We found a register equal to this operand.  Now look for all
 	     alternatives that can accept this register and have not been
@@ -8484,10 +8484,10 @@ reload_cse_simplify_operands (insn)
 		     alternative yet and the operand being replaced is not
 		     a cheap CONST_INT.  */
 		  if (op_alt_regno[i][j] == -1
-		      && reg_fits_class_p (reg, class, 0, mode)
+		      && reg_fits_class_p (testreg, class, 0, mode)
 		      && (GET_CODE (recog_data.operand[i]) != CONST_INT
 			  || (rtx_cost (recog_data.operand[i], SET)
-			      > rtx_cost (reg, SET))))
+			      > rtx_cost (testreg, SET))))
 		    {
 		      alternative_nregs[j]++;
 		      op_alt_regno[i][j] = regno;

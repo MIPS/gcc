@@ -63,11 +63,18 @@ AC_ARG_ENABLE(parallel-mark,
     esac]
 )
 
+AC_CHECK_LIB(dl, dlopen, [
+EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl"
+LIBGCJGC_EXTRA_LDFLAGS="-ldl"
+])
+AC_SUBST(EXTRA_TEST_LIBS)
+
 INCLUDES=-I${srcdir}/include
 THREADLIBS=
 case "$THREADS" in
  no | none | single)
     THREADS=none
+    LIBGCJGC_EXTRA_LDFLAGS=
     ;;
  posix | pthreads)
     THREADS=posix
@@ -110,6 +117,7 @@ case "$THREADS" in
 	;;
      *-*-cygwin*)
 	THREADLIBS=
+	LIBGCJGC_EXTRA_LDFLAGS=
 	;;
     esac
     ;;
@@ -125,9 +133,7 @@ case "$THREADS" in
     ;;
 esac
 AC_SUBST(THREADLIBS)
-
-AC_CHECK_LIB(dl, dlopen, EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl")
-AC_SUBST(EXTRA_TEST_LIBS)
+AC_SUBST(LIBGCJGC_EXTRA_LDFLAGS)
 
 target_all=libgcjgc.la
 AC_SUBST(target_all)

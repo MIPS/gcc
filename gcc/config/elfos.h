@@ -288,24 +288,28 @@ const_section ()						\
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *const prefixes[4][2] =			\
+      static const char *const prefixes[][2] =			\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
 	{ ".data.",   ".gnu.linkonce.d." },			\
-	{ ".bss.",    ".gnu.linkonce.b." }			\
+	{ ".bss.",    ".gnu.linkonce.b." },			\
+	{ ".tdata",   ".gnu.linkonce.td." },			\
+	{ ".tbss",    ".gnu.linkonce.tb." },			\
       };							\
       								\
       if (TREE_CODE (DECL) == FUNCTION_DECL)			\
 	sec = 0;						\
       else if (DECL_INITIAL (DECL) == 0				\
 	       || DECL_INITIAL (DECL) == error_mark_node)	\
-        sec =  3;						\
+        sec = 3;						\
       else if (DECL_READONLY_SECTION (DECL, RELOC))		\
 	sec = 1;						\
       else							\
 	sec = 2;						\
-      								\
+      if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl)) \
+	sec = (sec == 3 ? 5 : 4);				\
+								\
       name   = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
       /* Strip off any encoding in name.  */			\
       STRIP_NAME_ENCODING (name, name);				\
@@ -367,10 +371,18 @@ const_section ()						\
     }								\
   else if (TREE_CODE (DECL) == VAR_DECL)			\
     {								\
-      if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
-	  || !DECL_INITIAL (DECL)				\
-	  || (DECL_INITIAL (DECL) != error_mark_node		\
-	      && !TREE_CONSTANT (DECL_INITIAL (DECL))))		\
+      if (DECL_THREAD_LOCAL (DECL))				\
+	{							\
+	  if (!DECL_INITIAL (DECL)				\
+	      || DECL_INITIAL (DECL) == error_mark_node)	\
+	    named_section (NULL_TREE, ".tbss", RELOC);		\
+	  else							\
+	    named_section (NULL_TREE, ".tdata", RELOC);		\
+	}							\
+      else if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL) \
+	       || !DECL_INITIAL (DECL)				\
+	       || (DECL_INITIAL (DECL) != error_mark_node	\
+	           && !TREE_CONSTANT (DECL_INITIAL (DECL))))	\
 	{							\
 	  if (flag_pic && ((RELOC) & 2))			\
 	    named_section (NULL_TREE, ".data.rel", RELOC);	\

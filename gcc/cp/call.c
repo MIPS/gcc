@@ -408,7 +408,7 @@ build_call (function, parms)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
-  if (decl && TREE_THIS_VOLATILE (decl))
+  if (decl && TREE_THIS_VOLATILE (decl) && current_function_decl)
     current_function_returns_abnormally = 1;
 
   if (decl && TREE_DEPRECATED (decl))
@@ -4022,12 +4022,9 @@ convert_arg_to_ellipsis (arg)
   
   if (arg != error_mark_node && ! pod_type_p (TREE_TYPE (arg)))
     {
-      /* Undefined behaviour [expr.call] 5.2.2/7.  We used to just warn
-	 here and do a bitwise copy, but now cp_expr_size will abort if we
-	 try to do that.  */
-      error ("cannot pass objects of non-POD type `%#T' through `...'",
-	     TREE_TYPE (arg));
-      arg = error_mark_node;
+      /* Undefined behaviour [expr.call] 5.2.2/7.  */
+      warning ("cannot pass objects of non-POD type `%#T' through `...'",
+		  TREE_TYPE (arg));
     }
 
   return arg;

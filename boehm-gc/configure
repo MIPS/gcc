@@ -2647,11 +2647,57 @@ if test "${enable_parallel_mark+set}" = set; then
 fi
 
 
+echo $ac_n "checking for dlopen in -ldl""... $ac_c" 1>&6
+echo "configure:2635: checking for dlopen in -ldl" >&5
+ac_lib_var=`echo dl'_'dlopen | sed 'y%./+-%__p_%'`
+if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  ac_save_LIBS="$LIBS"
+LIBS="-ldl  $LIBS"
+cat > conftest.$ac_ext <<EOF
+#line 2643 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char dlopen();
+
+int main() {
+dlopen()
+; return 0; }
+EOF
+if { (eval echo configure:2654: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=yes"
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -rf conftest*
+  eval "ac_cv_lib_$ac_lib_var=no"
+fi
+rm -f conftest*
+LIBS="$ac_save_LIBS"
+
+fi
+if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
+  echo "$ac_t""yes" 1>&6
+  
+EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl"
+LIBGCJGC_EXTRA_LDFLAGS="-ldl"
+
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+
+
 INCLUDES=-I${srcdir}/include
 THREADLIBS=
 case "$THREADS" in
  no | none | single)
     THREADS=none
+    LIBGCJGC_EXTRA_LDFLAGS=
     ;;
  posix | pthreads)
     THREADS=posix
@@ -2736,6 +2782,7 @@ EOF
 	;;
      *-*-cygwin*)
 	THREADLIBS=
+	LIBGCJGC_EXTRA_LDFLAGS=
 	;;
     esac
     ;;
@@ -2756,48 +2803,6 @@ EOF
     { echo "configure: error: $THREADS is an unknown thread package" 1>&2; exit 1; }
     ;;
 esac
-
-
-echo $ac_n "checking for dlopen in -ldl""... $ac_c" 1>&6
-echo "configure:2763: checking for dlopen in -ldl" >&5
-ac_lib_var=`echo dl'_'dlopen | sed 'y%./+-%__p_%'`
-if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  ac_save_LIBS="$LIBS"
-LIBS="-ldl  $LIBS"
-cat > conftest.$ac_ext <<EOF
-#line 2771 "configure"
-#include "confdefs.h"
-/* Override any gcc2 internal prototype to avoid an error.  */
-/* We use char because int might match the return type of a gcc2
-    builtin and then its argument prototype would still apply.  */
-char dlopen();
-
-int main() {
-dlopen()
-; return 0; }
-EOF
-if { (eval echo configure:2782: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
-  rm -rf conftest*
-  eval "ac_cv_lib_$ac_lib_var=yes"
-else
-  echo "configure: failed program was:" >&5
-  cat conftest.$ac_ext >&5
-  rm -rf conftest*
-  eval "ac_cv_lib_$ac_lib_var=no"
-fi
-rm -f conftest*
-LIBS="$ac_save_LIBS"
-
-fi
-if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
-  echo "$ac_t""yes" 1>&6
-  EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl"
-else
-  echo "$ac_t""no" 1>&6
-fi
-
 
 
 target_all=libgcjgc.la
@@ -3215,8 +3220,9 @@ s%@OBJEXT@%$OBJEXT%g
 s%@STRIP@%$STRIP%g
 s%@LIBTOOL@%$LIBTOOL%g
 s%@CXXCPP@%$CXXCPP%g
-s%@THREADLIBS@%$THREADLIBS%g
 s%@EXTRA_TEST_LIBS@%$EXTRA_TEST_LIBS%g
+s%@THREADLIBS@%$THREADLIBS%g
+s%@LIBGCJGC_EXTRA_LDFLAGS@%$LIBGCJGC_EXTRA_LDFLAGS%g
 s%@target_all@%$target_all%g
 s%@INCLUDES@%$INCLUDES%g
 s%@CXXINCLUDES@%$CXXINCLUDES%g

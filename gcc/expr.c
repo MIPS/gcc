@@ -208,6 +208,7 @@ init_expr_once ()
   enum machine_mode mode;
   int num_clobbers;
   rtx mem, mem1;
+  rtx reg;
 
   start_sequence ();
 
@@ -217,6 +218,10 @@ init_expr_once ()
   mem = gen_rtx_MEM (VOIDmode, stack_pointer_rtx);
   mem1 = gen_rtx_MEM (VOIDmode, frame_pointer_rtx);
 
+  /* A scratch register we can modify in-place below to avoid
+     useless RTL allocations.  */
+  reg = gen_raw_REG (VOIDmode, -1);
+
   insn = emit_insn (gen_rtx_SET (0, NULL_RTX, NULL_RTX));
   pat = PATTERN (insn);
 
@@ -224,11 +229,11 @@ init_expr_once ()
        mode = (enum machine_mode) ((int) mode + 1))
     {
       int regno;
-      rtx reg;
 
       direct_load[(int) mode] = direct_store[(int) mode] = 0;
       PUT_MODE (mem, mode);
       PUT_MODE (mem1, mode);
+      PUT_MODE (reg, mode);
 
       /* See if there is some register that can be used in this mode and
 	 directly loaded or stored from memory.  */
@@ -241,7 +246,7 @@ init_expr_once ()
 	    if (! HARD_REGNO_MODE_OK (regno, mode))
 	      continue;
 
-	    reg = gen_rtx_REG (mode, regno);
+	    REGNO (reg) = regno;
 
 	    SET_SRC (pat) = mem;
 	    SET_DEST (pat) = reg;
@@ -2280,7 +2285,7 @@ use_regs (call_fusage, regno, nregs)
     abort ();
 
   for (i = 0; i < nregs; i++)
-    use_reg (call_fusage, gen_rtx_REG (reg_raw_mode[regno + i], regno + i));
+    use_reg (call_fusage, regno_reg_rtx[regno + i]);
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each REG contained in the
@@ -5434,16 +5439,13 @@ rtx
 force_operand (value, target)
      rtx value, target;
 {
-  optab binoptab = 0;
-  /* Use a temporary to force order of execution of calls to
-     `force_operand'.  */
-  rtx tmp;
-  rtx op2;
+  rtx op1, op2;
   /* Use subtarget as the target for operand 0 of a binary operation.  */
   rtx subtarget = get_subtarget (target);
+  enum rtx_code code = GET_CODE (value);
 
   /* Check for a PIC address load.  */
-  if ((GET_CODE (value) == PLUS || GET_CODE (value) == MINUS)
+  if ((code == PLUS || code == MINUS)
       && XEXP (value, 0) == pic_offset_table_rtx
       && (GET_CODE (XEXP (value, 1)) == SYMBOL_REF
 	  || GET_CODE (XEXP (value, 1)) == LABEL_REF
@@ -5455,60 +5457,88 @@ force_operand (value, target)
       return subtarget;
     }
 
-  if (GET_CODE (value) == PLUS)
-    binoptab = add_optab;
-  else if (GET_CODE (value) == MINUS)
-    binoptab = sub_optab;
-  else if (GET_CODE (value) == MULT)
+  if (code == ZERO_EXTEND || code == SIGN_EXTEND)
     {
-      op2 = XEXP (value, 1);
-      if (!CONSTANT_P (op2)
-	  && !(GET_CODE (op2) == REG && op2 != subtarget))
-	subtarget = 0;
-      tmp = force_operand (XEXP (value, 0), subtarget);
-      return expand_mult (GET_MODE (value), tmp,
-			  force_operand (op2, NULL_RTX),
-			  target, 1);
+      if (!target)
+	target = gen_reg_rtx (GET_MODE (value));
+      convert_move (target, force_operand (XEXP (value, 0), NULL),
+		    code == ZERO_EXTEND);
+      return target;
     }
 
-  if (binoptab)
+  if (GET_RTX_CLASS (code) == '2' || GET_RTX_CLASS (code) == 'c')
     {
       op2 = XEXP (value, 1);
-      if (!CONSTANT_P (op2)
-	  && !(GET_CODE (op2) == REG && op2 != subtarget))
+      if (!CONSTANT_P (op2) && !(GET_CODE (op2) == REG && op2 != subtarget))
 	subtarget = 0;
-      if (binoptab == sub_optab && GET_CODE (op2) == CONST_INT)
+      if (code == MINUS && GET_CODE (op2) == CONST_INT)
 	{
-	  binoptab = add_optab;
+	  code = PLUS;
 	  op2 = negate_rtx (GET_MODE (value), op2);
 	}
 
       /* Check for an addition with OP2 a constant integer and our first
-	 operand a PLUS of a virtual register and something else.  In that
-	 case, we want to emit the sum of the virtual register and the
-	 constant first and then add the other value.  This allows virtual
-	 register instantiation to simply modify the constant rather than
-	 creating another one around this addition.  */
-      if (binoptab == add_optab && GET_CODE (op2) == CONST_INT
+         operand a PLUS of a virtual register and something else.  In that
+         case, we want to emit the sum of the virtual register and the
+         constant first and then add the other value.  This allows virtual
+         register instantiation to simply modify the constant rather than
+         creating another one around this addition.  */
+      if (code == PLUS && GET_CODE (op2) == CONST_INT
 	  && GET_CODE (XEXP (value, 0)) == PLUS
 	  && GET_CODE (XEXP (XEXP (value, 0), 0)) == REG
 	  && REGNO (XEXP (XEXP (value, 0), 0)) >= FIRST_VIRTUAL_REGISTER
 	  && REGNO (XEXP (XEXP (value, 0), 0)) <= LAST_VIRTUAL_REGISTER)
 	{
-	  rtx temp = expand_binop (GET_MODE (value), binoptab,
-				   XEXP (XEXP (value, 0), 0), op2,
-				   subtarget, 0, OPTAB_LIB_WIDEN);
-	  return expand_binop (GET_MODE (value), binoptab, temp,
-			       force_operand (XEXP (XEXP (value, 0), 1), 0),
-			       target, 0, OPTAB_LIB_WIDEN);
+	  rtx temp = expand_simple_binop (GET_MODE (value), code,
+					  XEXP (XEXP (value, 0), 0), op2,
+					  subtarget, 0, OPTAB_LIB_WIDEN);
+	  return expand_simple_binop (GET_MODE (value), code, temp,
+				      force_operand (XEXP (XEXP (value,
+								 0), 1), 0),
+				      target, 0, OPTAB_LIB_WIDEN);
 	}
 
-      tmp = force_operand (XEXP (value, 0), subtarget);
-      return expand_binop (GET_MODE (value), binoptab, tmp,
-			   force_operand (op2, NULL_RTX),
-			   target, 0, OPTAB_LIB_WIDEN);
-      /* We give UNSIGNEDP = 0 to expand_binop
-	 because the only operations we are expanding here are signed ones.  */
+      op1 = force_operand (XEXP (value, 0), subtarget);
+      op2 = force_operand (op2, NULL_RTX);
+      switch (code)
+	{
+	case MULT:
+	  return expand_mult (GET_MODE (value), op1, op2, target, 1);
+	case DIV:
+	  if (!INTEGRAL_MODE_P (GET_MODE (value)))
+	    return expand_simple_binop (GET_MODE (value), code, op1, op2,
+					target, 1, OPTAB_LIB_WIDEN);
+	  else
+	    return expand_divmod (0,
+				  FLOAT_MODE_P (GET_MODE (value))
+				  ? RDIV_EXPR : TRUNC_DIV_EXPR,
+				  GET_MODE (value), op1, op2, target, 0);
+	  break;
+	case MOD:
+	  return expand_divmod (1, TRUNC_MOD_EXPR, GET_MODE (value), op1, op2,
+				target, 0);
+	  break;
+	case UDIV:
+	  return expand_divmod (0, TRUNC_DIV_EXPR, GET_MODE (value), op1, op2,
+				target, 1);
+	  break;
+	case UMOD:
+	  return expand_divmod (1, TRUNC_MOD_EXPR, GET_MODE (value), op1, op2,
+				target, 1);
+	  break;
+	case ASHIFTRT:
+	  return expand_simple_binop (GET_MODE (value), code, op1, op2,
+				      target, 0, OPTAB_LIB_WIDEN);
+	  break;
+	default:
+	  return expand_simple_binop (GET_MODE (value), code, op1, op2,
+				      target, 1, OPTAB_LIB_WIDEN);
+	}
+    }
+  if (GET_RTX_CLASS (code) == '1')
+    {
+      op1 = force_operand (XEXP (value, 0), NULL_RTX);
+      return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
     }
 
 #ifdef INSN_SCHEDULING
@@ -6661,7 +6691,8 @@ expand_expr (exp, target, tmode, modifier)
 						       * TYPE_QUAL_CONST))),
 			     0, TREE_ADDRESSABLE (exp), 1);
 
-	  store_constructor (exp, target, 0, int_expr_size (exp));
+	  store_constructor (exp, target, 0,
+			     int_size_in_bytes (TREE_TYPE (exp)));
 	  return target;
 	}
 
@@ -8680,7 +8711,12 @@ expand_expr (exp, target, tmode, modifier)
 	  op0 = force_operand (XEXP (op0, 0), target);
 	}
 
-      if (flag_force_addr
+      if ((flag_force_addr
+	   || (TREE_CODE (TREE_OPERAND (exp, 0)) == VAR_DECL
+	       && DECL_THREAD_LOCAL (TREE_OPERAND (exp, 0))
+	       && ! memory_address_p (TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp,
+									  0))),
+				      op0)))
 	  && GET_CODE (op0) != REG
 	  && modifier != EXPAND_CONST_ADDRESS
 	  && modifier != EXPAND_INITIALIZER

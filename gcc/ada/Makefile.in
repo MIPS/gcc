@@ -134,7 +134,7 @@ MISCLIB =
 objext = .o
 exeext =
 arext  = .a
-soext  = .so
+soext  = .so.1
 shext  =
 
 HOST_CC=$(CC)
@@ -1170,7 +1170,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   system.ads<5lsystem.ads
 
   MLIB_TGT=5lml-tgt
-  MISCLIB=-laddr2line -lbfd
+  MISCLIB=
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
   GMEM_LIB=gmemlib
@@ -1212,6 +1212,33 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
     THREADSLIB=
     RT_FLAGS=-D__RT__
   endif
+endif
+
+ifeq ($(strip $(filter-out alpha% linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out sparc% linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out ia64 linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
 endif
 
 ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
@@ -1514,7 +1541,7 @@ LIBGNAT_SRCS = ada.h adaint.c adaint.h argv.c cio.c cstreams.c \
 
 LIBGNAT_OBJS = adaint.o argv.o cio.o cstreams.o errno.o exit.o \
   raise.o sysdep.o io-aux.o init.o cal.o final.o \
-  tracebak.o expect.o ../../prefix.o $(EXTRA_LIBGNAT_OBJS)
+  tracebak.o expect.o $(EXTRA_LIBGNAT_OBJS)
 
 # NOTE ??? - when the -I option for compiling Ada code is made to work,
 #  the library installation will change and there will be a
@@ -2179,6 +2206,9 @@ endif
 
 gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 #	../xgcc -B../ -dD -E ../tconfig.h $(INCLUDES) > rts/tconfig.h
+	$(RMDIR) save
+	$(MKDIR) save
+	$(MV) *.o save/
 	$(MAKE) -C rts CC="../../xgcc -B../../" \
 	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
                 CFLAGS="$(GNATLIBCFLAGS) $(TARGET_LIBGCC2_CFLAGS) -DIN_RTS" \
@@ -2192,6 +2222,8 @@ gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 		srcdir=$(fsrcdir) \
 	        -f ../Makefile \
 	        $(GNATRTL_OBJS)
+	$(MV) save/*.o .
+	$(RMDIR) save
 	$(RM) rts/libgnat$(arext) rts/libgnarl$(arext)
 	$(AR) $(AR_FLAGS) rts/libgnat$(arext) \
 	   $(addprefix rts/,$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS))
@@ -2283,12 +2315,12 @@ gnatlib-shared-default:
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
-	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -shared-libgcc $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnat-$(LIBRARY_VERSION)$(soext) $(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) $(MISCLIB) -lm
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnarl-$(LIBRARY_VERSION)$(soext) $(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) \
-		$(GNATRTL_TASKING_OBJS) $(THREADSLIB)
+		$(GNATRTL_TASKING_OBJS) $(THREADSLIB) ./libgnat-$(LIBRARY_VERSION)$(soext)
 	cd rts; $(LN) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
 	cd rts; $(LN) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
 
@@ -2358,62 +2390,62 @@ TREE_H = $(srcdir)/../tree.h $(srcdir)/../real.h $(srcdir)/../tree.def \
 
 ada_extra_files : treeprs.ads einfo.h sinfo.h nmake.adb nmake.ads
 
-b_gnat1.c : $(GNAT1_ADA_OBJS)
+b_gnat1.c : $(GNAT1_ADA_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnat1.c -n gnat1drv.ali
 b_gnat1.o : b_gnat1.c
 
-b_gnatb.c : $(GNATBIND_OBJS)
+b_gnatb.c : $(GNATBIND_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatb.c gnatbind.ali
 b_gnatb.o : b_gnatb.c
 
-b_gnatc.c : $(GNATCMD_OBJS)
+b_gnatc.c : $(GNATCMD_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatc.c gnatcmd.ali
 b_gnatc.o : b_gnatc.c
 
-b_gnatch.c : $(GNATCHOP_OBJS)
+b_gnatch.c : $(GNATCHOP_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatch.c gnatchop.ali
 b_gnatch.o : b_gnatch.c
 
-b_gnatkr.c : $(GNATKR_OBJS)
+b_gnatkr.c : $(GNATKR_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatkr.c gnatkr.ali
 b_gnatkr.o : b_gnatkr.c
 
-b_gnatl.c : $(GNATLINK_OBJS)
+b_gnatl.c : $(GNATLINK_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatl.c gnatlink.ali
 b_gnatl.o : b_gnatl.c
 
-b_gnatls.c : $(GNATLS_OBJS)
+b_gnatls.c : $(GNATLS_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatls.c gnatls.ali
 
-b_gnatm.c : $(GNATMAKE_OBJS)
+b_gnatm.c : $(GNATMAKE_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatm.c gnatmake.ali
 b_gnatm.o : b_gnatm.c
 
-b_gnatmem.c : $(GNATMEM_OBJS)
+b_gnatmem.c : $(GNATMEM_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatmem.c gnatmem.ali
 b_gnatmem.o : b_gnatmem.c
 
-b_gnatp.c : $(GNATPREP_OBJS)
+b_gnatp.c : $(GNATPREP_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatp.c gnatprep.ali
 b_gnatp.o : b_gnatp.c
 
-b_gnatpa.c : $(GNATPSTA_OBJS)
+b_gnatpa.c : $(GNATPSTA_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatpa.c gnatpsta.ali
 b_gnatpa.o : b_gnatpa.c
 
-b_gnatps.c : $(GNATPSYS_OBJS)
+b_gnatps.c : $(GNATPSYS_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatps.c gnatpsys.ali
 b_gnatps.o : b_gnatps.c
 
-b_gnatxref.c : $(GNATXREF_OBJS)
+b_gnatxref.c : $(GNATXREF_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatxref.c gnatxref.ali
 b_gnatxref.o : b_gnatxref.c
 
-b_gnatfind.c : $(GNATFIND_OBJS)
+b_gnatfind.c : $(GNATFIND_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatfind.c gnatfind.ali
 b_gnatfind.o : b_gnatfind.c
 
-b_gnatdll.c : $(GNATDLL_OBJS)
+b_gnatdll.c : $(GNATDLL_OBJS) interfac.o
 	$(GNATBIND) $(ADA_INCLUDES) -o b_gnatdll.c gnatdll.ali
 b_gnatdll.o : b_gnatdll.c
 

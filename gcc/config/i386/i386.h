@@ -192,7 +192,7 @@ extern int target_flags;
 #ifdef TARGET_BI_ARCH
 #define TARGET_64BIT (target_flags & MASK_64BIT)
 #else
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define TARGET_64BIT 1
 #else
 #define TARGET_64BIT 0
@@ -281,6 +281,9 @@ extern int x86_prefetch_sse;
 #define TARGET_3DNOW_A ((target_flags & MASK_3DNOW_A) != 0)
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
+
+#define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
+#define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
 
 /* WARNING: Do not mark empty strings for translation, as calling
             gettext on an empty string does NOT return an empty
@@ -381,13 +384,13 @@ extern int x86_prefetch_sse;
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \
     N_("Do not use red-zone in the x86-64 code") },			      \
   SUBTARGET_SWITCHES							      \
-  { "", TARGET_DEFAULT, 0 }}
+  { "", TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT, 0 }}
 
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_DEFAULT (MASK_64BIT | TARGET_SUBTARGET_DEFAULT)
-#else
-#define TARGET_DEFAULT TARGET_SUBTARGET_DEFAULT
+#ifndef TARGET_64BIT_DEFAULT
+#define TARGET_64BIT_DEFAULT 0
 #endif
+
+#define TARGET_DEFAULT 0
 
 /* Which processor to schedule for. The cpu attribute defines a list that
    mirrors this list, so changes to i386.md must be made at the same time.  */
@@ -451,6 +454,8 @@ extern int ix86_arch;
     "" /* Undocumented. */ },					\
   { "asm=", &ix86_asm_string,					\
     N_("Use given assembler dialect") },			\
+  { "tls-dialect=", &ix86_tls_dialect_string,			\
+    N_("Use given thread-local storage dialect") },		\
   SUBTARGET_OPTIONS						\
 }
 
@@ -601,7 +606,7 @@ extern int ix86_arch;
 %{m386|mcpu=i386:-D__tune_i386__ }\
 %{m486|mcpu=i486:-D__tune_i486__ }\
 %{mpentium|mcpu=pentium|mcpu=i586|mcpu=pentium-mmx:-D__tune_i586__ -D__tune_pentium__ }\
-%{mpentiumpro|mcpu=pentiumpro|mcpu=i686|cpu=pentium2|cpu=pentium3:-D__tune_i686__ \
+%{mpentiumpro|mcpu=pentiumpro|mcpu=i686|mcpu=pentium2|mcpu=pentium3:-D__tune_i686__ \
 -D__tune_pentiumpro__ }\
 %{mcpu=k6|mcpu=k6-2|mcpu=k6-3:-D__tune_k6__ }\
 %{mcpu=athlon|mcpu=athlon-tbird|mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
@@ -624,13 +629,13 @@ extern int ix86_arch;
 
 #ifndef CPP_CPU_SPEC
 #ifdef TARGET_BI_ARCH
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define CPP_CPU_SPEC "%{m32:%(cpp_cpu32)}%{!m32:%(cpp_cpu64)} %(cpp_cpucommon)"
 #else
 #define CPP_CPU_SPEC "%{m64:%(cpp_cpu64)}%{!m64:%(cpp_cpu32)} %(cpp_cpucommon)"
 #endif
 #else
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define CPP_CPU_SPEC "%(cpp_cpu64) %(cpp_cpucommon)"
 #else
 #define CPP_CPU_SPEC "%(cpp_cpu32) %(cpp_cpucommon)"
@@ -695,7 +700,7 @@ extern int ix86_arch;
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_LONG_TYPE_SIZE 64
 
-#if defined (TARGET_BI_ARCH) || defined (TARGET_64BIT_DEFAULT)
+#if defined (TARGET_BI_ARCH) || TARGET_64BIT_DEFAULT
 #define MAX_BITS_PER_WORD 64
 #define MAX_LONG_TYPE_SIZE 64
 #else
@@ -1934,15 +1939,12 @@ do {									\
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#define CONSTANT_ADDRESS_P(X)					\
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF	\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST	\
-   || GET_CODE (X) == CONST_DOUBLE)
+#define CONSTANT_ADDRESS_P(X)  constant_address_p (X)
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) 1
+#define LEGITIMATE_CONSTANT_P(X)  legitimate_constant_p (X)
 
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
@@ -2005,9 +2007,7 @@ do {									\
    when generating PIC code.  It is given that flag_pic is on and 
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_PIC_OPERAND_P(X)		\
-  (! SYMBOLIC_CONST (X)				\
-   || legitimate_pic_address_disp_p (X))
+#define LEGITIMATE_PIC_OPERAND_P(X) legitimate_pic_operand_p (X)
 
 #define SYMBOLIC_CONST(X)	\
   (GET_CODE (X) == SYMBOL_REF						\
@@ -2251,29 +2251,22 @@ enum ix86_builtins
    On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)				\
-do {								\
-    if (flag_pic)						\
-      {								\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
-								\
-	if (GET_CODE (rtl) == MEM)				\
-	  {							\
-	    if (TARGET_DEBUG_ADDR				\
-		&& TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')	\
-	      {							\
-		fprintf (stderr, "Encode %s, public = %d\n",	\
-			 IDENTIFIER_POINTER (DECL_NAME (DECL)),	\
-			 TREE_PUBLIC (DECL));			\
-	      }							\
-	    							\
-	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
-	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		 || ! TREE_PUBLIC (DECL));			\
-	  }							\
-      }								\
-} while (0)
+#define ENCODE_SECTION_INFO(DECL)  ix86_encode_section_info(DECL)
+#define REDO_SECTION_INFO_P(DECL) 1
+
+#define STRIP_NAME_ENCODING(VAR,STR)  ((VAR) = ix86_strip_name_encoding (STR))
+
+#define ASM_OUTPUT_LABELREF(FILE,NAME)		\
+  do {						\
+    const char *xname = (NAME);			\
+    if (xname[0] == '%')			\
+      xname += 2;				\
+    if (xname[0] == '*')			\
+      xname += 1;				\
+    else					\
+      fputs (user_label_prefix, FILE);		\
+    fputs (xname, FILE);			\
+  } while (0)
 
 /* The `FINALIZE_PIC' macro serves as a hook to emit these special
    codes once the function is being compiled into assembly code, but
@@ -2906,6 +2899,13 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 #define ASM_SIMPLIFY_DWARF_ADDR(X) \
   i386_simplify_dwarf_addr (X)
 
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#ifdef HAVE_AS_TLS
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  i386_output_dwarf_dtprel (FILE, SIZE, X)
+#endif
+
 /* Switch to init or fini section via SECTION_OP, emit a call to FUNC,
    and switch back.  For x86 we do this only to save a few bytes that
    would otherwise be unused in the text section.  */
@@ -2920,7 +2920,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    print_operand function.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
-  ((CODE) == '*' || (CODE) == '+')
+  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&')
 
 /* Print the name of a register based on its machine mode and number.
    If CODE is 'w', pretend the mode is HImode.
@@ -2938,6 +2938,12 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
   print_operand_address ((FILE), (ADDR))
+
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
+do {						\
+  if (! output_addr_const_extra (FILE, (X)))	\
+    goto FAIL;					\
+} while (0);
 
 /* Print the name of a register for based on its machine mode and number.
    This macro is used to print debugging output.
@@ -3069,7 +3075,12 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
   {"memory_displacement_operand", {MEM}},				\
   {"cmpsi_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		     LABEL_REF, SUBREG, REG, MEM, AND}},		\
-  {"long_memory_operand", {MEM}},
+  {"long_memory_operand", {MEM}},					\
+  {"tls_symbolic_operand", {SYMBOL_REF}},				\
+  {"global_dynamic_symbolic_operand", {SYMBOL_REF}},			\
+  {"local_dynamic_symbolic_operand", {SYMBOL_REF}},			\
+  {"initial_exec_symbolic_operand", {SYMBOL_REF}},			\
+  {"local_exec_symbolic_operand", {SYMBOL_REF}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -3110,6 +3121,16 @@ enum asm_dialect {
 };
 extern const char *ix86_asm_string;
 extern enum asm_dialect ix86_asm_dialect;
+
+enum tls_dialect
+{
+  TLS_DIALECT_GNU,
+  TLS_DIALECT_SUN
+};
+
+extern enum tls_dialect ix86_tls_dialect;
+extern const char *ix86_tls_dialect_string;
+  
 /* Value of -mcmodel specified by user.  */
 extern const char *ix86_cmodel_string;
 extern enum cmodel ix86_cmodel;

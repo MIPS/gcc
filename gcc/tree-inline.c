@@ -145,6 +145,9 @@ remap_decl (decl, id)
       t = copy_decl_for_inlining (decl, fn,
 				  VARRAY_TREE (id->fns, 0));
 
+      if (TREE_CODE (t) == LABEL_DECL)
+	DECL_TOO_LATE (t) = 0;
+
       /* The decl T could be a dynamic array or other variable size type,
 	 in which case some fields need to be remapped because they may
 	 contain SAVE_EXPRs.  */
@@ -474,17 +477,25 @@ initialize_inlined_parameters (id, args, fn)
 
   /* Loop through the parameter declarations, replacing each with an
      equivalent VAR_DECL, appropriately initialized.  */
-  for (p = parms, a = args; p;
-       a = a ? TREE_CHAIN (a) : a, p = TREE_CHAIN (p))
+  for (p = parms, a = args; p; a = TREE_CHAIN (a), p = TREE_CHAIN (p))
     {
       tree init_stmt;
       tree var;
       tree value;
       tree cleanup;
 
+      if (a == NULL_TREE)
+	{
+	  pop_srcloc ();
+	  /* If less arguments were passed than actually required,
+	     issue warning and avoid inlining.  */
+	  warning ("too few arguments passed to inline function, suppressing inlining");
+	  return error_mark_node;
+	}
+
       /* Find the initializer.  */
       value = (*lang_hooks.tree_inlining.convert_parm_for_inlining)
-	      (p, a ? TREE_VALUE (a) : NULL_TREE, fn);
+	      (p, TREE_VALUE (a), fn);
 
       /* If the parameter is never assigned to, we may not need to
 	 create a new variable here at all.  Instead, we may be able
@@ -762,7 +773,6 @@ expand_call_inline (tp, walk_subtrees, data)
   inline_data *id;
   tree t;
   tree expr;
-  tree stmt;
   tree chain;
   tree fn;
   tree scope_stmt;
@@ -854,10 +864,10 @@ expand_call_inline (tp, walk_subtrees, data)
      for the return statements within the function to jump to.  The
      type of the statement expression is the return type of the
      function call.  */
-  expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), make_node (COMPOUND_STMT));
+  expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), NULL_TREE);
   /* There is no scope associated with the statement-expression.  */
   STMT_EXPR_NO_SCOPE (expr) = 1;
-  stmt = STMT_EXPR_STMT (expr);
+
   /* Local declarations will be replaced by their equivalents in this
      map.  */
   st = id->decl_map;
@@ -866,13 +876,21 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Initialize the parameters.  */
   arg_inits = initialize_inlined_parameters (id, TREE_OPERAND (t, 1), fn);
+  if (arg_inits == error_mark_node)
+    {
+      /* Clean up.  */
+      splay_tree_delete (id->decl_map);
+      id->decl_map = st;
+      return NULL_TREE;
+    }
+
   /* Expand any inlined calls in the initializers.  Do this before we
      push FN on the stack of functions we are inlining; we want to
      inline calls to FN that appear in the initializers for the
      parameters.  */
   expand_calls_inline (&arg_inits, id);
   /* And add them to the tree.  */
-  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), arg_inits);
+  STMT_EXPR_STMT (expr) = chainon (STMT_EXPR_STMT (expr), arg_inits);
 
   /* Record the function we are about to inline so that we can avoid
      recursing into it.  */
@@ -907,8 +925,8 @@ expand_call_inline (tp, walk_subtrees, data)
   SCOPE_BEGIN_P (scope_stmt) = 1;
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
   remap_block (scope_stmt, DECL_ARGUMENTS (fn), id);
-  TREE_CHAIN (scope_stmt) = COMPOUND_BODY (stmt);
-  COMPOUND_BODY (stmt) = scope_stmt;
+  TREE_CHAIN (scope_stmt) = STMT_EXPR_STMT (expr);
+  STMT_EXPR_STMT (expr) = scope_stmt;
 
   /* Tell the debugging backends that this block represents the
      outermost scope of the inlined function.  */
@@ -916,34 +934,34 @@ expand_call_inline (tp, walk_subtrees, data)
     BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope_stmt)) = DECL_ORIGIN (fn);
 
   /* Declare the return variable for the function.  */
-  COMPOUND_BODY (stmt)
-    = chainon (COMPOUND_BODY (stmt),
+  STMT_EXPR_STMT (expr)
+    = chainon (STMT_EXPR_STMT (expr),
 	       declare_return_variable (id, &use_stmt));
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  inlined_body = &COMPOUND_BODY (stmt);
+  inlined_body = &STMT_EXPR_STMT (expr);
   while (*inlined_body)
     inlined_body = &TREE_CHAIN (*inlined_body);
   *inlined_body = copy_body (id);
 
-  /* After the body of the function comes the RET_LABEL.  This must come
-     before we evaluate the returned value below, because that evalulation
-     may cause RTL to be generated.  */
-  COMPOUND_BODY (stmt)
-    = chainon (COMPOUND_BODY (stmt),
-	       build_stmt (LABEL_STMT, id->ret_label));
-
-  /* Finally, mention the returned value so that the value of the
-     statement-expression is the returned value of the function.  */
-  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), use_stmt);
-  
   /* Close the block for the parameters.  */
   scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
   remap_block (scope_stmt, NULL_TREE, id);
-  COMPOUND_BODY (stmt)
-    = chainon (COMPOUND_BODY (stmt), scope_stmt);
+  STMT_EXPR_STMT (expr)
+    = chainon (STMT_EXPR_STMT (expr), scope_stmt);
+
+  /* After the body of the function comes the RET_LABEL.  This must come
+     before we evaluate the returned value below, because that evalulation
+     may cause RTL to be generated.  */
+  STMT_EXPR_STMT (expr)
+    = chainon (STMT_EXPR_STMT (expr),
+	       build_stmt (LABEL_STMT, id->ret_label));
+
+  /* Finally, mention the returned value so that the value of the
+     statement-expression is the returned value of the function.  */
+  STMT_EXPR_STMT (expr) = chainon (STMT_EXPR_STMT (expr), use_stmt);
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);

@@ -398,13 +398,6 @@ do {								\
    ? ptrmemfunc_vbit_in_pfn : ptrmemfunc_vbit_in_delta)
 #endif
 
-/* True if it is possible to profile code that does not have a frame
-   pointer.  */
-
-#ifndef TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-#define TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER true
-#endif
-
 #ifndef DEFAULT_GDB_EXTENSIONS
 #define DEFAULT_GDB_EXTENSIONS 1
 #endif

@@ -28,8 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-static HOST_WIDE_INT cxx_get_alias_set		PARAMS ((tree));
-static tree cp_expr_size			PARAMS ((tree));
+static HOST_WIDE_INT cxx_get_alias_set PARAMS ((tree));
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C++"
@@ -92,11 +91,50 @@ static tree cp_expr_size			PARAMS ((tree));
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN cp_type_quals
-#undef LANG_HOOKS_EXPR_SIZE
-#define LANG_HOOKS_EXPR_SIZE cp_expr_size
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+
+/* Tree code classes. */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
+
+const char tree_code_type[] = {
+#include "tree.def"
+  'x',
+#include "c-common.def"
+  'x',
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
+
+/* Table indexed by tree code giving number of expression
+   operands beyond the fixed part of the node structure.
+   Not used for types or decls.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
+
+const unsigned char tree_code_length[] = {
+#include "tree.def"
+  0,
+#include "c-common.def"
+  0,
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
+
+/* Names of tree components.
+   Used for printing out the tree and error messages.  */
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
+
+const char *const tree_code_name[] = {
+#include "tree.def"
+  "@@dummy",
+#include "c-common.def"
+  "@@dummy",
+#include "cp-tree.def"
+};
+#undef DEFTREECODE
 
 /* Special routine to get the alias set for C++.  */
 
@@ -110,23 +148,4 @@ cxx_get_alias_set (t)
     return 0;
 
   return c_common_get_alias_set (t);
-}
-
-/* Langhook for expr_size: Tell the backend that the value of an expression
-   of non-POD class type does not include any tail padding; a derived class
-   might have allocated something there.  */
-
-static tree
-cp_expr_size (exp)
-     tree exp;
-{
-  if (CLASS_TYPE_P (TREE_TYPE (exp)))
-    {
-      /* This would be wrong for a type with virtual bases, but they should
-	 not get here.  */
-      return CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp));
-    }
-  else
-    /* Use the default code.  */
-    return lhd_expr_size (exp);
 }

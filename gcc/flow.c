@@ -1048,19 +1048,19 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
      int flags;
 {
   basic_block *queue, *qhead, *qtail, *qend;
-  regset tmp, new_live_at_end, call_used;
-  regset_head tmp_head, call_used_head;
+  regset tmp, new_live_at_end, invalidated_by_call;
+  regset_head tmp_head, invalidated_by_call_head;
   regset_head new_live_at_end_head;
   int i;
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
-  call_used = INITIALIZE_REG_SET (call_used_head);
+  invalidated_by_call = INITIALIZE_REG_SET (invalidated_by_call_head);
 
   /* Inconveniently, this is only readily available in hard reg set form.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
-    if (call_used_regs[i])
-      SET_REGNO_REG_SET (call_used, i);
+    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+      SET_REGNO_REG_SET (invalidated_by_call, i);
 
   /* Create a worklist.  Allocate an extra slot for ENTRY_BLOCK, and one
      because the `head == tail' style test for an empty queue doesn't
@@ -1147,7 +1147,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	    if (e->flags & EDGE_EH)
 	      {
 		bitmap_operation (tmp, sb->global_live_at_start,
-				  call_used, BITMAP_AND_COMPL);
+				  invalidated_by_call, BITMAP_AND_COMPL);
 		IOR_REG_SET (new_live_at_end, tmp);
 	      }
 	    else
@@ -1315,7 +1315,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
   FREE_REG_SET (tmp);
   FREE_REG_SET (new_live_at_end);
-  FREE_REG_SET (call_used);
+  FREE_REG_SET (invalidated_by_call);
 
   if (blocks_out)
     {
@@ -1756,8 +1756,7 @@ propagate_one_insn (pbi, insn)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	      {
 		/* We do not want REG_UNUSED notes for these registers.  */
-		mark_set_1 (pbi, CLOBBER, gen_rtx_REG (reg_raw_mode[i], i),
-			    cond, insn,
+		mark_set_1 (pbi, CLOBBER, regno_reg_rtx[i], cond, insn,
 			    pbi->flags & ~(PROP_DEATH_NOTES | PROP_REG_INFO));
 	      }
 	}
@@ -1805,8 +1804,7 @@ propagate_one_insn (pbi, insn)
 	     so they are made live.  */
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (global_regs[i])
-	      mark_used_reg (pbi, gen_rtx_REG (reg_raw_mode[i], i),
-			     cond, insn);
+	      mark_used_reg (pbi, regno_reg_rtx[i], cond, insn);
 	}
     }
 
@@ -2804,7 +2802,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 		    if (! REGNO_REG_SET_P (pbi->reg_live, i))
 		      REG_NOTES (insn)
 			= alloc_EXPR_LIST (REG_UNUSED,
-					   gen_rtx_REG (reg_raw_mode[i], i),
+					   regno_reg_rtx[i],
 					   REG_NOTES (insn));
 		}
 	    }
@@ -3612,7 +3610,7 @@ mark_used_reg (pbi, reg, cond, insn)
 		&& ! dead_or_set_regno_p (insn, i))
 	      REG_NOTES (insn)
 		= alloc_EXPR_LIST (REG_DEAD,
-				   gen_rtx_REG (reg_raw_mode[i], i),
+				   regno_reg_rtx[i],
 				   REG_NOTES (insn));
 	}
     }

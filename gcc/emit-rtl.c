@@ -92,6 +92,12 @@ static int no_line_numbers;
 
 rtx global_rtl[GR_MAX];
 
+/* Commonly used RTL for hard registers.  These objects are not necessarily
+   unique, so we allocate them separately from global_rtl.  They are
+   initialized once per compilation unit, then copied into regno_reg_rtx
+   at the beginning of each function.  */
+static rtx static_regno_reg_rtx[FIRST_PSEUDO_REGISTER];
+
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
    the values of 0, 1, and 2.  For the integer entries and VOIDmode, we
    record a copy of const[012]_rtx.  */
@@ -426,6 +432,15 @@ gen_rtx_REG (mode, regno)
       if (regno == STACK_POINTER_REGNUM)
 	return stack_pointer_rtx;
     }
+
+  /* If the per-function register table has been set up, try to re-use
+     an existing entry in that table to avoid useless generation of RTL.  */
+  if (0 && cfun
+      && cfun->emit
+      && regno_reg_rtx
+      && regno >= 0 && regno < FIRST_PSEUDO_REGISTER
+      && reg_raw_mode[regno] == mode)
+    return regno_reg_rtx[regno];
 
   return gen_raw_REG (mode, regno);
 }
@@ -4846,6 +4861,11 @@ init_emit ()
   f->emit->regno_decl
     = (tree *) xcalloc (f->emit->regno_pointer_align_length, sizeof (tree));
 
+  /* Put copies of all the hard registers into regno_reg_rtx.  */
+  memcpy (regno_reg_rtx,
+	  static_regno_reg_rtx,
+	  FIRST_PSEUDO_REGISTER * sizeof (rtx));
+
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
 
@@ -5020,8 +5040,14 @@ init_emit_once (line_numbers)
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
 
+  /* Initialize RTL for commonly used hard registers.  These are
+     copied into regno_reg_rtx as we begin to compile each function.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    static_regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
+
   /* These rtx must be roots if GC is enabled.  */
   ggc_add_rtx_root (global_rtl, GR_MAX);
+  ggc_add_rtx_root (static_regno_reg_rtx, (int) FIRST_PSEUDO_REGISTER);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first

@@ -1500,14 +1500,16 @@ associate_trees (t1, t2, code, type)
   if (TREE_CODE (t1) == code || TREE_CODE (t2) == code
       || TREE_CODE (t1) == MINUS_EXPR || TREE_CODE (t2) == MINUS_EXPR)
     {
-      if (TREE_CODE (t1) == NEGATE_EXPR)
-	return build (MINUS_EXPR, type, convert (type, t2),
-		      convert (type, TREE_OPERAND (t1, 0)));
-      else if (TREE_CODE (t2) == NEGATE_EXPR)
-	return build (MINUS_EXPR, type, convert (type, t1),
-		      convert (type, TREE_OPERAND (t2, 0)));
-      else
-	return build (code, type, convert (type, t1), convert (type, t2));
+      if (code == PLUS_EXPR)
+	{
+	  if (TREE_CODE (t1) == NEGATE_EXPR)
+	    return build (MINUS_EXPR, type, convert (type, t2),
+			  convert (type, TREE_OPERAND (t1, 0)));
+	  else if (TREE_CODE (t2) == NEGATE_EXPR)
+	    return build (MINUS_EXPR, type, convert (type, t1),
+			  convert (type, TREE_OPERAND (t2, 0)));
+	}
+      return build (code, type, convert (type, t1), convert (type, t2));
     }
 
   return fold (build (code, type, convert (type, t1), convert (type, t2)));
@@ -6535,7 +6537,7 @@ fold (expr)
 
 	    else if (TREE_INT_CST_HIGH (arg1) == -1
 		     && (TREE_INT_CST_LOW (arg1)
-			 == ((unsigned HOST_WIDE_INT) 1 << (width - 1)))
+			 == ((unsigned HOST_WIDE_INT) -1 << (width - 1)))
 		     && ! TREE_UNSIGNED (TREE_TYPE (arg1)))
 	      switch (TREE_CODE (t))
 		{
