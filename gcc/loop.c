@@ -235,6 +235,7 @@ FILE *loop_dump_stream;
 
 /* Forward declarations.  */
 
+static void invalidate_loops_containing_label PARAMS ((rtx));
 static void find_and_verify_loops PARAMS ((rtx, struct loops *));
 static void mark_loop_jump PARAMS ((rtx, struct loop *));
 static void prescan_loop PARAMS ((struct loop *));
@@ -2492,6 +2493,8 @@ prescan_loop (loop)
 	      loop_info->unknown_address_altered = 1;
 	      loop_info->has_nonconst_call = 1;
 	    }
+	  else if (pure_call_p (insn))
+	    loop_info->has_nonconst_call = 1;
 	  loop_info->has_call = 1;
 	  if (can_throw_internal (insn))
 	    loop_info->has_multiple_exit_targets = 1;
@@ -2504,16 +2507,17 @@ prescan_loop (loop)
 
 	      if (set)
 		{
+		  rtx src = SET_SRC (set);
 		  rtx label1, label2;
 
-		  if (GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
+		  if (GET_CODE (src) == IF_THEN_ELSE)
 		    {
-		      label1 = XEXP (SET_SRC (set), 1);
-		      label2 = XEXP (SET_SRC (set), 2);
+		      label1 = XEXP (src, 1);
+		      label2 = XEXP (src, 2);
 		    }
 		  else
 		    {
-		      label1 = SET_SRC (PATTERN (insn));
+		      label1 = src;
 		      label2 = NULL_RTX;
 		    }
 
@@ -2607,6 +2611,17 @@ prescan_loop (loop)
     }
 }
 
+/* Invalidate all loops containing LABEL.  */
+
+static void
+invalidate_loops_containing_label (label)
+     rtx label;
+{
+  struct loop *loop;
+  for (loop = uid_loop[INSN_UID (label)]; loop; loop = loop->outer)
+    loop->invalid = 1;
+}
+
 /* Scan the function looking for loops.  Record the start and end of each loop.
    Also mark as invalid loops any loops that contain a setjmp or are branched
    to from outside the loop.  */
@@ -2693,23 +2708,12 @@ find_and_verify_loops (f, loops)
 
   /* Any loop containing a label used in an initializer must be invalidated,
      because it can be jumped into from anywhere.  */
-
   for (label = forced_labels; label; label = XEXP (label, 1))
-    {
-      for (loop = uid_loop[INSN_UID (XEXP (label, 0))];
-	   loop; loop = loop->outer)
-	loop->invalid = 1;
-    }
+    invalidate_loops_containing_label (XEXP (label, 0));
 
   /* Any loop containing a label used for an exception handler must be
      invalidated, because it can be jumped into from anywhere.  */
-
-  for (label = exception_handler_labels; label; label = XEXP (label, 1))
-    {
-      for (loop = uid_loop[INSN_UID (XEXP (label, 0))];
-	   loop; loop = loop->outer)
-	loop->invalid = 1;
-    }
+  for_each_eh_label (invalidate_loops_containing_label);
 
   /* Now scan all insn's in the function.  If any JUMP_INSN branches into a
      loop that it is not contained within, that loop is marked invalid.
@@ -2733,11 +2737,7 @@ find_and_verify_loops (f, loops)
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
 	    if (note)
-	      {
-		for (loop = uid_loop[INSN_UID (XEXP (note, 0))];
-		     loop; loop = loop->outer)
-		  loop->invalid = 1;
-	      }
+	      invalidate_loops_containing_label (XEXP (note, 0));
 	  }
 
 	if (GET_CODE (insn) != JUMP_INSN)
@@ -5212,7 +5212,8 @@ strength_reduce (loop, flags)
      collected.  Always unroll loops that would be as small or smaller
      unrolled than when rolled.  */
   if ((flags & LOOP_UNROLL)
-      || (loop_info->n_iterations > 0
+      || (!(flags & LOOP_FIRST_PASS)
+	  && loop_info->n_iterations > 0
 	  && unrolled_insn_copies <= insn_count))
     unroll_loop (loop, insn_count, 1);
 
@@ -6213,10 +6214,11 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
     case CONST:
       /* convert_modes aborts if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  */
+	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
-	  && GET_MODE_CLASS (mode) != MODE_CC
-	  && GET_MODE_CLASS (GET_MODE (dest_reg)) != MODE_CC)
+	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))
+	  && GET_MODE_CLASS (mode) != MODE_CC)
 	{
 	  /* Possible bug here?  Perhaps we don't know the mode of X.  */
 	  *inc_val = convert_modes (GET_MODE (dest_reg), mode, x, 0);

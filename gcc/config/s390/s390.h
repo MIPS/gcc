@@ -227,7 +227,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 {  1, 2, 3, 4, 5, 0, 14, 13, 12, 11, 10, 9, 8, 7, 6,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
-   15, 32, 33 }
+   15, 32, 33, 34 }
 
 /* Standard register usage.  */
  
@@ -264,7 +264,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    GPR 14: Return registers holds the return address
    GPR 15: Stack pointer */
 
-#define PIC_OFFSET_TABLE_REGNUM 12
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 12 : INVALID_REGNUM)
 #define BASE_REGISTER 13
 #define RETURN_REGNUM 14
 #define STACK_POINTER_REGNUM 15
@@ -879,7 +879,7 @@ CUMULATIVE_ARGS;
 #define FUNCTION_PROFILER(FILE, LABELNO) 			\
 	s390_function_profiler ((FILE), ((LABELNO)))
 
-/* #define PROFILE_BEFORE_PROLOGUE */
+#define PROFILE_BEFORE_PROLOGUE 1
 
 /* Define EXIT_IGNORE_STACK if, when returning from a function, the stack
    pointer does not matter (provided there is a frame pointer).  */
@@ -1285,6 +1285,10 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 
 #define TARGET_MEM_FUNCTIONS
 
+/* Either simplify a location expression, or return the original.  */
+
+#define ASM_SIMPLIFY_DWARF_ADDR(X) \
+  s390_simplify_dwarf_addr (X)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

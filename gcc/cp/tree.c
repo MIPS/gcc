@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -464,7 +464,12 @@ build_cplus_array_type_1 (elt_type, index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  if (processing_template_decl 
+  /* Don't do the minimal thing just because processing_template_decl is
+     set; we want to give string constants the right type immediately, so
+     we don't have to fix them up at instantiation time.  */
+  if ((processing_template_decl
+       && index_type && TYPE_MAX_VALUE (index_type)
+       && TREE_CODE (TYPE_MAX_VALUE (index_type)) != INTEGER_CST)
       || uses_template_parms (elt_type) 
       || uses_template_parms (index_type))
     {
@@ -1032,7 +1037,6 @@ cp_statement_code_p (code)
   switch (code)
     {
     case SUBOBJECT:
-    case CLEANUP_STMT:
     case CTOR_STMT:
     case CTOR_INITIALIZER:
     case RETURN_INIT:
@@ -1894,6 +1898,27 @@ pod_type_p (t)
   return 1;
 }
 
+/* Returns 1 iff zero initialization of type T means actually storing
+   zeros in it.  */
+
+int
+zero_init_p (t)
+     tree t;
+{
+  t = strip_array_types (t);
+
+  /* NULL pointers to data members are initialized with -1.  */
+  if (TYPE_PTRMEM_P (t))
+    return 0;
+
+  /* Classes that contain types that can't be zero-initialized, cannot
+     be zero-initialized themselves.  */
+  if (CLASS_TYPE_P (t) && CLASSTYPE_NON_ZERO_INIT_P (t))
+    return 0;
+
+  return 1;
+}
+
 /* Table of valid C++ attributes.  */
 const struct attribute_spec cp_attribute_table[] =
 {
@@ -2133,7 +2158,7 @@ cp_cannot_inline_tree_fn (fnp)
 {
   tree fn = *fnp;
 
-  if (optimize == 0
+  if (flag_really_no_inline
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     return 1;
 

@@ -67,10 +67,6 @@ Boston, MA 02111-1307, USA.  */
 #define FRP(INSN) INSN
 #endif
 
-#ifndef FUNC_BEGIN_PROLOG_LABEL
-#define FUNC_BEGIN_PROLOG_LABEL        "LFBP"
-#endif
-
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
 static void pa_combine_instructions PARAMS ((rtx));
 static int pa_can_combine_p PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
@@ -111,11 +107,6 @@ const char *pa_arch_string;
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
-
-/* The number of the current function for which profile information
-   is to be collected.  These numbers are used to create unique label
-   id's for labels emitted at the beginning of profiled functions.  */
-static unsigned int current_function_number = 0;
 
 static rtx find_addr_reg PARAMS ((rtx));
 
@@ -3071,16 +3062,6 @@ pa_output_function_prologue (file, size)
 
   fputs ("\n\t.ENTRY\n", file);
 
-  /* When profiling, we need a local label at the beginning of the
-     prologue because GAS can't handle the difference of a global symbol
-     and a local symbol.  */
-  if (current_function_profile)
-    {
-      ASM_OUTPUT_INTERNAL_LABEL (file, FUNC_BEGIN_PROLOG_LABEL,
-				 current_function_number);
-      current_function_number++;
-    }
-
   /* If we're using GAS and not using the portable runtime model, then
      we don't need to accumulate the total number of code bytes.  */
   if (TARGET_GAS && ! TARGET_PORTABLE_RUNTIME)
@@ -3540,13 +3521,13 @@ hppa_pic_save_rtx ()
 
 void
 hppa_profile_hook (label_no)
-     int label_no ATTRIBUTE_UNUSED;
+     int label_no;
 {
   rtx begin_label_rtx, call_insn;
   char begin_label_name[16];
 
   ASM_GENERATE_INTERNAL_LABEL (begin_label_name, FUNC_BEGIN_PROLOG_LABEL,
-			       current_function_number);
+			       label_no);
   begin_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (begin_label_name));
 
   if (TARGET_64BIT)
@@ -3564,24 +3545,7 @@ hppa_profile_hook (label_no)
     ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
     count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
 
-    if (flag_pic)
-      {
-	rtx tmpreg;
-
-	current_function_uses_pic_offset_table = 1;
-	tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg,
-			gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-				      gen_rtx_HIGH (Pmode, count_label_rtx)));
-	addr = gen_rtx_MEM (Pmode,
-			    gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx));
-      }
-    else
-      {
-	rtx tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg, gen_rtx_HIGH (Pmode, count_label_rtx));
-	addr = gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx);
-      }
+    addr = force_reg (Pmode, count_label_rtx);
     r24 = gen_rtx_REG (Pmode, 24);
     emit_move_insn (r24, addr);
 
@@ -5872,9 +5836,13 @@ output_millicode_call (insn, call_dest)
 
   /* Handle common case -- empty delay slot or no jump in the delay slot,
      and we're sure that the branch will reach the beginning of the $CODE$
-     subspace.  */
+     subspace.  The within reach form of the $$sh_func_adrs call has
+     a length of 28 and attribute type of multi.  This length is the
+     same as the maximum length of an out of reach PIC call to $$div.  */
   if ((dbr_sequence_length () == 0
-       && (get_attr_length (insn) == 8 || get_attr_length (insn) == 28))
+       && (get_attr_length (insn) == 8
+	   || (get_attr_length (insn) == 28 
+	       && get_attr_type (insn) == TYPE_MULTI)))
       || (dbr_sequence_length () != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
 	  && get_attr_length (insn) == 4))
@@ -5885,7 +5853,7 @@ output_millicode_call (insn, call_dest)
     }
 
   /* This call may not reach the beginning of the $CODE$ subspace.  */
-  if (get_attr_length (insn) > 4)
+  if (get_attr_length (insn) > 8)
     {
       int delay_insn_deleted = 0;
 
@@ -7086,7 +7054,7 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
   INSN_CODE (new) = -1;
   insn_code_number = recog_memoized (new);
   if (insn_code_number < 0
-      || !constrain_operands (1))
+      || (extract_insn (new), ! constrain_operands (1)))
     return 0;
 
   if (reversed)
@@ -7341,6 +7309,7 @@ function_arg (cum, mode, type, named, incoming)
 	     to be passed in general registers.  */
 	  || (!TARGET_PORTABLE_RUNTIME
 	      && !TARGET_64BIT
+	      && !TARGET_ELF32
 	      && cum->indirect)
 	  /* If the parameter is not a floating point parameter, then
 	     it belongs in GPRs.  */

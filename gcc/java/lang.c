@@ -157,6 +157,9 @@ int flag_optimize_sci = 1;
    in order to improve binary compatibility. */
 int flag_indirect_dispatch = 0;
 
+/* When zero, don't generate runtime array store checks. */
+int flag_store_check = 1;
+
 /* When non zero, print extra version information.  */
 static int version_flag = 0;
 
@@ -179,7 +182,8 @@ lang_f_options[] =
   {"check-references", &flag_check_references, 1},
   {"force-classes-archive-check", &flag_force_classes_archive_check, 1},
   {"optimize-static-class-initialization", &flag_optimize_sci, 1 },
-  {"indirect-dispatch", &flag_indirect_dispatch, 1}
+  {"indirect-dispatch", &flag_indirect_dispatch, 1},
+  {"store-check", &flag_store_check, 1}
 };
 
 static const struct string_option
@@ -257,6 +261,8 @@ java_decode_option (argc, argv)
 {
   char *p = argv[0];
 
+  jcf_path_init ();
+
   if (strcmp (p, "-version") == 0)
     {
       version_flag = 1;
@@ -302,7 +308,7 @@ java_decode_option (argc, argv)
 #define CLARG "-fCLASSPATH="
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
-      jcf_path_CLASSPATH_arg (p + sizeof (CLARG) - 1);
+      jcf_path_classpath_arg (p + sizeof (CLARG) - 1);
       return 1;
     }
 #undef CLARG
@@ -310,6 +316,20 @@ java_decode_option (argc, argv)
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
       jcf_path_classpath_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
+#define CLARG "-fbootclasspath="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_bootclasspath_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
+#define CLARG "-fextdirs="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_extdirs_arg (p + sizeof (CLARG) - 1);
       return 1;
     }
 #undef CLARG

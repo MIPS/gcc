@@ -185,7 +185,7 @@ namespace std
 	      if (_M_check_facet(_M_fnumput))
 		{
 		  bool __b = false;
-		  if (__fmt & ios_base::oct || __fmt & ios_base::hex)
+		  if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
 		    {
 		      unsigned long __l = static_cast<unsigned long>(__n);
 		      __b = _M_fnumput->put(*this, *this, __c, __l).failed();
@@ -248,7 +248,7 @@ namespace std
 	      if (_M_check_facet(_M_fnumput))
 		{
 		  bool __b = false;
-		  if (__fmt & ios_base::oct || __fmt & ios_base::hex)
+		  if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
 		    {
 		      unsigned long long __l;
 		      __l = static_cast<unsigned long long>(__n);
@@ -419,9 +419,7 @@ namespace std
     basic_ostream<_CharT, _Traits>::tellp()
     {
       pos_type __ret = pos_type(-1);
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	__ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::out);
       return __ret;
     }
@@ -431,9 +429,7 @@ namespace std
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::seekp(pos_type __pos)
     {
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
@@ -452,9 +448,7 @@ namespace std
     basic_ostream<_CharT, _Traits>::
     seekp(off_type __off, ios_base::seekdir __d)
     {
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
@@ -464,8 +458,8 @@ namespace std
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
 	    this->setstate(ios_base::failbit);
-	}
 #endif
+	}
       return *this;
     }
 
@@ -481,7 +475,7 @@ namespace std
 	  try 
 	    {
 	      streamsize __w = __out.width();
-	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
+	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__w + 1)));
 	      __pads[0] = __c;
 	      streamsize __len = 1;
 	      if (__w > __len)
@@ -551,7 +545,8 @@ namespace std
 	    {
 	      streamsize __w = __out.width();
 	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
-	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
+	      streamsize __len = __s 
+		           ? static_cast<streamsize>(_Traits::length(__s)) : 0;
 	      if (__w > __len)
 		{
 		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
@@ -560,6 +555,8 @@ namespace std
 		}
 	      __out.write(__s, __len);
 	      __out.width(0);
+	      if (!__len)
+		__out.setstate(ios_base::badbit);
 	    }
 	  catch(exception& __fail)
 	    {
@@ -581,14 +578,14 @@ namespace std
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 167.  Improper use of traits_type::length()
 // Note that this is only in 'Review' status.
-      typedef char_traits<char>		     __ctraits_type;
+      typedef char_traits<char>		     __traits_type;
 #endif
       typename __ostream_type::sentry __cerb(__out);
       if (__cerb)
 	{
-	  size_t __clen = __ctraits_type::length(__s);
+	  size_t __clen = __s ? __traits_type::length(__s) : 0;
 	  _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__clen + 1)));
-	  for (size_t  __i = 0; __i <= __clen; ++__i)
+	  for (size_t  __i = 0; __i < __clen; ++__i)
 	    __ws[__i] = __out.widen(__s[__i]);
 	  _CharT* __str = __ws;
 	  
@@ -606,6 +603,8 @@ namespace std
 		}
 	      __out.write(__str, __len);
 	      __out.width(0);
+	      if (!__len)
+		__out.setstate(ios_base::badbit);
 	    }
 	  catch(exception& __fail)
 	    {
@@ -632,7 +631,8 @@ namespace std
 	    {
 	      streamsize __w = __out.width();
 	      char* __pads = static_cast<char*>(__builtin_alloca(__w));
-	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
+	      streamsize __len = __s ? 
+		             static_cast<streamsize>(_Traits::length(__s)) : 0;
 	      if (__w > __len)
 		{
 		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
@@ -641,6 +641,8 @@ namespace std
 		}
 	      __out.write(__s, __len);
 	      __out.width(0);
+	      if (!__len)
+		__out.setstate(ios_base::badbit);
 	    }
 	  catch(exception& __fail)
 	    {

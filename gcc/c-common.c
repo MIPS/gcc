@@ -587,7 +587,7 @@ combine_strings (strings)
 	    {
 	      length += (TREE_STRING_LENGTH (t) - 1);
 	      if (C_ARTIFICIAL_STRING_P (t) && !in_system_header)
-		warning ("concatenation of string literals with __FUNCTION__ is deprecated.  This feature will be removed in future"); 
+		warning ("concatenation of string literals with __FUNCTION__ is deprecated"); 
 	    }
 	}
 
@@ -596,7 +596,7 @@ combine_strings (strings)
       if (wide_flag)
 	length = length * wchar_bytes + wide_length;
 
-      p = alloca (length);
+      p = xmalloc (length);
 
       /* Copy the individual strings into the new combined string.
 	 If the combined string is wide, convert the chars to ints
@@ -643,6 +643,7 @@ combine_strings (strings)
 	*q = 0;
 
       value = build_string (length, p);
+      free (p);
     }
   else
     {
@@ -3206,6 +3207,7 @@ statement_code_p (code)
 {
   switch (code)
     {
+    case CLEANUP_STMT:
     case EXPR_STMT:
     case COMPOUND_STMT:
     case DECL_STMT:
@@ -3565,6 +3567,7 @@ c_expand_expr (exp, target, tmode, modifier)
       {
 	tree rtl_expr;
 	rtx result;
+	bool preserve_result = false;
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -3572,7 +3575,7 @@ c_expand_expr (exp, target, tmode, modifier)
 	   out-of-scope after the first EXPR_STMT from within the
 	   STMT_EXPR.  */
 	push_temp_slots ();
-	rtl_expr = expand_start_stmt_expr ();
+	rtl_expr = expand_start_stmt_expr (!STMT_EXPR_NO_SCOPE (exp));
 
 	/* If we want the result of this expression, find the last
            EXPR_STMT in the COMPOUND_STMT and mark it as addressable.  */
@@ -3591,12 +3594,30 @@ c_expand_expr (exp, target, tmode, modifier)
 
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
-	      TREE_ADDRESSABLE (expr) = 1;
+	      {
+	        TREE_ADDRESSABLE (expr) = 1;
+		preserve_result = true;
+	      }
 	  }
 
 	expand_stmt (STMT_EXPR_STMT (exp));
 	expand_end_stmt_expr (rtl_expr);
+
 	result = expand_expr (rtl_expr, target, tmode, modifier);
+	if (preserve_result && GET_CODE (result) == MEM)
+	  {
+	    if (GET_MODE (result) != BLKmode)
+	      result = copy_to_reg (result);
+	    else
+	      preserve_temp_slots (result);
+	  }
+
+	/* If the statment-expression does not have a scope, then the
+	   new temporaries we created within it must live beyond the
+	   statement-expression.  */
+	if (STMT_EXPR_NO_SCOPE (exp))
+	  preserve_temp_slots (NULL_RTX);
+
 	pop_temp_slots ();
 	return result;
       }

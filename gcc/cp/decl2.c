@@ -1153,21 +1153,8 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
     return build_vec_delete (t, maxindex, sfk_deleting_destructor,
 			     use_global_delete);
   else
-    {
-      if (IS_AGGR_TYPE (TREE_TYPE (type))
-	  && TYPE_GETS_REG_DELETE (TREE_TYPE (type)))
-	{
-	  /* Only do access checking here; we'll be calling op delete
-	     from the destructor.  */
-	  tree tmp = build_op_delete_call (DELETE_EXPR, t, size_zero_node,
-					   LOOKUP_NORMAL, NULL_TREE);
-	  if (tmp == error_mark_node)
-	    return error_mark_node;
-	}
-
-      return build_delete (type, t, sfk_deleting_destructor,
-			   LOOKUP_NORMAL, use_global_delete);
-    }
+    return build_delete (type, t, sfk_deleting_destructor,
+			 LOOKUP_NORMAL, use_global_delete);
 }
 
 /* Report an error if the indicated template declaration is not the
@@ -2221,8 +2208,12 @@ maybe_make_one_only (decl)
 
   make_decl_one_only (decl);
 
-  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl))
-    DECL_COMDAT (decl) = 1;
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      DECL_COMDAT (decl) = 1;
+      /* Mark it needed so we don't forget to emit it.  */
+      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = 1;
+    }
 }
 
 /* Returns the virtual function with which the vtable for TYPE is
@@ -3450,7 +3441,11 @@ finish_file ()
 	 not defined when they really are.  This keeps these functions
 	 from being put out unnecessarily.  But, we must stop lying
 	 when the functions are referenced, or if they are not comdat
-	 since they need to be put out now.  */
+	 since they need to be put out now.
+	 This is done in a separate for cycle, because if some deferred
+	 function is contained in another deferred function later in
+	 deferred_fns varray, rest_of_compilation would skip this
+	 function and we really cannot expand the same function twice. */
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
@@ -3459,6 +3454,11 @@ finish_file ()
 	      && DECL_INITIAL (decl)
 	      && DECL_NEEDED_P (decl))
 	    DECL_EXTERNAL (decl) = 0;
+	}
+
+      for (i = 0; i < deferred_fns_used; ++i)
+	{
+	  tree decl = VARRAY_TREE (deferred_fns, i);
 
 	  /* If we're going to need to write this function out, and
 	     there's already a body for it, create RTL for it now.
@@ -4194,6 +4194,11 @@ ambiguous_decl (name, old, new, flags)
         break;
       case NAMESPACE_DECL:
         if (LOOKUP_TYPES_ONLY (flags))
+          val = NULL_TREE;
+        break;
+      case FUNCTION_DECL:
+        /* Ignore built-in functions that are still anticipated.  */
+        if (LOOKUP_QUALIFIERS_ONLY (flags) || DECL_ANTICIPATED (val))
           val = NULL_TREE;
         break;
       default:
@@ -4948,6 +4953,15 @@ do_nonmember_using_decl (scope, name, oldval, oldtype, newval, newtype)
 	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
 		  		  TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
 		{
+                  /* If this using declaration introduces a function
+                     recognized as a built-in, no longer mark it as
+                     anticipated in this scope.  */
+                  if (DECL_ANTICIPATED (old_fn))
+                    {
+                      DECL_ANTICIPATED (old_fn) = 0;
+                      break;
+                    }
+
 	          /* There was already a non-using declaration in
 		     this scope with the same parameter types. If both
 	             are the same extern "C" functions, that's ok.  */
@@ -5263,7 +5277,13 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
 		     && TREE_CODE (context) != BOUND_TEMPLATE_TEMPLATE_PARM);
       if (*new_type_p)
 	push_scope (context);
-  
+
+      if (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE)
+	/* It is legal to define a class with a different class key,
+	   and this changes the default member access.  */
+	CLASSTYPE_DECLARED_CLASS (TREE_TYPE (decl))
+	  = aggr == class_type_node;
+	
       if (!xrefd_p && PROCESSING_REAL_TEMPLATE_DECL_P ())
 	decl = push_template_decl (decl);
     }

@@ -392,6 +392,7 @@ const int x86_accumulate_outgoing_args = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_prologue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
+const int x86_arch_always_fancy_math_387 = m_PENT|m_PPRO|m_ATHLON|m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -1085,14 +1086,14 @@ override_options ()
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
   ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 64 : 32
+				   ? TARGET_64BIT ? 128 : 32
 				   : 128);
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
-      if (i < (TARGET_64BIT ? 3 : 2) || i > 12)
+      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
 	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 3 : 2);
+	       TARGET_64BIT ? 4 : 2);
       else
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
@@ -1116,6 +1117,11 @@ override_options ()
      wrt NaNs.  This lets us use a shorter comparison sequence.  */
   if (flag_unsafe_math_optimizations)
     target_flags &= ~MASK_IEEE_FP;
+
+  /* If the architecture always has an FPU, turn off NO_FANCY_MATH_387,
+     since the insns won't need emulation.  */
+  if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
+    target_flags &= ~MASK_NO_FANCY_MATH_387;
 
   if (TARGET_64BIT)
     {
@@ -1328,7 +1334,7 @@ ix86_osf_output_function_prologue (file, size)
 {
   const char *prefix = "";
   const char *const lprefix = LPREFIX;
-  int labelno = profile_label_no;
+  int labelno = current_function_profile_label_no;
 
 #ifdef OSF_OS
 
@@ -1726,7 +1732,8 @@ classify_argument (mode, type, classes, bit_offset)
 	    classes[i] = subclasses[i % num];
 	}
       /* Unions are similar to RECORD_TYPE but offset is always 0.  */
-      else if (TREE_CODE (type) == UNION_TYPE)
+      else if (TREE_CODE (type) == UNION_TYPE
+	       || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
@@ -2010,7 +2017,7 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
 	    sse_regno++;
 	    break;
 	  case X86_64_SSE_CLASS:
-	    if (i < n && class[i + 1] == X86_64_SSEUP_CLASS)
+	    if (i < n - 1 && class[i + 1] == X86_64_SSEUP_CLASS)
 	      tmpmode = TImode, i++;
 	    else
 	      tmpmode = DImode;
@@ -2502,6 +2509,7 @@ ix86_va_start (stdarg_p, valist, nextarg)
   t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  cfun->preferred_stack_boundary = 128;
 }
 
 /* Implement va_arg.  */
@@ -3880,9 +3888,7 @@ ix86_save_reg (regno, maybe_eh_return)
      int regno;
      int maybe_eh_return;
 {
-  if (flag_pic
-      && ! TARGET_64BIT
-      && regno == PIC_OFFSET_TABLE_REGNUM
+  if (regno == PIC_OFFSET_TABLE_REGNUM
       && (current_function_uses_pic_offset_table
 	  || current_function_uses_const_pool
 	  || current_function_calls_eh_return))
@@ -5396,11 +5402,15 @@ i386_simplify_dwarf_addr (orig_x)
 {
   rtx x = orig_x, y;
 
+  if (GET_CODE (x) == MEM)
+    x = XEXP (x, 0);
+
   if (TARGET_64BIT)
     {
       if (GET_CODE (x) != CONST
 	  || GET_CODE (XEXP (x, 0)) != UNSPEC
-	  || XINT (XEXP (x, 0), 1) != 15)
+	  || XINT (XEXP (x, 0), 1) != 15
+	  || GET_CODE (orig_x) != MEM)
 	return orig_x;
       return XVECEXP (XEXP (x, 0), 0, 0);
     }
@@ -5435,8 +5445,8 @@ i386_simplify_dwarf_addr (orig_x)
 
   x = XEXP (XEXP (x, 1), 0);
   if (GET_CODE (x) == UNSPEC
-      && (XINT (x, 1) == 6
-	  || XINT (x, 1) == 7))
+      && ((XINT (x, 1) == 6 && GET_CODE (orig_x) == MEM)
+	  || (XINT (x, 1) == 7 && GET_CODE (orig_x) != MEM)))
     {
       if (y)
 	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
@@ -5446,8 +5456,8 @@ i386_simplify_dwarf_addr (orig_x)
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == UNSPEC
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (XINT (XEXP (x, 0), 1) == 6
-	  || XINT (XEXP (x, 0), 1) == 7))
+      && ((XINT (XEXP (x, 0), 1) == 6 && GET_CODE (orig_x) == MEM)
+	  || (XINT (XEXP (x, 0), 1) == 7 && GET_CODE (orig_x) != MEM)))
     {
       x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
       if (y)
@@ -5642,6 +5652,8 @@ print_reg (x, code, file)
    C -- print opcode suffix for set/cmov insn.
    c -- like C, but print reversed condition
    F,f -- likewise, but for floating-point.
+   O -- if CMOV_SUN_AS_SYNTAX, expand to "w.", "l." or "q.", otherwise
+        nothing
    R -- print the prefix for register names.
    z -- print the opcode suffix for the size of the current operand.
    * -- print a star (in certain assembler syntax)
@@ -5731,11 +5743,14 @@ print_operand (file, x, code)
 	case 'z':
 	  /* 387 opcodes don't get size suffixes if the operands are
 	     registers.  */
-
 	  if (STACK_REG_P (x))
 	    return;
 
-	  /* this is the size of op from size of operand */
+	  /* Likewise if using Intel opcodes.  */
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    return;
+
+	  /* This is the size of op from size of operand.  */
 	  switch (GET_MODE_SIZE (GET_MODE (x)))
 	    {
 	    case 2:
@@ -5836,10 +5851,31 @@ print_operand (file, x, code)
 	      break;
 	    }
 	  return;
+	case 'O':
+#ifdef CMOV_SUN_AS_SYNTAX
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    {
+	      switch (GET_MODE (x))
+		{
+		case HImode: putc ('w', file); break;
+		case SImode:
+		case SFmode: putc ('l', file); break;
+		case DImode:
+		case DFmode: putc ('q', file); break;
+		default: abort ();
+		}
+	      putc ('.', file);
+	    }
+#endif
+	  return;
 	case 'C':
 	  put_condition_code (GET_CODE (x), GET_MODE (XEXP (x, 0)), 0, 0, file);
 	  return;
 	case 'F':
+#ifdef CMOV_SUN_AS_SYNTAX
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    putc ('.', file);
+#endif
 	  put_condition_code (GET_CODE (x), GET_MODE (XEXP (x, 0)), 0, 1, file);
 	  return;
 
@@ -5855,6 +5891,10 @@ print_operand (file, x, code)
 	  put_condition_code (GET_CODE (x), GET_MODE (XEXP (x, 0)), 1, 0, file);
 	  return;
 	case 'f':
+#ifdef CMOV_SUN_AS_SYNTAX
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    putc ('.', file);
+#endif
 	  put_condition_code (GET_CODE (x), GET_MODE (XEXP (x, 0)), 1, 1, file);
 	  return;
 	case '+':
@@ -6622,7 +6662,7 @@ ix86_output_addr_diff_elt (file, value, rel)
      int value, rel;
 {
   if (TARGET_64BIT)
-    fprintf (file, "%s%s%d-.+4+(.-%s%d)\n",
+    fprintf (file, "%s%s%d-.+(.-%s%d)\n",
 	     ASM_LONG, LPREFIX, value, LPREFIX, rel);
   else if (HAVE_AS_GOTOFF_IN_DATA)
     fprintf (file, "%s%s%d@GOTOFF\n", ASM_LONG, LPREFIX, value);

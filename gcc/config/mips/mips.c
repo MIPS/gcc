@@ -4726,17 +4726,17 @@ mips_va_arg (valist, type)
           emit_queue();
           emit_label (lab_over);
 
+	  if (BYTES_BIG_ENDIAN && rsize != size)
+	    addr_rtx = plus_constant (addr_rtx, rsize - size);
+
           if (indirect)
    	    {
-       	      r = gen_rtx_MEM (Pmode, addr_rtx);
+	      addr_rtx = force_reg (Pmode, addr_rtx);
+	      r = gen_rtx_MEM (Pmode, addr_rtx);
 	      set_mem_alias_set (r, get_varargs_alias_set ());
 	      emit_move_insn (addr_rtx, r);
 	    }
-      	  else
-	    {
-	      if (BYTES_BIG_ENDIAN && rsize != size)
-	      addr_rtx = plus_constant (addr_rtx, rsize - size);
-	    }
+
       	  return addr_rtx;
 	}
     }
@@ -4880,7 +4880,7 @@ override_options ()
 	{
 	  if (! ISA_HAS_64BIT_REGS)
 	    mips_abi = ABI_32;
-	  else
+	  else if (mips_abi != ABI_N32)
 	    mips_abi = ABI_64;
 	}
     }
@@ -7926,26 +7926,29 @@ mips_select_section (decl, reloc)
     }
 }
 
-#ifdef MIPS_ABI_DEFAULT
-
-/* Support functions for the 64 bit ABI.  */
-
-/* Return register to use for a function return value with VALTYPE for function
-   FUNC.  */
+/* Return register to use for a function return value with VALTYPE for
+   function FUNC.  MODE is used instead of VALTYPE for LIBCALLs.  */
 
 rtx
-mips_function_value (valtype, func)
+mips_function_value (valtype, func, mode)
      tree valtype;
      tree func ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
   int reg = GP_RETURN;
-  enum machine_mode mode = TYPE_MODE (valtype);
-  enum mode_class mclass = GET_MODE_CLASS (mode);
-  int unsignedp = TREE_UNSIGNED (valtype);
+  enum mode_class mclass;
+  int unsignedp = 1;
 
-  /* Since we define PROMOTE_FUNCTION_RETURN, we must promote the mode
-     just as PROMOTE_MODE does.  */
-  mode = promote_mode (valtype, mode, &unsignedp, 1);
+  if (valtype)
+    {
+      mode = TYPE_MODE (valtype);
+      unsignedp = TREE_UNSIGNED (valtype);
+
+      /* Since we define PROMOTE_FUNCTION_RETURN, we must promote
+	 the mode just as PROMOTE_MODE does.  */
+      mode = promote_mode (valtype, mode, &unsignedp, 1);
+    }
+  mclass = GET_MODE_CLASS (mode);
 
   if (mclass == MODE_FLOAT)
     {
@@ -7966,7 +7969,7 @@ mips_function_value (valtype, func)
 	  /* When FP registers are 32 bits, we can't directly reference
 	     the odd numbered ones, so let's make a pair of evens.  */
 
-	  enum machine_mode cmode = TYPE_MODE (TREE_TYPE (valtype));
+	  enum machine_mode cmode = GET_MODE_INNER (mode);
 
 	  return gen_rtx_PARALLEL
 	    (VOIDmode,
@@ -7984,7 +7987,7 @@ mips_function_value (valtype, func)
 	reg = FP_RETURN;
     }
 
-  else if (TREE_CODE (valtype) == RECORD_TYPE
+  else if (valtype && TREE_CODE (valtype) == RECORD_TYPE
 	   && mips_abi != ABI_32
 	   && mips_abi != ABI_O64
 	   && mips_abi != ABI_EABI)
@@ -8051,7 +8054,6 @@ mips_function_value (valtype, func)
 
   return gen_rtx_REG (mode, reg);
 }
-#endif
 
 /* The implementation of FUNCTION_ARG_PASS_BY_REFERENCE.  Return
    nonzero when an argument must be passed by reference.  */
@@ -8064,6 +8066,9 @@ function_arg_pass_by_reference (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int size;
+
+  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+    return 0;
 
   /* We must pass by reference if we would be both passing in registers
      and the stack.  This is because any subsequent partial arg would be

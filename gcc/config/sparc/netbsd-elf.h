@@ -56,6 +56,9 @@ Boston, MA 02111-1307, USA.  */
 #define DBX_REGISTER_NUMBER(REGNO) \
   (TARGET_FLAT && REGNO == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)
 
+#undef  LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
+
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -134,8 +137,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ \
- + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU \
- + MASK_LONG_DOUBLE_128)
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_FPU + MASK_LONG_DOUBLE_128)
 
 #undef SPARC_DEFAULT_CMODEL
 #define SPARC_DEFAULT_CMODEL CM_MEDANY
@@ -148,6 +150,7 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m64: \
     -mptr64 -mstack-bias -mno-v8plus -mlong-double-128 \
     %{!mcpu*: \
@@ -166,6 +169,7 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m32: \
     -mptr32 -mno-stack-bias \
     %{!mlong-double-128:-mlong-double-64} \
@@ -334,3 +338,7 @@ Boston, MA 02111-1307, USA.  */
 	|| TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc */
 
 #endif	/* SPARC_BI_ARCH */
+
+/* We use GNU ld so undefine this so that attribute((init_priority)) works.  */
+#undef CTORS_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP
