@@ -1,3 +1,13 @@
+2004-05-09  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* array.c (match_subscript, match_array_ref): Add comments
+	explaining argument 'init'.
+	* decl.c, f95-lang.c, match.c, resolve.c, trans-array.c,
+	trans-expr.c, trans.c: Fix some typos in comments.
+	* dump-parse-tree.c (gfc_show_expr): Remove wrong comment.
+	* primary.c (match_digits, match_integer_constant): Add comment
+	explaining signflag.
+
 2004-05-01  Tobias Schlüter <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/13940

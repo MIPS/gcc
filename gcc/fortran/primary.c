@@ -128,9 +128,10 @@ check_digit (int c, int radix)
 }
 
 
-/* Match the digit string part of an integer.  If the buffer is NULL,
-   we just count characters for the resolution pass.  Returns the
-   number of characters matched, -1 for no match.  */
+/* Match the digit string part of an integer if signflag is not set,
+   the signed digit string part if signflag is set.  If the buffer 
+   is NULL, we just count characters for the resolution pass.  Returns 
+   the number of characters matched, -1 for no match.  */
 
 static int
 match_digits (int signflag, int radix, char *buffer)
@@ -175,7 +176,8 @@ match_digits (int signflag, int radix, char *buffer)
 }
 
 
-/* Match an integer (digit string and optional kind).  */
+/* Match an integer (digit string and optional kind).  
+   A sign will be accepted if signflag is set.  */
 
 static match
 match_integer_constant (gfc_expr ** result, int signflag)
@@ -1517,7 +1519,9 @@ extend_ref (gfc_expr * primary, gfc_ref * tail)
 
 
 /* Match any additional specifications associated with the current
-   variable like member references or substrings.  */
+   variable like member references or substrings.  If equiv_flag is
+   set we only match stuff that is allowed inside an EQUIVALENCE
+   statement.  */
 
 static match
 match_varspec (gfc_expr * primary, int equiv_flag)

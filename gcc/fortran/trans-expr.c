@@ -239,8 +239,8 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 }
 
 
-/* Return the contents of a variable. Also handles refrence/pointer
-   variables (all Fortran pointer refrences are implicit) */
+/* Return the contents of a variable. Also handles reference/pointer
+   variables (all Fortran pointer references are implicit).  */
 
 static void
 gfc_conv_variable (gfc_se * se, gfc_expr * expr)

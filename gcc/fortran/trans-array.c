@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
    gfc_conv_ss_startstride.  During this process the expressions for the array
    descriptors and data pointers are also translated.
 
-   If the expression is an assignment, we must then resolve and dependencies.
+   If the expression is an assignment, we must then resolve any dependencies.
    In fortran all the rhs values of an assignment must be evaluated before
    any assignments take place.  This can require a temporary array to store the
    values.  We also require a temporary when we are passing array expressions
@@ -65,11 +65,11 @@ Boston, MA 02111-1307, USA.  */
 
    For assignment expressions requiring a temporary two sub loops are
    generated.  The first stores the result of the expression in the temporary,
-   the second copies it to the result.  A Call to
+   the second copies it to the result.  A call to
    gfc_trans_scalarized_loop_boundary marks the end of the main loop code and
    the start of the copying loop.  The temporary may be less than full rank.
 
-   Finally gfc_trans_scalarizing_loops is called to generate the impicit do
+   Finally gfc_trans_scalarizing_loops is called to generate the implicit do
    loops.  The loops are added to the pre chain of the loopinfo.  The post
    chain may still contain cleanup code.
 

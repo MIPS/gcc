@@ -287,7 +287,7 @@ gfc_show_constructor (gfc_constructor * c)
 }
 
 
-/* Show an expression.  Non-static because we use it in match.c.  */
+/* Show an expression.  */
 
 static void
 gfc_show_expr (gfc_expr * p)

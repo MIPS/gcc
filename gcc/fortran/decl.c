@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* This flag is set if a an old-style length selector is matched
-   during an type-declaration statement. */
+   during a type-declaration statement.  */
 
 static int old_char_selector;
 

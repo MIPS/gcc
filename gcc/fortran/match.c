@@ -456,9 +456,9 @@ gfc_match_symbol (gfc_symbol ** matched_symbol, int host_assoc)
   return m;
 }
 
-/* Match an intrinsic operator.  Returns an INTRINSIC enum. While matching
-   matching, we always find INTRINSIC_PLUS before INTRINSIC_UPLUS. We work
-   around this in matchexp.c.  */
+/* Match an intrinsic operator.  Returns an INTRINSIC enum. While matching, 
+   we always find INTRINSIC_PLUS before INTRINSIC_UPLUS. We work around this 
+   in matchexp.c.  */
 
 match
 gfc_match_intrinsic_op (gfc_intrinsic_op * result)

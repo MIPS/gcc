@@ -2064,7 +2064,7 @@ gfc_resolve_expr (gfc_expr * e)
 
 
 /* Resolve the expressions in an iterator structure and require that they all
-   be of integer type. */
+   be of integer type.  */
 
 try
 gfc_resolve_iterator (gfc_iterator * iter)

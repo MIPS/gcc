@@ -63,7 +63,7 @@ gfc_advance_chain (tree t, int n)
 }
 
 
-/* Wrap a node in a TREE_LIST node and add it th the end of a list.  */
+/* Wrap a node in a TREE_LIST node and add it to the end of a list.  */
 
 tree
 gfc_chainon_list (tree list, tree add)

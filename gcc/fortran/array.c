@@ -65,7 +65,9 @@ gfc_copy_array_ref (gfc_array_ref * src)
 
 /* Match a single dimension of an array reference.  This can be a
    single element or an array section.  Any modifications we've made
-   to the ar structure are cleaned up by the caller.  */
+   to the ar structure are cleaned up by the caller.  If the init
+   is set, we require the subscript to be a valid initialization
+   expression.  */
 
 static match
 match_subscript (gfc_array_ref * ar, int init)
@@ -131,7 +133,8 @@ end_element:
 
 
 /* Match an array reference, whether it is the whole array or a
-   particular elements or a section.  */
+   particular elements or a section. If init is set, the reference has
+   to consist of init expressions.  */
 
 match
 gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
