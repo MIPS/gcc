@@ -1,3 +1,7 @@
+Sat Feb  1 20:31:24 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* reload.c:  Revert Urlich's patch.
+
 Sat Feb  1 13:20:59 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (hammer-3_3-merge-20030201)
