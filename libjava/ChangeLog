@@ -1,3 +1,18 @@
+2004-02-19  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: Add BasicProgressBarUI
+	* Makefile.in: Regenerate.
+	* javax/swing/JProgressBar.java: 
+	Re-implement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	Add constants for JProgressBar.
+	* javax/swing/plaf/basic/BasicProgressBarUI.java
+	Implement.
+	* javax/swing/plaf/basic/BasicSliderUI.java
+	Change comments.
+	(calculateGeometry): New method
+	(paint): Remove unnecessary size calculations.
+
 2004-02-18  Olga Rodimina  <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java

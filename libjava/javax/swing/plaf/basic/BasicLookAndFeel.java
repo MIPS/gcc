@@ -561,6 +561,8 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "ProgressBar.foreground", new ColorUIResource(0, 0, 128),
       "ProgressBar.selectionBackground", new ColorUIResource(0, 0, 128),
       "ProgressBar.selectionForeground", new ColorUIResource(Color.lightGray),
+      "ProgressBar.repaintInterval", new Integer(250),
+      "ProgressBar.cycleTime", new Integer(6000),
       "RadioButton.background", new ColorUIResource(Color.lightGray),
       "RadioButton.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                           null),

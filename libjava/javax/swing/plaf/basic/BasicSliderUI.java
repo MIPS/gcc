@@ -175,9 +175,7 @@ public class BasicSliderUI extends SliderUI
      */
     public void componentResized(ComponentEvent e)
     {
-      // The component being resized is equivalent to 
-      // our insets changing.
-      recalculateIfInsetsChanged();
+      calculateGeometry();
 
       slider.revalidate();
       slider.repaint();
@@ -229,6 +227,13 @@ public class BasicSliderUI extends SliderUI
       // Check for orientation changes.
       if (e.getPropertyName().equals(JSlider.ORIENTATION_CHANGED_PROPERTY))
 	recalculateIfOrientationChanged();
+      // elif the componentOrientation changes (this is a bound property,
+      // just undocumented) we change leftToRightCache. In Sun's 
+      // implementation, the LTR cache changes on a repaint. This is strange
+      // since there is no need to do so. We could events here and 
+      // update the cache. 
+      
+      // elif the border/insets change, we recalculateInsets.
       slider.repaint();
     }
   }
@@ -972,6 +977,22 @@ public class BasicSliderUI extends SliderUI
     else
       return getPreferredVerticalSize();
   }
+  
+  /**
+   * This method calculates all the sizes of the rectangles by delegating
+   * to the helper methods calculateXXXRect.
+   */
+   protected void calculateGeometry()
+   {
+     calculateFocusRect();
+     calculateContentRect();
+     calculateThumbSize();
+     calculateTrackBuffer();
+     calculateTrackRect();
+     calculateTickRect();
+     calculateLabelRect();
+     calculateThumbLocation();
+   }
 
   /**
    * This method calculates the size and position of the focusRect. This
@@ -1361,23 +1382,10 @@ public class BasicSliderUI extends SliderUI
    */
   public void paint(Graphics g, JComponent c)
   {
-    // FIXME: Unfortunately, with no way to tell that the 
-    // componentOrientation is switched from underneath us, 
-    // this still needs to stay for now.
-    calculateFocusRect();
-
-    calculateContentRect();
-    calculateThumbSize();
-    calculateTrackBuffer();
-    calculateTrackRect();
-    calculateThumbLocation();
-
-    calculateTickRect();
-    calculateLabelRect();
-
-    // FIXME: Move this somewhere more appropriate. Unfortunately, there
-    // are no events fired that we can receive.
+    // FIXME: Move this to propertyChangeEvent handler, when we get those.
     leftToRightCache = slider.getComponentOrientation() != ComponentOrientation.RIGHT_TO_LEFT;
+    // FIXME: This next line is only here because the above line is here.
+    calculateThumbLocation();
     
     if (slider.getPaintTrack())
       paintTrack(g);
@@ -1396,11 +1404,8 @@ public class BasicSliderUI extends SliderUI
    */
   protected void recalculateIfInsetsChanged()
   {
-    // The focus rectangle needs to be calculated again and since
-    // the focus rectangle is an outer bounds for all other rectangles,
-    // they must be recalculated as well.
-    // This method is able to calculate on component resize changes as well
-    // since the rectangles all need to be recalculated anyway.
+    // Examining a test program shows that either Sun calls private
+    // methods that we don't know about, or these don't do anything.
     calculateFocusRect();
 
     calculateContentRect();
@@ -1419,6 +1424,8 @@ public class BasicSliderUI extends SliderUI
    */
   protected void recalculateIfOrientationChanged()
   {
+    // Examining a test program shows that either Sun calls private
+    // methods that we don't know about, or these don't do anything.  
     calculateThumbSize();
     calculateTrackBuffer();
     calculateTrackRect();
