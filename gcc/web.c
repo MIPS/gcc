@@ -177,7 +177,7 @@ entry_register (entry, ref, used, use_addressof)
   /* In case the original register is already assigned, generate new one.  */
   if (!used[REGNO (reg)])
     newreg = reg, used[REGNO (reg)] = 1;
-  if (REG_USERVAR_P (reg) && 0/*&& !flag_messy_debugging*/)
+  else if (REG_USERVAR_P (reg) && 0/*&& !flag_messy_debugging*/)
     {
       newreg = reg;
       if (rtl_dump_file)
