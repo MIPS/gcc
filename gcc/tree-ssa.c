@@ -211,6 +211,8 @@ rewrite_into_ssa (fndecl)
   sbitmap *dfs;
   dominance_info idom;
   
+  timevar_push (TV_TREE_SSA_OTHER);
+
   /* Initialize common SSA structures.  */
   init_tree_ssa ();
 
@@ -256,6 +258,7 @@ rewrite_into_ssa (fndecl)
     }
 
   dump_function (TDI_ssa, fndecl);
+  timevar_pop (TV_TREE_SSA_OTHER);
 }
 
 

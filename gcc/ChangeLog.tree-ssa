@@ -1,3 +1,30 @@
+2003-01-28  Jeff Law <law@redhat.com>
+
+	* ssa.c (compute_dominance_frontiers_1): Use get_dominated_by
+	to avoid useless walks over all the basic blocks.  Use cache
+	of immediate dominators to avoid silly calls to get_immediate_dominator.
+	Do not clear elements of the frontiers bitmap.
+	(compute_dominance_frontiers): Compute cache of immediate
+	dominators and pass it to compute_dominance_frontiers_1.  Clear
+	the entire vector of frontiers bitmaps.
+
+	* timevar.def (TV_TREE_SSA_REWRITE_BLOCKS): Renamed from
+	TV_TREE_BUILD_SSA.
+	(TV_TREE_SSA_OTHER): New timevar.
+	* tree-ssa.c (rewrite_into_ssa): Updated.  Use new TV_TREE_SSA_OTHER
+	timevar.
+
+	* tree.h (LABEL_DECL_INDEX): Define for use by CFG builder.
+	* tree-cfg.c (make_exit_edges): Accept and pass though label to
+	block mapping array.
+	(make_goto_expr_edges): For simple gotos, lookup the destination
+	in the label to block mapping array.  Zap old slow code to
+	handle simple gotos.
+	(make_edges): Build the label to block mapping array.
+
+	* tree.h (PHI_NODE_ELT_CHECK): Provide version when ENABLE_CHECKING
+	is not defined.
+
 2003-01-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-flow-inline.h (parent_block, set_parent_block, phi_nodes):

@@ -377,7 +377,7 @@ extern void phi_node_elt_check_failed PARAMS ((int, int, const char *,
 #define CST_OR_CONSTRUCTOR_CHECK(t)	(t)
 #define EXPR_CHECK(t)			(t)
 #define TREE_VEC_ELT_CHECK(t, i)	((t)->vec.a[i])
-
+#define PHI_NODE_ELT_CHECK(t, i)	((t)->phi.a[i])
 #endif
 
 #include "tree-check.h"
@@ -1923,6 +1923,11 @@ struct tree_type GTY(())
    particular FIELD_DECL, PARM_DECL, or VAR_DECL, which must have
    pointer (or reference) type.  */
 #define DECL_POINTER_ALIAS_SET(NODE) \
+  (DECL_CHECK (NODE)->decl.pointer_alias_set)
+
+/* Used to map between a label and the block it begins during CFG
+   construction.  Not valid any other time.  */
+#define LABEL_DECL_INDEX(NODE) \
   (DECL_CHECK (NODE)->decl.pointer_alias_set)
 
 /* Nonzero if an alias set has been assigned to this declaration.  */
