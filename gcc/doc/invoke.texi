@@ -4838,29 +4838,34 @@ Like %@{@code{S}*@}, but preserve order of @code{S} and @code{T} options
 There can be any number of ampersand-separated variables; for each the
 wild card is optional.  Useful for CPP as @samp{%@{D*&U*&A*@}}.
 
-@item %@{@code{S}*:@code{X}@}
-Substitutes @code{X} if one or more switches whose names start with
-@code{-S} are specified to GCC@.  Note that the tail part of the
-@code{-S} option (i.e.@: the part matched by the @samp{*}) will be substituted
-for each occurrence of @samp{%*} within @code{X}.
-
 @item %@{@code{S}:@code{X}@}
-Substitutes @code{X}, but only if the @samp{-S} switch was given to GCC@.
+Substitutes @code{X}, if the @samp{-S} switch was given to GCC@.
 
 @item %@{!@code{S}:@code{X}@}
-Substitutes @code{X}, but only if the @samp{-S} switch was @emph{not} given to GCC@.
+Substitutes @code{X}, if the @samp{-S} switch was @emph{not} given to GCC@.
+
+@item %@{@code{S}*:@code{X}@}
+Substitutes @code{X} if one or more switches whose names start with
+@code{-S} are specified to GCC@.  Normally @code{X} is substituted only
+once, no matter how many such switches appeared.  However, if @code{%*}
+appears somewhere in @code{X}, then @code{X} will be substituted once
+for each matching switch, with the @code{%*} replaced by the part of
+that switch that matched the @code{*}.
 
 @item %@{.@code{S}:@code{X}@}
-Substitutes @code{X}, but only if processing a file with suffix @code{S}.
+Substitutes @code{X}, if processing a file with suffix @code{S}.
 
 @item %@{!.@code{S}:@code{X}@}
-Substitutes @code{X}, but only if @emph{not} processing a file with suffix @code{S}.
+Substitutes @code{X}, if @emph{not} processing a file with suffix @code{S}.
 
 @item %@{@code{S}|@code{P}:@code{X}@}
-Substitutes @code{X} if either @code{-S} or @code{-P} was given to GCC@.  This may be
-combined with @samp{!} and @samp{.} sequences as well, although they
-have a stronger binding than the @samp{|}.  For example a spec string
-like this:
+Substitutes @code{X} if either @code{-S} or @code{-P} was given to GCC@.
+This may be combined with @samp{!}, @samp{.}, and @code{*} sequences as well,
+although they have a stronger binding than the @samp{|}.  If @code{%*}
+appears in @code{X}, all of the alternatives must be starred, and only
+the first matching alternative is substituted.
+
+For example, a spec string like this:
 
 @smallexample
 %@{.c:-foo@} %@{!.c:-bar@} %@{.c|d:-baz@} %@{!.c|d:-boggle@}
@@ -4876,23 +4881,33 @@ jim.d         -bar -boggle
 -d jim.d      -bar -baz -boggle
 @end smallexample
 
+@item %@{S:X; T:Y; :D@}
+
+If @code{S} was given to GCC, substitues @code{X}; else if @code{T} was
+given to GCC, substitues @code{Y}; else substitutes @code{D}.  There can
+be as many clauses as you need.  This may be combined with @code{.}, 
+@code{!}, @code{|}, and @code{*} as needed.
+
+
 @end table
 
-The conditional text @code{X} in a %@{@code{S}:@code{X}@} or
-%@{!@code{S}:@code{X}@} construct may contain other nested @samp{%} constructs
-or spaces, or even newlines.  They are processed as usual, as described
-above.
+The conditional text @code{X} in a %@{@code{S}:@code{X}@} or similar
+construct may contain other nested @samp{%} constructs or spaces, or
+even newlines.  They are processed as usual, as described above.
+Trailing white space in @code{X} is ignored.  White space may also
+appear anywhere on the left side of the colon in these constructs,
+except between @code{.} or @code{*} and the corresponding word.
 
-The @option{-O}, @option{-f}, @option{-m}, and @option{-W}
-switches are handled specifically in these
-constructs.  If another value of @option{-O} or the negated form of a @option{-f}, @option{-m}, or
-@option{-W} switch is found later in the command line, the earlier switch
-value is ignored, except with @{@code{S}*@} where @code{S} is just one
-letter, which passes all matching options.
+The @option{-O}, @option{-f}, @option{-m}, and @option{-W} switches are
+handled specifically in these constructs.  If another value of
+@option{-O} or the negated form of a @option{-f}, @option{-m}, or
+@option{-W} switch is found later in the command line, the earlier
+switch value is ignored, except with @{@code{S}*@} where @code{S} is
+just one letter, which passes all matching options.
 
-The character @samp{|} at the beginning of the predicate text is used to indicate
-that a command should be piped to the following command, but only if @option{-pipe}
-is specified.
+The character @samp{|} at the beginning of the predicate text is used to
+indicate that a command should be piped to the following command, but
+only if @option{-pipe} is specified.
 
 It is built into GCC which switches take arguments and which do not.
 (You might think it would be useful to generalize this to allow each
