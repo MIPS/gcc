@@ -1,5 +1,10 @@
 2001-09-07  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* doc/md.texi: Correct examples for define_insn_reservations
+	`mult' and `div'.
+
+2001-09-07  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* genautomata.c (create_automata): Print message about creation of
 	each automaton.
 	(generate): Remove printing meease about creation of

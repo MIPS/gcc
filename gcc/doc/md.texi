@@ -5355,10 +5355,10 @@ point insns.  To describe all of this we could specify
                          "(i0_pipeline | i1_pipeline), (port_0 | port1)")
 
 (define_insn_reservation "mult" 4 (eq_attr "cpu" "mult")
-                         "i1_pipeline, nothing*3, (port_0 | port1)")
+                         "i1_pipeline, nothing*2, (port_0 | port1)")
 
 (define_insn_reservation "div" 8 (eq_attr "cpu" "div")
-                         "i1_pipeline, div*7, (port_0 | port1)")
+                         "i1_pipeline, div*7, div + (port_0 | port1)")
 
 (define_insn_reservation "float" 3 (eq_attr "cpu" "float")
                          "f_pipeline, nothing, (port_0 | port1))
