@@ -1,6 +1,6 @@
 /* Tests for #pragma init and #pragma fini.  */
 
-/* { dg-do run { target i?86-*-solaris2.1[0-9]* } } */
+/* { dg-do run { target *-*-solaris2.* } } */
 
 extern void abort ();
 

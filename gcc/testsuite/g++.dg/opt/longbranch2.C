@@ -3,6 +3,7 @@
 
 // { dg-do compile }
 // { dg-options "-O3 -funroll-loops -mtune=k6 -fomit-frame-pointer" { target i?86-*-*  } }
+// { dg-forbid-option "-m64" }
 
 // This used to fail to assemble because of an out-of-range 'loop' instructions.
 

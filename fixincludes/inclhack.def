@@ -2521,6 +2521,24 @@ fix = {
     test_text = "extern int utime(const char *, struct utimbuf *);";
 };
 
+/*
+ * Sun Solaris 2.10 checks that _LONGLONG_TYPE is not defined in
+ * strict ANSI mode, on the theory that a strict ANSI compiler will
+ * not accept "long long".  However, GCC will always accept "long long"
+ * in system headers, and some of the Solaris headers unconditionally
+ * use "int64_t" which requires "long long".  So, we remove the 
+ * #error message.
+ */
+fix = {
+    hackname = solaris_longlong;
+    files    = sys/feature_tests.h;
+    mach      = '*-*-solaris2.1[0-9]';
+    mach      = '*-*-solaris2.1[0-9].*';
+    select    = "#error.*No long long.*";
+    c_fix     = format;
+    c_fix_arg = "#ifndef __GNUC__\n%0\n#endif";
+    test_text = "#error\tNo long long in strictly";
+};
 
 /*
  *  Sun Solaris 2.5.1, 2.6 defines PTHREAD_{MUTEX|COND}_INITIALIZER
@@ -2858,6 +2876,21 @@ fix = {
      *  Select those files containing '(*name)()'.
      */
     select    = '\(\*[a-z][a-z_]*\)\(\)';
+
+    /* Solaris 2.8 and above (and perhaps earlier versions) do not
+       need these fixes.  The unprototyped declarations in these files
+       are only visible if __STDC__ is not defined.  This test looks
+       for a #pragma ident directives with particular versions, since
+       we know those versions are OK.  (Earlier versions may also be
+       OK, but we do not know that.)  */
+    /* For rpc/auth.h, 1.43 or better is OK.  */
+    bypass    = "pragma ident.*auth.*(1\.4[3-9]|1\.[5-9][0-9]).*SMI";
+    /* For rpc/clnt.h, 1.60 or better is OK.  */
+    bypass    = "pragma ident.*clnt.*1\.[6-9][0-9].*SMI";
+    /* For rpc/svc.h, 1.69 or better is OK.  */
+    bypass    = "pragma ident.*svc.*(1\.69|1\.[7-9][0-9]).*SMI";
+    /* For rpc/xdr.h, 1.45 or better is OK.  */
+    bypass    = "pragma ident.*xdr.*(1\.4[5-9]|1\.[5-9][0-9]).*SMI";
 
     c_fix     = format;
     c_fix_arg = "#ifdef __cplusplus\n%1(...);%2\n"

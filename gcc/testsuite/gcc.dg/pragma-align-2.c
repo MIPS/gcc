@@ -1,4 +1,4 @@
-/* { dg-do run { target i?86-*-solaris2.1[0-9]* } } */
+/* { dg-do run { target *-*-solaris2.* } } */
 
 void abort (void);
 
@@ -11,6 +11,12 @@ void abort (void);
 #pragma align 64(x64)
 #pragma align 128(x128)
 
+#define MACRO 128
+#define MACRO2(A) A
+
+#pragma align MACRO(y128)
+#pragma align MACRO2(MACRO) (z128)
+
 #pragma align 8(not_defined)
 
 #pragma align 9(odd_align)	/* { dg-error "invalid alignment" } */
@@ -19,9 +25,9 @@ void abort (void);
 #pragma align bad_align		/* { dg-error "malformed" } */
 #pragma align 1(bad_align	/* { dg-error "malformed" } */
 
-int x, x1, x2, x4, x8, y8, z8, x16, x32, x64, x128;
+int x1, x2, x4, x8, y8, z8, x16, y16, x32, x64, x128, y128, z128;
 
-#pragma align 16(x)		/* { dg-error "must appear before" } */
+#pragma align 16(y16)
 
 int
 main ()
@@ -41,6 +47,9 @@ main ()
   if (__alignof__ (x16) < 16)
     abort ();
 
+  if (__alignof__ (y16) < 16)
+    abort ();
+
   if (__alignof__ (x32) < 32)
     abort ();
 
@@ -49,6 +58,12 @@ main ()
 
   if (__alignof__ (x128) < 128)
     abort ();
+
+  if (__alignof__ (y128) < 128)
+    abort ();
+
+  if (__alignof__ (z128) < 128)
+    abort (); 
 
   return 0;
 }

@@ -340,13 +340,6 @@ static const format_length_info strfmon_length_specs[] =
   { NULL, 0, 0, NULL, 0, 0 }
 };
 
-/* cmn_err only accepts "l" and "ll".  */
-static const format_length_info cmn_err_length_specs[] =
-{
-  { "l", FMT_LEN_l, STD_C89, "ll", FMT_LEN_ll, STD_C89 },
-  { NULL, 0, 0, NULL, 0, 0 }
-};
-
 static const format_flag_spec printf_flag_specs[] =
 {
   { ' ',  0, 0, N_("' ' flag"),        N_("the ' ' printf flag"),              STD_C89 },
@@ -703,13 +696,7 @@ static const format_kind_info format_types_orig[] =
     strfmon_flag_specs, strfmon_flag_pairs,
     FMT_FLAG_ARG_CONVERT, 'w', '#', 'p', 0, 'L',
     NULL, NULL
-  },
-  { "cmn_err",  cmn_err_length_specs,  cmn_err_char_table, "", NULL,
-    cmn_err_flag_specs, cmn_err_flag_pairs,
-    FMT_FLAG_ARG_CONVERT|FMT_FLAG_EMPTY_PREC_OK,
-    'w', 0, 0, 0, 'L',
-    &integer_type_node, &integer_type_node
-  },
+  }
 };
 
 /* This layer of indirection allows GCC to reassign format_types with
@@ -1399,7 +1386,6 @@ check_format_info_main (format_check_results *res,
       const char *wanted_type_name;
       format_wanted_type width_wanted_type;
       format_wanted_type precision_wanted_type;
-      format_wanted_type bitfield_wanted_type;
       format_wanted_type main_wanted_type;
       format_wanted_type *first_wanted_type = NULL;
       format_wanted_type *last_wanted_type = NULL;

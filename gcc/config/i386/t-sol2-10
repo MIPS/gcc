@@ -1,6 +1,11 @@
-# Solaris-specific pragmas
-sol2-c.o: $(srcdir)/config/i386/sol2-c.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) $(CPPLIB_H) tree.h c-pragma.h $(C_TREE_H) toplev.h $(TM_P_H) \
-  c-incpath.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  $(srcdir)/config/i386/sol2-c.c
+MULTILIB_OPTIONS = m32/m64
+MULTILIB_DIRNAMES = 32 64
+MULTILIB_OSDIRNAMES = . 64
+
+LIBGCC = stmp-multilib
+INSTALL_LIBGCC = install-multilib
+
+# GCC contains i386 assembler sources for some of the startfiles
+# which aren't appropriate for amd64.  Just use the installed
+# versions of: crt1.o crti.o crtn.o gcrt1.o
+EXTRA_MULTILIB_PARTS=gmon.o crtbegin.o crtend.o

@@ -20,10 +20,10 @@
 
 // 27.6.1.2.2 arithmetic extractors
 
-// XXX This test fails on sparc-solaris2 because of a bug in libc
+// XXX This test fails on Solaris 2 because of a bug in libc
 // XXX sscanf for very long input.  See:
 // XXX http://gcc.gnu.org/ml/gcc/2002-12/msg01422.html
-// { dg-do run { xfail sparc*-*-solaris2* } }
+// { dg-do run { xfail *-*-solaris2* } }
 
 #include <istream>
 #include <sstream>
