@@ -4063,7 +4063,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 
 #ifdef POINTERS_EXTEND_UNSIGNED
 	  if (GET_MODE (offset_rtx) != Pmode)
-	    offset_rtx = convert_memory_address (Pmode, offset_rtx);
+	    offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
 #else
 	  if (GET_MODE (offset_rtx) != ptr_mode)
 	    offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);
@@ -4571,7 +4571,8 @@ store_expr (exp, target, want_value)
 	      rtx label = 0;
 
 	      /* Copy that much.  */
-	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx, 0);
+	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx,
+					       TREE_UNSIGNED (sizetype));
 	      emit_block_move (target, temp, copy_size_rtx,
 			       (want_value & 2
 				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
@@ -4592,8 +4593,8 @@ store_expr (exp, target, want_value)
 
 #ifdef POINTERS_EXTEND_UNSIGNED
 		  if (GET_MODE (copy_size_rtx) != Pmode)
-		    copy_size_rtx = convert_memory_address (Pmode,
-							    copy_size_rtx);
+		    copy_size_rtx = convert_to_mode (Pmode, copy_size_rtx,
+						     TREE_UNSIGNED (sizetype));
 #endif
 
 		  target = offset_address (target, copy_size_rtx,
@@ -4900,7 +4901,7 @@ store_constructor (exp, target, cleared, size)
 
 #ifdef POINTERS_EXTEND_UNSIGNED
 	      if (GET_MODE (offset_rtx) != Pmode)
-		offset_rtx = convert_memory_address (Pmode, offset_rtx);
+		offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
 #else
 	      if (GET_MODE (offset_rtx) != ptr_mode)
 		offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);
@@ -6037,22 +6038,31 @@ safe_from_p (x, exp, top_p)
 
     case 'x':
       if (TREE_CODE (exp) == TREE_LIST)
-	return ((TREE_VALUE (exp) == 0
-		 || safe_from_p (x, TREE_VALUE (exp), 0))
-		&& (TREE_CHAIN (exp) == 0
-		    || safe_from_p (x, TREE_CHAIN (exp), 0)));
+	{
+	  while (1)
+	    {
+	      if (TREE_VALUE (exp) && !safe_from_p (x, TREE_VALUE (exp), 0))
+		return 0;
+	      exp = TREE_CHAIN (exp);
+	      if (!exp)
+		return 1;
+	      if (TREE_CODE (exp) != TREE_LIST)
+		return safe_from_p (x, exp, 0);
+	    }
+	}
       else if (TREE_CODE (exp) == ERROR_MARK)
 	return 1;	/* An already-visited SAVE_EXPR? */
       else
 	return 0;
 
-    case '1':
-      return safe_from_p (x, TREE_OPERAND (exp, 0), 0);
-
     case '2':
     case '<':
-      return (safe_from_p (x, TREE_OPERAND (exp, 0), 0)
-	      && safe_from_p (x, TREE_OPERAND (exp, 1), 0));
+      if (!safe_from_p (x, TREE_OPERAND (exp, 1), 0))
+	return 0;
+      /* FALLTHRU */
+
+    case '1':
+      return safe_from_p (x, TREE_OPERAND (exp, 0), 0);
 
     case 'e':
     case 'r':
@@ -6646,21 +6656,7 @@ expand_expr (exp, target, tmode, modifier)
 	 but the type is complete now, lay out the decl now.  */
       if (DECL_SIZE (exp) == 0 && COMPLETE_TYPE_P (TREE_TYPE (exp))
 	  && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
-	{
-	  rtx value = DECL_RTL_IF_SET (exp);
-
-	  layout_decl (exp, 0);
-
-	  /* If the RTL was already set, update its mode and memory
-	     attributes.  */
-	  if (value != 0)
-	    {
-	      PUT_MODE (value, DECL_MODE (exp));
-	      SET_DECL_RTL (exp, 0);
-	      set_mem_attributes (value, exp, 1);
-	      SET_DECL_RTL (exp, value);
-	    }
-	}
+	layout_decl (exp, 0);
 
       /* ... fall through ...  */
 
@@ -7382,7 +7378,7 @@ expand_expr (exp, target, tmode, modifier)
 
 #ifdef POINTERS_EXTEND_UNSIGNED
 	    if (GET_MODE (offset_rtx) != Pmode)
-	      offset_rtx = convert_memory_address (Pmode, offset_rtx);
+	      offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
 #else
 	    if (GET_MODE (offset_rtx) != ptr_mode)
 	      offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);

@@ -512,6 +512,7 @@ const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6 | m_ATHLON_K8;
 const int x86_inter_unit_moves = ~(m_ATHLON_K8);
+const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_PPRO;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -911,6 +912,11 @@ static rtx construct_container PARAMS ((enum machine_mode, tree, int, int, int,
 static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 						    enum x86_64_reg_class));
 static void x86_optimize_local_function PARAMS ((tree));
+
+/* Table of constants used by fldpi, fldln2, etc...  */
+static REAL_VALUE_TYPE ext_80387_constants_table [5];
+static bool ext_80387_constants_init = 0;
+static void init_ext_80387_constants PARAMS ((void));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -4039,9 +4045,34 @@ aligned_operand (op, mode)
   return 1;
 }
 
+/* Initialize the table of extra 80387 mathematical constants.  */
+
+static void
+init_ext_80387_constants ()
+{
+  static const char * cst[5] =
+  {
+    "0.3010299956639811952256464283594894482",  /* 0: fldlg2  */
+    "0.6931471805599453094286904741849753009",  /* 1: fldln2  */
+    "1.4426950408889634073876517827983434472",  /* 2: fldl2e  */
+    "3.3219280948873623478083405569094566090",  /* 3: fldl2t  */
+    "3.1415926535897932385128089594061862044",  /* 4: fldpi   */
+  };
+  int i;
+
+  for (i = 0; i < 5; i++)
+    {
+      real_from_string (&ext_80387_constants_table[i], cst[i]);
+      /* Ensure each constant is rounded to XFmode precision.  */
+      real_convert (&ext_80387_constants_table[i], XFmode,
+		    &ext_80387_constants_table[i]);
+    }
+
+  ext_80387_constants_init = 1;
+}
+
 /* Return true if the constant is something that can be loaded with
-   a special instruction.  Only handle 0.0 and 1.0; others are less
-   worthwhile.  */
+   a special instruction.  */
 
 int
 standard_80387_constant_p (x)
@@ -4049,14 +4080,87 @@ standard_80387_constant_p (x)
 {
   if (GET_CODE (x) != CONST_DOUBLE || !FLOAT_MODE_P (GET_MODE (x)))
     return -1;
-  /* Note that on the 80387, other constants, such as pi, that we should support
-     too.  On some machines, these are much slower to load as standard constant,
-     than to load from doubles in memory.  */
+
   if (x == CONST0_RTX (GET_MODE (x)))
     return 1;
   if (x == CONST1_RTX (GET_MODE (x)))
     return 2;
+
+  /* For XFmode constants, try to find a special 80387 instruction on
+     those CPUs that benefit from them.  */
+  if (GET_MODE (x) == XFmode
+      && x86_ext_80387_constants & CPUMASK)
+    {
+      REAL_VALUE_TYPE r;
+      int i;
+
+      if (! ext_80387_constants_init)
+	init_ext_80387_constants ();
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+      for (i = 0; i < 5; i++)
+        if (real_identical (&r, &ext_80387_constants_table[i]))
+	  return i + 3;
+    }
+
   return 0;
+}
+
+/* Return the opcode of the special instruction to be used to load
+   the constant X.  */
+
+const char *
+standard_80387_constant_opcode (x)
+     rtx x;
+{
+  switch (standard_80387_constant_p (x))
+    {
+    case 1: 
+      return "fldz";
+    case 2:
+      return "fld1";
+    case 3: 
+      return "fldlg2";
+    case 4:
+      return "fldln2";
+    case 5: 
+      return "fldl2e";
+    case 6:
+      return "fldl2t";
+    case 7: 
+      return "fldpi";
+    }
+  abort ();
+}
+
+/* Return the CONST_DOUBLE representing the 80387 constant that is
+   loaded by the specified special instruction.  The argument IDX
+   matches the return value from standard_80387_constant_p.  */
+
+rtx
+standard_80387_constant_rtx (idx)
+     int idx;
+{
+  int i;
+
+  if (! ext_80387_constants_init)
+    init_ext_80387_constants ();
+
+  switch (idx)
+    {
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+      i = idx - 3;
+      break;
+
+    default:
+      abort ();
+    }
+
+  return CONST_DOUBLE_FROM_REAL_VALUE (ext_80387_constants_table[i], XFmode);
 }
 
 /* Return 1 if X is FP constant we can load to SSE register w/o using memory.
@@ -5356,6 +5460,13 @@ legitimate_constant_p (x)
 	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
 	return false;
 
+      if (GET_CODE (inner) == PLUS)
+	{
+	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
+	    return false;
+	  inner = XEXP (inner, 0);
+	}
+
       /* Only some unspecs are valid as "constants".  */
       if (GET_CODE (inner) == UNSPEC)
 	switch (XINT (inner, 1))
@@ -5392,26 +5503,7 @@ bool
 constant_address_p (x)
      rtx x;
 {
-  switch (GET_CODE (x))
-    {
-    case LABEL_REF:
-    case CONST_INT:
-      return true;
-
-    case CONST_DOUBLE:
-      return TARGET_64BIT;
-
-    case CONST:
-      /* For Mach-O, really believe the CONST.  */
-      if (TARGET_MACHO)
-	return true;
-      /* Otherwise fall through.  */
-    case SYMBOL_REF:
-      return !flag_pic && legitimate_constant_p (x);
-
-    default:
-      return false;
-    }
+  return CONSTANT_P (x) && legitimate_address_p (Pmode, x, 1);
 }
 
 /* Nonzero if the constant value X is a legitimate general operand
@@ -5534,7 +5626,10 @@ legitimate_pic_address_disp_p (disp)
 	return false;
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
     case UNSPEC_GOTOFF:
-      return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      if (GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
+	  || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
+        return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+      return false;
     case UNSPEC_GOTTPOFF:
     case UNSPEC_GOTNTPOFF:
     case UNSPEC_INDNTPOFF:
@@ -5762,7 +5857,12 @@ legitimate_address_p (mode, addr, strict)
 	     that never results in lea, this seems to be easier and
 	     correct fix for crash to disable this test.  */
 	}
-      else if (!CONSTANT_ADDRESS_P (disp))
+      else if (GET_CODE (disp) != LABEL_REF
+	       && GET_CODE (disp) != CONST_INT
+	       && (GET_CODE (disp) != CONST
+		   || !legitimate_constant_p (disp))
+	       && (GET_CODE (disp) != SYMBOL_REF
+		   || !legitimate_constant_p (disp)))
 	{
 	  reason = "displacement is not constant";
 	  goto report_error;
@@ -5770,11 +5870,6 @@ legitimate_address_p (mode, addr, strict)
       else if (TARGET_64BIT && !x86_64_sign_extended_value (disp))
 	{
 	  reason = "displacement is out of range";
-	  goto report_error;
-	}
-      else if (!TARGET_64BIT && GET_CODE (disp) == CONST_DOUBLE)
-	{
-	  reason = "displacement is a const_double";
 	  goto report_error;
 	}
     }
@@ -5847,7 +5942,15 @@ legitimize_pic_address (orig, reg)
 
       if (reload_in_progress)
 	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
-      new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
+      if (GET_CODE (addr) == CONST)
+	addr = XEXP (addr, 0);
+      if (GET_CODE (addr) == PLUS)
+	  {
+            new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, XEXP (addr, 0)), UNSPEC_GOTOFF);
+	    new = gen_rtx_PLUS (Pmode, new, XEXP (addr, 1));
+	  }
+	else
+          new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
       new = gen_rtx_CONST (Pmode, new);
       new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 

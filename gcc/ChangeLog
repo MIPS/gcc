@@ -1,3 +1,118 @@
+2003-04-11  Richard Henderson  <rth@redhat.com>
+
+        PR c/10201
+        * expr.c (expand_expr): Move DECL_RTL frobbing ...
+        * stor-layout.c (layout_decl): ... here.
+
+2003-04-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* doc/install.texi (hppa): Update links for HP-UX patches.  Revise
+	notes on linker selection and configuration for 64-bit HP-UX port.
+	* doc/invoke.texi (hppa): Remove hppa text from description for
+	-ffunction-sections and -fdata-sections.  Document -static, -nolibdld
+	and -threads options.
+
+	* pa-hpux10.h (LIB_SPEC): Add link options to resolve dependency of
+	libc.a on libdld.sl when -static is specified and -nolibdld is not
+	specified.
+	* pa64-hpux.h (LIB_SPEC): Likewise.
+	* pa-hpux11.h (LIB_SPEC): Likewise.
+	(LINK_SPEC): Add __gcc_plt_call as an undefined symbol when -shared
+	is not specified.
+
+2003-04-08  Jonathan Wakely  <redi@gcc.gnu.org>
+ 
+ 	* doc/extend.texi (Template Instantiation): Refer to ISO standard,
+ 	not Working Paper.
+ 	* doc/invoke.texi (C++ Dialect Options): Same.
+ 
+Fri Apr 11 00:12:14 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR inline-asm/8803
+	* function.c (instantate_virtual_regs):  Verify that all ASM statements
+	match after the virutal regs instantiation.
+
+2003-04-10  Steve Ellcey  <sje@cup.hp.com>
+
+	* ia64-protos.h (addp4_optimize_ok): New.
+	* ia64.c (addp4_optimize_ok): New.
+	* ia64.md (*ptr_extend_plus_1): Use addp4_optimize_ok.
+	(*ptr_extend_plus_2): Ditto.
+
+2003-04-10  Steve Ellcey  <sje@cup.hp.com>
+
+	* expr.c (expand_assignment): Extend offset_rtx with convert_to_mode
+	not with convert_memory_address.
+	(store_constructor): Ditto, and same for copy_size_rtx.
+	(expand_expr): Ditto.
+
+2003-04-10  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (larl_operand): Do not allow symbols
+	marked with '@'.
+	(s390_encode_section_info): Mark symbols with forced 1-byte
+	alignment with '@'.
+	(s390_strip_name_encoding): Strip '@'.
+	(legitimize_pic_address): Handle symbols that are not valid
+	LARL operands in 64-bit mode.
+
+2003-04-10  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c (inlinable_function_p): Disable inlining for
+	synchronized methods.
+
+2003-04-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/fp-bit.c (unpack_d): Handle pair of doubles with
+	different signs correctly.
+
+2003-04-08  Richard Henderson  <rth@redhat.com>
+
+	PR target/9886
+	* config/ia64/ia64.md (cmovdi_internal): Use 'n' not 'i' constraints.
+	(cmovsi_internal): Likewise.
+
+2003-04-07  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* doc/install.texi: Use @command and @samp for single- and
+	multi-word commands respectively.
+	* doc/makefile.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+
+2003-04-07  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+	    Richard Henderson  <rth@redhat.com>
+
+	PR c/9516
+	* expr.c (safe_from_p): Rearrange to avoid deep recursion in
+	favour of looping and tail recursion for TREE_LIST and binops.
+
+2003-04-07  Glen Nakamura  <glen@imodulo.com>
+
+        PR opt/8634
+        * explow.c (maybe_set_unchanging): Don't flag non-static const
+        aggregate type initializers with RTX_UNCHANGING_P.
+
+2003-04-07  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8634
+        * function.c (purge_addressof_1): Don't try arithmetics for
+        unchanging memories.
+
+2003-04-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Suites): Document testing support for
+	gcov and profile-directed optimizations; describe gcc.misc-tests.
+
+2003-04-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/rtl.texi (Comparison operations): Update to
+	record the allowed comparison modes.
+
+Mon Apr  7 22:13:38 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR target/10077
+	* i386.md (movsi_1):  Fix SSEMOV alternative.
+
 Mon Apr  7 15:56:30 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR opt/10024
