@@ -981,7 +981,6 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   i-cstrea.adb<i-cstrea-vms.adb \
   i-cpp.adb<i-cpp-vms.adb \
   interfac.ads<interfac-vms.ads \
-  s-asthan.adb<s-asthan-vms.adb \
   s-inmaop.adb<s-inmaop-vms.adb \
   s-interr.adb<s-interr-vms.adb \
   s-intman.adb<s-intman-vms.adb \
@@ -999,6 +998,7 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   case ${target} in
   ia64-hp-vms* | ia64-hp-openvms*)
     LIBGNAT_TARGET_PAIRS="${LIBGNAT_TARGET_PAIRS}\
+    g-enblsp.adb<g-enblsp-vms-ia64.adb \
     s-auxdec.ads<s-auxdec-vms_64.ads \
     s-crtl.ads<s-crtl-vms.ads \
     s-osinte.adb<s-osinte-vms-ia64.adb \
@@ -1007,6 +1007,8 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
     ;;
   alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-alphavms*)
     LIBGNAT_TARGET_PAIRS="${LIBGNAT_TARGET_PAIRS}\
+    g-enblsp.adb<g-enblsp-vms-alpha.adb \
+    s-asthan.adb<s-asthan-vms-alpha.adb \
     s-crtl.ads<s-crtl-vms.ads \
     s-osinte.adb<s-osinte-vms.adb \
     s-osinte.ads<s-osinte-vms.ads \

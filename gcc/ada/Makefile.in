@@ -245,7 +245,7 @@ GNATRTL_OBJS = $(GNATRTL_NONTASKING_OBJS) $(GNATRTL_TASKING_OBJS) \
 ADA_INCLUDE_SRCS =\
  ada.ads calendar.ads directio.ads gnat.ads interfac.ads ioexcept.ads \
  machcode.ads text_io.ads unchconv.ads unchdeal.ads \
- sequenio.ads system.ads Makefile.adalib memtrack.adb \
+ sequenio.ads system.ads memtrack.adb \
  a-*.adb a-*.ads g-*.ad? i-*.ad? \
  s-[a-o]*.adb s-[p-z]*.adb \
  s-[a-o]*.ads s-[p-z]*.ads

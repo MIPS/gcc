@@ -1,5 +1,7 @@
 2005-02-11  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure.ac: Merge changes from mainline Makefile.in.
+	* configure: Regenerate.
 	* Makefile.in: Merge from mainline.
 
 2005-02-02  Nathanael Nerode  <neroden@gcc.gnu.org>
