@@ -342,6 +342,14 @@ tree_builtins::map_field_ref (aot_class *,
 tree
 tree_builtins::map_method (model_method *meth)
 {
+  // An abstract method can itself be derived from an abstract method.
+  // We strip them all off to get the method as actually declared.
+  while (dynamic_cast<model_abstract_method *> (meth))
+    {
+      model_abstract_method *mam = assert_cast<model_abstract_method *> (meth);
+      meth = mam->get_original ();
+    }
+
   assert (methodmap.find (meth) != methodmap.end ());
   return methodmap[meth];
 }

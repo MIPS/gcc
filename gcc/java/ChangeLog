@@ -1,5 +1,9 @@
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
+	* builtins.cc (map_method): Strip abstract methods.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (lay_out_class): Lay out interfaces.
 
 2005-03-03  Tom Tromey  <tromey@redhat.com>
