@@ -12,12 +12,11 @@ ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 PACKAGE=libstdc++
 AC_SUBST(PACKAGE)
-# For typical GNU versioning info, format is MAJOR.MINOR.MICRO
-release_VERSION=3.1.1
-AC_SUBST(release_VERSION)
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=4:1:0
+libtool_VERSION=5:0:0
 AC_SUBST(libtool_VERSION)
+
+GLIBCPP_TOPREL_CONFIGURE
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
@@ -38,12 +37,12 @@ AC_CANONICAL_SYSTEM
 target_alias=${target_alias-$target}
 AC_SUBST(target_alias)
 
-AM_INIT_AUTOMAKE($PACKAGE, $release_VERSION)
-AM_CONFIG_HEADER(config.h)
-
 # Runs configure.target, finds CC, CXX and assorted other critical bits.
 # Must run this before the GLIBCPP_ENABLE_* macros below.
 GLIBCPP_CONFIGURE(.)
+
+AM_INIT_AUTOMAKE($PACKAGE, $gcc_version)
+AM_CONFIG_HEADER(config.h)
 
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
@@ -375,9 +374,6 @@ if test "${multilib}" = "yes"; then
 else
   multilib_arg=
 fi
-
-# Needed so that g++ can find the correct include subdir automatically.
-INTERFACE=v3
 
 # Export all the install information
 GLIBCPP_EXPORT_INSTALL_INFO

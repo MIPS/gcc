@@ -167,7 +167,7 @@ esac])
 
 if test x${gcc_gxx_include_dir} = x; then
   if test x${enable_version_specific_runtime_libs} = xyes; then
-    gcc_gxx_include_dir='${libsubdir}/include/g++'
+    gcc_gxx_include_dir='${libsubdir}/include/c++'
   else
     topsrcdir=${srcdir}/.. . ${srcdir}/../config.if
 changequote(<<, >>)dnl
@@ -2103,7 +2103,7 @@ then
 	-o "$gcc_cv_gas_major_version" -gt 2 \
      && grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      && test x"$insn" != x ; then
-    gcc_cv_as_gdwarf2_debug_flag="yes"
+    gcc_cv_as_gdwarf2_flag="yes"
   fi
 elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	echo '' > conftest.s
@@ -2129,7 +2129,7 @@ then
 	-o "$gcc_cv_gas_major_version" -gt 2 \
      && grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      && test x"$insn" != x ; then
-    gcc_cv_as_gstabs_debug_flag="yes"
+    gcc_cv_as_gstabs_flag="yes"
   fi
 elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	echo '' > conftest.s

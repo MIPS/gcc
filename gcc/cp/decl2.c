@@ -1810,6 +1810,30 @@ constructor_name (thing)
     return thing;
   return t;
 }
+
+/* Returns a representation for the name of a destructor for an object
+   of the indicated TYPE.  The returns is a BIT_NOT_EXPR whose
+   argument is the TYPE.  (The argument is a TYPE, and not a
+   TYPE_DECL, because there are sometime destructors for types that do
+   not have corresponding TYPE_DECLs.  For example, consider:
+
+     template <typename T> void f(T t) { t.~T(); }
+
+   If `T' is instantiated with `int *', then we need a destructor name
+   for `~int *' but there is no corresponding type declaration.)
+
+   Rather than using a BIT_NOT_EXPR, it would be better to use an
+   IDENTIFIER_NODE with a bit set indicating that it is a destructor,
+   ala IDENTIFIER_TYPENAME_P.  That would make the invariant that all
+   names are IDENTIFIER_NODEs hold.  */
+
+tree
+destructor_name (tree type)
+{
+  my_friendly_assert (TYPE_P (type), 20010905);
+
+  return build1 (BIT_NOT_EXPR, NULL_TREE, type);
+}
 
 /* Defer the compilation of the FN until the end of compilation.  */
 
@@ -2509,44 +2533,50 @@ import_export_decl (decl)
       else
 	comdat_linkage (decl);
     }
-  else if (tinfo_decl_p (decl, 0))
-    {
-      /* Here, we only decide whether or not the tinfo node should be
-	 emitted with the vtable.  The decl we're considering isn't
-	 actually the one which gets emitted; that one is generated in
-	 create_real_tinfo_var.  */
-
-      tree ctype = TREE_TYPE (DECL_NAME (decl));
-
-      if (IS_AGGR_TYPE (ctype))
-	import_export_class (ctype);
-
-      if (IS_AGGR_TYPE (ctype) && CLASSTYPE_INTERFACE_KNOWN (ctype)
-	  && TYPE_POLYMORPHIC_P (ctype)
-	  /* If -fno-rtti, we're not necessarily emitting this stuff with
-	     the class, so go ahead and emit it now.  This can happen
-	     when a class is used in exception handling.  */
-	  && flag_rtti
-	  /* If the type is a cv-qualified variant of a type, then we
-	     must emit the tinfo function in this translation unit
-	     since it will not be emitted when the vtable for the type
-	     is output (which is when the unqualified version is
-	     generated).  */
-	  && same_type_p (ctype, TYPE_MAIN_VARIANT (ctype)))
-	{
-	  DECL_NOT_REALLY_EXTERN (decl)
-	    = ! CLASSTYPE_INTERFACE_ONLY (ctype);
-	  DECL_COMDAT (decl) = 0;
-	}
-      else
-	{
-	  DECL_NOT_REALLY_EXTERN (decl) = 1;
-	  DECL_COMDAT (decl) = 1;
-	}
-    } 
   else
     comdat_linkage (decl);
 
+  DECL_INTERFACE_KNOWN (decl) = 1;
+}
+
+/* Here, we only decide whether or not the tinfo node should be
+   emitted with the vtable.  IS_IN_LIBRARY is non-zero iff the
+   typeinfo for TYPE should be in the runtime library.  */
+
+void
+import_export_tinfo (decl, type, is_in_library)
+     tree decl;
+     tree type;
+     int is_in_library;
+{
+  if (DECL_INTERFACE_KNOWN (decl))
+    return;
+  
+  if (IS_AGGR_TYPE (type))
+    import_export_class (type);
+      
+  if (IS_AGGR_TYPE (type) && CLASSTYPE_INTERFACE_KNOWN (type)
+      && TYPE_POLYMORPHIC_P (type)
+      /* If -fno-rtti, we're not necessarily emitting this stuff with
+	 the class, so go ahead and emit it now.  This can happen when
+	 a class is used in exception handling.  */
+      && flag_rtti)
+    {
+      DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
+      DECL_COMDAT (decl) = 0;
+    }
+  else
+    {
+      DECL_NOT_REALLY_EXTERN (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+    }
+
+  /* Now override some cases. */
+  if (flag_weak)
+    DECL_COMDAT (decl) = 1;
+  else if (is_in_library)
+    DECL_COMDAT (decl) = 0;
+  
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
 
@@ -3344,7 +3374,7 @@ finish_file ()
       
       /* Write out needed type info variables. Writing out one variable
          might cause others to be needed.  */
-      if (walk_globals (tinfo_decl_p, emit_tinfo_decl, /*data=*/0))
+      if (walk_globals (unemitted_tinfo_decl_p, emit_tinfo_decl, /*data=*/0))
 	reconsider = 1;
 
       /* The list of objects with static storage duration is built up
@@ -3882,7 +3912,7 @@ build_expr_from_tree (t)
 	 build_expr_from_tree (TREE_OPERAND (t, 2)));
 
     case PSEUDO_DTOR_EXPR:
-      return (finish_pseudo_destructor_call_expr 
+      return (finish_pseudo_destructor_expr 
 	      (build_expr_from_tree (TREE_OPERAND (t, 0)),
 	       build_expr_from_tree (TREE_OPERAND (t, 1)),
 	       build_expr_from_tree (TREE_OPERAND (t, 2))));
@@ -3919,8 +3949,7 @@ build_expr_from_tree (t)
 				   TREE_OPERAND (field, 0),
 				   TREE_OPERAND (field, 1));
 	else
-	  return build_x_component_ref (object, field,
-					NULL_TREE, 1);
+	  return build_x_component_ref (object, field, NULL_TREE);
       }
 
     case THROW_EXPR:
@@ -5194,8 +5223,9 @@ mark_used (decl)
    Return a TYPE_DECL for the type declared by ID in SCOPE.  */
 
 tree
-handle_class_head (aggr, scope, id, defn_p, new_type_p)
-     tree aggr, scope, id;
+handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
+     enum tag_types tag_kind;
+     tree scope, id, attributes;
      int defn_p;
      int *new_type_p;
 {
@@ -5244,7 +5274,7 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
   
   if (!decl)
     {
-      decl = TYPE_MAIN_DECL (xref_tag (aggr, id, !defn_p));
+      decl = TYPE_MAIN_DECL (xref_tag (tag_kind, id, attributes, !defn_p));
       xrefd_p = true;
     }
 
@@ -5271,7 +5301,7 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
 	/* It is legal to define a class with a different class key,
 	   and this changes the default member access.  */
 	CLASSTYPE_DECLARED_CLASS (TREE_TYPE (decl))
-	  = aggr == class_type_node;
+	  = (tag_kind == class_type);
 	
       if (!xrefd_p && PROCESSING_REAL_TEMPLATE_DECL_P ())
 	decl = push_template_decl (decl);

@@ -83,7 +83,8 @@ static void set_identifier_type_value_with_scope
 	PARAMS ((tree, tree, struct cp_binding_level *));
 static void record_unknown_type PARAMS ((tree, const char *));
 static tree builtin_function_1 PARAMS ((const char *, tree, tree, int,
-                                      enum built_in_class, const char *));
+                                      enum built_in_class, const char *,
+				      tree));
 static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
 static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
 static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
@@ -6587,8 +6588,9 @@ cxx_init_decl_processing ()
     tree ptr_ftype_sizetype;
 
     push_namespace (std_identifier);
-    bad_alloc_type_node = xref_tag
-      (class_type_node, get_identifier ("bad_alloc"), 1);
+    bad_alloc_type_node 
+      = xref_tag (class_type, get_identifier ("bad_alloc"), 
+		  /*attributes=*/NULL_TREE, 1);
     pop_namespace ();
     ptr_ftype_sizetype 
       = build_function_type (ptr_type_node,
@@ -6704,16 +6706,19 @@ cp_make_fname_decl (id, type_dep)
    See tree.h for possible values.
 
    If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.
+   If ATTRS is nonzero, use that for the function's attribute
+   list.  */
 
 static tree
-builtin_function_1 (name, type, context, code, class, libname)
+builtin_function_1 (name, type, context, code, class, libname, attrs)
      const char *name;
      tree type;
      tree context;
      int code;
      enum built_in_class class;
      const char *libname;
+     tree attrs;
 {
   tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
   DECL_BUILT_IN_CLASS (decl) = class;
@@ -6739,7 +6744,10 @@ builtin_function_1 (name, type, context, code, class, libname)
     DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -6755,26 +6763,31 @@ builtin_function_1 (name, type, context, code, class, libname)
    See tree.h for possible values.
 
    If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.
+
+   If ATTRS is nonzero, use that for the function's attribute
+   list.  */
 
 tree
-builtin_function (name, type, code, class, libname)
+builtin_function (name, type, code, class, libname, attrs)
      const char *name;
      tree type;
      int code;
      enum built_in_class class;
      const char *libname;
+     tree attrs;
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
     {
       push_namespace (std_identifier);
-      builtin_function_1 (name, type, std_node, code, class, libname);
+      builtin_function_1 (name, type, std_node, code, class, libname, attrs);
       pop_namespace ();
     }
 
-  return builtin_function_1 (name, type, NULL_TREE, code, class, libname);
+  return builtin_function_1 (name, type, NULL_TREE, code,
+			     class, libname, attrs);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -12771,29 +12784,14 @@ tag_name (code)
    scope.)  */
 
 tree
-xref_tag (code_type_node, name, globalize)
-     tree code_type_node;
-     tree name;
-     int globalize;
+xref_tag (enum tag_types tag_code, tree name, tree attributes, 
+	  bool globalize)
 {
-  enum tag_types tag_code;
   enum tree_code code;
   register tree ref, t;
   struct cp_binding_level *b = current_binding_level;
-  tree attributes = NULL_TREE;
   tree context = NULL_TREE;
 
-  /* If we are called from the parser, code_type_node will sometimes be a
-     TREE_LIST.  This indicates that the user wrote
-     "class __attribute__ ((foo)) bar".  Extract the attributes so we can
-     use them later.  */
-  if (TREE_CODE (code_type_node) == TREE_LIST)
-    {
-      attributes = TREE_PURPOSE (code_type_node);
-      code_type_node = TREE_VALUE (code_type_node);
-    }
-
-  tag_code = (enum tag_types) tree_low_cst (code_type_node, 1);
   switch (tag_code)
     {
     case record_type:
@@ -13004,18 +13002,17 @@ xref_tag_from_type (old, id, globalize)
      tree old, id;
      int globalize;
 {
-  tree code_type_node;
+  enum tag_types tag_kind;
 
   if (TREE_CODE (old) == RECORD_TYPE)
-    code_type_node = (CLASSTYPE_DECLARED_CLASS (old)
-		      ? class_type_node : record_type_node);
+    tag_kind = (CLASSTYPE_DECLARED_CLASS (old) ? class_type : record_type);
   else
-    code_type_node = union_type_node;
+    tag_kind  = union_type;
 
   if (id == NULL_TREE)
     id = TYPE_IDENTIFIER (old);
 
-  return xref_tag (code_type_node, id, globalize);
+  return xref_tag (tag_kind, id, /*attributes=*/NULL_TREE, globalize);
 }
 
 /* REF is a type (named NAME), for which we have just seen some

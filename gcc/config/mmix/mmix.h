@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #define MMIX_HIMULT_REGNUM 258
 #define MMIX_REMAINDER_REGNUM 260
 #define MMIX_ARG_POINTER_REGNUM 261
+#define MMIX_rO_REGNUM 262
 #define MMIX_LAST_STACK_REGISTER_REGNUM 31
 
 /* Four registers; "ideally, these registers should be call-clobbered", so
@@ -92,6 +93,7 @@ struct machine_function GTY(())
  {
    int has_landing_pad;
    int highest_saved_stack_register;
+   int in_prologue;
  };
 
 /* For these target macros, there is no generic documentation here.  You
@@ -161,6 +163,7 @@ extern int target_flags;
 #define TARGET_MASK_KNUTH_DIVISION 16
 #define TARGET_MASK_TOPLEVEL_SYMBOLS 32
 #define TARGET_MASK_BRANCH_PREDICT 64
+#define TARGET_MASK_USE_RETURN_INSN 128
 
 /* We use the term "base address" since that's what Knuth uses.  The base
    address goes in a global register.  When addressing, it's more like
@@ -183,9 +186,11 @@ extern int target_flags;
 #define TARGET_TOPLEVEL_SYMBOLS (target_flags & TARGET_MASK_TOPLEVEL_SYMBOLS)
 #define TARGET_BRANCH_PREDICT (target_flags & TARGET_MASK_BRANCH_PREDICT)
 #define TARGET_BASE_ADDRESSES (target_flags & TARGET_MASK_BASE_ADDRESSES)
+#define TARGET_USE_RETURN_INSN (target_flags & TARGET_MASK_USE_RETURN_INSN)
 
 #define TARGET_DEFAULT \
- (TARGET_MASK_BRANCH_PREDICT | TARGET_MASK_BASE_ADDRESSES)
+ (TARGET_MASK_BRANCH_PREDICT | TARGET_MASK_BASE_ADDRESSES \
+  | TARGET_MASK_USE_RETURN_INSN)
 
 /* FIXME: Provide a way to *load* the epsilon register.  */
 #define TARGET_SWITCHES							\
@@ -220,6 +225,10 @@ extern int target_flags;
    N_("Use addresses that allocate global registers")},			\
   {"no-base-addresses",	-TARGET_MASK_BASE_ADDRESSES,			\
    N_("Do not use addresses that allocate global registers")},		\
+  {"single-exit",	-TARGET_MASK_USE_RETURN_INSN,			\
+   N_("Generate a single exit point for each function")},		\
+  {"no-single-exit",	TARGET_MASK_USE_RETURN_INSN,			\
+   N_("Do not generate a single exit point for each function")},	\
   {"",			TARGET_DEFAULT, ""}}
 
 /* Unfortunately, this must not reference anything in "mmix.c".  */
@@ -353,13 +362,13 @@ extern int target_flags;
 
 /* Node: Register Basics */
 /* We tell GCC about all 256 general registers, and we also include
-   rD, rE, rH, rJ and rR (in that order) so we can describe what insns
+   rD, rE, rH, rJ, rR and rO (in that order) so we can describe what insns
    clobber them.  We use a faked register for the argument pointer.  It is
    always eliminated towards the frame-pointer or the stack-pointer, never
    output in assembly.  Any fixed register would do for this, like $255,
    but future debugging is easier when using a separate register.  It
    counts as a global register for pseudorandom reasons.  */
-#define FIRST_PSEUDO_REGISTER 262
+#define FIRST_PSEUDO_REGISTER 263
 
 /* We treat general registers with no assigned purpose as fixed.  The
    stack pointer, $254, is also fixed.  Register $255 is referred to as a
@@ -383,7 +392,7 @@ extern int target_flags;
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, \
-   1, 1, 0, 0, 0, 1 \
+   1, 1, 0, 0, 0, 1, 1 \
  }
 
 /* General registers are fixed and therefore "historically" marked
@@ -407,19 +416,23 @@ extern int target_flags;
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, \
-   1, 1, 1, 1, 1, 1 \
+   1, 1, 1, 1, 1, 1, 1 \
  }
 
 #define CONDITIONAL_REGISTER_USAGE mmix_conditional_register_usage ()
 
-/* No LOCAL_REGNO, INCOMING_REGNO or OUTGOING_REGNO, since those macros
-   are not usable for MMIX: it doesn't have a fixed register window size.
-   FIXME: Perhaps we should say something about $0..$15 may sometimes be
-   the incoming $16..$31.  Those macros need better documentation; it
-   looks like they're just bogus and that FUNCTION_INCOMING_ARG_REGNO_P
-   and FUNCTION_OUTGOING_VALUE should be used where they're used.  For the
+/* No INCOMING_REGNO or OUTGOING_REGNO, since those macros are not usable
+   for MMIX: it doesn't have a fixed register window size.  FIXME: Perhaps
+   we should say something about $0..$15 may sometimes be the incoming
+   $16..$31.  Those macros need better documentation; it looks like
+   they're just bogus and that FUNCTION_INCOMING_ARG_REGNO_P and
+   FUNCTION_OUTGOING_VALUE should be used where they're used.  For the
    moment, do nothing; things seem to work anyway.  */
 
+/* Defining LOCAL_REGNO is necessary in presence of prologue/epilogue,
+   else GCC will be confused that those registers aren't saved and
+   restored.  */
+#define LOCAL_REGNO(REGNO) mmix_local_regno (REGNO)
 
 /* Node: Allocation Order */
 
@@ -467,7 +480,7 @@ extern int target_flags;
    232, 233, 234, 235, 236, 237, 238, 239,	\
    240, 241, 242, 243, 244, 245, 246,		\
 						\
-   254, 255, 256, 257, 261 			\
+   254, 255, 256, 257, 261, 262			\
  }
 
 /* As a convenience, we put this nearby, for ease of comparison.
@@ -522,7 +535,7 @@ extern int target_flags;
    216, 217, 218, 219, 220, 221, 222, 223,	\
    224, 225, 226, 227, 228, 229, 230,		\
 						\
-   254, 255, 256, 257, 261 			\
+   254, 255, 256, 257, 261, 262			\
  }
 
 /* The default one.  */
@@ -566,8 +579,8 @@ enum reg_class
   {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x20},	\
   {0, 0, 0, 0, 0, 0, 0, 0, 0x10},		\
   {0, 0, 0, 0, 0, 0, 0, 0, 4},			\
-  {0, 0, 0, 0, 0, 0, 0, 0, 0x3f},		\
-  {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x3f}}
+  {0, 0, 0, 0, 0, 0, 0, 0, 0x7f},		\
+  {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x7f}}
 
 #define REGNO_REG_CLASS(REGNO)					\
  ((REGNO) <= MMIX_LAST_GENERAL_REGISTER				\
@@ -1051,11 +1064,11 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
   "$232", "$233", "$234", "$235", "$236", "$237", "$238", "$239",	\
   "$240", "$241", "$242", "$243", "$244", "$245", "$246", "$247",	\
   "$248", "$249", "$250", "$251", "$252", "$253", "$254", "$255",	\
-  ":rD",  ":rE",  ":rH",  ":rJ",  ":rR",  "ap_!BAD!"}
+  ":rD",  ":rE",  ":rH",  ":rJ",  ":rR",  "ap_!BAD!", ":rO"}
 
 #define ADDITIONAL_REGISTER_NAMES			\
  {{"sp", 254}, {":sp", 254}, {"rD", 256}, {"rE", 257},	\
-  {"rH", 258}, {"rJ", MMIX_rJ_REGNUM}}
+  {"rH", 258}, {"rJ", MMIX_rJ_REGNUM}, {"rO", MMIX_rO_REGNUM}}
 
 #define PRINT_OPERAND(STREAM, X, CODE) \
  mmix_print_operand (STREAM, X, CODE)

@@ -25,6 +25,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Nonzero iff an error has occurred.  */
 static int hit_error = 0;
 
+static void open_base_files PARAMS ((void));
+static void close_output_files PARAMS ((void));
+
+
 /* Report an error at POS, printing MSG.  */
 
 void
@@ -586,7 +590,6 @@ oprintf VPARAMS ((outf_p o, const char *format, ...))
   VA_FIXEDARG (ap, outf_p, o);
   VA_FIXEDARG (ap, const char *, format);
   slength = xvasprintf (&s, format, ap);
-  VA_CLOSE (ap);
 
   if (o->bufused + slength > o->buflength)
     {
@@ -602,12 +605,13 @@ oprintf VPARAMS ((outf_p o, const char *format, ...))
   memcpy (o->buf + o->bufused, s, slength);
   o->bufused += slength;
   free (s);
+  VA_CLOSE (ap);
 }
 
 /* Open the global header file and the language-specific header files.  */
 
 static void
-open_base_files (void)
+open_base_files ()
 {
   size_t i;
   
@@ -795,7 +799,7 @@ get_output_file_name (input_file)
    but don't unnecessarily change modification times.  */
 
 static void
-close_output_files PARAMS ((void))
+close_output_files ()
 {
   outf_p of;
   

@@ -567,7 +567,7 @@ enum cp_tree_index
     CPTI_STD,
     CPTI_ABI,
     CPTI_TYPE_INFO_TYPE,
-    CPTI_TINFO_DECL_TYPE,
+    CPTI_TYPE_INFO_PTR_TYPE,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
     CPTI_AGGR_TAG,
@@ -654,7 +654,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define std_node			cp_global_trees[CPTI_STD]
 #define abi_node                        cp_global_trees[CPTI_ABI]
 #define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
-#define tinfo_decl_type			cp_global_trees[CPTI_TINFO_DECL_TYPE]
+#define type_info_ptr_type		cp_global_trees[CPTI_TYPE_INFO_PTR_TYPE]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
@@ -3864,7 +3864,7 @@ extern tree get_scope_of_declarator             PARAMS ((tree));
 extern void grok_special_member_properties	PARAMS ((tree));
 extern int grok_ctor_properties			PARAMS ((tree, tree));
 extern void grok_op_properties			PARAMS ((tree, int));
-extern tree xref_tag				PARAMS ((tree, tree, int));
+extern tree xref_tag				(enum tag_types, tree, tree, bool);
 extern tree xref_tag_from_type			PARAMS ((tree, tree, int));
 extern void xref_basetypes			PARAMS ((tree, tree));
 extern tree start_enum				PARAMS ((tree));
@@ -3933,6 +3933,7 @@ extern tree grokoptypename			PARAMS ((tree, tree));
 extern void cplus_decl_attributes		PARAMS ((tree *, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
+extern tree destructor_name                     PARAMS ((tree));
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
@@ -3943,6 +3944,7 @@ extern tree coerce_delete_type			PARAMS ((tree));
 extern void comdat_linkage			PARAMS ((tree));
 extern void import_export_vtable		PARAMS ((tree, tree, int));
 extern void import_export_decl			PARAMS ((tree));
+extern void import_export_tinfo			PARAMS ((tree, tree, int));
 extern tree build_cleanup			PARAMS ((tree));
 extern void finish_file				PARAMS ((void));
 extern tree reparse_absdcl_as_expr		PARAMS ((tree, tree));
@@ -3963,7 +3965,7 @@ extern tree do_class_using_decl			PARAMS ((tree));
 extern void do_using_directive			PARAMS ((tree));
 extern void check_default_args			PARAMS ((tree));
 extern void mark_used				PARAMS ((tree));
-extern tree handle_class_head			PARAMS ((tree, tree, tree, int, int *));
+extern tree handle_class_head			(enum tag_types, tree, tree, tree, int, int *);
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
 extern tree build_artificial_parm               PARAMS ((tree, tree));
@@ -4131,7 +4133,7 @@ extern tree tinst_for_decl			PARAMS ((void));
 extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, int, int));
 extern void mark_class_instantiated		PARAMS ((tree, int));
-extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
+extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
@@ -4155,6 +4157,7 @@ extern tree get_mostly_instantiated_function_type PARAMS ((tree, tree *, tree *)
 extern int problematic_instantiation_changed    PARAMS ((void));
 extern void record_last_problematic_instantiation PARAMS ((void));
 extern tree current_instantiation               PARAMS ((void));
+extern tree maybe_get_template_decl_from_type_decl (tree);
 extern int processing_template_parmlist;
 
 /* in repo.c */
@@ -4170,7 +4173,7 @@ extern tree get_tinfo_decl                      PARAMS((tree));
 extern tree get_typeid				PARAMS((tree));
 extern tree build_dynamic_cast			PARAMS((tree, tree));
 extern void emit_support_tinfos                 PARAMS((void));
-extern int tinfo_decl_p                         PARAMS((tree, void *));
+extern int unemitted_tinfo_decl_p    	        PARAMS((tree, void *));
 extern int emit_tinfo_decl                      PARAMS((tree *, void *));
 
 /* in search.c */
@@ -4281,7 +4284,7 @@ extern tree finish_increment_expr               PARAMS ((tree, enum tree_code));
 extern tree finish_this_expr                    PARAMS ((void));
 extern tree finish_object_call_expr             PARAMS ((tree, tree, tree));
 extern tree finish_qualified_object_call_expr   PARAMS ((tree, tree, tree));
-extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
+extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
@@ -4445,7 +4448,7 @@ extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
 extern tree build_component_ref_1		PARAMS ((tree, tree, int));
 extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
-extern tree build_x_component_ref		PARAMS ((tree, tree, tree, int));
+extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));

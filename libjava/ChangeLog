@@ -1,3 +1,34 @@
+2002-07-05  Tony Kimball  <alk@pobox.com>
+
+	* java/lang/natRuntime.cc (nativeGetLibname): Added missing `#'.
+
+2002-07-04  Tom Tromey  <tromey@redhat.com>
+            Jeff Sturm  <jsturm@one-point.com>
+
+	Fix for PR libgcj/7060:
+	* java/lang/Class.h (_getMethod): Renamed from getMethod.
+	* java/lang/natClass.cc (_getMethod): Renamed from getMethod.
+	Recurse into superinterfaces.  Don't throw NoSuchMethodException.
+	* java/lang/Class.java (getMethod): New Java implementation;
+	complies with spec.
+	(_getMethod): New native method.
+
+2002-07-02  Tom Tromey  <tromey@redhat.com>
+            David Hovemeyer  <daveho@cs.umd.edu>
+
+	* java/text/ChoiceFormat.java
+	(format(double,StringBuffer,FieldPosition)): Fix fencepost error
+	in check loop.
+	* java/text/MessageFormat.java
+	(format(Object[],StringBuffer,FieldPosition): Pass all arguments
+	to MessageFormat.
+
+2002-07-01  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/spi/NamingManager.java (getPlusPath): Don't create
+	StringTokenizer on null string.  For PR libgcj/7180.
+	From daveho@cs.umd.edu.
+
 2002-06-24  Tom Tromey  <tromey@redhat.com>
 
 	* java/net/natPlainDatagramSocketImpl.cc (BooleanClass): Removed.

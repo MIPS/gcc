@@ -33,6 +33,16 @@
 #include "ggc.h"
 #include "toplev.h"
 
+/* FIXME: Remove! */
+
+static bool dummy() { return false; }
+#define diagnostic_issue_immediately(x) dummy ()
+#define diagnostic_cease_issuing_immediately(x) dummy ()
+#define diagnostic_rollback(x) dummy ()
+#define diagnostic_commit(x) dummy ()
+#define diagnostic_tentative_p(x) dummy ()
+#define diagnostic_issue_tentatively(x) dummy ()
+
 /* Prototypes.  */
 
 static void ggc_mark_token_obstack 
@@ -395,7 +405,7 @@ cp_lexer_read_token (lexer)
       token->value = combine_strings (strings);
       VARRAY_FREE (strings);
       /* Strings should have type `const char []'.  Right now, we will
-	 an ARRAY_TYPE that is constant rather than an array of
+	 have an ARRAY_TYPE that is constant rather than an array of
 	 constant elements.  */
       if (flag_const_strings)
 	{
@@ -530,8 +540,7 @@ cp_lexer_get_preprocessor_token (lexer, token)
 	 messages should be issued right away because if we are parsing
 	 tentatively we will not re-lex the token if we reject this
 	 tentative parse.  */
-      tentative_diagnostics_p 
-	= diagnostic_buffer->ds->tentative_diagnostic;
+      tentative_diagnostics_p = diagnostic_tentative_p (diagnostic_buffer);
       if (tentative_diagnostics_p)
 	diagnostic_issue_immediately (diagnostic_buffer);
       /* Get a new token from the preprocessor.  The call to c_lex should
@@ -1228,14 +1237,17 @@ typedef struct cp_parser
      etc.  */
   tree default_arg_types;
 
-  /* A queue of functions whose bodies have been lexed, but may not
-     have been parsed.  These functions are friends of members defined
-     within a class-specification; they are not procssed until the
-     class is complete.  Functions appear in the queue in the reverse
-     order that appeared in the source.  The TREE_PURPOSE of each node
-     is the class in which the function was defined or declared; the
+  /* A TREE_LIST of queues of functions whose bodies have been lexed,
+     but may not have been parsed.  These functions are friends of
+     members defined within a class-specification; they are not
+     procssed until the class is complete.  The active queue is at the
+     front of the list.
+
+     Within each queue, functions appear in the reverse order that
+     they appeared in the source.  The TREE_PURPOSE of each node is
+     the class in which the function was defined or declared; the
      TREE_VALUE is the FUNCTION_DECL itself.  */
-  tree unparsed_functions_queue;
+  tree unparsed_functions_queues;
 
   /* The number of classes whose definitions are currently in
      progress.  */
@@ -1619,7 +1631,7 @@ static void cp_parser_late_parsing_default_args
 static tree cp_parser_sizeof_operand
   PARAMS ((cp_parser *, enum rid));
 static tree cp_parser_declares_only_class_p
-  PARAMS ((cp_parser *, tree, bool *));
+  PARAMS ((cp_parser *, tree));
 static bool cp_parser_friend_p
   PARAMS ((tree));
 static cp_token *cp_parser_require
@@ -2005,8 +2017,8 @@ cp_parser_new ()
   /* There are no default args to process.  */
   parser->default_arg_types = NULL;
 
-  /* There are no functions in the unparsed function queue.  */
-  parser->unparsed_functions_queue = NULL_TREE;
+  /* The unparsed function queue is empty.  */
+  parser->unparsed_functions_queues = build_tree_list (NULL_TREE, NULL_TREE);
 
   /* There are no classes being defined.  */
   parser->num_classes_being_defined = 0;
@@ -2546,12 +2558,7 @@ cp_parser_primary_expression (parser, idk)
    `template' keyword.
 
    If CHECK_DEPENDENCY_P is false, then names are looked up inside
-   uninstantiated templates.
-
-   FIXME: Document the representation returned. 
-
-   FIXME: Perhaps we should return the qualifying scope through a
-   pointer parameter, not implicitly via parser->scope?   */
+   uninstantiated templates.  */
 
 static tree
 cp_parser_id_expression (parser,
@@ -3538,12 +3545,13 @@ cp_parser_expression_list (parser)
 
    pseudo-destructor-name:
      :: [opt] nested-name-specifier [opt] type-name :: ~ type-name
-     :: [opt] nested-name-specifier template temlate-id :: ~ type-name
+     :: [opt] nested-name-specifier template template-id :: ~ type-name
      :: [opt] nested-name-specifier [opt] ~ type-name
 
    If either of the first two productions is used, sets *SCOPE to the
    TYPE specified before the final `::'.  Otherwise, *SCOPE is set to
-   NULL_TREE.  *TYPE is set to the TYPE_DECL for the final type-name.  */
+   NULL_TREE.  *TYPE is set to the TYPE_DECL for the final type-name,
+   or ERROR_MARK_NODE if no type-name is present.  */
 
 static void
 cp_parser_pseudo_destructor_name (parser, scope, type)
@@ -5811,7 +5819,7 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
      enumeration.  */
   if (!saw_declarator)
     {
-      cp_parser_declares_only_class_p (parser, decl_specifiers, NULL);
+      cp_parser_declares_only_class_p (parser, decl_specifiers);
       /* Perform any deferred access checks.  */
       cp_parser_perform_deferred_access_checks (access_checks);
     }
@@ -6351,7 +6359,7 @@ cp_parser_mem_initializer_list (parser)
 
   /* Let the semantic analysis code know that we are starting the
      mem-initializer-list.  */
-  begin_mem_initializer_list ();
+  begin_mem_initializers ();
 
   /* Loop through the list.  */
   while (true)
@@ -6789,7 +6797,7 @@ cp_parser_template_declaration (parser, member_p)
       /* Consume the `export' token.  */
       cp_lexer_consume_token (parser->lexer);
       /* Warn that we do not support `export'.  */
-      cp_warning ("keyword `export' not implemented, and will be ignored");
+      warning ("keyword `export' not implemented, and will be ignored");
     }
 
   cp_parser_template_declaration_after_export (parser, member_p);
@@ -7041,8 +7049,6 @@ cp_parser_type_parameter (parser)
    If CHECK_DEPENDENCY_P is FALSE, names are looked up in
    uninstantiated templates.  */
 
-/* FIXME: Document representation for template-templates.  */
-
 static tree
 cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
      cp_parser *parser;
@@ -7244,19 +7250,16 @@ cp_parser_template_argument_list (parser)
 
   while (true)
     {
-      cp_token *token;
       tree argument;
 
       /* Parse the template-argument.  */
       argument = cp_parser_template_argument (parser);
       /* Add it to the list.  */
       arguments = tree_cons (NULL_TREE, argument, arguments);
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
       /* If it is not a `,', then there are no more arguments.  */
-      if (token->type != CPP_COMMA)
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
 	break;
-      /* Otherwise, consume the token.  */
+      /* Otherwise, consume the ','.  */
       cp_lexer_consume_token (parser->lexer);
     }
 
@@ -7376,10 +7379,7 @@ cp_parser_explicit_instantiation (parser)
      and there's no declarator, then we have an explicit type
      instantiation.  */
   if (declares_class_or_enum)
-    type_decl 
-      = cp_parser_declares_only_class_p (parser,
-					 decl_specifiers,
-					 NULL);
+    type_decl = cp_parser_declares_only_class_p (parser, decl_specifiers);
   else
     type_decl = NULL_TREE;
 
@@ -7981,6 +7981,7 @@ cp_parser_elaborated_type_specifier (parser, is_friend, is_declaration)
      declaration context.   */
 
   return xref_tag (tag_type, identifier, 
+		   /*attributes=*/NULL_TREE,
 		   (is_friend 
 		    || !is_declaration
 		    || cp_lexer_next_token_is_not (parser->lexer, 
@@ -8759,7 +8760,7 @@ cp_parser_init_declarator (parser,
 		       `explicit' constructor is OK.  Otherwise, an
 		       `explicit' constructor cannot be used.  */
 		    ((is_parenthesized_init || !is_initialized)
-		     ? LOOKUP_NONE : LOOKUP_ONLYCONVERTING));
+		     ? 0 : LOOKUP_ONLYCONVERTING));
 
   return decl;
 }
@@ -9002,9 +9003,6 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	     type.  However, if `S' is specialized, then this `i' will
 	     not be used, so there is no harm in resolving the types
 	     here.  */
-	  /* FIXME: Now that we try to look inside uninstantiated
-	     templates (see check_dependency_p), we should not need
-	     this any longer.  */
 	  if (TREE_CODE (scope) == TYPENAME_TYPE)
 	    {
 	      /* Resolve the TYPENAME_TYPE.  */
@@ -9793,7 +9791,7 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
 	  /* Create a DEFAULT_ARG to represented the unparsed default
              argument.  */
 	  default_argument = make_node (DEFAULT_ARG);
-	  DEFARG_POINTER (default_argument) = expression;
+	  DEFARG_POINTER (default_argument) = (char *)expression;
 	}
       /* Outside of a class definition, we can just parse the
          assignment-expression.  */
@@ -10029,9 +10027,9 @@ cp_parser_function_definition (parser, friend_p)
       finish_method (fn);
 
       /* Add FN to the queue of functions to be parsed later.  */
-      parser->unparsed_functions_queue 
+      TREE_VALUE (parser->unparsed_functions_queues)
 	= tree_cons (current_class_type, fn, 
-		     parser->unparsed_functions_queue);
+		     TREE_VALUE (parser->unparsed_functions_queues));
 
       return fn;
     }
@@ -10436,6 +10434,7 @@ cp_parser_class_specifier (parser)
   if (--parser->num_classes_being_defined == 0) 
     {
       tree last_scope = NULL_TREE;
+      tree queue_entry;
 
       /* Process non FUNCTION_DECL related DEFAULT_ARGs.  */
       for (parser->default_arg_types = nreverse (parser->default_arg_types);
@@ -10446,17 +10445,18 @@ cp_parser_class_specifier (parser)
       
       /* Reverse the queue, so that we process it in the order the
 	 functions were declared.  */
-      parser->unparsed_functions_queue 
-	= nreverse (parser->unparsed_functions_queue);
+      queue_entry = nreverse (TREE_VALUE (parser->unparsed_functions_queues));
+      TREE_VALUE (parser->unparsed_functions_queues) = NULL_TREE;
       /* Loop through all of the functions.  */
-      while (parser->unparsed_functions_queue)
+      while (queue_entry)
 	{
 	  tree fn;
 	  tree fn_scope;
 
 	  /* Figure out which function we need to process.  */
-	  fn_scope = TREE_PURPOSE (parser->unparsed_functions_queue);
-	  fn = TREE_VALUE (parser->unparsed_functions_queue);
+	  queue_entry = TREE_VALUE (parser->unparsed_functions_queues);
+	  fn_scope = TREE_PURPOSE (queue_entry);
+	  fn = TREE_VALUE (queue_entry);
 
 	  /* Reenter the class scope, while we parse the bodies of inline
 	     member functions, and process their default arguments.
@@ -10478,9 +10478,7 @@ cp_parser_class_specifier (parser)
 	  cp_lexer_set_source_position_from_token
 	    (parser->lexer, cp_lexer_peek_token (parser->lexer));
 
-	  /* Go on to the next function.  */
-	  parser->unparsed_functions_queue 
-	    = TREE_CHAIN (parser->unparsed_functions_queue);
+	  queue_entry = TREE_CHAIN (queue_entry);
 	}
 
       /* If LAST_SCOPE is non-NULL, then we have pushed scopes one
@@ -11135,9 +11133,9 @@ cp_parser_member_declaration (parser)
 	     to parse it later.  (Even though there is no definition,
 	     there might be default arguments that need handling.)  */
 	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    parser->unparsed_functions_queue
+	    TREE_VALUE (parser->unparsed_functions_queues)
 	      = tree_cons (current_class_type, decl, 
-			   parser->unparsed_functions_queue);
+			   TREE_VALUE (parser->unparsed_functions_queues));
 	}
     }
 
@@ -12294,11 +12292,6 @@ cp_parser_resolve_typename_type (type)
       || TREE_CODE (decl) != TYPE_DECL 
       || TREE_CODE (TREE_TYPE (decl)) == TYPENAME_TYPE)
     {
-      /* FIXME: This isn't a great error message.  Also, are these
-	 checks semantic enough that we should be doing them here?
-	 Also, should we be doing this in
-	 cp_parser_nested_name_specifier rather than here, after the
-	 fact?  */
       error ("invalid type `%T::%D'", scope, name);
       type = error_mark_node;
     }
@@ -12846,9 +12839,9 @@ cp_parser_template_declaration_after_export (parser, member_p)
   if (member_p && decl 
       && (TREE_CODE (decl) == FUNCTION_DECL
 	  || TREE_CODE (decl) == TEMPLATE_DECL))
-    parser->unparsed_functions_queue
+    TREE_VALUE (parser->unparsed_functions_queues)
       = tree_cons (current_class_type, decl, 
-		   parser->unparsed_functions_queue);
+		   TREE_VALUE (parser->unparsed_functions_queues));
 }
 
 /* Parse a `decl-specifier-seq [opt] init-declarator [opt] ;' or
@@ -12890,9 +12883,7 @@ cp_parser_single_declaration (parser,
   access_checks = cp_parser_stop_deferring_access_checks (parser);
   /* Check for the declaration of a template class.  */
   if (declares_class_or_enum)
-    decl = cp_parser_declares_only_class_p (parser, 
-					    decl_specifiers,
-					    friend_p);
+    decl = cp_parser_declares_only_class_p (parser, decl_specifiers);
   else
     decl = NULL_TREE;
   /* If it's not a template class, try for a template function.  If
@@ -12964,7 +12955,6 @@ cp_parser_late_parsing_for_member (parser, member_function)
 {
   cp_lexer *saved_lexer;
   struct obstack *tokens;
-  tree saved_unparsed_functions_queue;
 
   /* If this member is a template, get the underlying
      FUNCTION_DECL.  */
@@ -12979,11 +12969,8 @@ cp_parser_late_parsing_for_member (parser, member_function)
      classes.  We want to handle them right away, but we don't want
      them getting mixed up with functions that are currently in the
      queue.  */
-  saved_unparsed_functions_queue = parser->unparsed_functions_queue;
-  parser->unparsed_functions_queue = NULL_TREE;
-  /* We have to register the saved queue as a root because we will
-     call the collector after parsing the body of the function.  */
-  ggc_add_tree_root (&saved_unparsed_functions_queue, 1);
+  parser->unparsed_functions_queues
+    = tree_cons (NULL_TREE, NULL_TREE, parser->unparsed_functions_queues);
 
   /* Make sure that any template parameters are in scope.  */
   maybe_begin_member_template_processing (member_function);
@@ -13047,8 +13034,8 @@ cp_parser_late_parsing_for_member (parser, member_function)
   maybe_end_member_template_processing ();
 
   /* Restore the queue.  */
-  parser->unparsed_functions_queue = saved_unparsed_functions_queue;
-  ggc_del_root (&saved_unparsed_functions_queue);
+  parser->unparsed_functions_queues 
+    = TREE_CHAIN (parser->unparsed_functions_queues);
 }
 
 /* TYPE is a FUNCTION_TYPE or METHOD_TYPE which contains a parameter
@@ -13178,27 +13165,18 @@ cp_parser_sizeof_operand (parser, keyword)
 
 /* If the DECL_SPECIFIER_SEQ declares a class, and constitutes the
    entire declaration, return the TYPE for the class.  Otherwise,
-   return NULL_TREE.  Sets *FRIEND_P to TRUE iff the `friend'
-   specifier appears in the decl-specifier-seq.  Issues an error
-   message if nothing was declared by this declaration.  */
+   return NULL_TREE.  Issues an error message if nothing was declared
+   by this declaration.  */
 
 static tree
-cp_parser_declares_only_class_p (parser, 
-				 decl_specifier_seq,
-				 friend_p)
-     cp_parser *parser;
-     tree decl_specifier_seq;
-     bool *friend_p;
+cp_parser_declares_only_class_p (cp_parser *parser, 
+				 tree decl_specifier_seq)
 {
-  /* Assume that there is no `friend' specifier.  */
-  if (friend_p)
-    *friend_p = false;
-
   /* If the next token is a `;' or a `,' then there is no 
      declarator.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
       || cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
-    return shadow_tag (decl_specifier_seq, friend_p);
+    return shadow_tag (decl_specifier_seq);
 
   return NULL_TREE;
 }
@@ -13524,7 +13502,7 @@ cp_parser_ggc_mark (data)
       ggc_mark_tree (context->object_type);
       ggc_mark_tree (context->deferred_access_checks);
     }
-  ggc_mark_tree (parser->unparsed_functions_queue);
+  ggc_mark_tree (parser->unparsed_functions_queues);
 }
 
 
@@ -13596,6 +13574,6 @@ void
 set_yydebug (debug_p)
      int debug_p ATTRIBUTE_UNUSED;
 {
-  cp_warning ("no parser debugging available in C++");
+  warning ("no parser debugging available in C++");
 }
 

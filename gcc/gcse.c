@@ -5144,21 +5144,19 @@ gcse_emit_move_after (src, dest, insn)
      rtx src, dest, insn;
 {
   rtx new;
-  rtx set = single_set (insn);
+  rtx set = single_set (insn), set2;
   rtx note;
   rtx eqv;
 
   /* This should never fail since we're creating a reg->reg copy
      we've verified to be valid.  */
 
-  new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
-
-  /* want_to_gcse_p verifies that this move will be valid.  Still this call
-     is mandatory as it may create clobbers required by the pattern.  */
-  if (insn_invalid_p (insn))
-    abort ();
+  new = emit_insn_after (gen_move_insn (dest, src), insn);
 
   /* Note the equivalence for local CSE pass.  */
+  set2 = single_set (new);
+  if (!set2 || !rtx_equal_p (SET_DEST (set2), dest))
+    return new;
   if ((note = find_reg_equal_equiv_note (insn)))
     eqv = XEXP (note, 0);
   else
@@ -5911,7 +5909,9 @@ static void
 hoist_code ()
 {
   basic_block bb, dominated;
-  unsigned int i;
+  basic_block *domby;
+  unsigned int domby_len;
+  unsigned int i,j;
   struct expr **index_map;
   struct expr *expr;
 
@@ -5932,24 +5932,25 @@ hoist_code ()
       int found = 0;
       int insn_inserted_p;
 
+      domby_len = get_dominated_by (dominators, bb, &domby);
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
       for (i = 0; i < hoist_vbeout[bb->index]->n_bits; i++)
 	{
 	  int hoistable = 0;
 
-	  if (TEST_BIT (hoist_vbeout[bb->index], i) && TEST_BIT (transpout[bb->index], i))
+	  if (TEST_BIT (hoist_vbeout[bb->index], i)
+	      && TEST_BIT (transpout[bb->index], i))
 	    {
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      FOR_EACH_BB (dominated)
+	      for (j = 0; j < domby_len; j++)
 		{
+		  dominated = domby[j];
 		  /* Ignore self dominance.  */
-		  if (bb == dominated
-		      || dominated_by_p (dominators, dominated, bb))
+		  if (bb == dominated)
 		    continue;
-
 		  /* We've found a dominated block, now see if it computes
 		     the busy expression and whether or not moving that
 		     expression to the "beginning" of that block is safe.  */
@@ -5982,10 +5983,12 @@ hoist_code ()
 		}
 	    }
 	}
-
       /* If we found nothing to hoist, then quit now.  */
       if (! found)
+        {
+  	  free (domby);
 	continue;
+	}
 
       /* Loop over all the hoistable expressions.  */
       for (i = 0; i < hoist_exprs[bb->index]->n_bits; i++)
@@ -6000,11 +6003,11 @@ hoist_code ()
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      FOR_EACH_BB (dominated)
+	      for (j = 0; j < domby_len; j++)
 		{
+		  dominated = domby[j];
 		  /* Ignore self dominance.  */
-		  if (bb == dominated
-		      || ! dominated_by_p (dominators, dominated, bb))
+		  if (bb == dominated)
 		    continue;
 
 		  /* We've found a dominated block, now see if it computes
@@ -6058,6 +6061,7 @@ hoist_code ()
 		}
 	    }
 	}
+      free (domby);
     }
 
   free (index_map);

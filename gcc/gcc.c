@@ -646,7 +646,7 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
-static const char *asm_debug = ASM_DEBUG_SPEC;
+static const char *asm_debug;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
@@ -1482,6 +1482,10 @@ init_spec ()
       next = sl;
     }
 #endif
+
+  /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
+     on ?: in file-scope variable initializations.  */
+  asm_debug = ASM_DEBUG_SPEC;
 
   for (i = ARRAY_SIZE (static_specs) - 1; i >= 0; i--)
     {
@@ -2966,9 +2970,6 @@ const char **outfiles;
 
 /* Used to track if none of the -B paths are used.  */
 static int warn_B;
-
-/* Used to track if standard path isn't used and -b or -V is specified.  */
-static int warn_std;
 
 /* Gives value to pass as "warn" to add_prefix for standard prefixes.  */
 static int *warn_std_ptr = 0;

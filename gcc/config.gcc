@@ -223,6 +223,7 @@ case $machine in
  | mn10200-*-*      \
  | ns32k-*-openbsd* \
  | romp-*-openbsd*  \
+ | vax-*-vms* \
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration $machine is obsolete." >&2
@@ -2885,7 +2886,7 @@ mips*-*-*)
 	esac
 	case $machine in
 		mips*el-*-*)
-			tm_file="mips/little.h ${tm_file}"
+			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
 			;;
 	esac
 	;;
