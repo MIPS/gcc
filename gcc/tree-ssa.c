@@ -139,7 +139,7 @@ static sbitmap vars_to_rename;
 
 /* Local functions.  */
 static void delete_tree_ssa (tree);
-static void mark_def_sites (dominance_info, sbitmap);
+static void mark_def_sites (sbitmap);
 static void compute_global_livein (varray_type);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
@@ -275,8 +275,8 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   sbitmap globals;
   dominance_info idom;
   int i, rename_count;
-  bool compute_df;
   bool addr_expr_propagated_p;
+  basic_block bb;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -319,25 +319,31 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   /* Compute immediate dominators.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
 
+  /* Using the immediate dominators, build a dominator tree.  */
+  FOR_EACH_BB (bb)
+    {
+      /* Add BB to the set of dominator children of BB's immediate
+	 dominator.  */
+      basic_block idom_bb = get_immediate_dominator (idom, bb);
+      if (idom_bb)
+	add_dom_child (idom_bb, bb);
+    }
+  compute_dominance_frontiers (dfs, idom);
+
+  /* We're finished the the immediate dominator information.  */
+  free_dominance_info (idom);
+
   /* Start the SSA rename process.  This may need to be repeated if the
      dominator optimizations exposed more symbols to rename by propagating
      ADDR_EXPR values into INDIRECT_REF expressions.  */
   rename_count = 0;
-  compute_df = true;
   addr_expr_propagated_p = false;
   do
     {
       /* Find variable references and mark definition sites.  */
-      mark_def_sites (idom, globals);
+      mark_def_sites (globals);
 
-      /* Compute dominance frontiers (only once) and insert PHI nodes at
-	 dominance frontiers of definition blocks.  */
-      if (compute_df)
-	{
-	  compute_dominance_frontiers (dfs, idom);
-	  compute_df = false;
-	}
-
+      /* Insert PHI nodes at dominance frontiers of definition blocks.  */
       insert_phi_nodes (dfs, globals);
 
       /* Rewrite all the basic blocks in the program.  */
@@ -382,7 +388,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
     BITMAP_XFREE (dfs[i]);
   free (dfs);
   free (globals);
-  free_dominance_info (idom);
   htab_delete (def_blocks);
   htab_delete (currdefs);
   if (vars == NULL)
@@ -502,17 +507,13 @@ compute_global_livein (varray_type def_maps)
 /* Look for variable references in every block of the flowgraph, compute
    aliasing information and collect definition sites for every variable.
 
-   Also, compute the set of dominator children for each block in the
-   flowgraph.  This will be used by rewrite_block when traversing the
-   flowgraph.
-
    Return a bitmap for the set of referenced variables which are
    "nonlocal", ie those which are live across block boundaries.
    This information is used to reduce the number of PHI nodes
    we create.  */
 
 static void
-mark_def_sites (dominance_info idom, sbitmap globals)
+mark_def_sites (sbitmap globals)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -527,12 +528,6 @@ mark_def_sites (dominance_info idom, sbitmap globals)
      VARS_TO_RENAME bitmap.  */
   FOR_EACH_BB (bb)
     {
-      /* Add BB to the set of dominator children of BB's immediate
-	 dominator.  */
-      basic_block idom_bb = get_immediate_dominator (idom, bb);
-      if (idom_bb)
-	add_dom_child (idom_bb, bb);
-
       sbitmap_zero (kills);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))

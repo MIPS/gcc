@@ -917,6 +917,13 @@ remove_phi_arg (tree phi, basic_block block)
 	{
 	  remove_phi_arg_num (phi, i);
 
+	  /* Apparently we also use PHI_ARG_CAPACITY to determine if we've
+	     already renamed PHI nodes.  So if we remove a PHI argument,
+	     then we must reduce its capacity so that we still know
+	     the PHI has been rewritten.  This means that any memory
+	     statistics for this PHI may be incorrect.  */
+	  PHI_ARG_CAPACITY (phi)--;
+
 	  /* If we removed the last PHI argument, then go ahead and
 	     remove the PHI node.  */
 	  if (PHI_NUM_ARGS (phi) == 0)
