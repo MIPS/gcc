@@ -561,6 +561,33 @@ static void add_sym_4 (const char *name, int elemental, int actual_ok, bt type,
 }
 
 
+static void add_sym_4s (const char *name, int elemental, int actual_ok,
+    bt type, int kind,
+    try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+    gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+    void (*resolve)(gfc_code *),
+    const char* a1, bt type1, int kind1, int optional1,
+    const char* a2, bt type2, int kind2, int optional2,
+    const char* a3, bt type3, int kind3, int optional3,
+    const char* a4, bt type4, int kind4, int optional4)
+{
+  gfc_check_f cf;
+  gfc_simplify_f sf;
+  gfc_resolve_f rf;
+
+  cf.f4 = check;
+  sf.f4 = simplify;
+  rf.s1 = resolve;
+
+  add_sym (name, elemental, actual_ok, type, kind, cf, sf, rf,
+	   a1, type1, kind1, optional1,
+	   a2, type2, kind2, optional2,
+	   a3, type3, kind3, optional3,
+	   a4, type4, kind4, optional4,
+	   (void*)0);
+}
+
+
 static void add_sym_5 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind,
 		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
@@ -1104,6 +1131,10 @@ add_functions (void)
   make_generic ("iand", GFC_ISYM_IAND);
 
   add_sym_0 ("iargc", 1, 1, BT_INTEGER, di, NULL, NULL, NULL);	/* Extension, takes no arguments */
+  make_generic ("iargc", GFC_ISYM_IARGC);
+
+  add_sym_0 ("command_argument_count", 1, 1, BT_INTEGER, di, NULL, NULL, NULL);
+  make_generic ("command_argument_count", GFC_ISYM_COMMAND_ARGUMENT_COUNT);
 
   add_sym_2 ("ibclr", 1, 1, BT_INTEGER, di,
 	     gfc_check_ibclr, gfc_simplify_ibclr, gfc_resolve_ibclr,
@@ -1704,7 +1735,9 @@ add_subroutines (void)
     *h = "harvest", *dt = "date", *vl = "values", *pt = "put",
     *c = "count", *tm = "time", *tp = "topos", *gt = "get",
     *t = "to", *zn = "zone", *fp = "frompos", *cm = "count_max",
-    *f = "from", *sz = "size", *ln = "len", *cr = "count_rate";
+    *f = "from", *sz = "size", *ln = "len", *cr = "count_rate",
+    *com = "command", *length = "length", *st = "status",
+    *val = "value", *num = "number";
 
   int di, dr, dc;
 
@@ -1723,10 +1756,10 @@ add_subroutines (void)
 	      gfc_check_second_sub, NULL, gfc_resolve_second_sub,
 	      tm, BT_REAL, dr, 0);
 
-  add_sym_4 ("date_and_time", 0, 1, BT_UNKNOWN, 0,
-	     gfc_check_date_and_time, NULL, NULL,
-	     dt, BT_CHARACTER, dc, 1, tm, BT_CHARACTER, dc, 1,
-	     zn, BT_CHARACTER, dc, 1, vl, BT_INTEGER, di, 1);
+  add_sym_4s ("date_and_time", 0, 1, BT_UNKNOWN, 0,
+	      gfc_check_date_and_time, NULL, NULL,
+	      dt, BT_CHARACTER, dc, 1, tm, BT_CHARACTER, dc, 1,
+	      zn, BT_CHARACTER, dc, 1, vl, BT_INTEGER, di, 1);
 
   /* More G77 compatibility garbage. */
   add_sym_2s ("etime", 0, 1, BT_UNKNOWN, 0,
@@ -1737,11 +1770,28 @@ add_subroutines (void)
 	     gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
 	     vl, BT_REAL, 4, 0, tm, BT_REAL, 4, 0);
 
-  add_sym_2 ("getarg", 0, 1, BT_UNKNOWN, 0,
-	     NULL, NULL, NULL,
-	     c, BT_INTEGER, di, 0, vl, BT_CHARACTER, dc, 0);
+  add_sym_2s ("getarg", 0, 1, BT_UNKNOWN, 0,
+	      NULL, NULL, gfc_resolve_getarg,
+	      c, BT_INTEGER, di, 0, vl, BT_CHARACTER, dc, 0);
+
+  /* F2003 commandline routines.  */
+
+  add_sym_3s ("get_command", 0, 1, BT_UNKNOWN, 0,
+	      NULL, NULL, gfc_resolve_get_command,
+	      com, BT_CHARACTER, dc, 1,
+	      length, BT_INTEGER, di, 1,
+	      st, BT_INTEGER, di, 1);
+
+  add_sym_4s ("get_command_argument", 0, 1, BT_UNKNOWN, 0,
+	      NULL, NULL, gfc_resolve_get_command_argument,
+	      num, BT_INTEGER, di, 0,
+	      val, BT_CHARACTER, dc, 1,
+	      length, BT_INTEGER, di, 1,
+	      st, BT_INTEGER, di, 1);
+	     
   /* Extension */
 
+  /* This needs changing to add_sym_5s if it gets a resolution function.  */
   add_sym_5 ("mvbits", 1, 1, BT_UNKNOWN, 0,
 	     gfc_check_mvbits, gfc_simplify_mvbits, NULL,
 	     f, BT_INTEGER, di, 0, fp, BT_INTEGER, di, 0,

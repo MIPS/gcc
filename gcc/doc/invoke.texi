@@ -182,7 +182,8 @@ in the following sections.
 -fno-optional-diags  -fpermissive @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
 -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
--fno-default-inline  -Wabi  -Wctor-dtor-privacy @gol
+-fno-default-inline  -fvisibility-inlines-hidden @gol
+-Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
 -Weffc++  -Wno-deprecated @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
@@ -262,6 +263,7 @@ in the following sections.
 -fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
+-fdump-tree-fre@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -311,9 +313,10 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
--ftree-pre  -ftree-ccp  -ftree-dce  @gol
+-ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
+-ftree-lim @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
--ftree-ch -ftree-sra -ftree-ter -ftree-lrs @gol
+-ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -420,7 +423,7 @@ in the following sections.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F}
+-whatsloaded -F -gused -gfull -mone-byte-bool}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -459,6 +462,7 @@ in the following sections.
 @gccoptlist{-march=@var{architecture-type} @gol
 -mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
+-mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
 -mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
@@ -535,7 +539,6 @@ in the following sections.
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -msplit-addresses  -mno-split-addresses  @gol
 -mexplicit-relocs  -mno-explicit-relocs  @gol
--mrnames  -mno-rnames @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
@@ -618,6 +621,7 @@ See RS/6000 and PowerPC Options.
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
 -m4-nofpu  -m4-single-only  -m4-single  -m4 @gol
+-m4a-nofpu -m4a-single-only -m4a-single -m4a -m4al @gol
 -m5-64media  -m5-64media-nofpu @gol
 -m5-32media  -m5-32media-nofpu @gol
 -m5-compact  -m5-compact-nofpu @gol
@@ -637,7 +641,8 @@ See RS/6000 and PowerPC Options.
 -mimpure-text  -mno-impure-text  -mlittle-endian @gol
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
--mv8plus  -mno-v8plus  -mvis  -mno-vis}
+-mv8plus  -mno-v8plus  -mvis  -mno-vis
+-threads -pthreads}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -693,7 +698,8 @@ See S/390 and zSeries Options.
 -fargument-alias  -fargument-noalias @gol
 -fargument-noalias-global  -fleading-underscore @gol
 -ftls-model=@var{model} @gol
--ftrapv  -fwrapv  -fbounds-check}
+-ftrapv  -fwrapv  -fbounds-check @gol
+-fvisibility}
 @end table
 
 @menu
@@ -1455,6 +1461,20 @@ This option is required for fully standards-compliant handling of static
 destructors, but will only work if your C library supports
 @code{__cxa_atexit}.
 
+@item -fvisibility-inlines-hidden
+@opindex fvisibility-inlines-hidden
+Causes all inlined methods to be marked with
+@code{__attribute__ ((visibility ("hidden")))} so that they do not
+appear in the export table of a DSO and do not require a PLT indirection
+when used within the DSO. Enabling this option can have a dramatic effect
+on load and link times of a DSO as it massively reduces the size of the
+dynamic export table when the library makes heavy use of templates. While
+it can cause bloating through duplication of code within each DSO where
+it is used, often the wastage is less than the considerable space occupied
+by a long symbol name in the export table which is typical when using
+templates and namespaces. For even more savings, combine with the
+@code{-fvisibility=hidden} switch.
+
 @item -fno-weak
 @opindex fno-weak
 Do not use weak symbol support, even if it is provided by the linker.
@@ -1718,7 +1738,7 @@ to a plain pointer.
 @item -Wsign-promo @r{(C++ only)}
 @opindex Wsign-promo
 Warn when overload resolution chooses a promotion from unsigned or
-enumeral type to a signed type, over a conversion to an unsigned type of
+enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ would try to preserve
 unsignedness, but the standard mandates the current behavior.
 
@@ -2111,7 +2131,7 @@ specified, and that the conversions specified in the format string make
 sense.  This includes standard functions, and others specified by format
 attributes (@pxref{Function Attributes}), in the @code{printf},
 @code{scanf}, @code{strftime} and @code{strfmon} (an X/Open extension,
-not in the C standard) families.
+not in the C standard) families (or other target-specific families).
 
 The formats are checked against the format features supported by GNU
 libc version 2.2.  These include all ISO C90 and C99 features, as well
@@ -2248,7 +2268,13 @@ Warn if a user-supplied include directory does not exist.
 Warn if parentheses are omitted in certain contexts, such
 as when there is an assignment in a context where a truth value
 is expected, or when operators are nested whose precedence people
-often get confused about.
+often get confused about.  Only the warning for an assignment used as
+a truth value is supported when compiling C++; the other warnings are
+only supported when compiling C@.
+
+Also warn if a comparison like @samp{x<=y<=z} appears; this is
+equivalent to @samp{(x<=y ? 1 : 0) <= z}, which is a different
+interpretation from that of ordinary mathematical notation.
 
 Also warn about constructions where there may be confusion to which
 @code{if} statement an @code{else} branch belongs.  Here is an example of
@@ -2332,7 +2358,7 @@ future implementation may also work for C++ programs.
 The C standard is worded confusingly, therefore there is some debate
 over the precise meaning of the sequence point rules in subtle cases.
 Links to discussions of the problem, including proposed formal
-definitions, may be found on our readings page, at
+definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
 @item -Wreturn-type
@@ -2341,13 +2367,19 @@ Warn whenever a function is defined with a return-type that defaults to
 @code{int}.  Also warn about any @code{return} statement with no
 return-value in a function whose return-type is not @code{void}.
 
+For C, also warn if the return type of a function has a type qualifier
+such as @code{const}.  Such a type qualifier has no effect, since the
+value returned by a function is not an lvalue.  ISO C prohibits
+qualified @code{void} return types on function definitions, so such
+return types always receive a warning even without this option.
+
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
 exceptions are @samp{main} and functions defined in system headers.
 
 @item -Wswitch
 @opindex Wswitch
-Warn whenever a @code{switch} statement has an index of enumeral type
+Warn whenever a @code{switch} statement has an index of enumerated type
 and lacks a @code{case} for one or more of the named codes of that
 enumeration.  (The presence of a @code{default} label prevents this
 warning.)  @code{case} labels outside the enumeration range also
@@ -2360,7 +2392,7 @@ case.
 
 @item -Wswitch-enum
 @opindex Wswitch-enum
-Warn whenever a @code{switch} statement has an index of enumeral type
+Warn whenever a @code{switch} statement has an index of enumerated type
 and lacks a @code{case} for one or more of the named codes of that
 enumeration.  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
@@ -2567,20 +2599,8 @@ but @samp{x[(void)i,j]} will not.
 An unsigned value is compared against zero with @samp{<} or @samp{>=}.
 
 @item
-A comparison like @samp{x<=y<=z} appears; this is equivalent to
-@samp{(x<=y ? 1 : 0) <= z}, which is a different interpretation from
-that of ordinary mathematical notation.
-
-@item
 Storage-class specifiers like @code{static} are not the first things in
 a declaration.  According to the C Standard, this usage is obsolescent.
-
-@item
-The return type of a function has a type qualifier such as @code{const}.
-Such a type qualifier has no effect, since the value returned by a
-function is not an lvalue.  (But don't warn about the GNU extension of
-@code{volatile void} return types.  That extension will be warned about
-if @option{-pedantic} is specified.)
 
 @item
 If @option{-Wall} or @option{-Wunused} is also specified, warn about unused
@@ -3315,9 +3335,6 @@ Dump after the third if conversion, to @file{@var{file}.31.ce3}.
 @opindex df
 Dump after control and data flow analysis, to @file{@var{file}.11.cfg}.
 Also dump after life analysis, to @file{@var{file}.19.life}.
-@item F
-@opindex dF
-Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.07.addressof}.
 @item g
 @opindex dg
 Dump after global register allocation, to @file{@var{file}.26.greg}.
@@ -3553,6 +3570,11 @@ Dump each function after CCP.  The file name is made by appending
 @opindex fdump-tree-pre
 Dump trees after partial redundancy elimination.  The file name is made
 by appending @file{.pre} to the source file name.
+
+@item fre
+@opindex fdump-tree-fre
+Dump trees after full redundancy elimination.  The file name is made
+by appending @file{.fre} to the source file name.
 
 @item dce
 @opindex fdump-tree-dce
@@ -3839,8 +3861,7 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-fweb}, @option{-frename-registers}
-and @option{-fgcse-after-reload} options.
+@option{-fweb} and @option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -4370,6 +4391,13 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
 enabled by default at -O and higher.
 
+@item -ftree-fre
+Perform Full Redundancy Elimination (FRE) on trees.  The difference
+between FRE and PRE is that FRE only considers expressions
+that are computed on all paths leading to the redundant computation.
+This analysis faster than PRE, though it exposes fewer redundancies.
+This flag is enabled by default at -O and higher.
+
 @item -ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.  This flag
 is enabled by default at -O and higher.
@@ -4387,6 +4415,18 @@ Perform loop header copying on trees.  This is beneficial since it increases
 effectivity of code motion optimizations.  It also saves one jump.  This flag
 is enabled by default at -O and higher.  It is not enabled for -Os, since it
 usually increases code size.
+
+@item -ftree-loop-optimize
+Perform loop optimizations on trees.  This flag is enabled by default at -O
+and higher.
+
+@item -ftree-lim
+Perform loop invariant motion on trees.  This pass moves only invartiants that
+would be hard to handle on rtl level (function calls, operations that expand to
+nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
+operands of conditions that are invariant out of the loop, so that we can use
+just trivial invariantness analysis in loop unswitching.  The pass also includes
+store motion.
 
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure
@@ -4457,11 +4497,10 @@ These two options are intended to be removed someday, once
 they have helped determine the efficacy of various
 approaches to improving loop optimizations.
 
-Please let us (@w{@email{gcc@@gcc.gnu.org}} and @w{@email{fortran@@gnu.org}})
-know how use of these options affects
-the performance of your production code.
-We're very interested in code that runs @emph{slower}
-when these options are @emph{enabled}.
+Please contact @w{@email{gcc@@gcc.gnu.org}}, and describe how use of
+these options affects the performance of your production code.
+Examples of code that runs @emph{slower} when these options are
+@emph{enabled} are very valuable.
 
 @item -fno-peephole
 @itemx -fno-peephole2
@@ -4674,7 +4713,7 @@ Enabled at levels @option{-O2}, @option{-O3}.
 @item -fweb
 @opindex fweb
 Constructs webs as commonly used for register allocation purposes and assign
-each web individual pseudo register.  This allows our register allocation pass
+each web individual pseudo register.  This allows the register allocation pass
 to operate on pseudos directly, but also strengthens several other optimization
 passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
@@ -5162,6 +5201,14 @@ The maximum number of insns of an unswitched loop.
 @item max-unswitch-level
 The maximum number of branches unswitched in a single loop.
 
+@item lim-expensive
+The minimum cost of an expensive expression in the loop invariant motion.
+
+@item max-iterations-to-track
+
+The maximum number of iterations of a loop the brute force algorithm
+for analysis of # of iterations of the loop tries to evaluate.
+
 @item hot-bb-count-fraction
 Select fraction of the maximal count of repetitions of basic block in program
 given basic block needs to have to be considered hot.
@@ -5425,9 +5472,9 @@ or @option{-nodefaultlibs} is used.
 Do not use the standard system libraries when linking.
 Only the libraries you specify will be passed to the linker.
 The standard startup files are used normally, unless @option{-nostartfiles}
-is used.  The compiler may generate calls to memcmp, memset, and memcpy
-for System V (and ISO C) environments or to bcopy and bzero for
-BSD environments.  These entries are usually resolved by entries in
+is used.  The compiler may generate calls to @code{memcmp},
+@code{memset}, @code{memcpy} and @code{memmove}.
+These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
 mechanism when this option is specified.
 
@@ -5435,9 +5482,9 @@ mechanism when this option is specified.
 @opindex nostdlib
 Do not use the standard system startup files or libraries when linking.
 No startup files and only the libraries you specify will be passed to
-the linker.  The compiler may generate calls to memcmp, memset, and memcpy
-for System V (and ISO C) environments or to bcopy and bzero for
-BSD environments.  These entries are usually resolved by entries in
+the linker.  The compiler may generate calls to @code{memcmp}, @code{memset},
+@code{memcpy} and @code{memmove}.
+These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
 mechanism when this option is specified.
 
@@ -6875,6 +6922,29 @@ and @samp{"/Local/Library/Frameworks"}.  An example include looks like
 the name of the framework and header.h is found in the
 @samp{"PrivateHeaders"} or @samp{"Headers"} directory.
 
+@item -gused
+@opindex -gused
+Emit debugging information for symbols that are used. For STABS
+debugging format, this enables @option{-feliminate-unused-debug-symbols}.
+This is by default ON.
+
+@item -gfull
+@opindex -gfull
+Emit debugging information for all symbols and types.
+
+@item -mone-byte-bool
+@opindex -mone-byte-bool
+Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.
+By default @samp{sizeof(bool)} is @samp{4} when compiling for 
+Darwin/PowerPC and @samp{1} when compiling for Darwin/x86, so this
+option has no effect on x86.
+
+@strong{Warning:} The @option{-mone-byte-bool} switch causes GCC
+to generate code that is not binary compatible with code generated
+without that switch.  Using this switch may require recompiling all
+other modules in a program, including system libraries.  Use this 
+switch to conform to a non-default data model.
+
 @item -all_load
 @opindex all_load
 Loads all members of static archive libraries.
@@ -7681,6 +7751,14 @@ allows GCC to emit code which performs faster indirect calls.
 
 This option will not work in the presence of shared libraries or nested
 functions.
+
+@item -mfixed-range=@var{register-range}
+@opindex mfixed-range
+Generate code treating the given register range as fixed registers.
+A fixed register is one that the register allocator can not use.  This is
+useful when compiling kernel code.  A register range is specified as
+two registers separated by a dash.  Multiple register ranges can be
+specified separated by a comma.
 
 @item -mlong-load-store
 @opindex mlong-load-store
@@ -9125,16 +9203,6 @@ depends on whether a symbol is local or global.  In some rare cases,
 GCC will not be able to decide this until the whole compilation unit
 has been read.
 
-@item -mrnames
-@itemx -mno-rnames
-@opindex mrnames
-@opindex mno-rnames
-Generate (do not generate) code that refers to registers using their
-software names.  The default is @option{-mno-rnames}, which tells GCC
-to use hardware names like @samp{$4} instead of software names like
-@samp{a0}.  The only assembler known to support @option{-rnames} is
-the Algorithmics assembler.
-
 @item -mcheck-zero-division
 @itemx -mno-check-zero-division
 @opindex mcheck-zero-division
@@ -9591,12 +9659,12 @@ Generate code for a PDP-11/10.
 
 @item -mbcopy-builtin
 @opindex bcopy-builtin
-Use inline @code{movstrhi} patterns for copying memory.  This is the
+Use inline @code{movmemhi} patterns for copying memory.  This is the
 default.
 
 @item -mbcopy
 @opindex mbcopy
-Do not use inline @code{movstrhi} patterns for copying memory.
+Do not use inline @code{movmemhi} patterns for copying memory.
 
 @item -mint16
 @itemx -mno-int32
@@ -10465,6 +10533,31 @@ single-precision mode by default.
 @opindex m4
 Generate code for the SH4.
 
+@item -m4a-nofpu
+@opindex m4a-nofpu
+Generate code for the SH4al-dsp, or for a SH4a in such a way that the
+floating-point unit is not used.
+
+@item -m4a-single-only
+@opindex m4a-single-only
+Generate code for the SH4a, in such a way that no double-precision
+floating point operations are used.
+
+@item -m4a-single
+@opindex m4a-single
+Generate code for the SH4a assuming the floating-point unit is in
+single-precision mode by default.
+
+@item -m4a
+@opindex m4a
+Generate code for the SH4a.
+
+@item -m4al
+@opindex m4al
+Same as @option{-m4a-nofpu}, except that it implicitly passes
+@option{-dsp} to the assembler.  GCC doesn't generate any DSP
+instructions at the moment.
+
 @item -mb
 @opindex mb
 Compile code for the processor in big endian mode.
@@ -10779,6 +10872,24 @@ With @option{-mstack-bias}, GCC assumes that the stack pointer, and
 frame pointer if present, are offset by @minus{}2047 which must be added back
 when making stack frame references.  This is the default in 64-bit mode.
 Otherwise, assume no such offset is present.
+@end table
+
+These switches are supported in addition to the above on Solaris:
+
+@table @gcctabopt
+@item -threads
+@opindex threads
+Add support for multithreading using the Solaris threads library.  This
+option sets flags for both the preprocessor and linker.  This option does
+not affect the thread safety of object code produced by the compiler or
+that of libraries supplied with it.
+
+@item -pthreads
+@opindex pthreads
+Add support for multithreading using the POSIX threads library.  This
+option sets flags for both the preprocessor and linker.  This option does
+not affect the thread safety of object code produced  by the compiler or
+that of libraries supplied with it.
 @end table
 
 @node System V Options
@@ -11266,7 +11377,7 @@ You will normally not enable this option; instead, a language processor
 that needs this handling would enable it on your behalf.
 
 @item -fasynchronous-unwind-tables
-@opindex funwind-tables
+@opindex fasynchronous-unwind-tables
 Generate unwind table in dwarf2 format, if supported by target machine.  The
 table is exact at each instruction boundary, so it can be used for stack
 unwinding from asynchronous events (such as debugger or garbage collector).
@@ -11575,6 +11686,54 @@ The @var{model} argument should be one of @code{global-dynamic},
 
 The default without @option{-fpic} is @code{initial-exec}; with
 @option{-fpic} the default is @code{global-dynamic}.
+
+@item -fvisibility=@var{default|internal|hidden|protected}
+@opindex fvisibility
+Set the default ELF image symbol visibility to the specified option - all
+symbols will be marked with this unless overrided within the code.
+Using this feature can very substantially improve linking and
+load times of shared object libraries, produce more optimised
+code, provide near-perfect API export and prevent symbol clashes.
+It is @strong{strongly} recommended that you use this in any shared objects
+you distribute.
+     
+Despite the nomenclature, @code{default} always means public ie;
+available to be linked against from outside the shared object.
+@code{protected} and @code{internal} are pretty useless in real-world
+usage so the only other commonly used option will be @code{hidden}.
+The default if -fvisibility isn't specified is @code{default} ie; make every
+symbol public - this causes the same behaviour as previous versions of
+GCC.
+     
+A good explanation of the benefits offered by ensuring ELF
+symbols have the correct visibility is given by ``How To Write
+Shared Libraries'' by Ulrich Drepper (which can be found at
+@w{@uref{http://people.redhat.com/~drepper/}}) - however a superior
+solution made possible by this option to marking things hidden when
+the default is public is to make the default hidden and mark things
+public. This is the norm with DLL's on Windows and with @option{-fvisibility=hidden}
+and @code{__attribute__ ((visibility("default")))} instead of
+@code{__declspec(dllexport)} you get almost identical semantics with
+identical syntax. This is a great boon to those working with
+cross-platform projects.
+
+For those adding visibility support to existing code, you may find
+@samp{#pragma GCC visibility} of use. This works by you enclosing
+the declarations you wish to set visibility for with (for example)
+@samp{#pragma GCC visibility push(hidden)} and
+@samp{#pragma GCC visibility pop}. These can be nested up to sixteen
+times. Bear in mind that symbol visibility should be viewed @strong{as
+part of the API interface contract} and thus all new code should
+always specify visibility when it is not the default ie; declarations
+only for use within the local DSO should @strong{always} be marked explicitly
+as hidden as so to avoid PLT indirection overheads - making this
+abundantly clear also aids readability and self-documentation of the code.
+Note that due to ISO C++ specification requirements, operator new and
+operator delete must always be of default visibility.
+
+An overview of these techniques, their benefits and how to use them
+is at @w{@uref{http://www.nedprod.com/programs/gccvisibility.html}}.
+
 @end table
 
 @c man end

@@ -374,6 +374,9 @@ void gfc_build_builtin_function_decls (void);
 /* Return the variable decl for a symbol.  */
 tree gfc_get_symbol_decl (gfc_symbol *);
 
+/* Build a static initializer.  */
+tree gfc_conv_initializer (gfc_expr *, gfc_typespec *, tree, bool, bool);
+
 /* Substitute a temporary variable in place of the real one.  */
 void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
 
@@ -424,6 +427,8 @@ void pushlevel (int);
 tree poplevel (int, int, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
+tree builtin_function (const char *, tree, int, enum built_in_class,
+		       const char *, tree);
 
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
@@ -481,6 +486,7 @@ extern GTY(()) tree gfor_fndecl_adjustr;
 /* Other misc. runtime library functions.  */
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
+extern GTY(()) tree gfor_fndecl_iargc;
 
 /* Implemented in FORTRAN.  */
 extern GTY(()) tree gfor_fndecl_si_kind;

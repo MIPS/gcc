@@ -3714,7 +3714,7 @@ resolve_symbol (gfc_symbol * sym)
   if (sym->ts.type == BT_UNKNOWN)
     {
       if (sym->attr.flavor == FL_VARIABLE || sym->attr.flavor == FL_PARAMETER)
-	gfc_set_default_type (sym, 0, NULL);
+	gfc_set_default_type (sym, 1, NULL);
 
       if (sym->attr.flavor == FL_PROCEDURE && sym->attr.function)
 	{
@@ -3745,12 +3745,14 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
-  if (sym->attr.flavor == FL_PARAMETER
-      && sym->as != NULL && sym->as->type != AS_EXPLICIT)
+  /* A parameter array's shape needs to be constant.  */
+
+  if (sym->attr.flavor == FL_PARAMETER && sym->as != NULL 
+      && !gfc_is_compile_time_shape (sym->as))
     {
-      gfc_error ("Parameter array '%s' at %L must have an explicit shape",
-		 sym->name, &sym->declared_at);
-      return;
+      gfc_error ("Parameter array '%s' at %L cannot be automatic "
+		 "or assumed shape", sym->name, &sym->declared_at);
+	  return;
     }
 
   /* Make sure that character string variables with assumed length are

@@ -1,3 +1,451 @@
+2004-07-30  Richard Henderson  <rth@redhat.com>
+
+	* trans-expr.c (gfc_conv_expr_reference): Create a CONST_DECL
+	for TREE_CONSTANTs.
+
+2004-07-25  Richard Henderson  <rth@redhat.com>
+
+	* trans-decl.c (gfc_build_function_decl): Set DECL_ARTIFICIAL
+	and DECL_IGNORED_P on RESULT_DECL.
+	(gfc_generate_constructors): Likewise.
+
+2004-07-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16465
+	* lang.opt (ffixed-line-length-none, ffixed-line-length-): New
+	options.
+	(ffixed-line-length-80, ffixed-line-length-132): Remove.
+	* options.c (gfc_handle_options): Deal with changed options.
+	* scanner.c (load_line): Change second arg to 'char **',
+	allocate if pointing to NULL. Keep track of buffer's length.
+	Adapt buffer size to overlong lines. Pad lines to full length
+	in fixed form.
+	(load_file): Adapt to new interface of load_line.
+
+2004-07-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* trans.h (builtin_function): Declare.
+
+2004-07-16  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16404
+	(parts ported from g95)
+	* parse.h (gfc_state_data): New field do_variable.
+	(gfc_check_do_variable): Add prototype.
+	* parse.c (push_state): Initialize field 'do_variable'.
+	(gfc_check_do_variable): New function.
+	(parse_do_block): Remember do iterator variable.
+	(parse_file): Initialize field 'do_variable'.
+	* match.c (gfc_match_assignment, gfc_match_do,
+	gfc_match_allocate, gfc_match_nullify, gfc_match_deallocate):
+	Add previously missing checks.
+	(gfc_match_return): Reformat error message.
+	* io.c (match_out_tag): New function.
+	(match_open_element, match_close_element,
+	match_file_element, match_dt_element): Call match_out_tag
+	instead of match_vtag where appropriate.
+	(match_io_iterator, match_io_element): Add missing check.
+	(match_io): Reformat error message.
+	(match_inquire_element): Call match_out_tag where appropriate.
+
+	* parse.c (gfc_check_do_variable): Fix error locus.
+
+2004-07-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15129
+	* trans-decl.c (gfc_build_function_decl): Create a new chardecl
+	for every assumed length character dummy argument.
+
+	PR fortran/15140
+	* trans-decl.c (gfc_trans_deferred_vars): Remove bogus assertion.
+
+	PR fortran/13792
+	* simplify.c (gfc_simplify_bound): Copy the bound expression.
+
+2004-07-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+ 	PR fortran/15324
+	* trans-array.c gfc_trans_g77_array,
+	gfc_trans_dummy_array_bias): Don't call gfc_trans_string_init
+	for assumed length characters.
+	(gfc_conv_expr_descriptor): Set se->string_length if dealing
+	with a character expression.
+	(gfc_cvonv_array_parameter): Pass string length when passing
+	character array according to g77 conventions.
+
+2004-07-12  Paul Brook  <paul@codesourcery.com>
+
+	* expr.c (gfc_check_assign_symbol): Handle pointer assignments.
+	* trans-array.c (gfc_trans_auto_array_allocation): Remove
+	initialization code.
+	* trans-common.c (create_common): Use gfc_conv_initializer.
+	* trans-decl.c (gfc_get_symbol_decl): Use gfc_conv_initializer.
+	* trans-expr.c (gfc_conv_initializer): New function.
+	(gfc_conv_structure): Use it.
+	* trans.h (gfc_conv_initializer): Add prototype.
+
+2004-07-11  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15986
+	* parse.c (gfc_fixup_sibling_symbols): Also look for untyped
+	variables.
+	(parse_contained): Mark contained symbols as referenced.
+
+2004-07-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16455
+	* module.c (gfc_dump_module, gfc_use_module): Print locus
+	when opening of module file fails.
+
+	PR fortran/16404
+	* io.c (match_io): Flag 'WRITE(...), ...' as extension.
+
+	PR fortran/16404
+	* match.c (gfc_match_program): A program name is obligatory.
+	(gfc_match_return): RETURN in main program is an extension.
+	(gfc_match_block_data): A space is required before a block data
+	name.
+
+	PR fortran/16433
+	* primary.c (match_boz_constant): Call gfc_notify_std only if
+	we actually have a non-standard boz-literal-constant.
+
+	PR fortran/15754
+	* expr.c (gfc_check_assign): Print ranks if incompatible. Issue
+	warning if assigning NULL().
+
+2004-07-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* f95-lang.c (set_block): Remove.
+	(gfc_clear_binding_stack): New.
+	(LANG_HOOKS_CLEAR_BINDING_STACK): Define.
+	(struct binding_level): Remove block_created_by_back_end.
+	(clear_binding_level): Likewise.
+	(poplevel): Don't handle block_created_by_back_end.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-decl.c (gfc_create_module_variable): Nothing to do if
+	symbol is in common, because we ...
+	(gfc_generate_module_vars): Call gfc_trans_common.
+
+2004-07-10  Paul Brook  <paul@codesourcery.com>
+
+	* trans-array.c (gfc_build_null_descriptor): New function.
+	(gfc_trans_static_array_pointer): Use it.
+	* trans-array.h (gfc_build_null_descriptor): Add prototype.
+	* trans-expr.c (gfc_conv_structure): Handle array pointers.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	
+	PR fortran/16336
+	* decl.c (gfc_match_save): Use-associated common block
+	doesn't collide.
+	* gfortran.h (gfc_common_head): Add new field 'name'.
+	Fix typo in comment after #endif.
+	* match.c (gfc_get_common): Add new argument from_common,
+	mangle name if flag is set, fill in new field in structure
+	gfc_common_head.
+	(match_common): Set new arg in call to gfc_get_common,
+	use-associated common block doesn't collide.
+	* match.h (gfc_get_common): Adapt prototype.
+	* module.c (load_commons): Set new arg in call to
+	gfc_get_common.
+	* symbol.c (free_common_tree): New function.
+	(gfc_free_namespace): Call new function.
+	* trans-common.c (several functions): Remove argument
+	'name', use name from gfc_common_head instead.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* expr.c (gfc_check_pointer_assign): Verify that rank of the LHS
+	and RHS match. Return early if the RHS is NULL().
+
+	PR fortran/16336
+	* match.c (match_common): Fix error reporting for used common.
+
+	PR fortran/15969
+	* trans-expr.c (gfc_conv_structure): Handle initialization
+	of scalar pointer components.
+
+	* parse.c (decode_statement): Fix matching of BLOCK DATA.
+
+	* trans-decl.c (generate_local_decl): Remove workaround obsoleted
+	by fix for PR 15481.
+	
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-common.c: Fix whitespace issues, make variable names
+	more readable.
+	(create_common): Additionally, make loop logic more obvious.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13415
+	* trans-common.c (calculate_length): Remove ...
+	(get_segment_info): Merge into here.  Save field type.
+	(build_field): Use saved type.
+	(create_common, new_condition, new_segment, finish_equivalences):
+	Use new get_segment_info.
+	* trans-types.c: Update comment.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	
+	PR fortran/14077
+	* moduele.c (mio_symbol): Don't I/O initial values unless
+	symbol is a parameter.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	
+	PR fortran/13201
+	* resolve.c (resolve_symbol): Verify that the shape of a
+	parameter array is not only explicit, but also constant.
+	* array.c (gfc_is_compile_time_shape): New function.
+	* gfortran.h (gfc_is_compile_time_shape): Add prototype.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15481
+	PR fortran/13372
+	PR fortran/13575
+	PR fortran/15978
+	* module.c (write_symbol, write_symtree): Remove workaround.
+	* primary.c (match_actual_arglist): Enhance comment.
+	(gfc_match_rvalue): Handle function call with first argument
+	a keyword argument correctly.
+	* resolve.c (resolve_symbol): Change call to
+	gfc_set_default_type to issue error if no implicit type
+	can be found.
+	* trans-decl.c (gfc_create_module_variable): Remove workaround.
+	
+2004-07-08  Paul Brook  <paul@codesourcery.com>
+
+	* intrinsic.c (add_sym_4s): New function.
+	(add_subroutines): Change gfc_add_sym_? to gfc_add_sym_?s.
+
+2004-07-04  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15280
+	PR fortran/15665
+	* gfortran.h (enum gfc_generic_isym_id): Add GFC_ISYM_IARGC and
+	GFC_ISYM_COMMAND_ARGUMENT_COUNT.
+	* intrinsic.c (add_functions):  Identify iargc.  Add
+	command_argument_count.
+	(add_subroutines): Resolve getarg.  Add get_command and
+	get_command_argument.
+	* intrinsic.h (gfc_resolve_getarg, gfc_resolve_get_command,
+	gfc_resolve_get_command_argument): Add prototypes.
+	* iresolve.c (gfc_resolve_getarg, gfc_resolve_get_command,
+	gfc_resolve_get_command_argument): New functions.
+	* trans-decl.c (gfor_fndecl_iargc): New variable.
+	(gfc_build_intrinsic_function_decls): Set it.
+	* trans-intrinsic.c (gfc_conv_intrinsic_iargc): New function.
+	(gfc_conv_intrinsic_function): Use it.
+	* trans.h (gfor_fndecl_iargc): Declare.
+
+2004-07-04  Matthias Klose  <doko@debian.org>
+
+	* Make-lang.in: Generate and install gfortran man page.
+	* invoke.texi: Remove extra '@c man end'.
+
+2004-07-04  Richard Henderson  <rth@redhat.com>
+
+	* f95-lang.c (gfc_mark_addressable): Don't put_var_into_stack.
+
+2004-07-04  Paul Brook  <paul@codesourcery.com>
+
+	* decl.c (gfc_match_implicit_range): Don't use typespec.
+	(gfc_match_implicit): Handle character selectors.
+	* gfortran.h (gfc_set_implicit): Remove prototype.
+	(gfc_add_new_implicit_range, gfc_merge_new_implicit): Update.
+	* parse.c (accept_statement): Don't call gfc_set_implicit.
+	* symbol.c (new_ts): Remove.
+	(gfc_set_implicit_none): Use same loop bounds as other functions.
+	(gfc_set_implicit): Remove.
+	(gfc_clear_new_implicit, gfc_add_new_implicit_range): Only set flags.
+	(gfc_merge_new_implicit): Combine with gfc_set_implicit.
+
+2004-06-30  Richard Henderson  <rth@redhat.com>
+
+	* match.c (var_element): Remove unused variable.
+
+	* trans-decl.c (gfc_generate_function_code): Don't set
+	x_whole_function_mode_p.
+	(gfc_generate_constructors): Likewise.
+
+2004-06-30  Richard Henderson  <rth@redhat.com>
+
+	* trans-decl.c (gfc_generate_function_code): Don't set
+	immediate_size_expand.
+	(gfc_generate_constructors): Likewise.
+
+2004-06-30  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16161
+	* decl.c (gfc_match_type_spec): Rename second argument to
+	'implicit_flag', reverse meaning. Don't match_char_spec if
+	'implicit_flag' is set. Rename to ...
+	(match_type_spec): ... this.
+	(gfc_match_implicit_none, match_implicit_range): Move here
+	from match.c.
+	(gfc_match_implicit): Move here from match.c, try to
+	match_char_len if match_implicit_range doesn't succeed for
+	CHARACTER implicits. Call renamed fucntion match_type_spec.
+	(gfc_match_data_decl, match_prefix): Call renamed function
+	match_type_spec.
+	* match.c (gfc_match_implicit_none, match_implicit_range,
+	gfc_match_implicit): Move to decl.c.
+	* match.h (gfc_match_implicit_none, gfc_match_implicit):
+	Move protoypes to section 'decl.c'.
+	(gfc_match_type_spec): Remove prototype.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c, interface.c, symbol.c, trans-common.c: Add 2004 to 
+	copyright years.
+
+2004-06-29  Steven Bosscher  <stevenb@suse.de>
+
+	Make sure types in assignments are compatible.  Mostly mechanical.
+	* trans-const.h (gfc_index_one_node): New define.
+	* trans-array.c (gfc_trans_allocate_array_storage,
+	gfc_trans_allocate_temp_array, gfc_trans_array_constructor_subarray,
+	gfc_trans_array_constructor_value, gfc_trans_array_constructor,
+	gfc_conv_array_ubound, gfc_conv_array_ref,
+	gfc_trans_scalarized_loop_end, gfc_conv_section_startstride,
+	gfc_conv_ss_startstride, gfc_conv_loop_setup, gfc_array_init_size,
+	gfc_trans_array_bounds, gfc_trans_dummy_array_bias,
+	gfc_conv_expr_descriptor, gfc_trans_deferred_array): Use the correct
+	types in assignments, conversions and conditionals for expressions.
+	* trans-expr.c (gfc_conv_expr_present, gfc_conv_substring,
+	gfc_conv_unary_op, gfc_conv_cst_int_power, gfc_conv_string_tmp,
+	gfc_conv_function_call, gfc_trans_pointer_assignment,
+	gfc_trans_scalar_assign): Likewise.
+	* trans-intrinsic.c (build_fixbound_expr, gfc_conv_intrinsic_bound,
+	gfc_conv_intrinsic_anyall, gfc_conv_intrinsic_count,
+	gfc_conv_intrinsic_minmaxloc, gfc_conv_intrinsic_btest,
+	gfc_conv_intrinsic_singlebitop, gfc_conv_intrinsic_ishft,
+	gfc_conv_intrinsic_ishftc, gfc_conv_intrinsic_strcmp,
+	gfc_conv_allocated, gfc_conv_associated,
+	gfc_conv_intrinsic_rrspacing, gfc_conv_intrinsic_trim): Likewise.
+	* trans-io.c (set_string): Likewise.
+	* trans-stmt.c (gfc_trans_do, gfc_trans_forall_loop,
+	gfc_do_allocate, generate_loop_for_temp_to_lhs,
+	generate_loop_for_rhs_to_temp, compute_inner_temp_size,
+	compute_overall_iter_number, gfc_trans_assign_need_temp,
+	gfc_trans_pointer_assign_need_temp, gfc_trans_forall_1,
+	gfc_evaluate_where_mask, gfc_trans_where_assign,
+	gfc_trans_where_2): Likewise.
+	* trans-types.c (gfc_get_character_type, gfc_build_array_type,
+	gfc_get_nodesc_array_type, gfc_get_array_type_bounds): Likewise.
+
+	* trans.c (gfc_add_modify_expr): Add sanity check that types
+	for the lhs and rhs are the same for scalar assignments.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c (show_common): New function.
+	(gfc_show_namespace): Show commons.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Andrew Vaught  <andyv@firstinter.net>
+
+	PR fortran/13249
+	PR fortran/15481
+	* decl.c (gfc_match_save): Adapt to new common structures,
+	don't allow saving USE-associated common.
+	* dump-parse-tree (gfc_show_attr): (saved_)common are not
+	symbol attributes any longer.
+	(gfc_show_symbol): Don't show old-style commons any longer.
+	(gfc_show_namespace): Adapt call to gfc_traverse_symtree to new
+	interface.
+	* gfortran.h (symbol_attribute): Remove common and saved_common
+	attributes.
+	(gfc_symbol): Remove common_head element.
+	(gfc_common_head): New struct.
+	(gfc_get_common_head): New macro.
+	(gfc_symtree): Add field 'common' to union.
+	(gfc_namespace): Add field 'common_root'; change type of field
+	'blank_common' to blank_common.
+	(gfc_add_data): New prototype.
+	(gfc_traverse_symtree): Expect a symtree as first argument
+	instead of namespace.
+	* match.c (gfc_get_common): New function.
+	(match_common_name): Change to take char * as argument, adapt,
+	fix bug with empty name.
+	(gfc_match_common): Adapt to new data structures. Disallow
+	redeclaration of USE-associated COMMON-block. Fix bug with
+	empty common.
+	(var_element): Adapt to new common structures.
+	* match.h (gfc_get_common): Declare.
+	* module.c: Add 2004 to copyright years, add commons to module
+	file layout description.
+	(ab_attribute, attr_bits, mio_symbol_attributes): Remove code
+	for removed attributes.
+	(mio_symbol): Adapt to new way of storing common relations.
+	(load_commons): New function.
+	(read_module): Skip common list on first pass, load_commons at
+	second.
+	(write_commons): New function.
+	(write_module): Call write_commons().
+	* symbol.c (gfc_add_saved_comon, gfc_add_common): Remove
+	functions related to removed attributes.
+	(gfc_add_data): New function.
+	(gfc_clear_attr): Don't set removed attributes.
+	(gfc_copy_attr): Don't copy removed attributes.
+	(traverse_symtree): Remove.
+	(gfc_traverse_symtree): Don't traverse symbol 
+	tree of the passed namespace, but require a symtree to be passed
+	instead. Unify with traverse_symtree.
+	(gfc_traverse_ns): Call gfc_traverse_symtree according to new
+	interface.
+	(save_symbol): Remove setting of removed attribute.
+	* trans-common.c (gfc_sym_mangled_common_id): Change to
+	take 'char *' argument instead of 'gfc_symbol'.
+	(build_common_decl, new_segment, translate_common): Adapt to new
+	data structures, add new
+	argument name.
+	(create_common): Adapt to new data structures, add new
+	argument name. Fix typo in intialization of derived types.
+	(finish_equivalences): Add second argument in call to
+	create_common.
+	(named_common): take 'gfc_symtree' instead of 'gfc_symbol'.
+	(gfc_trans_common): Adapt to new data structures.
+	* trans-decl.c (gfc_create_module_variables): Remove test for 
+	removed attribute.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io.c: Add 2004 to copyright years.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Andrew Vaught  <andyv@firstinter.net>
+
+	* gfortran.h (gfc_gsymbol): New typedef.
+	(gfc_gsym_root): New variable.
+	(gfc_get_gsymbol, gfc_find_gsym): New prototypes.
+	* parse.c (global_used): New function.
+	(parse_block_data): Check for double empty BLOCK DATA,
+	use global symbol table.
+	(parse_module): Use global symbol table.
+	(add_global_procedure, add_global_program): New functions.
+	(gfc_parse_file): Use global symbol table.
+	* symbol.c (gfc_gsym_root): New variable.
+	(gfc_find_gsym, gsym_compare, gfc_get_gsymbol): New
+	functions.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* module.c (mio_gmp_real): Correct writing of negative numbers.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15963
+	* expr.c (check_intrinsic_op): Allow comparison of characters.
+	Make logic easier.
+
 2004-06-26  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 	Andrew Vaught  <andyv@firstinter.net>
 
