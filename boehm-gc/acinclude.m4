@@ -1,14 +1,27 @@
+# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+# 
+# THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
+# OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
+# 
+# Permission is hereby granted to use or copy this program
+# for any purpose,  provided the above notices are retained on all copies.
+# Permission to modify the code and to distribute modified code is granted,
+# provided the above notices are retained, and a notice that the code was
+# modified is included with the above copyright notice.
+#
+# Original author: Tom Tromey
+
 # FIXME: We temporarily define our own version of AC_PROG_CC.  This is
 # copied from autoconf 2.12, but does not call AC_PROG_CC_WORKS.  We
 # are probably using a cross compiler, which will not be able to fully
 # link an executable.  This should really be fixed in autoconf
 # itself.
 
-AC_DEFUN(BOEHM_CONFIGURE,
+AC_DEFUN(GC_CONFIGURE,
 [
 dnl Default to --enable-multilib
 AC_ARG_ENABLE(multilib,
-[  --enable-multilib         build many library versions (default)],
+[  --enable-multilib       build many library versions (default)],
 [case "${enableval}" in
   yes) multilib=yes ;;
   no)  multilib=no ;;
@@ -18,20 +31,22 @@ AC_ARG_ENABLE(multilib,
 dnl We may get other options which we don't document:
 dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
 
+dnl I needed to add the -n test to allow configuration in src directory - HB
 if test "[$]{srcdir}" = "."; then
-  if test "[$]{with_target_subdir}" != "."; then
-    boehm_gc_basedir="[$]{srcdir}/[$]{with_multisrctop}../$1"
+  if test "[$]{with_target_subdir}" != "." -a -n "[$]{with_target_subdir}"; then
+    gc_basedir="[$]{srcdir}/[$]{with_multisrctop}../$1"
   else
-    boehm_gc_basedir="[$]{srcdir}/[$]{with_multisrctop}$1"
+    gc_basedir="[$]{srcdir}/[$]{with_multisrctop}$1"
   fi
 else
-  boehm_gc_basedir="[$]{srcdir}/$1"
+  gc_basedir="[$]{srcdir}/$1"
 fi
-AC_SUBST(boehm_gc_basedir)
+AC_SUBST(gc_basedir)
+AC_CONFIG_AUX_DIR($gc_basedir)
 
-AC_CANONICAL_HOST
+AC_CANONICAL_SYSTEM
 
-AM_INIT_AUTOMAKE(boehm-gc, 4.13a2, no-define)
+AM_INIT_AUTOMAKE(gc, 6.0, no-define)
 
 # FIXME: We temporarily define our own version of AC_PROG_CC.  This is
 # copied from autoconf 2.12, but does not call AC_PROG_CC_WORKS.  We
@@ -41,6 +56,8 @@ AM_INIT_AUTOMAKE(boehm-gc, 4.13a2, no-define)
 
 AC_DEFUN(LIB_AC_PROG_CC,
 [AC_BEFORE([$0], [AC_PROG_CPP])dnl
+dnl Fool anybody using AC_PROG_CC.
+AC_PROVIDE([AC_PROG_CC])
 AC_CHECK_PROG(CC, gcc, gcc)
 if test -z "$CC"; then
   AC_CHECK_PROG(CC, cc, cc, , , /usr/ucb/cc)
@@ -76,6 +93,8 @@ LIB_AC_PROG_CC
 # Likewise for AC_PROG_CXX.
 AC_DEFUN(LIB_AC_PROG_CXX,
 [AC_BEFORE([$0], [AC_PROG_CXXCPP])dnl
+dnl Fool anybody using AC_PROG_CXX.
+AC_PROVIDE([AC_PROG_CXX])
 AC_CHECK_PROGS(CXX, $CCC c++ g++ gcc CC cxx cc++, gcc)
 test -z "$CXX" && AC_MSG_ERROR([no acceptable c++ found in \$PATH])
 
@@ -127,27 +146,37 @@ AM_MAINTAINER_MODE
 # automake happy, but we don't execute it, since we don't care about
 # the result.
 if false; then
+  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
+  # to nothing, so nothing would remain between `then' and `fi' if it
+  # were not for the `:' below.
+  :
   AC_EXEEXT
 fi
 
-. [$]{boehm_gc_basedir}/configure.host
+. [$]{srcdir}/configure.host
 
-case [$]{boehm_gc_basedir} in
-/* | [A-Za-z]:[/\\]*) boehm_gc_flagbasedir=[$]{boehm_gc_basedir} ;;
-*) boehm_gc_flagbasedir='[$](top_builddir)/'[$]{boehm_gc_basedir} ;;
+case [$]{gc_basedir} in
+/* | [A-Za-z]:[/\\]*) gc_flagbasedir=[$]{gc_basedir} ;;
+*) gc_flagbasedir='[$](top_builddir)/'[$]{gc_basedir} ;;
 esac
 
-boehm_gc_cflags="[$]{boehm_gc_cflags} -I"'[$](top_builddir)'"/$1/targ-include -I[$]{boehm_gc_flagbasedir}/libc/include"
+gc_cflags="[$]{gc_cflags} -I"'[$](top_builddir)'"/$1/targ-include -I[$]{gc_flagbasedir}/libc/include"
 case "${host}" in
   *-*-cygwin32*)
-    boehm_gc_cflags="[$]{boehm_gc_cflags} -I[$]{boehm_gc_flagbasedir}/../winsup/include"
+    gc_cflags="[$]{gc_cflags} -I[$]{gc_flagbasedir}/../winsup/include"
     ;;
 esac
 
-boehm_gc_cflags="[$]{boehm_gc_cflags} -fno-builtin"
+dnl gc_cflags="[$]{gc_cflags} -fno-builtin"
 
-BOEHM_GC_CFLAGS=${boehm_gc_cflags}
-AC_SUBST(BOEHM_GC_CFLAGS)
+GC_CFLAGS=${gc_cflags}
+AC_SUBST(GC_CFLAGS)
 ]))
 
 ))))
+
+sinclude(libtool.m4)
+dnl The line below arranges for aclocal not to bring a definition of
+dnl AM_PROG_LIBTOOL into aclocal.m4, while still arranging for automake
+dnl to add a definition of LIBTOOL to Makefile.in.
+ifelse(yes,no,[AC_DEFUN([AM_PROG_LIBTOOL],[AC_SUBST(LIBTOOL)])])
