@@ -5199,4 +5199,33 @@ is_essa_node (tree t)
   return false;
 }
 
+/* Checks whether IDX is in array bounds for ARRAY.  */
+
+bool
+in_array_bounds_p (tree array, tree idx)
+{
+  tree dom = TYPE_DOMAIN (TREE_TYPE (array));
+  tree min, max;
+
+  if (TREE_CODE (idx) != INTEGER_CST)
+    return false;
+	    
+  if (!dom)
+    return false;
+
+  min = TYPE_MIN_VALUE (dom);
+  max = TYPE_MAX_VALUE (dom);
+  if (!min
+      || !max
+      || TREE_CODE (min) != INTEGER_CST
+      || TREE_CODE (max) != INTEGER_CST)
+    return false;
+
+  if (tree_int_cst_lt (idx, min)
+      || tree_int_cst_lt (max, idx))
+    return false;
+
+  return true;
+}
+
 #include "gt-tree.h"

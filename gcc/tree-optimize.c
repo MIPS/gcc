@@ -84,6 +84,13 @@ optimize_function_tree (tree fndecl, tree *chain)
       verify_stmts ();
 #endif
 
+      /* Copy the loop headers.  */
+      if (flag_tree_loop)
+	{
+	  /* Should be on by default, but breaks some of the scev tests.  */
+	  copy_loop_headers (fndecl, TDI_copy_headers);
+	}
+
       /* Initialize common SSA structures.  */
       init_tree_ssa ();
 
@@ -141,15 +148,6 @@ optimize_function_tree (tree fndecl, tree *chain)
       verify_ssa ();
 #endif
 
-      if (flag_tree_loop)
-	{
-	  tree_ssa_loop_opt (fndecl, TDI_loop);
-
-#ifdef ENABLE_CHECKING
-	  verify_ssa ();
-#endif
-	}
-
       /* The must-alias pass removes the aliasing and addressability bits
 	 from variables that used to have their address taken.  */
       if (flag_tree_must_alias)
@@ -184,6 +182,16 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
           ggc_collect ();
+
+#ifdef ENABLE_CHECKING
+	  verify_ssa ();
+#endif
+	}
+
+      /* Run loop optimizations.  */
+      if (flag_tree_loop)
+	{
+	  tree_ssa_loop_opt (fndecl, TDI_loop);
 
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();

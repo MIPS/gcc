@@ -278,11 +278,13 @@ extern bool flow_loop_outside_edge_p (const struct loop *, edge);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
+struct loop *superloop_at_depth (struct loop *, unsigned);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
+extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
 
 extern edge loop_preheader_edge (const struct loop *);
@@ -352,3 +354,7 @@ loop_from_num (struct loops *loops,
 {
   return loops->parray[num];
 }
+
+/* Loop optimizer dump file.  */
+extern FILE *loop_dump_file;
+extern int loop_dump_flags;

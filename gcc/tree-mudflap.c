@@ -500,19 +500,8 @@ mf_xform_derefs_1 (tree_stmt_iterator *iter, tree *tp,
 
 	op0 = TREE_OPERAND (t, 0);
 	op1 = TREE_OPERAND (t, 1);
-	while (TREE_CODE (op1) == INTEGER_CST)
+	while (in_array_bounds_p (op0, op1))
 	  {
-	    tree dom = TYPE_DOMAIN (TREE_TYPE (op0));
-
-	    /* Test for index in range.  Break if not.  */
-	    if (!dom)
-	      break;
-	    if (!TYPE_MIN_VALUE (dom) || !TYPE_MAX_VALUE (dom))
-	      break;
-	    if (tree_int_cst_lt (op1, TYPE_MIN_VALUE (dom))
-		|| tree_int_cst_lt (TYPE_MAX_VALUE (dom), op1))
-	      break;
-
 	    /* If we're looking at a non-external VAR_DECL, then the 
 	       access must be ok.  */
 	    if (TREE_CODE (op0) == VAR_DECL && !DECL_EXTERNAL (op0))

@@ -448,6 +448,7 @@ rewrite_into_ssa (tree fndecl, bitmap vars, enum tree_dump_index phase)
 
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
+      dump_file = NULL;
     }
 
   /* Free allocated memory.  */
@@ -2475,8 +2476,7 @@ rewrite_trees (var_map map, tree *values)
   delete_elim_graph (g);
 
   /* If any copies were inserted on edges, actually insert them now.  */
-  bsi_commit_edge_inserts (0, NULL);
-
+  bsi_commit_edge_inserts (NULL);
 }
 
 /* Remove the variables specified in a var map from SSA form.  */
@@ -2649,7 +2649,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 	}
 
       /* If any copies were inserted on edges, actually insert them now.  */
-      bsi_commit_edge_inserts (0, NULL);
+      bsi_commit_edge_inserts (NULL);
                                                                                 
       /* Now register partitions for all instances of the variables we
 	 are taking out of SSA form.  */
@@ -2718,6 +2718,7 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
     {
       dump_function_to_file (fndecl, dump_file, dump_flags & ~TDF_VOPS);
       dump_end (phase, dump_file);
+      dump_file = NULL;
     }
 
   /* Flush out flow graph and SSA data.  */

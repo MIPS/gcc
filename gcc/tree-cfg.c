@@ -81,7 +81,6 @@ static GTY(()) tree factored_computed_goto;
 
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (tree, basic_block);
-static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
@@ -102,7 +101,8 @@ static edge tree_redirect_edge_and_branch (edge, basic_block);
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
 static int tree_verify_flow_info (void);
-static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
+static edge tree_make_forwarder_block (basic_block, bool (*) (edge),
+				       void (*) (basic_block));
 static struct loops *tree_loop_optimizer_init (FILE *);
 static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 static bool thread_jumps (void);
@@ -165,8 +165,8 @@ build_tree_cfg (tree *fnbody)
       /* Adjust the size of the array.  */
       VARRAY_GROW (basic_block_info, n_basic_blocks);
 
-      /* Create block annotations.  */
-      create_blocks_annotations ();
+      create_block_annotation (ENTRY_BLOCK_PTR);
+      create_block_annotation (EXIT_BLOCK_PTR);
 
       /* Create the edges of the flowgraph.  */
       make_edges ();
@@ -267,16 +267,6 @@ factor_computed_gotos (void)
           GOTO_DESTINATION (last) = factored_label_decl;
 	}
     }
-}
-
-/* Create annotations for all the basic blocks.  */
-
-static void create_blocks_annotations (void)
-{
-  basic_block bb;
-  
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    create_block_annotation (bb);
 }
 
 /* Create annotations for a single basic block.  */
@@ -382,6 +372,8 @@ create_bb (tree stmt_list, basic_block after)
 
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
+
+  create_block_annotation (bb);
 
   n_basic_blocks++;
   last_basic_block++;
@@ -2556,12 +2548,11 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 /* This routine will commit all pending edge insertions, creating any new
    basic blocks which are necessary.
 
-   If UPDATE_ANNOTATIONS is true, then new bitmaps are created for the
-   dominator children, and they are updated.  If specified, NEW_BLOCKS
-   returns a count of the number of new basic blocks which were created.  */
+   If specified, NEW_BLOCKS returns a count of the number of new basic blocks
+   which were created.  */
 
 void
-bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
+bsi_commit_edge_inserts (int *new_blocks)
 {
   basic_block bb;
   edge e;
@@ -2577,13 +2568,6 @@ bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
 
   if (new_blocks)
     *new_blocks = n_basic_blocks - blocks;
-
-  /* Expand arrays if we created new blocks and need to update them.  */
-  if (update_annotations && blocks != n_basic_blocks)
-    {
-      /* TODO. Unimplemented at the moment.  */
-      abort ();
-    }
 }
 
 
@@ -2668,8 +2652,13 @@ tree_split_edge (edge edge_in)
     after_bb = edge_in->src;
 
   new_bb = create_bb (NULL, after_bb);
-  create_block_annotation (new_bb);
   new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
+
+  if (edge_in->flags & EDGE_IRREDUCIBLE_LOOP)
+    {
+      new_edge->flags |= EDGE_IRREDUCIBLE_LOOP;
+      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+    }
 
   if (!tree_redirect_edge_and_branch_1 (edge_in, new_bb, true))
     abort ();
@@ -3137,29 +3126,22 @@ tree_verify_flow_info (void)
   return err;
 }
 
-/* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
-   marked as latch into entry part, analogically for REDIRECT_NONLATCH.
-   In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
-   between created entry part and BB as latch one.  Return created entry
-   part.  */
+/* Split BB into entry part and the rest (the rest is the newly created block).
+   Redirect those edges for that REDIRECT_EDGE_P returns true to the entry
+   part.  Returns the edge connecting the entry part to the rest.  */
 
-static basic_block
-tree_make_forwarder_block (basic_block bb, int redirect_latch,
-                           int redirect_nonlatch, edge except, int conn_latch)
+static edge
+tree_make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
+			   void (*new_bb_cbk) (basic_block) ATTRIBUTE_UNUSED)
 {
   edge e, next_e, new_e, fallthru;
   basic_block dummy;
   tree phi, new_phi, var;
   bool first;
 
-  free_dominance_info (CDI_DOMINATORS);
-
   fallthru = split_block (bb, NULL);
   dummy = fallthru->src;
-
-  alloc_aux_for_block (dummy, sizeof (int));
-  HEADER_BLOCK (dummy) = 0;
-  HEADER_BLOCK (bb) = 1;
+  bb = fallthru->dest;
 
   first = true;
 
@@ -3167,9 +3149,7 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
   for (e = dummy->pred; e; e = next_e)
     {
       next_e = e->pred_next;
-      if (e != except
-	  && ((redirect_latch && LATCH_EDGE (e))
-	      || (redirect_nonlatch && !LATCH_EDGE (e))))
+      if (redirect_edge_p (e))
 	continue;
 
       dummy->frequency -= EDGE_FREQUENCY (e);
@@ -3211,10 +3191,16 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
 	}
     }
 
-  alloc_aux_for_edge (fallthru, sizeof (int));
-  LATCH_EDGE (fallthru) = conn_latch;
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    {
+      basic_block doms_to_fix[2];
 
-  return dummy;
+      doms_to_fix[0] = dummy;
+      doms_to_fix[1] = bb;
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+    }
+
+  return fallthru;
 }
 
 /* Initialization of functions specific to the tree IR.  */
@@ -3270,6 +3256,10 @@ tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 {
   if (loops == NULL)
     return;
+
+#ifdef ENABLE_CHECKING
+  verify_loop_structure (loops);
+#endif
 
   /* Another dump.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);
@@ -3558,7 +3548,7 @@ tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
     return ret;
 
   if (e->dest == dest)
-    return NULL;
+    return e;
 
   label = tree_block_label (dest);
 
@@ -3643,55 +3633,116 @@ static edge
 tree_split_block (basic_block bb, void *stmt)
 {
   block_stmt_iterator bsi, bsi_tgt;
-  tree last, label;
-  basic_block dummy;
+  tree act;
+  basic_block new_bb;
   edge e;
 
-  dummy = create_bb (NULL, bb->prev_bb);
-  create_block_annotation (dummy);
-  dummy->count = bb->count;
-  dummy->frequency = bb->frequency;
-  dummy->loop_depth = bb->loop_depth;
+  new_bb = create_bb (NULL, bb);
+  new_bb->count = bb->count;
+  new_bb->frequency = bb->frequency;
+  new_bb->loop_depth = bb->loop_depth;
 
-  /* Redirect the incoming edges.  */
-  dummy->pred = bb->pred;
-  bb->pred = NULL;
-  for (e = dummy->pred; e; e = e->pred_next)
-    e->dest = dummy;
+  /* Redirect the outgoing edges.  */
+  new_bb->succ = bb->succ;
+  bb->succ = NULL;
+  for (e = new_bb->succ; e; e = e->succ_next)
+    e->src = new_bb;
 
-  /* Move the phi nodes to the dummy block.  */
-  set_phi_nodes (dummy, phi_nodes (bb));
-  set_phi_nodes (bb, NULL_TREE);
+  if (stmt && TREE_CODE ((tree) stmt) == LABEL_EXPR)
+    stmt = NULL;
 
-  /* Move everything up to BSI to the new basic block.  */
-  last = NULL_TREE;
-  for (bsi = bsi_start (bb), bsi_tgt = bsi_start (dummy); !bsi_end_p (bsi); )
+  /* Move everything from BSI to the new basic block.  */
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      label = bsi_stmt (bsi);
-      if (TREE_CODE (label) != LABEL_EXPR)
+      act = bsi_stmt (bsi);
+      if (TREE_CODE (act) == LABEL_EXPR)
+	continue;
+
+      if (!stmt)
 	break;
 
-      bsi_remove (&bsi);
-      bsi_insert_after (&bsi_tgt, label, BSI_NEW_STMT);
-      if (label == stmt)
-	last = label;
+      if (stmt == act)
+	{
+	  bsi_next (&bsi);
+	  break;
+	}
     }
 
-  while (!bsi_end_p (bsi) && last != stmt)
+  bsi_tgt = bsi_start (new_bb);
+  while (!bsi_end_p (bsi))
     {
-      last = bsi_stmt (bsi);
+      act = bsi_stmt (bsi);
       bsi_remove (&bsi);
-      bsi_insert_after (&bsi_tgt, last, BSI_NEW_STMT);
+      bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
     }
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
     {
-      set_immediate_dominator (CDI_DOMINATORS, dummy,
-	get_immediate_dominator (CDI_DOMINATORS, bb));
-      set_immediate_dominator (CDI_DOMINATORS, bb, dummy);
+      redirect_immediate_dominators (CDI_DOMINATORS, bb, new_bb);
+      set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
     }
 
-  return make_edge (dummy, bb, EDGE_FALLTHRU);
+  return make_edge (bb, new_bb, EDGE_FALLTHRU);
+}
+
+/* Splits block BB immediatelly after initial labels.  */
+
+static edge
+tree_split_block_after_labels (basic_block bb)
+{
+  return tree_split_block (bb, NULL);
+}
+
+/* Moves basic block BB after block AFTER.  */
+
+static void
+tree_move_block_after (basic_block bb, basic_block after)
+{
+  if (bb->prev_bb == after)
+    return;
+
+  unlink_block (bb);
+  link_block (bb, after);
+}
+
+/* Create a duplicate of the basic block BB and redirect edge E into it.  Does
+   not work over ssa.  */
+
+basic_block
+tree_duplicate_bb (basic_block bb, edge e)
+{
+  edge s, n;
+  basic_block new_bb;
+  block_stmt_iterator bsi, bsi_tgt;
+
+  if (e->dest != bb)
+    abort ();
+
+  new_bb = create_bb (NULL, e->src);
+  bsi_tgt = bsi_start (new_bb);
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      tree stmt = bsi_stmt (bsi);
+
+      if (TREE_CODE (stmt) == LABEL_EXPR)
+	continue;
+
+      bsi_insert_after (&bsi_tgt, unshare_expr (stmt), BSI_NEW_STMT);
+    }
+
+  new_bb->loop_depth = bb->loop_depth;
+  new_bb->flags = bb->flags;
+  for (s = bb->succ; s; s = s->succ_next)
+    {
+      /* Since we are creating edges from a new block to successors
+	 of another block (which therefore are known to be disjoint), there
+	 is no need to actually check for duplicated edges.  */
+      n = unchecked_make_edge (new_bb, s->dest, s->flags);
+    }
+
+  redirect_edge_and_branch_force (e, new_bb);
+
+  return new_bb;
 }
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
@@ -3916,6 +3967,8 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
   NULL,				/* delete_basic_block  */
   tree_split_block,		/* split_block  */
+  tree_split_block_after_labels,/* split_block_after_labels  */
+  tree_move_block_after,	/* move_block_after  */
   NULL,				/* can_merge_blocks_p  */
   NULL,				/* merge_blocks  */
   tree_split_edge,		/* cfgh_split_edge  */

@@ -76,6 +76,7 @@ static rtx last_loop_beg_note (rtx);
 static bool back_edge_of_syntactic_loop_p (basic_block, basic_block);
 basic_block force_nonfallthru_and_redirect (edge, basic_block);
 static basic_block rtl_split_edge (edge);
+static edge rtl_split_block_after_labels (basic_block);
 static int rtl_verify_flow_info (void);
 static edge cfg_layout_split_block (basic_block, void *);
 static edge cfg_layout_redirect_edge_and_branch (edge, basic_block);
@@ -88,8 +89,8 @@ static edge rtl_split_block (basic_block, void *);
 static void rtl_dump_bb (basic_block, FILE *, int);
 static int rtl_verify_flow_info_1 (void);
 static void mark_killed_regs (rtx, rtx, void *);
-static basic_block rtl_make_forwarder_block (basic_block, int, int, edge, int);
-static void redirect_edge_with_latch_update (edge, basic_block);
+static edge rtl_make_forwarder_block (basic_block, bool (*) (edge),
+				      void (*) (basic_block));
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
@@ -499,6 +500,13 @@ rtl_split_block (basic_block bb, void *insnp)
     e->src = new_bb;
 
   new_edge = make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    {
+      add_to_dominance_info (CDI_DOMINATORS, new_bb);
+      redirect_immediate_dominators (CDI_DOMINATORS, bb, new_bb);
+      set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
+    }
 
   if (bb->global_live_at_start)
     {
@@ -2737,15 +2745,14 @@ cfg_layout_split_edge (edge e)
   return new_bb;
 }
 
-/* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
-   marked as latch into entry part, analogically for REDIRECT_NONLATCH.
-   In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
-   between created entry part and BB as latch one.  Return created entry
-   part.  */
+/* Split BB into entry part and the rest (the rest is the newly created block).
+   Redirect those edges for that REDIRECT_EDGE_P returns true to the entry
+   part.  Returns the edge connecting the entry part to the rest.  Call
+   NEW_BB_CALLBACK for every block created due to edge redirection.  */
 
-static basic_block
-rtl_make_forwarder_block (basic_block bb, int redirect_latch,
-                          int redirect_nonlatch, edge except, int conn_latch)
+static edge
+rtl_make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
+			  void (*new_bb_callback) (basic_block))
 {
   edge e, next_e, fallthru;
   basic_block dummy;
@@ -2761,49 +2768,57 @@ rtl_make_forwarder_block (basic_block bb, int redirect_latch,
   dummy = fallthru->src;
   bb = fallthru->dest;
 
-  bb->aux = xmalloc (sizeof (int));
-  HEADER_BLOCK (dummy) = 0;
-  HEADER_BLOCK (bb) = 1;
-
   /* Redirect back edges we want to keep.  */
   for (e = dummy->pred; e; e = next_e)
     {
+      basic_block jump;
+
       next_e = e->pred_next;
-      if (e == except
-	  || !((redirect_latch && LATCH_EDGE (e))
-	       || (redirect_nonlatch && !LATCH_EDGE (e))))
-	{
-	  dummy->frequency -= EDGE_FREQUENCY (e);
-	  dummy->count -= e->count;
-	  if (dummy->frequency < 0)
-	    dummy->frequency = 0;
-	  if (dummy->count < 0)
-	    dummy->count = 0;
-	  redirect_edge_with_latch_update (e, bb);
-	}
+      if (redirect_edge_p (e))
+	continue;
+
+      dummy->frequency -= EDGE_FREQUENCY (e);
+      dummy->count -= e->count;
+      if (dummy->frequency < 0)
+	dummy->frequency = 0;
+      if (dummy->count < 0)
+	dummy->count = 0;
+ 
+      jump = redirect_edge_and_branch_force (e, bb);
+      if (jump)
+	new_bb_callback (jump);
     }
 
-  alloc_aux_for_edge (fallthru, sizeof (int));
-  LATCH_EDGE (fallthru) = conn_latch;
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    {
+      basic_block doms_to_fix[2];
 
-  return dummy;
+      doms_to_fix[0] = fallthru->src;
+      doms_to_fix[1] = fallthru->dest;
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+    }
+
+  return fallthru;
 }
 
-/* Redirect edge and update latch and header info.  */
-static void
-redirect_edge_with_latch_update (edge e, basic_block to)
-{
-  basic_block jump;
+/* Splits block BB immediately after the initial label.  */
 
-  jump = redirect_edge_and_branch_force (e, to);
-  if (jump)
+static edge
+rtl_split_block_after_labels (basic_block bb)
+{
+  rtx insn = first_insn_after_basic_block_note (bb);
+
+  if (insn)
+    insn = PREV_INSN (insn);
+  else
+    insn = get_last_insn ();
+  if (insn == bb->end)
     {
-      alloc_aux_for_block (jump, sizeof (int));
-      HEADER_BLOCK (jump) = 0;
-      alloc_aux_for_edge (jump->pred, sizeof (int));
-      LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
-      LATCH_EDGE (jump->pred) = 0;
+      /* Split_block would not split block after its end.  */
+      emit_note_after (NOTE_INSN_DELETED, insn);
     }
+
+  return split_block (bb, insn);
 }
 
 /* Declarations from cfgloop.h.  */
@@ -2819,6 +2834,8 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_redirect_edge_and_branch_force,
   rtl_delete_block,
   rtl_split_block,
+  rtl_split_block_after_labels,
+  NULL,
   rtl_can_merge_blocks,  /* can_merge_blocks_p */
   rtl_merge_blocks,
   rtl_split_edge,
@@ -2839,6 +2856,8 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   cfg_layout_redirect_edge_and_branch_force,
   cfg_layout_delete_block,
   cfg_layout_split_block,
+  rtl_split_block_after_labels,
+  NULL,
   cfg_layout_can_merge_blocks_p,
   cfg_layout_merge_blocks,
   cfg_layout_split_edge,

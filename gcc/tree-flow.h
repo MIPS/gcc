@@ -424,13 +424,14 @@ extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
-extern void bsi_commit_edge_inserts (bool, int *);
+extern void bsi_commit_edge_inserts (int *);
 extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
+extern basic_block tree_duplicate_bb (basic_block, edge);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -521,8 +522,10 @@ extern void propagate_copy (tree *, tree);
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree, enum tree_dump_index);
 
-/* In tree-ssa-loop.c  */
+/* In tree-ssa-loop*.c  */
 void tree_ssa_loop_opt (tree, enum tree_dump_index);
+void copy_loop_headers (tree, enum tree_dump_index);
+void tree_ssa_lim (struct loops *loops);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

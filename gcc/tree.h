@@ -2637,6 +2637,7 @@ extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
 extern tree build_vector_type (tree, int);
 extern tree array_type_nelts (tree);
+extern bool in_array_bounds_p (tree, tree);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
@@ -3590,16 +3591,17 @@ enum tree_dump_index
 
   /* Optimization passes.  The ordering and numbering of these phases must
      be the same as the one in optimize_function_tree.  */
+  TDI_copy_headers,
   TDI_ssa_1,
   TDI_dom_1,
   TDI_ssa_2,
   TDI_dce_1,
-  TDI_loop,
   TDI_mustalias,
   TDI_ssa_3,
   TDI_tail1,			/* dump after tail recursion elimination  */
   TDI_sra,
   TDI_ssa_4,
+  TDI_loop,
   TDI_ccp,
   TDI_ssa_5,
   TDI_pre,

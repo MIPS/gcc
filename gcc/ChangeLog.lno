@@ -1,3 +1,94 @@
+2004-01-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfghooks.h (struct cfg_hooks): New fields split_block_after_labels
+	and move_block_after, type of cfgh_make_forwarder_block field changed.
+	(HEADER_BLOCK, LATCH_EDGE): Moved to cfgloop.c.
+	(split_block_after_labels, move_block_after): New macros.
+	(make_forwarder_block): Changed.
+	* cfgloop.c (HEADER_BLOCK, LATCH_EDGE): Moved from cfghooks.h.
+	(update_latch_info, mfb_keep_just, mfb_keep_nonlatch,
+	fill_sons_in_loop): New functions.
+	(canonicalize_loop_headers): Changed due to changes in
+	make_forwarder_block.
+	* cfgloopmanip.c (split_loop_bb): Don't update dominators.
+	(create_preheader): Use make_forwarder_block.
+	(mfb_keep_just, mfb_update_loops): New.
+	* cfgrtl.c (rtl_split_block_after_labels): New.
+	(redirect_edge_with_latch_update): Removed.
+	(rtl_make_forwarder_block): New sematics.
+	(rtl_split_block): Update dominators.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hooks):
+	Add rtl_split_block_after_labels.
+	* tree-cfg.c (tree_make_forwarder_block): Changed semantics.
+	(create_blocks_annotations): Removed.
+	(build_tree_cfg): Don't call create_blocks_annotations.
+	(create_bb): Create annotations for a new block.
+	(tree_split_edge): Don't call create_block_annotation.
+	Update irreducible loop information.
+	(tree_loop_optimizer_finalize): Add loop structure check.
+	(tree_redirect_edge_and_branch_1): Return the original edge if
+	no redirecting is neccessary.
+	(tree_split_block): Make the semantics same as for rtl_split_block.
+	(tree_split_block_after_labels, tree_move_block_after): New.
+	(tree_cfg_hooks): Add tree_split_block_after_labels and
+	tree_move_block_after.
+
+	* cfgloopanal.c (mark_irreducible_loops): Fix.
+	* loop-unswitch.c (unswitch_loop): Fix.
+
+	* Makefile.in (tree-ssa-loop.o): Add cfgloop.h and tree-inline.h
+	dependency.
+	* jump.c (next_nonnote_insn_in_loop, duplicate_loop_exit_test,
+	copy_loop_headers): Removed.
+	* rtl.h (copy_loop_headers): Declaration removed.
+	* toplev.c (rest_of_compilation): Do not call loop header copying.
+	* tree-dump.c (dump_files): Add .ch dump.
+	* tree-flow.h (tree_duplicate_bb, copy_loop_headers): Declare.
+	* tree-optimize.c (optimize_function_tree): Add loop header copying
+	pass.
+	* tree-ssa-loop.c: Include cfgloop.h and tree-inline.h.
+	(dump_file, dump_flags): Renamed to loop_dump_file and
+	loop_dump_flags.
+	(call_expr_p, should_duplicate_loop_header_p, copy_loop_headers):
+	New.
+	* tree.h (enum tree_dump_index): Add ch dump.
+	* doc/invoke.texi (-fdump-tree-copy-headers): Document.
+	* testsuite/gcc.dg/tree-ssa/20030711-1.c: Update test outcome.
+	* testsuite/gcc.dg/tree-ssa/20030714-2.c: Ditto.
+	* testsuite/gcc.dg/tree-ssa/copy-headers.c: New test.
+	* tree-cfg.c (tree_duplicate_bb): New function.
+
+	* tree-ssa-loop-im.c: New file.
+	* Makefile.in (tree-ssa-loop-im.o): Add.
+	* params.def (PARAM_LIM_EXPENSIVE): New parameter.
+	* tree-dump.c (dump_files): Move .loop dump.
+	* cfgloop.h (superloop_at_depth, get_loop_body_in_dom_order): Declare.
+	(loop_dump_file, loop_dump_flags): Declare variables.
+	* cfgloop.c (superloop_at_depth, get_loop_body_in_dom_order): New
+	functions.
+	* tree-flow.h (struct stmt_ann_d): Add aux field.
+	(bsi_commit_edge_inserts): Declaration changed.
+	(tree_ssa_lim): Declare.
+	* tree-mudflap.c (mf_xform_derefs_1): Use in_array_bounds_p.
+	* tree-optimize.c (optimize_function_tree): Move loop optimization
+	pass.
+	* tree-sra.c (scalarize_structures): Modified due to
+	bsi_commit_edge_inserts change.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Call tree_ssa_lim.
+	* tree-ssa.c (rewrite_trees, rewrite_vars_out_of_ssa): Modified due to
+	bsi_commit_edge_inserts change.
+	* tree.c (in_array_bounds_p): New function.
+	* tree.h (in_array_bounds_p): Declare.
+	(enum tree_dump_index): Move loop dump.
+	* tree-cfg.c (bsi_commit_edge_inserts): Don't take update_annotations
+	argument.
+
+	* tree-ssa.c (rewrite_into_ssa, rewrite_out_of_ssa): Ensure that the
+	closed files are not used.
+
+	* tree-tailcall.c (find_tail_calls, eliminate_tail_call): Update
+	phi nodes for vdefs of the eliminated call.
+
 2004-01-03  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-optimize.c (optimize_function_tree): Move the closing brace of

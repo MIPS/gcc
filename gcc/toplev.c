@@ -3270,12 +3270,6 @@ rest_of_compilation (tree decl)
 
   create_loop_notes ();
 
-  if (optimize)
-    {
-      free_bb_for_insn ();
-      copy_loop_headers (insns);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-    }
   purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);

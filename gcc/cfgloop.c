@@ -35,6 +35,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    considered to belong to inner loop with same header.  */
 #define HEAVY_EDGE_RATIO 8
 
+#define HEADER_BLOCK(B) (* (int *) (B)->aux)
+#define LATCH_EDGE(E) (*(int *) (E)->aux)
+
 static void flow_loops_cfg_dump (const struct loops *, FILE *);
 static void flow_loop_entry_edges_find (struct loop *);
 static void flow_loop_exit_edges_find (struct loop *);
@@ -96,6 +99,20 @@ flow_loop_nested_p (const struct loop *outer, const struct loop *loop)
 {
   return loop->depth > outer->depth
 	 && loop->pred[outer->depth] == outer;
+}
+
+/* Returns superloop of LOOP at given DEPTH.  */
+
+struct loop *
+superloop_at_depth (struct loop *loop, unsigned depth)
+{
+  if (depth > (unsigned) loop->depth)
+    abort ();
+
+  if (depth == (unsigned) loop->depth)
+    return loop;
+
+  return loop->pred[depth];
 }
 
 /* Dump the loop information specified by LOOP to the stream FILE
@@ -547,7 +564,41 @@ flow_loop_scan (struct loop *loop, int flags)
   return 1;
 }
 
+/* A callback to update latch and header info for basic block JUMP created
+   by redirecting an edge.  */
+
+static void
+update_latch_info (basic_block jump)
+{
+  alloc_aux_for_block (jump, sizeof (int));
+  HEADER_BLOCK (jump) = 0;
+  alloc_aux_for_edge (jump->pred, sizeof (int));
+  LATCH_EDGE (jump->pred) = 0;
+}
+
+/* A callback for make_forwarder block, to redirect all edges except for
+   MFB_KJ_EDGE to the entry part.  E is the edge for that we should decide
+   whether to redirect it.  */
+
+static edge mfb_kj_edge;
+static bool
+mfb_keep_just (edge e)
+{
+  return e != mfb_kj_edge;
+}
+
+/* A callback for make_forwarder block, to redirect the latch edges into an
+   entry part.  E is the edge for that we should decide whether to redirect
+   it.  */
+
+static bool
+mfb_keep_nonlatch (edge e)
+{
+  return LATCH_EDGE (e);
+}
+
 /* Takes care of merging natural loops with shared headers.  */
+
 static void
 canonicalize_loop_headers (void)
 {
@@ -604,19 +655,10 @@ canonicalize_loop_headers (void)
 
   FOR_EACH_BB (header)
     {
-      int num_latch;
-      int want_join_latch;
       int max_freq, is_heavy;
-      edge heavy;
+      edge heavy, tmp_edge;
 
-      if (!HEADER_BLOCK (header))
-	continue;
-
-      num_latch = HEADER_BLOCK (header);
-
-      want_join_latch = (num_latch > 1);
-
-      if (!want_join_latch)
+      if (HEADER_BLOCK (header) <= 1)
 	continue;
 
       /* Find a heavy edge.  */
@@ -642,13 +684,28 @@ canonicalize_loop_headers (void)
 
       if (is_heavy)
 	{
-	  basic_block new_header =
-	    make_forwarder_block (header, true, true, heavy, 0);
-	  if (num_latch > 2)
-	    make_forwarder_block (new_header, true, false, NULL, 1);
+	  /* Split out the heavy edge, and create inner loop for it.  */
+	  mfb_kj_edge = heavy;
+	  tmp_edge = make_forwarder_block (header, mfb_keep_just,
+					   update_latch_info);
+	  alloc_aux_for_block (tmp_edge->dest, sizeof (int));
+	  HEADER_BLOCK (tmp_edge->dest) = 1;
+	  alloc_aux_for_edge (tmp_edge, sizeof (int));
+	  LATCH_EDGE (tmp_edge) = 0;
+	  HEADER_BLOCK (header)--;
 	}
-      else
-	make_forwarder_block (header, true, false, NULL, 1);
+
+      if (HEADER_BLOCK (header) > 1)
+	{
+	  /* Create a new latch block.  */
+	  tmp_edge = make_forwarder_block (header, mfb_keep_nonlatch,
+					   update_latch_info);
+	  alloc_aux_for_block (tmp_edge->dest, sizeof (int));
+	  HEADER_BLOCK (tmp_edge->src) = 0;
+	  HEADER_BLOCK (tmp_edge->dest) = 1;
+	  alloc_aux_for_edge (tmp_edge, sizeof (int));
+	  LATCH_EDGE (tmp_edge) = 1;
+	}
     }
 
   free_aux_for_blocks ();
@@ -885,6 +942,7 @@ glb_enum_p (basic_block bb, void *glb_header)
 /* Gets basic blocks of a LOOP.  Header is the 0-th block, rest is in dfs
    order against direction of edges from latch.  Specially, if
    header != latch, latch is the 1-st block.  */
+
 basic_block *
 get_loop_body (const struct loop *loop)
 {
@@ -915,6 +973,62 @@ get_loop_body (const struct loop *loop)
 
   if (tv != loop->num_nodes)
     abort ();
+  return tovisit;
+}
+
+/* Fills dominance descendants inside LOOP of the basic block BB into
+   array TOVISIT from index *TV.  */
+
+static void
+fill_sons_in_loop (const struct loop *loop, basic_block bb,
+		   basic_block *tovisit, int *tv)
+{
+  basic_block son, postpone = NULL;
+
+  tovisit[(*tv)++] = bb;
+  for (son = first_dom_son (CDI_DOMINATORS, bb);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    {
+      if (!flow_bb_inside_loop_p (loop, son))
+	continue;
+
+      if (dominated_by_p (CDI_DOMINATORS, loop->latch, son))
+	{
+	  postpone = son;
+	  continue;
+	}
+      fill_sons_in_loop (loop, son, tovisit, tv);
+    }
+
+  if (postpone)
+    fill_sons_in_loop (loop, postpone, tovisit, tv);
+}
+
+/* Gets body of a LOOP (that must be different from the outermost loop)
+   sorted by dominance relation.  Additionally, if a basic block s dominates
+   the latch, then only blocks dominated by s are be after it.  */
+
+basic_block *
+get_loop_body_in_dom_order (const struct loop *loop)
+{
+  basic_block *tovisit;
+  int tv;
+
+  if (!loop->num_nodes)
+    abort ();
+
+  tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
+
+  if (loop->latch == EXIT_BLOCK_PTR)
+    abort ();
+
+  tv = 0;
+  fill_sons_in_loop (loop, loop->header, tovisit, &tv);
+
+  if (tv != (int) loop->num_nodes)
+    abort ();
+
   return tovisit;
 }
 

@@ -258,6 +258,13 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "The maximum length of path considered in cse",
 	 10)
 
+/* The cost of expression in loop invariant motion to be considered
+   expensive.  */
+DEFPARAM(PARAM_LIM_EXPENSIVE,
+	 "lim-expensive",
+	 "The minimum cost of expensive expression in the loop invariant motion",
+	 20)
+
 #ifdef ENABLE_GC_ALWAYS_COLLECT
 # define GGC_MIN_EXPAND_DEFAULT 0
 # define GGC_MIN_HEAPSIZE_DEFAULT 0

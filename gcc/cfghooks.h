@@ -51,6 +51,12 @@ struct cfg_hooks
   /* Split basic block B after specified instruction I.  */
   edge (*split_block) (basic_block b, void * i);
 
+  /* Split basic block B immediatelly after labels.  */
+  edge (*split_block_after_labels) (basic_block b);
+
+  /* Move block B immediatelly after block A.  */
+  void (*move_block_after) (basic_block b, basic_block a);
+
   /* Return true when blocks A and B can be merged into single basic block.  */
   bool (*can_merge_blocks_p) (basic_block a, basic_block b);
 
@@ -60,25 +66,25 @@ struct cfg_hooks
   /* Higher level functions representable by primitive operations above if
      we didn't have some oddities in RTL and Tree representations.  */
   basic_block (*cfgh_split_edge) (edge);
-  basic_block (*cfgh_make_forwarder_block) (basic_block, int, int, edge, int);
+  edge (*cfgh_make_forwarder_block) (basic_block, bool (*)(edge),
+				     void (*) (basic_block));
   struct loops *(*cfgh_loop_optimizer_init) (FILE *);
   void (*cfgh_loop_optimizer_finalize) (struct loops *, FILE *);
 };
 
 #define redirect_edge_and_branch(e,b)        cfg_hooks->redirect_edge_and_branch (e,b)
 #define redirect_edge_and_branch_force(e,b)  cfg_hooks->redirect_edge_and_branch_force (e,b)
-#define split_block(e,i)                     cfg_hooks->split_block (e,i)
+#define split_block(b,i)                     cfg_hooks->split_block (b,i)
+#define split_block_after_labels(b)          cfg_hooks->split_block_after_labels (b)
+#define move_block_after(b, a)               cfg_hooks->move_block_after (b, a)
 #define delete_basic_block(b)                cfg_hooks->delete_basic_block (b)
 #define split_edge(e)                        cfg_hooks->cfgh_split_edge (e)
 #define create_basic_block(h,e,a)            cfg_hooks->create_basic_block (h,e,a)
 #define can_merge_blocks_p(a,b)		     cfg_hooks->can_merge_blocks_p (a,b)
 #define merge_blocks(a,b)		     cfg_hooks->merge_blocks (a,b)
-#define make_forwarder_block(a, b, c, d, e)  cfg_hooks->cfgh_make_forwarder_block (a, b, c, d, e)
+#define make_forwarder_block(a, b, c)        cfg_hooks->cfgh_make_forwarder_block (a, b, c)
 #define loop_optimizer_init(a)               cfg_hooks->cfgh_loop_optimizer_init (a)
 #define loop_optimizer_finalize(a, b)        cfg_hooks->cfgh_loop_optimizer_finalize (a, b)
-
-#define HEADER_BLOCK(B) (* (int *) (B)->aux)
-#define LATCH_EDGE(E) (*(int *) (E)->aux)
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;
