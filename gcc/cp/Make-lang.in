@@ -1,5 +1,5 @@
 # Top level -*- makefile -*- fragment for GNU C++.
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
 #   Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
@@ -306,6 +306,8 @@ cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \
 	$(SYSTEM_H) toplev.h $(GGC_H) gt-cp-parse.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
 		$(srcdir)/cp/parse.c $(OUTPUT_OPTION)
+cp/cp-simplify.o: cp/cp-simplify.c $(CXX_TREE_H) toplev.h c-common.h
+
 #
 # These exist for maintenance purposes.
 

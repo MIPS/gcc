@@ -1,3 +1,7 @@
+2002-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (cp/cp-simplify.o): New.
+
 2002-06-18  Jason Merrill  <jason@redhat.com>
 
 	* cp-simplify.c: New file.
