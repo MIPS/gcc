@@ -8,6 +8,9 @@
 	
 2004-01-19  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.c (insert_phi_nodes_for): Always use fully pruned
+	SSA form.
+ 
 	* tree-flow.h: Update copyright dates.
 	(register_new_def): Declare.
 	* tree-ssa-dom.c: Update copyright dates.

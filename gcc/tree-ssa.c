@@ -3193,8 +3193,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
-  unsigned phi_vector_lengths = 0;
-  int use_fully_pruned_ssa = 0;
   int bb_index;
 
   def_map = get_def_blocks_for (var);
@@ -3214,14 +3212,12 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
      which are added to the worklist are potential sites for
      PHI nodes. 
 
-     The iteration step could be done during PHI insertion.  But
-     finding all the PHI insertion blocks first allows us to use
-     that list of blocks in our heuristics to determine if we should
-     use semi-pruned for fully-pruned SSA forms. 
+     The iteration step could be done during PHI insertion just as
+     easily.  We do it here for historical reasons -- we used to have
+     a heuristic which used the potential PHI insertion points to
+     determine if fully pruned or semi pruned SSA form was appropriate.
 
-     While we're iterating we also compute the total length of all the
-     PHI node vectors for this variable.  We use this in our 
-     heuristic.  */
+     We now always use fully pruned SSA form.  */
   while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
     {
       basic_block bb = VARRAY_TOP_BB (work_stack);
@@ -3236,39 +3232,20 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  phi_vector_lengths += bb_ann (bb)->num_preds;
 	  VARRAY_PUSH_BB (work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
 
-  /* Now that we know the number of elements in all the potential
-     PHI nodes for this variable, we can determine if it is 
-     worth computing the fully pruned SSA form.  The larger the
-     total number of elements, the more important it is to use
-     the fully pruned form.
- 
-     Experimentation showed that once we get more than 8 phi vector
-     entries that moving to a fully-pruned implementation is comparable
-     to semi-pruned.  32 showed up as the threshold which maximized
-     overall compile-time performance. 
+  /* Now compute global livein for this variable.  Note this modifies
+     def_map->livein_blocks.  */
+  compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
 
-     Note that as this number gets larger, the potential for the
-     compiler to run wild and eat all available memory increases. 
-     So if you decide to change it, do so with care.  Consider
-     compile/20001226-1 with all memory references disambiguated
-     as the testcase for the compiler running wild eating memory.  */
-  if (phi_vector_lengths > 64)
+  /* And insert the PHI nodes.  */
+  EXECUTE_IF_AND_IN_BITMAP (phi_insertion_points, def_map->livein_blocks,
+			    0, bb_index,
     {
-      use_fully_pruned_ssa = 1;
-      compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
-    }
-
-  EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index,
-    {
-      if (! use_fully_pruned_ssa
-	  || bitmap_bit_p (def_map->livein_blocks, bb_index))
-	create_phi_node (var, BASIC_BLOCK (bb_index));
+      create_phi_node (var, BASIC_BLOCK (bb_index));
     });
 
   phi_insertion_points = NULL;
