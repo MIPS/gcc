@@ -1,3 +1,7 @@
+2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c (rename_1): Add some more comments.
+
 2004-01-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/13748

@@ -1503,7 +1503,15 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 
 /* Renaming is done like Open64 does it.  Basically as the paper says, 
    except that we try to use earlier defined occurrences if they are
-   available in order to keep the number of saves down.  */
+   available in order to keep the number of saves down.
+
+   For the uninitiated, the algorithm is a modified SSA renaming
+   algorithm (working on expressions rather than variables) .  We
+   attempt to determine which expression occurrences have the same
+   ESSA version (we call it class, for equivalence class, which is
+   what the papers call it.  Open64 calls it e-version), and which
+   occurrences are actually operands for an EPHI (since this has to be
+   discovered from the program).  */
 
 static void
 rename_1 (struct expr_info *ei)
@@ -1515,46 +1523,77 @@ rename_1 (struct expr_info *ei)
 
   VARRAY_GENERIC_PTR_NOGC_INIT (stack, 1, "Stack for renaming");
 
+  /* Start by inserting the occurrences in preorder, dominator tree
+     order.  */
   insert_occ_in_preorder_dt_order (ei);
   
+  /* Walk the occurrences.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
       occur = VARRAY_TREE (ei->euses_dt_order, i);
       
+      /* The current occurrence can't have the same version as
+	 something on the top of the stack unless it is in a basic
+	 block dominated by the basic block of the occurrence on the
+	 top of the stack.  */
       while (VARRAY_ACTIVE_SIZE (stack) > 0	     
 	     && !dominated_by_p (CDI_DOMINATORS,
 			     	 bb_for_stmt (occur),
 				 bb_for_stmt (VARRAY_TOP_TREE (stack))))
 	
 	VARRAY_POP (stack);
+
+      /* If the stack is empty, we assign a new version since it isn't
+	 dominated by any other version.  */
       if (VARRAY_TOP_TREE (stack) == NULL || VARRAY_ACTIVE_SIZE (stack) == 0)
 	{
 	  if (TREE_CODE (occur) == EPHI_NODE)
 	    assign_new_class (occur, &stack, NULL);
 	  else if (TREE_CODE (occur) == EUSE_NODE && !EUSE_PHIOP (occur))
 	    assign_new_class (occur, &stack, NULL);
-
 	}
       else
 	{
 	  if (TREE_CODE (occur) == EUSE_NODE && !EUSE_PHIOP (occur))
 	    {
 	      tree tos = VARRAY_TOP_TREE (stack);
+
 	      if (TREE_CODE (tos) == EUSE_NODE && !EUSE_PHIOP (tos))
 		{
+		  /* If two real occurrences have the same
+		     e-version/class, then this occurrence can be
+		     defined by the prior occurrence (or whatever
+		     the prior occurrence is defined by, if
+		     anything).  
+		     Otherwise, we have to assign a new version.
+		     lvalue occurrences always need a new version,
+		     since they are definitions. */
 		  if (!EUSE_LVAL (occur) 
 		      && same_e_version_real_occ_real_occ (ei, tos, occur))
 		    {
+		      
+		     
 		      tree newdef;
 		      EREF_CLASS (occur) = EREF_CLASS (tos);
 		      newdef = EUSE_DEF (tos) != NULL ? EUSE_DEF (tos) : tos;
 		      EUSE_DEF (occur) = newdef;
-		    }
+		    }		 
 		  else
 		    assign_new_class (occur, &stack, NULL);
 		}
 	      else if (TREE_CODE (tos) == EPHI_NODE)
 		{
+		  /* Here we have an ephi occurrence at the top of the
+		     stack, and the current occurrence is a real
+		     occurrence.  So determine if the real occurrence
+		     has the same version as the result of the phi.  
+		     If so, then this real occurrence is defined by the
+		     EPHI at the top of the stack.
+		     If not, the EPHI isn't downsafe (because something
+		     must change in between the ephi result and the next
+		     occurrence), and we need a new version for the real
+		     occurrence.
+		     lvalues always need a new version. */
 		  if (!EUSE_LVAL (occur)
 		      && same_e_version_phi_result (ei, tos, EREF_STMT (occur),
 						    occur))
@@ -1572,10 +1611,15 @@ rename_1 (struct expr_info *ei)
 		    }
 		}
 	    }
+	  /* EPHI occurrences always get new versions. */
 	  else if (TREE_CODE (occur) == EPHI_NODE)
-	    {
+	    {	      
 	      assign_new_class (occur, &stack, NULL);
 	    }
+	  /* EPHI operands are optimistcally assumed to be whatever is
+	     at the top of the stack at the time we hit the ephi
+	     operand occurrence.  The delayed renaming checks this
+	     optimistic assumption for validity.  */
 	  else if (TREE_CODE (occur) == EUSE_NODE && EUSE_PHIOP (occur))
 	    {
 	      basic_block pred_bb = bb_for_stmt (occur);
@@ -1593,6 +1637,7 @@ rename_1 (struct expr_info *ei)
 		    }
 		}	      
 	    }
+	  /* No EPHI can be downsafe past an exit node.  */
 	  else if (TREE_CODE (occur) == EEXIT_NODE)
 	    {
 	      if (VARRAY_ACTIVE_SIZE (stack) > 0
@@ -1614,6 +1659,10 @@ rename_1 (struct expr_info *ei)
 	  fprintf (tree_dump_file, "\n");
 	}
     }
+
+  /* Now process the renames for EPHI's that actually have the result
+     valid and used.  These will be the EPHI's that have the statement
+     set above.  */
   FOR_EACH_BB (phi_bb)
   {
     tree ephi = ephi_at_block (phi_bb);
