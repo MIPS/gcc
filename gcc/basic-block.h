@@ -236,7 +236,7 @@ typedef struct basic_block_def {
   /* The loop depth of this block.  */
   int loop_depth;
 
-  /* Outermost loop containing the block.  */
+  /* Innermost loop containing the block.  */
   struct loop *loop_father;
 
   /* Expected number of executions: calculated in profile.c.  */

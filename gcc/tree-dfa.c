@@ -2248,7 +2248,7 @@ add_referenced_var (var, walk_state)
 	{
 	  *slot = (void *) var;
 	  VARRAY_PUSH_TREE (aliased_objects, var);
-	  VARRAY_PUSH_INT (aliased_objects_alias_set, get_alias_set (var));
+	  VARRAY_PUSH_WIDE_INT (aliased_objects_alias_set, get_alias_set (var));
 	  num_aliased_objects++;
 
 	  /* If the variable is not read-only, it may also be clobbered by

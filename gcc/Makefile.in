@@ -1518,7 +1518,8 @@ tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
-   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h langhooks.h
+   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h langhooks.h \
+   cfgloop.h
 tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
@@ -1530,7 +1531,7 @@ tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) flags.h output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
-   $(TREE_DUMP_H) except.h langhooks.h
+   $(TREE_DUMP_H) except.h langhooks.h cfgloop.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
@@ -1538,7 +1539,7 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h tree-alias-common.h \
-   $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) cfgloop.h
+   $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H)
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h $(TREE_SIMPLE_H) varray.h flags.h \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \

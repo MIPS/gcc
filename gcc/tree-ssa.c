@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
+#include "cfgloop.h"
 
 /* This file builds the SSA form for a function as described in:
 
@@ -158,6 +159,10 @@ struct ssa_stats_d
 
 static struct ssa_stats_d ssa_stats;
 
+#if 1
+/* FIXME: [UNSSA] Remove this once overlapping live ranges are allowed.  */
+static struct loops *loops = NULL;
+#endif
 
 /* Local functions.  */
 static void init_tree_ssa		PARAMS ((void));
@@ -307,6 +312,12 @@ rewrite_into_ssa (fndecl)
   
   timevar_push (TV_TREE_SSA_OTHER);
 
+#if 1
+  /* FIXME: [UNSSA] Remove once overlapping live ranges are allowed.  */
+  if (loops == NULL)
+    loops = loop_optimizer_init (NULL);
+#endif
+
   /* Initialize common SSA structures.  */
   init_tree_ssa ();
 
@@ -348,6 +359,15 @@ rewrite_into_ssa (fndecl)
   htab_delete (currdefs);
   htab_delete (avail_exprs);
   htab_delete (const_and_copies);
+
+#if 1
+  /* FIXME: [UNSSA] Remove this once overlapping live ranges are allowed.  */
+  if (loops)
+    {
+      loop_optimizer_finalize (loops, NULL);
+      loops = NULL;
+    }
+#endif
 
   /* Debugging dumps.  */
   if (tree_ssa_dump_file)
@@ -2148,7 +2168,9 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	  TREE_OPERAND (stmt, 1) = cached_lhs;
 	  ann->modified = 1;
 #else
-	  if (cached_lhs && get_value_for (*def_p, currdefs) == cached_lhs)
+	  if (cached_lhs
+	      && get_value_for (*def_p, currdefs) == cached_lhs
+	      && var_is_live (cached_lhs, ann->bb))
 	    {
 	      /* A redundant assignment to the same lhs, perhaps a new
                  evaluation of an expression temporary that is still live.
@@ -2157,6 +2179,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	      bsi_remove (&si);
 	      return;
 	    }
+
 	  if (var_is_live (cached_lhs, ann->bb))
 	    {
 	      register_new_def (*def_p, cached_lhs, block_defs_p);
@@ -2683,6 +2706,7 @@ var_is_live (var, bb)
      tree var;
      basic_block bb;
 {
+  int i;
   basic_block def_bb;
   struct def_blocks_d *def_map;
   tree real_var = SSA_NAME_VAR (var);
@@ -2701,15 +2725,42 @@ var_is_live (var, bb)
 
      If there are any blocks between VAR's definition block and BB where
      VAR is defined again, then two versions of VAR are live at the same
-     time.  */
+     time.  Notice that this heuristic assumes that blocks in the path from
+     DEF_BB to BB will be numbered in ascending order.  This is only true
+     when the CFG is initially built.  But since we only use this in the
+     SSA renaming pass, it should still be safe to assume.  Another
+     limitation is that if there exists another overlapping definition for
+     VAR in block BB, this code will not realize that.  */
   def_map = get_def_blocks_for (real_var);
   def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
   if (def_bb && bitmap_first_set_bit (def_map->def_blocks) >= 0)
-    {
-      int i;
-      EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, def_bb->index + 1, i,
-	return ((i < bb->index) ? false : true));
-    }
+    EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, def_bb->index + 1, i,
+      { if (i < bb->index) return false; });
+
+  /* VAR doesn't have definitions between DEF_BB and BB.  If BB is inside a
+     loop but DEF_BB is outside BB's loop, we may still have definitions
+     below BB wrapping around in cases where the pruned SSA form has
+     removed a PHI function for VAR at the header block for the loop.  */
+  {
+    if (def_bb
+	&& loops
+	&& bb->loop_depth > 0
+	&& (def_bb->loop_depth == 0
+	    || !flow_bb_inside_loop_p (bb->loop_father, def_bb)))
+      EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, bb->index + 1, i,
+	{
+	  basic_block other_def_bb = BASIC_BLOCK (i);
+
+	  /* If BB is inside the same loop L as the other definition block
+	     (OTHER_DEF_BB), definition at OTHER_DEF_BB wraps around and
+	     reaches VAR at BB.  Meaning that the other definition at
+	     OTHER_DEF_BB overlaps with VAR at DEF_BB.  */
+	  if (flow_bb_inside_loop_p (other_def_bb->loop_father, bb)
+	      || flow_bb_inside_loop_p (bb->loop_father, other_def_bb))
+	    return false;
+	});
+  }
+
 
   return true;
 }

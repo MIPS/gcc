@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "toplev.h"
 #include "except.h"
+#include "cfgloop.h"
    
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -243,6 +244,22 @@ build_tree_cfg (fnbody)
 	  make_edges ();
 	}
     }
+
+#if 0
+  {
+    /* The loop analyzer should be initialized right after the CFG
+       construction because some loops will need latch blocks, and these
+       need to be added before we do anything else.  If you use this
+       structure you'll have to ensure that optimizers don't invalidate the
+       information gathered in the loops structure via modifications to the
+       underlying structure: the CFG.  */
+    struct loops *loops = loop_optimizer_init (NULL);
+
+    /* Once initialized, it's not really necessary to keep the loop data
+       structures around.  They may be rescanned using flow_loops_find.  */
+    loop_optimizer_finalize (loops, NULL);
+  }
+#endif
 
   timevar_pop (TV_TREE_CFG);
 
