@@ -1,3 +1,77 @@
+2005-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/alpha/t-osf4, config/arm/t-netbsd, config/ia64/t-hpux
+	* config/pa/t-hpux-shlib (SHLIB_INSTALL): Create the
+	installation directory first.
+
+2005-02-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR rtl-optimization/17728
+	* pa.md (mulsi3, divsi3, udivsi3, modsi3): Change predicate for
+	operand 0 from general_operand to move_dest_operand.
+
+2005-02-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/elf.h, pa/som.h (ASM_OUTPUT_EXTERNAL): Use assemble_name_raw
+	instead of trying to save and restore TREE_SYMBOL_REFERENCED.
+	* pa/pa64-hpux.h (ASM_OUTPUT_TYPE_DIRECTIVE): Define.
+	(ASM_OUTPUT_EXTERNAL): Don't save and restore TREE_SYMBOL_REFERENCED.
+
+2005-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/20188
+	* tree-ssa-alias.c (count_uses_and_derefs): If we have TREE_LIST
+	for the lhs, also walk over the tree.  Likewise for rhs.
+
+2005-02-26  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi, doc/standards.texi: Refer to
+	gcc-4.0/c99status.html.
+
+2005-02-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* doc/extend.texi (5.24 Declaring Attributes of Functions)<noreturn>:
+	Clarify that the alternative way doesn't work in GNU C++.
+
+2005-02-25  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/19930
+	* doc/tm.texi (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Document.
+	(LIBGCC2_HAS_DF_MODE): New.
+	(LIBGCC2_HAS_XF_MODE): New.
+	(LIBGCC2_HAS_TF_MODE): New.
+	* libgcc2.h (LIBGCC2_HAS_XF_MODE): New name for HAVE_XFMODE.
+	(LIBGCC2_HAS_TF_MODE): New name for HAVE_TFMODE.
+	* libgcc2.c (LIBGCC2_HAS_XF_MODE): New name for HAVE_XFMODE.
+	(LIBGCC2_HAS_TF_MODE): New name for HAVE_TFMODE.
+	(LIBGCC2_HAS_DF_MODE): New name for HAVE_DFMODE.
+	* config/ia64/t-ia64 (LIB1ASMFUNCS): Remove __compat
+	and add _fixtfdi, _fixunstfdi, _floatditf
+	* lib1funcs.asm: Remove L__compat. Add L_fixtfdi,
+	L_fixunstfdi, L_floatditf.
+	* config/ia64/hpux.h (LIBGCC2_HAS_XF_MODE): Define.
+	(LIBGCC2_HAS_TF_MODE): Define.
+
+2005-02-25  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/20204
+	* tree-into-ssa.c (insert_phi_nodes_for): Do not use
+	REWRITE_THIS_STMT markers on PHI nodes.
+	(rewrite_initialize_block): Likewise.
+
+2005-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Mark as prerelease.
+	* doc/include/gcc-common.texi (DEVELOPMENT): @clear it.
+	* configure.ac (is_release): Set to 1.
+	* configure: Regenerated.
+
+2005-02-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/19937
+	* tree-ssa-loop-ivopts.c (rewrite_use_compare): Cast the final value
+	to the type of the induction variable.
+
 2005-02-25  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	PR rtl-optimization/20117
@@ -194,9 +268,9 @@
 2005-02-22  Devang Patel  <dpatel@apple.com>
 
 	PR 19952
-	* tree-if-conv.c (process_phi_nodes): Use bsi_after_labels and skip 
+	* tree-if-conv.c (process_phi_nodes): Use bsi_after_labels and skip
 	all labels
-	
+
 2005-02-22  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/aix.h (WINT_TYPE): Define.
@@ -242,7 +316,7 @@
 	numbering at LAST_VIRTUAL_REGISTER+1 to avoid possibly using hard
 	registers in unsupported ways.
 	* expmed.c (init_expmed): Likewise.
-	
+
 2005-02-21  Stan Cox  <scox@redhat.com>
 
 	* config/iq2000/iq2000.h (DWARF_FRAME_RETURN_COLUMN): Change to 31.

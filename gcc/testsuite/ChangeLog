@@ -1,3 +1,51 @@
+2005-02-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/boz_1.f90: New test.
+	* gfortran.dg/boz_3.f90: New test.
+	* gfortran.dg/boz_4.f90: New test.
+
+2005-02-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/ishft.f90:  Remove kind suffix from BOZ constant
+	* gfortran.fortran-torture/execute/intrinsic_mvbits.f90: ditto
+
+2005-02-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20101
+	* gfortran.dg/write_0_pe_format.f90: New test.
+
+2005-02-27  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/e_d_fmt.f90: New test.
+
+2005-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20206
+	* g++.dg/opt/thunk2.C: New test.
+	* g++.dg/opt/covariant1.C: New test.
+
+2005-02-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/inline_asm-2.c: link_error produces
+	a V_MAY_DEF also.
+
+2005-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/20188
+	* gcc.dg/tree-ssa/inline_asm-1.c: New test.
+	* gcc.dg/tree-ssa/inline_asm-2.c: New test.
+	* gcc.dg/asm-b.c: New test.
+
+2005-02-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: New file.
+	Disable this test on IRIX 6.
+
+2005-02-25  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/20204
+	* testsuite/gcc.dg/pr20204.c: New test.
+
 2005-02-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/20196

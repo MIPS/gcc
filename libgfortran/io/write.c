@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -375,7 +375,8 @@ output_float (fnode *f, double value, int len)
     case FMT_E:
     case FMT_D:
       i = g.scale_factor;
-      e -= i;
+      if (value != 0.0)
+	e -= i;
       if (i < 0)
 	{
 	  nbefore = 0;
@@ -395,7 +396,7 @@ output_float (fnode *f, double value, int len)
 	  nafter = d;
 	}
 
-      if (ft = FMT_E)
+      if (ft == FMT_E)
 	expchar = 'E';
       else
 	expchar = 'D';
