@@ -1,3 +1,31 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-03  Richard Stallman  <rms@gnu.org>
+            Eben Moglen  <moglen@columbia.edu>
+
+	* README.SCO: New file.
+
+2003-07-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.tpl: Fix typos in the last change.
+	* Makefile.in: Regenerated.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* config-ml.in: Replace PWD with PWD_COMMAND.
+	* Makefile.tpl: Likewise.
+	* Makefile.in: Regenerated.
+
 2003-06-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* configure.in: Don't pass --with-stabs for mips*-sgi-irix6*o32.

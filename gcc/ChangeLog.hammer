@@ -1,3 +1,7 @@
+Thu Aug 14 15:08:13 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from gcc_3_3_1_release branch.
+
 2003-08-13  Josef Zlomek  <zlomekj@suse.cz>
 
 	* combine.c (force_to_mode <ASHIFT>): Fix segfault.
