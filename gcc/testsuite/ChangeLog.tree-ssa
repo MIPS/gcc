@@ -1,3 +1,8 @@
+2004-04-03  Andrew Pinski <pinskia@physics.uc.edu>
+
+	* lib/gfortran.exp: Sync LD_LIBRARY_PATH part from
+	lib/g++.exp.
+
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
 
 	PR 14831
