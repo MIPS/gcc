@@ -1,3 +1,74 @@
+2004-12-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (AM_MAKEFLAGS): Remove duplicate LIBCFLAGS and
+	PICFLAG.
+	* Makefile.in: Regenerated.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* configure, aclocal.m4, Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-11-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure: Regenerate for libtool change.
+
+2004-11-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure: Regenerate for libtool reversion.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure: Regenerate for libtool change.
+
+2004-11-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* testsuite/lib/libffi-dg.exp: Use new procs in target-libpath.exp.
+
+2004-11-23  Richard Sandiford  <rsandifo@redhat.com>
+
+	* src/mips/o32.S (ffi_call_O32, ffi_closure_O32): Use jalr instead
+	of jal.  Use an absolute encoding for the frame information.
+
+2004-11-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Remove no-dependencies.  Add ACLOCAL_AMFLAGS.
+	* acinclude.m4: Delete logic for sincludes.
+	* aclocal.m4, Makefile.in, configure: Regenerate.
+	* include/Makefile: Likewise.
+	* testsuite/Makefile: Likewise.
+
+2004-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* src/sparc/ffi.c (ffi_prep_closure): Align doubles and 64-bit integers
+	on a 8-byte boundary.
+	* src/sparc/v8.S (ffi_closure_v8): Reserve frame space for arguments.
+
+2004-10-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	* src/arm/ffi.c (ffi_prep_cif_machdep): Handle functions that return
+	long long values.  Round stack allocation to a multiple of 8 bytes
+	for ATPCS compatibility.
+	* src/arm/sysv.S (ffi_call_SYSV): Rework to avoid use of APCS register
+	names.  Handle returning long long types.  Add Thumb and interworking
+	support.  Improve soft-float code.
+
+2004-10-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	* testsuite/lib/libffi-db.exp (load_gcc_lib): New function.
+	(libffi_exit): New function.
+	(libffi_init): Build the testglue wrapper if needed.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libffi-dg.exp: Accept more than one multilib libgcc.
+
+2004-10-25  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* src/m32r/libffitarget.h (FFI_CLOSURES): Set to 0.
+
 2004-10-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* src/sh/sysv.S (ffi_call_SYSV): Don't align for double data.

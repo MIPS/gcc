@@ -42,7 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "splay-tree.h"
 #include "bitmap.h"
 #include "langhooks.h"
 
@@ -307,7 +306,7 @@ static alloc_pool value_set_node_pool;
 static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
-static struct obstack grand_bitmap_obstack;
+static bitmap_obstack grand_bitmap_obstack;
 
 /* Set of blocks with statements that have had its EH information
    cleaned up.  */
@@ -364,7 +363,7 @@ expr_pred_trans_eq (const void *p1, const void *p2)
     return false;
 
   /* If they are for the same basic block, determine if the
-     expressions are equal.   */  
+     expressions are equal.  */  
   if (expressions_equal_p (ve1->e, ve2->e))
     return true;
   
@@ -463,10 +462,7 @@ value_insert_into_set_bitmap (value_set_t set, tree v)
   gcc_assert (set->indexed);
 
   if (set->values == NULL)
-    {
-      set->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
-      bitmap_clear (set->values);
-    }
+    set->values = BITMAP_ALLOC (&grand_bitmap_obstack);
 
   bitmap_set_bit (set->values, VALUE_HANDLE_ID (v));
 }
@@ -478,10 +474,8 @@ static bitmap_set_t
 bitmap_set_new (void)
 {
   bitmap_set_t ret = pool_alloc (bitmap_set_pool);
-  ret->expressions = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
-  ret->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
-  bitmap_clear (ret->expressions);
-  bitmap_clear (ret->values);
+  ret->expressions = BITMAP_ALLOC (&grand_bitmap_obstack);
+  ret->values = BITMAP_ALLOC (&grand_bitmap_obstack);
   return ret;
 }
 
@@ -658,6 +652,7 @@ bitmap_set_replace_value (bitmap_set_t set, tree lookfor, tree expr)
     return;
   if (!bitmap_set_contains_value (set, lookfor))
     return;
+
   /* The number of expressions having a given value is usually
      significantly less than the total number of expressions in SET.
      Thus, rather than check, for each expression in SET, whether it
@@ -719,13 +714,17 @@ set_equal (value_set_t a, value_set_t b)
   return true;
 }
 
-/* Replace an instance of EXPR's VALUE with EXPR in SET.  */
+/* Replace an instance of EXPR's VALUE with EXPR in SET if it exists,
+   and add it otherwise. */
 
 static void
 bitmap_value_replace_in_set (bitmap_set_t set, tree expr)
 {
   tree val = get_value_handle (expr);
-  bitmap_set_replace_value (set, val, expr);
+  if (bitmap_set_contains_value (set, val))
+    bitmap_set_replace_value (set, val, expr);
+  else
+    bitmap_insert_into_set (set, expr);
 }
 
 /* Insert EXPR into SET if EXPR's value is not already present in
@@ -769,18 +768,20 @@ bitmap_print_value_set (FILE *outfile, bitmap_set_t set,
   fprintf (outfile, "%s[%d] := { ", setname, blockindex);
   if (set)
     {
-      int i;
+      bool first = true;
+      unsigned i;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (set->expressions, 0, i, bi)
 	{
+	  if (!first)
+	    fprintf (outfile, ", ");
+	  first = false;
 	  print_generic_expr (outfile, ssa_name (i), 0);
 	
 	  fprintf (outfile, " (");
 	  print_generic_expr (outfile, get_value_handle (ssa_name (i)), 0);
 	  fprintf (outfile, ") ");
-	  if (bitmap_last_set_bit (set->expressions) != i)
-	    fprintf (outfile, ", ");
 	}
     }
   fprintf (outfile, " }\n");
@@ -867,7 +868,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_reference:
-      /* XXX: Until we have PRE of loads working, none will be ANTIC. */
+      /* XXX: Until we have PRE of loads working, none will be ANTIC.  */
       return NULL;
 
     case tcc_binary:
@@ -926,22 +927,21 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
     case tcc_exceptional:
       {
 	tree phi = NULL;
-	int i;
+	edge e;
 	gcc_assert (TREE_CODE (expr) == SSA_NAME);
 	if (TREE_CODE (SSA_NAME_DEF_STMT (expr)) == PHI_NODE)
 	  phi = SSA_NAME_DEF_STMT (expr);
 	else
 	  return expr;
 	
-	for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	  if (PHI_ARG_EDGE (phi, i)->src == pred)
-	    {
-	      tree val;
-	      if (is_undefined_value (PHI_ARG_DEF (phi, i)))
-		return NULL;
-	      val = vn_lookup_or_add (PHI_ARG_DEF (phi, i), NULL);
-	      return PHI_ARG_DEF (phi, i);
-	    }
+	e = find_edge (pred, bb_for_stmt (phi));
+	if (e)
+	  {
+	    if (is_undefined_value (PHI_ARG_DEF (phi, e->dest_idx)))
+	      return NULL;
+	    vn_lookup_or_add (PHI_ARG_DEF (phi, e->dest_idx), NULL);
+	    return PHI_ARG_DEF (phi, e->dest_idx);
+	  }
       }
       return expr;
 
@@ -1107,20 +1107,19 @@ DEF_VEC_MALLOC_P (basic_block);
 
 /* Compute the ANTIC set for BLOCK.
 
-ANTIC_OUT[BLOCK] = intersection of ANTIC_IN[b] for all succ(BLOCK), if
-succs(BLOCK) > 1
-ANTIC_OUT[BLOCK] = phi_translate (ANTIC_IN[succ(BLOCK)]) if
-succs(BLOCK) == 1
+   If succs(BLOCK) > 1 then
+     ANTIC_OUT[BLOCK] = intersection of ANTIC_IN[b] for all succ(BLOCK)
+   else if succs(BLOCK) == 1 then
+     ANTIC_OUT[BLOCK] = phi_translate (ANTIC_IN[succ(BLOCK)])
 
-ANTIC_IN[BLOCK] = clean(ANTIC_OUT[BLOCK] U EXP_GEN[BLOCK] -
-TMP_GEN[BLOCK])
+   ANTIC_IN[BLOCK] = clean(ANTIC_OUT[BLOCK] U EXP_GEN[BLOCK] - TMP_GEN[BLOCK])
 
-Iterate until fixpointed.
+   Iterate until fixpointed.
 
-XXX: It would be nice to either write a set_clear, and use it for
-antic_out, or to mark the antic_out set as deleted at the end
-of this routine, so that the pool can hand the same memory back out
-again for the next antic_out.  */
+   XXX: It would be nice to either write a set_clear, and use it for
+   ANTIC_OUT, or to mark the antic_out set as deleted at the end
+   of this routine, so that the pool can hand the same memory back out
+   again for the next ANTIC_OUT.  */
 
 
 static bool
@@ -1283,15 +1282,8 @@ compute_antic (void)
 static tree
 find_or_generate_expression (basic_block block, tree expr, tree stmts)
 {
-  tree genop;
-  genop = bitmap_find_leader (AVAIL_OUT (block), expr);
-  /* Depending on the order we process DOM branches in, the value
-     may not have propagated to all the dom children yet during
-     this iteration.  In this case, the value will always be in
-     the NEW_SETS for us already, having been propagated from our
-     dominator.  */
-  if (genop == NULL)
-    genop = bitmap_find_leader (NEW_SETS (block), expr);
+  tree genop = bitmap_find_leader (AVAIL_OUT (block), expr);
+
   /* If it's still NULL, see if it is a complex expression, and if
      so, generate it recursively, otherwise, abort, because it's
      not really .  */
@@ -1379,8 +1371,13 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     }
   v = get_value_handle (expr);
   vn_add (name, v, NULL);
-  bitmap_insert_into_set (NEW_SETS (block), name);
-  bitmap_value_insert_into_set (AVAIL_OUT (block), name);
+
+  /* The value may already exist in either NEW_SETS, or AVAIL_OUT, because
+     we are creating the expression by pieces, and this particular piece of
+     the expression may have been represented.  There is no harm in replacing
+     here.  */
+  bitmap_value_replace_in_set (NEW_SETS (block), name); 
+  bitmap_value_replace_in_set (AVAIL_OUT (block), name);
   if (dump_file && (dump_flags & TDF_DETAILS))
     {				    
       fprintf (dump_file, "Inserted ");
@@ -1389,6 +1386,90 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     }
   return name;
 }
+
+/* Insert the to-be-made-available values of NODE for each predecessor, stored
+   in AVAIL, into the predecessors of BLOCK, and merge the result with a phi
+   node, given the same value handle as NODE.  The prefix of the phi node is
+   given with TMPNAME*/
+
+static bool
+insert_into_preds_of_block (basic_block block, value_set_node_t node,
+			    tree *avail, const char *tmpname)
+{
+  tree val = get_value_handle (node->expr);
+  edge pred;
+  basic_block bprime;
+  tree eprime;
+  edge_iterator ei;
+  tree type = TREE_TYPE (avail[EDGE_PRED (block, 0)->src->index]);
+  tree temp;
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Found partial redundancy for expression ");
+      print_generic_expr (dump_file, node->expr, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  /* Make the necessary insertions.  */
+  FOR_EACH_EDGE (pred, ei, block->preds)
+    {
+      tree stmts = alloc_stmt_list ();
+      tree builtexpr;
+      bprime = pred->src;
+      eprime = avail[bprime->index];
+      if (BINARY_CLASS_P (eprime)
+	  || UNARY_CLASS_P (eprime))
+	{
+	  builtexpr = create_expression_by_pieces (bprime,
+						   eprime,
+						   stmts);
+	  bsi_insert_on_edge (pred, stmts);
+	  avail[bprime->index] = builtexpr;
+	}			      
+    }
+  /* Now build a phi for the new variable.  */
+  temp = create_tmp_var (type, tmpname);
+  add_referenced_tmp_var (temp);
+  temp = create_phi_node (temp, block);
+ 
+  FOR_EACH_EDGE (pred, ei, block->preds)
+    add_phi_arg (temp, avail[pred->src->index], pred);
+  
+  vn_add (PHI_RESULT (temp), val, NULL);
+  
+  /* The value should *not* exist in PHI_GEN, or else we wouldn't be doing
+     this insertion, since we test for the existence of this value in PHI_GEN
+     before proceeding with the partial redundancy checks in insert_aux.
+     
+     The value may exist in AVAIL_OUT, in particular, it could be represented
+     by the expression we are trying to eliminate, in which case we want the
+     replacement to occur.  If it's not existing in AVAIL_OUT, we want it
+     inserted there.
+     
+     Similarly, to the PHI_GEN case, the value should not exist in NEW_SETS of
+     this block, because if it did, it would have existed in our dominator's
+     AVAIL_OUT, and would have been skipped due to the full redundancy check.
+  */
+
+  bitmap_insert_into_set (PHI_GEN (block),
+			  PHI_RESULT (temp));
+  bitmap_value_replace_in_set (AVAIL_OUT (block), 
+			       PHI_RESULT (temp));
+  bitmap_insert_into_set (NEW_SETS (block),
+			  PHI_RESULT (temp));
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Created phi ");
+      print_generic_expr (dump_file, temp, 0);
+      fprintf (dump_file, " in block %d\n", block->index);
+    }
+  pre_stats.phis++;
+  return true;
+}
+
+
       
 /* Perform insertion of partially redundant values.
    For BLOCK, do the following:
@@ -1404,6 +1485,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
    3. Recursively call ourselves on the dominator children of BLOCK.
 
 */
+
 static bool
 insert_aux (basic_block block)
 {
@@ -1416,14 +1498,20 @@ insert_aux (basic_block block)
       dom = get_immediate_dominator (CDI_DOMINATORS, block);
       if (dom)
 	{
-	  int i;
+	  unsigned i;
 	  bitmap_iterator bi;
-
 	  bitmap_set_t newset = NEW_SETS (dom);
-	  EXECUTE_IF_SET_IN_BITMAP (newset->expressions, 0, i, bi)
+	  if (newset)
 	    {
-	      bitmap_insert_into_set (NEW_SETS (block), ssa_name (i));
-	      bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
+	      /* Note that we need to value_replace both NEW_SETS, and
+		 AVAIL_OUT. For both the case of NEW_SETS, the value may be
+		 represented by some non-simple expression here that we want
+		 to replace it with.  */
+	      EXECUTE_IF_SET_IN_BITMAP (newset->expressions, 0, i, bi)
+		{
+		  bitmap_value_replace_in_set (NEW_SETS (block), ssa_name (i));
+		  bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
+		}
 	    }
 	  if (EDGE_COUNT (block->preds) > 1)
 	    {
@@ -1443,7 +1531,7 @@ insert_aux (basic_block block)
 		      tree first_s = NULL;
 		      edge pred;
 		      basic_block bprime;
-		      tree eprime;
+		      tree eprime = NULL_TREE;
 		      edge_iterator ei;
 
 		      val = get_value_handle (node->expr);
@@ -1505,11 +1593,9 @@ insert_aux (basic_block block)
 			      by_some = true; 
 			      if (first_s == NULL)
 				first_s = edoubleprime;
-			      else if (first_s != edoubleprime)
+			      else if (!operand_equal_p (first_s, edoubleprime,
+							 0))
 				all_same = false;
-			      gcc_assert (first_s == edoubleprime 
-					  || !operand_equal_p
-					      (first_s, edoubleprime, 0));
 			    }
 			}
 		      /* If we can insert it, it's not the same value
@@ -1518,63 +1604,9 @@ insert_aux (basic_block block)
 			 partially redundant.  */
 		      if (!cant_insert && !all_same && by_some)
 			{
-			  tree type = TREE_TYPE (avail[EDGE_PRED (block, 0)->src->index]);
-			  tree temp;
-			  if (dump_file && (dump_flags & TDF_DETAILS))
-			    {
-			      fprintf (dump_file, "Found partial redundancy for expression ");
-			      print_generic_expr (dump_file, node->expr, 0);
-			      fprintf (dump_file, "\n");
-			    }
-
-			  /* Make the necessary insertions.  */
-			  FOR_EACH_EDGE (pred, ei, block->preds)
-			    {
-			      tree stmts = alloc_stmt_list ();
-			      tree builtexpr;
-			      bprime = pred->src;
-			      eprime = avail[bprime->index];
-			      if (BINARY_CLASS_P (eprime)
-				  || UNARY_CLASS_P (eprime))
-				{
-				  builtexpr = create_expression_by_pieces (bprime,
-									   eprime,
-									   stmts);
-				  bsi_insert_on_edge (pred, stmts);
-				  avail[bprime->index] = builtexpr;
-				}			      
-			    }
-			  /* Now build a phi for the new variable.  */
-			  temp = create_tmp_var (type, "prephitmp");
-			  add_referenced_tmp_var (temp);
-			  temp = create_phi_node (temp, block);
-			  vn_add (PHI_RESULT (temp), val, NULL);
-
-#if 0
-			  if (!set_contains_value (AVAIL_OUT (block), val))
-			    insert_into_set (AVAIL_OUT (block), 
-					     PHI_RESULT (temp));
-			  else
-#endif
-			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
-							 PHI_RESULT (temp));
-			  FOR_EACH_EDGE (pred, ei, block->preds)
-			    {
-			      add_phi_arg (&temp, avail[pred->src->index],
-					   pred);
-			    }
-			  if (dump_file && (dump_flags & TDF_DETAILS))
-			    {
-			      fprintf (dump_file, "Created phi ");
-			      print_generic_expr (dump_file, temp, 0);
-			      fprintf (dump_file, " in block %d\n", block->index);
-			    }
-			  pre_stats.phis++;
-			  new_stuff = true;
-			  bitmap_insert_into_set (NEW_SETS (block),
-						  PHI_RESULT (temp));
-			  bitmap_insert_into_set (PHI_GEN (block),
-						  PHI_RESULT (temp));
+ 			  if (insert_into_preds_of_block (block, node, avail, 
+ 							  "prephitmp"))
+ 			    new_stuff = true;
 			}
 
 		      free (avail);
@@ -1701,44 +1733,59 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
 }
 
 
-/* Compute the AVAIL set for BLOCK.
-   This function performs value numbering of the statements in BLOCK. 
-   The AVAIL sets are built from information we glean while doing this
-   value numbering, since the AVAIL sets contain only one entry per
+/* Compute the AVAIL set for all basic blocks.
+
+   This function performs value numbering of the statements in each basic
+   block.  The AVAIL sets are built from information we glean while doing
+   this value numbering, since the AVAIL sets contain only one entry per
    value.
    
    AVAIL_IN[BLOCK] = AVAIL_OUT[dom(BLOCK)].
    AVAIL_OUT[BLOCK] = AVAIL_IN[BLOCK] U PHI_GEN[BLOCK] U TMP_GEN[BLOCK].  */
 
 static void
-compute_avail (basic_block block)
+compute_avail (void)
 {
-  basic_block son;
-  
+  basic_block block, son;
+  basic_block *worklist;
+  size_t sp = 0;
+  tree param;
+
   /* For arguments with default definitions, we pretend they are
      defined in the entry block.  */
-  if (block == ENTRY_BLOCK_PTR)
+  for (param = DECL_ARGUMENTS (current_function_decl);
+       param;
+       param = TREE_CHAIN (param))
     {
-      tree param;
-      for (param = DECL_ARGUMENTS (current_function_decl);
-	   param;
-	   param = TREE_CHAIN (param))
+      if (default_def (param) != NULL)
 	{
-	  if (default_def (param) != NULL)
-	    {
-	      tree val;
-	      tree def = default_def (param);
-	      val = vn_lookup_or_add (def, NULL);
-	      bitmap_insert_into_set (TMP_GEN (block), def);
-	      bitmap_value_insert_into_set (AVAIL_OUT (block), def);
-	    }
+	  tree val;
+	  tree def = default_def (param);
+	  val = vn_lookup_or_add (def, NULL);
+	  bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), def);
+	  bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), def);
 	}
     }
-  else if (block)
+
+  /* Allocate the worklist.  */
+  worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+
+  /* Seed the algorithm by putting the dominator children of the entry
+     block on the worklist.  */
+  for (son = first_dom_son (CDI_DOMINATORS, ENTRY_BLOCK_PTR);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    worklist[sp++] = son;
+
+  /* Loop until the worklist is empty.  */
+  while (sp)
     {
       block_stmt_iterator bsi;
       tree stmt, phi;
       basic_block dom;
+
+      /* Pick a block from the worklist.  */
+      block = worklist[--sp];
 
       /* Initially, the set of available values in BLOCK is that of
 	 its immediate dominator.  */
@@ -1825,13 +1872,16 @@ compute_avail (basic_block block)
 			    AVAIL_OUT (block));
 	    }
 	}
+
+      /* Put the dominator children of BLOCK on the worklist of blocks
+	 to compute available sets for.  */
+      for (son = first_dom_son (CDI_DOMINATORS, block);
+	   son;
+	   son = next_dom_son (CDI_DOMINATORS, son))
+	worklist[sp++] = son;
     }
 
-  /* Compute available sets for the dominator children of BLOCK.  */
-  for (son = first_dom_son (CDI_DOMINATORS, block);
-       son;
-       son = next_dom_son (CDI_DOMINATORS, son))
-    compute_avail (son);
+  free (worklist);
 }
 
 
@@ -1927,7 +1977,7 @@ init_pre (void)
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_value_sets));
 
-  gcc_obstack_init (&grand_bitmap_obstack);
+  bitmap_obstack_initialize (&grand_bitmap_obstack);
   phi_translate_table = htab_create (511, expr_pred_trans_hash,
 				     expr_pred_trans_eq, free);
   value_set_pool = create_alloc_pool ("Value sets",
@@ -1964,9 +2014,9 @@ fini_pre (void)
   basic_block bb;
   unsigned int i;
 
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
 
-  obstack_free (&grand_bitmap_obstack, NULL);
+  bitmap_obstack_release (&grand_bitmap_obstack);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);
   free_alloc_pool (value_set_node_pool);
@@ -1985,7 +2035,7 @@ fini_pre (void)
   free_dominance_info (CDI_POST_DOMINATORS);
   vn_delete ();
 
-  if (bitmap_first_set_bit (need_eh_cleanup) >= 0)
+  if (!bitmap_empty_p (need_eh_cleanup))
     {
       tree_purge_all_dead_eh_edges (need_eh_cleanup);
       cleanup_tree_cfg ();
@@ -2017,9 +2067,8 @@ execute_pre (bool do_fre)
 {
   init_pre ();
 
-  /* Collect and value number expressions computed in each basic
-     block.  */
-  compute_avail (ENTRY_BLOCK_PTR);
+  /* Collect and value number expressions computed in each basic block.  */
+  compute_avail ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

@@ -575,7 +575,7 @@ __gnat_machine_state_length (void)
 /* __gnat_initialize (HPUX Version) */
 /************************************/
 
-#elif defined (hpux)
+#elif defined (__hpux__)
 
 #include <signal.h>
 
@@ -824,28 +824,25 @@ static LONG WINAPI __gnat_error_handler (PEXCEPTION_POINTERS);
 static LONG WINAPI
 __gnat_error_handler (PEXCEPTION_POINTERS info)
 {
-  static int recurse;
   struct Exception_Data *exception;
   const char *msg;
 
   switch (info->ExceptionRecord->ExceptionCode)
     {
     case EXCEPTION_ACCESS_VIOLATION:
-      /* If the failing address isn't maximally-aligned or if we've
-	 recursed, this is a program error.  */
+      /* If the failing address isn't maximally-aligned or if the page
+	 before the faulting page is not accessible, this is a program error.
+      */
       if ((info->ExceptionRecord->ExceptionInformation[1] & 3) != 0
-	  || recurse)
+	  || IsBadCodePtr
+	  ((void *)(info->ExceptionRecord->ExceptionInformation[1] + 4096)))
 	{
 	  exception = &program_error;
 	  msg = "EXCEPTION_ACCESS_VIOLATION";
 	}
       else
 	{
-	  /* See if the page before the faulting page is accessible.  Do that
-	     by trying to access it. */
-	  recurse++;
-	  * ((volatile char *) (info->ExceptionRecord->ExceptionInformation[1]
-				+ 4096));
+	  /* otherwise it is a stack overflow  */
 	  exception = &storage_error;
 	  msg = "stack overflow (or erroneous memory access)";
 	}
@@ -931,7 +928,6 @@ __gnat_error_handler (PEXCEPTION_POINTERS info)
       msg = "unhandled signal";
     }
 
-  recurse = 0;
   Raise_From_Signal_Handler (exception, msg);
   return 0; /* This is never reached, avoid compiler warning */
 }
@@ -1665,6 +1661,10 @@ __gnat_initialize ()
 #include <intLib.h>
 #include <iv.h>
 
+#ifdef VTHREADS
+#include "private/vThreadsP.h"
+#endif
+
 extern int __gnat_inum_to_ivec (int);
 static void __gnat_error_handler (int, int, struct sigcontext *);
 void __gnat_map_signal (int);
@@ -1690,6 +1690,16 @@ __gnat_inum_to_ivec (int num)
   return INUM_TO_IVEC (num);
 }
 
+/* VxWorks expects the field excCnt to be zeroed when a signal is handled.
+   The VxWorks version of longjmp does this; gcc's builtin_longjmp does not */
+void
+__gnat_clear_exception_count (void)
+{
+#ifdef VTHREADS
+  taskIdCurrent->vThreads.excCnt = 0;
+#endif
+}
+
 /* Exported to 5zintman.adb in order to handle different signal
    to exception mappings in different VxWorks versions */
 void
@@ -1704,6 +1714,20 @@ __gnat_map_signal (int sig)
       exception = &constraint_error;
       msg = "SIGFPE";
       break;
+#ifdef VTHREADS
+    case SIGILL:
+      exception = &constraint_error;
+      msg = "Floating point exception or SIGILL";
+      break;
+    case SIGSEGV:
+      exception = &storage_error;
+      msg = "SIGSEGV: possible stack overflow";
+      break;
+    case SIGBUS:
+      exception = &storage_error;
+      msg = "SIGBUS: possible stack overflow";
+      break;
+#else
     case SIGILL:
       exception = &constraint_error;
       msg = "SIGILL";
@@ -1713,19 +1737,16 @@ __gnat_map_signal (int sig)
       msg = "SIGSEGV";
       break;
     case SIGBUS:
-#ifdef VTHREADS
-      exception = &storage_error;
-      msg = "SIGBUS: possible stack overflow";
-#else
       exception = &program_error;
       msg = "SIGBUS";
-#endif
       break;
+#endif
     default:
       exception = &program_error;
       msg = "unhandled signal";
     }
 
+  __gnat_clear_exception_count ();
   Raise_From_Signal_Handler (exception, msg);
 }
 
@@ -1742,11 +1763,6 @@ __gnat_error_handler (int sig, int code, struct sigcontext *sc)
   sigprocmask (SIG_SETMASK, NULL, &mask);
   sigdelset (&mask, sig);
   sigprocmask (SIG_SETMASK, &mask, NULL);
-
-  /* VxWorks will suspend the task when it gets a hardware exception.  We
-     take the liberty of resuming the task for the application. */
-  if (taskIsSuspended (taskIdSelf ()) != 0)
-    taskResume (taskIdSelf ());
 
   __gnat_map_signal (sig);
 
@@ -1781,8 +1797,10 @@ void
 __gnat_init_float (void)
 {
   /* Disable overflow/underflow exceptions on the PPC processor, this is needed
-     to get correct Ada semantic.  */
-#if defined (_ARCH_PPC) && !defined (_SOFT_FLOAT)
+     to get correct Ada semantics.  Note that for AE653 vThreads, the HW
+     overflow settings are an OS configuration issue.  The instructions
+     below have no effect */
+#if defined (_ARCH_PPC) && !defined (_SOFT_FLOAT) && !defined (VTHREADS)
   asm ("mtfsb0 25");
   asm ("mtfsb0 26");
 #endif

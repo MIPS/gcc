@@ -1015,7 +1015,6 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
-
 	  switch (tls_kind)
 	    {
 	    case TLS_MODEL_GLOBAL_DYNAMIC:
@@ -1042,8 +1041,19 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 
 	    case TLS_MODEL_INITIAL_EXEC:
 	      if (! flag_pic)
-		emit_insn (gen_GOTaddr2picreg ());
-	      tga_op1 = gen_reg_rtx (Pmode);
+		{
+		  /* Don't schedule insns for getting GOT address when
+		     the first scheduling is enabled, to avoid spill
+		     failures for R0.  */
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
+		  emit_insn (gen_GOTaddr2picreg ());
+		  emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode,
+								 PIC_REG)));
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
+		}
+	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
 	      emit_insn (gen_tls_initial_exec (tga_op1, tmp));
 	      op1 = tga_op1;
@@ -5107,7 +5117,7 @@ shmedia_target_regs_stack_adjust (HARD_REG_SET *live_regs_mask)
 static int
 calc_live_regs (HARD_REG_SET *live_regs_mask)
 {
-  int reg;
+  unsigned int reg;
   int count;
   int interrupt_handler;
   int pr_live, has_call;
@@ -5157,7 +5167,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  || current_function_has_nonlocal_label))
     pr_live = 1;
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
-  for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
+  for (count = 0, reg = FIRST_PSEUDO_REGISTER; reg-- != 0; )
     {
       if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
@@ -5179,13 +5189,13 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	     (TARGET_SHCOMPACT
 	      && flag_pic
 	      && current_function_args_info.call_cookie
-	      && reg == (int) PIC_OFFSET_TABLE_REGNUM)
+	      && reg == PIC_OFFSET_TABLE_REGNUM)
 	     || (regs_ever_live[reg] && ! call_really_used_regs[reg])
 	     || (current_function_calls_eh_return
-		 && (reg == (int) EH_RETURN_DATA_REGNO (0)
-		     || reg == (int) EH_RETURN_DATA_REGNO (1)
-		     || reg == (int) EH_RETURN_DATA_REGNO (2)
-		     || reg == (int) EH_RETURN_DATA_REGNO (3)))
+		 && (reg == EH_RETURN_DATA_REGNO (0)
+		     || reg == EH_RETURN_DATA_REGNO (1)
+		     || reg == EH_RETURN_DATA_REGNO (2)
+		     || reg == EH_RETURN_DATA_REGNO (3)))
 	     || ((reg == MACL_REG || reg == MACH_REG)
 		 && regs_ever_live[reg]
 		 && sh_cfun_attr_renesas_p ())
@@ -5561,7 +5571,7 @@ sh_expand_prologue (void)
       for (entry = &schedule.entries[1]; entry->mode != VOIDmode; entry++)
         {
 	  enum machine_mode mode = entry->mode;
-	  int reg = entry->reg;
+	  unsigned int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
 	  rtx orig_reg_rtx;
 
@@ -6408,7 +6418,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 {
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
-  tree addr, lab_over, result = NULL;
+  tree addr, lab_over = NULL, result = NULL;
   int pass_by_ref = targetm.calls.must_pass_in_stack (TYPE_MODE (type), type);
 
   if (pass_by_ref)
@@ -7147,7 +7157,7 @@ sh_handle_interrupt_handler_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7168,27 +7178,27 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The sp_switch attribute only has meaning for interrupt functions.  */
-      warning ("`%s' attribute only applies to interrupt functions",
+      warning ("%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
     {
       /* The argument must be a constant string.  */
-      warning ("`%s' attribute argument not a string constant",
+      warning ("%qs attribute argument not a string constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else
     {
-      char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
+      const char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
       sp_switch = gen_rtx_SYMBOL_REF (VOIDmode, s);
     }
 
@@ -7203,21 +7213,21 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The trap_exit attribute only has meaning for interrupt functions.  */
-      warning ("`%s' attribute only applies to interrupt functions",
+      warning ("%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
     {
       /* The argument must be a constant integer.  */
-      warning ("`%s' attribute argument not an integer constant",
+      warning ("%qs attribute argument not an integer constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7345,7 +7355,7 @@ sh_pch_valid_p (const void *data_p, size_t len)
  make_message:
   {
     char *r;
-    asprintf (&r, _("created and used with differing settings of `-m%s'"),
+    asprintf (&r, _("created and used with differing settings of '-m%s'"),
 		  flag_that_differs);
     if (r == NULL)
       return _("out of memory");
@@ -9811,6 +9821,9 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
+      /* Initialize the bitmap obstacks.  */
+      bitmap_obstack_initialize (NULL);
+      bitmap_obstack_initialize (&reg_obstack);
       if (! basic_block_info)
 	init_flow ();
       rtl_register_cfg_hooks ();
@@ -9836,8 +9849,9 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       /* Release all memory allocated by flow.  */
       free_basic_block_vars ();
 
-      /* Release all memory held by regsets now.  */
-      regset_release_memory ();
+      /* Release the bitmap obstacks.  */
+      bitmap_obstack_release (&reg_obstack);
+      bitmap_obstack_release (NULL);
     }
 
   reload_completed = 0;

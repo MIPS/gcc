@@ -559,7 +559,7 @@ ifeq ($(strip $(filter-out powerpc% wrs vxworks,$(targ))),)
     s-tfsetr.adb<s-tfsetr-vxworks.adb 
   endif
 
-  EXTRA_GNATRTL_NONTASKING_OBJS=i-vxwork.o i-vxwoio.o
+  EXTRA_GNATRTL_NONTASKING_OBJS=i-vxwork.o i-vxwoio.o s-vxwexc.o
   EXTRA_GNATRTL_TASKING_OBJS=s-vxwork.o
 endif
 
@@ -1241,7 +1241,7 @@ endif
   s-osprim.ads<s-osprim-vms.ads \
   s-taprop.adb<s-taprop-vms.adb \
   s-taspri.ads<s-taspri-vms.ads \
-  s-tpopsp.adb<s-tpopsp-posix.adb \
+  s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   s-tpopde.adb<s-tpopde-vms.adb \
   s-tpopde.ads<s-tpopde-vms.ads \
   s-traent.adb<s-traent-vms.adb \
@@ -1403,6 +1403,19 @@ ifeq ($(strip $(filter-out powerpc darwin%,$(arch) $(osys))),)
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   g-soccon.ads<g-soccon-aix.ads \
   system.ads<system-darwin-ppc.ads
+
+  TOOLS_TARGET_PAIRS =  \
+    mlib-tgt.adb<mlib-tgt-darwin.adb
+
+  GNATLIB_SHARED = gnatlib-shared-darwin
+  SO_OPTS = -Wl,-flat_namespace
+  RANLIB = ranlib -c
+  GMEM_LIB = gmemlib
+
+  LIBRARY_VERSION := $(LIB_VERSION)
+
+  soext = .dylib
+
 endif
 
 # The runtime library for gnat comprises two directories.  One contains the
@@ -1697,7 +1710,7 @@ install-gnatlib: ../stamp-gnatlib
 	-$(INSTALL_DATA) rts/g-trasym$(objext) $(DESTDIR)$(ADA_RTL_OBJ_DIR)
 	-cd rts; for file in *$(arext);do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
-	    -$(RANLIB) $(RANLIB_FLAGS) $(DESTDIR)$(ADA_RTL_OBJ_DIR)/$$file; \
+	    $(RANLIB) $(RANLIB_FLAGS) $(DESTDIR)$(ADA_RTL_OBJ_DIR)/$$file; \
 	done
 	-$(foreach file, $(EXTRA_ADALIB_FILES), \
 	    $(INSTALL_DATA_DATE) rts/$(file) $(DESTDIR)$(ADA_RTL_OBJ_DIR) && \
@@ -1873,6 +1886,28 @@ gnatlib-shared-win32:
 		$(GNATRTL_TASKING_OBJS) \
 		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(THREADSLIB) -Wl,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
+
+gnatlib-shared-darwin:
+	$(MAKE) $(FLAGS_TO_PASS) \
+	     GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(TARGET_LIBGCC2_CFLAGS)" \
+	     THREAD_KIND="$(THREAD_KIND)" \
+	     gnatlib
+	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
+	cd rts; ../../xgcc -B../../ -dynamiclib $(TARGET_LIBGCC2_CFLAGS) \
+		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
+		$(SO_OPTS) \
+		$(MISCLIB) -lm
+	cd rts; ../../xgcc -B../../ -dynamiclib $(TARGET_LIBGCC2_CFLAGS) \
+		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(GNATRTL_TASKING_OBJS) \
+		$(SO_OPTS) \
+		$(THREADSLIB) -Wl,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
+	cd rts; $(LN_S) libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		libgnat$(soext)
+	cd rts; $(LN_S) libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		libgnarl$(soext)
 
 gnatlib-shared-vms:
 	$(MAKE) $(FLAGS_TO_PASS) \

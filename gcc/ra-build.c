@@ -503,8 +503,7 @@ union_web_part_roots (struct web_part *r1, struct web_part *r2)
 	    for (cl2 = r2->sub_conflicts; cl2; cl2 = cl2->next)
 	      if (cl1->size_word == cl2->size_word)
 		{
-		  bitmap_operation (cl1->conflicts, cl1->conflicts,
-				    cl2->conflicts, BITMAP_IOR);
+		  bitmap_ior_into (cl1->conflicts, cl2->conflicts);
 		  BITMAP_XFREE (cl2->conflicts);
 		  cl2->conflicts = NULL;
 		}
@@ -1023,12 +1022,12 @@ livethrough_conflicts_bb (basic_block bb)
   struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
   rtx insn;
   bitmap all_defs;
-  int first, use_id;
+  unsigned use_id;
   unsigned int deaths = 0;
   unsigned int contains_call = 0;
 
   /* If there are no deferred uses, just return.  */
-  if ((first = bitmap_first_set_bit (info->live_throughout)) < 0)
+  if (bitmap_empty_p (info->live_throughout))
     return;
 
   /* First collect the IDs of all defs, count the number of death
@@ -1057,11 +1056,11 @@ livethrough_conflicts_bb (basic_block bb)
      uses conflict with all defs, and update their other members.  */
   if (deaths > 0
       || contains_call
-      || bitmap_first_set_bit (all_defs) >= 0)
+      || !bitmap_empty_p (all_defs))
     {
       bitmap_iterator bi;
 
-      EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id, bi)
+      EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, 0, use_id, bi)
 	{
 	  struct web_part *wp = &web_parts[df->def_id + use_id];
 	  unsigned int bl = rtx_to_bits (DF_REF_REG (wp->ref));
@@ -1070,7 +1069,7 @@ livethrough_conflicts_bb (basic_block bb)
 	  wp->spanned_deaths += deaths;
 	  wp->crosses_call |= contains_call;
 	  conflicts = get_sub_conflicts (wp, bl);
-	  bitmap_operation (conflicts, conflicts, all_defs, BITMAP_IOR);
+	  bitmap_ior_into (conflicts, all_defs);
 	}
     }
 
@@ -2076,14 +2075,13 @@ reset_conflicts (void)
 	  /* Useless conflicts will be rebuilt completely.  But check
 	     for cleanliness, as the web might have come from the
 	     free list.  */
-	  gcc_assert (bitmap_first_set_bit (web->useless_conflicts) < 0);
+	  gcc_assert (bitmap_empty_p (web->useless_conflicts));
 	}
       else
 	{
 	  /* Useless conflicts with new webs will be rebuilt if they
 	     are still there.  */
-	  bitmap_operation (web->useless_conflicts, web->useless_conflicts,
-			    newwebs, BITMAP_AND_COMPL);
+	  bitmap_and_compl_into (web->useless_conflicts, newwebs);
 	  /* Go through all conflicts, and retain those to old webs.  */
 	  for (cl = web->conflict_list; cl; cl = cl->next)
 	    {
@@ -2172,7 +2170,7 @@ conflicts_between_webs (struct df *df)
   for (i = 0; i < df->def_id; i++)
     if (web_parts[i].ref == NULL)
       bitmap_set_bit (ignore_defs, i);
-  have_ignored = (bitmap_first_set_bit (ignore_defs) >= 0);
+  have_ignored = !bitmap_empty_p (ignore_defs);
 
   /* Now record all conflicts between webs.  Note that we only check
      the conflict bitmaps of all defs.  Conflict bitmaps are only in
@@ -2195,13 +2193,12 @@ conflicts_between_webs (struct df *df)
       for (; cl; cl = cl->next)
         if (cl->conflicts)
 	  {
-	    int j;
+	    unsigned j;
 	    struct web *web1 = find_subweb_2 (supweb1, cl->size_word);
 	    bitmap_iterator bi;
 
 	    if (have_ignored)
-	      bitmap_operation (cl->conflicts, cl->conflicts, ignore_defs,
-			        BITMAP_AND_COMPL);
+	      bitmap_and_compl_into (cl->conflicts, ignore_defs);
 	    /* We reduce the number of calls to record_conflict() with this
 	       pass thing.  record_conflict() itself also has some early-out
 	       optimizations, but here we can use the special properties of
@@ -3128,10 +3125,7 @@ ra_build_free (void)
     {
       struct tagged_conflict *cl;
       for (cl = web_parts[i].sub_conflicts; cl; cl = cl->next)
-	{
-	  if (cl->conflicts)
-	    BITMAP_XFREE (cl->conflicts);
-	}
+	BITMAP_XFREE (cl->conflicts);
       web_parts[i].sub_conflicts = NULL;
     }
 
@@ -3157,10 +3151,7 @@ ra_build_free_all (struct df *df)
     {
       struct tagged_conflict *cl;
       for (cl = web_parts[i].sub_conflicts; cl; cl = cl->next)
-	{
-	  if (cl->conflicts)
-	    BITMAP_XFREE (cl->conflicts);
-	}
+	BITMAP_XFREE (cl->conflicts);
       web_parts[i].sub_conflicts = NULL;
     }
   sbitmap_free (live_over_abnormal);

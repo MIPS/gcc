@@ -170,7 +170,7 @@ static struct z_candidate *add_conv_candidate
 static struct z_candidate *add_function_candidate 
 	(struct z_candidate **, tree, tree, tree, tree, tree, int);
 static conversion *implicit_conversion (tree, tree, tree, int);
-static conversion *standard_conversion (tree, tree, tree);
+static conversion *standard_conversion (tree, tree, tree, int);
 static conversion *reference_binding (tree, tree, tree, int);
 static conversion *build_conv (conversion_kind, tree, conversion *);
 static bool is_subseq (conversion *, conversion *);
@@ -583,7 +583,7 @@ strip_top_quals (tree t)
    also pass the expression EXPR to convert from.  */
 
 static conversion *
-standard_conversion (tree to, tree from, tree expr)
+standard_conversion (tree to, tree from, tree expr, int flags)
 {
   enum tree_code fcode, tcode;
   conversion *conv;
@@ -633,7 +633,7 @@ standard_conversion (tree to, tree from, tree expr)
          the standard conversion sequence to perform componentwise
          conversion.  */
       conversion *part_conv = standard_conversion
-        (TREE_TYPE (to), TREE_TYPE (from), NULL_TREE);
+        (TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, flags);
       
       if (part_conv)
         {
@@ -651,11 +651,6 @@ standard_conversion (tree to, tree from, tree expr)
 
   if ((tcode == POINTER_TYPE || TYPE_PTR_TO_MEMBER_P (to))
       && expr && null_ptr_cst_p (expr))
-    conv = build_conv (ck_std, to, conv);
-  else if (tcode == POINTER_TYPE && fcode == POINTER_TYPE
-	   && TREE_CODE (TREE_TYPE (to)) == VECTOR_TYPE
-	   && TREE_CODE (TREE_TYPE (from)) == VECTOR_TYPE
-	   && vector_types_convertible_p (TREE_TYPE (to), TREE_TYPE (from)))
     conv = build_conv (ck_std, to, conv);
   else if ((tcode == INTEGER_TYPE && fcode == POINTER_TYPE)
 	   || (tcode == POINTER_TYPE && fcode == INTEGER_TYPE))
@@ -820,7 +815,8 @@ standard_conversion (tree to, tree from, tree expr)
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
 	   && vector_types_convertible_p (from, to))
     return build_conv (ck_std, to, conv);
-  else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
+  else if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE)
+	   && IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
     {
       if (conv->kind == ck_rvalue)
@@ -1232,7 +1228,7 @@ implicit_conversion (tree to, tree from, tree expr, int flags)
   if (TREE_CODE (to) == REFERENCE_TYPE)
     conv = reference_binding (to, from, expr, flags);
   else
-    conv = standard_conversion (to, from, expr);
+    conv = standard_conversion (to, from, expr, flags);
 
   if (conv)
     return conv;
@@ -2654,7 +2650,8 @@ build_user_type_conversion (tree totype, tree expr, int flags)
     {
       if (cand->second_conv->kind == ck_ambig)
 	return error_mark_node;
-      return convert_from_reference (convert_like (cand->second_conv, expr));
+      expr = convert_like (cand->second_conv, expr);
+      return convert_from_reference (expr);
     }
   return NULL_TREE;
 }
@@ -2676,8 +2673,6 @@ resolve_args (tree args)
 	  error ("invalid use of void expression");
 	  return error_mark_node;
 	}
-      arg = convert_from_reference (arg);
-      TREE_VALUE (t) = arg;
     }
   return args;
 }
@@ -2983,6 +2978,7 @@ build_object_call (tree obj, tree args)
       else
 	{
 	  obj = convert_like_with_context (cand->convs[0], obj, cand->fn, -1);
+	  obj = convert_from_reference (obj);
 	  result = build_function_call (obj, args);
 	}
     }
@@ -3400,7 +3396,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
       
       if (TREE_CODE (arg2_type) == ENUMERAL_TYPE
           && TREE_CODE (arg3_type) == ENUMERAL_TYPE)
-         warning ("enumeral mismatch in conditional expression: `%T' vs `%T'",
+         warning ("enumeral mismatch in conditional expression: %qT vs %qT",
                    arg2_type, arg3_type);
       else if (extra_warnings
                && ((TREE_CODE (arg2_type) == ENUMERAL_TYPE
@@ -3479,7 +3475,6 @@ prep_operand (tree operand)
 {
   if (operand)
     {
-      operand = convert_from_reference (operand);
       if (CLASS_TYPE_P (TREE_TYPE (operand))
 	  && CLASSTYPE_TEMPLATE_INSTANTIATION (TREE_TYPE (operand)))
 	/* Make sure the template type is instantiated now.  */
@@ -4086,6 +4081,7 @@ check_constructor_callable (tree type, tree expr)
 			     build_tree_list (NULL_TREE, expr), 
 			     type,
 			     LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING
+			     | LOOKUP_NO_CONVERSION
 			     | LOOKUP_CONSTRUCTOR_CALLABLE);
 }
 
@@ -4239,7 +4235,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
-	return expr;
+      return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
       return build_user_type_conversion
@@ -4429,7 +4425,7 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type %q#T' through %<...%>; "
+      warning ("cannot receive objects of non-POD type %q#T through %<...%>; "
                "call will abort at runtime", type);
       expr = convert (build_pointer_type (type), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
@@ -4677,8 +4673,8 @@ build_over_call (struct z_candidate *cand, int flags)
       tree base_binfo;
       
       if (convs[i]->bad_p)
-	pedwarn ("passing `%T' as `this' argument of `%#D' discards qualifiers",
-		    TREE_TYPE (argtype), fn);
+	pedwarn ("passing %qT as %<this%> argument of %q#D discards qualifiers",
+                 TREE_TYPE (argtype), fn);
 
       /* [class.mfct.nonstatic]: If a nonstatic member function of a class
 	 X is called for an object that is not of type X, or of a type
@@ -5201,8 +5197,6 @@ build_new_method_call (tree instance, tree fns, tree args,
   if (args == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (TREE_TYPE (instance)) == REFERENCE_TYPE)
-    instance = convert_from_reference (instance);
   basetype = TYPE_MAIN_VARIANT (TREE_TYPE (instance));
   instance_ptr = build_this (instance);
 
@@ -6467,7 +6461,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
       conv = conv->u.next;
       /* If the next conversion is a BASE_CONV, skip that too -- but
 	 remember that the conversion was required.  */
-      if (conv->kind == ck_base && conv->need_temporary_p)
+      if (conv->kind == ck_base)
 	{
 	  if (conv->check_copy_constructor_p)
  	    check_constructor_callable (TREE_TYPE (expr), expr);
@@ -6537,6 +6531,11 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	    }
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
+	  if (base_conv_type)
+	    expr = convert_to_base (expr, 
+				    build_pointer_type (base_conv_type),
+				    /*check_access=*/true,
+				    /*nonnull=*/true);
 	  expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	}
       else

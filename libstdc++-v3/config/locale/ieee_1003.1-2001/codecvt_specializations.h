@@ -35,12 +35,17 @@
 
 // Written by Benjamin Kosnik <bkoz@cygnus.com>
 
+/** @file bits/codecvt_specializations.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
   // XXX
   // Define this here so codecvt.cc can have _S_max_size definition.
 #define _GLIBCXX_USE___ENC_TRAITS 1
 
-  // Extension to use icov for dealing with character encodings,
-  // including conversions and comparisons between various character
+  /// @brief  Extension to use icov for dealing with character encodings.
+  // This includes conversions and comparisons between various character
   // sets.  This object encapsulates data that may need to be shared between
   // char_traits, codecvt and ctype.
   class __enc_traits
@@ -192,9 +197,9 @@
     { return _M_ext_enc; }    
   };
 
-  // Partial specialization
-  // This specialization takes advantage of iconv to provide code
-  // conversions between a large number of character encodings.
+  /// @brief  class codecvt<InternT, _ExternT, __enc_traits> specialization.
+  // This partial specialization takes advantage of iconv to provide
+  // code conversions between a large number of character encodings.
   template<typename _InternT, typename _ExternT>
     class codecvt<_InternT, _ExternT, __enc_traits>
     : public __codecvt_abstract_base<_InternT, _ExternT, __enc_traits>
@@ -281,7 +286,6 @@
       result __ret = codecvt_base::error;
       if (__state._M_good())
 	{
-	  typedef state_type::__desc_type	__desc_type;
 	  const __desc_type* __desc = __state._M_get_out_descriptor();
 	  const size_t __fmultiple = sizeof(intern_type);
 	  size_t __fbytes = __fmultiple * (__from_end - __from);
@@ -303,7 +307,8 @@
 	  if (__int_bom)
 	    {	  
 	      size_t __size = __from_end - __from;
-	      intern_type* __cfixed = static_cast<intern_type*>(__builtin_alloca(sizeof(intern_type) * (__size + 1)));
+	      intern_type* __cfixed = static_cast<intern_type*>
+		(__builtin_alloca(sizeof(intern_type) * (__size + 1)));
 	      __cfixed[0] = static_cast<intern_type>(__int_bom);
 	      char_traits<intern_type>::copy(__cfixed + 1, __from, __size);
 	      __cfrom = reinterpret_cast<char*>(__cfixed);
@@ -348,7 +353,6 @@
       result __ret = codecvt_base::error;
       if (__state._M_good())
 	{
-	  typedef state_type::__desc_type	__desc_type;
 	  const __desc_type* __desc = __state._M_get_in_descriptor();
 	  const size_t __tmultiple = sizeof(intern_type);
 	  size_t __tlen = __tmultiple * (__to_end - __to); 
@@ -386,7 +390,6 @@
       result __ret = codecvt_base::error;
       if (__state._M_good())
 	{
-	  typedef state_type::__desc_type	__desc_type;
 	  const __desc_type* __desc = __state._M_get_in_descriptor();
 	  const size_t __fmultiple = sizeof(extern_type);
 	  size_t __flen = __fmultiple * (__from_end - __from);
@@ -408,7 +411,8 @@
 	  if (__ext_bom)
 	    {	  
 	      size_t __size = __from_end - __from;
-	      extern_type* __cfixed =  static_cast<extern_type*>(__builtin_alloca(sizeof(extern_type) * (__size + 1)));
+	      extern_type* __cfixed =  static_cast<extern_type*>
+		(__builtin_alloca(sizeof(extern_type) * (__size + 1)));
 	      __cfixed[0] = static_cast<extern_type>(__ext_bom);
 	      char_traits<extern_type>::copy(__cfixed + 1, __from, __size);
 	      __cfrom = reinterpret_cast<char*>(__cfixed);

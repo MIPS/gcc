@@ -92,7 +92,7 @@ enum rid
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
   /* Objective-C */
-  RID_ID,          RID_AT_ENCODE,    RID_AT_END,
+  RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
   RID_AT_PROTOCOL, RID_AT_SELECTOR,  
@@ -295,12 +295,10 @@ extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
-extern tree re_push_stmt_list (tree);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 
-extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
@@ -840,8 +838,6 @@ extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern tree c_staticp (tree);
 
-extern int c_common_unsafe_for_reeval (tree);
-
 extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
@@ -877,6 +873,19 @@ extern void verify_sequence_points (tree);
 
 extern tree fold_offsetof (tree);
 
+/* Places where an lvalue, or modifiable lvalue, may be required.
+   Used to select diagnostic messages in lvalue_or_else and
+   readonly_error.  */
+enum lvalue_use {
+  lv_assign,
+  lv_increment,
+  lv_decrement,
+  lv_addressof,
+  lv_asm
+};
+
+extern int lvalue_or_else (tree, enum lvalue_use);
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
@@ -906,7 +915,7 @@ extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
-extern tree objc_lookup_ivar (tree);
+extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);
 extern int objc_is_public (tree, tree);
 extern tree objc_is_id (tree);

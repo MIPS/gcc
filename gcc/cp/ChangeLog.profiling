@@ -1,0 +1,13 @@
+2004-11-17  Stuart Hastings <stuarth@apple.com>
+	    Dale Johannesen  <dalej@apple.com>
+
+	* cp/Make-lang.in (method.o): Depend on cgraph.o
+	* cp/cp-objcp-common.h (LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS):
+	Remove.
+	(LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING): New.
+	* cp/cp-tree.h (cp_add_pending_fn_decls): Remove prototype.
+	(cp_copy_res_decl_for_inlining): New prototype.
+	* cp/method.c (use_thunk): Build the CFG for the thunk here.
+	* cp/tree.c (cp_add_pending_fn_decls): Remove.
+	(cp_copy_res_decl_for_inlining): New function.
+

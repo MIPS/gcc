@@ -116,7 +116,7 @@ extern rtx frv_split_minmax		(rtx *);
 extern rtx frv_split_abs		(rtx *);
 extern void frv_split_double_load	(rtx, rtx);
 extern void frv_split_double_store	(rtx, rtx);
-#ifdef BLOCK_HEAD
+#ifdef BB_HEAD
 extern void frv_ifcvt_init_extra_fields	(ce_if_block_t *);
 extern void frv_ifcvt_modify_tests	(ce_if_block_t *, rtx *, rtx *);
 extern void frv_ifcvt_modify_multiple_tests
@@ -138,6 +138,7 @@ extern int frv_hard_regno_nregs		(int, enum machine_mode);
 extern int frv_class_max_nregs		(enum reg_class class,
 					 enum machine_mode mode);
 extern int frv_legitimate_constant_p	(rtx);
+extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);
 #endif	/* RTX_CODE */
 
 extern int direct_return_p		(void);
@@ -217,7 +218,6 @@ extern int condexec_sf_conv_operator	(rtx, enum machine_mode);
 extern int condexec_sf_add_operator	(rtx, enum machine_mode);
 extern int condexec_memory_operand	(rtx, enum machine_mode);
 extern int intop_compare_operator	(rtx, enum machine_mode);
-extern int condexec_intop_cmp_operator	(rtx, enum machine_mode);
 extern int acc_operand			(rtx, enum machine_mode);
 extern int even_acc_operand		(rtx, enum machine_mode);
 extern int quad_acc_operand		(rtx, enum machine_mode);

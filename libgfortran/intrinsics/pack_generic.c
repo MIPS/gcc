@@ -123,7 +123,6 @@ __pack (gfc_array_char * ret, const gfc_array_char * array,
 
       if (vector != NULL) 
 	{ 
-
 	  /* The return array will have as many
 	     elements as there are in VECTOR.  */ 
 	  total = vector->dim[0].ubound + 1 - vector->dim[0].lbound; 
@@ -189,7 +188,7 @@ __pack (gfc_array_char * ret, const gfc_array_char * array,
       ret->dim[0].ubound = total - 1;
       ret->dim[0].stride = 1;
 
-      ret->data = internal_malloc (size * total);
+      ret->data = internal_malloc_size (size * total);
       ret->base = 0;
 
       if (total == 0)
@@ -326,7 +325,7 @@ __pack_s (gfc_array_char * ret, const gfc_array_char * array,
 	      ret->dim[0].lbound = 0;
 	      ret->dim[0].ubound = -1;
 	      ret->dim[0].stride = 1;
-	      ret->data = internal_malloc (0);
+	      ret->data = internal_malloc_size (0);
 	      ret->base = 0;
 	      
 	      return;
@@ -338,7 +337,7 @@ __pack_s (gfc_array_char * ret, const gfc_array_char * array,
       ret->dim[0].ubound = total - 1;
       ret->dim[0].stride = 1;
 
-      ret->data = internal_malloc (size * total);
+      ret->data = internal_malloc_size (size * total);
       ret->base = 0;
     }
 

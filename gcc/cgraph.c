@@ -44,7 +44,7 @@ The callgraph:
 
     The callgraph at the moment does not represent indirect calls or calls
     from other compilation unit.  Flag NEEDED is set for each node that may
-    be accessed in such a invisible way and it shall be considered an
+    be accessed in such an invisible way and it shall be considered an
     entry point to the callgraph.
 
     Intraprocedural information:
@@ -421,21 +421,6 @@ cgraph_mark_needed_node (struct cgraph_node *node)
 {
   node->needed = 1;
   cgraph_mark_reachable_node (node);
-}
-
-/* Return true when CALLER_DECL calls CALLEE_DECL.  */
-
-bool
-cgraph_calls_p (tree caller_decl, tree callee_decl)
-{
-  struct cgraph_node *caller = cgraph_node (caller_decl);
-  struct cgraph_node *callee = cgraph_node (callee_decl);
-  struct cgraph_edge *edge;
-
-  for (edge = callee->callers; edge && (edge)->caller != caller;
-       edge = (edge->next_caller))
-    continue;
-  return edge != NULL;
 }
 
 /* Return local info for the compiled function.  */

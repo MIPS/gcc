@@ -2445,8 +2445,6 @@ find_if_block (struct ce_if_block * ce_info)
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
   basic_block join_bb = NULL_BLOCK;
-  int then_predecessors;
-  int else_predecessors;
   edge cur_edge;
   basic_block next;
   edge_iterator ei;
@@ -2511,27 +2509,23 @@ find_if_block (struct ce_if_block * ce_info)
 	}
     }
 
-  /* Count the number of edges the THEN and ELSE blocks have.  */
-  then_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, ei, then_bb->preds)
-    {
-      then_predecessors++;
-      if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
-    }
-
-  else_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, ei, else_bb->preds)
-    {
-      else_predecessors++;
-      if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
-    }
-
   /* The THEN block of an IF-THEN combo must have exactly one predecessor,
      other than any || blocks which jump to the THEN block.  */
-  if ((then_predecessors - ce_info->num_or_or_blocks) != 1)
+  if ((EDGE_COUNT (then_bb->preds) - ce_info->num_or_or_blocks) != 1)
     return FALSE;
+    
+  /* The edges of the THEN and ELSE blocks cannot have complex edges.  */
+  FOR_EACH_EDGE (cur_edge, ei, then_bb->preds)
+    {
+      if (cur_edge->flags & EDGE_COMPLEX)
+	return FALSE;
+    }
+
+  FOR_EACH_EDGE (cur_edge, ei, else_bb->preds)
+    {
+      if (cur_edge->flags & EDGE_COMPLEX)
+	return FALSE;
+    }
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
   if (EDGE_COUNT (then_bb->succs) > 0
@@ -2914,9 +2908,9 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_operation (test_bb->global_live_at_end,
-		    else_bb->global_live_at_start,
-		    then_bb->global_live_at_end, BITMAP_IOR);
+  bitmap_ior (test_bb->global_live_at_end,
+	      else_bb->global_live_at_start,
+	      then_bb->global_live_at_end);
 
   new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
   then_bb_index = then_bb->index;
@@ -3018,9 +3012,9 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_operation (test_bb->global_live_at_end,
-		    then_bb->global_live_at_start,
-		    else_bb->global_live_at_end, BITMAP_IOR);
+  bitmap_ior (test_bb->global_live_at_end,
+	      then_bb->global_live_at_start,
+	      else_bb->global_live_at_end);
 
   delete_basic_block (else_bb);
 
@@ -3130,10 +3124,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 that any registers modified are dead at the branch site.  */
 
       rtx insn, cond, prev;
-      regset_head merge_set_head, tmp_head, test_live_head, test_set_head;
       regset merge_set, tmp, test_live, test_set;
       struct propagate_block_info *pbi;
-      int i, fail = 0;
+      unsigned i, fail = 0;
       bitmap_iterator bi;
 
       /* Check for no calls or trapping operations.  */
@@ -3172,10 +3165,10 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	   TEST_SET  = set of registers set between EARLIEST and the
 		       end of the block.  */
 
-      tmp = INITIALIZE_REG_SET (tmp_head);
-      merge_set = INITIALIZE_REG_SET (merge_set_head);
-      test_live = INITIALIZE_REG_SET (test_live_head);
-      test_set = INITIALIZE_REG_SET (test_set_head);
+      tmp = ALLOC_REG_SET (&reg_obstack);
+      merge_set = ALLOC_REG_SET (&reg_obstack);
+      test_live = ALLOC_REG_SET (&reg_obstack);
+      test_set = ALLOC_REG_SET (&reg_obstack);
 
       /* ??? bb->local_set is only valid during calculate_global_regs_live,
 	 so we must recompute usage for MERGE_BB.  Not so bad, I suppose,
@@ -3217,14 +3210,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	   TEST_SET & merge_bb->global_live_at_start
 	 are empty.  */
 
-      bitmap_operation (tmp, test_set, test_live, BITMAP_IOR);
-      bitmap_operation (tmp, tmp, merge_set, BITMAP_AND);
-      if (bitmap_first_set_bit (tmp) >= 0)
-	fail = 1;
-
-      bitmap_operation (tmp, test_set, merge_bb->global_live_at_start,
-			BITMAP_AND);
-      if (bitmap_first_set_bit (tmp) >= 0)
+      if (bitmap_intersect_p (test_set, merge_set)
+	  || bitmap_intersect_p (test_live, merge_set)
+	  || bitmap_intersect_p (test_set, merge_bb->global_live_at_start))
 	fail = 1;
 
       FREE_REG_SET (tmp);

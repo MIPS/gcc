@@ -105,7 +105,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	mark_referenced call in assemble_variable functions referenced by
 	static variables are noticed too.
 
-	The intra-procedural information is produced and it's existence
+	The intra-procedural information is produced and its existence
 	indicated by global_info_ready.  Once this flag is set it is impossible
 	to change function from !reachable to reachable and thus
 	assemble_variable no longer call mark_referenced.
@@ -547,8 +547,8 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 
 static bool error_found;
 
-/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph
-   nodes.  */
+/* Callback of verify_cgraph_node.  Check that all call_exprs have
+   cgraph nodes.  */
 
 static tree
 verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
@@ -728,7 +728,7 @@ cgraph_varpool_analyze_pending_decls (void)
       /* Some datastructures (such as typeinfos for EH handling) can be output
          late during the RTL compilation.  We need to make these invisible to
 	 IPA optimizers or we confuse them badly.  */
-      if (!cgraph_global_info_ready)
+      if (cgraph_global_info_ready)
         cgraph_varpool_first_unanalyzed_node->non_ipa = true;
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
 
@@ -1146,6 +1146,9 @@ cgraph_optimize (void)
       return;
     }
   timevar_push (TV_IPA_OPT);
+
+  process_pending_assemble_externals ();
+
   if (!quiet_flag)
     {
       fprintf (stderr, "Performing intraprocedural optimizations");

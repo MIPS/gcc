@@ -97,12 +97,13 @@ mstring;
 
 
 /* Flags to specify which standardi/extension contains a feature.  */
-#define GFC_STD_GNU		(1<<5)	/* GNU Fortran extension.  */
-#define GFC_STD_F2003		(1<<4)	/* New in F2003.  */
-#define GFC_STD_F2003_DEL	(1<<3)	/* Deleted in F2003.  */
-#define GFC_STD_F2003_OBS	(1<<2)	/* Obsoleted in F2003.  */
-#define GFC_STD_F95_DEL		(1<<1)	/* Deleted in F95.  */
-#define GFC_STD_F95_OBS		(1<<0)	/* Obsoleted in F95.  */
+#define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
+#define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
+/* Note that no features were obsoleted nor deleted in F2003.  */
+#define GFC_STD_F95                 (1<<3)    /* New in F95.  */
+#define GFC_STD_F95_DEL         (1<<2)    /* Deleted in F95.  */
+#define GFC_STD_F95_OBS        (1<<1)    /* Obsoleted in F95.  */
+#define GFC_STD_F77                 (1<<0)    /* Up to and including F77.  */
 
 /*************************** Enums *****************************/
 
@@ -185,7 +186,7 @@ extern mstring intrinsic_operators[];
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE
+  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
 }
 arith;
 
@@ -314,7 +315,9 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
+  GFC_ISYM_FNUM,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_FSTAT,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -378,6 +381,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_SPREAD,
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
+  GFC_ISYM_STAT,
   GFC_ISYM_SUM,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
@@ -386,6 +390,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
   GFC_ISYM_UBOUND,
+  GFC_ISYM_UMASK,
+  GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
   GFC_ISYM_CONVERSION
@@ -1004,7 +1010,7 @@ typedef struct gfc_intrinsic_sym
   char name[GFC_MAX_SYMBOL_LEN + 1], lib_name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_arg *formal;
   gfc_typespec ts;
-  int elemental, pure, generic, specific, actual_ok;
+  int elemental, pure, generic, specific, actual_ok, standard;
 
   gfc_simplify_f simplify;
   gfc_check_f check;
@@ -1100,7 +1106,7 @@ gfc_expr;
 typedef struct
 {
   /* Values really representable by the target.  */
-  mpz_t huge, min_int, max_int;
+  mpz_t huge, pedantic_min_int, min_int, max_int;
 
   int kind, radix, digits, bit_size, range;
 
@@ -1208,7 +1214,7 @@ gfc_iterator;
 #define gfc_get_iterator() gfc_getmem(sizeof(gfc_iterator))
 
 
-/* Allocation structure for ALLOCATE, DEALLOCATE and NULLIFY statements. */
+/* Allocation structure for ALLOCATE, DEALLOCATE and NULLIFY statements.  */
 
 typedef struct gfc_alloc
 {
@@ -1403,6 +1409,7 @@ typedef struct
   int d8;
   int warn_std;
   int allow_std;
+  int warn_nonstd_intrinsics;
 }
 gfc_option_t;
 

@@ -1,3 +1,67 @@
+2004-11-28  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR preprocessor/17610 
+	* directives.c (do_include_common): Error out if an empty filename
+	is given for #include (or #include_next or #import).
+
+2004-11-27  Roger Sayle  <roger@eyesopen.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* internal.h: Replace all uses of uchar with unsigned char.
+	* include/cpp-id-data.h: Likewise.  Guard typedef of uchar
+	with !IN_GCC, so uchar is only defined whilst building libcpp.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Regenerate.
+
+2004-11-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR preprocessor/15824
+	* configure.ac: Correct HAVE_UCHAR test to #include <sys/types.h>
+	directly, instead of the non-existant "system.h" and "ansidecl.h".
+	* configure: Regenerate.
+
+2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+
+	* internal.h (struct lexer_state): Add in_deferred_pragma.
+	* directives.c (struct pragma_entry): Add allow_expansion.
+	(insert_pragma_entry): Take allow_expansion flag.
+	(register_pragma): Likewise.
+	(cpp_register_pragma): Likewise.
+	(_cpp_init_internal_pragmas): Update calls to cpp_register_pragma.
+	(do_pragma): Honor allow_expansion.
+	(cpp_handle_deferred_pragma): Set in_deferred_pragma.
+	* include/cpplib.h (cpp_register_pragma): Update prototype.
+
+2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
+            Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac (i[34567]86-*-solaris2.1[0-9]*): Set
+	need_64bit_hwint=yes.
+	* configure: Regenerate.
+
+2004-11-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* Makefile.in ($(PACKAGE).pot): New rule.  Depend on
+	po/$(PACKAGE).pot.
+	(po/$(PACKAGE).pot): Use ":" instead of "," in --keyword
+	arguments.  Add keywords _, N_, SYNTAX_ERROR and SYNTAX_ERROR2.
+	Remove local srcdir path from generated file.
+
+2004-11-04  Zack Weinberg  <zack@codesourcery.com>
+            Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* internal.h (HAVE_ICONV): Undefine if we do not have HAVE_ICONV_H
+	as well.
+
+2004-10-27  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18075
+	* directives.c (do_pragma): Do not defer pragmas which are unknown.
+	(cpp_handle_deferred_pragma): Add cast to silence warning.
+
 2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* errors.c (_cpp_begin_message): Print "error: " for errors.

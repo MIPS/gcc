@@ -30,9 +30,13 @@ void test01()
   using std::tr1::is_reference;
   using namespace __gnu_test;
 
-  VERIFY( (test_category<is_reference, int&>(true)) );
-  VERIFY( (test_category<is_reference, ClassType&>(true)) );
-  VERIFY( (test_category<is_reference, int(&)(int)>(true)) );
+  typedef int&           int_ref;
+  typedef ClassType&     ClassType_ref;
+  typedef int (&fun_ref) (int);
+
+  VERIFY( (test_category<is_reference, int_ref>(true)) );
+  VERIFY( (test_category<is_reference, ClassType_ref>(true)) );
+  VERIFY( (test_category<is_reference, fun_ref>(true)) );
 
   // Sanity check.
   VERIFY( (test_category<is_reference, ClassType>(false)) );

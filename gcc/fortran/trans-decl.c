@@ -410,9 +410,9 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       DECL_EXTERNAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
     }
-  else if (sym->module[0] && !sym->attr.result)
+  else if (sym->module[0] && !sym->attr.result && !sym->attr.dummy)
     {
-      /* TODO: Don't set sym->module for result variables.  */
+      /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE);
       /* This is the declaration of a module variable.  */
       TREE_PUBLIC (decl) = 1;
@@ -1135,6 +1135,7 @@ create_function_arglist (gfc_symbol * sym)
       DECL_CONTEXT (parm) = fndecl;
       DECL_ARG_TYPE (parm) = type;
       TREE_READONLY (parm) = 1;
+      DECL_ARTIFICIAL (parm) = 1;
       gfc_finish_decl (parm, NULL_TREE);
 
       arglist = chainon (arglist, parm);
@@ -1162,6 +1163,7 @@ create_function_arglist (gfc_symbol * sym)
 	  DECL_CONTEXT (length) = fndecl;
 	  DECL_ARG_TYPE (length) = type;
 	  TREE_READONLY (length) = 1;
+	  DECL_ARTIFICIAL (length) = 1;
 	  gfc_finish_decl (length, NULL_TREE);
 	}
     }
@@ -1216,6 +1218,7 @@ create_function_arglist (gfc_symbol * sym)
 
       arglist = chainon (arglist, length);
       DECL_CONTEXT (length) = fndecl;
+      DECL_ARTIFICIAL (length) = 1;
       DECL_ARG_TYPE (length) = type;
       TREE_READONLY (length) = 1;
       gfc_finish_decl (length, NULL_TREE);
@@ -2088,12 +2091,12 @@ generate_local_decl (gfc_symbol * sym)
       if (sym->attr.referenced)
         gfc_get_symbol_decl (sym);
       else if (sym->attr.dummy && warn_unused_parameter)
-            warning ("unused parameter `%s'", sym->name);
+            warning ("unused parameter %qs", sym->name);
       /* Warn for unused variables, but not if they're inside a common
 	 block or are use-associated.  */
       else if (warn_unused_variable
 	       && !(sym->attr.in_common || sym->attr.use_assoc))
-	warning ("unused variable `%s'", sym->name); 
+	warning ("unused variable %qs", sym->name); 
     }
 }
 

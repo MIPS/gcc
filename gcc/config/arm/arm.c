@@ -114,6 +114,9 @@ static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
 static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
 static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
+#endif
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void thumb_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -348,6 +351,9 @@ const char * target_fpe_name = NULL;
 
 /* Set by the -mfloat-abi=... option.  */
 const char * target_float_abi_name = NULL;
+
+/* Set by the legacy -mhard-float and -msoft-float options.  */
+const char * target_float_switch = NULL;
 
 /* Set by the -mabi=... option.  */
 const char * target_abi_name = NULL;
@@ -1075,14 +1081,16 @@ arm_override_options (void)
 	error ("invalid floating point abi: -mfloat-abi=%s",
 	       target_float_abi_name);
     }
-  else
+  else if (target_float_switch)
     {
-      /* Use soft-float target flag.  */
-      if (target_flags & ARM_FLAG_SOFT_FLOAT)
-	arm_float_abi = ARM_FLOAT_ABI_SOFT;
-      else
+      /* This is a bit of a hack to avoid needing target flags for these.  */
+      if (target_float_switch[1] == 'h')
 	arm_float_abi = ARM_FLOAT_ABI_HARD;
+      else
+	arm_float_abi = ARM_FLOAT_ABI_SOFT;
     }
+  else
+    arm_float_abi = TARGET_DEFAULT_FLOAT_ABI;
 
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
@@ -1155,7 +1163,7 @@ arm_override_options (void)
       /* For processors with load scheduling, it never costs more than
          2 cycles to load a constant, and the load scheduler may well
 	 reduce that to 1.  */
-      if (tune_flags & FL_LDSCHED)
+      if (arm_ld_sched)
         arm_constant_limit = 1;
 
       /* On XScale the longer latency of a load makes it more difficult
@@ -2589,6 +2597,7 @@ const struct attribute_spec arm_attribute_table[] =
 #elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport",    0, 0, false, false, false, handle_dll_attribute },
   { "dllexport",    0, 0, false, false, false, handle_dll_attribute },
+  { "notshared",    0, 0, false, true, false, arm_handle_notshared_attribute },
 #endif
   { NULL,           0, 0, false, false, false, NULL }
 };
@@ -2601,7 +2610,7 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2619,7 +2628,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning ("`%s' attribute only applies to functions",
+	  warning ("%qs attribute only applies to functions",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
@@ -2633,7 +2642,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
 	      *no_add_attrs = true;
 	    }
 	}
@@ -2660,13 +2669,38 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
 	    }
 	}
     }
 
   return NULL_TREE;
 }
+
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+/* Handle the "notshared" attribute.  This attribute is another way of
+   requesting hidden visibility.  ARM's compiler supports
+   "__declspec(notshared)"; we support the same thing via an
+   attribute.  */
+
+static tree
+arm_handle_notshared_attribute (tree *node, 
+				tree name ATTRIBUTE_UNUSED, 
+				tree args ATTRIBUTE_UNUSED, 
+				int flags ATTRIBUTE_UNUSED, 
+				bool *no_add_attrs)
+{
+  tree decl = TYPE_NAME (*node);
+
+  if (decl)
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+      *no_add_attrs = false;
+    }
+  return NULL_TREE;
+}
+#endif
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -7224,6 +7258,54 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   minipool_fix_tail = fix;
 }
 
+/* Return the cost of synthesizing the const_double VAL inline.
+   Returns the number of insns needed, or 99 if we don't know how to
+   do it.  */
+int
+arm_const_double_inline_cost (rtx val)
+{
+  long parts[2];
+  
+  if (GET_MODE (val) == DFmode)
+    {
+      REAL_VALUE_TYPE r;
+      if (!TARGET_SOFT_FLOAT)
+	return 99;
+      REAL_VALUE_FROM_CONST_DOUBLE (r, val);
+      REAL_VALUE_TO_TARGET_DOUBLE (r, parts);
+    }
+  else if (GET_MODE (val) != VOIDmode)
+    return 99;
+  else
+    {
+      parts[0] = CONST_DOUBLE_LOW (val);
+      parts[1] = CONST_DOUBLE_HIGH (val);
+    }
+
+  return (arm_gen_constant (SET, SImode, NULL_RTX, parts[0],
+			    NULL_RTX, NULL_RTX, 0, 0)
+	  + arm_gen_constant (SET, SImode, NULL_RTX, parts[1],
+			      NULL_RTX, NULL_RTX, 0, 0));
+}
+
+/* Determine if a CONST_DOUBLE should be pushed to the minipool */
+static bool
+const_double_needs_minipool (rtx val)
+{
+  /* thumb only knows to load a CONST_DOUBLE from memory at the moment */
+  if (TARGET_THUMB)
+    return true;
+
+  /* Don't push anything to the minipool if a CONST_DOUBLE can be built with
+     a few ALU insns directly. On balance, the optimum is likely to be around
+     3 insns, except when there are no load delay slots where it should be 4.
+     When optimizing for size, a limit of 3 allows saving at least one word
+     except for cases where a single minipool entry could be shared more than
+     2 times which is rather unlikely to outweight the overall savings. */
+  return (arm_const_double_inline_cost (val)
+	  > ((optimize_size || arm_ld_sched) ? 3 : 4));
+}
+
 /* Scan INSN and note any of its operands that need fixing.
    If DO_PUSHES is false we do not actually push any of the fixups
    needed.  The function returns TRUE is any fixups were needed/pushed.
@@ -7260,7 +7342,9 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
 	{
 	  rtx op = recog_data.operand[opno];
 
-	  if (CONSTANT_P (op))
+	  if (CONSTANT_P (op)
+	      && (GET_CODE (op) != CONST_DOUBLE
+		  || const_double_needs_minipool (op)))
 	    {
 	      if (do_pushes)
 		push_minipool_fix (insn, address, recog_data.operand_loc[opno],
@@ -8601,6 +8685,12 @@ arm_compute_save_reg0_reg12_mask (void)
 	if (regs_ever_live[reg]
 	    || (! current_function_is_leaf && call_used_regs [reg]))
 	  save_reg_mask |= (1 << reg);
+
+      /* Also save the pic base register if necessary.  */
+      if (flag_pic
+	  && !TARGET_SINGLE_PIC_BASE
+	  && current_function_uses_pic_offset_table)
+	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
     }
   else
     {
@@ -8620,8 +8710,9 @@ arm_compute_save_reg0_reg12_mask (void)
       /* If we aren't loading the PIC register,
 	 don't stack it even though it may be live.  */
       if (flag_pic
-	  && ! TARGET_SINGLE_PIC_BASE
-	  && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+	  && !TARGET_SINGLE_PIC_BASE 
+	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
+	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
     }
 

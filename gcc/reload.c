@@ -240,7 +240,8 @@ static int push_secondary_reload (int, rtx, int, int, enum reg_class,
 				  enum machine_mode, enum reload_type,
 				  enum insn_code *);
 #endif
-static enum reg_class find_valid_class (enum machine_mode, int, unsigned int);
+static enum reg_class find_valid_class (enum machine_mode, enum machine_mode,
+					int, unsigned int);
 static int reload_inner_reg_of_subreg (rtx, enum machine_mode, int);
 static void push_replacement (rtx *, int, enum machine_mode);
 static void dup_replacements (rtx *, rtx *);
@@ -271,6 +272,9 @@ static rtx find_reloads_subreg_address (rtx, int, int, enum reload_type,
 					int, rtx);
 static void copy_replacements_1 (rtx *, rtx *, int);
 static int find_inc_amount (rtx, rtx);
+static int refers_to_mem_for_reload_p (rtx);
+static int refers_to_regno_for_reload_p (unsigned int, unsigned int,
+					 rtx, rtx *);
 
 #ifdef HAVE_SECONDARY_RELOADS
 
@@ -656,12 +660,15 @@ clear_secondary_mem (void)
 }
 #endif /* SECONDARY_MEMORY_NEEDED */
 
-/* Find the largest class for which every register number plus N is valid in
-   M1 (if in range) and is cheap to move into REGNO.
-   Abort if no such class exists.  */
+
+/* Find the largest class which has at least one register valid in
+   mode INNER, and which for every such register, that register number
+   plus N is also valid in OUTER (if in range) and is cheap to move
+   into REGNO.  Abort if no such class exists.  */
 
 static enum reg_class
-find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
+find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
+		  enum machine_mode inner ATTRIBUTE_UNUSED, int n,
 		  unsigned int dest_regno ATTRIBUTE_UNUSED)
 {
   int best_cost = -1;
@@ -675,15 +682,22 @@ find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
   for (class = 1; class < N_REG_CLASSES; class++)
     {
       int bad = 0;
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER && ! bad; regno++)
-	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)
-	    && TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)
-	    && ! HARD_REGNO_MODE_OK (regno + n, m1))
-	  bad = 1;
+      int good = 0;
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER - n && ! bad; regno++)
+	if (TEST_HARD_REG_BIT (reg_class_contents[class], regno))
+	  {
+	    if (HARD_REGNO_MODE_OK (regno, inner))
+	      {
+		good = 1;
+		if (! TEST_HARD_REG_BIT (reg_class_contents[class], regno + n)
+		    || ! HARD_REGNO_MODE_OK (regno + n, outer))
+		  bad = 1;
+	      }
+	  }
 
-      if (bad)
+      if (bad || !good)
 	continue;
-      cost = REGISTER_MOVE_COST (m1, class, dest_class);
+      cost = REGISTER_MOVE_COST (outer, class, dest_class);
 
       if ((reg_class_size[class] > best_size
 	   && (best_cost < 0 || best_cost >= cost))
@@ -691,7 +705,7 @@ find_valid_class (enum machine_mode m1 ATTRIBUTE_UNUSED, int n,
 	{
 	  best_class = class;
 	  best_size = reg_class_size[class];
-	  best_cost = REGISTER_MOVE_COST (m1, class, dest_class);
+	  best_cost = REGISTER_MOVE_COST (outer, class, dest_class);
 	}
     }
 
@@ -1080,7 +1094,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 
       if (REG_P (SUBREG_REG (in)))
 	in_class
-	  = find_valid_class (inmode,
+	  = find_valid_class (inmode, GET_MODE (SUBREG_REG (in)),
 			      subreg_regno_offset (REGNO (SUBREG_REG (in)),
 						   GET_MODE (SUBREG_REG (in)),
 						   SUBREG_BYTE (in),
@@ -1177,7 +1191,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       dont_remove_subreg = 1;
       push_reload (SUBREG_REG (out), SUBREG_REG (out), &SUBREG_REG (out),
 		   &SUBREG_REG (out),
-		   find_valid_class (outmode,
+		   find_valid_class (outmode, GET_MODE (SUBREG_REG (out)),
 				     subreg_regno_offset (REGNO (SUBREG_REG (out)),
 							  GET_MODE (SUBREG_REG (out)),
 							  SUBREG_BYTE (out),
@@ -6171,7 +6185,7 @@ find_replacement (rtx *loc)
    This is similar to refers_to_regno_p in rtlanal.c except that we
    look at equivalences for pseudos that didn't get hard registers.  */
 
-int
+static int
 refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 			      rtx x, rtx *loc)
 {
@@ -6364,7 +6378,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 /* Return nonzero if anything in X contains a MEM.  Look also for pseudo
    registers.  */
 
-int
+static int
 refers_to_mem_for_reload_p (rtx x)
 {
   const char *fmt;
@@ -6690,10 +6704,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 	    for (i = 0; i < valuenregs; ++i)
 	      if (call_used_regs[valueno + i])
 		return 0;
-#ifdef NON_SAVING_SETJMP
-	  if (NON_SAVING_SETJMP && find_reg_note (p, REG_SETJMP, NULL))
-	    return 0;
-#endif
 	}
 
       if (INSN_P (p))

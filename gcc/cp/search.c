@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
-#include "stack.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
@@ -82,7 +81,7 @@ static int n_contexts_saved;
 
 struct lookup_base_data_s
 {
-  tree t;		/* type being searched. */
+  tree t;		/* type being searched.  */
   tree base;            /* The base type we're looking for.  */
   tree binfo;           /* Found binfo.  */
   bool via_virtual;  	/* Found via a virtual path.  */
@@ -497,7 +496,13 @@ lookup_field_1 (tree type, tree name, bool want_type)
   return NULL_TREE;
 }
 
-/* There are a number of cases we need to be aware of here:
+/* Return the FUNCTION_DECL, RECORD_TYPE, UNION_TYPE, or
+   NAMESPACE_DECL corresponding to the innermost non-block scope.  */  
+
+tree
+current_scope (void)
+{
+  /* There are a number of cases we need to be aware of here:
 			 current_class_type	current_function_decl
      global			NULL			NULL
      fn-local			NULL			SET
@@ -505,30 +510,26 @@ lookup_field_1 (tree type, tree name, bool want_type)
      class->fn			SET			SET
      fn->class			SET			SET
 
-   Those last two make life interesting.  If we're in a function which is
-   itself inside a class, we need decls to go into the fn's decls (our
-   second case below).  But if we're in a class and the class itself is
-   inside a function, we need decls to go into the decls for the class.  To
-   achieve this last goal, we must see if, when both current_class_ptr and
-   current_function_decl are set, the class was declared inside that
-   function.  If so, we know to put the decls into the class's scope.  */
-
-tree
-current_scope (void)
-{
-  if (current_function_decl == NULL_TREE)
+     Those last two make life interesting.  If we're in a function which is
+     itself inside a class, we need decls to go into the fn's decls (our
+     second case below).  But if we're in a class and the class itself is
+     inside a function, we need decls to go into the decls for the class.  To
+     achieve this last goal, we must see if, when both current_class_ptr and
+     current_function_decl are set, the class was declared inside that
+     function.  If so, we know to put the decls into the class's scope.  */
+  if (current_function_decl && current_class_type
+      && ((DECL_FUNCTION_MEMBER_P (current_function_decl)
+	   && same_type_p (DECL_CONTEXT (current_function_decl),
+			   current_class_type))
+	  || (DECL_FRIEND_CONTEXT (current_function_decl)
+	      && same_type_p (DECL_FRIEND_CONTEXT (current_function_decl),
+			      current_class_type))))
+    return current_function_decl;
+  if (current_class_type)
     return current_class_type;
-  if (current_class_type == NULL_TREE)
+  if (current_function_decl)
     return current_function_decl;
-  if ((DECL_FUNCTION_MEMBER_P (current_function_decl)
-       && same_type_p (DECL_CONTEXT (current_function_decl),
-		       current_class_type))
-      || (DECL_FRIEND_CONTEXT (current_function_decl)
-	  && same_type_p (DECL_FRIEND_CONTEXT (current_function_decl),
-			  current_class_type)))
-    return current_function_decl;
-
-  return current_class_type;
+  return current_namespace;
 }
 
 /* Returns nonzero if we are currently in a function scope.  Note
@@ -556,9 +557,8 @@ at_class_scope_p (void)
 bool
 at_namespace_scope_p (void)
 {
-  /* We are in a namespace scope if we are not it a class scope or a
-     function scope.  */
-  return !current_scope();
+  tree cs = current_scope ();
+  return cs && TREE_CODE (cs) == NAMESPACE_DECL;
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
@@ -833,9 +833,13 @@ friend_accessible_p (tree scope, tree decl, tree binfo)
 static tree
 dfs_accessible_post (tree binfo, void *data ATTRIBUTE_UNUSED)
 {
-  if (BINFO_ACCESS (binfo) != ak_none
-      && is_friend (BINFO_TYPE (binfo), current_scope ()))
-    return binfo;
+  if (BINFO_ACCESS (binfo) != ak_none)
+    {
+      tree scope = current_scope ();
+      if (scope && TREE_CODE (scope) != NAMESPACE_DECL
+	  && is_friend (BINFO_TYPE (binfo), scope))
+	return binfo;
+    }
   
   return NULL_TREE;
 }
@@ -846,7 +850,7 @@ dfs_accessible_post (tree binfo, void *data ATTRIBUTE_UNUSED)
    then we can tell in what context the access is occurring by looking
    at the most derived class along the path indicated by BINFO.  If
    CONSIDER_LOCAL is true, do consider special access the current
-   scope or friendship thereof we might have.   */
+   scope or friendship thereof we might have.  */
 
 int 
 accessible_p (tree type, tree decl, bool consider_local_p)
@@ -1126,7 +1130,7 @@ lookup_field_r (tree binfo, void *data)
 	  /* Add the new value.  */
 	  lfi->ambiguous = tree_cons (NULL_TREE, nval, lfi->ambiguous);
 	  TREE_TYPE (lfi->ambiguous) = error_mark_node;
-	  lfi->errstr = "request for member `%D' is ambiguous";
+	  lfi->errstr = "request for member %qD is ambiguous";
 	}
     }
   else
@@ -1700,9 +1704,17 @@ dfs_walk_once_accessible_r (tree binfo, bool friends_p, bool once,
       /* If the base is inherited via private or protected
      	 inheritance, then we can't see it, unless we are a friend of
      	 the current binfo.  */
-      if (BINFO_BASE_ACCESS (binfo, ix) != access_public_node
-	  && !(friends_p && is_friend (BINFO_TYPE (binfo), current_scope ())))
-	continue;
+      if (BINFO_BASE_ACCESS (binfo, ix) != access_public_node)
+	{
+	  tree scope;
+	  if (!friends_p)
+	    continue;
+	  scope = current_scope ();
+	  if (!scope 
+	      || TREE_CODE (scope) == NAMESPACE_DECL
+	      || !is_friend (BINFO_TYPE (binfo), scope))
+	    continue;
+	}
 
       if (mark)
 	BINFO_MARKED (base_binfo) = 1;
@@ -1762,7 +1774,7 @@ dfs_walk_once_accessible (tree binfo, bool friends_p,
 /* Check that virtual overrider OVERRIDER is acceptable for base function
    BASEFN. Issue diagnostic, and return zero, if unacceptable.  */
 
-int
+static int
 check_final_overrider (tree overrider, tree basefn)
 {
   tree over_type = TREE_TYPE (overrider);
@@ -1817,6 +1829,12 @@ check_final_overrider (tree overrider, tree basefn)
 	  over_return = non_reference (TREE_TYPE (over_type));
 	  if (CLASS_TYPE_P (over_return))
 	    fail = 2;
+	  else
+	    {
+	      cp_warning_at ("deprecated covariant return type for %q#D",
+			     overrider);
+	      cp_warning_at ("  overriding %q#D", basefn);
+	    }
 	}
       else
 	fail = 2;
@@ -2131,7 +2149,7 @@ check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
 	  tree *prev, other;
 	  
 	  if (!(virtual_depth || TREE_STATIC (level)))
-	    /* Neither is morally virtual, so cannot hide each other. */
+	    /* Neither is morally virtual, so cannot hide each other.  */
 	    continue;
 	  
 	  if (!TREE_VALUE (level))
@@ -2152,7 +2170,7 @@ check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
 	      if (same_type_p (to_type, TREE_TYPE (other)))
 		{
 		  if (they_hide_us)
-		    /* We are hidden. */
+		    /* We are hidden.  */
 		    return 0;
 
 		  if (we_hide_them)

@@ -73,7 +73,7 @@ struct alias_info
   /* SSA names visited while collecting points-to information.  If bit I
      is set, it means that SSA variable with version I has already been
      visited.  */
-  bitmap ssa_names_visited;
+  sbitmap ssa_names_visited;
 
   /* Array of SSA_NAME pointers processed by the points-to collector.  */
   varray_type processed_ptrs;
@@ -152,7 +152,6 @@ static void collect_points_to_info_for (struct alias_info *, tree);
 static bool ptr_is_dereferenced_by (tree, tree, bool *);
 static void maybe_create_global_var (struct alias_info *ai);
 static void group_aliases (struct alias_info *);
-static struct ptr_info_def *get_ptr_info (tree t);
 static void set_pt_anything (tree ptr);
 static void set_pt_malloc (tree ptr);
 
@@ -196,7 +195,8 @@ tree global_var;
    The concept of 'escaping' is the same one used in the Java world.  When
    a pointer or an ADDR_EXPR escapes, it means that it has been exposed
    outside of the current function.  So, assignment to global variables,
-   function arguments and returning a pointer are all escape sites.
+   function arguments and returning a pointer are all escape sites, as are
+   conversions between pointers and integers.
 
    This is where we are currently limited.  Since not everything is renamed
    into SSA, we lose track of escape properties when a pointer is stashed
@@ -237,15 +237,14 @@ tree global_var;
 
 	    foo (int i)
 	    {
-	      int *p, *q, a, b;
+	      int *p, a, b;
 	    
 	      if (i > 10)
 	        p = &a;
 	      else
-	        q = &b;
+	        p = &b;
 	    
 	      *p = 3;
-	      *q = 5;
 	      a = b + 2;
 	      return *p;
 	    }
@@ -361,6 +360,64 @@ struct tree_opt_pass pass_may_alias =
   0					/* letter */
 };
 
+/* Count the number of calls in the function and conditionally
+   create GLOBAL_VAR.   This is performed before translation
+   into SSA (and thus before alias analysis) to avoid compile time
+   and memory utilization explosions in functions with many
+   of calls and call clobbered variables.  */
+
+static void
+count_calls_and_maybe_create_global_var (void)
+{
+  struct alias_info ai;
+  basic_block bb;
+  bool temp;
+
+  memset (&ai, 0, sizeof (struct alias_info));
+
+  /* First count the number of calls in the IL.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator si;
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+        {
+          tree stmt = bsi_stmt (si);
+
+	  if (get_call_expr_in (stmt) != NULL_TREE)
+	    ai.num_calls_found++;
+	}
+    }
+
+  /* If there are no call clobbered variables, then maybe_create_global_var
+     will always create a GLOBAL_VAR.  At this point we do not want that
+     behavior.  So we turn on one bit in CALL_CLOBBERED_VARs, call
+     maybe_create_global_var, then reset the bit to its original state.  */
+  temp = bitmap_bit_p (call_clobbered_vars, 0);
+  bitmap_set_bit (call_clobbered_vars, 0);
+  maybe_create_global_var (&ai);
+  if (!temp)
+    bitmap_clear_bit (call_clobbered_vars, 0);
+}
+
+struct tree_opt_pass pass_maybe_create_global_var = 
+{
+  "maybe_create_global_var",		/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  count_calls_and_maybe_create_global_var, /* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_MAY_ALIAS,			/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Initialize the data structures used for alias analysis.  */
 
@@ -371,7 +428,8 @@ init_alias_info (void)
   static bool aliases_computed_p = false;
 
   ai = xcalloc (1, sizeof (struct alias_info));
-  ai->ssa_names_visited = BITMAP_XMALLOC ();
+  ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
+  sbitmap_zero (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
   ai->addresses_needed = BITMAP_XMALLOC ();
   VARRAY_UINT_INIT (ai->num_references, num_referenced_vars, "num_references");
@@ -382,8 +440,22 @@ init_alias_info (void)
   /* If aliases have been computed before, clear existing information.  */
   if (aliases_computed_p)
     {
-      size_t i;
+      unsigned i;
       bitmap_iterator bi;
+      basic_block bb;
+  
+     /* Make sure that every statement has a valid set of operands.
+	If a statement needs to be scanned for operands while we
+	compute aliases, it may get erroneous operands because all
+	the alias relations are not built at that point.
+	FIXME: This code will become obsolete when operands are not
+	lazily updated.  */
+      FOR_EACH_BB (bb)
+	{
+	  block_stmt_iterator si;
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	    get_stmt_operands (bsi_stmt (si));
+	}
 
       /* Clear the call-clobbered set.  We are going to re-discover
 	  call-clobbered variables.  */
@@ -452,7 +524,7 @@ delete_alias_info (struct alias_info *ai)
 {
   size_t i;
 
-  BITMAP_XFREE (ai->ssa_names_visited);
+  sbitmap_free (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
   BITMAP_XFREE (ai->addresses_needed);
 
@@ -487,9 +559,9 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 {
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (ptr)));
 
-  if (!bitmap_bit_p (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
+  if (!TEST_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
     {
-      bitmap_set_bit (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
+      SET_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
       walk_use_def_chains (ptr, collect_points_to_info_r, ai, true);
       VARRAY_PUSH_TREE (ai->processed_ptrs, ptr);
     }
@@ -573,7 +645,7 @@ static void
 compute_points_to_and_addr_escape (struct alias_info *ai)
 {
   basic_block bb;
-  size_t i;
+  unsigned i;
   tree op;
   ssa_op_iter iter;
 
@@ -608,22 +680,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
 	  if (stmt_escapes_p)
 	    block_ann->has_escape_site = 1;
-
-	  /* Special case for silly ADDR_EXPR tricks
-	     (gcc.c-torture/unsorted/pass.c).  If this statement is an
-	     assignment to a non-pointer variable and the RHS takes the
-	     address of a variable, assume that the variable on the RHS is
-	     call-clobbered.  We could add the LHS to the list of
-	     "pointers" and follow it to see if it really escapes, but it's
-	     not worth the pain.  */
-	  if (addr_taken
-	      && TREE_CODE (stmt) == MODIFY_EXPR
-	      && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 0))))
-	    EXECUTE_IF_SET_IN_BITMAP (addr_taken, 0, i, bi)
-	      {
-		tree var = referenced_var (i);
-		mark_call_clobbered (var);
-	      }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -750,8 +806,7 @@ create_name_tags (struct alias_info *ai)
 	  continue;
 	}
 
-      if (pi->pt_vars
-	  && bitmap_first_set_bit (pi->pt_vars) >= 0)
+      if (pi->pt_vars && !bitmap_empty_p (pi->pt_vars))
 	{
 	  size_t j;
 	  tree old_name_tag = pi->name_mem_tag;
@@ -835,7 +890,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
-      size_t j;
+      unsigned j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
@@ -890,7 +945,6 @@ static void
 compute_flow_insensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
-  sbitmap res;
 
   /* Initialize counter for the total number of virtual operands that
      aliasing will introduce.  When AI->TOTAL_ALIAS_VOPS goes beyond the
@@ -925,11 +979,16 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  /* Skip memory tags and variables that have never been
 	     written to.  We also need to check if the variables are
 	     call-clobbered because they may be overwritten by
-	     function calls.  */
-	  tag_stored_p = bitmap_bit_p (ai->written_vars, tag_ann->uid)
-			 || is_call_clobbered (tag);
-	  var_stored_p = bitmap_bit_p (ai->written_vars, v_ann->uid)
-			 || is_call_clobbered (var);
+	     function calls.
+
+	     Note this is effectively random accessing elements in
+	     the sparse bitset, which can be highly inefficient.
+	     So we first check the call_clobbered status of the
+	     tag and variable before querying the bitmap.  */
+	  tag_stored_p = is_call_clobbered (tag)
+			 || bitmap_bit_p (ai->written_vars, tag_ann->uid);
+	  var_stored_p = is_call_clobbered (var)
+			 || bitmap_bit_p (ai->written_vars, v_ann->uid);
 	  if (!tag_stored_p && !var_stored_p)
 	    continue;
 	     
@@ -979,8 +1038,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
      To avoid this problem, we do a final traversal of AI->POINTERS
      looking for pairs of pointers that have no aliased symbols in
      common and yet have conflicting alias set numbers.  */
-  res = sbitmap_alloc (num_referenced_vars);
-
   for (i = 0; i < ai->num_pointers; i++)
     {
       size_t j;
@@ -1000,8 +1057,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 
 	  /* The two pointers may alias each other.  If they already have
 	     symbols in common, do nothing.  */
-	  sbitmap_a_and_b (res, may_aliases1, may_aliases2);
-	  if (sbitmap_first_set_bit (res) >= 0)
+	  if (sbitmap_any_common_bits (may_aliases1, may_aliases2))
 	    continue;
 
 	  if (sbitmap_first_set_bit (may_aliases2) >= 0)
@@ -1022,8 +1078,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	    }
 	}
     }
-
-  sbitmap_free (res);
 
   if (dump_file)
     fprintf (dump_file, "%s: Total number of aliased vops: %ld\n",
@@ -1167,14 +1221,11 @@ static void
 group_aliases (struct alias_info *ai)
 {
   size_t i;
-  sbitmap res;
 
   /* Sort the POINTERS array in descending order of contributed
      virtual operands.  */
   qsort (ai->pointers, ai->num_pointers, sizeof (struct alias_map_d *),
          total_alias_vops_cmp);
-
-  res = sbitmap_alloc (num_referenced_vars);
 
   /* For every pointer in AI->POINTERS, reverse the roles of its tag
      and the tag's may-aliases set.  */
@@ -1195,8 +1246,7 @@ group_aliases (struct alias_info *ai)
 	{
 	  sbitmap tag2_aliases = ai->pointers[j]->may_aliases;
 
-	  sbitmap_a_and_b (res, tag1_aliases, tag2_aliases);
-	  if (sbitmap_first_set_bit (res) >= 0)
+          if (sbitmap_any_common_bits (tag1_aliases, tag2_aliases))
 	    {
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
 
@@ -1265,8 +1315,6 @@ group_aliases (struct alias_info *ai)
 	    }
 	}
     }
-
-  sbitmap_free (res);
 
   if (dump_file)
     fprintf (dump_file,
@@ -1358,7 +1406,6 @@ setup_pointers_and_addressables (struct alias_info *ai)
       if (TREE_ADDRESSABLE (var))
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
-	      && v_ann->mem_tag_kind == NOT_A_TAG
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
@@ -1484,7 +1531,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 static void
 maybe_create_global_var (struct alias_info *ai)
 {
-  size_t i, n_clobbered;
+  unsigned i, n_clobbered;
   bitmap_iterator bi;
   
   /* No need to create it, if we have one already.  */
@@ -1691,13 +1738,16 @@ set_pt_malloc (tree ptr)
 }
 
 
-/* Given two pointers DEST and ORIG.  Merge the points-to information in
-   ORIG into DEST.  AI is as in collect_points_to_info.  */
+/* Given two different pointers DEST and ORIG.  Merge the points-to
+   information in ORIG into DEST.  AI is as in
+   collect_points_to_info.  */
 
 static void
 merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 {
   struct ptr_info_def *dest_pi, *orig_pi;
+
+  gcc_assert (dest != orig);
 
   /* Make sure we have points-to information for ORIG.  */
   collect_points_to_info_for (ai, orig);
@@ -1715,20 +1765,19 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	 ...
 	 P_j = P_i + X;
 
-	 P_j would be marked as PT_MALLOC, which is wrong because
-	 PT_MALLOC implies that the pointer may not point to another
-	 variable.
+	 P_j would be marked as PT_MALLOC, however we currently do not
+	 handle cases of more than one pointer pointing to the same
+	 malloc'd area.
 
-	 FIXME 1: Subsequent analysis may determine that P_j
-	 cannot alias anything else, but we are being conservative
-	 here.
-
-	 FIXME 2: If the merging comes from a copy assignment, we
-	 ought to merge PT_MALLOC, but then both pointers would end up
-	 getting different name tags because create_name_tags is not
-	 smart enough to determine that the two come from the same
-	 malloc call.  Copy propagation before aliasing should cure
-	 this.  */
+	 FIXME: If the merging comes from an expression that preserves
+	 the PT_MALLOC attribute (copy assignment, address
+	 arithmetic), we ought to merge PT_MALLOC, but then both
+	 pointers would end up getting different name tags because
+	 create_name_tags is not smart enough to determine that the
+	 two come from the same malloc call.  Copy propagation before
+	 aliasing should cure this.  */
+      gcc_assert (orig_pi != dest_pi);
+      
       dest_pi->pt_malloc = 0;
 
       if (orig_pi->pt_malloc || orig_pi->pt_anything)
@@ -1736,7 +1785,7 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 
       if (!dest_pi->pt_anything
 	  && orig_pi->pt_vars
-	  && bitmap_first_set_bit (orig_pi->pt_vars) >= 0)
+	  && !bitmap_empty_p (orig_pi->pt_vars))
 	{
 	  if (dest_pi->pt_vars == NULL)
 	    {
@@ -1744,9 +1793,7 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	      bitmap_copy (dest_pi->pt_vars, orig_pi->pt_vars);
 	    }
 	  else
-	    bitmap_a_or_b (dest_pi->pt_vars,
-		           dest_pi->pt_vars,
-		           orig_pi->pt_vars);
+	    bitmap_ior_into (dest_pi->pt_vars, orig_pi->pt_vars);
 	}
     }
   else
@@ -1934,7 +1981,9 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 	    break;
 	    
 	  case SSA_NAME:
-	    merge_pointed_to_info (ai, lhs, var);
+	    /* Avoid unnecessary merges.  */
+	    if (lhs != var)
+	      merge_pointed_to_info (ai, lhs, var);
 	    break;
 	    
 	  default:
@@ -1988,6 +2037,16 @@ is_escape_site (tree stmt, size_t *num_calls_p)
       /* If we couldn't recognize the LHS of the assignment, assume that it
 	 is a non-local store.  */
       if (lhs == NULL_TREE)
+	return true;
+
+      /* If the RHS is a conversion between a pointer and an integer, the
+	 pointer escapes since we can't track the integer.  */
+      if ((TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
+	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == CONVERT_EXPR
+	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND
+					(TREE_OPERAND (stmt, 1), 0)))
+	  && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
 	return true;
 
       /* If the LHS is an SSA name, it can't possibly represent a non-local
@@ -2145,7 +2204,7 @@ static void
 create_global_var (void)
 {
   global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
-                           size_type_node);
+                           void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
   DECL_EXTERNAL (global_var) = 1;
@@ -2264,7 +2323,7 @@ debug_alias_info (void)
 /* Return the alias information associated with pointer T.  It creates a
    new instance if none existed.  */
 
-static struct ptr_info_def *
+struct ptr_info_def *
 get_ptr_info (tree t)
 {
   struct ptr_info_def *pi;

@@ -32,11 +32,16 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "config.h"
+#include "c99_protos.h"
 
 #if HAVE_COMPLEX_H
 # include <complex.h>
 #else
 #define complex __complex__
+#endif
+
+#if HAVE_IEEEFP_H
+#include <ieeefp.h>
 #endif
 
 #if HAVE_STDINT_H
@@ -45,6 +50,17 @@ Boston, MA 02111-1307, USA.  */
 
 #if HAVE_INTTYPES_H
 #include <inttypes.h>
+#endif
+
+#if !defined(HAVE_STDINT_H) && !defined(HAVE_INTTYPES_H) && defined(TARGET_ILP32)
+typedef char int8_t;
+typedef short int16_t;
+typedef int int32_t;
+typedef long long int64_t;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
 #endif
 
 #if HAVE_SYS_TYPES_H
@@ -70,6 +86,24 @@ typedef off_t gfc_offset;
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER)  ((size_t) &((TYPE *) 0)->MEMBER)
 #endif
+
+/* The isfinite macro is only available with C99, but some non-C99
+   systems still provide fpclassify, and there is a `finite' function
+   in BSD.  When isfinite is not available, try to use one of the
+   alternatives, or bail out.  */
+#if !defined(isfinite)
+static inline int
+isfinite (double x)
+{
+#if defined(fpclassify)
+  return (fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE);
+#elif defined(HAVE_FINITE)
+  return finite (x);
+#else
+#error "libgfortran needs isfinite, fpclassify, or finite"
+#endif
+}
+#endif /* !defined(isfinite)  */
 
 /* TODO: find the C99 version of these an move into above ifdef.  */
 #define REALPART(z) (__real__(z))
@@ -430,5 +464,5 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) array_t;
 #define size0 prefix(size0)
 index_type size0 (const array_t * array); 
 
-#endif
+#endif  /* LIBGFOR_H  */
 

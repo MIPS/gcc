@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -147,15 +146,15 @@ struct partial_schedule
 };
 
 
-partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
-void free_partial_schedule (partial_schedule_ptr);
-void reset_partial_schedule (partial_schedule_ptr, int new_ii);
+static partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
+static void free_partial_schedule (partial_schedule_ptr);
+static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
-ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
-					 ddg_node_ptr node, int cycle,
-					 sbitmap must_precede,
-					 sbitmap must_follow);
-void rotate_partial_schedule (partial_schedule_ptr, int);
+static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
+						ddg_node_ptr node, int cycle,
+						sbitmap must_precede,
+						sbitmap must_follow);
+static void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 
 
@@ -1220,8 +1219,6 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
   ddg_edge_ptr e;
   int start, end, step; /* Place together into one struct?  */
   sbitmap sched_nodes = sbitmap_alloc (num_nodes);
-  sbitmap psp = sbitmap_alloc (num_nodes);
-  sbitmap pss = sbitmap_alloc (num_nodes);
   sbitmap must_precede = sbitmap_alloc (num_nodes);
   sbitmap must_follow = sbitmap_alloc (num_nodes);
 
@@ -1251,10 +1248,8 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	    continue;
 
 	  /* 1. compute sched window for u (start, end, step).  */
-	  sbitmap_zero (psp);
-	  sbitmap_zero (pss);
-	  psp_not_empty = sbitmap_a_and_b_cg (psp, u_node_preds, sched_nodes);
-	  pss_not_empty = sbitmap_a_and_b_cg (pss, u_node_succs, sched_nodes);
+	  psp_not_empty = sbitmap_any_common_bits (u_node_preds, sched_nodes);
+	  pss_not_empty = sbitmap_any_common_bits (u_node_succs, sched_nodes);
 
 	  if (psp_not_empty && !pss_not_empty)
 	    {
@@ -1400,8 +1395,6 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
     } /* While try_again_with_larger_ii.  */
 
   sbitmap_free (sched_nodes);
-  sbitmap_free (psp);
-  sbitmap_free (pss);
 
   if (ii >= maxii)
     {
@@ -1783,7 +1776,7 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
    modulo scheduling.  */
 
 /* Create a partial schedule and allocate a memory to hold II rows.  */
-partial_schedule_ptr
+static partial_schedule_ptr
 create_partial_schedule (int ii, ddg_ptr g, int history)
 {
   partial_schedule_ptr ps = (partial_schedule_ptr)
@@ -1819,7 +1812,7 @@ free_ps_insns (partial_schedule_ptr ps)
 }
 
 /* Free all the memory allocated to the partial schedule.  */
-void
+static void
 free_partial_schedule (partial_schedule_ptr ps)
 {
   if (!ps)
@@ -1831,7 +1824,7 @@ free_partial_schedule (partial_schedule_ptr ps)
 
 /* Clear the rows array with its PS_INSNs, and create a new one with
    NEW_II rows.  */
-void
+static void
 reset_partial_schedule (partial_schedule_ptr ps, int new_ii)
 {
   if (!ps)
@@ -1936,7 +1929,7 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
 
   /* Find the first must follow and the last must precede
      and insert the node immediately after the must precede
-     but make sure that it there is no must follow after it.   */
+     but make sure that it there is no must follow after it.  */
   for (next_ps_i = ps->rows[row];
        next_ps_i;
        next_ps_i = next_ps_i->next_in_row)
@@ -2131,7 +2124,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
    is returned.  Bit N is set in MUST_PRECEDE/MUST_FOLLOW if the node with 
    cuid N must be come before/after (respectively) the node pointed to by 
    PS_I when scheduled in the same cycle.  */
-ps_insn_ptr
+static ps_insn_ptr
 ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
    			     int c, sbitmap must_precede,
 			     sbitmap must_follow)
@@ -2176,7 +2169,7 @@ ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
 
 /* Rotate the rows of PS such that insns scheduled at time
    START_CYCLE will appear in row 0.  Updates max/min_cycles.  */
-void
+static void
 rotate_partial_schedule (partial_schedule_ptr ps, int start_cycle)
 {
   int i, row, backward_rotates;

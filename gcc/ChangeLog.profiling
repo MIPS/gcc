@@ -1,5 +1,9 @@
 2004-12-15  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from mainline (tree-profiling-merge-20041212)
+	
+2004-12-15  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (cgraph_varpool_analyze_pending_decls): Move
 	ipa_analyze_variable from here....
 	(cgraph_optimize): ... to here.
@@ -12,6 +16,7 @@
 	* tree-inline.c (optimize_inline_calls): Recount frequencies.
 
 2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
 	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function		with volatile asm from being marked const or pure.
 	(static_execute): turn off pure if the function contains backedges.
 

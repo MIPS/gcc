@@ -1185,6 +1185,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
   trueop1 = avoid_constant_pool_reference (op1);
 
   if (VECTOR_MODE_P (mode)
+      && code != VEC_CONCAT
       && GET_CODE (trueop0) == CONST_VECTOR
       && GET_CODE (trueop1) == CONST_VECTOR)
     {
@@ -3170,7 +3171,7 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 		  != ((HOST_WIDE_INT) (-1) << (width - 1))))
 	    val &= ((HOST_WIDE_INT) 1 << width) - 1;
 
-	  return GEN_INT (val);
+	  return gen_int_mode (val, mode);
 	}
       break;
 
@@ -3324,6 +3325,10 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
   /* Some ports misuse CCmode.  */
   if (GET_MODE_CLASS (outermode) == MODE_CC && GET_CODE (op) == CONST_INT)
     return op;
+
+  /* We have no way to represent a complex constant at the rtl level.  */
+  if (COMPLEX_MODE_P (outermode))
+    return NULL_RTX;
 
   /* Unpack the value.  */
 
@@ -3641,12 +3646,14 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 	}
 
       /* Recurse for further possible simplifications.  */
-      newx = simplify_subreg (outermode, SUBREG_REG (op),
-			     GET_MODE (SUBREG_REG (op)),
-			     final_offset);
+      newx = simplify_subreg (outermode, SUBREG_REG (op), innermostmode,
+			      final_offset);
       if (newx)
 	return newx;
-      return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      if (validate_subreg (outermode, innermostmode,
+			   SUBREG_REG (op), final_offset))
+        return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      return NULL_RTX;
     }
 
   /* SUBREG of a hard register => just change the register number
@@ -3674,14 +3681,15 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       && subreg_offset_representable_p (REGNO (op), innermode,
 					byte, outermode))
     {
-      rtx tem = gen_rtx_SUBREG (outermode, op, byte);
-      int final_regno = subreg_hard_regno (tem, 0);
+      unsigned int regno = REGNO (op);
+      unsigned int final_regno
+	= regno + subreg_regno_offset (regno, innermode, byte, outermode);
 
       /* ??? We do allow it if the current REG is not valid for
 	 its mode.  This is a kludge to work around how float/complex
 	 arguments are passed on 32-bit SPARC and should be fixed.  */
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
-	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
+	  || ! HARD_REGNO_MODE_OK (regno, innermode))
 	{
 	  rtx x = gen_rtx_REG_offset (op, outermode, final_regno, byte);
 
@@ -3714,18 +3722,21 @@ simplify_subreg (enum machine_mode outermode, rtx op,
      of real and imaginary part.  */
   if (GET_CODE (op) == CONCAT)
     {
-      int is_realpart = byte < (unsigned int) GET_MODE_UNIT_SIZE (innermode);
-      rtx part = is_realpart ? XEXP (op, 0) : XEXP (op, 1);
-      unsigned int final_offset;
-      rtx res;
+      unsigned int inner_size, final_offset;
+      rtx part, res;
 
-      final_offset = byte % (GET_MODE_UNIT_SIZE (innermode));
+      inner_size = GET_MODE_UNIT_SIZE (innermode);
+      part = byte < inner_size ? XEXP (op, 0) : XEXP (op, 1);
+      final_offset = byte % inner_size;
+      if (final_offset + GET_MODE_SIZE (outermode) > inner_size)
+	return NULL_RTX;
+
       res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
       if (res)
 	return res;
-      /* We can at least simplify it by referring directly to the
-	 relevant part.  */
-      return gen_rtx_SUBREG (outermode, part, final_offset);
+      if (validate_subreg (outermode, GET_MODE (part), part, final_offset))
+	return gen_rtx_SUBREG (outermode, part, final_offset);
+      return NULL_RTX;
     }
 
   /* Optimize SUBREG truncations of zero and sign extended values.  */
@@ -3773,27 +3784,22 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
 		     enum machine_mode innermode, unsigned int byte)
 {
   rtx newx;
-  /* Little bit of sanity checking.  */
-  gcc_assert (innermode != VOIDmode);
-  gcc_assert (outermode != VOIDmode);
-  gcc_assert (innermode != BLKmode);
-  gcc_assert (outermode != BLKmode);
-
-  gcc_assert (GET_MODE (op) == innermode
-	      || GET_MODE (op) == VOIDmode);
-
-  gcc_assert ((byte % GET_MODE_SIZE (outermode)) == 0);
-  gcc_assert (byte < GET_MODE_SIZE (innermode));
 
   newx = simplify_subreg (outermode, op, innermode, byte);
   if (newx)
     return newx;
 
-  if (GET_CODE (op) == SUBREG || GET_MODE (op) == VOIDmode)
+  if (GET_CODE (op) == SUBREG
+      || GET_CODE (op) == CONCAT
+      || GET_MODE (op) == VOIDmode)
     return NULL_RTX;
 
-  return gen_rtx_SUBREG (outermode, op, byte);
+  if (validate_subreg (outermode, innermode, op, byte))
+    return gen_rtx_SUBREG (outermode, op, byte);
+
+  return NULL_RTX;
 }
+
 /* Simplify X, an rtx expression.
 
    Return the simplified expression or NULL if no simplifications

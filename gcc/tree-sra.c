@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 /* expr.h is needed for MOVE_RATIO.  */
 #include "expr.h"
+#include "params.h"
 
 
 /* This object of this pass is to replace a non-addressable aggregate with a
@@ -620,7 +621,7 @@ struct sra_walk_fns
 };
 
 #ifdef ENABLE_CHECKING
-/* Invoked via walk_tree, if *TP contains an candidate decl, return it.  */
+/* Invoked via walk_tree, if *TP contains a candidate decl, return it.  */
 
 static tree
 sra_find_candidate_decl (tree *tp, int *walk_subtrees,
@@ -805,6 +806,31 @@ sra_walk_modify_expr (tree expr, block_stmt_iterator *bsi,
       return;
     }
 
+  /* If the RHS is scalarizable, handle it.  There are only two cases.  */
+  if (rhs_elt)
+    {
+      if (!rhs_elt->is_scalar)
+	fns->ldst (rhs_elt, lhs, bsi, false);
+      else
+	fns->use (rhs_elt, &TREE_OPERAND (expr, 1), bsi, false);
+    }
+
+  /* If it isn't scalarizable, there may be scalarizable variables within, so
+     check for a call or else walk the RHS to see if we need to do any
+     copy-in operations.  We need to do it before the LHS is scalarized so
+     that the statements get inserted in the proper place, before any
+     copy-out operations.  */
+  else
+    {
+      tree call = get_call_expr_in (rhs);
+      if (call)
+	sra_walk_call_expr (call, bsi, fns);
+      else
+	sra_walk_expr (&TREE_OPERAND (expr, 1), bsi, false, fns);
+    }
+
+  /* Likewise, handle the LHS being scalarizable.  We have cases similar
+     to those above, but also want to handle RHS being constant.  */
   if (lhs_elt)
     {
       /* If this is an assignment from a constant, or constructor, then
@@ -834,31 +860,12 @@ sra_walk_modify_expr (tree expr, block_stmt_iterator *bsi,
       else
 	fns->use (lhs_elt, &TREE_OPERAND (expr, 0), bsi, true);
     }
-  else
-    {
-      /* LHS_ELT being null only means that the LHS as a whole is not a
-	 scalarizable reference.  There may be occurrences of scalarizable
-	 variables within, which implies a USE.  */
-      sra_walk_expr (&TREE_OPERAND (expr, 0), bsi, true, fns);
-    }
 
-  /* Likewise for the right-hand side.  The only difference here is that
-     we don't have to handle constants, and the RHS may be a call.  */
-  if (rhs_elt)
-    {
-      if (!rhs_elt->is_scalar)
-	fns->ldst (rhs_elt, lhs, bsi, false);
-      else
-	fns->use (rhs_elt, &TREE_OPERAND (expr, 1), bsi, false);
-    }
+  /* Similarly to above, LHS_ELT being null only means that the LHS as a
+     whole is not a scalarizable reference.  There may be occurrences of
+     scalarizable variables within, which implies a USE.  */
   else
-    {
-      tree call = get_call_expr_in (rhs);
-      if (call)
-	sra_walk_call_expr (call, bsi, fns);
-      else
-	sra_walk_expr (&TREE_OPERAND (expr, 1), bsi, false, fns);
-    }
+    sra_walk_expr (&TREE_OPERAND (expr, 0), bsi, true, fns);
 }
 
 /* Entry point to the walk functions.  Search the entire function,
@@ -1018,7 +1025,7 @@ scan_function (void)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      size_t i;
+      unsigned i;
 
       fputs ("\nScan results:\n", dump_file);
       EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
@@ -1293,6 +1300,14 @@ decide_block_copy (struct sra_elt *elt)
 	{
 	  unsigned HOST_WIDE_INT full_size, inst_size = 0;
 	  unsigned int inst_count;
+	  unsigned int max_size;
+
+	  /* If the sra-max-structure-size parameter is 0, then the
+	     user has not overridden the parameter and we can choose a
+	     sensible default.  */
+	  max_size = SRA_MAX_STRUCTURE_SIZE
+	    ? SRA_MAX_STRUCTURE_SIZE
+	    : MOVE_RATIO * UNITS_PER_WORD;
 
 	  full_size = tree_low_cst (size_tree, 1);
 
@@ -1303,14 +1318,14 @@ decide_block_copy (struct sra_elt *elt)
 
 	  /* If the structure is small, and we've made copies, go ahead
 	     and instantiate, hoping that the copies will go away.  */
-	  if (full_size <= (unsigned) MOVE_RATIO * UNITS_PER_WORD
+	  if (full_size <= max_size
 	      && elt->n_copies > elt->n_uses)
 	    use_block_copy = false;
 	  else
 	    {
 	      inst_count = sum_instantiated_sizes (elt, &inst_size);
 
-	      if (inst_size * 4 >= full_size * 3)
+	      if (inst_size * 100 >= full_size * SRA_FIELD_STRUCTURE_RATIO)
 		use_block_copy = false;
 	    }
 
@@ -1353,12 +1368,12 @@ decide_instantiations (void)
 {
   unsigned int i;
   bool cleared_any;
-  struct bitmap_head_def done_head;
+  bitmap_head done_head;
   bitmap_iterator bi;
 
   /* We cannot clear bits from a bitmap we're iterating over,
      so save up all the bits to clear until the end.  */
-  bitmap_initialize (&done_head, 1);
+  bitmap_initialize (&done_head, &bitmap_default_obstack);
   cleared_any = false;
 
   EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
@@ -1380,10 +1395,8 @@ decide_instantiations (void)
 
   if (cleared_any)
     {
-      bitmap_operation (sra_candidates, sra_candidates, &done_head,
-			BITMAP_AND_COMPL);
-      bitmap_operation (needs_copy_in, needs_copy_in, &done_head,
-			BITMAP_AND_COMPL);
+      bitmap_and_compl_into (sra_candidates, &done_head);
+      bitmap_and_compl_into (needs_copy_in, &done_head);
     }
   bitmap_clear (&done_head);
 
@@ -1405,7 +1418,7 @@ mark_all_v_defs (tree stmt)
 
   get_stmt_operands (stmt);
 
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
     {
       if (TREE_CODE (sym) == SSA_NAME)
 	sym = SSA_NAME_VAR (sym);
@@ -1826,6 +1839,8 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
   /* Generate initialization statements for all members extant in the RHS.  */
   if (rhs)
     {
+      /* Unshare the expression just in case this is from a decl's initial.  */
+      rhs = unshare_expr (rhs);
       push_gimplify_context ();
       result = generate_element_init (lhs_elt, rhs, &list);
       pop_gimplify_context (NULL);
@@ -1961,7 +1976,7 @@ static void
 scalarize_parms (void)
 {
   tree list = NULL;
-  size_t i;
+  unsigned i;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (needs_copy_in, 0, i, bi)
@@ -1986,7 +2001,7 @@ scalarize_function (void)
 
   sra_walk_function (&fns);
   scalarize_parms ();
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
 }
 
 

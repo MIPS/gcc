@@ -73,10 +73,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   } while (0)
 #endif
 
-#ifndef ASM_STABD_OP
-#define ASM_STABD_OP "\t.stabd\t"
-#endif
-
 /* This is how to output an element of a case-vector that is absolute.
    Some targets don't use this, but we have to define it anyway.  */
 
@@ -274,17 +270,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 # endif
 #endif
 
-/* This determines whether this target supports hidden visibility.
-   This is a weaker condition than HAVE_GAS_HIDDEN, which probes for
-   specific assembler syntax.  */
-#ifndef TARGET_SUPPORTS_HIDDEN
-# ifdef HAVE_GAS_HIDDEN
-#  define TARGET_SUPPORTS_HIDDEN 1
-# else
-#  define TARGET_SUPPORTS_HIDDEN 0
-# endif
-#endif
-
 /* Determines whether we may use common symbols to represent one-only
    semantics (a.k.a. "vague linkage").  */
 #ifndef USE_COMMON_FOR_ONE_ONLY
@@ -322,6 +307,26 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
     && !defined(EH_FRAME_IN_DATA_SECTION)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
+#endif
+#endif
+
+/* On many systems, different EH table encodings are used under
+   difference circumstances.  Some will require runtime relocations;
+   some will not.  For those that do not require runtime relocations,
+   we would like to make the table read-only.  However, since the
+   read-only tables may need to be combined with read-write tables
+   that do require runtime relocation, it is not safe to make the
+   tables read-only unless the linker will merge read-only and
+   read-write sections into a single read-write section.  If your
+   linker does not have this ability, but your system is such that no
+   encoding used with non-PIC code will ever require a runtime
+   relocation, then you can define EH_TABLES_CAN_BE_READ_ONLY to 1 in
+   your target configuration file.  */
+#ifndef EH_TABLES_CAN_BE_READ_ONLY
+#ifdef HAVE_LD_RO_RW_SECTION_MIXING
+#define EH_TABLES_CAN_BE_READ_ONLY 1
+#else
+#define EH_TABLES_CAN_BE_READ_ONLY 0
 #endif
 #endif
 

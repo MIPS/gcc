@@ -269,9 +269,7 @@ make_edges (basic_block min, basic_block max, int update_p)
     {
       rtx insn, x;
       enum rtx_code code;
-      int force_fallthru = 0;
       edge e;
-      edge_iterator ei;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -321,12 +319,6 @@ make_edges (basic_block min, basic_block max, int update_p)
 		  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF)
 		make_label_edge (edge_cache, bb,
 				 XEXP (XEXP (SET_SRC (tmp), 2), 0), 0);
-
-#ifdef CASE_DROPS_THROUGH
-	      /* Silly VAXen.  The ADDR_VEC is going to be in the way of
-		 us naturally detecting fallthru into the next block.  */
-	      force_fallthru = 1;
-#endif
 	    }
 
 	  /* If this is a computed jump, then mark it as reaching
@@ -390,22 +382,20 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	  {
-	    insn = 0;
-	    break;
-	  }
+      e = find_edge (bb, EXIT_BLOCK_PTR);
+      if (e && e->flags & EDGE_FALLTHRU)
+	insn = NULL;
+
       while (insn
 	     && NOTE_P (insn)
 	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
 	insn = NEXT_INSN (insn);
 
-      if (!insn || (bb->next_bb == EXIT_BLOCK_PTR && force_fallthru))
+      if (!insn)
 	cached_make_edge (edge_cache, bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
       else if (bb->next_bb != EXIT_BLOCK_PTR)
 	{
-	  if (force_fallthru || insn == BB_HEAD (bb->next_bb))
+	  if (insn == BB_HEAD (bb->next_bb))
 	    cached_make_edge (edge_cache, bb, bb->next_bb, EDGE_FALLTHRU);
 	}
     }

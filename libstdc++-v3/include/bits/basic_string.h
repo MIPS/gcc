@@ -257,8 +257,7 @@ namespace std
       // Data Members (public):
       // NB: This is an unsigned type, and thus represents the maximum
       // size that the allocator can hold.
-      /// @var
-      /// Value returned by various member functions when they fail.
+      ///  Value returned by various member functions when they fail.
       static const size_type	npos = static_cast<size_type>(-1);
 
     private:
@@ -302,12 +301,56 @@ namespace std
 	return __pos;
       }
 
+      void
+      _M_check_length(size_type __n1, size_type __n2, const char* __s) const
+      {
+	if (this->max_size() - (this->size() - __n1) < __n2)
+	  __throw_length_error(__N(__s));
+      }
+
       // NB: _M_limit doesn't check for a bad __pos value.
       size_type
       _M_limit(size_type __pos, size_type __off) const
       {
 	const bool __testoff =  __off < this->size() - __pos;
 	return __testoff ? __off : this->size() - __pos;
+      }
+
+      // True if _Rep and source do not overlap.
+      bool
+      _M_disjunct(const _CharT* __s) const
+      {
+	return (less<const _CharT*>()(__s, _M_data())
+		|| less<const _CharT*>()(_M_data() + this->size(), __s));
+      }
+
+      // When __n = 1 way faster than the general multichar
+      // traits_type::copy/move/assign.
+      static void
+      _M_copy(_CharT* __d, const _CharT* __s, size_type __n)
+      {
+	if (__n == 1)
+	  traits_type::assign(*__d, *__s);
+	else
+	  traits_type::copy(__d, __s, __n);
+      }
+
+      static void
+      _M_move(_CharT* __d, const _CharT* __s, size_type __n)
+      {
+	if (__n == 1)
+	  traits_type::assign(*__d, *__s);
+	else
+	  traits_type::move(__d, __s, __n);	  
+      }
+
+      static void
+      _M_assign(_CharT* __d, size_type __n, _CharT __c)
+      {
+	if (__n == 1)
+	  traits_type::assign(*__d, __c);
+	else
+	  traits_type::assign(__d, __n, __c);	  
       }
 
       // _S_copy_chars is a separate template to permit specialization
@@ -330,11 +373,11 @@ namespace std
 
       static void
       _S_copy_chars(_CharT* __p, _CharT* __k1, _CharT* __k2)
-      { traits_type::copy(__p, __k1, __k2 - __k1); }
+      { _M_copy(__p, __k1, __k2 - __k1); }
 
       static void
       _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
-      { traits_type::copy(__p, __k1, __k2 - __k1); }
+      { _M_copy(__p, __k1, __k2 - __k1); }
 
       void
       _M_mutate(size_type __pos, size_type __len1, size_type __len2);
@@ -721,7 +764,10 @@ namespace std
        */
       basic_string&
       operator+=(_CharT __c)
-      { return this->append(size_type(1), __c); }
+      { 
+	this->push_back(__c);
+	return *this;
+      }
 
       /**
        *  @brief  Append a string to this string.
@@ -776,8 +822,7 @@ namespace std
        *  Appends n copies of c to this string.
        */
       basic_string&
-      append(size_type __n, _CharT __c)
-      { return _M_replace_aux(this->size(), size_type(0), __n, __c); }
+      append(size_type __n, _CharT __c);
 
       /**
        *  @brief  Append a range of characters.
@@ -798,7 +843,13 @@ namespace std
        */
       void
       push_back(_CharT __c)
-      { _M_replace_aux(this->size(), size_type(0), size_type(1), __c); }
+      { 
+	const size_type __len = 1 + this->size();
+	if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	  this->reserve(__len);
+	traits_type::assign(_M_data()[this->size()], __c);
+	_M_rep()->_M_set_length_and_sharable(__len);
+      }
 
       /**
        *  @brief  Set value to contents of another string.
@@ -909,7 +960,8 @@ namespace std
        *  of the string doesn't change if an error is thrown.
       */
       template<class _InputIterator>
-        void insert(iterator __p, _InputIterator __beg, _InputIterator __end)
+        void
+        insert(iterator __p, _InputIterator __beg, _InputIterator __end)
         { this->replace(__p, __p, __beg, __end); }
 
       /**
@@ -1052,8 +1104,11 @@ namespace std
       */
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
-      { return _M_replace_safe(_M_check(__pos, "basic_string::erase"),
-			       _M_limit(__pos, __n), NULL, size_type(0)); }
+      { 
+	_M_mutate(_M_check(__pos, "basic_string::erase"),
+		  _M_limit(__pos, __n), size_type(0));
+	return *this;
+      }
 
       /**
        *  @brief  Remove one character.
@@ -1069,7 +1124,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin()
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
-	_M_replace_safe(__pos, size_type(1), NULL, size_type(0));
+	_M_mutate(__pos, size_type(1), size_type(0));
 	_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -1089,7 +1144,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
 				 && __last <= _M_iend());
         const size_type __pos = __first - _M_ibegin();
-	_M_replace_safe(__pos, __last - __first, NULL, size_type(0));
+	_M_mutate(__pos, __last - __first, size_type(0));
 	_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -1368,29 +1423,11 @@ namespace std
 
       basic_string&
       _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
-		     _CharT __c)
-      {
-	if (this->max_size() - (this->size() - __n1) < __n2)
-	  __throw_length_error(__N("basic_string::_M_replace_aux"));
-	_M_mutate(__pos1, __n1, __n2);
-	if (__n2 == 1)
-	  _M_data()[__pos1] = __c;
-	else if (__n2)
-	  traits_type::assign(_M_data() + __pos1, __n2, __c);
-	return *this;
-      }
+		     _CharT __c);
 
       basic_string&
       _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
-		      size_type __n2)
-      {
-	_M_mutate(__pos1, __n1, __n2);
-	if (__n2 == 1)
-	  _M_data()[__pos1] = *__s;
-	else if (__n2)
-	  traits_type::copy(_M_data() + __pos1, __s, __n2);
-	return *this;
-      }
+		      size_type __n2);
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type
@@ -2248,7 +2285,7 @@ namespace std
     inline bool
     operator<=(const _CharT* __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-  { return __rhs.compare(__lhs) >= 0; }
+    { return __rhs.compare(__lhs) >= 0; }
 
   // operator >=
   /**
@@ -2344,7 +2381,7 @@ namespace std
    *  delim was encountered, it is extracted but not stored into @a str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_istream<_CharT,_Traits>&
+    basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
 	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim);
 
@@ -2361,9 +2398,21 @@ namespace std
    *  encountered, it is extracted but not stored into @a str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    inline basic_istream<_CharT,_Traits>&
+    inline basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
 	    basic_string<_CharT, _Traits, _Alloc>& __str);
+    
+  template<>
+    basic_istream<char>&
+    getline(basic_istream<char>& __in, basic_string<char>& __str,
+	    char __delim);
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<>
+    basic_istream<wchar_t>&
+    getline(basic_istream<wchar_t>& __in, basic_string<wchar_t>& __str,
+	    wchar_t __delim);
+#endif  
 } // namespace std
 
 #endif /* _BASIC_STRING_H */

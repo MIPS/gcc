@@ -35,51 +35,41 @@ Boston, MA 02111-1307, USA.  */
    INTEGER, INTENT(IN) :: MASK
    INTEGER, INTENT(OUT), OPTIONAL :: OLD  */
 
-extern void umask_i4_sub (GFC_INTEGER_4 *, GFC_INTEGER_4 *);
-iexport_proto(umask_i4_sub);
-
 void
-umask_i4_sub (GFC_INTEGER_4 *mask, GFC_INTEGER_4 *old)
+prefix(umask_i4_sub) (GFC_INTEGER_4 * mask, GFC_INTEGER_4 * old)
 {
-  mode_t val = umask((mode_t) *mask);
+  mode_t val;
+
+  val = umask((mode_t) *mask);
   if (old != NULL)
     *old = (GFC_INTEGER_4) val;
 }
-iexport(umask_i4_sub);
-
-extern void umask_i8_sub (GFC_INTEGER_8 *, GFC_INTEGER_8 *);
-iexport_proto(umask_i8_sub);
 
 void
-umask_i8_sub (GFC_INTEGER_8 *mask, GFC_INTEGER_8 *old)
+prefix(umask_i8_sub) (GFC_INTEGER_8 * mask, GFC_INTEGER_8 * old)
 {
-  mode_t val = umask((mode_t) *mask);
+  mode_t val;
+
+  val = umask((mode_t) *mask);
   if (old != NULL)
     *old = (GFC_INTEGER_8) val;
 }
-iexport(umask_i8_sub);
 
 /* INTEGER FUNCTION UMASK(MASK)
    INTEGER, INTENT(IN) :: MASK  */
 
-extern GFC_INTEGER_4 umask_i4 (GFC_INTEGER_4 *);
-export_proto(umask_i4);
-
 GFC_INTEGER_4
-umask_i4 (GFC_INTEGER_4 *mask)
+prefix(umask) (GFC_INTEGER_4 * mask)
 {
   GFC_INTEGER_4 old;
-  umask_i4_sub (mask, &old);
+  prefix(umask_i4_sub) (mask, &old);
   return old;
 }
 
-extern GFC_INTEGER_8 umask_i8 (GFC_INTEGER_8 *);
-export_proto(umask_i8);
-
 GFC_INTEGER_8
-umask_i8 (GFC_INTEGER_8 *mask)
+prefix(umask_i8) (GFC_INTEGER_8 * mask)
 {
   GFC_INTEGER_8 old;
-  umask_i8_sub (mask, &old);
+  prefix(umask_i8_sub) (mask, &old);
   return old;
 }

@@ -152,7 +152,7 @@ execute_cleanup_cfg_post_optimizing (void)
 
 static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 {
-  NULL,					/* name */
+  "final_cleanup",			/* name */
   NULL,					/* gate */
   NULL, NULL,				/* IPA analysis */
   execute_cleanup_cfg_post_optimizing,	/* execute */
@@ -165,7 +165,7 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
+  TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -410,6 +410,7 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_maybe_create_global_var);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -436,6 +437,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: May alias should a TODO but for 4.0.0,
+     we add may_alias right after fold builtins
+     which can create arbitrary GIMPLE.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
@@ -457,11 +462,11 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
-  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
@@ -503,6 +508,14 @@ execute_todo (int properties, unsigned int flags, enum execute_pass_hook hook)
       rewrite_into_ssa (false);
       bitmap_clear (vars_to_rename);
     }
+  if (flags & TODO_fix_def_def_chains)
+    {
+      rewrite_def_def_chains ();
+      bitmap_clear (vars_to_rename);
+    }
+
+  if (flags & TODO_cleanup_cfg)
+    cleanup_tree_cfg ();
 
   if ((flags & TODO_dump_func)
       && (hook == MODIFY_FUNCTION_HOOK || hook == EXECUTE_HOOK)
@@ -783,13 +796,20 @@ tree_rest_of_compilation (tree fndecl)
 				    &cfun->saved_static_chain_decl);
     }
 
-  if (!vars_to_rename)
-    vars_to_rename = BITMAP_XMALLOC ();
-
+  /* Initialize the default bitmap obstack.  */
+  bitmap_obstack_initialize (NULL);
+  bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
+  
+  vars_to_rename = BITMAP_XMALLOC ();
+  
   /* Perform all tree transforms and optimizations.  */
   ipa_modify_function (cgraph_node (fndecl));
   execute_pass_list (all_passes, EXECUTE_HOOK, NULL, NULL);
-
+  
+  bitmap_obstack_release (&reg_obstack);
+  /* Release the default bitmap obstack.  */
+  bitmap_obstack_release (NULL);
+  
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {
@@ -838,10 +858,10 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Jsize of return value of '%D' is %u bytes",
+	    warning ("%Jsize of return value of %qD is %u bytes",
                      fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Jsize of return value of '%D' is larger than %wd bytes",
+	    warning ("%Jsize of return value of %qD is larger than %wd bytes",
                      fndecl, fndecl, larger_than_size);
 	}
     }

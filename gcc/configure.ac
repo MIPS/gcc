@@ -100,6 +100,8 @@ AC_MSG_ERROR([
 *** and run configure again.])
 fi
 
+TL_AC_GCC_VERSION([$srcdir/..])
+
 # -----------
 # Directories
 # -----------
@@ -137,7 +139,7 @@ if test x${gcc_gxx_include_dir} = x; then
   if test x${enable_version_specific_runtime_libs} = xyes; then
     gcc_gxx_include_dir='${libsubdir}/include/c++'
   else
-    topsrcdir=${srcdir}/.. . ${srcdir}/../config.if
+    libstdcxx_incdir=c++/${gcc_version}
 changequote(<<, >>)dnl
     gcc_gxx_include_dir="\$(libsubdir)/\$(unlibsubdir)/..\`echo \$(exec_prefix) | sed -e 's|^\$(prefix)||' -e 's|/[^/]*|/..|g'\`/include/"${libstdcxx_incdir}
 changequote([, ])dnl
@@ -1053,10 +1055,16 @@ AC_TRY_COMPILE([
 ],[rlim_t l = 0;],,[AC_DEFINE([rlim_t],[long],
 [Define to \`long' if <sys/resource.h> doesn't define.])])
 
+# On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
+# FREAD and FWRITE macros.  Fortunately, for GCC's single usage of ldgetname
+# in collect2.c, <fcntl.h> isn't visible, but the configure test below needs
+# to undef these macros to get the correct value for HAVE_DECL_LDGETNAME.
 gcc_AC_CHECK_DECLS(ldgetname, , ,[
 #include "ansidecl.h"
 #include "system.h"
 #ifdef HAVE_LDFCN_H
+#undef FREAD
+#undef FWRITE
 #include <ldfcn.h>
 #endif
 ])
@@ -1266,7 +1274,7 @@ case ${enable_threads} in
     # default
     target_thread_file='single'
     ;;
-  aix | dce | gnat | irix | posix | rtems | \
+  aix | dce | gnat | irix | posix | posix95 | rtems | \
   single | solaris | vxworks | win32 )
     target_thread_file=${enable_threads}
     ;;
@@ -1295,15 +1303,24 @@ AC_SUBST(gthread_flags)
 # UNSORTED
 # --------
 
+use_cxa_atexit=no
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
-   AC_CHECK_FUNC(__cxa_atexit,
-	[AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
-   	[Define if you want to use __cxa_atexit, rather than atexit, to
-   	register C++ destructors for local statics and global objects.
-   	This is essential for fully standards-compliant handling of
-   	destructors, but requires __cxa_atexit in libc.])],
-	echo "__cxa_atexit can't be enabled on this target")
+  if test x$host = x$target; then
+    AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
+	[echo "__cxa_atexit can't be enabled on this target"])
+  else
+    # We can't check for __cxa_atexit when building a cross, so assume
+    # it is available 
+    use_cxa_atexit=yes
+  fi
+  if test x$use_cxa_atexit = xyes; then
+    AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
+      [Define if you want to use __cxa_atexit, rather than atexit, to
+      register C++ destructors for local statics and global objects.
+      This is essential for fully standards-compliant handling of
+      destructors, but requires __cxa_atexit in libc.])
+  fi
 fi
 
 # Look for a file containing extra machine modes.
@@ -1364,16 +1381,7 @@ xm_file="ansidecl.h ${xm_file}"
 # UNSORTED
 # --------
 
-# Get the version trigger filename from the toplevel
-if test "${with_gcc_version_trigger+set}" = set; then
-	gcc_version_trigger=$with_gcc_version_trigger
-else
-	gcc_version_trigger=${srcdir}/version.c
-fi
 changequote(,)dnl
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*"\([^"]*\)".*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-
 # Compile in configure arguments.
 if test -f configargs.h ; then
 	# Being re-configured.
@@ -1675,16 +1683,10 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	STMP_FIXINC=
-	STMP_FIXPROTO=
+	if [ "x$STMP_FIXPROTO" != x ] ; then
+	  STMP_FIXPROTO=stmp-install-fixproto
+	fi
     fi
-fi
-
-# When bootstrapping from the toplevel, only run fixincludes during stage1
-if test -d ../prev-gcc
-then
-    STMP_FIXINC=
-    cp -R ../prev-gcc/include include
 fi
 
 # Expand extra_headers to include complete path.
@@ -1736,9 +1738,9 @@ gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -x as$host_exeext; then
+elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
-	gcc_cv_as=./as$host_exeext
+	gcc_cv_as=./as$build_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
      && test -f ../gas/Makefile \
      && test x$build = x$host; then
@@ -1747,8 +1749,8 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   # we'll use what we're building after installation anyway.
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
-  rm -f as$host_exeext
-  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  rm -f as$build_exeext
+  $LN_S ../gas/as-new$build_exeext as$build_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1789,9 +1791,9 @@ if test "x$gcc_cv_as" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_as=${program_prefix}as$host_exeext
+		gcc_cv_as=${program_prefix}as$build_exeext
 	else
-		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -1820,8 +1822,8 @@ if test "x$gcc_cv_as" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/as$host_exeext; then
-			gcc_cv_as=$dir/as$host_exeext
+		if test -x $dir/as$build_exeext; then
+			gcc_cv_as=$dir/as$build_exeext
 			break;
 		fi
 	done
@@ -1851,9 +1853,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x collect-ld$host_exeext; then
+elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
-	gcc_cv_ld=./collect-ld$host_exeext
+	gcc_cv_ld=./collect-ld$build_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile \
      && test x$build = x$host; then
@@ -1880,8 +1882,8 @@ changequote(,)dnl
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
-	rm -f collect-ld$host_exeext
-	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
+	rm -f collect-ld$build_exeext
+	$LN_S ../ld/ld-new$build_exeext collect-ld$build_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -1914,9 +1916,9 @@ if test "x$gcc_cv_ld" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_ld=${program_prefix}ld$host_exeext
+		gcc_cv_ld=${program_prefix}ld$build_exeext
 	else
-		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -1945,8 +1947,8 @@ if test "x$gcc_cv_ld" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/ld$host_exeext; then
-			gcc_cv_ld=$dir/ld$host_exeext
+		if test -x $dir/ld$build_exeext; then
+			gcc_cv_ld=$dir/ld$build_exeext
 			break;
 		fi
 	done
@@ -1964,19 +1966,19 @@ esac
 gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
 AC_MSG_CHECKING(what nm to use)
 in_tree_nm=no
-if test -x nm$host_exeext; then
-	gcc_cv_nm=./nm$host_exeext
+if test -x nm$build_exeext; then
+	gcc_cv_nm=./nm$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_nm=yes
-	gcc_cv_nm=./nm$host_exeext
-	rm -f nm$host_exeext
-	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	gcc_cv_nm=./nm$build_exeext
+	rm -f nm$build_exeext
+	$LN_S ../binutils/nm-new$build_exeext nm$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_nm=${program_prefix}nm$host_exeext
+	gcc_cv_nm=${program_prefix}nm$build_exeext
 else
-	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1986,20 +1988,20 @@ esac
 # Figure out what objdump we will be using.
 AC_MSG_CHECKING(what objdump to use)
 in_tree_objdump=no
-if test -x objdump$host_exeext; then
-	gcc_cv_objdump=./objdump$host_exeext
+if test -x objdump$build_exeext; then
+	gcc_cv_objdump=./objdump$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_objdump=yes
-	gcc_cv_objdump=./objdump$host_exeext
-	rm -f objdump$host_exeext
-	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
+	gcc_cv_objdump=./objdump$build_exeext
+	rm -f objdump$build_exeext
+	$LN_S ../binutils/objdump$build_exeext objdump$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_objdump=${program_prefix}objdump$host_exeext
+	gcc_cv_objdump=${program_prefix}objdump$build_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$host_exeext
+		sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
@@ -2697,7 +2699,16 @@ foo:	nop
     case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 	mfcr 3,128';;
-      *-*-darwin*) conftest_s='	.text
+      *-*-darwin*)
+	gcc_GAS_CHECK_FEATURE([.machine directive support],
+	  gcc_cv_as_machine_directive,,,
+	  [	.machine ppc7400])
+	if test x$gcc_cv_as_machine_directive != xyes; then
+	  echo "*** This target requires an assembler supporting \".machine\"" >&2
+	  echo you can get it from: ftp://gcc.gnu.org/pub/gcc/infrastructure/cctools-528.5.dmg >&2
+	  test x$build = x$target && exit 1
+	fi
+	conftest_s='	.text
 	mfcr r3,128';;
       *) conftest_s='	.machine power4
 	.text
@@ -3023,7 +3034,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile gccbug mklibgcc mkheaders libada-mk'
+all_outputs='Makefile gccbug mklibgcc libada-mk'
 # List of language makefile fragments.
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.
@@ -3228,9 +3239,6 @@ AC_SUBST(float_h_file)
 AC_SUBST(gcc_config_arguments)
 AC_SUBST(gcc_gxx_include_dir)
 AC_SUBST(libstdcxx_incdir)
-AC_SUBST(gcc_version)
-AC_SUBST(gcc_version_full)
-AC_SUBST(gcc_version_trigger)
 AC_SUBST(host_exeext)
 AC_SUBST(host_xm_file_list)
 AC_SUBST(host_xm_include_list)

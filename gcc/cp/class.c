@@ -492,9 +492,6 @@ build_vfield_ref (tree datum, tree type)
   if (datum == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
-    datum = convert_from_reference (datum);
-
   /* First, convert to the requested type.  */
   if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
     datum = convert_to_base (datum, type, /*check_access=*/false,
@@ -995,7 +992,7 @@ add_method (tree type, tree method)
 		return;
 	      else
 		{
-		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
+		  cp_error_at ("%q#D and %q#D cannot be overloaded",
 			       method, fn);
 
 		  /* We don't call duplicate_decls here to merge
@@ -1027,7 +1024,7 @@ add_method (tree type, tree method)
 	VEC_quick_insert (tree, method_vec, slot, overload);
     }
   else
-    /* Replace the current slot. */
+    /* Replace the current slot.  */
     VEC_replace (tree, method_vec, slot, overload);
 }
 
@@ -2872,7 +2869,8 @@ check_field_decls (tree t, tree *access_decls,
 	    }
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
 	    {
-	      cp_error_at ("%qD may not have reference type `%T' because it is a member of a union",
+	      cp_error_at ("%qD may not have reference type %qT because"
+                           " it is a member of a union",
 			   x, type);
 	      continue;
 	    }
@@ -4067,7 +4065,7 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
 
-  /* Synthesize any needed methods.   */
+  /* Synthesize any needed methods.  */
   add_implicitly_declared_members (t, cant_have_default_ctor,
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
@@ -4599,7 +4597,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	      else
 		{
 		  if (warn_abi && TREE_CODE (t) == UNION_TYPE)
-		    warning ("size assigned to `%T' may not be "
+		    warning ("size assigned to %qT may not be "
 			     "ABI-compliant and may change in a future "
 			     "version of GCC", 
 			     t);
@@ -5375,8 +5373,6 @@ pushclass (tree type)
     pushlevel_class ();
   else
     restore_class_cache ();
-  
-  cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
 }
 
 /* When we exit a toplevel class scope, we save its binding level so
@@ -5528,7 +5524,7 @@ push_lang_context (tree name)
       current_lang_name = name;
     }
   else
-    error ("language string `\"%E\"' not recognized", name);
+    error ("language string %<\"%E\"%> not recognized", name);
 }
   
 /* Get out of the current language scope.  */
@@ -5615,9 +5611,9 @@ resolve_address_of_overloaded_function (tree target_type,
   else 
     {
       if (flags & tf_error)
-	error ("\
-cannot resolve overloaded function `%D' based on conversion to type `%T'", 
-		  DECL_NAME (OVL_FUNCTION (overload)), target_type);
+	error ("cannot resolve overloaded function %qD based on"
+               " conversion to type %qT", 
+               DECL_NAME (OVL_FUNCTION (overload)), target_type);
       return error_mark_node;
     }
   
@@ -5863,6 +5859,15 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
   if (TREE_CODE (rhs) == BASELINK)
     rhs = BASELINK_FUNCTIONS (rhs);
 
+  /* If we are in a template, and have a NON_DEPENDENT_EXPR, we cannot
+     deduce any type information.  */
+  if (TREE_CODE (rhs) == NON_DEPENDENT_EXPR)
+    {
+      if (flags & tf_error)
+	error ("not enough type information");
+      return error_mark_node;
+    }
+
   /* We don't overwrite rhs if it is an overloaded function.
      Copying it would destroy the tree link.  */
   if (TREE_CODE (rhs) != OVERLOAD)
@@ -5903,14 +5908,15 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 
     case COMPONENT_REF:
       {
-	tree addr = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+	tree member = TREE_OPERAND (rhs, 1);
 
-	if (addr != error_mark_node
+	member = instantiate_type (lhstype, member, flags);
+	if (member != error_mark_node
 	    && TREE_SIDE_EFFECTS (TREE_OPERAND (rhs, 0)))
 	  /* Do not lose object's side effects.  */
-	  addr = build2 (COMPOUND_EXPR, TREE_TYPE (addr),
-			 TREE_OPERAND (rhs, 0), addr);
-	return addr;
+	  return build2 (COMPOUND_EXPR, TREE_TYPE (member),
+			 TREE_OPERAND (rhs, 0), member);
+	return member;
       }
 
     case OFFSET_REF:
@@ -5941,12 +5947,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 	resolve_address_of_overloaded_function (lhstype, rhs, flags_in,
 						/*template_only=*/false,
 						/*explicit_targs=*/NULL_TREE);
-
-    case TREE_LIST:
-      /* Now we should have a baselink.  */
-      gcc_assert (BASELINK_P (rhs));
-
-      return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags);
 
     case CALL_EXPR:
       /* This is too hard for now.  */

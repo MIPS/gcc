@@ -267,14 +267,25 @@ get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
   return op;
 }
 
-/* Return a def_operand_p that is the V_MUST_DEF_OP for the
+/* Return a def_operand_p that is the V_MUST_DEF_RESULT for the
    V_MUST_DEF at INDEX in the V_MUST_DEFS array.  */
 static inline def_operand_p
-get_v_must_def_op_ptr (v_must_def_optype v_must_defs, unsigned int index)
+get_v_must_def_result_ptr (v_must_def_optype v_must_defs, unsigned int index)
 {
   def_operand_p op;
   gcc_assert (index < v_must_defs->num_v_must_defs);
-  op.def = &(v_must_defs->v_must_defs[index]);
+  op.def = &(v_must_defs->v_must_defs[index].def);
+  return op;
+}
+
+/* Return a use_operand_p that is the V_MUST_DEF_KILL for the 
+   V_MUST_DEF at INDEX in the V_MUST_DEFS array.  */
+static inline use_operand_p
+get_v_must_def_kill_ptr (v_must_def_optype v_must_defs, unsigned int index)
+{
+  use_operand_p op;
+  gcc_assert (index < v_must_defs->num_v_must_defs);
+  op.use = &(v_must_defs->v_must_defs[index].use);
   return op;
 }
 
@@ -382,15 +393,9 @@ set_phi_nodes (basic_block bb, tree l)
 static inline int
 phi_arg_from_edge (tree phi, edge e)
 {
-  int i;
   gcc_assert (phi);
   gcc_assert (TREE_CODE (phi) == PHI_NODE);
-
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-    if (PHI_ARG_EDGE (phi, i) == e)
-      return i;
-
-  return -1;
+  return e->dest_idx;
 }
 
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
@@ -616,6 +621,8 @@ mark_call_clobbered (tree var)
   if (ann->mem_tag_kind != NOT_A_TAG)
     DECL_EXTERNAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, ann->uid);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -624,6 +631,8 @@ mark_non_addressable (tree var)
 {
   bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
   TREE_ADDRESSABLE (var) = 0;
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -670,7 +679,12 @@ op_iter_next_use (ssa_op_iter *ptr)
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       return V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops,
-				       (ptr->v_mayu_i)++);
+			       (ptr->v_mayu_i)++);
+    }
+  if (ptr->v_mustu_i < ptr->num_v_mustu)
+    {
+      return V_MUST_DEF_KILL_PTR (ptr->ops->v_must_def_ops,
+				  (ptr->v_mustu_i)++);
     }
   ptr->done = true;
   return NULL_USE_OPERAND_P;
@@ -684,10 +698,10 @@ op_iter_next_def (ssa_op_iter *ptr)
     {
       return DEF_OP_PTR (ptr->ops->def_ops, (ptr->def_i)++);
     }
-  if (ptr->v_must_i < ptr->num_v_must)
+  if (ptr->v_mustd_i < ptr->num_v_mustd)
     {
-      return V_MUST_DEF_OP_PTR (ptr->ops->v_must_def_ops, 
-					(ptr->v_must_i)++);
+      return V_MUST_DEF_RESULT_PTR (ptr->ops->v_must_def_ops, 
+					(ptr->v_mustd_i)++);
     }
   if (ptr->v_mayd_i < ptr->num_v_mayd)
     {
@@ -714,14 +728,18 @@ op_iter_next_tree (ssa_op_iter *ptr)
     {
       return V_MAY_DEF_OP (ptr->ops->v_may_def_ops, (ptr->v_mayu_i)++);
     }
+  if (ptr->v_mustu_i < ptr->num_v_mustu)
+    {
+      return V_MUST_DEF_KILL (ptr->ops->v_must_def_ops, (ptr->v_mustu_i)++);
+    }
   if (ptr->def_i < ptr->num_def)
     {
       return DEF_OP (ptr->ops->def_ops, (ptr->def_i)++);
     }
-  if (ptr->v_must_i < ptr->num_v_must)
+  if (ptr->v_mustd_i < ptr->num_v_mustd)
     {
-      return V_MUST_DEF_OP (ptr->ops->v_must_def_ops, 
-					(ptr->v_must_i)++);
+      return V_MUST_DEF_RESULT (ptr->ops->v_must_def_ops, 
+					(ptr->v_mustd_i)++);
     }
   if (ptr->v_mayd_i < ptr->num_v_mayd)
     {
@@ -749,14 +767,17 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
 		     ?  NUM_V_MAY_DEFS (ops->v_may_def_ops) : 0;
   ptr->num_v_mayd = (flags & SSA_OP_VMAYDEF) 
 		     ?  NUM_V_MAY_DEFS (ops->v_may_def_ops) : 0;
-  ptr->num_v_must = (flags & SSA_OP_VMUSTDEF) 
+  ptr->num_v_mustu = (flags & SSA_OP_VMUSTDEFKILL)
+                     ? NUM_V_MUST_DEFS (ops->v_must_def_ops) : 0;
+  ptr->num_v_mustd = (flags & SSA_OP_VMUSTDEF) 
 		     ? NUM_V_MUST_DEFS (ops->v_must_def_ops) : 0;
   ptr->def_i = 0;
   ptr->use_i = 0;
   ptr->vuse_i = 0;
   ptr->v_mayu_i = 0;
   ptr->v_mayd_i = 0;
-  ptr->v_must_i = 0;
+  ptr->v_mustu_i = 0;
+  ptr->v_mustd_i = 0;
 }
 
 /* Initialize iterator PTR to the use operands in STMT based on FLAGS. Return
@@ -786,6 +807,25 @@ op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
   return op_iter_next_tree (ptr);
 }
 
+/* Get the next iterator mustdef value for PTR, returning the mustdef values in
+   KILL and DEF.  */
+static inline void
+op_iter_next_mustdef (use_operand_p *kill, def_operand_p *def, ssa_op_iter *ptr)
+{
+  if (ptr->v_mustu_i < ptr->num_v_mustu)
+    {
+      *def = V_MUST_DEF_RESULT_PTR (ptr->ops->v_must_def_ops, ptr->v_mustu_i);
+      *kill = V_MUST_DEF_KILL_PTR (ptr->ops->v_must_def_ops, (ptr->v_mustu_i)++);
+      return;
+    }
+  else
+    {
+      *def = NULL_DEF_OPERAND_P;
+      *kill = NULL_USE_OPERAND_P;
+    }
+  ptr->done = true;
+  return;
+}
 /* Get the next iterator maydef value for PTR, returning the maydef values in
    USE and DEF.  */
 static inline void
@@ -814,5 +854,15 @@ op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use,
 {
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
   op_iter_next_maydef (use, def, ptr);
+}
+
+/* Initialize iterator PTR to the operands in STMT.  Return the first operands
+   in KILL and DEF.  */
+static inline void
+op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill, 
+		     def_operand_p *def)
+{
+  op_iter_init (ptr, stmt, SSA_OP_VMUSTDEFKILL);
+  op_iter_next_mustdef (kill, def, ptr);
 }
 #endif /* _TREE_FLOW_INLINE_H  */

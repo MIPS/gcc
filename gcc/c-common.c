@@ -828,7 +828,7 @@ fname_decl (unsigned int rid, tree id)
       input_location = saved_location;
     }
   if (!ix && !current_function_decl)
-    pedwarn ("%J%qD is not defined outside of function scope", decl, decl);
+    pedwarn ("%qD is not defined outside of function scope", decl);
 
   return decl;
 }
@@ -1365,8 +1365,6 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	 Other non-expressions need not be processed.  */
       if (cl == tcc_unary)
 	{
-	  if (first_rtl_op (code) == 0)
-	    return;
 	  x = TREE_OPERAND (x, 0);
 	  writer = 0;
 	  goto restart;
@@ -1374,7 +1372,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
       else if (IS_EXPR_CODE_CLASS (cl))
 	{
 	  int lp;
-	  int max = first_rtl_op (TREE_CODE (x));
+	  int max = TREE_CODE_LENGTH (TREE_CODE (x));
 	  for (lp = 0; lp < max; lp++)
 	    {
 	      tmp_before = tmp_nosp = 0;
@@ -1863,11 +1861,8 @@ binary_op_error (enum tree_code code)
       opname = "||"; break;
     case BIT_XOR_EXPR:
       opname = "^"; break;
-    case LROTATE_EXPR:
-    case RROTATE_EXPR:
-      opname = "rotate"; break;
     default:
-      opname = "unknown"; break;
+      gcc_unreachable ();
     }
   error ("invalid operands to binary %s", opname);
 }
@@ -1987,14 +1982,6 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 
       type = c_common_signed_or_unsigned_type (unsignedp0,
 					       TREE_TYPE (primop0));
-
-      /* In C, if TYPE is an enumeration, then we need to get its
-	 min/max values from its underlying integral type, not the
-	 enumerated type itself.  In C++, TYPE_MAX_VALUE and
-	 TYPE_MIN_VALUE have already been set correctly on the
-	 enumeration type.  */
-      if (!c_dialect_cxx () && TREE_CODE (type) == ENUMERAL_TYPE)
-	type = c_common_type_for_size (TYPE_PRECISION (type), unsignedp0);
 
       maxval = TYPE_MAX_VALUE (type);
       minval = TYPE_MIN_VALUE (type);
@@ -2950,9 +2937,10 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
-  lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					 get_identifier ("__int128_t"),
-					 intTI_type_node));
+  if (targetm.scalar_mode_supported_p (TImode))
+    lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
+					   get_identifier ("__int128_t"),
+					   intTI_type_node));
 #endif
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 unsigned_intQI_type_node));
@@ -2963,9 +2951,10 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 unsigned_intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
-  lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					 get_identifier ("__uint128_t"),
-					 unsigned_intTI_type_node));
+  if (targetm.scalar_mode_supported_p (TImode))
+    lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
+					   get_identifier ("__uint128_t"),
+					   unsigned_intTI_type_node));
 #endif
 
   /* Create the widest literal types.  */
@@ -3396,76 +3385,6 @@ strip_pointer_operator (tree t)
   while (POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
   return t;
-}
-
-/* Walk the statement tree, rooted at *tp.  Apply FUNC to all the
-   sub-trees of *TP in a pre-order traversal.  FUNC is called with the
-   DATA and the address of each sub-tree.  If FUNC returns a non-NULL
-   value, the traversal is aborted, and the value returned by FUNC is
-   returned.  If FUNC sets WALK_SUBTREES to zero, then the subtrees of
-   the node being visited are not walked.
-
-   We don't need a without_duplicates variant of this one because the
-   statement tree is a tree, not a graph.  */
-
-tree
-walk_stmt_tree (tree *tp, walk_tree_fn func, void *data)
-{
-  enum tree_code code;
-  int walk_subtrees;
-  tree result;
-  int i, len;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_stmt_tree (&(NODE), func, data);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  /* Skip empty subtrees.  */
-  if (!*tp)
-    return NULL_TREE;
-
-  /* Skip subtrees below non-statement nodes.  */
-  if (!STATEMENT_CODE_P (TREE_CODE (*tp)))
-    return NULL_TREE;
-
-  /* Call the function.  */
-  walk_subtrees = 1;
-  result = (*func) (tp, &walk_subtrees, data);
-
-  /* If we found something, return it.  */
-  if (result)
-    return result;
-
-  /* FUNC may have modified the tree, recheck that we're looking at a
-     statement node.  */
-  code = TREE_CODE (*tp);
-  if (!STATEMENT_CODE_P (code))
-    return NULL_TREE;
-
-  /* Visit the subtrees unless FUNC decided that there was nothing
-     interesting below this point in the tree.  */
-  if (walk_subtrees)
-    {
-      /* Walk over all the sub-trees of this operand.  Statement nodes
-	 never contain RTL, and we needn't worry about TARGET_EXPRs.  */
-      len = TREE_CODE_LENGTH (code);
-
-      /* Go through the subtrees.  We need to do this in forward order so
-	 that the scope of a FOR_EXPR is handled properly.  */
-      for (i = 0; i < len; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-    }
-
-  /* Finally visit the chain.  This can be tail-recursion optimized if
-     we write it this way.  */
-  return walk_stmt_tree (&TREE_CHAIN (*tp), func, data);
-
-#undef WALK_SUBTREE
 }
 
 /* Used to compare case labels.  K1 and K2 are actually tree nodes
@@ -4311,7 +4230,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
       if (mode == VOIDmode)
 	{
-	  error ("unknown machine mode %<%s%>", p);
+	  error ("unknown machine mode %qs", p);
 	  return NULL_TREE;
 	}
 
@@ -4342,7 +4261,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	}
       if (!valid_mode)
 	{
-	  error ("unable to emulate %<%s%>", p);
+	  error ("unable to emulate %qs", p);
 	  return NULL_TREE;
 	}
 
@@ -4352,7 +4271,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	  if (!targetm.valid_pointer_mode (mode))
 	    {
-	      error ("invalid pointer mode %<%s%>", p);
+	      error ("invalid pointer mode %qs", p);
 	      return NULL_TREE;
 	    }
 
@@ -4383,7 +4302,17 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	    type = build_variant_type_copy (type);
+
+	  /* We cannot use layout_type here, because that will attempt
+	     to re-layout all variants, corrupting our original.  */
 	  TYPE_PRECISION (type) = TYPE_PRECISION (typefm);
+	  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (typefm);
+	  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (typefm);
+	  TYPE_SIZE (type) = TYPE_SIZE (typefm);
+	  TYPE_SIZE_UNIT (type) = TYPE_SIZE_UNIT (typefm);
+	  if (!TYPE_USER_ALIGN (type))
+	    TYPE_ALIGN (type) = TYPE_ALIGN (typefm);
+
 	  typefm = type;
 	}
       else if (VECTOR_MODE_P (mode)
@@ -4395,8 +4324,6 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	}
 
       *node = typefm;
-
-      /* No need to layout the type here.  The caller should do this.  */
     }
 
   return NULL_TREE;
@@ -4577,7 +4504,7 @@ handle_alias_attribute (tree *node, tree name, tree args,
       id = TREE_VALUE (args);
       if (TREE_CODE (id) != STRING_CST)
 	{
-	  error ("alias arg not a string");
+	  error ("alias argument not a string");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4632,7 +4559,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 
   if (TREE_CODE (id) != STRING_CST)
     {
-      error ("visibility arg not a string");
+      error ("visibility argument not a string");
       return NULL_TREE;
     }
 
@@ -4642,6 +4569,12 @@ handle_visibility_attribute (tree *node, tree name, tree args,
       decl = TYPE_NAME (decl);
       if (!decl)
         return NULL_TREE;
+      if (TREE_CODE (decl) == IDENTIFIER_NODE)
+	{
+	   warning ("%qE attribute ignored on types",
+		    name);
+	   return NULL_TREE;
+	}
     }
 
   if (strcmp (TREE_STRING_POINTER (id), "default") == 0)
@@ -4653,7 +4586,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
   else if (strcmp (TREE_STRING_POINTER (id), "protected") == 0)
     DECL_VISIBILITY (decl) = VISIBILITY_PROTECTED;
   else
-    error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
+    error ("visibility argument must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
 
   /* For decls only, go ahead and attach the attribute to the node as well.
@@ -4722,7 +4655,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
       id = TREE_VALUE (args);
       if (TREE_CODE (id) != STRING_CST)
 	{
-	  error ("tls_model arg not a string");
+	  error ("tls_model argument not a string");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4731,7 +4664,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
 	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
 	{
-	  error ("tls_model arg must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
+	  error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4993,7 +4926,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
       if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
 	{
-	  error ("nonnull argument has invalid operand number (arg %lu)",
+	  error ("nonnull argument has invalid operand number (argument %lu)",
 		 (unsigned long) attr_arg_num);
 	  *no_add_attrs = true;
 	  return NULL_TREE;
@@ -5012,7 +4945,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	  if (!argument
 	      || TREE_CODE (TREE_VALUE (argument)) == VOID_TYPE)
 	    {
-	      error ("nonnull argument with out-of-range operand number (arg %lu, operand %lu)",
+	      error ("nonnull argument with out-of-range operand number (argument %lu, operand %lu)",
 		     (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -5020,7 +4953,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
 	  if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
 	    {
-	      error ("nonnull argument references non-pointer operand (arg %lu, operand %lu)",
+	      error ("nonnull argument references non-pointer operand (argument %lu, operand %lu)",
 		   (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -5154,7 +5087,7 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning ("null argument where non-null required (arg %lu)",
+    warning ("null argument where non-null required (argument %lu)",
 	     (unsigned long) param_num);
 }
 
@@ -5225,14 +5158,14 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
   cleanup_id = TREE_VALUE (args);
   if (TREE_CODE (cleanup_id) != IDENTIFIER_NODE)
     {
-      error ("cleanup arg not an identifier");
+      error ("cleanup argument not an identifier");
       *no_add_attrs = true;
       return NULL_TREE;
     }
   cleanup_decl = lookup_name (cleanup_id);
   if (!cleanup_decl || TREE_CODE (cleanup_decl) != FUNCTION_DECL)
     {
-      error ("cleanup arg not a function");
+      error ("cleanup argument not a function");
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -5479,36 +5412,75 @@ resort_sorted_fields (void *obj,
 	 resort_field_decl_cmp);
 }
 
+/* Subroutine of c_parse_error.
+   Return the result of concatenating LHS and RHS. RHS is really
+   a string literal, its first character is indicated by RHS_START and
+   RHS_SIZE is its length (including the terminating NUL character).
+
+   The caller is responsible for deleting the returned pointer.  */
+
+static char *
+catenate_strings (const char *lhs, const char *rhs_start, int rhs_size)
+{
+  const int lhs_size = strlen (lhs);
+  char *result = XNEWVEC (char, lhs_size + rhs_size);
+  strncpy (result, lhs, lhs_size);
+  strncpy (result + lhs_size, rhs_start, rhs_size);
+  return result;
+}
+
 /* Issue the error given by MSGID, indicating that it occurred before
    TOKEN, which had the associated VALUE.  */
 
 void
 c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
 {
-  const char *string = _(msgid);
+#define catenate_messages(M1, M2) catenate_strings ((M1), (M2), sizeof (M2))
+
+  char *message = NULL;
 
   if (token == CPP_EOF)
-    error ("%s at end of input", string);
+    message = catenate_messages (msgid, " at end of input");
   else if (token == CPP_CHAR || token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
       const char *const ell = (token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
-	error ("%s before %s'%c'", string, ell, val);
+        message = catenate_messages (msgid, " before %s'%c'");
       else
-	error ("%s before %s'\\x%x'", string, ell, val);
+        message = catenate_messages (msgid, " before %s'\\x%x'");
+
+      error (message, ell, val);
+      free (message);
+      message = NULL;
     }
-  else if (token == CPP_STRING
-	   || token == CPP_WSTRING)
-    error ("%s before string constant", string);
+  else if (token == CPP_STRING || token == CPP_WSTRING)
+    message = catenate_messages (msgid, " before string constant");
   else if (token == CPP_NUMBER)
-    error ("%s before numeric constant", string);
+    message = catenate_messages (msgid, " before numeric constant");
   else if (token == CPP_NAME)
-    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (value));
+    {
+      message = catenate_messages (msgid, " before %qs");
+      error (message, IDENTIFIER_POINTER (value));
+      free (message);
+      message = NULL;
+    }
   else if (token < N_TTYPES)
-    error ("%s before %qs token", string, cpp_type2name (token));
+    {
+      message = catenate_messages (msgid, " before %qs token");
+      error (message, cpp_type2name (token));
+      free (message);
+      message = NULL;
+    }
   else
-    error ("%s", string);
+    error (msgid);
+
+  if (message)
+    {
+      error (message);
+      free (message);
+    }
+#undef catenate_messages  
 }
 
 /* Walk a gimplified function and warn for functions whose return value is
@@ -5647,6 +5619,42 @@ fold_offsetof (tree expr)
 {
   /* Convert back from the internal sizetype to size_t.  */
   return convert (size_type_node, fold_offsetof_1 (expr));
+}
+
+/* Return nonzero if REF is an lvalue valid for this language;
+   otherwise, print an error message and return zero.  USE says
+   how the lvalue is being used and so selects the error message.  */
+
+int
+lvalue_or_else (tree ref, enum lvalue_use use)
+{
+  int win = lvalue_p (ref);
+
+  if (!win)
+    {
+      switch (use)
+	{
+	case lv_assign:
+	  error ("invalid lvalue in assignment");
+	  break;
+	case lv_increment:
+	  error ("invalid lvalue in increment");
+	  break;
+	case lv_decrement:
+	  error ("invalid lvalue in decrement");
+	  break;
+	case lv_addressof:
+	  error ("invalid lvalue in unary %<&%>");
+	  break;
+	case lv_asm:
+	  error ("invalid lvalue in asm statement");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return win;
 }
 
 #include "gt-c-common.h"

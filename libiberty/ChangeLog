@@ -1,3 +1,37 @@
+2004-12-11  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Invoke AC_CHECK_SIZEOF for sizeof (int).
+	* configure: Regenerate.
+	* config.in: Likewise.
+
+2004-12-07  DJ Delorie  <dj@redhat.com>
+
+	* splay-tree.c (splay_tree_delete_helper): Redesign the logic so
+	that recursion (and thus large stack space) is not needed.
+
+2004-11-29  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* pex-unix.c: Fix the spelling of longjmp.
+
+2004-11-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR other/18623
+	* cp-demangle.c (d_call_offset): Remove useless local variables
+	offset and virtual_offset.
+	* cplus-dem.c (ada_demangle): Remove useless local variable
+	at_start_name.
+	(demangle_template): Remove useless local variable start.
+
+2004-11-19  Roger Sayle  <roger@eyesopen.com>
+
+	* objalloc.c, strsignal.c, xstrerror.c: Include "config.h" before
+	"ansidecl.h" to avoid redeclaration errors with native compilers.
+	* regex.c: Protect config.h from multiple inclusion.
+
+2004-11-12  Mike Stump  <mrs@apple.com>
+
+	* Makefile.in (libiberty.html): Fix html generation.
+
 2004-09-08  Adam Nemet  <anemet@lnxw.com>
 
 	* vasprintf.c: Accept __va_copy in addition to va_copy.

@@ -70,7 +70,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "basic-block.h"
+#include "regs.h"
 #include "flags.h"
 #include "timevar.h"
 #include "output.h"
@@ -81,7 +81,6 @@
 #include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
-#include "regs.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -639,14 +638,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			{
 			  /* The loop has less than 4 iterations.  */
 
-			  /* Check whether there is another edge from BB.  */
-			  edge another_edge;
-			  FOR_EACH_EDGE (another_edge, ei, bb->succs)
-			    if (another_edge != best_edge)
-			      break;
-
-			  if (!another_edge && copy_bb_p (best_edge->dest,
-							  !optimize_size))
+			  if (EDGE_COUNT (bb->succs) == 1
+			      && copy_bb_p (best_edge->dest, !optimize_size))
 			    {
 			      bb = copy_bb (best_edge->dest, best_edge, bb,
 					    *n_traces);
@@ -1691,10 +1684,8 @@ fix_crossing_conditional_branches (void)
 		  
 		  /* Update register liveness information.  */
 		  
-		  new_bb->global_live_at_start = 
-		    OBSTACK_ALLOC_REG_SET (&flow_obstack);
-		  new_bb->global_live_at_end = 
-		    OBSTACK_ALLOC_REG_SET (&flow_obstack);
+		  new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+		  new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
 		  COPY_REG_SET (new_bb->global_live_at_end,
 				prev_bb->global_live_at_end);
 		  COPY_REG_SET (new_bb->global_live_at_start,

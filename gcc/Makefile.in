@@ -167,8 +167,9 @@ coverageexts = .{gcda,gcno}
 # -Wno-variadic-macros.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
 STRICT_WARN = @strict1_warn@
+WERROR_FLAGS = @WERROR@
 STRICT2_WARN = -pedantic -Wno-long-long -Wno-variadic-macros \
-  -Wold-style-definition @WERROR@
+  -Wold-style-definition $(WERROR_FLAGS)
 
 # This is set by --enable-checking.  The idea is to catch forgotten
 # "extern" tags in header files.
@@ -254,6 +255,7 @@ INSTALL_SCRIPT = @INSTALL@
 MAKEINFO = @MAKEINFO@
 MAKEINFOFLAGS = --no-split
 TEXI2DVI = texi2dvi
+TEXI2HTML = $(MAKEINFO) --html
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
 # Some versions of `touch' (such as the version on Solaris 2.8)
@@ -487,6 +489,9 @@ man7dir = $(mandir)/man7
 # Dir for temp files.
 tmpdir = /tmp
 
+# Directory in which to put HTML
+htmldir = $(objdir)/HTML/gcc-$(version)
+
 # Whether we were configured with NLS.
 USE_NLS = @USE_NLS@
 
@@ -678,6 +683,7 @@ TM_H      = $(GTM_H) insn-constants.h insn-flags.h
 TARGET_H = $(TM_H) target.h insn-modes.h
 MACHMODE_H = machmode.h mode-classes.def insn-modes.h
 HOOKS_H = hooks.h $(MACHMODE_H)
+HOSTHOOKS_DEF_H = hosthooks-def.h $(HOOKS_H)
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
@@ -687,7 +693,7 @@ PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h builtins.def \
           input.h statistics.h vec.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
-          hard-reg-set.h cfghooks.h function.h
+          hard-reg-set.h cfghooks.h function.h $(OBSTACK_H)
 COVERAGE_H = coverage.h gcov-io.h gcov-iov.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
@@ -696,7 +702,7 @@ EMIT_RTL_H = emit-rtl.h
 FLAGS_H = flags.h options.h
 EXPR_H = expr.h insn-config.h function.h $(RTL_H) $(FLAGS_H) $(TREE_H) $(MACHMODE_H) $(EMIT_RTL_H)
 OPTABS_H = optabs.h insn-codes.h
-REGS_H = regs.h varray.h $(MACHMODE_H)
+REGS_H = regs.h varray.h $(MACHMODE_H) $(OBSTACK_H) $(BASIC_BLOCK_H)
 RA_H = ra.h bitmap.h sbitmap.h hard-reg-set.h insn-modes.h
 RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
@@ -704,7 +710,7 @@ INTEGRATE_H = integrate.h varray.h
 IPA_STATIC_H = ipa-static.h bitmap.h $(TREE_H)  
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
 CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
-CGRAPH_H = cgraph.h $(IPA_STATIC_H) 
+CGRAPH_H = cgraph.h $(IPA_STATIC_H) tree.h
 DF_H = df.h bitmap.h sbitmap.h $(BASIC_BLOCK_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
@@ -913,9 +919,7 @@ OBJS-common = \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o modulo-sched.o optabs.o options.o opts.o			   \
  params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o integrate.o intl.o jump.o langhooks.o lcm.o lists.o 	   \
- local-alloc.o loop.o modulo-sched.o optabs.o options.o opts.o		   \
- params.o pointer-set.o postreload.o postreload-gcse.o predict.o 	   \
+ insn-preds.o pointer-set.o postreload.o				   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -1084,9 +1088,6 @@ gccbug:	$(srcdir)/gccbug.in
 mklibgcc: $(srcdir)/mklibgcc.in
 	CONFIG_FILES=mklibgcc CONFIG_HEADERS= ./config.status
 
-mkheaders: $(srcdir)/mkheaders.in
-	CONFIG_FILES=mkheaders CONFIG_HEADERS= ./config.status
-
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
 # delete it.  A stamp file is needed as autoheader won't update the file if
@@ -1238,6 +1239,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
 	MULTILIB_OSDIRNAMES='$(MULTILIB_OSDIRNAMES)' \
+	ASM_HIDDEN_OP='$(ASM_HIDDEN_OP)' \
 	mkinstalldirs='$(mkinstalldirs)' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	mv tmp-libgcc.mk libgcc.mk
@@ -1383,7 +1385,7 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
     $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h \
-    c-objc-common.h
+    c-objc-common.h c-pragma.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1559,7 +1561,7 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(CGRAPH_H) $(TREE_FLOW_H) reload.h $(CPP_ID_DATA_H)
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GGC_H) \
-	$(HASHTAB_H) toplev.h $(PARAMS_H) hosthooks.h
+	$(HASHTAB_H) toplev.h $(PARAMS_H) hosthooks.h $(HOSTHOOKS_DEF_H)
 
 ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
 	$(FLAGS_H) toplev.h $(GGC_H) $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H) $(TREE_FLOW_H)
@@ -1721,7 +1723,7 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) varray.h $(EXPR_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
-   cfgloop.h $(PARAMS_H)
+   cfgloop.h $(PARAMS_H) sbitmap.h
 tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1773,7 +1775,7 @@ tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
-   $(TREE_DATA_REF_H) $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H)
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H)
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -1824,7 +1826,7 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h
 
 host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H) coretypes.h \
-	hosthooks.h hosthooks-def.h
+	hosthooks.h $(HOSTHOOKS_DEF_H)
 
 rtl-error.o: rtl-error.c $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(INSN_ATTR_H) \
    insn-config.h input.h toplev.h intl.h $(DIAGNOSTIC_H) $(CONFIG_H)
@@ -1885,7 +1887,7 @@ optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    $(FLAGS_H) $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
    insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h \
-   $(GGC_H) gt-dbxout.h
+   $(GGC_H) $(OBSTACK_H) gt-dbxout.h
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) debug.h \
    $(TREE_H) $(GGC_H) varray.h $(RTL_H) $(REGS_H) $(FLAGS_H) insn-config.h \
@@ -1977,7 +1979,7 @@ tree-sra.o : tree-sra.c $(CONFIG_H) system.h errors.h $(TREE_H) $(RTL_H) \
 tree-complex.o : tree-complex.c $(CONFIG_H) system.h $(TREE_H) \
     $(TM_H) $(TREE_FLOW_H) $(TREE_GIMPLE_H) tree-iterator.h tree-pass.h \
     $(FLAGS_H) $(OPTABS_H) $(RTL_H) $(MACHMODE_H) $(EXPR_H) \
-    langhooks.h $(FLAGS_H) $(DIAGNOSTIC_H)
+    langhooks.h $(FLAGS_H) $(DIAGNOSTIC_H) gt-tree-complex.h $(GGC_H)
 df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) function.h $(REGS_H) alloc-pool.h hard-reg-set.h \
    $(BASIC_BLOCK_H) $(DF_H)
@@ -2185,7 +2187,7 @@ lambda-trans.o: lambda-trans.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) $(TM
 lambda-code.o: lambda-code.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
    errors.h $(TM_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   $(TREE_DATA_REF_H) $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
 pointer-set.o: pointer-set.c pointer-set.h $(CONFIG_H) $(SYSTEM_H)
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
@@ -2439,7 +2441,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
-  $(srcdir)/tree-chrec.h \
+  $(srcdir)/tree-chrec.h $(srcdir)/tree-complex.c \
   $(srcdir)/tree-inline.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c $(srcdir)/tree-nested.c \
@@ -2460,8 +2462,8 @@ gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dojump.h \
 gt-dwarf2out.h gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h \
 gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
-gt-tree-mudflap.h \
-gt-tree-ssa-ccp.h \
+gt-tree-mudflap.h gt-tree-complex.h \
+gt-tree-ssa-ccp.h gt-tree-eh.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-stringpool.h : s-gtype ; @true
@@ -2805,31 +2807,27 @@ stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) xlimits.h
 	chmod a+r include/limits.h
 # Install the README
 	rm -f include/README
-	cp $(srcdir)/README-fixinc include/README
+	cp $(srcdir)/../fixincludes/README-fixinc include/README
 	chmod a+r include/README
 	$(STAMP) $@
-
-# fixinc.sh depends on this, not on specs directly.
-# The idea is to make sure specs gets built, but not rerun fixinc.sh
-# after each stage just because specs' mtime has changed.
-# It also depends on cc1 since fixinc.sh uses it.
-specs.ready: specs cc1$(exeext)
-	-if [ -f specs.ready ] ; then \
-		true; \
-	else \
-		$(STAMP) specs.ready; \
-	fi
-
-fixinc.sh: mkfixinc.sh fixinc.in
-	build_subdir="$(build_subdir)" srcdir="$(srcdir)" \
-	  $(SHELL) $(srcdir)/mkfixinc.sh $(build) $(target)
 
 .PHONY: install-gcc-tooldir
 install-gcc-tooldir:
 	$(mkinstalldirs) $(DESTDIR)$(gcc_tooldir)
 
+macro_list: s-macro_list; @true
+s-macro_list : $(GCC_PASSES) 
+	echo | $(GCC_FOR_TARGET) -E -dM - | \
+	  sed -n 's/^#define \([^_][a-zA-Z0-9_]*\).*/\1/p ; \
+		s/^#define \(_[^_A-Z][a-zA-Z0-9_]*\).*/\1/p' | \
+	  sort -u > tmp-macro_list
+	$(SHELL) $(srcdir)/../move-if-change tmp-macro_list macro_list
+	$(STAMP) s-macro_list
+
 # Build fixed copies of system files.
-stmp-fixinc: fixinc.sh gsyslimits.h specs.ready
+stmp-fixinc: gsyslimits.h macro_list \
+  ../$(build_subdir)/fixincludes/fixincl \
+  ../$(build_subdir)/fixincludes/fixinc.sh
 	@if test ! -d ${SYSTEM_HEADER_DIR}; then \
 	  echo The directory that should contain system headers does not exist: >&2 ; \
 	  echo "  ${SYSTEM_HEADER_DIR}" >&2 ; \
@@ -2839,16 +2837,18 @@ stmp-fixinc: fixinc.sh gsyslimits.h specs.ready
 	rm -rf include; mkdir include
 	-chmod a+rx include
 	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD_COMMAND}`; \
-	SHELL='$(SHELL)' ;\
-	export TARGET_MACHINE srcdir SHELL ; \
-	$(SHELL) ./fixinc.sh `${PWD_COMMAND}`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
-	rm -f include/syslimits.h; \
+	  SHELL='$(SHELL)'; MACRO_LIST=`${PWD_COMMAND}`/macro_list ; \
+	  export TARGET_MACHINE srcdir SHELL MACRO_LIST && \
+	  cd ../$(build_subdir)/fixincludes && \
+	  $(SHELL) ./fixinc.sh ../../gcc/include \
+	    $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS) )
+	rm -f include/syslimits.h
 	if [ -f include/limits.h ]; then \
 	  mv include/limits.h include/syslimits.h; \
 	else \
 	  cp $(srcdir)/gsyslimits.h include/syslimits.h; \
-	fi; \
-	chmod a+r include/syslimits.h)
+	fi
+	chmod a+r include/syslimits.h
 	$(STAMP) stmp-fixinc
 
 # Files related to the fixproto script.
@@ -2931,6 +2931,12 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	  $(STAMP) include/fixed; \
 	fi
 	$(STAMP) stmp-fixproto
+
+# We can't run fixproto (it's being built for a different host), but we still
+# need to install it so that the user can run it when the compiler is
+# installed.
+stmp-install-fixproto: fixproto
+	$(STAMP) $@
 #
 # Remake the info files.
 
@@ -2990,6 +2996,11 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
+$(htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
+$(htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
+$(htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
+$(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
+
 dvi:: doc/gcc.dvi doc/gccint.dvi doc/gccinstall.dvi doc/cpp.dvi \
       doc/cppinternals.dvi
 
@@ -2999,6 +3010,21 @@ doc/%.dvi: %.texi
 # Duplicate entry to handle renaming of gccinstall.dvi
 doc/gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 	$(TEXI2DVI) -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+html:: $(htmldir)/cpp/index.html $(htmldir)/gcc/index.html \
+       $(htmldir)/gccinstall/index.html $(htmldir)/gccint/index.html \
+       $(htmldir)/cppinternals/index.html
+
+$(htmldir)/%/index.html: %.texi
+	$(mkinstalldirs) $(@D)
+	rm -f $(@D)/*
+	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
+
+# Duplicate entry to handle renaming of gccinstall
+$(htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
+	$(mkinstalldirs) $(@D)
+	echo rm -f $(@D)/*
+	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
 
 MANFILES = doc/gcov.1 doc/cpp.1 doc/gcc.1 doc/gfdl.7 doc/gpl.7 doc/fsf-funding.7
 
@@ -3075,10 +3101,8 @@ mostlyclean: lang.mostlyclean
 	-rm -f specs $(SPECS) SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump
 # Delete files generated for fixproto
-	-rm -rf fix-header$(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
+	-rm -rf $(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
 	  gen-protos$(build_exeext) fixproto.list fixtmp.* fixhdr.ready
-# Delete files generated for fixincl
-	-rm -rf fixinc.sh specs.ready
 # Delete unwanted output files from TeX.
 	-rm -f *.toc *.log *.vr *.fn *.cp *.tp *.ky *.pg
 	-rm -f */*.toc */*.log */*.vr */*.fn */*.cp */*.tp */*.ky */*.pg
@@ -3136,12 +3160,11 @@ distclean: clean lang.distclean
 	-cd testsuite && rm -f *.out *.gcov *$(coverageexts)
 	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f cxxmain.c
-	-rm -f mklibgcc mkheaders gccbug .gdbinit configargs.h
+	-rm -f mklibgcc gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
-	-rm -f fixinc/Makefile
 # Delete po/*.gmo only if we are not building in the source directory.
 	-if [ ! -f po/exgettext ]; then rm -f po/*.gmo; fi
-	-rmdir ada cp f java objc fixinc intl po testsuite 2>/dev/null
+	-rmdir ada cp f java objc intl po testsuite 2>/dev/null
 
 # Get rid of every file that's generated from some other file, except for `configure'.
 # Most of these files ARE PRESENT in the GCC distribution.
@@ -3371,28 +3394,18 @@ install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 
 itoolsdir = $(libexecsubdir)/install-tools
 itoolsdatadir = $(libsubdir)/install-tools
-# Don't install the headers.  Instead, install appropriate scripts
-# and supporting files for fixincludes to be run later.
+# Install supporting files for fixincludes to be run later.
 install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
-    mkheaders xlimits.h
-	-rm -rf $(DESTDIR)$(itoolsdir) $(DESTDIR)$(itoolsdatadir)
-	$(mkinstalldirs) $(DESTDIR)$(itoolsdatadir)/include
-	$(mkinstalldirs) $(DESTDIR)$(itoolsdir)
+  macro_list xlimits.h
 	for file in $(USER_H); do \
 	  realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
 	  $(INSTALL_DATA) $$file \
 	    $(DESTDIR)$(itoolsdatadir)/include/$$realfile ; \
 	done
 	$(INSTALL_DATA) xlimits.h $(DESTDIR)$(itoolsdatadir)/include/limits.h
-	if [ x$(STMP_FIXINC) != x ] ; then \
-	  $(INSTALL_DATA) $(srcdir)/README-fixinc \
-	    $(DESTDIR)$(itoolsdatadir)/include/README ; \
-	  $(INSTALL_SCRIPT) fixinc.sh $(DESTDIR)$(itoolsdir)/fixinc.sh ; \
-	  $(INSTALL_PROGRAM) ../$(build_subdir)/fixincludes/fixincl$(build_exeext) \
-		$(DESTDIR)$(itoolsdir)/fixincl ; \
-	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h \
-	    $(DESTDIR)$(itoolsdatadir)/gsyslimits.h ; \
-	else :; fi
+	$(INSTALL_DATA) $(srcdir)/gsyslimits.h \
+	  $(DESTDIR)$(itoolsdatadir)/gsyslimits.h
+	$(INSTALL_DATA) macro_list $(DESTDIR)$(itoolsdatadir)/macro_list
 	if [ x$(STMP_FIXPROTO) != x ] ; then \
 	  $(INSTALL_SCRIPT) $(mkinstalldirs) \
 		$(DESTDIR)$(itoolsdir)/mkinstalldirs ; \
@@ -3400,7 +3413,6 @@ install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
 	  $(INSTALL_PROGRAM) build/fix-header$(build_exeext) \
 		$(DESTDIR)$(itoolsdir)/fix-header$(build_exeext) ; \
 	else :; fi
-	$(INSTALL_SCRIPT) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
 	echo 'SYSTEM_HEADER_DIR="'"$(SYSTEM_HEADER_DIR)"'"' \
 		> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
 	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
@@ -3652,7 +3664,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 
 STAGE2_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS)" \
-	WERROR="@WERROR@" \
+	WERROR="$(WERROR_FLAGS)" \
 
 STAGEPROFILE_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"

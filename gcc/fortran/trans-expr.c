@@ -156,7 +156,7 @@ gfc_get_expr_charlen (gfc_expr *e)
 
   /* First candidate: if the variable is of type CHARACTER, the
      expression's length could be the length of the character
-     variable. */
+     variable.  */
   if (e->symtree->n.sym->ts.type == BT_CHARACTER)
     length = e->symtree->n.sym->ts.cl->backend_decl;
 
@@ -1566,11 +1566,11 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  gfc_cleanup_loop (&loop);
-
   for (n = 0; n < cm->as->rank; n++)
     mpz_clear (lss->shape[n]);
   gfc_free (lss->shape);
+
+  gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
 }

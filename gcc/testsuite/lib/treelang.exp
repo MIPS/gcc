@@ -33,6 +33,7 @@
 load_lib libgloss.exp
 load_lib prune.exp
 load_lib gcc-defs.exp
+load_lib target-libpath.exp
 
 #
 # TREELANG_UNDER_TEST is the compiler under test.
@@ -91,6 +92,12 @@ proc treelang_init { args } {
     global TOOL_EXECUTABLE
     global treelang_libgcc_s_path
 
+
+    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    setenv LC_ALL C
+    setenv LANG C
+
+
     if { $treelang_initialized == 1 } { return; }
 
     if ![info exists TREELANG_UNDER_TEST] then {
@@ -117,7 +124,7 @@ proc treelang_init { args } {
 	    if { "$mldir" == "." } {
 		continue
 	    }
-	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] == 1 } {
+	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
 		append treelang_libgcc_s_path ":${rootme}/${mldir}"
 	    }
 	}
@@ -135,6 +142,7 @@ proc treelang_target_compile { source dest type options } {
     global treelang_libgcc_s_path
 
     set ld_library_path ".:${treelang_libgcc_s_path}"
+    set_ld_library_path_env_vars
     lappend options "libs=-ltreelang"
 
     if { [target_info needs_status_wrapper]!="" && [info exists gluefile] } {

@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
 #include "toplev.h"
@@ -974,20 +975,6 @@ flow_loops_find (struct loops *loops, int flags)
   return loops->num;
 }
 
-/* Update the information regarding the loops in the CFG
-   specified by LOOPS.  */
-
-int
-flow_loops_update (struct loops *loops, int flags)
-{
-  /* One day we may want to update the current loop data.  For now
-     throw away the old stuff and rebuild what we need.  */
-  if (loops->parray)
-    flow_loops_free (loops);
-
-  return flow_loops_find (loops, flags);
-}
-
 /* Return nonzero if basic block BB belongs to LOOP.  */
 bool
 flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
@@ -1513,14 +1500,7 @@ verify_loop_structure (struct loops *loops)
 edge
 loop_latch_edge (const struct loop *loop)
 {
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, loop->header->preds)
-    if (e->src == loop->latch)
-      break;
-
-  return e;
+  return find_edge (loop->latch, loop->header);
 }
 
 /* Returns preheader edge of LOOP.  */

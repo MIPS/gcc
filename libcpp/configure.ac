@@ -57,8 +57,7 @@ ZW_GNU_GETTEXT_SISTER_DIR
 
 AC_CACHE_CHECK(for uchar, gcc_cv_type_uchar,
 [AC_TRY_COMPILE([
-#include "ansidecl.h"
-#include "system.h"
+#include <sys/types.h>
 ],
 [if ((uchar *)0) return 0;
  if (sizeof(uchar)) return 0;],
@@ -110,6 +109,7 @@ case $target in
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
+	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
 	powerpc*-*-* | \

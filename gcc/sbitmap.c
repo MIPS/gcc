@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "flags.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
 
@@ -104,7 +105,7 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
   return bmap;
 }
 
-/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.   */
+/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.  */
 
 sbitmap
 sbitmap_realloc (sbitmap src, unsigned int n_elms)
@@ -314,6 +315,24 @@ sbitmap_difference (sbitmap dst, sbitmap a, sbitmap b)
   if (dst != a && i != dst_size)
     for (; i < dst_size; i++)
       *dstp++ = *ap++;
+}
+
+/* Return true if there are any bits set in A are also set in B.
+   Return false otherwise.  */
+
+bool
+sbitmap_any_common_bits (sbitmap a, sbitmap b)
+{
+  sbitmap_ptr ap = a->elms;
+  sbitmap_ptr bp = b->elms;
+  unsigned int i, n;
+
+  n = MIN (a->size, b->size);
+  for (i = 0; i < n; i++)
+    if ((*ap++ & *bp++) != 0)
+      return true;
+
+  return false;
 }
 
 /* Set DST to be (A and B).
@@ -637,8 +656,9 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   edge e;
   unsigned ix;
 
-  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
+  for (ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
+      e = EDGE_PRED (b, ix);
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;
 

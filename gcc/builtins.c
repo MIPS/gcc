@@ -185,7 +185,6 @@ static tree fold_builtin_strcat (tree);
 static tree fold_builtin_strncat (tree);
 static tree fold_builtin_strspn (tree);
 static tree fold_builtin_strcspn (tree);
-static void fold_builtin_next_arg (tree);
 static tree fold_builtin_sprintf (tree, int);
 
 
@@ -452,7 +451,7 @@ builtin_save_expr (tree exp)
    times to get the address of either a higher stack frame, or a return
    address located within it (depending on FNDECL_CODE).  */
 
-rtx
+static rtx
 expand_builtin_return_addr (enum built_in_function fndecl_code, int count,
 			    rtx tem)
 {
@@ -688,7 +687,7 @@ expand_builtin_setjmp (tree arglist, rtx target)
    scheme in the compiler and will only work in the method used by
    them.  */
 
-void
+static void
 expand_builtin_longjmp (rtx buf_addr, rtx value)
 {
   rtx fp, lab, stack, insn, last;
@@ -707,8 +706,6 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
      return.  This also makes EH slightly more efficient, since we are no
      longer copying around a value that we don't care about.  */
   gcc_assert (value == const1_rtx);
-
-  current_function_calls_longjmp = 1;
 
   last = get_last_insn ();
 #ifdef HAVE_builtin_longjmp
@@ -922,28 +919,29 @@ expand_builtin_prefetch (tree arglist)
   /* Argument 1 (read/write flag) must be a compile-time constant int.  */
   if (TREE_CODE (arg1) != INTEGER_CST)
     {
-      error ("second arg to %<__builtin_prefetch%> must be a constant");
+      error ("second argument to %<__builtin_prefetch%> must be a constant");
       arg1 = integer_zero_node;
     }
   op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
   /* Argument 1 must be either zero or one.  */
   if (INTVAL (op1) != 0 && INTVAL (op1) != 1)
     {
-      warning ("invalid second arg to __builtin_prefetch; using zero");
+      warning ("invalid second argument to %<__builtin_prefetch%>;"
+	       " using zero");
       op1 = const0_rtx;
     }
 
   /* Argument 2 (locality) must be a compile-time constant int.  */
   if (TREE_CODE (arg2) != INTEGER_CST)
     {
-      error ("third arg to %<__builtin_prefetch%> must be a constant");
+      error ("third argument to %<__builtin_prefetch%> must be a constant");
       arg2 = integer_zero_node;
     }
   op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
   /* Argument 2 must be 0, 1, 2, or 3.  */
   if (INTVAL (op2) < 0 || INTVAL (op2) > 3)
     {
-      warning ("invalid third arg to __builtin_prefetch; using zero");
+      warning ("invalid third argument to %<__builtin_prefetch%>; using zero");
       op2 = const0_rtx;
     }
 
@@ -1477,7 +1475,6 @@ type_to_class (tree type)
     case QUAL_UNION_TYPE:  return union_type_class;
     case ARRAY_TYPE:	   return (TYPE_STRING_FLAG (type)
 				   ? string_type_class : array_type_class);
-    case SET_TYPE:	   return set_type_class;
     case FILE_TYPE:	   return file_type_class;
     case LANG_TYPE:	   return lang_type_class;
     default:		   return no_type_class;
@@ -3869,7 +3866,10 @@ expand_builtin_va_start (tree arglist)
   if (TREE_CHAIN (chain))
     error ("too many arguments to function %<va_start%>");
 
-  fold_builtin_next_arg (chain);
+  if (fold_builtin_next_arg (chain))
+    {
+      return const0_rtx;
+    }
 
   nextarg = expand_builtin_next_arg (chain);
   valist = stabilize_va_list (TREE_VALUE (arglist), 1);
@@ -4158,9 +4158,9 @@ expand_builtin_frame_address (tree fndecl, tree arglist)
   else if (! host_integerp (TREE_VALUE (arglist), 1))
     {
       if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	error ("invalid arg to %<__builtin_frame_address%>");
+	error ("invalid argument to %<__builtin_frame_address%>");
       else
-	error ("invalid arg to %<__builtin_return_address%>");
+	error ("invalid argument to %<__builtin_return_address%>");
       return const0_rtx;
     }
   else
@@ -4174,9 +4174,9 @@ expand_builtin_frame_address (tree fndecl, tree arglist)
       if (tem == NULL)
 	{
 	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	    warning ("unsupported arg to %<__builtin_frame_address%>");
+	    warning ("unsupported argument to %<__builtin_frame_address%>");
 	  else
-	    warning ("unsupported arg to %<__builtin_return_address%>");
+	    warning ("unsupported argument to %<__builtin_return_address%>");
 	  return const0_rtx;
 	}
 
@@ -4279,7 +4279,7 @@ expand_builtin_expect (tree arglist, rtx target)
 
   if (TREE_CODE (c) != INTEGER_CST)
     {
-      error ("second arg to %<__builtin_expect%> must be a constant");
+      error ("second argument to %<__builtin_expect%> must be a constant");
       c = integer_zero_node;
     }
 
@@ -4420,7 +4420,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   return ret;
 }
 
-void
+static void
 expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
@@ -5250,7 +5250,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
-      fold_builtin_next_arg (arglist);
+      if (fold_builtin_next_arg (arglist))
+        return const0_rtx;
       return expand_builtin_next_arg (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
@@ -5486,7 +5487,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
 	  if (value != const1_rtx)
 	    {
-	      error ("__builtin_longjmp second argument must be 1");
+	      error ("%<__builtin_longjmp%> second argument must be 1");
 	      return const0_rtx;
 	    }
 
@@ -7602,13 +7603,12 @@ fold_builtin_unordered_cmp (tree exp,
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
   enum tree_code code;
   tree arg0, arg1;
+  tree type0, type1;
+  enum tree_code code0, code1;
+  tree cmp_type = NULL_TREE;
 
   if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     {
-      enum tree_code code0, code1;
-      tree type0, type1;
-      tree cmp_type = 0;
-
       /* Check that we have exactly two arguments.  */
       if (arglist == 0 || TREE_CHAIN (arglist) == 0)
 	{
@@ -7622,39 +7622,34 @@ fold_builtin_unordered_cmp (tree exp,
 		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 	  return error_mark_node;
 	}
-
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-
-      type0 = TREE_TYPE (arg0);
-      type1 = TREE_TYPE (arg1);
-
-      code0 = TREE_CODE (type0);
-      code1 = TREE_CODE (type1);
-
-      if (code0 == REAL_TYPE && code1 == REAL_TYPE)
-	/* Choose the wider of two real types.  */
-        cmp_type = TYPE_PRECISION (type0) >= TYPE_PRECISION (type1)
-		   ? type0 : type1;
-      else if (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
-	cmp_type = type0;
-      else if (code0 == INTEGER_TYPE && code1 == REAL_TYPE)
-	cmp_type = type1;
-      else
-	{
-	  error ("non-floating-point argument to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-
-      arg0 = fold_convert (cmp_type, arg0);
-      arg1 = fold_convert (cmp_type, arg1);
     }
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  
+  type0 = TREE_TYPE (arg0);
+  type1 = TREE_TYPE (arg1);
+  
+  code0 = TREE_CODE (type0);
+  code1 = TREE_CODE (type1);
+  
+  if (code0 == REAL_TYPE && code1 == REAL_TYPE)
+    /* Choose the wider of two real types.  */
+    cmp_type = TYPE_PRECISION (type0) >= TYPE_PRECISION (type1)
+      ? type0 : type1;
+  else if (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
+    cmp_type = type0;
+  else if (code0 == INTEGER_TYPE && code1 == REAL_TYPE)
+    cmp_type = type1;
   else
     {
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      error ("non-floating-point argument to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      return error_mark_node;
     }
+  
+  arg0 = fold_convert (cmp_type, arg0);
+  arg1 = fold_convert (cmp_type, arg1);
 
   if (unordered_code == UNORDERED_EXPR)
     {
@@ -8657,7 +8652,10 @@ fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
   return build_function_call_expr (fn, arglist);
 }
 
-static void
+/* Fold the new_arg's arguments (ARGLIST). Returns true if there was an error
+   produced.  False otherwise.  This is done so that we don't output the error
+   or warning twice or three times.  */
+bool
 fold_builtin_next_arg (tree arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
@@ -8665,7 +8663,10 @@ fold_builtin_next_arg (tree arglist)
   if (TYPE_ARG_TYPES (fntype) == 0
       || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	  == void_type_node))
-    error ("%<va_start%> used in function with fixed args");
+    {
+      error ("%<va_start%> used in function with fixed args");
+      return true;
+    }
   else if (arglist)
     {
       tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
@@ -8681,13 +8682,25 @@ fold_builtin_next_arg (tree arglist)
 	     || TREE_CODE (arg) == INDIRECT_REF)
 	arg = TREE_OPERAND (arg, 0);
       if (arg != last_parm)
-	warning ("second parameter of %<va_start%> not last named argument");
+        {
+	  /* FIXME: Sometimes with the tree optimizers we can get the
+	     not the last argument even though the user used the last
+	     argument.  We just warn and set the arg to be the last
+	     argument so that we will get wrong-code because of
+	     it.  */
+	  arg = last_parm;
+	  warning ("second parameter of %<va_start%> not last named argument");
+	}
       TREE_VALUE (arglist) = arg;
     }
   else
-    /* Evidently an out of date version of <stdarg.h>; can't validate
-       va_start's second argument, but can still work as intended.  */
-    warning ("%<__builtin_next_arg%> called without an argument");
+    {
+      /* Evidently an out of date version of <stdarg.h>; can't validate
+	 va_start's second argument, but can still work as intended.  */
+      warning ("%<__builtin_next_arg%> called without an argument");
+      return true;
+    }
+  return false;
 }
 
 

@@ -283,7 +283,7 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       && class != tcc_comparison)
     return NULL;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     {
       aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
@@ -365,9 +365,7 @@ stmt_cost (tree stmt)
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
-  if (!is_gimple_variable (lhs))
-    cost += 20;
-  if (is_gimple_addressable (rhs) && !is_gimple_variable (rhs))
+  if (stmt_references_memory_p (stmt))
     cost += 20;
 
   switch (TREE_CODE (rhs))
@@ -436,7 +434,7 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
     if (!add_dependency (val, lim_data, loop, true))
       return false;
 
-  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_USES)
+  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
     if (!add_dependency (val, lim_data, loop, false))
       return false;
 
@@ -598,7 +596,7 @@ loop_commit_inserts (void)
   basic_block bb;
 
   old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
   for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
@@ -679,7 +677,7 @@ move_computations (void)
 
   loop_commit_inserts ();
   rewrite_into_ssa (false);
-  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+  if (!bitmap_empty_p (vars_to_rename))
     {
       /* The rewrite of ssa names may cause violation of loop closed ssa
 	 form invariants.  TODO -- avoid these rewrites completely.
@@ -745,7 +743,7 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       && class != tcc_comparison)
     return;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
 }
@@ -1034,8 +1032,7 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
 
   for (; mem_refs; mem_refs = mem_refs->next)
     {
-      FOR_EACH_SSA_TREE_OPERAND (var, mem_refs->stmt, iter,
-				 (SSA_OP_VIRTUAL_DEFS | SSA_OP_VUSE))
+      FOR_EACH_SSA_TREE_OPERAND (var, mem_refs->stmt, iter, SSA_OP_ALL_VIRTUALS)
 	{
 	  var = SSA_NAME_VAR (var);
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
@@ -1240,7 +1237,7 @@ determine_lsm_loop (struct loop *loop)
       return;
     }
 
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     determine_lsm_reg (loop, exits, n_exits, PHI_RESULT (phi));
 
   free (exits);

@@ -110,6 +110,7 @@ static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*);
 static int  type_unification_real (tree, tree, tree, tree,
 				   int, unification_kind_t, int, int);
 static void note_template_header (int);
+static tree convert_nontype_argument_function (tree, tree);
 static tree convert_nontype_argument (tree, tree);
 static tree convert_template_argument (tree, tree, tree,
 				       tsubst_flags_t, int, tree);
@@ -139,7 +140,6 @@ static tree most_specialized (tree, tree, tree);
 static tree most_specialized_class (tree, tree);
 static int template_class_depth_real (tree, int);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
-static tree tsubst_decl (tree, tree, tree, tsubst_flags_t);
 static tree tsubst_arg_types (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_function_type (tree, tree, tsubst_flags_t, tree);
 static void check_specialization_scope (void);
@@ -1794,7 +1794,7 @@ check_explicit_specialization (tree declarator,
 	error("too few template parameter lists in declaration of %qD", decl);
       else
 	error("explicit specialization of %qD must be introduced by "
-	      "`template <>'", decl);
+	      "%<template <>%>", decl);
 
       /* Fall through.  */
     case tsk_expl_spec:
@@ -3144,7 +3144,11 @@ push_template_decl_real (tree decl, int is_friend)
      parameters of the class.  */
   if (new_template_p && !ctx 
       && !(is_friend && template_class_depth (current_class_type) > 0))
-    tmpl = pushdecl_namespace_level (tmpl);
+    {
+      tmpl = pushdecl_namespace_level (tmpl);
+      if (tmpl == error_mark_node)
+	return error_mark_node;
+    }
 
   if (primary)
     {
@@ -3302,6 +3306,79 @@ fold_non_dependent_expr (tree expr)
   return expr;
 }
 
+/* EXPR is an expression which is used in a constant-expression context.
+   For instance, it could be a VAR_DECL with a constant initializer.
+   Extract the innest constant expression.
+   
+   This is basically a more powerful version of decl_constant_value, which
+   can be used also in templates where initializers can maintain a
+   syntactic rather than semantic form (even if they are non-dependent, for
+   access-checking purposes).  */
+
+tree
+fold_decl_constant_value (tree expr)
+{
+  while (true)
+    {
+      tree const_expr = decl_constant_value (expr);
+      /* In a template, the initializer for a VAR_DECL may not be
+	 marked as TREE_CONSTANT, in which case decl_constant_value
+	 will not return the initializer.  Handle that special case
+	 here.  */
+      if (expr == const_expr
+	  && TREE_CODE (expr) == VAR_DECL
+	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (expr)
+	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (expr))
+	  /* DECL_INITIAL can be NULL if we are processing a
+	     variable initialized to an expression involving itself.
+	     We know it is initialized to a constant -- but not what
+	     constant, yet.  */
+	  && DECL_INITIAL (expr))
+	const_expr = DECL_INITIAL (expr);
+      if (expr == const_expr)
+	break;
+      expr = fold_non_dependent_expr (const_expr);
+    }
+
+    return expr;
+}
+
+/* Subroutine of convert_nontype_argument. Converts EXPR to TYPE, which
+   must be a function or a pointer-to-function type, as specified
+   in [temp.arg.nontype]: disambiguate EXPR if it is an overload set,
+   and check that the resulting function has external linkage.  */
+
+static tree
+convert_nontype_argument_function (tree type, tree expr)
+{
+  tree fns = expr;
+  tree fn, fn_no_ptr;
+
+  fn = instantiate_type (type, fns, tf_none);
+  if (fn == error_mark_node)
+    return error_mark_node;
+
+  fn_no_ptr = fn;
+  if (TREE_CODE (fn_no_ptr) == ADDR_EXPR)
+    fn_no_ptr = TREE_OPERAND (fn_no_ptr, 0);
+
+  /* [temp.arg.nontype]/1
+
+     A template-argument for a non-type, non-template template-parameter
+     shall be one of:
+     [...]
+     -- the address of an object or function with external linkage.  */
+  if (!DECL_EXTERNAL_LINKAGE_P (fn_no_ptr))
+    {
+      error ("%qE is not a valid template argument for type %qT "
+	     "because function %qD has not external linkage",
+	     expr, type, fn_no_ptr);
+      return NULL_TREE;
+    }
+
+  return fn;
+}
+
 /* Attempt to convert the non-type template parameter EXPR to the
    indicated TYPE.  If the conversion is successful, return the
    converted value.  If the conversion is unsuccessful, return
@@ -3309,12 +3386,36 @@ fold_non_dependent_expr (tree expr)
    did not.  We issue error messages for out-and-out bad template
    parameters, but not simply because the conversion failed, since we
    might be just trying to do argument deduction.  Both TYPE and EXPR
-   must be non-dependent.  */
+   must be non-dependent.
+
+   The conversion follows the special rules described in
+   [temp.arg.nontype], and it is much more strict than an implicit
+   conversion.
+
+   This function is called twice for each template argument (see
+   lookup_template_class for a more accurate description of this
+   problem). This means that we need to handle expressions which
+   are not valid in a C++ source, but can be created from the
+   first call (for instance, casts to perform conversions). These
+   hacks can go away after we fix the double coercion problem.  */
 
 static tree
 convert_nontype_argument (tree type, tree expr)
 {
   tree expr_type;
+
+  /* Detect immediately string literals as invalid non-type argument.
+     This special-case is not needed for correctness (we would easily
+     catch this later), but only to provide better diagnostic for this
+     common user mistake. As suggested by DR 100, we do not mention
+     linkage issues in the diagnostic as this is not the point.  */
+  if (TREE_CODE (expr) == STRING_CST)
+    {
+      error ("%qE is not a valid template argument for type %qT "
+	     "because string literals can never be used in this context",
+	     expr, type);
+      return NULL_TREE;
+    }
 
   /* If we are in a template, EXPR may be non-dependent, but still
      have a syntactic, rather than semantic, form.  For example, EXPR
@@ -3326,373 +3427,261 @@ convert_nontype_argument (tree type, tree expr)
   expr = fold_non_dependent_expr (expr);
   expr_type = TREE_TYPE (expr);
 
-  /* A template-argument for a non-type, non-template
-     template-parameter shall be one of:
-
-     --an integral constant-expression of integral or enumeration
-     type; or
-     
-     --the name of a non-type template-parameter; or
-     
-     --the name of an object or function with external linkage,
-     including function templates and function template-ids but
-     excluding non-static class members, expressed as id-expression;
-     or
-     
-     --the address of an object or function with external linkage,
-     including function templates and function template-ids but
-     excluding non-static class members, expressed as & id-expression
-     where the & is optional if the name refers to a function or
-     array; or
-     
-     --a pointer to member expressed as described in _expr.unary.op_.  */
-
-  /* An integral constant-expression can include const variables or
-.     enumerators.  Simplify things by folding them to their values,
-     unless we're about to bind the declaration to a reference
-     parameter.  */
-  if (INTEGRAL_TYPE_P (expr_type) && TREE_CODE (type) != REFERENCE_TYPE)
-    while (true) 
-      {
-	tree const_expr = decl_constant_value (expr);
-	/* In a template, the initializer for a VAR_DECL may not be
-	   marked as TREE_CONSTANT, in which case decl_constant_value
-	   will not return the initializer.  Handle that special case
-	   here.  */
-	if (expr == const_expr
-	    && DECL_INTEGRAL_CONSTANT_VAR_P (expr)
-	    /* DECL_INITIAL can be NULL if we are processing a
-	       variable initialized to an expression involving itself.
-	       We know it is initialized to a constant -- but not what
-	       constant, yet.  */
-	    && DECL_INITIAL (expr))
-	  const_expr = DECL_INITIAL (expr);
-	if (expr == const_expr)
-	  break;
-	expr = fold_non_dependent_expr (const_expr);
-      }
-
-  if (is_overloaded_fn (expr))
-    /* OK for now.  We'll check that it has external linkage later.
-       Check this first since if expr_type is the unknown_type_node
-       we would otherwise complain below.  */
-    ;
-  else if (TYPE_PTR_TO_MEMBER_P (expr_type))
+  /* HACK: Due to double coercion, we can get a
+     NOP_EXPR<REFERENCE_TYPE>(ADDR_EXPR<POINTER_TYPE> (arg)) here,
+     which is the tree that we built on the first call (see
+     below when coercing to reference to object or to reference to
+     function). We just strip everything and get to the arg.
+     See g++.old-deja/g++.oliva/template4.C and g++.dg/template/nontype9.C
+     for examples.  */
+  if (TREE_CODE (expr) == NOP_EXPR)
     {
-      if (TREE_CODE (expr) != PTRMEM_CST)
-	goto bad_argument;
-    }
-  else if (TYPE_PTR_P (expr_type)
-	   || TREE_CODE (expr_type) == ARRAY_TYPE
-	   || TREE_CODE (type) == REFERENCE_TYPE
-	   /* If expr is the address of an overloaded function, we
-	      will get the unknown_type_node at this point.  */
-	   || expr_type == unknown_type_node)
-    {
-      tree referent;
-      tree e = expr;
-      STRIP_NOPS (e);
-
-      if (TREE_CODE (expr_type) == ARRAY_TYPE
-	  || (TREE_CODE (type) == REFERENCE_TYPE
-	      && TREE_CODE (e) != ADDR_EXPR))
-	referent = e;
-      else
+      if (TYPE_REF_OBJ_P (type) || TYPE_REFFN_P (type))
 	{
-	  if (TREE_CODE (e) != ADDR_EXPR)
-	    {
-	    bad_argument:
-	      error ("%qE is not a valid template argument", expr);
-	      if (TYPE_PTR_P (expr_type))
-		{
-		  if (TREE_CODE (TREE_TYPE (expr_type)) == FUNCTION_TYPE)
-		    error ("it must be the address of a function with external linkage");
-		  else
-		    error ("it must be the address of an object with external linkage");
-		}
-	      else if (TYPE_PTR_TO_MEMBER_P (expr_type))
-		error ("it must be a pointer-to-member of the form %<&X::Y%>");
+	  /* ??? Maybe we could use convert_from_reference here, but we
+	     would need to relax its constraints because the NOP_EXPR
+	     could actually change the type to something more cv-qualified,
+	     and this is not folded by convert_from_reference.  */
+	  tree addr = TREE_OPERAND (expr, 0);
+	  gcc_assert (TREE_CODE (expr_type) == REFERENCE_TYPE);
+	  gcc_assert (TREE_CODE (addr) == ADDR_EXPR);
+	  gcc_assert (TREE_CODE (TREE_TYPE (addr)) == POINTER_TYPE);
+	  gcc_assert (same_type_ignoring_top_level_qualifiers_p
+		      (TREE_TYPE (expr_type),
+		       TREE_TYPE (TREE_TYPE (addr))));
 
-	      return NULL_TREE;
-	    }
-
-	  referent = TREE_OPERAND (e, 0);
-	  STRIP_NOPS (referent);
+	  expr = TREE_OPERAND (addr, 0);
+	  expr_type = TREE_TYPE (expr);
 	}
 
-      if (TREE_CODE (referent) == STRING_CST)
+      /* We could also generate a NOP_EXPR(ADDR_EXPR()) when the
+	 parameter is a pointer to object, through decay and
+	 qualification conversion. Let's strip everything.  */
+      else if (TYPE_PTROBV_P (type))
 	{
-	  error ("string literal %qE is not a valid template argument "
-                 "because it is the address of an object with static linkage", 
-                 referent);
-	  return NULL_TREE;
-	}
-
-      if (TREE_CODE (referent) == SCOPE_REF)
-	referent = TREE_OPERAND (referent, 1);
-
-      if (is_overloaded_fn (referent))
-	/* We'll check that it has external linkage later.  */
-	;
-      else if (TREE_CODE (referent) != VAR_DECL)
-	goto bad_argument;
-      else if (!DECL_EXTERNAL_LINKAGE_P (referent))
-	{
-	  error ("address of non-extern %qE cannot be used as "
-                 "template argument", referent); 
-	  return error_mark_node;
+	  STRIP_NOPS (expr);
+	  gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
+	  gcc_assert (TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE);
+	  /* Skip the ADDR_EXPR only if it is part of the decay for
+	     an array. Otherwise, it is part of the original argument
+	     in the source code.  */
+	  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == ARRAY_TYPE)
+	    expr = TREE_OPERAND (expr, 0);
+	  expr_type = TREE_TYPE (expr);
 	}
     }
-  else if (INTEGRAL_TYPE_P (expr_type) || TYPE_PTR_TO_MEMBER_P (expr_type))
-    {
-      if (! TREE_CONSTANT (expr))
-	{
-	non_constant:
-	  error ("non-constant %qE cannot be used as template argument", expr);
-	  return NULL_TREE;
-	}
-    }
-  else 
-    {
-      if (TYPE_P (expr))
-         error ("type %qT cannot be used as a value for a non-type "
-               "template-parameter", expr);
-      else if (DECL_P (expr))
-        error ("invalid use of %qD as a non-type template-argument", expr);
-      else
-        error ("invalid use of %qE as a non-type template-argument", expr);
 
-      return NULL_TREE;
-    }
+  /* [temp.arg.nontype]/5, bullet 1
 
-  switch (TREE_CODE (type))
+     For a non-type template-parameter of integral or enumeration type,
+     integral promotions (_conv.prom_) and integral conversions
+     (_conv.integral_) are applied.  */
+  if (INTEGRAL_TYPE_P (type))
     {
-      HOST_WIDE_INT saved_processing_template_decl;
-
-    case INTEGER_TYPE:
-    case BOOLEAN_TYPE:
-    case ENUMERAL_TYPE:
-      /* For a non-type template-parameter of integral or enumeration
-         type, integral promotions (_conv.prom_) and integral
-         conversions (_conv.integral_) are applied.  */
       if (!INTEGRAL_TYPE_P (expr_type))
 	return error_mark_node;
 
-      /* [conv.integral] does not allow conversions between two different
-	 enumeration types.  */
-      if (TREE_CODE (type) == ENUMERAL_TYPE
-	  && TREE_CODE (expr_type) == ENUMERAL_TYPE
-	  && !same_type_ignoring_top_level_qualifiers_p (type, expr_type))
-	  return error_mark_node;
-
-      /* It's safe to call digest_init in this case; we know we're
-	 just converting one integral constant expression to another.
-	 */
-      saved_processing_template_decl = processing_template_decl;
-      processing_template_decl = 0;
-      expr = digest_init (type, expr, (tree*) 0);
-      processing_template_decl = saved_processing_template_decl;
-
+      expr = fold_decl_constant_value (expr);
+      /* Notice that there are constant expressions like '4 % 0' which
+	 do not fold into integer constants.  */
       if (TREE_CODE (expr) != INTEGER_CST)
-	/* Curiously, some TREE_CONSTANT integral expressions do not
-	   simplify to integer constants.  For example, `3 % 0',
-	   remains a TRUNC_MOD_EXPR.  */
-	goto non_constant;
-      
-      return expr;
+	{
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because it is a non-constant expression", expr, type);
+	  return NULL_TREE;
+	}
 
-    case OFFSET_TYPE:
-      {
-	tree e;
+      /* At this point, an implicit conversion does what we want,
+	 because we already know that the expression is of integral
+	 type.  */
+      expr = ocp_convert (type, expr, CONV_IMPLICIT, LOOKUP_PROTECT);
+      if (expr == error_mark_node)
+	return error_mark_node;
 
-	/* For a non-type template-parameter of type pointer to data
-	   member, qualification conversions (_conv.qual_) are
-	   applied.  */
-	e = perform_qualification_conversions (type, expr);
-	if (TREE_CODE (e) == NOP_EXPR)
-	  /* The call to perform_qualification_conversions will
-	     insert a NOP_EXPR over EXPR to do express conversion,
-	     if necessary.  But, that will confuse us if we use
-	     this (converted) template parameter to instantiate
-	     another template; then the thing will not look like a
-	     valid template argument.  So, just make a new
-	     constant, of the appropriate type.  */
-	  e = make_ptrmem_cst (type, PTRMEM_CST_MEMBER (expr));
-	return e;
-      }
-
-    case POINTER_TYPE:
-      {
-	tree type_pointed_to = TREE_TYPE (type);
- 
-	if (TREE_CODE (type_pointed_to) == FUNCTION_TYPE)
-	  { 
-	    /* For a non-type template-parameter of type pointer to
-	       function, only the function-to-pointer conversion
-	       (_conv.func_) is applied.  If the template-argument
-	       represents a set of overloaded functions (or a pointer to
-	       such), the matching function is selected from the set
-	       (_over.over_).  */
-	    tree fns;
-	    tree fn;
-
-	    if (TREE_CODE (expr) == ADDR_EXPR)
-	      fns = TREE_OPERAND (expr, 0);
-	    else
-	      fns = expr;
-
-	    fn = instantiate_type (type_pointed_to, fns, tf_none);
-
-	    if (fn == error_mark_node)
-	      return error_mark_node;
-
-	    if (!DECL_EXTERNAL_LINKAGE_P (fn))
-	      {
-		if (really_overloaded_fn (fns))
-		  return error_mark_node;
-		else
-		  goto bad_argument;
-	      }
-
-	    expr = build_unary_op (ADDR_EXPR, fn, 0);
-
-	    gcc_assert (same_type_p (type, TREE_TYPE (expr)));
-	    return expr;
-	  }
-	else 
-	  {
-	    /* For a non-type template-parameter of type pointer to
-	       object, qualification conversions (_conv.qual_) and the
-	       array-to-pointer conversion (_conv.array_) are applied.
-	       [Note: In particular, neither the null pointer conversion
-	       (_conv.ptr_) nor the derived-to-base conversion
-	       (_conv.ptr_) are applied.  Although 0 is a valid
-	       template-argument for a non-type template-parameter of
-	       integral type, it is not a valid template-argument for a
-	       non-type template-parameter of pointer type.]  
-	    
-	       The call to decay_conversion performs the
-	       array-to-pointer conversion, if appropriate.  */
-	    expr = decay_conversion (expr);
-
-	    if (expr == error_mark_node)
-	      return error_mark_node;
-	    else
-	      return perform_qualification_conversions (type, expr);
-	  }
-      }
-      break;
-
-    case REFERENCE_TYPE:
-      {
-	tree type_referred_to = TREE_TYPE (type);
-
-	/* If this expression already has reference type, get the
-	   underlying object.  */
-	if (TREE_CODE (expr_type) == REFERENCE_TYPE) 
-	  {
-	    if (TREE_CODE (expr) == NOP_EXPR
-		&& TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
-	      STRIP_NOPS (expr);
-	    gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
-	    expr = TREE_OPERAND (expr, 0);
-	    expr_type = TREE_TYPE (expr);
-	  }
-
-	if (TREE_CODE (type_referred_to) == FUNCTION_TYPE)
-	  {
-	    /* For a non-type template-parameter of type reference to
-	       function, no conversions apply.  If the
-	       template-argument represents a set of overloaded
-	       functions, the matching function is selected from the
-	       set (_over.over_).  */
-	    tree fn;
-
-	    fn = instantiate_type (type_referred_to, expr, tf_none);
-
-	    if (fn == error_mark_node)
-	      return error_mark_node;
-
-	    if (!DECL_EXTERNAL_LINKAGE_P (fn))
-	      {
-		if (really_overloaded_fn (expr))
-		  /* Don't issue an error here; we might get a different
-		     function if the overloading had worked out
-		     differently.  */
-		  return error_mark_node;
-		else
-		  goto bad_argument;
-	      }
-
-	    gcc_assert (same_type_p (type_referred_to, TREE_TYPE (fn)));
-	    expr = fn;
-	  }
-	else
-	  {
-	    /* For a non-type template-parameter of type reference to
-	       object, no conversions apply.  The type referred to by the
-	       reference may be more cv-qualified than the (otherwise
-	       identical) type of the template-argument.  The
-	       template-parameter is bound directly to the
-	       template-argument, which must be an lvalue.  */
-	    if (!same_type_p (TYPE_MAIN_VARIANT (expr_type),
-			      TYPE_MAIN_VARIANT (type_referred_to))
-		|| !at_least_as_qualified_p (type_referred_to,
-					     expr_type)
-		|| !real_lvalue_p (expr))
-	      return error_mark_node;
-	  }
-
-	cxx_mark_addressable (expr);
-	return build_nop (type, build_address (expr));
-      }
-      break;
-
-    case RECORD_TYPE:
-      {
-	gcc_assert (TYPE_PTRMEMFUNC_P (type));
-
-	/* For a non-type template-parameter of type pointer to member
-	   function, no conversions apply.  If the template-argument
-	   represents a set of overloaded member functions, the
-	   matching member function is selected from the set
-	   (_over.over_).  */
-
-	if (!TYPE_PTRMEMFUNC_P (expr_type) && 
-	    expr_type != unknown_type_node)
-	  return error_mark_node;
-
-	if (TREE_CODE (expr) == PTRMEM_CST)
-	  {
-	    /* A ptr-to-member constant.  */
-	    if (!same_type_p (type, expr_type))
-	      return error_mark_node;
-	    else 
-	      return expr;
-	  }
-
-	if (TREE_CODE (expr) != ADDR_EXPR)
-	  return error_mark_node;
-
-	expr = instantiate_type (type, expr, tf_none);
-	
-	if (expr == error_mark_node)
-	  return error_mark_node;
-
-	if (!same_type_p (type, TREE_TYPE (expr)))
-	  return error_mark_node;
-
-	return expr;
-      }
-      break;
-
-    default:
-      /* All non-type parameters must have one of these types.  */
-      gcc_unreachable ();
+      /* Conversion was allowed: fold it to a bare integer constant.  */
+      expr = fold (expr);
     }
+  /* [temp.arg.nontype]/5, bullet 2
 
-  return error_mark_node;
+     For a non-type template-parameter of type pointer to object,
+     qualification conversions (_conv.qual_) and the array-to-pointer
+     conversion (_conv.array_) are applied.  */
+  else if (TYPE_PTROBV_P (type))
+    {
+      /* [temp.arg.nontype]/1  (TC1 version, DR 49):
+
+	 A template-argument for a non-type, non-template template-parameter
+	 shall be one of: [...]
+
+	 -- the name of a non-type template-parameter;
+	 -- the address of an object or function with external linkage, [...]
+	    expressed as "& id-expression" where the & is optional if the name
+	    refers to a function or array, or if the corresponding
+	    template-parameter is a reference.
+	    
+	Here, we do not care about functions, as they are invalid anyway
+	for a parameter of type pointer-to-object.  */
+      bool constant_address_p =
+	(TREE_CODE (expr) == ADDR_EXPR
+	 || TREE_CODE (expr_type) == ARRAY_TYPE
+	 || (DECL_P (expr) && DECL_TEMPLATE_PARM_P (expr)));
+
+      expr = decay_conversion (expr);
+      if (expr == error_mark_node)
+	return error_mark_node;
+
+      expr = perform_qualification_conversions (type, expr);
+      if (expr == error_mark_node)
+	return error_mark_node;
+
+      if (!constant_address_p)
+	{
+	    error ("%qE is not a valid template argument for type %qT "
+		  "because it is not a constant pointer", expr, type);
+	    return NULL_TREE;
+	}
+    }
+  /* [temp.arg.nontype]/5, bullet 3
+
+     For a non-type template-parameter of type reference to object, no
+     conversions apply. The type referred to by the reference may be more
+     cv-qualified than the (otherwise identical) type of the
+     template-argument. The template-parameter is bound directly to the
+     template-argument, which must be an lvalue.  */
+  else if (TYPE_REF_OBJ_P (type))
+    {
+      if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (type),
+						      expr_type))
+	return error_mark_node;
+
+      if (!at_least_as_qualified_p (TREE_TYPE (type), expr_type))
+	{
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because of conflicts in cv-qualification", expr, type);
+	  return NULL_TREE;
+	}
+	
+      if (!real_lvalue_p (expr))
+	{
+	  error ("%qE is not a valid template argument for type %qT "
+	         "because it is not a lvalue", expr, type);
+	  return NULL_TREE;
+	}
+
+      /* [temp.arg.nontype]/1
+
+	 A template-argument for a non-type, non-template template-parameter
+	 shall be one of: [...]
+
+	 -- the address of an object or function with external linkage.  */
+      if (!DECL_EXTERNAL_LINKAGE_P (expr))
+	{
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because object %qD has not external linkage",
+		 expr, type, expr);
+	  return NULL_TREE;
+	}
+
+      expr = build_nop (type, build_address (expr));
+    }
+  /* [temp.arg.nontype]/5, bullet 4
+
+     For a non-type template-parameter of type pointer to function, only
+     the function-to-pointer conversion (_conv.func_) is applied. If the
+     template-argument represents a set of overloaded functions (or a
+     pointer to such), the matching function is selected from the set
+     (_over.over_).  */
+  else if (TYPE_PTRFN_P (type))
+    {
+      /* If the argument is a template-id, we might not have enough
+         context information to decay the pointer.
+	 ??? Why static5.C requires decay and subst1.C works fine
+	 even without it?  */
+      if (!type_unknown_p (expr_type))
+	{
+	  expr = decay_conversion (expr);
+	  if (expr == error_mark_node)
+	    return error_mark_node;
+	}
+
+      expr = convert_nontype_argument_function (type, expr);
+      if (!expr || expr == error_mark_node)
+	return expr;
+    }
+  /* [temp.arg.nontype]/5, bullet 5
+
+     For a non-type template-parameter of type reference to function, no
+     conversions apply. If the template-argument represents a set of
+     overloaded functions, the matching function is selected from the set
+     (_over.over_).  */
+  else if (TYPE_REFFN_P (type))
+    {
+      if (TREE_CODE (expr) == ADDR_EXPR)
+	{
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because it is a pointer", expr, type);
+	  inform ("try using %qE instead", TREE_OPERAND (expr, 0));
+	  return NULL_TREE;
+	}
+
+      expr = convert_nontype_argument_function (TREE_TYPE (type), expr);
+      if (!expr || expr == error_mark_node)
+	return expr;
+
+      expr = build_nop(type, build_address (expr));
+    }
+  /* [temp.arg.nontype]/5, bullet 6
+
+     For a non-type template-parameter of type pointer to member function,
+     no conversions apply. If the template-argument represents a set of
+     overloaded member functions, the matching member function is selected
+     from the set (_over.over_).  */
+  else if (TYPE_PTRMEMFUNC_P (type))
+    {
+      expr = instantiate_type (type, expr, tf_none);
+      if (expr == error_mark_node)
+	return error_mark_node;
+
+      /* There is no way to disable standard conversions in
+	 resolve_address_of_overloaded_function (called by
+	 instantiate_type). It is possible that the call succeeded by
+	 converting &B::I to &D::I (where B is a base of D), so we need
+	 to reject this conversion here.
+
+	 Actually, even if there was a way to disable standard conversions,
+	 it would still be better to reject them here so that we can
+	 provide a superior diagnostic.  */
+      if (!same_type_p (TREE_TYPE (expr), type))
+	{
+	  /* Make sure we are just one standard conversion off.  */
+	  gcc_assert (can_convert (type, TREE_TYPE (expr)));
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because it is of type %qT", expr, type,
+		 TREE_TYPE (expr));
+	  inform ("standard conversions are not allowed in this context");
+	  return NULL_TREE;
+	}
+    }
+  /* [temp.arg.nontype]/5, bullet 7
+
+     For a non-type template-parameter of type pointer to data member,
+     qualification conversions (_conv.qual_) are applied.  */
+  else if (TYPE_PTRMEM_P (type))
+    {
+      expr = perform_qualification_conversions (type, expr);
+      if (expr == error_mark_node)
+	return expr;
+    }
+  /* A template non-type parameter must be one of the above.  */
+  else
+    gcc_unreachable ();
+
+  /* Sanity check: did we actually convert the argument to the
+     right type?  */
+  gcc_assert (same_type_p (type, TREE_TYPE (expr)));
+  return expr;
 }
+
 
 /* Return 1 if PARM_PARMS and ARG_PARMS matches using rule for 
    template template parameters.  Both PARM_PARMS and ARG_PARMS are 
@@ -3843,6 +3832,7 @@ convert_template_argument (tree parm,
       
       arg = make_typename_type (TREE_OPERAND (arg, 0),
 				TREE_OPERAND (arg, 1),
+				typename_type,
 				complain & tf_error);
       is_type = 1;
     }
@@ -4021,7 +4011,10 @@ coerce_template_parms (tree parms,
       
       gcc_assert (arg);
       if (arg == error_mark_node)
-	error ("template argument %d is invalid", i + 1);
+	{
+	  if (complain & tf_error)
+	    error ("template argument %d is invalid", i + 1);
+	}
       else 
 	arg = convert_template_argument (TREE_VALUE (parm), 
 					 arg, new_args, complain, i,
@@ -4300,7 +4293,14 @@ maybe_get_template_decl_from_type_decl (tree decl)
 
    If the template class is really a local class in a template
    function, then the FUNCTION_CONTEXT is the function in which it is
-   being instantiated.  */
+   being instantiated.  
+
+   ??? Note that this function is currently called *twice* for each
+   template-id: the first time from the parser, while creating the
+   incomplete type (finish_template_type), and the second type during the
+   real instantiation (instantiate_template_class). This is surely something
+   that we want to avoid. It also causes some problems with argument
+   coercion (see convert_nontype_argument for more information on this).  */
 
 tree
 lookup_template_class (tree d1, 
@@ -4580,7 +4580,7 @@ lookup_template_class (tree d1,
 	{
 	  found = xref_tag_from_type (TREE_TYPE (template),
 				      DECL_NAME (template),
-				      /*globalize=*/1);
+				      /*tag_scope=*/ts_global);
 	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, found);
 	}
       
@@ -5621,14 +5621,28 @@ instantiate_class_template (tree type)
 	      tree tag = t;
 	      tree name = TYPE_IDENTIFIER (tag);
 	      tree newtag;
+	      bool class_template_p;
 
+	      class_template_p = (TREE_CODE (tag) != ENUMERAL_TYPE
+				  && TYPE_LANG_SPECIFIC (tag)
+				  && CLASSTYPE_IS_TEMPLATE (tag));
+	      /* If the member is a class template, then -- even after
+		 substitution -- there may be dependent types in the
+		 template argument list for the class.  We increment
+		 PROCESSING_TEMPLATE_DECL so that dependent_type_p, as
+		 that function will assume that no types are dependent
+		 when outside of a template.  */
+	      if (class_template_p)
+		++processing_template_decl;
 	      newtag = tsubst (tag, args, tf_error, NULL_TREE);
+	      if (class_template_p)
+		--processing_template_decl;
 	      if (newtag == error_mark_node)
 		continue;
 
 	      if (TREE_CODE (newtag) != ENUMERAL_TYPE)
 		{
-		  if (TYPE_LANG_SPECIFIC (tag) && CLASSTYPE_IS_TEMPLATE (tag))
+		  if (class_template_p)
 		    /* Unfortunately, lookup_template_class sets
 		       CLASSTYPE_IMPLICIT_INSTANTIATION for a partial
 		       instantiation (i.e., for the type of a member
@@ -5778,7 +5792,8 @@ instantiate_class_template (tree type)
 		     classes.  */
 		  push_nested_namespace (ns);
 		  friend_type = 
-		    xref_tag_from_type (friend_type, NULL_TREE, 1);
+		    xref_tag_from_type (friend_type, NULL_TREE, 
+					/*tag_scope=*/ts_global);
 		  pop_nested_namespace (ns);
 		}
 
@@ -6125,13 +6140,12 @@ tsubst_default_arguments (tree fn)
 						    TREE_PURPOSE (arg));
 }
 
-/* Substitute the ARGS into the T, which is a _DECL.  TYPE is the
-   (already computed) substitution of ARGS into TREE_TYPE (T), if
-   appropriate.  Return the result of the substitution.  Issue error
-   and warning messages under control of COMPLAIN.  */
+/* Substitute the ARGS into the T, which is a _DECL.  Return the
+   result of the substitution.  Issue error and warning messages under
+   control of COMPLAIN.  */
 
 static tree
-tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
+tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 {
   location_t saved_loc;
   tree r = NULL_TREE;
@@ -6145,38 +6159,54 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
     {
     case TEMPLATE_DECL:
       {
-	/* We can get here when processing a member template function
-	   of a template class.  */
+	/* We can get here when processing a member function template,
+	   member class template, and template template parameter of
+	   a template class.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
 	tree spec;
-	int is_template_template_parm = DECL_TEMPLATE_TEMPLATE_PARM_P (t);
+	tree tmpl_args;
+	tree full_args;
 
-	if (!is_template_template_parm)
+	if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
 	  {
-	    /* We might already have an instance of this template.
-	       The ARGS are for the surrounding class type, so the
-	       full args contain the tsubst'd args for the context,
-	       plus the innermost args from the template decl.  */
-	    tree tmpl_args = DECL_CLASS_TEMPLATE_P (t) 
-	      ? CLASSTYPE_TI_ARGS (TREE_TYPE (t))
-	      : DECL_TI_ARGS (DECL_TEMPLATE_RESULT (t));
-	    tree full_args;
-	    
-	    full_args = tsubst_template_args (tmpl_args, args,
-					      complain, in_decl);
+	    /* Template template parameter is treated here.  */
+	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    if (new_type == error_mark_node)
+	      return error_mark_node;
 
-	    /* tsubst_template_args doesn't copy the vector if
-	       nothing changed.  But, *something* should have
-	       changed.  */
-	    gcc_assert (full_args != tmpl_args);
+	    r = copy_decl (t);
+	    TREE_CHAIN (r) = NULL_TREE;
+	    TREE_TYPE (r) = new_type;
+	    DECL_TEMPLATE_RESULT (r)
+	      = build_decl (TYPE_DECL, DECL_NAME (decl), new_type);
+	    DECL_TEMPLATE_PARMS (r) 
+	      = tsubst_template_parms (DECL_TEMPLATE_PARMS (t), args,
+				       complain);
+	    TYPE_NAME (new_type) = r;
+	    break;
+	  }
 
-	    spec = retrieve_specialization (t, full_args,
-					    /*class_specializations_p=*/true);
-	    if (spec != NULL_TREE)
-	      {
-		r = spec;
-		break;
-	      }
+	/* We might already have an instance of this template.
+	   The ARGS are for the surrounding class type, so the
+	   full args contain the tsubst'd args for the context,
+	   plus the innermost args from the template decl.  */
+	tmpl_args = DECL_CLASS_TEMPLATE_P (t) 
+	  ? CLASSTYPE_TI_ARGS (TREE_TYPE (t))
+	  : DECL_TI_ARGS (DECL_TEMPLATE_RESULT (t));
+	full_args = tsubst_template_args (tmpl_args, args,
+					  complain, in_decl);
+
+	/* tsubst_template_args doesn't copy the vector if
+	   nothing changed.  But, *something* should have
+	   changed.  */
+	gcc_assert (full_args != tmpl_args);
+
+	spec = retrieve_specialization (t, full_args,
+					/*class_specializations_p=*/true);
+	if (spec != NULL_TREE)
+	  {
+	    r = spec;
+	    break;
 	  }
 
 	/* Make a new template decl.  It will be similar to the
@@ -6187,14 +6217,6 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	r = copy_decl (t);
 	gcc_assert (DECL_LANG_SPECIFIC (r) != 0);
 	TREE_CHAIN (r) = NULL_TREE;
-
-	if (is_template_template_parm)
-	  {
-	    tree new_decl = tsubst (decl, args, complain, in_decl);
-	    DECL_TEMPLATE_RESULT (r) = new_decl;
-	    TREE_TYPE (r) = TREE_TYPE (new_decl);
-	    break;
-	  }
 
 	DECL_CONTEXT (r) 
 	  = tsubst_aggr_type (DECL_CONTEXT (t), args, 
@@ -6252,6 +6274,7 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	tree argvec = NULL_TREE;
 	tree *friends;
 	tree gen_tmpl;
+	tree type;
 	int member;
 	int args_depth;
 	int parms_depth;
@@ -6361,7 +6384,7 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	    member = 0;
 	    ctx = DECL_CONTEXT (t);
 	  }
-	type = tsubst (type, args, complain, in_decl);
+	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	if (type == error_mark_node)
 	  return error_mark_node;
 
@@ -6470,10 +6493,13 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 
     case PARM_DECL:
       {
+	tree type;
+
 	r = copy_node (t);
 	if (DECL_TEMPLATE_PARM_P (t))
 	  SET_DECL_TEMPLATE_PARM_P (r);
 
+	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -6498,7 +6524,12 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 
     case FIELD_DECL:
       {
+	tree type;
+
 	r = copy_decl (t);
+	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	if (type == error_mark_node)
+	  return error_mark_node;
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -6526,19 +6557,6 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
       break;
 
     case TYPE_DECL:
-      if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
-	  || t == TYPE_MAIN_DECL (TREE_TYPE (t)))
-	{
-	  /* If this is the canonical decl, we don't have to mess with
-             instantiations, and often we can't (for typename, template
-	     type parms and such).  Note that TYPE_NAME is not correct for
-	     the above test if we've copied the type for a typedef.  */
-	  r = TYPE_NAME (type);
-	  break;
-	}
-
-      /* Fall through.  */
-
     case VAR_DECL:
       {
 	tree argvec = NULL_TREE;
@@ -6546,8 +6564,25 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	tree spec;
 	tree tmpl = NULL_TREE;
 	tree ctx;
+	tree type = NULL_TREE;
 	int local_p;
 
+	if (TREE_CODE (t) == TYPE_DECL)
+	  {
+	    type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
+		|| t == TYPE_MAIN_DECL (TREE_TYPE (t)))
+	      {
+		/* If this is the canonical decl, we don't have to
+		   mess with instantiations, and often we can't (for
+		   typename, template type parms and such).  Note that
+		   TYPE_NAME is not correct for the above test if
+		   we've copied the type for a typedef.  */
+		r = TYPE_NAME (type);
+		break;
+	      }
+	  }
+	
 	/* Assume this is a non-local variable.  */
 	local_p = 0;
 
@@ -6585,6 +6620,9 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	r = copy_decl (t);
 	if (TREE_CODE (r) == VAR_DECL)
 	  {
+	    type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    if (type == error_mark_node)
+	      return error_mark_node;
 	    type = complete_type (type);
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 	      = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t);
@@ -6722,6 +6760,22 @@ tsubst_function_type (tree t,
   return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
   if (return_type == error_mark_node)
     return error_mark_node;
+  /* The standard does not presently indicate that creation of a
+     function type with an invalid return type is a deduction failure.
+     However, that is clearly analogous to creating an array of "void"
+     or a reference to a reference.  This is core issue #486.  */ 
+  if (TREE_CODE (return_type) == ARRAY_TYPE
+      || TREE_CODE (return_type) == FUNCTION_TYPE)
+    {
+      if (complain & tf_error)
+	{
+	  if (TREE_CODE (return_type) == ARRAY_TYPE)
+	    error ("function returning an array");
+	  else
+	    error ("function returning a function");
+	}
+      return error_mark_node;
+    }
 
   /* Substitute the argument types.  */
   arg_types = tsubst_arg_types (TYPE_ARG_TYPES (t), args,
@@ -6854,6 +6908,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       || TREE_CODE (t) == NAMESPACE_DECL)
     return t;
 
+  if (DECL_P (t))
+    return tsubst_decl (t, args, complain);
+
   if (TREE_CODE (t) == IDENTIFIER_NODE)
     type = IDENTIFIER_TYPE_VALUE (t);
   else
@@ -6861,18 +6918,14 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
   gcc_assert (type != unknown_type_node);
 
-  if (type && TREE_CODE (t) != FUNCTION_DECL
+  if (type
       && TREE_CODE (t) != TYPENAME_TYPE
-      && TREE_CODE (t) != TEMPLATE_DECL
       && TREE_CODE (t) != IDENTIFIER_NODE
       && TREE_CODE (t) != FUNCTION_TYPE
       && TREE_CODE (t) != METHOD_TYPE)
     type = tsubst (type, args, complain, in_decl);
   if (type == error_mark_node)
     return error_mark_node;
-
-  if (DECL_P (t))
-    return tsubst_decl (t, args, type, complain);
 
   switch (TREE_CODE (t))
     {
@@ -7333,7 +7386,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      }
 	  }
 
-	f = make_typename_type (ctx, f,
+	f = make_typename_type (ctx, f, typename_type,
 				(complain & tf_error) | tf_keep_type_decl);
 	if (f == error_mark_node)
 	  return f;
@@ -7343,6 +7396,16 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
  	    f = TREE_TYPE (f);
  	  }
  	
+	if (TREE_CODE (f) != TYPENAME_TYPE)
+	  {
+	    if (TYPENAME_IS_ENUM_P (t) && TREE_CODE (f) != ENUMERAL_TYPE)
+	      error ("%qT resolves to %qT, which is not an enumeration type", 
+		     t, f);
+	    else if (TYPENAME_IS_CLASS_P (t) && !CLASS_TYPE_P (f))
+	      error ("%qT resolves to %qT, which is is not a class type", 
+		     t, f);
+	  }
+
  	return cp_build_qualified_type_real
  	  (f, cp_type_quals (f) | cp_type_quals (t), complain);
       }
@@ -7400,7 +7463,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       }
 
     default:
-      sorry ("use of `%s' in template",
+      sorry ("use of %qs in template",
 	     tree_code_name [(int) TREE_CODE (t)]);
       return error_mark_node;
     }
@@ -7639,7 +7702,16 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  ctx = tsubst_aggr_type (DECL_CONTEXT (t), args, complain, in_decl,
 				  /*entering_scope=*/1);
 	  if (ctx != DECL_CONTEXT (t))
-	    return lookup_field (ctx, DECL_NAME (t), 0, false);
+	    {
+	      tree r = lookup_field (ctx, DECL_NAME (t), 0, false);
+	      if (!r)
+		{
+		  if (complain & tf_error)
+		    error ("using invalid field %qD", t);
+		  return error_mark_node;
+		}
+	      return r;
+	    }
 	}
       
       return t;
@@ -8318,7 +8390,18 @@ tsubst_copy_and_build (tree t,
       }
 
     case INDIRECT_REF:
-      return build_x_indirect_ref (RECUR (TREE_OPERAND (t, 0)), "unary *");
+      {
+	tree r = RECUR (TREE_OPERAND (t, 0));
+
+	if (REFERENCE_REF_P (t))
+	  {
+	    gcc_assert (TREE_CODE (TREE_TYPE (r)) == REFERENCE_TYPE);
+	    r = convert_from_reference (r);
+	  }
+	else
+	  r = build_x_indirect_ref (r, "unary *");
+	return r;
+      }
 
     case NOP_EXPR:
       return build_nop
@@ -8536,7 +8619,11 @@ tsubst_copy_and_build (tree t,
 	   lookup finds a non-function, in accordance with the
 	   expected resolution of DR 218.  */
 	if (koenig_p
-	    && (is_overloaded_fn (function)
+	    && ((is_overloaded_fn (function)
+		 /* If lookup found a member function, the Koenig lookup is
+		    not appropriate, even if an unqualified-name was used
+		    to denote the function.  */
+		 && !DECL_FUNCTION_MEMBER_P (get_first_fn (function)))
 		|| TREE_CODE (function) == IDENTIFIER_NODE))
 	  function = perform_koenig_lookup (function, call_args);
 
@@ -8549,8 +8636,6 @@ tsubst_copy_and_build (tree t,
 	/* Remember that there was a reference to this entity.  */
 	if (DECL_P (function))
 	  mark_used (function);
-
-	function = convert_from_reference (function);
 
 	if (TREE_CODE (function) == OFFSET_REF)
 	  return build_offset_ref_call_from_tree (function, call_args);
@@ -8626,7 +8711,9 @@ tsubst_copy_and_build (tree t,
 	else
 	  member = tsubst_copy (member, args, complain, in_decl);
 
-	if (!CLASS_TYPE_P (TREE_TYPE (object)))
+	if (member == error_mark_node)
+	  return error_mark_node;
+	else if (!CLASS_TYPE_P (TREE_TYPE (object)))
 	  {
 	    if (TREE_CODE (member) == BIT_NOT_EXPR)
 	      return finish_pseudo_destructor_expr (object, 
@@ -8652,9 +8739,14 @@ tsubst_copy_and_build (tree t,
 					    /*is_type_p=*/false,
 					    /*complain=*/false);
 	    if (BASELINK_P (member))
-	      BASELINK_FUNCTIONS (member) 
-		= build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
-			    args);
+	      {
+		BASELINK_FUNCTIONS (member) 
+		  = build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
+			      args);
+		member = (adjust_result_of_qualified_name_lookup 
+			  (member, BINFO_TYPE (BASELINK_BINFO (member)), 
+			   TREE_TYPE (object)));
+	      }
 	    else
 	      {
 		qualified_name_lookup_error (TREE_TYPE (object), tmpl,
@@ -8732,13 +8824,21 @@ tsubst_copy_and_build (tree t,
 	return build_typeid (operand_0);
       }
 
-    case PARM_DECL:
-      return convert_from_reference (tsubst_copy (t, args, complain, in_decl));
-
     case VAR_DECL:
-      if (args)
-	t = tsubst_copy (t, args, complain, in_decl);
-      return convert_from_reference (t);
+      if (!args)
+	return t;
+      /* Fall through */
+      
+    case PARM_DECL:
+      {
+	tree r = tsubst_copy (t, args, complain, in_decl);
+	
+	if (TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE)
+	  /* If the original type was a reference, we'll be wrapped in
+	     the appropriate INDIRECT_REF.  */
+	  r = convert_from_reference (r);
+	return r;
+      }
 
     case VA_ARG_EXPR:
       return build_x_va_arg (RECUR (TREE_OPERAND (t, 0)),
@@ -8760,6 +8860,14 @@ tsubst_copy_and_build (tree t,
 
 	return stmt_expr;
       }
+
+    case CONST_DECL:
+      t = tsubst_copy (t, args, complain, in_decl);
+      /* As in finish_id_expression, we resolve enumeration constants
+	 to their underlying values.  */
+      if (TREE_CODE (t) == CONST_DECL)
+	return DECL_INITIAL (t);
+      return t;
 
     default:
       return tsubst_copy (t, args, complain, in_decl);
@@ -10777,7 +10885,7 @@ bt_instantiate_type_proc (binding_entry entry, void *data)
 
 /* Called from do_type_instantiation to instantiate a member
    (a member function or a static member variable) of an
-   explicitly instantiated class template. */
+   explicitly instantiated class template.  */
 static void
 instantiate_class_member (tree decl, int extern_p)
 {
@@ -10821,7 +10929,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
   if (storage != NULL_TREE)
     {
       if (pedantic && !in_system_header)
-	pedwarn("ISO C++ forbids the use of `%E' on explicit instantiations", 
+	pedwarn("ISO C++ forbids the use of %qE on explicit instantiations", 
                 storage);
 
       if (storage == ridpointers[(int) RID_INLINE])
@@ -10896,7 +11004,7 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
        we don't have any arguments for them.  Note that the standard
        is unclear on whether the instantiation of the members are
        *explicit* instantiations or not.  However, the most natural
-       interpretation is that it should be an explicit instantiation. */
+       interpretation is that it should be an explicit instantiation.  */
 
     if (! static_p)
       for (tmp = TYPE_METHODS (t); tmp; tmp = TREE_CHAIN (tmp))
@@ -11074,7 +11182,7 @@ template_for_substitution (tree decl)
    If UNDEFINED_OK is nonzero, then instead we treat it as an implicit
    instantiation.  UNDEFINED_OK is nonzero only if we are being used
    to instantiate the members of an explicitly instantiated class
-   template. */
+   template.  */
 
 
 tree
@@ -11469,7 +11577,6 @@ tsubst_initializer_list (tree t, tree argvec)
     {
       tree decl;
       tree init;
-      tree val;
 
       decl = tsubst_copy (TREE_PURPOSE (t), argvec, tf_error | tf_warning,
 			  NULL_TREE);
@@ -11479,14 +11586,6 @@ tsubst_initializer_list (tree t, tree argvec)
       
       init = tsubst_expr (TREE_VALUE (t), argvec, tf_error | tf_warning,
 			  NULL_TREE);
-      if (!init)
-	;
-      else if (TREE_CODE (init) == TREE_LIST)
-	for (val = init; val; val = TREE_CHAIN (val))
-	  TREE_VALUE (val) = convert_from_reference (TREE_VALUE (val));
-      else if (init != void_type_node)
-	init = convert_from_reference (init);
-
       in_base_initializer = 0;
 
       if (decl)
@@ -11919,7 +12018,7 @@ value_dependent_expression_p (tree expression)
 	case tcc_expression:
 	  {
 	    int i;
-	    for (i = 0; i < first_rtl_op (TREE_CODE (expression)); ++i)
+	    for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expression)); ++i)
 	      /* In some cases, some of the operands may be missing.
 		 (For example, in the case of PREDECREMENT_EXPR, the
 		 amount to increment by may be missing.)  That doesn't
@@ -12251,6 +12350,9 @@ build_non_dependent_expr (tree expr)
       || TREE_CODE (inner_expr) == FUNCTION_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
+    return expr;
+  /* There is no need to return a proxy for a variable.  */
+  if (TREE_CODE (expr) == VAR_DECL)
     return expr;
   /* Preserve string constants; conversions from string constants to
      "char *" are allowed, even though normally a "const char *"

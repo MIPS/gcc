@@ -265,7 +265,6 @@ static int convert_regs_2 (FILE *, basic_block);
 static int convert_regs (FILE *);
 static void print_stack (FILE *, stack);
 static rtx next_flags_user (rtx);
-static void record_label_references (rtx, rtx);
 static bool compensate_edge (edge, FILE *);
 
 /* Return nonzero if any stack register is mentioned somewhere within PAT.  */
@@ -491,58 +490,7 @@ reg_to_stack (FILE *file)
   free_aux_for_blocks ();
   return true;
 }
-
-/* Check PAT, which is in INSN, for LABEL_REFs.  Add INSN to the
-   label's chain of references, and note which insn contains each
-   reference.  */
 
-static void
-record_label_references (rtx insn, rtx pat)
-{
-  enum rtx_code code = GET_CODE (pat);
-  int i;
-  const char *fmt;
-
-  if (code == LABEL_REF)
-    {
-      rtx label = XEXP (pat, 0);
-      rtx ref;
-
-      gcc_assert (LABEL_P (label));
-
-      /* If this is an undefined label, LABEL_REFS (label) contains
-         garbage.  */
-      if (INSN_UID (label) == 0)
-	return;
-
-      /* Don't make a duplicate in the code_label's chain.  */
-
-      for (ref = LABEL_REFS (label);
-	   ref && ref != label;
-	   ref = LABEL_NEXTREF (ref))
-	if (CONTAINING_INSN (ref) == insn)
-	  return;
-
-      CONTAINING_INSN (pat) = insn;
-      LABEL_NEXTREF (pat) = LABEL_REFS (label);
-      LABEL_REFS (label) = pat;
-
-      return;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	record_label_references (insn, XEXP (pat, i));
-      if (fmt[i] == 'E')
-	{
-	  int j;
-	  for (j = 0; j < XVECLEN (pat, i); j++)
-	    record_label_references (insn, XVECEXP (pat, i, j));
-	}
-    }
-}
 
 /* Return a pointer to the REG expression within PAT.  If PAT is not a
    REG, possible enclosed by a conversion rtx, return the inner part of
@@ -759,7 +707,7 @@ check_asm_stack_operands (rtx insn)
 	  if (operands_match_p (recog_data.operand[j], recog_data.operand[i]))
 	    {
 	      error_for_asm (insn,
-			     "output operand %d must use `&' constraint", j);
+			     "output operand %d must use %<&%> constraint", j);
 	      malformed_asm = 1;
 	    }
       }
@@ -2419,10 +2367,66 @@ change_stack (rtx insn, stack old, stack new, enum emit_where where)
 
   /* Pop any registers that are not needed in the new block.  */
 
-  for (reg = old->top; reg >= 0; reg--)
-    if (! TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
-      emit_pop_insn (insn, old, FP_MODE_REG (old->reg[reg], DFmode),
-		     EMIT_BEFORE);
+  /* If the destination block's stack already has a specified layout
+     and contains two or more registers, use a more intelligent algorithm
+     to pop registers that minimizes the number number of fxchs below.  */
+  if (new->top > 0)
+    {
+      bool slots[REG_STACK_SIZE];
+      int pops[REG_STACK_SIZE];
+      int next, dest;
+
+      /* First pass to determine the free slots.  */
+      for (reg = 0; reg <= new->top; reg++)
+	slots[reg] = TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]);
+
+      /* Second pass to allocate preferred slots.  */
+      for (reg = old->top; reg > new->top; reg--)
+	if (TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
+	  {
+	    dest = -1;
+	    for (next = 0; next <= new->top; next++)
+	      if (!slots[next] && new->reg[next] == old->reg[reg])
+		{
+		  slots[next] = true;
+		  dest = next;
+		  break;
+		}
+	    pops[reg] = dest;
+	  }
+	else
+	  pops[reg] = reg;
+
+      /* Third pass allocates remaining slots and emits pop insns.  */
+      next = 0;
+      for (reg = old->top; reg > new->top; reg--)
+	{
+	  dest = pops[reg];
+	  if (dest == -1)
+	    {
+	      /* Find next free slot.  */
+	      while (slots[next])
+		next++;
+	      dest = next++;
+	    }
+	  emit_pop_insn (insn, old, FP_MODE_REG (old->reg[dest], DFmode),
+			 EMIT_BEFORE);
+	}
+    }
+  else
+    /* The following loop attempts to maximize the number of times we
+       pop the top of the stack, as this permits the use of the faster
+       ffreep instruction on platforms that support it.  */
+    for (reg = 0; reg <= old->top; reg++)
+      if (! TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
+	{
+	  while (old->top > reg
+		 && ! TEST_HARD_REG_BIT (new->reg_set, old->reg[old->top]))
+	    emit_pop_insn (insn, old, FP_MODE_REG (old->reg[old->top], DFmode),
+			   EMIT_BEFORE);
+	  emit_pop_insn (insn, old, FP_MODE_REG (old->reg[reg], DFmode),
+			 EMIT_BEFORE);
+	}
 
   if (new->top == -2)
     {

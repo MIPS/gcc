@@ -277,12 +277,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE_MISALIGNED_MEM_OK default_vect_misaligned_mem_ok
 #endif
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE 0
 
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_MISALIGNED_MEM_OK,                                  \
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE}
+   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -381,6 +379,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
 
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
+
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
@@ -398,7 +398,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
 #define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
-#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 
@@ -526,6 +525,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
+  TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
@@ -537,7 +537,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
-  TARGET_LATE_RTL_PROLOGUE_EPILOGUE,		\
 }
 
 #include "hooks.h"

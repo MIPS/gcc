@@ -634,7 +634,7 @@ push_scope (void)
       if (current_scope && scope->depth == 0)
 	{
 	  scope->depth--;
-	  sorry ("GCC supports only %u nested scopes\n", scope->depth);
+	  sorry ("GCC supports only %u nested scopes", scope->depth);
 	}
 
       current_scope        = scope;
@@ -1005,14 +1005,14 @@ diagnose_arglist_conflict (tree newdecl, tree olddecl,
       if (TREE_CHAIN (t) == 0
 	  && TYPE_MAIN_VARIANT (type) != void_type_node)
 	{
-	  inform ("a parameter list with an ellipsis can't match "
+	  inform ("a parameter list with an ellipsis can%'t match "
 		  "an empty parameter name list declaration");
 	  break;
 	}
 
       if (c_type_promotes_to (type) != type)
 	{
-	  inform ("an argument type that has a default promotion can't match "
+	  inform ("an argument type that has a default promotion can%'t match "
 		  "an empty parameter name list declaration");
 	  break;
 	}
@@ -1063,7 +1063,8 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 	 for the arg.  */
       else if (!comptypes (oldargtype, newargtype))
 	{
-	  error ("%Jprototype for %qD declares arg %d with incompatible type",
+	  error ("%Jprototype for %qD declares argument %d"
+		 " with incompatible type",
 		 newdecl, newdecl, i);
 	  return false;
 	}
@@ -3821,10 +3822,6 @@ grokdeclarator (const struct c_declarator *declarator,
       && TREE_CODE (type) == INTEGER_TYPE)
     type = c_common_unsigned_type (type);
 
-  /* Check the type and width of a bit-field.  */
-  if (bitfield)
-    check_bitfield_type_and_width (&type, width, orig_name);
-
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
      like `const int i' where the `const' is explicit.  Another is
@@ -4146,14 +4143,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	       zero.  */
 	    if (size && integer_zerop (size))
 	      {
-		layout_type (type);
 		TYPE_SIZE (type) = bitsize_zero_node;
 		TYPE_SIZE_UNIT (type) = size_zero_node;
 	      }
-	    else if (declarator->kind == cdk_pointer)
-	      /* We can never complete an array type which is the
-	         target of a pointer, so go ahead and lay it out.  */
-	      layout_type (type);
 
 	    if (decl_context != PARM
 		&& (array_ptr_quals != TYPE_UNQUALIFIED
@@ -4268,6 +4260,10 @@ grokdeclarator (const struct c_declarator *declarator,
     }
 
   /* Now TYPE has the actual type.  */
+
+  /* Check the type and width of a bit-field.  */
+  if (bitfield)
+    check_bitfield_type_and_width (&type, width, orig_name);
 
   /* Did array size calculations overflow?  */
 
@@ -4445,8 +4441,15 @@ grokdeclarator (const struct c_declarator *declarator,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
+	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
+	decl = build_decl_attribute_variant (decl, decl_attr);
+
 	if (storage_class == csc_register || threadp)
-	  error ("invalid storage class for function %qs", name);
+	  {
+	    error ("invalid storage class for function %qs", name);
+	    if (DECL_INITIAL (decl) != NULL_TREE)
+	      DECL_INITIAL (decl) = error_mark_node;
+	   }
 	else if (current_scope != file_scope)
 	  {
 	    /* Function declaration not at file scope.  Storage
@@ -4460,11 +4463,12 @@ grokdeclarator (const struct c_declarator *declarator,
 		  pedwarn ("invalid storage class for function %qs", name);
 	      }
 	    if (storage_class == csc_static)
-	      error ("invalid storage class for function %qs", name);
+	      {
+	        error ("invalid storage class for function %qs", name);
+		if (DECL_INITIAL (decl) != NULL_TREE)
+		  DECL_INITIAL (decl) = error_mark_node;
+	      }
 	  }
-
-	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
-	decl = build_decl_attribute_variant (decl, decl_attr);
 
 	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
 
@@ -4873,10 +4877,13 @@ get_parm_info (bool ellipsis)
 
 	case CONST_DECL:
 	case TYPE_DECL:
+	case FUNCTION_DECL:
 	  /* CONST_DECLs appear here when we have an embedded enum,
 	     and TYPE_DECLs appear here when we have an embedded struct
 	     or union.  No warnings for this - we already warned about the
-	     type itself.  */
+	     type itself.  FUNCTION_DECLs appear when there is an implicit
+	     function declaration in the parameter list.  */
+
 	  TREE_CHAIN (decl) = others;
 	  others = decl;
 	  /* fall through */
@@ -4893,7 +4900,6 @@ get_parm_info (bool ellipsis)
 
 	  /* Other things that might be encountered.  */
 	case LABEL_DECL:
-	case FUNCTION_DECL:
 	case VAR_DECL:
 	default:
 	  gcc_unreachable ();
@@ -5079,7 +5085,7 @@ grokfield (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	  return NULL_TREE;
 	}
       if (pedantic)
-	pedwarn ("ISO C doesn't support unnamed structs/unions");
+	pedwarn ("ISO C doesn%'t support unnamed structs/unions");
     }
 
   value = grokdeclarator (declarator, declspecs, FIELD, false,
@@ -5173,9 +5179,22 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  break;
 
       if (x == 0)
-	pedwarn ("%s has no %s",
-		 TREE_CODE (t) == UNION_TYPE ? _("union") : _("struct"),
-		 fieldlist ? _("named members") : _("members"));
+	{
+	  if (TREE_CODE (t) == UNION_TYPE)
+	    {
+	      if (fieldlist)
+		pedwarn ("union has no named members");
+	      else
+		pedwarn ("union has no members");
+	    }
+	  else
+	    {
+	      if (fieldlist)
+		pedwarn ("struct has no named members");
+	      else
+		pedwarn ("struct has no members");
+	    }
+	}
     }
 
   /* Install struct as DECL_CONTEXT of each field decl.
@@ -5716,11 +5735,9 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   DECL_INITIAL (decl1) = error_mark_node;
 
   /* If this definition isn't a prototype and we had a prototype declaration
-     before, copy the arg type info from that prototype.
-     But not if what we had before was a builtin function.  */
+     before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
   if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
-      && !DECL_BUILT_IN (old_decl)
       && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
 		    TREE_TYPE (TREE_TYPE (old_decl)))
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)

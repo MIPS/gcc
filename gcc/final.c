@@ -768,7 +768,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
 
-  /* Free uid_shuid before reallocating it.   */
+  /* Free uid_shuid before reallocating it.  */
   free (uid_shuid);
   
   uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
@@ -956,6 +956,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  XEXP (pat, 3) = gen_rtx_LABEL_REF (VOIDmode, max_lab);
 	  insn_shuid = INSN_SHUID (insn);
 	  rel = INSN_SHUID (XEXP (XEXP (pat, 0), 0));
+	  memset (&flags, 0, sizeof (flags));
 	  flags.min_align = min_align;
 	  flags.base_after_vec = rel > insn_shuid;
 	  flags.min_after_vec  = min > insn_shuid;
@@ -1365,7 +1366,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
 #if defined (DWARF2_UNWIND_INFO) && defined (HAVE_prologue)
   if (dwarf2out_do_frame ())
-    dwarf2out_frame_debug (NULL_RTX);
+    dwarf2out_frame_debug (NULL_RTX, false);
 #endif
 
   /* If debugging, assign block numbers to all of the blocks in this
@@ -1847,7 +1848,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
     case BARRIER:
 #if defined (DWARF2_UNWIND_INFO)
       if (dwarf2out_do_frame ())
-	dwarf2out_frame_debug (insn);
+	dwarf2out_frame_debug (insn, false);
 #endif
       break;
 
@@ -2167,7 +2168,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #if defined (DWARF2_UNWIND_INFO)
 	    if (dwarf2out_do_frame ())
 	      for (i = 1; i < XVECLEN (body, 0); i++)
-		dwarf2out_frame_debug (XVECEXP (body, 0, i));
+		dwarf2out_frame_debug (XVECEXP (body, 0, i), false);
 #endif
 
 	    /* The first insn in this SEQUENCE might be a JUMP_INSN that will
@@ -2459,7 +2460,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 #if defined (DWARF2_UNWIND_INFO)
 	if (CALL_P (insn) && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
+	  dwarf2out_frame_debug (insn, false);
 #endif
 
 	/* Find the proper template for this insn.  */
@@ -2526,13 +2527,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   the unwind info.   We've already done this for delay slots
 	   and call instructions.  */
 #if defined (DWARF2_UNWIND_INFO)
-	if (NONJUMP_INSN_P (insn)
+	if (final_sequence == 0
 #if !defined (HAVE_prologue)
 	    && !ACCUMULATE_OUTGOING_ARGS
 #endif
-	    && final_sequence == 0
 	    && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
+	  dwarf2out_frame_debug (insn, true);
 #endif
 
 	current_output_insn = debug_insn = 0;
@@ -2607,7 +2607,24 @@ alter_subreg (rtx *xp)
   /* simplify_subreg does not remove subreg from volatile references.
      We are required to.  */
   if (MEM_P (y))
-    *xp = adjust_address (y, GET_MODE (x), SUBREG_BYTE (x));
+    {
+      int offset = SUBREG_BYTE (x);
+
+      /* For paradoxical subregs on big-endian machines, SUBREG_BYTE
+	 contains 0 instead of the proper offset.  See simplify_subreg.  */
+      if (offset == 0
+	  && GET_MODE_SIZE (GET_MODE (y)) < GET_MODE_SIZE (GET_MODE (x)))
+        {
+          int difference = GET_MODE_SIZE (GET_MODE (y))
+			   - GET_MODE_SIZE (GET_MODE (x));
+          if (WORDS_BIG_ENDIAN)
+            offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
+          if (BYTES_BIG_ENDIAN)
+            offset += difference % UNITS_PER_WORD;
+        }
+
+      *xp = adjust_address (y, GET_MODE (x), offset);
+    }
   else
     {
       rtx new = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
@@ -2618,8 +2635,7 @@ alter_subreg (rtx *xp)
       else
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
-	  unsigned int regno = subreg_hard_regno (x, 1);
-	  
+	  unsigned int regno = subreg_regno (x);
 	  gcc_assert (REG_P (y));
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
@@ -2832,7 +2848,7 @@ output_operand_lossage (const char *msgid, ...)
 
   va_start (ap, msgid);
 
-  pfx_str = this_is_asm_operands ? _("invalid `asm': ") : "output_operand: ";
+  pfx_str = this_is_asm_operands ? _("invalid 'asm': ") : "output_operand: ";
   asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
   vasprintf (&new_message, fmt_string, ap);
 
@@ -3184,7 +3200,7 @@ output_asm_label (rtx x)
 	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
-    output_operand_lossage ("`%%l' operand isn't a label");
+    output_operand_lossage ("'%%l' operand isn't a label");
 
   assemble_name (asm_out_file, buf);
 }

@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
+#include "c-pragma.h"
 
 extern cpp_reader *parse_in;
 
@@ -157,7 +158,7 @@ cp_build_parm_decl (tree name, tree type)
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
-tree
+static tree
 build_artificial_parm (tree name, tree type)
 {
   tree parm = cp_build_parm_decl (name, type);
@@ -418,8 +419,6 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       return t;
     }
 
-  exp = convert_from_reference (exp);
-
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (exp) == VAR_DECL
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
@@ -674,7 +673,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	pop_scope (ctype);
       if (fndecls)
 	return OVL_CURRENT (fndecls);
-      error ("prototype for `%#D' does not match any in class `%T'",
+      error ("prototype for %q#D does not match any in class %qT",
 	     function, ctype);
       is_conv_op = DECL_CONV_FN_P (fndecl);
 
@@ -961,7 +960,7 @@ grokfield (const cp_declarator *declarator,
 
     case FIELD_DECL:
       if (asmspec)
-	error ("`asm' specifiers are not permitted on non-static data members");
+	error ("%<asm%> specifiers are not permitted on non-static data members");
       if (DECL_INITIAL (value) == error_mark_node)
 	init = error_mark_node;
       cp_finish_decl (value, init, NULL_TREE, flags);
@@ -1743,7 +1742,7 @@ import_export_decl (tree decl)
      vague linkage, maybe_commonize_var is used.
 
      Therefore, the only declarations that should be provided to this
-     function are those with external linkage that:
+     function are those with external linkage that are:
 
      * implicit instantiations of function templates
 
@@ -3031,7 +3030,7 @@ cp_finish_file (void)
 	     already verified there was a definition.  */
 	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
-	  cp_warning_at ("inline function `%D' used but never defined", decl);
+	  cp_warning_at ("inline function %qD used but never defined", decl);
 	  /* This symbol is effectively an "extern" declaration now.
 	     This is not strictly necessary, but removes a duplicate
 	     warning.  */
@@ -3062,6 +3061,9 @@ cp_finish_file (void)
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
+
+  /* Generate any missing aliases.  */
+  maybe_apply_pending_pragma_weaks ();
 
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */

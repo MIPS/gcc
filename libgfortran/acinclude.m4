@@ -42,9 +42,9 @@ main ()
       fi
     fi
     AC_REQUIRE([AC_HEADER_TIME])
-    AC_CACHE_CHECK(whether gettimeofday can accept two arguments,
+    AC_CACHE_CHECK([whether gettimeofday can accept two arguments],
       emacs_cv_gettimeofday_two_arguments,
-      AC_TRY_LINK([
+      [AC_TRY_LINK([
 #ifdef TIME_WITH_SYS_TIME
 #include <sys/time.h>
 #include <time.h>
@@ -66,7 +66,7 @@ main ()
 #endif
       gettimeofday (&time, DUMMY);],
       emacs_cv_gettimeofday_two_arguments=yes,
-      emacs_cv_gettimeofday_two_arguments=no))
+      emacs_cv_gettimeofday_two_arguments=no)])
     if test $emacs_cv_gettimeofday_two_arguments = no; then
       AC_DEFINE(GETTIMEOFDAY_ONE_ARGUMENT, 1,
         [Does gettimeofday take a single argument])
@@ -83,3 +83,22 @@ AC_DEFUN([AC_LIBTOOL_DLOPEN])
 AC_DEFUN([AC_PROG_LD])
 ])
 
+dnl Check whether the target is ILP32.
+AC_DEFUN([LIBGFOR_TARGET_ILP32], [
+  AC_CACHE_CHECK([whether the target is ILP32], target_ilp32, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="-O2"
+  AC_TRY_LINK(,[
+if (sizeof(int) == 4 && sizeof(long) == 4 && sizeof(void *) == 4)
+  ;
+else
+  undefined_function ();
+               ],
+               target_ilp32=yes,
+               target_ilp32=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $target_ilp32 = yes; then
+    AC_DEFINE(TARGET_ILP32, 1,
+      [Define to 1 if the target is ILP32.])
+  fi
+  ])

@@ -303,7 +303,7 @@ override_options (void)
       else if (! strcmp (alpha_tp_string, "i"))
 	alpha_tp = ALPHA_TP_INSN;
       else
-	error ("bad value `%s' for -mtrap-precision switch", alpha_tp_string);
+	error ("bad value %qs for -mtrap-precision switch", alpha_tp_string);
     }
 
   if (alpha_fprm_string)
@@ -317,7 +317,7 @@ override_options (void)
       else if (! strcmp (alpha_fprm_string,"d"))
 	alpha_fprm = ALPHA_FPRM_DYN;
       else
-	error ("bad value `%s' for -mfp-rounding-mode switch",
+	error ("bad value %qs for -mfp-rounding-mode switch",
 	       alpha_fprm_string);
     }
 
@@ -332,7 +332,7 @@ override_options (void)
       else if (strcmp (alpha_fptm_string, "sui") == 0)
 	alpha_fptm = ALPHA_FPTM_SUI;
       else
-	error ("bad value `%s' for -mfp-trap-mode switch", alpha_fptm_string);
+	error ("bad value %qs for -mfp-trap-mode switch", alpha_fptm_string);
     }
 
   if (alpha_tls_size_string)
@@ -344,7 +344,7 @@ override_options (void)
       else if (strcmp (alpha_tls_size_string, "64") == 0)
 	alpha_tls_size = 64;
       else
-	error ("bad value `%s' for -mtls-size switch", alpha_tls_size_string);
+	error ("bad value %qs for -mtls-size switch", alpha_tls_size_string);
     }
 
   alpha_cpu
@@ -363,7 +363,7 @@ override_options (void)
 	    break;
 	  }
       if (! cpu_table [i].name)
-	error ("bad value `%s' for -mcpu switch", alpha_cpu_string);
+	error ("bad value %qs for -mcpu switch", alpha_cpu_string);
     }
 
   if (alpha_tune_string)
@@ -375,7 +375,7 @@ override_options (void)
 	    break;
 	  }
       if (! cpu_table [i].name)
-	error ("bad value `%s' for -mcpu switch", alpha_tune_string);
+	error ("bad value %qs for -mcpu switch", alpha_tune_string);
     }
 
   /* Do some sanity checks on the above options.  */
@@ -457,7 +457,7 @@ override_options (void)
       }
     else
       {
-	warning ("bad value `%s' for -mmemory-latency", alpha_mlat_string);
+	warning ("bad value %qs for -mmemory-latency", alpha_mlat_string);
 	lat = 3;
       }
 
@@ -3164,6 +3164,35 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
   rtx meml, memh, addr, extl, exth, tmp, mema;
   enum machine_mode mode;
 
+  if (TARGET_BWX && size == 2)
+    {
+      meml = adjust_address (mem, QImode, ofs);
+      memh = adjust_address (mem, QImode, ofs+1);
+      if (BYTES_BIG_ENDIAN)
+	tmp = meml, meml = memh, memh = tmp;
+      extl = gen_reg_rtx (DImode);
+      exth = gen_reg_rtx (DImode);
+      emit_insn (gen_zero_extendqidi2 (extl, meml));
+      emit_insn (gen_zero_extendqidi2 (exth, memh));
+      exth = expand_simple_binop (DImode, ASHIFT, exth, GEN_INT (8),
+				  NULL, 1, OPTAB_LIB_WIDEN);
+      addr = expand_simple_binop (DImode, IOR, extl, exth,
+				  NULL, 1, OPTAB_LIB_WIDEN);
+
+      if (sign && GET_MODE (tgt) != HImode)
+	{
+	  addr = gen_lowpart (HImode, addr);
+	  emit_insn (gen_extend_insn (tgt, addr, GET_MODE (tgt), HImode, 0));
+	}
+      else
+	{
+	  if (GET_MODE (tgt) != DImode)
+	    addr = gen_lowpart (GET_MODE (tgt), addr);
+	  emit_move_insn (tgt, addr);
+	}
+      return;
+    }
+
   meml = gen_reg_rtx (DImode);
   memh = gen_reg_rtx (DImode);
   addr = gen_reg_rtx (DImode);
@@ -3276,7 +3305,7 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
     }
 
   if (addr != tgt)
-    emit_move_insn (tgt, gen_lowpart(GET_MODE (tgt), addr));
+    emit_move_insn (tgt, gen_lowpart (GET_MODE (tgt), addr));
 }
 
 /* Similarly, use ins and msk instructions to perform unaligned stores.  */
@@ -3286,6 +3315,28 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
 			      HOST_WIDE_INT size, HOST_WIDE_INT ofs)
 {
   rtx dstl, dsth, addr, insl, insh, meml, memh, dsta;
+
+  if (TARGET_BWX && size == 2)
+    {
+      if (src != const0_rtx)
+	{
+	  dstl = gen_lowpart (QImode, src);
+	  dsth = expand_simple_binop (DImode, LSHIFTRT, src, GEN_INT (8),
+				      NULL, 1, OPTAB_LIB_WIDEN);
+	  dsth = gen_lowpart (QImode, dsth);
+	}
+      else
+	dstl = dsth = const0_rtx;
+
+      meml = adjust_address (dst, QImode, ofs);
+      memh = adjust_address (dst, QImode, ofs+1);
+      if (BYTES_BIG_ENDIAN)
+	addr = meml, meml = memh, memh = addr;
+
+      emit_move_insn (meml, dstl);
+      emit_move_insn (memh, dsth);
+      return;
+    }
 
   dstl = gen_reg_rtx (DImode);
   dsth = gen_reg_rtx (DImode);
@@ -6548,7 +6599,7 @@ alpha_expand_prologue (void)
 }
 
 /* Count the number of .file directives, so that .loc is up to date.  */
-static int num_source_filenames = 0;
+int num_source_filenames = 0;
 
 /* Output the textual info surrounding the prologue.  */
 

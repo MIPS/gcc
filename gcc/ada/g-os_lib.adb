@@ -2056,6 +2056,48 @@ package body GNAT.OS_Lib is
       Rename_File (C_Old_Name'Address, C_New_Name'Address, Success);
    end Rename_File;
 
+   --------------------
+   -- Set_Executable --
+   --------------------
+
+   procedure Set_Executable (Name : String) is
+      procedure C_Set_Executable (Name : C_File_Name);
+      pragma Import (C, C_Set_Executable, "__gnat_set_executable");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Executable (C_Name (C_Name'First)'Address);
+   end Set_Executable;
+
+   --------------------
+   -- Set_Read_Only --
+   --------------------
+
+   procedure Set_Read_Only (Name : String) is
+      procedure C_Set_Read_Only (Name : C_File_Name);
+      pragma Import (C, C_Set_Read_Only, "__gnat_set_readonly");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Read_Only (C_Name (C_Name'First)'Address);
+   end Set_Read_Only;
+
+   --------------------
+   -- Set_Writable --
+   --------------------
+
+   procedure Set_Writable (Name : String) is
+      procedure C_Set_Writable (Name : C_File_Name);
+      pragma Import (C, C_Set_Writable, "__gnat_set_writable");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Writable (C_Name (C_Name'First)'Address);
+   end Set_Writable;
+
    ------------
    -- Setenv --
    ------------
@@ -2099,6 +2141,84 @@ package body GNAT.OS_Lib is
    is
    begin
       Success := (Spawn (Program_Name, Args) = 0);
+   end Spawn;
+
+   procedure Spawn
+     (Program_Name           : String;
+      Args                   : Argument_List;
+      Output_File_Descriptor : File_Descriptor;
+      Return_Code            : out Integer;
+      Err_To_Out             : Boolean := True)
+   is
+      function Dup (Fd : File_Descriptor) return File_Descriptor;
+      pragma Import (C, Dup, "__gnat_dup");
+
+      procedure Dup2 (Old_Fd, New_Fd : File_Descriptor);
+      pragma Import (C, Dup2, "__gnat_dup2");
+
+      Saved_Output : File_Descriptor;
+      Saved_Error  : File_Descriptor := Invalid_FD;
+      --  We need to initialize Saved_Error to Invalid_FD to avoid
+      --  a compiler warning that this variable may be used before
+      --  it is initialized (which can not happen, but the compiler
+      --  is not smart enough to figure this out).
+
+   begin
+      --  Set standard output and error to the temporary file
+
+      Saved_Output := Dup (Standout);
+      Dup2 (Output_File_Descriptor, Standout);
+
+      if Err_To_Out then
+         Saved_Error  := Dup (Standerr);
+         Dup2 (Output_File_Descriptor, Standerr);
+      end if;
+
+      --  Spawn the program
+
+      Return_Code := Spawn (Program_Name, Args);
+
+      --  Restore the standard output and error
+
+      Dup2 (Saved_Output, Standout);
+
+      if Err_To_Out then
+         Dup2 (Saved_Error, Standerr);
+      end if;
+
+      --  And close the saved standard output and error file descriptors.
+
+      Close (Saved_Output);
+
+      if Err_To_Out then
+         Close (Saved_Error);
+      end if;
+   end Spawn;
+
+   procedure Spawn
+     (Program_Name  : String;
+      Args          : Argument_List;
+      Output_File   : String;
+      Success       : out Boolean;
+      Return_Code   : out Integer;
+      Err_To_Out    : Boolean := True)
+   is
+      FD : File_Descriptor;
+
+   begin
+      Success := True;
+      Return_Code := 0;
+
+      FD := Create_Output_Text_File (Output_File);
+
+      if FD = Invalid_FD then
+         Success := False;
+         return;
+      end if;
+
+      Spawn (Program_Name, Args, FD, Return_Code, Err_To_Out);
+
+      Close (FD, Success);
    end Spawn;
 
    --------------------

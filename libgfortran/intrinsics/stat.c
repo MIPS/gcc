@@ -52,13 +52,9 @@ Boston, MA 02111-1307, USA.  */
    CHARACTER(len=*), INTENT(IN) :: FILE
    INTEGER, INTENT(OUT), :: SARRAY(13)  */
 
-extern void stat_i4_sub (char *, gfc_array_i4 *, GFC_INTEGER_4 *,
-			 gfc_charlen_type);
-iexport_proto(stat_i4_sub);
-
 void
-stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
-	     gfc_charlen_type name_len)
+prefix(stat_i4_sub) (char * name, gfc_array_i4 * sarray,
+                     GFC_INTEGER_4 * status,  gfc_charlen_type name_len)
 {
   int val;
   char *str;
@@ -72,10 +68,10 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
 
   /* If the array is too small, abort.  */
   if (sarray->dim[0].ubound + 1 - sarray->dim[0].lbound < 13)
-    runtime_error ("Array size of SARRAY is too small.");
+	runtime_error ("Array size of SARRAY is too small.");
 
   if (sarray->dim[0].stride == 0)
-    sarray->dim[0].stride = 1;
+	sarray->dim[0].stride = 1;
 
   /* Trim trailing spaces from name.  */
   while (name_len > 0 && name[name_len - 1] == ' ')
@@ -145,15 +141,10 @@ stat_i4_sub (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
   if (status != NULL) 
     *status = (val == 0) ? 0 : errno;
 }
-iexport(stat_i4_sub);
-
-extern void stat_i8_sub (char *, gfc_array_i8 *, GFC_INTEGER_8 *,
-			 gfc_charlen_type);
-iexport_proto(stat_i8_sub);
 
 void
-stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
-	     gfc_charlen_type name_len)
+prefix(stat_i8_sub) (char * name, gfc_array_i8 * sarray,
+                     GFC_INTEGER_8 * status, gfc_charlen_type name_len)
 {
   int val;
   char *str;
@@ -167,10 +158,10 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
 
   /* If the array is too small, abort.  */
   if (sarray->dim[0].ubound + 1 - sarray->dim[0].lbound < 13)
-    runtime_error ("Array size of SARRAY is too small.");
+	runtime_error ("Array size of SARRAY is too small.");
 
   if (sarray->dim[0].stride == 0)
-    sarray->dim[0].stride = 1;
+	sarray->dim[0].stride = 1;
 
   /* Trim trailing spaces from name.  */
   while (name_len > 0 && name[name_len - 1] == ' ')
@@ -240,27 +231,25 @@ stat_i8_sub (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
   if (status != NULL) 
     *status = (val == 0) ? 0 : errno;
 }
-iexport(stat_i8_sub);
 
-extern GFC_INTEGER_4 stat_i4 (char *, gfc_array_i4 *, gfc_charlen_type);
-export_proto(stat_i4);
 
 GFC_INTEGER_4
-stat_i4 (char *name, gfc_array_i4 *sarray, gfc_charlen_type name_len)
+prefix(stat_i4) (char * name, gfc_array_i4 * sarray,
+                 gfc_charlen_type name_len)
 {
+
   GFC_INTEGER_4 val;
-  stat_i4_sub (name, sarray, &val, name_len);
+  prefix(stat_i4_sub) (name, sarray, &val, name_len);
   return val;
 }
 
-extern GFC_INTEGER_8 stat_i8 (char *, gfc_array_i8 *, gfc_charlen_type);
-export_proto(stat_i8);
 
 GFC_INTEGER_8
-stat_i8 (char *name, gfc_array_i8 *sarray, gfc_charlen_type name_len)
+prefix(stat_i8) (char * name, gfc_array_i8 * sarray,
+                 gfc_charlen_type name_len)
 {
   GFC_INTEGER_8 val;
-  stat_i8_sub (name, sarray, &val, name_len);
+  prefix(stat_i8_sub) (name, sarray, &val, name_len);
   return val;
 }
 
@@ -275,11 +264,9 @@ stat_i8 (char *name, gfc_array_i8 *sarray, gfc_charlen_type name_len)
    INTEGER, INTENT(IN) :: UNIT 
    INTEGER, INTENT(OUT) :: SARRAY(13)  */
 
-extern void fstat_i4_sub (GFC_INTEGER_4 *, gfc_array_i4 *, GFC_INTEGER_4 *);
-iexport_proto(fstat_i4_sub);
-
 void
-fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
+prefix(fstat_i4_sub) (GFC_INTEGER_4 * unit, gfc_array_i4 * sarray,
+                     GFC_INTEGER_4 * status)
 {
   int val;
   struct stat sb;
@@ -292,10 +279,10 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
 
   /* If the array is too small, abort.  */
   if (sarray->dim[0].ubound + 1 - sarray->dim[0].lbound < 13)
-    runtime_error ("Array size of SARRAY is too small.");
+	runtime_error ("Array size of SARRAY is too small.");
 
   if (sarray->dim[0].stride == 0)
-    sarray->dim[0].stride = 1;
+	sarray->dim[0].stride = 1;
 
   /* Convert Fortran unit number to C file descriptor.  */
   val = unit_to_fd (*unit);
@@ -359,13 +346,10 @@ fstat_i4_sub (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray, GFC_INTEGER_4 *status)
   if (status != NULL) 
     *status = (val == 0) ? 0 : errno;
 }
-iexport(fstat_i4_sub);
-
-extern void fstat_i8_sub (GFC_INTEGER_8 *, gfc_array_i8 *, GFC_INTEGER_8 *);
-iexport_proto(fstat_i8_sub);
 
 void
-fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
+prefix(fstat_i8_sub) (GFC_INTEGER_8 * unit, gfc_array_i8 * sarray,
+                     GFC_INTEGER_8 * status)
 {
   int val;
   struct stat sb;
@@ -378,10 +362,10 @@ fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
 
   /* If the array is too small, abort.  */
   if (sarray->dim[0].ubound + 1 - sarray->dim[0].lbound < 13)
-    runtime_error ("Array size of SARRAY is too small.");
+	runtime_error ("Array size of SARRAY is too small.");
 
   if (sarray->dim[0].stride == 0)
-    sarray->dim[0].stride = 1;
+	sarray->dim[0].stride = 1;
 
   /* Convert Fortran unit number to C file descriptor.  */
   val = unit_to_fd ((int) *unit);
@@ -445,26 +429,21 @@ fstat_i8_sub (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray, GFC_INTEGER_8 *status)
   if (status != NULL) 
     *status = (val == 0) ? 0 : errno;
 }
-iexport(fstat_i8_sub);
 
-extern GFC_INTEGER_4 fstat_i4 (GFC_INTEGER_4 *, gfc_array_i4 *);
-export_proto(fstat_i4);
 
 GFC_INTEGER_4
-fstat_i4 (GFC_INTEGER_4 *unit, gfc_array_i4 *sarray)
+prefix(fstat_i4) (GFC_INTEGER_4 * unit, gfc_array_i4 * sarray)
 {
   GFC_INTEGER_4 val;
-  fstat_i4_sub (unit, sarray, &val);
+  prefix(fstat_i4_sub) (unit, sarray, &val);
   return val;
 }
 
-extern GFC_INTEGER_8 fstat_i8 (GFC_INTEGER_8 *, gfc_array_i8 *);
-export_proto(fstat_i8);
 
 GFC_INTEGER_8
-fstat_i8 (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray)
+prefix(fstat_i8) (GFC_INTEGER_8 * unit, gfc_array_i8 * sarray)
 {
   GFC_INTEGER_8 val;
-  fstat_i8_sub (unit, sarray, &val);
+  prefix(fstat_i8_sub) (unit, sarray, &val);
   return val;
 }

@@ -214,16 +214,13 @@ gimple_pop_condition (tree *pre_p)
     }
 }
 
-/* A subroutine of append_to_statement_list{,_force}.  */
+/* A subroutine of append_to_statement_list{,_force}.  T is not NULL.  */
 
 static void
-append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
+append_to_statement_list_1 (tree t, tree *list_p)
 {
   tree list = *list_p;
   tree_stmt_iterator i;
-
-  if (!side_effects)
-    return;
 
   if (!list)
     {
@@ -245,7 +242,8 @@ append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
 void
 append_to_statement_list (tree t, tree *list_p)
 {
-  append_to_statement_list_1 (t, list_p, t ? TREE_SIDE_EFFECTS (t) : false);
+  if (t && TREE_SIDE_EFFECTS (t))
+    append_to_statement_list_1 (t, list_p);
 }
 
 /* Similar, but the statement is always added, regardless of side effects.  */
@@ -253,7 +251,8 @@ append_to_statement_list (tree t, tree *list_p)
 void
 append_to_statement_list_force (tree t, tree *list_p)
 {
-  append_to_statement_list_1 (t, list_p, t != NULL);
+  if (t != NULL_TREE)
+    append_to_statement_list_1 (t, list_p);
 }
 
 /* Both gimplify the statement T and append it to LIST_P.  */
@@ -724,7 +723,7 @@ unshare_expr (tree expr)
   return expr;
 }
 
-/* A terser interface for building a representation of a exception
+/* A terser interface for building a representation of an exception
    specification.  */
 
 tree
@@ -1210,43 +1209,6 @@ gimplify_case_label_expr (tree *expr_p)
   return GS_ALL_DONE;
 }
 
-/* Gimplify a LABELED_BLOCK_EXPR into a LABEL_EXPR following
-   a (possibly empty) body.  */
-
-static enum gimplify_status
-gimplify_labeled_block_expr (tree *expr_p)
-{
-  tree body = LABELED_BLOCK_BODY (*expr_p);
-  tree label = LABELED_BLOCK_LABEL (*expr_p);
-  tree t;
-
-  DECL_CONTEXT (label) = current_function_decl;
-  t = build (LABEL_EXPR, void_type_node, label);
-  if (body != NULL_TREE)
-    t = build (COMPOUND_EXPR, void_type_node, body, t);
-  *expr_p = t;
-
-  return GS_OK;
-}
-
-/* Gimplify a EXIT_BLOCK_EXPR into a GOTO_EXPR.  */
-
-static enum gimplify_status
-gimplify_exit_block_expr (tree *expr_p)
-{
-  tree labeled_block = TREE_OPERAND (*expr_p, 0);
-  tree label;
-
-  /* First operand must be a LABELED_BLOCK_EXPR, which should
-     already be lowered (or partially lowered) when we get here.  */
-  gcc_assert (TREE_CODE (labeled_block) == LABELED_BLOCK_EXPR);
-
-  label = LABELED_BLOCK_LABEL (labeled_block);
-  *expr_p = build1 (GOTO_EXPR, void_type_node, label);
-
-  return GS_OK;
-}
-
 /* Build a GOTO to the LABEL_DECL pointed to by LABEL_P, building it first
    if necessary.  */
 
@@ -1374,7 +1336,8 @@ canonicalize_addr_expr (tree *expr_p)
     return;
 
   /* The lower bound and element sizes must be constant.  */
-  if (TREE_CODE (TYPE_SIZE_UNIT (dctype)) != INTEGER_CST
+  if (!TYPE_SIZE_UNIT (dctype)
+      || TREE_CODE (TYPE_SIZE_UNIT (dctype)) != INTEGER_CST
       || !TYPE_DOMAIN (datype) || !TYPE_MIN_VALUE (TYPE_DOMAIN (datype))
       || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (datype))) != INTEGER_CST)
     return;
@@ -1394,16 +1357,15 @@ canonicalize_addr_expr (tree *expr_p)
 static enum gimplify_status
 gimplify_conversion (tree *expr_p)
 {
-  /* If we still have a conversion at the toplevel, then strip
-     away all but the outermost conversion.  */
-  if (TREE_CODE (*expr_p) == NOP_EXPR || TREE_CODE (*expr_p) == CONVERT_EXPR)
-    {
-      STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
+  gcc_assert (TREE_CODE (*expr_p) == NOP_EXPR
+	      || TREE_CODE (*expr_p) == CONVERT_EXPR);
+  
+  /* Then strip away all but the outermost conversion.  */
+  STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
 
-      /* And remove the outermost conversion if it's useless.  */
-      if (tree_ssa_useless_type_conversion (*expr_p))
-	*expr_p = TREE_OPERAND (*expr_p, 0);
-    }
+  /* And remove the outermost conversion if it's useless.  */
+  if (tree_ssa_useless_type_conversion (*expr_p))
+    *expr_p = TREE_OPERAND (*expr_p, 0);
 
   /* If we still have a conversion at the toplevel,
      then canonicalize some constructs.  */
@@ -1464,12 +1426,8 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
      it VARRAY_TREE.  */
   VARRAY_GENERIC_PTR_NOGC_INIT (stack, 10, "stack");
 
-  /* We can either handle REALPART_EXPR, IMAGEPART_EXPR anything that
-     handled_components can deal with.  */
-  for (p = expr_p;
-       (handled_component_p (*p)
-	|| TREE_CODE (*p) == REALPART_EXPR || TREE_CODE (*p) == IMAGPART_EXPR);
-       p = &TREE_OPERAND (*p, 0))
+  /* We can handle anything that get_inner_reference can deal with.  */
+  for (p = expr_p; handled_component_p (*p); p = &TREE_OPERAND (*p, 0))
     VARRAY_PUSH_GENERIC_PTR_NOGC (stack, *p);
 
   gcc_assert (VARRAY_ACTIVE_SIZE (stack));
@@ -1785,9 +1743,25 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
 	}
 
       if (DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
-	/* Avoid gimplifying the second argument to va_start, which needs
-	   to be the plain PARM_DECL.  */
-	return gimplify_arg (&TREE_VALUE (TREE_OPERAND (*expr_p, 1)), pre_p);
+        {
+	  tree arglist = TREE_OPERAND (*expr_p, 1);
+	  
+	  if (!arglist || !TREE_CHAIN (arglist))
+	    {
+	      error ("too few arguments to function %<va_start%>");
+	      *expr_p = build_empty_stmt ();
+	      return GS_OK;
+	    }
+	  
+	  if (fold_builtin_next_arg (TREE_CHAIN (arglist)))
+	    {
+	      *expr_p = build_empty_stmt ();
+	      return GS_OK;
+	    }
+	  /* Avoid gimplifying the second argument to va_start, which needs
+	     to be the plain PARM_DECL.  */
+	  return gimplify_arg (&TREE_VALUE (TREE_OPERAND (*expr_p, 1)), pre_p);
+	}
     }
 
   /* There is a sequence point before the call, so any side effects in
@@ -3093,6 +3067,13 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
 	 ??? The interactions of VIEW_CONVERT_EXPR and aliasing is not at
 	 all clear.  The impact of this transformation is even less clear.  */
+
+      /* If the operand is a useless conversion, look through it.  Doing so
+	 guarantees that the ADDR_EXPR and its operand will remain of the
+	 same type.  */
+      if (tree_ssa_useless_type_conversion (TREE_OPERAND (op0, 0)))
+	op0 = TREE_OPERAND (op0, 0);
+
       *expr_p = fold_convert (TREE_TYPE (expr),
 			      build_fold_addr_expr (TREE_OPERAND (op0, 0)));
       ret = GS_OK;
@@ -3150,8 +3131,12 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
   ret = GS_ALL_DONE;
   for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
+      size_t constraint_len;
       oconstraints[i] = constraint
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      constraint_len = strlen (constraint);
+      if (constraint_len == 0)
+        continue;
 
       parse_output_constraint (&constraint, i, 0, 0,
 			       &allows_mem, &allows_reg, &is_inout);
@@ -3175,7 +3160,6 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
  	     operands.  */
 	  tree input;
 	  char buf[10];
-	  size_t constraint_len = strlen (constraint);
 
 	  /* Turn the in/out constraint into an output constraint.  */
 	  char *p = xstrdup (constraint);
@@ -3694,14 +3678,6 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case SWITCH_EXPR:
 	  ret = gimplify_switch_expr (expr_p, pre_p);
-	  break;
-
-	case LABELED_BLOCK_EXPR:
-	  ret = gimplify_labeled_block_expr (expr_p);
-	  break;
-
-	case EXIT_BLOCK_EXPR:
-	  ret = gimplify_exit_block_expr (expr_p);
 	  break;
 
 	case EXIT_EXPR:

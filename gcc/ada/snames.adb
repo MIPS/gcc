@@ -122,7 +122,7 @@ package body Snames is
      "text_io#" &
      "wide_text_io#" &
      "no_dsa#" &
-     "glade_dsa#" &
+     "garlic_dsa#" &
      "polyorb_dsa#" &
      "addr#" &
      "async#" &
@@ -626,16 +626,24 @@ package body Snames is
      "requeue#" &
      "tagged#" &
      "raise_exception#" &
+     "ada_roots#" &
      "binder#" &
+     "binder_driver#" &
      "body_suffix#" &
      "builder#" &
      "compiler#" &
+     "compiler_driver#" &
+     "compiler_kind#" &
+     "compute_dependency#" &
      "cross_reference#" &
+     "default_linker#" &
      "default_switches#" &
+     "dependency_option#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
      "extends#" &
+     "externally_built#" &
      "finder#" &
      "global_configuration_pragmas#" &
      "gnatls#" &
@@ -643,6 +651,8 @@ package body Snames is
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &
+     "include_option#" &
+     "language_processing#" &
      "languages#" &
      "library_dir#" &
      "library_auto_init#" &

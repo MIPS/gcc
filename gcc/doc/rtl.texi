@@ -72,9 +72,9 @@ commonly found inside @code{symbol_ref} expressions, but they appear in
 other contexts in the RTL expressions that make up machine descriptions.
 
 In a machine description, strings are normally written with double
-quotes, as you would in C.  However, strings in machine descriptions may
+quotes, as you would in C@.  However, strings in machine descriptions may
 extend over many lines, which is invalid C, and adjacent string
-constants are not concatenated as they are in C.  Any string constant
+constants are not concatenated as they are in C@.  Any string constant
 may be surrounded with a single set of parentheses.  Sometimes this
 makes the machine description easier to read.
 
@@ -534,16 +534,8 @@ Stored in the @code{unchanging} field and printed as @samp{/u}.
 @item INSN_ANNULLED_BRANCH_P (@var{x})
 In a @code{jump_insn}, @code{call_insn}, or @code{insn} indicates
 that the branch is an annulling one.  See the discussion under
-@code{sequence} below. Stored in the @code{unchanging} field and
+@code{sequence} below.  Stored in the @code{unchanging} field and
 printed as @samp{/u}.
-
-@findex INSN_DEAD_CODE_P
-@cindex @code{insn} and @samp{/s}
-@cindex @code{in_struct}, in @code{insn}
-@item INSN_DEAD_CODE_P (@var{x})
-In an @code{insn} during the dead-code elimination pass, nonzero if the
-insn is dead.
-Stored in the @code{in_struct} field and printed as @samp{/s}.
 
 @findex INSN_DELETED_P
 @cindex @code{insn} and @samp{/v}
@@ -660,14 +652,6 @@ value is going to be returned.  (This happens only in a hard
 register.)  Stored in the @code{integrated} field and printed as
 @samp{/i}.
 
-@findex REG_LOOP_TEST_P
-@cindex @code{reg} and @samp{/s}
-@cindex @code{in_struct}, in @code{reg}
-@item REG_LOOP_TEST_P (@var{x})
-In @code{reg} expressions, nonzero if this register's entire life is
-contained in the exit test code for some loop.  Stored in the
-@code{in_struct} field and printed as @samp{/s}.
-
 @findex REG_POINTER
 @cindex @code{reg} and @samp{/f}
 @cindex @code{frame_related}, in @code{reg}
@@ -741,7 +725,7 @@ Stored in the @code{integrated} field and printed as @samp{/i}.
 @item MEM_READONLY_P (@var{x})
 Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
 
-Read-only in this context never modified during the lifetime of the
+Read-only in this context means never modified during the lifetime of the
 program, not necessarily in ROM or in write-disabled pages.  A common
 example of the later is a shared library's global offset table.  This
 table is initialized by the runtime loader, so the memory is technically
@@ -808,7 +792,7 @@ the value.  Use @code{SUBREG_PROMOTED_UNSIGNED_SET} to change the value.
 Set the @code{unchanging} and @code{volatil} fields in a @code{subreg}
 to reflect zero, sign, or other extension.  If @code{volatil} is
 zero, then @code{unchanging} as nonzero means zero extension and as
-zero means sign extension. If @code{volatil} is nonzero then some
+zero means sign extension.  If @code{volatil} is nonzero then some
 other type of extension was done via the @code{ptr_extend} instruction.
 
 @findex SUBREG_PROMOTED_VAR_P
@@ -1618,7 +1602,7 @@ It is also not valid to access a single word of a multi-word value in a
 hard register when less registers can hold the value than would be
 expected from its size.  For example, some 32-bit machines have
 floating-point registers that can hold an entire @code{DFmode} value.
-If register 10 were such a register @code{(subreg:SI (reg:DF 10) 1)}
+If register 10 were such a register @code{(subreg:SI (reg:DF 10) 4)}
 would be invalid because there is no way to convert that reference to
 a single machine register.  The reload pass prevents @code{subreg}
 expressions such as these from being formed.
@@ -1772,7 +1756,7 @@ saturates at the maximum signed value representable in @var{m};
 This expression represents the sum of @var{x} and the low-order bits
 of @var{y}.  It is used with @code{high} (@pxref{Constants}) to
 represent the typical two-instruction sequence used in RISC machines
-to reference a global memory location.  
+to reference a global memory location.
 
 The number of low order bits is machine-dependent but is
 normally the number of bits in a @code{Pmode} item minus the number of

@@ -107,22 +107,6 @@ init_recog (void)
   volatile_ok = 1;
 }
 
-/* Try recognizing the instruction INSN,
-   and return the code number that results.
-   Remember the code so that repeated calls do not
-   need to spend the time for actual rerecognition.
-
-   This function is the normal interface to instruction recognition.
-   The automatically-generated function `recog' is normally called
-   through this one.  (The only exception is in combine.c.)  */
-
-int
-recog_memoized_1 (rtx insn)
-{
-  if (INSN_CODE (insn) < 0)
-    INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
-  return INSN_CODE (insn);
-}
 
 /* Check that X is an insn-body for an `asm' with operands
    and that the operands mentioned in it are legitimate.  */
@@ -936,8 +920,10 @@ general_operand (rtx op, enum machine_mode mode)
 
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
-	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
-      if (MEM_P (sub)
+	 reference to be explicit, so outlaw paradoxical SUBREGs.
+	 However, we must allow them after reload so that they can
+	 get cleaned up by cleanup_subreg_operands.  */
+      if (!reload_completed && MEM_P (sub)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 #endif
@@ -2973,7 +2959,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
 void
 peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
-  regset_head rs_heads[MAX_INSNS_PER_PEEP2 + 2];
   rtx insn, prev;
   regset live;
   int i;
@@ -2987,8 +2972,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    peep2_insn_data[i].live_before = INITIALIZE_REG_SET (rs_heads[i]);
-  live = INITIALIZE_REG_SET (rs_heads[i]);
+    peep2_insn_data[i].live_before = ALLOC_REG_SET (&reg_obstack);
+  live = ALLOC_REG_SET (&reg_obstack);
 
 #ifdef HAVE_conditional_execution
   blocks = sbitmap_alloc (last_basic_block);

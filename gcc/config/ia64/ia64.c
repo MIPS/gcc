@@ -477,7 +477,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
     }
   else
     {
-      warning ("invalid argument of `%s' attribute",
+      warning ("invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -509,7 +509,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
       break;
 
     default:
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
       break;
     }
@@ -2604,10 +2604,13 @@ ia64_expand_epilogue (int sibcall_p)
 	 preserve those input registers used as arguments to the sibling call.
 	 It is unclear how to compute that number here.  */
       if (current_frame_info.n_input_regs != 0)
-	emit_insn (gen_alloc (gen_rtx_REG (DImode, fp),
-			      const0_rtx, const0_rtx,
-			      GEN_INT (current_frame_info.n_input_regs),
-			      const0_rtx));
+	{
+	  rtx n_inputs = GEN_INT (current_frame_info.n_input_regs);
+	  insn = emit_insn (gen_alloc (gen_rtx_REG (DImode, fp),
+				const0_rtx, const0_rtx,
+				n_inputs, const0_rtx));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
     }
 }
 
@@ -2733,15 +2736,16 @@ static bool
 ia64_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
   if (size == POINTER_SIZE / BITS_PER_UNIT
-      && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FUNCTION_P (x))
     {
-      if (POINTER_SIZE == 32)
-	fputs ("\tdata4\t@fptr(", asm_out_file);
-      else
-	fputs ("\tdata8\t@fptr(", asm_out_file);
+      static const char * const directive[2][2] = {
+	  /* 64-bit pointer */  /* 32-bit pointer */
+	{ "\tdata8.ua\t@fptr(", "\tdata4.ua\t@fptr("},	/* unaligned */
+	{ "\tdata8\t@fptr(",    "\tdata4\t@fptr("}	/* aligned */
+      };
+      fputs (directive[(aligned_p != 0)][POINTER_SIZE == 32], asm_out_file);
       output_addr_const (asm_out_file, x);
       fputs (")\n", asm_out_file);
       return true;
@@ -2971,8 +2975,7 @@ hfa_element_mode (tree type, int nested)
     case VOID_TYPE:	case INTEGER_TYPE:	case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:	case CHAR_TYPE:		case POINTER_TYPE:
     case OFFSET_TYPE:	case REFERENCE_TYPE:	case METHOD_TYPE:
-    case FILE_TYPE:	case SET_TYPE:		case LANG_TYPE:
-    case FUNCTION_TYPE:
+    case FILE_TYPE:	case LANG_TYPE:		case FUNCTION_TYPE:
       return VOIDmode;
 
       /* Fortran complex types are supposed to be HFAs, so we need to handle
@@ -4880,7 +4883,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	    HOST_WIDE_INT bit = (offset >> 3) & 63;
 
 	    need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
-	    new_flags.is_write = (XINT (x, 1) == 1);
+	    new_flags.is_write = (XINT (x, 1) == UNSPEC_GR_SPILL);
 	    need_barrier |= rws_access_regno (AR_UNAT_BIT_0 + bit,
 					      new_flags, pred);
 	    break;
@@ -4896,6 +4899,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	  break;
 
 	case UNSPEC_FR_RECIP_APPROX:
+	case UNSPEC_SHRP:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
@@ -7290,13 +7294,24 @@ process_set (FILE *asm_out_file, rtx pat)
     {
       dest_regno = REGNO (dest);
 
-      /* If this isn't the final destination for ar.pfs, the alloc
-	 shouldn't have been marked frame related.  */
-      if (dest_regno != current_frame_info.reg_save_ar_pfs)
-	abort ();
-
-      fprintf (asm_out_file, "\t.save ar.pfs, r%d\n",
-	       ia64_dbx_register_number (dest_regno));
+      /* If this is the final destination for ar.pfs, then this must
+	 be the alloc in the prologue.  */
+      if (dest_regno == current_frame_info.reg_save_ar_pfs)
+	fprintf (asm_out_file, "\t.save ar.pfs, r%d\n",
+		 ia64_dbx_register_number (dest_regno));
+      else
+	{
+	  /* This must be an alloc before a sibcall.  We must drop the
+	     old frame info.  The easiest way to drop the old frame
+	     info is to ensure we had a ".restore sp" directive
+	     followed by a new prologue.  If the procedure doesn't
+	     have a memory-stack frame, we'll issue a dummy ".restore
+	     sp" now.  */
+	  if (current_frame_info.total_size == 0)
+	    /* if haven't done process_epilogue() yet, do it now */
+	    process_epilogue ();
+	  fprintf (asm_out_file, "\t.prologue\n");
+	}
       return 1;
     }
 

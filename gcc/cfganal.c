@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "function.h"
@@ -51,7 +52,8 @@ typedef struct depth_first_search_dsS *depth_first_search_ds;
 static void flow_dfs_compute_reverse_init (depth_first_search_ds);
 static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
 					     basic_block);
-static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds);
+static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds,
+						     basic_block);
 static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
 static bool flow_active_insn_p (rtx);
 
@@ -479,9 +481,18 @@ find_edge (basic_block pred, basic_block succ)
   edge e;
   edge_iterator ei;
 
-  FOR_EACH_EDGE (e, ei, pred->succs)
-    if (e->dest == succ)
-      return e;
+  if (EDGE_COUNT (pred->succs) <= EDGE_COUNT (succ->preds))
+    {
+      FOR_EACH_EDGE (e, ei, pred->succs)
+	if (e->dest == succ)
+	  return e;
+    }
+  else
+    {
+      FOR_EACH_EDGE (e, ei, succ->preds)
+	if (e->src == pred)
+	  return e;
+    }
 
   return NULL;
 }
@@ -605,7 +616,7 @@ add_noreturn_fake_exit_edges (void)
 void
 connect_infinite_loops_to_exit (void)
 {
-  basic_block unvisited_block;
+  basic_block unvisited_block = EXIT_BLOCK_PTR;
   struct depth_first_search_dsS dfs_ds;
 
   /* Perform depth-first search in the reverse graph to find nodes
@@ -616,7 +627,8 @@ connect_infinite_loops_to_exit (void)
   /* Repeatedly add fake edges, updating the unreachable nodes.  */
   while (1)
     {
-      unvisited_block = flow_dfs_compute_reverse_execute (&dfs_ds);
+      unvisited_block = flow_dfs_compute_reverse_execute (&dfs_ds,
+							  unvisited_block);
       if (!unvisited_block)
 	break;
 
@@ -839,7 +851,8 @@ flow_dfs_compute_reverse_add_bb (depth_first_search_ds data, basic_block bb)
    available.  */
 
 static basic_block
-flow_dfs_compute_reverse_execute (depth_first_search_ds data)
+flow_dfs_compute_reverse_execute (depth_first_search_ds data,
+				  basic_block last_unvisited)
 {
   basic_block bb;
   edge e;
@@ -857,7 +870,7 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
     }
 
   /* Determine if there are unvisited basic blocks.  */
-  FOR_BB_BETWEEN (bb, EXIT_BLOCK_PTR, NULL, prev_bb)
+  FOR_BB_BETWEEN (bb, last_unvisited, NULL, prev_bb)
     if (!TEST_BIT (data->visited_blocks, bb->index - (INVALID_BLOCK + 1)))
       return bb;
 
@@ -971,7 +984,7 @@ compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
        c;
        c = next_dom_son (CDI_DOMINATORS, c))
     {
-      int x;
+      unsigned x;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x, bi)

@@ -27,6 +27,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file ext/array_allocator.h
+ *  This file is a GNU extension to the Standard C++ Library.
+ */
+
 #ifndef _ARRAY_ALLOCATOR_H
 #define _ARRAY_ALLOCATOR_H 1
 
@@ -37,6 +41,7 @@
 
 namespace __gnu_cxx
 {
+  /// @brief  Base class.
  template<typename _Tp>
     class array_allocator_base
     {
@@ -78,8 +83,6 @@ namespace __gnu_cxx
   /**
    *  @brief  An allocator that uses previously allocated memory.
    *  This memory can be externally, globally, or otherwise allocated.
-   *
-   *  (See @link Allocators allocators info @endlink for more.)
    */
   template<typename _Tp, typename _Array = std::tr1::array<_Tp> >
     class array_allocator : public array_allocator_base<_Tp>
@@ -118,7 +121,7 @@ namespace __gnu_cxx
       allocate(size_type __n, const void* = 0)
       {
 	static size_type __used;
-	if (__builtin_expect(__used + __n > array_type::_S_index, false))
+	if (_M_array == 0 || __used + __n > _M_array->size())
 	  std::__throw_bad_alloc();
 	pointer __ret = _M_array->begin() + __used;
 	__used += __n;

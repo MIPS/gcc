@@ -69,6 +69,13 @@ else
 SUBDIRS = $(DIRLTDL) gcj include
 endif
 
+## Darwin uses the jcr section, but doesn't use crtstuff.
+if USING_DARWIN_CRT
+DARWIN_CRT_SRC = darwin.cc
+else
+DARWIN_CRT_SRC = 
+endif
+
 # write_entries_to_file - writes each entry in a list
 # to the specified file. Each entry is written individually
 # to accomodate systems with severe command-line-length
@@ -117,7 +124,7 @@ propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry
+bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -200,12 +207,13 @@ libgij_la_LIBADD = libgcj.la
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
-	resolve.cc defineclass.cc interpret.cc verify.cc \
+	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
 	$(built_java_source_files) \
 	$(BOEHMGC_SRC) $(NOGC_SRC) \
 	$(BACKTRACE_SRC) \
 	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
+	$(DARWIN_CRT_SRC) \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
 libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
 	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
@@ -227,9 +235,6 @@ libgcj_la_LINK = $(LIBLINK)
 # Gtk/Cairo JNI sources.
 if GTK_CAIRO
 gtk_cairo_c_source_files = \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
 else
 gtk_cairo_c_source_files = 
@@ -238,8 +243,12 @@ endif
 ## Gtk JNI sources.
 gtk_c_source_files = \
 $(gtk_cairo_c_source_files) \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
@@ -252,6 +261,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
@@ -279,9 +289,9 @@ jni/classpath/primlib.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
+gnu/java/awt/peer/gtk/GdkTextLayout.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+gnu/java/awt/peer/gtk/GdkFontPeer.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
@@ -299,7 +309,6 @@ gnu/java/awt/peer/gtk/GtkContainerPeer.java \
 gnu/java/awt/peer/gtk/GtkDialogPeer.java \
 gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
-gnu/java/awt/peer/gtk/GtkFontPeer.java \
 gnu/java/awt/peer/gtk/GtkFramePeer.java	\
 gnu/java/awt/peer/gtk/GtkGenericPeer.java \
 gnu/java/awt/peer/gtk/GtkImage.java \
@@ -327,10 +336,95 @@ gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
-$(gtk_jni_headers): $(gtk_awt_peer_sources)
+jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h: gnu/java/awt/peer/gtk/GdkFontMetrics.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h: gnu/java/awt/peer/gtk/GdkGlyphVector.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphics.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
+jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h: gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
+jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h: gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h: gnu/java/awt/peer/gtk/GtkButtonPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCanvasPeer.h: gnu/java/awt/peer/gtk/GtkCanvasPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxPeer.h: gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkChoicePeer.h: gnu/java/awt/peer/gtk/GtkChoicePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkClipboard.h: gnu/java/awt/peer/gtk/GtkClipboard.java
+jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h: gnu/java/awt/peer/gtk/GtkComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkContainerPeer.h: gnu/java/awt/peer/gtk/GtkContainerPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkDialogPeer.h: gnu/java/awt/peer/gtk/GtkDialogPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.h: gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFileDialogPeer.h: gnu/java/awt/peer/gtk/GtkFileDialogPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFontPeer.h: gnu/java/awt/peer/gtk/GtkFontPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkFramePeer.h: gnu/java/awt/peer/gtk/GtkFramePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkGenericPeer.h: gnu/java/awt/peer/gtk/GtkGenericPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkImage.h: gnu/java/awt/peer/gtk/GtkImage.java
+jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h: gnu/java/awt/peer/gtk/GtkImagePainter.java
+jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h: gnu/java/awt/peer/gtk/GtkLabelPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h: gnu/java/awt/peer/gtk/GtkListPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h: gnu/java/awt/peer/gtk/GtkMainThread.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h: gnu/java/awt/peer/gtk/GtkMenuBarPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h: gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h: gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkMenuPeer.h: gnu/java/awt/peer/gtk/GtkMenuPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkOffScreenImage.h: gnu/java/awt/peer/gtk/GtkOffScreenImage.java
+jniinclude/gnu_java_awt_peer_gtk_GtkPanelPeer.h: gnu/java/awt/peer/gtk/GtkPanelPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h: gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkScrollPanePeer.h: gnu/java/awt/peer/gtk/GtkScrollPanePeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h: gnu/java/awt/peer/gtk/GtkScrollbarPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextAreaPeer.h: gnu/java/awt/peer/gtk/GtkTextAreaPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextComponentPeer.h: gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkTextFieldPeer.h: gnu/java/awt/peer/gtk/GtkTextFieldPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GtkToolkit.h: gnu/java/awt/peer/gtk/GtkToolkit.java
+jniinclude/gnu_java_awt_peer_gtk_GtkWindowPeer.h: gnu/java/awt/peer/gtk/GtkWindowPeer.java
+jniinclude/gnu_java_awt_peer_gtk_GThreadMutex.h: gnu/java/awt/peer/gtk/GThreadMutex.java
+jniinclude/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h: gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
+jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h: gnu/java/awt/peer/gtk/GdkTextLayout.java
+jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h: gnu/java/awt/peer/gtk/GdkFontPeer.java
+
+$(gtk_jni_headers): %.h:
 	@input=`echo $@ | sed -e 's,jniinclude/,,' -e 's,_,.,g' -e 's,.h$$,,'`; \
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
+
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkPixbufDecoder.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkTextLayout.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkButtonPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCanvasPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkCheckboxPeer.h $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkChoicePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkClipboard.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkFileDialogPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkFramePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkGenericPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPanelPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollbarPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkScrollPanePeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextAreaPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextComponentPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkTextFieldPeer.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkToolkit.h
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkWindowPeer.h
+
 
 ## For the peer library, DEPENDENCIES need to come before OBJECTS so
 ## that JNI headers are built before JNI C files.
@@ -355,7 +449,7 @@ lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
 lib_org_ietf_jgss_la_SOURCES = \
@@ -376,7 +470,7 @@ lib_org_ietf_jgss_la_LIBADD = -L$(here)/.libs  $(jgss_propertyo_files) \
 
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_ietf_jgss_la_LDFLAGS = -rpath $(toolexeclibdir) \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -407,7 +501,7 @@ org/w3c/dom/traversal/TreeWalker.java
 lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
 org/xml/sax/ext/LexicalHandler.java \
@@ -443,7 +537,7 @@ org/xml/sax/XMLReader.java
 lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_java_source_files) \
@@ -459,7 +553,7 @@ lib_gnu_awt_xlib_la_CPPFLAGS = \
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
 all_java_source_files = \
@@ -503,7 +597,7 @@ libgcj-@gcc_version@.jar: $(all_java_source_files)
 	-@rm -f libgcj-@gcc_version@.jar
 	@echo Compiling Java sourcefiles...
 	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) @libgcj.sourcelist
 ## Note that we explicitly want to include directory information.
 	(find java gnu javax org -type d -o -type f -name '*.class'; \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
@@ -528,7 +622,7 @@ else # !ONESTEP
 # Compile each classfile individually.
 
 .java.class:
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $<
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
 
 libgcj-@gcc_version@.jar: $(all_java_class_files) $(all_property_files)
 	-@rm -f libgcj-@gcc_version@.jar
@@ -613,6 +707,7 @@ ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
+	java/nio/DirectByteBufferImpl$$ReadWrite.h \
 	java/nio/channels/Pipe$$SinkChannel.h \
 	java/nio/channels/Pipe$$SourceChannel.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
@@ -632,8 +727,10 @@ $(ordinary_nat_headers) $(xlib_nat_headers): %.h: %.class
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
-		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-friend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
+		-prepend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
+		-prepend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
+		-friend 'jclass (::_Jv_FindClass) (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
+		-friend 'void ::_Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
 		$(basename $<)
 
 java/lang/Thread.h: java/lang/Thread.class
@@ -641,45 +738,64 @@ java/lang/Thread.h: java/lang/Thread.class
 		-prepend 'class _Jv_JNIEnv;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
-		-friend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
-		-friend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
-		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
-		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon(jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'jint _Jv_DetachCurrentThread ();' \
+		-prepend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
+		-prepend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
+		-prepend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
+		-prepend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
+		-prepend 'java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
+		-prepend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
+		-prepend 'jint _Jv_DetachCurrentThread ();' \
+		-friend '_Jv_JNIEnv * ::_Jv_GetCurrentJNIEnv ();' \
+		-friend 'void ::_Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
+		-friend 'void ::_Jv_ThreadRun (java::lang::Thread* thread);' \
+		-friend 'jint (::_Jv_AttachCurrentThread) (java::lang::Thread* thread);' \
+		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'jint (::_Jv_DetachCurrentThread) ();' \
 		$(basename $<)
 
 java/lang/String.h: java/lang/String.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
-	    -friend 'jchar* _Jv_GetStringChars (jstring str);' \
-	    -friend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
-	    -friend 'jstring* _Jv_StringGetSlot (jstring);' \
-	    -friend 'jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const* str);' \
-	    -friend 'jstring _Jv_NewStringLatin1 (const char*, jsize);' \
-	    -friend 'jstring _Jv_AllocString (jsize);' \
+	    -prepend 'jchar* _Jv_GetStringChars (jstring str);' \
+	    -prepend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
+	    -prepend 'jstring* _Jv_StringGetSlot (jstring);' \
+	    -prepend 'jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const* str);' \
+	    -prepend 'jstring _Jv_NewStringLatin1 (const char*, jsize);' \
+	    -prepend 'jstring _Jv_AllocString (jsize);' \
+	    -friend 'jchar* ::_Jv_GetStringChars (jstring str);' \
+	    -friend 'jstring* ::_Jv_StringFindSlot (jchar*, jint, jint);' \
+	    -friend 'jstring* ::_Jv_StringGetSlot (jstring);' \
+	    -friend 'jstring (::_Jv_NewStringUtf8Const) (_Jv_Utf8Const* str);' \
+	    -friend 'jstring (::_Jv_NewStringLatin1) (const char*, jsize);' \
+	    -friend 'jstring (::_Jv_AllocString) (jsize);' \
 	    $(basename $<)
 
 java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
-	    -friend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
+	    -prepend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
+	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
+	    -friend 'jmethodID (::_Jv_FromReflectedConstructor) (java::lang::reflect::Constructor *);' \
+	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
-	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
 java/lang/reflect/Field.h: java/lang/reflect/Field.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
-	    -friend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
-	    -friend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
+	    -prepend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
+	    -prepend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
+	    -friend 'jfieldID (::_Jv_FromReflectedField) (java::lang::reflect::Field *);' \
+	    -friend 'jobject (::_Jv_JNI_ToReflectedField) (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    $(basename $<)
 
 java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
-	    -friend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
+	    -prepend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
+	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
+	    -friend 'jmethodID (::_Jv_FromReflectedMethod) (java::lang::reflect::Method *);' \
+	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'class java::io::ObjectInputStream;' \
-	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
 java/lang/reflect/Proxy.h: java/lang/reflect/Proxy.class
@@ -706,6 +822,10 @@ java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
 java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
+
+java/nio/DirectByteBufferImpl$$ReadWrite.h: java/nio/DirectByteBufferImpl.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/nio/DirectByteBufferImpl$$ReadWrite'
 
 java/nio/channels/Pipe$$SinkChannel.h: java/nio/channels/Pipe.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
@@ -752,10 +872,10 @@ install-data-local:
 	@: $(call write_entries_to_file,$(nat_headers_install) $(extra_headers),tmp-ilist)
 	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
-	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
+	  $(mkinstalldirs) $(DESTDIR)$(gxx_include_dir)/$$d; \
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
-	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
-	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
+	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f"; \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f; \
 	done
 	-@rm -f tmp-ilist
 ## FIXME: the obvious approach using lib_DATA doesn't work with
@@ -767,16 +887,18 @@ install-data-local:
 	done
 	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 ## Install inner class headers.
-	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(includedir)/java/io/
-	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(includedir)/java/io/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(includedir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(includedir)/java/lang/reflect/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(includedir)/java/lang/reflect/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(includedir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(includedir)/gnu/java/nio/
+	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
+	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
+## Don't install java/nio/DirectByteBufferImpl$$ReadWrite.h here. It's for internal use only.
+
 
 ## ################################################################
 
@@ -909,6 +1031,25 @@ jv_convert_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
 
+gcj_dbtool_SOURCES = gnu/gcj/tools/gcj_dbtool/Main.java
+## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
+## need this because we are explicitly using libtool to link using the
+## `.la' file.
+gcj_dbtool_LDFLAGS = --main=gnu.gcj.tools.gcj_dbtool.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gcj_dbtool_LINK = $(GCJLINK)
+## We don't explicitly link in the libraries we need; libgcj.la brings
+## in all dependencies.  We need the -L so that gcj can find libgcj
+## with `-lgcj', but it must come first, otherwise the -L flags
+## brought in from libgcj.la would cause the install directories to be
+## searched before the build-tree ones, and we'd get errors because of
+## different libraries with the same SONAME from picky linkers such as
+## Solaris'.  FIXME: should be _libs on some systems.
+gcj_dbtool_LDADD = -L$(here)/.libs libgcj.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gcj_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
+
 gij_SOURCES = 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
@@ -967,6 +1108,7 @@ gnu/gcj/convert/Output_ASCII.java \
 gnu/gcj/convert/Output_EUCJIS.java \
 gnu/gcj/convert/Output_JavaSrc.java \
 gnu/gcj/convert/Output_SJIS.java \
+gnu/gcj/convert/Output_UnicodeLittleUnmarked.java \
 gnu/gcj/convert/Output_UTF8.java \
 gnu/gcj/convert/Output_iconv.java \
 gnu/gcj/convert/UnicodeToBytes.java
@@ -990,11 +1132,25 @@ gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
 gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
+gnu/java/awt/color/CieXyzConverter.java \
+gnu/java/awt/color/ClutProfileConverter.java \
+gnu/java/awt/color/ColorLookUpTable.java \
+gnu/java/awt/color/ColorSpaceConverter.java \
+gnu/java/awt/color/GrayProfileConverter.java \
+gnu/java/awt/color/GrayScaleConverter.java \
+gnu/java/awt/color/LinearRGBConverter.java \
+gnu/java/awt/color/ProfileHeader.java \
+gnu/java/awt/color/PyccConverter.java \
+gnu/java/awt/color/RgbProfileConverter.java \
+gnu/java/awt/color/SrgbConverter.java \
+gnu/java/awt/color/TagEntry.java \
+gnu/java/awt/color/ToneReproductionCurve.java \
 gnu/java/awt/image/ImageDecoder.java \
 gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
+gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -1174,12 +1330,17 @@ java/awt/geom/CubicCurve2D.java \
 java/awt/geom/FlatteningPathIterator.java \
 java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
+java/awt/image/BandCombineOp.java \
+java/awt/image/BandedSampleModel.java \
 java/awt/image/AffineTransformOp.java \
 java/awt/image/BufferedImage.java \
+java/awt/image/BufferedImageFilter.java \
 java/awt/image/ByteLookupTable.java \
+java/awt/image/ColorConvertOp.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
+java/awt/image/ConvolveOp.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
 java/awt/image/DataBufferDouble.java \
@@ -1193,11 +1354,14 @@ java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
 java/awt/image/Kernel.java \
+java/awt/image/LookupOp.java \
 java/awt/image/LookupTable.java \
+java/awt/image/MultiPixelPackedSampleModel.java \
 java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
+java/awt/image/RescaleOp.java \
 java/awt/image/SampleModel.java \
 java/awt/image/ShortLookupTable.java \
 java/awt/image/SinglePixelPackedSampleModel.java \
@@ -1435,6 +1599,7 @@ javax/swing/plaf/basic/BasicTableUI.java \
 javax/swing/plaf/basic/BasicTableHeaderUI.java \
 javax/swing/plaf/basic/BasicTextAreaUI.java \
 javax/swing/plaf/basic/BasicTextFieldUI.java \
+javax/swing/plaf/basic/BasicTextPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
@@ -1558,6 +1723,7 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerListModel.java \
 javax/swing/SpinnerModel.java \
 javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
@@ -1634,6 +1800,7 @@ javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
 javax/swing/text/MutableAttributeSet.java \
 javax/swing/text/NavigationFilter.java \
+javax/swing/text/PasswordView.java \
 javax/swing/text/PlainDocument.java \
 javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
@@ -1898,24 +2065,48 @@ javax/crypto/spec/RC2ParameterSpec.java \
 javax/crypto/spec/RC5ParameterSpec.java \
 javax/crypto/spec/SecretKeySpec.java \
 javax/imageio/IIOException.java \
+javax/imageio/IIOImage.java \
+javax/imageio/IIOParam.java \
+javax/imageio/IIOParamController.java \
+javax/imageio/ImageIO.java \
+javax/imageio/ImageReadParam.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
+javax/imageio/ImageTypeSpecifier.java \
+javax/imageio/ImageWriteParam.java \
 javax/imageio/ImageWriter.java \
 javax/imageio/event/IIOReadProgressListener.java \
 javax/imageio/event/IIOReadUpdateListener.java \
 javax/imageio/event/IIOReadWarningListener.java \
 javax/imageio/event/IIOWriteProgressListener.java \
 javax/imageio/event/IIOWriteWarningListener.java \
+javax/imageio/metadata/IIOInvalidTreeException.java \
+javax/imageio/metadata/IIOMetadata.java \
+javax/imageio/metadata/IIOMetadataController.java \
+javax/imageio/metadata/IIOMetadataFormat.java \
+javax/imageio/metadata/IIOMetadataFormatImpl.java \
+javax/imageio/metadata/IIOMetadataNode.java \
 javax/imageio/spi/IIOServiceProvider.java \
+javax/imageio/spi/IIORegistry.java \
 javax/imageio/spi/ImageInputStreamSpi.java \
 javax/imageio/spi/ImageOutputStreamSpi.java \
+javax/imageio/spi/ImageReaderSpi.java \
 javax/imageio/spi/ImageReaderWriterSpi.java \
 javax/imageio/spi/ImageTranscoderSpi.java \
 javax/imageio/spi/RegisterableService.java \
 javax/imageio/spi/ServiceRegistry.java \
+javax/imageio/spi/ImageWriterSpi.java \
+javax/imageio/stream/FileCacheImageInputStream.java \
+javax/imageio/stream/FileCacheImageOutputStream.java \
+javax/imageio/stream/FileImageInputStream.java \
+javax/imageio/stream/FileImageOutputStream.java \
 javax/imageio/stream/IIOByteBuffer.java \
 javax/imageio/stream/ImageInputStream.java \
+javax/imageio/stream/ImageInputStreamImpl.java \
 javax/imageio/stream/ImageOutputStream.java \
+javax/imageio/stream/ImageOutputStreamImpl.java \
+javax/imageio/stream/MemoryCacheImageInputStream.java \
+javax/imageio/stream/MemoryCacheImageOutputStream.java \
 javax/naming/directory/Attribute.java \
 javax/naming/directory/AttributeInUseException.java \
 javax/naming/directory/AttributeModificationException.java \
@@ -2161,6 +2352,7 @@ javax/security/auth/login/FailedLoginException.java \
 javax/security/auth/login/LoginContext.java \
 javax/security/auth/login/LoginException.java \
 javax/security/auth/login/NullConfiguration.java \
+javax/security/auth/spi/LoginModule.java \
 javax/security/auth/Policy.java \
 javax/security/auth/PrivateCredentialPermission.java \
 javax/security/auth/Refreshable.java \
@@ -2317,6 +2509,7 @@ java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
 java/lang/VMClassLoader.java \
+java/lang/VMCompiler.java \
 java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 java/lang/Void.java \
@@ -2505,11 +2698,13 @@ gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
 gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
+gnu/gcj/runtime/PersistentByteMap.java \
 gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
 gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/VMClassLoader.java \
+gnu/gcj/util/Debug.java \
 gnu/java/io/ASN1ParsingException.java \
 gnu/java/io/Base64InputStream.java \
 gnu/java/io/ClassLoaderObjectInputStream.java \
@@ -2708,7 +2903,9 @@ gnu/java/nio/charset/UTF_16LE.java \
 gnu/java/nio/charset/UTF_8.java \
 gnu/java/security/Engine.java \
 gnu/java/security/OID.java \
+gnu/java/security/PolicyFile.java \
 gnu/java/security/action/GetPropertyAction.java \
+gnu/java/security/action/GetSecurityPropertyAction.java \
 gnu/java/security/action/SetAccessibleAction.java \
 gnu/java/security/der/BitString.java \
 gnu/java/security/der/DER.java \
@@ -2716,24 +2913,57 @@ gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/der/DERReader.java \
 gnu/java/security/der/DERValue.java \
 gnu/java/security/der/DERWriter.java \
+gnu/java/security/provider/CollectionCertStoreImpl.java \
 gnu/java/security/provider/DSAKeyFactory.java \
 gnu/java/security/provider/DSAKeyPairGenerator.java \
 gnu/java/security/provider/DSAParameterGenerator.java \
 gnu/java/security/provider/DSAParameters.java \
 gnu/java/security/provider/DSASignature.java \
 gnu/java/security/provider/DefaultPolicy.java \
+gnu/java/security/provider/EncodedKeyFactory.java \
 gnu/java/security/provider/Gnu.java \
+gnu/java/security/provider/GnuDHPublicKey.java \
 gnu/java/security/provider/GnuDSAPrivateKey.java \
 gnu/java/security/provider/GnuDSAPublicKey.java \
+gnu/java/security/provider/GnuRSAPrivateKey.java \
+gnu/java/security/provider/GnuRSAPublicKey.java \
+gnu/java/security/provider/MD2withRSA.java \
+gnu/java/security/provider/MD4withRSA.java \
 gnu/java/security/provider/MD5.java \
+gnu/java/security/provider/MD5withRSA.java \
+gnu/java/security/provider/PKIXCertPathValidatorImpl.java \
+gnu/java/security/provider/RSA.java \
+gnu/java/security/provider/RSAKeyFactory.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/security/provider/SHA1withRSA.java \
 gnu/java/security/provider/X509CertificateFactory.java \
 gnu/java/security/util/Prime.java \
+gnu/java/security/x509/GnuPKIExtension.java \
+gnu/java/security/x509/PolicyNodeImpl.java \
+gnu/java/security/x509/Util.java \
 gnu/java/security/x509/X500DistinguishedName.java \
 gnu/java/security/x509/X509CRL.java \
 gnu/java/security/x509/X509CRLEntry.java \
+gnu/java/security/x509/X509CRLSelectorImpl.java \
 gnu/java/security/x509/X509Certificate.java \
+gnu/java/security/x509/X509CertPath.java \
+gnu/java/security/x509/X509CertSelectorImpl.java \
+gnu/java/security/x509/ext/AuthorityKeyIdentifier.java \
+gnu/java/security/x509/ext/BasicConstraints.java \
+gnu/java/security/x509/ext/CRLNumber.java \
+gnu/java/security/x509/ext/CertificatePolicies.java \
+gnu/java/security/x509/ext/ExtendedKeyUsage.java \
+gnu/java/security/x509/ext/Extension.java \
+gnu/java/security/x509/ext/GeneralNames.java \
+gnu/java/security/x509/ext/IssuerAlternativeNames.java \
+gnu/java/security/x509/ext/KeyUsage.java \
+gnu/java/security/x509/ext/PolicyConstraint.java \
+gnu/java/security/x509/ext/PolicyMappings.java \
+gnu/java/security/x509/ext/PrivateKeyUsagePeriod.java \
+gnu/java/security/x509/ext/ReasonCode.java \
+gnu/java/security/x509/ext/SubjectAlternativeNames.java \
+gnu/java/security/x509/ext/SubjectKeyIdentifier.java \
 gnu/java/text/AttributedFormatBuffer.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
@@ -2868,6 +3098,7 @@ java/nio/ReadOnlyBufferException.java \
 java/nio/ShortBuffer.java \
 java/nio/ShortBufferImpl.java \
 java/nio/ShortViewBufferImpl.java \
+java/nio/VMDirectByteBuffer.java \
 java/nio/channels/AlreadyConnectedException.java \
 java/nio/channels/AsynchronousCloseException.java \
 java/nio/channels/ByteChannel.java \
@@ -3184,6 +3415,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
+gnu/gcj/util/natDebug.cc \
 gnu/java/lang/natMainThread.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
@@ -3296,31 +3528,31 @@ TexinfoDoclet.class: $(srcdir)/scripts/TexinfoDoclet.java
 texinfo: TexinfoDoclet.class
 	langsource=`ls $(srcdir)/java/lang/*.java`; \
 	lang=`echo $$langsource | sed -e 's/[^ ].*EcosProcess.java//g' | sed -e 's/[^ ].*PosixProcess.java//g'`; \
-	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $$lang
-	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/lang/ref/*.java
-	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/lang/reflect/*.java
-	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/applet/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/color/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/event/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/geom/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/image/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/peer/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/beans/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/beans/beancontext/*.java
-	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/io/*.java
-	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/math/*.java
-	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/net/*.java
-	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security-cert/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/spec/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
-	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/sql/*.java
-	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/text/*.java
-	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/jar/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/zip/*.java
+	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $$lang
+	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/ref/*.java
+	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/reflect/*.java
+	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/applet/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/color/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/event/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/geom/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/image/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/peer/*.java
+	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/*.java
+	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/beancontext/*.java
+	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/io/*.java
+	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/math/*.java
+	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/net/*.java
+	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security-cert/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
+	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/sql/*.java
+	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/text/*.java
+	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/*.java
+	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/jar/*.java
+	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/zip/*.java
 
 ## ################################################################
 
@@ -3372,6 +3604,7 @@ AM_MAKEFLAGS = \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
 	"prefix=$(prefix)" \
+	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
 	"LD=$(LD)" \

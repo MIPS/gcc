@@ -39,6 +39,7 @@ Jim Wilson					wilson@specifixinc.com
 alpha port		Richard Henderson	rth@redhat.com
 arm port		Nick Clifton		nickc@redhat.com
 arm port		Richard Earnshaw	rearnsha@arm.com
+arm port		Paul Brook		paul@codesourcery.com
 avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
@@ -95,9 +96,10 @@ netbsd			Jason Thorpe		thorpej@wasabisystems.com
 sco5, unixware, sco udk	Kean Johnston		jkj@sco.com
 sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 RTEMS Ports		Joel Sherrill		joel@oarcorp.com
+RTEMS Ports		Ralf Corsepius		ralf.corsepius@rtems.org
 VxWorks ports		Zack Weinberg		zack@codesourcery.com
 VxWorks ports		Nathan Sidwell		nathan@codesourcery.com
-windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
+windows, cygwin, mingw	Christopher Faylor	cgf@gcc.gnu.org
 
 			Language Front Ends Maintainers
 
@@ -108,7 +110,7 @@ Ada front end		Robert Dewar		dewar@gnat.com
 Ada front end		Arnaud Charlet		charlet@act-europe.fr
 fortran			Richard Henderson	rth@redhat.com
 fortran			Toon Moene		toon@moene.indiv.nluug.nl
-fortran 95		Paul Brook		paul@nowt.org
+fortran 95		Paul Brook		paul@codesourcery.com
 fortran 95		Steven Bosscher		stevenb@suse.de
 fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
 c++			Jason Merrill		jason@redhat.com
@@ -176,7 +178,7 @@ gcov			Jan Hubicka		jh@suse.cz
 gcov			Nathan Sidwell		nathan@codesourcery.com
 option handling		Neil Booth		neil@daikokuya.co.uk
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
-compat testsuite	Janis Johnson		janis187@us.ibm.com
+testsuite		Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
 tree-ssa		Diego Novillo		dnovillo@redhat.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
@@ -246,7 +248,8 @@ Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
-Matt Kraai					kraai@alumni.cmu.edu
+Matt Kraai					kraai@ftbfs.org
+Scott Robert Ladd				scott.ladd@coyotegulch.com
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
@@ -255,6 +258,7 @@ Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
 Ralph Loader					rcl@ihug.co.nz
+Gabor Loki					loki@inf.u-szeged.hu
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org

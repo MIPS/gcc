@@ -569,8 +569,7 @@ gfc_trans_allocate_temp_array (gfc_loopinfo * loop, gfc_ss_info * info,
 
   /* Fill in the array dtype.  */
   tmp = gfc_conv_descriptor_dtype (desc);
-  gfc_add_modify_expr (&loop->pre, tmp,
-		       GFC_TYPE_ARRAY_DTYPE (TREE_TYPE (desc)));
+  gfc_add_modify_expr (&loop->pre, tmp, gfc_get_dtype (TREE_TYPE (desc)));
 
   /*
      Fill in the bounds and stride.  This is a packed array, so:
@@ -1040,7 +1039,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 	  break;
 
 	case COMPONENT_REF:
-	  /* Use the length of the component. */
+	  /* Use the length of the component.  */
 	  ts = &ref->u.c.component->ts;
 	  break;
 
@@ -2025,7 +2024,7 @@ gfc_conv_section_upper_bound (gfc_ss * ss, int n, stmtblock_t * pblock)
     }
   else
     {
-      /* No upper bound was specified, so use the bound of the array. */
+      /* No upper bound was specified, so use the bound of the array.  */
       bound = gfc_conv_array_ubound (desc, dim);
     }
 
@@ -2396,7 +2395,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
    the range of the loop variables.  Creates a temporary if required.
    Calculates how to transform from loop variables to array indices for each
    expression.  Also generates code for scalar expressions which have been
-   moved outside the loop. */
+   moved outside the loop.  */
 
 void
 gfc_conv_loop_setup (gfc_loopinfo * loop)
@@ -2436,7 +2435,7 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
 	      /* Try to figure out the size of the constructor.  */
 	      /* TODO: avoid this by making the frontend set the shape.  */
 	      gfc_get_array_cons_size (&i, ss->expr->value.constructor);
-	      /* A negative value means we failed. */
+	      /* A negative value means we failed.  */
 	      if (mpz_sgn (i) > 0)
 		{
 		  mpz_sub_ui (i, i, 1);
@@ -2658,8 +2657,7 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
 
   /* Set the dtype.  */
   tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify_expr (pblock, tmp,
-                       GFC_TYPE_ARRAY_DTYPE (TREE_TYPE (descriptor)));
+  gfc_add_modify_expr (pblock, tmp, gfc_get_dtype (TREE_TYPE (descriptor)));
 
   for (n = 0; n < rank; n++)
     {
@@ -2997,7 +2995,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
           gfc_add_block_to_block (pblock, &se.pre);
           gfc_add_modify_expr (pblock, ubound, se.expr);
         }
-      /* The offset of this dimension.  offset = offset - lbound * stride. */
+      /* The offset of this dimension.  offset = offset - lbound * stride.  */
       tmp = fold (build2 (MULT_EXPR, gfc_array_index_type, lbound, size));
       offset = fold (build2 (MINUS_EXPR, gfc_array_index_type, offset, tmp));
 
@@ -3361,7 +3359,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
           tmp = fold (build2 (PLUS_EXPR, gfc_array_index_type, tmp, lbound));
           gfc_add_modify_expr (&block, ubound, tmp);
 	}
-      /* The offset of this dimension.  offset = offset - lbound * stride. */
+      /* The offset of this dimension.  offset = offset - lbound * stride.  */
       tmp = fold (build2 (MULT_EXPR, gfc_array_index_type, lbound, stride));
       offset = fold (build2 (MINUS_EXPR, gfc_array_index_type, offset, tmp));
 
@@ -3771,7 +3769,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
       /* Set the dtype.  */
       tmp = gfc_conv_descriptor_dtype (parm);
-      gfc_add_modify_expr (&loop.pre, tmp, GFC_TYPE_ARRAY_DTYPE (parmtype));
+      gfc_add_modify_expr (&loop.pre, tmp, gfc_get_dtype (parmtype));
 
       if (se->direct_byref)
 	base = gfc_index_zero_node;
@@ -4208,7 +4206,7 @@ gfc_walk_op_expr (gfc_ss * ss, gfc_expr * expr)
   if (head2 == ss)
     return head2;
 
-  /* All operands require scalarization. */
+  /* All operands require scalarization.  */
   if (head != ss && (expr->op2 == NULL || head2 != head))
     return head2;
 

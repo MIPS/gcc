@@ -959,9 +959,6 @@ analyzable_condition (tree expr)
   switch (TREE_CODE (condition))
     {
     case SSA_NAME:
-      /* Volatile expressions are not analyzable.  */
-      if (TREE_THIS_VOLATILE (SSA_NAME_VAR (condition)))
-	return false;
       return true;
       
     case LT_EXPR:
@@ -970,22 +967,7 @@ analyzable_condition (tree expr)
     case GE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
-      {
-	tree opnd0, opnd1;
-	
-	opnd0 = TREE_OPERAND (condition, 0);
-	opnd1 = TREE_OPERAND (condition, 1);
-	
-	if (TREE_CODE (opnd0) == SSA_NAME
-	    && TREE_THIS_VOLATILE (SSA_NAME_VAR (opnd0)))
-	  return false;
-	
-	if (TREE_CODE (opnd1) == SSA_NAME
-	    && TREE_THIS_VOLATILE (SSA_NAME_VAR (opnd1)))
-	  return false;
-	
-	return true;
-      }
+      return true;
       
     default:
       return false;
@@ -1049,7 +1031,7 @@ get_exit_conditions_rec (struct loop *loop,
 }
 
 /* Select the candidate loop nests for the analysis.  This function
-   initializes the EXIT_CONDITIONS array.   */
+   initializes the EXIT_CONDITIONS array.  */
 
 static void
 select_loops_exit_conditions (struct loops *loops, 
@@ -1186,65 +1168,15 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 
       if (TREE_CODE (rhs0) == SSA_NAME)
 	{
-	  if (TREE_CODE (rhs1) == SSA_NAME)
-	    {
-	      /* Match an assignment under the form: 
-		 "a = b - c".  */
-	      res = follow_ssa_edge 
-		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
-		 evolution_of_loop);
-	      
-	      if (res)
-		*evolution_of_loop = add_to_evolution 
-		  (loop->num, chrec_convert (type_rhs, *evolution_of_loop), 
-		   MINUS_EXPR, rhs1);
-	      
-	      else
-		{
-		  res = follow_ssa_edge 
-		    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
-		     evolution_of_loop);
-		  
-		  if (res)
-		    *evolution_of_loop = add_to_evolution 
-		      (loop->num, 
-		       chrec_fold_multiply (type_rhs, 
-					    *evolution_of_loop, 
-					    build_int_cst_type (type_rhs, -1)),
-		       PLUS_EXPR, rhs0);
-		}
-	    }
-	  
-	  else
-	    {
-	      /* Match an assignment under the form: 
-		 "a = b - ...".  */
-	      res = follow_ssa_edge 
-		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
-		 evolution_of_loop);
-	      if (res)
-		*evolution_of_loop = add_to_evolution 
-		  (loop->num, chrec_convert (type_rhs, *evolution_of_loop), 
-		   MINUS_EXPR, rhs1);
-	    }
-	}
-      
-      else if (TREE_CODE (rhs1) == SSA_NAME)
-	{
 	  /* Match an assignment under the form: 
-	     "a = ... - c".  */
-	  res = follow_ssa_edge 
-	    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
-	     evolution_of_loop);
+	     "a = b - ...".  */
+	  res = follow_ssa_edge (loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
+				 evolution_of_loop);
 	  if (res)
 	    *evolution_of_loop = add_to_evolution 
-	      (loop->num, 
-	       chrec_fold_multiply (type_rhs, 
-				    *evolution_of_loop, 
-				    build_int_cst_type (type_rhs, -1)),
-	       PLUS_EXPR, rhs0);
+		    (loop->num, chrec_convert (type_rhs, *evolution_of_loop), 
+		     MINUS_EXPR, rhs1);
 	}
-      
       else
 	/* Otherwise, match an assignment under the form: 
 	   "a = ... - ...".  */
@@ -1398,6 +1330,11 @@ follow_ssa_edge_in_condition_phi (struct loop *loop,
 
   for (i = 1; i < PHI_NUM_ARGS (condition_phi); i++)
     {
+      /* Quickly give up when the evolution of one of the branches is
+	 not known.  */
+      if (*evolution_of_loop == chrec_dont_know)
+	return true;
+
       if (!follow_ssa_edge_in_condition_phi_branch (i, loop, condition_phi,
 						    halting_phi,
 						    &evolution_of_branch,
@@ -2374,7 +2311,7 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
       loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
       bb = loop->header;
       
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	if (is_gimple_reg (PHI_RESULT (phi)))
 	  {
 	    chrec = instantiate_parameters 

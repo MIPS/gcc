@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "c-pretty-print.h"
 #include "c-objc-common.h"
+#include "c-pragma.h"
 
 enum c_language_kind c_language = clk_c;
 
@@ -44,8 +45,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
-#undef LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P c_types_compatible_p
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -90,12 +89,7 @@ const char *const tree_code_name[] = {
 void
 finish_file (void)
 {
-}
-
-int
-c_types_compatible_p (tree x, tree y)
-{
-    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
+  maybe_apply_pending_pragma_weaks ();
 }
 
 #include "gtype-c.h"

@@ -101,6 +101,8 @@ static bitmap all_module_statics;
    scan_for_static_refs.  */
 static struct pointer_set_t *visited_nodes;
 
+static bitmap_obstack ipa_obstack;
+
 enum initialization_status_t
 {
   UNINITIALIZED,
@@ -139,7 +141,7 @@ print_order (FILE* out,
 static void 
 convert_UIDs_in_bitmap (bitmap in_ann, bitmap in_decl) 
 {
-  int index;
+  size_t index;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP(in_decl, 0, index, bi)
@@ -1053,9 +1055,8 @@ propagate_bits (struct cgraph_node *x)
 		     (no reason to spin within the cycle).  */
 		  else if (x_global->statics_read_by_decl_uid 
 			   != y_global->statics_read_by_decl_uid)
-		    bitmap_a_or_b (x_global->statics_read_by_decl_uid,
-				   x_global->statics_read_by_decl_uid,
-				   y_global->statics_read_by_decl_uid);
+		    bitmap_ior_into (x_global->statics_read_by_decl_uid,
+				     y_global->statics_read_by_decl_uid);
 		}
 	      
 	      if (x_global->statics_written_by_decl_uid != all_module_statics)
@@ -1071,9 +1072,8 @@ propagate_bits (struct cgraph_node *x)
 		     (no reason to spin within the cycle).  */
 		  else if (x_global->statics_written_by_decl_uid 
 			   != y_global->statics_written_by_decl_uid)
-		    bitmap_a_or_b (x_global->statics_written_by_decl_uid,
-				   x_global->statics_written_by_decl_uid,
-				   y_global->statics_written_by_decl_uid);
+		    bitmap_ior_into (x_global->statics_written_by_decl_uid,
+				     y_global->statics_written_by_decl_uid);
 		}
 	    }
 	  else 
@@ -1117,12 +1117,13 @@ merge_callee_local_info (struct cgraph_node *target,
 	    {
 	      y_info = y->static_vars_info;
 	      y_l = y_info->local;
-	      bitmap_a_or_b (x_l->statics_read_by_decl_uid,
-			     x_l->statics_read_by_decl_uid,
-			     y_l->statics_read_by_decl_uid);
-	      bitmap_a_or_b (x_l->statics_written_by_decl_uid,
-			     x_l->statics_written_by_decl_uid,
-			     y_l->statics_written_by_decl_uid);
+	      if (x_l != y_l)
+		{
+		  bitmap_ior_into (x_l->statics_read_by_decl_uid,
+				   y_l->statics_read_by_decl_uid);
+		  bitmap_ior_into (x_l->statics_written_by_decl_uid,
+				   y_l->statics_written_by_decl_uid);
+		}
 	      x_l->calls_read_all |= y_l->calls_read_all;
 	      x_l->calls_write_all |= y_l->calls_write_all;
 	      merge_callee_local_info (target, y);
@@ -1155,9 +1156,10 @@ ipa_init (void)
   static_vars_to_consider_by_uid =
     splay_tree_new_ggc (splay_tree_compare_ints);
 
-  module_statics_escape = BITMAP_XMALLOC ();
-  module_statics_written = BITMAP_XMALLOC ();
-  all_module_statics = BITMAP_XMALLOC ();
+  bitmap_obstack_initialize (&ipa_obstack);
+  module_statics_escape = BITMAP_ALLOC (&ipa_obstack);
+  module_statics_written = BITMAP_ALLOC (&ipa_obstack);
+  all_module_statics = BITMAP_ALLOC (&ipa_obstack);
 
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
@@ -1241,10 +1243,10 @@ analyze_function (struct cgraph_node *fn)
   var_ann->static_vars_info = info;
 
   info->local = l;
-  l->statics_read_by_decl_uid = BITMAP_XMALLOC ();
-  l->statics_written_by_decl_uid = BITMAP_XMALLOC ();
-  l->statics_read_by_ann_uid = BITMAP_XMALLOC ();
-  l->statics_written_by_ann_uid = BITMAP_XMALLOC ();
+  l->statics_read_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
+  l->statics_written_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
+  l->statics_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+  l->statics_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
 
   l->pure_const_not_set_in_source = true;
   l->pure_const_state = IPA_CONST;
@@ -1351,22 +1353,21 @@ static_execute (void)
   /* Prune out the variables that were found to behave badly
      (i.e. have there address taken).  */
   {
-    int index;
+    size_t index;
     bitmap_iterator bi;
-    bitmap module_statics_readonly = BITMAP_XMALLOC ();
-    bitmap module_statics_const = BITMAP_XMALLOC ();
-    bitmap bm_temp = BITMAP_XMALLOC ();
+    bitmap module_statics_readonly = BITMAP_ALLOC (&ipa_obstack);
+    bitmap module_statics_const = BITMAP_ALLOC (&ipa_obstack);
+    bitmap bm_temp = BITMAP_ALLOC (&ipa_obstack);
 
     EXECUTE_IF_SET_IN_BITMAP (module_statics_escape, 0, index, bi)
       {
 	splay_tree_remove (static_vars_to_consider_by_uid, index);
       }
 
-    bitmap_operation (all_module_statics, all_module_statics,
-		      module_statics_escape, BITMAP_AND_COMPL);
+    bitmap_and_compl_into (all_module_statics, module_statics_escape);
 
-    bitmap_operation (module_statics_readonly, all_module_statics,
-		      module_statics_written, BITMAP_AND_COMPL);
+    bitmap_and_compl (module_statics_readonly, all_module_statics,
+		      module_statics_written);
 
     /* If the address is not taken, we can unset the addressable bit
        on this variable.  */
@@ -1383,8 +1384,8 @@ static_execute (void)
        flag.  Additionally if it has a DECL_INITIAL that is made up of
        constants we can treat the entire global as a constant.  */
 
-    bitmap_operation (module_statics_readonly, all_module_statics,
-		      module_statics_written, BITMAP_AND_COMPL);
+    bitmap_and_compl (module_statics_readonly, all_module_statics,
+		      module_statics_written);
     EXECUTE_IF_SET_IN_BITMAP (module_statics_readonly, 0, index, bi)
       {
 	tree var = get_static_decl_by_uid (index);
@@ -1447,9 +1448,9 @@ static_execute (void)
 		 being const.  There is no reason to check the
 		 calls_read_all flag since if the bit has been set the
 		 function cannot have been marked const.  */
-	      bitmap_operation (bm_temp, l->statics_read_by_decl_uid,
-				module_statics_const, BITMAP_AND_COMPL);
-	      if (bitmap_first_set_bit(bm_temp) != -1)
+	      bitmap_and_compl (bm_temp, l->statics_read_by_decl_uid,
+				module_statics_const);
+	      if (!bitmap_empty_p (bm_temp))
 		l->pure_const_state = IPA_PURE;
 	      else 
 		{
@@ -1500,7 +1501,7 @@ static_execute (void)
 		 since if the bit has been set the function cannot have
 		 been marked const.  Any bits in the function's write
 		 bitmap disqualify pure and const.  */
-	      if (bitmap_first_set_bit(l->statics_written_by_decl_uid) != -1)
+	      if (!bitmap_empty_p(l->statics_written_by_decl_uid))
 		l->pure_const_state = IPA_NEITHER;
 	      
 	    default:
@@ -1522,12 +1523,10 @@ static_execute (void)
 	   variables that were found to escape in the function
 	   scanning.  */
 
-	bitmap_a_and_b (l->statics_read_by_decl_uid, 
-			l->statics_read_by_decl_uid,
-			all_module_statics);
-	bitmap_a_and_b (l->statics_written_by_decl_uid, 
-			l->statics_written_by_decl_uid,
-			all_module_statics);
+	bitmap_and_into (l->statics_read_by_decl_uid, 
+		         all_module_statics);
+	bitmap_and_into (l->statics_written_by_decl_uid, 
+		         all_module_statics);
       }
 
     BITMAP_XFREE(module_statics_readonly);
@@ -1539,7 +1538,7 @@ static_execute (void)
     {
       for (i = 0; i < order_pos; i++ )
 	{
-	  int index;
+	  size_t index;
 	  ipa_local_static_vars_info_t l;
 	  bitmap_iterator bi;
 
@@ -1619,7 +1618,7 @@ static_execute (void)
 	node_g->statics_read_by_decl_uid = all_module_statics;
       else 
 	{
-	  node_g->statics_read_by_decl_uid = BITMAP_XMALLOC ();
+	  node_g->statics_read_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
 	  bitmap_copy (node_g->statics_read_by_decl_uid, 
 		       node_l->statics_read_by_decl_uid);
 	}
@@ -1628,7 +1627,7 @@ static_execute (void)
 	node_g->statics_written_by_decl_uid = all_module_statics;
       else
 	{
-	  node_g->statics_written_by_decl_uid = BITMAP_XMALLOC ();
+	  node_g->statics_written_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
 	  bitmap_copy (node_g->statics_written_by_decl_uid, 
 		       node_l->statics_written_by_decl_uid);
 	}
@@ -1651,13 +1650,11 @@ static_execute (void)
 	     need to do any work if the bitmaps were set to
 	     all_module_statics.  */
 	  if (!read_all)
-	    bitmap_a_or_b (node_g->statics_read_by_decl_uid,
-			   node_g->statics_read_by_decl_uid,
-			   w_l->statics_read_by_decl_uid);
+	    bitmap_ior_into (node_g->statics_read_by_decl_uid,
+			     w_l->statics_read_by_decl_uid);
 	  if (!write_all)
-	    bitmap_a_or_b (node_g->statics_written_by_decl_uid,
-			   node_g->statics_written_by_decl_uid,
-			   w_l->statics_written_by_decl_uid);
+	    bitmap_ior_into (node_g->statics_written_by_decl_uid,
+			     w_l->statics_written_by_decl_uid);
 	  w = w->next_cycle;
 	}
 
@@ -1687,7 +1684,7 @@ static_execute (void)
 	  ipa_static_vars_info_t node_info;
 	  ipa_global_static_vars_info_t node_g;
 	  ipa_local_static_vars_info_t node_l;
-	  int index;
+	  size_t index;
 	  bitmap_iterator bi;
 
 	  node = order[i];
@@ -1748,28 +1745,26 @@ static_execute (void)
 
       /* Create the complimentary sets.  These are more useful for
 	 certain apis.  */
-      node_g->statics_not_read_by_decl_uid = BITMAP_XMALLOC ();
-      node_g->statics_not_written_by_decl_uid = BITMAP_XMALLOC ();
+      node_g->statics_not_read_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_not_written_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
 
       /* FIXME -- PROFILE-RESTRUCTURE: Delete next 4 assignments.  */
-      node_g->statics_read_by_ann_uid = BITMAP_XMALLOC ();
-      node_g->statics_written_by_ann_uid = BITMAP_XMALLOC ();
-      node_g->statics_not_read_by_ann_uid = BITMAP_XMALLOC ();
-      node_g->statics_not_written_by_ann_uid = BITMAP_XMALLOC ();
+      node_g->statics_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_not_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_not_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
 
       if (node_g->statics_read_by_decl_uid != all_module_statics) 
 	{
-	  bitmap_operation (node_g->statics_not_read_by_decl_uid, 
+	  bitmap_and_compl (node_g->statics_not_read_by_decl_uid, 
 			    all_module_statics,
-			    node_g->statics_read_by_decl_uid,
-			    BITMAP_AND_COMPL);
+			    node_g->statics_read_by_decl_uid);
 	}
 
       if (node_g->statics_written_by_decl_uid != all_module_statics) 
-	bitmap_operation (node_g->statics_not_written_by_decl_uid, 
+	bitmap_and_compl (node_g->statics_not_written_by_decl_uid, 
 			  all_module_statics,
-			  node_g->statics_written_by_decl_uid,
-			  BITMAP_AND_COMPL);
+			  node_g->statics_written_by_decl_uid);
 
       w = node;
       while (w)

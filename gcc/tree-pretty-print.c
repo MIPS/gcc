@@ -71,7 +71,7 @@ do_niy (pretty_printer *buffer, tree node)
 
   if (EXPR_P (node))
     {
-      len = first_rtl_op (TREE_CODE (node));
+      len = TREE_CODE_LENGTH (TREE_CODE (node));
       for (i = 0; i < len; ++i)
 	{
 	  newline_and_indent (buffer, 2);
@@ -214,6 +214,35 @@ dump_function_declaration (pretty_printer *buffer, tree node,
     pp_string (buffer, "void");
 
   pp_character (buffer, ')');
+}
+
+/* Dump the domain associated with an array.  */
+
+static void
+dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
+{
+  pp_character (buffer, '[');
+  if (domain)
+    {
+      tree min = TYPE_MIN_VALUE (domain);
+      tree max = TYPE_MAX_VALUE (domain);
+
+      if (min && max
+	  && integer_zerop (min)
+	  && host_integerp (max, 0))
+	pp_wide_integer (buffer, TREE_INT_CST_LOW (max) + 1);
+      else
+	{
+	  if (min)
+	    dump_generic_node (buffer, min, spc, flags, false);
+	  pp_character (buffer, ':');
+	  if (max)
+	    dump_generic_node (buffer, max, spc, flags, false);
+	}
+    }
+  else
+    pp_string (buffer, "<unknown>");
+  pp_character (buffer, ']');
 }
 
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
@@ -396,6 +425,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	    pp_string (buffer,  "volatile");
 	  else if (quals & TYPE_QUAL_RESTRICT)
 	    pp_string (buffer, " restrict");
+
+	  if (TYPE_REF_CAN_ALIAS_ALL (node))
+	    pp_string (buffer, " {ref-all}");
 	}
       break;
 
@@ -423,37 +455,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	dump_generic_node (buffer, tmp, spc, flags, false);
 
 	/* Print the dimensions.  */
-	for (tmp = node; TREE_CODE (tmp) == ARRAY_TYPE;
-	     tmp = TREE_TYPE (tmp))
-	  {
-	    tree domain = TYPE_DOMAIN (tmp);
-
-	    pp_character (buffer, '[');
-	    if (domain)
-	      {
-		if (TYPE_MIN_VALUE (domain)
-		    && !integer_zerop (TYPE_MIN_VALUE (domain)))
-		  {
-		    dump_generic_node (buffer, TYPE_MIN_VALUE (domain),
-				       spc, flags, false);
-		    pp_string (buffer, " .. ");
-		  }
-
-		if (TYPE_MAX_VALUE (domain))
-		  dump_generic_node (buffer, TYPE_MAX_VALUE (domain),
-				     spc, flags, false);
-	      }
-	    else
-	      pp_string (buffer, "<unknown>");
-
-	    pp_character (buffer, ']');
-	  }
+	for (tmp = node; TREE_CODE (tmp) == ARRAY_TYPE; tmp = TREE_TYPE (tmp))
+	  dump_array_domain (buffer, TYPE_DOMAIN (tmp), spc, flags);
 	break;
       }
-
-    case SET_TYPE:
-      NIY;
-      break;
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -1246,48 +1251,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_string (buffer, " [non-local]");
       break;
 
-    case LABELED_BLOCK_EXPR:
-      op0 = LABELED_BLOCK_LABEL (node);
-      /* If this is for break or continue, don't bother printing it.  */
-      if (DECL_NAME (op0))
-	{
-	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
-	  if (strcmp (name, "break") == 0
-	      || strcmp (name, "continue") == 0)
-	    {
-	      dump_generic_node (buffer, LABELED_BLOCK_BODY (node), spc, flags, false);
-	      break;
-	    }
-	}
-      dump_generic_node (buffer, LABELED_BLOCK_LABEL (node), spc, flags, false);
-      pp_string (buffer, ": {");
-      if (!(flags & TDF_SLIM))
-	newline_and_indent (buffer, spc+2);
-      dump_generic_node (buffer, LABELED_BLOCK_BODY (node), spc+2, flags, true);
-      if (!flags)
-	newline_and_indent (buffer, spc);
-      pp_character (buffer, '}');
-      is_expr = false;
-      break;
-
-    case EXIT_BLOCK_EXPR:
-      op0 = LABELED_BLOCK_LABEL (EXIT_BLOCK_LABELED_BLOCK (node));
-      /* If this is for a break or continue, print it accordingly.  */
-      if (DECL_NAME (op0))
-	{
-	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
-	  if (strcmp (name, "break") == 0
-	      || strcmp (name, "continue") == 0)
-	    {
-	      pp_string (buffer, name);
-	      break;
-	    }
-	}
-      pp_string (buffer, "<<<exit block ");
-      dump_generic_node (buffer, op0, spc, flags, false);
-      pp_string (buffer, ">>>");
-      break;
-
     case EXC_PTR_EXPR:
       pp_string (buffer, "<<<exception object>>>");
       break;
@@ -1553,18 +1516,7 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
       tmp = TREE_TYPE (t);
       while (TREE_CODE (tmp) == ARRAY_TYPE)
 	{
-	  pp_character (buffer, '[');
-	  if (TYPE_DOMAIN (tmp))
-	    {
-	      if (TREE_CODE (TYPE_SIZE (tmp)) == INTEGER_CST)
-		pp_wide_integer (buffer,
-				TREE_INT_CST_LOW (TYPE_SIZE (tmp)) /
-				TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
-	      else
-		dump_generic_node (buffer, TYPE_SIZE_UNIT (tmp), spc, flags,
-				   false);
-	    }
-	  pp_character (buffer, ']');
+	  dump_array_domain (buffer, TYPE_DOMAIN (tmp), spc, flags);
 	  tmp = TREE_TYPE (tmp);
 	}
     }
@@ -2130,9 +2082,10 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  tree use, def;
+  tree use;
   use_operand_p use_p;
   def_operand_p def_p;
+  use_operand_p kill_p;
   ssa_op_iter iter;
 
   FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
@@ -2147,10 +2100,14 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       newline_and_indent (buffer, spc);
     }
 
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMUSTDEF)
+  FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, kill_p, stmt, iter)
     {
-      pp_string (buffer, "#   V_MUST_DEF <");
-      dump_generic_node (buffer, def, spc + 2, flags, false);
+      pp_string (buffer, "#   ");
+      dump_generic_node (buffer, DEF_FROM_PTR (def_p),
+                         spc + 2, flags, false);
+      pp_string (buffer, " = V_MUST_DEF <");
+      dump_generic_node (buffer, USE_FROM_PTR (kill_p),
+                         spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }

@@ -580,12 +580,10 @@ df_free (struct df *df)
   df->regs = 0;
   df->reg_size = 0;
 
-  if (df->bbs_modified)
-    BITMAP_XFREE (df->bbs_modified);
+  BITMAP_XFREE (df->bbs_modified);
   df->bbs_modified = 0;
 
-  if (df->insns_modified)
-    BITMAP_XFREE (df->insns_modified);
+  BITMAP_XFREE (df->insns_modified);
   df->insns_modified = 0;
 
   BITMAP_XFREE (df->all_blocks);
@@ -1588,7 +1586,7 @@ df_rd_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *gen, void *kill,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (out, gen, in, kill);
+  *changed = bitmap_ior_and_compl (out, gen, in, kill);
 }
 
 
@@ -1597,7 +1595,7 @@ df_ru_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *gen, void *kill,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (in, gen, out, kill);
+  *changed = bitmap_ior_and_compl (in, gen, out, kill);
 }
 
 
@@ -1606,7 +1604,7 @@ df_lr_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *use, void *def,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (in, use, out, def);
+  *changed = bitmap_ior_and_compl (in, use, out, def);
 }
 
 
@@ -1657,8 +1655,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 
       if (CALL_P (insn) && (df->flags & DF_HARD_REGS))
 	{
-	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
-			    call_killed_defs, BITMAP_IOR);
+	  bitmap_ior_into (bb_info->rd_kill, call_killed_defs);
 	  call_seen = 1;
 	}
     }
@@ -2239,7 +2236,7 @@ static int
 df_refs_update (struct df *df, bitmap blocks)
 {
   basic_block bb;
-  int count = 0, bbno;
+  unsigned count = 0, bbno;
 
   df->n_regs = max_reg_num ();
   if (df->n_regs >= df->reg_size)
@@ -3724,10 +3721,13 @@ debug_df_chain (struct df_link *link)
 }
 
 
+/* Perform the set operation OP1 OP OP2, using set representation REPR, and
+   storing the result in OP1.  */
+
 static void
 dataflow_set_a_op_b (enum set_representation repr,
 		     enum df_confluence_op op,
-		     void *rslt, void *op1, void *op2)
+		     void *op1, void *op2)
 {
   switch (repr)
     {
@@ -3735,11 +3735,11 @@ dataflow_set_a_op_b (enum set_representation repr,
       switch (op)
 	{
 	case DF_UNION:
-	  sbitmap_a_or_b (rslt, op1, op2);
+	  sbitmap_a_or_b (op1, op1, op2);
 	  break;
 
 	case DF_INTERSECTION:
-	  sbitmap_a_and_b (rslt, op1, op2);
+	  sbitmap_a_and_b (op1, op1, op2);
 	  break;
 
     	default:
@@ -3751,11 +3751,11 @@ dataflow_set_a_op_b (enum set_representation repr,
       switch (op)
 	{
 	case DF_UNION:
-	  bitmap_a_or_b (rslt, op1, op2);
+	  bitmap_ior_into (op1, op2);
 	  break;
 
 	case DF_INTERSECTION:
-	  bitmap_a_and_b (rslt, op1, op2);
+	  bitmap_and_into (op1, op2);
 	  break;
 
     	default:
@@ -3816,7 +3816,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	    continue;							\
 									\
 	  dataflow_set_a_op_b (dataflow->repr, dataflow->conf_op,	\
-			       IN_SET[i], IN_SET[i],			\
+			       IN_SET[i],      			        \
 			       OUT_SET[e->E_ANTI_BB->index]);		\
 	}								\
 									\

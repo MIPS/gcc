@@ -103,7 +103,7 @@ do {									\
 	while (base[-1] != 'm') base--;					\
 									\
 	if (*darwin_fix_and_continue_switch != '\0')			\
-	  error ("invalid option `%s'", base);				\
+	  error ("invalid option %qs", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
   }									\
@@ -126,15 +126,33 @@ do {									\
    the kernel or some such.  */
 
 #define CC1_SPEC "\
-%{gused: -g -feliminate-unused-debug-symbols %<gused }\
-%{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
-%{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
+%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
+#define DARWIN_SUBARCH_SPEC "			\
+ %{m64: ppc64}					\
+ %{!m64:					\
+ %{mcpu=601:ppc601;				\
+   mcpu=603:ppc603;				\
+   mcpu=603e:ppc603;				\
+   mcpu=604:ppc604;				\
+   mcpu=604e:ppc604e;				\
+   mcpu=740:ppc750;				\
+   mcpu=750:ppc750;				\
+   mcpu=G3:ppc750;				\
+   mcpu=7400:ppc7400;				\
+   mcpu=G4:ppc7400;				\
+   mcpu=7450:ppc7450;				\
+   mcpu=970:ppc970;				\
+   mcpu=power4:ppc970;				\
+   mcpu=G5:ppc970;				\
+   :ppc}}"
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch", "ppc" },
+  { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 
 /* Output a .machine directive.  */
 #undef TARGET_ASM_FILE_START
@@ -152,7 +170,7 @@ do {									\
   { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
 
-/* Make both r2 and r3 available for allocation.  */
+/* Make both r2 and r13 available for allocation.  */
 #define FIXED_R2 0
 #define FIXED_R13 0
 
@@ -187,6 +205,10 @@ do {									\
 
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
+
+/* Darwin uses a function call if everything needs to be saved/restored.  */
+#undef WORLD_SAVE_P
+#define WORLD_SAVE_P(INFO) ((INFO)->world_save_p)
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */
@@ -293,6 +315,10 @@ do {									\
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
                       | MASK_PPC_GFXOPT)
 
+/* Darwin only runs on PowerPC, so short-circuit POWER patterns.  */
+#undef  TARGET_POWER
+#define TARGET_POWER 0
+
 /* Since Darwin doesn't do TOCs, stub this out.  */
 
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)  0
@@ -316,8 +342,8 @@ do {									\
 
 #undef PREFERRED_RELOAD_CLASS
 #define PREFERRED_RELOAD_CLASS(X,CLASS)				\
-  ((GET_CODE (X) == CONST_DOUBLE				\
-    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)		\
+  ((CONSTANT_P (X)						\
+    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))		\
    ? NO_REGS							\
    : ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
       && reg_class_subset_p (BASE_REGS, (CLASS)))		\
@@ -351,6 +377,12 @@ do {									\
       && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
    ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
    : MAX ((COMPUTED), (SPECIFIED)))
+
+/* Specify padding for the last element of a block move between
+   registers and memory.  FIRST is nonzero if this is the only
+   element.  */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  (!(FIRST) ? upward : FUNCTION_ARG_PADDING (MODE, TYPE))
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
    support 64 bit PowerPC either, so this just keeps things happy.  */

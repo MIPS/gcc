@@ -421,7 +421,7 @@ gfc_resolve_cshift (gfc_expr * f, gfc_expr * array,
       gfc_resolve_index (dim, 1);
       /* Convert dim to shift's kind, so we don't need so many variations.  */
       if (dim->ts.kind != shift->ts.kind)
-	gfc_convert_type (dim, &shift->ts, 2);
+	gfc_convert_type_warn (dim, &shift->ts, 2, 0);
     }
   f->value.function.name =
     gfc_get_string ("__cshift%d_%d", n, shift->ts.kind);
@@ -510,7 +510,7 @@ gfc_resolve_eoshift (gfc_expr * f, gfc_expr * array,
   /* Convert dim to the same type as shift, so we don't need quite so many
      variations.  */
   if (dim != NULL && dim->ts.kind != shift->ts.kind)
-    gfc_convert_type (dim, &shift->ts, 2);
+    gfc_convert_type_warn (dim, &shift->ts, 2, 0);
 
   f->value.function.name =
     gfc_get_string ("__eoshift%d_%d", n, shift->ts.kind);
@@ -549,6 +549,18 @@ gfc_resolve_floor (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
   f->value.function.name =
     gfc_get_string ("__floor%d_%c%d", f->ts.kind,
 		    gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_fnum (gfc_expr * f, gfc_expr * n)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  if (n->ts.kind != f->ts.kind)
+    gfc_convert_type (n, &f->ts, 2);
+  f->value.function.name = gfc_get_string (PREFIX("fnum_i%d"), f->ts.kind);
 }
 
 
@@ -1160,6 +1172,17 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
 	  c = c->next;
 	}
     }
+
+  /* Force-convert both SHAPE and ORDER to index_kind so that we don't need
+     so many runtime variations.  */
+  if (shape->ts.kind != gfc_index_integer_kind)
+    {
+      gfc_typespec ts = shape->ts;
+      ts.kind = gfc_index_integer_kind;
+      gfc_convert_type_warn (shape, &ts, 2, 0);
+    }
+  if (order && order->ts.kind != gfc_index_integer_kind)
+    gfc_convert_type_warn (order, &shape->ts, 2, 0);
 }
 
 
@@ -1173,13 +1196,24 @@ gfc_resolve_rrspacing (gfc_expr * f, gfc_expr * x)
 
 
 void
-gfc_resolve_scale (gfc_expr * f, gfc_expr * x,
-		   gfc_expr * y ATTRIBUTE_UNUSED)
+gfc_resolve_scale (gfc_expr * f, gfc_expr * x, gfc_expr * i)
 {
 
   f->ts = x->ts;
-  f->value.function.name = gfc_get_string ("__scale_%d_%d", x->ts.kind,
-					   x->ts.kind);
+
+  /* The implementation calls scalbn which takes an int as the
+     second argument.  */
+  if (i->ts.kind != gfc_c_int_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_default_integer_kind;
+
+      gfc_convert_type_warn (i, &ts, 2, 0);
+    }
+
+  f->value.function.name = gfc_get_string ("__scale_%d", x->ts.kind);
 }
 
 
@@ -1200,8 +1234,21 @@ gfc_resolve_set_exponent (gfc_expr * f, gfc_expr * x, gfc_expr * i)
 {
 
   f->ts = x->ts;
-  f->value.function.name =
-    gfc_get_string ("__set_exponent_%d_%d", x->ts.kind, i->ts.kind);
+
+  /* The library implementation uses GFC_INTEGER_4 unconditionally,
+     convert type so we don't have to implment all possible
+     permutations.  */
+  if (i->ts.kind != 4)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_default_integer_kind;
+
+      gfc_convert_type_warn (i, &ts, 2, 0);
+    }
+
+  f->value.function.name = gfc_get_string ("__set_exponent_%d", x->ts.kind);
 }
 
 
@@ -1280,6 +1327,32 @@ gfc_resolve_sqrt (gfc_expr * f, gfc_expr * x)
   f->ts = x->ts;
   f->value.function.name =
     gfc_get_string ("__sqrt_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
+
+
+/* Resolve the g77 compatibility function STAT AND FSTAT.  */
+
+void
+gfc_resolve_stat (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED,
+		  gfc_expr * a ATTRIBUTE_UNUSED)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  f->value.function.name = gfc_get_string (PREFIX("stat_i%d"), f->ts.kind);
+}
+
+
+void
+gfc_resolve_fstat (gfc_expr * f, gfc_expr * n, gfc_expr * a ATTRIBUTE_UNUSED)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  if (n->ts.kind != f->ts.kind)
+    gfc_convert_type (n, &f->ts, 2);
+
+  f->value.function.name = gfc_get_string (PREFIX("fstat_i%d"), f->ts.kind);
 }
 
 
@@ -1432,6 +1505,29 @@ gfc_resolve_ubound (gfc_expr * f, gfc_expr * array,
   f->value.function.name = ubound;
 }
 
+
+/* Resolve the g77 compatibility function UMASK.  */
+
+void
+gfc_resolve_umask (gfc_expr * f, gfc_expr * n)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = n->ts.kind;
+  f->value.function.name = gfc_get_string (PREFIX("umask_i%d"), n->ts.kind);
+}
+
+
+/* Resolve the g77 compatibility function UNLINK.  */
+
+void
+gfc_resolve_unlink (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 4;
+  f->value.function.name = gfc_get_string (PREFIX("unlink"));
+}
 
 void
 gfc_resolve_unpack (gfc_expr * f, gfc_expr * vector, gfc_expr * mask,
@@ -1594,7 +1690,7 @@ gfc_resolve_get_command_argument (gfc_code * c)
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
-/* Resolve the get_environment_variable intrinsic subroutine. */
+/* Resolve the get_environment_variable intrinsic subroutine.  */
 
 void
 gfc_resolve_get_environment_variable (gfc_code * code)
@@ -1638,6 +1734,105 @@ gfc_resolve_system_clock (gfc_code * c)
   name = gfc_get_string (PREFIX("system_clock_%d"), kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
+
+/* Resolve the EXIT intrinsic subroutine.  */
+
+void
+gfc_resolve_exit (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  if (c->ext.actual->expr != NULL)
+    kind = c->ext.actual->expr->ts.kind;
+  else
+    kind = gfc_default_integer_kind;
+
+  name = gfc_get_string (PREFIX("exit_i%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the FLUSH intrinsic subroutine.  */
+
+void
+gfc_resolve_flush (gfc_code * c)
+{
+  const char *name;
+  gfc_typespec ts;
+  gfc_expr *n;
+
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_default_integer_kind;
+  n = c->ext.actual->expr;
+  if (n != NULL
+      && n->ts.kind != ts.kind)
+    gfc_convert_type (n, &ts, 2);
+
+  name = gfc_get_string (PREFIX("flush_i%d"), ts.kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the STAT and FSTAT intrinsic subroutines.  */
+
+void
+gfc_resolve_stat_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("stat_i%d_sub"), gfc_default_integer_kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_fstat_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *u;
+  gfc_typespec *ts;
+
+  u = c->ext.actual->expr;
+  ts = &c->ext.actual->next->expr->ts;
+  if (u->ts.kind != ts->kind)
+    gfc_convert_type (u, ts, 2);
+  name = gfc_get_string (PREFIX("fstat_i%d_sub"), ts->kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the UMASK intrinsic subroutine.  */
+
+void
+gfc_resolve_umask_sub (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  if (c->ext.actual->next->expr != NULL)
+    kind = c->ext.actual->next->expr->ts.kind;
+  else
+    kind = gfc_default_integer_kind;
+
+  name = gfc_get_string (PREFIX("umask_i%d_sub"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the UNLINK intrinsic subroutine.  */
+
+void
+gfc_resolve_unlink_sub (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  if (c->ext.actual->next->expr != NULL)
+    kind = c->ext.actual->next->expr->ts.kind;
+  else
+    kind = gfc_default_integer_kind;
+
+  name = gfc_get_string (PREFIX("unlink_i%d_sub"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
 
 void
 gfc_iresolve_init_1 (void)

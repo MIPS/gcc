@@ -45,11 +45,8 @@ recursive_flush (gfc_unit *us)
 }
 
 
-extern void flush_i4 (GFC_INTEGER_4 *);
-export_proto(flush_i4);
-
 void
-flush_i4 (GFC_INTEGER_4 *unit)
+prefix(flush_i4) (GFC_INTEGER_4 * unit)
 {
   gfc_unit *us;
 

@@ -37,8 +37,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
+#include "regs.h"
 #include "timevar.h"
 #include "output.h"
 #include "insn-config.h"
@@ -49,7 +51,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "regs.h"
 #include "cfglayout.h"
 #include "emit-rtl.h"
 
@@ -280,7 +281,7 @@ thread_jump (int mode, edge e, basic_block b)
   rtx set1, set2, cond1, cond2, insn;
   enum rtx_code code1, code2, reversed_code2;
   bool reverse1 = false;
-  int i;
+  unsigned i;
   regset nonequal;
   bool failed = false;
   reg_set_iterator rsi;
@@ -349,7 +350,8 @@ thread_jump (int mode, edge e, basic_block b)
   cselib_init (false);
 
   /* First process all values computed in the source basic block.  */
-  for (insn = NEXT_INSN (BB_HEAD (e->src)); insn != NEXT_INSN (BB_END (e->src));
+  for (insn = NEXT_INSN (BB_HEAD (e->src));
+       insn != NEXT_INSN (BB_END (e->src));
        insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       cselib_process_insn (insn);
@@ -361,7 +363,8 @@ thread_jump (int mode, edge e, basic_block b)
      processing as if it were same basic block.
      Our goal is to prove that whole block is an NOOP.  */
 
-  for (insn = NEXT_INSN (BB_HEAD (b)); insn != NEXT_INSN (BB_END (b)) && !failed;
+  for (insn = NEXT_INSN (BB_HEAD (b));
+       insn != NEXT_INSN (BB_END (b)) && !failed;
        insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
@@ -370,7 +373,7 @@ thread_jump (int mode, edge e, basic_block b)
 
 	  if (GET_CODE (pat) == PARALLEL)
 	    {
-	      for (i = 0; i < XVECLEN (pat, 0); i++)
+	      for (i = 0; i < (unsigned)XVECLEN (pat, 0); i++)
 		failed |= mark_effect (XVECEXP (pat, 0, i), nonequal);
 	    }
 	  else
@@ -1336,7 +1339,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	    {
 	      if (dump_file)
 		fprintf (dump_file,
-			 "Outcomes of branch in bb %i and %i differs to much (%i %i)\n",
+			 "Outcomes of branch in bb %i and %i differ too much (%i %i)\n",
 			 bb1->index, bb2->index, b1->probability, prob2);
 
 	      return false;
@@ -1353,7 +1356,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Generic case - we are seeing a computed jump, table jump or trapping
      instruction.  */
 
-#ifndef CASE_DROPS_THROUGH
   /* Check whether there are tablejumps in the end of BB1 and BB2.
      Return true if they are identical.  */
     {
@@ -1427,7 +1429,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	  return false;
 	}
     }
-#endif
 
   /* First ensure that the instructions match.  There may be many outgoing
      edges so this test is generally cheaper.  */
@@ -1565,7 +1566,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
       && (newpos1 != BB_HEAD (src1)))
     return false;
 
-#ifndef CASE_DROPS_THROUGH
   /* Here we know that the insns in the end of SRC1 which are common with SRC2
      will be deleted.
      If we have tablejumps in the end of SRC1 and SRC2
@@ -1596,7 +1596,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	    }
 	}
     }
-#endif
 
   /* Avoid splitting if possible.  */
   if (newpos2 == BB_HEAD (src2))
