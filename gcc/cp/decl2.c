@@ -2769,6 +2769,23 @@ mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   if (TREE_CODE (*tp) == PTRMEM_CST
       && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL)
     cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  if (TREE_CODE (*tp) == EH_SPEC_BLOCK)
+    {
+      tree type;
+
+      for (type = EH_SPEC_RAISES ((*tp)); type;
+	   type = TREE_CHAIN (type))
+	{
+	   tree tinfo;
+
+	   if (decl_is_java_type (TREE_VALUE (type), 0))
+	     tinfo = build_java_class_ref (TREE_TYPE (TREE_VALUE (type)));
+	   else
+	     tinfo = get_tinfo_decl (TREE_VALUE (type));
+	   cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
+        }
+    }
+
   if (TREE_CODE (*tp) == HANDLER)
     {
       tree type = HANDLER_TYPE (*tp);

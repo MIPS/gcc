@@ -482,8 +482,18 @@ finish_eh_spec_block (raw_raises, eh_spec_block)
   for (raises = NULL_TREE;
        raw_raises && TREE_VALUE (raw_raises);
        raw_raises = TREE_CHAIN (raw_raises))
-    raises = tree_cons (NULL_TREE, prepare_eh_type (TREE_VALUE (raw_raises)),
-			raises);
+    {
+      tree type = prepare_eh_type (TREE_VALUE (raw_raises));
+      tree tinfo;
+
+      if (decl_is_java_type (type, 0))
+	tinfo = build_java_class_ref (TREE_TYPE (type));
+      else
+	tinfo = get_tinfo_decl (type);
+      mark_used (tinfo);
+
+      raises = tree_cons (NULL_TREE, type, raises);
+    }
 
   EH_SPEC_RAISES (eh_spec_block) = raises;
 }
