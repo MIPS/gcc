@@ -90,6 +90,13 @@ compilation is specified by a string called a "spec".  */
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/uio.h>
+/* If true, use the same socket for multiple compile server requests.
+   Slightly less overhead, but precludes load-balancing for multi-CPU
+   systems, so far now we leave it off. */
+int reuse_server_sockets = 0;
+/* Most recent socket, if reuse_server_sockets, and server_socket >= 0. */
+int server_socket = -1;
+const char* server_program = NULL;
 #endif
 
 #ifdef HAVE_SYS_RESOURCE_H
@@ -2780,8 +2787,10 @@ execute (void)
   {
     const char *prog;	/* program name.  */
     const char **argv;	/* vector of args.  */
-    int pid;		/* pid of process for this command, -1 for servers.  */
-    int server_socket;	/* server fd, else -1.  */
+    int pid;		/* pid of process for this command, < 0 for servers. */
+    int server_socket;	/* if pid == 1: server fd;
+			   if pid == -2: status;
+			   else -1.  */
   };
 
   struct command *commands; /* each command buffer with above info.  */
@@ -2912,7 +2921,6 @@ execute (void)
     {
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
-      static int server_pid = 0;
 
       commands[i].server_socket = -1;
 #ifdef ENABLE_SERVER
@@ -2927,8 +2935,21 @@ execute (void)
 			       | (verbose_flag ? PEXECUTE_VERBOSE : 0)))
 	    ret_code = -1;
 
-	  /* We allocate negative ids to server processes.  */
-	  commands[i].pid = --server_pid;
+	  if (reuse_server_sockets)
+	    {
+	      unsigned char status = 1;
+	      server_socket = commands[i].server_socket;
+	      server_program = string + 2;
+	      if (read (server_socket, &status, 1) == 1)
+		{
+		  fprintf (stderr, "(got %d from server)\n", status);
+		  status = W_EXITCODE (status, 0);
+		}
+	      commands[i].server_socket = status;
+	      commands[i].pid = -2;
+	    }
+	  else
+	    commands[i].pid = -1;
 	}
       else
 #endif
@@ -2973,8 +2994,12 @@ execute (void)
 	int pid = commands[i].pid;;
 
 #ifdef ENABLE_SERVER
-	if (pid < 0 && commands[i].server_socket > -1)
-	  status = pexecute_server_wait (commands[i].server_socket);
+	if (pid < 0)
+	  {
+	    status = commands[i].server_socket;
+	    if (pid == -1)
+	      status = pexecute_server_wait (status);
+	  }
 	else
 #endif
 	  {
@@ -5877,6 +5902,13 @@ get_server_socket (const char *prog, bool loadbalancer)
   struct sockaddr_un server;
   char buf[1];
   int sock;
+
+  if (reuse_server_sockets && server_socket >= 0)
+    {
+      if (strcmp (prog, server_program) == 0)
+	return server_socket;
+      close (server_socket);
+    }
 
   sock = socket (AF_UNIX, SOCK_STREAM, 0);
   if (sock < 0)

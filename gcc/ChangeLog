@@ -1,5 +1,10 @@
 2003-11-30  Per Bothner  <pbothner@apple.com>
 
+	* gcc.c (reuse_server_sockets, server_socket):  New globals.
+	(excute, get_server_socket):  If reuse_server_sockets, do so.
+
+2003-11-30  Per Bothner  <pbothner@apple.com>
+
 	* cpplib.h (struct cpp_callbacks):  Remove use of PARAMS macro.
 	Drop last two parameters of enter_fragment call-back.
 	* cppfiles.c (_cpp_enter_fragment):  Likewise.
