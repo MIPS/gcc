@@ -29,6 +29,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "c-incpath.h"
 #include "cppdefault.h"
+/* APPLE LOCAL headermaps 3871393 */ 
+#include "errors.h"
 
 /* Windows does not natively support inodes, and neither does MSDOS.
    Cygwin's emulation can generate non-unique inodes, so don't use it.

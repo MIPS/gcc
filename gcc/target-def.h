@@ -278,19 +278,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
-/* Vectorizer hooks.  All of these default to null pointers, which
-   tree-vectorizer.c looks for and handles.  */
-#define TARGET_VECT                                       \
-  {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
-   TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
-   TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
-   TARGET_VECT_BUILD_BUILTIN_LVSR,                        \
-   TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
-   TARGET_VECT_SUPPORT_VMUL_UCH_P,			  \
-   TARGET_VECT_BUILD_VMUL_UCH,				  \
-   TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
-   TARGET_VECT_BUILD_VECTOR_INIT}
-
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
@@ -557,8 +544,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
-  /* APPLE LOCAL AV misaligned --haifa  */       \
-  TARGET_VECT,                                  \
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
