@@ -4899,6 +4899,7 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_tracer = 1;
+      flag_unswitch_loops = 1;
     }
 
   if (optimize >= 3)
