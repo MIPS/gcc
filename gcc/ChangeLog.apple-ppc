@@ -1,3 +1,8 @@
+2004-06-14  Dale Johannesen  <dalej@apple.com>
+	Radar 3690727 (partial)
+	* gimplify.c (copy_if_shared_r): Add missing APPLE LOCAL.
+	* config/rs6000/t-darwin: Ditto.
+
 2004-06-14  Fariborz Jahanian <fjahanian@apple.com> 
         * version.c: Remove word tree-ssa from version string.
 

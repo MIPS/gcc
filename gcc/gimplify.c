@@ -664,6 +664,10 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* Otherwise, mark the tree as visited and keep looking.  */
   else
+    /* APPLE LOCAL begin PR 14489 etc. --dbj */
+    /* History is complicated, this was in mainline prior to merge,
+       temporarily and erroneously removed at merge snapshot,
+       later put back, still later replaced by different mechanism. */
     {
       TREE_VISITED (t) = 1;
       if (TREE_CODE (*tp) == VA_ARG_EXPR)
@@ -677,6 +681,7 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		     NULL, NULL);
 	}
     }
+    /* APPLE LOCAL end PR 14489 etc. */
 
   return NULL_TREE;
 }
