@@ -180,7 +180,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   /* Ensure heap wiping doesn't occur during this peculiar
      unregister/reregister pair.  */
   LOCKTH ();
-  /* XXX: reentrancy! */
+  __mf_state = reentrant;
   saved_wipe_heap = __mf_opts.wipe_heap;
   __mf_opts.wipe_heap = 0;
 
@@ -196,6 +196,8 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
   /* Restore previous setting.  */
   __mf_opts.wipe_heap = saved_wipe_heap;
+
+  __mf_state = active;
   UNLOCKTH ();
 
   return result;
