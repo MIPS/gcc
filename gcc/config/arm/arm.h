@@ -76,6 +76,8 @@ extern char arm_arch_name[];
 	  builtin_define ("__XSCALE__");		\
 	if (arm_arch_iwmmxt)				\
 	  builtin_define ("__IWMMXT__");		\
+	if (TARGET_AAPCS_BASED)				\
+	  builtin_define ("__ARM_EABI__");		\
     } while (0)
 
 /* The various ARM cores.  */
@@ -489,6 +491,9 @@ extern int arm_arch3m;
 
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 extern int arm_arch4;
+
+/* Nonzero if this chip supports the ARM Architecture 4T extensions.  */
+extern int arm_arch4t;
 
 /* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 extern int arm_arch5;
@@ -1322,7 +1327,7 @@ enum reg_class
    : NO_REGS)
 
 #define THUMB_SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)		\
-  ((CLASS) != LO_REGS				 			\
+  ((CLASS) != LO_REGS && (CLASS) != BASE_REGS				\
    ? ((true_regnum (X) == -1 ? LO_REGS					\
        : (true_regnum (X) + HARD_REGNO_NREGS (0, MODE) > 8) ? LO_REGS	\
        : NO_REGS)) 							\
@@ -1382,14 +1387,13 @@ enum reg_class
 	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));			   \
 	  HOST_WIDE_INT low, high;					   \
 									   \
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && TARGET_FPA	   \
-		                 && MODE == DFmode))			   \
+	  if (MODE == DImode || (MODE == DFmode && TARGET_SOFT_FLOAT))	   \
 	    low = ((val & 0xf) ^ 0x8) - 0x8;				   \
 	  else if (TARGET_MAVERICK && TARGET_HARD_FLOAT)		   \
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (MODE == SImode					   \
-		   || (MODE == SFmode && TARGET_SOFT_FLOAT && TARGET_FPA)  \
+		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
 	    /* Need to be careful, -4096 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \

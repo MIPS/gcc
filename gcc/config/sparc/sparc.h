@@ -463,7 +463,7 @@ extern int target_flags;
 #define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
 
 /* Nonzero on little-endian machines.  */
-/* ??? Little endian support currently only exists for sparclet-aout and
+/* ??? Little endian support currently only exists for sparc86x-elf and
    sparc64-elf configurations.  May eventually want to expand the support
    to all targets, but for now it's kept local to only those two.  */
 #define MASK_LITTLE_ENDIAN 0x1000
@@ -1804,8 +1804,7 @@ do {									\
   sparc_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  sparc_va_arg (valist, type)
+#define EXPAND_BUILTIN_VA_ARG(valist, type) (abort (), NULL_RTX)
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
@@ -2180,6 +2179,11 @@ do {                                                                    \
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
+
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movstr or libcall instead.  */
+
+#define MOVE_RATIO (optimize_size ? 3 : 8)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2612,6 +2616,7 @@ do {									\
 {"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
 {"clobbered_register", {REG}},						\
 {"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
+{"compare_operand", {SUBREG, REG, ZERO_EXTRACT}},			\
 {"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
 {"const64_high_operand", {CONST_INT, CONST_DOUBLE}},			\
 {"tgd_symbolic_operand", {SYMBOL_REF}},					\

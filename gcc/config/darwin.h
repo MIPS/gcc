@@ -39,13 +39,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* Suppress g++ attempt to link in the math library automatically.
-   (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
-   above.  */
-#ifndef MATH_LIBRARY
+/* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
-#endif
 
 /* We have atexit.  */
 
@@ -276,10 +271,12 @@ Boston, MA 02111-1307, USA.  */
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries.  */
+/* Machine dependent libraries but do not redefine it if we already on 7.0 and
+   above as it needs to link with libmx also.  */
 
-#undef	LIB_SPEC
+#ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
+#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -358,11 +355,10 @@ do { text_section ();							\
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
 
-/* The Darwin linker doesn't like explicit template instantiations to be
-   coalesced, because it doesn't want coalesced symbols to appear in
+/* The Darwin linker doesn't want coalesced symbols to appear in
    a static archive's table of contents. */
-#undef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-#define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 0
+#undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
 
 /* We make exception information linkonce. */
 #undef TARGET_USES_WEAK_UNWIND_INFO

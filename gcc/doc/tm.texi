@@ -51,6 +51,7 @@ through the macros defined in the @file{.h} file.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
 * MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * PCH Target::          Validity checking for precompiled headers.
+* C++ ABI::             Controlling C++ ABI changes.
 * Misc::                Everything else.
 @end menu
 
@@ -3864,6 +3865,23 @@ The default value of this hook is @code{NULL}, which is treated as always
 false.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_GIMPLIFY_VA_ARG_EXPR (tree @var{valist}, tree @var{type}, tree *@var{pre_p}, tree *@var{post_p})
+This hook performs target-specific gimplification of
+@code{VA_ARG_EXPR}.  The first two parameters correspond to the
+arguments to @code{va_arg}; the latter two are as in
+@code{gimplify.c:gimplify_expr}.
+
+You only need to define this hook if you previously defined
+@code{EXPAND_BUILTIN_VA_ARG}; it is pretty easy to reuse the same code
+for both.  One significant difference is that
+@code{EXPAND_BUILTIN_VA_ARG} returns an address, whereas this hook
+produces an expression of type @var{type}, usually an @code{INDIRECT_REF}.
+
+Once you define this macro, you can change
+@code{EXPAND_BUILTIN_VA_ARG} to just abort, as it should never be
+called.
+@end deftypefn
+
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
 @cindex return values in registers
@@ -6753,13 +6771,23 @@ commands that will make the symbol(s) associated with @var{decl} have
 hidden, protected or internal visibility as specified by @var{visibility}.
 @end deftypefn
 
-@defmac TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+@defmac TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 A C expression that evaluates to true if the target's linker expects
-explicit template specializations, as well as implicit, to be given
-linkonce semantics.  The default is @code{1}.  The C++ ABI requires
-this macro to be nonzero.  Define this macro for targets where full
-C++ ABI compliance is impossible and where explicit and implicit 
-template specialization must be treated differently.
+that weak symbols do not appear in a static archive's table of contents.
+The default is @code{0}.  
+
+Leaving weak symbols out of an archive's table of contents means that,
+if a symbol will only have a definition in one translation unit and
+will have undefined references from other translation units, that
+symbol should not be weak.  Defining this macro to be nonzero will
+thus have the effect that certain symbols that would normally be weak
+(explicit template instantiations, and vtables for polymorphic classes
+with noninline key methods) will instead be nonweak.
+
+The C++ ABI requires this macro to be zero.  Define this macro for
+targets where full C++ ABI compliance is impossible and where linker
+restrictions require weak symbols to be left out of a static archive's
+table of contents.
 @end defmac
 
 @defmac TARGET_SUPPORTS_HIDDEN
@@ -8433,6 +8461,22 @@ if not.  The error message will be presented to the user, so it should
 be localized.
 @end deftypefn
 
+@node C++ ABI
+@section C++ ABI parameters
+@cindex parameters, c++ abi
+
+@deftypefn {Target Hook} tree TARGET_CXX_GUARD_TYPE (void)
+Define this hook to override the integer type used for guard variables.
+These are used to implement one-time construction of static objects.  The
+default is long_long_integer_type_node.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_GUARD_MASK_BIT (void)
+This hook determines how guard variables are used.  It should return 
+@code{false} (the default) if first byte should be used.  A return value of
+@code{true} indicates the least significant bit should be used.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
@@ -8927,16 +8971,6 @@ Define this macro if the assembler does not accept the character
 @samp{.} in label names.  By default constructors and destructors in G++
 have names that use @samp{.}.  If this macro is defined, these names
 are rewritten to avoid @samp{.}.
-@end defmac
-
-@defmac DEFAULT_MAIN_RETURN
-Define this macro if the target system expects every program's @code{main}
-function to return a standard ``success'' value by default (if no other
-value is explicitly returned).
-
-The definition should be a C statement (sans semicolon) to generate the
-appropriate rtl instructions.  It is used only when compiling the end of
-@code{main}.
 @end defmac
 
 @defmac INSN_SETS_ARE_DELAYED (@var{insn})

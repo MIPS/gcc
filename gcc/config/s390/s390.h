@@ -95,7 +95,7 @@ extern int target_flags;
 #define MASK_64BIT                 0x10
 #define MASK_ZARCH                 0x20
 #define MASK_MVCLE                 0x40
-#define MASK_TPF                   0x80
+#define MASK_TPF_PROFILING         0x80
 #define MASK_NO_FUSED_MADD         0x100
 
 #define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
@@ -106,7 +106,7 @@ extern int target_flags;
 #define TARGET_64BIT               (target_flags & MASK_64BIT)
 #define TARGET_ZARCH               (target_flags & MASK_ZARCH)
 #define TARGET_MVCLE               (target_flags & MASK_MVCLE)
-#define TARGET_TPF                 (target_flags & MASK_TPF)
+#define TARGET_TPF_PROFILING       (target_flags & MASK_TPF_PROFILING)
 #define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
 #define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
 
@@ -135,8 +135,8 @@ extern int target_flags;
   { "esa",           -32, N_("ESA/390 architecture")},                   \
   { "mvcle",          64, N_("mvcle use")},                              \
   { "no-mvcle",      -64, N_("mvc&ex")},                                 \
-  { "tpf",           128, N_("enable tpf OS code")},                     \
-  { "no-tpf",       -128, N_("disable tpf OS code")},                    \
+  { "tpf-trace",     128, N_("enable tpf OS tracing code")},             \
+  { "no-tpf-trace", -128, N_("disable tpf OS tracing code")},            \
   { "no-fused-madd", 256, N_("disable fused multiply/add instructions")},\
   { "fused-madd",   -256, N_("enable fused multiply/add instructions")}, \
   { "", TARGET_DEFAULT, 0 } }
@@ -708,7 +708,7 @@ CUMULATIVE_ARGS;
   s390_va_start (valist, nextarg)
 
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  s390_va_arg (valist, type)
+  (abort (), NULL_RTX)
 
 
 /* Trampolines for nested functions.  */
@@ -990,8 +990,10 @@ do {									\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},					\
-  {"s390_alc_comparison", { LTU, GTU, LEU, GEU }},			\
-  {"s390_slb_comparison", { LTU, GTU, LEU, GEU }},
+  {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
+			    LTU, GTU, LEU, GEU }},			\
+  {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\
+			    LTU, GTU, LEU, GEU }},
 
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */
@@ -1012,8 +1014,5 @@ do {									\
 /* A function address in a call instruction is a byte address (for
    indexing purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
-
-/* This macro definition sets up a default value for `main' to return.  */
-#define DEFAULT_MAIN_RETURN  c_expand_return (integer_zero_node)
 
 #endif

@@ -866,6 +866,32 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 }
 
 
+/* Substitute a temporary variable in place of the real one.  */
+
+void
+gfc_shadow_sym (gfc_symbol * sym, tree decl, gfc_saved_var * save)
+{
+  save->attr = sym->attr;
+  save->decl = sym->backend_decl;
+
+  gfc_clear_attr (&sym->attr);
+  sym->attr.referenced = 1;
+  sym->attr.flavor = FL_VARIABLE;
+
+  sym->backend_decl = decl;
+}
+
+
+/* Restore the original variable.  */
+
+void
+gfc_restore_sym (gfc_symbol * sym, gfc_saved_var * save)
+{
+  sym->attr = save->attr;
+  sym->backend_decl = save->decl;
+}
+
+
 /* Get a basic decl for an external function.  */
 
 tree
@@ -1619,6 +1645,14 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 
   DECL_DEFER_OUTPUT (decl) = 1;
 
+  /* Since we don't use a DECL_STMT or equivalent, we have to deal
+     with getting these gimplified.  But we can't gimplify it yet since
+     we're still generating statements.
+
+     ??? This should be cleaned up and handled like other front ends.  */
+  gfc_add_expr_to_block (&body, save_expr (DECL_SIZE (decl)));
+  gfc_add_expr_to_block (&body, save_expr (DECL_SIZE_UNIT (decl)));
+
   /* Generate code to allocate the automatic variable.  It will be freed
      automatically.  */
   tmp = gfc_build_addr_expr (NULL, decl);
@@ -1762,6 +1796,12 @@ gfc_create_module_variable (gfc_symbol * sym)
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
     return;
 
+  if (sym->attr.flavor == FL_VARIABLE && sym->ts.type == BT_UNKNOWN)
+    /* TODO: This is a workaround for the issue outlined in PR 15481,
+       and it fixes the bug in PR13372. This should never happen in an
+       ideal frontend.  */
+    return;
+
   /* Don't generate variables from other modules.  */
   if (sym->attr.use_assoc)
     return;
@@ -1889,9 +1929,10 @@ generate_local_decl (gfc_symbol * sym)
             warning ("unused parameter `%s'", sym->name);
         }
       /* warn for unused variables, but not if they're inside a common
-	 block.  */
-      else if (warn_unused_variable && !sym->attr.in_common)
-        warning ("unused variable `%s'", sym->name);
+	 block or are use_associated.  */
+      else if (warn_unused_variable
+	       && !(sym->attr.in_common || sym->attr.use_assoc))
+	warning ("unused variable `%s'", sym->name); 
     }
 }
 
@@ -1914,6 +1955,24 @@ gfc_finalize (tree decl)
     gfc_finalize (cgn->decl);
 
   cgraph_finalize_function (decl, false);
+}
+
+/* Convert FNDECL's code to GIMPLE and handle any nested functions.  */
+
+static void
+gfc_gimplify_function (tree fndecl)
+{
+  struct cgraph_node *cgn;
+
+  gimplify_function_tree (fndecl);
+  dump_function (TDI_generic, fndecl);
+
+  /* Convert all nested functions to GIMPLE now.  We do things in this order
+     so that items like VLA sizes are expanded properly in the context of the
+     correct function.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn; cgn = cgn->next_nested)
+    gfc_gimplify_function (cgn->decl);
 }
 
 /* Generate code for a function.  */
@@ -2087,25 +2146,16 @@ gfc_generate_function_code (gfc_namespace * ns)
   current_function_decl = old_context;
 
   if (decl_function_context (fndecl))
-    {
-      /* Register this function with cgraph just far enough to get it
-	 added to our parent's nested function list.  */
-      (void) cgraph_node (fndecl);
-
-      /* Lowering nested functions requires gimple input.  */
-      gimplify_function_tree (fndecl);
-    }
+    /* Register this function with cgraph just far enough to get it
+       added to our parent's nested function list.  */
+    (void) cgraph_node (fndecl);
   else
     {
-      if (cgraph_node (fndecl)->nested)
-	{
-	  gimplify_function_tree (fndecl);
-          lower_nested_functions (fndecl);
-	}
+      gfc_gimplify_function (fndecl);
+      lower_nested_functions (fndecl);
       gfc_finalize (fndecl);
     }
 }
-
 
 void
 gfc_generate_constructors (void)

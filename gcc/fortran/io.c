@@ -2046,7 +2046,7 @@ match_io (io_kind k)
   gfc_code *io_code;
   gfc_symbol *sym;
   gfc_expr *expr;
-  int comma_flag;
+  int comma_flag, c;
   locus where;
   gfc_dt *dt;
   match m;
@@ -2058,6 +2058,16 @@ match_io (io_kind k)
     {
       if (k == M_WRITE)
 	goto syntax;
+
+      if (gfc_current_form == FORM_FREE)
+       {
+         c = gfc_peek_char();
+         if (c != ' ' && c != '*' && c != '\'' && c != '"')
+           {
+             m = MATCH_NO;
+             goto cleanup;
+           }
+       }
 
       m = match_dt_format (dt);
       if (m == MATCH_ERROR)
@@ -2353,7 +2363,7 @@ gfc_match_inquire (void)
 
       new_st.op = EXEC_IOLENGTH;
       new_st.expr = inquire->iolength;
-      gfc_free (inquire);
+      new_st.ext.inquire = inquire;
 
       if (gfc_pure (NULL))
 	{
@@ -2439,9 +2449,10 @@ gfc_resolve_inquire (gfc_inquire * inquire)
   RESOLVE_TAG (&tag_readwrite, inquire->readwrite);
   RESOLVE_TAG (&tag_s_delim, inquire->delim);
   RESOLVE_TAG (&tag_s_pad, inquire->pad);
+  RESOLVE_TAG (&tag_iolength, inquire->iolength);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
 
-  return FAILURE;
+  return SUCCESS;
 }

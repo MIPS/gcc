@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "langhooks.h"
 #include "cfglayout.h"
+#include "tree-gimple.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -273,6 +274,7 @@ static void ia64_vms_init_libfuncs (void)
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
+static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 
 
 /* Table of valid machine attributes.  */
@@ -406,6 +408,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SETUP_INCOMING_VARARGS ia64_setup_incoming_varargs
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR ia64_gimplify_va_arg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3953,20 +3958,15 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 
 /* Implement va_arg.  */
 
-rtx
-ia64_va_arg (tree valist, tree type)
+static tree
+ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
-  tree t;
-
   /* Variable sized types are passed by reference.  */
   if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
     {
-      rtx addr = force_reg (ptr_mode,
-	    std_expand_builtin_va_arg (valist, build_pointer_type (type)));
-#ifdef POINTERS_EXTEND_UNSIGNED
-      addr = convert_memory_address (Pmode, addr);
-#endif
-      return gen_rtx_MEM (ptr_mode, addr);
+      tree ptrtype = build_pointer_type (type);
+      tree addr = std_gimplify_va_arg_expr (valist, ptrtype, pre_p, post_p);
+      return build_fold_indirect_ref (addr);
     }
 
   /* Aggregate arguments with alignment larger than 8 bytes start at
@@ -3976,16 +3976,15 @@ ia64_va_arg (tree valist, tree type)
   if ((TREE_CODE (type) == REAL_TYPE || TREE_CODE (type) == INTEGER_TYPE)
       ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
-      t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		 build_int_2 (2 * UNITS_PER_WORD - 1, 0));
+      tree t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
+		      build_int_2 (2 * UNITS_PER_WORD - 1, 0));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
 		 build_int_2 (-2 * UNITS_PER_WORD, -1));
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      gimplify_and_add (t, pre_p);
     }
 
-  return std_expand_builtin_va_arg (valist, type);
+  return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 }
 
 /* Return 1 if function return value returned in memory.  Return 0 if it is
@@ -6340,7 +6339,9 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
-  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM)
+  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
+      && GET_CODE (PATTERN (insn)) != ASM_INPUT
+      && asm_noperands (PATTERN (insn)) == 0)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
 
@@ -6954,7 +6955,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		 guarantee issuing all insns on the same cycle for
 		 Itanium 1, we need to issue 2 nops after the first M
 		 insn (MnnMII where n is a nop insn).  */
-	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
+	      || ((type == TYPE_M || type == TYPE_A)
+		  && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
 				 only_bundle_end_p);

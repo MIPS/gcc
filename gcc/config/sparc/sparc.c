@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "cfglayout.h"
+#include "tree-gimple.h"
 
 /* Global variables for machine-dependent things.  */
 
@@ -150,9 +151,6 @@ static void sparc_function_prologue (FILE *, HOST_WIDE_INT, int);
 #ifdef OBJECT_FORMAT_ELF
 static void sparc_elf_asm_named_section (const char *, unsigned int);
 #endif
-static void sparc_aout_select_rtx_section (enum machine_mode, rtx,
-					   unsigned HOST_WIDE_INT)
-     ATTRIBUTE_UNUSED;
 
 static int sparc_adjust_cost (rtx, rtx, rtx, int);
 static int sparc_issue_rate (void);
@@ -181,6 +179,7 @@ static bool sparc_promote_prototypes (tree);
 static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (tree, tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
+static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 
 /* Option handling.  */
 
@@ -288,6 +287,9 @@ enum processor_type sparc_cpu;
 #define TARGET_EXPAND_BUILTIN_SAVEREGS sparc_builtin_saveregs
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING sparc_strict_argument_naming
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1346,6 +1348,32 @@ input_operand (rtx op, enum machine_mode mode)
     }
 
   return 0;
+}
+
+/* Return 1 if OP is valid for the lhs of a compare insn.  */
+
+int
+compare_operand (rtx op, enum machine_mode mode)
+{
+  if (GET_CODE (op) == ZERO_EXTRACT)
+    return (register_operand (XEXP (op, 0), mode)
+	    && small_int_or_double (XEXP (op, 1), mode)
+	    && small_int_or_double (XEXP (op, 2), mode)
+	    /* This matches cmp_zero_extract.  */
+	    && ((mode == SImode
+		 && ((GET_CODE (XEXP (op, 2)) == CONST_INT
+		      && INTVAL (XEXP (op, 2)) > 19)
+		     || (GET_CODE (XEXP (op, 2)) == CONST_DOUBLE
+			 && CONST_DOUBLE_LOW (XEXP (op, 2)) > 19)))
+		/* This matches cmp_zero_extract_sp64.  */
+		|| (mode == DImode
+		    && TARGET_ARCH64
+		    && ((GET_CODE (XEXP (op, 2)) == CONST_INT
+			 && INTVAL (XEXP (op, 2)) > 51)
+			|| (GET_CODE (XEXP (op, 2)) == CONST_DOUBLE
+			    && CONST_DOUBLE_LOW (XEXP (op, 2)) > 51)))));
+  else
+    return register_operand (op, mode);
 }
 
 
@@ -4488,12 +4516,12 @@ sparc_function_epilogue (FILE *file,
      This insn is used in the 32-bit ABI when calling a function that returns
      a non zero-sized structure. The 64-bit ABI doesn't have it.  Be careful
      to have this test be the same as that used on the call.  */
-  sparc_skip_caller_unimp =
-    ! TARGET_ARCH64
-    && current_function_returns_struct
-    && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
-	== INTEGER_CST)
-    && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl)));
+  sparc_skip_caller_unimp
+    = ! TARGET_ARCH64
+      && current_function_returns_struct
+      && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
+	  == INTEGER_CST)
+      && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl)));
 
   if (current_function_epilogue_delay_list == 0)
     {
@@ -5103,7 +5131,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
-static rtx function_arg_union_value (int, int);
+static rtx function_arg_union_value (int, enum machine_mode, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5445,26 +5473,25 @@ function_arg_record_value (tree type, enum machine_mode mode,
    FUNCTION_ARG and FUNCTION_VALUE.
 
    SIZE is the size in bytes of the union.
+   MODE is the argument's machine mode.
    REGNO is the hard register the union will be passed in.  */
 
 static rtx
-function_arg_union_value (int size, int regno)
+function_arg_union_value (int size, enum machine_mode mode, int regno)
 {
-  enum machine_mode mode;
-  rtx reg;
-
-  if (size <= UNITS_PER_WORD)
-    mode = word_mode;
-  else
-    mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
-
-  reg = gen_rtx_REG (mode, regno);
+  int nwords = ROUND_ADVANCE (size), i;
+  rtx regs;
 
   /* Unions are passed left-justified.  */
-  return gen_rtx_PARALLEL (mode,
-			   gen_rtvec (1, gen_rtx_EXPR_LIST (VOIDmode,
-							    reg,
-							    const0_rtx)));
+  regs = gen_rtx_PARALLEL (mode, rtvec_alloc (nwords));
+
+  for (i = 0; i < nwords; i++)
+    XVECEXP (regs, 0, i)
+      = gen_rtx_EXPR_LIST (VOIDmode,
+			   gen_rtx_REG (word_mode, regno + i),
+			   GEN_INT (UNITS_PER_WORD * i));
+
+  return regs;
 }
 
 /* Handle the FUNCTION_ARG macro.
@@ -5521,7 +5548,7 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
       if (size > 16)
 	abort (); /* shouldn't get here */
 
-      return function_arg_union_value (size, regno);
+      return function_arg_union_value (size, mode, regno);
     }
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
@@ -5846,7 +5873,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	  if (size > 32)
 	    abort (); /* shouldn't get here */
 
-	  return function_arg_union_value (size, regbase);
+	  return function_arg_union_value (size, mode, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -5912,13 +5939,13 @@ sparc_va_start (tree valist, rtx nextarg)
 
 /* Implement `va_arg' for stdarg.  */
 
-rtx
-sparc_va_arg (tree valist, tree type)
+tree
+sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
   HOST_WIDE_INT size, rsize, align;
   tree addr, incr;
-  rtx addr_rtx;
   bool indirect;
+  tree ptrtype = build_pointer_type (type);
 
   if (function_arg_pass_by_reference (0, TYPE_MODE (type), type, 0))
     {
@@ -5954,67 +5981,52 @@ sparc_va_arg (tree valist, tree type)
   incr = valist;
   if (align)
     {
-      incr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-			 build_int_2 (align - 1, 0)));
-      incr = fold (build (BIT_AND_EXPR, ptr_type_node, incr,
-			  build_int_2 (-align, -1)));
+      incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
+			   ssize_int (align - 1)));
+      incr = fold (build2 (BIT_AND_EXPR, ptr_type_node, incr,
+			   ssize_int (-align)));
     }
 
-  addr = incr = save_expr (incr);
+  gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
+  addr = incr;
+
   if (BYTES_BIG_ENDIAN && size < rsize)
+    addr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
+			 ssize_int (rsize - size)));
+
+  if (indirect)
     {
-      addr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-			  build_int_2 (rsize - size, 0)));
+      addr = fold_convert (build_pointer_type (ptrtype), addr);
+      addr = build_fold_indirect_ref (addr);
     }
-  incr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-		      build_int_2 (rsize, 0)));
-
-  incr = build (MODIFY_EXPR, ptr_type_node, valist, incr);
-  TREE_SIDE_EFFECTS (incr) = 1;
-  expand_expr (incr, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  addr_rtx = expand_expr (addr, NULL, Pmode, EXPAND_NORMAL);
-
   /* If the address isn't aligned properly for the type,
      we may need to copy to a temporary.  
      FIXME: This is inefficient.  Usually we can do this
      in registers.  */
-  if (align == 0
-      && TYPE_ALIGN (type) > BITS_PER_WORD
-      && !indirect)
+  else if (align == 0
+	   && TYPE_ALIGN (type) > BITS_PER_WORD)
     {
-      /* FIXME: We really need to specify that the temporary is live
-	 for the whole function because expand_builtin_va_arg wants
-	 the alias set to be get_varargs_alias_set (), but in this
-	 case the alias set is that for TYPE and if the memory gets
-	 reused it will be reused with alias set TYPE.  */
-      rtx tmp = assign_temp (type, 0, 1, 0);
-      rtx dest_addr;
+      tree tmp = create_tmp_var (type, "va_arg_tmp");
+      tree dest_addr = build_fold_addr_expr (tmp);
 
-      addr_rtx = force_reg (Pmode, addr_rtx);
-      addr_rtx = gen_rtx_MEM (BLKmode, addr_rtx);
-      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
-      set_mem_align (addr_rtx, BITS_PER_WORD);
-      tmp = shallow_copy_rtx (tmp);
-      PUT_MODE (tmp, BLKmode);
-      set_mem_alias_set (tmp, 0);
-      
-      dest_addr = emit_block_move (tmp, addr_rtx, GEN_INT (rsize),
-				   BLOCK_OP_NORMAL);
-      if (dest_addr != NULL_RTX)
-	addr_rtx = dest_addr;
-      else
-	addr_rtx = XCEXP (tmp, 0, MEM);
+      tree copy = build_function_call_expr
+	(implicit_built_in_decls[BUILT_IN_MEMCPY],
+	 tree_cons (NULL_TREE, dest_addr,
+		    tree_cons (NULL_TREE, addr,
+			       tree_cons (NULL_TREE, size_int (rsize),
+					  NULL_TREE))));
+
+      gimplify_and_add (copy, pre_p);
+      addr = dest_addr;
     }
+  else
+    addr = fold_convert (ptrtype, addr);
 
-  if (indirect)
-    {
-      addr_rtx = force_reg (Pmode, addr_rtx);
-      addr_rtx = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
-    }
+  incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize)));
+  incr = build2 (MODIFY_EXPR, ptr_type_node, valist, incr);
+  gimplify_and_add (incr, post_p);
 
-  return addr_rtx;
+  return build_fold_indirect_ref (addr);
 }
 
 /* Return the string to output a conditional branch to LABEL, which is
@@ -8122,20 +8134,6 @@ sparc_init_libfuncs (void)
   gofast_maybe_init_libfuncs ();
 }
 
-/* Use text section for a constant unless we need more alignment than
-   that offers.  */
-
-static void
-sparc_aout_select_rtx_section (enum machine_mode mode, rtx x,
-			       unsigned HOST_WIDE_INT align)
-{
-  if (align <= MAX_TEXT_ALIGN
-      && ! (flag_pic && symbolic_operand (x, mode)))
-    readonly_data_section ();
-  else
-    data_section ();
-}
-
 int
 sparc_extra_constraint_check (rtx op, int c, int strict)
 {

@@ -429,6 +429,32 @@ static void add_sym_2 (const char *name, int elemental, int actual_ok, bt type,
 }
 
 
+/* Add the name of an intrinsic subroutine with two arguments to the list
+   of intrinsic names. */
+
+static void add_sym_2s (const char *name, int elemental, int actual_ok, bt type,
+		       int kind,
+		       try (*check)(gfc_expr *,gfc_expr *),
+		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *),
+		       void (*resolve)(gfc_code *),
+		       const char* a1, bt type1, int kind1, int optional1,
+		       const char* a2, bt type2, int kind2, int optional2
+		       ) {
+  gfc_check_f cf;
+  gfc_simplify_f sf;
+  gfc_resolve_f rf;
+
+  cf.f2 = check;
+  sf.f2 = simplify;
+  rf.s1 = resolve;
+
+  add_sym (name, elemental, actual_ok, type, kind, cf, sf, rf,
+	   a1, type1, kind1, optional1,
+	   a2, type2, kind2, optional2,
+	   (void*)0);
+}
+
+
 static void add_sym_3 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind,
 		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *),
@@ -443,6 +469,33 @@ static void add_sym_3 (const char *name, int elemental, int actual_ok, bt type,
   gfc_resolve_f rf;
 
   cf.f3 = check;
+  sf.f3 = simplify;
+  rf.f3 = resolve;
+
+  add_sym (name, elemental, actual_ok, type, kind, cf, sf, rf,
+	   a1, type1, kind1, optional1,
+	   a2, type2, kind2, optional2,
+	   a3, type3, kind3, optional3,
+	   (void*)0);
+}
+
+/* MINLOC and MAXLOC get special treatment because their argument
+   might have to be reordered.  */
+
+static void add_sym_3ml (const char *name, int elemental, 
+			 int actual_ok, bt type, int kind,
+			 try (*check)(gfc_actual_arglist *),
+			 gfc_expr*(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *),
+			 void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+			 const char* a1, bt type1, int kind1, int optional1,
+			 const char* a2, bt type2, int kind2, int optional2,
+			 const char* a3, bt type3, int kind3, int optional3
+			 ) {
+  gfc_check_f cf;
+  gfc_simplify_f sf;
+  gfc_resolve_f rf;
+
+  cf.f3ml = check;
   sf.f3 = simplify;
   rf.f3 = resolve;
 
@@ -989,6 +1042,16 @@ add_functions (void)
 
   make_generic ("epsilon", GFC_ISYM_NONE);
 
+  /* G77 compatibility */
+  add_sym_1 ("etime", 0, 1, BT_REAL, 4,
+	     gfc_check_etime, NULL, NULL,
+	     x, BT_REAL, 4, 0);
+
+  make_alias ("dtime");
+
+  make_generic ("etime", GFC_ISYM_ETIME);
+
+
   add_sym_1 ("exp", 1, 1, BT_REAL, dr,
 	     NULL, gfc_simplify_exp, gfc_resolve_exp, x, BT_REAL, dr, 0);
 
@@ -1097,6 +1160,13 @@ add_functions (void)
 	     i, BT_INTEGER, di, 0, j, BT_INTEGER, di, 0);
 
   make_generic ("ior", GFC_ISYM_IOR);
+
+  /* The following function is for G77 compatibility.  */
+  add_sym_1 ("irand", 0, 1, BT_INTEGER, 4,
+             gfc_check_irand, NULL, NULL,
+             i, BT_INTEGER, 4, 0);
+
+  make_generic ("irand", GFC_ISYM_IRAND);
 
   add_sym_2 ("ishft", 1, 1, BT_INTEGER, di,
 	     gfc_check_ishft, gfc_simplify_ishft, gfc_resolve_ishft,
@@ -1238,10 +1308,10 @@ add_functions (void)
 
   make_generic ("maxexponent", GFC_ISYM_NONE);
 
-  add_sym_3 ("maxloc", 0, 1, BT_INTEGER, di,
-	     gfc_check_minloc_maxloc, NULL, gfc_resolve_maxloc,
-	     ar, BT_REAL, dr, 0, dm, BT_INTEGER, ii, 1,
-	     msk, BT_LOGICAL, dl, 1);
+  add_sym_3ml ("maxloc", 0, 1, BT_INTEGER, di,
+	       gfc_check_minloc_maxloc, NULL, gfc_resolve_maxloc,
+	       ar, BT_REAL, dr, 0, dm, BT_INTEGER, ii, 1,
+	       msk, BT_LOGICAL, dl, 1);
 
   make_generic ("maxloc", GFC_ISYM_MAXLOC);
 
@@ -1293,10 +1363,10 @@ add_functions (void)
 
   make_generic ("minexponent", GFC_ISYM_NONE);
 
-  add_sym_3 ("minloc", 0, 1, BT_INTEGER, di,
-	     gfc_check_minloc_maxloc, NULL, gfc_resolve_minloc,
-	     ar, BT_REAL, dr, 0, dm, BT_INTEGER, ii, 1,
-	     msk, BT_LOGICAL, dl, 1);
+  add_sym_3ml ("minloc", 0, 1, BT_INTEGER, di,
+	       gfc_check_minloc_maxloc, NULL, gfc_resolve_minloc,
+	       ar, BT_REAL, dr, 0, dm, BT_INTEGER, ii, 1,
+	       msk, BT_LOGICAL, dl, 1);
 
   make_generic ("minloc", GFC_ISYM_MINLOC);
 
@@ -1386,6 +1456,13 @@ add_functions (void)
 
   make_generic ("radix", GFC_ISYM_NONE);
 
+  /* The following function is for G77 compatibility.  */
+  add_sym_1 ("rand", 0, 1, BT_REAL, 4,
+             gfc_check_rand, NULL, NULL,
+             i, BT_INTEGER, 4, 0);
+
+  make_generic ("rand", GFC_ISYM_RAND);
+
   add_sym_1 ("range", 0, 1, BT_INTEGER, di,
 	     gfc_check_range, gfc_simplify_range, NULL,
 	     x, BT_REAL, dr, 0);
@@ -1435,6 +1512,11 @@ add_functions (void)
 	     bck, BT_LOGICAL, dl, 1);
 
   make_generic ("scan", GFC_ISYM_SCAN);
+
+  /* Added for G77 compatibility garbage. */
+  add_sym_0 ("second", 0, 1, BT_REAL, 4, NULL, NULL, NULL);
+
+  make_generic ("second", GFC_ISYM_SECOND);
 
   add_sym_1 ("selected_int_kind", 0, 1, BT_INTEGER, di,
 	     NULL, gfc_simplify_selected_int_kind, NULL,
@@ -1606,6 +1688,8 @@ add_functions (void)
 	     bck, BT_LOGICAL, dl, 1);
 
   make_generic ("verify", GFC_ISYM_VERIFY);
+
+
 }
 
 
@@ -1634,10 +1718,24 @@ add_subroutines (void)
 	      gfc_check_cpu_time, NULL, gfc_resolve_cpu_time,
 	      tm, BT_REAL, dr, 0);
 
+  /* More G77 compatibility garbage. */
+  add_sym_1s ("second", 0, 1, BT_UNKNOWN, 0,
+	      gfc_check_second_sub, NULL, gfc_resolve_second_sub,
+	      tm, BT_REAL, dr, 0);
+
   add_sym_4 ("date_and_time", 0, 1, BT_UNKNOWN, 0,
 	     gfc_check_date_and_time, NULL, NULL,
 	     dt, BT_CHARACTER, dc, 1, tm, BT_CHARACTER, dc, 1,
 	     zn, BT_CHARACTER, dc, 1, vl, BT_INTEGER, di, 1);
+
+  /* More G77 compatibility garbage. */
+  add_sym_2s ("etime", 0, 1, BT_UNKNOWN, 0,
+	     gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
+	     vl, BT_REAL, 4, 0, tm, BT_REAL, 4, 0);
+
+  add_sym_2s ("dtime", 0, 1, BT_UNKNOWN, 0,
+	     gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
+	     vl, BT_REAL, 4, 0, tm, BT_REAL, 4, 0);
 
   add_sym_2 ("getarg", 0, 1, BT_UNKNOWN, 0,
 	     NULL, NULL, NULL,
@@ -1658,6 +1756,11 @@ add_subroutines (void)
 	     gfc_check_random_seed, NULL, NULL,
 	     sz, BT_INTEGER, di, 1, pt, BT_INTEGER, di, 1,
 	     gt, BT_INTEGER, di, 1);
+
+  /* More G77 compatibility garbage. */
+  add_sym_1s ("srand", 0, 1, BT_UNKNOWN, di,
+             gfc_check_srand, NULL, gfc_resolve_srand,
+             c, BT_INTEGER, 4, 0);
 
   add_sym_3s ("system_clock", 0, 1, BT_UNKNOWN, 0,
 	     gfc_check_system_clock, NULL, gfc_resolve_system_clock,
@@ -1959,7 +2062,13 @@ do_sort:
 
   for (f = formal; f; f = f->next)
     {
-      a = (f->actual == NULL) ? gfc_get_actual_arglist () : f->actual;
+      if (f->actual == NULL)
+	{
+	  a = gfc_get_actual_arglist ();
+	  a->missing_arg_type = f->ts.type;
+	}
+      else
+	a = f->actual;
 
       if (actual == NULL)
 	*ap = a;
@@ -2249,14 +2358,21 @@ check_specific (gfc_intrinsic_sym * specific, gfc_expr * expr, int error_flag)
 		   &expr->where) == FAILURE)
     return FAILURE;
 
-  if (specific->check.f1 == NULL)
-    {
-      t = check_arglist (ap, specific, error_flag);
-      if (t == SUCCESS)
-	expr->ts = specific->ts;
-    }
+  if (specific->check.f3ml != gfc_check_minloc_maxloc)
+     {
+       if (specific->check.f1 == NULL)
+	 {
+	   t = check_arglist (ap, specific, error_flag);
+	   if (t == SUCCESS)
+	     expr->ts = specific->ts;
+	 }
+       else
+	 t = do_check (specific, *ap);
+     }
   else
-    t = do_check (specific, *ap);
+    /* This is special because we might have to reorder the argument
+       list.  */
+    t = gfc_check_minloc_maxloc (*ap);
 
   /* Check ranks for elemental intrinsics.  */
   if (t == SUCCESS && specific->elemental)

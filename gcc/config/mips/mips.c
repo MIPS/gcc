@@ -1428,26 +1428,13 @@ reg_or_0_operand (rtx op, enum machine_mode mode)
     }
 }
 
-/* Accept a register or the floating point constant 1 in the appropriate mode.  */
+/* Accept a register or the floating point constant 1 in the
+   appropriate mode.  */
 
 int
 reg_or_const_float_1_operand (rtx op, enum machine_mode mode)
 {
-  REAL_VALUE_TYPE d;
-
-  switch (GET_CODE (op))
-    {
-    case CONST_DOUBLE:
-      if (mode != GET_MODE (op)
-	  || (mode != DFmode && mode != SFmode))
-	return 0;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-      return REAL_VALUES_EQUAL (d, dconst1);
-
-    default:
-      return register_operand (op, mode);
-    }
+  return const_float_1_operand (op, mode) || register_operand (op, mode);
 }
 
 /* Accept the floating point constant 1 in the appropriate mode.  */
@@ -4045,11 +4032,16 @@ mips_va_start (tree valist, rtx nextarg)
 	  f_goff = TREE_CHAIN (f_ftop);
 	  f_foff = TREE_CHAIN (f_goff);
 
-	  ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl);
-	  gtop = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop);
-	  ftop = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop);
-	  goff = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff);
-	  foff = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff);
+	  ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
+			NULL_TREE);
+	  gtop = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
+			NULL_TREE);
+	  ftop = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
+			NULL_TREE);
+	  goff = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
+			NULL_TREE);
+	  foff = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
+			NULL_TREE);
 
 	  /* Emit code to initialize OVFL, which points to the next varargs
 	     stack argument.  CUM->STACK_WORDS gives the number of stack
@@ -4212,12 +4204,15 @@ mips_va_arg (tree valist, tree type)
 	  lab_false = gen_label_rtx ();
 	  lab_over = gen_label_rtx ();
 
-	  ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl);
+	  ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
+			NULL_TREE);
 	  if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT
 	      && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_FPVALUE)
 	    {
-	      top = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop);
-	      off = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff);
+	      top = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop,
+			   NULL_TREE);
+	      off = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff,
+			   NULL_TREE);
 
 	      /* When floating-point registers are saved to the stack,
 		 each one will take up UNITS_PER_HWFPVALUE bytes, regardless
@@ -4245,8 +4240,10 @@ mips_va_arg (tree valist, tree type)
 	    }
 	  else
 	    {
-	      top = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop);
-	      off = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff);
+	      top = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop,
+			   NULL_TREE);
+	      off = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff,
+			   NULL_TREE);
 	      if (rsize > UNITS_PER_WORD)
 		{
 		  /* [1] Emit code for: off &= -rsize.	*/
@@ -4437,7 +4434,7 @@ mips_get_unaligned_mem (rtx *op, unsigned int width, int bitpos,
 bool
 mips_expand_unaligned_load (rtx dest, rtx src, unsigned int width, int bitpos)
 {
-  rtx left, right;
+  rtx left, right, temp;
 
   /* If TARGET_64BIT, the destination of a 32-bit load will be a
      paradoxical word_mode subreg.  This is the only case in which
@@ -4456,17 +4453,16 @@ mips_expand_unaligned_load (rtx dest, rtx src, unsigned int width, int bitpos)
   if (!mips_get_unaligned_mem (&src, width, bitpos, &left, &right))
     return false;
 
+  temp = gen_reg_rtx (GET_MODE (dest));
   if (GET_MODE (dest) == DImode)
     {
-      emit_insn (gen_mov_ldl (dest, src, left));
-      emit_insn (gen_mov_ldr (copy_rtx (dest), copy_rtx (src),
-			      right, copy_rtx (dest)));
+      emit_insn (gen_mov_ldl (temp, src, left));
+      emit_insn (gen_mov_ldr (dest, copy_rtx (src), right, temp));
     }
   else
     {
-      emit_insn (gen_mov_lwl (dest, src, left));
-      emit_insn (gen_mov_lwr (copy_rtx (dest), copy_rtx (src),
-			      right, copy_rtx (dest)));
+      emit_insn (gen_mov_lwl (temp, src, left));
+      emit_insn (gen_mov_lwr (dest, copy_rtx (src), right, temp));
     }
   return true;
 }
@@ -8897,6 +8893,9 @@ mips_avoid_hazards (void)
   rtx insn, last_insn, lo_reg, delayed_reg;
   int hilo_delay, i;
 
+  /* Force all instructions to be split into their final form.  */
+  split_all_insns_noflow ();
+
   /* Recalculate instruction lengths without taking nops into account.  */
   cfun->machine->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
@@ -9917,6 +9916,7 @@ mips_use_dfa_pipeline_interface (void)
 {
   switch (mips_tune)
     {
+    case PROCESSOR_R3000:
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
@@ -10018,7 +10018,7 @@ irix_asm_named_section (const char *name, unsigned int flags)
 /* In addition to emitting a .align directive, record the maximum
    alignment requested for the current section.  */
 
-struct GTY (()) irix_section_align_entry
+struct irix_section_align_entry GTY (())
 {
   const char *name;
   unsigned int log;

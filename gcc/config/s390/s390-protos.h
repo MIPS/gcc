@@ -24,7 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern void optimization_options (int, int);
 extern void override_options (void);
 extern HOST_WIDE_INT s390_arg_frame_offset (void);
-extern void s390_load_got (int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
@@ -52,6 +51,8 @@ extern enum machine_mode s390_tm_ccmode (rtx, rtx, int);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern int s390_alc_comparison (rtx op, enum machine_mode mode);
 extern int s390_slb_comparison (rtx op, enum machine_mode mode);
+extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
+extern void s390_emit_jump (rtx, rtx);
 extern int symbolic_reference_mentioned_p (rtx);
 extern int tls_symbolic_reference_mentioned_p (rtx);
 extern int legitimate_la_operand_p (rtx);
@@ -76,6 +77,7 @@ extern void s390_load_address (rtx, rtx);
 extern void s390_expand_movstr (rtx, rtx, rtx);
 extern void s390_expand_clrstr (rtx, rtx);
 extern void s390_expand_cmpmem (rtx, rtx, rtx, rtx);
+extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
 
@@ -89,6 +91,7 @@ extern void s390_initialize_trampoline (rtx, rtx, rtx);
 extern rtx s390_gen_rtx_const_DI (int, int);
 extern void s390_output_dwarf_dtprel (FILE*, int, rtx);
 extern int s390_agen_dep_p (rtx, rtx);
+extern rtx s390_load_got (void);
 
 #endif /* RTX_CODE */
 
@@ -100,6 +103,5 @@ extern void s390_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 extern rtx s390_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern rtx s390_function_value (tree, enum machine_mode);
 extern void s390_va_start (tree, rtx);
-extern rtx s390_va_arg (tree, tree);
 #endif /* RTX_CODE */
 #endif /* TREE_CODE */

@@ -1163,10 +1163,6 @@ do {									\
 #define FIRST_STACK_REG FIRST_FLOAT_REG
 #define LAST_STACK_REG (FIRST_FLOAT_REG + 7)
 
-#define FLAGS_REG 17
-#define FPSR_REG 18
-#define DIRFLAG_REG 19
-
 #define FIRST_SSE_REG (FRAME_POINTER_REGNUM + 1)
 #define LAST_SSE_REG  (FIRST_SSE_REG + 7)
 
@@ -1790,8 +1786,7 @@ typedef struct ix86_args {
   ix86_va_start (VALIST, NEXTARG)
 
 /* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
-  ix86_va_arg ((VALIST), (TYPE))
+#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) (abort (), NULL_RTX)
 
 #define TARGET_ASM_FILE_END ix86_file_end
 #define NEED_INDICATE_EXEC_STACK 0

@@ -1874,8 +1874,13 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
       break;
 
     default:
-	if (arg->expr_type == EXPR_VARIABLE && arg->ref == NULL)
+	if (arg->expr_type == EXPR_VARIABLE 
+	    && (arg->ref == NULL || (arg->ref->next == NULL 
+				     && arg->ref->type == REF_ARRAY)))
 	  {
+	    /* This doesn't catch all cases. 
+	       See http://gcc.gnu.org/ml/fortran/2004-06/msg00165.html
+	       and the surrounding thread.  */
 	    sym = arg->symtree->n.sym;
 	    decl = gfc_get_symbol_decl (sym);
 	    if (decl == current_function_decl && sym->attr.function
@@ -2867,6 +2872,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_MATMUL:
+    case GFC_ISYM_IRAND:
+    case GFC_ISYM_RAND:
+    case GFC_ISYM_ETIME:
+    case GFC_ISYM_SECOND:
       gfc_conv_intrinsic_funcall (se, expr);
       break;
 
