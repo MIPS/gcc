@@ -1,5 +1,10 @@
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
 
+	PR 13919
+	* gfortran.fortran-torture/execute/read_eof.f90: New test.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
 	PR 14396
 	* gfortran.fortran-torture/execute/csqrt_1.f90: New test.
 

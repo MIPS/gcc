@@ -23,8 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* IO library include.  */
 
+#include <setjmp.h>
 #include "libgfortran.h"
-
 #define DEFAULT_TEMPDIR "/var/tmp"
 
 /* Basic types used in data transfers.  */
@@ -300,6 +300,7 @@ typedef struct
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
   int scale_factor;
+  jmp_buf eof_jump;  
 }
 global_t;
 

@@ -55,7 +55,6 @@ Boston, MA 02111-1307, USA.  */
  */
 
 unit_t *current_unit;
-
 static int sf_seen_eor = 0;
 
 char scratch[SCRATCH_SIZE];
@@ -1294,6 +1293,13 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+
+  if (setjmp (g.eof_jump))
+    {
+       generate_error (ERROR_END, NULL);
+       return;
+    }
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)

@@ -1,3 +1,11 @@
+2004-03-24   Bud Davis	<bdavis9659@comcast.net>
+
+	PR 13919
+	* io/io.h (global_t):
+	* io/list_read.c (next_char,list_formatted_read,ist_formatted_read):
+          Move eof_jmp to a global structure.
+	* io/transfer.c(finalize_transfer) : Set up eof_jump for callers.
+
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
 
 	* m4/cexp.m4 (csqrt): Actually use the passed value.
