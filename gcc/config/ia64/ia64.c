@@ -118,6 +118,7 @@ int bundling_p = 0;
 
 static int ia64_use_dfa_pipeline_interface PARAMS ((void));
 static int ia64_first_cycle_multipass_dfa_lookahead PARAMS ((void));
+static void ia64_dependencies_evaluation_hook PARAMS ((rtx, rtx));
 static void ia64_init_dfa_pre_cycle_insn PARAMS ((void));
 static rtx ia64_dfa_pre_cycle_insn PARAMS ((void));
 static int ia64_first_cycle_multipass_dfa_lookahead_guard PARAMS ((rtx));
@@ -270,6 +271,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_SCHED_REORDER ia64_sched_reorder
 #undef TARGET_SCHED_REORDER2
 #define TARGET_SCHED_REORDER2 ia64_sched_reorder2
+
+#undef TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
+#define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK ia64_dependencies_evaluation_hook
 
 #undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE ia64_use_dfa_pipeline_interface
@@ -5599,6 +5603,42 @@ ia64_emit_insn_before (insn, before)
      rtx insn, before;
 {
   emit_insn_before (insn, before);
+}
+
+/* The following function marks insns who produce addresses for load
+   and store insns.  Such insns will be placed into M slots because it
+   decrease latency time for Itanium1 (see function
+   `ia64_produce_address_p' and the DFA descriptions).  */
+
+static void
+ia64_dependencies_evaluation_hook (head, tail)
+     rtx head, tail;
+{
+  rtx insn, link, next, next_tail;
+  
+  next_tail = NEXT_INSN (tail);
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      insn->call = 0;
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
+    if (INSN_P (insn)
+	&& ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
+      {
+	for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
+	  {
+	    next = XEXP (link, 0);
+	    if ((ia64_safe_itanium_class (next) == ITANIUM_CLASS_ST
+		 || ia64_safe_itanium_class (next) == ITANIUM_CLASS_STF)
+		&& ia64_st_address_bypass_p (insn, next))
+	      break;
+	    else if ((ia64_safe_itanium_class (next) == ITANIUM_CLASS_LD
+		      || ia64_safe_itanium_class (next)
+		      == ITANIUM_CLASS_FLD)
+		     && ia64_ld_address_bypass_p (insn, next))
+	      break;
+	  }
+	insn->call = link != 0;
+      }
 }
 
 /* We're beginning a new block.  Initialize data structures as necessary.  */

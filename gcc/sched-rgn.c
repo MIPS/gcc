@@ -2728,6 +2728,10 @@ schedule_region (rgn)
       get_block_head_tail (BB_TO_BLOCK (bb), &head, &tail);
 
       compute_forward_dependences (head, tail);
+
+      if (targetm.sched.dependencies_evaluation_hook)
+	targetm.sched.dependencies_evaluation_hook (head, tail);
+
     }
 
   /* Set priorities.  */

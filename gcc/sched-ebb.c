@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "target.h"
 
 /* The number of insns to be scheduled in total.  */
 static int target_n_insns;
@@ -219,6 +220,9 @@ schedule_ebb (head, tail)
 
   /* Compute INSN_DEPEND.  */
   compute_forward_dependences (head, tail);
+
+  if (targetm.sched.dependencies_evaluation_hook)
+    targetm.sched.dependencies_evaluation_hook (head, tail);
 
   /* Set priorities.  */
   n_insns = set_priorities (head, tail);

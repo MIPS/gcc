@@ -5549,6 +5549,16 @@ scheduling one insn causes other insns to become ready in the same
 cycle.  These other insns can then be taken into account properly.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK (rtx @var{head}, rtx @var{tail})
+This hook is called after evaluation forward dependencies of insns in
+chain given by two parameter values (@var{head} and @var{tail}
+correspondingly) but before insns scheduling of the insn chain.  For
+example, it can be used for better insn classification if it requires
+analysis of dependencies.  This hook can use backward and forward
+dependencies of the insn scheduler because they are already
+calculated.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_SCHED_INIT (FILE *@var{file}, int @var{verbose}, int @var{max_ready})
 This hook is executed by the scheduler at the beginning of each block of
 instructions that are to be scheduled.  @var{file} is either a null

@@ -153,6 +153,11 @@ struct gcc_target
     int (* reorder)  PARAMS ((FILE *, int, rtx *, int *, int));
     int (* reorder2) PARAMS ((FILE *, int, rtx *, int *, int));
 
+    /* The following member value is a pointer to a function called
+       after evaluation forward dependencies of insns in chain given
+       by two parameter values (head and tail correspondingly).  */
+    void (* dependencies_evaluation_hook) PARAMS ((rtx, rtx));
+
     /* The following member value is a pointer to a function returning
        nonzero if we should use DFA based scheduling.  The default is
        to use the old pipeline scheduler.  */

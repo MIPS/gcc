@@ -1,3 +1,27 @@
+2002-09-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* Makefile.in (sched-ebb.o): Add `$(TARGET_H)' to the entry.
+
+	* target.h (gcc_target): Add member
+	`dependencies_evaluation_hook'.
+
+	* target-def.h (TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK): New
+	macro.
+	(TARGET_SCHED): Add initiatialization of the new member.
+
+	* sched-ebb.c: Include `target.h'.
+	(schedule_ebb): Call `dependencies_evaluation_hook'.
+
+	* sched-rgn.c (schedule_region): Call
+	`dependencies_evaluation_hook'.
+
+	* config/ia64/ia64.c (TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK):
+	New macro.
+	(ia64_dependencies_evaluation_hook): New function.
+
+	* doc/tm.texi (TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK):
+	Describe the new hook.
+	
 2002-09-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* target.h (gcc_target): Add members
