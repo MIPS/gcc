@@ -1,3 +1,8 @@
+2002-04-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-simplify.c (simplify_call_expr): Don't try to simplify
+	call_expr arglist if it's not there. 
+
 2002-04-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-decl.c (c_expand_body): Call simplify_tree to simplify a

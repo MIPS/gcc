@@ -1346,12 +1346,13 @@ simplify_call_expr (expr, pre_p, post_p)
     abort ();
 
   id = simplify_expr (TREE_OPERAND (expr, 0), pre_p, post_p, is_simple_id, 0);
-
-  arglist = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p,
-                           is_simple_arglist, 0);
-
+  if (TREE_OPERAND (expr, 1))
+    arglist = simplify_expr (TREE_OPERAND (expr, 1), pre_p, post_p,
+  			     is_simple_arglist, 0);
+  
   TREE_OPERAND (expr, 0) = id;
-  TREE_OPERAND (expr, 1) = arglist;
+  if (TREE_OPERAND (expr, 1))
+    TREE_OPERAND (expr, 1) = arglist;
 
   return expr;
 }
