@@ -1,3 +1,8 @@
+2004-05-04  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/crti.asm: Push an even number of registers.
+	* config/arm/crtn.asm: And restore them.  Load via sp.
+
 2004-04-30  Paul Brook  <paul@codesourcery.com>
 
 	* config.gcc: Simplify arm --with-{cpu,tune} test.
