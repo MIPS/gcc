@@ -431,8 +431,7 @@ restore_fragment_bindings (tree bindings)
 	      if (IDENTIFIER_TAG_VALUE (name) == NULL)
 		{
 		  IDENTIFIER_TAG_VALUE (name) = type;
-		  TREE_CHAIN (x) = b->tags;
-		  b->tags = x;
+		  b->tags = tree_cons (name, x, b->tags);
 		  TYPE_SIZE (type) = NULL_TREE;
 		  TYPE_FIELDS (type) = NULL_TREE;
 		}
@@ -503,7 +502,6 @@ init_c_decl_processing_eachsrc ()
       current_scope = global_scope;
       if (server_mode != 1)
 	{
-	  current_scope = global_scope;
 	  global_scope->tags = NULL_TREE;
 	  global_scope->names = NULL_TREE;
 	  reset_cpp_hashnodes ();
@@ -5645,6 +5643,8 @@ start_function (tree declspecs, tree declarator, tree attributes)
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
 
+  currently_nested++;
+
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1);
 
   /* If the declarator is not suitable for a function definition,
@@ -6237,6 +6237,8 @@ void
 finish_function (int nested, int can_defer_p)
 {
   tree fndecl = current_function_decl;
+
+  currently_nested--;
 
   /* When a function declaration is totally empty, e.g.
         void foo(void) { }

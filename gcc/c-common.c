@@ -4436,11 +4436,25 @@ cb_enter_fragment (reader, fragment, name, line)
      int line;
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
-  bool valid = 0;
-  if (st != NULL)
+  bool valid;
+  if (st == NULL)
+    {
+      st = alloc_include_fragment ();
+      st->name = name;
+      st->valid = valid = 0;
+    }
+  else
     {
       int i;
-      valid = st->valid && st->include_timestamp < main_timestamp && ! currently_nested;
+      valid = st->valid && ! currently_nested;
+
+      if (st->include_timestamp >= main_timestamp)
+	{
+	  /* This fragment has already been included for this main file.
+	     Perhaps there are missing header guards.  Easiest way to get
+	     the correct re-definition errors is to force reparsing. */
+	  valid = 0;
+	}
 
       if (valid)
 	{
@@ -4450,6 +4464,11 @@ cb_enter_fragment (reader, fragment, name, line)
 	    {
 	      struct c_include_fragment *uses
 		= (struct c_include_fragment *) TREE_VEC_ELT (d, i);
+	      /* If ST depends on USES, but uses has not been logically included
+		 for this compilation, then we cannot re-use ST.
+		 On the other hand if USES has been re-read more recently than ST
+		 it presumably was because USES was invalid, which means the
+		 remembered definitions of ST are also invalid. */
 	      if (uses->include_timestamp < main_timestamp
 		  || uses->read_timestamp == 0
 		  || uses->read_timestamp > st->read_timestamp)
@@ -4472,12 +4491,6 @@ cb_enter_fragment (reader, fragment, name, line)
 	    fprintf (stderr, "(reusing cached fragment %s:%d)\n", name, line);
 	  restore_fragment (fragment);
 	}
-    }
-  else
-    {
-      st = alloc_include_fragment ();
-      st->name = name;
-      st->valid = 0;
     }
   st->include_timestamp = ++c_timestamp;
   if (! valid)

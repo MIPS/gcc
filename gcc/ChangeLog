@@ -1,5 +1,10 @@
 2003-09-12  Per Bothner  <pbothner@apple.com>
 
+	* cpplib.c (_cpp_pop_buffer):  Do generate a call-back for
+	leaving main file.
+	* c-ppoutput.c (pp_file_change):  Check for map==NULL, for LC_LEAVE.
+	* fix-header.c (cb_file_change):  Likewise.
+
 	* toplev.c (do_compile):  Remove unwanted push_srcloc/pop_srcloc.
 
 	* opts.c (common_handle_option):  Remove bogus cast.
