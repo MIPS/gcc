@@ -1,6 +1,6 @@
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -233,6 +233,7 @@ enum dump_file_index
   DFI_addressof,
   DFI_gcse,
   DFI_loop,
+  DFI_bypass,
   DFI_cfg,
   DFI_bp,
   DFI_ce1,
@@ -282,6 +283,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
+  { "bypass",   'G', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
@@ -1346,6 +1348,8 @@ documented_lang_options[] =
   { "-Wimport",
     N_("Warn about the use of the #import directive") },
   { "-Wno-import", "" },
+  { "-Winvalid-pch",
+    N_("Warn about PCH files that are found but not used") },
   { "-Wlong-long","" },
   { "-Wno-long-long",
     N_("Do not warn about using 'long long' when -pedantic") },
@@ -3000,6 +3004,32 @@ rest_of_compilation (decl)
       ggc_collect ();
     }
 
+  /* Perform jump bypassing and control flow optimizations.  */
+  if (optimize > 0 && flag_gcse)
+    {
+      timevar_push (TV_BYPASS);
+      open_dump_file (DFI_bypass, decl);
+
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      tem = bypass_jumps (rtl_dump_file);
+
+      if (tem)
+        {
+          rebuild_jump_labels (insns);
+          cleanup_cfg (CLEANUP_EXPENSIVE);
+          delete_trivially_dead_insns (insns, max_reg_num ());
+        }
+
+      close_dump_file (DFI_bypass, print_rtl_with_bb, insns);
+      timevar_pop (TV_BYPASS);
+
+      ggc_collect ();
+
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
+    }
+
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
 
@@ -3159,7 +3189,7 @@ rest_of_compilation (decl)
 	= combine_instructions (insns, max_reg_num ());
 
       /* Combining insns may have turned an indirect jump into a
-	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
+	 direct jump.  Rebuild the JUMP_LABEL fields of jumping
 	 instructions.  */
       if (rebuild_jump_labels_after_combine)
 	{
@@ -4720,7 +4750,7 @@ init_asm_output (name)
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w");
+	asm_out_file = fopen (asm_file_name, "w+");
       if (asm_out_file == 0)
 	fatal_io_error ("can't open %s for writing", asm_file_name);
     }

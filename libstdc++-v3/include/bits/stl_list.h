@@ -1,6 +1,6 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -301,16 +301,16 @@ namespace std
     _List_base(const allocator_type& __a)
     : _Base(__a)
     {
-      _M_node = _M_get_node();
-      _M_node->_M_next = _M_node;
-      _M_node->_M_prev = _M_node;
+      this->_M_node = _M_get_node();
+      this->_M_node->_M_next = this->_M_node;
+      this->_M_node->_M_prev = this->_M_node;
     }
   
     // This is what actually destroys the list.
     ~_List_base()
     {
       __clear();
-      _M_put_node(_M_node);
+      _M_put_node(this->_M_node);
     }
   
     void
@@ -566,28 +566,28 @@ namespace std
      *  %list.  Iteration is done in ordinary element order.
     */
     iterator
-    begin() { return static_cast<_Node*>(_M_node->_M_next); }
+    begin() { return static_cast<_Node*>(this->_M_node->_M_next); }
   
     /**
      *  Returns a read-only (constant) iterator that points to the first element
      *  in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    begin() const { return static_cast<_Node*>(_M_node->_M_next); }
+    begin() const { return static_cast<_Node*>(this->_M_node->_M_next); }
   
     /**
      *  Returns a read/write iterator that points one past the last element in
      *  the %list.  Iteration is done in ordinary element order.
     */
     iterator
-    end() { return _M_node; }
+    end() { return this->_M_node; }
   
     /**
      *  Returns a read-only (constant) iterator that points one past the last
      *  element in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    end() const { return _M_node; }
+    end() const { return this->_M_node; }
   
     /**
      *  Returns a read/write reverse iterator that points to the last element in
@@ -625,7 +625,7 @@ namespace std
      *  Returns true if the %list is empty.  (Thus begin() would equal end().)
     */
     bool
-    empty() const { return _M_node->_M_next == _M_node; }
+    empty() const { return this->_M_node->_M_next == this->_M_node; }
   
     /**  Returns the number of elements in the %list.  */
     size_type
@@ -702,23 +702,6 @@ namespace std
     void
     push_front(const value_type& __x) { this->insert(begin(), __x); }
   
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the front of the %list.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the front of the %list.  Due to the
-     *  nature of a %list this operation can be done in constant time.  You
-     *  should consider using push_front(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_front() { this->insert(begin(), value_type()); }
-  #endif
-  
     /**
      *  @brief  Removes first element.
      *
@@ -744,23 +727,6 @@ namespace std
     */
     void
     push_back(const value_type& __x) { this->insert(end(), __x); }
-  
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the end of the %list.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the end of the %list.  Due to the nature
-     *  of a %list this operation can be done in constant time.  You should
-     *  consider using push_back(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_back() { this->insert(end(), value_type()); }
-  #endif
   
     /**
      *  @brief  Removes last element.
@@ -793,26 +759,6 @@ namespace std
     */
     iterator
     insert(iterator __position, const value_type& __x);
-  
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Inserts an element into the %list.
-     *  @param  position  An iterator into the %list.
-     *  @return  An iterator that points to the inserted element.
-     *
-     *  This function will insert a default-constructed element before the
-     *  specified location.  You should consider using
-     *  insert(position,value_type()) instead.
-     *  Due to the nature of a %list this operation can be done in constant
-     *  time, and does not invalidate iterators and references.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    iterator
-    insert(iterator __position) { return insert(__position, value_type()); }
-  #endif
   
     /**
      *  @brief  Inserts a number of copies of given data into the %list.
@@ -907,7 +853,7 @@ namespace std
      *  std::swap(l1,l2) will feed to this function.
     */
     void
-    swap(list& __x) { std::swap(_M_node, __x._M_node); }
+    swap(list& __x) { std::swap(this->_M_node, __x._M_node); }
   
     /**
      *  Erases all the elements.  Note that this function only erases the

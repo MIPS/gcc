@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 This file is part of GNU CC.
@@ -41,7 +41,7 @@ enum processor_type
 };
 
 extern enum processor_type s390_cpu;
-extern const char *s390_cpu_string;
+extern const char *s390_tune_string;
 
 extern enum processor_type s390_arch;
 extern const char *s390_arch_string;
@@ -113,7 +113,7 @@ extern int target_flags;
   { "", TARGET_DEFAULT, 0 } }
 
 #define TARGET_OPTIONS                                          \
-{ { "cpu=",             &s390_cpu_string,                       \
+{ { "tune=",            &s390_tune_string,                      \
     N_("Schedule code for given CPU")},                         \
   { "arch=",            &s390_arch_string,                      \
     N_("Generate code for given CPU")},                         \
@@ -473,7 +473,7 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
      ((C) == 'Q' ?  q_constraint (OP) : 			\
       (C) == 'S' ?  larl_operand (OP, GET_MODE (OP)) : 0)
 
-#define EXTRA_MEMORY_CONSTRAINT(C) ((C) == 'Q')
+#define EXTRA_MEMORY_CONSTRAINT(C,STR) ((C) == 'Q')
 
 
 /* Stack layout and calling conventions.  */

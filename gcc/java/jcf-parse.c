@@ -1,21 +1,21 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -41,6 +41,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "debug.h"
 #include "assert.h"
+#include "tm_p.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -62,7 +63,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
     text = (JCF)->read_ptr; \
     save = text[LENGTH]; \
     text[LENGTH] = 0; \
-    (JCF)->cpool.data[INDEX] = (jword) get_identifier (text); \
+    (JCF)->cpool.data[INDEX].t = get_identifier (text); \
     text[LENGTH] = save; \
     JCF_SKIP (JCF, LENGTH); } while (0)
 
@@ -86,53 +87,27 @@ static GTY(()) tree parse_roots[3];
 #define current_file_list parse_roots[2]
 
 /* The Java archive that provides main_class;  the main input file. */
-static struct JCF main_jcf[1];
+static GTY(()) struct JCF * main_jcf;
 
 static struct ZipFile *localToFile;
 
 /* Declarations of some functions used here.  */
-static void handle_innerclass_attribute PARAMS ((int count, JCF *));
-static tree give_name_to_class PARAMS ((JCF *jcf, int index));
-static void parse_zip_file_entries PARAMS ((void));
-static void process_zip_dir PARAMS ((FILE *));
-static void parse_source_file_1 PARAMS ((tree, FILE *));
-static void parse_source_file_2 PARAMS ((void));
-static void parse_source_file_3 PARAMS ((void));
-static void parse_class_file PARAMS ((void));
-static void set_source_filename PARAMS ((JCF *, int));
-static void ggc_mark_jcf PARAMS ((void**));
-static void jcf_parse PARAMS ((struct JCF*));
-static void load_inner_classes PARAMS ((tree));
-
-/* Mark (for garbage collection) all the tree nodes that are
-   referenced from JCF's constant pool table. Do that only if the JCF
-   hasn't been marked finished.  */
-
-static void
-ggc_mark_jcf (elt)
-     void **elt;
-{
-  JCF *jcf = *(JCF**) elt;
-  if (jcf != NULL && !jcf->finished)
-    {
-      CPool *cpool = &jcf->cpool;
-      int size = CPOOL_COUNT(cpool);
-      int index;
-      for (index = 1; index < size;  index++)
-	{
-	  int tag = JPOOL_TAG (jcf, index);
-	  if ((tag & CONSTANT_ResolvedFlag) || tag == CONSTANT_Utf8)
-	    ggc_mark_tree ((tree) cpool->data[index]);
-	}
-    }
-}
+static void handle_innerclass_attribute (int count, JCF *);
+static tree give_name_to_class (JCF *jcf, int index);
+static void parse_zip_file_entries (void);
+static void process_zip_dir (FILE *);
+static void parse_source_file_1 (tree, FILE *);
+static void parse_source_file_2 (void);
+static void parse_source_file_3 (void);
+static void parse_class_file (void);
+static void set_source_filename (JCF *, int);
+static void jcf_parse (struct JCF*);
+static void load_inner_classes (tree);
 
 /* Handle "SourceFile" attribute. */
 
 static void
-set_source_filename (jcf, index)
-     JCF *jcf;
-     int index;
+set_source_filename (JCF *jcf, int index)
 {
   tree sfname_id = get_name_constant (jcf, index);
   const char *sfname = IDENTIFIER_POINTER (sfname_id);
@@ -249,9 +224,7 @@ set_source_filename (jcf, index)
 #include "jcf-reader.c"
 
 tree
-parse_signature (jcf, sig_index)
-     JCF *jcf;
-     int sig_index;
+parse_signature (JCF *jcf, int sig_index)
 {
   if (sig_index <= 0 || sig_index >= JPOOL_SIZE (jcf)
       || JPOOL_TAG (jcf, sig_index) != CONSTANT_Utf8)
@@ -262,9 +235,7 @@ parse_signature (jcf, sig_index)
 }
 
 tree
-get_constant (jcf, index)
-  JCF *jcf;
-  int index;
+get_constant (JCF *jcf, int index)
 {
   tree value;
   int tag;
@@ -272,7 +243,7 @@ get_constant (jcf, index)
     goto bad;
   tag = JPOOL_TAG (jcf, index);
   if ((tag & CONSTANT_ResolvedFlag) || tag == CONSTANT_Utf8)
-    return (tree) jcf->cpool.data[index];
+    return jcf->cpool.data[index].t;
   switch (tag)
     {
     case CONSTANT_Integer:
@@ -354,7 +325,7 @@ get_constant (jcf, index)
       goto bad;
     }
   JPOOL_TAG (jcf, index) = tag | CONSTANT_ResolvedFlag;
-  jcf->cpool.data [index] = (jword) value;
+  jcf->cpool.data[index].t = value;
   return value;
  bad:
   internal_error ("bad value constant type %d, index %d", 
@@ -362,9 +333,7 @@ get_constant (jcf, index)
 }
 
 tree
-get_name_constant (jcf, index)
-  JCF *jcf;
-  int index;
+get_name_constant (JCF *jcf, int index)
 {
   tree name = get_constant (jcf, index);
 
@@ -379,9 +348,7 @@ get_name_constant (jcf, index)
    the outer context with the newly resolved innerclass.  */
 
 static void
-handle_innerclass_attribute (count, jcf)
-     int count;
-     JCF *jcf;
+handle_innerclass_attribute (int count, JCF *jcf)
 {
   int c = (count);
   while (c--)
@@ -417,9 +384,7 @@ handle_innerclass_attribute (count, jcf)
 }
 
 static tree
-give_name_to_class (jcf, i)
-     JCF *jcf;
-     int i;
+give_name_to_class (JCF *jcf, int i)
 {
   if (i <= 0 || i >= JPOOL_SIZE (jcf)
       || JPOOL_TAG (jcf, i) != CONSTANT_Class)
@@ -437,7 +402,7 @@ give_name_to_class (jcf, i)
       if (main_input_filename == NULL && jcf == main_jcf)
 	main_input_filename = input_filename;
 
-      jcf->cpool.data[i] = (jword) this_class;
+      jcf->cpool.data[i].t = this_class;
       JPOOL_TAG (jcf, i) = CONSTANT_ResolvedClass;
       return this_class;
     }
@@ -446,7 +411,7 @@ give_name_to_class (jcf, i)
 /* Get the class of the CONSTANT_Class whose constant pool index is I. */
 
 tree
-get_class_constant (JCF *jcf , int i)
+get_class_constant (JCF *jcf, int i)
 {
   tree type;
   if (i <= 0 || i >= JPOOL_SIZE (jcf)
@@ -467,11 +432,11 @@ get_class_constant (JCF *jcf , int i)
           tree cname = unmangle_classname (name, nlength);
           type = lookup_class (cname);
 	}
-      jcf->cpool.data[i] = (jword) type;
+      jcf->cpool.data[i].t = type;
       JPOOL_TAG (jcf, i) = CONSTANT_ResolvedClass;
     }
   else
-    type = (tree) jcf->cpool.data[i];
+    type = jcf->cpool.data[i].t;
   return type;
 }
 
@@ -481,8 +446,7 @@ get_class_constant (JCF *jcf , int i)
    define the class it is supposed to.) */
 
 int
-read_class (name)
-     tree name;
+read_class (tree name)
 {
   JCF this_jcf, *jcf;
   tree icv, class = NULL_TREE;
@@ -574,9 +538,7 @@ read_class (name)
    - and then perhaps rename read_class to load_class.  FIXME */
 
 void
-load_class (class_or_name, verbose)
-     tree class_or_name;
-     int verbose;
+load_class (tree class_or_name, int verbose)
 {
   tree name, saved;
   int class_loaded;
@@ -622,8 +584,7 @@ load_class (class_or_name, verbose)
 /* Parse the .class file JCF. */
 
 void
-jcf_parse (jcf)
-     JCF* jcf;
+jcf_parse (JCF* jcf)
 {
   int i, code;
 
@@ -693,8 +654,7 @@ jcf_parse (jcf)
 
 /* If we came across inner classes, load them now. */
 static void
-load_inner_classes (cur_class)
-     tree cur_class;
+load_inner_classes (tree cur_class)
 {
   tree current;
   for (current = DECL_INNER_CLASS_LIST (TYPE_NAME (cur_class)); current;
@@ -709,14 +669,13 @@ load_inner_classes (cur_class)
 }
 
 void
-init_outgoing_cpool ()
+init_outgoing_cpool (void)
 {
-  outgoing_cpool = xmalloc (sizeof (struct CPool));
-  memset (outgoing_cpool, 0, sizeof (struct CPool));
+  outgoing_cpool = ggc_alloc_cleared (sizeof (struct CPool));
 }
 
 static void
-parse_class_file ()
+parse_class_file (void)
 {
   tree method, field;
   const char *save_input_filename = input_filename;
@@ -826,9 +785,7 @@ parse_class_file ()
 /* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
 
 static void
-parse_source_file_1 (file, finput)
-     tree file;
-     FILE *finput;
+parse_source_file_1 (tree file, FILE *finput)
 {
   int save_error_count = java_error_count;
   /* Mark the file as parsed */
@@ -860,7 +817,7 @@ parse_source_file_1 (file, finput)
 /* Process a parsed source file, resolving names etc. */
 
 static void
-parse_source_file_2 ()
+parse_source_file_2 (void)
 {
   int save_error_count = java_error_count;
   java_complete_class ();	    /* Parse unsatisfied class decl. */
@@ -868,7 +825,7 @@ parse_source_file_2 ()
 }
 
 static void
-parse_source_file_3 ()
+parse_source_file_3 (void)
 {
   int save_error_count = java_error_count;
   java_check_circular_reference (); /* Check on circular references */
@@ -879,15 +836,13 @@ parse_source_file_3 ()
 }
 
 void
-add_predefined_file (name)
-     tree name;
+add_predefined_file (tree name)
 {
   predef_filenames = tree_cons (NULL_TREE, name, predef_filenames);
 }
 
 int
-predefined_filename_p (node)
-     tree node;
+predefined_filename_p (tree node)
 {
   tree iter;
 
@@ -900,8 +855,7 @@ predefined_filename_p (node)
 }
 
 void
-java_parse_file (set_yydebug)
-     int set_yydebug ATTRIBUTE_UNUSED;
+java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   int filename_count = 0;
   char *list, *next;
@@ -1076,7 +1030,7 @@ java_parse_file (set_yydebug)
       if (magic == 0xcafebabe)
 	{
 	  CLASS_FILE_P (node) = 1;
-	  current_jcf = ALLOC (sizeof (JCF));
+	  current_jcf = ggc_alloc (sizeof (JCF));
 	  JCF_ZERO (current_jcf);
 	  current_jcf->read_state = finput;
 	  current_jcf->filbuf = jcf_filbuf_from_stdio;
@@ -1088,6 +1042,7 @@ java_parse_file (set_yydebug)
       else if (magic == (JCF_u4)ZIPMAGIC)
 	{
 	  ZIP_FILE_P (node) = 1;
+	  main_jcf = ggc_alloc (sizeof (JCF));
 	  JCF_ZERO (main_jcf);
 	  main_jcf->read_state = finput;
 	  main_jcf->filbuf = jcf_filbuf_from_stdio;
@@ -1225,7 +1180,7 @@ process_zip_dir (FILE *finput)
 
       class_name = ALLOC (zdir->filename_length+1-6);
       file_name  = ALLOC (zdir->filename_length+1);
-      jcf = ALLOC (sizeof (JCF));
+      jcf = ggc_alloc (sizeof (JCF));
       JCF_ZERO (jcf);
 
       strncpy (class_name, class_name_in_zip_dir, zdir->filename_length-6);
@@ -1255,11 +1210,8 @@ process_zip_dir (FILE *finput)
 /* Initialization.  */
 
 void
-init_jcf_parse ()
+init_jcf_parse (void)
 {
-  /* Register roots with the garbage collector.  */
-  ggc_add_root (&current_jcf, 1, sizeof (JCF), (void (*)(void *))ggc_mark_jcf);
-
   init_src_parse ();
 }
 

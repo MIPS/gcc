@@ -582,7 +582,7 @@ struct noce_if_info
 static rtx noce_emit_store_flag		PARAMS ((struct noce_if_info *,
 						 rtx, int, int));
 static int noce_try_store_flag		PARAMS ((struct noce_if_info *));
-static int noce_try_store_flag_inc	PARAMS ((struct noce_if_info *));
+static int noce_try_addcc		PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_constants PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_mask	PARAMS ((struct noce_if_info *));
 static rtx noce_emit_cmove		PARAMS ((struct noce_if_info *,
@@ -864,61 +864,91 @@ noce_try_store_flag_constants (if_info)
    similarly for "foo--".  */
 
 static int
-noce_try_store_flag_inc (if_info)
+noce_try_addcc (if_info)
      struct noce_if_info *if_info;
 {
   rtx target, seq;
   int subtract, normalize;
 
   if (! no_new_pseudos
-      && (BRANCH_COST >= 2
-	  || HAVE_incscc
-	  || HAVE_decscc)
       /* Should be no `else' case to worry about.  */
       && if_info->b == if_info->x
       && GET_CODE (if_info->a) == PLUS
-      && (XEXP (if_info->a, 1) == const1_rtx
-	  || XEXP (if_info->a, 1) == constm1_rtx)
       && rtx_equal_p (XEXP (if_info->a, 0), if_info->x)
       && (reversed_comparison_code (if_info->cond, if_info->jump)
 	  != UNKNOWN))
     {
-      if (STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
-	subtract = 0, normalize = 0;
-      else if (-STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
-	subtract = 1, normalize = 0;
-      else
-	subtract = 0, normalize = INTVAL (XEXP (if_info->a, 1));
-      
-      start_sequence ();
+      rtx cond = if_info->cond;
+      enum rtx_code code = reversed_comparison_code (cond, if_info->jump);
 
-      target = noce_emit_store_flag (if_info,
-				     gen_reg_rtx (GET_MODE (if_info->x)),
-				     1, normalize);
-
-      if (target)
-	target = expand_simple_binop (GET_MODE (if_info->x),
-				      subtract ? MINUS : PLUS,
-				      if_info->x, target, if_info->x,
-				      0, OPTAB_WIDEN);
-      if (target)
+      /* First try to use addcc pattern.  */
+      if (general_operand (XEXP (cond, 0), VOIDmode)
+	  && general_operand (XEXP (cond, 1), VOIDmode))
 	{
-	  if (target != if_info->x)
-	    noce_emit_move_insn (if_info->x, target);
+	  start_sequence ();
+	  target = emit_conditional_add (if_info->x, code,
+					 XEXP (cond, 0), XEXP (cond, 1),
+					 VOIDmode,
+					 if_info->b, XEXP (if_info->a, 1),
+					 GET_MODE (if_info->x),
+					 (code == LTU || code == GEU
+					  || code == LEU || code == GTU));
+	  if (target)
+	    {
+	      if (target != if_info->x)
+		noce_emit_move_insn (if_info->x, target);
 
-	  seq = get_insns ();
+	      seq = get_insns ();
+	      end_sequence ();
+	      emit_insn_before_scope (seq, if_info->jump,
+				      INSN_SCOPE (if_info->insn_a));
+	      return TRUE;
+	    }
 	  end_sequence ();
-
-	  if (seq_contains_jump (seq))
-	    return FALSE;
-
-	  emit_insn_before_scope (seq, if_info->jump,
-				  INSN_SCOPE (if_info->insn_a));
-
-	  return TRUE;
 	}
+	
+      /* If that fails, construct conditional increment or decrement using
+	 setcc.  */
+      if (BRANCH_COST >= 2
+	  && (XEXP (if_info->a, 1) == const1_rtx
+	      || XEXP (if_info->a, 1) == constm1_rtx))
+        {
+	  start_sequence ();
+	  if (STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
+	    subtract = 0, normalize = 0;
+	  else if (-STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
+	    subtract = 1, normalize = 0;
+	  else
+	    subtract = 0, normalize = INTVAL (XEXP (if_info->a, 1));
 
-      end_sequence ();
+
+	  target = noce_emit_store_flag (if_info,
+					 gen_reg_rtx (GET_MODE (if_info->x)),
+					 1, normalize);
+
+	  if (target)
+	    target = expand_simple_binop (GET_MODE (if_info->x),
+					  subtract ? MINUS : PLUS,
+					  if_info->x, target, if_info->x,
+					  0, OPTAB_WIDEN);
+	  if (target)
+	    {
+	      if (target != if_info->x)
+		noce_emit_move_insn (if_info->x, target);
+
+	      seq = get_insns ();
+	      end_sequence ();
+
+	      if (seq_contains_jump (seq))
+		return FALSE;
+
+	      emit_insn_before_scope (seq, if_info->jump,
+				      INSN_SCOPE (if_info->insn_a));
+
+	      return TRUE;
+	    }
+	  end_sequence ();
+	}
     }
 
   return FALSE;
@@ -1860,7 +1890,7 @@ noce_process_if_block (ce_info)
     {
       if (noce_try_store_flag_constants (&if_info))
 	goto success;
-      if (noce_try_store_flag_inc (&if_info))
+      if (noce_try_addcc (&if_info))
 	goto success;
       if (noce_try_store_flag_mask (&if_info))
 	goto success;
@@ -2252,7 +2282,7 @@ find_if_block (ce_info)
       int max_insns = MAX_CONDITIONAL_EXECUTE;
       int n_insns;
 
-      /* Determine if the preceeding block is an && or || block.  */
+      /* Determine if the preceding block is an && or || block.  */
       if ((n_insns = block_jumps_and_fallthru_p (bb, else_bb)) >= 0)
 	{
 	  ce_info->and_and_p = TRUE;
@@ -2847,7 +2877,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
   if (HAVE_conditional_execution)
     {
       /* In the conditional execution case, we have things easy.  We know
-	 the condition is reversable.  We don't have to check life info,
+	 the condition is reversible.  We don't have to check life info,
 	 becase we're going to conditionally execute the code anyway.
 	 All that's left is making sure the insns involved can actually
 	 be predicated.  */

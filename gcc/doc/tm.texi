@@ -1,5 +1,5 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
+@c 2002, 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1910,7 +1910,8 @@ If the usage of an entire class of registers depends on the target
 flags, you may indicate this to GCC by using this macro to modify
 @code{fixed_regs} and @code{call_used_regs} to 1 for each of the
 registers in the classes which should not be used by GCC@.  Also define
-the macro @code{REG_CLASS_FROM_LETTER} to return @code{NO_REGS} if it
+the macro @code{REG_CLASS_FROM_LETTER} / @code{REG_CLASS_FROM_CONSTRAINT}
+to return @code{NO_REGS} if it
 is called with a letter for a class that shouldn't be used.
 
 (However, if this class is not included in @code{GENERAL_REGS} and all
@@ -2330,6 +2331,21 @@ index register must belong.  An index register is one used in an
 address where its value is either multiplied by a scale factor or
 added to another register (as well as added to a displacement).
 
+@findex CONSTRAINT_LEN
+@item CONSTRAINT_LEN (@var{char}, @var{str})
+For the constraint at the start of @var{str}, which starts with the letter
+@var{c}, return the length.  This allows you to have register class /
+constant / extra constraints that are longer than a single letter;
+you don't need to define this macro if you can do with single-letter
+constraints only.  The definition of this macro should use
+DEFAULT_CONSTRAINT_LEN for all the characters that you don't want
+to handle specially.
+There are some sanity checks in genoutput.c that check the constraint lengths
+for the md file, so you can also use this macro to help you while you are
+transitioning from a byzantine single-letter-constraint scheme: when you
+return a negative length for a constraint you want to re-use, genoutput
+will complain about every instance where it is used in the md file.
+
 @findex REG_CLASS_FROM_LETTER
 @item REG_CLASS_FROM_LETTER (@var{char})
 A C expression which defines the machine-dependent operand constraint
@@ -2338,6 +2354,12 @@ value should be the register class corresponding to it.  Otherwise,
 the value should be @code{NO_REGS}.  The register letter @samp{r},
 corresponding to class @code{GENERAL_REGS}, will not be passed
 to this macro; you do not need to handle it.
+
+@findex REG_CLASS_FROM_CONSTRAINT
+@item REG_CLASS_FROM_CONSTRAINT (@var{char}, @var{str})
+Like @code{REG_CLASS_FROM_LETTER}, but you also get the constraint string
+passed in @var{str}, so that you can use suffixes to distinguish between
+different variants.
 
 @findex REGNO_OK_FOR_BASE_P
 @item REGNO_OK_FOR_BASE_P (@var{num})
@@ -2608,6 +2630,12 @@ the appropriate range and return 1 if so, 0 otherwise.  If @var{c} is
 not one of those letters, the value should be 0 regardless of
 @var{value}.
 
+@findex CONST_OK_FOR_CONSTRAINT_P
+@item CONST_OK_FOR_CONSTRAINT_P (@var{value}, @var{c}, @var{str})
+Like @code{CONST_OK_FOR_LETTER_P}, but you also get the constraint
+string passed in @var{str}, so that you can use suffixes to distinguish
+between different variants.
+
 @findex CONST_DOUBLE_OK_FOR_LETTER_P
 @item CONST_DOUBLE_OK_FOR_LETTER_P (@var{value}, @var{c})
 A C expression that defines the machine-dependent operand constraint
@@ -2624,12 +2652,19 @@ letters, the value should be 0 regardless of @var{value}.
 or both kinds of values.  It can use @code{GET_MODE} to distinguish
 between these kinds.
 
+@findex CONST_DOUBLE_OK_FOR_CONSTRAINT_P
+@item CONST_DOUBLE_OK_FOR_CONSTRAINT_P (@var{value}, @var{c}, @var{str})
+Like @code{CONST_DOUBLE_OK_FOR_LETTER_P}, but you also get the constraint
+string passed in @var{str}, so that you can use suffixes to distinguish
+between different variants.
+
 @findex EXTRA_CONSTRAINT
 @item EXTRA_CONSTRAINT (@var{value}, @var{c})
 A C expression that defines the optional machine-dependent constraint
 letters that can be used to segregate specific types of operands, usually
 memory references, for the target machine.  Any letter that is not
-elsewhere defined and not matched by @code{REG_CLASS_FROM_LETTER}
+elsewhere defined and not matched by @code{REG_CLASS_FROM_LETTER} /
+@code{REG_CLASS_FROM_CONSTRAINT}
 may be used.  Normally this macro will not be defined.
 
 If it is required for a particular target machine, it should return 1
@@ -2645,14 +2680,21 @@ a @samp{Q} constraint on the input and @samp{r} on the output.  The next
 alternative specifies @samp{m} on the input and a register class that
 does not include r0 on the output.
 
+@findex EXTRA_CONSTRAINT_STR
+@item EXTRA_CONSTRAINT_STR (@var{value}, @var{c}, @var{str})
+Like @code{EXTRA_CONSTRAINT}, but you also get the constraint string passed
+in @var{str}, so that you can use suffixes to distinguish between different
+variants.
+
 @findex EXTRA_MEMORY_CONSTRAINT
-@item EXTRA_MEMORY_CONSTRAINT (@var{c})
+@item EXTRA_MEMORY_CONSTRAINT (@var{c}, @var{str})
 A C expression that defines the optional machine-dependent constraint
 letters, amongst those accepted by @code{EXTRA_CONSTRAINT}, that should
 be treated like memory constraints by the reload pass.
 
 It should return 1 if the operand type represented by the constraint 
-letter @var{c} comprises a subset of all memory references including
+at the start of @var{str}, the first letter of which is the letter @var{c},
+ comprises a subset of all memory references including
 all those whose address is simply a base register.  This allows the reload 
 pass to reload an operand, if it does not directly correspond to the operand 
 type of @var{c}, by copying its address into a base register.
@@ -2668,16 +2710,18 @@ into a base register if required.  This is analogous to the way
 a @samp{o} constraint can handle any memory operand.
 
 @findex EXTRA_ADDRESS_CONSTRAINT
-@item EXTRA_ADDRESS_CONSTRAINT (@var{c})
+@item EXTRA_ADDRESS_CONSTRAINT (@var{c}, @var{str})
 A C expression that defines the optional machine-dependent constraint
-letters, amongst those accepted by @code{EXTRA_CONSTRAINT}, that should
+letters, amongst those accepted by @code{EXTRA_CONSTRAINT} /
+@code{EXTRA_CONSTRAINT_STR}, that should
 be treated like address constraints by the reload pass.
 
 It should return 1 if the operand type represented by the constraint 
-letter @var{c} comprises a subset of all memory addresses including
+at the start of @var{str}, which starts with the letter @var{c}, comprises
+a subset of all memory addresses including
 all those that consist of just a base register.  This allows the reload 
 pass to reload an operand, if it does not directly correspond to the operand 
-type of @var{c}, by copying it into a base register.
+type of @var{str}, by copying it into a base register.
 
 Any constraint marked as @code{EXTRA_ADDRESS_CONSTRAINT} can only
 be used with the @code{address_operand} predicate.  It is treated 
@@ -5523,13 +5567,15 @@ to return the value of the macro @code{MAX_DFA_ISSUE_RATE}.
 @deftypefn {Target Hook} int TARGET_SCHED_VARIABLE_ISSUE (FILE *@var{file}, int @var{verbose}, rtx @var{insn}, int @var{more})
 This hook is executed by the scheduler after it has scheduled an insn
 from the ready list.  It should return the number of insns which can
-still be issued in the current cycle.  Normally this is
-@samp{@w{@var{more} - 1}}.  You should define this hook if some insns
-take more machine resources than others, so that fewer insns can follow
-them in the same cycle.  @var{file} is either a null pointer, or a stdio
-stream to write any debug output to.  @var{verbose} is the verbose level
-provided by @option{-fsched-verbose-@var{n}}.  @var{insn} is the
-instruction that was scheduled.
+still be issued in the current cycle.  The default is
+@samp{@w{@var{more} - 1}} for insns other than @code{CLOBBER} and
+@code{USE}, which normally are not counted against the issue rate.
+You should define this hook if some insns take more machine resources
+than others, so that fewer insns can follow them in the same cycle.
+@var{file} is either a null pointer, or a stdio stream to write any
+debug output to.  @var{verbose} is the verbose level provided by
+@option{-fsched-verbose-@var{n}}.  @var{insn} is the instruction that
+was scheduled.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_COST (rtx @var{insn}, rtx @var{link}, rtx @var{dep_insn}, int @var{cost})
@@ -5581,6 +5627,16 @@ return the number of insns to be scheduled in the same cycle.  Defining
 this hook can be useful if there are frequent situations where
 scheduling one insn causes other insns to become ready in the same
 cycle.  These other insns can then be taken into account properly.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK (rtx @var{head}, rtx @var{tail})
+This hook is called after evaluation forward dependencies of insns in
+chain given by two parameter values (@var{head} and @var{tail}
+correspondingly) but before insns scheduling of the insn chain.  For
+example, it can be used for better insn classification if it requires
+analysis of dependencies.  This hook can use backward and forward
+dependencies of the insn scheduler because they are already
+calculated.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_INIT (FILE *@var{file}, int @var{verbose}, int @var{max_ready})
@@ -5667,6 +5723,30 @@ pipeline hazard recognizer.  We try quickly and easy many insn
 schedules to choose the best one.
 
 The default is no multipass scheduling.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD (rtx)
+
+This hook controls what insns from the ready insn queue will be
+considered for the multipass insn scheduling.  If the hook returns
+zero for insn passed as the parameter, the insn will be not chosen to
+be issued.
+
+The default is that any ready insns can be choosen to be issued.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_DFA_NEW_CYCLE (FILE *, int, rtx, int, int, int *)
+
+This hook is called by the insn scheduler before issuing insn passed
+as the third parameter on given cycle.  If the hook returns nonzero,
+the insn is not issued on given processors cycle.  Instead of that,
+the processor cycle is advanced.  If the value passed through the last
+parameter is zero, the insn ready queue is not sorted on the new cycle
+start as usually.  The first parameter passes file for debugging
+output.  The second one passes the scheduler verbose level of the
+debugging output.  The forth and the fifth parameter values are
+correspondingly processor cycle on which the previous insn has been
+issued and the current processor cycle.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_BUBBLES (void)
@@ -8785,11 +8865,10 @@ This macro is no longer supported.  You must use
 @findex REGISTER_TARGET_PRAGMAS
 @findex #pragma
 @findex pragma
-@item REGISTER_TARGET_PRAGMAS (@var{pfile})
+@item REGISTER_TARGET_PRAGMAS ()
 Define this macro if you want to implement any target-specific pragmas.
 If defined, it is a C expression which makes a series of calls to
-@code{cpp_register_pragma} for each pragma, with @var{pfile} passed as
-the first argument to to these functions.  The macro may also do any
+@code{c_register_pragma} for each pragma.  The macro may also do any
 setup required for the pragmas.
 
 The primary reason to define this macro is to provide compatibility with
@@ -8803,9 +8882,9 @@ Preprocessor macros that appear on pragma lines are not expanded.  All
 @samp{#pragma} directives that do not match any registered pragma are
 silently ignored, unless the user specifies @option{-Wunknown-pragmas}.
 
-@deftypefun void cpp_register_pragma (cpp_reader *@var{pfile}, const char *@var{space}, const char *@var{name}, void (*@var{callback}) (cpp_reader *))
+@deftypefun void c_register_pragma (const char *@var{space}, const char *@var{name}, void (*@var{callback}) (struct cpp_reader *))
 
-Each call to @code{cpp_register_pragma} establishes one pragma.  The
+Each call to @code{c_register_pragma} establishes one pragma.  The
 @var{callback} routine will be called when the preprocessor encounters a
 pragma of the form
 

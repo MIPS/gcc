@@ -1,3 +1,373 @@
+2003-01-16  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/SocketImpl.java (toString): Don't explicitly call
+	toString() on possible null address.
+
+2003-01-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/MulticastSocket.java
+	(setInterface): Reindented.
+
+2003-01-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/gcj/xlib/natGC.cc (fillPolygon): New method.
+	* gnu/gcj/xlib/GC.java (fillPolygon): Declare.
+	* gnu/awt/xlib/XGraphics.java (fillPolygon): Added translateX and
+	translateY arguments.  Implement.
+	* gnu/awt/j2d/IntegerGraphicsState.java (fillPolygon): Pass
+	down translation arguments.
+	(drawPolyline, drawPolygon): Fix incorrect tests.
+	* gnu/awt/j2d/DirectRasterGraphics.java (fillPolygon): Added
+	translateX and translateY arguments.
+
+2003-01-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (xlib_includes): New macro.
+	(INCLUDES): Use it.
+
+2003-01-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/xlib/XToolkit.java (getColorModel): Implemented.
+	* gnu/awt/xlib/XGraphicsConfiguration.java (getPixel): Work with
+	16-bit display mode.
+
+2003-01-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* java/awt/CardLayout.java (show): Rewrote.
+	(gotoComponent): Removed `target' argument.  Simplified code.
+	Don't pre-compute `choice' unless `what' is FIRST or LAST.
+	Changed all callers.
+	(NONE): Removed.
+	
+2003-01-14  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetSocketAddress.java
+	(serialVersionUID): New member variable.
+	* java/net/NetPermission.java
+	(NetPermission): Dont implement java.io.Serialization directly.
+	* java/net/SocketAddress.java:
+	(serialVersionUID): Documentation added.
+	
+2003-01-14  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Label.java
+	(Label): Implements javax.accessibility.Accessible;
+	* java/awt/List.java
+	(List): Implements javax.accessibility.Accessible;
+	* java/awt/ScrollPane.java
+	(ScrollPane): Implements javax.accessibility.Accessible;
+	* java/awt/Scrollbar.java
+	(Scrollbar): Implements javax.accessibility.Accessible;
+	* java/awt/TextComponent.java
+	(setCaretPosition): Throw exception, documentation added.
+	* java/awt/Toolkit.java:
+	Added some newlines in method documentations.
+	(createButton): Exception documentation added.
+	(createTextField): Exception documentation added.
+	(createLabel): Exception documentation added.
+	(createList): Exception documentation added.
+	(createCheckbox): Exception documentation added.
+	(createScrollbar): Exception documentation added.
+	(createScrollPane): Exception documentation added.
+	(createTextArea): Exception documentation added.
+	(createChoice): Exception documentation added.
+	(createFrame): Exception documentation added.
+	(createWindow): Exception documentation added.
+	(createDialog): Exception documentation added.
+	(createMenuBar): Exception documentation added.
+	(createMenu): Exception documentation added.
+	(createMenuItem): Exception documentation added.
+	(createFileDialog): Exception documentation added.
+	(createCheckboxMenuItem): Exception documentation added.
+	(loadSystemColors): Exception documentation added.
+	(setDynamicLayout): Exception documentation added.
+	(isDynamicLayoutSet): Exception documentation added.
+	(isDynamicLayoutActive): Exception documentation added.
+	(getScreenSize): Exception documentation added.
+	(getScreenResolution): Exception documentation added.
+	(getScreenInsets): Exception documentation added.
+	(getColorModel): Exception documentation added.
+	(getSystemClipboard): Exception documentation added.
+	(getSystemSelection): Exception documentation added.
+	(getMenuShortcutKeyMask): Exception documentation added.
+	(getSystemEventQueue): Exception documentation added.
+	* java/awt/Window.java:
+	Reindented some code.
+	(Window): Centralized implementation, documentation added.
+	(finalize): Documentation added.
+	(hide): Fixed typo in comment.
+	(getWindowListeners): Documentation added.
+	* java/awt/color/ColorSpace.java
+	(toRGB): Documentation added.
+	* java/awt/color/ICC_ColorSpace.java
+	(ICC_ColorSpace): Documentation added.
+	(toRGB): Throw exception, documentation added.
+	(fromRGB): Throw exception, documentation added.
+	(toCIEXYZ): Documentation added.
+	(fromCIEXYZ): Documentation added.
+	(getMinValue): Documentation added.
+	(getMaxValue): Documentation added.
+	* java/awt/geom/Dimension2D.java
+	(clone): Documentation added.
+	* java/awt/geom/GeneralPath.java
+	(clone): Documentation added.
+	* java/awt/geom/Line2D.java
+	(clone): Documentation added.
+	* java/awt/geom/QuadCurve2D.java
+	(clone): Documentation added.
+	* java/awt/image/ColorModel.java
+	(ColorModel): Throw exception, documentation added.
+	* java/awt/image/ImageFilter.java
+	(clone): Doesnt throw CloneNotSupportedException.
+
+2003-01-14  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natRuntime.cc (_load): StackTrace access needs to be
+	in a try block.
+
+2003-01-10  Andrew Haley  <aph@redhat.com>
+
+	* include/dwarf2-signal.h: Remove x86_64.
+	* configure.host (x86_64 DIVIDESPEC): Remove.
+	* include/x86_64-signal.h: New file.
+	* configure.in: Regenerate.
+
+2003-01-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(ch): Description added.
+	(remotePort): Initialize with -1.
+	(connect): Doesnt throws SocketException.
+	* java/net/MulticastSocket.java
+	(setInterface): Merge with Classpath.
+	* java/net/ServerSocket.java
+	(closed): New member variable.
+	(bind): Check if socket is closed.
+	(close): Close an associated channel too, set new value to closed.
+	(isBound): Reindented.
+	(isClosed): Implemented.
+	* java/net/Socket.java
+	(closed): New member variable.
+	(bind): Check if socket is closed.
+	(connect): Check if socket is closed.
+	(close): Close an associated channel too, set new value to closed.
+	(isClosed): Implemented.
+
+2003-01-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/DisplayMode.java
+	(equals): Fixed argument type and implementation.
+
+2003-01-07  Tom Tromey  <tromey@redhat.com>
+
+	* include/posix.h (_Jv_platform_usleep): Wrap in ifdef
+	JV_HASH_SYNCHRONIZATION.
+	* include/win32.h (_Jv_platform_usleep): Wrap in ifdef
+	JV_HASH_SYNCHRONIZATION.
+
+2003-01-07  Michael Koch  <konqueror@gmx.de>
+ 
+ 	* java/net/DatagramSocket.java:
+ 	Added classpath license info.
+ 	(DatagramSocket): Merged description with classpath.
+ 	(close): Merged description with classpath.
+ 	(getChannel): Merged description with classpath.
+ 	(getInetAddress): Merged description with classpath.
+ 	(getPort): Merged description with classpath.
+ 	(getLocalAddress): Merged description with classpath.
+ 	(getLocalPort): Merged description with classpath.
+ 	(getSoTimeout): Merged description with classpath.
+ 	(setSoTimeout): Merged description with classpath.
+ 	(getSendBufferSize): Merged description with classpath.
+ 	(setSendBufferSize): Merged description with classpath.
+ 	(getReceiveBufferSize): Merged description with classpath.
+ 	(setReceiveBufferSize): Merged description with classpath.
+	
+2003-01-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/List.java: Merged with Classpath.
+
+2003-01-03  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/FileDescriptor.java (position): New private field.
+	* java/io/natFileDescriptorPosix.cc (write): Up position.
+	(setLength): Use and set position.
+	(seek): Set position.
+	(getFilePointer): Return position.
+	(read): Up position.
+
+2003-01-03  Mark Wielaard  <mark@klomp.org>
+
+	Merge with Classpath:
+	* java/io/ObjectStreamClass.java (lookup): Split method and call
+	lookupForClassObject().
+	(lookupForClassObject): New method.
+	(isProxyClass): New field.
+	(setClass): Set isProxyClass, add object to classLookupTable, set
+	superClass and calculateOffsets.
+	(ObjectStreamClass): Set isProxyClass. Only set uid when Serializable
+	and not a proxy class.
+	(setFields): Set accessible true for serialPersistentFields.
+	(getClassUID): Same for suid. And check if suid is of type long.
+	(hasClassInitializer): Don't throw NoSuchMethodError.
+
+2003-01-03  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/FileInputStream.java (finalize): Don't explicitly
+	finalize FileDescriptor.
+
+2003-01-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.host (sparc*-*): Enable bytecode interpreter.
+
+2003-01-03  Dhek Bhun Kho  <bhun@chello.nl>
+
+	* gnu/java/rmi/server/UnicastServerRef.java (unexportObject):
+	Don't throw RemoteException.
+	* java/rmi/server/UnicastRemoteObject.java (unexportObject): Don't
+	throw RemoteException.
+
+2003-01-03  Joerg Brunsmann  <joerg_brunsmann@yahoo.de>
+
+	* gnu/gcj/protocol/http/Connection.java (proxyPort, proxyInUse,
+	proxyHost): New static fields.
+	(<clinit>): Initialize new fields.
+	(connect): Use proxy if necessary.
+	(usingProxy): Implement.
+
+2003-01-03  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/util/TreeMap.java (fabricateTree): Fix off-by-one error.
+	(TreeIterator.remove): Prefer IllegalStateException over
+	ConcurrentModificationException, to match Sun.
+
+2002-12-22  Anthony Green  <green@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Mark the protectionDomain of a class.
+
+2003-01-02  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/HttpURLConnection.java (HTTP_NOT_IMPLEMENTED): Must be
+	public.
+	(HTTP_USE_PROXY): Add field.
+	(getResponseVals): Only set responseCode when not yet explicitly
+	set by subclass.
+
+2003-01-02  Artur Biesiadowski  <abies@pg.gda.pl>
+	    Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipFile.java (entries): Now HashMap.
+	(readLeShort(DataInput, byte[])): Read from given byte array.
+	(readLeInt(DataInput, byte[]): Likewise.
+	(readLeShort(byte[] b, int off)): New method.
+	(readLeInt(byte[] b, int off)): Likewise.
+	(readEntries): Use byte arrays to read info in bigger chunks.
+	(getEntries): Return HashMap.
+	(getEntry): Use HashMap.
+	(locBuf): New private field.
+	(checkLocalHeader): Use locBuf to read info in one chunk.
+	(getInputStream): Use entries HashMap, wrap PartialInputStream
+	in BufferedInputStream.
+	(ZipEntryEnumeration): Use HashMap and Interator.
+
+2003-01-02  Mark Wielaard  <mark@klomp.org>
+	    Jeroen Frijters  <jeroen@sumatra.nl>
+
+	* java/net/URLClassLoader.java (Resource.getCodeSource):
+	Fix check certs == null.
+	(getCanonicalFileURL): Removed method.
+	(JarURLLoader): Don't call removed method.
+	(FileURLLoader): Likewise.
+	(FileURLLoader.getResource): Don't canonicalize file name.
+
+2003-01-01  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (rmi_java_source_files): Added RMIClassLoaderSpi.
+	* java/awt/AlphaComposite.java, java/awt/BasicStroke.java,
+	java/awt/BufferCapabilities.java, java/awt/Button.java,
+	java/awt/CheckboxMenuItem.java, java/awt/Choice.java,
+	java/awt/Container.java, java/awt/Cursor.java,
+	java/awt/EventQueue.java, java/awt/FileDialog.java,
+	java/awt/Graphics2D.java, java/awt/Label.java, java/awt/Menu.java,
+	java/awt/MenuBar.java, java/awt/MenuComponent.java,
+	java/awt/PopupMenu.java, java/awt/ScrollPane.java,
+	java/awt/Scrollbar.java, java/awt/TextArea.java,
+	java/awt/TextField.java, java/awt/color/CMMException.java,
+	java/awt/color/ColorSpace.java, java/awt/color/ICC_Profile.java,
+	java/awt/color/ProfileDataException.java,
+	java/awt/datatransfer/Clipboard.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/awt/datatransfer/FlavorMap.java,
+	java/awt/datatransfer/SystemFlavorMap.java,
+	java/awt/dnd/DragGestureEvent.java,
+	java/awt/dnd/DragGestureRecognizer.java,
+	java/awt/dnd/DragSource.java, java/awt/dnd/DropTarget.java,
+	java/awt/event/WindowEvent.java, java/awt/geom/PathIterator.java,
+	java/awt/im/InputMethodHighlight.java,
+	java/io/PipedOutputStream.java, java/io/PipedWriter.java,
+	java/rmi/server/RMIClassLoader.java: Merged from Classpath.
+
+	* gnu/awt/j2d/Graphics2DImpl.java (drawImage): Changed type of
+	`op' to BufferedImageOp.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/7416:
+	* javax/naming/InitialContext.java (init): Use
+	gnu.classpath.home.url.
+	* java/security/Security.java: Use new properties.
+	(loadProviders): Accept base url; use it.
+	* java/lang/System.java: Document gnu.classpath.vm.shortname, and
+	gnu.classpath.home.url.
+	(gnu.classpath.home.url): Define.
+	(gnu.classpath.vm.shortname): Likewise.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+            Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fix for PR libgcj/8997:
+	* java/lang/natObject.cc (spin): Use _Jv_platform_usleep.
+	Include platform.h.
+	* include/posix.h (_Jv_platform_usleep): New function.
+	* include/win32.h (_Jv_platform_usleep): New function.
+
+2002-12-29  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated.
+	* scripts/classes.pl (scan): Removed stray semicolon.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLStreamHandler.java (toExternalForm): Ignore port
+	if zero or smaller.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Properties (formatForOutput): Don't fall through to
+	default case after escaping character.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/StringBuffer.java (getChars): Remove wrong dstOffset check
+	against count.
+
+2002-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* boehm.cc: Remove stray semicolon.
+	* interpret.cc: Likewise.
+	* prims.cc: Likewise.
+	* verify.cc (_Jv_BytecodeVerifier::verify_fail): Move definition
+	earlier to ensure default arguments are processed.
+	* gcj/array.h (JArray): Add forward declaration.
+	(elements): Likewise.
+	* gcj/javaprim.h: Remove stray semicolons.
+	* include/bohm-gc.h: Likewise.
+	* include/jni.h: Likewise.
+	* include/jvm.h: Likewise.
+	* java/lang/Class.h (_Jv_GetArrayClass): Declare _Jv_NewArrayClass.
+	
 2002-12-23  Jeff Sturm  <jsturm@one-point.com>
 
 	* exception.cc (PERSONALITY_FUNCTION): Clear least-significant-bit

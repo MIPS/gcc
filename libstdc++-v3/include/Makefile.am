@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -324,6 +324,7 @@ target_headers_extra = \
 	${target_builddir}/c++io.h \
 	${target_builddir}/c++locale.h \
 	${target_builddir}/messages_members.h \
+	${target_builddir}/time_members.h \
 	${target_builddir}/codecvt_specializations.h
 
 thread_target_headers = \
@@ -348,18 +349,22 @@ stamp-std: ${std_headers}
 	@if [ ! -d "${std_builddir}" ]; then \
 	  mkdir -p ${std_builddir} ;\
 	fi ;\
-	(cd ${std_builddir} && for h in $?; do \
-	  official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
-	  @LN_S@ $$h ./$${official_name} || true ;\
-	done) ;\
-	echo `date` > stamp-std 
+	if [ ! -f stamp-std ]; then \
+	  (cd ${std_builddir} && for h in $?; do \
+	    official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
+	    @LN_S@ $$h ./$${official_name} || true ;\
+	  done) ;\
+	  echo `date` > stamp-std ;\
+	fi
 
 stamp-bits: ${bits_headers}
 	@if [ ! -d "${bits_builddir}" ]; then \
 	  mkdir -p ${bits_builddir} ;\
 	fi ;\
-	(cd ${bits_builddir} && @LN_S@ $? . || true) ;\
-	echo `date` > stamp-bits
+	if [ ! -f stamp-bits ]; then \
+	  (cd ${bits_builddir} && @LN_S@ $? . || true) ;\
+	  echo `date` > stamp-bits ;\
+	fi
 
 stamp-c_base: ${c_base_headers} ${c_base_headers_extra} 
 	@if [ ! -d "${c_base_builddir}" ]; then \
@@ -369,33 +374,41 @@ stamp-c_base: ${c_base_headers} ${c_base_headers_extra}
 	  official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
 	  @LN_S@ $$h ./$${official_name} || true ;\
 	done) ;\
-	if [ ! -z "${c_base_headers_extra}" ]; then \
+	if [ ! -f stamp-c_base ]; then \
+	  if [ ! -z "${c_base_headers_extra}" ]; then \
 	  (cd ${bits_builddir} && @LN_S@ ${c_base_headers_extra}  . || true) ;\
-	fi ;\
-	echo `date` > stamp-c_base
+	  fi ;\
+	  echo `date` > stamp-c_base ;\
+	fi
 
 stamp-c_compatibility: ${c_compatibility_headers_extra}
 	@if [ ! -d "${c_compatibility_builddir}" ]; then \
 	  mkdir -p ${c_compatibility_builddir} ;\
 	fi ;\
-	if [ ! -z "${c_compatibility_headers_extra}" ]; then \
-	  (cd ${c_compatibility_builddir} && @LN_S@ $? . || true) ;\
-	fi ;\
-	echo `date` > stamp-c_compatibility
+	if [ ! -f stamp-c_compatibility ]; then \
+	  if [ ! -z "${c_compatibility_headers_extra}" ]; then \
+	    (cd ${c_compatibility_builddir} && @LN_S@ $? . || true) ;\
+	  fi ;\
+	  echo `date` > stamp-c_compatibility ;\
+	fi 
 
 stamp-backward: ${backward_headers}
 	@if [ ! -d "${backward_builddir}" ]; then \
 	  mkdir -p ${backward_builddir} ;\
 	fi ;\
-	(cd ${backward_builddir} && @LN_S@ $? . || true) ;\
-	echo `date` > stamp-backward
+	if [ ! -f stamp-backward ]; then \
+	  (cd ${backward_builddir} && @LN_S@ $? . || true) ;\
+	  echo `date` > stamp-backward ;\
+	fi
 
 stamp-ext: ${ext_headers}
 	@if [ ! -d "${ext_builddir}" ]; then \
-	  mkdir -p ${ext_builddir} ;\
+	    mkdir -p ${ext_builddir} ;\
 	fi ;\
-	(cd ${ext_builddir} && @LN_S@ $? . || true) ;\
-	echo `date` > stamp-ext
+	if [ ! -f stamp-ext ]; then \
+	  (cd ${ext_builddir} && @LN_S@ $? . || true) ;\
+	  echo `date` > stamp-ext ;\
+	fi
 
 stamp-${target_alias}:
 	@if [ ! -d ${target_builddir} ]; then \
@@ -414,6 +427,7 @@ stamp-target: ${target_headers} ${target_headers_noinst} stamp-${target_alias}
 	  @LN_S@ ${glibcpp_srcdir}/@CLOCALE_H@ c++locale.h || true ;\
 	  @LN_S@ ${glibcpp_srcdir}/@CLOCALE_INTERNAL_H@ . || true ;\
 	  @LN_S@ ${glibcpp_srcdir}/@CMESSAGES_H@ messages_members.h || true ;\
+	  @LN_S@ ${glibcpp_srcdir}/@CTIME_H@ time_members.h || true ;\
 	  @LN_S@ ${glibcpp_srcdir}/@CCODECVT_H@ codecvt_specializations.h || true);\
 	  echo `date` > stamp-target ; \
 	fi
@@ -470,35 +484,35 @@ ${target_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcpp_thread_h} \
 # the rest are taken from the original source tree.
 gxx_include_dir = @gxx_include_dir@
 install-data-local:
-	$(mkinstalldirs) ${gxx_include_dir}
-	$(mkinstalldirs) ${gxx_include_dir}/${bits_builddir}
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${bits_builddir}
 	for file in ${bits_headers}; do \
-	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${bits_builddir}; done
-	$(mkinstalldirs) ${gxx_include_dir}/${backward_builddir}
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${bits_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${backward_builddir}
 	for file in ${backward_headers}; do \
-	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${backward_builddir}; done
-	$(mkinstalldirs) ${gxx_include_dir}/${ext_builddir}
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${backward_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${ext_builddir}
 	for file in ${ext_headers}; do \
-	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${ext_builddir}; done
-	$(mkinstalldirs) ${gxx_include_dir}/${c_base_builddir}
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${ext_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
 	for file in ${c_base_headers_rename}; do \
-	  $(INSTALL_DATA) ${c_base_builddir}/$${file} ${gxx_include_dir}; done
+	  $(INSTALL_DATA) ${c_base_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
 	c_base_headers_extra_install='$(c_base_headers_extra)';\
 	for file in $$c_base_headers_extra_install; do \
-	  $(INSTALL_DATA) $$file ${gxx_include_dir}/${bits_builddir}; done
+	  $(INSTALL_DATA) $$file $(DESTDIR)${gxx_include_dir}/${bits_builddir}; done
 	c_compatibility_headers_install='$(c_compatibility_headers_extra)';\
 	for file in $$c_compatibility_headers_install; do \
-	  $(INSTALL_DATA) $$file ${gxx_include_dir}; done
-	$(mkinstalldirs) ${gxx_include_dir}/${std_builddir}
+	  $(INSTALL_DATA) $$file $(DESTDIR)${gxx_include_dir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
 	for file in ${std_headers_rename}; do \
-	  $(INSTALL_DATA) ${std_builddir}/$${file} ${gxx_include_dir}; done
-	$(mkinstalldirs) ${gxx_include_dir}/${target_builddir}
+	  $(INSTALL_DATA) ${std_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${std_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${target_builddir}
 	for file in ${target_headers} ${target_headers_extra} \
 	 ${thread_target_headers}; do \
-	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${target_builddir}; done
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${target_builddir}; done
 
 # By adding these files here, automake will remove them for 'make clean'
-#CLEANFILES = ${allstamps}
+#CLEANFILES = ${allstamps} 
 
 # Stop implicit '.o' make rules from ever stomping on extensionless
 # headers, in the improbable case where some foolish, crack-addled

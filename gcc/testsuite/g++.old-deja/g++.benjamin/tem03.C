@@ -126,8 +126,8 @@ public:
   template <class T161>
   friend bool foo(T161 u)
     {
-      Xseven<T161, 5, int> obj;
-      return (obj.inst == u.inst);
+      Xseven<T161, 5, int> obj; // ERROR - .*
+      return (obj.inst == u.inst); // ERROR - .*
     }
 
 };
@@ -192,10 +192,10 @@ template <long l>// ERROR - .*
 struct Xthirteen {
   template <long l> long comp_ge(long test) {// ERROR - .
     long local_value;
-    if (local_value > value) 
+    if (local_value > value) // ERROR - .*
       return local_value;
     else
-      return value;
+      return value; // ERROR - .*
   }
 };
 

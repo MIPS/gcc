@@ -1,20 +1,23 @@
 /* Program to write C++-suitable header files from a Java(TM) .class
    file.  This is similar to SUN's javah.
 
-Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003
+Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -35,6 +38,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "javaop.h"
 #include "java-tree.h"
 #include "java-opcodes.h"
+#include "ggc.h"
 #include "hashtab.h"
 
 #include <getopt.h>
@@ -120,43 +124,41 @@ struct method_name
 /* List of method names we've seen.  */
 static struct method_name *method_name_list;
 
-static void print_field_info PARAMS ((FILE*, JCF*, int, int, JCF_u2));
-static void print_mangled_classname PARAMS ((FILE*, JCF*, const char*, int));
-static int  print_cxx_classname PARAMS ((FILE*, const char*, JCF*, int));
-static void print_method_info PARAMS ((FILE*, JCF*, int, int, JCF_u2));
-static void print_c_decl PARAMS ((FILE*, JCF*, int, int, int, const char *,
-				  int));
-static void print_stub_or_jni PARAMS ((FILE*, JCF*, int, int, int,
-				       const char *, int));
-static void print_full_cxx_name PARAMS ((FILE*, JCF*, int, int, int,
-					 const char *, int));
-static void decompile_method PARAMS ((FILE*, JCF*, int));
-static void add_class_decl PARAMS ((FILE*, JCF*, JCF_u2));
+static void print_field_info (FILE*, JCF*, int, int, JCF_u2);
+static void print_mangled_classname (FILE*, JCF*, const char*, int);
+static int  print_cxx_classname (FILE*, const char*, JCF*, int, int);
+static void print_method_info (FILE*, JCF*, int, int, JCF_u2);
+static void print_c_decl (FILE*, JCF*, int, int, int, const char *, int);
+static void print_stub_or_jni (FILE*, JCF*, int, int, int, const char *, int);
+static void print_full_cxx_name (FILE*, JCF*, int, int, int, const char *, int);
+static void decompile_method (FILE*, JCF*, int);
+static void add_class_decl (FILE*, JCF*, JCF_u2);
 
-static int java_float_finite PARAMS ((jfloat));
-static int java_double_finite PARAMS ((jdouble));
-static void print_name PARAMS ((FILE *, JCF *, int));
-static void print_base_classname PARAMS ((FILE *, JCF *, int));
-static int utf8_cmp PARAMS ((const unsigned char *, int, const char *));
-static char *cxx_keyword_subst PARAMS ((const unsigned char *, int));
-static void generate_access PARAMS ((FILE *, JCF_u2));
-static int name_is_method_p PARAMS ((const unsigned char *, int));
-static char *get_field_name PARAMS ((JCF *, int, JCF_u2));
-static void print_field_name PARAMS ((FILE *, JCF *, int, JCF_u2));
-static const unsigned char *super_class_name PARAMS ((JCF *, int *));
-static void print_include PARAMS ((FILE *, const unsigned char *, int));
-static int gcjh_streq PARAMS ((const void *p1, const void *p2));
-static int throwable_p PARAMS ((const unsigned char *signature));
-static const unsigned char *decode_signature_piece
-  PARAMS ((FILE *, const unsigned char *, const unsigned char *, int *));
-static void print_class_decls PARAMS ((FILE *, JCF *, int));
-static void usage PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void help PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
-static int overloaded_jni_method_exists_p PARAMS ((const unsigned char *, int,
-						   const char *, int));
-static void jni_print_char PARAMS ((FILE *, int));
-static void decompile_return_statement PARAMS ((FILE *, JCF *, int, int, int));
+static int java_float_finite (jfloat);
+static int java_double_finite (jdouble);
+static void print_name (FILE *, JCF *, int);
+static void print_base_classname (FILE *, JCF *, int);
+static int utf8_cmp (const unsigned char *, int, const char *);
+static char *cxx_keyword_subst (const unsigned char *, int);
+static void generate_access (FILE *, JCF_u2);
+static int name_is_method_p (const unsigned char *, int);
+static char *get_field_name (JCF *, int, JCF_u2);
+static void print_field_name (FILE *, JCF *, int, JCF_u2);
+static const unsigned char *super_class_name (JCF *, int *);
+static void print_include (FILE *, const unsigned char *, int);
+static int gcjh_streq (const void *p1, const void *p2);
+static int throwable_p (const unsigned char *signature);
+static const unsigned char *
+  decode_signature_piece (FILE *, const unsigned char *,
+			  const unsigned char *, int *);
+static void print_class_decls (FILE *, JCF *, int);
+static void usage (void) ATTRIBUTE_NORETURN;
+static void help (void) ATTRIBUTE_NORETURN;
+static void version (void) ATTRIBUTE_NORETURN;
+static int overloaded_jni_method_exists_p (const unsigned char *, int,
+					   const char *, int);
+static void jni_print_char (FILE *, int);
+static void decompile_return_statement (FILE *, JCF *, int, int, int);
 
 JCF_u2 current_field_name;
 JCF_u2 current_field_value;
@@ -252,8 +254,7 @@ static int decompiled = 0;
 
 /* Return 1 if F is not Inf or NaN.  */
 static int
-java_float_finite (f)
-     jfloat f;
+java_float_finite (jfloat f)
 {
   union Word u;
   u.f = f;
@@ -266,8 +267,7 @@ java_float_finite (f)
 
 /* Return 1 if D is not Inf or NaN.  */
 static int
-java_double_finite (d)
-     jdouble d;
+java_double_finite (jdouble d)
 {
   union DWord u;
   u.d = d;
@@ -279,9 +279,7 @@ java_double_finite (d)
 /* Print a character, appropriately mangled for JNI.  */
 
 static void
-jni_print_char (stream, ch)
-     FILE *stream;
-     int ch;
+jni_print_char (FILE *stream, int ch)
 {
   if (! flag_jni)
     jcf_print_char (stream, ch);
@@ -310,8 +308,7 @@ jni_print_char (stream, ch)
    string, an error results.  */
 
 static void
-DEFUN(print_name, (stream, jcf, name_index),
-      FILE* stream AND JCF* jcf AND int name_index)
+print_name (FILE* stream, JCF* jcf, int name_index)
 {
   if (JPOOL_TAG (jcf, name_index) != CONSTANT_Utf8)
     {
@@ -344,10 +341,7 @@ DEFUN(print_name, (stream, jcf, name_index),
    final separator.  */
 
 static void
-print_base_classname (stream, jcf, index)
-     FILE *stream;
-     JCF *jcf;
-     int index;
+print_base_classname (FILE *stream, JCF *jcf, int index)
 {
   int name_index = JPOOL_USHORT1 (jcf, index);
   int len;
@@ -378,10 +372,7 @@ print_base_classname (stream, jcf, index)
    and 1 if STR is "greater" than NAME.  */
 
 static int
-utf8_cmp (str, length, name)
-     const unsigned char *str;
-     int length;
-     const char *name;
+utf8_cmp (const unsigned char *str, int length, const char *name)
 {
   const unsigned char *limit = str + length;
   int i;
@@ -512,9 +503,7 @@ static const char *const cxx_keywords[] =
    Otherwise, return NULL.  The return value is malloc()d.  */
 
 static char *
-cxx_keyword_subst (str, length)
-     const unsigned char *str;
-     int length;
+cxx_keyword_subst (const unsigned char *str, int length)
 {
   int last = ARRAY_SIZE (cxx_keywords);
   int first = 0;
@@ -561,9 +550,7 @@ cxx_keyword_subst (str, length)
 /* Generate an access control keyword based on FLAGS.  */
 
 static void
-generate_access (stream, flags)
-     FILE *stream;
-     JCF_u2 flags;
+generate_access (FILE *stream, JCF_u2 flags)
 {
   if ((flags & ACC_VISIBILITY) == last_access)
     return;
@@ -593,9 +580,7 @@ generate_access (stream, flags)
 
 /* See if NAME is already the name of a method.  */
 static int
-name_is_method_p (name, length)
-     const unsigned char *name;
-     int length;
+name_is_method_p (const unsigned char *name, int length)
 {
   struct method_name *p;
 
@@ -610,11 +595,8 @@ name_is_method_p (name, length)
 /* If there is already a method named NAME, whose signature is not
    SIGNATURE, then return true.  Otherwise return false.  */
 static int
-overloaded_jni_method_exists_p (name, length, signature, sig_length)
-     const unsigned char *name;
-     int length;
-     const char *signature;
-     int sig_length;
+overloaded_jni_method_exists_p (const unsigned char *name, int length,
+				const char *signature, int sig_length)
 {
   struct method_name *p;
 
@@ -631,10 +613,7 @@ overloaded_jni_method_exists_p (name, length, signature, sig_length)
 
 /* Get name of a field.  This handles renamings due to C++ clash.  */
 static char *
-get_field_name (jcf, name_index, flags)
-     JCF *jcf;
-     int name_index;
-     JCF_u2 flags;
+get_field_name (JCF *jcf, int name_index, JCF_u2 flags)
 {
   unsigned char *name = JPOOL_UTF_DATA (jcf, name_index);
   int length = JPOOL_UTF_LENGTH (jcf, name_index);
@@ -666,11 +645,7 @@ get_field_name (jcf, name_index, flags)
 /* Print a field name.  Convenience function for use with
    get_field_name.  */
 static void
-print_field_name (stream, jcf, name_index, flags)
-     FILE *stream;
-     JCF *jcf;
-     int name_index;
-     JCF_u2 flags;
+print_field_name (FILE *stream, JCF *jcf, int name_index, JCF_u2 flags)
 {
   char *override = get_field_name (jcf, name_index, flags);
 
@@ -685,9 +660,8 @@ print_field_name (stream, jcf, name_index, flags)
 }
 
 static void
-DEFUN(print_field_info, (stream, jcf, name_index, sig_index, flags),
-      FILE *stream AND JCF* jcf
-      AND int name_index AND int sig_index AND JCF_u2 flags)
+print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
+		  JCF_u2 flags)
 {
   char *override = NULL;
 
@@ -794,9 +768,8 @@ DEFUN(print_field_info, (stream, jcf, name_index, sig_index, flags),
 
 
 static void
-DEFUN(print_method_info, (stream, jcf, name_index, sig_index, flags),
-      FILE *stream AND JCF* jcf
-      AND int name_index AND int sig_index AND JCF_u2 flags)
+print_method_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
+		   JCF_u2 flags)
 {
   const unsigned char *str;
   int length, is_init = 0;
@@ -906,10 +879,8 @@ DEFUN(print_method_info, (stream, jcf, name_index, sig_index, flags),
    signature.  NAMEINDEX is the index of the field name; -1 for
    `this'.  OBJECTTYPE is the index of the object's type.  */
 static void
-decompile_return_statement (out, jcf, methodtype, nameindex, objecttype)
-     FILE *out;
-     JCF *jcf;
-     int methodtype, nameindex, objecttype;
+decompile_return_statement (FILE *out, JCF *jcf, int methodtype,
+			    int nameindex, int objecttype)
 {
   int cast = 0;
   int obj_name_len, method_name_len;
@@ -1028,10 +999,7 @@ decompile_return_statement (out, jcf, methodtype, nameindex, objecttype)
 /* Try to decompile a method body.  Right now we just try to handle a
    simple case that we can do.  Expand as desired.  */
 static void
-decompile_method (out, jcf, code_len)
-     FILE *out;
-     JCF *jcf;
-     int code_len;
+decompile_method (FILE *out, JCF *jcf, int code_len)
 {
   const unsigned char *codes = jcf->read_ptr;
   int index;
@@ -1100,8 +1068,7 @@ decompile_method (out, jcf, code_len)
    should probably be in hashtab.c to complement the existing string
    hash function.  */
 static int
-gcjh_streq (p1, p2)
-     const void *p1, *p2;
+gcjh_streq (const void *p1, const void *p2)
 {
   return ! strcmp ((char *) p1, (char *) p2);
 }
@@ -1110,8 +1077,7 @@ gcjh_streq (p1, p2)
    or 0 if not.  CLNAME may be extracted from a signature, and can be 
    terminated with either `;' or NULL.  */
 static int
-throwable_p (clname)
-     const unsigned char *clname;
+throwable_p (const unsigned char *clname)
 {
   int length;
   unsigned char *current;
@@ -1129,8 +1095,8 @@ throwable_p (clname)
 
   if (! init_done)
     {
-      PTR *slot;
-      const unsigned char *str;
+      void **slot;
+      unsigned char *str;
 
       /* Self-initializing.  The cost of this really doesn't matter.
 	 We also don't care about freeing these, either.  */
@@ -1142,11 +1108,11 @@ throwable_p (clname)
       /* Make sure the root classes show up in the tables.  */
       str = xstrdup ("java.lang.Throwable");
       slot = htab_find_slot (throw_hash, str, INSERT);
-      *slot = (PTR) str;
+      *slot = str;
 
       str = xstrdup ("java.lang.Object");
       slot = htab_find_slot (non_throw_hash, str, INSERT);
-      *slot = (PTR) str;
+      *slot = str;
 
       init_done = 1;
     }
@@ -1168,7 +1134,7 @@ throwable_p (clname)
   else
     {
       JCF jcf;
-      PTR *slot;
+      void **slot;
       unsigned char *super, *tmp;
       int super_length = -1;
       const char *classfile_name = find_class (current, strlen (current),
@@ -1210,10 +1176,8 @@ throwable_p (clname)
 /* Print one piece of a signature.  Returns pointer to next parseable
    character on success, NULL on error.  */
 static const unsigned char *
-decode_signature_piece (stream, signature, limit, need_space)
-     FILE *stream;
-     const unsigned char *signature, *limit;
-     int *need_space;
+decode_signature_piece (FILE *stream, const unsigned char *signature,
+			const unsigned char *limit, int *need_space)
 {
   const char *ctype;
   int array_depth = 0;
@@ -1375,11 +1339,8 @@ decode_signature_piece (stream, signature, limit, need_space)
 }
 
 static void
-DEFUN(print_c_decl, (stream, jcf, name_index, signature_index, is_init,
-		     name_override, flags),
-      FILE* stream AND JCF* jcf
-      AND int name_index AND int signature_index
-      AND int is_init AND const char *name_override AND int flags)
+print_c_decl (FILE* stream, JCF* jcf, int name_index, int signature_index,
+	      int is_init, const char *name_override, int flags)
 {
   if (JPOOL_TAG (jcf, signature_index) != CONSTANT_Utf8)
     {
@@ -1433,11 +1394,9 @@ DEFUN(print_c_decl, (stream, jcf, name_index, signature_index, is_init,
 
 /* Print the unqualified method name followed by the signature. */
 static void
-DEFUN(print_full_cxx_name, (stream, jcf, name_index, signature_index,
-			    is_init, name_override, flags),
-      FILE* stream AND JCF* jcf
-      AND int name_index AND int signature_index AND int is_init 
-      AND const char *name_override AND int flags)
+print_full_cxx_name (FILE* stream, JCF* jcf, int name_index,
+		     int signature_index, int is_init,
+		     const char *name_override, int flags)
 {
   int length = JPOOL_UTF_LENGTH (jcf, signature_index);
   const unsigned char *str0 = JPOOL_UTF_DATA (jcf, signature_index);
@@ -1526,14 +1485,12 @@ DEFUN(print_full_cxx_name, (stream, jcf, name_index, signature_index,
 
 /* This is a helper for print_stub_or_jni.  */
 static void
-DEFUN (print_name_for_stub_or_jni, (stream, jcf, name_index, signature_index,
-				    is_init, name_override, flags),
-       FILE *stream AND JCF *jcf
-       AND int name_index AND int signature_index
-       AND int is_init AND const char *name_override AND int flags)
+print_name_for_stub_or_jni (FILE *stream, JCF *jcf, int name_index,
+			    int signature_index, int is_init,
+			    const char *name_override, int flags)
 {
   const char *const prefix = flag_jni ? "Java_" : "";
-  print_cxx_classname (stream, prefix, jcf, jcf->this_class);
+  print_cxx_classname (stream, prefix, jcf, jcf->this_class, 1);
   fputs (flag_jni ? "_" : "::", stream);
   print_full_cxx_name (stream, jcf, name_index, 
 		       signature_index, is_init, name_override,
@@ -1541,11 +1498,9 @@ DEFUN (print_name_for_stub_or_jni, (stream, jcf, name_index, signature_index,
 }
 
 static void
-DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
-			  name_override, flags),
-      FILE* stream AND JCF* jcf
-      AND int name_index AND int signature_index
-      AND int is_init AND const char *name_override AND int flags)
+print_stub_or_jni (FILE* stream, JCF* jcf, int name_index,
+		   int signature_index, int is_init,
+		   const char *name_override, int flags)
 {
   if (JPOOL_TAG (jcf, signature_index) != CONSTANT_Utf8)
     {
@@ -1626,8 +1581,7 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
 }
 
 static void
-DEFUN(print_mangled_classname, (stream, jcf, prefix, index),
-      FILE *stream AND JCF *jcf AND const char *prefix AND int index)
+print_mangled_classname (FILE *stream, JCF *jcf, const char *prefix, int index)
 {
   int name_index = JPOOL_USHORT1 (jcf, index);
   fputs (prefix, stream);
@@ -1641,11 +1595,8 @@ DEFUN(print_mangled_classname, (stream, jcf, prefix, index),
    to an array, ignore it and don't print PREFIX.  Returns 1 if
    something was printed, 0 otherwise.  */
 static int
-print_cxx_classname (stream, prefix, jcf, index)
-     FILE *stream;
-     const char *prefix;
-     JCF *jcf;
-     int index;
+print_cxx_classname (FILE *stream, const char *prefix,
+		     JCF *jcf, int index, int add_scope)
 {
   int name_index = JPOOL_USHORT1 (jcf, index);
   int len, c;
@@ -1664,7 +1615,7 @@ print_cxx_classname (stream, prefix, jcf, index)
   fputs (prefix, stream);
 
   /* Print a leading "::" so we look in the right namespace.  */
-  if (! flag_jni && ! stubs)
+  if (! flag_jni && ! stubs && add_scope)
     fputs ("::", stream);
 
   while (s < limit)
@@ -1684,9 +1635,7 @@ int written_class_count = 0;
 /* Return name of superclass.  If LEN is not NULL, fill it with length
    of name.  */
 static const unsigned char *
-super_class_name (derived_jcf, len)
-     JCF *derived_jcf;
-     int *len;
+super_class_name (JCF *derived_jcf, int *len)
 {
   int supername_index = JPOOL_USHORT1 (derived_jcf, derived_jcf->super_class);
   int supername_length = JPOOL_UTF_LENGTH (derived_jcf, supername_index);
@@ -1714,10 +1663,7 @@ static struct include *all_includes = NULL;
 
 /* Generate a #include.  */
 static void
-print_include (out, utf8, len)
-     FILE *out;
-     const unsigned char *utf8;
-     int len;
+print_include (FILE *out, const unsigned char *utf8, int len)
 {
   struct include *incl;
 
@@ -1764,9 +1710,9 @@ struct namelet
   struct namelet *next;
 };
 
-static void add_namelet PARAMS ((const unsigned char *,
-				const unsigned char *, struct namelet *));
-static void print_namelet PARAMS ((FILE *, struct namelet *, int));
+static void add_namelet (const unsigned char *, const unsigned char *,
+			 struct namelet *);
+static void print_namelet (FILE *, struct namelet *, int);
 
 /* The special root namelet.  */
 static struct namelet root =
@@ -1781,9 +1727,8 @@ static struct namelet root =
    package or class name and links it into the tree.  It does this
    recursively.  */
 static void
-add_namelet (name, name_limit, parent)
-     const unsigned char *name, *name_limit;
-     struct namelet *parent;
+add_namelet (const unsigned char *name, const unsigned char *name_limit,
+	     struct namelet *parent)
 {
   const unsigned char *p;
   struct namelet *n = NULL, *np;
@@ -1840,10 +1785,7 @@ add_namelet (name, name_limit, parent)
 
 /* Print a single namelet.  Destroys namelets while printing.  */
 static void
-print_namelet (out, name, depth)
-     FILE *out;
-     struct namelet *name;
-     int depth;
+print_namelet (FILE *out, struct namelet *name, int depth)
 {
   int i, term = 0;
   struct namelet *c;
@@ -1896,10 +1838,7 @@ print_namelet (out, name, depth)
    we need decls.  The signature argument can be a function
    signature.  */
 static void
-add_class_decl (out, jcf, signature)
-     FILE *out;
-     JCF *jcf;
-     JCF_u2 signature;
+add_class_decl (FILE *out, JCF *jcf, JCF_u2 signature)
 {
   const unsigned char *s = JPOOL_UTF_DATA (jcf, signature);
   int len = JPOOL_UTF_LENGTH (jcf, signature);
@@ -1933,10 +1872,7 @@ add_class_decl (out, jcf, signature)
    statically in libjava; we don't generate declarations for these.
    This makes the generated headers a bit easier to read.  */
 static void
-print_class_decls (out, jcf, self)
-     FILE *out;
-     JCF *jcf;
-     int self;
+print_class_decls (FILE *out, JCF *jcf, int self)
 {
   /* Make sure to always add the current class to the list of things
      that should be declared.  */
@@ -1954,15 +1890,14 @@ print_class_decls (out, jcf, self)
       /* We use an initial offset of 0 because the root namelet
 	 doesn't cause anything to print.  */
       print_namelet (out, &root, 0);
-      fputs ("};\n\n", out);
+      fputs ("}\n\n", out);
     }
 }
 
 
 
 static void
-DEFUN(process_file, (jcf, out),
-      JCF *jcf AND FILE *out)
+process_file (JCF *jcf, FILE *out)
 {
   int code, i;
   uint32 field_start, method_end, method_start;
@@ -2130,7 +2065,8 @@ DEFUN(process_file, (jcf, out),
 
       if (! stubs)
 	{
-	  if (! print_cxx_classname (out, "class ", jcf, jcf->this_class))
+	  if (! print_cxx_classname (out, "class ", jcf,
+				     jcf->this_class, 0))
 	    {
 	      fprintf (stderr, "class is of array type\n");
 	      found_error = 1;
@@ -2139,7 +2075,7 @@ DEFUN(process_file, (jcf, out),
 	  if (jcf->super_class)
 	    {
 	      if (! print_cxx_classname (out, " : public ", 
-					 jcf, jcf->super_class))
+					 jcf, jcf->super_class, 1))
 		{
 		  fprintf (stderr, "base class is of array type\n");
 		  found_error = 1;
@@ -2254,14 +2190,14 @@ static const struct option options[] =
 };
 
 static void
-usage ()
+usage (void)
 {
   fprintf (stderr, "Try `gcjh --help' for more information.\n");
   exit (1);
 }
 
 static void
-help ()
+help (void)
 {
   printf ("Usage: gcjh [OPTION]... CLASS...\n\n");
   printf ("Generate C++ header files from .class files\n\n");
@@ -2299,7 +2235,7 @@ help ()
 }
 
 static void
-version ()
+version (void)
 {
   printf ("gcjh (GCC) %s\n\n", version_string);
   printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
@@ -2309,8 +2245,7 @@ version ()
 }
 
 int
-DEFUN(main, (argc, argv),
-      int argc AND char** argv)
+main (int argc, char** argv)
 {
   JCF jcf;
   int argi;

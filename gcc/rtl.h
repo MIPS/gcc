@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GNU C-Compiler
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -174,8 +174,9 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in an INSN, JUMP_INSN, or CALL_INSN if insn is in a delay slot and
      from the target of a branch.  Valid from reorg until end of compilation;
      cleared before used.
-     1 in an INSN or related rtx if this insn is dead code.  Valid only during
-     dead-code elimination phase; cleared before use.  */
+     1 in an INSN, JUMP_INSN or CALL_INSN or related rtx if this insn is
+     dead code.  Valid only during dead-code elimination phase; cleared
+     before use.  */
   unsigned int in_struct : 1;
   /* At the end of RTL generation, 1 if this rtx is used.  This is used for
      copying shared structure.  See `unshare_all_rtl'.
@@ -578,7 +579,7 @@ do {				\
 /* 1 if RTX is an insn that is dead code.  Valid only for dead-code
    elimination phase.  */
 #define INSN_DEAD_CODE_P(RTX)						\
-  (RTL_FLAG_CHECK1("INSN_DEAD_CODE_P", (RTX), INSN)->in_struct)
+  (RTL_FLAG_CHECK3("INSN_DEAD_CODE_P", (RTX), INSN, CALL_INSN, JUMP_INSN)->in_struct)
 
 /* 1 if RTX is an insn in a delay slot and is from the target of the branch.
    If the branch insn has INSN_ANNULLED_BRANCH_P set, this insn should only be
@@ -2085,6 +2086,7 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 /* In gcse.c */
 #ifdef BUFSIZ
 extern int gcse_main			PARAMS ((rtx, FILE *));
+extern int bypass_jumps			PARAMS ((FILE *));
 #endif
 
 /* In global.c */
@@ -2250,6 +2252,7 @@ extern void init_alias_once		PARAMS ((void));
 extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));
+extern bool memory_modified_in_insn_p	PARAMS ((rtx, rtx));
 
 /* In sibcall.c */
 typedef enum {

@@ -1,6 +1,8 @@
 #ifndef TREE_ALIAS_TYPE_H
 #define TREE_ALIAS_TYPE_H
 
+#include "varray.h"
+
 struct ECR_def;
 typedef struct ECR_def *ECR;
 union alias_typevar_def;

@@ -1,21 +1,22 @@
 /* Functions related to mangling class names for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. 
 
@@ -37,28 +38,28 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "obstack.h"
 #include "ggc.h"
 
-static void mangle_field_decl PARAMS ((tree));
-static void mangle_method_decl PARAMS ((tree));
+static void mangle_field_decl (tree);
+static void mangle_method_decl (tree);
 
-static void mangle_type PARAMS ((tree));
-static void mangle_pointer_type PARAMS ((tree));
-static void mangle_array_type PARAMS ((tree));
-static int  mangle_record_type PARAMS ((tree, int));
+static void mangle_type (tree);
+static void mangle_pointer_type (tree);
+static void mangle_array_type (tree);
+static int  mangle_record_type (tree, int);
 
-static int find_compression_pointer_match PARAMS ((tree));
-static int find_compression_array_match PARAMS ((tree));
-static int find_compression_record_match PARAMS ((tree, tree *));
-static int find_compression_array_template_match PARAMS ((tree));
+static int find_compression_pointer_match (tree);
+static int find_compression_array_match (tree);
+static int find_compression_record_match (tree, tree *);
+static int find_compression_array_template_match (tree);
 
-static void set_type_package_list PARAMS ((tree));
-static int  entry_match_pointer_p PARAMS ((tree, int));
-static void emit_compression_string PARAMS ((int));
+static void set_type_package_list (tree);
+static int  entry_match_pointer_p (tree, int);
+static void emit_compression_string (int);
 
-static void init_mangling PARAMS ((struct obstack *));
-static tree finish_mangling PARAMS ((void));
-static void compression_table_add PARAMS ((tree));
+static void init_mangling (struct obstack *);
+static tree finish_mangling (void);
+static void compression_table_add (tree);
 
-static void mangle_member_name PARAMS ((tree));
+static void mangle_member_name (tree);
 
 /* We use an incoming obstack, always to be provided to the interface
    functions. */
@@ -70,9 +71,7 @@ struct obstack *mangle_obstack;
    the vtable. */
 
 tree
-java_mangle_decl (obstack, decl)
-     struct obstack *obstack;
-     tree decl;
+java_mangle_decl (struct obstack *obstack, tree decl)
 {
   init_mangling (obstack);
   switch (TREE_CODE (decl))
@@ -90,9 +89,7 @@ java_mangle_decl (obstack, decl)
 }
 
 tree 
-java_mangle_class_field (obstack, type)
-     struct obstack *obstack;
-     tree type;
+java_mangle_class_field (struct obstack *obstack, tree type)
 {
   init_mangling (obstack);
   mangle_record_type (type, /* for_pointer = */ 0);
@@ -102,9 +99,7 @@ java_mangle_class_field (obstack, type)
 }
 
 tree
-java_mangle_vtable (obstack, type)
-     struct obstack *obstack;
-     tree type;
+java_mangle_vtable (struct obstack *obstack, tree type)
 {
   init_mangling (obstack);
   MANGLE_RAW_STRING ("TV");
@@ -118,8 +113,7 @@ java_mangle_vtable (obstack, type)
 /* This mangles a field decl */
 
 static void
-mangle_field_decl (decl)
-     tree decl;
+mangle_field_decl (tree decl)
 {
   /* Mangle the name of the this the field belongs to */
   mangle_record_type (DECL_CONTEXT (decl), /* for_pointer = */ 0);
@@ -135,8 +129,7 @@ mangle_field_decl (decl)
    its arguments. */
 
 static void
-mangle_method_decl (mdecl)
-     tree mdecl;
+mangle_method_decl (tree mdecl)
 {
   tree method_name = DECL_NAME (mdecl);
   tree arglist;
@@ -176,8 +169,7 @@ mangle_method_decl (mdecl)
    value if unicode encoding was required.  */
 
 static void
-mangle_member_name (name)
-     tree name;
+mangle_member_name (tree name)
 {
   append_gpp_mangled_name (IDENTIFIER_POINTER (name),
 			   IDENTIFIER_LENGTH (name));
@@ -190,8 +182,7 @@ mangle_member_name (name)
 /* Append the mangled name of TYPE onto OBSTACK.  */
 
 static void
-mangle_type (type)
-     tree type;
+mangle_type (tree type)
 {
   switch (TREE_CODE (type))
     {
@@ -254,8 +245,7 @@ static int  compression_next;
    function to match pointer entries and start from the end */
 
 static int
-find_compression_pointer_match (type)
-     tree type;
+find_compression_pointer_match (tree type)
 {
   int i;
 
@@ -269,8 +259,7 @@ find_compression_pointer_match (type)
    associated with it.  */
 
 static int
-find_compression_array_match (type)
-     tree type;
+find_compression_array_match (tree type)
 {
   return find_compression_pointer_match (type);
 }
@@ -278,8 +267,7 @@ find_compression_array_match (type)
 /* Match the table of type against STRING.  */
 
 static int
-find_compression_array_template_match (string)
-     tree string;
+find_compression_array_template_match (tree string)
 {
   int i;
   for (i = 0; i < compression_next; i++)
@@ -294,9 +282,7 @@ find_compression_array_template_match (string)
    to the rest of TYPE to be mangled. */
 
 static int
-find_compression_record_match (type, next_current)
-     tree type;
-     tree *next_current;
+find_compression_record_match (tree type, tree *next_current)
 {
   int i, match;
   tree current, saved_current = NULL_TREE;
@@ -348,9 +334,7 @@ find_compression_record_match (type, next_current)
    symbol, meaning it was preceded by a 'P'. */
 
 static int
-mangle_record_type (type, for_pointer)
-     tree type;
-     int for_pointer;
+mangle_record_type (tree type, int for_pointer)
 {
   tree current;
   int match;
@@ -401,8 +385,7 @@ mangle_record_type (type, for_pointer)
    a partial compression or/plus the rest of the mangling. */
 
 static void
-mangle_pointer_type (type)
-     tree type;
+mangle_pointer_type (tree type)
 {
   int match;
   tree pointer_type;
@@ -436,8 +419,7 @@ mangle_pointer_type (type)
 /* atms: array template mangled string. */
 static GTY(()) tree atms;
 static void
-mangle_array_type (p_type)
-     tree p_type;
+mangle_array_type (tree p_type)
 {
   tree type, elt_type;
   int match;
@@ -525,9 +507,7 @@ emit_compression_string (int i)
    might all be unique, we find the same RECORD_TYPE.) */
 
 static int
-entry_match_pointer_p (type, i)
-     tree type;
-     int i;
+entry_match_pointer_p (tree type, int i)
 {
   tree t = TREE_VEC_ELT (compression_table, i);
   
@@ -548,8 +528,7 @@ entry_match_pointer_p (type, i)
    part. The result is stored in TYPE_PACKAGE_LIST to be reused.  */
 
 static void
-set_type_package_list (type)
-     tree type;
+set_type_package_list (tree type)
 {
   int i;
   const char *type_string = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
@@ -592,8 +571,7 @@ set_type_package_list (type)
    compression table if necessary.  */
 
 static void
-compression_table_add (type)
-     tree type;
+compression_table_add (tree type)
 {
   if (compression_next == TREE_VEC_LENGTH (compression_table))
     {
@@ -611,8 +589,7 @@ compression_table_add (type)
 /* Mangling initialization routine.  */
 
 static void
-init_mangling (obstack)
-     struct obstack *obstack;
+init_mangling (struct obstack *obstack)
 {
   mangle_obstack = obstack;
   if (!compression_table)
@@ -629,7 +606,7 @@ init_mangling (obstack)
    IDENTIFIER_NODE.  */
 
 static tree
-finish_mangling ()
+finish_mangling (void)
 {
   tree result;
 

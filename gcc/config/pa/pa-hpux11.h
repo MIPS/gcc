@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for HP PA-RISC
-   Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -117,3 +117,21 @@ Boston, MA 02111-1307, USA.  */
 
 #define SIZE_TYPE "long unsigned int"
 #define PTRDIFF_TYPE "long int"
+
+/* HP-UX 11.0 and above provides initialization and finalization function
+   support from linker command line.  We don't need to invoke __main to run
+   constructors.  We also don't need chatr to determine the dependencies of
+   dynamically linked executables and shared libraries.  */
+#undef LDD_SUFFIX
+#undef PARSE_LDD_OUTPUT
+#undef HAS_INIT_SECTION
+#define HAS_INIT_SECTION 1
+#undef LD_INIT_SWITCH
+#define LD_INIT_SWITCH "+init"
+#undef LD_FINI_SWITCH
+#define LD_FINI_SWITCH "+fini"
+
+/* The HP-UX 11.X SOM linker (ld32) can successfully link shared libraries
+   with secondary definition (weak) symbols.  */
+#undef TARGET_SOM_SDEF
+#define TARGET_SOM_SDEF 1

@@ -98,7 +98,7 @@ enum built_in_function
 extern const char *const built_in_names[(int) END_BUILTINS];
 
 /* An array of _DECL trees for the above.  */
-extern tree built_in_decls[(int) END_BUILTINS];
+extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 
 /* The definition of tree nodes fills the next several pages.  */
 
@@ -692,7 +692,7 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    bounded pointer.  It is insufficient to determine the boundedness
    of an expression EXP with BOUNDED_POINTER_TYPE_P (TREE_TYPE (EXP)),
    since we allow pointer to be temporarily cast to integer for
-   rounding up to an alignment boudary in a way that preserves the
+   rounding up to an alignment boundary in a way that preserves the
    pointer's bounds.
 
    In an IDENTIFIER_NODE, nonzero means that the name is prefixed with
@@ -1335,9 +1335,9 @@ struct tree_type GTY(())
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
-    int address; 
+    int GTY ((tag ("0"))) address; 
     char * GTY ((tag ("1"))) pointer; 
-    struct die_struct * GTY ((tag ("2"), skip (""))) die;
+    struct die_struct * GTY ((tag ("2"))) die;
   } GTY ((desc ("debug_hooks == &sdb_debug_hooks ? 1 : debug_hooks == &dwarf2_debug_hooks ? 2 : 0"), 
 	  descbits ("2"))) symtab;
   tree name;
@@ -1941,7 +1941,7 @@ struct tree_decl GTY(())
     struct function * GTY ((tag ("FUNCTION_DECL"))) f;
     rtx GTY ((tag ("PARM_DECL"))) r;
     tree GTY ((tag ("FIELD_DECL"))) t;
-    int i;
+    int GTY ((tag ("VAR_DECL"))) i;
   } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
 
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
@@ -2903,7 +2903,7 @@ extern void expand_decl_init			PARAMS ((tree));
 extern void clear_last_expr			PARAMS ((void));
 extern void expand_label			PARAMS ((tree));
 extern void expand_goto				PARAMS ((tree));
-extern void expand_asm				PARAMS ((tree));
+extern void expand_asm				PARAMS ((tree, int));
 extern void expand_start_cond			PARAMS ((tree, int));
 extern void expand_end_cond			PARAMS ((void));
 extern void expand_start_else			PARAMS ((void));
@@ -2996,6 +2996,9 @@ extern tree invert_truthvalue	PARAMS ((tree));
 extern tree fold_builtin				PARAMS ((tree));
 extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
 extern tree build_function_call_expr			PARAMS ((tree, tree));
+
+/* In convert.c */
+extern tree strip_float_extensions			PARAMS ((tree));
 
 /* In alias.c */
 extern void record_component_aliases		PARAMS ((tree));

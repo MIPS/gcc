@@ -23,12 +23,6 @@ in
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# Tell GNU make 3.79 not to run the top level in parallel.  This 
-# prevents contention for $builddir/$target/config.cache, as well
-# as minimizing scatter in file system caches.
-NOTPARALLEL = .NOTPARALLEL
-$(NOTPARALLEL):
-
 VPATH=@srcdir@
 links=@configlinks@
 
@@ -54,6 +48,9 @@ enable_version_specific_runtime_libs = @enable_version_specific_runtime_libs@
 # The file containing GCC's version number.
 gcc_version_trigger = @gcc_version_trigger@
 gcc_version = @gcc_version@
+
+# The gcc driver likes to know the arguments it was configured with.
+TOPLEVEL_CONFIGURE_ARGUMENTS=@TOPLEVEL_CONFIGURE_ARGUMENTS@
 
 srcdir = @srcdir@
 
@@ -282,7 +279,7 @@ USUAL_AS_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AS); \
     else \
-       t='$(program_transform_name)'; echo as | sed -e 's/x/x/' $$t ; \
+       echo as | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -296,7 +293,7 @@ USUAL_LD_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(LD); \
     else \
-       t='$(program_transform_name)'; echo ld | sed -e 's/x/x/' $$t ; \
+       echo ld | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -308,7 +305,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(DLLTOOL); \
     else \
-       t='$(program_transform_name)'; echo dlltool | sed -e 's/x/x/' $$t ; \
+       echo dlltool | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -320,7 +317,7 @@ USUAL_WINDRES_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(WINDRES); \
     else \
-       t='$(program_transform_name)'; echo windres | sed -e 's/x/x/' $$t ; \
+       echo windres | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -332,7 +329,7 @@ USUAL_AR_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AR); \
     else \
-       t='$(program_transform_name)'; echo ar | sed -e 's/x/x/' $$t ; \
+       echo ar | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -348,7 +345,7 @@ USUAL_RANLIB_FOR_TARGET = ` \
          echo ranlib; \
       fi; \
     else \
-       t='$(program_transform_name)'; echo ranlib | sed -e 's/x/x/' $$t ; \
+       echo ranlib | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -362,7 +359,7 @@ USUAL_NM_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(NM); \
     else \
-       t='$(program_transform_name)'; echo nm | sed -e 's/x/x/' $$t ; \
+       echo nm | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -372,6 +369,10 @@ all: all.normal
 .PHONY: all
 
 #### host and target specific makefile fragments come in here.
+@target_makefile_frag@
+@alphaieee_frag@
+@ospace_frag@
+@host_makefile_frag@
 ###
 
 # Flags to pass down to all sub-makes.
@@ -390,6 +391,7 @@ BASE_FLAGS_TO_PASS = \
 	"CXXFLAGS=$(CXXFLAGS)" \
 	"CXXFLAGS_FOR_TARGET=$(CXXFLAGS_FOR_TARGET)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
+	"DESTDIR=$(DESTDIR)" \
 	"DLLTOOL_FOR_TARGET=$(DLLTOOL_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
@@ -635,7 +637,7 @@ do-info: maybe-all-texinfo
 install-info: do-install-info dir.info
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	if [ -f dir.info ] ; then \
-	  $(INSTALL_DATA) dir.info $(infodir)/dir.info ; \
+	  $(INSTALL_DATA) dir.info $(DESTDIR)$(infodir)/dir.info ; \
 	else true ; fi
 
 local-clean:
@@ -643,7 +645,7 @@ local-clean:
 
 local-distclean:
 	-rm -f Makefile config.status config.cache mh-frag mt-frag
-	-rm -f multilib.out multilib.ts multilib.tmp
+	-rm -f multilib.out multilib.tmp maybedep.tmp serdep.tmp
 	-if [ "$(TARGET_SUBDIR)" != "." ]; then \
 	  rm -rf $(TARGET_SUBDIR); \
 	else true; fi
@@ -766,7 +768,7 @@ installdirs: mkinstalldirs
 
 dir.info: do-install-info
 	if [ -f $(srcdir)/texinfo/gen-info-dir ] ; then \
-	  $(srcdir)/texinfo/gen-info-dir $(infodir) $(srcdir)/texinfo/dir.info-template > dir.info.new ; \
+	  $(srcdir)/texinfo/gen-info-dir $(DESTDIR)$(infodir) $(srcdir)/texinfo/dir.info-template > dir.info.new ; \
 	  mv -f dir.info.new dir.info ; \
 	else true ; \
 	fi
@@ -791,9 +793,10 @@ TAGS: do-TAGS
 [+ FOR build_modules +]
 .PHONY: configure-build-[+module+] maybe-configure-build-[+module+]
 maybe-configure-build-[+module+]:
-configure-build-[+module+]: $(BUILD_SUBDIR)/[+module+]/Makefile
-$(BUILD_SUBDIR)/[+module+]/Makefile: config.status
-	@[ -d $(BUILD_SUBDIR)/[+module+] ] || mkdir $(BUILD_SUBDIR)/[+module+];\
+configure-build-[+module+]:
+	@test ! -f $(BUILD_SUBDIR)/[+module+]/Makefile || exit 0; \
+	    [ -d $(BUILD_SUBDIR)/[+module+] ] || \
+		mkdir $(BUILD_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    AR="$(AR_FOR_BUILD)"; export AR; \
@@ -864,10 +867,9 @@ all-build-[+module+]: configure-build-[+module+]
 [+ FOR host_modules +]
 .PHONY: configure-[+module+] maybe-configure-[+module+]
 maybe-configure-[+module+]:
-configure-[+module+]: [+module+]/Makefile
-
-[+module+]/Makefile: config.status
-	@[ -d [+module+] ] || mkdir [+module+]; \
+configure-[+module+]:
+	@test ! -f [+module+]/Makefile || exit 0; \
+	[ -d [+module+] ] || mkdir [+module+]; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -966,15 +968,18 @@ install-[+module+]: installdirs
 [+ FOR target_modules +]
 .PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
 maybe-configure-target-[+module+]:
-configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/Makefile
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
 $(TARGET_SUBDIR)/[+module+]/multilib.out: multilib.out
-	@[ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
+	@[ -d $(TARGET_SUBDIR)/[+module+] ] || \
+	    mkdir $(TARGET_SUBDIR)/[+module+]; \
+	rm -f $(TARGET_SUBDIR)/[+module+]/Makefile || : ; \
 	cp multilib.out $(TARGET_SUBDIR)/[+module+]/multilib.out
 
-$(TARGET_SUBDIR)/[+module+]/Makefile: config.status $(TARGET_SUBDIR)/[+module+]/multilib.out
-	@[ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
+configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/[+module+]/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/[+module+] ] || \
+		mkdir $(TARGET_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -1094,16 +1099,16 @@ install-target-[+module+]: installdirs
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
-configure-gcc: gcc/Makefile
-
-gcc/Makefile: config.status
-	@[ -d gcc ] || mkdir gcc; \
+configure-gcc:
+	@test ! -f gcc/Makefile || exit 0; \
+	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
+	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	if [ z$(build_canonical) !=  z$(host_canoncial) ] ; then \
 	  AR="$(AR)"; export AR; \
 	  AS="$(AS)"; export AS; \
@@ -1397,33 +1402,37 @@ configure-target-qthreads: $(ALL_GCC_C)
 # work around various timestamp bugs on some systems.
 # We use move-if-change so that it's only considered updated when it
 # actually changes, because it has to depend on a phony target.
-multilib.out: multilib.ts
-	@if [ -f multilib.out ] ; then : else \
-	  rm -f multilib.ts; $(MAKE) multilib.ts; \
-	fi
-
-multilib.ts: maybe-all-gcc
+multilib.out: maybe-all-gcc
 	@r=`${PWD}`; export r; \
 	echo "Checking multilib configuration..."; \
 	$(CC_FOR_TARGET) --print-multi-lib > multilib.tmp 2> /dev/null ; \
 	$(SHELL) $(srcdir)/move-if-change multilib.tmp multilib.out ; \
-	echo timestamp > multilib.ts
 
 # Rebuilding Makefile.in, using autogen.
+AUTOGEN = autogen
 $(srcdir)/Makefile.in: # $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
-	cd $(srcdir) && autogen Makefile.def
+	cd $(srcdir) && $(AUTOGEN) Makefile.def
 
-# with the gnu make, this is done automatically.
+# Rebuilding Makefile.
+Makefile: $(srcdir)/Makefile.in config.status
+	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-host_makefile_frag=@host_makefile_frag@
-target_makefile_frag=@target_makefile_frag@
+config.status: configure $(gcc_version_trigger)
+	$(SHELL) ./config.status --recheck
 
-Makefile: Makefile.in configure.in $(host_makefile_frag) $(target_makefile_frag) $(gcc_version_trigger)
-	$(SHELL) ./config.status
-
+# Rebuilding configure.
+AUTOCONF = autoconf
+$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/config/acx.m4
+	cd $(srcdir) && $(AUTOCONF)
 #
 
 .NOEXPORT:
 MAKEOVERRIDES=
+
+# Tell GNU make 3.79 not to run the top level in parallel.  This 
+# prevents contention for $builddir/$target/config.cache, as well
+# as minimizing scatter in file system caches.
+NOTPARALLEL = .NOTPARALLEL
+$(NOTPARALLEL):
 
 # end of Makefile.in

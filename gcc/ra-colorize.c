@@ -1294,6 +1294,8 @@ colorize_one_web (web, hard)
   HARD_REG_SET fat_colors;
   HARD_REG_SET bias;
 
+  CLEAR_HARD_REG_SET (fat_colors);
+  
   if (web->regno >= max_normal_pseudo)
     hard = 0;
 
@@ -1509,7 +1511,7 @@ colorize_one_web (web, hard)
 	      struct web *aw = alias (w);
 	      /* If we are a spill-temp, we also look at webs coalesced
 		 to precolored ones.  Otherwise we only look at webs which
-		 themself were colored, or coalesced to one.  */
+		 themselves were colored, or coalesced to one.  */
 	      if (aw->type == PRECOLORED && w != aw && web->spill_temp
 		  && flag_ra_optimistic_coalescing)
 		{

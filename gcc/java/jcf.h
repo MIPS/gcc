@@ -1,19 +1,21 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+This file is part of GCC.
 
-This program is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -26,25 +28,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_JCF_H
 #define GCC_JCF_H
 #include "javaop.h"
-#ifndef DEFUN
-#if defined (__STDC__)
-#define AND             ,
-#define PTR             void *
-#define DEFUN(name, arglist, args)      name(args)
-#else
-#define PTR             char *
-#define AND             ;
-#define DEFUN(name, arglist, args)      name arglist args;
-#endif
-#endif /* !DEFUN */
-
-#ifndef PARAMS
-#if defined (__STDC__)
-#define PARAMS (paramlist)    paramlist
-#else
-#define PARAMS (paramlist)    ()
-#endif
-#endif
 
 #ifndef JCF_u4
 #define JCF_u4 unsigned long
@@ -74,7 +57,15 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 struct JCF;
 typedef int (*jcf_filbuf_t) PARAMS ((struct JCF*, int needed));
 
-typedef struct CPool {
+union cpool_entry GTY(()) {
+  jword GTY ((tag ("0"))) w;
+  tree GTY ((tag ("1"))) t;
+};
+
+#define cpool_entry_is_tree(tag) \
+  (tag & CONSTANT_ResolvedFlag) || tag == CONSTANT_Utf8
+
+typedef struct CPool GTY(()) {
   /* Available number of elements in the constants array, before it
      must be re-allocated. */
   int capacity;
@@ -82,29 +73,33 @@ typedef struct CPool {
   /* The constant_pool_count. */
   int		count;
 
-  uint8*	tags;
+  uint8* GTY((length ("%h.count")))	tags;
 
-  jword*	data;
+  union cpool_entry * GTY((length ("%h.count"),
+			   desc ("cpool_entry_is_tree (%1.tags%a)")))	data;
 } CPool;
 
 struct ZipDirectory;
 
 /* JCF encapsulates the state of reading a Java Class File. */
 
-typedef struct JCF {
-  unsigned char *buffer;
-  unsigned char *buffer_end;
-  unsigned char *read_ptr;
-  unsigned char *read_end;
+typedef struct JCF GTY(()) {
+  unsigned char * GTY ((skip (""))) buffer;
+  unsigned char * GTY ((skip (""))) buffer_end;
+  unsigned char * GTY ((skip (""))) read_ptr;
+  unsigned char * GTY ((skip (""))) read_end;
   int java_source : 1;
   int right_zip : 1;
   int finished : 1;
   jcf_filbuf_t filbuf;
-  void *read_state;
+  PTR GTY ((skip (""))) read_state;
   const char *filename;
   const char *classname;
-  struct ZipDirectory *zipd;	/* Directory entry where it was found */
-  JCF_u2 access_flags, this_class, super_class;
+  /* Directory entry where it was found.  */
+  struct ZipDirectory * GTY ((skip (""))) zipd;
+  JCF_u2 access_flags;
+  JCF_u2 this_class;
+  JCF_u2 super_class;
   CPool cpool;
 } JCF;
 /*typedef JCF*  JCF_FILE;*/
@@ -119,13 +114,13 @@ typedef struct JCF {
 #define JPOOL_SIZE(JCF) CPOOL_COUNT(&(JCF)->cpool)
 #define JPOOL_TAG(JCF, INDEX) ((JCF)->cpool.tags[INDEX])
 /* The INDEX'th constant pool entry as a JCF_u4. */
-#define CPOOL_UINT(CPOOL, INDEX) ((CPOOL)->data[INDEX])
+#define CPOOL_UINT(CPOOL, INDEX) ((CPOOL)->data[INDEX].w)
 #define JPOOL_UINT(JCF, INDEX) CPOOL_UINT(&(JCF)->cpool, INDEX) /*deprecated*/
 /* The first uint16 of the INDEX'th constant pool entry. */
-#define CPOOL_USHORT1(CPOOL, INDEX) ((CPOOL)->data[INDEX] & 0xFFFF)
+#define CPOOL_USHORT1(CPOOL, INDEX) ((CPOOL)->data[INDEX].w & 0xFFFF)
 #define JPOOL_USHORT1(JCF, INDEX) CPOOL_USHORT1(&(JCF)->cpool, INDEX)
 /* The second uint16 of the INDEX'th constant pool entry. */
-#define CPOOL_USHORT2(CPOOL, INDEX) ((CPOOL)->data[INDEX] >> 16)
+#define CPOOL_USHORT2(CPOOL, INDEX) ((CPOOL)->data[INDEX].w >> 16)
 #define JPOOL_USHORT2(JCF, INDEX) CPOOL_USHORT2(&(JCF)->cpool, INDEX)
 #define JPOOL_LONG(JCF, INDEX) \
   WORDS_TO_LONG (JPOOL_UINT(JCF, INDEX), JPOOL_UINT(JCF, (INDEX)+1))
@@ -145,9 +140,10 @@ typedef struct JCF {
 #define CPOOL_INDEX_IN_RANGE(CPOOL, INDEX) \
  ((INDEX) > 0 && (INDEX) < CPOOL_COUNT(CPOOL))
 
-#define CPOOL_FINISH(CPOOL) { \
-  if ((CPOOL)->tags) FREE ((CPOOL)->tags); \
-  if ((CPOOL)->data) FREE ((CPOOL)->data); }
+#define CPOOL_FINISH(CPOOL) {			\
+    (CPOOL)->tags = 0;				\
+    (CPOOL)->data = 0;				\
+  }
 
 #define JCF_FINISH(JCF) { \
   CPOOL_FINISH(&(JCF)->cpool); \
@@ -234,10 +230,10 @@ typedef struct JCF {
 
 #define DEFAULT_CLASS_PATH "."
 
-extern const char *find_class PARAMS ((const char *, int, JCF*, int));
-extern const char *find_classfile PARAMS ((char *, JCF*, const char *));
-extern int jcf_filbuf_from_stdio PARAMS ((JCF *jcf, int count));
-extern int jcf_unexpected_eof PARAMS ((JCF*, int)) ATTRIBUTE_NORETURN;
+extern const char *find_class (const char *, int, JCF*, int);
+extern const char *find_classfile (char *, JCF*, const char *);
+extern int jcf_filbuf_from_stdio (JCF *jcf, int count);
+extern int jcf_unexpected_eof (JCF*, int) ATTRIBUTE_NORETURN;
 
 /* Extract a character from a Java-style Utf8 string.
  * PTR points to the current character.
@@ -268,27 +264,27 @@ extern int quiet_flag;
 #endif
 
 /* Declarations for dependency code.  */
-extern void jcf_dependency_reset PARAMS ((void));
-extern void jcf_dependency_set_target PARAMS ((const char *));
-extern void jcf_dependency_add_target PARAMS ((const char *));
-extern void jcf_dependency_set_dep_file PARAMS ((const char *));
-extern void jcf_dependency_add_file PARAMS ((const char *, int));
-extern void jcf_dependency_write PARAMS ((void));
-extern void jcf_dependency_init PARAMS ((int));
-extern void jcf_dependency_print_dummies PARAMS ((void));
+extern void jcf_dependency_reset (void);
+extern void jcf_dependency_set_target (const char *);
+extern void jcf_dependency_add_target (const char *);
+extern void jcf_dependency_set_dep_file (const char *);
+extern void jcf_dependency_add_file (const char *, int);
+extern void jcf_dependency_write (void);
+extern void jcf_dependency_init (int);
+extern void jcf_dependency_print_dummies (void);
 
 /* Declarations for path handling code.  */
-extern void jcf_path_init PARAMS ((void));
-extern void jcf_path_classpath_arg PARAMS ((const char *));
-extern void jcf_path_bootclasspath_arg PARAMS ((const char *));
-extern void jcf_path_extdirs_arg PARAMS ((const char *));
-extern void jcf_path_include_arg PARAMS ((const char *));
-extern void jcf_path_seal PARAMS ((int));
-extern void *jcf_path_start PARAMS ((void));
-extern void *jcf_path_next PARAMS ((void *));
-extern char *jcf_path_name PARAMS ((void *));
-extern int jcf_path_is_zipfile PARAMS ((void *));
-extern int jcf_path_is_system PARAMS ((void *));
-extern int jcf_path_max_len PARAMS ((void));
+extern void jcf_path_init (void);
+extern void jcf_path_classpath_arg (const char *);
+extern void jcf_path_bootclasspath_arg (const char *);
+extern void jcf_path_extdirs_arg (const char *);
+extern void jcf_path_include_arg (const char *);
+extern void jcf_path_seal (int);
+extern void *jcf_path_start (void);
+extern void *jcf_path_next (void *);
+extern char *jcf_path_name (void *);
+extern int jcf_path_is_zipfile (void *);
+extern int jcf_path_is_system (void *);
+extern int jcf_path_max_len (void);
 
 #endif /* ! GCC_JCF_H */

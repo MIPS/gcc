@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -2653,7 +2653,7 @@ detect_remat_webs ()
 		  oldwebs can't have their references changed.  The
 		  incremental machinery barfs on that.  */
 	       || (!rtx_unstable_p (src) && !contains_pseudo (src))
-	       /* Additionally also memrefs to stack-slots are usefull, when
+	       /* Additionally also memrefs to stack-slots are useful, when
 		  we created them ourself.  They might not have set their
 		  unchanging flag set, but nevertheless they are stable across
 		  the livetime in question.  */
@@ -2933,13 +2933,13 @@ handle_asm_insn (df, insn)
       CLEAR_HARD_REG_SET (allowed);
       while (1)
 	{
-	  char c = *p++;
+	  char c = *p;
 
 	  if (c == '\0' || c == ',' || c == '#')
 	    {
 	      /* End of one alternative - mark the regs in the current
-	       class, and reset the class.
-	       */
+	       class, and reset the class.  */
+	      p++;
 	      IOR_HARD_REG_SET (allowed, reg_class_contents[cls]);
 	      if (cls != NO_REGS)
 		nothing_allowed = 0;
@@ -2977,8 +2977,10 @@ handle_asm_insn (df, insn)
 	      default:
 		cls =
 		  (int) reg_class_subunion[cls][(int)
-						REG_CLASS_FROM_LETTER (c)];
+						REG_CLASS_FROM_CONSTRAINT (c,
+									   p)];
 	    }
+	  p += CONSTRAINT_LEN (c, p);
 	}
 
       /* Now make conflicts between this web, and all hardregs, which

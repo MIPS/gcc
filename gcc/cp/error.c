@@ -2,20 +2,20 @@
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002
    Free Software Foundation, Inc.
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -454,8 +454,7 @@ dump_type (t, flags)
       break;
     }
     case TYPENAME_TYPE:
-      if (!IMPLICIT_TYPENAME_P (t))
-        output_add_string (scratch_buffer, "typename ");
+      output_add_string (scratch_buffer, "typename ");
       dump_typename (t, flags);
       break;
 
@@ -1439,6 +1438,7 @@ dump_expr (t, flags)
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
     case OVERLOAD:
+    case IDENTIFIER_NODE:
       dump_decl (t, flags & ~TFF_DECL_SPECIFIERS);
       break;
 
@@ -1909,10 +1909,6 @@ dump_expr (t, flags)
       dump_decl (TEMPLATE_PARM_DECL (t), flags & ~TFF_DECL_SPECIFIERS);
       break;
 
-    case IDENTIFIER_NODE:
-      print_tree_identifier (scratch_buffer, t);
-      break;
-
     case SCOPE_REF:
       dump_type (TREE_OPERAND (t, 0), flags);
       print_scope_operator (scratch_buffer);
@@ -2027,12 +2023,10 @@ dump_expr (t, flags)
       output_add_string (scratch_buffer, ") break; ");
       break;
 
-    case TREE_LIST:
-      if (TREE_VALUE (t) && TREE_CODE (TREE_VALUE (t)) == FUNCTION_DECL)
-	{
-	  print_tree_identifier (scratch_buffer, DECL_NAME (TREE_VALUE (t)));
-	  break;
-	}
+    case BASELINK:
+      print_tree_identifier (scratch_buffer, DECL_NAME (get_first_fn (t)));
+      break;
+
       /* else fall through */
 
       /*  This list is incomplete, but should suffice for now.

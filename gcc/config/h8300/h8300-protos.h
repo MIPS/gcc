@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Hitachi H8/300 version generating coff
-   Copyright (C) 2000 Free SoftwareFoundation, Inc.
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -62,8 +62,13 @@ extern int small_call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int jump_address_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_memory_operand PARAMS ((rtx, enum machine_mode));
-extern int const_le_2_operand PARAMS ((rtx, enum machine_mode));
-extern int const_le_6_operand PARAMS ((rtx, enum machine_mode));
+extern int stack_pointer_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_le_2_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_le_6_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_gt_2_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_ge_8_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_qi_operand PARAMS ((rtx, enum machine_mode));
+extern int const_int_hi_operand PARAMS ((rtx, enum machine_mode));
 extern int incdec_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operator PARAMS ((rtx, enum machine_mode));
 extern int nshift_operator PARAMS ((rtx, enum machine_mode));
@@ -85,13 +90,15 @@ extern int h8300_tiny_data_p PARAMS ((tree));
 #endif /* TREE_CODE */
 
 extern void h8300_init_once PARAMS ((void));
+extern int h8300_can_use_return_insn_p PARAMS ((void));
+extern void h8300_expand_prologue PARAMS ((void));
+extern void h8300_expand_epilogue PARAMS ((void));
+extern int h8300_current_function_interrupt_function_p PARAMS ((void));
 extern void asm_file_start PARAMS ((FILE *));
 extern void asm_file_end PARAMS ((FILE *));
 extern int h8300_initial_elimination_offset PARAMS ((int, int));
 
-#ifdef GCC_C_PRAGMA_H
-extern void h8300_pr_interrupt PARAMS ((cpp_reader *));
-extern void h8300_pr_saveall PARAMS ((cpp_reader *));
-#endif
+extern void h8300_pr_interrupt PARAMS ((struct cpp_reader *));
+extern void h8300_pr_saveall PARAMS ((struct cpp_reader *));
 
 #endif /* ! GCC_H8300_PROTOS_H */

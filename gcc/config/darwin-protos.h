@@ -1,5 +1,5 @@
 /* Prototypes.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -27,7 +27,9 @@ extern const char *machopic_non_lazy_ptr_name PARAMS ((const char*));
 extern const char *machopic_stub_name PARAMS ((const char*));
 
 extern void machopic_picsymbol_stub_section PARAMS ((void));
+extern void machopic_picsymbol_stub1_section PARAMS ((void));
 extern void machopic_symbol_stub_section PARAMS ((void));
+extern void machopic_symbol_stub1_section PARAMS ((void));
 extern void machopic_lazy_symbol_ptr_section PARAMS ((void));
 extern void machopic_nl_symbol_ptr_section PARAMS ((void));
 
@@ -72,11 +74,9 @@ extern void machopic_select_section PARAMS ((tree, int,
 extern void machopic_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						 unsigned HOST_WIDE_INT));
 
-#ifdef GCC_C_PRAGMA_H
-extern void darwin_pragma_ignore PARAMS ((cpp_reader *));
-extern void darwin_pragma_options PARAMS ((cpp_reader *));
-extern void darwin_pragma_unused PARAMS ((cpp_reader *));
-#endif
+extern void darwin_pragma_ignore PARAMS ((struct cpp_reader *));
+extern void darwin_pragma_options PARAMS ((struct cpp_reader *));
+extern void darwin_pragma_unused PARAMS ((struct cpp_reader *));
 
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
 extern void const_section PARAMS ((void));

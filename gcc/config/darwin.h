@@ -1,5 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -510,7 +510,9 @@ FUNCTION ()								\
   in_machopic_nl_symbol_ptr,				\
   in_machopic_lazy_symbol_ptr,				\
   in_machopic_symbol_stub,				\
+  in_machopic_symbol_stub1,				\
   in_machopic_picsymbol_stub,				\
+  in_machopic_picsymbol_stub1,				\
   in_darwin_exception, in_darwin_eh_frame,		\
   num_sections
 
@@ -614,9 +616,15 @@ SECTION_FUNCTION (machopic_nl_symbol_ptr_section,	\
 SECTION_FUNCTION (machopic_symbol_stub_section,		\
 		in_machopic_symbol_stub,		\
 		".symbol_stub", 0)      		\
+SECTION_FUNCTION (machopic_symbol_stub1_section,	\
+		in_machopic_symbol_stub1,		\
+		".section __TEXT,__symbol_stub1,symbol_stubs,pure_instructions,16", 0)\
 SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		in_machopic_picsymbol_stub,		\
 		".picsymbol_stub", 0)      		\
+SECTION_FUNCTION (machopic_picsymbol_stub1_section,	\
+		in_machopic_picsymbol_stub1,		\
+		".section __TEXT,__picsymbolstub1,symbol_stubs,pure_instructions,32", 0)\
 SECTION_FUNCTION (darwin_exception_section,		\
 		in_darwin_exception,			\
 		".section __DATA,__gcc_except_tab", 0)	\
@@ -793,12 +801,12 @@ enum machopic_addr_class {
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
-#define DARWIN_REGISTER_TARGET_PRAGMAS(PFILE)				\
-  do {									\
-    cpp_register_pragma (PFILE, 0, "mark", darwin_pragma_ignore);	\
-    cpp_register_pragma (PFILE, 0, "options", darwin_pragma_options);	\
-    cpp_register_pragma (PFILE, 0, "segment", darwin_pragma_ignore);	\
-    cpp_register_pragma (PFILE, 0, "unused", darwin_pragma_unused);	\
+#define DARWIN_REGISTER_TARGET_PRAGMAS()			\
+  do {								\
+    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
+    c_register_pragma (0, "options", darwin_pragma_options);	\
+    c_register_pragma (0, "segment", darwin_pragma_ignore);	\
+    c_register_pragma (0, "unused", darwin_pragma_unused);	\
   } while (0)
 
 #undef ASM_APP_ON

@@ -1,21 +1,21 @@
 /* Built-in and inline functions for gcj
-   Copyright (C) 2001
+   Copyright (C) 2001, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -61,19 +61,17 @@ enum builtin_type
   BT_LAST
 };
 
-static tree max_builtin PARAMS ((tree, tree));
-static tree min_builtin PARAMS ((tree, tree));
-static tree abs_builtin PARAMS ((tree, tree));
-static tree cos_builtin PARAMS ((tree, tree));
-static tree sin_builtin PARAMS ((tree, tree));
-static tree sqrt_builtin PARAMS ((tree, tree));
+static tree max_builtin (tree, tree);
+static tree min_builtin (tree, tree);
+static tree abs_builtin (tree, tree);
+static tree cos_builtin (tree, tree);
+static tree sin_builtin (tree, tree);
+static tree sqrt_builtin (tree, tree);
 
-static tree build_function_call_expr PARAMS ((tree, tree));
-static void define_builtin PARAMS ((enum built_in_function,
-				    const char *,
-				    enum built_in_class,
-				    tree, int));
-static tree define_builtin_type PARAMS ((int, int, int, int, int));
+static tree java_build_function_call_expr (tree, tree);
+static void define_builtin (enum built_in_function, const char *,
+			    enum built_in_class, tree, int);
+static tree define_builtin_type (int, int, int, int, int);
 
 
 
@@ -118,8 +116,7 @@ static tree builtin_types[(int) BT_LAST];
 /* Internal functions which implement various builtin conversions.  */
 
 static tree
-max_builtin (method_return_type, method_arguments)
-     tree method_return_type, method_arguments;
+max_builtin (tree method_return_type, tree method_arguments)
 {
   return build (MAX_EXPR, method_return_type,
 		TREE_VALUE (method_arguments),
@@ -127,8 +124,7 @@ max_builtin (method_return_type, method_arguments)
 }
 
 static tree
-min_builtin (method_return_type, method_arguments)
-     tree method_return_type, method_arguments;
+min_builtin (tree method_return_type, tree method_arguments)
 {
   return build (MIN_EXPR, method_return_type,
 		TREE_VALUE (method_arguments),
@@ -136,8 +132,7 @@ min_builtin (method_return_type, method_arguments)
 }
 
 static tree
-abs_builtin (method_return_type, method_arguments)
-     tree method_return_type, method_arguments;
+abs_builtin (tree method_return_type, tree method_arguments)
 {
   return build1 (ABS_EXPR, method_return_type,
 		 TREE_VALUE (method_arguments));
@@ -145,7 +140,7 @@ abs_builtin (method_return_type, method_arguments)
 
 /* Mostly copied from ../builtins.c.  */
 static tree
-build_function_call_expr (tree fn, tree arglist)
+java_build_function_call_expr (tree fn, tree arglist)
 {
   tree call_expr;
 
@@ -157,48 +152,44 @@ build_function_call_expr (tree fn, tree arglist)
 }
 
 static tree
-cos_builtin (method_return_type, method_arguments)
-     tree method_return_type ATTRIBUTE_UNUSED, method_arguments;
+cos_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
 {
   /* FIXME: this assumes that jdouble and double are the same.  */
   tree fn = built_in_decls[BUILT_IN_COS];
   if (fn == NULL_TREE)
     return NULL_TREE;
-  return build_function_call_expr (fn, method_arguments);
+  return java_build_function_call_expr (fn, method_arguments);
 }
 
 static tree
-sin_builtin (method_return_type, method_arguments)
-     tree method_return_type ATTRIBUTE_UNUSED, method_arguments;
+sin_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
 {
   /* FIXME: this assumes that jdouble and double are the same.  */
   tree fn = built_in_decls[BUILT_IN_SIN];
   if (fn == NULL_TREE)
     return NULL_TREE;
-  return build_function_call_expr (fn, method_arguments);
+  return java_build_function_call_expr (fn, method_arguments);
 }
 
 static tree
-sqrt_builtin (method_return_type, method_arguments)
-     tree method_return_type ATTRIBUTE_UNUSED, method_arguments;
+sqrt_builtin (tree method_return_type ATTRIBUTE_UNUSED, tree method_arguments)
 {
   /* FIXME: this assumes that jdouble and double are the same.  */
   tree fn = built_in_decls[BUILT_IN_SQRT];
   if (fn == NULL_TREE)
     return NULL_TREE;
-  return build_function_call_expr (fn, method_arguments);
+  return java_build_function_call_expr (fn, method_arguments);
 }
 
 
 
 /* Define a single builtin.  */
 static void
-define_builtin (val, name, class, type, fallback_p)
-     enum built_in_function val;
-     const char *name;
-     enum built_in_class class;
-     tree type;
-     int fallback_p;
+define_builtin (enum built_in_function val,
+		const char *name,
+		enum built_in_class class,
+		tree type,
+		int fallback_p)
 {
   tree decl;
 
@@ -222,8 +213,7 @@ define_builtin (val, name, class, type, fallback_p)
 
 /* Compute the type for a builtin.  */
 static tree
-define_builtin_type (ret, arg1, arg2, arg3, arg4)
-     int ret, arg1, arg2, arg3, arg4;
+define_builtin_type (int ret, int arg1, int arg2, int arg3, int arg4)
 {
   tree args;
 
@@ -264,7 +254,7 @@ define_builtin_type (ret, arg1, arg2, arg3, arg4)
 
 /* Initialize the builtins.  */
 void
-initialize_builtins ()
+initialize_builtins (void)
 {
   int i;
 
@@ -324,9 +314,7 @@ initialize_builtins ()
 /* If the call matches a builtin, return the
    appropriate builtin expression instead.  */
 tree
-check_for_builtin (method, call)
-     tree method;
-     tree call;
+check_for_builtin (tree method, tree call)
 {
   if (! flag_emit_class_files && optimize && TREE_CODE (call) == CALL_EXPR)
     {

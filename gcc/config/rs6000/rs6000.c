@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -95,7 +95,7 @@ int rs6000_fprs = 1;
 const char *rs6000_isel_string;
 
 /* Set to nonzero once AIX common-mode calls have been defined.  */
-static int common_mode_defined;
+static GTY(()) int common_mode_defined;
 
 /* Private copy of original value of flag_pic for ABI_AIX.  */
 static int rs6000_flag_pic;
@@ -168,7 +168,6 @@ struct builtin_description
 };
 
 static bool rs6000_function_ok_for_sibcall PARAMS ((tree, tree));
-static void rs6000_add_gc_roots PARAMS ((void));
 static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
 static void validate_condition_mode 
   PARAMS ((enum rtx_code, enum machine_mode));
@@ -183,8 +182,6 @@ static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
 static unsigned rs6000_hash_constant PARAMS ((rtx));
 static unsigned toc_hash_function PARAMS ((const void *));
 static int toc_hash_eq PARAMS ((const void *, const void *));
-static int toc_hash_mark_entry PARAMS ((void **, void *));
-static void toc_hash_mark_table PARAMS ((void *));
 static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 static struct machine_function * rs6000_init_machine_status PARAMS ((void));
 static bool rs6000_assemble_integer PARAMS ((rtx, unsigned int, int));
@@ -207,7 +204,7 @@ static unsigned int rs6000_elf_section_type_flags PARAMS ((tree, const char *,
 static void rs6000_elf_asm_out_constructor PARAMS ((rtx, int));
 static void rs6000_elf_asm_out_destructor PARAMS ((rtx, int));
 static void rs6000_elf_select_section PARAMS ((tree, int,
-						 unsigned HOST_WIDE_INT));
+					       unsigned HOST_WIDE_INT));
 static void rs6000_elf_unique_section PARAMS ((tree, int));
 static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						   unsigned HOST_WIDE_INT));
@@ -267,6 +264,19 @@ static void is_altivec_return_reg PARAMS ((rtx, void *));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
 static int easy_vector_constant PARAMS ((rtx));
+
+/* Hash table stuff for keeping track of TOC entries.  */
+
+struct toc_hash_struct GTY(())
+{
+  /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
+     ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
+  rtx key;
+  enum machine_mode key_mode;
+  int labelno;
+};
+
+static GTY ((param_is (struct toc_hash_struct))) htab_t toc_hash_table;
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -287,7 +297,9 @@ char rs6000_reg_names[][8] =
       "8",  "9",  "10", "11", "12", "13", "14", "15",
       "16", "17", "18", "19", "20", "21", "22", "23",
       "24", "25", "26", "27", "28", "29", "30", "31",
-      "vrsave"
+      "vrsave", "vscr",
+      /* SPE registers.  */
+      "spe_acc", "spefscr"
 };
 
 #ifdef TARGET_REGNAMES
@@ -304,12 +316,14 @@ static const char alt_reg_names[][8] =
     "mq",    "lr",  "ctr",   "ap",
   "%cr0",  "%cr1", "%cr2", "%cr3", "%cr4", "%cr5", "%cr6", "%cr7",
    "xer",
-   /* AltiVec registers.  */
+  /* AltiVec registers.  */
    "%v0",  "%v1",  "%v2",  "%v3",  "%v4",  "%v5",  "%v6", "%v7",
-   "%v8",  "%v9",  "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
-   "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
-   "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
-   "vrsave"
+   "%v8",  "%v9", "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
+  "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
+  "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
+  "vrsave", "vscr",
+  /* SPE registers.  */
+  "spe_acc", "spefscr"
 };
 #endif
 
@@ -384,12 +398,8 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK rs6000_output_mi_thunk
 
-/* ??? Should work everywhere, but ask dje@watson.ibm.com before
-   enabling for AIX.  */
-#if TARGET_OBJECT_FORMAT != OBJECT_XCOFF
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
-#endif
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
@@ -707,9 +717,6 @@ rs6000_override_options (default_cpu)
   if (TARGET_LONG_DOUBLE_128
       && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
     real_format_for_mode[TFmode - QFmode] = &ibm_extended_format;
-
-  /* Register global variables with the garbage collector.  */
-  rs6000_add_gc_roots ();
 
   /* Allocate an alias set for register saves & restores from stack.  */
   rs6000_sr_alias_set = new_alias_set ();
@@ -1674,6 +1681,8 @@ mask64_operand (op, mode)
 
       /* Find the transition, and check that all bits above are 1's.  */
       lsb = c & -c;
+
+      /* Match if all the bits above are 1's (or c is zero).  */
       return c == -lsb;
     }
   return 0;
@@ -2850,6 +2859,16 @@ rs6000_emit_move (dest, source, mode)
 	operands[1]
 	  = replace_equiv_address (operands[1],
 				   copy_addr_to_reg (XEXP (operands[1], 0)));
+      if (TARGET_POWER)
+	{
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
+		       gen_rtvec (2,
+				  gen_rtx_SET (VOIDmode,
+					       operands[0], operands[1]),
+				  gen_rtx_CLOBBER (VOIDmode,
+						   gen_rtx_SCRATCH (SImode)))));
+	  return;
+	}
       break;
 
     default:
@@ -3325,7 +3344,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
      CUMULATIVE_ARGS *cum;
      enum machine_mode mode;
      tree type;
-     int *pretend_size;
+     int *pretend_size ATTRIBUTE_UNUSED;
      int no_rtl;
 
 {
@@ -3380,9 +3399,6 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 	(GP_ARG_MIN_REG + first_reg_offset, mem,
 	 GP_ARG_NUM_REG - first_reg_offset,
 	 (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD);
-
-      /* ??? Does ABI_V4 need this at all?  */
-      *pretend_size = (GP_ARG_NUM_REG - first_reg_offset) * UNITS_PER_WORD;
     }
 
   /* Save FP registers if needed.  */
@@ -9912,14 +9928,14 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	  && REGNO (stack_limit_rtx) > 1 
 	  && REGNO (stack_limit_rtx) <= 31)
 	{
-	  emit_insn (Pmode == SImode
+	  emit_insn (TARGET_32BIT
 		     ? gen_addsi3 (tmp_reg,
 				   stack_limit_rtx,
 				   GEN_INT (size))
 		     : gen_adddi3 (tmp_reg,
 				   stack_limit_rtx,
 				   GEN_INT (size)));
-	  
+
 	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
 				    const0_rtx));
 	}
@@ -9931,7 +9947,7 @@ rs6000_emit_allocate_stack (size, copy_r12)
 				      gen_rtx_PLUS (Pmode, 
 						    stack_limit_rtx, 
 						    GEN_INT (size)));
-	  
+
 	  emit_insn (gen_elf_high (tmp_reg, toload));
 	  emit_insn (gen_elf_low (tmp_reg, tmp_reg, toload));
 	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
@@ -9955,24 +9971,22 @@ rs6000_emit_allocate_stack (size, copy_r12)
 	  try_split (PATTERN (insn), insn, 0);
 	  todec = tmp_reg;
 	}
-      
-      if (Pmode == SImode)
-	insn = emit_insn (gen_movsi_update (stack_reg, stack_reg, 
-					    todec, stack_reg));
-      else
-	insn = emit_insn (gen_movdi_update (stack_reg, stack_reg, 
+
+      insn = emit_insn (TARGET_32BIT
+			? gen_movsi_update (stack_reg, stack_reg,
+					    todec, stack_reg)
+			: gen_movdi_update (stack_reg, stack_reg, 
 					    todec, stack_reg));
     }
   else
     {
-      if (Pmode == SImode)
-	insn = emit_insn (gen_addsi3 (stack_reg, stack_reg, todec));
-      else
-	insn = emit_insn (gen_adddi3 (stack_reg, stack_reg, todec));
+      insn = emit_insn (TARGET_32BIT
+			? gen_addsi3 (stack_reg, stack_reg, todec)
+			: gen_adddi3 (stack_reg, stack_reg, todec));
       emit_move_insn (gen_rtx_MEM (Pmode, stack_reg),
 		      gen_rtx_REG (Pmode, 12));
     }
-  
+ 
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) = 
     gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
@@ -10966,7 +10980,7 @@ rs6000_emit_epilogue (sibcall)
 	}
       else if (sp_offset != 0)
 	{
-	  emit_insn (Pmode == SImode
+	  emit_insn (TARGET_32BIT
 		     ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
 				   GEN_INT (sp_offset))
 		     : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
@@ -10977,7 +10991,7 @@ rs6000_emit_epilogue (sibcall)
   if (current_function_calls_eh_return)
     {
       rtx sa = EH_RETURN_STACKADJ_RTX;
-      emit_insn (Pmode == SImode
+      emit_insn (TARGET_32BIT
 		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx, sa)
 		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx, sa));
     }
@@ -11340,159 +11354,99 @@ rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
-     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT vcall_offset;
      tree function;
 {
-  const char *this_reg =
-    reg_names[ aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) ? 4 : 3 ];
-  const char *prefix;
-  const char *fname;
-  const char *r0	 = reg_names[0];
-  const char *toc	 = reg_names[2];
-  const char *schain	 = reg_names[11];
-  const char *r12	 = reg_names[12];
-  char buf[512];
-  static int labelno = 0;
+  rtx this, insn, funexp;
 
-  /* Small constants that can be done by one add instruction.  */
-  if (delta >= -32768 && delta <= 32767)
-    {
-      if (! TARGET_NEW_MNEMONICS)
-	fprintf (file, "\tcal %s,%d(%s)\n", this_reg, (int) delta, this_reg);
-      else
-	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, (int) delta);
-    }
+  reload_completed = 1;
+  no_new_pseudos = 1;
 
-  /* 64-bit constants.  If "int" is 32 bits, we'll never hit this abort.  */
-  else if (TARGET_64BIT && (delta < -2147483647 - 1 || delta > 2147483647))
-    abort ();
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
 
-  /* Large constants that can be done by one addis instruction.  */
-  else if ((delta & 0xffff) == 0)
-    asm_fprintf (file, "\t{cau|addis} %s,%s,%d\n", this_reg, this_reg,
-		 (int) (delta >> 16));
-
-  /* 32-bit constants that can be done by an add and addis instruction.  */
+  /* Find the "this" pointer.  If the function returns a structure,
+     the structure return pointer is in r3.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, 4);
   else
+    this = gen_rtx_REG (Pmode, 3);
+
+  /* Apply the constant offset, if required.  */
+  if (delta)
     {
-      /* Break into two pieces, propagating the sign bit from the low
-	 word to the upper word.  */
-      int delta_low  = ((delta & 0xffff) ^ 0x8000) - 0x8000;
-      int delta_high = (delta - delta_low) >> 16;
-
-      asm_fprintf (file, "\t{cau|addis} %s,%s,%d\n", this_reg, this_reg,
-		   delta_high);
-
-      if (! TARGET_NEW_MNEMONICS)
-	fprintf (file, "\tcal %s,%d(%s)\n", this_reg, delta_low, this_reg);
-      else
-	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, delta_low);
+      rtx delta_rtx = GEN_INT (delta);
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (this, this, delta_rtx)
+		 : gen_adddi3 (this, this, delta_rtx));
     }
 
-  /* Get the prefix in front of the names.  */
-  switch (DEFAULT_ABI)
+  /* Apply the offset from the vtable, if required.  */
+  if (vcall_offset)
     {
-    default:
-      abort ();
+      rtx vcall_offset_rtx = GEN_INT (vcall_offset);
+      rtx tmp = gen_rtx_REG (Pmode, 12);
 
-    case ABI_AIX:
-      prefix = ".";
-      break;
-
-    case ABI_V4:
-    case ABI_AIX_NODESC:
-    case ABI_DARWIN:
-      prefix = "";
-      break;
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, this));
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (tmp, tmp, vcall_offset_rtx)
+		 : gen_adddi3 (tmp, tmp, vcall_offset_rtx));
+      emit_move_insn (tmp, gen_rtx_MEM (Pmode, tmp));
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (this, this, tmp)
+		 : gen_adddi3 (this, this, tmp));
     }
 
-  /* If the function is compiled in this module, jump to it directly.
-     Otherwise, load up its address and jump to it.  */
+  /* Generate a tail call to the target function.  */
+  if (!TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
 
-  fname = XSTR (XEXP (DECL_RTL (function), 0), 0);
-
-  if (current_file_function_operand (XEXP (DECL_RTL (function), 0), VOIDmode)
+  SYMBOL_REF_FLAG (funexp) = 0;
+  if (current_file_function_operand (funexp, VOIDmode)
       && (! lookup_attribute ("longcall",
 			      TYPE_ATTRIBUTES (TREE_TYPE (function)))
 	  || lookup_attribute ("shortcall",
 			       TYPE_ATTRIBUTES (TREE_TYPE (function)))))
-    {
-      fprintf (file, "\tb %s", prefix);
-      assemble_name (file, fname);
-      if (DEFAULT_ABI == ABI_V4 && flag_pic) fputs ("@local", file);
-      putc ('\n', file);
-    }
+    SYMBOL_REF_FLAG (funexp) = 1;
 
-  else
-    {
-      switch (DEFAULT_ABI)
-	{
-	default:
-	  abort ();
-
-	case ABI_AIX:
-	  /* Set up a TOC entry for the function.  */
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "Lthunk", labelno);
-	  toc_section ();
-	  (*targetm.asm_out.internal_label) (file, "Lthunk", labelno);
-	  labelno++;
-
-	  if (TARGET_MINIMAL_TOC)
-	    fputs (TARGET_32BIT ? "\t.long " : DOUBLE_INT_ASM_OP, file);
-	  else
-	    {
-	      fputs ("\t.tc ", file);
-	      assemble_name (file, fname);
-	      fputs ("[TC],", file);
-	    }
-	  assemble_name (file, fname);
-	  putc ('\n', file);
-	  function_section (current_function_decl);
-	  if (TARGET_MINIMAL_TOC)
-	    asm_fprintf (file, (TARGET_32BIT)
-			 ? "\t{l|lwz} %s,%s(%s)\n" : "\tld %s,%s(%s)\n", r12,
-			 TARGET_ELF ? ".LCTOC0@toc" : ".LCTOC..1", toc);
-	  asm_fprintf (file, (TARGET_32BIT) ? "\t{l|lwz} %s," : "\tld %s,", r12);
-	  assemble_name (file, buf);
-	  if (TARGET_ELF && TARGET_MINIMAL_TOC)
-	    fputs ("-(.LCTOC1)", file);
-	  asm_fprintf (file, "(%s)\n", TARGET_MINIMAL_TOC ? r12 : toc);
-	  asm_fprintf (file,
-		       (TARGET_32BIT) ? "\t{l|lwz} %s,0(%s)\n" : "\tld %s,0(%s)\n",
-		       r0, r12);
-
-	  asm_fprintf (file,
-		       (TARGET_32BIT) ? "\t{l|lwz} %s,4(%s)\n" : "\tld %s,8(%s)\n",
-		       toc, r12);
-
-	  asm_fprintf (file, "\tmtctr %s\n", r0);
-	  asm_fprintf (file,
-		       (TARGET_32BIT) ? "\t{l|lwz} %s,8(%s)\n" : "\tld %s,16(%s)\n",
-		       schain, r12);
-
-	  asm_fprintf (file, "\tbctr\n");
-	  break;
-
-	case ABI_AIX_NODESC:
-	case ABI_V4:
-	  fprintf (file, "\tb %s", prefix);
-	  assemble_name (file, fname);
-	  if (flag_pic) fputs ("@plt", file);
-	  putc ('\n', file);
-	  break;
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
 
 #if TARGET_MACHO
-	case ABI_DARWIN:
-	  fprintf (file, "\tb %s", prefix);
-	  if (flag_pic && !machopic_name_defined_p (fname))
-	    assemble_name (file, machopic_stub_name (fname));
-	  else
-	    assemble_name (file, fname);
-	  putc ('\n', file);
-	  break;
+  if (flag_pic)
+    funexp = machopic_indirect_call_target (funexp);
 #endif
-	}
-    }
+
+  /* gen_sibcall expects reload to convert scratch pseudo to LR so we must
+     generate sibcall RTL explicitly to avoid constraint abort.  */
+  insn = emit_call_insn (
+	   gen_rtx_PARALLEL (VOIDmode,
+	     gen_rtvec (4,
+			gen_rtx_CALL (VOIDmode,
+				      funexp, const0_rtx),
+			gen_rtx_USE (VOIDmode, const0_rtx),
+			gen_rtx_USE (VOIDmode,
+				     gen_rtx_REG (SImode,
+						  LINK_REGISTER_REGNUM)),
+			gen_rtx_RETURN (VOIDmode))));
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
 }
 
 /* A quick summary of the various types of 'constant-pool tables'
@@ -11521,19 +11475,6 @@ rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
    EABI TOC		30	prolog	gcc	 Y	option	option
 
 */
-
-/* Hash table stuff for keeping track of TOC entries.  */
-
-struct toc_hash_struct 
-{
-  /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
-     ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
-  rtx key;
-  enum machine_mode key_mode;
-  int labelno;
-};
-
-static htab_t toc_hash_table;
 
 /* Hash functions for the hash table.  */
 
@@ -11635,39 +11576,6 @@ toc_hash_eq (h1, h2)
   return rtx_equal_p (r1, r2);
 }
 
-/* Mark the hash table-entry HASH_ENTRY.  */
-
-static int
-toc_hash_mark_entry (hash_slot, unused)
-     void ** hash_slot;
-     void * unused ATTRIBUTE_UNUSED;
-{
-  const struct toc_hash_struct * hash_entry = 
-    *(const struct toc_hash_struct **) hash_slot;
-  rtx r = hash_entry->key;
-  ggc_set_mark (hash_entry);
-  /* For CODE_LABELS, we don't want to drag in the whole insn chain...  */
-  if (GET_CODE (r) == LABEL_REF)
-    {
-      ggc_set_mark (r);
-      ggc_set_mark (XEXP (r, 0));
-    }
-  else
-    ggc_mark_rtx (r);
-  return 1;
-}
-
-/* Mark all the elements of the TOC hash-table *HT.  */
-
-static void
-toc_hash_mark_table (vht)
-     void *vht;
-{
-  htab_t *ht = vht;
-  
-  htab_traverse (*ht, toc_hash_mark_entry, (void *)0);
-}
-
 /* These are the names given by the C++ front-end to vtables, and
    vtable-like objects.  Ideally, this logic should not be here;
    instead, there should be some programmatic way of inquiring as
@@ -11721,12 +11629,19 @@ output_toc (file, x, labelno, mode)
 
   /* When the linker won't eliminate them, don't output duplicate
      TOC entries (this happens on AIX if there is any kind of TOC,
-     and on SVR4 under -fPIC or -mrelocatable).  */
-  if (TARGET_TOC)
+     and on SVR4 under -fPIC or -mrelocatable).  Don't do this for
+     CODE_LABELs.  */
+  if (TARGET_TOC && GET_CODE (x) != LABEL_REF)
     {
       struct toc_hash_struct *h;
       void * * found;
       
+      /* Create toc_hash_table.  This can't be done at OVERRIDE_OPTIONS
+         time because GGC is not initialised at that point.  */
+      if (toc_hash_table == NULL)
+	toc_hash_table = htab_create_ggc (1021, toc_hash_function, 
+					  toc_hash_eq, NULL);
+
       h = ggc_alloc (sizeof (*h));
       h->key = x;
       h->key_mode = mode;
@@ -12105,6 +12020,7 @@ rs6000_gen_section_name (buf, filename, section_desc)
         {
 	  strcpy (p, section_desc);
 	  p += strlen (section_desc);
+	  break;
         }
 
       else if (ISALNUM (*q))
@@ -12627,10 +12543,14 @@ rs6000_elf_encode_section_info (decl, first)
 	   && DEFAULT_ABI == ABI_V4
 	   && TREE_CODE (decl) == VAR_DECL)
     {
+      rtx sym_ref = XEXP (DECL_RTL (decl), 0);
       int size = int_size_in_bytes (TREE_TYPE (decl));
       tree section_name = DECL_SECTION_NAME (decl);
       const char *name = (char *)0;
       int len = 0;
+
+      if ((*targetm.binds_local_p) (decl))
+	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (section_name)
 	{
@@ -12658,7 +12578,6 @@ rs6000_elf_encode_section_info (decl, first)
 		  || (len == sizeof (".PPC.EMB.sbss0") - 1
 		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
 	{
-	  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
 	  size_t len = strlen (XSTR (sym_ref, 0));
 	  char *str = alloca (len + 2);
 
@@ -12745,17 +12664,6 @@ rs6000_fatal_bad_address (op)
   rtx op;
 {
   fatal_insn ("bad address", op);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-rs6000_add_gc_roots ()
-{
-  toc_hash_table = htab_create (1021, toc_hash_function, toc_hash_eq, NULL);
-  ggc_add_root (&toc_hash_table, 1, sizeof (toc_hash_table), 
-		toc_hash_mark_table);
 }
 
 #if TARGET_MACHO
@@ -12978,9 +12886,10 @@ machopic_output_stub (file, symb, stub)
   GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_0, symb, length, 0);
 
   if (flag_pic == 2)
-    machopic_picsymbol_stub_section ();
+    machopic_picsymbol_stub1_section ();
   else
-    machopic_symbol_stub_section ();
+    machopic_symbol_stub1_section ();
+  fprintf (file, "\t.align 2\n");
 
   fprintf (file, "%s:\n", stub);
   fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
@@ -12993,11 +12902,9 @@ machopic_output_stub (file, symb, stub)
       fprintf (file, "\taddis r11,r11,ha16(%s-%s)\n",
 	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tmtlr r0\n");
-      fprintf (file, "\tlwz r12,lo16(%s-%s)(r11)\n",
+      fprintf (file, "\tlwzu r12,lo16(%s-%s)(r11)\n",
 	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tmtctr r12\n");
-      fprintf (file, "\taddi r11,r11,lo16(%s-%s)\n",
-	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tbctr\n");
     }
   else
@@ -13375,3 +13282,4 @@ rs6000_memory_move_cost (mode, class, in)
     return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
 }
 
+#include "gt-rs6000.h"

@@ -2004,21 +2004,21 @@ static arm_pragma_enum arm_pragma_long_calls = OFF;
 
 void
 arm_pr_long_calls (pfile)
-     cpp_reader * pfile ATTRIBUTE_UNUSED;
+     struct cpp_reader * pfile ATTRIBUTE_UNUSED;
 {
   arm_pragma_long_calls = LONG;
 }
 
 void
 arm_pr_no_long_calls (pfile)
-     cpp_reader * pfile ATTRIBUTE_UNUSED;
+     struct cpp_reader * pfile ATTRIBUTE_UNUSED;
 {
   arm_pragma_long_calls = SHORT;
 }
 
 void
 arm_pr_long_calls_off (pfile)
-     cpp_reader * pfile ATTRIBUTE_UNUSED;
+     struct cpp_reader * pfile ATTRIBUTE_UNUSED;
 {
   arm_pragma_long_calls = OFF;
 }
@@ -7513,7 +7513,7 @@ arm_poke_function_name (stream, name)
   rtx           x;
 
   length      = strlen (name) + 1;
-  alignlength = ROUND_UP (length);
+  alignlength = ROUND_UP_WORD (length);
   
   ASM_OUTPUT_ASCII (stream, name, length);
   ASM_OUTPUT_ALIGN (stream, 2);
@@ -8260,7 +8260,7 @@ arm_get_frame_size ()
 {
   int regno;
 
-  int base_size = ROUND_UP (get_frame_size ());
+  int base_size = ROUND_UP_WORD (get_frame_size ());
   int entry_size = 0;
   unsigned long func_type = arm_current_func_type ();
   int leaf;
@@ -10314,7 +10314,7 @@ thumb_get_frame_size ()
 {
   int regno;
 
-  int base_size = ROUND_UP (get_frame_size ());
+  int base_size = ROUND_UP_WORD (get_frame_size ());
   int count_regs = 0;
   int entry_size = 0;
   int leaf;
@@ -10421,7 +10421,7 @@ thumb_expand_prologue ()
 
   if (amount)
     {
-      amount = ROUND_UP (amount);
+      amount = ROUND_UP_WORD (amount);
       
       if (amount < 512)
 	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -10506,7 +10506,7 @@ thumb_expand_epilogue ()
     emit_insn (gen_movsi (stack_pointer_rtx, hard_frame_pointer_rtx));
   else if (amount)
     {
-      amount = ROUND_UP (amount);
+      amount = ROUND_UP_WORD (amount);
       
       if (amount < 512)
 	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,

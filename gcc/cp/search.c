@@ -4,20 +4,20 @@
    1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "rtl.h"
 #include "output.h"
-#include "ggc.h"
 #include "toplev.h"
 #include "stack.h"
 
@@ -980,41 +979,6 @@ friend_accessible_p (scope, decl, binfo)
   return 0;
 }
 
-/* Perform access control on TYPE_DECL or TEMPLATE_DECL VAL, which was
-   looked up in TYPE.  This is fairly complex, so here's the design:
-
-   The lang_extdef nonterminal sets type_lookups to NULL_TREE before we
-     start to process a top-level declaration.
-   As we process the decl-specifier-seq for the declaration, any types we
-     see that might need access control are passed to type_access_control,
-     which defers checking by adding them to type_lookups.
-   When we are done with the decl-specifier-seq, we record the lookups we've
-     seen in the lookups field of the typed_declspecs nonterminal.
-   When we process the first declarator, either in parse_decl or
-     begin_function_definition, we call save_type_access_control,
-     which stores the lookups from the decl-specifier-seq in
-     current_type_lookups.
-   As we finish with each declarator, we process everything in type_lookups
-     via decl_type_access_control, which resets type_lookups to the value of
-     current_type_lookups for subsequent declarators.
-   When we enter a function, we set type_lookups to error_mark_node, so all
-     lookups are processed immediately.  */
-
-void
-type_access_control (type, val)
-     tree type, val;
-{
-  if (val == NULL_TREE
-      || (TREE_CODE (val) != TEMPLATE_DECL && TREE_CODE (val) != TYPE_DECL)
-      || ! DECL_CLASS_SCOPE_P (val))
-    return;
-
-  if (type_lookups == error_mark_node)
-    enforce_access (type, val);
-  else if (! accessible_p (type, val))
-    type_lookups = tree_cons (type, val, type_lookups);
-}
-
 /* DECL is a declaration from a base class of TYPE, which was the
    class used to name DECL.  Return nonzero if, in the current
    context, DECL is accessible.  If TYPE is actually a BINFO node,
@@ -1035,7 +999,7 @@ accessible_p (type, decl)
   int protected_ok = 0;
 
   /* If we're not checking access, everything is accessible.  */
-  if (!flag_access_control)
+  if (!scope_chain->check_access)
     return 1;
 
   /* If this declaration is in a block or namespace scope, there's no
@@ -1386,7 +1350,7 @@ lookup_field_r (binfo, data)
     }
   else
     {
-      if (from_dep_base_p && TREE_CODE (nval) != TYPE_DECL
+      if (from_dep_base_p && TREE_CODE (nval) == TYPE_DECL
 	  /* We need to return a member template class so we can
 	     define partial specializations.  Is there a better
 	     way?  */
@@ -1536,9 +1500,7 @@ lookup_member (xbasetype, name, protect, want_type)
   /* If the thing we found was found via the implicit typename
      extension, build the typename type.  */
   if (rval && lfi.from_dep_base_p && !DECL_CLASS_TEMPLATE_P (rval))
-    rval = TYPE_STUB_DECL (build_typename_type (BINFO_TYPE (basetype_path),
-						name, name,
-						TREE_TYPE (rval)));
+    abort ();
 
   if (rval && is_overloaded_fn (rval)) 
     rval = build_baselink (rval_binfo, basetype_path, rval,
@@ -1674,11 +1636,11 @@ lookup_fnfields_1 (type, name)
   return -1;
 }
 
-/* DECL is the result of a qualified name lookup.  QUALIFYING_CLASS
-   was the class used to qualify the name.  CONTEXT_CLASS is the class
-   corresponding to the object in which DECL will be used.  Return a
-   possibly modified version of DECL that takes into account the
-   CONTEXT_CLASS.
+/* DECL is the result of a qualified name lookup.  QUALIFYING_SCOPE is
+   the class or namespace used to qualify the name.  CONTEXT_CLASS is
+   the class corresponding to the object in which DECL will be used.
+   Return a possibly modified version of DECL that takes into account
+   the CONTEXT_CLASS.
 
    In particular, consider an expression like `B::m' in the context of
    a derived class `D'.  If `B::m' has been resolved to a BASELINK,
@@ -1687,22 +1649,22 @@ lookup_fnfields_1 (type, name)
 
 tree
 adjust_result_of_qualified_name_lookup (tree decl, 
-					tree qualifying_class,
+					tree qualifying_scope,
 					tree context_class)
 {
-  my_friendly_assert (CLASS_TYPE_P (qualifying_class), 20020808);
-  my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
-
-  if (BASELINK_P (decl) 
-      && DERIVED_FROM_P (qualifying_class, context_class))
+  if (context_class && CLASS_TYPE_P (qualifying_scope) 
+      && DERIVED_FROM_P (qualifying_scope, context_class)
+      && BASELINK_P (decl))
     {
       tree base;
 
-      /* Look for the QUALIFYING_CLASS as a base of the
-	 CONTEXT_CLASS.  If QUALIFYING_CLASS is ambiguous, we cannot
+      my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
+
+      /* Look for the QUALIFYING_SCOPE as a base of the
+	 CONTEXT_CLASS.  If QUALIFYING_SCOPE is ambiguous, we cannot
 	 be sure yet than an error has occurred; perhaps the function
 	 chosen by overload resolution will be static.  */
-      base = lookup_base (context_class, qualifying_class,
+      base = lookup_base (context_class, qualifying_scope,
 			  ba_ignore | ba_quiet, NULL);
       if (base)
 	{
@@ -2223,6 +2185,7 @@ marked_pushdecls_p (binfo, data)
      void *data ATTRIBUTE_UNUSED;
 {
   return (CLASS_TYPE_P (BINFO_TYPE (binfo))
+	  && !dependent_base_p (binfo)
 	  && BINFO_PUSHDECLS_MARKED (binfo)) ? binfo : NULL_TREE; 
 }
 
@@ -2232,6 +2195,7 @@ unmarked_pushdecls_p (binfo, data)
      void *data ATTRIBUTE_UNUSED;
 { 
   return (CLASS_TYPE_P (BINFO_TYPE (binfo))
+	  && !dependent_base_p (binfo)
 	  && !BINFO_PUSHDECLS_MARKED (binfo)) ? binfo : NULL_TREE;
 }
 

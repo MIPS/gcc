@@ -58,7 +58,7 @@
 @end ifnothtml
 
 @c Part 2 Summary Description and Copyright
-@macro copyrightnotice
+@copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 @sp 1
@@ -79,9 +79,9 @@ Free Documentation License}''.
      You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
-@end macro
+@end copying
 @ifinfo
-@copyrightnotice{}
+@insertcopying
 @end ifinfo
 
 @c Part 3 Titlepage and Copyright
@@ -93,7 +93,7 @@ Free Documentation License}''.
 @c The following two commands start the copyright page.
 @page
 @vskip 0pt plus 1filll
-@copyrightnotice{}
+@insertcopying
 @end titlepage
 
 @c Part 4 Top node and Master Menu
@@ -197,7 +197,7 @@ not yet been merged into the main part of this manual.
 @ifhtml
 @uref{./index.html,,Return to the GCC Installation page}
 
-@copyrightnotice{}
+@insertcopying
 @end ifhtml
 @end ifset
 
@@ -716,8 +716,8 @@ Specify which cpu variant the
 compiler should generate code for by default.  This is currently
 only supported on some ports, specifically arm, powerpc, and
 SPARC@.  If configure does not recognize the model name (e.g.@: arm700,
-603e, or ultrasparc) you provide, please check the configure script
-for a complete list of supported models.
+603e, or ultrasparc) you provide, please check the
+@file{gcc/config.gcc} script for a complete list of supported models.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
@@ -1001,7 +1001,7 @@ parser sources, releases contain the Bison-generated files and you do
 not need Bison installed to build them.
 
 When building from CVS or snapshots, or if you modify Texinfo
-documentation, you need version 4.1 or later of Texinfo installed if you
+documentation, you need version 4.2 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
@@ -1295,6 +1295,11 @@ testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
 specifying the location of that tree when invoking @samp{make}, as in
 @samp{make MAUVEDIR=~/mauve check}.
 
+@uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
+is a free test suite that tests Java compiler front ends.  This suite
+can be run as part of libgcj testing by placing the Jacks tree within
+the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
+
 @section How to interpret test results
 
 After the testsuite has run you'll find various @file{*.sum} and @file{*.log}
@@ -1452,7 +1457,7 @@ If you find a bug, please report it following our
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
-dvi}.  You will need to have @command{texi2dvi} (version at least 4.1)
+dvi}.  You will need to have @command{texi2dvi} (version at least 4.2)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
 printing with programs such as @command{dvips}.  You can also
@@ -2929,7 +2934,7 @@ or newer for a working GCC@.
 @end html
 @heading @anchor{powerpc-*-netbsd*}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
-documentation you will need Texinfo version 4.1 (NetBSD 1.5.1 included
+documentation you will need Texinfo version 4.2 (NetBSD 1.5.1 included
 Texinfo version 3.12).
 
 @html

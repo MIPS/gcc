@@ -1,20 +1,23 @@
 /* Program to dump out a Java(TM) .class file.
    Functionally similar to Sun's javap.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -50,6 +53,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "ggc.h"
 
 #include "jcf.h"
 #include "tree.h"
@@ -88,28 +92,27 @@ int class_access_flags = 0;
 /* Print in format similar to javap.  VERY IMCOMPLETE. */
 int flag_javap_compatible = 0;
 
-static void print_access_flags PARAMS ((FILE *, uint16, char));
-static void print_constant_terse PARAMS ((FILE*, JCF*, int, int));
-static void print_constant PARAMS ((FILE *, JCF *, int, int));
-static void print_constant_ref PARAMS ((FILE *, JCF *, int));
-static void disassemble_method PARAMS ((JCF*, const unsigned char *, int));
-static void print_name PARAMS ((FILE*, JCF*, int));
-static void print_signature PARAMS ((FILE*, JCF*, int, int));
-static int utf8_equal_string PARAMS ((struct JCF*, int, const char *));
-static void usage PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void help PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void process_class PARAMS ((struct JCF *));
-static void print_constant_pool PARAMS ((struct JCF *));
-static void print_exception_table PARAMS ((struct JCF *,
-					  const unsigned char *entries, int));
+static void print_access_flags (FILE *, uint16, char);
+static void print_constant_terse (FILE*, JCF*, int, int);
+static void print_constant (FILE *, JCF *, int, int);
+static void print_constant_ref (FILE *, JCF *, int);
+static void disassemble_method (JCF*, const unsigned char *, int);
+static void print_name (FILE*, JCF*, int);
+static void print_signature (FILE*, JCF*, int, int);
+static int utf8_equal_string (struct JCF*, int, const char *);
+static void usage (void) ATTRIBUTE_NORETURN;
+static void help (void) ATTRIBUTE_NORETURN;
+static void version (void) ATTRIBUTE_NORETURN;
+static void process_class (struct JCF *);
+static void print_constant_pool (struct JCF *);
+static void print_exception_table (struct JCF *, const unsigned char *entries,
+				   int);
 
 #define PRINT_SIGNATURE_RESULT_ONLY 1
 #define PRINT_SIGNATURE_ARGS_ONLY 2
 
 static int
-DEFUN(utf8_equal_string, (jcf, index, value),
-      JCF *jcf AND int index AND const char * value)
+utf8_equal_string (JCF *jcf, int index, const char * value)
 {
   if (CPOOL_INDEX_IN_RANGE (&jcf->cpool, index)
       && JPOOL_TAG (jcf, index) == CONSTANT_Utf8)
@@ -343,8 +346,7 @@ DEFUN(utf8_equal_string, (jcf, index, value),
 #include "javaop.h"
 
 static void
-DEFUN(print_constant_ref, (stream, jcf, index),
-      FILE *stream AND JCF *jcf AND int index)
+print_constant_ref (FILE *stream, JCF *jcf, int index)
 {
   fprintf (stream, "#%d=<", index);
   if (index <= 0 || index >= JPOOL_SIZE(jcf))
@@ -359,8 +361,7 @@ DEFUN(print_constant_ref, (stream, jcf, index),
    or 'm' (method flags). */
 
 static void
-DEFUN (print_access_flags, (stream, flags, context),
-       FILE *stream AND uint16 flags AND char context)
+print_access_flags (FILE *stream, uint16 flags, char context)
 {
   if (flags & ACC_PUBLIC) fprintf (stream, " public");
   if (flags & ACC_PRIVATE) fprintf (stream, " private");
@@ -384,8 +385,7 @@ DEFUN (print_access_flags, (stream, flags, context),
 
 
 static void
-DEFUN(print_name, (stream, jcf, name_index),
-      FILE* stream AND JCF* jcf AND int name_index)
+print_name (FILE* stream, JCF* jcf, int name_index)
 {
   if (JPOOL_TAG (jcf, name_index) != CONSTANT_Utf8)
     fprintf (stream, "<not a UTF8 constant>");
@@ -398,8 +398,7 @@ DEFUN(print_name, (stream, jcf, name_index),
    print it tersely, otherwise more verbosely. */
 
 static void
-DEFUN(print_constant_terse, (out, jcf, index, expected),
-      FILE *out AND JCF *jcf AND int index AND int expected)
+print_constant_terse (FILE *out, JCF *jcf, int index, int expected)
 {
   if (! CPOOL_INDEX_IN_RANGE (&jcf->cpool, index))
     fprintf (out, "<constant pool index %d not in range>", index);
@@ -419,8 +418,7 @@ DEFUN(print_constant_terse, (out, jcf, index, expected),
    If verbosity==2, add more descriptive text. */
 
 static void
-DEFUN(print_constant, (out, jcf, index, verbosity),
-      FILE *out AND JCF *jcf AND int index AND int verbosity)
+print_constant (FILE *out, JCF *jcf, int index, int verbosity)
 {
   int j, n;
   jlong num;
@@ -576,8 +574,7 @@ DEFUN(print_constant, (out, jcf, index, verbosity),
 }
 
 static void
-DEFUN(print_constant_pool, (jcf),
-      JCF *jcf)
+print_constant_pool (JCF *jcf)
 {
   int i;
   for (i = 1; i < JPOOL_SIZE(jcf); i++)
@@ -592,8 +589,8 @@ DEFUN(print_constant_pool, (jcf),
 }
 
 static void
-DEFUN(print_signature_type, (stream, ptr, limit),
-     FILE* stream AND const unsigned char **ptr AND const unsigned char *limit)
+print_signature_type (FILE* stream, const unsigned char **ptr,
+		      const unsigned char *limit)
 {
   int array_size;
   if ((*ptr) >= limit)
@@ -654,8 +651,7 @@ DEFUN(print_signature_type, (stream, ptr, limit),
 }
 
 static void
-DEFUN(print_signature, (stream, jcf, signature_index, int options),
-      FILE* stream AND JCF *jcf AND int signature_index AND int options)
+print_signature (FILE* stream, JCF *jcf, int signature_index, int options)
 {
   if (JPOOL_TAG (jcf, signature_index) != CONSTANT_Utf8)
     print_constant_terse (out, jcf, signature_index, CONSTANT_Utf8);
@@ -701,8 +697,7 @@ DEFUN(print_signature, (stream, jcf, signature_index, int options),
 
 
 static void
-DEFUN(print_exception_table, (jcf, entries, count),
-      JCF *jcf AND const unsigned char *entries AND int count)
+print_exception_table (JCF *jcf, const unsigned char *entries, int count)
 {
   /* Print exception table. */
   int i = count;
@@ -733,8 +728,7 @@ DEFUN(print_exception_table, (jcf, entries, count),
 #include "jcf-reader.c"
 
 static void
-DEFUN(process_class, (jcf),
-      JCF *jcf)
+process_class (JCF *jcf)
 {
   int code;
   if (jcf_parse_preamble (jcf) != 0)
@@ -806,14 +800,14 @@ static const struct option options[] =
 };
 
 static void
-usage ()
+usage (void)
 {
   fprintf (stderr, "Try `jcf-dump --help' for more information.\n");
   exit (1);
 }
 
 static void
-help ()
+help (void)
 {
   printf ("Usage: jcf-dump [OPTION]... CLASS...\n\n");
   printf ("Display contents of a class file in readable form.\n\n");
@@ -836,7 +830,7 @@ help ()
 }
 
 static void
-version ()
+version (void)
 {
   printf ("jcf-dump (GCC) %s\n\n", version_string);
   printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
@@ -846,8 +840,7 @@ version ()
 }
 
 int
-DEFUN(main, (argc, argv),
-      int argc AND char** argv)
+main (int argc, char** argv)
 {
   JCF jcf[1];
   int argi, opt;
@@ -1066,10 +1059,8 @@ DEFUN(main, (argc, argv),
 
 
 static void
-DEFUN(disassemble_method, (jcf, byte_ops, len),
-      JCF* jcf AND const unsigned char *byte_ops AND int len)
+disassemble_method (JCF* jcf, const unsigned char *byte_ops, int len)
 {
-#undef AND /* Causes problems with opcodes for iand and land. */
 #undef PTR
   int PC;
   int i;

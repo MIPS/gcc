@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Hitachi H8/300.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -50,18 +50,17 @@ static const char *byte_reg PARAMS ((rtx, int));
 static int h8300_interrupt_function_p PARAMS ((tree));
 static int h8300_monitor_function_p PARAMS ((tree));
 static int h8300_os_task_function_p PARAMS ((tree));
-static void dosize PARAMS ((FILE *, int, unsigned int));
+static void dosize PARAMS ((int, unsigned int));
 static int round_frame_size PARAMS ((int));
 static unsigned int compute_saved_regs PARAMS ((void));
-static void push PARAMS ((FILE *, int));
-static void pop PARAMS ((FILE *, int));
+static void push PARAMS ((int));
+static void pop PARAMS ((int));
 static const char *cond_string PARAMS ((enum rtx_code));
 static unsigned int h8300_asm_insn_count PARAMS ((const char *));
 const struct attribute_spec h8300_attribute_table[];
 static tree h8300_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree h8300_handle_tiny_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
-static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_insert_attributes PARAMS ((tree, tree *));
 #ifndef OBJECT_FORMAT_ELF
@@ -74,17 +73,8 @@ static const char *h8300_strip_name_encoding PARAMS ((const char *));
 /* CPU_TYPE, says what cpu we're compiling for.  */
 int cpu_type;
 
-/* True if the current function is an interrupt handler
-   (either via #pragma or an attribute specification).  */
-static int interrupt_handler;
-
-/* True if the current function is an OS Task
-   (via an attribute specification).  */
-static int os_task;
-
-/* True if the current function is a monitor
-   (via an attribute specification).  */
-static int monitor;
+/* True if a #pragma interrupt has been seen for the current function.  */
+static int pragma_interrupt;
 
 /* True if a #pragma saveall has been seen for the current function.  */
 static int pragma_saveall;
@@ -113,8 +103,6 @@ const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
 
-#undef TARGET_ASM_FUNCTION_PROLOGUE
-#define TARGET_ASM_FUNCTION_PROLOGUE h8300_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE h8300_output_function_epilogue
 #undef TARGET_ENCODE_SECTION_INFO
@@ -153,7 +141,7 @@ enum shift_type
 /* The shift algorithms for each machine, mode, shift type, and shift
    count are defined below.  The three tables below correspond to
    QImode, HImode, and SImode, respectively.  Each table is organized
-   by, in the order of indecies, machine, shift type, and shift count.  */
+   by, in the order of indices, machine, shift type, and shift count.  */
 
 static enum shift_alg shift_alg_qi[3][3][8] = {
   {
@@ -383,10 +371,11 @@ byte_reg (x, b)
        /* Save the frame pointer if it was used.  */			\
        || (regno == FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
        /* Save any register used in an interrupt handler.  */		\
-       || (interrupt_handler && regs_ever_live[regno])			\
+       || (h8300_current_function_interrupt_function_p ()		\
+	   && regs_ever_live[regno])					\
        /* Save call clobbered registers in non-leaf interrupt		\
 	  handlers.  */							\
-       || (interrupt_handler						\
+       || (h8300_current_function_interrupt_function_p ()		\
 	   && call_used_regs[regno]					\
 	   && !current_function_is_leaf)))
 
@@ -394,50 +383,32 @@ byte_reg (x, b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (file, sign, size)
-     FILE *file;
+dosize (sign, size)
      int sign;
      unsigned int size;
 {
-  /* On the H8/300H and H8S, for sizes <= 8 bytes, it is as good or
-     better to use adds/subs insns rather than add.l/sub.l with an
-     immediate value.
-
-     Also, on the H8/300, if we don't have a temporary to hold the
-     size of the frame in the prologue, we simply emit a sequence of
-     subs since this shouldn't happen often.  */
-  if ((TARGET_H8300 && size <= 4)
-      || ((TARGET_H8300H || TARGET_H8300S) && size <= 8)
-      || (TARGET_H8300 && interrupt_handler)
-      || (TARGET_H8300 && current_function_needs_context
-	  && sign < 0))
+  /* H8/300 cannot add/subtract a large constant with a single
+     instruction.  If a temporary register is available, load the
+     constant to it and then do the addition.  */
+  if (TARGET_H8300
+      && size > 4
+      && !h8300_current_function_interrupt_function_p ()
+      && !(current_function_needs_context && sign < 0))
     {
-      const char *op = (sign > 0) ? "add" : "sub";
-      unsigned int amount;
-
-      /* Try different amounts in descending order.  */
-      for (amount = (TARGET_H8300H || TARGET_H8300S) ? 4 : 2;
-	   amount > 0;
-	   amount /= 2)
-	{
-	  char insn[100];
-
-	  sprintf (insn, "\t%ss\t#%d,%s\n", op, amount,
-		   TARGET_H8300 ? "r7" : "er7");
-	  for (; size >= amount; size -= amount)
-	    fputs (insn, file);
-	}
+      rtx new_sp;
+      rtx r3 = gen_rtx_REG (Pmode, 3);
+      emit_insn (gen_rtx_SET (Pmode, r3, GEN_INT (sign * size)));
+      new_sp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, r3);
+      emit_insn (gen_rtx_SET (Pmode, stack_pointer_rtx, new_sp));
     }
   else
     {
-      if (TARGET_H8300)
-	{
-	  fprintf (file, "\tmov.w\t#%d,r3\n\tadd.w\tr3,r7\n", sign * size);
-	}
-      else
-	{
-	  fprintf (file, "\tadd.l\t#%d,er7\n", sign * size);
-	}
+      /* The stack adjustment made here is further optimized by the
+	 splitter.  In case of H8/300, the splitter always splits the
+	 addition emitted here to make the adjustment
+	 interrupt-safe.  */
+      rtx new_sp = plus_constant (stack_pointer_rtx, sign * size);
+      emit_insn (gen_rtx_SET (Pmode, stack_pointer_rtx, new_sp));
     }
 }
 
@@ -474,30 +445,38 @@ compute_saved_regs ()
   return saved_regs;
 }
 
-/* Output assembly language code to push register RN.  */
+/* Emit an insn to push register RN.  */
 
 static void
-push (file, rn)
-     FILE *file;
+push (rn)
      int rn;
 {
+  rtx reg = gen_rtx_REG (word_mode, rn);
+  rtx x;
+
   if (TARGET_H8300)
-    fprintf (file, "\t%s\t%s,@-r7\n", h8_mov_op, h8_reg_names[rn]);
+    x = gen_push_h8300 (reg);
   else
-    fprintf (file, "\t%s\t%s,@-er7\n", h8_mov_op, h8_reg_names[rn]);
+    x = gen_push_h8300hs (reg);
+  x = emit_insn (x);
+  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
 
-/* Output assembly language code to pop register RN.  */
+/* Emit an insn to pop register RN.  */
 
 static void
-pop (file, rn)
-     FILE *file;
+pop (rn)
      int rn;
 {
+  rtx reg = gen_rtx_REG (word_mode, rn);
+  rtx x;
+
   if (TARGET_H8300)
-    fprintf (file, "\t%s\t@r7+,%s\n", h8_mov_op, h8_reg_names[rn]);
+    x = gen_pop_h8300 (reg);
   else
-    fprintf (file, "\t%s\t@er7+,%s\n", h8_mov_op, h8_reg_names[rn]);
+    x = gen_pop_h8300hs (reg);
+  x = emit_insn (x);
+  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_INC, stack_pointer_rtx, 0);
 }
 
 /* This is what the stack looks like after the prolog of
@@ -518,81 +497,35 @@ pop (file, rn)
    <saved registers>	<- sp
 */
 
-/* Output assembly language code for the function prologue.  */
+/* Generate RTL code for the function prologue.  */
 
-static void
-h8300_output_function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+void
+h8300_expand_prologue ()
 {
-  int fsize = round_frame_size (size);
   int regno;
   int saved_regs;
   int n_regs;
 
-  /* Note a function with the interrupt attribute and set interrupt_handler
-     accordingly.  */
-  if (h8300_interrupt_function_p (current_function_decl))
-    interrupt_handler = 1;
-
   /* If the current function has the OS_Task attribute set, then
      we have a naked prologue.  */
   if (h8300_os_task_function_p (current_function_decl))
-    {
-      fprintf (file, ";OS_Task prologue\n");
-      os_task = 1;
-      return;
-    }
+    return;
 
   if (h8300_monitor_function_p (current_function_decl))
-    {
-      /* My understanding of monitor functions is they act just
-	 like interrupt functions, except the prologue must
-	 mask interrupts.  */
-      fprintf (file, ";monitor prologue\n");
-      interrupt_handler = 1;
-      monitor = 1;
-      if (TARGET_H8300)
-	{
-	  fprintf (file, "\tsubs\t#2,sp\n");
-	  push (file, 0);
-	  fprintf (file, "\tstc\tccr,r0l\n");
-	  fprintf (file, "\tmov.b\tr0l,@(2,sp)\n");
-	  pop (file, 0);
-	  fprintf (file, "\torc\t#128,ccr\n");
-	}
-      else if (TARGET_H8300H)
-	{
-	  push (file, 0);
-	  fprintf (file, "\tstc\tccr,r0l\n");
-	  fprintf (file, "\tmov.b\tr0l,@(4,sp)\n");
-	  pop (file, 0);
-	  fprintf (file, "\torc\t#128,ccr\n");
-	}
-      else if (TARGET_H8300S)
-	{
-	  fprintf (file, "\tstc\texr,@-sp\n");
-	  push (file, 0);
-	  fprintf (file, "\tstc\tccr,r0l\n");
-	  fprintf (file, "\tmov.b\tr0l,@(6,sp)\n");
-	  pop (file, 0);
-	  fprintf (file, "\torc\t#128,ccr\n");
-	}
-      else
-	abort ();
-    }
+    /* My understanding of monitor functions is they act just like
+       interrupt functions, except the prologue must mask
+       interrupts.  */
+    emit_insn (gen_monitor_prologue ());
 
   if (frame_pointer_needed)
     {
       /* Push fp.  */
-      push (file, FRAME_POINTER_REGNUM);
-      fprintf (file, "\t%s\t%s,%s\n", h8_mov_op,
-	       h8_reg_names[STACK_POINTER_REGNUM],
-	       h8_reg_names[FRAME_POINTER_REGNUM]);
+      push (FRAME_POINTER_REGNUM);
+      emit_insn (gen_rtx_SET (Pmode, frame_pointer_rtx, stack_pointer_rtx));
     }
 
   /* Leave room for locals.  */
-  dosize (file, -1, fsize);
+  dosize (-1, round_frame_size (get_frame_size ()));
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
@@ -620,22 +553,22 @@ h8300_output_function_prologue (file, size)
 	  switch (n_regs)
 	    {
 	    case 1:
-	      push (file, regno);
+	      push (regno);
 	      break;
 	    case 2:
-	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
-		       h8_reg_names[regno],
-		       h8_reg_names[regno + 1]);
+	      emit_insn (gen_stm_h8300s_2 (gen_rtx_REG (SImode, regno),
+					   gen_rtx_REG (SImode, regno + 1)));
 	      break;
 	    case 3:
-	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
-		       h8_reg_names[regno],
-		       h8_reg_names[regno + 2]);
+	      emit_insn (gen_stm_h8300s_3 (gen_rtx_REG (SImode, regno),
+					   gen_rtx_REG (SImode, regno + 1),
+					   gen_rtx_REG (SImode, regno + 2)));
 	      break;
 	    case 4:
-	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
-		       h8_reg_names[regno],
-		       h8_reg_names[regno + 3]);
+	      emit_insn (gen_stm_h8300s_4 (gen_rtx_REG (SImode, regno),
+					   gen_rtx_REG (SImode, regno + 1),
+					   gen_rtx_REG (SImode, regno + 2),
+					   gen_rtx_REG (SImode, regno + 3)));
 	      break;
 	    default:
 	      abort ();
@@ -644,38 +577,28 @@ h8300_output_function_prologue (file, size)
     }
 }
 
-/* Output assembly language code for the function epilogue.  */
-
-static void
-h8300_output_function_epilogue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+int
+h8300_can_use_return_insn_p ()
 {
-  int fsize = round_frame_size (size);
+  return (reload_completed
+	  && !frame_pointer_needed
+	  && get_frame_size () == 0
+	  && compute_saved_regs () == 0);
+}
+
+/* Generate RTL code for the function epilogue.  */
+
+void
+h8300_expand_epilogue ()
+{
   int regno;
-  rtx insn = get_last_insn ();
   int saved_regs;
   int n_regs;
 
-  if (os_task)
-    {
-      /* OS_Task epilogues are nearly naked -- they just have an
-	 rts instruction.  */
-      fprintf (file, ";OS_task epilogue\n");
-      fprintf (file, "\trts\n");
-      goto out;
-    }
-
-  /* Monitor epilogues are the same as interrupt function epilogues.
-     Just make a note that we're in a monitor epilogue.  */
-  if (monitor)
-    fprintf (file, ";monitor epilogue\n");
-
-  /* If the last insn was a BARRIER, we don't have to write any code.  */
-  if (GET_CODE (insn) == NOTE)
-    insn = prev_nonnote_insn (insn);
-  if (insn && GET_CODE (insn) == BARRIER)
-    goto out;
+  if (h8300_os_task_function_p (current_function_decl))
+    /* OS_Task epilogues are nearly naked -- they just have an
+       rts instruction.  */
+    return;
 
   /* Pop the saved registers in descending order.  */
   saved_regs = compute_saved_regs ();
@@ -703,22 +626,22 @@ h8300_output_function_epilogue (file, size)
 	  switch (n_regs)
 	    {
 	    case 1:
-	      pop (file, regno);
+	      pop (regno);
 	      break;
 	    case 2:
-	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
-		       h8_reg_names[regno - 1],
-		       h8_reg_names[regno]);
+	      emit_insn (gen_ldm_h8300s_2 (gen_rtx_REG (SImode, regno - 1),
+					   gen_rtx_REG (SImode, regno)));
 	      break;
 	    case 3:
-	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
-		       h8_reg_names[regno - 2],
-		       h8_reg_names[regno]);
+	      emit_insn (gen_ldm_h8300s_3 (gen_rtx_REG (SImode, regno - 2),
+					   gen_rtx_REG (SImode, regno - 1),
+					   gen_rtx_REG (SImode, regno)));
 	      break;
 	    case 4:
-	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
-		       h8_reg_names[regno - 3],
-		       h8_reg_names[regno]);
+	      emit_insn (gen_ldm_h8300s_4 (gen_rtx_REG (SImode, regno - 3),
+					   gen_rtx_REG (SImode, regno - 2),
+					   gen_rtx_REG (SImode, regno - 1),
+					   gen_rtx_REG (SImode, regno)));
 	      break;
 	    default:
 	      abort ();
@@ -727,22 +650,31 @@ h8300_output_function_epilogue (file, size)
     }
 
   /* Deallocate locals.  */
-  dosize (file, 1, fsize);
+  dosize (1, round_frame_size (get_frame_size ()));
 
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
-    pop (file, FRAME_POINTER_REGNUM);
+    pop (FRAME_POINTER_REGNUM);
+}
 
-  if (interrupt_handler)
-    fprintf (file, "\trte\n");
-  else
-    fprintf (file, "\trts\n");
+/* Output assembly language code for the function epilogue.  */
 
- out:
-  interrupt_handler = 0;
-  os_task = 0;
-  monitor = 0;
+static void
+h8300_output_function_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+{
   pragma_saveall = 0;
+}
+  
+/* Return nonzero if the current function is an interrupt
+   function.  */
+
+int
+h8300_current_function_interrupt_function_p ()
+{
+  return (h8300_interrupt_function_p (current_function_decl)
+	  || h8300_monitor_function_p (current_function_decl));
 }
 
 /* Output assembly code for the start of the file.  */
@@ -1032,7 +964,7 @@ bit_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  /* We can except any general operand, expept that MEM operands must
+  /* We can accept any general operand, except that MEM operands must
      be limited to those that use addresses valid for the 'U' constraint.  */
   if (!general_operand (op, mode))
     return 0;
@@ -1067,7 +999,7 @@ bit_memory_operand (op, mode)
 /* Handle machine specific pragmas for compatibility with existing
    compilers for the H8/300.
 
-   pragma saveall generates prolog/epilog code which saves and
+   pragma saveall generates prologue/epilogue code which saves and
    restores all the registers on function entry.
 
    pragma interrupt saves and restores all registers, and exits with
@@ -1076,14 +1008,14 @@ bit_memory_operand (op, mode)
 
 void
 h8300_pr_interrupt (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     struct cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
-  interrupt_handler = 1;
+  pragma_interrupt = 1;
 }
 
 void
 h8300_pr_saveall (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     struct cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
   pragma_saveall = 1;
 }
@@ -1677,7 +1609,7 @@ final_prescan_insn (insn, operand, num_operands)
   /* This holds the last insn address.  */
   static int last_insn_address = 0;
 
-  int uid = INSN_UID (insn);
+  const int uid = INSN_UID (insn);
 
   if (TARGET_RTL_DUMP)
     {
@@ -1827,11 +1759,21 @@ notice_update_cc (body, insn)
     }
 }
 
+/* Return nonzero if X is a stack pointer.  */
+
+int
+stack_pointer_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return x == stack_pointer_rtx;
+}
+
 /* Return nonzero if X is a constant whose absolute value is no
    greater than 2.  */
 
 int
-const_le_2_operand (x, mode)
+const_int_le_2_operand (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
@@ -1843,12 +1785,58 @@ const_le_2_operand (x, mode)
    greater than 6.  */
 
 int
-const_le_6_operand (x, mode)
+const_int_le_6_operand (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (x) == CONST_INT
 	  && abs (INTVAL (x)) <= 6);
+}
+
+/* Return nonzero if X is a constant whose absolute value is greater
+   than 2.  */
+
+int
+const_int_gt_2_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && abs (INTVAL (x)) > 2);
+}
+
+/* Return nonzero if X is a constant whose absolute value is no
+   smaller than 8.  */
+
+int
+const_int_ge_8_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && abs (INTVAL (x)) >= 8);
+}
+
+/* Return nonzero if X is a constant expressible in QImode.  */
+
+int
+const_int_qi_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && (INTVAL (x) & 0xff) == INTVAL (x));
+}
+
+/* Return nonzero if X is a constant expressible in HImode.  */
+
+int
+const_int_hi_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && (INTVAL (x) & 0xffff) == INTVAL (x));
 }
 
 /* Return nonzero if X is a constant suitable for inc/dec.  */
@@ -2067,12 +2055,21 @@ output_logical_op (mode, operands)
   /* Figure out the logical op that we need to perform.  */
   enum rtx_code code = GET_CODE (operands[3]);
   /* Pretend that every byte is affected if both operands are registers.  */
-  unsigned HOST_WIDE_INT intval =
+  const unsigned HOST_WIDE_INT intval =
     (unsigned HOST_WIDE_INT) ((GET_CODE (operands[2]) == CONST_INT)
 			      ? INTVAL (operands[2]) : 0x55555555);
   /* The determinant of the algorithm.  If we perform an AND, 0
      affects a bit.  Otherwise, 1 affects a bit.  */
-  unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  const unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  /* Break up DET into pieces.  */
+  const unsigned HOST_WIDE_INT b0 = (det >>  0) & 0xff;
+  const unsigned HOST_WIDE_INT b1 = (det >>  8) & 0xff;
+  const unsigned HOST_WIDE_INT b2 = (det >> 16) & 0xff;
+  const unsigned HOST_WIDE_INT b3 = (det >> 24) & 0xff;
+  const unsigned HOST_WIDE_INT w0 = (det >>  0) & 0xffff;
+  const unsigned HOST_WIDE_INT w1 = (det >> 16) & 0xffff;
+  int lower_half_easy_p = 0;
+  int upper_half_easy_p = 0;
   /* The name of an insn.  */
   const char *opname;
   char insn_buf[100];
@@ -2097,8 +2094,8 @@ output_logical_op (mode, operands)
     case HImode:
       /* First, see if we can finish with one insn.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x00ff) != 0)
-	  && ((det & 0xff00) != 0))
+	  && b0 != 0
+	  && b1 != 0)
 	{
 	  sprintf (insn_buf, "%s.w\t%%T2,%%T0", opname);
 	  output_asm_insn (insn_buf, operands);
@@ -2106,13 +2103,13 @@ output_logical_op (mode, operands)
       else
 	{
 	  /* Take care of the lower byte.  */
-	  if ((det & 0x00ff) != 0)
+	  if (b0 != 0)
 	    {
 	      sprintf (insn_buf, "%s\t%%s2,%%s0", opname);
 	      output_asm_insn (insn_buf, operands);
 	    }
 	  /* Take care of the upper byte.  */
-	  if ((det & 0xff00) != 0)
+	  if (b1 != 0)
 	    {
 	      sprintf (insn_buf, "%s\t%%t2,%%t0", opname);
 	      output_asm_insn (insn_buf, operands);
@@ -2120,16 +2117,25 @@ output_logical_op (mode, operands)
 	}
       break;
     case SImode:
-      /* First, see if we can finish with one insn.
+      if (TARGET_H8300H || TARGET_H8300S)
+	{
+	  /* Determine if the lower half can be taken care of in no more
+	     than two bytes.  */
+	  lower_half_easy_p = (b0 == 0
+			       || b1 == 0
+			       || (code != IOR && w0 == 0xffff));
 
-	 If code is either AND or XOR, we exclude two special cases,
-	 0xffffff00 and 0xffff00ff, because insns like sub.w or not.w
-	 can do a better job.  */
+	  /* Determine if the upper half can be taken care of in no more
+	     than two bytes.  */
+	  upper_half_easy_p = ((code != IOR && w1 == 0xffff)
+			       || (code == AND && w1 == 0xff00));
+	}
+
+      /* Check if doing everything with one insn is no worse than
+	 using multiple insns.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x0000ffff) != 0)
-	  && ((det & 0xffff0000) != 0)
-	  && (code == IOR || det != 0xffffff00)
-	  && (code == IOR || det != 0xffff00ff))
+	  && w0 != 0 && w1 != 0
+	  && !(lower_half_easy_p && upper_half_easy_p))
 	{
 	  sprintf (insn_buf, "%s.l\t%%S2,%%S0", opname);
 	  output_asm_insn (insn_buf, operands);
@@ -2142,40 +2148,46 @@ output_logical_op (mode, operands)
 	     1) the special insn (in case of AND or XOR),
 	     2) the word-wise insn, and
 	     3) The byte-wise insn.  */
-	  if ((det & 0x0000ffff) == 0x0000ffff
+	  if (w0 == 0xffff
 	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
 	    output_asm_insn ((code == AND)
 			     ? "sub.w\t%f0,%f0" : "not.w\t%f0",
 			     operands);
 	  else if ((TARGET_H8300H || TARGET_H8300S)
-		   && ((det & 0x000000ff) != 0)
-		   && ((det & 0x0000ff00) != 0))
+		   && (b0 != 0)
+		   && (b1 != 0))
 	    {
 	      sprintf (insn_buf, "%s.w\t%%f2,%%f0", opname);
 	      output_asm_insn (insn_buf, operands);
 	    }
 	  else
 	    {
-	      if ((det & 0x000000ff) != 0)
+	      if (b0 != 0)
 		{
 		  sprintf (insn_buf, "%s\t%%w2,%%w0", opname);
 		  output_asm_insn (insn_buf, operands);
 		}
-	      if ((det & 0x0000ff00) != 0)
+	      if (b1 != 0)
 		{
 		  sprintf (insn_buf, "%s\t%%x2,%%x0", opname);
 		  output_asm_insn (insn_buf, operands);
 		}
 	    }
 
-	  if ((det & 0xffff0000) == 0xffff0000
+	  if ((w1 == 0xffff)
 	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
 	    output_asm_insn ((code == AND)
 			     ? "sub.w\t%e0,%e0" : "not.w\t%e0",
 			     operands);
+	  else if ((TARGET_H8300H || TARGET_H8300S)
+		   && code == AND
+		   && w1 == 0xff00)
+	    {
+	      output_asm_insn ("extu.w\t%e0", operands);
+	    }
 	  else if (TARGET_H8300H || TARGET_H8300S)
 	    {
-	      if ((det & 0xffff0000) != 0)
+	      if (w1 != 0)
 		{
 		  sprintf (insn_buf, "%s.w\t%%e2,%%e0", opname);
 		  output_asm_insn (insn_buf, operands);
@@ -2183,12 +2195,12 @@ output_logical_op (mode, operands)
 	    }
 	  else
 	    {
-	      if ((det & 0x00ff0000) != 0)
+	      if (b2 != 0)
 		{
 		  sprintf (insn_buf, "%s\t%%y2,%%y0", opname);
 		  output_asm_insn (insn_buf, operands);
 		}
-	      if ((det & 0xff000000) != 0)
+	      if (b3 != 0)
 		{
 		  sprintf (insn_buf, "%s\t%%z2,%%z0", opname);
 		  output_asm_insn (insn_buf, operands);
@@ -2210,12 +2222,21 @@ compute_logical_op_length (mode, operands)
   /* Figure out the logical op that we need to perform.  */
   enum rtx_code code = GET_CODE (operands[3]);
   /* Pretend that every byte is affected if both operands are registers.  */
-  unsigned HOST_WIDE_INT intval =
+  const unsigned HOST_WIDE_INT intval =
     (unsigned HOST_WIDE_INT) ((GET_CODE (operands[2]) == CONST_INT)
 			      ? INTVAL (operands[2]) : 0x55555555);
   /* The determinant of the algorithm.  If we perform an AND, 0
      affects a bit.  Otherwise, 1 affects a bit.  */
-  unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  const unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  /* Break up DET into pieces.  */
+  const unsigned HOST_WIDE_INT b0 = (det >>  0) & 0xff;
+  const unsigned HOST_WIDE_INT b1 = (det >>  8) & 0xff;
+  const unsigned HOST_WIDE_INT b2 = (det >> 16) & 0xff;
+  const unsigned HOST_WIDE_INT b3 = (det >> 24) & 0xff;
+  const unsigned HOST_WIDE_INT w0 = (det >>  0) & 0xffff;
+  const unsigned HOST_WIDE_INT w1 = (det >> 16) & 0xffff;
+  int lower_half_easy_p = 0;
+  int upper_half_easy_p = 0;
   /* Insn length.  */
   unsigned int length = 0;
 
@@ -2224,8 +2245,8 @@ compute_logical_op_length (mode, operands)
     case HImode:
       /* First, see if we can finish with one insn.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x00ff) != 0)
-	  && ((det & 0xff00) != 0))
+	  && b0 != 0
+	  && b1 != 0)
 	{
 	  if (REG_P (operands[2]))
 	    length += 2;
@@ -2235,25 +2256,34 @@ compute_logical_op_length (mode, operands)
       else
 	{
 	  /* Take care of the lower byte.  */
-	  if ((det & 0x00ff) != 0)
+	  if (b0 != 0)
 	    length += 2;
 
 	  /* Take care of the upper byte.  */
-	  if ((det & 0xff00) != 0)
+	  if (b1 != 0)
 	    length += 2;
 	}
       break;
     case SImode:
-      /* First, see if we can finish with one insn.
+      if (TARGET_H8300H || TARGET_H8300S)
+	{
+	  /* Determine if the lower half can be taken care of in no more
+	     than two bytes.  */
+	  lower_half_easy_p = (b0 == 0
+			       || b1 == 0
+			       || (code != IOR && w0 == 0xffff));
 
-	 If code is either AND or XOR, we exclude two special cases,
-	 0xffffff00 and 0xffff00ff, because insns like sub.w or not.w
-	 can do a better job.  */
+	  /* Determine if the upper half can be taken care of in no more
+	     than two bytes.  */
+	  upper_half_easy_p = ((code != IOR && w1 == 0xffff)
+			       || (code == AND && w1 == 0xff00));
+	}
+
+      /* Check if doing everything with one insn is no worse than
+	 using multiple insns.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x0000ffff) != 0)
-	  && ((det & 0xffff0000) != 0)
-	  && (code == IOR || det != 0xffffff00)
-	  && (code == IOR || det != 0xffff00ff))
+	  && w0 != 0 && w1 != 0
+	  && !(lower_half_easy_p && upper_half_easy_p))
 	{
 	  if (REG_P (operands[2]))
 	    length += 4;
@@ -2268,42 +2298,48 @@ compute_logical_op_length (mode, operands)
 	     1) the special insn (in case of AND or XOR),
 	     2) the word-wise insn, and
 	     3) The byte-wise insn.  */
-	  if ((det & 0x0000ffff) == 0x0000ffff
+	  if (w0 == 0xffff
 	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
 	    {
 	      length += 2;
 	    }
 	  else if ((TARGET_H8300H || TARGET_H8300S)
-		   && ((det & 0x000000ff) != 0)
-		   && ((det & 0x0000ff00) != 0))
+		   && (b0 != 0)
+		   && (b1 != 0))
 	    {
 	      length += 4;
 	    }
 	  else
 	    {
-	      if ((det & 0x000000ff) != 0)
+	      if (b0 != 0)
 		length += 2;
 
-	      if ((det & 0x0000ff00) != 0)
+	      if (b1 != 0)
 		length += 2;
 	    }
 
-	  if ((det & 0xffff0000) == 0xffff0000
+	  if (w1 == 0xffff
 	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
+	    {
+	      length += 2;
+	    }
+	  else if ((TARGET_H8300H || TARGET_H8300S)
+		   && code == AND
+		   && w1 == 0xff00)
 	    {
 	      length += 2;
 	    }
 	  else if (TARGET_H8300H || TARGET_H8300S)
 	    {
-	      if ((det & 0xffff0000) != 0)
+	      if (w1 != 0)
 		length += 4;
 	    }
 	  else
 	    {
-	      if ((det & 0x00ff0000) != 0)
+	      if (b2 != 0)
 		length += 2;
 
-	      if ((det & 0xff000000) != 0)
+	      if (b3 != 0)
 		length += 2;
 	    }
 	}
@@ -2322,12 +2358,19 @@ compute_logical_op_cc (mode, operands)
   /* Figure out the logical op that we need to perform.  */
   enum rtx_code code = GET_CODE (operands[3]);
   /* Pretend that every byte is affected if both operands are registers.  */
-  unsigned HOST_WIDE_INT intval =
+  const unsigned HOST_WIDE_INT intval =
     (unsigned HOST_WIDE_INT) ((GET_CODE (operands[2]) == CONST_INT)
 			      ? INTVAL (operands[2]) : 0x55555555);
   /* The determinant of the algorithm.  If we perform an AND, 0
      affects a bit.  Otherwise, 1 affects a bit.  */
-  unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  const unsigned HOST_WIDE_INT det = (code != AND) ? intval : ~intval;
+  /* Break up DET into pieces.  */
+  const unsigned HOST_WIDE_INT b0 = (det >>  0) & 0xff;
+  const unsigned HOST_WIDE_INT b1 = (det >>  8) & 0xff;
+  const unsigned HOST_WIDE_INT w0 = (det >>  0) & 0xffff;
+  const unsigned HOST_WIDE_INT w1 = (det >> 16) & 0xffff;
+  int lower_half_easy_p = 0;
+  int upper_half_easy_p = 0;
   /* Condition code.  */
   enum attr_cc cc = CC_CLOBBER;
 
@@ -2336,23 +2379,32 @@ compute_logical_op_cc (mode, operands)
     case HImode:
       /* First, see if we can finish with one insn.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x00ff) != 0)
-	  && ((det & 0xff00) != 0))
+	  && b0 != 0
+	  && b1 != 0)
 	{
 	  cc = CC_SET_ZNV;
 	}
       break;
     case SImode:
-      /* First, see if we can finish with one insn.
+      if (TARGET_H8300H || TARGET_H8300S)
+	{
+	  /* Determine if the lower half can be taken care of in no more
+	     than two bytes.  */
+	  lower_half_easy_p = (b0 == 0
+			       || b1 == 0
+			       || (code != IOR && w0 == 0xffff));
 
-	 If code is either AND or XOR, we exclude two special cases,
-	 0xffffff00 and 0xffff00ff, because insns like sub.w or not.w
-	 can do a better job.  */
+	  /* Determine if the upper half can be taken care of in no more
+	     than two bytes.  */
+	  upper_half_easy_p = ((code != IOR && w1 == 0xffff)
+			       || (code == AND && w1 == 0xff00));
+	}
+
+      /* Check if doing everything with one insn is no worse than
+	 using multiple insns.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && ((det & 0x0000ffff) != 0)
-	  && ((det & 0xffff0000) != 0)
-	  && (code == IOR || det != 0xffffff00)
-	  && (code == IOR || det != 0xffff00ff))
+	  && w0 != 0 && w1 != 0
+	  && !(lower_half_easy_p && upper_half_easy_p))
 	{
 	  cc = CC_SET_ZNV;
 	}
@@ -2384,7 +2436,7 @@ compute_logical_op_cc (mode, operands)
      simulate a shift by 8, 16, or 24 bits.  Once moved, a few inline
      shifts can be added if the shift count is slightly more than 8 or
      16.  This case also includes other oddballs that are not worth
-     explaning here.
+     explaining here.
 
    o SHIFT_LOOP: Emit a loop using one (or two on H8S) bit shifts.
 
@@ -3183,20 +3235,9 @@ output_a_shift (operands)
 
   if (GET_CODE (operands[2]) != CONST_INT)
     {
-      /* Indexing by reg, so have to loop and test at top.  */
-      output_asm_insn ("mov.b	%X2,%X4", operands);
-      fprintf (asm_out_file, "\tble	.Lle%d\n", loopend_lab);
-
-      /* Get the assembler code to do one shift.  */
-      get_shift_alg (shift_type, shift_mode, 1, &info);
-
-      fprintf (asm_out_file, ".Llt%d:\n", loopend_lab);
-      output_asm_insn (info.shift1, operands);
-      output_asm_insn ("add	#0xff,%X4", operands);
-      fprintf (asm_out_file, "\tbne	.Llt%d\n", loopend_lab);
-      fprintf (asm_out_file, ".Lle%d:\n", loopend_lab);
-
-      return "";
+      /* This case must be taken care of by one of the two splitters
+	 that convert a variable shift into a loop.  */
+      abort ();
     }
   else
     {
@@ -3244,9 +3285,9 @@ output_a_shift (operands)
 	case SHIFT_ROT_AND:
 	  {
 	    int m = GET_MODE_BITSIZE (mode) - n;
-	    int mask = (shift_type == SHIFT_ASHIFT
-			? ((1 << m) - 1) << n
-			: (1 << m) - 1);
+	    const int mask = (shift_type == SHIFT_ASHIFT
+			      ? ((1 << m) - 1) << n
+			      : (1 << m) - 1);
 	    char insn_buf[200];
 
 	    /* Not all possibilities of rotate are supported.  They shouldn't
@@ -3798,9 +3839,11 @@ h8300_insert_attributes (node, attributes)
      tree node;
      tree *attributes;
 {
-  if (!interrupt_handler
+  if (!pragma_interrupt
       || TREE_CODE (node) != FUNCTION_DECL)
     return;
+
+  pragma_interrupt = 0;
 
   /* Add an 'interrupt_handler' attribute.  */
   *attributes = tree_cons (get_identifier ("interrupt_handler"),
@@ -3909,7 +3952,7 @@ h8300_encode_label (decl)
      tree decl;
 {
   const char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-  int len = strlen (str);
+  const int len = strlen (str);
   char *newstr = alloca (len + 2);
 
   newstr[0] = '&';
@@ -4143,7 +4186,7 @@ h8300_adjust_insn_length (insn, length)
 	  states += 6;
 	}
 
-      /* We use 2-bit rotatations on the H8S.  */
+      /* We use 2-bit rotations on the H8S.  */
       if (TARGET_H8300S)
 	amount = amount / 2 + amount % 2;
 

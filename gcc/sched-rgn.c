@@ -2032,7 +2032,7 @@ init_ready_list (ready)
       if (INSN_DEP_COUNT (insn) == 0
 	  && (! INSN_P (next) || SCHED_GROUP_P (next) == 0))
 	ready_add (ready, insn);
-      if (!(SCHED_GROUP_P (insn)))
+      if (! SCHED_GROUP_P (insn))
 	target_n_insns++;
     }
 
@@ -2125,7 +2125,7 @@ can_schedule_ready_p (insn)
 
       /* Update source block boundaries.  */
       b1 = BLOCK_FOR_INSN (temp);
-      if (temp == b1->head && insn == b1->end)
+      if (temp == b1->head && temp == b1->end)
 	{
 	  /* We moved all the insns in the basic block.
 	     Emit a note after the last insn and update the
@@ -2393,7 +2393,7 @@ add_branch_dependences (head, tail)
 
 	add_dependence (last, insn, REG_DEP_ANTI);
 	INSN_REF_COUNT (insn) = 1;
-
+	
 	/* Skip over insns that are part of a group.  */
 	while (SCHED_GROUP_P (insn))
 	  insn = prev_nonnote_insn (insn);
@@ -2728,6 +2728,10 @@ schedule_region (rgn)
       get_block_head_tail (BB_TO_BLOCK (bb), &head, &tail);
 
       compute_forward_dependences (head, tail);
+
+      if (targetm.sched.dependencies_evaluation_hook)
+	targetm.sched.dependencies_evaluation_hook (head, tail);
+
     }
 
   /* Set priorities.  */

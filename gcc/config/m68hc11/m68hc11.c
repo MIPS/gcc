@@ -1,5 +1,5 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GNU CC.
@@ -1657,7 +1657,7 @@ expand_prologue ()
       emit_insn (gen_addhi3 (stack_pointer_rtx,
 			     stack_pointer_rtx, GEN_INT (-size)));
     }
-  else if (size > 8)
+  else if ((!optimize_size && size > 8) || (optimize_size && size > 10))
     {
       rtx insn;
 
@@ -1745,7 +1745,7 @@ expand_epilogue ()
       emit_insn (gen_addhi3 (stack_pointer_rtx,
 			     stack_pointer_rtx, GEN_INT (size)));
     }
-  else if (size > 8)
+  else if ((!optimize_size && size > 8) || (optimize_size && size > 10))
     {
       rtx insn;
 
@@ -4341,7 +4341,13 @@ m68hc11_check_z_replacement (insn, info)
 		      info->z_died = 1;
 		      info->need_save_z = 0;
 		    }
-		  else
+		  else if (TARGET_M6812 && side_effects_p (src))
+                    {
+                      info->last = 0;
+                      info->must_restore_reg = 0;
+                      return 0;
+                    }
+                  else
 		    {
 		      info->save_before_last = 1;
 		    }
@@ -4418,7 +4424,13 @@ m68hc11_check_z_replacement (insn, info)
 		      info->z_died = 1;
 		      info->need_save_z = 0;
 		    }
-		  else
+		  else if (TARGET_M6812 && side_effects_p (src))
+                    {
+                      info->last = 0;
+                      info->must_restore_reg = 0;
+                      return 0;
+                    }
+                  else
 		    {
 		      info->save_before_last = 1;
 		    }
@@ -5177,7 +5189,7 @@ m68hc11_memory_move_cost (mode, class, in)
   else
     {
       if (GET_MODE_SIZE (mode) <= 2)
-	return COSTS_N_INSNS (2);
+	return COSTS_N_INSNS (3);
       else
 	return COSTS_N_INSNS (4);
     }
@@ -5509,7 +5521,10 @@ m68hc11_asm_file_start (out, main_file)
      const char *main_file;
 {
   fprintf (out, ";;;-----------------------------------------\n");
-  fprintf (out, ";;; Start MC68HC11 gcc assembly output\n");
+  fprintf (out, ";;; Start %s gcc assembly output\n",
+           TARGET_M6811
+           ? "MC68HC11"
+           : TARGET_M68S12 ? "MC68HCS12" : "MC68HC12");
   fprintf (out, ";;; gcc compiler %s\n", version_string);
   print_options (out);
   fprintf (out, ";;;-----------------------------------------\n");

@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GNU C-Compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1098,18 +1098,26 @@ n_occurrences (c, s)
 }
 
 /* Generate RTL for an asm statement (explicit assembler code).
-   BODY is a STRING_CST node containing the assembler code text,
-   or an ADDR_EXPR containing a STRING_CST.  */
+   STRING is a STRING_CST node containing the assembler code text,
+   or an ADDR_EXPR containing a STRING_CST.  VOL nonzero means the
+   insn is volatile; don't optimize it.  */
 
 void
-expand_asm (body)
-     tree body;
+expand_asm (string, vol)
+     tree string;
+     int vol;
 {
-  if (TREE_CODE (body) == ADDR_EXPR)
-    body = TREE_OPERAND (body, 0);
+  rtx body;
 
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode,
-				TREE_STRING_POINTER (body)));
+  if (TREE_CODE (string) == ADDR_EXPR)
+    string = TREE_OPERAND (string, 0);
+
+  body = gen_rtx_ASM_INPUT (VOIDmode, TREE_STRING_POINTER (string));
+
+  MEM_VOLATILE_P (body) = vol;
+
+  emit_insn (body);
+  
   clear_last_expr ();
 }
 
@@ -1189,7 +1197,7 @@ parse_output_constraint (constraint_p, operand_num, ninputs, noutputs,
     }
 
   /* Loop through the constraint string.  */
-  for (p = constraint + 1; *p; ++p)
+  for (p = constraint + 1; *p; p += CONSTRAINT_LEN (*p, p))
     switch (*p)
       {
       case '+':
@@ -1241,12 +1249,12 @@ parse_output_constraint (constraint_p, operand_num, ninputs, noutputs,
       default:
 	if (!ISALPHA (*p))
 	  break;
-	if (REG_CLASS_FROM_LETTER (*p) != NO_REGS)
+	if (REG_CLASS_FROM_CONSTRAINT (*p, p) != NO_REGS)
 	  *allows_reg = true;
-#ifdef EXTRA_CONSTRAINT
-	else if (EXTRA_ADDRESS_CONSTRAINT (*p))
+#ifdef EXTRA_CONSTRAINT_STR
+	else if (EXTRA_ADDRESS_CONSTRAINT (*p, p))
 	  *allows_reg = true;
-	else if (EXTRA_MEMORY_CONSTRAINT (*p))
+	else if (EXTRA_MEMORY_CONSTRAINT (*p, p))
 	  *allows_mem = true;
 	else
 	  {
@@ -1289,7 +1297,7 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
 
   /* Make sure constraint has neither `=', `+', nor '&'.  */
 
-  for (j = 0; j < c_len; j++)
+  for (j = 0; j < c_len; j += CONSTRAINT_LEN (constraint[j], constraint+j))
     switch (constraint[j])
       {
       case '+':  case '=':  case '&':
@@ -1348,10 +1356,16 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
 	      *constraint_p = constraint;
 	      c_len = strlen (constraint);
 	      j = 0;
+	      /* ??? At the end of the loop, we will skip the first part of
+		 the matched constraint.  This assumes not only that the
+		 other constraint is an output constraint, but also that
+		 the '=' or '+' come first.  */
 	      break;
 	    }
 	  else
 	    j = end - constraint;
+	  /* Anticipate increment at end of loop.  */
+	  j--;
 	}
 	/* Fall through.  */
 
@@ -1370,12 +1384,13 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
 	    error ("invalid punctuation `%c' in constraint", constraint[j]);
 	    return false;
 	  }
-	if (REG_CLASS_FROM_LETTER (constraint[j]) != NO_REGS)
+	if (REG_CLASS_FROM_CONSTRAINT (constraint[j], constraint + j)
+	    != NO_REGS)
 	  *allows_reg = true;
-#ifdef EXTRA_CONSTRAINT
-	else if (EXTRA_ADDRESS_CONSTRAINT (constraint[j]))
+#ifdef EXTRA_CONSTRAINT_STR
+	else if (EXTRA_ADDRESS_CONSTRAINT (constraint[j], constraint + j))
 	  *allows_reg = true;
-	else if (EXTRA_MEMORY_CONSTRAINT (constraint[j]))
+	else if (EXTRA_MEMORY_CONSTRAINT (constraint[j], constraint + j))
 	  *allows_mem = true;
 	else
 	  {
@@ -1511,7 +1526,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       if (i >= 0)
         {
 	  /* Clobbering the PIC register is an error */
-	  if ((unsigned) i == PIC_OFFSET_TABLE_REGNUM)
+	  if (i == (int) PIC_OFFSET_TABLE_REGNUM)
 	    {
 	      error ("PIC register `%s' clobbered in `asm'", regname);
 	      return;
@@ -1887,7 +1902,7 @@ expand_asm_expr (exp)
 
   if (ASM_INPUT_P (exp))
     {
-      expand_asm (ASM_STRING (exp));
+      expand_asm (ASM_STRING (exp), ASM_VOLATILE_P (exp));
       return;
     }
 

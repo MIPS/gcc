@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -31,10 +31,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 extern "C" {
 #endif
 
-/* For complex reasons, cpp_reader is also typedefed in c-pragma.h.  */
-#ifndef GCC_C_PRAGMA_H
 typedef struct cpp_reader cpp_reader;
-#endif
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
 typedef struct cpp_token cpp_token;
@@ -403,6 +400,12 @@ struct cpp_options
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
+
+  /* True to warn about precompiled header files we couldn't use.  */
+  bool warn_invalid_pch;
+
+  /* True if dependencies should be restored from a precompiled header.  */
+  bool restore_pch_deps;
 };
 
 /* Call backs.  */
@@ -420,6 +423,8 @@ struct cpp_callbacks
   /* Called when the client has a chance to properly register
      built-ins with cpp_define() and cpp_assert().  */
   void (*register_builtins) PARAMS ((cpp_reader *));
+  int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
+  void (*read_pch) PARAMS ((cpp_reader *, const char *, int, const char *));
 };
 
 /* Name under which this program was invoked.  */
@@ -475,7 +480,7 @@ enum builtin_type
 /* The common part of an identifier node shared amongst all 3 C front
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
-struct cpp_hashnode
+struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
@@ -488,11 +493,15 @@ struct cpp_hashnode
 
   union _cpp_hashnode_value
   {
-    cpp_macro *macro;			/* If a macro.  */
-    struct answer *answers;		/* Answers to an assertion.  */
-    enum builtin_type builtin;		/* Code for a builtin macro.  */
-    unsigned short arg_index;		/* Macro argument index.  */
-  } value;
+    /* If a macro.  */
+    cpp_macro * GTY((skip (""))) macro;
+    /* Answers to an assertion.  */
+    struct answer * GTY ((skip (""))) answers;
+    /* Code for a builtin macro.  */
+    enum builtin_type GTY ((tag ("1"))) builtin;
+    /* Macro argument index.  */
+    unsigned short GTY ((tag ("0"))) arg_index;
+  } GTY ((desc ("0"))) value;
 };
 
 /* Call this first to get a handle to pass to other functions.  */
@@ -724,6 +733,17 @@ extern unsigned char *cpp_quote_string	PARAMS ((unsigned char *,
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
+
+/* In cpppch.c */
+struct save_macro_data;
+extern int cpp_save_state PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch_deps PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch_state PARAMS ((cpp_reader *, FILE *));
+extern int cpp_valid_state PARAMS ((cpp_reader *, const char *, int));
+extern void cpp_prepare_state PARAMS ((cpp_reader *, 
+				       struct save_macro_data **));
+extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *,
+				   struct save_macro_data *));
 
 /* In cppmain.c */
 extern void cpp_preprocess_file PARAMS ((cpp_reader *, const char *, FILE *));

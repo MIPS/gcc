@@ -1,3 +1,717 @@
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/tls/init-2.C: Fix error matches for real this time.
+
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/pch/pch.exp: Copy test header to the working directory
+	before using it either for precompilation or direct use.
+	* g++.dg/pch/*.Hs: Rename from gcc.dg/pch/*.H.
+	* g++.dg/pch/*.C: Include foo.H, not foo.Hp.
+
+2003-01-16  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/pch/pch.exp: Copy test header to the working directory
+	before using it either for precompilation or direct use.
+	* gcc.dg/pch/*.hs: Rename from gcc.dg/pch/*.h.
+	* gcc.dg/pch/*.c: Include foo.h, not foo.hp.
+
+2003-01-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/ext/typename1.C: Add typename keyword.
+	* gcc/testsuite/g++.dg/template/crash1.C: Update error messages.
+	* gcc/testsuite/g++.dg/template/crash2.C: Remove error message.
+	* gcc/testsuite/g++.dg/parse/typename2.C: New test.
+	* gcc/testsuite/g++.dg/template/typename2.C: Change implicit
+	typename warning into error.
+	* gcc/testsuite/g++.old-deja/g++.benjamin/tem03.C: Issue more
+	error messages.
+	* gcc/testsuite/g++.old-deja/g++.benjamin/tem04.C: Fix typos.
+	* gcc/testsuite/g++.old-deja/g++.brendan/crash56.C: Add this->.
+	* gcc/testsuite/g++.old-deja/g++.law/visibility13.C: Remove error
+	messages.
+	* gcc/testsuite/g++.old-deja/g++.ns/template17.C: Reorder code to
+	make declaration visible in template.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash3.C: Fix typos.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash36.C: Issue more error
+	messages.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash5.C: Improve error
+	message.
+	* gcc/testsuite/g++.old-deja/g++.pt/crash67.C: Remove warning.
+	* gcc/testsuite/g++.old-deja/g++.pt/inherit1.C: Add this->.
+	* gcc/testsuite/g++.old-deja/g++.pt/niklas01a.C: Add error message.
+	* gcc/testsuite/g++.old-deja/g++.pt/typename16.C: Replace implicit
+	typename warning with error message.
+	* gcc/testsuite/g++.old-deja/g++.pt/typename19.C: Remove warning.
+	* gcc/testsuite/g++.old-deja/g++.robertl/eb112.C: Fix typo.
+	* gcc/testsuite/g++.old-deja/g++.robertl/eb24.C: Use this->.
+	
+2003-01-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/ambig2.C: New test.
+
+2003-01-15  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/tls/init-2.C: Update error message string.
+
+2003-01-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtin-constant.x: XFAIL the test.
+
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gcc.c-torture/compile/20000804-1.x: Don't execute this test at
+	all for HC11/HC12.
+	* gcc.c-torture/compile/20001205-1.x: Likewise.
+	* gcc.c-torture/compile/20001226-1.x: Likewise.
+	* gcc.c-torture/compile/920520-1.x: Likewise.
+	* gcc.c-torture/compile/961203-1.x: Likewise.
+	* gcc.c-torture/compile/20020604-1.x: Likewise.
+
+Wed Jan 15 12:20:52 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/compile/20030115-1.c: New test.
+
+	* gcc.dg/i386-fpcvt-1.c: New test.
+	* gcc.dg/i386-fpcvt-2.c: New test.
+
+2003-01-14  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	Further conform g++'s __vmi_class_type_info to the C++ ABI
+	specification.
+	* g++.old-deja/g++.abi/vmihint.C (main): Revise expected flags per
+	the specification.
+
+Tue Jan 14 00:45:03 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-fpcvt-1.c: New test.
+	* gcc.dg/i386-fpcvt-2.c: New test.
+
+2003-01-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-mmx-3.c: New test.
+
+2003-01-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9264
+	* g++.dg/parse/octal1.C: New file.
+
+	PR c++/9172
+	* g++.dg/parse/typename1.C: New file.
+
+2003-01-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.dg/bf-ms-layout.c: Enable for cygwin and mingw32 targets.
+	* gcc.dg/bf-no-ms-layout.c: Likewise.
+	* gcc.dg/bf-ms-attrib.c: Likewise.
+
+2003-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9099
+	* g++.dg/parse/dtor1.C: New file.
+
+	PR c++/9128
+	* g++.dg/rtti/typeid1.C: New file.
+
+	PR c++/9153
+	* g++.dg/parse/lookup1.C: New file.
+
+	PR c++/9171
+	* g++.dg/templ/spec5.C: New file.
+
+2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20030110-1.c: New test.
+
+2003-01-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Merge from pch-branch:
+
+	2002-12-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/cpp-1.h: New.
+	* gcc.dg/pch/cpp-1.c: New.
+	* gcc.dg/pch/cpp-2.h: New.
+	* gcc.dg/pch/cpp-2.c: New.
+
+	2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/except-1.h: New.
+	* gcc.dg/pch/except-1.c: New.
+
+	2002-11-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Ensure that <test>.hp doesn't exist before
+	running test.
+	* gcc.dg/pch: Include *.hp not *.h.
+	* gcc.dg/pch/system-1.h: New.
+	* gcc.dg/pch/system-1.c: New.
+
+	2002-11-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Compare .s files with/without PCH,
+	rather than trying to build and run a program using PCH.
+	* gcc.dg/pch: Remove dg-do commands from test files.
+	
+	2002-11-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/macro-3.c: New.
+	* gcc.dg/pch/macro-3.h: New.
+
+	2002-11-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/common-1.c: New.
+	* gcc.dg/pch/common-1.h: New.
+	* gcc.dg/pch/decl-1.c: New.
+	* gcc.dg/pch/decl-1.h: New.
+	* gcc.dg/pch/decl-2.c: New.
+	* gcc.dg/pch/decl-2.h: New.
+	* gcc.dg/pch/decl-3.c: New.
+	* gcc.dg/pch/decl-3.h: New.
+	* gcc.dg/pch/decl-4.c: New.
+	* gcc.dg/pch/decl-4.h: New.
+	* gcc.dg/pch/decl-5.c: New.
+	* gcc.dg/pch/decl-5.h: New.
+	* gcc.dg/pch/global-1.c: New.
+	* gcc.dg/pch/global-1.h: New.
+	* gcc.dg/pch/inline-1.c: New.
+	* gcc.dg/pch/inline-1.h: New.
+	* gcc.dg/pch/inline-2.c: New.
+	* gcc.dg/pch/inline-2.h: New.
+	* gcc.dg/pch/static-1.c: New.
+	* gcc.dg/pch/static-1.h: New.
+	* gcc.dg/pch/static-2.c: New.
+	* gcc.dg/pch/static-2.h: New.
+
+	2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/pch/pch.exp: Better handle failing testcases.
+	* gcc.dg/pch/pch.exp: Likewise.
+	* gcc.dg/pch/macro-1.c: New.
+	* gcc.dg/pch/macro-1.h: New.
+	* gcc.dg/pch/macro-2.c: New.
+	* gcc.dg/pch/macro-2.h: New.
+
+	2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/dg.exp: Treat files in pch/ specially.
+	* g++.dg/pch/pch.exp: New file.
+	* g++.dg/pch/empty.H: New file.
+	* g++.dg/pch/empty.C: New file.
+	* lib/g++-dg.exp (g++-dg-test): Add case for when $do_what is
+	"precompile".
+
+	* gcc.dg/pch/pch.exp: New file.
+	* gcc.dg/pch/empty.h: New file.
+	* gcc.dg/pch/empty.c: New file.
+	* lib/gcc-dg.exp (gcc-dg-test): Add case for when $do_what is
+	"precompile".
+
+2003-01-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/friend14.C: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/old-style-asm-1.c: New test.
+
+2003-01-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20030109-1.c: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030109-1.c: New test.
+
+2003-01-08  Larin Hennessey  <larin@science.oregonstate.edu>
+
+	* g++.old-deja/g++.mike/dyncast1.C: Remove reference to AMD A29K
+	* g++.old-deja/g++.mike/dyncast2.C: Likewise
+	* g++.old-deja/g++.mike/dyncast3.C: Likewise
+	* g++.old-deja/g++.mike/eh2.C: Likewise
+	* g++.old-deja/g++.mike/eh3.C: Likewise
+	* g++.old-deja/g++.mike/eh5.C: Likewise
+	* g++.old-deja/g++.mike/eh6.C: Likewise
+	* g++.old-deja/g++.mike/eh7.C: Likewise
+	* g++.old-deja/g++.mike/eh8.C: Likewise
+	* g++.old-deja/g++.mike/eh9.C: Likewise
+	* g++.old-deja/g++.mike/eh10.C: Likewise
+	* g++.old-deja/g++.mike/eh12.C: Likewise
+	* g++.old-deja/g++.mike/eh13.C: Likewise
+	* g++.old-deja/g++.mike/eh14.C: Likewise
+	* g++.old-deja/g++.mike/eh16.C: Likewise
+	* g++.old-deja/g++.mike/eh17.C: Likewise
+	* g++.old-deja/g++.mike/eh18.C: Likewise
+	* g++.old-deja/g++.mike/eh21.C: Likewise
+	* g++.old-deja/g++.mike/eh23.C: Likewise
+	* g++.old-deja/g++.mike/eh24.C: Likewise
+	* g++.old-deja/g++.mike/eh25.C: Likewise
+	* g++.old-deja/g++.mike/eh26.C: Likewise
+	* g++.old-deja/g++.mike/eh27.C: Likewise
+	* g++.old-deja/g++.mike/eh28.C: Likewise
+	* g++.old-deja/g++.mike/eh29.C: Likewise
+	* g++.old-deja/g++.mike/eh31.C: Likewise
+	* g++.old-deja/g++.mike/eh33.C: Likewise
+	* g++.old-deja/g++.mike/eh34.C: Likewise
+	* g++.old-deja/g++.mike/eh35.C: Likewise
+	* g++.old-deja/g++.mike/eh36.C: Likewise
+	* g++.old-deja/g++.mike/eh37.C: Likewise
+	* g++.old-deja/g++.mike/eh38.C: Likewise
+	* g++.old-deja/g++.mike/eh39.C: Likewise
+	* g++.old-deja/g++.mike/eh40.C: Likewise
+	* g++.old-deja/g++.mike/eh41.C: Likewise
+	* g++.old-deja/g++.mike/eh42.C: Likewise
+	* g++.old-deja/g++.mike/eh44.C: Likewise
+	* g++.old-deja/g++.mike/eh46.C: Likewise
+	* g++.old-deja/g++.mike/eh47.C: Likewise
+	* g++.old-deja/g++.mike/eh48.C: Likewise
+	* g++.old-deja/g++.mike/eh49.C: Likewise
+	* g++.old-deja/g++.mike/eh50.C: Likewise
+	* g++.old-deja/g++.mike/eh51.C: Likewise
+	* g++.old-deja/g++.mike/eh53.C: Likewise
+	* g++.old-deja/g++.mike/eh55.C: Likewise
+	* g++.old-deja/g++.mike/p7912.C: Likewise
+	* g++.old-deja/g++.mike/p9706.C: Likewise
+	* g++.old-deja/g++.mike/p10416.C: Likewise
+	* g++.old-deja/g++.mike/p11667.C: Likewise
+	* g77.f-torture/compile/20010519-1.f: Remove reference to Convex. 
+	Remove redundant reference to Iris.
+	* gcc.dg/20020312-2.c: Remove references to AMD A29K, Clipper, Convex,
+	Elxsi, i860, Pico Java, and WE32K.
+
+2003-01-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/asm4.C: New test.
+
+2003-01-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9030
+	* g++.dg/template/friend12.C: New test.
+	* g++.dg/template/friend13.C: Likewise.
+	* g++.old-deja/g++.eh/spec6.C: Add missing error message.
+
+Wed Jan  8 11:41:47 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-cadd.c: New test.
+	* gcc.dg/i386-cmov4.c: Likewise.
+
+2003-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9165
+	* g++.dg/warn/Wunused-3.C: New test.
+
+	* g++.dg/abi/bitfield9.C: New test.
+
+	PR c++/9189
+	* g++.dg/parse/defarg3.C: New test.
+
+2003-01-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/ambig1.C: New test.
+	* g++.dg/parse/defarg2.C: New test.
+
+2003-01-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/defarg-1.C: New test.
+	* g++.dg/template/local2.C: Likewise.
+
+2003-01-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20030105-1.c: New test.
+
+2003-01-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/parse/namespace3.C: Remove extra semicolons.
+	* g++.dg/parse/namespace4.C: Likewise.
+
+2003-01-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/ntp2.C: New test.
+
+2003-01-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g++.dg/parse/extern-C-1.C: New test.
+
+	* g++.dg/parse/namespace4.C: New test.
+
+	* g++.dg/template/nested1.C: New test.
+
+	* g++.dg/parse/namespace3.C: New test.
+
+2003-01-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g++.dg/lookup/two-stage1.C: New test.
+
+2003-01-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.bugs/900404_04.C: Remove XFAIL.
+	* g++.old-deja/g++.jason/access8.C: Likewise.
+	* g++.old-deja/g++.other/decl5.C: Likewise.
+
+2003-01-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse7.C: New test.
+
+2003-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/2843
+	* g++.dg/ext/attrib7.C: New test.
+
+2003-01-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse6.C: New test.
+
+2003-01-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/h8300-stack-1.c: New.
+
+2003-01-01  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	g++.dg/lookup/exception1.C: New test.
+
+	g++.dg/lookup/template1.C: New test.
+
+	g++.dg/parse/namespace2.C: New test.
+
+	g++.dg/parse/parens2.C: New test.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse5.C: New test.
+	* g++.dg/lookup/scoped4.C: New test.
+
+2003-01-01  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g++.dg/parse/parens1.C: New test.
+
+	* g++.dg/parse/parens2.C: Removed, turned out to duplicate
+	angle-bracket1.C.
+	* g++.dg/parse/parens2.C: New test.
+
+	* g++.dg/lookup/scope-operator1.C: New test.
+
+	* g++.dg/parse/operator1.C: New test.
+
+2003-01-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.old-deja/g++.jason/ambig3.C: Remove XFAIL.
+	* g++.old-deja/g++.other/access6.C: Likewise.
+	* g++.old-deja/g++.other/decl1.C: Likewise.
+	* g++.old-deja/g++.pt/typename12.C: Likewise.
+
+2002-12-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/namespace1.C: New test.
+	
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse4.C: New test.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse3.C: New test.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse2.C: New test.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/template/friend11.C: New test.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* g++.dg/parse/parse1.C: New test.
+
+2002-12-31  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/profopt.exp: Change the name of a global variable to avoid
+	possible clashes with other test suites.
+
+2002-12-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/covariant8.C: New test.
+
+2002-12-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/array9.C: New test.
+
+	PR c++/9112
+	* g++.dg/parse/expr1.C: New test.
+
+2002-12-30  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gcc.c-torture/compile/20021230-1.c: New test.
+
+2002-12-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/covariant5.C: New test.
+	* g++.dg/inherit/covariant6.C: New test.
+	* g++.dg/inherit/covariant7.C: New test.
+
+2002-12-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/2739
+	* g++.dg/other/access2.C: New test.
+
+2002-12-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/other/anon-struct.C: No longer fails
+	* g++.old-deja/g++.brendan/parse4.C: Likewise.
+	* g++.old-deja/g++.brendan/parse5.C: Likewise.
+	* g++.old-deja/g++.brendan/parse6.C: Likewise.
+
+2002-12-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/parse/angle-bracket.C (main): No longer fails.
+
+2002-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/eh/spec4.C: Remove stray semicolon.
+	* g++.dg/expr/pmf-1.C: Change error message.
+	* g++.dg/ext/asm1.C: Remove stray semicolon.
+	* g++.dg/ext/typename1.C: Add missing typenames.
+	* g++.dg/inherit/template-as-base.C: Change error message.
+	* g++.dg/lookup/scoped1.C: Likewise.
+	* g++.dg/lookup/scoped2.C: Likewise.
+	* g++.dg/lookup/using2.C: Likewise.
+	* g++.dg/other/component1.C: Remove stray semicolon.
+	* g++.dg/other/do1.C: Change error message.
+	* g++.dg/other/error2.C: Likewise.
+	* g++.dg/other/init1.C: Likewise.
+	* g++.dg/other/packed1.C: Remove stray semicolon.
+	* g++.dg/other/ptrmem2.C: Change error message.
+	* g++.dg/parse/parameter-declaration-1.C: Remove line number
+	marker.
+	* g++.dg/special/initp1.C: Remove invalid attribute usage.
+	* g++.dg/template/access3.C: Add typename keyword.
+	* g++.dg/template/access5.C: Remove stray semicolon.
+	* g++.dg/template/access6.C: Likewise.
+	* g++.dg/template/complit1.C: Likewise.
+	* g++.dg/template/crash1.C: Change error message.
+	* g++.dg/template/inherit2.C: Remove stray semicolon.
+	* g++.dg/template/instantiate2.C: Likewise.
+	* g++.dg/template/instantiate3.C: Change error message.
+	* g++.dg/template/qual1.C: Remove stray semicolon.
+	* g++.dg/template/qualttp18.C: Change error message.
+	* g++.dg/template/ref1.C: Remove stray semicolon.
+	* g++.dg/template/sizeof1.C (A::value): Declare it.
+	* g++.dg/template/spec4.C: Change error message.
+	* g++.dg/template/static1.C: Likewise.
+	* g++.dg/template/type1.C: Likewise.
+	* g++.dg/template/typename3.C: Likewise.
+	* g++.old-deja/g++.benjamin/13478.C: Change error message.
+	* g++.old-deja/g++.benjamin/15799.C: Remove stray semicolon.
+	* g++.old-deja/g++.benjamin/bool01.C: Likewise.
+	* g++.old-deja/g++.benjamin/bool02.C: Likewise.
+	* g++.old-deja/g++.benjamin/p13417.C: Now fails due to use of
+	named return value extension.
+	* g++.old-deja/g++.benjamin/tem06.C: Remove stray semicolon.
+	* g++.old-deja/g++.benjmain/warn01.C: Likewise.
+	* g++.old-deja/g++.bob/extern_C.C: Likewise.
+	* g++.old-deja/g++.bob/inherit2.C: Likewise.
+	* g++.old-deja/g++.brendan/complex1.C: Likewise.
+	* g++.old-deja/g++.brendan/copy5.C: Likewise.
+	* g++.old-deja/g++.brendan/crash13.C: Likewise.
+	* g++.old-deja/g++.brendan/crash15.C: Likewise.
+	* g++.old-deja/g++.brendan/crash18.C: Change error message.
+	* g++.old-deja/g++.brendan/crash37.C: Remove stray semicolon.
+	* g++.old-deja/g++.brendan/crash38.C: Likewise.
+	* g++.old-deja/g++.brendan/crash50.C: Likewise.
+	* g++.old-deja/g++.brendan/crash56.C: Likewise.
+	* g++.old-deja/g++.brendan/crash6.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.brendan/crash66.C: Remove stray semicolon.
+	* g++.old-deja/g++.brendan/crash8.C: Change error message.
+	* g++.old-deja/g++.brendan/ctors1.C: Remove stray semicolon.
+	* g++.old-deja/g++.brendan/ctors2.C: Likewise.
+	* g++.old-deja/g++.brendan/shadow1.C: Likewise.
+	* g++.old-deja/g++.brendan/template11.C: Likewise.
+	* g++.old-deja/g++.brendan/template26.C: Likewise.
+	* g++.old-deja/g++.brendan/template27.C: Use explicit
+	specialization syntax.
+	* g++.old-deja/g++.brendan/template30.C: Likewise.
+	* g++.old-deja/g++.brendan/template5.C: Remove stray semicolon.
+	* g++.old-deja/g++.brendan/visibility3.C: Account for use of
+	non-dependent names.
+	* g++.old-deja/g++.brendan/warnings4.C: Remove stray semicolon.
+	* g++.old-deja/g++.brendan/warnings7.C: Likewise.
+	* g++.old-deja/g++.bugs/900121_02.C: Likewise.
+	* g++.old-deja/g++.eh/catchptr1.C: Likewise.
+	* g++.old-deja/g++.ext/addrfunc4.C: Likewise.
+	* g++.old-deja/g++.ext/namedret1.C: Now fails due to use of
+	named return value extension.
+	* g++.old-deja/g++.ext/namedret2.C: Likewise.
+	* g++.old-deja/g++.ext/namedret3.C: Likewise.
+	* g++.old-deja/g++.ext/return1.C: Likewise.
+	* g++.old-deja/g++.ext/typename1.C: Add missing typename keywords.
+	* g++.old-deja/g++.jason/access17.C: Issue more error messages.
+	* g++.old-deja/g++.jason/access8.C: Likewise.
+	* g++.old-deja/g++.jason/bool.C: Remove stray semicolon.
+	* g++.old-deja/g++.jason/destruct.C: Remove incorrect
+	pseudo-destructor names.
+	* g++.old-deja/g++.jason/dtor3.C: Remove stray semicolon.
+	* g++.old-deja/g++.jason/dtor5.C: Remove incorrect
+	pseudo-destructor names.
+	* g++.old-deja/g++.jason/opeq3.C: Remove stray semicolon.
+	* g++.old-deja/g++.jason/overload19.C: Likewise.
+	* g++.old-deja/g++.jason/overload32.C: Likewise.
+	* g++.old-deja/g++.jason/parse11.C: Issue error messages about
+	stray semicolons.
+	* g++.old-deja/g++.jason/pmem2.C: Remove stray semicolon.
+	* g++.old-deja/g++.jason/return.C: Likewise.
+	* g++.old-deja/g++.jason/return2.C: Likewise.
+	* g++.old-deja/g++.jason/shadow1.C: Likewise.
+	* g++.old-deja/g++.jason/special.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.jason/template10.C: Account for use of
+	non-dependent names.
+	* g++.old-deja/g++.jason/template11.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.jason/template37.C: Likewise.
+	* g++.old-deja/g++.law/access4.C: Change error messages.
+	* g++.old-deja/g++.law/arm13.C:  Remove incorrect
+	pseudo-destructor names.
+	* g++.old-deja/g++.law/code-gen5.C: Remove stray semicolon.
+	* g++.old-deja/g++.law/ctors9.C: Likewise.
+	* g++.old-deja/g++.law/cvt22.C: Likewise.
+	* g++.old-deja/g++.law/dtors5.C: Likewise.
+	* g++.old-deja/g++.law/global-init1.C: Likewise.
+	* g++.old-deja/g++.law/missed-error3.C: Likewise.
+	* g++.old-deja/g++.law/operators28.C: Likewise.
+	* g++.old-deja/g++.law/visibility28.C: Likewise.
+	* g++.old-deja/g++.martin/eval1.C: Likewise.
+	* g++.old-deja/g++.martin/pmf2.C: Remove qualifier in constructor
+	name.
+	* g++.old-deja/g++.mike/hog1.C: Remove stray semicolon.
+	* g++.old-deja/g++.mike/net34.C: Likewise.
+	* g++.old-deja/g++.mike/net36.C: Likewise.
+	* g++.old-deja/g++.mike/ns2.C: Likewise.
+	* g++.old-deja/g++.mike/p12306.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Adjust for removal of named return
+	value extension.
+	* g++.old-deja/g++.mike/p700.C: Likewise.
+	* g++.old-deja/g++.mike/p701.C: Remove stray semicolon.
+	* g++.old-deja/g++.mike/p710.C: Likewise.
+	* g++.old-deja/g++.mike/p784.C: Adjust for removal of named return
+	value extension.
+	* g++.old-deja/g++.mike/pmf7.C: Remove stray semicolon.
+	* g++.old-deja/g++.mike/pmf9.C: Likewise.
+	* g++.old-deja/g++.ns/crash2.C: Likewise.
+	* g++.old-deja/g++.ns/crash3.C: Likewise.
+	* g++.old-deja/g++.ns/invalid1.C: Likewise.
+	* g++.old-deja/g++.ns/ns17.C: Likewise.
+	* g++.old-deja/g++.ns/template16.C: Likewise.
+	* g++.old-deja/g++.ns/template5.C: Remove invalid use of template
+	keyword.
+	* g++.old-deja/g++.ns/template6.C: Remove stray semicolon.
+	* g++.old-deja/g++.ns/using9.C: Remove stray semicolon.
+	* g++.old-deja/g++.oliva/nameret1.C: Now fails due to use of
+	named return value extension.
+	* g++.old-deja/g++.oliva/nameret2.C: Likewise.
+	* g++.old-deja/g++.other/access4.C: Issue additional error
+	messages.
+	* g++.old-deja/g++.other/array6.C: Remove stray semicolon.
+	* g++.old-deja/g++.other/crash1.C: Isue additional error messages.
+	* g++.old-deja/g++.other/crash11.C: Add missing class-key.
+	* g++.old-deja/g++.other/crash25.C: Change error message.
+	* g++.old-deja/g++.other/crash4.C: Change error message.
+	* g++.old-deja/g++.other/debug7.C: Remove stray semicolon.
+	* g++.old-deja/g++.other/decl5.C: Issue more error messages.
+	* g++.old-deja/g++.other/defarg7.C: Remove circular dependency
+	checks.
+	* g++.old-deja/g++.other/defarg8.C: Likewise.
+	* g++.old-deja/g++.other/dtor1.C: Remove stray semicolon.
+	* g++.old-deja/g++.other/dtor10.C: Likewise.
+	* g++.old-deja/g++.other/incomplete.C: Likewise.
+	* g++.old-deja/g++.other/linkage7.C: Likewise.
+	* g++.old-deja/g++.other/lookup19.C: Now fails due to corrected
+	lookup algorithm.
+	* g++.old-deja/g++.other/mangle2.C: Likewise.
+	* g++.old-deja/g++.other/refinit2.C: Likewise.
+	* g++.old-deja/g++.other/sizeof2.C: Change error messages.
+	* g++.old-deja/g++.other/std1.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/crash28.C: Likewise.
+	* g++.old-deja/g++.pt/crash29.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.pt/crash32.C: Change error message.
+	* g++.old-deja/g++.pt/crash43.C: Adjust error messages.
+	* g++.old-deja/g++.pt/crash58.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/crash65.C: Tweak to acount for change in
+	error message position.
+	* g++.old-deja/g++.pt/defarg5.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/defarg8.C: Change error message.
+	* g++.old-deja/g++.pt/eichin01.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.pt/eichin01a.C: Define static data members.
+	* g++.old-deja/g++.pt/eichin01b.C: Likewise.
+	* g++.old-deja/g++.pt/enum7.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/explicit12.C: Remove invalid use of template
+	keyword.
+	* g++.old-deja/g++.pt/explicit31.C: Likewise.
+	* g++.old-deja/g++.pt/explicit33.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/explicit35.C: Remove invalid use of template
+	keyword.
+	* g++.old-deja/g++.pt/explicit71.C: Change error message.
+	* g++.old-deja/g++.pt/explicit80.C: Use explicit specialization
+	syntax.
+	* g++.old-deja/g++.pt/friend28.C: Account for use of
+	non-dependent names.
+	* g++.old-deja/g++.pt/friend29.C: Likewise.
+	* g++.old-deja/g++.pt/friend46.C: Adjust for correct name lookup
+	rules.
+	* g++.old-deja/g++.pt/friend48.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/instantiate1.C: Use correct class-key.
+	* g++.old-deja/g++.pt/instantiate11.C: Adjust for correct name
+	lookup rules.
+	* g++.old-deja/g++.pt/instantiate8.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/instantiate9.C: Insert missing typename
+	keyword.
+	* g++.old-deja/g++.pt/memclass20.C: Likewise.
+	* g++.old-deja/g++.pt/memclass5.C: Likewise.
+	* g++.old-deja/g++.pt/memclass7.C: Remove invalid use of template
+	keyword.
+	* g++.old-deja/g++.pt/memtemp75.C: Likewise.
+	* g++.old-deja/g++.pt/memtemp81.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/memtemp87.C: Add missing access specifier.
+	* g++.old-deja/g++.pt/overload13.C: Correct error messages.
+	* g++.old-deja/g++.pt/parms2.C: Add missing typename keyword.
+	* g++.old-deja/g++.pt/ptrmem1.C: Remove invalid use of template	
+	keyword.
+	* g++.old-deja/g++.pt/spec10.C: Likewise.
+	* g++.old-deja/g++.pt/spec28.C: Reorder declarations.
+	* g++.old-deja/g++.pt/t10.C: Add explicit specialization syntax.
+	* g++.old-deja/g++.pt/t32.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/t35a.C: Add explicit specialization syntax.
+	* g++.old-deja/g++.pt/ttp24.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/ttp62.C: Likewise.
+	* g++.old-deja/g++.pt/ttp64.C: Likewise.
+	* g++.old-deja/g++.pt/typename11.C: Add missing typename keyword.
+	* g++.old-deja/g++.pt/typename15.C: Likewise.
+	* g++.old-deja/g++.pt/typename22.C: Likewise.
+	* g++.old-deja/g++.pt/typename6.C: Change error messages.
+	* g++.old-deja/g++.pt/using1.C: Remove stray semicolon.
+	* g++.old-deja/g++.pt/virtual2.C: Likewise.
+	* g++.old-deja/g++.robertl/eb118.C: Add explicit specialization
+	syntax.
+	* g++.old-deja/g++.robertl/eb27.C: Now fails due to use of named
+	return value extension.
+	* g++.old-deja/g++.robertl/eb43.C: Remove stray semicolon.
+	* g++.old-deja/g++.robertl/eb79.C: Correct for new name lookup rules.
+	* g++.old-deja/g++.robertl/eb82.C: Remove stray semicolons.
+	* g++.old-deja/g++.robertl/eb86.C: Add missing forward declaration.
+	
+2002-12-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/warn/inline1.C: New test.
+	* g++.old-deja/g++.brendan/crash64.C: Remove spurious inlines.
+	* g++.old-deja/g++.jason/synth10.C: Likewise.
+	* g++.old-deja/g++.mike/net31.C: Likewise.
+	* g++.old-deja/g++.mike/p8786.C: Likewise.
+
+	* g++.dg/template/friend10.C: New test.
+	* g++.dg/template/conv5.C: New test.
+
 2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
 	
 	* g++.dg/lookup/scoped3.C: New test.

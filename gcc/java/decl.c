@@ -1,22 +1,22 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -47,17 +47,17 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree-inline.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
-extern void indent PARAMS ((void));
+extern void indent (void);
 #endif
 
-static tree push_jvm_slot PARAMS ((int, tree));
-static tree lookup_name_current_level PARAMS ((tree));
-static tree push_promoted_type PARAMS ((const char *, tree));
-static struct binding_level *make_binding_level PARAMS ((void));
-static tree create_primitive_vtable PARAMS ((const char *));
-static tree check_local_named_variable PARAMS ((tree, tree, int, int *));
-static tree check_local_unnamed_variable PARAMS ((tree, tree, tree));
-static void dump_function PARAMS ((enum tree_dump_index, tree));
+static tree push_jvm_slot (int, tree);
+static tree lookup_name_current_level (tree);
+static tree push_promoted_type (const char *, tree);
+static struct binding_level *make_binding_level (void);
+static tree create_primitive_vtable (const char *);
+static tree check_local_named_variable (tree, tree, int, int *);
+static tree check_local_unnamed_variable (tree, tree, tree);
+static void dump_function (enum tree_dump_index, tree);
 
 /* Name of the Cloneable class.  */
 tree java_lang_cloneable_identifier_node;
@@ -93,7 +93,7 @@ int is_class_level = 0;
 int current_pc;
 
 void
-indent ()
+indent (void)
 {
   register unsigned i;
 
@@ -103,9 +103,7 @@ indent ()
 #endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
 
 static tree
-push_jvm_slot (index, decl)
-     int index;
-     tree decl;
+push_jvm_slot (int index, tree decl)
 {
   struct rtx_def *rtl = NULL;
   tree type = TREE_TYPE (decl);
@@ -152,11 +150,7 @@ push_jvm_slot (index, decl)
    is returned, then updated is set to true.  */
 
 static tree
-check_local_named_variable (best, decl, pc, updated)
-     tree best;
-     tree decl;
-     int pc;
-     int *updated;
+check_local_named_variable (tree best, tree decl, int pc, int *updated)
 {
   if (pc >= DECL_LOCAL_START_PC (decl)
       && pc < DECL_LOCAL_END_PC (decl))
@@ -177,10 +171,7 @@ check_local_named_variable (best, decl, pc, updated)
    than 'best', return 'decl'.  Otherwise return 'best'.  */
 
 static tree
-check_local_unnamed_variable (best, decl, type)
-     tree best;
-     tree decl;
-     tree type;
+check_local_unnamed_variable (tree best, tree decl, tree type)
 {
     if (TREE_TYPE (decl) == type
 	|| (TREE_CODE (TREE_TYPE (decl)) == TREE_CODE (type)
@@ -204,10 +195,7 @@ check_local_unnamed_variable (best, decl, type)
    If there is no existing matching decl, allocate one.  */
 
 tree
-find_local_variable (index, type, pc)
-     int index;
-     tree type;
-     int pc;
+find_local_variable (int index, tree type, int pc)
 {
   tree decl = TREE_VEC_ELT (decl_map, index);
   tree best = NULL_TREE;
@@ -253,9 +241,7 @@ find_local_variable (index, type, pc)
 /* Same as find_local_index, except that INDEX is a stack index. */
 
 tree
-find_stack_slot (index, type)
-     int index;
-     tree type;
+find_stack_slot (int index, tree type)
 {
   return find_local_variable (index + DECL_MAX_LOCALS (current_function_decl),
 			      type, -1);
@@ -341,9 +327,7 @@ tree java_global_trees[JTI_MAX];
    types shorter than int.  */
 
 static tree
-push_promoted_type (name, actual_type)
-     const char *name;
-     tree actual_type;
+push_promoted_type (const char *name, tree actual_type)
 {
   tree type = make_node (TREE_CODE (actual_type));
 #if 1
@@ -373,13 +357,12 @@ push_promoted_type (name, actual_type)
    ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
-builtin_function (name, type, function_code, class, library_name, attrs)
-     const char *name;
-     tree type;
-     int function_code;
-     enum built_in_class class;
-     const char *library_name;
-     tree attrs ATTRIBUTE_UNUSED;
+builtin_function (const char *name,
+		  tree type,
+		  int function_code,
+		  enum built_in_class class,
+		  const char *library_name,
+		  tree attrs ATTRIBUTE_UNUSED)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -395,8 +378,7 @@ builtin_function (name, type, function_code, class, library_name, attrs)
 
 /* Return tree that represents a vtable for a primitive array.  */
 static tree
-create_primitive_vtable (name)
-     const char *name;
+create_primitive_vtable (const char *name)
 {
   tree r;
   char buf[50];
@@ -408,7 +390,7 @@ create_primitive_vtable (name)
 }
 
 void
-java_init_decl_processing ()
+java_init_decl_processing (void)
 {
   register tree endlink;
   tree field = NULL_TREE;
@@ -828,8 +810,10 @@ java_init_decl_processing ()
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_anewarray_node) = 1;
 
+  /* There is no endlink here because _Jv_NewMultiArray is a varargs
+     function.  */
   t = tree_cons (NULL_TREE, ptr_type_node,
-		 tree_cons (NULL_TREE, int_type_node, endlink));
+		 tree_cons (NULL_TREE, int_type_node, NULL_TREE));
   soft_multianewarray_node
       = builtin_function ("_Jv_NewMultiArray",
 			  build_function_type (ptr_type_node, t),
@@ -952,8 +936,7 @@ java_init_decl_processing ()
    or return 0 if it is undefined.  */
 
 tree
-lookup_name (name)
-     tree name;
+lookup_name (tree name)
 {
   register tree val;
   if (current_binding_level != global_binding_level
@@ -968,8 +951,7 @@ lookup_name (name)
    the previous one if its the parameter level.  */
 
 static tree
-lookup_name_current_level (name)
-     tree name;
+lookup_name_current_level (tree name)
 {
   register tree t;
 
@@ -989,8 +971,7 @@ lookup_name_current_level (name)
 /* Use a binding level to record a labeled block declaration */
 
 void
-push_labeled_block (lb)
-    tree lb;
+push_labeled_block (tree lb)
 {
   register tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
   register struct binding_level *b = current_binding_level;
@@ -1006,7 +987,7 @@ push_labeled_block (lb)
    labeled block */
 
 void
-pop_labeled_block ()
+pop_labeled_block (void)
 {
   struct binding_level *b = current_binding_level;
   tree label =  b->names;
@@ -1031,8 +1012,7 @@ pop_labeled_block ()
    to agree with what X says.  */
 
 tree
-pushdecl (x)
-     tree x;
+pushdecl (tree x)
 {
   register tree t;
   register tree name = DECL_NAME (x);
@@ -1150,8 +1130,7 @@ pushdecl (x)
 }
 
 void
-pushdecl_force_head (x)
-     tree x;
+pushdecl_force_head (tree x)
 {
   current_binding_level->names = x;
 }
@@ -1159,8 +1138,7 @@ pushdecl_force_head (x)
 /* Like pushdecl, only it places X in GLOBAL_BINDING_LEVEL, if appropriate.  */
 
 tree
-pushdecl_top_level (x)
-     tree x;
+pushdecl_top_level (tree x)
 {
   register tree t;
   register struct binding_level *b = current_binding_level;
@@ -1174,7 +1152,7 @@ pushdecl_top_level (x)
 /* Nonzero if we are currently in the global binding level.  */
 
 int
-global_bindings_p ()
+global_bindings_p (void)
 {
   return current_binding_level == global_binding_level;
 }
@@ -1185,7 +1163,7 @@ global_bindings_p ()
    store the result back using `storedecls' or you will lose.  */
 
 tree
-getdecls ()
+getdecls (void)
 {
   return current_binding_level->names;
 }
@@ -1193,15 +1171,14 @@ getdecls ()
 /* Create a new `struct binding_level'.  */
 
 static struct binding_level *
-make_binding_level ()
+make_binding_level (void)
 {
   /* NOSTRICT */
   return xmalloc (sizeof (struct binding_level));
 }
 
 void
-pushlevel (unused)
-  int unused ATTRIBUTE_UNUSED;
+pushlevel (int unused ATTRIBUTE_UNUSED)
 {
   register struct binding_level *newlevel = NULL_BINDING_LEVEL;
 
@@ -1257,10 +1234,7 @@ pushlevel (unused)
    them into the BLOCK.  */
 
 tree
-poplevel (keep, reverse, functionbody)
-     int keep;
-     int reverse;
-     int functionbody;
+poplevel (int keep, int reverse, int functionbody)
 {
   register tree link;
   /* The chain of decls was accumulated in reverse order.
@@ -1464,8 +1438,7 @@ poplevel (keep, reverse, functionbody)
 }
 
 void
-maybe_pushlevels (pc)
-     int pc;
+maybe_pushlevels (int pc)
 {
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   current_pc = pc;
@@ -1507,8 +1480,7 @@ maybe_pushlevels (pc)
 }
 
 void
-maybe_poplevels (pc)
-     int pc;
+maybe_poplevels (int pc)
 {
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   current_pc = pc;
@@ -1529,8 +1501,7 @@ maybe_poplevels (pc)
    range is forcibly terminated when that exception ends. */
 
 void
-force_poplevels (start_pc)
-     int start_pc;
+force_poplevels (int start_pc)
 {
   while (current_binding_level->start_pc > start_pc)
     {
@@ -1548,8 +1519,7 @@ force_poplevels (start_pc)
    to handle the BLOCK node inside the BIND_EXPR.  */
 
 void
-insert_block (block)
-     tree block;
+insert_block (tree block)
 {
   TREE_USED (block) = 1;
   current_binding_level->blocks
@@ -1560,8 +1530,7 @@ insert_block (block)
    (the one we are currently in).  */
 
 void
-set_block (block)
-     register tree block;
+set_block (tree block)
 {
   current_binding_level->this_block = block;
   current_binding_level->names = chainon (current_binding_level->names,
@@ -1573,8 +1542,7 @@ set_block (block)
 /* integrate_decl_tree calls this function. */
 
 void
-java_dup_lang_specific_decl (node)
-     tree node;
+java_dup_lang_specific_decl (tree node)
 {
   int lang_decl_size;
   struct lang_decl *x;
@@ -1583,14 +1551,13 @@ java_dup_lang_specific_decl (node)
     return;
 
   lang_decl_size = sizeof (struct lang_decl);
-  x = (struct lang_decl *) ggc_alloc (lang_decl_size);
+  x = ggc_alloc (lang_decl_size);
   memcpy (x, DECL_LANG_SPECIFIC (node), lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
 }
 
 void
-give_name_to_locals (jcf)
-     JCF *jcf;
+give_name_to_locals (JCF *jcf)
 {
   int i, n = DECL_LOCALVARIABLES_OFFSET (current_function_decl);
   int code_offset = DECL_CODE_OFFSET (current_function_decl);
@@ -1688,8 +1655,7 @@ give_name_to_locals (jcf)
 }
 
 tree
-build_result_decl (fndecl)
-  tree fndecl;
+build_result_decl (tree fndecl)
 {
   tree restype = TREE_TYPE (TREE_TYPE (fndecl));
   tree result = DECL_RESULT (fndecl);
@@ -1707,8 +1673,7 @@ build_result_decl (fndecl)
 }
 
 void
-complete_start_java_method (fndecl)
-  tree fndecl;
+complete_start_java_method (tree fndecl)
 {
   if (! flag_emit_class_files)
     {
@@ -1780,8 +1745,7 @@ complete_start_java_method (fndecl)
 }
 
 void
-start_java_method (fndecl)
-     tree fndecl;
+start_java_method (tree fndecl)
 {
   tree tem, *ptr;
   int i;
@@ -1840,7 +1804,7 @@ start_java_method (fndecl)
 }
 
 void
-end_java_method ()
+end_java_method (void)
 {
   tree fndecl = current_function_decl;
 
@@ -1865,9 +1829,7 @@ end_java_method ()
 /* Dump FUNCTION_DECL FN as tree dump PHASE. */
 
 static void
-dump_function (phase, fn)
-     enum tree_dump_index phase;
-     tree fn;
+dump_function (enum tree_dump_index phase, tree fn)
 {
   FILE *stream;
   int flags;
@@ -1880,8 +1842,7 @@ dump_function (phase, fn)
     }
 }
  
-void java_optimize_inline (fndecl)
-     tree fndecl;
+void java_optimize_inline (tree fndecl)
 {
   if (flag_inline_trees)
     {

@@ -308,10 +308,7 @@ procedure conftest is begin null; end conftest;
 EOF
 gcc_cv_prog_adac=no
 # Have to do ac_tool_prefix and user overrides by hand.
-user_adac=$ADAC
-user_cc=$CC
-for cand in ${ac_tool_prefix}$user_adac	$user_adac	\
-	    ${ac_tool_prefix}$user_cc	$user_cc	\
+for cand in ${ADAC+"$ADAC"} ${CC+"$CC"}	\
 	    ${ac_tool_prefix}gcc	gcc		\
 	    ${ac_tool_prefix}cc		cc		\
 	    ${ac_tool_prefix}gnatgcc	gnatgcc		\
@@ -1627,27 +1624,21 @@ strdup strtoul tsearch __argz_count __argz_stringify __argz_next])
   ])
 
 AC_DEFUN(gcc_AC_INITFINI_ARRAY,
-[AC_CACHE_CHECK(for .preinit_array/.init_array/.fini_array support,
-		 gcc_cv_initfinit_array, [dnl
-  cat > conftest.c <<EOF
+[AC_ARG_ENABLE(initfini-array,
+	[  --enable-initfini-array	use .init_array/.fini_array sections],
+	[], [
+AC_CACHE_CHECK(for .preinit_array/.init_array/.fini_array support,
+		 gcc_cv_initfini_array, [dnl
+  AC_TRY_RUN([
 static int x = -1;
 int main (void) { return x; }
 int foo (void) { x = 0; }
-int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;
-EOF
-  if AC_TRY_COMMAND([${CC-cc} -o conftest conftest.c 1>&AS_MESSAGE_LOG_FD])
-  then
-    if ./conftest; then
-      gcc_cv_initfinit_array=yes
-    else
-      gcc_cv_initfinit_array=no
-    fi
-  else
-    gcc_cv_initfinit_array=no
-  fi
-  rm -f conftest*])
-  AC_SUBST(gcc_cv_initfinit_array)
-  if test $gcc_cv_initfinit_array = yes; then
-    AC_DEFINE(HAVE_INITFINI_ARRAY, 1,
-      [Define .init_array/.fini_array sections are available and working.])
-  fi])
+int (*fp) (void) __attribute__ ((section (".init_array"))) = foo;],
+	     [gcc_cv_initfini_array=yes], [gcc_cv_initfini_array=no],
+	     [gcc_cv_initfini_array=no])])
+  enable_initfini_array=$gcc_cv_initfini_array
+])
+if test $enable_initfini_array = yes; then
+  AC_DEFINE(HAVE_INITFINI_ARRAY, 1,
+    [Define .init_array/.fini_array sections are available and working.])
+fi])

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc. 
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include <splay-tree.h>
 
 /* Specify which cpu to schedule for.  */
 
@@ -105,17 +106,20 @@ static int alpha_function_needs_gp;
 
 /* The alias set for prologue/epilogue register save/restore.  */
 
-static int alpha_sr_alias_set;
+static GTY(()) int alpha_sr_alias_set;
 
 /* The assembler name of the current function.  */
 
 static const char *alpha_fnname;
 
 /* The next explicit relocation sequence number.  */
+extern GTY(()) int alpha_next_sequence_number;
 int alpha_next_sequence_number = 1;
 
 /* The literal and gpdisp sequence numbers for this insn, as printed
    by %# and %* respectively.  */
+extern GTY(()) int alpha_this_literal_sequence_number;
+extern GTY(()) int alpha_this_gpdisp_sequence_number;
 int alpha_this_literal_sequence_number;
 int alpha_this_gpdisp_sequence_number;
 
@@ -154,7 +158,7 @@ static rtx alpha_expand_builtin
   PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static void alpha_sa_mask
   PARAMS ((unsigned long *imaskP, unsigned long *fmaskP));
-static int find_lo_sum
+static int find_lo_sum_using_gp
   PARAMS ((rtx *, void *));
 static int alpha_does_function_need_gp
   PARAMS ((void));
@@ -197,6 +201,8 @@ static void alpha_elf_select_rtx_section
 #if TARGET_ABI_OPEN_VMS
 static bool alpha_linkage_symbol_p
   PARAMS ((const char *symname));
+static int alpha_write_one_linkage
+  PARAMS ((splay_tree_node, void *));
 static void alpha_write_linkage
   PARAMS ((FILE *, const char *, tree));
 #endif
@@ -1841,7 +1847,9 @@ decl_has_samegp (decl)
     return true;
 
   /* Functions that are not external are defined in this UoT.  */
-  return !DECL_EXTERNAL (decl);
+  /* ??? Irritatingly, static functions not yet emitted are still
+     marked "external".  Apply this to non-static functions only.  */
+  return !TREE_PUBLIC (decl) || !DECL_EXTERNAL (decl);
 }
 
 /* Return true if EXP should be placed in the small data section.  */
@@ -1974,18 +1982,22 @@ alpha_encode_section_info (decl, first)
     {
       char *newstr;
       size_t len;
+      char want_prefix = (is_local ? '@' : '%');
+      char other_prefix = (is_local ? '%' : '@');
 
-      if (symbol_str[0] == (is_local ? '@' : '%'))
+      if (symbol_str[0] == want_prefix)
 	{
 	  if (symbol_str[1] == encoding)
 	    return;
 	  symbol_str += 2;
 	}
+      else if (symbol_str[0] == other_prefix)
+	symbol_str += 2;
 
       len = strlen (symbol_str) + 1;
       newstr = alloca (len + 2);
 
-      newstr[0] = (is_local ? '@' : '%');
+      newstr[0] = want_prefix;
       newstr[1] = encoding;
       memcpy (newstr + 2, symbol_str, len);
 	  
@@ -3084,7 +3096,7 @@ alpha_expand_mov (mode, operands)
     }
 
   /* Otherwise we've nothing left but to drop the thing to memory.  */
-  operands[1] = force_const_mem (DImode, operands[1]);
+  operands[1] = force_const_mem (mode, operands[1]);
   if (reload_in_progress)
     {
       emit_move_insn (operands[0], XEXP (operands[1], 0));
@@ -6963,11 +6975,18 @@ const struct attribute_spec vms_attribute_table[] =
 #endif
 
 static int
-find_lo_sum (px, data)
+find_lo_sum_using_gp (px, data)
      rtx *px;
      void *data ATTRIBUTE_UNUSED;
 {
-  return GET_CODE (*px) == LO_SUM;
+  return GET_CODE (*px) == LO_SUM && XEXP (*px, 0) == pic_offset_table_rtx;
+}
+
+int
+alpha_find_lo_sum_using_gp (insn)
+     rtx insn;
+{
+  return for_each_rtx (&PATTERN (insn), find_lo_sum_using_gp, NULL) > 0;
 }
 
 static int
@@ -6996,15 +7015,9 @@ alpha_does_function_need_gp ()
   for (; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
-	&& GET_CODE (PATTERN (insn)) != CLOBBER)
-      {
-	enum attr_type type = get_attr_type (insn);
-	if (type == TYPE_LDSYM || type == TYPE_JSR)
-	  return 1;
-	if (TARGET_EXPLICIT_RELOCS
-	    && for_each_rtx (&PATTERN (insn), find_lo_sum, NULL) > 0)
-	  return 1;
-      }
+	&& GET_CODE (PATTERN (insn)) != CLOBBER
+	&& get_attr_usegp (insn))
+      return 1;
 
   return 0;
 }
@@ -7851,39 +7864,6 @@ alpha_expand_epilogue ()
     }
 }
 
-#if TARGET_ABI_OPEN_VMS
-#include <splay-tree.h>
-
-/* Structure to collect function names for final output
-   in link section.  */
-
-enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
-enum reloc_kind {KIND_LINKAGE, KIND_CODEADDR};
-
-struct alpha_funcs
-{
-  int num;
-  splay_tree links;
-};
-
-struct alpha_links
-{
-  int num;
-  rtx linkage;
-  enum links_kind lkind;
-  enum reloc_kind rkind;
-};
-
-static splay_tree alpha_funcs_tree;
-static splay_tree alpha_links_tree;
-
-static int mark_alpha_links_node	PARAMS ((splay_tree_node, void *));
-static void mark_alpha_links		PARAMS ((void *));
-static int alpha_write_one_linkage	PARAMS ((splay_tree_node, void *));
-
-static int alpha_funcs_num;
-#endif
-
 /* Output the rest of the textual info surrounding the epilogue.  */
 
 void
@@ -9019,6 +8999,34 @@ alpha_elf_select_rtx_section (mode, x, align)
 
 #endif /* OBJECT_FORMAT_ELF */
 
+/* Structure to collect function names for final output in link section.  */
+/* Note that items marked with GTY can't be ifdef'ed out.  */
+
+enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
+enum reloc_kind {KIND_LINKAGE, KIND_CODEADDR};
+
+struct alpha_links GTY(())
+{
+  int num;
+  rtx linkage;
+  enum links_kind lkind;
+  enum reloc_kind rkind;
+};
+
+struct alpha_funcs GTY(())
+{
+  int num;
+  splay_tree GTY ((param1_is (char *), param2_is (struct alpha_links *)))
+    links;
+};
+
+static GTY ((param1_is (char *), param2_is (struct alpha_links *)))
+  splay_tree alpha_links_tree;
+static GTY ((param1_is (tree), param2_is (struct alpha_funcs *)))
+  splay_tree alpha_funcs_tree;
+
+static GTY(()) int alpha_funcs_num;
+
 #if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
@@ -9054,26 +9062,6 @@ alpha_arg_info_reg_val (cum)
   return GEN_INT (regval);
 }
 
-/* Protect alpha_links from garbage collection.  */
-
-static int
-mark_alpha_links_node (node, data)
-     splay_tree_node node;
-     void *data ATTRIBUTE_UNUSED;
-{
-  struct alpha_links *links = (struct alpha_links *) node->value;
-  ggc_mark_rtx (links->linkage);
-  return 0;
-}
-
-static void
-mark_alpha_links (ptr)
-     void *ptr;
-{
-  splay_tree tree = *(splay_tree *) ptr;
-  splay_tree_foreach (tree, mark_alpha_links_node, NULL);
-}
-
 /* Make (or fake) .linkage entry for function call.
 
    IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.
@@ -9087,19 +9075,19 @@ alpha_need_linkage (name, is_local)
 {
   splay_tree_node node;
   struct alpha_links *al;
-  struct alpha_funcs *cfaf;
 
   if (name[0] == '*')
     name++;
 
   if (is_local)
     {
-      alpha_funcs_tree = splay_tree_new
-	((splay_tree_compare_fn) splay_tree_compare_pointers, 
-	 (splay_tree_delete_key_fn) free,
-	 (splay_tree_delete_key_fn) free);
+      struct alpha_funcs *cfaf;
+
+      if (!alpha_funcs_tree)
+        alpha_funcs_tree = splay_tree_new_ggc ((splay_tree_compare_fn)
+					       splay_tree_compare_pointers);
     
-      cfaf = (struct alpha_funcs *) xmalloc (sizeof (struct alpha_funcs));
+      cfaf = (struct alpha_funcs *) ggc_alloc (sizeof (struct alpha_funcs));
 
       cfaf->links = 0;
       cfaf->num = ++alpha_funcs_num;
@@ -9107,7 +9095,6 @@ alpha_need_linkage (name, is_local)
       splay_tree_insert (alpha_funcs_tree,
 			 (splay_tree_key) current_function_decl,
 			 (splay_tree_value) cfaf);
-    
     }
 
   if (alpha_links_tree)
@@ -9134,17 +9121,10 @@ alpha_need_linkage (name, is_local)
 	}
     }
   else
-    {
-      alpha_links_tree = splay_tree_new
-	((splay_tree_compare_fn) strcmp, 
-	 (splay_tree_delete_key_fn) free,
-	 (splay_tree_delete_key_fn) free);
+    alpha_links = splay_tree_new_ggc ((splay_tree_compare_fn) strcmp);
 
-      ggc_add_root (&alpha_links_tree, 1, 1, mark_alpha_links);
-    }
-
-  al = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
-  name = xstrdup (name);
+  al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
+  name = ggc_strdup (name);
 
   /* Assume external if no definition.  */
   al->lkind = (is_local ? KIND_UNUSED : KIND_EXTERN);
@@ -9198,13 +9178,7 @@ alpha_use_linkage (linkage, cfundecl, lflag, rflag)
 	al = (struct alpha_links *) lnode->value;
     }
   else
-    {
-      cfaf->links = splay_tree_new
-	((splay_tree_compare_fn) strcmp,
-	 (splay_tree_delete_key_fn) free,
-	 (splay_tree_delete_key_fn) free);
-      ggc_add_root (&cfaf->links, 1, 1, mark_alpha_links);
-    }
+    cfaf->links = splay_tree_new_ggc ((splay_tree_compare_fn) strcmp);
 
   if (!al)
     {
@@ -9220,7 +9194,7 @@ alpha_use_linkage (linkage, cfundecl, lflag, rflag)
 
       name_len = strlen (name);
 
-      al = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
+      al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
       al->num = cfaf->num;
 
       node = splay_tree_lookup (alpha_links_tree, (splay_tree_key) name);
@@ -10000,6 +9974,7 @@ unicosmk_data_section ()
 
 /* List of identifiers for which an extern declaration might have to be
    emitted.  */
+/* FIXME: needs to use GC, so it can be saved and restored for PCH.  */
 
 struct unicosmk_extern_list
 {
@@ -10082,6 +10057,7 @@ unicosmk_add_extern (name)
 
 /* Structure to collect identifiers which have been replaced by DEX
    expressions.  */
+/* FIXME: needs to use GC, so it can be saved and restored for PCH.  */
 
 struct unicosmk_dex {
   struct unicosmk_dex *next;

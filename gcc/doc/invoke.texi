@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -141,6 +141,7 @@ only one of these two forms, whichever one is not the default.
 * Code Gen Options::    Specifying conventions for function calls, data layout
                         and register usage.
 * Environment Variables:: Env vars that affect GCC.
+* Precompiled Headers:: Compiling a header once, and using it many times.
 * Running Protoize::    Automatically adding or removing function prototypes.
 @end menu
 
@@ -220,7 +221,7 @@ in the following sections.
 -Wimplicit  -Wimplicit-int  @gol
 -Wimplicit-function-declaration @gol
 -Werror-implicit-function-declaration @gol
--Wimport  -Winline -Wno-endif-labels @gol
+-Wimport  -Winline  -Winvalid-pch  -Wno-endif-labels @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
@@ -352,7 +353,7 @@ in the following sections.
 
 @emph{M68hc1x Options}
 @gccoptlist{
--m6811  -m6812  -m68hc11  -m68hc12 @gol
+-m6811  -m6812  -m68hc11  -m68hc12   -m68hcs12 @gol
 -mauto-incdec  -minmax  -mlong-calls  -mshort @gol
 -msoft-reg-count=@var{count}}
 
@@ -489,7 +490,8 @@ in the following sections.
 -membedded-pic  -mfp32  -mfp64  -mfused-madd  -mno-fused-madd @gol
 -mgas  -mgp32  -mgp64 @gol
 -mgpopt  -mhalf-pic  -mhard-float  -mint64  -mips1 @gol
--mips2  -mips3  -mips4  -mlong64  -mlong32  -mlong-calls  -mmemcpy @gol
+-mips2  -mips3  -mips4  -mips32  -mips32r2  -mips64 @gol
+-mlong64  -mlong32  -mlong-calls  -mmemcpy @gol
 -mmips-as  -mmips-tfile  -mno-abicalls @gol
 -mno-embedded-data  -mno-uninit-const-in-rodata @gol
 -mno-embedded-pic  -mno-gpopt  -mno-long-calls @gol
@@ -643,7 +645,7 @@ in the following sections.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{
--mcpu=@var{cpu-type} -march=@var{cpu-type} @gol
+-mtune=@var{cpu-type} -march=@var{cpu-type} @gol
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64 -m31 -mdebug -mno-debug -mesa -mzarch}
@@ -774,7 +776,7 @@ Objective-C source code.  Note that you must link with the library
 Objective-C source code which should not be preprocessed.
 
 @item @var{file}.h
-C header file (not to be compiled or linked).
+C or C++ header file to be turned into a precompiled header.
 
 @item @var{file}.cc
 @itemx @var{file}.cp
@@ -786,6 +788,10 @@ C header file (not to be compiled or linked).
 C++ source code which must be preprocessed.  Note that in @samp{.cxx},
 the last two letters must both be literally @samp{x}.  Likewise,
 @samp{.C} refers to a literal capital C@.
+
+@item @var{file}.hh
+@itemx @var{file}.H
+C++ header file to be turned into a precompiled header.
 
 @item @var{file}.f
 @itemx @var{file}.for
@@ -850,7 +856,7 @@ name suffix).  This option applies to all following input files until
 the next @option{-x} option.  Possible values for @var{language} are:
 @example
 c  c-header  cpp-output
-c++  c++-cpp-output
+c++  c++-header  c++-cpp-output
 objective-c  objc-cpp-output
 assembler  assembler-with-cpp
 ada
@@ -972,22 +978,24 @@ Display the version number and copyrights of the invoked GCC.
 @cindex suffixes for C++ source
 @cindex C++ source file suffixes
 C++ source files conventionally use one of the suffixes @samp{.C},
-@samp{.cc}, @samp{.cpp}, @samp{.CPP}, @samp{.c++}, @samp{.cp}, or @samp{.cxx};
+@samp{.cc}, @samp{.cpp}, @samp{.CPP}, @samp{.c++}, @samp{.cp}, or
+@samp{.cxx}; C++ header files often use @samp{.hh} or @samp{.H}; and
 preprocessed C++ files use the suffix @samp{.ii}.  GCC recognizes
 files with these names and compiles them as C++ programs even if you
-call the compiler the same way as for compiling C programs (usually with
-the name @command{gcc}).
+call the compiler the same way as for compiling C programs (usually
+with the name @command{gcc}).
 
 @findex g++
 @findex c++
 However, C++ programs often require class libraries as well as a
 compiler that understands the C++ language---and under some
-circumstances, you might want to compile programs from standard input,
-or otherwise without a suffix that flags them as C++ programs.
-@command{g++} is a program that calls GCC with the default language
-set to C++, and automatically specifies linking against the C++
-library.  On many systems, @command{g++} is also
-installed with the name @command{c++}.
+circumstances, you might want to compile programs or header files from
+standard input, or otherwise without a suffix that flags them as C++
+programs.  You might also like to precompile a C header file with a
+@samp{.h} extension to be used in C++ compilations.  @command{g++} is a
+program that calls GCC with the default language set to C++, and
+automatically specifies linking against the C++ library.  On many
+systems, @command{g++} is also installed with the name @command{c++}.
 
 @cindex invoking @command{g++}
 When you compile C++ programs, you may specify many of the same
@@ -2807,6 +2815,11 @@ code is to provide behavior which is selectable at compile-time.
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
 
+@item -Winvalid-pch
+@opindex Winvalid-pch
+Warn if a precompiled header (@pxref{Precompiled Headers}) is found in
+the search path but can't be used.
+
 @item -Wlong-long
 @opindex Wlong-long
 @opindex Wno-long-long
@@ -3433,7 +3446,22 @@ is used when GCC itself is being built.)  @xref{Spec Files}.
 @cindex optimize options
 @cindex options, optimization
 
-These options control various sorts of optimizations:
+These options control various sorts of optimizations.
+
+Without any optimization option, the compiler's goal is to reduce the
+cost of compilation and to make debugging produce the expected
+results.  Statements are independent: if you stop the program with a
+breakpoint between statements, you can then assign a new value to any
+variable or change the program counter to any other statement in the
+function and get exactly the results you would expect from the source
+code.
+
+Turning on optimization flags makes the compiler attempt to improve
+the performance and/or code size at the expense of compilation time
+and possibly the ability to debug the program.
+
+Not all optimizations are controlled directly by a flag.  Only
+optimizations that have a flag are listed.
 
 @table @gcctabopt
 @item -O
@@ -3443,16 +3471,24 @@ These options control various sorts of optimizations:
 Optimize.  Optimizing compilation takes somewhat more time, and a lot
 more memory for a large function.
 
-Without @option{-O}, the compiler's goal is to reduce the cost of
-compilation and to make debugging produce the expected results.
-Statements are independent: if you stop the program with a breakpoint
-between statements, you can then assign a new value to any variable or
-change the program counter to any other statement in the function and
-get exactly the results you would expect from the source code.
-
 With @option{-O}, the compiler tries to reduce code size and execution
 time, without performing any optimizations that take a great deal of
 compilation time.
+
+@option{-O} turns on the following optimization flags: 
+@gccoptlist{-fdefer-pop 
+-fmerge-constants
+-fthread-jumps
+-floop-optimize
+-fcrossjumping
+-fif-conversion
+-fif-conversion2
+-fdelayed-branch
+-fguess-branch-probability
+-fcprop-registers}
+
+@option{-O} also turns on @option{-fomit-frame-pointer} on machines
+where doing so does not interfere with debugging.
 
 @item -O2
 @opindex O2
@@ -3462,11 +3498,25 @@ perform loop unrolling or function inlining when you specify @option{-O2}.
 As compared to @option{-O}, this option increases both compilation time
 and the performance of the generated code.
 
-@option{-O2} turns on all optional optimizations except for loop
-unrolling, function inlining, and register renaming.  It also turns on
-the @option{-fforce-mem} and @option{-fstrict-aliasing} option on all
-machines and frame pointer elimination on machines where doing so does
-not interfere with debugging.
+@option{-O2} turns on all optimization flags specified by @option{-O}.  It
+also turns on the following optimization flags:
+@gccoptlist{-fforce-mem
+-foptimize-sibling-calls
+-fstrength-reduce
+-fcse-follow-jumps  -fcse-skip-blocks
+-frerun-cse-after-loop  -frerun-loop-opt
+-fgcse   -fgcse-lm   -fgcse-sm
+-fdelete-null-pointer-checks
+-fexpensive-optimizations
+-fregmove
+-fschedule-insns  -fschedule-insns2
+-fsched-interblock -fsched-spec
+-fcaller-saves
+-fpeephole2
+-freorder-blocks  -freorder-functions
+-fstrict-aliasing
+-falign-functions  -falign-jumps
+-falign-loops  -falign-labels}
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
@@ -3479,7 +3529,7 @@ Optimize yet more.  @option{-O3} turns on all optimizations specified by
 
 @item -O0
 @opindex O0
-Do not optimize.
+Do not optimize.  This is the default.
 
 @item -Os
 @opindex Os
@@ -3487,16 +3537,25 @@ Optimize for size.  @option{-Os} enables all @option{-O2} optimizations that
 do not typically increase code size.  It also performs further
 optimizations designed to reduce code size.
 
+@option{-Os} disables the following optimization flags:
+@gccoptlist{-falign-functions  -falign-jumps  -falign-loops
+-falign-labels  -freorder-blocks -fprefetch-loop-arrays}
+
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.
 @end table
 
 Options of the form @option{-f@var{flag}} specify machine-independent
 flags.  Most flags have both positive and negative forms; the negative
-form of @option{-ffoo} would be @option{-fno-foo}.  In the table below,
-only one of the forms is listed---the one which is not the default.
-You can figure out the other form by either removing @samp{no-} or
-adding it.
+form of @option{-ffoo} would be @option{-fno-foo}.  In the table
+below, only one of the forms is listed---the one you typically will
+use.  You can figure out the other form by either removing @samp{no-}
+or adding it.
+
+The following options control specific optimizations.  They are either
+activated by @option{-O} options or are related to ones that are.  You
+can use the following flags in the rare cases when ``fine-tuning'' of
+optimizations to be performed is desired.
 
 @table @gcctabopt
 @item -ffloat-store
@@ -3762,21 +3821,6 @@ indices used to access arrays are within the declared range.  This is
 currently only supported by the Java and Fortran 77 front-ends, where
 this option defaults to true and false respectively.
 
-@end table
-
-The following options control specific optimizations.  The @option{-O2}
-option turns on all of these optimizations except @option{-funroll-loops}
-and @option{-funroll-all-loops}.  On most machines, the @option{-O} option
-turns on the @option{-fthread-jumps} and @option{-fdelayed-branch} options,
-but specific machines may handle it differently.
-
-You can use the following flags in the rare cases when ``fine-tuning''
-of optimizations to be performed is desired.
-
-Not all of the optimizations performed by GCC have @option{-f} options
-to control them.
-
-@table @gcctabopt
 @item -fstrength-reduce
 @opindex fstrength-reduce
 Perform the optimizations of loop strength reduction and
@@ -5542,6 +5586,12 @@ when the compiler is configured for 68HC11-based systems.
 @opindex m68hc12
 Generate output for a 68HC12.  This is the default
 when the compiler is configured for 68HC12-based systems.
+
+@item -m68S12
+@itemx -m68hcs12
+@opindex m68S12
+@opindex m68hcs12
+Generate output for a 68HCS12.  
 
 @item -mauto-incdec
 @opindex mauto-incdec
@@ -7349,13 +7399,19 @@ These @samp{-m} options are defined for the MIPS family of computers:
 @item -march=@var{arch}
 @opindex march
 Generate code that will run on @var{arch}, which can be the name of a
-generic MIPS ISA, or the name of a particular processor.  The ISA names
-are: @samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4}, @samp{mips32}
-and @samp{mips64}.  The processor names are: @samp{r2000},
-@samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{vr4100}, @samp{vr4300},
-@samp{r4400}, @samp{r4600}, @samp{r4650}, @samp{vr5000}, @samp{r6000},
-@samp{r8000}, @samp{4kc}, @samp{4kp}, @samp{5kc}, @samp{20kc},
-@samp{orion}, and @samp{sb1}.  The special value @samp{from-abi} selects the
+generic MIPS ISA, or the name of a particular processor.
+The ISA names are:
+@samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4},
+@samp{mips32}, @samp{mips32r2}, and @samp{mips64}.
+The processor names are:
+@samp{4kc}, @samp{4kp}, @samp{5kc}, @samp{20kc},
+@samp{m4k},
+@samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
+@samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000},
+@samp{orion},
+@samp{sb1},
+@samp{vr4100}, @samp{vr4300}, and @samp{vr5000}.
+The special value @samp{from-abi} selects the
 most compatible architecture for the selected ABI (that is,
 @samp{mips1} for 32-bit ABIs and @samp{mips3} for 64-bit ABIs)@.
 
@@ -7413,6 +7469,10 @@ Equivalent to @samp{-march=mips4}.
 @item -mips32
 @opindex mips32
 Equivalent to @samp{-march=mips32}.
+
+@item -mips32r2
+@opindex mips32r2
+Equivalent to @samp{-march=mips32r2}.
 
 @item -mips64
 @opindex mips64
@@ -7869,9 +7929,11 @@ boundary.  Aligning @code{double} variables on a two word boundary will
 produce code that runs somewhat faster on a @samp{Pentium} at the
 expense of more memory.
 
-@strong{Warning:} if you use the @samp{-malign-double} switch,
+@strong{Warning:} if you use the @option{-malign-double} switch,
 structures containing the above types will be aligned differently than
-the published application binary interface specifications for the 386.
+the published application binary interface specifications for the 386
+and will not be binary compatible with structures in code compiled
+without that switch.
 
 @item -m128bit-long-double
 @opindex m128bit-long-double
@@ -9557,6 +9619,14 @@ A fixed register is one that the register allocator can not use.  This is
 useful when compiling kernel code.  A register range is specified as
 two registers separated by a dash.  Multiple register ranges can be
 specified separated by a comma.
+
+@item -mearly-stop-bits
+@itemx -mno-early-stop-bits
+@opindex mearly-stop-bits
+@opindex mno-early-stop-bits
+Allow stop bits to be placed earlier than immediately preceding the
+instruction that triggered the stop bit.  This can improve instruction
+scheduling, but does not always do so.
 @end table
 
 @node D30V Options
@@ -9683,8 +9753,8 @@ Generate code that will run on @var{arch}, which is the name of system
 representing a certain processor type. Possible values for
 @var{cpu-type} are @samp{g5}, @samp{g6} and @samp{z900}. 
 
-@item -mcpu=@var{arch}
-@opindex mcpu
+@item -mtune=@var{arch}
+@opindex mtune
 Tune to @var{cpu-type} everything applicable about the generated code,
  except for the ABI and the set of available instructions. 
 The list of @var{arch} values is the same as for @option{-march}.
@@ -10953,6 +11023,104 @@ preprocessor.
 @include cppenv.texi
 
 @c man end
+
+@node Precompiled Headers
+@section Using Precompiled Headers
+@cindex precompiled headers
+@cindex speed of compilation
+
+Often large projects have many header files that are included in every
+source file.  The time the compiler takes to process these header files
+over and over again can account for nearly all of the time required to
+build the project.  To make builds faster, GCC allows users to
+`precompile' a header file; then, if builds can use the precompiled
+header file they will be much faster.
+
+To create a precompiled header file, simply compile it as you would any
+other file, if necessary using the @option{-x} option to make the driver
+treat it as a C or C++ header file.  You will probably want to use a
+tool like @command{make} to keep the precompiled header up-to-date when
+the headers it contains change.
+
+A precompiled header file will be searched for when @code{#include} is
+seen in the compilation.  As it searches for the included file
+(@pxref{Search Path,,Search Path,cpp.info,The C Preprocessor}) the
+compiler looks for a precompiled header in each directory just before it
+looks for the include file in that directory.  The name searched for is
+the name specified in the @code{#include} with @samp{.pch} appended.  If
+the precompiled header file can't be used, it is ignored.
+
+For instance, if you have @code{#include "all.h"}, and you have
+@file{all.h.pch} in the same directory as @file{all.h}, then the
+precompiled header file will be used if possible, and the original
+header will be used otherwise.
+
+Alternatively, you might decide to put the precompiled header file in a
+directory and use @option{-I} to ensure that directory is searched
+before (or instead of) the directory containing the original header.
+Then, if you want to check that the precompiled header file is always
+used, you can put a file of the same name as the original header in this
+directory containing an @code{#error} command.
+
+This also works with @option{-include}.  So yet another way to use
+precompiled headers, good for projects not designed with precompiled
+header files in mind, is to simply take most of the header files used by
+a project, include them from another header file, precompile that header
+file, and @option{-include} the precompiled header.  If the header files
+have guards against multiple inclusion, they will be skipped because
+they've already been included (in the precompiled header).
+
+If you need to precompile the same header file for different
+languages, targets, or compiler options, you can instead make a
+@emph{directory} named like @file{all.h.pch}, and put each precompiled
+header in the directory.  (It doesn't matter what you call the files
+in the directory, every precompiled header in the directory will be
+considered.)  The first precompiled header encountered in the
+directory that is valid for this compilation will be used; they're
+searched in no particular order.
+
+There are many other possibilities, limited only by your imagination,
+good sense, and the constraints of your build system.
+
+A precompiled header file can be used only when these conditions apply:
+
+@itemize
+@item
+Only one precompiled header can be used in a particular compilation.
+@item
+A precompiled header can't be used once the first C token is seen.  You
+can have preprocessor directives before a precompiled header; you can
+even include a precompiled header from inside another header, so long as
+there are no C tokens before the @code{#include}.
+@item
+The precompiled header file must be produced for the same language as
+the current compilation.  You can't use a C precompiled header for a C++
+compilation.
+@item
+The precompiled header file must be produced by the same compiler
+version and configuration as the current compilation is using.
+The easiest way to guarantee this is to use the same compiler binary
+for creating and using precompiled headers.
+@item
+Any macros defined before the precompiled header (including with
+@option{-D}) must either be defined in the same way as when the
+precompiled header was generated, or must not affect the precompiled
+header, which usually means that the they don't appear in the
+precompiled header at all.
+@item
+Certain command-line options must be defined in the same way as when the
+precompiled header was generated.  At present, it's not clear which
+options are safe to change and which are not; the safest choice is to
+use exactly the same options when generating and using the precompiled
+header.
+@end itemize
+
+For all of these but the last, the compiler will automatically ignore
+the precompiled header if the conditions aren't met.  For the last item,
+some option changes will cause the precompiled header to be rejected,
+but not all incompatible option combinations have yet been found.  If
+you find a new incompatible combination, please consider filing a bug
+report, see @ref{Bugs}.
 
 @node Running Protoize
 @section Running Protoize

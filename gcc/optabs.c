@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "ggc.h"
 #include "real.h"
+#include "basic-block.h"
 
 /* Each optab contains info on how this target machine
    can perform a particular operation
@@ -2529,6 +2530,14 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
 	  HOST_WIDE_INT hi, lo;
 	  rtx last = get_last_insn ();
 
+	  /* Handle targets with different FP word orders.  */
+	  if (FLOAT_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+	    {
+	      int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
+	      int word = nwords - (bitpos / BITS_PER_WORD) - 1;
+	      bitpos = word * BITS_PER_WORD + bitpos % BITS_PER_WORD;
+	    }
+
 	  if (bitpos < HOST_BITS_PER_WIDE_INT)
 	    {
 	      hi = 0;
@@ -2673,6 +2682,14 @@ expand_abs (mode, op0, target, result_unsignedp, safe)
 	{
 	  HOST_WIDE_INT hi, lo;
 	  rtx last = get_last_insn ();
+
+	  /* Handle targets with different FP word orders.  */
+	  if (FLOAT_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+	    {
+	      int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
+	      int word = nwords - (bitpos / BITS_PER_WORD) - 1;
+	      bitpos = word * BITS_PER_WORD + bitpos % BITS_PER_WORD;
+	    }
 
 	  if (bitpos < HOST_BITS_PER_WIDE_INT)
 	    {
@@ -3309,10 +3326,26 @@ emit_libcall_block (insns, target, result, equiv)
   /* Encapsulate the block so it gets manipulated as a unit.  */
   if (!flag_non_call_exceptions || !may_trap_p (equiv))
     {
-      REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-		      			     REG_NOTES (first));
-      REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
-		      			    REG_NOTES (last));
+      /* We can't attach the REG_LIBCALL and REG_RETVAL notes
+	 when the encapsulated region would not be in one basic block,
+	 i.e. when there is a control_flow_insn_p insn between FIRST and LAST.
+       */
+      bool attach_libcall_retval_notes = true;
+      next = NEXT_INSN (last);
+      for (insn = first; insn != next; insn = NEXT_INSN (insn))
+	if (control_flow_insn_p (insn))
+	  {
+	    attach_libcall_retval_notes = false;
+	    break;
+	  }
+
+      if (attach_libcall_retval_notes)
+	{
+	  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
+						 REG_NOTES (first));
+	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+						REG_NOTES (last));
+	}
     }
 }
 
@@ -4230,6 +4263,134 @@ can_conditionally_move_p (mode)
 }
 
 #endif /* HAVE_conditional_move */
+
+/* Emit a conditional addition instruction if the machine supports one for that
+   condition and machine mode.
+
+   OP0 and OP1 are the operands that should be compared using CODE.  CMODE is
+   the mode to use should they be constants.  If it is VOIDmode, they cannot
+   both be constants.
+
+   OP2 should be stored in TARGET if the comparison is true, otherwise OP2+OP3
+   should be stored there.  MODE is the mode to use should they be constants.
+   If it is VOIDmode, they cannot both be constants.
+
+   The result is either TARGET (perhaps modified) or NULL_RTX if the operation
+   is not supported.  */
+
+rtx
+emit_conditional_add (target, code, op0, op1, cmode, op2, op3, mode,
+		      unsignedp)
+     rtx target;
+     enum rtx_code code;
+     rtx op0, op1;
+     enum machine_mode cmode;
+     rtx op2, op3;
+     enum machine_mode mode;
+     int unsignedp;
+{
+  rtx tem, subtarget, comparison, insn;
+  enum insn_code icode;
+  enum rtx_code reversed;
+
+  /* If one operand is constant, make it the second one.  Only do this
+     if the other operand is not constant as well.  */
+
+  if (swap_commutative_operands_p (op0, op1))
+    {
+      tem = op0;
+      op0 = op1;
+      op1 = tem;
+      code = swap_condition (code);
+    }
+
+  /* get_condition will prefer to generate LT and GT even if the old
+     comparison was against zero, so undo that canonicalization here since
+     comparisons against zero are cheaper.  */
+  if (code == LT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == 1)
+    code = LE, op1 = const0_rtx;
+  else if (code == GT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == -1)
+    code = GE, op1 = const0_rtx;
+
+  if (cmode == VOIDmode)
+    cmode = GET_MODE (op0);
+
+  if (swap_commutative_operands_p (op2, op3)
+      && ((reversed = reversed_comparison_code_parts (code, op0, op1, NULL))
+          != UNKNOWN))
+    {
+      tem = op2;
+      op2 = op3;
+      op3 = tem;
+      code = reversed;
+    }
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (op2);
+
+  icode = addcc_optab->handlers[(int) mode].insn_code;
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (flag_force_mem)
+    {
+      op2 = force_not_mem (op2);
+      op3 = force_not_mem (op3);
+    }
+
+  if (target)
+    target = protect_from_queue (target, 1);
+  else
+    target = gen_reg_rtx (mode);
+
+  subtarget = target;
+
+  emit_queue ();
+
+  op2 = protect_from_queue (op2, 0);
+  op3 = protect_from_queue (op3, 0);
+
+  /* If the insn doesn't accept these operands, put them in pseudos.  */
+
+  if (! (*insn_data[icode].operand[0].predicate)
+      (subtarget, insn_data[icode].operand[0].mode))
+    subtarget = gen_reg_rtx (insn_data[icode].operand[0].mode);
+
+  if (! (*insn_data[icode].operand[2].predicate)
+      (op2, insn_data[icode].operand[2].mode))
+    op2 = copy_to_mode_reg (insn_data[icode].operand[2].mode, op2);
+
+  if (! (*insn_data[icode].operand[3].predicate)
+      (op3, insn_data[icode].operand[3].mode))
+    op3 = copy_to_mode_reg (insn_data[icode].operand[3].mode, op3);
+
+  /* Everything should now be in the suitable form, so emit the compare insn
+     and then the conditional move.  */
+
+  comparison 
+    = compare_from_rtx (op0, op1, code, unsignedp, cmode, NULL_RTX);
+
+  /* ??? Watch for const0_rtx (nop) and const_true_rtx (unconditional)?  */
+  /* We can get const0_rtx or const_true_rtx in some circumstances.  Just
+     return NULL and let the caller figure out how best to deal with this
+     situation.  */
+  if (GET_CODE (comparison) != code)
+    return NULL_RTX;
+  
+  insn = GEN_FCN (icode) (subtarget, comparison, op2, op3);
+
+  /* If that failed, then give up.  */
+  if (insn == 0)
+    return 0;
+
+  emit_insn (insn);
+
+  if (subtarget != target)
+    convert_move (target, subtarget, 0);
+
+  return target;
+}
 
 /* These functions generate an insn body and return it
    rather than emitting the insn.
@@ -5229,6 +5390,7 @@ init_optabs ()
   negv_optab = init_optabv (NEG);
   abs_optab = init_optab (ABS);
   absv_optab = init_optabv (ABS);
+  addcc_optab = init_optab (UNKNOWN);
   one_cmpl_optab = init_optab (NOT);
   ffs_optab = init_optab (FFS);
   sqrt_optab = init_optab (SQRT);

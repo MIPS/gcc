@@ -244,10 +244,11 @@ add_dependence (insn, elem, dep_type)
       if (insn == next)
 	return;
 
-      /* Make the dependence to NEXT, the last insn of the group, instead
-         of the original ELEM.  */
+      /* Make the dependence to NEXT, the last insn of the group,
+	 instead of the original ELEM.  */
       elem = next;
     }
+
 
   present_p = 1;
 #ifdef INSN_SCHEDULING
@@ -467,17 +468,18 @@ set_sched_group_p (insn)
 
   /* There may be a note before this insn now, but all notes will
      be removed before we actually try to schedule the insns, so
-     it won't cause a problem later.  We must avoid it here though.  */
+     it won't cause a problem later.  We must avoid it here
+     though.  */
   prev = prev_nonnote_insn (insn);
-
-  /* Make a copy of all dependencies on the immediately previous insn,
-     and add to this insn.  This is so that all the dependencies will
-     apply to the group.  Remove an explicit dependence on this insn
-     as SCHED_GROUP_P now represents it.  */
-
+  
+  /* Make a copy of all dependencies on the immediately previous
+     insn, and add to this insn.  This is so that all the
+     dependencies will apply to the group.  Remove an explicit
+     dependence on this insn as SCHED_GROUP_P now represents it.  */
+  
   if (find_insn_list (prev, LOG_LINKS (insn)))
     remove_dependence (insn, prev);
-
+  
   for (link = LOG_LINKS (prev); link; link = XEXP (link, 1))
     add_dependence (insn, XEXP (link, 0), REG_NOTE_KIND (link));
 }
@@ -983,7 +985,15 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  INIT_REG_SET (&tmp);
 
 	  (*current_sched_info->compute_jump_reg_dependencies) (insn, &tmp);
-	  IOR_REG_SET (reg_pending_uses, &tmp);
+	  /* Make latency of jump equal to 0 by using anti-dependence.  */
+	  EXECUTE_IF_SET_IN_REG_SET (&tmp, 0, i,
+	    {
+	      struct deps_reg *reg_last = &deps->reg_last[i];
+	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
+	      reg_last->uses_length++;
+	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+	    });
 	  CLEAR_REG_SET (&tmp);
 
 	  /* All memory writes and volatile reads must happen before the
@@ -1049,14 +1059,16 @@ sched_analyze_insn (deps, x, insn, loop_notes)
   /* Add dependencies if a scheduling barrier was found.  */
   if (reg_pending_barrier)
     {
+      /* In the case of barrier the most added dependencies are not
+         real, so we use anti-dependence here.  */
       if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
-	      add_dependence_list (insn, reg_last->sets, 0);
-	      add_dependence_list (insn, reg_last->clobbers, 0);
+	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
 	    });
 	}
       else
@@ -1066,8 +1078,10 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list_and_free (insn, &reg_last->uses,
 					    REG_DEP_ANTI);
-	      add_dependence_list_and_free (insn, &reg_last->sets, 0);
-	      add_dependence_list_and_free (insn, &reg_last->clobbers, 0);
+	      add_dependence_list_and_free (insn, &reg_last->sets,
+					    REG_DEP_ANTI);
+	      add_dependence_list_and_free (insn, &reg_last->clobbers,
+					    REG_DEP_ANTI);
 	      reg_last->uses_length = 0;
 	      reg_last->clobbers_length = 0;
 	    });
@@ -1433,7 +1447,7 @@ compute_forward_dependences (head, tail)
 	continue;
 
       insn = group_leader (insn);
-
+      
       for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
 	{
 	  rtx x = group_leader (XEXP (link, 0));

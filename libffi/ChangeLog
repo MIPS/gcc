@@ -1,3 +1,37 @@
+2003-01-14  Andrew Haley  <aph@redhat.com>
+
+	* src/x86/ffi64.c (ffi_prep_args): Check for void retval.
+	(ffi_prep_cif_machdep): Likewise.
+	* src/x86/unix64.S: Add unwind info.
+
+2003-01-14  Andreas Jaeger  <aj@suse.de>
+
+	* src/ffitest.c (main): Only use ffi_closures if those are
+	supported.
+
+2003-01-13 Andreas Tobler <a.tobler@schweiz.ch>
+
+	* libffi/src/ffitest.c
+         add closure testcases
+
+2003-01-13 Kevin B. Hendricks <khendricks@ivey.uwo.ca>
+
+	* libffi/src/powerpc/ffi.c
+         fix alignment bug for float (4 byte aligned iso 8 byte)
+
+2003-01-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* src/powerpc/ffi_darwin.c: Remove RCS version string.
+	* src/powerpc/darwin.S: Remove RCS version string.
+
+2003-01-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* include/ffi.h.in: Add closure defines for SPARC, SPARC64.
+	* src/ffitest.c (main): Use static storage for closure.
+	* src/sparc/ffi.c (ffi_prep_closure, ffi_closure_sparc_inner): New.
+	* src/sparc/v8.S (ffi_closure_v8): New.
+	* src/sparc/v9.S (ffi_closure_v9): New.
+
 2002-11-10  Ranjit Mathew <rmathew@hotmail.com>
 
 	* include/ffi.h.in: Added FFI_STDCALL ffi_type

@@ -3,20 +3,20 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -34,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
-#include "ggc.h"
-#include "tree-inline.h"
 
 static void construct_virtual_base (tree, tree);
 static void expand_aggr_init_1 PARAMS ((tree, tree, tree, tree, int));
@@ -355,7 +353,8 @@ perform_member_init (tree member, tree init)
 	  && TREE_CODE (TREE_TYPE (TREE_VALUE (init))) == ARRAY_TYPE)
 	{
 	  /* Initialization of one array from another.  */
-	  finish_expr_stmt (build_vec_init (decl, TREE_VALUE (init), 1));
+	  finish_expr_stmt (build_vec_init (decl, NULL_TREE, TREE_VALUE (init),
+					    /* from_array=*/1));
 	}
       else
 	finish_expr_stmt (build_aggr_init (decl, init, 0));
@@ -914,16 +913,29 @@ member_init_ok_or_else (field, type, member_name)
 {
   if (field == error_mark_node)
     return 0;
-  if (field == NULL_TREE || initializing_context (field) != type)
+  if (!field)
+    {
+      error ("class `%T' does not have any field named `%D'", type,
+	     member_name);
+      return 0;
+    }
+  if (TREE_CODE (field) == VAR_DECL)
+    {
+      error ("`%#D' is a static data member; it can only be "
+	     "initialized at its definition",
+	     field);
+      return 0;
+    }
+  if (TREE_CODE (field) != FIELD_DECL)
+    {
+      error ("`%#D' is not a non-static data member of `%T'",
+	     field, type);
+      return 0;
+    }
+  if (initializing_context (field) != type)
     {
       error ("class `%T' does not have any field named `%D'", type,
 		member_name);
-      return 0;
-    }
-  if (TREE_STATIC (field))
-    {
-      error ("field `%#D' is static; the only point of initialization is its definition",
-		field);
       return 0;
     }
 
@@ -1104,7 +1116,7 @@ build_aggr_init (exp, init, flags)
 	TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
       if (itype && cp_type_quals (itype) != TYPE_UNQUALIFIED)
 	TREE_TYPE (init) = TYPE_MAIN_VARIANT (itype);
-      stmt_expr = build_vec_init (exp, init,
+      stmt_expr = build_vec_init (exp, NULL_TREE, init,
 				  init && same_type_p (TREE_TYPE (init),
 						       TREE_TYPE (exp)));
       TREE_READONLY (exp) = was_const;
@@ -1605,7 +1617,7 @@ build_offset_ref (type, name)
 
   decl = maybe_dummy_object (type, &basebinfo);
 
-  if (BASELINK_P (name))
+  if (BASELINK_P (name) || DECL_P (name))
     member = name;
   else
     {
@@ -1949,7 +1961,7 @@ build_new (placement, decl, init, use_global_new)
 	      else
 		{
 		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, 0)
+						  this_nelts, false)
 		      == NULL_TREE)
 		    pedwarn ("size in array new must have integral type");
 
@@ -2144,6 +2156,7 @@ build_new_1 (exp)
   tree placement, init;
   tree type, true_type, size, rval, t;
   tree full_type;
+  tree outer_nelts = NULL_TREE;
   tree nelts = NULL_TREE;
   tree alloc_call, alloc_expr, alloc_node;
   tree alloc_fn;
@@ -2173,12 +2186,11 @@ build_new_1 (exp)
   if (TREE_CODE (type) == ARRAY_REF)
     {
       has_array = 1;
-      nelts = TREE_OPERAND (type, 1);
+      nelts = outer_nelts = TREE_OPERAND (type, 1);
       type = TREE_OPERAND (type, 0);
 
-      full_type = cp_build_binary_op (MINUS_EXPR, nelts, integer_one_node);
-      full_type = build_index_type (full_type);
-      full_type = build_cplus_array_type (type, full_type);
+      /* Use an incomplete array type to avoid VLA headaches.  */
+      full_type = build_cplus_array_type (type, NULL_TREE);
     }
   else
     full_type = type;
@@ -2368,7 +2380,11 @@ build_new_1 (exp)
 	pedwarn ("ISO C++ forbids initialization in array new");
 
       if (has_array)
-	init_expr = build_vec_init (init_expr, init, 0);
+	init_expr
+	  = build_vec_init (init_expr,
+			    cp_build_binary_op (MINUS_EXPR, outer_nelts,
+						integer_one_node),
+			    init, /*from_array=*/0);
       else if (TYPE_NEEDS_CONSTRUCTING (type))
 	init_expr = build_special_member_call (init_expr, 
 					       complete_ctor_identifier,
@@ -2698,6 +2714,9 @@ get_temp_regvar (type, init)
    initialization of a vector of aggregate types.
 
    BASE is a reference to the vector, of ARRAY_TYPE.
+   MAXINDEX is the maximum index of the array (one less than the
+     number of elements).  It is only used if
+     TYPE_DOMAIN (TREE_TYPE (BASE)) == NULL_TREE.
    INIT is the (possibly NULL) initializer.
 
    FROM_ARRAY is 0 if we should init everything with INIT
@@ -2708,8 +2727,8 @@ get_temp_regvar (type, init)
    but use assignment instead of initialization.  */
 
 tree
-build_vec_init (base, init, from_array)
-     tree base, init;
+build_vec_init (base, maxindex, init, from_array)
+     tree base, init, maxindex;
      int from_array;
 {
   tree rval;
@@ -2729,9 +2748,11 @@ build_vec_init (base, init, from_array)
   tree try_block = NULL_TREE;
   tree try_body = NULL_TREE;
   int num_initialized_elts = 0;
-  tree maxindex = array_type_nelts (TREE_TYPE (base));
 
-  if (maxindex == error_mark_node)
+  if (TYPE_DOMAIN (atype))
+    maxindex = array_type_nelts (atype);
+
+  if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
   if (init
@@ -2922,7 +2943,7 @@ build_vec_init (base, init, from_array)
 	    sorry
 	      ("cannot initialize multi-dimensional array with initializer");
 	  elt_init = build_vec_init (build1 (INDIRECT_REF, type, base),
-				     0, 0);
+				     0, 0, 0);
 	}
       else
 	elt_init = build_aggr_init (build1 (INDIRECT_REF, type, base), 

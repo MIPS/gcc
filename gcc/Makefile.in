@@ -1,6 +1,6 @@
 # Makefile for GNU C compiler.
 #   Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-#   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+#   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -36,6 +36,13 @@ VPATH = @srcdir@
 
 # Pointer to the GCC Project website
 website=http://gcc.gnu.org
+
+# These directories contain files that are provided as part of a FSF tarball,
+# but not provided in CVS.  Some GCC integrators like to use the CVS sources
+# but keep them read-only during a build, and so change these variables
+# from these defaults.
+parsedir = $(srcdir)
+docobjdir = $(srcdir)/doc
 
 # Variables that exist for you to override.
 # See below for how to change them for certain systems.
@@ -229,15 +236,11 @@ RANLIB_FOR_TARGET = ` \
     echo $(objdir)/../binutils/ranlib ; \
   else \
     if [ "$(host_canonical)" = "$(target)" ] ; then \
-      echo ranlib; \
+      echo $(RANLIB); \
     else \
        t='$(program_transform_cross_name)'; echo ranlib | sed -e $$t ; \
     fi; \
   fi`
-RANLIB_TEST_FOR_TARGET = \
-  [ -f $(RANLIB_FOR_TARGET) ] \
-  || ( [ "$(host_canonical)" = "$(target)" ] \
-       && [ -f /usr/bin/ranlib -o -f /bin/ranlib ] )
 NM_FOR_TARGET = ` \
   if [ -f ./nm ] ; then \
     echo ./nm ; \
@@ -256,6 +259,7 @@ HASHTAB_H   = $(srcdir)/../include/hashtab.h
 OBSTACK_H   = $(srcdir)/../include/obstack.h
 SPLAY_TREE_H= $(srcdir)/../include/splay-tree.h
 FIBHEAP_H   = $(srcdir)/../include/fibheap.h
+PARTITION_H = $(srcdir)/../include/partition.h
 
 # Default native SYSTEM_HEADER_DIR, to be overridden by targets.
 NATIVE_SYSTEM_HEADER_DIR = /usr/include
@@ -574,7 +578,8 @@ RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def \
           location.h
-BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h
+BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
+          hard-reg-set.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
 EXPR_H = expr.h
@@ -583,7 +588,7 @@ REGS_H = regs.h varray.h $(MACHMODE_H)
 INTEGRATE_H = integrate.h varray.h
 LOOP_H = loop.h varray.h bitmap.h
 GCC_H = gcc.h version.h
-GGC_H = ggc.h varray.h gtype-desc.h
+GGC_H = ggc.h gtype-desc.h
 TIMEVAR_H = timevar.h timevar.def
 INSN_ATTR_H = insn-attr.h $(srcdir)/insn-addr.h $(srcdir)/varray.h
 C_COMMON_H = c-common.h $(SPLAY_TREE_H) $(CPPLIB_H)
@@ -689,6 +694,7 @@ ORDINARY_FLAGS_TO_PASS = \
 	"BISON=$(BISON)" \
 	"BISONFLAGS=$(BISONFLAGS)" \
 	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
+	"DESTDIR=$(DESTDIR)" \
 	"GCC_FOR_TARGET=$(GCC_FOR_TARGET)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"FLEX=$(FLEX)" \
@@ -699,7 +705,6 @@ ORDINARY_FLAGS_TO_PASS = \
 	"MAKEINFOFLAGS=$(MAKEINFOFLAGS)" \
 	"MAKEOVERRIDES=" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
-	"RANLIB_TEST_FOR_TARGET=$(RANLIB_TEST_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
 	"exeext=$(exeext)" \
 	"build_exeext=$(build_exeext)" \
@@ -737,7 +742,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
-  c-objc-common.o c-dump.o libcpp.a $(C_TARGET_OBJS) \
+  c-objc-common.o c-dump.o c-pch.o libcpp.a $(C_TARGET_OBJS) \
   c-simplify.o c-call-graph.o tree-mudflap.o c-mudflap.o c-pretty-print.o
 
 # Language-specific object files for C.
@@ -1069,7 +1074,6 @@ libgcc.a: $(LIBGCC_DEPS)
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
 	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  RANLIB_TEST_FOR_TARGET="$(RANLIB_TEST_FOR_TARGET)" \
 	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
 	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
 	  INCLUDES="$(INCLUDES)" \
@@ -1111,7 +1115,6 @@ stmp-multilib: $(LIBGCC_DEPS)
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
 	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
-	  RANLIB_TEST_FOR_TARGET="$(RANLIB_TEST_FOR_TARGET)" \
 	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
 	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
 	  INCLUDES="$(INCLUDES)" \
@@ -1177,14 +1180,14 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h diagnostic.h $(TM_P_H)
-c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+c-parse.o : $(parsedir)/c-parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(GGC_H) intl.h $(C_TREE_H) input.h flags.h toplev.h output.h $(CPPLIB_H) \
-    gt-c-parse.h
+    varray.h gt-c-parse.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
 
-$(srcdir)/c-parse.c: $(srcdir)/c-parse.y
-	cd $(srcdir) && \
+$(parsedir)/c-parse.c: $(parsedir)/c-parse.y
+	cd $(parsedir) && \
 	if $(BISON) $(BISONFLAGS) -o c-p$$$$.c c-parse.y; then \
 	  test -f c-p$$$$.output && mv -f c-p$$$$.output c-parse.output ; \
 	  mv -f c-p$$$$.c c-parse.c ; \
@@ -1193,12 +1196,12 @@ $(srcdir)/c-parse.c: $(srcdir)/c-parse.y
 	  false ; \
 	fi
 
-$(srcdir)/c-parse.y: c-parse.in
+$(parsedir)/c-parse.y: c-parse.in
 	echo '/*WARNING: This file is automatically generated!*/' >tmp-c-parse.y
 	sed -e "/^ifobjc$$/,/^end ifobjc$$/d" \
 	  -e "/^ifc$$/d" -e "/^end ifc$$/d" \
 	  $(srcdir)/c-parse.in >>tmp-c-parse.y
-	$(SHELL) $(srcdir)/move-if-change tmp-c-parse.y $(srcdir)/c-parse.y
+	$(SHELL) $(srcdir)/move-if-change tmp-c-parse.y $(parsedir)/c-parse.y
 
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
     $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
@@ -1219,7 +1222,7 @@ c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-    flags.h toplev.h $(C_COMMON_H)
+    flags.h toplev.h $(C_COMMON_H) real.h
 c-pragma.o: c-pragma.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
     function.h c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H) gt-c-pragma.h
 mbchar.o: mbchar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) mbchar.h
@@ -1250,7 +1253,7 @@ tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h 
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(OBSTACK_H) $(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) \
 	$(GGC_H) $(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h except.h gt-c-common.h real.h langhooks.h
+	diagnostic.h except.h gt-c-common.h real.h langhooks.h varray.h
 c-pretty-print.o : c-pretty-print.c c-pretty-print.h pretty-print.h \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) real.h
 
@@ -1273,6 +1276,9 @@ c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE
 
 c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(TREE_DUMP_H)
+
+c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(CPPLIB_H) $(TREE_H) \
+	c-common.h output.h toplev.h c-pragma.h $(GGC_H) debug.h
 
 # Language-independent files.
 
@@ -1353,18 +1359,17 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) varray.h 
 	libfuncs.h debug.h $(GGC_H) bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h \
 	ssa.h cselib.h insn-addr.h
 
-ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
-	flags.h $(GGC_H) varray.h $(HASHTAB_H) $(TM_P_H) langhooks.h \
-	$(PARAMS_H)
+ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GGC_H) \
+	$(HASHTAB_H) toplev.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
 
 ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
-	flags.h toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
+	flags.h toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
 
-stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-	$(OBSTACK_H) flags.h toplev.h $(GGC_H)
+stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	$(TREE_H) $(GGC_H) gt-stringpool.h
 
 hashtable.o: hashtable.c hashtable.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H)
 
@@ -1406,9 +1411,11 @@ stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE
    flags.h function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H) \
    langhooks.h
 tree-alias-ecr.o: tree-alias-ecr.c tree-alias-ecr.h disjoint-set.h \
-   tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H) $(TM_H) coretypes.h
+   tree-alias-type.h  $(SYSTEM_H) $(CONFIG_H) $(GGC_H) $(TM_H) coretypes.h \
+   $(VARRAY_H)
 tree-alias-type.o: tree-alias-type.c tree-alias-type.h $(SYSTEM_H) $(CONFIG_H) \
-   $(GGC_H) gt-tree-alias-type.h $(TM_H) coretypes.h
+   $(GGC_H) gt-tree-alias-type.h $(TM_H) coretypes.h \
+   $(VARRAY_H)
 tree-alias-ander.o: tree-alias-ander.c tree-alias-ander.h $(SYSTEM_H) \
    $(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) tree-alias-common.h \
    $(TM_H) coretypes.h
@@ -1539,14 +1546,15 @@ explow.o : explow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
    toplev.h function.h ggc.h $(TM_P_H) gt-explow.h
 optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h insn-config.h $(EXPR_H) $(OPTABS_H) libfuncs.h $(RECOG_H) reload.h \
-   toplev.h $(GGC_H) real.h $(TM_P_H) except.h gt-optabs.h
+   toplev.h $(GGC_H) real.h $(TM_P_H) except.h gt-optabs.h $(BASIC_BLOCK_H)
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    flags.h $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
-   insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h
+   insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h \
+   $(GGC_H) gt-dbxout.h
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    flags.h function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) real.h \
-   insn-config.h xcoffout.h c-pragma.h ggc.h $(TARGET_H) \
+   insn-config.h xcoffout.h c-pragma.h $(GGC_H) $(TARGET_H) \
    sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h gt-sdbout.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) dwarf.h flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
@@ -1556,7 +1564,7 @@ dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) 
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
    $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) gt-dwarf2out.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) flags.h $(RTL_H) \
-   $(TREE_H) output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
+   $(TREE_H) output.h dwarf2asm.h $(TM_P_H) $(GGC_H) gt-dwarf2asm.h
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) flags.h output.h vmsdbg.h debug.h langhooks.h function.h $(TARGET_H)
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
@@ -1632,7 +1640,7 @@ flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(RECOG_H) function.h except.h $(EXPR_H) ssa.h $(GGC_H) $(TM_P_H)
 cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
-   function.h except.h $(GGC_H) $(TM_P_H)
+   function.h except.h $(GGC_H) $(TM_P_H) alloc-pool.h
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) insn-config.h
@@ -1739,7 +1747,7 @@ cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h
 timevar.o : timevar.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TIMEVAR_H) flags.h \
-   intl.h
+   intl.h toplev.h
 regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h $(RECOG_H) function.h \
    resource.h $(OBSTACK_H) flags.h $(TM_P_H)
@@ -1947,26 +1955,26 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
-GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h \
-  $(host_xm_file_list) $(tm_file_list) $(HASHTAB_H) \
+GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
+  $(host_xm_file_list) $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h $(srcdir)/real.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
+  $(srcdir)/basic-block.h $(srcdir)/location.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/disjoint-set.h \
-  $(srcdir)/basic-block.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
-  $(srcdir)/dependence.c $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c \
-  $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
+  $(srcdir)/dependence.c  \
+  $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
+  $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/fold-const.c $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
-  $(srcdir)/disjoint-set.c \
-  $(srcdir)/tree.c $(srcdir)/tree-mudflap.c $(srcdir)/varasm.c \
+  $(srcdir)/disjoint-set.c $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
-  $(srcdir)/tree-flow.h \
+  $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(out_file) \
   @all_gtfiles@
 
@@ -1980,34 +1988,34 @@ gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
-gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
+gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h gt-dbxout.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-tree-alias-common.h : s-gtype ; @true
 gt-tree-alias-type.h : s-gtype ; @true
 gt-tree-mudflap.h : s-gtype ; @true
-gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
+gt-c-objc-common.h gtype-c.h gt-location.h gt-stringpool.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h
-	echo "static const char *srcdir = "  >> tmp-gtyp.h
+	echo "static const char *const srcdir = "  >> tmp-gtyp.h
 	echo "\"$(GTFILES_SRCDIR)\"" >> tmp-gtyp.h
 	echo ";" >> tmp-gtyp.h
-	echo "static const char *lang_files[] = {" >> tmp-gtyp.h
+	echo "static const char *const lang_files[] = {" >> tmp-gtyp.h
 	ll="$(GTFILES_FILES_FILES)"; \
 	for f in $$ll; do \
 	echo "\"$$f\", "; done >> tmp-gtyp.h
 	echo "NULL};" >> tmp-gtyp.h
-	echo "static const char *langs_for_lang_files[] = {" >> tmp-gtyp.h
+	echo "static const char *const langs_for_lang_files[] = {" >> tmp-gtyp.h
 	ff="$(GTFILES_FILES_LANGS)"; \
 	for f in $$ff; do \
 	echo "\"$$f\", " ; done  >> tmp-gtyp.h
 	echo "NULL};" >> tmp-gtyp.h
-	echo "static const char *all_files[] = {" >> tmp-gtyp.h
+	echo "static const char *const all_files[] = {" >> tmp-gtyp.h
 	gf="$(GTFILES)"; \
 	for f in $$gf; do \
 	echo "\"$$f\", "; done >> tmp-gtyp.h
 	echo " NULL};" >> tmp-gtyp.h
-	echo "static const char *lang_dir_names[] = { \"c\", " >> tmp-gtyp.h
+	echo "static const char *const lang_dir_names[] = { \"c\", " >> tmp-gtyp.h
 	gf="$(GTFILES_LANG_DIR_NAMES)"; \
 	for l in $$gf; do \
 	echo "\"$$l\", "; done >> tmp-gtyp.h
@@ -2188,32 +2196,35 @@ gengtype.o : gengtype.c gengtype.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H)
 	$(BUILD_CC) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
 
-gengtype-lex.o : $(srcdir)/gengtype-lex.c gengtype.h $(srcdir)/gengtype-yacc.c \
+gengtype-lex.o : $(parsedir)/gengtype-lex.c gengtype.h $(parsedir)/gengtype-yacc.c \
   $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)
 	$(BUILD_CC) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
-	  $(srcdir)/gengtype-lex.c $(OUTPUT_OPTION)
+	  $(parsedir)/gengtype-lex.c $(OUTPUT_OPTION)
 
-gengtype-yacc.o : $(srcdir)/gengtype-yacc.c gengtype.h $(BCONFIG_H) $(SYSTEM_H) \
+gengtype-yacc.o : $(parsedir)/gengtype-yacc.c gengtype.h $(BCONFIG_H) $(SYSTEM_H) \
   coretypes.h $(GTM_H)
 	$(BUILD_CC) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
-	  $(srcdir)/gengtype-yacc.c $(OUTPUT_OPTION)
+	  $(parsedir)/gengtype-yacc.c $(OUTPUT_OPTION)
 
 # The sed command works around a bug in flex-2.5.4.
-$(srcdir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
-	cd $(srcdir) && \
-	$(FLEX) $(FLEXFLAGS) -t -o$@ gengtype-lex.l | \
+$(parsedir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
+	$(FLEX) $(FLEXFLAGS) -t -o- $(srcdir)/gengtype-lex.l | \
 	  sed 's/^\(char msg\[\];\)/yyconst \1/' > g-$$$$ ; \
 	if test $$? -eq 0 ; then \
-	  mv -f g-$$$$ gengtype-lex.c ; \
+	  mv -f g-$$$$ $(parsedir)/gengtype-lex.c ; \
 	else \
-	  rm -f g-$$$$.* ; \
+	  rm -f g-$$$$ ; \
 	  false ; \
 	fi
 
-$(srcdir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
-	(cd $(srcdir) && \
-	 $(BISON) $(BISONFLAGS) -d -o gengtype-yacc.c gengtype-yacc.y || \
-	 ( rm -f $@ && false ) )
+$(parsedir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
+	if $(BISON) $(BISONFLAGS) -d -o g-yacc.$$$$.c $(srcdir)/gengtype-yacc.y; then \
+	  mv -f g-yacc.$$$$.h $(parsedir)/gengtype-yacc.h; \
+	  mv -f g-yacc.$$$$.c $(parsedir)/gengtype-yacc.c; \
+	else \
+	  rm -f g-yacc.$$$$.*; \
+	  false; \
+	fi
 
 genconditions$(build_exeext) : genconditions.o $(BUILD_EARLY_SUPPORT) \
   $(BUILD_RTL) $(BUILD_ERRORS) $(BUILD_LIBDEPS)
@@ -2291,7 +2302,7 @@ intl.all intl.install: config.h insn-flags.h insn-constants.h
 
 # Make-lang.in should add dependencies of po-generated on any generated
 # files which need to be scanned by gettext (usually Yacc-generated parsers).
-po-generated: c-parse.c
+po-generated: $(parsedir)/c-parse.c
 
 #
 # Remake cpp and protoize.
@@ -2307,7 +2318,7 @@ PREPROCESSOR_DEFINES = \
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
 		cpphash.o cpperror.o cppinit.o cppdefault.o cppmain.o \
-		hashtable.o line-map.o mkdeps.o prefix.o mbchar.o
+		hashtable.o line-map.o mkdeps.o prefix.o mbchar.o cpppch.o
 
 LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
 		$(OBSTACK_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
@@ -2330,6 +2341,7 @@ cpphash.o:  cpphash.c  $(LIBCPP_DEPS)
 cpptrad.o:  cpptrad.c  $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
 cppinit.o:  cppinit.c  $(LIBCPP_DEPS) cppdefault.h mkdeps.h prefix.h
+cpppch.o:   cpppch.c   $(LIBCPP_DEPS) mkdeps.h
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) cppdefault.h \
 	Makefile
@@ -2481,7 +2493,7 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 
 .PHONY: install-gcc-tooldir
 install-gcc-tooldir:
-	$(SHELL) ${srcdir}/mkinstalldirs $(gcc_tooldir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(gcc_tooldir)
 
 # Build fixed copies of system files.
 stmp-fixinc: fixinc.sh gsyslimits.h
@@ -2591,7 +2603,7 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 docdir = $(srcdir)/doc
 
 doc: $(BUILD_INFO) $(GENERATED_MANPAGES) gccbug
-info: $(docdir)/cpp.info $(docdir)/gcc.info $(docdir)/gccint.info $(docdir)/gccinstall.info lang.info $(docdir)/cppinternals.info
+info: $(docobjdir)/cpp.info $(docobjdir)/gcc.info $(docobjdir)/gccint.info $(docobjdir)/gccinstall.info lang.info $(docobjdir)/cppinternals.info
 
 TEXI_CPP_FILES = $(docdir)/cpp.texi $(docdir)/include/fdl.texi \
   $(docdir)/cppenv.texi $(docdir)/cppopts.texi
@@ -2625,21 +2637,25 @@ TEXI_GCCINSTALL_FILES = $(docdir)/install.texi $(docdir)/install-old.texi \
 
 TEXI_CPPINT_FILES = $(docdir)/cppinternals.texi
 
-$(docdir)/cpp.info: $(TEXI_CPP_FILES)
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/cpp.info doc/cpp.texi
+$(docobjdir)/cpp.info: $(TEXI_CPP_FILES)
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
+	  -o $@ $(docdir)/cpp.texi
 
-$(docdir)/gcc.info: $(TEXI_GCC_FILES)
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gcc.info doc/gcc.texi
+$(docobjdir)/gcc.info: $(TEXI_GCC_FILES)
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
+	  -o $@ $(docdir)/gcc.texi
 
-$(docdir)/gccint.info: $(TEXI_GCCINT_FILES)
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gccint.info doc/gccint.texi
+$(docobjdir)/gccint.info: $(TEXI_GCCINT_FILES)
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
+	  -o $@ $(docdir)/gccint.texi
 
-$(docdir)/gccinstall.info: $(TEXI_GCCINSTALL_FILES)
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/gccinstall.info doc/install.texi
+$(docobjdir)/gccinstall.info: $(TEXI_GCCINSTALL_FILES)
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
+	  -o $@ $(docdir)/install.texi
 
-$(docdir)/cppinternals.info: $(TEXI_CPPINT_FILES)
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -I doc -I doc/include -o doc/cppinternals.info \
-		doc/cppinternals.texi
+$(docobjdir)/cppinternals.info: $(TEXI_CPPINT_FILES)
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir) -I $(docdir)/include \
+	  -o $@ $(docdir)/cppinternals.texi
 
 dvi: gcc.dvi gccint.dvi gccinstall.dvi cpp.dvi lang.dvi cppinternals.dvi
 
@@ -2660,59 +2676,59 @@ gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 cppinternals.dvi: $(TEXI_CPPINT_FILES)
 	$(TEXI2DVI) -I $(docdir) -I $(docdir)/include $(docdir)/cppinternals.texi
 
-generated-manpages: $(docdir)/gcov.1 $(docdir)/cpp.1 $(docdir)/gcc.1 \
-	 $(docdir)/gfdl.7 $(docdir)/gpl.7 $(docdir)/fsf-funding.7 \
+generated-manpages: $(docobjdir)/gcov.1 $(docobjdir)/cpp.1 $(docobjdir)/gcc.1 \
+	 $(docobjdir)/gfdl.7 $(docobjdir)/gpl.7 $(docobjdir)/fsf-funding.7 \
 	 lang.generated-manpages
 
-$(docdir)/gcov.1: $(docdir)/gcov.texi
-	$(STAMP) $(docdir)/gcov.1
+$(docobjdir)/gcov.1: $(docdir)/gcov.texi
+	$(STAMP) $(docobjdir)/gcov.1
 	-$(TEXI2POD) $(docdir)/gcov.texi > gcov.pod
-	-($(POD2MAN) --section=1 gcov.pod > $(docdir)/gcov.1.T$$$$ && \
-		mv -f $(docdir)/gcov.1.T$$$$ $(docdir)/gcov.1) || \
-		(rm -f $(docdir)/gcov.1.T$$$$ && exit 1)
+	-($(POD2MAN) --section=1 gcov.pod > $(docobjdir)/gcov.1.T$$$$ && \
+		mv -f $(docobjdir)/gcov.1.T$$$$ $(docobjdir)/gcov.1) || \
+		(rm -f $(docobjdir)/gcov.1.T$$$$ && exit 1)
 	-rm -f gcov.pod
 
-$(docdir)/cpp.1: $(docdir)/cpp.texi $(docdir)/cppenv.texi \
+$(docobjdir)/cpp.1: $(docdir)/cpp.texi $(docdir)/cppenv.texi \
   $(docdir)/cppopts.texi
-	$(STAMP) $(docdir)/cpp.1
+	$(STAMP) $(docobjdir)/cpp.1
 	-$(TEXI2POD) $(docdir)/cpp.texi > cpp.pod
-	-($(POD2MAN) --section=1 cpp.pod > $(docdir)/cpp.1.T$$$$ && \
-		mv -f $(docdir)/cpp.1.T$$$$ $(docdir)/cpp.1) || \
-		(rm -f $(docdir)/cpp.1.T$$$$ && exit 1)
+	-($(POD2MAN) --section=1 cpp.pod > $(docobjdir)/cpp.1.T$$$$ && \
+		mv -f $(docobjdir)/cpp.1.T$$$$ $(docobjdir)/cpp.1) || \
+		(rm -f $(docobjdir)/cpp.1.T$$$$ && exit 1)
 	-rm -f cpp.pod
 
-$(docdir)/gcc.1: $(docdir)/invoke.texi $(docdir)/cppenv.texi \
+$(docobjdir)/gcc.1: $(docdir)/invoke.texi $(docdir)/cppenv.texi \
   $(docdir)/cppopts.texi
-	$(STAMP) $(docdir)/gcc.1
+	$(STAMP) $(docobjdir)/gcc.1
 	-$(TEXI2POD) $(docdir)/invoke.texi > gcc.pod
-	-($(POD2MAN) --section=1 gcc.pod > $(docdir)/gcc.1.T$$$$ && \
-		mv -f $(docdir)/gcc.1.T$$$$ $(docdir)/gcc.1) || \
-		(rm -f $(docdir)/gcc.1.T$$$$ && exit 1)
+	-($(POD2MAN) --section=1 gcc.pod > $(docobjdir)/gcc.1.T$$$$ && \
+		mv -f $(docobjdir)/gcc.1.T$$$$ $(docobjdir)/gcc.1) || \
+		(rm -f $(docobjdir)/gcc.1.T$$$$ && exit 1)
 	-rm -f gcc.pod
 
-$(docdir)/gfdl.7: $(docdir)/include/fdl.texi
-	$(STAMP) $(docdir)/gfdl.7
+$(docobjdir)/gfdl.7: $(docdir)/include/fdl.texi
+	$(STAMP) $(docobjdir)/gfdl.7
 	-$(TEXI2POD) $(docdir)/include/fdl.texi > gfdl.pod
-	-($(POD2MAN) --section=7 gfdl.pod > $(docdir)/gfdl.7.T$$$$ && \
-		mv -f $(docdir)/gfdl.7.T$$$$ $(docdir)/gfdl.7) || \
-		(rm -f $(docdir)/gfdl.7.T$$$$ && exit 1)
+	-($(POD2MAN) --section=7 gfdl.pod > $(docobjdir)/gfdl.7.T$$$$ && \
+		mv -f $(docobjdir)/gfdl.7.T$$$$ $(docobjdir)/gfdl.7) || \
+		(rm -f $(docobjdir)/gfdl.7.T$$$$ && exit 1)
 	-rm -f gfdl.pod
 
-$(docdir)/gpl.7: $(docdir)/include/gpl.texi
-	$(STAMP) $(docdir)/gpl.7
+$(docobjdir)/gpl.7: $(docdir)/include/gpl.texi
+	$(STAMP) $(docobjdir)/gpl.7
 	-$(TEXI2POD) $(docdir)/include/gpl.texi > gpl.pod
-	-($(POD2MAN) --section=7 gpl.pod > $(docdir)/gpl.7.T$$$$ && \
-		mv -f $(docdir)/gpl.7.T$$$$ $(docdir)/gpl.7) || \
-		(rm -f $(docdir)/gpl.7.T$$$$ && exit 1)
+	-($(POD2MAN) --section=7 gpl.pod > $(docobjdir)/gpl.7.T$$$$ && \
+		mv -f $(docobjdir)/gpl.7.T$$$$ $(docobjdir)/gpl.7) || \
+		(rm -f $(docobjdir)/gpl.7.T$$$$ && exit 1)
 	-rm -f gpl.pod
 
-$(docdir)/fsf-funding.7: $(docdir)/include/funding.texi
-	$(STAMP) $(docdir)/fsf-funding.7
+$(docobjdir)/fsf-funding.7: $(docdir)/include/funding.texi
+	$(STAMP) $(docobjdir)/fsf-funding.7
 	-$(TEXI2POD) $(docdir)/include/funding.texi > fsf-funding.pod
 	-($(POD2MAN) --section=7 fsf-funding.pod \
-		> $(docdir)/fsf-funding.7.T$$$$ && \
-	    mv -f $(docdir)/fsf-funding.7.T$$$$ $(docdir)/fsf-funding.7) || \
-	    (rm -f $(docdir)/fsf-funding.7.T$$$$ && exit 1)
+		> $(docobjdir)/fsf-funding.7.T$$$$ && \
+	    mv -f $(docobjdir)/fsf-funding.7.T$$$$ $(docobjdir)/fsf-funding.7) || \
+	    (rm -f $(docobjdir)/fsf-funding.7.T$$$$ && exit 1)
 	-rm -f fsf-funding.pod
 
 #
@@ -2853,10 +2869,10 @@ maintainer-clean:
 	-rm -f c-parse.y c-parse.c c-parse.output TAGS
 	-rm -f cpp.??s cpp.*aux
 	-rm -f gcc.??s gcc.*aux
-	-rm -f $(docdir)/cpp.info* $(docdir)/gcc.info* $(docdir)/gccint.info*
-	-rm -f $(docdir)/cppinternals.info*
-	-rm -f $(docdir)/gcov.1 $(docdir)/cpp.1 $(docdir)/gcc.1
-	-rm -f $(docdir)/fsf-funding.7 $(docdir)/gfdl.7 $(docdir)/gpl.7
+	-rm -f $(docobjdir)/cpp.info* $(docobjdir)/gcc.info* $(docobjdir)/gccint.info*
+	-rm -f $(docobjdir)/cppinternals.info*
+	-rm -f $(docobjdir)/gcov.1 $(docobjdir)/cpp.1 $(docobjdir)/gcc.1
+	-rm -f $(docobjdir)/fsf-funding.7 $(docobjdir)/gfdl.7 $(docobjdir)/gpl.7
 #
 # Entry points `install' and `uninstall'.
 # Also use `install-collect2' to install collect2 when the config files don't.
@@ -2871,188 +2887,172 @@ install: install-common $(INSTALL_HEADERS) $(INSTALL_LIBGCC) \
 # Handle cpp installation.
 install-cpp: cpp$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
-	  rm -f $(bindir)/$(CPP_CROSS_NAME)$(exeext); \
-	  $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(bindir)/$(CPP_CROSS_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(CPP_CROSS_NAME)$(exeext); \
+	  $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(bindir)/$(CPP_CROSS_NAME)$(exeext); \
 	  if [ x$(cpp_install_dir) != x ]; then \
-	    rm -f $(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
+	    rm -f $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
 	  else true; fi; \
 	else \
-	  rm -f $(bindir)/$(CPP_INSTALL_NAME)$(exeext); \
-	  $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(bindir)/$(CPP_INSTALL_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext); \
+	  $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext); \
 	  if [ x$(cpp_install_dir) != x ]; then \
-	    rm -f $(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
-	    $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
+	    rm -f $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) -m 755 cpp$(exeext) $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
 	  else true; fi; \
 	fi
 
 # Create the installation directories.
+# $(libdir)/gcc-lib/include isn't currently searched by cpp.
 installdirs:
-	-if [ -d $(prefix) ] ; then true ; else mkdir $(prefix) ; chmod a+rx $(prefix) ; fi
-	-if [ -d $(exec_prefix) ] ; then true ; else mkdir $(exec_prefix) ; chmod a+rx $(exec_prefix) ; fi
-	-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; chmod a+rx $(libdir) ; fi
-	-if [ -d $(libdir)/gcc-lib ] ; then true ; else mkdir $(libdir)/gcc-lib ; chmod a+rx $(libdir)/gcc-lib ; fi
-# This dir isn't currently searched by cpp.
-#	-if [ -d $(libdir)/gcc-lib/include ] ; then true ; else mkdir $(libdir)/gcc-lib/include ; chmod a+rx $(libdir)/gcc-lib/include ; fi
-	-fdir= ; for dir in `echo $(libsubdir) | tr '/' ' '`; do \
-	  fdir=$${fdir}/$${dir}; \
-	  if [ -d $${fdir} ] ; then true ; else mkdir $${fdir}; chmod a+rx $${fdir}; fi ; \
-	done
-	-if [ -d $(bindir) ] ; then true ; else mkdir $(bindir) ; chmod a+rx $(bindir) ; fi
-	-if [ -d $(includedir) ] ; then true ; else mkdir $(includedir) ; chmod a+rx $(includedir) ; fi
-	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; chmod a+rx $(infodir) ; fi
-	-if [ -d $(slibdir) ] ; then true ; else mkdir $(slibdir) ; chmod a+rx $(slibdir) ; fi
-# We don't use mkdir -p to create the parents of man1dir,
-# because some systems don't support it.
-# Instead, we use this technique to create the immediate parent of man1dir.
-	-parent=`echo $(man1dir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; chmod a+rx $$parent ; fi
-	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; chmod a+rx $(man1dir) ; fi
-	-if [ -d $(man7dir) ] ; then true ; else mkdir $(man7dir) ; chmod a+rx $(man7dir) ; fi
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(libsubdir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(bindir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(includedir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(infodir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(slibdir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(man1dir)
+	$(SHELL) ${srcdir}/mkinstalldirs $(DESTDIR)$(man7dir)
 
 # Install the compiler executables built during cross compilation.
 install-common: native $(EXTRA_PARTS) lang.install-common
 	for file in $(COMPILERS); do \
 	  if [ -f $$file ] ; then \
-	    rm -f $(libsubdir)/$$file; \
-	    $(INSTALL_PROGRAM) $$file $(libsubdir)/$$file; \
+	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
+	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libsubdir)/$$file; \
 	  else true; \
 	  fi; \
 	done
 	for file in $(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(USE_COLLECT2) ..; do \
 	  if [ x"$$file" != x.. ]; then \
-	    rm -f $(libsubdir)/$$file; \
-	    $(INSTALL_PROGRAM) $$file $(libsubdir)/$$file; \
+	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
+	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libsubdir)/$$file; \
 	  else true; fi; \
 	done
 	for file in $(EXTRA_PARTS) ..; do \
 	  if [ x"$$file" != x.. ]; then \
-	    rm -f $(libsubdir)/$$file; \
-	    $(INSTALL_DATA) $$file $(libsubdir)/$$file; \
-	    chmod a-x $(libsubdir)/$$file; \
+	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
+	    $(INSTALL_DATA) $$file $(DESTDIR)$(libsubdir)/$$file; \
+	    chmod a-x $(DESTDIR)$(libsubdir)/$$file; \
 	  else true; fi; \
 	done
 # Don't mess with specs if it doesn't exist yet.
 	-if [ -f specs ] ; then \
-	  rm -f $(libsubdir)/specs; \
-	  $(INSTALL_DATA) specs $(libsubdir)/specs; \
-	  chmod a-x $(libsubdir)/specs; \
+	  rm -f $(DESTDIR)$(libsubdir)/specs; \
+	  $(INSTALL_DATA) specs $(DESTDIR)$(libsubdir)/specs; \
+	  chmod a-x $(DESTDIR)$(libsubdir)/specs; \
 	fi
 # Install protoize if it was compiled.
 	-if [ -f protoize$(exeext) ]; \
 	then \
 	    if [ -f gcc-cross$(exeext) ] ; then \
-		rm -f $(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext); \
-		$(INSTALL_PROGRAM) protoize$(exeext) $(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext); \
-		rm -f $(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext); \
-		$(INSTALL_PROGRAM) unprotoize$(exeext) $(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext); \
+		rm -f $(DESTDIR)$(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext); \
+		$(INSTALL_PROGRAM) protoize$(exeext) $(DESTDIR)$(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext); \
+		rm -f $(DESTDIR)$(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext); \
+		$(INSTALL_PROGRAM) unprotoize$(exeext) $(DESTDIR)$(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext); \
 	    else \
-		rm -f $(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext); \
-		$(INSTALL_PROGRAM) protoize$(exeext) $(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext); \
-		rm -f $(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext); \
-		$(INSTALL_PROGRAM) unprotoize$(exeext) $(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext); \
+		rm -f $(DESTDIR)$(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext); \
+		$(INSTALL_PROGRAM) protoize$(exeext) $(DESTDIR)$(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext); \
+		rm -f $(DESTDIR)$(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext); \
+		$(INSTALL_PROGRAM) unprotoize$(exeext) $(DESTDIR)$(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext); \
 	    fi ; \
-	    rm -f $(libsubdir)/SYSCALLS.c.X; \
-	    $(INSTALL_DATA) SYSCALLS.c.X $(libsubdir)/SYSCALLS.c.X; \
-	    chmod a-x $(libsubdir)/SYSCALLS.c.X; \
+	    rm -f $(DESTDIR)$(libsubdir)/SYSCALLS.c.X; \
+	    $(INSTALL_DATA) SYSCALLS.c.X $(DESTDIR)$(libsubdir)/SYSCALLS.c.X; \
+	    chmod a-x $(DESTDIR)$(libsubdir)/SYSCALLS.c.X; \
 	fi
 # Install gcov if it was compiled.
 	-if [ -f gcov$(exeext) ]; \
 	then \
-	    rm -f $(bindir)/gcov$(exeext); \
-	    $(INSTALL_PROGRAM) gcov$(exeext) $(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \
+	    rm -f $(DESTDIR)$(bindir)/gcov$(exeext); \
+	    $(INSTALL_PROGRAM) gcov$(exeext) $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \
 	fi
-	$(INSTALL_SCRIPT) gccbug $(bindir)/$(GCCBUG_INSTALL_NAME)
+	$(INSTALL_SCRIPT) gccbug $(DESTDIR)$(bindir)/$(GCCBUG_INSTALL_NAME)
 
 # Install the driver program as $(target_alias)-gcc, 
 # $(target-alias)-gcc-$(version)
 # and also as either gcc (if native) or $(gcc_tooldir)/bin/gcc.
 install-driver: installdirs xgcc$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
-	  rm -f $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
-	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
-	  rm -f $(bindir)/$(target_alias)-gcc-$(version); \
-	  $(LN) $(bindir)/$(GCC_CROSS_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
-	  if [ -d $(gcc_tooldir)/bin/. ] ; then \
-	    rm -f $(gcc_tooldir)/bin/gcc$(exeext); \
-	    $(INSTALL_PROGRAM) gcc-cross$(exeext) $(gcc_tooldir)/bin/gcc$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext); \
+	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-$(version); \
+	  ( cd $(DESTDIR)$(bindir) && \
+	    $(LN) $(GCC_CROSS_NAME)$(exeext) $(target_alias)-gcc-$(version) ); \
+	  if [ -d $(DESTDIR)$(gcc_tooldir)/bin/. ] ; then \
+	    rm -f $(DESTDIR)$(gcc_tooldir)/bin/gcc$(exeext); \
+	    $(INSTALL_PROGRAM) gcc-cross$(exeext) $(DESTDIR)$(gcc_tooldir)/bin/gcc$(exeext); \
 	  else true; fi; \
 	else \
-	  rm -f $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
-	  $(INSTALL_PROGRAM) xgcc$(exeext) $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
-	  rm -f $(bindir)/$(target_alias)-gcc-$(version); \
-	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
-	  rm -f $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
-	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
-	  mv $(bindir)/$(target_alias)-gcc-tmp$(exeext) $(bindir)/$(GCC_TARGET_INSTALL_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
+	  $(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-$(version); \
+	  ( cd $(DESTDIR)$(bindir) && \
+	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_alias)-gcc-$(version) ); \
+	  rm -f $(DESTDIR)$(bindir)/$(target_alias)-gcc-tmp$(exeext); \
+	  ( cd $(DESTDIR)$(bindir) && \
+	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_alias)-gcc-tmp$(exeext) && \
+	    mv -f $(target_alias)-gcc-tmp$(exeext) $(GCC_TARGET_INSTALL_NAME)$(exeext) ); \
 	fi
 
 # Install the info files.
 # $(INSTALL_DATA) might be a relative pathname, so we can't cd into srcdir
 # to do the install.
 install-info: doc installdirs lang.install-info
-	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-rm -f $(infodir)/cppinternals.info* $(infodir)/gccint.info*
-	if [ -f $(docdir)/gcc.info ]; then \
-	  for f in $(docdir)/cpp.info* $(docdir)/gcc.info* \
-		$(docdir)/cppinternals.info* $(docdir)/gccint.info*; do \
+	-rm -f $(DESTDIR)$(infodir)/cpp.info* $(DESTDIR)$(infodir)/gcc.info*
+	-rm -f $(DESTDIR)$(infodir)/cppinternals.info* $(DESTDIR)$(infodir)/gccint.info*
+	if [ -f $(docobjdir)/gcc.info ]; then \
+	  for f in $(docobjdir)/cpp.info* $(docobjdir)/gcc.info* \
+		$(docobjdir)/cppinternals.info* $(docobjdir)/gccint.info*; do \
 	    realfile=`echo $$f | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
-	    $(INSTALL_DATA) $$f $(infodir)/$$realfile; \
+	    $(INSTALL_DATA) $$f $(DESTDIR)$(infodir)/$$realfile; \
 	  done; \
 	else true; fi
 	-if $(SHELL) -c 'install-info --version' >/dev/null 2>&1; then \
-	  if [ -f $(infodir)/dir ] ; then \
+	  if [ -f $(DESTDIR)$(infodir)/dir ] ; then \
 	    for f in cpp.info gcc.info gccint.info cppinternals.info; do \
-		if [ -f $(infodir)/$$f ]; then \
-		  install-info --dir-file=$(infodir)/dir $(infodir)/$$f; \
+		if [ -f $(DESTDIR)$(infodir)/$$f ]; then \
+		  install-info --dir-file=$(DESTDIR)$(infodir)/dir $(DESTDIR)$(infodir)/$$f; \
 		else true; fi; \
 	    done; \
 	  else true; fi; \
 	else true; fi;
-	-chmod a-x $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-chmod a-x $(infodir)/cppinternals.info* $(infodir)/gccint.info*
+	-chmod a-x $(DESTDIR)$(infodir)/cpp.info* $(DESTDIR)$(infodir)/gcc.info*
+	-chmod a-x $(DESTDIR)$(infodir)/cppinternals.info* $(DESTDIR)$(infodir)/gccint.info*
 
 # Install the man pages.
 install-man: installdirs $(GENERATED_MANPAGES) lang.install-man
 	-if [ -f gcc-cross$(exeext) ] ; then \
-	  rm -f $(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
-	  $(INSTALL_DATA) $(docdir)/gcc.1 $(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
-	  chmod a-x $(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
+	  rm -f $(DESTDIR)$(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
+	  $(INSTALL_DATA) $(docobjdir)/gcc.1 $(DESTDIR)$(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
+	  chmod a-x $(DESTDIR)$(man1dir)/$(GCC_CROSS_NAME)$(man1ext); \
 	else \
-	  rm -f $(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
-	  $(INSTALL_DATA) $(docdir)/gcc.1 $(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
-	  chmod a-x $(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
+	  rm -f $(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
+	  $(INSTALL_DATA) $(docobjdir)/gcc.1 $(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
+	  chmod a-x $(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext); \
 	fi
-	-rm -f $(man1dir)/cpp$(man1ext)
-	-$(INSTALL_DATA) $(docdir)/cpp.1 $(man1dir)/cpp$(man1ext)
-	-chmod a-x $(man1dir)/cpp$(man1ext)
-	-rm -f $(man1dir)/gcov$(man1ext)
-	-$(INSTALL_DATA) $(docdir)/gcov.1 $(man1dir)/gcov$(man1ext)
-	-chmod a-x $(man1dir)/gcov$(man1ext)
-	-rm -f $(man7dir)/fsf-funding$(man7ext)
-	-$(INSTALL_DATA) $(docdir)/fsf-funding.7 $(man7dir)/fsf-funding$(man7ext)
-	-chmod a-x $(man7dir)/fsf-funding$(man7ext)
-	-rm -f $(man7dir)/gfdl$(man7ext)
-	-$(INSTALL_DATA) $(docdir)/gfdl.7 $(man7dir)/gfdl$(man7ext)
-	-chmod a-x $(man7dir)/gfdl$(man7ext)
-	-rm -f $(man7dir)/gpl$(man7ext)
-	-$(INSTALL_DATA) $(docdir)/gpl.7 $(man7dir)/gpl$(man7ext)
-	-chmod a-x $(man7dir)/gpl$(man7ext)
+	-rm -f $(DESTDIR)$(man1dir)/cpp$(man1ext)
+	-$(INSTALL_DATA) $(docobjdir)/cpp.1 $(DESTDIR)$(man1dir)/cpp$(man1ext)
+	-chmod a-x $(DESTDIR)$(man1dir)/cpp$(man1ext)
+	-rm -f $(DESTDIR)$(man1dir)/gcov$(man1ext)
+	-$(INSTALL_DATA) $(docobjdir)/gcov.1 $(DESTDIR)$(man1dir)/gcov$(man1ext)
+	-chmod a-x $(DESTDIR)$(man1dir)/gcov$(man1ext)
+	-rm -f $(DESTDIR)$(man7dir)/fsf-funding$(man7ext)
+	-$(INSTALL_DATA) $(docobjdir)/fsf-funding.7 $(DESTDIR)$(man7dir)/fsf-funding$(man7ext)
+	-chmod a-x $(DESTDIR)$(man7dir)/fsf-funding$(man7ext)
+	-rm -f $(DESTDIR)$(man7dir)/gfdl$(man7ext)
+	-$(INSTALL_DATA) $(docobjdir)/gfdl.7 $(DESTDIR)$(man7dir)/gfdl$(man7ext)
+	-chmod a-x $(DESTDIR)$(man7dir)/gfdl$(man7ext)
+	-rm -f $(DESTDIR)$(man7dir)/gpl$(man7ext)
+	-$(INSTALL_DATA) $(docobjdir)/gpl.7 $(DESTDIR)$(man7dir)/gpl$(man7ext)
+	-chmod a-x $(DESTDIR)$(man7dir)/gpl$(man7ext)
 
 # Install the library.
 install-libgcc: libgcc.mk libgcc.a installdirs
-	if $(RANLIB_TEST_FOR_TARGET); then \
-	  r_f_t=$(RANLIB_FOR_TARGET); \
-	else \
-	  r_f_t=: ; \
-	fi; \
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
 	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  RANLIB_TEST_FOR_TARGET="$(RANLIB_TEST_FOR_TARGET)" \
 	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
 	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
 	  INCLUDES="$(INCLUDES)" \
@@ -3060,25 +3060,20 @@ install-libgcc: libgcc.mk libgcc.a installdirs
 	  LIB1ASMSRC='$(LIB1ASMSRC)' \
 	  MAKEOVERRIDES= \
 	  INSTALL_DATA="$(INSTALL_DATA)" \
-	  RANLIB_FOR_TARGET="$$r_f_t" \
+	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
+	  DESTDIR="$(DESTDIR)" \
 	  libsubdir="$(libsubdir)" \
 	  slibdir="$(slibdir)" \
 	  -f libgcc.mk install
 
 # Install multiple versions of libgcc.a.
 install-multilib: stmp-multilib installdirs
-	if $(RANLIB_TEST_FOR_TARGET); then \
-	  r_f_t=$(RANLIB_FOR_TARGET); \
-	else \
-	  r_f_t=: ; \
-	fi; \
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  BUILD_PREFIX="$(BUILD_PREFIX)" BUILD_PREFIX_1="$(BUILD_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
 	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  RANLIB_TEST_FOR_TARGET="$(RANLIB_TEST_FOR_TARGET)" \
 	  NM_FOR_TARGET="$(NM_FOR_TARGET)" AWK="$(AWK)" \
 	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" \
 	  INCLUDES="$(INCLUDES)" \
@@ -3086,7 +3081,8 @@ install-multilib: stmp-multilib installdirs
 	  LIB1ASMSRC='$(LIB1ASMSRC)' \
 	  MAKEOVERRIDES= \
 	  INSTALL_DATA="$(INSTALL_DATA)" \
-	  RANLIB_FOR_TARGET="$$r_f_t" \
+	  RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
+	  DESTDIR="$(DESTDIR)" \
 	  libsubdir="$(libsubdir)" \
 	  slibdir="$(slibdir)" \
 	  -f libgcc.mk install
@@ -3096,23 +3092,23 @@ install-headers: $(INSTALL_HEADERS_DIR)
 # Fix symlinks to absolute paths in the installed include directory to
 # point to the installed directory, not the build directory.
 # Don't need to use LN_S here since we really do need ln -s and no substitutes.
-	-files=`cd $(libsubdir)/include; find . -type l -print 2>/dev/null`; \
+	-files=`cd $(DESTDIR)$(libsubdir)/include; find . -type l -print 2>/dev/null`; \
 	if [ $$? -eq 0 ]; then \
 	  dir=`cd include; ${PWD}`; \
 	  for i in $$files; do \
-	    dest=`ls -ld $(libsubdir)/include/$$i | sed -n 's/.*-> //p'`; \
+	    dest=`ls -ld $(DESTDIR)$(libsubdir)/include/$$i | sed -n 's/.*-> //p'`; \
 	    if expr "$$dest" : "$$dir.*" > /dev/null; then \
-	      rm -f $(libsubdir)/include/$$i; \
-	      ln -s `echo $$i | sed "s|/[^/]*|/..|g" | sed 's|/..$$||'``echo "$$dest" | sed "s|$$dir||"` $(libsubdir)/include/$$i; \
+	      rm -f $(DESTDIR)$(libsubdir)/include/$$i; \
+	      ln -s `echo $$i | sed "s|/[^/]*|/..|g" | sed 's|/..$$||'``echo "$$dest" | sed "s|$$dir||"` $(DESTDIR)$(libsubdir)/include/$$i; \
 	    fi; \
 	  done; \
 	fi
 
 # Create or recreate the gcc private include file directory.
 install-include-dir: installdirs
-	-rm -rf $(libsubdir)/include
-	mkdir $(libsubdir)/include
-	-chmod a+rx $(libsubdir)/include
+	-rm -rf $(DESTDIR)$(libsubdir)/include
+	mkdir $(DESTDIR)$(libsubdir)/include
+	-chmod a+rx $(DESTDIR)$(libsubdir)/include
 
 # Install the include directory using tar.
 install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
@@ -3121,7 +3117,7 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # found in CDPATH, corrupting the output.  We could just redirect the
 # output of `cd', but some shells lose on redirection within `()'s
 	(cd `${PWD}`/include ; \
-	 tar -cf - .; exit 0) | (cd $(libsubdir)/include; tar xpf - )
+	 tar -cf - .; exit 0) | (cd $(DESTDIR)$(libsubdir)/include; tar xpf - )
 # /bin/sh on some systems returns the status of the first tar,
 # and that can lose with GNU tar which always writes a full block.
 # So use `exit 0' to ignore its exit status.
@@ -3130,78 +3126,78 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # See discussion about the use of `pwd` above
 	cd `${PWD}`/include ; \
-	find . -print | cpio -pdum $(libsubdir)/include
+	find . -print | cpio -pdum $(DESTDIR)$(libsubdir)/include
 
 # Install the include directory using cp.
 install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
-	cp -p -r include $(libsubdir)
+	cp -p -r include $(DESTDIR)$(libsubdir)
 
 itoolsdir = $(libsubdir)/install-tools
 # Don't install the headers.  Instead, install appropriate scripts
 # and supporting files for fixincludes to be run later.
 install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
     mkheaders xlimits.h
-	-rm -rf $(itoolsdir)
-	$(SHELL) $(srcdir)/mkinstalldirs $(itoolsdir)/include
+	-rm -rf $(DESTDIR)$(itoolsdir)
+	$(SHELL) $(srcdir)/mkinstalldirs $(DESTDIR)$(itoolsdir)/include
 	for file in $(USER_H); do \
 	  realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
 	  $(INSTALL_DATA) $$file \
-	    $(itoolsdir)/include/$$realfile ; \
+	    $(DESTDIR)$(itoolsdir)/include/$$realfile ; \
 	done
-	$(INSTALL_DATA) xlimits.h $(itoolsdir)/include/limits.h
+	$(INSTALL_DATA) xlimits.h $(DESTDIR)$(itoolsdir)/include/limits.h
 	if [ x$(STMP_FIXINC) != x ] ; then \
 	  $(INSTALL_DATA) $(srcdir)/README-fixinc \
-	    $(itoolsdir)/include/README ; \
-	  $(INSTALL_PROGRAM) fixinc.sh $(itoolsdir)/fixinc.sh ; \
-	  $(INSTALL_PROGRAM) fixinc/fixincl $(itoolsdir)/fixincl ; \
-	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h $(itoolsdir)/gsyslimits.h ; \
+	    $(DESTDIR)$(itoolsdir)/include/README ; \
+	  $(INSTALL_PROGRAM) fixinc.sh $(DESTDIR)$(itoolsdir)/fixinc.sh ; \
+	  $(INSTALL_PROGRAM) fixinc/fixincl $(DESTDIR)$(itoolsdir)/fixincl ; \
+	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h $(DESTDIR)$(itoolsdir)/gsyslimits.h ; \
 	else :; fi
 	if [ x$(STMP_FIXPROTO) != x ] ; then \
 	  $(INSTALL_PROGRAM) $(srcdir)/mkinstalldirs \
-		$(itoolsdir)/mkinstalldirs ; \
-	  $(INSTALL_PROGRAM) $(srcdir)/fixproto $(itoolsdir)/fixproto ; \
+		$(DESTDIR)$(itoolsdir)/mkinstalldirs ; \
+	  $(INSTALL_PROGRAM) $(srcdir)/fixproto $(DESTDIR)$(itoolsdir)/fixproto ; \
 	  $(INSTALL_PROGRAM) fix-header$(build_exeext) \
-		$(itoolsdir)/fix-header$(build_exeext) ; \
+		$(DESTDIR)$(itoolsdir)/fix-header$(build_exeext) ; \
 	else :; fi
-	$(INSTALL_PROGRAM) mkheaders $(itoolsdir)/mkheaders
+	$(INSTALL_PROGRAM) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
 	echo 'SYSTEM_HEADER_DIR="'"$(SYSTEM_HEADER_DIR)"'"' \
-		> $(itoolsdir)/mkheaders.conf
+		> $(DESTDIR)$(itoolsdir)/mkheaders.conf
 	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
-		>> $(itoolsdir)/mkheaders.conf
+		>> $(DESTDIR)$(itoolsdir)/mkheaders.conf
 	echo 'FIXPROTO_DEFINES="$(FIXPROTO_DEFINES)"' \
-		>> $(itoolsdir)/mkheaders.conf
-	echo 'STMP_FIXPROTO="$(STMP_FIXPROTO)"' >> $(itoolsdir)/mkheaders.conf
-	echo 'STMP_FIXINC="$(STMP_FIXINC)"' >> $(itoolsdir)/mkheaders.conf
+		>> $(DESTDIR)$(itoolsdir)/mkheaders.conf
+	echo 'STMP_FIXPROTO="$(STMP_FIXPROTO)"' >> $(DESTDIR)$(itoolsdir)/mkheaders.conf
+	echo 'STMP_FIXINC="$(STMP_FIXINC)"' >> $(DESTDIR)$(itoolsdir)/mkheaders.conf
 
 # Use this target to install the program `collect2' under the name `collect2'.
 install-collect2: collect2 installdirs
-	$(INSTALL_PROGRAM) collect2$(exeext) $(libsubdir)/collect2$(exeext)
+	$(INSTALL_PROGRAM) collect2$(exeext) $(DESTDIR)$(libsubdir)/collect2$(exeext)
 # Install the driver program as $(libsubdir)/gcc for collect2.
-	$(INSTALL_PROGRAM) xgcc$(exeext) $(libsubdir)/gcc$(exeext)
+	$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(libsubdir)/gcc$(exeext)
 
 # Cancel installation by deleting the installed files.
 uninstall: intl.uninstall lang.uninstall
-	-rm -rf $(libsubdir)
-	-rm -rf $(bindir)/$(GCC_INSTALL_NAME)$(exeext)
-	-rm -rf $(bindir)/$(GCC_CROSS_NAME)$(exeext)
-	-rm -f $(bindir)/$(CPP_INSTALL_NAME)$(exeext)
-	-rm -f $(bindir)/$(CPP_CROSS_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(libsubdir)
+	-rm -rf $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(bindir)/$(GCC_CROSS_NAME)$(exeext)
+	-rm -f $(DESTDIR)$(bindir)/$(CPP_INSTALL_NAME)$(exeext)
+	-rm -f $(DESTDIR)$(bindir)/$(CPP_CROSS_NAME)$(exeext)
 	-if [ x$(cpp_install_dir) != x ]; then \
-	  rm -f $(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
-	  rm -f $(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_INSTALL_NAME)$(exeext); \
+	  rm -f $(DESTDIR)$(prefix)/$(cpp_install_dir)/$(CPP_CROSS_NAME)$(exeext); \
 	else true; fi
-	-rm -rf $(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext)
-	-rm -rf $(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext)
-	-rm -rf $(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext)
-	-rm -rf $(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext)
-	-rm -rf $(bindir)/$(GCOV_INSTALL_NAME)$(exeext)
-	-rm -rf $(man1dir)/$(GCC_INSTALL_NAME)$(man1ext)
-	-rm -rf $(man1dir)/$(GCC_CROSS_NAME)$(man1ext)
-	-rm -rf $(man1dir)/cpp$(man1ext)
-	-rm -rf $(man1dir)/protoize$(man1ext)
-	-rm -rf $(man1dir)/unprotoize$(man1ext)
-	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
-	-rm -f $(infodir)/cppinternals.info* $(infodir)/gccint.info*
+	-rm -rf $(DESTDIR)$(bindir)/$(PROTOIZE_INSTALL_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(bindir)/$(PROTOIZE_CROSS_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(bindir)/$(UNPROTOIZE_INSTALL_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(bindir)/$(UNPROTOIZE_CROSS_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext)
+	-rm -rf $(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/$(GCC_CROSS_NAME)$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/cpp$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/protoize$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/unprotoize$(man1ext)
+	-rm -f $(DESTDIR)$(infodir)/cpp.info* $(DESTDIR)$(infodir)/gcc.info*
+	-rm -f $(DESTDIR)$(infodir)/cppinternals.info* $(DESTDIR)$(infodir)/gccint.info*
 #
 # These targets are for the dejagnu testsuites. The file site.exp
 # contains global variables that all the testsuites will use.
@@ -3690,13 +3686,10 @@ stage1-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage1/libgcc.a stage1/libgcc_eh.a
 	-cp libgcc.a stage1
-	-if $(RANLIB_TEST_FOR_TARGET) ; then \
-	  $(RANLIB_FOR_TARGET) stage1/libgcc.a; \
-	else true; fi
+	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage1; \
-	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
-	  else true; fi; fi
+	fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -3723,13 +3716,10 @@ stage2-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage2/libgcc.a stage2/libgcc_eh.a
 	-cp libgcc.a stage2
-	-if $(RANLIB_TEST_FOR_TARGET) ; then \
-	  $(RANLIB_FOR_TARGET) stage2/libgcc.a; \
-	else true; fi
+	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage2; \
-	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
-	  else true; fi; fi
+	fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -3752,13 +3742,10 @@ stage3-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage3/libgcc.a stage3/libgcc_eh.a
 	-cp libgcc.a stage3
-	-if $(RANLIB_TEST_FOR_TARGET) ; then \
-	  $(RANLIB_FOR_TARGET) stage3/libgcc.a; \
-	else true; fi
+	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage3; \
-	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
-	  else true; fi; fi
+	fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -3781,13 +3768,10 @@ stage4-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage4/libgcc.a stage4/libgcc_eh.a
 	-cp libgcc.a stage4
-	-if $(RANLIB_TEST_FOR_TARGET) ; then \
-	  $(RANLIB_FOR_TARGET) stage4/libgcc.a; \
-	else true; fi
+	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage4; \
-	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
-	  else true; fi; fi
+	fi
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \

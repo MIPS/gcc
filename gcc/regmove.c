@@ -1,6 +1,6 @@
 /* Move registers around to reduce number of move instructions needed.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -647,7 +647,7 @@ optimize_reg_copy_2 (insn, dest, src)
 }
 /* INSN is a ZERO_EXTEND or SIGN_EXTEND of SRC to DEST.
    Look if SRC dies there, and if it is only set once, by loading
-   it from memory.  If so, try to encorporate the zero/sign extension
+   it from memory.  If so, try to incorporate the zero/sign extension
    into the memory read, change SRC to the mode of DEST, and alter
    the remaining accesses to use the appropriate SUBREG.  This allows
    SRC and DEST to be tied later.  */
@@ -1570,47 +1570,50 @@ find_matches (insn, matchp)
 	if (*p == ',')
 	  i++;
 
-      while ((c = *p++) != '\0' && c != ',')
-	switch (c)
-	  {
-	  case '=':
-	    break;
-	  case '+':
-	    break;
-	  case '&':
-	    matchp->early_clobber[op_no] = 1;
-	    break;
-	  case '%':
-	    matchp->commutative[op_no] = op_no + 1;
-	    matchp->commutative[op_no + 1] = op_no;
-	    break;
-
-	  case '0': case '1': case '2': case '3': case '4':
-	  case '5': case '6': case '7': case '8': case '9':
+      while ((c = *p) != '\0' && c != ',')
+	{
+	  switch (c)
 	    {
-	      char *end;
-	      unsigned long match_ul = strtoul (p - 1, &end, 10);
-	      int match = match_ul;
+	    case '=':
+	      break;
+	    case '+':
+	      break;
+	    case '&':
+	      matchp->early_clobber[op_no] = 1;
+	      break;
+	    case '%':
+	      matchp->commutative[op_no] = op_no + 1;
+	      matchp->commutative[op_no + 1] = op_no;
+	      break;
 
-	      p = end;
+	    case '0': case '1': case '2': case '3': case '4':
+	    case '5': case '6': case '7': case '8': case '9':
+	      {
+		char *end;
+		unsigned long match_ul = strtoul (p, &end, 10);
+		int match = match_ul;
 
-	      if (match < op_no && likely_spilled[match])
-		break;
-	      matchp->with[op_no] = match;
-	      any_matches = 1;
-	      if (matchp->commutative[op_no] >= 0)
-		matchp->with[matchp->commutative[op_no]] = match;
-	    }
-	    break;
+		p = end;
+
+		if (match < op_no && likely_spilled[match])
+		  continue;
+		matchp->with[op_no] = match;
+		any_matches = 1;
+		if (matchp->commutative[op_no] >= 0)
+		  matchp->with[matchp->commutative[op_no]] = match;
+	      }
+	    continue;
 
 	  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'h':
 	  case 'j': case 'k': case 'l': case 'p': case 'q': case 't': case 'u':
 	  case 'v': case 'w': case 'x': case 'y': case 'z': case 'A': case 'B':
 	  case 'C': case 'D': case 'W': case 'Y': case 'Z':
-	    if (CLASS_LIKELY_SPILLED_P (REG_CLASS_FROM_LETTER ((unsigned char) c)))
+	    if (CLASS_LIKELY_SPILLED_P (REG_CLASS_FROM_CONSTRAINT ((unsigned char) c, p) ))
 	      likely_spilled[op_no] = 1;
 	    break;
 	  }
+	  p += CONSTRAINT_LEN (c, p);
+	}
     }
   return any_matches;
 }
@@ -1673,7 +1676,7 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
   int success = 0;
   int num_calls = 0, s_num_calls = 0;
   enum rtx_code code = NOTE;
-  HOST_WIDE_INT insn_const = 0, newconst;
+  HOST_WIDE_INT insn_const = 0, newconst = 0;
   rtx overlap = 0; /* need to move insn ? */
   rtx src_note = find_reg_note (insn, REG_DEAD, src), dst_note = NULL_RTX;
   int length, s_length;

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -460,8 +460,8 @@ extern int rs6000_default_long_calls;
 #define CAN_DEBUG_WITHOUT_FP
 
 /* Target pragma.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do { \
-  cpp_register_pragma (PFILE, 0, "longcall", rs6000_pragma_longcall); \
+#define REGISTER_TARGET_PRAGMAS() do {				\
+  c_register_pragma (0, "longcall", rs6000_pragma_longcall);	\
 } while (0)
 
 /* Target #defines.  */
@@ -599,6 +599,9 @@ extern int rs6000_default_long_calls;
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #endif
 
+/* Work around rs6000_long_double_type_size dependency in ada/targtyps.c.  */
+#define WIDEST_HARDWARE_FP_SIZE 64
+
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
 #define POINTER_SIZE (TARGET_32BIT ? 32 : 64)
@@ -682,7 +685,8 @@ extern int rs6000_default_long_calls;
 
    RS/6000 has 32 fixed-point registers, 32 floating-point registers,
    an MQ register, a count register, a link register, and 8 condition
-   register fields, which we view here as separate registers.
+   register fields, which we view here as separate registers.  AltiVec
+   adds 32 vector registers and a VRsave register.
 
    In addition, the difference between the frame and argument pointers is
    a function of the number of registers saved, so we need to have a
@@ -1072,7 +1076,7 @@ extern int rs6000_default_long_calls;
 
 /* The RS/6000 has three types of registers, fixed-point, floating-point,
    and condition registers, plus three special registers, MQ, CTR, and the
-   link register.
+   link register.  AltiVec adds a vector register class.
 
    However, r0 is special in that it cannot be used as a base register.
    So make a class for registers valid as base registers.
@@ -1637,7 +1641,7 @@ typedef struct machine_function GTY(())
    have prototype types for.
 
    For ABI_V4, we treat these slightly differently -- `sysv_gregno' is
-   the next availible GP register, `fregno' is the next available FP
+   the next available GP register, `fregno' is the next available FP
    register, and `words' is the number of words used on the stack.
 
    The varargs/stdarg support requires that this structure's size
@@ -2271,7 +2275,7 @@ do {									     \
 
 /* Mode of a function address in a call instruction (for indexing purposes).
    Doesn't matter on RS/6000.  */
-#define FUNCTION_MODE (TARGET_32BIT ? SImode : DImode)
+#define FUNCTION_MODE SImode
 
 /* Define this if addresses of constant functions
    shouldn't be put through pseudo regs where they can be cse'd.
@@ -2704,8 +2708,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define DEBUG_REGISTER_NAMES						\
 {									\
-     "r0", "r1",   "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
-     "r8", "r9",  "r10", "r11", "r12", "r13", "r14", "r15",		\
+     "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
+     "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",		\
     "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",		\
     "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",		\
      "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",		\
@@ -2714,13 +2718,13 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
     "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
      "mq",  "lr", "ctr",  "ap",						\
     "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
-  "xer",								\
+    "xer",								\
      "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",             \
      "v8",  "v9", "v10", "v11", "v12", "v13", "v14", "v15",             \
     "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
-    "vrsave", "vscr"							\
-    , "spe_acc", "spefscr"                                              \
+    "vrsave", "vscr",							\
+    "spe_acc", "spefscr"                                                \
 }
 
 /* Table of additional register names to use in user input.  */

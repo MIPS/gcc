@@ -1,21 +1,21 @@
 /* Parser grammar for quick source code scan of Java(TM) language programs.
-   Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -109,22 +109,21 @@ struct method_declarator {
 };
 #define NEW_METHOD_DECLARATOR(D,N,A)					     \
 {									     \
-  (D) = 								     \
-    (struct method_declarator *)xmalloc (sizeof (struct method_declarator)); \
+  (D) = xmalloc (sizeof (struct method_declarator));			     \
   (D)->method_name = (N);						     \
   (D)->args = (A);							     \
 }
 
 /* Two actions for this grammar */
-static int make_class_name_recursive PARAMS ((struct obstack *stack,
-					      struct class_context *ctx));
-static char *get_class_name PARAMS ((void));
-static void report_class_declaration PARAMS ((const char *));
-static void report_main_declaration PARAMS ((struct method_declarator *));
-static void push_class_context PARAMS ((const char *));
-static void pop_class_context PARAMS ((void));
+static int make_class_name_recursive (struct obstack *stack,
+				      struct class_context *ctx);
+static char *get_class_name (void);
+static void report_class_declaration (const char *);
+static void report_main_declaration (struct method_declarator *);
+static void push_class_context (const char *);
+static void pop_class_context (void);
 
-void report PARAMS ((void)); 
+void report (void); 
 
 #include "lex.h"
 #include "parse.h"
@@ -1177,29 +1176,27 @@ constant_expression:
 /* Create a new parser context */
 
 void
-java_push_parser_context ()
+java_push_parser_context (void)
 {
-  struct parser_ctxt *new = 
-    (struct parser_ctxt *) xcalloc (1, sizeof (struct parser_ctxt));
+  struct parser_ctxt *new = xcalloc (1, sizeof (struct parser_ctxt));
 
   new->next = ctxp;
   ctxp = new;
 }  
 
 static void
-push_class_context (name)
-    const char *name;
+push_class_context (const char *name)
 {
   struct class_context *ctx;
 
-  ctx = (struct class_context *) xmalloc (sizeof (struct class_context));
+  ctx = xmalloc (sizeof (struct class_context));
   ctx->name = (char *) name;
   ctx->next = current_class_context;
   current_class_context = ctx;
 }
 
 static void
-pop_class_context ()
+pop_class_context (void)
 {
   struct class_context *ctx;
 
@@ -1219,9 +1216,7 @@ pop_class_context ()
 /* Recursively construct the class name.  This is just a helper
    function for get_class_name().  */
 static int
-make_class_name_recursive (stack, ctx)
-     struct obstack *stack;
-     struct class_context *ctx;
+make_class_name_recursive (struct obstack *stack, struct class_context *ctx)
 {
   if (! ctx)
     return 0;
@@ -1245,7 +1240,7 @@ make_class_name_recursive (stack, ctx)
 
 /* Return a newly allocated string holding the name of the class.  */
 static char *
-get_class_name ()
+get_class_name (void)
 {
   char *result;
   int last_was_digit;
@@ -1289,8 +1284,7 @@ get_class_name ()
 /* Actions defined here */
 
 static void
-report_class_declaration (name)
-     const char * name;
+report_class_declaration (const char * name)
 {
   extern int flag_dump_class, flag_list_filename;
 
@@ -1316,8 +1310,7 @@ report_class_declaration (name)
 }
 
 static void
-report_main_declaration (declarator)
-     struct method_declarator *declarator;
+report_main_declaration (struct method_declarator *declarator)
 {
   extern int flag_find_main;
 
@@ -1344,7 +1337,7 @@ report_main_declaration (declarator)
 }
 
 void
-report ()
+report (void)
 {
   extern int flag_complexity;
   if (flag_complexity)
@@ -1353,7 +1346,7 @@ report ()
 
 /* Reset global status used by the report functions.  */
 
-void reset_report ()
+void reset_report (void)
 {
   previous_output = 0;
   package_name = NULL;
@@ -1362,8 +1355,7 @@ void reset_report ()
 }
 
 void
-yyerror (msg)
-     const char *msg ATTRIBUTE_UNUSED;
+yyerror (const char *msg ATTRIBUTE_UNUSED)
 {
   fprintf (stderr, "%s: %d: %s\n", input_filename, lineno, msg);
   exit (1);

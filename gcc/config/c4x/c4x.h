@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -21,8 +21,6 @@
    along with GNU CC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
-
-#include "hwint.h"
 
 /* RUN-TIME TARGET SPECIFICATION.  */
 
@@ -93,23 +91,21 @@
 
 #define ASM_SPEC "\
 %{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=33:%{!mcpu=40:%{!mcpu=44:\
-%{!m30:%{!m40:-m40}}}}}}}} \
-%{mcpu=30:-m30} \
-%{mcpu=31:-m31} \
-%{mcpu=32:-m32} \
-%{mcpu=33:-m33} \
-%{mcpu=40:-m40} \
-%{mcpu=44:-m44} \
-%{m30:-m30} \
-%{m31:-m31} \
-%{m32:-m32} \
-%{m33:-m33} \
-%{m40:-m40} \
-%{m44:-m44} \
-%{mmemparm:-p} %{mregparm:-r} \
-%{!mmemparm:%{!mregparm:-r}} \
-%{mbig:-b} %{msmall:-s} \
-%{!msmall:%{!mbig:-b}}"
+%{!m30:%{!m31:%{!m32:%{!m33:%{!m40:%{!m44:-m40}}}}}}}}}}}} \
+%{mcpu=30} \
+%{mcpu=31} \
+%{mcpu=32} \
+%{mcpu=33} \
+%{mcpu=40} \
+%{mcpu=44} \
+%{m30} \
+%{m31} \
+%{m32} \
+%{m33} \
+%{m40} \
+%{m44} \
+%{mmemparm} %{mregparm} %{!mmemparm:%{!mregparm:-mregparm}} \
+%{mbig} %{msmall} %{!msmall:%{!mbig:-mbig}}"
 
 /* Define linker options.  */
 
@@ -153,7 +149,7 @@
 #define C30_FLAG            0x0100000 /* Emit C30 code.  */
 #define C31_FLAG            0x0200000 /* Emit C31 code.  */
 #define C32_FLAG            0x0400000 /* Emit C32 code.  */
-#define C33_FLAG            0x0400000 /* Emit C33 code.  */
+#define C33_FLAG            0x0800000 /* Emit C33 code.  */
 #define C40_FLAG            0x1000000 /* Emit C40 code.  */
 #define C44_FLAG            0x2000000 /* Emit C44 code.  */
 
@@ -1648,14 +1644,6 @@ fini_section ()							\
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
 
-/* The TI assembler wants to have hex numbers this way.  */
-
-#undef HOST_WIDE_INT_PRINT_HEX
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-# define HOST_WIDE_INT_PRINT_HEX "0%lxh"
-#else
-# define HOST_WIDE_INT_PRINT_HEX "0%llxh"
-#endif
 
 /* Overall Framework of an Assembler File.  */
 /* We need to have a data section we can identify so that we can set
@@ -1669,6 +1657,7 @@ fini_section ()							\
     if (TARGET_C30) dspversion = 30;				\
     if (TARGET_C31) dspversion = 31;				\
     if (TARGET_C32) dspversion = 32;				\
+    if (TARGET_C33) dspversion = 33;                            \
     if (TARGET_C40) dspversion = 40;				\
     if (TARGET_C44) dspversion = 44;				\
     fprintf (FILE, "\t.version\t%d\n", dspversion);		\
@@ -1837,18 +1826,17 @@ do {						\
 #define PRINT_OPERAND_ADDRESS(FILE, X) c4x_print_operand_address(FILE, X)
 
 /* C4x specific pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do {				\
-  cpp_register_pragma (PFILE, 0, "CODE_SECTION", c4x_pr_CODE_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "DATA_SECTION", c4x_pr_DATA_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_EXT_CALLED", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_SYSTEM", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NEVER_RETURNS",			\
-		       c4x_pr_FUNC_NEVER_RETURNS);			\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_IND_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "INTERRUPT", c4x_pr_INTERRUPT);	\
+#define REGISTER_TARGET_PRAGMAS() do {					  \
+  c_register_pragma (0, "CODE_SECTION", c4x_pr_CODE_SECTION);		  \
+  c_register_pragma (0, "DATA_SECTION", c4x_pr_DATA_SECTION);		  \
+  c_register_pragma (0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_EXT_CALLED", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);		  \
+  c_register_pragma (0, "FUNC_IS_SYSTEM", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NEVER_RETURNS", c4x_pr_FUNC_NEVER_RETURNS); \
+  c_register_pragma (0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NO_IND_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "INTERRUPT", c4x_pr_INTERRUPT);			  \
 } while (0)
 
 /* Assembler Commands for Alignment.  */
