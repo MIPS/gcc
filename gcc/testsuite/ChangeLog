@@ -1,3 +1,8 @@
+2003-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/13239
+	* g++.dg/opt/expect1.C: New test.
+
 2003-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/compile/20031023-1.c: New test.

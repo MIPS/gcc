@@ -1,3 +1,10 @@
+2003-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/13239
+	* builtins.c (expand_builtin_expect_jump): Update
+	TREE_VALUE (arglist) if unsave_expr_now langhook
+	created a new tree.
+
 2003-11-30  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_emit_restore_regs_using_mov):  Deal with large offsets.
