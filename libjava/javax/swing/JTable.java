@@ -42,8 +42,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
-import java.awt.Point;
-import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
 
