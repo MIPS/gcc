@@ -1,4 +1,3 @@
-// PR c++/7279
 // Test for the named return value optimization with inlining.
 // Contributed by Jakub Jelinek <jakub@redhat.com>.
 // { dg-do run }
@@ -10,13 +9,9 @@ struct S
 {
   E s0 : 2;
   bool s1 : 1, s2 : 1, s3 : 1, s4 : 1, s5 : 1, s6 : 1;
-  S ();
-  void foo (E x);
+  S () : s1 (true), s2 (false), s0 (E1), s3 (true), s4 (false), s5 (true), s6 (false) {}
+  void foo (E x) { this->s0 = x; }
 };
-
-S::S() : s1 (true), s2 (false), s0 (E1), s3 (true), s4 (false),
-	 s5 (true), s6 (false) {}
-void S::foo (E x) { this->s0 = x; }
 
 inline S foo ()
 {

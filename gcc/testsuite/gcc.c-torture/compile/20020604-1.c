@@ -1,5 +1,4 @@
-/* PR c/6957
-   This testcase ICEd at -O2 on IA-32, because
+/* This testcase ICEd at -O2 on IA-32, because
    (insn 141 139 142 (set (subreg:SF (reg:QI 72) 0)
 	   (plus:SF (reg:SF 73)
 	       (reg:SF 76))) 525 {*fop_sf_comm_nosse} (insn_list 134 (nil))
