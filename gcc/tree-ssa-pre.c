@@ -1219,7 +1219,7 @@ generate_expr_as_of_bb (tree expr, basic_block pred, basic_block bb)
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  if (names_match_p (PHI_RESULT (phi), v))
+	  if (PHI_RESULT (phi) ==  v)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
@@ -1254,7 +1254,7 @@ generate_vops_as_of_bb (tree expr, basic_block pred, basic_block bb)
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
-	  if (names_match_p (PHI_RESULT (phi), v))
+	  if (PHI_RESULT (phi) == v)
 	    {
 	      int opnum = opnum_of_phi (phi, pred->index);
 	      tree p = PHI_ARG_DEF (phi, opnum);
