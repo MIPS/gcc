@@ -43,6 +43,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "convert.h"
 
+/** @file tree-dfa.c
+    @brief Build and maintain data flow information for trees.  */
+
 /* Local declarations.  */
 struct clobber_data_d
 {
@@ -109,18 +112,20 @@ static void replace_phi_arg_with	PARAMS ((tree_ref, tree_ref, tree_ref));
 
 /* Global declarations.  */
 
-/* Array of all variables referenced in the function.  */
+/** The total number of referenced variables in the function.  */
 unsigned long num_referenced_vars;
+
+/** Array of all variables referenced in the function.  */
 varray_type referenced_vars;
 
-/* Next unique reference ID to be assigned by create_ref().  */
+/** Next unique reference ID to be assigned by create_ref().  */
 unsigned long next_tree_ref_id;
 
-/* Artificial variable used to model the effects of function calls on
-   every variable that they may use and define.  Calls to non-const and
-   non-pure functions are assumed to use and clobber this variable.  The
-   SSA builder will then consider this variable to be an alias for every
-   global variable and every local that has had its address taken.  */
+/** Artificial variable used to model the effects of function calls on
+    every variable that they may use and define.  Calls to non-const and
+    non-pure functions are assumed to use and clobber this variable.  The
+    SSA builder will then consider this variable to be an alias for every
+    global variable and every local that has had its address taken.  */
 tree global_var;
 
 /* Tree reference modifier bitmasks.  Used when calling create_ref.  */
@@ -217,7 +222,9 @@ find_refs_in_stmt (stmt_p, bb)
     @param ref_type indicates what type of reference should be created.
     @param ref_mod is the set of modifier flags for REF_TYPE.
     @param bb is the basic block in which EXPR_P is located.
-    @param parent_stmt_p is the parent statement in BB for EXPR_P.  **/
+    @param parent_stmt_p is the parent statement in BB for EXPR_P.
+
+    @todo Further analysis is needed to get proper array-SSA information. */
 
 static void
 find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
@@ -249,7 +256,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 
   /* If this reference is associated with a non SIMPLE expression, then we
      mark the statement non GIMPLE and recursively clobber every
-     variable referenced by PARENT_STMT.  FIXME  TREE_NOT_GIMPLE must die.  */
+     variable referenced by PARENT_STMT.  FIXME: TREE_NOT_GIMPLE must die.  */
   if (parent_stmt && TREE_NOT_GIMPLE (expr))
     {
       struct clobber_data_d clobber_data;
@@ -351,7 +358,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
      partial reference for the base symbol of the array (its LHS) and
      recurse into the RHS look for variables used as index expressions.
 
-     FIXME Further analysis is needed to get proper array-SSA information.  */
+     FIXME: Further analysis is needed to get proper array-SSA information.  */
   if (code == ARRAY_REF)
     {
       /* Change the reference type to a partial def/use when processing
@@ -368,7 +375,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
      and structures/unions) are globbed.  Create a partial reference for
      the base symbol of the reference.
 
-     FIXME This means that
+     FIXME: This means that
 
      			a.x = 6;
 			a.y = 7;
@@ -497,8 +504,9 @@ create_ref_list ()
 }
 
 
-/** @brief Free the nodes in LIST, but keep the empty list around 
-	   (i.e., empty the list).  */
+/** @brief Free the nodes in a list of references, but keep the
+	   empty list around  (i.e., empty the list).
+    @param list is the list that will be emptied.  */
 
 void 
 empty_ref_list (list)
@@ -511,7 +519,9 @@ empty_ref_list (list)
 }
 
 
-/** @brief Remove REF from LIST.  */
+/** @brief Remove a reference from a list of references.
+    @param list is the list to remove REF from.
+    @param ref is the reference that will be removed from the list.  */
 
 void 
 remove_ref_from_list (list, ref)
@@ -540,7 +550,9 @@ remove_ref_from_list (list, ref)
 }
 
 
-/** @brief Add REF to the beginning of LIST.  */
+/** @brief Add a reference to the beginning of a list of references.
+    @param list is the list to add REF to.
+    @param ref is the reference that will be prepended to the list.  */
 
 void
 add_ref_to_list_begin (list, ref)
@@ -562,7 +574,9 @@ add_ref_to_list_begin (list, ref)
 }
 
 
-/** @brief Add REF to the end of LIST.  */
+/** @brief Add a reference to the end of a list of references.
+    @param list is the list to add REF to.
+    @param ref is the reference that will be appended.  */
 
 void
 add_ref_to_list_end (list, ref)
@@ -585,8 +599,9 @@ add_ref_to_list_end (list, ref)
 }
 
 
-/** @brief Add the contents of the list TOADD to the list LIST,
-	   at the beginning of LIST.  */
+/** @brief Prepend the contents of one list of references to another.
+    @param toadd is the list to prepend to LIST.
+    @param list will have all items of TOADD prepended.  */
 
 void 
 add_list_to_list_begin (list, toadd)
@@ -600,8 +615,9 @@ add_list_to_list_begin (list, toadd)
 }
 
 
-/** @brief Add the contents of the list TOADD to the list LIST, at
-	   the end of LIST.  */
+/** @brief Append the contents of one list of references to another.
+    @param toadd is the list to append to LIST.
+    @param list will have all the items of TOADD appended.  */
 
 void
 add_list_to_list_end (list, toadd)
@@ -615,7 +631,11 @@ add_list_to_list_end (list, toadd)
 }
 
 
-/** @brief Find the list container for reference REF in LIST.  */
+/** @brief Find the node for a reference in a given list of references.
+    @param list will be searched for REF.
+    @param ref is the reference that must be looked up in LIST.
+    @return NULL if the reference could not be found, or a pointer
+	    to the reference otherwise.  */
 
 struct ref_list_node *
 find_list_node (list, ref)
@@ -641,7 +661,10 @@ find_list_node (list, ref)
   return node;
 }
 
-/** @brief Start a new forward iterator on the first element of LIST.  */
+/** @brief Start a new forward iterator on the first element of
+	   a list of references.
+    @param list is the list to start the iterator for.
+    @return The new iterator.  */
 
 ref_list_iterator
 rli_start (list)
@@ -664,7 +687,10 @@ rli_start (list)
 }
 
 
-/** @brief Start a new iterator on the last element of LIST.  */
+/** @brief Start a new iterator on the first element of
+	   a list of references.
+    @param list is the list to start the iterator for.
+    @return The new iterator.  */
 
 ref_list_iterator
 rli_start_last (list)
@@ -687,7 +713,9 @@ rli_start_last (list)
 }
 
 
-/** @brief Start a new iterator on a specific list node N.  */
+/** @brief Start a new iterator on a specific node.
+    @param n is the node to start the iterator for.
+    @return The new iterator.  */
 
 ref_list_iterator
 rli_start_at (n)
@@ -725,7 +753,11 @@ rli_delete (i)
 }
 
 
-/** @brief Add REF after NODE.  */
+/** @brief Add a reference to a list of references after a specified
+	   node.
+    @param list is the list of references in which REF must be inserted.
+    @param node will be the predecessor node of REF
+    @param ref will be inserted into the list after NODE.  */
 
 void
 add_ref_to_list_after (list, node, ref)
@@ -748,7 +780,11 @@ add_ref_to_list_after (list, node, ref)
 }
 
 
-/** @brief Return the size in bytes of a reference of type REF_TYPE.  */
+/** @brief Determine the size of a given reference type.
+
+    @param ref_type is the reference type whose size is queried. See
+	   tree_ref_type for the possible values of ref_type
+    @return The size in bytes of REF_TYPE.  */
 
 static size_t
 tree_ref_size (ref_type)
@@ -913,7 +949,11 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, add_to_bb)
 }
 
 
-/* Add a new argument to PHI for definition DEF reaching in via edge E.  */
+/** @brief Add a new argument to a PHI node for a definition reaching
+	   reaching the PHI node via a given inedge.
+    @param phi is the lucky PHI node that gets the extra argument.
+    @param def is the new argument for PHI
+    @param e is the inedge via which DEF reaches PHI.  */
 
 void
 add_phi_arg (phi, def, e)
@@ -934,7 +974,14 @@ add_phi_arg (phi, def, e)
 }
 
 
-/* Add a new argument to EPHI for definition DEF reaching in via edge E.  */
+/** @brief Add a new argument to an Expression PHI node for a definition
+	   reaching the PHI node via a given inedge.
+
+    Expression PHI (EPHI) nodes are part of the framework to support SSAPRE.
+    
+    @param phi is the lucky EPHI node that gets the extra argument.
+    @param def is the new argument for PHI
+    @param e is the inedge via which DEF reaches PHI.  */
 
 void
 add_ephi_arg (phi, def, e)
@@ -954,7 +1001,8 @@ add_ephi_arg (phi, def, e)
 }
 
 
-/* Add a unique copy of variable VAR to the list of referenced variables.  */
+/** @brief Add a unique copy of variable to the list of referenced variables.
+    @param var is the variable that will be added to the list of references.  */
 
 static void
 add_referenced_var (var)
@@ -974,16 +1022,24 @@ add_referenced_var (var)
 /*---------------------------------------------------------------------------
 			     Code replacement
 ---------------------------------------------------------------------------*/
-/* Replace reference REF with operand OP, which must be a constant or a
-   variable.  
+
+/** @brief Replace a reference with a tree node which must be a
+	   constant or another variable reference.
    
-   1- REF is removed from the list of references for its variable
-      and statement.
+   - REF is removed from the list of references for its variable
+     and statement.
       
-   2- If OP is a variable, a new reference for it is created.
+   - If OP is a variable, a new reference for it is created.
    
-   3- The SSA web is updated by removing all use-def and def-use links
-      reaching this reference.  */
+   - The SSA web is updated by removing all use-def and def-use links
+     reaching this reference.
+     
+    @param ref is the reference that will be replaced.
+    @param op is the tree node that will take the place of REF.
+
+    @todo We still can't replace a reference with another variable.
+	  For that we need to be able to insert new references in
+	  the SSA web, not just remove them.  */
 
 void
 replace_ref_with (ref, op)
@@ -991,9 +1047,7 @@ replace_ref_with (ref, op)
      tree op;
 {
 #if 1
-  /* FIXME  We still can't replace a reference with another variable.  For
-	    that we need to be able to insert new references in the SSA
-	    web, not just remove them.  */
+  /* FIXME: Implement replacing one reference with another.  */
   if (!really_constant_p (op))
     abort ();
 #endif
@@ -1003,8 +1057,15 @@ replace_ref_with (ref, op)
 }
 
 
-/* Replace reference REF in statement STMT with tree node OP.  Note that
-   this does not update the SSA web nor the references made by the program.  */
+/** @brief Replace a reference in a statement with tree node which
+	   must be a constant or another variable reference.
+
+    Note that this does not update the SSA web nor the references made
+    by the program.
+ 
+    @param stmt is the statement with REF in it.
+    @param ref is the reference that is to be replaced.
+    @param op is the tree node that will take the place of REF.  */
 
 void
 try_replace_ref_with (stmt, ref, op)
@@ -1114,7 +1175,17 @@ try_replace_ref_with (stmt, ref, op)
 }
 
 
-/* Call back for walk_tree to replace references in expression *TP.  */
+/** @brief Call back for walk_tree() to replace references in
+	   an expression.
+    @param tp is the tree node in which references should be replaced.
+    @param walk_subtrees is nonzero if the subtrees of TP must be
+	   walked too. This parameter is not used in this function.
+    @param data is a list of type replace_data_d. It is a list
+	   of pairs of trees. One member is the reference that must
+	   be replaced, the other member is the replacing tree.
+
+    The prototype of this function should match that of a
+    (*walk_tree_fn) as defined in tree.h.  */
 
 static tree
 replace_ref_r (tp, walk_subtrees, data)
@@ -1134,7 +1205,16 @@ replace_ref_r (tp, walk_subtrees, data)
 }
 
 
-/* Return true if V1 and V2 are the same variable.  */
+/** @brief See if two variables are the same.
+
+    Two variables are the same if both V1 and V2 are pointers
+    to the same variable, or if they are both indirect refs to
+    the same variable.
+
+    @param v1 is a tree node for a variable.
+    @param v2 is another tree node for a variable. V2 will be
+	   compared to V1.
+    @return true if V1 and V2 are the same variable.  */
 
 bool
 same_var_p (v1, v2)
@@ -1148,9 +1228,11 @@ same_var_p (v1, v2)
 }
 
 
-/* Replace the statement for a reference with a new statement.
+/** @brief Replace the statement for a reference with a new statement.
+    @param ref is the reference for which STMT should be replaced.
+    @param stmt is the new statement for REF.
 
-   FIXME: Need to properly update DFA and CFG information.  */
+    @todo FIXME: Need to properly update DFA and CFG information.  */
 
 void
 replace_ref_stmt_with (ref, stmt)
@@ -1159,11 +1241,13 @@ replace_ref_stmt_with (ref, stmt)
 {
   if (ref->common.stmt_p)
     *(ref->common.stmt_p) = stmt;
+  /* FIXME: update DFA, CFG info.  */
 }
 
 
-/* Remove reference REF from the program.  Update all the places in the SSA
-   web where this reference is used.  */
+/** @brief Completely remove a reference from the program, update all the
+	   places in the SSA web where this reference is used.
+    @param ref is the reference that will be killed.  */
 
 void
 remove_ref (ref)
@@ -1202,10 +1286,12 @@ remove_ref (ref)
 }
 
 
-/* Remove a V_DEF or V_PHI reference from the SSA web.  Note that this does
-   not remove the reference from all the appropriate places.  It only
-   removes def-use and def-def edges that involve this reference.  This
-   function is only a helper for remove_ref.  */
+/** @brief Remove a V_DEF or V_PHI reference from the SSA web.
+    @param def is the reference that will be removed.
+
+    Note that this does not remove the reference from all the appropriate
+    places.  It only removes def-use and def-def edges that involve this
+    reference.  This function is only a helper for remove_ref.  */
 
 static void
 remove_def (def)
@@ -1257,7 +1343,7 @@ remove_def (def)
   /* If DEF's variable is aliased we must now look through all the
      definitions for variables in its alias set.
      
-     FIXME  this can be very expensive.  Maybe it's better to keep
+     FIXME: This can be very expensive.  Maybe it's better to keep
      bi-directional def-def links after all?  */
   if (is_aliased (var))
     {
@@ -1287,9 +1373,16 @@ remove_def (def)
 }
 
 
-/* Change the def-def link for every definition in REFS.  If a definition D
-   in REFS was pointing to OLD_RDEF, make it point to NEW_RDEF.  */
+/** @brief Change the def-def link for every definition in REFS.
 
+    If a definition D in REFS was pointing to OLD_RDEF, make it
+    point to NEW_RDEF.
+
+    @param refs is a list of references.
+    @param old_rdef is a reference that a V_DEF node N from REGS may
+    	   point to before calling this function.
+    @param new_rdef is the new V_DEF reference that N will point to.  */
+   
 static void
 reset_def_def_links (refs, old_rdef, new_rdef)
      ref_list refs;
@@ -1307,10 +1400,15 @@ reset_def_def_links (refs, old_rdef, new_rdef)
 }
 
 
-/* Find argument OLD_DEF in the list of arguments of phi node PHI and
-   replace it with argument NEW_DEF.  Note that this assumes that both
-   OLD_DEF and NEW_DEF are coming from the same edge (not necessarily the
-   same basic block).  That is, OLD_DEF reaches NEW_DEF.  */
+/** @brief Find an old definition in the arguments of a PHI node, and
+	   replace it with a new argument.
+    @param phi is the PHI node in which the replacements must be done.
+    @param old_def is the PHI argument that should be replaced.
+    @param new_def is the replacing definition.
+
+    Note that this assumes that both OLD_DEF and NEW_DEF are coming from
+    the same edge (not necessarily the same basic block).  That is,
+    OLD_DEF reaches NEW_DEF.  */
 
 static void
 replace_phi_arg_with (phi, old_def, new_def)
@@ -1336,7 +1434,8 @@ replace_phi_arg_with (phi, old_def, new_def)
 			    Manage annotations
 ---------------------------------------------------------------------------*/
 
-/* Create a new annotation for tree T.  */
+/** @brief Create a new annotation for a tree
+    @param t is the tree to create the annotation for.  */
 
 tree_ann
 create_tree_ann (t)
@@ -1365,10 +1464,11 @@ create_tree_ann (t)
 			     Miscellaneous helpers
 ---------------------------------------------------------------------------*/
 
-/* Return 1 if the function may call itself.
+/** @brief Determine if a function can call itself.
+    @return true if the function may call itself, false otherwise.
    
-   FIXME Currently this is very limited because we do not have call-graph
-	 information.  */
+    @todo FIXME: Currently this is very limited because we do not have
+	  call-graph information.  */
 
 bool
 function_may_recurse_p ()
@@ -1396,9 +1496,12 @@ function_may_recurse_p ()
 			      Debugging functions
 ---------------------------------------------------------------------------*/
 
-/* Display variable reference REF on stream OUTF.  PREFIX is a string that
-   is prefixed to every line of output, and INDENT is the amount of left
-   margin to leave.  If DETAILS is nonzero, the output is more verbose.  */
+/** @brief Display a variable reference on given stream
+    @param outf is a stream to dump REF to.
+    @param ref is the variable reference that should be dumped.
+    @param prefix is string that is prefixed to every line of output.
+    @param indent is the amount of left margin to leave.
+    @param details can be set nonzero to make the output more verbose.  */
 
 void
 dump_ref (outf, prefix, ref, indent, details)
@@ -1501,7 +1604,8 @@ dump_ref (outf, prefix, ref, indent, details)
 }
 
 
-/*  Display variable reference REF on stderr.  */
+/** @brief Display a variable reference on stderr.
+    @param ref is the variable reference that should be dumped.  */
 
 void
 debug_ref (ref)
@@ -1511,10 +1615,12 @@ debug_ref (ref)
 }
 
 
-/*  Display a list of variable references on stream OUTF. PREFIX is a
-    string that is prefixed to every line of output, and INDENT is the
-    amount of left margin to leave.  If DETAILS is nonzero, the output is
-    more verbose.  */
+/** @brief Display a list of variable references on a given stream.
+    @param outf is the stream to dump to.
+    @param prefix is a string that is prefixed to every line of output
+    @param reflist is the list of references that will be dumped.
+    @param indent is the amount of left margin to leave.
+    @param details can be set nonzero to make the output more verbose.  */
 
 void
 dump_ref_list (outf, prefix, reflist, indent, details)
@@ -1532,10 +1638,16 @@ dump_ref_list (outf, prefix, reflist, indent, details)
 
 
 
-/*  Display a list of variable references on stream OUTF. PREFIX is a
-    string that is prefixed to every line of output, and INDENT is the
-    amount of left margin to leave.  If DETAILS is nonzero, the output is
-    more verbose.  */
+/** @brief Display an array of variable references on a given stream.
+    @param outf is the stream to dump to.
+    @param prefix is a string that is prefixed to every line of output
+    @param reflist is the array of references that will be dumped.
+    @param indent is the amount of left margin to leave.
+    @param details can be set nonzero to make the output more verbose.
+ 
+    Note that this function does exactly the same as dump_ref_list,
+    but the difference is that this function expects a VARRAY of
+    references, whereas  dump_ref_list expects a ref_list.  */
 
 void
 dump_ref_array (outf, prefix, reflist, indent, details)
@@ -1556,7 +1668,8 @@ dump_ref_array (outf, prefix, reflist, indent, details)
 		   indent, details);
 }
 
-/*  Dump REFLIST on stderr.  */
+/** @brief Dump a list of references on stderr.
+    @param reflist is the list that will be dumped.  */
 
 void
 debug_ref_list (reflist)
@@ -1566,7 +1679,8 @@ debug_ref_list (reflist)
 }
 
 
-/* Dump REFLIST on stderr.  */
+/** @brief Dump an array of references on stderr.
+    @param reflist is the array that will be dumped.  */
 
 void
 debug_ref_array (reflist)
@@ -1576,8 +1690,10 @@ debug_ref_array (reflist)
 }
 
 
-/* Dump the list of all the referenced variables in the current function.
-   If DETAILS is nonzero, each reference is dumped in full.  */
+/** @brief Dump the list of all the referenced variables in the
+	   current function.
+    @param file is the stream to dumo to.
+    @param details can be set nonzero to dumo each reference in full.  */
 
 void
 dump_referenced_vars (file, details)
@@ -1600,8 +1716,9 @@ dump_referenced_vars (file, details)
 }
 
 
-/* Dump the list of all the referenced variables to stderr.  If DETAILS is
-   nonzero, each reference is dumped in full.  */
+/** @brief Dump the list of all the referenced variables to stderr.
+    @param details can be set to nonzero to dump each reference in
+	   full.  */
 
 void
 debug_referenced_vars (details)
@@ -1611,7 +1728,9 @@ debug_referenced_vars (details)
 }
 
 
-/* Dump a variable and its may-aliases to FILE.  */
+/** @brief Dump a variable and its may-aliases to a stream.
+    @param file is the stream or file to dump to.
+    @param var is the tree node for the variable that will be dumped.  */
 
 void
 dump_variable (file, var)
@@ -1633,7 +1752,8 @@ dump_variable (file, var)
 }
 
 
-/* Dump a variable and its may-aliases to stderr.  */
+/** @brief Dump a variable and its may-aliases to stderr.
+    @param var is the tree node for the variable that will be dumped.  */
 
 void
 debug_variable (var)
@@ -1643,7 +1763,8 @@ debug_variable (var)
 }
 
 
-/* Dump the given array of phi arguments on stderr.  */
+/** @brief Dump the given array of PHU arguments on stderr.
+    @param args is an array if PHI arguments. */
 
 void
 debug_phi_args (args)
@@ -1653,10 +1774,14 @@ debug_phi_args (args)
 }
 
 
-/* Display the given array of PHI arguments definitions on stream OUTF.  PREFIX
-   is a string that is prefixed to every line of output, and INDENT is the
-   amount of left margin to leave.  If DETAILS is nonzero, the output is more
-   verbose.  */
+/** @brief Display the given array of PHI arguments definitions
+           on a given output stream.
+    @param outf is the output stream or file.
+    @param prefix is a string that is prefixed to every line of output.
+    @param args points to the argument list of a PHI node.
+    @param indent is the amount of left margin to leave.
+    @param details can be set to nonzero if the output should more
+	   verbose.  */
 
 void
 dump_phi_args (outf, prefix, args, indent, details)
@@ -1680,8 +1805,7 @@ dump_phi_args (outf, prefix, args, indent, details)
 }
 
 
-/* Dump various DFA statistics to FILE.  */
-
+/* Defines for dump_dfa_stats.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10 \
 		  ? (x) \
 		  : ((x) < 1024*1024*10 \
@@ -1689,6 +1813,9 @@ dump_phi_args (outf, prefix, args, indent, details)
 		     : (x) / (1024*1024))))
 #define LABEL(x) ((x) < 1024*10 ? 'b' : ((x) < 1024*1024*10 ? 'k' : 'M'))
 #define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
+
+/** @brief Dump various DFA statistics to a file.
+    @param file is the dump file.  */
 
 void
 dump_dfa_stats (file)
@@ -1785,6 +1912,15 @@ dump_dfa_stats (file)
 }
 
 
+/** @brief Print expected and counted numbers if different.
+    @param file is the stream to dump to.
+    @param fmt_str is the message that should be dumped. There
+	   has to be be a "%ld" in it this string, this will
+	   be replaced with (EXPECTED - COUNTED).
+    @param expected is the expected number.
+    @param counted is the actually counted number.
+
+    This is a helper function for dump_dfa_stats.  */
 static void
 dump_if_different (file, fmt_str, expected, counted)
      FILE *file;
@@ -1801,7 +1937,7 @@ dump_if_different (file, fmt_str, expected, counted)
 }
 
 
-/* Dump DFA statistics on stderr.  */
+/** @brief Dump DFA statistics on stderr.  */
 
 void
 debug_dfa_stats ()
@@ -1810,7 +1946,14 @@ debug_dfa_stats ()
 }
 
 
-/* Collect DFA statistics into *DFA_STATS_P.  */
+/** @brief Collect DFA statistics
+    @param dfa_stats_p points to a variable of type
+	   dfa_stats_d where the DFA stats should be
+	   moved in to.
+
+    dfa_stats_p should point to a previously allocated
+    dta_stats_d. This function will abort in case
+    (dfa_stats_p == NULL).  */
 
 static void
 collect_dfa_stats (dfa_stats_p)
@@ -1847,8 +1990,8 @@ collect_dfa_stats (dfa_stats_p)
 }
 
 
-/* Callback for walk_tree to collect DFA statistics for a tree and its
-   children.  */
+/** @brief Callback for walk_tree to collect DFA statistics
+	   for a tree and its children.  */
 
 static tree
 collect_dfa_stats_r (tp, walk_subtrees, data)
@@ -1873,7 +2016,11 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
 }
 
 
-/* Update DFA_STATS_P with the number of tree_ref objects in LIST.  */
+/** @brief Update the data flow analysis statistics with the number of
+	   tree_ref objects in a given list of references.
+    @param dfa_stats_p is a pointer to the DFA statistics.
+    @param list is a list of references for which DFA_STATS_P will be
+    	   updated.  */
 
 static void
 count_tree_refs (dfa_stats_p, list)
@@ -1917,7 +2064,10 @@ count_tree_refs (dfa_stats_p, list)
 }
 
 
-/* Count the number of nodes in a ref_list container.  */
+/** @brief Count the number of nodes in a ref_list container.
+    @param dfa_stats_p points to a variable of type dfa_stats_d
+           where the DFA stats should be moved in to.
+    @param list is a list of references to gather statistics for.  */
 
 static void
 count_ref_list_nodes (dfa_stats_p, list)
@@ -1931,7 +2081,11 @@ count_ref_list_nodes (dfa_stats_p, list)
 }
 
 
-/* Return the reference type and modifiers for reference REF as a string.  */
+/** @brief Return the reference type and modifiers for
+	   reference type as a string.
+    @param ref is the reference type for which the name
+	   as a string is queried.
+    @return A const pointer to the string.  */
 
 const char *
 ref_type_name (ref)
@@ -1984,8 +2138,9 @@ ref_type_name (ref)
 }
 
 
-/* Callback for walk_tree.  Create a may-def/may-use reference for every _DECL
-   and compound reference found under *TP.  */
+/** @brief Callback for walk_tree, create may-def/may-use and
+	   clobber reference for every declaration node and
+	   compound reference found under a given tree node TP.  */
 
 static tree
 clobber_vars_r (tp, walk_subtrees, data)
@@ -2007,9 +2162,12 @@ clobber_vars_r (tp, walk_subtrees, data)
   return NULL;
 }
 
-/* Compute may-alias information for every variable referenced in the
-   program.  NOTE: in the absence of points-to analysis (-ftree-points-to),
-   this computes a bigger set than necessary.  */
+
+/** @brief Compute may-alias information for every variable referenced
+	   in the program.
+
+    NOTE: in the absence of points-to analysis (-ftree-points-to),
+    this computes a bigger set than necessary.  */
 
 static void
 compute_may_aliases ()
@@ -2072,7 +2230,10 @@ compute_may_aliases ()
 }
 
 
-/* Return true if V1 and V2 may alias.  */
+/** @brief See if two given variables may alias.
+    @param v1 is a tree node for a variable
+    @param v2 is a tree node for another (or the same), variable
+    @return true if V1 and V2 may alias.  */
 
 bool
 may_alias_p (v1, v2)
@@ -2151,17 +2312,22 @@ may_alias_p (v1, v2)
 }
 
 
-/* Find variables that V1 may be aliasing.  For every variable V2 that V1
-   may alias, add V2 to one of the alias sets in the array ALIAS_LEADERS.
+/** @brief Find variables that a given variable may be aliasing.
 
-   Each entry I in ALIAS_LEADERS represents a set of all the variables that
-   are aliased by ALIAS_LEADERS[I].  In the absence of points-to
-   information, the ALIAS_LEADERS array will tend to have few entries, and
-   each entry will likely alias many program variables.
+    For every variable V2 that V1 may alias, add V2 to one of the
+    alias sets in the array ALIAS_LEADERS.
+
+    Each entry I in ALIAS_LEADERS represents a set of all the variables
+    that are aliased by ALIAS_LEADERS[I].  In the absence of points-to
+    information, the ALIAS_LEADERS array will tend to have few entries,
+    and each entry will likely alias many program variables.
    
-   This will negatively impact optimizations because variable uses will be
-   reached by many definitions that can't really reach them.  See the
-   documentation in tree-ssa.c.  */
+    This will negatively impact optimizations because variable uses will be
+    reached by many definitions that can't really reach them.  See the
+    documentation in tree-ssa.c.
+ 
+    @param v1 is a tree node for a variable. The function will try to
+	   find all other variables that may be aliased by V1.  */
 
 static void
 find_may_aliases_for (v1)
@@ -2199,10 +2365,16 @@ find_may_aliases_for (v1)
 }
 
 
-/* Traverse the ALIAS_LEADERS array looking for an alias leader that may
-   alias var.  If an alias leader AL is found, make AL be the alias leader
-   for VAR.  Otherwise return NULL_TREE so that the caller may create a new
-   entry in the ALIAS_LEADER array.  */
+/** @brief Traverse the ALIAS_LEADERS array looking for an alias leader
+	   that may alias a variable.
+	   
+    If an alias leader AL is found, make AL be the alias leader for VAR.
+    Otherwise return NULL_TREE so that the caller may create a new
+    entry in the ALIAS_LEADER array.
+
+    @param var is the variable for which to find the alias leader.
+    @return NULL if there is no alias leader for VAR, or a pointer to
+	    the tree node for the alias leader for VAR.  */
 
 static tree
 find_alias_leader (var)
@@ -2218,7 +2390,9 @@ find_alias_leader (var)
 }
 
 
-/* Return true if EXPR may be a pointer to global memory.  */
+/** @brief Check if an expression may be a pointer to global memory.
+    @param expr is an expression.
+    @return true if EXPR may be a pointer to global memory.  */
 
 static bool
 may_access_global_mem (expr)
@@ -2262,21 +2436,29 @@ may_access_global_mem (expr)
 }
 
 
-/* Return true if REF is a V_DEF reference for VAR.  This function handles
-   relocations of pointers.  Relocating a pointer, clobbers any dereference
-   of the pointer, but it does not affect any of its aliases.  For
-   instance,
-
+/** @brief Return true if a reference is a variable definition for a given
+	   variable.
+	   
+   This function handles relocations of pointers.  Relocating a pointer,
+   clobbers any dereference of the pointer, but it does not affect any
+   of its aliases.  For instance,
+   
+@verbatim
    	  1	p = &a			V_DEF(p) = &a
 	  2	*p = 10			V_DEF(*p) = 10
 	  3	p = ...			V_DEF(p) = ... => V_DEF/relocate(*p)
 	  4	c = a + *p		V_DEF(c) = V_USE(a) + V_USE(*p)
+@endverbatim
 
    The definition of 'p' at line 2 clobbers '*p' because now 'p' points to
    a different location.  Therefore, the use of '*p' at line 3 cannot be
    reached by the assignment to '*p' at line 2.  However, relocating 'p'
    in this case should not modify 'a', therefore 'a' should still be
-   reached by the assignment to '*p' at line 2.  */
+   reached by the assignment to '*p' at line 2.
+
+   @param ref is a variable definition reference.
+   @param var is a tree node for a variable.
+   @return true if REF is a V_DEF reference for VAR.  */
 
 bool
 ref_defines (ref, var)
@@ -2301,8 +2483,15 @@ ref_defines (ref, var)
 }
 
 
-/* Return true if DEF is a killing definition for VAR.  Note, this assumes
-   that DEF reaches the use of VAR.  */ 
+/** @brief Return true if a definition is a killing definition for
+	   a variable.
+
+    Note, this assumes that the definitoin actually reaches the use of
+    the variable.
+ 
+    @param def is a variable definition reference.
+    @param var is a tree node for a variable.
+    @return true if DEF kills the definition for VAR.  */ 
 
 bool
 is_killing_def (def, var)
@@ -2339,7 +2528,9 @@ is_killing_def (def, var)
 }
 
 
-/* Return which tree_ref structure is used by REF.  */
+/** @brief Determine which tree_ref structure is used by a reference.
+    @param ref is the reference whose tree_ref type is queried.
+    @return The tree_ref type of REF.  */
 
 enum tree_ref_structure_enum
 tree_ref_structure (ref)
@@ -2368,7 +2559,8 @@ tree_ref_structure (ref)
 }
 
 
-/* Remove DECL from the block that declares it.  */
+/** @brief Remove a declaration from the block that declares it.
+    @parm decl is the declaration that should be removed from its block.  */
 
 void
 remove_decl (decl)
@@ -2382,9 +2574,14 @@ remove_decl (decl)
 }
 
 
-/* Find the location for DECL's declaration starting in BLOCK.  This
-   returns an address LOC such that *LOC == DECL or NULL if DECL couldn't
-   be located.  */
+/** @brief Find the location for a declaration.
+
+    @param decl is the declaration for which the location must be found.
+    @param block is the block of declarations in which to start the search.
+	   All the subblocks of BLOCK are searched as well if BLOCK does
+	   not declare DECL.
+    @return An address LOC such that *LOC == DECL or NULL
+	    if DECL couldn't be located.  */
 
 tree *
 find_decl_location (decl, block)
@@ -2413,7 +2610,9 @@ find_decl_location (decl, block)
 }
 
 
-/* Return the V_DEF reference at the LHS of an assignment statement T.  */
+/** @brief Get the variable definition reference at the LHS of an assignment.
+    @param t is the assignment.
+    @return The V_DEF reference at the LHS of T.  */
 
 tree_ref
 output_ref (t)

@@ -7,5 +7,6 @@
 undef $/;
 $a = <>;
 $a =~ s/GTY[ \t]*\(\(.*\)\)//g;
+$a =~ s/[ \t]ATTRIBUTE_UNUSED//g;
 $a =~ s/PARAMS[ \t]*\(\((.*?)\)\);/\($1\);/sg;
 print $a;
