@@ -2070,8 +2070,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
 		   && !ann->has_volatile_ops
 		   && vdefs == NULL
 		   && def_p
-		   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1))
-		   && ! TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR;
+		   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1));
 
   if (may_optimize_p)
     {

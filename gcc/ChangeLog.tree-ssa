@@ -1,5 +1,8 @@
 2003-06-11  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.c (rewrite_and_optimize_stmt): Do not special case
+	CALL_EXPRs they're caught by the TREE_SIDE_EFFECTS test.
+                                                                                
 	* tree-ssa.c (rewrite_and_optimize_stmt): Improve/correct setting of
 	may_optimize_p.  Simplify later code knowing may_optimize_p is
 	correctly set.
