@@ -1,5 +1,19 @@
 2003-07-10  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030703-1.c: New test.
+	* gcc.dg/tree-ssa/20030703-2.c: New test.
+	* gcc.dg/tree-ssa/20030708-1.c: New test.
+	* gcc.dg/tree-ssa/20030709-1.c: New test.
+	* gcc.dg/tree-ssa/20030709-2.c: New test.
+	* gcc.dg/tree-ssa/20030709-3.c: New test.
+	* gcc.dg/tree-ssa/20030710-1.c: New test.
+	* gcc.dg/tree-ssa/20030711-1.c: New test.
+	* gcc.dg/tree-ssa/20030711-2.c: New test.
+	* gcc.dg/tree-ssa/20030711-3.c: New test.
+	* gcc.dg/tree-ssa/20030714-1.c: New test.
+
+2003-07-10  Jeff Law  <law@redhat.com>
+
 	* lib/scantree.exp: Always glob the output file.
 :
 2003-06-27  Diego Novillo  <dnovillo@redhat.com>
