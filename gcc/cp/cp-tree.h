@@ -316,7 +316,7 @@ struct tree_baselink GTY(())
   tree access_binfo;
 };
 
-/* The different kinds of ids that we ecounter.  */
+/* The different kinds of ids that we encounter.  */
 
 typedef enum cp_id_kind
 {
@@ -494,8 +494,6 @@ enum cp_tree_index
     CPTI_LANG_NAME_C,
     CPTI_LANG_NAME_CPLUSPLUS,
     CPTI_LANG_NAME_JAVA,
-    /* APPLE LOCAL Objective-C++  */
-    CPTI_LANG_NAME_OBJC,
 
     CPTI_EMPTY_EXCEPT_SPEC,
     CPTI_NULL,
@@ -603,8 +601,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define lang_name_c                     cp_global_trees[CPTI_LANG_NAME_C]
 #define lang_name_cplusplus             cp_global_trees[CPTI_LANG_NAME_CPLUSPLUS]
 #define lang_name_java                  cp_global_trees[CPTI_LANG_NAME_JAVA]
-/* APPLE LOCAL Objective-C++  */
-#define lang_name_objc                  cp_global_trees[CPTI_LANG_NAME_OBJC]
 
 /* Exception specifier used for throw().  */
 #define empty_except_spec               cp_global_trees[CPTI_EMPTY_EXCEPT_SPEC]
@@ -757,8 +753,8 @@ struct language_function GTY(())
 #define cp_function_chain (cfun->language)
 
 /* In a constructor destructor, the point at which all derived class
-   destroying/contruction has been has been done. Ie. just before a
-   constuctor returns, or before any base class destroying will be done
+   destroying/construction has been has been done. Ie. just before a
+   constructor returns, or before any base class destroying will be done
    in a destructor.  */
 
 #define cdtor_label cp_function_chain->x_cdtor_label
@@ -854,8 +850,7 @@ enum cplus_tree_code {
    EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,	\
    IF_STMT,		CLEANUP_STMT
 
-/* APPLE LOCAL Objective-C++  */
-enum languages { lang_c, lang_cplusplus, lang_java, lang_objc };
+enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Macros to make error reporting functions' lives easier.  */
 #define TYPE_IDENTIFIER(NODE) (DECL_NAME (TYPE_NAME (NODE)))
@@ -3728,12 +3723,6 @@ extern void clone_function_decl                 (tree, int);
 extern void adjust_clone_args			(tree);
 
 /* decl.c */
-/* APPLE LOCAL msg send super */
-extern struct cp_binding_level *get_current_binding_level (void);
-/* APPLE LOCAL begin Objective-C++ */
-extern tree grokparms (cp_parameter_declarator *, tree *);
-extern void store_parm_decls 			(tree);
-/* APPLE LOCAL end Objective-C++ */
 extern tree poplevel				(int, int, int);
 extern void insert_block			(tree);
 extern tree pushdecl				(tree);
@@ -4124,6 +4113,7 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
+extern tree do_poplevel				(tree);
 extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);

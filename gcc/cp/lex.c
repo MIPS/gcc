@@ -182,7 +182,7 @@ struct resword
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
 /* APPLE LOCAL Objective-C++ */
-#define D_OBJC		0x10	/* Objective C only */
+#define D_OBJC		0x08	/* Objective C++ only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -288,26 +288,29 @@ static const struct resword reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
-  /* APPLE LOCAL begin Objective-C++ */
-  { "id",		RID_ID,			D_OBJC },
 
-  /* These objc keywords are recognized only immediately after
-     an '@'.  Note that some of these overlap with existing C++ keywords. */
-/*{ "class",		RID_AT_CLASS,		D_OBJC },  OVERLAP */
+  /* APPLE LOCAL begin Objective-C++ */
+  /* The remaining keywords are specific to Objective-C++.  NB:
+     All of them will remain _disabled_, since they are context-
+     sensitive.  */
+
+  { "id",		RID_ID,			D_OBJC },
+  /* These ObjC keywords are recognized only immediately after
+     an '@'.  NB: The following C++ keywords double as
+     ObjC keywords in this context: RID_CLASS, RID_PRIVATE,
+     RID_PROTECTED, RID_PUBLIC, RID_THROW, RID_TRY and RID_CATCH.  */
   { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
   { "defs",		RID_AT_DEFS,		D_OBJC },
   { "encode",		RID_AT_ENCODE,		D_OBJC },
   { "end",		RID_AT_END,		D_OBJC },
   { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
   { "interface",	RID_AT_INTERFACE,	D_OBJC },
-/*{ "private",		RID_AT_PRIVATE,		D_OBJC },  OVERLAP */
-/*{ "protected",	RID_AT_PROTECTED,	D_OBJC },  OVERLAP */
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
-/*{ "public",		RID_AT_PUBLIC,		D_OBJC },  OVERLAP */
   { "selector",		RID_AT_SELECTOR,	D_OBJC },
-
-  /* These are recognized only in protocol-qualifier context
-     (see above) */
+  /* APPLE LOCAL begin Objective-C++ */
+  { "finally",		RID_AT_FINALLY,		D_OBJC },
+  { "synchronized",	RID_AT_SYNCHRONIZED,	D_OBJC },
+  /* These are recognized only in protocol-qualifier context.  */
   { "bycopy",		RID_BYCOPY,		D_OBJC },
   { "byref",		RID_BYREF,		D_OBJC },
   { "in",		RID_IN,			D_OBJC },
@@ -323,10 +326,9 @@ init_reswords (void)
   unsigned int i;
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
-	      | (flag_no_gnu_keywords ? D_EXT : 0));
-
-  /* APPLE LOCAL objc++ */
-  mask |= D_OBJC;
+	      | (flag_no_gnu_keywords ? D_EXT : 0)
+	      /* APPLE LOCAL Objective-C++ */
+	      | D_OBJC);
 
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < ARRAY_SIZE (reswords); i++)

@@ -44,32 +44,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
-/* APPLE LOCAL begin MERGE HACK remove reference to finish file hook --bowdidge */
-#if (0)
-/* APPLE LOCAL begin Objective-C++ */
-#undef LANG_HOOKS_FINISH_FILE
-#define LANG_HOOKS_FINISH_FILE c_objc_common_finish_file
-/* APPLE LOCAL end Objective-C++ */
-#endif
-/* APPLE LOCAL end MERGE HACK remove reference to finish file hook */
-/* APPLE LOCAL begin new tree dump */
-#if 0
-/* MERGE FIXME 3468690 */
-#undef LANG_HOOKS_DUMP_DECL
-#define LANG_HOOKS_DUMP_DECL c_dump_decl
-#undef LANG_HOOKS_DUMP_TYPE
-#define LANG_HOOKS_DUMP_TYPE c_dump_type
-#undef LANG_HOOKS_DUMP_IDENTIFIER
-#define LANG_HOOKS_DUMP_IDENTIFIER c_dump_identifier
-#undef LANG_HOOKS_DUMP_BLANK_LINE_P
-#define LANG_HOOKS_DUMP_BLANK_LINE_P c_dump_blank_line_p
-#undef LANG_HOOKS_DUMP_LINENO_P
-#define LANG_HOOKS_DUMP_LINENO_P c_dump_lineno_p
-#undef LANG_HOOKS_DMP_TREE3
-#define LANG_HOOKS_DMP_TREE3 c_dmp_tree3
-#endif
-/* APPLE LOCAL end new tree dump */
-
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P c_types_compatible_p
 

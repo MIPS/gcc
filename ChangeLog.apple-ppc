@@ -1,3 +1,8 @@
+2004-09-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3784876
+	Merge in updated ObjC/ObjC++ bits from mainline.
+
 2004-09-15  Mike Stump  <mrs@apple.com>
 
 	Merge in changes from mainline, from apple-ppc-merge-20040821

@@ -45,30 +45,10 @@ static int cxx_types_compatible_p (tree, tree);
 #define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT cxx_init
-/* APPLE LOCAL begin Objective-C++ */
-/* MERGE FIXME - redundant with def below? */
-#undef LANG_HOOKS_FINISH_FILE
-#define LANG_HOOKS_FINISH_FILE finish_file
-/* APPLE LOCAL end Objective-C++ */
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P cxx_types_compatible_p
-/* APPLE LOCAL begin Objective-C++  */
-/* Redefine the hooks that need to be different for ObjC++.  */
-#ifdef OBJCPLUS
-static void objcplus_init_options                   PARAMS ((void));
-#include "objc/objc-act.h"
-#undef LANG_HOOKS_NAME
-#define LANG_HOOKS_NAME "GNU Objective-C++"
-#undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT objc_init
-#undef LANG_HOOKS_FINISH_FILE
-#define LANG_HOOKS_FINISH_FILE objc_finish_file
-#undef LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS objcplus_init_options
-#endif /* OBJCPLUS */
-/* APPLE LOCAL end Objective-C++ */
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -83,12 +63,6 @@ const char tree_code_type[] = {
 #include "c-common.def"
   'x',
 #include "cp-tree.def"
-/* APPLE LOCAL begin Objective-C++ */
-#ifdef OBJCPLUS
-  'x',
-#include "objc-tree.def"
-#endif
-/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
 
@@ -104,12 +78,6 @@ const unsigned char tree_code_length[] = {
 #include "c-common.def"
   0,
 #include "cp-tree.def"
-/* APPLE LOCAL begin Objective-C++ */
-#ifdef OBJCPLUS
-  0,
-#include "objc-tree.def"
-#endif
-/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
 
@@ -123,25 +91,8 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
   "@@dummy",
 #include "cp-tree.def"
-/* APPLE LOCAL begin Objective-C++ */
-#ifdef OBJCPLUS
-  "@@dummy",
-#include "objc-tree.def"
-#endif
-/* APPLE LOCAL end Objective-C++ */
 };
 #undef DEFTREECODE
-
-/* APPLE LOCAL begin Objective-C++ */
-#ifdef OBJCPLUS
-static void 
-objcplus_init_options (void)
-{
-  flag_objc = 1;
-  cxx_init_options ();
-}
-#endif
-/* APPLE LOCAL end */
 
 /* Lang hook routines common to C++ and ObjC++ appear in cp/cp-objcp-common.c;
    there should be very few routines below.  */
@@ -182,22 +133,4 @@ finish_file (void)
   cp_finish_file ();
 }
 
-/* APPLE LOCAL begin Objective-C++ */
-/* Include the GC roots here instead of in cp/decl.c, so we can
-   conditionalize on OBJCPLUS.  */
-#include "decl.h"
-#include "debug.h"
-#include "lex.h"
-#include "gt-cp-cp-tree-h.h"
-#if 0
-/* MERGE FAILURE! This file is not generated. Fix it */
-#include "gt-cp-decl-h.h"
-#endif
-#ifdef OBJCPLUS
-tree objcp_dummy = 0;
-#include "gtype-objcp.h"
-#else
-tree cp_dummy = 0;
 #include "gtype-cp.h"
-#endif
-/* APPLE LOCAL end Objective-C++ */

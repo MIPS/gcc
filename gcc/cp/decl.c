@@ -52,9 +52,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "tree-flow.h"
 
-/* APPLE LOCAL Objective-C++ */
-/* 'grokparms' is now extern, prototype moved to cp-tree.h.  */
-
+static tree grokparms (cp_parameter_declarator *, tree *);
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
@@ -117,8 +115,7 @@ static tree check_special_function_return_type
 	(special_function_kind, tree, tree);
 static tree push_cp_library_fn (enum tree_code, tree);
 static tree build_cp_library_fn (tree, enum tree_code, tree);
-/* APPLE LOCAL Objective-C++ */
-/* 'store_parm_decls' is now extern, prototype moved to cp-tree.h.  */
+static void store_parm_decls (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
@@ -412,6 +409,43 @@ pop_labels (tree block)
     }
 
   named_labels = NULL;
+}
+
+/* The following two routines are used to interface to Objective-C++.
+   The binding level is purposely treated as an opaque type.  */
+
+void *
+objc_get_current_scope (void)
+{
+  return current_binding_level;
+}
+
+/* The following routine is used by the NeXT-style SJLJ exceptions;
+   variables get marked 'volatile' so as to not be clobbered by
+   _setjmp()/_longjmp() calls.  All variables in the current scope,
+   as well as parent scopes up to (but not including) ENCLOSING_BLK
+   shall be thusly marked.  */
+
+void
+objc_mark_locals_volatile (void *enclosing_blk)
+{
+  struct cp_binding_level *scope;
+
+  for (scope = current_binding_level;
+       scope && scope != enclosing_blk && scope->kind == sk_block;
+       scope = scope->level_chain)
+    {
+      tree decl;
+
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+        {
+	  if (TREE_CODE (decl) == VAR_DECL)
+	    {
+              DECL_REGISTER (decl) = 0;
+              TREE_THIS_VOLATILE (decl) = 1;
+	    }
+        }
+    }
 }
 
 /* Exit a binding level.
@@ -1438,7 +1472,7 @@ duplicate_decls (tree newdecl, tree olddecl)
          A namespace-name or namespace-alias shall not be declared as
 	 the name of any other entity in the same declarative region.
 	 A namespace-name defined at global scope shall not be
-	 declared as the name of any other entity in any glogal scope
+	 declared as the name of any other entity in any global scope
 	 of the program.  */
       error ("declaration of `namespace %D' conflicts with", newdecl);
       cp_error_at ("previous declaration of `namespace %D' here", olddecl);
@@ -2874,8 +2908,6 @@ initialize_predefined_identifiers (void)
   static const predefined_identifier predefined_identifiers[] = {
     { "C++", &lang_name_cplusplus, 0 },
     { "C", &lang_name_c, 0 },
-    /* APPLE LOCAL Objective-C++ */
-    { "Objective-C", &lang_name_objc, 0 },  /* this is DEPRECATED */
     { "Java", &lang_name_java, 0 },
     { CTOR_NAME, &ctor_identifier, 1 },
     { "__base_ctor", &base_ctor_identifier, 1 },
@@ -5876,7 +5908,7 @@ set_linkage_for_static_data_member (tree decl)
   TREE_STATIC (decl) = 1;
   /* For non-template classes, static data members are always put
      out in exactly those files where they are defined, just as
-     with ordinarly namespace-scope variables.  */
+     with ordinary namespace-scope variables.  */
   if (!processing_template_decl)
     DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -6292,7 +6324,7 @@ get_scope_of_declarator (const cp_declarator *declarator)
       && TREE_CODE (declarator->u.id.name) == SCOPE_REF)
     return TREE_OPERAND (declarator->u.id.name, 0);
 
-  /* Otherwise, the declarator is not a quablified name; the entity will
+  /* Otherwise, the declarator is not a qualified name; the entity will
      be declared in the current scope.  */
   return NULL_TREE;
 }
@@ -6404,7 +6436,7 @@ check_special_function_return_type (special_function_kind sfk,
       if (type)
 	error ("return type specification for destructor invalid");
       /* We can't use the proper return type here because we run into
-	 problems with abiguous bases and covariant returns.
+	 problems with ambiguous bases and covariant returns.
 	 Java classes are left unchanged because (void *) isn't a valid
 	 Java type, and we don't want to change the Java ABI.  */
       if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
@@ -8410,8 +8442,7 @@ check_default_argument (tree decl, tree arg)
 
    *PARMS is set to the chain of PARM_DECLs created.  */
 
-/* APPLE LOCAL Objective-C++ */
-tree
+static tree
 grokparms (cp_parameter_declarator *first_parm, tree *parms)
 {
   tree result = NULL_TREE;
@@ -9294,8 +9325,8 @@ xref_basetypes (tree ref, tree base_list)
 {
   tree *basep;
   tree binfo, base_binfo;
-  unsigned max_vbases = 0; /* Maxium direct & indirect virtual bases. */
-  unsigned max_bases = 0;  /* Maxium direct bases.  */
+  unsigned max_vbases = 0; /* Maximum direct & indirect virtual bases. */
+  unsigned max_bases = 0;  /* Maximum direct bases.  */
   int i;
   tree default_access;
   tree igo_prev; /* Track Inheritance Graph Order.  */
@@ -9417,7 +9448,7 @@ xref_basetypes (tree ref, tree base_list)
       if (CLASS_TYPE_P (basetype) && !dependent_type_p (basetype))
 	{
 	  base_binfo = TYPE_BINFO (basetype);
-	  /* The orignal basetype could have been a typedef'd type.  */
+	  /* The original basetype could have been a typedef'd type.  */
 	  basetype = BINFO_TYPE (base_binfo);
 
 	  /* Inherit flags from the base.  */
@@ -9617,7 +9648,7 @@ finish_enum (tree enumtype)
      narrower than their underlying type are suitably zero or sign
      extended to fill their mode.  g++ doesn't make these guarantees.
      Until the middle-end can represent such paradoxical types, we
-     set the TYPE_PRECISON to the width of the underlying type.  */
+     set the TYPE_PRECISION to the width of the underlying type.  */
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
 
   set_min_and_max_values_for_integral_type (enumtype, precision, unsignedp);
@@ -10211,8 +10242,7 @@ start_function (cp_decl_specifier_seq *declspecs,
 
    Also install to binding contour return value identifier, if any.  */
 
-/* APPLE LOCAL Objective-C++ */
-/* static */ void         /* 'store_parm_decls' is extern for Obj-C++ */
+static void
 store_parm_decls (tree current_function_parms)
 {
   tree fndecl = current_function_decl;

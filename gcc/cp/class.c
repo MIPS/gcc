@@ -1278,7 +1278,7 @@ check_bases (tree t,
 /* Determine all the primary bases within T.  Sets BINFO_PRIMARY_BASE_P for
    those that are primaries.  Sets BINFO_LOST_PRIMARY_P for those
    that have had a nearly-empty virtual primary base stolen by some
-   other base in the heirarchy.  Determines CLASSTYPE_PRIMARY_BASE for
+   other base in the hierarchy.  Determines CLASSTYPE_PRIMARY_BASE for
    T.  */
 
 static void
@@ -1351,7 +1351,7 @@ determine_primary_bases (tree t)
   /* A "nearly-empty" virtual base class can be the primary base
      class, if no non-virtual polymorphic base can be found.  Look for
      a nearly-empty virtual dynamic base that is not already a primary
-     base of something in the heirarchy.  If there is no such base,
+     base of something in the hierarchy.  If there is no such base,
      just pick the first nearly-empty virtual base.  */
 
   for (base_binfo = TREE_CHAIN (type_binfo); base_binfo;
@@ -1450,7 +1450,7 @@ finish_struct_bits (tree t)
        recalculate what's really an abstract virtual at this point (by
        looking in the vtables).  */
     get_pure_virtuals (t);
-
+  
   /* If this type has a copy constructor or a destructor, force its
      mode to be BLKmode, and force its TREE_ADDRESSABLE bit to be
      nonzero.  This will cause it to be passed by invisible reference
@@ -3115,7 +3115,7 @@ check_field_decls (tree t, tree *access_decls,
 	user at least implemented the cleanup correctly, and a destructor
 	is needed to free dynamic memory.
 	
-     This seems enough for pratical purposes.  */
+     This seems enough for practical purposes.  */
     if (warn_ecpp
 	&& has_pointers
 	&& TYPE_HAS_CONSTRUCTOR (t)
@@ -5678,15 +5678,6 @@ push_lang_context (tree name)
     {
       current_lang_name = name;
     }
-  /* APPLE LOCAL begin Objective-C++ */  
-  else if (name == lang_name_objc)
-    {
-      /* Suppress the warning for now, make it informative.  */
-      inform ("`extern \"Objective-C\"' is deprecated; "
-	      "use `extern \"C\"' instead");
-      current_lang_name = lang_name_c;
-    }
-  /* APPLE LOCAL end Objective-C++ */  
   else
     error ("language string `\"%E\"' not recognized", name);
 }

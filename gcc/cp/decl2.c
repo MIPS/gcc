@@ -578,7 +578,7 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   TEMPLATE_PARMS is used to specify the template parameters of a member
    template passed as FUNCTION_DECL. If the member template is passed as a 
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
@@ -968,8 +968,6 @@ grokfield (const cp_declarator *declarator,
       cp_finish_decl (value, init, NULL_TREE, flags);
       DECL_INITIAL (value) = init;
       DECL_IN_AGGR_P (value) = 1;
-      /* APPLE LOCAL Objective-C++ */
-      objc_check_decl (value);
       return value;
 
     case  FUNCTION_DECL:
@@ -1047,10 +1045,6 @@ grokbitfield (const cp_declarator *declarator,
     }
 
   DECL_IN_AGGR_P (value) = 1;
-  
-  /* APPLE LOCAL Objective-C++ */
-  objc_check_decl (value);
-    
   return value;
 }
 
@@ -2619,6 +2613,15 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
      global constructors and destructors.  */
   body = NULL_TREE;
 
+  /* For Objective-C++, we may need to initialize metadata found in this module.
+     This must be done _before_ any other static initializations.  */
+  if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
+      && constructor_p && objc_static_init_needed_p ())
+    {
+      body = start_objects (function_key, priority);
+      static_ctors = objc_generate_static_init_call (static_ctors);
+    }
+
   /* Call the static storage duration function with appropriate
      arguments.  */
   if (ssdf_decls)
@@ -3036,7 +3039,7 @@ cp_finish_file (void)
 	reconsider = true;
 
       /* Ask the back end to emit functions and variables that are
-	 enqued.  These emissions may result in marking more entities
+	 enqueued.  These emissions may result in marking more entities
 	 as needed.  */
       if (cgraph_assemble_pending_functions ())
 	reconsider = true;

@@ -929,20 +929,8 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-/* APPLE LOCAL begin Objective-C++  */
-/* The following have been moved here from c-tree.h, since they're needed
-   in the ObjC++ world, too.  */
-extern tree lookup_interface			(tree);
-extern tree is_class_name			(tree);
-extern tree is_id				(tree);
-extern void objc_check_decl			(tree);
-extern int objc_comptypes                 	(tree, tree, int);
-extern tree objc_message_selector		(void);
-extern int recognize_objc_keyword		(void);
-extern tree lookup_objc_ivar			(tree);
-/* APPLE LOCAL end Objective-C++  */
-
 extern void c_warn_unused_result (tree *);
+
 extern void verify_sequence_points (tree);
 
 extern tree fold_offsetof (tree);
@@ -976,11 +964,6 @@ extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
-/* APPLE LOCAL begin AltiVec */
-/* The following function will convert expressions into
-   vector initializers.  */
-extern tree vector_constructor_from_expr (tree, tree);
-/* APPLE LOCAL end AltiVec */
 extern tree objc_lookup_ivar (tree);
 extern void objc_clear_super_receiver (void);
 extern int objc_is_public (tree, tree);
@@ -1047,5 +1030,11 @@ extern tree cw_asm_entry (tree, tree, tree);
 extern int cw_asm_typename_or_reserved (tree);
 extern tree cw_asm_c_build_component_ref (tree, tree);
 /* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin AltiVec */
+/* The following function will convert expressions into
+   vector initializers.  */
+extern tree vector_constructor_from_expr (tree, tree);
+/* APPLE LOCAL end AltiVec */
 
 #endif /* ! GCC_C_COMMON_H */
