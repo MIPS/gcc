@@ -71,8 +71,8 @@ ALLOCA_FINISH = true
 # STAGE1_CFLAGS is set by configure on some targets.
 XCFLAGS =
 TCFLAGS =
-BOOT_CFLAGS = -g -O2
-STAGE1_CFLAGS = -g @stage1_cflags@
+BOOT_CFLAGS =  
+STAGE1_CFLAGS = -O3 -g  @stage1_cflags@
 CFLAGS = $(STAGE1_CFLAGS)
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to
@@ -395,7 +395,7 @@ CROSS_LIBGCC1 = libgcc1.cross
 # so that -g1 will be tested.
 #
 LIBGCC2_DEBUG_CFLAGS = -g1
-LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+LIBGCC2_CFLAGS = -O2 -save-temps  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
@@ -630,7 +630,7 @@ HOST_LIBDEPS= $(HOST_PREFIX)$(HOST_OBSTACK) $(HOST_PREFIX)$(HOST_ALLOCA) $(HOST_
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS = $(OBSTACK) $(USE_ALLOCA) $(MALLOC) $(INTLLIBS) @LIBS@ $(VFPRINTF) $(DOPRINT) $(STRSTR) $(CLIB) ../libiberty/libiberty.a
+LIBS = $(OBSTACK) $(USE_ALLOCA) $(MALLOC) $(INTLLIBS) @LIBS@ $(VFPRINTF) $(DOPRINT) $(STRSTR) $(CLIB) ../libiberty/libiberty.a 
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -750,7 +750,8 @@ OBJS = diagnostic.o version.o tree.o print-tree.o stor-layout.o fold-const.o  \
  mbchar.o splay-tree.o graph.o sbitmap.o resource.o hash.o predict.o	      \
  lists.o ggc-common.o $(GGC) stringpool.o simplify-rtx.o ssa.o bb-reorder.o   \
  sibcall.o conflict.o timevar.o ifcvt.o dominance.o dependence.o dce.o \
- sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o
+ sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o new-regalloc.o \
+ df.o
 
 BACKEND = toplev.o libbackend.a
 
@@ -998,7 +999,7 @@ gcc-cross: xgcc$(exeext)
 
 cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
-		$(C_OBJS) $(BACKEND) $(LIBS)
+		$(C_OBJS) $(BACKEND) $(LIBS) 
 
 # Build the version of limits.h that we will install.
 xlimits.h: glimits.h limitx.h limity.h
@@ -1377,6 +1378,8 @@ builtins.o : builtins.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h
+df.o : df.h $(CONFIG_H) $(RTL_H)
+new-regalloc.o : new-regalloc.h df.h $(CONFIG_H) $(RTL_H)
 calls.o : calls.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
    insn-flags.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H)
 expmed.o : expmed.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h  \

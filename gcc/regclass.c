@@ -784,6 +784,13 @@ reg_preferred_class (regno)
   return (enum reg_class) reg_pref[regno].prefclass;
 }
 
+unsigned int
+reg_spill_cost(regno)
+	int regno;
+{
+	return costs[regno].mem_cost;
+}
+
 enum reg_class
 reg_alternate_class (regno)
      int regno;
@@ -1265,7 +1272,9 @@ regclass (f, nregs, dump)
 #ifdef CLASS_CANNOT_CHANGE_MODE
   BITMAP_XFREE (reg_changes_mode);
 #endif
-  free (costs);
+  /*FIXME: We need this for right now for the new register allocator
+    spill costs */
+  /*  free (costs);*/
 }
 
 /* Record the cost of using memory or registers of various classes for

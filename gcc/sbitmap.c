@@ -47,6 +47,34 @@ sbitmap_alloc (n_elms)
   return bmap;
 }
 
+
+/* Reallocate a simple bitmap of N_ELMS bits.  */
+
+sbitmap
+sbitmap_realloc (bmap, n_elms)
+     sbitmap bmap;
+     unsigned int n_elms;
+{
+  unsigned int bytes, size, amt, old_bytes;
+
+  if (! bmap)
+    return sbitmap_alloc (n_elms);
+
+  old_bytes = bmap->bytes;
+  size = SBITMAP_SET_SIZE (n_elms);
+  bytes = size * sizeof (SBITMAP_ELT_TYPE);
+  amt = (sizeof (struct simple_bitmap_def)
+	 + bytes - sizeof (SBITMAP_ELT_TYPE));
+  bmap = (sbitmap) xrealloc (bmap, amt);
+  bmap->n_bits = n_elms;
+  bmap->size = size;
+  bmap->bytes = bytes;
+
+  /* Zero the new part of the bitmap.  */
+  memset ((char *)bmap->elms + old_bytes, 0, bmap->bytes - old_bytes);
+  return bmap;
+}
+
 /* Allocate a vector of N_VECS bitmaps of N_ELMS bits.  */
 
 sbitmap *

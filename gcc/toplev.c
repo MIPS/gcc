@@ -64,6 +64,10 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "ssa.h"
 
+#ifndef NEW_REGISTER_ALLOCATOR
+#define NEW_REGISTER_ALLOCATOR 1
+#endif
+
 #ifndef ACCUMULATE_OUTGOING_ARGS
 #define ACCUMULATE_OUTGOING_ARGS 0
 #endif
@@ -3348,7 +3352,7 @@ rest_of_compilation (decl)
       timevar_push (TV_REGMOVE);
       open_dump_file (DFI_regmove, decl);
 
-      regmove_optimize (insns, max_reg_num (), rtl_dump_file);
+//      regmove_optimize (insns, max_reg_num (), rtl_dump_file);
 
       close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
       timevar_pop (TV_REGMOVE);
@@ -3405,7 +3409,7 @@ rest_of_compilation (decl)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  timevar_push (TV_LOCAL_ALLOC);
+  //timevar_push (TV_LOCAL_ALLOC);
   open_dump_file (DFI_lreg, decl);
 
   /* Allocate pseudo-regs that are used only within 1 basic block.
@@ -3416,6 +3420,9 @@ rest_of_compilation (decl)
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
   regclass (insns, max_reg_num (), rtl_dump_file);
+#ifdef NEW_REGISTER_ALLOCATOR
+  init_new_regalloc();
+#else
   rebuild_label_notes_after_reload = local_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
@@ -3448,7 +3455,7 @@ rest_of_compilation (decl)
     }
 
   timevar_pop (TV_GLOBAL_ALLOC);
-
+#endif
   if (dump_file[DFI_greg].enabled)
     {
       timevar_push (TV_DUMP);

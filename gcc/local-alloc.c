@@ -277,7 +277,7 @@ static int equiv_init_movable_p PARAMS ((rtx, int));
 static int contains_replace_regs PARAMS ((rtx));
 static int memref_referenced_p	PARAMS ((rtx, rtx));
 static int memref_used_between_p PARAMS ((rtx, rtx, rtx));
-static void update_equiv_regs	PARAMS ((void));
+void update_equiv_regs	PARAMS ((void));
 static void no_equiv		PARAMS ((rtx, rtx, void *));
 static void block_alloc		PARAMS ((int));
 static int qty_sugg_compare    	PARAMS ((int, int));
@@ -798,7 +798,7 @@ function_invariant_p (x)
    into the using insn.  If it succeeds, we can eliminate the register
    completely.  */
 
-static void
+void
 update_equiv_regs ()
 {
   rtx insn;

@@ -1440,7 +1440,7 @@ extern const char *decode_asm_operands	PARAMS ((rtx, rtx *, rtx **,
 
 extern enum reg_class reg_preferred_class PARAMS ((int));
 extern enum reg_class reg_alternate_class PARAMS ((int));
-
+extern unsigned int reg_spill_cost PARAMS((int));
 extern rtx get_first_nonparm_insn	PARAMS ((void));
 
 extern void split_all_insns		PARAMS ((int));

@@ -1,0 +1,34 @@
+2001-01-28  Daniel Berlin  <dberlin@redhat.com>
+
+	* sbitmap.h (EXECUTE_IF_SET_IN_SBITMAP_REV): New macro, needed for
+	dataflow analysis.
+	(sbitmap_realloc): New function definition.
+
+	* sbitmap.c (sbitmap_realloc): New function, change size of an
+	already-allocated sbitmap.
+
+	* toplev.c (rest_of_compilation): Stop calling old allocators,
+	call new allocator instead.
+
+	* rtl.h: Add reg_spill_cost definition.
+
+	* reload1.c: De-staticify alter_reg.
+
+	* reload.h: Make alter_reg externally visible (probably need it
+	for spill code insertion).
+
+	* new-regalloc.[ch]: New files. New register allocator.
+
+	* df.[ch]: New files. Dataflow analysis.
+
+	* local-alloc.c: Make update_equiv_regs non-static, we need it in
+	the new allocator.
+
+	* Makefile.in (OBJS): Add df.o, new-regalloc.o
+
+	* regclass.c (regclass): Don't free costs, need it for spill costs.
+	(reg_spill_cost): New function, give us cost if we have to
+	put the register in memory.
+	
+	
+

@@ -384,7 +384,7 @@ static void delete_caller_save_insns	PARAMS ((void));
 static void spill_failure		PARAMS ((rtx, enum reg_class));
 static void count_spilled_pseudo	PARAMS ((int, int, int));
 static void delete_dead_insn		PARAMS ((rtx));
-static void alter_reg			PARAMS ((int, int));
+void alter_reg			PARAMS ((int, int));
 static void set_label_offsets		PARAMS ((rtx, rtx, int));
 static void check_eliminable_occurrences	PARAMS ((rtx));
 static void elimination_effects		PARAMS ((rtx, enum machine_mode));
@@ -1933,7 +1933,7 @@ delete_dead_insn (insn)
    This is used so that all pseudos spilled from a given hard reg
    can share one stack slot.  */
 
-static void
+void
 alter_reg (i, from_reg)
      register int i;
      int from_reg;
@@ -1942,7 +1942,6 @@ alter_reg (i, from_reg)
      for a reg that isn't actually used.  */
   if (regno_reg_rtx[i] == 0)
     return;
-
   /* If the reg got changed to a MEM at rtl-generation time,
      ignore it.  */
   if (GET_CODE (regno_reg_rtx[i]) != REG)
@@ -2918,7 +2917,8 @@ eliminate_regs_in_insn (insn, replace)
 	  || GET_CODE (PATTERN (insn)) == CLOBBER
 	  || GET_CODE (PATTERN (insn)) == ADDR_VEC
 	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-	  || GET_CODE (PATTERN (insn)) == ASM_INPUT)
+	  || GET_CODE (PATTERN (insn)) == ASM_INPUT
+	  || GET_CODE (PATTERN (insn)) == NOTE)
 	return 0;
       abort ();
     }
