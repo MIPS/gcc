@@ -507,7 +507,7 @@ df_bitmaps_free (df, flags)
 }
 
 
-/* Allocate and initialise dataflow memory.  */
+/* Allocate and initialize dataflow memory.  */
 static void
 df_alloc (df, n_regs)
      struct df *df;
@@ -781,7 +781,6 @@ df_ref_create (df, reg, loc, insn, ref_type, ref_flags)
      enum df_ref_flags ref_flags;
 {
   struct ref *this_ref;
-  unsigned int uid;
 
   this_ref = (struct ref *) obstack_alloc (&df_ref_obstack,
 					   sizeof (*this_ref));
@@ -791,7 +790,6 @@ df_ref_create (df, reg, loc, insn, ref_type, ref_flags)
   DF_REF_CHAIN (this_ref) = 0;
   DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
-  uid = INSN_UID (insn);
 
   if (ref_type == DF_REF_REG_DEF)
     {
@@ -2169,7 +2167,7 @@ df_analyse_1 (df, blocks, flags, update)
 }
 
 
-/* Initialise dataflow analysis.  */
+/* Initialize dataflow analysis.  */
 struct df *
 df_init ()
 {
@@ -2340,7 +2338,7 @@ df_analyse (df, blocks, flags)
 	      /* Recompute everything from scratch.  */
 	      df_free (df);
 	    }
-	  /* Allocate and initialise data structures.  */
+	  /* Allocate and initialize data structures.  */
 	  df_alloc (df, max_reg_num ());
 	  df_analyse_1 (df, 0, flags, 0);
 	  update = 1;

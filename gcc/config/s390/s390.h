@@ -856,12 +856,6 @@ CUMULATIVE_ARGS;
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
-
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
-
 /* These assume that REGNO is a hard or pseudo reg number.  They give
    nonzero only if REGNO is a hard reg of the suitable class or a pseudo
    reg currently allocated to a suitable hard reg.
@@ -1145,17 +1139,17 @@ CUMULATIVE_ARGS;
   case MINUS:                                                           \
   case NEG:                                                             \
   case NOT:                                                             \
-          return 1;                                                     \
+    return COSTS_N_INSNS (1);                                           \
   case MULT:                                                            \
     if (GET_MODE (XEXP (X, 0)) == DImode)                               \
-      return 40;                                                        \
-        else                                                            \
-      return 7;                                                         \
+      return COSTS_N_INSNS (40);                                        \
+    else                                                                \
+      return COSTS_N_INSNS (7);                                         \
   case DIV:                                                             \
   case UDIV:                                                            \
   case MOD:                                                             \
   case UMOD:                                                            \
-          return 33;
+    return COSTS_N_INSNS (33);
 
 
 /* An expression giving the cost of an addressing mode that contains
@@ -1197,13 +1191,9 @@ CUMULATIVE_ARGS;
    of registers on machines with lots of registers.
 
    This macro will normally either not be defined or be defined as a
-   constant.
+   constant.  */
 
-   On s390 symbols are expensive if compiled with fpic
-   lifetimes.  */
-
-#define ADDRESS_COST(RTX) \
-  ((flag_pic && GET_CODE (RTX) == SYMBOL_REF) ? 2 : 1)
+#define ADDRESS_COST(RTX) s390_address_cost ((RTX))
 
 /* On s390, copy between fprs and gprs is expensive.  */
 

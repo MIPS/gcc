@@ -254,7 +254,7 @@ xstormy16_split_cbranch (mode, label, comparison, dest, carry)
 
    OP is the conditional expression, or NULL for branch-always.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -331,7 +331,7 @@ xstormy16_output_cbranch_hi (op, label, reversed, insn)
 
    OP is the conditional expression (OP is never NULL_RTX).
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -407,7 +407,7 @@ xstormy16_output_cbranch_si (op, label, reversed, insn)
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -476,7 +476,7 @@ xstormy16_secondary_reload_class (class, mode, x)
   return NO_REGS;
 }
 
-/* Recognise a PLUS that needs the carry register.  */
+/* Recognize a PLUS that needs the carry register.  */
 int
 xstormy16_carry_plus_operand (x, mode)
      rtx x;
@@ -1170,7 +1170,7 @@ xstormy16_build_va_list ()
   return record;
 }
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */

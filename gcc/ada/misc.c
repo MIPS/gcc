@@ -206,8 +206,8 @@ gnat_parse_file (set_yydebug)
 
 /* Decode all the language specific options that cannot be decoded by GCC.
    The option decoding phase of GCC calls this routine on the flags that
-   it cannot decode. This routine returns 1 if it is successful, otherwise
-   it returns 0. */
+   it cannot decode.  This routine returns the number of consecutive arguments
+   from ARGV that it successfully decoded; 0 indicates failure.  */
 
 int
 gnat_decode_option (argc, argv)
@@ -219,10 +219,28 @@ gnat_decode_option (argc, argv)
 
   if (!strncmp (p, "-I", 2))
     {
-      /* Pass the -I switches as-is. */
-      gnat_argv[gnat_argc] = p;
-      gnat_argc ++;
-      return 1;
+      /* We might get -I foo or -Ifoo.  Canonicalize to the latter.  */
+      if (p[2] == '\0')
+	{
+	  char *q;
+
+	  if (argv[1] == 0)
+	    return 0;
+
+	  q = xmalloc (sizeof("-I") + strlen (argv[1]));
+	  strcpy (q, "-I");
+	  strcat (q, argv[1]);
+
+	  gnat_argv[gnat_argc] = q;
+	  gnat_argc ++;
+	  return 2;  /* consumed argument */
+	}
+      else
+	{
+	  gnat_argv[gnat_argc] = p;
+	  gnat_argc ++;
+	  return 1;
+	}
     }
 
   else if (!strncmp (p, "-gant", 5))

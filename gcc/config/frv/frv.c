@@ -595,7 +595,7 @@ frv_override_options ()
    LEVEL is the optimization level specified; 2 if `-O2' is specified, 1 if
    `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified, 0 otherwise.
+   SIZE is nonzero if `-Os' is specified, 0 otherwise.
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same optimization
@@ -3128,7 +3128,7 @@ frv_function_arg_boundary (mode, type)
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -3139,7 +3139,7 @@ frv_function_arg_boundary (mode, type)
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 
@@ -3552,7 +3552,7 @@ frv_legitimize_address (x, oldx, mode)
 {
   rtx ret = NULL_RTX;
 
-  /* Don't try to legitimize addreses if we are not optimizing, since the
+  /* Don't try to legitimize addresses if we are not optimizing, since the
      address we generate is not a general operand, and will horribly mess
      things up when force_reg is called to try and put it in a register because
      we aren't optimizing.  */
@@ -6417,7 +6417,7 @@ frv_split_minmax (operands)
 					  cc_reg,
 					  const0_rtx)));
 
-  /* If are taking the min/max of a non-zero constant, load that first, and
+  /* If are taking the min/max of a nonzero constant, load that first, and
      then do a conditional move of the other value.  */
   if (GET_CODE (src2) == CONST_INT && INTVAL (src2) != 0)
     {
@@ -7629,7 +7629,7 @@ frv_initialize_trampoline (addr, fnaddr, static_chain)
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -7705,7 +7705,7 @@ frv_secondary_reload_class (class, mode, x, in_p)
 	}
       break;
 
-      /* Non-zero constants should be loaded into an FPR through a GPR.  */
+      /* Nonzero constants should be loaded into an FPR through a GPR.  */
     case QUAD_FPR_REGS:
     case FEVEN_REGS:
     case FPR_REGS:

@@ -149,7 +149,7 @@ ENDFILE_SPEC_COMMON
 #define WCHAR_TYPE_SIZE 32
 
 /* Define for support of TFmode long double.
-   Sparc ABI says that long double is 4 words.  */
+   SPARC ABI says that long double is 4 words.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
@@ -330,13 +330,6 @@ do {									\
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
 
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d:\n", PREFIX, NUM)
-
 /* This is how to output a reference to an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -378,7 +371,7 @@ do {									\
 
 /* Handle multilib correctly.  */
 #if defined(__arch64__)
-/* 64-bit Sparc version */
+/* 64-bit SPARC version */
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
     unsigned int *pc_ = (CONTEXT)->ra;					\
@@ -429,7 +422,7 @@ do {									\
     goto SUCCESS;							\
   } while (0)
 #else
-/* 32-bit Sparc version */
+/* 32-bit SPARC version */
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
     unsigned int *pc_ = (CONTEXT)->ra;					\

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler,
-   for 64 bit powerpc linux.
+   for 64 bit PowerPC linux.
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -326,7 +326,7 @@ do									\
     assemble_name (FILE,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
     putc ('\n', FILE);							\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);			\
+    (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);		\
     sym_lineno += 1;							\
   }									\
 while (0)

@@ -143,7 +143,7 @@ override_options ()
 	}
     }
 
-  /* Make sure that the US_BIT_SET mask has been correctly initialised.  */
+  /* Make sure that the US_BIT_SET mask has been correctly initialized.  */
   if ((target_flags & MASK_US_MASK_SET) == 0)
     {
       target_flags |= MASK_US_MASK_SET;
@@ -2368,7 +2368,7 @@ register_is_ok_for_epilogue (op, mode)
           && (((REGNO (op) >= 20) && REGNO (op) <= 31)));
 }
 
-/* Return non-zero if the given RTX is suitable for collapsing into
+/* Return nonzero if the given RTX is suitable for collapsing into
    jump to a function epilogue.  */
 int
 pattern_is_ok_for_epilogue (op, mode)
@@ -2547,7 +2547,7 @@ construct_restore_jr (op)
 }
 
 
-/* Return non-zero if the given RTX is suitable for collapsing into
+/* Return nonzero if the given RTX is suitable for collapsing into
    a jump to a function prologue.  */
 int
 pattern_is_ok_for_prologue (op, mode)
@@ -2861,7 +2861,7 @@ v850_insert_attributes (decl, attr_ptr)
       && v850_get_data_area (decl) == DATA_AREA_NORMAL)
     v850_set_data_area (decl, data_area_stack->data_area);
 
-  /* Initialise the default names of the v850 specific sections,
+  /* Initialize the default names of the v850 specific sections,
      if this has not been done before.  */
   
   if (GHS_default_section_names [(int) GHS_SECTION_KIND_SDATA] == NULL)
@@ -2947,7 +2947,7 @@ v850_insert_attributes (decl, attr_ptr)
     }
 }
 
-/* Return non-zero if the given RTX is suitable
+/* Return nonzero if the given RTX is suitable
    for collapsing into a DISPOSE instruction.  */
 
 int
@@ -3137,7 +3137,7 @@ construct_dispose_instruction (op)
   return buff;
 }
 
-/* Return non-zero if the given RTX is suitable
+/* Return nonzero if the given RTX is suitable
    for collapsing into a PREPARE instruction.  */
 
 int

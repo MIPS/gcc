@@ -1285,7 +1285,6 @@ colorize_one_web (web, hard)
   int c = -1;
   int bestc = -1;
   int neighbor_needs= 0;
-  struct web *fat_neighbor = NULL;
   struct web *fats_parent = NULL;
   int num_fat = 0;
   int long_blocks = 0;
@@ -1318,7 +1317,6 @@ colorize_one_web (web, hard)
 		&& w->add_hardregs >= neighbor_needs)
 	      {
 		neighbor_needs = w->add_hardregs;
-		fat_neighbor = w;
 		fats_parent = ptarget;
 		num_fat++;
 	      }
@@ -1669,9 +1667,7 @@ assign_colors ()
 
   while (WEBS(SELECT))
     {
-      struct web *web;
       d = pop_list (&WEBS(SELECT));
-      web = DLIST_WEB (d);
       colorize_one_web (DLIST_WEB (d), 1);
     }
 

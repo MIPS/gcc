@@ -285,11 +285,10 @@ int
 size_of_uleb128 (value)
      unsigned HOST_WIDE_INT value;
 {
-  int size = 0, byte;
+  int size = 0;
 
   do
     {
-      byte = (value & 0x7f);
       value >>= 7;
       size += 1;
     }

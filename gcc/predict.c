@@ -1063,7 +1063,7 @@ estimate_loops_at_level (first_loop)
 static void
 counts_to_freqs ()
 {
-  HOST_WIDEST_INT count_max = 1;
+  gcov_type count_max = 1;
   basic_block bb;
 
   FOR_EACH_BB (bb)

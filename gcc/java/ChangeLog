@@ -1,3 +1,27 @@
+2002-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_read_unicode_collapsing_terminators): Handle case
+	where \r appears at EOF.  Fixes PR java/7950.
+
+2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* jvspec.c (lang_specific_driver): Remove unused variable.
+
+2002-09-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* java-tree.h (union lang_tree_node): Add chain_next option.
+
+2002-09-16  Richard Henderson  <rth@redhat.com>
+
+	* jcf-parse.c (get_constant): Runtime check for IEEE format;
+	use new real.h interface.
+	* jcf-write.c (find_constant_index): Use new real.h interface.
+	* lex.c (IS_ZERO): Use REAL_VALUES_EQUAL.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* lang.c: Follow spelling conventions.
+
 2002-09-11  Per Bothner  <per@bothner.com>
 
 	* parse.y (fold_constant_for_init):  If a VAR_DECL, convert numerical

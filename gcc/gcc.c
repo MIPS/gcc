@@ -197,6 +197,11 @@ static int report_times;
 
 static int save_temps_flag;
 
+/* Nonzero means use pipes to communicate between subprocesses.
+   Overridden by either of the above two flags.  */
+
+static int use_pipes;
+
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -294,7 +299,7 @@ static const char *find_file	PARAMS ((const char *));
 static int is_directory		PARAMS ((const char *, const char *, int));
 static void validate_switches	PARAMS ((const char *));
 static void validate_all_switches PARAMS ((void));
-static void give_switch		PARAMS ((int, int, int));
+static void give_switch		PARAMS ((int, int));
 static int used_arg		PARAMS ((const char *, int));
 static int default_arg		PARAMS ((const char *, int));
 static void set_multilib_dir	PARAMS ((void));
@@ -354,6 +359,12 @@ or with constant text in a single argument.
 	with a file name chosen once per compilation, without regard
 	to any appended suffix (which was therefore treated just like
 	ordinary text), making such attacks more likely to succeed.
+ %|SUFFIX
+	like %g, but if -pipe is in effect, expands simply to "-".
+ %mSUFFIX
+        like %g, but if -pipe is in effect, expands to nothing.  (We have both
+	%| and %m to accommodate differences between system assemblers; see
+	the AS_NEEDS_DASH_FOR_PIPED_INPUT target macro.)
  %uSUFFIX
 	like %g, but generates a new temporary file name even if %uSUFFIX
 	was already seen.
@@ -439,10 +450,15 @@ or with constant text in a single argument.
  %C     process CPP_SPEC as a spec.
  %1	process CC1_SPEC as a spec.
  %2	process CC1PLUS_SPEC as a spec.
- %|	output "-" if the input for the current command is coming from a pipe.
  %*	substitute the variable part of a matched option.  (See below.)
 	Note that each comma in the substituted string is replaced by
 	a single space.
+ %<S    remove all occurrences of -S from the command line.
+        Note - this command is position dependent.  % commands in the
+        spec string before this one will see -S, % commands in the
+        spec string after this one will not.
+ %<S*	remove all occurrences of all switches beginning with -S from the
+        command line.
  %{S}   substitutes the -S switch, if that switch was given to CC.
 	If that switch was not specified, this substitutes nothing.
 	Here S is a metasyntactic variable.
@@ -451,7 +467,6 @@ or with constant text in a single argument.
 	arguments.  CC considers `-o foo' as being one switch whose
 	name starts with `o'.  %{o*} would substitute this text,
 	including the space; thus, two arguments would be generated.
- %{^S*} likewise, but don't put a blank between a switch and any args.
  %{S*&T*} likewise, but preserve order of S and T options (the order
  	of S and T in the spec is not significant).  Can be any number
  	of ampersand-separated variables; for each the wild card is
@@ -460,14 +475,8 @@ or with constant text in a single argument.
 	specified to CC.  Note that the tail part of the -S option
 	(i.e. the part matched by the `*') will be substituted for each
 	occurrence of %* within X.
- %{<S}  remove all occurrences of -S from the command line.
-        Note - this option is position dependent.  % commands in the
-        spec string before this option will see -S, % commands in the
-        spec string after this option will not.
  %{S:X} substitutes X, but only if the -S switch was given to CC.
  %{!S:X} substitutes X, but only if the -S switch was NOT given to CC.
- %{|S:X} like %{S:X}, but if no S switch, substitute `-'.
- %{|!S:X} like %{!S:X}, but if there is an S switch, substitute `-'.
  %{.S:X} substitutes X, but only if processing a file with suffix S.
  %{!.S:X} substitutes X, but only if NOT processing a file with suffix S.
  %{S|P:X} substitutes X if either -S or -P was given to CC.  This may be
@@ -709,7 +718,11 @@ static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
 
 static const char *invoke_as =
-"%{!S:-o %{|!pipe:%g.s} |\n as %(asm_options) %{!pipe:%g.s} %A }";
+#ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
+"%{!S:-o %|.s |\n as %(asm_options) %|.s %A }";
+#else
+"%{!S:-o %|.s |\n as %(asm_options) %m.s %A }";
+#endif
 
 /* Some compilers have limits on line lengths, and the multilib_select
    and/or multilib_matches strings can be very long, so we build them at
@@ -855,10 +868,19 @@ static const struct compiler default_compilers[] =
    "%{!M:%{!MM:%{!E:%{!S:as %(asm_debug) %(asm_options) %i %A }}}}", 0},
   {".S", "@assembler-with-cpp", 0},
   {"@assembler-with-cpp",
+#ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
    "%(trad_capable_cpp) -lang-asm %(cpp_options)\
       %{E|M|MM:%(cpp_debug_options)}\
-      %{!M:%{!MM:%{!E:%{!S:-o %{|!pipe:%g.s} |\n\
-       as %(asm_debug) %(asm_options) %{!pipe:%g.s} %A }}}}", 0},
+      %{!M:%{!MM:%{!E:%{!S:-o %|.s |\n\
+       as %(asm_debug) %(asm_options) %|.s %A }}}}"
+#else
+   "%(trad_capable_cpp) -lang-asm %(cpp_options)\
+      %{E|M|MM:%(cpp_debug_options)}\
+      %{!M:%{!MM:%{!E:%{!S:-o %|.s |\n\
+       as %(asm_debug) %(asm_options) %m.s %A }}}}"
+#endif
+   , 0},
+  
 #include "specs.h"
   /* Mark end of table */
   {0, 0, 0}
@@ -2330,7 +2352,7 @@ make_relative_prefix (progname, bin_prefix, prefix)
      const char *prefix;
 {
   char **prog_dirs, **bin_dirs, **prefix_dirs;
-  int prog_num, bin_num, prefix_num, std_loc_p;
+  int prog_num, bin_num, prefix_num;
   int i, n, common;
 
   prog_dirs = split_directories (progname, &prog_num);
@@ -2403,7 +2425,6 @@ make_relative_prefix (progname, bin_prefix, prefix)
   /* Determine if the compiler is installed in the standard location, and if
      so, we don't need to specify relative directories.  Also, if argv[0]
      doesn't contain any directory specifiers, there is not much we can do.  */
-  std_loc_p = 0;
   if (prog_num == bin_num)
     {
       for (i = 0; i < bin_num; i++)
@@ -2414,7 +2435,6 @@ make_relative_prefix (progname, bin_prefix, prefix)
 
       if (prog_num <= 0 || i == bin_num)
 	{
-	  std_loc_p = 1;
 	  free_split_directories (prog_dirs);
 	  free_split_directories (bin_dirs);
 	  prog_dirs = bin_dirs = (char **) 0;
@@ -2918,7 +2938,7 @@ See %s for instructions.",
    0 when initialized
    1 if the switch is true in a conditional spec,
    -1 if false (overridden by a later switch)
-   -2 if this switch should be ignored (used in %{<S})
+   -2 if this switch should be ignored (used in %<S)
    The `validated' field is nonzero if any spec has looked at this switch;
    if it remains zero at the end of the run, it must be meaningless.  */
 
@@ -3561,6 +3581,13 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
       else if (strcmp (argv[i], "-time") == 0)
 	report_times = 1;
+      else if (strcmp (argv[i], "-pipe") == 0)
+	{
+	  /* -pipe has to go into the switches array as well as
+	     setting a flag.  */
+	  use_pipes = 1;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -3763,6 +3790,19 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
   if (have_c && have_o && lang_n_infiles > 1)
     fatal ("cannot specify -o with -c or -S and multiple compilations");
 
+  if ((save_temps_flag || report_times) && use_pipes)
+    {
+      /* -save-temps overrides -pipe, so that temp files are produced */
+      if (save_temps_flag)
+	error ("warning: -pipe ignored because -save-temps specified");
+      /* -time overrides -pipe because we can't get correct stats when
+	 multiple children are running at once.  */
+      else if (report_times)
+	error ("warning: -pipe ignored because -time specified");
+
+      use_pipes = 0;
+    }
+  
   /* Set up the search paths before we go looking for config files.  */
 
   /* These come before the md prefixes so that we will find gcc's subcommands
@@ -3927,17 +3967,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (strcmp (argv[i], "-time") == 0)
 	;
-      else if ((save_temps_flag || report_times)
-	       && strcmp (argv[i], "-pipe") == 0)
-	{
-	  /* -save-temps overrides -pipe, so that temp files are produced */
-	  if (save_temps_flag)
-	    error ("warning: -pipe ignored because -save-temps specified");
-	  /* -time overrides -pipe because we can't get correct stats when
-	     multiple children are running at once.  */
-	  else if (report_times)
-	    error ("warning: -pipe ignored because -time specified");
-	}
       else if (strcmp (argv[i], "-###") == 0)
 	;
       else if (argv[i][0] == '-' && argv[i][1] != 0)
@@ -4074,7 +4103,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
   infiles[n_infiles].name = 0;
 }
 
-/* Store switches not filtered out by %{<S} in spec in COLLECT_GCC_OPTIONS
+/* Store switches not filtered out by %<S in spec in COLLECT_GCC_OPTIONS
    and place that in the environment.  */
 
 static void
@@ -4267,17 +4296,12 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 	if (argbuf_index > 0 && !strcmp (argbuf[argbuf_index - 1], "|"))
 	  {
-	    for (i = 0; i < n_switches; i++)
-	      if (!strcmp (switches[i].part1, "pipe"))
-		break;
-
 	    /* A `|' before the newline means use a pipe here,
 	       but only if -pipe was specified.
 	       Otherwise, execute now and don't pass the `|' as an arg.  */
-	    if (i < n_switches)
+	    if (use_pipes)
 	      {
 		input_from_pipe = 1;
-		switches[i].validated = 1;
 		break;
 	      }
 	    else
@@ -4502,10 +4526,10 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    {
 	      struct stat st;
 
-	      /* If save_temps_flag is off, and the HOST_BIT_BUCKET is defined,
-		 and it is not a directory, and it is writable, use it.
-		 Otherwise, fall through and treat this like any other
-		 temporary file.  */
+	      /* If save_temps_flag is off, and the HOST_BIT_BUCKET is
+		 defined, and it is not a directory, and it is
+		 writable, use it.  Otherwise, treat this like any
+		 other temporary file.  */
 
 	      if ((!save_temps_flag)
 		  && (stat (HOST_BIT_BUCKET, &st) == 0) && (!S_ISDIR (st.st_mode))
@@ -4518,9 +4542,39 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		  break;
 		}
 	    }
+	    goto create_temp_file;
+	  case '|':
+	    if (use_pipes)
+	      {
+		obstack_1grow (&obstack, '-');
+		delete_this_arg = 0;
+		arg_going = 1;
+
+		/* consume suffix */
+		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		  p++;
+		if (p[0] == '%' && p[1] == 'O')
+		  p += 2;
+		
+		break;
+	      }
+	    goto create_temp_file;
+	  case 'm':
+	    if (use_pipes)
+	      {
+		/* consume suffix */
+		while (*p == '.' || ISALPHA ((unsigned char) *p))
+		  p++;
+		if (p[0] == '%' && p[1] == 'O')
+		  p += 2;
+		
+		break;
+	      }
+	    goto create_temp_file;
 	  case 'g':
 	  case 'u':
 	  case 'U':
+	  create_temp_file:
 	      {
 		struct temp_name *t;
 		int suffix_length;
@@ -4603,7 +4657,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		for (t = temp_names; t; t = t->next)
 		  if (t->length == suffix_length
 		      && strncmp (t->suffix, suffix, suffix_length) == 0
-		      && t->unique == (c != 'g'))
+		      && t->unique == (c == 'u' || c == 'j'))
 		    break;
 
 		/* Make a new association if needed.  %u and %j
@@ -4624,7 +4678,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      }
 		    else
 		      t->suffix = save_string (suffix, suffix_length);
-		    t->unique = (c != 'g');
+		    t->unique = (c == 'u' || c == 'j');
 		    temp_filename = make_temp_file (t->suffix);
 		    temp_filename_length = strlen (temp_filename);
 		    t->filename = temp_filename;
@@ -5035,6 +5089,32 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    }
 	   break;
 
+	   /* Henceforth ignore the option(s) matching the pattern
+	      after the %<.  */
+	  case '<':
+	    {
+	      unsigned len = 0;
+	      int have_wildcard = 0;
+	      int i;
+
+	      while (p[len] && p[len] != ' ' && p[len] != '\t')
+		len++;
+
+	      if (p[len-1] == '*')
+		have_wildcard = 1;
+
+	      for (i = 0; i < n_switches; i++)
+		if (!strncmp (switches[i].part1, p, len - have_wildcard)
+		    && (have_wildcard || switches[i].part1[len] == '\0'))
+		  {
+		    switches[i].live_cond = SWITCH_IGNORE;
+		    switches[i].validated = 1;
+		  }
+
+	      p += len;
+	    }
+	    break;
+
 	  case '*':
 	    if (soft_matched_part)
 	      {
@@ -5191,11 +5271,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    }
 	    break;
 
-	  case '|':
-	    if (input_from_pipe)
-	      do_spec_1 ("-", 0, NULL);
-	    break;
-
 	  default:
 	    error ("spec failure: unrecognized spec option '%c'", c);
 	    break;
@@ -5224,37 +5299,10 @@ handle_braces (p)
      const char *p;
 {
   const char *filter, *body = NULL, *endbody = NULL;
-  int pipe_p = 0;
   int true_once = 0;	/* If, in %{a|b:d}, at least one of a,b was seen.  */
   int negate;
   int suffix;
-  int include_blanks = 1;
-  int elide_switch = 0;
   int ordered = 0;
-
-  if (*p == '^')
-    {
-      /* A '^' after the open-brace means to not give blanks before args.  */
-      include_blanks = 0;
-      ++p;
-    }
-
-  if (*p == '|')
-    {
-      /* A `|' after the open-brace means,
-	 if the test fails, output a single minus sign rather than nothing.
-	 This is used in %{|!pipe:...}.  */
-      pipe_p = 1;
-      ++p;
-    }
-
-  if (*p == '<')
-    {
-      /* A `<' after the open-brace means that the switch should be
-	 removed from the command-line.  */
-      elide_switch = 1;
-      ++p;
-    }
 
 next_member:
   negate = suffix = 0;
@@ -5267,18 +5315,8 @@ next_member:
   if (*p == '.')
     /* A `.' after the open-brace means test against the current suffix.  */
     {
-      if (pipe_p)
-	abort ();
-
       suffix = 1;
       ++p;
-    }
-
-  if (elide_switch && (negate || pipe_p || suffix))
-    {
-      /* It doesn't make sense to mix elision with other flags.  We
-	 could fatal() here, but the standard seems to be to abort.  */
-      abort ();
     }
 
  next_ampersand:
@@ -5286,7 +5324,7 @@ next_member:
   while (*p != ':' && *p != '}' && *p != '|' && *p != '&')
     p++;
 
-  if (*p == '|' && (pipe_p || ordered))
+  if (*p == '|' && ordered)
     abort ();
 
   if (!body)
@@ -5338,13 +5376,8 @@ next_member:
 	if (!strncmp (switches[i].part1, filter, p - 1 - filter)
 	    && check_live_switch (i, p - 1 - filter))
 	  {
-	    if (elide_switch)
-	      {
-		switches[i].live_cond = SWITCH_IGNORE;
-		switches[i].validated = 1;
-	      }
-	    else
-	      ordered = 1, switches[i].ordering = 1;
+	    ordered = 1;
+	    switches[i].ordering = 1;
 	  }
     }
   else
@@ -5384,7 +5417,7 @@ next_member:
 		  {
 		    do_spec_1 (string, 0, &switches[i].part1[hard_match_len]);
 		    /* Pass any arguments this switch has.  */
-		    give_switch (i, 1, 1);
+		    give_switch (i, 1);
 		    suffix_subst = NULL;
 		  }
 
@@ -5431,25 +5464,13 @@ next_member:
 	 conditional text.  */
       if (present != negate)
 	{
-	  if (elide_switch)
-	    {
-	      switches[i].live_cond = SWITCH_IGNORE;
-	      switches[i].validated = 1;
-	    }
-	  else if (ordered || *p == '&')
+	  if (ordered || *p == '&')
 	    ordered = 1, switches[i].ordering = 1;
 	  else if (*p == '}')
-	    give_switch (i, 0, include_blanks);
+	    give_switch (i, 0);
 	  else
 	    /* Even if many alternatives are matched, only output once.  */
 	    true_once = 1;
-	}
-      else if (pipe_p)
-	{
-	  /* Here if a %{|...} conditional fails: output a minus sign,
-	     which means "standard output" or "standard input".  */
-	  do_spec_1 ("-", 0, NULL);
-	  return endbody;
 	}
     }
 
@@ -5472,7 +5493,7 @@ next_member:
 	if (switches[i].ordering == 1)
 	  {
 	    switches[i].ordering = 0;
-	    give_switch (i, 0, include_blanks);
+	    give_switch (i, 0);
 	  }
     }
   /* Process the spec just once, regardless of match count.  */
@@ -5568,16 +5589,12 @@ check_live_switch (switchnum, prefix_length)
    the vector of switches gcc received, which is `switches'.
    This cannot fail since it never finishes a command line.
 
-   If OMIT_FIRST_WORD is nonzero, then we omit .part1 of the argument.
-
-   If INCLUDE_BLANKS is nonzero, then we include blanks before each argument
-   of the switch.  */
+   If OMIT_FIRST_WORD is nonzero, then we omit .part1 of the argument.  */
 
 static void
-give_switch (switchnum, omit_first_word, include_blanks)
+give_switch (switchnum, omit_first_word)
      int switchnum;
      int omit_first_word;
-     int include_blanks;
 {
   if (switches[switchnum].live_cond == SWITCH_IGNORE)
     return;
@@ -5595,8 +5612,7 @@ give_switch (switchnum, omit_first_word, include_blanks)
 	{
 	  const char *arg = *p;
 
-	  if (include_blanks)
-	    do_spec_1 (" ", 0, NULL);
+	  do_spec_1 (" ", 0, NULL);
 	  if (suffix_subst)
 	    {
 	      unsigned length = strlen (arg);

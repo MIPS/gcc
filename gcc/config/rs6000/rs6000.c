@@ -450,6 +450,9 @@ rs6000_override_options (default_cpu)
 	 {"405", PROCESSOR_PPC405,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	 {"405f", PROCESSOR_PPC405,
+	    MASK_POWERPC | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
 	 {"505", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -1772,6 +1775,8 @@ build_mask64_2_operands (in, out)
   out[2] = GEN_INT (shift);
   out[3] = GEN_INT (m2);
 #else
+  (void)in;
+  (void)out;
   abort ();
 #endif
 }
@@ -2643,6 +2648,7 @@ rs6000_emit_move (dest, source, mode)
     case V4HImode:
     case V2SFmode:
     case V2SImode:
+    case V1DImode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1]))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -8006,7 +8012,7 @@ print_operand_address (file, x)
     abort ();
 }
 
-/* Target hook for assembling integer objects.  The powerpc version has
+/* Target hook for assembling integer objects.  The PowerPC version has
    to handle fixup entries for relocatable code if RELOCATABLE_NEEDS_FIXUP
    is defined.  It also needs to handle DI-mode objects on 64-bit
    targets.  */
@@ -8529,7 +8535,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
      would treat EQ different to UNORDERED, we can't do it.  */
   if (! flag_unsafe_math_optimizations
       && code != GT && code != UNGE
-      && (GET_CODE (op1) != CONST_DOUBLE || target_isinf (c1))
+      && (GET_CODE (op1) != CONST_DOUBLE || real_isinf (&c1))
       /* Constructs of the form (a OP b ? a : b) are safe.  */
       && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
 	  || (! rtx_equal_p (op0, true_cond) 
@@ -11298,7 +11304,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	  /* Set up a TOC entry for the function.  */
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "Lthunk", labelno);
 	  toc_section ();
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "Lthunk", labelno);
+	  (*targetm.asm_out.internal_label) (file, "Lthunk", labelno);
 	  labelno++;
 
 	  if (TARGET_MINIMAL_TOC)
@@ -11608,7 +11614,7 @@ output_toc (file, x, labelno, mode)
     ASM_OUTPUT_ALIGN (file, 3);
   }
 
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (file, "LC", labelno);
 
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
@@ -12393,7 +12399,7 @@ rs6000_elf_select_section (decl, reloc, align)
    link-time relocations.  If you do not define this macro, GCC will use
    the symbol name prefixed by `.' as the section name.  Note - this
    macro can now be called for uninitialized data items as well as
-   initialised data and functions.  */
+   initialized data and functions.  */
 
 static void
 rs6000_elf_unique_section (decl, reloc)
@@ -12424,8 +12430,7 @@ rs6000_elf_encode_section_info (decl, first)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx sym_ref = XEXP (DECL_RTL (decl), 0);
-      if ((TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
-          && ! DECL_WEAK (decl))
+      if ((*targetm.binds_local_p) (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
       if (DEFAULT_ABI == ABI_AIX)
@@ -13121,8 +13126,7 @@ rs6000_xcoff_encode_section_info (decl, first)
      int first ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (decl) == FUNCTION_DECL
-      && (TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
-      && ! DECL_WEAK (decl))
+      && (*targetm.binds_local_p) (decl))
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 

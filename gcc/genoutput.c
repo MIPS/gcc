@@ -235,6 +235,7 @@ output_prologue ()
   printf ("#include \"recog.h\"\n\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"output.h\"\n");
+  printf ("#include \"target.h\"\n");
 }
 
 

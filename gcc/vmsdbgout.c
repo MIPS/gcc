@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "langhooks.h"
 #include "function.h"
+#include "target.h"
 
 /* Difference in seconds between the VMS Epoch and the Unix Epoch */
 static const long long vms_epoch_offset = 3506716800ll;
@@ -1361,7 +1362,7 @@ vmsdbgout_begin_block (line, blocknum)
     (*dwarf2_debug_hooks.begin_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
+    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
 }
 
 /* Output a marker (i.e. a label) for the end of the generated code for a
@@ -1376,7 +1377,7 @@ vmsdbgout_end_block (line, blocknum)
     (*dwarf2_debug_hooks.end_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, BLOCK_END_LABEL, blocknum);
+    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_END_LABEL, blocknum);
 }
 
 /* Not implemented in VMS Debug.  */
@@ -1563,7 +1564,7 @@ vmsdbgout_source_line (line, filename)
     {
       dst_line_info_ref line_info;
 
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, LINE_CODE_LABEL,
+      (*targetm.asm_out.internal_label) (asm_out_file, LINE_CODE_LABEL,
 				 line_info_table_in_use);
 
       /* Expand the line info table if necessary.  */
@@ -1735,7 +1736,7 @@ vmsdbgout_finish (input_filename)
 
   /* Output a terminator label for the .text section.  */
   text_section ();
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, TEXT_END_LABEL, 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output debugging information.
      Warning! Do not change the name of the .vmsdebug section without

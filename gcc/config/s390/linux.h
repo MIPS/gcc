@@ -141,16 +141,6 @@ Boston, MA 02111-1307, USA.  */
 /* Prefix for internally generated assembler labels.  */
 #define LPREFIX ".L"
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-
      /* internal macro to output long */
 #define _ASM_OUTPUT_LONG(FILE, VALUE)                                   \
       fprintf (FILE, "\t.long\t0x%lX\n", VALUE);

@@ -1695,10 +1695,8 @@ rtx_for_function_call (fndecl, exp)
   else
     /* Generate an rtx (probably a pseudo-register) for the address.  */
     {
-      rtx funaddr;
       push_temp_slots ();
-      funaddr = funexp
-	= expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
+      funexp = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
       emit_queue ();
     }
@@ -2587,7 +2585,7 @@ expand_call (exp, target, ignore)
 	 is subject to race conditions, just as with multithreaded
 	 programs.  */
 
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_fork_func"),
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__gcov_flush"),
 		      	 LCT_ALWAYS_RETURN,
 			 VOIDmode, 0);
     }
@@ -4148,9 +4146,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    emit_move_insn (value, mem_value);
 	}
       else if (value != 0)
-	emit_move_insn (value, hard_libcall_value (outmode));
+	emit_move_insn (value, valreg);
       else
-	value = hard_libcall_value (outmode);
+	value = valreg;
     }
 
   if (ACCUMULATE_OUTGOING_ARGS)
@@ -4491,6 +4489,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
     {
       /* BLKmode, at least partly to be pushed.  */
 
+      unsigned int parm_align;
       int excess;
       rtx size_rtx;
 
@@ -4514,6 +4513,23 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 		    + partial * UNITS_PER_WORD);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
 				  NULL_RTX, TYPE_MODE (sizetype), 0);
+	}
+
+      /* Some types will require stricter alignment, which will be
+	 provided for elsewhere in argument layout.  */
+      parm_align = MAX (PARM_BOUNDARY, TYPE_ALIGN (TREE_TYPE (pval)));
+
+      /* When an argument is padded down, the block is aligned to
+	 PARM_BOUNDARY, but the actual argument isn't.  */
+      if (FUNCTION_ARG_PADDING (arg->mode, TREE_TYPE (pval)) == downward)
+	{
+	  if (arg->size.var)
+	    parm_align = BITS_PER_UNIT;
+	  else if (excess)
+	    {
+	      int excess_align = (excess & -excess) * BITS_PER_UNIT;
+	      parm_align = MIN (parm_align, excess_align);
+	    }
 	}
 
       if ((flags & ECF_SIBCALL) && GET_CODE (arg->value) == MEM)
@@ -4573,8 +4589,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
           {
 	    rtx size_rtx1 = GEN_INT (reg_parm_stack_space - arg->offset.constant);
 	    emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx1,
-		            MAX (PARM_BOUNDARY, TYPE_ALIGN (TREE_TYPE (pval))),
-			    partial, reg, excess, argblock,
+		            parm_align, partial, reg, excess, argblock,
 			    ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space,
 		            ARGS_SIZE_RTX (arg->alignment_pad));
 	  }
@@ -4582,8 +4597,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	
 
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
-		      MAX (PARM_BOUNDARY, TYPE_ALIGN (TREE_TYPE (pval))),
-		      partial, reg, excess, argblock,
+		      parm_align, partial, reg, excess, argblock,
 		      ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space,
 		      ARGS_SIZE_RTX (arg->alignment_pad));
 

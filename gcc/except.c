@@ -672,12 +672,12 @@ expand_start_catch (type_or_list)
 void
 expand_end_catch ()
 {
-  struct eh_region *try_region, *catch_region;
+  struct eh_region *try_region;
 
   if (! doing_eh (0))
     return;
 
-  catch_region = expand_eh_region_end ();
+  expand_eh_region_end ();
   try_region = cfun->eh->try_region;
 
   emit_jump (try_region->u.try.continue_label);
@@ -3625,7 +3625,7 @@ output_function_exception_table ()
       assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA",
+  (*targetm.asm_out.internal_label) (asm_out_file, "LLSDA",
 			     current_function_funcdef_no);
 
   /* The LSDA header.  */

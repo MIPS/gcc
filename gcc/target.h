@@ -72,6 +72,9 @@ struct gcc_target
     /* Output code that will globalize a label.  */
     void (* globalize_label) PARAMS ((FILE *, const char *));
 
+    /* Output an internal label.  */
+    void (* internal_label) PARAMS ((FILE *, const char *, unsigned long));
+
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
     void (* visibility) PARAMS ((tree, const char *));

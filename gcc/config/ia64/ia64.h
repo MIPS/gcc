@@ -346,7 +346,7 @@ while (0)
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 /* By default, the C++ compiler will use function addresses in the
-   vtable entries.  Setting this non-zero tells the compiler to use
+   vtable entries.  Setting this nonzero tells the compiler to use
    function descriptors instead.  The value of this macro says how
    many words wide the descriptor is (normally 2).  It is assumed
    that the address of a function descriptor may be treated as a
@@ -973,7 +973,7 @@ enum reg_class
 
 /* Certain machines have the property that some registers cannot be copied to
    some other registers without using memory.  Define this macro on those
-   machines to be a C expression that is non-zero if objects of mode M in
+   machines to be a C expression that is nonzero if objects of mode M in
    registers of CLASS1 can only be copied to registers of class CLASS2 by
    storing a register of CLASS1 into memory and loading that memory location
    into a register of CLASS2.  */
@@ -1203,7 +1203,7 @@ enum reg_class
   {RETURN_ADDRESS_POINTER_REGNUM, BR_REG (0)},				\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  The frame pointer
    is automatically handled.  */
 
@@ -1931,18 +1931,9 @@ do {									\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM);				\
 } while (0)
 
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  */
-
 /* ??? Not sure if using a ? in the name for Intel as is safe.  */
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen (NAME) + 12);			\
-  sprintf (OUTVAR, "%s%c%ld", (NAME), (TARGET_GNU_AS ? '.' : '?'),	\
-	   (long)(NUMBER));						\
-} while (0)
+#define ASM_PN_FORMAT (TARGET_GNU_AS ? "%s.%lu" : "%s?%lu")
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.  */
@@ -2259,7 +2250,7 @@ do {									\
 
 /* Use tags for debug info labels, so that they don't break instruction
    bundles.  This also avoids getting spurious DV warnings from the
-   assembler.  This is similar to ASM_OUTPUT_INTERNAL_LABEL, except that we
+   assembler.  This is similar to (*targetm.asm_out.internal_label), except that we
    add brackets around the label.  */
 
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \

@@ -1042,10 +1042,9 @@ gen_lowpart_common (mode, x)
 	   && GET_CODE (x) == CONST_INT)
     {
       REAL_VALUE_TYPE r;
-      HOST_WIDE_INT i;
+      long i = INTVAL (x);
 
-      i = INTVAL (x);
-      r = REAL_VALUE_FROM_TARGET_SINGLE (i);
+      real_from_target (&r, &i, mode);
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
   else if (GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -1054,8 +1053,8 @@ gen_lowpart_common (mode, x)
 	   && GET_MODE (x) == VOIDmode)
     {
       REAL_VALUE_TYPE r;
-      HOST_WIDE_INT i[2];
       HOST_WIDE_INT low, high;
+      long i[2];
 
       if (GET_CODE (x) == CONST_INT)
 	{
@@ -1068,18 +1067,17 @@ gen_lowpart_common (mode, x)
 	  high = CONST_DOUBLE_HIGH (x);
 	}
 
-#if HOST_BITS_PER_WIDE_INT == 32
+      if (HOST_BITS_PER_WIDE_INT > 32)
+	high = low >> 31 >> 1;
+
       /* REAL_VALUE_TARGET_DOUBLE takes the addressing order of the
 	 target machine.  */
       if (WORDS_BIG_ENDIAN)
 	i[0] = high, i[1] = low;
       else
 	i[0] = low, i[1] = high;
-#else
-      i[0] = low;
-#endif
 
-      r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
+      real_from_target (&r, i, mode);
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
   else if ((GET_MODE_CLASS (mode) == MODE_INT
@@ -1887,9 +1885,14 @@ set_mem_attributes_minus_bitpos (ref, t, objectp, bitpos)
     }
 
   /* If we modified OFFSET based on T, then subtract the outstanding 
-     bit position offset.  */
+     bit position offset.  Similarly, increase the size of the accessed
+     object to contain the negative offset.  */
   if (apply_bitpos)
-    offset = plus_constant (offset, -(apply_bitpos / BITS_PER_UNIT));
+    {
+      offset = plus_constant (offset, -(apply_bitpos / BITS_PER_UNIT));
+      if (size)
+	size = plus_constant (size, apply_bitpos / BITS_PER_UNIT);
+    }
 
   /* Now set the attributes we computed above.  */
   MEM_ATTRS (ref)

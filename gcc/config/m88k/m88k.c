@@ -74,6 +74,9 @@ static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
 static void m88k_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void m88k_encode_section_info PARAMS ((tree, int));
+#ifdef AS_BUG_DOT_LABELS
+static void m88k_internal_label PARAMS ((FILE *, const char *, unsigned long));
+#endif
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -101,6 +104,10 @@ static void m88k_encode_section_info PARAMS ((tree, int));
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  m88k_encode_section_info
+#ifdef AS_BUG_DOT_LABELS
+#undef TARGET_ASM_INTERNAL_LABEL
+#define  TARGET_ASM_INTERNAL_LABEL m88k_internal_label
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -246,7 +253,7 @@ output_load_const_dimode (operands)
    do the move.  Otherwise, return 0 and the caller will emit the move
    normally.
 
-   SCRATCH if non zero can be used as a scratch register for the move
+   SCRATCH if nonzero can be used as a scratch register for the move
    operation.  It is provided by a SECONDARY_RELOAD_* macro if needed.  */
 
 int
@@ -315,7 +322,7 @@ emit_move_sequence (operands, mode, scratch)
 /* Return a legitimate reference for ORIG (either an address or a MEM)
    using the register REG.  If PIC and the address is already
    position-independent, use ORIG.  Newly generated position-independent
-   addresses go into a reg.  This is REG if non zero, otherwise we
+   addresses go into a reg.  This is REG if nonzero, otherwise we
    allocate register(s) as necessary.  If this is called during reload,
    and we need a second temp register, then we use SCRATCH, which is
    provided via the SECONDARY_INPUT_RELOAD_CLASS mechanism.  */
@@ -892,7 +899,9 @@ output_call (operands, addr)
       jump = XVECEXP (final_sequence, 0, 1);
       if (GET_CODE (jump) == JUMP_INSN)
 	{
+#ifndef USE_GAS
 	  rtx low, high;
+#endif
 	  const char *last;
 	  rtx dest = XEXP (SET_SRC (PATTERN (jump)), 0);
 	  int delta = 4 * (INSN_ADDRESSES (INSN_UID (dest))
@@ -1714,7 +1723,7 @@ void
 output_label (label_number)
      int label_number;
 {
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", label_number);
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", label_number);
 }
 
 /* Generate the assembly code for function entry.
@@ -3339,3 +3348,15 @@ m88k_encode_section_info (decl, first)
 	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
     }
 }
+
+#ifdef AS_BUG_DOT_LABELS /* The assembler requires a declaration of local.  */
+static void
+m88k_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  fprintf (stream, TARGET_SVR4 ? ".%s%lu:\n%s.%s%lu\n" : "@%s%ld:\n",
+	   prefix, labelno, INTERNAL_ASM_OP, prefix, labelno);
+}
+#endif

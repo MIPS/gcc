@@ -1733,7 +1733,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "ext%M2l %r1,%3,%0"
   [(set_attr "type" "shift")])
 
-;; Combine has some strange notion of preserving existing undefined behaviour
+;; Combine has some strange notion of preserving existing undefined behavior
 ;; in shifts larger than a word size.  So capture these patterns that it
 ;; should have turned into zero_extracts.
 
@@ -6571,7 +6571,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
 {
   operands[2] = gen_label_rtx ();
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 			     CODE_LABEL_NUMBER (operands[2]));
 
   return "stq $31,-8192(%1)\;subq %0,1,%0\;lda %1,-8192(%1)\;bne %0,%l2";
