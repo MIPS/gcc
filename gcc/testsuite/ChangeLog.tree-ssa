@@ -1,3 +1,7 @@
+2003-11-24  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/compile/20031124-1.c: New.
+
 2003-11-24  Paul Brook  <paul@nowt.org>
 
 	PR fortran/13154

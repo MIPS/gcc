@@ -1,3 +1,9 @@
+2003-11-24  Richard Henderson  <rth@redhat.com>
+
+	PR 13174, PR 13143
+	* gimplify.c (cpt_same_type): Allow different ARRAY_TYPEs with
+	the same base type.
+
 2003-11-24  Daniel Berlin  <dberlin@dberlin.org>
 
 	Fix PR/13163

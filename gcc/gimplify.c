@@ -3318,15 +3318,23 @@ cpt_same_type (tree a, tree b)
   if (TYPE_MAIN_VARIANT (a) == TYPE_MAIN_VARIANT (b))
     return true;
 
-  /* ??? Ug.  METHOD_TYPES decompose to FUNCTION_TYPES and they aren't
-     linked together.  Since this routine is intended to catch type errors
+  /* ??? The C++ FE decomposes METHOD_TYPES to FUNCTION_TYPES and doesn't
+     link them together.  This routine is intended to catch type errors
      that will affect the optimizers, and the optimizers don't add new
      dereferences of function pointers, so ignore it.  */
   if ((TREE_CODE (a) == FUNCTION_TYPE || TREE_CODE (a) == METHOD_TYPE)
       && (TREE_CODE (b) == FUNCTION_TYPE || TREE_CODE (b) == METHOD_TYPE))
     return true;
 
-  /* And because of that, we have to recurse down through pointers.  */
+  /* ??? The C FE pushes type qualifiers after the fact into the type of
+     the element from the type of the array.  See build_unary_op's handling
+     of ADDR_EXPR.  This seems wrong -- if we were going to do this, we
+     should have done it when creating the variable in the first place.
+     Alternately, why aren't the two array types made variants?  */
+  if (TREE_CODE (a) == ARRAY_TYPE && TREE_CODE (b) == ARRAY_TYPE)
+    return cpt_same_type (TREE_TYPE (a), TREE_TYPE (b));
+
+  /* And because of those, we have to recurse down through pointers.  */
   if (POINTER_TYPE_P (a) && POINTER_TYPE_P (b))
     return cpt_same_type (TREE_TYPE (a), TREE_TYPE (b));
 
