@@ -1,3 +1,11 @@
+2002-07-29  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/cpu/powerpc/bits/cpu_limits.h (__glibcpp_long_bits): Define.
+	* configure.target (cpu_include_dir): Use cpu/powerpc for powerpc64.
+	* config/cpu/powerpc/bits/atomicity.h (__always_swap): Remove.
+	(__test_and_set): Remove.
+	(_STWCX): Define and use.
+
 2003-02-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/27_io/ios_base_storage.cc (main): Call
