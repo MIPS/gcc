@@ -1,3 +1,21 @@
+2004-06-16  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java 
+	(setComposite): Accept AlphaComposite arguments.
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java
+	(createBufferedImage): Add new overloads.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java
+	(createImage): Use GdkPixbufDecoder.createBufferedImage
+	when useGraphics2D() is true.
+	(getImage): Delegate to createImage.
+	* javax/swing/JList.java
+	(isSelectionEmpty):
+	(getFirstVisibleIndex):
+	(getLastVisibleIndex):
+	(setSelectedValue):
+	(ensureIndexIsVisible): New methods.
+	* javax/swing/Timer.java: Reimplement.
+
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/AbstractDocument.java

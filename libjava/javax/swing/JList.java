@@ -39,6 +39,7 @@ package javax.swing;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.ComponentOrientation;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -560,6 +561,52 @@ public class JList extends JComponent implements Accessible, Scrollable
   }
 
   /**
+   * Returns <code>true</code> if the model's selection is empty, otherwise
+   * <code>false</code>. 
+   *
+   * @return The return value of {@link ListSelectionModel#isSelectionEmpty}
+   */
+  public boolean isSelectionEmpty()
+  {
+    return selectionModel.isSelectionEmpty();
+  }
+
+  /**
+   * Returns the list index of the upper left or upper right corner of the
+   * {@link #visibleRect} property, depending on the {@link
+   * #componentOrientation} property.
+   *
+   * @return The index of the first visible list cell, or <code>-1</code>
+   * if none is visible.
+   */
+  public int getFirstVisibleIndex()
+  {
+    ComponentOrientation or = getComponentOrientation();
+    Rectangle r = getVisibleRect();
+    if (or == ComponentOrientation.RIGHT_TO_LEFT)
+      r.translate((int) r.getWidth(), 0);
+    return getUI().locationToIndex(this, r.getLocation());      
+  }
+
+  /**
+   * Returns the list index of the lower right or lower left corner of the
+   * {@link #visibleRect} property, depending on the {@link
+   * #componentOrientation} property.
+   *
+   * @return The index of the first visible list cell, or <code>-1</code>
+   * if none is visible.
+   */
+  public int getLastVisibleIndex()
+  {
+    ComponentOrientation or = getComponentOrientation();
+    Rectangle r = getVisibleRect();
+    r.translate(0, (int) r.getHeight());
+    if (or == ComponentOrientation.LEFT_TO_RIGHT)
+      r.translate((int) r.getWidth(), 0);
+    return getUI().locationToIndex(this, r.getLocation());      
+  }
+
+  /**
    * Returns the indices of values in the {@link #model} property which are
    * selected.
    *
@@ -679,6 +726,44 @@ public class JList extends JComponent implements Accessible, Scrollable
     Color old = selectionForeground;
     selectionForeground = c;
     firePropertyChange(SELECTION_FOREGROUND_PROPERTY_CHANGED, old, c);
+  }
+
+  /**
+   * Sets the selection to cover only the specified value, if it
+   * exists in the model. 
+   *
+   * @param obj The object to select
+   * @param scroll Whether to scroll the list to make the newly selected
+   * value visible
+   *
+   * @see #ensureIndexIsVisible
+   */
+
+  public void setSelectedValue(Object obj, boolean scroll)
+  {
+    for (int i = 0; i < model.getSize(); ++i)
+      {
+        if (model.getElementAt(i).equals(obj))
+          {
+            setSelectedIndex(i);
+            if (scroll)
+              ensureIndexIsVisible(i);
+            break;
+          }
+      }
+  }
+
+  /**
+   * Scrolls this list to make the specified cell visible. This
+   * only works if the list is contained within a viewport.
+   *
+   * @param i The list index to make visible
+   *
+   * @see JComponent#scrollRectToVisible
+   */
+  public void ensureIndexIsVisible(int i)
+  {
+    scrollRectToVisible(getUI().getCellBounds(this, i, i));
   }
 
   /**
