@@ -1333,8 +1333,14 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
 }
 
 /* Determines the overlapping elements due to accesses CHREC_A and
-   CHREC_B, that are affine functions.  This is a part of the
-   subscript analyzer.  */
+   CHREC_B, that are affine functions.  This function cannot handle
+   symbolic evolution functions, ie. when initial conditions are
+   parameters, because it uses lambda matrices of integers.  
+
+   FIXME: It is sometimes possible to perform the test for symbolic
+   cases, however these have to be implemented in another function.
+   Example: {t, +, 1}_1 vs {t, +, 2}_1 have exactly the same
+   overlaps as {0, +, 1}_1 vs {0, +, 2}_1  */
 
 static void
 analyze_subscript_affine_affine (tree chrec_a, 
@@ -1656,7 +1662,9 @@ analyze_siv_subscript (tree chrec_a,
 				      overlaps_b, overlaps_a, last_conflicts);
   
   else if (evolution_function_is_affine_p (chrec_a)
-	   && evolution_function_is_affine_p (chrec_b))
+	   && !chrec_contains_symbols (chrec_a)
+	   && evolution_function_is_affine_p (chrec_b)
+	   && !chrec_contains_symbols (chrec_b))
     analyze_subscript_affine_affine (chrec_a, chrec_b, 
 				     overlaps_a, overlaps_b, last_conflicts);
   else
@@ -1748,7 +1756,9 @@ analyze_miv_subscript (tree chrec_a,
     }
   
   else if (evolution_function_is_affine_multivariate_p (chrec_a)
-	   && evolution_function_is_affine_multivariate_p (chrec_b))
+	   && !chrec_contains_symbols (chrec_a)
+	   && evolution_function_is_affine_multivariate_p (chrec_b)
+	   && !chrec_contains_symbols (chrec_b))
     {
       /* testsuite/.../ssa-chrec-35.c
 	 {0, +, 1}_2  vs.  {0, +, 1}_3

@@ -1,3 +1,10 @@
+2005-01-13  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c (analyze_subscript_affine_affine): Clarify
+	function's comment.  Include a FIXME note for the symbolic case.
+	(analyze_siv_subscript, analyze_miv_subscript): Ensure that no 
+	symbolic evolution is passed to analyze_subscript_affine_affine.
+
 2005-01-12  Ira Rosen  <irar@il.ibm.com>
 	    Dorit Naishlos  <dorit@il.ibm.com>
 
