@@ -3941,7 +3941,7 @@ build_op_delete_call (code, addr, size, flags, placement)
       /* Then the second parm type.  */
       argtypes = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (alloc_fn)));
       /* Also the second argument.  */
-      args = TREE_CHAIN (TREE_OPERAND (call_expr, 1));
+      args = TREE_CHAIN (cxx_unsave_expr_now (TREE_OPERAND (call_expr, 1)));
     }
   else
     {

@@ -1598,7 +1598,11 @@ walk_tree (tp, func, data, htab_)
          that we avoid doing so.  */
       slot = htab_find_slot (htab, *tp, INSERT);
       if (*slot)
-	return NULL_TREE;
+	{
+	  if (TREE_CODE (*tp) == CALL_EXPR)
+	     abort();
+	  return NULL_TREE;
+	}
       *slot = *tp;
     }
 

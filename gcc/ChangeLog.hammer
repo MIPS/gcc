@@ -1,3 +1,8 @@
+2004-01-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (walk_tree): Sanity check that CALL_EXPR is not shared.
+	* cp/calls.c (build_op_delete_call): Unshare expr.
+	
 2004-01-03  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (add_uses): Mark USEs or registers which are not
