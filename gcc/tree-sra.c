@@ -214,7 +214,22 @@ can_be_scalarized_p (tree var)
 	    }
 	  return false;
 	}
-      
+
+      /* FIXME: We should handle COMPLEX_TYPEs.  Structures with
+	 __complex__ fields are tested in the libstdc++ testsuite:
+	 26_numerics/complex_inserters_extractors.cc.  */
+      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);
+	      fprintf (dump_file, " because it contains a __complex__ field, ");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  return false;
+	}
 
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)

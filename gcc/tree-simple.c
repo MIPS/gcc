@@ -23,12 +23,14 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "ggc.h"
 #include "tm.h"
 #include "tree.h"
 #include "tree-simple.h"
 #include "output.h"
 #include "rtl.h"
 #include "expr.h"
+#include "bitmap.h"
 
 /* GCC GIMPLE structure
 
@@ -164,7 +166,6 @@ Boston, MA 02111-1307, USA.  */
 */
 
 static inline bool is_gimple_id (tree);
-static inline bool is_gimple_non_addressable_1 (tree t);
 
 /* Validation of GIMPLE expressions.  */
 
@@ -404,21 +405,82 @@ is_gimple_reg_type (tree type)
           && TREE_CODE (type) != COMPLEX_TYPE);
 }
 
-/* Helper for is_gimple_reg, is_gimple_non_addressable and
-   is_gimple_call_clobbbered.  It silently assumes that T is a gimple
-   variable.  */
 
-static inline
-bool is_gimple_non_addressable_1 (tree t)
+/* Used to avoid calling struct_needs_to_live_in_memory repeatedly for the
+   same type.  */
+
+static GTY(()) bitmap types_checked = NULL;
+static GTY(()) bitmap types_in_memory = NULL;
+
+
+/* Return true if at least one of the fields in T is (or contains) an
+   ARRAY_TYPE.  */
+
+static bool
+struct_needs_to_live_in_memory (tree t)
 {
-  return (! TREE_STATIC (t)
-	  && ! DECL_EXTERNAL (t)
-	  && ! TREE_ADDRESSABLE (t)
-	  /* A volatile decl is not acceptable because we can't reuse it as
-	     needed.  We need to copy it into a temp first.  */
-	  && ! TREE_THIS_VOLATILE (t)
-	  && ! DECL_NONLOCAL (t)
-	  && decl_function_context (t) == current_function_decl);
+  tree f;
+
+  for (f = TYPE_FIELDS (t); f; f = TREE_CHAIN (f))
+    {
+      if (TREE_CODE (f) != FIELD_DECL)
+	continue;
+
+      /* If a field is an array, the structure must go in memory.  */
+      if (TREE_CODE (TREE_TYPE (f)) == ARRAY_TYPE)
+	return true;
+
+      /* Check nested structures.  */
+      if (AGGREGATE_TYPE_P (TREE_TYPE (f))
+	  && struct_needs_to_live_in_memory (TREE_TYPE (f)))
+	return true;
+    }
+
+  return false;
+}
+
+/* Return true if T (assumed to be a DECL) must be assigned a memory
+   location.  */
+
+bool
+needs_to_live_in_memory (tree t)
+{
+  /* First the quick checks.  */
+  if (TREE_STATIC (t)
+      || DECL_EXTERNAL (t)
+      || DECL_NONLOCAL (t)
+      || TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
+      || (TREE_CODE (t) == RESULT_DECL
+	  && aggregate_value_p (t, current_function_decl))
+      || decl_function_context (t) != current_function_decl)
+    return true;
+
+  /* Now, check for structures.  A structure will need to live in memory if
+     if at least one of its fields is of array type.  */
+  if (AGGREGATE_TYPE_P (TREE_TYPE (t)))
+    {
+      tree type = TREE_TYPE (t);
+      unsigned int uid = TYPE_UID (type);
+
+      if (types_checked == NULL)
+	{
+	  types_checked = BITMAP_GGC_ALLOC ();
+	  types_in_memory = BITMAP_GGC_ALLOC ();
+	}
+
+      /* If we have not examined this type already, do so and
+	 cache the result.  */
+      if (!bitmap_bit_p (types_checked, uid))
+	{
+	  bitmap_set_bit (types_checked, uid);
+	  if (struct_needs_to_live_in_memory (type))
+	    bitmap_set_bit (types_in_memory, uid);
+	}
+
+      return bitmap_bit_p (types_in_memory, uid);
+    }
+
+  return false;
 }
 
 /* Return nonzero if T is a scalar register variable.  */
@@ -431,7 +493,11 @@ is_gimple_reg (tree t)
 
   return (is_gimple_variable (t)
 	  && is_gimple_reg_type (TREE_TYPE (t))
-	  && is_gimple_non_addressable_1 (t));
+	  /* A volatile decl is not acceptable because we can't reuse it as
+	     needed.  We need to copy it into a temp first.  */
+	  && ! TREE_THIS_VOLATILE (t)
+	  && ! TREE_ADDRESSABLE (t)
+	  && ! needs_to_live_in_memory (t));
 }
 
 /* Return nonzero if T does not need to live in memory.  */
@@ -443,7 +509,8 @@ is_gimple_non_addressable (tree t)
     t = SSA_NAME_VAR (t);
 
   return (is_gimple_variable (t)
-	  && is_gimple_non_addressable_1 (t));
+	  && ! TREE_ADDRESSABLE (t)
+	  && ! needs_to_live_in_memory (t));
 }
 
 /* Return true if T may be clobbered by function calls.  */
@@ -455,7 +522,8 @@ is_gimple_call_clobbered (tree t)
     t = SSA_NAME_VAR (t);
 
   return (is_gimple_variable (t)
-          && !is_gimple_non_addressable_1 (t));
+          && (TREE_ADDRESSABLE (t)
+	      || needs_to_live_in_memory (t)));
 }
 
 /*  Return nonzero if T is a GIMPLE rvalue, i.e. an identifier or a
@@ -654,3 +722,5 @@ recalculate_side_effects (tree t)
       break;
    }
 }
+
+#include "gt-tree-simple.h"

@@ -75,6 +75,9 @@ bool is_gimple_non_addressable (tree t);
 /* Returns true iff T is a variable that may be modified by function
    calls.  */
 bool is_gimple_call_clobbered (tree t);
+/* Returns true iff T (assumed to be a variable) needs to be assigned a
+   memory location.  */
+bool needs_to_live_in_memory (tree t);
 
 void recalculate_side_effects (tree);
 

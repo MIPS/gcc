@@ -1,3 +1,46 @@
+2003-12-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-optimize.c (optimize_function_tree): Call BITMAP_XFREE.
+
+2003-12-15  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/12747
+
+	* tree-cfg.c (verify_addr_expr): Simplify predicates.
+	* tree-must-alias.c (addresses_needed): Declare as file local.
+	(can_be_promoted): New.
+	(tree_compute_must_alias): Call it.
+	Remove promoted variables from call_clobbered_vars.
+	(find_addressable_vars): Update comment.
+	Remove argument.  Update callers.
+	(promote_var): Always clear TREE_ADDRESSABLE.
+	Don't remove promoted variables from call_clobbered_vars.
+	If the promoted variable is in the may-alias set of a
+	non-promotable variable, copy its alias set into the alias set of
+	the non-promotable variable.
+	(find_variable_in): Update comment.
+	* tree-sra.c (can_be_scalarized_p): Reject structures with
+	__complex__ fields in them.
+
+2003-12-15  Diego Novillo  <dnovillo@redhat.com>
+            Jason Merrill <jason@redhat.com>
+
+	PR optimization/12747
+
+	* Makefile.in (tree-simple.o): Add dependency on bitmap.h and
+	$(GGC_H).
+	(GTFILES): Add tree-simple.c.
+	* tree-simple.c: Include ggc.h and bitmap.h.
+	(is_gimple_non_addressable_1): Remove.  Update all callers.
+	(types_checked): New local variable.
+	(types_in_memory): New local variable.
+	(struct_needs_to_live_in_memory): New.
+	(needs_to_live_in_memory): New.
+	(is_gimple_reg): Call it.
+	(is_gimple_non_addressable): Call it.
+	(is_gimple_call_clobbered): Call it.
+	* tree-simple.h (needs_to_live_in_memory): Declare.
+
 2003-12-14  Andreas Jaeger  <aj@suse.de>
 
 	* config/rs6000/rs6000.c (rs6000_output_function_epilogue): Handle

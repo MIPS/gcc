@@ -40,17 +40,34 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 
-
 /* Local functions.  */
-static void find_addressable_vars (sbitmap);
+static void find_addressable_vars (void);
 static void promote_var (tree, bitmap);
 static inline int find_variable_in (varray_type, tree);
 static inline void remove_element_from (varray_type, size_t);
+static inline bool can_be_promoted (tree var);
 
 
 /* Local variables.  */
 static FILE *dump_file;
 static int dump_flags;
+static sbitmap addresses_needed;
+
+
+/* Return true if VAR can be promoted to a GIMPLE register.  This function
+   assumes that the address of VAR is not taken by any statement in the
+   function.  */
+
+static inline bool
+can_be_promoted (tree var)
+{
+  var_ann_t ann = var_ann (var);
+
+  return (TREE_ADDRESSABLE (var)
+	  && !TEST_BIT (addresses_needed, ann->uid)
+	  && !ann->has_hidden_use
+	  && !needs_to_live_in_memory (var));
+}
 
 
 /* This pass finds must-alias relations exposed by constant propagation of
@@ -69,7 +86,6 @@ tree_compute_must_alias (tree fndecl, bitmap vars_to_rename,
 			 enum tree_dump_index phase)
 {
   size_t i;
-  sbitmap addresses_needed;
 
   timevar_push (TV_TREE_MUST_ALIAS);
 
@@ -83,26 +99,24 @@ tree_compute_must_alias (tree fndecl, bitmap vars_to_rename,
   sbitmap_zero (addresses_needed);
 
   /* Find variables that still need to have their address taken.  */
-  find_addressable_vars (addresses_needed);
+  find_addressable_vars ();
 
-  /* Now traverse the original list of addressable variables and remove
-     those whose addresses are not needed anymore.  */
+  /* Promote call-clobbered variables whose addresses are not needed
+     anymore.  */
   for (i = 0; i < num_call_clobbered_vars; i++)
     {
       tree var = call_clobbered_var (i);
-      var_ann_t ann = var_ann (var);
-      
-      /* We are only interested in disambiguating addressable locals.  */
-      if (TREE_ADDRESSABLE (var)
-	  && !ann->has_hidden_use
-	  /* FIXME Why exactly do we need to ignore pointers and arrays?  */
-	  && !POINTER_TYPE_P (TREE_TYPE (var))
-	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-	  && decl_function_context (var) == current_function_decl
-	  && !DECL_NONLOCAL (var)
-	  && !TEST_BIT (addresses_needed, ann->uid))
+      if (can_be_promoted (var))
 	promote_var (var, vars_to_rename);
     }
+
+  /* Remove promoted variables from CALL_CLOBBERED_VARS.  */
+  for (i = 0; i < num_call_clobbered_vars; i++)
+    if (!is_gimple_call_clobbered (call_clobbered_var (i)))
+      {
+	remove_element_from (call_clobbered_vars, i);
+	i--;	/* Re-set the iterator to account for the removed element.  */
+      }
 
   /* Free allocated memory.  */
   sbitmap_free (addresses_needed);
@@ -125,11 +139,11 @@ tree_compute_must_alias (tree fndecl, bitmap vars_to_rename,
    variables that need to be renamed in a second SSA pass because of the
    propagation of ADDR_EXPR values into INDIRECT_REF expressions.
 
-   Return a bitmap indexed by variable UID that will be set if for all
-   variables that still need to be addressable.  */
+   Variables that need to remain addressable are marked in the
+   ADDRESSES_NEEDED bitmap.  */
 
 static void
-find_addressable_vars (sbitmap addresses_needed)
+find_addressable_vars (void)
 {
   basic_block bb;
 
@@ -181,8 +195,6 @@ find_addressable_vars (sbitmap addresses_needed)
 		continue;
 	      SET_BIT (addresses_needed, var_ann (t)->uid);
 	    }
-
-	  /* ??? Can and should this be marked for modification?  */
 	}
     }
 }
@@ -199,11 +211,6 @@ promote_var (tree var, bitmap vars_to_rename)
   int ix;
   var_ann_t ann = var_ann (var);
 
-  /* FIXME: Apparently we always need TREE_ADDRESSABLE for aggregate
-     types.  Is this a backend quirk or do we actually need these?  */
-  if (!AGGREGATE_TYPE_P (TREE_TYPE (var)))
-    TREE_ADDRESSABLE (var) = 0;
-
   /* All VAR's aliases need to be renamed.  */
   if (ann->may_aliases)
     {
@@ -215,10 +222,6 @@ promote_var (tree var, bitmap vars_to_rename)
 	  bitmap_set_bit (vars_to_rename, var_ann (alias)->uid);
 	}
     }
-
-  ann->may_aliases = NULL;
-  ann->is_call_clobbered = 0;
-  ann->may_alias_global_mem = 0;
 
   /* If the variable was an alias tag, remove it from every variable that
      had it in its may-alias set.  */
@@ -241,7 +244,33 @@ promote_var (tree var, bitmap vars_to_rename)
 	  if (ix >= 0)
 	    {
 	      remove_element_from (aliases, (size_t) ix);
-	      bitmap_set_bit (vars_to_rename, var_ann (aliased_var)->uid);
+	      bitmap_set_bit (vars_to_rename, aliased_ann->uid);
+
+	      /* If ALIASED_VAR cannot be promoted, bring over the
+		 may-alias from VAR.  */
+	      if (ann->may_aliases
+		  && !can_be_promoted (aliased_var))
+		{
+		  size_t j;
+
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "%s: Variable ",
+				get_name (current_function_decl));
+		      print_generic_expr (dump_file, aliased_var, 0);
+		      fprintf (dump_file, " cannot be promoted. ");
+		      fprintf (dump_file, "Copying aliases from ");
+		      print_generic_expr (dump_file, var, 0);
+		      fprintf (dump_file, ".\n");
+		    }
+
+		  for (j = 0; j < VARRAY_ACTIVE_SIZE (ann->may_aliases); j++)
+		    {
+		      tree t = VARRAY_TREE (ann->may_aliases, j);
+		      if (!can_be_promoted (t))
+			VARRAY_PUSH_TREE (aliases, t);
+		    }
+		}
 
 	      /* Completely remove the may-alias array if it's empty.  */
 	      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
@@ -253,13 +282,13 @@ promote_var (tree var, bitmap vars_to_rename)
       ann->is_alias_tag = 0;
     }
 
+  ann->may_aliases = NULL;
+  ann->is_call_clobbered = 0;
+  ann->may_alias_global_mem = 0;
+  TREE_ADDRESSABLE (var) = 0;
+
   /* Add VAR to the list of variables to rename.  */
   bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-
-  /* Remove VAR from CALL_CLOBBERED_VARS.  */
-  ix = find_variable_in (call_clobbered_vars, var);
-  if (ix >= 0)
-    remove_element_from (call_clobbered_vars, (size_t) ix);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -287,7 +316,7 @@ find_variable_in (varray_type array, tree var)
 
 
 /* Remove element I from ARRAY by swapping element I with the last element
-   of ARRAY.  Do nothing if I is -1.  */
+   of ARRAY.  */
 
 static inline void
 remove_element_from (varray_type array, size_t i)

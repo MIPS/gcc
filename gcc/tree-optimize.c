@@ -254,7 +254,7 @@ optimize_function_tree (tree fndecl, tree *chain)
       ggc_collect ();
 
       /* Flush out flow graph and SSA data.  */
-      sbitmap_free (vars_to_rename);
+      BITMAP_XFREE (vars_to_rename);
     }
 
   tree_ssa_finish (chain);
