@@ -124,8 +124,8 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Assign unique numbers to labels generated for profiling.  */
-static int profile_label_no;
+/* Assign unique numbers to labels generated for profiling, debugging, etc.  */
+static int funcdef_no;
 
 /* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
@@ -6324,6 +6324,8 @@ prepare_function_start ()
 
   current_function_outgoing_args_size = 0;
 
+  current_function_funcdef_no = funcdef_no++;
+
   if (init_lang_status)
     (*init_lang_status) (cfun);
   if (init_machine_status)
@@ -6696,9 +6698,8 @@ expand_function_start (subr, parms_have_cleanups)
 
   if (current_function_profile)
     {
-      current_function_profile_label_no = profile_label_no++;
 #ifdef PROFILE_HOOK
-      PROFILE_HOOK (current_function_profile_label_no);
+      PROFILE_HOOK (current_function_funcdef_no);
 #endif
     }
 

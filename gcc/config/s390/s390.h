@@ -90,10 +90,6 @@ extern int target_flags;
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1 
 
-/* The current function count for create unique internal labels.  */
-
-extern int s390_function_count;
-
 /* The amount of space used for outgoing arguments.  */
 
 extern int current_function_outgoing_args_size;
@@ -1338,7 +1334,6 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 
 extern int s390_pool_count;
 extern int s390_nr_constants;
-extern int s390_pool_overflow;
 
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, fndecl, size)  	        \
 {								       	\
@@ -1352,6 +1347,13 @@ extern int s390_pool_overflow;
        return;                                      	                \
      }                                                                  \
 }
+
+/* In rare cases, correct code generation requires extra machine dependent
+   processing between the second jump optimization pass and delayed branch
+   scheduling.  On those machines, define this macro as a C statement to act on
+   the code starting at INSN.  */
+
+#define MACHINE_DEPENDENT_REORG(INSN) s390_machine_dependent_reorg (INSN)
 
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY(FILE, EXP, MODE, ALIGN, LABELNO, WIN) \
 {									    \

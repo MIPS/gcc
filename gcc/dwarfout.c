@@ -569,6 +569,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "dwarf.h"
 #include "tree.h"
 #include "flags.h"
+#include "function.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -757,14 +758,6 @@ static unsigned incomplete_types;
    with what the brain-damaged svr4 SDB debugger requires.  */
 
 static tree fake_containing_scope;
-
-/* The number of the current function definition that we are generating
-   debugging information for.  These numbers range from 1 up to the maximum
-   number of function definitions contained within the current compilation
-   unit.  These numbers are used to create unique labels for various things
-   contained within various function definitions.  */
-
-static unsigned current_funcdef_number = 1;
 
 /* A pointer to the ..._DECL node which we have most recently been working
    on.  We keep this around just in case something about it looks screwy
@@ -3898,13 +3891,14 @@ output_global_subroutine_die (arg)
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
 	  low_pc_attribute (function_start_label (decl));
-	  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+	  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
 	  high_pc_attribute (label);
 	  if (use_gnu_debug_info_extensions)
 	    {
-	      sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_BEGIN_LABEL_FMT,
+		       current_function_funcdef_no);
 	      body_begin_attribute (label);
-	      sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
 	      body_end_attribute (label);
 	    }
 	}
@@ -4281,13 +4275,14 @@ output_local_subroutine_die (arg)
 	{
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	  low_pc_attribute (function_start_label (decl));
-	  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+	  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
 	  high_pc_attribute (label);
 	  if (use_gnu_debug_info_extensions)
 	    {
-	      sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_BEGIN_LABEL_FMT,
+		       current_function_funcdef_no);
 	      body_begin_attribute (label);
-	      sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
 	      body_end_attribute (label);
 	    }
 	}
@@ -5815,9 +5810,6 @@ dwarfout_file_scope_decl (decl, set_finalizing)
     }
 
   ASM_OUTPUT_POP_SECTION (asm_out_file);
-
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl) != NULL)
-    current_funcdef_number++;
 }
 
 /* Output a marker (i.e. a label) for the beginning of the generated code
@@ -5864,7 +5856,7 @@ dwarfout_end_prologue (line)
     return;
 
   function_section (current_function_decl);
-  sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+  sprintf (label, BODY_BEGIN_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 
@@ -5880,7 +5872,7 @@ dwarfout_end_function (line)
   if (! use_gnu_debug_info_extensions)
     return;
   function_section (current_function_decl);
-  sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+  sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 
@@ -5896,7 +5888,7 @@ dwarfout_end_epilogue ()
   /* Output a label to mark the endpoint of the code generated for this
      function.	*/
 
-  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 

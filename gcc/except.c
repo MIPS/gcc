@@ -108,7 +108,6 @@ struct ehl_map_entry
 static htab_t exception_handler_label_map;
 
 static int call_site_base;
-static unsigned int sjlj_funcdef_number;
 static htab_t type_to_runtime_map;
 
 /* Describe the SjLj_Function_Context structure.  */
@@ -2372,7 +2371,7 @@ sjlj_emit_function_enter (dispatch_label)
   if (cfun->uses_eh_lsda)
     {
       char buf[20];
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LLSDA", sjlj_funcdef_number);
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LLSDA", current_function_funcdef_no);
       emit_move_insn (mem, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
     }
   else
@@ -3886,16 +3885,11 @@ output_function_exception_table ()
   int call_site_len;
 #endif
   int have_tt_data;
-  int funcdef_number;
   int tt_format_size = 0;
 
   /* Not all functions need anything.  */
   if (! cfun->uses_eh_lsda)
     return;
-
-  funcdef_number = (USING_SJLJ_EXCEPTIONS
-		    ? sjlj_funcdef_number
-		    : current_funcdef_number);
 
 #ifdef IA64_UNWIND_INFO
   fputs ("\t.personality\t", asm_out_file);
@@ -3917,14 +3911,16 @@ output_function_exception_table ()
     {
       tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
 #ifdef HAVE_AS_LEB128
-      ASM_GENERATE_INTERNAL_LABEL (ttype_label, "LLSDATT", funcdef_number);
+      ASM_GENERATE_INTERNAL_LABEL (ttype_label, "LLSDATT",
+				   current_function_funcdef_no);
 #endif
       tt_format_size = size_of_encoded_value (tt_format);
 
       assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA", funcdef_number);
+  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA",
+			     current_function_funcdef_no);
 
   /* The LSDA header.  */
 
@@ -3956,7 +3952,7 @@ output_function_exception_table ()
 #ifdef HAVE_AS_LEB128
       char ttype_after_disp_label[32];
       ASM_GENERATE_INTERNAL_LABEL (ttype_after_disp_label, "LLSDATTD",
-				   funcdef_number);
+				   current_function_funcdef_no);
       dw2_asm_output_delta_uleb128 (ttype_label, ttype_after_disp_label,
 				    "@TType base offset");
       ASM_OUTPUT_LABEL (asm_out_file, ttype_after_disp_label);
@@ -4002,9 +3998,9 @@ output_function_exception_table ()
 
 #ifdef HAVE_AS_LEB128
   ASM_GENERATE_INTERNAL_LABEL (cs_after_size_label, "LLSDACSB",
-			       funcdef_number);
+			       current_function_funcdef_no);
   ASM_GENERATE_INTERNAL_LABEL (cs_end_label, "LLSDACSE",
-			       funcdef_number);
+			       current_function_funcdef_no);
   dw2_asm_output_delta_uleb128 (cs_end_label, cs_after_size_label,
 				"Call-site table length");
   ASM_OUTPUT_LABEL (asm_out_file, cs_after_size_label);
@@ -4061,7 +4057,4 @@ output_function_exception_table ()
 			 (i ? NULL : "Exception specification table"));
 
   function_section (current_function_decl);
-
-  if (USING_SJLJ_EXCEPTIONS)
-    sjlj_funcdef_number += 1;
 }

@@ -1,3 +1,97 @@
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_split_branches): Add return
+	value.  Add parameters TEMP_REG and TEMP_USED.  Use unspec 104.
+
+	(find_base_register_in_addr): New function.
+	(find_base_register_ref): New function.
+	(replace_base_register_ref): New function.
+
+	(struct constant_pool): Add members pool_insn, insns, and anchor.
+	Remove member last_insn.
+	(s390_start_pool): Initialize them.
+	(s390_end_pool): Emit pool placeholder insn.
+	(s390_add_pool_insn): New function.
+	(s390_find_pool): Use insns bitmap instead of addresses.
+	(s390_dump_pool): Replace placeholder insn.  Emit anchor.
+	Replace unspec 104 by local-pool-relative references.
+	(s390_output_constant_pool): Output anchor label if required.
+	(s390_output_symbolic_const): Handle unspec 104 and 105.
+	(s390_add_pool): Remove, replace by ...
+	(s390_add_constant, s390_find_constant): ... these new functions.
+	(s390_add_anchor): New function.
+
+	(s390_chunkify_pool): Delete, replace by ...
+	(s390_chunkify_start, s390_chunkify_finish,
+	s390_chunkify_cancel): ... these new functions.
+	(s390_optimize_prolog): Add parameter TEMP_REGNO.
+	Recompute register live data for special registers.
+	(s390_fixup_clobbered_return_reg): New function.
+	(s390_machine_dependent_reorg): Rewrite to use new
+	s390_chunkify_... routines.
+
+	config/s390/s390.md ("reload_base"): Rename to ...
+	("reload_base_31"): ... this.
+	("reload_base_64"): New insn.
+	("reload_base2"): Remove.
+	("reload_anchor"): New insn.
+	("pool"): New insn.
+
+	s390.c (s390_pool_overflow): Remove.
+	s390.h (s390_pool_overflow): Likewise.
+	s390.md ("cjump", "icjump"): Remove s390_pool_overflow.
+
+2002-08-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390-protos.h (s390_function_prologue,
+	s390_function_epilogue): Remove.
+	config/s390/s390.c (s390_function_prologue, s390_function_epilogue,
+	TARGET_ASM_FUNCTION_PROLOGUE, TARGET_ASM_FUNCTION_EPILOGUE): Remove.
+
+	config/s390/s390.c (s390_machine_dependent_recorg): New function.
+	config/s390/s390-protos.h (s390_machine_dependent_reorg): Declare it.
+	config/s390/s390.h (MACHINE_DEPENDENT_REORG): Call it.
+	config/s390/s390.c (s390_split_branches, s390_chunkify_pool): Adapt
+	to being called from MACHINE_DEPENDENT_REORG.  Update regs_ever_live.
+
+	config/s390/s390.c (s390_frame_info): Inline save_fprs_p.  Always
+	assume BASE_REGISTER and RETURN_REGNUM need to be saved.
+	(s390_emit_prologue): Assume RETURN_REGNUM to be saved iff
+	function is not a leaf function.  Use save_gprs and restore_gprs.
+	(s390_emit_epilogue): Likewise.
+	(save_gprs, restore_gprs): New functions.
+	(struct s390_frame): Remove return_reg_saved_p member.
+	(save_fprs_p): Remove.
+	(s390_optimize_prolog): New function.
+	(s390_legitimate_reload_constant): Remove now unnecessary check.
+
+	(s390_function_count): Remove.
+	(s390_output_symbolic_const): Replace s390_function_count by
+	current_function_funcdef_no.
+	(s390_output_constant_pool): Likewise.
+
+	(legitimize_pic_address): Use regs_ever_live to track PIC register
+	instead of current_function_uses_pic_offset_table.
+	(s390_emit_prologue): Likewise.
+	config/s390/s390.md ("call", "call_value"): Likewise.
+
+2002-06-17  Richard Henderson  <rth@redhat.com>
+
+	* function.h (struct function) [funcdef_no]: Rename profile_label_no.
+	(current_function_funcdef_no): Similarly.
+	* function.c (funcdef_no): Similarly.
+	(prepare_function_start): Set current_function_funcdef_no.
+	(expand_function_start): Don't set current_function_profile_label_no.
+	* dwarf2out.h (current_funcdef_number): Remove.
+	* dwarf2out.c (current_funcdef_number): Remove.  Replace with
+	current_function_funcdef_no throughout.
+	* dwarfout.c, vmsdbgout.c: Similarly.
+	* except.c (sjlj_funcdef_number): Remove.
+	(sjlj_emit_function_enter): Use current_function_funcdef_no instead.
+	(output_function_exception_table): Likewise.
+	* final.c (profile_function): Use current_function_funcdef_no
+	instead of current_function_profile_label_no.
+
 2003-02-14  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
 
 	PR optimization/7702
