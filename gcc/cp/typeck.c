@@ -4901,7 +4901,9 @@ build_c_cast (tree type, tree expr)
   /* APPLE LOCAL begin AltiVec */
   /* If we are casting to a vector type, treat the expression as a vector
      initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+  if (TREE_CODE (type) == VECTOR_TYPE 
+      && targetm.cast_expr_as_vector_init
+      && !IS_AGGR_TYPE (TREE_TYPE(expr)))
     return vector_constructor_from_expr (expr, type);
   /* APPLE LOCAL end AltiVec */
 

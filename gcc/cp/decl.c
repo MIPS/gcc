@@ -65,7 +65,8 @@ static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokfndecl (tree, tree, tree, tree, tree, int,
 			enum overload_flags, cp_cv_quals,
-			tree, int, int, int, int, int, int, tree);
+			tree, int, int, int, int, int, int, tree, 
+			tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
@@ -5571,7 +5572,8 @@ grokfndecl (tree ctype,
             int inlinep,
             int funcdef_flag,
             int template_count,
-            tree in_namespace)
+            tree in_namespace,
+	    tree* attrlist)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -5788,6 +5790,12 @@ grokfndecl (tree ctype,
 					4 * (friendp != 0));
   if (decl == error_mark_node)
     return NULL_TREE;
+
+  if (attrlist)
+    {
+      cplus_decl_attributes (&decl, *attrlist, 0);
+      *attrlist = NULL_TREE;
+    }
 
   if (ctype != NULL_TREE
       && (! TYPE_FOR_JAVA (ctype) || check_java_method (decl))
@@ -7920,7 +7928,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
-			       funcdef_flag, template_count, in_namespace);
+			       funcdef_flag, template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
 	      return decl;
 #if 0
@@ -7967,7 +7975,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
-			       template_count, in_namespace);
+			       template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
 	  }
@@ -8151,7 +8159,7 @@ grokdeclarator (const cp_declarator *declarator,
 			   virtualp, flags, quals, raises,
 			   1, friendp,
 			   publicp, inlinep, funcdef_flag,
-			   template_count, in_namespace);
+			   template_count, in_namespace, attrlist);
 	if (decl == NULL_TREE)
 	  return NULL_TREE;
 
@@ -10122,9 +10130,6 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   begin_scope (sk_function_parms, decl1);
 
-  /* APPLE LOCAL weak import (Radar 2809704) --ilr */
-  cplus_decl_attributes (&decl1, attrs, (int)ATTR_FLAG_FUNCTION_DEF);
-
   ++function_depth;
 
   if (DECL_DESTRUCTOR_P (decl1)
@@ -10178,8 +10183,6 @@ start_function (cp_decl_specifier_seq *declspecs,
      cause a syntax error.  */
   if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
     return 0;
-
-  cplus_decl_attributes (&decl1, attrs, 0);
 
   /* If #pragma weak was used, mark the decl weak now.  */
   if (global_scope_p (current_binding_level))
