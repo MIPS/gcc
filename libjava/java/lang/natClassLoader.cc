@@ -59,8 +59,7 @@ _Jv_WaitForState (jclass klass, int state)
       else
 #endif
 	// Assign storage to fields
-	// FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
-	if (klass->size_in_bytes == (jint)-1)
+	if (_Jv_isBinaryCompatible (klass))
 	  {   
 	    int static_size;
 	    _Jv_LayoutClass(klass, &static_size);

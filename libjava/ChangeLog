@@ -1,3 +1,14 @@
+2004-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (Class::_Jv_isBinaryCompatible): Declare as
+	friend.
+	* java/lang/natClassLoader.cc (_Jv_WaitForState): Use
+	_Jv_isBinaryCompatible.
+	* java/lang/natClass.cc (initializeClass): Use
+	_Jv_isBinaryCompatible.
+	(_Jv_LinkSymbolTable): Likewise.
+	* include/jvm.h (_Jv_isBinaryCompatible): New function.
+
 2004-08-11  Tom Tromey  <tromey@redhat.com>
 
 	* gcj/javaprims.h: Regenerated.

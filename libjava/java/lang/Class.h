@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -254,8 +254,9 @@ public:
   // FIXME: this probably shouldn't be public.
   jint size (void)
     {
-      // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
-      if (size_in_bytes == (jint)-1)
+      // FIXME: ugly implementation.
+      // FIXME: can't use _Jv_isBinaryCompatible here.
+      if (size_in_bytes == -1)
 	{
 	  int static_size;
 	  _Jv_LayoutClass(this, &static_size);
@@ -377,6 +378,8 @@ private:
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
   
+  friend bool _Jv_isBinaryCompatible (jclass);
+
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
   inline friend jclass

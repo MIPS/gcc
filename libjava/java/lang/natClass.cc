@@ -868,8 +868,7 @@ java::lang::Class::initializeClass (void)
   _Jv_PrepareConstantTimeTables (this);
   
   // Assign storage to fields
-  // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
-  if (size_in_bytes == (jint)-1)
+  if (_Jv_isBinaryCompatible (this))
     {
       int static_size;
       _Jv_LayoutClass(this, &static_size);
@@ -1735,9 +1734,7 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		if (_Jv_CheckAccess (klass, cls, field->flags))
 // 		  {
 
-		// FIXME size_in_bytes == -1 is an evil way to test
-		// for BC compiled programs
-		if (cls->size_in_bytes == (jint)-1)
+		if (_Jv_isBinaryCompatible (cls))
 		  {
 		    int static_size;
 		    _Jv_LayoutClass(cls, &static_size);
@@ -2131,8 +2128,7 @@ _Jv_LayoutClass(jclass klass, int *static_size)
   jclass super = klass->getSuperclass();
   while (super != NULL)
     {
-      // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
-      if (super->size_in_bytes == (jint)-1)
+      if (_Jv_isBinaryCompatible (super))
 	_Jv_LayoutClass(super, static_size);
       int num = JvNumInstanceFields (super);
       _Jv_Field *field = JvGetFirstInstanceField (super);

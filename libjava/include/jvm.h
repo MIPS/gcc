@@ -1,6 +1,6 @@
 // jvm.h - Header file for private implementation information. -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -510,5 +510,15 @@ extern void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);
 extern void (*_Jv_JVMPI_Notify_THREAD_START) (JVMPI_Event *event);
 extern void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
+
+
+// This returns true if and only if the class in question was compiled
+// using the binary compatibility flag.
+inline bool
+_Jv_isBinaryCompatible (jclass k)
+{
+  // FIXME: ugly implementation.
+  return k->size_in_bytes == -1;
+}
 
 #endif /* __JAVA_JVM_H__ */
