@@ -1,4 +1,19 @@
 2004-04-21  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-chrec.c (chrec_apply): Fail on chrec_top when the chrec 
+	contains symbols defined in the inner loop.  Otherwise perform 
+	the computation with symbols.
+	(no_evolution_in_loop_p): Same.  Moved from here...
+	* tree-chrec.h (no_evolution_in_loop_p): ...there.  Define it inline.
+	(chrec_contains_symbols_defined_in_loop): Declare.
+	* tree-scalar-evolution.c (nb_set_scev, nb_get_scev): New counters.
+	(set_scalar_evolution, get_scalar_evolution): Count the number of calls.
+	(chrec_contains_symbols_defined_in_loop): Defined.
+	(compute_scalar_evolution_after_loop, first_iteration_non_satisfying_1, 
+	analyze_scalar_evolution_in_loop): Initialize boolean values.
+	(dump_chrecs_stats): Dump the get/set counters.
+
+2004-04-21  Sebastian Pop  <sebastian.pop@ensmp.fr>
             Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (compute_scalar_evolution_in_loop):

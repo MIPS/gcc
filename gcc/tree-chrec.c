@@ -1206,7 +1206,11 @@ chrec_apply (unsigned var,
 
   if (automatically_generated_chrec_p (chrec)
       || automatically_generated_chrec_p (x)
-      || chrec_contains_symbols (chrec)
+
+      /* When the symbols are defined in an outer loop, it is possible
+	 to symbolically compute the apply, since the symbols are
+	 constants with respect to the varying loop.  */
+      || chrec_contains_symbols_defined_in_loop (chrec, var)
       || chrec_contains_symbols (x))
     return chrec_top;
   
@@ -1721,27 +1725,6 @@ is_pure_sum_chrec (tree chrec)
     return (is_pure_sum_chrec (CHREC_LEFT (chrec))
 	    && is_pure_sum_chrec (CHREC_RIGHT (chrec)));
   
-  return true;
-}
-
-/* Determines whether CHREC is a loop invariant wrt. LOOP_NUM.  Set
-   the result in RES and return true when the property can be computed.  */
-
-bool
-no_evolution_in_loop_p (tree chrec,
-			unsigned loop_num, 
-			bool *res)
-{
-  tree scev;
-  
-  if (chrec == chrec_not_analyzed_yet
-      || chrec == chrec_top
-      || chrec_contains_symbols (chrec))
-    return false;
-
-  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
-  *res = (TREE_CODE (scev) != POLYNOMIAL_CHREC
-	  && TREE_CODE (scev) != EXPONENTIAL_CHREC);
   return true;
 }
 

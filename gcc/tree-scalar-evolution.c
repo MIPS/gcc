@@ -273,6 +273,10 @@ struct scev_info_str
   tree chrec;
 };
 
+/* Counters for the scev database.  */
+static unsigned nb_set_scev = 0;
+static unsigned nb_get_scev = 0;
+
 /* The following trees are unique elements.  Thus the comparison of
    another element to these elements should be done on the pointer to
    these trees, and not on their value.  */
@@ -334,6 +338,60 @@ find_var_scev_info (tree var)
   return &res->chrec;
 }
 
+/* Determines whether the chrec contains symbolic names defined in
+   LOOP_NB.  */
+
+bool 
+chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
+{
+  if (chrec == NULL_TREE)
+    return false;
+
+  if (TREE_CODE (chrec) == VAR_DECL
+      || TREE_CODE (chrec) == PARM_DECL
+      || TREE_CODE (chrec) == FUNCTION_DECL
+      || TREE_CODE (chrec) == LABEL_DECL
+      || TREE_CODE (chrec) == RESULT_DECL
+      || TREE_CODE (chrec) == FIELD_DECL)
+    return true;
+
+  if (TREE_CODE (chrec) == SSA_NAME)
+    {
+      tree def = SSA_NAME_DEF_STMT (chrec);
+      struct loop *def_loop = loop_of_stmt (def);
+      struct loop *loop = loop_from_num (current_loops, loop_nb);
+
+      if (def_loop == NULL)
+	return false;
+
+      if (flow_loop_nested_p (loop, def_loop))
+	return true;
+
+      return false;
+    }
+
+  switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
+    {
+    case 3:
+      if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (chrec, 2), 
+						  loop_nb))
+	return true;
+
+    case 2:
+      if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (chrec, 1), 
+						  loop_nb))
+	return true;
+
+    case 1:
+      if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (chrec, 0), 
+						  loop_nb))
+	return true;
+
+    default:
+      return false;
+    }
+}
+
 
 
 /* This section contains the interface to the SSA IR.  */
@@ -388,7 +446,7 @@ loop_phi_node_p (tree phi)
 static tree 
 compute_scalar_evolution_after_loop (struct loop *loop, tree evolution_fn)
 {
-  bool val;
+  bool val = false;
 
   if (evolution_fn == chrec_top)
     return chrec_top;
@@ -519,14 +577,19 @@ set_scalar_evolution (tree scalar, tree chrec)
 {
   tree *scalar_info = find_var_scev_info (scalar);
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file)
     {
-      fprintf (dump_file, "(set_scalar_evolution \n");
-      fprintf (dump_file, "  (scalar = ");
-      print_generic_expr (dump_file, scalar, 0);
-      fprintf (dump_file, ")\n  (scalar_evolution = ");
-      print_generic_expr (dump_file, chrec, 0);
-      fprintf (dump_file, "))\n");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "(set_scalar_evolution \n");
+	  fprintf (dump_file, "  (scalar = ");
+	  print_generic_expr (dump_file, scalar, 0);
+	  fprintf (dump_file, ")\n  (scalar_evolution = ");
+	  print_generic_expr (dump_file, chrec, 0);
+	  fprintf (dump_file, "))\n");
+	}
+      if (dump_flags & TDF_STATS)
+	nb_set_scev++;
     }
   
   *scalar_info = chrec;
@@ -539,12 +602,17 @@ get_scalar_evolution (tree scalar)
 {
   tree res;
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file)
     {
-      fprintf (dump_file, "(get_scalar_evolution \n");
-      fprintf (dump_file, "  (scalar = ");
-      print_generic_expr (dump_file, scalar, 0);
-      fprintf (dump_file, ")\n");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "(get_scalar_evolution \n");
+	  fprintf (dump_file, "  (scalar = ");
+	  print_generic_expr (dump_file, scalar, 0);
+	  fprintf (dump_file, ")\n");
+	}
+      if (dump_flags & TDF_STATS)
+	nb_get_scev++;
     }
   
   switch (TREE_CODE (scalar))
@@ -1558,7 +1626,7 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 				  tree chrec0, 
 				  tree chrec1)
 {
-  bool val;
+  bool val = false;
   tree res, other_evs;
   
   if (automatically_generated_chrec_p (chrec0)
@@ -2750,7 +2818,7 @@ tree
 analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 				  tree version)
 {
-  bool val;
+  bool val = false;
   tree ev = version;
 
   while (1)
@@ -3136,6 +3204,8 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, "%d\tchrecs in the scev database\n", 
 	   (int) VARRAY_ACTIVE_SIZE (scalar_evolution_info));
+  fprintf (file, "%d\tsets in the scev database\n", nb_set_scev);
+  fprintf (file, "%d\tgets in the scev database\n", nb_get_scev);
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, ")\n\n");
 }
