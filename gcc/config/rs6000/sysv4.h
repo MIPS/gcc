@@ -659,6 +659,9 @@ extern int rs6000_pic_labelno;
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
+/* dbxelf.h uses this, so we need to have it defined.  */
+#define LOCAL_LABEL_PREFIX "."
+
 /* svr4.h overrides ASM_OUTPUT_INTERNAL_LABEL.  */
 
 #undef ASM_OUTPUT_INTERNAL_LABEL_PREFIX

@@ -1,3 +1,7 @@
+2000-02-03  Geoff Keating  <geoffk@cygnus.com>
+
+	* sysv4.h (LOCAL_LABEL_PREFIX): Define, for the use of dbxelf.h.
+
 2000-01-31  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.h (ASM_OUTPUT_DEF_FROM_DECLS): New macro.
