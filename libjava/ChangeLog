@@ -1,5 +1,13 @@
 2004-07-31  Mark Wielaard  <mark@klomp.org>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilter):
+	Define hid at start of function.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeFilter):
+	Likewise.
+
+2004-07-31  Mark Wielaard  <mark@klomp.org>
+
 	* gnu/java/awt/EmbeddedWindow.java: Reindent.
 	* javax/swing/JButton.java: Reindent.
 	* javax/swing/JCheckBox.java: Reindent.
