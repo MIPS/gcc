@@ -1,10 +1,35 @@
+2004-03-18  Josef Zlomek  <zlomekj@suse.cz>
+
+	Merge from 3.3 branch:
+	2004-03-17  Ian Lance Taylor  <ian@wasabisystems.com>
+	
+		Backport:
+		2003-11-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+	
+		* c-typeck.c (pedantic_lvalue_warning): Deprecate compound
+		expressions as lvalues.
+		* doc/extend.texi: Document that all extended lvalues are now
+		deprecated.
+	
+		2003-11-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+	
+		* c-typeck.c (pedantic_lvalue_warning): Deprecate use of
+		conditional expressions as lvalues.
+	
+		2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+	
+		* c-typeck.c (pedantic_lvalue_warning): Unconditionally warn of
+		deprecation of casts as lvalues.
+		* fixinc/inclhack.def (obstack_lvalue_cast): New fix.
+		* fixinc/fixincl.x: Regenerate.
+
 2004-03-14  Ulrich Weigand  <uweigand@de.ibm.com> 
 
 	Merge from 3.3 branch:
 	2004-03-13  Jakub Jelinek  <jakub@redhat.com>
-        PR target/14533
+	PR target/14533
 	* config/s390/s390.c (legitimize_pic_address): Don't abort on UNSPEC
-        other than 100.
+	other than 100.
 
 2004-03-11  Alan Modra  <amodra@bigpond.net.au>
 
