@@ -1,3 +1,7 @@
+2004-06-15  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/arm-mmx-1.c: Use asm to clobber registers.
+
 2004-05-11  Paul Brook  <paul@codesourcery.com>
 
 	* gcc.c-torture/compile/20010518-1.c: Force enum size.
