@@ -4765,6 +4765,15 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 							mode);
 	      *node = ptr_type;
 	    }
+          else if (TREE_CODE (type) == ENUMERAL_TYPE)
+            {
+	      if (TREE_CODE (typefm) != INTEGER_TYPE)
+		{
+		  error ("cannot use mode `%s' for enumeral types", p);
+		  return NULL_TREE;
+		}
+	      *node = typefm;
+	    }
 	  else if (VECTOR_MODE_P (mode)
 		   ? TREE_CODE (type) != TREE_CODE (TREE_TYPE (typefm))
 		   : TREE_CODE (type) != TREE_CODE (typefm))
