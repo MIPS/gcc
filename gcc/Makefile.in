@@ -754,7 +754,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  gcse-null.o genrtl.o ggc-common.o global.o graph.o gtype-desc.o	   \
  haifa-sched.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
- integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o	   \
+ integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -763,7 +763,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
- xcoffout.o et-forest.o web.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
+ alloc-pool.o xcoffout.o et-forest.o web.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
 
@@ -1574,6 +1574,7 @@ doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h
 unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) insn-config.h \
    function.h $(INTEGRATE_H) $(REGS_H) $(RECOG_H) flags.h $(EXPR_H) $(LOOP_H) toplev.h \
    hard-reg-set.h varray.h $(BASIC_BLOCK_H) $(TM_P_H) $(PREDICT_H) $(PARAMS_H)
+alloc-pool.o : alloc-pool.c $(CONFIG_H) $(SYSTEM_H) alloc-pool.h
 flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) function.h except.h $(EXPR_H) ssa.h $(GGC_H) $(TM_P_H)
@@ -1607,7 +1608,7 @@ loop-unroll.o : loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    output.h $(expr.h)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h
-et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h
+et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h alloc-pool.h
 combine.o : combine.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    function.h insn-config.h $(INSN_ATTR_H) $(REGS_H) $(EXPR_H) \
    $(BASIC_BLOCK_H) $(RECOG_H) real.h hard-reg-set.h toplev.h $(TM_P_H)
@@ -2368,7 +2369,7 @@ gcov-iov.o: gcov-iov.c version.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) c
 gcov-iov$(build_exeext): gcov-iov.o
 	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) gcov-iov.o -o $@
 gcov-iov.h: gcov-iov$(build_exeext)
-	./$< > $@
+	./gcov-iov$(build_exeext) > $@
 
 gcov.o: gcov.c gcov-io.h gcov-iov.h intl.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
 gcov-dump.o: gcov-dump.c gcov-io.h gcov-iov.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)

@@ -1,5 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -100,7 +100,6 @@ Boston, MA 02111-1307, USA.  */
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.  */
-/* Ignore -dynamic for now */
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -111,7 +110,7 @@ Boston, MA 02111-1307, USA.  */
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
-  { "-dynamic", " " },  \
+  { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
@@ -174,7 +173,7 @@ Boston, MA 02111-1307, USA.  */
 /* Machine dependent cpp options.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:-D__STATIC__}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -234,6 +233,7 @@ Boston, MA 02111-1307, USA.  */
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
    %{Zdylib_file*:-dylib_file %*} \
+   %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
    %{Zflat_namespace:-flat_namespace} \
    %{headerpad_max_install_names*} \
@@ -510,7 +510,9 @@ FUNCTION ()								\
   in_machopic_nl_symbol_ptr,				\
   in_machopic_lazy_symbol_ptr,				\
   in_machopic_symbol_stub,				\
+  in_machopic_symbol_stub1,				\
   in_machopic_picsymbol_stub,				\
+  in_machopic_picsymbol_stub1,				\
   in_darwin_exception, in_darwin_eh_frame,		\
   num_sections
 
@@ -614,9 +616,15 @@ SECTION_FUNCTION (machopic_nl_symbol_ptr_section,	\
 SECTION_FUNCTION (machopic_symbol_stub_section,		\
 		in_machopic_symbol_stub,		\
 		".symbol_stub", 0)      		\
+SECTION_FUNCTION (machopic_symbol_stub1_section,	\
+		in_machopic_symbol_stub1,		\
+		".section __TEXT,__symbol_stub1,symbol_stubs,pure_instructions,16", 0)\
 SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		in_machopic_picsymbol_stub,		\
 		".picsymbol_stub", 0)      		\
+SECTION_FUNCTION (machopic_picsymbol_stub1_section,	\
+		in_machopic_picsymbol_stub1,		\
+		".section __TEXT,__picsymbolstub1,symbol_stubs,pure_instructions,32", 0)\
 SECTION_FUNCTION (darwin_exception_section,		\
 		in_darwin_exception,			\
 		".section __DATA,__gcc_except_tab", 0)	\
@@ -793,12 +801,12 @@ enum machopic_addr_class {
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
-#define DARWIN_REGISTER_TARGET_PRAGMAS(PFILE)				\
-  do {									\
-    cpp_register_pragma (PFILE, 0, "mark", darwin_pragma_ignore);	\
-    cpp_register_pragma (PFILE, 0, "options", darwin_pragma_options);	\
-    cpp_register_pragma (PFILE, 0, "segment", darwin_pragma_ignore);	\
-    cpp_register_pragma (PFILE, 0, "unused", darwin_pragma_unused);	\
+#define DARWIN_REGISTER_TARGET_PRAGMAS()			\
+  do {								\
+    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
+    c_register_pragma (0, "options", darwin_pragma_options);	\
+    c_register_pragma (0, "segment", darwin_pragma_ignore);	\
+    c_register_pragma (0, "unused", darwin_pragma_unused);	\
   } while (0)
 
 #undef ASM_APP_ON

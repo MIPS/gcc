@@ -20,12 +20,6 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# Tell GNU make 3.79 not to run the top level in parallel.  This 
-# prevents contention for $builddir/$target/config.cache, as well
-# as minimizing scatter in file system caches.
-NOTPARALLEL = .NOTPARALLEL
-$(NOTPARALLEL):
-
 VPATH=@srcdir@
 links=@configlinks@
 
@@ -69,7 +63,8 @@ includedir = @includedir@
 oldincludedir = @oldincludedir@
 infodir = @infodir@
 mandir = @mandir@
-gxx_include_dir=@gxx_include_dir@
+gxx_include_dir = @gxx_include_dir@
+libstdcxx_incdir = @libstdcxx_incdir@
 
 tooldir = @tooldir@
 build_tooldir = @build_tooldir@
@@ -278,7 +273,7 @@ USUAL_AS_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AS); \
     else \
-       t='$(program_transform_name)'; echo as | sed -e 's/x/x/' $$t ; \
+       echo as | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -292,7 +287,7 @@ USUAL_LD_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(LD); \
     else \
-       t='$(program_transform_name)'; echo ld | sed -e 's/x/x/' $$t ; \
+       echo ld | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -304,7 +299,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(DLLTOOL); \
     else \
-       t='$(program_transform_name)'; echo dlltool | sed -e 's/x/x/' $$t ; \
+       echo dlltool | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -316,7 +311,7 @@ USUAL_WINDRES_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(WINDRES); \
     else \
-       t='$(program_transform_name)'; echo windres | sed -e 's/x/x/' $$t ; \
+       echo windres | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -328,7 +323,7 @@ USUAL_AR_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AR); \
     else \
-       t='$(program_transform_name)'; echo ar | sed -e 's/x/x/' $$t ; \
+       echo ar | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -344,7 +339,7 @@ USUAL_RANLIB_FOR_TARGET = ` \
          echo ranlib; \
       fi; \
     else \
-       t='$(program_transform_name)'; echo ranlib | sed -e 's/x/x/' $$t ; \
+       echo ranlib | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -358,7 +353,7 @@ USUAL_NM_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(NM); \
     else \
-       t='$(program_transform_name)'; echo nm | sed -e 's/x/x/' $$t ; \
+       echo nm | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -368,6 +363,10 @@ all: all.normal
 .PHONY: all
 
 #### host and target specific makefile fragments come in here.
+@target_makefile_frag@
+@alphaieee_frag@
+@ospace_frag@
+@host_makefile_frag@
 ###
 
 # Flags to pass down to all sub-makes.
@@ -655,13 +654,13 @@ do-clean:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			clean); \
-	    then true; else exit 1; fi; \
+			clean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -673,13 +672,13 @@ do-clean:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			clean); \
-	    then true; else exit 1; fi; \
+			clean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -702,13 +701,13 @@ do-distclean:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			distclean); \
-	    then true; else exit 1; fi; \
+			distclean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -720,13 +719,13 @@ do-distclean:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			distclean); \
-	    then true; else exit 1; fi; \
+			distclean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -749,13 +748,13 @@ do-dvi:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			dvi); \
-	    then true; else exit 1; fi; \
+			dvi) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -767,13 +766,13 @@ do-dvi:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			dvi); \
-	    then true; else exit 1; fi; \
+			dvi) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -796,13 +795,13 @@ do-info:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			info); \
-	    then true; else exit 1; fi; \
+			info) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -814,13 +813,13 @@ do-info:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			info); \
-	    then true; else exit 1; fi; \
+			info) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -843,13 +842,13 @@ do-install-info:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			install-info); \
-	    then true; else exit 1; fi; \
+			install-info) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -861,13 +860,13 @@ do-install-info:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			install-info); \
-	    then true; else exit 1; fi; \
+			install-info) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -890,13 +889,13 @@ do-installcheck:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			installcheck); \
-	    then true; else exit 1; fi; \
+			installcheck) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -908,13 +907,13 @@ do-installcheck:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			installcheck); \
-	    then true; else exit 1; fi; \
+			installcheck) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -937,13 +936,13 @@ do-mostlyclean:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			mostlyclean); \
-	    then true; else exit 1; fi; \
+			mostlyclean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -955,13 +954,13 @@ do-mostlyclean:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			mostlyclean); \
-	    then true; else exit 1; fi; \
+			mostlyclean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -984,13 +983,13 @@ do-maintainer-clean:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			maintainer-clean); \
-	    then true; else exit 1; fi; \
+			maintainer-clean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -1002,13 +1001,13 @@ do-maintainer-clean:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			maintainer-clean); \
-	    then true; else exit 1; fi; \
+			maintainer-clean) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -1031,13 +1030,13 @@ do-TAGS:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			TAGS); \
-	    then true; else exit 1; fi; \
+			TAGS) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -1049,13 +1048,13 @@ do-TAGS:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			TAGS); \
-	    then true; else exit 1; fi; \
+			TAGS) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 
@@ -1070,8 +1069,9 @@ info: do-info
 installcheck: do-installcheck
 dvi: do-dvi
 
-# Make sure makeinfo is built before we do a `make info'.
-do-info: all-texinfo
+# Make sure makeinfo is built before we do a `make info', if we're
+# in fact building texinfo.
+do-info: maybe-all-texinfo
 
 install-info: do-install-info dir.info
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1084,6 +1084,7 @@ local-clean:
 
 local-distclean:
 	-rm -f Makefile config.status config.cache mh-frag mt-frag
+	-rm -f multilib.out multilib.tmp maybedep.tmp serdep.tmp
 	-if [ "$(TARGET_SUBDIR)" != "." ]; then \
 	  rm -rf $(TARGET_SUBDIR); \
 	else true; fi
@@ -1112,7 +1113,7 @@ $(CLEAN_MODULES) $(CLEAN_X11_MODULES) clean-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) clean); \
+	  (cd $${dir} && $(MAKE) $(FLAGS_TO_PASS) clean); \
 	else \
 	  true; \
 	fi
@@ -1125,7 +1126,7 @@ $(CLEAN_TARGET_MODULES):
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/$${dir}; $(MAKE) $(TARGET_FLAGS_TO_PASS) clean); \
+	  (cd $(TARGET_SUBDIR)/$${dir} && $(MAKE) $(TARGET_FLAGS_TO_PASS) clean); \
 	else \
 	  true; \
 	fi
@@ -1183,7 +1184,7 @@ install.all: install-no-fixedincludes
 	@if [ -f ./gcc/Makefile ] ; then \
 		r=`${PWD}` ; export r ; \
 		$(SET_LIB_PATH) \
-		(cd ./gcc; \
+		(cd ./gcc && \
 		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
 	else \
 		true ; \
@@ -1225,16 +1226,16 @@ etags tags: TAGS
 # built are.
 TAGS: do-TAGS
 
-
 # --------------------------------------
 # Modules which run on the build machine
 # --------------------------------------
 
 .PHONY: configure-build-libiberty maybe-configure-build-libiberty
 maybe-configure-build-libiberty:
-configure-build-libiberty: $(BUILD_SUBDIR)/libiberty/Makefile
-$(BUILD_SUBDIR)/libiberty/Makefile: config.status
-	@[ -d $(BUILD_SUBDIR)/libiberty ] || mkdir $(BUILD_SUBDIR)/libiberty;\
+configure-build-libiberty:
+	@test ! -f $(BUILD_SUBDIR)/libiberty/Makefile || exit 0; \
+	    [ -d $(BUILD_SUBDIR)/libiberty ] || \
+		mkdir $(BUILD_SUBDIR)/libiberty;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    AR="$(AR_FOR_BUILD)"; export AR; \
@@ -1305,10 +1306,9 @@ all-build-libiberty: configure-build-libiberty
 
 .PHONY: configure-ash maybe-configure-ash
 maybe-configure-ash:
-configure-ash: ash/Makefile
-
-ash/Makefile: config.status
-	@[ -d ash ] || mkdir ash; \
+configure-ash:
+	@test ! -f ash/Makefile || exit 0; \
+	[ -d ash ] || mkdir ash; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1350,7 +1350,7 @@ all-ash: configure-ash
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ash; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd ash && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-ash
@@ -1358,7 +1358,7 @@ check-ash:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ash; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd ash && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1368,15 +1368,14 @@ install-ash: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ash; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd ash && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-autoconf maybe-configure-autoconf
 maybe-configure-autoconf:
-configure-autoconf: autoconf/Makefile
-
-autoconf/Makefile: config.status
-	@[ -d autoconf ] || mkdir autoconf; \
+configure-autoconf:
+	@test ! -f autoconf/Makefile || exit 0; \
+	[ -d autoconf ] || mkdir autoconf; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1418,7 +1417,7 @@ all-autoconf: configure-autoconf
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd autoconf; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd autoconf && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-autoconf
@@ -1426,7 +1425,7 @@ check-autoconf:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd autoconf; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd autoconf && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1436,15 +1435,14 @@ install-autoconf: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd autoconf; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd autoconf && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-automake maybe-configure-automake
 maybe-configure-automake:
-configure-automake: automake/Makefile
-
-automake/Makefile: config.status
-	@[ -d automake ] || mkdir automake; \
+configure-automake:
+	@test ! -f automake/Makefile || exit 0; \
+	[ -d automake ] || mkdir automake; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1486,7 +1484,7 @@ all-automake: configure-automake
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd automake; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd automake && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-automake
@@ -1494,7 +1492,7 @@ check-automake:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd automake; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd automake && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1504,15 +1502,14 @@ install-automake: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd automake; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd automake && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-bash maybe-configure-bash
 maybe-configure-bash:
-configure-bash: bash/Makefile
-
-bash/Makefile: config.status
-	@[ -d bash ] || mkdir bash; \
+configure-bash:
+	@test ! -f bash/Makefile || exit 0; \
+	[ -d bash ] || mkdir bash; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1554,7 +1551,7 @@ all-bash: configure-bash
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bash; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd bash && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-bash
@@ -1562,7 +1559,7 @@ check-bash:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bash; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd bash && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1572,15 +1569,14 @@ install-bash: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bash; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd bash && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-bfd maybe-configure-bfd
 maybe-configure-bfd:
-configure-bfd: bfd/Makefile
-
-bfd/Makefile: config.status
-	@[ -d bfd ] || mkdir bfd; \
+configure-bfd:
+	@test ! -f bfd/Makefile || exit 0; \
+	[ -d bfd ] || mkdir bfd; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1622,7 +1618,7 @@ all-bfd: configure-bfd
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bfd; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd bfd && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-bfd
@@ -1630,7 +1626,7 @@ check-bfd:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bfd; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd bfd && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1640,15 +1636,14 @@ install-bfd: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bfd; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd bfd && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-opcodes maybe-configure-opcodes
 maybe-configure-opcodes:
-configure-opcodes: opcodes/Makefile
-
-opcodes/Makefile: config.status
-	@[ -d opcodes ] || mkdir opcodes; \
+configure-opcodes:
+	@test ! -f opcodes/Makefile || exit 0; \
+	[ -d opcodes ] || mkdir opcodes; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1690,7 +1685,7 @@ all-opcodes: configure-opcodes
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd opcodes; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd opcodes && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-opcodes
@@ -1698,7 +1693,7 @@ check-opcodes:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd opcodes; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd opcodes && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1708,15 +1703,14 @@ install-opcodes: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd opcodes; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd opcodes && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-binutils maybe-configure-binutils
 maybe-configure-binutils:
-configure-binutils: binutils/Makefile
-
-binutils/Makefile: config.status
-	@[ -d binutils ] || mkdir binutils; \
+configure-binutils:
+	@test ! -f binutils/Makefile || exit 0; \
+	[ -d binutils ] || mkdir binutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1758,7 +1752,7 @@ all-binutils: configure-binutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd binutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd binutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-binutils
@@ -1766,7 +1760,7 @@ check-binutils:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd binutils; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd binutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1776,15 +1770,14 @@ install-binutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd binutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd binutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-bison maybe-configure-bison
 maybe-configure-bison:
-configure-bison: bison/Makefile
-
-bison/Makefile: config.status
-	@[ -d bison ] || mkdir bison; \
+configure-bison:
+	@test ! -f bison/Makefile || exit 0; \
+	[ -d bison ] || mkdir bison; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1826,7 +1819,7 @@ all-bison: configure-bison
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bison; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd bison && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-bison
@@ -1836,7 +1829,7 @@ check-bison:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd bison; $(MAKE) $(FLAGS_TO_PASS) check); \
+	    (cd bison && $(MAKE) $(FLAGS_TO_PASS) check); \
 	fi
 
 
@@ -1847,15 +1840,14 @@ install-bison: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bison; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd bison && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-byacc maybe-configure-byacc
 maybe-configure-byacc:
-configure-byacc: byacc/Makefile
-
-byacc/Makefile: config.status
-	@[ -d byacc ] || mkdir byacc; \
+configure-byacc:
+	@test ! -f byacc/Makefile || exit 0; \
+	[ -d byacc ] || mkdir byacc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1897,7 +1889,7 @@ all-byacc: configure-byacc
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd byacc; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd byacc && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-byacc
@@ -1907,7 +1899,7 @@ check-byacc:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd byacc; $(MAKE) $(FLAGS_TO_PASS) check); \
+	    (cd byacc && $(MAKE) $(FLAGS_TO_PASS) check); \
 	fi
 
 
@@ -1918,15 +1910,14 @@ install-byacc: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd byacc; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd byacc && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-bzip2 maybe-configure-bzip2
 maybe-configure-bzip2:
-configure-bzip2: bzip2/Makefile
-
-bzip2/Makefile: config.status
-	@[ -d bzip2 ] || mkdir bzip2; \
+configure-bzip2:
+	@test ! -f bzip2/Makefile || exit 0; \
+	[ -d bzip2 ] || mkdir bzip2; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1968,7 +1959,7 @@ all-bzip2: configure-bzip2
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bzip2; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd bzip2 && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-bzip2
@@ -1976,7 +1967,7 @@ check-bzip2:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bzip2; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd bzip2 && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -1986,15 +1977,14 @@ install-bzip2: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd bzip2; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd bzip2 && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-db maybe-configure-db
 maybe-configure-db:
-configure-db: db/Makefile
-
-db/Makefile: config.status
-	@[ -d db ] || mkdir db; \
+configure-db:
+	@test ! -f db/Makefile || exit 0; \
+	[ -d db ] || mkdir db; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2036,7 +2026,7 @@ all-db: configure-db
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd db; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd db && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-db
@@ -2044,7 +2034,7 @@ check-db:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd db; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd db && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2054,15 +2044,14 @@ install-db: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd db; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd db && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-dejagnu maybe-configure-dejagnu
 maybe-configure-dejagnu:
-configure-dejagnu: dejagnu/Makefile
-
-dejagnu/Makefile: config.status
-	@[ -d dejagnu ] || mkdir dejagnu; \
+configure-dejagnu:
+	@test ! -f dejagnu/Makefile || exit 0; \
+	[ -d dejagnu ] || mkdir dejagnu; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2104,7 +2093,7 @@ all-dejagnu: configure-dejagnu
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd dejagnu; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd dejagnu && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-dejagnu
@@ -2112,7 +2101,7 @@ check-dejagnu:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd dejagnu; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd dejagnu && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2122,15 +2111,14 @@ install-dejagnu: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd dejagnu; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd dejagnu && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-diff maybe-configure-diff
 maybe-configure-diff:
-configure-diff: diff/Makefile
-
-diff/Makefile: config.status
-	@[ -d diff ] || mkdir diff; \
+configure-diff:
+	@test ! -f diff/Makefile || exit 0; \
+	[ -d diff ] || mkdir diff; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2172,7 +2160,7 @@ all-diff: configure-diff
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd diff; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd diff && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-diff
@@ -2180,7 +2168,7 @@ check-diff:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd diff; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd diff && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2190,15 +2178,14 @@ install-diff: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd diff; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd diff && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-dosutils maybe-configure-dosutils
 maybe-configure-dosutils:
-configure-dosutils: dosutils/Makefile
-
-dosutils/Makefile: config.status
-	@[ -d dosutils ] || mkdir dosutils; \
+configure-dosutils:
+	@test ! -f dosutils/Makefile || exit 0; \
+	[ -d dosutils ] || mkdir dosutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2240,7 +2227,7 @@ all-dosutils: configure-dosutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd dosutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd dosutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-dosutils
@@ -2254,15 +2241,14 @@ install-dosutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd dosutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd dosutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-etc maybe-configure-etc
 maybe-configure-etc:
-configure-etc: etc/Makefile
-
-etc/Makefile: config.status
-	@[ -d etc ] || mkdir etc; \
+configure-etc:
+	@test ! -f etc/Makefile || exit 0; \
+	[ -d etc ] || mkdir etc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2304,7 +2290,7 @@ all-etc: configure-etc
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd etc; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd etc && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-etc
@@ -2312,7 +2298,7 @@ check-etc:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd etc; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd etc && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2322,15 +2308,14 @@ install-etc: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd etc; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd etc && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-fastjar maybe-configure-fastjar
 maybe-configure-fastjar:
-configure-fastjar: fastjar/Makefile
-
-fastjar/Makefile: config.status
-	@[ -d fastjar ] || mkdir fastjar; \
+configure-fastjar:
+	@test ! -f fastjar/Makefile || exit 0; \
+	[ -d fastjar ] || mkdir fastjar; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2372,7 +2357,7 @@ all-fastjar: configure-fastjar
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd fastjar; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd fastjar && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-fastjar
@@ -2382,7 +2367,7 @@ check-fastjar:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd fastjar; $(MAKE) $(FLAGS_TO_PASS) check); \
+	    (cd fastjar && $(MAKE) $(FLAGS_TO_PASS) check); \
 	fi
 
 
@@ -2393,15 +2378,14 @@ install-fastjar: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd fastjar; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd fastjar && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-fileutils maybe-configure-fileutils
 maybe-configure-fileutils:
-configure-fileutils: fileutils/Makefile
-
-fileutils/Makefile: config.status
-	@[ -d fileutils ] || mkdir fileutils; \
+configure-fileutils:
+	@test ! -f fileutils/Makefile || exit 0; \
+	[ -d fileutils ] || mkdir fileutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2443,7 +2427,7 @@ all-fileutils: configure-fileutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd fileutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd fileutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-fileutils
@@ -2451,7 +2435,7 @@ check-fileutils:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd fileutils; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd fileutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2461,15 +2445,14 @@ install-fileutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd fileutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd fileutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-findutils maybe-configure-findutils
 maybe-configure-findutils:
-configure-findutils: findutils/Makefile
-
-findutils/Makefile: config.status
-	@[ -d findutils ] || mkdir findutils; \
+configure-findutils:
+	@test ! -f findutils/Makefile || exit 0; \
+	[ -d findutils ] || mkdir findutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2511,7 +2494,7 @@ all-findutils: configure-findutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd findutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd findutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-findutils
@@ -2519,7 +2502,7 @@ check-findutils:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd findutils; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd findutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2529,15 +2512,14 @@ install-findutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd findutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd findutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-find maybe-configure-find
 maybe-configure-find:
-configure-find: find/Makefile
-
-find/Makefile: config.status
-	@[ -d find ] || mkdir find; \
+configure-find:
+	@test ! -f find/Makefile || exit 0; \
+	[ -d find ] || mkdir find; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2579,7 +2561,7 @@ all-find: configure-find
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd find; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd find && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-find
@@ -2587,7 +2569,7 @@ check-find:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd find; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd find && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2597,15 +2579,14 @@ install-find: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd find; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd find && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-flex maybe-configure-flex
 maybe-configure-flex:
-configure-flex: flex/Makefile
-
-flex/Makefile: config.status
-	@[ -d flex ] || mkdir flex; \
+configure-flex:
+	@test ! -f flex/Makefile || exit 0; \
+	[ -d flex ] || mkdir flex; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2647,7 +2628,7 @@ all-flex: configure-flex
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd flex; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd flex && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-flex
@@ -2657,7 +2638,7 @@ check-flex:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd flex; $(MAKE) $(FLAGS_TO_PASS) check); \
+	    (cd flex && $(MAKE) $(FLAGS_TO_PASS) check); \
 	fi
 
 
@@ -2668,15 +2649,14 @@ install-flex: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd flex; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd flex && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gas maybe-configure-gas
 maybe-configure-gas:
-configure-gas: gas/Makefile
-
-gas/Makefile: config.status
-	@[ -d gas ] || mkdir gas; \
+configure-gas:
+	@test ! -f gas/Makefile || exit 0; \
+	[ -d gas ] || mkdir gas; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2718,7 +2698,7 @@ all-gas: configure-gas
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gas; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gas && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gas
@@ -2726,7 +2706,7 @@ check-gas:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gas; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gas && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2736,15 +2716,14 @@ install-gas: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gas; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gas && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gawk maybe-configure-gawk
 maybe-configure-gawk:
-configure-gawk: gawk/Makefile
-
-gawk/Makefile: config.status
-	@[ -d gawk ] || mkdir gawk; \
+configure-gawk:
+	@test ! -f gawk/Makefile || exit 0; \
+	[ -d gawk ] || mkdir gawk; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2786,7 +2765,7 @@ all-gawk: configure-gawk
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gawk; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gawk && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gawk
@@ -2794,7 +2773,7 @@ check-gawk:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gawk; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gawk && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2804,15 +2783,14 @@ install-gawk: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gawk; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gawk && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gettext maybe-configure-gettext
 maybe-configure-gettext:
-configure-gettext: gettext/Makefile
-
-gettext/Makefile: config.status
-	@[ -d gettext ] || mkdir gettext; \
+configure-gettext:
+	@test ! -f gettext/Makefile || exit 0; \
+	[ -d gettext ] || mkdir gettext; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2854,7 +2832,7 @@ all-gettext: configure-gettext
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gettext; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gettext && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gettext
@@ -2862,7 +2840,7 @@ check-gettext:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gettext; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gettext && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2872,15 +2850,14 @@ install-gettext: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gettext; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gettext && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gnuserv maybe-configure-gnuserv
 maybe-configure-gnuserv:
-configure-gnuserv: gnuserv/Makefile
-
-gnuserv/Makefile: config.status
-	@[ -d gnuserv ] || mkdir gnuserv; \
+configure-gnuserv:
+	@test ! -f gnuserv/Makefile || exit 0; \
+	[ -d gnuserv ] || mkdir gnuserv; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2922,7 +2899,7 @@ all-gnuserv: configure-gnuserv
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gnuserv; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gnuserv && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gnuserv
@@ -2930,7 +2907,7 @@ check-gnuserv:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gnuserv; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gnuserv && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -2940,15 +2917,14 @@ install-gnuserv: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gnuserv; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gnuserv && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gprof maybe-configure-gprof
 maybe-configure-gprof:
-configure-gprof: gprof/Makefile
-
-gprof/Makefile: config.status
-	@[ -d gprof ] || mkdir gprof; \
+configure-gprof:
+	@test ! -f gprof/Makefile || exit 0; \
+	[ -d gprof ] || mkdir gprof; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -2990,7 +2966,7 @@ all-gprof: configure-gprof
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gprof; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gprof && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gprof
@@ -2998,7 +2974,7 @@ check-gprof:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gprof; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gprof && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3008,15 +2984,14 @@ install-gprof: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gprof; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gprof && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-grep maybe-configure-grep
 maybe-configure-grep:
-configure-grep: grep/Makefile
-
-grep/Makefile: config.status
-	@[ -d grep ] || mkdir grep; \
+configure-grep:
+	@test ! -f grep/Makefile || exit 0; \
+	[ -d grep ] || mkdir grep; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3058,7 +3033,7 @@ all-grep: configure-grep
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd grep; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd grep && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-grep
@@ -3066,7 +3041,7 @@ check-grep:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd grep; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd grep && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3076,15 +3051,14 @@ install-grep: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd grep; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd grep && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-gzip maybe-configure-gzip
 maybe-configure-gzip:
-configure-gzip: gzip/Makefile
-
-gzip/Makefile: config.status
-	@[ -d gzip ] || mkdir gzip; \
+configure-gzip:
+	@test ! -f gzip/Makefile || exit 0; \
+	[ -d gzip ] || mkdir gzip; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3126,7 +3100,7 @@ all-gzip: configure-gzip
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gzip; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd gzip && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gzip
@@ -3134,7 +3108,7 @@ check-gzip:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gzip; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd gzip && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3144,15 +3118,14 @@ install-gzip: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gzip; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd gzip && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-hello maybe-configure-hello
 maybe-configure-hello:
-configure-hello: hello/Makefile
-
-hello/Makefile: config.status
-	@[ -d hello ] || mkdir hello; \
+configure-hello:
+	@test ! -f hello/Makefile || exit 0; \
+	[ -d hello ] || mkdir hello; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3194,7 +3167,7 @@ all-hello: configure-hello
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd hello; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd hello && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-hello
@@ -3202,7 +3175,7 @@ check-hello:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd hello; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd hello && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3212,15 +3185,14 @@ install-hello: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd hello; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd hello && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-indent maybe-configure-indent
 maybe-configure-indent:
-configure-indent: indent/Makefile
-
-indent/Makefile: config.status
-	@[ -d indent ] || mkdir indent; \
+configure-indent:
+	@test ! -f indent/Makefile || exit 0; \
+	[ -d indent ] || mkdir indent; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3262,7 +3234,7 @@ all-indent: configure-indent
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd indent; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd indent && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-indent
@@ -3270,7 +3242,7 @@ check-indent:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd indent; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd indent && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3280,15 +3252,14 @@ install-indent: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd indent; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd indent && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-intl maybe-configure-intl
 maybe-configure-intl:
-configure-intl: intl/Makefile
-
-intl/Makefile: config.status
-	@[ -d intl ] || mkdir intl; \
+configure-intl:
+	@test ! -f intl/Makefile || exit 0; \
+	[ -d intl ] || mkdir intl; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3330,7 +3301,7 @@ all-intl: configure-intl
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd intl; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd intl && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-intl
@@ -3338,7 +3309,7 @@ check-intl:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd intl; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd intl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3348,15 +3319,14 @@ install-intl: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd intl; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd intl && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-tcl maybe-configure-tcl
 maybe-configure-tcl:
-configure-tcl: tcl/Makefile
-
-tcl/Makefile: config.status
-	@[ -d tcl ] || mkdir tcl; \
+configure-tcl:
+	@test ! -f tcl/Makefile || exit 0; \
+	[ -d tcl ] || mkdir tcl; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3398,7 +3368,7 @@ all-tcl: configure-tcl
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tcl; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd tcl && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-tcl
@@ -3406,7 +3376,7 @@ check-tcl:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tcl; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd tcl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3416,15 +3386,14 @@ install-tcl: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tcl; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd tcl && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-itcl maybe-configure-itcl
 maybe-configure-itcl:
-configure-itcl: itcl/Makefile
-
-itcl/Makefile: config.status
-	@[ -d itcl ] || mkdir itcl; \
+configure-itcl:
+	@test ! -f itcl/Makefile || exit 0; \
+	[ -d itcl ] || mkdir itcl; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3466,7 +3435,7 @@ all-itcl: configure-itcl
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd itcl; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd itcl && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-itcl
@@ -3474,7 +3443,7 @@ check-itcl:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd itcl; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd itcl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3484,15 +3453,14 @@ install-itcl: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd itcl; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd itcl && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-ld maybe-configure-ld
 maybe-configure-ld:
-configure-ld: ld/Makefile
-
-ld/Makefile: config.status
-	@[ -d ld ] || mkdir ld; \
+configure-ld:
+	@test ! -f ld/Makefile || exit 0; \
+	[ -d ld ] || mkdir ld; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3534,7 +3502,7 @@ all-ld: configure-ld
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ld; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd ld && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-ld
@@ -3542,7 +3510,7 @@ check-ld:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ld; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd ld && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3552,15 +3520,14 @@ install-ld: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ld; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd ld && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-libgui maybe-configure-libgui
 maybe-configure-libgui:
-configure-libgui: libgui/Makefile
-
-libgui/Makefile: config.status
-	@[ -d libgui ] || mkdir libgui; \
+configure-libgui:
+	@test ! -f libgui/Makefile || exit 0; \
+	[ -d libgui ] || mkdir libgui; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3602,7 +3569,7 @@ all-libgui: configure-libgui
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libgui; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd libgui && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-libgui
@@ -3610,7 +3577,7 @@ check-libgui:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libgui; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd libgui && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3620,15 +3587,14 @@ install-libgui: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libgui; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd libgui && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-libiberty maybe-configure-libiberty
 maybe-configure-libiberty:
-configure-libiberty: libiberty/Makefile
-
-libiberty/Makefile: config.status
-	@[ -d libiberty ] || mkdir libiberty; \
+configure-libiberty:
+	@test ! -f libiberty/Makefile || exit 0; \
+	[ -d libiberty ] || mkdir libiberty; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3670,7 +3636,7 @@ all-libiberty: configure-libiberty
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libiberty; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd libiberty && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-libiberty
@@ -3678,7 +3644,7 @@ check-libiberty:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libiberty; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd libiberty && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3688,15 +3654,14 @@ install-libiberty: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libiberty; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd libiberty && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-libtool maybe-configure-libtool
 maybe-configure-libtool:
-configure-libtool: libtool/Makefile
-
-libtool/Makefile: config.status
-	@[ -d libtool ] || mkdir libtool; \
+configure-libtool:
+	@test ! -f libtool/Makefile || exit 0; \
+	[ -d libtool ] || mkdir libtool; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3738,7 +3703,7 @@ all-libtool: configure-libtool
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libtool; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd libtool && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-libtool
@@ -3746,7 +3711,7 @@ check-libtool:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libtool; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd libtool && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3756,15 +3721,14 @@ install-libtool: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libtool; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd libtool && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-m4 maybe-configure-m4
 maybe-configure-m4:
-configure-m4: m4/Makefile
-
-m4/Makefile: config.status
-	@[ -d m4 ] || mkdir m4; \
+configure-m4:
+	@test ! -f m4/Makefile || exit 0; \
+	[ -d m4 ] || mkdir m4; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3806,7 +3770,7 @@ all-m4: configure-m4
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd m4; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd m4 && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-m4
@@ -3814,7 +3778,7 @@ check-m4:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd m4; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd m4 && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3824,15 +3788,14 @@ install-m4: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd m4; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd m4 && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-make maybe-configure-make
 maybe-configure-make:
-configure-make: make/Makefile
-
-make/Makefile: config.status
-	@[ -d make ] || mkdir make; \
+configure-make:
+	@test ! -f make/Makefile || exit 0; \
+	[ -d make ] || mkdir make; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3874,7 +3837,7 @@ all-make: configure-make
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd make; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd make && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-make
@@ -3882,7 +3845,7 @@ check-make:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd make; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd make && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -3892,15 +3855,14 @@ install-make: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd make; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd make && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-mmalloc maybe-configure-mmalloc
 maybe-configure-mmalloc:
-configure-mmalloc: mmalloc/Makefile
-
-mmalloc/Makefile: config.status
-	@[ -d mmalloc ] || mkdir mmalloc; \
+configure-mmalloc:
+	@test ! -f mmalloc/Makefile || exit 0; \
+	[ -d mmalloc ] || mkdir mmalloc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -3942,7 +3904,7 @@ all-mmalloc: configure-mmalloc
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd mmalloc; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd mmalloc && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-mmalloc
@@ -3956,15 +3918,14 @@ install-mmalloc: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd mmalloc; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd mmalloc && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-patch maybe-configure-patch
 maybe-configure-patch:
-configure-patch: patch/Makefile
-
-patch/Makefile: config.status
-	@[ -d patch ] || mkdir patch; \
+configure-patch:
+	@test ! -f patch/Makefile || exit 0; \
+	[ -d patch ] || mkdir patch; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4006,7 +3967,7 @@ all-patch: configure-patch
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd patch; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd patch && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-patch
@@ -4014,7 +3975,7 @@ check-patch:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd patch; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd patch && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4024,15 +3985,14 @@ install-patch: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd patch; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd patch && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-perl maybe-configure-perl
 maybe-configure-perl:
-configure-perl: perl/Makefile
-
-perl/Makefile: config.status
-	@[ -d perl ] || mkdir perl; \
+configure-perl:
+	@test ! -f perl/Makefile || exit 0; \
+	[ -d perl ] || mkdir perl; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4074,7 +4034,7 @@ all-perl: configure-perl
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd perl; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd perl && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-perl
@@ -4082,7 +4042,7 @@ check-perl:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd perl; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd perl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4092,15 +4052,14 @@ install-perl: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd perl; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd perl && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-prms maybe-configure-prms
 maybe-configure-prms:
-configure-prms: prms/Makefile
-
-prms/Makefile: config.status
-	@[ -d prms ] || mkdir prms; \
+configure-prms:
+	@test ! -f prms/Makefile || exit 0; \
+	[ -d prms ] || mkdir prms; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4142,7 +4101,7 @@ all-prms: configure-prms
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd prms; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd prms && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-prms
@@ -4150,7 +4109,7 @@ check-prms:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd prms; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd prms && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4160,15 +4119,14 @@ install-prms: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd prms; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd prms && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-rcs maybe-configure-rcs
 maybe-configure-rcs:
-configure-rcs: rcs/Makefile
-
-rcs/Makefile: config.status
-	@[ -d rcs ] || mkdir rcs; \
+configure-rcs:
+	@test ! -f rcs/Makefile || exit 0; \
+	[ -d rcs ] || mkdir rcs; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4210,7 +4168,7 @@ all-rcs: configure-rcs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd rcs; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd rcs && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-rcs
@@ -4218,7 +4176,7 @@ check-rcs:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd rcs; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd rcs && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4228,15 +4186,14 @@ install-rcs: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd rcs; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd rcs && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-readline maybe-configure-readline
 maybe-configure-readline:
-configure-readline: readline/Makefile
-
-readline/Makefile: config.status
-	@[ -d readline ] || mkdir readline; \
+configure-readline:
+	@test ! -f readline/Makefile || exit 0; \
+	[ -d readline ] || mkdir readline; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4278,7 +4235,7 @@ all-readline: configure-readline
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd readline; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd readline && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-readline
@@ -4286,7 +4243,7 @@ check-readline:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd readline; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd readline && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4296,15 +4253,14 @@ install-readline: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd readline; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd readline && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-release maybe-configure-release
 maybe-configure-release:
-configure-release: release/Makefile
-
-release/Makefile: config.status
-	@[ -d release ] || mkdir release; \
+configure-release:
+	@test ! -f release/Makefile || exit 0; \
+	[ -d release ] || mkdir release; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4346,7 +4302,7 @@ all-release: configure-release
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd release; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd release && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-release
@@ -4361,10 +4317,9 @@ install-release:
 
 .PHONY: configure-recode maybe-configure-recode
 maybe-configure-recode:
-configure-recode: recode/Makefile
-
-recode/Makefile: config.status
-	@[ -d recode ] || mkdir recode; \
+configure-recode:
+	@test ! -f recode/Makefile || exit 0; \
+	[ -d recode ] || mkdir recode; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4406,7 +4361,7 @@ all-recode: configure-recode
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd recode; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd recode && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-recode
@@ -4414,7 +4369,7 @@ check-recode:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd recode; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd recode && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4424,15 +4379,14 @@ install-recode: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd recode; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd recode && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-sed maybe-configure-sed
 maybe-configure-sed:
-configure-sed: sed/Makefile
-
-sed/Makefile: config.status
-	@[ -d sed ] || mkdir sed; \
+configure-sed:
+	@test ! -f sed/Makefile || exit 0; \
+	[ -d sed ] || mkdir sed; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4474,7 +4428,7 @@ all-sed: configure-sed
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sed; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd sed && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-sed
@@ -4482,7 +4436,7 @@ check-sed:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sed; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd sed && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4492,15 +4446,14 @@ install-sed: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sed; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd sed && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-send-pr maybe-configure-send-pr
 maybe-configure-send-pr:
-configure-send-pr: send-pr/Makefile
-
-send-pr/Makefile: config.status
-	@[ -d send-pr ] || mkdir send-pr; \
+configure-send-pr:
+	@test ! -f send-pr/Makefile || exit 0; \
+	[ -d send-pr ] || mkdir send-pr; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4542,7 +4495,7 @@ all-send-pr: configure-send-pr
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd send-pr; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd send-pr && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-send-pr
@@ -4550,7 +4503,7 @@ check-send-pr:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd send-pr; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd send-pr && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4560,15 +4513,14 @@ install-send-pr: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd send-pr; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd send-pr && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-shellutils maybe-configure-shellutils
 maybe-configure-shellutils:
-configure-shellutils: shellutils/Makefile
-
-shellutils/Makefile: config.status
-	@[ -d shellutils ] || mkdir shellutils; \
+configure-shellutils:
+	@test ! -f shellutils/Makefile || exit 0; \
+	[ -d shellutils ] || mkdir shellutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4610,7 +4562,7 @@ all-shellutils: configure-shellutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd shellutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd shellutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-shellutils
@@ -4618,7 +4570,7 @@ check-shellutils:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd shellutils; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd shellutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4628,15 +4580,14 @@ install-shellutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd shellutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd shellutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-sid maybe-configure-sid
 maybe-configure-sid:
-configure-sid: sid/Makefile
-
-sid/Makefile: config.status
-	@[ -d sid ] || mkdir sid; \
+configure-sid:
+	@test ! -f sid/Makefile || exit 0; \
+	[ -d sid ] || mkdir sid; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4678,7 +4629,7 @@ all-sid: configure-sid
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sid; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd sid && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-sid
@@ -4686,7 +4637,7 @@ check-sid:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sid; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd sid && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4696,15 +4647,14 @@ install-sid: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sid; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd sid && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-sim maybe-configure-sim
 maybe-configure-sim:
-configure-sim: sim/Makefile
-
-sim/Makefile: config.status
-	@[ -d sim ] || mkdir sim; \
+configure-sim:
+	@test ! -f sim/Makefile || exit 0; \
+	[ -d sim ] || mkdir sim; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4746,7 +4696,7 @@ all-sim: configure-sim
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sim; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd sim && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-sim
@@ -4754,7 +4704,7 @@ check-sim:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sim; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd sim && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4764,15 +4714,14 @@ install-sim: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd sim; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd sim && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-snavigator maybe-configure-snavigator
 maybe-configure-snavigator:
-configure-snavigator: snavigator/Makefile
-
-snavigator/Makefile: config.status
-	@[ -d snavigator ] || mkdir snavigator; \
+configure-snavigator:
+	@test ! -f snavigator/Makefile || exit 0; \
+	[ -d snavigator ] || mkdir snavigator; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4814,7 +4763,7 @@ all-snavigator: configure-snavigator
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd snavigator; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd snavigator && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-snavigator
@@ -4822,7 +4771,7 @@ check-snavigator:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd snavigator; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd snavigator && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4832,15 +4781,14 @@ install-snavigator: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd snavigator; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd snavigator && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-tar maybe-configure-tar
 maybe-configure-tar:
-configure-tar: tar/Makefile
-
-tar/Makefile: config.status
-	@[ -d tar ] || mkdir tar; \
+configure-tar:
+	@test ! -f tar/Makefile || exit 0; \
+	[ -d tar ] || mkdir tar; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4882,7 +4830,7 @@ all-tar: configure-tar
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tar; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd tar && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-tar
@@ -4890,7 +4838,7 @@ check-tar:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tar; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd tar && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4900,15 +4848,14 @@ install-tar: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tar; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd tar && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-texinfo maybe-configure-texinfo
 maybe-configure-texinfo:
-configure-texinfo: texinfo/Makefile
-
-texinfo/Makefile: config.status
-	@[ -d texinfo ] || mkdir texinfo; \
+configure-texinfo:
+	@test ! -f texinfo/Makefile || exit 0; \
+	[ -d texinfo ] || mkdir texinfo; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -4950,7 +4897,7 @@ all-texinfo: configure-texinfo
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd texinfo; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd texinfo && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-texinfo
@@ -4958,7 +4905,7 @@ check-texinfo:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd texinfo; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd texinfo && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -4969,10 +4916,9 @@ install-texinfo:
 
 .PHONY: configure-textutils maybe-configure-textutils
 maybe-configure-textutils:
-configure-textutils: textutils/Makefile
-
-textutils/Makefile: config.status
-	@[ -d textutils ] || mkdir textutils; \
+configure-textutils:
+	@test ! -f textutils/Makefile || exit 0; \
+	[ -d textutils ] || mkdir textutils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5014,7 +4960,7 @@ all-textutils: configure-textutils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd textutils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd textutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-textutils
@@ -5022,7 +4968,7 @@ check-textutils:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd textutils; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd textutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -5032,15 +4978,14 @@ install-textutils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd textutils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd textutils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-time maybe-configure-time
 maybe-configure-time:
-configure-time: time/Makefile
-
-time/Makefile: config.status
-	@[ -d time ] || mkdir time; \
+configure-time:
+	@test ! -f time/Makefile || exit 0; \
+	[ -d time ] || mkdir time; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5082,7 +5027,7 @@ all-time: configure-time
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd time; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd time && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-time
@@ -5090,7 +5035,7 @@ check-time:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd time; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd time && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -5100,15 +5045,14 @@ install-time: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd time; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd time && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-uudecode maybe-configure-uudecode
 maybe-configure-uudecode:
-configure-uudecode: uudecode/Makefile
-
-uudecode/Makefile: config.status
-	@[ -d uudecode ] || mkdir uudecode; \
+configure-uudecode:
+	@test ! -f uudecode/Makefile || exit 0; \
+	[ -d uudecode ] || mkdir uudecode; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5150,7 +5094,7 @@ all-uudecode: configure-uudecode
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd uudecode; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd uudecode && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-uudecode
@@ -5158,7 +5102,7 @@ check-uudecode:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd uudecode; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd uudecode && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -5168,15 +5112,14 @@ install-uudecode: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd uudecode; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd uudecode && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-wdiff maybe-configure-wdiff
 maybe-configure-wdiff:
-configure-wdiff: wdiff/Makefile
-
-wdiff/Makefile: config.status
-	@[ -d wdiff ] || mkdir wdiff; \
+configure-wdiff:
+	@test ! -f wdiff/Makefile || exit 0; \
+	[ -d wdiff ] || mkdir wdiff; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5218,7 +5161,7 @@ all-wdiff: configure-wdiff
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd wdiff; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd wdiff && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-wdiff
@@ -5226,7 +5169,7 @@ check-wdiff:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd wdiff; $(MAKE) $(FLAGS_TO_PASS) check)
+	  (cd wdiff && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
 
@@ -5236,15 +5179,14 @@ install-wdiff: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd wdiff; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd wdiff && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-zip maybe-configure-zip
 maybe-configure-zip:
-configure-zip: zip/Makefile
-
-zip/Makefile: config.status
-	@[ -d zip ] || mkdir zip; \
+configure-zip:
+	@test ! -f zip/Makefile || exit 0; \
+	[ -d zip ] || mkdir zip; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5286,7 +5228,7 @@ all-zip: configure-zip
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd zip; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd zip && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-zip
@@ -5296,7 +5238,7 @@ check-zip:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd zip; $(MAKE) $(FLAGS_TO_PASS) check); \
+	    (cd zip && $(MAKE) $(FLAGS_TO_PASS) check); \
 	fi
 
 
@@ -5307,15 +5249,14 @@ install-zip: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd zip; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd zip && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-zlib maybe-configure-zlib
 maybe-configure-zlib:
-configure-zlib: zlib/Makefile
-
-zlib/Makefile: config.status
-	@[ -d zlib ] || mkdir zlib; \
+configure-zlib:
+	@test ! -f zlib/Makefile || exit 0; \
+	[ -d zlib ] || mkdir zlib; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5357,7 +5298,7 @@ all-zlib: configure-zlib
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd zlib; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd zlib && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-zlib
@@ -5372,10 +5313,9 @@ install-zlib:
 
 .PHONY: configure-gdb maybe-configure-gdb
 maybe-configure-gdb:
-configure-gdb: gdb/Makefile
-
-gdb/Makefile: config.status
-	@[ -d gdb ] || mkdir gdb; \
+configure-gdb:
+	@test ! -f gdb/Makefile || exit 0; \
+	[ -d gdb ] || mkdir gdb; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5417,7 +5357,7 @@ all-gdb: configure-gdb
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gdb; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
+	  (cd gdb && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
 
 .PHONY: check-gdb
@@ -5425,7 +5365,7 @@ check-gdb:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gdb; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
+	  (cd gdb && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
 
@@ -5435,15 +5375,14 @@ install-gdb: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gdb; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
+	  (cd gdb && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-expect maybe-configure-expect
 maybe-configure-expect:
-configure-expect: expect/Makefile
-
-expect/Makefile: config.status
-	@[ -d expect ] || mkdir expect; \
+configure-expect:
+	@test ! -f expect/Makefile || exit 0; \
+	[ -d expect ] || mkdir expect; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5485,7 +5424,7 @@ all-expect: configure-expect
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd expect; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
+	  (cd expect && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
 
 .PHONY: check-expect
@@ -5493,7 +5432,7 @@ check-expect:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd expect; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
+	  (cd expect && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
 
@@ -5503,15 +5442,14 @@ install-expect: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd expect; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
+	  (cd expect && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-guile maybe-configure-guile
 maybe-configure-guile:
-configure-guile: guile/Makefile
-
-guile/Makefile: config.status
-	@[ -d guile ] || mkdir guile; \
+configure-guile:
+	@test ! -f guile/Makefile || exit 0; \
+	[ -d guile ] || mkdir guile; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5553,7 +5491,7 @@ all-guile: configure-guile
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd guile; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
+	  (cd guile && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
 
 .PHONY: check-guile
@@ -5561,7 +5499,7 @@ check-guile:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd guile; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
+	  (cd guile && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
 
@@ -5571,15 +5509,14 @@ install-guile: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd guile; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
+	  (cd guile && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-tk maybe-configure-tk
 maybe-configure-tk:
-configure-tk: tk/Makefile
-
-tk/Makefile: config.status
-	@[ -d tk ] || mkdir tk; \
+configure-tk:
+	@test ! -f tk/Makefile || exit 0; \
+	[ -d tk ] || mkdir tk; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5621,7 +5558,7 @@ all-tk: configure-tk
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tk; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
+	  (cd tk && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
 
 .PHONY: check-tk
@@ -5629,7 +5566,7 @@ check-tk:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tk; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
+	  (cd tk && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
 
@@ -5639,15 +5576,14 @@ install-tk: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tk; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
+	  (cd tk && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-tix maybe-configure-tix
 maybe-configure-tix:
-configure-tix: tix/Makefile
-
-tix/Makefile: config.status
-	@[ -d tix ] || mkdir tix; \
+configure-tix:
+	@test ! -f tix/Makefile || exit 0; \
+	[ -d tix ] || mkdir tix; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5689,7 +5625,7 @@ all-tix: configure-tix
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tix; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
+	  (cd tix && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
 
 .PHONY: check-tix
@@ -5697,7 +5633,7 @@ check-tix:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tix; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
+	  (cd tix && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
 
@@ -5707,15 +5643,14 @@ install-tix: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd tix; $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
+	  (cd tix && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-libtermcap maybe-configure-libtermcap
 maybe-configure-libtermcap:
-configure-libtermcap: libtermcap/Makefile
-
-libtermcap/Makefile: config.status
-	@[ -d libtermcap ] || mkdir libtermcap; \
+configure-libtermcap:
+	@test ! -f libtermcap/Makefile || exit 0; \
+	[ -d libtermcap ] || mkdir libtermcap; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5757,7 +5692,7 @@ all-libtermcap: configure-libtermcap
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libtermcap; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd libtermcap && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-libtermcap
@@ -5771,15 +5706,14 @@ install-libtermcap: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd libtermcap; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd libtermcap && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-utils maybe-configure-utils
 maybe-configure-utils:
-configure-utils: utils/Makefile
-
-utils/Makefile: config.status
-	@[ -d utils ] || mkdir utils; \
+configure-utils:
+	@test ! -f utils/Makefile || exit 0; \
+	[ -d utils ] || mkdir utils; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -5821,7 +5755,7 @@ all-utils: configure-utils
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd utils; $(MAKE) $(FLAGS_TO_PASS) all)
+	  (cd utils && $(MAKE) $(FLAGS_TO_PASS) all)
 
 
 .PHONY: check-utils
@@ -5835,7 +5769,7 @@ install-utils: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd utils; $(MAKE) $(FLAGS_TO_PASS) install)
+	  (cd utils && $(MAKE) $(FLAGS_TO_PASS) install)
 
 
 
@@ -5845,18 +5779,18 @@ install-utils: installdirs
 
 .PHONY: configure-target-libstdc++-v3 maybe-configure-target-libstdc++-v3
 maybe-configure-target-libstdc++-v3:
-configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libstdc++-v3/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libstdc++-v3 ] || mkdir $(TARGET_SUBDIR)/libstdc++-v3;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libstdc++-v3"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libstdc++-v3/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libstdc++-v3/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libstdc++-v3 ] || \
+	    mkdir $(TARGET_SUBDIR)/libstdc++-v3; \
+	rm -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 
-$(TARGET_SUBDIR)/libstdc++-v3/Makefile: config.status $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libstdc++-v3 ] || mkdir $(TARGET_SUBDIR)/libstdc++-v3;\
+configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libstdc++-v3 ] || \
+		mkdir $(TARGET_SUBDIR)/libstdc++-v3;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -5921,7 +5855,7 @@ all-target-libstdc++-v3: configure-target-libstdc++-v3
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libstdc++-v3; \
+	  (cd $(TARGET_SUBDIR)/libstdc++-v3 && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  all)
 
 .PHONY: check-target-libstdc++-v3
@@ -5929,7 +5863,7 @@ check-target-libstdc++-v3:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libstdc++-v3; \
+	  (cd $(TARGET_SUBDIR)/libstdc++-v3 && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  check)
 
 
@@ -5939,24 +5873,24 @@ install-target-libstdc++-v3: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libstdc++-v3; \
+	  (cd $(TARGET_SUBDIR)/libstdc++-v3 && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-newlib maybe-configure-target-newlib
 maybe-configure-target-newlib:
-configure-target-newlib: $(TARGET_SUBDIR)/newlib/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/newlib/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/newlib ] || mkdir $(TARGET_SUBDIR)/newlib;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for newlib"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/newlib/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/newlib/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/newlib ] || \
+	    mkdir $(TARGET_SUBDIR)/newlib; \
+	rm -f $(TARGET_SUBDIR)/newlib/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/newlib/multilib.out
 
-$(TARGET_SUBDIR)/newlib/Makefile: config.status $(TARGET_SUBDIR)/newlib/multilib.out
-	@[ -d $(TARGET_SUBDIR)/newlib ] || mkdir $(TARGET_SUBDIR)/newlib;\
+configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/newlib/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/newlib ] || \
+		mkdir $(TARGET_SUBDIR)/newlib;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6020,7 +5954,7 @@ all-target-newlib: configure-target-newlib
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/newlib; \
+	  (cd $(TARGET_SUBDIR)/newlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-newlib
@@ -6028,7 +5962,7 @@ check-target-newlib:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/newlib; \
+	  (cd $(TARGET_SUBDIR)/newlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6038,24 +5972,24 @@ install-target-newlib: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/newlib; \
+	  (cd $(TARGET_SUBDIR)/newlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libf2c maybe-configure-target-libf2c
 maybe-configure-target-libf2c:
-configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libf2c/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libf2c ] || mkdir $(TARGET_SUBDIR)/libf2c;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libf2c"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libf2c/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libf2c/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libf2c ] || \
+	    mkdir $(TARGET_SUBDIR)/libf2c; \
+	rm -f $(TARGET_SUBDIR)/libf2c/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libf2c/multilib.out
 
-$(TARGET_SUBDIR)/libf2c/Makefile: config.status $(TARGET_SUBDIR)/libf2c/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libf2c ] || mkdir $(TARGET_SUBDIR)/libf2c;\
+configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libf2c/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libf2c ] || \
+		mkdir $(TARGET_SUBDIR)/libf2c;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6119,7 +6053,7 @@ all-target-libf2c: configure-target-libf2c
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libf2c; \
+	  (cd $(TARGET_SUBDIR)/libf2c && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-libf2c
@@ -6127,7 +6061,7 @@ check-target-libf2c:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libf2c; \
+	  (cd $(TARGET_SUBDIR)/libf2c && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6137,24 +6071,24 @@ install-target-libf2c: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libf2c; \
+	  (cd $(TARGET_SUBDIR)/libf2c && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libobjc maybe-configure-target-libobjc
 maybe-configure-target-libobjc:
-configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libobjc/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libobjc ] || mkdir $(TARGET_SUBDIR)/libobjc;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libobjc"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libobjc/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libobjc/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libobjc ] || \
+	    mkdir $(TARGET_SUBDIR)/libobjc; \
+	rm -f $(TARGET_SUBDIR)/libobjc/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libobjc/multilib.out
 
-$(TARGET_SUBDIR)/libobjc/Makefile: config.status $(TARGET_SUBDIR)/libobjc/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libobjc ] || mkdir $(TARGET_SUBDIR)/libobjc;\
+configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libobjc/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libobjc ] || \
+		mkdir $(TARGET_SUBDIR)/libobjc;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6218,7 +6152,7 @@ all-target-libobjc: configure-target-libobjc
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libobjc; \
+	  (cd $(TARGET_SUBDIR)/libobjc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-libobjc
@@ -6226,7 +6160,7 @@ check-target-libobjc:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libobjc; \
+	  (cd $(TARGET_SUBDIR)/libobjc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6236,24 +6170,24 @@ install-target-libobjc: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libobjc; \
+	  (cd $(TARGET_SUBDIR)/libobjc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libtermcap maybe-configure-target-libtermcap
 maybe-configure-target-libtermcap:
-configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libtermcap/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libtermcap ] || mkdir $(TARGET_SUBDIR)/libtermcap;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libtermcap"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libtermcap/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libtermcap/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libtermcap ] || \
+	    mkdir $(TARGET_SUBDIR)/libtermcap; \
+	rm -f $(TARGET_SUBDIR)/libtermcap/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libtermcap/multilib.out
 
-$(TARGET_SUBDIR)/libtermcap/Makefile: config.status $(TARGET_SUBDIR)/libtermcap/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libtermcap ] || mkdir $(TARGET_SUBDIR)/libtermcap;\
+configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libtermcap/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libtermcap ] || \
+		mkdir $(TARGET_SUBDIR)/libtermcap;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6317,7 +6251,7 @@ all-target-libtermcap: configure-target-libtermcap
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libtermcap; \
+	  (cd $(TARGET_SUBDIR)/libtermcap && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 # Dummy target for uncheckable module.
@@ -6331,24 +6265,24 @@ install-target-libtermcap: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libtermcap; \
+	  (cd $(TARGET_SUBDIR)/libtermcap && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-winsup maybe-configure-target-winsup
 maybe-configure-target-winsup:
-configure-target-winsup: $(TARGET_SUBDIR)/winsup/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/winsup/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/winsup ] || mkdir $(TARGET_SUBDIR)/winsup;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for winsup"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/winsup/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/winsup/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/winsup ] || \
+	    mkdir $(TARGET_SUBDIR)/winsup; \
+	rm -f $(TARGET_SUBDIR)/winsup/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/winsup/multilib.out
 
-$(TARGET_SUBDIR)/winsup/Makefile: config.status $(TARGET_SUBDIR)/winsup/multilib.out
-	@[ -d $(TARGET_SUBDIR)/winsup ] || mkdir $(TARGET_SUBDIR)/winsup;\
+configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/winsup/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/winsup ] || \
+		mkdir $(TARGET_SUBDIR)/winsup;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6412,7 +6346,7 @@ all-target-winsup: configure-target-winsup
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/winsup; \
+	  (cd $(TARGET_SUBDIR)/winsup && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-winsup
@@ -6420,7 +6354,7 @@ check-target-winsup:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/winsup; \
+	  (cd $(TARGET_SUBDIR)/winsup && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6430,24 +6364,24 @@ install-target-winsup: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/winsup; \
+	  (cd $(TARGET_SUBDIR)/winsup && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libgloss maybe-configure-target-libgloss
 maybe-configure-target-libgloss:
-configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libgloss/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libgloss ] || mkdir $(TARGET_SUBDIR)/libgloss;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libgloss"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libgloss/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libgloss/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libgloss ] || \
+	    mkdir $(TARGET_SUBDIR)/libgloss; \
+	rm -f $(TARGET_SUBDIR)/libgloss/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libgloss/multilib.out
 
-$(TARGET_SUBDIR)/libgloss/Makefile: config.status $(TARGET_SUBDIR)/libgloss/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libgloss ] || mkdir $(TARGET_SUBDIR)/libgloss;\
+configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libgloss/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libgloss ] || \
+		mkdir $(TARGET_SUBDIR)/libgloss;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6511,7 +6445,7 @@ all-target-libgloss: configure-target-libgloss
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libgloss; \
+	  (cd $(TARGET_SUBDIR)/libgloss && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 # Dummy target for uncheckable module.
@@ -6525,24 +6459,24 @@ install-target-libgloss: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libgloss; \
+	  (cd $(TARGET_SUBDIR)/libgloss && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libiberty maybe-configure-target-libiberty
 maybe-configure-target-libiberty:
-configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libiberty/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libiberty ] || mkdir $(TARGET_SUBDIR)/libiberty;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libiberty"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libiberty/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libiberty/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libiberty ] || \
+	    mkdir $(TARGET_SUBDIR)/libiberty; \
+	rm -f $(TARGET_SUBDIR)/libiberty/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libiberty/multilib.out
 
-$(TARGET_SUBDIR)/libiberty/Makefile: config.status $(TARGET_SUBDIR)/libiberty/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libiberty ] || mkdir $(TARGET_SUBDIR)/libiberty;\
+configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libiberty/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libiberty ] || \
+		mkdir $(TARGET_SUBDIR)/libiberty;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6606,7 +6540,7 @@ all-target-libiberty: configure-target-libiberty
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libiberty; \
+	  (cd $(TARGET_SUBDIR)/libiberty && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-libiberty
@@ -6614,7 +6548,7 @@ check-target-libiberty:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libiberty; \
+	  (cd $(TARGET_SUBDIR)/libiberty && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6624,24 +6558,24 @@ install-target-libiberty: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libiberty; \
+	  (cd $(TARGET_SUBDIR)/libiberty && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-gperf maybe-configure-target-gperf
 maybe-configure-target-gperf:
-configure-target-gperf: $(TARGET_SUBDIR)/gperf/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/gperf/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/gperf ] || mkdir $(TARGET_SUBDIR)/gperf;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for gperf"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/gperf/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/gperf/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/gperf ] || \
+	    mkdir $(TARGET_SUBDIR)/gperf; \
+	rm -f $(TARGET_SUBDIR)/gperf/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/gperf/multilib.out
 
-$(TARGET_SUBDIR)/gperf/Makefile: config.status $(TARGET_SUBDIR)/gperf/multilib.out
-	@[ -d $(TARGET_SUBDIR)/gperf ] || mkdir $(TARGET_SUBDIR)/gperf;\
+configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/gperf/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/gperf ] || \
+		mkdir $(TARGET_SUBDIR)/gperf;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6705,7 +6639,7 @@ all-target-gperf: configure-target-gperf
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/gperf; \
+	  (cd $(TARGET_SUBDIR)/gperf && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-gperf
@@ -6713,7 +6647,7 @@ check-target-gperf:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/gperf; \
+	  (cd $(TARGET_SUBDIR)/gperf && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -6723,24 +6657,24 @@ install-target-gperf: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/gperf; \
+	  (cd $(TARGET_SUBDIR)/gperf && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-examples maybe-configure-target-examples
 maybe-configure-target-examples:
-configure-target-examples: $(TARGET_SUBDIR)/examples/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/examples/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/examples ] || mkdir $(TARGET_SUBDIR)/examples;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for examples"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/examples/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/examples/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/examples ] || \
+	    mkdir $(TARGET_SUBDIR)/examples; \
+	rm -f $(TARGET_SUBDIR)/examples/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/examples/multilib.out
 
-$(TARGET_SUBDIR)/examples/Makefile: config.status $(TARGET_SUBDIR)/examples/multilib.out
-	@[ -d $(TARGET_SUBDIR)/examples ] || mkdir $(TARGET_SUBDIR)/examples;\
+configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/examples/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/examples ] || \
+		mkdir $(TARGET_SUBDIR)/examples;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6804,7 +6738,7 @@ all-target-examples: configure-target-examples
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/examples; \
+	  (cd $(TARGET_SUBDIR)/examples && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 # Dummy target for uncheckable module.
@@ -6820,18 +6754,18 @@ install-target-examples:
 
 .PHONY: configure-target-libffi maybe-configure-target-libffi
 maybe-configure-target-libffi:
-configure-target-libffi: $(TARGET_SUBDIR)/libffi/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libffi/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libffi ] || mkdir $(TARGET_SUBDIR)/libffi;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libffi"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libffi/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libffi/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libffi ] || \
+	    mkdir $(TARGET_SUBDIR)/libffi; \
+	rm -f $(TARGET_SUBDIR)/libffi/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libffi/multilib.out
 
-$(TARGET_SUBDIR)/libffi/Makefile: config.status $(TARGET_SUBDIR)/libffi/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libffi ] || mkdir $(TARGET_SUBDIR)/libffi;\
+configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libffi/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libffi ] || \
+		mkdir $(TARGET_SUBDIR)/libffi;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6895,7 +6829,7 @@ all-target-libffi: configure-target-libffi
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libffi; \
+	  (cd $(TARGET_SUBDIR)/libffi && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-libffi
@@ -6903,30 +6837,34 @@ check-target-libffi:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libffi; \
+	  (cd $(TARGET_SUBDIR)/libffi && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
 .PHONY: install-target-libffi maybe-install-target-libffi
 maybe-install-target-libffi:
-# Dummy target for uninstallable.
-install-target-libffi:
+install-target-libffi: installdirs
+	@r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd $(TARGET_SUBDIR)/libffi && \
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-libjava maybe-configure-target-libjava
 maybe-configure-target-libjava:
-configure-target-libjava: $(TARGET_SUBDIR)/libjava/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/libjava/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/libjava ] || mkdir $(TARGET_SUBDIR)/libjava;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for libjava"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libjava/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/libjava/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/libjava ] || \
+	    mkdir $(TARGET_SUBDIR)/libjava; \
+	rm -f $(TARGET_SUBDIR)/libjava/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/libjava/multilib.out
 
-$(TARGET_SUBDIR)/libjava/Makefile: config.status $(TARGET_SUBDIR)/libjava/multilib.out
-	@[ -d $(TARGET_SUBDIR)/libjava ] || mkdir $(TARGET_SUBDIR)/libjava;\
+configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/libjava/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/libjava ] || \
+		mkdir $(TARGET_SUBDIR)/libjava;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -6991,7 +6929,7 @@ all-target-libjava: configure-target-libjava
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libjava; \
+	  (cd $(TARGET_SUBDIR)/libjava && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  all)
 
 .PHONY: check-target-libjava
@@ -6999,7 +6937,7 @@ check-target-libjava:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libjava; \
+	  (cd $(TARGET_SUBDIR)/libjava && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  check)
 
 
@@ -7009,24 +6947,24 @@ install-target-libjava: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/libjava; \
+	  (cd $(TARGET_SUBDIR)/libjava && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-zlib maybe-configure-target-zlib
 maybe-configure-target-zlib:
-configure-target-zlib: $(TARGET_SUBDIR)/zlib/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/zlib/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/zlib ] || mkdir $(TARGET_SUBDIR)/zlib;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for zlib"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/zlib/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/zlib/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/zlib ] || \
+	    mkdir $(TARGET_SUBDIR)/zlib; \
+	rm -f $(TARGET_SUBDIR)/zlib/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/zlib/multilib.out
 
-$(TARGET_SUBDIR)/zlib/Makefile: config.status $(TARGET_SUBDIR)/zlib/multilib.out
-	@[ -d $(TARGET_SUBDIR)/zlib ] || mkdir $(TARGET_SUBDIR)/zlib;\
+configure-target-zlib: $(TARGET_SUBDIR)/zlib/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/zlib/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/zlib ] || \
+		mkdir $(TARGET_SUBDIR)/zlib;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -7090,7 +7028,7 @@ all-target-zlib: configure-target-zlib
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/zlib; \
+	  (cd $(TARGET_SUBDIR)/zlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-zlib
@@ -7098,7 +7036,7 @@ check-target-zlib:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/zlib; \
+	  (cd $(TARGET_SUBDIR)/zlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -7108,24 +7046,24 @@ install-target-zlib: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/zlib; \
+	  (cd $(TARGET_SUBDIR)/zlib && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-boehm-gc maybe-configure-target-boehm-gc
 maybe-configure-target-boehm-gc:
-configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/boehm-gc/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/boehm-gc ] || mkdir $(TARGET_SUBDIR)/boehm-gc;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for boehm-gc"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/boehm-gc/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/boehm-gc/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/boehm-gc ] || \
+	    mkdir $(TARGET_SUBDIR)/boehm-gc; \
+	rm -f $(TARGET_SUBDIR)/boehm-gc/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/boehm-gc/multilib.out
 
-$(TARGET_SUBDIR)/boehm-gc/Makefile: config.status $(TARGET_SUBDIR)/boehm-gc/multilib.out
-	@[ -d $(TARGET_SUBDIR)/boehm-gc ] || mkdir $(TARGET_SUBDIR)/boehm-gc;\
+configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/boehm-gc ] || \
+		mkdir $(TARGET_SUBDIR)/boehm-gc;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -7189,7 +7127,7 @@ all-target-boehm-gc: configure-target-boehm-gc
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/boehm-gc; \
+	  (cd $(TARGET_SUBDIR)/boehm-gc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-boehm-gc
@@ -7197,7 +7135,7 @@ check-target-boehm-gc:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/boehm-gc; \
+	  (cd $(TARGET_SUBDIR)/boehm-gc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -7207,24 +7145,24 @@ install-target-boehm-gc: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/boehm-gc; \
+	  (cd $(TARGET_SUBDIR)/boehm-gc && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-qthreads maybe-configure-target-qthreads
 maybe-configure-target-qthreads:
-configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/qthreads/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/qthreads ] || mkdir $(TARGET_SUBDIR)/qthreads;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for qthreads"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/qthreads/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/qthreads/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/qthreads ] || \
+	    mkdir $(TARGET_SUBDIR)/qthreads; \
+	rm -f $(TARGET_SUBDIR)/qthreads/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/qthreads/multilib.out
 
-$(TARGET_SUBDIR)/qthreads/Makefile: config.status $(TARGET_SUBDIR)/qthreads/multilib.out
-	@[ -d $(TARGET_SUBDIR)/qthreads ] || mkdir $(TARGET_SUBDIR)/qthreads;\
+configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/qthreads/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/qthreads ] || \
+		mkdir $(TARGET_SUBDIR)/qthreads;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -7288,7 +7226,7 @@ all-target-qthreads: configure-target-qthreads
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/qthreads; \
+	  (cd $(TARGET_SUBDIR)/qthreads && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-qthreads
@@ -7296,7 +7234,7 @@ check-target-qthreads:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/qthreads; \
+	  (cd $(TARGET_SUBDIR)/qthreads && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -7306,24 +7244,24 @@ install-target-qthreads: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/qthreads; \
+	  (cd $(TARGET_SUBDIR)/qthreads && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
 .PHONY: configure-target-rda maybe-configure-target-rda
 maybe-configure-target-rda:
-configure-target-rda: $(TARGET_SUBDIR)/rda/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/rda/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/rda ] || mkdir $(TARGET_SUBDIR)/rda;\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for rda"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/rda/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/rda/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/rda ] || \
+	    mkdir $(TARGET_SUBDIR)/rda; \
+	rm -f $(TARGET_SUBDIR)/rda/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/rda/multilib.out
 
-$(TARGET_SUBDIR)/rda/Makefile: config.status $(TARGET_SUBDIR)/rda/multilib.out
-	@[ -d $(TARGET_SUBDIR)/rda ] || mkdir $(TARGET_SUBDIR)/rda;\
+configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/rda/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/rda ] || \
+		mkdir $(TARGET_SUBDIR)/rda;\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -7387,7 +7325,7 @@ all-target-rda: configure-target-rda
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/rda; \
+	  (cd $(TARGET_SUBDIR)/rda && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
 .PHONY: check-target-rda
@@ -7395,7 +7333,7 @@ check-target-rda:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/rda; \
+	  (cd $(TARGET_SUBDIR)/rda && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS)  check)
 
 
@@ -7405,7 +7343,7 @@ install-target-rda: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/rda; \
+	  (cd $(TARGET_SUBDIR)/rda && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 
 
@@ -7421,10 +7359,9 @@ install-target-rda: installdirs
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
-configure-gcc: gcc/Makefile
-
-gcc/Makefile: config.status
-	@[ -d gcc ] || mkdir gcc; \
+configure-gcc:
+	@test ! -f gcc/Makefile || exit 0; \
+	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -7460,19 +7397,22 @@ gcc/Makefile: config.status
 	  $(HOST_CONFIGARGS) $${srcdiroption} \
 	  || exit 1
 
-# Don't remake gcc if it's already been made by 'bootstrap'; that causes
-# nothing but trouble.  This wart will be fixed eventually by moving
+# Don't 'make all' in gcc if it's already been made by 'bootstrap'; that
+# causes trouble.  This wart will be fixed eventually by moving
 # the bootstrap behavior to this file.
 .PHONY: all-gcc maybe-all-gcc
 maybe-all-gcc:
 all-gcc: configure-gcc
-	@if [ -f gcc/xgcc ] ; then \
-	  exit 0 ; \
+	@if [ -f gcc/stage_last ] ; then \
+	  r=`${PWD}`; export r; \
+	  s=`cd $(srcdir); ${PWD}`; export s; \
+	  $(SET_LIB_PATH) \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) quickstrap); \
 	else \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
 	fi
 
 # Building GCC uses some tools for rebuilding "source" files
@@ -7534,7 +7474,7 @@ check-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
 	else \
 	  true; \
 	fi
@@ -7545,7 +7485,7 @@ check-gcc-c++:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
 	else \
 	  true; \
 	fi
@@ -7560,7 +7500,7 @@ install-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	else \
 	  true; \
 	fi
@@ -7580,7 +7520,7 @@ gcc-no-fixedincludes:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}` ; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ./gcc; \
+	  (cd ./gcc && \
 	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	  rm -rf gcc/include; \
 	  mv gcc/tmp-include gcc/include 2>/dev/null; \
@@ -7612,7 +7552,7 @@ configure-gdb: maybe-configure-tcl maybe-configure-tk maybe-configure-sim
 GDB_TK = @GDB_TK@
 all-gdb: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-mmalloc maybe-all-readline maybe-all-bison maybe-all-byacc maybe-all-sim $(gdbnlmrequirements) $(GDB_TK)
 install-gdb: maybe-install-tcl maybe-install-tk maybe-install-itcl maybe-install-tix maybe-install-libgui
-libgui/Makefile: maybe-configure-tcl maybe-configure-tk
+configure-libgui: maybe-configure-tcl maybe-configure-tk
 all-libgui: maybe-all-tcl maybe-all-tk maybe-all-itcl
 
 # Host modules specific to binutils.
@@ -7716,21 +7656,42 @@ configure-target-qthreads: $(ALL_GCC_C)
 # Regenerating top level configury
 # --------------------------------
 
+# Multilib.out tells target dirs what multilibs they should build.
+# There is really only one copy.  We use the 'timestamp' method to
+# work around various timestamp bugs on some systems.
+# We use move-if-change so that it's only considered updated when it
+# actually changes, because it has to depend on a phony target.
+multilib.out: maybe-all-gcc
+	@r=`${PWD}`; export r; \
+	echo "Checking multilib configuration..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > multilib.tmp 2> /dev/null ; \
+	$(SHELL) $(srcdir)/move-if-change multilib.tmp multilib.out ; \
+
 # Rebuilding Makefile.in, using autogen.
+AUTOGEN = autogen
 $(srcdir)/Makefile.in: # $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
-	cd $(srcdir) && autogen Makefile.def
+	cd $(srcdir) && $(AUTOGEN) Makefile.def
 
-# with the gnu make, this is done automatically.
+# Rebuilding Makefile.
+Makefile: $(srcdir)/Makefile.in config.status
+	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-host_makefile_frag=@host_makefile_frag@
-target_makefile_frag=@target_makefile_frag@
+config.status: configure $(gcc_version_trigger)
+	$(SHELL) ./config.status --recheck
 
-Makefile: Makefile.in configure.in $(host_makefile_frag) $(target_makefile_frag) $(gcc_version_trigger)
-	$(SHELL) ./config.status
-
+# Rebuilding configure.
+AUTOCONF = autoconf
+$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/config/acx.m4
+	cd $(srcdir) && $(AUTOCONF)
 #
 
 .NOEXPORT:
 MAKEOVERRIDES=
+
+# Tell GNU make 3.79 not to run the top level in parallel.  This 
+# prevents contention for $builddir/$target/config.cache, as well
+# as minimizing scatter in file system caches.
+NOTPARALLEL = .NOTPARALLEL
+$(NOTPARALLEL):
 
 # end of Makefile.in

@@ -297,7 +297,6 @@ make_node (code)
     {
     case 's':
       TREE_SIDE_EFFECTS (t) = 1;
-      TREE_TYPE (t) = void_type_node;
       break;
 
     case 'd':
@@ -1363,13 +1362,24 @@ save_expr (expr)
   /* If we have simple operations applied to a SAVE_EXPR or to a SAVE_EXPR and
      a constant, it will be more efficient to not make another SAVE_EXPR since
      it will allow better simplification and GCSE will be able to merge the
-     computations if they actualy occur.  */
-  for (inner = t;
-       (TREE_CODE_CLASS (TREE_CODE (inner)) == '1'
-	|| (TREE_CODE_CLASS (TREE_CODE (inner)) == '2'
-	    && TREE_CONSTANT (TREE_OPERAND (inner, 1))));
-       inner = TREE_OPERAND (inner, 0))
-    ;
+     computations if they actually occur.  */
+  inner = t;
+  while (1)
+    {
+      if (TREE_CODE_CLASS (TREE_CODE (inner)) == '1')
+	inner = TREE_OPERAND (inner, 0);
+      else if (TREE_CODE_CLASS (TREE_CODE (inner)) == '2')
+	{
+	  if (TREE_CONSTANT (TREE_OPERAND (inner, 1)))
+	    inner = TREE_OPERAND (inner, 0);
+	  else if (TREE_CONSTANT (TREE_OPERAND (inner, 0)))
+	    inner = TREE_OPERAND (inner, 1);
+	  else
+	    break;
+	}
+      else
+	break;
+    }
 
   /* If the tree evaluates to a constant, then we don't want to hide that
      fact (i.e. this allows further folding, and direct checks for constants).
@@ -1378,7 +1388,8 @@ save_expr (expr)
      literal node.  */
   if (TREE_CONSTANT (inner)
       || (TREE_READONLY (inner) && ! TREE_SIDE_EFFECTS (inner))
-      || TREE_CODE (inner) == SAVE_EXPR || TREE_CODE (inner) == ERROR_MARK)
+      || TREE_CODE (inner) == SAVE_EXPR
+      || TREE_CODE (inner) == ERROR_MARK)
     return t;
 
   /* If T contains a PLACEHOLDER_EXPR, we must evaluate it each time, since
@@ -2269,17 +2280,28 @@ build1 (code, type, node)
      tree type;
      tree node;
 {
-  int length;
+  int length = sizeof (struct tree_exp);
 #ifdef GATHER_STATISTICS
   tree_node_kind kind;
 #endif
   tree t;
 
 #ifdef GATHER_STATISTICS
-  if (TREE_CODE_CLASS (code) == 'r')
-    kind = r_kind;
-  else
-    kind = e_kind;
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 's':  /* an expression with side effects */
+      kind = s_kind;
+      break;
+    case 'r':  /* a reference */
+      kind = r_kind;
+      break;
+    default:
+      kind = e_kind;
+      break;
+    }
+
+  tree_node_counts[(int) kind]++;
+  tree_node_sizes[(int) kind] += length;
 #endif
 
 #ifdef ENABLE_CHECKING
@@ -2289,16 +2311,9 @@ build1 (code, type, node)
     abort ();
 #endif /* ENABLE_CHECKING */
 
-  length = sizeof (struct tree_exp);
-
   t = ggc_alloc_tree (length);
 
   memset ((PTR) t, 0, sizeof (struct tree_common));
-
-#ifdef GATHER_STATISTICS
-  tree_node_counts[(int) kind]++;
-  tree_node_sizes[(int) kind] += length;
-#endif
 
   TREE_SET_CODE (t, code);
 
@@ -2311,7 +2326,9 @@ build1 (code, type, node)
       TREE_READONLY (t) = TREE_READONLY (node);
     }
 
-  switch (code)
+  if (TREE_CODE_CLASS (code) == 's')
+    TREE_SIDE_EFFECTS (t) = 1;
+  else switch (code)
     {
     case INIT_EXPR:
     case MODIFY_EXPR:

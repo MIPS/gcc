@@ -63,7 +63,7 @@
 ;; is used (this is needed to allow troughput of 1.5 double decoded
 ;; instructions per cycle).
 ;;
-;; In order to avoid dependnece between reservation of decoder
+;; In order to avoid dependence between reservation of decoder
 ;; and other units, we model decoder as two stage fully pipelined unit
 ;; and only double decoded instruction may occupy unit in the first cycle.
 ;; With this scheme however two double instructions can be issued cycle0.
@@ -155,7 +155,7 @@
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "initpipe"))
 			 "athlon-initialdecoder")
-;; Jump instructions are executed in the branch unit compltetely transparent to us
+;; Jump instructions are executed in the branch unit completely transparent to us
 (define_insn_reservation "athlon_branch" 0
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "type" "ibr"))
@@ -534,7 +534,7 @@
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (eq_attr "unit" "mmx"))
 			 "athlon-direct,athlon-faddmul")
-;; SSE operations are handled by the i387 unit as well.  The latnecy
+;; SSE operations are handled by the i387 unit as well.  The latency
 ;; is same as for i387 operations for scalar operations
 (define_insn_reservation "athlon_sselog_load" 6
 			 (and (eq_attr "cpu" "athlon")

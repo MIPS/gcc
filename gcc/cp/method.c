@@ -4,20 +4,20 @@
    1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
    
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -145,43 +145,8 @@ hack_identifier (tree value, tree name)
 
   type = TREE_TYPE (value);
   if (TREE_CODE (value) == FIELD_DECL)
-    {
-      if (current_class_ptr == NULL_TREE)
-	{
-	  if (current_function_decl 
-	      && DECL_STATIC_FUNCTION_P (current_function_decl))
-	    error ("invalid use of member `%D' in static member function",
-		      value);
-	  else
-	    /* We can get here when processing a bad default
-	       argument, like:
-	         struct S { int a; void f(int i = a); }  */
-	    error ("invalid use of member `%D'", value);
-
-	  return error_mark_node;
-	}
-      TREE_USED (current_class_ptr) = 1;
-      if (processing_template_decl)
-	value = build_min_nt (COMPONENT_REF, current_class_ref, name);
-      else
-	{
-	  tree access_type = current_class_type;
-	  
-	  while (!DERIVED_FROM_P (context_for_name_lookup (value), 
-				  access_type))
-	    {
-	      access_type = TYPE_CONTEXT (access_type);
-	      while (DECL_P (access_type))
-		access_type = DECL_CONTEXT (access_type);
-	    }
-
-	  enforce_access (access_type, value);
-	  value 
-	    = build_class_member_access_expr (current_class_ref, value,
-					      /*access_path=*/NULL_TREE,
-					      /*preserve_reference=*/false);
-	}
-    }
+    value = finish_non_static_data_member (value, 
+					   /*qualifying_scope=*/NULL_TREE);
   else if ((TREE_CODE (value) == FUNCTION_DECL
 	    && DECL_FUNCTION_MEMBER_P (value))
 	   || (TREE_CODE (value) == OVERLOAD
@@ -296,8 +261,7 @@ make_thunk (tree function, bool this_adjusting,
   
   /* See if we already have the thunk in question.  For this_adjusting
      thunks VIRTUAL_OFFSET will be an INTEGER_CST, for covariant thunks it
-     will be a BINFO (because of the organization of the layout
-     algorithm). */
+     will be a BINFO. */
   for (thunk = DECL_THUNKS (function); thunk; thunk = TREE_CHAIN (thunk))
     if (DECL_THIS_THUNK_P (thunk) == this_adjusting
  	&& THUNK_FIXED_OFFSET (thunk) == d
@@ -316,7 +280,7 @@ make_thunk (tree function, bool this_adjusting,
 
   thunk = build_decl (FUNCTION_DECL, NULL_TREE, TREE_TYPE (function));
   DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (function);
-  cxx_dup_lang_specific_decl (function);
+  cxx_dup_lang_specific_decl (thunk);
   DECL_CONTEXT (thunk) = DECL_CONTEXT (function);
   TREE_READONLY (thunk) = TREE_READONLY (function);
   TREE_THIS_VOLATILE (thunk) = TREE_THIS_VOLATILE (function);
@@ -324,8 +288,8 @@ make_thunk (tree function, bool this_adjusting,
   if (flag_weak)
     comdat_linkage (thunk);
   SET_DECL_THUNK_P (thunk, this_adjusting);
-  DECL_INITIAL (thunk) = build1 (ADDR_EXPR, vfunc_ptr_type_node, function);
-  THUNK_FIXED_OFFSET (thunk) = tree_low_cst (fixed_offset, 0);
+  THUNK_TARGET (thunk) = function;
+  THUNK_FIXED_OFFSET (thunk) = d;
   THUNK_VIRTUAL_OFFSET (thunk) = virtual_offset;
   
   /* The thunk itself is not a constructor or destructor, even if
@@ -344,6 +308,8 @@ make_thunk (tree function, bool this_adjusting,
   DECL_NO_STATIC_CHAIN (thunk) = 1;
   /* The THUNK is not a pending inline, even if the FUNCTION is.  */
   DECL_PENDING_INLINE_P (thunk) = 0;
+  DECL_INLINE (thunk) = 0;
+  DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
   /* Add it to the list of thunks associated with FUNCTION.  */
@@ -353,20 +319,21 @@ make_thunk (tree function, bool this_adjusting,
   return thunk;
 }
 
-/* Finish THUNK, a thunk decl. FIXED_OFFSET and VIRTUAL_OFFSET are the
-   adjustments to apply.  */
+/* Finish THUNK, a thunk decl.  */
 
 void
-finish_thunk (tree thunk, tree fixed_offset, tree virtual_offset)
+finish_thunk (tree thunk)
 {
   tree function, name;
-  
+  tree fixed_offset = ssize_int (THUNK_FIXED_OFFSET (thunk));
+  tree virtual_offset = THUNK_VIRTUAL_OFFSET (thunk);
+
   my_friendly_assert (!DECL_NAME (thunk) && DECL_THUNK_P (thunk), 20021127);
-  function = TREE_OPERAND (DECL_INITIAL (thunk), 0);
+  if (virtual_offset && DECL_RESULT_THUNK_P (thunk))
+    virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
+  function = THUNK_TARGET (thunk);
   name = mangle_thunk (function, DECL_THIS_THUNK_P (thunk),
-			    fixed_offset, virtual_offset);
-  THUNK_FIXED_OFFSET (thunk) = tree_low_cst (fixed_offset, 0);
-  THUNK_VIRTUAL_OFFSET (thunk) = virtual_offset;
+		       fixed_offset, virtual_offset);
   DECL_NAME (thunk) = name;
   SET_DECL_ASSEMBLER_NAME (thunk, name);
 }
@@ -391,9 +358,6 @@ thunk_adjust (tree ptr, bool this_adjusting,
     {
       tree vtable;
 
-      /* It shouldn't be a binfo any more. */
-      my_friendly_assert (TREE_CODE (virtual_offset) == INTEGER_CST, 20021127);
-      
       ptr = save_expr (ptr);
       /* The vptr is always at offset zero in the object.  */
       vtable = build1 (NOP_EXPR,
@@ -425,10 +389,10 @@ thunk_adjust (tree ptr, bool this_adjusting,
 void
 use_thunk (tree thunk_fndecl, bool emit_p)
 {
-  tree fnaddr;
   tree function;
   tree virtual_offset;
   HOST_WIDE_INT fixed_offset, virtual_value;
+  bool this_adjusting = DECL_THIS_THUNK_P (thunk_fndecl);
 
   /* We should have called finish_thunk to give it a name. */
   my_friendly_assert (DECL_NAME (thunk_fndecl), 20021127);
@@ -436,8 +400,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
   
-  fnaddr = DECL_INITIAL (thunk_fndecl);
-  if (TREE_CODE (DECL_INITIAL (thunk_fndecl)) != ADDR_EXPR)
+  function = THUNK_TARGET (thunk_fndecl);
+  if (DECL_RESULT (thunk_fndecl))
     /* We already turned this thunk into an ordinary function.
        There's no need to process this thunk again.  */
     return;
@@ -447,7 +411,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   /* Figure out what function is being thunked to.  It's referenced in
      this translation unit.  */
-  function = TREE_OPERAND (fnaddr, 0);
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
   TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (function)) = 1;
@@ -457,9 +420,15 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   fixed_offset = THUNK_FIXED_OFFSET (thunk_fndecl);
   virtual_offset = THUNK_VIRTUAL_OFFSET (thunk_fndecl);
 
-  virtual_value = (virtual_offset
-		   ? tree_low_cst (virtual_offset, /*pos=*/0) : 0);
-  my_friendly_assert (!virtual_offset || virtual_value, 20021026);
+  if (virtual_offset)
+    {
+      if (!this_adjusting)
+	virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
+      virtual_value = tree_low_cst (virtual_offset, /*pos=*/0);
+      my_friendly_assert (virtual_value, 20021026);
+    }
+  else
+    virtual_value = 0;
   
   /* And, if we need to emit the thunk, it's used.  */
   mark_used (thunk_fndecl);
@@ -480,10 +449,9 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
      create one.  */
   DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
-  BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) 
-    = DECL_ARGUMENTS (thunk_fndecl);
-
-  if (DECL_THIS_THUNK_P (thunk_fndecl)
+  BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) = DECL_ARGUMENTS (thunk_fndecl);
+  
+  if (this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, function))
     {
@@ -535,7 +503,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       t = a;
       
-      if (DECL_THIS_THUNK_P (thunk_fndecl))
+      if (this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/1,
 			  fixed_offset, virtual_offset);
       
@@ -545,7 +513,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	t = tree_cons (NULL_TREE, a, t);
       t = nreverse (t);
       t = build_call (function, t);
-      if (DECL_RESULT_THUNK_P (thunk_fndecl))
+      if (!this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/0,
 			  fixed_offset, virtual_offset);
       
@@ -1011,7 +979,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree raises = empty_except_spec;
   bool retref = false;
   bool has_parm = false;
-  tree name = constructor_name (TYPE_IDENTIFIER (type));
+  tree name = constructor_name (type);
 
   switch (kind)
     {

@@ -264,7 +264,7 @@ function_cannot_inline_p (fndecl)
     }
 
   /* If the function has a target specific attribute attached to it,
-     then we assume that we should not inline it.  This can be overriden
+     then we assume that we should not inline it.  This can be overridden
      by the target if it defines TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P.  */
   if (!function_attribute_inlinable_p (fndecl))
     return N_("function with target specific attribute(s) cannot be inlined");
@@ -394,7 +394,8 @@ copy_decl_for_inlining (decl, from_fn, to_fn)
   DECL_ABSTRACT_ORIGIN (copy) = DECL_ORIGIN (decl);
 
   /* The new variable/label has no RTL, yet.  */
-  SET_DECL_RTL (copy, NULL_RTX);
+  if (!TREE_STATIC (copy) && !DECL_EXTERNAL (copy))
+    SET_DECL_RTL (copy, NULL_RTX);
 
   /* These args would always appear unused, if not for this.  */
   TREE_USED (copy) = 1;
@@ -405,10 +406,10 @@ copy_decl_for_inlining (decl, from_fn, to_fn)
     ;
   else if (DECL_CONTEXT (decl) != from_fn)
     /* Things that weren't in the scope of the function we're inlining
-       from aren't in the scope we're inlining too, either.  */
+       from aren't in the scope we're inlining to, either.  */
     ;
   else if (TREE_STATIC (decl))
-    /* Function-scoped static variables should say in the original
+    /* Function-scoped static variables should stay in the original
        function.  */
     ;
   else
@@ -2996,15 +2997,17 @@ set_decl_abstract_flags (decl, setting)
    from its DECL_SAVED_INSNS.  Used for inline functions that are output
    at end of compilation instead of where they came in the source.  */
 
+static GTY(()) struct function *old_cfun;
+
 void
 output_inline_function (fndecl)
      tree fndecl;
 {
-  struct function *old_cfun = cfun;
   enum debug_info_type old_write_symbols = write_symbols;
   const struct gcc_debug_hooks *const old_debug_hooks = debug_hooks;
   struct function *f = DECL_SAVED_INSNS (fndecl);
 
+  old_cfun = cfun;
   cfun = f;
   current_function_decl = fndecl;
 

@@ -886,7 +886,7 @@ static const struct compiler default_compilers[] =
   {".m",  "#Objective-C", 0}, {".mi",  "#Objective-C", 0},
   {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
   {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
-  {".ii", "#C++", 0},
+  {".CPP", "#C++", 0}, {".ii", "#C++", 0},
   {".ads", "#Ada", 0}, {".adb", "#Ada", 0},
   {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
@@ -4778,6 +4778,18 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      p = handle_braces (p + 1);
 	      if (p == 0)
 		return -1;
+	      /* End any pending argument.  */
+	      if (arg_going)
+		{
+		  obstack_1grow (&obstack, 0);
+		  string = obstack_finish (&obstack);
+		  if (this_is_library_file)
+		    string = find_file (string);
+		  store_arg (string, delete_this_arg, this_is_output_file);
+		  if (this_is_output_file)
+		    outfiles[input_file_number] = string;
+		  arg_going = 0;
+		}
 	      /* If any args were output, mark the last one for deletion
 		 on failure.  */
 	      if (argbuf_index != cur_index)
@@ -5611,7 +5623,7 @@ handle_braces (p)
 
       atom = p;
       while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
-	     || *p == ',' || *p == '.')
+	     || *p == ',' || *p == '.' || *p == '@')
 	p++;
       end_atom = p;
 
@@ -6778,7 +6790,7 @@ next_member:
 
   atom = p;
   while (ISIDNUM (*p) || *p == '-' || *p == '+' || *p == '='
-	 || *p == ',' || *p == '.')
+	 || *p == ',' || *p == '.' || *p == '@')
     p++;
   len = p - atom;
 
@@ -6796,11 +6808,11 @@ next_member:
 	  switches[i].validated = 1;
     }
 
-  p++;
-  if (p[-1] == '|' || p[-1] == '&')
+  if (*p) p++;
+  if (*p && (p[-1] == '|' || p[-1] == '&'))
     goto next_member;
 
-  if (p[-1] == ':')
+  if (*p && p[-1] == ':')
     {
       while (*p && *p != ';' && *p != '}')
 	{
@@ -6812,11 +6824,11 @@ next_member:
 	      else if (p[0] == 'W' && p[1] == '{')
 		p = validate_switches (p+2);
 	    }
-	  p++;
+	  if (*p) p++;
 	}
 
-      p++;
-      if (p[-1] == ';')
+      if (*p) p++;
+      if (*p && p[-1] == ';')
 	goto next_member;
     }
 

@@ -3,20 +3,20 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -913,16 +913,29 @@ member_init_ok_or_else (field, type, member_name)
 {
   if (field == error_mark_node)
     return 0;
-  if (field == NULL_TREE || initializing_context (field) != type)
+  if (!field)
+    {
+      error ("class `%T' does not have any field named `%D'", type,
+	     member_name);
+      return 0;
+    }
+  if (TREE_CODE (field) == VAR_DECL)
+    {
+      error ("`%#D' is a static data member; it can only be "
+	     "initialized at its definition",
+	     field);
+      return 0;
+    }
+  if (TREE_CODE (field) != FIELD_DECL)
+    {
+      error ("`%#D' is not a non-static data member of `%T'",
+	     field, type);
+      return 0;
+    }
+  if (initializing_context (field) != type)
     {
       error ("class `%T' does not have any field named `%D'", type,
 		member_name);
-      return 0;
-    }
-  if (TREE_STATIC (field))
-    {
-      error ("field `%#D' is static; the only point of initialization is its definition",
-		field);
       return 0;
     }
 
@@ -1193,13 +1206,16 @@ expand_default_init (binfo, true_exp, exp, init, flags)
       else
 	init = ocp_convert (type, init, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
-      if (TREE_CODE (init) == TRY_CATCH_EXPR)
-	/* We need to protect the initialization of a catch parm
-	   with a call to terminate(), which shows up as a TRY_CATCH_EXPR
+      if (TREE_CODE (init) == MUST_NOT_THROW_EXPR)
+	/* We need to protect the initialization of a catch parm with a
+	   call to terminate(), which shows up as a MUST_NOT_THROW_EXPR
 	   around the TARGET_EXPR for the copy constructor.  See
-	   expand_start_catch_block.  */
-	TREE_OPERAND (init, 0) = build (INIT_EXPR, TREE_TYPE (exp), exp,
-					TREE_OPERAND (init, 0));
+	   initialize_handler_parm.  */
+	{
+	  TREE_OPERAND (init, 0) = build (INIT_EXPR, TREE_TYPE (exp), exp,
+					  TREE_OPERAND (init, 0));
+	  TREE_TYPE (init) = void_type_node;
+	}
       else
 	init = build (INIT_EXPR, TREE_TYPE (exp), exp, init);
       TREE_SIDE_EFFECTS (init) = 1;
@@ -1601,7 +1617,7 @@ build_offset_ref (type, name)
 
   decl = maybe_dummy_object (type, &basebinfo);
 
-  if (BASELINK_P (name))
+  if (BASELINK_P (name) || DECL_P (name))
     member = name;
   else
     {
@@ -1945,7 +1961,7 @@ build_new (placement, decl, init, use_global_new)
 	      else
 		{
 		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, 0)
+						  this_nelts, false)
 		      == NULL_TREE)
 		    pedwarn ("size in array new must have integral type");
 
@@ -2639,10 +2655,14 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, use_global_delete)
   if (controller)
     {
       TREE_OPERAND (controller, 1) = body;
-      return controller;
+      body = controller;
     }
-  else
-    return cp_convert (void_type_node, body);
+
+  if (TREE_CODE (base) == SAVE_EXPR)
+    /* Pre-evaluate the SAVE_EXPR outside of the BIND_EXPR.  */
+    body = build (COMPOUND_EXPR, void_type_node, base, body);
+
+  return cp_convert (void_type_node, body);
 }
 
 /* Create an unnamed variable of the indicated TYPE.  */ 
@@ -2680,7 +2700,7 @@ get_temp_regvar (type, init)
   decl = create_temporary_var (type);
   if (building_stmt_tree ())
     add_decl_stmt (decl);
-  if (!building_stmt_tree ())
+  else
     SET_DECL_RTL (decl, assign_temp (type, 2, 0, 1));
   finish_expr_stmt (build_modify_expr (decl, INIT_EXPR, init));
 

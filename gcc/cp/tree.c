@@ -3,20 +3,20 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -93,13 +93,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
 			 allow_cast_as_lvalue);
 
     case NOP_EXPR:
-      /* If expression doesn't change the type, we consider it as an
-	 lvalue even when cast_as_lvalue extension isn't selected.
-	 That's because parts of the compiler are alleged to be sloppy
-	 about sticking in NOP_EXPR node for no good reason.  */
-      if (allow_cast_as_lvalue ||
-	  same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ref)),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (ref, 0)))))
+      if (allow_cast_as_lvalue)
 	return lvalue_p_1 (TREE_OPERAND (ref, 0),
 			   treat_class_rvalues_as_lvalues,
 			   allow_cast_as_lvalue);
@@ -179,9 +173,8 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
 
     case CALL_EXPR:
     case VA_ARG_EXPR:
-      return ((treat_class_rvalues_as_lvalues
-	       && IS_AGGR_TYPE (TREE_TYPE (ref)))
-	      ? clk_class : clk_none);
+      /* Any class-valued call would be wrapped in a TARGET_EXPR.  */
+      return clk_none;
 
     case FUNCTION_DECL:
       /* All functions (except non-static-member functions) are
@@ -1034,20 +1027,6 @@ really_overloaded_fn (x)
 	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
 }
 
-/* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
-   OVERLOAD, FUNCTION_DECL, TEMPLATE_ID_EXPR, or baselink.  */
-
-tree
-get_overloaded_fn (fns)
-     tree fns;
-{
-  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
-    fns = TREE_OPERAND (fns, 0);
-  if (BASELINK_P (fns))
-    fns = BASELINK_FUNCTIONS (fns);
-  return fns;
-}
-
 tree
 get_first_fn (from)
      tree from;
@@ -1118,7 +1097,6 @@ cp_statement_code_p (code)
   switch (code)
     {
     case CTOR_INITIALIZER:
-    case RETURN_INIT:
     case TRY_BLOCK:
     case HANDLER:
     case EH_SPEC_BLOCK:
@@ -1750,8 +1728,10 @@ cp_tree_equal (t1, t2)
       return 0;
 
     case TEMPLATE_PARM_INDEX:
-      return TEMPLATE_PARM_IDX (t1) == TEMPLATE_PARM_IDX (t2)
-	&& TEMPLATE_PARM_LEVEL (t1) == TEMPLATE_PARM_LEVEL (t2);
+      return (TEMPLATE_PARM_IDX (t1) == TEMPLATE_PARM_IDX (t2)
+	      && TEMPLATE_PARM_LEVEL (t1) == TEMPLATE_PARM_LEVEL (t2)
+	      && same_type_p (TREE_TYPE (TEMPLATE_PARM_DECL (t1)),
+			      TREE_TYPE (TEMPLATE_PARM_DECL (t2))));
 
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
@@ -2366,13 +2346,16 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
 	  /* We have a named return value; copy the name and source
 	     position so we can get reasonable debugging information, and
 	     register the return variable as its equivalent.  */
-	  DECL_NAME (var) = DECL_NAME (nrv);
-	  DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);
-	  DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
-	  /* Don't lose initialization info.  */
-	  DECL_INITIAL (var) = DECL_INITIAL (nrv);
-	  /* Don't forget that it needs to go in the stack.  */
-	  TREE_ADDRESSABLE (var) = TREE_ADDRESSABLE (nrv);
+	  if (TREE_CODE (var) == VAR_DECL)
+	    {
+	      DECL_NAME (var) = DECL_NAME (nrv);
+	      DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);
+	      DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
+	      /* Don't lose initialization info.  */
+	      DECL_INITIAL (var) = DECL_INITIAL (nrv);
+	      /* Don't forget that it needs to go in the stack.  */
+	      TREE_ADDRESSABLE (var) = TREE_ADDRESSABLE (nrv);
+	    }
 
 	  splay_tree_insert (decl_map,
 			     (splay_tree_key) nrv,

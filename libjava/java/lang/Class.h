@@ -182,9 +182,9 @@ public:
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
-    {
-      return accflags;
-    }
+  {
+    return accflags & java::lang::reflect::Modifier::ALL_FLAGS;
+  }
 
   jstring getName (void);
 
@@ -333,6 +333,9 @@ private:
   inline friend jclass
   _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
   {
+    extern void _Jv_NewArrayClass (jclass element,
+				   java::lang::ClassLoader *loader,
+				   _Jv_VTable *array_vtable = 0);
     if (__builtin_expect (!klass->arrayclass, false))
       _Jv_NewArrayClass (klass, loader);
     return klass->arrayclass;
@@ -348,6 +351,7 @@ private:
 					      _Jv_Utf8Const *method_signature);
 
   friend void _Jv_PrepareClass (jclass);
+  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;

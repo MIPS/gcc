@@ -1,3 +1,7 @@
+Sat Jan  4 19:43:08 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20030401 tag).
+
 Fri Jan  3 15:27:04 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* athlon.md (athlon_ssecmp*): Handle ssecomi as well.

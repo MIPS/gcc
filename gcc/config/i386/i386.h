@@ -745,12 +745,12 @@ extern int x86_prefetch_sse;
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 #define STACK_BOUNDARY BITS_PER_WORD
 
-/* Boundary (in *bits*) on which the stack pointer preferrs to be
+/* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
 #define PREFERRED_STACK_BOUNDARY ix86_preferred_stack_boundary
 
 /* As of July 2001, many runtimes to not align the stack properly when
-   entering main.  This causes expand_main_function to forcably align
+   entering main.  This causes expand_main_function to forcibly align
    the stack, which results in aligned frames for functions called from
    main, though it does nothing for the alignment of main itself.  */
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
@@ -771,7 +771,7 @@ extern int x86_prefetch_sse;
    might need to be aligned. No data type wants to be aligned
    rounder than this.
 
-   Pentium+ preferrs DFmode values to be aligned to 64 bit boundary
+   Pentium+ prefers DFmode values to be aligned to 64 bit boundary
    and Pentium Pro XFmode values at 128 bit boundaries.  */
 
 #define BIGGEST_ALIGNMENT 128
@@ -781,7 +781,7 @@ extern int x86_prefetch_sse;
  ((MODE) == XFmode || (MODE) == TFmode || SSE_REG_MODE_P (MODE))
 
 /* The published ABIs say that doubles should be aligned on word
-   boundaries, so lower the aligment for structure fields unless
+   boundaries, so lower the alignment for structure fields unless
    -malign-double is set.  */
 
 /* ??? Blah -- this macro is used directly by libobjc.  Since it
@@ -891,7 +891,7 @@ extern int x86_prefetch_sse;
    and are not available for the register allocator.
    On the 80386, the stack pointer is such, as is the arg pointer.
 
-   The value is an mask - bit 1 is set for fixed registers
+   The value is a mask - bit 1 is set for fixed registers
    for 32bit target, while 2 is set for fixed registers for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
  */
@@ -917,7 +917,7 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is an mask - bit 1 is set for call used
+   The value is a mask - bit 1 is set for call used
    for 32bit target, while 2 is set for call used for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
 */
@@ -952,7 +952,7 @@ extern int x86_prefetch_sse;
 
 /* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
-   we want to allocase SSE before x87 registers and vice vera.  */
+   we want to allocate SSE before x87 registers and vice vera.  */
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC x86_order_regs_for_local_alloc ()
 
@@ -1441,7 +1441,7 @@ enum reg_class
    K is for signed imm8 operands.
    L is for andsi as zero-extending move.
    M is for shifts that can be executed by the "lea" opcode.
-   N is for immedaite operands for out/in instructions (0-255)
+   N is for immediate operands for out/in instructions (0-255)
    */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)				\
@@ -1710,6 +1710,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int sse_regno;		/* next available sse register number */
@@ -3479,7 +3480,9 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 
 #define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
 
-#define DLL_IMPORT_EXPORT_PREFIX '@'
+#define DLL_IMPORT_EXPORT_PREFIX '#'
+
+#define FASTCALL_PREFIX '@'
 
 /*
 Local variables:
