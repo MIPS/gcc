@@ -214,7 +214,7 @@ package body System.Memory is
       Result := c_realloc (Ptr, Actual_Size);
 
       if Result /= System.Null_Address then
-         Available_Memory := Available_Memory + Old_Size - msize (Ptr);
+         Available_Memory := Available_Memory + Old_Size - msize (Result);
       end if;
 
       Unlock_Task.all;

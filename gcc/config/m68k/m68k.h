@@ -318,10 +318,6 @@ extern int target_flags;
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_SHORT ? 16 : 32)
 
@@ -1555,6 +1551,12 @@ __transfer_from_trampoline ()					\
   case SYMBOL_REF:						\
     return 3;							\
   case CONST_DOUBLE:						\
+    /* Make 0.0 cheaper than other floating constants to	\
+       encourage creating tstsf and tstdf insns.  */		\
+    if ((OUTER_CODE) == COMPARE					\
+        && ((RTX) == CONST0_RTX (SFmode)			\
+	    || (RTX) == CONST0_RTX (DFmode)))			\
+      return 4;							\
     return 5;
 
 /* Compute the cost of various arithmetic operations.

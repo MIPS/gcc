@@ -113,10 +113,6 @@ extern int current_function_outgoing_args_size;
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
 #define MIN_UNITS_PER_WORD 4
 
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-
-#define POINTER_SIZE (TARGET_64BIT ? 64 : 32)
-
 /* A C expression for the size in bits of the type `short' on the
    target machine.  If you don't define this, the default is half a
    word.  (If this would be less than one storage unit, it is
@@ -216,7 +212,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 {  1, 2, 3, 4, 5, 0, 14, 13, 12, 11, 10, 9, 8, 7, 6,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
-   15, 32, 33 }
+   15, 32, 33, 34 }
 
 /* Standard register usage.  */
  
@@ -518,7 +514,7 @@ enum reg_class
 
 #define REGNO_REG_CLASS(REGNO) (regclass_map[REGNO])
 
-extern enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class containing REGNO   */
+extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class containing REGNO   */
 
 /* The class value for index registers, and the one for base regs.  */
 

@@ -3980,12 +3980,14 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (GET_CODE (XEXP (x, 0)) == NOT)
 	return plus_constant (XEXP (XEXP (x, 0), 0), 1);
 
-      /* (neg (minus X Y)) can become (minus Y X).  */
+      /* (neg (minus X Y)) can become (minus Y X).  This transformation
+	 isn't safe for modes with signed zeros, since if X and Y are
+	 both +0, (minus Y X) is the same as (minus X Y).  If the rounding
+	 mode is towards +infinity (or -infinity) then the two expressions
+	 will be rounded differently.  */
       if (GET_CODE (XEXP (x, 0)) == MINUS
-	  && (! FLOAT_MODE_P (mode)
-	      /* x-y != -(y-x) with IEEE floating point.  */
-	      || TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	      || flag_unsafe_math_optimizations))
+	  && !HONOR_SIGNED_ZEROS (mode)
+	  && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
 	return gen_binary (MINUS, mode, XEXP (XEXP (x, 0), 1),
 			   XEXP (XEXP (x, 0), 0));
 
@@ -4147,10 +4149,11 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (XEXP (x, 1) == const0_rtx)
 	return XEXP (x, 0);
 
-      /* In IEEE floating point, x-0 is not the same as x.  */
-      if ((TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	   || ! FLOAT_MODE_P (GET_MODE (XEXP (x, 0)))
-	   || flag_unsafe_math_optimizations)
+      /* x - 0 is the same as x unless x's mode has signed zeros and
+	 allows rounding towards -infinity.  Under those conditions,
+	 0 - 0 is -0.  */
+      if (!(HONOR_SIGNED_ZEROS (GET_MODE (XEXP (x, 0)))
+	    && HONOR_SIGN_DEPENDENT_ROUNDING (GET_MODE (XEXP (x, 0))))
 	  && XEXP (x, 1) == CONST0_RTX (GET_MODE (XEXP (x, 0))))
 	return XEXP (x, 0);
       break;
@@ -6028,6 +6031,9 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 
       if (mode == tmode)
 	return new;
+
+      if (GET_CODE (new) == CONST_INT)
+	return GEN_INT (trunc_int_for_mode (INTVAL (new), mode));
 
       /* If we know that no extraneous bits are set, and that the high
 	 bit is not set, convert the extraction to the cheaper of
@@ -10887,6 +10893,11 @@ simplify_comparison (code, pop0, pop1)
 		  || (floor_log2 (const_op) + INTVAL (XEXP (op0, 1))
 		      < mode_width)))
 	    {
+	      /* If the shift was logical, then we must make the condition
+		 unsigned.  */
+	      if (GET_CODE (op0) == LSHIFTRT)
+		code = unsigned_condition (code);
+
 	      const_op <<= INTVAL (XEXP (op0, 1));
 	      op1 = GEN_INT (const_op);
 	      op0 = XEXP (op0, 0);

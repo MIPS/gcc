@@ -1594,7 +1594,7 @@ struct lang_type
 #define CLEAR_BINFO_MARKED(NODE)		\
   (TREE_VIA_VIRTUAL (NODE)			\
    ? CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 0))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 0))
 
 /* Nonzero means that this class is on a path leading to a new vtable.  */
 #define BINFO_VTABLE_PATH_MARKED(NODE)		\
@@ -4062,8 +4062,6 @@ extern int types_overlap_p			PARAMS ((tree, tree));
 extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern void type_access_control			PARAMS ((tree, tree));
-extern void skip_type_access_control            PARAMS ((void));
-extern void reset_type_access_control           PARAMS ((void));
 extern int accessible_p                         PARAMS ((tree, tree));
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
@@ -4171,6 +4169,7 @@ extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
 extern void save_type_access_control		PARAMS ((tree));
+extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
 extern int begin_function_definition            PARAMS ((tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
@@ -4222,6 +4221,8 @@ extern void replace_defarg			PARAMS ((tree, tree));
 extern void end_input				PARAMS ((void));
 
 /* in tree.c */
+extern tree stabilize_expr		PARAMS ((tree, tree *));
+extern tree cxx_unsave_expr_now		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.4 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -158,7 +158,6 @@ package Rtsfind is
       System_Checked_Pools,
       System_Exception_Table,
       System_Exceptions,
-      System_Delay_Operations,
       System_Exn_Flt,
       System_Exn_Int,
       System_Exn_LFlt,

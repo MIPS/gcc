@@ -1338,51 +1338,21 @@ commit_one_edge_insertion (e, watch_calls)
 
   /* Special case -- avoid inserting code between call and storing
      its return value.  */
-  if (watch_calls && (e->flags & EDGE_FALLTHRU) && !e->dest->pred->pred_next)
+  if (watch_calls && (e->flags & EDGE_FALLTHRU) && !e->dest->pred->pred_next
+      && e->src != ENTRY_BLOCK_PTR
+      && GET_CODE (e->src->end) == CALL_INSN)
     {
-      rtx insert_after = e->src->end;
-      if (insert_after
-	  && SMALL_REGISTER_CLASSES
-	  && GET_CODE (insert_after) == CALL_INSN
-	  && (GET_CODE (PATTERN (insert_after)) == SET
-	      || (GET_CODE (PATTERN (insert_after)) == PARALLEL
-		  && GET_CODE (XVECEXP (PATTERN (insert_after), 0, 0)) ==
-		  SET)))
-	{
-	  rtx return_reg;
-	  rtx next_insert_after = next_nonnote_insn (insert_after);
-	  rtx set;
+      rtx next = next_nonnote_insn (e->src->end);
 
-	  /* The first insn after the call may be a stack pop, skip it.  */
-	  if (next_insert_after
-	      && GET_CODE (next_insert_after) == INSN
-	      && (set = single_set (next_insert_after))
-	      && GET_CODE (set) == SET
-	      && SET_DEST (set) == stack_pointer_rtx)
-	    next_insert_after = next_nonnote_insn (next_insert_after);
-	  if (next_insert_after && GET_CODE (next_insert_after) == INSN)
-	    {
-	      if (GET_CODE (PATTERN (insert_after)) == SET)
-		return_reg = SET_DEST (PATTERN (insert_after));
-	      else
-		return_reg =
-		  SET_DEST (XVECEXP (PATTERN (insert_after), 0, 0));
-
-	      /* Now, NEXT_INSERT_AFTER may be an instruction that uses the
-	         return value.  However, it could also be something else,
-	         like a CODE_LABEL, so check that the code is INSN.  */
-	      if (next_insert_after
-		  && GET_CODE (next_insert_after) == INSN
-		  && reg_referenced_p (return_reg,
-				       PATTERN (next_insert_after)))
-		insert_after = next_insert_after;
-	    }
-	  if (insert_after == e->src->end)
-	    after = e->dest->head;
-	  else
-	    after = insert_after;
-	  bb = e->dest;
+      after = e->dest->head;
+      /* The first insn after the call may be a stack pop, skip it.  */
+      while (next
+	     && keep_with_call_p (next))
+        {
+          after = next;
+	  next = next_nonnote_insn (next);
 	}
+      bb = e->dest;
     }
   if (!before && !after)
     {

@@ -856,14 +856,10 @@ ssa_ccp_substitute_constants ()
     {
       if (values[i].lattice_val == CONSTANT)
 	{
-	  rtx def = VARRAY_RTX (ssa_definition, i), set;
+	  rtx def = VARRAY_RTX (ssa_definition, i);
+	  rtx set = single_set (def);
 	  struct df_link *curruse;
 
-	  /* Definition might have been deleted already.  */
-	  if (! def)
-	    continue;
-
-	  set = single_set (def);
 	  if (! set)
 	    continue;
 
@@ -1222,4 +1218,8 @@ ssa_fast_dce (df)
     }
 
   sbitmap_free (worklist);
+
+  /* Update the use-def chains in the df_analyzer as needed.  */
+  df_analyse (df_analyzer, 0,
+              DF_RD_CHAIN | DF_RU_CHAIN | DF_REG_INFO | DF_HARD_REGS);
 }

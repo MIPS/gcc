@@ -1470,6 +1470,7 @@ expand_builtin_mathfn (exp, target, subtarget)
   rtx op0, insns;
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
+  enum machine_mode argmode;
 
   if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
     return 0;
@@ -1518,8 +1519,8 @@ expand_builtin_mathfn (exp, target, subtarget)
 
   /* Compute into TARGET.
      Set TARGET to wherever the result comes back.  */
-  target = expand_unop (TYPE_MODE (TREE_TYPE (TREE_VALUE (arglist))),
-			builtin_optab, op0, target, 0);
+  argmode = TYPE_MODE (TREE_TYPE (TREE_VALUE (arglist)));
+  target = expand_unop (argmode, builtin_optab, op0, target, 0);
 
   /* If we were unable to expand via the builtin, stop the
      sequence (without outputting the insns) and return 0, causing
@@ -1530,17 +1531,11 @@ expand_builtin_mathfn (exp, target, subtarget)
       return 0;
     }
 
-  /* If errno must be maintained and if we are not allowing unsafe
-     math optimizations, check the result.  */
+  /* If errno must be maintained, we must set it to EDOM for NaN results.  */
 
-  if (flag_errno_math && ! flag_unsafe_math_optimizations)
+  if (flag_errno_math && HONOR_NANS (argmode))
     {
       rtx lab1;
-
-      /* Don't define the builtin FP instructions
-	 if your machine is not IEEE.  */
-      if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
-	abort ();
 
       lab1 = gen_label_rtx ();
 
@@ -2991,37 +2986,54 @@ rtx
 std_expand_builtin_va_arg (valist, type)
      tree valist, type;
 {
-  tree addr_tree, t;
-  HOST_WIDE_INT align;
-  HOST_WIDE_INT rounded_size;
+  tree addr_tree, t, type_size = NULL;
+  tree align, alignm1;
+  tree rounded_size;
   rtx addr;
 
   /* Compute the rounded size of the type.  */
-  align = PARM_BOUNDARY / BITS_PER_UNIT;
-  rounded_size = (((int_size_in_bytes (type) + align - 1) / align) * align);
+  align = size_int (PARM_BOUNDARY / BITS_PER_UNIT);
+  alignm1 = size_int (PARM_BOUNDARY / BITS_PER_UNIT - 1);
+  if (type == error_mark_node
+      || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
+      || TREE_OVERFLOW (type_size))
+    rounded_size = size_zero_node;
+  else
+    rounded_size = fold (build (MULT_EXPR, sizetype,
+				fold (build (TRUNC_DIV_EXPR, sizetype,
+					     fold (build (PLUS_EXPR, sizetype,
+							  type_size, alignm1)),
+					     align)),
+				align));
 
   /* Get AP.  */
   addr_tree = valist;
-  if (PAD_VARARGS_DOWN)
+  if (PAD_VARARGS_DOWN && ! integer_zerop (rounded_size))
     {
       /* Small args are padded downward.  */
-
-      HOST_WIDE_INT adj
-	= rounded_size > align ? rounded_size : int_size_in_bytes (type);
-
-      addr_tree = build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			 build_int_2 (rounded_size - adj, 0));
+      addr_tree = fold (build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
+			       fold (build (COND_EXPR, sizetype,
+					    fold (build (GT_EXPR, sizetype,
+							 rounded_size,
+							 align)),
+					    size_zero_node,
+					    fold (build (MINUS_EXPR, sizetype,
+							 rounded_size,
+							 type_size))))));
     }
 
   addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
   addr = copy_to_reg (addr);
 
   /* Compute new value for AP.  */
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		    build_int_2 (rounded_size, 0)));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (! integer_zerop (rounded_size))
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
+			rounded_size));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
   return addr;
 }

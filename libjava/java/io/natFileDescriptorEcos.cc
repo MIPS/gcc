@@ -1,6 +1,6 @@
 // natFileDescriptor.cc - Native part of FileDescriptor class.
 
-/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -40,6 +40,14 @@ diag_write (char *data, int len)
 }
 
 #define NO_FSYNC_MESSAGE "sync unsupported"
+
+void
+java::io::FileDescriptor::init(void)
+{
+  in = new java::io::FileDescriptor(0);
+  out = new java::io::FileDescriptor(1);
+  err = new java::io::FileDescriptor(2);
+}
 
 jboolean
 java::io::FileDescriptor::valid (void)

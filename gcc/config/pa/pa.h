@@ -393,10 +393,6 @@ extern int target_flags;
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
 #define MIN_UNITS_PER_WORD 4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE BITS_PER_WORD
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
 
@@ -1695,6 +1691,10 @@ while (0)
    no longer contain unusual constructs.  */
 
 #define ASM_APP_OFF ""
+
+/* Output deferred plabels at the end of the file.  */
+
+#define ASM_FILE_END(FILE) output_deferred_plabels (FILE)
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */

@@ -307,6 +307,16 @@ typedef struct {
 
 } ffi_cif;
 
+#if SIZEOF_ARG == 4
+typedef UINT32 ffi_arg;
+#else
+#if SIZEOF_ARG == 8
+typedef UINT64 ffi_arg;
+#else
+-- unsupported configuration
+#endif
+#endif
+
 /* ---- Definitions for the raw API -------------------------------------- */
 
 #if !FFI_NO_RAW_API
@@ -402,10 +412,32 @@ struct ffi_ia64_trampoline_struct {
 #define FFI_TRAMPOLINE_SIZE 40
 #define FFI_NATIVE_RAW_API 0
 
+#elif defined(POWERPC_DARWIN)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 40
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(POWERPC_AIX)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24 /* see struct below */ 
+#define FFI_NATIVE_RAW_API 0
+
 #else 
 
 #define FFI_CLOSURES 0
 #define FFI_NATIVE_RAW_API 0
+
+#endif
+
+#if defined(POWERPC_DARWIN) || defined(POWERPC_AIX)
+
+struct ffi_aix_trampoline_struct {
+    void * code_pointer;	/* Pointer to ffi_closure_ASM */
+    void * toc;			/* TOC */
+    void * static_chain;	/* Pointer to closure */
+};
 
 #endif
 

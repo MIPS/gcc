@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.7 $
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -28,7 +28,7 @@
 
 with Hostparm;
 with Namet;    use Namet;
-with Osint;    use Osint;
+with Osint.C;  use Osint.C;
 
 package body Lib.Util is
 

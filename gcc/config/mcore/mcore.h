@@ -248,10 +248,6 @@ extern const char * mcore_stack_increment_string;
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD	4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
-
 /* A C expression for the size in bits of the type `long long' on the
    target machine.  If you don't define this, the default is two
    words.  */
@@ -518,7 +514,7 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
+extern const int regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[REGNO]
 
 /* When defined, the compiler allows registers explicitly used in the

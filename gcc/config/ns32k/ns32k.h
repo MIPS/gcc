@@ -199,10 +199,6 @@ while (0)
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
 
@@ -1388,8 +1384,8 @@ do {									\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address(FILE, ADDR)
 
-extern unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
-extern enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smallest class containing REGNO */
+extern const unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
+extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smallest class containing REGNO */
 
 /*
 Local variables:

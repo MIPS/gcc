@@ -2884,7 +2884,7 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
     int unsignedp;		/* != 0 for unsigned comparisons.  */
   };
 
-  static struct cmp_info info[ (int)ITEST_MAX ] = {
+  static const struct cmp_info info[ (int)ITEST_MAX ] = {
 
     { XOR,	 0,  65535,  0,	 0,  0,	 0, 0 },	/* EQ  */
     { XOR,	 0,  65535,  0,	 0,  1,	 1, 0 },	/* NE  */
@@ -2900,7 +2900,7 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
 
   enum internal_test test;
   enum machine_mode mode;
-  struct cmp_info *p_info;
+  const struct cmp_info *p_info;
   int branch_p;
   int eqne_p;
   int invert;
@@ -4726,17 +4726,17 @@ mips_va_arg (valist, type)
           emit_queue();
           emit_label (lab_over);
 
+	  if (BYTES_BIG_ENDIAN && rsize != size)
+	    addr_rtx = plus_constant (addr_rtx, rsize - size);
+
           if (indirect)
    	    {
-       	      r = gen_rtx_MEM (Pmode, addr_rtx);
+	      addr_rtx = force_reg (Pmode, addr_rtx);
+	      r = gen_rtx_MEM (Pmode, addr_rtx);
 	      set_mem_alias_set (r, get_varargs_alias_set ());
 	      emit_move_insn (addr_rtx, r);
 	    }
-      	  else
-	    {
-	      if (BYTES_BIG_ENDIAN && rsize != size)
-	      addr_rtx = plus_constant (addr_rtx, rsize - size);
-	    }
+
       	  return addr_rtx;
 	}
     }
@@ -7225,6 +7225,10 @@ mips_expand_prologue ()
 				   "va_alist"))))
 	    {
 	      last_arg_is_vararg_marker = 1;
+	      if (GET_CODE (entry_parm) == REG)
+		regno = REGNO (entry_parm);
+	      else
+		regno = GP_ARG_LAST + 1;
 	      break;
 	    }
 	  else
@@ -8064,6 +8068,9 @@ function_arg_pass_by_reference (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int size;
+
+  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+    return 0;
 
   /* We must pass by reference if we would be both passing in registers
      and the stack.  This is because any subsequent partial arg would be

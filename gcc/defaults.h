@@ -329,6 +329,11 @@ do {								\
 #define LONG_DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
 #endif
 
+/* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */
+#ifndef POINTER_SIZE
+#define POINTER_SIZE BITS_PER_WORD
+#endif
+
 #ifndef BUILD_VA_LIST_TYPE
 #define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
 #endif
@@ -463,6 +468,40 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    the mode of the memory access.  */
 #ifndef MODE_BASE_REG_CLASS
 #define MODE_BASE_REG_CLASS(MODE) BASE_REG_CLASS
+#endif
+
+#ifndef LARGEST_EXPONENT_IS_NORMAL
+#define LARGEST_EXPONENT_IS_NORMAL(SIZE) 0
+#endif
+
+#ifndef ROUND_TOWARDS_ZERO
+#define ROUND_TOWARDS_ZERO 0
+#endif
+
+#ifndef MODE_HAS_NANS
+#define MODE_HAS_NANS(MODE)					\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
+#endif
+
+#ifndef MODE_HAS_INFINITIES
+#define MODE_HAS_INFINITIES(MODE)				\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
+#endif
+
+#ifndef MODE_HAS_SIGNED_ZEROS
+#define MODE_HAS_SIGNED_ZEROS(MODE) \
+  (FLOAT_MODE_P (MODE) && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
+#endif
+
+#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
+#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)			\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !ROUND_TOWARDS_ZERO)
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

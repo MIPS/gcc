@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.4 $
 --                                                                          --
 --            Copyright (C) 1999-2001 Ada Core Technologies, Inc.           --
 --                                                                          --
@@ -1092,6 +1092,8 @@ package body GNAT.Regexp is
          End_State   : State_Index)
          return        Regexp
       is
+         pragma Warnings (Off, Num_States);
+
          Last_Index : constant State_Index := First_Table'Last (1);
          type Meta_State is array (1 .. Last_Index) of Boolean;
 

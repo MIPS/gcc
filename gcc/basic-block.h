@@ -597,8 +597,6 @@ enum update_life_extent
 
 #define CLEANUP_THREADING	64	/* Do jump threading.  */
 
-#define CLEANUP_UNREACHABLE_ONLY 128    /* Only delete unreachable bbs */
-
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
@@ -739,6 +737,7 @@ extern void update_br_prob_note		PARAMS ((basic_block));
 extern bool can_hoist_insn_p		PARAMS ((rtx, rtx, regset));
 extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
 extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
+extern void fixup_abnormal_edges	PARAMS ((void));
 
 /* In dominance.c */
 

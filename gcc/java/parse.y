@@ -12104,6 +12104,8 @@ java_complete_lhs (node)
       else
 	{
 	  node = patch_assignment (node, wfl_op1);
+	  if (node == error_mark_node)
+	    return error_mark_node;
 	  /* Reorganize the tree if necessary. */
 	  if (flag && (!JREFERENCE_TYPE_P (TREE_TYPE (node)) 
 		       || JSTRING_P (TREE_TYPE (node))))
@@ -12713,6 +12715,9 @@ patch_assignment (node, wfl_op1)
       && JREFERENCE_TYPE_P (TYPE_ARRAY_ELEMENT (lhs_type)))
     {
       tree array, store_check, base, index_expr;
+      
+      /* Save RHS so that it doesn't get re-evaluated by the store check. */ 
+      new_rhs = save_expr (new_rhs);
 
       /* Get the INDIRECT_REF. */
       array = TREE_OPERAND (TREE_OPERAND (lvalue, 0), 0);
@@ -12802,12 +12807,6 @@ try_builtin_assignconv (wfl_op1, lhs_type, rhs)
 	  && TREE_CODE (lhs_type) == BOOLEAN_TYPE)
 	new_rhs = rhs;
     }
-
-  /* Zero accepted everywhere */
-  else if (TREE_CODE (rhs) == INTEGER_CST 
-      && TREE_INT_CST_HIGH (rhs) == 0 && TREE_INT_CST_LOW (rhs) == 0
-      && JPRIMITIVE_TYPE_P (rhs_type))
-    new_rhs = convert (lhs_type, rhs);
 
   /* 5.1.1 Try Identity Conversion,
      5.1.2 Try Widening Primitive Conversion */

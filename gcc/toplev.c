@@ -92,29 +92,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "halfpic.h"
 #endif
 
-#ifdef VMS
-/* The extra parameters substantially improve the I/O performance.  */
-
-static FILE *
-vms_fopen (fname, type)
-     char *fname;
-     char *type;
-{
-  /* The <stdio.h> in the gcc-vms-1.42 distribution prototypes fopen with two
-     fixed arguments, which matches ANSI's specification but not VAXCRTL's
-     pre-ANSI implementation.  This hack circumvents the mismatch problem.  */
-  FILE *(*vmslib_fopen)() = (FILE *(*)()) fopen;
-
-  if (*type == 'w')
-    return (*vmslib_fopen) (fname, type, "mbc=32",
-			    "deq=64", "fop=tef", "shr=nil");
-  else
-    return (*vmslib_fopen) (fname, type, "mbc=32");
-}
-
-#define fopen vms_fopen
-#endif	/* VMS  */
-
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
 
@@ -206,7 +183,7 @@ extern int target_flags;
 
 /* Debug hooks - dependent upon command line options.  */
 
-struct gcc_debug_hooks *debug_hooks = &do_nothing_debug_hooks;
+const struct gcc_debug_hooks *debug_hooks = &do_nothing_debug_hooks;
 
 /* Describes a dump file.  */
 
@@ -952,6 +929,9 @@ debug_args[] =
 #endif
 #ifdef SDB_DEBUGGING_INFO
   { "coff", SDB_DEBUG, 0, N_("Generate COFF format debug info") },
+#endif
+#ifdef VMS_DEBUGGING_INFO
+  { "vms", VMS_DEBUG, 0, N_("Generate VMS format debug info") },
 #endif
   { 0, 0, 0, 0 }
 };
@@ -2592,8 +2572,11 @@ rest_of_compilation (decl)
   purge_hard_subreg_sets (get_insns ());
   emit_initial_value_sets ();
 
-  /* Don't return yet if -Wreturn-type; we need to do cleanup_cfg.  */
-  if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
+  /* Early return if there were errors.  We can run afoul of our
+     consistency checks, and there's not really much point in fixing them.
+     Don't return yet if -Wreturn-type; we need to do cleanup_cfg.  */
+  if (((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
+      || errorcount || sorrycount)
     goto exit_rest_of_compilation;
 
   timevar_push (TV_JUMP);
@@ -2605,7 +2588,7 @@ rest_of_compilation (decl)
   find_exception_handler_labels ();
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   
-  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_UNREACHABLE_ONLY);
+  delete_unreachable_blocks ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   note_prediction_to_br_prob ();
@@ -2680,7 +2663,8 @@ rest_of_compilation (decl)
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
@@ -2789,6 +2773,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_null, decl);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
@@ -2834,6 +2819,8 @@ rest_of_compilation (decl)
 	rebuild_jump_labels (insns);
       purge_all_dead_edges (0);
 
+      delete_trivially_dead_insns (insns, max_reg_num ());
+
       /* If we are not running more CSE passes, then we are no longer
 	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
       cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
@@ -2849,9 +2836,6 @@ rest_of_compilation (decl)
       if (flag_delete_null_pointer_checks || flag_thread_jumps)
 	{
 	  timevar_push (TV_JUMP);
-
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
-		       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
 	  if (flag_delete_null_pointer_checks)
 	    delete_null_pointer_checks (insns);
@@ -2897,6 +2881,7 @@ rest_of_compilation (decl)
       flow_loops_free (&loops);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
+      delete_trivially_dead_insns (insns, max_reg_num ());
       reg_scan (insns, max_reg_num (), 1);
       coalesce ();
 
@@ -2912,6 +2897,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
 	  purge_all_dead_edges (0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  timevar_pop (TV_CSE);
 	  cse_not_expected = !flag_rerun_cse_after_loop;
 	}
@@ -2923,7 +2909,6 @@ rest_of_compilation (decl)
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 
@@ -2933,6 +2918,7 @@ rest_of_compilation (decl)
 	      reg_scan (insns, max_reg_num (), 1);
 	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
 	      purge_all_dead_edges (0);
+	      delete_trivially_dead_insns (insns, max_reg_num ());
 	      timevar_pop (TV_CSE);
 	    }
 	}
@@ -3164,6 +3150,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 0);
 	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
 	  purge_all_dead_edges (0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 
 	  if (tem)
 	    {
@@ -3433,6 +3420,7 @@ rest_of_compilation (decl)
       timevar_push (TV_JUMP);
 
       rebuild_jump_labels (insns);
+      purge_all_dead_edges (0);
 
       timevar_pop (TV_JUMP);
     }
@@ -3461,8 +3449,8 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP);
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP | CLEANUP_UPDATE_LIFE);
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3564,8 +3552,9 @@ rest_of_compilation (decl)
       timevar_push (TV_REORDER_BLOCKS);
       open_dump_file (DFI_bbro, decl);
 
-      /* Last attempt to optimize CFG, as life analyzis possibly removed
-	 some instructions.  */
+      /* Last attempt to optimize CFG, as scheduling, peepholing
+	 and insn splitting possibly introduced more crossjumping
+	 oppurtuntities.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
 		   | CLEANUP_CROSSJUMP);
       if (flag_reorder_blocks)

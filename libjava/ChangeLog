@@ -1,3 +1,196 @@
+2002-03-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* include/posix.h: Add multiple include header protection.
+	* java/net/natPlainSocketImpl.cc: Don't #include <posix.h>.
+
+2002-03-10  Adam Megacz <adam@xwt.org>
+
+        * java/net/natPlainSocketImpl.cc: Added #include <platform.h>.
+	
+2002-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/GridLayout.java (layoutContainer): Handle case where
+	there are no items in container.
+
+	* java/lang/Win32Process.java: Added comment.
+	* include/posix.h (_Jv_platform_close_on_exec): New function.
+	Include fcntl.h.
+	* include/win32.h (_Jv_platform_close_on_exec): New function.
+	* java/net/natPlainSocketImpl.cc (create): Set close-on-exec
+	flag.
+	(accept): Likewise.
+	* java/net/natPlainDatagramSocketImpl.cc (create): Set
+	close-on-exec flag.
+	* java/io/natFileDescriptorPosix.cc (open): Set close-on-exec
+	flag.
+
+2002-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (state::NO_STACK): New constant.
+	(state::is_unmerged_ret_state): Handle case where stacktop is
+	NO_STACK.
+	(state::merge): Handle NO_STACK merges.
+	(handle_jsr_insn): Invalidate PC, and use special NO_STACK state
+	for instruction following jsr.
+	(stacktop, stackdepth): Removed unused variables.
+	(pop_jump): Ignore case where all remaining states are skipped.
+
+2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/awt/ImageMediaEntry: Removed.
+	* java/awt/MediaEntry: Removed.
+
+2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Hashtable synchronization for PowerPC.
+	* configure.in: Define SLOW_PTHREAD_SELF if configure.host set
+	slow_pthread_self. Set up symlink for sysdeps directory.
+	* configure: Rebuild.
+	* configure.host: Document more shell variables. Set sysdeps_dir
+	for most platforms. Set slow_pthread_self for i686. Set 
+	enable_hash_synchronization_default and slow_pthread_self for PowerPC. 
+	* posix-threads.cc (_Jv_ThreadSelf_out_of_line): Use release_set so
+	that memory barrier is emitted where required.
+	* prims.cc: 64-bit align static primitive class instances.
+	* include/posix-threads.h (_Jv_ThreadSelf for SLOW_PTHREAD_SELF): Add
+	read_barrier() to enforce ordering of reads.
+	* sysdep/powerpc/locks.h: New file. Implementation of synchronization
+	primitives for PowerPC.
+	* sysdep/i386/locks.h: New file. Synchronization primitives for i386 
+	moved from natObject.cc.
+	* sysdep/alpha/locks.h: Likewise.
+	* sysdep/ia64/locks.h: Likewise.
+	* sysdep/generic/locks.h: Likewise.
+	* java/lang/natObject.cc: Move thread synchronization primitives to
+	system-dependent headers.
+
+>>>>>>> 1.1231
+2002-03-09  Adam Megacz  <adam@xwt.org>
+
+        * java/io/natFileDescriptorWin32.cc (read): Return -1 if zero
+        bytes read and no failure code returned.
+
+2002-03-09  Adam Megacz  <adam@xwt.org>
+
+        * win32.cc (_CRT_MT, __mingwthr_key_dtor) Added fake
+        definitions to simulate -mthreads.
+	
+2002-03-09  Adam Megacz  <adam@xwt.org>
+
+        * win32.cc (_Jv_platform_gettimeofday) Cast 1000 to long long to
+	avoid precision loss.
+
+2002-03-09  Per Bothner  <per@bothner.com>
+
+	* gnu/gcj/xlib/WindowAttributes.java  Assign null to RawData, not 0.
+	* gnu/gcj/xlib/XImage.java:  Likewise.
+	* gnu/gcj/xlib/XColor.java:  Likewise.
+
+2002-03-09  Adam Megacz  <adam@xwt.org>
+
+        * java/lang/Win32Process.java (ConcreteProcess): Now throws an
+        IOException so that Throwable.printStackTrace fails correctly.
+
+2002-03-08  Adam Megacz  <adam@xwt.org>
+
+        * java/net/natPlainSocketImpl.cc (read, write, close): Formatting
+        fixed.
+
+2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* posix.cc (_Jv_platform_gettimeofday): Make sure result doesn't get
+	truncated to int.
+
+2002-03-08  Tom Tromey  <tromey@redhat.com>
+
+	* include/jni.h: Include stdio.h.
+
+2002-03-08  Tom Tromey  <tromey@redhat.com>
+
+	* posix.cc (internal_gettimeofday): New function.
+	(_Jv_select): Use it.
+
+2002-03-07  Adam Megacz  <adam@xwt.org>
+
+        * java/net/natPlainSocketImpl.cc: Changed USE_WINSOCK to
+        WIN32, and added thunks for read(), write(), and close().
+        * java/net/natPlainSocketImpl.cc (accept, read, read):
+        Disabled timeouts on WIN32 pending discussion.
+
+2002-03-07  Adam Megacz  <adam@xwt.org>
+
+        * win32.cc (_Jv_platform_gettimeofday): Now takes no args,
+        returns jlong. Added implementation
+        * posix.cc (_Jv_platform_gettimeofday): Now takes no args,
+        returns jlong.
+        * win32.h (_Jv_platform_gettimeofday): Now takes no args,
+        returns jlong.
+        * posix.h (_Jv_platform_gettimeofday): Now takes no args,
+        returns jlong.
+        * java/lang/natSystem.cc (currentTimeMillis): Now uses updated
+        _Jv_platform_gettimeofday signature.
+	
+2002-03-07  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/net/natPlainSocketImpl.cc (_Jv_recv): Removed.
+	(read): Call recv() directly, not _Jv_recv().
+
+2002-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorEcos.cc (init): Don't use
+	GetStdHandle.
+	* java/io/natFileDescriptorPosix.cc (valid): Don't call stat if FD
+	is negative.
+	(init): Don't use GetStdHandle.
+
+	* include/config.h.in: Rebuilt.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+2002-03-06  Adam Megacz  <adam@xwt.org>
+
+        * java/io/FileDescriptor.java: Initialize in/out/err in init().
+        * java/io/natFileDescriptorWin32.cc (init()): Added function.
+        * java/io/natFileDescriptorPosix.cc (init()): Added function.
+        * java/io/natFileDescriptorEcos.cc (init()): Added function.
+
+2002-03-06  Eric Blake  <ebb9@email.byu.edu>
+
+	* scripts/unicode-decomp.pl: Move from chartables.pl, and remove
+	the code for generating include/java-chartables.h.
+	* scripts/unicode-blocks.pl: Move from scripts/blocks.pl, and
+	merge with Classpath.
+	* scripts/unicode-muncher.pl: Copy from Classpath.
+	* scritps/MakeCharTables.java: New file.
+	* gnu/gcj/convert/Blocks-3.txt: New file.
+	* gnu/gcj/convert/UnicodeData-3.0.0.txt: New file.
+	* gnu/gcj/convert/UnicodeCharacterDatabase-3.0.0.html: New file.
+	* gnu/java/lang/CharData.java: Copy from Classpath.
+	* Makefile.am (ordinary_java_source_files): Add
+	gnu/java/lang/CharData.java.
+	* configure.in: Remove --enable-fast-character option.
+	* java/lang/Character.java: Merge algorithms and Javadoc with
+	Classpath.
+	* java/lang/natCharacter.cc: Implement Unicode lookup table more
+	efficiently.
+	* include/java-chardecomp.h: Regenerate.
+	* include/java-chartables.h: Regenerate.
+
+2002-03-06  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/awt/MediaTracker.java: Implemented.
+	* Makefile.am: Add MediaTracker.
+	* Makefile.in: Rebuilt.
+
+2002-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (fail): Removed.
+	(startProcess): Simplified error-handling.  Preserve
+	LD_LIBRARY_PATH across exec.
+
+	* jni.cc (_Jv_LookupJNIMethod): Throw UnsatisfiedLinkError, not
+	AbstractMethodError.
+
 2002-03-03  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* Makefile.am: Use -bootclasspath, not -CLASSPATH.

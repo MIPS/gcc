@@ -254,7 +254,6 @@ extern int target_flags;
 #define WORDS_BIG_ENDIAN 1
 #define FLOAT_WORDS_BIG_ENDIAN 1
 #define UNITS_PER_WORD 8
-#define POINTER_SIZE 64
 
 /* FIXME: This macro is correlated to MAX_FIXED_MODE_SIZE in that
    e.g. this macro must not be 8 (default, UNITS_PER_WORD) when
@@ -483,7 +482,7 @@ extern int target_flags;
    assuming it is referenced a very limited number of times.  Other global
    and fixed registers come next; they are never allocated.  */
 #define MMIX_GNU_ABI_REG_ALLOC_ORDER		\
-{  252, 251, 250, 249, 248, 247, 246,		\
+ { 252, 251, 250, 249, 248, 247, 246,		\
    245, 244, 243, 242, 241, 240, 239, 238,	\
    237, 236, 235, 234, 233, 232, 231,		\
 						\
@@ -549,10 +548,10 @@ extern int target_flags;
 /* Node: Register Classes */
 
 enum reg_class
-{
-  NO_REGS, GENERAL_REGS, REMAINDER_REG, HIMULT_REG,
-  SYSTEM_REGS, ALL_REGS, LIM_REG_CLASSES
-};
+ {
+   NO_REGS, GENERAL_REGS, REMAINDER_REG, HIMULT_REG,
+   SYSTEM_REGS, ALL_REGS, LIM_REG_CLASSES
+ };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
@@ -626,10 +625,7 @@ enum reg_class
 #define STARTING_FRAME_OFFSET \
   mmix_starting_frame_offset ()
 
-/* There is a stack slot between the frame-pointer and the first
-   parameter, where the return address is sometimes stored.  FIXME:
-   Unnecessary.  */
-#define FIRST_PARM_OFFSET(FUNDECL) 8
+#define FIRST_PARM_OFFSET(FUNDECL) 0
 
 #define DYNAMIC_CHAIN_ADDRESS(FRAMEADDR) \
  mmix_dynamic_chain_address (FRAMEADDR)
@@ -1103,10 +1099,6 @@ const_section ()						\
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) \
  mmix_print_operand_address (STREAM, X)
-
-#if 0
-#define USER_LABEL_PREFIX "_"
-#endif
 
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO) \
  mmix_asm_output_reg_push (STREAM, REGNO)

@@ -951,7 +951,8 @@ smallest value that @code{UNITS_PER_WORD} can have at run-time.
 @item POINTER_SIZE
 Width of a pointer, in bits.  You must specify a value no wider than the
 width of @code{Pmode}.  If it is not equal to the width of @code{Pmode},
-you must define @code{POINTERS_EXTEND_UNSIGNED}.
+you must define @code{POINTERS_EXTEND_UNSIGNED}.  If you do not specify
+a value the default is @code{BITS_PER_WORD}.
 
 @findex POINTERS_EXTEND_UNSIGNED
 @item POINTERS_EXTEND_UNSIGNED
@@ -1336,6 +1337,95 @@ defined for them.
 The ordering of the component words of floating point values stored in
 memory is controlled by @code{FLOAT_WORDS_BIG_ENDIAN}.
 
+@findex MODE_HAS_NANS
+@item MODE_HAS_NANS (@var{mode})
+When defined, this macro should be true if @var{mode} has a NaN
+representation.  The compiler assumes that NaNs are not equal to
+anything (including themselves) and that addition, subtraction,
+multiplication and division all return NaNs when one operand is
+NaN@.
+
+By default, this macro is true if @var{mode} is a floating-point
+mode and the target floating-point format is IEEE@.
+
+@findex MODE_HAS_INFINITIES
+@item MODE_HAS_INFINITIES (@var{mode})
+This macro should be true if @var{mode} can represent infinity.  At
+present, the compiler uses this macro to decide whether @samp{x - x}
+is always defined.  By default, the macro is true when @var{mode}
+is a floating-point mode and the target format is IEEE@.
+
+@findex MODE_HAS_SIGNED_ZEROS
+@item MODE_HAS_SIGNED_ZEROS (@var{mode})
+True if @var{mode} distinguishes between positive and negative zero.
+The rules are expected to follow the IEEE standard:
+
+@itemize @bullet
+@item
+@samp{x + x} has the same sign as @samp{x}.
+
+@item
+If the sum of two values with opposite sign is zero, the result is
+positive for all rounding modes expect towards @minus{}infinity, for
+which it is negative.
+
+@item
+The sign of a product or quotient is negative when exactly one
+of the operands is negative.
+@end itemize
+
+The default definition is true if @var{mode} is a floating-point
+mode and the target format is IEEE@.
+
+@findex MODE_HAS_SIGN_DEPENDENT_ROUNDING
+@item MODE_HAS_SIGN_DEPENDENT_ROUNDING (@var{mode})
+If defined, this macro should be true for @var{mode} if it has at
+least one rounding mode in which @samp{x} and @samp{-x} can be
+rounded to numbers of different magnitude.  Two such modes are
+towards @minus{}infinity and towards +infinity.
+
+The default definition of this macro is true if @var{mode} is
+a floating-point mode and the target format is IEEE@.
+
+@findex ROUND_TOWARDS_ZERO
+@item ROUND_TOWARDS_ZERO
+If defined, this macro should be true if the prevailing rounding
+mode is towards zero.  A true value has the following effects:
+
+@itemize @bullet
+@item
+@code{MODE_HAS_SIGN_DEPENDENT_ROUNDING} will be false for all modes.
+
+@item
+@file{libgcc.a}'s floating-point emulator will round towards zero
+rather than towards nearest.
+
+@item
+The compiler's floating-point emulator will round towards zero after
+doing arithmetic, and when converting from the internal float format to
+the target format.
+@end itemize
+
+The macro does not affect the parsing of string literals.  When the
+primary rounding mode is towards zero, library functions like
+@code{strtod} might still round towards nearest, and the compiler's
+parser should behave like the target's @code{strtod} where possible.
+
+Not defining this macro is equivalent to returning zero.
+
+@findex LARGEST_EXPONENT_IS_NORMAL
+@item LARGEST_EXPONENT_IS_NORMAL (@var{size})
+This macro should only be defined when the target float format is
+described as IEEE@.  It should return true if floats with @var{size}
+bits do not have a NaN or infinity representation, but use the largest
+exponent for normal numbers instead.
+
+Defining this macro to true for @var{size} causes @code{MODE_HAS_NANS}
+and @code{MODE_HAS_INFINITIES} to be false for @var{size}-bit modes.
+It also affects the way @file{libgcc.a} and @file{real.c} emulate
+floating-point arithmetic.
+
+The default definition of this macro returns false for all sizes.
 @end table
 
 @deftypefn {Target Hook} bool TARGET_MS_BITFIELD_LAYOUT_P (tree @var{record_type})

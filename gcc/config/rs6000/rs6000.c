@@ -217,7 +217,7 @@ static const char alt_reg_names[][8] =
    "%v8",  "%v9",  "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
    "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
    "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
-   "%vrsave"
+   "vrsave"
 };
 #endif
 
@@ -589,6 +589,8 @@ rs6000_parse_abi_options ()
     return;
   else if (! strcmp (rs6000_abi_string, "altivec"))
     rs6000_altivec_abi = 1;
+  else if (! strcmp (rs6000_abi_string, "no-altivec"))
+    rs6000_altivec_abi = 0;
   else
     error ("unknown ABI specified: '%s'", rs6000_abi_string);
 }
@@ -3190,50 +3192,62 @@ rs6000_va_arg (valist, type)
   lab_over = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
 
-  emit_cmp_and_jump_insns (expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
-			   GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
-			   lab_false);
-
-  /* Long long is aligned in the registers.  */
-  if (n_reg > 1)
+  /*  Vectors never go in registers.  */
+  if (TREE_CODE (type) != VECTOR_TYPE)
     {
-      u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
-		 build_int_2 (n_reg - 1, 0));
-      u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
-      u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+      TREE_THIS_VOLATILE (reg) = 1;
+      emit_cmp_and_jump_insns
+	(expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
+	 GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
+	 lab_false);
+
+      /* Long long is aligned in the registers.  */
+      if (n_reg > 1)
+	{
+	  u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
+		     build_int_2 (n_reg - 1, 0));
+	  u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
+	  u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+	  TREE_SIDE_EFFECTS (u) = 1;
+	  expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
+
+      if (sav_ofs)
+	t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+      else
+	t = sav;
+
+      u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
+		 build_int_2 (n_reg, 0));
       TREE_SIDE_EFFECTS (u) = 1;
-      expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      u = build1 (CONVERT_EXPR, integer_type_node, u);
+      TREE_SIDE_EFFECTS (u) = 1;
+
+      u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
+      TREE_SIDE_EFFECTS (u) = 1;
+
+      t = build (PLUS_EXPR, ptr_type_node, t, u);
+      TREE_SIDE_EFFECTS (t) = 1;
+
+      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
+      if (r != addr_rtx)
+	emit_move_insn (addr_rtx, r);
+
+      emit_jump_insn (gen_jump (lab_over));
+      emit_barrier ();
     }
 
-  if (sav_ofs)
-    t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
-  else
-    t = sav;
-
-  u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, build_int_2 (n_reg, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  u = build1 (CONVERT_EXPR, integer_type_node, u);
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  t = build (PLUS_EXPR, ptr_type_node, t, u);
-  TREE_SIDE_EFFECTS (t) = 1;
-
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
-
-  emit_jump_insn (gen_jump (lab_over));
-  emit_barrier ();
   emit_label (lab_false);
 
   /* ... otherwise out of the overflow area.  */
 
-  /* Make sure we don't find reg 7 for the next int arg.  */
-  if (n_reg > 1)
+  /* Make sure we don't find reg 7 for the next int arg.
+
+     All AltiVec vectors go in the overflow area.  So in the AltiVec
+     case we need to get the vectors from the overflow area, but
+     remember where the GPRs and FPRs are.  */
+  if (n_reg > 1 && TREE_CODE (type) != VECTOR_TYPE)
     {
       t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3245,8 +3259,16 @@ rs6000_va_arg (valist, type)
     t = ovf;
   else
     {
-      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (7, 0));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-8, -1));
+      int align;
+
+      /* Vectors are 16 byte aligned.  */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	align = 15;
+      else
+	align = 7;
+
+      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (align, 0));
+      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align-1, -1));
     }
   t = save_expr (t);
 

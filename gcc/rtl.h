@@ -1557,6 +1557,7 @@ extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
 extern rtx find_first_parameter_load	PARAMS ((rtx, rtx));
+extern bool keep_with_call_p		PARAMS ((rtx));
 
 /* flow.c */
 

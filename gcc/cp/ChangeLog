@@ -1,3 +1,45 @@
+2002-03-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Revert 2001-03-26  Nathan Sidwell  <nathan@codesourcery.com>,
+	DR209 is now not a defect.
+	* cp-tree.h (skip_type_access_control): Remove.
+	* decl.c (grokdeclarator): Do type access control for friend
+	declarations.
+	* semantics.c (decl_type_access_control): Don't reset
+	current_type_lookups.
+	(save_type_access_control): Always save the lookups.
+	(skip_type_access_control): Remove.
+	(finish_class_definition): Don't change type_lookups.
+
+2002-03-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Revert 2000-12-01  Nathan Sidwell  <nathan@codesourcery.com>,
+	It is incorrect.
+	* typeck.c (build_static_cast): Compare non-qualified types
+	with pointer to member conversions.
+
+2002-03-11  Dan Nicolaescu  <dann@ics.uci.edu>
+	    Daniel Berlin  <dan@dberlin.org>
+
+	* cp-lang.c (ok_to_generate_alias_set_for_type): New function.
+	(cxx_get_alias_set): Use it.
+
+2002-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (stabilize_expr): Prototype.
+
+2002-03-08  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* cp-tree.h (CLEAR_BINFO_MARKED): Make both parts of
+	conditional return void.
+
+2002-03-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_UNSAVE): Redefine.
+	* cp-tree.h (cxx_unsave): New.
+	* tree.c (cp_unsave): Rename cxx_unsave, update prototype.
+	(init_tree): Update.
+
 2002-03-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* decl.c (cxx_init_decl_processing): Use ARRAY_SIZE in lieu of
