@@ -1871,9 +1871,15 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
 
       if (expr != *expr_p)
 	{
-	  /* Don't gimplify our children now; gimplify_expr will re-gimplify
-	     us, since we've changed *expr_p.  */
 	  *expr_p = expr;
+
+	  /* We can't rely on gimplify_expr to re-gimplify the expanded
+	     form properly, as cleanups might cause the target labels to be
+	     wrapped in a TRY_FINALLY_EXPR.  To prevent that, we need to
+	     set up a conditional context.  */
+	  gimple_push_condition ();
+	  gimplify_stmt (expr_p);
+	  gimple_pop_condition (pre_p);
 	  return;
 	}
     }

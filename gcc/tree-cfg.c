@@ -700,9 +700,6 @@ make_catch_expr_blocks (tree *expr_p, tree next_block_link,
   while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
     tsi_next (&si);
 
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
-
   STRIP_CONTAINERS (expr);
   make_blocks (&CATCH_BODY (expr), next_block_link, expr, NULL);
 }
@@ -724,9 +721,6 @@ make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
   /* Ignore any empty statements at the tail of this tree.  */
   while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
     tsi_next (&si);
-
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (expr);
   make_blocks (&EH_FILTER_FAILURE (expr), next_block_link, expr, NULL);

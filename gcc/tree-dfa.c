@@ -2382,9 +2382,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, (void *) alias_map);
 	}
 
-      /* Addressable variables and memory tags may be used or clobbered by
-	 function calls.  */
-      if (is_addressable || v_ann->is_mem_tag)
+      /* Addressable variables, memory tags and static locals may be used
+	 or clobbered by function calls.  */
+      if (is_addressable
+	  || v_ann->is_mem_tag
+	  || (var != global_var && TREE_STATIC (var)))
 	{
 	  add_call_clobbered_var (var);
 	  v_ann->is_call_clobbered = 1;
