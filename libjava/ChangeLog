@@ -1,3 +1,17 @@
+2004-02-25  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/AbstractButton.java: Add "final" qualifiers.
+	* javax/swing/JList.java: Reimplement.
+	* javax/swing/DefaultListSelectionModel.java: Reimplement.
+	* javax/swing/plaf/basic/BasicListUI.java: Reimplement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java: Add "purple" values.
+	* javax/swing/ListModel.java: Javadoc.
+	* javax/swing/ListSelectionModel.java: Add missing methods.
+	* javax/swing/AbstractListModel.java: Javadoc and corrections.
+	* javax/swing/DefaultListModel.java: Javadoc and corrections.
+	* javax/swing/ListModel.java: Javadoc and corrections.
+	* javax/swing/DefaultListCellRenderer.java: Minor tidying.
+
 2004-02-25  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkFontPeer.java
