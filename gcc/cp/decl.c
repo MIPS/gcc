@@ -11279,7 +11279,7 @@ cxx_comdat_group (tree decl)
   /* Virtual tables, construction virtual tables, and virtual table
      tables all go in a single COMDAT group, named after the primary
      virtual table.  */
-  if (DECL_VTABLE_OR_VTT_P (decl))
+  if (TREE_CODE (decl) == VAR_DECL && DECL_VTABLE_OR_VTT_P (decl))
     name = DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (DECL_CONTEXT (decl)));
   /* For all other DECLs, the COMDAT group is the mangled name of the
      declaration itself.  */
