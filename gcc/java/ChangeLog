@@ -1,3 +1,8 @@
+2005-02-28  Tom Tromey  <tromey@redhat.com>
+
+	* abi.cc (build_method_call): For virtual dispatch, wrap object in
+	SAVE_EXPR.
+
 2005-02-27  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (lay_out_class): Changed type of "data" field of

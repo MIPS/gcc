@@ -78,6 +78,8 @@ cxx_abi::build_method_call (tree_builtins *builtins,
       // Virtual dispatch.
 
       assert (obj != NULL_TREE);
+      obj = save_expr (obj);
+
       args = tree_cons (NULL_TREE, obj, args);
 
       aot_class *aotk = builtins->get_class (meth->get_declaring_class ());
