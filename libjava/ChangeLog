@@ -1,3 +1,8 @@
+2004-10-13  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (find_iindex): Copy correct number of slots to new
+	ioffsets.
+
 2004-10-12  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.loader/loader.exp (gcj_object_file_name): New

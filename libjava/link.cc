@@ -743,7 +743,7 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
       int len = ifaces[j]->idt->iface.ioffsets[0];
       if (i >= len) 
 	{
-	  /* Resize ioffsets. */
+	  // Resize ioffsets.
 	  int newlen = 2 * len;
 	  if (i >= newlen)
 	    newlen = i + 3;
@@ -751,7 +751,8 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
 	  // FIXME: _Jv_AllocBytes
 	  jshort *new_ioffsets = (jshort *) _Jv_Malloc (newlen
 							* sizeof(jshort));
-	  memcpy (&new_ioffsets[1], &old_ioffsets[1], len * sizeof (jshort));
+	  memcpy (&new_ioffsets[1], &old_ioffsets[1],
+		  (len - 1) * sizeof (jshort));
 	  new_ioffsets[0] = newlen;
 
 	  while (len < newlen)
