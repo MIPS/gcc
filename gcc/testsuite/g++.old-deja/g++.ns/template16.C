@@ -10,6 +10,6 @@ namespace N {
 
 namespace M {
   struct B;
-};
+}
 
 struct M::B: public N::A<int> { };
