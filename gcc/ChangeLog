@@ -1,3 +1,13 @@
+2003-07-16  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/10907
+	* config/ia64/ia64.c (ia64_epilogue_uses): GP is live at end
+	even with !TARGET_CONST_GP.
+	* config/ia64/ia64.h (FUNCTION_OK_FOR_SIBCALL): Define.
+	* calls.c: Include target.h.
+	* Makefile.in (calls.o): Depend on $(TARGET_H).
+
 2003-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/11087

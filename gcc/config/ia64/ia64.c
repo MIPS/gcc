@@ -7148,12 +7148,11 @@ ia64_epilogue_uses (regno)
   switch (regno)
     {
     case R_GR (1):
-      /* When a function makes a call through a function descriptor, we
-         will write a (potentially) new value to "gp".  After returning
-         from such a call, we need to make sure the function restores the
-         original gp-value, even if the function itself does not use the
-         gp anymore.  */
-      return (TARGET_CONST_GP && !(TARGET_AUTO_PIC || TARGET_NO_PIC));
+      /* With a call to a function in another module, we will write a new
+	 value to "gp".  After returning from such a call, we need to make
+	 sure the function restores the original gp-value, even if the
+	 function itself does not use the gp anymore.  */
+      return !(TARGET_AUTO_PIC || TARGET_NO_PIC);
 
     case IN_REG (0): case IN_REG (1): case IN_REG (2): case IN_REG (3):
     case IN_REG (4): case IN_REG (5): case IN_REG (6): case IN_REG (7):

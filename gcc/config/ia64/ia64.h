@@ -1549,6 +1549,11 @@ do {									\
 #define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_ARGS_SIZE, SECOND_TIME) \
     ia64_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE, SECOND_TIME)
 
+/* We must always return with our current GP.  This means we can
+   only sibcall to functions defined in the current module.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL)				\
+  ((DECL) && (*targetm.binds_local_p) (DECL))
+
 /* Define this macro if the location where a function argument is passed
    depends on whether or not it is a named argument.  */
 
