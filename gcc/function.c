@@ -602,6 +602,23 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 {
   return assign_stack_local_1 (mode, size, align, cfun);
 }
+
+/* APPLE LOCAL begin new function for rs6000 consumption */
+/* Wrapper around assign_stack_local_1;  assign a local stack slot for the
+   current function, then set the mem_alias to a new alias set.
+   This can be used only in situations where the target code can
+   guarantee that the slot is used in a way that cannot conflict
+   with anything else.  */
+
+rtx
+assign_stack_local_with_alias (enum machine_mode mode, HOST_WIDE_INT size, 
+			       int align)
+{
+  rtx mem = assign_stack_local_1 (mode, size, align, cfun);
+  set_mem_alias_set (mem, new_alias_set ());
+  return mem;
+}
+/* APPLE LOCAL end new function for rs6000 consumption */
 
 /* Allocate a temporary stack slot and record it for possible later
    reuse.

@@ -817,6 +817,7 @@ rs6000_override_options (const char *default_cpu)
       flag_loop_transpose = 1;
       rs6000_sched_insert_nops = sched_finish_regroup_exact;
       flag_unroll_loops = 1;
+      flag_strict_aliasing = 1;
       flag_schedule_interblock = 1;
       align_jumps_max_skip = 15; 
       align_loops_max_skip = 15;

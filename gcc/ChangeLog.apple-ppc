@@ -1,3 +1,16 @@
+2004-04-09  Dale Johannesen <dalej@apple.com>
+
+	Roll in gcc-1552 enhancement for separate stack temps.
+	Turn on -fstrict-aliasing with -fast.
+	* function.c (assign_stack_local_with_alias): New function.
+	* rtl.h (assign_stack_local_with_alias): Declare it.
+	* config/rs6000/rs6000.c (rs6000_override_options): Turn on strict
+	aliasing with -fast.
+	* config/rs6000/rs6000.md (floatsidf2): Use 
+	assign_stack_local_with_alias.
+	(floatunssidf2): Ditto.
+	(fix_truncdfsi2): Ditto.
+
 2004-04-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	Roll in Ziem Laski's Altivec front-end fixes to 
