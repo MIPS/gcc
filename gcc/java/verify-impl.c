@@ -1015,8 +1015,8 @@ struct state
   int pc;
   /* We keep a linked list of all states requiring reverification.
      If this is the special value INVALID_STATE then this state is
-     not on the list.  NULL marks the end of the linked list.
-     state *next;  */
+     not on the list.  NULL marks the end of the linked list.  */
+  state *next;
 };
 
 /* NO_NEXT is the PC value meaning that a new state must be
@@ -3096,7 +3096,7 @@ verify_instructions_0 (void)
 	case op_new:
 	  {
 	    type t = check_class_constant (get_ushort ());
-	    if (type_isarray (&t) || type_isinterface (&t) \
+	    if (type_isarray (&t) || type_isinterface (&t)
 		|| type_isabstract (&t))
 	      verify_fail ("type is array, interface, or abstract");
 	    type_set_uninitialized (&t, vfr->start_PC);

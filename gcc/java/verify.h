@@ -1,5 +1,5 @@
 /* Declarations to interface gcj with bytecode verifier.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,9 +37,6 @@ extern "C"
 #include "jcf.h"
 #include "tree.h"
 #include "java-tree.h"
-
-#define VFY_IN_GCC
-#define VFY_WANT_TYPEMAP
 
 typedef JCF vfy_constants;
 

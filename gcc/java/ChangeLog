@@ -1,3 +1,10 @@
+2004-10-15  Tom Tromey  <tromey@redhat.com>
+
+	* verify.h (VFY_IN_GCC): Removed.
+	(VFY_WANT_TYPEMAP): Removed.
+	* verify-impl.c (verify_instructions_0): Removed useless "\".
+	(struct state) <next>: Uncomment.
+
 2004-10-13  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* verify-impl.c: Formatting fixes. Reformat C++-style comments to 
