@@ -1,3 +1,49 @@
+2003-06-18  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/unwind-ia64.c (_Unwind_GetCFA): New.
+	(_Unwind_FindEnclosingFunction): Implement.
+
+2003-06-18  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/rs6000.c (init_cumulative_args): Add and handle LIBCALL
+	argument.
+	(function_arg): Handle CALL_LIBCALL flag.
+	* config/rs6000/rs6000-protos.h (init_cumulative_args): Update
+	prototype.
+	* config/rs6000/rs6000.h (CALL_LIBCALL): New macro.
+	(INIT_CUMULATIVE_LIBCALL_ARGS): New macro.
+	(INIT_CUMULATIVE_ARGS): Add LIBCALL argument.
+	(INIT_CUMULATIVE_INCOMING_ARGS): Likewise.
+
+2003-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10929
+	* tree-inline.c (expand_call_inline): Don't warn about failing to
+	inline a function which was made inline by -finline-functions.
+
+2003-06-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* install.texi (Testing): Add information on how to run Java
+	runtime tests separately.
+
+2003-06-17  Christopher Faylor  <cgf@redhat.com>
+
+	* doc/install.texi: Add msvc rebuild caveat.
+
+2003-06-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/contrib.texi: Replace Hitachi with Renesas.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Partly revert
+	2003-01-23 patch. Corrected to handle kernels with changed ucontext.
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Error on invalid
+	-msdata=eabi usages.
+
 2003-06-14  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR optimization/10842

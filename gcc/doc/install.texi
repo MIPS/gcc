@@ -1255,6 +1255,9 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+The Java runtime tests can be executed via @samp{make check}
+in the @file{@var{target}/libjava/testsuite} directory in
+the build tree.
 
 @section Additional testing for Java Class Libraries
 
@@ -1503,8 +1506,8 @@ AIX:
 DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP}.
 
 @item
-Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
-Development Tools for the Hitachi H8/300[HS] Series}.
+Renesas H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
+Development Tools for the Renesas H8/300[HS] Series}.
 
 @item
 HP-UX:
@@ -2079,7 +2082,7 @@ Shared @file{libgcc_s.so} is now built and installed by default.
 <hr />
 @end html
 @heading @anchor{h8300-hms}h8300-hms
-Hitachi H8/300 series of processors.
+Renesas H8/300 series of processors.
 
 Please have a look at our @uref{binaries.html,,binaries page}.
 
@@ -3331,11 +3334,14 @@ respects, this target is the same as the
 @end html
 @heading @anchor{windows}Microsoft Windows (32-bit)
 
-A port of GCC 2.95.x is included with the
+A port of GCC 2.95.2 and 3.x is included with the
 @uref{http://www.cygwin.com/,,Cygwin environment}.
 
 Current (as of early 2001) snapshots of GCC will build under Cygwin
 without modification.
+
+GCC does not currently build with Microsoft's C++ compiler and there
+are no plans to make it do so.
 
 @html
 <hr />
