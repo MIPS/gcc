@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
        should be moved to tree.def.  */ 
 #include "c-tree.h"
 #include "tree-simple.h"
+#include "output.h"
 
 /** SIMPLE C Grammar
   
@@ -67,9 +68,8 @@ Boston, MA 02111-1307, USA.  */
       SIMPLE the declarations are not allowed to have initializations in
       them.
 
-      NOTE: This is not possible for things like static variables,
-	    read-only variables and dynamic arrays.  So, we allow
-	    initializers in declarations.
+      NOTE: This is not possible for static variables, so we allow
+	    initializers there.
 
       Expressions
 
@@ -125,11 +125,6 @@ Boston, MA 02111-1307, USA.  */
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
-	      | '({' all_stmts '})'	=> Original grammar does not
-	                                   allow expression-statements.
-					   We shouldn't, either.  But
-					   for now it is easier if we
-					   do.
 
 	      (cast here stands for all valid C typecasts)
 
@@ -273,7 +268,7 @@ is_simple_stmt (t)
 	int s1, s2, s3, s4;
 
 	if (TREE_CODE (FOR_INIT_STMT (t)) == DECL_STMT)
-	  s1 = is_simple_stmt (FOR_INIT_STMT (t));
+	  s1 = 0;
 	else
 	  s1 = is_simple_exprseq (EXPR_STMT_EXPR (FOR_INIT_STMT (t)));
 
@@ -311,20 +306,90 @@ is_simple_stmt (t)
 	  return 1;
       }
 
-    /* The original SIMPLE grammar converts declaration initializers into
-       regular assignments.  This is not possible for things like static
-       variables, read-only variables and dynamic arrays.
-
-       FIXME: DECL_STMTs should really be simplified.  Inter weaving
-	      DECL_STMTs with other statements should be OK.  */
     case DECL_STMT:
-      return 1;
+      return is_simple_decl_stmt (t);
 
     default:
       return 0;
     }
 }
 
+/* Returns nonzero if STMT is a SIMPLE declaration, i.e. one with no
+   initializer.
+
+   This is not appropriate for static decls, so we leave them alone.  */
+
+int
+is_simple_decl_stmt (stmt)
+     tree stmt;
+{
+  tree decl = DECL_STMT_DECL (stmt);
+  tree init = DECL_INITIAL (decl);
+
+  if (!is_simple_val (DECL_SIZE_UNIT (decl)))
+    return 0;
+
+  /* Plain decls are simple.  */
+  if (init == NULL_TREE || init == error_mark_node)
+    return 1;
+
+  /* Don't mess with a compile-time initializer.  */
+  if (TREE_STATIC (decl))
+    return 1;
+
+  return 0;
+}
+
+/* Returns nonzero if T is a simple CONSTRUCTOR:
+
+     aggr_init: '{' vals '}'
+     vals: aggr_init_elt | vals ',' aggr_init_elt
+     aggr_init_elt: val | aggr_init
+
+   This is an extension to SIMPLE.  Perhaps CONSTRUCTORs should be
+   eliminated entirely?  */
+   
+int
+is_simple_constructor (t)
+     tree t;
+{
+  tree elt_list;
+
+  if (TREE_CODE (t) != CONSTRUCTOR)
+    return 0;
+
+  if (TREE_STATIC (t))
+    return 1;
+
+  for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
+       elt_list = TREE_CHAIN (elt_list))
+    if (!is_simple_constructor_elt (TREE_VALUE (elt_list)))
+      return 0;
+
+  return 1;
+}
+
+/* Returns nonzero if T is a simple aggr_init_elt, as above.  */
+
+int
+is_simple_constructor_elt (t)
+     tree t;
+{
+  return (is_simple_val (t)
+	  || is_simple_constructor (t));
+}
+
+/* Returns nonzero if T is a simple initializer for a decl, for use in the
+   INIT_EXPR we will generate.  This is the same as the right side of a
+   MODIFY_EXPR, but here we also allow a CONSTRUCTOR.  */
+
+int
+is_simple_initializer (t)
+     tree t;
+{
+  return (is_simple_rhs (t)
+	  || is_simple_constructor (t));
+}
 
 /** Return nonzero if T is a SIMPLE compound statement.
 
@@ -421,7 +486,8 @@ is_simple_modify_expr (t)
       || TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_modify_expr (TREE_OPERAND (t, 0));
 
-  return (TREE_CODE (t) == MODIFY_EXPR
+  return ((TREE_CODE (t) == MODIFY_EXPR
+	   || TREE_CODE (t) == INIT_EXPR)
 	  && is_simple_modify_expr_lhs (TREE_OPERAND (t, 0))
 	  && is_simple_rhs (TREE_OPERAND (t, 1)));
 }
@@ -582,15 +648,10 @@ is_simple_unary_expr (t)
   if (TREE_CODE (t) == VA_ARG_EXPR)
     return 1;
 
-  /* Addition to the original grammar.  Allow compound literals.
-     FIXME: Should we deal with these differently?  */
-  if (TREE_CODE (t) == COMPOUND_LITERAL_EXPR)
-    return 1;
-
-  /* Addition to the original grammar.  Allow constructor expressions.
-     FIXME: Should we deal with these differently?  */
+  /* Addition to the original grammar.  Allow simple constructor
+     expressions.  */
   if (TREE_CODE (t) == CONSTRUCTOR)
-    return 1;
+    return is_simple_constructor (t);
 
   return 0;
 }
@@ -795,9 +856,7 @@ is_simple_id (t)
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
 	  /* Allow string constants.  */
-	  || TREE_CODE (t) == STRING_CST
-	  /* Allow C99 compound literals.  */
-	  || TREE_CODE (t) == COMPOUND_LITERAL_EXPR);
+	  || TREE_CODE (t) == STRING_CST);
 }
 
 

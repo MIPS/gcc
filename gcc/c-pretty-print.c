@@ -638,15 +638,13 @@ dump_c_node (buffer, node, spc)
       break;
 
     case MODIFY_EXPR:
+    case INIT_EXPR:
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
       output_add_space (buffer);
       output_add_character (buffer, '=');
       output_add_space (buffer);
       dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
       break;
-
-    case INIT_EXPR:
-      NIY;
 
     case TARGET_EXPR:
       NIY;
@@ -959,7 +957,6 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case EXPR_WITH_FILE_LOCATION:
-      INDENT (spc);
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
       break;
 
@@ -1182,7 +1179,15 @@ dump_c_node (buffer, node, spc)
       break;
 
     case COMPOUND_LITERAL_EXPR:
-      NIY;
+      type = TREE_TYPE (node);
+      op0 = COMPOUND_LITERAL_EXPR_DECL_STMT (node);
+      op0 = DECL_STMT_DECL (op0);
+      op0 = DECL_INITIAL (op0);
+      output_add_character (buffer, '(');
+      dump_c_node (buffer, type, spc);
+      output_add_string (buffer, ")");
+      dump_c_node (buffer, op0, spc);
+      break;
 
     default:
       NIY;
@@ -1227,9 +1232,12 @@ print_declaration (buffer, t, spc)
       while (TREE_CODE (tmp) == ARRAY_TYPE)
 	{
 	  output_add_character (buffer, '[');
-	  output_decimal (buffer,
-			  TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
-			  TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+	  if (TREE_CODE (TYPE_SIZE (tmp)) == INTEGER_CST)
+	    output_decimal (buffer,
+			    TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+			    TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+	  else
+	    dump_c_node (buffer, TYPE_SIZE_UNIT (tmp), spc);
 	  output_add_character (buffer, ']');
 	  tmp = TREE_TYPE (tmp);
 	}
@@ -1482,6 +1490,7 @@ op_prio (op)
     case ABS_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case COMPOUND_LITERAL_EXPR:
       return 16;
 
     case SAVE_EXPR:

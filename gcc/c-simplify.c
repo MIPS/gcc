@@ -60,6 +60,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void simplify_stmt            PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
+static void simplify_decl_stmt       PARAMS ((tree, tree *, tree *, tree *));
+static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void maybe_fixup_loop_cond    PARAMS ((tree *, tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
@@ -89,6 +91,7 @@ static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree))));
 static void simplify_save_expr       PARAMS ((tree *, tree *));
 static void simplify_stmt_expr       PARAMS ((tree *, tree *));
+static void simplify_compound_literal_expr PARAMS ((tree *, tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
@@ -101,6 +104,7 @@ static inline void remove_suffix     PARAMS ((char *, int));
 static const char *get_name          PARAMS ((tree));
 static tree build_addr_expr	     PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
+static tree tail_expression          PARAMS ((tree *, int));
 
 /* Local variables.  */
 static FILE *dump_file;
@@ -244,15 +248,9 @@ simplify_stmt (stmt_p)
 	  simplify_return_stmt (stmt, &pre);
 	  break;
 
-	/* Contrary to the original SIMPLE grammar, we do not convert
-	   declaration initializers into SIMPLE assignments because this
-	   breaks several C semantics (static variables, read-only
-	   initializers, dynamic arrays, etc).
-
-	   FIXME: DECL_STMTs should really be simplified.  Inter weaving
-		  DECL_STMTs with other statements should be OK.  */
 	case DECL_STMT:
-	  /* Fall through.  */
+	  simplify_decl_stmt (stmt, &pre, &post, &post);
+	  break;
 
 	/* Statements that need no simplification.  */
 	case LABEL_STMT:
@@ -387,8 +385,7 @@ simplify_expr_stmt (stmt, pre_p, post_p)
 
    COND_P and BODY_P are pointers to the condition and body of the loop.
    PRE_P is a list to which we can add effects that need to happen before
-   the loop begins (i.e. as part of the for-init-stmt).
-   STMT is the loop statement in question, for passing to subroutines.  */
+   the loop begins (i.e. as part of the for-init-stmt).  */
 
 static void
 maybe_fixup_loop_cond (cond_p, body_p, pre_p)
@@ -507,14 +504,15 @@ simplify_for_stmt (stmt, pre_p)
   tree_build_scope (&FOR_BODY (stmt));
 
   /* If FOR_INIT_STMT is a DECL_STMT (C99), move it outside the loop and
-     replace it with an empty expression statement.
+     replace it with an empty expression statement.  */
 
-     FIXME: The DECL_STMT should be simplified and the DECL_INITIAL for the
-	    last declared variable should be converted into the EXPR_STMT
-	    of the FOR_INIT_STMT.  */
   if (TREE_CODE (FOR_INIT_STMT (stmt)) == DECL_STMT)
     {
-      add_tree (FOR_INIT_STMT (stmt), pre_p);
+      tree decl_s = FOR_INIT_STMT (stmt);
+      pre_init_s = NULL_TREE;
+      simplify_decl_stmt (decl_s, pre_p, &pre_init_s, &pre_init_s);
+      add_tree (decl_s, pre_p);
+      add_tree (pre_init_s, pre_p);
       FOR_INIT_STMT (stmt) = build_stmt (EXPR_STMT, NULL_TREE);
     }
 
@@ -613,41 +611,14 @@ simplify_for_stmt (stmt, pre_p)
   add_tree (post_init_s, pre_p);
   add_tree (deep_copy_list (pre_cond_s), pre_p);
 
-  if (*pre_p)
-    {
-      tree prev, last, op;
-
-      prev = NULL_TREE;
-      for (op = *pre_p; TREE_CHAIN (op); op = TREE_CHAIN (op))
-	prev = op;
-      
-      last = TREE_VALUE ((prev) ? TREE_CHAIN (prev) : *pre_p);
-
-      if (!statement_code_p (TREE_CODE (last)))
-	{
-	  /* The last statement is an expression, emit it inside
-	    FOR_INIT_STMT and remove the expression from PRE_P.  */
-	  EXPR_STMT_EXPR (FOR_INIT_STMT (stmt)) = last;
-	  if (prev)
-	    TREE_CHAIN (prev) = NULL_TREE;
-	  else
-	    *pre_p = NULL_TREE;
-	}
-      else
-	{
-	  /* The last statement is not an expression, nullify FOR_INIT_STMT.
-	    All the expressions in FOR_INIT_STMT and PRE_COND_S have been
-	    emitted inside PRE_P already.  */
-	  EXPR_STMT_EXPR (FOR_INIT_STMT (stmt)) = NULL_TREE;
-	}
-    }
+  EXPR_STMT_EXPR (FOR_INIT_STMT (stmt)) = tail_expression (pre_p, 0);
 
   /* Build the new FOR_COND.  */
   FOR_COND (stmt) = cond_s;
 
   /* Link PRE_EXPR_S, EXPR_S, POST_EXPR_S and PRE_COND_S to emit before
      every wrap-around point inside the loop body.  If the last tree in the
-     list is an expression tree, it is emmitted inside FOR_EXPR.  */
+     list is an expression tree, it is emitted inside FOR_EXPR.  */
   {
     tree expr_chain;
 
@@ -656,32 +627,11 @@ simplify_for_stmt (stmt, pre_p)
     add_tree (post_expr_s, &expr_chain);
     add_tree (pre_cond_s, &expr_chain);
 
+    FOR_EXPR (stmt) = tail_expression (&expr_chain, 1);
+
     if (expr_chain)
       {
-	tree prev, op, last, stmt_chain;
-
-	prev = NULL_TREE;
-	for (op = expr_chain; TREE_CHAIN (op); op = TREE_CHAIN (op))
-	  prev = op;
-	last = TREE_VALUE ((prev) ? TREE_CHAIN (prev) : expr_chain);
-
-	if (!statement_code_p (TREE_CODE (last)))
-	  {
-	    /* The last statement is an expression, emit it inside
-	      FOR_EXPR and remove the expression from EXPR_CHAIN.  */
-	    FOR_EXPR (stmt) = last;
-	    if (prev)
-	      TREE_CHAIN (prev) = NULL_TREE;
-	    else
-	      expr_chain = NULL_TREE;
-	  }
-	else
-	  {
-	    /* The last statement is not an expression, nullify FOR_EXPR.  */
-	    FOR_EXPR (stmt) = NULL_TREE;
-	  }
-
-	stmt_chain = convert_to_stmt_chain (expr_chain);
+	tree stmt_chain = convert_to_stmt_chain (expr_chain);
 	insert_before_continue_end (stmt_chain, FOR_BODY (stmt));
       }
   }
@@ -966,7 +916,102 @@ simplify_return_stmt (stmt, pre_p)
     }
 }
 
+/** Simplifies a DECL_STMT node T.
 
+    If a declaration V has an initial value I, create an expression 'V = I'
+    and insert it after the DECL_STMT.
+
+    PRE_P is a queue for effects that should happen before the DECL_STMT.
+
+    MID_P is a queue for effects that should happen after the DECL_STMT,
+    but before uses of the initialized decl.
+
+    POST_P is a queue for effects that should happen after uses of the
+    initialized decl.
+
+    Usually these last two will be the same, but they may need to be
+    different if the DECL_STMT is somehow embedded in an expression.  */
+
+static void
+simplify_decl_stmt (t, pre_p, mid_p, post_p)
+     tree t;
+     tree *pre_p;
+     tree *mid_p;
+     tree *post_p;
+{
+  tree decl, init, mid, post;
+
+  if (TREE_CODE (t) != DECL_STMT)
+    abort ();
+
+  if (is_simple_decl_stmt (t))
+    return;
+
+  /* We need to build these up internally first, in case mid_p and post_p
+     are the same.  */
+  mid = NULL_TREE;
+  post = NULL_TREE;
+
+  decl = DECL_STMT_DECL (t);
+  init = DECL_INITIAL (decl);
+  DECL_INITIAL (decl) = NULL_TREE;
+
+  if (DECL_SIZE_UNIT (decl)
+      && TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST)
+    simplify_expr (&DECL_SIZE_UNIT (decl), pre_p, &post, is_simple_val,
+		   fb_rvalue);
+  if (init)
+    {
+      simplify_expr (&init, &mid, &post, is_simple_initializer, fb_rvalue);
+      init = build (INIT_EXPR, TREE_TYPE (decl), decl, init);
+      add_tree (mid, mid_p);
+      add_tree (init, mid_p);
+    }
+
+  add_tree (post, post_p);
+}
+
+/* Simplifies a CONSTRUCTOR node T.
+
+   FIXME: Should dynamic initializations from a CONSTRUCTOR be broken
+   up into multiple assignments?  */
+
+static void
+simplify_constructor (t, pre_p, post_p)
+     tree t;
+     tree *pre_p;
+     tree *post_p;
+{
+  tree elt_list;
+
+  if (is_simple_constructor (t))
+    return;
+
+  for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
+       elt_list = TREE_CHAIN (elt_list))
+    simplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
+		   is_simple_constructor_elt, fb_rvalue);
+}
+
+/* Simplify a C99 compound literal expression.  This just means adding the
+   DECL_STMT before the current EXPR_STMT and using its anonymous decl
+   instead.  */
+
+static void
+simplify_compound_literal_expr (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
+  tree decl = DECL_STMT_DECL (decl_s);
+  tree pre_init = NULL_TREE;
+
+  simplify_decl_stmt (decl_s, pre_p, &pre_init, post_p);
+  add_tree (decl_s, pre_p);
+  add_tree (pre_init, pre_p);
+  *expr_p = decl;
+}
 
 /* Simplification of expression trees.  */
 
@@ -990,10 +1035,6 @@ simplify_return_stmt (stmt, pre_p)
 	SIMPLE_TEST_F is called again.  If the test still fails, then a new
 	temporary variable is created and assigned the value of the
 	simplified expression.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.
 
     FALLBACK tells the function what sort of a temporary we want.  If the 1
         bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
@@ -1061,6 +1102,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
       return;
 
     case MODIFY_EXPR:
+    case INIT_EXPR:
       simplify_modify_expr (expr_p, pre_p, post_p);
       break;
 
@@ -1112,12 +1154,12 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
     case COMPLEX_CST:
       break;
 
-    /* Do not simplify compound literals.  FIXME: Maybe we should?  */
     case COMPOUND_LITERAL_EXPR:
+      simplify_compound_literal_expr (expr_p, pre_p, post_p);
       break;
 
-    /* Do not simplify constructor expressions.  FIXME: Maybe we should?  */
     case CONSTRUCTOR:
+      simplify_constructor (*expr_p, pre_p, post_p);
       break;
 
     /* The following are special cases that are not handled by the original
@@ -1258,10 +1300,6 @@ build_addr_expr (t)
     POST_P points to the list where side effects that must happen after
 	*EXPR_P should be stored.
 
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.
-
     FIXME: ARRAY_REF currently doesn't accept a pointer as the array
     argument, so this simplification uses an INDIRECT_REF of ARRAY_TYPE.
     ARRAY_REF should be extended.  */
@@ -1313,11 +1351,7 @@ simplify_array_ref (expr_p, pre_p, post_p)
      *EXPR_P should be stored.
 
    POST_P points to the list where side effects that must happen after
-     *EXPR_P should be stored.
-
-   STMT is the statement tree that contains EXPR.  It's used in cases
-     where simplifying an expression requires creating new statement
-     trees.  */
+     *EXPR_P should be stored.  */
 
 static void
 simplify_compound_lval (expr_p, pre_p, post_p)
@@ -1368,11 +1402,7 @@ simplify_compound_lval (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_self_mod_expr (expr_p, pre_p, post_p)
@@ -1430,11 +1460,7 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_component_ref (expr_p, pre_p, post_p)
@@ -1469,11 +1495,7 @@ simplify_component_ref (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+    	*EXPR_P should be stored.  */
 
 static void
 simplify_call_expr (expr_p, pre_p, post_p)
@@ -1506,11 +1528,7 @@ simplify_call_expr (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_tree_list (expr_p, pre_p, post_p)
@@ -1544,11 +1562,7 @@ simplify_tree_list (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_cond_expr (expr_p, pre_p)
@@ -1601,11 +1615,7 @@ simplify_cond_expr (expr_p, pre_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_modify_expr (expr_p, pre_p, post_p)
@@ -1613,7 +1623,8 @@ simplify_modify_expr (expr_p, pre_p, post_p)
      tree *pre_p;
      tree *post_p;
 {
-  if (TREE_CODE (*expr_p) != MODIFY_EXPR)
+  if (TREE_CODE (*expr_p) != MODIFY_EXPR
+      && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
 
   simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
@@ -1647,11 +1658,7 @@ simplify_modify_expr (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_boolean_expr (expr_p, pre_p)
@@ -1718,11 +1725,7 @@ simplify_boolean_expr (expr_p, pre_p)
 	in the sequence will be emitted.
 
     POST_P points to the list where the post side effects for the last
-	expression in the sequence are emitted.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        expression in the sequence are emitted.  */
 
 static void
 simplify_compound_expr (expr_p, pre_p, post_p)
@@ -1818,11 +1821,7 @@ simplify_compound_expr (expr_p, pre_p, post_p)
 
     SIMPLE_TEST_F points to a function that takes a tree T and
 	returns nonzero if T is in the SIMPLE form requested by the
-	caller.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+	caller.  */
 
 static void
 simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
@@ -1884,11 +1883,7 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
     that holds the original value of the SAVE_EXPR node.
 
     PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.
-
-    STMT is the statement tree that contains EXPR.  It's used in cases
-	where simplifying an expression requires creating new statement
-	trees.  */
+        *EXPR_P should be stored.  */
 
 static void
 simplify_save_expr (expr_p, pre_p)
@@ -2207,7 +2202,7 @@ get_name (t)
 
   stripped_decl = t;
   STRIP_NOPS (stripped_decl);
-  if (DECL_P (stripped_decl))
+  if (DECL_P (stripped_decl) && DECL_NAME (stripped_decl))
     return IDENTIFIER_POINTER (DECL_NAME (stripped_decl));
   else
     {
@@ -2236,7 +2231,7 @@ get_initialized_tmp_var (val, pre_p)
   prefix = get_name (val);
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
   t = create_tmp_var (TREE_TYPE (val), prefix);
-  mod = build_modify_expr (t, NOP_EXPR, val);
+  mod = build (INIT_EXPR, TREE_TYPE (t), t, val);
   add_tree (mod, pre_p);
 
   return t;
@@ -2584,4 +2579,46 @@ is_last_stmt_of_scope (stmt)
   return (TREE_CHAIN (stmt)
 	  && TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
 	  && SCOPE_END_P (TREE_CHAIN (stmt)));
+}
+
+/* If the last entry in CHAIN is an expression, return it; otherwise,
+   return NULL_TREE.
+
+   If DECL_IS_BAD is nonzero, seeing a DECL_STMT causes us to bail out to
+   avoid scoping problems.  */
+
+static tree
+tail_expression (chain, decl_is_bad)
+     tree *chain;
+     int decl_is_bad;
+{
+  if (*chain)
+    {
+      tree *first_expr = 0;
+
+      for (; *chain; chain = &TREE_CHAIN (*chain))
+	{
+	  tree elt = TREE_VALUE (*chain);
+	  if (statement_code_p (TREE_CODE (elt)))
+	    {
+	      if (decl_is_bad && (TREE_CODE (elt) == DECL_STMT))
+		return NULL_TREE;
+	      first_expr = 0;
+	    }
+	  else if (!first_expr)
+	    first_expr = chain;
+	}
+
+      if (first_expr)
+	{
+	  tree exprs = nreverse (*first_expr);
+	  tree compexpr = TREE_VALUE (exprs);
+	  for (exprs = TREE_CHAIN (exprs); exprs; exprs = TREE_CHAIN (exprs))
+	    compexpr = build (COMPOUND_EXPR, TREE_TYPE (compexpr),
+			      TREE_VALUE (exprs), compexpr);
+	  *first_expr = 0;
+	  return compexpr;
+	}
+    }
+  return NULL_TREE;
 }

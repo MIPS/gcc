@@ -35,6 +35,7 @@ extern tree update_line_number         PARAMS ((tree, int));
 
 /* Validation of SIMPLE statements.  */
 int is_simple_stmt                     PARAMS ((tree));
+int is_simple_decl_stmt                PARAMS ((tree));
 int is_simple_compstmt                 PARAMS ((tree));
 
 /* Validation of SIMPLE expressions.  */
@@ -60,5 +61,8 @@ int is_simple_compref                  PARAMS ((tree));
 int is_simple_cast                     PARAMS ((tree));
 int is_simple_cast_op                  PARAMS ((tree));
 int is_simple_exprseq                  PARAMS ((tree));
+int is_simple_constructor              PARAMS ((tree));
+int is_simple_constructor_elt          PARAMS ((tree));
+int is_simple_initializer              PARAMS ((tree));
 
 #endif /* _TREE_SIMPLE_H */

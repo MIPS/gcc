@@ -1,5 +1,23 @@
 2002-06-20  Jason Merrill  <jason@redhat.com>
 
+	Simplify DECL_STMT, CONSTRUCTOR and COMPOUND_LITERAL_EXPR.
+	* tree-simple.c (is_simple_decl_stmt): New fn.
+	(is_simple_constructor, is_simple_constructor_elt): New fns.
+	(is_simple_stmt, is_simple_unary_expr): Use them.
+	(is_simple_modify_expr): Accept an INIT_EXPR.
+	(is_simple_id): Don't allow a COMPOUND_LITERAL_EXPR.
+	(is_simple_unary_expr): Here either.
+	* c-simplify.c (simplify_decl_stmt, simplify_constructor): New fns.
+	(simplify_compound_literal_expr): New fn.
+	(simplify_stmt, simplify_expr): Use them.
+	(get_initialized_tmp_var): Use an INIT_EXPR.
+	(simplify_modify_expr): Accept an INIT_EXPR.
+	(simplify_for_stmt): Call simplify_decl_stmt.
+	(get_name): Don't crash if the decl is anonymous.
+	(tail_expression): New fn.
+	* tree-simple.h: Declare new fns.
+	* c-pretty-print.c (dump_c_node) [INIT_EXPR]: Print like MODIFY_EXPR.
+	(dump_c_node, op_prio): Handle COMPOUND_LITERAL_EXPR.
 	* c-simplify.c (simplify_expr_wfl): Only wrap pre and post stuff
 	that came from our subexpression.
 	(simplify_stmt): Restore stmts_are_full_exprs_p.
