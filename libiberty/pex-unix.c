@@ -188,10 +188,6 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
   int pdesc[2];
   int serrno;
   int child_stdin = -2, child_stdout = -2;
-#if 0
-FILE* P = fopen("/dev/pts/1", "w");
-printf(P, "pex-unix.c:pexecute called with program %s\n", program);
-#endif
   /* If this is the first process, last_pipe_input ought to be -1.  */
   if (flags & PEXECUTE_FIRST)
     if (last_pipe_input != -1)
@@ -228,6 +224,9 @@ printf(P, "pex-unix.c:pexecute called with program %s\n", program);
      failed.  */
   if (pid == -1)
     xclose (last_pipe_input);
+
+  if (flags & PEXECUTE_LAST)
+    last_pipe_input = -1;
 
   errno = serrno;
 

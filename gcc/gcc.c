@@ -6116,7 +6116,7 @@ main (int argc, const char **argv)
     {
       obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
       obstack_grow0 (&obstack, link_spec, strlen (link_spec));
-      link_spec = obstack_finish (&obstack);
+      set_spec ("link", obstack_finish (&obstack));
     }
 
   /* Process sysroot_hdrs_suffix_spec.  */

@@ -1,3 +1,7 @@
+2005-01-31  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc.c (main): Use set_spec.
+
 2005-01-27  Mark Mitchell <mark@codesourcery.com>
 
 	* config.gcc (powerpc-wrs-linux-gnu): Add 64-bit support.
