@@ -1,3 +1,8 @@
+2005-01-21  Caroline Tice  <ctice@apple.com>
+
+	Merged with tree-profiling branch, as of 2005-01-17.  Tag on
+	the tree-profiling branch is "tree-profiling-merge-20050117".
+
 2005-01-14  Caroline Tice  <ctice@apple.com>
 
 	* struct-reorg.c (struct malloc_call_data):  Add new field, num_elts.
