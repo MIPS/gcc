@@ -1024,7 +1024,7 @@ cp_lexer_stop_debugging (lexer)
 
 /* FIXME: Factor identifier-or-template-id into a single function.  */
 
-/* Flags that are pased to some parsing functions.  These values can
+/* Flags that are passed to some parsing functions.  These values can
    be bitwise-ored together.  */
 
 typedef enum cp_parser_flags
@@ -1409,6 +1409,8 @@ static void cp_parser_simple_declaration
 static tree cp_parser_decl_specifier_seq 
   PARAMS ((cp_parser *, cp_parser_flags, tree *, bool *, bool *));
 static tree cp_parser_storage_class_specifier_opt
+  PARAMS ((cp_parser *));
+static tree cp_parser_function_specifier_opt
   PARAMS ((cp_parser *));
 static tree cp_parser_type_specifier
   PARAMS ((cp_parser *, cp_parser_flags, bool, bool, bool *, bool *));
@@ -5623,10 +5625,13 @@ cp_parser_declaration (parser)
      declaration.  */
   else if (token1.keyword == RID_EXPORT)
     cp_parser_template_declaration (parser, /*member_p=*/false);
-  /* If the next two tokens are `extern' and `template', respectively,
-     we have a GNU extended explicit instantiation directive.  */
+  /* If the next token is `extern', 'static' or 'inline' and the one
+     after that is `template', we have a GNU extended explicit
+     instantiation directive.  */
   else if (cp_parser_allow_gnu_extensions_p (parser)
-	   && token1.keyword == RID_EXTERN
+	   && (token1.keyword == RID_EXTERN
+	       || token1.keyword == RID_STATIC
+	       || token1.keyword == RID_INLINE)
 	   && token2.keyword == RID_TEMPLATE)
     cp_parser_explicit_instantiation (parser);
   /* If the next token is `namespace', check for a named or unnamed
@@ -5950,6 +5955,9 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	case RID_INLINE:
 	case RID_VIRTUAL:
 	case RID_EXPLICIT:
+	  decl_spec = cp_parser_function_specifier_opt (parser);
+	  break;
+	  
 	  /* decl-specifier:
 	       typedef  */
 	case RID_TYPEDEF:
@@ -5972,7 +5980,8 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	case RID_EXTERN:
 	case RID_MUTABLE:
 	  decl_spec = cp_parser_storage_class_specifier_opt (parser);
-
+	  break;
+	  
 	default:
 	  break;
 	}
@@ -6096,6 +6105,32 @@ cp_parser_storage_class_specifier_opt (parser)
     }
 }
 
+/* Parse an (optional) function-specifier. 
+
+   function-specifier:
+     inline
+     virtual
+     explicit
+
+   Returns an IDENTIFIER_NODE corresponding to the keyword used.  */
+   
+static tree
+cp_parser_function_specifier_opt (parser)
+     cp_parser *parser;
+{
+  switch (cp_lexer_peek_token (parser->lexer)->keyword)
+    {
+    case RID_INLINE:
+    case RID_VIRTUAL:
+    case RID_EXPLICIT:
+      /* Consume the token.  */
+      return cp_lexer_consume_token (parser->lexer)->value;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
 /* Parse a linkage-specification.
 
    linkage-specification:
@@ -6141,7 +6176,7 @@ cp_parser_linkage_specification (parser)
   /* We're now using the new linkage.  */
   push_lang_context (linkage);
 
-  /* If the next token is s a `{', then we're using the first
+  /* If the next token is a `{', then we're using the first
      production.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
@@ -7326,6 +7361,8 @@ cp_parser_template_argument (parser)
   
    explicit-instantiation:
      storage-class-specifier template 
+       decl-specifier-seq [opt] declarator [opt] ;
+     function-specifier template 
        decl-specifier-seq [opt] declarator [opt] ;  */
 
 static void
@@ -7335,12 +7372,18 @@ cp_parser_explicit_instantiation (parser)
   bool declares_class_or_enum;
   tree decl_specifiers;
   tree attributes;
-  tree storage_class_specifier;
+  tree extension_specifier = NULL_TREE;
   tree type_decl = NULL_TREE;
 
-  /* Look for an (optional) storage-class-specifier.  */
-  storage_class_specifier 
-    = cp_parser_storage_class_specifier_opt (parser);
+  /* Look for an (optional) storage-class-specifier or
+     function-specifier.  */
+  if (cp_parser_allow_gnu_extensions_p (parser))
+    {
+      extension_specifier 
+	= cp_parser_storage_class_specifier_opt (parser);
+      if (!extension_specifier)
+	extension_specifier = cp_parser_function_specifier_opt (parser);
+    }
 
   /* Look for the `template' keyword.  */
   cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
@@ -7367,8 +7410,7 @@ cp_parser_explicit_instantiation (parser)
 
   /* Instantiate the declaration.  */
   if (type_decl)
-    do_type_instantiation (type_decl, storage_class_specifier, 
-			   /*complain=*/1);
+    do_type_instantiation (type_decl, extension_specifier, /*complain=*/1);
   else 
     {
       tree declarator;
@@ -7383,7 +7425,7 @@ cp_parser_explicit_instantiation (parser)
       decl = grokdeclarator (declarator, decl_specifiers, 
 			     NORMAL, 0, NULL_TREE, &friend_p);
       /* Do the explicit instantiation.  */
-      do_decl_instantiation (decl, storage_class_specifier);
+      do_decl_instantiation (decl, extension_specifier);
     }
   /* We're done with the instantiation.  */
   end_explicit_instantiation ();
