@@ -1,4 +1,4 @@
-/* JRadioButtonMenuItem.java -- 
+/* JRadioButtonMenuItem.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -39,7 +39,6 @@ package javax.swing;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -49,7 +48,7 @@ import javax.accessibility.AccessibleRole;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision$
+ * @version $Revision: 1.3.8.3 $
  */
 public class JRadioButtonMenuItem extends JMenuItem implements Accessible
 {
@@ -58,7 +57,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
   /**
    * Creates a new JRadioButtonMenuItem object.
    */
-  public JRadioButtonMenuItem ()
+  public JRadioButtonMenuItem()
   {
     this(null, null);
   }
@@ -68,7 +67,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @param icon DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (Icon icon)
+  public JRadioButtonMenuItem(Icon icon)
   {
     this(null, icon);
   }
@@ -78,7 +77,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @param text DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (String text)
+  public JRadioButtonMenuItem(String text)
   {
     this(text, null);
   }
@@ -88,10 +87,10 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @param action DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (Action action)
+  public JRadioButtonMenuItem(Action action)
   {
     this();
-    setAction (action);
+    setAction(action);
   }
 
   /**
@@ -100,7 +99,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    * @param text DOCUMENT ME!
    * @param icon DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (String text, Icon icon)
+  public JRadioButtonMenuItem(String text, Icon icon)
   {
     this(text, icon, false);
   }
@@ -111,7 +110,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    * @param text DOCUMENT ME!
    * @param selected DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (String text, boolean selected)
+  public JRadioButtonMenuItem(String text, boolean selected)
   {
     this(text, null, selected);
   }
@@ -122,7 +121,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    * @param icon DOCUMENT ME!
    * @param selected DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (Icon icon, boolean selected)
+  public JRadioButtonMenuItem(Icon icon, boolean selected)
   {
     this(null, icon, selected);
   }
@@ -134,11 +133,11 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    * @param icon DOCUMENT ME!
    * @param selected DOCUMENT ME!
    */
-  public JRadioButtonMenuItem (String text, Icon icon, boolean selected)
+  public JRadioButtonMenuItem(String text, Icon icon, boolean selected)
   {
     super(text, icon);
-    setModel (new JToggleButton.ToggleButtonModel());
-    model.setSelected (selected);
+    setModel(new JToggleButton.ToggleButtonModel());
+    model.setSelected(selected);
   }
 
   /**
@@ -148,8 +147,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @throws IOException DOCUMENT ME!
    */
-  private void writeObject (ObjectOutputStream stream)
-                     throws IOException
+  private void writeObject(ObjectOutputStream stream) throws IOException
   {
     // TODO
   }
@@ -159,7 +157,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public String getUIClassID ()
+  public String getUIClassID()
   {
     return uiClassID;
   }
@@ -167,7 +165,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
   /**
    * DOCUMENT ME!
    */
-  public void requestFocus ()
+  public void requestFocus()
   {
     // TODO
   }
@@ -177,7 +175,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  protected String paramString ()
+  protected String paramString()
   {
     return "JRadioButtonMenuItem";
   }
@@ -187,7 +185,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public AccessibleContext getAccessibleContext ()
+  public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
       accessibleContext = new AccessibleJRadioButtonMenuItem(this);
@@ -199,7 +197,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision$
+   * @version $Revision: 1.3.8.3 $
    */
   protected class AccessibleJRadioButtonMenuItem extends AccessibleJMenuItem
   {
@@ -208,7 +206,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
      *
      * @param component DOCUMENT ME!
      */
-    protected AccessibleJRadioButtonMenuItem (JRadioButtonMenuItem component)
+    protected AccessibleJRadioButtonMenuItem(JRadioButtonMenuItem component)
     {
       super(component);
 
@@ -220,7 +218,7 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
      *
      * @return $returnType$ DOCUMENT ME!
      */
-    public AccessibleRole getAccessibleRole ()
+    public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.RADIO_BUTTON;
     }

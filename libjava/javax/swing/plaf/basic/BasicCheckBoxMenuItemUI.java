@@ -38,7 +38,6 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import java.awt.event.MouseEvent;
-
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
 import javax.swing.JComponent;
@@ -54,7 +53,7 @@ import javax.swing.plaf.ComponentUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision$
+ * @version $Revision: 1.1.2.2 $
  */
 public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
 {
@@ -65,7 +64,7 @@ public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public static ComponentUI createUI (final JComponent c)
+  public static ComponentUI createUI(final JComponent c)
   {
     return new BasicCheckBoxMenuItemUI();
   }
@@ -75,7 +74,7 @@ public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  protected String getPropertyPrefix ()
+  protected String getPropertyPrefix()
   {
     return null; // TODO
   }
@@ -83,12 +82,12 @@ public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
   /**
    * DOCUMENT ME!
    */
-  protected void installDefaults ()
+  protected void installDefaults()
   {
-    super.installDefaults ();
+    super.installDefaults();
 
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults ();
-    checkIcon = defaults.getIcon ("CheckBoxMenuItem.checkIcon");
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    checkIcon = defaults.getIcon("CheckBoxMenuItem.checkIcon");
   }
 
   /**
@@ -99,6 +98,8 @@ public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
    * @param path DOCUMENT ME!
    * @param manager DOCUMENT ME!
    */
-  void processMouseEvent (JMenuItem item, MouseEvent e, MenuElement[] path,
-                          MenuSelectionManager manager) {}
+  void processMouseEvent(JMenuItem item, MouseEvent e, MenuElement[] path,
+                         MenuSelectionManager manager)
+  {
+  }
 }

@@ -1,4 +1,4 @@
-/* JMenuItem.java -- 
+/* JMenuItem.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -40,18 +40,14 @@ package javax.swing;
 import java.awt.Component;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
-
 import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -66,7 +62,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision$
+ * @version $Revision: 1.2.18.2 $
  */
 public class JMenuItem extends AbstractButton implements Accessible,
                                                          MenuElement
@@ -77,7 +73,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
   /**
    * Creates a new JMenuItem object.
    */
-  public JMenuItem ()
+  public JMenuItem()
   {
     this(null, null);
   }
@@ -87,7 +83,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param icon DOCUMENT ME!
    */
-  public JMenuItem (Icon icon)
+  public JMenuItem(Icon icon)
   {
     this(null, icon);
   }
@@ -97,7 +93,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param text DOCUMENT ME!
    */
-  public JMenuItem (String text)
+  public JMenuItem(String text)
   {
     this(text, null);
   }
@@ -107,7 +103,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param action DOCUMENT ME!
    */
-  public JMenuItem (Action action)
+  public JMenuItem(Action action)
   {
     // TODO		
   }
@@ -118,7 +114,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * @param text DOCUMENT ME!
    * @param icon DOCUMENT ME!
    */
-  public JMenuItem (String text, Icon icon)
+  public JMenuItem(String text, Icon icon)
   {
     super(text, icon);
   }
@@ -129,17 +125,17 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * @param text DOCUMENT ME!
    * @param mnemonic DOCUMENT ME!
    */
-  public JMenuItem (String text, int mnemonic)
+  public JMenuItem(String text, int mnemonic)
   {
     super(text, null);
-    setMnemonic (mnemonic);
+    setMnemonic(mnemonic);
   }
 
   //-------------------------------------------------------------
   // Methods ----------------------------------------------------
   //-------------------------------------------------------------
-  private void readObject (ObjectInputStream stream)
-                    throws IOException, ClassNotFoundException
+  private void readObject(ObjectInputStream stream)
+                   throws IOException, ClassNotFoundException
   {
     // TODO
   }
@@ -151,8 +147,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @throws IOException DOCUMENT ME!
    */
-  private void writeObject (ObjectOutputStream stream)
-                     throws IOException
+  private void writeObject(ObjectOutputStream stream) throws IOException
   {
     // TODO
   }
@@ -163,7 +158,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * @param text DOCUMENT ME!
    * @param icon DOCUMENT ME!
    */
-  protected void init (String text, Icon icon)
+  protected void init(String text, Icon icon)
   {
     // TODO
   }
@@ -173,19 +168,19 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param ui DOCUMENT ME!
    */
-  public void setUI (MenuItemUI ui)
+  public void setUI(MenuItemUI ui)
   {
-    super.setUI (ui);
+    super.setUI(ui);
   }
 
   /**
    * DOCUMENT ME!
    */
-  public void updateUI ()
+  public void updateUI()
   {
-    MenuItemUI mi = ((MenuItemUI) UIManager.getUI (this));
-    setUI (mi);
-    invalidate ();
+    MenuItemUI mi = ((MenuItemUI) UIManager.getUI(this));
+    setUI(mi);
+    invalidate();
   }
 
   /**
@@ -193,7 +188,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public String getUIClassID ()
+  public String getUIClassID()
   {
     return uiClassID;
   }
@@ -203,9 +198,9 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public boolean isArmed ()
+  public boolean isArmed()
   {
-    return getModel ().isArmed ();
+    return getModel().isArmed();
   }
 
   /**
@@ -213,9 +208,9 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param armed DOCUMENT ME!
    */
-  public void setArmed (boolean armed)
+  public void setArmed(boolean armed)
   {
-    getModel ().setArmed (armed);
+    getModel().setArmed(armed);
   }
 
   /**
@@ -223,9 +218,9 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param enabled DOCUMENT ME!
    */
-  public void setEnabled (boolean enabled)
+  public void setEnabled(boolean enabled)
   {
-    setEnabled (enabled);
+    setEnabled(enabled);
   }
 
   /**
@@ -233,7 +228,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public KeyStroke getAccelerator ()
+  public KeyStroke getAccelerator()
   {
     return accelerator;
   }
@@ -243,7 +238,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param keystroke DOCUMENT ME!
    */
-  public void setAccelerator (KeyStroke keystroke)
+  public void setAccelerator(KeyStroke keystroke)
   {
     this.accelerator = keystroke;
   }
@@ -253,14 +248,14 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param action DOCUMENT ME!
    */
-  protected void configurePropertiesFromAction (Action action)
+  protected void configurePropertiesFromAction(Action action)
   {
-    super.configurePropertiesFromAction (action);
+    super.configurePropertiesFromAction(action);
 
     if (action == null)
-      setAccelerator (null);
+      setAccelerator(null);
     else
-      setAccelerator ((KeyStroke) (action.getValue (Action.ACCELERATOR_KEY)));
+      setAccelerator((KeyStroke) (action.getValue(Action.ACCELERATOR_KEY)));
   }
 
   /**
@@ -270,7 +265,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  protected PropertyChangeListener createActionPropertyChangeListener (Action action)
+  protected PropertyChangeListener createActionPropertyChangeListener(Action action)
   {
     return null;
   }
@@ -282,8 +277,8 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * @param path DOCUMENT ME!
    * @param manager DOCUMENT ME!
    */
-  public void processMouseEvent (MouseEvent event, MenuElement[] path,
-                                 MenuSelectionManager manager)
+  public void processMouseEvent(MouseEvent event, MenuElement[] path,
+                                MenuSelectionManager manager)
   {
     // TODO
   }
@@ -295,8 +290,8 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * @param path DOCUMENT ME!
    * @param manager DOCUMENT ME!
    */
-  public void processKeyEvent (KeyEvent event, MenuElement[] path,
-                               MenuSelectionManager manager)
+  public void processKeyEvent(KeyEvent event, MenuElement[] path,
+                              MenuSelectionManager manager)
   {
     // TODO
   }
@@ -306,14 +301,16 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  public void processMenuDragMouseEvent (MenuDragMouseEvent event) {} // processMenuDragMouseEvent()
+  public void processMenuDragMouseEvent(MenuDragMouseEvent event)
+  {
+  } // processMenuDragMouseEvent()
 
   /**
    * DOCUMENT ME!
    *
    * @param event DOCUMENT ME!
    */
-  public void processMenuKeyEvent (MenuKeyEvent event)
+  public void processMenuKeyEvent(MenuKeyEvent event)
   {
     // TODO
   }
@@ -323,7 +320,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuDragMouseEntered (MenuDragMouseEvent event)
+  protected void fireMenuDragMouseEntered(MenuDragMouseEvent event)
   {
     // TODO
   }
@@ -333,7 +330,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuDragMouseExited (MenuDragMouseEvent event)
+  protected void fireMenuDragMouseExited(MenuDragMouseEvent event)
   {
     // TODO
   }
@@ -343,7 +340,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuDragMouseDragged (MenuDragMouseEvent event)
+  protected void fireMenuDragMouseDragged(MenuDragMouseEvent event)
   {
     // TODO
   }
@@ -353,7 +350,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuDragMouseReleased (MenuDragMouseEvent event)
+  protected void fireMenuDragMouseReleased(MenuDragMouseEvent event)
   {
     // TODO
   }
@@ -363,7 +360,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuKeyPressed (MenuKeyEvent event)
+  protected void fireMenuKeyPressed(MenuKeyEvent event)
   {
     // TODO
   }
@@ -373,7 +370,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuKeyReleased (MenuKeyEvent event)
+  protected void fireMenuKeyReleased(MenuKeyEvent event)
   {
     // TODO
   }
@@ -383,7 +380,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param event DOCUMENT ME!
    */
-  protected void fireMenuKeyTyped (MenuKeyEvent event)
+  protected void fireMenuKeyTyped(MenuKeyEvent event)
   {
     // TODO
   }
@@ -393,7 +390,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param changed DOCUMENT ME!
    */
-  public void menuSelectionChanged (boolean changed)
+  public void menuSelectionChanged(boolean changed)
   {
     // TODO
   }
@@ -403,7 +400,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public MenuElement[] getSubElements ()
+  public MenuElement[] getSubElements()
   {
     return null; // TODO
   }
@@ -413,7 +410,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public Component getComponent ()
+  public Component getComponent()
   {
     return null; // TODO
   }
@@ -423,7 +420,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param listener DOCUMENT ME!
    */
-  public void addMenuDragMouseListener (MenuDragMouseListener listener)
+  public void addMenuDragMouseListener(MenuDragMouseListener listener)
   {
     // TODO
   }
@@ -433,28 +430,34 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @param listener DOCUMENT ME!
    */
-  public void removeMenuDragMouseListener (MenuDragMouseListener listener) {}
+  public void removeMenuDragMouseListener(MenuDragMouseListener listener)
+  {
+  }
 
   /**
    * DOCUMENT ME!
    *
    * @param listener DOCUMENT ME!
    */
-  public void addMenuKeyListener (MenuKeyListener listener) {}
+  public void addMenuKeyListener(MenuKeyListener listener)
+  {
+  }
 
   /**
    * DOCUMENT ME!
    *
    * @param listener DOCUMENT ME!
    */
-  public void removeMenuKeyListener (MenuKeyListener listener) {}
+  public void removeMenuKeyListener(MenuKeyListener listener)
+  {
+  }
 
   /**
    * DOCUMENT ME!
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  protected String paramString ()
+  protected String paramString()
   {
     return "JMenuItem";
   }
@@ -464,7 +467,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    *
    * @return $returnType$ DOCUMENT ME!
    */
-  public AccessibleContext getAccessibleContext ()
+  public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
       accessibleContext = new AccessibleJMenuItem(this);
@@ -476,7 +479,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision$
+   * @version $Revision: 1.2.18.2 $
    */
   protected class AccessibleJMenuItem extends AccessibleAbstractButton
     implements ChangeListener
@@ -486,7 +489,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
      *
      * @param component DOCUMENT ME!
      */
-    AccessibleJMenuItem (JMenuItem component)
+    AccessibleJMenuItem(JMenuItem component)
     {
       super(component);
 
@@ -498,7 +501,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
      *
      * @param event DOCUMENT ME!
      */
-    public void stateChanged (ChangeEvent event)
+    public void stateChanged(ChangeEvent event)
     {
       // TODO
     }
@@ -508,7 +511,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
      *
      * @return $returnType$ DOCUMENT ME!
      */
-    public AccessibleRole getAccessibleRole ()
+    public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.MENU_ITEM;
     }
