@@ -60,8 +60,6 @@ extern enum processor_type s390_arch;
 extern enum processor_flags s390_arch_flags;
 extern const char *s390_arch_string;
 
-extern const char *s390_backchain_string;
-
 extern const char *s390_warn_framesize_string;
 extern const char *s390_warn_dynamicstack_string;
 extern const char *s390_stack_size_string;
@@ -103,6 +101,8 @@ extern int target_flags;
 #define MASK_MVCLE                 0x40
 #define MASK_TPF                   0x80
 #define MASK_NO_FUSED_MADD         0x100
+#define MASK_BACKCHAIN             0x200
+#define MASK_PACKED_STACK          0x400
 
 #define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
 #define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
@@ -114,9 +114,8 @@ extern int target_flags;
 #define TARGET_TPF                 (target_flags & MASK_TPF)
 #define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
 #define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
-
-#define TARGET_BACKCHAIN           (s390_backchain_string[0] == '1')
-#define TARGET_KERNEL_BACKCHAIN    (s390_backchain_string[0] == '2')
+#define TARGET_BACKCHAIN           (target_flags & MASK_BACKCHAIN)
+#define TARGET_PACKED_STACK        (target_flags & MASK_PACKED_STACK)
 
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
@@ -129,22 +128,26 @@ extern int target_flags;
 #endif
 
 #define TARGET_SWITCHES                                                  \
-{ { "hard-float",      1, N_("Use hardware fp")},                        \
-  { "soft-float",     -1, N_("Don't use hardware fp")},                  \
-  { "small-exec",      4, N_("Use bras for executable < 64k")},          \
-  { "no-small-exec",  -4, N_("Don't use bras")},                         \
-  { "debug",           8, N_("Additional debug prints")},                \
-  { "no-debug",       -8, N_("Don't print additional debug prints")},    \
-  { "64",             16, N_("64 bit ABI")},                             \
-  { "31",            -16, N_("31 bit ABI")},                             \
-  { "zarch",          32, N_("z/Architecture")},                         \
-  { "esa",           -32, N_("ESA/390 architecture")},                   \
-  { "mvcle",          64, N_("mvcle use")},                              \
-  { "no-mvcle",      -64, N_("mvc&ex")},                                 \
-  { "tpf",           128, N_("enable tpf OS code")},                     \
-  { "no-tpf",       -128, N_("disable tpf OS code")},                    \
-  { "no-fused-madd", 256, N_("disable fused multiply/add instructions")},\
-  { "fused-madd",   -256, N_("enable fused multiply/add instructions")}, \
+{ { "hard-float",          1, N_("Use hardware fp")},                        \
+  { "soft-float",         -1, N_("Don't use hardware fp")},                  \
+  { "small-exec",          4, N_("Use bras for executable < 64k")},          \
+  { "no-small-exec",      -4, N_("Don't use bras")},                         \
+  { "debug",               8, N_("Additional debug prints")},                \
+  { "no-debug",           -8, N_("Don't print additional debug prints")},    \
+  { "64",                 16, N_("64 bit ABI")},                             \
+  { "31",                -16, N_("31 bit ABI")},                             \
+  { "zarch",              32, N_("z/Architecture")},                         \
+  { "esa",               -32, N_("ESA/390 architecture")},                   \
+  { "mvcle",              64, N_("mvcle use")},                              \
+  { "no-mvcle",          -64, N_("mvc&ex")},                                 \
+  { "tpf",               128, N_("enable tpf OS code")},                     \
+  { "no-tpf",           -128, N_("disable tpf OS code")},                    \
+  { "no-fused-madd",     256, N_("disable fused multiply/add instructions")},\
+  { "fused-madd",       -256, N_("enable fused multiply/add instructions")}, \
+  { "backchain",         512, N_("Maintain backchain pointer")},             \
+  { "no-backchain",     -512, N_("Don't maintain backchain pointer")},       \
+  { "packed-stack",     1024, N_("Use packed stack layout")},                \
+  { "no-packed-stack", -1024, N_("Don't use packed stack layout")},          \
   { "", TARGET_DEFAULT, 0 } }
 
 #define TARGET_OPTIONS                                                         \
@@ -152,12 +155,6 @@ extern int target_flags;
     N_("Schedule code for given CPU"), 0},                                     \
   { "arch=",            &s390_arch_string,                                     \
     N_("Generate code for given CPU"), 0},                                     \
-  { "backchain",        &s390_backchain_string,                                \
-    N_("Set backchain"), "1"},                                                 \
-  { "no-backchain",     &s390_backchain_string,                                \
-    N_("Do not set backchain"), ""},                                           \
-  { "kernel-backchain", &s390_backchain_string,                                \
-    N_("Set backchain appropriate for the linux kernel"), "2"},                \
   { "warn-framesize=",   &s390_warn_framesize_string,                          \
     N_("Warn if a single function's framesize exceeds the given framesize"),   \
        0},                                                                     \
@@ -619,12 +616,12 @@ extern int current_function_outgoing_args_size;
    the corresponding RETURN_REGNUM register was saved.  */
 
 #define DYNAMIC_CHAIN_ADDRESS(FRAME)                                            \
-  (TARGET_BACKCHAIN ?                                                           \
-   ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
-    plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET)) :                   \
+  (TARGET_PACKED_STACK ?                                                        \
     ((FRAME) != hard_frame_pointer_rtx ?                                        \
      plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) :           \
-     plus_constant (arg_pointer_rtx, -UNITS_PER_WORD)))
+     plus_constant (arg_pointer_rtx, -UNITS_PER_WORD)) :                        \
+     ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
+      plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET)))
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)						\
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))

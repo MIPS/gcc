@@ -54,7 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* When building for TPF, set a generic default target that is 64 bits.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT             0x33
+#define TARGET_DEFAULT             0x33 | MASK_BACKCHAIN
 
 /* TPF OS specific compiler settings.  */
 #undef TARGET_OS_CPP_BUILTINS
