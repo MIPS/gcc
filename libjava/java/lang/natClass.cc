@@ -876,7 +876,7 @@ java::lang::Class::initializeClass (void)
     _Jv_MakeVTable(this);
 
   if (otable || atable)
-    _Jv_LinkSymbolTable(this, NULL);
+    _Jv_LinkSymbolTable(this);
 
   _Jv_linkExceptionClassTable (this);
 
@@ -1592,6 +1592,9 @@ java::lang::Class::setSigners(JArray<jobject> *s)
   hack_signers = s;
 }
 
+// Set this to true to enable debugging of indirect dispatch tables/linking.
+static bool debug_link = false;
+
 // Functions for indirect dispatch (symbolic virtual binding) support.
 
 // There are two tables, atable and otable.  atable is an array of
@@ -1611,7 +1614,7 @@ java::lang::Class::setSigners(JArray<jobject> *s)
 // The same otable and atable may be shared by many classes.
 
 void
-_Jv_LinkSymbolTable(jclass klass, const char *foobar)
+_Jv_LinkSymbolTable(jclass klass)
 {
   //// FIXME: Need to lock the tables ////
   
@@ -1623,8 +1626,8 @@ _Jv_LinkSymbolTable(jclass klass, const char *foobar)
    
   klass->otable->state = 1;
 
-  if (foobar)
-    fprintf (stderr, "Fixing up otable in %s@%p:\n", foobar, klass);
+  if (debug_link)
+    fprintf (stderr, "Fixing up otable in %s:\n", klass->name->data);
   for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
@@ -1656,7 +1659,7 @@ _Jv_LinkSymbolTable(jclass klass, const char *foobar)
 		      && _Jv_equalUtf8Consts (signature, meth->signature))
 		    {
 		      klass->otable->offsets[index] = i + 1;
-		      if (foobar)
+		      if (debug_link)
 			fprintf (stderr, "  offsets[%d] = %d (interface %s@%p : %s(%s))\n",
 				 index,
 				 klass->otable->offsets[index],
@@ -1699,7 +1702,7 @@ _Jv_LinkSymbolTable(jclass klass, const char *foobar)
 	      klass->otable->offsets[index] = 
 		_Jv_VTable::idx_to_offset (meth->index);	      
 	    }
-	  if (foobar)
+	  if (debug_link)
 	    fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s(%s))\n",
 		     index,
 		     klass->otable->offsets[index],
@@ -1801,7 +1804,7 @@ _Jv_LinkSymbolTable(jclass klass, const char *foobar)
 	      if (meth->ncode) // Maybe abstract?
 		{
 		  klass->atable->addresses[index] = meth->ncode;
-		  if (foobar)
+		  if (debug_link)
 		    fprintf (stderr, "  addresses[%d] = %p (class %s@%p : %s(%s))\n",
 			     index,
 			     &klass->atable->addresses[index],
@@ -1815,7 +1818,7 @@ _Jv_LinkSymbolTable(jclass klass, const char *foobar)
 		{
 		  _Jv_Defer_Resolution (target_class, meth, 
 					&klass->atable->addresses[index]);
-		  if (foobar)
+		  if (debug_link)
 		    fprintf (stderr, "  addresses[%d] = DEFERRED@%p (class %s@%p : %s(%s))\n",
 			     index,
 			     klass->atable->addresses[index],

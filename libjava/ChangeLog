@@ -1,3 +1,9 @@
+2004-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/lang/Class.h (_Jv_LinkSymbolTable): Remove second arg.
+	* java/lang/natClass.cc (debug_link): New static field.
+	(_Jv_LinkSymbolTable): Print debugging info if debug_link is set.
+
 2004-04-16  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_WaitForState): Call
