@@ -1,3 +1,8 @@
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14872
+	* gfortran.fortran-torture/execute/direct_io.f90: Add new test.
+
 2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
 
 	PR fortran/14377

@@ -870,7 +870,7 @@ build_dt (tree * function, gfc_code * code)
     }
 
   if (dt->rec)
-    set_parameter_ref (&block, ioparm_rec, dt->rec);
+    set_parameter_value (&block, ioparm_rec, dt->rec);
 
   if (dt->advance)
     set_string (&block, &post_block, ioparm_advance, ioparm_advance_len,

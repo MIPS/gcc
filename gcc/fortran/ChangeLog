@@ -1,3 +1,8 @@
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14872
+	* trans-io.c (build_dt): Change REC to value.
+
 2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
 
 	PR 14394 
