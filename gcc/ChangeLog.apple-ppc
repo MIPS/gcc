@@ -1,5 +1,9 @@
 2004-11-15  Dale Johannesen  <dalej@apple.com>
 
+	* profile.c (compute_branch_probabilities):  Roll in fix from mainline.
+
+2004-11-15  Dale Johannesen  <dalej@apple.com>
+
 	* tree-flow.h (stmt_bsi):  Remove.
 	(basic_block bsi_insert_on_edge_immediate):  Remove duplicate decl.
 	(tree_block_label):  Remove name in prototype.
