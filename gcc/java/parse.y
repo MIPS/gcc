@@ -296,7 +296,6 @@ static int pop_current_osb (struct parser_ctxt *);
 
 static tree maybe_make_nested_class_name (tree);
 static int make_nested_class_name (tree);
-static void set_nested_class_simple_name_value (tree, int);
 static void link_nested_class_to_enclosing (void);
 static tree resolve_inner_class (htab_t, tree, tree *, tree *, tree);
 static tree find_as_inner_class (tree, tree, tree);
@@ -3694,19 +3693,6 @@ find_as_inner_class_do (tree qual, tree enclosing)
   return (!qual && enclosing ? enclosing : NULL_TREE);
 }
 
-/* Reach all inner classes and tie their unqualified name to a
-   DECL. */
-
-static void
-set_nested_class_simple_name_value (tree outer, int set)
-{
-  tree l;
-
-  for (l = DECL_INNER_CLASS_LIST (outer); l; l = TREE_CHAIN (l))
-    IDENTIFIER_GLOBAL_VALUE (TREE_VALUE (l)) = (set ?
-						TREE_PURPOSE (l) : NULL_TREE);
-}
-
 static void
 link_nested_class_to_enclosing (void)
 {
@@ -3866,6 +3852,13 @@ create_interface (int flags, tree id, tree super)
   /* Create a new decl if DECL is NULL, otherwise fix it */
   decl = maybe_create_class_interface_decl (decl, raw_name, q_name, id);
 
+  /* Interfaces are always abstract. */
+  flags |= ACC_ABSTRACT;
+
+  /* Inner interfaces are always static.  */
+  if (INNER_CLASS_DECL_P (decl))
+    flags |= ACC_STATIC;
+
   /* Set super info and mark the class a complete */
   set_super_info (ACC_INTERFACE | flags, TREE_TYPE (decl),
 		  object_type_node, ctxp->interface_number);
@@ -4007,10 +4000,10 @@ create_class (int flags, tree id, tree super, tree interfaces)
   /* If SUPER exists, use it, otherwise use Object */
   if (super)
     {
-      /* Can't extend java.lang.Object */
+      /* java.lang.Object can't extend anything.  */
       if (TREE_TYPE (IDENTIFIER_CLASS_VALUE (class_id)) == object_type_node)
 	{
-	  parse_error_context (id, "Can't extend `java.lang.Object'");
+	  parse_error_context (id, "`java.lang.Object' can't extend anything");
 	  return NULL_TREE;
 	}
 
@@ -5021,7 +5014,6 @@ method_declarator (tree id, tree list)
 
 static int
 unresolved_type_p (tree wfl, tree *returned)
-
 {
   if (TREE_CODE (wfl) == EXPR_WITH_FILE_LOCATION)
     {
@@ -5201,12 +5193,9 @@ register_incomplete_type (int kind, tree wfl, tree decl, tree ptr)
   JDEP_MISC (new) = NULL_TREE;
   /* For some dependencies, set the enclosing class of the current
      class to be the enclosing context */
-  if ((kind == JDEP_INTERFACE  || kind == JDEP_ANONYMOUS)
+  if ((kind == JDEP_INTERFACE || kind == JDEP_ANONYMOUS || kind == JDEP_SUPER)
       && GET_ENCLOSING_CPC ())
     JDEP_ENCLOSING (new) = TREE_VALUE (GET_ENCLOSING_CPC ());
-  else if (kind == JDEP_SUPER)
-    JDEP_ENCLOSING (new) = (GET_ENCLOSING_CPC () ?
-			    TREE_VALUE (GET_ENCLOSING_CPC ()) : NULL_TREE);
   else
     JDEP_ENCLOSING (new) = GET_CPC ();
   JDEP_GET_PATCH (new) = (tree *)NULL;
@@ -5526,7 +5515,7 @@ jdep_resolve_class (jdep *dep)
 
   if (!decl)
     complete_class_report_errors (dep);
-  else if (PURE_INNER_CLASS_DECL_P (decl))
+  else if (INNER_CLASS_DECL_P (decl))
     {
       tree inner = TREE_TYPE (decl);
       if (! CLASS_LOADED_P (inner))
@@ -5810,8 +5799,7 @@ do_resolve_class (tree enclosing, tree class_type, tree decl, tree cl)
   /* 2- And check for the type in the current compilation unit */
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
     {
-      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
-	  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
+      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)))
 	load_class (TYPE_NAME (class_type), 0);
       return IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
     }
@@ -5905,9 +5893,8 @@ qualify_and_find (tree class_type, tree package, tree name)
     load_class (new_qualified, 0);
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (new_qualified)))
     {
-      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
-	  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
-	load_class (new_qualified, 0);
+      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)))
+	load_class (TREE_TYPE (new_class_decl), 0);
       TYPE_NAME (class_type) = new_qualified;
       return IDENTIFIER_CLASS_VALUE (new_qualified);
     }
@@ -7058,8 +7045,7 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
       access_check = -1;
       /* If there is no DECL set for the class or if the class isn't
 	 loaded and not seen in source yet, then load */
-      if (!decl || (!CLASS_LOADED_P (TREE_TYPE (decl))
-		    && !CLASS_FROM_SOURCE_P (TREE_TYPE (decl))))
+      if (!decl || ! CLASS_LOADED_P (TREE_TYPE (decl)))
 	{
 	  load_class (node, 0);
 	  decl = IDENTIFIER_CLASS_VALUE (node);
@@ -7375,6 +7361,13 @@ declare_local_variables (int modifier, tree type, tree vlist)
       if (init && java_error_count)
 	init = NULL_TREE;
 
+      /* Remember it if this is an initialized-upon-declaration final
+         variable.  */
+      if (init && final_p)
+        {
+          DECL_LOCAL_FINAL_IUD (decl) = 1;
+        }
+
       /* Add the initialization function to the current function's code */
       if (init)
 	{
@@ -7567,7 +7560,10 @@ add_stmt_to_block (tree b, tree type, tree stmt)
   return c;
 }
 
-void java_layout_seen_class_methods (void)
+/* Lays out the methods for the classes seen so far.  */
+
+void
+java_layout_seen_class_methods (void)
 {
   tree previous_list = all_class_list;
   tree end = NULL_TREE;
@@ -7577,7 +7573,17 @@ void java_layout_seen_class_methods (void)
     {
       for (current = previous_list;
 	   current != end; current = TREE_CHAIN (current))
-	layout_class_methods (TREE_TYPE (TREE_VALUE (current)));
+        {
+          tree cls = TREE_TYPE (TREE_VALUE (current));
+
+          if (! CLASS_LOADED_P (cls))
+            load_class (cls, 0);
+
+          layout_class_methods (cls);
+        }
+
+      /* Note that new classes might have been added while laying out
+         methods, changing the value of all_class_list.  */
 
       if (previous_list != all_class_list)
 	{
@@ -7692,8 +7698,6 @@ java_complete_expand_class (tree outer)
 {
   tree inner_list;
 
-  set_nested_class_simple_name_value (outer, 1); /* Set */
-
   /* We need to go after all inner classes and start expanding them,
      starting with most nested ones. We have to do that because nested
      classes might add functions to outer classes */
@@ -7703,7 +7707,6 @@ java_complete_expand_class (tree outer)
     java_complete_expand_class (TREE_PURPOSE (inner_list));
 
   java_complete_expand_methods (outer);
-  set_nested_class_simple_name_value (outer, 0); /* Reset */
 }
 
 /* Expand methods registered in CLASS_DECL. The general idea is that
@@ -9234,7 +9237,7 @@ static tree
 make_qualified_name (tree left, tree right, int location)
 {
 #ifdef USE_COMPONENT_REF
-  tree node = build (COMPONENT_REF, NULL_TREE, left, right);
+  tree node = build (COMPONENT_REF, NULL_TREE, left, right, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 #else
@@ -11011,7 +11014,7 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
   search_not_done++;
   *htab_find_slot (searched_classes, class, INSERT) = class;
 
-  if (!CLASS_LOADED_P (class) && !CLASS_FROM_SOURCE_P (class))
+  if (!CLASS_LOADED_P (class))
     {
       load_class (class, 1);
       safe_layout_class (class);
@@ -12225,8 +12228,8 @@ complete_function_arguments (tree node)
 	  flag = 1;
 	  continue;
 	}
-      /* If have a string literal that we haven't transformed yet or a
-	 crafted string buffer, as a result of use of the the String
+      /* If we have a string literal that we haven't transformed yet or a
+	 crafted string buffer, as a result of the use of the String
 	 `+' operator. Build `parm.toString()' and expand it. */
       if ((temp = patch_string (parm)))
 	parm = temp;
@@ -12255,7 +12258,6 @@ build_debugable_stmt (int location, tree stmt)
 
 static tree
 build_expr_block (tree body, tree decls)
-
 {
   tree node = make_node (BLOCK);
   BLOCK_EXPR_DECLS (node) = decls;
@@ -14333,7 +14335,7 @@ build_null_of_type (tree type)
 static tree
 build_array_ref (int location, tree array, tree index)
 {
-  tree node = build (ARRAY_REF, NULL_TREE, array, index);
+  tree node = build (ARRAY_REF, NULL_TREE, array, index, NULL_TREE, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 }

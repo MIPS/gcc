@@ -1542,7 +1542,6 @@ force_poplevels (int start_pc)
 	warning ("%JIn %D: overlapped variable and exception ranges at %d",
                  current_function_decl, current_function_decl,
 		 current_binding_level->start_pc);
-      expand_end_bindings (getdecls (), 1, 0);
       poplevel (1, 0, 0);
     }
 }
@@ -1878,8 +1877,7 @@ java_mark_class_local (tree class)
 /* Add a statement to a compound_expr.  */
 
 tree
-add_stmt_to_compound (existing, type, stmt)
-     tree existing, type, stmt;
+add_stmt_to_compound (tree existing, tree type, tree stmt)
 {
   if (!stmt)
     return existing;
@@ -1898,8 +1896,7 @@ add_stmt_to_compound (existing, type, stmt)
    constructed.  */
 
 tree
-java_add_stmt (stmt)
-     tree stmt;
+java_add_stmt (tree stmt)
 {
   if (input_filename)
     annotate_with_locus (stmt, input_location);

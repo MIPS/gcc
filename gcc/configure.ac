@@ -513,6 +513,15 @@ fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
 
+AC_ARG_ENABLE(mapped-location,
+[  --enable-mapped-location   location_t is fileline integer cookie],,
+enable_mapped_location=no)
+
+if test "$enable_mapped_location" = yes ; then
+  AC_DEFINE(USE_MAPPED_LOCATION, 1,
+[Define if location_t is fileline integer cookie.])
+fi
+
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
 [  --enable-coverage[=LEVEL]
@@ -711,14 +720,14 @@ AC_PROG_MAKE_SET
 
 # Find some useful tools
 AC_PROG_AWK
-# We need awk to run opts.sh (to create options.c and options.h).
+# We need awk to create options.c and options.h.
 # Bail out if it's missing.
 case ${AWK} in
   "") AC_MSG_ERROR([can't build without awk, bailing out]) ;;
 esac
 
-gcc_AC_PROG_LN
 gcc_AC_PROG_LN_S
+ACX_PROG_LN($LN_S)
 AC_PROG_RANLIB
 gcc_AC_PROG_INSTALL
 
@@ -801,7 +810,6 @@ AC_PROG_CPP_WERROR
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-ACX_HEADER_STDBOOL
 ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \

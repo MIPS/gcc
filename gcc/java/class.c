@@ -349,7 +349,8 @@ unmangle_classname (const char *name, int name_length)
 }
 
 
-/* Given a class, create the DECLs for all its associated indirect dispatch tables.  */
+/* Given a class, create the DECLs for all its associated indirect
+   dispatch tables.  */
 void
 gen_indirect_dispatch_tables (tree type)
 {
@@ -588,7 +589,8 @@ enclosing_context_p (tree type1, tree type2)
 /* Return 1 iff there exists a common enclosing context between TYPE1
    and TYPE2.  */
 
-int common_enclosing_context_p (tree type1, tree type2)
+int
+common_enclosing_context_p (tree type1, tree type2)
 {
   if (!PURE_INNER_CLASS_TYPE_P (type1) || !PURE_INNER_CLASS_TYPE_P (type2))
     return 0;
@@ -1023,7 +1025,7 @@ build_class_ref (tree type)
 
 	      prim_class = lookup_class (get_identifier (prim_class_name));
 	      return build (COMPONENT_REF, NULL_TREE,
-			    prim_class, TYPE_identifier_node);
+			    prim_class, TYPE_identifier_node, NULL_TREE);
 	    }
 	  decl_name = TYPE_NAME (type);
 	  if (TREE_CODE (decl_name) == TYPE_DECL)
@@ -1088,7 +1090,8 @@ build_static_field_ref (tree fdecl)
 		       (fdecl, &TYPE_ATABLE_METHODS (output_class)), 0);
       tree field_address
 	= build (ARRAY_REF, build_pointer_type (TREE_TYPE (fdecl)), 
-		 TYPE_ATABLE_DECL (output_class), table_index);
+		 TYPE_ATABLE_DECL (output_class), table_index,
+		 NULL_TREE, NULL_TREE);
       return fold (build1 (INDIRECT_REF, TREE_TYPE (fdecl), 
 			   field_address));
     }
@@ -1101,7 +1104,8 @@ build_static_field_ref (tree fdecl)
       int field_index = 0;
       ref = build1 (INDIRECT_REF, class_type_node, ref);
       ref = build (COMPONENT_REF, field_ptr_type_node, ref,
-		   lookup_field (&class_type_node, fields_ident));
+		   lookup_field (&class_type_node, fields_ident),
+		   NULL_TREE);
 
       for (fld = TYPE_FIELDS (fclass); ; fld = TREE_CHAIN (fld))
 	{
@@ -1118,9 +1122,11 @@ build_static_field_ref (tree fdecl)
 			 ref, build_int_2 (field_index, 0)));
       ref = build1 (INDIRECT_REF, field_type_node, ref);
       ref = build (COMPONENT_REF, field_info_union_node,
-		   ref, lookup_field (&field_type_node, info_ident));
+		   ref, lookup_field (&field_type_node, info_ident),
+		   NULL_TREE);
       ref = build (COMPONENT_REF, ptr_type_node,
-		   ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)));
+		   ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)),
+		   NULL_TREE);
       return fold (build1 (INDIRECT_REF, TREE_TYPE(fdecl), ref));
     }
 }
@@ -2293,6 +2299,8 @@ emit_register_classes (void)
       DECL_SOURCE_LINE (init_decl) = 0;
       TREE_STATIC (init_decl) = 1;
       current_function_decl = init_decl;
+      DECL_INLINE (init_decl) = 0;
+      DECL_UNINLINABLE (init_decl) = 1;
       DECL_RESULT (init_decl) = build_decl (RESULT_DECL, NULL_TREE,
 					    void_type_node);
 
@@ -2308,17 +2316,13 @@ emit_register_classes (void)
       init_function_start (init_decl);
       expand_function_start (init_decl, 0);
 
-      /* Do not allow the function to be deferred.  */
-      current_function_cannot_inline
-	= "static constructors and destructors cannot be inlined";
-
       for ( t = registered_class; t; t = TREE_CHAIN (t))
 	emit_library_call (registerClass_libfunc, 0, VOIDmode, 1,
 			   XEXP (DECL_RTL (t), 0), Pmode);
       input_location = DECL_SOURCE_LOCATION (init_decl);
       expand_function_end ();
       poplevel (1, 0, 1);
-      rest_of_compilation (init_decl);
+      rest_of_compilation ();
       current_function_decl = NULL_TREE;
 
       if (targetm.have_ctors_dtors)
@@ -2356,8 +2360,8 @@ build_symbol_entry (tree decl)
 /* Emit a symbol table: used by -findirect-dispatch.  */
 
 tree
-emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl, 
-			  tree the_array_element_type)
+emit_symbol_table (tree name, tree the_table, tree decl_list,
+                   tree the_syms_decl, tree the_array_element_type)
 {
   tree method_list, method, table, list, null_symbol;
   tree table_size, the_array_type;

@@ -1,5 +1,6 @@
 /* Handle the constant pool of the Java(TM) Virtual Machine.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -424,7 +425,8 @@ build_ref_from_constant_pool (int index)
 {
   tree d = build_constant_data_ref ();
   tree i = build_int_2 (index, 0);
-  return build (ARRAY_REF, TREE_TYPE (TREE_TYPE (d)), d, i);
+  return build (ARRAY_REF, TREE_TYPE (TREE_TYPE (d)), d, i,
+		NULL_TREE, NULL_TREE);
 }
 
 /* Build an initializer for the constants field of the current constant pool.

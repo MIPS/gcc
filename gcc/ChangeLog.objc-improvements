@@ -1,3 +1,29 @@
+2004-07-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-common.h (objc_is_type_qualifier): Remove prototype.
+	(objc_add_instance_variable): Adjust prototype to accept 1 parameter
+	and return void.
+	* c-parse.in (OBJC_TYPE_QUAL): New %token.
+	(ivars, ivar_declarator): Remove nonterminals and their associated
+	productions.
+	(objc_quals, objc_qual, objc_typename, optellipsis): New nonterminals.
+	(ivar_decl): Use component_decl; adjust call to
+	objc_add_instance_variable().
+	(opt_semi): Add a pedantic-mode warning.
+	(objc_catch_prefix): Call grokparm() before calling
+	objc_begin_catch_clause().
+	(methoddecl, keyworddecl): Use objc_typename instead of typename.
+	(optparms): Chain parameters via tree lists, rather than directly.
+	(rid_to_yy): Mark RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF 
+	and RID_ONEWAY as returning OBJC_TYPE_QUAL to yyparse().
+	* c-typeck.c (build_component_ref): Check for ObjC-ness before
+	calling objc_is_public().
+	(build_c_cast): Retrieve main variant of type before casting to it.
+	* stub-objc.c (objc_is_type_qualifier): Remove stub.
+	(objc_add_instance_variable): Adjust stub to accept 1 parameter and
+	return void.
+	(objc_is_public): New stub.
+
 2004-06-25  Ziemowit Laski  <zlaski@apple.com>
 
 	* c-common.h (objc_static_init_needed_p,

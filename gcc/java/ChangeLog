@@ -1,3 +1,165 @@
+2004-06-27  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Formatting fixes.
+	* expr.c (class_has_finalize_method): Fix method name indentation.
+	(expand_java_call): Remove K&R style parameter declaration.
+	(expand_invoke): Fix statement indentation.
+	(expand_java_field_op): Likewise.
+	* parse-scan.y: Fix typo.
+	(reset_report): Fix method name indentation.
+	* parse.y (unresolved_type_p, build_expr_block): Remove extra blank
+	line. Fix typos.
+	* verify.c (verify_jvm_instructions): Document parameters, insert
+	page break.
+	* lang.c (lang_init_source): Fix method name indentation.
+	* class.c (common_enclosing_context_p): Likewise.
+	(emit_symbol_table): Fix parameter list indentation.
+	* decl.c (add_stmt_to_compound, java_add_stmt): Remove K&R style
+	parameter declaration.
+	* constants.c: Fix copyright notice indentation.
+	* typeck.c (find_method_in_superclasses): Fix parameter list
+	indentation.
+	(find_method_in_interfaces): Likewise.
+	* zextract.c (makelong): Fix method name indentation.
+
+2004-06-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/15715.
+	* parse.y (create_interface): Set correct access modifiers for
+	interfaces.
+	* jcf-write.c (get_classfile_modifiers): New function.
+	(generate_classfile): Use get_classfile_modifiers, not 
+	get_access_flags.
+
+2004-06-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* parse.y (register_incomplete_type): Set JDEP_ENCLOSING for "super"
+	dependency to current parser context, not NULL_TREE, for top-level
+	classes.
+	(jdep_resolve_class): Enable member access check for all inner
+	class dependencies.
+
+2004-06-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* parse.y (qualify_and_find): Pass type decl, not identifier, to 
+	load_class.
+
+2004-06-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/15734
+	* expr.c (expand_java_field_op): Ensure that target class for static
+	field access has been loaded.
+
+2004-06-26  Bryce McKinlay  <mckinlay@redhat.com>
+	    Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/1207, java/16178
+	* jcf-parse.c (load_class): Return immediately if passed a type decl
+	where CLASS_FROM_SOURCE_P is set. Remove FIXME.
+	* parse.y (do_resolve_class): Remove checks for CLASS_FROM_SOURCE_P
+	before calling load_class.
+	(qualify_and_find): Likewise.
+	(find_in_imports_on_demand): Likewise.
+	(find_applicable_accessible_methods_list): Likewise.
+
+2004-06-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* parse.y (java_layout_seen_class_methods): Don't call load_class
+	on class defined by source parser.
+
+2004-06-23  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* parse.y (set_nested_class_simple_name_value): Removed.
+	(java_complete_expand_class): Remove calls to
+	set_nested_class_simple_name_value.
+
+2004-06-22  Andrew Haley  <aph@redhat.com>
+            Ranjit Mathew  <rmathew@hotmail.com>
+	
+	Fixes PR java/16113.
+	* decl.c (force_poplevels): Remove call to expand_end_bindings.
+
+2004-06-22  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* parse.y (create_class): Correct diagnostic message about
+	java.lang.Object extending anything else.
+
+2004-06-21  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* class.c (build_class_ref): Add new operand for COMPONENT_REF.
+	(build_static_field_ref): Likewise and add new operands for ARRAY_REF.
+	* constants.c (build_ref_from_constant_pool): Likewise.
+	* expr.c (build_java_array_length_access): Likewise.
+	(build_get_class, build_field_ref, build_known_method_ref): Likewise.
+	(invoke_build_dtable, build_invokevirtual): Likewise.
+	(build_invokeinterface, java_expand_expr): Likewise.
+	(emit_init_test_initialization): Likewise.
+	* java-gimplify.c (java_gimplify_new_array_init): Likewise.
+	* parse.y (make_qualifed_name, build_array_ref): Likewise.
+	
+2004-06-21  Andrew Haley  <aph@redhat.com>
+
+	* java-gimplify.c (java_gimplify_block): set TREE_USED on the new
+	block.
+
+2004-06-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* jcf.h (struct JCF): Change java_source, right_zip and finished
+	to unsigned int.
+	* lex.h (struct java_lexer): Change hit_eof, read_anything,
+	byte_swap and use_fallback to unsigned int.
+	* parse.h (struct _jdep): Change flag0 to unsigned int.
+
+2004-06-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/13948
+	* parse.y (java_layout_seen_class_methods): Ensure class is loaded
+	before trying to lay out its methods.
+	* jcf-parse.c (read_class): Track parsed files using canonical paths
+	obtained via lrealpath from libiberty.
+	(java_parse_file): Likewise.
+	(parse_source_file_1): Rename formal parameter to reflect its
+	modified purpose. Minor formatting fix.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* class.c (emit_register_classes): Make the function uninlinable,
+	do not set current_function_cannot_inline.
+	* resource.c (write_resource_constructor): Do not reset
+	flag_inline_functions around rest_of_compilation.
+	
+2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR java/15769
+	* expr.c (java_truthvalue_conversion): Handle
+	UNEQ_EXPR, UNLE_EXPR, UNGE_EXPR, UNLT_EXPR, UNGT_EXPR,
+	ORDERED_EXPR, and UNORDERED_EXPR as comparison operators,
+	i.e. return the expression.
+
+2004-06-03 Mark G. Adams  <mark.g.adams@sympatico.ca>
+
+	* gjavah.c: Include version.h
+
+2004-05-31  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* jcf-write.c (generate_bytecode_conditional): Correct handling
+	of unordered conditionals. Add comment.
+
+2004-05-29  Ranjit Mathew  <rmathew@hotmail.com>
+            Per Bothner  <per@bothner.com>
+
+	* java-tree.h (DECL_LOCAL_FINAL_IUD): New macro to test if a
+	local variable was initialised upon declaration.
+	* parse.y (declare_local_variables): Set DECL_LOCAL_FINAL_IUD if
+	variable was final and initialised upon declaration.
+	* check-init.c (check_final_reassigned): Give error only if a blank
+	final is not definitely unassigned or if an initialised final is
+	reassigned.
+	(check_bool_init): Respect JLS2 16.1.7 requirements for boolean
+	assignment expressions. Remove case MODIFY_EXPR, label do_default.
+	(check_init): Perform initialised-variable-removing-optimisation
+	only on non-final local variables.
+
 2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* jcf-write.c (generate_bytecode_conditional): Handle binops 
@@ -14559,7 +14721,7 @@
 	java.lang.Object.
 	(register_fields): Field initialization is now a MODIFY_EXPR
 	node. Chain initialization code to the matching lists (according
-	the the field declaration modifiers).
+	to the field declaration modifiers).
 	(maybe_generate_clinit): New function.
 	(method_header): Don't set method's DECL_NAME to a WFL when adding
 	methods to java.lang.Object.
