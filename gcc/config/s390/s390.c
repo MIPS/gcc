@@ -105,6 +105,8 @@ struct processor_costs
   const int mult_df;  /* cost of multiplication in DFmode.  */
   const int sqdbr;    /* cost of square root in DFmode.  */
   const int sqebr;    /* cost of square root in SFmode.  */
+  const int madbr;    /* cost of multiply and add in DFmode.  */
+  const int maebr;    /* cost of multiply and add in SFmode.  */
 };
 
 const struct processor_costs *s390_cost;
@@ -127,6 +129,8 @@ struct processor_costs z900_cost =
   COSTS_N_INSNS (7),     /* multiplication in DFmode */
   COSTS_N_INSNS (44),    /* SQDBR */
   COSTS_N_INSNS (35),    /* SQEBR */
+  COSTS_N_INSNS (18),    /* MADBR */
+  COSTS_N_INSNS (13),    /* MAEBR */
 };
 
 static const
@@ -147,6 +151,8 @@ struct processor_costs z990_cost =
   COSTS_N_INSNS (1),     /* multiplication in DFmode */
   COSTS_N_INSNS (66),    /* SQDBR */
   COSTS_N_INSNS (38),    /* SQEBR */
+  COSTS_N_INSNS (1),     /* MADBR */
+  COSTS_N_INSNS (1),     /* MAEBR */
 };
 
 
@@ -1902,13 +1908,16 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
     case PLUS:
     case MINUS:
       /* Check for multiply and add.  */
-      if (GET_MODE (x) == DFmode
+      if ((GET_MODE (x) == DFmode || GET_MODE (x) == SFmode)
 	  && GET_CODE (XEXP (x, 0)) == MULT
 	  && TARGET_HARD_FLOAT && TARGET_IEEE_FLOAT && TARGET_FUSED_MADD)
 	{
 	  /* This is the multiply and add case.  */
-	  *total = s390_cost->mult_df 
-	    + rtx_cost (XEXP (XEXP (x, 0), 0), MULT) 
+	  if (GET_MODE (x) == DFmode)
+	    *total = s390_cost->madbr;
+	  else
+	    *total = s390_cost->maebr;
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), MULT) 
 	    + rtx_cost (XEXP (XEXP (x, 0), 1), MULT) 
 	    + rtx_cost (XEXP (x, 1), code);
 	  return true;  /* Do not do an additional recursive descent.  */
@@ -7807,6 +7816,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
   lab_false = create_artificial_label ();
   lab_over = create_artificial_label ();
   addr = create_tmp_var (ptr_type_node, "addr");
+  DECL_POINTER_ALIAS_SET (addr) = s390_sr_alias_set;
 
   t = fold_convert (TREE_TYPE (reg), size_int (max_reg));
   t = build2 (GT_EXPR, boolean_type_node, reg, t);

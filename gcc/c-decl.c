@@ -1191,7 +1191,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       else if (TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl)
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == void_type_node
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == integer_type_node
-	       && C_FUNCTION_IMPLICIT_INT (newdecl))
+	       && C_FUNCTION_IMPLICIT_INT (newdecl) && !DECL_INITIAL (olddecl))
 	{
 	  pedwarn ("%Jconflicting types for %qD", newdecl, newdecl);
 	  /* Make sure we keep void as the return type.  */
@@ -1199,17 +1199,16 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
 	  pedwarned = true;
 	}
-      /* In the intermodule mode we may run into the opposite order when file
-         with implicit declaration is comming later.  */
-      else if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_INITIAL (olddecl)
+      /* Permit void foo (...) to match an earlier call to foo (...) with
+	 no declared type (thus, implicitly int).  */
+      else if (TREE_CODE (newdecl) == FUNCTION_DECL
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == void_type_node
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == integer_type_node
-	       && C_FUNCTION_IMPLICIT_INT (olddecl))
+	       && C_DECL_IMPLICIT (olddecl) && !DECL_INITIAL (olddecl))
 	{
 	  pedwarn ("%Jconflicting types for %qD", newdecl, newdecl);
 	  /* Make sure we keep void as the return type.  */
 	  TREE_TYPE (olddecl) = *oldtypep = oldtype = newtype;
-	  C_FUNCTION_IMPLICIT_INT (olddecl) = 0;
 	  pedwarned = true;
 	}
       else
@@ -4085,6 +4084,12 @@ grokdeclarator (const struct c_declarator *declarator,
 		  }
 		else
 		  {
+		    /* Arrange for the SAVE_EXPR on the inside of the
+		       MINUS_EXPR, which allows the -1 to get folded
+		       with the +1 that happens when building TYPE_SIZE.  */
+		    if (size_varies)
+		      size = variable_size (size);
+
 		    /* Compute the maximum valid index, that is, size
 		       - 1.  Do the calculation in index_type, so that
 		       if it is a variable the computations will be
@@ -4108,8 +4113,6 @@ grokdeclarator (const struct c_declarator *declarator,
 			continue;
 		      }
 		    
-		    if (size_varies)
-		      itype = variable_size (itype);
 		    itype = build_index_type (itype);
 		  }
 	      }
@@ -5398,6 +5401,12 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, toplevel);
 
+  /* If we're inside a function proper, i.e. not file-scope and not still
+     parsing parameters, then arrange for the size of a variable sized type
+     to be bound now.  */
+  if (cur_stmt_list && variably_modified_type_p (t, NULL))
+    add_stmt (build_stmt (DECL_EXPR, build_decl (TYPE_DECL, NULL, t)));
+
   return t;
 }
 
@@ -6226,8 +6235,11 @@ store_parm_decls (void)
   DECL_SAVED_TREE (fndecl) = push_stmt_list ();
 
   /* ??? Insert the contents of the pending sizes list into the function
-     to be evaluated.  This just changes mis-behavior until assign_parms
-     phase ordering problems are resolved.  */
+     to be evaluated.  The only reason left to have this is
+	void foo(int n, int array[n++])
+     because we throw away the array type in favor of a pointer type, and
+     thus won't naturally see the SAVE_EXPR containing the increment.  All
+     other pending sizes would be handled by gimplify_parameters.  */
   {
     tree t;
     for (t = nreverse (get_pending_sizes ()); t ; t = TREE_CHAIN (t))
