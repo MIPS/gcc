@@ -312,7 +312,7 @@ in the following sections.
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
--ftree-ch -ftree-sra @gol
+-ftree-ch -ftree-sra -ftree-ter -ftree-lrs @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -4358,6 +4358,18 @@ Perform copy renaming on trees.  This pass attempts to rename compiler
 temporaries to other variables at copy locations, usually resulting in 
 variable names which more closely resemble the original variables.  This flag 
 is enabled by default at -O and higher.
+
+@item -ftree-ter
+Perform termporary expression replacement during the SSA->normal phase.  Single
+use/single def temporaries are replaced at their use location with their 
+defining expression.  This results in non-GIMPLE code, but gives the expanders 
+much more complex trees to work on resulting in better RTL generation.  This is
+enabled by default at -O and higher.
+
+@item -ftree-lrs
+Perform live range splitting during the SSA->normal phase.  Distinct live 
+ranges of a variable are split into unique variables, allowing for better 
+optimization later.  This is enabled by default at -O and higher.
 
 @item -ftracer
 @opindex ftracer

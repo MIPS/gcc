@@ -1,3 +1,7 @@
+2004-04-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* doc/invoke.texi (tree-ter, tree-lrs): Document options.
+
 2004-04-17  Paul Brook  <paul@codesourcery.com>
 
 	* Makefile.in: Set GMPLIBS and GMPINC.
