@@ -1741,15 +1741,6 @@ import_export_decl (tree decl)
       else
 	comdat_linkage (decl);
     }
-  /* APPLE LOCAL begin coalesce inline functions */
-  else
-    {
-      comdat_linkage (decl);
-#ifdef MAKE_DECL_COALESCED
-      MAKE_DECL_COALESCED(decl);
-#endif /* MAKE_DECL_COALESCED */
-    }
-  /* APPLE LOCAL end coalesce inline functions */
 
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
