@@ -1,3 +1,13 @@
+2003-03-18  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (tree-tailcall.o): Depend on langhooks.h.
+	* tree-tailcall.c: Include langhooks.h.
+	(find_tail_calls): Use types_compatible_p langhook instead of
+	equality test of TYPE_MAIN_VARIANT.
+ 
+	* tree-nested.c (get_chain_decl): Mark the chain decl with
+	TREE_NO_WARNING.
+
 2003-03-18  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to 

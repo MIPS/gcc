@@ -307,6 +307,11 @@ get_chain_decl (struct nesting_info *info)
       DECL_CONTEXT (decl) = info->context;
       decl->decl.seen_in_bind_expr = 1;
 
+      /* The initialization of CHAIN is not visible to the tree-ssa
+	 analyzers and optimizers.  Thus we do not want to issue
+	 warnings for CHAIN.  */
+      TREE_NO_WARNING (decl) = 1;
+
       /* Tell tree-inline.c that we never write to this variable, so
 	 it can copy-prop the replacement value immediately.  */
       TREE_READONLY (decl) = 1;
