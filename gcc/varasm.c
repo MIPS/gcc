@@ -50,6 +50,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tree-mudflap.h"
 #include "cgraph.h"
+/* APPLE LOCAL begin hot/cold partitioning  */
+#include "cfglayout.h"
+/* APPLE LOCAl end hot/cold partitioning  */
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -101,6 +104,16 @@ int size_directive_output;
 
 tree last_assemble_variable_decl;
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+/* The following global variable indicates if the section label for the
+   "cold" section of code has been output yet to the assembler.  The
+   label is useful when running gdb.  This is part of the optimization that
+   partitions hot and cold basic blocks into separate sections of the .o
+   file.  */
+
+bool unlikely_section_label_printed = false;
+/* APPLE LOCAL end hot/cold partitioning  */
+
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
    So giving constant the alias set for the type will allow such
    initializations to appear to conflict with the load of the constant.  We
@@ -146,7 +159,10 @@ static bool asm_emit_uninitialised (tree, const char*,
 				    unsigned HOST_WIDE_INT);
 static void mark_weak (tree);
 
-enum in_section { no_section, in_text, in_data, in_named
+/* APPLE LOCAL begin hot/cold partitioning  */
+enum in_section { no_section, in_text, in_unlikely_executed_text, in_data, 
+		  in_named
+/* APPLE LOCAL end hot/cold partitioning  */
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
 #endif
@@ -199,9 +215,40 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-      fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      fprintf (asm_out_file, SECTION_FORMAT_STRING, NORMAL_TEXT_SECTION_NAME);
+      /* APPLE LOCAl end hot/cold partitioning  */
     }
 }
+
+/* APPLE LOCAL begin hot/cold partitioning  */
+/* Tell assembler to switch to unlikely-to-be-executed text section.  */
+
+void
+unlikely_text_section (void)
+{
+  if ((in_section != in_unlikely_executed_text)
+      &&  (in_section != in_named 
+	   || strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
+    {
+#ifdef TARGET_ASM_NAMED_SECTION
+
+      named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
+
+#else
+      in_section = in_unlikely_executed_text;
+      fprintf (asm_out_file, SECTION_FORMAT_STRING, 
+	       UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+#endif /* ifdef TARGET_ASM_NAMED_SECTION */
+      if (!unlikely_section_label_printed)
+	{
+	  fprintf (asm_out_file, "__%s_unlikely_section:\n", 
+		   current_function_name ());
+	  unlikely_section_label_printed = true;
+	}
+    }
+}
+/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Tell assembler to switch to data section.  */
 
@@ -244,6 +291,16 @@ in_text_section (void)
 {
   return in_section == in_text;
 }
+
+/* APPLE LOCAL begin hot/cold partitioning  */
+/* Determine if we're in the unlikely-to-be-executed text section.  */
+
+int
+in_unlikely_text_section (void)
+{
+  return in_section == in_unlikely_executed_text;
+}
+/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Determine if we're in the data section.  */
 
@@ -484,11 +541,18 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 void
 function_section (tree decl)
 {
-  if (decl != NULL_TREE
-      && DECL_SECTION_NAME (decl) != NULL_TREE)
-    named_section (decl, (char *) 0, 0);
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  if (scan_ahead_for_unlikely_executed_note (get_insns()))
+    unlikely_text_section ();
   else
-    text_section ();
+    {
+      if (decl != NULL_TREE
+	  && DECL_SECTION_NAME (decl) != NULL_TREE)
+	named_section (decl, (char *) 0, 0);
+      else
+	text_section (); 
+    }
+  /* APPLE LOCAL end hot/cold partitioning  */
 }
 
 /* Switch to section for variable DECL.  RELOC is the same as the
@@ -1042,6 +1106,10 @@ assemble_start_function (tree decl, const char *fnname)
 {
   int align;
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  unlikely_section_label_printed = false;
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   /* The following code does not need preprocessing in the assembler.  */
 
   app_disable ();
@@ -1129,7 +1197,10 @@ assemble_zeros (unsigned HOST_WIDE_INT size)
 #ifdef ASM_NO_SKIP_IN_TEXT
   /* The `space' pseudo in the text section outputs nop insns rather than 0s,
      so we must output 0s explicitly in the text section.  */
-  if (ASM_NO_SKIP_IN_TEXT && in_text_section ())
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  if ((ASM_NO_SKIP_IN_TEXT && in_text_section ())
+      || (ASM_NO_SKIP_IN_TEXT && in_unlikely_text_section ()))
+  /* APPLE LOCAL end hot/cold partitioning  */
     {
       unsigned HOST_WIDE_INT i;
       for (i = 0; i < size; i++)
@@ -1512,7 +1583,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* APPLE LOCAL end zerofill turly 20020218  */
 
   /* dbxout.c needs to know this.  */
-  if (in_text_section ())
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  if (in_text_section () || in_unlikely_text_section ())
+  /* APPLE LOCAL end hot/cold partitioning  */
     DECL_IN_TEXT_SECTION (decl) = 1;
 
   /* Output the alignment of this data.  */
@@ -4452,6 +4525,10 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
     flags = SECTION_CODE;
   else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  else if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)
+    flags = SECTION_CODE;
+  /* APPLE LOCAL end hot/cold partitioning  */
   else
     flags = SECTION_WRITE;
 

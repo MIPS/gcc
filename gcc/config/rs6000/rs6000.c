@@ -818,6 +818,8 @@ rs6000_override_options (const char *default_cpu)
       align_loops = 16; 
       align_jumps = 16;
       set_fast_math_flags (1);
+      if (flag_branch_probabilities)
+	flag_reorder_blocks_and_partition = 1;
       if (!flag_pic)
         set_target_switch ("dynamic-no-pic");
         
@@ -9708,6 +9710,9 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (TARGET_RELOCATABLE
 	  && !in_toc_section ()
 	  && !in_text_section ()
+	  /* APPLE LOCAL begin hot/cold partitioning  */
+	  && !in_text_unlikely_section ()
+	  /* APPLE LOCAL end hot/cold partitioning  */
 	  && !recurse
 	  && GET_CODE (x) != CONST_INT
 	  && GET_CODE (x) != CONST_DOUBLE

@@ -852,6 +852,13 @@ enum reg_note
      computed goto.  */
   REG_NON_LOCAL_GOTO,
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* Indicates that a jump crosses between hot and cold sections
+     in a (partitioned) assembly or .o file, and therefore should not be
+     reduced to a simpler jump by optimizations.  */
+  REG_CROSSING_JUMP,
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   /* This kind of note is generated at each to `setjmp',
      and similar functions that can return twice.  */
   REG_SETJMP,
@@ -1012,6 +1019,12 @@ enum insn_note
 
   /* Record a prediction.  Uses NOTE_PREDICTION.  */
   NOTE_INSN_PREDICTION,
+
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* Record that the current basic block is unlikely to be executed and
+     should be moved to the UNLIKELY_EXECUTED_TEXT_SECTION.  */
+  NOTE_INSN_UNLIKELY_EXECUTED_CODE,
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The location of a variable.  */
   NOTE_INSN_VAR_LOCATION,

@@ -470,6 +470,9 @@ static void
 dbxout_function_end (void)
 {
   char lscope_label_name[100];
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  function_section (current_function_decl);
+  /* APPLE LOCAL end hot/cold partitioning  */
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
      labels.  */
@@ -829,7 +832,12 @@ dbxout_source_file (FILE *file, const char *filename)
 	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
 	; /* Don't change section amid function.  */
       else
-	text_section ();
+	/* APPLE LOCAL begin hot/cold partitioning  */
+	{
+	  if (!in_text_section () && !in_unlikely_text_section ())
+	    text_section ();
+	}
+	/* APPLE LOCAL end hot/cold partitioning  */
       (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;

@@ -1621,6 +1621,37 @@ output_alternate_entry_point (FILE *file, rtx insn)
     }
 }
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+/* Return boolean indicating if there is a NOTE_INSN_UNLIKELY_EXECUTED_CODE
+   note in the instruction chain (going forward) between the current
+   instruction, and the next 'executable' instruction.  */
+
+bool
+scan_ahead_for_unlikely_executed_note (rtx insn)
+{
+  rtx temp;
+  int bb_note_count = 0;
+
+  for (temp = insn; temp; temp = NEXT_INSN (temp))
+    {
+      if (GET_CODE (temp) == NOTE
+	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
+	return true;
+      if (GET_CODE (temp) == NOTE
+	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_BASIC_BLOCK)
+	{
+	  bb_note_count++;
+	  if (bb_note_count > 1)
+	    return false;
+	}
+      if (INSN_P (temp))
+	return false;
+    }
+
+  return false;
+}
+/* APPLE LOCAL end hot/cold partitioning  */
+
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -1670,7 +1701,33 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
-	case NOTE_INSN_BASIC_BLOCK:
+	/* APPLE LOCAL begin hot/cold partitioning  */
+	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
+
+	  /* The presence of this note indicates that this basic block
+	     belongs in the "cold" section of the .o file.  If we are
+	     not already writing to the cold section we need to change
+	     to it.  */
+
+	  unlikely_text_section ();
+	  break;
+
+  	case NOTE_INSN_BASIC_BLOCK:
+
+	  /* If we are performing the optimization that paritions
+	     basic blocks into hot & cold sections of the .o file,
+	     then at the start of each new basic block, before
+	     beginning to write code for the basic block, we need to
+	     check to see whether the basic block belongs in the hot
+	     or cold section of the .o file, and change the section we
+	     are writing to appropriately.  */
+	  
+	  if (flag_reorder_blocks_and_partition
+	      && in_unlikely_text_section()
+	      && !scan_ahead_for_unlikely_executed_note (insn))
+	    text_section ();
+	  /* APPLE LOCAL end hot/cold partitioning  */
+
 #ifdef IA64_UNWIND_INFO
 	  IA64_UNWIND_EMIT (asm_out_file, insn);
 #endif
@@ -1856,6 +1913,29 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
+
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      /* If we are doing the optimization that partitions hot & cold
+	 basic blocks into separate sections of the .o file, we need
+	 to ensure the jump table ends up in the correct section...  */
+
+      if (flag_reorder_blocks_and_partition)
+	{
+	  rtx tmp_table, tmp_label;
+	  if (GET_CODE (insn) == CODE_LABEL
+	      && tablejump_p (NEXT_INSN (insn), &tmp_label, &tmp_table))
+	    {
+	      /* Do nothing; Do NOT change the current section.  */
+	    }
+	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
+	    unlikely_text_section ();
+	  else 
+	    {
+	      if (in_unlikely_text_section ())
+		text_section ();
+	    }
+	}
+      /* APPLE LOCAL end hot/cold partitioning  */
 
       if (app_on)
 	{

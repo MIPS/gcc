@@ -210,6 +210,11 @@ extern int target_flags;
 #endif
 #endif
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+#define HAS_LONG_COND_BRANCH 1
+#define HAS_LONG_UNCOND_BRANCH 1
+/* APPLE LOCAL end hot/cold partitioning  */
+
 /* Avoid adding %gs:0 in TLS references; use %gs:address directly.  */
 #define TARGET_TLS_DIRECT_SEG_REFS (target_flags & MASK_TLS_DIRECT_SEG_REFS)
 

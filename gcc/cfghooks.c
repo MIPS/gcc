@@ -630,7 +630,10 @@ tidy_fallthru_edges (void)
       if ((s = b->succ) != NULL
 	  && ! (s->flags & EDGE_COMPLEX)
 	  && s->succ_next == NULL
-	  && s->dest == c)
+	  /* APPLE LOCAL begin hot/cold partitioning  */
+	  && s->dest == c
+	  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
+	  /* APPLE LOCAL end hot/cold partitioning  */
 	tidy_fallthru_edge (s);
     }
 }

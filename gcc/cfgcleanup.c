@@ -50,6 +50,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "regs.h"
 #include "expr.h"
+/* APPLE LOCAL begin hot/cold partitioning  */
+#include "cfglayout.h"
+/* APPLE LOCAL end hot/cold partitioning  */
 
 /* cleanup_cfg maintains following flags for each basic block.  */
 
@@ -149,6 +152,17 @@ try_simplify_condjump (basic_block cbranch_block)
       || !FORWARDER_BLOCK_P (jump_block))
     return false;
   jump_dest_block = jump_block->succ->dest;
+
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && (jump_block->partition != jump_dest_block->partition
+	  || cbranch_jump_edge->crossing_edge))
+    return false;
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The conditional branch must target the block after the
      unconditional branch.  */
@@ -428,6 +442,16 @@ try_forward_edges (int mode, basic_block b)
   bool changed = false;
   edge e, next, *threaded_edges = NULL;
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
+    return false;
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   for (e = b->succ; e; e = next)
     {
       basic_block target, first;
@@ -675,6 +699,17 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier;
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && (a->partition != b->partition
+	  || find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)))
+     return;
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   barrier = next_nonnote_insn (BB_END (a));
   if (GET_CODE (barrier) != BARRIER)
     abort ();
@@ -717,6 +752,17 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
   rtx label, table;
+
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && (find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)
+	  || a->partition != b->partition))
+    return;
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   real_b_end = BB_END (b);
 
@@ -781,6 +827,18 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
       && GET_CODE (BB_HEAD (c)) == CODE_LABEL
       && tail_recursion_label_p (BB_HEAD (c)))
     return NULL;
+
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && (find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
+	  || find_reg_note (BB_END (c), REG_CROSSING_JUMP, NULL_RTX)
+	  || b->partition != c->partition))
+    return NULL;
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
@@ -1453,6 +1511,14 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   rtx newpos1, newpos2;
   edge s;
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we have partitioned hot/cold basic blocks, it is a bad idea
+     to try this optimization.  */
+
+  if (flag_reorder_blocks_and_partition && no_new_pseudos)
+    return false;
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   newpos1 = newpos2 = NULL_RTX;
 
   /* Search backward through forwarder blocks.  We don't need to worry
@@ -1640,6 +1706,17 @@ try_crossjump_bb (int mode, basic_block bb)
   /* Nothing to do if there is not at least two incoming edges.  */
   if (!bb->pred || !bb->pred->pred_next)
     return false;
+
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  /* If we are partitioning hot/cold basic blocks, we don't want to
+     mess up unconditional or indirect jumps that cross between hot
+     and cold sections.  */
+
+  if (flag_reorder_blocks_and_partition
+      && (bb->pred->src->partition != bb->pred->pred_next->src->partition
+	  || bb->pred->crossing_edge))
+    return false;
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* It is always cheapest to redirect a block that ends in a branch to
      a block that falls through into BB, as that adds no branches to the
@@ -1897,6 +1974,9 @@ try_optimize_cfg (int mode)
 		  && ! b->succ->succ_next
 		  && b->succ->dest != EXIT_BLOCK_PTR
 		  && onlyjump_p (BB_END (b))
+		  /* APPLE LOCAL begin hot/cold partitioning  */
+		  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
+		  /* APPLE LOCAL end hot/cold partitioning  */
 		  && try_redirect_by_replacing_jump (b->succ, b->succ->dest,
 						     (mode & CLEANUP_CFGLAYOUT) != 0))
 		{

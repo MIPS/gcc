@@ -587,6 +587,24 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
 #endif
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+#ifndef NORMAL_TEXT_SECTION_NAME
+#define NORMAL_TEXT_SECTION_NAME ".text"
+#endif
+
+#ifndef SECTION_FORMAT_STRING
+#define SECTION_FORMAT_STRING "\t.section\t%s\n\t.align 2\n"
+#endif
+
+#ifndef HAS_LONG_COND_BRANCH
+#define HAS_LONG_COND_BRANCH 0
+#endif
+
+#ifndef HAS_LONG_UNCOND_BRANCH
+#define HAS_LONG_UNCOND_BRANCH 0
+#endif
+/* APPLE LOCAL end hot/cold partitioning  */
+
 #ifndef VECTOR_MODE_SUPPORTED_P
 #define VECTOR_MODE_SUPPORTED_P(MODE) 0
 #endif

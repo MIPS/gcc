@@ -262,6 +262,13 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
+/* APPLE LOCAL begin hot/cold partitioning  */
+/* Nonzero if blocks should be partitioned into hot and cold sections in
+   addition to being reordered. */
+
+int flag_reorder_blocks_and_partition = 0;
+/* APPLE LOCAL end hot/cold partitioning  */
+
 /* Nonzero if functions should be reordered.  */
 
 int flag_reorder_functions = 0;
@@ -1101,6 +1108,7 @@ static const lang_independent_options f_options[] =
   {"profile", &profile_flag, 1 },
   {"tree-based-profiling", &flag_tree_based_profiling, 1 },
   {"reorder-blocks", &flag_reorder_blocks, 1 },
+  {"reorder-blocks-and-partition", &flag_reorder_blocks_and_partition, 1},
   {"reorder-functions", &flag_reorder_functions, 1 },
   {"rename-registers", &flag_rename_registers, 1 },
   {"cprop-registers", &flag_cprop_registers, 1 },
