@@ -1,3 +1,8 @@
+2003-08-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (bsi_next_in_bb): Work correctly when the block ends
+	with start of BIND_EXPR.
+
 2003-08-23  Daniel Berlin  <dberlin@dberlin.org>
 	 
 	* tree-alias-common.c (get_alias_var): Remove REFERENCE_EXPR.

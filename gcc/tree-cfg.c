@@ -3540,8 +3540,8 @@ bsi_next_in_bb (block_stmt_iterator *i, basic_block bb)
 	    }
 	  else
 	    bind.context = tmp;
-	  *i = bind;
 	}
+      *i = bind;
     }
 
   if (i->tp == NULL && i->context != NULL_TREE)
