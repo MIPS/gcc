@@ -1,3 +1,7 @@
+2004-02-11  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040210-1.c: New test.
+
 2004-02-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/execute/20000603-1.c: Resolve alias ambiguity and
