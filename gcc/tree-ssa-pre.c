@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "ssa.h"
 #include "tree-iterator.h"
+#include "real.h"
+
 /* See http://citeseer.nj.nec.com/chow97new.html, and
    http://citeseer.nj.nec.com/kennedy99partial.html for details of the
    algorithm.
@@ -142,9 +144,9 @@ static void insert_occ_in_preorder_dt_order (struct expr_info *, fibheap_t);
 static void insert_euse_in_preorder_dt_order_1 (struct expr_info *,
 						basic_block);
 static void insert_euse_in_preorder_dt_order (struct expr_info *);
-static inline bool defs_match_p (struct expr_info *, const varray_type,
+static inline bool defs_match_p (struct expr_info *, const tree,
 				 const tree, bool *, bool *);
-static inline bool defs_y_dom_x (struct expr_info *, const varray_type,
+static inline bool defs_y_dom_x (struct expr_info *, const tree,
 				 const tree, bool *);
 #if ENABLE_CHECKING
 static int count_stmts_in_bb (basic_block);
@@ -190,6 +192,8 @@ static void compute_dt_preorder (void);
 static int search_dt_preorder (basic_block, int);
 static tree get_default_def (tree, htab_t);
 static void handle_bb_creation (struct expr_info *, edge, edge);
+static hashval_t defs_hash_expr (struct expr_info *ei, tree t, 
+				 hashval_t val, bool *injured);
 static int *pre_preorder;
 static dominance_info pre_idom;
 static bitmap *pre_dfs;
@@ -322,7 +326,6 @@ maybe_find_rhs_use_for_var (tree def, tree var, unsigned int startpos)
 
   if (!uses)
     return NULL_TREE;
-
   for (i = startpos; i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *usep = VARRAY_GENERIC_PTR (uses, i);
@@ -808,11 +811,14 @@ assign_new_class (tree occ, varray_type * stack, varray_type * stack2)
 /* Determine if the definitions of variables in Y dominate the basic
    block of X. */
 static inline bool
-defs_y_dom_x (struct expr_info *ei, const varray_type yuses, const tree x,
+defs_y_dom_x (struct expr_info *ei, const tree y, const tree x,
 	      bool *xinjured)
 {
   size_t i;
-
+  varray_type yuses = use_ops (y);
+  /* If we have no uses, see if they are the exact same expression.  */
+  if (!yuses)
+    return false;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (yuses); i++)
     {
       tree *use1p = VARRAY_GENERIC_PTR (yuses, i);
@@ -831,62 +837,138 @@ defs_y_dom_x (struct expr_info *ei, const varray_type yuses, const tree x,
     }
   return true;
 }
+
+/* Generate a hash value for an expression.  This can be used iteratively
+   by passing a previous result as the "val" argument.
+
+   This function is a modified version of iterative_hash_expr.
+   It takes into account strength reduction injuries, and cast copies.  */
+
+
+static hashval_t
+defs_hash_expr (struct expr_info *ei, tree t, 
+		hashval_t val, bool *injured)
+{
+  int i;
+  enum tree_code code;
+  char class;
+
+  if (t == NULL_TREE)
+    return iterative_hash_object (t, val);
+
+  code = TREE_CODE (t);
+  class = TREE_CODE_CLASS (code);
+
+  if (class == 'd')
+    {
+      /* Decls we can just compare by pointer.  */
+      val = iterative_hash_object (t, val);
+    }
+  else if (class == 'c')
+    {
+      /* Alas, constants aren't shared, so we can't rely on pointer
+	 identity.  */
+      if (code == INTEGER_CST)
+	{
+	  val = iterative_hash_object (TREE_INT_CST_LOW (t), val);
+	  val = iterative_hash_object (TREE_INT_CST_HIGH (t), val);
+	}
+      else if (code == REAL_CST)
+	val = iterative_hash (TREE_REAL_CST_PTR (t),
+			      sizeof (REAL_VALUE_TYPE), val);
+      else if (code == STRING_CST)
+	val = iterative_hash (TREE_STRING_POINTER (t),
+			      TREE_STRING_LENGTH (t), val);
+      else if (code == COMPLEX_CST)
+	{
+	  val = defs_hash_expr (ei, TREE_REALPART (t), val, injured);
+	  val = defs_hash_expr (ei, TREE_IMAGPART (t), val, injured);
+	}
+      else if (code == VECTOR_CST)
+	val = defs_hash_expr (ei, TREE_VECTOR_CST_ELTS (t), val, injured);
+      else
+	abort ();
+    }
+  else if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+    {
+      val = iterative_hash_object (code, val);
+
+      /* Don't hash the type, that can lead to having nodes which
+	 compare equal according to operand_equal_p, but which
+	 have different hash codes.  */
+      if (code == NOP_EXPR
+	  || code == CONVERT_EXPR
+	  || code == NON_LVALUE_EXPR)
+	{
+	  /* Make sure to include signness in the hash computation.  */
+	  val += TREE_UNSIGNED (TREE_TYPE (t));
+	  val = defs_hash_expr (ei, TREE_OPERAND (t, 0), val, injured);
+	}
+
+      if (code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
+	  || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
+	  || code == BIT_AND_EXPR || code == NE_EXPR || code == EQ_EXPR)
+	{
+	  /* It's a commutative expression.  We want to hash it the same
+	     however it appears.  We do this by first hashing both operands
+	     and then rehashing based on the order of their independent
+	     hashes.  */
+	  hashval_t one = defs_hash_expr (ei, TREE_OPERAND (t, 0), 0, injured);
+	  hashval_t two = defs_hash_expr (ei, TREE_OPERAND (t, 1), 0, injured);
+	  hashval_t t;
+
+	  if (one > two)
+	    t = one, one = two, two = t;
+
+	  val = iterative_hash_object (one, val);
+	  val = iterative_hash_object (two, val);
+	}
+      else
+	for (i = first_rtl_op (code) - 1; i >= 0; --i)
+	  val = defs_hash_expr (ei, TREE_OPERAND (t, i), val, injured);
+    }
+  else if (code == TREE_LIST)
+    {
+      /* A list of expressions, for a CALL_EXPR or as the elements of a
+	 VECTOR_CST.  */
+      for (; t; t = TREE_CHAIN (t))
+	val = defs_hash_expr (ei, TREE_VALUE (t), val, injured);
+    }
+  else if (code == SSA_NAME)
+    {
+      tree def1;
+      /* See if it is a copy of a cast. */
+      def1 = SSA_NAME_DEF_STMT (t);
+      if (TREE_CODE (def1) == MODIFY_EXPR)
+	{
+	  def1 = TREE_OPERAND (def1, 1);
+	  STRIP_NOPS (def1);
+	  if (TREE_CODE (def1) == SSA_NAME)
+	    t = def1; 
+	}
+
+      if (ei->strred_cand)	
+	t = factor_through_injuries (ei, t, SSA_NAME_VAR (t), injured);
+      
+
+      val = iterative_hash_object (SSA_NAME_VERSION (t), val);
+      val = defs_hash_expr (ei, SSA_NAME_VAR (t), val, injured);
+    }
+  else
+    abort ();
+
+  return val;
+}
 static inline bool
-defs_match_p (struct expr_info *ei, const varray_type t1uses, const tree t2,
+defs_match_p (struct expr_info *ei, const tree t1, const tree t2,
 	      bool *t1injured, bool *t2injured)
 {
-  size_t i;
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (t1uses); i++)
-    {
-      tree *use1p = VARRAY_GENERIC_PTR (t1uses, i);
-      tree use1;
-      tree use2;
-
-      if (!use1p)
-	continue;
-      use1 = *use1p;
-      /* The last argument is used to make the use is in
-	 sure it's in the right position.
-	 Otherwise, we'll call a_1 - b_2 and b_2 - a_1 equivalent.  */
-
-      use2 = maybe_find_rhs_use_for_var (t2,
-					 SSA_NAME_VAR (use1), i);
-      if (!use2)
-	return false;
-
-      if (ei->strred_cand)
-	{
-	  use1 = factor_through_injuries (ei, use1, SSA_NAME_VAR (use1),
-					  t1injured);
-	  use2 = factor_through_injuries (ei, use2, SSA_NAME_VAR (use2),
-					  t2injured);
-	}
-
-      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (use1))
-	  || IS_EMPTY_STMT (SSA_NAME_DEF_STMT (use2)))
-	return false;
-
-      if (SSA_NAME_DEF_STMT (use1) != SSA_NAME_DEF_STMT (use2))
-	/* Not the same statement, see if they are copies of the same
-	   version.  */
-	{
-	  tree def1 = SSA_NAME_DEF_STMT (use1);
-	  tree def2 = SSA_NAME_DEF_STMT (use2);
-	  if (TREE_CODE (def1) != MODIFY_EXPR
-	      || TREE_CODE (def2) != MODIFY_EXPR)
-	    return false;
-	  def1 = TREE_OPERAND (def1, 1);
-	  def2 = TREE_OPERAND (def2, 1);
-	  STRIP_NOPS (def1);
-	  STRIP_NOPS (def2);
-	  if (TREE_CODE (def1) != SSA_NAME
-	      || TREE_CODE (def2) != SSA_NAME)
-	    return false;
-	  if (SSA_NAME_VERSION (def1) != SSA_NAME_VERSION (def2))
-	    return false;
-	}
-    }
-  return true;
+  hashval_t expr1val;
+  hashval_t expr2val;
+  
+  expr1val = defs_hash_expr (ei, TREE_OPERAND (t1, 1), 0, t1injured);
+  expr2val = defs_hash_expr (ei, TREE_OPERAND (t2, 1), 0, t2injured);
+  return expr1val == expr2val;
 }
 
 /* Determine the phi operand index for J, for PHI.  */
@@ -909,6 +991,8 @@ generate_expr_as_of_bb (struct expr_info *ei ATTRIBUTE_UNUSED, tree expr,
 {
   varray_type uses = use_ops (expr);
   size_t k = 0;
+  if (!uses)
+    return;
   for (k = 0; k < VARRAY_ACTIVE_SIZE (uses); k++)
     {
       tree *vp = VARRAY_GENERIC_PTR (uses, k);
@@ -951,6 +1035,8 @@ subst_phis (struct expr_info *ei, tree Z, int j, basic_block bb)
   stmt_copy = *EREF_STMT (q);
   get_stmt_operands (stmt_copy);
   generate_expr_as_of_bb (ei, stmt_copy, j, bb);
+  modify_stmt (*EREF_STMT (q));
+  get_stmt_operands (stmt_copy);
   return q;
 }
 static int 
@@ -1000,7 +1086,7 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 	  if (TREE_CODE (def) == EPHI_NODE)
 	    {
 	      bool injured = false;
-	      if (defs_y_dom_x (ei, use_ops (*EREF_STMT (newcr)), def,
+	      if (defs_y_dom_x (ei, *EREF_STMT (newcr), def,
 				&injured))
 		{
 		  if (injured)
@@ -1016,7 +1102,7 @@ process_delayed_rename (struct expr_info *ei, tree use, tree real_occ)
 	  else if (TREE_CODE (def) == EUSE_NODE && !EUSE_PHIOP (def))
 	    {
 	      bool definjured = false;
-	      if (defs_match_p (ei, use_ops (*EREF_STMT (newcr)),
+	      if (defs_match_p (ei, *EREF_STMT (newcr),
 				*EREF_STMT (def), &definjured, NULL))
 		{
 		  EUSE_HAS_REAL_USE (opnd) = true;
@@ -1111,7 +1197,7 @@ rename_1 (struct expr_info *ei)
 	      if (TREE_CODE (tos) == EUSE_NODE && !EUSE_PHIOP (tos))
 		{
 		  bool useinjured = false;
-		  if (defs_match_p (ei, use_ops (*EREF_STMT (tos)),
+		  if (defs_match_p (ei, *EREF_STMT (tos),
 				    *EREF_STMT (occur), NULL, &useinjured))
 		    {
 		      tree newdef;
@@ -1128,7 +1214,7 @@ rename_1 (struct expr_info *ei)
 	      else if (TREE_CODE (tos) == EPHI_NODE)
 		{
 		  bool tosinjured = false;
-		  if (defs_y_dom_x (ei, use_ops (*EREF_STMT (occur)), tos,
+		  if (defs_y_dom_x (ei, *EREF_STMT (occur), tos,
 				    &tosinjured))
 		    {
 		      if (tosinjured)
@@ -1437,9 +1523,12 @@ get_default_def (tree var, htab_t seen)
       for (j = 0; j < PHI_NUM_ARGS (defstmt); j++)
 	if (htab_find (seen, PHI_ARG_DEF (defstmt, j)) == NULL)
 	  {
-	    tree temp = get_default_def (PHI_ARG_DEF (defstmt, j), seen);
-	    if (temp != NULL_TREE)
-	      return temp;
+	    if (TREE_CODE (PHI_ARG_DEF (defstmt, j)) == SSA_NAME)
+	      {
+		tree temp = get_default_def (PHI_ARG_DEF (defstmt, j), seen);
+		if (temp != NULL_TREE)
+		  return temp;
+	      }
 	  }
     }
 
@@ -2441,7 +2530,6 @@ code_motion (struct expr_info *ei)
 		  && !EREF_INJURED (EUSE_DEF (argdef)))
 		rdef = TREE_OPERAND (*(EREF_STMT (EUSE_DEF (argdef))), 0);
 	      else
-
 		rdef = reaching_def (temp, NULL_TREE,
 				     EPHI_ARG_EDGE (use, i)->src,
 				     NULL_TREE);

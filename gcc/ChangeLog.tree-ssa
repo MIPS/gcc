@@ -1,3 +1,15 @@
+2003-07-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c: #include real.h
+	(defs_match_p): Change arguments to something normal now that we use
+	the new renaming algorithm. Update all callers.
+	Use defs_hash_expr.
+	(defs_y_dom_x): Ditto.
+	(defs_hash_expr): New. Based on iterative_hash_expr.
+	(generate_exr_as_of_bb): If there aren't any uses, return.
+	(subst_phis): Call modify_stmt on the actually modified statement. :)
+	(get_default_def): Only walk SSA_NAME arguments in PHI's.
+
 2003-07-30  Jason Merrill  <jason@redhat.com>
 
 	Don't modify code that is already GIMPLE.
