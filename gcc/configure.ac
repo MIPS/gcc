@@ -2333,6 +2333,14 @@ case "$target" in
   [Define if your assembler supports explicit relocations.])])
     ;;
 
+  cris-*-*)
+    gcc_GAS_CHECK_FEATURE([-no-mul-bug-abort option],
+      gcc_cv_as_cris_no_mul_bug,[2,15,91],
+      [-no-mul-bug-abort], [.text],,
+      [AC_DEFINE(HAVE_AS_NO_MUL_BUG_ABORT_OPTION, 1,
+		[Define if your assembler supports the -no-mul-bug-abort option.])])
+    ;;
+
   sparc*-*-*)
     gcc_GAS_CHECK_FEATURE([.register], gcc_cv_as_sparc_register_op,,,
       [.register %g2, #scratch],,
@@ -2618,6 +2626,25 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 [Define if your linker supports -pie option.])
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
+
+AC_MSG_CHECKING(linker --as-needed support)
+gcc_cv_ld_as_needed=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_as_needed=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports --as-needed and --no-as-needed options
+	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+		gcc_cv_ld_as_needed=yes
+	fi
+fi
+if test x"$gcc_cv_ld_as_needed" = xyes; then
+	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
+[Define if your linker supports --as-needed and --no-as-needed options.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_as_needed)
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then

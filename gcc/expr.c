@@ -161,7 +161,7 @@ static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode,
 static rtx var_rtx (tree);
 
 static unsigned HOST_WIDE_INT highest_pow2_factor (tree);
-static unsigned HOST_WIDE_INT highest_pow2_factor_for_type (tree, tree);
+static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (tree, tree);
 
 static int is_aligning_offset (tree, tree);
 static rtx expand_increment (tree, int, int);
@@ -474,13 +474,30 @@ queued_subexp_p (rtx x)
     }
 }
 
-/* Perform all the pending incrementations.  */
+/* Retrieve a mark on the queue.  */
+  
+static rtx
+mark_queue (void)
+{
+  return pending_chain;
+}
 
-void
-emit_queue (void)
+/* Perform all the pending incrementations that have been enqueued
+   after MARK was retrieved.  If MARK is null, perform all the
+   pending incrementations.  */
+
+static void
+emit_insns_enqueued_after_mark (rtx mark)
 {
   rtx p;
-  while ((p = pending_chain))
+
+  /* The marked incrementation may have been emitted in the meantime
+     through a call to emit_queue.  In this case, the mark is not valid
+     anymore so do nothing.  */
+  if (mark && ! QUEUED_BODY (mark))
+    return;
+
+  while ((p = pending_chain) != mark)
     {
       rtx body = QUEUED_BODY (p);
 
@@ -507,8 +524,17 @@ emit_queue (void)
 	  break;
 	}
 
+      QUEUED_BODY (p) = 0;
       pending_chain = QUEUED_NEXT (p);
     }
+}
+
+/* Perform all the pending incrementations.  */
+
+void
+emit_queue (void)
+{
+  emit_insns_enqueued_after_mark (NULL_RTX);
 }
 
 /* Copy data from FROM to TO, where the machine modes are not the same.
@@ -687,7 +713,11 @@ convert_move (rtx to, rtx from, int unsignedp)
 		   != CODE_FOR_nothing))
 	{
 	  if (GET_CODE (to) == REG)
-	    emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
+	    {
+	      if (reg_overlap_mentioned_p (to, from))
+		from = force_reg (from_mode, from);
+	      emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
+	    }
 	  convert_move (gen_lowpart (word_mode, to), from, unsignedp);
 	  emit_unop_insn (code, to,
 			  gen_lowpart (word_mode, to), equiv_code);
@@ -1395,7 +1425,7 @@ block_move_libcall_safe_for_call_parm (void)
     tree fn, arg;
 
     fn = emit_block_move_libcall_fn (false);
-    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0);
+    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0, 3);
 
     arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
     for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
@@ -3800,8 +3830,8 @@ expand_assignment (tree to, tree from, int want_value)
 	    }
 
 	  to_rtx = offset_address (to_rtx, offset_rtx,
-				   highest_pow2_factor_for_type (TREE_TYPE (to),
-								 offset));
+				   highest_pow2_factor_for_target (to,
+				   				   offset));
 	}
 
       if (GET_CODE (to_rtx) == MEM)
@@ -4006,6 +4036,7 @@ store_expr (tree exp, rtx target, int want_value)
 {
   rtx temp;
   rtx alt_rtl = NULL_RTX;
+  rtx mark = mark_queue ();
   int dont_return_target = 0;
   int dont_store_target = 0;
 
@@ -4217,7 +4248,11 @@ store_expr (tree exp, rtx target, int want_value)
 			  temp, TREE_UNSIGNED (TREE_TYPE (exp)));
 
   /* If value was not generated in the target, store it there.
-     Convert the value to TARGET's type first if necessary.
+     Convert the value to TARGET's type first if necessary and emit the
+     pending incrementations that have been queued when expanding EXP.
+     Note that we cannot emit the whole queue blindly because this will
+     effectively disable the POST_INC optimization later.
+
      If TEMP and TARGET compare equal according to rtx_equal_p, but
      one or both of them are volatile memory refs, we have to distinguish
      two cases:
@@ -4245,7 +4280,9 @@ store_expr (tree exp, rtx target, int want_value)
 	 bit-initialized.  */
       && expr_size (exp) != const0_rtx)
     {
+      emit_insns_enqueued_after_mark (mark);
       target = protect_from_queue (target, 1);
+      temp = protect_from_queue (temp, 0);
       if (GET_MODE (temp) != GET_MODE (target)
 	  && GET_MODE (temp) != VOIDmode)
 	{
@@ -4546,14 +4583,27 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	{
 	  rtx xtarget = target;
 
-	  if (readonly_fields_p (type))
+	  if (RTX_UNCHANGING_P (target))
 	    {
-	      xtarget = copy_rtx (xtarget);
-	      RTX_UNCHANGING_P (xtarget) = 1;
+	      xtarget = copy_rtx (target);
+	      RTX_UNCHANGING_P (xtarget) = 0;
 	    }
 
 	  clear_storage (xtarget, GEN_INT (size));
 	  cleared = 1;
+	  if (RTX_UNCHANGING_P (target) || readonly_fields_p (type))
+	    {
+	      /* ??? Emit a blockage to prevent the scheduler from swapping
+		 the memory write issued above without the /u flag and
+		 memory writes that will be issued later with it.
+		 Note that the clearing above cannot be simply disabled
+		 in the unsafe cases because the C front-end relies on
+		 it to implement the semantics of constructors for
+		 automatic objects.  However, not all machine descriptions
+		 define a blockage insn, so emit an ASM_INPUT to
+		 act as one.  */
+	      emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+	    }
 	}
 
       if (! cleared)
@@ -4785,9 +4835,28 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  if (! cleared)
 	    {
 	      if (REG_P (target))
-		emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
+		emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 	      else
-		clear_storage (target, GEN_INT (size));
+		{
+		  rtx xtarget = target;
+
+		  if (RTX_UNCHANGING_P (target))
+		    {
+		      xtarget = copy_rtx (target);
+		      RTX_UNCHANGING_P (xtarget) = 0;
+		    }
+
+		  clear_storage (xtarget, GEN_INT (size));
+
+		  if (RTX_UNCHANGING_P (target))
+		    {
+		      /* ??? Emit a blockage to prevent the scheduler from
+			 swapping the memory write issued above without the
+			 /u flag and memory writes that will be issued later
+			 with it.  */
+		      emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+		    }
+		}
 	    }
 	  cleared = 1;
 	}
@@ -6031,17 +6100,22 @@ highest_pow2_factor (tree exp)
   return 1;
 }
 
-/* Similar, except that it is known that the expression must be a multiple
-   of the alignment of TYPE.  */
+/* Similar, except that the alignment requirements of TARGET are
+   taken into account.  Assume it is at least as aligned as its
+   type, unless it is a COMPONENT_REF in which case the layout of
+   the structure gives the alignment.  */
 
 static unsigned HOST_WIDE_INT
-highest_pow2_factor_for_type (tree type, tree exp)
+highest_pow2_factor_for_target (tree target, tree exp)
 {
-  unsigned HOST_WIDE_INT type_align, factor;
+  unsigned HOST_WIDE_INT target_align, factor;
 
   factor = highest_pow2_factor (exp);
-  type_align = TYPE_ALIGN (type) / BITS_PER_UNIT;
-  return MAX (factor, type_align);
+  if (TREE_CODE (target) == COMPONENT_REF)
+    target_align = DECL_ALIGN (TREE_OPERAND (target, 1)) / BITS_PER_UNIT;
+  else
+    target_align = TYPE_ALIGN (TREE_TYPE (target)) / BITS_PER_UNIT;
+  return MAX (factor, target_align);
 }
 
 /* Return an object on the placeholder list that matches EXP, a

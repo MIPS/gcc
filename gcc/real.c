@@ -3248,6 +3248,7 @@ encode_ibm_extended (const struct real_format *fmt, long *buf,
   if (u.class == rvc_normal)
     {
       do_add (&v, &normr, &u, 1);
+      /* Call round_for_format since we might need to denormalize.  */
       round_for_format (base_fmt, &v);
       encode_ieee_double (base_fmt, &buf[2], &v);
     }

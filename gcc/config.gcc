@@ -747,7 +747,7 @@ frv-*-elf)
 	use_fixproto=yes
 	;;
 h8300-*-rtems*)
-	tmake_file="h8300/t-h8300 t-rtems"
+	tmake_file="h8300/t-h8300 t-rtems h8300/t-rtems"
 	tm_file="h8300/h8300.h dbxcoff.h h8300/coff.h h8300/rtems.h rtems.h"
 	;;
 h8300-*-elf*)
@@ -1749,7 +1749,7 @@ powerpc-*-eabi*)
 	;;
 powerpc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h rtems.h"
-	tmake_file="rs6000/t-fprules t-rtems rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	;;
 powerpc-*-linux*altivec*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h"
@@ -1902,13 +1902,13 @@ sh-*-elf* | sh[2346l]*-*-elf* | sh*-*-kaos*)
 	esac
 	use_fixproto=yes
 	;;
-sh-*-rtemself*)
-	tmake_file="sh/t-sh sh/t-elf t-rtems"
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
-	;;
-sh-*-rtems*)
+sh-*-rtemscoff*)
 	tmake_file="sh/t-sh t-rtems"
 	tm_file="${tm_file} dbxcoff.h sh/coff.h sh/rtems.h rtems.h"
+	;;
+sh-*-rtems*)
+	tmake_file="sh/t-sh sh/t-elf t-rtems"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
 	;;
 sh-*-linux* | sh[2346lbe]*-*-linux*)
 	tmake_file="sh/t-sh sh/t-elf t-slibgcc-elf-ver t-linux"

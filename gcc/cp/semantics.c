@@ -1729,7 +1729,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
-    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
+			   /*overloaded_p=*/NULL);
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1802,7 +1803,21 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  return error_mark_node;
 	}
       
-      if (!same_type_p (TREE_TYPE (object), destructor))
+      /* [expr.pseudo] says both:
+
+           The type designated by the pseudo-destructor-name shall be
+	   the same as the object type.
+
+         and:
+
+           The cv-unqualified versions of the object type and of the
+	   type designated by the pseudo-destructor-name shall be the
+	   same type.
+
+         We implement the more generous second sentence, since that is
+         what most other compilers do.  */
+      if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object), 
+						      destructor))
 	{
 	  error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
@@ -2349,11 +2364,16 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
-	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
+	  if (scope 
+	      && (!TYPE_P (scope) 
+		  || (!dependent_type_p (scope)
+		      && !(TREE_CODE (id_expression) == IDENTIFIER_NODE
+			   && IDENTIFIER_TYPENAME_P (id_expression)
+			   && dependent_type_p (TREE_TYPE (id_expression))))))
 	    {
-	      /* Qualified name lookup failed, and the qualifying name
-      		 was not a dependent type.  That is always an
-      		 error.  */
+	      /* If the qualifying type is non-dependent (and the name
+		 does not name a conversion operator to a dependent
+		 type), issue an error.  */
 	      qualified_name_lookup_error (scope, id_expression);
 	      return error_mark_node;
 	    }
@@ -2363,6 +2383,8 @@ finish_id_expression (tree id_expression,
 	      *idk = CP_ID_KIND_UNQUALIFIED;
 	      return id_expression;
 	    }
+	  else
+	    decl = id_expression;
 	}
       /* If DECL is a variable that would be out of scope under
 	 ANSI/ISO rules, but in scope in the ARM, name lookup

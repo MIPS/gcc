@@ -379,6 +379,7 @@ split_nonconstant_init (tree dest, tree init)
       code = build1 (STMT_EXPR, void_type_node, code);
       TREE_SIDE_EFFECTS (code) = 1;
       DECL_INITIAL (dest) = init;
+      TREE_READONLY (dest) = 0;
     }
   else
     code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
@@ -1090,7 +1091,8 @@ build_x_arrow (tree expr)
   if (IS_AGGR_TYPE (type))
     {
       while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
-				   NULL_TREE, NULL_TREE)))
+				   NULL_TREE, NULL_TREE,
+				   /*overloaded_p=*/NULL)))
 	{
 	  if (expr == error_mark_node)
 	    return error_mark_node;

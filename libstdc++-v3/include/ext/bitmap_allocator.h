@@ -37,7 +37,7 @@
 #include <utility>
 //For std::pair.
 #include <algorithm>
-//std::find_if, and std::lower_bound.
+//std::find_if.
 #include <vector>
 //For the free list of exponentially growing memory blocks. At max,
 //size of the vector should be  not more than the number of bits in an
@@ -55,18 +55,10 @@
 #define NDEBUG
 
 //#define CHECK_FOR_ERRORS
-//#define __CPU_HAS_BACKWARD_BRANCH_PREDICTION
 
 namespace __gnu_cxx
 {
-  namespace {
-#if defined __GTHREADS
-    bool const __threads_enabled = __gthread_active_p();
-#endif
 
-  }
-
-#if defined __GTHREADS
   class _Mutex {
     __gthread_mutex_t _M_mut;
     //Prevent Copying and assignment.
@@ -75,15 +67,12 @@ namespace __gnu_cxx
   public:
     _Mutex ()
     {
-      if (__threads_enabled)
-	{
 #if !defined __GTHREAD_MUTEX_INIT
-	  __GTHREAD_MUTEX_INIT_FUNCTION(&_M_mut);
+      __GTHREAD_MUTEX_INIT_FUNCTION(&_M_mut);
 #else
-	  __gthread_mutex_t __mtemp = __GTHREAD_MUTEX_INIT;
-	  _M_mut = __mtemp;
+      __gthread_mutex_t __mtemp = __GTHREAD_MUTEX_INIT;
+      _M_mut = __mtemp;
 #endif
-	}
     }
     ~_Mutex ()
     {
@@ -92,42 +81,22 @@ namespace __gnu_cxx
     __gthread_mutex_t *_M_get() { return &_M_mut; }
   };
 
+
   class _Lock {
-    _Mutex* _M_pmt;
-    bool _M_locked;
+    _Mutex& _M_mt;
     //Prevent Copying and assignment.
     _Lock (_Lock const&);
     _Lock& operator= (_Lock const&);
   public:
-    _Lock(_Mutex* __mptr)
-      : _M_pmt(__mptr), _M_locked(false)
-    { this->_M_lock(); }
-    void _M_lock()
+    _Lock (_Mutex& __mref) : _M_mt(__mref)
     {
-      if (__threads_enabled)
-	{
-	  _M_locked = true;
-	  __gthread_mutex_lock(_M_pmt->_M_get());
-	}
+      __gthread_mutex_lock(_M_mt._M_get());
     }
-    void _M_unlock()
-    {
-      if (__threads_enabled)
-	{
-	  if (__builtin_expect(_M_locked, true))
-	    {
-	      __gthread_mutex_unlock(_M_pmt->_M_get());
-	      _M_locked = false;
-	    }
-	}
-    }
-    ~_Lock() { this->_M_unlock(); }
+    ~_Lock () { __gthread_mutex_unlock(_M_mt._M_get()); }
   };
-#endif
-
-
 
   namespace __aux_balloc {
+
     static const unsigned int _Bits_Per_Byte = 8;
     static const unsigned int _Bits_Per_Block = sizeof(unsigned int) * _Bits_Per_Byte;
 
@@ -179,8 +148,7 @@ namespace __gnu_cxx
 
     //T should be a pointer type, and A is the Allocator for the vector.
     template <typename _Tp, typename _Alloc>
-    class _Ffit_finder 
-      : public std::unary_function<typename std::pair<_Tp, _Tp>, bool> {
+    class _Ffit_finder : public std::unary_function<typename std::pair<_Tp, _Tp>, bool> {
       typedef typename std::vector<std::pair<_Tp, _Tp>, _Alloc> _BPVector;
       typedef typename _BPVector::difference_type _Counter_type;
       typedef typename std::pair<_Tp, _Tp> _Block_pair;
@@ -189,9 +157,7 @@ namespace __gnu_cxx
       unsigned int _M_data_offset;
 
     public:
-      _Ffit_finder () 
-	: _M_pbitmap (0), _M_data_offset (0)
-      { }
+      _Ffit_finder () : _M_pbitmap (0), _M_data_offset (0) { }
 
       bool operator() (_Block_pair __bp) throw()
       {
@@ -248,8 +214,7 @@ namespace __gnu_cxx
       //Use the 2nd parameter with care. Make sure that such an entry
       //exists in the vector before passing that particular index to
       //this ctor.
-      _Bit_map_counter (_BPVector& Rvbp, int __index = -1) 
-	: _M_vbp(Rvbp)
+      _Bit_map_counter (_BPVector& Rvbp, int __index = -1) : _M_vbp(Rvbp)
       {
 	this->_M_reset(__index);
       }
@@ -273,7 +238,7 @@ namespace __gnu_cxx
       }
     
       //Dangerous Function! Use with extreme care. Pass to this
-      //function ONLY those values that are known to be correct,
+      //functions ONLY those values that are known to be correct,
       //otherwise this will mess up big time.
       void _M_set_internal_bit_map (unsigned int *__new_internal_marker) throw()
       {
@@ -310,22 +275,28 @@ namespace __gnu_cxx
 	return _M_curr_bmap;
       }
     
-      pointer _M_base () { return _M_vbp[_M_curr_index].first; }
+      pointer base () { return _M_vbp[_M_curr_index].first; }
       unsigned int _M_offset ()
       {
-	return _Bits_Per_Block * ((reinterpret_cast<unsigned int*>(this->_M_base()) - _M_curr_bmap) - 1);
+	return _Bits_Per_Block * ((reinterpret_cast<unsigned int*>(this->base()) - _M_curr_bmap) - 1);
       }
     
       unsigned int _M_where () { return _M_curr_index; }
     };
   }
 
-  //Generic Version of the bsf instruction.
-  typedef unsigned int _Bit_map_type;
-  static inline unsigned int _Bit_scan_forward (register _Bit_map_type __num)
-  {
-    return static_cast<unsigned int>(__builtin_ctz(__num));
-  }
+    //Generic Version of the bsf instruction.
+    typedef unsigned int _Bit_map_type;
+    static inline unsigned int _Bit_scan_forward (_Bit_map_type __num)
+    {
+      unsigned int __ret_val = 0;
+      while (__num % 2 == 0)
+	{
+	  ++__ret_val;
+	  __num >>= 1;
+	}
+      return __ret_val;
+    }
 
   struct _OOM_handler {
     static std::new_handler _S_old_handler;
@@ -376,8 +347,8 @@ namespace __gnu_cxx
 
     static void _S_validate_free_list(unsigned int *__addr) throw()
     {
-      const unsigned int __max_size = 64;
-      if (_S_free_list.size() >= __max_size)
+      const unsigned int Max_Size = 64;
+      if (_S_free_list.size() >= Max_Size)
 	{
 	  //Ok, the threshold value has been reached.
 	  //We determine which block to remove from the list of free
@@ -409,9 +380,10 @@ namespace __gnu_cxx
 
     static bool _S_should_i_give(unsigned int __block_size, unsigned int __required_size) throw()
     {
-      const unsigned int __max_wastage_percentage = 36;
+      const unsigned int Max_Wastage_Percentage = 36;
+
       if (__block_size >= __required_size && 
-	  (((__block_size - __required_size) * 100 / __block_size) < __max_wastage_percentage))
+	  (((__block_size - __required_size) * 100 / __block_size) < Max_Wastage_Percentage))
 	return true;
       else
 	return false;
@@ -423,7 +395,7 @@ namespace __gnu_cxx
     static inline void _S_insert_free_list(unsigned int *__addr) throw()
     {
 #if defined __GTHREADS
-      _Lock __bfl_lock(&_S_bfl_mutex);
+      _Lock __bfl_lock(*&_S_bfl_mutex);
 #endif
       //Call _S_validate_free_list to decide what should be done with this
       //particular free list.
@@ -433,14 +405,12 @@ namespace __gnu_cxx
     static unsigned int *_S_get_free_list(unsigned int __sz) throw (std::bad_alloc)
     {
 #if defined __GTHREADS
-      _Lock __bfl_lock(&_S_bfl_mutex);
+      _Lock __bfl_lock(*&_S_bfl_mutex);
 #endif
       _FLIter __temp = std::lower_bound(_S_free_list.begin(), _S_free_list.end(), 
 					__sz, _LT_pointer_compare());
       if (__temp == _S_free_list.end() || !_S_should_i_give (**__temp, __sz))
 	{
-	  //We hold the lock because the OOM_Handler is a stateless
-	  //entity.
 	  _OOM_handler __set_handler(_BFL_type::_S_clear);
 	  unsigned int *__ret_val = reinterpret_cast<unsigned int*>
 	    (operator new (__sz + sizeof(unsigned int)));
@@ -460,7 +430,7 @@ namespace __gnu_cxx
     static void _S_clear()
     {
 #if defined __GTHREADS
-      _Lock __bfl_lock(&_S_bfl_mutex);
+      _Lock __bfl_lock(*&_S_bfl_mutex);
 #endif
       _FLIter __iter = _S_free_list.begin();
       while (__iter != _S_free_list.end())
@@ -478,7 +448,7 @@ namespace __gnu_cxx
 #endif
   std::vector<unsigned int*> _BA_free_list_store::_S_free_list;
 
-  template <typename _Tp> class bitmap_allocator;
+  template <class _Tp> class bitmap_allocator;
   // specialize for void:
   template <> class bitmap_allocator<void> {
   public:
@@ -486,10 +456,10 @@ namespace __gnu_cxx
     typedef const void* const_pointer;
     //  reference-to-void members are impossible.
     typedef void  value_type;
-    template <typename _Tp1> struct rebind { typedef bitmap_allocator<_Tp1> other; };
+    template <class U> struct rebind { typedef bitmap_allocator<U> other; };
   };
 
-  template <typename _Tp> class bitmap_allocator : private _BA_free_list_store {
+  template <class _Tp> class bitmap_allocator : private _BA_free_list_store {
   public:
     typedef size_t    size_type;
     typedef ptrdiff_t difference_type;
@@ -498,7 +468,7 @@ namespace __gnu_cxx
     typedef _Tp&        reference;
     typedef const _Tp&  const_reference;
     typedef _Tp         value_type;
-    template <typename _Tp1> struct rebind { typedef bitmap_allocator<_Tp1> other; };
+    template <class U> struct rebind { typedef bitmap_allocator<U> other; };
 
   private:
     static const unsigned int _Bits_Per_Byte = 8;
@@ -511,9 +481,9 @@ namespace __gnu_cxx
       *__pbmap &= __mask;
     }
   
-    static inline void _S_bit_free(unsigned int *__pbmap, unsigned int __pos) throw()
+    static inline void _S_bit_free(unsigned int *__pbmap, unsigned int __Pos) throw()
     {
-      unsigned int __mask = 1 << __pos;
+      unsigned int __mask = 1 << __Pos;
       *__pbmap |= __mask;
     }
 
@@ -595,6 +565,18 @@ namespace __gnu_cxx
     static _Mutex _S_mut;
 #endif
 
+  public:
+    bitmap_allocator() throw()
+    { }
+
+    bitmap_allocator(const bitmap_allocator&) { }
+
+    template <typename _Tp1> bitmap_allocator(const bitmap_allocator<_Tp1>&) throw()
+    { }
+
+    ~bitmap_allocator() throw()
+    { }
+
     //Complexity: Worst case complexity is O(N), but that is hardly ever
     //hit. if and when this particular case is encountered, the next few
     //cases are guaranteed to have a worst case complexity of O(1)!
@@ -604,27 +586,22 @@ namespace __gnu_cxx
     static pointer _S_allocate_single_object()
     {
 #if defined __GTHREADS
-      _Lock __bit_lock(&_S_mut);
+      _Lock _bit_lock(*&_S_mut);
 #endif
-
       //The algorithm is something like this: The last_requst variable
       //points to the last accessed Bit Map. When such a condition
       //occurs, we try to find a free block in the current bitmap, or
       //succeeding bitmaps until the last bitmap is reached. If no free
-      //block turns up, we resort to First Fit method.
+      //block turns up, we resort to First Fit method. But, again, the
+      //First Fit is used only upto the point where we started the
+      //previous linear search.
 
-      //WARNING: Do not re-order the condition in the while statement
-      //below, because it relies on C++'s short-circuit
-      //evaluation. The return from _S_last_request->_M_get() will NOT
-      //be dereferenceable if _S_last_request->_M_finished() returns
-      //true. This would inevitibly lead to a NULL pointer dereference
-      //if tinkered with.
       while (_S_last_request._M_finished() == false && (*(_S_last_request._M_get()) == 0))
 	{
 	  _S_last_request.operator++();
 	}
 
-      if (__builtin_expect(_S_last_request._M_finished() == true, false))
+      if (_S_last_request._M_finished())
 	{
 	  //Fall Back to First Fit algorithm.
 	  typedef typename __gnu_cxx::__aux_balloc::_Ffit_finder<pointer, _BPVec_allocator_type> _FFF;
@@ -668,7 +645,7 @@ namespace __gnu_cxx
       unsigned int __nz_bit = _Bit_scan_forward(*_S_last_request._M_get());
       _S_bit_allocate(_S_last_request._M_get(), __nz_bit);
 
-      pointer __ret_val = _S_last_request._M_base() + _S_last_request._M_offset() + __nz_bit;
+      pointer __ret_val = _S_last_request.base() + _S_last_request._M_offset() + __nz_bit;
 
       unsigned int *__puse_count = reinterpret_cast<unsigned int*>
 	(_S_mem_blocks[_S_last_request._M_where()].first) - 
@@ -677,19 +654,49 @@ namespace __gnu_cxx
       return __ret_val;
     }
 
+    //Complexity: O(1), but internally the complexity depends upon the
+    //complexity of the function(s) _S_allocate_single_object and
+    //_S_memory_get.
+    pointer allocate(size_type __n)
+    {
+      if (__n == 1)
+	return _S_allocate_single_object();
+      else
+	return reinterpret_cast<pointer>(_S_memory_get(__n * sizeof(value_type)));
+    }
+
+    //Complexity: Worst case complexity is O(N) where N is the number of
+    //blocks of size sizeof(value_type) within the free lists that the
+    //allocator holds. However, this worst case is hit only when the
+    //user supplies a bogus argument to hint. If the hint argument is
+    //sensible, then the complexity drops to O(lg(N)), and in extreme
+    //cases, even drops to as low as O(1). So, if the user supplied
+    //argument is good, then this function performs very well.
+    pointer allocate(size_type __n, typename bitmap_allocator<void>::const_pointer)
+    {
+      return allocate(__n);
+    }
+
+    void deallocate(pointer __p, size_type __n) throw()
+    {
+      if (__n == 1)
+	_S_deallocate_single_object(__p);
+      else
+	_S_memory_put(__p);
+    }
+
     //Complexity: O(lg(N)), but the worst case is hit quite often! I
     //need to do something about this. I'll be able to work on it, only
     //when I have some solid figures from a few real apps.
     static void _S_deallocate_single_object(pointer __p) throw()
     {
 #if defined __GTHREADS
-      _Lock __bit_lock(&_S_mut);
+      _Lock _bit_lock(*&_S_mut);
 #endif
+      typedef typename _BPVector::iterator iterator;
+      typedef typename _BPVector::difference_type diff_type;
 
-      typedef typename _BPVector::iterator _Iterator;
-      typedef typename _BPVector::difference_type _Difference_type;
-
-      _Difference_type __diff;
+      diff_type __diff;
       int __displacement;
 
       assert(_S_last_dealloc_index >= 0);
@@ -704,7 +711,7 @@ namespace __gnu_cxx
 	}
       else
 	{
-	  _Iterator _iter = (std::find_if(_S_mem_blocks.begin(), _S_mem_blocks.end(), 
+	  iterator _iter = (std::find_if(_S_mem_blocks.begin(), _S_mem_blocks.end(), 
 					  __gnu_cxx::__aux_balloc::_Inclusive_between<pointer>(__p)));
 	  assert(_iter != _S_mem_blocks.end());
 
@@ -727,7 +734,7 @@ namespace __gnu_cxx
 
       --(*__puse_count);
 
-      if (__builtin_expect(*__puse_count == 0, false))
+      if (!*__puse_count)
 	{
 	  _S_block_size /= 2;
 	  
@@ -737,12 +744,12 @@ namespace __gnu_cxx
 	  _S_mem_blocks.erase(_S_mem_blocks.begin() + __diff);
 
 	  //We reset the _S_last_request variable to reflect the erased
-	  //block. We do this to protect future requests after the last
+	  //block. We do this to pretect future requests after the last
 	  //block has been removed from a particular memory Chunk,
 	  //which in turn has been returned to the free list, and
 	  //hence had been erased from the vector, so the size of the
 	  //vector gets reduced by 1.
-	  if ((_Difference_type)_S_last_request._M_where() >= __diff--)
+	  if ((diff_type)_S_last_request._M_where() >= __diff--)
 	    {
 	      _S_last_request._M_reset(__diff);
 	      //	      assert(__diff >= 0);
@@ -761,57 +768,14 @@ namespace __gnu_cxx
 	}
     }
 
-  public:
-    bitmap_allocator() throw()
-    { }
-
-    bitmap_allocator(const bitmap_allocator&) { }
-
-    template <typename _Tp1> bitmap_allocator(const bitmap_allocator<_Tp1>&) throw()
-    { }
-
-    ~bitmap_allocator() throw()
-    { }
-
-    //Complexity: O(1), but internally the complexity depends upon the
-    //complexity of the function(s) _S_allocate_single_object and
-    //_S_memory_get.
-    pointer allocate(size_type __n)
-    {
-      if (__builtin_expect(__n == 1, true))
-	return _S_allocate_single_object();
-      else
-	return reinterpret_cast<pointer>(_S_memory_get(__n * sizeof(value_type)));
-    }
-
-    //Complexity: Worst case complexity is O(N) where N is the number of
-    //blocks of size sizeof(value_type) within the free lists that the
-    //allocator holds. However, this worst case is hit only when the
-    //user supplies a bogus argument to hint. If the hint argument is
-    //sensible, then the complexity drops to O(lg(N)), and in extreme
-    //cases, even drops to as low as O(1). So, if the user supplied
-    //argument is good, then this function performs very well.
-    pointer allocate(size_type __n, typename bitmap_allocator<void>::const_pointer)
-    {
-      return allocate(__n);
-    }
-
-    void deallocate(pointer __p, size_type __n) throw()
-    {
-      if (__builtin_expect(__n == 1, true))
-	_S_deallocate_single_object(__p);
-      else
-	_S_memory_put(__p);
-    }
-
     pointer address(reference r) const { return &r; }
     const_pointer address(const_reference r) const { return &r; }
 
     size_type max_size(void) const throw() { return (size_type()-1)/sizeof(value_type); }
 
-    void construct (pointer p, const_reference __data)
+    void construct (pointer p, const_reference _data)
     {
-      ::new(p) value_type(__data);
+      new (p) value_type (_data);
     }
 
     void destroy (pointer p)

@@ -1,3 +1,19 @@
+2004-03-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR other/14630
+	* gnat_ug.texi: Add info directory category and entry.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2004-03-19  Laurent GUERBY <laurent@guerby.net>
+
+	* sem_prag.adb (Suppress_Unsuppress_Echeck): use loop instead of 
+	aggregate, allows bootstrap from 3.3 on powerpc-darwin.
+
+2004-03-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* misc.c (default_pass_by_ref): Update INIT_CUMULATIVE_ARGS call.
+
 2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (doc/gnat_ug_unx.dvi): Use $(abs_docdir). 

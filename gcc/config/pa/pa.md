@@ -3206,8 +3206,8 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:SI 1 "register_operand" "")))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
 	      (clobber (match_operand:SI 2 "register_operand" ""))
 	      (clobber (match_operand:SI 3 "register_operand" ""))
 	      (clobber (match_operand:SI 6 "register_operand" ""))
@@ -3215,32 +3215,14 @@
 	      (clobber (match_operand:SI 8 "register_operand" ""))
 	      (use (match_operand:SI 4 "arith_operand" ""))
 	      (use (match_operand:SI 5 "const_int_operand" ""))])]
-  "!TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 7) (match_dup 0))
-   (set (match_dup 8) (match_dup 1))
-   (parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
-   	      (clobber (match_dup 2))
-   	      (clobber (match_dup 3))
-   	      (clobber (match_dup 6))
-   	      (clobber (match_dup 7))
-   	      (clobber (match_dup 8))
-   	      (use (match_dup 4))
-   	      (use (match_dup 5))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:SI 1 "register_operand" "")))
-	      (clobber (match_operand:SI 2 "register_operand" ""))
-	      (clobber (match_operand:SI 3 "register_operand" ""))
-	      (clobber (match_operand:SI 6 "register_operand" ""))
-	      (clobber (match_operand:SI 7 "register_operand" ""))
-	      (clobber (match_operand:SI 8 "register_operand" ""))
-	      (use (match_operand:SI 4 "arith_operand" ""))
-	      (use (match_operand:SI 5 "const_int_operand" ""))])]
-  "!TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
+  "!TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), SImode)"
+  [(set (match_dup 7) (match_dup 9))
+   (set (match_dup 8) (match_dup 10))
+   (parallel [(set (match_dup 0) (match_dup 1))
    	      (clobber (match_dup 2))
    	      (clobber (match_dup 3))
    	      (clobber (match_dup 6))
@@ -3251,15 +3233,55 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[7] = operands[0];
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[7], operands[0]));
+  operands[9] = XEXP (operands[0], 0);
+  operands[10] = XEXP (operands[1], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[7]);
+  operands[1] = replace_equiv_address (operands[1], operands[8]);
+}")
 
-  if (dead_or_set_p (curr_insn, operands[1]))
-    operands[8] = operands[1];
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (clobber (match_operand:SI 2 "register_operand" ""))
+	      (clobber (match_operand:SI 3 "register_operand" ""))
+	      (clobber (match_operand:SI 6 "register_operand" ""))
+	      (clobber (match_operand:SI 7 "register_operand" ""))
+	      (clobber (match_operand:SI 8 "register_operand" ""))
+	      (use (match_operand:SI 4 "arith_operand" ""))
+	      (use (match_operand:SI 5 "const_int_operand" ""))])]
+  "!TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), SImode)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+   	      (clobber (match_dup 2))
+   	      (clobber (match_dup 3))
+   	      (clobber (match_dup 6))
+   	      (clobber (match_dup 7))
+   	      (clobber (match_dup 8))
+   	      (use (match_dup 4))
+   	      (use (match_dup 5))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[7] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[8], operands[1]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[7], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[7]);
+    }
+
+  addr = XEXP (operands[1], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[8] = addr;
+  else
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[8], addr));
+      operands[1] = replace_equiv_address (operands[1], operands[8]);
+    }
 }")
 
 (define_insn "movstrsi_postreload"
@@ -3372,8 +3394,8 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:DI 1 "register_operand" "")))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
 	      (clobber (match_operand:DI 2 "register_operand" ""))
 	      (clobber (match_operand:DI 3 "register_operand" ""))
 	      (clobber (match_operand:DI 6 "register_operand" ""))
@@ -3381,32 +3403,14 @@
 	      (clobber (match_operand:DI 8 "register_operand" ""))
 	      (use (match_operand:DI 4 "arith_operand" ""))
 	      (use (match_operand:DI 5 "const_int_operand" ""))])]
-  "TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 7) (match_dup 0))
-   (set (match_dup 8) (match_dup 1))
-   (parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
-   	      (clobber (match_dup 2))
-   	      (clobber (match_dup 3))
-   	      (clobber (match_dup 6))
-   	      (clobber (match_dup 7))
-   	      (clobber (match_dup 8))
-   	      (use (match_dup 4))
-   	      (use (match_dup 5))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
-		   (mem:BLK (match_operand:DI 1 "register_operand" "")))
-	      (clobber (match_operand:DI 2 "register_operand" ""))
-	      (clobber (match_operand:DI 3 "register_operand" ""))
-	      (clobber (match_operand:DI 6 "register_operand" ""))
-	      (clobber (match_operand:DI 7 "register_operand" ""))
-	      (clobber (match_operand:DI 8 "register_operand" ""))
-	      (use (match_operand:DI 4 "arith_operand" ""))
-	      (use (match_operand:DI 5 "const_int_operand" ""))])]
-  "TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 7)) (mem:BLK (match_dup 8)))
+  "TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), DImode)"
+  [(set (match_dup 7) (match_dup 9))
+   (set (match_dup 8) (match_dup 10))
+   (parallel [(set (match_dup 0) (match_dup 1))
    	      (clobber (match_dup 2))
    	      (clobber (match_dup 3))
    	      (clobber (match_dup 6))
@@ -3417,15 +3421,55 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[7] = operands[0];
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[7], operands[0]));
+  operands[9] = XEXP (operands[0], 0);
+  operands[10] = XEXP (operands[1], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[7]);
+  operands[1] = replace_equiv_address (operands[1], operands[8]);
+}")
 
-  if (dead_or_set_p (curr_insn, operands[1]))
-    operands[8] = operands[1];
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (match_operand:BLK 1 "memory_operand" ""))
+	      (clobber (match_operand:DI 2 "register_operand" ""))
+	      (clobber (match_operand:DI 3 "register_operand" ""))
+	      (clobber (match_operand:DI 6 "register_operand" ""))
+	      (clobber (match_operand:DI 7 "register_operand" ""))
+	      (clobber (match_operand:DI 8 "register_operand" ""))
+	      (use (match_operand:DI 4 "arith_operand" ""))
+	      (use (match_operand:DI 5 "const_int_operand" ""))])]
+  "TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)
+   && GET_CODE (operands[1]) == MEM
+   && register_operand (XEXP (operands[1], 0), DImode)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+   	      (clobber (match_dup 2))
+   	      (clobber (match_dup 3))
+   	      (clobber (match_dup 6))
+   	      (clobber (match_dup 7))
+   	      (clobber (match_dup 8))
+   	      (use (match_dup 4))
+   	      (use (match_dup 5))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[7] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[8], operands[1]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[7], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[7]);
+    }
+
+  addr = XEXP (operands[1], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[8] = addr;
+  else
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[8], addr));
+      operands[1] = replace_equiv_address (operands[1], operands[8]);
+    }
 }")
 
 (define_insn "movstrdi_postreload"
@@ -3491,31 +3535,17 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:SI 1 "register_operand" ""))
 	      (clobber (match_operand:SI 4 "register_operand" ""))
 	      (use (match_operand:SI 2 "arith_operand" ""))
 	      (use (match_operand:SI 3 "const_int_operand" ""))])]
-  "!TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 4) (match_dup 0))
-   (parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
-   	      (clobber (match_dup 1))
-   	      (clobber (match_dup 4))
-   	      (use (match_dup 2))
-   	      (use (match_dup 3))
-	      (const_int 0)])]
-  "")
-
-(define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
-		   (const_int 0))
-	      (clobber (match_operand:SI 1 "register_operand" ""))
-	      (clobber (match_operand:SI 4 "register_operand" ""))
-	      (use (match_operand:SI 2 "arith_operand" ""))
-	      (use (match_operand:SI 3 "const_int_operand" ""))])]
-  "!TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "!TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)"
+  [(set (match_dup 4) (match_dup 5))
+   (parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
@@ -3523,10 +3553,36 @@
 	      (const_int 0)])]
   "
 {
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[4] = operands[0];
+  operands[5] = XEXP (operands[0], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[4]);
+}")
+
+(define_peephole2
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
+		   (const_int 0))
+	      (clobber (match_operand:SI 1 "register_operand" ""))
+	      (clobber (match_operand:SI 4 "register_operand" ""))
+	      (use (match_operand:SI 2 "arith_operand" ""))
+	      (use (match_operand:SI 3 "const_int_operand" ""))])]
+  "!TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), SImode)"
+  [(parallel [(set (match_dup 0) (const_int 0))
+   	      (clobber (match_dup 1))
+   	      (clobber (match_dup 4))
+   	      (use (match_dup 2))
+   	      (use (match_dup 3))
+	      (const_int 0)])]
+  "
+{
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[4] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[4], operands[0]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[4], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[4]);
+    }
 }")
 
 (define_insn "clrstrsi_postreload"
@@ -3589,31 +3645,39 @@
   [(set_attr "type" "multi,multi")])
 
 (define_split
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:DI 1 "register_operand" ""))
 	      (clobber (match_operand:DI 4 "register_operand" ""))
 	      (use (match_operand:DI 2 "arith_operand" ""))
 	      (use (match_operand:DI 3 "const_int_operand" ""))])]
-  "TARGET_64BIT && reload_completed && !flag_peephole2"
-  [(set (match_dup 4) (match_dup 0))
-   (parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "TARGET_64BIT && reload_completed && !flag_peephole2
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)"
+  [(set (match_dup 4) (match_dup 5))
+   (parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
    	      (use (match_dup 3))
 	      (const_int 0)])]
-  "")
+  "
+{
+  operands[5] = XEXP (operands[0], 0);
+  operands[0] = replace_equiv_address (operands[0], operands[4]);
+}")
 
 (define_peephole2
-  [(parallel [(set (mem:BLK (match_operand:DI 0 "register_operand" ""))
+  [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (clobber (match_operand:DI 1 "register_operand" ""))
 	      (clobber (match_operand:DI 4 "register_operand" ""))
 	      (use (match_operand:DI 2 "arith_operand" ""))
 	      (use (match_operand:DI 3 "const_int_operand" ""))])]
-  "TARGET_64BIT"
-  [(parallel [(set (mem:BLK (match_dup 4)) (const_int 0))
+  "TARGET_64BIT
+   && GET_CODE (operands[0]) == MEM
+   && register_operand (XEXP (operands[0], 0), DImode)"
+  [(parallel [(set (match_dup 0) (const_int 0))
    	      (clobber (match_dup 1))
    	      (clobber (match_dup 4))
    	      (use (match_dup 2))
@@ -3621,10 +3685,14 @@
 	      (const_int 0)])]
   "
 {  
-  if (dead_or_set_p (curr_insn, operands[0]))
-    operands[4] = operands[0];
+  rtx addr = XEXP (operands[0], 0);
+  if (dead_or_set_p (curr_insn, addr))
+    operands[4] = addr;
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[4], operands[0]));
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, operands[4], addr));
+      operands[0] = replace_equiv_address (operands[0], operands[4]);
+    }
 }")
 
 (define_insn "clrstrdi_postreload"
@@ -8858,8 +8926,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Operand 0 contains the start address.
 ;; Operand 1 contains the end address.
 ;; Operand 2 contains the line length to use.
-;; Operand 3 contains the start address (clobbered).
-;; Operands 4 and 5 (icacheflush) are clobbered scratch registers.
+;; Operands 3 and 4 (icacheflush) are clobbered scratch registers.
 (define_insn "dcacheflush"
   [(const_int 1)
    (unspec_volatile [(mem:BLK (scratch))] 0)
@@ -8884,16 +8951,16 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (use (match_operand 0 "pmode_register_operand" "r"))
    (use (match_operand 1 "pmode_register_operand" "r"))
    (use (match_operand 2 "pmode_register_operand" "r"))
-   (clobber (match_scratch 3 "=&0"))
+   (clobber (match_operand 3 "pmode_register_operand" "=&r"))
    (clobber (match_operand 4 "pmode_register_operand" "=&r"))
-   (clobber (match_operand 5 "pmode_register_operand" "=&r"))]
+   (clobber (match_scratch 5 "=&0"))]
   ""
   "*
 {
   if (TARGET_64BIT)
-    return \"mfsp %%sr0,%5\;ldsid (%3),%4\;mtsp %4,%%sr0\;cmpb,*<<=,n %3,%1,.\;fic,m %2(%%sr0,%3)\;sync\;mtsp %5,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
+    return \"mfsp %%sr0,%4\;ldsid (%5),%3\;mtsp %3,%%sr0\;cmpb,*<<=,n %5,%1,.\;fic,m %2(%%sr0,%5)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
   else
-    return \"mfsp %%sr0,%5\;ldsid (%3),%4\;mtsp %4,%%sr0\;cmpb,<<=,n %3,%1,.\;fic,m %2(%%sr0,%3)\;sync\;mtsp %5,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
+    return \"mfsp %%sr0,%4\;ldsid (%5),%3\;mtsp %3,%%sr0\;cmpb,<<=,n %5,%1,.\;fic,m %2(%%sr0,%5)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
 }"
   [(set_attr "type" "multi")
    (set_attr "length" "52")])

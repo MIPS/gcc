@@ -1308,8 +1308,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 /* The largest size of value that can be held in floating-point
    registers.  */
-#define UNITS_PER_FPVALUE \
-  (TARGET_SOFT_FLOAT ? 0 : (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT))
+#define UNITS_PER_FPVALUE			\
+  (TARGET_SOFT_FLOAT ? 0			\
+   : TARGET_SINGLE_FLOAT ? UNITS_PER_FPREG	\
+   : LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)
 
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
@@ -2312,7 +2314,7 @@ typedef struct mips_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)		\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (&CUM, FNTYPE, LIBNAME)				\
 
 /* Update the data in CUM to advance over an argument

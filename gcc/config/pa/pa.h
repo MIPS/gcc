@@ -798,7 +798,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   (CUM).words = 0, 							\
   (CUM).incoming = 0,							\
   (CUM).indirect = (FNTYPE) && !(FNDECL),				\
@@ -1109,7 +1109,6 @@ extern int may_call_alloca;
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
 				  gen_reg_rtx (Pmode),			\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\
   else									\
@@ -1141,7 +1140,6 @@ extern int may_call_alloca;
       emit_move_insn (line_length, GEN_INT (MIN_CACHELINE_SIZE));	\
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\

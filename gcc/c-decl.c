@@ -1211,8 +1211,18 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
     }
-  else /* VAR_DECL */
+  else /* PARM_DECL, VAR_DECL */
     {
+      /* Redeclaration of a PARM_DECL is invalid unless this is the
+	 real position of a forward-declared parameter (GCC extension).  */
+      if (TREE_CODE (newdecl) == PARM_DECL
+	  && (!TREE_ASM_WRITTEN (olddecl) || TREE_ASM_WRITTEN (newdecl)))
+	{
+	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
+	  locate_old_decl (olddecl, error);
+	  return false;
+	}
+
       /* These bits are only type qualifiers when applied to objects.  */
       if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
 	{
@@ -1241,10 +1251,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && warn_redundant_decls
       /* Don't warn about a function declaration followed by a
 	 definition.  */
-    && !(TREE_CODE (newdecl) == FUNCTION_DECL
-	 && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
-    /* Don't warn about an extern followed by a definition.  */
-    && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl)))
+      && !(TREE_CODE (newdecl) == FUNCTION_DECL
+	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl))
+      /* Don't warn about an extern followed by a definition.  */
+      && !(DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl))
+      /* Don't warn about forward parameter decls.  */
+      && !(TREE_CODE (newdecl) == PARM_DECL
+	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl)))
     {
       warning ("%Jredundant redeclaration of '%D'", newdecl, newdecl);
       warned = true;
@@ -1465,14 +1478,16 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     }
 
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
-     But preserve OLDDECL's DECL_UID.  */
+     But preserve OLDDECL's DECL_UID and C_DECL_INVISIBLE.  */
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
+    unsigned olddecl_invisible = C_DECL_INVISIBLE (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
+    C_DECL_INVISIBLE (olddecl) = olddecl_invisible;
   }
 
   /* If OLDDECL had its DECL_RTL instantiated, re-invoke make_decl_rtl
@@ -1557,7 +1572,9 @@ warn_if_shadowing (tree x, tree old)
 	 It would be nice to avoid warning in any function
 	 declarator in a declaration, as opposed to a definition,
 	 but there is no way to tell it's not a definition.  */
-      || (TREE_CODE (x) == PARM_DECL && current_scope->outer->parm_flag))
+      || (TREE_CODE (x) == PARM_DECL && current_scope->outer->parm_flag)
+      /* Shadow warnings only apply to local variables and parameters.  */
+      || (TREE_CODE (x) != PARM_DECL && DECL_FILE_SCOPE_P (x)))
     return;
 
   if (TREE_CODE (old) == PARM_DECL)
@@ -1724,13 +1741,15 @@ pushdecl (tree x)
 	 scope ends.  Take care not to do this if we are replacing an
 	 older decl in the same scope (i.e.  duplicate_decls returned
 	 false, above).  */
-      if (scope != global_scope
-	  && IDENTIFIER_SYMBOL_VALUE (name)
-	  && IDENTIFIER_SYMBOL_VALUE (name) != old)
+      if (scope != global_scope)
 	{
-	  warn_if_shadowing (x, IDENTIFIER_SYMBOL_VALUE (name));
-	  scope->shadowed = tree_cons (name, IDENTIFIER_SYMBOL_VALUE (name),
-				       scope->shadowed);
+	  tree inherited_decl = lookup_name (name);
+	  if (inherited_decl && inherited_decl != old)
+	    {
+	      warn_if_shadowing (x, inherited_decl);
+	      scope->shadowed = tree_cons (name, inherited_decl,
+					   scope->shadowed);
+	    }
 	}
 
       /* Install the new declaration in the requested scope.  */
@@ -3361,7 +3380,7 @@ grokdeclarator (tree declarator, tree declspecs,
 		{
 		  if (i == RID_CONST || i == RID_VOLATILE || i == RID_RESTRICT)
 		    {
-		      if (!flag_isoc99)
+		      if (pedantic && !flag_isoc99)
 			pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
 		    }
 		  else
@@ -3618,12 +3637,15 @@ grokdeclarator (tree declarator, tree declspecs,
   volatilep
     = !! (specbits & 1 << (int) RID_VOLATILE) + TYPE_VOLATILE (element_type);
   inlinep = !! (specbits & (1 << (int) RID_INLINE));
-  if (constp > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `const'");
-  if (restrictp > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `restrict'");
-  if (volatilep > 1 && ! flag_isoc99)
-    pedwarn ("duplicate `volatile'");
+  if (pedantic && !flag_isoc99)
+    {
+      if (constp > 1)
+	pedwarn ("duplicate `const'");
+      if (restrictp > 1)
+	pedwarn ("duplicate `restrict'");
+      if (volatilep > 1)
+	pedwarn ("duplicate `volatile'");
+    }
   if (! flag_gen_aux_info && (TYPE_QUALS (type)))
     type = TYPE_MAIN_VARIANT (type);
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
@@ -4076,12 +4098,15 @@ grokdeclarator (tree declarator, tree declspecs,
 
 	      if (erred)
 		error ("invalid type modifier within pointer declarator");
-	      if (constp > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `const'");
-	      if (volatilep > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `volatile'");
-	      if (restrictp > 1 && ! flag_isoc99)
-		pedwarn ("duplicate `restrict'");
+	      if (pedantic && !flag_isoc99)
+		{
+		  if (constp > 1)
+		    pedwarn ("duplicate `const'");
+		  if (volatilep > 1)
+		    pedwarn ("duplicate `volatile'");
+		  if (restrictp > 1)
+		    pedwarn ("duplicate `restrict'");
+		}
 
 	      type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 			    | (restrictp ? TYPE_QUAL_RESTRICT : 0)
@@ -4393,7 +4418,7 @@ grokdeclarator (tree declarator, tree declspecs,
 
 	/* It is invalid to create an `extern' declaration for a
 	   variable if there is a global declaration that is
-	   `static'.  */
+	   `static' and the global declaration is not visible.  */
 	if (extern_ref && current_scope != global_scope)
 	  {
 	    tree global_decl;
@@ -4401,6 +4426,7 @@ grokdeclarator (tree declarator, tree declspecs,
 	    global_decl = identifier_global_value (declarator);
 	    if (global_decl
 		&& TREE_CODE (global_decl) == VAR_DECL
+		&& lookup_name (declarator) != global_decl
 		&& !TREE_PUBLIC (global_decl))
 	      error ("variable previously declared `static' redeclared "
 		     "`extern'");
@@ -4985,11 +5011,20 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  && TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (x))) == NULL_TREE)
 	{
 	  if (TREE_CODE (t) == UNION_TYPE)
-	    error ("%Jflexible array member in union", x);
+	    {
+	      error ("%Jflexible array member in union", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	  else if (TREE_CHAIN (x) != NULL_TREE)
-	    error ("%Jflexible array member not at end of struct", x);
+	    {
+	      error ("%Jflexible array member not at end of struct", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	  else if (! saw_named_field)
-	    error ("%Jflexible array member in otherwise empty struct", x);
+	    {
+	      error ("%Jflexible array member in otherwise empty struct", x);
+	      TREE_TYPE (x) = error_mark_node;
+	    }
 	}
 
       if (pedantic && TREE_CODE (t) == RECORD_TYPE

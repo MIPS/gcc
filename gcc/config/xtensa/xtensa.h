@@ -774,7 +774,7 @@ typedef struct xtensa_args
   int incoming;
 } CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)		\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (&CUM, 0)
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME)		\
@@ -820,9 +820,6 @@ typedef struct xtensa_args
   ((TYPE) != 0								\
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
        || TREE_ADDRESSABLE (TYPE)))
-
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1
 
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not

@@ -1046,7 +1046,18 @@ remove_unreachable_regions (rtx insns)
     }
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    reachable[uid_region_num[INSN_UID (insn)]] = true;
+    {
+      reachable[uid_region_num[INSN_UID (insn)]] = true;
+
+      if (GET_CODE (insn) == CALL_INSN
+	  && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
+	for (i = 0; i < 3; i++)
+	  {
+	    rtx sub = XEXP (PATTERN (insn), i);
+	    for (; sub ; sub = NEXT_INSN (sub))
+	      reachable[uid_region_num[INSN_UID (sub)]] = true;
+	  }
+    }
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -3241,8 +3252,18 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
       /* An exception specification adds its filter to the
 	 beginning of the chain.  */
       next = collect_one_action_chain (ar_hash, region->outer);
-      return add_action_record (ar_hash, region->u.allowed.filter,
-				next < 0 ? 0 : next);
+
+      /* If there is no next action, terminate the chain.  */
+      if (next == -1)
+	next = 0;
+      /* If all outer actions are cleanups or must_not_throw,
+	 we'll have no action record for it, since we had wanted
+	 to encode these states in the call-site record directly.
+	 Add a cleanup action to the chain to catch these.  */
+      else if (next <= 0)
+	next = add_action_record (ar_hash, 0, 0);
+      
+      return add_action_record (ar_hash, region->u.allowed.filter, next);
 
     case ERT_MUST_NOT_THROW:
       /* A must-not-throw region with no inner handlers or cleanups

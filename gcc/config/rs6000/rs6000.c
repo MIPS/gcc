@@ -395,7 +395,7 @@ static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
 static rtx rs6000_mixed_function_arg (CUMULATIVE_ARGS *,
 				      enum machine_mode, tree, int);
-static void rs6000_move_block_from_reg(int regno, rtx x, int nregs);
+static void rs6000_move_block_from_reg (int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree,
 				    int *, int);
@@ -610,6 +610,8 @@ static const char alt_reg_names[][8] =
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 #undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_SPLIT_COMPLEX_ARG
+#define TARGET_SPLIT_COMPLEX_ARG hook_bool_tree_true
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
@@ -704,11 +706,6 @@ rs6000_override_options (const char *default_cpu)
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
 
-  /* Save current -mmultiple/-mno-multiple status.  */
-  int multiple = TARGET_MULTIPLE;
-  /* Save current -mstring/-mno-string status.  */
-  int string = TARGET_STRING;
-
   /* Some OSs don't support saving the high part of 64-bit registers on
      context switch.  Other OSs don't support saving Altivec registers.
      On those OSs, we don't touch the MASK_POWERPC64 or MASK_ALTIVEC
@@ -730,6 +727,10 @@ rs6000_override_options (const char *default_cpu)
   if (OS_MISSING_ALTIVEC)
     set_masks &= ~MASK_ALTIVEC;
 #endif
+
+  /* Don't override these by the processor default if given explicitly.  */
+  set_masks &= ~(target_flags_explicit
+		 & (MASK_MULTIPLE | MASK_STRING | MASK_SOFT_FLOAT));
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
@@ -766,17 +767,7 @@ rs6000_override_options (const char *default_cpu)
   /* If we are optimizing big endian systems for space, use the load/store
      multiple and string instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
-    target_flags |= MASK_MULTIPLE | MASK_STRING;
-
-  /* If -mmultiple or -mno-multiple was explicitly used, don't
-     override with the processor default */
-  if ((target_flags_explicit & MASK_MULTIPLE) != 0)
-    target_flags = (target_flags & ~MASK_MULTIPLE) | multiple;
-
-  /* If -mstring or -mno-string was explicitly used, don't override
-     with the processor default.  */
-  if ((target_flags_explicit & MASK_STRING) != 0)
-    target_flags = (target_flags & ~MASK_STRING) | string;
+    target_flags |= ~target_flags_explicit & (MASK_MULTIPLE | MASK_STRING);
 
   /* Don't allow -mmultiple or -mstring on little endian systems
      unless the cpu is a 750, because the hardware doesn't support the
@@ -995,6 +986,11 @@ rs6000_override_options (const char *default_cpu)
 
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
+
+  /* We should always be splitting complex arguments, but we can't break
+     Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
+  if (DEFAULT_ABI != ABI_AIX)
+    targetm.calls.split_complex_arg = NULL;
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
@@ -1022,12 +1018,16 @@ rs6000_parse_abi_options (void)
   if (rs6000_abi_string == 0)
     return;
   else if (! strcmp (rs6000_abi_string, "altivec"))
-    rs6000_altivec_abi = 1;
+    {
+      rs6000_altivec_abi = 1;
+      rs6000_spe_abi = 0;
+    }
   else if (! strcmp (rs6000_abi_string, "no-altivec"))
     rs6000_altivec_abi = 0;
   else if (! strcmp (rs6000_abi_string, "spe"))
     {
       rs6000_spe_abi = 1;
+      rs6000_altivec_abi = 0;
       if (!TARGET_SPE_ABI)
 	error ("not configured for ABI: '%s'", rs6000_abi_string);
     }
@@ -2409,6 +2409,43 @@ word_offset_memref_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return (off % 4) == 0;
 }
 
+/* Return true if operand is a (MEM (PLUS (REG) (offset))) where offset
+   is not divisible by four.  */
+
+int
+invalid_gpr_mem (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  rtx addr;
+  long off;
+
+  if (GET_CODE (op) != MEM)
+    return 0;
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) != PLUS
+      || GET_CODE (XEXP (addr, 0)) != REG
+      || GET_CODE (XEXP (addr, 1)) != CONST_INT)
+    return 0;
+
+  off = INTVAL (XEXP (addr, 1));
+  return (off & 3) != 0;
+}
+
+/* Return true if operand is a hard register that can be used as a base
+   register.  */
+
+int
+base_reg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  unsigned int regno;
+
+  if (!REG_P (op))
+    return 0;
+
+  regno = REGNO (op);
+  return regno != 0 && regno <= 31;
+}
+
 /* Return true if either operand is a general purpose register.  */
 
 bool
@@ -2533,18 +2570,16 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 
     case DFmode:
     case DImode:
-      if (mode == DFmode || !TARGET_POWERPC64)
+      /* Both DFmode and DImode may end up in gprs.  If gprs are 32-bit,
+	 then we need to load/store at both offset and offset+4.  */
+      if (!TARGET_POWERPC64)
 	extra = 4;
-      else if (offset & 3)
-	return false;
       break;
 
     case TFmode:
     case TImode:
-      if (mode == TFmode || !TARGET_POWERPC64)
+      if (!TARGET_POWERPC64)
 	extra = 12;
-      else if (offset & 3)
-	return false;
       else
 	extra = 8;
       break;
@@ -2553,7 +2588,8 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       break;
     }
 
-  return (offset + extra >= offset) && (offset + extra + 0x8000 < 0x10000);
+  offset += 0x8000;
+  return (offset < 0x10000) && (offset + extra < 0x10000);
 }
 
 static bool
@@ -3803,7 +3839,8 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 
 void
 init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, 
-	rtx libname ATTRIBUTE_UNUSED, int incoming, int libcall)
+		      rtx libname ATTRIBUTE_UNUSED, int incoming,
+		      int libcall, int n_named_args)
 {
   static CUMULATIVE_ARGS zero_cumulative;
 
@@ -3820,17 +3857,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 	&& (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
 	    != void_type_node));
 
-  if (incoming)
-    cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
-
-  else if (cum->prototype)
-    cum->nargs_prototype = (list_length (TYPE_ARG_TYPES (fntype)) - 1
-			    + (TYPE_MODE (TREE_TYPE (fntype)) == BLKmode
-			       || rs6000_return_in_memory (TREE_TYPE (fntype),
-							   fntype)));
-
-  else
-    cum->nargs_prototype = 0;
+  cum->nargs_prototype = 0;
+  if (incoming || cum->prototype)
+    cum->nargs_prototype = n_named_args;
 
   /* Check for a longcall attribute.  */
   if (fntype
@@ -4406,7 +4435,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 				    /* If this is partially on the stack, then
 				       we only include the portion actually
 				       in registers here.  */
-				    ? gen_rtx_REG (SImode,
+				    ? gen_rtx_REG (Pmode,
 					       GP_ARG_MIN_REG + align_words)
 				    : gen_rtx_REG (mode,
 					       GP_ARG_MIN_REG + align_words))),
@@ -8376,12 +8405,14 @@ addrs_ok_for_quad_peep (rtx addr1, rtx addr2)
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
-   NO_REGS is returned.  */
+   NO_REGS is returned.  INP is nonzero if we are loading the reg, zero
+   for storing.  */
 
 enum reg_class
-secondary_reload_class (enum reg_class class, 
-			enum machine_mode mode ATTRIBUTE_UNUSED,
-			rtx in)
+secondary_reload_class (enum reg_class class,
+			enum machine_mode mode,
+			rtx in,
+			int inp)
 {
   int regno;
 
@@ -8405,6 +8436,14 @@ secondary_reload_class (enum reg_class class,
               || GET_CODE (in) == CONST))
         return BASE_REGS;
     }
+
+  /* A 64-bit gpr load or store using an offset that isn't a multiple of
+     four needs a secondary reload.  */
+  if (TARGET_POWERPC64
+      && GET_MODE_UNIT_SIZE (mode) >= 8
+      && (!inp || class != BASE_REGS)
+      && invalid_gpr_mem (in, mode))
+    return BASE_REGS;
 
   if (GET_CODE (in) == REG)
     {
@@ -15722,6 +15761,7 @@ rs6000_complex_function_value (enum machine_mode mode)
   unsigned int regno;
   rtx r1, r2;
   enum machine_mode inner = GET_MODE_INNER (mode);
+  unsigned int inner_bytes = GET_MODE_SIZE (inner);
 
   if (FLOAT_MODE_P (mode))
     regno = FP_ARG_RETURN;
@@ -15730,15 +15770,17 @@ rs6000_complex_function_value (enum machine_mode mode)
       regno = GP_ARG_RETURN;
 
       /* 32-bit is OK since it'll go in r3/r4.  */
-      if (TARGET_32BIT
-	  && GET_MODE_BITSIZE (inner) >= 32)
+      if (TARGET_32BIT && inner_bytes >= 4)
 	return gen_rtx_REG (mode, regno);
     }
+
+  if (inner_bytes >= 8)
+    return gen_rtx_REG (mode, regno);
 
   r1 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno),
 			  const0_rtx);
   r2 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno + 1),
-			  GEN_INT (GET_MODE_UNIT_SIZE (inner)));
+			  GEN_INT (inner_bytes));
   return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
 }
 
@@ -15783,7 +15825,7 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
 	   && TARGET_HARD_FLOAT
-	   && SPLIT_COMPLEX_ARGS)
+	   && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
   else if (TREE_CODE (valtype) == VECTOR_TYPE && TARGET_ALTIVEC)
     regno = ALTIVEC_ARG_RETURN;
@@ -15805,7 +15847,7 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = FP_ARG_RETURN;
   else if (ALTIVEC_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
-  else if (COMPLEX_MODE_P (mode) && SPLIT_COMPLEX_ARGS)
+  else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
   else
     regno = GP_ARG_RETURN;

@@ -390,6 +390,9 @@ override_options (void)
 	  warning ("trap mode not supported for VAX floats");
 	  alpha_fptm = ALPHA_FPTM_SU;
 	}
+      if (target_flags_explicit & MASK_LONG_DOUBLE_128)
+	warning ("128-bit long double not supported for VAX floats");
+      target_flags &= ~MASK_LONG_DOUBLE_128;
     }
 
   {
@@ -1590,6 +1593,10 @@ alpha_in_small_data_p (tree exp)
 {
   /* We want to merge strings, so we never consider them small data.  */
   if (TREE_CODE (exp) == STRING_CST)
+    return false;
+
+  /* Functions are never in the small data area.  Duh.  */
+  if (TREE_CODE (exp) == FUNCTION_DECL)
     return false;
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
@@ -5895,7 +5902,7 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
   else
     {
 #ifdef ENABLE_CHECKING
-      /* With SPLIT_COMPLEX_ARGS, we shouldn't see any raw complex
+      /* With alpha_split_complex_arg, we shouldn't see any raw complex
 	 values here.  */
       if (COMPLEX_MODE_P (mode))
 	abort ();
@@ -6110,6 +6117,15 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
     }
 
   return gen_rtx_REG (mode, regnum);
+}
+
+/* TCmode complex values are passed by invisible reference.  We 
+   should not split these values.  */
+
+static bool
+alpha_split_complex_arg (tree type)
+{
+  return TYPE_MODE (type) != TCmode;
 }
 
 static tree
@@ -10231,6 +10247,8 @@ alpha_init_libfuncs (void)
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 #undef TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 #define TARGET_PRETEND_OUTGOING_VARARGS_NAMED hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_SPLIT_COMPLEX_ARG
+#define TARGET_SPLIT_COMPLEX_ARG alpha_split_complex_arg
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
