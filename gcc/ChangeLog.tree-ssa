@@ -6,6 +6,7 @@
 	rs6000.o, insn-emit.o): Compile with -Wno-error.
 
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+            Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_blocks): Don't always start a new block with
 	COND_EXPR and SWITCH_EXPR statements.
