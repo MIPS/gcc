@@ -1,3 +1,154 @@
+2003-03-03  Benjamin Kosnik  <benjamin@redhat.com>
+
+	* config/linker-map.gnu (GLIBCPP_3.2.3): New.
+	Add new symbols.
+	* testsuite/abi_check.cc: Update.
+
+2003-03-03 Jerry Quinn  <jlquinn@optonline.net>
+           Benjamin Kosnik  <benjamin@redhat.com>
+	
+	* include/bits/locale_facets.h (__num_base): Add _S_atoms_out.
+	Add indexes into this array.
+	(__num_base::_S_atoms): To _S_atoms_in.
+	(num_put::_M_insert): Rename to _M_pad.
+	(num_put::_M_convert_int): Adjust remove __mod, __modl arguments.
+	(num_put::_M_widen_int): Rename to _M_group_int.
+	(num_put::_M_widen_float): Rename to _M_group_float.	
+	* include/bits/locale_facets.tcc (__int_to_char): New inline
+	function and adapter functions.
+	(num_put::_M_group_int): Streamline.
+	(num_put::_M_group_float): Streamline.	
+	(num_put::_M_convert_int): Remove unused parameter names. Choose
+	large enough buffer for text.  Use __int_to_char instead of
+	__convert_from_v.  Formatted text is now at the end of the buffer.
+	(num_put::_M_convert_float): Preliminary fixups.
+	* src/locale-inst.cc (__convert_from_v<long long>): Add ifdef.
+	(__int_to_char<unsigned long long>): Same.
+	(__int_to_char<char, unsigned long>): New.
+	(__int_to_char<char, unsigned long long>): New.
+	(__int_to_char<wchar_t, unsigned long>): New.
+	(__int_to_char<wchar_t, unsigned long long>): New.
+	* src/locale.cc: Add _S_atoms_in, _S_atoms_out.
+	
+2003-02-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base_storage.cc (main): Call
+	set_memory_limits.
+
+2003-02-28  Brad Spencer  <spencer@infointeractive.com>
+            Nathan Myers  <ncm@cantrip.org>
+	
+	* src/Makefile.am (stamp-debug): Clean.
+	* src/Makefile.in: Regenerate.
+
+2002-02-28  Loren J. Rittle  <ljrittle@acm.org>
+
+	* src/Makefile.am: Resolve non-portable use of $<.
+	* src/Makefile.in: Rebuilt.
+
+2002-02-28  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in (GLIBCPP_ENABLE_CXX_FLAGS):  Do not pass arguments,
+	let the defaults work.
+	* configure:  Regenerate.
+
+2002-02-28  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4:  Remove trailing whitespace.
+	(GLIBCPP_ENABLE_CXX_FLAGS):  Fix.
+	* aclocal.m4, configure:  Regenerate.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * configure.in (GLIBCPP_ENABLE_DEBUG): Default to none.
+	Call GLIBCPP_ENABLE_DEBUG_FLAGS.
+        * acinclude.m4 (GLIBCPP_ENABLE_DEBUG): GLIBCPP_BUILD_DEBUG, new
+        conditional if --enable-debug is yes. Rework.
+	(GLIBCPP_ENABLE_DEBUG_FLAGS): New.
+        * aclocal.m4: Regenerate.
+	* libio/Makefile.am: Remove DEBUG_FLAGS.
+	* libio/Makefile.in: Regenerate.	
+	* libsupc++/Makefile.am: Remove DEBUG_FLAGS.
+	* libsupc++/Makefile.in: Regenerate.	
+	* docs/html/configopts.html: Add docs for --enable-debug,
+	--enable-debug-flags.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Correct dependency tracking, build warts.
+	* configure.in: Correct repeated AC_OUTPUT thrashing by
+	config-ml.in
+	* configure: Regenerate.
+	* include/Makefile.am (stamp-target): Stamp in top_builddir.
+	* include/Makefile.in: Regenerate.
+	* src/Makefile.am (codecvt_members.cc): New rule.
+	(collate_members.cc): Same.
+	(ctype_members.cc): Same.	
+	(messages_members.cc): Same.
+	(monetary_members.cc): Same.
+	(numeric_members.cc): Same.
+	(time_members.cc): Same.
+	(c++locale.cc): Same.
+	(basic_file.cc): Same.
+	* src/Makefile.in: Regenerate.
+	* acinclude.m4 (CCTYPE_CHAR_CC): Remove.
+	(CCCODECVT_CC): Don't link, AC_SUBST.
+	(CCOLLATE_CC): Same.
+	(CCTYPE_CC): Same.
+	(CMESSAGES_CC): Same.
+	(CMONEY_CC): Same.
+	(CNUMERIC_CC): Same.
+	(CTIME_CC): Same.
+	(CLOCALE_CC): Same.
+	* aclocal.m4: Regenerate.
+	
+	* src/Makefile.am (libstdc___la_LIBADD): Use top_builddir
+	for convenience libraries.
+	(version_arg): Rename linker.map to libstdc++.ver.
+	(libstdc___la_DEPENDENCIES): Remove linker.map, add
+	libstdc++-symbol.ver as a dependency.
+	(libstdc++-symbol.ver): Add rule.
+	* acinclude.m4 (GLIBCPP_ENABLE_SYMVERS): Change LINKER_MAP to
+	SYMVER_MAP. Don't link, AC_SUBST.
+
+	* include/Makefile.am (target_headers_noinst): New.
+	(stamp-target): Add CLOCALE_INTERNAL_H.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Don't link
+	CLOCALE_INTERNAL_H, AC_SUBST.
+	* config/locale/gnu/c_locale.cc: Modify c++locale_internal.h
+	include.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* config/locale/gnu/monetary_members.cc: Same.
+	* config/locale/gnu/messages_members.cc: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/collate_members.cc: Same.
+	* config/locale/gnu/codecvt_members.cc: Same.
+	* config/locale/generic/codecvt_members.cc: Remove.
+
+2003-02-27  Jerry Quinn  <jlquinn@optonline.net>
+
+        * config/locale/generic/messages_members.h (messages::messages):
+	Remove name from unused parameter.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (stamp-std-precompile): Add rule.
+	* include/Makefile.in: Regenerated.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config (_GLIBCPP_EXTERN_TEMPLATE): Define.
+	* include/bits/basic_ios.tcc: Guard use of extern template.
+	* include/std/std_iomanip.h: Same.
+	* include/bits/streambuf.tcc: Same.
+	* include/bits/stl_alloc.h: Same.
+	* include/bits/locale_facets.tcc: Same.
+	* include/bits/ostream.tcc: Same.
+	* include/bits/istream.tcc: Same.
+	* include/bits/fstream.tcc: Same.
+	* include/bits/basic_string.tcc: Same.
+
 2003-02-25  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/9825

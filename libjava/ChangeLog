@@ -1,3 +1,210 @@
+2003-03-03  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (handle_jsr_insn): Don't fail if `jsr' appears at end
+	of bytecode.
+	(handle_ret_insn): Fail if returning to jsr that appears at end of
+	bytecode.
+
+2003-03-02  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Properties.java (load): Only skip line if the first
+	character is a comment, whitespaces don't count.
+
+2003-03-01  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* posix-threads.cc: Include <unistd.h> if HAVE_UNISTD_H is defined.
+	(_Jv_ThreadSetPriority): Test for _POSIX_THREAD_PRIORITY_SCHEDULING.
+
+2003-03-01  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/File.java (normalizePath): Remove trailing separator
+	on Windows only if path is not of the form "x:\".
+
+	* java/io/natFileWin32.cc (WIN32_EPOCH_MILLIS): New constant.
+	(java::io::File::attr): Change formatting a bit and use
+	WIN32_EPOCH_MILLIS instead of magic numbers.
+	(java::io::File::isAbsolute): Path must have at least 3 
+	characters for a UNC network path.
+	(java::io::File::init_native): Define.
+	(java::io::File::performCreate): Likewise.
+	(java::io::File::performSetReadOnly): Likewise.
+	(java::io::File::performSetLastModified): Likewise.
+	(java::io::File::performListRoots): Likewise.
+
+2003-03-01  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(closed): New member variable.
+	(close): Use closed variable.
+	(getInetAddress): No need to call isConnected().
+	(getPort): No need to call isConnected().
+	(disconnect): Reset remoteAddress and remotePort, fixed typo.
+	(isClosed): Reimplemented.
+
+2003-03-01  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/File (getAbsolutePath): Prefix drive specifier on
+	Windows for paths starting with a '\'.
+	(toURL): Make URL more consistent with what Sun's JDK returns.
+
+	* java/io/natFileWin32.cc (java::io::File::isAbsolute): Return
+	true only if the path is a UNC network path or it starts with a
+	drive specifier.
+
+	* java/net/URLStreamHandler.java (parseURL): Correct minor typo.
+	Be prepared to handle either '/' or '\\' in the file path for
+	Windows if using the "file" protocol.
+	Canonicalise the file path if using a relative path in the given
+	context and the "file" protocol.
+
+2003-03-01  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/natWin32Process.cc (startProcess): Double-quote each
+	program array element passed to CreateProcess.
+
+2003-03-01  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natSocketChannelImpl.cc:
+	Reverse logic for DISABLE_JAVA_NET. Thanks to Krister Walfridsson
+	<cato@df.lth.se> for pointing to it.
+
+	* gnu/java/nio/natSocketChannelImpl.cc:
+	Added support for platforms without network support.
+
+	* java/nio/channels/FileChannel.java
+	(toString): New implementation, added documentation.
+	(map): Added exception documentation.
+	(size): Added exception documentation.
+	(write): New methods, documentation work.
+	(read): New methods, documentation work.
+	(implCloseChannel): Rewrote exception documentation.
+	(force): Throws IOException, added documentation.
+	(lock): New methods.
+	(tryLock): New methods.
+	(position): New methods.
+	(transferTo): New method.
+	(transferFrom): New method.
+	(truncate): New method.
+	* java/nio/channels/spi/SelectorProvider.java
+	(provider): Implemented.
+	* Makefile.am
+	(ordinary_java_source_files): Added the following files:
+	gnu/java/nio/DatagramChannelImpl.java
+	gnu/java/nio/FileChannelImpl.java
+	gnu/java/nio/PipeImpl.java
+	gnu/java/nio/SelectionKeyImpl.java
+	gnu/java/nio/SelectorImpl.java
+	gnu/java/nio/SelectorProviderImpl.java
+	gnu/java/nio/ServerSocketChannelImpl.java
+	gnu/java/nio/SocketChannelImpl.java
+	java/nio/channels/FileLock.java
+	(nat_java_source_files): Added the following files:
+	gnu/java/nio/natFileChannelImpl.cc
+	gnu/java/nio/natSelectorImpl.cc
+	gnu/java/nio/natSocketChannelImpl.cc
+	* Makefile.in: Regenerated.
+
+2003-03-01  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Renamed two variables.
+	* gnu/java/nio/CharBufferImpl.java
+	(CharBufferImpl): Renamed two variables.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Renamed two variables.
+	* gnu/java/nio/FloatBufferImpl.java
+	(FloatBufferImpl): Renamed two variables.
+	* gnu/java/nio/IntBufferImpl.java
+	(IntBufferImpl): Renamed two variables.
+	* gnu/java/nio/LongBufferImpl.java
+	(LongBufferImpl): Renamed two variables.
+	* gnu/java/nio/ShortBufferImpl.java
+	(ShortBufferImpl): Renamed two variables.
+	* java/nio/CharBuffer.java
+	(wrap): Fixed arguments to CharBufferImpl constructor.
+	(hasArray): Only not read-only buffers have backing arrays.
+	(length): Documentation added.
+	(subSequence): Documentation added.
+	* java/nio/DoubleBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/FloatBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/IntBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/LongBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/ShortBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+
+2003-03-01  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectInputStream.java: Reindent.
+	* java/io/ObjectOutputStream.java: Likewise.
+
+2003-02-28  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Allocate a full
+	jvalue for each argument. Simplify.
+	* testsuite/libjava.jni/calls.c (docall),
+	testsuite/libjava.jni/calls.java (longpb_f): check for argument
+	misalignment.
+
+2003-02-28  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (nat_source_files): Remove
+	java/io/natObjectOutputStream.cc.
+	* Makefile.in: Regenerated.
+	* mauve-libgcj: Don't exclude java.io.ObjectInputOutput tests.
+	* java/io/ObjectStreamField.java (typename): New field.
+	(ObjectStreamField(String, Class)): Initialize new field.
+	(ObjectStreamField(String, String)): New Constructor.
+	(getTypeCode): Use new field.
+	(getTypeString): Use new field.
+	* java/io/ObjectOutputStream.java (writeObject): Rethrow fatal
+	ObjectStreamExceptions. Remember and reset old BlockDataMode.
+	Handle reading of Proxy classes. Never drain(), just write
+	TC_ENDBLOCKDATA. Rethrow ObjectStreamExceptions.
+	(drain): Check writeDataAsBlocks before calling writeBlockDataHeader.
+	(flush): Call flush(), not just drain().
+	(writeBoolean): Always use blockDataOutput.
+	(writeByte): Likewise.
+	(writeShort): Likewise.
+	(writeChar): Likewise.
+	(writeInt): Likewise.
+	(writeLong): Likewise.
+	(writeFloat): Likewise.
+	(writeDouble): Likewise.
+	(writeBytes): Likewise.
+	(putfield (put(String,Object))): Throw IllegalArgumentException if
+	field cannot be found.
+	(putfield (write(ObjectOutput))): Remember old BlockDataMode.
+	(writeArraySizeAndElements): Write byte[] in one go.
+	(writeFields): Write TC_ENDBLOCKDATA when call_write_method, otherwise
+	set BlockDataMode to false.
+	(annotateProxyClass): New method.
+	(defaultProtocolVersion): Now defaults to PROTOCOL_VERSION_2
+	(getField): No longer native.
+	(getMethod): Likewise.
+	(setBlockDataMode): Always drain() on switch, return old mode.
+	(static): New static code block.
+	* java/io/natObjectOutputStream.cc: Removed.
+	* java/io/ObjectInputStream.java (getField): No longer native.
+	(getMethod): Likewise.
+	(readObject): Remember and reset old BlockDataMode. Track whether
+	object is consumed. Handle TC_ENDBLOCKDATA, TC_PROXYCLASSDESC and
+	TC_LONGSTRING.
+	(defaultReadObject): Set BlockDataMode to false during readFields.
+	(resolveClass): Create new SecurityManager if necessary.
+	Use Class.forName() if null ClassLoader found.
+	(read(byte[],int,int): Copy remaining bytes to data before calling
+	readNextBlock().
+	(readFields): Set and reset BlockDataMode on call_read_method.
+	Catch NoSuchFieldErrors.
+	(setBlockDataMode): Return old mode.
+	(static): New static code block.
+	* java/io/natObjectInputStream.cc (getField): Removed.
+	(getMethod): Likewise.
+
 2003-02-21  Mark Wielaard  <mark@klomp.org>
 
 	* java/util/zip/ZipEntry.java (setComment): Don't check length when

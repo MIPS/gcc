@@ -10190,8 +10190,9 @@ gen_lowpart_for_combine (mode, x)
       && GET_CODE (result) == SUBREG
       && GET_CODE (SUBREG_REG (result)) == REG
       && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER)
-    SET_REGNO_REG_SET (&subregs_of_mode[GET_MODE (result)],
-		       REGNO (SUBREG_REG (result)));
+    bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (result))
+				      * MAX_MACHINE_MODE
+				      + GET_MODE (result));
 #endif
 
   if (result)
@@ -11121,6 +11122,9 @@ simplify_comparison (code, pop0, pop1)
 	     represents the low part, permute the SUBREG and the AND and
 	     try again.  */
 	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
+	      /* Require an integral mode, to avoid creating something like
+		 (AND:SF ...).  */
+	      && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (XEXP (op0, 0))))
 	      && (0
 #ifdef WORD_REGISTER_OPERATIONS
 		  || ((mode_width
