@@ -1,3 +1,8 @@
+2003-06-22  Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.in (old-tree-inline.o): Remove rule.
+	* old-tree-inline.c: Remove.
+
 2003-06-19  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_ctrl_stmt_edges): Do not create bogus edges
