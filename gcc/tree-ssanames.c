@@ -61,8 +61,8 @@ unsigned int highest_ssa_version;
                                                                                 
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
-static varray_type free_ssanames = NULL;
-                                                                                
+static GTY ((deletable (""))) tree free_ssanames;
+
 /* Version numbers with special meanings.  We start allocating new version
    numbers after the special ones.  */
 #define UNUSED_NAME_VERSION 0
@@ -78,7 +78,7 @@ void
 init_ssanames (void)
 {
   highest_ssa_version = UNUSED_NAME_VERSION + 1;
-  VARRAY_TREE_INIT (free_ssanames, 1, "Free List of SSA_NAME exprs");
+  free_ssanames = NULL;
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -121,12 +121,12 @@ make_ssa_name (tree var, tree stmt)
   /* If our free list has an element, then use it.  Also reuse the
      SSA version number of the element on the free list which helps
      keep sbitmaps and arrays sized HIGHEST_SSA_VERSION smaller.  */
-  if (VARRAY_ACTIVE_SIZE (free_ssanames) > 0)
+  if (free_ssanames)
     {
       unsigned int save_version;
 
-      t = VARRAY_TOP_TREE (free_ssanames);
-      VARRAY_POP (free_ssanames);
+      t = free_ssanames;
+      free_ssanames = TREE_CHAIN (free_ssanames);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
@@ -170,6 +170,7 @@ release_ssa_name (tree var)
   if (SSA_NAME_DEF_STMT (var) != NULL)
     {
       SSA_NAME_DEF_STMT (var) = NULL;
-      VARRAY_PUSH_TREE (free_ssanames, var);
+      TREE_CHAIN (var) = free_ssanames;
+      free_ssanames = var;
     }
 }

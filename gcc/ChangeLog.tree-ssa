@@ -1,3 +1,8 @@
+2003-11-20  Jeff Law  <law@redhat.com>
+
+	* tree-ssanames.c (free_ssanames): No longer a varray.
+	(init_ssanames, make_ssa_name, release_ssa_name): Corresponding changes.
+
 2003-11-20  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-ssanames.c (ssanames_print_statistics): Use ISO function
