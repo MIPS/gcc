@@ -2639,13 +2639,35 @@ mio_namespace_ref (gfc_namespace ** nsp)
 static void
 mio_symbol (gfc_symbol * sym)
 {
+  gfc_formal_arglist *formal;
 
   mio_lparen ();
 
   mio_symbol_attribute (&sym->attr);
   mio_typespec (&sym->ts);
 
-  mio_namespace_ref (&sym->formal_ns);
+  /* Contained procedures don't have formal namespaces.  Instead we output the
+     procedure namespace.  The will contain the formal arguments.  */
+  if (iomode == IO_OUTPUT)
+    {
+      formal = sym->formal;
+      while (formal && !formal->sym)
+	formal = formal->next;
+
+      if (formal)
+	mio_namespace_ref (&formal->sym->ns);
+      else
+	mio_namespace_ref (&sym->formal_ns);
+    }
+  else
+    {
+      mio_namespace_ref (&sym->formal_ns);
+      if (sym->formal_ns)
+	{
+	  sym->formal_ns->proc_name = sym;
+	  sym->refs++;
+	}
+    }
 
   /* Save/restore common block links */
   mio_symbol_ref (&sym->common_head);
@@ -2828,9 +2850,6 @@ load_needed (pointer_info * p)
 
 	  ns = gfc_get_namespace (NULL);
 	  associate_integer_pointer (q, ns);
-
-	  ns->sibling = gfc_current_ns->contained;
-	  gfc_current_ns->contained = ns;
 	}
 
       sym = gfc_new_symbol (p->u.rsym.true_name, ns);
@@ -3350,7 +3369,7 @@ gfc_dump_module (const char *name, int dump_flag)
 
   *strchr (p, '\n') = '\0';
 
-  fprintf (module_fp, "G95 module created from %s on %s\n", g->filename, p);
+  fprintf (module_fp, "GFORTRAN module created from %s on %s\n", g->filename, p);
   fputs ("If you edit this, you'll get what you deserve.\n\n", module_fp);
 
   iomode = IO_OUTPUT;

@@ -1,3 +1,9 @@
+2003-08-09  Paul Brook  <paul@nowt.org>
+
+	* module.c (mio_symbol): Always ouput a namespace for formal args.
+	(load_needed): Namespace now belong to their proper symbol.
+	(gfc_dump_module): Change G95=>GFORTRAN.
+
 2003-08-05  Paul Brook  <paul@nowt.org>
 
 	* options.c: Force -fg77-calls.
