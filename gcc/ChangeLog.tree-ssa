@@ -1,5 +1,13 @@
 2004-02-09  Jeff Law  <law@redhat.com>
 
+	* domwalk.c (walk_dominator_tree): Change last argument to be the
+	parent block in the dominator tree rather than the last statement
+	in the parent block in the dominator tree.  Similarly in all the
+	callbacks.
+	* domwalk.h (struct dom_walk_data): Update callback prototypes.
+	* tree-ssa-dom.c: Corresponding changes.
+	* tree-ssa.c: Likewise.
+
 	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Break out
 	of tree_ssa_dominator_optimize.  If the out-of-ssa pass creates
 	new variables, then invalidate some requested jump threads.

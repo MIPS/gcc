@@ -238,19 +238,21 @@ static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static bool cprop_into_stmt (tree);
 static void record_equivalences_from_phis (struct dom_walk_data *, basic_block);
 static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
-						    basic_block, tree);
+						    basic_block, basic_block);
 static bool eliminate_redundant_computations (struct dom_walk_data *,
 					      tree, stmt_ann_t);
 static void record_equivalences_from_stmt (tree, struct dom_walk_block_data *,
 					   int, stmt_ann_t);
 static void thread_across_edge (struct dom_walk_data *, edge);
-static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
+static void dom_opt_finalize_block (struct dom_walk_data *,
+				    basic_block, basic_block);
 static void dom_opt_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
 static void dom_opt_initialize_block (struct dom_walk_data *,
-				      basic_block, tree);
-static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
-static void cprop_into_phis (struct dom_walk_data *, basic_block, tree);
+				      basic_block, basic_block);
+static void dom_opt_walk_stmts (struct dom_walk_data *,
+				basic_block, basic_block);
+static void cprop_into_phis (struct dom_walk_data *, basic_block, basic_block);
 static void remove_local_expressions_from_table (varray_type locals,
 						 unsigned limit,
 						 htab_t table);
@@ -1025,13 +1027,12 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 static void
 dom_opt_initialize_block (struct dom_walk_data *walk_data,
 			  basic_block bb,
-			  tree parent_block_last_stmt)
+			  basic_block parent)
 {
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
-  record_equivalences_from_incoming_edge (walk_data, bb,
-					  parent_block_last_stmt);
+  record_equivalences_from_incoming_edge (walk_data, bb, parent);
 
   /* PHI nodes can create equivalences too.  */
   record_equivalences_from_phis (walk_data, bb);
@@ -1113,7 +1114,7 @@ extract_true_false_edges_from_block (basic_block b,
 static void
 dom_opt_finalize_block (struct dom_walk_data *walk_data,
 			basic_block bb,
-			tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+			basic_block parent ATTRIBUTE_UNUSED)
 {
   struct dom_walk_block_data *bd
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
@@ -1351,12 +1352,24 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 static void
 record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 					basic_block bb,
-					tree parent_block_last_stmt)
+					basic_block parent)
 {
   int edge_flags;
   struct eq_expr_value eq_expr_value;
+  tree parent_block_last_stmt = NULL;
   struct dom_walk_block_data *bd
-    = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+
+  /* If our parent block ended with a control statment, then we may be
+     able to record some equivalences based on which outgoing edge from
+     the parent was followed.  */
+	
+  if (parent)
+    {
+      parent_block_last_stmt = last_stmt (parent);
+      if (parent_block_last_stmt && !is_ctrl_stmt (parent_block_last_stmt))
+	parent_block_last_stmt = NULL;
+    }
 
   eq_expr_value.src = NULL;
   eq_expr_value.dst = NULL;
@@ -1479,7 +1492,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 static void
 dom_opt_walk_stmts (struct dom_walk_data *walk_data,
 		    basic_block bb,
-		    tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+		    basic_block parent ATTRIBUTE_UNUSED)
 {
   block_stmt_iterator si;
   struct dom_walk_block_data *bd
@@ -2366,7 +2379,7 @@ cprop_into_stmt (tree stmt)
 static void
 cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		 basic_block bb,
-		 tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+		 basic_block parent ATTRIBUTE_UNUSED)
 {
   edge e;
 
