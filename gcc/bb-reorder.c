@@ -504,23 +504,32 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	    {
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
-		  if (best_edge->dest != bb
-		      && best_edge->dest != ENTRY_BLOCK_PTR->next_bb
-		      && (EDGE_FREQUENCY (best_edge)
-			  > 4 * best_edge->dest->frequency / 5))
+		  /* We do nothing with one basic block loops.  */
+		  if (best_edge->dest != bb)
 		    {
-		      /* The loop has at least 4 iterations.  */
-		      if (rtl_dump_file)
+		      if (EDGE_FREQUENCY (best_edge)
+			  > 4 * best_edge->dest->frequency / 5)
 			{
-			  fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
-				   best_edge->dest->index, bb->index);
+			  /* The loop has at least 4 iterations.  If the loop
+			     header is not the first block of the function
+			     we can rotate the loop.  */
+
+			  if (best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
+			    {
+			      if (rtl_dump_file)
+				{
+				  fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
+					   best_edge->dest->index, bb->index);
+				}
+			      RBI (bb)->next = best_edge->dest;
+			      bb = rotate_loop (best_edge, trace, *n_traces);
+			    }
 			}
-		      RBI (bb)->next = best_edge->dest;
-		      bb = rotate_loop (best_edge, trace, *n_traces);
-		    }
-		  else if (copy_bb_p (best_edge->dest))
-		    {
-		      bb = copy_bb (best_edge->dest, best_edge, bb, *n_traces);
+		      else if (copy_bb_p (best_edge->dest))
+			{
+			  /* The loop has less than 4 iterations.  */
+			  bb = copy_bb (best_edge->dest, best_edge, bb, *n_traces);
+			}
 		    }
 
 		  /* Terminate the trace.  */
