@@ -285,7 +285,6 @@ public class GdkGraphics2D extends Graphics2D
   // simple passthroughs to cairo
   private native void cairoSave();
   private native void cairoRestore();
-  private native void cairoSetFont(GdkFontPeer fp);
   private native void cairoSetMatrix(double[] m);
   private native void cairoSetOperator(int cairoOperator);
   private native void cairoSetRGBColor(double red, double green, double blue);
@@ -1322,9 +1321,12 @@ public class GdkGraphics2D extends Graphics2D
   }
 
   // these are the most accelerated painting paths
-  native void cairoDrawGlyphVector(float x, float y, int n, int[] codes, float[] positions);
-  native void cairoDrawGdkTextLayout(GdkTextLayout gl, float x, float y);
-  native void cairoDrawString(String str, float x, float y);
+  native void cairoDrawGlyphVector(GdkFontPeer font, 
+                                   float x, float y, int n, 
+                                   int[] codes, float[] positions);
+
+  native void cairoDrawGdkTextLayout(GdkTextLayout gl, 
+                                     float x, float y);
 
   GdkFontPeer getFontPeer()
   {
@@ -1360,7 +1362,7 @@ public class GdkGraphics2D extends Graphics2D
     float[] positions = gv.getGlyphPositions (0, n, null);
     
     setFont (gv.getFont ());
-    cairoDrawGlyphVector (x, y, n, codes, positions);
+    cairoDrawGlyphVector (getFontPeer(), x, y, n, codes, positions);
     updateBufferedImage ();
   }
 
@@ -1416,11 +1418,6 @@ public class GdkGraphics2D extends Graphics2D
 
   static native void releasePeerGraphicsResource(GdkFontPeer f);
 
-  static native void getPeerTextMetrics(GdkFontPeer f, String str,
-                                        double[] metrics);
-
-  static native void getPeerFontMetrics(GdkFontPeer f, double[] metrics);
-
   public FontMetrics getFontMetrics()
   {
     return getFontMetrics(getFont());
@@ -1441,7 +1438,6 @@ public class GdkGraphics2D extends Graphics2D
       font = 
         ((ClasspathToolkit)(Toolkit.getDefaultToolkit()))
         .getFont(f.getName(), f.getAttributes());    
-    cairoSetFont(getFontPeer());
   }
 
   public String toString()

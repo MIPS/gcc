@@ -1,5 +1,33 @@
 2005-02-08  Graydon Hoare  <graydon@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java:
+	(finalize): Call finish from here.
+	(produce): Not from here.
+	* Makefile.am (gtk_c_source_files): 
+	Remove jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c.
+	* Makefile.in: Regenerate.
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(cairoSetFont):
+	(cairoDrawGdkTextLayout):
+	(cairoDrawString): 
+	(getPeerTextMetrics):
+	(getPeerFontMetrics): Remove.
+	(setFont): Don't call cairoSetFont.
+	(cairoDrawGlyphVector): Accept font peer argument.
+	(drawGlyphVector): Pass font peer to cairoDrawGlyphVector.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c	
+	(ensure_metrics_cairo):
+	(gnu_java_awt_peer_gtk_GdkGraphics2D_cairoSetFont):
+	(gnu_java_awt_peer_gtk_GdkGraphics2D_cairoDrawString):
+	(gnu_java_awt_peer_gtk_GdkGraphics2D_getPeerFontMetrics):
+	(gnu_java_awt_peer_gtk_GdkGraphics2D_getPeerTextMetrics):
+	(metrics_cairo):
+	(metrics_surface): Remove.
+	(gnu_java_awt_peer_gtk_GdkGraphics2D_cairoDrawGlyphVector):
+	Pass and install font peer.
+
+2005-02-08  Graydon Hoare  <graydon@redhat.com>
+
 	* Makefile.am: Create "split library" structure.
 	* Makefile.in: Regenerate.
 
