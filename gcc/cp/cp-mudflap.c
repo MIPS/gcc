@@ -1,4 +1,4 @@
-/* Mudflap: narrow-pointer bounds-checking by tree rewriting: 
+/* Mudflap: narrow-pointer bounds-checking by tree rewriting:
    C++ front-end interface.
 
    Copyright (C) 2002, 2003 Free Software Foundation, Inc.
@@ -50,12 +50,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Initialize the global tree nodes that correspond to mf-runtime.h
    declarations.  */
 tree
-mflang_lookup_decl (name)
-     const char* name;
+mflang_lookup_decl (const char* name)
 {
   tree decl = lookup_name (get_identifier (name), 1);
   if (decl == NULL_TREE)
-    internal_error ("mudflap: cannot find declaration of `%s' from mf-runtime.h", 
+    internal_error ("mudflap: cannot find declaration of `%s' from mf-runtime.h",
 		    name);
 
   return decl;
@@ -69,14 +68,11 @@ mflang_lookup_decl (name)
    know about a string literal, or the static data thingie may be out
    of the future scope).  To turn that into a validish C tree, we
    create a weird synthetic VAR_DECL node.
-*/ 
+*/
 
 tree
-mflang_register_call (label, regsize, regtype, regname)
-     const char* label;
-     tree regsize;
-     tree regtype;
-     tree regname;
+mflang_register_call (const char* label, tree regsize, tree regtype,
+		      tree regname)
 {
   tree decltype, decl;
   tree call_params;
@@ -103,11 +99,11 @@ mflang_register_call (label, regsize, regtype, regname)
   /* make_decl_rtl (decl,  build_string (strlen (label) + 1, label)); */
 
   call_params = tree_cons (NULL_TREE,
-			   convert (ptr_type_node, 
-				    mf_mark (build1 (ADDR_EXPR, 
+			   convert (ptr_type_node,
+				    mf_mark (build1 (ADDR_EXPR,
 						     build_pointer_type (TREE_TYPE (decl)),
 						     decl))),
-			   tree_cons (NULL_TREE, 
+			   tree_cons (NULL_TREE,
 				      convert (size_type_node, regsize),
 				      tree_cons (NULL_TREE,
 						 regtype,
@@ -129,8 +125,7 @@ mflang_register_call (label, regsize, regtype, regname)
    inline.  */
 
 void
-mflang_flush_calls (enqueued_call_stmt_chain)
-     tree enqueued_call_stmt_chain;
+mflang_flush_calls (tree enqueued_call_stmt_chain)
 {
   /* See profile.c (output_func_start_profiler) */
   tree fnname;
@@ -187,7 +182,7 @@ mflang_flush_calls (enqueued_call_stmt_chain)
     (*lang_expand_function_end) ();
   expand_function_end ();
   rest_of_compilation (fndecl);
-  if (! quiet_flag) 
+  if (! quiet_flag)
     fflush (asm_out_file);
   current_function_decl = NULL_TREE;
 

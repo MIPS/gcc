@@ -4694,12 +4694,8 @@ tree_vec_elt_check_failed (int idx, int len, const char *file, int line,
    (dynamically sized) vector.  */
 
 void
-ephi_node_elt_check_failed (idx, len, file, line, function)
-     int idx;
-     int len;
-     const char *file;
-     int line;
-     const char *function;
+ephi_node_elt_check_failed (int idx, int len, const char *file, int line,
+			    const char *function)
 {
   internal_error
     ("tree check: accessed elt %d of ephi_node with %d elts in %s, at %s:%d",
@@ -4710,12 +4706,8 @@ ephi_node_elt_check_failed (idx, len, file, line, function)
    (dynamically sized) vector.  */
 
 void
-phi_node_elt_check_failed (idx, len, file, line, function)
-     int idx;
-     int len;
-     const char *file;
-     int line;
-     const char *function;
+phi_node_elt_check_failed (int idx, int len, const char *file, int line,
+			    const char *function)
 {
   internal_error
     ("tree check: accessed elt %d of phi_node with %d elts in %s, at %s:%d",
@@ -4993,9 +4985,7 @@ initializer_zerop (tree init)
 }
 
 void
-add_var_to_bind_expr (bind_expr, var)
-     tree bind_expr;
-     tree var;
+add_var_to_bind_expr (tree bind_expr, tree var)
 {
   BIND_EXPR_VARS (bind_expr)
     = chainon (BIND_EXPR_VARS (bind_expr), var);
@@ -5008,9 +4998,7 @@ add_var_to_bind_expr (bind_expr, var)
 /* Return a new PHI_NODE for variable VAR and LEN number of arguments.  */
 
 tree
-make_phi_node (var, len)
-     tree var;
-     int len;
+make_phi_node (tree var, int len)
 {
   tree phi;
   int size;
@@ -5040,9 +5028,7 @@ make_phi_node (var, len)
    definition).  */
 
 tree
-make_ssa_name (var, stmt)
-     tree var;
-     tree stmt;
+make_ssa_name (tree var, tree stmt)
 {
   /* Next SSA version number.  Initialized by init_tree_ssa.  */
   extern unsigned long next_ssa_version;
@@ -5075,8 +5061,7 @@ make_ssa_name (var, stmt)
    appropriate reaching definition.  */
 
 tree
-build_vdef_expr (var)
-     tree var;
+build_vdef_expr (tree var)
 {
   if (!DECL_P (var) && TREE_CODE (var) != INDIRECT_REF)
     abort ();
@@ -5097,10 +5082,7 @@ build_empty_stmt (void)
 /* Links a stmt before the current stmt.  */
 
 void
-tsi_link_before (i, t, mode)
-     tree_stmt_iterator *i;
-     tree t;
-     enum tsi_iterator_update mode;
+tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   tree ce;
 
@@ -5121,10 +5103,7 @@ tsi_link_before (i, t, mode)
 /* Links a stmt after the current stmt.  */
 
 void
-tsi_link_after (i, t, mode)
-     tree_stmt_iterator *i;
-     tree t;
-     enum tsi_iterator_update mode;
+tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   tree ce;
   tree next;
@@ -5165,8 +5144,7 @@ tsi_link_after (i, t, mode)
    the next stmt.  */
 
 void
-tsi_delink (i)
-     tree_stmt_iterator *i;
+tsi_delink (tree_stmt_iterator *i)
 {
 
   if (TREE_CODE (*(i->tp)) == COMPOUND_EXPR)
@@ -5193,9 +5171,7 @@ tsi_delink (i)
    the list a place to start.  */
 
 tree_stmt_iterator 
-tsi_new_stmt_list (t, anchor)
-     tree t;
-     tree_stmt_anchor *anchor;
+tsi_new_stmt_list (tree t, tree_stmt_anchor *anchor)
 {
   tree_stmt_iterator i;
 
@@ -5208,8 +5184,7 @@ tsi_new_stmt_list (t, anchor)
 /* Return an iterator which begins at this anchor.  */
 
 tree_stmt_iterator
-tsi_stmt_list_head (anchor)
-     tree_stmt_anchor anchor;
+tsi_stmt_list_head (tree_stmt_anchor anchor)
 {
   tree_stmt_iterator i;
 
@@ -5224,8 +5199,7 @@ tsi_stmt_list_head (anchor)
 /* Return true if the chain of statements starting with T is empty.  */
 
 bool
-body_is_empty (t)
-     tree t;
+body_is_empty (tree t)
 {
   tree_stmt_iterator i;
 
@@ -5239,8 +5213,7 @@ body_is_empty (t)
   return true;
 }
 bool
-is_essa_node (t)
-  tree t;
+is_essa_node (tree t)
 {
   if (TREE_CODE (t) == ELEFT_NODE || TREE_CODE (t) == EPHI_NODE 
       || TREE_CODE (t) == EUSE_NODE || TREE_CODE (t) == EEXIT_NODE

@@ -1,3 +1,8 @@
+2003-07-27  Andreas Jaeger  <aj@suse.de>
+
+	* expr.c (build_expr_wfl): Convert remaining K&R prototypes
+	to ISO C90.
+
 2003-06-28  Jeff Sturm  <jsturm@one-point.com>
 
 	* java-gimplify.c (java_gimplify_block): Rebuild BLOCK_SUBBLOCKS.

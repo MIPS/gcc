@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the Fortran front-end.
-   Copyright (C) 1997, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -88,9 +88,8 @@ Option;
 /* The original argument list and related info is copied here.  */
 static int g77_xargc;
 static const char *const *g77_xargv;
-static void lookup_option PARAMS ((Option *, int *, const char **,
-				   const char *));
-static void append_arg PARAMS ((const char *));
+static void lookup_option (Option *, int *, const char **, const char *);
+static void append_arg (const char *);
 
 /* The new argument list will be built here.  */
 static int g77_newargc;
@@ -123,11 +122,7 @@ const struct spec_function lang_specific_spec_functions[] = {{0,0}};
    to short ones, where available, has already been run.  */
 
 static void
-lookup_option (xopt, xskip, xarg, text)
-     Option *xopt;
-     int *xskip;
-     const char **xarg;
-     const char *text;
+lookup_option (Option *xopt, int *xskip, const char **xarg, const char *text)
 {
   Option opt = OPTION_;
   int skip;
@@ -199,8 +194,7 @@ lookup_option (xopt, xskip, xarg, text)
    the new arg count.  Otherwise allocate a new list, etc.  */
 
 static void
-append_arg (arg)
-     const char *arg;
+append_arg (const char *arg)
 {
   static int newargsize;
 
@@ -236,10 +230,8 @@ append_arg (arg)
 }
 
 void
-lang_specific_driver (in_argc, in_argv, in_added_libraries)
-     int *in_argc;
-     const char *const **in_argv;
-     int *in_added_libraries ATTRIBUTE_UNUSED;
+lang_specific_driver (int *in_argc, const char *const **in_argv,
+		      int *in_added_libraries ATTRIBUTE_UNUSED)
 {
   int argc = *in_argc;
   const char *const *argv = *in_argv;
@@ -350,8 +342,8 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
 	case OPTION_version:
 	  printf ("\
-GNU Fortran 95(GCC %s)\n\
-Copyright (C) 2002 Free Software Foundation, Inc.\n\
+GNU Fortran 95 (GCC %s)\n\
+Copyright (C) 2003 Free Software Foundation, Inc.\n\
 \n\
 GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of GNU Fortran\n\
@@ -463,11 +455,7 @@ For more information about these matters, see the file named COPYING\n\
 	saw_library = 0;	/* -xfoo currently active. */
       else
 	{			/* -lfoo or filename. */
-	  if (strcmp (argv[i], MATH_LIBRARY) == 0
-#ifdef ALT_LIBM
-	      || strcmp (argv[i], ALT_LIBM) == 0
-#endif
-	    )
+	  if (strcmp (argv[i], MATH_LIBRARY) == 0)
 	    {
 	      if (saw_library == 1)
 		saw_library = 2;	/* -l<library> -lm. */
@@ -548,7 +536,7 @@ For more information about these matters, see the file named COPYING\n\
 
 /* Called before linking.  Returns 0 on success and -1 on failure. */
 int
-lang_specific_pre_link ()	/* Not used for F77. */
+lang_specific_pre_link (void)	/* Not used for F77. */
 {
   return 0;
 }

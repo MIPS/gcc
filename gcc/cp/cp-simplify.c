@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-simplify.c and tree-simple.c.
 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -30,18 +30,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-simple.h"
 
-static void genericize_try_block	PARAMS ((tree *));
-static void genericize_catch_block	PARAMS ((tree *));
-static void genericize_eh_spec_block	PARAMS ((tree *));
-static void gimplify_must_not_throw_expr PARAMS ((tree *, tree *));
-static void cp_gimplify_init_expr	PARAMS ((tree *, tree *, tree *));
+static void genericize_try_block (tree *);
+static void genericize_catch_block (tree *);
+static void genericize_eh_spec_block (tree *);
+static void gimplify_must_not_throw_expr (tree *, tree *);
+static void cp_gimplify_init_expr (tree *, tree *, tree *);
 
 /* Genericize a C++ _STMT.  Called from c_gimplify_stmt.  */
 
 int
-cp_gimplify_stmt (stmt_p, next_p)
-     tree *stmt_p;
-     tree *next_p ATTRIBUTE_UNUSED;
+cp_gimplify_stmt (tree *stmt_p, tree *next_p ATTRIBUTE_UNUSED)
 {
   tree stmt = *stmt_p;
   switch (TREE_CODE (stmt))
@@ -73,8 +71,7 @@ cp_gimplify_stmt (stmt_p, next_p)
 /* Genericize a TRY_BLOCK.  */
 
 static void
-genericize_try_block (stmt_p)
-     tree *stmt_p;
+genericize_try_block (tree *stmt_p)
 {
   tree body = TRY_STMTS (*stmt_p);
   tree cleanup = TRY_HANDLERS (*stmt_p);
@@ -92,8 +89,7 @@ genericize_try_block (stmt_p)
 /* Genericize a HANDLER by converting to a CATCH_EXPR.  */
 
 static void
-genericize_catch_block (stmt_p)
-     tree *stmt_p;
+genericize_catch_block (tree *stmt_p)
 {
   tree type = HANDLER_TYPE (*stmt_p);
   tree body = HANDLER_BODY (*stmt_p);
@@ -108,8 +104,7 @@ genericize_catch_block (stmt_p)
    TRY_CATCH_EXPR/EH_FILTER_EXPR pair.  */
 
 static void
-genericize_eh_spec_block (stmt_p)
-     tree *stmt_p;
+genericize_eh_spec_block (tree *stmt_p)
 {
   tree body = EH_SPEC_STMTS (*stmt_p);
   tree allowed = EH_SPEC_RAISES (*stmt_p);
@@ -124,10 +119,7 @@ genericize_eh_spec_block (stmt_p)
 /* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-cp_gimplify_expr (expr_p, pre_p, post_p)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
+cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
   switch (TREE_CODE (*expr_p))
     {
@@ -177,10 +169,7 @@ cp_gimplify_expr (expr_p, pre_p, post_p)
 /* Gimplify initialization from an AGGR_INIT_EXPR.  */
 
 static void
-cp_gimplify_init_expr (expr_p, pre_p, post_p)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
+cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
@@ -211,8 +200,7 @@ cp_gimplify_init_expr (expr_p, pre_p, post_p)
 /* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  */
 
 void
-gimplify_aggr_init_expr (tp)
-     tree *tp;
+gimplify_aggr_init_expr (tree *tp)
 {
   tree aggr_init_expr = *tp;
 
@@ -246,14 +234,14 @@ gimplify_aggr_init_expr (tp)
 	args = TREE_CHAIN (args);
 
       cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
+      args = tree_cons (NULL_TREE,
+			build1 (ADDR_EXPR,
 				build_pointer_type (TREE_TYPE (slot)),
 				slot),
 			args);
     }
 
-  call_expr = build (CALL_EXPR, 
+  call_expr = build (CALL_EXPR,
 		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
 		     fn, args, NULL_TREE);
   TREE_SIDE_EFFECTS (call_expr) = 1;
@@ -293,9 +281,7 @@ gimplify_aggr_init_expr (tp)
 /* Gimplify a MUST_NOT_THROW_EXPR.  */
 
 static void
-gimplify_must_not_throw_expr (expr_p, pre_p)
-     tree *expr_p;
-     tree *pre_p;
+gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
 {
   tree stmt = *expr_p;
   tree temp = voidify_wrapper_expr (stmt);

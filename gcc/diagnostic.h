@@ -326,14 +326,13 @@ extern void output_verbatim (output_buffer *, const char *, ...);
 extern void verbatim (const char *, ...);
 extern char *file_name_as_prefix (const char *);
 
-extern void debug_output_buffer		PARAMS ((output_buffer *));
+extern void debug_output_buffer (output_buffer *);
 
 /* In tree-pretty-print.c  */
-extern int dump_generic_node		PARAMS ((output_buffer *, tree, int,
-      						 int));
-extern void print_generic_stmt		PARAMS ((FILE *, tree, int));
-extern void print_generic_expr		PARAMS ((FILE *, tree, int));
+extern int dump_generic_node (output_buffer *, tree, int, int);
+extern void print_generic_stmt (FILE *, tree, int);
+extern void print_generic_expr (FILE *, tree, int);
 
-extern void debug_generic_expr          PARAMS ((tree));
-extern void debug_generic_stmt          PARAMS ((tree));
+extern void debug_generic_expr (tree);
+extern void debug_generic_stmt (tree);
 #endif /* ! GCC_DIAGNOSTIC_H */

@@ -402,7 +402,7 @@ gfc_conv_intrinsic_conjg (gfc_se * se, gfc_expr * expr)
    are created as required.  Builtin functions are added here.  */
 
 void
-gfc_build_intrinsic_lib_fndecls ()
+gfc_build_intrinsic_lib_fndecls (void)
 {
   const gfc_builtin_intrinsic_t *i;
   gfc_intrinsic_map_t *m;

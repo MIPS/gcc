@@ -1,3 +1,12 @@
+2003-07-27  Andreas Jaeger  <aj@suse.de>
+
+	* tree.c: Convert remaining K&R prototypes to ISO C90.
+	* tree-dump.c: Likewise.
+	* tree-inline.c: Likewise.
+	* stmt.c (expand_asm_expr): Likewise.
+
+	* diagnostic.h: Remove PARAMS.
+
 2003-07-26  Paul Brook  <paul@nowt.org>
 
 	* Makefile.in: Rename check-g95 to check-gfortran.
@@ -17,7 +26,7 @@
 	* opts.c (decode_options): Re-enable must-alias optimizations.
 
 2003-07-25  Daniel Berlin  <dberlin@dberlin.org>
-    
+
 	* configure.in:  Update BANSHEEREBUILD for PWD change.
 	* configure: regen
 

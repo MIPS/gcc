@@ -122,7 +122,7 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
 }
 
 void
-gfc_init_constants ()
+gfc_init_constants (void)
 {
   int n;
 

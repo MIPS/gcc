@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -344,8 +344,7 @@ cp_expr_size (tree exp)
    common code.  */
 
 static int
-cp_expand_decl (decl)
-     tree decl;
+cp_expand_decl (tree decl)
 {
   if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
     {
@@ -368,8 +367,7 @@ cp_expand_decl (decl)
 }
 
 int
-cp_tree_chain_matters_p (t)
-     tree t;
+cp_tree_chain_matters_p (tree t)
 {
   return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
 }

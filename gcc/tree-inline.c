@@ -1763,10 +1763,8 @@ add_stmt_to_compound (tree existing, tree type, tree stmt)
    in DATA (which is really an `inline_data *').  */
 
 static tree
-mark_local_for_remap_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data;
+mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			void *data)
 {
   tree t = *tp;
   inline_data *id = (inline_data *) data;
@@ -1809,10 +1807,7 @@ mark_local_for_remap_r (tp, walk_subtrees, data)
    remaps all local declarations to appropriate replacements.  */
 
 static tree
-unsave_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees;
-     void *data;
+unsave_r (tree *tp, int *walk_subtrees, void *data)
 {
   inline_data *id = (inline_data *) data;
   splay_tree st = id->decl_map;

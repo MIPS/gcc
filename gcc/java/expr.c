@@ -3422,10 +3422,7 @@ emit_init_test_initialization (void **entry, void *x ATTRIBUTE_UNUSED)
    recursively more than one file (Java is one of them).  */
 
 tree
-build_expr_wfl (node, file, line, col)
-     tree node;
-     const char *file;
-     int line, col;
+build_expr_wfl (tree node, const char *file, int line, int col)
 {
   static const char *last_file = 0;
   static tree last_filenode = NULL_TREE;

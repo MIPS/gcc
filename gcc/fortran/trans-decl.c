@@ -1893,7 +1893,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 
 
 void
-gfc_generate_constructors ()
+gfc_generate_constructors (void)
 {
   if (gfc_static_ctors != NULL_TREE)
     abort ();

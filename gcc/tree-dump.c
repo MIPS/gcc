@@ -748,8 +748,7 @@ dump_end (enum tree_dump_index phase ATTRIBUTE_UNUSED, FILE *stream)
 /* Enable all tree dumps.  */
 
 static void
-dump_enable_all (flags)
-     int flags;
+dump_enable_all (int flags)
 {
   enum tree_dump_index i;
 
@@ -821,9 +820,7 @@ dump_switch_p (const char *arg)
 /* Dump FUNCTION_DECL FN as tree dump PHASE.  */
 
 void
-dump_function (phase, fn)
-     enum tree_dump_index phase;
-     tree fn;
+dump_function (enum tree_dump_index phase, tree fn)
 {
   FILE *stream;
   int flags;
@@ -840,10 +837,7 @@ dump_function (phase, fn)
 /* Dump FUNCTION_DECL FN to file STREAM using FLAGS (see TDF_* in tree.h)  */
 
 void
-dump_function_to_file (fn, stream, flags)
-     tree fn;
-     FILE *stream;
-     int flags;
+dump_function_to_file (tree fn, FILE *stream, int flags)
 {
   tree arg;
 

@@ -1,3 +1,9 @@
+2003-07-27  Andreas Jaeger  <aj@suse.de>
+
+	* cp-lang.c: Convert K&R prototypes to ISO C90.
+	* cp-simplify.c: Likewise.
+	* cp-mudflap.c: Likewise.
+
 2003-06-13  Frank Ch. Eigler  <fche@redhat.com>
 
 	* semantics.c (expand_body): Call mudflap_c_function just before
@@ -46,7 +52,7 @@
 	-fdisable-simple is given.
 
 2003-04-21  Jeff Law  <law@redhat.com>
-	
+
 	* optimize.c (optimize_function_tree): Do run the tree-ssa
 	optimizers.
 
@@ -130,7 +136,7 @@
 	around genericizing the function tree.
 	* pt.c (lookup_template_class): Use TREE_LOCUS to copy file/line
 	information from one node to another.
-	(push_tinst_level): Generate a TINST_LEVEL node rather than 
+	(push_tinst_level): Generate a TINST_LEVEL node rather than
 	using EXPR_WITH_FILE_LOCATION nodes.  Use annotate_with_file_line
 	to annotate the new node with file/line information.
 	(pop_tinst_level): Use  TREE_LINENO and TREE_FILENAME to extract
@@ -160,12 +166,12 @@
 
 	* optimize.c (dump_function): Move to ../tree-dump.c.
 
-	* cp-simplify.c (cp_simplify_expr): Handle PTRMEM_CST, INIT_EXPR, 
+	* cp-simplify.c (cp_simplify_expr): Handle PTRMEM_CST, INIT_EXPR,
 	MODIFY_EXPR and EMPTY_CLASS_EXPR.
 	(cp_simplify_stmt): Handle USING_STMT.
 	(cp_simplify_init_expr): New fn.
 	* cvt.c (build_up_reference): Don't push the decl.
-	* class.c (build_vtable_entry_ref, build_vtbl_ref_1): Unshare the 
+	* class.c (build_vtable_entry_ref, build_vtbl_ref_1): Unshare the
 	vtable address.
 	* init.c (build_vtbl_address): Likewise.
 	* cp-lang.c (LANG_HOOKS_UNSAVE_EXPR_NOW): Remove.
@@ -220,7 +226,7 @@
 
 	* parse.y (parse_asm_stmt): New fn.
 	(simple_stmt): Use it.
-	* semantics.c (finish_asm_stmt): Change cv_qualifier parm to 
+	* semantics.c (finish_asm_stmt): Change cv_qualifier parm to
 	volatile_p.
 	* cp-tree.h: Adjust prototype.
 	* pt.c (tsubst_expr): Adjust call.
@@ -248,7 +254,7 @@
 2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Make-lang.in (CXX_C_OBJS): Add tree-alias-ecr.c,
-	tree-alias-type.o, tree-alias-steen.o, disjoint-set.o. 
+	tree-alias-type.o, tree-alias-steen.o, disjoint-set.o.
 
 2002-06-21  Andreas Jaeger  <aj@suse.de>
 
@@ -264,5 +270,5 @@
 
 Local Variables:
 mode: change-log
-change-log-default-name: "ChangeLog.tree-ssa"	
+change-log-default-name: "ChangeLog.tree-ssa"
 End:

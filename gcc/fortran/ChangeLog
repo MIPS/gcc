@@ -1,3 +1,13 @@
+2003-07-27  Andreas Jaeger  <aj@suse.de>
+
+	* trans-decl.c (gfc_generate_constructors): Convert prototype to
+	ISO C90.
+	* trans-const.c (gfc_init_constants): Likewise.
+	* trans-intrinsic.c (gfc_build_intrinsic_lib_fndecls): Likewise.
+
+	* gfortranspec.c: Convert to ISO C90.
+	(lang_specific_driver): Correct copyright, remove ALT_LIBM usage.
+
 2003-07-26  Paul Brook  <paul@nowt.org>
 
 	* lang.opt: Add -fdump-parse-tree.
