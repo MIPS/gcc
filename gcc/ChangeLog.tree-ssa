@@ -1,3 +1,43 @@
+2003-06-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c: add graph_dump_file, graph_dump_flags.
+	(finalize_1): Modify to use temporary in expr_info structure,
+	remove temporary from arguments.
+	Use bsi_insert_on_edge for ephi insertions.
+	Set EREF_TEMP on inserted euses.
+	(repair_phi_injury): Note (to dump file)  injuries we have
+	repaired already. 
+	(repair_use_injury): Ditto.
+	(repair_euse_injury): Ditto.
+	(count_stmts_in_bb): Count both forwards and backwards, and make
+	sure the numbers agree. This makes sure both the head and end are
+	updated properly.
+	(code_motion): Use the EREF_TEMP, rather than calculating the
+	reaching def, when possible, because it's faster.
+	Add the phi we created when we insert the ephi.  We should always
+	be able to get the reaching def of the ephi from EREF_TEMP (since
+	the args should have already been inserted, or in the case of
+	phi's, have a phi already allocated), so abort if we can't.
+	(create_expr_ref): Take expr_info parameter.  Make a phi for the
+	ephi's, but don't add to the bb yet. Update all callers.
+	(get_default_def): New function.
+	(get_reaching_def): Use it to find the default def when we hit the
+	top of the dom tree.
+	(struct expr_info): Add temp.
+	(new_rename_1): Dump out occurrences after rename 1, but before
+	rename 2.
+	(requires_edge_placement): Now that we can insert on edges, we
+	shouldn't need this, so make it always return false.
+	Will remove unless something bad comes up.
+	(pre_expression): Start working on dumping the redundancy graph.
+
+	* tree.h (struct treeeref_common): Add the temp member.
+	Add EREF_TEMP macro.
+	(tree_dump_index): Reorder to match actual optimization order.
+	Add TDI_predot.
+
+	* tree-dump.c: Ditto.
+	
 2003-06-11  Jeff Law  <law@redhat.com>
 
 	* tree-ssa.c (rewrite_and_optimize_stmt): Do not special case

@@ -1056,6 +1056,8 @@ struct tree_eref_common GTY(())
 
   unsigned int delayed_rename:1;
 
+  tree temp;
+
   struct varray_head_tag *uses;
 };
 
@@ -1114,6 +1116,7 @@ struct tree_ephi_node GTY(())
 #define EREF_CLASS(NODE)        EREF_NODE_CHECK (NODE)->eref.class
 #define EREF_USES(NODE)         EREF_NODE_CHECK (NODE)->eref.uses
 #define EREF_DELAYED_RENAME(NODE) EREF_NODE_CHECK (NODE)->eref.delayed_rename
+#define EREF_TEMP(NODE)         EREF_NODE_CHECK (NODE)->eref.temp
 
 /* In a EUSE_NODE node.  */
 #define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
@@ -3344,9 +3347,10 @@ enum tree_dump_index
   TDI_pta,                      /* dump points-to information for each
 				   function.  */
   TDI_ssa,                      /* dump SSA information for each function.  */
-  TDI_ccp,			/* dump SSA CCP information for each
-				   function.  */
+  TDI_predot,
   TDI_pre,                      /* dump SSA PRE information for each
+				   function.  */
+  TDI_ccp,			/* dump SSA CCP information for each
 				   function.  */
   TDI_copyprop,			/* dump SSA Copy propagation information for
 				   each function.  */

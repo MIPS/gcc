@@ -106,7 +106,9 @@ Get rid of the ephis array in expr_info, since it's not necessary
 anymore.  */
 /* Debugging dumps.  */
 static FILE *dump_file;
+static FILE *graph_dump_file;
 static int dump_flags;
+static int graph_dump_flags;
 
 struct expr_info;
 static bool expr_lexically_eq PARAMS ((const tree, const tree));
@@ -162,9 +164,9 @@ static void compute_later PARAMS ((struct expr_info *));
 static void reset_later PARAMS ((struct expr_info *, tree));
 static inline tree ephi_operand_for_pred PARAMS ((tree, edge));
 static void add_ephi_arg PARAMS ((tree, tree, edge));
-static bool finalize_1 PARAMS ((struct expr_info *, tree));
+static bool finalize_1 PARAMS ((struct expr_info *));
 static void finalize_2 PARAMS ((struct expr_info *));
-static void code_motion PARAMS ((struct expr_info *, tree));
+static void code_motion PARAMS ((struct expr_info *));
 static tree calculate_increment PARAMS ((struct expr_info *, tree));
 static void repair_euse_injury PARAMS ((struct expr_info *, tree, tree));
 static void repair_ephi_injury PARAMS ((struct expr_info *, tree, tree));
@@ -183,8 +185,8 @@ static void remove_ephi PARAMS ((struct expr_info *, tree));
 static inline bool ephi_has_bottom PARAMS ((tree));
 static int add_call_to_ei PARAMS ((struct expr_info *, void *));
 static bool call_modifies_slot PARAMS ((tree *, tree));
-static tree create_expr_ref PARAMS ((tree, enum tree_code, basic_block, 
-				     tree *));
+static tree create_expr_ref PARAMS ((struct expr_info *, tree, enum tree_code, 
+				     basic_block, tree *));
 static void set_expruse_def PARAMS ((tree, tree));
 static inline bool ephi_will_be_avail PARAMS ((tree));
 static int occ_compare PARAMS ((const void *, const void *));
@@ -193,6 +195,8 @@ static inline tree ephi_operand_for_pred PARAMS ((tree, edge));
 static void compute_dt_preorder PARAMS ((void));
 static int search_dt_preorder PARAMS ((basic_block, int));
 static bool requires_edge_placement PARAMS ((tree));
+static tree get_default_def PARAMS ((tree, htab_t));
+
 static int *pre_preorder;
 static dominance_info pre_idom;
 static bitmap *pre_dfs;
@@ -243,6 +247,8 @@ struct expr_info
   htab_t repaired;
   /* The euses/ephis in preorder dt order. */
   varray_type euses_dt_order;
+  /* The name of the temporary for this expression. */
+  tree temp;
 };
 
 /* Add tree DEF coming from edge E as an argument to PHI. */
@@ -519,7 +525,8 @@ set_expruse_def (ref, def)
 }
 
 static tree
-create_expr_ref (expr, type, bb, parent)
+create_expr_ref (ei, expr, type, bb, parent)
+     struct expr_info *ei;
      tree expr;
      enum tree_code type;
      basic_block bb;
@@ -527,7 +534,16 @@ create_expr_ref (expr, type, bb, parent)
 {
   tree ret;
   if (type == EPHI_NODE)
-    ret = create_ephi_node (bb, 1);
+    {
+      int len;
+      edge e;
+      
+      ret = create_ephi_node (bb, 1);
+      for (len = 0, e = bb->pred; e; e = e->pred_next)
+	len++;
+
+      EREF_TEMP (ret) = make_phi_node (ei->temp, len);
+    }
   else
     ret = make_node (type);
   
@@ -562,7 +578,7 @@ set_var_phis (ei, phi)
   /* If we've already got an EPHI set to be placed in PHI's BB, we
      don't need to do this. */
   if (!bitmap_bit_p (varphis, bb_for_stmt (phi)->index)
-      && !bitmap_bit_p (dfphis, bb_for_stmt (phi)->index))
+	&& !bitmap_bit_p (dfphis, bb_for_stmt (phi)->index))
     {
       tree phi_operand;
       int curr_phi_operand;
@@ -663,7 +679,8 @@ expr_phi_insertion (dfs, ei)
   /* Now create the EPHI's in each of these blocks. */
   EXECUTE_IF_SET_IN_BITMAP(dfphis, 0, i, 
   {
-    tree ref = create_expr_ref (ei->expr, EPHI_NODE, BASIC_BLOCK (i), NULL);
+    tree ref = create_expr_ref (ei, ei->expr, EPHI_NODE, BASIC_BLOCK (i), 
+				NULL);
     VARRAY_PUSH_TREE (ei->erefs, ref);
     EREF_PROCESSED (ref) = false;
     EREF_PROCESSED2 (ref) = false;
@@ -713,7 +730,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	{
 	  tree *killexpr  = VARRAY_GENERIC_PTR (ei->kills, i);
 	  tree killname = ei->expr;
-	  newref = create_expr_ref (killname, EKILL_NODE, block, killexpr);
+	  newref = create_expr_ref (ei, killname, EKILL_NODE, block, killexpr);
 	  VARRAY_PUSH_TREE (ei->erefs, newref);
 	  fibheap_insert (fh, preorder_count++, newref);
 	}
@@ -721,7 +738,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	{
 	  tree *leftexpr = VARRAY_GENERIC_PTR (ei->lefts, i);
 	  tree leftname = ei->expr;
-	  newref = create_expr_ref (leftname, ELEFT_NODE, block, leftexpr);
+	  newref = create_expr_ref (ei, leftname, ELEFT_NODE, block, leftexpr);
 	  VARRAY_PUSH_TREE (ei->erefs, newref);
 	  fibheap_insert (fh, preorder_count++, newref);
 	}
@@ -730,7 +747,8 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	  tree *occurexpr = VARRAY_GENERIC_PTR (ei->occurs, i);
 	  tree occurname;
 	  occurname = ei->expr;
-	  newref = create_expr_ref (occurname, EUSE_NODE, block, occurexpr);
+	  newref = create_expr_ref (ei, occurname, EUSE_NODE, block, 
+				    occurexpr);
 	  VARRAY_PUSH_TREE (ei->erefs, newref);
 	  
 	  set_expruse_def (newref, NULL_TREE);
@@ -751,7 +769,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
         {
           if (ephi_at_block (succ->dest) != NULL)
             {
-              tree newref = create_expr_ref (0, EUSE_NODE, block, NULL);
+              tree newref = create_expr_ref (ei, 0, EUSE_NODE, block, NULL);
               tree ephi = ephi_at_block (succ->dest);
 	      VARRAY_PUSH_TREE (ei->erefs, newref);
               set_expruse_def (newref, NULL);
@@ -787,7 +805,8 @@ insert_occ_in_preorder_dt_order (ei, fh)
   if (preorder_count != 0)
     {
       tree newref;
-      newref = create_expr_ref (ei->expr, EEXIT_NODE, EXIT_BLOCK_PTR, NULL);
+      newref = create_expr_ref (ei, ei->expr, EEXIT_NODE, EXIT_BLOCK_PTR,
+				NULL);
       VARRAY_PUSH_TREE (ei->erefs, newref);
       fibheap_insert (fh, preorder_count++, newref);
     }
@@ -838,7 +857,7 @@ defs_y_dom_x (ei, yuses, x)
       if (TREE_CODE (x) == EUSE_NODE && !EUSE_PHIOP (x) && ei->strred_cand)
 	{
 	  use2 = find_rhs_use_for_var (EREF_STMT (x), SSA_NAME_VAR (use1));
-	  use2 = factor_through_injuries (ei, use2, SSA_NAME_VAR (use1));
+	  use2 = factor_through_injuries (ei, use2, SSA_NAME_VAR (use2));
 	}
 #endif
       if (a_dom_b (use2, SSA_NAME_DEF_STMT (use1)))
@@ -1212,6 +1231,7 @@ new_rename_1 (ei)
 	    assign_new_class (occur, &stack, NULL);
 	  else if (TREE_CODE (occur) == EUSE_NODE && !EUSE_PHIOP (occur))
 	    assign_new_class (occur, &stack, NULL);
+	  
 	}
       else
 	{
@@ -1265,6 +1285,18 @@ new_rename_1 (ei)
 		  && TREE_CODE (VARRAY_TOP_TREE (stack)) == EPHI_NODE)
 		EPHI_DOWNSAFE (VARRAY_TOP_TREE (stack)) = false;
 	    }
+	}
+    }
+  if (dump_file)
+    {
+      size_t i;
+      fprintf (dump_file, "Occurrences for expression ");
+      print_generic_expr (dump_file, ei->expr, 0);
+      fprintf (dump_file, " after Rename 1\n");
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
+	{
+	  print_generic_expr (dump_file, VARRAY_TREE (ei->erefs, i), 1);
+	  fprintf (dump_file, "\n");
 	}
     }
   FOR_EACH_BB (phi_bb)
@@ -1538,6 +1570,7 @@ static bool
 requires_edge_placement (ephi)
      tree ephi ATTRIBUTE_UNUSED;
 {
+#if 0
   int i;
   for (i = 0; i < EPHI_NUM_ARGS (ephi); i++)
     {
@@ -1556,6 +1589,7 @@ requires_edge_placement (ephi)
 	      return true;
 	}
     }
+#endif
   return false;
 }
 
@@ -1750,6 +1784,38 @@ can_insert (op)
 
   return false;
 }
+
+/* Find the default definition of VAR.
+   This is incredibly ugly, since we have to walk back through all
+   the definitions to find the one defined by the empty statement.  */
+static tree
+get_default_def (var, seen)
+     tree var;
+     htab_t seen;
+{
+  tree defstmt = SSA_NAME_DEF_STMT (var);
+
+  if (IS_EMPTY_STMT (defstmt))
+    return var;
+  *(htab_find_slot (seen, var, INSERT)) = var;
+  if (TREE_CODE (defstmt) == PHI_NODE)
+    {
+      int j;
+      for (j = 0; j < PHI_NUM_ARGS (defstmt); j++)
+	if (htab_find (seen, PHI_ARG_DEF (defstmt, j)) == NULL)
+	  {
+	    tree temp = get_default_def (PHI_ARG_DEF (defstmt, j), seen);
+	    if (temp != NULL_TREE)
+	      return temp;
+	  }
+    }
+
+  
+  if (htab_find (seen, *(def_op (defstmt))) != NULL)
+    return NULL;
+  return get_default_def (*(def_op (defstmt)), seen);
+
+}
 /* Hunt down the right reaching def for VAR, starting with BB. */
 static tree
 reaching_def (var, currstmt, bb, ignore)
@@ -1793,6 +1859,13 @@ reaching_def (var, currstmt, bb, ignore)
   if (curruse != NULL_TREE)
     return curruse;
   dom = get_immediate_dominator (pre_idom, bb);
+  if (bb == ENTRY_BLOCK_PTR)
+    {
+      htab_t temp;
+      temp = htab_create (7, htab_hash_pointer, htab_eq_pointer, NULL);
+      curruse = get_default_def (var, temp);
+      htab_delete (temp);
+    }
   if (!dom)
     return curruse;
   return reaching_def (var, currstmt, dom, ignore);
@@ -1841,15 +1914,15 @@ update_old_new (ei, old, new)
     }
 }      
 static bool
-finalize_1 (ei, temp)
+finalize_1 (ei)
      struct expr_info *ei;
-     tree temp;
 {
   tree x;
   int nx;
   bool made_a_reload = false;
   size_t i;
-
+  tree temp = ei->temp;
+  
   avdefs = xcalloc (class_count + 1, sizeof (tree));
   
   insert_euse_in_preorder_dt_order (ei);
@@ -1898,9 +1971,6 @@ finalize_1 (ei, temp)
 	    {
 	      if (can_insert (x))
 		{
-#if ENABLE_CHECKING
-		  int before, after;
-#endif
 		  tree expr;
 		  tree copy;
 		  tree newtemp;
@@ -1916,6 +1986,7 @@ finalize_1 (ei, temp)
 				temp, copy);
 		  newtemp = make_ssa_name (temp, expr);
 		  TREE_OPERAND (expr, 0) = newtemp;
+		  EREF_TEMP (x) = newtemp;
 		  if (TREE_OPERAND (copy, 0)
 		      && SSA_VAR_P (TREE_OPERAND (copy, 0)))
 		    TREE_OPERAND (copy, 0) =
@@ -1939,35 +2010,41 @@ finalize_1 (ei, temp)
 					  last_stmt (bb_for_stmt (x)),
 					  dump_flags);
 		      fprintf (dump_file, 
-			       " (at end of BB), because of EPHI");
+			       " (on edge), because of EPHI");
 		      fprintf (dump_file, " in BB %d\n", 
 			       bb_for_stmt (ephi)->index);
 		    }
 		  endtree = last_stmt (bb);
 		  endtreep = last_stmt_ptr (bb);
 		  set_bb_for_stmt (expr, bb);
-#if ENABLE_CHECKING
-		  before = count_stmts_in_bb (bb);
-#endif
-		  if (is_ctrl_altering_stmt (endtree) || is_ctrl_stmt (endtree))
-		     do_proper_save (ei, endtree, expr, endtree, true);
-		  else
-	 	     do_proper_save (ei, endtree, endtree, expr, false);
-#if ENABLE_CHECKING
-		  after = count_stmts_in_bb (bb);
-		  if (before + 1 != after)
-		    abort ();
-#endif
-		  set_expruse_def (x, create_expr_ref (ei->expr, EUSE_NODE,
+
+		  /* Find the edge to insert on. */
+		  {
+		    edge e = NULL;
+		    int opnum;
+		    int newbbs;
+
+		    for (opnum = 0; opnum < EPHI_NUM_ARGS (ephi); opnum++)
+		      if (EPHI_ARG_DEF (ephi, opnum) == x)
+			e = EPHI_ARG_EDGE (ephi, opnum);
+		    if (e == NULL)
+		      abort ();
+
+		    bsi_insert_on_edge (e, expr);
+		    bsi_commit_edge_inserts (1, &newbbs);
+		  }
+		  set_expruse_def (x, create_expr_ref (ei, ei->expr, EUSE_NODE,
 						       bb, 0));
 		  VARRAY_PUSH_TREE (ei->erefs, EUSE_DEF (x));
 		  EREF_RELOAD (EUSE_DEF (x)) = false;
 		  EREF_SAVE (EUSE_DEF (x)) = false;
 		  EUSE_INSERTED (EUSE_DEF (x)) = true;
+		  EREF_TEMP (EUSE_DEF (x)) = newtemp;
 		  EUSE_PHIOP (EUSE_DEF (x)) = false;
 		  EUSE_HAS_REAL_USE (x) = true;
 		  EREF_SAVE (x) = false;
 		  EREF_RELOAD (x) = false;
+		  EREF_TEMP (x) = newtemp;
 		  pre_stats.saves++;
 		}
 	      else
@@ -2297,7 +2374,15 @@ repair_phi_injury (ei, phi, temp)
 {
   int curr_phi_oper;
   if (htab_find (ei->repaired, phi) != NULL)
-    return;
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Already repaired injury (phi):");
+	  print_generic_stmt (dump_file, phi, 0);
+	  fprintf (dump_file, "\n");
+	}
+      return;
+    }
   *(htab_find_slot (ei->repaired, phi, INSERT)) = phi;
   
   for (curr_phi_oper = 0; 
@@ -2320,7 +2405,16 @@ repair_use_injury (ei, use, temp)
   varray_type toprocess;
   VARRAY_TREE_INIT (toprocess, 1, "");
   if (htab_find (ei->repaired, use) != NULL)
-    return;
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Already repaired injury (use):");
+	  print_generic_stmt (dump_file, use, 0);
+	  fprintf (dump_file, "\n");
+	}
+      
+      return;
+    }
   *(htab_find_slot (ei->repaired, use, INSERT)) = use;
 
   var = use;
@@ -2342,7 +2436,15 @@ repair_use_injury (ei, use, temp)
       VARRAY_POP (toprocess);
       
       if (htab_find (ei->repaired, injury) != NULL)
-	continue;
+        {
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "Already repaired injury (processed):");
+	      print_generic_stmt (dump_file, injury, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  continue;
+	}
       
       *(htab_find_slot (ei->repaired, injury, INSERT)) = injury;
 
@@ -2378,7 +2480,15 @@ repair_euse_injury (ei, euse, temp)
   int i;
 
   if (htab_find (ei->repaired, euse) != NULL)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Already repaired injury (euse):");
+	  print_generic_stmt (dump_file, euse, 0);
+	  fprintf (dump_file, "\n");
+	}
       return;
+    }
 
   *(htab_find_slot (ei->repaired, euse, INSERT)) = euse;
   
@@ -2399,12 +2509,19 @@ count_stmts_in_bb (bb)
      basic_block bb;
 {
   block_stmt_iterator bsi;
-  int num_stmt = 0;
-  
+  int num_stmt1 = 0;
+  int num_stmt2 = 0;
+
   bsi = bsi_start (bb);
   for (; !bsi_end_p (bsi); bsi_next  (&bsi))
-    num_stmt++;
-  return num_stmt;
+    num_stmt1++;
+  
+  bsi = bsi_last (bb);
+  for (; !bsi_end_p (bsi); bsi_prev  (&bsi))
+    num_stmt2++;
+  if (num_stmt1 != num_stmt2)
+    abort ();
+  return num_stmt1;
 }
 #endif
 /* Perform a replacement, replacing where USE currently is with
@@ -2452,9 +2569,8 @@ do_proper_save (ei, use, firstexpr, secondexpr, before)
 }
 
 static void
-code_motion (ei, temp)
+code_motion (ei)
      struct expr_info *ei;
-     tree temp;
 {
   tree use;
   tree newtemp;
@@ -2462,7 +2578,8 @@ code_motion (ei, temp)
 #if ENABLE_CHECKING
   int before, after;
 #endif
-  
+  tree temp = ei->temp;
+
   insert_euse_in_preorder_dt_order (ei);
 
   for (euse_iter = 0; 
@@ -2490,7 +2607,7 @@ code_motion (ei, temp)
 	  walk_tree (&copy, copy_tree_r, NULL, NULL);
 	  newexpr = build (MODIFY_EXPR, TREE_TYPE (temp), temp, copy);
 	  newtemp = make_ssa_name (temp, newexpr);
-	  
+	  EREF_TEMP (use) = newtemp;
 	  TREE_OPERAND (newexpr, 0) = newtemp;
 	  TREE_OPERAND (*use_stmt_p, 1) = newtemp;
 
@@ -2536,7 +2653,16 @@ code_motion (ei, temp)
 
 	  use_stmt_p = EREF_STMT (use);
 	  bb = bb_for_stmt (*use_stmt_p);
-	  newtemp = reaching_def (temp, *use_stmt_p, bb, NULL_TREE);
+	  if (EREF_TEMP (EUSE_DEF (use)))
+	    {
+	      if (TREE_CODE (EUSE_DEF (use)) == EPHI_NODE)
+		newtemp = PHI_RESULT (EREF_TEMP (EUSE_DEF (use)));
+	      else
+		newtemp = EREF_TEMP (EUSE_DEF (use));
+	    }
+	  else
+	    newtemp = reaching_def (temp, *use_stmt_p, bb, NULL_TREE);
+	  EREF_TEMP (use) = newtemp;
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "In BB %d, insert reload of ", 
@@ -2550,7 +2676,7 @@ code_motion (ei, temp)
 	      if (TREE_LOCUS (*use_stmt_p))
 		fprintf (dump_file, " on line %d\n", 
 			 TREE_LINENO (*use_stmt_p));
-	    }	
+	    }
 	  TREE_OPERAND (*use_stmt_p, 1) = newtemp;
 	  modify_stmt (*use_stmt_p);
 	  pre_stats.reloads++;
@@ -2558,22 +2684,42 @@ code_motion (ei, temp)
       else if (TREE_CODE (use) == EPHI_NODE)
 	{
 	  int i;
+	  bb_ann_t ann;
+	  basic_block bb;
+	  bb = bb_for_stmt (use);
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "In BB %d, insert PHI to replace EPHI\n", 
-		       bb_for_stmt (use)->index);     
+		       bb->index);     
 	    }
-	  newtemp = create_phi_node (temp, bb_for_stmt (use));
+	  newtemp = EREF_TEMP (use);	  
 	  if (ei->strred_cand)
 	    repair_ephi_injury (ei, use, temp);
 	  for (i = 0; i < EPHI_NUM_ARGS (use); i++)
 	    {
 	      tree rdef;
-	      rdef = reaching_def (temp, NULL_TREE, 
-			      	   EPHI_ARG_EDGE (use, i)->src, newtemp);
-	      if (rdef)
-  	        add_phi_arg (newtemp, rdef, EPHI_ARG_EDGE (use, i));
+	      rdef = EREF_TEMP (EPHI_ARG_DEF (use, i));
+	      if (!rdef)
+		{
+		  if (TREE_CODE (EUSE_DEF (EPHI_ARG_DEF (use, i))) == EPHI_NODE)
+		    rdef = PHI_RESULT (EREF_TEMP (EUSE_DEF (EPHI_ARG_DEF (use, i))));
+		  else
+		    rdef = EREF_TEMP (EUSE_DEF (EPHI_ARG_DEF (use, i)));
+		}
+	      if (!rdef)
+	        abort();
+	      add_phi_arg (newtemp, rdef, EPHI_ARG_EDGE (use, i));
 	    }
+	  /* Add the new PHI node to the list of PHI nodes for block BB.  */
+	  ann = bb_ann (bb);
+	  if (ann->phi_nodes == NULL)
+	    ann->phi_nodes = EREF_TEMP (use);
+	  else
+	    chainon (ann->phi_nodes, EREF_TEMP (use));
+
+	  /* Associate BB to the PHI node.  */
+	  set_bb_for_stmt (EREF_TEMP (use), bb);
+	  
 	  pre_stats.newphis++;
 	  
 	}
@@ -2941,7 +3087,7 @@ pre_expression (slot, data)
   bool changed = true;
   struct expr_info *ei = (struct expr_info *) slot;
   basic_block bb;
-  tree temp;
+
 
   if (VARRAY_ACTIVE_SIZE (ei->reals) < 2 
       &&  TREE_CODE (ei->expr) != INDIRECT_REF)
@@ -2989,24 +3135,89 @@ pre_expression (slot, data)
 	    }
 	}
     }
+  ei->temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
+  create_var_ann (ei->temp);
   expr_phi_insertion ((bitmap *)data, ei);
 
-  /*    rename_1 (ei);*/
+  /*rename_1 (ei);*/
   new_rename_1 (ei);
-
   if (dump_file)
     {
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
       print_generic_expr (dump_file, ei->expr, 0);
-      fprintf (dump_file, "\n");
+      fprintf (dump_file, " after Rename 2\n");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
 	{
 	  print_generic_expr (dump_file, VARRAY_TREE (ei->erefs, i), 1);
 	  fprintf (dump_file, "\n");
 	}
     }
-  insert_euse_in_preorder_dt_order (ei);
+  insert_euse_in_preorder_dt_order (ei);  
+  graph_dump_file = dump_begin (TDI_predot, &graph_dump_flags);
+  if (graph_dump_file)
+    {
+#if 0
+      splay_tree ids;
+      size_t i;
+      size_t firstid, secondid;
+
+      ids = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+      
+      fprintf (graph_dump_file, "digraph \"");
+      print_generic_expr (graph_dump_file, ei->expr, 0);
+      fprintf (graph_dump_file, "\" \n{\n");
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
+	{
+	  tree ref = VARRAY_TREE (ei->erefs, i);
+	  splay_tree_insert (ids, (splay_tree_key) ref, i);
+	  switch (TREE_CODE (ref))
+	    {
+	    case EEXIT_NODE:
+	      fprintf (graph_dump_file, "\t%ud [label=\"exit node\"];\n", i);
+	      break;
+	    case EUSE_NODE:
+	      fprintf (graph_dump_file, 
+		       "\t%ud [label=\"use node\\nbb #%d\"];\n", i, 
+		       bb_for_stmt (ref)->index);
+	      break;
+	    case EPHI_NODE:
+	      fprintf (graph_dump_file, 
+		       "\t%ud [label=\"phi node\\nbb #%d\"];\n", i,
+		       bb_for_stmt (ref)->index);
+	      break;
+	    case ELEFT_NODE:
+	      fprintf (graph_dump_file,
+		       "\t%ud [label=\"left occurrence\\nbb #%d\"];\n",i,
+		       bb_for_stmt (ref)->index);
+	      break;
+	    case EKILL_NODE:
+	      fprintf (graph_dump_file, 
+		       "\t%ud [label=\"kill node\\nbb #%d\"];\n", i,
+		       bb_for_stmt (ref)->index);
+	      break;
+	    default:
+	      break;
+	    }
+	}
+      firstid = 
+	splay_tree_lookup (ids,
+			   (splay_tree_key) VARRAY_TREE (ei->euses_dt_order, 0))->value;     				   
+      for (i = 1; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
+	{
+	  tree ref = VARRAY_TREE (ei->euses_dt_order, i);
+	  secondid = splay_tree_lookup (ids, (splay_tree_key) ref)->value;
+	  fprintf (graph_dump_file, "%ud -> %ud;\n", firstid, secondid);
+	  firstid = secondid;
+	}
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
+
+      fprintf (graph_dump_file, " \n}\n\n");
+     
+      dump_end (TDI_predot, graph_dump_file);
+      splay_tree_delete (ids);
+#endif
+    }
   down_safety (ei);
   will_be_avail (ei);
 
@@ -3014,7 +3225,7 @@ pre_expression (slot, data)
     {
       fprintf (dump_file, "EPHI's for expression ");
       print_generic_expr (dump_file, ei->expr, 0);
-      fprintf (dump_file, "\n");
+      fprintf (dump_file, " after down safety and will_be_avail computation\n");
       FOR_EACH_BB (bb)
       {
 	if (ephi_at_block (bb) != NULL)
@@ -3024,12 +3235,11 @@ pre_expression (slot, data)
 	  }
       }
     }
-  temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
-  create_var_ann (temp);
-  if (finalize_1 (ei, temp))
+ 
+  if (finalize_1 (ei))
     {
       finalize_2 (ei);
-      code_motion (ei, temp);
+      code_motion (ei);
     }
   FOR_EACH_BB (bb)
   {
@@ -3066,6 +3276,7 @@ void
 tree_perform_ssapre (fndecl)
   tree fndecl;
 {
+  int currbbs;
   block_stmt_iterator j;
   basic_block block;
   varray_type bexprs;
@@ -3082,10 +3293,10 @@ tree_perform_ssapre (fndecl)
   domchildren = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   sbitmap_vector_zero (domchildren, last_basic_block);
   compute_domchildren (pre_idom, domchildren);
-
+  currbbs = n_basic_blocks;
   /* Compute dominance frontiers.  */
-  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * n_basic_blocks);
-  for (i = 0; i < n_basic_blocks; i++)
+  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
+  for (i = 0; i < currbbs; i++)
      pre_dfs[i] = BITMAP_XMALLOC ();
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
@@ -3146,7 +3357,7 @@ tree_perform_ssapre (fndecl)
 		    VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
 		    VARRAY_TREE_INIT (slot->erefs, 1, "EREFs");
 		    VARRAY_TREE_INIT (slot->euses_dt_order, 1, "EUSEs");
- 
+		    
 		    VARRAY_PUSH_GENERIC_PTR (slot->occurs, bsi_stmt_ptr (j));
 		    VARRAY_PUSH_GENERIC_PTR (slot->kills, NULL);
 		    VARRAY_PUSH_GENERIC_PTR (slot->lefts, NULL);
@@ -3187,7 +3398,7 @@ tree_perform_ssapre (fndecl)
   VARRAY_CLEAR (bexprs);  
   free_dominance_info (pre_idom);
   free (pre_preorder);
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < currbbs; i++)
      BITMAP_XFREE (pre_dfs[i]);
   free (pre_dfs);
   splay_tree_delete (dfn);
