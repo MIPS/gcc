@@ -1,5 +1,12 @@
 2004-08-19  Mark Mitchell  <mark@codesourcery.com>
 
+	* defaults.h (TARGET_LIBGCC_LIBFUNCS): Remove.
+	* optabs.c (init_optabs): Don't check it.
+	* config/arm/bpabi.h (TARGET_LIBGCC_LIBFUNCS): Do not define.
+	* doc/tm.texi (TARGET_LIBGCC_FUNCS): Remove.
+	
+2004-08-19  Mark Mitchell  <mark@codesourcery.com>
+
 	* bpabi.h (FPUTYPE_DEFAULT): Set it to FPUTYPE_VFP.
 
 2004-08-16  Mark Mitchell  <mark@codesourcery.com>
