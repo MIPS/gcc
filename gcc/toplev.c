@@ -2477,6 +2477,7 @@ rest_of_handle_branch_prob (tree decl, rtx insns)
     estimate_probability (&loops);
 
   flow_loops_free (&loops);
+  free_dominance_info (CDI_DOMINATORS);
   close_dump_file (DFI_bp, print_rtl_with_bb, insns);
   timevar_pop (TV_BRANCH_PROB);
 }
@@ -2975,7 +2976,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
   free_bb_for_insn ();
 
   if (flag_unroll_loops)
-    do_unroll = 0;		/* Having two unrollers is useless.  */
+    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
   else
     do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
@@ -3014,8 +3015,9 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
    sooner, but we want the profile feedback to work more
    efficiently.  */
 static void
-rest_of_handle_loop2 (tree decl, rtx insns)
+rest_of_handle_loop2 (tree decl ATTRIBUTE_UNUSED, rtx insns ATTRIBUTE_UNUSED)
 {
+#if 0
   struct loops *loops;
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
@@ -3047,6 +3049,7 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_LOOP);
   ggc_collect ();
+#endif
 }
 
 /* This is called from finish_function (within langhooks.parse_file)
@@ -4351,10 +4354,6 @@ process_options (void)
 #ifdef SDB_DEBUGGING_INFO
   else if (write_symbols == SDB_DEBUG)
     debug_hooks = &sdb_debug_hooks;
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-  else if (write_symbols == DWARF_DEBUG)
-    debug_hooks = &dwarf_debug_hooks;
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
   else if (write_symbols == DWARF2_DEBUG)

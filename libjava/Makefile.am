@@ -1621,6 +1621,7 @@ gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
 gnu/java/rmi/server/RMIObjectInputStream.java \
 gnu/java/rmi/server/RMIObjectOutputStream.java \
+gnu/java/rmi/server/RMIVoidValue.java \
 gnu/java/rmi/server/UnicastConnection.java \
 gnu/java/rmi/server/UnicastConnectionManager.java \
 gnu/java/rmi/server/UnicastRef.java \
@@ -2237,6 +2238,7 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/net/URLParseError.java \

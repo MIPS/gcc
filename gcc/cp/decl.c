@@ -1261,7 +1261,14 @@ duplicate_decls (tree newdecl, tree olddecl)
       /* Even if the types match, prefer the new declarations type
 	 for anticipated built-ins, for exception lists, etc...  */
       else if (DECL_ANTICIPATED (olddecl))
-	TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
+	{
+	  tree type = TREE_TYPE (newdecl);
+	  tree attribs = (*targetm.merge_type_attributes)
+	    (TREE_TYPE (olddecl), type);
+
+	  type = build_type_attribute_variant (type, attribs);
+	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = type;
+	}
 
       /* Whether or not the builtin can throw exceptions has no
 	 bearing on this declarator.  */
@@ -1587,6 +1594,14 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  DECL_SOURCE_LOCATION (olddecl) 
 	    = DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (olddecl))
 	    = DECL_SOURCE_LOCATION (newdecl);
+	}
+
+      if (DECL_FUNCTION_TEMPLATE_P (newdecl))
+	{
+	  DECL_INLINE (DECL_TEMPLATE_RESULT (olddecl)) 
+	    |= DECL_INLINE (DECL_TEMPLATE_RESULT (newdecl));
+	  DECL_DECLARED_INLINE_P (DECL_TEMPLATE_RESULT (olddecl))
+	    |= DECL_DECLARED_INLINE_P (DECL_TEMPLATE_RESULT (newdecl));
 	}
 
       return olddecl;
@@ -4337,7 +4352,17 @@ reshape_init (tree type, tree *initp)
 	      TREE_CHAIN (element_init) = CONSTRUCTOR_ELTS (new_init);
 	      CONSTRUCTOR_ELTS (new_init) = element_init;
 	      if (TREE_PURPOSE (element_init))
-		index = TREE_PURPOSE (element_init);
+		{
+		  tree next_index = TREE_PURPOSE (element_init);
+		  if (TREE_CODE (next_index) == IDENTIFIER_NODE)
+		    {
+		      error ("name `%D' used in a GNU-style designated "
+			     "initializer for an array", next_index);
+		      TREE_PURPOSE (element_init) = NULL_TREE;
+		    }
+		  else
+		    index = next_index;
+		}
 	    }
 	}
       else

@@ -5,6 +5,62 @@
 	* method.c (use_thunk): Set CALL_FROM_THUNK on the call to the
 	actual function.
 
+2003-12-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/13507
+	* decl.c (duplicate_decls): Use build_type_attribute_variant to
+	merge attributes.
+
+	PR c++/13494
+	* tree.c (build_cplus_array_type_1): Only build a minimal array
+	type for dependent types or domains.
+
+2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12774
+	* typeck.c (comp_array_types): Fold non-dependent domains for
+	ABI-1.
+
+2003-12-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13289
+	* semantics.c (finish_id_expression): Only check if the type of
+	a template argument is integral or enumeration when it is not
+	dependent.
+
+2003-12-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12403
+	* parser.c (cp_parser_template_declaration_after_export): Set up
+	template specialization scope in case of explicit specialization.
+
+2003-12-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13081
+	* decl.c (duplicate_decls): Preserve inline-ness when redeclaring
+	a function template.
+
+	PR c++/12613
+	* decl.c (reshape_init): Reject GNU colon-style designated
+	initializers in arrays.
+
+	PR c++/13009
+	* call.c (build_special_member_call): Do not assume that we have a
+	pointer to the complete object in an assignment operator.
+
+2003-12-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/13070
+	* decl.c (duplicate_decls): When setting the type of an anticipated
+	declaration, merge the existing type attributes.
+
+2003-12-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/13268, c++/13339
+	* class.c (add_method): Return early when method is error_mark_node.
+	* pt.c (tsubst_friend_function): Return early when new_friend is
+	error_mark_node.
+
 2003-12-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-lang.c (cp_expr_size): Return zero for empty classes.

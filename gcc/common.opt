@@ -513,6 +513,14 @@ fprofile-arcs
 Common
 Insert arc-based program profiling code
 
+fprofile-generate
+Common
+Enable common options for generating profile info for profile feedback directed optimizations
+
+fprofile-use
+Common
+Enable common options for performing profile feedback directed optimizations
+
 fprofile-values
 Common
 Insert code to profile values of expressions
@@ -734,14 +742,6 @@ Generate debug information in default format
 gcoff
 Common JoinedOrMissing
 Generate debug information in COFF format
-
-gdwarf
-Common JoinedOrMissing
-Generate debug information in DWARF v1 format
-
-gdwarf+
-Common JoinedOrMissing
-Generate debug information in extended DWARF v1 format
 
 gdwarf-2
 Common JoinedOrMissing

@@ -39,6 +39,9 @@ exception statement from your version. */
 package gnu.java.net.protocol.http;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,10 +51,10 @@ import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Vector;
-import java.util.Hashtable;
+import gnu.java.net.HeaderFieldHelper;
 
 /**
  * This subclass of java.net.URLConnection models a URLConnection via
@@ -102,14 +105,28 @@ public final class Connection extends HttpURLConnection
   /**
    * The InputStream for this connection.
    */
-  private BufferedInputStream inputStream;
+  private DataInputStream inputStream;
+
+  /**
+   * The OutputStream for this connection
+   */
+  private OutputStream outputStream;
+
+  /**
+   * bufferedOutputStream is a buffer to contain content of the HTTP request,
+   * and will be written to outputStream all at once
+   */
+  private ByteArrayOutputStream bufferedOutputStream;
+
+  /**
+   * This object holds the request properties.
+   */
+  private HashMap requestProperties = new HashMap();
 
   /**
    * This is the object that holds the header field information
    */
-  private Hashtable requestProperties = new Hashtable();
-  private Hashtable hdrHash = new Hashtable();
-  private Vector hdrVec = new Vector();
+  private HeaderFieldHelper headers = new HeaderFieldHelper();
 
   /**
    * Calls superclass constructor to initialize
@@ -120,22 +137,6 @@ public final class Connection extends HttpURLConnection
 
     /* Set up some variables */
     doOutput = false;
-  }
-
-  public void setRequestProperty(String key, String value)
-  {
-    if (connected)
-      throw new IllegalAccessError("Connection already established.");
-
-    requestProperties.put(key, value);
-  }
-
-  public String getRequestProperty(String key)
-  {
-    if (connected)
-      throw new IllegalAccessError("Connection already established.");
-
-    return (String) requestProperties.get(key);
   }
 
   /**
@@ -163,16 +164,14 @@ public final class Connection extends HttpURLConnection
 	socket = new Socket(url.getHost(), port);
       }
 
-    // Originally tried using a BufferedReader here to take advantage of
-    // the readLine method and avoid the following, but the buffer read
-    // past the end of the headers so the first part of the content was lost.
-    // It is probably more robust than it needs to be, e.g. the byte[]
-    // is unlikely to overflow and a '\r' should always be followed by a '\n',
-    // but it is better to be safe just in case.
-    inputStream = new BufferedInputStream(socket.getInputStream());
+    inputStream =
+      new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+    outputStream = new BufferedOutputStream (socket.getOutputStream());
+    bufferedOutputStream = new ByteArrayOutputStream (256); //default is too small
 
     sendRequest();
-    getHttpHeaders();
+    receiveReply();
+
     connected = true;
   }
 
@@ -201,16 +200,32 @@ public final class Connection extends HttpURLConnection
   void sendRequest() throws IOException
   {
     // Create PrintWriter for easier sending of headers.
-    PrintWriter outputWriter = new PrintWriter(socket.getOutputStream());
+    PrintWriter outputWriter = new PrintWriter(outputStream);
     
     // Send request including any request properties that were set.
     outputWriter.print (getRequestMethod() + " " + url.getFile()
-                        + " HTTP/1.0\r\n");
+                        + " HTTP/1.1\r\n");
 
     // Set additional HTTP headers.
     if (getRequestProperty ("Host") == null)
       setRequestProperty ("Host", url.getHost());
     
+    if (getRequestProperty ("Connection") == null)
+      setRequestProperty ("Connection", "Close");
+    
+    if (getRequestProperty ("user-agent") == null)
+      setRequestProperty ("user-agent", "gnu-libgcj/"
+                          + System.getProperty ("classpath.version"));
+    
+    if (getRequestProperty ("accept") == null)
+      setRequestProperty ("accept", "*/*");
+    
+    if (getRequestProperty ("Content-type") == null)
+      setRequestProperty ("Content-type", "application/x-www-form-urlencoded");
+
+    // Set correct content length.
+    setRequestProperty ("Content-length", String.valueOf (bufferedOutputStream.size()));
+
     // Write all req_props name-value pairs to the output writer.
     Iterator itr = getRequestProperties().entrySet().iterator();
 
@@ -223,6 +238,106 @@ public final class Connection extends HttpURLConnection
     // One more CR-LF indicates end of header.
     outputWriter.print ("\r\n");
     outputWriter.flush();
+
+    // Write content
+    bufferedOutputStream.writeTo (outputStream);
+    outputStream.flush();
+  }
+
+  /**
+   * Read HTTP reply from inputStream.
+   */
+  private void receiveReply() throws IOException
+  {
+    // Parse the reply
+    String line = inputStream.readLine();
+    String saveline = line;
+    int idx = line.indexOf (" ");
+
+    if ((idx == -1)
+        || (line.length() < (idx + 6)))
+      throw new IOException ("Server reply was unparseable: " + saveline);
+
+    headers.addHeaderField (null, line);
+
+    line = line.substring (idx + 1);
+    String code = line.substring (0, 3);
+    
+    try
+      {
+        responseCode = Integer.parseInt (code);
+      }
+    catch (NumberFormatException e)
+      {
+        throw new IOException ("Server reply was unparseable: " + saveline);
+      }
+    
+    responseMessage = line.substring (4);
+
+    // Now read the header lines
+    String key = null, value = null;
+    
+    while (true)
+      {
+        line = inputStream.readLine();
+        
+        if (line.equals(""))
+          break;
+
+        // Check for folded lines
+        if (line.startsWith (" ")
+            || line.startsWith("\t"))
+          {
+            // Trim off leading space
+            do
+              {
+                if (line.length() == 1)
+                  throw new IOException("Server header lines were unparseable: "
+                                        + line);
+
+                line = line.substring (1);
+              }
+            while (line.startsWith(" ")
+                   || line.startsWith("\t"));
+
+            value = value + " " + line;
+          }
+        else 
+          {
+            if (key != null)
+              {
+                headers.addHeaderField (key.toLowerCase(), value);
+                key = null;
+                value = null;
+              }
+
+            // Parse out key and value
+            idx = line.indexOf (":");
+            if ((idx == -1)
+                || (line.length() < (idx + 2)))
+              throw new IOException ("Server header lines were unparseable: "
+                                     + line);
+
+            key = line.substring (0, idx);
+            value = line.substring (idx + 1);
+
+            // Trim off leading space
+            while (value.startsWith (" ")
+                   || value.startsWith ("\t"))
+              {
+                if (value.length() == 1)
+                  throw new IOException ("Server header lines were unparseable: "
+                                         + line);
+
+                value = value.substring (1);
+              }
+          }
+      }
+    
+    if (key != null)
+      {
+        headers.addHeaderField (key.toLowerCase(), value.toLowerCase());
+      }
   }
 
   /**
@@ -256,15 +371,23 @@ public final class Connection extends HttpURLConnection
     return inputStream;
   }
 
+  /**
+   * Returns on OutputStream for writing to this connection.
+   *
+   * @return An OutputStream for this connection.
+   *
+   * @exception IOException If an error occurs
+   */
   public OutputStream getOutputStream() throws IOException
   {
+    if (!doOutput)
+      throw new ProtocolException
+        ("Want output stream while haven't setDoOutput(true)");
+    
     if (!connected)
       connect();
-
-    if (! doOutput)
-      throw new ProtocolException("Can't open OutputStream if doOutput is false");
     
-    return socket.getOutputStream();
+    return bufferedOutputStream;
   }
 
   /**
@@ -279,11 +402,48 @@ public final class Connection extends HttpURLConnection
   {
     method = method.toUpperCase();
     
-    if (method.equals("GET"))
+    if (method.equals("GET")
+        || method.equals("HEAD")
+        || method.equals("POST"))
       super.setRequestMethod (method);
     else
       throw new ProtocolException ("Unsupported or unknown request method " +
                                    method);
+  }
+
+  public void addRequestProperty(String key, String value)
+  {
+    if (connected)
+      throw new IllegalStateException("Already connected");
+    
+    String old = (String) requestProperties.put(key, value);
+
+    if (old != null)
+      requestProperties.put(key, old + "," + value);
+  }
+
+  public String getRequestProperty(String key)
+  {
+    if (connected)
+      throw new IllegalStateException("Already connected");
+    
+    return (String) requestProperties.get(key);
+  }
+
+  public void setRequestProperty(String key, String value)
+  {
+    if (connected)
+      throw new IllegalStateException("Already connected");
+    
+    requestProperties.put(key, value);
+  }
+
+  public Map getRequestProperties()
+  {
+    if (connected)
+      throw new IllegalStateException("Already connected");
+    
+    return requestProperties;
   }
 
   public String getHeaderField(String name)
@@ -298,7 +458,7 @@ public final class Connection extends HttpURLConnection
 	  return null;
 	}
 
-    return (String) hdrHash.get(name.toLowerCase());
+    return (String) headers.getHeaderFieldValueByKey(name.toLowerCase());
   }
 
   public Map getHeaderFields()
@@ -313,7 +473,7 @@ public final class Connection extends HttpURLConnection
 	  return null;
 	}
 
-    return hdrHash;
+    return headers.getHeaderFields();
   }
 
   /**
@@ -337,9 +497,7 @@ public final class Connection extends HttpURLConnection
 	  return null;
 	}
 
-    if (n < hdrVec.size())
-      return getField ((String) hdrVec.elementAt(n));
-    return null;
+    return headers.getHeaderFieldValueByIndex (n);
   }
 
   /**
@@ -363,86 +521,6 @@ public final class Connection extends HttpURLConnection
 	  return null;
 	}
 
-    if (n < hdrVec.size())
-      return getKey ((String) hdrVec.elementAt(n));
-    return null;
-  }
-
-  private String getKey(String str)
-  {
-    if (str == null)
-      return null;
-    int index = str.indexOf(':');
-    if (index >= 0)
-      return str.substring(0, index);
-    else
-      return null;
-  }
-
-  private String getField(String str)
-  {
-    if (str == null)
-      return null;
-    int index = str.indexOf(':');
-    if (index >= 0)
-      return str.substring(index + 1).trim();
-    else
-      return str;
-  }
-
-  /**
-   * Read HTTP reply from inputStream.
-   */
-  private void getHttpHeaders() throws IOException
-  {
-    int buflen = 100;
-    byte[] buf = new byte[buflen];
-    String line = "";
-    boolean gotnl = false;
-    byte[] ch = new byte[1];
-    ch[0] = (byte) '\n';
-
-    while (true)
-      {
-	// Check for leftover byte from non-'\n' after a '\r'.
-	if (ch[0] != '\n')
-	  line = line + '\r' + new String(ch, 0, 1);
-
-	int i;
-	// FIXME: This is rather inefficient.
-	for (i = 0; i < buflen; i++)
-	  {
-	    buf[i] = (byte) inputStream.read();
-	    if (buf[i] == -1)
-	      throw new IOException("Malformed HTTP header");
-	    if (buf[i] == '\r')
-	      {
-	        inputStream.read(ch, 0, 1);
-		if (ch[0] == '\n')
-		  gotnl = true;
-		break;
-	      }
-	  }
-	line = line + new String(buf, 0, i);
-
-	// A '\r' '\n' combo indicates the end of the header entry.
-	// If it wasn't found, cycle back through the loop and append
-	// to 'line' until one is found.
-	if (gotnl)
-	  {
-	    // A zero length entry signals the end of the headers.
-	    if (line.length() == 0)
-	      break;
-
-	    // Store the header and reinitialize for next cycle.
-	    hdrVec.addElement(line);
-	    String key = getKey(line);
-	    if (key != null)
-	      hdrHash.put(key.toLowerCase(), getField(line));
-	    line = "";
-	    ch[0] = (byte) '\n';
-	    gotnl = false;
-	  }
-      }
+    return headers.getHeaderFieldKeyByIndex (n);
   }
 }

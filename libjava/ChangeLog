@@ -1,3 +1,213 @@
+2003-12-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java,
+	java/io/ObjectOutputStream.java,
+	java/io/ObjectStreamClass.java:
+	Reformated, no functional code changes.
+
+2003-12-30  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(outputStream): New field.
+	(bufferedOutputStream): New field.
+	(connect): Initialize outputStream and bufferedOutputStream.
+	(sendRequest): Create PrintWriter object from outputStream,
+	support HTTP 1.1, send missing HTTP headers and buffered output data
+	for POST method.
+	(getOutputStream): Set request method to POST if output stream is
+	used, return bufferedOutputStream.
+	(setRequestMethod): Allow HEAD and POST methods.
+	This fixes libgcj PR/6302 and libgcj PR/7752.
+
+2003-12-30  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/io/LineNumberReader.java
+	(countLines): Removed.
+	(fill): New private method.
+	(mark): Changed logic to use and matchedNewLine.
+	(reset): Likewise.
+	(read): Likewise.
+	(skipRedundantLF): Likewise.
+
+2003-12-30  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(requestProperties): New field.
+	(addRequestProperty): New method.
+	(getRequestProperty): New method.
+	(setRequestProperty): New method.
+	(getRequestProperties): New method.
+
+2003-12-28  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(inputStream): Made it a DataInputStream.
+	(requestProperties): Removed.
+	(hdrHash): Removed.
+	(hdrVec): Removed.
+	(headers): New field to store headers.
+	(connect): Initialize inputStream.
+	(receiveReply): Merged from classpath. The new algorithm is line based
+	instead of character based.
+	(getHeaderField): Use headers.
+	(getHeaderFields): Use headers.
+	(getKey): Removed.
+	(getField): Removed.
+	* gnu/java/net/HeaderFieldHelper.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	Added gnu/java/net/HeaderFieldHelper.java.
+	* Makefile.in: Regenerated.
+
+2003-12-28  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/io/LineNumberReader.java
+	(mark): Improved error checking.
+	(read): Likewise.
+	(skip): Likewise. Skip is now really eating the specified number of
+	characters.
+	* java/io/CharArrayReader.java (read): It should throw
+	IndexOutOfBoundsException and not ArrayIndexOutOfBoundsException (see
+	mauve).
+	* java/io/BufferedReader.java (readLine): Make readLine() really block
+	until either EOF is reached or a true error happens.
+
+2003-12-27  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(getRequestProperty): Removed.
+	(setRequestProperty): Removed.
+
+2003-12-27  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(connect): Call receiveReply().
+	(receiveReply): Renamed from getHttpHeaders().
+	(getOutputStream): Moved check on doOutput before check for connection
+	state.
+
+2003-12-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/print/attribute/ResolutionSyntax.java,
+	javax/print/attribute/SetOfIntegerSyntax.java,
+	javax/print/attribute/Size2DSyntax.java,
+	javax/print/attribute/standard/Copies.java,
+	javax/print/attribute/standard/JobImpressions.java,
+	javax/print/attribute/standard/JobMediaSheets.java,
+	javax/print/attribute/standard/NumberOfDocuments.java,
+	javax/print/attribute/standard/NumberOfInterveningJobs.java,
+	javax/print/attribute/standard/PagesPerMinute.java,
+	javax/print/attribute/standard/PagesPerMinuteColor.java,
+	javax/print/attribute/standard/QueuedJobCount.java:
+	Fixed typo (s/then/than/).
+
+2003-12-27  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/rmi/Naming.java (lookup): Check if the first character of the
+	filename returned by URL.getFile() is a '/', only if it is the case
+	we cut this first character and call the registry with the good name.
+	(bind): Likewise.
+	(rebind): Likewise.
+
+2003-12-26  Guilhem Lavaux  <guilhem@kaffe.org>
+	    Mark Wielaard  <mark@klomp.org>
+
+	* java/io/BufferedReader.java (BufferedReader):
+	Throw IllegalArgumentException when size <= 0.
+	(mark): Document and better exception message for negative
+	readLimit IllegalArgumentException.
+	(read(char[],int,int)): Throw IndexOutOfBoundsException
+	if offset and count are not valid regarding buf.
+	(skip): Throw IllegalArgumentException when count is negative.
+
+2003-12-26  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/io/FileInputStream.java
+	(FileInputStream(String)): Call FileInputStream(File).
+	(FileInputStream(File)): Check whether the argument is a directory.
+
+2003-12-26  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (rmi_java_source_files):
+	Added gnu/java/rmi/server/RMIVoidValue.java.
+	* Makefile.in: Regenerated.
+
+2003-12-26  Guilhem Lavaux  <guilhem@kaffe.org>
+            Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/rmi/server/UnicastConnectionManager.java
+	(startScavenger): Set the client connection manager to daemon
+	state because it may block clients until TIMEOUT is reached
+	when they are exiting.
+
+	* gnu/java/rmi/RMIVoidValue.java: New file for a class representing
+	a void return.
+
+	* gnu/java/rmi/server/UnicastRemoteCall.java
+	(DummyOutputStream): Add a boolean before each written field to
+	know whether it is a primitive.
+	(releaseOutputStream): Flush parameters at write time.
+
+	* gnu/java/rmi/server/UnicastServerRef.java
+	(incomingMessageCall): Return a RMIVoidValue if no value is to be
+	returned.
+
+	* gnu/java/rmi/server/UnicastServer.java
+	(incomingMessageCall): Do not write a returned object if it is
+	a RMIVoidValue.
+
+2003-12-25  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libltdl/ltdl.c (HAVE_DYLD): Remove ifdef conditional for 
+	darwin. Fixed by fixinclude now.
+
+2003-12-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/ServerSocket.java bind():
+	If InetSocketAddress.getAddress() returns "null" use "0.0.0.0" as
+	address to bind to.
+
+2003-12-23  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/io/ObjectInputStream.java
+	(getField): Handle transient and non persistent fields.
+	(readClassDescriptor): Better error handling, use the right
+	class loader.
+	(readFields): Fields marked as not present in the stream
+	or not to be set are not read and set.
+	* java/io/ObjectInputStream.java
+	(readFields): Changed implementation of GetField.
+	(readClassDescriptor): Documented.
+	* java/io/ObjectOutputStream.java
+	(writeClassDescriptor): Added condition when to write class super
+	class information.
+
+2003-12-22  Fernando Nasser  <fnasser@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkChoicePeer.java (postItemEvent): Rename to...
+	(choicePostItemEvent): Change signature to more specific String object.
+	* java/awt/Choice.java (add): Generate ItemEvent for the first item
+	added.
+	(insert): Generate ItemEvent if insertion caused
+	selection to change.
+	(remove): Generate ItemEvent if removal cause selection to change.
+	(removeAll): Change algorithm to prevent generation of ItemEvents.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c
+	(connect_choice_item_selectable_hook): Change argument type.
+	Fix argument value.
+	Make sure resources are feed by registering callback.
+	(Java_gnu_java_awt_peer_gtk_GtkChoicePeer_append): Adjust call to the
+	above function.
+	(Java_gnu_java_awt_peer_gtk_GtkChoicePeer_add): Ditto.
+	(item_activate): Ditto.
+	(Java_gnu_java_awt_peer_gtk_GtkChoicePeer_remove): Destroy removed
+	menuitem.
+	(item_removed): New function.  Free resources.
+	* jni/gtk-peer/gtkpeer.h (item_event_hook_info): Change member type and
+	name.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c
+	(Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkInit): Obtain MethodID for
+	choicePostItemEvent.
+
 2003-12-23  Michael Koch  <konqueror@gmx.de>
 
 	* javax/print/attribute/standard/Copies.java,

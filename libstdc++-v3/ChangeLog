@@ -1,3 +1,23 @@
+2003-12-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13369
+	* include/bits/locale_facets.tcc (__verify_grouping):
+	Fix to deal properly with __grouping_tmp.size() >
+	__grouping.size().
+	* testsuite/22_locale/num_get/get/char/13.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/13.cc: Ditto.
+	
+2003-12-29  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/locale_facets.h (ctype.narrow,widen): Add cast.
+
+2003-12-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 (GLIBCXX_CHECK_LFS): Add -fno-exceptions
+	to CXXFLAGS.
+	* aclocal.m4: Regenerate.
+	* configure: Likewise.
+
 2003-12-29  Mark Mitchell  <mark@codesourcery.com>
 
 	* acconfig.h: Add _GLIBCXX_USE_C99_MATH.
@@ -26,6 +46,11 @@
 	* testsuite/27_io/objects/char/9.cc: Likewise.
 	* testsuite/ext/stdio_filebuf/char/10063-2.cc: Likewise.
 
+2003-12-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/pool_allocator.h (class __pool_alloc): Use
+	operator new and operator delete.
+
 2003-12-24  Mark Mitchell  <mark@codesourcery.com>
 
 	* 27_io/basic_filebuf/close/char/4879.cc: Skip on newlib targets.
@@ -36,6 +61,14 @@
 	* 27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
 	* 27_io/objects/char/7.cc: Likewise.
 	* 27_io/objects/char/9661-1.cc: Likewise.
+
+2003-12-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/cpu/i386/atomicity.h (__exchange_and_add): Fix output 
+	constraint.
+
+	PR libstdc++/13480
+	* config/cpu/i386/atomicity.h: Split up read-write memory operand.
 
 2003-12-23  Benjamin Kosnik  <bkoz@redhat.com>
 

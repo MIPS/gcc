@@ -436,7 +436,6 @@ namespace std
     { return __builtin_tanh(__x); }
 }
 
-
 #if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
 // These are possible macros imported from C99-land. For strict

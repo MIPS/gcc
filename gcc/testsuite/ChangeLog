@@ -33,6 +33,132 @@
 	* g++.dg/lookup/java2.C: Likewise.
 	* gcc.dg/cpp/lexident.c: Likewise.
 	
+2003-12-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vbase10.C: XFAIL on arm*-*-*.
+
+2003-12-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* g++.old-deja/g++.jason/thunk2.C: Remove traces of dead
+	ports.
+	* g++.old-deja/g++.jason/thunk3.C: Likewise.
+	* g++.old-deja/g++.law/profile1.C: Likewise.
+	* gcc.c-torture/compile/981006-1.c: Likewise.
+	* gcc.c-torture/execute/loop-2e.x: Likewise.
+	* gcc.c-torture/execute/loop-2f.x: Remove.
+	* gcc.c-torture/execute/loop-2g.x: Likewise.
+	* gcc.c-torture/execute/strct-varg-1.x: Likewise.
+	* gcc.dg/20020312-2.c: Remove traces of dead ports.
+
+2003-12-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/13507
+	* g++.dg/ext/attrib11.C: New test.
+
+	PR c++/13494
+	* g++.dg/template/array2-1.C: New test.
+	* g++.dg/template/array2-2.C: New test.
+
+2003-12-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.pt/static11.C: Correct XFAIL syntax.
+
+2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12774
+	* g++.dg/template/array1-1.C: New test.
+	* g++.dg/template/array1-2.C: New test.
+
+2003-12-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/12632
+	* g77.dg/12632.f: New test case.
+
+2003-12-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13289
+	* g++.dg/parse/nontype1.C: New test.
+
+2003-12-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12403
+	* g++.dg/parse/explicit1.C: New test.
+	* g++.old-deja/g++.pt/explicit71.C: Adjust expected error.
+
+2003-12-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13081
+	* g++.dg/opt/inline6.C: New test.
+
+	PR c++/12613
+	* g++.dg/parse/error9.C: New test.
+
+	* gcc.dg/const-elim-1.c: XFAIL on arm-*-*.
+
+2003-12-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13009
+	* g++.dg/init/assign1.C: New test.
+
+2003-12-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/13070
+	* g++.dg/warn/format3.C: New test case.
+
+2003-12-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.c-torture/compile/20031227-1.c: New test.
+
+2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/bprob/bprob.exp: Load target-supports.exp
+	* g77.dg/bprob/bprob.exp: Likewise.
+	* gcc.misc-tests/bprob.exp: Likewise.
+	* gcc.dg/builtins-18.c: Use builtins-config.h.  Do not test float
+	variants on systems where the library does not provide that
+	functionality.
+	* gcc.dg/builtins-20.c: Use builtins-config.h.
+	* gcc.dg/builtins-config.h: New file.
+
+2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-require-profiling): New function.
+	* lib/target-supports.exp (check_profiling_available): Likewise.
+	* g++.dg/bprob/bprob.exp: Use check_profiling_available.
+	* g77.dg/bprob/bprob.exp: Likewise.
+	* gcc.misc-tests/bprob.exp: Likewise.
+	* g++.old-deja/g++.law/profile1.C: Use dg-require-profiling.
+	* gcc.dg/20021014-1.c: Likewise.
+	* gcc.dg/nest.c: Likewise.
+
+2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/lookup/java1.C: Use -fdollars-in-identifiers when
+	compiling.
+	* g++.dg/lookup/java2.C: Likewise.
+	* gcc.dg/cpp/lexident.c: Likewise.
+
+2003-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20020604-1.c: XFAIL on H8 if -mn is
+	given.
+	* gcc.c-torture/compile/961203-1.c: Likewise.
+	* gcc.c-torture/compile/980506-1.c: Likewise.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-prune-output): New annotation.
+	(additional_prunes): New global.
+	(gcc-dg-prune): Handle additional per-test pruning.
+	(dg-test): Clear additional_prunes between tests.
+
+	* gcc.c-torture/compile/920625-1.c: Remove xfail.  Use
+	dg-prune-output to avoid spurious failures from assembler
+	complaining about nonexistent WAW violations.
+	* gcc.c-torture/compile/981223-1.c: Remove dg-options line.
+	Use dg-prune-output to avoid spurious failures from assembler
+	warning about Itanium B-step errata.
+
 2003-12-23  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/macro0.C: New test.
@@ -350,7 +476,7 @@
 	* g++.dg/template/type1.C: Likewise.
 	* g++.old-deja/g++.other/crash32.C: Likewise.
 	* g++.old-djea/g++.pt/defarg8.C: Likewise.
-	
+
 2003-12-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/13106

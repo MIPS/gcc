@@ -1,5 +1,9 @@
 2003-30-12  Paul Brook  <paul@codesourcery.com>
 
+	* longlong.h: protect arm inlines with !defined (__thumb__)
+
+2003-30-12  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Always define __arm__.
 
 2003-12-30  Nathan Sidwell  <nathan@codesourcery.com>
@@ -215,7 +219,350 @@
 	* config/arm/arm-generic.md: Likewise.
 	* config/arm/arm1026ejs.md: Likewise.
 
+2003-12-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* stor-layout.c (layout_decl): Turn bitfields into ordinary
+	fields, even if they are the first field in a structure.
+
+2003-12-30  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) <COND_EXPR>: Don't require strict type
+	equality, instead just prevent replacing a COND_EXPR of non-void
+	type by one of its operands of void type.
+
+2003-12-30  Andreas Schwab  <schwab@suse.de>
+
+	* doc/c-tree.texi: Fix @item vs. @itemx.
+	* doc/cpp.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2003-12-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* builtins.c (expand_builtin_apply_args_1): Fix typo in previous
+	change.
+
+2003-12-30  Jan Hubicka  <jh@suse.cz>
+
+	PR ice/11936
+	* i386.h (CLASS_LIKELY_SPILLED_P): Return true for
+	FP_TOP_REG/FP_SECOND_REG.
+
+2003-12-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Backport from tree-ssa (relevant changes only):
+	2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* et-forest.h (et_forest_create, et_forest_delete,
+	et_forest_add_node, et_forest_add_edge, et_forest_remove_node,
+	et_forest_remove_edge, et_forest_parent,
+	et_forest_common_ancestor, et_forest_node_value,
+	et_forest_enumerate_sons): Declarations removed.
+	(struct et_node): New.
+	(et_new_tree, et_free_tree, et_set_father, et_split, et_nca,
+	et_below): Declare.
+	* et-forest.c (struct et_forest_occurrence, struct et_forest,
+	struct et_forest_node): Removed.
+	(et_forest_create, et_forest_delete,
+	et_forest_add_node, et_forest_add_edge, et_forest_remove_node,
+	et_forest_remove_edge, et_forest_parent,
+	et_forest_common_ancestor, et_forest_node_value,
+	et_forest_enumerate_sons, splay, remove_all_occurrences,
+	find_leftmost_node, find_rightmost_node, calculate_value): Removed.
+	(struct et_occ): New.
+	(et_nodes, et_occurences): New.
+	(set_depth, set_depth_add, set_prev, set_next, et_recomp_min,
+	et_check_occ_sanity, et_check_sanity, et_check_tree_sanity,
+	record_path_before_1, record_path_before, check_path_after_1,
+	check_path_after, et_splay, et_new_occ, et_new_tree,
+	et_free_tree, et_set_father, et_split, et_nca, et_below): New.
+	* basic-block.h (struct basic_block_def): New field dom.
+	(struct dominance_info): Type removed.
+	(calculate_dominance_info, free_dominance_info,
+	nearest_common_dominator, set_immediate_dominator,
+	get_immediate_dominator, dominated_by_p, get_dominated_by,
+	add_to_dominance_info, delete_from_dominance_info,
+	recount_dominator, redirect_immediate_dominators,
+	iterate_fix_dominators, verify_dominators): Declarations
+	changed.
+	(enum dom_state): New.
+	(dom_computed): New variable.
+	(first_dom_son, next_dom_son): Declare.
+	* dominance.c (struct dominance_info): Removed.
+	(BB_NODE, SET_BB_NODE): Removed.
+	(calculate_dominance_info, free_dominance_info,
+	nearest_common_dominator, set_immediate_dominator,
+	get_immediate_dominator, dominated_by_p, get_dominated_by,
+	add_to_dominance_info, delete_from_dominance_info,
+	recount_dominator, redirect_immediate_dominators,
+	iterate_fix_dominators, verify_dominators,
+	debug_dominance_info): Work over new datastructure.  Access
+	dominance datastructures through CFG.
+	(assign_dfs_numbers, compute_dom_fast_query, first_dom_son,
+	next_dom_son): New.
+	* bt-load.c (dom): Variable removed.
+	(augment_live_range, combine_btr_defs, migrate_btr_def,
+	migrate_btr_defs, branch_target_load_optimize): Updated for the
+	new interface for dominance information.
+	* cfg.c {exit_entry_blocks): Update initializer.
+	* cfglayout.c (copy_bbs): Removed loops argument. Updated for
+	the new interface for dominance information.
+	* cfglayout.h (copy_bbs): Declaration changed.
+	* cfgloop.c (flow_loop_pre_header_find, flow_loops_cfg_dump,
+	flow_loop_scan, canonicalize_loop_headers, flow_loops_find): Updated
+	for the new interface for dominance information.
+	(flow_loop_scan): Loops argument removed.
+	(flow_loops_free): Don't release dominators.
+	* cfgloop.h (struct cfg): Dom field removed.
+	(flow_loop_scan, loop_split_edge_with, simple_loop_p,
+	just_once_each_iteration_p, split_loop_bb): Declaration changed.
+	* cfgloopanal.c (simple_loop_exit_p, simple_increment,
+	just_once_each_iteration_p, simple_loop_p): Remove loops argument.
+	Updated for the new interface for dominance information.
+	* cfgloopmanip.c (remove_bbs, find_path, create_preheader,
+	split_loop_bb, loopify, duplicate_loop_to_header_edge,
+	force_single_succ_latches, loop_split_edge_with): Ditto.
+	* gcse.c (dominators): Variable removed.
+	(free_code_hoist_mem, compute_code_hoist_data, hoist_code):
+	Updated for the new interface for dominance information.
+	* ifcvt.c (post_dominators): Variable removed.
+	(mark_loop_exit_edges, merge_if_block, find_if_header,
+	find_cond_trap, find_if_case_1, find_if_case_2, if_convert):
+	Updated for the new interface for dominance information.
+	* loop-init.c (rtl_loop_optimizer_init,
+	rtl_loop_optimizer_finalize): Ditto.
+	* loop-unroll.c (decide_peel_simple, decide_peel_once_rolling,
+	decide_peel_completely, decide_unroll_stupid,
+	decide_unroll_constant_iterations,
+	decide_unroll_runtime_iterations): Loops argument removed.
+	Updated for the new interface for dominance information.
+	(unroll_and_peel_loops, peel_loops_completely,
+	unroll_loop_runtime_iterations): Updated for the new interface for
+	dominance information.
+	* loop-unswitch.c (may_unswitch_on_p, unswitch_loops,
+	unswitch_single_loop, unswitch_loop): Updated for the new
+	interface for dominance information.
+	* predict.c (process_note_predictions, process_note_prediction,
+	estimate_probability, note_prediction_to_br_prob): Ditto.
+	* sched-rgn.c (find_rgns, init_regions): Ditto.
+	* toplev.c (rest_of_handle_branch_prob): Free the dominators.
+
+2003-12-30  Jan Hubicka  <jh@suse.cz>
+
+	PR target/13456
+	* i386.md (allocate_stack_worker):  Use different pattern for pre and
+	post reload expansion.
+	(allocate_stack_worker_1, allocate_stack_worker_rex64): Use
+	match_scratch.
+	(allocate_stack_worder_1_postreload,
+	allocate_stack_worker_rex64_postreload): New.
+
+2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* builtins.c (expand_builtin_apply_args_1): Add pretend args size
+	to the virtual incoming args pointer for downward stacks.
+
+2003-12-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/12632
+	* fold-const.c (fold) <COND_EXPR>: Don't fold a constant condition,
+	if the type of the selected branch doesn't match its' parent.
+
+2003-12-29  Jan Hubicka  <jh@suse.cz>
+
+	* coverage.c (read_counts_file): Better error messages; cause corrupted
+	profiles to produce hard errors, not just warnings
+	(get_coverage_counts): Similarly.
+
+	* toplev.c (rest_of_handle_loop_optimize): Enable LOOP_AUTO_UNROLL.
+
+2003-12-29  Phil Edwards  <phil@codesourcery.com>
+
+	* doc/cppopts.texi:  Use of -idirafter, -iprefix, -iwithprefix, and
+	-iwithprefixbefore is not discouraged.
+
+2003-12-28  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* sbitmap.c (sbitmap_union_of_diff_cg, sbitmap_a_and_b_cg,
+	sbitmap_a_xor_b_cg): Accumulate "changed" properly.
+	(sbitmap_not): Zero all bits past n_bit.
+
+2003-12-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR opt/13159
+	* cfgloopanal.c (mark_irreducible_loops): Fix the strongly connected
+	components detection.
+	* loop-unswitch.c (unswitch_loop): Preserve simple preheaders.
+
+2003-12-27  Bernardo Innocenti  <bernie@develer.com>
+
+	* config/m68k/uclinux.h (LIB_SPEC): Add elf2flt magic required for
+	correct linking of executables using id-based shared libraries.
+
+2003-12-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/i386/i386-interix.h: Remove uses of "register"
+	specifier in declarations of arguments and local variables.
+	* config/i386/i386.c: Likewise.
+	* config/i386/i386elf.h: Likewise.
+	* config/i386/ptx4-i.h: Likewise.
+	* config/i386/sysv4.h: Likewise.
+
+2003-12-26  Fariborz Jahanian <fjahanian@apple.com>
+	    Geoffrey Keating <geoffk@apple.com>
+	    David Edelsohn <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (legitimate_offset_address_p): Do not
+	restrict DFmode and TFmode to word alignment.
+	* config/rs6000/rs6000.md (movdf_hardfloat64): Use 'o' constraint
+	for ld/std and order before mr.
+
+2003-12-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Arrange
+	-fprofile-generate to imply -lgcov.
+
+2003-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (ldm_h8300s_2_normal): Use HImode for
+	addresses.
+
+2003-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/m32r/m32r.md: Remove a constraint from a splitter.
+
+2003-12-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/13429, C/11944
+	* c-common.c (c_build_qualified_type): Return early when type is 
+	error_mark_node.
+	(c_apply_type_quals_to_decl): Likewise.
+
+2003-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/alpha/alpha-modes.def: Fix comment formatting.
+	* config/alpha/alpha.c: Likewise.
+	* config/alpha/alpha.h: Likewise.
+	* config/alpha/elf.h: Likewise.
+	* config/alpha/lib1funcs.asm: Likewise.
+	* config/alpha/openbsd.h: Likewise.
+	* config/alpha/vms-cc.c: Likewise.
+	* config/alpha/vms-crt0-64.c: Likewise.
+	* config/alpha/vms-crt0.c: Likewise.
+	* config/alpha/vms-ld.c: Likewise.
+	* config/alpha/vms-psxcrt0-64.c: Likewise.
+	* config/alpha/vms-psxcrt0.c: Likewise.
+	* config/alpha/vms.h: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arm/aof.h: Likewise.
+	* config/arm/arm-modes.def: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/arm.h: Likewise.
+	* config/arm/arm.md: Likewise.
+	* config/arm/linux-elf.h: Likewise.
+	* config/arm/vxworks.h: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/avr/avr.h: Likewise.
+
+2003-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/xtensa/elf.h: Fix comment formatting.
+	* config/xtensa/xtensa-protos.h: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+	* config/xtensa/xtensa.h: Likewise.
+
+2003-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/avr/avr.c: Fix comment formatting.
+	* config/avr/avr.md: Likewise.
+
+2003-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/12721.
+	* config/avr/avr.c: Include ggc.h.
+	(tmp_reg_rtx): Declare with GTY.
+	(zero_reg_rtx): Likewise.
+	(ldi_reg_rtx): Remove.
+	(avr_override_options): Initialize zero_reg_rtx and
+	ldi_reg_rtx.
+	(avr_init): Remove.
+	Include gt-avr.h.
+	* config/avr/avr.h (LDI_REG_REGNO): Remove.
+	Remove externs for tmp_reg_rtx, zero_reg_rtx, and ldi_reg_rtx.
+
+2003-12-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/md.texi: Document PowerPC vector register constraint letter.
+
 2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* calls.c (expand_call): Recognize calls to "sqrt" and create
+	corresponding notes.
+
+2003-12-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/mips/mips.c (override_options): Use `inform' instead
+	of `warning' for -g -mabi=32 and native assembler.
+
+	* config/mips/t-iris6 (CRTSTUFF_T_CFLAGS, TARGET_LIBGCC2_CFLAGS):
+	Don't pass -Wno-error.
+
+2003-12-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* function.c (assign_parms): Update max_parm_reg and
+	parm_reg_stack_loc when adding new parm reg.
+
+2003-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/ns32k/ns32k.c: Convert to ISO-C.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ia64/ia64.c (ia64_va_arg): Pass pointer for
+	variable-sized type through convert_memory_address.
+	(ia64_in_small_data_p): Always return false for FUNCTION_DECLs.
+
+2003-12-23  Jan Hubicka  <jh@suse.cz>
+
+	* common.opt (fprofile-generate,fprofile-use): Add.
+	* gcc.c (LINK_COMMAND_SPEC): Arrange -fprofile-generate to imply -lgcov
+	* opts.c (profile_arc_flag_set, flag_profile_values_set,
+	flag_unroll_loops_set, flag_tracer_set,
+	flag_value_profile_transformations_set,
+	flag_peel_loops_set): New static variables.
+	(common_handle_option): Deal with -fprofile-generate/-fprofile-use
+	* invoke.texi (-fprofile-generate, -fprofile-use): Describe.
+
+2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (OBJS-common): Remove dwarfout.o.
+	(dwarfout.o): Remove.
+	* common.opt: Remove -gdwarf, -gdwarf+.
+	* defaults.h (PREFERRED_DEBUGGING_TYPE): Do not check for
+	DWARF_DEBUGGING_INFO.
+	* dwarf2out.c: Fix typo in comment.
+	* dwarfout.c: Remove.
+	* opts.c (common_handle_option): Remove OPT_gdwarf, OPT_gdwarf_.
+	* toplev.c (process_options): Remove check for
+	DWARF_DEBUGGING_INFO.
+	* config/elfos.h (DWARF_DEBUGGING_INFO): Do not #define it or
+	#undef it.
+	* config/netware.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/ptx4.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/vxworks.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/alpha/unicosmk.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/arc/arc.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/i386/sco5.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/i386/x86-64.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/m32r/m32r.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/mcore/mcore-elf.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/sparc/linux64.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/sparc/liteelf.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/sparc/sol26-sld.h (DWARF_DEBUGGING_INFO): Likewise.
+	* config/sparc/sp86x-elf.h (DWARF_DEBUGGING_INFO): Likewise.
+	* doc/invoke.texi: Do not mention -gdwarf, -gdwarf-1, -gdwarf-1+,
+	or -gdwarf+.
+	* doc/tm.texi: Likewise.
 
 	* c-common.c (flag_abi_version): Default to 2.
 	* c-cppbuiltin.c (c_cpp_builtins): Define __GXX_ABI_VERSION
@@ -253,7 +600,7 @@
 	-falt-external-templates and -ftemplates.
 	* doc/invoke.texi: Remove mention of -fexternal-templates and
 	-falt-external-templates.
-	
+
 2003-12-22  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR target/13466
@@ -268,24 +615,24 @@
 
 2003-12-22  Fariborz Jahanian <fjahanian@apple.com>
 
-        * config/rs6000/rs6000.c (legitimate_offset_address_p): Correct
-        check for the legitimate offset when memory of 
-	DImode/DFmode/TFmode/TImode mode is being referenced and target 
+	* config/rs6000/rs6000.c (legitimate_offset_address_p): Correct
+	check for the legitimate offset when memory of
+	DImode/DFmode/TFmode/TImode mode is being referenced and target
 	is TARGET_POWERPC64.
 
 2003-12-22  Dale Johannesen  <dalej@apple.com>
 
-        * reload1.c:  Add reg_reloaded_call_part_clobbered.
-        (reload_as_needed):  Use it.
-        (forget_old_reloads_1):  Ditto.
-        (emit_reload_insns):  Ditto.
+	* reload1.c:  Add reg_reloaded_call_part_clobbered.
+	(reload_as_needed):  Use it.
+	(forget_old_reloads_1):  Ditto.
+	(emit_reload_insns):  Ditto.
 
 2003-12-22  Dale Johannesen  <dalej@apple.com>
 
-        PR optimization/12828
-        * loop.c:  Add find_regs_nested to look inside CLOBBER(MEM).
-        (scan_loop):  Call it.
-        * regclass.c (reg_scan_mark_regs):  Look inside CLOBBER(MEM).
+	PR optimization/12828
+	* loop.c:  Add find_regs_nested to look inside CLOBBER(MEM).
+	(scan_loop):  Call it.
+	* regclass.c (reg_scan_mark_regs):  Look inside CLOBBER(MEM).
 
 2003-12-22  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -313,7 +660,7 @@
 	* configure.in (gather-detailed-mem-stats): New flag.
 	* configure: Regenerate.
 	* config.in: Regenerate.
-	* doc/install.texi (Configuration): Document 
+	* doc/install.texi (Configuration): Document
 	--enable-gather-detailed-mem-stats.
 
 2003-12-22  Kazu Hirata  <kazu@cs.umass.edu>
@@ -386,7 +733,7 @@
 	* config/mn10300/mn10300.c: Likewise.
 
 2003-12-20  Andrew Pinski  <pinskia@gcc.gnu.org>
-            Matt Thomas  <matt@3am-software.com>
+	    Matt Thomas  <matt@3am-software.com>
 
 	PR target/12749
 	* config/i386/i386.c (print_operand): Print only the first
@@ -486,11 +833,11 @@
 
 	* gcc/config/i386/i386.c (ix86_expand_call, x86_output_mi_thunk):
 	Trivial fixes for i386.c on Darwin/x86.
-	
+
 2003-12-19  Fariborz Jahanian <fjahanian@apple.com>
 
-        * config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Add code to
-        recognize macho-style lo_sum adrress patterns.
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Add code to
+	recognize macho-style lo_sum adrress patterns.
 
 2003-12-19  Kazu Hirata  <kazu@cs.umass.edu>
 
@@ -600,7 +947,7 @@
 
 2003-12-18  Ulrich Weigand  <uweigand@de.ibm.com>
 
-	* loop.c (move_movables): Handle combination of m->consec, 
+	* loop.c (move_movables): Handle combination of m->consec,
 	m->move_insn_first, and m->insert_temp all nonzero correctly.
 
 2003-12-18  Kazu Hirata  <kazu@cs.umass.edu>
@@ -629,7 +976,7 @@
 
 2003-12-17  James E Wilson  <wilson@specifixinc.com>
 	    Roger Sayle  <roger@eyesopen.com>
-	
+
 	* Makefile.in (gcse.o): Add $(TREE_H) to dependencies.
 	* gcse.c: Include tree.h.
 	(implicit_set_cond_p): New.
@@ -718,7 +1065,7 @@
 	* config/m32r/m32r.md (cmp_ne_small_const_insn): Remove.
 
 2003-12-17  Neil Booth  <neil@daikokuya.co.uk>
-            Joseph S. Myers  <jsm@polyomino.org.uk>
+	    Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	PR c/3347
 	* c-decl.c (enum_decl_context): Remove BITFIELD.
@@ -748,7 +1095,7 @@
 	* ginclude/stddef.h (offsetof): Reimplement for C++, using
 	__offsetof__.
 	* doc/extend.texi: Document __offsetof__.
-	
+
 2003-12-16  Stan Cox  <scox@redhat.com>
 
 	* config/iq2000/iq2000.h: Formatting.
@@ -787,7 +1134,7 @@
 
 	* altivec.h (vec_cmple, vec_all_numeric): Fix typo.
 	* testsuite/gcc.dg/altivec-10.c: Test for above.
-	
+
 2003-12-15  David O'Brien  <obrien@FreeBSD.org>
 
 	* Makefile.in (CPPFLAGS): Initialize from configure.
