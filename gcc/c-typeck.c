@@ -2538,9 +2538,14 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	    addr = fold (build2 (PLUS_EXPR, argtype,
 				 convert (argtype, addr),
 				 convert (argtype, byte_position (field))));
+	    
+	    /* If the folded PLUS_EXPR is not a constant address, wrap
+               it in an ADDR_EXPR.  */
+	    if (!TREE_CONSTANT (addr))
+	      addr = build1 (ADDR_EXPR, argtype, arg);
 	  }
 	else
-	  addr = build1 (code, argtype, arg);
+	  addr = build1 (ADDR_EXPR, argtype, arg);
 
 	if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
 	  TREE_INVARIANT (addr) = TREE_CONSTANT (addr) = 1;
@@ -2917,8 +2922,10 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_object_ptr (type))
-    type = TYPE_MAIN_VARIANT (type);
+  if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
+    return build1 (NOP_EXPR, type, expr);
+
+  type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -3109,11 +3116,15 @@ build_c_cast (tree type, tree expr)
       if (TREE_CODE (value) == INTEGER_CST)
 	{
 	  if (EXPR_P (ovalue))
+	    /* If OVALUE had overflow set, then so will VALUE, so it
+	       is safe to overwrite.  */
 	    TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
 	  else
 	    TREE_OVERFLOW (value) = 0;
 	  
 	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	    /* Similarly, constant_overflow cannot have become
+	       cleared.  */
 	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }
@@ -4475,14 +4486,14 @@ really_start_incremental_init (tree type)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -4497,8 +4508,7 @@ really_start_incremental_init (tree type)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_cst (NULL_TREE,
-		       TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, bitsize_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4653,8 +4663,7 @@ push_init_level (int implicit)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_cst (NULL_TREE,
-		       TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, integer_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4668,14 +4677,14 @@ push_init_level (int implicit)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_cst (NULL_TREE, -1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -5399,7 +5408,7 @@ set_nonincremental_init_from_string (tree str)
 		      << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
 
-      value = build_int_cst (type, val[1], val[0]);
+      value = build_int_cst_wide (type, val[1], val[0]);
       add_pending_init (purpose, value);
     }
 
@@ -6306,7 +6315,8 @@ c_finish_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
+	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r'
+	             && TREE_CODE (inner) != INDIRECT_REF)
 		inner = TREE_OPERAND (inner, 0);
 
 	      if (DECL_P (inner)
@@ -7572,32 +7582,4 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       result = convert (final_type, result);
     return result;
   }
-}
-
-/* Build the result of __builtin_offsetof.  TYPE is the first argument to
-   offsetof, i.e. a type.  LIST is a tree_list that encodes component and
-   array references; PURPOSE is set for the former and VALUE is set for
-   the later.  */
-
-tree
-build_offsetof (tree type, tree list)
-{
-  tree t;
-
-  /* Build "*(type *)0".  */
-  t = convert (build_pointer_type (type), null_pointer_node);
-  t = build_indirect_ref (t, "");
-
-  /* Build COMPONENT and ARRAY_REF expressions as needed.  */
-  for (list = nreverse (list); list ; list = TREE_CHAIN (list))
-    if (TREE_PURPOSE (list))
-      t = build_component_ref (t, TREE_PURPOSE (list));
-    else
-      t = build_array_ref (t, TREE_VALUE (list));
-
-  /* Finalize the offsetof expression.  For now all we need to do is take
-     the address of the expression we created, and cast that to an integer
-     type; this mirrors the traditional macro implementation of offsetof.  */
-  t = build_unary_op (ADDR_EXPR, t, 0);
-  return convert (size_type_node, t);
 }

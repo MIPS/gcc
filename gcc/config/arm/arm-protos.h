@@ -44,6 +44,7 @@ extern int arm_return_in_memory (tree);
 extern void arm_encode_call_attribute (tree, int);
 #endif
 #ifdef RTX_CODE
+extern bool arm_vector_mode_supported_p (enum machine_mode);
 extern int arm_hard_regno_mode_ok (unsigned int, enum machine_mode);
 extern int const_ok_for_arm (HOST_WIDE_INT);
 extern int arm_split_constant (RTX_CODE, enum machine_mode, rtx,
@@ -60,49 +61,8 @@ extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
 
-/* Predicates.  */
-extern int s_register_operand (rtx, enum machine_mode);
-extern int arm_hard_register_operand (rtx, enum machine_mode);
-extern int arm_general_register_operand (rtx, enum machine_mode);
-extern int f_register_operand (rtx, enum machine_mode);
-extern int reg_or_int_operand (rtx, enum machine_mode);
-extern int arm_reload_memory_operand (rtx, enum machine_mode);
-extern int arm_rhs_operand (rtx, enum machine_mode);
-extern int arm_rhsm_operand (rtx, enum machine_mode);
-extern int arm_add_operand (rtx, enum machine_mode);
-extern int arm_addimm_operand (rtx, enum machine_mode);
-extern int arm_not_operand (rtx, enum machine_mode);
-extern int arm_extendqisi_mem_op (rtx, enum machine_mode);
-extern int offsettable_memory_operand (rtx, enum machine_mode);
-extern int alignable_memory_operand (rtx, enum machine_mode);
-extern int arm_float_rhs_operand (rtx, enum machine_mode);
-extern int arm_float_add_operand (rtx, enum machine_mode);
-extern int power_of_two_operand (rtx, enum machine_mode);
-extern int nonimmediate_di_operand (rtx, enum machine_mode);
-extern int di_operand (rtx, enum machine_mode);
-extern int nonimmediate_soft_df_operand (rtx, enum machine_mode);
-extern int soft_df_operand (rtx, enum machine_mode);
-extern int index_operand (rtx, enum machine_mode);
-extern int const_shift_operand (rtx, enum machine_mode);
-extern int arm_comparison_operator (rtx, enum machine_mode);
-extern int shiftable_operator (rtx, enum machine_mode);
-extern int shift_operator (rtx, enum machine_mode);
-extern int equality_operator (rtx, enum machine_mode);
-extern int minmax_operator (rtx, enum machine_mode);
-extern int cc_register (rtx, enum machine_mode);
-extern int dominant_cc_register (rtx, enum machine_mode);
-extern int logical_binary_operator (rtx, enum machine_mode);
-extern int multi_register_push (rtx, enum machine_mode);
-extern int load_multiple_operation (rtx, enum machine_mode);
-extern int store_multiple_operation (rtx, enum machine_mode);
-extern int cirrus_fp_register (rtx, enum machine_mode);
-extern int cirrus_general_operand (rtx, enum machine_mode);
-extern int cirrus_register_operand (rtx, enum machine_mode);
-extern int cirrus_shift_const (rtx, enum machine_mode);
 extern int cirrus_memory_offset (rtx);
 extern int arm_coproc_mem_operand (rtx, bool);
-extern int vfp_compare_operand (rtx, enum machine_mode);
-extern int arm_float_compare_operand (rtx, enum machine_mode);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
@@ -116,8 +76,10 @@ extern int load_multiple_sequence (rtx *, int, int *, int *, HOST_WIDE_INT *);
 extern const char *emit_ldm_seq (rtx *, int);
 extern int store_multiple_sequence (rtx *, int, int *, int *, HOST_WIDE_INT *);
 extern const char * emit_stm_seq (rtx *, int);
-extern rtx arm_gen_load_multiple (int, int, rtx, int, int, int, int, int);
-extern rtx arm_gen_store_multiple (int, int, rtx, int, int, int, int, int);
+extern rtx arm_gen_load_multiple (int, int, rtx, int, int,
+				  rtx, HOST_WIDE_INT *);
+extern rtx arm_gen_store_multiple (int, int, rtx, int, int,
+				   rtx, HOST_WIDE_INT *);
 extern int arm_gen_movmemqi (rtx *);
 extern rtx arm_gen_rotated_half_load (rtx);
 extern enum machine_mode arm_select_cc_mode (RTX_CODE, rtx, rtx);
@@ -160,7 +122,7 @@ extern bool arm_needs_doubleword_align (enum machine_mode, tree);
 extern rtx arm_function_value(tree, tree);
 #endif
 
-#if defined AOF_ASSEMBLER 
+#if defined AOF_ASSEMBLER
 extern rtx aof_pic_entry (rtx);
 extern char *aof_text_section (void);
 extern char *aof_data_section (void);
@@ -188,8 +150,6 @@ extern void thumb_final_prescan_insn (rtx);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
 extern void thumb_expand_movmemqi (rtx *);
-extern int thumb_cmp_operand (rtx, enum machine_mode);
-extern int thumb_cbrch_target_operand (rtx, enum machine_mode);
 extern rtx *thumb_legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);
 extern rtx arm_return_addr (int, rtx);

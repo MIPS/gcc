@@ -237,7 +237,7 @@ gfc_truthvalue_conversion (tree expr)
       if (TREE_CODE (expr) == INTEGER_CST)
 	return integer_zerop (expr) ? boolean_false_node : boolean_true_node;
       else
-        return build (NE_EXPR, boolean_type_node, expr, integer_zero_node);
+        return build2 (NE_EXPR, boolean_type_node, expr, integer_zero_node);
 
     default:
       internal_error ("Unexpected type in truthvalue_conversion");
@@ -571,11 +571,12 @@ gfc_init_decl_processing (void)
   /* Build common tree nodes. char_type_node is unsigned because we
      only use it for actual characters, not for INTEGER(1). Also, we
      want double_type_node to actually have double precision.   */
-  build_common_tree_nodes (0);
+  build_common_tree_nodes (false, false);
   set_sizetype (long_unsigned_type_node);
   build_common_tree_nodes_2 (0);
 
   /* Set up F95 type nodes.  */
+  gfc_init_kinds ();
   gfc_init_types ();
 }
 

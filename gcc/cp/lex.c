@@ -354,8 +354,10 @@ cxx_init (void)
 
   cxx_init_decl_processing ();
 
-  /* Create the built-in __null node.  */
-  null_node = build_int_cst (c_common_type_for_size (POINTER_SIZE, 0), 0, 0);
+  /* Create the built-in __null node.  It is important that this is
+     not shared. */
+  null_node = make_node (INTEGER_CST);
+  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
   ridpointers[RID_NULL] = null_node;
 
   interface_unknown = 1;
@@ -646,6 +648,11 @@ build_lang_decl (enum tree_code code, tree name, tree type)
 
   t = build_decl (code, name, type);
   retrofit_lang_decl (t);
+
+  /* All nesting of C++ functions is lexical; there is never a "static
+     chain" in the sense of GNU C nested functions.  */
+  if (code == FUNCTION_DECL) 
+    DECL_NO_STATIC_CHAIN (t) = 1;
 
   return t;
 }

@@ -166,6 +166,12 @@ enum processor_type pa_cpu;
 /* String to hold which cpu we are scheduling for.  */
 const char *pa_cpu_string;
 
+/* String used with the -munix= option.  */
+const char *pa_unix_string;
+
+/* The UNIX standard to use for predefines and linking.  */
+int flag_pa_unix;
+
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
@@ -419,6 +425,36 @@ override_options (void)
   else if (pa_arch_string)
     {
       warning ("unknown -march= option (%s).\nValid options are 1.0, 1.1, and 2.0\n", pa_arch_string);
+    }
+
+  if (TARGET_HPUX)
+    {
+      /* Set the default UNIX standard for HP-UX.  This affects the
+	 predefines and startfiles used for the target.  */
+      if (pa_unix_string == NULL)
+	pa_unix_string
+	  = TARGET_HPUX_11_11 ? "98" : (TARGET_HPUX_10_10 ? "95" : "93");
+
+      if (!strcmp (pa_unix_string, "93"))
+	flag_pa_unix = 1993;
+      else if (!strcmp (pa_unix_string, "95"))
+	flag_pa_unix = 1995;
+      else if (TARGET_HPUX_11_11)
+	{
+	  if (!strcmp (pa_unix_string, "98"))
+	    flag_pa_unix = 1998;
+	  else
+	    warning ("unknown -munix= option (%s).\n"
+		     "Valid options are 93, 95 and 98.\n",
+		     pa_unix_string);
+	}
+      else if (TARGET_HPUX_10_10)
+	warning ("unknown -munix= option (%s)."
+		 "\nValid options are 93 and 95.\n",
+		 pa_unix_string);
+      else
+	warning ("unknown -munix= option (%s).\nValid option is 93.\n",
+		 pa_unix_string);
     }
 
   if (pa_fixed_range_string)
@@ -6117,7 +6153,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
-      u = build_int_cst (valist_type, (size > 4 ? -8 : -4), -1);
+      u = build_int_cst (valist_type, (size > 4 ? -8 : -4));
       t = build (BIT_AND_EXPR, valist_type, t, u);
 
       t = build (MODIFY_EXPR, valist_type, valist, t);
@@ -9236,27 +9272,18 @@ cmpib_comparison_operator (rtx op, enum machine_mode mode)
 	      || GET_CODE (op) == LEU));
 }
 
-#ifndef ONE_ONLY_TEXT_SECTION_ASM_OP
-#define ONE_ONLY_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef NEW_TEXT_SECTION_ASM_OP
-#define NEW_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef DEFAULT_TEXT_SECTION_ASM_OP
-#define DEFAULT_TEXT_SECTION_ASM_OP ""
-#endif
-
-/* Select and return a TEXT_SECTION_ASM_OP for the current function.
+/* Return a string to output before text in the current function.
 
    This function is only used with SOM.  Because we don't support
    named subspaces, we can only create a new subspace or switch back
-   into the default text subspace.  */
+   to the default text subspace.  */
 const char *
 som_text_section_asm_op (void)
 {
-  if (TARGET_SOM && TARGET_GAS)
+  if (!TARGET_SOM)
+    return "";
+
+  if (TARGET_GAS)
     {
       if (cfun && !cfun->machine->in_nsubspa)
 	{
@@ -9269,9 +9296,10 @@ som_text_section_asm_op (void)
 	  if (cfun->decl
 	      && DECL_ONE_ONLY (cfun->decl)
 	      && !DECL_WEAK (cfun->decl))
-	    return ONE_ONLY_TEXT_SECTION_ASM_OP;
+	    return
+ "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
 
-	  return NEW_TEXT_SECTION_ASM_OP;
+	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
 	}
       else
 	{
@@ -9279,13 +9307,13 @@ som_text_section_asm_op (void)
 	     function has been completed.  So, we are changing to the
 	     text section to output debugging information.  Do this in
 	     the default text section.  We need to forget that we are
-	     in the text section so that text_section will call us the
-	     next time around.  */
+	     in the text section so that the function text_section in
+	     varasm.c will call us the next time around.  */
 	  forget_section ();
 	}
     }
 
-  return DEFAULT_TEXT_SECTION_ASM_OP;
+  return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";
 }
 
 /* On hpux10, the linker will give an error if we have a reference
@@ -9308,7 +9336,7 @@ pa_select_section (tree exp, int reloc,
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
 	  && !DECL_WEAK (exp))
-	one_only_readonly_data_section ();
+	som_one_only_readonly_data_section ();
       else
 	readonly_data_section ();
     }
@@ -9320,7 +9348,7 @@ pa_select_section (tree exp, int reloc,
 	   && DECL_ONE_ONLY (exp)
 	   && !DECL_WEAK (exp)
 	   && DECL_INITIAL (exp))
-    one_only_data_section ();
+    som_one_only_data_section ();
   else
     data_section ();
 }

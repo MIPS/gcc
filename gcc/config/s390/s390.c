@@ -204,6 +204,16 @@ const char *s390_arch_string;		/* for -march=<xxx> */
 const char *s390_backchain_string = ""; /* "" no-backchain ,"1" backchain,
 					   "2" kernel-backchain */
 
+const char *s390_warn_framesize_string;
+const char *s390_warn_dynamicstack_string;
+const char *s390_stack_size_string;
+const char *s390_stack_guard_string;
+
+HOST_WIDE_INT s390_warn_framesize = 0;
+bool s390_warn_dynamicstack_p = 0;
+HOST_WIDE_INT s390_stack_size = 0;
+HOST_WIDE_INT s390_stack_guard = 0;
+
 /* The following structure is embedded in the machine 
    specific part of struct function.  */
 
@@ -1147,6 +1157,44 @@ override_options (void)
     error ("z/Architecture mode not supported on %s.", s390_arch_string);
   if (TARGET_64BIT && !TARGET_ZARCH)
     error ("64-bit ABI not supported in ESA/390 mode.");
+
+  if (s390_warn_framesize_string)
+    {
+      if (sscanf (s390_warn_framesize_string, HOST_WIDE_INT_PRINT_DEC,
+		  &s390_warn_framesize) != 1)
+	error ("invalid value for -mwarn-framesize");
+    }
+
+  if (s390_warn_dynamicstack_string)
+    s390_warn_dynamicstack_p = 1;
+  
+  if (s390_stack_size_string)
+    {
+      if (sscanf (s390_stack_size_string, HOST_WIDE_INT_PRINT_DEC, 
+		  &s390_stack_size) != 1)
+	error ("invalid value for -mstack-size");
+      
+      if (exact_log2 (s390_stack_size) == -1)
+	error ("stack size must be an exact power of 2");
+      
+      if (s390_stack_guard_string)
+	{
+	  if (sscanf (s390_stack_guard_string, HOST_WIDE_INT_PRINT_DEC, 
+		      &s390_stack_guard) != 1)
+	    error ("invalid value for -mstack-guard");
+	  
+	  if (s390_stack_guard >= s390_stack_size)
+	    error ("stack size must be greater than the stack guard value");
+ 
+	  if (exact_log2 (s390_stack_guard) == -1)
+	    error ("stack guard value must be an exact power of 2");
+	}
+      else
+	error ("-mstack-size implies use of -mstack-guard");
+    }
+  
+  if (s390_stack_guard_string && !s390_stack_size_string)
+    error ("-mstack-guard implies use of -mstack-size"); 
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -2495,14 +2543,22 @@ legitimate_la_operand_p (register rtx op)
   return FALSE;
 }
 
-/* Return 1 if OP is a valid operand for the LA instruction,
-   and we prefer to use LA over addition to compute it.  */
+/* Return 1 if it is valid *and* preferrable to use LA to
+   compute the sum of OP1 and OP2.  */
 
 int
-preferred_la_operand_p (register rtx op)
+preferred_la_operand_p (rtx op1, rtx op2)
 {
   struct s390_address addr;
-  if (!s390_decompose_address (op, &addr))
+
+  if (op2 != const0_rtx)
+    op1 = gen_rtx_PLUS (Pmode, op1, op2);
+
+  if (!s390_decompose_address (op1, &addr))
+    return FALSE;
+  if (addr.base && !REG_OK_FOR_BASE_STRICT_P (addr.base))
+    return FALSE;
+  if (addr.indx && !REG_OK_FOR_INDEX_STRICT_P (addr.indx))
     return FALSE;
 
   if (!TARGET_64BIT && !addr.pointer)
@@ -3152,6 +3208,52 @@ legitimize_address (register rtx x, register rtx oldx ATTRIBUTE_UNUSED,
     x = gen_rtx_PLUS (Pmode, x, constant_term);
 
   return x;
+}
+
+/* Try a machine-dependent way of reloading an illegitimate address AD
+   operand.  If we find one, push the reload and and return the new address.
+
+   MODE is the mode of the enclosing MEM.  OPNUM is the operand number
+   and TYPE is the reload type of the current reload.  */
+
+rtx 
+legitimize_reload_address (rtx ad, enum machine_mode mode ATTRIBUTE_UNUSED,
+			   int opnum, int type)
+{
+  if (!optimize || TARGET_LONG_DISPLACEMENT)
+    return NULL_RTX;
+
+  if (GET_CODE (ad) == PLUS)
+    {
+      rtx tem = simplify_binary_operation (PLUS, Pmode,
+					   XEXP (ad, 0), XEXP (ad, 1));
+      if (tem)
+	ad = tem;
+    }
+
+  if (GET_CODE (ad) == PLUS
+      && GET_CODE (XEXP (ad, 0)) == REG
+      && GET_CODE (XEXP (ad, 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (ad, 1))))
+    {
+      HOST_WIDE_INT lower = INTVAL (XEXP (ad, 1)) & 0xfff;
+      HOST_WIDE_INT upper = INTVAL (XEXP (ad, 1)) ^ lower;
+      rtx cst, tem, new;
+
+      cst = GEN_INT (upper);
+      if (!legitimate_reload_constant_p (cst))
+	cst = force_const_mem (Pmode, cst);
+
+      tem = gen_rtx_PLUS (Pmode, XEXP (ad, 0), cst);
+      new = gen_rtx_PLUS (Pmode, tem, GEN_INT (lower));
+
+      push_reload (XEXP (tem, 1), 0, &XEXP (tem, 1), 0,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, 
+		   opnum, (enum reload_type) type);
+      return new;
+    }
+
+  return NULL_RTX;
 }
 
 /* Emit code to move LEN bytes from DST to SRC.  */
@@ -6261,6 +6363,33 @@ s390_emit_prologue (void)
     {
       rtx frame_off = GEN_INT (-cfun_frame_layout.frame_size);
 
+      if (s390_stack_size)
+  	{
+	  HOST_WIDE_INT stack_check_mask = ((s390_stack_size - 1)
+					    & ~(s390_stack_guard - 1));
+	  rtx t = gen_rtx_AND (Pmode, stack_pointer_rtx,
+			       GEN_INT (stack_check_mask));
+
+	  if (TARGET_64BIT)
+	    gen_cmpdi (t, const0_rtx);
+	  else
+	    gen_cmpsi (t, const0_rtx);
+
+	  emit_insn (gen_conditional_trap (gen_rtx_EQ (CCmode, 
+						       gen_rtx_REG (CCmode, 
+								    CC_REGNUM),
+						       const0_rtx),
+					   const0_rtx));
+  	}
+
+      if (s390_warn_framesize > 0 
+	  && cfun_frame_layout.frame_size >= s390_warn_framesize)
+	warning ("frame size of `%s' is " HOST_WIDE_INT_PRINT_DEC " bytes", 
+		 current_function_name (), cfun_frame_layout.frame_size);
+
+      if (s390_warn_dynamicstack_p && cfun->calls_alloca)
+	warning ("`%s' uses dynamic stack allocation", current_function_name ());
+
       /* Save incoming stack pointer into temp reg.  */
       if (cfun_frame_layout.save_backchain_p || next_fpr)
 	insn = emit_insn (gen_move_insn (temp_reg, stack_pointer_rtx));
@@ -6921,12 +7050,12 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   n_fpr = current_function_args_info.fprs;
 
   t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-	     build_int_cst (NULL_TREE, n_gpr, 0));
+	     build_int_cst (NULL_TREE, n_gpr));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-	     build_int_cst (NULL_TREE, n_fpr, 0));
+	     build_int_cst (NULL_TREE, n_fpr));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -6939,7 +7068,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
     fprintf (stderr, "va_start: n_gpr = %d, n_fpr = %d off %d\n",
 	     (int)n_gpr, (int)n_fpr, off);
 
-  t = build (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off, 0));
+  t = build (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off));
 
   t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
@@ -6951,10 +7080,10 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
     t = build (PLUS_EXPR, TREE_TYPE (sav), t,
 	       build_int_cst (NULL_TREE,
 			      -(RETURN_REGNUM - 2) * UNITS_PER_WORD
-			      - (TARGET_64BIT ? 4 : 2) * 8, -1));
+			      - (TARGET_64BIT ? 4 : 2) * 8));
   else
     t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD, -1));
+	       build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
 
   t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;

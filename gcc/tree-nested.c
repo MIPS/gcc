@@ -55,7 +55,7 @@
 
    The implementation here is much more direct.  Everything that can be
    referenced by an inner function is a member of an explicitly created
-   structure herein called the "nonlocal frame struct".  The incomming
+   structure herein called the "nonlocal frame struct".  The incoming
    static chain for a nested function is a pointer to this struct in 
    the parent.  In this way, we settle on known offsets from a known
    base, and so are decoupled from the logic that places objects in the
@@ -405,7 +405,7 @@ get_trampoline_type (void)
       align = STACK_BOUNDARY;
     }
 
-  t = build_index_type (build_int_cst (NULL_TREE, size - 1, 0));
+  t = build_index_type (build_int_cst (NULL_TREE, size - 1));
   t = build_array_type (char_type_node, t);
   t = build_decl (FIELD_DECL, get_identifier ("__data"), t);
   DECL_ALIGN (t) = align;
@@ -489,7 +489,7 @@ get_nl_goto_field (struct nesting_info *info)
       size = size + 1;
 
       type = build_array_type
-	(type, build_index_type (build_int_cst (NULL_TREE, size, 0)));
+	(type, build_index_type (build_int_cst (NULL_TREE, size)));
 
       field = make_node (FIELD_DECL);
       DECL_NAME (field) = get_identifier ("__nl_goto_buf");

@@ -140,7 +140,7 @@ build_headof (tree exp)
   tree offset;
   tree index;
 
-  my_friendly_assert (TREE_CODE (type) == POINTER_TYPE, 20000112);
+  gcc_assert (TREE_CODE (type) == POINTER_TYPE);
   type = TREE_TYPE (type);
 
   if (!TYPE_POLYMORPHIC_P (type))
@@ -151,7 +151,7 @@ build_headof (tree exp)
 
   /* The offset-to-top field is at index -2 from the vptr.  */
   index = build_int_cst (NULL_TREE,
-			 -2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE, -1);
+			 -2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE);
 
   offset = build_vtbl_ref (build_indirect_ref (exp, NULL), index);
 
@@ -227,7 +227,7 @@ get_tinfo_decl_dynamic (tree exp)
 
       /* The RTTI information is at index -1.  */
       index = build_int_cst (NULL_TREE,
-			     -1 * TARGET_VTABLE_DATA_ENTRY_DISTANCE, -1);
+			     -1 * TARGET_VTABLE_DATA_ENTRY_DISTANCE);
       t = build_vtbl_ref (exp, index);
       t = convert (type_info_ptr_type, t);
     }
@@ -364,7 +364,7 @@ get_tinfo_decl (tree type)
       pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
-      my_friendly_assert (unemitted_tinfo_decls != 0, 20030312);
+      gcc_assert (unemitted_tinfo_decls != 0);
       VARRAY_PUSH_TREE (unemitted_tinfo_decls, d);
     }
 
@@ -590,7 +590,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 		{
 		  warning ("dynamic_cast of `%#D' to `%#T' can never succeed",
 			      op, type);
-		  retval = build_int_cst (type, 0, 0); 
+		  retval = build_int_cst (type, 0); 
 		  return retval;
 		}
 	    }
@@ -879,7 +879,7 @@ ptr_initializer (tree desc, tree target)
   
   if (incomplete)
     flags |= 8;
-  init = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, flags, 0), init);
+  init = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, flags), init);
   init = tree_cons (NULL_TREE,
                     get_tinfo_ptr (TYPE_MAIN_VARIANT (to)),
                     init);
@@ -909,7 +909,7 @@ ptm_initializer (tree desc, tree target)
     flags |= 0x8;
   if (!COMPLETE_TYPE_P (klass))
     flags |= 0x10;
-  init = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, flags, 0), init);
+  init = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, flags), init);
   init = tree_cons (NULL_TREE,
 		    get_tinfo_ptr (TYPE_MAIN_VARIANT (to)),
                     init);
@@ -1026,7 +1026,7 @@ typeinfo_in_lib_p (tree type)
 static tree
 get_pseudo_ti_init (tree type, tree var_desc)
 {
-  my_friendly_assert (at_eof, 20021120);
+  gcc_assert (at_eof);
   switch (TREE_CODE (type))
     {
     case OFFSET_TYPE:
@@ -1090,10 +1090,9 @@ get_pseudo_ti_init (tree type, tree var_desc)
               
               /* Combine offset and flags into one field.  */
               offset = cp_build_binary_op (LSHIFT_EXPR, offset,
-					   build_int_cst (NULL_TREE, 8, 0));
+					   build_int_cst (NULL_TREE, 8));
               offset = cp_build_binary_op (BIT_IOR_EXPR, offset,
-					   build_int_cst (NULL_TREE,
-							  flags, 0));
+					   build_int_cst (NULL_TREE, flags));
               base_init = tree_cons (NULL_TREE, offset, base_init);
               base_init = tree_cons (NULL_TREE, tinfo, base_init);
               base_init = build_constructor (NULL_TREE, base_init);
@@ -1103,11 +1102,11 @@ get_pseudo_ti_init (tree type, tree var_desc)
 	  base_inits = tree_cons (NULL_TREE, base_inits, NULL_TREE);
 	  /* Prepend the number of bases.  */
 	  base_inits = tree_cons (NULL_TREE,
-				  build_int_cst (NULL_TREE, nbases, 0),
+				  build_int_cst (NULL_TREE, nbases),
 				  base_inits);
 	  /* Prepend the hint flags.  */
 	  base_inits = tree_cons (NULL_TREE,
-				  build_int_cst (NULL_TREE, hint, 0),
+				  build_int_cst (NULL_TREE, hint),
 				  base_inits);
 
           return class_initializer (var_desc, type, base_inits);
@@ -1275,7 +1274,7 @@ get_pseudo_ti_desc (tree type)
 static void
 create_tinfo_types (void)
 {
-  my_friendly_assert (!ti_desc_type_node, 20020609);
+  gcc_assert (!ti_desc_type_node);
 
   push_nested_namespace (abi_node);
   
@@ -1437,7 +1436,7 @@ emit_tinfo_decl (tree decl)
   int in_library = typeinfo_in_lib_p (type);
   tree var_desc, var_init;
 
-  my_friendly_assert (DECL_TINFO_P (decl), 20030307); 
+  gcc_assert (DECL_TINFO_P (decl)); 
   
   if (in_library)
     {

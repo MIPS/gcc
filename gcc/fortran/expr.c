@@ -524,7 +524,7 @@ gfc_int_expr (int i)
 
   p->expr_type = EXPR_CONSTANT;
   p->ts.type = BT_INTEGER;
-  p->ts.kind = gfc_default_integer_kind ();
+  p->ts.kind = gfc_default_integer_kind;
 
   p->where = gfc_current_locus;
   mpz_init_set_si (p->value.integer, i);
@@ -544,7 +544,7 @@ gfc_logical_expr (int i, locus * where)
 
   p->expr_type = EXPR_CONSTANT;
   p->ts.type = BT_LOGICAL;
-  p->ts.kind = gfc_default_logical_kind ();
+  p->ts.kind = gfc_default_logical_kind;
 
   if (where == NULL)
     where = &gfc_current_locus;
@@ -1797,9 +1797,18 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       return FAILURE;
     }
 
+  /* This is a guaranteed segfault and possibly a typo: p = NULL()
+     instead of p => NULL()  */
   if (rvalue->expr_type == EXPR_NULL)
     gfc_warning ("NULL appears on right-hand side in assignment at %L",
 		 &rvalue->where);
+
+  /* This is possibly a typo: x = f() instead of x => f()  */
+  if (gfc_option.warn_surprising 
+      && rvalue->expr_type == EXPR_FUNCTION
+      && rvalue->symtree->n.sym->attr.pointer)
+    gfc_warning ("POINTER valued function appears on right-hand side of "
+		 "assignment at %L", &rvalue->where);
 
   /* Check size of array assignments.  */
   if (lvalue->rank != 0 && rvalue->rank != 0

@@ -313,21 +313,20 @@ to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.59 (exactly), but the toplevel
 still requires autoconf 2.13 (exactly).
 
-@item automake versions 1.4-gcj and 1.8.5
+@item automake versions 1.8.5 and 1.9.1
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
 
 Much of GCC does not use automake, so directly edit the @file{Makefile.in}
 file.  Specifically this applies to the @file{gcc}, @file{intl},
-@file{libiberty}, @file{libobjc} directories as well as any
-of their subdirectories.
+@file{libcpp}, @file{libiberty}, @file{libobjc} directories as well
+as any of their subdirectories.
 
-The Java directory @file{libjava} requires a modified version of
-automake 1.4 downloadable from
-@uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
-
-Every other directory requires automake 1.8.5.
+The Java directory @file{libjava} and the @file{libstdc++-v3} directory
+require automake 1.9.1.  Every other directory should work with either
+automake 1.8.5 and automake 1.9.1, but most of them have been tested only
+with automake 1.8.5 so far.
 
 @item gettext version 0.12 (or later)
 
@@ -790,14 +789,13 @@ whether you use the GNU assembler.  On any other system,
 @item @samp{m68k-hp-hpux}
 @item @samp{m68000-hp-hpux}
 @item @samp{m68000-att-sysv}
-@item @samp{mips-@var{any}}
 @item @samp{sparc-sun-solaris2.@var{any}}
 @item @samp{sparc64-@var{any}-solaris2.@var{any}}
 @end itemize
 
 On the systems listed above (except for the HP-PA, the SPARC, for ISC on
-the 386, and for @samp{mips-sgi-irix5.*}), if you use the GNU assembler,
-you should also use the GNU linker (and specify @option{--with-gnu-ld}).
+the 386, if you use the GNU assembler, you should also use the GNU linker
+(and specify @option{--with-gnu-ld}).
 
 @item @anchor{with-as}--with-as=@var{pathname}
 Specify that the
@@ -1099,12 +1097,17 @@ compiler and may only work properly if you are building the compiler
 with GCC@.  This is on by default when building from CVS or snapshots,
 but off for releases.  More control over the checks may be had by
 specifying @var{list}; the categories of checks available are
-@samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
-@samp{fold}, @samp{gcac} and @samp{valgrind}.  The check @samp{valgrind}
-requires the external @command{valgrind} simulator, available from
-@uref{http://valgrind.kde.org/}.  The default when @var{list} is
-not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
-@samp{gcac} and @samp{valgrind} are very expensive.
+@samp{assert}, @samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl},
+@samp{rtlflag}, @samp{fold}, @samp{gcac} and @samp{valgrind}.  The check
+@samp{valgrind} requires the external @command{valgrind} simulator,
+available from @uref{http://valgrind.kde.org/}.  The default when
+@var{list} is not specified is @samp{assert,misc,tree,gc,rtlflag}; the
+checks @samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.
+When checking is neither explicitly enabled nor disabled, assertion
+checks are still done.  To disable all checking,
+@samp{--disable-checking} must be explicitly requested.  Disabling
+assertions will make the compiler slightly faster but increase the risk
+undetected internal errors causing wrong code to be generated.
 
 @item --enable-coverage
 @itemx --enable-coverage=@var{level}
@@ -2611,10 +2614,10 @@ We @emph{highly} recommend using gas/binutils on all hppa platforms;
 you may encounter a variety of problems when using the HP assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
-uses a peculiar debugging format which GCC does not know about), unless you
-use GAS and GDB and configure GCC with the
+uses a peculiar debugging format which GCC does not know about), unless
+you use GAS and GDB.  It may be helpful to configure GCC with the
 @uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}} and
-@option{--with-as=@dots{}} options.
+@option{--with-as=@dots{}} options to ensure that GCC can find GAS.
 
 If you wish to use the pa-risc 2.0 architecture support with a 32-bit
 runtime, you must use either the HP assembler, or gas/binutils 2.11
@@ -2631,6 +2634,16 @@ it is important to completely specify the machine architecture when
 configuring if you want a model other than PROCESSOR_8000.  The macro
 TARGET_SCHED_DEFAULT can be defined in BOOT_CFLAGS if a different
 default scheduling model is desired.
+
+As of GCC 3.5, GCC uses the UNIX 95 namespace for HP-UX 10.10
+through 11.00, and the UNIX 98 namespace for HP-UX 11.11 and later.
+This namespace change might cause problems when bootstrapping with
+an earlier version of GCC or the HP compiler as essentially the same
+namespace is required for an entire build.  This problem can be avoided
+in a number of ways.  With HP cc, @env{UNIX_STD} can be set to @samp{95}
+or @samp{98}.  Another way is to add an appropriate set of predefines
+to @env{CC}.  The description for the @option{munix=} option contains
+a list of the predefines used with each standard.
 
 More specific information to @samp{hppa*-hp-hpux*} targets follows.
 
@@ -3201,9 +3214,9 @@ to increase its table size for switch statements with the
 optimization option, you also need to use @option{-Olimit 3000}.
 
 To enable debugging under IRIX 5, you must use GNU binutils 2.15 or
-later, and use the @option{--with-gnu-as} and @option{--with-gnu-ld}
-@command{configure} options when configuring GCC@.  You need to use GNU
-@command{ar} and @command{nm}, also distributed with GNU binutils.
+later, and use the @option{--with-gnu-ld} @command{configure} option
+when configuring GCC@.  You need to use GNU @command{ar} and @command{nm},
+also distributed with GNU binutils.
 
 @html
 <hr />
@@ -3233,12 +3246,7 @@ test.o: ELF 64-bit MSB @dots{}
 
 then your version of @command{cc} uses the O32 or N64 ABI by default.  You
 should set the environment variable @env{CC} to @samp{cc -n32}
-before configuring GCC@.  SGI's MIPSpro 7.2 assembler may misassemble
-parts of the compiler, causing bootstrap failures.  MIPSpro 7.3 is
-known to work.  MIPSpro C 7.4 may cause bootstrap failures, too, due
-to a bug when inlining @code{memcmp}.  Either add @code{-U__INLINE_INTRINSICS}
-to the @env{CC} environment variable as a workaround or upgrade to
-MIPSpro C 7.4.1m.
+before configuring GCC@.
 
 If you want the resulting @command{gcc} to run on old 32-bit systems
 with the MIPS R4400 CPU, you need to ensure that only code for the @samp{mips3}
@@ -3260,6 +3268,10 @@ test.o: ELF N32 MSB mips-4 @dots{}
 
 instead, you should set the environment variable @env{CC} to @samp{cc
 -n32 -mips3} or @samp{gcc -mips3} respectively before configuring GCC@.
+
+MIPSpro C 7.4 may cause bootstrap failures, due to a bug when inlining
+@code{memcmp}.  Either add @code{-U__INLINE_INTRINSICS} to the @env{CC}
+environment variable as a workaround or upgrade to MIPSpro C 7.4.1m.
 
 GCC on IRIX 6 is usually built to support the N32, O32 and N64 ABIs.  If
 you build GCC on a system that doesn't have the N64 libraries installed

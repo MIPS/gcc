@@ -26,14 +26,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include <stdio.h>
+#include "tm.h"
+#include "target.h"
 #include "ggc.h"
 #include "toplev.h"
-#include <assert.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
+#include "real.h"
+#include <assert.h>
 
 
 #if (GFC_MAX_DIMENSIONS < 10)
@@ -58,6 +60,260 @@ tree pchar_type_node;
 static GTY(()) tree gfc_desc_dim_type = NULL;
 
 static GTY(()) tree gfc_max_array_element_size;
+
+/* Arrays for all integral and real kinds.  We'll fill this in at runtime
+   after the target has a chance to process command-line options.  */
+
+#define MAX_INT_KINDS 5
+gfc_integer_info gfc_integer_kinds[MAX_INT_KINDS + 1];
+gfc_logical_info gfc_logical_kinds[MAX_INT_KINDS + 1];
+
+#define MAX_REAL_KINDS 4
+gfc_real_info gfc_real_kinds[MAX_REAL_KINDS + 1];
+
+/* The integer kind to use for array indices.  This will be set to the
+   proper value based on target information from the backend.  */
+
+int gfc_index_integer_kind;
+
+/* The default kinds of the various types.  */
+
+int gfc_default_integer_kind;
+int gfc_default_real_kind;
+int gfc_default_double_kind;
+int gfc_default_character_kind;
+int gfc_default_logical_kind;
+int gfc_default_complex_kind;
+
+/* Query the target to determine which machine modes are available for
+   computation.  Choose KIND numbers for them.  */
+
+void
+gfc_init_kinds (void)
+{
+  enum machine_mode mode;
+  int i_index, r_index;
+  bool saw_i4 = false, saw_i8 = false;
+  bool saw_r4 = false, saw_r8 = false, saw_r16 = false;
+
+  for (i_index = 0, mode = MIN_MODE_INT; mode <= MAX_MODE_INT; mode++)
+    {
+      int kind, bitsize;
+
+      if (!targetm.scalar_mode_supported_p (mode))
+	continue;
+
+      if (i_index == MAX_INT_KINDS)
+	abort ();
+
+      /* Let the kind equal the bit size divided by 8.  This insulates the
+	 programmer from the underlying byte size.  */
+      bitsize = GET_MODE_BITSIZE (mode);
+      kind = bitsize / 8;
+
+      if (kind == 4)
+	saw_i4 = true;
+      if (kind == 8)
+	saw_i8 = true;
+
+      gfc_integer_kinds[i_index].kind = kind;
+      gfc_integer_kinds[i_index].radix = 2;
+      gfc_integer_kinds[i_index].digits = bitsize - 1;
+      gfc_integer_kinds[i_index].bit_size = bitsize;
+
+      gfc_logical_kinds[i_index].kind = kind;
+      gfc_logical_kinds[i_index].bit_size = bitsize;
+
+      i_index += 1;
+    }
+
+  for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT; mode++)
+    {
+      const struct real_format *fmt = REAL_MODE_FORMAT (mode);
+      int kind;
+
+      if (fmt == NULL)
+	continue;
+      if (!targetm.scalar_mode_supported_p (mode))
+	continue;
+
+      /* Let the kind equal the precision divided by 8, rounding up.  Again,
+	 this insulates the programmer from the underlying byte size.
+
+	 Also, it effectively deals with IEEE extended formats.  There, the
+	 total size of the type may equal 16, but it's got 6 bytes of padding
+	 and the increased size can get in the way of a real IEEE quad format
+	 which may also be supported by the target.
+
+	 We round up so as to handle IA-64 __floatreg (RFmode), which is an
+	 82 bit type.  Not to be confused with __float80 (XFmode), which is
+	 an 80 bit type also supported by IA-64.  So XFmode should come out
+	 to be kind=10, and RFmode should come out to be kind=11.  Egads.  */
+
+      kind = (GET_MODE_PRECISION (mode) + 7) / 8;
+
+      if (kind == 4)
+	saw_r4 = true;
+      if (kind == 8)
+	saw_r8 = true;
+      if (kind == 16)
+	saw_r16 = true;
+
+      /* Careful we don't stumble a wierd internal mode.  */
+      if (r_index > 0 && gfc_real_kinds[r_index-1].kind == kind)
+	abort ();
+      /* Or have too many modes for the allocated space.  */
+      if (r_index == MAX_REAL_KINDS)
+	abort ();
+
+      gfc_real_kinds[r_index].kind = kind;
+      gfc_real_kinds[r_index].radix = fmt->b;
+      gfc_real_kinds[r_index].digits = fmt->p;
+      gfc_real_kinds[r_index].min_exponent = fmt->emin;
+      gfc_real_kinds[r_index].max_exponent = fmt->emax;
+      r_index += 1;
+    }
+
+  /* Choose the default integer kind.  We choose 4 unless the user
+     directs us otherwise.  */
+  if (gfc_option.i8)
+    {
+      if (!saw_i8)
+	fatal_error ("integer kind=8 not available for -i8 option");
+      gfc_default_integer_kind = 8;
+    }
+  else if (saw_i4)
+    gfc_default_integer_kind = 4;
+  else
+    gfc_default_integer_kind = gfc_integer_kinds[i_index - 1].kind;
+
+  /* Choose the default real kind.  Again, we choose 4 when possible.  */
+  if (gfc_option.r8)
+    {
+      if (!saw_r8)
+	fatal_error ("real kind=8 not available for -r8 option");
+      gfc_default_real_kind = 8;
+    }
+  else if (saw_r4)
+    gfc_default_real_kind = 4;
+  else
+    gfc_default_real_kind = gfc_real_kinds[0].kind;
+
+  /* Choose the default double kind.  If -r8 is specified, we use kind=16,
+     if it's available, otherwise we do not change anything.  */
+  if (gfc_option.r8 && saw_r16)
+    gfc_default_double_kind = 16;
+  else if (saw_r4 && saw_r8)
+    gfc_default_double_kind = 8;
+  else
+    {
+      /* F95 14.6.3.1: A nonpointer scalar object of type double precision
+	 real ... occupies two contiguous numeric storage units.
+
+	 Therefore we must be supplied a kind twice as large as we chose
+	 for single precision.  There are loopholes, in that double
+	 precision must *occupy* two storage units, though it doesn't have
+	 to *use* two storage units.  Which means that you can make this
+	 kind artificially wide by padding it.  But at present there are
+	 no GCC targets for which a two-word type does not exist, so we
+	 just let gfc_validate_kind abort and tell us if something breaks.  */
+
+      gfc_default_double_kind
+	= gfc_validate_kind (BT_REAL, gfc_default_real_kind * 2, false);
+    }
+
+  /* The default logical kind is constrained to be the same as the
+     default integer kind.  Similarly with complex and real.  */
+  gfc_default_logical_kind = gfc_default_integer_kind;
+  gfc_default_complex_kind = gfc_default_real_kind;
+
+  /* Choose the smallest integer kind for our default character.  */
+  gfc_default_character_kind = gfc_integer_kinds[0].kind;
+
+  /* Choose the integer kind the same size as "void*" for our index kind.  */
+  gfc_index_integer_kind = POINTER_SIZE / 8;
+}
+
+/* Make sure that a valid kind is present.  Returns an index into the
+   associated kinds array, -1 if the kind is not present.  */
+
+static int
+validate_integer (int kind)
+{
+  int i;
+
+  for (i = 0; gfc_integer_kinds[i].kind != 0; i++)
+    if (gfc_integer_kinds[i].kind == kind)
+      return i;
+
+  return -1;
+}
+
+static int
+validate_real (int kind)
+{
+  int i;
+
+  for (i = 0; gfc_real_kinds[i].kind != 0; i++)
+    if (gfc_real_kinds[i].kind == kind)
+      return i;
+
+  return -1;
+}
+
+static int
+validate_logical (int kind)
+{
+  int i;
+
+  for (i = 0; gfc_logical_kinds[i].kind; i++)
+    if (gfc_logical_kinds[i].kind == kind)
+      return i;
+
+  return -1;
+}
+
+static int
+validate_character (int kind)
+{
+  return kind == gfc_default_character_kind ? 0 : -1;
+}
+
+/* Validate a kind given a basic type.  The return value is the same
+   for the child functions, with -1 indicating nonexistence of the
+   type.  If MAY_FAIL is false, then -1 is never returned, and we ICE.  */
+
+int
+gfc_validate_kind (bt type, int kind, bool may_fail)
+{
+  int rc;
+
+  switch (type)
+    {
+    case BT_REAL:		/* Fall through */
+    case BT_COMPLEX:
+      rc = validate_real (kind);
+      break;
+    case BT_INTEGER:
+      rc = validate_integer (kind);
+      break;
+    case BT_LOGICAL:
+      rc = validate_logical (kind);
+      break;
+    case BT_CHARACTER:
+      rc = validate_character (kind);
+      break;
+
+    default:
+      gfc_internal_error ("gfc_validate_kind(): Got bad type");
+    }
+
+  if (rc < 0 && !may_fail)
+    gfc_internal_error ("gfc_validate_kind(): Got bad kind");
+
+  return rc;
+}
+
 
 /* Create the backend type nodes. We map them to their
    equivalent C type, at least for now.  We also give
@@ -148,7 +404,6 @@ gfc_init_types (void)
   ppvoid_type_node = build_pointer_type (pvoid_type_node);
   pchar_type_node = build_pointer_type (gfc_character1_type_node);
 
-  gfc_index_integer_kind = TYPE_PRECISION (long_unsigned_type_node) / 8;
   gfc_array_index_type = gfc_get_int_type (gfc_index_integer_kind);
 
   /* The maximum array element size that can be handled is determined
@@ -168,16 +423,17 @@ gfc_init_types (void)
       hi = 0;
       lo = (~(unsigned HOST_WIDE_INT) 0) >> (sizeof (HOST_WIDE_INT) * 8 - n);
     }
-  gfc_max_array_element_size = build_int_cst (long_unsigned_type_node, lo, hi);
+  gfc_max_array_element_size
+    = build_int_cst_wide (long_unsigned_type_node, lo, hi);
 
   size_type_node = gfc_array_index_type;
-  boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind ());
+  boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
 
-  boolean_true_node = build_int_cst (boolean_type_node, 1, 0);
-  boolean_false_node = build_int_cst (boolean_type_node, 0, 0);
+  boolean_true_node = build_int_cst (boolean_type_node, 1);
+  boolean_false_node = build_int_cst (boolean_type_node, 0);
 }
 
-/* Get a type node for an integer kind */
+/* Get a type node for an integer kind.  */
 
 tree
 gfc_get_int_type (int kind)
@@ -201,7 +457,7 @@ gfc_get_int_type (int kind)
     }
 }
 
-/* Get a type node for a real kind */
+/* Get a type node for a real kind.  */
 
 tree
 gfc_get_real_type (int kind)
@@ -221,11 +477,12 @@ gfc_get_real_type (int kind)
     }
 }
 
-/* Get a type node for a complex kind */
+/* Get a type node for a complex kind.  */
 
 tree
 gfc_get_complex_type (int kind)
 {
+
   switch (kind)
     {
     case 4:
@@ -241,7 +498,7 @@ gfc_get_complex_type (int kind)
     }
 }
 
-/* Get a type node for a logical kind */
+/* Get a type node for a logical kind.  */
 
 tree
 gfc_get_logical_type (int kind)
@@ -265,15 +522,14 @@ gfc_get_logical_type (int kind)
     }
 }
 
-/* Get a type node for a character kind.  */
+/* Create a character type with the given kind and length.  */
 
 tree
-gfc_get_character_type (int kind, gfc_charlen * cl)
+gfc_get_character_type_len (int kind, tree len)
 {
   tree base;
-  tree type;
-  tree len;
   tree bounds;
+  tree type;
 
   switch (kind)
     {
@@ -285,13 +541,24 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
       fatal_error ("character kind=%d not available", kind);
     }
 
-  len = (cl == 0) ? NULL_TREE : cl->backend_decl;
-
   bounds = build_range_type (gfc_array_index_type, gfc_index_one_node, len);
   type = build_array_type (base, bounds);
   TYPE_STRING_FLAG (type) = 1;
 
   return type;
+}
+
+
+/* Get a type node for a character kind.  */
+
+tree
+gfc_get_character_type (int kind, gfc_charlen * cl)
+{
+  tree len;
+
+  len = (cl == NULL) ? NULL_TREE : cl->backend_decl;
+
+  return gfc_get_character_type_len (kind, len);
 }
 
 /* Covert a basic type.  This will be an array for character types.  */
@@ -445,8 +712,7 @@ gfc_get_element_type (tree type)
    dimension.  This requires extra fields in the descriptor (both real_ubound
    and fake_ubound).  In tree.def there is mention of TYPE_SEP, which
    may allow us to do this.  However I can't find mention of this anywhere
-   else.
- */
+   else.  */
 
 
 /* Returns true if the array sym does not require a descriptor.  */
@@ -478,6 +744,9 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 
   return 1;
 }
+
+
+/* Create an array descriptor type.  */
 
 static tree
 gfc_build_array_type (tree type, gfc_array_spec * as)
@@ -583,12 +852,14 @@ gfc_get_dtype (tree type, int rank)
       break;
 
     default:
-      abort ();
+      /* TODO: Don't do dtype for temporary descriptorless arrays.  */
+      /* We can strange array types for temporary arrays.  */
+      return gfc_index_zero_node;
     }
 
   assert (rank <= GFC_DTYPE_RANK_MASK);
   size = TYPE_SIZE_UNIT (type);
-    
+
   i = rank | (n << GFC_DTYPE_TYPE_SHIFT);
   if (size && INTEGER_CST_P (size))
     {
@@ -597,13 +868,13 @@ gfc_get_dtype (tree type, int rank)
 
       i += TREE_INT_CST_LOW (size) << GFC_DTYPE_SIZE_SHIFT;
     }
-  dtype = build_int_cst (gfc_array_index_type, i, 0);
+  dtype = build_int_cst (gfc_array_index_type, i);
 
   if (size && !INTEGER_CST_P (size))
     {
-      tmp = build_int_cst (gfc_array_index_type, GFC_DTYPE_SIZE_SHIFT, 0);
-      tmp  = fold (build (LSHIFT_EXPR, gfc_array_index_type, size, tmp));
-      dtype = fold (build (PLUS_EXPR, gfc_array_index_type, tmp, dtype));
+      tmp = build_int_cst (gfc_array_index_type, GFC_DTYPE_SIZE_SHIFT);
+      tmp  = fold (build2 (LSHIFT_EXPR, gfc_array_index_type, size, tmp));
+      dtype = fold (build2 (PLUS_EXPR, gfc_array_index_type, tmp, dtype));
     }
   /* If we don't know the size we leave it as zero.  This should never happen
      for anything that is actually used.  */
@@ -750,6 +1021,8 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 
   if (packed < 3 || !known_stride)
     {
+      /* For dummy arrays and automatic (heap allocated) arrays we
+	 want a pointer to the array.  */
       type = build_pointer_type (type);
       GFC_ARRAY_TYPE_P (type) = 1;
       TYPE_LANG_SPECIFIC (type) = TYPE_LANG_SPECIFIC (TREE_TYPE (type));
@@ -833,11 +1106,11 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 
       if (upper != NULL_TREE && lower != NULL_TREE && stride != NULL_TREE)
 	{
-	  tmp = fold (build (MINUS_EXPR, gfc_array_index_type, upper, lower));
-	  tmp = fold (build (PLUS_EXPR, gfc_array_index_type, tmp,
-			     gfc_index_one_node));
+	  tmp = fold (build2 (MINUS_EXPR, gfc_array_index_type, upper, lower));
+	  tmp = fold (build2 (PLUS_EXPR, gfc_array_index_type, tmp,
+			      gfc_index_one_node));
 	  stride =
-	    fold (build (MULT_EXPR, gfc_array_index_type, tmp, stride));
+	    fold (build2 (MULT_EXPR, gfc_array_index_type, tmp, stride));
 	  /* Check the folding worked.  */
 	  assert (INTEGER_CST_P (stride));
 	}
@@ -901,7 +1174,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 static tree
 gfc_build_pointer_type (gfc_symbol * sym, tree type)
 {
-  /* Array pointer types aren't actualy pointers.  */
+  /* Array pointer types aren't actually pointers.  */
   if (sym->attr.dimension)
     return type;
   else
@@ -1034,10 +1307,10 @@ gfc_get_derived_type (gfc_symbol * derived)
   assert (derived && derived->attr.flavor == FL_DERIVED);
 
   /* derived->backend_decl != 0 means we saw it before, but its
-  component's backend_decl may have not been built.  */
+     components' backend_decl may have not been built.  */
   if (derived->backend_decl)
     {
-      /* Its component's backend_decl has been built.  */
+      /* Its components' backend_decl have been built.  */
       if (TYPE_FIELDS (derived->backend_decl))
         return derived->backend_decl;
       else
@@ -1142,7 +1415,6 @@ gfc_return_by_reference (gfc_symbol * sym)
   return 0;
 }
 
-
 tree
 gfc_get_function_type (gfc_symbol * sym)
 {
@@ -1191,7 +1463,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	typelist = gfc_chainon_list (typelist, gfc_strlen_type_node);
     }
 
-  /* Build the argument types for the function */
+  /* Build the argument types for the function.  */
   for (f = sym->formal; f; f = f->next)
     {
       arg = f->sym;
@@ -1253,7 +1525,7 @@ gfc_get_function_type (gfc_symbol * sym)
   return type;
 }
 
-/* Routines for getting integer type nodes */
+/* Routines for getting integer type nodes.  */
 
 
 /* Return an integer type with BITS bits of precision,
@@ -1358,38 +1630,13 @@ gfc_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
     return build_pointer_type (integer_type_node);
 
-#ifdef VECTOR_MODE_SUPPORTED_P
-  if (VECTOR_MODE_SUPPORTED_P (mode))
+  if (VECTOR_MODE_P (mode))
     {
-      switch (mode)
-	{
-	case V16QImode:
-	  return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
-	case V8HImode:
-	  return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
-	case V4SImode:
-	  return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
-	case V2DImode:
-	  return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
-	case V2SImode:
-	  return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
-	case V4HImode:
-	  return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
-	case V8QImode:
-	  return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
-	case V16SFmode:
-	  return V16SF_type_node;
-	case V4SFmode:
-	  return V4SF_type_node;
-	case V2SFmode:
-	  return V2SF_type_node;
-	case V2DFmode:
-	  return V2DF_type_node;
-	default:
-	  break;
-	}
+      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      tree inner_type = gfc_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL_TREE)
+        return build_vector_type_for_mode (inner_type, mode);
     }
-#endif
 
   return 0;
 }
@@ -1400,6 +1647,7 @@ tree
 gfc_unsigned_type (tree type)
 {
   tree type1 = TYPE_MAIN_VARIANT (type);
+
   if (type1 == signed_char_type_node || type1 == char_type_node)
     return unsigned_char_type_node;
   if (type1 == integer_type_node)
@@ -1436,6 +1684,7 @@ tree
 gfc_signed_type (tree type)
 {
   tree type1 = TYPE_MAIN_VARIANT (type);
+
   if (type1 == unsigned_char_type_node || type1 == char_type_node)
     return signed_char_type_node;
   if (type1 == unsigned_type_node)

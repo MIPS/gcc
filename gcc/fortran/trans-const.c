@@ -46,6 +46,7 @@ tree gfc_strconst_current_filename;
 tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
 /* Build a constant with given type from an int_cst.  */
+
 tree
 gfc_build_const (tree type, tree intval)
 {
@@ -81,7 +82,7 @@ gfc_build_string_const (int length, const char *s)
   tree len;
 
   str = build_string (length, s);
-  len = build_int_cst (NULL_TREE, length, 0);
+  len = build_int_cst (NULL_TREE, length);
   TREE_TYPE (str) =
     build_array_type (gfc_character1_type_node,
 		      build_range_type (gfc_strlen_type_node,
@@ -145,7 +146,7 @@ gfc_init_constants (void)
   int n;
 
   for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
-    gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n, 0);
+    gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n);
 
   gfc_strconst_bounds = gfc_build_string_const (21, "Array bound mismatch");
 
@@ -160,75 +161,69 @@ gfc_init_constants (void)
 			    gfc_option.source);
 }
 
-#define BITS_PER_HOST_WIDE_INT (8 * sizeof (HOST_WIDE_INT))
 /* Converts a GMP integer into a backend tree node.  */
 tree
 gfc_conv_mpz_to_tree (mpz_t i, int kind)
 {
-  int val;
-  tree res;
   HOST_WIDE_INT high;
   unsigned HOST_WIDE_INT low;
-  int negate;
-  char buff[10];
-  char *p;
-  char *q;
-  int n;
 
-  /* TODO: could be wrong if sizeof(HOST_WIDE_INT) |= SIZEOF (int).  */
   if (mpz_fits_slong_p (i))
     {
-      val = mpz_get_si (i);
-      res = build_int_cst (gfc_get_int_type (kind),
-			   val, (val < 0) ? (HOST_WIDE_INT)-1 : 0);
-      return (res);
-    }
-
-  n = mpz_sizeinbase (i, 16);
-  if (n > 8)
-    q = gfc_getmem (n + 2);
-  else
-    q = buff;
-
-  low = 0;
-  high = 0;
-  p = mpz_get_str (q, 16, i);
-  if (p[0] == '-')
-    {
-      negate = 1;
-      p++;
+      /* Note that HOST_WIDE_INT is never smaller than long.  */
+      low = mpz_get_si (i);
+      high = mpz_sgn (i) < 0 ? -1 : 0;
     }
   else
-    negate = 0;
-
-  while (*p)
     {
-      n = *(p++);
-      if (n >= '0' && n <= '9')
-	n = n - '0';
-      else if (n >= 'a' && n <= 'z')
-	n = n + 10 - 'a';
-      else if (n >= 'A' && n <= 'Z')
-	n = n + 10 - 'A';
-      else
-	abort ();
+      /* Note that mp_limb_t can be anywhere from short to long long,
+	 which gives us a nice variety of cases to choose from.  */
 
-      assert (n >= 0 && n < 16);
-      high = (high << 4) + (low >> (BITS_PER_HOST_WIDE_INT - 4));
-      low = (low << 4) + n;
+      if (sizeof (mp_limb_t) == sizeof (HOST_WIDE_INT))
+	{
+	  low = mpz_getlimbn (i, 0);
+	  high = mpz_getlimbn (i, 1);
+	}
+      else if (sizeof (mp_limb_t) == 2 * sizeof (HOST_WIDE_INT))
+	{
+	  mp_limb_t limb0 = mpz_getlimbn (i, 0);
+	  int shift = (sizeof (mp_limb_t) - sizeof (HOST_WIDE_INT)) * CHAR_BIT;
+	  low = limb0;
+	  high = limb0 >> shift;
+	}
+      else if (sizeof (mp_limb_t) < sizeof (HOST_WIDE_INT))
+	{
+	  int shift = sizeof (mp_limb_t) * CHAR_BIT;
+	  int n, count = sizeof (HOST_WIDE_INT) / sizeof (mp_limb_t);
+	  for (low = n = 0; n < count; ++n)
+	    {
+	      low <<= shift;
+	      low |= mpz_getlimbn (i, n);
+	    }
+	  for (high = 0, n = count; n < 2*count; ++n)
+	    {
+	      high <<= shift;
+	      high |= mpz_getlimbn (i, n);
+	    }
+	}
+
+      /* By extracting limbs we constructed the absolute value of the
+	 desired number.  Negate if necessary.  */
+      if (mpz_sgn (i) < 0)
+	{
+	  if (low == 0)
+	    high = -high;
+	  else
+	    low = -low, high = ~high;
+	}
     }
-  res = build_int_cst (gfc_get_int_type (kind), low, high);
-  if (negate)
-    res = fold (build1 (NEGATE_EXPR, TREE_TYPE (res), res));
 
-  if (q != buff)
-    gfc_free (q);
-
-  return res;
+  return build_int_cst_wide (gfc_get_int_type (kind), low, high);
 }
 
 /* Converts a real constant into backend form.  Uses an intermediate string
    representation.  */
+
 tree
 gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
 {
@@ -257,7 +252,7 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
       edigits += 3;
     }
 
-  if (kind == gfc_default_double_kind())
+  if (kind == gfc_default_double_kind)
     p = mpfr_get_str (NULL, &exp, 10, 17, f, GFC_RND_MODE);
   else
     p = mpfr_get_str (NULL, &exp, 10, 8, f, GFC_RND_MODE);
@@ -320,7 +315,7 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
       return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      return build_int_cst (NULL_TREE, expr->value.logical, 0);
+      return build_int_cst (NULL_TREE, expr->value.logical);
 
     case BT_COMPLEX:
       {
@@ -343,7 +338,7 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 }
 
 
-/* Like gfc_conv_contrant_to_tree, but for a simplified expression.
+/* Like gfc_conv_constant_to_tree, but for a simplified expression.
    We can handle character literal constants here as well.  */
 
 void
@@ -358,7 +353,7 @@ gfc_conv_constant (gfc_se * se, gfc_expr * expr)
       assert (se->ss->expr == expr);
 
       se->expr = se->ss->data.scalar.expr;
-      se->string_length = se->ss->data.scalar.string_length;
+      se->string_length = se->ss->string_length;
       gfc_advance_se_ss_chain (se);
       return;
     }
@@ -366,7 +361,7 @@ gfc_conv_constant (gfc_se * se, gfc_expr * expr)
   /* Translate the constant and put it in the simplifier structure.  */
   se->expr = gfc_conv_constant_to_tree (expr);
 
-  /* If this is a CHARACTER string, set it's length in the simplifier
+  /* If this is a CHARACTER string, set its length in the simplifier
      structure, too.  */
   if (expr->ts.type == BT_CHARACTER)
     se->string_length = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (se->expr)));

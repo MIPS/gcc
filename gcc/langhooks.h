@@ -299,16 +299,11 @@ struct lang_hooks
   bool (*mark_addressable) (tree);
 
   /* Hook called by staticp for language-specific tree codes.  */
-  bool (*staticp) (tree);
+  tree (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
-
-  /* Reset argument so that it can be expanded again.
-     Modify it in-place so that all the evaluate only once
-     things are cleared out.  */
-  tree (*unsave_expr_now) (tree);
 
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set

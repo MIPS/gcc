@@ -402,65 +402,6 @@ vect_debug_details (struct loop *loop)
   return false;
 }
 
-
-/*  THIS IS A COPY OF THE FUNCTION IN TREE-SSA-IVOPTS.C, MODIFIED
-    TO NOT USE FORCE_GIMPLE_OPERAND.  When that function is accepted
-    into he mainline, This function can go away and be replaced by it.
-    Creates an induction variable with value BASE + STEP * iteration in
-    LOOP.  It is expected that neither BASE nor STEP are shared with
-    other expressions (unless the sharing rules allow this).  Use VAR
-    as a base var_decl for it (if NULL, a new temporary will be
-    created).  The increment will occur at INCR_POS (after it if AFTER
-    is true, before it otherwise).  The ssa versions of the variable
-    before and after increment will be stored in VAR_BEFORE and
-    VAR_AFTER (unless they are NULL).  */
-
-static void
-vect_create_iv_simple (tree base, tree step, tree var, struct loop *loop,
-	 		   block_stmt_iterator *incr_pos, bool after,
-	 		   tree *var_before, tree *var_after)
-{
-   tree stmt, stmts, initial;
-   tree vb, va;
-   stmts = NULL;
-
-   if (!var)
-     {
-       var = create_tmp_var (TREE_TYPE (base), "ivtmp");
-       add_referenced_tmp_var (var);
-     }
-
-   vb = make_ssa_name (var, build_empty_stmt ());
-   if (var_before)
-     *var_before = vb;
-   va = make_ssa_name (var, build_empty_stmt ());
-   if (var_after)
-     *var_after = va;
-
-   stmt = build (MODIFY_EXPR, void_type_node, va,
- 		 build (PLUS_EXPR, TREE_TYPE (base), vb, step));
-   SSA_NAME_DEF_STMT (va) = stmt;
-   if (after)
-     bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
-   else
-     bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
-
-   /* Our base is always a GIMPLE variable, thus, we don't need to
-      force_gimple_operand it.  */
-   initial = base;
-   if (stmts)
-     {
-       edge pe = loop_preheader_edge (loop);
-       bsi_insert_on_edge (pe, stmts);
-     }
-
-   stmt = create_phi_node (vb, loop->header);
-   SSA_NAME_DEF_STMT (vb) = stmt;
-   add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
-   add_phi_arg (&stmt, va, loop_latch_edge (loop));
-}
-
-
 /* Function vect_get_base_decl_and_bit_offset
    
    Get the decl from which the data reference REF is based, 
@@ -527,7 +468,12 @@ vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
   else
-    return (alignment <= STACK_BOUNDARY);
+    /* This is not 100% correct.  The absolute correct stack alignment
+       is STACK_BOUNDARY.  We're supposed to hope, but not assume, that
+       PREFERRED_STACK_BOUNDARY is honored by all translation units.
+       However, until someone implements forced stack alignment, SSE
+       isn't really usable without this.  */  
+    return (alignment <= PREFERRED_STACK_BOUNDARY); 
 }
 
 
@@ -614,7 +560,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
     abort ();	
 #endif
 
-  vf = build_int_cst (unsigned_type_node, vectorization_factor, 0);
+  vf = build_int_cst (unsigned_type_node, vectorization_factor);
 
   if (vect_debug_details (NULL))
     {
@@ -645,10 +591,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
       fprintf (dump_file, ")");
     }
 
-  /* both init and step are guaranted to be gimple expressions,
-     so we can use vect_create_iv_simple.  */
-  vect_create_iv_simple (init, step, NULL, loop, bsi, false, 
-	&indx_before_incr, &indx_after_incr); 
+  create_iv (init, step, NULL_TREE, loop, bsi, false, 
+	     &indx_before_incr, &indx_after_incr); 
 
   return indx_before_incr;
 }
@@ -730,11 +674,6 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   tree vect_ptr_type;
   tree vect_ptr;
   tree addr_ref;
-  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses, nv_may_defs, nv_must_defs;
-  int i;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree array_type;
   tree base_addr = NULL_TREE;
@@ -743,6 +682,8 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   tree tag;
   tree addr_expr;
   tree scalar_ptr_type;
+  tree use;
+  ssa_op_iter iter;
 
   /* FORNOW: make sure the data reference is aligned.  */
   vect_align_data_ref (stmt);
@@ -799,26 +740,11 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   
   /* Mark for renaming all aliased variables
      (i.e, the may-aliases of the type-mem-tag) */
-  nvuses = NUM_VUSES (vuses);
-  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
-  for (i = 0; i < nvuses; i++)
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter,
+			     (SSA_OP_VIRTUAL_DEFS | SSA_OP_VUSE))
     {
-      tree use = VUSE_OP (vuses, i);
       if (TREE_CODE (use) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
-    }
-  for (i = 0; i < nv_may_defs; i++)
-    {
-      tree def = V_MAY_DEF_RESULT (v_may_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-    }
-  for (i = 0; i < nv_must_defs; i++)
-    {
-      tree def = V_MUST_DEF_OP (v_must_defs, i);
-      if (TREE_CODE (def) == SSA_NAME)
-        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
     }
 
   pe = loop_preheader_edge (loop);
@@ -1469,7 +1395,7 @@ static void
 vect_transform_loop_bound (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  edge exit_edge = loop->exit_edges[0];
+  edge exit_edge = loop->single_exit;
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
   tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
@@ -1502,10 +1428,8 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   if (orig_cond_expr != bsi_stmt (loop_exit_bsi))
     abort ();
 
-  /* both init and step are guaranted to be gimple expressions,
-     so we can use vect_create_iv_simple.  */
-  vect_create_iv_simple (integer_zero_node, integer_one_node, NULL_TREE, loop, 
-	&loop_exit_bsi, false, &indx_before_incr, &indx_after_incr);
+  create_iv (integer_zero_node, integer_one_node, NULL_TREE, loop, 
+	     &loop_exit_bsi, false, &indx_before_incr, &indx_after_incr);
 
   /* bsi_insert is using BSI_NEW_STMT. We need to bump it back 
      to point to the exit condition. */
@@ -1515,7 +1439,7 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
 
   /* new loop exit test:  */
   lb_type = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (orig_cond_expr, 0), 1));
-  new_loop_bound = build_int_cst (lb_type, old_N/vf, 0);
+  new_loop_bound = build_int_cst (lb_type, old_N/vf);
 
   if (exit_edge->flags & EDGE_TRUE_VALUE) /* 'then' edge exits the loop.  */
     cond = build2 (GE_EXPR, boolean_type_node, indx_after_incr, new_loop_bound);
@@ -2247,7 +2171,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
   tree base_decl = NULL_TREE;
   tree bit_offset = size_zero_node;
   tree offset = size_zero_node;
-  tree unit_bits = build_int_cst (unsigned_type_node, BITS_PER_UNIT, 0);
+  tree unit_bits = build_int_cst (unsigned_type_node, BITS_PER_UNIT);
   tree nunits;
   tree alignment;
 
@@ -2351,10 +2275,10 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
 
   /* alignment required, in bytes: */
   alignment = build_int_cst (unsigned_type_node, 
-				TYPE_ALIGN (vectype)/BITS_PER_UNIT, 0);
+			     TYPE_ALIGN (vectype)/BITS_PER_UNIT);
   /* bytes per scalar element: */
   nunits = build_int_cst (unsigned_type_node, 
-				GET_MODE_SIZE (TYPE_MODE (scalar_type)), 0);
+			  GET_MODE_SIZE (TYPE_MODE (scalar_type)));
 
   /* misalign = (offset + (init-array_first_index)*nunits) % alignment  */
   if (vect_debug_details (NULL))
@@ -3260,21 +3184,19 @@ vect_analyze_loop_form (struct loop *loop)
   if (vect_debug_details (loop))
     fprintf (dump_file, "\n<<vect_analyze_loop_form>>\n");
 
-  if (loop->level > 1		/* FORNOW: inner-most loop  */
-      || loop->num_exits > 1 || loop->num_entries > 1 || loop->num_nodes != 2
-      || !loop->pre_header || !loop->header || !loop->latch)
+  if (loop->inner
+      || !loop->single_exit
+      || loop->num_nodes != 2)
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop))	
 	{
 	  fprintf (dump_file, "not vectorized: bad loop form. ");
-	  if (loop->level > 1)
+	  if (loop->inner)
 	    fprintf (dump_file, "nested loop.");
-	  else if (loop->num_exits > 1 || loop->num_entries > 1)
-	    fprintf (dump_file, "multiple entries or exits.");
-	  else if (loop->num_nodes != 2 || !loop->header || !loop->latch)
+	  else if (!loop->single_exit)
+	    fprintf (dump_file, "multiple exits.");
+	  else if (loop->num_nodes != 2)
 	    fprintf (dump_file, "too many BBs in loop.");
-	  else if (!loop->pre_header)
-	    fprintf (dump_file, "no pre-header BB for loop.");
 	}
 
       return NULL;
@@ -3500,8 +3422,6 @@ vectorize_loops (struct loops *loops)
 
       if (!loop)
         continue;
-
-      flow_loop_scan (loop, LOOP_ALL);
 
       loop_vinfo = vect_analyze_loop (loop);
       loop->aux = loop_vinfo;

@@ -680,7 +680,8 @@ tree_code_get_integer_value (unsigned char* chars, unsigned int length)
   for (ix = start; ix < length; ix++)
     val = val * 10 + chars[ix] - (unsigned char)'0';
   val = val*negative;
-  return build_int_cst (NULL_TREE, val & 0xffffffff, (val >> 32) & 0xffffffff);
+  return build_int_cst_wide (NULL_TREE,
+			     val & 0xffffffff, (val >> 32) & 0xffffffff);
 }
 
 /* Return the tree for an expresssion, type EXP_TYPE (see treetree.h)
@@ -1179,7 +1180,7 @@ treelang_init_decl_processing (void)
   pushlevel (0);	/* make the binding_level structure for global names */
   global_binding_level = current_binding_level;
 
-  build_common_tree_nodes (flag_signed_char);
+  build_common_tree_nodes (flag_signed_char, false);
 
   /* set standard type names */
 

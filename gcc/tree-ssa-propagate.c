@@ -50,7 +50,7 @@
    proceeds as follows:
 
    1- Initially, all edges of the CFG are marked not executable and
-      the CFG worklist is seeded with all the statements in the entry
+      the CFG worklist seeded with all the statements in the entry
       basic block (block 0).
 
    2- Every statement S is simulated with a call to the call-back
@@ -75,7 +75,7 @@
 
    3- PHI nodes are simulated with a call to SSA_PROP_VISIT_PHI.  The
       return value from SSA_PROP_VISIT_PHI has the same semantics as
-      described in #2.
+      described in #3.
 
    4- Three work lists are kept.  Statements are only added to these
       lists if they produce one of SSA_PROP_INTERESTING or
@@ -321,8 +321,9 @@ simulate_stmt (tree stmt)
 	{
 	  edge e;
 	  basic_block bb = bb_for_stmt (stmt);
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, bb->succs)
 	    add_control_edge (e);
+	  END_FOR_EACH_EDGE;
 	}
     }
   else if (val == SSA_PROP_INTERESTING)
@@ -436,7 +437,7 @@ simulate_block (basic_block block)
 	 worklist.  */
       normal_edge_count = 0;
       normal_edge = NULL;
-      for (e = block->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, block->succs)
 	{
 	  if (e->flags & EDGE_ABNORMAL)
 	    add_control_edge (e);
@@ -446,6 +447,7 @@ simulate_block (basic_block block)
 	      normal_edge = e;
 	    }
 	}
+      END_FOR_EACH_EDGE;
 
       if (normal_edge_count == 1)
 	add_control_edge (normal_edge);
@@ -484,13 +486,14 @@ ssa_prop_init (void)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	STMT_IN_SSA_EDGE_WORKLIST (bsi_stmt (si)) = 0;
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
+      END_FOR_EACH_EDGE;
     }
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
     {
       if (e->dest != EXIT_BLOCK_PTR)
 	{
@@ -498,6 +501,7 @@ ssa_prop_init (void)
 	  cfg_blocks_add (e->dest);
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 

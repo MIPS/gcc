@@ -1814,7 +1814,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       /* Create the new iv, and insert it's increment on the latch
          block.  */
 
-      bb = temp->latch->pred->src;
+      bb = EDGE_PRED (temp->latch, 0)->src;
       bsi = bsi_last (bb);
       create_iv (newlowerbound,
 		 build_int_cst (integer_type_node, LL_STEP (newloop)),

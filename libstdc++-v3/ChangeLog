@@ -1,3 +1,201 @@
+2004-08-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format,
+	case 'S'): Allow for at least one leap-second (as per C99, 7.23.1
+	and 7.23.3.5), two if !_GLIBCXX_USE_C99.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: New.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+
+2004-08-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13684
+	* libsupc++/guard.cc (static_mutex): Internal class implementing a
+	recursive mutex which controls initialization of local statics.
+	(__gnu_cxx::recursive_init): New exception class.
+	(__cxa_guard_acquire): Deal with locking and recursion detection.
+	(acquire_1, __cxa_guard_abort, __cxa_guard_release): Likewise.
+
+2004-08-27  Matthias Klose  <doko@debian.org>
+
+	* configure.host: For mips*-*-linux* update cpu_include_dir
+	after atomicity_dir is set.
+
+2004-08-27  Matthias Klose  <doko@debian.org>
+
+	* config/abi/arm-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/mips-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+	* configure.host: Set abi_baseline_pair for arm*-*-linux* and
+	mips*-*-linux*.
+
+2004-08-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/manipulators/adjustfield/wchar_t/1.cc: New.
+	* testsuite/27_io/manipulators/adjustfield/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/manipulators/basefield/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/wchar_t/2.cc: Likewise.
+	
+	* testsuite/27_io/manipulators/adjustfield/char/1.cc: Minor
+	formatting fixes.
+	* testsuite/27_io/manipulators/adjustfield/char/2.cc: Likewise.
+	* testsuite/27_io/manipulators/basefield/char/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/1.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/2.cc: Likewise.
+
+2004-08-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/17038 (partial)
+	* include/bits/locale_facets.tcc (time_put<>::do_put): Increase
+	__maxlen to 128.
+	* include/bits/locale_facets.h (class __timepunct): Add FIXME
+	comment about _M_put.
+	* config/locale/generic/time_members.cc (_M_put): Always null
+	terminate __s.
+	* config/locale/gnu/time_members.cc (_M_put): Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: New.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: New.
+
+2004-08-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istringstream/rdbuf/wchar_t/2832.cc: New.
+	* testsuite/27_io/basic_istringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/cons/wchar_t/3.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/rdbuf/wchar_t/2832.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/str/wchar_t/2.cc: Likewise.
+
+	* testsuite/27_io/basic_istringstream/rdbuf/char/2832.cc: Trim excess
+	newlines.
+	* testsuite/27_io/basic_istringstream/str/char/1.cc: Likewise.
+
+2004-08-22  Matthias Klose  <doko@debian.org>
+
+	* config/abi/m68k-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.ac: Specify version 1.9.1 in AM_INIT_AUTOMAKE.
+	* aclocal.m4: Regenerate with automake-1.9.1.
+	* configure: Regenerate.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2004-08-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(bool)): Cast
+	to a signed type, long according to the resolution of DR 359.
+	* testsuite/22_locale/num_put/put/char/9.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/9.cc: New.
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(const void*)):
+	Simplify a bit: no need to clear showpos.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/char_traits.h (struct _Char_traits_match): Remove,
+	unused.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/money_put/put/wchar_t/1.cc: Use proper
+	wchar_t	type for the fill argument; minor formatting tweaks.
+	* testsuite/22_locale/money_put/put/wchar_t/12971.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/money_put/put/wchar_t/6.cc: Likewise.
+
+2004-08-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_ios.tcc (basic_ios<>::copyfmt): Don't deal
+	with _M_word != _M_local_word two times, redundantly.
+
+2004-08-20  Jason Merrill  <jason@redhat.com>
+
+	* include/Makefile.am (${host_builddir}/gthr.h): Don't add
+	_GLIBCXX_ to #pragma lines.
+	* include/Makefile.in: Update.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/7219 (continued)
+	* include/bits/ios_base.h (class ios_base): Expose Annex D.6
+	typedefs by default.
+	* testsuite/27_io/types/1.cc: Remove #if _GLIBCXX_DEPRECATED.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Tweak dg-error
+	line number.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2004-08-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* cpu/hppa/atomicity.h (__exchange_and_add, __atomic_add): Add memory
+	barrier to locking asm.
+	
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_std/cmath.tcc (__cmath_power): Revert previous commit:
+	actually the warning is a front-end bug (c++/17120).
+
+2004-08-20  Matthias Klose  <doko@debian.org>
+
+	* config/abi/s390-linux-gnu/baseline_symbols.txt: New.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/c_std/cmath.tcc (__cmath_power): Suppress assignment
+	used as truth value warning.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/32/baseline_symbols.txt: Add 32 bit
+	baseline.
+
+2004-08-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Fix it.
+
+2004-08-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/time_put/put/char/3.cc (test03): Don't check
+	timezone.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc (test03): Same.
+
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/20_util/allocator/insert.cc: For std::map
+	instantiate the allocator for a correct pair type.
+	* testsuite/performance/20_util/allocator/insert_insert.cc: Likewise.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Likewise.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc:
+	Likewise.
+
+	* testsuite/performance/20_util/allocator/list_sort_search.cc: Very
+	minor formatting fixes.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Likewise.
+
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/time_put/put/char/1.cc: Add VERIFY on the
+	results.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+ 
+2004-08-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
 2004-08-18  Matthias Klose  <doko@debian.org>
 
 	* config/abi/hppa-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
@@ -1271,8 +1469,8 @@
 2004-05-18  Jan Beulich  <jbeulich@novell.com>
  
         PR libstdc++/15489
-        * scripts/create_testsuite_files: Also find source files through
-          symbolic links.
+	* scripts/create_testsuite_files: Also find source files through
+	symbolic links.
 
 2004-05-18  Jan Beulich  <jbeulich@novell.com>
 

@@ -798,12 +798,13 @@ fixup_reorder_chain (void)
 	  bb = nb;
 	  
 	  /* Make sure new bb is tagged for correct section (same as
-	     fall-thru source).  */
-	  e_fall->src->partition = EDGE_PRED (bb, 0)->src->partition;
+	     fall-thru source, since you cannot fall-throu across
+	     section boundaries).  */
+	  BB_COPY_PARTITION (e_fall->src, EDGE_PRED (bb, 0)->src);
 	  if (flag_reorder_blocks_and_partition
 	      && targetm.have_named_sections)
 	    {
-	      if (EDGE_PRED (bb, 0)->src->partition == COLD_PARTITION)
+	      if (BB_PARTITION (EDGE_PRED (bb, 0)->src) == BB_COLD_PARTITION)
 		{
 		  rtx new_note;
 		  rtx note = BB_HEAD (e_fall->src);
@@ -1052,8 +1053,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	         in first BB, we may want to copy the block.  */
 	    case NOTE_INSN_PROLOGUE_END:
 
-	    case NOTE_INSN_LOOP_VTOP:
-	    case NOTE_INSN_LOOP_CONT:
 	    case NOTE_INSN_LOOP_BEG:
 	    case NOTE_INSN_LOOP_END:
 	      /* Strip down the loop notes - we don't really want to keep
@@ -1122,7 +1121,7 @@ cfg_layout_duplicate_bb (basic_block bb)
 			       insn ? get_last_insn () : NULL,
 			       EXIT_BLOCK_PTR->prev_bb);
 
-  new_bb->partition = bb->partition;
+  BB_COPY_PARTITION (new_bb, bb);
   if (bb->rbi->header)
     {
       insn = bb->rbi->header;

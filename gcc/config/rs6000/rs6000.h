@@ -40,6 +40,10 @@
 #define TARGET_AIX 0
 #endif
 
+/* Control whether function entry points use a "dot" symbol when
+   ABI_AIX.  */
+#define DOT_SYMBOLS 1
+
 /* Default string to use for cpu if not specified.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT ((char *)0)
@@ -546,7 +550,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    Override the macro definitions when compiling libobjc to avoid undefined
    reference to rs6000_alignment_flags due to library's use of GCC alignment
    macros which use the macros below.  */
-   
+
 #ifndef IN_TARGET_LIBS
 #define MASK_ALIGN_POWER   0x00000000
 #define MASK_ALIGN_NATURAL 0x00000001
@@ -831,7 +835,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    avoid invalidating older SPE eh_frame info.
 
    We must map them here to avoid huge unwinder tables mostly consisting
-   of unused space.  */ 
+   of unused space.  */
 #define DWARF_REG_TO_UNWIND_COLUMN(r) \
   ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER) : (r))
 
@@ -886,7 +890,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    (`CALL_USED_REGISTERS' must be a superset of `FIXED_REGISTERS').
    This macro is optional.  If not specified, it defaults to the value
    of `CALL_USED_REGISTERS'.  */
-		       
+
 #define CALL_REALLY_USED_REGISTERS  \
   {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, FIXED_R13, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -951,7 +955,7 @@ extern const char *rs6000_warn_altivec_long_switch;
 	v19 - v14       (not saved or used for anything)
 	v31 - v20       (saved; order given to save least number)
 */
-						
+
 #if FIXED_R2 == 1
 #define MAYBE_R2_AVAILABLE
 #define MAYBE_R2_FIXED 2,
@@ -1012,7 +1016,7 @@ extern const char *rs6000_warn_altivec_long_switch;
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
-    && (MODE == DImode || MODE == DFmode)		\
+    && (GET_MODE_SIZE (MODE) > 4)  \
     && INT_REGNO_P (REGNO)) ? 1 : 0)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
@@ -1026,14 +1030,6 @@ extern const char *rs6000_warn_altivec_long_switch;
          || (MODE) == V2SFmode          \
          || (MODE) == V1DImode          \
          || (MODE) == V2SImode)
-
-/* Define this macro to be nonzero if the port is prepared to handle
-   insns involving vector mode MODE.  At the very least, it must have
-   move patterns for this mode.  */
-
-#define VECTOR_MODE_SUPPORTED_P(MODE)			\
-        ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
-	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
 #define UNITS_PER_SIMD_WORD     \
         (TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
@@ -1348,7 +1344,7 @@ enum reg_class
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
    'W' is a vector constant that can be easily generated (no mem refs).
-   'Y' is a indexed or word-aligned displacement memory operand. 
+   'Y' is a indexed or word-aligned displacement memory operand.
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1367,7 +1363,7 @@ enum reg_class
    : 0)
 
 /* Define which constraints are memory constraints.  Tell reload
-   that any memory address can be reloaded by copying the 
+   that any memory address can be reloaded by copying the
    memory address into a base register if required.  */
 
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
@@ -1379,7 +1375,7 @@ enum reg_class
    in some cases it is preferable to use a more restrictive class.
 
    On the RS/6000, we have to return NO_REGS when we want to reload a
-   floating-point CONST_DOUBLE to force it to be copied to memory.  
+   floating-point CONST_DOUBLE to force it to be copied to memory.
 
    We also don't want to reload integer values into floating-point
    registers if we can at all help it.  In fact, this can
@@ -1643,8 +1639,6 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    This is added to the cfun structure.  */
 typedef struct machine_function GTY(())
 {
-  /* Whether a System V.4 varargs area was created.  */
-  int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
   /* Some local-dynamic symbol.  */
@@ -2020,9 +2014,9 @@ typedef struct rs6000_args
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.
 
-   Implemented on rs6000 by rs6000_legitimize_reload_address.  
+   Implemented on rs6000 by rs6000_legitimize_reload_address.
    Note that (X) is evaluated twice; this is safe in current usage.  */
-   
+
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
@@ -2246,9 +2240,9 @@ extern int toc_initialized;
   do									\
     {									\
       fputs ("\t.weak\t", (FILE));					\
-      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 				\
       if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TARGET_XCOFF)						\
 	    fputs ("[DS]", (FILE));					\
@@ -2260,7 +2254,7 @@ extern int toc_initialized;
 	{								\
 	  ASM_OUTPUT_DEF ((FILE), (NAME), (VAL));			\
 	  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL		\
-	      && DEFAULT_ABI == ABI_AIX)				\
+	      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	    {								\
 	      fputs ("\t.set\t.", (FILE));				\
 	      RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
@@ -2281,7 +2275,7 @@ extern int toc_initialized;
       const char *alias = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		\
       const char *name = IDENTIFIER_POINTER (TARGET);			\
       if (TREE_CODE (DECL) == FUNCTION_DECL				\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TREE_PUBLIC (DECL))					\
 	    {								\

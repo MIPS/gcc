@@ -2839,10 +2839,12 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
    In all cases, the returned *BSI points to the correct location.  The
    return value is true if insertion should be done after the location,
-   or false if it should be done before the location.  */
+   or false if it should be done before the location.  If new basic block
+   has to be created, it is stored in *NEW_BB.  */
 
 static bool
-tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
+tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
+			   basic_block *new_bb)
 {
   basic_block dest, src;
   tree tmp;
@@ -2919,6 +2921,8 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 
   /* Otherwise, create a new basic block, and split this edge.  */
   dest = split_edge (e);
+  if (new_bb)
+    *new_bb = dest;
   e = EDGE_PRED (dest, 0);
   goto restart;
 }
@@ -2965,7 +2969,7 @@ bsi_commit_edge_inserts_1 (edge e)
 
       PENDING_STMT (e) = NULL_TREE;
 
-      if (tree_find_edge_insert_loc (e, &bsi))
+      if (tree_find_edge_insert_loc (e, &bsi, NULL))
 	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       else
 	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
@@ -2982,6 +2986,25 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
+/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
+   be created, it is returned.  */
+
+basic_block
+bsi_insert_on_edge_immediate (edge e, tree stmt)
+{
+  block_stmt_iterator bsi;
+  basic_block new_bb = NULL;
+
+  if (PENDING_STMT (e))
+    abort ();
+
+  if (tree_find_edge_insert_loc (e, &bsi, &new_bb))
+    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+  else
+    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+
+  return new_bb;
+}
 
 /*---------------------------------------------------------------------------
 	     Tree specific functions for CFG manipulation
@@ -4262,11 +4285,8 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
-  tree phi;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned j;
+  tree phi, val;
+  ssa_op_iter op_iter;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
@@ -4287,17 +4307,8 @@ tree_duplicate_bb (basic_block bb)
       /* Record the definitions.  */
       get_stmt_operands (stmt);
 
-      defs = STMT_DEF_OPS (stmt);
-      for (j = 0; j < NUM_DEFS (defs); j++)
-	mark_for_rewrite (DEF_OP (defs, j));
-
-      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
-	mark_for_rewrite (V_MAY_DEF_RESULT (v_may_defs, j));
-
-      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-      for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
-	mark_for_rewrite (V_MUST_DEF_OP (v_must_defs, j));
+      FOR_EACH_SSA_TREE_OPERAND (val, stmt, op_iter, SSA_OP_ALL_DEFS)
+	mark_for_rewrite (val);
 
       copy = unshare_expr (stmt);
 

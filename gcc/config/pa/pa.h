@@ -67,6 +67,10 @@ extern const char *pa_fixed_range_string;
 extern const char *pa_cpu_string;
 extern enum processor_type pa_cpu;
 
+/* For -munix= option.  */
+extern const char *pa_unix_string;
+extern int flag_pa_unix;
+
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -186,6 +190,21 @@ extern int target_flags;
 /* Generate code for SOM 32bit ABI.  */
 #ifndef TARGET_SOM
 #define TARGET_SOM 0
+#endif
+
+/* HP-UX UNIX features.  */
+#ifndef TARGET_HPUX
+#define TARGET_HPUX 0
+#endif
+
+/* HP-UX 10.10 UNIX 95 features.  */
+#ifndef TARGET_HPUX_10_10
+#define TARGET_HPUX_10_10 0
+#endif
+
+/* HP-UX 11i multibyte and UNIX 98 extensions.  */
+#ifndef TARGET_HPUX_11_11
+#define TARGET_HPUX_11_11 0
 #endif
 
 /* The following three defines are potential target switches.  The current
@@ -310,13 +329,18 @@ extern int target_flags;
 #define TARGET_OPTIONS							\
 {									\
   { "arch=",			&pa_arch_string,			\
-    N_("Specify PA-RISC architecture for code generation.  "		\
+    N_("Specify PA-RISC architecture for code generation.\n"		\
        "Values are 1.0, 1.1 and 2.0."), 0},				\
   { "fixed-range=",		&pa_fixed_range_string,			\
-    N_("Specify range of registers to make fixed"), 0},			\
+    N_("Specify range of registers to make fixed."), 0},		\
   { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes"), 0}			\
+    N_("Specify CPU for scheduling purposes."), 0},			\
+  SUBTARGET_OPTIONS							\
 }
+
+#ifndef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS
+#endif
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-schedule is ignored if -mschedule is specified.
@@ -1653,11 +1677,77 @@ do { 									\
     goto LABEL
 
 #define TARGET_ASM_SELECT_SECTION  pa_select_section
-   
+
 /* Return a nonzero value if DECL has a section attribute.  */
 #define IN_NAMED_SECTION_P(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
+
+/* The following extra sections and extra section functions are only used
+   for SOM, but they must be provided unconditionally because pa.c's calls
+   to the functions might not get optimized out when other object formats
+   are in use.  */
+
+#define EXTRA_SECTIONS							\
+  in_som_readonly_data,							\
+  in_som_one_only_readonly_data,					\
+  in_som_one_only_data
+
+#define EXTRA_SECTION_FUNCTIONS						\
+  SOM_READONLY_DATA_SECTION_FUNCTION					\
+  SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION				\
+  SOM_ONE_ONLY_DATA_SECTION_FUNCTION					\
+  FORGET_SECTION_FUNCTION
+
+/* SOM puts readonly data in the default $LIT$ subspace when PIC code
+   is not being generated.  */
+#define SOM_READONLY_DATA_SECTION_FUNCTION				\
+void									\
+som_readonly_data_section (void)					\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  if (in_section != in_som_readonly_data)				\
+    {									\
+      in_section = in_som_readonly_data;				\
+      fputs ("\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n", asm_out_file);	\
+    }									\
+}
+
+/* When secondary definitions are not supported, SOM makes readonly data one
+   only by creating a new $LIT$ subspace in $TEXT$ with the comdat flag.  */
+#define SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION			\
+void									\
+som_one_only_readonly_data_section (void)				\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  in_section = in_som_one_only_readonly_data;				\
+  fputs ("\t.SPACE $TEXT$\n"						\
+	 "\t.NSUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=0x2c,SORT=16,COMDAT\n",\
+	 asm_out_file);							\
+}
+
+/* When secondary definitions are not supported, SOM makes data one only by
+   creating a new $DATA$ subspace in $PRIVATE$ with the comdat flag.  */
+#define SOM_ONE_ONLY_DATA_SECTION_FUNCTION				\
+void									\
+som_one_only_data_section (void)					\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  in_section = in_som_one_only_data;					\
+  fputs ("\t.SPACE $PRIVATE$\n"						\
+	 "\t.NSUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31,SORT=24,COMDAT\n",	\
+	 asm_out_file);							\
+}
+
+#define FORGET_SECTION_FUNCTION						\
+void									\
+forget_section (void)							\
+{									\
+  in_section = no_section;						\
+}
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or

@@ -648,7 +648,7 @@ convert_move (rtx to, rtx from, int unsignedp)
 	     Generate what we need with	shifts.  */
 	  shift_amount = build_int_cst (NULL_TREE,
 					GET_MODE_BITSIZE (to_mode)
-					- GET_MODE_BITSIZE (from_mode), 0);
+					- GET_MODE_BITSIZE (from_mode));
 	  from = gen_lowpart (to_mode, force_reg (from_mode, from));
 	  tmp = expand_shift (LSHIFT_EXPR, to_mode, from, shift_amount,
 			      to, unsignedp);
@@ -1703,8 +1703,7 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 
       if (shift)
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
-				build_int_cst (NULL_TREE,
-					       shift, 0), tmps[i], 0);
+				build_int_cst (NULL_TREE, shift), tmps[i], 0);
     }
 
   /* Copy the extracted pieces into the proper (probable) hard regs.  */
@@ -1815,8 +1814,8 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	    {
 	      int shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	      tmps[i] = expand_shift (RSHIFT_EXPR, mode, tmps[i],
-				      build_int_cst (NULL_TREE,
-						     shift, 0), tmps[i], 0);
+				      build_int_cst (NULL_TREE, shift),
+				      tmps[i], 0);
 	    }
 	  bytelen = ssize - bytepos;
 	}
@@ -3642,7 +3641,7 @@ expand_assignment (tree to, tree from, int want_value)
 		  binop = xor_optab;
 		}
 	      value = expand_shift (LSHIFT_EXPR, GET_MODE (str_rtx), value,
-				    build_int_cst (NULL_TREE,bitpos1, 0),
+				    build_int_cst (NULL_TREE, bitpos1),
 				    NULL_RTX, 1);
 	      result = expand_binop (GET_MODE (str_rtx), binop, str_rtx,
 				     value, str_rtx, 1, OPTAB_WIDEN);
@@ -4538,7 +4537,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		value
 		  = fold (build2 (LSHIFT_EXPR, type, value,
 				  build_int_cst (NULL_TREE,
-						 BITS_PER_WORD - bitsize, 0)));
+						 BITS_PER_WORD - bitsize)));
 	      bitsize = BITS_PER_WORD;
 	      mode = word_mode;
 	    }
@@ -5274,7 +5273,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 				   NULL_RTX);
 
 	      count = build_int_cst (NULL_TREE,
-				     GET_MODE_BITSIZE (tmode) - bitsize, 0);
+				     GET_MODE_BITSIZE (tmode) - bitsize);
 	      temp = expand_shift (LSHIFT_EXPR, tmode, temp, count, 0, 0);
 	      return expand_shift (RSHIFT_EXPR, tmode, temp, count, 0, 0);
 	    }
@@ -6497,7 +6496,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree val = TREE_OPERAND (exp, 0);
 	rtx ret = expand_expr_real_1 (val, target, tmode, modifier, alt_rtl);
 
-	if (TREE_CODE (val) != VAR_DECL || !DECL_ARTIFICIAL (val))
+	if (!SAVE_EXPR_RESOLVED_P (exp))
 	  {
 	    /* We can indeed still hit this case, typically via builtin
 	       expanders calling save_expr immediately before expanding
@@ -6508,7 +6507,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	    val = build_decl (VAR_DECL, NULL, TREE_TYPE (exp));
 	    DECL_ARTIFICIAL (val) = 1;
+	    DECL_IGNORED_P (val) = 1;
 	    TREE_OPERAND (exp, 0) = val;
+	    SAVE_EXPR_RESOLVED_P (exp) = 1;
 
 	    if (!CONSTANT_P (ret))
 	      ret = copy_to_reg (ret);
@@ -6765,8 +6766,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		      {
 			tree count
 			  = build_int_cst (NULL_TREE,
-					   GET_MODE_BITSIZE (imode) - bitsize,
-					   0);
+					   GET_MODE_BITSIZE (imode) - bitsize);
 
 			op0 = expand_shift (LSHIFT_EXPR, imode, op0, count,
 					    target, 0);
@@ -7834,17 +7834,17 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  tree pred = TREE_OPERAND (exp, 0);
   	  tree then_ = TREE_OPERAND (exp, 1);
   	  tree else_ = TREE_OPERAND (exp, 2);
-  
+
 	  if (TREE_CODE (then_) != GOTO_EXPR
 	      || TREE_CODE (GOTO_DESTINATION (then_)) != LABEL_DECL
 	      || TREE_CODE (else_) != GOTO_EXPR
 	      || TREE_CODE (GOTO_DESTINATION (else_)) != LABEL_DECL)
 	    abort ();
-  
+
 	  jumpif (pred, label_rtx (GOTO_DESTINATION (then_)));
 	  return expand_expr (else_, const0_rtx, VOIDmode, 0);
   	}
-  
+
         /* Note that COND_EXPRs whose type is a structure or union
   	 are required to be constructed to contain assignments of
   	 a temporary variable, so that we can evaluate them here
@@ -7855,12 +7855,12 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
  	  || TREE_TYPE (TREE_OPERAND (exp, 1)) == void_type_node
  	  || TREE_TYPE (TREE_OPERAND (exp, 2)) == void_type_node)
  	abort ();
-       
+
        /* If we are not to produce a result, we have no target.  Otherwise,
  	 if a target was specified use it; it will not be used as an
  	 intermediate target unless it is safe.  If no target, use a
  	 temporary.  */
-       
+
        if (modifier != EXPAND_STACK_PARM
  	  && original_target
  	  && safe_from_p (original_target, TREE_OPERAND (exp, 0), 1)
@@ -7873,7 +7873,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
  	temp = original_target;
        else
  	temp = assign_temp (type, 0, 0, 1);
-       
+
        do_pending_stack_adjust ();
        NO_DEFER_POP;
        op0 = gen_label_rtx ();
@@ -7881,17 +7881,17 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
        jumpifnot (TREE_OPERAND (exp, 0), op0);
        store_expr (TREE_OPERAND (exp, 1), temp,
  		  modifier == EXPAND_STACK_PARM ? 2 : 0);
-       
+
        emit_jump_insn (gen_jump (op1));
        emit_barrier ();
        emit_label (op0);
        store_expr (TREE_OPERAND (exp, 2), temp,
  		  modifier == EXPAND_STACK_PARM ? 2 : 0);
-       
+
        emit_label (op1);
        OK_DEFER_POP;
        return temp;
-  
+
     case MODIFY_EXPR:
       {
 	/* If lhs is complex, expand calls in rhs before computing it.
@@ -8232,7 +8232,7 @@ reduce_to_bit_field_precision (rtx exp, rtx target, tree type)
   else
     {
       tree count = build_int_cst (NULL_TREE,
-				  GET_MODE_BITSIZE (GET_MODE (exp)) - prec, 0);
+				  GET_MODE_BITSIZE (GET_MODE (exp)) - prec);
       exp = expand_shift (LSHIFT_EXPR, GET_MODE (exp), exp, count, target, 0);
       return expand_shift (RSHIFT_EXPR, GET_MODE (exp), exp, count, target, 0);
     }
@@ -8789,7 +8789,7 @@ vector_mode_valid_p (enum machine_mode mode)
     return 0;
 
   /* Hardware support.  Woo hoo!  */
-  if (VECTOR_MODE_SUPPORTED_P (mode))
+  if (targetm.vector_mode_supported_p (mode))
     return 1;
 
   innermode = GET_MODE_INNER (mode);
@@ -8799,7 +8799,7 @@ vector_mode_valid_p (enum machine_mode mode)
 
   /* If we have support for the inner mode, we can safely emulate it.
      We may not have V2DI, but me can emulate with a pair of DIs.  */
-  return mov_optab->handlers[innermode].insn_code != CODE_FOR_nothing;
+  return targetm.scalar_mode_supported_p (innermode);
 }
 
 /* Return a CONST_VECTOR rtx for a VECTOR_CST tree.  */

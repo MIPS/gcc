@@ -1,3 +1,97 @@
+2004-08-27  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* configure.ac: Handle --enable-gc-debug.
+	* configure: Regenerate.
+	* include/config.h.in (LIBGCJ_GC_DEBUG): Add.
+	* boehm.cc: Include gc_mark.h, javaxfc.h, but no GC private files.
+	Rearrange include file order.
+	(GC_DEBUG): Set if LIBGCJ_GC_DEBUG is set.
+	(GC_finalize_all, GC_debug_generic_malloc): Don't declare.
+	(disable_gc_mutex): Delete along with all references.
+	(_Jv_MarkObj, _Jv_MarkArray): Use public types,
+	adjust for debug header size.
+	(_Jv_AllocObj, _Jv_allocPtrFreeObj): Define out of line for
+	debug case.
+	(_Jv_AllocArray): Declare min_heap_addr only if needed.
+	(gcj_describe_type_fn): New.
+	(_Jv_InitGC): Use GC_new_free_list, GC_new_proc, and GC_new_kind.
+	Register gcj_describe_type_fn.
+	* include/boehm-gc.h:
+	(_Jv_AllocObj, _Jv_allocPtrFreeObj):
+	Don't define, but declare, for debug case.
+	* java/lang/natObject.cc:
+	(GC_DEBUG): Define if LIBGCJ_GC_DEBUG is set.
+
+2004-08-26  Mark Wielaard  <mark@klomp.org>
+
+	Fixes PR libgcj/17002:
+	* java/util/TimeZone.java (defaultZone): Try a couple of ways to get
+	a TimeZoneId string and then try to convert that to a TimeZone with
+	getDefaultSystemTimeZone(String).
+	(timezones0): Changed type from Hashtable to HashMap.
+	(timezones): Create HashMap, not Hashtable.
+	(getDefaultTimeZone): New method, rewritten from CNI version.
+	(readTimeZoneFile): New method.
+	(readtzFile): Likewise.
+	(skipFully): Likewise.
+	* java/util/natTimeZone.cc (getSystemTimeZone): Renamed to
+	getDefaultTimeZoneId and rewritten.
+	(getDefaultTimeZoneId): Rewritten in java.
+	
+2004-08-25  David Daney  <daney@avtrex.com>
+
+	* Makefile.am (AM_GCJFLAGS):  Add LIBGCJ_JAVAFLAGS.
+	* Makefile.in: Regenerated.
+
+2004-08-23  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* prims.cc (JVMPI_NOTIFY_ALLOC): New macro. Call jvmpi_notify_alloc
+	only if jvmpi is enabled.
+	(jvmpi_notify_alloc): Don't check if jvmpi is enabled here.
+	(_Jv_AllocObjectNoFinalizer): Use JVMPI_NOTIFY_ALLOC.
+	(_Jv_AllocString): Likewise.
+	(_Jv_AllocPtrFreeObject): Likewise.	
+
+2004-08-23  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* defineclass.cc: Include <stdio.h>.
+	* java/lang/natClassLoader.cc: Include <stdio.h>.
+
+2004-08-21  Andreas Tobler  <a.tobler@schweiz.ch>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (lib_gnu_java_awt_peer_gtk_la_LINK): Added.
+	* Makefile.in: Regenerated.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.ac: Replaced all AC_TRY_COMPILE macros with
+	AC_COMPILE_IFELSE macros.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Renamed to configure.ac.
+	* configure.ac: New file.
+	* configure, Makefile.in, gcj/Makefile.in, include/Makefile.in
+	include/config.h.in, testsuite/Makefile.in: Regenerated.
+
+2004-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Rewrote some obsolete stuff for autoconf 2.59.
+	* aclocal.m4, configure: Regenerated.
+
+2004-08-19  Thomas Fitzsimmons  <fitzsim@redhat.com>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* configure.in,	Makefile.am: Ported to automake 1.9.
+	* Makefile.in, aclocal.m4, configure, gcj/Makefile.in, 
+	include/Makefile.in, testsuite/Makefile.in, include/config.h.in:
+	Regenerated.
+
+2004-08-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/DatagramSocket.java: Fixed typo.
+
 2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
 
 	PR libgcj/17081

@@ -381,7 +381,7 @@ gnat_init_decl_processing (void)
   free_binding_level = 0;
   gnat_pushlevel ();
 
-  build_common_tree_nodes (0);
+  build_common_tree_nodes (false, true);
 
   /* In Ada, we use a signed type for SIZETYPE.  Use the signed type
      corresponding to the size of Pmode.  In most cases when ptr_mode and
@@ -580,7 +580,7 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
   /* Make the types and functions used for exception processing.    */
   jmpbuf_type
     = build_array_type (gnat_type_for_mode (Pmode, 0),
-			build_index_type (build_int_cst (NULL_TREE, 5, 0)));
+			build_index_type (build_int_cst (NULL_TREE, 5)));
   create_type_decl (get_identifier ("JMPBUF_T"), jmpbuf_type, NULL,
 		    false, true, Empty);
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);

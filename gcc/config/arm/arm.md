@@ -286,6 +286,8 @@
 ;; distant label.  Only applicable to Thumb code.
 (define_attr "far_jump" "yes,no" (const_string "no"))
 
+(include "predicates.md")
+
 ;;---------------------------------------------------------------------------
 ;; Pipeline descriptions
 
@@ -5244,7 +5246,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5258,11 +5262,8 @@
   operands[3]
     = arm_gen_load_multiple (REGNO (operands[0]), INTVAL (operands[2]),
 			     force_reg (SImode, XEXP (operands[1], 0)),
-			     TRUE, FALSE, MEM_READONLY_P (operands[1]),
-			     MEM_IN_STRUCT_P (operands[1]),
-	                     MEM_SCALAR_P (operands[1]));
-  "
-)
+			     TRUE, FALSE, operands[1], &offset);
+})
 
 ;; Load multiple with write-back
 
@@ -5366,7 +5367,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5380,11 +5383,8 @@
   operands[3]
     = arm_gen_store_multiple (REGNO (operands[1]), INTVAL (operands[2]),
 			      force_reg (SImode, XEXP (operands[0], 0)),
-			      TRUE, FALSE, MEM_READONLY_P (operands[0]),
-			      MEM_IN_STRUCT_P (operands[0]), 
-	                      MEM_SCALAR_P (operands[0]));
-  "
-)
+			      TRUE, FALSE, operands[0], &offset);
+})
 
 ;; Store multiple with write-back
 

@@ -45,6 +45,7 @@ struct vbase_info
   tree inits;
 };
 
+static int is_subobject_of_p (tree, tree);
 static tree dfs_check_overlap (tree, void *);
 static tree dfs_no_overlap_yet (tree, int, void *);
 static base_kind lookup_base_r (tree, tree, base_access, bool, tree *);
@@ -147,7 +148,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 	  bk = bk_proper_base;
 	  /* Fall through.  */
 	case bk_proper_base:
-	  my_friendly_assert (found == bk_not_base, 20010723);
+	  gcc_assert (found == bk_not_base);
 	  found = bk;
 	  break;
 	  
@@ -216,7 +217,7 @@ lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
 	*kind_ptr = bk_not_base;
       return error_mark_node;
     }
-  my_friendly_assert (TYPE_P (base), 20011127);
+  gcc_assert (TYPE_P (base));
   
   if (!TYPE_P (t))
     {
@@ -346,7 +347,7 @@ get_dynamic_cast_base_type (tree subtype, tree target)
   
   if (!boff)
     return offset;
-  offset = build_int_cst (ssizetype, boff, -1);
+  offset = ssize_int (boff);
   return offset;
 }
 
@@ -435,7 +436,7 @@ lookup_field_1 (tree type, tree name, bool want_type)
 #ifdef GATHER_STATISTICS
       n_fields_searched++;
 #endif /* GATHER_STATISTICS */
-      my_friendly_assert (DECL_P (field), 0);
+      gcc_assert (DECL_P (field));
       if (DECL_NAME (field) == NULL_TREE
 	  && ANON_AGGR_TYPE_P (TREE_TYPE (field)))
 	{
@@ -617,7 +618,7 @@ dfs_access_in_type (tree binfo, void *data)
 	      else if (decl_access == access_private_node)
 		access = ak_private;
 	      else
-		my_friendly_assert (false, 20030217);
+		gcc_unreachable ();
 	    }
 	}
 
@@ -835,10 +836,26 @@ friend_accessible_p (tree scope, tree decl, tree binfo)
 
       /* Or an instantiation of something which is a friend.  */
       if (DECL_TEMPLATE_INFO (scope))
-	return friend_accessible_p (DECL_TI_TEMPLATE (scope), decl, binfo);
+	{
+	  int ret;
+	  /* Increment processing_template_decl to make sure that
+	     dependent_type_p works correctly.  */
+	  ++processing_template_decl;
+	  ret = friend_accessible_p (DECL_TI_TEMPLATE (scope), decl, binfo);
+	  --processing_template_decl;
+	  return ret;
+	}
     }
   else if (CLASSTYPE_TEMPLATE_INFO (scope))
-    return friend_accessible_p (CLASSTYPE_TI_TEMPLATE (scope), decl, binfo);
+    {
+      int ret;
+      /* Increment processing_template_decl to make sure that
+	 dependent_type_p works correctly.  */
+      ++processing_template_decl;
+      ret = friend_accessible_p (CLASSTYPE_TI_TEMPLATE (scope), decl, binfo);
+      --processing_template_decl;
+      return ret;
+    }
 
   return 0;
 }
@@ -1002,7 +1019,6 @@ template_self_reference_p (tree type, tree decl)
 	   && DECL_NAME (decl) == constructor_name (type));
 }
 
-
 /* Nonzero for a class member means that it is shared between all objects
    of that class.
 
@@ -1028,6 +1044,26 @@ shared_member_p (tree t)
 	    return 0;
 	}
       return 1;
+    }
+  return 0;
+}
+
+/* Routine to see if the sub-object denoted by the binfo PARENT can be
+   found as a base class and sub-object of the object denoted by
+   BINFO.  */
+
+static int
+is_subobject_of_p (tree parent, tree binfo)
+{
+  tree probe;
+  
+  for (probe = parent; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
+    {
+      if (probe == binfo)
+	return 1;
+      if (BINFO_VIRTUAL_P (probe))
+	return (binfo_for_vbase (BINFO_TYPE (probe), BINFO_TYPE (binfo))
+		!= NULL_TREE);
     }
   return 0;
 }
@@ -1099,12 +1135,14 @@ lookup_field_r (tree binfo, void *data)
 
   /* If the lookup already found a match, and the new value doesn't
      hide the old one, we might have an ambiguity.  */
-  if (lfi->rval_binfo && !original_binfo (lfi->rval_binfo, binfo))
+  if (lfi->rval_binfo
+      && !is_subobject_of_p (lfi->rval_binfo, binfo))
+    
     {
       if (nval == lfi->rval && shared_member_p (nval))
 	/* The two things are really the same.  */
 	;
-      else if (original_binfo (binfo, lfi->rval_binfo))
+      else if (is_subobject_of_p (binfo, lfi->rval_binfo))
 	/* The previous value hides the new one.  */
 	;
       else
@@ -1135,7 +1173,7 @@ lookup_field_r (tree binfo, void *data)
   return NULL_TREE;
 }
 
-/* Return a "baselink" which BASELINK_BINFO, BASELINK_ACCESS_BINFO,
+/* Return a "baselink" with BASELINK_BINFO, BASELINK_ACCESS_BINFO,
    BASELINK_FUNCTIONS, and BASELINK_OPTYPE set to BINFO, ACCESS_BINFO,
    FUNCTIONS, and OPTYPE respectively.  */
 
@@ -1144,13 +1182,12 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
 {
   tree baselink;
 
-  my_friendly_assert (TREE_CODE (functions) == FUNCTION_DECL
-		      || TREE_CODE (functions) == TEMPLATE_DECL
-		      || TREE_CODE (functions) == TEMPLATE_ID_EXPR
-		      || TREE_CODE (functions) == OVERLOAD,
-		      20020730);
-  my_friendly_assert (!optype || TYPE_P (optype), 20020730);
-  my_friendly_assert (TREE_TYPE (functions), 20020805);
+  gcc_assert (TREE_CODE (functions) == FUNCTION_DECL
+	      || TREE_CODE (functions) == TEMPLATE_DECL
+	      || TREE_CODE (functions) == TEMPLATE_ID_EXPR
+	      || TREE_CODE (functions) == OVERLOAD);
+  gcc_assert (!optype || TYPE_P (optype));
+  gcc_assert (TREE_TYPE (functions));
 
   baselink = make_node (BASELINK);
   TREE_TYPE (baselink) = TREE_TYPE (functions);
@@ -1190,7 +1227,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 
   const char *errstr = 0;
 
-  my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 20030624);
+  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (TREE_CODE (xbasetype) == TREE_BINFO)
     {
@@ -1199,7 +1236,7 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
-      my_friendly_assert (IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)), 20030624);
+      gcc_assert (IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)));
       type = xbasetype;
       xbasetype = NULL_TREE;
     }
@@ -1453,7 +1490,7 @@ adjust_result_of_qualified_name_lookup (tree decl,
     {
       tree base;
 
-      my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
+      gcc_assert (CLASS_TYPE_P (context_class));
 
       /* Look for the QUALIFYING_SCOPE as a base of the CONTEXT_CLASS.
 	 Because we do not yet know which function will be chosen by
@@ -1927,15 +1964,7 @@ dfs_unmark (tree binfo, void *data ATTRIBUTE_UNUSED)
 void
 maybe_suppress_debug_info (tree t)
 {
-  /* We can't do the usual TYPE_DECL_SUPPRESS_DEBUG thing with DWARF, which
-     does not support name references between translation units.  It supports
-     symbolic references between translation units, but only within a single
-     executable or shared library.
-
-     For DWARF 2, we handle TYPE_DECL_SUPPRESS_DEBUG by pretending
-     that the type was never defined, so we only get the members we
-     actually define.  */
-  if (write_symbols == DWARF_DEBUG || write_symbols == NO_DEBUG)
+  if (write_symbols == NO_DEBUG)
     return;
 
   /* We might have set this earlier in cp_finish_decl.  */
@@ -2475,11 +2504,11 @@ copied_binfo (tree binfo, tree here)
     }
   else
     {
-      my_friendly_assert (BINFO_TYPE (here) == BINFO_TYPE (binfo), 20030202);
+      gcc_assert (BINFO_TYPE (here) == BINFO_TYPE (binfo));
       result = here;
     }
 
-  my_friendly_assert (result, 20030202);
+  gcc_assert (result);
   return result;
 }
 

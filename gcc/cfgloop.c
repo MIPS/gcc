@@ -379,6 +379,64 @@ flow_loop_nodes_find (basic_block header, struct loop *loop)
   return num_nodes;
 }
 
+/* For each loop in the lOOPS tree that has just a single exit
+   record the exit edge.  */
+
+void
+mark_single_exit_loops (struct loops *loops)
+{
+  basic_block bb;
+  edge e;
+  struct loop *loop;
+  unsigned i;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (loop)
+	loop->single_exit = NULL;
+    }
+
+  FOR_EACH_BB (bb)
+    {
+      if (bb->loop_father == loops->tree_root)
+	continue;
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+
+	  if (flow_bb_inside_loop_p (bb->loop_father, e->dest))
+	    continue;
+
+	  for (loop = bb->loop_father;
+	       loop != e->dest->loop_father;
+	       loop = loop->outer)
+	    {
+	      /* If we have already seen an exit, mark this by the edge that
+		 surely does not occur as any exit.  */
+	      if (loop->single_exit)
+		loop->single_exit = EDGE_SUCC (ENTRY_BLOCK_PTR, 0);
+	      else
+		loop->single_exit = e;
+	    }
+	}
+      END_FOR_EACH_EDGE;
+    }
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      if (loop->single_exit == EDGE_SUCC (ENTRY_BLOCK_PTR, 0))
+	loop->single_exit = NULL;
+    }
+
+  loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
+}
+
 /* Find the root node of the loop pre-header extended basic block and
    the edges along the trace from the root node to the loop header.  */
 
@@ -1230,8 +1288,6 @@ verify_loop_structure (struct loops *loops)
 	}
     }
 
-  free (sizes);
-
   /* Check get_loop_body.  */
   for (i = 1; i < loops->num; i++)
     {
@@ -1354,8 +1410,72 @@ verify_loop_structure (struct loops *loops)
       free (irreds);
     }
 
+  /* Check the single_exit.  */
+  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+    {
+      memset (sizes, 0, sizeof (unsigned) * loops->num);
+      FOR_EACH_BB (bb)
+	{
+	  if (bb->loop_father == loops->tree_root)
+	    continue;
+	  FOR_EACH_EDGE (e, bb->succs)
+	    {
+	      if (e->dest == EXIT_BLOCK_PTR)
+		continue;
+
+	      if (flow_bb_inside_loop_p (bb->loop_father, e->dest))
+		continue;
+
+	      for (loop = bb->loop_father;
+		   loop != e->dest->loop_father;
+		   loop = loop->outer)
+		{
+		  sizes[loop->num]++;
+		  if (loop->single_exit
+		      && loop->single_exit != e)
+		    {
+		      error ("Wrong single exit %d->%d recorded for loop %d.",
+			     loop->single_exit->src->index,
+			     loop->single_exit->dest->index,
+			     loop->num);
+		      error ("Right exit is %d->%d.",
+			     e->src->index, e->dest->index);
+		      err = 1;
+		    }
+		}
+	    }
+	  END_FOR_EACH_EDGE;
+	}
+
+      for (i = 1; i < loops->num; i++)
+	{
+	  loop = loops->parray[i];
+	  if (!loop)
+	    continue;
+
+	  if (sizes[i] == 1
+	      && !loop->single_exit)
+	    {
+	      error ("Single exit not recorded for loop %d.", loop->num);
+	      err = 1;
+	    }
+
+	  if (sizes[i] != 1
+	      && loop->single_exit)
+	    {
+	      error ("Loop %d should not have single exit (%d -> %d).",
+		     loop->num,
+		     loop->single_exit->src->index,
+		     loop->single_exit->dest->index);
+	      err = 1;
+	    }
+	}
+    }
+
   if (err)
     abort ();
+
+  free (sizes);
 }
 
 /* Returns latch edge of LOOP.  */

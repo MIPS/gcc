@@ -164,6 +164,16 @@ bool c_override_global_bindings_to_false;
    suppress further errors about that identifier in the current
    function.
 
+   The ->type field stores the type of the declaration in this scope;
+   if NULL, the type is the type of the ->decl field.  This is only of
+   relevance for objects with external or internal linkage which may
+   be redeclared in inner scopes, forming composite types that only
+   persist for the duration of those scopes.  In the external scope,
+   this stores the composite of all the types declared for this
+   object, visible or not.  The ->inner_comp field (used only at file
+   scope) stores whether an incomplete array type at file scope was
+   completed at an inner scope to an array size other than 1.
+
    The depth field is copied from the scope structure that holds this
    decl.  It is used to preserve the proper ordering of the ->shadowed
    field (see bind()) and also for a handful of special-case checks.
@@ -176,13 +186,15 @@ bool c_override_global_bindings_to_false;
 struct c_binding GTY((chain_next ("%h.prev")))
 {
   tree decl;			/* the decl bound */
+  tree type;			/* the type in this scope */
   tree id;			/* the identifier it's bound to */
   struct c_binding *prev;	/* the previous decl in this scope */
   struct c_binding *shadowed;	/* the innermost decl shadowed by this one */
   unsigned int depth : 28;      /* depth of this scope */
   BOOL_BITFIELD invisible : 1;  /* normal lookup should ignore this binding */
   BOOL_BITFIELD nested : 1;     /* do not set DECL_CONTEXT when popping */
-  /* two free bits */
+  BOOL_BITFIELD inner_comp : 1; /* incomplete array completed in inner scope */
+  /* one free bit */
 };
 #define B_IN_SCOPE(b1, b2) ((b1)->depth == (b2)->depth)
 #define B_IN_CURRENT_SCOPE(b) ((b)->depth == current_scope->depth)
@@ -383,8 +395,8 @@ static GTY(()) tree static_dtors;
 /* Forward declarations.  */
 static tree lookup_name_in_scope (tree, struct c_scope *);
 static tree c_make_fname_decl (tree, int);
-static tree grokdeclarator (tree, tree, enum decl_context, int, tree *);
-static tree grokparms (tree, int);
+static tree grokdeclarator (tree, tree, enum decl_context, bool, tree *);
+static tree grokparms (tree, bool);
 static void layout_array_type (tree);
 
 /* States indicating how grokdeclarator() should handle declspecs marked
@@ -436,6 +448,9 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
   b->depth = scope->depth;
   b->invisible = invisible;
   b->nested = nested;
+  b->inner_comp = 0;
+
+  b->type = 0;
 
   b->prev = scope->bindings;
   scope->bindings = b;
@@ -758,6 +773,12 @@ pop_scope (void)
 	      && scope != external_scope)
 	    warning ("%Junused variable `%D'", p, p);
 
+	  if (b->inner_comp)
+	    {
+	      error ("%Jtype of array %qD completed incompatibly with"
+		     " implicit initialization", p, p);
+	    }
+
 	  /* Fall through.  */
 	case TYPE_DECL:
 	case CONST_DECL:
@@ -797,6 +818,8 @@ pop_scope (void)
 	      if (I_SYMBOL_BINDING (b->id) != b) abort ();
 #endif
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
+	      if (b->shadowed && b->shadowed->type)
+		TREE_TYPE (b->shadowed->decl) = b->shadowed->type;
 	    }
 	  break;
 
@@ -1357,15 +1380,23 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       else if (!DECL_FILE_SCOPE_P (newdecl))
 	{
 	  if (DECL_EXTERNAL (newdecl))
-	    abort ();
+	    {
+	      /* Extern with initializer at block scope, which will
+		 already have received an error.  */
+	    }
 	  else if (DECL_EXTERNAL (olddecl))
-	    error ("%Jdeclaration of '%D' with no linkage follows "
-		   "extern declaration", newdecl, newdecl);
+	    {
+	      error ("%Jdeclaration of '%D' with no linkage follows "
+		     "extern declaration", newdecl, newdecl);
+	      locate_old_decl (olddecl, error);
+	    }
 	  else
-	    error ("%Jredeclaration of '%D' with no linkage",
-		   newdecl, newdecl);
+	    {
+	      error ("%Jredeclaration of '%D' with no linkage",
+		     newdecl, newdecl);
+	      locate_old_decl (olddecl, error);
+	    }
 
-	  locate_old_decl (olddecl, error);
 	  return false;
 	}
     }
@@ -1843,7 +1874,7 @@ clone_underlying_type (tree x)
     {
       tree tt = TREE_TYPE (x);
       DECL_ORIGINAL_TYPE (x) = tt;
-      tt = build_type_copy (tt);
+      tt = build_variant_type_copy (tt);
       TYPE_NAME (tt) = x;
       TREE_USED (tt) = TREE_USED (x);
       TREE_TYPE (x) = tt;
@@ -1895,6 +1926,9 @@ pushdecl (tree x)
   b = I_SYMBOL_BINDING (name);
   if (b && B_IN_SCOPE (b, scope))
     {
+      if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	  && COMPLETE_TYPE_P (TREE_TYPE (x)))
+	b->inner_comp = false;
       if (duplicate_decls (x, b->decl))
 	return b->decl;
       else
@@ -1915,13 +1949,63 @@ pushdecl (tree x)
      have compatible type; otherwise, the behavior is undefined.)  */
   if (DECL_EXTERNAL (x) || scope == file_scope)
     {
+      tree type = TREE_TYPE (x);
+      tree vistype = 0;
+      tree visdecl = 0;
+      bool type_saved = false;
+      if (b && !B_IN_EXTERNAL_SCOPE (b)
+	  && (TREE_CODE (b->decl) == FUNCTION_DECL
+	      || TREE_CODE (b->decl) == VAR_DECL)
+	  && DECL_FILE_SCOPE_P (b->decl))
+	{
+	  visdecl = b->decl;
+	  vistype = TREE_TYPE (visdecl);
+	}
       if (warn_nested_externs
 	  && scope != file_scope
 	  && !DECL_IN_SYSTEM_HEADER (x))
 	warning ("nested extern declaration of '%D'", x);
 
       while (b && !B_IN_EXTERNAL_SCOPE (b))
-	b = b->shadowed;
+	{
+	  /* If this decl might be modified, save its type.  This is
+	     done here rather than when the decl is first bound
+	     because the type may change after first binding, through
+	     being completed or through attributes being added.  If we
+	     encounter multiple such decls, only the first should have
+	     its type saved; the others will already have had their
+	     proper types saved and the types will not have changed as
+	     their scopes will not have been re-entered.  */
+	  if (DECL_FILE_SCOPE_P (b->decl) && !type_saved)
+	    {
+	      b->type = TREE_TYPE (b->decl);
+	      type_saved = true;
+	    }
+	  if (B_IN_FILE_SCOPE (b)
+	      && TREE_CODE (b->decl) == VAR_DECL
+	      && TREE_STATIC (b->decl)
+	      && TREE_CODE (TREE_TYPE (b->decl)) == ARRAY_TYPE
+	      && !TYPE_DOMAIN (TREE_TYPE (b->decl))
+	      && TREE_CODE (type) == ARRAY_TYPE
+	      && TYPE_DOMAIN (type)
+	      && TYPE_MAX_VALUE (TYPE_DOMAIN (type))
+	      && !integer_zerop (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	    {
+	      /* Array type completed in inner scope, which should be
+		 diagnosed if the completion does not have size 1 and
+		 it does not get completed in the file scope.  */
+	      b->inner_comp = true;
+	    }
+	  b = b->shadowed;
+	}
+
+      /* If a matching external declaration has been found, set its
+	 type to the composite of all the types of that declaration.
+	 After the consistency checks, it will be reset to the
+	 composite of the visible types only.  */
+      if (b && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
+	  && b->type)
+	TREE_TYPE (b->decl) = b->type;
 
       /* The point of the same_translation_unit_p check here is,
 	 we want to detect a duplicate decl for a construct like
@@ -1932,13 +2016,34 @@ pushdecl (tree x)
 	  && (TREE_PUBLIC (x) || same_translation_unit_p (x, b->decl))
 	  && duplicate_decls (x, b->decl))
 	{
+	  tree thistype;
+	  thistype = (vistype ? composite_type (vistype, type) : type);
+	  b->type = TREE_TYPE (b->decl);
+	  if (TREE_CODE (b->decl) == FUNCTION_DECL && DECL_BUILT_IN (b->decl))
+	    thistype
+	      = build_type_attribute_variant (thistype,
+					      TYPE_ATTRIBUTES (b->type));
+	  TREE_TYPE (b->decl) = thistype;
 	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
 	  return b->decl;
 	}
       else if (TREE_PUBLIC (x))
 	{
-	  bind (name, x, external_scope, /*invisible=*/true, /*nested=*/false);
-	  nested = true;
+	  if (visdecl && !b && duplicate_decls (x, visdecl))
+	    {
+	      /* An external declaration at block scope referring to a
+		 visible entity with internal linkage.  The composite
+		 type will already be correct for this scope, so we
+		 just need to fall through to make the declaration in
+		 this scope.  */
+	      nested = true;
+	    }
+	  else
+	    {
+	      bind (name, x, external_scope, /*invisible=*/true,
+		    /*nested=*/false);
+	      nested = true;
+	    }
 	}
     }
   /* Similarly, a declaration of a function with static linkage at
@@ -2056,7 +2161,16 @@ implicit_decl_warning (tree id, tree olddecl)
 tree
 implicitly_declare (tree functionid)
 {
-  tree decl = lookup_name_in_scope (functionid, external_scope);
+  struct c_binding *b;
+  tree decl = 0;
+  for (b = I_SYMBOL_BINDING (functionid); b; b = b->shadowed)
+    {
+      if (B_IN_SCOPE (b, external_scope))
+	{
+	  decl = b->decl;
+	  break;
+	}
+    }
 
   if (decl)
     {
@@ -2073,10 +2187,13 @@ implicitly_declare (tree functionid)
 	}
       else
 	{
+	  tree newtype = default_function_type;
+	  if (b->type)
+	    TREE_TYPE (decl) = b->type;
 	  /* Implicit declaration of a function already declared
 	     (somehow) in a different scope, or as a built-in.
 	     If this is the first time this has happened, warn;
-	     then recycle the old declaration.  */
+	     then recycle the old declaration but with the new type.  */
 	  if (!C_DECL_IMPLICIT (decl))
 	    {
 	      implicit_decl_warning (functionid, decl);
@@ -2084,21 +2201,27 @@ implicitly_declare (tree functionid)
 	    }
 	  if (DECL_BUILT_IN (decl))
 	    {
-	      if (!comptypes (default_function_type, TREE_TYPE (decl)))
+	      newtype = build_type_attribute_variant (newtype,
+						      TYPE_ATTRIBUTES
+						      (TREE_TYPE (decl)));
+	      if (!comptypes (newtype, TREE_TYPE (decl)))
 		{
 		  warning ("incompatible implicit declaration of built-in"
 			   " function %qD", decl);
+		  newtype = TREE_TYPE (decl);
 		}
 	    }
 	  else
 	    {
-	      if (!comptypes (default_function_type, TREE_TYPE (decl)))
+	      if (!comptypes (newtype, TREE_TYPE (decl)))
 		{
 		  error ("incompatible implicit declaration of function %qD",
 			 decl);
 		  locate_old_decl (decl, error);
 		}
 	    }
+	  b->type = TREE_TYPE (decl);
+	  TREE_TYPE (decl) = newtype;
 	  bind (functionid, decl, current_scope,
 		/*invisible=*/false, /*nested=*/true);
 	  return decl;
@@ -2421,7 +2544,7 @@ c_init_decl_processing (void)
   input_location.line = 0;
 #endif
 
-  build_common_tree_nodes (flag_signed_char);
+  build_common_tree_nodes (flag_signed_char, false);
 
   c_common_nodes_and_builtins ();
 
@@ -2624,17 +2747,18 @@ shadow_tag_warned (tree declspecs, int warned)
 /* Construct an array declarator.  EXPR is the expression inside [], or
    NULL_TREE.  QUALS are the type qualifiers inside the [] (to be applied
    to the pointer to which a parameter array is converted).  STATIC_P is
-   nonzero if "static" is inside the [], zero otherwise.  VLA_UNSPEC_P
-   is nonzero is the array is [*], a VLA of unspecified length which is
+   true if "static" is inside the [], false otherwise.  VLA_UNSPEC_P
+   is true if the array is [*], a VLA of unspecified length which is
    nevertheless a complete type (not currently implemented by GCC),
-   zero otherwise.  The declarator is constructed as an ARRAY_REF
+   false otherwise.  The declarator is constructed as an ARRAY_REF
    (to be decoded by grokdeclarator), whose operand 0 is what's on the
-   left of the [] (filled by in set_array_declarator_type) and operand 1
+   left of the [] (filled by in set_array_declarator_inner) and operand 1
    is the expression inside; whose TREE_TYPE is the type qualifiers and
    which has TREE_STATIC set if "static" is used.  */
 
 tree
-build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
+build_array_declarator (tree expr, tree quals, bool static_p,
+			bool vla_unspec_p)
 {
   tree decl;
   decl = build_nt (ARRAY_REF, NULL_TREE, expr, NULL_TREE, NULL_TREE);
@@ -2654,13 +2778,13 @@ build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
 
 /* Set the type of an array declarator.  DECL is the declarator, as
    constructed by build_array_declarator; TYPE is what appears on the left
-   of the [] and goes in operand 0.  ABSTRACT_P is nonzero if it is an
-   abstract declarator, zero otherwise; this is used to reject static and
+   of the [] and goes in operand 0.  ABSTRACT_P is true if it is an
+   abstract declarator, false otherwise; this is used to reject static and
    type qualifiers in abstract declarators, where they are not in the
    C99 grammar.  */
 
 tree
-set_array_declarator_type (tree decl, tree type, int abstract_p)
+set_array_declarator_inner (tree decl, tree type, bool abstract_p)
 {
   TREE_OPERAND (decl, 0) = type;
   if (abstract_p && (TREE_TYPE (decl) != NULL_TREE || TREE_STATIC (decl)))
@@ -2680,7 +2804,7 @@ groktypename (tree type_name)
 
   split_specs_attrs (TREE_PURPOSE (type_name), &specs, &attrs);
 
-  type_name = grokdeclarator (TREE_VALUE (type_name), specs, TYPENAME, 0,
+  type_name = grokdeclarator (TREE_VALUE (type_name), specs, TYPENAME, false,
 			     NULL);
 
   /* Apply attributes.  */
@@ -2698,7 +2822,7 @@ groktypename_in_parm_context (tree type_name)
     return type_name;
   return grokdeclarator (TREE_VALUE (type_name),
 			 TREE_PURPOSE (type_name),
-			 PARM, 0, NULL);
+			 PARM, false, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -2717,7 +2841,7 @@ groktypename_in_parm_context (tree type_name)
    grokfield and not through here.  */
 
 tree
-start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
+start_decl (tree declarator, tree declspecs, bool initialized, tree attributes)
 {
   tree decl;
   tree tem;
@@ -3152,6 +3276,20 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 }
 
+/* Given a parsed parameter declaration, decode it into a PARM_DECL.  */
+
+tree
+grokparm (tree parm)
+{
+  tree decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
+			      TREE_PURPOSE (TREE_PURPOSE (parm)),
+			      PARM, false, NULL);
+
+  decl_attributes (&decl, TREE_VALUE (parm), 0);
+
+  return decl;
+}
+
 /* Given a parsed parameter declaration, decode it into a PARM_DECL
    and push that on the current scope.  */
 
@@ -3162,7 +3300,7 @@ push_parm_decl (tree parm)
 
   decl = grokdeclarator (TREE_VALUE (TREE_PURPOSE (parm)),
 			 TREE_PURPOSE (TREE_PURPOSE (parm)),
-			 PARM, 0, NULL);
+			 PARM, false, NULL);
   decl_attributes (&decl, TREE_VALUE (parm), 0);
 
   decl = pushdecl (decl);
@@ -3271,12 +3409,12 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
 	  maxindex = build_int_cst (NULL_TREE,
 				    (TREE_STRING_LENGTH (initial_value)
-				     / eltsize) - 1, 0);
+				     / eltsize) - 1);
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
 	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-	  maxindex = build_int_cst (NULL_TREE, -1, -1);
+	  maxindex = build_int_cst (NULL_TREE, -1);
 	  for (; elts; elts = TREE_CHAIN (elts))
 	    {
 	      if (TREE_PURPOSE (elts))
@@ -3293,14 +3431,14 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	    value = 1;
 
 	  /* Prevent further error messages.  */
-	  maxindex = build_int_cst (NULL_TREE, 0, 0);
+	  maxindex = build_int_cst (NULL_TREE, 0);
 	}
     }
 
   if (!maxindex)
     {
       if (do_default)
-	maxindex = build_int_cst (NULL_TREE, 0, 0);
+	maxindex = build_int_cst (NULL_TREE, 0);
       value = 2;
     }
 
@@ -3411,7 +3549,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       error ("width of `%s' exceeds its type", name);
       w = max_width;
-      *width = build_int_cst (NULL_TREE, w, 0);
+      *width = build_int_cst (NULL_TREE, w);
     }
   else
     w = tree_low_cst (*width, 1);
@@ -3445,7 +3583,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
      TYPENAME if for a typename (in a cast or sizeof).
       Don't make a DECL node; just return the ..._TYPE node.
      FIELD for a struct or union field; make a FIELD_DECL.
-   INITIALIZED is 1 if the decl has an initializer.
+   INITIALIZED is true if the decl has an initializer.
    WIDTH is non-NULL for bit-fields, and is a pointer to an INTEGER_CST node
    representing the width of the bit-field.
 
@@ -3458,7 +3596,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
 
 static tree
 grokdeclarator (tree declarator, tree declspecs,
-		enum decl_context decl_context, int initialized, tree *width)
+		enum decl_context decl_context, bool initialized, tree *width)
 {
   int specbits = 0;
   tree spec;
@@ -4729,12 +4867,12 @@ grokdeclarator (tree declarator, tree declspecs,
 
    Return a list of arg types to use in the FUNCTION_TYPE for this function.
 
-   FUNCDEF_FLAG is nonzero for a function definition, 0 for
+   FUNCDEF_FLAG is true for a function definition, false for
    a mere declaration.  A nonempty identifier-list gets an error message
-   when FUNCDEF_FLAG is zero.  */
+   when FUNCDEF_FLAG is false.  */
 
 static tree
-grokparms (tree arg_info, int funcdef_flag)
+grokparms (tree arg_info, bool funcdef_flag)
 {
   tree arg_types = ARG_INFO_TYPES (arg_info);
 
@@ -5135,7 +5273,7 @@ grokfield (tree declarator, tree declspecs, tree width)
 	}
     }
 
-  value = grokdeclarator (declarator, declspecs, FIELD, 0,
+  value = grokdeclarator (declarator, declspecs, FIELD, false,
 			  width ? &width : NULL);
 
   finish_decl (value, NULL_TREE, NULL_TREE);
@@ -5726,7 +5864,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
      error message in c_finish_bc_stmt.  */
   c_break_label = c_cont_label = size_zero_node;
 
-  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
+  decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -6197,7 +6335,7 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
 	 will be a variant of the main variant of the original function
 	 type.  */
 
-      TREE_TYPE (fndecl) = build_type_copy (TREE_TYPE (fndecl));
+      TREE_TYPE (fndecl) = build_variant_type_copy (TREE_TYPE (fndecl));
 
       TYPE_ACTUAL_ARG_TYPES (TREE_TYPE (fndecl)) = actual;
     }
@@ -6639,6 +6777,34 @@ build_void_list_node (void)
   return t;
 }
 
+/* Return a structure for a parameter with the given SPECS, ATTRS and
+   DECLARATOR.  */
+
+tree
+build_c_parm (tree specs, tree attrs, tree declarator)
+{
+  return build_tree_list (build_tree_list (specs, declarator), attrs);
+}
+
+/* Return a declarator with nested attributes.  TARGET is the inner
+   declarator to which these attributes apply.  ATTRS are the
+   attributes.  */
+
+tree
+build_attrs_declarator (tree attrs, tree target)
+{
+  return tree_cons (attrs, target, NULL_TREE);
+}
+
+/* Return a declarator for a function with arguments specified by ARGS
+   and return type specified by TARGET.  */
+
+tree
+build_function_declarator (tree args, tree target)
+{
+  return build_nt (CALL_EXPR, target, args, NULL_TREE);
+}
+
 /* Return something to represent absolute declarators containing a *.
    TARGET is the absolute declarator that the * contains.
    TYPE_QUALS_ATTRS is a list of modifiers such as const or volatile
@@ -6655,7 +6821,7 @@ make_pointer_declarator (tree type_quals_attrs, tree target)
   tree itarget = target;
   split_specs_attrs (type_quals_attrs, &quals, &attrs);
   if (attrs != NULL_TREE)
-    itarget = tree_cons (attrs, target, NULL_TREE);
+    itarget = build_attrs_declarator (attrs, target);
   return build1 (INDIRECT_REF, quals, itarget);
 }
 

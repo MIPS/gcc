@@ -171,7 +171,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	return;
     }
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (POINTER_TYPE_P (type))
     {
       /* We assume pointer arithmetic never overflows.  */
       mmin = mmax = NULL_TREE;
@@ -351,7 +351,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	 (inverse(s/d) * (c/d)) mod (size of mode/d).  */
       s = step0;
       d = integer_one_node;
-      bound = convert (niter_type, build_int_cst (NULL_TREE, ~0, ~0));
+      bound = convert (niter_type, build_int_cst (NULL_TREE, -1));
       while (1)
 	{
 	  tmp = EXEC_BINARY (BIT_AND_EXPR, niter_type, s,
@@ -366,6 +366,13 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	  bound = EXEC_BINARY (RSHIFT_EXPR, niter_type, bound,
 			       convert (niter_type, integer_one_node));
 	}
+
+      assumption = fold (build2 (FLOOR_MOD_EXPR, niter_type, base1, d));
+      assumption = fold (build2 (EQ_EXPR, boolean_type_node,
+				 assumption,
+				 build_int_cst (niter_type, 0)));
+      assumptions = fold (build2 (TRUTH_AND_EXPR, boolean_type_node,
+				  assumptions, assumption));
 
       tmp = fold (build (EXACT_DIV_EXPR, niter_type, base1, d));
       tmp = fold (build (MULT_EXPR, niter_type, tmp, inverse (s, bound)));
@@ -646,7 +653,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   type = TREE_TYPE (op0);
 
   if (TREE_CODE (type) != INTEGER_TYPE
-    && TREE_CODE (type) != POINTER_TYPE)
+      && !POINTER_TYPE_P (type))
     return false;
      
   if (!simple_iv (loop, stmt, op0, &base0, &step0))
@@ -877,7 +884,7 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 	    fprintf (dump_file,
 		     "Proved that loop %d iterates %d times using brute force.\n",
 		     loop->num, i);
-	  return build_int_cst (NULL_TREE, i, 0);
+	  return build_int_cst (unsigned_type_node, i);
 	}
 
       for (j = 0; j < 2; j++)
@@ -1091,7 +1098,7 @@ upper_bound_in_type (tree outer, tree inner)
 
   return convert (outer,
 		  convert (inner,
-			   build_int_cst (NULL_TREE, lo, hi)));
+			   build_int_cst_wide (NULL_TREE, lo, hi)));
 }
 
 /* Returns the smallest value obtainable by casting something in INNER type to
@@ -1118,7 +1125,7 @@ lower_bound_in_type (tree outer, tree inner)
 
   return convert (outer,
 		  convert (inner,
-			   build_int_cst (NULL_TREE, lo, hi)));
+			   build_int_cst_wide (NULL_TREE, lo, hi)));
 }
 
 /* Returns true if statement S1 dominates statement S2.  */

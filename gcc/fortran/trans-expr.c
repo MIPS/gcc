@@ -55,7 +55,7 @@ gfc_copy_se_loopvars (gfc_se * dest, gfc_se * src)
 }
 
 
-/* Initialise a simple expression holder.
+/* Initialize a simple expression holder.
 
    Care must be taken when multiple se are created with the same parent.
    The child se must be kept in sync.  The easiest way is to delay creation
@@ -76,7 +76,7 @@ gfc_init_se (gfc_se * se, gfc_se * parent)
 
 
 /* Advances to the next SS in the chain.  Use this rather than setting
-   se->ss = se->ss->next because all the parent needs to be kept in sync.
+   se->ss = se->ss->next because all the parents needs to be kept in sync.
    See gfc_init_se.  */
 
 void
@@ -90,7 +90,7 @@ gfc_advance_se_ss_chain (gfc_se * se)
   /* Walk down the parent chain.  */
   while (p != NULL)
     {
-      /* Simple consistancy check.  */
+      /* Simple consistency check.  */
       assert (p->parent == NULL || p->parent->ss == p->ss);
 
       p->ss = p->ss->next;
@@ -111,7 +111,7 @@ gfc_make_safe_expr (gfc_se * se)
   if (TREE_CODE_CLASS (TREE_CODE (se->expr)) == 'c')
     return;
 
-  /* we need a temporary for this result */
+  /* We need a temporary for this result.  */
   var = gfc_create_var (TREE_TYPE (se->expr), NULL);
   gfc_add_modify_expr (&se->pre, var, se->expr);
   se->expr = var;
@@ -136,8 +136,8 @@ gfc_conv_expr_present (gfc_symbol * sym)
              || GFC_ARRAY_TYPE_P (TREE_TYPE (decl)));
       decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
     }
-  return build (NE_EXPR, boolean_type_node, decl,
-		fold_convert (TREE_TYPE (decl), null_pointer_node));
+  return build2 (NE_EXPR, boolean_type_node, decl,
+		 fold_convert (TREE_TYPE (decl), null_pointer_node));
 }
 
 
@@ -157,6 +157,7 @@ gfc_trans_init_string_length (gfc_charlen * cl, stmtblock_t * pblock)
   tmp = cl->backend_decl;
   gfc_add_modify_expr (pblock, tmp, se.expr);
 }
+
 
 static void
 gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
@@ -198,10 +199,10 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
   tmp =
-    build (MINUS_EXPR, gfc_strlen_type_node,
-	   fold_convert (gfc_strlen_type_node, integer_one_node),
-	   start.expr);
-  tmp = build (PLUS_EXPR, gfc_strlen_type_node, end.expr, tmp);
+    build2 (MINUS_EXPR, gfc_strlen_type_node,
+	    fold_convert (gfc_strlen_type_node, integer_one_node),
+	    start.expr);
+  tmp = build2 (PLUS_EXPR, gfc_strlen_type_node, end.expr, tmp);
   se->string_length = fold (tmp);
 }
 
@@ -223,16 +224,15 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
   field = c->backend_decl;
   assert (TREE_CODE (field) == FIELD_DECL);
   decl = se->expr;
-  tmp = build (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL_TREE);
+  tmp = build3 (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL_TREE);
 
   se->expr = tmp;
 
   if (c->ts.type == BT_CHARACTER)
     {
       tmp = c->ts.cl->backend_decl;
-      assert (tmp);
-      if (!INTEGER_CST_P (tmp))
-	gfc_todo_error ("Unknown length character component");
+      /* Components must always be constant length.  */
+      assert (tmp && INTEGER_CST_P (tmp));
       se->string_length = tmp;
     }
 
@@ -259,6 +259,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       /* A scalarized term.  We already know the descriptor.  */
       se->expr = se->ss->data.info.descriptor;
+      se->string_length = se->ss->string_length;
       ref = se->ss->data.info.ref;
     }
   else
@@ -345,7 +346,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
       ref = ref->next;
     }
   /* Pointer assignment, allocation or pass by reference.  Arrays are handled
-     seperately.  */
+     separately.  */
   if (se->want_pointer)
     {
       if (expr->ts.type == BT_CHARACTER)
@@ -376,17 +377,17 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
 
   /* TRUTH_NOT_EXPR is not a "true" unary operator in GCC.
      We must convert it to a compare to 0 (e.g. EQ_EXPR (op1, 0)).
-     All other unary operators have an equivalent GIMPLE unary operator  */
+     All other unary operators have an equivalent GIMPLE unary operator.  */
   if (code == TRUTH_NOT_EXPR)
-    se->expr = build (EQ_EXPR, type, operand.expr,
-		      convert (type, integer_zero_node));
+    se->expr = build2 (EQ_EXPR, type, operand.expr,
+		       convert (type, integer_zero_node));
   else
     se->expr = build1 (code, type, operand.expr);
 
 }
 
 /* Expand power operator to optimal multiplications when a value is raised
-   to an constant integer n. See section 4.6.3, "Evaluation of Powers" of
+   to a constant integer n. See section 4.6.3, "Evaluation of Powers" of
    Donald E. Knuth, "Seminumerical Algorithms", Vol. 2, "The Art of Computer
    Programming", 3rd Edition, 1998.  */
 
@@ -397,7 +398,7 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
    with the first node being one.  */
 #define POWI_TABLE_SIZE 256
 
-/* The table is from Builtins.c.  */
+/* The table is from builtins.c.  */
 static const unsigned char powi_table[POWI_TABLE_SIZE] =
   {
       0,   1,   1,   2,   2,   3,   3,   4,  /*   0 -   7 */
@@ -434,11 +435,12 @@ static const unsigned char powi_table[POWI_TABLE_SIZE] =
     124, 166, 125, 214, 126, 138, 127, 153,  /* 248 - 255 */
   };
 
-/* If n is larger than lookup table's max index, we use "window method".  */
+/* If n is larger than lookup table's max index, we use the "window 
+   method".  */
 #define POWI_WINDOW_SIZE 3
 
-/* Recursive function to expand power operator. The temporary values are put
-   in tmpvar. The function return tmpvar[1] ** n.  */
+/* Recursive function to expand the power operator. The temporary 
+   values are put in tmpvar. The function returns tmpvar[1] ** n.  */
 static tree
 gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
 {
@@ -467,7 +469,7 @@ gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
       op1 = op0;
     }
 
-  tmp = fold (build (MULT_EXPR, TREE_TYPE (op0), op0, op1));
+  tmp = fold (build2 (MULT_EXPR, TREE_TYPE (op0), op0, op1));
   tmp = gfc_evaluate_now (tmp, &se->pre);
 
   if (n < POWI_TABLE_SIZE)
@@ -476,8 +478,10 @@ gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
   return tmp;
 }
 
-/* Expand lhs ** rhs. rhs is an constant integer. If expand successfully,
-   return 1. Else return 0 and will call runtime library functions.  */
+
+/* Expand lhs ** rhs. rhs is a constant integer. If it expands successfully,
+   return 1. Else return 0 and a call to runtime library functions
+   will have to be built.  */
 static int
 gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
 {
@@ -504,29 +508,29 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   /* If rhs < 0 and lhs is an integer, the result is -1, 0 or 1.  */
   if ((sgn == -1) && (TREE_CODE (type) == INTEGER_TYPE))
     {
-      tmp = build (EQ_EXPR, boolean_type_node, lhs,
-		   fold_convert (TREE_TYPE (lhs), integer_minus_one_node));
-      cond = build (EQ_EXPR, boolean_type_node, lhs,
-		    convert (TREE_TYPE (lhs), integer_one_node));
+      tmp = build2 (EQ_EXPR, boolean_type_node, lhs,
+		    fold_convert (TREE_TYPE (lhs), integer_minus_one_node));
+      cond = build2 (EQ_EXPR, boolean_type_node, lhs,
+		     convert (TREE_TYPE (lhs), integer_one_node));
 
-      /* If rhs is an even,
+      /* If rhs is even,
 	 result = (lhs == 1 || lhs == -1) ? 1 : 0.  */
       if ((n & 1) == 0)
         {
-	  tmp = build (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
-	  se->expr = build (COND_EXPR, type, tmp,
-			    convert (type, integer_one_node),
-			    convert (type, integer_zero_node));
+	  tmp = build2 (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
+	  se->expr = build3 (COND_EXPR, type, tmp,
+			     convert (type, integer_one_node),
+			     convert (type, integer_zero_node));
 	  return 1;
 	}
-      /* If rhs is an odd,
+      /* If rhs is odd,
 	 result = (lhs == 1) ? 1 : (lhs == -1) ? -1 : 0.  */
-      tmp = build (COND_EXPR, type, tmp,
-		   convert (type, integer_minus_one_node),
-		   convert (type, integer_zero_node));
-      se->expr = build (COND_EXPR, type, cond,
-			convert (type, integer_one_node),
-			tmp);
+      tmp = build3 (COND_EXPR, type, tmp,
+		    convert (type, integer_minus_one_node),
+		    convert (type, integer_zero_node));
+      se->expr = build3 (COND_EXPR, type, cond,
+			 convert (type, integer_one_node),
+			 tmp);
       return 1;
     }
 
@@ -535,7 +539,7 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   if (sgn == -1)
     {
       tmp = gfc_build_const (type, integer_one_node);
-      vartmp[1] = build (RDIV_EXPR, type, tmp, vartmp[1]);
+      vartmp[1] = build2 (RDIV_EXPR, type, tmp, vartmp[1]);
     }
 
   se->expr = gfc_conv_powi (se, n, vartmp);
@@ -687,9 +691,9 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
   if (gfc_can_put_var_on_stack (len))
     {
       /* Create a temporary variable to hold the result.  */
-      tmp = fold (build (MINUS_EXPR, gfc_strlen_type_node, len,
-			 convert (gfc_strlen_type_node,
-				  integer_one_node)));
+      tmp = fold (build2 (MINUS_EXPR, gfc_strlen_type_node, len,
+			  convert (gfc_strlen_type_node,
+				   integer_one_node)));
       tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
       tmp = build_array_type (gfc_character1_type_node, tmp);
       var = gfc_create_var (tmp, "str");
@@ -746,8 +750,8 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
   if (len == NULL_TREE)
     {
-      len = fold (build (PLUS_EXPR, TREE_TYPE (lse.string_length),
-			 lse.string_length, rse.string_length));
+      len = fold (build2 (PLUS_EXPR, TREE_TYPE (lse.string_length),
+			  lse.string_length, rse.string_length));
     }
 
   type = build_pointer_type (type);
@@ -777,9 +781,9 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
 /* Translates an op expression. Common (binary) cases are handled by this
    function, others are passed on. Recursion is used in either case.
    We use the fact that (op1.ts == op2.ts) (except for the power
-   operand **).
+   operator **).
    Operators need no special handling for scalarized expressions as long as
-   they call gfc_conv_siple_val to get their operands.
+   they call gfc_conv_simple_val to get their operands.
    Character strings get special handling.  */
 
 static void
@@ -900,7 +904,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
       return;
     }
 
-  /* The only exception to this is **, which is handled seperately anyway.  */
+  /* The only exception to this is **, which is handled separately anyway.  */
   assert (expr->op1->ts.type == expr->op2->ts.type);
 
   if (checkstring && expr->op1->ts.type != BT_CHARACTER)
@@ -940,17 +944,17 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   if (lop)
     {
       /* The result of logical ops is always boolean_type_node.  */
-      tmp = fold (build (code, type, lse.expr, rse.expr));
+      tmp = fold (build2 (code, type, lse.expr, rse.expr));
       se->expr = convert (type, tmp);
     }
   else
-    se->expr = fold (build (code, type, lse.expr, rse.expr));
-
+    se->expr = fold (build2 (code, type, lse.expr, rse.expr));
 
   /* Add the post blocks.  */
   gfc_add_block_to_block (&se->post, &rse.post);
   gfc_add_block_to_block (&se->post, &lse.post);
 }
+
 
 static void
 gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
@@ -1036,7 +1040,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = gfc_typenode_for_spec (&sym->ts);
 	  info->dimen = se->loop->dimen;
 	  /* Allocate a temporary to store the result.  */
-	  gfc_trans_allocate_temp_array (se->loop, info, tmp, NULL_TREE);
+	  gfc_trans_allocate_temp_array (se->loop, info, tmp);
 
 	  /* Zero the first stride to indicate a temporary.  */
 	  tmp =
@@ -1125,11 +1129,13 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
             }
 	  else
 	    {
-	      /* If the procedure requires explicit interface, actual argument
-	         is passed according to corresponing formal argument.  We
-		 do not use g77 method and the address of array descriptor
-		 is passed if corresponing formal is pointer or
-		 assumed-shape,  Otherwise use g77 method.  */
+	      /* If the procedure requires an explicit interface, the
+		 actual argument is passed according to the
+		 corresponding formal argument.  If the corresponding
+		 formal argument is a POINTER or assumed shape, we do
+		 not use g77's calling aonvention, and pass the
+		 address of the array descriptor instead. Otherwise we
+		 use g77's calling convention.  */
 	      int f;
 	      f = (formal != NULL)
 		  && !formal->sym->attr.pointer
@@ -1161,11 +1167,18 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
-  se->expr = build (CALL_EXPR, TREE_TYPE (fntype), se->expr,
-		    arglist, NULL_TREE);
+  se->expr = build3 (CALL_EXPR, TREE_TYPE (fntype), se->expr,
+		     arglist, NULL_TREE);
 
-/* A pure function may still have side-effects - it may modify its
-   parameters.  */
+  /* If we have a pointer function, but we don't want a pointer, e.g.
+     something like
+        x = f()
+     where f is pointer valued, we have to dereference the result.  */
+  if (sym->attr.pointer && !se->want_pointer && !byref)
+    se->expr = gfc_build_indirect_ref (se->expr);
+
+  /* A pure function may still have side-effects - it may modify its
+     parameters.  */
   TREE_SIDE_EFFECTS (se->expr) = 1;
 #if 0
   if (!sym->attr.pure)
@@ -1187,7 +1200,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  /* Check the data pointer hasn't been modified.  This would
 		     happen in a function returning a pointer.  */
 		  tmp = gfc_conv_descriptor_data (info->descriptor);
-		  tmp = build (NE_EXPR, boolean_type_node, tmp, info->data);
+		  tmp = build2 (NE_EXPR, boolean_type_node, tmp, info->data);
 		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
 		}
 	      se->expr = info->descriptor;
@@ -1324,7 +1337,7 @@ gfc_conv_statement_function (gfc_se * se, gfc_expr * expr)
       se->string_length = sym->ts.cl->backend_decl;
     }
 
-  /* Resore the original variables.  */
+  /* Restore the original variables.  */
   for (fargs = sym->formal, n = 0; fargs; fargs = fargs->next, n++)
     gfc_restore_sym (fargs->sym, &saved_vars[n]);
   gfc_free (saved_vars);
@@ -1344,7 +1357,7 @@ gfc_conv_function_expr (gfc_se * se, gfc_expr * expr)
       return;
     }
 
-  /* We distinguish the statement function from general function to improve
+  /* We distinguish statement functions from general functions to improve
      runtime performance.  */
   if (expr->symtree->n.sym->attr.proc == PROC_ST_FUNCTION)
     {
@@ -1360,6 +1373,7 @@ gfc_conv_function_expr (gfc_se * se, gfc_expr * expr)
   gfc_conv_function_call (se, sym, expr->value.function.actual);
 }
 
+
 static void
 gfc_conv_array_constructor_expr (gfc_se * se, gfc_expr * expr)
 {
@@ -1372,8 +1386,8 @@ gfc_conv_array_constructor_expr (gfc_se * se, gfc_expr * expr)
 
 
 /* Build a static initializer.  EXPR is the expression for the initial value.
-   The other parameters describe the variable of component being initialized.
-   EXPR may be null.  */
+   The other parameters describe the variable of the component being 
+   initialized. EXPR may be null.  */
 
 tree
 gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
@@ -1610,7 +1624,7 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr)
         continue;
 
       field = cm->backend_decl;
-      tmp = build (COMPONENT_REF, TREE_TYPE (field), dest, field, NULL_TREE);
+      tmp = build3 (COMPONENT_REF, TREE_TYPE (field), dest, field, NULL_TREE);
       tmp = gfc_trans_subcomponent_assign (tmp, cm, c->expr);
       gfc_add_expr_to_block (&block, tmp);
     }
@@ -1673,7 +1687,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
 }
 
 
-/*translate a substring expression */
+/* Translate a substring expression.  */
 
 static void
 gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
@@ -1704,7 +1718,7 @@ gfc_conv_expr (gfc_se * se, gfc_expr * expr)
       /* Substitute a scalar expression evaluated outside the scalarization
          loop.  */
       se->expr = se->ss->data.scalar.expr;
-      se->string_length = se->ss->data.scalar.string_length;
+      se->string_length = se->ss->string_length;
       gfc_advance_se_ss_chain (se);
       return;
     }
@@ -1780,7 +1794,7 @@ gfc_conv_expr_type (gfc_se * se, gfc_expr * expr, tree type)
 }
 
 
-/* Converts an expression so that it can be passed by refernece.  Scalar
+/* Converts an expression so that it can be passed by reference.  Scalar
    values only.  */
 
 void
@@ -1792,7 +1806,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       && se->ss->type == GFC_SS_REFERENCE)
     {
       se->expr = se->ss->data.scalar.expr;
-      se->string_length = se->ss->data.scalar.string_length;
+      se->string_length = se->ss->string_length;
       gfc_advance_se_ss_chain (se);
       return;
     }

@@ -243,7 +243,7 @@ sym_intent;
 
 /* Access types.  */
 typedef enum
-{ ACCESS_PUBLIC = 1, ACCESS_PRIVATE, ACCESS_UNKNOWN
+{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE, 
 }
 gfc_access;
 
@@ -306,6 +306,9 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_GETGID,
+  GFC_ISYM_GETPID,
+  GFC_ISYM_GETUID,
   GFC_ISYM_IACHAR,
   GFC_ISYM_IAND,
   GFC_ISYM_IARGC,
@@ -918,11 +921,13 @@ gfc_intrinsic_arg;
 
 typedef union
 {
+  try (*f0)(void);
   try (*f1)(struct gfc_expr *);
   try (*f1m)(gfc_actual_arglist *);
   try (*f2)(struct gfc_expr *, struct gfc_expr *);
   try (*f3)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *);
   try (*f3ml)(gfc_actual_arglist *);
+  try (*f3red)(gfc_actual_arglist *);
   try (*f4)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
 	    struct gfc_expr *);
   try (*f5)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
@@ -936,6 +941,7 @@ gfc_check_f;
 
 typedef union
 {
+  struct gfc_expr *(*f0)(void);
   struct gfc_expr *(*f1)(struct gfc_expr *);
   struct gfc_expr *(*f2)(struct gfc_expr *, struct gfc_expr *);
   struct gfc_expr *(*f3)(struct gfc_expr *, struct gfc_expr *,
@@ -1303,9 +1309,8 @@ gfc_data_variable;
 
 typedef struct gfc_data_value
 {
-  int repeat;
+  unsigned int repeat;
   gfc_expr *expr;
-
   struct gfc_data_value *next;
 }
 gfc_data_value;
@@ -1401,6 +1406,7 @@ extern iterator_stack *iter_stack;
 void gfc_formalize_init_value (gfc_symbol *);
 void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
 void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
+void gfc_assign_data_value_range (gfc_expr *, gfc_expr *, mpz_t, mpz_t);
 void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 
 /* scanner.c */
@@ -1503,15 +1509,15 @@ void gfc_get_errors (int *, int *);
 void gfc_arith_init_1 (void);
 void gfc_arith_done_1 (void);
 
-/* FIXME: These should go to symbol.c, really...  */
-int gfc_default_integer_kind (void);
-int gfc_default_real_kind (void);
-int gfc_default_double_kind (void);
-int gfc_default_character_kind (void);
-int gfc_default_logical_kind (void);
-int gfc_default_complex_kind (void);
-int gfc_validate_kind (bt, int);
+/* trans-types.c */
+int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
+extern int gfc_default_integer_kind;
+extern int gfc_default_real_kind;
+extern int gfc_default_double_kind;
+extern int gfc_default_character_kind;
+extern int gfc_default_logical_kind;
+extern int gfc_default_complex_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);

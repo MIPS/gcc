@@ -1,3 +1,62 @@
+2004-08-29  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.am: Add intrinsics/getXid.c.
+	* configure.ac: Add tests for get{g,p,u}id.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-08-28  Paul Brook  <paul@codesourcery.com>
+
+	PR libfortran/17195
+	* libgfortran.h (rtoa): Remove prototype.
+	* runtime/error.c (rtoa): Remove.
+	* io/write.c (calculate_G_format): Don't add blanks if E format is
+	used.  Add correct number of blanks when exponent width is specified.
+	(output_float): Rewrite.
+
+2004-08-27  Paul Brook  <paul@codesourcery.com>
+
+	* io/rewind.c (st_rewind): Reset unit to read mode.
+
+2004-08-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/16597
+	* io/io.h: created typedef for unit_mode.
+	* io/io.h (gfc_unit): added mode to unit structure.
+	* io/transfer.c (data_transfer_init): flush if a write then
+	read is done on a unit (direct access files).
+	* io/rewind.c (st_rewind): Used unit mode instead of global.
+
+2004-08-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17143	
+	* runtime/error.c (itoa): keep from overflowing during
+        mod operation by using unsigned variable.
+
+2004-08-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17164
+	* runtime/string_intrinsics.c (string_index):check for
+	substring longer than string.
+
+2004-08-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (libgfortran_la_LDFLAGS): Add -lm.
+	* Makefile.in: Rebuilt.
+
+2004-08-23  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/io.h, io/list_read.c, io/open.c, io/transfer.c, io/write.c:
+	Fix formatting issues, update copyright years.
+
+2004-08-21  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 16908
+	* io/transfer.c (next_record_w): Do not blank pad.
+	* io/transfer.c (next_record): Take into account partial records.
+
 2004-08-18  Victor Leikehman  <lei@il.ibm.com>
 
 	PR fortran/13278

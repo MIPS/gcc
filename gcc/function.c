@@ -2340,7 +2340,7 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
-  /* Trivially true if we've no incomming register.  */
+  /* Trivially true if we've no incoming register.  */
   if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
@@ -2616,7 +2616,7 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	      rtx reg = gen_rtx_REG (word_mode, REGNO (data->entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg,
-				build_int_cst (NULL_TREE, by, 0),
+				build_int_cst (NULL_TREE, by),
 				NULL_RTX, 1);
 	      tem = change_address (mem, word_mode, 0);
 	      emit_move_insn (tem, x);

@@ -875,6 +875,7 @@ static tree ix86_build_builtin_va_list (void);
 static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ix86_vector_mode_supported_p (enum machine_mode);
 
 static int ix86_address_cost (rtx);
 static bool ix86_cannot_force_const_mem (rtx);
@@ -1064,6 +1065,9 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
+
+#undef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -1815,7 +1819,7 @@ ix86_function_regparm (tree type, tree decl)
   return regparm;
 }
 
-/* Return true if EAX is live at the start of the function.  Used by 
+/* Return true if EAX is live at the start of the function.  Used by
    ix86_expand_prologue to determine if we need special help before
    calling allocate_stack_worker.  */
 
@@ -3232,12 +3236,12 @@ ix86_va_start (tree valist, rtx nextarg)
 	     (int) words, (int) n_gpr, (int) n_fpr);
 
   t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-	     build_int_cst (NULL_TREE, n_gpr * 8, 0));
+	     build_int_cst (NULL_TREE, n_gpr * 8));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-	     build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX, 0));
+	     build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -3245,7 +3249,7 @@ ix86_va_start (tree valist, rtx nextarg)
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
     t = build (PLUS_EXPR, TREE_TYPE (ovf), t,
-	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD, 0));
+	       build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
   t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -3365,7 +3369,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build_int_cst (TREE_TYPE (gpr),
-			     (REGPARM_MAX - needed_intregs + 1) * 8, 0);
+			     (REGPARM_MAX - needed_intregs + 1) * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, gpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
 	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
@@ -3375,7 +3379,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  t = build_int_cst (TREE_TYPE (fpr),
 			     (SSE_REGPARM_MAX - needed_sseregs + 1) * 16
-			     + REGPARM_MAX * 8, 0);
+			     + REGPARM_MAX * 8);
 	  t = build2 (GE_EXPR, boolean_type_node, fpr, t);
 	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
 	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
@@ -3406,7 +3410,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  t = build1 (ADDR_EXPR, build_pointer_type (type), temp);
 	  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
 	  gimplify_and_add (t, pre_p);
-	  
+
 	  for (i = 0; i < XVECLEN (container, 0); i++)
 	    {
 	      rtx slot = XVECEXP (container, 0, i);
@@ -3446,14 +3450,14 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		      build_int_cst (NULL_TREE, needed_intregs * 8, 0));
+		      build_int_cst (NULL_TREE, needed_intregs * 8));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
-		      build_int_cst (NULL_TREE, needed_sseregs * 16, 0));
+		      build_int_cst (NULL_TREE, needed_sseregs * 16));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3474,9 +3478,9 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
       t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		 build_int_cst (NULL_TREE, align - 1, 0));
+		 build_int_cst (NULL_TREE, align - 1));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (NULL_TREE, -align, -1));
+		 build_int_cst (NULL_TREE, -align));
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
@@ -3484,7 +3488,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (t2, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
-	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD, 0));
+	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD));
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -4791,6 +4795,28 @@ ix86_find_base_term (rtx x)
 
   return term;
 }
+
+/* Allow {LABEL | SYMBOL}_REF - SYMBOL_REF-FOR-PICBASE for Mach-O as
+   this is used for to form addresses to local data when -fPIC is in
+   use.  */
+
+static bool
+darwin_local_data_pic (rtx disp)
+{
+  if (GET_CODE (disp) == MINUS)
+    {
+      if (GET_CODE (XEXP (disp, 0)) == LABEL_REF
+          || GET_CODE (XEXP (disp, 0)) == SYMBOL_REF)
+        if (GET_CODE (XEXP (disp, 1)) == SYMBOL_REF)
+          {
+            const char *sym_name = XSTR (XEXP (disp, 1), 0);
+            if (! strcmp (sym_name, "<pic base>"))
+              return true;
+          }
+    }
+
+  return false;
+}
 
 /* Determine if a given RTX is a valid constant.  We already know this
    satisfies CONSTANT_P.  */
@@ -4798,45 +4824,43 @@ ix86_find_base_term (rtx x)
 bool
 legitimate_constant_p (rtx x)
 {
-  rtx inner;
-
   switch (GET_CODE (x))
     {
-    case SYMBOL_REF:
-      /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (x, Pmode))
-	return false;
-      break;
-
     case CONST:
-      inner = XEXP (x, 0);
+      x = XEXP (x, 0);
 
-      /* Offsets of TLS symbols are never valid.
-	 Discourage CSE from creating them.  */
-      if (GET_CODE (inner) == PLUS
-	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
-	return false;
-
-      if (GET_CODE (inner) == PLUS
-	  || GET_CODE (inner) == MINUS)
+      if (GET_CODE (x) == PLUS)
 	{
-	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
+	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
 	    return false;
-	  inner = XEXP (inner, 0);
+	  x = XEXP (x, 0);
 	}
 
+      if (TARGET_MACHO && darwin_local_data_pic (x))
+	return true;
+
       /* Only some unspecs are valid as "constants".  */
-      if (GET_CODE (inner) == UNSPEC)
-	switch (XINT (inner, 1))
+      if (GET_CODE (x) == UNSPEC)
+	switch (XINT (x, 1))
 	  {
 	  case UNSPEC_TPOFF:
 	  case UNSPEC_NTPOFF:
-	    return local_exec_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	    return local_exec_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
 	  case UNSPEC_DTPOFF:
-	    return local_dynamic_symbolic_operand (XVECEXP (inner, 0, 0), Pmode);
+	    return local_dynamic_symbolic_operand (XVECEXP (x, 0, 0), Pmode);
 	  default:
 	    return false;
 	  }
+
+      /* We must have drilled down to a symbol.  */
+      if (!symbolic_operand (x, Pmode))
+	return false;
+      /* FALLTHRU */
+
+    case SYMBOL_REF:
+      /* TLS symbols are never valid.  */
+      if (tls_symbolic_operand (x, Pmode))
+	return false;
       break;
 
     default:
@@ -4966,18 +4990,8 @@ legitimate_pic_address_disp_p (rtx disp)
       saw_plus = true;
     }
 
-  /* Allow {LABEL | SYMBOL}_REF - SYMBOL_REF-FOR-PICBASE for Mach-O.  */
-  if (TARGET_MACHO && GET_CODE (disp) == MINUS)
-    {
-      if (GET_CODE (XEXP (disp, 0)) == LABEL_REF
-          || GET_CODE (XEXP (disp, 0)) == SYMBOL_REF)
-        if (GET_CODE (XEXP (disp, 1)) == SYMBOL_REF)
-          {
-            const char *sym_name = XSTR (XEXP (disp, 1), 0);
-            if (! strcmp (sym_name, "<pic base>"))
-              return 1;
-          }
-    }
+  if (TARGET_MACHO && darwin_local_data_pic (disp))
+    return 1;
 
   if (GET_CODE (disp) != UNSPEC)
     return 0;
@@ -10152,7 +10166,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
 				       GEN_INT ((count >> (size == 4 ? 2 : 3))
 						& (TARGET_64BIT ? -1 : 0x3fffffff)));
 	  countreg = ix86_zero_extend_to_Pmode (countreg);
-	  
+
 	  destexp = gen_rtx_ASHIFT (Pmode, countreg,
 				    GEN_INT (size == 4 ? 2 : 3));
 	  srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
@@ -14013,7 +14027,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      if (is_mulwiden)
 	        op0 = XEXP (op0, 0), mode = GET_MODE (op0);
 	    }
-  
+
   	  *total = COSTS_N_INSNS (ix86_cost->mult_init[MODE_INDEX (mode)]
 			          + nbits * ix86_cost->mult_bit)
 	           + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code);
@@ -14490,8 +14504,8 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 	if (TARGET_MACHO)
 	  {
 	    rtx sym_ref = XEXP (DECL_RTL (function), 0);
-	    tmp = (gen_rtx_SYMBOL_REF 
-		   (Pmode, 
+	    tmp = (gen_rtx_SYMBOL_REF
+		   (Pmode,
 		    machopic_indirection_name (sym_ref, /*stub_p=*/true)));
 	    tmp = gen_rtx_MEM (QImode, tmp);
 	    xops[0] = tmp;
@@ -14835,13 +14849,13 @@ ix86_expand_vector_init (rtx target, rtx vals)
   int elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode));
   int n_elts = (GET_MODE_SIZE (mode) / elt_size);
   int i;
-  
+
   for (i = n_elts - 1; i >= 0; i--)
     if (GET_CODE (XVECEXP (vals, 0, i)) != CONST_INT
 	&& GET_CODE (XVECEXP (vals, 0, i)) != CONST_DOUBLE)
       break;
 
-  /* Few special cases first...  
+  /* Few special cases first...
      ... constants are best loaded from constant pool.  */
   if (i < 0)
     {
@@ -14915,6 +14929,26 @@ ix86_expand_vector_init (rtx target, rtx vals)
     }
 }
 
+/* Implements target hook vector_mode_supported_p.  */
+static bool
+ix86_vector_mode_supported_p (enum machine_mode mode)
+{
+  if (TARGET_SSE
+      && VALID_SSE_REG_MODE (mode))
+    return true;
+
+  else if (TARGET_MMX
+	   && VALID_MMX_REG_MODE (mode))
+    return true;
+
+  else if (TARGET_3DNOW
+	   && VALID_MMX_REG_MODE_3DNOW (mode))
+    return true;
+
+  else
+    return false;
+}
+
 /* Worker function for TARGET_MD_ASM_CLOBBERS.
 
    We do this in the new i386 backend to maintain source compatibility
@@ -14923,12 +14957,12 @@ ix86_expand_vector_init (rtx target, rtx vals)
 static tree
 ix86_md_asm_clobbers (tree clobbers)
 {
-  clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),	
-			clobbers);				
-  clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),	
-			clobbers);				
-  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),	
-			clobbers);				
+  clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
+			clobbers);
+  clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),
+			clobbers);
+  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),
+			clobbers);
   return clobbers;
 }
 
@@ -14976,17 +15010,17 @@ ix86_emit_fp_unordered_jump (rtx label)
     {
       emit_insn (gen_x86_sahf_1 (reg));
 
-      temp = gen_rtx_REG (CCmode, FLAGS_REG); 
+      temp = gen_rtx_REG (CCmode, FLAGS_REG);
       temp = gen_rtx_UNORDERED (VOIDmode, temp, const0_rtx);
     }
   else
     {
       emit_insn (gen_testqi_ext_ccno_0 (reg, GEN_INT (0x04)));
 
-      temp = gen_rtx_REG (CCNOmode, FLAGS_REG); 
+      temp = gen_rtx_REG (CCNOmode, FLAGS_REG);
       temp = gen_rtx_NE (VOIDmode, temp, const0_rtx);
     }
-  
+
   temp = gen_rtx_IF_THEN_ELSE (VOIDmode, temp,
 			      gen_rtx_LABEL_REF (VOIDmode, label),
 			      pc_rtx);
@@ -15023,5 +15057,5 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
 
   emit_label (label2);
 }
-     
+
 #include "gt-i386.h"

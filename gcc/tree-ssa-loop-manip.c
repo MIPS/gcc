@@ -37,6 +37,77 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "tree-scalar-evolution.h"
 
+/* Creates an induction variable with value BASE + STEP * iteration in LOOP.
+   It is expected that neither BASE nor STEP are shared with other expressions
+   (unless the sharing rules allow this).  Use VAR as a base var_decl for it
+   (if NULL, a new temporary will be created).  The increment will occur at
+   INCR_POS (after it if AFTER is true, before it otherwise).  The ssa versions
+   of the variable before and after increment will be stored in VAR_BEFORE and
+   VAR_AFTER (unless they are NULL).  */
+
+void
+create_iv (tree base, tree step, tree var, struct loop *loop,
+	   block_stmt_iterator *incr_pos, bool after,
+	   tree *var_before, tree *var_after)
+{
+  tree stmt, initial, step1;
+  tree vb, va;
+  enum tree_code incr_op = PLUS_EXPR;
+
+  if (!var)
+    {
+      var = create_tmp_var (TREE_TYPE (base), "ivtmp");
+      add_referenced_tmp_var (var);
+    }
+
+  vb = make_ssa_name (var, NULL_TREE);
+  if (var_before)
+    *var_before = vb;
+  va = make_ssa_name (var, NULL_TREE);
+  if (var_after)
+    *var_after = va;
+
+  /* For easier readability of the created code, produce MINUS_EXPRs
+     when suitable.  */
+  if (TREE_CODE (step) == INTEGER_CST)
+    {
+      if (TYPE_UNSIGNED (TREE_TYPE (step)))
+	{
+	  step1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (step), step));
+	  if (tree_int_cst_lt (step1, step))
+	    {
+	      incr_op = MINUS_EXPR;
+	      step = step1;
+	    }
+	}
+      else
+	{
+	  if (!tree_expr_nonnegative_p (step)
+	      && may_negate_without_overflow_p (step))
+	    {
+	      incr_op = MINUS_EXPR;
+	      step = fold (build1 (NEGATE_EXPR, TREE_TYPE (step), step));
+	    }
+	}
+    }
+
+  stmt = build2 (MODIFY_EXPR, void_type_node, va,
+		 build2 (incr_op, TREE_TYPE (base),
+			 vb, step));
+  SSA_NAME_DEF_STMT (va) = stmt;
+  if (after)
+    bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
+  else
+    bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
+
+  initial = base;
+
+  stmt = create_phi_node (vb, loop->header);
+  SSA_NAME_DEF_STMT (vb) = stmt;
+  add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
+  add_phi_arg (&stmt, va, loop_latch_edge (loop));
+}
+
 /* Add exit phis for the USE on EXIT.  */
 
 static void
@@ -168,27 +239,14 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks)
 static void
 find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks)
 {
-  use_optype uses;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  stmt_ann_t ann;
-  unsigned i;
+  ssa_op_iter iter;
+  tree var;
   basic_block bb = bb_for_stmt (stmt);
 
   get_stmt_operands (stmt);
-  ann = stmt_ann (stmt);
 
-  uses = USE_OPS (ann);
-  for (i = 0; i < NUM_USES (uses); i++)
-    find_uses_to_rename_use (bb, USE_OP (uses, i), use_blocks);
-
-  vuses = VUSE_OPS (ann);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    find_uses_to_rename_use (bb, VUSE_OP (vuses, i),use_blocks);
-
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    find_uses_to_rename_use (bb, V_MAY_DEF_OP (v_may_defs, i), use_blocks);
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
+    find_uses_to_rename_use (bb, var, use_blocks);
 }
 
 /* Marks names that are used outside of the loop they are defined in
@@ -295,26 +353,13 @@ check_loop_closed_ssa_use (basic_block bb, tree use)
 static void
 check_loop_closed_ssa_stmt (basic_block bb, tree stmt)
 {
-  use_optype uses;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  stmt_ann_t ann;
-  unsigned i;
+  ssa_op_iter iter;
+  tree var;
 
   get_stmt_operands (stmt);
-  ann = stmt_ann (stmt);
 
-  uses = USE_OPS (ann);
-  for (i = 0; i < NUM_USES (uses); i++)
-    check_loop_closed_ssa_use (bb, USE_OP (uses, i));
-
-  vuses = VUSE_OPS (ann);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    check_loop_closed_ssa_use (bb, VUSE_OP (vuses, i));
-
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    check_loop_closed_ssa_use (bb, V_MAY_DEF_OP (v_may_defs, i));
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
+    check_loop_closed_ssa_use (bb, var);
 }
 
 /* Checks that invariants of the loop closed ssa form are preserved.  */

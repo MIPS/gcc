@@ -182,7 +182,7 @@ in the following sections.
 -fno-nonansi-builtins  -fno-operator-names @gol
 -fno-optional-diags  -fpermissive @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
--fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
+-fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
 -Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
@@ -316,7 +316,7 @@ Objective-C and Objective-C++ Dialects}.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
--ftree-lim @gol
+-ftree-lim -fivcanon @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
 --param @var{name}=@var{value}
@@ -475,7 +475,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-space-regs  -msoft-float  -mpa-risc-1-0 @gol
 -mpa-risc-1-1  -mpa-risc-2-0  -mportable-runtime @gol
 -mschedule=@var{cpu-type}  -mspace-regs  -msio  -mwsio @gol
--nolibdld  -static  -threads}
+-munix=@var{unix-std}  -nolibdld  -static  -threads}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -538,6 +538,7 @@ Objective-C and Objective-C++ Dialects}.
 -mips16  -mno-mips16  -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mxgot  -mno-xgot  -mgp32  -mgp64  -mfp32  -mfp64 @gol
 -mhard-float  -msoft-float  -msingle-float  -mdouble-float @gol
+-mpaired-single  -mips3d @gol
 -mint64  -mlong64  -mlong32 @gol
 -G@var{num}  -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
@@ -620,7 +621,8 @@ See RS/6000 and PowerPC Options.
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain -mkernel-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
--mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd}
+-mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
+-mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard}
 
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
@@ -1468,6 +1470,13 @@ Set the maximum instantiation depth for template classes to @var{n}.
 A limit on the template instantiation depth is needed to detect
 endless recursions during template class instantiation.  ANSI/ISO C++
 conforming programs must not rely on a maximum depth greater than 17.
+
+@item -fno-threadsafe-statics
+@opindex fno-threadsafe-statics
+Do not emit the extra code to use the routines specified in the C++
+ABI for thread-safe initialization of local statics.  You can use this
+option to reduce code size slightly in code that doesn't need to be
+thread-safe.
 
 @item -fuse-cxa-atexit
 @opindex fuse-cxa-atexit
@@ -3114,7 +3123,7 @@ either your program or GCC:
 @item -g
 @opindex g
 Produce debugging information in the operating system's native format
-(stabs, COFF, XCOFF, or DWARF)@.  GDB can work with this debugging
+(stabs, COFF, XCOFF, or DWARF 2)@.  GDB can work with this debugging
 information.
 
 On most systems that use stabs format, @option{-g} enables use of extra
@@ -3125,7 +3134,7 @@ refuse to read the program.  If you want to control for certain whether
 to generate the extra information, use @option{-gstabs+}, @option{-gstabs},
 @option{-gxcoff+}, @option{-gxcoff}, or @option{-gvms} (see below).
 
-Unlike most other C compilers, GCC allows you to use @option{-g} with
+GCC allows you to use @option{-g} with
 @option{-O}.  The shortcuts taken by optimized code may occasionally
 produce surprising results: some variables you declared may not exist
 at all; flow of control may briefly move where you did not expect it;
@@ -3188,7 +3197,10 @@ assembler (GAS) to fail with an error.
 @item -gdwarf-2
 @opindex gdwarf-2
 Produce debugging information in DWARF version 2 format (if that is
-supported).  This is the format used by DBX on IRIX 6.
+supported).  This is the format used by DBX on IRIX 6.  With this
+option, GCC uses features of DWARF version 3 when they are useful;
+version 3 is upward compatible with version 2, but may still cause
+problems for older debuggers.
 
 @item -gvms
 @opindex gvms
@@ -3213,10 +3225,13 @@ Level 3 includes extra information, such as all the macro definitions
 present in the program.  Some debuggers support macro expansion when
 you use @option{-g3}.
 
-Note that in order to avoid confusion between DWARF1 debug level 2,
-and DWARF2 @option{-gdwarf-2} does not accept a concatenated debug
-level.  Instead use an additional @option{-g@var{level}} option to
-change the debug level for DWARF2.
+@option{-gdwarf-2} does not accept a concatenated debug level, because
+GCC used to support an option @option{-gdwarf} that meant to generate
+debug information in version 1 of the DWARF format (which is very
+different from version 2), and it would have been too confusing.  That
+debug format is long obsolete, but the option cannot be changed now.
+Instead use an additional @option{-g@var{level}} option to change the
+debug level for DWARF2.
 
 @item -feliminate-dwarf2-dups
 @opindex feliminate-dwarf2-dups
@@ -4482,6 +4497,12 @@ operands of conditions that are invariant out of the loop, so that we can use
 just trivial invariantness analysis in loop unswitching.  The pass also includes
 store motion.
 
+@item -fivcanon
+Create a canonical counter for number of iterations in the loop for that
+determining number of iterations requires complicated analysis.  Later
+optimizations then may determine the number easily.  Useful especially
+in connection with unrolling.
+
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
@@ -4603,6 +4624,11 @@ In addition to reordering basic blocks in the compiled function, in order
 to reduce number of taken branches, partitions hot and cold basic blocks
 into separate sections of the assembly and .o files, to improve
 paging and cache locality performance.
+
+This optimization is automatically turned off in the presence of
+exception handling, for linkonce sections, for functions with a user-defined
+section attribute and on any architecture that does not support named
+sections.
 
 @item -freorder-functions
 @opindex freorder-functions
@@ -5398,6 +5424,12 @@ interblock scheduling.  The default value is 10.
 @item max-sched-region-insns
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
+
+@item integer-share-limit
+Small integer constants can use a shared data structure, reducing the
+compiler's memory usage and increasing its speed.  This sets the maximum
+value of a shared integer constant's.  The default value is 256.
+
 @end table
 @end table
 
@@ -7581,6 +7613,53 @@ Use multiply and add/subtract instructions.
 
 Do not use multiply and add/subtract instructions.
 
+@item -mfdpic
+@opindex mfdpic
+
+Select the FDPIC ABI, that uses function descriptors to represent
+pointers to functions.  Without any PIC/PIE-related options, it
+implies @option{-fPIE}.  With @option{-fpic} or @option{-fpie}, it
+assumes GOT entries and small data are within a 12-bit range from the
+GOT base address; with @option{-fPIC} or @option{-fPIE}, GOT offsets
+are computed with 32 bits.
+
+@item -minline-plt
+@opindex minline-plt
+
+Enable inlining of PLT entries in function calls to functions that are
+not known to bind locally.  It has no effect without @option{-mfdpic}.
+It's enabled by default if optimizing for speed and compiling for
+shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
+optimization option such as @option{-O3} or above is present in the
+command line.
+
+@item -mgprel-ro
+@opindex mgprel-ro
+
+Enable the use of @code{GPREL} relocations in the FDPIC ABI for data
+that is known to be in read-only sections.  It's enabled by default,
+except for @option{-fpic} or @option{-fpie}: even though it may help
+make the global offset table smaller, it trades 1 instruction for 4.
+With @option{-fPIC} or @option{-fPIE}, it trades 3 instructions for 4,
+one of which may be shared by multiple symbols, and it avoids the need
+for a GOT entry for the referenced symbol, so it's more likely to be a
+win.  If it is not, @option{-mno-gprel-ro} can be used to disable it.
+
+@item -multilib-library-pic
+@opindex multilib-library-pic
+
+Link with the (library, not FD) pic libraries.  It's implied by
+@option{-mlibrary-pic}, as well as by @option{-fPIC} and
+@option{-fpic} without @option{-mfdpic}.  You should never have to use
+it explicitly.
+
+@item -mlinked-fp
+@opindex mlinked-fp
+
+Follow the EABI requirement of always creating a frame pointer whenever
+a stack frame is allocated.  This option is enabled by default and can
+be disabled with @option{-mno-linked-fp}.
+
 @item -mlibrary-pic
 @opindex mlibrary-pic
 
@@ -7781,10 +7860,6 @@ architecture option for your machine.  Code compiled for lower numbered
 architectures will run on higher numbered architectures, but not the
 other way around.
 
-PA 2.0 support currently requires gas snapshot 19990413 or later.  The
-next release of binutils (current is 2.9.1) will probably contain PA 2.0
-support.
-
 @item -mpa-risc-1-0
 @itemx -mpa-risc-1-1
 @itemx -mpa-risc-2-0
@@ -7915,53 +7990,6 @@ configure option, GCC's program search path, and finally by the user's
 @env{PATH}.  The linker used by GCC can be printed using @samp{which
 `gcc -print-prog-name=ld`}.
 
-@item -mfdpic
-@opindex mfdpic
-
-Select the FDPIC ABI, that uses function descriptors to represent
-pointers to functions.  Without any PIC/PIE-related options, it
-implies @option{-fPIE}.  With @option{-fpic} or @option{-fpie}, it
-assumes GOT entries and small data are within a 12-bit range from the
-GOT base address; with @option{-fPIC} or @option{-fPIE}, GOT offsets
-are computed with 32 bits.
-
-@item -minline-plt
-@opindex minline-plt
-
-Enable inlining of PLT entries in function calls to functions that are
-not known to bind locally.  It has no effect without @option{-mfdpic}.
-It's enabled by default if optimizing for speed and compiling for
-shared libraries (i.e., @option{-fPIC} or @option{-fpic}), or when an
-optimization option such as @option{-O3} or above is present in the
-command line.
-
-@item -mgprel-ro
-@opindex mgprel-ro
-
-Enable the use of @code{GPREL} relocations in the FDPIC ABI for data
-that is known to be in read-only sections.  It's enabled by default,
-except for @option{-fpic} or @option{-fpie}: even though it may help
-make the global offset table smaller, it trades 1 instruction for 4.
-With @option{-fPIC} or @option{-fPIE}, it trades 3 instructions for 4,
-one of which may be shared by multiple symbols, and it avoids the need
-for a GOT entry for the referenced symbol, so it's more likely to be a
-win.  If it is not, @option{-mno-gprel-ro} can be used to disable it.
-
-@item -multilib-library-pic
-@opindex multilib-library-pic
-
-Link with the (library, not FD) pic libraries.  It's implied by
-@option{-mlibrary-pic}, as well as by @option{-fPIC} and
-@option{-fpic} without @option{-mfdpic}.  You should never have to use
-it explicitly.
-
-@item -mlinked-fp
-@opindex mlinked-fp
-
-Follow the EABI requirement of always creating a frame pointer whenever
-a stack frame is allocated.  This option is enabled by default and can
-be disabled with @option{-mno-linked-fp}.
-
 @item -mlong-calls
 @opindex mno-long-calls
 Generate code that uses long call sequences.  This ensures that a call
@@ -7988,6 +8016,32 @@ impact on systems that support long absolute calls, and long pic
 symbol-difference or pc-relative calls should be relatively small.
 However, an indirect call is used on 32-bit ELF systems in pic code
 and it is quite long.
+
+@item -munix=@var{unix-std}
+@opindex march
+Generate compiler predefines and select a startfile for the specified
+UNIX standard.  The choices for @var{unix-std} are @samp{93}, @samp{95}
+and @samp{98}.  @samp{93} is supported on all HP-UX versions.  @samp{95}
+is available on HP-UX 10.10 and later.  @samp{98} is available on HP-UX
+11.11 and later.  The default values are @samp{93} for HP-UX 10.00,
+@samp{95} for HP-UX 10.10 though to 11.00, and @samp{98} for HP-UX 11.11
+and later.
+
+@option{-munix=93} provides the same predefines as GCC 3.3 and 3.4.
+@option{-munix=95} provides additional predefines for @code{XOPEN_UNIX}
+and @code{_XOPEN_SOURCE_EXTENDED}, and the startfile @file{unix95.o}.
+@option{-munix=98} provides additional predefines for @code{_XOPEN_UNIX},
+@code{_XOPEN_SOURCE_EXTENDED}, @code{_INCLUDE__STDC_A1_SOURCE} and
+@code{_INCLUDE_XOPEN_SOURCE_500}, and the startfile @file{unix98.o}.
+
+It is @emph{important} to note that this option changes the interfaces
+for various library routines.  It also affects the operational behavior
+of the C library.  Thus, @emph{extreme} care is needed in using this
+option.
+
+Library code that is intended to operate with more than one UNIX
+standard must test, set and restore the variable @var{__xpg4_extended_mask}
+as appropriate.  Most GNU software doesn't provide this capability.
 
 @item -nolibdld
 @opindex nolibdld
@@ -9208,6 +9262,19 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@itemx -mpaired-single
+@itemx -mno-paired-single
+@opindex mpaired-single
+@opindex mno-paired-single
+Use (do not use) the paired single instructions.
+
+@itemx -mips3d
+@itemx -mno-mips3d
+@opindex mips3d
+@opindex mno-mips3d
+Use (do not use) the MIPS-3D ASE.  The option @option{-mips3d} implies
+@option{-mpaired-single}.
 
 @item -mint64
 @opindex mint64
@@ -10587,6 +10654,34 @@ when compiling for the TPF OS.
 Generate code that uses (does not use) the floating point multiply and
 accumulate instructions.  These instructions are generated by default if
 hardware floating point is used.
+
+@item -mwarn-framesize=@var{framesize}
+@opindex mwarn-framesize
+Emit a warning if the current function exceeds the given frame size.  Because
+this is a compile time check it doesn't need to be a real problem when the program
+runs.  It is intended to identify functions which most probably cause 
+a stack overflow.  It is useful to be used in an environment with limited stack 
+size e.g. the linux kernel.
+
+@item -mwarn-dynamicstack
+@opindex mwarn-dynamicstack
+Emit a warning if the function calls alloca or uses dynamically
+sized arrays.  This is generally a bad idea with a limited stack size.
+
+@item -mstack-guard=@var{stack-guard}
+@item -mstack-size=@var{stack-size}
+@opindex mstack-guard
+@opindex mstack-size
+These arguments always have to be used in conjunction.  If they are present the s390
+back end emits additional instructions in the function prologue which trigger a trap
+if the stack size is @var{stack-guard} bytes above the @var{stack-size} 
+(remember that the stack on s390 grows downward).  These options are intended to 
+be used to help debugging stack overflow problems.  The additionally emitted code 
+cause only little overhead and hence can also be used in production like systems 
+without greater performance degradation.  The given values have to be exact 
+powers of 2 and @var{stack-size} has to be greater than @var{stack-guard}.
+In order to be efficient the extra code makes the assumption that the stack starts
+at an address aligned to the value given by @var{stack-size}.
 @end table
 
 @node SH Options

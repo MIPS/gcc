@@ -632,7 +632,7 @@ gfc_match_old_kind_spec (gfc_typespec * ts)
   if (ts->type == BT_COMPLEX && ts->kind == 16)
     ts->kind = 8;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Old-style kind %d not supported for type %s at %C",
 		 ts->kind, gfc_basic_typename (ts->type));
@@ -692,7 +692,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
   gfc_free_expr (e);
   e = NULL;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Kind %d not supported for type %s at %C", ts->kind,
 		 gfc_basic_typename (ts->type));
@@ -727,7 +727,7 @@ match_char_spec (gfc_typespec * ts)
   gfc_expr *len;
   match m;
 
-  kind = gfc_default_character_kind ();
+  kind = gfc_default_character_kind;
   len = NULL;
   seen_length = 0;
 
@@ -790,7 +790,7 @@ match_char_spec (gfc_typespec * ts)
 
       gfc_match_small_int (&kind);
 
-      if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+      if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
 	{
 	  gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
 	  return MATCH_YES;
@@ -833,7 +833,7 @@ syntax:
   m = MATCH_ERROR;
 
 done:
-  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
       m = MATCH_ERROR;
@@ -891,7 +891,7 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" integer") == MATCH_YES)
     {
       ts->type = BT_INTEGER;
-      ts->kind = gfc_default_integer_kind ();
+      ts->kind = gfc_default_integer_kind;
       goto get_kind;
     }
 
@@ -907,35 +907,35 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" real") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_real_kind ();
+      ts->kind = gfc_default_real_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double precision") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_complex_kind ();
+      ts->kind = gfc_default_complex_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" logical") == MATCH_YES)
     {
       ts->type = BT_LOGICAL;
-      ts->kind = gfc_default_logical_kind ();
+      ts->kind = gfc_default_logical_kind;
       goto get_kind;
     }
 
@@ -1141,7 +1141,7 @@ gfc_match_implicit (void)
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.cl)
 		{
-		  ts.kind = gfc_default_character_kind ();
+		  ts.kind = gfc_default_character_kind;
 		  ts.cl = gfc_get_charlen ();
 		  ts.cl->next = gfc_current_ns->cl_list;
 		  gfc_current_ns->cl_list = ts.cl;

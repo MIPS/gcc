@@ -1,3 +1,35 @@
+2004-08-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils2.c (build_allocator): Use ssize_int.
+
+	* utils.c (gnat_init_decl_processing): Ada has a signed sizetype.
+
+2004-08-27  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (EXTRA_GNATBIND_OBJS): Add errors.o.
+
+2004-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+	    Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	
+	* ada-tree.h (TYPE_RM_SIZE_INT): Use TYPE_LANG_SLOT_1.
+
+2004-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cuintp.c (UI_To_gnu): Adjust build_int_cst calls.
+	* trans.c (Exception_Handler_to_gnu_sjlj, gnat_to_gnu): Likewise.
+	* utils.c (init_gigi_decls): Likewise.
+	* utils2.c (build_call_raise, build_allocator): Likewise.
+	
+2004-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils.c (gnat_init_decl_processing): Adjust
+	build_common_tree_nodes call.
+
+2004-08-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* utils2.c (build_allocator): Use build_int_cst for negative
+	size types.
+
 2004-08-18  Richard Henderson  <rth@redhat.com>
 
 	* misc.c (LANG_HOOKS_HONOR_READONLY): Remove.

@@ -1277,9 +1277,9 @@ do_java_lex (YYSTYPE *java_lval)
 #ifndef JC1_LITE
       /* Range checking.  */
       /* Temporarily set type to unsigned.  */
-      value = build_int_cst (long_suffix
-			     ? unsigned_long_type_node
-			     : unsigned_int_type_node, low, high);
+      value = build_int_cst_wide (long_suffix
+				  ? unsigned_long_type_node
+				  : unsigned_int_type_node, low, high);
       SET_LVAL_NODE (value);
 
       /* For base 10 numbers, only values up to the highest value
@@ -1300,12 +1300,17 @@ do_java_lex (YYSTYPE *java_lval)
 	}
 
       /* Sign extend the value.  */
-      value = build_int_cst (long_suffix ? long_type_node : int_type_node,
-			     low, high);
+      value = build_int_cst_wide (long_suffix ? long_type_node : int_type_node,
+				  low, high);
       value = force_fit_type (value, 0, false, false);
-      SET_LVAL_NODE (value);
+
+      if (radix != 10)
+	{
+	  value = copy_node (value);
+	  JAVA_NOT_RADIX10_FLAG (value) = 1;
+	}
       
-      JAVA_RADIX10_FLAG (value) = radix == 10;
+      SET_LVAL_NODE (value);
 #endif
       return INT_LIT_TK;
     }
@@ -1335,7 +1340,7 @@ do_java_lex (YYSTYPE *java_lval)
         char_lit = 0;		/* We silently convert it to zero.  */
 
       JAVA_LEX_CHAR_LIT (char_lit);
-      SET_LVAL_NODE (build_int_cst (char_type_node, char_lit, 0));
+      SET_LVAL_NODE (build_int_cst (char_type_node, char_lit));
       return CHAR_LIT_TK;
     }
 
@@ -1733,7 +1738,7 @@ static void
 error_if_numeric_overflow (tree value)
 {
   if (TREE_CODE (value) == INTEGER_CST
-      && JAVA_RADIX10_FLAG (value)
+      && !JAVA_NOT_RADIX10_FLAG (value)
       && tree_int_cst_sgn (value) < 0)
     {
       if (TREE_TYPE (value) == long_type_node)

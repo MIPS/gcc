@@ -42,8 +42,6 @@ static int list_hash_eq (const void *, const void *);
 static hashval_t list_hash_pieces (tree, tree, tree);
 static hashval_t list_hash (const void *);
 static cp_lvalue_kind lvalue_p_1 (tree, int);
-static tree mark_local_for_remap_r (tree *, int *, void *);
-static tree cp_unsave_r (tree *, int *, void *);
 static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
@@ -321,7 +319,7 @@ build_target_expr_with_type (tree init, tree type)
 {
   tree slot;
 
-  my_friendly_assert (!VOID_TYPE_P (type), 20040130);
+  gcc_assert (!VOID_TYPE_P (type));
 
   if (TREE_CODE (init) == TARGET_EXPR)
     return init;
@@ -349,7 +347,7 @@ force_target_expr (tree type, tree init)
 {
   tree slot;
 
-  my_friendly_assert (!VOID_TYPE_P (type), 20040130);
+  gcc_assert (!VOID_TYPE_P (type));
 
   slot = build_local_temp (type);
   return build_target_expr (slot, init);
@@ -467,7 +465,7 @@ cp_build_qualified_type_real (tree type,
 	{
 	  /* Make a new array type, just like the old one, but with the
 	     appropriately qualified element type.  */
-	  t = build_type_copy (type);
+	  t = build_variant_type_copy (type);
 	  TREE_TYPE (t) = element_type;
 	}
 
@@ -608,8 +606,8 @@ copy_binfo (tree binfo, tree type, tree t, tree *igo_prev, int virt)
       int ix;
       tree base_binfo;
 
-      my_friendly_assert (!BINFO_DEPENDENT_BASE_P (binfo), 20040712);
-      my_friendly_assert (type == BINFO_TYPE (binfo), 20040714);
+      gcc_assert (!BINFO_DEPENDENT_BASE_P (binfo));
+      gcc_assert (type == BINFO_TYPE (binfo));
 
       BINFO_OFFSET (new_binfo) = BINFO_OFFSET (binfo);
       BINFO_VIRTUALS (new_binfo) = BINFO_VIRTUALS (binfo);
@@ -622,7 +620,7 @@ copy_binfo (tree binfo, tree type, tree t, tree *igo_prev, int virt)
 	{
 	  tree new_base_binfo;
 
-	  my_friendly_assert (!BINFO_DEPENDENT_BASE_P (base_binfo), 20040713);
+	  gcc_assert (!BINFO_DEPENDENT_BASE_P (base_binfo));
 	  new_base_binfo = copy_binfo (base_binfo, BINFO_TYPE (base_binfo),
 				       t, igo_prev,
 				       BINFO_VIRTUAL_P (base_binfo));
@@ -842,7 +840,7 @@ really_overloaded_fn (tree x)
 tree
 get_first_fn (tree from)
 {
-  my_friendly_assert (is_overloaded_fn (from), 9);
+  gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
@@ -944,7 +942,7 @@ build_exception_variant (tree type, tree raises)
       return v;
 
   /* Need to build a new variant.  */
-  v = build_type_copy (type);
+  v = build_variant_type_copy (type);
   TYPE_RAISES_EXCEPTIONS (v) = raises;
   return v;
 }
@@ -1366,25 +1364,6 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
   return t;
 }
 
-/* Returns an INTEGER_CST (of type `int') corresponding to I.
-   Multiple calls with the same value of I may or may not yield the
-   same node; therefore, callers should never modify the node
-   returned.  */
-
-static GTY(()) tree shared_int_cache[256];
-
-tree
-build_shared_int_cst (int i)
-{
-  if (i >= 256)
-    return build_int_cst (NULL_TREE, i, 0);
-
-  if (!shared_int_cache[i])
-    shared_int_cache[i] = build_int_cst (NULL_TREE, i, 0);
-
-  return shared_int_cache[i];
-}
-
 tree
 get_type_decl (tree t)
 {
@@ -1605,7 +1584,7 @@ cp_tree_equal (tree t1, tree t2)
       return same_type_p (t1, t2);
     }
 
-  my_friendly_assert (0, 20030617);
+  gcc_unreachable ();
   return false;
 }
 
@@ -1797,7 +1776,7 @@ handle_java_interface_attribute (tree* node,
       return NULL_TREE;
     }
   if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-    *node = build_type_copy (*node);
+    *node = build_variant_type_copy (*node);
   TYPE_JAVA_INTERFACE (*node) = 1;
 
   return NULL_TREE;
@@ -2145,110 +2124,6 @@ init_tree (void)
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 
-/* Called via walk_tree.  If *TP points to a DECL_EXPR for a local
-   declaration, copies the declaration and enters it in the splay_tree
-   pointed to by DATA (which is really a `splay_tree *').  */
-
-static tree
-mark_local_for_remap_r (tree* tp,
-                        int* walk_subtrees ATTRIBUTE_UNUSED ,
-                        void* data)
-{
-  tree t = *tp;
-  splay_tree st = (splay_tree) data;
-  tree decl;
-
-
-  if (TREE_CODE (t) == DECL_EXPR
-      && nonstatic_local_decl_p (DECL_EXPR_DECL (t)))
-    decl = DECL_EXPR_DECL (t);
-  else if (TREE_CODE (t) == LABEL_EXPR)
-    decl = LABEL_EXPR_LABEL (t);
-  else if (TREE_CODE (t) == TARGET_EXPR
-	   && nonstatic_local_decl_p (TREE_OPERAND (t, 0)))
-    decl = TREE_OPERAND (t, 0);
-  else if (TREE_CODE (t) == CASE_LABEL_EXPR)
-    decl = CASE_LABEL (t);
-  else
-    decl = NULL_TREE;
-
-  if (decl)
-    {
-      tree copy;
-
-      /* Make a copy.  */
-      copy = copy_decl_for_inlining (decl,
-				     DECL_CONTEXT (decl),
-				     DECL_CONTEXT (decl));
-
-      /* Remember the copy.  */
-      splay_tree_insert (st,
-			 (splay_tree_key) decl,
-			 (splay_tree_value) copy);
-    }
-
-  return NULL_TREE;
-}
-
-/* Called via walk_tree when an expression is unsaved.  Using the
-   splay_tree pointed to by ST (which is really a `splay_tree'),
-   remaps all local declarations to appropriate replacements.  */
-
-static tree
-cp_unsave_r (tree* tp,
-             int* walk_subtrees,
-             void* data)
-{
-  splay_tree st = (splay_tree) data;
-  splay_tree_node n;
-
-  /* Only a local declaration (variable or label).  */
-  if (nonstatic_local_decl_p (*tp))
-    {
-      /* Lookup the declaration.  */
-      n = splay_tree_lookup (st, (splay_tree_key) *tp);
-
-      /* If it's there, remap it.  */
-      if (n)
-	*tp = (tree) n->value;
-    }
-  else if (TREE_CODE (*tp) == SAVE_EXPR)
-    remap_save_expr (tp, st, walk_subtrees);
-  else
-    {
-      copy_tree_r (tp, walk_subtrees, NULL);
-
-      /* Do whatever unsaving is required.  */
-      unsave_expr_1 (*tp);
-    }
-
-  /* Keep iterating.  */
-  return NULL_TREE;
-}
-
-/* Called whenever an expression needs to be unsaved.  */
-
-tree
-cxx_unsave_expr_now (tree tp)
-{
-  splay_tree st;
-
-  /* Create a splay-tree to map old local variable declarations to new
-     ones.  */
-  st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-
-  /* Walk the tree once figuring out what needs to be remapped.  */
-  walk_tree (&tp, mark_local_for_remap_r, st, NULL);
-
-  /* Walk the tree again, copying, remapping, and unsaving.  */
-  walk_tree (&tp, cp_unsave_r, st, NULL);
-
-  /* Clean up.  */
-  splay_tree_delete (st);
-
-  return tp;
-}
-
 /* Returns the kind of special function that DECL (a FUNCTION_DECL)
    is.  Note that sfk_none is zero, so this function can be used as a
    predicate to test whether or not DECL is a special function.  */
@@ -2379,6 +2254,19 @@ stabilize_expr (tree exp, tree* initp)
   return exp;
 }
 
+/* Add NEW, an expression whose value we don't care about, after the
+   similar expression ORIG.  */
+
+tree
+add_stmt_to_compound (tree orig, tree new)
+{
+  if (!new || !TREE_SIDE_EFFECTS (new))
+    return orig;
+  if (!orig || !TREE_SIDE_EFFECTS (orig))
+    return new;
+  return build2 (COMPOUND_EXPR, void_type_node, orig, new);
+}
+
 /* Like stabilize_expr, but for a call whose args we want to
    pre-evaluate.  */
 
@@ -2400,12 +2288,7 @@ stabilize_call (tree call, tree *initp)
       {
 	tree init;
 	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
-	if (!init)
-	  /* Nothing.  */;
-	else if (inits)
-	  inits = build2 (COMPOUND_EXPR, void_type_node, inits, init);
-	else
-	  inits = init;
+	inits = add_stmt_to_compound (inits, init);
       }
 
   *initp = inits;
@@ -2433,6 +2316,8 @@ stabilize_init (tree init, tree *initp)
 	t = TREE_OPERAND (t, 1);
       if (TREE_CODE (t) == TARGET_EXPR)
 	t = TARGET_EXPR_INITIAL (t);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = expr_last (t);
       if (TREE_CODE (t) == CONSTRUCTOR
 	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
 	{

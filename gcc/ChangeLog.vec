@@ -1,12 +1,12 @@
+2004-08-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Merge with edge-vector-mergepoint-20040829.
+
 2004-08-27  Steven Bosscher  <stevenb@suse.de>
 
 	* basic-block.h: Don't define ENABLE_CHECKING.
 	Define ENABLE_VEC_CHECKING to 0 if ENABLE_CHECKING is not defined,
 	or 1 if ENABLE_CHECKING is defined.
-
-2004-08-27  Steven Bosscher  <stevenb@suse.de>
-
-	* gcse.c (remove_reachable_equiv_notes): Use an edge_stack.
 
 2004-08-26  Ben Elliston  <bje@au.ibm.com>
 

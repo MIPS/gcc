@@ -1914,7 +1914,7 @@ extern int rtx_to_tree_code (enum rtx_code);
 
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
-extern int cse_main (rtx, int, int, FILE *);
+extern int cse_main (rtx, int, FILE *);
 extern void cse_condition_code_reg (void);
 extern int exp_equiv_p (rtx, rtx, int, bool);
 extern unsigned hash_rtx (rtx x, enum machine_mode, int *, int *, bool);
@@ -2147,19 +2147,9 @@ struct md_constant { char *name, *value; };
 
 /* In read-rtl.c */
 extern int read_skip_spaces (FILE *);
-extern rtx read_rtx (FILE *);
+extern bool read_rtx (FILE *, rtx *, int *);
 extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
-
-/* Redefine abort to report an internal error w/o coredump, and
-   reporting the location of the error in the source file.  This logic
-   is duplicated in rtl.h and tree.h because every file that needs the
-   special abort includes one or both.  toplev.h gets too few files,
-   system.h gets too many.  */
-
-extern void fancy_abort (const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
-#define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
 
 /* In alias.c */
 extern void clear_reg_alias_info (rtx);

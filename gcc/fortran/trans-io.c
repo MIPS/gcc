@@ -360,7 +360,7 @@ set_parameter_value (stmtblock_t * block, tree var, gfc_expr * e)
   gfc_conv_expr_type (&se, e, TREE_TYPE (var));
   gfc_add_block_to_block (block, &se.pre);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
+  tmp = build3 (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
   gfc_add_modify_expr (block, tmp, se.expr);
 }
 
@@ -380,7 +380,7 @@ set_parameter_ref (stmtblock_t * block, tree var, gfc_expr * e)
   gfc_conv_expr_type (&se, e, TREE_TYPE (var));
   gfc_add_block_to_block (block, &se.pre);
 
-  tmp = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
+  tmp = build3 (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
   gfc_add_modify_expr (block, tmp, se.expr);
 }
 
@@ -401,9 +401,9 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   gfc_init_se (&se, NULL);
   gfc_conv_expr (&se, e);
 
-  io = build (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
-  len = build (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len,
-	       NULL_TREE);
+  io = build3 (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
+  len = build3 (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len,
+		NULL_TREE);
 
   /* Integer variable assigned a format label.  */
   if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
@@ -411,8 +411,8 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
       msg =
         gfc_build_string_const (37, "Assigned label is not a format label");
       tmp = GFC_DECL_STRING_LEN (se.expr);
-      tmp = build (LE_EXPR, boolean_type_node,
-		   tmp, convert (TREE_TYPE (tmp), integer_minus_one_node));
+      tmp = build2 (LE_EXPR, boolean_type_node,
+		    tmp, convert (TREE_TYPE (tmp), integer_minus_one_node));
       gfc_trans_runtime_check (tmp, msg, &se.pre);
       gfc_add_modify_expr (&se.pre, io, GFC_DECL_ASSIGN_ADDR (se.expr));
       gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LEN (se.expr));
@@ -436,7 +436,7 @@ set_flag (stmtblock_t *block, tree var)
 {
   tree tmp, type = TREE_TYPE (var);
 
-  tmp = build (COMPONENT_REF, type, ioparm_var, var, NULL_TREE);
+  tmp = build3 (COMPONENT_REF, type, ioparm_var, var, NULL_TREE);
   gfc_add_modify_expr (block, tmp, convert (type, integer_one_node));
 }
 
@@ -451,14 +451,14 @@ add_case (int label_value, gfc_st_label * label, stmtblock_t * body)
   if (label == NULL)
     return;			/* No label, no case */
 
-  value = build_int_cst (NULL_TREE, label_value, 0);
+  value = build_int_cst (NULL_TREE, label_value);
 
   /* Make a backend label for this case.  */
   tmp = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_CONTEXT (tmp) = current_function_decl;
 
   /* And the case itself.  */
-  tmp = build_v (CASE_LABEL_EXPR, value, NULL_TREE, tmp);
+  tmp = build3_v (CASE_LABEL_EXPR, value, NULL_TREE, tmp);
   gfc_add_expr_to_block (body, tmp);
 
   /* Jump to the label.  */
@@ -498,10 +498,10 @@ io_result (stmtblock_t * block, gfc_st_label * err_label,
 
   tmp = gfc_finish_block (&body);
 
-  rc = build (COMPONENT_REF, TREE_TYPE (ioparm_library_return), ioparm_var,
-	      ioparm_library_return, NULL_TREE);
+  rc = build3 (COMPONENT_REF, TREE_TYPE (ioparm_library_return), ioparm_var,
+	       ioparm_library_return, NULL_TREE);
 
-  tmp = build_v (SWITCH_EXPR, rc, tmp, NULL_TREE);
+  tmp = build3_v (SWITCH_EXPR, rc, tmp, NULL_TREE);
 
   gfc_add_expr_to_block (block, tmp);
 }
@@ -524,7 +524,7 @@ set_error_locus (stmtblock_t * block, locus * where)
   gfc_add_modify_expr (block, locus_file, tmp);
 
   line = where->lb->linenum;
-  gfc_add_modify_expr (block, locus_line, build_int_cst (NULL_TREE, line, 0));
+  gfc_add_modify_expr (block, locus_line, build_int_cst (NULL_TREE, line));
 }
 
 
@@ -817,7 +817,7 @@ gfc_new_nml_name_expr (char * name)
    nml_name = gfc_get_expr();
    nml_name->ref = NULL;
    nml_name->expr_type = EXPR_CONSTANT;
-   nml_name->ts.kind = gfc_default_character_kind ();
+   nml_name->ts.kind = gfc_default_character_kind;
    nml_name->ts.type = BT_CHARACTER;
    nml_name->value.character.length = strlen(name);
    nml_name->value.character.string = name;
@@ -873,7 +873,8 @@ transfer_namelist_element (stmtblock_t * block, gfc_typespec * ts, tree addr_exp
         {
           tree field = c->backend_decl;
           assert (field && TREE_CODE (field) == FIELD_DECL);
-          tmp = build (COMPONENT_REF, TREE_TYPE (field), expr, field, NULL_TREE);
+          tmp = build3 (COMPONENT_REF, TREE_TYPE (field), 
+			expr, field, NULL_TREE);
 
           if (c->dimension)
             gfc_todo_error ("NAMELIST IO of array in derived type");
@@ -896,7 +897,7 @@ transfer_namelist_element (stmtblock_t * block, gfc_typespec * ts, tree addr_exp
   args = gfc_chainon_list (NULL_TREE, addr_expr);
   args = gfc_chainon_list (args, string);
   args = gfc_chainon_list (args, string_length);
-  arg2 = build_int_cst (gfc_array_index_type, ts->kind, 0);
+  arg2 = build_int_cst (gfc_array_index_type, ts->kind);
   args = gfc_chainon_list (args,arg2);
 
   switch (ts->type)
@@ -1152,22 +1153,22 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
   switch (ts->type)
     {
     case BT_INTEGER:
-      arg2 = build_int_cst (NULL_TREE, kind, 0);
+      arg2 = build_int_cst (NULL_TREE, kind);
       function = iocall_x_integer;
       break;
 
     case BT_REAL:
-      arg2 = build_int_cst (NULL_TREE, kind, 0);
+      arg2 = build_int_cst (NULL_TREE, kind);
       function = iocall_x_real;
       break;
 
     case BT_COMPLEX:
-      arg2 = build_int_cst (NULL_TREE, kind, 0);
+      arg2 = build_int_cst (NULL_TREE, kind);
       function = iocall_x_complex;
       break;
 
     case BT_LOGICAL:
-      arg2 = build_int_cst (NULL_TREE, kind, 0);
+      arg2 = build_int_cst (NULL_TREE, kind);
       function = iocall_x_logical;
       break;
 
@@ -1185,8 +1186,8 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
 	  field = c->backend_decl;
 	  assert (field && TREE_CODE (field) == FIELD_DECL);
 
-	  tmp = build (COMPONENT_REF, TREE_TYPE (field), expr, field,
-		       NULL_TREE);
+	  tmp = build3 (COMPONENT_REF, TREE_TYPE (field), expr, field,
+			NULL_TREE);
 
 	  if (c->ts.type == BT_CHARACTER)
 	    {

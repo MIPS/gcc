@@ -264,12 +264,12 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	{
 	  /* A NULL pointer-to-member is represented by -1, not by
 	     zero.  */
-	  expr = build_int_cst (type, -1, -1);
+	  expr = build_int_cst (type, -1);
 	  /* Fix up the representation of -1 if appropriate.  */
 	  expr = force_fit_type (expr, 0, false, false);
 	}
       else
-	expr = build_int_cst (type, 0, 0);
+	expr = build_int_cst (type, 0);
       
       return expr;
     }
@@ -366,7 +366,7 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
   tree argtype = TREE_TYPE (arg);
   tree target_type = TREE_TYPE (type);
 
-  my_friendly_assert (TREE_CODE (type) == REFERENCE_TYPE, 187);
+  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 
   if ((flags & DIRECT_BIND) && ! real_lvalue_p (arg))
     {
@@ -470,7 +470,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
   intype = TREE_TYPE (expr);
 
-  my_friendly_assert (TREE_CODE (intype) != REFERENCE_TYPE, 364);
+  gcc_assert (TREE_CODE (intype) != REFERENCE_TYPE);
 
   intype = TYPE_MAIN_VARIANT (intype);
 
