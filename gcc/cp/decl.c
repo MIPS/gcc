@@ -607,7 +607,7 @@ poplevel (int keep, int reverse, int functionbody)
 		 popped the binding.  */
 	      if (outer_binding && binding_value_tree (DECL_NAME (link),
 						       outer_binding))
-		DECL_SHADOWED_FOR_VAR (link) = outer_binding->value.t;
+		DECL_SHADOWED_FOR_VAR (link) = CXX_BINDING_VALUE (outer_binding);
 
 	      /* Add it to the list of dead variables in the next
 		 outermost binding to that we can remove these when we

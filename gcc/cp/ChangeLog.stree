@@ -1,3 +1,31 @@
+2004-04-13  Matt Austern  <austern@apple.com>
+	* name-lookup.h (cxx_binding): Use union for value field.
+	(CXX_BINDING_VALUE): New.
+	(CXX_BINDING_SET_VALUE): New.
+	(CXX_BINDING_VALUE_S): New.
+	(CXX_BINDING_SET_VALUE_S): New.
+	(binding_value_tree): Change tree->stree conversion to use union.
+	* name-lookup.c (cxx_binding_Make): Use new cxx_binding accessor macros.
+	(pop_binding): Likewise.
+	(supplement_binding): Likewise.
+	(push_s_decl): Likewise.
+	(maybe_inject_for_scope_var): Likewise.
+	(set_identifier_type_value_with_scope): Likewise.
+	(push_overloaded_decl): Likewise.
+	(do_nonmenber_using_decl): Likewise.
+	(lookup_tag): Likewise.
+	(push_class_binding): Likewise.
+	(push_class_level_binding): Likewise.
+	(set_namespace_binding): Likewise.
+	(do_toplevel_using_decl): Likewise.
+	(ambiguous_decl): Likewise.
+	(lookup_namespace_name): Likewise.
+	(unqualified_namespace_lookup): Likewise.
+	(lookup_using_namespace): Likewise.
+	(qualified_lookup_using_namespace): Likewise.
+	(lookup_name_real): Likewise.
+	* decl.c (poplevel): Use new cxx_binding accessor macros.
+	
 2004-03-08  Matt Austern  <austern@apple.com>
 
 	* ChangeLog.stree: New.

@@ -1,3 +1,6 @@
+2004-04-13  Matt Austern  <austern@apple.com
+	* stree.h (struct s_tree_i_or_tree): Remove.
+	
 2004-03-08  Matt Austern  <austern@apple.com>
         * ChangeLog.stree: New.
 	* Makefile.in: Add stree.[ch] to the build.

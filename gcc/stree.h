@@ -29,11 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* An index of a s_tree.  */
 typedef unsigned long s_tree_i;
 
-struct s_tree_i_or_tree GTY (()) {
-  tree t;
-  s_tree_i st;
-};
-
 #define NULL_S_TREE_I 0
 
 /* Given an s_tree_i, return the corresponding tree.  */

@@ -76,14 +76,28 @@ struct cxx_binding GTY(())
   /* Link to chain together various bindings for this name.  */
   cxx_binding *previous;
   /* The non-type entity this name is bound to.  */
-  struct s_tree_i_or_tree value;
+  union cxx_binding_value_u {
+    tree     GTY ((tag("0"))) t;
+    s_tree_i GTY ((tag("1"))) st;
+  } GTY ((desc ("%1.value_is_s_tree"))) value;
   /* The type entity this name is bound to.  */
   tree type;
   /* The scope at which this binding was made.  */
   cxx_scope *scope;
   unsigned value_is_inherited : 1;
   unsigned is_local : 1;
+  unsigned value_is_s_tree : 1;
 };
+
+#define CXX_BINDING_VALUE(NODE)            \
+  ((NODE)->value_is_s_tree ? NULL_TREE : (NODE)->value.t)
+#define CXX_BINDING_SET_VALUE(NODE, VAL)   \
+  do { (NODE)->value.t = (VAL); (NODE)->value_is_s_tree = 0; } while (0)
+
+#define CXX_BINDING_VALUE_S(NODE)          \
+  ((NODE)->value_is_s_tree ? (NODE)->value.st : NULL_S_TREE_I)
+#define CXX_BINDING_SET_VALUE_S(NODE, VAL) \
+  do { (NODE)->value.st = (VAL); (NODE)->value_is_s_tree = 1; } while (0)
 
 extern tree identifier_type_value (tree);
 extern void set_identifier_type_value (tree, tree);
@@ -339,8 +353,12 @@ is_typename_at_global_scope (tree id)
 static inline tree
 binding_value_tree (tree name, cxx_binding *binding)
 {
-  if (!binding->value.t && binding->value.st)
-    binding->value.t = s_tree_to_tree (name, binding->value.st);
+  if (binding->value_is_s_tree) {
+    tree val = s_tree_to_tree (name, binding->value.st);
+    binding->value.t = val;
+    binding->value_is_s_tree = 0;
+
+  }
   return binding->value.t;
 }
 
