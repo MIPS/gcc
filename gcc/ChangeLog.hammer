@@ -1,3 +1,17 @@
+2004-04-05  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-05-19  J"orn Rennecke <joern.rennecke@superh.com>
+	* c-decl.c (finish_decl): When setting the DECL_ASSEMBLER_NAME
+	of a function using ASMSPEC, prepend a star.
+
+	2003-04-28  Jakub Jelinek  <jakub@redhat.com>
+	* c-decl.c (finish_decl): When prototype with asmspec is found
+	for built-in, adjust built_in_decls as well as expr.c decls.
+	* expr.c (init_block_move_fn, init_block_clear_fn): New functions.
+	(emit_block_move_libcall_fn, clear_storage_libcall_fn): Use it.
+	* expr.h (init_block_move_fn, init_block_clear_fn): New prototypes.
+
 2004-04-01  Alan Modra  <amodra@bigpond.net.au>
 
 	* dwarf2out.c (DEBUG_STR_SECTION_FLAGS): Heed flag_merge_constants.
