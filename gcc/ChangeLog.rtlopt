@@ -1,0 +1,39 @@
+2002-09-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+        * gcse.c (run_jump_opt_after_gcse, can_copy_p, can_copy_init_p,
+	current_bb): Removed, now passed locally.
+	(expr_hash_table, set_hash_table, cprop_pavloc, cprop_absaltered,
+	cprop_avin, cprop_avout, hoist_vbein, hoist_vbeout, hoist_exprs,
+	dominators, regvec, st_antloc, num_stores): Removed, now passed
+	locally in ...
+	(struct pre_global, struct classic_global, struct hoist_global,
+	struct store_global, struct cprop_global): New types.
+	(rd_kill, rd_gen, reaching_defs, rd_out): Merged to ...
+	(struct rd): new type, passed locally.
+	(ae_kill, ae_gen, ae_in, ae_out): Merged to ...
+	(struct ae): new type, passed locally.
+	(reg_set_table, reg_set_table_size): Merged to ...
+	(reg_set_table): New.
+	(gcse_main, compute_can_copy, alloc_reg_set_mem, free_reg_set_mem,
+	record_one_set, oprs_unchanged_p, oprs_anticipatable_p,
+	oprs_available_p, hash_scan_set, hash_scan_insn,
+	record_last_reg_set_info, record_last_reg_set_info,
+	compute_hash_table_work, alloc_rd_mem, free_rd_mem,
+	handle_rd_kill_set, compute_kill_rd, compute_rd,
+	compute_ae_kill, expr_reaches_here_p_work, expr_reaches_here_p,
+	computing_insn, def_reaches_here_p, can_disregard_other_sets,
+	handle_avail_expr, classic_gcse, one_classic_gcse_pass,
+	alloc_cprop_mem, free_cprop_mem, compute_transp, compute_cprop_data,
+	find_used_regs, find_avail_set, cprop_jump, constprop_register,
+	constprop_register, cprop_insn, do_local_cprop, local_cprop_pass,
+	cprop, one_cprop_pass, find_bypass_set, bypass_block,
+	bypass_conditional_jumps, compute_pre_data, pre_expr_reaches_here_p_work,
+	pre_expr_reaches_here_p, insert_insn_end_bb, pre_edge_insert,
+	pre_insert_copies, pre_delete, pre_gcse, one_pre_gcse_pass,
+	compute_transpout, alloc_code_hoist_mem, free_code_hoist_mem,
+	compute_code_hoist_vbeinout, compute_code_hoist_data,
+	hoist_expr_reaches_here_p, hoist_code, one_code_hoisting_pass,
+	trim_ld_motion_mems, reg_set_info, compute_store_table,
+	build_store_vectors, insert_store, free_store_memory,
+	store_motion): Modified due to removal of global variables.
+
