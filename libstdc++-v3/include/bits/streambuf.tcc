@@ -40,6 +40,10 @@
 namespace std 
 {
   template<typename _CharT, typename _Traits>
+    const size_t
+    basic_streambuf<_CharT, _Traits>::_S_pback_size;
+
+  template<typename _CharT, typename _Traits>
     typename basic_streambuf<_CharT, _Traits>::int_type
     basic_streambuf<_CharT, _Traits>::
     sbumpc()
@@ -47,7 +51,7 @@ namespace std
       int_type __ret;
       if (_M_in_cur && _M_in_cur < _M_in_end)
 	{
-	  char_type __c = *gptr();
+	  char_type __c = *(this->gptr());
 	  _M_in_cur_move(1);
 	  __ret = traits_type::to_int_type(__c);
 	}
@@ -134,7 +138,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->uflow();  
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  traits_type::assign(*__s++, traits_type::to_char_type(__c));
 		  ++__ret;
@@ -173,7 +177,7 @@ namespace std
 	  if (__ret < __n)
 	    {
 	      int_type __c = this->overflow(traits_type::to_int_type(*__s));
-	      if (__c != traits_type::eof())
+	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
 		{
 		  ++__ret;
 		  ++__s;
@@ -210,7 +214,7 @@ namespace std
 	      __sbin->_M_in_cur_move(__xtrct);
 	      if (__xtrct == __bufsize)
 		{
-		  if (__sbin->sgetc() == _Traits::eof())
+		  if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
 		    break;
 		  __bufsize = __sbin->in_avail();
 		}

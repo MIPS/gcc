@@ -181,7 +181,7 @@ extern tree define_label                        PARAMS ((const char *, int,
 							 tree));
 extern void finish_decl                         PARAMS ((tree, tree, tree));
 extern tree finish_enum                         PARAMS ((tree, tree, tree));
-extern void finish_function                     PARAMS ((int));
+extern void finish_function                     PARAMS ((int, int));
 extern tree finish_struct                       PARAMS ((tree, tree, tree));
 extern tree get_parm_info                       PARAMS ((int));
 extern tree grokfield                           PARAMS ((const char *, int, tree, tree, tree));
@@ -270,6 +270,7 @@ extern void c_finish_case                       PARAMS ((void));
 extern tree simple_asm_stmt			PARAMS ((tree));
 extern tree build_asm_stmt			PARAMS ((tree, tree, tree,
 							 tree, tree));
+extern tree c_convert_parm_for_inlining		PARAMS ((tree, tree, tree));
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -285,11 +286,6 @@ extern int current_function_returns_null;
    a call to a noreturn function is seen.  */
 
 extern int current_function_returns_abnormally;
-
-/* Nonzero means the expression being parsed will never be evaluated.
-   This is a count, since unevaluated expressions can nest.  */
-
-extern int skip_evaluation;
 
 /* Nonzero means `$' can be in an identifier.  */
 

@@ -1,7 +1,7 @@
 ;; -*- Mode: Scheme -*-
 ;;   Machine description for GNU compiler,
 ;;   for ATMEL AVR micro controllers.
-;;   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+;;   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;   Contributed by Denis Chertykov (denisc@overta.ru)
 
 ;; This file is part of GNU CC.
@@ -68,7 +68,7 @@
                                           (le (minus (pc) (match_dup 0))
                                               (const_int 2045)))
                                      (const_int 2)
-                                     (const_int 2)))
+                                     (const_int 3)))
          (eq_attr "type" "branch1")
          (if_then_else (and (ge (minus (pc) (match_dup 0))
                                 (const_int -62))
@@ -80,7 +80,7 @@
                                           (le (minus (pc) (match_dup 0))
                                               (const_int 2043)))
                                      (const_int 3)
-                                     (const_int 3)))]
+                                     (const_int 4)))]
         (const_int 2)))
 
 (define_insn "*pop1"
@@ -2250,6 +2250,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1) CR_TAB
 		     AS2 (sbc,%C0,__zero_reg__) CR_TAB
@@ -2288,6 +2289,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1), operands);
   else
@@ -2319,6 +2321,9 @@
   "test_hard_reg_class (LD_REGS, operands[0])"
   "*
 {
+  CC_STATUS_INIT;
+  cc_status.value1 = operands[0];
+  cc_status.flags |= CC_OVERFLOW_UNUSABLE;
   output_asm_insn (AS2 (subi,%A0,1), operands);
   switch (avr_jump_mode (operands[1],insn))
   {

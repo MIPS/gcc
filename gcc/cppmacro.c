@@ -64,9 +64,6 @@ static cpp_context *next_context PARAMS ((cpp_reader *));
 static const cpp_token *padding_token
   PARAMS ((cpp_reader *, const cpp_token *));
 static void expand_arg PARAMS ((cpp_reader *, macro_arg *));
-static unsigned char *quote_string PARAMS ((unsigned char *,
-					    const unsigned char *,
-					    unsigned int));
 static const cpp_token *new_string_token PARAMS ((cpp_reader *, U_CHAR *,
 						  unsigned int));
 static const cpp_token *new_number_token PARAMS ((cpp_reader *, unsigned int));
@@ -163,7 +160,7 @@ builtin_macro (pfile, node)
 	name = map->to_file;
 	len = strlen (name);
 	buf = _cpp_unaligned_alloc (pfile, len * 4 + 1);
-	len = quote_string (buf, (const unsigned char *) name, len) - buf;
+	len = cpp_quote_string (buf, (const unsigned char *) name, len) - buf;
 
 	result = new_string_token (pfile, buf, len);
       }
@@ -243,9 +240,10 @@ builtin_macro (pfile, node)
 
 /* Copies SRC, of length LEN, to DEST, adding backslashes before all
    backslashes and double quotes.  Non-printable characters are
-   converted to octal.  DEST must be of sufficient size.  */
-static U_CHAR *
-quote_string (dest, src, len)
+   converted to octal.  DEST must be of sufficient size.  Returns
+   a pointer to the end of the string.  */
+U_CHAR *
+cpp_quote_string (dest, src, len)
      U_CHAR *dest;
      const U_CHAR *src;
      unsigned int len;
@@ -330,7 +328,7 @@ stringify_arg (pfile, arg)
 	  _cpp_buff *buff = _cpp_get_buff (pfile, len);
 	  unsigned char *buf = BUFF_FRONT (buff);
 	  len = cpp_spell_token (pfile, token, buf) - buf;
-	  dest = quote_string (dest, buf, len);
+	  dest = cpp_quote_string (dest, buf, len);
 	  _cpp_release_buff (pfile, buff);
 	}
       else
@@ -615,7 +613,20 @@ collect_args (pfile, node)
     }
 
   if (!error)
-    return base_buff;
+    {
+      /* GCC has special semantics for , ## b where b is a varargs
+	 parameter: we remove the comma if b was omitted entirely.
+	 If b was merely an empty argument, the comma is retained.
+	 If the macro takes just one (varargs) parameter, then we
+	 retain the comma only if we are standards conforming.
+
+	 If FIRST is NULL replace_args () swallows the comma.  */
+      if (macro->variadic && (argc < macro->paramc
+			      || (argc == 1 && args[0].count == 0
+				  && !CPP_OPTION (pfile, std))))
+	args[macro->paramc - 1].first = NULL;
+      return base_buff;
+    }
 
   _cpp_release_buff (pfile, base_buff);
   return NULL;
@@ -648,12 +659,17 @@ funlike_invocation_p (pfile, node)
       return collect_args (pfile, node);
     }
 
-  /* Back up.  We may have skipped padding, in which case backing up
-     more than one token when expanding macros is in general too
-     difficult.  We re-insert it in its own context.  */
-  _cpp_backup_tokens (pfile, 1);
-  if (padding)
-    push_token_context (pfile, NULL, padding, 1);
+  /* CPP_EOF can be the end of macro arguments, or the end of the
+     file.  We mustn't back up over the latter.  Ugh.  */
+  if (token->type != CPP_EOF || token == &pfile->eof)
+    {
+      /* Back up.  We may have skipped padding, in which case backing
+	 up more than one token when expanding macros is in general
+	 too difficult.  We re-insert it in its own context.  */
+      _cpp_backup_tokens (pfile, 1);
+      if (padding)
+	push_token_context (pfile, NULL, padding, 1);
+    }
 
   return NULL;
 }
@@ -669,6 +685,8 @@ enter_macro_context (pfile, node)
 {
   /* The presence of a macro invalidates a file's controlling macro.  */
   pfile->mi_valid = false;
+
+  pfile->state.angled_headers = false;
 
   /* Handle standard macros.  */
   if (! (node->flags & NODE_BUILTIN))
@@ -794,15 +812,13 @@ replace_args (pfile, node, args)
 	  count = arg->count, from = arg->first;
 	  if (dest != first)
 	    {
-	      /* GCC has special semantics for , ## b where b is a
-		 varargs parameter: the comma disappears if b was
-		 given no actual arguments (not merely if b is an
-		 empty argument); otherwise the paste flag is removed.  */
 	      if (dest[-1]->type == CPP_COMMA
 		  && macro->variadic
 		  && src->val.arg_no == macro->paramc)
 		{
-		  if (count == 0)
+		  /* Swallow a pasted comma if from == NULL, otherwise
+		     drop the paste flag.  */
+		  if (from == NULL)
 		    dest--;
 		  else
 		    paste_flag = dest - 1;
@@ -1526,13 +1542,13 @@ cpp_macro_definition (pfile, node)
     }
 
   /* Calculate length.  */
-  len = NODE_LEN (node) + 1;			/* ' ' */
+  len = NODE_LEN (node) + 2;			/* ' ' and NUL.  */
   if (macro->fun_like)
     {
-      len += 3;		/* "()" plus possible final "." of named
-			   varargs (we have + 2 below).  */
+      len += 4;		/* "()" plus possible final ".." of named
+			   varargs (we have + 1 below).  */
       for (i = 0; i < macro->paramc; i++)
-	len += NODE_LEN (macro->params[i]) + 2; /* ", " */
+	len += NODE_LEN (macro->params[i]) + 1; /* "," */
     }
 
   for (i = 0; i < macro->count; i++)
@@ -1575,17 +1591,23 @@ cpp_macro_definition (pfile, node)
 	    }
 
 	  if (i + 1 < macro->paramc)
-	    *buffer++ = ',', *buffer++ = ' ';
+            /* Don't emit a space after the comma here; we're trying
+               to emit a Dwarf-friendly definition, and the Dwarf spec
+               forbids spaces in the argument list.  */
+	    *buffer++ = ',';
 	  else if (macro->variadic)
 	    *buffer++ = '.', *buffer++ = '.', *buffer++ = '.';
 	}
       *buffer++ = ')';
     }
 
+  /* The Dwarf spec requires a space after the macro name, even if the
+     definition is the empty string.  */
+  *buffer++ = ' ';
+
   /* Expansion tokens.  */
   if (macro->count)
     {
-      *buffer++ = ' ';
       for (i = 0; i < macro->count; i++)
 	{
 	  cpp_token *token = &macro->expansion[i];

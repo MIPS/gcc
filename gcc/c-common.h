@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
       NEW_FOR_SCOPE_P (in FOR_STMT)
       ASM_INPUT_P (in ASM_STMT)
+      STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
    2: STMT_LINENO_FOR_FN_P (in _STMT)
@@ -463,6 +464,11 @@ extern int warn_conversion;
 
 extern int warn_long_long;
 
+/* Nonzero means the expression being parsed will never be evaluated.
+   This is a count, since unevaluated expressions can nest.  */
+
+extern int skip_evaluation;
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -646,6 +652,10 @@ extern tree strip_array_types                   PARAMS ((tree));
 /* STMT_EXPR accessor.  */
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
 
+/* Nonzero if this statement-expression does not have an associated scope.  */
+#define STMT_EXPR_NO_SCOPE(NODE) \
+   TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
+
 /* LABEL_STMT accessor. This gives access to the label associated with
    the given label statement.  */
 #define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (LABEL_STMT_CHECK (NODE), 0)
@@ -696,6 +706,13 @@ extern tree strip_array_types                   PARAMS ((tree));
 /* Nonzero for an ASM_STMT if the assembly statement is volatile.  */
 #define ASM_VOLATILE_P(NODE)			\
   (ASM_CV_QUAL (ASM_STMT_CHECK (NODE)) != NULL_TREE)
+
+/* The VAR_DECL to clean up in a CLEANUP_STMT.  */
+#define CLEANUP_DECL(NODE) \
+  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
+/* The cleanup to run in a CLEANUP_STMT.  */
+#define CLEANUP_EXPR(NODE) \
+  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
 
 /* The filename we are changing to as of this FILE_STMT.  */
 #define FILE_STMT_FILENAME_NODE(NODE) \
@@ -752,7 +769,7 @@ extern void genrtl_compound_stmt                PARAMS ((tree));
 extern void genrtl_asm_stmt                     PARAMS ((tree, tree,
 							 tree, tree,
 							 tree, int));
-extern void genrtl_decl_cleanup                 PARAMS ((tree, tree));
+extern void genrtl_decl_cleanup                 PARAMS ((tree));
 extern int stmts_are_full_exprs_p               PARAMS ((void));
 extern int anon_aggr_type_p                     PARAMS ((tree));
 
