@@ -48,7 +48,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       automaton state.
 
    4. Several constructions to describe impossible reservations
-      (`exclusion_set', `presence_set', and `absence_set').
+      (`exclusion_set', `presence_set', `fina_presence_set',
+      `absence_set', and `final_absence_set').
 
    5. No reverse automata are generated.  Trace instruction scheduling
       requires this.  It can be easily added in the future if we
@@ -66,7 +67,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    The translator functions `gen_cpu_unit', `gen_query_cpu_unit',
    `gen_bypass', `gen_excl_set', `gen_presence_set',
-   `gen_absence_set', `gen_automaton', `gen_automata_option',
+   `gen_final_presence_set', `gen_absence_set',
+   `gen_final_absence_set', `gen_automaton', `gen_automata_option',
    `gen_reserv', `gen_insn_reserv' are called from file
    `genattrtab.c'.  They transform RTL constructions describing
    automata in .md file into internal representation convenient for
@@ -204,8 +206,9 @@ typedef struct state_ainsn_table *state_ainsn_table_t;
 
 
 /* Prototypes of functions gen_cpu_unit, gen_query_cpu_unit,
-   gen_bypass, gen_excl_set, gen_presence_set, gen_absence_set,
-   gen_automaton, gen_automata_option, gen_reserv, gen_insn_reserv,
+   gen_bypass, gen_excl_set, gen_presence_set, gen_final_presence_set,
+   gen_absence_set, gen_final_absence_set, gen_automaton,
+   gen_automata_option, gen_reserv, gen_insn_reserv,
    initiate_automaton_gen, expand_automata, write_automata are
    described on the file top because the functions are called from
    function `main'.  */
@@ -216,7 +219,7 @@ static char *check_name              PARAMS ((char *, pos_t));
 static char *next_sep_el             PARAMS ((char **, int, int));
 static int n_sep_els                 PARAMS ((char *, int, int));
 static char **get_str_vect           PARAMS ((char *, int *, int, int));
-static void gen_presence_absence_set PARAMS ((rtx, int));
+static void gen_presence_absence_set PARAMS ((rtx, int, int));
 static regexp_t gen_regexp_el        PARAMS ((char *));
 static regexp_t gen_regexp_repeat    PARAMS ((char *));
 static regexp_t gen_regexp_allof     PARAMS ((char *));
@@ -253,12 +256,14 @@ static unit_set_el_t process_excls       PARAMS ((char **, int, pos_t));
 static void add_excls                    PARAMS ((unit_set_el_t, unit_set_el_t,
 						  pos_t));
 static unit_set_el_t process_presence_absence_names
-					 PARAMS ((char **, int, pos_t, int));
+					 PARAMS ((char **, int, pos_t,
+						  int, int));
 static pattern_set_el_t process_presence_absence_patterns
-					 PARAMS ((char ***, int, pos_t, int));
+					 PARAMS ((char ***, int, pos_t,
+						  int, int));
 static void add_presence_absence	 PARAMS ((unit_set_el_t,
 						  pattern_set_el_t,
-						  pos_t, int));
+						  pos_t, int, int));
 static void process_decls                PARAMS ((void));
 static struct bypass_decl *find_bypass   PARAMS ((struct bypass_decl *,
 						  struct insn_reserv_decl *));
@@ -346,8 +351,9 @@ static reserv_sets_t get_excl_set          PARAMS ((reserv_sets_t));
 static pattern_reserv_t form_reserv_sets_list PARAMS ((pattern_set_el_t));
 static void initiate_presence_absence_pattern_sets     PARAMS ((void));
 static int check_presence_pattern_sets     PARAMS ((reserv_sets_t,
-						    reserv_sets_t));
-static int check_absence_pattern_sets  PARAMS ((reserv_sets_t, reserv_sets_t));
+						    reserv_sets_t, int));
+static int check_absence_pattern_sets  PARAMS ((reserv_sets_t, reserv_sets_t,
+						int));
 
 static regexp_t copy_insn_regexp     PARAMS ((regexp_t));
 static regexp_t transform_1          PARAMS ((regexp_t));
@@ -750,9 +756,11 @@ struct unit_decl
   /* The following list contains patterns which are required to
      reservation of given unit.  */
   pattern_set_el_t presence_list;
+  pattern_set_el_t final_presence_list;
   /* The following list contains patterns which should be not present
      in reservation for given unit.  */
   pattern_set_el_t absence_list;
+  pattern_set_el_t final_absence_list;
   /* The following is used only when `query_p' has nonzero value.
      This is query number for the unit.  */
   int query_num;
@@ -810,10 +818,11 @@ struct excl_rel_decl
   char *names [1];
 };
 
-/* This describes unit relations: presence_set or absence_set (see
-   file rtl.def).  */
+/* This describes unit relations: [final_]presence_set or
+   [final_]absence_set (see file rtl.def).  */
 struct unit_pattern_rel_decl
 {
+  int final_p;
   int names_num;
   int patterns_num;
   char **names;
@@ -1785,15 +1794,17 @@ gen_excl_set (def)
   num_dfa_decls++;
 }
 
-/* Process a PRESENCE_SET or an ABSENCE_SET (it is depended on PRESENCE_P).
+/* Process a PRESENCE_SET, a FINAL_PRESENCE_SET, an ABSENCE_SET,
+   FINAL_ABSENCE_SET (it is depended on PRESENCE_P and FINAL_P).
 
    This gives information about a cpu unit reservation requirements.
    We fill a struct unit_pattern_rel_decl with information used later
    by `expand_automata'.  */
 static void
-gen_presence_absence_set (def, presence_p)
+gen_presence_absence_set (def, presence_p, final_p)
      rtx def;
      int presence_p;
+     int final_p;
 {
   decl_t decl;
   char **str_cpu_units;
@@ -1807,15 +1818,23 @@ gen_presence_absence_set (def, presence_p)
 				FALSE);
   if (str_cpu_units == NULL)
     fatal ((presence_p
-	    ? "invalid first string `%s' in presence_set"
-	    : "invalid first string `%s' in absence_set"),
+	    ? (final_p
+	       ? "invalid first string `%s' in final_presence_set"
+	       : "invalid first string `%s' in presence_set")
+	    : (final_p
+	       ? "invalid first string `%s' in final_absence_set"
+	       : "invalid first string `%s' in absence_set")),
 	   XSTR (def, 0));
   str_patterns = (char ***) get_str_vect ((char *) XSTR (def, 1),
 					  &patterns_length, ',', FALSE);
   if (str_patterns == NULL)
     fatal ((presence_p
-	    ? "invalid second string `%s' in presence_set"
-	    : "invalid second string `%s' in absence_set"), XSTR (def, 1));
+	    ? (final_p
+	       ? "invalid second string `%s' in final_presence_set"
+	       : "invalid second string `%s' in presence_set")
+	    : (final_p
+	       ? "invalid second string `%s' in final_absence_set"
+	       : "invalid second string `%s' in absence_set")), XSTR (def, 1));
   for (i = 0; i < patterns_length; i++)
     {
       str_patterns [i] = get_str_vect ((char *) str_patterns [i], &length, ' ',
@@ -1832,6 +1851,7 @@ gen_presence_absence_set (def, presence_p)
       DECL_PRESENCE (decl)->names = str_cpu_units;
       DECL_PRESENCE (decl)->patterns = str_patterns;
       DECL_PRESENCE (decl)->patterns_num = patterns_length;
+      DECL_PRESENCE (decl)->final_p = final_p;
     }
   else
     {
@@ -1840,6 +1860,7 @@ gen_presence_absence_set (def, presence_p)
       DECL_ABSENCE (decl)->names = str_cpu_units;
       DECL_ABSENCE (decl)->patterns = str_patterns;
       DECL_ABSENCE (decl)->patterns_num = patterns_length;
+      DECL_ABSENCE (decl)->final_p = final_p;
     }
   VLA_PTR_ADD (decls, decl);
   num_dfa_decls++;
@@ -1854,7 +1875,19 @@ gen_presence_absence_set (def, presence_p)
 gen_presence_set (def)
       rtx def;
 {
-  gen_presence_absence_set (def, TRUE);
+  gen_presence_absence_set (def, TRUE, FALSE);
+}
+ 
+/* Process a FINAL_PRESENCE_SET.  
+
+   This gives information about a cpu unit reservation requirements.
+   We fill a struct unit_pattern_rel_decl (presence) with information
+   used later by `expand_automata'.  */
+void
+gen_final_presence_set (def)
+     rtx def;
+{
+  gen_presence_absence_set (def, TRUE, TRUE);
 }
  
 /* Process an ABSENCE_SET.
@@ -1866,7 +1899,19 @@ void
 gen_absence_set (def)
      rtx def;
 {
-  gen_presence_absence_set (def, FALSE);
+  gen_presence_absence_set (def, FALSE, FALSE);
+}
+  
+/* Process a FINAL_ABSENCE_SET.
+
+   This gives information about a cpu unit reservation requirements.
+   We fill a struct unit_pattern_rel_decl (absence) with information
+   used later by `expand_automata'.  */
+void
+gen_final_absence_set (def)
+     rtx def;
+{
+  gen_presence_absence_set (def, FALSE, TRUE);
 }
   
 /* Process a DEFINE_AUTOMATON.  
@@ -2548,11 +2593,12 @@ add_excls (dest_list, source_list, excl_pos)
    formed unit_set_el_list.  The function is called only after
    processing all exclusion sets.  */
 static unit_set_el_t
-process_presence_absence_names (names, num, req_pos, presence_p)
+process_presence_absence_names (names, num, req_pos, presence_p, final_p)
      char **names;
      int num;
      pos_t req_pos ATTRIBUTE_UNUSED;
      int presence_p;
+     int final_p;
 {
   unit_set_el_t el_list;
   unit_set_el_t last_el;
@@ -2567,12 +2613,20 @@ process_presence_absence_names (names, num, req_pos, presence_p)
       decl_in_table = find_decl (names [i]);
       if (decl_in_table == NULL)
 	error ((presence_p
-		? "unit `%s' in presence set is not declared"
-		: "unit `%s' in absence set is not declared"), names [i]);
+		? (final_p
+		   ? "unit `%s' in final presence set is not declared"
+		   : "unit `%s' in presence set is not declared")
+		: (final_p
+		   ? "unit `%s' in final absence set is not declared"
+		   : "unit `%s' in absence set is not declared")), names [i]);
       else if (decl_in_table->mode != dm_unit)
 	error ((presence_p
-		? "`%s' in presence set is not unit"
-		: "`%s' in absence set is not unit"), names [i]);
+		? (final_p
+		   ? "`%s' in final presence set is not unit"
+		   : "`%s' in presence set is not unit")
+		: (final_p
+		   ? "`%s' in final absence set is not unit"
+		   : "`%s' in absence set is not unit")), names [i]);
       else
 	{
 	  new_el = create_node (sizeof (struct unit_set_el));
@@ -2594,11 +2648,12 @@ process_presence_absence_names (names, num, req_pos, presence_p)
    returning the formed pattern_set_el_list.  The function is called
    only after processing all exclusion sets.  */
 static pattern_set_el_t
-process_presence_absence_patterns (patterns, num, req_pos, presence_p)
+process_presence_absence_patterns (patterns, num, req_pos, presence_p, final_p)
      char ***patterns;
      int num;
      pos_t req_pos ATTRIBUTE_UNUSED;
      int presence_p;
+     int final_p;
 {
   pattern_set_el_t el_list;
   pattern_set_el_t last_el;
@@ -2631,13 +2686,21 @@ process_presence_absence_patterns (patterns, num, req_pos, presence_p)
 	  decl_in_table = find_decl (patterns [i] [j]);
 	  if (decl_in_table == NULL)
 	    error ((presence_p
-		    ? "unit `%s' in presence set is not declared"
-		    : "unit `%s' in absence set is not declared"),
+		    ? (final_p
+		       ? "unit `%s' in final presence set is not declared"
+		       : "unit `%s' in presence set is not declared")
+		    : (final_p
+		       ? "unit `%s' in final absence set is not declared"
+		       : "unit `%s' in absence set is not declared")),
 		   patterns [i] [j]);
 	  else if (decl_in_table->mode != dm_unit)
 	    error ((presence_p
-		    ? "`%s' in presence set is not unit"
-		    : "`%s' in absence set is not unit"),
+		    ? (final_p
+		       ? "`%s' in final presence set is not unit"
+		       : "`%s' in presence set is not unit")
+		    : (final_p
+		       ? "`%s' in final absence set is not unit"
+		       : "`%s' in absence set is not unit")),
 		   patterns [i] [j]);
 	  else
 	    {
@@ -2654,15 +2717,17 @@ process_presence_absence_patterns (patterns, num, req_pos, presence_p)
    PRESENCE_P) or absence list of the each element from DEST_LIST.
    Checking situations "unit requires own absence", and "unit excludes
    and requires presence of ...", "unit requires absence and presence
-   of ...", "units in presence set belong to different automata", and
-   "units in absence set belong to different automata".  Remember that
-   we process absence sets only after all presence sets.  */
+   of ...", "units in (final) presence set belong to different
+   automata", and "units in (final) absence set belong to different
+   automata".  Remember that we process absence sets only after all
+   presence sets.  */
 static void
-add_presence_absence (dest_list, pattern_list, req_pos, presence_p)
+add_presence_absence (dest_list, pattern_list, req_pos, presence_p, final_p)
      unit_set_el_t dest_list;
      pattern_set_el_t pattern_list;
      pos_t req_pos ATTRIBUTE_UNUSED;
      int presence_p;
+     int final_p;
 {
   unit_set_el_t dst;
   pattern_set_el_t pat;
@@ -2691,8 +2756,12 @@ add_presence_absence (dest_list, pattern_list, req_pos, presence_p)
 			   unit->automaton_name) != 0)
 	      {
 		error ((presence_p
-			? "units `%s' and `%s' in presence set belong to different automata"
-			: "units `%s' and `%s' in absence set belong to different automata"),
+			? (final_p
+			   ? "units `%s' and `%s' in final presence set belong to different automata"
+			   : "units `%s' and `%s' in presence set belong to different automata")
+			: (final_p
+			   ? "units `%s' and `%s' in final absence set belong to different automata"
+			   : "units `%s' and `%s' in absence set belong to different automata")),
 		       unit->name, dst->unit_decl->name);
 		continue;
 	      }
@@ -2738,8 +2807,12 @@ add_presence_absence (dest_list, pattern_list, req_pos, presence_p)
 	    if (no_error_flag)
 	      {
 		for (prev_el = (presence_p
-				? dst->unit_decl->presence_list
-				: dst->unit_decl->absence_list);
+				? (final_p
+				   ? dst->unit_decl->final_presence_list
+				   : dst->unit_decl->final_presence_list)
+				: (final_p
+				   ? dst->unit_decl->final_absence_list
+				   : dst->unit_decl->absence_list));
 		     prev_el != NULL && prev_el->next_pattern_set_el != NULL;
 		     prev_el = prev_el->next_pattern_set_el)
 		  ;
@@ -2748,7 +2821,14 @@ add_presence_absence (dest_list, pattern_list, req_pos, presence_p)
 		if (prev_el == NULL)
 		  {
 		    if (presence_p)
-		      dst->unit_decl->presence_list = copy;
+		      {
+			if (final_p)
+			  dst->unit_decl->final_presence_list = copy;
+			else
+			  dst->unit_decl->presence_list = copy;
+		      }
+		    else if (final_p)
+		      dst->unit_decl->final_absence_list = copy;
 		    else
 		      dst->unit_decl->absence_list = copy;
 		  }
@@ -2979,13 +3059,15 @@ process_decls ()
 	  unit_set_el_list
             = process_presence_absence_names
 	      (DECL_PRESENCE (decl)->names, DECL_PRESENCE (decl)->names_num,
-	       decl->pos, TRUE);
+	       decl->pos, TRUE, DECL_PRESENCE (decl)->final_p);
 	  pattern_set_el_list
 	    = process_presence_absence_patterns
 	      (DECL_PRESENCE (decl)->patterns,
-	       DECL_PRESENCE (decl)->patterns_num, decl->pos, TRUE);
+	       DECL_PRESENCE (decl)->patterns_num,
+	       decl->pos, TRUE, DECL_PRESENCE (decl)->final_p);
 	  add_presence_absence (unit_set_el_list, pattern_set_el_list,
-				decl->pos, TRUE);
+				decl->pos, TRUE,
+				DECL_PRESENCE (decl)->final_p);
 	}
     }
 
@@ -3001,13 +3083,15 @@ process_decls ()
 	  unit_set_el_list
             = process_presence_absence_names
 	      (DECL_ABSENCE (decl)->names, DECL_ABSENCE (decl)->names_num,
-	       decl->pos, FALSE);
+	       decl->pos, FALSE, DECL_ABSENCE (decl)->final_p);
 	  pattern_set_el_list
 	    = process_presence_absence_patterns
 	      (DECL_ABSENCE (decl)->patterns,
-	       DECL_ABSENCE (decl)->patterns_num, decl->pos, FALSE);
+	       DECL_ABSENCE (decl)->patterns_num,
+	       decl->pos, FALSE, DECL_ABSENCE (decl)->final_p);
 	  add_presence_absence (unit_set_el_list, pattern_set_el_list,
-				decl->pos, FALSE);
+				decl->pos, FALSE,
+				DECL_ABSENCE (decl)->final_p);
 	}
     }
 }
@@ -3690,6 +3774,9 @@ static unit_decl_t *units_array;
 /* Empty reservation of maximal length.  */
 static reserv_sets_t empty_reserv;
 
+/* Temporary reservation of maximal length.  */
+static reserv_sets_t temp_reserv;
+
 /* The state table itself is represented by the following variable.  */
 static htab_t state_table;
 
@@ -3858,6 +3945,7 @@ reserv_sets_are_intersected (operand_1, operand_2)
        el_ptr_1++, el_ptr_2++)
     if (*el_ptr_1 & *el_ptr_2)
       return 1;
+  reserv_sets_or (temp_reserv, operand_1, operand_2);
   for (cycle_ptr_1 = operand_1, cycle_ptr_2 = operand_2;
        cycle_ptr_1 < operand_1 + els_in_reservs;
        cycle_ptr_1 += els_in_cycle_reserv, cycle_ptr_2 += els_in_cycle_reserv)
@@ -3867,9 +3955,16 @@ reserv_sets_are_intersected (operand_1, operand_2)
 	   el_ptr_1++, el_ptr_2++)
 	if (*el_ptr_1 & *el_ptr_2)
 	  return 1;
-      if (!check_presence_pattern_sets (cycle_ptr_1, cycle_ptr_2))
+      if (!check_presence_pattern_sets (cycle_ptr_1, cycle_ptr_2, FALSE))
 	return 1;
-      if (!check_absence_pattern_sets (cycle_ptr_1, cycle_ptr_2))
+      if (!check_presence_pattern_sets (temp_reserv + (cycle_ptr_2
+						       - operand_2),
+					cycle_ptr_2, TRUE))
+	return 1;
+      if (!check_absence_pattern_sets (cycle_ptr_1, cycle_ptr_2, FALSE))
+	return 1;
+      if (!check_absence_pattern_sets (temp_reserv + (cycle_ptr_2 - operand_2),
+				       cycle_ptr_2, TRUE))
 	return 1;
     }
   return 0;
@@ -4238,9 +4333,10 @@ initiate_states ()
   VLA_PTR_CREATE (free_states, 1500, "free states");
   state_table = htab_create (1500, state_hash, state_eq_p, (htab_del) 0);
   empty_reserv = alloc_empty_reserv_sets ();
+  temp_reserv = alloc_empty_reserv_sets ();
 }
 
-/* Finisging work with the abstract data.  */
+/* Finishing work with the abstract data.  */
 static void
 finish_states ()
 {
@@ -4624,7 +4720,9 @@ get_excl_set (in_set)
 /* The following arrays contain correspondingly presence, final
    presence, absence, and final absence patterns for each unit.  */
 static pattern_reserv_t *unit_presence_set_table;
+static pattern_reserv_t *unit_final_presence_set_table;
 static pattern_reserv_t *unit_absence_set_table;
+static pattern_reserv_t *unit_final_absence_set_table;
 
 /* The following function forms list of reservation sets for given
    PATTERN_LIST.  */
@@ -4665,7 +4763,13 @@ initiate_presence_absence_pattern_sets ()
   unit_presence_set_table = (pattern_reserv_t *) obstack_base (&irp);
   obstack_finish (&irp);
   obstack_blank (&irp, description->units_num * sizeof (pattern_reserv_t));
+  unit_final_presence_set_table = (pattern_reserv_t *) obstack_base (&irp);
+  obstack_finish (&irp);
+  obstack_blank (&irp, description->units_num * sizeof (pattern_reserv_t));
   unit_absence_set_table = (pattern_reserv_t *) obstack_base (&irp);
+  obstack_finish (&irp);
+  obstack_blank (&irp, description->units_num * sizeof (pattern_reserv_t));
+  unit_final_absence_set_table = (pattern_reserv_t *) obstack_base (&irp);
   obstack_finish (&irp);
   /* Evaluate unit presence/absence sets.  */
   for (i = 0; i < description->decls_num; i++)
@@ -4675,8 +4779,12 @@ initiate_presence_absence_pattern_sets ()
 	{
           unit_presence_set_table [DECL_UNIT (decl)->unit_num]
 	    = form_reserv_sets_list (DECL_UNIT (decl)->presence_list);
+          unit_final_presence_set_table [DECL_UNIT (decl)->unit_num]
+	    = form_reserv_sets_list (DECL_UNIT (decl)->final_presence_list);
           unit_absence_set_table [DECL_UNIT (decl)->unit_num]
 	    = form_reserv_sets_list (DECL_UNIT (decl)->absence_list);
+          unit_final_absence_set_table [DECL_UNIT (decl)->unit_num]
+	    = form_reserv_sets_list (DECL_UNIT (decl)->final_absence_list);
         }
     }
 }
@@ -4685,8 +4793,9 @@ initiate_presence_absence_pattern_sets ()
    sets for units in ORIGIONAL_SET.  The function returns TRUE if it
    is ok.  */
 static int
-check_presence_pattern_sets (checked_set, origional_set)
+check_presence_pattern_sets (checked_set, origional_set, final_p)
      reserv_sets_t checked_set, origional_set;
+     int final_p;
 {
   int char_num;
   int chars_num;
@@ -4705,10 +4814,15 @@ check_presence_pattern_sets (checked_set, origional_set)
 	    start_unit_num = char_num * CHAR_BIT + i;
 	    if (start_unit_num >= description->units_num)
 	      break;
-	    if (unit_presence_set_table [start_unit_num] == NULL)
+	    if ((final_p
+		 && unit_final_presence_set_table [start_unit_num] == NULL)
+		|| (!final_p
+		    && unit_presence_set_table [start_unit_num] == NULL))
 	      continue;
 	    presence_p = FALSE;
-	    for (pat_reserv = unit_presence_set_table [start_unit_num];
+	    for (pat_reserv = (final_p
+			       ? unit_final_presence_set_table [start_unit_num]
+			       : unit_presence_set_table [start_unit_num]);
 		 pat_reserv != NULL;
 		 pat_reserv = pat_reserv->next_pattern_reserv)
 	      {
@@ -4728,8 +4842,9 @@ check_presence_pattern_sets (checked_set, origional_set)
    sets for units in ORIGIONAL_SET.  The function returns TRUE if it
    is ok.  */
 static int
-check_absence_pattern_sets (checked_set, origional_set)
+check_absence_pattern_sets (checked_set, origional_set, final_p)
      reserv_sets_t checked_set, origional_set;
+     int final_p;
 {
   int char_num;
   int chars_num;
@@ -4747,7 +4862,9 @@ check_absence_pattern_sets (checked_set, origional_set)
 	    start_unit_num = char_num * CHAR_BIT + i;
 	    if (start_unit_num >= description->units_num)
 	      break;
-	    for (pat_reserv = unit_absence_set_table [start_unit_num];
+	    for (pat_reserv = (final_p
+			       ? unit_final_absence_set_table [start_unit_num]
+			       : unit_absence_set_table [start_unit_num]);
 		 pat_reserv != NULL;
 		 pat_reserv = pat_reserv->next_pattern_reserv)
 	      {
@@ -5933,6 +6050,7 @@ NDFA_to_DFA (automaton)
       form_arcs_marked_by_insn (state);
       for (i = 0; i < description->decls_num; i++)
 	{
+	  decl = description->decls [i];
 	  if (decl->mode == dm_insn_reserv
 	      && create_composed_state
 	         (state, DECL_INSN_RESERV (decl)->arcs_marked_by_insn,
@@ -9083,6 +9201,14 @@ output_description ()
 	      output_pattern_set_el_list (DECL_UNIT (decl)->presence_list);
 	      fprintf (output_description_file, "\n");
 	    }
+	  if (DECL_UNIT (decl)->final_presence_list != NULL)
+	    {
+	      fprintf (output_description_file, "unit %s final_presence_set: ",
+		       DECL_UNIT (decl)->name);
+	      output_pattern_set_el_list
+		(DECL_UNIT (decl)->final_presence_list);
+ 	      fprintf (output_description_file, "\n");
+ 	    }
 	  if (DECL_UNIT (decl)->absence_list != NULL)
 	    {
 	      fprintf (output_description_file, "unit %s absence_set: ",
@@ -9090,6 +9216,14 @@ output_description ()
 	      output_pattern_set_el_list (DECL_UNIT (decl)->absence_list);
 	      fprintf (output_description_file, "\n");
 	    }
+	  if (DECL_UNIT (decl)->final_absence_list != NULL)
+	    {
+	      fprintf (output_description_file, "unit %s final_absence_set: ",
+		       DECL_UNIT (decl)->name);
+	      output_pattern_set_el_list
+		(DECL_UNIT (decl)->final_absence_list);
+ 	      fprintf (output_description_file, "\n");
+ 	    }
 	}
     }
   fprintf (output_description_file, "\n");

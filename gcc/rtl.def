@@ -394,6 +394,27 @@ DEF_RTL_EXPR(EXCLUSION_SET, "exclusion_set", "ss", 'x')
    automaton.  */
 DEF_RTL_EXPR(PRESENCE_SET, "presence_set", "ss", 'x')
 
+/* (final_presence_set string string) is analogous to `presence_set'.
+   The difference between them is when checking is done.  When an
+   instruction is issued in given automaton state reflecting all
+   current and planned unit reservations, the automaton state is
+   changed.  The first state is a source state, the second one is a
+   result state.  Checking for `presence_set' is done on the source
+   state reservation, checking for `final_presence_set' is done on the
+   result reservation.  This construction is useful to describe a
+   reservation which is actually two subsequent reservations.  For
+   example, if we use 
+
+      (presence_set "slot1" "slot0")
+
+   the following insn will be never issued (because slot1 requires
+   slot0 which is absent in the source state).
+
+      (define_reservation "insn_and_nop" "slot0 + slot1")
+
+   but it can be issued if we use analogous `final_presence_set'.  */
+DEF_RTL_EXPR(FINAL_PRESENCE_SET, "final_presence_set", "ss", 'x')
+
 /* (absence_set string string) means that each CPU functional unit in
    the first string can be reserved only if each pattern of units
    whose names are in the second string is not reserved.  This is an
@@ -416,6 +437,11 @@ DEF_RTL_EXPR(PRESENCE_SET, "presence_set", "ss", 'x')
    All CPU functional units in a set should to belong the same
    automaton.  */
 DEF_RTL_EXPR(ABSENCE_SET, "absence_set", "ss", 'x')
+
+/* (final_absence_set string string) is analogous to `absence_set' but
+   checking is done on the result (state) reservation.  See comments
+   for `final_presence_set'.  */
+DEF_RTL_EXPR(FINAL_ABSENCE_SET, "final_absence_set", "ss", 'x')
 
 /* (define_bypass number out_insn_names in_insn_names) names bypass
    with given latency (the first number) from insns given by the first

@@ -1,5 +1,38 @@
 2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* rtl.def (FINAL_PRESENCE_SET, FINAL_ABSENCE_SET): New
+	constructions.
+
+	* genattrtab.h (gen_final_presence_set, gen_final_absence_set):
+	New function prototypes.
+
+	* genattrtab.c (main): Process the new constructions.
+
+	* genautomata.c (gen_presence_absence_set,
+	process_presence_absence_names, process_presence_absence_patterns,
+	add_presence_absence, check_absence_pattern_sets): Add parameter
+	`final_p'.
+	(unit_decl): Add new members `final_presence_list' and
+	`final_absence_list'.
+	(unit_pattern_rel_decl): Add new member `final_p'.
+	(gen_final_presence_set, gen_final_absence_set): New functions.
+	(process_decls): Use member `final_p'.
+	(temp_reserv): New global variable.
+	(reserv_sets_are_intersected): Add processing `final_presence_set'
+	and `final_absence_set'.
+	(initiate_states): Allocate `temp_reserv'.
+	(unit_final_presence_set_table, unit_final_absence_set_table): New
+	gloabal variables.
+	(initiate_presence_absence_pattern_sets): Initiate them.
+	(NDFA_to_DFA): Fix typo.
+	(output_description): Output `final_presence_set' and
+	`final_absence_set'.
+
+	* doc/md.texi (final_presence_set, final_absence_set): Describe
+	them.
+	
+2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* genautomata.c (transform_3): Process a missing case (nothing on
 	unit place).
 

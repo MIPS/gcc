@@ -5639,7 +5639,9 @@ of insn @samp{store} (not a stored value).
 
 @findex exclusion_set
 @findex presence_set
+@findex final_presence_set
 @findex absence_set
+@findex final_absence_set
 @cindex VLIW
 @cindex RISC
 Usually the following three constructions are used to describe
@@ -5650,7 +5652,9 @@ used for @acronym{RISC} processors too.
 @smallexample
 (exclusion_set @var{unit-names} @var{unit-names})
 (presence_set @var{unit-names} @var{patterns})
+(final_presence_set @var{unit-names} @var{patterns})
 (absence_set @var{unit-names} @var{patterns})
+(final_absence_set @var{unit-names} @var{patterns})
 @end smallexample
 
 @var{unit-names} is a string giving names of functional units
@@ -5687,7 +5691,31 @@ reservation.  In this case we could write
 (presence_set "slot1" "slot0 b0")
 @end smallexample
 
-The third construction (@samp{absence_set}) means that each functional
+The third construction (@samp{final_presence_set}) is analogous to
+@samp{presence_set}.  The difference between them is when checking is
+done.  When an instruction is issued in given automaton state
+reflecting all current and planned unit reservations, the automaton
+state is changed.  The first state is a source state, the second one
+is a result state.  Checking for @samp{presence_set} is done on the
+source state reservation, checking for @samp{final_presence_set} is
+done on the result reservation.  This construction is useful to
+describe a reservation which is actually two subsequent reservations.
+For example, if we use
+
+@smallexample
+(presence_set "slot1" "slot0")
+@end smallexample
+
+the following insn will be never issued (because @samp{slot1} requires
+@samp{slot0} which is absent in the source state).
+
+@smallexample
+(define_reservation "insn_and_nop" "slot0 + slot1")
+@end smallexample
+
+but it can be issued if we use analogous @samp{final_presence_set}.
+
+The forth construction (@samp{absence_set}) means that each functional
 unit in the first string can be reserved only if each pattern of units
 whose names are in the second string is not reserved.  This is an
 asymmetric relation (actually @samp{exclusion_set} is analogous to
@@ -5701,7 +5729,7 @@ following construction
 @end smallexample
 
 Or @samp{slot2} can not be reserved if @samp{slot0} and unit @samp{b0}
-are reserved or @samp{slot1} and unit @samp{b1} are reserved .  In
+are reserved or @samp{slot1} and unit @samp{b1} are reserved.  In
 this case we could write
 
 @smallexample
@@ -5710,6 +5738,10 @@ this case we could write
 
 All functional units mentioned in a set should belong to the same
 automaton.
+
+The last construction (@samp{final_absence_set}) is analogous to
+@samp{absence_set} but checking is done on the result (state)
+reservation.  See comments for @samp{final_presence_set}.
 
 @findex automata_option
 @cindex deterministic finite state automaton
