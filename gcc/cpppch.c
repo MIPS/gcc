@@ -30,6 +30,8 @@ static hashval_t cpp_string_hash PARAMS ((const void *));
 static int cpp_string_eq PARAMS ((const void *, const void *));
 static int count_defs PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 static int write_defs PARAMS ((cpp_reader *, cpp_hashnode *, void *));
+static int save_macros PARAMS ((cpp_reader *, cpp_hashnode *, void *));
+static int reset_ht PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 
 /* This structure represents a macro definition on disk.  */
 struct macrodef_struct 
@@ -293,11 +295,11 @@ write_defs (pfile, hn, ss_p)
     }
 }
 
-/* Write out the definitions of the preprocessor, in a form suitable for
-   cpp_read_state.  */
+/* Write out the remainder of the dependency information.  This should be
+   called after the PCH is ready to be saved.  */
 
 int
-cpp_write_pch (r, f)
+cpp_write_pch_deps (r, f)
      cpp_reader *r;
      FILE *f;
 {
@@ -325,7 +327,19 @@ cpp_write_pch (r, f)
   /* Free the saved state.  */
   free (ss);
   r->savedstate = NULL;
-  
+  return 0;
+}
+
+/* Write out the definitions of the preprocessor, in a form suitable for
+   cpp_read_state.  */
+
+int
+cpp_write_pch_state (r, f)
+     cpp_reader *r;
+     FILE *f;
+{
+  struct macrodef_struct z;
+
   /* Write out the list of defined identifiers.  */
   cpp_forall_identifiers (r, write_macdef, f);
   memset (&z, 0, sizeof (z));
@@ -462,20 +476,119 @@ cpp_valid_state (r, name, fd)
   return 1;
 }
 
+/* Save all the existing macros and assertions.  
+   This code assumes that there might be hundreds, but not thousands of
+   existing definitions.  */
+
+struct save_macro_data {
+  struct save_macro_data *next;
+  size_t count;
+  struct cpp_hashnode macs[64];
+};
+
+
+static int 
+save_macros (r, h, data_p)
+     cpp_reader *r ATTRIBUTE_UNUSED;
+     cpp_hashnode *h;
+     void *data_p;
+{
+  struct save_macro_data **data = (struct save_macro_data **)data_p;
+  if (h->type != NT_VOID
+      && (h->flags & NODE_BUILTIN) == 0)
+    {
+      cpp_hashnode *save;
+      if ((*data)->count == ARRAY_SIZE ((*data)->macs))
+	{
+	  struct save_macro_data *d = *data;
+	  *data = xmalloc (sizeof (struct save_macro_data));
+	  (*data)->next = d;
+	  (*data)->count = 0;
+	}
+      save = (*data)->macs + (*data)->count;
+      (*data)->count++;
+      memcpy (save, h, sizeof (struct cpp_hashnode));
+      HT_STR (&save->ident) = xmemdup (HT_STR (HT_NODE (save)),
+				       HT_LEN (HT_NODE (save)),
+				       HT_LEN (HT_NODE (save)) + 1);
+    }
+  return 1;
+}
+
+void
+cpp_prepare_state (r, data)
+     cpp_reader *r;
+     struct save_macro_data **data;
+{
+  struct save_macro_data *d = xmalloc (sizeof (struct save_macro_data));
+  
+  d->next = NULL;
+  d->count = 0;
+  cpp_forall_identifiers (r, save_macros, &d);
+  *data = d;
+}
+
+
+/* Erase all the existing macros and assertions.  */
+
+static int 
+reset_ht (r, h, unused)
+     cpp_reader *r ATTRIBUTE_UNUSED;
+     cpp_hashnode *h;
+     void *unused ATTRIBUTE_UNUSED;
+{
+  if (h->type != NT_VOID
+      && (h->flags & NODE_BUILTIN) == 0)
+    {
+      h->type = NT_VOID;
+      memset (&h->value, 0, sizeof (h->value));
+    }
+  return 1;
+}
+
 /* Given a precompiled header that was previously determined to be valid,
    apply all its definitions (and undefinitions) to the current state. 
    DEPNAME is passed to deps_restore.  */
 
 int
-cpp_read_state (r, name, f)
+cpp_read_state (r, name, f, data)
      cpp_reader *r;
      const char *name;
      FILE *f;
+     struct save_macro_data *data;
 {
   struct macrodef_struct m;
   size_t defnlen = 256;
   unsigned char *defn = xmalloc (defnlen);
   struct lexer_state old_state;
+  struct save_macro_data *d;
+  size_t i;
+
+  /* First, erase all the existing hashtable entries for macros.  At
+     this point, they're all from the PCH file, and their pointers
+     won't be valid.  */
+  cpp_forall_identifiers (r, reset_ht, NULL);
+
+  /* Run through the carefully-saved macros, insert them.  */
+  d = data;
+  while (d)
+    {
+      struct save_macro_data *nextd;
+      for (i = 0; i < d->count; i++)
+	{
+	  cpp_hashnode *h;
+	  
+	  h = cpp_lookup (r, HT_STR (HT_NODE (&d->macs[i])), 
+			  HT_LEN (HT_NODE (&d->macs[i])));
+	  h->type = d->macs[i].type;
+	  h->flags = d->macs[i].flags;
+	  h->value = d->macs[i].value;
+	  free ((void *)HT_STR (HT_NODE (&d->macs[i])));
+	}
+      nextd = d->next;
+      free (d);
+      d = nextd;
+    }
 
   old_state = r->state;
 

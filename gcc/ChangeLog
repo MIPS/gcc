@@ -1,3 +1,24 @@
+2002-11-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-pch.c (c_common_write_pch): Write the macro definitions after
+	the GCed data.
+	(c_common_read_pch): Call cpp_prepare_state.  Restore the macro
+	definitions after the GCed data.
+	* cpplib.c (save_macros): New.
+	(reset_ht): New.
+	(cpp_write_pch_deps): Split out of cpp_write_pch.
+	(cpp_write_pch_state): Split out of cpp_write_pch.
+	(cpp_write_pch): Delete.
+	(struct save_macro_data): Delete.
+	(cpp_prepare_state): New.
+	(cpp_read_state): Erase and restore initial macro definitions.
+	* cpplib.h (struct save_macro_data): Forward-declare.
+	(cpp_write_pch_deps): Prototype.
+	(cpp_write_pch_state): Prototype.
+	(cpp_write_pch): Delete prototype.
+	(cpp_prepare_state): Prototype.
+	(cpp_read_state): Add fourth argument.
+
 2002-11-04  Geoffrey Keating  <geoffk@apple.com>
 
 	* gengtype.c (adjust_field_rtx_def): Don't use skip on valid fields.

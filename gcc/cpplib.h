@@ -731,10 +731,15 @@ extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
 
 /* In cpppch.c */
+struct save_macro_data;
 extern int cpp_save_state PARAMS ((cpp_reader *, FILE *));
-extern int cpp_write_pch PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch_deps PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch_state PARAMS ((cpp_reader *, FILE *));
 extern int cpp_valid_state PARAMS ((cpp_reader *, const char *, int));
-extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *));
+extern void cpp_prepare_state PARAMS ((cpp_reader *, 
+				       struct save_macro_data **));
+extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *,
+				   struct save_macro_data *));
 
 /* In cppmain.c */
 extern void cpp_preprocess_file PARAMS ((cpp_reader *, const char *, FILE *));

@@ -1,27 +1,32 @@
+2002-11-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/macro-3.c: New.
+	* gcc.dg/pch/macro-3.h: New.
+
 2002-11-04  Geoffrey Keating  <geoffk@apple.com>
 
-	* common-1.c: New.
-	* common-1.h: New.
-	* decl-1.c: New.
-	* decl-1.h: New.
-	* decl-2.c: New.
-	* decl-2.h: New.
-	* decl-3.c: New.
-	* decl-3.h: New.
-	* decl-4.c: New.
-	* decl-4.h: New.
-	* decl-5.c: New.
-	* decl-5.h: New.
-	* global-1.c: New.
-	* global-1.h: New.
-	* inline-1.c: New.
-	* inline-1.h: New.
-	* inline-2.c: New.
-	* inline-2.h: New.
-	* static-1.c: New.
-	* static-1.h: New.
-	* static-2.c: New.
-	* static-2.h: New.
+	* gcc.dg/pch/common-1.c: New.
+	* gcc.dg/pch/common-1.h: New.
+	* gcc.dg/pch/decl-1.c: New.
+	* gcc.dg/pch/decl-1.h: New.
+	* gcc.dg/pch/decl-2.c: New.
+	* gcc.dg/pch/decl-2.h: New.
+	* gcc.dg/pch/decl-3.c: New.
+	* gcc.dg/pch/decl-3.h: New.
+	* gcc.dg/pch/decl-4.c: New.
+	* gcc.dg/pch/decl-4.h: New.
+	* gcc.dg/pch/decl-5.c: New.
+	* gcc.dg/pch/decl-5.h: New.
+	* gcc.dg/pch/global-1.c: New.
+	* gcc.dg/pch/global-1.h: New.
+	* gcc.dg/pch/inline-1.c: New.
+	* gcc.dg/pch/inline-1.h: New.
+	* gcc.dg/pch/inline-2.c: New.
+	* gcc.dg/pch/inline-2.h: New.
+	* gcc.dg/pch/static-1.c: New.
+	* gcc.dg/pch/static-1.h: New.
+	* gcc.dg/pch/static-2.c: New.
+	* gcc.dg/pch/static-2.h: New.
 
 2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
 

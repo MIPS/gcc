@@ -75,7 +75,7 @@ c_common_write_pch ()
   off_t written;
   struct c_pch_header h;
 
-  cpp_write_pch (parse_in, pch_outfile);
+  cpp_write_pch_deps (parse_in, pch_outfile);
 
   asm_file_end = ftello (asm_out_file);
   h.asm_size = asm_file_end - asm_file_startpos;
@@ -103,6 +103,7 @@ c_common_write_pch ()
   free (buf);
 
   gt_pch_save (pch_outfile);
+  cpp_write_pch_state (parse_in, pch_outfile);
 
   fclose (pch_outfile);
 }
@@ -171,6 +172,7 @@ c_common_read_pch (pfile, name, fd)
   struct c_pch_header h;
   char *buf;
   unsigned long written;
+  struct save_macro_data *smd;
   
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -180,9 +182,6 @@ c_common_read_pch (pfile, name, fd)
     }
 
   allow_pch = 0;
-
-  if (cpp_read_state (pfile, name, f) != 0)
-    return;
 
   if (fread (&h, sizeof (h), 1, f) != 1)
     {
@@ -203,7 +202,12 @@ c_common_read_pch (pfile, name, fd)
     }
   free (buf);
 
+  cpp_prepare_state (pfile, &smd);
+
   gt_pch_restore (f);
+
+  if (cpp_read_state (pfile, name, f, smd) != 0)
+    return;
 
   fclose (f);
 }
