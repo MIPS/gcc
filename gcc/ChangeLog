@@ -1,3 +1,31 @@
+2003-12-02  Mike Stump  <mrs@apple.com>
+
+	* config/darwin-c.c: struct cpp_dir -> cpp_dir.
+
+	* c-lang.c: Add LANG_HOOKS_FINISH_SERVER.
+	* langhooks-def.h: Add LANG_HOOKS_FINISH_SERVER.
+	* langhooks.h (struct lang_hooks): Add finish_server.
+	* c-common.h (report_fragmemt_statistics): Add.
+
+	* cppfiles.c (delete_fragment): Add.
+	* cpplib.h (delete_fragment): Add.
+
+	* c-common.c (create_builtins_fragment): Free builtins_fragment.
+	(reset_hashnode): Handle resetting assertions.
+	(cb_enter_fragment): currently_nested < 0 means we are not nested as well.
+	(cb_exit_fragment): currently_nested < 0 means we are not nested as well.
+	(init_output_fragment): Don't need to clear output_fragment anymore.
+	(end_output_fragment): Clear output_fragment here instead.
+
+	* toplev.c (get_request_from_load_balancer): Default load balancer
+	for C++ to on and for C, to off.
+	(get_job): Exit gracfully if the load balnacer disappears.
+	(server_argv): constify.
+	(server_loop): constify argv.  Use a hook to print statistics so
+	that other non-C languages work better.
+
+	* opts.c (common_handle_option): Free asm_file_name, and allocate with xstrdup.
+
 2003-12-02  Per Bothner  <pbothner@apple.com>
 
 	* toplev.c (lang_dependent_init):  Kludge to skip backend if only

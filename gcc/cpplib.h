@@ -605,6 +605,7 @@ extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
 extern void _cpp_start_fragment PARAMS ((cpp_reader *));
 extern void _cpp_enter_fragment PARAMS ((cpp_reader *, cpp_fragment*));
 extern void _cpp_exit_fragment PARAMS ((cpp_reader *, cpp_fragment*));
+extern void delete_fragment (cpp_fragment *);
 
 /* Used by compile server to restore previous macro state. */
 struct cpp_macro_note

@@ -4193,7 +4193,7 @@ create_builtins_fragment (void)
 {
   struct c_include_fragment* st;
   cpp_fragment *fragment;
-  fragment = xcalloc (1, sizeof(cpp_fragment));
+  fragment = xcalloc (1, sizeof (cpp_fragment));
   fragment->name = "<built-in>";
   parse_in->current_fragment = fragment;
   st = alloc_include_fragment ();
@@ -4201,6 +4201,11 @@ create_builtins_fragment (void)
   st->valid = 1;
   st->name = fragment->name;
   current_c_fragment = st;
+  if (builtins_fragment)
+    {
+      delete_fragment (builtins_fragment);
+      builtins_fragment = 0;
+    }
   builtins_fragment = fragment;
   builtins_c_fragment = st;
   parse_in->do_note_macros = 1;
@@ -4419,6 +4424,9 @@ reset_hashnode (node)
       macro->used = 0;
 
       _cpp_free_definition (node);
+    } else if (node->type == NT_ASSERTION)
+    {
+      _cpp_free_definition (node);
     }
 }
 
@@ -4479,7 +4487,6 @@ int current_fragment_is_new;
 int current_fragment_nested_at_start;
 int current_fragment_nested_at_end;
 
-extern void report_fragment_statistics (void);
 void
 report_fragment_statistics (void)
 {
@@ -4540,7 +4547,7 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
       int i;
       valid = st->valid;
 
-      if (currently_nested && valid)
+      if (currently_nested > 0 && valid)
 	{
 	  valid = 0;
 	  if (warn_fragment_invalidation)
@@ -4758,7 +4765,7 @@ cb_exit_fragment (reader, fragment)
 	    }
 	}
 
-      if (currently_nested)
+      if (currently_nested > 0)
 	{
 	  if (warn_fragment_invalidation)
 	    inform ("invalidating cached fragment because it ends inside a declaration");
@@ -4871,13 +4878,14 @@ end_output_fragment (void)
   if (output_fragment != parse_in->current_fragment)
     abort();
   cb_exit_fragment (parse_in, output_fragment);
-  /* This should be folded into cb_exit_fragment?!  */
   parse_in->current_fragment = NULL;
+
+  delete_fragment (output_fragment);
+  output_fragment = 0;
 }
 
 void init_output_fragment ()
 {
-  output_fragment = 0;
   output_c_fragment = 0;
 }
 

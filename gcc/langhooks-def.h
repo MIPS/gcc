@@ -87,6 +87,7 @@ extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_INIT_PCH		lhd_do_nothing
 #define LANG_HOOKS_FINISH		lhd_do_nothing
+#define LANG_HOOKS_FINISH_SERVER	lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
@@ -260,6 +261,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_INIT_ONCE, \
   LANG_HOOKS_INIT, \
   LANG_HOOKS_FINISH, \
+  LANG_HOOKS_FINISH_SERVER, \
   LANG_HOOKS_INIT_PCH, \
   LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \

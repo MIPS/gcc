@@ -202,7 +202,7 @@ add_framework (const char *name, size_t len, cpp_dir *dir)
    we saw it.  NAME is LEN bytes long.  The return value is the place
    where it was seen before.  */
 
-static struct cpp_dir*
+static cpp_dir*
 find_framework (const char *name, size_t len)
 {
   int i;
@@ -291,8 +291,8 @@ find_subframework_file (const char *fname, const char *pname)
   const char *dot_framework = ".framework/";
   char *bufptr; 
   int sfrname_len, i, fname_len; 
-  struct cpp_dir *fast_dir;
-  struct cpp_dir subframe_dir;
+  cpp_dir *fast_dir;
+  static cpp_dir subframe_dir;
   struct stat st;
 
   bufptr = strchr (fname, '/');

@@ -4760,6 +4760,9 @@ get_job (const char *prog)
 	       (struct sockaddr *) &server,
 	       sizeof(struct sockaddr_un)) < 0)
     {
+      /* The server was requested to quit or was killed, so we are now done.  */
+      if (errno == ENOENT)
+	return -1;
       fatal_error ("connecting stream socket: %m");
     }
   xwrite (sock, "S", 1);
@@ -4792,10 +4795,17 @@ get_request_from_load_balancer (int *sockp)
   static int idle_servers[SERVER_MAX];
   static int nservers = 0;
   /* For debugging, turn this off.  */
-  static int do_load_balancing = 0;
+  static int do_load_balancing = -1;
   int fd;
   char xbuf[1];
 
+  if (do_load_balancing == -1)
+    {
+      if (lang_hooks.uses_conditional_symtab)
+	do_load_balancing = getenv ("NOLOADBALANCE") == 0;
+      else
+	do_load_balancing = getenv ("LOADBALANCE") != 0;
+    }
   while (1)
     {
       fprintf(stderr, "finding next bit of work\n");
@@ -4892,7 +4902,7 @@ get_request_from_load_balancer (int *sockp)
 static long server_timeout;
 
 /* The options passed by the gcc client when we're in server mode. */
-static char** server_argv;
+static const char** server_argv;
 
 /* The number of elements of server_argv. */
 static int server_argc;
@@ -5050,7 +5060,7 @@ server_loop ()
 	    }
 	  if (! matches_old_flags)
 	    {
-	      char ** argv = xmalloc (nargs * sizeof (char*));
+	      const char ** argv = xmalloc (nargs * sizeof (const char*));
 	      int iarg = 0;
 	      start = command_buffer + 2;
 	      for (i = 2;  i < pos - 1;  i++)
@@ -5109,11 +5119,8 @@ server_loop ()
       unlink (server.sun_path);
     }
   else
-      fprintf(stderr, "server done\n");
-  { /* Kludge - fails unless linked with c-common.o. */
-    extern void report_fragment_statistics (void);
-    report_fragment_statistics ();
-  }
+    fprintf(stderr, "server done\n");
+  lang_hooks.finish_server ();
 #endif
 }
 

@@ -1464,7 +1464,9 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_o:
-      asm_file_name = arg;
+      if (asm_file_name)
+	free ((void*)asm_file_name);
+      asm_file_name = xstrdup (arg);
       break;
 
     case OPT_p:

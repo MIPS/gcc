@@ -1319,6 +1319,7 @@ extern void init_c_lex (void);
 extern void register_cpp_callbacks (void);
 
 extern void c_cpp_builtins (cpp_reader *);
+extern void report_fragment_statistics (void);
 
 /* Positive if an implicit `extern "C"' scope has just been entered;
    negative if such a scope has just been exited.  */

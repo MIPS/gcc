@@ -244,6 +244,9 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);
 
+  /* Called at the very end of compilation to report server statistics.  */
+  void (*finish_server)(void);
+
   /* Called to initialize pch.  */
   void (*pch_init) (void);
 

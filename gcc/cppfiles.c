@@ -751,6 +751,14 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   return true;
 }
 
+void
+delete_fragment (cpp_fragment *fragment)
+{
+  if (fragment->macro_notes)
+    free (fragment->macro_notes);
+  free (fragment);
+}
+
 static void
 purge_fragments (_cpp_file *inc)
 {
