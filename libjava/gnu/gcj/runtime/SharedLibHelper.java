@@ -1,4 +1,4 @@
-/* Copyright (C) 2001, 2003  Free Software Foundation
+/* Copyright (C) 2001, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -16,14 +16,12 @@ import gnu.gcj.Core;
 import java.util.Set;
 import java.util.Iterator;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.nio.channels.FileChannel;
 import java.io.*;
 
 public class SharedLibHelper
 {
-   private final java.util.HashMap h = 
-     new java.util.HashMap();
-
   /** Load a shared library, and associate a ClassLoader with it.
    * @param libname named of shared library (passed to dlopen)
    * @param parent the parent ClassLoader
@@ -57,7 +55,7 @@ public class SharedLibHelper
       }
   }
 
-  static void copyFile (File in, File out) throws java.io.IOException 
+  static void copyFile (File in, File out) throws IOException 
   {
     FileChannel source = new FileInputStream(in).getChannel();
     FileChannel destination = new FileOutputStream(out).getChannel();
@@ -129,19 +127,7 @@ public class SharedLibHelper
   public Class findClass(String name)
   {
     ensureInit();
-    Class c = (Class)classMap.get(name);
-    if (c != null)
-      {
-	String s = System.getProperty("gnu.classpath.verbose");
-	if (s != null && s.equals("class"))
-	  if (h.get(name) == null)
-	    {
-	      System.err.println("[Loading class " + name 
-				 + " from " + this + "]");
-	      h.put(name,name);
-	    }		
-      }
-    return c;
+    return (Class) classMap.get(name);
   }
 
   public URL findResource (String name)

@@ -22,6 +22,7 @@ details.  */
 #include <java-interp.h>
 
 #include <java/lang/VMClassLoader.h>
+#include <java/lang/VMCompiler.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Class.h>
@@ -37,58 +38,64 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 					jint length,
 					java::security::ProtectionDomain *pd)
 {
+  jclass klass = VMCompiler::compileClass(loader, name, data,
+					  offset, length, pd);
+
+  if (klass != NULL)
+    {
+      JvSynchronize sync (&java::lang::Class::class$);
+      _Jv_RegisterClass (klass);
+    }
 #ifdef INTERPRETER
-  jclass klass;
-  klass = new java::lang::Class ();
-  klass->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
-
-  // Synchronize on the class, so that it is not attempted initialized
-  // until we're done loading.
-  JvSynchronize sync (klass);
-
-  // Record the defining loader.  For the system class loader, we
-  // record NULL.
-  if (loader != java::lang::ClassLoader::getSystemClassLoader())
-    klass->loader = loader;
-
-  if (name != 0)
+  else
     {
-      _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
+      klass = new java::lang::Class ();
+      klass->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
 
-      if (! _Jv_VerifyClassName (name2))
-	throw new java::lang::ClassFormatError
-	  (JvNewStringLatin1 ("erroneous class name"));
+      // Synchronize on the class, so that it is not attempted initialized
+      // until we're done loading.
+      JvSynchronize sync (klass);
 
-      klass->name = name2;
+      // Record the defining loader.  For the system class loader, we
+      // record NULL.
+      if (loader != java::lang::ClassLoader::getSystemClassLoader())
+	klass->loader = loader;
+
+      if (name != 0)
+	{
+	  _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
+
+	  if (! _Jv_VerifyClassName (name2))
+	    throw new java::lang::ClassFormatError
+	      (JvNewStringLatin1 ("erroneous class name"));
+
+	  klass->name = name2;
+	}
+
+      try
+	{
+	  _Jv_DefineClass (klass, data, offset, length);
+	}
+      catch (java::lang::Throwable *ex)
+	{
+	  klass->state = JV_STATE_ERROR;
+	  klass->notifyAll ();
+
+	  _Jv_UnregisterClass (klass);
+
+	  // If EX is not a ClassNotFoundException, that's ok, because we
+	  // account for the possibility in defineClass().
+	  throw ex;
+	}
+
+      klass->protectionDomain = pd;
+
+      // if everything proceeded sucessfully, we're loaded.
+      JvAssert (klass->state == JV_STATE_LOADED);
     }
-
-  try
-    {
-      _Jv_DefineClass (klass, data, offset, length);
-    }
-  catch (java::lang::Throwable *ex)
-    {
-      klass->state = JV_STATE_ERROR;
-      klass->notifyAll ();
-
-      _Jv_UnregisterClass (klass);
-
-      // If EX is not a ClassNotFoundException, that's ok, because we
-      // account for the possibility in defineClass().
-      throw ex;
-    }
-    
-  klass->protectionDomain = pd;
-
-  // if everything proceeded sucessfully, we're loaded.
-  JvAssert (klass->state == JV_STATE_LOADED);
+#endif // INTERPRETER
 
   return klass;
-
-#else // INTERPRETER
-
-  return 0;
-#endif
 }
 
 // Finish linking a class.  Only called from ClassLoader::resolveClass.

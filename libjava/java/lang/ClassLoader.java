@@ -1,5 +1,5 @@
 /* ClassLoader.java -- responsible for loading classes into the VM
-   Copyright (C) 1998, 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,9 +40,7 @@ package java.lang;
 
 import gnu.java.util.DoubleEnumeration;
 import gnu.java.util.EmptyEnumeration;
-import gnu.gcj.runtime.SharedLibHelper;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -52,9 +50,7 @@ import java.security.Policy;
 import java.security.ProtectionDomain;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.Map;
-
 
 /**
  * The ClassLoader is a way of customizing the way Java gets its classes
@@ -212,9 +208,6 @@ public abstract class ClassLoader
    */
   // Package visible for use by Class.
   Map classAssertionStatus;
-
-  // All our SharedLibHelpers: when we get gc'd, so do they.
-  Map SharedLibHelpers = new IdentityHashMap();
 
   /**
    * Create a new ClassLoader with as parent the system classloader. There
@@ -456,116 +449,8 @@ public abstract class ClassLoader
     if (! initialized)
       throw new SecurityException("attempt to define class from uninitialized class loader");
     
-    Class retval = null;
-
-    String gcjJitCompiler = System.getenv0 ("GCJ_JIT_COMPILER");
-    if (gcjJitCompiler != null)
-      {
-      compile:
-	try
-	  {
-	    // FIXME: Make sure that the class represented by the
-	    // bytes in DATA really is the class named in NAME.  Make
-	    // sure it's not "java.*".
-	    java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
-	    byte digest[] = md.digest(data);
-	    String tmpdir = System.getenv0("GCJ_JIT_TMPDIR");
-	    if (tmpdir == null)
-	      tmpdir = "/tmp";
-	    StringBuffer hexBytes = new StringBuffer(tmpdir);
-	    hexBytes.append("/");
-	    int digestLength = digest.length;
-	    for (int i=0; i<digestLength; i++)
-	      hexBytes.append(Integer.toHexString(digest[i]&0xff));
-	    StringBuffer fileName = new StringBuffer(hexBytes.toString());
-	    fileName.append(".so");
-	    File soFile = new File (fileName.toString());
-	    if (soFile.isFile())
-	      {
-		Class c = null;
-		SharedLibHelper helper 
-		  = SharedLibHelper.findHelper (this, fileName.toString(),
-						domain.getCodeSource());
-		c = helper.findClass (name);
-		if (c != null)
-		  {
-		    SharedLibHelpers.put(helper,c);
-		    retval = c;
-		    _registerClass(retval);
-		    break compile;
-		  }
-	      }
-	    File classFile = new File(hexBytes+".class");
-	    classFile.delete();
-	    if (classFile.createNewFile() != true)	  
-	      throw new IOException ();
-	    java.io.FileOutputStream f = new java.io.FileOutputStream (classFile);
-	    byte[] b = new byte[len];
-	    System.arraycopy(data,offset,b,0,len);
-	    f.write(b);
-	
-	    StringBuffer command = new StringBuffer(gcjJitCompiler);
-	    command.append(" ");
-	    command.append(classFile);
-	    command.append(" ");
-	    String opts = System.getenv0("GCJ_JIT_OPTIONS");
-	    if (opts != null)
-	      command.append(opts);
-	    command.append(" -g -findirect-dispatch -shared -fPIC -o ");
-	    command.append(fileName);
-	    Process p = Runtime.getRuntime().exec(command.toString());
-	    StringBuffer err = new StringBuffer();
-	    {
-	      InputStream stderr = p.getErrorStream();
-	      int ch;
-	      // FIXME: We need a much better way to handle error output
-	      // from the compiler.
-	      while ((ch = stderr.read()) != -1)
-		err.append((char)ch);
-	    }
-	    if (p.waitFor() != 0)
-	      {
-		System.err.println(err.toString());
-		throw new IOException ();
-	      }
-	    {
-	      Class c = null;
-	      SharedLibHelper helper 
-		= SharedLibHelper.findHelper (this, fileName.toString(), 
-					      domain.getCodeSource());
-	      c = helper.findClass (name);
-	      if (c != null)
-		{
-		  SharedLibHelpers.put(helper,c);
-		  retval = c;
-		  _registerClass(retval);
-		}	
-	    }
-	  }
-	catch (Exception _)
-	  {
-	  }
-      }
-    
-    if (retval == null)
-      retval = VMClassLoader.defineClass(this, name, data,
-					 offset, len, domain);
-
-    {	    
-      String s = System.getProperty("gnu.classpath.verbose");
-      if (s != null && s.equals("class"))
-	{
-	  java.security.CodeSource source = domain.getCodeSource();
-	  java.net.URL url = source != null ? source.getLocation() : null;
-	  String URLname = url != null ? url.toString() : null;
-	  if (URLname == null)
-	    URLname = "unknown location";
-	  System.err.println("[Loading class " + retval.getName()
-			     + " from  " + URLname + "]");
-	}
-		
-    }
-
+    Class retval = VMClassLoader.defineClass(this, name, data,
+					     offset, len, domain);
     loadedClasses.put(retval.getName(), retval);
     return retval;
   }
@@ -858,7 +743,7 @@ public abstract class ClassLoader
     if (sm != null)
       {
 	Class c = VMSecurityManager.getClassContext()[1];
-	ClassLoader cl = getClassLoader0(c);
+	ClassLoader cl = c.getClassLoader();
 	if (cl != null && cl != systemClassLoader)
 	  sm.checkPermission(new RuntimePermission("getClassLoader"));
       }
@@ -1079,8 +964,4 @@ public abstract class ClassLoader
       }
     return false;
   }
-
-    static private final native ClassLoader getClassLoader0(Class c);
-
-    private final native void _registerClass(Class c);
 }

@@ -1,3 +1,24 @@
+2004-08-11  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Regenerated.
+	* java/lang/natClassLoader.cc (getClassLoader0): Removed.
+	(_registerClass): Likewise.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added VMCompiler.
+	* java/lang/Compiler.java: Rewrote in terms of VMCompiler.
+	* java/lang/VMCompiler.java: New file.
+	* gnu/gcj/runtime/SharedLibHelper.java (findClass): Removed
+	`verbose' code.
+	(copyFile): Don't use fully-qualified name.
+	(h): Removed.
+	* java/lang/natVMClassLoader.cc: Include VMCompiler.h.
+	(defineClass): Use VMCompiler.
+	* java/lang/ClassLoader.java (defineClass): Removed jit
+	compilation code and `verbose' code.
+	(getClassLoader0): Removed.
+	(_registerClass): Likewise.
+	(SharedLibHelpers): Removed.
+
 2004-08-10  Tom Tromey  <tromey@redhat.com>
 
 	* java/net/URLClassLoader.java (URLLoader(URLClassLoader, URL,

@@ -2043,6 +2043,7 @@ java/lang/UnsupportedOperationException.java \
 java/lang/VerifyError.java \
 java/lang/VirtualMachineError.java \
 java/lang/VMClassLoader.java \
+java/lang/VMCompiler.java \
 java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 java/lang/Void.java \

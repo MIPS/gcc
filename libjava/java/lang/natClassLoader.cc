@@ -582,19 +582,6 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   element->arrayclass = array_class;
 }
 
-// Return the true ClassLoader for a class, without doing security checks
-::java::lang::ClassLoader *
-::java::lang::ClassLoader::getClassLoader0 (::java::lang::Class *c)
-{
-  return c->loader;
-}
-
-void
-::java::lang::ClassLoader::_registerClass (::java::lang::Class *c)
-{
-  _Jv_RegisterClass (c);
-}
-
 static jclass stack_head;
 
 // These two functions form a stack of classes.   When a class is loaded
