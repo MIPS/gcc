@@ -1047,8 +1047,15 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
   else
     VARRAY_TREE_INIT (gimplify_ctxp->case_labels, 8, "case_labels");
 
-  gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
-		 is_gimple_val, fb_rvalue);
+  /* We don't want to risk changing the type of the switch condition,
+     lest stmt.c get the wrong impression about enumerations.  */
+  if (TREE_CODE (SWITCH_COND (switch_expr)) == NOP_EXPR)
+    gimplify_expr (&TREE_OPERAND (SWITCH_COND (switch_expr), 0), pre_p,
+		   NULL, is_gimple_val, fb_rvalue);
+  else
+    gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
+		   is_gimple_val, fb_rvalue);
+
   gimplify_stmt (&SWITCH_BODY (switch_expr));
 
   labels = gimplify_ctxp->case_labels;
