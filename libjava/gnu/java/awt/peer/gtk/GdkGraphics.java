@@ -287,7 +287,10 @@ public class GdkGraphics extends Graphics
 
   public void setColor (Color c)
   {
-    color = c;
+    if (c == null)
+      color = new Color (0, 0, 0);
+    else
+      color = c;
 
     if (xorColor == null) /* paint mode */
       setFGColor (color.getRed (), color.getGreen (), color.getBlue ());

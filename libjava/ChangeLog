@@ -1,3 +1,8 @@
+2004-03-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics.java (setColor): Default to
+	black when color argument is null.
+
 2004-03-10  Kim Ho  <kho@redhat.com>
 
 	* java/awt/Container.java: Remove check
