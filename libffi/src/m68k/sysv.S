@@ -95,3 +95,7 @@ epilogue:
 	unlk	%a6
 	rts
 	.size	ffi_call_SYSV,.-ffi_call_SYSV
+
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif
