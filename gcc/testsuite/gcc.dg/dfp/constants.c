@@ -16,16 +16,15 @@ _Decimal64 B64 = .00000202e2dd;
 _Decimal128 b128 = 000.3e0dl;
 _Decimal128 B128 = 3000300030003e0DL;
 
-/* Hexidecimal floating point constants are not valid for decimal floating
+/* Hexadecimal floating point constants are not valid for decimal floating
    poing type constants. */
 
-_Decimal32 x32 = 0x1.0p1df;  
-/* { dg-error "invalid suffix" "hexidecimal floating constant"} */
-_Decimal32 X32 = 0x1.0p1DF; /* { dg-error "invalid suffix" "hexidecimal floating constant"} */
-_Decimal64 x64 = 0x2.0p2dd;  /* { dg-error "invalid suffix" "hexidecimal floating constant"} */
-_Decimal64 X64 = 0x2.0p2DD;  /* { dg-error "invalid suffix" "hexidecimal floating constant"} */
-_Decimal128 x128 = 0x3.0p3dl;  /* { dg-error "invalid suffix" "hexidecimal floating constant"} */
-_Decimal128 X128 = 0x3.0p3DL;  /* { dg-error "invalid suffix" "hexidecimal floating constant"} */
+_Decimal32 x32 = 0x1.0p1df;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
+_Decimal32 X32 = 0x1.0p1DF;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
+_Decimal64 x64 = 0x2.0p-2dd; /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
+_Decimal64 X64 = 0x2.0p2DD;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
+_Decimal128 x128 = 0x3.0p3dl;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
+_Decimal128 X128 = 0x3.0p3DL;  /* { dg-error "invalid suffix" "hexadecimal floating constant" } */
 
 
 
