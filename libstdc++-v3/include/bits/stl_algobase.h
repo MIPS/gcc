@@ -167,6 +167,7 @@ namespace std
    *  @brief This does what you think it does.
    *  @param  a  A thing of arbitrary type.
    *  @param  b  Another thing of arbitrary type.
+   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
    *  @return   The lesser of the parameters.
    *
    *  This will work on temporary expressions, since they are only evaluated

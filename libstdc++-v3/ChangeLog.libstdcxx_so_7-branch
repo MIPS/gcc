@@ -1,3 +1,35 @@
+2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (replace_copy, replace_copy_of):
+	Don't assume that __new_value and *__first are convertible to
+	each other.	
+
+	* include/bits/stl_algobase.h (min): Readd lost comment.
+	* include/bits/predefined_ops.h (equal_to::operator(),
+	less::operator()): Add const.
+	* testsuite/testsuite_iterators.h (WritableObject::WritableObject):
+	Add const.
+	* testsuite/25_algorithms/find/1.cc: New.
+	* testsuite/25_algorithms/find/check_type.cc: New.
+	* testsuite/25_algorithms/find_if/1.cc: New.
+	* testsuite/25_algorithms/find_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace/1.cc: New.
+	* testsuite/25_algorithms/replace/check_type.cc: New.
+	* testsuite/25_algorithms/replace_if/1.cc: New.
+	* testsuite/25_algorithms/replace_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy/1.cc: New.
+	* testsuite/25_algorithms/replace_copy/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/1.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/check_type.cc: New.
+	* testsuite/25_algorithms/remove/1.cc: New.
+	* testsuite/25_algorithms/remove/check_type.cc: New.
+	* testsuite/25_algorithms/remove_if/1.cc: New.
+	* testsuite/25_algorithms/remove_if/check_type.cc: New.
+	* testsuite/25_algorithms/count/1.cc: New.
+	* testsuite/25_algorithms/count/check_type.cc: New.
+	* testsuite/25_algorithms/count_if/1.cc: New.
+	* testsuite/25_algorithms/count_if/check_type.cc: New.
+
 2005-02-27  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050227.

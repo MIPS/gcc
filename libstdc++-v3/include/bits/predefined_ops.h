@@ -43,7 +43,7 @@ namespace __ops
   {
     template<typename _Lhs, typename _Rhs>
       bool
-      operator()(const _Lhs& __lhs, const _Rhs& __rhs)
+      operator()(const _Lhs& __lhs, const _Rhs& __rhs) const
       { return __lhs < __rhs; }
   };
 
@@ -51,7 +51,7 @@ namespace __ops
   {
     template<typename _Lhs, typename _Rhs>
       bool
-      operator()(const _Lhs& __lhs, const _Rhs& __rhs)
+      operator()(const _Lhs& __lhs, const _Rhs& __rhs) const
       { return __lhs == __rhs; }
   };
 } // namespace __ops

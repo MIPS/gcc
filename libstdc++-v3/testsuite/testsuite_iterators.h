@@ -98,7 +98,7 @@ namespace __gnu_test
 
       template<class U>
       void
-      operator=(U& new_val)
+      operator=(const U& new_val)
       {
 	ITERATOR_VERIFY(SharedInfo->writtento[ptr - SharedInfo->first] == 0);
 	SharedInfo->writtento[ptr - SharedInfo->first] = 1;
