@@ -76,7 +76,14 @@ static dominance_info pdom_info = NULL;
 
 static struct cfg_stats_d cfg_stats;
 
+static struct obstack block_tree_ann_obstack;
+static void *first_block_tree_ann_obj = 0;
+
 /* Basic blocks and flowgraphs.  */
+static void create_blocks_annotations (void);
+static void create_block_annotation (basic_block);
+static void free_blocks_annotations (void);
+static void clear_blocks_annotations (void);
 static basic_block make_blocks (tree *, tree, tree, basic_block);
 static void make_cond_expr_blocks (tree *, tree, basic_block);
 static void make_catch_expr_blocks (tree *, tree, basic_block);
@@ -109,6 +116,8 @@ static void find_contained_blocks (tree *, bitmap, tree **);
 static void compute_reachable_eh (tree);
 static int tree_verify_flow_info (void);
 static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
+static struct loops *tree_loop_optimizer_init (FILE *);
+static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks (void);
@@ -205,7 +214,9 @@ struct cfg_hooks tree_cfg_hooks = {
   NULL,				/* can_merge_blocks_p  */
   NULL,				/* merge_blocks  */
   tree_split_edge,		/* cfgh_split_edge  */
-  tree_make_forwarder_block	/* cfgh_make_forward_block  */
+  tree_make_forwarder_block,	/* cfgh_make_forward_block  */
+  tree_loop_optimizer_init,     /* cfgh_loop_optimizer_init  */
+  tree_loop_optimizer_finalize  /* cfgh_loop_optimizer_finalize  */
 };
 
 /*---------------------------------------------------------------------------
@@ -258,7 +269,7 @@ build_tree_cfg (tree fnbody)
 	  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
 	  /* Create block annotations.  */
-	  alloc_aux_for_blocks (sizeof (struct bb_ann_d));
+	  create_blocks_annotations ();
 
 	  /* Create the edges of the flowgraph.  */
 	  make_edges ();
@@ -304,6 +315,62 @@ build_tree_cfg (tree fnbody)
     }
 }
 
+/* Create annotations for all the basic blocks.  */
+
+static void create_blocks_annotations (void)
+{
+  basic_block bb;
+  static int initialized;
+
+  if (!initialized)
+    {
+      gcc_obstack_init (&block_tree_ann_obstack);
+      initialized = 1;
+    }
+  /* Check whether TREE_ANNOTATIONS data are still allocated.  */
+  else if (first_block_tree_ann_obj)
+    abort ();
+  
+  first_block_tree_ann_obj = obstack_alloc (&block_tree_ann_obstack, 0);
+  
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    create_block_annotation (bb);
+}
+
+/* Create annotations for a single basic block.  */
+
+static void create_block_annotation (basic_block bb)
+{
+  /* Verify that the tree_annotations field is clear.  */
+  if (bb->tree_annotations || !first_block_tree_ann_obj)
+    abort ();
+  bb->tree_annotations = obstack_alloc (&block_tree_ann_obstack, 
+					sizeof (struct bb_ann_d));
+  memset (bb->tree_annotations, 0, sizeof (struct bb_ann_d));
+}
+
+/* Free the annotations for all the basic blocks.  */
+
+static void free_blocks_annotations (void)
+{
+  if (!first_block_tree_ann_obj)
+    abort ();
+  obstack_free (&block_tree_ann_obstack, first_block_tree_ann_obj);
+  first_block_tree_ann_obj = NULL;
+
+  clear_blocks_annotations ();  
+}
+
+/* Clear the annotations for all the basic blocks.  */
+
+static void
+clear_blocks_annotations (void)
+{
+  basic_block bb;
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    bb->tree_annotations = NULL;
+}
 
 /* Build a flowgraph for the statements starting at the statement pointed
    by FIRST_P.
@@ -2572,7 +2639,7 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
   putc ('\n', outf);
 
   fprintf (outf, "%s%sPARENT:     ", s_indent, prefix);
-  if (bb->aux && parent_block (bb))
+  if (bb->tree_annotations && parent_block (bb))
     fprintf (outf, "%d\n", parent_block (bb)->index);
   else
     fputs ("nil\n", outf);
@@ -2591,7 +2658,7 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
   else
     fprintf (outf, "nil\n");
 
-  if (bb->aux)
+  if (bb->tree_annotations)
     for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
       {
 	fprintf (outf, "%s%s# ", s_indent, prefix);
@@ -3060,7 +3127,7 @@ void
 delete_tree_cfg (void)
 {
   if (n_basic_blocks > 0)
-    free_aux_for_blocks ();
+    free_blocks_annotations ();
 
   free_basic_block_vars (0);
 }
@@ -4762,7 +4829,7 @@ tree_split_edge (edge edge_in)
 
   dest = edge_in->dest;
   new_bb = create_bb ();
-  alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
+  create_block_annotation (new_bb);
   redirect_edge_succ  (edge_in, new_bb);
   new_edge = make_edge (new_bb, dest, 0);
 
@@ -4807,7 +4874,7 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
 
   /* Create the new basic block.  */
   dummy = create_bb ();
-  alloc_aux_for_block (dummy, sizeof (struct bb_ann_d));
+  create_block_annotation (dummy);
   dummy->count = bb->count;
   dummy->frequency = bb->frequency;
   dummy->loop_depth = bb->loop_depth;
@@ -4854,6 +4921,64 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
 void
 tree_register_cfg_hooks ()
 {
-  cfg_level = AT_TREE_LEVEL;
   cfg_hooks = &tree_cfg_hooks;
+}
+
+/* Initialize loop optimizer.  */
+
+static struct loops *
+tree_loop_optimizer_init (FILE *dumpfile)
+{
+  struct loops *loops = xcalloc (1, sizeof (struct loops));
+
+  /* Find the loops.  */
+  if (flow_loops_find (loops, LOOP_TREE) <= 1)
+    {
+      /* No loops.  */
+      flow_loops_free (loops);
+      free (loops);
+      return NULL;
+    }
+
+  /* Not going to update these.  */
+  free (loops->cfg.rc_order);
+  loops->cfg.rc_order = NULL;
+  free (loops->cfg.dfs_order);
+  loops->cfg.dfs_order = NULL;
+
+  /* Force all latches to have only single successor.  */
+  force_single_succ_latches (loops);
+
+  /* Mark irreducible loops.  */
+  mark_irreducible_loops (loops);
+
+  /* Dump loops.  */
+  flow_loops_dump (loops, dumpfile, NULL, 1);
+
+#ifdef ENABLE_CHECKING
+  verify_dominators (loops->cfg.dom);
+  verify_loop_structure (loops);
+#endif
+
+  return loops;
+}
+
+/* Finalize loop optimizer.  */
+static void
+tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
+{
+  if (loops == NULL)
+    return;
+
+  /* Another dump.  */
+  flow_loops_dump (loops, dumpfile, NULL, 1);
+
+  /* Clean up.  */
+  flow_loops_free (loops);
+  free (loops);
+
+  /* Checking.  */
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 }

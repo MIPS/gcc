@@ -171,6 +171,9 @@ extern const struct gcov_ctr_summary *profile_info;
 struct loop;
 struct loops;
 
+/* Declared in tree-flow.h.  */
+struct bb_ann_d;
+
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
    will all be executed, and in sequence from first to last.
@@ -251,6 +254,9 @@ typedef struct basic_block_def {
 
   /* Additional data maintained by cfg_layout routines.  */
   struct reorder_block_def *rbi;
+
+  /* Annotations used at the tree level.  */
+  struct bb_ann_d *tree_annotations;
 } *basic_block;
 
 #define BB_FREQ_MAX 10000

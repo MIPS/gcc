@@ -272,7 +272,7 @@ static inline tree parent_stmt (tree);
 
 
 /*---------------------------------------------------------------------------
-		  Block annotations stored in basic_block.aux
+		  Block annotations stored in basic_block.tree_annotations
 ---------------------------------------------------------------------------*/
 struct bb_ann_d
 {

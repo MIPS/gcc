@@ -2746,6 +2746,10 @@ redirect_edge_with_latch_update (edge e, basic_block to)
     }
 }
 
+/* Declarations from cfgloop.h.  */
+extern struct loops *rtl_loop_optimizer_init (FILE *);
+extern void rtl_loop_optimizer_finalize (struct loops *, FILE *);
+
 /* Implementation of CFG manipulation for linearized RTL.  */
 struct cfg_hooks rtl_cfg_hooks = {
   rtl_verify_flow_info,
@@ -2758,7 +2762,9 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_can_merge_blocks,  /* can_merge_blocks_p */
   rtl_merge_blocks,
   rtl_split_edge,
-  rtl_make_forwarder_block
+  rtl_make_forwarder_block,
+  rtl_loop_optimizer_init,
+  rtl_loop_optimizer_finalize
 };
 
 /* Implementation of CFG manipulation for cfg layout RTL, where
@@ -2776,5 +2782,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   cfg_layout_can_merge_blocks_p,
   cfg_layout_merge_blocks,
   cfg_layout_split_edge,
-  rtl_make_forwarder_block
+  rtl_make_forwarder_block,
+  rtl_loop_optimizer_init,
+  rtl_loop_optimizer_finalize
 };

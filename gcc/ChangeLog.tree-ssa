@@ -1,3 +1,35 @@
+2003-08-04  Sebastian Pop  <s.pop@laposte.net>
+
+	* basic-block.h: Declare bb_ann_d.
+	(basic_block_def): Add a field tree_annotations.
+	* cfg.c (entry_exit_blocks): Initialize tree_annotations to NULL. 
+	* cfghooks.c: Remove the definition of cfg_level.                 
+	(rtl_register_cfg_hooks): Remove the initiallization of cfg_level.
+	* cfghooks.h (cfg_hooks): Add cfgh_loop_optimizer_init, and
+	cfgh_loop_optimizer_finalize.
+	(loop_optimizer_init, loop_optimizer_finalize): New macros.
+	(cfg_level): Remove.
+	* cfgloop.h (loop_optimizer_init, loop_optimizer_finalize): Rename
+	to rtl_loop_optimizer_init and rtl_loop_optimizer_finalize.       
+	* cfgrtl.c (rtl_loop_optimizer_init, rtl_loop_optimizer_finalize):
+	Declare, and register them in rtl_cfg_hooks and cfg_layout_rtl_cfg_hook.
+	* loop-init.c (loop_optimizer_init, loop_optimizer_finalize): Rename    
+	to rtl_loop_optimizer_init and rtl_loop_optimizer_finalize.  Remove 
+	the checks to cfg_level.
+	* tree-cfg.c (block_tree_ann_obstack, first_block_tree_ann_obj): New.
+	(create_blocks_annotations, create_block_annotation,                 
+	free_blocks_annotations, clear_blocks_annotations): New functions.
+	(tree_loop_optimizer_init, tree_loop_optimizer_finalize): New     
+	functions.  Register them in tree_cfg_hooks.                 
+	(build_tree_cfg, dump_tree_bb, delete_tree_cfg, tree_split_edge): Use
+	create_blocks_annotations instead of alloc_aux_for_blocks,           
+	create_block_annotation instead of alloc_aux_for_block,   
+	.tree_annotations instead of .aux,
+	free_blocks_annotations instead of free_aux_for_blocks.
+	(tree_register_cfg_hooks): Remove initialization of cfg_level.
+	* tree-flow-inline.h (bb_ann): Use .tree_annotations.
+	* tree-flow.h: Update comment.
+
 2003-08-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (c-pretty-print.o): Add TREE_H and C_TREE_H dependencies.

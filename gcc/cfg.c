@@ -114,7 +114,8 @@ struct basic_block_def entry_exit_blocks[2]
     0,				/* count */
     0,				/* frequency */
     0,				/* flags */
-    NULL			/* rbi */
+    NULL,			/* rbi */
+    NULL                        /* tree_annotations */
   },
   {
     NULL,			/* head */
@@ -136,7 +137,8 @@ struct basic_block_def entry_exit_blocks[2]
     0,				/* count */
     0,				/* frequency */
     0,				/* flags */
-    NULL			/* rbi */
+    NULL,			/* rbi */
+    NULL                        /* tree_annotations */
   }
 };
 

@@ -251,7 +251,7 @@ reaching_defs (tree stmt)
 static inline bb_ann_t
 bb_ann (basic_block bb)
 {
-  return (bb_ann_t)bb->aux;
+  return (bb_ann_t)bb->tree_annotations;
 }
 
 static inline basic_block

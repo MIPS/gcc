@@ -34,16 +34,10 @@ extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 /* A pointer to one of the hooks containers.  */
 struct cfg_hooks *cfg_hooks;
 
-/* A global variable that keeps track of the state of the cfg.  */
-enum cfg_level cfg_level;
-
-
 /* Initialization of functions specific to the rtl IR.  */
-
 void 
 rtl_register_cfg_hooks ()
 {
-  cfg_level = AT_RTL_LEVEL;
   cfg_hooks = &rtl_cfg_hooks;
 }
 

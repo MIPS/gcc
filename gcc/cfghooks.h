@@ -60,6 +60,8 @@ struct cfg_hooks
      we didn't have some oddities in RTL and Tree representations.  */
   basic_block (*cfgh_split_edge) (edge);
   basic_block (*cfgh_make_forwarder_block) (basic_block, int, int, edge, int);
+  struct loops *(*cfgh_loop_optimizer_init) (FILE *);
+  void (*cfgh_loop_optimizer_finalize) (struct loops *, FILE *);
 };
 
 #define redirect_edge_and_branch(e,b)        cfg_hooks->redirect_edge_and_branch (e,b)
@@ -71,6 +73,8 @@ struct cfg_hooks
 #define can_merge_blocks_p(a,b)		     cfg_hooks->can_merge_blocks_p (a,b)
 #define merge_blocks(a,b)		     cfg_hooks->merge_blocks (a,b)
 #define make_forwarder_block(a, b, c, d, e)  cfg_hooks->cfgh_make_forwarder_block (a, b, c, d, e)
+#define loop_optimizer_init(a)               cfg_hooks->cfgh_loop_optimizer_init (a)
+#define loop_optimizer_finalize(a, b)        cfg_hooks->cfgh_loop_optimizer_finalize (a, b)
 
 #define HEADER_BLOCK(B) (* (int *) (B)->aux)
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
@@ -81,14 +85,6 @@ extern struct cfg_hooks rtl_cfg_hooks;
 
 /* A pointer to one of the hooks containers.  */
 extern struct cfg_hooks *cfg_hooks;
-
-enum cfg_level {
-  AT_TREE_LEVEL,
-  AT_RTL_LEVEL
-};
-
-/* A global variable that keeps track of the state of the cfg.  */
-extern enum cfg_level cfg_level;
 
 /* Declarations.  */
 extern void rtl_register_cfg_hooks (void);
