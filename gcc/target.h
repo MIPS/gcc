@@ -452,6 +452,11 @@ struct gcc_target
     bool (*cookie_has_size) (void);
     /* Returns true if constructors and destructors return "this".  */
     bool (*cdtor_returns_this) (void);
+    /* Returns true if the key method for a class can be an inline
+       function, so long as it is not declared inline in the class
+       itself.  Returning true is the behavior required by the Itanium
+       C++ ABI.  */
+    bool (*key_method_may_be_inline) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

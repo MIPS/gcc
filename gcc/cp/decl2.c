@@ -1459,7 +1459,12 @@ import_export_vtable (tree decl, tree type, int final)
 	 functions in our class, or if we come from a template.  */
 
       int found = (CLASSTYPE_TEMPLATE_INSTANTIATION (type)
-		   || CLASSTYPE_KEY_METHOD (type) != NULL_TREE);
+		   || CLASSTYPE_KEY_METHOD (type) != NULL_TREE
+		   /* On targets where the key function is not
+		      permitted to be inline, we cannot determine
+		      whether or not the vtable should be emitted
+		      until end-of-file.  */
+		   || !targetm.cxx.key_method_may_be_inline ());
 
       if (final || ! found)
 	{
@@ -1564,6 +1569,12 @@ maybe_emit_vtables (tree ctype)
   /* Ignore dummy vtables made by get_vtable_decl.  */
   if (TREE_TYPE (primary_vtbl) == void_type_node)
     return false;
+
+  /* On some targets, we cannot determine the key method until the end
+     of the translation unit -- which is when this function is
+     called.  */
+  if (!targetm.cxx.key_method_may_be_inline ())
+    determine_key_method (ctype);
 
   import_export_class (ctype);
 

@@ -23,6 +23,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define GCC_HOOKS_H
 
 extern bool hook_bool_void_false (void);
+extern bool hook_bool_void_true (void);
 extern bool hook_bool_bool_false (bool);
 extern bool hook_bool_tree_false (tree);
 extern bool hook_bool_tree_true (tree);

@@ -3620,6 +3620,7 @@ extern tree get_vtt_name                        (tree);
 extern tree get_primary_binfo                   (tree);
 extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
+extern void determine_key_method                (tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
