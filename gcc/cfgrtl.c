@@ -185,6 +185,26 @@ delete_insn (insn)
   return next;
 }
 
+/* Like delete_insn but also purge dead edges from BB.  */
+rtx
+delete_insn_and_edges (insn)
+     rtx insn;
+{
+  rtx x;
+  bool purge = false;
+
+  if (basic_block_for_insn
+      && INSN_P (insn)
+      && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
+      && BLOCK_FOR_INSN (insn)
+      && BLOCK_FOR_INSN (insn)->end == insn)
+    purge = true;
+  x = delete_insn (insn);
+  if (purge)
+    purge_dead_edges (BLOCK_FOR_INSN (insn));
+  return x;
+}
+
 /* Unlink a chain of insns between START and FINISH, leaving notes
    that must be paired.  */
 
@@ -209,6 +229,24 @@ delete_insn_chain (start, finish)
 	break;
       start = next;
     }
+}
+
+/* Like delete_insn but also purge dead edges from BB.  */
+void
+delete_insn_chain_and_edges (first, last)
+     rtx first, last;
+{
+  bool purge = false;
+
+  if (basic_block_for_insn
+      && INSN_P (last)
+      && (unsigned int)INSN_UID (last) < basic_block_for_insn->num_elements
+      && BLOCK_FOR_INSN (last)
+      && BLOCK_FOR_INSN (last)->end == last)
+    purge = true;
+  delete_insn_chain (first, last);
+  if (purge)
+    purge_dead_edges (BLOCK_FOR_INSN (last));
 }
 
 /* Create a new basic block consisting of the instructions between HEAD and END
@@ -1748,7 +1786,7 @@ verify_flow_info ()
   for (i = n_basic_blocks - 1; i >= 0; i--)
     {
       basic_block bb = BASIC_BLOCK (i);
-      int has_fallthru = 0;
+      int n_fallthru = 0, n_eh = 0, n_call = 0, n_abnormal = 0, n_branch = 0;
       edge e;
       rtx note;
 
@@ -1804,7 +1842,18 @@ verify_flow_info ()
 	  last_visited [e->dest->index + 2] = bb;
 
 	  if (e->flags & EDGE_FALLTHRU)
-	    has_fallthru = 1;
+	    n_fallthru++;
+
+	  if ((e->flags & ~EDGE_DFS_BACK) == 0)
+	    n_branch++;
+
+	  if (e->flags & EDGE_ABNORMAL_CALL)
+	    n_call++;
+
+	  if (e->flags & EDGE_EH)
+	    n_eh++;
+	  else if (e->flags & EDGE_ABNORMAL)
+	    n_abnormal++;
 
 	  if ((e->flags & EDGE_FALLTHRU)
 	      && e->src != ENTRY_BLOCK_PTR
@@ -1852,7 +1901,51 @@ verify_flow_info ()
 	  edge_checksum[e->dest->index + 2] += (size_t) e;
 	}
 
-      if (!has_fallthru)
+      if (n_eh && !find_reg_note (bb->end, REG_EH_REGION, NULL_RTX))
+	{
+	  error ("Missing REG_EH_REGION note in the end of bb %i", bb->index);
+	  err = 1;
+	}
+      if (n_branch
+	  && (GET_CODE (bb->end) != JUMP_INSN
+	      || (n_branch > 1 && (any_uncondjump_p (bb->end)
+				   || any_condjump_p (bb->end)))))
+	{
+	  error ("Too many outgoing branch edges from bb %i", bb->index);
+	  err = 1;
+	}
+      if (n_fallthru && any_uncondjump_p (bb->end))
+	{
+	  error ("Fallthru edge after unconditional jump %i", bb->index);
+	  err = 1;
+	}
+      if (n_branch != 1 && any_uncondjump_p (bb->end))
+	{
+	  error ("Wrong amount of branch edges after unconditional jump %i", bb->index);
+	  err = 1;
+	}
+      if (n_branch != 1 && any_condjump_p (bb->end)
+	  && JUMP_LABEL (bb->end) != BASIC_BLOCK (bb->index + 1)->head)
+	{
+	  error ("Wrong amount of branch edges after conditional jump %i", bb->index);
+	  err = 1;
+	}
+      if (n_call && GET_CODE (bb->end) != CALL_INSN)
+	{
+	  error ("Call edges for non-call insn in bb %i", bb->index);
+	  err = 1;
+	}
+      if (n_abnormal
+	  && (GET_CODE (bb->end) != CALL_INSN && n_call != n_abnormal)
+	  && (GET_CODE (bb->end) != JUMP_INSN
+	      || any_condjump_p (bb->end)
+	      || any_uncondjump_p (bb->end)))
+	{
+	  error ("Abnormal edges for no purpose in bb %i", bb->index);
+	  err = 1;
+	}
+	
+      if (!n_fallthru)
 	{
 	  rtx insn;
 

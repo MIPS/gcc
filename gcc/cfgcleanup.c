@@ -1514,7 +1514,6 @@ try_optimize_cfg (mode)
   bool changed_overall = false;
   bool changed;
   int iterations = 0;
-  sbitmap blocks;
 
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
@@ -1676,11 +1675,6 @@ try_optimize_cfg (mode)
 
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_edges ();
-
-  if ((mode & CLEANUP_UPDATE_LIFE) && changed_overall)
-    update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL,
-				      PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-				      | PROP_KILL_DEAD_CODE | PROP_LOG_LINKS);
 
   for (i = 0; i < n_basic_blocks; i++)
     BASIC_BLOCK (i)->aux = NULL;

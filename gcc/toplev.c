@@ -2843,7 +2843,7 @@ rest_of_compilation (decl)
 
       /* Run this after jump optmizations remove all the unreachable code
 	 so that unreachable code will not keep values live.  */
-      delete_trivially_dead_insns (insns, max_reg_num (), 1);
+      delete_trivially_dead_insns (insns, max_reg_num ());
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks || flag_thread_jumps)
@@ -2923,7 +2923,7 @@ rest_of_compilation (decl)
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  delete_trivially_dead_insns (insns, max_reg_num (), 1);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 
@@ -2970,7 +2970,7 @@ rest_of_compilation (decl)
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in loop work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 
 	  /* The regscan pass is currently necessary as the alias
 		  analysis code depends on this information.  */
@@ -2983,7 +2983,7 @@ rest_of_compilation (decl)
 		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
 
       /* Loop can create trivially dead instructions.  */
-      delete_trivially_dead_insns (insns, max_reg_num (), 0);
+      delete_trivially_dead_insns (insns, max_reg_num ());
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
 

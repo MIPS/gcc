@@ -1831,7 +1831,7 @@ struct cse_basic_block_data;
 
 extern int rtx_cost			PARAMS ((rtx, enum rtx_code));
 extern int address_cost			PARAMS ((rtx, enum machine_mode));
-extern void delete_trivially_dead_insns	PARAMS ((rtx, int, int));
+extern int delete_trivially_dead_insns	PARAMS ((rtx, int));
 #ifdef BUFSIZ
 extern int cse_main			PARAMS ((rtx, int, int, FILE *));
 #endif
@@ -1912,6 +1912,8 @@ extern void renumber_insns                      PARAMS ((FILE *));
 extern void remove_unnecessary_notes             PARAMS ((void));
 extern rtx delete_insn			PARAMS ((rtx));
 extern void delete_insn_chain		PARAMS ((rtx, rtx));
+extern rtx delete_insn_and_edges	PARAMS ((rtx));
+extern void delete_insn_chain_and_edges	PARAMS ((rtx, rtx));
 
 /* In combine.c */
 extern int combine_instructions		PARAMS ((rtx, unsigned int));

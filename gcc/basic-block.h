@@ -609,9 +609,9 @@ enum update_life_extent
 #define LOOP_ALL	       15	/* All of the above  */
 
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
-extern void update_life_info	PARAMS ((sbitmap, enum update_life_extent,
+extern int update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
-extern void update_life_info_in_dirty_blocks PARAMS ((enum update_life_extent,
+extern int update_life_info_in_dirty_blocks PARAMS ((enum update_life_extent,
 						      int));
 extern int count_or_remove_death_notes	PARAMS ((sbitmap, int));
 extern int propagate_block	PARAMS ((basic_block, regset, regset, regset,
@@ -661,7 +661,7 @@ extern void allocate_bb_life_data	PARAMS ((void));
 extern void expunge_block		PARAMS ((basic_block));
 extern basic_block alloc_block		PARAMS ((void));
 extern void find_unreachable_blocks	PARAMS ((void));
-extern void delete_noop_moves		PARAMS ((rtx));
+extern int delete_noop_moves		PARAMS ((rtx));
 extern basic_block redirect_edge_and_branch_force PARAMS ((edge, basic_block));
 extern basic_block force_nonfallthru	PARAMS ((edge));
 extern bool redirect_edge_and_branch	PARAMS ((edge, basic_block));
