@@ -859,9 +859,6 @@ java_init_decl_processing (void)
   FINISH_RECORD (dtable_type);
   build_decl (TYPE_DECL, get_identifier ("dispatchTable"), dtable_type);
 
-#define jint_type int_type_node
-#define jint_ptr_type ptr_type_node
-
   jexception_type = make_node (RECORD_TYPE);
   PUSH_FIELD (jexception_type, field, "start_pc", ptr_type_node);
   PUSH_FIELD (jexception_type, field, "end_pc", ptr_type_node);
@@ -879,10 +876,6 @@ java_init_decl_processing (void)
   lineNumbers_type = make_node (RECORD_TYPE);
   PUSH_FIELD (lineNumbers_type, field, "length", unsigned_int_type_node);
   FINISH_RECORD (lineNumbers_type);
-
-#define instn_ptr_type_node ptr_type_node	/* XXX JH */
-
-#define lineNumbers_ptr_type_node build_pointer_type(lineNumbers_type)
 
   PUSH_FIELD (method_type_node, field, "name", utf8const_ptr_type);
   PUSH_FIELD (method_type_node, field, "signature", utf8const_ptr_type);
@@ -1890,14 +1883,6 @@ end_java_method (void)
   flag_unit_at_a_time = 0;
   finish_method (fndecl);
 
-  if (! flag_unit_at_a_time)
-    {
-      /* Nulling these fields when we no longer need them saves
-	 memory.  */
-      DECL_SAVED_TREE (fndecl) = NULL;
-      DECL_STRUCT_FUNCTION (fndecl) = NULL;
-      DECL_INITIAL (fndecl) = NULL_TREE;
-    }
   if (! flag_unit_at_a_time)
     {
       /* Nulling these fields when we no longer need them saves

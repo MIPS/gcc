@@ -768,18 +768,20 @@ bitmap_print_value_set (FILE *outfile, bitmap_set_t set,
   fprintf (outfile, "%s[%d] := { ", setname, blockindex);
   if (set)
     {
-      int i;
+      bool first = true;
+      unsigned i;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (set->expressions, 0, i, bi)
 	{
+	  if (!first)
+	    fprintf (outfile, ", ");
+	  first = false;
 	  print_generic_expr (outfile, ssa_name (i), 0);
 	
 	  fprintf (outfile, " (");
 	  print_generic_expr (outfile, get_value_handle (ssa_name (i)), 0);
 	  fprintf (outfile, ") ");
-	  if (bitmap_last_set_bit (set->expressions) != i)
-	    fprintf (outfile, ", ");
 	}
     }
   fprintf (outfile, " }\n");
@@ -1419,7 +1421,7 @@ insert_aux (basic_block block)
       dom = get_immediate_dominator (CDI_DOMINATORS, block);
       if (dom)
 	{
-	  int i;
+	  unsigned i;
 	  bitmap_iterator bi;
 
 	  bitmap_set_t newset = NEW_SETS (dom);
@@ -1988,7 +1990,7 @@ fini_pre (void)
   basic_block bb;
   unsigned int i;
 
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
 
   obstack_free (&grand_bitmap_obstack, NULL);
   free_alloc_pool (value_set_pool);

@@ -795,6 +795,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	gnu/java/nio/charset/UTF_8.java gnu/java/security/Engine.java \
 	gnu/java/security/OID.java \
 	gnu/java/security/action/GetPropertyAction.java \
+	gnu/java/security/action/GetSecurityPropertyAction.java \
 	gnu/java/security/action/SetAccessibleAction.java \
 	gnu/java/security/der/BitString.java \
 	gnu/java/security/der/DER.java \
@@ -802,24 +803,57 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	gnu/java/security/der/DERReader.java \
 	gnu/java/security/der/DERValue.java \
 	gnu/java/security/der/DERWriter.java \
+	gnu/java/security/provider/CollectionCertStoreImpl.java \
 	gnu/java/security/provider/DSAKeyFactory.java \
 	gnu/java/security/provider/DSAKeyPairGenerator.java \
 	gnu/java/security/provider/DSAParameterGenerator.java \
 	gnu/java/security/provider/DSAParameters.java \
 	gnu/java/security/provider/DSASignature.java \
 	gnu/java/security/provider/DefaultPolicy.java \
+	gnu/java/security/provider/EncodedKeyFactory.java \
 	gnu/java/security/provider/Gnu.java \
+	gnu/java/security/provider/GnuDHPublicKey.java \
 	gnu/java/security/provider/GnuDSAPrivateKey.java \
 	gnu/java/security/provider/GnuDSAPublicKey.java \
+	gnu/java/security/provider/GnuRSAPrivateKey.java \
+	gnu/java/security/provider/GnuRSAPublicKey.java \
+	gnu/java/security/provider/MD2withRSA.java \
+	gnu/java/security/provider/MD4withRSA.java \
 	gnu/java/security/provider/MD5.java \
+	gnu/java/security/provider/MD5withRSA.java \
+	gnu/java/security/provider/PKIXCertPathValidatorImpl.java \
+	gnu/java/security/provider/RSA.java \
+	gnu/java/security/provider/RSAKeyFactory.java \
 	gnu/java/security/provider/SHA.java \
 	gnu/java/security/provider/SHA1PRNG.java \
+	gnu/java/security/provider/SHA1withRSA.java \
 	gnu/java/security/provider/X509CertificateFactory.java \
 	gnu/java/security/util/Prime.java \
+	gnu/java/security/x509/GnuPKIExtension.java \
+	gnu/java/security/x509/PolicyNodeImpl.java \
+	gnu/java/security/x509/Util.java \
 	gnu/java/security/x509/X500DistinguishedName.java \
 	gnu/java/security/x509/X509CRL.java \
 	gnu/java/security/x509/X509CRLEntry.java \
+	gnu/java/security/x509/X509CRLSelectorImpl.java \
 	gnu/java/security/x509/X509Certificate.java \
+	gnu/java/security/x509/X509CertPath.java \
+	gnu/java/security/x509/X509CertSelectorImpl.java \
+	gnu/java/security/x509/ext/AuthorityKeyIdentifier.java \
+	gnu/java/security/x509/ext/BasicConstraints.java \
+	gnu/java/security/x509/ext/CRLNumber.java \
+	gnu/java/security/x509/ext/CertificatePolicies.java \
+	gnu/java/security/x509/ext/ExtendedKeyUsage.java \
+	gnu/java/security/x509/ext/Extension.java \
+	gnu/java/security/x509/ext/GeneralNames.java \
+	gnu/java/security/x509/ext/IssuerAlternativeNames.java \
+	gnu/java/security/x509/ext/KeyUsage.java \
+	gnu/java/security/x509/ext/PolicyConstraint.java \
+	gnu/java/security/x509/ext/PolicyMappings.java \
+	gnu/java/security/x509/ext/PrivateKeyUsagePeriod.java \
+	gnu/java/security/x509/ext/ReasonCode.java \
+	gnu/java/security/x509/ext/SubjectAlternativeNames.java \
+	gnu/java/security/x509/ext/SubjectKeyIdentifier.java \
 	gnu/java/text/AttributedFormatBuffer.java \
 	gnu/java/text/BaseBreakIterator.java \
 	gnu/java/text/CharacterBreakIterator.java \
@@ -1944,24 +1978,47 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/crypto/spec/RC2ParameterSpec.java \
 	javax/crypto/spec/RC5ParameterSpec.java \
 	javax/crypto/spec/SecretKeySpec.java \
-	javax/imageio/IIOException.java javax/imageio/ImageReader.java \
+	javax/imageio/IIOException.java javax/imageio/IIOImage.java \
+	javax/imageio/IIOParam.java \
+	javax/imageio/IIOParamController.java \
+	javax/imageio/ImageIO.java javax/imageio/ImageReadParam.java \
+	javax/imageio/ImageReader.java \
 	javax/imageio/ImageTranscoder.java \
+	javax/imageio/ImageTypeSpecifier.java \
+	javax/imageio/ImageWriteParam.java \
 	javax/imageio/ImageWriter.java \
 	javax/imageio/event/IIOReadProgressListener.java \
 	javax/imageio/event/IIOReadUpdateListener.java \
 	javax/imageio/event/IIOReadWarningListener.java \
 	javax/imageio/event/IIOWriteProgressListener.java \
 	javax/imageio/event/IIOWriteWarningListener.java \
+	javax/imageio/metadata/IIOInvalidTreeException.java \
+	javax/imageio/metadata/IIOMetadata.java \
+	javax/imageio/metadata/IIOMetadataController.java \
+	javax/imageio/metadata/IIOMetadataFormat.java \
+	javax/imageio/metadata/IIOMetadataFormatImpl.java \
+	javax/imageio/metadata/IIOMetadataNode.java \
 	javax/imageio/spi/IIOServiceProvider.java \
+	javax/imageio/spi/IIORegistry.java \
 	javax/imageio/spi/ImageInputStreamSpi.java \
 	javax/imageio/spi/ImageOutputStreamSpi.java \
+	javax/imageio/spi/ImageReaderSpi.java \
 	javax/imageio/spi/ImageReaderWriterSpi.java \
 	javax/imageio/spi/ImageTranscoderSpi.java \
 	javax/imageio/spi/RegisterableService.java \
 	javax/imageio/spi/ServiceRegistry.java \
+	javax/imageio/spi/ImageWriterSpi.java \
+	javax/imageio/stream/FileCacheImageInputStream.java \
+	javax/imageio/stream/FileCacheImageOutputStream.java \
+	javax/imageio/stream/FileImageInputStream.java \
+	javax/imageio/stream/FileImageOutputStream.java \
 	javax/imageio/stream/IIOByteBuffer.java \
 	javax/imageio/stream/ImageInputStream.java \
+	javax/imageio/stream/ImageInputStreamImpl.java \
 	javax/imageio/stream/ImageOutputStream.java \
+	javax/imageio/stream/ImageOutputStreamImpl.java \
+	javax/imageio/stream/MemoryCacheImageInputStream.java \
+	javax/imageio/stream/MemoryCacheImageOutputStream.java \
 	javax/naming/directory/Attribute.java \
 	javax/naming/directory/AttributeInUseException.java \
 	javax/naming/directory/AttributeModificationException.java \
@@ -2198,6 +2255,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/security/auth/login/LoginContext.java \
 	javax/security/auth/login/LoginException.java \
 	javax/security/auth/login/NullConfiguration.java \
+	javax/security/auth/spi/LoginModule.java \
 	javax/security/auth/Policy.java \
 	javax/security/auth/PrivateCredentialPermission.java \
 	javax/security/auth/Refreshable.java \
@@ -3192,23 +3250,44 @@ am__objects_13 = javax/accessibility/Accessible.lo \
 	javax/crypto/spec/RC2ParameterSpec.lo \
 	javax/crypto/spec/RC5ParameterSpec.lo \
 	javax/crypto/spec/SecretKeySpec.lo \
-	javax/imageio/IIOException.lo javax/imageio/ImageReader.lo \
-	javax/imageio/ImageTranscoder.lo javax/imageio/ImageWriter.lo \
+	javax/imageio/IIOException.lo javax/imageio/IIOImage.lo \
+	javax/imageio/IIOParam.lo javax/imageio/IIOParamController.lo \
+	javax/imageio/ImageIO.lo javax/imageio/ImageReadParam.lo \
+	javax/imageio/ImageReader.lo javax/imageio/ImageTranscoder.lo \
+	javax/imageio/ImageTypeSpecifier.lo \
+	javax/imageio/ImageWriteParam.lo javax/imageio/ImageWriter.lo \
 	javax/imageio/event/IIOReadProgressListener.lo \
 	javax/imageio/event/IIOReadUpdateListener.lo \
 	javax/imageio/event/IIOReadWarningListener.lo \
 	javax/imageio/event/IIOWriteProgressListener.lo \
 	javax/imageio/event/IIOWriteWarningListener.lo \
+	javax/imageio/metadata/IIOInvalidTreeException.lo \
+	javax/imageio/metadata/IIOMetadata.lo \
+	javax/imageio/metadata/IIOMetadataController.lo \
+	javax/imageio/metadata/IIOMetadataFormat.lo \
+	javax/imageio/metadata/IIOMetadataFormatImpl.lo \
+	javax/imageio/metadata/IIOMetadataNode.lo \
 	javax/imageio/spi/IIOServiceProvider.lo \
+	javax/imageio/spi/IIORegistry.lo \
 	javax/imageio/spi/ImageInputStreamSpi.lo \
 	javax/imageio/spi/ImageOutputStreamSpi.lo \
+	javax/imageio/spi/ImageReaderSpi.lo \
 	javax/imageio/spi/ImageReaderWriterSpi.lo \
 	javax/imageio/spi/ImageTranscoderSpi.lo \
 	javax/imageio/spi/RegisterableService.lo \
 	javax/imageio/spi/ServiceRegistry.lo \
+	javax/imageio/spi/ImageWriterSpi.lo \
+	javax/imageio/stream/FileCacheImageInputStream.lo \
+	javax/imageio/stream/FileCacheImageOutputStream.lo \
+	javax/imageio/stream/FileImageInputStream.lo \
+	javax/imageio/stream/FileImageOutputStream.lo \
 	javax/imageio/stream/IIOByteBuffer.lo \
 	javax/imageio/stream/ImageInputStream.lo \
+	javax/imageio/stream/ImageInputStreamImpl.lo \
 	javax/imageio/stream/ImageOutputStream.lo \
+	javax/imageio/stream/ImageOutputStreamImpl.lo \
+	javax/imageio/stream/MemoryCacheImageInputStream.lo \
+	javax/imageio/stream/MemoryCacheImageOutputStream.lo \
 	javax/naming/directory/Attribute.lo \
 	javax/naming/directory/AttributeInUseException.lo \
 	javax/naming/directory/AttributeModificationException.lo \
@@ -3437,6 +3516,7 @@ am__objects_13 = javax/accessibility/Accessible.lo \
 	javax/security/auth/login/LoginContext.lo \
 	javax/security/auth/login/LoginException.lo \
 	javax/security/auth/login/NullConfiguration.lo \
+	javax/security/auth/spi/LoginModule.lo \
 	javax/security/auth/Policy.lo \
 	javax/security/auth/PrivateCredentialPermission.lo \
 	javax/security/auth/Refreshable.lo \
@@ -3696,6 +3776,7 @@ am__objects_14 = $(am__objects_9) gnu/classpath/ServiceFactory.lo \
 	gnu/java/nio/charset/UTF_16LE.lo gnu/java/nio/charset/UTF_8.lo \
 	gnu/java/security/Engine.lo gnu/java/security/OID.lo \
 	gnu/java/security/action/GetPropertyAction.lo \
+	gnu/java/security/action/GetSecurityPropertyAction.lo \
 	gnu/java/security/action/SetAccessibleAction.lo \
 	gnu/java/security/der/BitString.lo \
 	gnu/java/security/der/DER.lo \
@@ -3703,24 +3784,57 @@ am__objects_14 = $(am__objects_9) gnu/classpath/ServiceFactory.lo \
 	gnu/java/security/der/DERReader.lo \
 	gnu/java/security/der/DERValue.lo \
 	gnu/java/security/der/DERWriter.lo \
+	gnu/java/security/provider/CollectionCertStoreImpl.lo \
 	gnu/java/security/provider/DSAKeyFactory.lo \
 	gnu/java/security/provider/DSAKeyPairGenerator.lo \
 	gnu/java/security/provider/DSAParameterGenerator.lo \
 	gnu/java/security/provider/DSAParameters.lo \
 	gnu/java/security/provider/DSASignature.lo \
 	gnu/java/security/provider/DefaultPolicy.lo \
+	gnu/java/security/provider/EncodedKeyFactory.lo \
 	gnu/java/security/provider/Gnu.lo \
+	gnu/java/security/provider/GnuDHPublicKey.lo \
 	gnu/java/security/provider/GnuDSAPrivateKey.lo \
 	gnu/java/security/provider/GnuDSAPublicKey.lo \
+	gnu/java/security/provider/GnuRSAPrivateKey.lo \
+	gnu/java/security/provider/GnuRSAPublicKey.lo \
+	gnu/java/security/provider/MD2withRSA.lo \
+	gnu/java/security/provider/MD4withRSA.lo \
 	gnu/java/security/provider/MD5.lo \
+	gnu/java/security/provider/MD5withRSA.lo \
+	gnu/java/security/provider/PKIXCertPathValidatorImpl.lo \
+	gnu/java/security/provider/RSA.lo \
+	gnu/java/security/provider/RSAKeyFactory.lo \
 	gnu/java/security/provider/SHA.lo \
 	gnu/java/security/provider/SHA1PRNG.lo \
+	gnu/java/security/provider/SHA1withRSA.lo \
 	gnu/java/security/provider/X509CertificateFactory.lo \
 	gnu/java/security/util/Prime.lo \
+	gnu/java/security/x509/GnuPKIExtension.lo \
+	gnu/java/security/x509/PolicyNodeImpl.lo \
+	gnu/java/security/x509/Util.lo \
 	gnu/java/security/x509/X500DistinguishedName.lo \
 	gnu/java/security/x509/X509CRL.lo \
 	gnu/java/security/x509/X509CRLEntry.lo \
+	gnu/java/security/x509/X509CRLSelectorImpl.lo \
 	gnu/java/security/x509/X509Certificate.lo \
+	gnu/java/security/x509/X509CertPath.lo \
+	gnu/java/security/x509/X509CertSelectorImpl.lo \
+	gnu/java/security/x509/ext/AuthorityKeyIdentifier.lo \
+	gnu/java/security/x509/ext/BasicConstraints.lo \
+	gnu/java/security/x509/ext/CRLNumber.lo \
+	gnu/java/security/x509/ext/CertificatePolicies.lo \
+	gnu/java/security/x509/ext/ExtendedKeyUsage.lo \
+	gnu/java/security/x509/ext/Extension.lo \
+	gnu/java/security/x509/ext/GeneralNames.lo \
+	gnu/java/security/x509/ext/IssuerAlternativeNames.lo \
+	gnu/java/security/x509/ext/KeyUsage.lo \
+	gnu/java/security/x509/ext/PolicyConstraint.lo \
+	gnu/java/security/x509/ext/PolicyMappings.lo \
+	gnu/java/security/x509/ext/PrivateKeyUsagePeriod.lo \
+	gnu/java/security/x509/ext/ReasonCode.lo \
+	gnu/java/security/x509/ext/SubjectAlternativeNames.lo \
+	gnu/java/security/x509/ext/SubjectKeyIdentifier.lo \
 	gnu/java/text/AttributedFormatBuffer.lo \
 	gnu/java/text/BaseBreakIterator.lo \
 	gnu/java/text/CharacterBreakIterator.lo \
@@ -5699,24 +5813,48 @@ javax/crypto/spec/RC2ParameterSpec.java \
 javax/crypto/spec/RC5ParameterSpec.java \
 javax/crypto/spec/SecretKeySpec.java \
 javax/imageio/IIOException.java \
+javax/imageio/IIOImage.java \
+javax/imageio/IIOParam.java \
+javax/imageio/IIOParamController.java \
+javax/imageio/ImageIO.java \
+javax/imageio/ImageReadParam.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
+javax/imageio/ImageTypeSpecifier.java \
+javax/imageio/ImageWriteParam.java \
 javax/imageio/ImageWriter.java \
 javax/imageio/event/IIOReadProgressListener.java \
 javax/imageio/event/IIOReadUpdateListener.java \
 javax/imageio/event/IIOReadWarningListener.java \
 javax/imageio/event/IIOWriteProgressListener.java \
 javax/imageio/event/IIOWriteWarningListener.java \
+javax/imageio/metadata/IIOInvalidTreeException.java \
+javax/imageio/metadata/IIOMetadata.java \
+javax/imageio/metadata/IIOMetadataController.java \
+javax/imageio/metadata/IIOMetadataFormat.java \
+javax/imageio/metadata/IIOMetadataFormatImpl.java \
+javax/imageio/metadata/IIOMetadataNode.java \
 javax/imageio/spi/IIOServiceProvider.java \
+javax/imageio/spi/IIORegistry.java \
 javax/imageio/spi/ImageInputStreamSpi.java \
 javax/imageio/spi/ImageOutputStreamSpi.java \
+javax/imageio/spi/ImageReaderSpi.java \
 javax/imageio/spi/ImageReaderWriterSpi.java \
 javax/imageio/spi/ImageTranscoderSpi.java \
 javax/imageio/spi/RegisterableService.java \
 javax/imageio/spi/ServiceRegistry.java \
+javax/imageio/spi/ImageWriterSpi.java \
+javax/imageio/stream/FileCacheImageInputStream.java \
+javax/imageio/stream/FileCacheImageOutputStream.java \
+javax/imageio/stream/FileImageInputStream.java \
+javax/imageio/stream/FileImageOutputStream.java \
 javax/imageio/stream/IIOByteBuffer.java \
 javax/imageio/stream/ImageInputStream.java \
+javax/imageio/stream/ImageInputStreamImpl.java \
 javax/imageio/stream/ImageOutputStream.java \
+javax/imageio/stream/ImageOutputStreamImpl.java \
+javax/imageio/stream/MemoryCacheImageInputStream.java \
+javax/imageio/stream/MemoryCacheImageOutputStream.java \
 javax/naming/directory/Attribute.java \
 javax/naming/directory/AttributeInUseException.java \
 javax/naming/directory/AttributeModificationException.java \
@@ -5962,6 +6100,7 @@ javax/security/auth/login/FailedLoginException.java \
 javax/security/auth/login/LoginContext.java \
 javax/security/auth/login/LoginException.java \
 javax/security/auth/login/NullConfiguration.java \
+javax/security/auth/spi/LoginModule.java \
 javax/security/auth/Policy.java \
 javax/security/auth/PrivateCredentialPermission.java \
 javax/security/auth/Refreshable.java \
@@ -6498,6 +6637,7 @@ gnu/java/nio/charset/UTF_8.java \
 gnu/java/security/Engine.java \
 gnu/java/security/OID.java \
 gnu/java/security/action/GetPropertyAction.java \
+gnu/java/security/action/GetSecurityPropertyAction.java \
 gnu/java/security/action/SetAccessibleAction.java \
 gnu/java/security/der/BitString.java \
 gnu/java/security/der/DER.java \
@@ -6505,24 +6645,57 @@ gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/der/DERReader.java \
 gnu/java/security/der/DERValue.java \
 gnu/java/security/der/DERWriter.java \
+gnu/java/security/provider/CollectionCertStoreImpl.java \
 gnu/java/security/provider/DSAKeyFactory.java \
 gnu/java/security/provider/DSAKeyPairGenerator.java \
 gnu/java/security/provider/DSAParameterGenerator.java \
 gnu/java/security/provider/DSAParameters.java \
 gnu/java/security/provider/DSASignature.java \
 gnu/java/security/provider/DefaultPolicy.java \
+gnu/java/security/provider/EncodedKeyFactory.java \
 gnu/java/security/provider/Gnu.java \
+gnu/java/security/provider/GnuDHPublicKey.java \
 gnu/java/security/provider/GnuDSAPrivateKey.java \
 gnu/java/security/provider/GnuDSAPublicKey.java \
+gnu/java/security/provider/GnuRSAPrivateKey.java \
+gnu/java/security/provider/GnuRSAPublicKey.java \
+gnu/java/security/provider/MD2withRSA.java \
+gnu/java/security/provider/MD4withRSA.java \
 gnu/java/security/provider/MD5.java \
+gnu/java/security/provider/MD5withRSA.java \
+gnu/java/security/provider/PKIXCertPathValidatorImpl.java \
+gnu/java/security/provider/RSA.java \
+gnu/java/security/provider/RSAKeyFactory.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/security/provider/SHA1withRSA.java \
 gnu/java/security/provider/X509CertificateFactory.java \
 gnu/java/security/util/Prime.java \
+gnu/java/security/x509/GnuPKIExtension.java \
+gnu/java/security/x509/PolicyNodeImpl.java \
+gnu/java/security/x509/Util.java \
 gnu/java/security/x509/X500DistinguishedName.java \
 gnu/java/security/x509/X509CRL.java \
 gnu/java/security/x509/X509CRLEntry.java \
+gnu/java/security/x509/X509CRLSelectorImpl.java \
 gnu/java/security/x509/X509Certificate.java \
+gnu/java/security/x509/X509CertPath.java \
+gnu/java/security/x509/X509CertSelectorImpl.java \
+gnu/java/security/x509/ext/AuthorityKeyIdentifier.java \
+gnu/java/security/x509/ext/BasicConstraints.java \
+gnu/java/security/x509/ext/CRLNumber.java \
+gnu/java/security/x509/ext/CertificatePolicies.java \
+gnu/java/security/x509/ext/ExtendedKeyUsage.java \
+gnu/java/security/x509/ext/Extension.java \
+gnu/java/security/x509/ext/GeneralNames.java \
+gnu/java/security/x509/ext/IssuerAlternativeNames.java \
+gnu/java/security/x509/ext/KeyUsage.java \
+gnu/java/security/x509/ext/PolicyConstraint.java \
+gnu/java/security/x509/ext/PolicyMappings.java \
+gnu/java/security/x509/ext/PrivateKeyUsagePeriod.java \
+gnu/java/security/x509/ext/ReasonCode.java \
+gnu/java/security/x509/ext/SubjectAlternativeNames.java \
+gnu/java/security/x509/ext/SubjectKeyIdentifier.java \
 gnu/java/text/AttributedFormatBuffer.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
@@ -9307,6 +9480,9 @@ gnu/java/security/action/$(DEPDIR)/$(am__dirstamp):
 gnu/java/security/action/GetPropertyAction.lo:  \
 	gnu/java/security/action/$(am__dirstamp) \
 	gnu/java/security/action/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/action/GetSecurityPropertyAction.lo:  \
+	gnu/java/security/action/$(am__dirstamp) \
+	gnu/java/security/action/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/action/SetAccessibleAction.lo:  \
 	gnu/java/security/action/$(am__dirstamp) \
 	gnu/java/security/action/$(DEPDIR)/$(am__dirstamp)
@@ -9339,6 +9515,9 @@ gnu/java/security/provider/$(am__dirstamp):
 gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/security/provider/$(DEPDIR)
 	@: > gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/CollectionCertStoreImpl.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/DSAKeyFactory.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
@@ -9357,7 +9536,13 @@ gnu/java/security/provider/DSASignature.lo:  \
 gnu/java/security/provider/DefaultPolicy.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/EncodedKeyFactory.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/Gnu.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/GnuDHPublicKey.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/GnuDSAPrivateKey.lo:  \
@@ -9366,13 +9551,40 @@ gnu/java/security/provider/GnuDSAPrivateKey.lo:  \
 gnu/java/security/provider/GnuDSAPublicKey.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/GnuRSAPrivateKey.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/GnuRSAPublicKey.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/MD2withRSA.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/MD4withRSA.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/MD5.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/MD5withRSA.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/PKIXCertPathValidatorImpl.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/RSA.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/RSAKeyFactory.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/SHA.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/SHA1PRNG.lo:  \
+	gnu/java/security/provider/$(am__dirstamp) \
+	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/provider/SHA1withRSA.lo:  \
 	gnu/java/security/provider/$(am__dirstamp) \
 	gnu/java/security/provider/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/provider/X509CertificateFactory.lo:  \
@@ -9393,6 +9605,15 @@ gnu/java/security/x509/$(am__dirstamp):
 gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/security/x509/$(DEPDIR)
 	@: > gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/GnuPKIExtension.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/PolicyNodeImpl.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/Util.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/x509/X500DistinguishedName.lo:  \
 	gnu/java/security/x509/$(am__dirstamp) \
 	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
@@ -9402,9 +9623,69 @@ gnu/java/security/x509/X509CRL.lo:  \
 gnu/java/security/x509/X509CRLEntry.lo:  \
 	gnu/java/security/x509/$(am__dirstamp) \
 	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/X509CRLSelectorImpl.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
 gnu/java/security/x509/X509Certificate.lo:  \
 	gnu/java/security/x509/$(am__dirstamp) \
 	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/X509CertPath.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/X509CertSelectorImpl.lo:  \
+	gnu/java/security/x509/$(am__dirstamp) \
+	gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/security/x509/ext
+	@: > gnu/java/security/x509/ext/$(am__dirstamp)
+gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) gnu/java/security/x509/ext/$(DEPDIR)
+	@: > gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/AuthorityKeyIdentifier.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/BasicConstraints.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/CRLNumber.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/CertificatePolicies.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/ExtendedKeyUsage.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/Extension.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/GeneralNames.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/IssuerAlternativeNames.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/KeyUsage.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/PolicyConstraint.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/PolicyMappings.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/PrivateKeyUsagePeriod.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/ReasonCode.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/SubjectAlternativeNames.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+gnu/java/security/x509/ext/SubjectKeyIdentifier.lo:  \
+	gnu/java/security/x509/ext/$(am__dirstamp) \
+	gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
 gnu/java/text/$(am__dirstamp):
 	@$(mkdir_p) gnu/java/text
 	@: > gnu/java/text/$(am__dirstamp)
@@ -12938,9 +13219,23 @@ javax/imageio/$(DEPDIR)/$(am__dirstamp):
 	@: > javax/imageio/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/IIOException.lo: javax/imageio/$(am__dirstamp) \
 	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/IIOImage.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/IIOParam.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/IIOParamController.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/ImageIO.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/ImageReadParam.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/ImageReader.lo: javax/imageio/$(am__dirstamp) \
 	javax/imageio/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/ImageTranscoder.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/ImageTypeSpecifier.lo: javax/imageio/$(am__dirstamp) \
+	javax/imageio/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/ImageWriteParam.lo: javax/imageio/$(am__dirstamp) \
 	javax/imageio/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/ImageWriter.lo: javax/imageio/$(am__dirstamp) \
 	javax/imageio/$(DEPDIR)/$(am__dirstamp)
@@ -12965,6 +13260,30 @@ javax/imageio/event/IIOWriteProgressListener.lo:  \
 javax/imageio/event/IIOWriteWarningListener.lo:  \
 	javax/imageio/event/$(am__dirstamp) \
 	javax/imageio/event/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/$(am__dirstamp):
+	@$(mkdir_p) javax/imageio/metadata
+	@: > javax/imageio/metadata/$(am__dirstamp)
+javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) javax/imageio/metadata/$(DEPDIR)
+	@: > javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOInvalidTreeException.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOMetadata.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOMetadataController.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOMetadataFormat.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOMetadataFormatImpl.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/metadata/IIOMetadataNode.lo:  \
+	javax/imageio/metadata/$(am__dirstamp) \
+	javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/spi/$(am__dirstamp):
 	@$(mkdir_p) javax/imageio/spi
 	@: > javax/imageio/spi/$(am__dirstamp)
@@ -12974,10 +13293,15 @@ javax/imageio/spi/$(DEPDIR)/$(am__dirstamp):
 javax/imageio/spi/IIOServiceProvider.lo:  \
 	javax/imageio/spi/$(am__dirstamp) \
 	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/spi/IIORegistry.lo: javax/imageio/spi/$(am__dirstamp) \
+	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/spi/ImageInputStreamSpi.lo:  \
 	javax/imageio/spi/$(am__dirstamp) \
 	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/spi/ImageOutputStreamSpi.lo:  \
+	javax/imageio/spi/$(am__dirstamp) \
+	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/spi/ImageReaderSpi.lo:  \
 	javax/imageio/spi/$(am__dirstamp) \
 	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/spi/ImageReaderWriterSpi.lo:  \
@@ -12992,19 +13316,46 @@ javax/imageio/spi/RegisterableService.lo:  \
 javax/imageio/spi/ServiceRegistry.lo:  \
 	javax/imageio/spi/$(am__dirstamp) \
 	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/spi/ImageWriterSpi.lo:  \
+	javax/imageio/spi/$(am__dirstamp) \
+	javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/stream/$(am__dirstamp):
 	@$(mkdir_p) javax/imageio/stream
 	@: > javax/imageio/stream/$(am__dirstamp)
 javax/imageio/stream/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) javax/imageio/stream/$(DEPDIR)
 	@: > javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/FileCacheImageInputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/FileCacheImageOutputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/FileImageInputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/FileImageOutputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/stream/IIOByteBuffer.lo:  \
 	javax/imageio/stream/$(am__dirstamp) \
 	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/stream/ImageInputStream.lo:  \
 	javax/imageio/stream/$(am__dirstamp) \
 	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/ImageInputStreamImpl.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
 javax/imageio/stream/ImageOutputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/ImageOutputStreamImpl.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/MemoryCacheImageInputStream.lo:  \
+	javax/imageio/stream/$(am__dirstamp) \
+	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
+javax/imageio/stream/MemoryCacheImageOutputStream.lo:  \
 	javax/imageio/stream/$(am__dirstamp) \
 	javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
 javax/naming/directory/$(am__dirstamp):
@@ -13737,6 +14088,15 @@ javax/security/auth/login/LoginException.lo:  \
 javax/security/auth/login/NullConfiguration.lo:  \
 	javax/security/auth/login/$(am__dirstamp) \
 	javax/security/auth/login/$(DEPDIR)/$(am__dirstamp)
+javax/security/auth/spi/$(am__dirstamp):
+	@$(mkdir_p) javax/security/auth/spi
+	@: > javax/security/auth/spi/$(am__dirstamp)
+javax/security/auth/spi/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) javax/security/auth/spi/$(DEPDIR)
+	@: > javax/security/auth/spi/$(DEPDIR)/$(am__dirstamp)
+javax/security/auth/spi/LoginModule.lo:  \
+	javax/security/auth/spi/$(am__dirstamp) \
+	javax/security/auth/spi/$(DEPDIR)/$(am__dirstamp)
 javax/security/auth/Policy.lo: javax/security/auth/$(am__dirstamp) \
 	javax/security/auth/$(DEPDIR)/$(am__dirstamp)
 javax/security/auth/PrivateCredentialPermission.lo:  \
@@ -14907,6 +15267,8 @@ mostlyclean-compile:
 	-rm -f gnu/java/security/OID.lo
 	-rm -f gnu/java/security/action/GetPropertyAction.$(OBJEXT)
 	-rm -f gnu/java/security/action/GetPropertyAction.lo
+	-rm -f gnu/java/security/action/GetSecurityPropertyAction.$(OBJEXT)
+	-rm -f gnu/java/security/action/GetSecurityPropertyAction.lo
 	-rm -f gnu/java/security/action/SetAccessibleAction.$(OBJEXT)
 	-rm -f gnu/java/security/action/SetAccessibleAction.lo
 	-rm -f gnu/java/security/der/BitString.$(OBJEXT)
@@ -14921,6 +15283,8 @@ mostlyclean-compile:
 	-rm -f gnu/java/security/der/DERValue.lo
 	-rm -f gnu/java/security/der/DERWriter.$(OBJEXT)
 	-rm -f gnu/java/security/der/DERWriter.lo
+	-rm -f gnu/java/security/provider/CollectionCertStoreImpl.$(OBJEXT)
+	-rm -f gnu/java/security/provider/CollectionCertStoreImpl.lo
 	-rm -f gnu/java/security/provider/DSAKeyFactory.$(OBJEXT)
 	-rm -f gnu/java/security/provider/DSAKeyFactory.lo
 	-rm -f gnu/java/security/provider/DSAKeyPairGenerator.$(OBJEXT)
@@ -14933,30 +15297,94 @@ mostlyclean-compile:
 	-rm -f gnu/java/security/provider/DSASignature.lo
 	-rm -f gnu/java/security/provider/DefaultPolicy.$(OBJEXT)
 	-rm -f gnu/java/security/provider/DefaultPolicy.lo
+	-rm -f gnu/java/security/provider/EncodedKeyFactory.$(OBJEXT)
+	-rm -f gnu/java/security/provider/EncodedKeyFactory.lo
 	-rm -f gnu/java/security/provider/Gnu.$(OBJEXT)
 	-rm -f gnu/java/security/provider/Gnu.lo
+	-rm -f gnu/java/security/provider/GnuDHPublicKey.$(OBJEXT)
+	-rm -f gnu/java/security/provider/GnuDHPublicKey.lo
 	-rm -f gnu/java/security/provider/GnuDSAPrivateKey.$(OBJEXT)
 	-rm -f gnu/java/security/provider/GnuDSAPrivateKey.lo
 	-rm -f gnu/java/security/provider/GnuDSAPublicKey.$(OBJEXT)
 	-rm -f gnu/java/security/provider/GnuDSAPublicKey.lo
+	-rm -f gnu/java/security/provider/GnuRSAPrivateKey.$(OBJEXT)
+	-rm -f gnu/java/security/provider/GnuRSAPrivateKey.lo
+	-rm -f gnu/java/security/provider/GnuRSAPublicKey.$(OBJEXT)
+	-rm -f gnu/java/security/provider/GnuRSAPublicKey.lo
+	-rm -f gnu/java/security/provider/MD2withRSA.$(OBJEXT)
+	-rm -f gnu/java/security/provider/MD2withRSA.lo
+	-rm -f gnu/java/security/provider/MD4withRSA.$(OBJEXT)
+	-rm -f gnu/java/security/provider/MD4withRSA.lo
 	-rm -f gnu/java/security/provider/MD5.$(OBJEXT)
 	-rm -f gnu/java/security/provider/MD5.lo
+	-rm -f gnu/java/security/provider/MD5withRSA.$(OBJEXT)
+	-rm -f gnu/java/security/provider/MD5withRSA.lo
+	-rm -f gnu/java/security/provider/PKIXCertPathValidatorImpl.$(OBJEXT)
+	-rm -f gnu/java/security/provider/PKIXCertPathValidatorImpl.lo
+	-rm -f gnu/java/security/provider/RSA.$(OBJEXT)
+	-rm -f gnu/java/security/provider/RSA.lo
+	-rm -f gnu/java/security/provider/RSAKeyFactory.$(OBJEXT)
+	-rm -f gnu/java/security/provider/RSAKeyFactory.lo
 	-rm -f gnu/java/security/provider/SHA.$(OBJEXT)
 	-rm -f gnu/java/security/provider/SHA.lo
 	-rm -f gnu/java/security/provider/SHA1PRNG.$(OBJEXT)
 	-rm -f gnu/java/security/provider/SHA1PRNG.lo
+	-rm -f gnu/java/security/provider/SHA1withRSA.$(OBJEXT)
+	-rm -f gnu/java/security/provider/SHA1withRSA.lo
 	-rm -f gnu/java/security/provider/X509CertificateFactory.$(OBJEXT)
 	-rm -f gnu/java/security/provider/X509CertificateFactory.lo
 	-rm -f gnu/java/security/util/Prime.$(OBJEXT)
 	-rm -f gnu/java/security/util/Prime.lo
+	-rm -f gnu/java/security/x509/GnuPKIExtension.$(OBJEXT)
+	-rm -f gnu/java/security/x509/GnuPKIExtension.lo
+	-rm -f gnu/java/security/x509/PolicyNodeImpl.$(OBJEXT)
+	-rm -f gnu/java/security/x509/PolicyNodeImpl.lo
+	-rm -f gnu/java/security/x509/Util.$(OBJEXT)
+	-rm -f gnu/java/security/x509/Util.lo
 	-rm -f gnu/java/security/x509/X500DistinguishedName.$(OBJEXT)
 	-rm -f gnu/java/security/x509/X500DistinguishedName.lo
 	-rm -f gnu/java/security/x509/X509CRL.$(OBJEXT)
 	-rm -f gnu/java/security/x509/X509CRL.lo
 	-rm -f gnu/java/security/x509/X509CRLEntry.$(OBJEXT)
 	-rm -f gnu/java/security/x509/X509CRLEntry.lo
+	-rm -f gnu/java/security/x509/X509CRLSelectorImpl.$(OBJEXT)
+	-rm -f gnu/java/security/x509/X509CRLSelectorImpl.lo
+	-rm -f gnu/java/security/x509/X509CertPath.$(OBJEXT)
+	-rm -f gnu/java/security/x509/X509CertPath.lo
+	-rm -f gnu/java/security/x509/X509CertSelectorImpl.$(OBJEXT)
+	-rm -f gnu/java/security/x509/X509CertSelectorImpl.lo
 	-rm -f gnu/java/security/x509/X509Certificate.$(OBJEXT)
 	-rm -f gnu/java/security/x509/X509Certificate.lo
+	-rm -f gnu/java/security/x509/ext/AuthorityKeyIdentifier.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/AuthorityKeyIdentifier.lo
+	-rm -f gnu/java/security/x509/ext/BasicConstraints.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/BasicConstraints.lo
+	-rm -f gnu/java/security/x509/ext/CRLNumber.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/CRLNumber.lo
+	-rm -f gnu/java/security/x509/ext/CertificatePolicies.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/CertificatePolicies.lo
+	-rm -f gnu/java/security/x509/ext/ExtendedKeyUsage.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/ExtendedKeyUsage.lo
+	-rm -f gnu/java/security/x509/ext/Extension.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/Extension.lo
+	-rm -f gnu/java/security/x509/ext/GeneralNames.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/GeneralNames.lo
+	-rm -f gnu/java/security/x509/ext/IssuerAlternativeNames.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/IssuerAlternativeNames.lo
+	-rm -f gnu/java/security/x509/ext/KeyUsage.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/KeyUsage.lo
+	-rm -f gnu/java/security/x509/ext/PolicyConstraint.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/PolicyConstraint.lo
+	-rm -f gnu/java/security/x509/ext/PolicyMappings.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/PolicyMappings.lo
+	-rm -f gnu/java/security/x509/ext/PrivateKeyUsagePeriod.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/PrivateKeyUsagePeriod.lo
+	-rm -f gnu/java/security/x509/ext/ReasonCode.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/ReasonCode.lo
+	-rm -f gnu/java/security/x509/ext/SubjectAlternativeNames.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/SubjectAlternativeNames.lo
+	-rm -f gnu/java/security/x509/ext/SubjectKeyIdentifier.$(OBJEXT)
+	-rm -f gnu/java/security/x509/ext/SubjectKeyIdentifier.lo
 	-rm -f gnu/java/text/AttributedFormatBuffer.$(OBJEXT)
 	-rm -f gnu/java/text/AttributedFormatBuffer.lo
 	-rm -f gnu/java/text/BaseBreakIterator.$(OBJEXT)
@@ -17407,10 +17835,24 @@ mostlyclean-compile:
 	-rm -f javax/crypto/spec/SecretKeySpec.lo
 	-rm -f javax/imageio/IIOException.$(OBJEXT)
 	-rm -f javax/imageio/IIOException.lo
+	-rm -f javax/imageio/IIOImage.$(OBJEXT)
+	-rm -f javax/imageio/IIOImage.lo
+	-rm -f javax/imageio/IIOParam.$(OBJEXT)
+	-rm -f javax/imageio/IIOParam.lo
+	-rm -f javax/imageio/IIOParamController.$(OBJEXT)
+	-rm -f javax/imageio/IIOParamController.lo
+	-rm -f javax/imageio/ImageIO.$(OBJEXT)
+	-rm -f javax/imageio/ImageIO.lo
+	-rm -f javax/imageio/ImageReadParam.$(OBJEXT)
+	-rm -f javax/imageio/ImageReadParam.lo
 	-rm -f javax/imageio/ImageReader.$(OBJEXT)
 	-rm -f javax/imageio/ImageReader.lo
 	-rm -f javax/imageio/ImageTranscoder.$(OBJEXT)
 	-rm -f javax/imageio/ImageTranscoder.lo
+	-rm -f javax/imageio/ImageTypeSpecifier.$(OBJEXT)
+	-rm -f javax/imageio/ImageTypeSpecifier.lo
+	-rm -f javax/imageio/ImageWriteParam.$(OBJEXT)
+	-rm -f javax/imageio/ImageWriteParam.lo
 	-rm -f javax/imageio/ImageWriter.$(OBJEXT)
 	-rm -f javax/imageio/ImageWriter.lo
 	-rm -f javax/imageio/event/IIOReadProgressListener.$(OBJEXT)
@@ -17423,26 +17865,60 @@ mostlyclean-compile:
 	-rm -f javax/imageio/event/IIOWriteProgressListener.lo
 	-rm -f javax/imageio/event/IIOWriteWarningListener.$(OBJEXT)
 	-rm -f javax/imageio/event/IIOWriteWarningListener.lo
+	-rm -f javax/imageio/metadata/IIOInvalidTreeException.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOInvalidTreeException.lo
+	-rm -f javax/imageio/metadata/IIOMetadata.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOMetadata.lo
+	-rm -f javax/imageio/metadata/IIOMetadataController.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOMetadataController.lo
+	-rm -f javax/imageio/metadata/IIOMetadataFormat.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOMetadataFormat.lo
+	-rm -f javax/imageio/metadata/IIOMetadataFormatImpl.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOMetadataFormatImpl.lo
+	-rm -f javax/imageio/metadata/IIOMetadataNode.$(OBJEXT)
+	-rm -f javax/imageio/metadata/IIOMetadataNode.lo
+	-rm -f javax/imageio/spi/IIORegistry.$(OBJEXT)
+	-rm -f javax/imageio/spi/IIORegistry.lo
 	-rm -f javax/imageio/spi/IIOServiceProvider.$(OBJEXT)
 	-rm -f javax/imageio/spi/IIOServiceProvider.lo
 	-rm -f javax/imageio/spi/ImageInputStreamSpi.$(OBJEXT)
 	-rm -f javax/imageio/spi/ImageInputStreamSpi.lo
 	-rm -f javax/imageio/spi/ImageOutputStreamSpi.$(OBJEXT)
 	-rm -f javax/imageio/spi/ImageOutputStreamSpi.lo
+	-rm -f javax/imageio/spi/ImageReaderSpi.$(OBJEXT)
+	-rm -f javax/imageio/spi/ImageReaderSpi.lo
 	-rm -f javax/imageio/spi/ImageReaderWriterSpi.$(OBJEXT)
 	-rm -f javax/imageio/spi/ImageReaderWriterSpi.lo
 	-rm -f javax/imageio/spi/ImageTranscoderSpi.$(OBJEXT)
 	-rm -f javax/imageio/spi/ImageTranscoderSpi.lo
+	-rm -f javax/imageio/spi/ImageWriterSpi.$(OBJEXT)
+	-rm -f javax/imageio/spi/ImageWriterSpi.lo
 	-rm -f javax/imageio/spi/RegisterableService.$(OBJEXT)
 	-rm -f javax/imageio/spi/RegisterableService.lo
 	-rm -f javax/imageio/spi/ServiceRegistry.$(OBJEXT)
 	-rm -f javax/imageio/spi/ServiceRegistry.lo
+	-rm -f javax/imageio/stream/FileCacheImageInputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/FileCacheImageInputStream.lo
+	-rm -f javax/imageio/stream/FileCacheImageOutputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/FileCacheImageOutputStream.lo
+	-rm -f javax/imageio/stream/FileImageInputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/FileImageInputStream.lo
+	-rm -f javax/imageio/stream/FileImageOutputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/FileImageOutputStream.lo
 	-rm -f javax/imageio/stream/IIOByteBuffer.$(OBJEXT)
 	-rm -f javax/imageio/stream/IIOByteBuffer.lo
 	-rm -f javax/imageio/stream/ImageInputStream.$(OBJEXT)
 	-rm -f javax/imageio/stream/ImageInputStream.lo
+	-rm -f javax/imageio/stream/ImageInputStreamImpl.$(OBJEXT)
+	-rm -f javax/imageio/stream/ImageInputStreamImpl.lo
 	-rm -f javax/imageio/stream/ImageOutputStream.$(OBJEXT)
 	-rm -f javax/imageio/stream/ImageOutputStream.lo
+	-rm -f javax/imageio/stream/ImageOutputStreamImpl.$(OBJEXT)
+	-rm -f javax/imageio/stream/ImageOutputStreamImpl.lo
+	-rm -f javax/imageio/stream/MemoryCacheImageInputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/MemoryCacheImageInputStream.lo
+	-rm -f javax/imageio/stream/MemoryCacheImageOutputStream.$(OBJEXT)
+	-rm -f javax/imageio/stream/MemoryCacheImageOutputStream.lo
 	-rm -f javax/naming/AuthenticationException.$(OBJEXT)
 	-rm -f javax/naming/AuthenticationException.lo
 	-rm -f javax/naming/AuthenticationNotSupportedException.$(OBJEXT)
@@ -17965,6 +18441,8 @@ mostlyclean-compile:
 	-rm -f javax/security/auth/login/LoginException.lo
 	-rm -f javax/security/auth/login/NullConfiguration.$(OBJEXT)
 	-rm -f javax/security/auth/login/NullConfiguration.lo
+	-rm -f javax/security/auth/spi/LoginModule.$(OBJEXT)
+	-rm -f javax/security/auth/spi/LoginModule.lo
 	-rm -f javax/security/auth/x500/X500Principal.$(OBJEXT)
 	-rm -f javax/security/auth/x500/X500Principal.lo
 	-rm -f javax/security/auth/x500/X500PrivateCredential.$(OBJEXT)
@@ -19436,6 +19914,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/$(DEPDIR)/Engine.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/$(DEPDIR)/OID.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/action/$(DEPDIR)/GetPropertyAction.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/action/$(DEPDIR)/GetSecurityPropertyAction.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/action/$(DEPDIR)/SetAccessibleAction.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/der/$(DEPDIR)/BitString.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/der/$(DEPDIR)/DER.Plo@am__quote@
@@ -19443,24 +19922,57 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/der/$(DEPDIR)/DERReader.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/der/$(DEPDIR)/DERValue.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/der/$(DEPDIR)/DERWriter.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/CollectionCertStoreImpl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DSAKeyFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DSAKeyPairGenerator.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DSAParameterGenerator.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DSAParameters.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DSASignature.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/DefaultPolicy.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/EncodedKeyFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/Gnu.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/GnuDHPublicKey.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/GnuDSAPrivateKey.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/GnuDSAPublicKey.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/GnuRSAPrivateKey.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/GnuRSAPublicKey.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/MD2withRSA.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/MD4withRSA.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/MD5.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/MD5withRSA.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/PKIXCertPathValidatorImpl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/RSA.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/RSAKeyFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/SHA.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/SHA1PRNG.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/SHA1withRSA.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/provider/$(DEPDIR)/X509CertificateFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/util/$(DEPDIR)/Prime.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/GnuPKIExtension.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/PolicyNodeImpl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/Util.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X500DistinguishedName.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509CRL.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509CRLEntry.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509CRLSelectorImpl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509CertPath.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509CertSelectorImpl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/$(DEPDIR)/X509Certificate.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/AuthorityKeyIdentifier.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/BasicConstraints.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/CRLNumber.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/CertificatePolicies.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/ExtendedKeyUsage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/Extension.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/GeneralNames.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/IssuerAlternativeNames.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/KeyUsage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/PolicyConstraint.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/PolicyMappings.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/PrivateKeyUsagePeriod.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/ReasonCode.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/SubjectAlternativeNames.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/java/security/x509/ext/$(DEPDIR)/SubjectKeyIdentifier.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/text/$(DEPDIR)/AttributedFormatBuffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/text/$(DEPDIR)/BaseBreakIterator.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/java/text/$(DEPDIR)/CharacterBreakIterator.Plo@am__quote@
@@ -20686,24 +21198,48 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/crypto/spec/$(DEPDIR)/RC5ParameterSpec.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/crypto/spec/$(DEPDIR)/SecretKeySpec.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/IIOException.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/IIOImage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/IIOParam.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/IIOParamController.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageIO.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageReadParam.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageReader.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageTranscoder.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageTypeSpecifier.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageWriteParam.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/$(DEPDIR)/ImageWriter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/event/$(DEPDIR)/IIOReadProgressListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/event/$(DEPDIR)/IIOReadUpdateListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/event/$(DEPDIR)/IIOReadWarningListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/event/$(DEPDIR)/IIOWriteProgressListener.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/event/$(DEPDIR)/IIOWriteWarningListener.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOInvalidTreeException.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOMetadata.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOMetadataController.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOMetadataFormat.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOMetadataFormatImpl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/metadata/$(DEPDIR)/IIOMetadataNode.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/IIORegistry.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/IIOServiceProvider.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageInputStreamSpi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageOutputStreamSpi.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageReaderSpi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageReaderWriterSpi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageTranscoderSpi.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ImageWriterSpi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/RegisterableService.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/spi/$(DEPDIR)/ServiceRegistry.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/FileCacheImageInputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/FileCacheImageOutputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/FileImageInputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/FileImageOutputStream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/IIOByteBuffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/ImageInputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/ImageInputStreamImpl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/ImageOutputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/ImageOutputStreamImpl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/MemoryCacheImageInputStream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/imageio/stream/$(DEPDIR)/MemoryCacheImageOutputStream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/naming/$(DEPDIR)/AuthenticationException.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/naming/$(DEPDIR)/AuthenticationNotSupportedException.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/naming/$(DEPDIR)/BinaryRefAddr.Plo@am__quote@
@@ -20965,6 +21501,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/login/$(DEPDIR)/LoginContext.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/login/$(DEPDIR)/LoginException.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/login/$(DEPDIR)/NullConfiguration.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/spi/$(DEPDIR)/LoginModule.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/x500/$(DEPDIR)/X500Principal.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/auth/x500/$(DEPDIR)/X500PrivateCredential.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@javax/security/cert/$(DEPDIR)/Certificate.Plo@am__quote@
@@ -22337,6 +22874,7 @@ clean-libtool:
 	-rm -rf gnu/java/security/provider/.libs gnu/java/security/provider/_libs
 	-rm -rf gnu/java/security/util/.libs gnu/java/security/util/_libs
 	-rm -rf gnu/java/security/x509/.libs gnu/java/security/x509/_libs
+	-rm -rf gnu/java/security/x509/ext/.libs gnu/java/security/x509/ext/_libs
 	-rm -rf gnu/java/text/.libs gnu/java/text/_libs
 	-rm -rf gnu/java/util/.libs gnu/java/util/_libs
 	-rm -rf gnu/java/util/prefs/.libs gnu/java/util/prefs/_libs
@@ -22393,6 +22931,7 @@ clean-libtool:
 	-rm -rf javax/crypto/spec/.libs javax/crypto/spec/_libs
 	-rm -rf javax/imageio/.libs javax/imageio/_libs
 	-rm -rf javax/imageio/event/.libs javax/imageio/event/_libs
+	-rm -rf javax/imageio/metadata/.libs javax/imageio/metadata/_libs
 	-rm -rf javax/imageio/spi/.libs javax/imageio/spi/_libs
 	-rm -rf javax/imageio/stream/.libs javax/imageio/stream/_libs
 	-rm -rf javax/naming/.libs javax/naming/_libs
@@ -22409,6 +22948,7 @@ clean-libtool:
 	-rm -rf javax/security/auth/.libs javax/security/auth/_libs
 	-rm -rf javax/security/auth/callback/.libs javax/security/auth/callback/_libs
 	-rm -rf javax/security/auth/login/.libs javax/security/auth/login/_libs
+	-rm -rf javax/security/auth/spi/.libs javax/security/auth/spi/_libs
 	-rm -rf javax/security/auth/x500/.libs javax/security/auth/x500/_libs
 	-rm -rf javax/security/cert/.libs javax/security/cert/_libs
 	-rm -rf javax/security/sasl/.libs javax/security/sasl/_libs
@@ -22868,6 +23408,8 @@ distclean-generic:
 	-rm -f gnu/java/security/util/$(am__dirstamp)
 	-rm -f gnu/java/security/x509/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/security/x509/$(am__dirstamp)
+	-rm -f gnu/java/security/x509/ext/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gnu/java/security/x509/ext/$(am__dirstamp)
 	-rm -f gnu/java/text/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/java/text/$(am__dirstamp)
 	-rm -f gnu/java/util/$(DEPDIR)/$(am__dirstamp)
@@ -22980,6 +23522,8 @@ distclean-generic:
 	-rm -f javax/imageio/$(am__dirstamp)
 	-rm -f javax/imageio/event/$(DEPDIR)/$(am__dirstamp)
 	-rm -f javax/imageio/event/$(am__dirstamp)
+	-rm -f javax/imageio/metadata/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/imageio/metadata/$(am__dirstamp)
 	-rm -f javax/imageio/spi/$(DEPDIR)/$(am__dirstamp)
 	-rm -f javax/imageio/spi/$(am__dirstamp)
 	-rm -f javax/imageio/stream/$(DEPDIR)/$(am__dirstamp)
@@ -23012,6 +23556,8 @@ distclean-generic:
 	-rm -f javax/security/auth/callback/$(am__dirstamp)
 	-rm -f javax/security/auth/login/$(DEPDIR)/$(am__dirstamp)
 	-rm -f javax/security/auth/login/$(am__dirstamp)
+	-rm -f javax/security/auth/spi/$(DEPDIR)/$(am__dirstamp)
+	-rm -f javax/security/auth/spi/$(am__dirstamp)
 	-rm -f javax/security/auth/x500/$(DEPDIR)/$(am__dirstamp)
 	-rm -f javax/security/auth/x500/$(am__dirstamp)
 	-rm -f javax/security/cert/$(DEPDIR)/$(am__dirstamp)
@@ -23084,7 +23630,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libtool clean-local \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-local distclean-tags
@@ -23114,7 +23660,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/awt/$(DEPDIR) gnu/awt/j2d/$(DEPDIR) gnu/awt/xlib/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/awt/$(DEPDIR) gnu/java/awt/image/$(DEPDIR) gnu/java/awt/peer/$(DEPDIR) gnu/java/awt/peer/gtk/$(DEPDIR) gnu/java/beans/$(DEPDIR) gnu/java/beans/editors/$(DEPDIR) gnu/java/beans/info/$(DEPDIR) gnu/java/io/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/reflect/$(DEPDIR) gnu/java/locale/$(DEPDIR) gnu/java/math/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/net/protocol/file/$(DEPDIR) gnu/java/net/protocol/gcjlib/$(DEPDIR) gnu/java/net/protocol/http/$(DEPDIR) gnu/java/net/protocol/jar/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) gnu/java/nio/charset/$(DEPDIR) gnu/java/rmi/$(DEPDIR) gnu/java/rmi/dgc/$(DEPDIR) gnu/java/rmi/registry/$(DEPDIR) gnu/java/rmi/rmic/$(DEPDIR) gnu/java/rmi/server/$(DEPDIR) gnu/java/security/$(DEPDIR) gnu/java/security/action/$(DEPDIR) gnu/java/security/der/$(DEPDIR) gnu/java/security/provider/$(DEPDIR) gnu/java/security/util/$(DEPDIR) gnu/java/security/x509/$(DEPDIR) gnu/java/security/x509/ext/$(DEPDIR) gnu/java/text/$(DEPDIR) gnu/java/util/$(DEPDIR) gnu/java/util/prefs/$(DEPDIR) gnu/regexp/$(DEPDIR) java/applet/$(DEPDIR) java/awt/$(DEPDIR) java/awt/color/$(DEPDIR) java/awt/datatransfer/$(DEPDIR) java/awt/dnd/$(DEPDIR) java/awt/dnd/peer/$(DEPDIR) java/awt/event/$(DEPDIR) java/awt/font/$(DEPDIR) java/awt/geom/$(DEPDIR) java/awt/im/$(DEPDIR) java/awt/im/spi/$(DEPDIR) java/awt/image/$(DEPDIR) java/awt/image/renderable/$(DEPDIR) java/awt/peer/$(DEPDIR) java/awt/print/$(DEPDIR) java/beans/$(DEPDIR) java/beans/beancontext/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/math/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/nio/channels/spi/$(DEPDIR) java/nio/charset/$(DEPDIR) java/nio/charset/spi/$(DEPDIR) java/rmi/$(DEPDIR) java/rmi/activation/$(DEPDIR) java/rmi/dgc/$(DEPDIR) java/rmi/registry/$(DEPDIR) java/rmi/server/$(DEPDIR) java/security/$(DEPDIR) java/security/acl/$(DEPDIR) java/security/cert/$(DEPDIR) java/security/interfaces/$(DEPDIR) java/security/spec/$(DEPDIR) java/sql/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/jar/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/prefs/$(DEPDIR) java/util/regex/$(DEPDIR) java/util/zip/$(DEPDIR) javax/accessibility/$(DEPDIR) javax/crypto/$(DEPDIR) javax/crypto/interfaces/$(DEPDIR) javax/crypto/spec/$(DEPDIR) javax/imageio/$(DEPDIR) javax/imageio/event/$(DEPDIR) javax/imageio/metadata/$(DEPDIR) javax/imageio/spi/$(DEPDIR) javax/imageio/stream/$(DEPDIR) javax/naming/$(DEPDIR) javax/naming/directory/$(DEPDIR) javax/naming/event/$(DEPDIR) javax/naming/ldap/$(DEPDIR) javax/naming/spi/$(DEPDIR) javax/net/$(DEPDIR) javax/net/ssl/$(DEPDIR) javax/print/$(DEPDIR) javax/print/attribute/$(DEPDIR) javax/print/attribute/standard/$(DEPDIR) javax/print/event/$(DEPDIR) javax/security/auth/$(DEPDIR) javax/security/auth/callback/$(DEPDIR) javax/security/auth/login/$(DEPDIR) javax/security/auth/spi/$(DEPDIR) javax/security/auth/x500/$(DEPDIR) javax/security/cert/$(DEPDIR) javax/security/sasl/$(DEPDIR) javax/sql/$(DEPDIR) javax/swing/$(DEPDIR) javax/swing/border/$(DEPDIR) javax/swing/colorchooser/$(DEPDIR) javax/swing/event/$(DEPDIR) javax/swing/filechooser/$(DEPDIR) javax/swing/plaf/$(DEPDIR) javax/swing/plaf/basic/$(DEPDIR) javax/swing/plaf/metal/$(DEPDIR) javax/swing/table/$(DEPDIR) javax/swing/text/$(DEPDIR) javax/swing/text/html/$(DEPDIR) javax/swing/text/html/parser/$(DEPDIR) javax/swing/tree/$(DEPDIR) javax/swing/undo/$(DEPDIR) javax/transaction/$(DEPDIR) javax/transaction/xa/$(DEPDIR) jni/classpath/$(DEPDIR) jni/gtk-peer/$(DEPDIR) org/ietf/jgss/$(DEPDIR) org/w3c/dom/$(DEPDIR) org/w3c/dom/ranges/$(DEPDIR) org/w3c/dom/traversal/$(DEPDIR) org/xml/sax/$(DEPDIR) org/xml/sax/ext/$(DEPDIR) org/xml/sax/helpers/$(DEPDIR) sysdep/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

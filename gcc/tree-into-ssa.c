@@ -230,7 +230,7 @@ void
 compute_global_livein (bitmap livein, bitmap def_blocks)
 {
   basic_block bb, *worklist, *tos;
-  int i;
+  unsigned i;
   bitmap_iterator bi;
 
   tos = worklist
@@ -298,7 +298,7 @@ ssa_mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 
   sbitmap_zero (kills);
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       def = PHI_RESULT (phi);
       def_uid = SSA_NAME_VERSION (def);
@@ -328,7 +328,7 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
 
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  use = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	  if (TREE_CODE (use) != SSA_NAME)
@@ -603,7 +603,7 @@ void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
 static void
 insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
 {
-  size_t i;
+  unsigned i;
   varray_type work_stack;
   bitmap_iterator bi;
 
@@ -748,7 +748,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree result = PHI_RESULT (phi);
 
@@ -783,7 +783,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     {
       tree phi;
 
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree currdef;
 
@@ -818,7 +818,7 @@ rewrite_virtual_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
 
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree result = PHI_RESULT (phi);
 	  op = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
@@ -852,7 +852,7 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
 
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  op = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
 	  if (TREE_CODE (USE_FROM_PTR (op)) != SSA_NAME)
@@ -1005,7 +1005,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
-  int bb_index;
+  unsigned bb_index;
   edge e;
   tree phi;
   basic_block bb;
@@ -1036,7 +1036,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
      We now always use fully pruned SSA form.  */
   while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
     {
-      int dfs_index;
+      unsigned dfs_index;
       bitmap_iterator bi;
 
       bb = VARRAY_TOP_GENERIC_PTR_NOGC (*work_stack);
@@ -1303,24 +1303,12 @@ debug_def_blocks (void)
 static int
 debug_def_blocks_r (void **slot, void *data ATTRIBUTE_UNUSED)
 {
-  unsigned long i;
   struct def_blocks_d *db_p = (struct def_blocks_d *) *slot;
-  bitmap_iterator bi;
   
   fprintf (stderr, "VAR: ");
   print_generic_expr (stderr, db_p->var, dump_flags);
-  fprintf (stderr, ", DEF_BLOCKS: { ");
-  EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i, bi)
-    {
-      fprintf (stderr, "%ld ", i);
-    }
-  fprintf (stderr, "}");
-  fprintf (stderr, ", LIVEIN_BLOCKS: { ");
-  EXECUTE_IF_SET_IN_BITMAP (db_p->livein_blocks, 0, i, bi)
-    {
-      fprintf (stderr, "%ld ", i);
-    }
-  fprintf (stderr, "}\n");
+  bitmap_print (stderr, db_p->def_blocks, ", DEF_BLOCKS: { ", "}");
+  bitmap_print (stderr, db_p->livein_blocks, ", LIVEIN_BLOCKS: { ", "}\n");
 
   return 1;
 }
@@ -1382,7 +1370,7 @@ get_def_blocks_for (tree var)
 static void
 invalidate_name_tags (bitmap vars_to_rename)
 {
-  size_t i;
+  unsigned i;
   bool rename_name_tags_p;
   bitmap_iterator bi;
 

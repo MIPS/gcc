@@ -73,7 +73,7 @@ struct alias_info
   /* SSA names visited while collecting points-to information.  If bit I
      is set, it means that SSA variable with version I has already been
      visited.  */
-  bitmap ssa_names_visited;
+  sbitmap ssa_names_visited;
 
   /* Array of SSA_NAME pointers processed by the points-to collector.  */
   varray_type processed_ptrs;
@@ -368,7 +368,8 @@ init_alias_info (void)
   static bool aliases_computed_p = false;
 
   ai = xcalloc (1, sizeof (struct alias_info));
-  ai->ssa_names_visited = BITMAP_XMALLOC ();
+  ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
+  sbitmap_zero (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
   ai->addresses_needed = BITMAP_XMALLOC ();
   VARRAY_UINT_INIT (ai->num_references, num_referenced_vars, "num_references");
@@ -379,7 +380,7 @@ init_alias_info (void)
   /* If aliases have been computed before, clear existing information.  */
   if (aliases_computed_p)
     {
-      size_t i;
+      unsigned i;
       bitmap_iterator bi;
 
       /* Clear the call-clobbered set.  We are going to re-discover
@@ -449,7 +450,7 @@ delete_alias_info (struct alias_info *ai)
 {
   size_t i;
 
-  BITMAP_XFREE (ai->ssa_names_visited);
+  sbitmap_free (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
   BITMAP_XFREE (ai->addresses_needed);
 
@@ -484,9 +485,9 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 {
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (ptr)));
 
-  if (!bitmap_bit_p (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
+  if (!TEST_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
     {
-      bitmap_set_bit (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
+      SET_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
       walk_use_def_chains (ptr, collect_points_to_info_r, ai, true);
       VARRAY_PUSH_TREE (ai->processed_ptrs, ptr);
     }
@@ -570,7 +571,7 @@ static void
 compute_points_to_and_addr_escape (struct alias_info *ai)
 {
   basic_block bb;
-  size_t i;
+  unsigned i;
   tree op;
   ssa_op_iter iter;
 
@@ -831,7 +832,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
-      size_t j;
+      unsigned j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
@@ -1484,7 +1485,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 static void
 maybe_create_global_var (struct alias_info *ai)
 {
-  size_t i, n_clobbered;
+  unsigned i, n_clobbered;
   bitmap_iterator bi;
   
   /* No need to create it, if we have one already.  */
@@ -1672,14 +1673,21 @@ set_pt_malloc (tree ptr)
 }
 
 
-/* Given two pointers DEST and ORIG.  Merge the points-to information in
-   ORIG into DEST.  AI is as in collect_points_to_info.  */
+/* Given two different pointers DEST and ORIG.  Merge the points-to
+   information in ORIG into DEST.  AI is as in
+   collect_points_to_info.  */
 
 static void
 merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 {
   struct ptr_info_def *dest_pi, *orig_pi;
 
+  /* FIXME: It is erroneous to call this function with identical
+     nodes, however that currently occurs during bootstrap.  This check
+     stops further breakage.  PR 18307 documents the issue.  */
+  if (dest == orig)
+    return;
+  
   /* Make sure we have points-to information for ORIG.  */
   collect_points_to_info_for (ai, orig);
 
@@ -1710,6 +1718,8 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	 smart enough to determine that the two come from the same
 	 malloc call.  Copy propagation before aliasing should cure
 	 this.  */
+      gcc_assert (orig_pi != dest_pi);
+      
       dest_pi->pt_malloc = 0;
 
       if (orig_pi->pt_malloc || orig_pi->pt_anything)
@@ -1725,9 +1735,7 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	      bitmap_copy (dest_pi->pt_vars, orig_pi->pt_vars);
 	    }
 	  else
-	    bitmap_a_or_b (dest_pi->pt_vars,
-		           dest_pi->pt_vars,
-		           orig_pi->pt_vars);
+	    bitmap_ior_into (dest_pi->pt_vars, orig_pi->pt_vars);
 	}
     }
   else

@@ -229,14 +229,7 @@ rest_of_decl_compilation (tree decl,
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
-	      && TREE_CODE (decl) != FUNCTION_DECL && top_level
-	      /* If we defer processing of decls that have had their
-		 DECL_RTL set above (say, in make_decl_rtl),
-		 check_global_declarations() will clear it before
-		 assemble_variable has a chance to act on it.  This
-		 would remove all traces of the register name in a
-		 global register variable, for example.  */
-	      && !DECL_RTL_SET_P (decl))
+	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -1291,27 +1284,6 @@ rest_of_handle_jump (void)
   timevar_push (TV_JUMP);
   open_dump_file (DFI_sibling, current_function_decl);
 
-  /* ??? We may get called either via tree_rest_of_compilation when the CFG
-     is already built or directly (for instance from coverage code).
-     The direct callers shall be updated.  */
-  if (!basic_block_info)
-    {
-      init_flow ();
-      rebuild_jump_labels (get_insns ());
-      find_exception_handler_labels ();
-      find_basic_blocks (get_insns (), max_reg_num (), dump_file);
-    }
-
-  /* ??? We may get called either via tree_rest_of_compilation when the CFG
-     is already built or directly (for instance from coverage code).
-     The direct callers shall be updated.  */
-  if (!basic_block_info)
-    {
-      init_flow ();
-      rebuild_jump_labels (get_insns ());
-      find_exception_handler_labels ();
-      find_basic_blocks (get_insns (), max_reg_num (), dump_file);
-    }
   delete_unreachable_blocks ();
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -1577,7 +1549,7 @@ rest_of_clean_state (void)
    We run a series of low-level passes here on the function's RTL
    representation.  Each pass is called via a rest_of_* function.  */
 
-void
+static void
 rest_of_compilation (void)
 {
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other

@@ -430,6 +430,8 @@ static rtx inc_for_reload (rtx, rtx, rtx, int);
 static void add_auto_inc_notes (rtx, rtx);
 #endif
 static void copy_eh_notes (rtx, rtx);
+static int reloads_conflict (int, int);
+static rtx gen_reload (rtx, rtx, int, enum reload_type);
 
 /* Initialize the reload pass once per compilation.  */
 
@@ -1589,7 +1591,7 @@ count_pseudo (int reg)
 static void
 order_regs_for_reload (struct insn_chain *chain)
 {
-  int i;
+  unsigned i;
   HARD_REG_SET used_by_pseudos;
   HARD_REG_SET used_by_pseudos2;
   reg_set_iterator rsi;
@@ -3543,7 +3545,7 @@ finish_spills (int global)
 {
   struct insn_chain *chain;
   int something_changed = 0;
-  int i;
+  unsigned i;
   reg_set_iterator rsi;
 
   /* Build the spill_regs array for the function.  */
@@ -3613,7 +3615,7 @@ finish_spills (int global)
 	 and call retry_global_alloc.
 	 We change spill_pseudos here to only contain pseudos that did not
 	 get a new hard register.  */
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      for (i = FIRST_PSEUDO_REGISTER; i < (unsigned)max_regno; i++)
 	if (reg_old_renumber[i] != reg_renumber[i])
 	  {
 	    HARD_REG_SET forbidden;
@@ -3661,7 +3663,7 @@ finish_spills (int global)
     }
 
   /* Let alter_reg modify the reg rtx's for the modified pseudos.  */
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < (unsigned)max_regno; i++)
     {
       int regno = reg_renumber[i];
       if (reg_old_renumber[i] == regno)
@@ -4593,7 +4595,7 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 
    This function uses the same algorithm as reload_reg_free_p above.  */
 
-int
+static int
 reloads_conflict (int r1, int r2)
 {
   enum reload_type r1_type = rld[r1].when_needed;
@@ -7334,7 +7336,7 @@ emit_reload_insns (struct insn_chain *chain)
 
    Returns first insn emitted.  */
 
-rtx
+static rtx
 gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 {
   rtx last = get_last_insn ();

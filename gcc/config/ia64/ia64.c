@@ -477,7 +477,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
     }
   else
     {
-      warning ("invalid argument of `%s' attribute",
+      warning ("invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -509,7 +509,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
       break;
 
     default:
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
       break;
     }
@@ -4883,7 +4883,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	    HOST_WIDE_INT bit = (offset >> 3) & 63;
 
 	    need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
-	    new_flags.is_write = (XINT (x, 1) == 1);
+	    new_flags.is_write = (XINT (x, 1) == UNSPEC_GR_SPILL);
 	    need_barrier |= rws_access_regno (AR_UNAT_BIT_0 + bit,
 					      new_flags, pred);
 	    break;
@@ -4899,6 +4899,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	  break;
 
 	case UNSPEC_FR_RECIP_APPROX:
+	case UNSPEC_SHRP:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;

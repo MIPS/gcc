@@ -365,9 +365,7 @@ stmt_cost (tree stmt)
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
-  if (!is_gimple_variable (lhs))
-    cost += 20;
-  if (is_gimple_addressable (rhs) && !is_gimple_variable (rhs))
+  if (stmt_references_memory_p (stmt))
     cost += 20;
 
   switch (TREE_CODE (rhs))
@@ -598,7 +596,7 @@ loop_commit_inserts (void)
   basic_block bb;
 
   old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
   for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
@@ -1239,7 +1237,7 @@ determine_lsm_loop (struct loop *loop)
       return;
     }
 
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     determine_lsm_reg (loop, exits, n_exits, PHI_RESULT (phi));
 
   free (exits);

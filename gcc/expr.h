@@ -188,9 +188,6 @@ do {							\
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 #endif
 
-tree split_complex_types (tree);
-tree split_complex_values (tree);
-
 /* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
    Normally move_insn, so Pmode stack pointer.  */
 
@@ -340,9 +337,7 @@ extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
-extern void expand_builtin_longjmp (rtx, rtx);
 extern rtx expand_builtin_saveregs (void);
-extern void expand_builtin_trap (void);
 
 /* Functions from expr.c:  */
 
@@ -392,9 +387,15 @@ extern rtx gen_group_rtx (rtx);
    PARALLEL.  */
 extern void emit_group_load (rtx, rtx, tree, int);
 
+/* Similarly, but load into new temporaries.  */
+extern rtx emit_group_load_into_temps (rtx, rtx, tree, int);
+
 /* Move a non-consecutive group of registers represented by a PARALLEL into
    a non-consecutive group of registers represented by a PARALLEL.  */
 extern void emit_group_move (rtx, rtx);
+
+/* Move a group of registers represented by a PARALLEL into pseudos.  */
+extern rtx emit_group_move_into_temps (rtx);
 
 /* Store a BLKmode value from non-consecutive registers represented by a
    PARALLEL.  */
@@ -532,7 +533,6 @@ extern unsigned int case_values_threshold (void);
 /* extern HOST_WIDE_INT get_varargs_alias_set (void); */
 /* extern HOST_WIDE_INT get_frame_alias_set (void); */
 /* extern void record_base_value (unsigned int, rtx, int); */
-/* extern void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT); */
 /* extern HOST_WIDE_INT new_alias_set (void); */
 /* extern int can_address_p (tree); */
 
@@ -712,10 +712,6 @@ extern void probe_stack_range (HOST_WIDE_INT, rtx);
 /* Return an rtx that refers to the value returned by a library call
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_libcall_value (enum machine_mode);
-
-/* Given an rtx, return an rtx for a value rounded up to a multiple
-   of STACK_BOUNDARY / BITS_PER_UNIT.  */
-extern rtx round_push (rtx);
 
 /* Return the mode desired by operand N of a particular bitfield
    insert/extract insn, or MAX_MACHINE_MODE if no such insn is

@@ -51,6 +51,12 @@ host_modules= { module= fastjar; no_check_cross= true; };
 host_modules= { module= fileutils; };
 host_modules= { module= findutils; };
 host_modules= { module= find; };
+host_modules= { module= fixincludes;
+		missing= info;
+		missing= dvi;
+		missing= TAGS;
+		missing= install-info;
+		missing= installcheck; };
 host_modules= { module= flex; no_check_cross= true; };
 host_modules= { module= gas; bootstrap=true; };
 host_modules= { module= gcc; bootstrap=true; 
@@ -136,6 +142,8 @@ target_modules = { module= libada; };
 recursive_targets = { make_target= info; 
                       depend=configure; };
 recursive_targets = { make_target= dvi; 
+                      depend=configure; };
+recursive_targets = { make_target= html; 
                       depend=configure; };
 recursive_targets = { make_target= TAGS; 
                       depend=configure; };
@@ -253,12 +261,16 @@ dependencies = { module=all-gcc; on=all-gas; };
 dependencies = { module=all-gcc; on=all-ld; };
 dependencies = { module=all-gcc; on=all-zlib; };
 dependencies = { module=all-gcc; on=all-libcpp; hard=true; };
-dependencies = { module=all-gcc; on=all-build-libiberty; };
+dependencies = { module=all-gcc; on=all-libiberty; };
+dependencies = { module=all-gcc; on=all-fixincludes; };
+dependencies = { module=install-gcc ; on=install-fixincludes; };
 
 dependencies = { module=configure-libcpp; on=configure-libiberty; hard=true; };
 dependencies = { module=configure-libcpp; on=configure-intl; };
 dependencies = { module=all-libcpp; on=all-libiberty; hard=true; };
 dependencies = { module=all-libcpp; on=all-intl; };
+
+dependencies = { module=all-fixincludes; on=all-libiberty; };
 
 // Host modules specific to gdb.
 dependencies = { module=configure-gdb; on=configure-itcl; };

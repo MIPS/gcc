@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
+#include "hashtab.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -56,6 +57,30 @@ static const int initial_cfg_capacity = 20;
 /* Mapping of labels to their associated blocks.  This can greatly speed up
    building of the CFG in code with lots of gotos.  */
 static GTY(()) varray_type label_to_block_map;
+
+/* This hash table allows us to efficiently lookup the one and only one
+   CASE_LABEL_EXPR which contains the LABEL_DECL for the target block
+   of one or more case statements.  Efficient access to this node
+   allows us to efficiently update the case vector in response to
+   edge redirections and similar operations. 
+
+   Right now this is only used to set up case label leaders.  In the
+   future we hope to make this table more persistent and use it to
+   more efficiently update case labels.  */
+
+struct edge_to_case_leader_elt
+{
+  /* The edge itself.  Necessary for hashing and equality tests.  */
+  edge e;
+
+  /* The "leader" for all the CASE_LABEL_EXPRs which transfer control
+     to E->dest.  When we change the destination of E, we will need to
+     update the CASE_LEADER_OR_LABEL of this CASE_LABEL_EXPR (and no
+     others).  */
+  tree case_label;
+};
+
+static htab_t edge_to_case_leader;
 
 /* CFG statistics.  */
 struct cfg_stats_d
@@ -375,9 +400,10 @@ create_bb (void *h, void *e, basic_block after)
 
   gcc_assert (!e);
 
-  /* Create and initialize a new basic block.  */
+  /* Create and initialize a new basic block.  Since alloc_block uses
+     ggc_alloc_cleared to allocate a basic block, we do not have to
+     clear the newly allocated basic block here.  */
   bb = alloc_block ();
-  memset (bb, 0, sizeof (*bb));
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
@@ -575,6 +601,122 @@ make_cond_expr_edges (basic_block bb)
   make_edge (bb, else_bb, EDGE_FALSE_VALUE);
 }
 
+/* Hashing routine for EDGE_TO_CASE_LEADER.  */
+
+static hashval_t
+edge_to_case_leader_hash (const void *p)
+{
+  edge e = ((struct edge_to_case_leader_elt *)p)->e;
+
+  /* Hash on the edge itself (which is a pointer).  */
+  return htab_hash_pointer (e);
+}
+
+/* Equality routine for EDGE_TO_CASE_LEADER, edges are unique, so testing
+   for equality is just a pointer comparison.  */
+
+static int
+edge_to_case_leader_eq (const void *p1, const void *p2)
+{
+  edge e1 = ((struct edge_to_case_leader_elt *)p1)->e;
+  edge e2 = ((struct edge_to_case_leader_elt *)p2)->e;
+
+  return e1 == e2;
+}
+
+/* Record that CASE_LABEL (a CASE_LABEL_EXPR) references edge E.  */
+
+static void
+record_switch_edge (edge e, tree case_label)
+{
+  struct edge_to_case_leader_elt *elt;
+  void **slot;
+
+  /* Build a hash table element so we can see if E is already
+     in the table.  */
+  elt = xmalloc (sizeof (struct edge_to_case_leader_elt));
+  elt->e = e;
+  elt->case_label = case_label;
+
+  slot = htab_find_slot (edge_to_case_leader, elt, INSERT);
+
+  if (*slot == NULL)
+    {
+      /* E was not in the hash table.  Install E into the hash table.  */
+      *slot = (void *)elt;
+    }
+  else
+    {
+      /* E was already in the hash table.  Free ELT as we do not need it
+	 anymore.  */
+      free (elt);
+
+      /* Get the entry stored in the hash table.  */
+      elt = (struct edge_to_case_leader_elt *) *slot;
+
+      /* Make ELT->case_label the leader for CASE_LABEL.  */
+      CASE_LEADER_OR_LABEL (case_label) = elt->case_label;
+    }
+}
+
+/* Subroutine of get_case_leader_for_edge; returns the case leader for the
+   chain of CASE_LABEL_EXPRs associated with E using a hash table lookup.  */
+
+static tree
+get_case_leader_for_edge_hash (edge e)
+{
+  struct edge_to_case_leader_elt elt, *elt_p;
+  void **slot;
+
+  elt.e = e;
+  elt.case_label = NULL;
+  slot = htab_find_slot (edge_to_case_leader, &elt, NO_INSERT);
+
+  if (slot)
+    {
+      tree t;
+
+      elt_p = (struct edge_to_case_leader_elt *)*slot;
+      t = elt_p->case_label;
+
+      while (TREE_CODE (CASE_LEADER_OR_LABEL (t)) == CASE_LABEL_EXPR)
+	t = CASE_LEADER_OR_LABEL (t);
+      return t;
+    }
+
+  return NULL;
+}
+
+/* Given an edge E, return the case leader for the chain of CASE_LABEL_EXPRs
+   which use E.  */
+
+static tree
+get_case_leader_for_edge (edge e)
+{
+  tree vec, stmt;
+  size_t i, n;
+
+  /* If we have a hash table, then use it as it's significantly faster.  */
+  if (edge_to_case_leader)
+    return get_case_leader_for_edge_hash (e);
+
+  /* No hash table.  We have to walk the case vector.  */
+  stmt = bsi_stmt (bsi_last (e->src));
+  vec = SWITCH_LABELS (stmt);
+  n = TREE_VEC_LENGTH (vec);
+
+  for (i = 0; i < n; i++)
+    {
+      tree elt = TREE_VEC_ELT (vec, i);
+      tree t = CASE_LEADER_OR_LABEL (elt);
+
+      if (TREE_CODE (t) == LABEL_DECL
+	  && label_to_block (t) == e->dest)
+	return elt;
+    }
+
+  abort ();
+}
 
 /* Create the edges for a SWITCH_EXPR starting at block BB.
    At this point, the switch body has been lowered and the
@@ -590,12 +732,22 @@ make_switch_expr_edges (basic_block bb)
   vec = SWITCH_LABELS (entry);
   n = TREE_VEC_LENGTH (vec);
 
+  edge_to_case_leader
+    = htab_create (n, edge_to_case_leader_hash, edge_to_case_leader_eq, free);
+
   for (i = 0; i < n; ++i)
     {
       tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
       basic_block label_bb = label_to_block (lab);
-      make_edge (bb, label_bb, 0);
+      edge e = make_edge (bb, label_bb, 0);
+
+      if (!e)
+	e = find_edge (bb, label_bb);
+
+      record_switch_edge (e, TREE_VEC_ELT (vec, i));
     }
+  htab_delete (edge_to_case_leader);
+  edge_to_case_leader = NULL;
 }
 
 
@@ -864,9 +1016,11 @@ cleanup_dead_labels (void)
   
 	    /* Replace all destination labels.  */
 	    for (i = 0; i < n; ++i)
-	      CASE_LABEL (TREE_VEC_ELT (vec, i))
-		= main_block_label (CASE_LABEL (TREE_VEC_ELT (vec, i)));
-  
+	      {
+		tree elt = TREE_VEC_ELT (vec, i);
+		tree label = main_block_label (CASE_LABEL (elt));
+		CASE_LEADER_OR_LABEL (elt) = label;
+	      }
 	    break;
 	  }
 
@@ -1953,15 +2107,16 @@ find_taken_edge (basic_block bb, tree val)
 
   gcc_assert (stmt);
   gcc_assert (is_ctrl_stmt (stmt));
+  gcc_assert (val);
 
   /* If VAL is a predicate of the form N RELOP N, where N is an
      SSA_NAME, we can usually determine its truth value.  */
-  if (val && COMPARISON_CLASS_P (val))
+  if (COMPARISON_CLASS_P (val))
     val = fold (val);
 
   /* If VAL is not a constant, we can't determine which edge might
      be taken.  */
-  if (val == NULL || !really_constant_p (val))
+  if (!really_constant_p (val))
     return NULL;
 
   if (TREE_CODE (stmt) == COND_EXPR)
@@ -1984,11 +2139,6 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   edge true_edge, false_edge;
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-
-  /* If both edges of the branch lead to the same basic block, it doesn't
-     matter which edge is taken.  */
-  if (true_edge->dest == false_edge->dest)
-    return true_edge;
 
   /* Otherwise, try to determine which branch of the if() will be taken.
      If VAL is a constant but it can't be reduced to a 0 or a 1, then
@@ -2783,7 +2933,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 
      The requirement for no PHI nodes could be relaxed.  Basically we
      would have to examine the PHIs to prove that none of them used
-     the value set by the statement we want to insert on E.   That
+     the value set by the statement we want to insert on E.  That
      hardly seems worth the effort.  */
   if (EDGE_COUNT (dest->preds) == 1
       && ! phi_nodes (dest)
@@ -2854,29 +3004,20 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 
 
 /* This routine will commit all pending edge insertions, creating any new
-   basic blocks which are necessary.
-
-   If specified, NEW_BLOCKS returns a count of the number of new basic
-   blocks which were created.  */
+   basic blocks which are necessary.  */
 
 void
-bsi_commit_edge_inserts (int *new_blocks)
+bsi_commit_edge_inserts (void)
 {
   basic_block bb;
   edge e;
-  int blocks;
   edge_iterator ei;
-
-  blocks = n_basic_blocks;
 
   bsi_commit_one_edge_insert (EDGE_SUCC (ENTRY_BLOCK_PTR, 0), NULL);
 
   FOR_EACH_BB (bb)
     FOR_EACH_EDGE (e, ei, bb->succs)
       bsi_commit_one_edge_insert (e, NULL);
-
-  if (new_blocks)
-    *new_blocks = n_basic_blocks - blocks;
 }
 
 
@@ -3073,7 +3214,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case COND_EXPR:
-      x = TREE_OPERAND (t, 0);
+      x = COND_EXPR_COND (t);
       if (TREE_CODE (TREE_TYPE (x)) != BOOLEAN_TYPE)
 	{
 	  error ("non-boolean used in condition");
@@ -3246,6 +3387,9 @@ tree_node_can_be_shared (tree t)
       || CONSTANT_CLASS_P (t)
       || is_gimple_min_invariant (t)
       || TREE_CODE (t) == SSA_NAME)
+    return true;
+
+  if (TREE_CODE (t) == CASE_LABEL_EXPR)
     return true;
 
   while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
@@ -3658,7 +3802,7 @@ tree_make_forwarder_block (edge fallthru)
   edge e;
   edge_iterator ei;
   basic_block dummy, bb;
-  tree phi, new_phi, var, prev, next;
+  tree phi, new_phi, var;
 
   dummy = fallthru->src;
   bb = fallthru->dest;
@@ -3678,14 +3822,7 @@ tree_make_forwarder_block (edge fallthru)
     }
 
   /* Ensure that the PHI node chain is in the same order.  */
-  prev = NULL;
-  for (phi = phi_nodes (bb); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-      PHI_CHAIN (phi) = prev;
-      prev = phi;
-    }
-  set_phi_nodes (bb, prev);
+  set_phi_nodes (bb, phi_reverse (phi_nodes (bb)));
 
   /* Add the arguments we have stored on edges.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -3937,7 +4074,7 @@ thread_jumps (void)
   basic_block bb;
   bool retval = false;
   basic_block *worklist = xmalloc (sizeof (basic_block) * last_basic_block);
-  unsigned int size = 0;
+  basic_block *current = worklist;
 
   FOR_EACH_BB (bb)
     {
@@ -3977,17 +4114,15 @@ thread_jumps (void)
 	      && !bb_ann (e->src)->forwardable)
 	    {
 	      e->src->flags |= BB_VISITED;
-	      worklist[size] = e->src;
-	      size++;
+	      *current++ = e->src;
 	    }
 	}
     }
 
   /* Now let's drain WORKLIST.  */
-  while (size > 0)
+  while (worklist != current)
     {
-      size--;
-      bb = worklist[size];
+      bb = *--current;
 
       /* BB is no longer in WORKLIST, so clear BB_VISITED.  */
       bb->flags &= ~BB_VISITED;
@@ -4016,8 +4151,7 @@ thread_jumps (void)
 		      && !bb_ann (f->src)->forwardable)
 		    {
 		      f->src->flags |= BB_VISITED;
-		      worklist[size] = f->src;
-		      size++;
+		      *current++ = f->src;
 		    }
 		}
 	    }
@@ -4146,17 +4280,32 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
     case SWITCH_EXPR:
       {
-	tree vec = SWITCH_LABELS (stmt);
-	size_t i, n = TREE_VEC_LENGTH (vec);
+	edge e2;
 
-	for (i = 0; i < n; ++i)
+        /* We need to update the LABEL_DECL in the switch vector to
+	   reflect the edge redirection.
+
+	   There is precisely one CASE_LABEL_EXPR in the switch vector
+	   which needs updating.  Either its label needs to be updated
+	   or it needs to be directed to a new case leader.  */
+	e2 = find_edge (e->src, dest);
+	if (e2)
 	  {
-	    tree elt = TREE_VEC_ELT (vec, i);
-	    if (label_to_block (CASE_LABEL (elt)) == e->dest)
-	      CASE_LABEL (elt) = label;
+	    /* In this case we need to change the case leader for the
+	       current leader of E to be the case leader for E2.  */
+	    tree e_leader = get_case_leader_for_edge (e);
+	    tree e2_leader = get_case_leader_for_edge (e2);
+	    CASE_LEADER_OR_LABEL (e_leader) = e2_leader;
 	  }
+	else
+	  {
+	    /* No edge exists from E->src to DEST, so we will simply
+	       change E->dest.  The case leader does not change, but
+	       the LABEL_DECL for the leader does change.  */
+	    CASE_LEADER_OR_LABEL (get_case_leader_for_edge (e)) = label;
+	  }
+	break;
       }
-      break;
 
     case RETURN_EXPR:
       bsi_remove (&bsi);
@@ -4282,12 +4431,12 @@ tree_duplicate_bb (basic_block bb)
   /* First copy the phi nodes.  We do not copy phi node arguments here,
      since the edges are not ready yet.  Keep the chain of phi nodes in
      the same order, so that we can add them later.  */
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       mark_for_rewrite (PHI_RESULT (phi));
       create_phi_node (PHI_RESULT (phi), new_bb);
     }
-  set_phi_nodes (new_bb, nreverse (phi_nodes (new_bb)));
+  set_phi_nodes (new_bb, phi_reverse (phi_nodes (new_bb)));
 
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -4356,9 +4505,9 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 
       for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
 	   phi;
-	   phi = phi_next, phi_copy = TREE_CHAIN (phi_copy))
+	   phi = phi_next, phi_copy = PHI_CHAIN (phi_copy))
 	{
-	  phi_next = TREE_CHAIN (phi);
+	  phi_next = PHI_CHAIN (phi);
 
 	  gcc_assert (PHI_RESULT (phi) == PHI_RESULT (phi_copy));
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
@@ -4504,7 +4653,7 @@ rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
     if (e->flags & EDGE_ABNORMAL)
       break;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
       if (e)
@@ -4549,7 +4698,7 @@ rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+    for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
       {
 	rewrite_to_new_ssa_names_use
 		(PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
@@ -5009,7 +5158,7 @@ tree_flow_call_edges_add (sbitmap blocks)
 	    if (e->dest == EXIT_BLOCK_PTR)
 	      {
 		bsi_insert_on_edge (e, build_empty_stmt ());
-		bsi_commit_edge_inserts ((int *)NULL);
+		bsi_commit_edge_inserts ();
 		break;
 	      }
 	}
@@ -5125,7 +5274,7 @@ bool
 tree_purge_all_dead_eh_edges (bitmap blocks)
 {
   bool changed = false;
-  size_t i;
+  unsigned i;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)

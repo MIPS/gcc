@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
+#include "pointer-set.h"
 #include "tree-flow.h"
 #include "tree-gimple.h"
 #include "tree-inline.h"
@@ -112,7 +113,7 @@ flush_pending_stmts (edge e)
 
   for (phi = phi_nodes (e->dest), arg = PENDING_STMT (e);
        phi;
-       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
+       phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
     {
       tree def = TREE_VALUE (arg);
       add_phi_arg (&phi, def, e);
@@ -835,6 +836,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      implement the ABI.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
@@ -842,6 +846,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
            && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
 					     TREE_TYPE (outer_type)))
     return true;
@@ -896,12 +903,31 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
+/* Returns true if statement STMT may read memory.  */
+
+bool
+stmt_references_memory_p (tree stmt)
+{
+  stmt_ann_t ann;
+
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
+
+  if (ann->has_volatile_ops)
+    return true;
+
+  return (NUM_VUSES (VUSE_OPS (ann)) > 0
+	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
+	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0);
+}
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
    
-   VISITED is a bitmap used to mark visited SSA_NAMEs to avoid
-      infinite loops.
+   VISITED is a pointer set used to mark visited SSA_NAMEs to avoid
+      infinite loops.  We used to have a bitmap for this to just mark
+      SSA versions we had visited.  But non-sparse bitmaps are way too
+      expensive, while sparse bitmaps may cause quadratic behavior.
 
    IS_DFS is true if the caller wants to perform a depth-first search
       when visiting PHI nodes.  A DFS will visit each PHI argument and
@@ -911,14 +937,12 @@ tree_ssa_useless_type_conversion (tree expr)
 
 static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
-		       bitmap visited, bool is_dfs)
+		       struct pointer_set_t *visited, bool is_dfs)
 {
   tree def_stmt;
 
-  if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
+  if (pointer_set_insert (visited, var))
     return false;
-
-  bitmap_set_bit (visited, SSA_NAME_VERSION (var));
 
   def_stmt = SSA_NAME_DEF_STMT (var);
 
@@ -997,9 +1021,9 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
     (*fn) (var, def_stmt, data);
   else
     {
-      bitmap visited = BITMAP_XMALLOC ();
+      struct pointer_set_t *visited = pointer_set_create ();
       walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
-      BITMAP_XFREE (visited);
+      pointer_set_destroy (visited);
     }
 }
 

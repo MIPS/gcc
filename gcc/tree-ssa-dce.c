@@ -508,7 +508,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 static void
 mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
-  int edge_number;
+  unsigned edge_number;
 
   gcc_assert (bb != EXIT_BLOCK_PTR);
 
@@ -951,14 +951,9 @@ perform_tree_ssa_dce (bool aggressive)
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
-  cleanup_tree_cfg ();
-
   /* Debugging dumps.  */
   if (dump_file)
-    {
-      dump_function_to_file (current_function_decl, dump_file, dump_flags);
-      print_stats ();
-    }
+    print_stats ();
 
   tree_dce_done (aggressive);
 
@@ -997,7 +992,7 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_fix_def_def_chains |TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1014,7 +1009,7 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_fix_def_def_chains | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
+  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
 					/* todo_flags_finish */
   0					/* letter */
 };

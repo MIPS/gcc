@@ -1,3 +1,27 @@
+2004-11-10  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/18218
+	* configure.ac: Check for strtof.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* io/read.c (convert_real): Use strtof if available.
+	(convert_precision_real): Remove.
+	(read_f): Avoid poor exponentiation algorithm.
+
+2004-11-05  Andreas Schwab  <schwab@suse.de>
+
+	* configure.ac: Use AC_PROG_FC, FC and FCFLAGS instead of
+	AC_PROG_F77, F77 and FFLAGS.
+	* Makefile.am (selected_int_kind.inc, selected_real_kind.inc): Use
+	FCCOMPILE instead of F77COMPILE.
+	* configure, Makefile.in: Regenerate.
+
+2004-11-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* acinclude.m4: Properly quote AC_CACHE_CHECK.
+	* Makefile.am: Add in ACLOCAL_AMFLAGS.
+	* aclocal.m4, configure, Makefile.in: Regenerate.
+
 2004-10-30  Aaron W. LaFramboise <aaronavay62@aaronwl.com>
 
 	* config.h.in: Regenerate.

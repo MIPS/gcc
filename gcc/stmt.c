@@ -260,7 +260,7 @@ n_occurrences (int c, const char *s)
    or an ADDR_EXPR containing a STRING_CST.  VOL nonzero means the
    insn is volatile; don't optimize it.  */
 
-void
+static void
 expand_asm (tree string, int vol)
 {
   rtx body;
@@ -611,7 +611,7 @@ decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
 
    VOL nonzero means the insn is volatile; don't optimize it.  */
 
-void
+static void
 expand_asm_operands (tree string, tree outputs, tree inputs,
 		     tree clobbers, int vol, location_t locus)
 {
@@ -1564,15 +1564,9 @@ expand_value_return (rtx val)
 static void
 expand_null_return_1 (void)
 {
-  rtx end_label;
-
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
-
-  end_label = return_label;
-  if (end_label == 0)
-     end_label = return_label = gen_label_rtx ();
-  emit_jump (end_label);
+  emit_jump (return_label);
 }
 
 /* Generate RTL to evaluate the expression RETVAL and return it

@@ -202,7 +202,7 @@ ideal_phi_node_len (int len)
    definitions created when a variable is used without a preceding
    definition).  */
 
-tree
+static tree
 make_phi_node (tree var, int len)
 {
   tree phi;
@@ -449,10 +449,10 @@ remove_all_phi_nodes_for (bitmap vars)
   FOR_EACH_BB (bb)
     {
       /* Build a new PHI list for BB without variables in VARS.  */
-      tree phi, new_phi_list, last_phi, next;
+      tree phi, new_phi_list, next;
+      tree *lastp = &new_phi_list;
 
-      last_phi = new_phi_list = NULL_TREE;
-      for (phi = phi_nodes (bb), next = NULL; phi; phi = next)
+      for (phi = phi_nodes (bb); phi; phi = next)
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
 
@@ -465,13 +465,8 @@ remove_all_phi_nodes_for (bitmap vars)
 		 Note that fact in PHI_REWRITTEN.  */
 	      PHI_REWRITTEN (phi) = 1;
 
-	      if (new_phi_list == NULL_TREE)
-		new_phi_list = last_phi = phi;
-	      else
-		{
-		  PHI_CHAIN (last_phi) = phi;
-		  last_phi = phi;
-		}
+	      *lastp = phi;
+	      lastp = &PHI_CHAIN (phi);
 	    }
 	  else
 	    {
@@ -483,8 +478,7 @@ remove_all_phi_nodes_for (bitmap vars)
 	}
 
       /* Make sure the last node in the new list has no successors.  */
-      if (last_phi)
-	PHI_CHAIN (last_phi) = NULL_TREE;
+      *lastp = NULL;
       bb_ann (bb)->phi_nodes = new_phi_list;
 
 #if defined ENABLE_CHECKING
@@ -497,6 +491,21 @@ remove_all_phi_nodes_for (bitmap vars)
     }
 }
 
+/* Reverse the order of PHI nodes in the chain PHI.
+   Return the new head of the chain (old last PHI node).  */
+
+tree
+phi_reverse (tree phi)
+{
+  tree prev = NULL_TREE, next;
+  for (; phi; phi = next)
+    {
+      next = PHI_CHAIN (phi);
+      PHI_CHAIN (phi) = prev;
+      prev = phi;
+    }
+  return prev;
+}
 
 #include "gt-tree-phinodes.h"
 

@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
-#include "stack.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
@@ -82,7 +81,7 @@ static int n_contexts_saved;
 
 struct lookup_base_data_s
 {
-  tree t;		/* type being searched. */
+  tree t;		/* type being searched.  */
   tree base;            /* The base type we're looking for.  */
   tree binfo;           /* Found binfo.  */
   bool via_virtual;  	/* Found via a virtual path.  */
@@ -851,7 +850,7 @@ dfs_accessible_post (tree binfo, void *data ATTRIBUTE_UNUSED)
    then we can tell in what context the access is occurring by looking
    at the most derived class along the path indicated by BINFO.  If
    CONSIDER_LOCAL is true, do consider special access the current
-   scope or friendship thereof we might have.   */
+   scope or friendship thereof we might have.  */
 
 int 
 accessible_p (tree type, tree decl, bool consider_local_p)
@@ -1131,7 +1130,7 @@ lookup_field_r (tree binfo, void *data)
 	  /* Add the new value.  */
 	  lfi->ambiguous = tree_cons (NULL_TREE, nval, lfi->ambiguous);
 	  TREE_TYPE (lfi->ambiguous) = error_mark_node;
-	  lfi->errstr = "request for member `%D' is ambiguous";
+	  lfi->errstr = "request for member %qD is ambiguous";
 	}
     }
   else
@@ -2150,7 +2149,7 @@ check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
 	  tree *prev, other;
 	  
 	  if (!(virtual_depth || TREE_STATIC (level)))
-	    /* Neither is morally virtual, so cannot hide each other. */
+	    /* Neither is morally virtual, so cannot hide each other.  */
 	    continue;
 	  
 	  if (!TREE_VALUE (level))
@@ -2171,7 +2170,7 @@ check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
 	      if (same_type_p (to_type, TREE_TYPE (other)))
 		{
 		  if (they_hide_us)
-		    /* We are hidden. */
+		    /* We are hidden.  */
 		    return 0;
 
 		  if (we_hide_them)

@@ -930,9 +930,6 @@ ccp_finalize (void)
   /* Perform substitutions based on the known constant values.  */
   substitute_and_fold (const_val);
 
-  /* Now cleanup any unreachable code.  */
-  cleanup_tree_cfg ();
-
   free (const_val);
 }
 
@@ -1497,7 +1494,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
      to the worklist.  If no single edge can be determined statically,
      return SSA_PROP_VARYING to feed all the outgoing edges to the
      propagation engine.  */
-  *taken_edge_p = find_taken_edge (block, val.value);
+  *taken_edge_p = val.value ? find_taken_edge (block, val.value) : 0;
   if (*taken_edge_p)
     return SSA_PROP_INTERESTING;
   else
@@ -1605,7 +1602,7 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars
+  TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */

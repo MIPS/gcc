@@ -513,11 +513,12 @@ estimate_niter_from_size_of_data (struct loop *loop,
   array_size = TYPE_SIZE (TREE_TYPE (opnd0));
   element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
   if (array_size == NULL_TREE 
-      || element_size == NULL_TREE)
+      || TREE_CODE (array_size) != INTEGER_CST
+      || TREE_CODE (element_size) != INTEGER_CST)
     return;
 
   data_size = fold (build2 (EXACT_DIV_EXPR, integer_type_node, 
-			   array_size, element_size));
+			    array_size, element_size));
 
   if (init != NULL_TREE
       && step != NULL_TREE
@@ -1435,12 +1436,21 @@ analyze_subscript_affine_affine (tree chrec_a,
 
 		  if (j1 > 0)
 		    {
-		      int last_conflict;
+		      int last_conflict, min_multiple;
 		      tau1 = MAX (tau1, CEIL (-j0, j1));
 		      tau2 = MIN (tau2, FLOOR_DIV (niter - j0, j1));
 
-		      x0 = (i1 * tau1 + i0) % i1;
-		      y0 = (j1 * tau1 + j0) % j1;
+		      x0 = i1 * tau1 + i0;
+		      y0 = j1 * tau1 + j0;
+
+		      /* At this point (x0, y0) is one of the
+			 solutions to the Diophantine equation.  The
+			 next step has to compute the smallest
+			 positive solution: the first conflicts.  */
+		      min_multiple = MIN (x0 / i1, y0 / j1);
+		      x0 -= i1 * min_multiple;
+		      y0 -= j1 * min_multiple;
+
 		      tau1 = (x0 - i0)/i1;
 		      last_conflict = tau2 - tau1;
 
@@ -1816,12 +1826,12 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
 	  struct loop *loop_first = current_loops->parray[first_loop];
 
-	  /* If the loops for both variables are at a lower depth than 
-	     the first_loop's depth, then they can't possibly have a
+	  /* If the loop for either variable is at a lower depth than 
+	     the first_loop's depth, then we can't possibly have a
 	     dependency at this level of the loop.  */
 	     
 	  if (loop_a->depth < loop_first->depth
-	      && loop_b->depth < loop_first->depth)
+	      || loop_b->depth < loop_first->depth)
 	    return false;
 
 	  if (loop_nb_a != loop_nb_b
@@ -1992,11 +2002,12 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
 	  struct loop *loop_first = current_loops->parray[first_loop];
  
-	  /* If the loops for both variables are at a lower depth than 
-	     the first_loop's depth, then they can't possibly matter */
+	  /* If the loop for either variable is at a lower depth than 
+	     the first_loop's depth, then we can't possibly have a
+	     dependency at this level of the loop.  */
 	     
 	  if (loop_a->depth < loop_first->depth
-	      && loop_b->depth < loop_first->depth)
+	      || loop_b->depth < loop_first->depth)
 	    return false;
 
 	  if (loop_nb_a != loop_nb_b

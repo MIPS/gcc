@@ -1,3 +1,154 @@
+2004-11-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (getline(basic_istream<>&, basic_string<>&,
+	_CharT)): Remove temporary kludge for libstdc++/15002.
+	* include/std/std_streambuf.h (class basic_streambuf): Declare
+	getline(basic_istream<>&, basic_string<>&, _CharT) as friend.
+	* include/bits/basic_string.h (getline(basic_istream<>&,
+	basic_string<>&, _CharT)): Declare optimized specializations for
+	char and wchar_t, using protected members of basic_streambuf.
+	* src/istream.cc: Define the latter.
+
+2004-11-16  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/19_diagnostics/howto.html: Document change from
+	_GLIBCPP_CONCEPT_CHECKS to _GLIBCXX_CONCEPT_CHECKS in 3.4.
+
+2004-11-16  Matthias Klose  <doko@debian.org>
+
+	* docs/doxygen/user.cfg.in: Set HAVE_DOT to NO.
+
+2004-11-16  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am (doxygen, doxygen-maint, doxygen-man): Use host_alias
+	instead of build_alias.
+	* docs/doxygen/run_doxygen: Likewise.
+	* docs/doxygen/user.cfg.in: Likewise.
+	* Makefile.in: Regenerate.
+
+2004-11-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf.tcc (__copy_streambufs): Provide
+	a generic version of the function, not using the protected
+	members of basic_streambuf.
+	* include/std/std_streambuf.h (__copy_streambufs): Declare
+	optimized specializations for char and wchar_t.
+	* src/streambuf.cc: New file, define the latter.
+	* src/Makefile.am: Add.
+	* src/Makefile.in: Regenerate.
+
+2004-11-15  Matthias Klose  <doko@debian.org>
+
+	* docs/doxygen/run_doxygen: Add --build_alias option,
+	substitute it in docs/doxygen/user.cfg.in.
+	* docs/doxygen/user.cfg.in: Use build_alias.
+	* Makefile.am: Pass --build_alias to run_doxygen
+	* Makefile.in: Regenerate.
+
+2004-11-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.4.
+
+2004-11-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 33.
+
+2004-11-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf_iterator.h (istreambuf_iterator::_M_get):
+	Slightly tweak for clarity (also leads to measurably better code).
+
+2004-11-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/14264
+	* testsuite/lib/libstdc++.exp: Set LC_ALL and LANG to C.
+
+2004-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::do_get_weekday,
+	time_get<>::do_get_monthname): Absolutely avoid dereferencing
+	end iterators.
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_name):
+	Minor tweak.	
+
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+	    Doug Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/17664
+	* src/debug.cc : Just use one mutex.
+
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:4:0.
+	* configure: Regenerate.
+
+	* config/linker-map.gnu: Slide new symbols into GLIBCXX_3.4.4.
+
+	* docs/doxygen/user.cfg.in: Add more extension files.
+
+2004-11-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf_iterator.h (class istreambuf_iterator):
+	Consistently use _M_c to cache the current char, i.e., not only
+	when operator++(int) is involved; change _M_c to mutable.
+	(_M_get()): Always save the return value of _M_sbuf->sgetc() into
+	_M_c.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Fix
+	(long standing) typo.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+
+2004-11-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (getline(char_type*, streamsize,
+	char_type), ignore(streamsize), ignore(streamsize, int_type)):
+	Restore a generic version of the functions, not using the
+	protected members of basic_streambuf.
+	* include/std/std_istream.h (getline(char_type*, streamsize,
+	char_type), ignore(streamsize), ignore(streamsize, int_type)):
+	Declare optimized specializations for char and wchar_t.
+	* src/istream.cc: New file, define the latter.
+	* src/Makefile.am: Add.
+	* src/Makefile.in: Regenerate.
+
+2004-11-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/27_io/ifstream_getline-2.cc: New.
+
+2004-11-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/17218
+	PR libstdc++/17223
+	* docs/doxygen/filter: Remove.
+	* docs/doxygen/filter.sed: Remove.
+	* docs/doxygen/mainpage.html: Add link to functions.
+	* docs/doxygen/run_doxygen: Changes due to new source filtering.
+	* docs/doxygen/user.cfg.in: Update to doxygen 1.3.9.1, tweak.
+	* include/bits/allocator.h: Tweaks for doxygen.
+	* include/bits/char_traits.h: Same.
+	* include/bits/codecvt.h: Same.
+	* include/bits/concurrence.h: Same.
+	* include/bits/locale_facets.h: Same.
+	* include/ext/array_allocator.h: Same.
+	* include/ext/debug_allocator.h: Same.
+	* include/ext/malloc_allocator.h: Same.
+	* include/ext/mt_allocator.h: Same.
+	* include/ext/new_allocator.h: Same.
+	* include/ext/pool_allocator.h: Same.
+	* include/ext/stdio_sync_filebuf.h: Same.
+	* include/std/std_memory.h: Same.
+	* include/tr1/array: Same.
+	* include/tr1/tuple: Same.
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h: Same.
+	* config/os/gnu-linux/ctype_base.h: Same.
+
+2004-11-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(bool&)):
+	Evaluate __beg == __end the exact strict minimum number of times.
+
 2004-11-03  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/bits/stl_numeric.h (partial_sum, adjacent_difference):
@@ -47,7 +198,7 @@
 2004-11-02  Benjamin Kosnik  <bkoz@redhat.com>
   	    Lothar Werzinger  <lothar@xcerla.com>
 	
-	PR libstdc++/17627
+	PR libstdc++/17664
 	* src/debug.cc: Include concurrence, use mutexes.
 	(_Safe_iterator_base::_M_attach): Here.	
 	(_Safe_iterator_base::_M_detach): Here.	

@@ -1,3 +1,131 @@
+2004-11-16  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* decl.c (start_preparsed_function): Call check_function_type even
+	in templates.
+	(require_complete_types_for_parms): Skip dependent types.
+	(check_function_type): Likewise.
+
+2004-11-16  Steven Bosscher  <stevenb@suse.de>
+
+	* Make-lang.in (cp/decl.o, cp/search.o): Don't depend on stack.h.
+	* search.c: Don't include it.
+
+2004-11-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* cp-gimplify.c: Include pointer-set.h
+	(cp_genericize_r): Use pointer_sets instead of a hashtable.
+	Also instert the new statement for CLEANUP_STMT.
+	(cp_genericize): Use pointer_sets instead of a hashtable.
+	* Make-lang.in (cp-gimplify.o): Depend on pointer-set.h.
+
+2004-11-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 1/n, PR c++/18471
+	* decl.c (lookup_and_check_tag): New function.
+	(xref_tag, start_enum): Use it.
+	(check_elaborated_type_specifier): Move TEMPLATE_TYPE_PARM check
+	before !DECL_IMPLICIT_TYPEDEF_P.  Also display previously declared
+	location.
+	* name-lookup.c (lookup_name_current_level): Rename to ...
+	(lookup_name_innermost_nonclass_level): ... this.
+	(lookup_type_scope): New function.
+	* name-lookup.h (lookup_name_current_level): Rename to ...
+	(lookup_name_innermost_nonclass_level): ... this.
+	(lookup_type_scope): Add declaration.
+
+2004-11-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17344
+	* pt.c (coerce_template_parms): Only emit error message about
+	invalid template argument when TF_ERROR.
+
+2004-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18389
+	* decl.c (start_decl): Make sure to set *pop_scope_p.  Return
+	error_mark_node to indicate errors.
+
+	PR c++/18429
+	* parser.c (cp_parser_direct_declarator): Disallow non-constant
+	array bounds when not inside a function.
+
+	PR c++/18436
+	* pt.c (tsubst_copy_and_build): Do not do Koenig lookup when an
+	unqualified name resolves to a member function.
+
+	PR c++/18407
+	* pt.c (tsubst_copy_and_build): Handle qualified names used from a
+	derived class correctly.
+	
+	* decl2.c (import_export_decl): Fix typo in comment.
+	* tree.c (pod_type_p): Likewise.
+
+2004-11-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* typeck.c (cxx_mark_addressable): Add braces around the first if.
+
+2004-11-10  Adam Nemet  <anemet@lnxw.com>
+
+	PR middle-end/18160  
+	* typeck.c (cxx_mark_addressable): Issue an error if address of an
+	explicit register variable is requested.
+
+2004-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18143
+	* cp-tree.h (NON_THUNK_FUNCTION_CHECK, THUNK_FUNCTION_CHECK): New.
+	(struct lang_decl_flags): Add thunk_p flag.
+	(struct lang_decl): Remove separate fixed_offset. Place
+	cloned_function and fixed_offset into union.
+	(DECL_CLONED_FUNCTION_P, DECL_CLONED_FUNCTION): Adjust.
+	(DECL_THUNK_P, SET_DECL_THUNK_P): Adjust.
+	(THUNK_FIXED_OFFSET): Adjust.
+	* method.c (make_thunk): Adjust.
+
+2004-11-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18369
+	* init.c (build_new_1): Handle parenthesized type-ids that name an
+	array type.  Tidy.
+
+2004-11-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* call.c, class.c, decl.c, decl2.c, error.c, mangle.c, parser.c,
+	pt.c, search.c, semantics.c, typeck.c: Use %q, %< and %> for
+	quoting in diagnostics.
+	* parser.c (cp_parser_sizeof_operand): Use '' instead of `' for
+	quoting in printf format.
+	* decl.c (duplicate_decls, start_decl): Use %qD instead of
+	unquoted %D.
+
+2004-11-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c, decl.c, lex.c, name-lookup.c, parser.c, pt.c,
+	search.c, typeck2.c: Fix comment formatting.
+
+2004-11-04  Ulrich Weigand  <uweigand@de.ibm.com>
+	
+	PR tree-optimization/18184
+	* cp-objcp-common.c (cxx_types_compatible_p): Do not treat pointers
+	of different modes or alias-all flags as equivalent.
+	* typeck.c (comptypes): Likewise.
+
+2004-11-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	DR 49, 100
+	* cp-tree.h (TYPE_REF_OBJ_P): New macro.
+	(TYPE_PTR_P, TYPE_PTROB_P, TYPE_PTROBV_P, TYPE_PTRFN_P,
+	TYPE_REFFN_P): Document.
+	(fold_decl_constant_value): New prototype.
+	* pt.c (convert_nontype_argument_function): Rewrite and extract
+	parts into...
+	(fold_decl_constant_value, convert_nontype_argument_function): New.
+	(lookup_template_class): Add comment about useless double call.
+	* mangle.c (write_expression): Strip conversions before lowering
+	pointer to members.
+	* cvt.c (ocp_convert): Check LOOKUP_COMPLAIN for a pedwarn. Disallow
+	enum to enum conversion.
+
 2004-11-02  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/18124

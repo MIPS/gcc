@@ -81,6 +81,10 @@ static bool s390_function_ok_for_sibcall (tree, tree);
 static bool s390_call_saved_register_used (tree);
 static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
+static bool s390_fixed_condition_code_regs (unsigned int *, unsigned int *);
+static enum machine_mode s390_cc_modes_compatible (enum machine_mode,
+ 						   enum machine_mode);
+
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
@@ -155,6 +159,12 @@ static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL s390_function_ok_for_sibcall
+
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS s390_fixed_condition_code_regs
+
+#undef TARGET_CC_MODES_COMPATIBLE
+#define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -442,6 +452,9 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
     {
       case EQ:
       case NE:
+	if ((GET_CODE (op0) == NEG || GET_CODE (op0) == ABS)
+	    && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
+	  return CCAPmode;
 	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
 	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
 	  return CCAPmode;
@@ -478,14 +491,18 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
       case LT:
       case GE:
       case GT:
-	  if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
-	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
-            {
-	      if (INTVAL (XEXP((op0), 1)) < 0)
-	        return CCANmode;
-              else
-	        return CCAPmode;
-	    }
+	if ((GET_CODE (op0) == NEG || GET_CODE (op0) == ABS)
+	    && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
+	  return CCAPmode;
+	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
+	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
+	  {
+	    if (INTVAL (XEXP((op0), 1)) < 0)
+	      return CCANmode;
+	    else
+	      return CCAPmode;
+	  }
+	/* Fall through.  */
       case UNORDERED:
       case ORDERED:
       case UNEQ:
@@ -620,10 +637,10 @@ s390_canonicalize_comparison (enum rtx_code *code, rtx *op0, rtx *op1)
 	{
 	  case EQ: new_code = EQ;  break;
 	  case NE: new_code = NE;  break;
-	  case LT: new_code = LTU; break;
-	  case GT: new_code = GTU; break;
-	  case LE: new_code = LEU; break;
-	  case GE: new_code = GEU; break;
+	  case LT: new_code = GTU; break;
+	  case GT: new_code = LTU; break;
+	  case LE: new_code = GEU; break;
+	  case GE: new_code = LEU; break;
 	  default: break;
 	}
 
@@ -1497,41 +1514,6 @@ s_operand (rtx op, enum machine_mode mode)
   return 1;
 }
 
-/* Return true if OP is a memory operand pointing to the
-   literal pool, or an immediate operand.  */
-
-bool
-s390_pool_operand (rtx op)
-{
-  struct s390_address addr;
-
-  /* Just like memory_operand, allow (subreg (mem ...))
-     after reload.  */
-  if (reload_completed
-      && GET_CODE (op) == SUBREG
-      && GET_CODE (SUBREG_REG (op)) == MEM)
-    op = SUBREG_REG (op);
-
-  switch (GET_CODE (op))
-    {
-    case CONST_INT:
-    case CONST_DOUBLE:
-      return true;
-
-    case MEM:
-      if (!s390_decompose_address (XEXP (op, 0), &addr))
-	return false;
-      if (addr.base && REG_P (addr.base) && REGNO (addr.base) == BASE_REGNUM)
-	return true;
-      if (addr.indx && REG_P (addr.indx) && REGNO (addr.indx) == BASE_REGNUM)
-	return true;
-      return false;
-
-    default:
-      return false;
-    }
-}
-
 /* Return true if OP a valid shift count operand.
    OP is the current operation.
    MODE is the current operation mode.  */
@@ -1618,6 +1600,21 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
       if ((reload_completed || reload_in_progress)
 	  ? !offsettable_memref_p (op)
 	  : !offsettable_nonstrict_memref_p (op))
+	return 0;
+
+      c = str[1];
+    }
+
+  /* Check for non-literal-pool variants of memory constraints.  */
+  else if (c == 'B')
+    {
+      if (GET_CODE (op) != MEM)
+	return 0;
+      if (!s390_decompose_address (XEXP (op, 0), &addr))
+	return 0;
+      if (addr.base && REG_P (addr.base) && REGNO (addr.base) == BASE_REGNUM)
+	return 0;
+      if (addr.indx && REG_P (addr.indx) && REGNO (addr.indx) == BASE_REGNUM)
 	return 0;
 
       c = str[1];
@@ -2287,13 +2284,13 @@ s390_preferred_reload_class (rtx op, enum reg_class class)
    is not a legitimate operand of the LOAD ADDRESS instruction.  */
 
 enum reg_class
-s390_secondary_input_reload_class (enum reg_class class ATTRIBUTE_UNUSED,
+s390_secondary_input_reload_class (enum reg_class class,
 				   enum machine_mode mode, rtx in)
 {
   if (s390_plus_operand (in, mode))
     return ADDR_REGS;
 
-  if (GET_MODE_CLASS (mode) == MODE_CC)
+  if (reg_classes_intersect_p (CC_REGS, class))
     return GENERAL_REGS;
 
   return NO_REGS;
@@ -2317,7 +2314,7 @@ s390_secondary_output_reload_class (enum reg_class class,
       && !s_operand (out, VOIDmode))
     return ADDR_REGS;
 
-  if (GET_MODE_CLASS (mode) == MODE_CC)
+  if (reg_classes_intersect_p (CC_REGS, class))
     return GENERAL_REGS;
 
   return NO_REGS;
@@ -3589,14 +3586,18 @@ void
 s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 {
   rtx ccreg = gen_rtx_REG (CCUmode, CC_REGNUM);
-  rtx result = gen_rtx_UNSPEC (SImode, gen_rtvec (1, ccreg), UNSPEC_CMPINT);
+  rtx tmp;
+
+  /* As the result of CMPINT is inverted compared to what we need,
+     we have to swap the operands.  */
+  tmp = op0; op0 = op1; op1 = tmp;
 
   if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
     {
       if (INTVAL (len) > 0)
         {
           emit_insn (gen_cmpmem_short (op0, op1, GEN_INT (INTVAL (len) - 1)));
-          emit_move_insn (target, result);
+          emit_insn (gen_cmpint (target, ccreg));
         }
       else
         emit_move_insn (target, const0_rtx);
@@ -3604,7 +3605,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
   else if (TARGET_MVCLE)
     {
       emit_insn (gen_cmpmem_long (op0, op1, convert_to_mode (Pmode, len, 1)));
-      emit_move_insn (target, result);
+      emit_insn (gen_cmpint (target, ccreg));
     }
   else
     {
@@ -3671,7 +3672,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 				   convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
 
-      emit_move_insn (target, result);
+      emit_insn (gen_cmpint (target, ccreg));
     }
 }
 
@@ -6823,11 +6824,11 @@ s390_emit_prologue (void)
 
       if (s390_warn_framesize > 0 
 	  && cfun_frame_layout.frame_size >= s390_warn_framesize)
-	warning ("frame size of `%s' is " HOST_WIDE_INT_PRINT_DEC " bytes", 
+	warning ("frame size of %qs is " HOST_WIDE_INT_PRINT_DEC " bytes", 
 		 current_function_name (), cfun_frame_layout.frame_size);
 
       if (s390_warn_dynamicstack_p && cfun->calls_alloca)
-	warning ("`%s' uses dynamic stack allocation", current_function_name ());
+	warning ("%qs uses dynamic stack allocation", current_function_name ());
 
       /* Save incoming stack pointer into temp reg.  */
       if (cfun_frame_layout.save_backchain_p || next_fpr)
@@ -8330,6 +8331,51 @@ s390_function_ok_for_sibcall (tree decl, tree exp)
       return false;
 
   return true;
+}
+
+/* Return the fixed registers used for condition codes.  */
+
+static bool
+s390_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
+{
+  *p1 = CC_REGNUM;
+  *p2 = INVALID_REGNUM;
+ 
+  return true;
+}
+
+/* If two condition code modes are compatible, return a condition code
+   mode which is compatible with both.  Otherwise, return
+   VOIDmode.  */
+
+static enum machine_mode
+s390_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
+{
+  if (m1 == m2)
+    return m1;
+
+  switch (m1)
+    {
+    case CCZmode:
+      if (m2 == CCUmode || m2 == CCTmode
+	  || m2 == CCSmode || m2 == CCSRmode || m2 == CCURmode)
+        return m2;
+      return VOIDmode;
+
+    case CCSmode:
+    case CCUmode:
+    case CCTmode:
+    case CCSRmode:
+    case CCURmode:
+      if (m2 == CCZmode)
+	return m1;
+      
+      return VOIDmode;
+
+    default:
+      return VOIDmode;
+    }
+  return VOIDmode;
 }
 
 /* This function is used by the call expanders of the machine description.

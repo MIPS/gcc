@@ -265,7 +265,6 @@ extern struct loops *current_loops;
 
 /* Loop recognition.  */
 extern int flow_loops_find (struct loops *, int flags);
-extern int flow_loops_update (struct loops *, int flags);
 extern void flow_loops_free (struct loops *);
 extern void flow_loops_dump (const struct loops *, FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
@@ -275,8 +274,6 @@ extern int flow_loop_scan (struct loop *, int);
 extern void flow_loop_free (struct loop *);
 void mark_irreducible_loops (struct loops *);
 void mark_single_exit_loops (struct loops *);
-void update_single_exits_after_duplication (basic_block *, unsigned,
-					    struct loop *);
 extern void create_loop_notes (void);
 
 /* Loop data structure manipulation/querying.  */
@@ -338,7 +335,6 @@ extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned *, int);
 extern struct loop *loopify (struct loops *, edge, edge,
 			     basic_block, edge, edge, bool);
-extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);
 
@@ -438,8 +434,6 @@ extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
-extern void iv_number_of_iterations (struct loop *, rtx, rtx,
-				     struct niter_desc *);
 extern void iv_analysis_done (void);
 
 extern struct niter_desc *get_simple_loop_desc (struct loop *loop);

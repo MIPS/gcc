@@ -138,11 +138,11 @@ AC_SUBST(enable_static)
 #AC_MSG_NOTICE([====== Finished libtool configuration]) ; sleep 10
 
 # We need gfortran to compile parts of the library
-# We can't use AC_PROG_F77 because it expects a fully working gfortran.
-#AC_PROG_F77(gfortran)
-F77="$GFORTRAN"
-AC_PROG_F77(gfortran)
-FFLAGS="$FFLAGS -Wall -fno-repack-arrays -fno-underscoring"
+# We can't use AC_PROG_FC because it expects a fully working gfortran.
+#AC_PROG_FC(gfortran)
+FC="$GFORTRAN"
+AC_PROG_FC(gfortran)
+FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
 AC_SYS_LARGEFILE
 AC_FUNC_MMAP
@@ -159,7 +159,7 @@ AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists]
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
 # Check for library functions.
-AC_CHECK_FUNCS(getrusage times mkstemp)
+AC_CHECK_FUNCS(getrusage times mkstemp strtof)
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])

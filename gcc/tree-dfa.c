@@ -688,7 +688,7 @@ dump_dfa_stats (FILE *file)
 
   size = num_referenced_vars * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars,
+  fprintf (file, fmt_str_1, "Referenced variables", (unsigned long)num_referenced_vars,
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -1004,7 +1004,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   if (found_exposed_symbol
       || v_may_defs_before > v_may_defs_after
       || v_must_defs_before > v_must_defs_after)
-    bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
+    bitmap_ior_into (vars_to_rename, vars_in_vops_to_rename);
 
   BITMAP_XFREE (vars_in_vops_to_rename);
 }

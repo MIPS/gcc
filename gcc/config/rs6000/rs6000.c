@@ -175,6 +175,9 @@ int rs6000_spe;
 /* Nonzero if floating point operations are done in the GPRs.  */
 int rs6000_float_gprs = 0;
 
+/* Nonzero if we want Darwin's struct-by-value-in-regs ABI.  */
+int rs6000_darwin64_abi;
+
 /* String from -mfloat-gprs=.  */
 const char *rs6000_float_gprs_string;
 
@@ -746,6 +749,8 @@ static int rs6000_get_some_local_dynamic_name_1 (rtx *, void *);
 static rtx rs6000_complex_function_value (enum machine_mode);
 static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
+static rtx rs6000_darwin64_function_arg (CUMULATIVE_ARGS *,
+					 enum machine_mode, tree, int);
 static rtx rs6000_mixed_function_arg (enum machine_mode, tree, int);
 static void rs6000_move_block_from_reg (int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
@@ -1268,7 +1273,7 @@ rs6000_override_options (const char *default_cpu)
       else if (! strncmp (rs6000_traceback_name, "no", 2))
 	rs6000_traceback = traceback_none;
       else
-	error ("unknown -mtraceback arg `%s'; expecting `full', `partial' or `none'",
+	error ("unknown -mtraceback arg %qs; expecting %<full%>, %<partial%> or %<none%>",
 	       rs6000_traceback_name);
     }
 
@@ -1290,6 +1295,12 @@ rs6000_override_options (const char *default_cpu)
     {
       rs6000_altivec_abi = 1;
       rs6000_altivec_vrsave = 1;
+    }
+
+  /* Set the Darwin64 ABI as default for 64-bit Darwin.  */
+  if (DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT)
+    {
+      rs6000_darwin64_abi = 1;
     }
 
   /* Handle -mabi= options.  */
@@ -1369,7 +1380,7 @@ rs6000_override_options (const char *default_cpu)
       while (base[-1] != 'm') base--;
 
       if (*rs6000_longcall_switch != '\0')
-	error ("invalid option `%s'", base);
+	error ("invalid option %qs", base);
       rs6000_default_long_calls = (base[0] != 'n');
     }
 
@@ -1380,7 +1391,7 @@ rs6000_override_options (const char *default_cpu)
       while (base[-1] != 'm') base--;
 
       if (*rs6000_warn_altivec_long_switch != '\0')
-	error ("invalid option `%s'", base);
+	error ("invalid option %qs", base);
       rs6000_warn_altivec_long = (base[0] != 'n');
     }
 
@@ -1482,7 +1493,7 @@ rs6000_override_options (const char *default_cpu)
 
   /* We should always be splitting complex arguments, but we can't break
      Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
-  if (DEFAULT_ABI != ABI_AIX)
+  if (DEFAULT_ABI != ABI_AIX && !TARGET_E500_DOUBLE)
     targetm.calls.split_complex_arg = NULL;
 
   /* Initialize rs6000_cost with the appropriate target costs.  */
@@ -1625,6 +1636,19 @@ rs6000_parse_abi_options (void)
 	error ("not configured for ABI: '%s'", rs6000_abi_string);
     }
 
+  /* These are here for testing during development only, do not
+     document in the manual please.  */
+  else if (! strcmp (rs6000_abi_string, "d64"))
+    {
+      rs6000_darwin64_abi = 1;
+      warning ("Using darwin64 ABI");
+    }
+  else if (! strcmp (rs6000_abi_string, "d32"))
+    {
+      rs6000_darwin64_abi = 0;
+      warning ("Using old darwin ABI");
+    }
+
   else if (! strcmp (rs6000_abi_string, "no-spe"))
     rs6000_spe_abi = 0;
   else
@@ -1677,7 +1701,7 @@ rs6000_parse_tls_size_option (void)
   else if (strcmp (rs6000_tls_size_string, "64") == 0)
     rs6000_tls_size = 64;
   else
-    error ("bad value `%s' for -mtls-size switch", rs6000_tls_size_string);
+    error ("bad value %qs for -mtls-size switch", rs6000_tls_size_string);
 }
 
 void
@@ -2708,23 +2732,26 @@ mask64_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return 0;
 }
 
-/* Like mask64_operand, but allow up to three transitions.  This
-   predicate is used by insn patterns that generate two rldicl or
-   rldicr machine insns.  */
-
-int
-mask64_2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+static int
+mask64_1or2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED,
+		       bool allow_one)
 {
   if (GET_CODE (op) == CONST_INT)
     {
       HOST_WIDE_INT c, lsb;
-
+      bool one_ok;
+      
       c = INTVAL (op);
 
       /* Disallow all zeros.  */
       if (c == 0)
 	return 0;
 
+      /* We can use a single rlwinm insn if no upper bits of C are set
+         AND there are zero, one or two transitions in the _whole_ of
+         C.  */
+      one_ok = !(c & ~(HOST_WIDE_INT)0xffffffff);
+      
       /* We don't change the number of transitions by inverting,
 	 so make sure we start with the LS bit zero.  */
       if (c & 1)
@@ -2748,6 +2775,9 @@ mask64_2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       /* Erase second transition.  */
       c &= -lsb;
 
+      if (one_ok && !(allow_one || c))
+	return 0;
+
       /* Find the third transition (if any).  */
       lsb = c & -c;
 
@@ -2755,6 +2785,14 @@ mask64_2_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       return c == -lsb;
     }
   return 0;
+}
+
+/* Like mask64_operand, but allow up to three transitions.  This
+   predicate is used by insn patterns that generate two rldicl or
+   rldicr machine insns.   */
+int mask64_2_operand (rtx op, enum machine_mode mode)
+{
+  return mask64_1or2_operand (op, mode, false);
 }
 
 /* Generates shifts and masks for a pair of rldicl or rldicr insns to
@@ -2846,9 +2884,9 @@ int
 and64_2_operand (rtx op, enum machine_mode mode)
 {
   if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis.  */
-    return gpc_reg_operand (op, mode) || mask64_2_operand (op, mode);
+    return gpc_reg_operand (op, mode) || mask64_1or2_operand (op, mode, true);
 
-  return logical_operand (op, mode) || mask64_2_operand (op, mode);
+  return logical_operand (op, mode) || mask64_1or2_operand (op, mode, true);
 }
 
 /* Return 1 if the operand is either a non-special register or a
@@ -4264,7 +4302,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       return;
     }
 
-  if (!no_new_pseudos && GET_CODE (operands[0]) != REG)
+  if (!no_new_pseudos && GET_CODE (operands[0]) != REG
+      && !gpc_reg_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
 
   if (mode == SFmode && ! TARGET_POWERPC
@@ -4427,16 +4466,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		  return;
 		}
 #endif
-	      if (mode == DImode)
-		{
-		  emit_insn (gen_macho_high_di (target, operands[1]));
-		  emit_insn (gen_macho_low_di (operands[0], target, operands[1]));
-		}
-	      else
-		{
-		  emit_insn (gen_macho_high (target, operands[1]));
-		  emit_insn (gen_macho_low (operands[0], target, operands[1]));
-		}
+	      emit_insn (gen_macho_high (target, operands[1]));
+	      emit_insn (gen_macho_low (operands[0], target, operands[1]));
 	      return;
 	    }
 
@@ -4596,6 +4627,15 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 static bool
 rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
+  /* In the darwin64 abi, try to use registers for larger structs
+     if possible.  */
+  if (AGGREGATE_TYPE_P (type)
+      && rs6000_darwin64_abi
+      && TREE_CODE (type) == RECORD_TYPE
+      && ((unsigned HOST_WIDE_INT) int_size_in_bytes (type) <= 32)
+      && ((unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 0))
+    return false;
+
   if (AGGREGATE_TYPE_P (type)
       && (TARGET_AIX_STRUCT_RET
 	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
@@ -4776,6 +4816,48 @@ rs6000_arg_size (enum machine_mode mode, tree type)
     return (size + 7) >> 3;
 }
 
+/* The darwin64 ABI calls for us to recurse down through structs,
+   applying the same rules to struct elements as if a reference to
+   each were being passed directly.  */
+
+static void
+darwin64_function_arg_advance (CUMULATIVE_ARGS *cum, tree type,
+			       int named, int depth)
+{
+  tree f, ftype;
+  int i, tot;
+
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+      for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
+	if (TREE_CODE (f) == FIELD_DECL)
+	  {
+	    ftype = TREE_TYPE (f);
+	    function_arg_advance (cum, TYPE_MODE (ftype), ftype,
+				  named, depth + 1);
+	  }
+      break;
+
+    case ARRAY_TYPE:
+      tot = int_size_in_bytes (type);
+      if (tot <= 0)
+	return;
+      ftype = TREE_TYPE (type);
+      tot /= int_size_in_bytes (ftype);
+      
+      for (i = 0; i < tot; ++i)
+	{
+	  function_arg_advance (cum, TYPE_MODE (ftype), ftype,
+				named, depth + 1);
+	}
+      break;
+
+    default:
+      abort ();
+    }
+}
+
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)
@@ -4786,9 +4868,11 @@ rs6000_arg_size (enum machine_mode mode, tree type)
 
 void
 function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		      tree type, int named)
+		      tree type, int named, int depth)
 {
-  cum->nargs_prototype--;
+  /* Only tick off an argument if we're not recursing.  */
+  if (depth == 0)
+    cum->nargs_prototype--;
 
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
@@ -4843,6 +4927,13 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	   && !cum->stdarg
 	   && cum->sysv_gregno <= GP_ARG_MAX_REG)
     cum->sysv_gregno++;
+
+  else if (rs6000_darwin64_abi
+	   && mode == BLKmode
+	   && (TREE_CODE (type) == RECORD_TYPE
+	       || TREE_CODE (type) == ARRAY_TYPE))
+    darwin64_function_arg_advance (cum, type, named, depth);
+
   else if (DEFAULT_ABI == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -4918,7 +5009,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		   cum->words, cum->fregno);
 	  fprintf (stderr, "nargs = %4d, proto = %d, mode = %4s, ",
 		   cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode));
-	  fprintf (stderr, "named = %d, align = %d\n", named, align);
+	  fprintf (stderr, "named = %d, align = %d, depth = %d\n",
+		   named, align, depth);
 	}
     }
 }
@@ -4994,6 +5086,123 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       else
 	return NULL_RTX;
     }
+}
+
+/* For the darwin64 ABI, we want to construct a PARALLEL consisting of
+   the register(s) to be used for each field and subfield of a struct
+   being passed by value, along with the offset of where the
+   register's value may be found in the block.  */
+
+static rtx
+rs6000_darwin64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			      tree type, int named)
+{
+  tree f, ftype, offset;
+  rtx rvec[FIRST_PSEUDO_REGISTER], sub, suboff, roffset;
+  int k = 0, i, j, bytepos, subbytepos, tot;
+  CUMULATIVE_ARGS saved_cum = *cum;
+  enum machine_mode submode;
+
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+      for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
+	if (TREE_CODE (f) == FIELD_DECL)
+	  {
+	    ftype = TREE_TYPE (f);
+	    offset = DECL_FIELD_OFFSET (f);
+	    bytepos = int_bit_position (f) / BITS_PER_UNIT;
+	    /* Force substructs to be handled as BLKmode even if
+	       they're small enough to be recorded as DImode, so we
+	       drill through to non-record fields.  */
+	    submode = TYPE_MODE (ftype);
+	    if (TREE_CODE (ftype) == RECORD_TYPE)
+	      submode = BLKmode;
+	    sub = function_arg (cum, submode, ftype, named);
+	    if (sub == NULL_RTX)
+	      return NULL_RTX;
+	    if (GET_CODE (sub) == PARALLEL)
+	      {
+		for (i = 0; i < XVECLEN (sub, 0); i++)
+		  {
+		    rtx subsub = XVECEXP (sub, 0, i);
+		    suboff = XEXP (subsub, 1);
+		    subbytepos = INTVAL (suboff);
+		    subbytepos += bytepos;
+		    roffset = gen_rtx_CONST_INT (SImode, subbytepos);
+		    subsub = XEXP (subsub, 0);
+		    rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, subsub, roffset);
+		  }
+	      }
+	    else
+	      {
+		roffset = gen_rtx_CONST_INT (SImode, bytepos);
+		rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
+	      }
+	    /* Now do an arg advance to get all the cumulative arg
+	       stuff set correctly for the next subfield. Note that it
+	       has no lasting effect, because it is being done on a
+	       temporary copy of the cumulative arg data.  */
+	    function_arg_advance (cum, submode, ftype, named, 1);
+	  }
+      break;
+
+    case ARRAY_TYPE:
+      tot = int_size_in_bytes (type);
+      if (tot <= 0)
+	return NULL_RTX;
+      ftype = TREE_TYPE (type);
+      tot /= int_size_in_bytes (ftype);
+      bytepos = 0;
+
+      for (j = 0; j < tot; ++j)
+	{
+	  /* Force substructs to be handled as BLKmode even if
+	     they're small enough to be recorded as DImode, so we
+	     drill through to non-record fields.  */
+	  submode = TYPE_MODE (ftype);
+	  if (TREE_CODE (ftype) == RECORD_TYPE)
+	    submode = BLKmode;
+	  sub = function_arg (cum, submode, ftype, named);
+	  if (sub == NULL_RTX)
+	    return NULL_RTX;
+	  if (GET_CODE (sub) == PARALLEL)
+	    {
+	      for (i = 0; i < XVECLEN (sub, 0); i++)
+		{
+		  rtx subsub = XVECEXP (sub, 0, i);
+
+		  suboff = XEXP (subsub, 1);
+		  subbytepos = INTVAL (suboff);
+		  subbytepos += bytepos;
+		  roffset = gen_rtx_CONST_INT (SImode, subbytepos);
+		  subsub = XEXP (subsub, 0);
+		  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, subsub, roffset);
+		}
+	    }
+	  else
+	    {
+	      roffset = gen_rtx_CONST_INT (SImode, bytepos);
+	      rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
+	    }
+	    /* Now do an arg advance to get all the cumulative arg
+	       stuff set correctly for the next subfield. Note that it
+	       has no lasting effect, because it is being done on a
+	       temporary copy of the cumulative arg data.  */
+	    function_arg_advance (cum, submode, ftype, named, 1);
+	    bytepos += int_size_in_bytes (ftype);
+	}
+      break;
+
+    default:
+      abort ();
+  }
+
+  *cum = saved_cum;
+  if (k > 0)
+    return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rvec));
+  else
+    return NULL_RTX;
 }
 
 /* Determine where to place an argument in 64-bit mode with 32-bit ABI.  */
@@ -5173,6 +5382,13 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	   && (SPE_VECTOR_MODE (mode)
 	       || (TARGET_E500_DOUBLE && mode == DFmode)))
     return rs6000_spe_function_arg (cum, mode, type);
+
+  else if (rs6000_darwin64_abi
+	   && mode == BLKmode
+	   && (TREE_CODE (type) == RECORD_TYPE
+	       || TREE_CODE (type) == ARRAY_TYPE))
+    return rs6000_darwin64_function_arg (cum, mode, type, named);
+
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -5447,7 +5663,7 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   /* Skip the last named argument.  */
   next_cum = *cum;
-  function_arg_advance (&next_cum, mode, type, 1);
+  function_arg_advance (&next_cum, mode, type, 1, 0);
 
   if (DEFAULT_ABI == ABI_V4)
     {
@@ -6805,7 +7021,7 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	if (TREE_CODE (arg2) != INTEGER_CST
 	    || TREE_INT_CST_LOW (arg2) & ~0x3)
 	  {
-	    error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
+	    error ("argument to %qs must be a 2-bit unsigned literal", d->name);
 	    return const0_rtx;
 	  }
 
@@ -6933,7 +7149,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       while (TREE_CODE (arg0) == NOP_EXPR || TREE_CODE (arg0) == ADDR_EXPR
 	     || TREE_CODE (arg0) == ARRAY_REF)
 	arg0 = TREE_OPERAND (arg0, 0);
-      error ("invalid parameter combination for `%s' AltiVec intrinsic",
+      error ("invalid parameter combination for %qs AltiVec intrinsic",
 	     TREE_STRING_POINTER (arg0));
 
       return const0_rtx;
@@ -10916,6 +11132,16 @@ rs6000_generate_compare (enum rtx_code code)
     comp_mode = CCFPmode;
   else if (code == GTU || code == LTU
 	   || code == GEU || code == LEU)
+    comp_mode = CCUNSmode;
+  else if ((code == EQ || code == NE)
+	   && GET_CODE (rs6000_compare_op0) == SUBREG
+	   && GET_CODE (rs6000_compare_op1) == SUBREG
+	   && SUBREG_PROMOTED_UNSIGNED_P (rs6000_compare_op0)
+	   && SUBREG_PROMOTED_UNSIGNED_P (rs6000_compare_op1))
+    /* These are unsigned values, perhaps there will be a later
+       ordering compare that can be shared with this one.
+       Unfortunately we cannot detect the signedness of the operands
+       for non-subregs.  */
     comp_mode = CCUNSmode;
   else
     comp_mode = CCmode;
@@ -15735,6 +15961,17 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     {
       /* Data dependency; DEP_INSN writes a register that INSN reads
 	 some cycles later.  */
+
+      /* Separate a load from a narrower, dependent store.  */
+      if (rs6000_sched_groups
+	  && GET_CODE (PATTERN (insn)) == SET
+	  && GET_CODE (PATTERN (dep_insn)) == SET
+	  && GET_CODE (XEXP (PATTERN (insn), 1)) == MEM
+	  && GET_CODE (XEXP (PATTERN (dep_insn), 0)) == MEM
+	  && (GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (insn), 1)))
+	      > GET_MODE_SIZE (GET_MODE (XEXP (PATTERN (dep_insn), 0)))))
+	return cost + 14;
+
       switch (get_attr_type (insn))
 	{
 	case TYPE_JMPREG:
@@ -16742,7 +16979,7 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
   if (!result)
-    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+    warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
   else
     *node = reconstruct_complex_type (*node, result);
 
@@ -16777,7 +17014,7 @@ rs6000_handle_longcall_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -17195,7 +17432,8 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\taddis r11,r11,ha16(%s-%s)\n",
 	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tmtlr r0\n");
-      fprintf (file, "\tlwzu r12,lo16(%s-%s)(r11)\n",
+      fprintf (file, "\t%s r12,lo16(%s-%s)(r11)\n",
+	       (TARGET_64BIT ? "ldu" : "lwzu"),
 	       lazy_ptr_name, local_label_0);
       fprintf (file, "\tmtctr r12\n");
       fprintf (file, "\tbctr\n");
@@ -17830,7 +18068,8 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
       return false;
 
     case MULT:
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
 	{
 	  if (INTVAL (XEXP (x, 1)) >= -256
 	      && INTVAL (XEXP (x, 1)) <= 255)
@@ -17978,8 +18217,31 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  *total = rs6000_cost->fp;
 	  return false;
 	}
-
       break;
+
+    case EQ:
+    case GTU:
+    case LTU:
+      if (mode == Pmode)
+	{
+	  switch (outer_code)
+	    {
+	    case PLUS:
+	    case NEG:
+	      /* PLUS or NEG already counted so only add one more.  */
+	      *total = COSTS_N_INSNS (1);
+	      break;
+	    case SET:
+	      *total = COSTS_N_INSNS (3);
+	      break;
+	    case COMPARE:
+	      *total = 0;
+	      return true;
+	    default:
+	      break;
+	    }
+	  return false;
+	}
 
     default:
       break;
@@ -18053,25 +18315,158 @@ rs6000_complex_function_value (enum machine_mode mode)
   enum machine_mode inner = GET_MODE_INNER (mode);
   unsigned int inner_bytes = GET_MODE_SIZE (inner);
 
-  if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
-    regno = FP_ARG_RETURN;
+  if (TARGET_E500_DOUBLE)
+    {
+      /* FIXME: This causes complex values to be returned in the full
+	 64-bit GPR.  It works, but is not ABI compatible with
+	 soft-float.  Complex doubles should be returned in 4
+	 consecutive 32-bit GPRs.  */
+      regno = GP_ARG_RETURN;
+    }
   else
     {
-      regno = GP_ARG_RETURN;
+      if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
+	regno = FP_ARG_RETURN;
+      else
+	{
+	  regno = GP_ARG_RETURN;
 
-      /* 32-bit is OK since it'll go in r3/r4.  */
-      if (TARGET_32BIT && inner_bytes >= 4)
+	  /* 32-bit is OK since it'll go in r3/r4.  */
+	  if (TARGET_32BIT && inner_bytes >= 4)
+	    return gen_rtx_REG (mode, regno);
+	}
+
+      if (inner_bytes >= 8)
 	return gen_rtx_REG (mode, regno);
     }
-
-  if (inner_bytes >= 8)
-    return gen_rtx_REG (mode, regno);
 
   r1 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno),
 			  const0_rtx);
   r2 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno + 1),
 			  GEN_INT (inner_bytes));
   return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
+}
+
+/* Compose a PARALLEL for a darwin64 struct being returned by
+   value.  */
+
+static rtx
+rs6000_darwin64_function_value (CUMULATIVE_ARGS *cum, tree valtype)
+{
+  tree f, ftype;
+  rtx rvec[FIRST_PSEUDO_REGISTER], sub, roffset, suboff;
+  int k = 0, bytepos, tot, elt, i, subbytepos;
+  enum machine_mode fmode;
+
+  switch (TREE_CODE (valtype))
+    {
+    case RECORD_TYPE:
+      for (f = TYPE_FIELDS (valtype); f ; f = TREE_CHAIN (f))
+	if (TREE_CODE (f) == FIELD_DECL)
+	  {
+	    ftype = TREE_TYPE (f);
+	    fmode = TYPE_MODE (ftype);
+	    bytepos = int_bit_position (f) / BITS_PER_UNIT;
+	    if (USE_FP_FOR_ARG_P (cum, fmode, ftype))
+	      {
+		sub = gen_rtx_REG (fmode, cum->fregno++);
+		cum->sysv_gregno++;
+	      }
+	    else if (USE_ALTIVEC_FOR_ARG_P (cum, fmode, ftype, 1))
+	      {
+		sub = gen_rtx_REG (fmode, cum->vregno++);
+		cum->sysv_gregno++;
+	      }
+	    else if (fmode == BLKmode
+		     && (TREE_CODE (ftype) == RECORD_TYPE
+			 || TREE_CODE (ftype) == ARRAY_TYPE))
+	      sub = rs6000_darwin64_function_value (cum, ftype);
+	    else
+	      sub = gen_rtx_REG (fmode, cum->sysv_gregno++);
+	    if (sub == NULL_RTX)
+	      return sub;
+	    else if (GET_CODE (sub) == PARALLEL)
+	      {
+		for (i = 0; i < XVECLEN (sub, 0); i++)
+		  {
+		    rtx subsub = XVECEXP (sub, 0, i);
+
+		    suboff = XEXP (subsub, 1);
+		    subbytepos = INTVAL (suboff);
+		    subbytepos += bytepos;
+		    roffset = gen_rtx_CONST_INT (SImode, subbytepos);
+		    subsub = XEXP (subsub, 0);
+		    rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, subsub, roffset);
+		  }
+	      }
+	    else
+	      {
+		roffset = gen_rtx_CONST_INT (SImode, bytepos);
+		rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
+	      }
+	  }
+      if (k > 0)
+	return gen_rtx_PARALLEL (TYPE_MODE (valtype), gen_rtvec_v (k, rvec));
+      else
+	return NULL_RTX;
+
+    case ARRAY_TYPE:
+      /* If passing by value won't work, give up.  */
+      if (int_size_in_bytes (valtype) <= 0)
+	return NULL_RTX;
+      ftype = TREE_TYPE (valtype);
+      fmode = TYPE_MODE (ftype);
+      tot = int_size_in_bytes (valtype) / int_size_in_bytes (ftype);
+      bytepos = 0;
+      for (elt = 0; elt < tot; ++elt)
+	{
+	  if (USE_FP_FOR_ARG_P (cum, fmode, ftype))
+	    {
+	      sub = gen_rtx_REG (fmode, cum->fregno++);
+	      cum->sysv_gregno++;
+	    }
+	  else if (USE_ALTIVEC_FOR_ARG_P (cum, fmode, ftype, 1))
+	    {
+	      sub = gen_rtx_REG (fmode, cum->vregno++);
+	      cum->sysv_gregno++;
+	    }
+	  else if (fmode == BLKmode
+		   && (TREE_CODE (ftype) == RECORD_TYPE
+		       || TREE_CODE (ftype) == ARRAY_TYPE))
+	    sub = rs6000_darwin64_function_value (cum, ftype);
+	  else
+	    sub = gen_rtx_REG (fmode, cum->sysv_gregno++);
+	  if (sub == NULL_RTX)
+	    return sub;
+	  else if (GET_CODE (sub) == PARALLEL)
+	    {
+	      for (i = 0; i < XVECLEN (sub, 0); i++)
+		{
+		  rtx subsub = XVECEXP (sub, 0, i);
+
+		  suboff = XEXP (subsub, 1);
+		  subbytepos = INTVAL (suboff);
+		  subbytepos += bytepos;
+		  roffset = gen_rtx_CONST_INT (SImode, subbytepos);
+		  subsub = XEXP (subsub, 0);
+		  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, subsub, roffset);
+		}
+	      }
+	    else
+	      {
+		roffset = gen_rtx_CONST_INT (SImode, bytepos);
+		rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
+	      }
+	  bytepos += int_size_in_bytes (ftype);
+	}
+      if (k > 0)
+	return gen_rtx_PARALLEL (TYPE_MODE (valtype), gen_rtvec_v (k, rvec));
+      else
+	return NULL_RTX;
+
+    default:
+      abort ();
+    }
 }
 
 /* Define how to find the value returned by a function.
@@ -18089,6 +18484,24 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   unsigned int regno;
+
+  /* Special handling for structs in darwin64.  */
+  if (rs6000_darwin64_abi
+      && TYPE_MODE (valtype) == BLKmode
+      && (TREE_CODE (valtype) == RECORD_TYPE
+	  || TREE_CODE (valtype) == ARRAY_TYPE))
+    {
+      CUMULATIVE_ARGS valcum;
+      rtx valret;
+
+      valcum.sysv_gregno = GP_ARG_RETURN;
+      valcum.fregno = FP_ARG_MIN_REG;
+      valcum.vregno = ALTIVEC_ARG_MIN_REG;
+      valret = rs6000_darwin64_function_value (&valcum, valtype);
+      if (valret)
+	return valret;
+      /* Otherwise fall through to standard ABI rules.  */
+    }
 
   if (TARGET_32BIT && TARGET_POWERPC64 && TYPE_MODE (valtype) == DImode)
     {

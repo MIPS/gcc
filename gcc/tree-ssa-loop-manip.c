@@ -152,7 +152,7 @@ static void
 add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 {
   bitmap def;
-  int index;
+  unsigned index;
   basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
   bitmap_iterator bi;
 
@@ -272,7 +272,7 @@ find_uses_to_rename (bitmap *use_blocks)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	  find_uses_to_rename_use (PHI_ARG_EDGE (phi, i)->src,
 				   PHI_ARG_DEF (phi, i), use_blocks);
@@ -383,7 +383,7 @@ verify_loop_closed_ssa (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	  check_loop_closed_ssa_use (PHI_ARG_EDGE (phi, i)->src,
 				     PHI_ARG_DEF (phi, i));
@@ -404,7 +404,7 @@ split_loop_exit_edge (edge exit)
   tree phi, new_phi, new_name, name;
   use_operand_p op_p;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
 
@@ -567,11 +567,11 @@ set_phi_def_stmts (basic_block bb)
 {
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
 }
 
-/* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
+/* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
    ssa.  In order to achieve this, only loops whose exits all lead to the same
    location are handled.
    
@@ -665,7 +665,7 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
   for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
        phi2 && phi1; 
-       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
       int i;
       for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
@@ -681,7 +681,7 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
 /* Adjust entry edge for lv.
    
-  e is a incoming edge. 
+  e is an incoming edge. 
 
   --- edge e ---- > [second_head]
 

@@ -64,6 +64,9 @@ struct arg_data
      This is not the same register as for normal calls on machines with
      register windows.  */
   rtx tail_call_reg;
+  /* If REG is a PARALLEL, this is a copy of VALUE pulled into the correct
+     form for emit_group_move.  */
+  rtx parallel_value;
   /* If REG was promoted from the actual mode of the argument expression,
      indicates whether the promotion is sign- or zero-extended.  */
   int unsignedp;
@@ -145,6 +148,8 @@ static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 static int combine_pending_stack_adjustment_and_call (int, struct args_size *,
 						      unsigned int);
 static bool shift_returned_value (tree, rtx *);
+static tree split_complex_values (tree);
+static tree split_complex_types (tree);
 
 #ifdef REG_PARM_STACK_SPACE
 static rtx save_fixed_argument_area (int, rtx, int *, int *);
@@ -642,7 +647,8 @@ call_expr_flags (tree t)
    Set REG_PARM_SEEN if we encounter a register parameter.  */
 
 static void
-precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg_parm_seen)
+precompute_register_parameters (int num_actuals, struct arg_data *args,
+				int *reg_parm_seen)
 {
   int i;
 
@@ -677,6 +683,17 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 			     TYPE_MODE (TREE_TYPE (args[i].tree_value)),
 			     args[i].value, args[i].unsignedp);
 
+	/* If we're going to have to load the value by parts, pull the
+	   parts into pseudos.  The part extraction process can involve
+	   non-trivial computation.  */
+	if (GET_CODE (args[i].reg) == PARALLEL)
+	  {
+	    tree type = TREE_TYPE (args[i].tree_value);
+	    args[i].parallel_value
+	      = emit_group_load_into_temps (args[i].reg, args[i].value,
+					    type, int_size_in_bytes (type));
+	  }
+
 	/* If the value is expensive, and we are inside an appropriately
 	   short loop, put the value into a pseudo and then put the pseudo
 	   into the hard reg.
@@ -685,13 +702,13 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 	   register parameters.  This is to avoid reload conflicts while
 	   loading the parameters registers.  */
 
-	if ((! (REG_P (args[i].value)
-		|| (GET_CODE (args[i].value) == SUBREG
-		    && REG_P (SUBREG_REG (args[i].value)))))
-	    && args[i].mode != BLKmode
-	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
-	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
-		|| optimize))
+	else if ((! (REG_P (args[i].value)
+		     || (GET_CODE (args[i].value) == SUBREG
+			 && REG_P (SUBREG_REG (args[i].value)))))
+		 && args[i].mode != BLKmode
+		 && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
+		 && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
+		     || optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
       }
 }
@@ -1452,11 +1469,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	     locations.  The Irix 6 ABI has examples of this.  */
 
 	  if (GET_CODE (reg) == PARALLEL)
-	    {
-	      tree type = TREE_TYPE (args[i].tree_value);
-	      emit_group_load (reg, args[i].value, type,
-			       int_size_in_bytes (type));
-	    }
+	    emit_group_move (reg, args[i].parallel_value);
 
 	  /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
@@ -3023,7 +3036,7 @@ fixup_tail_calls (void)
 
 /* Traverse an argument list in VALUES and expand all complex
    arguments into their components.  */
-tree
+static tree
 split_complex_values (tree values)
 {
   tree p;
@@ -3077,7 +3090,7 @@ split_complex_values (tree values)
 
 /* Traverse a list of TYPES and expand all complex types into their
    components.  */
-tree
+static tree
 split_complex_types (tree types)
 {
   tree p;
@@ -4175,6 +4188,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 like that.  It's not clear that this is always correct.  */
       if (partial == 0)
 	arg->value = arg->stack_slot;
+    }
+
+  if (arg->reg && GET_CODE (arg->reg) == PARALLEL)
+    {
+      tree type = TREE_TYPE (arg->tree_value);
+      arg->parallel_value
+	= emit_group_load_into_temps (arg->reg, arg->value, type,
+				      int_size_in_bytes (type));
     }
 
   /* Mark all slots this store used.  */

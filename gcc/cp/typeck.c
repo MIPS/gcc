@@ -1030,11 +1030,13 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      /* Fall through.  */
+      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
+      return TYPE_MODE (t1) == TYPE_MODE (t2)
+	     && TYPE_REF_CAN_ALIAS_ALL (t1) == TYPE_REF_CAN_ALIAS_ALL (t2)
+	     && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
 
     case METHOD_TYPE:
     case FUNCTION_TYPE:
@@ -4323,7 +4325,7 @@ cxx_mark_addressable (tree exp)
       case PARM_DECL:
 	if (x == current_class_ptr)
 	  {
-            error ("cannot take the address of `this', which is an rvalue expression");
+            error ("cannot take the address of %<this%>, which is an rvalue expression");
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later.  */
 	    return true;
 	  }
@@ -4341,9 +4343,18 @@ cxx_mark_addressable (tree exp)
       case CONST_DECL:
       case RESULT_DECL:
 	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
-	    && !DECL_ARTIFICIAL (x) && extra_warnings)
-	  warning ("address requested for %qD, which is declared `register'",
-                   x);
+	    && !DECL_ARTIFICIAL (x))
+	  {
+	    if (DECL_HARD_REGISTER (x) != 0)
+	      {
+		error
+		  ("address of explicit register variable %qD requested", x);
+		return false;
+	      }
+	    else if (extra_warnings)
+	      warning
+		("address requested for %qD, which is declared %<register%>", x);
+	  }
 	TREE_ADDRESSABLE (x) = 1;
 	return true;
 
@@ -4861,7 +4872,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (TYPE_PTR_P (intype)
 	  && (comptypes (TREE_TYPE (intype), TREE_TYPE (type),
 			 COMPARE_BASE | COMPARE_DERIVED)))
-	warning ("casting `%T' to `%T' does not dereference pointer",
+	warning ("casting %qT to %qT does not dereference pointer",
 		 intype, type);
 
       expr = build_unary_op (ADDR_EXPR, expr, 0);
@@ -6142,7 +6153,7 @@ check_return_expr (tree retval)
      (This is a G++ extension, used to get better code for functions
      that call the `volatile' function.)  */
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning ("function declared `noreturn' has a `return' statement");
+    warning ("function declared %<noreturn%> has a %<return%> statement");
 
   /* Check for various simple errors.  */
   if (DECL_DESTRUCTOR_P (current_function_decl))
@@ -6182,7 +6193,7 @@ check_return_expr (tree retval)
      that's supposed to return a value.  */
   if (!retval && fn_returns_value_p)
     {
-      pedwarn ("return-statement with no value, in function returning '%T'",
+      pedwarn ("return-statement with no value, in function returning %qT",
 	       valtype);
       /* Clear this, so finish_function won't say that we reach the
 	 end of a non-void function (which we don't, we gave a

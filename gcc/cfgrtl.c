@@ -69,7 +69,6 @@ static int can_delete_label_p (rtx);
 static void commit_one_edge_insertion (edge, int);
 static rtx last_loop_beg_note (rtx);
 static bool back_edge_of_syntactic_loop_p (basic_block, basic_block);
-basic_block force_nonfallthru_and_redirect (edge, basic_block);
 static basic_block rtl_split_edge (edge);
 static bool rtl_move_block_after (basic_block, basic_block);
 static int rtl_verify_flow_info (void);
@@ -986,7 +985,7 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
 /* Like force_nonfallthru below, but additionally performs redirection
    Used by redirect_edge_and_branch_force.  */
 
-basic_block
+static basic_block
 force_nonfallthru_and_redirect (edge e, basic_block target)
 {
   basic_block jump_block, new_bb = NULL, src = e->src;
@@ -1463,7 +1462,8 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   regset_head killed_head;
   regset killed = INITIALIZE_REG_SET (killed_head);
   rtx save_regs = NULL_RTX;
-  int regno, noccmode;
+  unsigned regno;
+  int noccmode;
   enum machine_mode mode;
   reg_set_iterator rsi;
 
@@ -2114,7 +2114,7 @@ rtl_verify_flow_info_1 (void)
 	}
 
       if (BB_END (bb) == x)
-	/* Do checks for empty blocks her. e */
+	/* Do checks for empty blocks here.  */
 	;
       else
 	for (x = NEXT_INSN (x); x; x = NEXT_INSN (x))
