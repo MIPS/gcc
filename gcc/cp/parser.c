@@ -33,13 +33,6 @@
 #include "ggc.h"
 #include "toplev.h"
 
-/* FIXME: Remove! */
-
-static bool dummy() { return false; }
-#define diagnostic_rollback(x) dummy ()
-#define diagnostic_tentative_p(x) dummy ()
-#define diagnostic_issue_tentatively(x) dummy ()
-
 /* Functions to remove when switching to the new parser:
    
    enter_scope_of
@@ -63,9 +56,7 @@ static bool dummy() { return false; }
 
 /* This to deprecate in mainline:
 
-   1. Bogus extra attributes.
-
-   2. Old-style base class initializers.  */
+   1. Bogus extra attributes.  */
 
 
 /* The lexer.  */
@@ -1444,7 +1435,7 @@ static tree cp_parser_storage_class_specifier_opt
 static tree cp_parser_function_specifier_opt
   PARAMS ((cp_parser *));
 static tree cp_parser_type_specifier
-  PARAMS ((cp_parser *, cp_parser_flags, bool, bool, bool *, bool *));
+ (cp_parser *, cp_parser_flags, bool, bool, bool *, bool *);
 static tree cp_parser_simple_type_specifier
   PARAMS ((cp_parser *, cp_parser_flags));
 static tree cp_parser_type_name
@@ -6958,6 +6949,11 @@ cp_parser_mem_initializer_list (parser)
    mem-initializer:
      mem-initializer-id ( expression-list [opt] )  
 
+   GNU extension:
+  
+   mem-initializer:
+     ( expresion-list [opt] )
+
    Returns a TREE_LIST.  The TREE_PURPOSE is the TYPE (for a base
    class) or FIELD_DECL (for a non-static data member) to initialize;
    the TREE_VALUE is the expression-list.  */
@@ -6970,7 +6966,13 @@ cp_parser_mem_initializer (parser)
   tree expression_list;
 
   /* Find out what is being initialized.  */
-  mem_initializer_id = cp_parser_mem_initializer_id (parser);
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+    {
+      pedwarn ("anachronistic old-style base class initializer");
+      mem_initializer_id = NULL_TREE;
+    }
+  else
+    mem_initializer_id = cp_parser_mem_initializer_id (parser);
   /* Look for the opening `('.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   /* Parse the expression-list.  */
@@ -8063,7 +8065,7 @@ cp_parser_explicit_specialization (parser)
    Returns a representation of the type-specifier.  If the
    type-specifier is a keyword (like `int' or `const', or
    `__complex__') then the correspoding IDENTIFIER_NODE is returned.
-   Otherwise, the TYPE_DECL for the type is returned.
+   Otherwise, a TYPE_DECL or TREE_TYPE is returned.
 
    If IS_FRIEND is TRUE then this type-specifier is being declared a
    `friend'.  If IS_DECLARATION is TRUE, then this type-specifier is
@@ -10027,35 +10029,38 @@ cp_parser_type_id (parser)
    type-specifier-seq:
      type-specifier type-specifier-seq [opt]
 
-   Returns a TREE_LIST.  The TREE_VALUE of each node is a
-   type-specifier.  */
+   GNU extension:
+
+   type-specifier-seq:
+     attributes type-specifier-seq [opt]
+
+   Returns a TREE_LIST.  Either the TREE_VALUE of each node is a
+   type-specifier, or the TREE_PURPOSE is a list of attributes.  */
 
 static tree
 cp_parser_type_specifier_seq (parser)
      cp_parser *parser;
 {
+  bool seen_type_specifier = false;
   tree type_specifier_seq = NULL_TREE;
-  tree type_specifier;
 
-  /* Parse the first type-specifier.  It's not optional.  */
-  type_specifier = cp_parser_type_specifier (parser, 
-					     CP_PARSER_FLAGS_NONE,
-					     /*is_friend=*/false,
-					     /*is_declaration=*/false,
-					     NULL,
-					     NULL);
-  /* If something went wrong, stop.  */
-  if (type_specifier == error_mark_node)
-    return error_mark_node;
-  /* Add the new type-specifier to the list.  */
-  type_specifier_seq 
-    = tree_cons (NULL_TREE, type_specifier, type_specifier_seq);
-
-  /* Parse more type-specifiers.  */
+  /* Parse the type-specifiers and attributes.  */
   while (true)
     {
-      /* This type-specifier is optional.  */
-      cp_parser_parse_tentatively (parser);
+      tree type_specifier;
+
+      /* Check for attributes first.  */
+      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE))
+	{
+	  type_specifier_seq = tree_cons (cp_parser_attributes_opt (parser),
+					  NULL_TREE,
+					  type_specifier_seq);
+	  continue;
+	}
+
+      /* After the first type-specifier, others are optional.  */
+      if (seen_type_specifier)
+	cp_parser_parse_tentatively (parser);
       /* Look for the type-specifier.  */
       type_specifier = cp_parser_type_specifier (parser, 
 						 CP_PARSER_FLAGS_NONE,
@@ -10063,13 +10068,19 @@ cp_parser_type_specifier_seq (parser)
 						 /*is_declaration=*/false,
 						 NULL,
 						 NULL);
-      /* If that didn't work, stop.  */
-      if (!cp_parser_parse_definitely (parser))
+      /* If the first type-specifier could not be found, this is not a
+	 type-specifier-seq at all.  */
+      if (!seen_type_specifier && type_specifier == error_mark_node)
+	return error_mark_node;
+      /* If subsequent type-specifiers could not be found, the
+	 type-specifier-seq is complete.  */
+      else if (seen_type_specifier && !cp_parser_parse_definitely (parser))
 	break;
 
       /* Add the new type-specifier to the list.  */
       type_specifier_seq 
 	= tree_cons (NULL_TREE, type_specifier, type_specifier_seq);
+      seen_type_specifier = true;
     }
 
   /* We built up the list in reverse order.  */
@@ -10435,6 +10446,8 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
     default_argument = NULL_TREE;
   
   /* Create the representation of the parameter.  */
+  if (attributes)
+    decl_specifiers = tree_cons (attributes, NULL_TREE, decl_specifiers);
   parameter = build_tree_list (default_argument, 
 			       build_tree_list (decl_specifiers,
 						declarator));
@@ -10564,7 +10577,7 @@ cp_parser_function_definition (parser, friend_p)
       cp_token_cache *cache = cp_token_cache_new ();
 
       /* Create the function-declaration.  */
-      fn = start_method (decl_specifiers, declarator, NULL_TREE);
+      fn = start_method (decl_specifiers, declarator, attributes);
       /* If something went badly wrong, bail out now.  */
       if (fn == error_mark_node)
 	{
@@ -11586,7 +11599,7 @@ cp_parser_member_declaration (parser)
       if (!decl_specifiers)
 	{
 	  if (pedantic)
-	    pedwarn ("member declaration does not declare anything");
+	    pedwarn ("extra semicolon");
 	}
       else 
 	{
@@ -14121,9 +14134,6 @@ cp_parser_parse_tentatively (parser)
   parser->context = cp_parser_context_new (parser->context);
   /* Begin saving tokens.  */
   cp_lexer_save_tokens (parser->lexer);
-  /* Any error messages that we issue must be queued up until we know
-     whether or not we want to commit to this tentative parse.  */
-  diagnostic_issue_tentatively (diagnostic_buffer);
   /* In order to avoid repetitive access control error messages,
      access checks are queued up until we are no longer parsing
      tentatively.  */
@@ -14195,7 +14205,6 @@ cp_parser_parse_definitely (parser)
   else
     {
       cp_lexer_rollback_tokens (parser->lexer);
-      diagnostic_rollback (diagnostic_buffer);
       return false;
     }
 }

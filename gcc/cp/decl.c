@@ -6956,7 +6956,7 @@ check_tag_decl (declspecs)
 
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
-      register tree value = TREE_VALUE (link);
+      tree value = TREE_VALUE (link);
 
       if (TYPE_P (value)
 	  || TREE_CODE (value) == TYPE_DECL
@@ -6973,6 +6973,8 @@ check_tag_decl (declspecs)
 	      return NULL_TREE;
 	    }
 
+	  if (TREE_CODE (value) == TYPE_DECL)
+	    value = TREE_TYPE (value);
 	  if (TYPE_P (value)
 	      && (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE))
 	    {
