@@ -1,3 +1,8 @@
+2003-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (legitimate_pic_address_disp_p): Disallow TLS
+	SYMBOL_REFs not inside UNSPEC even in PLUS rtx.
+
 2003-08-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* cfgcleanup.c (outgoing_edges_match): Check REG_EH_REGION notes
