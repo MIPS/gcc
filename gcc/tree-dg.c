@@ -119,7 +119,7 @@ void dg_create_graph (struct loops *loops)
       ddr = VARRAY_GENERIC_PTR (dependence_relations, i);
 
       /* If there is no dependence than do not create an edge.  */
-      if (DDR_ARE_DEPENDENT (ddr) == chrec_bot)
+      if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
 	continue;
 
       /* Get dependence references */
@@ -486,7 +486,7 @@ ddg_direction_between_stmts (tree stmt1, tree stmt2, int loop_num)
   if (!ddr)
     return dir_independent;
 
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
+  if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (ddr)))
     return dir_star;
 
   /* Get subscript info.  */
@@ -561,10 +561,10 @@ dump_dg (FILE *file, int flags ATTRIBUTE_UNUSED)
 	  fprintf (file,"  %d\t", DN_ID(e->src));
 	  fprintf (file,"%d\t", DN_ID(e->dst));
 
-	  if (DDR_ARE_DEPENDENT (e->ddr) == chrec_top)
+	  if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (e->ddr)))
 	    fprintf (file, "don't know\n");
 
-	  if (DDR_ARE_DEPENDENT (e->ddr) != chrec_top)
+	  if (DDR_ARE_DEPENDENT (e->ddr) != chrec_dont_know)
 	    {
 	      for (j = 0; j < DDR_NUM_SUBSCRIPTS (e->ddr); j++)
 	        {

@@ -27,8 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define CHREC_LEFT(NODE)          TREE_OPERAND (NODE, 1)
 #define CHREC_RIGHT(NODE)         TREE_OPERAND (NODE, 2)
 #define CHREC_VARIABLE(NODE)      TREE_INT_CST_LOW (CHREC_VAR (NODE))
-#define CHREC_LOW(NODE)           TREE_OPERAND (INTERVAL_CHREC_CHECK (NODE), 0)
-#define CHREC_UP(NODE)            TREE_OPERAND (INTERVAL_CHREC_CHECK (NODE), 1)
 
 
 
@@ -37,8 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    and not on their value.  */
 
 extern tree chrec_not_analyzed_yet;
-extern GTY(()) tree chrec_top;
-extern GTY(()) tree chrec_bot;
+extern GTY(()) tree chrec_dont_know;
+extern GTY(()) tree chrec_known;
 
 /* After having added an automatically generated element, please
    include it in the following function.  */
@@ -47,8 +45,8 @@ static inline bool
 automatically_generated_chrec_p (tree chrec)
 {
   return (chrec == chrec_not_analyzed_yet 
-	  || chrec == chrec_top
-	  || chrec == chrec_bot);
+	  || chrec == chrec_dont_know
+	  || chrec == chrec_known);
 }
 
 /* The tree nodes aka. CHRECs.  */
@@ -56,8 +54,8 @@ automatically_generated_chrec_p (tree chrec)
 static inline bool
 tree_is_chrec (tree expr)
 {
-  if (TREE_CODE (expr) == INTERVAL_CHREC
-      || TREE_CODE (expr) == POLYNOMIAL_CHREC)
+  if (TREE_CODE (expr) == POLYNOMIAL_CHREC
+      || automatically_generated_chrec_p (expr))
     return true;
   else
     return false;
@@ -91,30 +89,11 @@ extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
-extern bool chrec_contains_intervals (tree);
 extern bool tree_contains_chrecs (tree);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
 
 
-
-/* Constructors.  */
-
-/* Build an interval.  */
-
-static inline tree 
-build_interval_chrec (tree low, 
-		      tree up)
-{
-  if (automatically_generated_chrec_p (low)
-      || automatically_generated_chrec_p (up))
-    return chrec_fold_automatically_generated_operands (low, up);
-  
-  if (integer_zerop (tree_fold_minus (chrec_type (low), up, low)))
-    return low;
-  else
-    return build (INTERVAL_CHREC, TREE_TYPE (low), low, up);
-}
 
 /* Build a polynomial chain of recurrence.  */
 
@@ -125,33 +104,6 @@ build_polynomial_chrec (unsigned loop_num,
 {
   return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
 		build_int_2 (loop_num, 0), left, right);
-}
-
-/* Build a chrec top interval for type.  */
-
-static inline tree 
-build_chrec_top_type (tree type)
-{
-  /* Disabled for now: it is not used, and libjava fails to build on
-     amd64.  */
-  return chrec_top;
-
-  if (type != NULL_TREE)
-    {
-      enum tree_code code = TREE_CODE (type);
- 
-      if ((code == INTEGER_TYPE
-	   || code == ENUMERAL_TYPE
-	   || code == BOOLEAN_TYPE
-	   || code == CHAR_TYPE
-	   || code == REAL_TYPE)
-	  && TYPE_MIN_VALUE (type) != NULL_TREE 
-	  && TYPE_MAX_VALUE (type) != NULL_TREE)
-	return build_interval_chrec (TYPE_MIN_VALUE (type), 
-				     TYPE_MAX_VALUE (type));
-    }
-
-  return chrec_top;
 }
 
 
@@ -168,10 +120,6 @@ chrec_zerop (tree chrec)
   
   if (TREE_CODE (chrec) == INTEGER_CST)
     return integer_zerop (chrec);
-  
-  if (TREE_CODE (chrec) == INTERVAL_CHREC)
-    return (integer_zerop (CHREC_LOW (chrec))
-	    && integer_zerop (CHREC_UP (chrec)));
   
   return false;
 }
@@ -212,7 +160,6 @@ evolution_function_is_affine_p (tree chrec)
       else
 	return false;
       
-    case INTERVAL_CHREC:
     default:
       return false;
     }
@@ -226,27 +173,6 @@ evolution_function_is_affine_or_constant_p (tree chrec)
 {
   return evolution_function_is_affine_p (chrec) 
     || evolution_function_is_constant_p (chrec);
-}
-
-/* Determine whether the given tree is a multivariate evolution.  */
-
-static inline bool
-evolution_function_is_multivariate (tree chrec)
-{
-  return !evolution_function_is_univariate_p (chrec);
-}
-
-/* Determines which expressions are simpler to be {handled | kept} in a 
-   symbolic form.  */
-
-static inline bool
-chrec_should_remain_symbolic (tree evfun)
-{
-  if (evfun == NULL_TREE
-      || evfun == chrec_top)
-    return true;
-  
-  return false;
 }
 
 /* Determines whether EXPR does not contains chrec expressions.  */
@@ -266,7 +192,7 @@ no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
   tree scev;
   
   if (chrec == chrec_not_analyzed_yet
-      || chrec == chrec_top
+      || chrec == chrec_dont_know
       || chrec_contains_symbols_defined_in_loop (chrec, loop_num))
     return false;
 

@@ -267,11 +267,11 @@ tree chrec_not_analyzed_yet;
 
 /* Reserved to the cases where the analyzer has detected an
    undecidable property at compile time.  */
-tree chrec_top;
+tree chrec_dont_know;
 
 /* When the analyzer has detected that a property will never
-   happen, then it qualifies it with chrec_bot.  */
-tree chrec_bot;
+   happen, then it qualifies it with chrec_known.  */
+tree chrec_known;
 
 static bitmap already_instantiated;
 
@@ -481,8 +481,8 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 {
   bool val = false;
 
-  if (evolution_fn == chrec_top)
-    return chrec_top;
+  if (chrec_contains_undetermined (evolution_fn))
+    return chrec_dont_know;
 
   else if (TREE_CODE (evolution_fn) == POLYNOMIAL_CHREC)
     {
@@ -492,8 +492,8 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 	    loop_from_num (current_loops, CHREC_VARIABLE (evolution_fn));
 	  tree nb_iter = number_of_iterations_in_loop (inner_loop);
 
-	  if (nb_iter == chrec_top)
-	    return chrec_top;
+	  if (chrec_contains_undetermined (nb_iter))
+	    return chrec_dont_know;
 	  else
 	    {
 	      tree res;
@@ -522,7 +522,7 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
     return evolution_fn;
   
   else
-    return chrec_top;
+    return chrec_dont_know;
 }
 
 
@@ -543,14 +543,6 @@ chrec_is_positive (tree chrec, bool *value)
   
   switch (TREE_CODE (chrec))
     {
-    case INTERVAL_CHREC:
-      if (!chrec_is_positive (CHREC_LOW (chrec), &value0)
-	  || !chrec_is_positive (CHREC_UP (chrec), &value1))
-	return false;
-
-      *value = value0;
-      return value0 == value1;
-
     case POLYNOMIAL_CHREC:
       if (!chrec_is_positive (CHREC_LEFT (chrec), &value0)
 	  || !chrec_is_positive (CHREC_RIGHT (chrec), &value1))
@@ -572,6 +564,10 @@ chrec_is_positive (tree chrec, bool *value)
 
       nb_iter = number_of_iterations_in_loop
 	      (loop_from_num (current_loops, CHREC_VARIABLE (chrec)));
+
+      if (chrec_contains_undetermined (nb_iter))
+	return false;
+
       nb_iter = chrec_fold_minus 
 	(chrec_type (nb_iter), nb_iter,
 	 fold_convert (chrec_type (nb_iter), integer_one_node));
@@ -722,8 +718,8 @@ add_to_evolution_1 (unsigned loop_nb,
       
     default:
       /* These nodes do not depend on a loop.  */
-      if (chrec_before == chrec_top)
-	return chrec_top;
+      if (chrec_contains_undetermined (chrec_before))
+	return chrec_dont_know;
       return build_polynomial_chrec (loop_nb, chrec_before, to_add);
     }
 }
@@ -878,7 +874,7 @@ add_to_evolution (unsigned loop_nb,
      instantiated at this point.  */
   if (TREE_CODE (to_add) == POLYNOMIAL_CHREC)
     /* This should not happen.  */
-    return chrec_top;
+    return chrec_dont_know;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -922,7 +918,7 @@ set_nb_iterations_in_loop (struct loop *loop,
      representation of nb_iters that are equal to MAX_INT.  */
   if ((TREE_CODE (res) == INTEGER_CST && TREE_INT_CST_LOW (res) == 0)
       || TREE_OVERFLOW (res))
-    res = chrec_top;
+    res = chrec_dont_know;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1269,7 +1265,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		 evolution_of_loop);
 	      
 	      if (res)
-		*evolution_of_loop = chrec_top;
+		*evolution_of_loop = chrec_dont_know;
 	      
 	      else
 		{
@@ -1278,7 +1274,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		     evolution_of_loop);
 		  
 		  if (res)
-		    *evolution_of_loop = chrec_top;
+		    *evolution_of_loop = chrec_dont_know;
 		}
 	    }
 	  
@@ -1290,7 +1286,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		(loop, SSA_NAME_DEF_STMT (rhs0), halting_phi, 
 		 evolution_of_loop);
 	      if (res)
-		*evolution_of_loop = chrec_top;
+		*evolution_of_loop = chrec_dont_know;
 	    }
 	}
       
@@ -1302,7 +1298,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	    (loop, SSA_NAME_DEF_STMT (rhs1), halting_phi, 
 	     evolution_of_loop);
 	  if (res)
-	    *evolution_of_loop = chrec_top;
+	    *evolution_of_loop = chrec_dont_know;
 	}
       
       else
@@ -1348,7 +1344,7 @@ follow_ssa_edge_in_condition_phi_branch (int i,
 					 tree init_cond)
 {
   tree branch = PHI_ARG_DEF (condition_phi, i);
-  *evolution_of_branch = chrec_top;
+  *evolution_of_branch = chrec_dont_know;
 
   /* Do not follow back edges (they must belong to an irreducible loop, which
      we really do not want to worry about).  */
@@ -1369,7 +1365,7 @@ follow_ssa_edge_in_condition_phi_branch (int i,
 	 
      FIXME:  This case have to be refined correctly: 
      in some cases it is possible to say something better than
-     chrec_top, for example using a wrap-around notation.  */
+     chrec_dont_know, for example using a wrap-around notation.  */
   return false;
 }
 
@@ -1443,7 +1439,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
 
       /* If the path crosses this loop-phi, give up.  */
       if (res == true)
-	*evolution_of_loop = chrec_top;
+	*evolution_of_loop = chrec_dont_know;
 
       return res;
     }
@@ -1566,7 +1562,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	 all the other iterations it has the value of ARG.  
 	 For the moment, PEELED_CHREC nodes are not built.  */
       if (!res)
-	ev_fn = chrec_top;
+	ev_fn = chrec_dont_know;
       
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions. */
@@ -1623,7 +1619,7 @@ analyze_initial_condition (tree loop_phi_node)
 
       if (TREE_CODE (branch) == SSA_NAME)
 	{
-	  init_cond = chrec_top;
+	  init_cond = chrec_dont_know;
       	  break;
 	}
 
@@ -1632,7 +1628,7 @@ analyze_initial_condition (tree loop_phi_node)
 
   /* Ooops -- a loop without an entry???  */
   if (init_cond == chrec_not_analyzed_yet)
-    init_cond = chrec_top;
+    init_cond = chrec_dont_know;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1690,7 +1686,7 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
       
       if (backedge_phi_arg_p (condition_phi, i))
 	{
-	  res = chrec_top;
+	  res = chrec_dont_know;
 	  break;
 	}
 
@@ -1771,7 +1767,7 @@ interpret_rhs_modify_expr (struct loop *loop,
       break;
       
     default:
-      res = chrec_top;
+      res = chrec_dont_know;
       break;
     }
   
@@ -1814,7 +1810,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
   struct loop *def_loop;
 
   if (loop == NULL)
-    return chrec_top;
+    return chrec_dont_know;
 
   if (TREE_CODE (var) != SSA_NAME)
     return interpret_rhs_modify_expr (loop, var, type);
@@ -1862,14 +1858,14 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
       break;
 
     default:
-      res = chrec_top;
+      res = chrec_dont_know;
       break;
     }
 
  set_and_end:
 
   /* Keep the symbolic form.  */
-  if (res == chrec_top)
+  if (chrec_contains_undetermined (res))
     res = var;
 
   if (loop == def_loop)
@@ -1910,7 +1906,8 @@ analyze_scalar_evolution (struct loop *loop, tree var)
 
   res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var));
 
-  if (TREE_CODE (var) == SSA_NAME && res == chrec_top)
+  if (TREE_CODE (var) == SSA_NAME && 
+      chrec_contains_undetermined (res))
     res = var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1923,7 +1920,7 @@ analyze_scalar_evolution (struct loop *loop, tree var)
    WRTO_LOOP (which should be a superloop of both USE_LOOP and definition
    of VERSION).  */
 
-tree
+static tree
 analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 				  tree version)
 {
@@ -1943,7 +1940,7 @@ analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
 	 but we do not have a user for it anyway)  */
       if (!no_evolution_in_loop_p (ev, use_loop->num, &val)
 	  || !val)
-	return chrec_top;
+	return chrec_dont_know;
 
       use_loop = use_loop->outer;
     }
@@ -1997,16 +1994,14 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
 	  else
 	    {
 	      /* Something with unknown behavior in LOOP.  */
-	      return chrec_top;
+	      return chrec_dont_know;
 	    }
 	}
 
       def_loop = find_common_loop (loop, def_bb->loop_father);
 
-      /* If the analysis yields a parametric chrec, instantiate
-	 the result again.  Enqueue the SSA_NAME such that it will
-	 never be instantiated twice, avoiding the cyclic
-	 instantiation in mixers.  */
+      /* If the analysis yields a parametric chrec, instantiate the
+	 result again.  Avoid the cyclic instantiation in mixers.  */
       bitmap_set_bit (already_instantiated, SSA_NAME_VERSION (chrec));
       res = analyze_scalar_evolution (def_loop, chrec);
       res = instantiate_parameters_1 (loop, res, allow_superloop_chrecs);
@@ -2019,13 +2014,6 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
       op1 = instantiate_parameters_1 (loop, CHREC_RIGHT (chrec),
 				      allow_superloop_chrecs);
       return build_polynomial_chrec (CHREC_VARIABLE (chrec), op0, op1);
-
-    case INTERVAL_CHREC:
-      op0 = instantiate_parameters_1 (loop, CHREC_LOW (chrec),
-				      allow_superloop_chrecs);
-      op1 = instantiate_parameters_1 (loop, CHREC_UP (chrec),
-				      allow_superloop_chrecs);
-      return build_interval_chrec (op0, op1);
 
     case PLUS_EXPR:
       op0 = instantiate_parameters_1 (loop, TREE_OPERAND (chrec, 0),
@@ -2091,7 +2079,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec,
     }
 
   /* Too complicated to handle.  */
-  return chrec_top;
+  return chrec_dont_know;
 }
 
 /* Analyze all the parameters of the chrec that were left under a
@@ -2137,8 +2125,8 @@ resolve_mixers (struct loop *loop, tree chrec)
 /* Entry point for the analysis of the number of iterations pass.  
    This function tries to safely approximate the number of iterations
    the loop will run.  When this property is not decidable at compile
-   time, the result is chrec_top: [-oo, +oo].  Otherwise the result is
-   a scalar, an interval, or a symbolic parameter.
+   time, the result is chrec_dont_know: [-oo, +oo].  Otherwise the result is
+   a scalar or a symbolic parameter.
    
    Example of analysis: suppose that the loop has an exit condition:
    
@@ -2166,7 +2154,7 @@ number_of_iterations_in_loop (struct loop *loop)
   res = loop_nb_iterations (loop);
   if (res)
     return res;
-  res = chrec_top;
+  res = chrec_dont_know;
   
   if (!loop_exit_edges (loop))
     goto end;
@@ -2181,7 +2169,7 @@ number_of_iterations_in_loop (struct loop *loop)
   else if (integer_zerop (niter_desc.may_be_zero))
     res = niter_desc.niter;
   else
-    res = chrec_top;
+    res = chrec_dont_know;
 
 end:
   return set_nb_iterations_in_loop (loop, res);
@@ -2195,15 +2183,15 @@ static void
 number_of_iterations_for_all_loops (varray_type exit_conditions)
 {
   unsigned int i;
-  unsigned nb_chrec_top_loops = 0;
+  unsigned nb_chrec_dont_know_loops = 0;
   unsigned nb_static_loops = 0;
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
     {
       tree res = number_of_iterations_in_loop 
 	(loop_of_stmt (VARRAY_TREE (exit_conditions, i)));
-      if (res == chrec_top)
-	nb_chrec_top_loops++;
+      if (chrec_contains_undetermined (res))
+	nb_chrec_dont_know_loops++;
       else
 	nb_static_loops++;
     }
@@ -2212,7 +2200,7 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
     {
       fprintf (dump_file, "\n(\n");
       fprintf (dump_file, "-----------------------------------------\n");
-      fprintf (dump_file, "%d\tnb_chrec_top_loops\n", nb_chrec_top_loops);
+      fprintf (dump_file, "%d\tnb_chrec_dont_know_loops\n", nb_chrec_dont_know_loops);
       fprintf (dump_file, "%d\tnb_static_loops\n", nb_static_loops);
       fprintf (dump_file, "%d\tnb_total_loops\n", current_loops->num);
       fprintf (dump_file, "-----------------------------------------\n");
@@ -2232,8 +2220,7 @@ struct chrec_stats
   unsigned nb_affine;
   unsigned nb_affine_multivar;
   unsigned nb_higher_poly;
-  unsigned nb_chrec_top;
-  unsigned nb_interval_chrec;
+  unsigned nb_chrec_dont_know;
   unsigned nb_undetermined;
 };
 
@@ -2246,8 +2233,7 @@ reset_chrecs_counters (struct chrec_stats *stats)
   stats->nb_affine = 0;
   stats->nb_affine_multivar = 0;
   stats->nb_higher_poly = 0;
-  stats->nb_chrec_top = 0;
-  stats->nb_interval_chrec = 0;
+  stats->nb_chrec_dont_know = 0;
   stats->nb_undetermined = 0;
 }
 
@@ -2262,8 +2248,7 @@ dump_chrecs_stats (FILE *file, struct chrec_stats *stats)
   fprintf (file, "%d\taffine multivariate chrecs\n", stats->nb_affine_multivar);
   fprintf (file, "%d\tdegree greater than 2 polynomials\n", 
 	   stats->nb_higher_poly);
-  fprintf (file, "%d\tchrec_top chrecs\n", stats->nb_chrec_top);
-  fprintf (file, "%d\tinterval chrecs\n", stats->nb_chrec_top);
+  fprintf (file, "%d\tchrec_dont_know chrecs\n", stats->nb_chrec_dont_know);
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, "%d\ttotal chrecs\n", stats->nb_chrecs);
   fprintf (file, "%d\twith undetermined coefficients\n", 
@@ -2319,21 +2304,6 @@ gather_chrec_stats (tree chrec, struct chrec_stats *stats)
 	  stats->nb_higher_poly++;
 	}
       
-      break;
-      
-    case INTERVAL_CHREC:
-      if (chrec == chrec_top)
-	{
-	  if (dump_file && (dump_flags & TDF_STATS))
-	    fprintf (dump_file, "  chrec_top\n");
-	  stats->nb_chrec_top++;
-	}
-      else
-	{
-	  if (dump_file && (dump_flags & TDF_STATS))
-	    fprintf (dump_file, "  interval chrec\n");
-	  stats->nb_interval_chrec++;
-	}
       break;
 
     default:
@@ -2427,22 +2397,17 @@ gather_stats_on_scev_database (void)
 
 
 
-static void initialize_scalar_evolutions_analyzer (void);
-
 /* Initializer.  */
 
 static void
 initialize_scalar_evolutions_analyzer (void)
 {
-  /* The elements below are unique.  The values contained in these
-     intervals are not used.  */
-  if (chrec_top == NULL_TREE)
+  /* The elements below are unique.  */
+  if (chrec_dont_know == NULL_TREE)
     {
       chrec_not_analyzed_yet = NULL_TREE;
-      chrec_top = build_interval_chrec 
-	(build_int_2 (2222, 0), build_int_2 (3222, 0));
-      chrec_bot = build_interval_chrec 
-	(build_int_2 (3333, 0), build_int_2 (4333, 0));
+      chrec_dont_know = build_int_2 (2222, 0);
+      chrec_known = build_int_2 (3333, 0);
     }
 }
 
@@ -2503,6 +2468,9 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
     return false;
 
   ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, op);
+  if (chrec_contains_undetermined (ev))
+    return false;
+
   if (tree_does_not_contain_chrecs (ev)
       && !chrec_contains_symbols_defined_in_loop (ev, loop->num))
     {

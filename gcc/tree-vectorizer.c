@@ -3921,7 +3921,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
   
   niters = number_of_iterations_in_loop (loop);
 
-  if (niters == chrec_top)
+  if (chrec_contains_undetermined (niters))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
           fprintf (dump_file, "\nInfinite number of iterations.\n");
@@ -3939,13 +3939,6 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
     {
       fprintf (dump_file, "\nSymbolic number of iterations is ");
       print_generic_expr (dump_file, niters, TDF_DETAILS);
-    }
-
-  if (chrec_contains_intervals (niters))
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-          fprintf (dump_file, "\nniters contains interval.\n");
-      return false;
     }
 
   /* debug_tree(niters); */ 
@@ -4024,6 +4017,7 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
   niters = number_of_iterations_in_loop (loop);
 
   if (niters != NULL_TREE
+      && niters != chrec_dont_know
       && TREE_CODE (niters) == INTEGER_CST)
     {
       *number_of_iterations = TREE_INT_CST_LOW (niters);

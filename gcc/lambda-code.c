@@ -1135,6 +1135,8 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     return NULL;
   
   nb_iter = number_of_iterations_in_loop (loop);
+  if (chrec_contains_undetermined (nb_iter))
+    return NULL;
   nb_iter = chrec_fold_minus (chrec_type (nb_iter), nb_iter, 
 			      convert (chrec_type (nb_iter), integer_one_node));
   base = CHREC_LEFT (ev);

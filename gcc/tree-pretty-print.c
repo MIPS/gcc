@@ -1474,25 +1474,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, CHREC_VAR (node), spc, flags, false);
       is_stmt = false;
       break;
-      
-    case INTERVAL_CHREC:
-      if (node == chrec_top)
-	pp_string (buffer, "[-oo, +oo]");
-      else if (node == chrec_bot)
-	pp_string (buffer, "[+oo, -oo]");
-      else if (node == chrec_not_analyzed_yet)
-	pp_string (buffer, "not_analyzed_yet");
-      else
-	{
-	  pp_string (buffer, "[");
-	  dump_generic_node (buffer, CHREC_LOW (node), spc, flags, false);
-	  pp_string (buffer, ", ");
-	  dump_generic_node (buffer, CHREC_UP (node), spc, flags, false);
-	  pp_string (buffer, "]");
-	}
-      is_stmt = false;
-      break;
-      
+
     default:
       NIY;
     }

@@ -191,6 +191,8 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   tree niter;
 
   niter = number_of_iterations_in_loop (loop);
+  if (chrec_contains_undetermined (niter))
+    return;
 
   if (TREE_CODE (niter) == INTEGER_CST)
     {
@@ -208,7 +210,8 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   else if (try_eval)
     niter = find_loop_niter_by_eval (loop, &exit);
 
-  if (TREE_CODE (niter) != INTEGER_CST)
+  if (chrec_contains_undetermined (niter)
+      || TREE_CODE (niter) != INTEGER_CST)
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))

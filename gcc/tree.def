@@ -897,13 +897,6 @@ DEFTREECODE (CATCH_EXPR, "catch_expr", 's', 2)
    expanding.  */
 DEFTREECODE (EH_FILTER_EXPR, "eh_filter_expr", 's', 2)
 
-/* Chains of recurrences.  */
-
-/* Intervals.
-   Under the form: cr = [CHREC_LOW (cr), CHREC_UP (cr)].  
-   CHREC_LOW and CHREC_UP contain INTEGER_CST nodes.  */
-DEFTREECODE (INTERVAL_CHREC, "interval_chrec", 'e', 2)
-
 /* Polynomial chains of recurrences.
    Under the form: cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}.  */
 DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", 'e', 3)

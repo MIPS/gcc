@@ -351,7 +351,8 @@ dump_use (FILE *file, struct iv_use *use)
    fprintf (file, "\n");
 
    fprintf (file, "  at position ");
-   print_generic_expr (file, *use->op_p, TDF_SLIM);
+   if (use->op_p)
+     print_generic_expr (file, *use->op_p, TDF_SLIM);
    fprintf (file, "\n");
 
    if (iv->step)
@@ -1007,6 +1008,9 @@ determine_biv_step (tree phi)
     return NULL_TREE;
 
   ev = analyze_scalar_evolution (loop, name);
+  if (chrec_contains_undetermined (ev))
+    return NULL_TREE;
+
   if (TREE_CODE (ev) == INTEGER_CST
       || TREE_CODE (ev) == SSA_NAME)
     return convert (type, integer_zero_node);

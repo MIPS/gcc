@@ -265,18 +265,18 @@ prove_truth_value (enum tree_code code,
       fprintf (dump_file, ")\n");
     }
   
-  if (nb_iters_in_then == chrec_top
-      || nb_iters_in_else == chrec_top)
+  if (chrec_contains_undetermined (nb_iters_in_then)
+      || chrec_contains_undetermined (nb_iters_in_else))
     return prove_truth_value_symbolic (code, chrec0, chrec1, value);
   
-  if (nb_iters_in_then == chrec_bot
+  if (nb_iters_in_then == chrec_known
       && integer_zerop (nb_iters_in_else))
     {
       *value = true;
       return true;
     }
   
-  if (nb_iters_in_else == chrec_bot
+  if (nb_iters_in_else == chrec_known
       && integer_zerop (nb_iters_in_then))
     {
       *value = false;

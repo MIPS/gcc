@@ -792,7 +792,7 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 
   cond = last_stmt (exit->src);
   if (!cond || TREE_CODE (cond) != COND_EXPR)
-    return chrec_top;
+    return chrec_dont_know;
 
   cnd = COND_EXPR_COND (cond);
   if (exit->flags & EDGE_TRUE_VALUE)
@@ -812,14 +812,14 @@ loop_niter_by_eval (struct loop *loop, edge exit)
       break;
 
     default:
-      return chrec_top;
+      return chrec_dont_know;
     }
 
   for (j = 0; j < 2; j++)
     {
       phi[j] = get_base_for (loop, op[j]);
       if (!phi[j])
-	return chrec_top;
+	return chrec_dont_know;
     }
 
   for (j = 0; j < 2; j++)
@@ -856,7 +856,7 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 	val[j] = get_val_for (next[j], val[j]);
     }
 
-  return chrec_top;
+  return chrec_dont_know;
 }
 
 /* Finds the exit of the LOOP by that the loop exits after a constant
@@ -879,7 +879,8 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 	continue;
 
       aniter = loop_niter_by_eval (loop, ex);
-      if (TREE_CODE (aniter) != INTEGER_CST)
+      if (chrec_contains_undetermined (aniter)
+	  || TREE_CODE (aniter) != INTEGER_CST)
 	continue;
 
       if (niter
@@ -892,7 +893,7 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
     }
   free (exits);
 
-  return niter ? niter : chrec_top;
+  return niter ? niter : chrec_dont_know;
 }
 
 /*
@@ -947,18 +948,6 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
   unsigned i, n_exits;
   struct tree_niter_desc niter_desc;
 
-  /* First, use the scev information about the number of iterations.  */
-  niter = number_of_iterations_in_loop (loop);
-  if (niter != chrec_top)
-    {
-      type = TREE_TYPE (niter);
-      niter = fold (build (MINUS_EXPR, type, niter,
-			   convert (type, integer_one_node)));
-      record_estimate (loop, niter, boolean_true_node,
-		       last_stmt (loop_exit_edge (loop, 0)->src));
-    }
-
-  /* Now use number_of_iterations_exit.  */
   exits = get_loop_exit_edges (loop, &n_exits);
   for (i = 0; i < n_exits; i++)
     {

@@ -1,3 +1,52 @@
+2004-06-22  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.c, tree-chrec.h, tree-data-ref.c, tree-dg.c, 
+	tree-elim-check.c, tree-scalar-evolution.c, tree-ssa-loop-niter.c, 
+	tree-vectorizer.c: Replace chrec_top with chrec_dont_know, 
+	and chrec_bot with chrec_known.  Replace the checks of chrec_top 
+	with calls to chrec_contains_undetermined.
+	* tree.def (INTERVAL_CHREC): Removed.  
+	* cfgloop.h (loop): Update comments around nb_iterations field.  
+	* lambda-code.c (gcc_loop_to_lambda_loop): Always check for 
+	undetermined chrec after calling number_of_iterations_in_loop.
+	* tree-chrec.c (chrec_fold_multiply_ival_cst, chrec_fold_multiply_ival_ival, 
+	chrec_merge_types, chrec_contains_intervals, chrec_evaluate, 
+	chrec_merge_intervals): Removed.
+	(chrec_fold_plus_1, chrec_fold_plus, chrec_fold_minus, 
+	chrec_fold_multiply, chrec_merge, 
+	evolution_function_is_affine_multivariat, chrec_convert): 
+	Remove uses of INTERVAL_CHREC nodes.
+	(chrec_apply): Classify as unknown all the non-affine cases.
+	* tree-fold-const.h (tree_fold_binomial): Removed.
+	* tree-chrec.h (CHREC_LOW, CHREC_UP, 
+	chrec_contains_intervals, build_interval_chrec, 
+	build_chrec_top_type, evolution_function_is_multivariate, 
+	chrec_should_remain_symbolic): Removed.
+	(tree_is_chrec, chrec_zerop, evolution_function_is_affine_p): 
+	Remove uses of INTERVAL_CHREC nodes.
+	* tree-data-ref.c (analyze_ziv_subscript, 
+	analyze_overlapping_iterations): Same.
+	* tree-pretty-print.c (dump_generic_node): Same.
+	* tree-scalar-evolution.c (chrec_is_positive, 
+	instantiate_parameters_1, gather_chrec_stats, 
+	initialize_scalar_evolutions_analyzer): Same.
+	(analyze_scalar_evolution_in_loop): Make it static.
+	(resolve_mixers): Fix comments.
+	(chrec_stats, reset_chrecs_counters, dump_chrecs_stats):
+	Remove nb_interval_chrec counter.
+	(chrec_is_positive, simple_iv): Always check for undetermined after 
+	a call to number_of_iterations_in_loop or analyze_scalar_evolution.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables, 
+	canonicalize_loop_induction_variables): Same.
+	* tree-ssa-loop-ivopts.c (determine_biv_step): Same.
+	* tree-ssa-loop-niter.c (find_loop_niter_by_eval): Same.
+	(estimate_numbers_of_iterations_loop): Remove redundant call to 
+	number_of_iterations_in_loop.
+	* tree-scalar-evolution.h (analyze_scalar_evolution_in_loop): 
+	Remove declaration, the function is now static.
+	* tree-vectorizer.c (vect_analyze_loop_with_symbolic_num_of_iters):
+	Don't test for INTERVAL_CHREC nodes.
+
 2004-06-22  Devang Patel  <dpatel@apple.com>
 		
         PR 16105	

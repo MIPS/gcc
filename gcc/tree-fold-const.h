@@ -159,20 +159,6 @@ tree_fold_abs (tree type,
   return fold (build1 (ABS_EXPR, type, a));
 }
 
-/* The binomial coefficient.  */
-
-static inline tree 
-tree_fold_binomial (tree n,
-		    tree k)
-{
-  return tree_fold_exact_div 
-    (integer_type_node, tree_fold_factorial (n), 
-     tree_fold_multiply 
-     (integer_type_node, tree_fold_factorial (k),
-      tree_fold_factorial 
-      (tree_fold_minus (integer_type_node, n, k))));
-}
-
 /* Determines whether (a divides b), or (a == gcd (a, b)).  */
 
 static inline bool 

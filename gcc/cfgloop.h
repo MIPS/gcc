@@ -177,9 +177,10 @@ struct loop
   int exit_count;
 
   /* The probable number of times the loop is executed at runtime.
-     This is either an INTERVAL_CHREC or an INTEGER_CST.  Don't access
-     this field directly: number_of_iterations_in_loop computes and
-     caches the computed information in this field.  */
+     This is an INTEGER_CST or an expression containing symbolic
+     names.  Don't access this field directly:
+     number_of_iterations_in_loop computes and caches the computed
+     information in this field.  */
   tree nb_iterations;
 
   /* Upper bound on number of iterations of a loop.  */

@@ -36,7 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    The goals of this analysis are:
    
    - to determine the independence: the relation between two
-     independent accesses is qualified with the chrec_bot (this
+     independent accesses is qualified with the chrec_known (this
      information allows a loop parallelization),
      
    - when two data references access the same data, to qualify the
@@ -167,10 +167,10 @@ dump_data_dependence_relation (FILE *outf,
   
   fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));  
 
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
+  if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (ddr)))
     fprintf (outf, "    (don't know)\n");
   
-  else if (DDR_ARE_DEPENDENT (ddr) == chrec_bot)
+  else if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     fprintf (outf, "    (no dependence)\n");
   
   else
@@ -189,9 +189,9 @@ dump_data_dependence_relation (FILE *outf,
 	  chrec = SUB_CONFLICTS_IN_A (subscript);
 	  fprintf (outf, "  iterations_that_access_an_element_twice_in_A: ");
 	  print_generic_stmt (outf, chrec, 0);
-	  if (chrec == chrec_bot)
+	  if (chrec == chrec_known)
 	    fprintf (outf, "    (no dependence)\n");
-	  else if (chrec == chrec_top)
+	  else if (chrec_contains_undetermined (chrec))
 	    fprintf (outf, "    (don't know)\n");
 	  else
 	    {
@@ -203,9 +203,9 @@ dump_data_dependence_relation (FILE *outf,
 	  chrec = SUB_CONFLICTS_IN_B (subscript);
 	  fprintf (outf, "  iterations_that_access_an_element_twice_in_B: ");
 	  print_generic_stmt (outf, chrec, 0);
-	  if (chrec == chrec_bot)
+	  if (chrec == chrec_known)
 	    fprintf (outf, "    (no dependence)\n");
-	  else if (chrec == chrec_top)
+	  else if (chrec_contains_undetermined (chrec))
 	    fprintf (outf, "    (don't know)\n");
 	  else
 	    {
@@ -399,7 +399,7 @@ analyze_array_top (tree stmt)
   DR_BASE_NAME (res) = NULL_TREE;
 
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 1, "access_fns");
-  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), chrec_top);
+  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), chrec_dont_know);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
@@ -434,7 +434,7 @@ compute_distance_vector (struct data_dependence_relation *ddr)
  	    SUB_DISTANCE (subscript) = difference;
  	  
  	  else
- 	    SUB_DISTANCE (subscript) = chrec_top;
+ 	    SUB_DISTANCE (subscript) = chrec_dont_know;
  	}
     }
 }
@@ -453,13 +453,13 @@ initialize_data_dependence_relation (struct data_reference *a,
 
   if (DR_BASE_NAME (a) == NULL_TREE
       || DR_BASE_NAME (b) == NULL_TREE)
-    DDR_ARE_DEPENDENT (res) = chrec_top;    
+    DDR_ARE_DEPENDENT (res) = chrec_dont_know;    
 
   /* When the dimensions of A and B differ, we directly initialize
-     the relation to "there is no dependence": chrec_bot.  */
+     the relation to "there is no dependence": chrec_known.  */
   else if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
 	   || array_base_name_differ_p (a, b))
-    DDR_ARE_DEPENDENT (res) = chrec_bot;
+    DDR_ARE_DEPENDENT (res) = chrec_known;
   
   else
     {
@@ -472,11 +472,11 @@ initialize_data_dependence_relation (struct data_reference *a,
 	  struct subscript *subscript;
 	  
 	  subscript = ggc_alloc (sizeof (struct subscript));
-	  SUB_CONFLICTS_IN_A (subscript) = chrec_top;
-	  SUB_CONFLICTS_IN_B (subscript) = chrec_top;
-	  SUB_LAST_CONFLICT_IN_A (subscript) = chrec_top;
-	  SUB_LAST_CONFLICT_IN_B (subscript) = chrec_top;
-	  SUB_DISTANCE (subscript) = chrec_top;
+	  SUB_CONFLICTS_IN_A (subscript) = chrec_dont_know;
+	  SUB_CONFLICTS_IN_B (subscript) = chrec_dont_know;
+	  SUB_LAST_CONFLICT_IN_A (subscript) = chrec_dont_know;
+	  SUB_LAST_CONFLICT_IN_B (subscript) = chrec_dont_know;
+	  SUB_DISTANCE (subscript) = chrec_dont_know;
 	  SUB_DIRECTION (subscript) = dir_star;
 	  VARRAY_PUSH_GENERIC_PTR (DDR_SUBSCRIPTS (res), subscript);
 	}
@@ -577,34 +577,16 @@ analyze_ziv_subscript (tree chrec_a,
       else
 	{
 	  /* The accesses do not overlap.  */
-	  *overlaps_a = chrec_bot;
-	  *overlaps_b = chrec_bot;	  
-	}
-      break;
-      
-    case INTERVAL_CHREC:
-      if (integer_zerop (CHREC_LOW (difference)) 
-	  && integer_zerop (CHREC_UP (difference)))
-	{
-	  /* The difference is equal to zero: the accessed index 
-	     overlaps for each iteration in the loop.  */
-	  *overlaps_a = integer_zero_node;
-	  *overlaps_b = integer_zero_node;
-	}
-      else 
-	{
-	  /* There could be an overlap, conservative answer: 
-	     "don't know".  */
-	  *overlaps_a = chrec_top;
-	  *overlaps_b = chrec_top;	  
+	  *overlaps_a = chrec_known;
+	  *overlaps_b = chrec_known;	  
 	}
       break;
       
     default:
       /* We're not sure whether the indexes overlap.  For the moment, 
 	 conservatively answer "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;	  
+      *overlaps_a = chrec_dont_know;
+      *overlaps_b = chrec_dont_know;	  
       break;
     }
   
@@ -627,8 +609,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
   
   if (!chrec_is_positive (initial_condition (difference), &value0))
     {
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
+      *overlaps_a = chrec_dont_know;
+      *overlaps_b = chrec_dont_know;
       return;
     }
   else
@@ -637,8 +619,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 	{
 	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value1))
 	    {
-	      *overlaps_a = chrec_top;
-	      *overlaps_b = chrec_top;      
+	      *overlaps_a = chrec_dont_know;
+	      *overlaps_b = chrec_dont_know;      
 	      return;
 	    }
 	  else
@@ -665,8 +647,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     no overlaps.  */
 		  else
 		    {
-		      *overlaps_a = chrec_bot;
-		      *overlaps_b = chrec_bot;      
+		      *overlaps_a = chrec_known;
+		      *overlaps_b = chrec_known;      
 		      return;
 		    }
 		}
@@ -678,8 +660,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     chrec_b = {10, +, -1}
 		     
 		     In this case, chrec_a will not overlap with chrec_b.  */
-		  *overlaps_a = chrec_bot;
-		  *overlaps_b = chrec_bot;
+		  *overlaps_a = chrec_known;
+		  *overlaps_b = chrec_known;
 		  return;
 		}
 	    }
@@ -688,8 +670,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 	{
 	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value2))
 	    {
-	      *overlaps_a = chrec_top;
-	      *overlaps_b = chrec_top;      
+	      *overlaps_a = chrec_dont_know;
+	      *overlaps_b = chrec_dont_know;      
 	      return;
 	    }
 	  else
@@ -713,8 +695,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     are no overlaps.  */
 		  else
 		    {
-		      *overlaps_a = chrec_bot;
-		      *overlaps_b = chrec_bot;      
+		      *overlaps_a = chrec_known;
+		      *overlaps_b = chrec_known;      
 		      return;
 		    }
 		}
@@ -725,8 +707,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 		     chrec_b = {4, +, 1}
 		 
 		     In this case, chrec_a will not overlap with chrec_b.  */
-		  *overlaps_a = chrec_bot;
-		  *overlaps_b = chrec_bot;
+		  *overlaps_a = chrec_known;
+		  *overlaps_b = chrec_known;
 		  return;
 		}
 	    }
@@ -858,8 +840,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 	{
 	  /* The "gcd-test" has determined that there is no integer
 	     solution, ie. there is no dependence.  */
-	  *overlaps_a = chrec_bot;
-	  *overlaps_b = chrec_bot;
+	  *overlaps_a = chrec_known;
+	  *overlaps_b = chrec_known;
 	}
       
       else
@@ -907,8 +889,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 		 FIXME: The case "i0 > nb_iterations, j0 > nb_iterations" 
 		 falls in here, but for the moment we don't look at the 
 		 upper bound of the iteration domain.  */
-	      *overlaps_a = chrec_bot;
-	      *overlaps_b = chrec_bot;
+	      *overlaps_a = chrec_known;
+	      *overlaps_b = chrec_known;
   	    }
 	  
 	  else 
@@ -947,8 +929,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 		    {
 		      /* FIXME: For the moment, the upper bound of the
 			 iteration domain for j is not checked. */
-		      *overlaps_a = chrec_top;
-		      *overlaps_b = chrec_top;
+		      *overlaps_a = chrec_dont_know;
+		      *overlaps_b = chrec_dont_know;
 		    }
 		}
 	      
@@ -956,8 +938,8 @@ analyze_subscript_affine_affine (tree chrec_a,
 		{
 		  /* FIXME: For the moment, the upper bound of the
 		     iteration domain for i is not checked. */
-		  *overlaps_a = chrec_top;
-		  *overlaps_b = chrec_top;
+		  *overlaps_a = chrec_dont_know;
+		  *overlaps_b = chrec_dont_know;
 		}
 	    }
 	}
@@ -966,8 +948,8 @@ analyze_subscript_affine_affine (tree chrec_a,
   else
     {
       /* For the moment, "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
+      *overlaps_a = chrec_dont_know;
+      *overlaps_b = chrec_dont_know;
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1014,8 +996,8 @@ analyze_siv_subscript (tree chrec_a,
 				     overlaps_a, overlaps_b);
   else
     {
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
+      *overlaps_a = chrec_dont_know;
+      *overlaps_b = chrec_dont_know;
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1082,8 +1064,8 @@ analyze_miv_subscript (tree chrec_a,
         
 	 The difference is 1, and the evolution steps are equal to 2,
 	 consequently there are no overlapping elements.  */
-      *overlaps_a = chrec_bot;
-      *overlaps_b = chrec_bot;
+      *overlaps_a = chrec_known;
+      *overlaps_b = chrec_known;
     }
   
   else if (evolution_function_is_univariate_p (chrec_a)
@@ -1100,16 +1082,16 @@ analyze_miv_subscript (tree chrec_a,
 					 overlaps_a, overlaps_b);
       else
 	{
-	  *overlaps_a = chrec_top;
-	  *overlaps_b = chrec_top;
+	  *overlaps_a = chrec_dont_know;
+	  *overlaps_b = chrec_dont_know;
 	}
     }
   
   else
     {
       /* When the analysis is too difficult, answer "don't know".  */
-      *overlaps_a = chrec_top;
-      *overlaps_b = chrec_top;
+      *overlaps_a = chrec_dont_know;
+      *overlaps_b = chrec_dont_know;
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1146,12 +1128,10 @@ analyze_overlapping_iterations (tree chrec_a,
       || chrec_contains_undetermined (chrec_a)
       || chrec_contains_undetermined (chrec_b)
       || chrec_contains_symbols (chrec_a)
-      || chrec_contains_symbols (chrec_b)
-      || chrec_contains_intervals (chrec_a)
-      || chrec_contains_intervals (chrec_b))
+      || chrec_contains_symbols (chrec_b))
     {
-      *overlap_iterations_a = chrec_top;
-      *overlap_iterations_b = chrec_top;
+      *overlap_iterations_a = chrec_dont_know;
+      *overlap_iterations_b = chrec_dont_know;
     }
   
   else if (ziv_subscript_p (chrec_a, chrec_b))
@@ -1202,17 +1182,17 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 				      DR_ACCESS_FN (drb, i),
 				      &overlaps_a, &overlaps_b);
       
-      if (overlaps_a == chrec_top
- 	  || overlaps_b == chrec_top)
+      if (chrec_contains_undetermined (overlaps_a)
+ 	  || chrec_contains_undetermined (overlaps_b))
  	{
- 	  finalize_ddr_dependent (ddr, chrec_top);
+ 	  finalize_ddr_dependent (ddr, chrec_dont_know);
 	  break;
  	}
       
-      else if (overlaps_a == chrec_bot
- 	       || overlaps_b == chrec_bot)
+      else if (overlaps_a == chrec_known
+ 	       || overlaps_b == chrec_known)
  	{
- 	  finalize_ddr_dependent (ddr, chrec_bot);
+ 	  finalize_ddr_dependent (ddr, chrec_known);
  	  break;
  	}
       
@@ -1249,7 +1229,7 @@ build_classic_dist_vector (struct data_dependence_relation *res,
     {
       struct subscript *subscript = DDR_SUBSCRIPT (res, i);
 
-      if (SUB_DISTANCE (subscript) == chrec_top)
+      if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	return;
 
       if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC)
@@ -1268,7 +1248,7 @@ build_classic_dist_vector (struct data_dependence_relation *res,
 	  if (init_v[loop_nb] != 0
 	      && dist_v[loop_nb] != dist)
 	    {
-	      finalize_ddr_dependent (res, chrec_bot);
+	      finalize_ddr_dependent (res, chrec_known);
 	      return;
 	    }
 
@@ -1343,7 +1323,7 @@ build_classic_dir_vector (struct data_dependence_relation *res,
 	  unsigned loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
 	  enum data_dependence_direction dir = dir_star;
 	  
-	  if (SUB_DISTANCE (subscript) == chrec_top)
+	  if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	    {
 	      
 	    }
@@ -1370,7 +1350,7 @@ build_classic_dir_vector (struct data_dependence_relation *res,
 	      && (enum data_dependence_direction) dir_v[loop_nb] != dir
 	      && (enum data_dependence_direction) dir_v[loop_nb] != dir_star)
 	    {
-	      finalize_ddr_dependent (res, chrec_bot);
+	      finalize_ddr_dependent (res, chrec_known);
 	      return;
 	    }
 	  
@@ -1435,12 +1415,12 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
 }
 
 /* This computes the affine dependence relation between A and B.
-   CHREC_BOT is used for representing the independence between two
-   accesses, while CHREC_TOP is used for representing the unknown
+   CHREC_KNOWN is used for representing the independence between two
+   accesses, while CHREC_DONT_KNOW is used for representing the unknown
    relation.
    
    Note that it is possible to stop the computation of the dependence
-   relation the first time we detect a CHREC_BOT element for a given
+   relation the first time we detect a CHREC_KNOWN element for a given
    subscript.  */
 
 static void
@@ -1471,7 +1451,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 the dependence is considered too difficult to determine, answer
 	 "don't know".  */
       else
-	finalize_ddr_dependent (ddr, chrec_top);
+	finalize_ddr_dependent (ddr, chrec_dont_know);
     }
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1681,10 +1661,10 @@ analyze_all_data_dependences (struct loops *loops)
 	  struct data_dependence_relation *ddr;
 	  ddr = VARRAY_GENERIC_PTR (dependence_relations, i);
 	  
-	  if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
+	  if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (ddr)))
 	    nb_top_relations++;
 	  
-	  else if (DDR_ARE_DEPENDENT (ddr) == chrec_bot)
+	  else if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
 	    {
 	      struct data_reference *a = DDR_A (ddr);
 	      struct data_reference *b = DDR_B (ddr);
