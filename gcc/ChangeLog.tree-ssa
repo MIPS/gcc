@@ -1,3 +1,12 @@
+2002-09-02  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-common.[ch]: New files.
+	* tree-alias-steen.[ch]: Split out common stuff into
+	tree-alias-common.[ch].
+	* c-config-lang.in: Modify to use tree-alias-common.[ch] instead of
+	tree-alias-steen, since this is where the GTY'd stuff is now.
+	* Makefile.in: Add dependencies for tree-alias-common.[ch].
+
 2002-09-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_goto_stmt): New function.

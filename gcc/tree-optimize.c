@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
-#include "tree-alias-steen.h"
+#include "tree-alias-common.h"
 #include "tree-dchain.h"
 
 /* Local functions.  */
