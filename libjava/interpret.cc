@@ -763,7 +763,7 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
       exc[i].end_pc.p = &insns[pc_mapping[exc[i].end_pc.i]];
       exc[i].handler_pc.p = &insns[pc_mapping[exc[i].handler_pc.i]];
       jclass handler
-	= (_Jv_Resolver::resolve_pool_entry (defining_class,
+	= (_Jv_Linker::resolve_pool_entry (defining_class,
 					     exc[i].handler_type.i)).clazz;
       exc[i].handler_type.p = handler;
     }
@@ -1099,13 +1099,13 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 
-	/* _Jv_Resolver::resolve_pool_entry returns immediately if the
+	/* _Jv_Linker::resolve_pool_entry returns immediately if the
 	 * value already is resolved.  If we want to clutter up the
 	 * code here to gain a little performance, then we can check
 	 * the corresponding bit JV_CONSTANT_ResolvedFlag in the tag
 	 * directly.  For now, I don't think it is worth it.  */
 
-	rmeth = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	rmeth = (_Jv_Linker::resolve_pool_entry (defining_class,
 						   index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
@@ -2405,7 +2405,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_getstatic:
       {
 	jint fieldref_index = GET2U ();
-	_Jv_Resolver::resolve_pool_entry (defining_class, fieldref_index);
+	_Jv_Linker::resolve_pool_entry (defining_class, fieldref_index);
 	_Jv_Field *field = pool_data[fieldref_index].field;
 
 	if ((field->flags & Modifier::STATIC) == 0)
@@ -2492,7 +2492,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_getfield:
       {
 	jint fieldref_index = GET2U ();
-	_Jv_Resolver::resolve_pool_entry (defining_class, fieldref_index);
+	_Jv_Linker::resolve_pool_entry (defining_class, fieldref_index);
 	_Jv_Field *field = pool_data[fieldref_index].field;
 
 	if ((field->flags & Modifier::STATIC) != 0)
@@ -2607,7 +2607,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_putstatic:
       {
 	jint fieldref_index = GET2U ();
-	_Jv_Resolver::resolve_pool_entry (defining_class, fieldref_index);
+	_Jv_Linker::resolve_pool_entry (defining_class, fieldref_index);
 	_Jv_Field *field = pool_data[fieldref_index].field;
 
 	jclass type = field->type;
@@ -2694,7 +2694,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_putfield:
       {
 	jint fieldref_index = GET2U ();
-	_Jv_Resolver::resolve_pool_entry (defining_class, fieldref_index);
+	_Jv_Linker::resolve_pool_entry (defining_class, fieldref_index);
 	_Jv_Field *field = pool_data[fieldref_index].field;
 
 	jclass type = field->type;
@@ -2820,7 +2820,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 
-	rmeth = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	rmeth = (_Jv_Linker::resolve_pool_entry (defining_class,
 						   index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
@@ -2859,7 +2859,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 
-	rmeth = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	rmeth = (_Jv_Linker::resolve_pool_entry (defining_class,
 						   index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
@@ -2889,7 +2889,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 
-	rmeth = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	rmeth = (_Jv_Linker::resolve_pool_entry (defining_class,
 						   index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
@@ -2933,7 +2933,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_new:
       {
 	int index = GET2U ();
-	jclass klass = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	jclass klass = (_Jv_Linker::resolve_pool_entry (defining_class,
 							  index)).clazz;
 	jobject res = _Jv_AllocObject (klass);
 	PUSHA (res);
@@ -2967,7 +2967,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_anewarray:
       {
 	int index = GET2U ();
-	jclass klass = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	jclass klass = (_Jv_Linker::resolve_pool_entry (defining_class,
 							  index)).clazz;
 	int size  = POPI();
 	jobject result = _Jv_NewObjectArray (size, klass, 0);
@@ -3010,7 +3010,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	jobject value = POPA();
 	jint index = GET2U ();
-	jclass to = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	jclass to = (_Jv_Linker::resolve_pool_entry (defining_class,
 						       index)).clazz;
 
 	if (value != NULL && ! to->isInstance (value))
@@ -3041,7 +3041,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	jobject value = POPA();
 	jint index = GET2U ();
-	jclass to = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	jclass to = (_Jv_Linker::resolve_pool_entry (defining_class,
 						       index)).clazz;
 	PUSHI (to->isInstance (value));
 
@@ -3104,7 +3104,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	int dim        = GET1U ();
 
 	jclass type    
-	  = (_Jv_Resolver::resolve_pool_entry (defining_class,
+	  = (_Jv_Linker::resolve_pool_entry (defining_class,
 					       kind_index)).clazz;
 	jint *sizes    = (jint*) __builtin_alloca (sizeof (jint)*dim);
 
@@ -3202,7 +3202,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 #else
 	      jclass handler = NULL;
 	      if (exc[i].handler_type.i != 0)
-		handler = (_Jv_Resolver::resolve_pool_entry (defining_class,
+		handler = (_Jv_Linker::resolve_pool_entry (defining_class,
 							     exc[i].handler_type.i)).clazz;
 #endif /* DIRECT_THREADED */
 
@@ -3742,7 +3742,7 @@ _Jv_InterpreterEngine::do_allocate_static_fields (jclass klass,
 	      
 	  if (iclass->field_initializers[i] != 0)
 	    {
-	      _Jv_Resolver::resolve_field (field, klass->loader);
+	      _Jv_Linker::resolve_field (field, klass->loader);
 	      _Jv_InitField (0, klass, i);
 	    }
 	}

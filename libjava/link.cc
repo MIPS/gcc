@@ -55,7 +55,7 @@ struct aligner
 // itself.  For instance on x86 double is 8-aligned but struct{double}
 // is 4-aligned.
 int
-_Jv_Resolver::get_alignment_from_class (jclass klass)
+_Jv_Linker::get_alignment_from_class (jclass klass)
 {
   if (klass == JvPrimClass (byte))
     return ALIGNOF (jbyte);
@@ -78,7 +78,7 @@ _Jv_Resolver::get_alignment_from_class (jclass klass)
 }
 
 void
-_Jv_Resolver::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
+_Jv_Linker::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
 {
   if (! field->isResolved ())
     {
@@ -89,7 +89,7 @@ _Jv_Resolver::resolve_field (_Jv_Field *field, java::lang::ClassLoader *loader)
 }
 
 _Jv_word
-_Jv_Resolver::resolve_pool_entry (jclass klass, int index)
+_Jv_Linker::resolve_pool_entry (jclass klass, int index)
 {
   using namespace java::lang::reflect;
 
@@ -355,7 +355,7 @@ _Jv_Resolver::resolve_pool_entry (jclass klass, int index)
 // This function is used to lazily locate superclasses and
 // superinterfaces.  This must be called with the class lock held.
 void
-_Jv_Resolver::resolve_class_ref (jclass klass, jclass *classref)
+_Jv_Linker::resolve_class_ref (jclass klass, jclass *classref)
 {
   jclass ret = *classref;
 
@@ -424,7 +424,7 @@ static _Jv_IDispatchTable null_idt = { {SHRT_MAX, 0, NULL} };
 // <per@bothner.com> on the java-discuss mailing list on 1999-09-02:
 // http://gcc.gnu.org/ml/java/1999-q3/msg00377.html
 void
-_Jv_Resolver::prepare_constant_time_tables (jclass klass)
+_Jv_Linker::prepare_constant_time_tables (jclass klass)
 {  
   if (klass->isPrimitive () || klass->isInterface ())
     return;
@@ -521,7 +521,7 @@ _Jv_Resolver::prepare_constant_time_tables (jclass klass)
 
 // Return index of item in list, or -1 if item is not present.
 inline jshort
-_Jv_Resolver::indexof (void *item, void **list, jshort list_len)
+_Jv_Linker::indexof (void *item, void **list, jshort list_len)
 {
   for (int i=0; i < list_len; i++)
     {
@@ -536,7 +536,7 @@ _Jv_Resolver::indexof (void *item, void **list, jshort list_len)
 // is the number of unique interfaces plus the total number of methods that 
 // those interfaces declare. May extend ifaces if required.
 jshort
-_Jv_Resolver::get_interfaces (jclass klass, _Jv_ifaces *ifaces)
+_Jv_Linker::get_interfaces (jclass klass, _Jv_ifaces *ifaces)
 {
   jshort result = 0;
   
@@ -575,7 +575,7 @@ _Jv_Resolver::get_interfaces (jclass klass, _Jv_ifaces *ifaces)
 // itable_offsets is filled out with the position of each iface in itable,
 // such that itable[itable_offsets[n]] == ifaces.list[n].
 void
-_Jv_Resolver::generate_itable (jclass klass, _Jv_ifaces *ifaces,
+_Jv_Linker::generate_itable (jclass klass, _Jv_ifaces *ifaces,
 			       jshort *itable_offsets)
 {
   void **itable = klass->idt->cls.itable;
@@ -635,7 +635,7 @@ _Jv_ThrowNoSuchMethodError ()
 // position itable_pos.
 // Returns the offset at which the next partial ITable should be appended.
 jshort
-_Jv_Resolver::append_partial_itable (jclass klass, jclass iface,
+_Jv_Linker::append_partial_itable (jclass klass, jclass iface,
 				     void **itable, jshort pos)
 {
   using namespace java::lang::reflect;
@@ -707,7 +707,7 @@ static bool iindex_mutex_initialized = false;
 // interface corresponding to ifaces[j].
 // May extend the interface ioffsets if required.
 jshort
-_Jv_Resolver::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
+_Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
 {
   int i;
   int j;
@@ -796,7 +796,7 @@ static bool debug_link = false;
 // This must be called while holding the class lock.
 
 void
-_Jv_Resolver::link_symbol_table (jclass klass)
+_Jv_Linker::link_symbol_table (jclass klass)
 {
   int index = 0;
   _Jv_MethodSymbol sym;
@@ -1086,7 +1086,7 @@ _Jv_Resolver::link_symbol_table (jclass klass)
 // For each catch_record in the list of caught classes, fill in the
 // address field.
 void 
-_Jv_Resolver::link_exception_table (jclass self)
+_Jv_Linker::link_exception_table (jclass self)
 {
   struct _Jv_CatchClass *catch_record = self->catch_classes;
   if (!catch_record || catch_record->classname)
@@ -1120,7 +1120,7 @@ _Jv_abstractMethodError (void)
 
 // Set itable method indexes for members of interface IFACE.
 void
-_Jv_Resolver::layout_interface_methods (jclass iface)
+_Jv_Linker::layout_interface_methods (jclass iface)
 {
   if (! iface->isInterface())
     return;
@@ -1137,7 +1137,7 @@ _Jv_Resolver::layout_interface_methods (jclass iface)
 // method->index, and finally setting the class's vtable_method_count.
 // Must be called with the lock for KLASS held.
 void
-_Jv_Resolver::layout_vtable_methods (jclass klass)
+_Jv_Linker::layout_vtable_methods (jclass klass)
 {
   if (klass->vtable != NULL || klass->isInterface() 
       || klass->vtable_method_count != -1)
@@ -1201,7 +1201,7 @@ _Jv_Resolver::layout_vtable_methods (jclass klass)
 // KLASS has an immediate abstract parent, recursively do its methods
 // first.  FLAGS is used to determine which slots we've actually set.
 void
-_Jv_Resolver::set_vtable_entries (jclass klass, _Jv_VTable *vtable,
+_Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable,
 				  jboolean *flags)
 {
   using namespace java::lang::reflect;
@@ -1234,7 +1234,7 @@ _Jv_Resolver::set_vtable_entries (jclass klass, _Jv_VTable *vtable,
 // superclasses, and virtual method layout to occur for any abstract
 // superclasses.  Must be called with monitor lock for KLASS held.
 void
-_Jv_Resolver::make_vtable (jclass klass)
+_Jv_Linker::make_vtable (jclass klass)
 {
   using namespace java::lang::reflect;  
 
@@ -1311,7 +1311,7 @@ _Jv_Resolver::make_vtable (jclass klass)
 // offsets of instance fields.  The class lock must be held by the
 // caller.
 void
-_Jv_Resolver::ensure_fields_laid_out (jclass klass)
+_Jv_Linker::ensure_fields_laid_out (jclass klass)
 {  
   if (klass->size_in_bytes != -1)
     return;
@@ -1410,7 +1410,7 @@ _Jv_Resolver::ensure_fields_laid_out (jclass klass)
 // This takes the class to state JV_STATE_LINKED.  The class lock must
 // be held when calling this.
 void
-_Jv_Resolver::ensure_class_linked (jclass klass)
+_Jv_Linker::ensure_class_linked (jclass klass)
 {
   if (klass->state >= JV_STATE_LINKED)
     return;
@@ -1494,7 +1494,7 @@ _Jv_Resolver::ensure_class_linked (jclass klass)
 // are resolved for the indicated class.  This must be called with the
 // class lock held.
 void
-_Jv_Resolver::ensure_supers_installed (jclass klass)
+_Jv_Linker::ensure_supers_installed (jclass klass)
 {
   resolve_class_ref (klass, &klass->superclass);
   // An interface won't have a superclass.
@@ -1510,7 +1510,7 @@ _Jv_Resolver::ensure_supers_installed (jclass klass)
 
 // This adds missing `Miranda methods' to a class.
 void
-_Jv_Resolver::add_miranda_methods (jclass base, jclass iface_class)
+_Jv_Linker::add_miranda_methods (jclass base, jclass iface_class)
 {
   // Note that at this point, all our supers, and the supers of all
   // our superclasses and superinterfaces, will have been installed.
@@ -1559,7 +1559,7 @@ _Jv_Resolver::add_miranda_methods (jclass base, jclass iface_class)
 // This ensures that the class' method table is "complete".  This must
 // be called with the class lock held.
 void
-_Jv_Resolver::ensure_method_table_complete (jclass klass)
+_Jv_Linker::ensure_method_table_complete (jclass klass)
 {
   if (klass->vtable != NULL || klass->isInterface())
     return;
@@ -1578,14 +1578,14 @@ _Jv_Resolver::ensure_method_table_complete (jclass klass)
 
 // Verify a class.  Must be called with class lock held.
 void
-_Jv_Resolver::verify_class (jclass klass)
+_Jv_Linker::verify_class (jclass klass)
 {
   klass->engine->verify(klass);
 }
 
 // FIXME: mention invariants and stuff.
 void
-_Jv_Resolver::wait_for_state (jclass klass, int state)
+_Jv_Linker::wait_for_state (jclass klass, int state)
 {
   if (klass->state >= state)
     return;

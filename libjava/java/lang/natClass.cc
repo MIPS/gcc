@@ -746,7 +746,7 @@ java::lang::Class::initializeClass (void)
 
     // Step 6.
     thread = self;
-    _Jv_Resolver::wait_for_state (this, JV_STATE_LINKED);
+    _Jv_Linker::wait_for_state (this, JV_STATE_LINKED);
     state = JV_STATE_IN_PROGRESS;
   }
 

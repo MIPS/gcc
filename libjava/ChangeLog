@@ -1,3 +1,19 @@
+2004-09-29  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.am (libgcj_la_SOURCES): Mention link.cc, not
+	resolve.cc.
+	* include/jvm.h (class _Jv_Linker): Renamed from _Jv_Resolver.
+	* jni.cc: Use _Jv_Linker.
+	* interpret.cc: Use _Jv_Linker.
+	* java/lang/reflect/natField.cc (getType): Use _Jv_Linker.
+	* java/lang/natClassLoader.cc: Use _Jv_Linker.
+	* java/lang/natVMClassLoader.cc (resolveClass): Use _Jv_Linker.
+	* java/lang/Class.h: Use _Jv_Linker.
+	* java/lang/natClass.cc (initializeClass): Use _Jv_Linker.
+	* resolve.cc: Renamed ...
+	* link.cc: ... here.  Use _Jv_Linker.
+	* defineclass.cc (checkExtends): Use _Jv_Linker.
+
 2004-09-17  Tom Tromey  <tromey@redhat.com>
 
 	* defineclass.cc (handleCodeAttribute): Don't reference

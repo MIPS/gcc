@@ -957,7 +957,7 @@ _Jv_ClassReader::checkExtends (jclass sub, jclass super)
 {
   using namespace java::lang::reflect;
 
-  _Jv_Resolver::wait_for_state (super, JV_STATE_LOADING);
+  _Jv_Linker::wait_for_state (super, JV_STATE_LOADING);
 
   // Having an interface or a final class as a superclass is no good.
   if ((super->accflags & (Modifier::INTERFACE | Modifier::FINAL)) != 0)

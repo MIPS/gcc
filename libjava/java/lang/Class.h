@@ -407,7 +407,7 @@ private:
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 
-  friend class _Jv_Resolver;
+  friend class _Jv_Linker;
   friend class _Jv_ExecutionEngine;
   friend class _Jv_CompiledEngine;
   friend class _Jv_InterpreterEngine;

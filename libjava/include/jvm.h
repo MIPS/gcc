@@ -238,7 +238,7 @@ namespace gcj
 }
 
 // This class handles all aspects of class preparation and linking.
-class _Jv_Resolver
+class _Jv_Linker
 {
 private:
   static void prepare_constant_time_tables(jclass);

@@ -1199,7 +1199,7 @@ static jfieldID
 
 	      // The field might be resolved or it might not be.  It
 	      // is much simpler to always resolve it.
-	      _Jv_Resolver::resolve_field (field, loader);
+	      _Jv_Linker::resolve_field (field, loader);
 	      if (_Jv_equalUtf8Consts (f_name, a_name)
 		  && field->getClass() == field_class)
 		return field;

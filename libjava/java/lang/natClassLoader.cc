@@ -281,7 +281,7 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
     {
       // we need classes to be in the hash while
       // we're loading, so that they can refer to themselves. 
-      _Jv_Resolver::wait_for_state (klass, JV_STATE_LOADED);
+      _Jv_Linker::wait_for_state (klass, JV_STATE_LOADED);
     }
 
   return klass;
@@ -394,7 +394,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   // cache one and reuse it. It is not necessary to synchronize this.
   if (!array_idt)
     {
-      _Jv_Resolver::wait_for_state(array_class, JV_STATE_PREPARED);
+      _Jv_Linker::wait_for_state(array_class, JV_STATE_PREPARED);
       array_idt = array_class->idt;
       array_depth = array_class->depth;
       array_ancestors = array_class->ancestors;

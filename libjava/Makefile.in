@@ -245,7 +245,7 @@ javao_files = $(java_source_files:.java=.lo) \
 x_javao_files = $(x_java_source_files:.java=.lo)
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
-	resolve.cc defineclass.cc interpret.cc verify.cc \
+	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files)
 
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
@@ -2742,8 +2742,8 @@ X_CFLAGS = @X_CFLAGS@
 X_LIBS = @X_LIBS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
-libgcj_la_OBJECTS =  prims.lo jni.lo exception.lo resolve.lo \
-defineclass.lo interpret.lo verify.lo gnu/gcj/natCore.lo \
+libgcj_la_OBJECTS =  prims.lo jni.lo exception.lo link.lo defineclass.lo \
+interpret.lo verify.lo gnu/gcj/natCore.lo \
 gnu/gcj/convert/JIS0208_to_Unicode.lo \
 gnu/gcj/convert/JIS0212_to_Unicode.lo gnu/gcj/convert/Unicode_to_JIS.lo \
 gnu/gcj/convert/natIconv.lo gnu/gcj/convert/natInput_EUCJIS.lo \
@@ -4734,8 +4734,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.P \
-.deps/jni/gtk-peer/gthread-jni.P .deps/no-threads.P .deps/nogc.P \
-.deps/org/w3c/dom/Attr.P .deps/org/w3c/dom/CDATASection.P \
+.deps/jni/gtk-peer/gthread-jni.P .deps/link.P .deps/no-threads.P \
+.deps/nogc.P .deps/org/w3c/dom/Attr.P .deps/org/w3c/dom/CDATASection.P \
 .deps/org/w3c/dom/CharacterData.P .deps/org/w3c/dom/Comment.P \
 .deps/org/w3c/dom/DOMException.P .deps/org/w3c/dom/DOMImplementation.P \
 .deps/org/w3c/dom/Document.P .deps/org/w3c/dom/DocumentFragment.P \
@@ -4773,8 +4773,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/XMLFilterImpl.P \
 .deps/org/xml/sax/helpers/XMLReaderAdapter.P \
 .deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
-.deps/posix.P .deps/prims.P .deps/resolve.P .deps/verify.P \
-.deps/win32-threads.P .deps/win32.P
+.deps/posix.P .deps/prims.P .deps/verify.P .deps/win32-threads.P \
+.deps/win32.P
 SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
 OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
 

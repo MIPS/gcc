@@ -36,7 +36,7 @@ java::lang::VMClassLoader::resolveClass (jclass klass)
   JvSynchronize sync (klass);
   try
     {
-      _Jv_Resolver::wait_for_state (klass, JV_STATE_LINKED);
+      _Jv_Linker::wait_for_state (klass, JV_STATE_LINKED);
     }
   catch (java::lang::Throwable *x)
     {

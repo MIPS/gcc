@@ -47,7 +47,7 @@ java::lang::reflect::Field::getType ()
 {
   jfieldID fld = _Jv_FromReflectedField (this);
   JvSynchronize sync (declaringClass);
-  _Jv_Resolver::resolve_field (fld, declaringClass->getClassLoaderInternal ());
+  _Jv_Linker::resolve_field (fld, declaringClass->getClassLoaderInternal ());
   return fld->type;
 }
 
