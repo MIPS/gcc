@@ -903,6 +903,10 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 	    *location = alloc_stmt_list ();
 	}
     }
+
+  /* Protect GOTOs in the arm of COND_EXPRs from being removed.  They
+     would be re-introduced during lowering.  */
+  data->last_goto = NULL;
 }
 
 static void

@@ -1,3 +1,7 @@
+2004-01-09  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/useless-1.c: New test.
+
 2004-01-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20030530-2.c: Adjust dump file patterns.
