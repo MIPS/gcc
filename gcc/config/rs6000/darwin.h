@@ -98,6 +98,16 @@ do {									\
         warning ("-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
+    /* Handle -mfix-and-continue.  */					\
+    if (darwin_fix_and_continue_switch)					\
+      {									\
+	const char *base = darwin_fix_and_continue_switch;		\
+	while (base[-1] != 'm') base--;					\
+									\
+	if (*darwin_fix_and_continue_switch != '\0')			\
+	  error ("invalid option `%s'", base);				\
+	darwin_fix_and_continue = (base[0] != 'n');			\
+      }									\
     /* APPLE LOCAL long double default size --mrs */			\
     if (rs6000_long_double_size_string == 0)				\
       rs6000_long_double_type_size = 128;				\
@@ -176,11 +186,16 @@ do {									\
 
 /* APPLE LOCAL end .machine assembler directive */
 
-/* The "-faltivec" option should have been called "-maltivec" all along.  */
+/* The "-faltivec" option should have been called "-maltivec" all
+   along.  -ffix-and-continue and -findirect-data is for compatibility
+   for old compilers.  */
+
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
-  { "-faltivec", "-maltivec -include altivec.h" },	\
-  { "-fno-altivec", "-mno-altivec" },	\
-  { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" }, \
+  { "-ffix-and-continue", "-mfix-and-continue" },			\
+  { "-findirect-data", "-mfix-and-continue" },				\
+  { "-faltivec", "-maltivec -include altivec.h" },			\
+  { "-fno-altivec", "-mno-altivec" },					\
+  { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
 
 /* Make both r2 and r3 available for allocation.  */
@@ -469,3 +484,11 @@ extern const char *darwin_one_byte_bool;
   }
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
+
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 4 nops so
+   that gdb may insert code to redirect them, and for data to accessed
+   indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+#define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)

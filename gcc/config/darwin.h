@@ -159,6 +159,7 @@ extern const char *darwin_warn_nonportable_cfstrings_switch;
 extern int darwin_pascal_strings;
 extern const char *darwin_pascal_strings_switch;
 extern int darwin_running_cxx;
+/* APPLE LOCAL end constant cfstrings */
 
 /* Nonzero if the user has chosen to force sizeof(bool) to be 1
    by providing the -mone-byte-bool switch.  It would be better
@@ -167,9 +168,17 @@ extern int darwin_running_cxx;
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
 
+extern int darwin_fix_and_continue;
+extern const char *darwin_fix_and_continue_switch;
+
 #undef  SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS						\
    {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
+   {"fix-and-continue", &darwin_fix_and_continue_switch,		\
+    N_("Generate code suitable for fast turn around debugging"), 0},	\
+   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
+/* APPLE LOCAL begin constant cfstrings */ \
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
@@ -974,8 +983,16 @@ objc_section_init (void)			\
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
    variable has been defined in this translation unit.  */
+
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
+/* Set on a symbol to indicate when fix-and-continue style code
+   generation is being used and the symbol refers to a static symbol
+   that should be rebound from new instances of a translation unit to
+   the original instance of the data.  */
+
+#define MACHO_SYMBOL_STATIC ((SYMBOL_FLAG_MACH_DEP) << 2)
 
 /* Symbolic names for various things we might know about a symbol.  */
 

@@ -212,11 +212,6 @@ extern int target_flags;
 /* gen call addr in register for >64M range */
 #define MASK_LONG_BRANCH	0x02000000
 
-/* APPLE LOCAL BEGIN fix-and-continue --mrs  */
-#define MASK_FIX_AND_CONTINUE	0x04000000
-#define MASK_INDIRECT_ALL_DATA	0x08000000
-/* APPLE LOCAL END fix-and-continue --mrs  */
-
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
 #define TARGET_POWERPC		(target_flags & MASK_POWERPC)
@@ -276,10 +271,6 @@ extern int target_flags;
 #endif
 
 #define TARGET_XL_CALL 0
-/* APPLE LOCAL BEGIN fix-and-continue --mrs  */
-#define TARGET_FIX_AND_CONTINUE   (target_flags & MASK_FIX_AND_CONTINUE)
-#define TARGET_INDIRECT_ALL_DATA  (target_flags & MASK_INDIRECT_ALL_DATA)
-/* APPLE LOCAL END fix-and-continue --mrs  */
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -385,16 +376,6 @@ extern int target_flags;
   {"longcall",	MASK_LONG_BRANCH,					\
 	N_("Generate 32-bit call addresses (range > 64M)")},		\
   {"no-longcall",	-MASK_LONG_BRANCH, ""},				\
-  /* APPLE LOCAL BEGIN fix-and-continue --mrs  */				\
-  {"fix-and-continue",  MASK_FIX_AND_CONTINUE,				\
-      N_("Generate code suitable for fast turn around debugging")},	\
-  {"no-fix-and-continue", -MASK_FIX_AND_CONTINUE,			\
-      N_("Don't generate code suitable for fast turn around debugging")},\
-  {"indirect-data",	MASK_INDIRECT_ALL_DATA,				\
-      N_("Generate code suitable for fast turn around debugging")},	\
-  {"no-indirect-data",	-MASK_INDIRECT_ALL_DATA,			\
-      N_("Don't generate code suitable for fast turn around debugging")},\
-  /* APPLE LOCAL END fix-and-continue --mrs  */				\
   {"mfcrf",		MASK_MFCRF,					\
 			N_("Generate single field mfcr instruction")},	\
   {"no-mfcrf",		- MASK_MFCRF,					\
