@@ -1,3 +1,10 @@
+2003-09-24  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-dfa.c (compute_immediate_uses_for): Split up in two
+	separate functions, one for PHIs and one for normal statements.
+	(compute_immediate_uses_for_phi): New.
+	(compute_immediate_uses_for_stmt): New.
+
 2003-09-25  Jeff Law  <law@redhat.com>
 
         * tree-ssa-dom.c (optimize_block): When EQ_EXPR_VALUE has the

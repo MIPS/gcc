@@ -140,7 +140,8 @@ static void add_immediate_use (tree, tree);
 static tree find_vars_r (tree *, int *, void *);
 static void add_referenced_var (tree, struct walk_state *);
 static tree get_memory_tag_for (tree);
-static void compute_immediate_uses_for (tree, int);
+static void compute_immediate_uses_for_phi (tree, int);
+static void compute_immediate_uses_for_stmt (tree, int);
 static void add_may_alias (tree, tree);
 static int get_call_flags (tree);
 static void find_hidden_use_vars (tree);
@@ -1130,43 +1131,61 @@ compute_immediate_uses (int flags)
       tree phi;
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	compute_immediate_uses_for (phi, flags);
+	compute_immediate_uses_for_phi (phi, flags);
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	compute_immediate_uses_for (bsi_stmt (si), flags);
+	compute_immediate_uses_for_stmt (bsi_stmt (si), flags);
     }
 }
 
+
 /* Helper for compute_immediate_uses.  Check all the USE and/or VUSE
+   operands in phi node PHI and add a def-use edge between their
+   defining statement and PHI.
+
+   PHI nodes are easy, we only need to look at its arguments.  */
+
+static void
+compute_immediate_uses_for_phi (tree phi, int flags ATTRIBUTE_UNUSED)
+{
+  int i;
+
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (phi) != PHI_NODE)
+    abort ();
+#endif
+
+  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+    {
+      tree arg = PHI_ARG_DEF (phi, i);
+
+      if (TREE_CODE (arg) == SSA_NAME)
+	{ 
+	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (phi, i));
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt))
+	    add_immediate_use (imm_rdef_stmt, phi);
+	}
+    }
+}
+
+
+/* Another helper for compute_immediate_uses.  Check all the USE and/or VUSE
    operands in STMT and add a def-use edge between their defining statement
    and STMT.  */
 
 static void
-compute_immediate_uses_for (tree stmt, int flags)
+compute_immediate_uses_for_stmt (tree stmt, int flags)
 {
   size_t i;
   varray_type ops;
 
-  /* PHI nodes are a special case.  We only need to look at its arguments.  */
+  /* PHI nodes are handled elsewhere.  */
+#ifdef ENABLE_CHECKING
   if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      int i;
+    abort ();
+#endif
 
-      for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
-	{
-	  tree arg = PHI_ARG_DEF (stmt, i);
-
-	  if (TREE_CODE (arg) == SSA_NAME)
-	    { 
-	      tree imm_rdef_stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF (stmt, i));
-	      if (!IS_EMPTY_STMT (imm_rdef_stmt))
-		add_immediate_use (imm_rdef_stmt, stmt);
-	    }
-	}
-      return;
-    }
-
-  /* Otherwise, we look at USE_OPS or VUSE_OPS according to FLAGS.  */
+  /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
   get_stmt_operands (stmt);
 
   if ((flags & TDFA_USE_OPS) && use_ops (stmt))
