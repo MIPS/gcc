@@ -1426,6 +1426,8 @@ int reorder_blocks_time;
 int rename_registers_time;
 int shorten_branch_time;
 int stack_reg_time;
+int to_ssa_time;
+int from_ssa_time;
 int final_time;
 int symout_time;
 int dump_time;
@@ -1510,9 +1512,9 @@ print_time (str, total)
      int total;
 {
   fprintf (stderr,
-	   "time in %s: %d.%06d (%.0f%%)\n",
+	   "time in %s: %d.%06d (%d%%)\n",
 	   str, total / 1000000, total % 1000000,
-	   all_time == 0 ? 0.00 : (double) total / (double) all_time * 100.0);
+	   all_time == 0 ? 0 : (100 * total) / all_time);
 }
 
 /* This is the default decl_printable_name function.  */
@@ -2176,6 +2178,8 @@ compile_file (name)
   rename_registers_time = 0;
   shorten_branch_time = 0;
   stack_reg_time = 0;
+  to_ssa_time = 0;
+  from_ssa_time = 0;
   final_time = 0;
   symout_time = 0;
   dump_time = 0;
@@ -2559,6 +2563,8 @@ compile_file (name)
       print_time ("integration", integration_time);
       print_time ("jump", jump_time);
       print_time ("cse", cse_time);
+      print_time ("to ssa", to_ssa_time);
+      print_time ("from ssa", from_ssa_time);
       print_time ("gcse", gcse_time);
       print_time ("loop", loop_time);
       print_time ("cse2", cse2_time);
@@ -2927,7 +2933,6 @@ rest_of_compilation (decl)
   insns = get_insns ();
 
   /* Copy any shared structure that should not be shared.  */
-
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
@@ -2937,13 +2942,7 @@ rest_of_compilation (decl)
 #endif
 
   /* Instantiate all virtual registers.  */
-
   instantiate_virtual_regs (current_function_decl, insns);
-
-  /* See if we have allocated stack slots that are not directly addressable.
-     If so, scan all the insns and create explicit address computation
-     for all references to such slots.  */
-  /* fixup_stack_slots (); */
 
   /* Find all the EH handlers.  */
   find_exception_handler_labels ();
@@ -2967,34 +2966,29 @@ rest_of_compilation (decl)
       goto exit_rest_of_compilation;
     }
 
-  if (optimize > 0)
-    {
-      TIMEVAR (flow_time,
-	       {
-		 find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-		 cleanup_cfg (insns);
-	       });
+  TIMEVAR (jump_time,
+	   {
+	     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	     cleanup_cfg (insns);
 
-      TIMEVAR (jump_time,
-	       {
-		 /* ??? Run if-conversion before delete_null_pointer_checks,
-		    since the later does not preserve the CFG.  This should
-		    be changed -- no since converting if's that are going to
-		    be deleted.  */
-		 if (optimize > 0)
-		   if_convert ();
+	     /* ??? Run if-conversion before delete_null_pointer_checks,
+	        since the later does not preserve the CFG.  This should
+	        be changed -- no since converting if's that are going to
+	        be deleted.  */
+	     if (optimize > 0)
+	       if_convert ();
 
-		 if (flag_delete_null_pointer_checks)
-		   delete_null_pointer_checks (insns);
+	     /* Try to identify useless null pointer tests and delete them.  */
+	     if (flag_delete_null_pointer_checks)
+	       delete_null_pointer_checks (insns);
 
-		 /* Jump optimization, and the removal of NULL pointer checks,
-		    may have reduced the number of instructions substantially.
-		    CSE, and future passes, allocate arrays whose dimensions
-		    involve the maximum instruction UID, so if we can reduce
-		    the maximum UID we'll save big on memory.  */
-		 renumber_insns (rtl_dump_file);
-	       });
-    }
+	     /* Jump optimization, and the removal of NULL pointer checks,
+		may have reduced the number of instructions substantially. 
+		CSE, and future passes, allocate arrays whose dimensions
+		involve the maximum instruction UID, so if we can reduce
+		the maximum UID we'll save big on memory.  */
+	     renumber_insns (rtl_dump_file);
+	   });
 
   close_dump_file (DFI_jump, print_rtl, insns);
 
@@ -3073,19 +3067,32 @@ rest_of_compilation (decl)
   if (optimize > 0 && flag_ssa)
     {
       open_dump_file (DFI_ssa, decl);
-      life_analysis (insns, max_reg_num (), NULL, 1);
-      convert_to_ssa ();
+
+      TIMEVAR (to_ssa_time,
+	       {
+		 find_basic_blocks (insns, max_reg_num(), rtl_dump_file);
+		 cleanup_cfg (insns);
+		 convert_to_ssa ();
+	       });
+
       close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
 
       open_dump_file (DFI_ussa, decl);
-      convert_from_ssa ();
-      /* New registers have been created.  Rescan their usage.  */
-      reg_scan (insns, max_reg_num (), 1);
-      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
 
-      /* Life analysis used in SSA adds log_links but these shouldn't
-	 be there until the flow stage, so clear them away.  */
-      clear_log_links (insns);
+      TIMEVAR (from_ssa_time,
+	       {
+		 convert_from_ssa ();
+
+		 /* New registers have been created.  Rescan their usage.  */
+		 reg_scan (insns, max_reg_num (), 1);
+
+		 /* Life analysis used in SSA adds log_links but these
+		    shouldn't be there until the flow stage, so clear
+		    them away.  */
+		 clear_log_links (insns);
+	       });
+
+      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3099,6 +3106,8 @@ rest_of_compilation (decl)
 
       TIMEVAR (gcse_time,
 	       {
+		 find_basic_blocks (insns, max_reg_num(), rtl_dump_file);
+		 cleanup_cfg (insns);
 		 tem = gcse_main (insns, rtl_dump_file);
 	       });
 
@@ -3140,7 +3149,7 @@ rest_of_compilation (decl)
 	       /* We only want to perform unrolling once.  */
 	       
 	       loop_optimize (insns, rtl_dump_file, 0, 0);
-	
+
 	       /* The first call to loop_optimize makes some instructions
 		  trivially dead.  We delete those instructions now in the
 		  hope that doing so will make the heuristics in loop work
@@ -3180,22 +3189,18 @@ rest_of_compilation (decl)
 		   {
 		     reg_scan (insns, max_reg_num (), 0);
 		     jump_optimize (insns, !JUMP_CROSS_JUMP,
-					   !JUMP_NOOP_MOVES,
-					   JUMP_AFTER_REGSCAN);
-		   });
+				    !JUMP_NOOP_MOVES, JUMP_AFTER_REGSCAN);
 
-	  TIMEVAR (flow_time,
-		   {
 		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 		     cleanup_cfg (insns);
+		     if_convert ();
 		   });
-
-	  TIMEVAR (jump_time, if_convert ());
 	  
 	  TIMEVAR (cse2_time,
 		   {
 		     reg_scan (insns, max_reg_num (), 0);
-		     tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+		     tem = cse_main (insns, max_reg_num (),
+				     1, rtl_dump_file);
 		   });
 
 	  if (tem)
@@ -3225,12 +3230,6 @@ rest_of_compilation (decl)
 		     reg_scan (insns, max_reg_num (), 0);
 		     thread_jumps (insns, max_reg_num (), 0);
 		   });
-
-	  TIMEVAR (flow_time,
-		   {
-		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-		     cleanup_cfg (insns);
-		   });
 	}
 
       close_dump_file (DFI_cse2, print_rtl, insns);
@@ -3243,11 +3242,10 @@ rest_of_compilation (decl)
     {
       open_dump_file (DFI_bp, decl);
 
-      TIMEVAR
-	(branch_prob_time,
-	 {
-	   branch_prob (insns, rtl_dump_file);
-	 });
+      TIMEVAR (branch_prob_time,
+	       {
+		 branch_prob (insns, rtl_dump_file);
+	       });
 
       close_dump_file (DFI_bp, print_rtl, insns);
 
@@ -3388,8 +3386,11 @@ rest_of_compilation (decl)
 
   if (dump_file[DFI_lreg].enabled)
     {
-      TIMEVAR (dump_time, dump_flow_info (rtl_dump_file));
-      TIMEVAR (dump_time, dump_local_alloc (rtl_dump_file));
+      TIMEVAR (dump_time,
+	       {
+		 dump_flow_info (rtl_dump_file);
+		 dump_local_alloc (rtl_dump_file);
+	       });
 
       close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
     }
@@ -3585,7 +3586,7 @@ rest_of_compilation (decl)
 
      Note this must run before reg-stack because of death note (ab)use
      in the ia32 backend.  */
-  TIMEVAR (shorten_branch_time, shorten_branches (insns));
+  TIMEVAR (shorten_branch_time, shorten_branches (get_insns ()));
 
 #ifdef STACK_REGS
   open_dump_file (DFI_stack, decl);

@@ -4938,7 +4938,7 @@ void
 push_switch ()
 {
   struct cp_switch *p
-    = (struct cp_switch *) oballoc (sizeof (struct cp_switch));
+    = (struct cp_switch *) xmalloc (sizeof (struct cp_switch));
   p->level = current_binding_level;
   p->next = switch_stack;
   switch_stack = p;
@@ -4947,7 +4947,11 @@ push_switch ()
 void
 pop_switch ()
 {
+  struct cp_switch *cs;
+  
+  cs = switch_stack;
   switch_stack = switch_stack->next;
+  free (cs);
 }
 
 /* Note that we've seen a definition of a case label, and complain if this
@@ -14149,7 +14153,7 @@ finish_function (lineno, flags)
 	  if (! DECL_EXTERNAL (fndecl))
 	    DECL_NOT_REALLY_EXTERN (fndecl) = 1;
 	  DECL_EXTERNAL (fndecl) = 1;
-	  mark_inline_for_output (fndecl);
+	  defer_fn (fndecl);
 	}
 
 #if 0
@@ -14665,13 +14669,6 @@ mark_cp_function_context (f)
 {
   mark_lang_function (f->language);
 }
-
-int
-in_function_p ()
-{
-  return function_depth != 0;
-}
-
 
 void
 lang_mark_false_label_stack (l)

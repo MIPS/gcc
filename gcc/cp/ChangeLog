@@ -1,3 +1,85 @@
+2000-04-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tinfo.cc (convert_to_base): New function.
+	(get_vbase_offset): Remove. Move into convert_to_base.
+	(__vmi_class_type_info::do_find_public_src): Adjust.
+	(__vmi_class_type_info::do_dyncast): Adjust.
+	(__vmi_class_type_info::do_upcast): Adjust.
+
+2000-04-06  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tinfo.cc (operator=): Use __builtin_strcmp.
+	* tinfo2.cc (before): Likewise.
+
+2000-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (lang_decl_flags): Rename saved_inline to deferred.
+	(DECL_SAVED_INLINE): Rename to ...
+	(DECL_DEFERRED_FN): ... this.
+	(in_function_p): Remove declaration.
+	(mark_inline_for_output): Rename to ... 
+	(defer_fn): ... this.
+	* decl.c (finish_function): Adjust call to mark_inline_for_output.
+	(in_function_p): Remove definition.
+	* decl2.c (saved_inlines): Rename to ...
+	(deferred_fns): ... this.
+	(saved_inlines_used): Rename to ...
+	(deferred_fns_used): ... this.
+	(mark_inline_for_output): Rename to ...
+	(defer_fn): ... this.
+	(finish_file): Adjust accordingly.
+	(init_decl2): Likewise.
+	* lex.c (cons_up_default_function): Likewise.
+	* pt.c (mark_decl_instantiated): Likewise.
+	(instantiate_decl): Don't set DECL_DEFER_OUTPUT under any
+	circumstances.
+	* rtti.c (get_tinfo_decl): Adjust call to mark_inline_for_output.
+	* semantics.c (expand_body): Defer more functions.
+
+2000-04-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* vec.cc: New file.
+	* Make-lang.in (CXX_LIB2FUNCS): Add it.
+	(vec.o): Build it.
+	* inc/cxxabi.h (__cxa_vec_new, __cxa_vec_ctor, __cxa_vec_dtor,
+	__cxa_vec_delete): Declare.
+
+2000-04-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* rtti.c (dfs_class_hint_mark): New static function.
+	(dfs_class_hint_unmark): New static function.
+	(class_hint_flags): Use them.
+
+2000-04-05  Benjamin Kosnik  <bkoz@cygnus.com>
+
+        * decl2.c: Make flag_honor_std dependant on ENABLE_STD_NAMESPACE.
+
+2000-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (instantiate_decl): Change prototype.
+	* decl2.c (mark_used): Adjust call.
+	* optimize.c (inlinable_function_p): Adjust handling of templates.
+	* pt.c (do_decl_instantiation): Adjust call to instantiate_decl.
+	(do_type_instantiation): Likewise.
+	(instantiate_decl): Defer more templates.
+	(instantiate_pending_templates): Adjust logic to handle inline
+	friend functions.
+
+	* Makefile.in (GGC_H): New variable.  Use it throughout in place
+	of ggc.h.
+	
+	* call.c: Don't include obstack.h.  Include ggc.h.
+	(obstack_chunk_alloc): Don't define.
+	(obstack_chunk_free): Likewise.
+	(add_candidate): Allocate the z_candidate with ggc_alloc_obj.
+	* decl.c (push_switch): Use xmalloc to allocate the cp_switch.
+	(pop_switch): Free it.
+
+	* decl2.c (grokclassfn): Set TREE_READONLY for PARM_DECLs.
+
+	* dump.c (dequeue_and_dump): Don't try to print the bit_position
+	if we don't have a DECL_FIELD_OFFSET.
+
 Wed Apr  5 15:12:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* optimize.c (calls_setjmp_r): Use setjmp_call_p instead of

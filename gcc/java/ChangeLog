@@ -1,3 +1,33 @@
+2000-04-05  Tom Tromey  <tromey@cygnus.com>
+
+	Fix for PR gcj/140:
+	* parse.y (check_final_assignment): Recognize assignments to the
+	`length' field of an array when generating class files.
+
+2000-04-05  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (decl_hash): Prototype removed.
+	(decl_compare): Likewise.
+
+2000-04-05  Tom Tromey  <tromey@cygnus.com>
+
+	* parse.h (THIS_MODIFIER_ONLY): Changed meaning of `v' parameter.
+	* parse.y (check_modifiers_consistency): Check for final/volatile
+	clash.  Fixes PR gcj/164.
+
+2000-04-05  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c: (java_hash_hash_tree_node): Renamed from `decl_hash',
+	made global.
+	(java_hash_compare_tree_node): Renamed from `decl_compare, made
+	global.
+	(add_method_1): Use `java_hash_hash_tree_node' and
+	`java_hash_compare_tree_node'.
+	* java-tree.h: (java_hash_hash_tree_node): Prototyped.
+	(java_hash_compare_tree_node): Likewise.
+	* parse.y (find_applicable_accessible_methods_list): Create,
+	delete and use a hash table to remember already searched interfaces.
+
 2000-04-03  Matt Welsh  <mdw@cs.berkeley.edu>
 
 	* jcf-depend.c (add_entry): Fixed bug where list was always replaced

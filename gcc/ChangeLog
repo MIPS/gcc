@@ -1,122 +1,283 @@
-2000-04-06  Richard Henderson  <rth@cygnus.com>
-
-	* condexec.c (cond_exec_process_insns): Don't split insns.
-	* toplev.c (rest_of_compilation): Always split after reload
-	when optimizing.
-
-	* reload.c (find_equiv_reg): Handle COND_EXEC.
-	* rtlanal.c (reg_referenced_p): Likewise.
-	(note_stores): Likewise.
-	(reg_overlap_mentioned_p): Rewrite to use a switch.
-
-	* flow.c (struct propagate_block_info): Rename reg_cond_live
-	to reg_cond_dead.  Update all uses.
-	(mark_set_reg): Add to reg_cond_dead not remove from reg_cond_live.
-	(mark_used_reg): Similarly, remove from reg_cond_dead.
-
-	* genrecog.c (*): Rename _last_insn to last_insn.
-	(make_insn_sequence): Set the position of the peephole2 C test
-	to be at the last insn.
-
-	* jump.c (jump_optimize_1): Disable the "if (p) x=a; else x=b" to
-	"x=b; if (p) x=a" optimization.
-
-	* config/d30v/d30v.c (d30v_expand_epilogue): Properly track
-	stack adjustment for d30v_eh_epilogue_sp_ofs.
-	* config/d30v/d30v.md: Rewrite peepholes to peephole2s.
-	(*bra_reg_true, *bra_reg_false): New.
-
-2000-04-05  Richard Henderson  <rth@cygnus.com>
-
-	* flow.c (mark_set_reg): Don't free condition expr twice.
-	(free_reg_cond_life_info): Fix typos.
-	(flush_reg_cond_reg_1): Adjust for splay_tree_value being a
-	reg_cond_life_info, not an rtx.
-	(nand_reg_cond): Return const0_rtx for false.
-	(mark_used_reg): Wrap naked condition in an EXPR_LIST.
-
-	* ggc.h (struct rtx_def): Forward declare.
-
-Wed Apr  5 16:13:54 2000  Michael Meissner  <meissner@cygnus.com>
-			  Richard Henderson  <rth@cygnus.com>
-
-	Conditional execution support:
-
-	* Makefile.in (OBJS): Add condexec.o.
-	(condexec.o): New target.
-	* condexec.c: New file.
-
-	* rtl.def (COND_EXEC): New.
-	* rtl.h (COND_EXEC_TEST, COND_EXEC_CODE): New.
-
-	* basic-block.h (merge_blocks_nomove): Declare.
-	(tidy_fallthru_edge): Declare.
-	* flow.c (loop_depth): Remove.
-	(reg_next_use, cc0_live, mem_set_list): Replace with ...
-	(struct reg_cond_life_info, struct propagate_block_info): New.
-	(merge_blocks_nomove): Document as merging into previous blocks.
-	Remove cruft from between blocks; remove all edges out of A.
-	(tidy_fallthru_edge): Export.
-	(life_analysis): Don't allocate reg_next_use.
-	(propagate_block_delete_insn): Break out of propagate_block.
-	(propagate_block_delete_libcall): Likewise.
-	(propagate_block): Create a propagate_block_info struct to pass
-	to subroutines.  Allocate one not two temporary regsets.
-	(mark_set_regs): Recognize COND_EXEC.
-	(mark_set_reg): Break out of mark_set_1.  Handle conditional kills.
-	(free_reg_cond_life_info): New.
-	(flush_reg_cond_reg_1, flush_reg_cond_reg): New.
-	(ior_reg_cond, not_reg_cond, nand_reg_cond): New.
-	(mark_used_reg): Break out of mark_used_regs.  Handle conditional life.
-	(mark_used_regs): Recognize COND_EXEC.
-	(insn_dead_p): Use propagate_block_info struct.
-	(libcall_dead_p, invalidate_mems_from_autoinc): Likewise.
-	(find_auto_inc, try_pre_increment_1): Likewise.
-	(print_rtl_with_bb): Dump regs live at end too.
-	(count_reg_sets_1): Pass in loop_depth.
-	(count_reg_sets, count_reg_references): Likewise.
-	(recompute_reg_usage): Provide it.
-
-	* genconfig.c (have_cond_arith_flag): Remove.
-	(have_cond_exec_flag): New.
-	(walk_insn_part): Detect COND_EXEC, not arithmetic in IF_THEN_ELSE.
-	(main): Print HAVE_conditional_execution.
-	* tm.texi (MAX_CONDITIONAL_EXECUTE): Document.
-
-	* haifa-sched.c (haifa_classify_insn): Recognize COND_EXEC.
-	(sched_analyze_insn, print_pattern): Likewise.
-	(schedule_insns): Don't do count_or_remove_death_notes check
-	for HAVE_conditional_execution.
-
-	* gcse.c (gcse_main): Don't rebuild the CFG here.
-	(delete_null_pointer_checks): Likewise.
-	* ssa.c (convert_to_ssa): Likewise.
-	* toplev.c (rest_of_compilation): Do it here instead.  Call
-	if_convert after doing so.
-
-	* jump.c (jump_optimize_1): Remove all store_flag, conditional move,
-	and conditional arithmetic code.
-	(find_insert_position): Remove.
-
-	* print-rtl.c (debug_rtx_range): New.
-
-	* rtlanal.c (dead_or_set_regno_p): Handle COND_EXEC.
-
-	* varray.h (VARRAY_ACTIVE_SIZE, VARRAY_POP_ALL): New.
+2000-04-07  Richard Henderson  <rth@cygnus.com>
 
 	* config/alpha/alpha.c (alpha_emit_conditional_move): Fail
 	if we discover we need a pseudo and no_new_pseudos is true.
 	* config/alpha/alpha.md (ne:DI insn): New.
 	(trunctfsf2, sne): Emit NE instead of non-canonical LTU.
 
-	* config/d30v/abi: New.
-	* config/d30v/d30v-protos.h: New.
-	* config/d30v/d30v.c: New.
-	* config/d30v/d30v.h: New.
-	* config/d30v/d30v.md: New.
-	* config/d30v/libgcc1.asm: New.
-	* config/d30v/t-d30v: New.
-	* config/d30v/xm-d30v.h: New.
+2000-04-07  Richard Henderson  <rth@cygnus.com>
+
+	* rtl.def (COND_EXEC): New.
+	* rtl.h (COND_EXEC_TEST, COND_EXEC_CODE): New.
+	* tm.texi (MAX_CONDITIONAL_EXECUTE): Document.
+
+	* genconfig.c (have_cond_arith_flag): Remove.
+	(have_cond_exec_flag): New.
+	(walk_insn_part): Detect COND_EXEC, not arithmetic in IF_THEN_ELSE.
+	(main): Print HAVE_conditional_execution.
+
+	* haifa-sched.c (haifa_classify_insn): Recognize COND_EXEC.
+	(sched_analyze_insn, print_pattern): Likewise.
+	* reload.c (find_equiv_reg): Likewise.
+	* rtlanal.c (reg_referenced_p): Likewise.
+	(note_stores, dead_or_set_regno_p): Likewise.
+	(reg_overlap_mentioned_p): Rewrite to use a switch.
+
+	* ggc.h (struct rtx_def): Forward declare.
+
+	* print-rtl.c (debug_rtx_range): New.
+	* rtl.h (debug_rtx_range): Declare.
+
+	* varray.h (VARRAY_ACTIVE_SIZE, VARRAY_POP_ALL): New.
+
+	* gcse.c (gcse_main): Don't rebuild the CFG here.
+	(delete_null_pointer_checks): Likewise.
+	* ssa.c (convert_to_ssa): Likewise.
+	* toplev.c (rest_of_compilation): Do it here instead.  Combine
+	sequential calls to TIMEVAR.  Consistently use `insns' instead of
+	`get_insns()'.  Always split insns after reload when optimizing.
+
+	* basic-block.h (merge_blocks_nomove): Declare.
+	(tidy_fallthru_edge): Declare.
+	* flow.c (merge_blocks_nomove): Document as merging into previous
+	blocks.  Remove cruft from between blocks; remove all edges out of A.
+	(tidy_fallthru_edge): Export.
+
+2000-04-06  Alex Samuel  <samuel@codesourcery.com>
+
+	* ssa.c (compute_conservative_reg_partition): Declare with
+	void arguments.
+	* toplev.c (clean_dump_file): Remove previously-deleted function
+	inadvertantly merged back in.
+	* conflict.c (conflict_graph_add): Use a single call to
+	htab_find_slot to look up and insert.
+
+2000-04-06  Richard Henderson  <rth@cygnus.com>
+
+	* genrecog.c (*): Rename _last_insn to last_insn.
+	(make_insn_sequence): Set the position of the peephole2 C test
+	to be at the last insn.
+
+2000-04-06  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (compute_flow_dominators): Free worklist.
+
+2000-04-06  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* flow.c (compute_flow_dominators): Process blocks FIFO not LIFO.
+
+2000-04-06  Alex Samuel  <samuel@codesourcery.com>
+
+	* rtl.h (INSN_P): New macro.
+	(successor_phi_fn): New typedef.
+	(for_each_successor_phi): New prototype.
+	(in_ssa_form): New variable.
+	(PHI_NODE_P): Likewise.
+	* flow.c (calculate_global_regs_live): Add to new_live_at_end from
+	phi nodes in successors.
+	(mark_used_regs): Add PHI case.
+	(set_phi_alternative_reg): New function.
+	(life_analysis): Assert that dead code elimination is not selected
+	when in SSA form.
+	* toplev.c (to_ssa_time): New variable.
+	(from_ssa_time): Likewise.
+	(compile_file): Zero to_ssa_time and from_ssa_time.
+	Print time to convert to and from SSA.
+	(rest_of_compilation): Time convert_to_ssa and convert_from_ssa.
+	(print_time): Compute percent fraction as integer.
+	* ssa.c (PHI_NODE_P): Moved to rtl.h.
+	(convert_to_ssa): Check if we're already in SSA.  
+	Don't eliminate dead code in life_analysis.
+	Rerun flow and life analysis at bottom.
+	(eliminate_phi): Use canonical regnos when adding nodes.
+	(mark_reg_in_phi): New function.
+	(mark_phi_and_copy_regs): Likewise.
+	(convert_from_ssa): Rerun life analysis at top.  
+	Use coalesced partition.
+	Check for removing a phi node at the end of the block.
+	(compute_coalesced_reg_partition): New function.
+	(coalesce_regs_in_copies): Likewise.
+	(coalesce_reg_in_phi): Likewise.
+	(coalesce_regs_in_sucessor_phi_nodes): Likewise.
+	(for_each_successor_phi): Likewise.
+	(rename_context): New struct.
+	(rename_block): Use a rename_context with rename_insn_1.  When
+	renaming sets of a subreg, emit a copy of the entire reg first.
+	(rename_insn_1): Treat data as a rename_context *.  Save current
+	insn in set_data.
+	(rename_set_data): Add field set_insn.
+	* Makefile.in (HASHTAB_H): Move up in file.
+	(OBSTACK_H): New macro.
+	(collect2.o): Use OBSTACK_H in dependencies.
+	(sdbout.o): Likewise.
+	(emit-rtl.o): Likewise.
+	(simplify-rtx.o): Likewise.
+	(fix-header.o): Likewise.
+	(OBJS):	Add conflict.o.
+	(conflict.o): New rule.
+	* basic-block.h: Include partition.h.
+	(conflict_graph): New typedef.
+	(conflict_graph_enum_fn): Likewise.
+	(conflict_graph_new): New prototype.
+	(conflict_graph_delete): Likewise.
+	(conflict_graph_add): Likewise.
+	(conflict_graph_conflict_p): Likewise.
+	(conflict_graph_enum): Likewise.
+	(conflict_graph_merge_regs): Likewise.
+	(conflict_graph_print): Likewise.
+	(conflict_graph_compute): Likewise.
+	* conflict.c: New file.
+
+2000-04-06  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tlink.c (read_repo_files): Don't look for .rpo info for
+	linker flags.
+
+Thu Apr  6 20:39:26 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* sh.h (STRUCT_VALUE, RETURN_IN_MEMORY): Define.
+
+Thu Apr  6 19:34:08 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* config/sh/lib1funcs.asm (___udivsi3_i4):
+	( __SH4_SINGLE__ / __SH4_SINGLE_ONLY__ variant): value for fpscr
+	only depends on FMOVD_WORKS.
+
+Thu Apr  6 19:11:47 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* config/sh/lib1funcs.asm (___udivsi3_i4): When using fmovd,
+	make double constant 8-byte aligned.
+
+2000-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.md (movtf_insn_sp32, movtf_insn_vis_sp32,
+	movtf_no_e_insn_sp32, movtf_insn_hq_sp64, movtf_insn_hq_vis_sp64,
+	movtf_no_e_insn_sp64): Accept loading 0.0 into GENERAL_REGS.
+	(movtf_insn_sp64, movtf_insn_vis_sp64): Likewise.
+	Accept storing GENERAL_REGS into offsetable memory.
+	* config/sparc/sparc.h (PREFERRED_RELOAD_CLASS): Don't allow
+	building a TFmode constant other than 0.0L into GENERAL_REGS.
+
+2000-04-06  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* regrename.c (regrename_optimize): Handle no REG_ALLOC_ORDER.
+	
+2000-04-06  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (CPP_IS_MACRO_BUFFER, FORWARD, PEEKC): Delete.
+	(macro_cleanup): No need to cast pbuf->macro.
+	(collect_expansion): Use _cpp_get_define_token.  Goto done if
+	it returns VSPACE.  Remove check for trailing space after
+	CPP_COMMENT.
+	(_cpp_create_definition): Don't diddle flags here.  Return
+	directly on error.
+	(unsafe_chars): Handle c1 being EOF.
+	(push_macro_expansion): Use unsafe_chars for both accidental-paste
+	checks.  Don't push the buffer till after we're done with
+	them.
+	* cpplex.c (PEEKBUF, GETBUF, FORWARDBUF): New.
+	(PEEKN, FORWARD, GETC, PEEKC): Use them.
+	(cpp_push_buffer): Don't set new->alimit.  Set new->mark
+	appropriately.
+	(_cpp_parse_assertion): Don't NUL terminate.
+	(_cpp_lex_token): Fix -traditional macro handling.  Don't skip
+	hspace before calling _cpp_parse_assertion.  Remove all sets
+	of only_seen_white. Treat '\f' as hspace.  Don't do anything
+	special with '\n' here.
+	(maybe_macroexpand): Handle T_EMPTY hash entries without
+	pushing a buffer at all.
+	(cpp_get_token): Handle clearing only_seen_white here.  Handle
+	incrementing the line number here.  Clear
+	potential_control_macro as well as only_seen_white, if
+	appropriate.
+	(cpp_get_non_space_token): Don't eat CPP_POP tokens.
+	(_cpp_get_define_token): New function, basically like
+	_cpp_get_directive_token was but doesn't eat horizontal space.
+	Don't do anything with only_seen_white here.
+	(_cpp_get_directive_token): Just call _cpp_get_define_token
+	repeatedly till it returns non-hspace.
+
+	* cpplib.c (PEEKN, FORWARD, GETC, PEEKC): Delete.
+	(conditional_skip, skip_if_group): Return int.
+	(DIRECTIVE_TABLE): Change origin of all conditional directives
+	to "COND".
+	(TRAD_DIRECT_P): New macro.
+	(_cpp_handle_directive): Use _cpp_get_directive_token.  Issue
+	an error for a bogus directive, unless -lang-asm.  Use
+	TRAD_DIRECT_P. Loop calling handler functions till one returns
+	zero.
+	(get_macro_name): Don't diddle flags here.
+	(do_define): Diddle flags here.  Use _cpp_get_directive_token.
+	Create T_EMPTY nodes for #define macro /* nothing */.
+	(do_undef): Don't copy the name.  Use _cpp_get_directive_token.
+	Use hp->name when calling pass_thru_directive.
+	(do_if, do_else, do_elif, do_ifdef, do_ifndef, conditional_skip):
+	Return the result of conditional_skip and/or skip_if_group.
+	Don't call _cpp_output_line_command.
+	(consider_directive_while_skipping): Use _cpp_get_directive_token.
+	Issue -Wtraditional warnings as appropriate.  Don't complain
+	about unrecognized directives.  If we are to stop skipping,
+	return the number of the directive that ended the skip.
+	(skip_if_group): Use _cpp_get_directive_token.  Turn off macro
+	expansion and line commands while skipping.  Return the result
+	of consider_directive_while_skipping, if nonzero.
+	(do_endif): Just set potential_control_macro here.
+	(validate_else): Use _cpp_get_directive_token.
+	(do_assert, do_unassert): Don't save pointers into the
+	token_buffer across calls to the lexer.  Use
+	_cpp_get_directive_token.  
+
+	* cpplib.h (cpp_buffer): Remove alimit and colno.  Make mark a 
+	pointer, not an offset.  Replace 'data', which was a generic
+	pointer, with 'macro', which points to a struct hashnode.
+	(cpp_reader): Add 'potential_control_macro' pointer.
+	* cpphash.h (T_UNUSED): Replace with T_EMPTY.
+	(CPP_BUF_GET, CPP_FORWARD): Delete.
+	(CPP_IN_COLUMN_1, ADJACENT_TO_MARK): New macros.
+	(CPP_IS_MACRO_BUFFER, CPP_SET_BUF_MARK, CPP_GOTO_BUF_MARK,
+	ACTIVE_MARK_P): Update.
+	(_cpp_get_define_token): New internal function.
+	* cppfiles.c (read_include_file): Don't set fp->alimit or fp->colno.
+
+2000-04-05   Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* configure.in: And here.
+	* configure: Regenerate.
+	* acconfig.h: Add ENABLE_STD_NAMESPACE to set flag_honor_std if
+	--enable-libstdcxx-v3 is passed at configure time.
+	* config.h.in: Regenerate.
+
+2000-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* final.c (final): Use xcalloc to allocate line_note_exists.
+	* function.c (free_after_compilation): Free the temp_slots.
+	(assign_stack_temp_for_type): Use xmalloc to allocate temp_slots.
+	(combine_temp_slot): Free temp_slots when they get combined.
+	(purge_addressof): Fix typo in comment.
+	* stmt.c (mark_goto_fixup): Mark the fixup itself.
+	(expand_fixup): Allocate the fixup with ggc_alloc_obj.
+
+	* ggc.h: Include varray.h.
+	(ggc_pending_trees): Declare.
+	(ggc_mark_tree_children): Remove declaration.
+	(ggc_mark_tree): Just push unmarked trees on ggc_pending_trees.
+	* ggc-common.c (ggc_pending_trees): New variable.
+	(ggc_mark_roots): Call ggc_mark_trees.
+	(ggc_mark_tree_children): Rename to ggc_mark_trees.  Process all
+	the ggc_pending_trees.
+	* Makefile.in (GGC_H): New variable.  Use it throughout in place
+	of ggc.h.
+	
+Thu Apr  6 00:30:50 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* sh.h (FUNCTION_ARG_PARTIAL_NREGS): Accomodate an unsigned
+	GET_MODE_SIZE.
+
+Wed Apr  5 23:17:10 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* sh.c (sh_insn_length_adjustment): New function.
+	* sh-protos.h (sh_insn_length_adjustment): Declare.
+	* sh.h (ADJUST_INSN_LENGTH): Use it.
 
 Wed Apr  5 12:35:18 2000  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -130,7 +291,7 @@ Wed Apr  5 12:35:18 2000  Hans-Peter Nilsson  <hp@axis.com>
 	all (op (minus A B) 0) with (op A B).
 
 Wed Apr  5 18:03:31 2000  Toshiyasu Morita  (toshi.morita@sega.com)
-                          J"orn Rennecke <amylaar@cygnus.co.uk>
+	                  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* sh.c (block_lump_real_i4): Add missing clobber of T_REG
 	(block_lump_real): Likewise.

@@ -344,6 +344,7 @@ static void notice_stack_pointer_modification_1 PARAMS ((rtx, rtx, void *));
 static void notice_stack_pointer_modification PARAMS ((rtx));
 static void mark_reg			PARAMS ((rtx, void *));
 static void mark_regs_live_at_end	PARAMS ((regset));
+static int set_phi_alternative_reg      PARAMS ((rtx, int, int, void *));
 static void calculate_global_regs_live	PARAMS ((sbitmap, sbitmap, int));
 static void propagate_block_delete_insn PARAMS ((basic_block, rtx));
 static rtx propagate_block_delete_libcall PARAMS ((basic_block, rtx, rtx));
@@ -2549,6 +2550,15 @@ life_analysis (f, nregs, file, remove_dead_code)
 #endif
   int flags;
   sbitmap all_blocks;
+
+  /* Dead code elimination changes basic block structure and therefore
+     breaks the SSA phi representation.  Particularly, a phi node
+     can have an alternative value for each incoming block, referenced
+     by the block number.  Removing dead code can bump entire blocks
+     and therefore cause blocks to be renumbered, invalidating the
+     numbering of phi alternatives.  */
+  if (remove_dead_code && in_ssa_form)
+    abort ();
  
   /* Record which registers will be eliminated.  We use this in
      mark_used_regs.  */
@@ -3019,6 +3029,22 @@ mark_regs_live_at_end (set)
   diddle_return_value (mark_reg, set);
 }
 
+/* Callback function for for_each_successor_phi.  DATA is a regset.
+   Sets the SRC_REGNO, the regno of the phi alternative for phi node
+   INSN, in the regset.  */
+
+static int
+set_phi_alternative_reg (insn, dest_regno, src_regno, data)
+     rtx insn ATTRIBUTE_UNUSED;
+     int dest_regno ATTRIBUTE_UNUSED;
+     int src_regno;
+     void *data;
+{
+  regset live = (regset) data;
+  SET_REGNO_REG_SET (live, src_regno);
+  return 0;
+}
+
 /* Propagate global life info around the graph of basic blocks.  Begin
    considering blocks with their corresponding bit set in BLOCKS_IN. 
    BLOCKS_OUT is set for every block that was changed.  */
@@ -3078,6 +3104,13 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	  basic_block sb = e->dest;
 	  IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
 	}
+
+      /* Regs used in phi nodes are not included in
+	 global_live_at_start, since they are live only along a
+	 particular edge.  Set those regs that are live because of a
+	 phi node alternative corresponding to this particular block.  */
+      for_each_successor_phi (bb->index, &set_phi_alternative_reg, 
+			      new_live_at_end);
 
       if (bb == ENTRY_BLOCK_PTR)
 	{
@@ -5090,6 +5123,14 @@ mark_used_regs (pbi, new_live, x, cond, insn)
       x = COND_EXEC_CODE (x);
       goto retry;
 
+    case PHI:
+      /* We _do_not_ want to scan operands of phi nodes.  Operands of
+	 a phi function are evaluated only when control reaches this
+	 block along a particular edge.  Therefore, regs that appear
+	 as arguments to phi should not be added to the global live at
+	 start.  */
+      return;
+
     default:
       break;
     }
@@ -5619,13 +5660,14 @@ compute_flow_dominators (dominators, post_dominators)
   int bb;
   sbitmap *temp_bitmap;
   edge e;
-  basic_block *worklist, *tos;
+  basic_block *worklist, *workend, *qin, *qout;
+  int qlen;
 
   /* Allocate a worklist array/queue.  Entries are only added to the
      list if they were not already on the list.  So the size is
      bounded by the number of basic blocks.  */
-  tos = worklist = (basic_block *) xmalloc (sizeof (basic_block)
-		    * n_basic_blocks);
+  worklist = (basic_block *) xmalloc (sizeof (basic_block) * n_basic_blocks);
+  workend = &worklist[n_basic_blocks];
 
   temp_bitmap = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   sbitmap_vector_zero (temp_bitmap, n_basic_blocks);
@@ -5634,11 +5676,14 @@ compute_flow_dominators (dominators, post_dominators)
     {
       /* The optimistic setting of dominators requires us to put every
 	 block on the work list initially.  */
+      qin = qout = worklist;
       for (bb = 0; bb < n_basic_blocks; bb++)
 	{
-	  *tos++ = BASIC_BLOCK (bb);
+	  *qin++ = BASIC_BLOCK (bb);
 	  BASIC_BLOCK (bb)->aux = BASIC_BLOCK (bb);
 	}
+      qlen = n_basic_blocks;
+      qin = worklist;
 
       /* We want a maximal solution, so initially assume everything dominates
 	 everything else.  */
@@ -5649,10 +5694,14 @@ compute_flow_dominators (dominators, post_dominators)
 	e->dest->aux = ENTRY_BLOCK_PTR;
 
       /* Iterate until the worklist is empty.  */
-      while (tos != worklist)
+      while (qlen)
 	{
 	  /* Take the first entry off the worklist.  */
-	  basic_block b = *--tos;
+	  basic_block b = *qout++;
+	  if (qout >= workend)
+	    qout = worklist;
+	  qlen--;
+
 	  bb = b->index;
 
 	  /* Compute the intersection of the dominators of all the
@@ -5692,7 +5741,11 @@ compute_flow_dominators (dominators, post_dominators)
 		{
 		  if (!e->dest->aux && e->dest != EXIT_BLOCK_PTR)
 		    {
-		      *tos++ = e->dest;
+		      *qin++ = e->dest;
+		      if (qin >= workend)
+			qin = worklist;
+		      qlen++;
+
 		      e->dest->aux = e;
 		    }
 		}
@@ -5704,11 +5757,14 @@ compute_flow_dominators (dominators, post_dominators)
     {
       /* The optimistic setting of dominators requires us to put every
 	 block on the work list initially.  */
+      qin = qout = worklist;
       for (bb = 0; bb < n_basic_blocks; bb++)
 	{
-	  *tos++ = BASIC_BLOCK (bb);
+	  *qin++ = BASIC_BLOCK (bb);
 	  BASIC_BLOCK (bb)->aux = BASIC_BLOCK (bb);
 	}
+      qlen = n_basic_blocks;
+      qin = worklist;
 
       /* We want a maximal solution, so initially assume everything post
 	 dominates everything else.  */
@@ -5719,10 +5775,14 @@ compute_flow_dominators (dominators, post_dominators)
 	e->src->aux = EXIT_BLOCK_PTR;
 
       /* Iterate until the worklist is empty.  */
-      while (tos != worklist)
+      while (qlen)
 	{
 	  /* Take the first entry off the worklist.  */
-	  basic_block b = *--tos;
+	  basic_block b = *qout++;
+	  if (qout >= workend)
+	    qout = worklist;
+	  qlen--;
+
 	  bb = b->index;
 
 	  /* Compute the intersection of the post dominators of all the
@@ -5765,13 +5825,19 @@ compute_flow_dominators (dominators, post_dominators)
 		{
 		  if (!e->src->aux && e->src != ENTRY_BLOCK_PTR)
 		    {
-		      *tos++ = e->src;
+		      *qin++ = e->src;
+		      if (qin >= workend)
+			qin = worklist;
+		      qlen++;
+
 		      e->src->aux = e;
 		    }
 		}
 	    }
 	}
     }
+
+  free (worklist);
   free (temp_bitmap);
 }
 
