@@ -393,9 +393,11 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		    {
 		      if (EDGE_FREQUENCY (best_edge) 
 			  > 4 * best_edge->dest->frequency / 5
-			  || cfg_layout_can_duplicate_bb_p (bb))
+			  || !copy_bb_p (best_edge->dest, *n_traces,
+					 size_can_grow))
 			{
-			   /* The loop has at least 4 iterations.  */
+			   /* The loop has at least 4 iterations or
+			      OR destination of BEST_EDGE cannot be copied.  */
 			  edge e;
 
 			  /* Check whether the loop has not been rotated yet.  */
