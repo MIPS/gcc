@@ -1993,6 +1993,7 @@ gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-tree-alias-common.h : s-gtype ; @true
 gt-tree-alias-type.h : s-gtype ; @true
 gt-tree-mudflap.h : s-gtype ; @true
+gt-dependence.h : s-gtype ; @true
 gt-c-objc-common.h gtype-c.h gt-location.h gt-stringpool.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
