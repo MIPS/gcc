@@ -2,6 +2,8 @@
 // { dg-do run }
 // { dg-options "-O2" }
 
+extern "C" void abort ();
+
 int test ()
 {
   bool my_bool = true;
