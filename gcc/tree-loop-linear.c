@@ -55,7 +55,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    transform matrix for locality purposes.
    TODO: Completion of partial transforms.  */
 
-/* Gather statistics for loop interchange.  Initializes
+/* Gather statistics for loop interchange.  LOOP_NUMBER is a relative
+   index in the considered loop nest.  The first loop in the
+   considered loop nest is FIRST_LOOP, and consequently the index of
+   the considered loop is obtained by FIRST_LOOP + LOOP_NUMBER.
+   
+   Initializes:
    - DEPENDENCE_STEPS the sum of all the data dependence distances
    carried by loop LOOP_NUMBER,
 
@@ -89,6 +94,7 @@ static void
 gather_interchange_stats (varray_type dependence_relations, 
 			  varray_type datarefs,
 			  unsigned int loop_number, 
+			  unsigned int first_loop,
 			  unsigned int *dependence_steps, 
 			  unsigned int *nb_deps_not_carried_by_loop, 
 			  unsigned int *access_strides)
@@ -138,10 +144,7 @@ gather_interchange_stats (varray_type dependence_relations,
       struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       tree stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
-      struct loop *inner_loop = current_loops->parray[loop_number + 1];
-
-      if (inner_loop->inner)
-	inner_loop = inner_loop->inner;
+      struct loop *inner_loop = current_loops->parray[first_loop + 1];
 
       if (!flow_loop_nested_p (inner_loop, stmt_loop)
 	  && inner_loop->num != stmt_loop->num)
@@ -150,7 +153,8 @@ gather_interchange_stats (varray_type dependence_relations,
       for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
 	{
 	  tree chrec = DR_ACCESS_FN (dr, it);
-	  tree tstride = evolution_part_in_loop_num (chrec, loop_number + 1);
+	  tree tstride = evolution_part_in_loop_num 
+	    (chrec, first_loop + loop_number);
 	  
 	  if (tstride == NULL_TREE
 	      || TREE_CODE (tstride) != INTEGER_CST)
@@ -163,13 +167,17 @@ gather_interchange_stats (varray_type dependence_relations,
 
 /* Apply to TRANS any loop interchange that minimize inner loop steps.
    Returns the new transform matrix.  The smaller the reuse vector
-   distances in the inner loops, the fewer the cache misses.  */
+   distances in the inner loops, the fewer the cache misses.
+   FIRST_LOOP is the loop->num of the first loop in the analyzed loop
+   nest.  */
+
 
 static lambda_trans_matrix
 try_interchange_loops (lambda_trans_matrix trans, 
 		       unsigned int depth,		       
 		       varray_type dependence_relations,
-		       varray_type datarefs)
+		       varray_type datarefs, 
+		       unsigned int first_loop)
 {
   unsigned int loop_i, loop_j;
   unsigned int dependence_steps_i, dependence_steps_j;
@@ -189,12 +197,12 @@ try_interchange_loops (lambda_trans_matrix trans,
     for (loop_i = 0; loop_i < loop_j; loop_i++)
       {
 	gather_interchange_stats (dependence_relations, datarefs,
-				  loop_i, 
+				  loop_i, first_loop,
 				  &dependence_steps_i, 
 				  &nb_deps_not_carried_by_i,
 				  &access_strides_i);
 	gather_interchange_stats (dependence_relations, datarefs,
-				  loop_j, 
+				  loop_j, first_loop,
 				  &dependence_steps_j, 
 				  &nb_deps_not_carried_by_j, 
 				  &access_strides_j);
@@ -254,7 +262,7 @@ linear_transform_loops (struct loops *loops)
                {
 	        ...
                }
-           for (j = 0; j < 50; j++)
+             for (j = 0; j < 50; j++)
                {
                 ...
                }
@@ -265,7 +273,8 @@ linear_transform_loops (struct loops *loops)
 	{
 	  flow_loop_scan (temp, LOOP_ALL);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || temp->num_exits != 1)
+	  if ((temp != loop_nest && temp->next)
+	      || temp->num_exits != 1)
 	    {
 	      problem = true;
 	      break;
@@ -292,7 +301,7 @@ linear_transform_loops (struct loops *loops)
 #if 1
       lambda_matrix_id (LTM_MATRIX (trans), depth);
       trans = try_interchange_loops (trans, depth, dependence_relations, 
-				     datarefs);
+				     datarefs, loop_nest->num);
 #else
       /* This is a 2x2 interchange matrix.  */
       LTM_MATRIX (trans)[0][0] = 0;

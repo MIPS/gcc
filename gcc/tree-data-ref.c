@@ -458,13 +458,44 @@ dump_ddrs (FILE *file, varray_type ddrs)
 
 
 
+/* Compute the lowest iteration bound for LOOP.  It is an
+   INTEGER_CST.  */
+
+static void
+compute_estimated_nb_iterations (struct loop *loop)
+{
+  tree estimation;
+  struct nb_iter_bound *bound, *next;
+  
+  for (bound = loop->bounds; bound; bound = next)
+    {
+      next = bound->next;
+      estimation = bound->bound;
+
+      if (TREE_CODE (estimation) != INTEGER_CST)
+	continue;
+
+      if (loop->estimated_nb_iterations)
+	{
+	  /* Update only if estimation is smaller.  */
+	  if (integer_zerop
+	      (fold (build2 (GT_EXPR, TREE_TYPE (estimation), 
+			     loop->estimated_nb_iterations, estimation))))
+	    loop->estimated_nb_iterations = estimation;
+	}
+      else
+	loop->estimated_nb_iterations = estimation;
+    }
+}
+
 /* Estimate the number of iterations from the size of the data and the
    access functions.  */
 
 static void
 estimate_niter_from_size_of_data (struct loop *loop, 
 				  tree opnd0, 
-				  tree access_fn)
+				  tree access_fn, 
+				  tree stmt)
 {
   tree estimation;
   tree array_size, data_size, element_size;
@@ -475,28 +506,23 @@ estimate_niter_from_size_of_data (struct loop *loop,
 
   array_size = TYPE_SIZE (TREE_TYPE (opnd0));
   element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
+  if (array_size == NULL_TREE 
+      || element_size == NULL_TREE)
+    return;
+
   data_size = fold (build2 (EXACT_DIV_EXPR, integer_type_node, 
 			   array_size, element_size));
 
-  if (TREE_CODE (init) == INTEGER_CST
-      && TREE_CODE (init) == INTEGER_CST)
+  if (init != NULL_TREE
+      && step != NULL_TREE
+      && TREE_CODE (init) == INTEGER_CST
+      && TREE_CODE (step) == INTEGER_CST)
     {
-      estimation = fold (build2 (MINUS_EXPR, integer_type_node, 
-				 data_size, init));
       estimation = fold (build2 (CEIL_DIV_EXPR, integer_type_node, 
-				 estimation, step));
+				 fold (build2 (MINUS_EXPR, integer_type_node, 
+					       data_size, init)), step));
 
-      if (loop->estimated_nb_iterations)
-	{
-	  /* Update only if we have found a smaller number of
-	     iterations.  */
-	  if (tree_int_cst_sgn 
-	      (fold (build2 (MINUS_EXPR, integer_type_node, 
-			     loop->estimated_nb_iterations, estimation))) > 0)
-	    loop->estimated_nb_iterations = estimation;
-	}
-      else
-	loop->estimated_nb_iterations = estimation;
+      record_estimate_niter (loop, estimation, NULL, stmt);
     }
 }
 
@@ -509,10 +535,10 @@ estimate_niter_from_size_of_data (struct loop *loop,
 static tree
 analyze_array_indexes (struct loop *loop,
 		       varray_type *access_fns, 
-		       tree ref)
+		       tree ref, tree stmt)
 {
   tree opnd0, opnd1;
-  tree access_fn, niter;
+  tree access_fn;
   
   opnd0 = TREE_OPERAND (ref, 0);
   opnd1 = TREE_OPERAND (ref, 1);
@@ -524,16 +550,14 @@ analyze_array_indexes (struct loop *loop,
   access_fn = instantiate_parameters 
     (loop, analyze_scalar_evolution (loop, opnd1));
 
-  niter = number_of_iterations_in_loop (loop);
-  if (chrec_contains_symbols (niter)
-      || chrec_contains_undetermined (niter))
-    estimate_niter_from_size_of_data (loop, opnd0, access_fn);
+  if (loop->estimated_nb_iterations == NULL_TREE)
+    estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt);
   
   VARRAY_PUSH_TREE (*access_fns, access_fn);
   
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
-    return analyze_array_indexes (loop, access_fns, opnd0);
+    return analyze_array_indexes (loop, access_fns, opnd0, stmt);
   
   /* Return the base name of the data access.  */
   else
@@ -564,7 +588,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
-    (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref);
+    (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref, stmt);
   DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1765,7 +1789,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 
    DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
-   FIRST_LOOP is the loop->num of the first loop.  */
+   FIRST_LOOP is the loop->num of the first loop in the analyzed 
+   loop nest.  */
 
 static void
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
@@ -1927,7 +1952,8 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 
    DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
-   FIRST_LOOP is the loop->num of the first loop.  */
+   FIRST_LOOP is the loop->num of the first loop in the analyzed 
+   loop nest.  */
 
 static void
 build_classic_dir_vector (struct data_dependence_relation *ddr, 
@@ -2191,7 +2217,7 @@ compute_all_dependences (varray_type datarefs,
    acceptable for the moment, since this function is used only for
    debugging purposes.  */
 
-static tree 
+tree 
 find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 {
   bool dont_know_node_not_inserted = true;
@@ -2252,6 +2278,9 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	    loop_is_parallel = false;
 	}
     }
+
+  if (loop->estimated_nb_iterations == NULL_TREE)
+    compute_estimated_nb_iterations (loop);
 
   loop->parallel_p = loop_is_parallel;
   return dont_know_node_not_inserted ? NULL_TREE : chrec_dont_know;

@@ -1,3 +1,33 @@
+2004-09-03  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (tree-ssa-loop-niter.o): Depends on TREE_DATA_REF_H.
+	* cfgloop.h (struct nb_iter_bound): Moved here.
+	(record_estimate_niter): Declared extern here.
+	* tree-data-ref.c (compute_estimated_nb_iterations): New.
+	(estimate_niter_from_size_of_data): Pass in the statement containing
+	the data reference.  Record the estimations in loop instead of 
+	computing the minimum of the loop bounds.  Check for null pointers 
+	before computing the estimation.
+	(analyze_array_indexes): Pass in the statement containing the data 
+	reference.
+	(analyze_array): Pass to analyze_array_indexes the statement.
+	(find_data_references_in_loop): Now extern.  Compute and initialize 
+	the estimated_nb_iterations.
+	* tree-data-ref.h (find_data_references_in_loop): Declared here.
+	* tree-ssa-loop-niter.c: Include tree-data-ref.h.
+	(struct nb_iter_bound): Moved to cfgloop.h.
+	(record_estimate): Renamed record_estimate_niter.
+	(estimate_numbers_of_iterations_loop): Add a call to the data 
+	reference analyzer that finds the bounds based on the data size.
+
+	* tree-loop-linear.c (gather_interchange_stats): Don't compute the 
+	inner loop, but instead, compute it.  Pass in the offset of
+	the loop nest.
+	(try_interchange_loops): Pass to gather_interchange_stats the offset 
+	of the loop nest.
+	(linear_transform_loops): Don't fail to transform a loop nest if the 
+	loop nest itself has a sibling loop.
+
 2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (array_base_name_differ_p): Fix comments

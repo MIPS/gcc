@@ -43,6 +43,18 @@ struct lpt_decision
   unsigned times;
 };
 
+/* Bound on number of iterations of a loop.  */
+
+struct nb_iter_bound
+{
+  tree bound;		/* The bound on the number of executions of anything
+			   after ...  */
+  tree at_stmt;		/* ... this statement during one execution of loop.  */
+  tree additional;	/* Additional information about the bound.  */
+  struct nb_iter_bound *next;
+			/* The next bound in a list.  */
+};
+
 /* Structure to hold information for each natural loop.  */
 struct loop
 {
@@ -470,5 +482,6 @@ enum
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
+extern void record_estimate_niter (struct loop *, tree, tree, tree);
 
 #endif /* GCC_CFGLOOP_H */

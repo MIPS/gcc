@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "tree-data-ref.h"
 #include "params.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -890,23 +891,12 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
 */
 
-/* Bound on number of iterations of a loop.  */
-
-struct nb_iter_bound
-{
-  tree bound;		/* The bound on the number of executions of anything
-			   after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* Additional information about the bound.  */
-  struct nb_iter_bound *next;
-			/* The next bound in a list.  */
-};
-
 /* Records that AT_STMT is executed at most BOUND times in LOOP.  The
    additional condition ADDITIONAL is recorded as well.  */
 
-static void
-record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
+void
+record_estimate_niter (struct loop *loop, tree bound, tree additional, 
+		       tree at_stmt)
 {
   struct nb_iter_bound *elt = xmalloc (sizeof (struct nb_iter_bound));
 
@@ -949,14 +939,20 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
 	niter = build (COND_EXPR, type, niter_desc.may_be_zero,
 		       convert (type, integer_zero_node),
 		       niter);
-      record_estimate (loop, niter,
-		       niter_desc.additional_info,
-		       last_stmt (exits[i]->src));
+      record_estimate_niter (loop, niter,
+			     niter_desc.additional_info,
+			     last_stmt (exits[i]->src));
     }
   free (exits);
   
-  /* TODO Here we could use other possibilities, like bounds of arrays accessed
-     in the loop.  */
+  /* Analyzes the bounds of arrays accessed in the loop.  */
+  if (loop->estimated_nb_iterations == NULL_TREE)
+    {
+      varray_type datarefs;
+      VARRAY_GENERIC_PTR_INIT (datarefs, 3, "datarefs");
+      find_data_references_in_loop (loop, &datarefs);
+      free_data_refs (datarefs);
+    }
 }
 
 /* Records estimates on numbers of iterations of LOOPS.  */

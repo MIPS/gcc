@@ -151,9 +151,10 @@ struct data_dependence_relation
 
 
 
-struct data_dependence_relation *initialize_data_dependence_relation 
+extern tree find_data_references_in_loop (struct loop *, varray_type *);
+extern struct data_dependence_relation *initialize_data_dependence_relation 
 (struct data_reference *, struct data_reference *);
-void compute_affine_dependence (struct data_dependence_relation *);
+extern void compute_affine_dependence (struct data_dependence_relation *);
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *);

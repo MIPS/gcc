@@ -1711,7 +1711,7 @@ tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-ssa-loop-niter.o : tree-ssa-loop-niter.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h $(PARAMS_H) tree-inline.h \
    output.h diagnostic.h $(TM_H) coretypes.h $(TREE_DUMP_H) flags.h \
-   tree-pass.h $(SCEV_H)		 
+   tree-pass.h $(SCEV_H) $(TREE_DATA_REF_H)
 tree-ssa-loop-ch.o : tree-ssa-loop-ch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
