@@ -1037,6 +1037,7 @@ public abstract class Component
     firePropertyChange("font", font, f);
     if (peer != null)
       peer.setFont(f);
+    invalidate();
     font = f;
   }
 

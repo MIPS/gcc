@@ -502,6 +502,20 @@ public class Container extends Component
   }
 
   /**
+   * Recursively invalidates the container tree.
+   */
+  private void invalidateTree()
+  {
+    for (int i = 0; i < ncomponents; i++)
+      {
+        Component comp = component[i];
+        comp.invalidate();
+        if (comp instanceof Container)
+          ((Container) comp).invalidateTree();
+      }
+  }
+
+  /**
    * Recursively validates the container tree, recomputing any invalid
    * layouts.
    */
@@ -546,7 +560,10 @@ public class Container extends Component
   public void setFont(Font f)
   {
     super.setFont(f);
-    // FIXME, should invalidate all children with font == null
+    // FIXME: Although it might make more sense to invalidate only
+    // those children whose font == null, Sun invalidates all children.
+    // So we'll do the same.
+    invalidateTree();
   }
 
   /**

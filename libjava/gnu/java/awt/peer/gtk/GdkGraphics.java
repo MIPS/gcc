@@ -91,7 +91,7 @@ public class GdkGraphics extends Graphics
     this.component = component;
     int rgb[] = initState (component);
     color = new Color (rgb[0], rgb[1], rgb[2]);
-    font = new Font ("Dialog", Font.PLAIN, 10);
+    font = component.awtComponent.getFont();
     Dimension d = component.awtComponent.getSize ();
     clip = new Rectangle (0, 0, d.width, d.height);
   }
@@ -212,10 +212,10 @@ public class GdkGraphics extends Graphics
   native public void drawRect(int x, int y, int width, int height);
   native public void fillRect (int x, int y, int width, int height);
 
-  native void drawString (String str, int x, int y, String fname, int size);
+  native void drawString (String str, int x, int y, String fname, int style, int size);
   public void drawString (String str, int x, int y)
   {
-    drawString (str, x, y, font.getName(), font.getSize());
+    drawString (str, x, y, font.getName(), font.getStyle(), font.getSize());
   }
 
   public void drawString (AttributedCharacterIterator ci, int x, int y)

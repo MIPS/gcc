@@ -1,3 +1,35 @@
+2004-02-27  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics.java
+	(GdkGraphics(Component)): Inherit font from component.
+	(drawString): Use font style.
+	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
+	(gtkSetFont): New native method declaration.
+	(setFont): New method.
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(gtkSetFont): New native method declaration.
+	(setFont): Call new native method gtkSetFont.
+	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
+	(setFont): For all child components who do not their fonts set,
+        set their peers' fonts with this container's font.
+	* gnu/java/awt/peer/gtk/GtkLabelPeer.java:
+	Move all native method declarations to the top for readability.
+	(gtkSetFont): New native method declaration.
+	(setFont): New method.
+	* java/awt/Component.java
+	(setFont): Invalidate after setting the font.
+	* java/awt/Container.java
+	(invalidateTree): New method.
+	(setFont): Invalidate the container tree after setting the font.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics_drawString): Use font style.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkSetFont): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkSetFont): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkLabelPeer_gtkSetFont): New method.
+
 2004-02-27  Olga Rodimina <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
