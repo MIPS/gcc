@@ -1,10 +1,13 @@
 2004-08-17  Ben Elliston  <bje@au.ibm.com>
 
-	* dominance.c (calc_idoms): Eliminate FOR_EACH_EDGE.
+	* dominance.c (calc_idoms): Eliminate use of FOR_EACH_EDGE.
 	* cfghooks.c: (make_forwarder_block): Likewise.
 	* loop-init.c (loop_optimizer_init): Likewise.
 	* cfgcleanup.c (try_forward_edges): Likewise.
 	* gcse.c (bypass_block): Likewise.
+	* function.c (thread_prologue_and_epilogue_insns): Likewise.
+
+2004-08-17  Ben Elliston  <bje@au.ibm.com>
 
 	* cfg.c (remove_edge): Don't use FOR_EACH_EDGE for loops that
 	alter the edge vector.
@@ -14,7 +17,7 @@
 	* basic-block.h (FOR_EACH_EDGE): Record initial edge count.
 	(END_FOR_EACH_EDGE): Test it.
 
-	* basic-block.h (FOR_EACH_EDGE): Output file and function names
+	* basic-block.h (FOR_EACH_EDGE): Output filename and function name
 	when throwing an internal error.
 
 	* cfganal.c (remove_fake_predecessors): Don't use FOR_EACH_EDGE

@@ -4957,6 +4957,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
 #endif
+#ifdef HAVE_return
+  unsigned ix;
+#endif
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -5030,6 +5033,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
+	  unsigned ix;
 	  rtx epilogue_line_note = NULL_RTX;
 
 	  /* Locate the line number associated with the closing brace,
@@ -5043,17 +5047,23 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  FOR_EACH_EDGE (e, last->preds)
+	  for (ix = 0; VEC_iterate (edge, last->preds, ix, e); )
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
 	      if (bb == ENTRY_BLOCK_PTR)
-		continue;
+		{
+		  ix++;
+		  continue;
+		}
 
 	      jump = BB_END (bb);
 	      if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
-		continue;
+		{
+		  ix++;
+		  continue;
+		}
 
 	      /* If we have an unconditional jump, we can replace that
 		 with a simple return instruction.  */
@@ -5068,21 +5078,29 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	      else if (condjump_p (jump))
 		{
 		  if (! redirect_jump (jump, 0, 0))
-		    continue;
+		    {
+		      ix++;
+		      continue;
+		    }
 
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
 		  if (EDGE_COUNT (bb->succs) == 1)
-		    continue;
+		    {
+		      ix++;
+		      continue;
+		    }
 		}
 	      else
-		continue;
+		{
+		  ix++;
+		  continue;
+		}
 
 	      /* Fix up the CFG for the successful change we just made.  */
 	      redirect_edge_succ (e, EXIT_BLOCK_PTR);
 	    }
-	  END_FOR_EACH_EDGE;
 
 	  /* Emit a return insn for the exit fallthru block.  Whether
 	     this is still reachable will be determined later.  */
@@ -5166,7 +5184,7 @@ epilogue_done:
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  for (ix = 0; VEC_iterate (edge, EXIT_BLOCK_PTR->preds, ix, e); )
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
@@ -5175,7 +5193,10 @@ epilogue_done:
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       start_sequence ();
       emit_insn (gen_sibcall_epilogue ());
@@ -5190,8 +5211,9 @@ epilogue_done:
 
       i = PREV_INSN (insn);
       newinsn = emit_insn_before (seq, insn);
+
+      ix++;
     }
-  END_FOR_EACH_EDGE;
 #endif
 
 #ifdef HAVE_prologue
