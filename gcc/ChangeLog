@@ -1,3 +1,22 @@
+2001-09-25  David S. Miller  <davem@redhat.com>
+
+	Convert all of Sparc scheduling to DFA
+	* config/sparc/sparc.md: Kill all define_function_unit
+	directives and replace with DFA equivalent.
+	* config/sparc/sparc.c (ultrasparc_adjust_cost,
+	mark_ultrasparc_pipeline_state, ultra_cmove_results_ready_p,
+	ultra_fpmode_conflict_exists, ultra_find_type,
+	ultra_build_types_avail, ultra_flush_pipeline,
+	ultra_rescan_pipeline_state, ultrasparc_sched_reorder,
+	ultrasparc_variable_issue, ultrasparc_sched_init,
+	sparc_variable_issue, sparc_sched_reorder, ultra_code_from_mask,
+	ultra_schedule_insn, ultra_code_names, ultra_pipe_hist,
+	ultra_cur_hist, ultra_cycles_elapsed): Kill.
+	(sparc_use_dfa_pipeline_interface, sparc_use_sched_lookahead,
+	ultrasparc_store_bypass_p): New.
+	* config/sparc/sparc-protos.h (ultrasparc_store_bypass_p):
+	Declare.
+
 2001-09-24  David S. Miller  <davem@redhat.com>
 
 	* haifa-sched.c (ready_remove): Fix thinko, we want to copy around
@@ -14,6 +33,11 @@
 	each automaton.
 	(generate): Remove printing meease about creation of
 	automata.
+
+2001-09-05  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/linux.h: Set CPLUSPLUS_CPP_SPEC.
+	* config/sparc/linux64.h: Likewise.
 
 2001-08-31  Vladimir Makarov  <vmakarov@redhat.com>
 
