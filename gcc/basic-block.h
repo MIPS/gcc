@@ -770,9 +770,14 @@ void test_invariants		 PARAMS ((struct loops *));
 bool loop_invariant_rtx_p	 PARAMS ((struct loop_invariants *, rtx, rtx));
 basic_block loop_split_edge_with PARAMS ((edge, rtx, struct loops *));
 void force_single_succ_latches   PARAMS ((struct loops *));
-void create_preheaders		 PARAMS ((struct loops *));
-basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *, int));
 bool just_once_each_iteration_p  PARAMS ((struct loops *,struct loop *, basic_block));
 int num_loop_insns PARAMS ((struct loop *));
+
+#define CP_SIMPLE_PREHEADERS	1
+#define CP_INSIDE_CFGLAYOUT	2
+#define CP_FOR_LOOP_NEW		(CP_SIMPLE_PREHEADERS | CP_INSIDE_CFGLAYOUT)
+
+void create_preheaders		 PARAMS ((struct loops *, int));
+basic_block create_preheader	 PARAMS ((struct loop *, sbitmap *, int));
 
 #endif /* GCC_BASIC_BLOCK_H */

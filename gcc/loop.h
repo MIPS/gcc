@@ -426,3 +426,29 @@ void loop_optimizer_finalize PARAMS ((struct loops *, FILE *));
 void unroll_loops PARAMS ((struct loops *, int));
 void peel_loops PARAMS ((struct loops *, int));
 void unswitch_loops PARAMS ((struct loops *));
+
+/* Other exported functions.  */
+
+/* Description of loop for simple loop unrolling.  */
+struct loop_desc
+{
+  int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
+  rtx var;		/* Loop control variable.  */
+  int grow;		/* 1 if it grows, 0 if it decreases.  */
+  rtx lim;		/* Expression var is compared with.  */
+  rtx init;		/* Initial value of var.  */
+  int lim_n;
+  int init_n;		/* And their integer values.  */
+  int const_iter;       /* One if both limits are integer constants.  */
+  enum rtx_code cond;	/* Exit condition.  */
+  int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
+};
+
+int expected_loop_iterations PARAMS ((struct loop *));
+bool can_duplicate_loop_p PARAMS ((struct loop *loop));
+#define DLTHE_FLAG_UPDATE_DOMINATORS	1
+#define DLTHE_FLAG_UPDATE_FREQ		2
+#define DLTHE_FLAG_ALL			(DLTHE_FLAG_UPDATE_DOMINATORS \
+					| DLTHE_FLAG_UPDATE_FREQ)
+int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int, int, int));
+

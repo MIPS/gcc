@@ -528,10 +528,19 @@ int flag_strength_reduce = 0;
 
 int flag_unroll_loops;
 
+/* Enables unrolling of simple loops in loop-new.c.  */
+int flag_new_unroll_loops;
+
 /* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
    This is generally not a win.  */
 
 int flag_unroll_all_loops;
+
+/* Enables unrolling of all loops in loop-new.c.  */
+int flag_new_unroll_all_loops;
+
+/* Nonzero enables loop peeling.  */
+int flag_peel_loops;
 
 /* Nonzero enables loop unswitching.  */
 int flag_unswitch_loops;
@@ -1006,6 +1015,12 @@ static const lang_independent_options f_options[] =
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
    N_("Perform loop unrolling for all loops") },
+  {"new-unroll-loops", &flag_new_unroll_loops, 1,
+   N_("Perform loop unrolling when iteration count is known") },
+  {"new-unroll-all-loops", &flag_new_unroll_all_loops, 1,
+   N_("Perform loop unrolling for all loops") },
+  {"peel-loops", &flag_peel_loops, 1,
+   N_("Perform loop peeling") },
   {"unswitch-loops", &flag_unswitch_loops, 1,
    N_("Perform loop unswitching") },
   {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1,
@@ -2877,7 +2892,7 @@ rest_of_compilation (decl)
 
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       flow_loops_find (&loops, LOOP_TREE);
-      create_preheaders (&loops);
+      create_preheaders (&loops, 0);
       flow_loops_free (&loops);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
@@ -3049,6 +3064,12 @@ rest_of_compilation (decl)
 	  if (flag_unswitch_loops)
 	    unswitch_loops (loops);
 
+ 	  if (flag_peel_loops)
+ 	    peel_loops (loops, flag_new_unroll_loops);
+ 
+ 	  if (flag_new_unroll_loops)
+ 	    unroll_loops (loops, flag_new_unroll_all_loops);
+
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
 
@@ -3111,7 +3132,7 @@ rest_of_compilation (decl)
       reg_scan (insns, max_reg_num (), 1);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       flow_loops_find (&loops, LOOP_TREE);
-      create_preheaders (&loops);
+      create_preheaders (&loops, 0);
       flow_loops_free (&loops);
       gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
@@ -4883,6 +4904,7 @@ parse_options_and_default_flags (argc, argv)
     {
       flag_inline_functions = 1;
       flag_rename_registers = 1;
+      flag_new_unroll_loops = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -5035,6 +5057,20 @@ process_options ()
      be done.  */
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
+
+  /* Same for new loop unrolling.  */
+  if (flag_new_unroll_all_loops)
+    flag_new_unroll_loops = 1;
+  if (flag_unroll_all_loops && flag_new_unroll_loops)
+    flag_new_unroll_all_loops = 1;
+
+  /* If new unrolling / peeling is on, disable old one.  */
+  if (flag_new_unroll_loops || flag_peel_loops)
+    {
+      flag_unroll_loops = 0;
+      flag_unroll_all_loops = 0;
+    }
+
   /* Loop unrolling requires that strength_reduction be on also.  Silently
      turn on strength reduction here if it isn't already on.  Also, the loop
      unrolling code assumes that cse will be run after loop, so that must

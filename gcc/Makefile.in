@@ -729,8 +729,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	\
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	\
  stor-layout.o stringpool.o timevar.o toplev.o tree.o tree-dump.o 	\
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- tracer.o web.o cfgloopanal.o coalesce.o				\
+ tree-inline.o unroll.o unroll-new.o varasm.o varray.o version.o	\
+ vmsdbgout.o xcoffout.o tracer.o web.o cfgloopanal.o coalesce.o		\
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1488,6 +1488,10 @@ loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
    toplev.h varray.h except.h cselib.h $(OPTABS_H) $(TM_P_H)
 loop-new.o : loop-new.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
+   insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
+   real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h params.h \
+   toplev.h varray.h except.h cselib.h $(TM_P_H) cfglayout.h
+unroll-new.o : unroll-new.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h params.h \
    toplev.h varray.h except.h cselib.h $(TM_P_H) cfglayout.h

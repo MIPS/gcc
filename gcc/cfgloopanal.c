@@ -416,13 +416,14 @@ test_invariants (loops)
 }
 
 /* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
-   SIMPLE_PREHEADER is set, we only force LOOP to have single entry; otherwise
-   we also force preheader block to have only one successor.  */
+   CP_SIMPLE_PREHEADERS is set in FLAGS, we only force LOOP to have single
+   entry; otherwise we also force preheader block to have only one successor.
+   */
 basic_block
-create_preheader (loop, dom, simple_preheader)
+create_preheader (loop, dom, flags)
      struct loop *loop;
      sbitmap *dom;
-     int simple_preheader;
+     int flags;
 {
   edge e, fallthru;
   basic_block dummy;
@@ -444,7 +445,7 @@ create_preheader (loop, dom, simple_preheader)
   if (nentry == 1)
     {
       for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      if (!simple_preheader
+      if (!(flags & CP_SIMPLE_PREHEADERS)
 	  || !e->src->succ->succ_next)
 	return NULL;
     }
@@ -455,6 +456,9 @@ create_preheader (loop, dom, simple_preheader)
   if (loop->latch == loop->header)
     loop->latch = fallthru->dest;
   loop->header = fallthru->dest;
+
+  if (flags & CP_INSIDE_CFGLAYOUT)
+    alloc_aux_for_block (fallthru->dest, sizeof (struct reorder_block_def));
   
   /* Redirect edges. */
   for (e = dummy->pred; e; e = e->pred_next)
@@ -468,11 +472,16 @@ create_preheader (loop, dom, simple_preheader)
 
   dummy->frequency -= EDGE_FREQUENCY (e);
   dummy->count -= e->count;
-  jump = redirect_edge_and_branch_force (e, loop->header);
-  if (jump)
+  if (flags & CP_INSIDE_CFGLAYOUT)
+    cfg_layout_redirect_edge (e, loop->header);
+  else
     {
-      set_immediate_dominator (dom, jump, src);
-      add_bb_to_loop (jump, loop);
+      jump = redirect_edge_and_branch_force (e, loop->header);
+      if (jump)
+	{
+	  set_immediate_dominator (dom, jump, src);
+	  add_bb_to_loop (jump, loop);
+	}
     }
 
   /* Update structures.  */
@@ -489,12 +498,13 @@ create_preheader (loop, dom, simple_preheader)
 
 /* Create preheaders for each loop.  */
 void
-create_preheaders (loops)
+create_preheaders (loops, flags)
      struct loops *loops;
+     int flags;
 {
   int i;
   for (i = 1; i < loops->num; i++)
-    create_preheader (loops->parray[i], loops->cfg.dom, 0);
+    create_preheader (loops->parray[i], loops->cfg.dom, flags);
 }
 
 /* Enumeration predicate for just_once_each_iteration_p.  */

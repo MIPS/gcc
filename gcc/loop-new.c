@@ -234,7 +234,6 @@ iterate_fix_dominators (doms, bbs, n, local)
 static struct loop * duplicate_loop PARAMS ((struct loops *, struct loop *, struct loop *));
 static void duplicate_subloops PARAMS ((struct loops *, struct loop *, struct loop *));
 static void copy_loops_to PARAMS ((struct loops *, struct loop **, int, struct loop *));
-static int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int, int, int, int));
 static void loop_redirect_edge PARAMS ((edge, basic_block));
 static void loop_delete_branch_edge PARAMS ((edge));
 static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *));
@@ -251,14 +250,12 @@ static void add_loop PARAMS ((struct loops *, struct loop *));
 static void fix_loop_placement PARAMS ((struct loop *));
 static void place_new_loop PARAMS ((struct loops *, struct loop *));
 static void unswitch_single_loop PARAMS ((struct loops *, struct loop *, rtx, int));
-static bool can_duplicate_loop_p PARAMS ((struct loop *loop));
 static bool may_unswitch_on_p PARAMS ((struct loops *, basic_block, struct loop *, basic_block *));
 static edge split_loop_bb PARAMS ((struct loops *, basic_block, rtx));
 static rtx reversed_condition PARAMS ((rtx));
-static int expected_loop_iterations PARAMS ((struct loop *));
 static void scale_loop_frequencies PARAMS ((struct loop *, int, int));
 static void scale_bbs_frequencies PARAMS ((basic_block *, int, int, int));
- 
+
 /* Initialize loop optimizer.  */
 
 struct loops *
@@ -277,17 +274,17 @@ loop_optimizer_init (dumpfile)
       return NULL;
     }
 
-  /* Create pre-headers.  */
-  create_preheaders (loops);
-
-  /* Dump loops.  */
-  flow_loops_dump (loops, dumpfile, NULL, 1);
-
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (loops);
 
+  /* Create pre-headers.  */
+  create_preheaders (loops, CP_FOR_LOOP_NEW);
+
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
+
+  /* Dump loops.  */
+  flow_loops_dump (loops, dumpfile, NULL, 1);
 
 #ifdef ENABLE_CHECKING
   verify_dominators ();
@@ -576,7 +573,7 @@ unswitch_single_loop (loops, loop, cond_checked, num)
 }
 
 /* Returns expected number of LOOP iterations.  */
-static int
+int
 expected_loop_iterations (loop)
      struct loop *loop;
 {
@@ -749,9 +746,9 @@ try_remove_path (loops, loop, e)
   /* Check whether we would not create unreachable blocks.  */
   for (i = 0; i < nrem; i++)
     {
-      n_dom_bbs = get_dominated_by (loops->cfg.dom, from, &dom_bbs);
+      n_dom_bbs = get_dominated_by (loops->cfg.dom, rem_bbs[i], &dom_bbs);
       for (j = 0; j < n_dom_bbs; j++)
-        if (!flow_bb_inside_loop_p (loop, dom_bbs[j]))
+	if (!flow_bb_inside_loop_p (loop, dom_bbs[j]))
 	  {
 	    free (dom_bbs);
 	    free (rem_bbs);
@@ -992,7 +989,7 @@ unswitch_loop (loops, loop, unswitch_on)
        entry = entry->pred_next);
   
   /* Make a copy.  */
-  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, 0, 0, 0))
+  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, 0, 0))
     return NULL;
 
   /* Record switch block.  */
@@ -1333,7 +1330,7 @@ remove_exit_edges (bbs, n, header)
 }
 
 /* Check whether LOOP's body can be duplicated.  */
-static bool
+bool
 can_duplicate_loop_p (loop)
      struct loop *loop;
 {
@@ -1358,22 +1355,16 @@ can_duplicate_loop_p (loop)
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of
    updating LOOPS structure.  E's destination must be LOOP header for this to
    work.  Remove exit edges from copies corresponding to set bits in WONT_EXIT
-   (bit 0 corresponds to original LOOP body).  If UPDATE_DOMINATORS is set,
-   also take care of updating dominators outside LOOP.  If UPDATE_FREQ is set,
-   also update frequencies, otherwise just copy them.  Returns false if
+   (bit 0 corresponds to original LOOP body).  Returns false if
    duplication is impossible.  */
-/* Grrr... this function is getting far too complicated for me to like it.
-   I should make something with it.  */
-static int
-duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit,
-			       update_dominators, update_freq)
+int
+duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
      struct loop *loop;
      edge e;
      struct loops *loops;
      int ndupl;
      int wont_exit;
-     int update_dominators;
-     int update_freq;
+     int flags;
 {
   struct loop *target, *aloop;
   struct loop **orig_loops;
@@ -1525,7 +1516,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit,
 	{
 	  new_bb = new_bbs[i];
 	  bb = bbs[i];
-	  if (update_freq)
+	  if (flags & DLTHE_FLAG_UPDATE_FREQ)
 	    {
 	      new_bb->count = (kk * bb->count +
 			       REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
@@ -1592,7 +1583,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit,
     remove_exit_edges (bbs, n, latch_edge->dest);
  
   /* Update edge counts.  */
-  if (update_freq)
+  if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
       for (i = 0; i < n; i++)
 	{
@@ -1616,7 +1607,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit,
     more_active = 1;
 
   /* Update dominators of other blocks if affected.  */
-  if (update_dominators)
+  if (flags & DLTHE_FLAG_UPDATE_DOMINATORS)
     {
       for (i = 0; i < n; i++)
 	{
