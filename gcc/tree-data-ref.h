@@ -131,14 +131,14 @@ struct data_dependence_relation GTY(())
 #define DDR_SUBSCRIPTS(DDR) DDR->subscripts
 #define DDR_SUBSCRIPTS_VECTOR_INIT(DDR, N) \
   VARRAY_GENERIC_PTR_INIT (DDR_SUBSCRIPTS (DDR), N, "subscripts_vector");
-#define DDR_SUBSCRIPTS_VECTOR_FINALIZE(DDR) varray_clear (DDR_SUBSCRIPTS (ddr))
+#define DDR_SUBSCRIPTS_VECTOR_FINALIZE(DDR) varray_clear (DDR_SUBSCRIPTS (DDR))
 #define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
 #define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
 
 
 
-extern void analyze_all_data_dependences (void);
-extern void find_data_references (varray_type);
+extern void analyze_all_data_dependences (struct loops *);
+extern void find_data_references (varray_type *);
 
 extern void compute_distance_vector (struct data_dependence_relation *);
 extern void compute_direction_vector (struct data_dependence_relation *);
@@ -156,7 +156,7 @@ extern void dump_data_dependence_relation (FILE *,
 extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
-extern void compute_all_dependences (varray_type, varray_type);
+extern void compute_all_dependences (varray_type, varray_type *);
 extern struct data_reference *analyze_array (tree, tree);
 
 

@@ -420,8 +420,8 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
   return determinant;
 }
 
-/* Decompose mat to a product  of a lower triangular and a unimodular
-   matrix.  */
+/* Decompose mat to a product of a lower triangular H and a unimodular
+   U matrix.  */
 
 void
 lambda_matrix_hermite (lambda_matrix mat, int n,

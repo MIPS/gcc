@@ -4127,6 +4127,9 @@ print_loop (FILE *file,
       fprintf (file, ")");
     }
   
+  else
+    fprintf (file, " (nb_iterations not_analyzed_yet)");
+  
   /* Print the loop's body.  */
   fprintf (file, " (body (\n");
   FOR_EACH_BB (bb)
@@ -4163,9 +4166,17 @@ print_loop_ir (FILE *file)
 /* Debugging loops structure at tree level.  */
 
 void 
-debug_loop_ir (void)
+tree_debug_loops (void)
 {
   print_loop_ir (stderr);
+}
+
+/* Debugging loops structure at tree level.  */
+
+void 
+tree_debug_loop (struct loop *loop)
+{
+  print_loop (stderr, loop, 0);
 }
 
 /* Return 1 if BB ends with a call, possibly followed by some

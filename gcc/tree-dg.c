@@ -90,20 +90,18 @@ void dg_init_graph (void)
 void dg_create_graph (void)
 {
   unsigned int i;
-  
-  /* When computing the data references, this is the  maximum number 
-     of nodes that we want to compute.  */
-  int alldd_max_size = 100;
-  
-  VARRAY_GENERIC_PTR_INIT (datarefs, alldd_max_size, "datarefs");
+  int nb_data_refs;
+
+  VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
+  find_data_references (&datarefs);
+  nb_data_refs = VARRAY_ACTIVE_SIZE (datarefs);
   VARRAY_GENERIC_PTR_INIT (dependence_relations, 
-			   alldd_max_size * alldd_max_size,
+			   nb_data_refs * nb_data_refs,
 			   "dependence_relations");
 
   /* Analyze data references and dependence relations using scev.  */
   
-  find_data_references (datarefs);
-  compute_all_dependences (datarefs, dependence_relations);
+  compute_all_dependences (datarefs, &dependence_relations);
   
   /* Initialize.  */
   dg_init_graph ();

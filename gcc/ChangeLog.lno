@@ -1,3 +1,26 @@
+2004-03-23  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-cfg.c (print_loop): Modify dump formatting.
+	(debug_loop_ir): Renamed tree_debug_loops.
+	(tree_debug_loop): New.
+	* tree-chrec.c: Restructure for handling more carefully types.
+	* tree-chre.h: Same.
+	* tree-fold-const.h: Same.
+	* tree-fold-const.c: Same.
+	* tree-scalar-evolution.c: Same.
+	* tree-scalar-evolution.h: Same.
+	* tree-data-ref.c (dump_data_dependence_relation): Remove the 
+	dump of the base_name because it produces too many conflicts in 
+	the diffs of the testsuite.  
+	(compute_all_dependences): Use pointers to the dependence_relations varray.
+	(int_cst_value, build_classic_dist_vector): New.
+	(find_data_references): Use pointers to datarefs varray.
+	(analyze_all_data_dependences): Compute the classic distances.
+	* tree-data-ref.h: Declare functions.
+	* tree-dg.c (dg_create_graph): Update the uses of the data-ref functions.
+	* tree-flow.h (debug_loop_ir): Renamed to tree_debug_loops.
+	(tree_debug_loop): Declare.
+
 2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-flow.h (tree_ssa_dce_no_cfg_changes): Declaration removed.

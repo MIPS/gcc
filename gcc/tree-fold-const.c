@@ -30,24 +30,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 
-/* Debugging functions.  */
-
-/* This is the identity function.  It can be used to insert breakpoints 
-   in complex tree constructions such as those in the fold functions.  */
-
-tree 
-id_tree (tree t)
-{
-  return t;
-}
-
-
-
 /* Least common multiple.  */
 
 tree 
-tree_fold_int_lcm (tree a, 
-		   tree b)
+tree_fold_lcm (tree a, 
+	       tree b)
 {
   tree pgcd;
   
@@ -67,21 +54,22 @@ tree_fold_int_lcm (tree a,
       || integer_zerop (b)) 
     return integer_zero_node;
   
-  pgcd = tree_fold_int_gcd (a, b);
+  pgcd = tree_fold_gcd (a, b);
   
   if (integer_onep (pgcd))
-    return tree_fold_int_multiply (a, b);
+    return tree_fold_multiply (integer_type_node, a, b);
   else
-    return tree_fold_int_multiply 
-      (pgcd, tree_fold_int_lcm (tree_fold_int_exact_div (a, pgcd), 
-				tree_fold_int_exact_div (b, pgcd)));
+    return tree_fold_multiply 
+      (integer_type_node, pgcd, 
+       tree_fold_lcm (tree_fold_exact_div (integer_type_node, a, pgcd), 
+		      tree_fold_exact_div (integer_type_node, b, pgcd)));
 }
 
 /* Greatest common divisor.  */
 
 tree 
-tree_fold_int_gcd (tree a, 
-		   tree b)
+tree_fold_gcd (tree a, 
+	       tree b)
 {
   tree a_minus_b;
   
@@ -98,28 +86,37 @@ tree_fold_int_gcd (tree a,
     return a;
   
   if (tree_int_cst_sgn (a) == -1)
-    a = tree_fold_int_multiply (a, integer_minus_one_node);
+    a = tree_fold_multiply (integer_type_node, a, integer_minus_one_node);
   
   if (tree_int_cst_sgn (b) == -1)
-    b = tree_fold_int_multiply (b, integer_minus_one_node);
+    b = tree_fold_multiply (integer_type_node, b, integer_minus_one_node);
   
-  a_minus_b = tree_fold_int_minus (a, b);
+  a_minus_b = tree_fold_minus (integer_type_node, a, b);
   
   if (integer_zerop (a_minus_b))
     return a;
   
   if (tree_int_cst_sgn (a_minus_b) == 1)
-    return tree_fold_int_gcd (a_minus_b, b);
+    return tree_fold_gcd (a_minus_b, b);
   
-  return tree_fold_int_gcd (tree_fold_int_minus (b, a), a);
+  return tree_fold_gcd (tree_fold_minus (integer_type_node, b, a), a);
 }
 
-/* Computes the greatest common divisor using the Bezout algorithm.
-   The gcd is returned, and the coefficients of the unimodular matrix
-   U are (u11, u12, u21, u22) such that: U.A = S
+/* Bezout: Let a1 and a2 be two integers; there exist two integers u11
+   and u12 such that, 
    
-   (u11 u12) (a1) = (gcd)
-   (u21 u22) (a2)   (0)
+   |  u11 * a1 + u12 * a2 = gcd (a1, a2).
+   
+   This function computes the greatest common divisor using the
+   Blankinship algorithm.  The gcd is returned, and the coefficients
+   of the unimodular matrix U are (u11, u12, u21, u22) such that, 
+
+   |  U.A = S
+   
+   |  (u11 u12) (a1) = (gcd)
+   |  (u21 u22) (a2)   (0)
+   
+   FIXME: Use lambda_..._hermite for implementing this function.
 */
 
 tree 
@@ -140,30 +137,35 @@ tree_fold_bezout (tree a1,
   *u21 = integer_zero_node;
   *u22 = integer_one_node;
   
+  if (integer_zerop (a1)
+      || integer_zerop (a2))
+    return integer_zero_node;
+  
   while (!integer_zerop (s2))
     {
       int sign;
       tree z, zu21, zu22, zs2;
       
       sign = tree_int_cst_sgn (s1) * tree_int_cst_sgn (s2);
-      z = tree_fold_int_floor_div (tree_fold_int_abs (s1), 
-				   tree_fold_int_abs (s2));
-      zu21 = tree_fold_int_multiply (z, *u21);
-      zu22 = tree_fold_int_multiply (z, *u22);
-      zs2 = tree_fold_int_multiply (z, s2);
+      z = tree_fold_floor_div (integer_type_node, 
+			       tree_fold_abs (integer_type_node, s1), 
+			       tree_fold_abs (integer_type_node, s2));
+      zu21 = tree_fold_multiply (integer_type_node, z, *u21);
+      zu22 = tree_fold_multiply (integer_type_node, z, *u22);
+      zs2 = tree_fold_multiply (integer_type_node, z, s2);
       
       /* row1 -= z * row2.  */
       if (sign < 0)
 	{
-	  *u11 = tree_fold_int_plus (*u11, zu21);
-	  *u12 = tree_fold_int_plus (*u12, zu22);
-	  s1 = tree_fold_int_plus (s1, zs2);
+	  *u11 = tree_fold_plus (integer_type_node, *u11, zu21);
+	  *u12 = tree_fold_plus (integer_type_node, *u12, zu22);
+	  s1 = tree_fold_plus (integer_type_node, s1, zs2);
 	}
       else if (sign > 0)
 	{
-	  *u11 = tree_fold_int_minus (*u11, zu21);
-	  *u12 = tree_fold_int_minus (*u12, zu22);
-	  s1 = tree_fold_int_minus (s1, zs2);
+	  *u11 = tree_fold_minus (integer_type_node, *u11, zu21);
+	  *u12 = tree_fold_minus (integer_type_node, *u12, zu22);
+	  s1 = tree_fold_minus (integer_type_node, s1, zs2);
 	}
       else
 	/* Should not happen.  */
@@ -189,9 +191,11 @@ tree_fold_bezout (tree a1,
   
   if (tree_int_cst_sgn (s1) < 0)
     {
-      *u11 = tree_fold_int_multiply (*u11, integer_minus_one_node);
-      *u12 = tree_fold_int_multiply (*u12, integer_minus_one_node);
-      s1 = tree_fold_int_multiply (s1, integer_minus_one_node);
+      *u11 = tree_fold_multiply (integer_type_node, *u11, 
+				 integer_minus_one_node);
+      *u12 = tree_fold_multiply (integer_type_node, *u12, 
+				 integer_minus_one_node);
+      s1 = tree_fold_multiply (integer_type_node, s1, integer_minus_one_node);
     }
   
   return s1;
@@ -200,12 +204,14 @@ tree_fold_bezout (tree a1,
 /* The factorial.  */
 
 tree 
-tree_fold_int_factorial (tree f)
+tree_fold_factorial (tree f)
 {
   if (tree_int_cst_sgn (f) <= 0)
     return integer_one_node;
   else
-    return tree_fold_int_multiply 
-      (f, tree_fold_int_factorial (tree_fold_int_minus (f, integer_one_node)));
+    return tree_fold_multiply 
+      (integer_type_node, f, 
+       tree_fold_factorial (tree_fold_minus 
+			    (integer_type_node, f, integer_one_node)));
 }
 

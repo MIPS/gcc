@@ -31,36 +31,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 
-extern tree id_tree (tree);
-
-/* Interface for boolean operations folding.  */
-static inline tree tree_fold_bool_lt (tree, tree);
-static inline tree tree_fold_bool_le (tree, tree);
-static inline tree tree_fold_bool_gt (tree, tree);
-static inline tree tree_fold_bool_ge (tree, tree);
-static inline tree tree_fold_bool_eq (tree, tree);
-static inline tree tree_fold_bool_ne (tree, tree);
-
 /* Interface for integer operations folding.  */
-extern tree tree_fold_int_lcm (tree, tree);
-extern tree tree_fold_int_gcd (tree, tree);
+extern tree tree_fold_lcm (tree, tree);
+extern tree tree_fold_gcd (tree, tree);
 extern tree tree_fold_bezout (tree, tree, tree *, tree *, tree *, tree *);
-extern tree tree_fold_int_factorial (tree);
-
-static inline tree chrec_merge_types (tree, tree);
-static inline tree tree_fold_int_plus (tree, tree);
-static inline tree tree_fold_int_minus (tree, tree);
-static inline tree tree_fold_int_multiply (tree, tree);
-static inline tree tree_fold_int_trunc_div (tree, tree);
-static inline tree tree_fold_int_ceil_div (tree, tree);
-static inline tree tree_fold_int_floor_div (tree, tree);
-
-static inline tree tree_fold_int_exact_div (tree, tree);
-static inline tree tree_fold_int_min (tree, tree);
-static inline tree tree_fold_int_max (tree, tree);
-static inline tree tree_fold_int_abs (tree);
-static inline tree tree_fold_int_binomial (tree, tree);
-static inline bool tree_fold_divides_p (tree, tree);
+extern tree tree_fold_factorial (tree);
 
 
 
@@ -86,58 +61,16 @@ chrec_merge_types (tree type0,
   return type0;
 }
 
-static inline tree 
-tree_fold_bool_lt (tree a,
-		   tree b)
-{
-  return fold (build (LT_EXPR, boolean_type_node, a, b));
-}
-
-static inline tree 
-tree_fold_bool_le (tree a,
-		   tree b)
-{
-  return fold (build (LE_EXPR, boolean_type_node, a, b));
-}
-
-static inline tree 
-tree_fold_bool_gt (tree a,
-		   tree b)
-{
-  return fold (build (GT_EXPR, boolean_type_node, a, b));
-}
-
-static inline tree 
-tree_fold_bool_ge (tree a,
-		   tree b)
-{
-  return fold (build (GE_EXPR, boolean_type_node, a, b));
-}
-
-static inline tree 
-tree_fold_bool_eq (tree a,
-		   tree b)
-{
-  return fold (build (EQ_EXPR, boolean_type_node, a, b));
-}
-
-static inline tree 
-tree_fold_bool_ne (tree a,
-		   tree b)
-{
-  return fold (build (NE_EXPR, boolean_type_node, a, b));
-}
-
 
 
 /* Fold the addition.  */
 
 static inline tree 
-tree_fold_int_plus (tree a,
-		    tree b)
+tree_fold_plus (tree type, 
+		tree a,
+		tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  tree res = fold (build (PLUS_EXPR, type_node, a, b));
+  tree res = fold (build (PLUS_EXPR, type, a, b));
   
   /* Strip away the NON_LVALUE_EXPR: fixes bootstrap on Darwin.  */
   if (TREE_CODE (res) == NON_LVALUE_EXPR)
@@ -150,11 +83,11 @@ tree_fold_int_plus (tree a,
 /* Fold the substraction.  */
 
 static inline tree 
-tree_fold_int_minus (tree a,
-		     tree b)
+tree_fold_minus (tree type, 
+		 tree a,
+		 tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  tree res = fold (build (MINUS_EXPR, type_node, a, b));
+  tree res = fold (build (MINUS_EXPR, type, a, b));
   
   /* Strip away the NON_LVALUE_EXPR: fixes bootstrap on Darwin.  */
   if (TREE_CODE (res) == NON_LVALUE_EXPR)
@@ -167,11 +100,11 @@ tree_fold_int_minus (tree a,
 /* Fold the multiplication.  */
 
 static inline tree 
-tree_fold_int_multiply (tree a,
-			tree b)
+tree_fold_multiply (tree type, 
+		    tree a,
+		    tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  tree res = fold (build (MULT_EXPR, type_node, a, b));
+  tree res = fold (build (MULT_EXPR, type, a, b));
   
   /* Strip away the NON_LVALUE_EXPR: fixes bootstrap on Darwin.  */
   if (TREE_CODE (res) == NON_LVALUE_EXPR)
@@ -184,96 +117,145 @@ tree_fold_int_multiply (tree a,
 /* Division for integer result that rounds the quotient toward zero.  */
 
 static inline tree 
-tree_fold_int_trunc_div (tree a,
-			 tree b)
+tree_fold_trunc_div (tree type, 
+		     tree a,
+		     tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  return fold (build (TRUNC_DIV_EXPR, type_node, a, b));
+  return fold (build (TRUNC_DIV_EXPR, type, a, b));
 }
 
 /* Division for integer result that rounds the quotient toward infinity.  */
 
 static inline tree 
-tree_fold_int_ceil_div (tree a,
-			tree b)
+tree_fold_ceil_div (tree type, 
+		    tree a,
+		    tree b)
 {
-  return fold (build (CEIL_DIV_EXPR, integer_type_node, a, b));
+  return fold (build (CEIL_DIV_EXPR, type, a, b));
 }
 
 /* Division for integer result that rounds toward minus infinity.  */
 
 static inline tree 
-tree_fold_int_floor_div (tree a,
-			 tree b)
+tree_fold_floor_div (tree type, 
+		     tree a,
+		     tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  return fold (build (FLOOR_DIV_EXPR, type_node, a, b));
+  return fold (build (FLOOR_DIV_EXPR, type, a, b));
 }
 
 /* Division which is not supposed to need rounding.  */
 
 static inline tree 
-tree_fold_int_exact_div (tree a,
-			 tree b)
+tree_fold_exact_div (tree type, 
+		     tree a,
+		     tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  return fold (build (EXACT_DIV_EXPR, type_node, a, b));
+  return fold (build (EXACT_DIV_EXPR, type, a, b));
 }
 
 /* Computes the minimum.  */
 
 static inline tree 
-tree_fold_int_min (tree a,
-		   tree b)
+tree_fold_min (tree type, 
+	       tree a,
+	       tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  return fold (build (MIN_EXPR, type_node, a, b));
+  return fold (build (MIN_EXPR, type, a, b));
 }
 
 /* Computes the maximum.  */
 
 static inline tree 
-tree_fold_int_max (tree a,
-		   tree b)
+tree_fold_max (tree type, 
+	       tree a,
+	       tree b)
 {
-  tree type_node = chrec_merge_types (TREE_TYPE (a), TREE_TYPE (b));
-  return fold (build (MAX_EXPR, type_node, a, b));
+  return fold (build (MAX_EXPR, type, a, b));
 }
 
 /* Computes the absolute value.  */
 
 static inline tree 
-tree_fold_int_abs (tree a)
+tree_fold_abs (tree type, 
+	       tree a)
 {
-  return fold (build1 (ABS_EXPR, TREE_TYPE (a), a));
+  return fold (build1 (ABS_EXPR, type, a));
 }
 
 /* The binomial coefficient.  */
 
 static inline tree 
-tree_fold_int_binomial (tree n,
-			tree k)
+tree_fold_binomial (tree n,
+		    tree k)
 {
-  return tree_fold_int_exact_div 
-    (tree_fold_int_factorial (n), 
-     tree_fold_int_multiply 
-     (tree_fold_int_factorial (k),
-      tree_fold_int_factorial 
-      (tree_fold_int_minus (n, k))));
+  return tree_fold_exact_div 
+    (integer_type_node, tree_fold_factorial (n), 
+     tree_fold_multiply 
+     (integer_type_node, tree_fold_factorial (k),
+      tree_fold_factorial 
+      (tree_fold_minus (integer_type_node, n, k))));
 }
 
 /* Determines whether (a divides b), or (a == gcd (a, b)).  */
 
 static inline bool 
-tree_fold_divides_p (tree a, 
+tree_fold_divides_p (tree type, 
+		     tree a, 
 		     tree b)
 {
   if (integer_onep (a))
     return true;
   
   return integer_zerop 
-    (tree_fold_int_minus 
-     (a, tree_fold_int_gcd (a, b)));
+    (tree_fold_minus 
+     (type, a, tree_fold_gcd (a, b)));
 }
+
+/* Given two integer constants A and B, determine whether "A >= B".  */
+
+static inline bool
+tree_is_ge (tree a, tree b)
+{
+  tree cmp = fold (build (GE_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
+
+/* Given two integer constants A and B, determine whether "A > B".  */
+
+static inline bool
+tree_is_gt (tree a, tree b)
+{
+  tree cmp = fold (build (GT_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
+
+/* Given two integer constants A and B, determine whether "A <= B".  */
+
+static inline bool
+tree_is_le (tree a, tree b)
+{
+  tree cmp = fold (build (LE_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
+
+/* Given two integer constants A and B, determine whether "A < B".  */
+
+static inline bool
+tree_is_lt (tree a, tree b)
+{
+  tree cmp = fold (build (LT_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
+
+/* Given two integer constants A and B, determine whether "A == B".  */
+
+static inline bool
+tree_is_eq (tree a, tree b)
+{
+  tree cmp = fold (build (EQ_EXPR, boolean_type_node, a, b));
+  return (tree_int_cst_sgn (cmp) != 0);
+}
+
 
 #endif  /* GCC_TREE_FOLD_H  */

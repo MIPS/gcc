@@ -95,6 +95,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
+#include "lambda.h"
 
 static tree analyze_array_indexes (unsigned, varray_type, tree);
 static bool access_functions_are_affine_or_constant_p (struct data_reference *);
@@ -107,6 +108,7 @@ static void subscript_dependence_tester (struct data_dependence_relation *);
 static void subscript_coupling_tester (struct data_dependence_relation *);
 
 static unsigned int data_ref_id = 0;
+static struct loops *current_loops;
 
 
 
@@ -162,7 +164,6 @@ dump_data_dependence_relations (FILE *file,
     dump_data_dependence_relation (file, VARRAY_GENERIC_PTR (ddr, i));
 }
 
-
 /* Dump function for a DATA_REFERENCE structure.  */
 
 void 
@@ -214,10 +215,6 @@ dump_data_dependence_relation (FILE *outf,
 	  struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
 	  
 	  fprintf (outf, "\n (subscript %d:\n", i);
-	  fprintf (outf, "  base_name_A: ");
-	  print_generic_stmt (outf, DR_BASE_NAME (dra), 0);
-	  fprintf (outf, "  base_name_B: ");
-	  print_generic_stmt (outf, DR_BASE_NAME (drb), 0);
 	  fprintf (outf, "  access_fn_A: ");
 	  print_generic_stmt (outf, DR_ACCESS_FN (dra, i), 0);
 	  fprintf (outf, "  access_fn_B: ");
@@ -401,7 +398,7 @@ analyze_array (tree stmt,
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_num (loop_of_stmt (stmt)), DR_ACCESS_FNS (res), ref);
-
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
   
@@ -470,7 +467,8 @@ compute_distance_vector (struct data_dependence_relation *ddr)
  	  subscript = DDR_SUBSCRIPT (ddr, i);
  	  conflicts_a = SUB_CONFLICTS_IN_A (subscript);
  	  conflicts_b = SUB_CONFLICTS_IN_B (subscript);
- 	  difference = chrec_fold_minus (conflicts_b, conflicts_a);
+ 	  difference = chrec_fold_minus 
+	    (integer_type_node, conflicts_b, conflicts_a);
  	  
  	  if (evolution_function_is_constant_p (difference))
  	    SUB_DISTANCE (subscript) = difference;
@@ -522,7 +520,7 @@ compute_direction_vector (struct data_dependence_relation *ddr)
 
 void 
 compute_all_dependences (varray_type datarefs, 
-			 varray_type dependence_relations)
+			 varray_type *dependence_relations)
 {
   unsigned int i, j;
   
@@ -536,7 +534,7 @@ compute_all_dependences (varray_type datarefs,
 	b = VARRAY_GENERIC_PTR (datarefs, j);
 	ddr = initialize_data_dependence_relation (a, b);
 	
-	VARRAY_PUSH_GENERIC_PTR (dependence_relations, ddr);
+	VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
 	compute_affine_dependence (ddr);
 	compute_distance_vector (ddr);
 	compute_direction_vector (ddr);
@@ -651,6 +649,59 @@ subscript_coupling_tester (struct data_dependence_relation *res ATTRIBUTE_UNUSED
     fprintf (dump_file, ")\n");
 }
 
+/* Return value of a constant X.  
+   Borrowed from tree-ssa-loop-ivopts.c
+   XXX: Move this into tree.c and remove from both files.  */
+
+static HOST_WIDE_INT
+int_cst_value (tree x)
+{
+  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
+  unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
+  bool negative = ((val >> (bits - 1)) & 1) != 0;
+
+  if (negative)
+    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+  else
+    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+
+  return val;
+}
+
+/* Compute the classic per loop distance vector.  */
+
+static void
+build_classic_dist_vector (struct data_dependence_relation *res, 
+			   varray_type *classic_dist)
+{
+  unsigned i, nb_loops;
+  lambda_vector dist;
+  nb_loops = current_loops->num;
+  
+  dist = lambda_vector_new (nb_loops);
+  lambda_vector_clear (dist, nb_loops);
+  
+  if (DDR_ARE_DEPENDENT (res) != NULL_TREE)
+    return;
+  
+  for (i = 0; i < DDR_NUM_SUBSCRIPTS (res); i++)
+    {
+      struct subscript *subscript = DDR_SUBSCRIPT (res, i);
+      
+      if (SUB_DISTANCE (subscript) != chrec_top)
+	{
+	  unsigned loop_nb;
+	  if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC)
+	    {
+	      loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
+	      dist[loop_nb] = int_cst_value (SUB_DISTANCE (subscript));
+	    }
+	}
+    }
+  
+  VARRAY_PUSH_GENERIC_PTR (*classic_dist, dist);
+}
+
 /* For all the subscripts, set the same value: CHREC.  */
 
 static void
@@ -740,7 +791,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
    debugging purposes.  */
 
 void 
-find_data_references (varray_type datarefs)
+find_data_references (varray_type *datarefs)
 {
   basic_block bb;
   block_stmt_iterator bsi;
@@ -762,11 +813,11 @@ find_data_references (varray_type datarefs)
 		   otherwise it does not contain other ARRAY_REFs.  */
 		if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (datarefs, analyze_array (expr, TREE_OPERAND (expr, 0)));
+		    (*datarefs, analyze_array (expr, TREE_OPERAND (expr, 0)));
 		
 		if (TREE_CODE (TREE_OPERAND (expr, 1)) == ARRAY_REF)
 		  VARRAY_PUSH_GENERIC_PTR 
-		    (datarefs, analyze_array (expr, TREE_OPERAND (expr, 1)));
+		    (*datarefs, analyze_array (expr, TREE_OPERAND (expr, 1)));
 		
 		break;
 		
@@ -812,30 +863,55 @@ find_data_references (varray_type datarefs)
    more efficient implementation, or the KB could be disabled.  */
 
 void 
-analyze_all_data_dependences (void)
+analyze_all_data_dependences (struct loops *loops)
 {
+  unsigned int i;
   varray_type datarefs;
   varray_type dependence_relations;
+  varray_type classic_dist;
+  int nb_data_refs;
   
-  /* When computing the whole data dependence graph, this is the
-     maximum number of nodes that we want to compute.  */
-  int alldd_max_size = 100;
+  current_loops = loops;
   
-  VARRAY_GENERIC_PTR_INIT (datarefs, alldd_max_size, "datarefs");
+  VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
+  VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
+  find_data_references (&datarefs);
+  nb_data_refs = VARRAY_ACTIVE_SIZE (datarefs);
   VARRAY_GENERIC_PTR_INIT (dependence_relations, 
-			   alldd_max_size * alldd_max_size,
+			   nb_data_refs * nb_data_refs,
 			   "dependence_relations");
-  
-  find_data_references (datarefs);
-  compute_all_dependences (datarefs, dependence_relations);
-  
+  compute_all_dependences (datarefs, &dependence_relations);
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+    {
+      struct data_dependence_relation *ddr;
+      ddr = VARRAY_GENERIC_PTR (dependence_relations, i);
+      build_classic_dist_vector (ddr, &classic_dist);
+    }
+
   if (dump_file)
     {
       dump_data_dependence_relations (dump_file, dependence_relations);
       fprintf (dump_file, "\n\n");
     }
+
+  
+  /* Don't dump distances for avoiding to update the testsuite.  */
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (classic_dist); i++)
+	{
+	  fprintf (dump_file, "DISTANCE_V (");
+	  print_lambda_vector (dump_file, 
+			       VARRAY_GENERIC_PTR (classic_dist, i),
+			       current_loops->num);
+	  fprintf (dump_file, ")\n");
+	}
+      fprintf (dump_file, "\n\n");
+    }
   
   varray_clear (dependence_relations);
   varray_clear (datarefs);
+  varray_clear (classic_dist);
 }
 
