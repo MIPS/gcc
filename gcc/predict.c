@@ -482,8 +482,11 @@ estimate_probability (loops_info)
 
 	  case EQ:
 	  case UNEQ:
+	    /* Floating point comparisons appears to behave in a very
+	       inpredictable way because of special role of = tests in
+	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
-	      predict_insn_def (last_insn, PRED_FPOPCODE, NOT_TAKEN);
+	      ;
 	    /* Comparisons with 0 are often used for booleans and there is
 	       nothing usefull to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx || XEXP (cond, 0) == const0_rtx)
@@ -493,8 +496,11 @@ estimate_probability (loops_info)
 	    break;
 	  case NE:
 	  case LTGT:
+	    /* Floating point comparisons appears to behave in a very
+	       inpredictable way because of special role of = tests in
+	       FP code.  */
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
-	      predict_insn_def (last_insn, PRED_FPOPCODE, TAKEN);
+	      ;
 	    /* Comparisons with 0 are often used for booleans and there is
 	       nothing usefull to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx || XEXP (cond, 0) == const0_rtx)
@@ -622,8 +628,6 @@ static bool
 last_basic_block_p (bb)
      basic_block bb;
 {
-  rtx insn;
-
   return (bb->index == n_basic_blocks - 1
 	  || (bb->index == n_basic_blocks - 2
 	      && bb->succ && !bb->succ->succ_next
