@@ -69,37 +69,24 @@ public abstract class JTextComponent extends JComponent
 //    {
 //    } // class AccessibleJTextComponent
 
-	/**
-	 * AccessibleJTextComponent
-	 */
-	public class AccessibleJTextComponent extends AccessibleJComponent
-		implements AccessibleText, CaretListener, DocumentListener {
+  /**
+   * AccessibleJTextComponent
+   */
+  public class AccessibleJTextComponent extends AccessibleJComponent
+    implements AccessibleText, CaretListener, DocumentListener
+  {
+    /**
+     * caretPos
+     */
+    int caretPos;
 
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * caretPos
-		 */
-		int caretPos;
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJTextComponent
-		 * @param component TODO
-		 */
-		public AccessibleJTextComponent() {
-		} // AccessibleJTextComponent()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJTextComponent
+     * @param component TODO
+     */
+    public AccessibleJTextComponent()
+    {
+    }
 
 		/**
 		 * getCaretPosition
@@ -314,8 +301,8 @@ public abstract class JTextComponent extends JComponent
 
 	// do the work.....
 	setText(text);
-	this.icon  = icon;
-	this.align     = horizontalAlignment;
+	this.icon = icon;
+	this.align = horizontalAlignment;
 	
         // its an editor, so:
         enableEvents(AWTEvent.KEY_EVENT_MASK);
@@ -389,11 +376,11 @@ public abstract class JTextComponent extends JComponent
         return null;
     }
 
-    public void setText(String text)
-    {
+  public void setText(String text)
+  {
 	getDocument().remove(0,doc.getLength());
 	getDocument().insertString(0, text, null);
-    }
+  }
   
     public String getText()
     {
@@ -494,16 +481,6 @@ public abstract class JTextComponent extends JComponent
   {
     return 0;
   }
-} // class JTextComponent
 
-
-
-
-
-
-
-
-
-
-
+}
 
