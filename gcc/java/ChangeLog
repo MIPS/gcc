@@ -1,5 +1,9 @@
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_catch): Prepare catch type.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_method_call): Don't use virtual dispatch for
 	private methods.
 	(get_vtable_index): Return -1 for private methods.

@@ -444,9 +444,18 @@ tree_generator::visit_catch (model_catch *stmt,
 		      BLOCK_VARS (current_block),
 		      body_tree, current_block);
 
-  current = build2 (CATCH_EXPR, void_type_node,
-		    // FIXME: must prepare the catch type properly...
-		    vtype, bind);
+  // We always emit the catch type as a pointer to a constant pool
+  // entry of type Class.  These will be linked at runtime.  FIXME: ok
+  // for C++ ABI?  Better to emit plain pointer-to-pointer-to-class?
+  // FIXME: this is an ABI change from ordinary gcj.
+  model_class *vklass = assert_cast<model_class *> (vardecl->type ());
+  vtype = build_ref_from_constant_pool (type_class_ptr,
+					class_wrapper->add (vklass));
+  // FIXME: big hack: strip the NOP and add indirection.
+  assert (TREE_CODE (vtype) == NOP_EXPR);
+  vtype = build_address_of (TREE_OPERAND (vtype, 0));
+
+  current = build2 (CATCH_EXPR, void_type_node, vtype, bind);
 }
 
 void
