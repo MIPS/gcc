@@ -1,3 +1,9 @@
+2004-11-06  Robert Schuster  <theBohemian@gmx.net>
+
+	Fixes bug #10908
+	* gnu/java/beans/IntrospectionIncubator.java:
+	(addMethod): static methods are discarded now, too.
+
 2004-11-06  Mark Wielaard  <mark@klomp.org>
 
 	* Makefile.am (awt_java_source_files): Add new gnu/java/awt/color
