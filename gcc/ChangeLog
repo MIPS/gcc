@@ -1,3 +1,7 @@
+2002-11-08  Roger Sayle  <roger@eyesopen.com>
+
+	* real.c (real_sqrt): Update comment with bibliographic reference.
+
 Fri Nov  8 13:33:58 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_loadss, sse2_loadsd): Fix expander.
