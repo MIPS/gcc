@@ -5512,6 +5512,19 @@ process_options ()
       flag_var_tracking
 	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
 	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+
+      /* Temporarily disable variable tracking on big-endian machines.  */
+      if (flag_var_tracking && (WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN))
+	flag_var_tracking = 0;
+    }
+  else
+    {
+      /* Temporarily disable variable tracking on big-endian machines.  */
+      if (flag_var_tracking && (WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN))
+	{
+	  warning ("-fvar-tracking not supported for this target");
+	  flag_var_tracking = 0;
+	}
     }
 
   /* If auxiliary info generation is desired, open the output file.
