@@ -1,3 +1,10 @@
+2005-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19406
+	* dwarf2out.c (gen_type_die_for_member): Handle FIELD_DECL.
+	(dwarf2out_imported_module_or_decl): Use gen_type_die_for_member
+	for FIELD_DECLs.
+
 2004-11-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtin-attrs.def (DEF_ATTR_FOR_INT): Add for 5 and 6.
