@@ -1,3 +1,9 @@
+Wed Oct 23 12:01:21 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (abssf,absdf): Use vector operands for SSE
+	(abssf2_ifs, absdf2_ifs, absdf2_ifs_rex64 and splitters): Update for
+	vector operand.
+
 2002-10-21  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.c (ix86_function_ok_for_sibcall): Look at
