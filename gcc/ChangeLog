@@ -1,5 +1,10 @@
 2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* genautomata.c (transform_3): Process a missing case (nothing on
+	unit place).
+
+2002-09-20  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* rtl.def (DEFINE_QUERY_CPU_UNIT, AUTOMATA_OPTION): Change
 	comments about queried units and the minimization.
 	

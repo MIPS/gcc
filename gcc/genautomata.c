@@ -5067,10 +5067,13 @@ transform_3 (regexp)
     }
   else if (regexp->mode == rm_allof)
     {
-      regexp_t oneof = NULL, seq;
-      int oneof_index = 0, max_seq_length, allof_length;
+      regexp_t oneof = NULL;
+      regexp_t seq;
+      int oneof_index = 0;
+      int max_seq_length, allof_length;
       regexp_t result;
-      regexp_t allof = NULL, allof_op = NULL;
+      regexp_t allof = NULL;
+      regexp_t allof_op = NULL;
       int i, j;
 
       for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
@@ -5117,19 +5120,18 @@ transform_3 (regexp)
       max_seq_length = 0;
       if (regexp->mode == rm_allof)
 	for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	  {
-	    if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
-	      {
-		seq = REGEXP_ALLOF (regexp)->regexps [i];
-		if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
-		  max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
-	      }
-	    else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
-	      {
-		max_seq_length = 0;
-		break;
-	      }
-	  }
+	  if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
+	    {
+	      seq = REGEXP_ALLOF (regexp)->regexps [i];
+	      if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
+		max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
+	    }
+	  else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit
+		   && REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_nothing)
+	    {
+	      max_seq_length = 0;
+	      break;
+	    }
       if (max_seq_length != 0)
 	{
 	  if (max_seq_length == 1 || REGEXP_ALLOF (regexp)->regexps_num <= 1)
@@ -5154,7 +5156,9 @@ transform_3 (regexp)
 		  }
 		else if (i == 0
 			 && (REGEXP_ALLOF (regexp)->regexps [j]->mode
-			     == rm_unit))
+			     == rm_unit
+			     || (REGEXP_ALLOF (regexp)->regexps [j]->mode
+				 == rm_nothing)))
 		  {
 		    allof_op = REGEXP_ALLOF (regexp)->regexps [j];
 		    allof_length++;
@@ -5186,7 +5190,9 @@ transform_3 (regexp)
 		      }
 		    else if (i == 0
 			     && (REGEXP_ALLOF (regexp)->regexps [j]->mode
-				 == rm_unit))
+				 == rm_unit
+				 || (REGEXP_ALLOF (regexp)->regexps [j]->mode
+				     == rm_nothing)))
 		      {
 			allof_op = REGEXP_ALLOF (regexp)->regexps [j];
 			REGEXP_ALLOF (allof)->regexps [allof_length]
