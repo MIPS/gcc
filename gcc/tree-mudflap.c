@@ -995,13 +995,13 @@ mudflap_enqueue_decl (tree obj)
 
       object_size = size_in_bytes (TREE_TYPE (obj));
 
-      if (tree_dump_file)
+      if (dump_file)
         {
-          fprintf (tree_dump_file, "enqueue_decl obj=`");
-          print_generic_expr (tree_dump_file, obj, 0);
-          fprintf (tree_dump_file, "' size=");
-          print_generic_expr (tree_dump_file, object_size, 0);
-          fprintf (tree_dump_file, "\n");
+          fprintf (dump_file, "enqueue_decl obj=`");
+          print_generic_expr (dump_file, obj, 0);
+          fprintf (dump_file, "' size=");
+          print_generic_expr (dump_file, object_size, 0);
+          fprintf (dump_file, "\n");
         }
 
       /* NB: the above condition doesn't require TREE_USED or
@@ -1044,13 +1044,13 @@ mudflap_enqueue_constant (tree obj)
   else
     object_size = size_in_bytes (TREE_TYPE (obj));
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "enqueue_constant obj=`");
-      print_generic_expr (tree_dump_file, obj, 0);
-      fprintf (tree_dump_file, "' size=");
-      print_generic_expr (tree_dump_file, object_size, 0);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "enqueue_constant obj=`");
+      print_generic_expr (dump_file, obj, 0);
+      fprintf (dump_file, "' size=");
+      print_generic_expr (dump_file, object_size, 0);
+      fprintf (dump_file, "\n");
     }
 
   if (TREE_CODE (obj) == STRING_CST)

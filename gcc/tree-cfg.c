@@ -187,8 +187,8 @@ build_tree_cfg (tree *tp)
   }
 
   /* Dump a textual representation of the flowgraph.  */
-  if (tree_dump_file)
-    dump_tree_cfg (tree_dump_file, tree_dump_flags);
+  if (dump_file)
+    dump_tree_cfg (dump_file, tree_dump_flags);
 }
 
 static void
@@ -930,8 +930,8 @@ tree_merge_blocks (basic_block a, basic_block b)
   block_stmt_iterator bsi;
   tree_stmt_iterator last;
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file, "Merging blocks %d and %d\n", a->index, b->index);
+  if (dump_file)
+    fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
 
   /* Ensure that b follows a.  */
   move_block_after (b, a);
@@ -1640,13 +1640,13 @@ remove_bb (basic_block bb)
   block_stmt_iterator i;
   location_t *loc = NULL;
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "Removing basic block %d\n", bb->index);
+      fprintf (dump_file, "Removing basic block %d\n", bb->index);
       if (tree_dump_flags & TDF_DETAILS)
 	{
-	  dump_bb (bb, tree_dump_file, 0);
-	  fprintf (tree_dump_file, "\n");
+	  dump_bb (bb, dump_file, 0);
+	  fprintf (dump_file, "\n");
 	}
     }
 

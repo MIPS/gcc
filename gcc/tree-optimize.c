@@ -50,7 +50,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Global variables used to communicate with passes.  */
-FILE *tree_dump_file;
 int tree_dump_flags;
 bitmap vars_to_rename;
 
@@ -343,9 +342,9 @@ execute_todo (unsigned int flags)
       BITMAP_XFREE (vars_to_rename);
     }
 
-  if ((flags & TODO_dump_func) && tree_dump_file)
+  if ((flags & TODO_dump_func) && dump_file)
     dump_function_to_file (current_function_decl,
-			   tree_dump_file, tree_dump_flags);
+			   dump_file, tree_dump_flags);
 
   if (flags & TODO_ggc_collect)
     ggc_collect ();
@@ -381,14 +380,14 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number)
     {
-      tree_dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
-      if (tree_dump_file)
+      dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
+      if (dump_file)
 	{
 	  const char *dname, *aname;
 	  dname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
-	  fprintf (tree_dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
+	  fprintf (dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
 	}
     }
 
@@ -417,10 +416,10 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Close down timevar and dump file.  */
   if (pass->tv_id)
     timevar_pop (pass->tv_id);
-  if (tree_dump_file)
+  if (dump_file)
     {
-      dump_end (pass->static_pass_number, tree_dump_file);
-      tree_dump_file = NULL;
+      dump_end (pass->static_pass_number, dump_file);
+      dump_file = NULL;
     }
 
   return true;

@@ -609,11 +609,11 @@ factor_through_injuries (struct expr_info *ei, tree start, tree var,
       end = find_rhs_use_for_var (SSA_NAME_DEF_STMT (end), var);
       if (!okay_injuring_def (SSA_NAME_DEF_STMT (end), var))
 	break;
-      if (tree_dump_file)
+      if (dump_file)
 	{
-	  fprintf (tree_dump_file, "Found a real injury:");
-	  print_generic_stmt (tree_dump_file, SSA_NAME_DEF_STMT (end), 0);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "Found a real injury:");
+	  print_generic_stmt (dump_file, SSA_NAME_DEF_STMT (end), 0);
+	  fprintf (dump_file, "\n");
 	}
       if (injured)
 	*injured = true;
@@ -732,11 +732,11 @@ set_var_phis (struct expr_info *ei, tree phi)
 						     SSA_NAME_VAR (phi_operand),
 						     NULL);
 	      phi_operand = SSA_NAME_DEF_STMT (phi_operand);
-	      if (tree_dump_file)
+	      if (dump_file)
 		{
-		  fprintf (tree_dump_file, "After factoring through injuries:");
-		  print_generic_stmt (tree_dump_file, phi_operand, 0);
-		  fprintf (tree_dump_file, "\n");
+		  fprintf (dump_file, "After factoring through injuries:");
+		  print_generic_stmt (dump_file, phi_operand, 0);
+		  fprintf (dump_file, "\n");
 		}
 	    }
 
@@ -1735,17 +1735,17 @@ rename_1 (struct expr_info *ei)
 	    }
 	}
     }
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
       size_t i;
-      fprintf (tree_dump_file, "Occurrences for expression ");
-      print_generic_expr (tree_dump_file, ei->expr, 0);
-      fprintf (tree_dump_file, " after Rename 1\n");
+      fprintf (dump_file, "Occurrences for expression ");
+      print_generic_expr (dump_file, ei->expr, 0);
+      fprintf (dump_file, " after Rename 1\n");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
 	{
-	  print_generic_expr (tree_dump_file, 
+	  print_generic_expr (dump_file, 
 			      VARRAY_TREE (ei->euses_dt_order, i), 1);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "\n");
 	}
     }
 
@@ -2099,16 +2099,16 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   newtemp = make_ssa_name (temp, expr);  
   TREE_OPERAND (expr, 0) = newtemp;
   copy = TREE_OPERAND (expr, 1);
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "In BB %d, insert save of ", bb->index);
-      print_generic_expr (tree_dump_file, expr, 0);
-      fprintf (tree_dump_file, " to ");
-      print_generic_expr (tree_dump_file, newtemp, 0);
-      fprintf (tree_dump_file, " after ");
-      print_generic_stmt (tree_dump_file, last_stmt (bb), tree_dump_flags);
-      fprintf (tree_dump_file, " (on edge), because of EPHI");
-      fprintf (tree_dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
+      fprintf (dump_file, "In BB %d, insert save of ", bb->index);
+      print_generic_expr (dump_file, expr, 0);
+      fprintf (dump_file, " to ");
+      print_generic_expr (dump_file, newtemp, 0);
+      fprintf (dump_file, " after ");
+      print_generic_stmt (dump_file, last_stmt (bb), tree_dump_flags);
+      fprintf (dump_file, " (on edge), because of EPHI");
+      fprintf (dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
     }
 		      
   /* Do the insertion.  */
@@ -2621,11 +2621,11 @@ calculate_increment (struct expr_info *ei, tree expr)
     incr = fold (build (MULT_EXPR, TREE_TYPE (ei->expr),
 			incr, TREE_OPERAND (ei->expr, 1)));
 #if DEBUGGING_STRRED
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "Increment calculated to be: ");
-      print_generic_expr (tree_dump_file, incr, 0);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Increment calculated to be: ");
+      print_generic_expr (dump_file, incr, 0);
+      fprintf (dump_file, "\n");
     }
 #endif
   return incr;
@@ -2735,9 +2735,9 @@ code_motion (struct expr_info *ei)
 	}
       else if (EPHI_IDENTITY (use))
 	{
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Pointless EPHI in block %d\n",
+	      fprintf (dump_file, "Pointless EPHI in block %d\n",
 		       bb_for_stmt (use)->index);
 	    }
 	}
@@ -2769,18 +2769,18 @@ code_motion (struct expr_info *ei)
 	  TREE_OPERAND (newexpr, 0) = newtemp;
 	  TREE_OPERAND (use_stmt, 1) = newtemp;
 
-	  if (tree_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (tree_dump_file, "In BB %d, insert save of ",
+	      fprintf (dump_file, "In BB %d, insert save of ",
 		       usebb->index);
-	      print_generic_expr (tree_dump_file, copy, 0);
-	      fprintf (tree_dump_file, " to ");
-	      print_generic_expr (tree_dump_file, newtemp, 0);
-	      fprintf (tree_dump_file, " before statement ");
-	      print_generic_expr (tree_dump_file, use_stmt, 0);
-	      fprintf (tree_dump_file, "\n");
+	      print_generic_expr (dump_file, copy, 0);
+	      fprintf (dump_file, " to ");
+	      print_generic_expr (dump_file, newtemp, 0);
+	      fprintf (dump_file, " before statement ");
+	      print_generic_expr (dump_file, use_stmt, 0);
+	      fprintf (dump_file, "\n");
 	      if (EXPR_LOCUS (use_stmt))
-		fprintf (tree_dump_file, " on line %d\n",
+		fprintf (dump_file, " on line %d\n",
 			 EXPR_LINENO (use_stmt));
 	    }
 	  modify_stmt (newexpr);
@@ -2800,19 +2800,19 @@ code_motion (struct expr_info *ei)
 	  newtemp = get_temp (EUSE_DEF (use));
 	  if (!newtemp)
 	    abort ();
-	  if (tree_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (tree_dump_file, "In BB %d, insert reload of ",
+	      fprintf (dump_file, "In BB %d, insert reload of ",
 		       bb->index);
-	      print_generic_expr (tree_dump_file,
+	      print_generic_expr (dump_file,
 				  TREE_OPERAND (use_stmt, 1), 0);
-	      fprintf (tree_dump_file, " from ");
-	      print_generic_expr (tree_dump_file, newtemp, 0);
-	      fprintf (tree_dump_file, " in statement ");
-	      print_generic_stmt (tree_dump_file, use_stmt, 0);
-	      fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, " from ");
+	      print_generic_expr (dump_file, newtemp, 0);
+	      fprintf (dump_file, " in statement ");
+	      print_generic_stmt (dump_file, use_stmt, 0);
+	      fprintf (dump_file, "\n");
 	      if (EXPR_LOCUS (use_stmt))
-		fprintf (tree_dump_file, " on line %d\n",
+		fprintf (dump_file, " on line %d\n",
 			 EXPR_LINENO (use_stmt));
 	    }
 	  TREE_OPERAND (use_stmt, 1) = newtemp;
@@ -2835,9 +2835,9 @@ code_motion (struct expr_info *ei)
 	  int i;
 	  tree argdef;
 	  bb = bb_for_stmt (use);
-	  if (tree_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (tree_dump_file,
+	      fprintf (dump_file,
 		       "In BB %d, insert PHI to replace EPHI\n", bb->index);
 	    }
 	  newtemp = EREF_TEMP (use);
@@ -3100,36 +3100,36 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   if (!expr_phi_insertion ((bitmap *)data, ei))
     goto cleanup;  
   rename_1 (ei);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
       size_t i;
-      fprintf (tree_dump_file, "Occurrences for expression ");
-      print_generic_expr (tree_dump_file, ei->expr, 0);
-      fprintf (tree_dump_file, " after Rename 2\n");
+      fprintf (dump_file, "Occurrences for expression ");
+      print_generic_expr (dump_file, ei->expr, 0);
+      fprintf (dump_file, " after Rename 2\n");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
 	{
-	  print_generic_expr (tree_dump_file, 
+	  print_generic_expr (dump_file, 
 			      VARRAY_TREE (ei->euses_dt_order, i), 1);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "\n");
 	}
     }
   compute_down_safety (ei);
   compute_du_info (ei);
   compute_will_be_avail (ei);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "EPHI's for expression ");
-      print_generic_expr (tree_dump_file, ei->expr, 0);
-      fprintf (tree_dump_file,
+      fprintf (dump_file, "EPHI's for expression ");
+      print_generic_expr (dump_file, ei->expr, 0);
+      fprintf (dump_file,
 	       " after down safety and will_be_avail computation\n");
       FOR_EACH_BB (bb)
       {
 	tree ephi = ephi_at_block (bb);
 	if (ephi != NULL)
 	  {
-	    print_generic_expr (tree_dump_file, ephi, 1);
-	    fprintf (tree_dump_file, "\n");
+	    print_generic_expr (dump_file, ephi, 1);
+	    fprintf (dump_file, "\n");
 	  }
       }
     }
@@ -3143,19 +3143,19 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
     }
 
   clear_all_eref_arrays ();
-  if (tree_dump_file)
+  if (dump_file)
     if (tree_dump_flags & TDF_STATS)
       {
-	fprintf (tree_dump_file, "PRE stats:\n");
-	fprintf (tree_dump_file, "Reloads:%d\n", pre_stats.reloads);
-	fprintf (tree_dump_file, "Saves:%d\n", pre_stats.saves);
-	fprintf (tree_dump_file, "Repairs:%d\n", pre_stats.repairs);
-	fprintf (tree_dump_file, "New phis:%d\n", pre_stats.newphis);
-	fprintf (tree_dump_file, "EPHI memory allocated:%d\n", 
+	fprintf (dump_file, "PRE stats:\n");
+	fprintf (dump_file, "Reloads:%d\n", pre_stats.reloads);
+	fprintf (dump_file, "Saves:%d\n", pre_stats.saves);
+	fprintf (dump_file, "Repairs:%d\n", pre_stats.repairs);
+	fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
+	fprintf (dump_file, "EPHI memory allocated:%d\n", 
 		 pre_stats.ephi_allocated);
-	fprintf (tree_dump_file, "EREF memory allocated:%d\n",
+	fprintf (dump_file, "EREF memory allocated:%d\n",
 		 pre_stats.eref_allocated);
-	fprintf (tree_dump_file, "Expressions generated for rename2:%d\n",
+	fprintf (dump_file, "Expressions generated for rename2:%d\n",
 		 pre_stats.exprs_generated);
       }
  cleanup:

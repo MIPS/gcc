@@ -223,11 +223,11 @@ mark_stmt_necessary (tree stmt, bool add_to_worklist)
   if (NECESSARY (stmt))
     return;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Marking useful stmt: ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Marking useful stmt: ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
   NECESSARY (stmt) = 1;
@@ -483,8 +483,8 @@ propagate_necessity (struct edge_list *el)
   tree i;
   bool aggressive = (el ? true : false); 
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nProcessing worklist:\n");
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nProcessing worklist:\n");
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
     {
@@ -492,11 +492,11 @@ propagate_necessity (struct edge_list *el)
       i = VARRAY_TOP_TREE (worklist);
       VARRAY_POP (worklist);
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "processing: ");
-	  print_generic_stmt (tree_dump_file, i, TDF_SLIM);
-	  fprintf (tree_dump_file, "\n");
+	  fprintf (dump_file, "processing: ");
+	  print_generic_stmt (dump_file, i, TDF_SLIM);
+	  fprintf (dump_file, "\n");
 	}
 
       if (aggressive)
@@ -582,8 +582,8 @@ eliminate_unnecessary_stmts (void)
   basic_block bb;
   block_stmt_iterator i;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nEliminating unnecessary statements:\n");
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\nEliminating unnecessary statements:\n");
 
   clear_special_calls ();
   FOR_EACH_BB (bb)
@@ -631,11 +631,11 @@ remove_dead_phis (basic_block bb)
 	{
 	  tree next = TREE_CHAIN (phi);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "Deleting : ");
-	      print_generic_stmt (tree_dump_file, phi, TDF_SLIM);
-	      fprintf (tree_dump_file, "\n");
+	      fprintf (dump_file, "Deleting : ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	      fprintf (dump_file, "\n");
 	    }
 
 	  remove_phi_node (phi, prev, bb);
@@ -658,11 +658,11 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
   tree t = bsi_stmt (*i);
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Deleting : ");
-      print_generic_stmt (tree_dump_file, t, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Deleting : ");
+      print_generic_stmt (dump_file, t, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
   stats.removed++;
@@ -712,12 +712,12 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 static void
 print_stats (void)
 {
-  if (tree_dump_file && (tree_dump_flags & (TDF_STATS|TDF_DETAILS)))
+  if (dump_file && (tree_dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
 
       percg = ((float) stats.removed / (float) stats.total) * 100;
-      fprintf (tree_dump_file, "Removed %d of %d statements (%d%%)\n",
+      fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
 	       stats.removed, stats.total, (int) percg);
 
       if (stats.total_phis == 0)
@@ -725,7 +725,7 @@ print_stats (void)
       else
 	percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
 
-      fprintf (tree_dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
+      fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
 	       stats.removed_phis, stats.total_phis, (int) percg);
     }
 }
@@ -818,10 +818,10 @@ perform_tree_ssa_dce (bool aggressive)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
+  if (dump_file)
     {
       dump_function_to_file (current_function_decl,
-			     tree_dump_file, tree_dump_flags);
+			     dump_file, tree_dump_flags);
       print_stats ();
     }
 

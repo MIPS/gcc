@@ -493,8 +493,8 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
+      if (dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		 e->src->index, e->dest->index, tgt->index);
 
       src = e->src;
@@ -505,9 +505,9 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       /* Updating the dominance information would be nontrivial.  */
       free_dominance_info (CDI_DOMINATORS);
       
-      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if ((dump_file && (tree_dump_flags & TDF_DETAILS))
 	  && e->src != src)
-	fprintf (tree_dump_file, "    basic block %d created\n",
+	fprintf (dump_file, "    basic block %d created\n",
 		 e->src->index);
 
       cfg_altered = true;
@@ -644,8 +644,8 @@ tree_ssa_dominator_optimize (void)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
-    dump_dominator_optimization_stats (tree_dump_file);
+  if (dump_file && (tree_dump_flags & TDF_STATS))
+    dump_dominator_optimization_stats (dump_file);
 
   htab_delete (avail_exprs);
   htab_delete (true_exprs);
@@ -1010,8 +1010,8 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 static void
 dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   record_equivalences_from_incoming_edge (walk_data, bb);
 
@@ -2232,13 +2232,13 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       && (TREE_CODE (cached_lhs) != SSA_NAME
 	  || may_propagate_copy (cached_lhs, *expr_p)))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (tree_dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (tree_dump_file, *expr_p, 0);
-	  fprintf (tree_dump_file, "' with '");
-	  print_generic_expr (tree_dump_file, cached_lhs, 0);
-	   fprintf (tree_dump_file, "'\n");
+	  fprintf (dump_file, "  Replaced redundant expr '");
+	  print_generic_expr (dump_file, *expr_p, 0);
+	  fprintf (dump_file, "' with '");
+	  print_generic_expr (dump_file, cached_lhs, 0);
+	   fprintf (dump_file, "'\n");
 	}
 
       opt_stats.num_re++;
@@ -2441,10 +2441,10 @@ optimize_stmt (struct dom_walk_data *walk_data,
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Optimizing statement ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "Optimizing statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
@@ -2461,10 +2461,10 @@ optimize_stmt (struct dom_walk_data *walk_data,
 	  stmt = bsi_stmt (si);
 	  ann = stmt_ann (stmt);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "  Folded to: ");
-	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "  Folded to: ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 	}
 

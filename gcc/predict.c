@@ -914,8 +914,8 @@ tree_estimate_probability (void)
   struct loops loops_info;
 
   flow_loops_find (&loops_info, LOOP_TREE);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    flow_loops_dump (&loops_info, tree_dump_file, NULL, 0);
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+    flow_loops_dump (&loops_info, dump_file, NULL, 0);
 
   connect_infinite_loops_to_exit ();
   calculate_dominance_info (CDI_DOMINATORS);
@@ -973,14 +973,14 @@ tree_estimate_probability (void)
       tree_predict_by_opcode (bb);
     }
   FOR_EACH_BB (bb)
-    combine_predictions_for_bb (tree_dump_file, bb);
+    combine_predictions_for_bb (dump_file, bb);
 
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_edges ();
   flow_loops_free (&loops_info);
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_dump_file, tree_dump_flags);
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, tree_dump_flags);
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing expected

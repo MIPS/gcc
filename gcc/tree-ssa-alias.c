@@ -317,12 +317,12 @@ compute_may_aliases (void)
   maybe_create_global_var (ai);
 
   /* Debugging dumps.  */
-  if (tree_dump_file)
+  if (dump_file)
     {
       if (tree_dump_flags & TDF_STATS)
-	dump_alias_stats (tree_dump_file);
-      dump_points_to_info (tree_dump_file);
-      dump_alias_info (tree_dump_file);
+	dump_alias_stats (dump_file);
+      dump_points_to_info (dump_file);
+      dump_alias_info (dump_file);
     }
 
   /* Deallocate memory used by aliasing data structures.  */
@@ -711,8 +711,8 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	}
     }
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file, "%s: Total number of aliased vops: %ld\n",
+  if (dump_file)
+    fprintf (dump_file, "%s: Total number of aliased vops: %ld\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops);
 
@@ -947,8 +947,8 @@ group_aliases (struct alias_info *ai)
 
   sbitmap_free (res);
 
-  if (tree_dump_file)
-    fprintf (tree_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "%s: Total number of aliased vops after grouping: %ld%s\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops,
@@ -1353,17 +1353,17 @@ add_pointed_to_expr (tree ptr, tree value)
   else
     ann->pt_anything = 1;
 
-  if (tree_dump_file)
+  if (dump_file)
     {
-      fprintf (tree_dump_file, "Pointer ");
-      print_generic_expr (tree_dump_file, ptr, 0);
-      fprintf (tree_dump_file, " points to ");
+      fprintf (dump_file, "Pointer ");
+      print_generic_expr (dump_file, ptr, 0);
+      fprintf (dump_file, " points to ");
       if (ann->pt_malloc)
-	fprintf (tree_dump_file, "malloc space: ");
+	fprintf (dump_file, "malloc space: ");
       else
-	fprintf (tree_dump_file, "an arbitrary address: ");
-      print_generic_expr (tree_dump_file, value, 0);
-      fprintf (tree_dump_file, "\n");
+	fprintf (dump_file, "an arbitrary address: ");
+      print_generic_expr (dump_file, value, 0);
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -1417,11 +1417,11 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 {
   struct alias_info *ai = (struct alias_info *) data;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Visiting use-def links for ");
-      print_generic_expr (tree_dump_file, var, 0);
-      fprintf (tree_dump_file, "\n");
+      fprintf (dump_file, "Visiting use-def links for ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)

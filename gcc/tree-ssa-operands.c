@@ -927,15 +927,15 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 		     PTR is an SSA_NAME with no flow-sensitive alias
 		     information.  That means that we may need to compute
 		     aliasing again.  */
-		  if (tree_dump_file
+		  if (dump_file
 		      && TREE_CODE (ptr) == SSA_NAME
 		      && ptr_ann == NULL)
 		    {
-		      fprintf (tree_dump_file,
+		      fprintf (dump_file,
 			  "NOTE: no flow-sensitive alias info for ");
-		      print_generic_expr (tree_dump_file, ptr, 0);
-		      fprintf (tree_dump_file, " in ");
-		      print_generic_stmt (tree_dump_file, stmt, 0);
+		      print_generic_expr (dump_file, ptr, 0);
+		      fprintf (dump_file, " in ");
+		      print_generic_stmt (dump_file, stmt, 0);
 		    }
 
 		  if (TREE_CODE (ptr) == SSA_NAME)

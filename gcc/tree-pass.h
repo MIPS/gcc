@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_TREE_PASS_H 1
 
 /* Global variables used to communicate with passes.  */
-extern FILE *tree_dump_file;
+extern FILE *dump_file;
 extern int tree_dump_flags;
 
 extern struct bitmap_head_def *vars_to_rename;

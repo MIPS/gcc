@@ -243,15 +243,15 @@ cprop_into_stmt (tree stmt, varray_type const_and_copies)
 		continue;
 
 	      /* Dump details.  */
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	      if (dump_file && (tree_dump_flags & TDF_DETAILS))
 		{
-		  fprintf (tree_dump_file, "  Replaced '");
-		  print_generic_expr (tree_dump_file, *op_p, 0);
-		  fprintf (tree_dump_file, "' with %s '",
+		  fprintf (dump_file, "  Replaced '");
+		  print_generic_expr (dump_file, *op_p, 0);
+		  fprintf (dump_file, "' with %s '",
 			   (TREE_CODE (val) != SSA_NAME
 			      ? "constant" : "variable"));
-		  print_generic_expr (tree_dump_file, val, 0);
-		  fprintf (tree_dump_file, "'\n");
+		  print_generic_expr (dump_file, val, 0);
+		  fprintf (dump_file, "'\n");
 		}
 
 	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
