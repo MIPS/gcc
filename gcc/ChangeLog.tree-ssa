@@ -1,3 +1,21 @@
+2003-12-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimple-low.c (expand_var_p): Always expand volatiles.
+	* tree-dfa.c (find_referenced_vars): Move up in the file.
+	(create_memory_tags): New local function.
+	(compute_may_aliases): Call it.
+	(add_referenced_var): Move code to create memory tags and create
+	aliasing arrays to create_memory_tags.
+	(get_memory_tag_for): Don't mark memory tags volatile.  Mark them
+	addressable.
+	* tree-flow.h (var_ann_d): Add bitfields is_dereferenced_store and
+	is_dereferenced_load.
+	(add_call_clobbered_var): Remove.
+	* tree-ssa-operands.c (check_optype_freelist): Mark arguments
+	unused.
+	(add_optype_freelist): Likewise.
+	(add_stmt_operand): Don't add operands for volatile variables.
+
 2003-12-19  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* dominance.c: Fix comment typos.

@@ -119,16 +119,20 @@ struct var_ann_d GTY(())
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
 
+  /* Nonzero if this variable is a pointer that has been dereferenced in a
+     store or a load operation.  Pointers that have been dereferenced are
+     the only ones that need to have memory tags associated to them.  */
+  unsigned is_dereferenced_store : 1;
+  unsigned is_dereferenced_load : 1;
+
   /* This field indicates whether or not the variable may need PHI nodes.
      See the enum's definition for more detailed information about the
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
-  /* A VAR_DECL used to associated pointers with the memory location that
-     they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
-     pointer associated to this memory tag.  If IS_MEM_TAG is zero, then
-     MEM_TAG is the memory tag associated to this pointer (see
-     compute_alias_sets).  */
+  /* An artificial variable representing the memory location pointed-to by
+     this pointer.  If the variable is not a pointer or if it is never
+     dereferenced, this must be NULL.  */
   tree mem_tag;
 
   /* Variables that may alias this variable.  */
@@ -322,7 +326,6 @@ extern GTY(()) tree global_var;
 extern GTY(()) varray_type call_clobbered_vars;
 
 #define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
-#define add_call_clobbered_var(v) VARRAY_PUSH_TREE (call_clobbered_vars, v)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
 
 /* Macros for showing usage statistics.  */

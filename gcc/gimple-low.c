@@ -384,6 +384,7 @@ expand_var_p (tree var)
       && ! ann->used
       && ! ann->has_hidden_use
       && ! TREE_ADDRESSABLE (var)
+      && ! TREE_THIS_VOLATILE (var)
       && (DECL_ARTIFICIAL (var) || optimize >= 2))
     return false;
 

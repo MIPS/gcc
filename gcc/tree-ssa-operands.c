@@ -89,7 +89,7 @@ static GTY ((length ("NUM_FREE"))) struct freelist_d optype_freelist[NUM_FREE] =
 
 
 static inline void *
-check_optype_freelist (size_t num)
+check_optype_freelist (size_t num ATTRIBUTE_UNUSED)
 {
   return NULL;
 #if 0
@@ -107,7 +107,7 @@ check_optype_freelist (size_t num)
 
 
 static inline void
-add_optype_freelist (void *vec, size_t size)
+add_optype_freelist (void *vec ATTRIBUTE_UNUSED, size_t size ATTRIBUTE_UNUSED)
 {
 #if 0
   struct freelist_d *ptr;
@@ -1084,6 +1084,13 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      that reference them are not in GIMPLE form.  If that's the case, mark
      the statement as having volatile operands and return.  */
   if (v_ann->has_hidden_use)
+    {
+      s_ann->has_volatile_ops = 1;
+      return;
+    }
+
+  /* Don't expose volatile variables to the optimizers.  */
+  if (TREE_THIS_VOLATILE (sym))
     {
       s_ann->has_volatile_ops = 1;
       return;

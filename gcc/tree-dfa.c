@@ -70,13 +70,6 @@ struct GTY(()) alias_map_d
 };
 
 
-/* ADDRESSABLE_VARS contains all the global variables and locals that have
-   had their address taken.  POINTERS contains all the pointers that have been
-   referenced in the program.  Alias analysis will determine, for every two
-   elements from each array whether they may alias each other or not.  */
-static GTY(()) varray_type addressable_vars;
-static GTY(()) varray_type pointers;
-
 /* State information for find_vars_r.  */
 struct walk_state
 {
@@ -113,6 +106,7 @@ struct dfa_stats_d dfa_stats;
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static void compute_alias_sets (void);
+static void create_memory_tags (void);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
 static void add_immediate_use (tree, tree);
@@ -145,6 +139,111 @@ tree global_var;
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
+/* Find all the variables referenced in function FNDECL.  This function
+   builds the global arrays REFERENCED_VARS and CALL_CLOBBERED_VARS.
+
+   Note that this function does not look for statement operands, it simply
+   determines what variables are referenced in the program and detects
+   various attributes for each variable used by alias analysis and the
+   optimizer.  */
+
+void
+find_referenced_vars (tree fndecl)
+{
+  static htab_t vars_found;
+  basic_block bb;
+  block_stmt_iterator si;
+  struct walk_state walk_state;
+  tree block;
+
+  /* Walk the lexical blocks in the function looking for variables that may
+     have been used to declare VLAs and for nested functions.  Both
+     constructs create hidden uses of variables. 
+
+     Note that at this point we may have multiple blocks hung off
+     DECL_INITIAL chained through the BLOCK_CHAIN field due to
+     how inlining works.  Egad.  */
+  block = DECL_INITIAL (fndecl);
+  while (block)
+    {
+      find_hidden_use_vars (block);
+      block = BLOCK_CHAIN (block);
+    }
+
+  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
+  memset (&walk_state, 0, sizeof (walk_state));
+  walk_state.vars_found = vars_found;
+
+  FOR_EACH_BB (bb)
+    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+      {
+	tree *stmt_p = bsi_stmt_ptr (si);
+
+	/* Propagate non-GIMPLE attribute into the statement.  FIXME:
+	   The only statements that are not in GIMPLE form are calls to MD
+	   builtins.  Propagate the non-GIMPLE attribute from the RHS of
+	   assignments into the statement, if needed.  */
+	if (TREE_CODE (*stmt_p) == MODIFY_EXPR
+	    && TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR
+	    && TREE_NOT_GIMPLE (TREE_OPERAND (*stmt_p, 1)))
+	  mark_not_gimple (stmt_p);
+
+	/* A CALL_EXPR may also appear inside a RETURN_EXPR.  */
+	if (TREE_CODE (*stmt_p) == RETURN_EXPR)
+	  {
+	    tree expr = TREE_OPERAND (*stmt_p, 0);
+	    if (expr
+		&& TREE_CODE (expr) == MODIFY_EXPR
+		&& TREE_CODE (TREE_OPERAND (expr, 1)) == CALL_EXPR
+		&& TREE_NOT_GIMPLE (TREE_OPERAND (expr, 1)))
+	      mark_not_gimple (stmt_p);
+	  }
+
+	if (TREE_NOT_GIMPLE (*stmt_p))
+	  walk_state.is_not_gimple = 1;
+
+	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
+	walk_state.is_not_gimple = 0;
+      }
+
+  /* Determine whether to use .GLOBAL_VAR to model call clobber semantics.
+     At every call site, we need to emit VDEF expressions.
+     
+     One approach is to group all call-clobbered variables into a single
+     representative that is used as an alias of every call-clobbered
+     variable (.GLOBAL_VAR).  This works well, but it ties the optimizer
+     hands because references to any call clobbered variable is a reference
+     to .GLOBAL_VAR.
+
+     The second approach is to emit a clobbering VDEF for every
+     call-clobbered variable at call sites.  This is the preferred way in
+     terms of optimization opportunities but it may create too many
+     VDEF operands if there are many call clobbered variables and function
+     calls in the function.
+
+     To decide whether or not to use .GLOBAL_VAR we multiply the number of
+     function calls found by the number of call-clobbered variables.  If
+     that product is beyond a certain threshold, we use .GLOBAL_VAR.
+
+     FIXME: This heuristic should be improved.  One idea is to use several
+     .GLOBAL_VARs of different types instead of a single one.  The
+     thresholds have been derived from a typical bootstrap cycle including
+     all target libraries.  Compile times were found to take 1% more
+     compared to using .GLOBAL_VAR.  */
+  {
+    const int n_calls = 2500;
+    const size_t n_clobbers = 200;
+
+    if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
+      global_var = NULL_TREE;
+    else if (global_var)
+      add_referenced_var (global_var, &walk_state);
+  }
+
+  htab_delete (vars_found);
+}
+
+
 /* Compute immediate uses.  The parameter calc_for is an option function 
    pointer which indicates whether immediate uses information should be
    calculated for a given SSA variable. If NULL, then information is computed
@@ -743,20 +842,44 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 /*---------------------------------------------------------------------------
 				    Aliasing
 ---------------------------------------------------------------------------*/
+
+/* ADDRESSABLE_VARS contains all the global variables and locals that have
+   had their address taken.  POINTERS contains all the pointers that have been
+   referenced in the program.  Alias analysis will determine, for every two
+   elements from each array whether they may alias each other or not.  */
+static GTY(()) varray_type addressable_vars;
+static GTY(()) varray_type pointers;
+
+
 /* Compute may-alias information for every variable referenced in function
    FNDECL.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
 void
-compute_may_aliases (tree fndecl ATTRIBUTE_UNUSED)
+compute_may_aliases (tree fndecl)
 {
   timevar_push (TV_TREE_MAY_ALIAS);
 
+  VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
+  VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
+  
+  /* If a points-to algorithm has been selected, call it now.  */
+  if (flag_tree_points_to == PTA_ANDERSEN)
+    {
+      timevar_push (TV_TREE_PTA);
+      create_alias_vars (fndecl);
+      timevar_pop (TV_TREE_PTA);
+    }
+
+  /* Create memory tags for all the dereferenced pointers and build the
+     ADDRESSABLE_VARS and POINTERS arrays used for building the may-alias
+     sets.  */
+  create_memory_tags ();
 
   /* Compute alias sets.  */
   compute_alias_sets ();
   
-  if (flag_tree_points_to != PTA_NONE)
+  if (flag_tree_points_to == PTA_ANDERSEN)
     {
       timevar_push (TV_TREE_PTA);
       delete_alias_vars ();
@@ -771,120 +894,70 @@ compute_may_aliases (tree fndecl ATTRIBUTE_UNUSED)
 }
 
 
-/* Find all the variables referenced in function FNDECL.  This function
-   builds the global arrays REFERENCED_VARS and CALL_CLOBBERED_VARS.  It
-   also builds the local arrays ADDRESSABLE_VARS and POINTERS used for
-   alias analysis.
+/* Create memory tags for every dereferenced pointer in the program.
+   Pointers and the alias set of their pointed-to type are added to the
+   POINTERS array.  Addressable variable and globals are added, together
+   with their alias set, to the ADDRESSABLE_VARS array.  */
 
-   Note that this function does not look for statement operands, it simply
-   determines what variables are referenced in the program and detects
-   various attributes for each variable used by alias analysis and the
-   optimizer.  */
-
-void
-find_referenced_vars (tree fndecl)
+static void
+create_memory_tags (void)
 {
-  static htab_t vars_found;
-  basic_block bb;
-  block_stmt_iterator si;
-  struct walk_state walk_state;
-  tree block;
+  size_t i;
 
-  VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
-  VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
-  
-  if (flag_tree_points_to != PTA_NONE)
+  for (i = 0; i < num_referenced_vars; i++)
     {
-      timevar_push (TV_TREE_PTA);
-      create_alias_vars (fndecl);
-      timevar_pop (TV_TREE_PTA);
+      tree var = referenced_var (i);
+      var_ann_t v_ann = var_ann (var);
+
+      /* Global variables and addressable locals may be aliased.  Create an
+	 entry in ADDRESSABLE_VARS for VAR.  */
+      if (TREE_ADDRESSABLE (var)
+	  || decl_function_context (var) != current_function_decl)
+	{
+	  /* Create a new alias set entry for VAR.  */
+	  struct alias_map_d *alias_map;
+	  alias_map = ggc_alloc (sizeof (*alias_map));
+	  alias_map->var = var;
+
+	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
+	  else
+	    alias_map->set = get_alias_set (var);
+	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
+	}
+
+      /* Add pointer variables that have been dereferenced to the POINTERS
+	 array and create a memory tag for them.  */
+      if (POINTER_TYPE_P (TREE_TYPE (var))
+	  && (v_ann->is_dereferenced_store
+	      || v_ann->is_dereferenced_load))
+	{
+	  tree tag = v_ann->mem_tag;
+	  var_ann_t t_ann;
+
+	  /* If pointer VAR still doesn't have a memory tag associated with it,
+	     create it now or re-use an existing one.  */
+	  if (tag == NULL_TREE)
+	    tag = get_memory_tag_for (var);
+
+	  /* Associate the tag with pointer VAR.  */
+	  v_ann->mem_tag = tag;
+
+	  /* Add the memory tag to the list of referenced variables.  */
+	  add_referenced_tmp_var (tag);
+	  t_ann = var_ann (tag);
+
+	  /* If pointer VAR may point to global mem, then TAG may alias
+	     global memory.  */
+	  if (v_ann->may_point_to_global_mem)
+	    t_ann->may_alias_global_mem = 1;
+
+	  /* If pointer VAR has been used in a store operation, then its
+	     memory tag must be marked as stored.  */
+	  if (v_ann->is_dereferenced_store)
+	    t_ann->is_stored = 1;
+	}
     }
-
-  /* Walk the lexical blocks in the function looking for variables that may
-     have been used to declare VLAs and for nested functions.  Both
-     constructs create hidden uses of variables. 
-
-     Note that at this point we may have multiple blocks hung off
-     DECL_INITIAL chained through the BLOCK_CHAIN field due to
-     how inlining works.  Egad.  */
-  block = DECL_INITIAL (fndecl);
-  while (block)
-    {
-      find_hidden_use_vars (block);
-      block = BLOCK_CHAIN (block);
-    }
-
-  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-  memset (&walk_state, 0, sizeof (walk_state));
-  walk_state.vars_found = vars_found;
-
-  FOR_EACH_BB (bb)
-    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-      {
-	tree *stmt_p = bsi_stmt_ptr (si);
-
-	/* Propagate non-GIMPLE attribute into the statement.  FIXME:
-	   The only statements that are not in GIMPLE form are calls to MD
-	   builtins.  Propagate the non-GIMPLE attribute from the RHS of
-	   assignments into the statement, if needed.  */
-	if (TREE_CODE (*stmt_p) == MODIFY_EXPR
-	    && TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR
-	    && TREE_NOT_GIMPLE (TREE_OPERAND (*stmt_p, 1)))
-	  mark_not_gimple (stmt_p);
-
-	/* A CALL_EXPR may also appear inside a RETURN_EXPR.  */
-	if (TREE_CODE (*stmt_p) == RETURN_EXPR)
-	  {
-	    tree expr = TREE_OPERAND (*stmt_p, 0);
-	    if (expr
-		&& TREE_CODE (expr) == MODIFY_EXPR
-		&& TREE_CODE (TREE_OPERAND (expr, 1)) == CALL_EXPR
-		&& TREE_NOT_GIMPLE (TREE_OPERAND (expr, 1)))
-	      mark_not_gimple (stmt_p);
-	  }
-
-	if (TREE_NOT_GIMPLE (*stmt_p))
-	  walk_state.is_not_gimple = 1;
-
-	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
-	walk_state.is_not_gimple = 0;
-      }
-
-  /* Determine whether to use .GLOBAL_VAR to model call clobber semantics.
-     At every call site, we need to emit VDEF expressions.
-     
-     One approach is to group all call-clobbered variables into a single
-     representative that is used as an alias of every call-clobbered
-     variable (.GLOBAL_VAR).  This works well, but it ties the optimizer
-     hands because references to any call clobbered variable is a reference
-     to .GLOBAL_VAR.
-
-     The second approach is to emit a clobbering VDEF for every
-     call-clobbered variable at call sites.  This is the preferred way in
-     terms of optimization opportunities but it may create too many
-     VDEF operands if there are many call clobbered variables and function
-     calls in the function.
-
-     To decide whether or not to use .GLOBAL_VAR we multiply the number of
-     function calls found by the number of call-clobbered variables.  If
-     that product is beyond a certain threshold, we use .GLOBAL_VAR.
-
-     FIXME: This heuristic should be improved.  One idea is to use several
-     .GLOBAL_VARs of different types instead of a single one.  The
-     thresholds have been derived from a typical bootstrap cycle including
-     all target libraries.  Compile times were found to take 1% more
-     compared to using .GLOBAL_VAR.  */
-  {
-    const int n_calls = 2500;
-    const size_t n_clobbers = 200;
-
-    if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
-      global_var = NULL_TREE;
-    else if (global_var)
-      add_referenced_var (global_var, &walk_state);
-  }
-
-  htab_delete (vars_found);
 }
 
 
@@ -971,6 +1044,7 @@ static void
 compute_alias_sets (void)
 {
   size_t i;
+
 
   /* For every pointer P, determine which addressable variables may alias
      with P.  */
@@ -1123,7 +1197,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
     }
 
   /* If -ftree-points-to is given, check if PTR may point to VAR.  */
-  if (flag_tree_points_to != PTA_NONE
+  if (flag_tree_points_to == PTA_ANDERSEN
       && !ptr_may_alias_var (ptr, var))
     return false;
 
@@ -1481,8 +1555,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 
   if (slot == NULL || *slot == NULL)
     {
-      bool is_addressable;
-
       /* This is the first time we find this variable, add it to the
          REFERENCED_VARS array and annotate it with attributes that are
 	 intrinsic to the variable.  */
@@ -1504,29 +1576,10 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  || TREE_STATIC (var))
 	v_ann->may_alias_global_mem = 1;
 
-      is_addressable = TREE_ADDRESSABLE (var)
-		       || decl_function_context (var) != current_function_decl;
-
-      /* Global variables and addressable locals may be aliased.  Create an
-	 entry in ADDRESSABLE_VARS for VAR.  */
-      if (is_addressable)
-	{
-	  /* Create a new alias set entry for VAR.  */
-	  struct alias_map_d *alias_map;
-	  alias_map = ggc_alloc (sizeof (*alias_map));
-	  alias_map->var = var;
-
-	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
-	    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
-	  else
-	    alias_map->set = get_alias_set (var);
-	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
-	}
-
       /* Add call clobbered variables to a separate array.  */
       if (is_gimple_call_clobbered (var))
 	{
-	  add_call_clobbered_var (var);
+	  VARRAY_PUSH_TREE (call_clobbered_vars, var);
 	  v_ann->is_call_clobbered = 1;
 	  if (POINTER_TYPE_P (TREE_TYPE (var)))
 	    v_ann->may_point_to_global_mem = 1;
@@ -1535,7 +1588,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       /* DECL_NONLOCAL variables should not be removed, as they are needed
 	 to emit nested functions.  */
       if (DECL_NONLOCAL (var))
-	set_is_used (var);
+	v_ann->used = 1;
     }
 
   /* Now, set attributes that depend on WALK_STATE.  */
@@ -1563,32 +1616,15 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       && walk_state->is_asm_expr)
     v_ann->may_point_to_global_mem = 1;
 
-  /* If VAR is a pointer referenced in an INDIRECT_REF node, create (or
-     re-use) a memory tag to represent the location pointed-to by VAR.  */
+  /* If VAR is a pointer referenced in an INDIRECT_REF node, mark it so
+     that alias analysis creates a memory tag representing the location
+     pointed-to by pointer VAR.  */
   if (walk_state->is_indirect_ref)
     {
-      /* If pointer VAR still doesn't have a memory tag associated with it,
-	 create it now or re-use an existing one.  A memory tag for some
-	 other pointer P will be reused if P and VAR may point to each
-	 other.  */
-      tree tag = v_ann->mem_tag;
-      if (tag == NULL_TREE)
-	tag = get_memory_tag_for (var);
-
-      /* Associate the tag with pointer VAR.  */
-      v_ann->mem_tag = tag;
-
-      /* Add the memory tag to the list of referenced variables.  Note that
-	 this needs to be done every time because there are attributes for
-	 the memory tag that depend on WALK_STATE (e.g., whether this
-	 variable is being stored-to).  */
-      walk_state->is_indirect_ref = 0;
-      add_referenced_var (tag, walk_state);
-
-      /* If pointer VAR may point to global mem, then TAG may alias
-	 global memory.  */
-      if (v_ann->may_point_to_global_mem)
-	var_ann (tag)->may_alias_global_mem = 1;
+      if (walk_state->is_store)
+	v_ann->is_dereferenced_store = 1;
+      else
+	v_ann->is_dereferenced_load = 1;
     }
 }
 
@@ -1634,8 +1670,11 @@ get_memory_tag_for (tree ptr)
       tag_ann->is_mem_tag = 1;
       tag_ann->mem_tag = NULL_TREE;
 
-      /* Mark the tag volatile to prevent using it as a real operand.  */
-      TREE_THIS_VOLATILE (tag) = 1;
+      /* Memory tags are by definition addressable.  This also avoids
+	 is_gimple_ref for confusing memory tags with optimizable
+	 variables.  FIXME: The 'is_mem_tag' attribute should probably be
+	 moved into the VAR_DECL node.  */
+      TREE_ADDRESSABLE (tag) = 1;
 
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
