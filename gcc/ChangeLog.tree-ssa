@@ -1,3 +1,8 @@
+2003-10-31  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (thread_jumps_walk_stmts): Go ahead and optimize
+	a COND_EXPR with a compile-time constant condition.
+
 2003-10-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (optimize_function_tree): Fix comment

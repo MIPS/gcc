@@ -945,9 +945,35 @@ thread_jumps_walk_stmts (struct dom_walk_data *walk_data,
       tree stmt = bsi_stmt (si);
       int may_optimize_p;
       varray_type vdefs;
+      tree cached_lhs = NULL;
 
-      /* Check for redundant computations.  Do this optimization only
-	 for assignments that have no volatile ops and conditionals.  */
+      /* First try to eliminate any conditionals which have a known
+	 compile time constant value.  */
+      if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR)
+	cached_lhs = lookup_avail_expr (stmt, NULL, false);
+      if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
+	cached_lhs = simplify_cond_and_lookup_avail_expr (stmt,
+							  NULL,
+							  stmt_ann (stmt),
+							  false);
+
+      if (cached_lhs && is_gimple_min_invariant (cached_lhs))
+	{
+	  modify_stmt (stmt);
+
+	  if (TREE_CODE (stmt) == COND_EXPR)
+	    {
+	      COND_EXPR_COND (stmt) = cached_lhs;
+	      cfg_altered = cleanup_cond_expr_graph (bb, si);
+	    }
+	  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+	    {
+	      SWITCH_COND (stmt) = cached_lhs;
+	      cfg_altered = cleanup_switch_expr_graph (bb, si);
+	    }
+
+	  continue;
+	}
 
       /* This is a simpler test than the one in optimize_stmt because
 	 we only care about recording equivalences for assignments.
