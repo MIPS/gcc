@@ -208,6 +208,8 @@ struct tree_common GTY(())
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
            ..._DECL
+       CALL_EXPR_HAS_RETURN_SLOT_ADDR in
+           CALL_EXPR
 
    protected_flag:
 
@@ -655,6 +657,10 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
 #define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
+
+/* In a CALL_EXPR, means that the address of the return slot is part of the
+   argument list.  */
+#define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM

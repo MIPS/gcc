@@ -81,8 +81,6 @@ typedef struct inline_data
   /* Nonzero if we are currently within the cleanup for a
      TARGET_EXPR.  */
   int in_target_cleanup_p;
-  /* A stack of the TARGET_EXPRs that we are currently processing.  */
-  varray_type target_exprs;
   /* A list of the functions current function has inlined.  */
   varray_type inlined_fns;
   /* The approximate number of statements we have inlined in the
@@ -100,7 +98,7 @@ typedef struct inline_data
 
 /* Prototypes.  */
 
-static tree declare_return_variable PARAMS ((inline_data *, tree *));
+static tree declare_return_variable PARAMS ((inline_data *, tree, tree *));
 static tree copy_body_r PARAMS ((tree *, int *, void *));
 static tree copy_body PARAMS ((inline_data *));
 static tree expand_call_inline PARAMS ((tree *, int *, void *));
@@ -479,6 +477,7 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
       tree init_stmt;
       tree var;
       tree value;
+      tree var_sub;
 
       /* Find the initializer.  */
       value = (*lang_hooks.tree_inlining.convert_parm_for_inlining)
@@ -518,12 +517,23 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
 
       /* Make an equivalent VAR_DECL.  */
       var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
+
+      /* See if the frontend wants to pass this by invisible reference.  If
+	 so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
+	 replace uses of the PARM_DECL with dereferences.  */
+      if (TREE_TYPE (var) != TREE_TYPE (p)
+	  && POINTER_TYPE_P (TREE_TYPE (var))
+	  && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
+	var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
+      else
+	var_sub = var;
+
       /* Register the VAR_DECL as the equivalent for the PARM_DECL;
 	 that way, when the PARM_DECL is encountered, it will be
 	 automatically replaced by the VAR_DECL.  */
       splay_tree_insert (id->decl_map,
 			 (splay_tree_key) p,
-			 (splay_tree_value) var);
+			 (splay_tree_value) var_sub);
 
       /* Declare this new variable.  */
       TREE_CHAIN (var) = vars;
@@ -592,8 +602,9 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
    indicate the return value of the function.  */
 
 static tree
-declare_return_variable (id, use_p)
+declare_return_variable (id, return_slot_addr, use_p)
      struct inline_data *id;
+     tree return_slot_addr;
      tree *use_p;
 {
   tree fn = VARRAY_TOP_TREE (id->fns);
@@ -611,7 +622,7 @@ declare_return_variable (id, use_p)
 
   var = ((*lang_hooks.tree_inlining.copy_res_decl_for_inlining)
 	 (result, fn, VARRAY_TREE (id->fns, 0), id->decl_map,
-	  &need_return_decl, &id->target_exprs));
+	  &need_return_decl, return_slot_addr));
 
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be
@@ -805,6 +816,8 @@ expand_call_inline (tp, walk_subtrees, data)
   tree arg_inits;
   tree *inlined_body;
   splay_tree st;
+  tree args;
+  tree return_slot_addr;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -820,9 +833,6 @@ expand_call_inline (tp, walk_subtrees, data)
       /* We're walking our own subtrees.  */
       *walk_subtrees = 0;
 
-      /* Push *TP on the stack of pending TARGET_EXPRs.  */
-      VARRAY_PUSH_TREE (id->target_exprs, *tp);
-
       /* Actually walk over them.  This loop is the body of
 	 walk_trees, omitting the case where the TARGET_EXPR
 	 itself is handled.  */
@@ -835,9 +845,6 @@ expand_call_inline (tp, walk_subtrees, data)
 	  if (i == 2)
 	    --id->in_target_cleanup_p;
 	}
-
-      /* We're done with this TARGET_EXPR now.  */
-      VARRAY_POP (id->target_exprs);
 
       return NULL_TREE;
 #endif
@@ -895,8 +902,15 @@ expand_call_inline (tp, walk_subtrees, data)
 				 NULL, NULL);
 
   /* Initialize the parameters.  */
-  arg_inits = initialize_inlined_parameters (id, TREE_OPERAND (t, 1),
-					     fn, expr);
+  args = TREE_OPERAND (t, 1);
+  return_slot_addr = NULL_TREE;
+  if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (t))
+    {
+      return_slot_addr = TREE_VALUE (args);
+      args = TREE_CHAIN (args);
+    }
+
+  arg_inits = initialize_inlined_parameters (id, args, fn, expr);
   if (arg_inits)
     {
       /* Expand any inlined calls in the initializers.  Do this before we
@@ -938,7 +952,7 @@ expand_call_inline (tp, walk_subtrees, data)
     abort ();
 
   /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, &retvar);
+  decl = declare_return_variable (id, return_slot_addr, &retvar);
   if (retvar)
     add_var_to_bind_expr (expr, decl);
 
@@ -1045,9 +1059,6 @@ optimize_inline_calls (fn)
 
   prev_fn = ((*lang_hooks.tree_inlining.add_pending_fn_decls)
 	     (&id.fns, prev_fn));
-
-  /* Create the stack of TARGET_EXPRs.  */
-  VARRAY_TREE_INIT (id.target_exprs, 32, "target_exprs");
 
   /* Create the list of functions this call will inline.  */
   VARRAY_TREE_INIT (id.inlined_fns, 32, "inlined_fns");

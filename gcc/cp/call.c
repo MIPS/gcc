@@ -4277,35 +4277,16 @@ tree
 convert_for_arg_passing (type, val)
      tree type, val;
 {
+  if (val == error_mark_node)
+    ;
   /* Pass classes with copy ctors by invisible reference.  */
-  if (TREE_ADDRESSABLE (type))
-    {
-      val = build1 (ADDR_EXPR, build_reference_type (type), val);
-      ADDR_IS_INVISIREF (val) = 1;
-    }
+  else if (TREE_ADDRESSABLE (type))
+    val = build1 (ADDR_EXPR, build_reference_type (type), val);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
 	   && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
     val = default_conversion (val);
   return val;
-}
-
-/* Convert VALUE for assignment into inlined parameter PARM.  */
-
-tree
-cp_convert_parm_for_inlining (parm, value, fn)
-     tree parm, value;
-     tree fn ATTRIBUTE_UNUSED;
-{
-  /* When inlining, we don't need to mess with invisible references, so
-     undo the ADDR_EXPR.  */
-  if (TREE_ADDRESSABLE (TREE_TYPE (parm)))
-    {
-      value = TREE_OPERAND (value, 0);
-      if (TREE_CODE (value) != TARGET_EXPR)
-	abort ();
-    }
-  return value;
 }
 
 /* Subroutine of the various build_*_call functions.  Overload resolution

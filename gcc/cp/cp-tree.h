@@ -65,7 +65,6 @@ struct diagnostic_context;
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
       TREE_PARMLIST (in TREE_LIST)
-      ADDR_IS_INVISIREF (in ADDR_EXPR)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -1686,10 +1685,6 @@ struct lang_type GTY(())
 
 /* Nonzero for a parmlist means that this parmlist ended in ...  */
 #define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* Nonzero if this ADDR_EXPR is used to implement the pass by invisible
-   reference calling convention.  */
-#define ADDR_IS_INVISIREF(NODE) TREE_LANG_FLAG_2 (NODE)
 
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
@@ -4287,7 +4282,7 @@ extern tree cp_add_pending_fn_decls PARAMS ((void*,tree));
 extern int cp_is_overload_p PARAMS ((tree));
 extern int cp_auto_var_in_fn_p PARAMS ((tree,tree));
 extern tree cp_copy_res_decl_for_inlining PARAMS ((tree, tree, tree, void*,
-						   int*, void*));
+						   int*, tree));
 extern int cp_start_inlining			PARAMS ((tree));
 extern void cp_end_inlining			PARAMS ((tree));
 

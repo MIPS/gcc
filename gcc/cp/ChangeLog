@@ -1,3 +1,23 @@
+2002-12-14  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (simplify_aggr_init_exprs_r): Also prepend the
+	return slot for normal functions.  Set CALL_EXPR_HAS_RETURN_SLOT_ADDR.
+	* tree.c (build_cplus_new): If the type isn't TREE_ADDRESSABLE,
+	don't bother with an AGGR_INIT_EXPR.
+	(cp_copy_res_decl_for_inlining): If the type isn't TREE_ADDRESSABLE,
+	just generate a new decl normally.  Take return slot parm.
+	* cp-tree.h: Adjust prototype.
+
+2002-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8461, c++/8625
+	* call.c (convert_for_arg_passing): Don't mess with error_mark_node.
+	(cp_convert_parm_for_inlining): Remove.
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING): 
+	Remove.
+	* cp-tree.h (ADDR_IS_INVISIREF): Remove.
+	* except.c (stabilize_throw_expr): Remove ADDR_IS_INVISIREF code.
+
 2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	DR 180
