@@ -62,6 +62,7 @@ XXX: libgcc license?
 
 /* {{{ malloc/free etc. */
 
+#ifdef WRAP_malloc
 WRAPPER(void *, malloc, size_t c)
 {
   size_t size_with_crumple_zones;
@@ -85,8 +86,10 @@ WRAPPER(void *, malloc, size_t c)
   TRACE_OUT;
   return result;
 }
+#endif
 
 
+#ifdef WRAP_calloc
 WRAPPER(void *, calloc, size_t c, size_t n)
 {
   size_t size_with_crumple_zones;
@@ -116,7 +119,9 @@ WRAPPER(void *, calloc, size_t c, size_t n)
   TRACE_OUT;
   return result;
 }
+#endif
 
+#ifdef WRAP_realloc
 WRAPPER(void *, realloc, void *buf, size_t c)
 {
   DECLARE(void * , realloc, void *, size_t);
@@ -148,8 +153,10 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   TRACE_OUT;
   return result;
 }
+#endif
 
 
+#ifdef WRAP_free
 WRAPPER(void, free, void *buf)
 {
   /* Use a circular queue to delay some number (__mf_opts.free_queue_length) of free()s.  */
@@ -217,18 +224,23 @@ WRAPPER(void, free, void *buf)
   __mf_state = old_state;
   TRACE_OUT;
 }
+#endif
 
+
+#ifdef WRAP_dlopen
 WRAPPER(void *, dlopen, const char *filename, int flag)
 {
   DECLARE(void * , dlopen, const char *filename, int flag);
   BEGIN_PROTECT(void *, dlopen, filename, flag);
   result = CALL_REAL(dlopen, filename, flag);
   __mf_state = old_state;
-  __mf_init_heuristics ();
   TRACE_OUT;
   return result;
 }
+#endif
 
+
+#ifdef WRAP_mmap
 WRAPPER(void *, mmap, 
 	void  *start,  size_t length, int prot, 
 	int flags, int fd, off_t offset)
@@ -258,7 +270,10 @@ WRAPPER(void *, mmap,
   TRACE_OUT;
   return result;
 }
+#endif
 
+
+#ifdef WRAP_munmap
 WRAPPER(int , munmap, void *start, size_t length)
 {
   DECLARE(int, munmap, void *, size_t);
@@ -269,10 +284,12 @@ WRAPPER(int , munmap, void *start, size_t length)
   __mf_state = old_state;
   __mf_unregister ((uintptr_t)start, length);
 }
+#endif
 
 /* }}} */
 /* {{{ str*,mem*,b* */
 
+#ifdef WRAP_memcpy
 WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
 {
   DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
@@ -281,9 +298,10 @@ WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
   MF_VALIDATE_EXTENT(dest, n, "memcpy dest");
   END_PROTECT (void *, memcpy, dest, src, n);
 }
+#endif
 
 
-
+#ifdef WRAP_memmove
 WRAPPER(void *, memmove, void *dest, const void *src, size_t n)
 {
   DECLARE(void *, memmove, void *dest, const void *src, size_t n);
@@ -292,7 +310,9 @@ WRAPPER(void *, memmove, void *dest, const void *src, size_t n)
   MF_VALIDATE_EXTENT(dest, n, "memmove dest");
   END_PROTECT(void *, memmove, dest, src, n);
 }
+#endif
 
+#ifdef WRAP_memset
 WRAPPER(void *, memset, void *s, int c, size_t n)
 {
   DECLARE(void *, memset, void *s, int c, size_t n);
@@ -300,7 +320,9 @@ WRAPPER(void *, memset, void *s, int c, size_t n)
   MF_VALIDATE_EXTENT(s, n, "memset dest");
   END_PROTECT(void *, memset, s, c, n);
 }
+#endif
 
+#ifdef WRAP_memcmp
 WRAPPER(int, memcmp, const void *s1, const void *s2, size_t n)
 {
   DECLARE(int , memcmp, const void *s1, const void *s2, size_t n);
@@ -309,7 +331,9 @@ WRAPPER(int, memcmp, const void *s1, const void *s2, size_t n)
   MF_VALIDATE_EXTENT(s2, n, "memcmp 2nd arg");
   END_PROTECT(int, memcmp, s1, s2, n);
 }
+#endif
 
+#ifdef WRAP_memchr
 WRAPPER(void *, memchr, const void *s, int c, size_t n)
 {
   DECLARE(void *, memchr, const void *s, int c, size_t n);
@@ -317,7 +341,9 @@ WRAPPER(void *, memchr, const void *s, int c, size_t n)
   MF_VALIDATE_EXTENT(s, n, "memchr region");
   END_PROTECT(void *, memchr, s, c, n);
 }
+#endif
 
+#ifdef WRAP_memrchr
 WRAPPER(void *, memrchr, const void *s, int c, size_t n)
 {
   DECLARE(void *, memrchr, const void *s, int c, size_t n);
@@ -325,8 +351,9 @@ WRAPPER(void *, memrchr, const void *s, int c, size_t n)
   MF_VALIDATE_EXTENT(s, n, "memrchr region");
   END_PROTECT(void *, memrchr, s, c, n);
 }
+#endif
 
-
+#ifdef WRAP_strcpy
 WRAPPER(char *, strcpy, char *dest, const char *src)
 {
   DECLARE(int, strlen, const char *s);
@@ -344,7 +371,9 @@ WRAPPER(char *, strcpy, char *dest, const char *src)
   MF_VALIDATE_EXTENT(dest, CLAMPADD(n, 1), "strcpy dest");
   END_PROTECT(char *, strcpy, dest, src);
 }
+#endif
 
+#ifdef WRAP_strncpy
 WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
 {
   DECLARE(int, strnlen, const char *s, size_t n);
@@ -358,7 +387,9 @@ WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
   MF_VALIDATE_EXTENT(dest, len, "strncpy dest"); /* nb: strNcpy */
   END_PROTECT(char *, strncpy, dest, src, n);
 }
+#endif
 
+#ifdef WRAP_strcat
 WRAPPER(char *, strcat, char *dest, const char *src)
 {
   DECLARE(int, strlen, const char *s);
@@ -373,7 +404,9 @@ WRAPPER(char *, strcat, char *dest, const char *src)
   MF_VALIDATE_EXTENT(dest, CLAMPADD(dest_sz, CLAMPADD(src_sz, 1)), "strcat dest");
   END_PROTECT(char *, strcat, dest, src);
 }
+#endif
 
+#ifdef WRAP_strncat
 WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
 {
 
@@ -410,7 +443,9 @@ WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
 		     "strncat dest");
   END_PROTECT(char *, strncat, dest, src, n);
 }
+#endif
 
+#ifdef WRAP_strcmp
 WRAPPER(int, strcmp, const char *s1, const char *s2)
 {
   DECLARE(int, strlen, const char *s);
@@ -425,7 +460,9 @@ WRAPPER(int, strcmp, const char *s1, const char *s2)
   MF_VALIDATE_EXTENT(s2, CLAMPADD(s2_sz, 1), "strcmp 2nd arg");
   END_PROTECT(int, strcmp, s1, s2);
 }
+#endif
 
+#ifdef WRAP_strcasecmp
 WRAPPER(int, strcasecmp, const char *s1, const char *s2)
 {
   DECLARE(int, strlen, const char *s);
@@ -440,7 +477,9 @@ WRAPPER(int, strcasecmp, const char *s1, const char *s2)
   MF_VALIDATE_EXTENT(s2, CLAMPADD(s2_sz, 1), "strcasecmp 2nd arg");
   END_PROTECT(int, strcasecmp, s1, s2);
 }
+#endif
 
+#ifdef WRAP_strncmp
 WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
 {
   DECLARE(int, strnlen, const char *s, size_t n);
@@ -455,7 +494,9 @@ WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
   MF_VALIDATE_EXTENT(s2, s2_sz, "strncmp 2nd arg");
   END_PROTECT(int, strncmp, s1, s2, n);
 }
+#endif
 
+#ifdef WRAP_strncasecmp
 WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
   DECLARE(int, strnlen, const char *s, size_t n);
@@ -470,7 +511,9 @@ WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
   MF_VALIDATE_EXTENT(s2, s2_sz, "strncasecmp 2nd arg");
   END_PROTECT(int, strncasecmp, s1, s2, n);
 }
+#endif
 
+#ifdef WRAP_strdup
 WRAPPER(char *, strdup, const char *s)
 {
   DECLARE(int, strlen, const char *s);
@@ -505,7 +548,9 @@ WRAPPER(char *, strdup, const char *s)
   TRACE_OUT;
   return result;
 }
+#endif
 
+#ifdef WRAP_strndup
 WRAPPER(char *, strndup, const char *s, size_t n)
 {
   DECLARE(int, strnlen, const char *s, size_t n);
@@ -541,8 +586,9 @@ WRAPPER(char *, strndup, const char *s, size_t n)
   TRACE_OUT;
   return result;
 }
+#endif
 
-
+#ifdef WRAP_strchr
 WRAPPER(char *, strchr, const char *s, int c)
 {
   DECLARE(int, strlen, const char *s);
@@ -554,7 +600,9 @@ WRAPPER(char *, strchr, const char *s, int c)
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), "strchr region");
   END_PROTECT(char *, strchr, s, c);
 }
+#endif
 
+#ifdef WRAP_strrchr
 WRAPPER(char *, strrchr, const char *s, int c)
 {
   DECLARE(int, strlen, const char *s);
@@ -566,8 +614,9 @@ WRAPPER(char *, strrchr, const char *s, int c)
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), "strrchr region");
   END_PROTECT(char *, strrchr, s, c);
 }
+#endif
 
-
+#ifdef WRAP_strstr
 WRAPPER(char *, strstr, const char *haystack, const char *needle)
 {
   DECLARE(int, strlen, const char *s);
@@ -582,7 +631,9 @@ WRAPPER(char *, strstr, const char *haystack, const char *needle)
   MF_VALIDATE_EXTENT(needle, CLAMPADD(needle_sz, 1), "strstr needle");
   END_PROTECT(char *, strstr, haystack, needle);
 }
+#endif
 
+#ifdef WRAP_memmem
 WRAPPER(void *, memmem, 
 	const void *haystack, size_t haystacklen,
 	const void *needle, size_t needlelen)
@@ -595,7 +646,9 @@ WRAPPER(void *, memmem,
   MF_VALIDATE_EXTENT(needle, needlelen, "memmem needle");
   END_PROTECT(char *, memmem, haystack, haystacklen, needle, needlelen);
 }
+#endif
 
+#ifdef WRAP_strlen
 WRAPPER(int, strlen, const char *s)
 {
   DECLARE(int, strlen, const char *s);
@@ -607,7 +660,9 @@ WRAPPER(int, strlen, const char *s)
   TRACE_OUT;
   return result;
 }
+#endif
 
+#ifdef WRAP_strnlen
 WRAPPER(int, strnlen, const char *s, size_t n)
 {
   DECLARE(int, strnlen, const char *s, size_t n);
@@ -619,7 +674,9 @@ WRAPPER(int, strnlen, const char *s, size_t n)
   TRACE_OUT;
   return result;
 }
+#endif
 
+#ifdef WRAP_bzero
 WRAPPER(void, bzero, void *s, size_t n)
 {
   DECLARE(void , bzero, void *s, size_t n);
@@ -638,7 +695,9 @@ WRAPPER(void, bzero, void *s, size_t n)
   __mf_state = old_state;
   TRACE_OUT;
 }
+#endif
 
+#ifdef WRAP_bcopy
 WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
 {
   DECLARE(void , bcopy, const void *src, void *dest, size_t n);
@@ -658,7 +717,9 @@ WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
   __mf_state = old_state;
   TRACE_OUT;
 }
+#endif
 
+#ifdef WRAP_bcmp
 WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
 {
   DECLARE(int , bcmp, const void *s1, const void *s2, size_t n);
@@ -668,7 +729,9 @@ WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
   MF_VALIDATE_EXTENT(s2, n, "bcmp 2nd arg");
   END_PROTECT(int, bcmp, s1, s2, n);
 }
+#endif
 
+#ifdef WRAP_index
 WRAPPER(char *, index, const char *s, int c)
 {
   DECLARE(int, strlen, const char *s);
@@ -680,9 +743,9 @@ WRAPPER(char *, index, const char *s, int c)
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), "index region");
   END_PROTECT(char *, index, s, c);
 }
+#endif
 
-
-
+#ifdef WRAP_rindex
 WRAPPER(char *, rindex, const char *s, int c)
 {
   DECLARE(int, strlen, const char *s);
@@ -694,7 +757,7 @@ WRAPPER(char *, rindex, const char *s, int c)
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), "rindex region");
   END_PROTECT(char *, rindex, s, c);
 }
-
+#endif
 
 /* }}} */
 /* {{{ *printf,*scanf */

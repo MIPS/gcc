@@ -19,13 +19,14 @@
 
 /* Private functions. */ 
 
-extern void __mf_init_heuristics ();
 extern void __mf_violation (uintptr_t ptr, uintptr_t sz, 
 			    uintptr_t pc, const char *location, 
 			    int type);
 
 extern size_t __mf_backtrace (char ***, void *, unsigned);
 extern void __mf_resolve_dynamics ();
+extern int __mf_heuristic_check (uintptr_t, uintptr_t);
+
 
 /* ------------------------------------------------------------------------ */
 /* Type definitions. */
@@ -63,15 +64,15 @@ struct __mf_options
   /* Print verbose description of violations. */
   int verbose_violations;
 
+  /* Emit internal tracing message. */
+  int verbose_trace;
+
   /* Perform occasional tree-rotations to optimize lookups. */
   int optimize_object_tree;
 
   /* Support multiple threads. */
   int multi_threaded;
 
-  /* use __libc_stack_end heuristic */
-  int stack_bound;
-  
   /* Maintain a queue of this many deferred free()s, 
      to trap use of freed memory. */
   int free_queue_length;
@@ -109,7 +110,9 @@ struct __mf_options
   violation_mode;
 
   /* Violation heuristics selection. */
-  int heur_proc_map;  /* Register /proc/self/map regions.  */
+  int heur_stack_bound; /* allow current stack region */
+  int heur_proc_map;  /* allow & cache /proc/self/map regions.  */
+  int heur_start_end; /* allow & cache _start .. _end */
 };
 
 
@@ -175,12 +178,15 @@ extern struct __mf_dynamic __mf_dynamic;
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
 #define STRINGIFY2(e) #e
 #define STRINGIFY(e) STRINGIFY2(e)
+#define VERBOSE_TRACE(...)                         \
+  if (UNLIKELY (__mf_opts.verbose_trace)) \
+      fprintf (stderr, __VA_ARGS__);
 #define TRACE(...)                         \
   if (UNLIKELY (__mf_opts.trace_mf_calls)) \
       fprintf (stderr, __VA_ARGS__);
 
-#define TRACE_IN TRACE("mf: enter %s\n", __PRETTY_FUNCTION__)
-#define TRACE_OUT TRACE("mf: exit %s\n", __PRETTY_FUNCTION__)
+#define TRACE_IN VERBOSE_TRACE ("mf: enter %s\n", __PRETTY_FUNCTION__)
+#define TRACE_OUT VERBOSE_TRACE ("mf: exit %s\n", __PRETTY_FUNCTION__)
 
 
 #define __MF_PERSIST_MAX 256

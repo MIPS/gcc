@@ -87,13 +87,13 @@ static void
 __mf_set_default_options ()
 {
   __mf_opts.trace_mf_calls = 0;
+  __mf_opts.verbose_trace = 0;
   __mf_opts.collect_stats = 0;
   __mf_opts.internal_checking = 0;
   __mf_opts.print_leaks = 0;
   __mf_opts.verbose_violations = 0;
   __mf_opts.optimize_object_tree = 0;
   __mf_opts.multi_threaded = 0;
-  __mf_opts.stack_bound = 0;
   __mf_opts.free_queue_length = 0;
   __mf_opts.persistent_count = 0;
   __mf_opts.crumple_zone = 32;
@@ -101,6 +101,8 @@ __mf_set_default_options ()
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
   __mf_opts.heur_proc_map = 1;
+  __mf_opts.heur_stack_bound = 0;
+  __mf_opts.heur_start_end = 0;
 }
 
 static struct option
@@ -146,6 +148,10 @@ options [] =
     {"trace-calls", 
      "trace calls to mudflap runtime library",
      set_option, 1, &__mf_opts.trace_mf_calls},
+    {"verbose-trace", 
+     "trace internal events within mudflap runtime library",
+     set_option, 1, &__mf_opts.verbose_trace},
+
     {"collect-stats", 
      "collect statistics on mudflap's operation",
      set_option, 1, &__mf_opts.collect_stats},
@@ -168,9 +174,12 @@ options [] =
     {"heur-proc-map", 
      "support /proc/self/map heuristics",
      set_option, 1, &__mf_opts.heur_proc_map},
-    {"stack-bound",
+    {"heur-stack-bound",
      "enable a simple upper stack bound heuristic",
-     set_option, 1, &__mf_opts.stack_bound},
+     set_option, 1, &__mf_opts.heur_stack_bound},
+    {"heur-start-end", 
+     "support _start.._end heuristics",
+     set_option, 1, &__mf_opts.heur_start_end},
      
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
@@ -423,8 +432,6 @@ void __mf_init ()
 	}
     }
 
-  __mf_init_heuristics ();
-
   __mf_state = active;
 
   TRACE_OUT;
@@ -447,7 +454,7 @@ static unsigned long __mf_count_check;
 static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
 static unsigned long __mf_treerot_left, __mf_treerot_right;
 static unsigned long __mf_count_register;
-static unsigned long __mf_total_register_size [__MF_TYPE_GUESS+1];
+static unsigned long __mf_total_register_size [__MF_TYPE_MAX+1];
 static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
@@ -508,10 +515,11 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
   int violation_p = 0;
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
-
   struct __mf_cache old_entry = *entry;
 
   BEGIN_RECURSION_PROTECT;
+  TRACE ("mf: check p=%p s=%lu "
+	 "location=`%s'\n", (void *)ptr, sz, location);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -525,10 +533,9 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 
     case mode_check:
       {
-
-	int attempts = 2;
-
-	while (attempts--)
+	unsigned heuristics = 0;
+	/* Looping only occurs if heuristics were triggered.  */
+	while (1) 
 	  {
 	    __mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
 	    __mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
@@ -538,32 +545,36 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		entry->low = obj->low;
 		entry->high = obj->high;
 		obj->check_count ++;  /* XXX: what about overflow?  */
-		attempts = 0;
+		break;
 	      }
-	    else
+	    else if (heuristics++ < 2) /* XXX parametrize this number? */
 	      {
-		if (__mf_heuristic_check (ptr, ptr_high))
+		int judgement = __mf_heuristic_check (ptr, ptr_high);
+		if (judgement < 0)
 		  {
-		    attempts = 0;
+		    violation_p = 1;
+		    break;
 		  }
-		else
-		  {	      
-		    /* Possible violation. */
-		    if (attempts > 0)
-		      {
-			/* Try re-initializing heuristics. */
-			__mf_init_heuristics (); 
-		      }
-		    else
-		      {
-			/* This is our second time around,
-			   therefore we are out of luck. */
-			violation_p = 1;
-		      }
+		else if (judgement > 0)
+		  {
+		    violation_p = 0;
+		    break;
 		  }
+		else if (judgement == 0)
+		  {
+		    /* Undecided: try again.  Most likely, the heuristics function
+		       has deposited an object in the database and is expecting us
+		       to find it the next time around.  */
+		    continue;
+		  }
+	      }
+	    else /* no more heuristics iterations allowed */
+	      {
+		violation_p = 1;
+		break;
 	      }
 	  }
-      }    
+      }
       break;
 
     case mode_violate:
@@ -580,8 +591,6 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 	__mf_lookup_cache_reusecount [entry_idx] ++;    
     }
   
-  TRACE ("mf: check p=%p s=%lu viol=%d location=%s\n", (void *)ptr, sz, 
-	 violation_p, location);
   END_RECURSION_PROTECT;
   
   if (UNLIKELY (violation_p))
@@ -646,10 +655,9 @@ __mf_remove_old_object (__mf_object_tree_t *old_obj)
 void
 __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
+  /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
-  if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return;
-
-  TRACE("mf: reg p=%p s=%lu t=%d n='%s'\n", (void *)ptr, sz, 
+  TRACE ("mf: register p=%p s=%lu t=%d n='%s'\n", (void *)ptr, sz, 
 	type, name ? name : "");
 
   switch (__mf_opts.mudflap_mode)
@@ -665,6 +673,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
     case mode_populate:
       /* Clear the cache.  */
+      /* XXX: why the entire cache? */
       memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
       break;
 
@@ -695,7 +704,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		ovr_obj[0]->data.high == high)
 	      {
 		/* do nothing */
-		TRACE ("mf: duplicate static reg %p\n", (void *)low);
+		VERBOSE_TRACE ("mf: duplicate static reg %p\n", (void *)low);
 		END_RECURSION_PROTECT;
 		return;
 	      }
@@ -713,9 +722,15 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		      }
 		  }
 
+		/* XXX: the following logic is too restrictive.
+		   We should handle the case of inserting a big GUESS
+		   on top of a little (say) HEAP area.  The new GUESS
+		   thingie should be split up the same way as if the
+		   little HEAPie was added second.  */
 		if (all_guesses)
 		  {
-		    TRACE ("mf: replacing %d existing guess%s at %p with %p - %p\n", 
+		    VERBOSE_TRACE ("mf: replacing %d existing guess%s at %p "
+				   "with %p - %p\n", 
 			   num_overlapping_objs,
 			   (num_overlapping_objs > 1 ? "es" : ""),
 			   (void *)low,
@@ -734,8 +749,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		  } 
 		else 
 		  {
-		    TRACE ("mf: preserving %d regions at %p\n", 
-			   num_overlapping_objs, (void *)low);
+		    VERBOSE_TRACE ("mf: preserving %d regions at %p\n", 
+				   num_overlapping_objs, (void *)low);
 		  }		
 		END_RECURSION_PROTECT;
 		return;
@@ -766,8 +781,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			guess2_low = CLAMPADD (high, (1 + __mf_opts.crumple_zone));
 			guess2_high = ovr_obj[i]->data.high;
 
-			TRACE("mf: splitting guess region %p-%p\n", 
-			      guess1_low, guess2_high);
+			VERBOSE_TRACE ("mf: splitting guess region %p-%p\n", 
+				       guess1_low, guess2_high);
 		    
 			/* NB: split regions may disappear if low > high. */
 
@@ -795,7 +810,6 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		    else
 		      {
 			/* Two or more *real* mappings here. */
-			TRACE("mf: reg violation %p\n", (void *)low);
 			__mf_violation 
 			  (ptr, sz, 
 			   (uintptr_t) __builtin_return_address (0), NULL,
@@ -820,7 +834,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
     {
       __mf_count_register ++;
       __mf_total_register_size [(type < 0) ? 0 :
-				(type > __MF_TYPE_GUESS) ? 0 : 
+				(type > __MF_TYPE_MAX) ? 0 : 
 				type] += sz;
     }
 }
@@ -833,6 +847,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 {
   DECLARE (void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
+
+  TRACE ("mf: unregister p=%p s=%lu\n", (void *)ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -870,7 +886,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    {
 	      if (objs[i]->data.type == __MF_TYPE_GUESS)
 		{
-		  TRACE("mf: ignored guess unreg %p\n", objs[i]->data.low); 		  
+		  VERBOSE_TRACE ("mf: ignored guess unreg %p\n", objs[i]->data.low);
 		  END_RECURSION_PROTECT;
 		  return;
 		}
@@ -879,8 +895,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 
 	if (UNLIKELY (num_overlapping_objs != 1))
 	  {
-	    /* XXX: also: should match ptr == old_obj->low ? */
-	    TRACE("mf: unreg viol %p\n", (void *)ptr);
+	    /* XXX: also: should check/assert ptr == old_obj->low ? */
 	    END_RECURSION_PROTECT;
 	    __mf_violation (ptr, sz,
 			    (uintptr_t) __builtin_return_address (0), NULL,
@@ -890,7 +905,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	old_obj = objs[0];
 
-	TRACE("mf: removing %p-%p\n", old_obj->data.low, old_obj->data.high); 
+	VERBOSE_TRACE ("mf: removing %p-%p\n", old_obj->data.low, old_obj->data.high); 
 
 	__mf_remove_old_object (old_obj);
 	
@@ -964,7 +979,6 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
       __mf_total_unregister_size += sz;
     }
 
-  TRACE("mf: unr p=%p s=%lu\n", (void *)ptr, sz);
   END_RECURSION_PROTECT;
 }
 
@@ -1367,13 +1381,14 @@ __mf_report ()
 	       "*******\n"
 	       "mudflap stats:\n"
 	       "calls to __mf_check: %lu rot: %lu/%lu\n"
-	       "         __mf_register: %lu [%luB, %luB, %luB, %luB]\n"
+	       "         __mf_register: %lu [%luB, %luB, %luB, %luB, %luB]\n"
 	       "         __mf_unregister: %lu [%luB]\n"
 	       "         __mf_violation: [%lu, %lu, %lu, %lu]\n",
 	       __mf_count_check, __mf_treerot_left, __mf_treerot_right,
 	       __mf_count_register,
 	       __mf_total_register_size[0], __mf_total_register_size[1],
 	       __mf_total_register_size[2], __mf_total_register_size[3],
+	       __mf_total_register_size[4], /* XXX */
 	       __mf_count_unregister, __mf_total_unregister_size,
 	       __mf_count_violation[0], __mf_count_violation[1],
 	       __mf_count_violation[2], __mf_count_violation[3]);
@@ -1471,8 +1486,8 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
   DECLARE(void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
-  TRACE("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
-	(location != NULL ? location : ""), type, ptr, sz);
+  TRACE ("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
+	 (location != NULL ? location : ""), type, ptr, sz);
 
   if (__mf_opts.collect_stats)
     __mf_count_violation [(type < 0) ? 0 :
@@ -1490,16 +1505,18 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
     violation_number ++;
     fprintf (stderr,
 	     "*******\n"
-	     "mudflap violation %u: time=%lu.%06lu ptr=%08lx size=%lu pc=%08lx%s%s%s type=%s\n", 
+	     "mudflap violation %u (%s): time=%lu.%06lu "
+	     "ptr=%08lx size=%lu pc=%08lx%s%s%s\n", 
 	     violation_number,
-	     now.tv_sec, now.tv_usec, ptr, sz, pc,
-	     (location != NULL ? " location=`" : ""),
-	     (location != NULL ? location : ""),
-	     (location != NULL ? "'" : ""),
 	     ((type == __MF_VIOL_CHECK) ? "check" :
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
-	      "unknown"));
+	      "unknown"),
+	     now.tv_sec, now.tv_usec, 
+	     ptr, sz, pc,
+	     (location != NULL ? " location=`" : ""),
+	     (location != NULL ? location : ""),
+	     (location != NULL ? "'" : ""));
 
     if (__mf_opts.backtrace > 0)
       {
@@ -1561,7 +1578,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	    unsigned after = (low > obj->high) ? low - obj->high : 0;
 	    unsigned into = (high >= obj->low && low <= obj->high) ? low - obj->low : 0;
 
-	    fprintf (stderr, "Nearby object %u: ptr is %uB %s\n",
+	    fprintf (stderr, "Nearby object %u: region is %uB %s\n",
 		     i + 1,
 		     (before ? before :
 		      after ? after :

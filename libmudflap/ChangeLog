@@ -1,3 +1,32 @@
+2002-08-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	libmudflap hook breakup:
+	* Makefile.am (TESTS_ENVIRONMENT): Add ../../gcc to LD_LIBRARY_PATH
+	for libgcc_s.
+	(TESTS): Make dependent on libmudflap.
+	(HOOKOBJS): Break up mf-hooks.o into many little hook objects,
+	compiled from segments of mf-hooks.c.
+	* mf-hooks.c: Corresponding changes: wrap each function in
+	#ifdef/#endif.
+	* Makefile.in: Regenerated.
+
+	Heuristics reorganization:
+	* mf-heuristics.c (__mf_register_ro_sections, __mf_init_heuristics): 
+	Remove these functions.  Update callers.
+	(__mf_heuristic_check): Incorporate all the various heuristics.
+	Encode cacheability/retry judgement into trinary return value.
+	Separate start-end logic into a separate fallback heuristic.  Only
+	register relevant /proc/self/map segments.
+	* mf-impl.h: Corresponding changes.
+	* mf-runtime.c (__mf_check): Reorganize heuristics fallback logic.
+	(__mf_init): Don't call __mf_init_heuristics.
+
+	Tracing cleanup:
+	* mf-heuristics.c, mf-runtime.c: Use new MUDFLAP_OPTION
+	"-verbose-trace" to emit all tracing messages other than those of
+	basic public api.  Eliminate some duplicate/excessive messages.
+	* mf-runtime.h: Corresponding changes.
+
 2002-08-27  Graydon Hoare  <graydon@redhat.com>
 
 	* mf-impl.h (WRAPPER): Change to create linker aliases for __wrap

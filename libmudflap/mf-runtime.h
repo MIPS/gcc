@@ -44,6 +44,7 @@ extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 #define __MF_TYPE_STACK 2
 #define __MF_TYPE_STATIC 3
 #define __MF_TYPE_GUESS 4
+#define __MF_TYPE_MAX __MF_TYPE_GUESS
 
 /* The "public" mudflap API */
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);

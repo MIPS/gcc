@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -83,7 +83,7 @@ libtool_VERSION = @libtool_VERSION@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-TESTS_ENVIRONMENT = LD_LIBRARY_PATH='.libs' MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
+TESTS_ENVIRONMENT = LD_LIBRARY_PATH='.libs:../../gcc' MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
 
 TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				 test/fail13.x test/fail14.x test/fail15.x test/fail16.x test/fail17.x			 test/fail2.x test/fail3.x test/fail4.x test/fail5.x test/fail6.x			 test/fail7.x test/fail8.x test/fail9.x test/pass1.x test/pass10.x			 test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x			 test/pass16.x test/pass17.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x	 test/pass6.x test/pass7.x test/pass8.x test/pass9.x
 
@@ -103,12 +103,14 @@ WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
 LIBMUDFLAP_INCLUDES = 
 TOPLEVEL_INCLUDES = 
 
-libmudflap_la_SOURCES =  	mf-runtime.c 	mf-hooks.c 	mf-heuristics.c
+libmudflap_la_SOURCES =  	mf-runtime.c 	mf-heuristics.c
 
 
-# libmudflap_la_LIBADD =
-# libmudflap_la_LDFLAGS = 
+HOOKOBJS =   malloc-hook.lo  free-hook.lo  calloc-hook.lo  realloc-hook.lo  memcpy-hook.lo  memmove-hook.lo  memset-hook.lo  memcmp-hook.lo  memchr-hook.lo  memrchr-hook.lo  strcpy-hook.lo  strncpy-hook.lo  strcat-hook.lo  strncat-hook.lo  strcmp-hook.lo  strcasecmp-hook.lo  strncmp-hook.lo  strncasecmp-hook.lo  strdup-hook.lo  strndup-hook.lo  strchr-hook.lo  strrchr-hook.lo  strstr-hook.lo  memmem-hook.lo  strlen-hook.lo  strnlen-hook.lo  bzero-hook.lo  bcopy-hook.lo  bcmp-hook.lo  index-hook.lo  rindex-hook.lo  dlopen-hook.lo  mmap-hook.lo  munmap-hook.lo
 
+
+libmudflap_la_LDFLAGS = 
+libmudflap_la_LIBADD = $(HOOKOBJS)
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
@@ -121,9 +123,7 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I.
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libmudflap_la_LDFLAGS = 
-libmudflap_la_LIBADD = 
-libmudflap_la_OBJECTS =  mf-runtime.lo mf-hooks.lo mf-heuristics.lo
+libmudflap_la_OBJECTS =  mf-runtime.lo mf-heuristics.lo
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
@@ -134,7 +134,7 @@ config.h.in configure configure.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 SOURCES = $(libmudflap_la_SOURCES)
 OBJECTS = $(libmudflap_la_OBJECTS)
@@ -152,7 +152,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in 
 	cd $(srcdir) && $(ACLOCAL)
 
-config.status: $(srcdir)/configure.in $(CONFIG_STATUS_DEPENDENCIES)
+config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
 $(srcdir)/configure: @MAINTAINER_MODE_TRUE@$(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
 	cd $(srcdir) && $(AUTOCONF)
@@ -457,9 +457,18 @@ test/fail%.x: test/fail%.c
 test/pass%.x: test/pass%.c
 	$(CC) -DSHOULD_PASS -rdynamic -fmudflap -g -o $@ $<
 
+$(TESTS): $(lib_LTLIBRARIES)
+
 mf-runtime.o: mf-runtime.h mf-impl.h
 mf-hooks.o: mf-runtime.h mf-impl.h
 mf-heuristics.o: mf-runtime.h mf-impl.h
+
+$(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
+	set -e; \
+	for i in $(HOOKOBJS); do \
+	     hook=`basename $$i -hook.lo`; \
+	     $(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $$i; \
+	done
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
