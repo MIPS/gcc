@@ -1,3 +1,17 @@
+2004-08-24  David Jee  <djee@redhat.com>
+
+	PR AWT/17156
+
+	* gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+	(setEnabled): Make it a native method.
+	* java/awt/DefaultKeyboardFocusManager.java
+	(postProcessKeyEvent): Only post event if the menu item
+	is active.
+	* java/awt/MenuItem.java:
+	Private field 'enabled' should be true by default.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c
+	(setEnabled): New function.
+
 2004-08-23  David Jee  <djee@redhat.com>
 
 	PR AWT/17059
