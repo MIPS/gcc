@@ -84,6 +84,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "hashtab.h"
+#include "tree-fold-const.h"
+#include "tree-chrec.h"
+#include "tree-scalar-evolution.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -966,6 +969,8 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_uses, 20, "iv_uses");
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_candidates, 20, "iv_candidates");
   VARRAY_GENERIC_PTR_NOGC_INIT (decl_rtl_to_reset, 20, "decl_rtl_to_reset");
+
+  scev_initialize (loops);
 }
 
 /* Allocates an induction variable with given initial value BASE and step STEP
@@ -1029,13 +1034,10 @@ static tree
 determine_biv_step (tree phi)
 {
   struct loop *loop = bb_for_stmt (phi)->loop_father;
-  tree var = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
-  tree type = TREE_TYPE (var);
-  tree step, stmt, lhs, rhs, op0, op1;
-  enum tree_code code;
+  tree name = PHI_RESULT (phi), ev, step;
+  tree type = TREE_TYPE (name);
 
-  if (TREE_CODE (var) != SSA_NAME
-      || !is_gimple_reg (var))
+  if (!is_gimple_reg (name))
     return NULL_TREE;
 
   /* Just work for integers and pointers.  */
@@ -1043,55 +1045,20 @@ determine_biv_step (tree phi)
       && TREE_CODE (type) != POINTER_TYPE)
     return NULL_TREE;
 
-  step = convert (type, integer_zero_node);
+  ev = analyze_scalar_evolution (loop, name);
+  if (TREE_CODE (ev) == INTEGER_CST
+      || TREE_CODE (ev) == SSA_NAME)
+    return convert (type, integer_zero_node);
 
-  while (1)
-    {
-      stmt = SSA_NAME_DEF_STMT (var);
-      if (stmt == phi)
-	return step;
+  if (TREE_CODE (ev) != POLYNOMIAL_CHREC)
+    return NULL_TREE;
 
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
-	return NULL_TREE;
+  step = CHREC_RIGHT (ev);
 
-      lhs = TREE_OPERAND (stmt, 0);
-      rhs = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (step) != INTEGER_CST)
+    return NULL_TREE;
 
-      if (lhs != var)
-	return NULL_TREE;
-
-      code = TREE_CODE (rhs);
-      switch (code)
-	{
-	case SSA_NAME:
-	  var = rhs;
-	  break;
-
-	case PLUS_EXPR:
-	case MINUS_EXPR:
-	  op0 = TREE_OPERAND (rhs, 0);
-	  op1 = TREE_OPERAND (rhs, 1);
-
-	  if (TREE_CODE (op1) != INTEGER_CST)
-	    {
-	      if (code == MINUS_EXPR
-		  || TREE_CODE (op0) != INTEGER_CST)
-		return NULL_TREE;
-
-	      SWAP (op0, op1);
-	    }
-
-	  if (TREE_CODE (op0) != SSA_NAME)
-	    return NULL_TREE;
-
-	  step = EXEC_BINARY (code, type, step, op1);
-	  var = op0;
-	  break;
-	  
-	default:
-	  return NULL_TREE;
-	}
-    }
+  return step;
 }
 
 /* Finds basic ivs.  */
@@ -1099,23 +1066,27 @@ determine_biv_step (tree phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  tree phi, base, step, type;
+  tree phi, step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
 
   for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
     {
       step = determine_biv_step (phi);
+
       if (!step)
 	continue;
-      base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
+      if (cst_and_fits_in_hwi (step)
+	  && int_cst_value (step) == 0)
+	continue;
 
+      base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
       type = TREE_TYPE (PHI_RESULT (phi));
       base = convert (type, base);
       step = convert (type, step);
-
+ 
       set_iv (data, PHI_RESULT (phi), base, step);
-      found |= (integer_nonzerop (step) != 0);
+      found = true;
     }
 
   return found;
@@ -1126,9 +1097,10 @@ find_bivs (struct ivopts_data *data)
 static void
 mark_bivs (struct ivopts_data *data)
 {
-  tree phi, stmt, var, rhs, op0, op1;
-  struct iv *iv;
+  tree phi, var;
+  struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
+  basic_block incr_bb;
 
   for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
     {
@@ -1136,36 +1108,19 @@ mark_bivs (struct ivopts_data *data)
       if (!iv)
 	continue;
 
-      iv->biv_p = true;
       var = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
-      stmt = SSA_NAME_DEF_STMT (var);
+      incr_iv = get_iv (data, var);
+      if (!incr_iv)
+	continue;
 
-      while (TREE_CODE (stmt) != PHI_NODE)
-	{
-	  var = TREE_OPERAND (stmt, 0);
-	  iv = get_iv (data, var);
-	  iv->biv_p = true;
+      /* If the increment is in the subloop, ignore it.  */
+      incr_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+      if (incr_bb->loop_father != data->current_loop
+	  || (incr_bb->flags & BB_IRREDUCIBLE_LOOP))
+	continue;
 
-	  rhs = TREE_OPERAND (stmt, 1);
-	  switch (TREE_CODE (rhs))
-	    {
-	    case SSA_NAME:
-	      var = rhs;
-	      break;
-
-	    case PLUS_EXPR:
-	    case MINUS_EXPR:
-	      op0 = TREE_OPERAND (rhs, 0);
-	      op1 = TREE_OPERAND (rhs, 1);
-	      var = TREE_CODE (op1) != INTEGER_CST ? op1 : op0;
-	      break;
-
-	    default:
-	      abort ();
-	    }
-
-	  stmt = SSA_NAME_DEF_STMT (var);
-	}
+      iv->biv_p = true;
+      incr_iv->biv_p = true;
     }
 }
 
@@ -1196,141 +1151,64 @@ get_var_def (struct ivopts_data *data, tree var, tree *base, tree *step)
   return true;
 }
 
+/* Checks whether STMT defines a linear induction variable and stores its
+   parameters to BASE and STEP.  */
+
+static bool
+find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
+			tree *base, tree *step)
+{
+  tree lhs, type, ev;
+  struct loop *loop = data->current_loop;
+  basic_block bb = bb_for_stmt (stmt);
+
+  *base = NULL_TREE;
+  *step = NULL_TREE;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  lhs = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (lhs) != SSA_NAME)
+    return false;
+
+  type = TREE_TYPE (lhs);
+  if (TREE_CODE (type) != INTEGER_TYPE
+      && TREE_CODE (type) != POINTER_TYPE)
+    return false;
+
+  ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, lhs);
+  if (tree_does_not_contain_chrecs (ev))
+    {
+      *base = ev;
+      return true;
+    }
+
+  if (TREE_CODE (ev) != POLYNOMIAL_CHREC
+      || CHREC_VARIABLE (ev) != (unsigned) loop->num)
+    return false;
+
+  *step = CHREC_RIGHT (ev);
+  if (TREE_CODE (*step) != INTEGER_CST)
+    return false;
+  *base = CHREC_LEFT (ev);
+  if (tree_contains_chrecs (*base))
+    return false;
+
+  return true;
+}
+
 /* Finds general ivs in statement STMT.  */
 
 static void
 find_givs_in_stmt (struct ivopts_data *data, tree stmt)
 {
-  tree lhs, rhs, op0, op1, mul = NULL_TREE;
-  bool negate = false;
-  tree base = NULL_TREE, step = NULL_TREE, type;
-  tree base0 = NULL_TREE, step0 = NULL_TREE;
-  enum tree_code code;
-  char class;
+  tree base, step;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (!find_givs_in_stmt_scev (data, stmt, &base, &step))
     return;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (lhs) != SSA_NAME)
-    return;
-
-  type = TREE_TYPE (lhs);
-  if (TREE_CODE (type) != INTEGER_TYPE
-      && TREE_CODE (type) != POINTER_TYPE)
-    return;
-
-  code = TREE_CODE (rhs);
-  class = TREE_CODE_CLASS (code);
-  if (class == '1' || class == '2')
-    {
-      op0 = TREE_OPERAND (rhs, 0);
-      if (!get_var_def (data, op0, &base0, &step0))
-	return;
-
-      if (TREE_TYPE (op0) != type)
-	{
-	  base0 = convert (type, base0);
-	  if (step0)
-	    step0 = convert (type, step0);
-	}
-    }
-
-  if (class == '2')
-    {
-      op1 = TREE_OPERAND (rhs, 1);
-      if (!get_var_def (data, op1, &base, &step))
-	return;
-
-      if (TREE_TYPE (op1) != type)
-	{
-	  base = convert (type, base);
-	  if (step)
-	    step = convert (type, step);
-	}
-    }
-
-  switch (code)
-    {
-    case SSA_NAME:
-      if (!get_var_def (data, rhs, &base, &step))
-	return;
-      break;
-
-    case PLUS_EXPR:
-      break;
-
-    case MINUS_EXPR:
-      negate = true;
-      break;
-
-    case MULT_EXPR:
-      if (step0)
-	{
-	  if (step)
-	    return;
-
-	  if (TREE_CODE (base) != INTEGER_CST)
-	    return;
-
-	  mul = base;
-	  base = base0;
-	  step = step0;
-	  base0 = NULL_TREE;
-	  step0 = NULL_TREE;
-	}
-      else if (step)
-	{
-	  if (TREE_CODE (base0) != INTEGER_CST)
-	    return;
-
-	  mul = base0;
-	  base0 = NULL_TREE;
-	}
-      else
-	return;
-
-      break;
-	  
-    case NEGATE_EXPR:
-      negate = true;
-      base = base0;
-      step = step0;
-      base0 = NULL_TREE;
-      step0 = NULL_TREE;
-      break;
-
-    default:
-      return;
-    }
-
-  if (negate)
-    {
-      base = fold (build1 (NEGATE_EXPR, type, base));
-      if (step)
-	step = EXEC_UNARY (NEGATE_EXPR, type, step);
-    }
-
-  if (mul)
-    {
-      base = fold (build (MULT_EXPR, type, mul, base));
-      if (step)
-	step = EXEC_BINARY (MULT_EXPR, type, mul, step);
-    }
-
-  if (base0)
-    base = fold (build (PLUS_EXPR, type, base, base0));
-    
-  if (step0)
-    {
-      if (step)
-	step = EXEC_BINARY (PLUS_EXPR, type, step, step0);
-      else
-	step = step0;
-    }
-  
-  set_iv (data, lhs, base, step);
+  set_iv (data, TREE_OPERAND (stmt, 0), base, step);
 }
 
 /* Finds general ivs in basic block BB.  */
@@ -1747,9 +1625,6 @@ find_induction_variables (struct ivopts_data *data)
 {
   unsigned i;
   struct loop *loop = data->current_loop;
-
-  /* TODO (FIXME?) Use scev for this.  ??? Perhaps the code could still be
-     useful at lower optimization levels, since it might be faster.  */
 
   if (!find_bivs (data))
     return false;
@@ -3220,7 +3095,7 @@ force_var_cost (struct ivopts_data *data,
       walk_tree (&expr, find_depends, depends_on, NULL);
     }
 
-  if (is_gimple_min_invariant (expr)
+  if (TREE_INVARIANT (expr)
       || SSA_VAR_P (expr))
     return 0;
 
@@ -4325,10 +4200,9 @@ try_improve_iv_set (struct ivopts_data *data,
   return true;
 }
 
-/* Attempts to find the optimal set of induction variables.  TODO document
-   the algorithm, once it converges to the final form.  For now we do simple
-   greedy heuristic (trying to replace at most one candidate in the selected
-   solution).  */
+/* Attempts to find the optimal set of induction variables.  We do simple
+   greedy heuristic -- we try to replace at most one candidate in the selected
+   solution and remove the unused ivs while this improves the cost.  */
 
 static bitmap
 find_optimal_iv_set (struct ivopts_data *data)
@@ -5022,6 +4896,8 @@ tree_ssa_iv_optimize_finalize (struct loops *loops, struct ivopts_data *data)
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (data->iv_uses);
   VARRAY_FREE (data->iv_candidates);
+
+  scev_finalize ();
 }
 
 /* Optimizes the LOOP.  Returns true if anything changed.  */

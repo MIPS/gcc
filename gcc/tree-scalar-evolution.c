@@ -568,41 +568,12 @@ chrec_is_positive (tree chrec, bool *value)
     }
 }
 
-/* Determine whether the set_chrec has to keep this expression
-   symbolic. */
-
-static tree 
-set_scev_keep_symbolic (tree def,
-			tree chrec)
-{
-  if (chrec == chrec_not_analyzed_yet)
-    return chrec;
-
-  if (chrec == chrec_top)
-    /*    return def; */
-    return chrec;
-  
-  switch (TREE_CODE (chrec))
-    {
-    case ADDR_EXPR:
-    case ARRAY_REF:
-    case INDIRECT_REF:
-    case COMPONENT_REF:
-      /* KEEP_IT_SYMBOLIC.  */
-      return def;
-      
-    default:
-      return chrec;
-    }
-}
-
 /* Associate CHREC to SCALAR in LOOP.  */
 
 static void
 set_scalar_evolution (struct loop *loop, tree scalar, tree chrec)
 {
   tree *scalar_info = find_var_scev_info (loop, scalar);
-  chrec = set_scev_keep_symbolic (scalar, chrec);
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -639,51 +610,12 @@ get_scalar_evolution (struct loop *loop, tree scalar)
       res = *find_var_scev_info (loop, scalar);
       break;
 
-    case VAR_DECL:
-    case PARM_DECL:
     case REAL_CST:
     case INTEGER_CST:
-    case FLOAT_EXPR:
-    case NEGATE_EXPR:
-    case ABS_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case LROTATE_EXPR:
-    case RROTATE_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case BIT_AND_EXPR:
-    case BIT_NOT_EXPR:
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-    case TRUTH_NOT_EXPR:
-    case ADDR_EXPR:
-    case ARRAY_REF:
-    case INDIRECT_REF:
-    case COMPONENT_REF:
-      /* KEEP_IT_SYMBOLIC. These nodes are kept in "symbolic" form. */
       res = scalar;
       break;
-      
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-      {
-	/* KEEP_IT_SYMBOLIC.  In the case of a cast, keep it symbolic,
-	   otherwise just answer chrec_top.  */
-	tree opnd0 = TREE_OPERAND (scalar, 0);
-	
-	if (opnd0 && TREE_CODE (opnd0) == SSA_NAME)
-	  res = scalar;
-	else
-	  res = chrec_top;
-	break;
-      }
-      
+
     default:
-      /* We don't want to do symbolic computations on these nodes.  */
       res = chrec_top;
       break;
     }
@@ -2623,10 +2555,12 @@ interpret_loop_phi (struct loop *loop, tree loop_phi)
       /* Dive one level deeper.  */
       subloop = superloop_at_depth (phi_loop, loop->depth + 1);
 
-      /* And interpret the subloop.  */
+      /* Interpret the subloop.  */
       res = compute_overall_effect_of_inner_loop (subloop,
 						  PHI_RESULT (loop_phi));
-      return res;
+
+      /* And get the evolution of the result.  */
+      return analyze_scalar_evolution (loop, res);
     }
 
   /* Otherwise really interpret the loop phi.  */
@@ -2839,6 +2773,33 @@ end:
     fprintf (dump_file, ")\n");
   
   return res;
+}
+
+/* Analyze scalar evolution of use of VERSION in USE_LOOP with respect to
+   WRTO_LOOP (which should be a superloop of both USE_LOOP and definition
+   of VERSION).  */
+
+tree
+analyze_scalar_evolution_in_loop (struct loop *wrto_loop, struct loop *use_loop,
+				  tree version)
+{
+  tree ev = version;
+
+  while (1)
+    {
+      ev = analyze_scalar_evolution (use_loop, ev);
+
+      if (use_loop == wrto_loop)
+	return ev;
+
+      /* If the value of the use changes in the inner loop, we cannot express
+	 its value in the outer loop (we might try to return interval chrec,
+	 but we do not have a user for it anyway)  */
+      if (!no_evolution_in_loop_p (ev, use_loop->num))
+	return chrec_top;
+
+      use_loop = use_loop->outer;
+    }
 }
 
 /* Analyze all the parameters of the chrec that were left under a

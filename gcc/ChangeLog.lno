@@ -1,3 +1,25 @@
+2004-04-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-chrec.c (chrec_convert): Handle extending correctly.
+	* tree-scalar-evolution.c (set_scev_keep_symbolic): Removed.
+	(set_scalar_evolution): Do not use it.
+	(get_scalar_evolution): Only handle ssa names and constants.
+	(interpret_loop_phi): When interpreting subloop, compute the
+	evolution in outer loop afterwards.
+	(analyze_scalar_evolution_in_loop): New.
+	* tree-scalar-evolution.h (analyze_scalar_evolution_in_loop): Declare.
+	* tree-ssa-loop-ivopts.c: Include tree-fold-const.h, tree-chrec.h
+	and tree-scalar-evolution.h.
+	(tree_ssa_iv_optimize_init): Call scev_initialize.
+	(determine_biv_step, find_bivs, mark_bivs,
+	find_givs_in_stmt): Use scev analyzer.
+	(find_givs_in_stmt_scev): New function.
+	(find_induction_variables): Remove TODO comment.
+	(force_var_cost): Test for TREE_INVARIANT, not for
+	is_gimple_min_invariant.
+	(find_optimal_iv_set): Update comment.
+	(tree_ssa_iv_optimize_finalize): Call scev_finalize.
+
 2004-04-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa.c (raise_value): Removed.

@@ -2841,7 +2841,10 @@ chrec_convert (tree type,
   ct = chrec_type (chrec);
   if (ct == type)
     return chrec;
-    
+
+  if (TYPE_PRECISION (ct) < TYPE_PRECISION (type))
+    return convert (type, chrec);
+
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
