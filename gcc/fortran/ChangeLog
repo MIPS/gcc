@@ -2,6 +2,7 @@
 
 	* fortran/Make-lang.in: Use GMPLIBS.
 	* fortran/config-lang.in: Set need_gmp.
+	* trans-expr.c (gfc_conv_variable): Remove incorrect assertion.
 
 2003-07-27  Andreas Jaeger  <aj@suse.de>
 

@@ -272,8 +272,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  assert (se->want_pointer);
 	  if (!sym->attr.dummy)
 	    {
-	      assert (TREE_CODE (se->expr) == FUNCTION_DECL
-		      && DECL_EXTERNAL (se->expr));
+	      assert (TREE_CODE (se->expr) == FUNCTION_DECL);
 	      se->expr = build1 (ADDR_EXPR,
 				 build_pointer_type (TREE_TYPE (se->expr)),
 				 se->expr);
