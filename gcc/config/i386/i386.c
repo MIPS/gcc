@@ -1168,7 +1168,7 @@ override_options ()
 	  target_flags |= MASK_SSE2;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
-	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_MMX))
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  error ("CPU you sellected does not support x86-64 instruction set");
 	break;
       }
