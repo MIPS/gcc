@@ -194,6 +194,7 @@ static tree copy_static_chain (tree, inline_data *);
 static bool function_versionable_p (tree);
 static void create_block_annotation (basic_block);
 static bool replace_ref_tree (inline_data *, tree *);
+static inline bool inlining_p (inline_data *id);
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -759,9 +760,9 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	}
       else if (TREE_CODE (*tp) == RESX_EXPR)
 	{
-	  /* If we're inlining (e.g. not saving and not cloning),
+	  /* If we're inlining (e.g. not saving, not cloning and not versioning),
 	     adjust the region number of this resume expression.  */
-	  if (!id->saving_p && !id->cloning_p)
+	  if (inlining_p (id))
 	    {
 	      struct function *outermost_function
 		    = DECL_STRUCT_FUNCTION (id->node->decl);
@@ -775,12 +776,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       if (tree_could_throw_p (*tp))
 	{
 	  /* Add an entry for the copied tree in the EH hashtable.
-	     When saving or cloning, use the hashtable in cfun,
-	     and just copy the EH number.  When inlining, use the
+	     When saving or cloning or versioning, use the hashtable in 
+	     cfun, and just copy the EH number.  When inlining, use the
 	     hashtable in the caller, and adjust the region number.
 	     (Note that the EH region table hasn't yet been updated
 	     to reflect the callee's region, so don't look at that.)  */
-	  if (id->saving_p || id->cloning_p)
+	  if (!inlining_p (id))
 	    duplicate_stmt_eh_region_mapping (
 			id->callee_cfun, cfun,
 			old_node, *tp, 0);
@@ -3745,5 +3746,11 @@ create_block_annotation (basic_block bb)
   bb->tree_annotations = ggc_alloc_cleared (sizeof (struct bb_ann_d));
 }
 
+/* Returns true if we're inlining.  */
+static inline bool 
+inlining_p (inline_data *id)
+{
+  return (!id->saving_p && !id->cloning_p && !id->versioning_p);
+}
 #include "gt-tree-inline.h"
 
