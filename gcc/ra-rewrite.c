@@ -76,6 +76,7 @@ void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
+static void purge_reg_equiv_notes PARAMS ((void));
 static void assign_stack_slots PARAMS ((void));
 static void assign_stack_slots_1 PARAMS ((void));
 static void mark_insn_refs_for_checking PARAMS ((struct ra_insn_info *,
@@ -1680,17 +1681,23 @@ mark_refs_for_checking (web, uses_as_bitmap)
       if (uses_as_bitmap)
 	bitmap_set_bit (uses_as_bitmap, id);
       web_parts[df->def_id + id].spanned_deaths = 0;
+      web_parts[df->def_id + id].num_calls = 0;
       web_parts[df->def_id + id].crosses_call = 0;
       web_parts[df->def_id + id].crosses_bb = 0;
+      web_parts[df->def_id + id].crosses_memset = 0;
     }
   for (i = 0; i < web->num_defs; i++)
     {
       unsigned int id = DF_REF_ID (web->defs[i]);
       web_parts[id].spanned_deaths = 0;
+      web_parts[id].num_calls = 0;
       web_parts[id].crosses_call = 0;
       web_parts[id].crosses_bb = 0;
+      web_parts[id].crosses_memset = 0;
     }
 }
+
+static bitmap webs_changed_layout;
 
 /* The last step of the spill phase is to set up the structures for
    incrementally rebuilding the interference graph.  We break up
@@ -1713,6 +1720,18 @@ detect_web_parts_to_rebuild ()
   last_check_uses = sbitmap_alloc (df->use_id);
   sbitmap_zero (last_check_uses);
   sbitmap_zero (already_webs);
+
+  if (webs_changed_layout)
+    EXECUTE_IF_SET_IN_BITMAP (webs_changed_layout, 0, i,
+      {
+        struct web *web = alias (ID2WEB (i));
+        if (web->type != PRECOLORED && web->type != SPILLED)
+          {
+            remove_web_from_list (web);
+            put_web (web, SPILLED);
+	  }
+      });
+
   /* We need to recheck all uses of all webs involved in spilling (and the
      uses added by spill insns, but those are not analyzed yet).
      Those are the spilled webs themself, webs coalesced to spilled ones,
@@ -1745,16 +1764,20 @@ detect_web_parts_to_rebuild ()
 	    bitmap_set_bit (uses_as_bitmap, id);
 	    web_parts[df->def_id + id].uplink = NULL;
 	    web_parts[df->def_id + id].spanned_deaths = 0;
+	    web_parts[df->def_id + id].num_calls = 0;
 	    web_parts[df->def_id + id].crosses_call = 0;
 	    web_parts[df->def_id + id].crosses_bb = 0;
+	    web_parts[df->def_id + id].crosses_memset = 0;
 	  }
 	for (i = 0; i < web->num_defs; i++)
 	  {
 	    unsigned int id = DF_REF_ID (web->defs[i]);
 	    web_parts[id].uplink = NULL;
 	    web_parts[id].spanned_deaths = 0;
+	    web_parts[id].num_calls = 0;
 	    web_parts[id].crosses_call = 0;
 	    web_parts[id].crosses_bb = 0;
+	    web_parts[id].crosses_memset = 0;
 	  }
 
 	/* Now look at all neighbors of this spilled web.  */
@@ -1768,6 +1791,11 @@ detect_web_parts_to_rebuild ()
 	      continue;
 	    SET_BIT (already_webs, wl->t->id);
 	    mark_refs_for_checking (wl->t, uses_as_bitmap);
+	    /* If this web was actually changed, delete the flag which would
+	       prevent the conflicting web from becoming spilled.  We now
+	       have another chance to actually emit some insns.  */
+	    if (0 && !web->changed && alias (wl->t)->type != SPILLED)
+	      wl->t->changed = 0;
 	  }
 	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j,
 	  {
@@ -1776,6 +1804,8 @@ detect_web_parts_to_rebuild ()
 	      continue;
 	    SET_BIT (already_webs, web2->id);
 	    mark_refs_for_checking (web2, uses_as_bitmap);
+	    if (0 && !web->changed && alias (web2)->type != SPILLED)
+	      web2->changed = 0;
 	  });
 	
       }
@@ -1826,6 +1856,56 @@ detect_web_parts_to_rebuild ()
 static unsigned int deleted_def_insns;
 static unsigned HOST_WIDE_INT deleted_def_cost;
 
+extern int flag_non_call_exceptions;
+
+static void try_delete_useless_def PARAMS ((rtx, rtx));
+
+static void
+try_delete_useless_def (insn, set)
+     rtx insn, set;
+{
+  unsigned int n;
+  rtx dest = SET_DEST (set);
+  struct ra_insn_info info = insn_df[INSN_UID (insn)];
+  while (GET_CODE (dest) == SUBREG
+	 || GET_CODE (dest) == STRICT_LOW_PART
+	 || GET_CODE (dest) == ZERO_EXTRACT)
+    dest = XEXP (dest, 0);
+  /* We don't want to delete sets of hardregs.  But clobbers, which are not
+     marked specially to normal DEFs, therefore we check if all non-hardreg
+     defs are marked useless, and additionally if we don't set a hardreg.  */
+  if (!REG_P (dest)
+      || REGNO (dest) < FIRST_PSEUDO_REGISTER
+      || volatile_refs_p (SET_SRC (set))
+      || (flag_non_call_exceptions && may_trap_p (insn)))
+    return;
+  /* Is every pseudo set in this insn useless?  Note that the useless_defs
+     bitmap is too optimistic for spilled webs.  Sometimes some defs of
+     spilled webs are marked, although they are needed.  This is the case,
+     if they have a stack slot (or pseudo) allocated.  */
+  for (n = 0; n < info.num_defs; n++)
+    {
+      struct web *web = def2web[DF_REF_ID (info.defs[n])];
+      if (DF_REF_REGNO (info.defs[n]) >= FIRST_PSEUDO_REGISTER
+	  && (!bitmap_bit_p (useless_defs, DF_REF_ID (info.defs[n]))
+	      || (alias (find_web_for_subweb (web))->type == SPILLED
+		  && alias (find_web_for_subweb (web))->stack_slot != NULL)))
+	return;
+    }
+  for (n = 0; n < info.num_defs; n++)
+    bitmap_set_bit (webs_changed_layout,
+		    find_web_for_subweb (def2web[DF_REF_ID (info.defs[n])])->id);
+  for (n = 0; n < info.num_uses; n++)
+    bitmap_set_bit (webs_changed_layout,
+		    find_web_for_subweb (use2web[DF_REF_ID (info.uses[n])])->id);
+  deleted_def_insns++;
+  deleted_def_cost += BLOCK_FOR_INSN (insn)->frequency + 1;
+  PUT_CODE (insn, NOTE);
+  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  df_insn_modify (df, BLOCK_FOR_INSN (insn), insn);
+  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+}
+
 /* In rewrite_program2() we noticed, when a certain insn set a pseudo
    which wasn't live.  Try to delete all those insns.  */
 
@@ -1844,12 +1924,7 @@ delete_useless_defs ()
       if (set && web->type == SPILLED && web->stack_slot == NULL
 	  && !can_throw_internal (insn))
         {
-	  deleted_def_insns++;
-	  deleted_def_cost += BLOCK_FOR_INSN (insn)->frequency + 1;
-	  PUT_CODE (insn, NOTE);
-	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-	  df_insn_modify (df, BLOCK_FOR_INSN (insn), insn);
-	  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+	  try_delete_useless_def (insn, set);
 	}
     });
 }
@@ -1863,6 +1938,7 @@ static void
 detect_non_changed_webs ()
 {
   struct dlist *d, *d_next;
+  caller_save_needed = 0;
   for (d = WEBS(SPILLED); d; d = d_next)
     {
       struct web *web = DLIST_WEB (d);
@@ -1873,7 +1949,13 @@ detect_non_changed_webs ()
 		     web->id);
 	  remove_web_from_list (web);
 	  put_web (web, COLORED);
-	  web->changed = 1;
+	  /* Non changed call crossing webs, whose color is call clobbered
+	     will be caller saved later.  I.e. ignore them here.  */
+	  if (!(web->crosses_call
+		&& TEST_HARD_REG_BIT (regs_invalidated_by_call, web->color)))
+	    web->changed = 1;
+	  else
+	    caller_save_needed = 1;
 	}
       else
 	web->changed = 0;
@@ -1881,6 +1963,22 @@ detect_non_changed_webs ()
 	 I.e. colored webs, which have changed set were formerly
 	 spilled webs for which no insns were emitted.  */
     }
+}
+
+static int need_rebuild PARAMS ((void));
+static int
+need_rebuild ()
+{
+  struct dlist *d;
+  for (d = WEBS(SPILLED); d; d = d->next)
+    {
+      struct web *web = DLIST_WEB (d);
+      if (web->changed
+	  || (!web->crosses_call
+	      || !TEST_HARD_REG_BIT (regs_invalidated_by_call, web->color)))
+	return 1;
+    }
+  return 0;
 }
 
 /* Before spilling we clear the changed flags for all spilled webs.  */
@@ -1904,6 +2002,14 @@ subst_to_stack_p ()
   for (d = WEBS(COLORED); d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
+      /* Detect dead spilltemp webs and skip them.  */
+      if (web->num_uses == 0 && web->num_defs == 1)
+	{
+	  rtx dead = DF_REF_INSN (web->defs[0]);
+	  if (insn_df[INSN_UID (dead)].num_defs == 1
+	      && GET_CODE (dead) == INSN)
+	    continue;
+	}
       if (web->color == an_unusable_color)
 	return 1;
     }
@@ -1915,11 +2021,12 @@ subst_to_stack_p ()
    spill code.  This also sets up the structures for incrementally
    building the interference graph in the next pass.  */
 
-void
+int
 actual_spill (spill_p)
      int spill_p ATTRIBUTE_UNUSED;
 {
   int i;
+  int rebuildit = 1;
   bitmap new_deaths;
 
   /* If we have a webs colored by an_unusable_color (ie we think that they are
@@ -1930,7 +2037,7 @@ actual_spill (spill_p)
        See to the caller of actual_spill.  */
     {
       assign_stack_slots ();
-      return;
+      return rebuildit;
     }
     
   new_deaths = BITMAP_XMALLOC ();
@@ -1946,6 +2053,7 @@ actual_spill (spill_p)
   else
     rewrite_program (new_deaths);
   insert_stores (new_deaths);
+  webs_changed_layout = BITMAP_XMALLOC ();
   delete_useless_defs ();
   BITMAP_XFREE (useless_defs);
   sbitmap_free (insns_with_deaths);
@@ -1954,9 +2062,110 @@ actual_spill (spill_p)
   sbitmap_zero (insns_with_deaths);
   EXECUTE_IF_SET_IN_BITMAP (new_deaths, 0, i,
     { SET_BIT (insns_with_deaths, i);});
-  detect_non_changed_webs ();
+  if (ra_pass > 1)
+    {
+      rebuildit = need_rebuild ();
+      detect_non_changed_webs ();
+    }
   detect_web_parts_to_rebuild ();
+  BITMAP_XFREE (webs_changed_layout);
   BITMAP_XFREE (new_deaths);
+  return rebuildit;
+}
+
+static void allocate_stack_slots PARAMS ((void));
+static void
+allocate_stack_slots ()
+{
+  unsigned int *stack_color, *max_size, *need_align;
+  rtx *slots;
+  unsigned int max_color;
+  unsigned int i, max_num;
+  bitmap conflicts = BITMAP_XMALLOC ();
+
+  if (BYTES_BIG_ENDIAN)
+    abort();
+
+  max_num = num_webs - num_subwebs;
+  stack_color = (unsigned int *) xcalloc (max_num, sizeof (int));
+  max_size = (unsigned int *) xcalloc (max_num, sizeof (int));
+  need_align = (unsigned int *) xcalloc (max_num, sizeof (int));
+  max_color = 0;
+  for (i = 0; i < max_num; i++)
+    if (SPILL_SLOT_P (id2web[i]->regno)
+	&& id2web[i]->type == COLORED
+       	&& id2web[i]->color == an_unusable_color)
+      {
+	struct web *web = ID2WEB (i);
+	struct conflict_link *wl;
+	unsigned int j, this_color;
+	bitmap_clear (conflicts);
+	for (wl = web->conflict_list; wl; wl = wl->next)
+	  if (stack_color[wl->t->id])
+	    bitmap_set_bit (conflicts, stack_color[wl->t->id]);
+	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j,
+	  {
+	    if (stack_color[j])
+	      bitmap_set_bit (conflicts, stack_color[j]);
+	  });
+	for (this_color = 1; bitmap_bit_p (conflicts, this_color);
+	     this_color++) ;
+	stack_color[i] = this_color;
+	if (this_color > max_color)
+	  max_color = this_color;
+	if (PSEUDO_REGNO_BYTES (web->regno) > max_size[this_color])
+	  {
+	    /* If we change size we need big alignment.  */
+	    if (max_size[this_color])
+	      need_align[this_color] = 1;
+	    max_size[this_color] = PSEUDO_REGNO_BYTES (web->regno);
+	  }
+      }
+
+  slots = (rtx *) xcalloc (max_color + 1, sizeof (rtx));
+  for (i = 1; i <= max_color; i++)
+    {
+      enum machine_mode mode;
+      rtx place;
+      mode = mode_for_size (max_size[i] * BITS_PER_UNIT, MODE_INT, 1);
+      place = assign_stack_local (mode, max_size[i], need_align[i] ? -1 : 0);
+      /* XXX do something with RTX_UNCHANGING_P ?  */
+      set_mem_alias_set (place, new_alias_set ());
+      slots[i] = place;
+    }
+  for (i = 0; i < max_num; i++)
+    if (SPILL_SLOT_P (id2web[i]->regno)
+	&& id2web[i]->type == COLORED
+       	&& id2web[i]->color == an_unusable_color)
+      {
+	struct web *web = ID2WEB (i);
+	unsigned int c = stack_color[i];
+	int adjust = 0;
+	rtx new = adjust_address_nv (slots[c], GET_MODE (web->orig_x),
+				     adjust);
+	/* We might want to set something like DECL_RTL later, so unshare
+	   the memref.  */
+	if (new == slots[c])
+	  new = copy_rtx (new);
+	web->reg_rtx = new;
+      }
+
+  BITMAP_XFREE (conflicts);
+  free (slots);
+  free (need_align);
+  free (max_size);
+  free (stack_color);
+}
+
+/* Remove all REG_EQUIV notes found in the insn chain.  */
+
+static void
+purge_reg_equiv_notes ()
+{
+  rtx insn, note;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    while ((note = find_reg_note (insn, REG_EQUIV, 0)) != NULL)
+      remove_note (insn, note);
 }
 
 /* Allocate and assign stack slots to all webs colored by
@@ -2360,28 +2569,34 @@ emit_colors (df)
      want to assign in the order of ID.  */
   max_num = num_webs - num_subwebs;
   order2web = (struct web **) xmalloc (max_num * sizeof (order2web[0]));
-  for (i = 0, num = 0; i < max_num; i++)
-    if (SPILL_SLOT_P (id2web[i]->regno)
-	&& id2web[i]->type == COLORED
-       	&& id2web[i]->color == an_unusable_color)
-      order2web[num++] = id2web[i];
-  if (num)
+
+  if (BYTES_BIG_ENDIAN)
     {
-      qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
-      for (i = 0; i < num; i++)
+      for (i = 0, num = 0; i < max_num; i++)
+	if (SPILL_SLOT_P (id2web[i]->regno)
+	    && id2web[i]->type == COLORED
+	    && id2web[i]->color == an_unusable_color)
+	  order2web[num++] = id2web[i];
+      if (num)
 	{
-	  struct web *web = order2web[i];
-	  unsigned int inherent_size = PSEUDO_REGNO_BYTES (web->regno);
-	  unsigned int total_size = MAX (inherent_size, 0);
-	  rtx place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
-					  total_size,
-					  inherent_size == total_size ? 0: -1);
-	  RTX_UNCHANGING_P (place) =
-	      RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
-	  set_mem_alias_set (place, new_alias_set ());
-	  web->reg_rtx = place;
+	  qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
+	  for (i = 0; i < num; i++)
+	    {
+	      struct web *web = order2web[i];
+	      unsigned int inherent_size = PSEUDO_REGNO_BYTES (web->regno);
+	      unsigned int total_size = MAX (inherent_size, 0);
+	      rtx place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
+					      total_size,
+					      inherent_size == total_size ? 0: -1);
+	      RTX_UNCHANGING_P (place) =
+		  RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
+	      set_mem_alias_set (place, new_alias_set ());
+	      web->reg_rtx = place;
+	    }
 	}
     }
+  else
+    allocate_stack_slots ();
   free (order2web);
 
   /* First create the (REG xx) rtx's for all webs, as we need to know
@@ -2392,6 +2607,11 @@ emit_colors (df)
       web = ID2WEB (i);
       if (web->type != COLORED && web->type != COALESCED)
 	continue;
+      if (web->crosses_call
+	  && web->color >= 0
+	  && TEST_HARD_REG_BIT (regs_invalidated_by_call, web->color))
+	caller_save_needed = 1;
+
       if (web->type == COALESCED && alias (web)->type == COLORED)
 	continue;
       if (web->regno < FIRST_PSEUDO_REGISTER)
@@ -2499,6 +2719,13 @@ emit_colors (df)
 		     r, web->id, ra_reg_renumber[r]);
 	}
     }
+
+  /* Coalesced webs will get the same pseudo in RTL.  That combined pseudo
+     most probably has more definitions than it's parts.  If one part has
+     associated REG_EQUIV notes this would create the wrong picture, so
+     we need to remove those invalid REG_EQUIV notes.  For the time being
+     we simply delete _all_ REG_EQUIV notes.  */
+  purge_reg_equiv_notes ();
 
   old_regs = BITMAP_XMALLOC ();
   for (si = FIRST_PSEUDO_REGISTER; si < old_max_regno; si++)
@@ -2619,6 +2846,102 @@ setup_renumber (free_it)
     }
 }
 
+static struct web * get_aliased_aequivalent PARAMS ((struct web *));
+static struct web *
+get_aliased_aequivalent (web)
+     struct web *web;
+{
+  struct web *supweb = find_web_for_subweb (web);
+  struct web *aweb = alias (supweb);
+  /* Go to the alias web, except if that's a precolored web
+     (indicated by not having a reg_rtx), in which case we have
+     created the new pseudo for the web itself.  */
+  if (supweb != aweb && aweb->reg_rtx)
+    {
+      struct web *oweb = web;
+      if (SUBWEB_P (web))
+	web = find_subweb (aweb, web->orig_x);
+      else
+	web = aweb;
+      /* XXX We need to make this not happen anymore.  We anyway need
+	 to change the whole handling of subregs.  */
+      /*if (!web)
+	abort ();*/
+      if (!web)
+	web = oweb;
+    }
+  return web;
+}
+
+/* Insert top level clobbers so the conservative life information
+   functions are not confused by partial sets, which _we_ know are the
+   initial defines.  */
+void
+create_flow_barriers ()
+{
+  basic_block bb;
+  sbitmap live;
+  bitmap partly_defined = BITMAP_XMALLOC ();
+  live = sbitmap_alloc (num_webs);
+  FOR_EACH_BB (bb)
+    {
+      int j;
+      rtx insn, prev_insn;
+      sbitmap_zero (live);
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+	{
+	  set_web_live (live, get_aliased_aequivalent (use2web[j]));
+	});
+      for (insn = bb->end; insn; insn = prev_insn)
+	{
+	  prev_insn = PREV_INSN (insn);
+
+	  if (INSN_P (insn))
+	    {
+	      unsigned int n;
+	      struct ra_insn_info info = insn_df[INSN_UID (insn)];
+
+	      bitmap_zero (partly_defined);
+	      for (n = 0; n < info.num_defs; n++)
+		{
+		  struct web *web = def2web[DF_REF_ID (info.defs[n])];
+		  web = get_aliased_aequivalent (web);
+		  if (SUBWEB_P (web))
+		    bitmap_set_bit (partly_defined,
+				    find_web_for_subweb (web)->id);
+		  reset_web_live (live, web);
+		}
+
+	      for (n = 0; n < info.num_uses; n++)
+		{
+		  struct web *web = use2web[DF_REF_ID (info.uses[n])];
+		  web = get_aliased_aequivalent (web);
+		  set_web_live (live, web);
+		}
+
+	      EXECUTE_IF_SET_IN_BITMAP (partly_defined, 0, j,
+		{
+		  struct web *web = ID2WEB (j);
+		  if (web->type != PRECOLORED
+		      /* If we wouldn't need to have the XXX hack in
+			 get_aliased_aequivalent() we could be sure to
+			 have web->reg_rtx set.  */
+		      && web->reg_rtx
+		      && REG_P (web->reg_rtx) && !is_partly_live (live, web))
+		    {
+		      emit_insn_before (gen_rtx_CLOBBER (VOIDmode,
+							 web->reg_rtx), insn);
+		    }
+		});
+	    }
+
+	  if (insn == bb->head)
+	    break;
+	}
+    }
+  sbitmap_free (live);
+  BITMAP_XFREE (partly_defined);
+}
 
 /* The WEB can't have a single color. The REF is a constraining ref.
    The REF will be spilled out from the WEB.  */

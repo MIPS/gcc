@@ -1,4 +1,63 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* Makefile.in (cse.o): Depend on df.h.
+	* cse.c (insn_live_p): Trapping insns are not necessarily live.
+	* defaults.h (SPILL_REGS): Define.
+	* df.c (df_insn_refs_record): Don't collect call-clobbered  hardregs.
+	* ra-build.c (insn_clobbers_mem_1, insn_clobbers_mem): New.
+	(copy_insn_p): Declare.
+	(uid_memset): New.
+	(union_web_part_roots): Sum num_calls members, union crosses_memset.
+	(live_out_1): Increment num_calls, handle call clobbered regs,
+	set crosses_memset.
+	(update_regnos_mentioned): Use insn_clobbers_mem to initialize
+	uid_memset.
+	(livethrough_conflicts_bb): Handle crosses_memset and num_calls.
+	(record_conflict): Delete #if 0 code.
+	(compare_and_free_webs): Check num_calls member.
+	(parts_to_webs_1): Initialize num_calls and crosses_memset member.
+	(check_conflict_numbers): #if 0 it.
+	(conflicts_between_webs): Silence warning.  Add commented code
+	to create conflicts of live-over-call webs with call-clobbered
+	regs, but comment it.
+	(detect_remat_webs): Also remat mem expression for webs not live
+	over memory clobbers.  Accept REG_EQUIV expression too.
+	(select_regclass): Delete call-clobbered regs from usable_regs.
+	Restrict usable regs to SPILL_REGS for spill temps.
+	(ra_build_realloc): Allocate uid_memset.
+	(ra_build_free_all): Free it.
+	* ra-colorize.c (get_simple_web): New, but #if 0 it.
+	(simplify): Call it, but commented out.
+	(colorize_one_web): Call-crossing webs first try non call-used regs.
+	* ra-debug.c (dump_igraph): Dump num_calls and crosses_memset.
+	* ra-rewrite.c (purge_reg_equiv_notes): New.
+	(mark_refs_for_checking): Clear num_calls and crosses_memset.
+	(webs_changed_layout): New.
+	(detect_web_parts_to_rebuild): Webs mentioned in webs_changed_layout
+	need to be rebuild to.  Clear num_calls and crosses_memset.
+	(try_delete_useless_def): New.
+	(delete_useless_defs): Call it.
+	(detect_non_changed_webs): Set caller_save_needed.
+	(need_rebuild): New.
+	(subst_to_stack_p): Skip dead spilltemps.
+	(actual_spill): Return an int.  Allocate/free webs_changed_layout.
+	Call need_rebuild.
+	(allocate_stack_slots): New.
+	(emit_colors): Call allocate_stack_slots if not BYTES_BIG_ENDIAN.
+	Possibly set caller_save_needed.  Call purge_reg_equiv_notes.
+	(get_aliased_equivalent, create_flow_barriers): New.
+	* ra.c (cleanup_insn_stream): New.
+	(one_pass): Change call to actual_spill.
+	(split_critical_edges): New.
+	(reg_alloc): Call cleanup_insn_stream.  Call split_critical_edges,
+	but commented.  Delete commented code.  Call
+	count_or_remove_death_notes only in the first pass.  Call
+	create_flow_barriers.
+	* ra.h (struct web_part, num_calls, crosses_memset): New members.
+	(struct web, num_calls, crosses_memset): Ditto.
+	(actual_spill): Change prototype.
+	(create_flow_barriers): Declare.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-colorize.c (insert_coalesced_conflicts): Correctly handle
 	self-conflicts.
 

@@ -94,6 +94,7 @@ static void validify_one_insn PARAMS ((rtx));
 static void detect_possible_mem_refs PARAMS ((struct df *));
 static void check_df PARAMS ((struct df *));
 static void init_ra PARAMS ((void));
+static void cleanup_insn_stream PARAMS ((void));
 
 void reg_alloc PARAMS ((void));
 
@@ -496,7 +497,7 @@ one_pass (df, rebuild)
 
       /* Add spill code if necessary.  */
       if (something_spilled)
-	actual_spill (1);
+	something_spilled = actual_spill (1);
 
       /* Check all colored webs to detect ones colored by an_unusable_color.
 	 These webs are spill temporaries and must be substituted by stack
@@ -834,6 +835,53 @@ detect_possible_mem_refs (df)
   reload_in_progress = old_rip;
 }
 
+/* Cleans up the insn stream.  It deletes stray clobber insns
+   which start REG_NO_CONFLICT blocks, and the ending self moves.
+   We track lifetimes of subregs precisely, and they only constrain
+   the allocator.  */
+
+static void
+cleanup_insn_stream ()
+{
+  rtx insn;
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == SET
+	    && SET_SRC (pat) == SET_DEST (pat)
+	    && REG_P (SET_DEST (pat))
+	    && REGNO (SET_DEST (pat)) >= FIRST_PSEUDO_REGISTER
+	    && find_reg_note (insn, REG_RETVAL, NULL_RTX))
+	  delete_insn_and_edges (insn);
+	/* Remove all candidate clobbers, not just those which have
+	   REG_LIBCALL notes.  */
+	else if (GET_CODE (pat) == CLOBBER
+		 && REG_P (SET_DEST (pat))
+		 && REGNO (SET_DEST (pat)) >= FIRST_PSEUDO_REGISTER)
+	  delete_insn_and_edges (insn);
+      }
+}
+
+static void split_critical_edges PARAMS ((void));
+
+static void
+split_critical_edges ()
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      edge e, e_succ;
+      for (e = bb->succ; e; e = e_succ)
+	{
+	  e_succ = e->succ_next;
+	  if (EDGE_CRITICAL_P (e)
+	      && (e->flags & EDGE_ABNORMAL) == 0)
+	    split_edge (e);
+	}
+    }
+}
+
 /* XXX see recog.c  */
 extern int while_newra;
 
@@ -904,7 +952,12 @@ reg_alloc ()
   if (!rtl_dump_file)
     debug_new_regalloc = 0;
 
-  /* Run regclass first, so we know the preferred and alternate classes
+  /* First cleanup the insn stream of confusing clobber and self-copy
+     insns which setup REG_NO_CONFLICT blocks.  */
+  cleanup_insn_stream ();
+  /*split_critical_edges ();*/
+
+  /* Then run regclass, so we know the preferred and alternate classes
      for each pseudo.  Deactivate emitting of debug info, if it's not
      explicitely requested.  */
   if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
@@ -912,15 +965,6 @@ reg_alloc ()
   if (!flag_ra_pre_reload)
     regclass (get_insns (), max_reg_num (), rtl_dump_file);
   rtl_dump_file = ra_dump_file;
-
-  /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
-     coalesced, which have such notes.  In that case, the whole combined
-     web gets that note too, which is wrong.  */
-  /*update_equiv_regs();*/
-
-  /* We don't use those NOTEs, and as we anyway change all registers,
-     they only make problems later.  */
-  count_or_remove_death_notes (NULL, 1);
 
   /* Initialize the different global arrays and regsets.  */
   init_ra ();
@@ -953,16 +997,17 @@ reg_alloc ()
   if (flag_ra_optimistic_coalescing)
     flag_ra_break_aliases = 1;
   flag_ra_dump_notes = 0;
-  /*  find_nesting_depths (); */
   make_insns_structurally_valid ();
-  /*verify_flow_info ();*/
 
   /* Allocate the global df structure.  */
   df = df_init ();
+
   ra_modified_insns = NULL;
   if (flag_ra_pre_reload)
-    ra_info = ra_info_init (max_reg_num ());
-  
+    {
+      ra_info = ra_info_init (max_reg_num ());
+    }
+
   newra_in_progress = 1;
 
   /* This is the main loop, calling one_pass as long as there are still
@@ -983,6 +1028,12 @@ reg_alloc ()
 	      fflush (rtl_dump_file);
 	    }
 	}
+
+      /* We don't use those NOTEs, and as we anyway change all registers,
+	 they only make problems later.  But remove them _after_ the first
+         pre_reload(), as that one can make use of those notes.  */
+      if (ra_pass == 1)
+	count_or_remove_death_notes (NULL, 1);
 
       if (!ra_modified_insns)
 	ra_modified_insns = BITMAP_XMALLOC ();
@@ -1060,6 +1111,7 @@ reg_alloc ()
 	  setup_renumber (0);
 	  /* Delete some more of the coalesced moves.  */
 	  delete_moves ();
+	  create_flow_barriers ();
 	  dump_constraints ();
 	}
       else
@@ -1074,8 +1126,11 @@ reg_alloc ()
 	  /* And new insns.  */
 	  compute_bb_for_insn ();
 	  /* Some of them might be dead.  */
-	  /*
-	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+	  /* XXX  When deleting such useless insns it can happen, that
+	     it deletes a whole web.  But in contrast to delete_useless_defs()
+	     this isn't yet handled correctly when incrementally rebuilding
+	     the graph (cf. ggRotatingPinholeCamera.cc of 252.eon).  
+	  delete_trivially_dead_insns_df (get_insns (), max_reg_num (), df);
 	  */
 	  /* Those new pseudos need to have their REFS count set.  */
 	  reg_scan_update (get_insns (), NULL, max_regno);

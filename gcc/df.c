@@ -1343,7 +1343,7 @@ df_insn_refs_record (df, bb, insn)
 	{
 	  rtx note;
 
-	  if (df->flags & DF_HARD_REGS)
+	  if (0 && df->flags & DF_HARD_REGS)
 	    {
 	      /* Kill all registers invalidated by a call.  */
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)

@@ -7614,7 +7614,7 @@ insn_live_p (insn, counts)
      int *counts;
 {
   int i;
-  if (flag_non_call_exceptions && may_trap_p (PATTERN (insn)))
+  if (0 && flag_non_call_exceptions && may_trap_p (PATTERN (insn)))
     return true;
   else if (GET_CODE (PATTERN (insn)) == SET)
     return set_live_p (PATTERN (insn), insn, counts);

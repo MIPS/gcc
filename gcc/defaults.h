@@ -617,4 +617,11 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define EXTRA_ADDRESS_CONSTRAINT(C) 0
 #endif
 
+/* SPILL_REGS is a reg class of those registers which can possibly
+   be used to load values for spilled webs (i.e. registers which are
+   allocated to the small webs into which a spilled web is split).  */
+#ifndef SPILL_REGS
+#define SPILL_REGS ALL_REGS
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

@@ -738,10 +738,12 @@ dump_igraph (df)
         ra_debug_msg (DUMP_WEBS, " (precolored, color=%d)", web->color);
       else if (find_web_for_subweb (web)->num_uses == 0)
 	ra_debug_msg (DUMP_WEBS, " dead");
-      if (web->crosses_call)
-	ra_debug_msg (DUMP_WEBS, " xcall");
+      if (web->num_calls)
+	ra_debug_msg (DUMP_WEBS, " %d xcall", web->num_calls);
       if (SPILL_SLOT_P (web->regno))
 	ra_debug_msg (DUMP_WEBS, " stack");
+      if (web->crosses_memset)
+	ra_debug_msg (DUMP_WEBS, " xmem");
       ra_debug_msg (DUMP_WEBS, "\n");
     }
 }

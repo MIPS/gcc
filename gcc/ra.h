@@ -79,10 +79,13 @@ struct web_part
   unsigned int spanned_deaths;
   /* The list of bitmaps of DEF ID's with which this part conflicts.  */
   struct tagged_conflict *sub_conflicts;
+  unsigned char num_calls;
   /* If there's any call_insn, while this part is live.  */
   unsigned int crosses_call : 1;
   /* If this part is live over an basic block edge.  */
   unsigned int crosses_bb : 1;
+  /* If this part is live over an insn changing memory.  */
+  unsigned int crosses_memset : 1;
 };
 
 /* Web structure used to store info about connected live ranges.
@@ -124,6 +127,8 @@ struct web
   /* 1 + the color this web got in the last pass.  If it hadn't got a color,
      or we are in the first pass, or this web is a new one, this is zero.  */
   int old_color;
+
+  unsigned char num_calls;
 
   /* Now follow some flags characterizing the web.  */
 
@@ -168,6 +173,9 @@ struct web
 
   /* 1 when this web (or parts thereof) are live over an abnormal edge.  */
   unsigned int live_over_abnormal:1;
+
+  /* Wether the web is live over insns which change memory in any way.  */
+  unsigned int crosses_memset:1;
 
   /* Nonzero if this web is used in subregs where the mode change
      was illegal for hardregs in CLASS_CANNOT_CHANGE_MODE.  */
@@ -637,11 +645,12 @@ extern struct web * alias PARAMS ((struct web *));
 extern void merge_moves PARAMS ((struct web *, struct web *));
 extern void ra_colorize_graph PARAMS ((struct df *));
 
-extern void actual_spill PARAMS ((int));
+extern int actual_spill PARAMS ((int));
 extern void emit_colors PARAMS ((struct df *));
 extern void delete_moves PARAMS ((void));
 extern void setup_renumber PARAMS ((int));
 extern void remove_suspicious_death_notes PARAMS ((void));
+extern void create_flow_barriers PARAMS ((void));
 extern int is_partly_dead PARAMS ((sbitmap, struct web *));
 extern void set_web_live PARAMS ((sbitmap, struct web *));
 extern void reset_web_live PARAMS ((sbitmap, struct web *));

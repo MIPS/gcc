@@ -451,6 +451,35 @@ decrement_degree (web, dec)
     }
 }
 
+#if 0
+/* Sometimes the order in which simple webs are colored _does_ matter.
+   For instance with call crossing webs it's better to first color the more
+   costly webs, so they have a higher chance of getting a non call clobbered
+   color.  Simply coloring costly webs sooner (putting them later on the
+   stack) doesn't seem to be very effective.  No big changes to the worse or
+   better occur according to first tests.  Therefore deactivated.  */
+static struct web * get_simple_web PARAMS ((void));
+
+static struct web *
+get_simple_web ()
+{
+  struct dlist *d, *bestd = NULL;
+  unsigned HOST_WIDE_INT cost;
+  for (d = WEBS(SIMPLIFY); d; d = d->next)
+    {
+      struct web *web = DLIST_WEB (d);
+      if (!bestd || web->spill_cost < cost)
+	{
+	  bestd = d;
+	  cost = web->spill_cost;
+	}
+    }
+  if (bestd)
+    remove_list (bestd, &WEBS(SIMPLIFY));
+  return bestd;
+}
+#endif
+
 /* Repeatedly simplify the nodes on the simplify worklists.  */
 
 static void
@@ -469,6 +498,7 @@ simplify ()
 	 color those pseudos.  So we have to spill them, which in later rounds
 	 leads to other spills.  */
       d = pop_list (&WEBS(SIMPLIFY));
+      /* d = get_simple_web (); */
       if (!d)
 	d = pop_list (&WEBS(SIMPLIFY_FAT));
       if (!d)
@@ -1428,10 +1458,13 @@ colorize_one_web (web, hard)
 			          (int) CLASS_CANNOT_CHANGE_MODE]);
 #endif
       COPY_HARD_REG_SET (call_clobbered, colors);
-      AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
+      if (web->crosses_call)
+	AND_COMPL_HARD_REG_SET (call_clobbered, call_used_reg_set);
+      else
+	AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
       /* If this web got a color in the last pass, try to give it the
-	 same color again.  This will to much better colorization
+	 same color again.  This will lead to a much better colorization
 	 down the line, as we spilled for a certain coloring last time.  */
       if (web->old_color)
 	{
@@ -1462,7 +1495,10 @@ colorize_one_web (web, hard)
 				      (int) CLASS_CANNOT_CHANGE_MODE]);
 #endif
 	  COPY_HARD_REG_SET (call_clobbered, colors);
-	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
+	  if (web->crosses_call)
+	    AND_COMPL_HARD_REG_SET (call_clobbered, call_used_reg_set);
+	  else
+	    AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
 	  c = get_biased_reg (dont_begin, bias, web->prefer_colors,
 			    call_clobbered, PSEUDO_REGNO_MODE (web->regno), 0);

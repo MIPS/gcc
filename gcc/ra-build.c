@@ -83,6 +83,9 @@ static int live_out_1 PARAMS ((struct df *, struct curr_use *, rtx));
 static int live_out PARAMS ((struct df *, struct curr_use *, rtx));
 static rtx live_in_edge PARAMS (( struct df *, struct curr_use *, edge));
 static void live_in PARAMS ((struct df *, struct curr_use *, rtx));
+static void insn_clobbers_mem_1 PARAMS ((rtx, rtx, void *));
+static int insn_clobbers_mem PARAMS ((rtx));
+int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
 static void remember_move PARAMS ((rtx));
 static void handle_asm_insn PARAMS ((struct df *, rtx));
 static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *,
@@ -148,6 +151,9 @@ struct visit_trace
 };
 /* Indexed by UID.  */
 static struct visit_trace *visit_trace;
+
+/* A bitmap of UIDs of insns, which possibly change memory.  */
+static bitmap uid_memset;
 
 /* Per basic block we have one such structure, used to speed up
    the backtracing of uses.  */
@@ -560,8 +566,13 @@ union_web_part_roots (r1, r2)
 	    }
 	}
       r2->sub_conflicts = NULL;
+      if (((int)r1->num_calls + r2->num_calls) > 255)
+	r1->num_calls = 255;
+      else
+	r1->num_calls += r2->num_calls;
       r1->crosses_call |= r2->crosses_call;
       r1->crosses_bb |= r2->crosses_bb;
+      r1->crosses_memset |= r2->crosses_memset;
     }
   return r1;
 }
@@ -761,9 +772,18 @@ live_out_1 (df, use, insn)
       /* We want to access the root webpart.  */
       wp = find_web_part (wp);
       if (GET_CODE (insn) == CALL_INSN)
-	wp->crosses_call = 1;
+	{
+	  if (wp->num_calls < 255)
+	    wp->num_calls++;
+	  wp->crosses_call = 1;
+	  if (regno < FIRST_PSEUDO_REGISTER
+	      && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+	    defined = 1;
+	}
       else if (copy_insn_p (insn, &s, NULL))
 	source_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
+      if (bitmap_bit_p (uid_memset, uid))
+	wp->crosses_memset = 1;
 
       /* Look at all DEFS in this insn.  */
       for (n = 0; n < num_defs; n++)
@@ -1028,10 +1048,42 @@ live_in (df, use, insn)
     }
 }
 
+/* Called via note_stores() to search for clobbering memory.  */
+
+static void
+insn_clobbers_mem_1 (dest, setter, data)
+     rtx dest, setter;
+     void *data;
+{
+  int *clobbers_mem = (int *) data;
+
+  if (GET_CODE (dest) == SUBREG)
+    dest = SUBREG_REG (dest);
+
+  if (GET_CODE (dest) == MEM
+      /* Ignore pushes, they clobber nothing.  */
+      && ! push_operand (dest, GET_MODE (dest)))
+    *clobbers_mem = 1;
+}
+
+static int
+insn_clobbers_mem (insn)
+     rtx insn;
+{
+  int clobbers_mem;
+  if (!INSN_P (insn))
+    return 0;
+  if (GET_CODE (insn) == CALL_INSN)
+    return 1;
+  clobbers_mem = 0;
+  note_stores (PATTERN (insn), insn_clobbers_mem_1, &clobbers_mem);
+  return clobbers_mem;
+}
+
 /* Determine all regnos which are mentioned in a basic block, in an
    interesting way.  Interesting here means either in a def, or as the
    source of a move insn.  We only look at insns added since the last
-   pass.  */
+   pass.  Also remember UIDs of insns changing memory.  */
 
 static void
 update_regnos_mentioned ()
@@ -1073,6 +1125,10 @@ update_regnos_mentioned ()
 	    for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
 	      if (link->ref)
 		bitmap_set_bit (mentioned, DF_REF_REGNO (link->ref));
+	    if (insn_clobbers_mem (insn))
+	      bitmap_set_bit (uid_memset, INSN_UID (insn));
+	    else
+	      bitmap_clear_bit (uid_memset, INSN_UID (insn));
 	  }
       }
 }
@@ -1092,6 +1148,7 @@ livethrough_conflicts_bb (bb)
   int first, use_id;
   unsigned int deaths = 0;
   unsigned int contains_call = 0;
+  unsigned int has_memset = 0;
 
   /* If there are no defered uses, just return.  */
   if ((first = bitmap_first_set_bit (info->live_throughout)) < 0)
@@ -1112,7 +1169,9 @@ livethrough_conflicts_bb (bb)
 	  if (TEST_BIT (insns_with_deaths, INSN_UID (insn)))
 	    deaths++;
 	  if (GET_CODE (insn) == CALL_INSN)
-	    contains_call = 1;
+	    contains_call++;
+	  if (bitmap_bit_p (uid_memset, INSN_UID (insn)))
+	    has_memset = 1;
 	}
       if (insn == bb->end)
 	break;
@@ -1120,7 +1179,7 @@ livethrough_conflicts_bb (bb)
 
   /* And now, if we have found anything, make all live_through
      uses conflict with all defs, and update their other members.  */
-  if (deaths > 0 || bitmap_first_set_bit (all_defs) >= 0)
+  if (deaths > 0 || contains_call || bitmap_first_set_bit (all_defs) >= 0)
     EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id,
       {
         struct web_part *wp = &web_parts[df->def_id + use_id];
@@ -1128,7 +1187,12 @@ livethrough_conflicts_bb (bb)
         bitmap conflicts;
         wp = find_web_part (wp);
         wp->spanned_deaths += deaths;
-	wp->crosses_call |= contains_call;
+	if (contains_call + wp->num_calls > 255)
+	  wp->num_calls = 255;
+	else
+	  wp->num_calls += contains_call;
+	wp->crosses_call |= !!contains_call;
+	wp->crosses_memset |= !!has_memset;
         conflicts = get_sub_conflicts (wp, bl);
         bitmap_operation (conflicts, conflicts, all_defs, BITMAP_IOR);
       });
@@ -1657,15 +1721,6 @@ record_conflict (web1, web2)
       bitmap_set_bit (p2->useless_conflicts, p1->id);
       return;
     }
-#if 0
-  ra_debug_msg (DUMP_COLORIZE, "creating conflict %d", web1->id);
-  if (web1->parent_web)
-    ra_debug_msg (DUMP_COLORIZE, "(%d)", web1->parent_web->id);
-  ra_debug_msg (DUMP_COLORIZE, " - %d", web2->id);
-  if (web2->parent_web)
-    ra_debug_msg (DUMP_COLORIZE, "(%d)", web2->parent_web->id);
-  ra_debug_msg (DUMP_COLORIZE, "\n");
-#endif
   SET_BIT (igraph, index);
   add_conflict_edge (web1, web2);
   add_conflict_edge (web2, web1);
@@ -1726,6 +1781,8 @@ compare_and_free_webs (link)
       struct web *web1 = wl->web;
       struct web *web2 = ID2WEB (web1->id);
       if (web1->regno != web2->regno
+	  || (web1->type != PRECOLORED
+	      && web1->num_calls < web2->num_calls)
 	  || web1->mode_changed != web2->mode_changed
 	  || !rtx_equal_p (web1->orig_x, web2->orig_x)
 	  || web1->type != web2->type
@@ -1902,8 +1959,10 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		web->changed = oldch;
 	    }
 	  web->span_deaths = wp->spanned_deaths;
+	  web->num_calls = wp->num_calls;
 	  web->crosses_call = wp->crosses_call;
 	  web->crosses_bb = wp->crosses_bb;
+	  web->crosses_memset = wp->crosses_memset;
 	  web->id = newid;
 	  web->temp_refs = NULL;
 	  webnum++;
@@ -2254,6 +2313,7 @@ reset_conflicts ()
 /* For each web check it's num_conflicts member against that
    number, as calculated from scratch from all neighbors.  */
 
+#if 0
 static void
 check_conflict_numbers ()
 {
@@ -2270,6 +2330,7 @@ check_conflict_numbers ()
 	abort ();
     }
 }
+#endif
 
 /* Convert the conflicts between web parts to conflicts between full webs.
 
@@ -2289,7 +2350,9 @@ conflicts_between_webs (df)
      struct df *df;
 {
   unsigned int i;
+#ifdef STACK_REGS
   struct dlist *d;
+#endif
   bitmap ignore_defs = BITMAP_XMALLOC ();
   unsigned int have_ignored;
   unsigned int *pass_cache = (unsigned int *) xcalloc (num_webs, sizeof (int));
@@ -2364,6 +2427,15 @@ conflicts_between_webs (df)
   free (pass_cache);
   BITMAP_XFREE (ignore_defs);
 
+/*  for (d = WEBS(INITIAL); d; d = d->next)
+    {
+      struct web *web = DLIST_WEB (d);
+      int j;
+      if (web->crosses_call)
+	for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+	  if (TEST_HARD_REG_BIT (regs_invalidated_by_call, j))
+	    record_conflict (web, hardreg2web[j]);
+    }*/
 #ifdef STACK_REGS
   /* Pseudos can't go in stack regs if they are live at the beginning of
      a block that is reached by an abnormal edge.  */
@@ -2685,7 +2757,7 @@ detect_remat_webs ()
 	{
 	  rtx insn;
 	  rtx set = single_set (insn = DF_REF_INSN (web->defs[i]));
-	  rtx src;
+	  rtx src, note;
 	  if (!set)
 	    break;
 	  src = SET_SRC (set);
@@ -2725,7 +2797,15 @@ detect_remat_webs ()
 	       || (GET_CODE (src) == MEM
 		   && bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
 		   && memref_is_stack_slot (src))
-	       || rematerializable_stack_arg_p (insn, src))
+	       /* If the web isn't live over any mem clobber we can remat
+		  any MEM rtl.  */
+	       || (GET_CODE (src) == MEM && !web->crosses_memset
+		   /*&& address_is_stable*/ /* XXX */
+		   && !contains_pseudo (src)
+		   && web->num_uses <= 2)
+	       || ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX))
+		   && rtx_equal_p (XEXP (note, 0), src)
+		   && !contains_pseudo (src)))
 	      /* Don't even try to rematerialize trapping things.  */
 	      && !(flag_non_call_exceptions && may_trap_p (src))
 	      /* And we must be able to construct an insn without
@@ -2924,6 +3004,20 @@ select_regclass ()
 	 where, if it finally is allocated to GENERAL_REGS it needs two,
 	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
+      if (web->crosses_call)
+	{
+	  unsigned int num_refs = web->num_uses + web->num_defs;
+	  unsigned int num_calls = web->num_calls;
+	  if (!CALLER_SAVE_PROFITABLE (num_refs, num_calls))
+	    AND_COMPL_HARD_REG_SET (web->usable_regs,
+				    regs_invalidated_by_call);
+	}
+      if (web->live_over_abnormal)
+	AND_COMPL_HARD_REG_SET (web->usable_regs, regs_invalidated_by_call);
+      if (web->spill_temp || SPILL_SLOT_P (web->regno))
+	AND_HARD_REG_SET (web->usable_regs,
+			  reg_class_contents[(int) SPILL_REGS]);
+
       prune_hardregs_for_mode (&web->usable_regs,
 			       PSEUDO_REGNO_MODE (web->regno));
 #ifdef CLASS_CANNOT_CHANGE_MODE
@@ -3443,6 +3537,7 @@ ra_build_realloc (df)
       copy_cache = (struct copy_p_cache *)
 	xcalloc (get_max_uid (), sizeof (copy_cache[0]));
       init_bb_info ();
+      uid_memset = BITMAP_XMALLOC ();
     }
   else
     {
@@ -3537,6 +3632,9 @@ ra_build_free_all (df)
   sbitmap_free (live_over_abnormal);
   free (web_parts);
   web_parts = NULL;
+  if (uid_memset)
+    BITMAP_XFREE (uid_memset);
+  uid_memset = NULL;
   if (last_check_uses)
     sbitmap_free (last_check_uses);
   last_check_uses = NULL;
