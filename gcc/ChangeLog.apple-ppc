@@ -1,3 +1,9 @@
+2005-04-01  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4075524
+	* ginclude/tgmath.h (scalbn) Change to use __TGMATH_REAL_1_2 macro.
+	(scalbln) Likewise.
+
 2005-03-31  Dale Johannesen  <dalej@apple.com>
 
 	* print-tree.c (print_node):  Handle STATEMENT_LIST (mainline).
