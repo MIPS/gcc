@@ -6589,17 +6589,12 @@ add_instance_variable (class, public, declarator, declspecs, width)
      tree declspecs;
      tree width;
 {
-  tree field_decl, field_type, raw_decl;
-  const char *ivar_name;
-
-  field_decl = grokfield (declarator, declspecs, width);
-
-  field_type = TREE_TYPE (field_decl);
-  ivar_name = declarator
-	      ? (IDENTIFIER_POINTER (TREE_CODE (declarator) == IDENTIFIER_NODE
-		 ? declarator 
-		 : TREE_OPERAND (declarator, 0)))
-	      : "<unnamed>";
+  tree field_decl = grokfield (declarator, declspecs, width);
+  tree field_type = TREE_TYPE (field_decl);
+  const char *ivar_name = DECL_NAME (field_decl)
+			  ? IDENTIFIER_POINTER (DECL_NAME (field_decl))
+			  : "<unnamed>";
+  tree raw_decl;
 
 #ifdef OBJCPLUS
   if (TREE_CODE (field_type) == REFERENCE_TYPE)
