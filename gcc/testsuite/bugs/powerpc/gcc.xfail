@@ -209,8 +209,8 @@
 #3665227: gcc.dg/compat/struct-by-value-7b c_compat_y_tst.o compile
 #3665227: gcc.dg/compat/struct-return-10 c_compat_x_tst.o compile
 #3665227: gcc.dg/compat/struct-return-10 c_compat_y_tst.o compile
-3665279: gcc.dg/compat/vector-1 c_compat_x_tst.o compile
-3665279: gcc.dg/compat/vector-1 c_compat_y_tst.o compile
+#3665279: gcc.dg/compat/vector-1 c_compat_x_tst.o compile
+#3665279: gcc.dg/compat/vector-1 c_compat_y_tst.o compile
 3665279: gcc.dg/compat/vector-2 c_compat_x_tst.o compile
 3665279: gcc.dg/compat/vector-2 c_compat_y_tst.o compile
 #3665284: gcc.dg/compat/struct-by-value-21 c_compat_x_tst.o compile
@@ -435,8 +435,8 @@
 3717694: gcc.dg/pch/valid-3.c  -fast   (test for errors, line 3) #1
 3753405: gcc.apple/asm-block-1.c (test for excess errors)
 3753405: gcc.apple/asm-block-2.c (test for excess errors)
-3753413: gcc.apple/const-cfstring-1.c (test for excess errors)
-3753413: gcc.apple/const-cfstring-3.c (test for excess errors)
+#3753413: gcc.apple/const-cfstring-1.c (test for excess errors)
+#3753413: gcc.apple/const-cfstring-3.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-01.c (test for excess errors)
 3753408: gcc.dg/tree-ssa-vect/ifc-01.c scan-tree-dump-times Applying if-conversion 1
 3753408: gcc.dg/tree-ssa-vect/ifc-01.c scan-tree-dump-times vectorized 1 loops 1
@@ -510,4 +510,35 @@
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-34.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-35.c (test for excess errors)
 3753410: gcc.dg/tree-ssa-vect/tree-ssa-vect-36.c (test for excess errors)
-3753410: gcc.dg/tree-ssa/20040615-1.c scan-tree-dump-times bar2 0
+#3753410: gcc.dg/tree-ssa/20040615-1.c scan-tree-dump-times bar2 0
+3761751: gcc.c-torture/execute/builtins/fputs.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/memmove.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/memops-asm.c compilation,  -fast
+3761751: gcc.c-torture/execute/builtins/mempcpy.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/memset.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/strlen-2.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/strpcpy.c execution,  -fast
+3761751: gcc.c-torture/execute/builtins/strstr-asm.c compilation,  -fast
+3665098: gcc.c-torture/compile/labels-1.c  -O0  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -O1  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -O2  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -O3 -g  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -Os  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-1.c  -fast  (test for excess errors)
+3665098: gcc.c-torture/compile/labels-2.c  -O0  (test for excess errors)
+3665098: gcc.c-torture/compile/20021108-1.c (test for excess errors)
+3765162: gcc.c-torture/execute/20040709-2.c compilation,  -fast
+#3765528: gcc.apple/pascal-strings-2.c (test for excess errors)
+3765575: gcc.c-torture/execute/930718-1.c execution,  -fast
+#3765610: gcc.c-torture/execute/va-arg-5.c execution,  -fast
+#3765610: gcc.c-torture/execute/va-arg-6.c execution,  -fast
+3765630: gcc.c-torture/execute/ieee/compare-fp-1.c compilation,  -fast
+3765630: gcc.c-torture/execute/ieee/compare-fp-4.c execution,  -fast
+3765630: gcc.c-torture/execute/ieee/fp-cmp-4f.c execution,  -fast
+3765630: gcc.c-torture/execute/ieee/fp-cmp-4l.c execution,  -fast
+3765630: gcc.c-torture/execute/ieee/fp-cmp-8f.c execution,  -fast
+3765630: gcc.c-torture/execute/ieee/fp-cmp-8l.c execution,  -fast
+#3765772: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
+3765772: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+3788046: gcc.dg/simd-2.c (test for excess errors)
