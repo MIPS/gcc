@@ -251,6 +251,9 @@ int making_const_table;
    stored from the compare operation.  */
 rtx arm_compare_op0, arm_compare_op1;
 
+/* The processor for which instructions should be scheduled.  */
+enum processor_type arm_tune = arm_none;
+
 /* What type of floating point are we tuning for?  */
 enum fputype arm_fpu_tune;
 
@@ -374,6 +377,7 @@ static const char * const arm_condition_codes[] =
 struct processors
 {
   const char *const name;
+  enum processor_type core;
   const unsigned long flags;
 };
 
@@ -382,83 +386,32 @@ struct processors
 static const struct processors all_cores[] =
 {
   /* ARM Cores */
-  
-  {"arm2",	FL_CO_PROC | FL_MODE26 },
-  {"arm250",	FL_CO_PROC | FL_MODE26 },
-  {"arm3",	FL_CO_PROC | FL_MODE26 },
-  {"arm6",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm60",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm600",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm610",	             FL_MODE26 | FL_MODE32 },
-  {"arm620",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm7",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  /* arm7m doesn't exist on its own, but only with D, (and I), but
-     those don't alter the code, so arm7m is sometimes used.  */
-  {"arm7m",	FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
-  {"arm7d",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm7dm",	FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
-  {"arm7di",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm7dmi",	FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
-  {"arm70",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm700",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm700i",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  {"arm710",	             FL_MODE26 | FL_MODE32 },
-  {"arm720",	             FL_MODE26 | FL_MODE32 },
-  {"arm710c",	             FL_MODE26 | FL_MODE32 },
-  {"arm7100",	             FL_MODE26 | FL_MODE32 },
-  {"arm7500",	             FL_MODE26 | FL_MODE32 },
-  /* Doesn't have an external co-proc, but does have embedded fpa.  */
-  {"arm7500fe",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  /* V4 Architecture Processors */
-  {"arm7tdmi",	FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  {"arm710t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  {"arm720t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  {"arm740t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  {"arm8",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
-  {"arm810",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
-  {"arm9",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
-  {"arm920",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
-  {"arm920t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
-  {"arm940t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
-  {"arm9tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
-  {"arm9e",	       	      		 FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
-  {"ep9312",	   			 FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED |             FL_CIRRUS },
-  {"strongarm",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
-  {"strongarm110",           FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
-  {"strongarm1100",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
-  {"strongarm1110",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
-  /* V5 Architecture Processors */
-  {"arm10tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
-  {"arm1020t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
-  {"arm926ejs",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
-  {"arm1026ejs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
-  {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE },
-  {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
-  /* V6 Architecture Processors */
-  {"arm1136js",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
-  {"arm1136jfs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J | FL_VFPV2 },
-  {NULL, 0}
+#define ARM_CORE(NAME, FLAGS) \
+  {#NAME, arm_none, FLAGS},
+#include "arm-cores.def"
+#undef ARM_CORE
+  {NULL, arm_none, 0}
 };
 
 static const struct processors all_architectures[] =
 {
   /* ARM Architectures */
   
-  { "armv2",     FL_CO_PROC | FL_MODE26 },
-  { "armv2a",    FL_CO_PROC | FL_MODE26 },
-  { "armv3",     FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  { "armv3m",    FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
-  { "armv4",     FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 },
+  { "armv2",     arm2,       FL_CO_PROC | FL_MODE26 },
+  { "armv2a",    arm2,       FL_CO_PROC | FL_MODE26 },
+  { "armv3",     arm6,       FL_CO_PROC | FL_MODE26 | FL_MODE32 },
+  { "armv3m",    arm7m,      FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
+  { "armv4",     arm7tdmi,   FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 },
   /* Strictly, FL_MODE26 is a permitted option for v4t, but there are no
      implementations that support it, so we will leave it out for now.  */
-  { "armv4t",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  { "armv5",     FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
-  { "armv5t",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
-  { "armv5te",   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E },
-  { "armv6j",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
-  { "ep9312",				  FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS },
-  {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
-  { NULL, 0 }
+  { "armv4t",    arm7tdmi,   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  { "armv5",     arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
+  { "armv5t",    arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
+  { "armv5te",   arm1026ejs, FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E },
+  { "armv6j",    arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
+  { "ep9312",	 ep9312, 			      FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS },
+  {"iwmmxt",     iwmmxt,                              FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
+  { NULL, arm_none, 0 }
 };
 
 /* This is a magic structure.  The 'string' field is magically filled in
@@ -494,7 +447,7 @@ void
 arm_override_options (void)
 {
   unsigned i;
-  
+
   /* Set up the flags based on the cpu/architecture selected by the user.  */
   for (i = ARRAY_SIZE (arm_select); i--;)
     {
@@ -507,9 +460,19 @@ arm_override_options (void)
           for (sel = ptr->processors; sel->name != NULL; sel++)
             if (streq (ptr->string, sel->name))
               {
-		if (i == 2)
-		  tune_flags = sel->flags;
-		else
+		/* Determine the processor core for which we should
+		   tune code-generation.  */
+		if (/* -mcpu= is a sensible default.  */
+		    i == 0
+		    /* If -march= is used, and -mcpu= has not been used,
+		       assume that we should tune for a representative
+		       CPU from that architecture.  */
+		    || i == 1
+		    /* -mtune= overrides -mcpu= and -march=.  */
+		    || i == 2)
+		  arm_tune = (enum processor_type) (sel - ptr->processors);
+
+		if (i != 2)
 		  {
 		    /* If we have been given an architecture and a processor
 		       make sure that they are compatible.  We only generate
@@ -583,7 +546,7 @@ arm_override_options (void)
 	abort ();
 
       insn_flags = sel->flags;
-      
+
       /* Now check to see if the user has specified some command line
 	 switch that require certain abilities from the cpu.  */
       sought = 0;
@@ -653,12 +616,16 @@ arm_override_options (void)
 
 	  insn_flags = sel->flags;
 	}
+      if (arm_tune == arm_none)
+	arm_tune = (enum processor_type) (sel - all_cores);
     }
   
-  /* If tuning has not been specified, tune for whichever processor or
-     architecture has been selected.  */
-  if (tune_flags == 0)
-    tune_flags = insn_flags;
+  /* The processor for which we shoudl tune should now have been
+     chosen.  */
+  if (arm_tune == arm_none)
+    abort ();
+  
+  tune_flags = all_cores[(int)arm_tune].flags;
 
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */

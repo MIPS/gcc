@@ -167,6 +167,14 @@
   (set_attr "length" "4")
   (set_attr "pool_range" "250")])
 
+;; The instruction used to implement a particular pattern.  This
+;; information is used by pipeline descriptions to provide accurate
+;; scheduling information.
+
+(define_attr "insn"
+        "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals,other"
+        (const_string "other"))
+
 ; TYPE attribute is used to detect floating point instructions which, if
 ; running on a co-processor can run in parallel with other, basic instructions
 ; If write-buffer scheduling is enabled then it can also be used in the
@@ -192,18 +200,24 @@
 ; f_2_r		fast transfer float to arm (no memory needed)
 ; r_2_f		fast transfer arm to float
 ; call		a subroutine call
-; load		any load from memory
-; store1	store 1 word to memory from arm registers
+; load		load 1 word from memory to arm registers
+; load2         load 2 words from memory to arm registers
+; load3         load 3 words from memory to arm registers
+; load4         load 4 words from memory to arm registers
+; store		store 1 word to memory from arm registers
 ; store2	store 2 words
 ; store3	store 3 words
-; store4	store 4 words
+; store4	store 4 (or more) words
 ;  Additions for Cirrus Maverick co-processor:
 ; mav_farith	Floating point arithmetic (4 cycle)
 ; mav_dmult	Double multiplies (7 cycle)
 ;
 (define_attr "type"
-	"normal,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,call,load,store1,store2,store3,store4,mav_farith,mav_dmult" 
-	(const_string "normal"))
+	"normal,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,branch,call,load,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult" 
+	(if_then_else 
+	 (eq_attr "insn" "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals")
+	 (const_string "mult")
+	 (const_string "normal")))
 
 ; Load scheduling, set from the arm_ld_sched variable
 ; initialized by arm_override_options() 
@@ -267,115 +281,17 @@
 ;; distant label.  Only applicable to Thumb code.
 (define_attr "far_jump" "yes,no" (const_string "no"))
 
-(define_automaton "arm")
+;;---------------------------------------------------------------------------
+;; Pipeline descriptions
 
-;; Write buffer
-;
-; Strictly, we should model a 4-deep write buffer for ARM7xx based chips
-;
-; The write buffer on some of the arm6 processors is hard to model exactly.
-; There is room in the buffer for up to two addresses and up to eight words
-; of memory, but the two needn't be split evenly.  When writing the two
-; addresses are fully pipelined.  However, a read from memory that is not
-; currently in the cache will block until the writes have completed.
-; It is normally the case that FCLK and MCLK will be in the ratio 2:1, so
-; writes will take 2 FCLK cycles per word, if FCLK and MCLK are asynchronous
-; (they aren't allowed to be at present) then there is a startup cost of 1MCLK
-; cycle to add as well.
-(define_cpu_unit "write_buf" "arm")
+;; Processor type.  This attribute must exactly match the table in 
+;; arm-cores.def.
+(define_attr "tune" 
+	     "arm2,arm250,arm3,arm6,arm60,arm600,arm610,arm620,arm7,arm7m,arm7d,arm7dm,arm7di,arm7dmi,arm70,arm700,arm700i,arm710,arm720,arm710c,arm7100,arm7500,arm7500fe,arm7tdmi,arm710t,arm720t,arm740t,arm8,arm810,arm9,arm920,arm920t,arm940t,arm9tdmi,arm9e,ep9312,strongarm,strongarm110,strongarm1100,strongarm1110,arm10tdmi,arm1020t,arm926ejs,arm1026ejs,xscale,iwmmxt,arm1136js,arm1136jfs"
+	     (const (symbol_ref "arm_tune")))
 
-;; Write blockage unit
-;
-; The write_blockage unit models (partially), the fact that reads will stall
-; until the write buffer empties.
-; The f_mem_r and r_mem_f could also block, but they are to the stack,
-; so we don't model them here
-(define_cpu_unit "write_blockage" "arm")
-
-;; Core
-;
-(define_cpu_unit "core" "arm")
-
-(define_insn_reservation "r_mem_f_wbuf" 5
-  (and (eq_attr "model_wbuf" "yes")
-       (eq_attr "type" "r_mem_f"))
-  "core+write_buf*3")
-
-(define_insn_reservation "store1_wbuf" 5
-  (and (eq_attr "model_wbuf" "yes")
-       (eq_attr "type" "store1"))
-  "core+write_buf*3+write_blockage*5")
-
-(define_insn_reservation "store2_wbuf" 7
-  (and (eq_attr "model_wbuf" "yes")
-       (eq_attr "type" "store2"))
-  "core+write_buf*4+write_blockage*7")
-
-(define_insn_reservation "store3_wbuf" 9
-  (and (eq_attr "model_wbuf" "yes")
-       (eq_attr "type" "store3"))
-  "core+write_buf*5+write_blockage*9")
-
-(define_insn_reservation "store4_wbuf" 11
-  (and (eq_attr "model_wbuf" "yes")
-       (eq_attr "type" "store4"))
-  "core+write_buf*6+write_blockage*11")
-
-(define_insn_reservation "store2" 3
-  (and (eq_attr "model_wbuf" "no")
-       (eq_attr "type" "store2"))
-  "core*3")
-
-(define_insn_reservation "store3" 4
-  (and (eq_attr "model_wbuf" "no")
-       (eq_attr "type" "store3"))
-  "core*4")
-
-(define_insn_reservation "store4" 5
-  (and (eq_attr "model_wbuf" "no")
-       (eq_attr "type" "store4"))
-  "core*5")
-
-(define_insn_reservation "store1_ldsched" 1
-  (and (eq_attr "ldsched" "yes") (eq_attr "type" "store1"))
-  "core")
-
-(define_insn_reservation "load_ldsched_xscale" 3
-  (and (and (eq_attr "ldsched" "yes") (eq_attr "type" "load"))
-       (eq_attr "is_xscale" "yes"))
-  "core")
-
-(define_insn_reservation "load_ldsched" 2
-  (and (and (eq_attr "ldsched" "yes") (eq_attr "type" "load"))
-       (eq_attr "is_xscale" "no"))
-  "core")
-
-(define_insn_reservation "load_or_store" 2
-  (and (eq_attr "ldsched" "!yes") (eq_attr "type" "load,store1"))
-  "core*2")
-
-(define_insn_reservation "mult" 16
-  (and (eq_attr "ldsched" "no") (eq_attr "type" "mult"))
-  "core*16")
-
-(define_insn_reservation "mult_ldsched_strongarm" 3
-  (and (and (eq_attr "ldsched" "yes") (eq_attr "is_strongarm" "yes"))
-       (eq_attr "type" "mult"))
-  "core*2")
-
-(define_insn_reservation "mult_ldsched" 4
-  (and (and (eq_attr "ldsched" "yes") (eq_attr "is_strongarm" "no"))
-       (eq_attr "type" "mult"))
-  "core*4")
-
-(define_insn_reservation "multi_cycle" 32
-  (and (eq_attr "core_cycles" "multi")
-       (eq_attr "type" "!mult,load,store1,store2,store3,store4"))
-  "core*32")
-
-(define_insn_reservation "single_cycle" 1
-  (eq_attr "core_cycles" "single")
-  "core")
+(include "arm-generic.md")
+(include "arm1026ejs.md")
 
 
 ;;---------------------------------------------------------------------------
@@ -1119,7 +1035,7 @@
 		 (match_operand:SI 1 "s_register_operand" "%?r,0")))]
   "TARGET_ARM"
   "mul%?\\t%0, %2, %1"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "mul")
    (set_attr "predicable" "yes")]
 )
 
@@ -1140,7 +1056,7 @@
     return \"mul\\t%0, %0, %2\";
   "
   [(set_attr "length" "4,4,2")
-   (set_attr "type" "mult")]
+   (set_attr "insn" "mul")]
 )
 
 (define_insn "*mulsi3_compare0"
@@ -1154,7 +1070,7 @@
   "TARGET_ARM && !arm_arch_xscale"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type" "mult")]
+   (set_attr "insn" "muls")]
 )
 
 (define_insn "*mulsi_compare0_scratch"
@@ -1167,7 +1083,7 @@
   "TARGET_ARM && !arm_arch_xscale"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type" "mult")]
+   (set_attr "insn" "muls")]
 )
 
 ;; Unnamed templates to match MLA instruction.
@@ -1180,7 +1096,7 @@
 	  (match_operand:SI 3 "s_register_operand" "?r,r,0,0")))]
   "TARGET_ARM"
   "mla%?\\t%0, %2, %1, %3"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "mla")
    (set_attr "predicable" "yes")]
 )
 
@@ -1198,7 +1114,7 @@
   "TARGET_ARM && !arm_arch_xscale"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
-   (set_attr "type" "mult")]
+   (set_attr "insn" "mlas")]
 )
 
 (define_insn "*mulsi3addsi_compare0_scratch"
@@ -1213,7 +1129,7 @@
   "TARGET_ARM && !arm_arch_xscale"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
-   (set_attr "type" "mult")]
+   (set_attr "insn" "mlas")]
 )
 
 ;; Unnamed template to match long long multiply-accumlate (smlal)
@@ -1227,7 +1143,7 @@
 	 (match_operand:DI 1 "s_register_operand" "0")))]
   "TARGET_ARM && arm_fast_multiply"
   "smlal%?\\t%Q0, %R0, %3, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smlal")
    (set_attr "predicable" "yes")]
 )
 
@@ -1238,7 +1154,7 @@
 	 (sign_extend:DI (match_operand:SI 2 "s_register_operand" "r"))))]
   "TARGET_ARM && arm_fast_multiply"
   "smull%?\\t%Q0, %R0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smull")
    (set_attr "predicable" "yes")]
 )
 
@@ -1249,7 +1165,7 @@
 	 (zero_extend:DI (match_operand:SI 2 "s_register_operand" "r"))))]
   "TARGET_ARM && arm_fast_multiply"
   "umull%?\\t%Q0, %R0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "umull")
    (set_attr "predicable" "yes")]
 )
 
@@ -1264,7 +1180,7 @@
 	 (match_operand:DI 1 "s_register_operand" "0")))]
   "TARGET_ARM && arm_fast_multiply"
   "umlal%?\\t%Q0, %R0, %3, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "umlal")
    (set_attr "predicable" "yes")]
 )
 
@@ -1279,7 +1195,7 @@
    (clobber (match_scratch:SI 3 "=&r,&r"))]
   "TARGET_ARM && arm_fast_multiply"
   "smull%?\\t%3, %0, %2, %1"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smull")
    (set_attr "predicable" "yes")]
 )
 
@@ -1294,7 +1210,7 @@
    (clobber (match_scratch:SI 3 "=&r,&r"))]
   "TARGET_ARM && arm_fast_multiply"
   "umull%?\\t%3, %0, %2, %1"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "umull")
    (set_attr "predicable" "yes")]
 )
 
@@ -1306,7 +1222,7 @@
 		  (match_operand:HI 2 "s_register_operand" "r"))))]
   "TARGET_ARM && arm_arch5e"
   "smulbb%?\\t%0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
 )
 
@@ -1319,7 +1235,7 @@
 		  (match_operand:HI 2 "s_register_operand" "r"))))]
   "TARGET_ARM && arm_arch5e"
   "smultb%?\\t%0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
 )
 
@@ -1332,7 +1248,7 @@
 		  (const_int 16))))]
   "TARGET_ARM && arm_arch5e"
   "smulbt%?\\t%0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
 )
 
@@ -1346,7 +1262,7 @@
 		  (const_int 16))))]
   "TARGET_ARM && arm_arch5e"
   "smultt%?\\t%0, %1, %2"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
 )
 
@@ -1359,7 +1275,7 @@
 			   (match_operand:HI 3 "s_register_operand" "r")))))]
   "TARGET_ARM && arm_arch5e"
   "smlabb%?\\t%0, %2, %3, %1"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smlaxy")
    (set_attr "predicable" "yes")]
 )
 
@@ -1373,7 +1289,7 @@
 		    (match_operand:HI 3 "s_register_operand" "r")))))]
   "TARGET_ARM && arm_arch5e"
   "smlalbb%?\\t%Q0, %R0, %2, %3"
-  [(set_attr "type" "mult")
+  [(set_attr "insn" "smlalxy")
    (set_attr "predicable" "yes")])
 
 (define_expand "mulsf3"
@@ -4916,7 +4832,7 @@
 	  (mem:SI (plus:SI (match_dup 2) (const_int 12))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 5"
   "ldm%?ia\\t%1!, {%3, %4, %5, %6}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load4")
    (set_attr "predicable" "yes")]
 )
 
@@ -4933,7 +4849,7 @@
 	  (mem:SI (plus:SI (match_dup 2) (const_int 8))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 4"
   "ldm%?ia\\t%1!, {%3, %4, %5}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load3")
    (set_attr "predicable" "yes")]
 )
 
@@ -4948,7 +4864,7 @@
 	  (mem:SI (plus:SI (match_dup 2) (const_int 4))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 3"
   "ldm%?ia\\t%1!, {%3, %4}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load2")
    (set_attr "predicable" "yes")]
 )
 
@@ -4966,7 +4882,7 @@
 	  (mem:SI (plus:SI (match_dup 1) (const_int 12))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 4"
   "ldm%?ia\\t%1, {%2, %3, %4, %5}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load4")
    (set_attr "predicable" "yes")]
 )
 
@@ -4980,7 +4896,7 @@
 	  (mem:SI (plus:SI (match_dup 1) (const_int 8))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 3"
   "ldm%?ia\\t%1, {%2, %3, %4}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load3")
    (set_attr "predicable" "yes")]
 )
 
@@ -4992,7 +4908,7 @@
 	  (mem:SI (plus:SI (match_dup 1) (const_int 4))))])]
   "TARGET_ARM && XVECLEN (operands[0], 0) == 2"
   "ldm%?ia\\t%1, {%2, %3}"
-  [(set_attr "type" "load")
+  [(set_attr "type" "load2")
    (set_attr "predicable" "yes")]
 )
 
@@ -6597,7 +6513,8 @@
     }
   return \"b%d1\\t%l0\";
   "
-  [(set_attr "conds" "use")]
+  [(set_attr "conds" "use")
+   (set_attr "type" "branch")]
 )
 
 ; Special pattern to match reversed UNEQ.
@@ -6649,7 +6566,8 @@
     }
   return \"b%D1\\t%l0\";
   "
-  [(set_attr "conds" "use")]
+  [(set_attr "conds" "use")
+   (set_attr "type" "branch")]
 )
 
 

@@ -1,3 +1,23 @@
+2003-10-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/arm.h (processor_type): New enumeration type.
+	(CPP_ARCH_DEFAULT_SPEC): Set appropriately for ARM 926EJ-S,
+	ARM1026EJ-S, ARM1136J-S, and ARM1136JF-S processor cores.
+	(CPP_CPU_ARCH_SPEC): Likewise.
+	* config/arm/arm.c (arm_tune): New variable.
+	(all_cores): Use cores.def.
+	(all_architectures): Add representative processor.
+	(arm_override_options): Restructure way in which tuning
+	information is deduced.
+	* arm.md: Update "insn" and "type" attributes throughout.
+	(insn): New attribute.
+	(type): Compute "mult" from "insn" attribute.  Add load2,
+	load3, load4 alternatives.
+	(arm automaton): Move to arm-generic.md.
+	* config/arm/arm-cores.def: New file.
+	* config/arm/arm-generic.md: Likewise.
+	* config/arm/arm1026ejs.md: Likewise.
+
 2003-10-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	* ggc-zone.c:  New file, zone allocating collector.

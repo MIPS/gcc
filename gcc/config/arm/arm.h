@@ -105,6 +105,20 @@
 /* Configure didn't specify.  */
 #define TARGET_CPU_generic	0x8000
 
+/* The various ARM cores.  */
+enum processor_type
+{
+#define ARM_CORE(NAME, FLAGS) \
+  NAME,
+#include "arm-cores.def"
+#undef ARM_CORE
+  /* Used to indicate that no processor has been specified.  */
+  arm_none
+};
+
+/* The processor for which instructions should be scheduled.  */
+extern enum processor_type arm_tune;
+
 typedef enum arm_cond_code
 {
   ARM_EQ = 0, ARM_NE, ARM_CS, ARM_CC, ARM_MI, ARM_PL, ARM_VS, ARM_VC,
@@ -181,7 +195,17 @@ extern GTY(()) rtx aof_pic_label;
 #if TARGET_CPU_DEFAULT == TARGET_CPU_iwmmxt
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TE__ -D__XSCALE__ -D__IWMMXT__"
 #else
+#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm926ej_s || \
+     TARGET_CPU_DEFAULT == TARGET_CPU_arm1026ej_s)
+#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TEJ__"
+#else
+#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm1136j_s || \
+     TARGET_CPU_DEFAULT == TARGET_CPU_arm1136jf_s)
+#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_6J__"
+#else
 #error Unrecognized value in TARGET_CPU_DEFAULT.
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -225,7 +249,11 @@ extern GTY(()) rtx aof_pic_label;
 %{march=arm9:-D__ARM_ARCH_4T__} \
 %{march=arm920:-D__ARM_ARCH_4__} \
 %{march=arm920t:-D__ARM_ARCH_4T__} \
+%{march=arm926ejs:-D__ARM_ARCH_5TEJ__} \
 %{march=arm9tdmi:-D__ARM_ARCH_4T__} \
+%{march=arm1026ejs:-D__ARM_ARCH_5TEJ__} \
+%{march=arm1136js:-D__ARM_ARCH_6J__} \
+%{march=arm1136jfs:-D__ARM_ARCH_6J__} \
 %{march=strongarm:-D__ARM_ARCH_4__} \
 %{march=strongarm110:-D__ARM_ARCH_4__} \
 %{march=strongarm1100:-D__ARM_ARCH_4__} \
@@ -243,6 +271,7 @@ extern GTY(()) rtx aof_pic_label;
 %{march=armv5t:-D__ARM_ARCH_5T__} \
 %{march=armv5e:-D__ARM_ARCH_5E__} \
 %{march=armv5te:-D__ARM_ARCH_5TE__} \
+%{march=arm6j:-D__ARM_ARCH6J__} \
 %{!march=*: \
  %{mcpu=arm2:-D__ARM_ARCH_2__} \
  %{mcpu=arm250:-D__ARM_ARCH_2__} \
@@ -266,7 +295,11 @@ extern GTY(()) rtx aof_pic_label;
  %{mcpu=arm9:-D__ARM_ARCH_4T__} \
  %{mcpu=arm920:-D__ARM_ARCH_4__} \
  %{mcpu=arm920t:-D__ARM_ARCH_4T__} \
+ %{mcpu=arm926ejs:-D__ARM_ARCH_5TEJ__} \
  %{mcpu=arm9tdmi:-D__ARM_ARCH_4T__} \
+ %{mcpu=arm1026ejs:-D__ARM_ARCH_5TEJ__} \
+ %{mcpu=arm1136js:-D__ARM_ARCH_6J__} \
+ %{mcpu=arm1136jfs:-D__ARM_ARCH_6J__} \
  %{mcpu=strongarm:-D__ARM_ARCH_4__} \
  %{mcpu=strongarm110:-D__ARM_ARCH_4__} \
  %{mcpu=strongarm1100:-D__ARM_ARCH_4__} \
