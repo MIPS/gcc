@@ -1,3 +1,40 @@
+2002-01-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (c-pretty-print.o): Add dependency on errors.h.
+	* c-decl.c (c_expand_body): React to -ftree-dump-simple.
+	* c-pretty-print.c: Fix typo in header comment.
+	(NYI): Flush output buffer, dump the tree and abort.
+	(dump_c_node): Add unparsing code for ERROR_MARK, IDENTIFIER_NODE,
+	ARRAY_TYPE, UNION_TYPE, STRING_CST, CEIL_DIV_EXPR, FLOOR_DIV_EXPR,
+	ROUND_DIV_EXPR, TRUNC_MOD_EXPR, FLOOR_MOD_EXPR, ROUND_MOD_EXPR,
+	RDIV_EXPR, EXACT_DIV_EXPR, LROTATE_EXPR, RROTATE_EXPR,
+	BIT_ANDTC_EXPR, BIT_NOT_EXPR, UNORDERED_EXPR, SAVE_EXPR and
+	EXPR_WITH_FILE_LOCATION.
+	Unify unparsing code for common binary and unary expressions.
+	Handle indirect references like any other unary expression.
+	(dump_c_scope_vars): Remove unused variable 'context'.
+	Call dump_c_node to print the type.
+	(dump_c_indirect_ref): Remove.
+	(op_prio): New function.
+	(op_symbol): New function.
+	* c-simplify.c (simplify_stmt): Do not simplify a return
+	expression, only its second operand.
+	Fix capitalization in error message.
+	(simplify_expr): Add documentation.
+	Fix capitalization in error message.
+	* tree-dump.c (dump_files): Add entry for -fdump-tree-simple.
+	(dump_options): Add entry for -unparse.
+	* tree.h (TDI_simple): Define.
+	(TDF_UNPARSE): Define.
+	* doc/invoke.texi: Document -fdump-tree-simple.
+
+2002-01-23  Sebastian Pop  <s.pop@laposte.net>
+
+        * c-pretty-print.c : Clean C++ comments.
+	(debug_output_buffer): Remove declaration and definition.
+        * diagnostic.h (debug_output_buffer): Add declaration.
+	* diagnostic.c (debug_output_buffer): Add definition.
+
 2002-01-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_stmt): Fix capitalization in error

@@ -6978,9 +6978,41 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   /* Invoke the SSA tree optimizer.  */
   if (flag_tree_ssa)
     {
+      FILE *dump_file;
+      int dump_flags;
       tree fn = DECL_SAVED_TREE (fndecl);
 
-      simplify_stmt (fn, NULL);
+      /* Debugging dump before simplification.  */
+      dump_file = dump_begin (TDI_simple, &dump_flags);
+      if (dump_file)
+	{
+          fprintf (dump_file, "\n%s()    (ORIGINAL)\n",
+                  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+
+	  if (dump_flags & TDF_UNPARSE)
+	    print_c_tree (dump_file, fn);
+	  else
+	    dump_node (fn, TDF_SLIM | dump_flags, dump_file);
+        }
+
+      /* Simplify the function.  */
+      simplify_stmt (fn, NULL_TREE);
+
+      /* Debugging dump after simplification.  */
+      if (dump_file)
+        {
+          fprintf (dump_file, "\n%s()    (SIMPLIFIED)\n",
+                  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+
+	  if (dump_flags & TDF_UNPARSE)
+	    print_c_tree (dump_file, fn);
+	  else
+	    dump_node (fn, TDF_SLIM | dump_flags, dump_file);
+
+	  dump_end (TDI_simple, dump_file);
+        }
+
+      /* Apply the SSA optimizations.  */
       optimize_tree (fn);
     }
 

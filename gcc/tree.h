@@ -3111,6 +3111,8 @@ enum tree_dump_index
   TDI_dot,			/* create a GraphViz graph file for each 
 				   function's flowgraph.  */
   TDI_ssa,			/* dump SSA information for each function.  */
+  TDI_simple,			/* dump each function before and after 
+				   simplifying it.  */
   TDI_end
 };
 
@@ -3119,6 +3121,7 @@ enum tree_dump_index
    values, extend the DUMP_OPTIONS array in tree-dump.c */
 #define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
 #define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+#define TDF_UNPARSE	(1 << 2)	/* unparse the function */
 #define TDF_REFS	(1 << 0)	/* dump ssa variable refs */
 #define TDF_RDEFS	(1 << 1)	/* dump reaching definitions */
 

@@ -246,6 +246,7 @@ in the following sections.
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-graphviz -fdump-tree-ssa@r{[}-@var{n}@r{]} @gol
+-fdump-tree-simple@r{[}-unparse@r{]} @gol
 -fmem-report  -fpretend-float @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
@@ -3019,6 +3020,10 @@ are directly reachable by some other path.
 Print the list of references made to each variable in the program.
 @item rdefs
 Print the list of reaching definitions for each variable used in the program.
+@item unparse
+Print a C representation of the tree.  Note that this output may not be
+compilable.  It's meant to be an approximation for debugging tree
+transformation passes.
 @item all
 Turn on all options.
 @end table
@@ -3051,6 +3056,10 @@ source file name.
 Dump SSA related information to a file.  The file name is made by appending
 @file{.ssa} to the source file name.
 
+@item simple
+@opindex fdump-tree-simple
+Dump each function before and after the simplification pass to a file.  The
+file name is made by appending @file{.simple} to the source file name.
 @end table
 
 @item -fpretend-float

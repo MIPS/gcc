@@ -297,9 +297,13 @@ simplify_stmt (stmt, scope)
 
 	case RETURN_STMT:
 	  if (RETURN_EXPR (stmt))
-	    RETURN_EXPR (stmt) = simplify_expr (RETURN_EXPR (stmt), 
-		                                scope, &before, &after,
-						&new_vars);
+	    {
+	      tree e = RETURN_EXPR (stmt);
+	      
+	      TREE_OPERAND (e, 1) = simplify_expr (TREE_OPERAND (e, 1),
+						   scope, &before, &after,
+						   &new_vars);
+	    }
 	  break;
 
 	case SCOPE_STMT:
@@ -315,7 +319,7 @@ simplify_stmt (stmt, scope)
 
 	default:
 	  prep_stmt (stmt);
-	  error ("Unhandled statement node in simplify_stmt():");
+	  error ("unhandled statement node in simplify_stmt():");
 	  fprintf (stderr, "\n");
 	  debug_tree (stmt);
 	  fprintf (stderr, "\n");
@@ -568,7 +572,17 @@ simplify_decl_stmt (t, after_p)
 /** {{{ simplify_expr()
 
     Simplifies the expression tree rooted at T.
-    SCOPE indicates where new temporary variables should be created.  */
+
+    SCOPE indicates where new temporary variables should be created.
+
+    BEFORE_P points to the list where side effects that must happen before
+	T should be stored.
+
+    AFTER_P points to the list where side effects that must happen after T
+	should be stored.
+
+    NEW_VARS_P points to the list where any temporary VAR_DECLs needed to
+	model T's side effects should be stored.  */
 
 static tree
 simplify_expr (expr, scope, before_p, after_p, new_vars_p)
@@ -781,7 +795,7 @@ simplify_expr (expr, scope, before_p, after_p, new_vars_p)
 
     default:
       {
-	error ("Unhandled expression in simplify_expr():");
+	error ("unhandled expression in simplify_expr():");
 	debug_tree (expr);
 	fputs ("\n", stderr);
 	abort ();

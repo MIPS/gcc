@@ -1333,7 +1333,7 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h
 c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
-   $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) diagnostic.h
+   $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) errors.h diagnostic.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H)
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \

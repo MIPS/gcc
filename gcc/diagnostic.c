@@ -1520,3 +1520,12 @@ default_diagnostic_finalizer (buffer, dc)
 {
   output_destroy_prefix (buffer);
 }
+
+/* Dump the contents of an output_buffer on stderr.  */
+
+void 
+debug_output_buffer (buffer)
+     output_buffer *buffer;
+{
+  fprintf (stderr, "%s", output_message_text (buffer));
+}
