@@ -259,6 +259,9 @@ struct tree_opt_pass pass_record_bounds =
 static void
 tree_ssa_loop_test (void)
 {
+  if (!current_loops)
+    return;
+
   scev_analysis ();
   analyze_all_data_dependences (current_loops);
 }
@@ -293,7 +296,8 @@ tree_elim_checks (void)
   if (!current_loops)
     return;
 
-  eliminate_redundant_checks ();
+  /* This pass is disabled for now.  */
+  /* eliminate_redundant_checks (); */
 }
 
 static bool

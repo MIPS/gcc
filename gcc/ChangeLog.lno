@@ -1,3 +1,21 @@
+2004-06-18  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (OBJS-common): Remove tree-elim-check.o.
+	* tree-scalar-evolution.c (first_iteration_non_satisfying_noev_noev, 
+	first_iteration_non_satisfying_noev_ev, 
+	first_iteration_non_satisfying_ev_noev, 
+	first_iteration_non_satisfying_ev_ev, 
+	first_iteration_non_satisfying_1, 
+	first_iteration_non_satisfying): Removed.
+	(number_of_iterations_in_loop): Clean up.
+	* tree-scalar-evolution.h (first_iteration_non_satisfying): Removed.
+	* tree-ssa-loop-ivopts.c (zero_p): Compare tree pointer
+	against NULL_TREE.
+	* tree-ssa-loop.c (tree_ssa_loop_test): Return when loops
+	structure is not available.
+	(tree_elim_checks): Disabled for the moment.  Don't call
+	eliminate_redundant_checks.
+
 2004-06-17  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (tree_make_forwarder_block):  Use SET_PHI_RESULT.

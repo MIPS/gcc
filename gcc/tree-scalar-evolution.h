@@ -22,8 +22,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_SCALAR_EVOLUTION_H
 #define GCC_TREE_SCALAR_EVOLUTION_H
 
-extern tree first_iteration_non_satisfying (enum tree_code, unsigned, 
-					    tree, tree);
 extern tree number_of_iterations_in_loop (struct loop *);
 extern tree get_loop_exit_condition (struct loop *);
 

@@ -464,7 +464,7 @@ name_info (struct ivopts_data *data, tree name)
 static bool
 zero_p (tree arg)
 {
-  if (!arg)
+  if (arg == NULL_TREE)
     return true;
 
   return integer_zerop (arg);
