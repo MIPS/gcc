@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "tree.h"
 #include "tree-inline.h"
+#include "tree-simple.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
@@ -484,7 +485,7 @@ int
 lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
 		   tree *post_p ATTRIBUTE_UNUSED)
 {
-  return 0;
+  return GS_UNHANDLED;
 }
 
 /* lang_hooks.tree_size: Determine the size of a tree with code C,

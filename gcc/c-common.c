@@ -3889,13 +3889,7 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
   /* If there was an error processing the switch condition, bail now
      before we get more confused.  */
   if (!cond || cond == error_mark_node)
-    {
-      /* Add a label anyhow so that the back-end doesn't think that
-	 the beginning of the switch is unreachable.  */
-      if (!cases->root)
-	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
-      return error_mark_node;
-    }
+    goto error_out;
 
   if ((low_value && TREE_TYPE (low_value)
        && POINTER_TYPE_P (TREE_TYPE (low_value)))
@@ -3921,11 +3915,7 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
 
   /* If an error has occurred, bail out now.  */
   if (low_value == error_mark_node || high_value == error_mark_node)
-    {
-      if (!cases->root)
-	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
-      return error_mark_node;
-    }
+    goto error_out;
 
   /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
      really a case range, even though it was written that way.  Remove
@@ -3998,8 +3988,7 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
 	  error ("multiple default labels in one switch");
 	  error ("%Jthis is the first default label", duplicate);
 	}
-      if (!cases->root)
-	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
+      goto error_out;
     }
 
   /* Add a CASE_LABEL to the statement-tree.  */
@@ -4010,6 +3999,17 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
 		     (splay_tree_value) case_label);
 
   return case_label;
+
+ error_out:
+  /* Add a label so that the back-end doesn't think that the beginning o
+     the switch is unreachable.  Note that we do not add a case label, as
+     that just leads to duplicates and thence to aborts later on.  */
+  if (!cases->root)
+    {
+      tree t = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      add_stmt (build_stmt (LABEL_STMT, t));
+    }
+  return error_mark_node;
 }
 
 /* Finish an expression taking the address of LABEL (an

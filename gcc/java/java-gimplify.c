@@ -67,38 +67,38 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
     {
     case BLOCK:
       *expr_p = java_gimplify_block (*expr_p);
-      return 1;
+      break;
 
     case EXPR_WITH_FILE_LOCATION:
       input_location.file = EXPR_WFL_FILENAME (*expr_p);
       input_location.line = EXPR_WFL_LINENO (*expr_p);
       *expr_p = EXPR_WFL_NODE (*expr_p);
       annotate_all_with_locus (expr_p, input_location);
-      return 1;
+      break;
 
     case CASE_EXPR:
       *expr_p = java_gimplify_case_expr (*expr_p);
-      return 1;
+      break;
 
     case DEFAULT_EXPR:
       *expr_p = java_gimplify_default_expr (*expr_p);
-      return 1;
+      break;
 
     case NEW_ARRAY_INIT:
       *expr_p = java_gimplify_new_array_init (*expr_p);
-      return 1;
+      break;
 
     case TRY_EXPR:
       *expr_p = java_gimplify_try_expr (*expr_p);
-      return 1;
+      break;
 
     case JAVA_CATCH_EXPR:
       *expr_p = TREE_OPERAND (*expr_p, 0);
-      return 1;
+      break;
 
     case JAVA_EXC_OBJ_EXPR:
       *expr_p = build_exception_object_ref (TREE_TYPE (*expr_p));
-      return 1;
+      break;
 
     /* These should already be lowered before we get here.  */
     case URSHIFT_EXPR:
@@ -118,15 +118,17 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 
     case COMPOUND_EXPR:
       cleanup_compound_expr (expr_p);
-      return 0;
+      break;
 
     case TRY_FINALLY_EXPR:
       cleanup_try_finally_expr (expr_p);
-      return 0;
+      break;
 
     default:
-      return 0;
+      return GS_UNHANDLED;
     }
+
+  return GS_OK;
 }
 
 static tree

@@ -1,3 +1,36 @@
+2003-10-23  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_*): Return gimplify_status.
+	(gimple_add_tmp_var): Set seen_in_bind_expr.
+	(gimplify_bind_expr): Likewise.  Kill if 0 code.
+	(gimplify_return_expr): Cope with error marks.
+	(gimple_push_cleanup): Do nothing if errors seen.
+	(gimplify_expr): Cope with error marks.  Use gimplify_status to
+	decide when to exit the main loop.  Zap statements with errors.
+	(gimplify_body): Return void.
+	(keep_function_tree_in_gimple_form): Don't exit on errors.
+	(gimplify_function_tree): Return bool.  Don't exit on errors.
+	* langhooks.c (lhd_gimplify_expr): Return GS_UNHANDLED.
+	* langhooks.h (struct lang_hooks): Update docs for gimplify_expr.
+	* tree-optimize.c (optimize_function_tree): Don't exit on errors.
+	Move delete_tree_cfg call outside optimization clause.
+	(tree_rest_of_compilation): Don't exit on errors.
+	* tree-simple.h (enum gimplify_status): New.
+	(gimplify_expr, gimplify_stmt, gimplify_body): Update.
+	* tree-ssa.c (rewrite_out_of_ssa): Move delete_tree_cfg call to
+	optimize_function_tree.
+	* tree.h (struct tree_decl): Add seen_in_bind_expr.
+	(gimplify_function_tree): Update.
+	* c-common.c (c_add_case_label): Unify three error exit paths.
+	Create a normal label, not a case label to suppress unreachable
+	code warning.
+	* c-simplify.c (c_build_bind_expr): Don't create an empty bind
+	body.  Pass entire bind_expr to gimplify_stmt.
+	(gimplify_block): Don't abort on mismatches if errors seen.
+	(gimplify_expr_stmt): Cope with error marks.
+	(gimplify_decl_stmt): Likewise.
+	(c_gimplify_expr): Return gimplify_status.
+
 2003-10-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow-inline.h (add_dom_child): XMALLOC, not GGC_ALLOC, 

@@ -90,7 +90,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
 
 /* Declarations for tree gimplification hooks.  */
-int lhd_gimplify_expr (tree *, tree *, tree *);
+extern int lhd_gimplify_expr (tree *, tree *, tree *);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)

@@ -88,9 +88,18 @@ typedef enum fallback_t {
   fb_mayfail = 4,
   fb_either= fb_rvalue | fb_lvalue
 } fallback_t;
-bool gimplify_expr (tree *, tree *, tree *, int (*) (tree), fallback_t);
-int gimplify_stmt (tree *);
-int gimplify_body (tree *, tree);
+
+enum gimplify_status {
+  GS_ERROR	= -2,	/* Something Bad Seen.  */
+  GS_UNHANDLED	= -1,	/* A langhook result for "I dunno".  */
+  GS_OK		= 0,	/* We did something, maybe more to do.  */
+  GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
+};
+
+enum gimplify_status gimplify_expr (tree *, tree *, tree *,
+				    int (*) (tree), fallback_t);
+void gimplify_stmt (tree *);
+void gimplify_body (tree *, tree);
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol (tree);

@@ -422,9 +422,8 @@ struct lang_hooks
 
   struct lang_hooks_for_rtl_expansion rtl_expand;
 
-  /* Perform language-specific gimplification on the argument.  Returns
-     1 if gimplification is complete, or 0 to use default gimplification
-     semantics.  */
+  /* Perform language-specific gimplification on the argument.  Returns an
+     enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h

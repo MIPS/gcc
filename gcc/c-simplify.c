@@ -359,12 +359,12 @@ c_build_bind_expr (tree block, tree body)
 	}
     }
 
+  if (!body)
+    body = build_empty_stmt ();
+
   bind = build (BIND_EXPR, void_type_node, decls, body, block);
   TREE_SIDE_EFFECTS (bind) = 1;
-
-  gimple_push_bind_expr (bind);
-  c_gimplify_stmt (&BIND_EXPR_BODY (bind));
-  gimple_pop_bind_expr ();
+  gimplify_stmt (&bind);
 
   return bind;
 }
@@ -384,27 +384,46 @@ gimplify_block (tree *stmt_p, tree *next_p)
   int stmt_lineno;
 
   if (!SCOPE_BEGIN_P (*stmt_p))
-    abort ();
+    {
+      /* Can wind up mismatched with syntax errors.  */
+      if (!errorcount && !sorrycount)
+	abort ();
+      *stmt_p = NULL;
+      return;
+    }
 
   block = SCOPE_STMT_BLOCK (*stmt_p);
 
   /* Find the matching ending SCOPE_STMT.  */
   depth = 1;
   for (p = &TREE_CHAIN (*stmt_p);; p = &TREE_CHAIN (*p))
-    if (TREE_CODE (*p) == SCOPE_STMT)
-      {
-	if (SCOPE_BEGIN_P (*p))
-	  ++depth;
-	else if (--depth == 0)
-	  break;
-      }
-  if (SCOPE_STMT_BLOCK (*p) != block)
-    abort ();
+    {
+      if (*p == NULL)
+	break;
+      if (TREE_CODE (*p) == SCOPE_STMT)
+	{
+	  if (SCOPE_BEGIN_P (*p))
+	    ++depth;
+	  else if (--depth == 0)
+	    break;
+	}
+    }
+  if (*p)
+    {
+      if (SCOPE_STMT_BLOCK (*p) != block)
+	abort ();
 
-  stmt_lineno = STMT_LINENO (*p);
-
-  *next_p = TREE_CHAIN (*p);
-  *p = NULL_TREE;
+      stmt_lineno = STMT_LINENO (*p);
+      *next_p = TREE_CHAIN (*p);
+      *p = NULL_TREE;
+    }
+  else
+    {
+      /* Can wind up mismatched with syntax errors.  */
+      if (!errorcount && !sorrycount)
+	abort ();
+      stmt_lineno = input_line;
+    }
 
   bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
@@ -444,6 +463,9 @@ static void
 gimplify_expr_stmt (tree *stmt_p)
 {
   tree stmt = EXPR_STMT_EXPR (*stmt_p);
+
+  if (stmt == error_mark_node)
+    stmt = NULL;
 
   /* Gimplification of a statement expression will nullify the
      statement if all its side effects are moved to *PRE_P and *POST_P.
@@ -826,6 +848,12 @@ gimplify_decl_stmt (tree *stmt_p)
   tree pre = NULL_TREE;
   tree post = NULL_TREE;
 
+  if (TREE_TYPE (decl) == error_mark_node)
+    {
+      *stmt_p = NULL;
+      return;
+    }
+
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
       tree init = DECL_INITIAL (decl);
@@ -903,23 +931,22 @@ c_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
   enum tree_code code = TREE_CODE (*expr_p);
 
   if (STATEMENT_CODE_P (code))
-    {
-      c_gimplify_stmt (expr_p);
-      return 1;
-    }
+    c_gimplify_stmt (expr_p);
   else switch (code)
     {
     case COMPOUND_LITERAL_EXPR:
       gimplify_compound_literal_expr (expr_p);
-      return 1;
+      break;
 
     case STMT_EXPR:
       gimplify_stmt_expr (expr_p);
-      return 1;
+      break;
 
     default:
-      return 0;
+      return GS_UNHANDLED;
     }
+
+  return GS_OK;
 }
 
 /* Gimplify a STMT_EXPR.  EXPR_P points to the expression to gimplify.

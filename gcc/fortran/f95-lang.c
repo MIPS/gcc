@@ -371,7 +371,7 @@ gfc_gimplify_expr (tree * expr_p ATTRIBUTE_UNUSED,
                    tree *post_p ATTRIBUTE_UNUSED)
 {
   /* Just let the gimplifier handle everything.  */
-  return 0;
+  return GS_UNHANDLED;
 }
 
 

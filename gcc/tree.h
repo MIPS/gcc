@@ -2062,8 +2062,9 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned unused : 3;
-  /* three unused bits.  */
+  unsigned seen_in_bind_expr : 1;
+  unsigned unused : 2;
+  /* two unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -3430,7 +3431,7 @@ extern int containing_blocks_have_cleanups_or_stack_level (void);
 void optimize_function_tree (tree);
 
 /* In gimplify.c.  */
-extern int gimplify_function_tree (tree);
+extern bool gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
 extern int keep_function_tree_in_gimple_form (tree);

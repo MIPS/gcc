@@ -125,26 +125,26 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
     {
     case PTRMEM_CST:
       *expr_p = cplus_expand_constant (*expr_p);
-      return 1;
+      return GS_OK;
 
     case AGGR_INIT_EXPR:
       simplify_aggr_init_expr (expr_p);
-      return 1;
+      return GS_OK;
 
     case THROW_EXPR:
       /* FIXME communicate throw type to backend, probably by moving
 	 THROW_EXPR into ../tree.def.  */
       *expr_p = TREE_OPERAND (*expr_p, 0);
-      return 1;
+      return GS_OK;
 
     case MUST_NOT_THROW_EXPR:
       gimplify_must_not_throw_expr (expr_p, pre_p);
-      return 1;
+      return GS_OK;
 
     case INIT_EXPR:
     case MODIFY_EXPR:
       cp_gimplify_init_expr (expr_p, pre_p, post_p);
-      break;
+      return GS_OK;
 
     case EMPTY_CLASS_EXPR:
       {
@@ -153,17 +153,15 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	TREE_TYPE (i) = TREE_TYPE (*expr_p);
 	*expr_p = i;
       }
-      return 1;
+      return GS_OK;
 
     case BASELINK:
       *expr_p = BASELINK_FUNCTIONS (*expr_p);
-      return 1;
+      return GS_OK;
 
     default:
-      break;
+      return c_gimplify_expr (expr_p, pre_p, post_p);
     }
-
-  return c_gimplify_expr (expr_p, pre_p, post_p);
 }
 
 /* Gimplify initialization from an AGGR_INIT_EXPR.  */

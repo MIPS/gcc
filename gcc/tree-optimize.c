@@ -68,7 +68,7 @@ optimize_function_tree (tree fndecl)
      it in SSA form.  If a pass exposes new symbols or invalidates the SSA
      numbering for existing variables, it should add them to the
      VARS_TO_RENAME bitmap and call rewrite_into_ssa() afterwards.  */
-  if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
+  if (n_basic_blocks > 0)
     {
       sbitmap vars_to_rename;
 
@@ -169,6 +169,8 @@ optimize_function_tree (tree fndecl)
 
       sbitmap_free (vars_to_rename);
     }
+
+  delete_tree_cfg ();
 }
 
 
@@ -236,13 +238,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
   tree saved_tree = NULL;
-
-  /* Don't bother doing anything if there are errors.  */
-  if (errorcount || sorrycount)
-    {
-      TREE_ASM_WRITTEN (fndecl) = 1;
-      return;
-    }
 
   timevar_push (TV_EXPAND);
 

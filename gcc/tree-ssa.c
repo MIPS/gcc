@@ -1838,7 +1838,6 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fndecl);
-  delete_tree_cfg ();
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 
