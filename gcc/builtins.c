@@ -4873,7 +4873,8 @@ default_expand_builtin (exp, target, subtarget, mode, ignore)
    in a readonly section.  */
 
 static bool
-readonly_data_expr (tree exp)
+readonly_data_expr (exp)
+     tree exp;
 {
   STRIP_NOPS (exp);
 

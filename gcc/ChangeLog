@@ -1,5 +1,9 @@
 2003-07-29  Jakub Jelinek  <jakub@redhat.com>
 
+	* builtins.c (readonly_data_expr): Use K&R definition.
+
+2003-07-29  Jakub Jelinek  <jakub@redhat.com>
+
 	* c-decl.c (finish_decl): Shut up warnings.
 
 2003-07-29  Jakub Jelinek  <jakub@redhat.com>
