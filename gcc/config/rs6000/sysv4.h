@@ -72,8 +72,7 @@ extern enum rs6000_sdata_type rs6000_sdata;
 				 || ((target_flags & (MASK_RELOCATABLE	\
 						      | MASK_MINIMAL_TOC)) \
 				     && flag_pic > 1)			\
-				 || DEFAULT_ABI == ABI_AIX		\
-				 || DEFAULT_ABI == ABI_NT)
+				 || DEFAULT_ABI == ABI_AIX)
 
 #define	TARGET_BITFIELD_TYPE	(! TARGET_NO_BITFIELD_TYPE)
 #define TARGET_BIG_ENDIAN	(! TARGET_LITTLE_ENDIAN)
@@ -174,8 +173,6 @@ do {									\
     }									\
   else if (!strcmp (rs6000_abi_name, "aixdesc"))			\
     rs6000_current_abi = ABI_AIX;					\
-  else if (!strcmp (rs6000_abi_name, "nt"))				\
-    rs6000_current_abi = ABI_NT;					\
   else if (!strcmp (rs6000_abi_name, "linux"))				\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "solaris"))			\
@@ -243,16 +240,14 @@ do {									\
       error ("-mrelocatable and -mno-minimal-toc are incompatible.");	\
     }									\
 									\
-  if (TARGET_RELOCATABLE &&						\
-      (rs6000_current_abi == ABI_AIX || rs6000_current_abi == ABI_NT))	\
+  if (TARGET_RELOCATABLE && rs6000_current_abi == ABI_AIX)		\
     {									\
       target_flags &= ~MASK_RELOCATABLE;				\
       error ("-mrelocatable and -mcall-%s are incompatible.",		\
 	     rs6000_abi_name);						\
     }									\
 									\
-  if (flag_pic > 1 &&							\
-      (rs6000_current_abi == ABI_AIX || rs6000_current_abi == ABI_NT))	\
+  if (flag_pic > 1 && rs6000_current_abi == ABI_AIX)			\
     {									\
       flag_pic = 0;							\
       error ("-fPIC and -mcall-%s are incompatible.",			\
@@ -263,12 +258,6 @@ do {									\
     {									\
       target_flags &= ~MASK_LITTLE_ENDIAN;				\
       error ("-mcall-aixdesc must be big endian");			\
-    }									\
-									\
-  if (rs6000_current_abi == ABI_NT && TARGET_BIG_ENDIAN)		\
-    {									\
-      target_flags |= MASK_LITTLE_ENDIAN;				\
-      error ("-mcall-nt must be little endian");			\
     }									\
 									\
   /* Treat -fPIC the same as -mrelocatable */				\
@@ -433,7 +422,7 @@ toc_section ()								\
   if (in_section != in_toc)						\
     {									\
       in_section = in_toc;						\
-      if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)		\
+      if (DEFAULT_ABI == ABI_AIX					\
 	  && TARGET_MINIMAL_TOC						\
 	  && !TARGET_RELOCATABLE)					\
 	{								\
@@ -454,8 +443,7 @@ toc_section ()								\
 	  else								\
 	    fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);	\
 	}								\
-      else if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)	\
-	       && !TARGET_RELOCATABLE)					\
+      else if (DEFAULT_ABI == ABI_AIX && !TARGET_RELOCATABLE)		\
 	fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);		\
       else								\
 	{								\
@@ -609,7 +597,7 @@ extern int rs6000_pic_labelno;
     putc ('\n', FILE);							\
     ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
 									\
-    if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)		\
+    if (DEFAULT_ABI == ABI_AIX)						\
       {									\
 	const char *desc_name = orig_name;				\
 									\
@@ -778,12 +766,12 @@ do {									\
       fprintf (FILE, "\t.previous\n");					\
       recurse = 0;							\
     }									\
-  /* Remove initial .'s to turn a -mcall-aixdesc or -mcall-nt function	\
+  /* Remove initial .'s to turn a -mcall-aixdesc function		\
      address into the address of the descriptor, not the function	\
      itself.  */							\
   else if (GET_CODE (VALUE) == SYMBOL_REF				\
 	   && XSTR (VALUE, 0)[0] == '.'					\
-	   && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT))	\
+	   && DEFAULT_ABI == ABI_AIX)					\
     {									\
       char *name = XSTR (VALUE, 0);					\
       while (*name == '.')						\
@@ -812,10 +800,10 @@ do {									\
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
-   call.  For real AIX and NT calling sequences, we also replace the
+   call.  For real AIX calling sequences, we also replace the
    function name with the real name (1 or 2 leading .'s), rather than
    the function descriptor name.  This saves a lot of overriding code
-   to readd the prefixes.  */
+   to read the prefixes.  */
 
 #undef	ENCODE_SECTION_INFO
 #define ENCODE_SECTION_INFO(DECL) rs6000_encode_section_info (DECL)
@@ -983,13 +971,12 @@ do {									\
 %{mlittle: %(cc1_endian_little)} %{!mlittle: %{mlittle-endian: %(cc1_endian_little)}} \
 %{mbig: %(cc1_endian_big)} %{!mbig: %{mbig-endian: %(cc1_endian_big)}} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
-    %{mcall-nt: -mlittle %(cc1_endian_little) } \
     %{mcall-aixdesc: -mbig %(cc1_endian_big) } \
     %{mcall-solaris: -mlittle %(cc1_endian_little) } \
     %{mcall-linux: -mbig %(cc1_endian_big) } \
-    %{!mcall-nt: %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-linux: \
+    %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-linux: \
 	    %(cc1_endian_default) \
-    }}}} \
+    }}} \
 }}}} \
 %{mcall-solaris: -mregnames } \
 %{mno-sdata: -msdata=none } \
@@ -1088,9 +1075,9 @@ do {									\
 "%{mrelocatable*: -D_RELOCATABLE} \
 %{fpic: -D__PIC__=1 -D__pic__=1} \
 %{!fpic: %{fPIC: -D__PIC__=2 -D__pic__=2}} \
-%{mcall-sysv: -D_CALL_SYSV} %{mcall-nt: -D_CALL_NT} \
+%{mcall-sysv: -D_CALL_SYSV} \
 %{mcall-aix: -D_CALL_AIX} %{mcall-aixdesc: -D_CALL_AIX -D_CALL_AIXDESC} \
-%{!mcall-sysv: %{!mcall-aix: %{!mcall-aixdesc: %{!mcall-nt: %(cpp_sysv_default) }}}} \
+%{!mcall-sysv: %{!mcall-aix: %{!mcall-aixdesc: %(cpp_sysv_default) }}} \
 %{msoft-float: -D_SOFT_FLOAT} %{mcpu=403: -D_SOFT_FLOAT}"
 
 #define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
@@ -1109,10 +1096,9 @@ do {									\
 %{mbig-endian: %(cpp_endian_big) } \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-solaris: %(cpp_endian_solaris) } \
-    %{mcall-nt: %(cpp_endian_little) } \
     %{mcall-linux: %(cpp_endian_big) } \
     %{mcall-aixdesc:  %(cpp_endian_big) } \
-    %{!mcall-solaris: %{!mcall-linux: %{!mcall-nt: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}}"
+    %{!mcall-solaris: %{!mcall-linux: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}"
 
 #define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
 

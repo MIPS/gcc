@@ -28,12 +28,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_XCOFF 1
 #define OBJECT_ELF 2
-#define OBJECT_WINDOWS_NT 3
-#define OBJECT_PEF 4
+#define OBJECT_PEF 3
 
 #define TARGET_ELF (TARGET_OBJECT_FORMAT == OBJECT_ELF)
 #define TARGET_AIX (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
-#define TARGET_WINDOWS_NT (TARGET_OBJECT_FORMAT == OBJECT_WINDOWS_NT)
 #define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -1149,7 +1147,6 @@ enum rs6000_abi {
   ABI_AIX,			/* IBM's AIX */
   ABI_AIX_NODESC,		/* AIX calling sequence minus function descriptors */
   ABI_V4,			/* System V.4/eabi */
-  ABI_NT,			/* Windows/NT */
   ABI_SOLARIS			/* Solaris */
 };
 
@@ -1361,7 +1358,7 @@ extern int rs6000_sysv_varargs_p;
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
 #define CALL_NORMAL		0x00000000	/* no special processing */
-#define CALL_NT_DLLIMPORT	0x00000001	/* NT, this is a DLL import call */
+/* Bits in 0x00000001 are unused.  */
 #define CALL_V4_CLEAR_FP_ARGS	0x00000002	/* V.4, no FP args passed */
 #define CALL_V4_SET_FP_ARGS	0x00000004	/* V.4, FP args were passed */
 #define CALL_LONG		0x00000008	/* always call indirect */
@@ -1628,7 +1625,6 @@ typedef struct rs6000_args
    || DEFAULT_ABI == ABI_AIX_NODESC)	? 8 :				\
   (DEFAULT_ABI == ABI_V4						\
    || DEFAULT_ABI == ABI_SOLARIS)	? (TARGET_32BIT ? 4 : 8) :	\
-  (DEFAULT_ABI == ABI_NT)		? -4 :				\
   (fatal ("RETURN_ADDRESS_OFFSET not supported"), 0))
 
 /* The current return address is in link register (65).  The return address
@@ -2925,7 +2921,6 @@ extern void rs6000_gen_section_name ();
 extern void output_function_profiler ();
 extern int rs6000_adjust_cost ();
 extern int rs6000_adjust_priority ();
-extern void rs6000_trampoline_template ();
 extern int rs6000_trampoline_size ();
 extern void rs6000_initialize_trampoline ();
 extern int rs6000_comp_type_attributes ();

@@ -1,3 +1,21 @@
+2000-01-28  Geoff Keating  <geoffk@cygnus.com>
+
+	* ../../configure.in: Delete powerpcle-*-winnt*
+	and powerpcle-*-pe|powerpcle-*-cygwin*.
+	* ../../configure: Regenerated.
+	* cygwin.h: Delete.
+	* rs6000.h (OBJECT_WINDOWS_NT): Delete.
+	(TARGET_WINDOWS_NT): Delete.
+	(ABI_NT): Delete.
+	(CALL_NT_DLLIMPORT): Delete.
+	Delete NT-specific code.
+	* rs6000.md, rs6000.c, sysv4.h: Delete NT-specific code.
+	* win-nt.h: Delete.
+	* t-winnt: Delete.
+	* nt-ci.asm: Delete.
+	* nt-cn.asm: Delete.
+	* ntstack.asm: Delete.
+
 2000-01-27  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	* rs6000.h (SELECT_RTX_SECTION): Move to aix.h.

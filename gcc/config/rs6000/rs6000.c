@@ -1181,12 +1181,6 @@ input_operand (op, mode)
   if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P (op))
     return 1;
 
-  /* Windows NT allows SYMBOL_REFs and LABEL_REFs against the TOC
-     directly in the instruction stream */
-  if (DEFAULT_ABI == ABI_NT
-      && (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == LABEL_REF))
-    return 1;
-
   /* V.4 allows SYMBOL_REFs and CONSTs that are in the small data region
      to be valid.  */
   if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
@@ -1283,14 +1277,8 @@ init_cumulative_args (cum, fntype, libname, incoming)
 
   cum->orig_nargs = cum->nargs_prototype;
 
-  /* Check for DLL import functions */
-  if (abi == ABI_NT
-      && fntype
-      && lookup_attribute ("dllimport", TYPE_ATTRIBUTES (fntype)))
-    cum->call_cookie = CALL_NT_DLLIMPORT;
-
-  /* Also check for longcall's */
-  else if (fntype && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype)))
+  /* Check for longcall's */
+  if (fntype && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
 
   if (TARGET_DEBUG_ARG)
@@ -1302,9 +1290,6 @@ init_cumulative_args (cum, fntype, libname, incoming)
 	  fprintf (stderr, " ret code = %s,",
 		   tree_code_name[ (int)TREE_CODE (ret_type) ]);
 	}
-
-      if (cum->call_cookie & CALL_NT_DLLIMPORT)
-	fprintf (stderr, " dllimport,");
 
       if (cum->call_cookie & CALL_LONG)
 	fprintf (stderr, " longcall,");
@@ -1345,8 +1330,6 @@ function_arg_padding (mode, type)
    of an argument with the specified mode and type.  If it is not defined, 
    PARM_BOUNDARY is used for all arguments.
    
-   Windows NT wants anything >= 8 bytes to be double word aligned.
-
    V.4 wants long longs to be double word aligned.  */
 
 int
@@ -1357,14 +1340,8 @@ function_arg_boundary (mode, type)
   if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
       && (mode == DImode || mode == DFmode))
     return 64;
-
-  if (DEFAULT_ABI != ABI_NT || TARGET_64BIT)
+  else
     return PARM_BOUNDARY;
-
-  if (mode != BLKmode)
-    return (GET_MODE_SIZE (mode)) >= 8 ? 64 : 32;
-
-  return (int_size_in_bytes (type) >= 8) ? 64 : 32;
 }
 
 /* Update the data in CUM to advance over an argument
@@ -3666,10 +3643,6 @@ print_operand (file, x, code)
 	    case ABI_AIX_NODESC:
 	    case ABI_SOLARIS:
 	      break;
-
-	    case ABI_NT:
-	      fputs ("..", file);
-	      break;
 	    }
 	}
       RS6000_OUTPUT_BASENAME (file, XSTR (x, 0));
@@ -3917,53 +3890,6 @@ first_fp_reg_to_save ()
    -mno-eabi libraries can be used with -meabi programs.)
 
 
-   A PowerPC Windows/NT frame looks like:
-
-	SP---->	+---------------------------------------+
-		| back chain to caller			| 0
-		+---------------------------------------+
-		| reserved				| 4
-		+---------------------------------------+
-		| reserved				| 8
-		+---------------------------------------+
-		| reserved				| 12
-		+---------------------------------------+
-		| reserved				| 16
-		+---------------------------------------+
-		| reserved				| 20
-		+---------------------------------------+
-		| Parameter save area (P)		| 24
-		+---------------------------------------+
-		| Alloca space (A)			| 24+P
-		+---------------------------------------+     
-		| Local variable space (L)		| 24+P+A
-		+---------------------------------------+     
-		| Float/int conversion temporary (X)	| 24+P+A+L
-		+---------------------------------------+
-		| Save area for FP registers (F)	| 24+P+A+L+X
-		+---------------------------------------+     
-		| Possible alignment area (Y)		| 24+P+A+L+X+F
-		+---------------------------------------+     
-		| Save area for GP registers (G)	| 24+P+A+L+X+F+Y
-		+---------------------------------------+     
-		| Save area for CR (C)			| 24+P+A+L+X+F+Y+G
-		+---------------------------------------+     
-		| Save area for TOC (T)			| 24+P+A+L+X+F+Y+G+C
-		+---------------------------------------+     
-		| Save area for LR (R)			| 24+P+A+L+X+F+Y+G+C+T
-		+---------------------------------------+
-	old SP->| back chain to caller's caller		|
-		+---------------------------------------+
-
-   For NT, there is no specific order to save the registers, but in
-   order to support __builtin_return_address, the save area for the
-   link register needs to be in a known place, so we use -4 off of the
-   old SP.  To support calls through pointers, we also allocate a
-   fixed slot to store the TOC, -8 off the old SP.
-
-   The required alignment for NT is 16 bytes.
-
-
    The EABI configuration defaults to the V.4 layout, unless
    -mcall-aix is used, in which case the AIX layout is used.  However,
    the stack alignment requirements may differ.  If -mno-eabi is not
@@ -4007,13 +3933,6 @@ rs6000_stack_info ()
   /* Does this function call anything? */
   info_ptr->calls_p = ! current_function_is_leaf;
 
-  /* Allocate space to save the toc. */
-  if (abi == ABI_NT && info_ptr->calls_p)
-    {
-      info_ptr->toc_save_p = 1;
-      info_ptr->toc_size = reg_size;
-    }
-
   /* Does this machine need the float/int conversion area? */
   info_ptr->fpmem_p = regs_ever_live[FPMEM_REGNUM];
 
@@ -4031,15 +3950,13 @@ rs6000_stack_info ()
     {
       info_ptr->lr_save_p = 1;
       regs_ever_live[LINK_REGISTER_REGNUM] = 1;
-      if (abi == ABI_NT)
-	info_ptr->lr_size = reg_size;
     }
 
   /* Determine if we need to save the condition code registers.  */
   if (regs_ever_live[70] || regs_ever_live[71] || regs_ever_live[72])
     {
       info_ptr->cr_save_p = 1;
-      if (abi == ABI_V4 || abi == ABI_NT || abi == ABI_SOLARIS)
+      if (abi == ABI_V4 || abi == ABI_SOLARIS)
 	info_ptr->cr_size = reg_size;
     }
 
@@ -4081,16 +3998,6 @@ rs6000_stack_info ()
       info_ptr->fpmem_offset	 = info_ptr->toc_save_offset - info_ptr->fpmem_size;
       info_ptr->lr_save_offset   = reg_size;
       break;
-
-    case ABI_NT:
-      info_ptr->lr_save_offset    = -reg_size;
-      info_ptr->toc_save_offset   = info_ptr->lr_save_offset - info_ptr->lr_size;
-      info_ptr->cr_save_offset    = info_ptr->toc_save_offset - info_ptr->toc_size;
-      info_ptr->gp_save_offset    = info_ptr->cr_save_offset - info_ptr->cr_size - info_ptr->gp_size + reg_size;
-      info_ptr->fp_save_offset    = info_ptr->gp_save_offset - info_ptr->fp_size;
-      if (info_ptr->fp_size && ((- info_ptr->fp_save_offset) % 8) != 0)
-	info_ptr->fp_save_offset -= reg_size;
-      break;
     }
 
   /* Ensure that fpmem_offset will be aligned to an 8-byte boundary. */
@@ -4124,10 +4031,9 @@ rs6000_stack_info ()
   if (info_ptr->calls_p)
     info_ptr->push_p = 1;
 
-  else if (abi == ABI_V4 || abi == ABI_NT || abi == ABI_SOLARIS)
+  else if (abi == ABI_V4 || abi == ABI_SOLARIS)
     info_ptr->push_p = (total_raw_size > info_ptr->fixed_size
-			|| (abi == ABI_NT ? info_ptr->lr_save_p
-			    : info_ptr->calls_p));
+			|| info_ptr->calls_p);
 
   else
     info_ptr->push_p = (frame_pointer_needed
@@ -4186,7 +4092,6 @@ debug_stack_info (info)
     case ABI_AIX_NODESC: abi_string = "AIX";		break;
     case ABI_V4:	 abi_string = "V.4";		break;
     case ABI_SOLARIS:	 abi_string = "Solaris";	break;
-    case ABI_NT:	 abi_string = "NT";		break;
     }
 
   fprintf (stderr, "\tABI                 = %5s\n", abi_string);
@@ -5231,14 +5136,6 @@ output_epilog (file, size)
       if (frame_pointer_needed)
 	fputs ("\t.byte 31\n", file);
     }
-
-  if (DEFAULT_ABI == ABI_NT)
-    {
-      RS6000_OUTPUT_BASENAME (file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
-      fputs (".e:\nFE_MOT_RESVD..", file);
-      RS6000_OUTPUT_BASENAME (file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
-      fputs (":\n", file);
-    }
 }
 
 /* A C compound statement that outputs the assembler code for a thunk function,
@@ -5346,10 +5243,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
     case ABI_SOLARIS:
       prefix = "";
       break;
-
-    case ABI_NT:
-      prefix = "..";
-      break;
     }
 
   /* If the function is compiled in this module, jump to it directly.
@@ -5372,7 +5265,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
       switch (DEFAULT_ABI)
 	{
 	default:
-	case ABI_NT:
 	  abort ();
 
 	case ABI_AIX:
@@ -6158,68 +6050,6 @@ int get_issue_rate()
 }
 
 
-/* Output assembler code for a block containing the constant parts
-   of a trampoline, leaving space for the variable parts.
-
-   The trampoline should set the static chain pointer to value placed
-   into the trampoline and should branch to the specified routine.  */
-
-void
-rs6000_trampoline_template (file)
-     FILE *file;
-{
-  const char *sc = reg_names[STATIC_CHAIN_REGNUM];
-  const char *r0 = reg_names[0];
-  const char *r2 = reg_names[2];
-
-  switch (DEFAULT_ABI)
-    {
-    default:
-      abort ();
-
-    /* Under AIX, this is not code at all, but merely a data area,
-       since that is the way all functions are called.  The first word is
-       the address of the function, the second word is the TOC pointer (r2),
-       and the third word is the static chain value.  */
-    case ABI_AIX:
-      break;
-
-
-    /* V.4/eabi function pointers are just a single pointer, so we need to
-       do the full gory code to load up the static chain.  */
-    case ABI_V4:
-    case ABI_SOLARIS:
-    case ABI_AIX_NODESC:
-      break;
-
-  /* NT function pointers point to a two word area (real address, TOC)
-     which unfortunately does not include a static chain field.  So we
-     use the function field to point to ..LTRAMP1 and the toc field
-     to point to the whole table.  */
-    case ABI_NT:
-      if (STATIC_CHAIN_REGNUM == 0
-	  || STATIC_CHAIN_REGNUM == 2
-	  || TARGET_64BIT
-	  || !TARGET_NEW_MNEMONICS)
-	abort ();
-
-      fprintf (file, "\t.ualong 0\n");			/* offset  0 */
-      fprintf (file, "\t.ualong 0\n");			/* offset  4 */
-      fprintf (file, "\t.ualong 0\n");			/* offset  8 */
-      fprintf (file, "\t.ualong 0\n");			/* offset 12 */
-      fprintf (file, "\t.ualong 0\n");			/* offset 16 */
-      fprintf (file, "..LTRAMP1..0:\n");		/* offset 20 */
-      fprintf (file, "\tlwz %s,8(%s)\n", r0, r2);	/* offset 24 */
-      fprintf (file, "\tlwz %s,12(%s)\n", sc, r2);	/* offset 28 */
-      fprintf (file, "\tmtctr %s\n", r0);		/* offset 32 */
-      fprintf (file, "\tlwz %s,16(%s)\n", r2, r2);	/* offset 36 */
-      fprintf (file, "\tbctr\n");			/* offset 40 */
-      break;
-    }
-
-  return;
-}
-
 /* Length in units of the trampoline for entering a nested function.  */
 
 int
@@ -6240,10 +6070,6 @@ rs6000_trampoline_size ()
     case ABI_SOLARIS:
     case ABI_AIX_NODESC:
       ret = (TARGET_32BIT) ? 40 : 48;
-      break;
-
-    case ABI_NT:
-      ret = 20;
       break;
     }
 
@@ -6298,27 +6124,6 @@ rs6000_initialize_trampoline (addr, fnaddr, cxt)
 			 fnaddr, pmode,
 			 ctx_reg, pmode);
       break;
-
-    /* Under NT, update the first word to point to the ..LTRAMP1..0 header,
-       the second word will point to the whole trampoline, third-fifth words
-       will then have the real address, static chain, and toc value.  */
-    case ABI_NT:
-      {
-	rtx tramp_reg = gen_reg_rtx (pmode);
-	rtx fn_reg = gen_reg_rtx (pmode);
-	rtx toc_reg = gen_reg_rtx (pmode);
-
-	emit_move_insn (tramp_reg, gen_rtx_SYMBOL_REF (pmode, "..LTRAMP1..0"));
-	addr = force_reg (pmode, addr);
-	emit_move_insn (fn_reg, MEM_DEREF (fnaddr));
-	emit_move_insn (toc_reg, MEM_PLUS (fnaddr, regsize));
-	emit_move_insn (MEM_DEREF (addr), tramp_reg);
-	emit_move_insn (MEM_PLUS (addr, regsize), addr);
-	emit_move_insn (MEM_PLUS (addr, 2*regsize), fn_reg);
-	emit_move_insn (MEM_PLUS (addr, 3*regsize), ctx_reg);
-	emit_move_insn (MEM_PLUS (addr, 4*regsize), gen_rtx_REG (pmode, 2));
-      }
-      break;
     }
 
   return;
@@ -6359,51 +6164,6 @@ rs6000_valid_type_attribute_p (type, attributes, identifier, args)
      of the current function, and to do an indirect call.  */
   if (is_attribute_p ("longcall", identifier))
     return (args == NULL_TREE);
-
-  if (DEFAULT_ABI == ABI_NT)
-    {
-      /* Stdcall attribute says callee is responsible for popping arguments
-	 if they are not variable.  */
-      if (is_attribute_p ("stdcall", identifier))
-	return (args == NULL_TREE);
-
-      /* Cdecl attribute says the callee is a normal C declaration */
-      if (is_attribute_p ("cdecl", identifier))
-	return (args == NULL_TREE);
-
-      /* Dllimport attribute says the caller is to call the function
-	 indirectly through a __imp_<name> pointer.  */
-      if (is_attribute_p ("dllimport", identifier))
-	return (args == NULL_TREE);
-
-      /* Dllexport attribute says the callee is to create a __imp_<name>
-	 pointer.  */
-      if (is_attribute_p ("dllexport", identifier))
-	return (args == NULL_TREE);
-
-      /* Exception attribute allows the user to specify 1-2 strings
-	 or identifiers that will fill in the 3rd and 4th fields
-	 of the structured exception table.  */
-      if (is_attribute_p ("exception", identifier))
-	{
-	  int i;
-
-	  if (args == NULL_TREE)
-	    return 0;
-
-	  for (i = 0; i < 2 && args != NULL_TREE; i++)
-	    {
-	      tree this_arg = TREE_VALUE (args);
-	      args = TREE_PURPOSE (args);
-
-	      if (TREE_CODE (this_arg) != STRING_CST
-		  && TREE_CODE (this_arg) != IDENTIFIER_NODE)
-		return 0;
-	    }
-
-	  return (args == NULL_TREE);
-	}
-    }
 
   return 0;
 }
@@ -6566,7 +6326,7 @@ rs6000_select_section (decl, reloc)
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
-   call.  For real AIX and NT calling sequences, we also replace the
+   call.  For real AIX calling sequences, we also replace the
    function name with the real name (1 or 2 leading .'s), rather than
    the function descriptor name.  This saves a lot of overriding code
    to read the prefixes.  */
@@ -6582,7 +6342,7 @@ rs6000_encode_section_info (decl)
           && ! DECL_WEAK (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
-      if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_NT)
+      if (DEFAULT_ABI == ABI_AIX)
 	{
 	  size_t len1 = (DEFAULT_ABI == ABI_AIX) ? 1 : 2;
 	  size_t len2 = strlen (XSTR (sym_ref, 0));
