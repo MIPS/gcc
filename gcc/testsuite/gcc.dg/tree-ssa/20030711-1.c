@@ -45,7 +45,7 @@ record_component_aliases (type)
 /* There should be three IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 3 "ssa"} } */
                                                                                 
-/* There should be two lodas of type.binfo.  */
+/* There should be two loads of type.binfo.  */
 /* { dg-final { scan-tree-dump-times "type\\.binfo" 2 "ssa"} } */
  
 /* There should be three loads of vec.length.  */
