@@ -443,7 +443,17 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	      /* The destination block may have become unreachable, in
 		 which case there's no point in optimizing it.  */
 	      if (dest->pred)
-		optimize_block (dest, last, dest->pred->flags, vars_to_rename);
+		{
+		  /* Ensure that we only take the condition into account
+		     if there is no other way how to reach the target basic
+		     block.  The fact that we have exactly one predecessor
+		     also ensures that the predecessor is BB.  */
+		  if (!dest->pred->pred_next)
+		    optimize_block (dest, last, dest->pred->flags,
+				    vars_to_rename);
+		  else
+		    optimize_block (dest, NULL_TREE, 0, vars_to_rename);
+		}
 	    });
 	}
       else
@@ -519,7 +529,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 		     one.  Otherwise redirect the existing GOTO_EXPR to
 		     LABEL.  */
 		  stmt = last_stmt (bb);
-		  if (TREE_CODE (stmt) != GOTO_EXPR)
+		  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
 		    {
 		      basic_block tmp_bb;
 
@@ -538,6 +548,10 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 		  /* Update/insert PHI nodes as necessary.  */
 
 		  /* Now update the edges in the CFG.  */
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "  Threaded jump from %d to %d\n",
+			     bb->succ->dest->index, dest->index);
+
 		  ssa_remove_edge (bb->succ);
 		  make_edge (bb, dest, 0);
 		}

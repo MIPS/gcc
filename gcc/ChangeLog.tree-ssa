@@ -1,3 +1,11 @@
+2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-dom.c (optimize_block): Handle empty source block.
+
+	* tree-ssa-dom.c (optimize_block):  Handle case when dominance
+	tree children have also other sucessors.  Add dump to jump
+	threading.
+
 2003-08-25  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (mark_labels_r): New fn.
