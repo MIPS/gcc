@@ -2625,11 +2625,8 @@ d30v_expand_epilogue ()
   if (d30v_eh_epilogue_sp_ofs)
     emit_insn (gen_addsi3 (sp, sp, d30v_eh_epilogue_sp_ofs));
 
-  /* Hack for now, to prevent scheduler from being too cleaver */
-  emit_insn (gen_blockage ());
-
   /* Now emit the return instruction.  */
-  emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode, GPR_LINK)));
+  emit_jump_insn (gen_rtx_RETURN (VOIDmode));
 }
 
 

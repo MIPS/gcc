@@ -2761,7 +2761,7 @@ typedef int CUMULATIVE_ARGS;
    are used by the epilogue or the `return' pattern.  The stack and
    frame pointer registers are already be assumed to be used as
    needed.  */
-/* #define EPILOGUE_USES(REGNO) */
+#define EPILOGUE_USES(REGNO)  ((REGNO) == GPR_LINK)
 
 /* A C compound statement that outputs the assembler code for exit from a
    function.  The epilogue is responsible for restoring the saved registers and
