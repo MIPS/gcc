@@ -1,3 +1,67 @@
+2002-03-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-demangle.c: Add libgcc exception to cp-demangle.c copyright
+	notice.
+
+2002-03-11  Douglas B Rupp  <rupp@gnat.com>
+
+	* xatexit.c [VMS]: Include stdlib.h and unixlib.h.
+
+2002-03-06  Jim Blandy  <jimb@redhat.com>
+
+	* splay-tree.c (splay_tree_xmalloc_allocate,
+	splay_tree_xmalloc_deallocate): Use K&R-style definitions, not
+	prototyped definitions.  Mark `data' arguments as unused.
+
+2002-03-06  Andrew Cagney  <ac131313@redhat.com>
+
+	* floatformat.c (floatformat_arm_ext_big): Delete definition.
+
+2002-03-04  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in:  Add --enable-install-libiberty option.
+	* Makefile.in (INSTALLED_HEADERS):  New variable.
+	(install_to_libdir):  Possibly also copy headers.
+	* configure:  Regenerated.
+
+2002-03-04  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* xmalloc.c (xmalloc_fail): Clarify error message further.
+
+2002-03-03  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* xmalloc.c (xmalloc_fail): Clarify error message.
+
+2002-02-22  Jim Blandy  <jimb@redhat.com>
+
+	* splay-tree.c (splay_tree_xmalloc_allocate,
+	splay_tree_xmalloc_deallocate): New functions.
+	(splay_tree_new): Call splay_tree_new_with_allocator, passing the
+	above functions and a dummy data pointer.
+	(splay_tree_new_with_allocator): New function.
+	(splay_tree_delete_helper, splay_tree_delete, splay_tree_insert,
+	splay_tree_remove): Use the splay tree's allocation and
+	deallocation functions.
+
+2002-02-19  Scott Snyder  <snyder@fnal.gov>
+
+	* testsuite/demangle-expected: Add test case for infinite loop in
+	demangler.
+	* cplus-dem.c (demangle_arm_hp_template): Stop trying to demangle
+	if do_type() doesn't make any progress --- prevents an infinite
+	loop.
+
+2002-02-18  Carlo Wood  <carlo@gnu.org>
+
+	PR c++/5390
+	* cplus-dem.c (demangle_integral_value): Accept multi-digit
+	numbers that do not start with an underscore; This is needed
+	for integer template parameters. This doesn't break anything
+	because multi-digit numbers are never followed by a digit.
+	* testsuite/demangle-expected: Corrected all mangled test
+	cases with multi-digit template parameters: g++ 2.95.x does
+	not generate underscores around these parameters.
+
 2002-02-05  Jason Merrill  <jason@redhat.com>
 
 	* cplus-dem.c (flags): Add DMGL_VERBOSE

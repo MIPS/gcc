@@ -516,7 +516,6 @@ finish_switch_cond (cond, switch_stmt)
   tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree type;
       tree index;
 
       /* Convert the condition to an integer or enumeration type.  */
@@ -533,15 +532,17 @@ finish_switch_cond (cond, switch_stmt)
 	  cond = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (cond), cond));
 	}
 
-      type = TREE_TYPE (cond);
-      index = get_unwidened (cond, NULL_TREE);
-      /* We can't strip a conversion from a signed type to an unsigned,
-	 because if we did, int_fits_type_p would do the wrong thing
-	 when checking case values for being in range,
-	 and it's too hard to do the right thing.  */
-      if (TREE_UNSIGNED (TREE_TYPE (cond))
-	  == TREE_UNSIGNED (TREE_TYPE (index)))
-	cond = index;
+      if (cond != error_mark_node)
+	{
+	  index = get_unwidened (cond, NULL_TREE);
+	  /* We can't strip a conversion from a signed type to an unsigned,
+	     because if we did, int_fits_type_p would do the wrong thing
+	     when checking case values for being in range,
+	     and it's too hard to do the right thing.  */
+	  if (TREE_UNSIGNED (TREE_TYPE (cond))
+	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	    cond = index;
+	}
     }
   FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
   SWITCH_TYPE (switch_stmt) = orig_type;
@@ -1501,32 +1502,13 @@ decl_type_access_control (decl)
      added to type_lookups after typed_declspecs saved the copy that
      ended up in current_type_lookups.  */
   type_lookups = current_type_lookups;
-  
-  current_type_lookups = NULL_TREE;
 }
-
-/* Record the lookups, if we're doing deferred access control.  */
 
 void
 save_type_access_control (lookups)
      tree lookups;
 {
-  if (type_lookups != error_mark_node)
-    {
-      my_friendly_assert (!current_type_lookups, 20010301);
-      current_type_lookups = lookups;
-    }
-  else
-    my_friendly_assert (!lookups || lookups == error_mark_node, 20010301);
-}
-
-/* Set things up so that the next deferred access control will succeed.
-   This is needed for friend declarations see grokdeclarator for details.  */
-
-void
-skip_type_access_control ()
-{
-  type_lookups = NULL_TREE;
+  current_type_lookups = lookups;
 }
 
 /* Reset the deferred access control.  */
@@ -1910,8 +1892,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
     check_for_missing_semicolon (t); 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_function_decl)
-    type_lookups = error_mark_node;
   if (current_scope () == current_function_decl)
     do_pending_defargs ();
 

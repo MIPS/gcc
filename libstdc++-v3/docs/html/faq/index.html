@@ -57,8 +57,10 @@
          <li><a href="#3_1">Can libstdc++-v3 be used with &lt;my
                             favorite compiler&gt;?</a>
          <li><a href="#3_2">[removed]</a>
-         <li><a href="#3_3">Building under DEC OSF kills the assembler</a>
+         <li><a href="#3_3">[removed]</a>
          <li><a href="#3_4">I can't use 'long long' on Solaris</a>
+         <li><a href="#3_5"><code>_XOPEN_SOURCE</code> /
+                            <code>_GNU_SOURCE</code> / etc is always defined</a>
       </ol>
 
    <li><a href="#4_0">Known Bugs and Non-Bugs</a>
@@ -109,7 +111,7 @@
          library reaches stable plateaus, it is captured in a snapshot
          and released.  The current release is
          <a href="http://gcc.gnu.org/libstdc++/download.html">the
-         thirteenth snapshot</a>.  For those who want to see exactly how
+         fourteenth snapshot</a>.  For those who want to see exactly how
          far the project has come, or just want the latest
          bleeding-edge code, the up-to-date source is available over
          anonymous CVS, and can even be browsed over the Web (see below). 
@@ -165,7 +167,7 @@
 
 <hr>
    <h2><a name="1_4">1.4 How do I get libstdc++?</a></h2>
-      <p>The thirteenth (and latest) snapshot of libstdc++-v3 is
+      <p>The fourteenth (and latest) snapshot of libstdc++-v3 is
          <a href="http://gcc.gnu.org/libstdc++/download.html">available via
          ftp</a>.
       </p>
@@ -411,18 +413,9 @@ which is no longer available, thanks deja...-->
       </p>
 
 <hr>
-   <h2><a name="3_3">3.3 Building DEC OSF kills the assembler</a></h2>
-      <p>The <code>atomicity.h</code> header for the Alpha processor
-         currently uses pseudo-operators which the DEC assembler
-         doesn't understand (in particular, .subsection and .previous).
-         The simple solution is to install GNU <code>as</code> and arrange
-         for the GCC build to use it (or merge the sources and build
-         it during the bootstrap).
-      </p>
-      <p>Anyone who
-         <a href="http://gcc.gnu.org/ml/libstdc++/2000-12/msg00279.html">knows
-         the DEC assembler well enough</a> to provide the equivalent of
-         these two pseudos would win praise and accolades from many.
+   <h2><a name="3_3">3.3 [removed]</a></h2>
+      <p>This question has become moot and has been removed.  The stub
+         is here to preserve numbering (and hence links/bookmarks).
       </p>
 
 <hr>
@@ -435,6 +428,44 @@ which is no longer available, thanks deja...-->
          commonly reported platform affected was Solaris.
       </p>
       <p>This has been fixed for 3.0.3 and onwards.
+      </p>
+
+<hr>
+   <h2><a name="3_5">3.5 <code>_XOPEN_SOURCE</code> / <code>_GNU_SOURCE</code>
+                         / etc is always defined</a></h2>
+      <p>On Solaris, g++ (but not gcc) always defines the preprocessor
+         macro <code>_XOPEN_SOURCE</code>.  On GNU/Linux, the same happens
+         with <code>_GNU_SOURCE</code>.  (This is not an exhaustive list;
+         other macros and other platforms are also affected.)
+      </p>
+      <p>These macros are typically used in C library headers, guarding new
+         versions of functions from their older versions.  The C++ standard
+         library includes the C standard library, but it requires the C90
+         version, which for backwards-compatability reasons is often not the
+         default for many vendors.
+      </p>
+      <p>More to the point, the C++ standard requires behavior which is only
+         available on certain platforms after certain symbols are defined.
+         Usually the issue involves I/O-related typedefs.  In order to
+         ensure correctness, the compiler simply predefines those symbols.
+      </p>
+      <p>Note that it's not enough to #define them only when the library is
+         being built (during installation).  Since we don't have an 'export'
+         keyword, much of the library exists as headers, which means that
+         the symbols must also be defined as your programs are parsed and
+         compiled.
+      </p>
+      <p>To see which symbols are defined, look for CPLUSPLUS_CPP_SPEC in
+         the gcc config headers for your target (and try changing them to
+         see what happens when building complicated code).  You can also run
+         <code>&quot;g++ -E -dM - &lt; /dev/null&quot;</code> to display
+         a list of predefined macros for any particular installation.
+      </p>
+      <p>This has been discussed on the mailing lists
+         <a href="http://gcc.gnu.org/cgi-bin/htsearch?method=and&format=builtin-long&sort=score&words=_XOPEN_SOURCE+Solaris">quite a bit</a>.
+      </p>
+      <p>This method is something of a wart.  We'd like to find a cleaner
+         solution, but nobody yet has contributed the time.
       </p>
 
 <hr>
@@ -471,39 +502,13 @@ which is no longer available, thanks deja...-->
 <!-- Yeah, I meant that "verbatim clip" thing literally... :-)  -->
 
 <pre>
-New in 3.0.96:
+New in 3.0.97:
 ---
 - more doxygen documentation.
-- extensions moved out of namespace std
-- HPUX long long support
-- more string optimizations
-- support for NetBSD cross compiles
-- concept_check merge from boost
-- header simplification
-- named locale bug shakeout
-- thread testsuite
-
-New in 3.0.95:
----
-- add S390, m68k, x86-64 support.
-- doxygen documentation has been extended, including man pages.
-- verbose terminate handling has been added.
-- some libsupc++ tweaks
-- warnings for deprecated headers now active.
-- dejagnu testsuite preliminary documentation.
-- dejagnu testsuite default.
-- dejagnu testsuite cross compiler, multilib safe.
-- long long iostreams on by default, rework of ISO C99 support.
-- iterator re-write and testsuites.
-- container testsuites.
-- allocator revamp and testsuites.
-- more concept-checking work.
-- basic_string optimization and MT fixes.
-- new limits implementation.
-- update -fno-exceptions code, verify it works.
-- full named locale support fpr all facets, choice of gnu,
-  ieee_1003.1-200x (POSIX 2), or generic models. Full support depends
-  on target OS and underlying "C" library support.
+- more named locale bug fixes
+- support for symbol versioning when using GNU ld &gt;= 2.12
+- wide-io
+- tuning for executable size
 </pre>
 
 
@@ -515,10 +520,21 @@ New in 3.0.95:
          problems, you can find more information on the libstdc++ and
          the GCC mailing lists.
       </p>
+      <p>Before reporting a bug, examine the
+         <a href="http://gcc.gnu.org/bugs.html">bugs database</a> with the
+         category set to &quot;libstdc++&quot;.  The BUGS file in the source
+         tree also tracks known serious problems.
+      </p>
       <ul>
-         <li>As of 3.0.95, those bugs have all been fixed.  We look forward
-             to new ones, well, not exactly...  Existing bugs are listed in
-             the BUGS file, and the GCC GNATS database.
+         <li>Debugging is problematic, due to bugs in line-number generation
+             (mostly fixed in the compiler) and gdb lagging behind the
+             compiler (lack of personnel).  We recommend configuring the
+             compiler using <code>--with-dwarf2</code> if the DWARF2
+             debugging format is not already the default on your platform.
+             Also,
+<a href="http://gcc.gnu.org/ml/libstdc++/2002-02/msg00034.html">changing your
+             GDB settings</a> can have a profound effect on your C++ debugging
+             experiences.  :-)</li>
       </ul>
 
 <hr>
@@ -553,8 +569,7 @@ New in 3.0.95:
            libstdc++ &quot;-Weffc++-clean&quot; is not a goal of the project,
            for a few reasons.  Mainly, that option tries to enforce
            object-oriented programming, while the Standard Library isn't
-           necessarily trying to be OO.  There are multiple solutions
-           under discussion.
+           necessarily trying to be OO.
         </p>
       </a>
       <a name="4_4_iostreamclear">

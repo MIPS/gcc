@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision$
+--                             $Revision: 1.3 $
 --                                                                          --
 --          Copyright (C) 1999-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -81,6 +81,8 @@ package body System.Stack_Checking is
    ----------------------------
 
    procedure Invalidate_Stack_Cache (Any_Stack : Stack_Access) is
+      pragma Warnings (Off, Any_Stack);
+
    begin
       Cache := Null_Stack;
    end Invalidate_Stack_Cache;

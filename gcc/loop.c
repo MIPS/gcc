@@ -1102,7 +1102,25 @@ scan_loop (loop, flags)
      optimizing for code size.  */
 
   if (! optimize_size)
-    move_movables (loop, movables, threshold, insn_count);
+    {
+      move_movables (loop, movables, threshold, insn_count);
+
+      /* Recalculate regs->array if move_movables has created new
+	 registers.  */
+      if (max_reg_num () > regs->num)
+	{
+	  loop_regs_scan (loop, 0);
+	  for (update_start = loop_start;
+	       PREV_INSN (update_start)
+	       && GET_CODE (PREV_INSN (update_start)) != CODE_LABEL;
+	       update_start = PREV_INSN (update_start))
+	    ;
+	  update_end = NEXT_INSN (loop_end);
+
+	  reg_scan_update (update_start, update_end, loop_max_reg);
+	  loop_max_reg = max_reg_num ();
+	}
+    }
 
   /* Now candidates that still are negative are those not moved.
      Change regs->array[I].set_in_loop to indicate that those are not actually
@@ -2486,16 +2504,17 @@ prescan_loop (loop)
 
 	      if (set)
 		{
+		  rtx src = SET_SRC (set);
 		  rtx label1, label2;
 
-		  if (GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
+		  if (GET_CODE (src) == IF_THEN_ELSE)
 		    {
-		      label1 = XEXP (SET_SRC (set), 1);
-		      label2 = XEXP (SET_SRC (set), 2);
+		      label1 = XEXP (src, 1);
+		      label2 = XEXP (src, 2);
 		    }
 		  else
 		    {
-		      label1 = SET_SRC (PATTERN (insn));
+		      label1 = src;
 		      label2 = NULL_RTX;
 		    }
 
@@ -5206,13 +5225,13 @@ strength_reduce (loop, flags)
   /* In case number of iterations is known, drop branch prediction note
      in the branch.  Do that only in second loop pass, as loop unrolling
      may change the number of iterations performed.  */
-  if ((flags & LOOP_BCT)
-      && loop_info->n_iterations / loop_info->unroll_number > 1)
+  if (flags & LOOP_BCT)
     {
-      int n = loop_info->n_iterations / loop_info->unroll_number;
-      predict_insn (PREV_INSN (loop->end),
-		    PRED_LOOP_ITERATIONS,
-		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
+      unsigned HOST_WIDE_INT n
+	= loop_info->n_iterations / loop_info->unroll_number;
+      if (n > 1)
+	predict_insn (PREV_INSN (loop->end), PRED_LOOP_ITERATIONS,
+		      REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
     }
 
   if (loop_dump_stream)
@@ -6127,13 +6146,13 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
       return 1;
 
     case SUBREG:
-      /* If this is a SUBREG for a promoted variable, check the inner
-	 value.  */
-      if (SUBREG_PROMOTED_VAR_P (x))
-	return basic_induction_var (loop, SUBREG_REG (x),
-				    GET_MODE (SUBREG_REG (x)),
-				    dest_reg, p, inc_val, mult_val, location);
-      return 0;
+      /* If what's inside the SUBREG is a BIV, then the SUBREG.  This will
+	 handle addition of promoted variables.
+	 ??? The comment at the start of this function is wrong: promoted
+	 variable increments don't look like it says they do.  */
+      return basic_induction_var (loop, SUBREG_REG (x),
+				  GET_MODE (SUBREG_REG (x)),
+				  dest_reg, p, inc_val, mult_val, location);
 
     case REG:
       /* If this register is assigned in a previous insn, look at its
@@ -6195,10 +6214,11 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
     case CONST:
       /* convert_modes aborts if we try to convert to or from CCmode, so just
          exclude that case.  It is very unlikely that a condition code value
-	 would be a useful iterator anyways.  */
+	 would be a useful iterator anyways.  convert_modes aborts if we try to
+	 convert a float mode to non-float or vice versa too.  */
       if (loop->level == 1
-	  && GET_MODE_CLASS (mode) != MODE_CC
-	  && GET_MODE_CLASS (GET_MODE (dest_reg)) != MODE_CC)
+	  && GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (dest_reg))
+	  && GET_MODE_CLASS (mode) != MODE_CC)
 	{
 	  /* Possible bug here?  Perhaps we don't know the mode of X.  */
 	  *inc_val = convert_modes (GET_MODE (dest_reg), mode, x, 0);

@@ -1,5 +1,5 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -348,8 +348,6 @@ readonly_data ()							\
 	   fputs (",CODE\n", FILE);					\
 	 }								\
      } while (0)
-
-#define ASM_FILE_END(FILE) output_deferred_plabels (FILE)
 
 /* We want __gcc_plt_call to appear in every program built by
    gcc, so we make a reference to it out of __main.

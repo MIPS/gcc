@@ -462,14 +462,6 @@ int flag_no_builtin;
 
 int flag_no_nonansi_builtin;
 
-/* Nonzero means do some things the same way PCC does.  */
-
-int flag_traditional;
-
-/* Nonzero means to allow single precision math even if we're generally
-   being traditional. */
-int flag_allow_single_precision = 0;
-
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
@@ -542,7 +534,8 @@ int warn_missing_braces;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
   
-  const char chill_tree_code_type[] = {
+const char tree_code_type[] = {
+#include "tree.def"
     'x',
 #include "ch-tree.def"
   };
@@ -554,7 +547,8 @@ int warn_missing_braces;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
   
-int chill_tree_code_length[] = {
+const unsigned char tree_code_length[] = {
+#include "tree.def"
     0,
 #include "ch-tree.def"
   };
@@ -565,7 +559,8 @@ int chill_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
   
-const char *chill_tree_code_name[] = {
+const char *const tree_code_name[] = {
+#include "tree.def"
     "@@dummy",
 #include "ch-tree.def"
   };
@@ -617,21 +612,8 @@ c_decode_option (argc, argv)
      char **argv;
 {
   char *p = argv[0];
-  if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
-    {
-      flag_traditional = 1;
-      flag_writable_strings = 1;
-#if DOLLARS_IN_IDENTIFIERS > 0
-      dollars_in_ident = 1;
-#endif
-    }
-  else if (!strcmp (p, "-fnotraditional") || !strcmp (p, "-fno-traditional"))
-    {
-      flag_traditional = 0;
-      flag_writable_strings = 0;
-      dollars_in_ident = DOLLARS_IN_IDENTIFIERS > 1;
-    }
-  else if (!strcmp (p, "-fsigned-char"))
+
+  if (!strcmp (p, "-fsigned-char"))
     flag_signed_char = 1;
   else if (!strcmp (p, "-funsigned-char"))
     flag_signed_char = 0;
@@ -3503,18 +3485,6 @@ init_decl_processing ()
   DECL_SOURCE_LINE (temp) = 0;
   initializer_type = TREE_TYPE (temp);
 
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	  chill_tree_code_type,
-	  (((int) LAST_CHILL_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (char)));
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
-	  chill_tree_code_length,
-	  (((int) LAST_CHILL_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (int)));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
-	  chill_tree_code_name,
-	  (((int) LAST_CHILL_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE)
-	   * sizeof (char *)));
   boolean_code_name = (const char **) xcalloc (sizeof (char *),
 					       (int) LAST_CHILL_TREE_CODE);
 
@@ -4071,11 +4041,6 @@ builtin_function (name, type, function_code, class, library_name)
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
-  /* If -traditional, permit redefining a builtin function any way you like.
-     (Though really, if the program redefines these functions,
-     it probably won't work right unless compiled with -fno-builtin.)  */
-  if (flag_traditional && name[0] != '_')
-    DECL_BUILT_IN_NONANSI (decl) = 1;
   if (library_name)
     DECL_ASSEMBLER_NAME (decl) = get_identifier (library_name);
   make_decl_rtl (decl, NULL_PTR, 1);

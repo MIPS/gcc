@@ -950,13 +950,11 @@ arith_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  int val;
   if (register_operand (op, mode))
     return 1;
   if (GET_CODE (op) != CONST_INT)
     return 0;
-  val = INTVAL (op) & 0xffffffff;
-  return SPARC_SIMM13_P (val);
+  return SMALL_INT32 (op);
 }
 
 /* Return true if OP is a constant 4096  */
@@ -966,11 +964,10 @@ arith_4096_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  int val;
   if (GET_CODE (op) != CONST_INT)
     return 0;
-  val = INTVAL (op) & 0xffffffff;
-  return val == 4096;
+  else
+    return INTVAL (op) == 4096;
 }
 
 /* Return true if OP is suitable as second operand for add/sub */
@@ -998,7 +995,7 @@ const64_operand (op, mode)
 	      && SPARC_SIMM13_P (CONST_DOUBLE_LOW (op))
 	      && (CONST_DOUBLE_HIGH (op) ==
 		  ((CONST_DOUBLE_LOW (op) & 0x80000000) != 0 ?
-		   (HOST_WIDE_INT)0xffffffff : 0)))
+		   (HOST_WIDE_INT)-1 : 0)))
 #endif
 	  );
 }
@@ -1007,21 +1004,15 @@ const64_operand (op, mode)
 int
 const64_high_operand (op, mode)
      rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
   return ((GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) & 0xfffffc00) != 0
-	   && SPARC_SETHI_P (INTVAL (op))
-#if HOST_BITS_PER_WIDE_INT != 64
-	   /* Must be positive on non-64bit host else the
-	      optimizer is fooled into thinking that sethi
-	      sign extends, even though it does not.  */
-	   && INTVAL (op) >= 0
-#endif
+	   && (INTVAL (op) & ~(HOST_WIDE_INT)0x3ff) != 0
+	   && SPARC_SETHI_P (INTVAL (op) & GET_MODE_MASK (mode))
 	   )
 	  || (GET_CODE (op) == CONST_DOUBLE
 	      && CONST_DOUBLE_HIGH (op) == 0
-	      && (CONST_DOUBLE_LOW (op) & 0xfffffc00) != 0
+	      && (CONST_DOUBLE_LOW (op) & ~(HOST_WIDE_INT)0x3ff) != 0
 	      && SPARC_SETHI_P (CONST_DOUBLE_LOW (op))));
 }
 
@@ -1230,12 +1221,7 @@ input_operand (op, mode)
      variants when we are working in DImode and !arch64.  */
   if (GET_MODE_CLASS (mode) == MODE_INT
       && ((GET_CODE (op) == CONST_INT
-	   && ((SPARC_SETHI_P (INTVAL (op))
-		&& (! TARGET_ARCH64
-		    || (INTVAL (op) >= 0)
-		    || mode == SImode
-		    || mode == HImode
-		    || mode == QImode))
+	   && (SPARC_SETHI_P (INTVAL (op) & GET_MODE_MASK (mode))
 	       || SPARC_SIMM13_P (INTVAL (op))
 	       || (mode == DImode
 		   && ! TARGET_ARCH64)))
@@ -1314,7 +1300,7 @@ sparc_emit_set_const32 (op0, op1)
     {
       HOST_WIDE_INT value = INTVAL (op1);
 
-      if (SPARC_SETHI_P (value)
+      if (SPARC_SETHI_P (value & GET_MODE_MASK (mode))
 	  || SPARC_SIMM13_P (value))
 	abort ();
     }
@@ -1335,11 +1321,13 @@ sparc_emit_set_const32 (op0, op1)
 	  && (INTVAL (op1) & 0x80000000) != 0)
 	emit_insn (gen_rtx_SET
 		   (VOIDmode, temp,
-		    gen_rtx_CONST_DOUBLE (VOIDmode, INTVAL (op1) & 0xfffffc00,
+		    gen_rtx_CONST_DOUBLE (VOIDmode,
+					  INTVAL (op1) & ~(HOST_WIDE_INT)0x3ff,
 					  0)));
       else
 	emit_insn (gen_rtx_SET (VOIDmode, temp,
-				GEN_INT (INTVAL (op1) & 0xfffffc00)));
+				GEN_INT (INTVAL (op1)
+					 & ~(HOST_WIDE_INT)0x3ff)));
 
       emit_insn (gen_rtx_SET (VOIDmode,
 			      op0,
@@ -1509,15 +1497,15 @@ static rtx gen_safe_OR64 PARAMS ((rtx, HOST_WIDE_INT));
 static rtx gen_safe_XOR64 PARAMS ((rtx, HOST_WIDE_INT));
 
 #if HOST_BITS_PER_WIDE_INT == 64
-#define GEN_HIGHINT64(__x)		GEN_INT ((__x) & 0xfffffc00)
+#define GEN_HIGHINT64(__x)		GEN_INT ((__x) & ~(HOST_WIDE_INT)0x3ff)
 #define GEN_INT64(__x)			GEN_INT (__x)
 #else
 #define GEN_HIGHINT64(__x) \
-	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & 0xfffffc00, 0)
+	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & ~(HOST_WIDE_INT)0x3ff, 0)
 #define GEN_INT64(__x) \
 	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & 0xffffffff, \
 			      ((__x) & 0x80000000 \
-			       ? 0xffffffff : 0))
+			       ? -1 : 0))
 #endif
 
 /* The optimizer is not to assume anything about exactly
@@ -1602,7 +1590,8 @@ sparc_emit_set_const64_quick1 (op0, temp, low_bits, is_neg)
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode, op0,
 				  gen_safe_XOR64 (temp,
-						  (-0x400 | (low_bits & 0x3ff)))));
+						  (-(HOST_WIDE_INT)0x400
+						   | (low_bits & 0x3ff)))));
 	}
     }
 }
@@ -1835,7 +1824,7 @@ const64_is_2insns (high_bits, low_bits)
   int highest_bit_set, lowest_bit_set, all_bits_between_are_set;
 
   if (high_bits == 0
-      || high_bits == 0xffffffff)
+      || high_bits == -1)
     return 1;
 
   analyze_64bit_constant (high_bits, low_bits,
@@ -6000,9 +5989,7 @@ print_operand (file, x, code)
     case 'b':
       {
 	/* Print a sign-extended character.  */
-	int i = INTVAL (x) & 0xff;
-	if (i & 0x80)
-	  i |= 0xffffff00;
+	int i = trunc_int_for_mode (INTVAL (x), QImode);
 	fprintf (file, "%d", i);
 	return;
       }
@@ -6099,10 +6086,6 @@ sparc_assemble_integer (x, size, aligned_p)
 /* Return the value of a code used in the .proc pseudo-op that says
    what kind of result this function returns.  For non-C types, we pick
    the closest C type.  */
-
-#ifndef CHAR_TYPE_SIZE
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
-#endif
 
 #ifndef SHORT_TYPE_SIZE
 #define SHORT_TYPE_SIZE (BITS_PER_UNIT * 2)
@@ -6276,35 +6259,39 @@ sparc_initialize_trampoline (tramp, fnaddr, cxt)
                      0, VOIDmode, 1, tramp, Pmode);
 #endif
 
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 0)),
-		  expand_binop (SImode, ior_optab,
-				expand_shift (RSHIFT_EXPR, SImode, fnaddr,
-					      size_int (10), 0, 1),
-				GEN_INT (0x03000000),
-				NULL_RTX, 1, OPTAB_DIRECT));
+  emit_move_insn
+    (gen_rtx_MEM (SImode, plus_constant (tramp, 0)),
+     expand_binop (SImode, ior_optab,
+		   expand_shift (RSHIFT_EXPR, SImode, fnaddr,
+				 size_int (10), 0, 1),
+		   GEN_INT (trunc_int_for_mode (0x03000000, SImode)),
+		   NULL_RTX, 1, OPTAB_DIRECT));
 
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)),
-		  expand_binop (SImode, ior_optab,
-				expand_shift (RSHIFT_EXPR, SImode, cxt,
-					      size_int (10), 0, 1),
-				GEN_INT (0x05000000),
-				NULL_RTX, 1, OPTAB_DIRECT));
+  emit_move_insn
+    (gen_rtx_MEM (SImode, plus_constant (tramp, 4)),
+     expand_binop (SImode, ior_optab,
+		   expand_shift (RSHIFT_EXPR, SImode, cxt,
+				 size_int (10), 0, 1),
+		   GEN_INT (trunc_int_for_mode (0x05000000, SImode)),
+		   NULL_RTX, 1, OPTAB_DIRECT));
 
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)),
-		  expand_binop (SImode, ior_optab,
-				expand_and (fnaddr, GEN_INT (0x3ff), NULL_RTX),
-				GEN_INT (0x81c06000),
-				NULL_RTX, 1, OPTAB_DIRECT));
+  emit_move_insn
+    (gen_rtx_MEM (SImode, plus_constant (tramp, 8)),
+     expand_binop (SImode, ior_optab,
+		   expand_and (SImode, fnaddr, GEN_INT (0x3ff), NULL_RTX),
+		   GEN_INT (trunc_int_for_mode (0x81c06000, SImode)),
+		   NULL_RTX, 1, OPTAB_DIRECT));
 
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
-		  expand_binop (SImode, ior_optab,
-				expand_and (cxt, GEN_INT (0x3ff), NULL_RTX),
-				GEN_INT (0x8410a000),
-				NULL_RTX, 1, OPTAB_DIRECT));
+  emit_move_insn
+    (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
+     expand_binop (SImode, ior_optab,
+		   expand_and (SImode, cxt, GEN_INT (0x3ff), NULL_RTX),
+		   GEN_INT (trunc_int_for_mode (0x8410a000, SImode)),
+		   NULL_RTX, 1, OPTAB_DIRECT));
 
-  emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   /* On UltraSPARC a flush flushes an entire cache line.  The trampoline is
      aligned on a 16 byte boundary so one flush clears it all.  */
+  emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
@@ -6332,13 +6319,13 @@ sparc64_initialize_trampoline (tramp, fnaddr, cxt)
    */
 
   emit_move_insn (gen_rtx_MEM (SImode, tramp),
-		  GEN_INT (0x83414000));
+		  GEN_INT (trunc_int_for_mode (0x83414000, SImode)));
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)),
-		  GEN_INT (0xca586018));
+		  GEN_INT (trunc_int_for_mode (0xca586018, SImode)));
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)),
-		  GEN_INT (0x81c14000));
+		  GEN_INT (trunc_int_for_mode (0x81c14000, SImode)));
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
-		  GEN_INT (0xca586010));
+		  GEN_INT (trunc_int_for_mode (0xca586010, SImode)));
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 16)), cxt);
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 24)), fnaddr);
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
@@ -8475,7 +8462,7 @@ mark_ultrasparc_pipeline_state (arg)
   size_t i;
 
   ups = (struct ultrasparc_pipeline_state *) arg;
-  for (i = 0; i < sizeof (ups->group) / sizeof (rtx); ++i)
+  for (i = 0; i < ARRAY_SIZE (ups->group); ++i)
     ggc_mark_rtx (ups->group[i]);
 }
 

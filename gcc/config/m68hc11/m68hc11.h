@@ -241,22 +241,8 @@ extern const struct processor_costs *m68hc11_cost;
 /* Define this if most significant word of a multiword number is numbered.  */
 #define WORDS_BIG_ENDIAN 	1
 
-/* Number of bits in an addressible storage unit */
-#define BITS_PER_UNIT		8
-
-/* Number of bits in a word */
-#define BITS_PER_WORD		16
-
 /* Width of a word, in units (bytes).  */
-#define UNITS_PER_WORD		(BITS_PER_WORD/8)
-
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE		16
+#define UNITS_PER_WORD		2
 
 /* Definition of size_t.  This is really an unsigned short as the
    68hc11 only handles a 64K address space.  */
@@ -319,9 +305,6 @@ extern const struct processor_costs *m68hc11_cost;
 
 /* Size (bits) of the type "long long" on target machine */
 #define LONG_LONG_TYPE_SIZE     64
-
-/* Size (bits) of the type "char" on target machine */
-#define CHAR_TYPE_SIZE		8
 
 /* A C expression for the size in bits of the type `float' on the
    target machine. If you don't define this, the default is one word.
@@ -1149,11 +1132,8 @@ typedef struct m68hc11_args
    handle calls to traps in a special manner (by issuing the trap).
    This information is stored in SYMBOL_REF_FLAG.  */
 
-#define ENCODE_SECTION_INFO(DECL) m68hc11_encode_section_info (DECL)
-
-/* Override what GCC does for section info to let us recognize traps.  */
-
-#define REDO_SECTION_INFO_P(DECL) 1
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+  m68hc11_encode_section_info (DECL, FIRST)
 
 /* `INIT_TARGET_OPTABS'
      Define this macro as a C statement that declares additional library

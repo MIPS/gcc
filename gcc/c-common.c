@@ -663,8 +663,7 @@ combine_strings (strings)
      -Wwrite-strings says make the string constant an array of const char
      so that copying it to a non-const pointer will get a warning.
      For C++, this is the standard behavior.  */
-  if (flag_const_strings
-      && (! flag_traditional  && ! flag_writable_strings))
+  if (flag_const_strings && ! flag_writable_strings)
     {
       tree elements
 	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
@@ -702,6 +701,7 @@ constant_expression_warning (value)
      tree value;
 {
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
+       || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
       && TREE_CONSTANT_OVERFLOW (value) && pedantic)
     pedwarn ("overflow in constant expression");
@@ -735,6 +735,12 @@ overflow_warning (value)
       TREE_OVERFLOW (value) = 0;
       if (skip_evaluation == 0)
 	warning ("floating point overflow in expression");
+    }
+  else if (TREE_CODE (value) == VECTOR_CST && TREE_OVERFLOW (value))
+    {
+      TREE_OVERFLOW (value) = 0;
+      if (skip_evaluation == 0)
+	warning ("vector overflow in expression");
     }
 }
 
@@ -1975,6 +1981,107 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
   return 0;
 }
 
+/* Return a tree for the sum or difference (RESULTCODE says which)
+   of pointer PTROP and integer INTOP.  */
+
+tree
+pointer_int_sum (resultcode, ptrop, intop)
+     enum tree_code resultcode;
+     tree ptrop, intop;
+{
+  tree size_exp;
+
+  tree result;
+  tree folded;
+
+  /* The result is a pointer of the same type that is being added.  */
+
+  tree result_type = TREE_TYPE (ptrop);
+
+  if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer of type `void *' used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to a function used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to member function used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == OFFSET_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to a member used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else
+    size_exp = size_in_bytes (TREE_TYPE (result_type));
+
+  /* If what we are about to multiply by the size of the elements
+     contains a constant term, apply distributive law
+     and multiply that constant term separately.
+     This helps produce common subexpressions.  */
+
+  if ((TREE_CODE (intop) == PLUS_EXPR || TREE_CODE (intop) == MINUS_EXPR)
+      && ! TREE_CONSTANT (intop)
+      && TREE_CONSTANT (TREE_OPERAND (intop, 1))
+      && TREE_CONSTANT (size_exp)
+      /* If the constant comes from pointer subtraction,
+	 skip this optimization--it would cause an error.  */
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (intop, 0))) == INTEGER_TYPE
+      /* If the constant is unsigned, and smaller than the pointer size,
+	 then we must skip this optimization.  This is because it could cause
+	 an overflow error if the constant is negative but INTOP is not.  */
+      && (! TREE_UNSIGNED (TREE_TYPE (intop))
+	  || (TYPE_PRECISION (TREE_TYPE (intop))
+	      == TYPE_PRECISION (TREE_TYPE (ptrop)))))
+    {
+      enum tree_code subcode = resultcode;
+      tree int_type = TREE_TYPE (intop);
+      if (TREE_CODE (intop) == MINUS_EXPR)
+	subcode = (subcode == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
+      /* Convert both subexpression types to the type of intop,
+	 because weird cases involving pointer arithmetic
+	 can result in a sum or difference with different type args.  */
+      ptrop = build_binary_op (subcode, ptrop,
+			       convert (int_type, TREE_OPERAND (intop, 1)), 1);
+      intop = convert (int_type, TREE_OPERAND (intop, 0));
+    }
+
+  /* Convert the integer argument to a type the same size as sizetype
+     so the multiply won't overflow spuriously.  */
+
+  if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype)
+      || TREE_UNSIGNED (TREE_TYPE (intop)) != TREE_UNSIGNED (sizetype))
+    intop = convert (type_for_size (TYPE_PRECISION (sizetype), 
+				    TREE_UNSIGNED (sizetype)), intop);
+
+  /* Replace the integer argument with a suitable product by the object size.
+     Do this multiplication as signed, then convert to the appropriate
+     pointer type (actually unsigned integral).  */
+
+  intop = convert (result_type,
+		   build_binary_op (MULT_EXPR, intop,
+				    convert (TREE_TYPE (intop), size_exp), 1));
+
+  /* Create the sum or difference.  */
+
+  result = build (resultcode, result_type, ptrop, intop);
+
+  folded = fold (result);
+  if (folded == result)
+    TREE_CONSTANT (folded) = TREE_CONSTANT (ptrop) & TREE_CONSTANT (intop);
+  return folded;
+}
+
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
    or validate its data type for an `if' or `while' statement or ?..: exp.
 
@@ -2095,10 +2202,15 @@ truthvalue_conversion (expr)
       break;
 
     case MINUS_EXPR:
-      /* With IEEE arithmetic, x - x may not equal 0, so we can't optimize
-	 this case.  */
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
-	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE)
+      /* Perhaps reduce (x - y) != 0 to (x != y).  The expressions
+	 aren't guaranteed to the be same for modes that can represent
+	 infinity, since if x and y are both +infinity, or both
+	 -infinity, then x - y is not a number.
+
+	 Note that this transformation is safe when x or y is NaN.
+	 (x - y) is then NaN, and both (x - y) != 0 and x != y will
+	 be false.  */
+      if (HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (TREE_OPERAND (expr, 0)))))
 	break;
       /* fall through...  */
     case BIT_XOR_EXPR:
@@ -2421,11 +2533,6 @@ c_common_nodes_and_builtins ()
   tree builtin_types[(int) BT_LAST];
   int wchar_type_size;
   tree array_domain_type;
-  /* Either char* or void*.  */
-  tree traditional_ptr_type_node;
-  /* Either const char* or const void*.  */
-  tree traditional_cptr_type_node;
-  tree traditional_len_type_node;
   tree va_list_ref_type_node;
   tree va_list_arg_type_node;
 
@@ -2499,8 +2606,6 @@ c_common_nodes_and_builtins ()
   c_size_type_node =
     TREE_TYPE (identifier_global_value (get_identifier (SIZE_TYPE)));
   signed_size_type_node = signed_type (c_size_type_node);
-  if (flag_traditional)
-    c_size_type_node = signed_size_type_node;
   set_sizetype (c_size_type_node);
 
   build_common_tree_nodes_2 (flag_short_double);
@@ -2546,13 +2651,6 @@ c_common_nodes_and_builtins ()
   const_string_type_node
     = build_pointer_type (build_qualified_type
 			  (char_type_node, TYPE_QUAL_CONST));
-
-  traditional_ptr_type_node = ((flag_traditional && 
-				c_language != clk_cplusplus)
-			       ? string_type_node : ptr_type_node);
-  traditional_cptr_type_node = ((flag_traditional && 
-				 c_language != clk_cplusplus)
-			       ? const_string_type_node : const_ptr_type_node);
 
   (*targetm.init_builtins) ();
 
@@ -2613,10 +2711,6 @@ c_common_nodes_and_builtins ()
       va_list_ref_type_node = build_reference_type (va_list_type_node);
     }
  
-  traditional_len_type_node = ((flag_traditional && 
-				c_language != clk_cplusplus)
-			       ? integer_type_node : sizetype);
-
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
   builtin_types[(int) ENUM] = VALUE;
 #define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
@@ -2912,11 +3006,9 @@ simple_type_promotes_to (type)
 
   if (c_promoting_integer_type_p (type))
     {
-      /* Traditionally, unsignedness is preserved in default promotions.
-         Also preserve unsignedness if not really getting any wider.  */
+      /* Preserve unsignedness if not really getting any wider.  */
       if (TREE_UNSIGNED (type)
-          && (flag_traditional
-              || TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
+          && (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
         return unsigned_type_node;
       return integer_type_node;
     }
@@ -2964,6 +3056,81 @@ strip_array_types (type)
   return type;
 }
 
+static tree expand_unordered_cmp PARAMS ((tree, tree, enum tree_code,
+					  enum tree_code));
+
+/* Expand a call to an unordered comparison function such as
+   __builtin_isgreater().  FUNCTION is the function's declaration and
+   PARAMS a list of the values passed.  For __builtin_isunordered(),
+   UNORDERED_CODE is UNORDERED_EXPR and ORDERED_CODE is NOP_EXPR.  In
+   other cases, UNORDERED_CODE and ORDERED_CODE are comparison codes
+   that give the opposite of the desired result.  UNORDERED_CODE is
+   used for modes that can hold NaNs and ORDERED_CODE is used for the
+   rest.  */
+
+static tree
+expand_unordered_cmp (function, params, unordered_code, ordered_code)
+     tree function, params;
+     enum tree_code unordered_code, ordered_code;
+{
+  tree arg0, arg1, type;
+  enum tree_code code0, code1;
+
+  /* Check that we have exactly two arguments.  */
+  if (params == 0 || TREE_CHAIN (params) == 0)
+    {
+      error ("too few arguments to function `%s'",
+	     IDENTIFIER_POINTER (DECL_NAME (function)));
+      return error_mark_node;
+    }
+  else if (TREE_CHAIN (TREE_CHAIN (params)) != 0)
+    {
+      error ("too many arguments to function `%s'",
+	     IDENTIFIER_POINTER (DECL_NAME (function)));
+      return error_mark_node;
+    }
+
+  arg0 = TREE_VALUE (params);
+  arg1 = TREE_VALUE (TREE_CHAIN (params));
+
+  code0 = TREE_CODE (TREE_TYPE (arg0));
+  code1 = TREE_CODE (TREE_TYPE (arg1));
+
+  /* Make sure that the arguments have a common type of REAL.  */
+  type = 0;
+  if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
+      && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
+    type = common_type (TREE_TYPE (arg0), TREE_TYPE (arg1));
+
+  if (type == 0 || TREE_CODE (type) != REAL_TYPE)
+    {
+      error ("non-floating-point argument to function `%s'",
+	     IDENTIFIER_POINTER (DECL_NAME (function)));
+      return error_mark_node;
+    }
+
+  if (unordered_code == UNORDERED_EXPR)
+    {
+      if (MODE_HAS_NANS (TYPE_MODE (type)))
+	return build_binary_op (unordered_code,
+				convert (type, arg0),
+				convert (type, arg1),
+				0);
+      else
+	return integer_zero_node;
+    }
+
+  return build_unary_op (TRUTH_NOT_EXPR,
+			 build_binary_op (MODE_HAS_NANS (TYPE_MODE (type))
+					  ? unordered_code
+					  : ordered_code,
+					  convert (type, arg0),
+					  convert (type, arg1),
+					  0),
+			 0);
+}
+
+
 /* Recognize certain built-in functions so we can make tree-codes
    other than CALL_EXPR.  We do this when it enables fold-const.c
    to do something useful.  */
@@ -2976,8 +3143,6 @@ tree
 expand_tree_builtin (function, params, coerced_params)
      tree function, params, coerced_params;
 {
-  enum tree_code code;
-
   if (DECL_BUILT_IN_CLASS (function) != BUILT_IN_NORMAL)
     return NULL_TREE;
 
@@ -3016,72 +3181,22 @@ expand_tree_builtin (function, params, coerced_params)
       return build_unary_op (IMAGPART_EXPR, TREE_VALUE (coerced_params), 0);
 
     case BUILT_IN_ISGREATER:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	code = UNLE_EXPR;
-      else
-	code = LE_EXPR;
-      goto unordered_cmp;
+      return expand_unordered_cmp (function, params, UNLE_EXPR, LE_EXPR);
 
     case BUILT_IN_ISGREATEREQUAL:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	code = UNLT_EXPR;
-      else
-	code = LT_EXPR;
-      goto unordered_cmp;
+      return expand_unordered_cmp (function, params, UNLT_EXPR, LT_EXPR);
 
     case BUILT_IN_ISLESS:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	code = UNGE_EXPR;
-      else
-	code = GE_EXPR;
-      goto unordered_cmp;
+      return expand_unordered_cmp (function, params, UNGE_EXPR, GE_EXPR);
 
     case BUILT_IN_ISLESSEQUAL:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	code = UNGT_EXPR;
-      else
-	code = GT_EXPR;
-      goto unordered_cmp;
+      return expand_unordered_cmp (function, params, UNGT_EXPR, GT_EXPR);
 
     case BUILT_IN_ISLESSGREATER:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	code = UNEQ_EXPR;
-      else
-	code = EQ_EXPR;
-      goto unordered_cmp;
+      return expand_unordered_cmp (function, params, UNEQ_EXPR, EQ_EXPR);
 
     case BUILT_IN_ISUNORDERED:
-      if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
-	return integer_zero_node;
-      code = UNORDERED_EXPR;
-      goto unordered_cmp;
-
-    unordered_cmp:
-      {
-	tree arg0, arg1;
-
-	if (params == 0
-	    || TREE_CHAIN (params) == 0)
-	  {
-	    error ("too few arguments to function `%s'",
-		   IDENTIFIER_POINTER (DECL_NAME (function)));
-	    return error_mark_node;
-	  }
-	else if (TREE_CHAIN (TREE_CHAIN (params)) != 0)
-	  {
-	    error ("too many arguments to function `%s'",
-		   IDENTIFIER_POINTER (DECL_NAME (function)));
-	    return error_mark_node;
-	  }
-
-	arg0 = TREE_VALUE (params);
-	arg1 = TREE_VALUE (TREE_CHAIN (params));
-	arg0 = build_binary_op (code, arg0, arg1, 0);
-	if (code != UNORDERED_EXPR)
-	  arg0 = build_unary_op (TRUTH_NOT_EXPR, arg0, 0);
-	return arg0;
-      }
-      break;
+      return expand_unordered_cmp (function, params, UNORDERED_EXPR, NOP_EXPR);
 
     default:
       break;
@@ -3582,56 +3697,6 @@ c_staticp (exp)
   return 0;
 }
 
-/* Tree code classes.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-static const char c_tree_code_type[] = {
-  'x',
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-static const int c_tree_code_length[] = {
-  0,
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-static const char *const c_tree_code_name[] = {
-  "@@dummy",
-#include "c-common.def"
-};
-#undef DEFTREECODE
-
-/* Adds the tree codes specific to the C front end to the list of all
-   tree codes.  */
-
-void
-add_c_tree_codes ()
-{
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_type,
-	  (int) LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_length,
-	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
-	  c_tree_code_name,
-	  (LAST_C_TREE_CODE - (int) LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
-  lang_unsafe_for_reeval = c_unsafe_for_reeval;
-}
-
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
 
@@ -4002,15 +4067,14 @@ c_common_post_options ()
 {
   cpp_post_options (parse_in);
 
+  flag_inline_trees = 1;
+
   /* Use tree inlining if possible.  Function instrumentation is only
      done in the RTL level, so we disable tree inlining.  */
   if (! flag_instrument_function_entry_exit)
     {
       if (!flag_no_inline)
-	{
-	  flag_inline_trees = 1;
-	  flag_no_inline = 1;
-	}
+	flag_no_inline = 1;
       if (flag_inline_functions)
 	{
 	  flag_inline_trees = 2;

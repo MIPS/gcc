@@ -46,7 +46,7 @@ enum tree_code {
    and `x' for anything else (TREE_LIST, IDENTIFIER, etc).  */
 
 #define MAX_TREE_CODES 256
-extern char tree_code_type[MAX_TREE_CODES];
+extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
 /* Returns non-zero iff CLASS is the tree-code class of an
@@ -57,12 +57,12 @@ extern char tree_code_type[MAX_TREE_CODES];
 
 /* Number of argument-words in each kind of tree-node.  */
 
-extern int tree_code_length[MAX_TREE_CODES];
+extern const unsigned char tree_code_length[];
 #define TREE_CODE_LENGTH(CODE)	tree_code_length[(int) (CODE)]
 
 /* Names of tree components.  */
 
-extern const char *tree_code_name[MAX_TREE_CODES];
+extern const char *const tree_code_name[];
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */
@@ -174,14 +174,14 @@ struct tree_common
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST
+           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
 
    public_flag:
 
        TREE_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST
+           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
@@ -511,9 +511,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    chain is via a `virtual' declaration.  */
 #define TREE_VIA_VIRTUAL(NODE) ((NODE)->common.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, or COMPLEX_CST, this means there was an
-   overflow in folding.  This is distinct from TREE_OVERFLOW because ANSI C
-   requires a diagnostic when overflows occur in constant expressions.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
+   there was an overflow in folding.  This is distinct from
+   TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
+   occur in constant expressions.  */
 #define TREE_CONSTANT_OVERFLOW(NODE) ((NODE)->common.static_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
@@ -521,9 +522,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 #define TREE_SYMBOL_REFERENCED(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->common.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, of COMPLEX_CST, this means there was an
-   overflow in folding, and no warning has been issued for this subexpression.
-   TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW, but not vice versa.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
+   there was an overflow in folding, and no warning has been issued
+   for this subexpression.  TREE_OVERFLOW implies
+   TREE_CONSTANT_OVERFLOW, but not vice versa.  */
 #define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
@@ -706,9 +708,9 @@ struct tree_int_cst
   } int_cst;
 };
 
-/* In REAL_CST, STRING_CST, COMPLEX_CST nodes, and CONSTRUCTOR nodes,
-   and generally in all kinds of constants that could
-   be given labels (rather than being immediate).  */
+/* In REAL_CST, STRING_CST, COMPLEX_CST, VECTOR_CST nodes, and
+   CONSTRUCTOR nodes, and generally in all kinds of constants that
+   could be given labels (rather than being immediate).  */
 
 #define TREE_CST_RTL(NODE) (CST_OR_CONSTRUCTOR_CHECK (NODE)->real_cst.rtl)
 
@@ -750,6 +752,16 @@ struct tree_complex
   rtx rtl;	/* acts as link to register transfer language (rtl) info */
   tree real;
   tree imag;
+};
+
+/* In a VECTOR_CST node.  */
+#define TREE_VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elements)
+
+struct tree_vector
+{
+  struct tree_common common;
+  rtx rtl;
+  tree elements;
 };
 
 #include "hashtable.h"
@@ -855,6 +867,11 @@ struct tree_vec
 #define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+
+/* In a TARGET_EXPR node.  */
+#define TARGET_EXPR_SLOT(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 0)
+#define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 1)
+#define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 2)
 
 struct tree_exp
 {
@@ -1849,6 +1866,7 @@ union tree_node
   struct tree_common common;
   struct tree_int_cst int_cst;
   struct tree_real_cst real_cst;
+  struct tree_vector vector;
   struct tree_string string;
   struct tree_complex complex;
   struct tree_identifier identifier;
@@ -2099,6 +2117,7 @@ extern tree build			PARAMS ((enum tree_code, tree, ...));
 extern tree build_nt			PARAMS ((enum tree_code, ...));
 
 extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
+extern tree build_vector                PARAMS ((tree, tree));
 extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
 extern tree build_real_from_int_cst 	PARAMS ((tree, tree));
 extern tree build_complex		PARAMS ((tree, tree, tree));
@@ -2275,6 +2294,11 @@ extern tree merge_attributes		PARAMS ((tree, tree));
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
+
+/* Return true if DECL will be always resolved to a symbol defined in the
+   same module (shared library or program).  */
+#define MODULE_LOCAL_P(DECL) \
+  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
@@ -2478,6 +2502,11 @@ extern int list_length			PARAMS ((tree));
 
 extern int fields_length		PARAMS ((tree));
 
+/* Given an initializer INIT, return TRUE if INIT is zero or some
+   aggregate of zeros.  Otherwise return FALSE.  */
+
+extern bool initializer_zerop		PARAMS ((tree));
+
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
 
 extern int integer_zerop		PARAMS ((tree));
@@ -2527,18 +2556,6 @@ extern tree unsave_expr			PARAMS ((tree));
    recurse into subtrees.  */
 
 extern void unsave_expr_1               PARAMS ((tree));
-
-/* Like unsave_expr_1, but recurses into all subtrees.  */
-
-extern tree unsave_expr_now		PARAMS ((tree));
-
-/* If non-null, these are language-specific helper functions for
-   unsave_expr_now.  If present, LANG_UNSAVE is called before its
-   argument (an UNSAVE_EXPR) is to be unsaved, and all other
-   processing in unsave_expr_now is aborted.  LANG_UNSAVE_EXPR_NOW is
-   called from unsave_expr_1 for language-specific tree codes.  */
-extern void (*lang_unsave)              PARAMS ((tree *));
-extern void (*lang_unsave_expr_now)     PARAMS ((tree));
 
 /* Return 0 if it is safe to evaluate EXPR multiple times,
    return 1 if it is safe if EXPR is unsaved afterward, or
@@ -2734,6 +2751,8 @@ extern tree get_set_constructor_bytes		PARAMS ((tree,
 extern tree get_callee_fndecl                   PARAMS ((tree));
 extern void set_decl_assembler_name             PARAMS ((tree));
 extern int type_num_arguments                   PARAMS ((tree));
+extern tree lhd_unsave_expr_now		PARAMS ((tree));
+
 
 /* In stmt.c */
 
@@ -2846,9 +2865,6 @@ extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 /* The language front-end must define these functions.  */
-
-/* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
-extern void copy_lang_decl			PARAMS ((tree));
 
 /* Function called with no arguments to parse and compile the input.  */
 extern int yyparse				PARAMS ((void));

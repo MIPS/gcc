@@ -83,13 +83,7 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 1
 
-#define BITS_PER_UNIT 	8
-
-#define BITS_PER_WORD 	32
-
 #define UNITS_PER_WORD 	4
-
-#define POINTER_SIZE 	32
 
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)	\
   do						\
@@ -127,7 +121,6 @@ extern int target_flags;
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
 
-#define CHAR_TYPE_SIZE 		 8
 #define SHORT_TYPE_SIZE 	16
 #define INT_TYPE_SIZE 		32
 #define LONG_TYPE_SIZE 		32
@@ -1355,16 +1348,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 #define ASM_OUTPUT_ALIGN(STREAM, POWER) \
   fprintf ((STREAM), "\t.p2align %d\n", (POWER))
 
-/*}}}*/ 
-/*{{{  Macros for SDB and Dwarf Output.  */ 
-
-/* Define this macro to allow references to structure, union, or enumeration
-   tags that have not yet been seen to be handled.  Some assemblers choke if
-   forward tags are used, while some require it.  */
-/* #define SDB_ALLOW_FORWARD_REFERENCES */
-
-#define DWARF_LINE_MIN_INSTR_LENGTH 2
-     
 /*}}}*/ 
 /*{{{  Miscellaneous Parameters.  */ 
 

@@ -679,6 +679,17 @@ record_component_aliases (type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
+      /* Recursively record aliases for the base classes, if there are any */
+      if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+        {
+          int i;
+          for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type)); i++)
+            {
+              tree binfo = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), i);
+              record_alias_subset (superset,
+				   get_alias_set (BINFO_TYPE (binfo)));
+            }
+        }
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
 	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
@@ -728,6 +739,7 @@ find_base_value (src)
      rtx src;
 {
   unsigned int regno;
+
   switch (GET_CODE (src))
     {
     case SYMBOL_REF:
@@ -846,8 +858,6 @@ find_base_value (src)
       if (GET_MODE_SIZE (GET_MODE (src)) < GET_MODE_SIZE (Pmode))
 	break;
       /* Fall through.  */
-    case ZERO_EXTEND:
-    case SIGN_EXTEND:	/* used for NT/Alpha pointers */
     case HIGH:
     case PRE_INC:
     case PRE_DEC:
@@ -856,6 +866,19 @@ find_base_value (src)
     case PRE_MODIFY:
     case POST_MODIFY:
       return find_base_value (XEXP (src, 0));
+
+    case ZERO_EXTEND:
+    case SIGN_EXTEND:	/* used for NT/Alpha pointers */
+      {
+	rtx temp = find_base_value (XEXP (src, 0));
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	  temp = convert_memory_address (Pmode, temp);
+#endif
+
+	return temp;
+      }
 
     default:
       break;
@@ -1230,8 +1253,6 @@ find_base_term (x)
       if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
         return 0;
       /* Fall through.  */
-    case ZERO_EXTEND:
-    case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
     case HIGH:
     case PRE_INC:
     case PRE_DEC:
@@ -1240,6 +1261,19 @@ find_base_term (x)
     case PRE_MODIFY:
     case POST_MODIFY:
       return find_base_term (XEXP (x, 0));
+
+    case ZERO_EXTEND:
+    case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
+      {
+	rtx temp = find_base_term (XEXP (x, 0));
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	  temp = convert_memory_address (Pmode, temp);
+#endif
+
+	return temp;
+      }
 
     case VALUE:
       val = CSELIB_VAL_PTR (x);
@@ -2253,6 +2287,7 @@ nonlocal_mentioned_p (x)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case LABEL_REF:
       return 0;

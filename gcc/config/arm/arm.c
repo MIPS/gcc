@@ -266,7 +266,7 @@ enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
 const char * arm_pic_register_string = NULL;
-int arm_pic_register = 9;
+int arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed.  */
@@ -649,8 +649,8 @@ arm_override_options ()
   
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  */
-  if (flag_pic && !TARGET_APCS_STACK)
-    arm_pic_register = 10;
+  if (flag_pic)
+    arm_pic_register = TARGET_APCS_STACK ? 9 : 10;
   
   if (TARGET_APCS_FLOAT)
     warning ("passing floating point arguments in fp regs not yet supported");
@@ -711,18 +711,16 @@ arm_override_options ()
 
   if (arm_pic_register_string != NULL)
     {
-      int pic_register;
-
+      int pic_register = decode_reg_name (arm_pic_register_string);
+      
       if (!flag_pic)
 	warning ("-mpic-register= is useless without -fpic");
 
-      pic_register = decode_reg_name (arm_pic_register_string);
-      
       /* Prevent the user from choosing an obviously stupid PIC register.  */
-      if (pic_register < 0 || call_used_regs[pic_register]
-	  || pic_register == HARD_FRAME_POINTER_REGNUM
-	  || pic_register == STACK_POINTER_REGNUM
-	  || pic_register >= PC_REGNUM)
+      else if (pic_register < 0 || call_used_regs[pic_register]
+	       || pic_register == HARD_FRAME_POINTER_REGNUM
+	       || pic_register == STACK_POINTER_REGNUM
+	       || pic_register >= PC_REGNUM)
 	error ("unable to use '%s' for PIC register", arm_pic_register_string);
       else
 	arm_pic_register = pic_register;
@@ -897,9 +895,9 @@ use_return_insn (iscond)
       
   func_type = arm_current_func_type ();
 
-  /* Naked functions, volatile functiond and interrupt
-     functions all need special consideration.  */
-  if (func_type & (ARM_FT_INTERRUPT | ARM_FT_VOLATILE | ARM_FT_NAKED))
+  /* Naked functions and volatile functions need special
+     consideration.  */
+  if (func_type & (ARM_FT_VOLATILE | ARM_FT_NAKED))
     return 0;
   
   /* As do variadic functions.  */
@@ -2097,9 +2095,6 @@ arm_encode_call_attribute (decl, flag)
   int          len = strlen (str);
   char *       newstr;
 
-  if (TREE_CODE (decl) != FUNCTION_DECL)
-    return;
-
   /* Do not allow weak functions to be treated as short call.  */
   if (DECL_WEAK (decl) && flag == SHORT_CALL_FLAG_CHAR)
     return;
@@ -2313,7 +2308,10 @@ legitimize_pic_address (orig, mode, reg)
       else
 	emit_insn (gen_pic_load_addr_thumb (address, orig));
 
-      if (GET_CODE (orig) == LABEL_REF && NEED_GOT_RELOC)
+      if ((GET_CODE (orig) == LABEL_REF
+	   || (GET_CODE (orig) == SYMBOL_REF && 
+	       ENCODED_SHORT_CALL_ATTR_P (XSTR (orig, 0))))
+	  && NEED_GOT_RELOC)
 	pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
       else
 	{
@@ -7134,17 +7132,16 @@ arm_compute_save_reg_mask ()
   /* Decide if we need to save the link register.
      Interrupt routines have their own banked link register,
      so they never need to save it.
-     Otheriwse if we do not use the link register we do not need to save
+     Otherwise if we do not use the link register we do not need to save
      it.  If we are pushing other registers onto the stack however, we
      can save an instruction in the epilogue by pushing the link register
      now and then popping it back into the PC.  This incurs extra memory
      accesses though, so we only do it when optimising for size, and only
      if we know that we will not need a fancy return sequence.  */
-  if (! IS_INTERRUPT (func_type)
-      && (regs_ever_live [LR_REGNUM]
+  if (regs_ever_live [LR_REGNUM]
 	  || (save_reg_mask
 	      && optimize_size
-	      && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL)))
+	      && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL))
     save_reg_mask |= 1 << LR_REGNUM;
 
   if (cfun->machine->lr_save_eliminated)
@@ -7202,21 +7199,19 @@ output_return_instruction (operand, really_return, reverse)
 
   live_regs_mask = arm_compute_save_reg_mask ();
 
-  /* On some ARM architectures it is faster to use LDR rather than LDM to
-     load a single register.  On other architectures, the cost is the same.
-     In 26 bit mode we have to use LDM in order to be able to restore the CPSR.  */
-  if ((live_regs_mask  == (1 << LR_REGNUM))
-      && ! TARGET_INTERWORK
-      && ! IS_INTERRUPT (func_type)
-      && (! really_return || TARGET_APCS_32))
+  if (live_regs_mask)
     {
-      if (! really_return)
-	sprintf (instr, "ldr%s\t%%|lr, [%%|sp], #4", conditional);
+      const char * return_reg;
+
+      /* If we do not have any special requirements for function exit 
+	 (eg interworking, or ISR) then we can load the return address 
+	 directly into the PC.  Otherwise we must load it into LR.  */
+      if (really_return
+	  && ! TARGET_INTERWORK)
+	return_reg = reg_names[PC_REGNUM];
       else
-	sprintf (instr, "ldr%s\t%%|pc, [%%|sp], #4", conditional);
-    }
-  else if (live_regs_mask)
-    {
+	return_reg = reg_names[LR_REGNUM];
+
       if ((live_regs_mask & (1 << IP_REGNUM)) == (1 << IP_REGNUM))
 	/* There are two possible reasons for the IP register being saved.
 	   Either a stack frame was created, in which case IP contains the
@@ -7228,96 +7223,91 @@ output_return_instruction (operand, really_return, reverse)
 	    live_regs_mask |=   (1 << SP_REGNUM);
 	  }
 
-      /* Generate the load multiple instruction to restore the registers.  */
-      if (frame_pointer_needed)
-	sprintf (instr, "ldm%sea\t%%|fp, {", conditional);
-      else
-	sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
-
-      for (reg = 0; reg <= SP_REGNUM; reg++)
-	if (live_regs_mask & (1 << reg))
-	  {
-	    strcat (instr, "%|");
-	    strcat (instr, reg_names[reg]);
-	    strcat (instr, ", ");
-	  }
-
-      if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
+      /* On some ARM architectures it is faster to use LDR rather than
+	 LDM to load a single register.  On other architectures, the
+	 cost is the same.  In 26 bit mode, or for exception handlers,
+	 we have to use LDM to load the PC so that the CPSR is also
+	 restored.  */
+      for (reg = 0; reg <= LAST_ARM_REGNUM; reg++)
 	{
-	  /* If we are not restoring the LR register then we will
-	     have added one too many commas to the list above.
-	     Replace it with a closing brace.  */
-	  instr [strlen (instr) - 2] =  '}';
+	  if (live_regs_mask == (unsigned int)(1 << reg))
+	    break;
+	}
+      if (reg <= LAST_ARM_REGNUM
+	  && (reg != LR_REGNUM
+	      || ! really_return 
+	      || (TARGET_APCS_32 && ! IS_INTERRUPT (func_type))))
+	{
+	  sprintf (instr, "ldr%s\t%%|%s, [%%|sp], #4", conditional, 
+		   (reg == LR_REGNUM) ? return_reg : reg_names[reg]);
 	}
       else
 	{
-	  strcat (instr, "%|");
+	  char *p;
+	  int first = 1;
 
-	  /* At this point there should only be one or two registers left in
-	     live_regs_mask: always LR, and possibly PC if we created a stack
-	     frame.  LR contains the return address.  If we do not have any
-	     special requirements for function exit (eg interworking, or ISR)
-	     then we can load this value directly into the PC and save an
-	     instruction.  */
-	  if (! TARGET_INTERWORK
-	      && ! IS_INTERRUPT (func_type)
-	      && really_return)
-	    strcat (instr, reg_names [PC_REGNUM]);
+	  /* Generate the load multiple instruction to restore the registers.  */
+	  if (frame_pointer_needed)
+	    sprintf (instr, "ldm%sea\t%%|fp, {", conditional);
 	  else
-	    strcat (instr, reg_names [LR_REGNUM]);
+	    sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
 
-	  strcat (instr, (TARGET_APCS_32 || !really_return) ? "}" : "}^");
+	  p = instr + strlen (instr);
+
+	  for (reg = 0; reg <= SP_REGNUM; reg++)
+	    if (live_regs_mask & (1 << reg))
+	      {
+		int l = strlen (reg_names[reg]);
+
+		if (first)
+		  first = 0;
+		else
+		  {
+		    memcpy (p, ", ", 2);
+		    p += 2;
+		  }
+
+		memcpy (p, "%|", 2);
+		memcpy (p + 2, reg_names[reg], l);
+		p += l + 2;
+	      }
+	  
+	  if (live_regs_mask & (1 << LR_REGNUM))
+	    {
+	      int l = strlen (return_reg);
+
+	      if (! first)
+		{
+		  memcpy (p, ", ", 2);
+		  p += 2;
+		}
+
+	      memcpy (p, "%|", 2);
+	      memcpy (p + 2, return_reg, l);
+	      strcpy (p + 2 + l, ((TARGET_APCS_32 
+				   && !IS_INTERRUPT (func_type)) 
+				  || !really_return) 
+		      ? "}" : "}^");
+	    }
+	  else
+	    strcpy (p, "}");
 	}
 
-      if (really_return)
+      output_asm_insn (instr, & operand);
+
+      /* See if we need to generate an extra instruction to
+	 perform the actual function return.  */
+      if (really_return
+	  && func_type != ARM_FT_INTERWORKED
+	  && (live_regs_mask & (1 << LR_REGNUM)) != 0)
 	{
-	  /* See if we need to generate an extra instruction to
-	     perform the actual function return.  */
-	  switch ((int) ARM_FUNC_TYPE (func_type))
-	    {
-	    case ARM_FT_ISR:
-	    case ARM_FT_FIQ:
-	      output_asm_insn (instr, & operand);
-
-	      strcpy (instr, "sub");
-	      strcat (instr, conditional);
-	      strcat (instr, "s\t%|pc, %|lr, #4");
-	      break;
-
-	    case ARM_FT_EXCEPTION:
-	      output_asm_insn (instr, & operand);
-
-	      strcpy (instr, "mov");
-	      strcat (instr, conditional);
-	      strcat (instr, "s\t%|pc, %|lr");
-	      break;
-
-	    case ARM_FT_INTERWORKED:
-	      output_asm_insn (instr, & operand);
-
-	      strcpy (instr, "bx");
-	      strcat (instr, conditional);
-	      strcat (instr, "\t%|lr");
-	      break;
-
-	    default:
-	      /* The return has already been handled
-		 by loading the LR into the PC.  */
-	      if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
-		{
-		  output_asm_insn (instr, & operand);
-
-		  strcpy (instr, "mov");
-		  strcat (instr, conditional);
-		  if (! TARGET_APCS_32)
-		    strcat (instr, "s");
-		  strcat (instr, "\t%|pc, %|lr");
-		}
-	      break;
-	    }
+	  /* The return has already been handled
+	     by loading the LR into the PC.  */
+	  really_return = 0;
 	}
     }
-  else if (really_return)
+  
+  if (really_return)
     {
       switch ((int) ARM_FUNC_TYPE (func_type))
 	{
@@ -7335,18 +7325,19 @@ output_return_instruction (operand, really_return, reverse)
 	  break;
 
 	default:
-	  sprintf (instr, "mov%s%s\t%%|pc, %%|lr",
-		   conditional, TARGET_APCS_32 ? "" : "s");
+	  /* ARMv5 implementations always provide BX, so interworking
+	     is the default unless APCS-26 is in use.  */
+	  if ((insn_flags & FL_ARCH5) != 0 && TARGET_APCS_32)
+	    sprintf (instr, "bx%s\t%%|lr", conditional);	    
+	  else
+	    sprintf (instr, "mov%s%s\t%%|pc, %%|lr",
+		     conditional, TARGET_APCS_32 ? "" : "s");
 	  break;
 	}
-    }
-  else
-    /* Nothing to load off the stack, and
-       no return instruction to generate.  */
-    return "";
 
-  output_asm_insn (instr, & operand);
-      
+      output_asm_insn (instr, & operand);
+    }
+
   return "";
 }
 
@@ -8249,6 +8240,19 @@ arm_expand_prologue ()
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
+  /* If this is an interrupt service routine, and the link register is
+     going to be pushed, subtracting four now will mean that the
+     function return can be done with a single instruction.  */
+  if ((func_type == ARM_FT_ISR || func_type == ARM_FT_FIQ)
+      && (live_regs_mask & (1 << LR_REGNUM)) != 0)
+    {
+      emit_insn (gen_rtx_SET (SImode, 
+			      gen_rtx_REG (SImode, LR_REGNUM),
+			      gen_rtx_PLUS (SImode,
+				    gen_rtx_REG (SImode, LR_REGNUM),
+				    GEN_INT (-4))));
+    }
+
   if (live_regs_mask)
     {
       insn = emit_multi_reg_push (live_regs_mask);
@@ -8603,7 +8607,9 @@ arm_assemble_integer (x, size, aligned_p)
       if (NEED_GOT_RELOC && flag_pic && making_const_table &&
 	  (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF))
 	{
-	  if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+	  if (GET_CODE (x) == SYMBOL_REF 
+	      && (CONSTANT_POOL_ADDRESS_P (x)
+		  || ENCODED_SHORT_CALL_ATTR_P (XSTR (x, 0))))
 	    fputs ("(GOTOFF)", asm_out_file);
 	  else if (GET_CODE (x) == LABEL_REF)
 	    fputs ("(GOTOFF)", asm_out_file);

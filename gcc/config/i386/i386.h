@@ -281,18 +281,23 @@ extern int x86_prefetch_sse;
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
 
+/* WARNING: Do not mark empty strings for translation, as calling
+            gettext on an empty string does NOT return an empty
+            string. */
+
+
 #define TARGET_SWITCHES							      \
 { { "80387",			 MASK_80387, N_("Use hardware fp") },	      \
   { "no-80387",			-MASK_80387, N_("Do not use hardware fp") },  \
   { "hard-float",		 MASK_80387, N_("Use hardware fp") },	      \
   { "soft-float",		-MASK_80387, N_("Do not use hardware fp") },  \
   { "no-soft-float",		 MASK_80387, N_("Use hardware fp") },	      \
-  { "386",			 0, N_("") /*Deprecated.*/},		      \
-  { "486",			 0, N_("") /*Deprecated.*/},		      \
-  { "pentium",			 0, N_("") /*Deprecated.*/},		      \
-  { "pentiumpro",		 0, N_("") /*Deprecated.*/},		      \
-  { "intel-syntax",		 0, N_("") /*Deprecated.*/},	 	      \
-  { "no-intel-syntax",		 0, N_("") /*Deprecated.*/},	 	      \
+  { "386",			 0, "" /*Deprecated.*/},		      \
+  { "486",			 0, "" /*Deprecated.*/},		      \
+  { "pentium",			 0, "" /*Deprecated.*/},		      \
+  { "pentiumpro",		 0, "" /*Deprecated.*/},		      \
+  { "intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
+  { "no-intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "rtd",			 MASK_RTD,				      \
     N_("Alternate calling convention") },				      \
   { "no-rtd",			-MASK_RTD,				      \
@@ -346,20 +351,20 @@ extern int x86_prefetch_sse;
     N_("Support MMX built-in functions") },				      \
   { "no-mmx",			 -MASK_MMX,				      \
     N_("Do not support MMX built-in functions") },			      \
-  { "no-mmx",			 MASK_MMX_SET, N_("") },		      \
+  { "no-mmx",			 MASK_MMX_SET, "" },			      \
   { "3dnow",                     MASK_3DNOW | MASK_3DNOW_SET,		      \
     N_("Support 3DNow! built-in functions") },				      \
-  { "no-3dnow",                  -MASK_3DNOW, N_("") },			      \
+  { "no-3dnow",                  -MASK_3DNOW, "" },			      \
   { "no-3dnow",                  MASK_3DNOW_SET,			      \
     N_("Do not support 3DNow! built-in functions") },			      \
   { "sse",			 MASK_SSE | MASK_SSE_SET,		      \
     N_("Support MMX and SSE built-in functions and code generation") },	      \
-  { "no-sse",			 -MASK_SSE, N_("") },	 		      \
+  { "no-sse",			 -MASK_SSE, "" },	 		      \
   { "no-sse",			 MASK_SSE_SET,				      \
     N_("Do not support MMX and SSE built-in functions and code generation") },\
   { "sse2",			 MASK_SSE2 | MASK_SSE2_SET,		      \
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
-  { "no-sse2",			 -MASK_SSE2, N_("") },			      \
+  { "no-sse2",			 -MASK_SSE2, "" },			      \
   { "no-sse2",			 MASK_SSE2_SET,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
@@ -440,9 +445,9 @@ extern int ix86_arch;
   { "cmodel=", &ix86_cmodel_string,				\
     N_("Use given x86-64 code model") },			\
   { "debug-arg", &ix86_debug_arg_string,			\
-    N_("" /* Undocumented. */) },				\
+    "" /* Undocumented. */ },					\
   { "debug-addr", &ix86_debug_addr_string,			\
-    N_("" /* Undocumented. */) },				\
+    "" /* Undocumented. */ },					\
   { "asm=", &ix86_asm_string,					\
     N_("Use given assembler dialect") },			\
   SUBTARGET_OPTIONS						\
@@ -664,8 +669,6 @@ extern int ix86_arch;
 /* target machine storage layout */
 
 /* Define for XFmode or TFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.
- 
    The XFmode is specified by i386 ABI, while TFmode may be faster
    due to alignment and simplifications in the address calculations.
  */
@@ -697,11 +700,6 @@ extern int ix86_arch;
 #define MAX_LONG_TYPE_SIZE 32
 #endif
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
-
 /* Define this if most significant byte of a word is the lowest numbered.  */
 /* That is true on the 80386.  */
 
@@ -716,22 +714,9 @@ extern int ix86_arch;
 /* Not true for 80386 */
 #define WORDS_BIG_ENDIAN 0
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 80386, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
 #define MIN_UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE BITS_PER_WORD
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
@@ -952,7 +937,7 @@ do {									\
         call_used_regs[i] = (call_used_regs[i]				\
 			     & (TARGET_64BIT ? 2 : 1)) != 0;		\
       }									\
-    if (flag_pic)							\
+    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
       {									\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
@@ -1128,11 +1113,11 @@ do {									\
 #define STATIC_CHAIN_REGNUM (TARGET_64BIT ? FIRST_REX_INT_REG + 10 - 8 : 2)
 
 /* Register to hold the addressing base for position independent
-   code access to data items.
-   We don't use PIC pointer for 64bit mode.  Define the regnum to
-   dummy value to prevent gcc from pessimizing code dealing with EBX.
- */
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? INVALID_REGNUM : 3)
+   code access to data items.  We don't use PIC pointer for 64bit
+   mode.  Define the regnum to dummy value to prevent gcc from
+   pessimizing code dealing with EBX.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM : 3)
 
 /* Register in which address to store a structure value
    arrives in the function.  On the 386, the prologue
@@ -2242,7 +2227,7 @@ enum ix86_builtins
    On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)				\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
 do {								\
     if (flag_pic)						\
       {								\
@@ -2261,7 +2246,8 @@ do {								\
 	    							\
 	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
 	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		 || ! TREE_PUBLIC (DECL));			\
+		 || ! TREE_PUBLIC (DECL)			\
+		 || MODULE_LOCAL_P (DECL));			\
 	  }							\
       }								\
 } while (0)

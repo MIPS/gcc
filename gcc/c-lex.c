@@ -85,7 +85,8 @@ static int ignore_escape_flag;
 
 static void parse_float		PARAMS ((PTR));
 static tree lex_number		PARAMS ((const char *, unsigned int));
-static tree lex_string		PARAMS ((const char *, unsigned int, int));
+static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
+					 int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
@@ -239,7 +240,7 @@ cb_ident (pfile, line, str)
   if (! flag_no_ident)
     {
       /* Convert escapes in the string.  */
-      tree value = lex_string ((const char *)str->text, str->len, 0);
+      tree value = lex_string (str->text, str->len, 0);
       ASM_OUTPUT_IDENT (asm_out_file, TREE_STRING_POINTER (value));
     }
 #endif
@@ -807,8 +808,8 @@ c_lex (value)
 
     case CPP_STRING:
     case CPP_WSTRING:
-      *value = lex_string ((const char *)tok->val.str.text,
-			   tok->val.str.len, tok->type == CPP_WSTRING);
+      *value = lex_string (tok->val.str.text, tok->val.str.len,
+			   tok->type == CPP_WSTRING);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -1065,7 +1066,7 @@ lex_number (str, len)
 #ifdef ERANGE
       /* ERANGE is also reported for underflow,
 	 so test the value to distinguish overflow from that.  */
-      if (conversion_errno == ERANGE && !flag_traditional && pedantic
+      if (conversion_errno == ERANGE && pedantic
 	  && (REAL_VALUES_LESS (dconst1, real)
 	      || REAL_VALUES_LESS (real, dconstm1)))
 	warning ("floating point number exceeds range of 'double'");
@@ -1080,7 +1081,7 @@ lex_number (str, len)
     }
   else
     {
-      tree trad_type, ansi_type, type;
+      tree trad_type, type;
       HOST_WIDE_INT high, low;
       int spec_unsigned = 0;
       int spec_long = 0;
@@ -1089,7 +1090,7 @@ lex_number (str, len)
       int suffix_lu = 0;
       int warn = 0, i;
 
-      trad_type = ansi_type = type = NULL_TREE;
+      trad_type = type = NULL_TREE;
       while (p < str + len)
 	{
 	  c = *p++;
@@ -1161,11 +1162,9 @@ lex_number (str, len)
       TREE_TYPE (value) = long_long_unsigned_type_node;
 
       /* If warn_traditional, calculate both the ISO type and the
-	 traditional type, then see if they disagree.
-	 Otherwise, calculate only the type for the dialect in use.  */
-      if (warn_traditional || flag_traditional)
+	 traditional type, then see if they disagree.  */
+      if (warn_traditional)
 	{
-	  /* Calculate the traditional type.  */
 	  /* Traditionally, any constant is signed; but if unsigned is
 	     specified explicitly, obey that.  Use the smallest size
 	     with the right number of bits, except for one special
@@ -1195,50 +1194,46 @@ lex_number (str, len)
 			 ? widest_unsigned_literal_type_node
 			 : widest_integer_literal_type_node);
 	}
-      if (warn_traditional || ! flag_traditional)
-	{
-	  /* Calculate the ISO type.  */
-	  if (! spec_long && ! spec_unsigned
-	      && int_fits_type_p (value, integer_type_node))
-	    ansi_type = integer_type_node;
-	  else if (! spec_long && (base != 10 || spec_unsigned)
-		   && int_fits_type_p (value, unsigned_type_node))
-	    ansi_type = unsigned_type_node;
-	  else if (! spec_unsigned && !spec_long_long
-		   && int_fits_type_p (value, long_integer_type_node))
-	    ansi_type = long_integer_type_node;
-	  else if (! spec_long_long
-		   && int_fits_type_p (value, long_unsigned_type_node))
-	    ansi_type = long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, long_long_integer_type_node))
-	    ansi_type = long_long_integer_type_node;
-	  else if (int_fits_type_p (value, long_long_unsigned_type_node))
-	    ansi_type = long_long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, widest_integer_literal_type_node))
-	    ansi_type = widest_integer_literal_type_node;
-	  else
-	    ansi_type = widest_unsigned_literal_type_node;
-	}
-
-      type = flag_traditional ? trad_type : ansi_type;
+	
+	/* Calculate the ISO type.  */
+	if (! spec_long && ! spec_unsigned
+	    && int_fits_type_p (value, integer_type_node))
+	  type = integer_type_node;
+	else if (! spec_long && (base != 10 || spec_unsigned)
+		 && int_fits_type_p (value, unsigned_type_node))
+	  type = unsigned_type_node;
+	else if (! spec_unsigned && !spec_long_long
+		 && int_fits_type_p (value, long_integer_type_node))
+	  type = long_integer_type_node;
+	else if (! spec_long_long
+		 && int_fits_type_p (value, long_unsigned_type_node))
+	  type = long_unsigned_type_node;
+	else if (! spec_unsigned
+		 && int_fits_type_p (value, long_long_integer_type_node))
+	  type = long_long_integer_type_node;
+	else if (int_fits_type_p (value, long_long_unsigned_type_node))
+	  type = long_long_unsigned_type_node;
+	else if (! spec_unsigned
+		 && int_fits_type_p (value, widest_integer_literal_type_node))
+	  type = widest_integer_literal_type_node;
+	else
+	  type = widest_unsigned_literal_type_node;
 
       /* We assume that constants specified in a non-decimal
 	 base are bit patterns, and that the programmer really
 	 meant what they wrote.  */
       if (warn_traditional && !in_system_header
-	  && base == 10 && trad_type != ansi_type)
+	  && base == 10 && trad_type != type)
 	{
-	  if (TYPE_PRECISION (trad_type) != TYPE_PRECISION (ansi_type))
-	    warning ("width of integer constant changes with -traditional");
-	  else if (TREE_UNSIGNED (trad_type) != TREE_UNSIGNED (ansi_type))
-	    warning ("integer constant is unsigned in ISO C, signed with -traditional");
+	  if (TYPE_PRECISION (trad_type) != TYPE_PRECISION (type))
+	    warning ("width of integer constant is different in traditional C");
+	  else if (TREE_UNSIGNED (trad_type) != TREE_UNSIGNED (type))
+	    warning ("integer constant is unsigned in ISO C, signed in traditional C");
 	  else
-	    warning ("width of integer constant may change on other systems with -traditional");
+	    warning ("width of integer constant may change on other systems in traditional C");
 	}
 
-      if (pedantic && !flag_traditional && (flag_isoc99 || !spec_long_long)
+      if (pedantic && (flag_isoc99 || !spec_long_long)
 	  && !warn
 	  && ((flag_isoc99
 	       ? TYPE_PRECISION (long_long_integer_type_node)
@@ -1265,15 +1260,6 @@ lex_number (str, len)
 	  else
 	    ERROR ("complex integer constant is too wide for 'complex int'");
 	}
-      else if (flag_traditional && !int_fits_type_p (value, type))
-	/* The traditional constant 0x80000000 is signed
-	   but doesn't fit in the range of int.
-	   This will change it to -0x80000000, which does fit.  */
-	{
-	  TREE_TYPE (value) = unsigned_type (type);
-	  value = convert (type, value);
-	  TREE_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (value) = 0;
-	}
       else
 	TREE_TYPE (value) = type;
 
@@ -1297,14 +1283,14 @@ lex_number (str, len)
 
 static tree
 lex_string (str, len, wide)
-     const char *str;
+     const unsigned char *str;
      unsigned int len;
      int wide;
 {
   tree value;
   char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
   char *q = buf;
-  const char *p = str, *limit = str + len;
+  const unsigned char *p = str, *limit = str + len;
   unsigned int c;
   unsigned width = wide ? WCHAR_TYPE_SIZE
 			: TYPE_PRECISION (char_type_node);
@@ -1320,7 +1306,7 @@ lex_string (str, len, wide)
       wchar_t wc;
       int char_len;
 
-      char_len = local_mbtowc (&wc, p, limit - p);
+      char_len = local_mbtowc (&wc, (const char *) p, limit - p);
       if (char_len == -1)
 	{
 	  warning ("ignoring invalid multibyte character");
@@ -1344,9 +1330,7 @@ lex_string (str, len, wide)
 	    mask = ((unsigned int) 1 << width) - 1;
 	  else
 	    mask = ~0;
-	  c = cpp_parse_escape (parse_in, (const unsigned char **) &p,
-				(const unsigned char *) limit,
-				mask, flag_traditional);
+	  c = cpp_parse_escape (parse_in, &p, limit, mask);
 	}
 	
       /* Add this single character into the buffer either as a wchar_t
@@ -1409,7 +1393,7 @@ lex_charconst (token)
   unsigned int chars_seen;
  
   result = cpp_interpret_charconst (parse_in, token, warn_multichar,
- 				    flag_traditional, &chars_seen);
+ 				    &chars_seen);
   if (token->type == CPP_WCHAR)
     {
       value = build_int_2 (result, 0);

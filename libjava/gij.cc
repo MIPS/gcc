@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -40,8 +40,8 @@ help ()
 static void
 version ()
 {
-  printf ("gij (GNU libgcj) version %s\n\n", GCJVERSION);
-  printf ("Copyright (C) 2001 Free Software Foundation.\n");
+  printf ("gij (GNU libgcj) version %s\n\n", __VERSION__);
+  printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
   exit (0);

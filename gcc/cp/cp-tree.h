@@ -28,6 +28,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_CP_TREE_H
 #define GCC_CP_TREE_H
 
+#ifndef __GNUC__
+#error "You should be using 'make bootstrap' -- see installation instructions"
+#endif
+
 #include "c-common.h"
 
 /* Usage of TREE_LANG_FLAG_?:
@@ -1586,11 +1590,11 @@ struct lang_type
 #define SET_BINFO_MARKED(NODE)			\
   (TREE_VIA_VIRTUAL(NODE)			\
    ? SET_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 1))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 1))
 #define CLEAR_BINFO_MARKED(NODE)		\
   (TREE_VIA_VIRTUAL (NODE)			\
    ? CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 0))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 0))
 
 /* Nonzero means that this class is on a path leading to a new vtable.  */
 #define BINFO_VTABLE_PATH_MARKED(NODE)		\
@@ -3070,7 +3074,10 @@ typedef enum tsubst_flags_t {
   tf_warning = 1 << 1,       /* give warnings too  */
   tf_no_attributes = 1 << 2, /* ignore attributes on comparisons
 				(instantiate_type use) */
-  tf_ptrmem_ok = 1 << 3      /* pointers to member ok (internal
+  tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
+				   (make_typename_type use) */
+  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
 				instantiate_type use) */
 } tsubst_flags_t;
 
@@ -3693,7 +3700,7 @@ extern tree namespace_binding                   PARAMS ((tree, tree));
 extern void set_namespace_binding               PARAMS ((tree, tree, tree));
 extern tree lookup_namespace_name		PARAMS ((tree, tree));
 extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
-extern tree make_typename_type			PARAMS ((tree, tree, int));
+extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
@@ -3893,10 +3900,10 @@ extern void add_friend                          PARAMS ((tree, tree));
 extern tree do_friend				PARAMS ((tree, tree, tree, tree, tree, enum overload_flags, tree, int));
 
 /* in init.c */
-extern void init_init_processing		PARAMS ((void));
 extern void emit_base_init			PARAMS ((tree, tree));
 extern tree expand_member_init			PARAMS ((tree, tree, tree));
 extern tree build_aggr_init			PARAMS ((tree, tree, int));
+extern tree build_init				PARAMS ((tree, tree, int));
 extern int is_aggr_type				PARAMS ((tree, int));
 extern tree get_aggr_from_typedef		PARAMS ((tree, int));
 extern tree get_type_value			PARAMS ((tree));
@@ -3919,6 +3926,7 @@ extern tree build_java_class_ref                PARAMS ((tree));
 /* in input.c */
 
 /* in lex.c */
+extern void cxx_dup_lang_specific_decl		PARAMS ((tree));
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 extern tree make_reference_declarator		PARAMS ((tree, tree));
 extern tree make_call_declarator		PARAMS ((tree, tree, tree, tree));
@@ -4053,8 +4061,6 @@ extern int types_overlap_p			PARAMS ((tree, tree));
 extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern void type_access_control			PARAMS ((tree, tree));
-extern void skip_type_access_control            PARAMS ((void));
-extern void reset_type_access_control           PARAMS ((void));
 extern int accessible_p                         PARAMS ((tree, tree));
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
@@ -4162,6 +4168,7 @@ extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
 extern void save_type_access_control		PARAMS ((tree));
+extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
 extern int begin_function_definition            PARAMS ((tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
@@ -4213,6 +4220,8 @@ extern void replace_defarg			PARAMS ((tree, tree));
 extern void end_input				PARAMS ((void));
 
 /* in tree.c */
+extern tree stabilize_expr		PARAMS ((tree, tree *));
+extern tree cxx_unsave_expr_now		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));

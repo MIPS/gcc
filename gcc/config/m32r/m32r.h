@@ -421,10 +421,6 @@ extern enum m32r_sdata m32r_sdata;
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -441,15 +437,6 @@ extern enum m32r_sdata m32r_sdata;
    which will be used only when compiling libgcc2.c.  Typically the
    value will be set based on preprocessor defines.  */
 /*#define LIBGCC2_WORDS_BIG_ENDIAN 1*/
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -474,10 +461,6 @@ extern enum m32r_sdata m32r_sdata;
    If defined, FUNCTION_VALUE must perform the same promotions done by
    PROMOTE_MODE.  */
 /*#define PROMOTE_FUNCTION_RETURN*/
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -651,7 +634,7 @@ extern enum m32r_sdata m32r_sdata;
 ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-extern unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
+extern const unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
 extern unsigned int m32r_mode_class[];
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 ((m32r_hard_regno_mode_ok[REGNO] & m32r_mode_class[MODE]) != 0)
@@ -1647,7 +1630,7 @@ sbss_section ()								\
  || MEDIUM_NAME_P (SYMBOL_NAME) \
  || LARGE_NAME_P (SYMBOL_NAME))
 
-#define ENCODE_SECTION_INFO(DECL) m32r_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) m32r_encode_section_info (DECL, FIRST)
 
 /* Decode SYM_NAME and store the real name part in VAR, sans
    the characters that encode section info.  Define this macro if

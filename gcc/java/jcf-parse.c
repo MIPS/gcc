@@ -306,13 +306,7 @@ get_constant (jcf, index)
       {
 	jint num = JPOOL_INT(jcf, index);
 	REAL_VALUE_TYPE d;
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_SINGLE (num);
-#else
-	union { float f;  jint i; } u;
-	u.i = num;
-	d = u.f;
-#endif
 	value = build_real (float_type_node, d);
 	break;
       }
@@ -343,16 +337,7 @@ get_constant (jcf, index)
 	    num[0] = lo;
 	    num[1] = hi;
 	  }
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_DOUBLE (num);
-#else
-	{
-	  union { double d;  jint i[2]; } u;
-	  u.i[0] = (jint) num[0];
-	  u.i[1] = (jint) num[1];
-	  d = u.d;
-	}
-#endif
 	value = build_real (double_type_node, d);
 	break;
       }
@@ -365,13 +350,11 @@ get_constant (jcf, index)
 	unsigned char *str_ptr;
 	unsigned char *str;
 	const unsigned char *utf8;
-	int i, str_len;
+	int i;
 
-	/* Count the number of Unicode characters in the string,
-	   while checking for a malformed Utf8 string. */
+	/* Check for a malformed Utf8 string.  */
 	utf8 = (const unsigned char *) utf8_ptr;
 	i = utf8_len;
-	str_len = 0;
 	while (i > 0)
 	  {
 	    int char_len = UT8_CHAR_LENGTH (*utf8);
@@ -380,48 +363,10 @@ get_constant (jcf, index)
 
 	    utf8 += char_len;
 	    i -= char_len;
-	    str_len++;
 	  }
 
-	/* Allocate a scratch buffer, convert the string to UCS2, and copy it
-	   into the new space.  */
-	str_ptr = (unsigned char *) alloca (2 * str_len);
-	str = str_ptr;
-	utf8 = (const unsigned char *)utf8_ptr;
-
-	for (i = 0; i < str_len; i++)
-	  {
-	    int char_value;
-	    int char_len = UT8_CHAR_LENGTH (*utf8);
-	    switch (char_len)
-	      {
-	      case 1:
-		char_value = *utf8++;
-		break;
-	      case 2:
-		char_value = *utf8++ & 0x1F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      case 3:
-		char_value = *utf8++ & 0x0F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      default:
-		goto bad;
-	      }
-	    if (BYTES_BIG_ENDIAN)
-	      {
-		*str++ = char_value >> 8;
-		*str++ = char_value & 0xFF;
-	      }
-	    else
-	      {
-		*str++ = char_value & 0xFF;
-		*str++ = char_value >> 8;
-	      }
-	  }
-	value = build_string (str - str_ptr, str_ptr);
+	/* Allocate a new string value.  */
+	value = build_string (utf8_len, utf8_ptr);
 	TREE_TYPE (value) = build_pointer_type (string_type_node);
       }
       break;
@@ -669,20 +614,20 @@ load_class (class_or_name, verbose)
   saved = name;
   while (1)
     {
-      char *dollar;
+      char *separator;
 
       if ((class_loaded = read_class (name)))
 	break;
 
       /* We failed loading name. Now consider that we might be looking
-	 for a inner class but it's only available in source for in
-	 its enclosing context. */
-      if ((dollar = strrchr (IDENTIFIER_POINTER (name), '$')))
+	 for a inner class. */
+      if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
+	  || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
 	{
-	  int c = *dollar;
-	  *dollar = '\0';
+	  int c = *separator;
+	  *separator = '\0';
 	  name = get_identifier (IDENTIFIER_POINTER (name));
-	  *dollar = c;
+	  *separator = c;
 	}
       /* Otherwise, we failed, we bail. */
       else
@@ -1326,7 +1271,7 @@ void
 init_jcf_parse ()
 {
   /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (parse_roots, sizeof (parse_roots) / sizeof(tree));
+  ggc_add_tree_root (parse_roots, ARRAY_SIZE (parse_roots));
 
   ggc_add_root (&current_jcf, 1, sizeof (JCF), (void (*)(void *))ggc_mark_jcf);
 

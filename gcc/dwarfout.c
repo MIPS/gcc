@@ -631,8 +631,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
        && is_tagged_type (TREE_TYPE (decl))		\
        && decl == TYPE_STUB_DECL (TREE_TYPE (decl))))
 
-extern int flag_traditional;
-
 /* Maximum size (in bytes) of an artificially generated label.	*/
 
 #define MAX_ARTIFICIAL_LABEL_BYTES	30
@@ -1294,7 +1292,7 @@ static void retry_incomplete_types	PARAMS ((void));
 
 
 /* The debug hooks structure.  */
-struct gcc_debug_hooks dwarf_debug_hooks =
+const struct gcc_debug_hooks dwarf_debug_hooks =
 {
   dwarfout_init,
   dwarfout_finish,
@@ -4152,8 +4150,6 @@ output_compile_unit_die (arg)
     language_attribute (LANG_PASCAL83);
   else if (strcmp (language_string, "GNU Java") == 0)
     language_attribute (LANG_JAVA);
-  else if (flag_traditional)
-    language_attribute (LANG_C);
   else
     language_attribute (LANG_C89);
   low_pc_attribute (TEXT_BEGIN_LABEL);

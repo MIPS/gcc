@@ -79,6 +79,14 @@
 #   define l_name	lm_name
 #endif
 
+#if defined(LINUX) && defined(__ELF__) || defined(SCO_ELF) || \
+    (defined(FREEBSD) && defined(__ELF__)) || \
+    (defined(NETBSD) && defined(__ELF__)) || defined(HURD)
+#   include <stddef.h>
+#   include <elf.h>
+#   include <link.h>
+#endif
+
 /* Newer versions of GNU/Linux define this macro.  We
  * define it similarly for any ELF systems that don't.  */
 #  ifndef ElfW
@@ -438,10 +446,6 @@ static char *parse_map_entry(char *buf_ptr, word *start, word *end,
 /* For glibc 2.2.4+.  Unfortunately, it doesn't work for older	*/
 /* versions.  Thanks to Jakub Jelinek for most of the code.	*/
 
-#include <stddef.h>
-#include <elf.h>
-#include <link.h>
-
 # if defined(LINUX) /* Are others OK here, too? */ \
      && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
          || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG))) 
@@ -771,7 +775,7 @@ void GC_register_dynamic_libraries()
 # endif
 
 # ifndef MSWINCE
-  extern GC_bool GC_win32s;
+  extern GC_bool GC_no_win32_dlls;
 # endif
   
   void GC_register_dynamic_libraries()
@@ -784,7 +788,7 @@ void GC_register_dynamic_libraries()
     char * limit, * new_limit;
 
 #   ifdef MSWIN32
-      if (GC_win32s) return;
+      if (GC_no_win32_dlls) return;
 #   endif
     base = limit = p = GC_sysinfo.lpMinimumApplicationAddress;
 #   if defined(MSWINCE) && !defined(_WIN32_WCE_EMULATION)

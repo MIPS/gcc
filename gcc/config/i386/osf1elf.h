@@ -22,7 +22,7 @@
 #define CPP_SPEC "\
 %(cpp_cpu) \
 %{fpic: -D__SHARED__} %{fPIC: %{!fpic: -D__SHARED__}} \
-%{.S:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}} \
+%{.S:	%{!ansi:%{!traditional-cpp: -traditional}}} \
 %{.S:	-D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
 %{.cc:	-D__LANGUAGE_C_PLUS_PLUS} \
 %{.cxx:	-D__LANGUAGE_C_PLUS_PLUS} \
@@ -205,9 +205,3 @@ do									\
       }									\
   }									\
 while (0)
-
-#if defined (CROSS_COMPILE) && defined (HOST_BITS_PER_INT) && defined (HOST_BITS_PER_LONG) && defined (HOST_BITS_PER_LONGLONG)
-#if (HOST_BITS_PER_INT==32) && (HOST_BITS_PER_LONG==64) && (HOST_BITS_PER_LONGLONG==64)
-#define REAL_ARITHMETIC
-#endif
-#endif

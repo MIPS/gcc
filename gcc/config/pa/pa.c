@@ -2397,8 +2397,8 @@ compute_movstrsi_length (insn)
      rtx insn;
 {
   rtx pat = PATTERN (insn);
-  unsigned int align = INTVAL (XEXP (XVECEXP (pat, 0, 6), 0));
-  unsigned long n_bytes = INTVAL (XEXP (XVECEXP (pat, 0, 5), 0));
+  unsigned int align = INTVAL (XEXP (XVECEXP (pat, 0, 7), 0));
+  unsigned long n_bytes = INTVAL (XEXP (XVECEXP (pat, 0, 6), 0));
   unsigned int n_insns = 0;
 
   /* We can't move more than four bytes at a time because the PA
@@ -7341,6 +7341,7 @@ function_arg (cum, mode, type, named, incoming)
 	     to be passed in general registers.  */
 	  || (!TARGET_PORTABLE_RUNTIME
 	      && !TARGET_64BIT
+	      && !TARGET_ELF32
 	      && cum->indirect)
 	  /* If the parameter is not a floating point parameter, then
 	     it belongs in GPRs.  */

@@ -21,6 +21,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define LINUX_DEFAULT_ELF
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP
+
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
@@ -146,7 +148,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef MAX_WCHAR_TYPE_SIZE
 
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)

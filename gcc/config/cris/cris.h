@@ -231,6 +231,7 @@ extern const char *cris_elinux_stacksize_str;
    link them to crt0.o to be prepared.  Use scrt0.c if running the
    simulator, linear style, or s2crt0.c if fixed style.  */
 /* We need to remove any previous definition (elfos.h).  */
+#undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
  "%{sim2:s2crt0.o%s}\
   %{!sim2:%{sim:scrt0.o%s}\
@@ -238,6 +239,7 @@ extern const char *cris_elinux_stacksize_str;
     %{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
   crtbegin.o%s"
 
+#undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s"
 
 #define EXTRA_SPECS				\
@@ -473,13 +475,7 @@ extern int target_flags;
    post-increment on DImode indirect.  */
 #define WORDS_BIG_ENDIAN 0
 
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 32
-
 #define UNITS_PER_WORD 4
-
-#define POINTER_SIZE 32
 
 /* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
    PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
@@ -1446,7 +1442,7 @@ struct cum_args {int regs;};
 
 /* We need to code in PIC-specific flags into SYMBOL_REF_FLAG.  */
 
-#define ENCODE_SECTION_INFO(EXP) cris_encode_section_info (EXP)
+#define ENCODE_SECTION_INFO(EXP, FIRST) cris_encode_section_info (EXP, FIRST)
 
 /* We pull a little trick to register the _fini function with atexit,
    after (presumably) registering the eh frame info, since we don't handle
@@ -1472,7 +1468,7 @@ call_ ## FUNC (void)						\
 
 /* Node: PIC */
 
-#define PIC_OFFSET_TABLE_REGNUM 0
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 0 : INVALID_REGNUM)
 
 #define LEGITIMATE_PIC_OPERAND_P(X) cris_legitimate_pic_operand (X)
 
@@ -1746,13 +1742,7 @@ call_ ## FUNC (void)						\
 
 
 /* Node: SDB and DWARF */
-
-#define DWARF_LINE_MIN_INSTR_LENGTH 2
-
-
-/* Node: Cross-compilation */
-#define REAL_ARITHMETIC
-
+/* (no definitions) */
 
 /* Node: Misc */
 

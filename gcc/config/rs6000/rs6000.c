@@ -173,6 +173,7 @@ static void is_altivec_return_reg PARAMS ((rtx, void *));
 int vrsave_operation PARAMS ((rtx, enum machine_mode));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
+static int easy_vector_constant PARAMS ((rtx));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -215,7 +216,7 @@ static const char alt_reg_names[][8] =
    "%v8",  "%v9",  "%v10", "%v11", "%v12", "%v13", "%v14", "%v15",
    "%v16", "%v17", "%v18", "%v19", "%v20", "%v21", "%v22", "%v23",
    "%v24", "%v25", "%v26", "%v27", "%v28", "%v29", "%v30", "%v31",
-   "%vrsave"
+   "vrsave"
 };
 #endif
 
@@ -408,7 +409,7 @@ rs6000_override_options (default_cpu)
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64}};
 
-  size_t ptt_size = sizeof (processor_target_table) / sizeof (struct ptt);
+  const size_t ptt_size = ARRAY_SIZE (processor_target_table);
 
   /* Save current -mmultiple/-mno-multiple status.  */
   int multiple = TARGET_MULTIPLE;
@@ -586,6 +587,8 @@ rs6000_parse_abi_options ()
     return;
   else if (! strcmp (rs6000_abi_string, "altivec"))
     rs6000_altivec_abi = 1;
+  else if (! strcmp (rs6000_abi_string, "no-altivec"))
+    rs6000_altivec_abi = 0;
   else
     error ("unknown ABI specified: '%s'", rs6000_abi_string);
 }
@@ -708,6 +711,19 @@ count_register_operand (op, mode)
   return 0;
 }
 
+/* Returns 1 if op is an altivec register.  */
+int
+altivec_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  
+  return (register_operand (op, mode)
+	  && (GET_CODE (op) != REG
+	      || REGNO (op) > FIRST_PSEUDO_REGISTER
+	      || ALTIVEC_REGNO_P (REGNO (op))));
+}
+
 int
 xer_operand (op, mode)
      rtx op;
@@ -753,7 +769,7 @@ u_short_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
-	  && CONST_OK_FOR_LETTER_P (INTVAL (op), 'K'));
+	  && CONST_OK_FOR_LETTER_P (INTVAL (op) & GET_MODE_MASK (mode), 'K'));
 }
 
 /* Return 1 if OP is a CONST_INT that cannot fit in a signed D field.  */
@@ -916,8 +932,9 @@ reg_or_add_cint64_operand (op, mode)
 {
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
+#if HOST_BITS_PER_WIDE_INT == 32
 	      && INTVAL (op) < 0x7fff8000
-#if HOST_BITS_PER_WIDE_INT != 32
+#else
 	      && ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80008000)
 		  < 0x100000000ll)
 #endif
@@ -934,8 +951,9 @@ reg_or_sub_cint64_operand (op, mode)
 {
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
+#if HOST_BITS_PER_WIDE_INT == 32
 	      && (- INTVAL (op)) < 0x7fff8000
-#if HOST_BITS_PER_WIDE_INT != 32
+#else
 	      && ((unsigned HOST_WIDE_INT) ((- INTVAL (op)) + 0x80008000)
 		  < 0x100000000ll)
 #endif
@@ -1017,20 +1035,16 @@ num_insns_constant_wide (value)
 #if HOST_BITS_PER_WIDE_INT == 64
   else if (TARGET_POWERPC64)
     {
-      HOST_WIDE_INT low  = value & 0xffffffff;
-      HOST_WIDE_INT high = value >> 32;
+      HOST_WIDE_INT low  = ((value & 0xffffffff) ^ 0x80000000) - 0x80000000;
+      HOST_WIDE_INT high = value >> 31;
 
-      low = (low ^ 0x80000000) - 0x80000000;  /* sign extend */
-
-      if (high == 0 && (low & 0x80000000) == 0)
+      if (high == 0 || high == -1)
 	return 2;
 
-      else if (high == -1 && (low & 0x80000000) != 0)
-	return 2;
+      high >>= 1;
 
-      else if (! low)
+      if (low == 0)
 	return num_insns_constant_wide (high) + 1;
-
       else
 	return (num_insns_constant_wide (high)
 		+ num_insns_constant_wide (low) + 1);
@@ -1064,7 +1078,7 @@ num_insns_constant (op, mode)
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_SINGLE (rv, l);
-      return num_insns_constant_wide ((HOST_WIDE_INT)l);
+      return num_insns_constant_wide ((HOST_WIDE_INT) l);
     }
 
   else if (GET_CODE (op) == CONST_DOUBLE)
@@ -1094,10 +1108,10 @@ num_insns_constant (op, mode)
 
       else
 	{
-	  if (high == 0 && (low & 0x80000000) == 0)
+	  if (high == 0 && low >= 0)
 	    return num_insns_constant_wide (low);
 
-	  else if (high == -1 && (low & 0x80000000) != 0)
+	  else if (high == -1 && low < 0)
 	    return num_insns_constant_wide (low);
 
 	  else if (mask64_operand (op, mode))
@@ -1153,8 +1167,8 @@ easy_fp_constant (op, mode)
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
-      return (num_insns_constant_wide ((HOST_WIDE_INT)k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT)k[1]) == 1);
+      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
     }
 
   else if (mode == SFmode)
@@ -1177,6 +1191,54 @@ easy_fp_constant (op, mode)
     return 1;
   else
     abort ();
+}
+
+/* Return 1 if the operand is a CONST_INT and can be put into a
+   register with one instruction.  */
+
+static int
+easy_vector_constant (op)
+     rtx op;
+{
+  rtx elt;
+  int units, i;
+
+  if (GET_CODE (op) != CONST_VECTOR)
+    return 0;
+
+  units = CONST_VECTOR_NUNITS (op);
+
+  /* We can generate 0 easily.  Look for that.  */
+  for (i = 0; i < units; ++i)
+    {
+      elt = CONST_VECTOR_ELT (op, i);
+
+      /* We could probably simplify this by just checking for equality
+	 with CONST0_RTX for the current mode, but let's be safe
+	 instead.  */
+
+      if (GET_CODE (elt) == CONST_INT && INTVAL (elt) != 0)
+	return 0;
+
+      if (GET_CODE (elt) == CONST_DOUBLE
+	       && (CONST_DOUBLE_LOW (elt) != 0
+		   || CONST_DOUBLE_HIGH (elt) != 0))
+	return 0;
+    }
+
+  /* We could probably generate a few other constants trivially, but
+     gcc doesn't generate them yet.  FIXME later.  */
+  return 0;
+}
+
+/* Return 1 if the operand is the constant 0.  This works for scalars
+   as well as vectors.  */
+int
+zero_constant (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return op == CONST0_RTX (mode);
 }
 
 /* Return 1 if the operand is 0.0.  */
@@ -1248,8 +1310,8 @@ add_operand (op, mode)
     enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
-    return (CONST_OK_FOR_LETTER_P (INTVAL(op), 'I')
-	    || CONST_OK_FOR_LETTER_P (INTVAL(op), 'L'));
+    return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
+	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 
   return gpc_reg_operand (op, mode);
 }
@@ -1262,8 +1324,8 @@ non_add_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
-	  && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) >= 0x10000
-	  && ! CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
+	  && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
+	  && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 }
 
 /* Return 1 if the operand is a non-special register or a constant that
@@ -1334,6 +1396,11 @@ mask_operand (op, mode)
     return 0;
 
   c = INTVAL (op);
+
+  /* Fail in 64-bit mode if the mask wraps around because the upper
+     32-bits of the mask will all be 1s, contrary to GCC's internal view.  */
+  if (TARGET_POWERPC64 && (c & 0x80000001) == 0x80000001)
+    return 0;
 
   /* We don't change the number of transitions by inverting,
      so make sure we start with the LS bit zero.  */
@@ -1647,8 +1714,8 @@ constant_pool_expr_1 (op, have_sym, have_toc)
 	return 0;
     case PLUS:
     case MINUS:
-      return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc) &&
-	constant_pool_expr_1 (XEXP (op, 1), have_sym, have_toc);
+      return (constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc)
+	      && constant_pool_expr_1 (XEXP (op, 1), have_sym, have_toc));
     case CONST:
       return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc);
     case CONST_INT:
@@ -1711,10 +1778,8 @@ rs6000_legitimize_address (x, oldx, mode)
     { 
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
-      high_int = INTVAL (XEXP (x, 1)) & (~ (HOST_WIDE_INT) 0xffff);
-      low_int = INTVAL (XEXP (x, 1)) & 0xffff;
-      if (low_int & 0x8000)
-	high_int += 0x10000, low_int |= ((HOST_WIDE_INT) -1) << 16;
+      low_int = ((INTVAL (XEXP (x, 1)) & 0xffff) ^ 0x8000) - 0x8000;
+      high_int = INTVAL (XEXP (x, 1)) - low_int;
       sum = force_operand (gen_rtx_PLUS (Pmode, XEXP (x, 0),
 					 GEN_INT (high_int)), 0);
       return gen_rtx_PLUS (Pmode, sum, GEN_INT (low_int));
@@ -1845,7 +1910,8 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
       && GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
       && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
-      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && !ALTIVEC_VECTOR_MODE (mode))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
@@ -1876,6 +1942,7 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
 #if TARGET_MACHO
   if (GET_CODE (x) == SYMBOL_REF
       && DEFAULT_ABI == ABI_DARWIN
+      && !ALTIVEC_VECTOR_MODE (mode)
       && flag_pic)
     {
       /* Darwin load of floating point constant.  */
@@ -1894,8 +1961,8 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
     }
 #endif
   if (TARGET_TOC
-	   && CONSTANT_POOL_EXPR_P (x)
-	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
+      && CONSTANT_POOL_EXPR_P (x)
+      && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
       (x) = create_TOC_reference (x);
       *win = 1;
@@ -2170,9 +2237,10 @@ rs6000_emit_move (dest, source, mode)
 
   /* Handle the case where reload calls us with an invalid address;
      and the case of CONSTANT_P_RTX.  */
-  if (! general_operand (operands[1], mode)
-      || ! nonimmediate_operand (operands[0], mode)
-      || GET_CODE (operands[1]) == CONSTANT_P_RTX)
+  if (!VECTOR_MODE_P (mode)
+      && (! general_operand (operands[1], mode)
+	  || ! nonimmediate_operand (operands[0], mode)
+	  || GET_CODE (operands[1]) == CONSTANT_P_RTX))
     {
       emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
       return;
@@ -2202,8 +2270,8 @@ rs6000_emit_move (dest, source, mode)
     case V8HImode:
     case V4SFmode:
     case V4SImode:
-      /* fixme: aldyh -- allow vector constants when they are implemented.  */
-      if (CONSTANT_P (operands[1]))
+      if (CONSTANT_P (operands[1])
+	  && !easy_vector_constant (operands[1]))
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
       
@@ -2833,8 +2901,6 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (DEFAULT_ABI == ABI_V4)
     {
       /* Indicate to allocate space on the stack for varargs save area.  */
-      /* ??? Does this really have to be located at a magic spot on the
-	 stack, or can we allocate this with assign_stack_local instead.  */
       cfun->machine->sysv_varargs_p = 1;
       if (! no_rtl)
 	save_area = plus_constant (virtual_stack_vars_rtx,
@@ -3026,48 +3092,8 @@ rs6000_va_arg (valist, type)
   int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
   rtx lab_false, lab_over, addr_rtx, r;
 
-  /* For AIX, the rule is that structures are passed left-aligned in
-     their stack slot.  However, GCC does not presently do this:
-     structures which are the same size as integer types are passed
-     right-aligned, as if they were in fact integers.  This only
-     matters for structures of size 1 or 2, or 4 when TARGET_64BIT.  */
   if (DEFAULT_ABI != ABI_V4)
-    {
-      HOST_WIDE_INT align, rounded_size;
-      enum machine_mode mode;
-      tree addr_tree;
-
-      /* Compute the rounded size of the type.  */
-      align = PARM_BOUNDARY / BITS_PER_UNIT;
-      rounded_size = (((int_size_in_bytes (type) + align - 1) / align)
-		      * align);
-
-      addr_tree = valist;
-
-      mode = TYPE_MODE (type);
-      if (mode != BLKmode)
-	{
-	  HOST_WIDE_INT adj;
-	  adj = TREE_INT_CST_LOW (TYPE_SIZE (type)) / BITS_PER_UNIT;
-	  if (rounded_size > align)
-	    adj = rounded_size;
-	  
-	  addr_tree = build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			     build_int_2 (rounded_size - adj, 0));
-	}
-
-      addr_rtx = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-      addr_rtx = copy_to_reg (addr_rtx);
-      
-      /* Compute new value for AP.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			build_int_2 (rounded_size, 0)));
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      
-      return addr_rtx;
-    }
+    return std_expand_builtin_va_arg (valist, type);
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
@@ -3118,50 +3144,62 @@ rs6000_va_arg (valist, type)
   lab_over = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
 
-  emit_cmp_and_jump_insns (expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
-			   GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
-			   lab_false);
-
-  /* Long long is aligned in the registers.  */
-  if (n_reg > 1)
+  /*  Vectors never go in registers.  */
+  if (TREE_CODE (type) != VECTOR_TYPE)
     {
-      u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
-		 build_int_2 (n_reg - 1, 0));
-      u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
-      u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+      TREE_THIS_VOLATILE (reg) = 1;
+      emit_cmp_and_jump_insns
+	(expand_expr (reg, NULL_RTX, QImode, EXPAND_NORMAL),
+	 GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
+	 lab_false);
+
+      /* Long long is aligned in the registers.  */
+      if (n_reg > 1)
+	{
+	  u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
+		     build_int_2 (n_reg - 1, 0));
+	  u = build (PLUS_EXPR, TREE_TYPE (reg), reg, u);
+	  u = build (MODIFY_EXPR, TREE_TYPE (reg), reg, u);
+	  TREE_SIDE_EFFECTS (u) = 1;
+	  expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
+
+      if (sav_ofs)
+	t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+      else
+	t = sav;
+
+      u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
+		 build_int_2 (n_reg, 0));
       TREE_SIDE_EFFECTS (u) = 1;
-      expand_expr (u, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      u = build1 (CONVERT_EXPR, integer_type_node, u);
+      TREE_SIDE_EFFECTS (u) = 1;
+
+      u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
+      TREE_SIDE_EFFECTS (u) = 1;
+
+      t = build (PLUS_EXPR, ptr_type_node, t, u);
+      TREE_SIDE_EFFECTS (t) = 1;
+
+      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
+      if (r != addr_rtx)
+	emit_move_insn (addr_rtx, r);
+
+      emit_jump_insn (gen_jump (lab_over));
+      emit_barrier ();
     }
 
-  if (sav_ofs)
-    t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
-  else
-    t = sav;
-
-  u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, build_int_2 (n_reg, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  u = build1 (CONVERT_EXPR, integer_type_node, u);
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
-  TREE_SIDE_EFFECTS (u) = 1;
-
-  t = build (PLUS_EXPR, ptr_type_node, t, u);
-  TREE_SIDE_EFFECTS (t) = 1;
-
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
-
-  emit_jump_insn (gen_jump (lab_over));
-  emit_barrier ();
   emit_label (lab_false);
 
   /* ... otherwise out of the overflow area.  */
 
-  /* Make sure we don't find reg 7 for the next int arg.  */
-  if (n_reg > 1)
+  /* Make sure we don't find reg 7 for the next int arg.
+
+     All AltiVec vectors go in the overflow area.  So in the AltiVec
+     case we need to get the vectors from the overflow area, but
+     remember where the GPRs and FPRs are.  */
+  if (n_reg > 1 && TREE_CODE (type) != VECTOR_TYPE)
     {
       t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3173,8 +3211,16 @@ rs6000_va_arg (valist, type)
     t = ovf;
   else
     {
-      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (7, 0));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-8, -1));
+      int align;
+
+      /* Vectors are 16 byte aligned.  */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	align = 15;
+      else
+	align = 7;
+
+      t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (align, 0));
+      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align-1, -1));
     }
   t = save_expr (t);
 
@@ -3946,7 +3992,7 @@ altivec_expand_builtin (exp, target)
 
   /* Handle DST variants.  */
   d = (struct builtin_description *) bdesc_dst;
-  for (i = 0; i < sizeof (bdesc_dst) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
     if (d->code == fcode)
       {
 	arg0 = TREE_VALUE (arglist);
@@ -3985,25 +4031,25 @@ altivec_expand_builtin (exp, target)
 
   /* Expand abs* operations.  */
   d = (struct builtin_description *) bdesc_abs;
-  for (i = 0; i < sizeof (bdesc_abs) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_abs); i++, d++)
     if (d->code == fcode)
       return altivec_expand_abs_builtin (d->icode, arglist, target);
 
   /* Handle simple unary operations.  */
   d = (struct builtin_description *) bdesc_1arg;
-  for (i = 0; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
       return altivec_expand_unop_builtin (d->icode, arglist, target);
 
   /* Handle simple binary operations.  */
   d = (struct builtin_description *) bdesc_2arg;
-  for (i = 0; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
       return altivec_expand_binop_builtin (d->icode, arglist, target);
 
   /* Expand the AltiVec predicates.  */
   dp = (struct builtin_description_predicates *) bdesc_altivec_preds;
-  for (i = 0; i < sizeof (bdesc_altivec_preds) / sizeof *dp; i++, dp++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, dp++)
     if (dp->code == fcode)
       return altivec_expand_predicate_builtin (dp->icode, dp->opcode, arglist, target);
 
@@ -4038,7 +4084,7 @@ altivec_expand_builtin (exp, target)
 
   /* Handle simple ternary operations.  */
   d = (struct builtin_description *) bdesc_3arg;
-  for (i = 0; i < sizeof  (bdesc_3arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
     if (d->code == fcode)
       return altivec_expand_ternop_builtin (d->icode, arglist, target);
 
@@ -4534,7 +4580,7 @@ altivec_init_builtins (void)
 
   /* Add the simple ternary operators.  */
   d = (struct builtin_description *) bdesc_3arg;
-  for (i = 0; i < sizeof (bdesc_3arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
     {
       
       enum machine_mode mode0, mode1, mode2, mode3;
@@ -4627,12 +4673,12 @@ altivec_init_builtins (void)
 
   /* Add the DST variants.  */
   d = (struct builtin_description *) bdesc_dst;
-  for (i = 0; i < sizeof (bdesc_dst) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
     def_builtin (d->mask, d->name, void_ftype_pvoid_int_char, d->code);
 
   /* Initialize the predicates.  */
   dp = (struct builtin_description_predicates *) bdesc_altivec_preds;
-  for (i = 0; i < sizeof (bdesc_altivec_preds) / sizeof *dp; i++, dp++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, dp++)
     {
       enum machine_mode mode1;
       tree type;
@@ -4662,7 +4708,7 @@ altivec_init_builtins (void)
 
   /* Add the simple binary operators.  */
   d = (struct builtin_description *) bdesc_2arg;
-  for (i = 0; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     {
       enum machine_mode mode0, mode1, mode2;
       tree type;
@@ -4780,7 +4826,7 @@ altivec_init_builtins (void)
 
   /* Initialize the abs* operators.  */
   d = (struct builtin_description *) bdesc_abs;
-  for (i = 0; i < sizeof (bdesc_abs) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_abs); i++, d++)
     {
       enum machine_mode mode0;
       tree type;
@@ -4810,7 +4856,7 @@ altivec_init_builtins (void)
 
   /* Add the simple unary operators.  */
   d = (struct builtin_description *) bdesc_1arg;
-  for (i = 0; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     {
       enum machine_mode mode0, mode1;
       tree type;
@@ -5636,7 +5682,7 @@ min_max_operator (op, mode)
 
 /* Return 1 if ANDOP is a mask that has no bits on that are not in the
    mask required to convert the result of a rotate insn into a shift
-   left insn of SHIFTOP bits.  Both are known to be CONST_INT.  */
+   left insn of SHIFTOP bits.  Both are known to be SImode CONST_INT.  */
 
 int
 includes_lshift_p (shiftop, andop)
@@ -5647,7 +5693,7 @@ includes_lshift_p (shiftop, andop)
 
   shift_mask <<= INTVAL (shiftop);
 
-  return (INTVAL (andop) & ~shift_mask) == 0;
+  return (INTVAL (andop) & 0xffffffff & ~shift_mask) == 0;
 }
 
 /* Similar, but for right shift.  */
@@ -5661,7 +5707,7 @@ includes_rshift_p (shiftop, andop)
 
   shift_mask >>= INTVAL (shiftop);
 
-  return (INTVAL (andop) & ~shift_mask) == 0;
+  return (INTVAL (andop) & 0xffffffff & ~shift_mask) == 0;
 }
 
 /* Return 1 if ANDOP is a mask suitable for use with an rldic insn
@@ -6055,9 +6101,9 @@ rs6000_got_register (value)
   return pic_offset_table_rtx;
 }
 
-/* Functions to init, mark and free struct machine_function.
-   These will be called, via pointer variables,
-   from push_function_context and pop_function_context.  */
+/* Function to init struct machine_function.
+   This will be called, via a pointer variable,
+   from push_function_context.  */
 
 static struct machine_function *
 rs6000_init_machine_status ()
@@ -6298,7 +6344,7 @@ print_operand (file, x, code)
 			    
     case 'm':
       /* MB value for a mask operand.  */
-      if (! mask_operand (x, VOIDmode))
+      if (! mask_operand (x, SImode))
 	output_operand_lossage ("invalid %%m value");
 
       val = INT_LOWPART (x);
@@ -6333,7 +6379,7 @@ print_operand (file, x, code)
 
     case 'M':
       /* ME value for a mask operand.  */
-      if (! mask_operand (x, VOIDmode))
+      if (! mask_operand (x, SImode))
 	output_operand_lossage ("invalid %%M value");
 
       val = INT_LOWPART (x);
@@ -6463,7 +6509,7 @@ print_operand (file, x, code)
       /* PowerPC64 mask position.  All 0's and all 1's are excluded.
 	 CONST_INT 32-bit mask is considered sign-extended so any
 	 transition must occur within the CONST_INT, not on the boundary.  */
-      if (! mask64_operand (x, VOIDmode))
+      if (! mask64_operand (x, DImode))
 	output_operand_lossage ("invalid %%S value");
 
       val = INT_LOWPART (x);
@@ -7798,8 +7844,7 @@ rs6000_stack_info ()
     info_ptr->push_p = 1;
 
   else if (abi == ABI_V4)
-    info_ptr->push_p = (total_raw_size > info_ptr->fixed_size
-			|| info_ptr->calls_p);
+    info_ptr->push_p = total_raw_size > info_ptr->fixed_size;
 
   else
     info_ptr->push_p = (frame_pointer_needed
@@ -7972,10 +8017,7 @@ rs6000_return_addr (count, frame)
   /* Currently we don't optimize very well between prolog and body
      code and for PIC code the code can be actually quite bad, so
      don't try to be too clever here.  */
-  if (count != 0
-      || flag_pic != 0
-      || DEFAULT_ABI == ABI_AIX
-      || DEFAULT_ABI == ABI_AIX_NODESC)
+  if (count != 0 || flag_pic != 0)
     {
       cfun->machine->ra_needs_full_frame = 1;
 
@@ -8655,7 +8697,10 @@ rs6000_emit_prologue ()
       /* Get VRSAVE onto a GPR.  */
       reg = gen_rtx_REG (SImode, 12);
       vrsave = gen_rtx_REG (SImode, VRSAVE_REGNO);
-      emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
+      if (TARGET_MACHO)
+	emit_insn (gen_get_vrsave_internal (reg));
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
 
       /* Save VRSAVE.  */
       offset = info->vrsave_save_offset + sp_offset;
@@ -9556,6 +9601,8 @@ rs6000_output_function_epilogue (file, size)
 	 Only emit this if the alloca bit was set above.  */
       if (frame_pointer_needed)
 	fputs ("\t.byte 31\n", file);
+
+      fputs ("\t.align 2\n", file);
     }
   return;
 }
@@ -10128,7 +10175,7 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long)high, (long)low);
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long) high, (long) low);
 	  fprintf (file, "0x%lx%08lx\n", (long) high, (long) low);
 	  return;
 	}
@@ -10140,7 +10187,7 @@ output_toc (file, x, labelno, mode)
 		fputs ("\t.long ", file);
 	      else
 		fprintf (file, "\t.tc ID_%lx_%lx[TC],",
-			 (long)high, (long)low);
+			 (long) high, (long) low);
 	      fprintf (file, "0x%lx,0x%lx\n", (long) high, (long) low);
 	    }
 	  else
@@ -10868,9 +10915,13 @@ rs6000_unique_section (decl, reloc)
    to read the prefixes.  */
 
 void
-rs6000_encode_section_info (decl)
+rs6000_encode_section_info (decl, first)
      tree decl;
+     int first;
 {
+  if (!first)
+    return;
+
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx sym_ref = XEXP (DECL_RTL (decl), 0);

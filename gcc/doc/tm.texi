@@ -687,7 +687,11 @@ string is present but empty, then no help information will be displayed
 for that option, but it will not count as an undocumented option.  The
 actual option name is made by appending @samp{-m} to the specified name.
 Non-empty description strings should be marked with @code{N_(@dots{})} for
-@command{xgettext}.  In addition to the description for @option{--help},
+@command{xgettext}.  Please do not mark empty strings because the empty
+string is reserved by GNU gettext. @code{gettext("")} returns the header entry
+of the message catalog with meta information, not the empty string.
+
+In addition to the description for @option{--help},
 more detailed documentation for each option should be added to
 @file{invoke.texi}.
 
@@ -713,8 +717,12 @@ options that have values.  Its definition is an initializer with a
 subgrouping for each command option.
 
 Each subgrouping contains a string constant, that defines the fixed part
-of the option name, the address of a variable, and a description string
-(which should again be marked with @code{N_(@dots{})}).
+of the option name, the address of a variable, and a description string.
+Non-empty description strings should be marked with @code{N_(@dots{})} for
+@command{xgettext}.  Please do not mark empty strings because the empty
+string is reserved by GNU gettext. @code{gettext("")} returns the header entry
+of the message catalog with meta information, not the empty string.
+
 The variable, type @code{char *}, is set to the variable part of the
 given option if the fixed part matches.  The actual option name is made
 by appending @samp{-m} to the specified name.  Again, each option should
@@ -915,11 +923,12 @@ multi-word integers.
 @findex BITS_PER_UNIT
 @item BITS_PER_UNIT
 Define this macro to be the number of bits in an addressable storage
-unit (byte); normally 8.
+unit (byte).  If you do not define this macro the default is 8.
 
 @findex BITS_PER_WORD
 @item BITS_PER_WORD
-Number of bits in a word; normally 32.
+Number of bits in a word.  If you do not define this macro, the default
+is @code{BITS_PER_UNIT * UNITS_PER_WORD}.
 
 @findex MAX_BITS_PER_WORD
 @item MAX_BITS_PER_WORD
@@ -941,7 +950,8 @@ smallest value that @code{UNITS_PER_WORD} can have at run-time.
 @item POINTER_SIZE
 Width of a pointer, in bits.  You must specify a value no wider than the
 width of @code{Pmode}.  If it is not equal to the width of @code{Pmode},
-you must define @code{POINTERS_EXTEND_UNSIGNED}.
+you must define @code{POINTERS_EXTEND_UNSIGNED}.  If you do not specify
+a value the default is @code{BITS_PER_WORD}.
 
 @findex POINTERS_EXTEND_UNSIGNED
 @item POINTERS_EXTEND_UNSIGNED
@@ -1326,6 +1336,95 @@ defined for them.
 The ordering of the component words of floating point values stored in
 memory is controlled by @code{FLOAT_WORDS_BIG_ENDIAN}.
 
+@findex MODE_HAS_NANS
+@item MODE_HAS_NANS (@var{mode})
+When defined, this macro should be true if @var{mode} has a NaN
+representation.  The compiler assumes that NaNs are not equal to
+anything (including themselves) and that addition, subtraction,
+multiplication and division all return NaNs when one operand is
+NaN@.
+
+By default, this macro is true if @var{mode} is a floating-point
+mode and the target floating-point format is IEEE@.
+
+@findex MODE_HAS_INFINITIES
+@item MODE_HAS_INFINITIES (@var{mode})
+This macro should be true if @var{mode} can represent infinity.  At
+present, the compiler uses this macro to decide whether @samp{x - x}
+is always defined.  By default, the macro is true when @var{mode}
+is a floating-point mode and the target format is IEEE@.
+
+@findex MODE_HAS_SIGNED_ZEROS
+@item MODE_HAS_SIGNED_ZEROS (@var{mode})
+True if @var{mode} distinguishes between positive and negative zero.
+The rules are expected to follow the IEEE standard:
+
+@itemize @bullet
+@item
+@samp{x + x} has the same sign as @samp{x}.
+
+@item
+If the sum of two values with opposite sign is zero, the result is
+positive for all rounding modes expect towards @minus{}infinity, for
+which it is negative.
+
+@item
+The sign of a product or quotient is negative when exactly one
+of the operands is negative.
+@end itemize
+
+The default definition is true if @var{mode} is a floating-point
+mode and the target format is IEEE@.
+
+@findex MODE_HAS_SIGN_DEPENDENT_ROUNDING
+@item MODE_HAS_SIGN_DEPENDENT_ROUNDING (@var{mode})
+If defined, this macro should be true for @var{mode} if it has at
+least one rounding mode in which @samp{x} and @samp{-x} can be
+rounded to numbers of different magnitude.  Two such modes are
+towards @minus{}infinity and towards +infinity.
+
+The default definition of this macro is true if @var{mode} is
+a floating-point mode and the target format is IEEE@.
+
+@findex ROUND_TOWARDS_ZERO
+@item ROUND_TOWARDS_ZERO
+If defined, this macro should be true if the prevailing rounding
+mode is towards zero.  A true value has the following effects:
+
+@itemize @bullet
+@item
+@code{MODE_HAS_SIGN_DEPENDENT_ROUNDING} will be false for all modes.
+
+@item
+@file{libgcc.a}'s floating-point emulator will round towards zero
+rather than towards nearest.
+
+@item
+The compiler's floating-point emulator will round towards zero after
+doing arithmetic, and when converting from the internal float format to
+the target format.
+@end itemize
+
+The macro does not affect the parsing of string literals.  When the
+primary rounding mode is towards zero, library functions like
+@code{strtod} might still round towards nearest, and the compiler's
+parser should behave like the target's @code{strtod} where possible.
+
+Not defining this macro is equivalent to returning zero.
+
+@findex LARGEST_EXPONENT_IS_NORMAL
+@item LARGEST_EXPONENT_IS_NORMAL (@var{size})
+This macro should only be defined when the target float format is
+described as IEEE@.  It should return true if floats with @var{size}
+bits do not have a NaN or infinity representation, but use the largest
+exponent for normal numbers instead.
+
+Defining this macro to true for @var{size} causes @code{MODE_HAS_NANS}
+and @code{MODE_HAS_INFINITIES} to be false for @var{size}-bit modes.
+It also affects the way @file{libgcc.a} and @file{real.c} emulate
+floating-point arithmetic.
+
+The default definition of this macro returns false for all sizes.
 @end table
 
 @deftypefn {Target Hook} bool TARGET_MS_BITFIELD_LAYOUT_P (tree @var{record_type})
@@ -1595,10 +1694,10 @@ in which function addresses are always even, according to
 @findex TARGET_VTABLE_USES_DESCRIPTORS
 @item TARGET_VTABLE_USES_DESCRIPTORS
 Normally, the C++ compiler uses function pointers in vtables.  This
-macro allows the target to change to use ``function descriptors'' 
+macro allows the target to change to use ``function descriptors''
 instead.  Function descriptors are found on targets for whom a
 function pointer is actually a small data structure.  Normally the
-data structure consists of the actual code address plus a data 
+data structure consists of the actual code address plus a data
 pointer to which the function's data is relative.
 
 If vtables are used, the value of this macro should be the number
@@ -1720,10 +1819,10 @@ exit, if the register is used within the function.
 @cindex call-used register
 @cindex call-clobbered register
 @cindex call-saved register
-Like @code{CALL_USED_REGISTERS} except this macro doesn't require 
-that the entire set of @code{FIXED_REGISTERS} be included.  
+Like @code{CALL_USED_REGISTERS} except this macro doesn't require
+that the entire set of @code{FIXED_REGISTERS} be included.
 (@code{CALL_USED_REGISTERS} must be a superset of @code{FIXED_REGISTERS}).
-This macro is optional.  If not specified, it defaults to the value 
+This macro is optional.  If not specified, it defaults to the value
 of @code{CALL_USED_REGISTERS}.
 
 @findex HARD_REGNO_CALL_PART_CLOBBERED
@@ -2796,7 +2895,7 @@ and @file{unwind-ia64.c}.  @var{context} is an @code{_Unwind_Context};
 for the address of the code being executed and @code{context->cfa} for
 the stack pointer value.  If the frame can be decoded, the register save
 addresses should be updated in @var{fs} and the macro should branch to
-@var{success}.  If the frame cannot be decoded, the macro should do 
+@var{success}.  If the frame cannot be decoded, the macro should do
 nothing.
 @end table
 
@@ -3551,11 +3650,6 @@ This section discusses the macros that control returning scalars as
 values---values that can fit in registers.
 
 @table @code
-@findex TRADITIONAL_RETURN_FLOAT
-@item TRADITIONAL_RETURN_FLOAT
-Define this macro if @option{-traditional} should not cause functions
-declared to return @code{float} to convert the value to @code{double}.
-
 @findex FUNCTION_VALUE
 @item FUNCTION_VALUE (@var{valtype}, @var{func})
 A C expression to create an RTX representing the place where a
@@ -5541,25 +5635,31 @@ readonly data section is used.
 This macro is irrelevant if there is no separate readonly data section.
 
 @findex ENCODE_SECTION_INFO
-@item ENCODE_SECTION_INFO (@var{decl})
+@item ENCODE_SECTION_INFO (@var{decl}, @var{new_decl_p})
 Define this macro if references to a symbol or a constant must be
 treated differently depending on something about the variable or
 function named by the symbol (such as what section it is in).
 
 The macro definition, if any, is executed under two circumstances.  One
 is immediately after the rtl for @var{decl} that represents a variable
-or a function has been created and stored in @code{DECL_RTL
-(@var{decl})}.  The value of the rtl will be a @code{mem} whose address
-is a @code{symbol_ref}.  The other is immediately after the rtl for
-@var{decl} that represents a constant has been created and stored in
-@code{TREE_CST_RTL (@var{decl})}.  The macro is called once for each
-distinct constant in a source file.
+or a function has been created and stored in @code{DECL_RTL(@var{decl})}.
+The value of the rtl will be a @code{mem} whose address is a @code{symbol_ref}.
+The other is immediately after the rtl for @var{decl} that represents a
+constant has been created and stored in @code{TREE_CST_RTL (@var{decl})}.
+The macro is called once for each distinct constant in a source file.
+
+The @var{new_decl_p} argument will be true if this is the first time that
+@code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
+be false for subsequent invocations, which will happen for duplicate
+declarations.  Whether or not anything must be done for the duplicate
+declaration depends on whether @code{ENCODE_SECTION_INFO} examines
+@code{DECL_ATTRIBUTES}.
 
 @cindex @code{SYMBOL_REF_FLAG}, in @code{ENCODE_SECTION_INFO}
 The usual thing for this macro to do is to record a flag in the
 @code{symbol_ref} (such as @code{SYMBOL_REF_FLAG}) or to store a
-modified name string in the @code{symbol_ref} (if one bit is not enough
-information).
+modified name string in the @code{symbol_ref} (if one bit is not
+enough information).
 
 @findex STRIP_NAME_ENCODING
 @item STRIP_NAME_ENCODING (@var{var}, @var{sym_name})
@@ -5761,7 +5861,7 @@ Output assembly directives to switch to section @var{name}.  The section
 should have attributes as specified by @var{flags}, which is a bit mask
 of the @code{SECTION_*} flags defined in @file{output.h}.  If @var{align}
 is nonzero, it contains an alignment in bytes to be used for the section,
-otherwise some target default should be used.  Only targets that must 
+otherwise some target default should be used.  Only targets that must
 specify an alignment within the section directive need pay attention to
 @var{align} -- we will still use @code{ASM_OUTPUT_ALIGN}.
 @end deftypefn
@@ -6165,7 +6265,7 @@ itself; before and after that, output the additional assembler syntax
 for making that name global, and a newline.
 
 @findex ASM_WEAKEN_LABEL
-@item ASM_WEAKEN_LABEL
+@item ASM_WEAKEN_LABEL (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} some commands that will make the label @var{name} weak;
 that is, available for reference from other files but only used if
@@ -6174,18 +6274,29 @@ no other definition is available.  Use the expression
 itself; before and after that, output the additional assembler syntax
 for making that name weak, and a newline.
 
-If you don't define this macro, GCC will not support weak
-symbols and you should not define the @code{SUPPORTS_WEAK} macro.
+If you don't define this macro or @code{ASM_WEAKEN_DECL}, GCC will not
+support weak symbols and you should not define the @code{SUPPORTS_WEAK}
+macro.
+
+@findex ASM_WEAKEN_DECL
+@item ASM_WEAKEN_DECL (@var{stream}, @var{decl}, @var{name}, @var{value})
+Combines (and replaces) the function of @code{ASM_WEAKEN_LABEL} and
+@code{ASM_OUTPUT_WEAK_ALIAS}, allowing access to the associated function
+or variable decl.  If @var{value} is not @code{NULL}, this C statement
+should output to the stdio stream @var{stream} assembler code which
+defines (equates) the weak symbol @var{name} to have the value
+@var{value}.  If @var{value} is @code{NULL}, it should output commands
+to make @var{name} weak.
 
 @findex SUPPORTS_WEAK
 @item SUPPORTS_WEAK
 A C expression which evaluates to true if the target supports weak symbols.
 
 If you don't define this macro, @file{defaults.h} provides a default
-definition.  If @code{ASM_WEAKEN_LABEL} is defined, the default
-definition is @samp{1}; otherwise, it is @samp{0}.  Define this macro if
-you want to control weak symbol support with a compiler flag such as
-@option{-melf}.
+definition.  If either @code{ASM_WEAKEN_LABEL} or @code{ASM_WEAKEN_DECL}
+is defined, the default definition is @samp{1}; otherwise, it is
+@samp{0}.  Define this macro if you want to control weak symbol support
+with a compiler flag such as @option{-melf}.
 
 @findex MAKE_DECL_ONE_ONLY (@var{decl})
 @item MAKE_DECL_ONE_ONLY
@@ -6472,7 +6583,7 @@ Termination functions are handled similarly.
 
 This method will be chosen as the default by @file{target-def.h} if
 @code{TARGET_ASM_NAMED_SECTION} is defined.  A target that does not
-support arbitrary sections, but does support special designated 
+support arbitrary sections, but does support special designated
 constructor and destructor sections may define @code{CTORS_SECTION_ASM_OP}
 and @code{DTORS_SECTION_ASM_OP} to achieve the same effect.
 
@@ -6582,7 +6693,7 @@ the object format requires an explicit initialization function, then a
 function called @code{_GLOBAL__DI} will be generated.
 
 This function and the following one are used by collect2 when linking a
-shared library that needs constructors or destructors, or has DWARF2 
+shared library that needs constructors or destructors, or has DWARF2
 exception tables embedded in the code.
 
 @item COLLECT_SHARED_FINI_FUNC (@var{stream}, @var{func})
@@ -6863,7 +6974,7 @@ first variant.
 
 If this macro is defined, you may use constructs of the form
 @smallexample
-@samp{@{option0|option1|option2@dots{}@}} 
+@samp{@{option0|option1|option2@dots{}@}}
 @end smallexample
 @noindent
 in the output templates of patterns (@pxref{Output Template}) or in the
@@ -7656,14 +7767,10 @@ it must have its own special routine to use instead.  Also, constant
 folding must emulate the target machine's arithmetic (or must not be done
 at all).
 
-The macros in the following table should be defined only if you are cross
-compiling between different floating point formats.
-
-Otherwise, don't define them.  Then default definitions will be set up which
-use @code{double} as the data type, @code{==} to test for equality, etc.
-
-You don't need to worry about how many times you use an operand of any
-of these macros.  The compiler never uses operands which have side effects.
+The macros in the following table are provided by @file{real.h} for the
+compiler to use.  All parts of the compiler which generate or optimize
+floating-point calculations must use these macros.  They may evaluate
+their operands more than once, so operands must not have side effects.
 
 @table @code
 @findex REAL_VALUE_TYPE
@@ -7744,15 +7851,7 @@ By default, this is defined to call @code{isinf}.
 A macro for a C expression which determines whether @var{x}, a floating
 point value, is a ``nan'' (not-a-number).  The value has type
 @code{int}.  By default, this is defined to call @code{isnan}.
-@end table
 
-@cindex constant folding and floating point
-Define the following additional macros if you want to make floating
-point constant folding work while cross compiling.  If you don't
-define them, cross compilation is still possible, but constant folding
-will not happen for floating point values.
-
-@table @code
 @findex REAL_ARITHMETIC
 @item REAL_ARITHMETIC (@var{output}, @var{code}, @var{x}, @var{y})
 A macro for a C statement which calculates an arithmetic operation of
@@ -7767,8 +7866,7 @@ which will always be one of the following: @code{PLUS_EXPR},
 @code{MAX_EXPR}, @code{MIN_EXPR}.
 
 @cindex overflow while constant folding
-The expansion of this macro is responsible for checking for overflow.
-If overflow happens, the macro expansion should execute the statement
+If overflow happens, the macro expansion executes the statement
 @code{return 0;}, which indicates the inability to perform the
 arithmetic operation requested.
 

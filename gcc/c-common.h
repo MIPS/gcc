@@ -420,10 +420,6 @@ extern int warn_pointer_arith;
 /* Nonzero means to warn about compile-time division by zero.  */
 extern int warn_div_by_zero;
 
-/* Nonzero means do some things the same way PCC does.  */
-
-extern int flag_traditional;
-
 /* Nonzero means enable C89 Amendment 1 features.  */
 
 extern int flag_isoc94;
@@ -538,6 +534,7 @@ extern char *get_directive_line			PARAMS ((void));
    and, if so, perhaps change them both back to their original type.  */
 extern tree shorten_compare			PARAMS ((tree *, tree *, tree *, enum tree_code *));
 
+extern tree pointer_int_sum			PARAMS ((enum tree_code, tree, tree));
 extern unsigned int min_precision		PARAMS ((tree, int));
 
 /* Add qualifiers to a type, in the fashion for C.  */
@@ -731,7 +728,6 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
-extern void add_c_tree_codes		        PARAMS ((void));
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));

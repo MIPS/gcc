@@ -78,7 +78,7 @@ extern int target_flags;
 #define OVERRIDE_OPTIONS override_options ()
 
 
-/* Defines for REAL_ARITHMETIC.  */
+/* Defines for real.c.  */
 #define IEEE_FLOAT 1
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1 
@@ -106,23 +106,12 @@ extern int current_function_outgoing_args_size;
 
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit.  */
-
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
 
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
 #define MIN_UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-
-#define POINTER_SIZE (TARGET_64BIT ? 64 : 32)
 
 /* A C expression for the size in bits of the type `short' on the
    target machine.  If you don't define this, the default is half a
@@ -208,10 +197,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 
 #define STRICT_ALIGNMENT 0
 
-/* real arithmetic */
-
-#define REAL_ARITHMETIC
-
 /* Define target floating point format.  */
 
 #undef TARGET_FLOAT_FORMAT
@@ -227,7 +212,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 {  1, 2, 3, 4, 5, 0, 14, 13, 12, 11, 10, 9, 8, 7, 6,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
-   15, 32, 33 }
+   15, 32, 33, 34 }
 
 /* Standard register usage.  */
  
@@ -264,7 +249,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    GPR 14: Return registers holds the return address
    GPR 15: Stack pointer */
 
-#define PIC_OFFSET_TABLE_REGNUM 12
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 12 : INVALID_REGNUM)
 #define BASE_REGISTER 13
 #define RETURN_REGNUM 14
 #define STACK_POINTER_REGNUM 15
@@ -413,7 +398,7 @@ do								\
    On s390, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)                               \
+#define ENCODE_SECTION_INFO(DECL, FIRST)                        \
 do                                                              \
   {                                                             \
     if (flag_pic)                                               \
@@ -529,7 +514,7 @@ enum reg_class
 
 #define REGNO_REG_CLASS(REGNO) (regclass_map[REGNO])
 
-extern enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class containing REGNO   */
+extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class containing REGNO   */
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -879,7 +864,7 @@ CUMULATIVE_ARGS;
 #define FUNCTION_PROFILER(FILE, LABELNO) 			\
 	s390_function_profiler ((FILE), ((LABELNO)))
 
-/* #define PROFILE_BEFORE_PROLOGUE */
+#define PROFILE_BEFORE_PROLOGUE 1
 
 /* Define EXIT_IGNORE_STACK if, when returning from a function, the stack
    pointer does not matter (provided there is a frame pointer).  */
@@ -1330,9 +1315,8 @@ extern int s390_nr_constants;
 /* Function is splitted in chunk, if literal pool could overflow
    Value need to be lowered, if problems with displacement overflow.  */
 
-#define S390_REL_MAX 55000
-#define S390_CHUNK_MAX 0x2000
-#define S390_CHUNK_OV 0x8000
+#define S390_CHUNK_MAX 0xe00
+#define S390_CHUNK_OV 0x1000
 #define S390_POOL_MAX 0xe00
 
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, fndecl, size)  	        \

@@ -2884,7 +2884,7 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
     int unsignedp;		/* != 0 for unsigned comparisons.  */
   };
 
-  static struct cmp_info info[ (int)ITEST_MAX ] = {
+  static const struct cmp_info info[ (int)ITEST_MAX ] = {
 
     { XOR,	 0,  65535,  0,	 0,  0,	 0, 0 },	/* EQ  */
     { XOR,	 0,  65535,  0,	 0,  1,	 1, 0 },	/* NE  */
@@ -2900,7 +2900,7 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
 
   enum internal_test test;
   enum machine_mode mode;
-  struct cmp_info *p_info;
+  const struct cmp_info *p_info;
   int branch_p;
   int eqne_p;
   int invert;
@@ -4726,17 +4726,17 @@ mips_va_arg (valist, type)
           emit_queue();
           emit_label (lab_over);
 
+	  if (BYTES_BIG_ENDIAN && rsize != size)
+	    addr_rtx = plus_constant (addr_rtx, rsize - size);
+
           if (indirect)
    	    {
-       	      r = gen_rtx_MEM (Pmode, addr_rtx);
+	      addr_rtx = force_reg (Pmode, addr_rtx);
+	      r = gen_rtx_MEM (Pmode, addr_rtx);
 	      set_mem_alias_set (r, get_varargs_alias_set ());
 	      emit_move_insn (addr_rtx, r);
 	    }
-      	  else
-	    {
-	      if (BYTES_BIG_ENDIAN && rsize != size)
-	      addr_rtx = plus_constant (addr_rtx, rsize - size);
-	    }
+
       	  return addr_rtx;
 	}
     }
@@ -4809,6 +4809,10 @@ override_options ()
   /* Get the architectural level.  */
   if (mips_isa_string == 0)
     mips_isa = MIPS_ISA_DEFAULT;
+
+  else if (mips_isa_string != 0
+	   && mips_arch_string != 0)
+      warning ("The -march option is incompatible to -mipsN and therefore ignored.");
 
   else if (ISDIGIT (*mips_isa_string))
     {
@@ -4938,7 +4942,7 @@ override_options ()
       mips_cpu = mips_parse_cpu (mips_cpu_string);
       if (mips_cpu == PROCESSOR_DEFAULT)
 	{
-	  error ("bad value (%s) for -mcpu= switch", mips_arch_string);
+	  error ("bad value (%s) for -mcpu= switch", mips_cpu_string);
 	  mips_cpu_string = "default";
 	}
       mips_arch = mips_cpu;
@@ -5031,19 +5035,6 @@ override_options ()
 	  mips_tune_string = "default";
 	}
     }
-
-  if ((mips_arch == PROCESSOR_R3000 && (mips_isa != 1))
-      || (mips_arch == PROCESSOR_R4KC && mips_isa != 32)
-      || ((mips_arch == PROCESSOR_R5KC
-	   || mips_arch == PROCESSOR_R20KC) && mips_isa != 64)
-      || (mips_arch == PROCESSOR_R6000 && mips_isa != 1 && mips_isa != 2)
-      || ((mips_arch == PROCESSOR_R4000
-	   || mips_arch == PROCESSOR_R4100
-	   || mips_arch == PROCESSOR_R4300
-	   || mips_arch == PROCESSOR_R4600
-	   || mips_arch == PROCESSOR_R4650)
-	  && mips_isa != 1 && mips_isa != 2 && mips_isa != 3))
-    error ("-march=%s does not support -mips%d", mips_arch_string, mips_isa);
 
   /* make sure sizes of ints/longs/etc. are ok */
   if (! ISA_HAS_64BIT_REGS)
@@ -7234,6 +7225,10 @@ mips_expand_prologue ()
 				   "va_alist"))))
 	    {
 	      last_arg_is_vararg_marker = 1;
+	      if (GET_CODE (entry_parm) == REG)
+		regno = REGNO (entry_parm);
+	      else
+		regno = GP_ARG_LAST + 1;
 	      break;
 	    }
 	  else
@@ -8073,6 +8068,9 @@ function_arg_pass_by_reference (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int size;
+
+  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+    return 0;
 
   /* We must pass by reference if we would be both passing in registers
      and the stack.  This is because any subsequent partial arg would be
@@ -9856,7 +9854,7 @@ mips_add_gc_roots ()
   ggc_add_rtx_root (&mips_load_reg2, 1);
   ggc_add_rtx_root (&mips_load_reg3, 1);
   ggc_add_rtx_root (&mips_load_reg4, 1);
-  ggc_add_rtx_root (branch_cmp, sizeof (branch_cmp) / sizeof (rtx));
+  ggc_add_rtx_root (branch_cmp, ARRAY_SIZE (branch_cmp));
   ggc_add_rtx_root (&embedded_pic_fnaddr_rtx, 1);
   ggc_add_rtx_root (&mips16_gp_pseudo_rtx, 1);
 }

@@ -35,6 +35,8 @@
 #ifndef _CPP_BITS_SSTREAM_TCC
 #define _CPP_BITS_SSTREAM_TCC	1
 
+#pragma GCC system_header
+
 #include <sstream>
 
 namespace std
@@ -206,6 +208,18 @@ namespace std
       
       return __ret;
     }
+
+  // Inhibit implicit instantiations for required instantiations,
+  // which are defined via explicit instantiations elsewhere.  
+  // NB:  This syntax is a GNU extension.
+  extern template class basic_stringbuf<char>;
+  extern template class basic_stringbuf<wchar_t>;
+  extern template class basic_istringstream<char>;
+  extern template class basic_istringstream<wchar_t>;
+  extern template class basic_ostringstream<char>;
+  extern template class basic_ostringstream<wchar_t>;
+  extern template class basic_stringstream<char>;
+  extern template class basic_stringstream<wchar_t>;
 } // namespace std
 
 #endif

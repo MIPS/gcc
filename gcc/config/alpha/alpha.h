@@ -409,9 +409,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
 /* target machine storage layout */
 
-/* Define to enable software floating point emulation.  */
-#define REAL_ARITHMETIC
-
 /* Define the size of `int'.  The default is the same as the word size.  */
 #define INT_TYPE_SIZE 32
 
@@ -473,15 +470,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
    For Alpha we can decide arbitrarily since there are no machine instructions
    for them.  Might as well be consistent with bytes.  */
 #define WORDS_BIG_ENDIAN 0
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 8
@@ -1800,16 +1788,8 @@ literal_section ()						\
    depending on something about the variable or function named by the symbol
    (such as what section it is in).  */
 
-#define ENCODE_SECTION_INFO(DECL)  alpha_encode_section_info (DECL)
-
-/* If a variable is weakened, made one only or moved into a different
-   section, it may be necessary to redo the section info to move the
-   variable out of sdata.  */
-
-#define REDO_SECTION_INFO_P(DECL)                                       \
-   ((TREE_CODE (DECL) == VAR_DECL)                                      \
-    && (DECL_ONE_ONLY (DECL) || DECL_WEAK (DECL) || DECL_COMMON (DECL)  \
-        || DECL_SECTION_NAME (DECL) != 0))
+#define ENCODE_SECTION_INFO(DECL, FIRST)  \
+  alpha_encode_section_info (DECL, FIRST)
 
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)	\
 do {						\
@@ -2073,7 +2053,8 @@ do {						\
   {"reg_no_subreg_operand", {REG}},					\
   {"addition_operation", {PLUS}},					\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
-  {"some_small_symbolic_mem_operand", {SET, PARALLEL}},
+  {"some_small_symbolic_operand", {SET, PARALLEL, PREFETCH, UNSPEC,	\
+				   UNSPEC_VOLATILE}},
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \

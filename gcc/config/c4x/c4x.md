@@ -984,8 +984,8 @@
    (set (match_dup 0) (ior:QI (match_dup 0) (match_dup 3)))]
   "
 {
-   operands[2] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & ~0xffff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & 0xffff);
+   operands[2] = GEN_INT (INTVAL (operands[1]) & ~0xffff);
+   operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
 }")
 
 (define_split
@@ -1000,8 +1000,8 @@
    (set (match_dup 0) (ior:QI (match_dup 0) (match_dup 3)))]
   "
 {
-   operands[2] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & ~0xffff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & 0xffff);
+   operands[2] = GEN_INT (INTVAL (operands[1]) & ~0xffff);
+   operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
 }")
 
 (define_split
@@ -1022,8 +1022,8 @@
    operands[2] = gen_rtx (CONST_INT, VOIDmode,
 			  (((INTVAL (operands[1]) >> 16) & 0xffff)
 			   - 0x8000) ^ ~0x7fff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & 0xffff);
-   operands[4] = gen_rtx (CONST_INT, VOIDmode, 16);
+   operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
+   operands[4] = GEN_INT (16);
 }")
 
 (define_split
@@ -1043,8 +1043,8 @@
    operands[2] = gen_rtx (CONST_INT, VOIDmode,
 			  (((INTVAL (operands[1]) >> 16) & 0xffff)
 			   - 0x8000) ^ ~0x7fff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, INTVAL (operands[1]) & 0xffff);
-   operands[4] = gen_rtx (CONST_INT, VOIDmode, 16);
+   operands[3] = GEN_INT (INTVAL (operands[1]) & 0xffff);
+   operands[4] = GEN_INT (16);
 }")
 
 (define_split
@@ -1063,10 +1063,9 @@
    /* Generate two's complement value of MSBs.  */
    int shift = c4x_shiftable_constant (operands[1]);
 
-   operands[2] = gen_rtx (CONST_INT, VOIDmode,
-			  (((INTVAL (operands[1]) >> shift) & 0xffff)
+   operands[2] = GEN_INT ((((INTVAL (operands[1]) >> shift) & 0xffff)
 			   - 0x8000) ^ ~0x7fff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, shift);
+   operands[3] = GEN_INT (shift);
 }")
 
 (define_split
@@ -1084,10 +1083,9 @@
    /* Generate two's complement value of MSBs.  */
    int shift = c4x_shiftable_constant (operands[1]);
 
-   operands[2] = gen_rtx (CONST_INT, VOIDmode,
-			  (((INTVAL (operands[1]) >> shift) & 0xffff)
-			   - 0x8000) ^ ~0x7fff);
-   operands[3] = gen_rtx (CONST_INT, VOIDmode, shift);
+   operands[2] = GEN_INT ((((INTVAL (operands[1]) >> shift) & 0xffff)
+			    - 0x8000) ^ ~0x7fff);
+   operands[3] = GEN_INT (shift);
 }")
 
 (define_split
@@ -2356,8 +2354,10 @@
                (truncate:QI
                 (lshiftrt:HI
                  (mult:HI
-                  (zero_extend:HI (match_operand:QI 1 "src_operand" ""))
-                  (zero_extend:HI (match_operand:QI 2 "lsrc_operand" "")))
+                  (zero_extend:HI (match_operand:QI 1
+				   "nonimmediate_src_operand" ""))
+                  (zero_extend:HI (match_operand:QI 2
+				   "nonimmediate_lsrc_operand" "")))
                  (const_int 32))))
               (clobber (reg:CC_NOOV 21))])]
  ""
@@ -2374,8 +2374,10 @@
         (truncate:QI
          (lshiftrt:HI
           (mult:HI 
-           (zero_extend:HI (match_operand:QI 1 "src_operand" "%0,rR,rS<>,0,rR,rS<>"))
-           (zero_extend:HI (match_operand:QI 2 "lsrc_operand" "rLm,JR,rS<>,rLm,JR,rS<>")))
+           (zero_extend:HI (match_operand:QI 1
+			    "nonimmediate_src_operand" "%0,rR,rS<>,0,rR,rS<>"))
+           (zero_extend:HI (match_operand:QI 2
+			    "nonimmediate_lsrc_operand" "rm,R,rS<>,rm,R,rS<>")))
           (const_int 32))))
    (clobber (reg:CC_NOOV 21))]
   "! TARGET_C3X && valid_operands (MULT, operands, QImode)"
@@ -2394,8 +2396,10 @@
         (truncate:QI
          (lshiftrt:HI
           (mult:HI 
-           (zero_extend:HI (match_operand:QI 1 "src_operand" "0,rR,rS<>"))
-           (zero_extend:HI (match_operand:QI 2 "lsrc_operand" "rLm,JR,rS<>")))
+           (zero_extend:HI (match_operand:QI 1
+			    "nonimmediate_src_operand" "0,rR,rS<>"))
+           (zero_extend:HI (match_operand:QI 2
+			    "nonimmediate_lsrc_operand" "rm,R,rS<>")))
           (const_int 32))))]
   "! TARGET_C3X && valid_operands (MULT, operands, QImode)"
   "@
@@ -6452,7 +6456,7 @@
 
 (define_insn "zero_extendqihi2"
   [(set (match_operand:HI 0 "reg_operand" "=?dc")
-        (zero_extend:HI (match_operand:QI 1 "src_operand" "rIm")))
+        (zero_extend:HI (match_operand:QI 1 "nonimmediate_src_operand" "rm")))
    (clobber (reg:CC 21))]
   ""
   "#"
@@ -6462,7 +6466,7 @@
 ; the first set.
 (define_split
   [(set (match_operand:HI 0 "reg_operand" "")
-        (zero_extend:HI (match_operand:QI 1 "src_operand" "")))
+        (zero_extend:HI (match_operand:QI 1 "nonimmediate_src_operand" "")))
    (clobber (reg:CC 21))]
   "reload_completed"
   [(set (match_dup 2) (match_dup 1))

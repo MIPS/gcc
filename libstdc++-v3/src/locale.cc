@@ -1,4 +1,5 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,12 +32,10 @@
 #include <cctype>
 #include <limits>
 #include <exception>
-#include <stdexcept>
 #include <locale>
 #include <istream>
 #include <ostream>
 #include <vector>
-#include <memory>      // for auto_ptr
 #ifdef _GLIBCPP_USE_WCHAR_T  
 # include <cwctype>     // for towupper, etc.
 #endif
@@ -64,7 +63,7 @@ namespace std
   const size_t 			locale::_S_num_categories;
   const size_t 			locale::_S_num_facets;
 
-  // Definitions for locale::id of standard facets. 
+  // Definitions for locale::id of standard facets that are specialized.
   locale::id ctype<char>::id;
   locale::id codecvt<char, char, mbstate_t>::id;
 
@@ -581,14 +580,4 @@ namespace std
       *__fptr++ = __mod;
     *__fptr = '\0';
   }
-  
-  template<>
-    moneypunct_byname<char, false>::moneypunct_byname(const char*, 
-						      size_t __refs)
-    : moneypunct<char, false>(__refs) { }
-  
-  template<>
-    moneypunct_byname<char, true>::moneypunct_byname(const char*, 
-						     size_t __refs)
-    : moneypunct<char, true>(__refs) { }
 } // namespace std

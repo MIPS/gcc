@@ -49,7 +49,7 @@ DEFTREECODE (ERROR_MARK, "error_mark", 'x', 0)
    Internally it looks like a STRING_CST node.
    There is only one IDENTIFIER_NODE ever made for any particular name.
    Use `get_identifier' to get it (or create it, the first time).  */
-DEFTREECODE (IDENTIFIER_NODE, "identifier_node", 'x', -1)
+DEFTREECODE (IDENTIFIER_NODE, "identifier_node", 'x', ((LANG_HOOKS_IDENTIFIER_SIZE - sizeof (struct tree_common) + sizeof (tree) - 1) / sizeof (tree)))
 
 /* Has the TREE_VALUE and TREE_PURPOSE fields.  */
 /* These nodes are made into lists by chaining through the
@@ -268,6 +268,9 @@ DEFTREECODE (REAL_CST, "real_cst", 'c', 3)
    whose contents are other constant nodes.
    Also there is TREE_CST_RTL.  */
 DEFTREECODE (COMPLEX_CST, "complex_cst", 'c', 3)
+
+/* Contents are in TREE_VECTOR_CST_ELTS field.  */
+DEFTREECODE (VECTOR_CST, "vector_cst", 'c', 3)     
 
 /* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields.
    Also there is TREE_CST_RTL.  */

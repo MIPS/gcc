@@ -323,8 +323,6 @@ static tree named_labels;
 static tree shadowed_labels;
 #endif
 
-int flag_traditional;
-
 tree java_global_trees[JTI_MAX];
   
 /* Build (and pushdecl) a "promoted type" for all standard
@@ -607,6 +605,7 @@ java_init_decl_processing ()
   one_elt_array_domain_type = build_index_type (integer_one_node);
   otable_type = build_array_type (integer_type_node, 
 				  one_elt_array_domain_type);
+  TYPE_NONALIASED_COMPONENT (otable_type) = 1;
   otable_ptr_type = build_pointer_type (otable_type);
 
   method_symbol_type = make_node (RECORD_TYPE);
@@ -682,6 +681,10 @@ java_init_decl_processing ()
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
+
+  /* Hash synchronization requires at least double-word alignment. */
+  if (flag_hash_synchronization && POINTER_SIZE < 64)
+    TYPE_ALIGN (class_type_node) = 64;
 
   FINISH_RECORD (class_type_node);
   build_decl (TYPE_DECL, get_identifier ("Class"), class_type_node);
@@ -909,8 +912,7 @@ java_init_decl_processing ()
   init_jcf_parse ();
 
   /* Register nodes with the garbage collector.  */
-  ggc_add_tree_root (java_global_trees, 
-		     sizeof (java_global_trees) / sizeof (tree));
+  ggc_add_tree_root (java_global_trees, ARRAY_SIZE (java_global_trees));
   ggc_add_tree_root (&decl_map, 1);
   ggc_add_tree_root (&pending_local_decls, 1);
 
@@ -1545,13 +1547,20 @@ set_block (block)
 /* integrate_decl_tree calls this function. */
 
 void
-copy_lang_decl (node)
+java_dup_lang_specific_decl (node)
      tree node;
 {
-  int lang_decl_size
-    = TREE_CODE (node) == VAR_DECL ? sizeof (struct lang_decl_var)
-    : sizeof (struct lang_decl);
-  struct lang_decl *x = (struct lang_decl *) ggc_alloc (lang_decl_size);
+  int lang_decl_size;
+  struct lang_decl *x;
+
+  if (!DECL_LANG_SPECIFIC (node))
+    return;
+
+  if (TREE_CODE (node) == VAR_DECL)
+    lang_decl_size = sizeof (struct lang_decl_var);
+  else
+    lang_decl_size = sizeof (struct lang_decl);
+  x = (struct lang_decl *) ggc_alloc (lang_decl_size);
   memcpy (x, DECL_LANG_SPECIFIC (node), lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
 }

@@ -424,6 +424,33 @@ do_SUBST (into, newval)
   if (oldval == newval)
     return;
 
+  /* We'd like to catch as many invalid transformations here as
+     possible.  Unfortunately, there are way too many mode changes
+     that are perfectly valid, so we'd waste too much effort for
+     little gain doing the checks here.  Focus on catching invalid
+     transformations involving integer constants.  */
+  if (GET_MODE_CLASS (GET_MODE (oldval)) == MODE_INT
+      && GET_CODE (newval) == CONST_INT)
+    {
+      /* Sanity check that we're replacing oldval with a CONST_INT
+	 that is a valid sign-extension for the original mode.  */
+      if (INTVAL (newval) != trunc_int_for_mode (INTVAL (newval),
+						 GET_MODE (oldval)))
+	abort ();
+
+      /* Replacing the operand of a SUBREG or a ZERO_EXTEND with a
+	 CONST_INT is not valid, because after the replacement, the
+	 original mode would be gone.  Unfortunately, we can't tell
+	 when do_SUBST is called to replace the operand thereof, so we
+	 perform this test on oldval instead, checking whether an
+	 invalid replacement took place before we got here.  */
+      if ((GET_CODE (oldval) == SUBREG
+	   && GET_CODE (SUBREG_REG (oldval)) == CONST_INT)
+	  || (GET_CODE (oldval) == ZERO_EXTEND
+	      && GET_CODE (XEXP (oldval, 0)) == CONST_INT))
+	abort ();
+     }
+
   if (undobuf.frees)
     buf = undobuf.frees, undobuf.frees = buf->next;
   else
@@ -712,14 +739,16 @@ combine_instructions (f, nregs)
 	  ;
 	}
     }
+  clear_bb_flags ();
 
+  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, this_basic_block,
+			     BASIC_BLOCK (this_basic_block)->flags |= BB_DIRTY);
+  new_direct_jump_p |= purge_all_dead_edges (0);
   delete_noop_moves (f);
 
-  if (need_refresh)
-    {
-      update_life_info (refresh_blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			PROP_DEATH_NOTES);
-    }
+  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+				    PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
+				    | PROP_KILL_DEAD_CODE);
 
   /* Clean up.  */
   sbitmap_free (refresh_blocks);
@@ -3505,7 +3534,24 @@ subst (x, from, to, in_dest, unique_copy)
 	      if (GET_CODE (new) == CLOBBER && XEXP (new, 0) == const0_rtx)
 		return new;
 
-	      SUBST (XEXP (x, i), new);
+	      if (GET_CODE (new) == CONST_INT && GET_CODE (x) == SUBREG)
+		{
+		  x = simplify_subreg (GET_MODE (x), new,
+				       GET_MODE (SUBREG_REG (x)),
+				       SUBREG_BYTE (x));
+		  if (! x)
+		    abort ();
+		}
+	      else if (GET_CODE (new) == CONST_INT
+		       && GET_CODE (x) == ZERO_EXTEND)
+		{
+		  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+						new, GET_MODE (XEXP (x, 0)));
+		  if (! x)
+		    abort ();
+		}
+	      else
+		SUBST (XEXP (x, i), new);
 	    }
 	}
     }
@@ -3934,12 +3980,14 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (GET_CODE (XEXP (x, 0)) == NOT)
 	return plus_constant (XEXP (XEXP (x, 0), 0), 1);
 
-      /* (neg (minus X Y)) can become (minus Y X).  */
+      /* (neg (minus X Y)) can become (minus Y X).  This transformation
+	 isn't safe for modes with signed zeros, since if X and Y are
+	 both +0, (minus Y X) is the same as (minus X Y).  If the rounding
+	 mode is towards +infinity (or -infinity) then the two expressions
+	 will be rounded differently.  */
       if (GET_CODE (XEXP (x, 0)) == MINUS
-	  && (! FLOAT_MODE_P (mode)
-	      /* x-y != -(y-x) with IEEE floating point.  */
-	      || TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	      || flag_unsafe_math_optimizations))
+	  && !HONOR_SIGNED_ZEROS (mode)
+	  && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
 	return gen_binary (MINUS, mode, XEXP (XEXP (x, 0), 1),
 			   XEXP (XEXP (x, 0), 0));
 
@@ -4101,10 +4149,11 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (XEXP (x, 1) == const0_rtx)
 	return XEXP (x, 0);
 
-      /* In IEEE floating point, x-0 is not the same as x.  */
-      if ((TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	   || ! FLOAT_MODE_P (GET_MODE (XEXP (x, 0)))
-	   || flag_unsafe_math_optimizations)
+      /* x - 0 is the same as x unless x's mode has signed zeros and
+	 allows rounding towards -infinity.  Under those conditions,
+	 0 - 0 is -0.  */
+      if (!(HONOR_SIGNED_ZEROS (GET_MODE (XEXP (x, 0)))
+	    && HONOR_SIGN_DEPENDENT_ROUNDING (GET_MODE (XEXP (x, 0))))
 	  && XEXP (x, 1) == CONST0_RTX (GET_MODE (XEXP (x, 0))))
 	return XEXP (x, 0);
       break;
@@ -5983,6 +6032,9 @@ make_extraction (mode, inner, pos, pos_rtx, len,
       if (mode == tmode)
 	return new;
 
+      if (GET_CODE (new) == CONST_INT)
+	return GEN_INT (trunc_int_for_mode (INTVAL (new), mode));
+
       /* If we know that no extraneous bits are set, and that the high
 	 bit is not set, convert the extraction to the cheaper of
 	 sign and zero extension, that are equivalent in these cases.  */
@@ -7430,6 +7482,50 @@ known_cond (x, cond, reg, val)
 	    }
 	}
     }
+  else if (code == SUBREG)
+    {
+      enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
+      rtx new, r = known_cond (SUBREG_REG (x), cond, reg, val);
+
+      if (SUBREG_REG (x) != r)
+	{
+	  /* We must simplify subreg here, before we lose track of the
+	     original inner_mode.  */
+	  new = simplify_subreg (GET_MODE (x), r,
+				 inner_mode, SUBREG_BYTE (x));
+	  if (new)
+	    return new;
+	  else
+	    SUBST (SUBREG_REG (x), r);
+	}
+
+      return x;
+    }
+  /* We don't have to handle SIGN_EXTEND here, because even in the
+     case of replacing something with a modeless CONST_INT, a
+     CONST_INT is already (supposed to be) a valid sign extension for
+     its narrower mode, which implies it's already properly
+     sign-extended for the wider mode.  Now, for ZERO_EXTEND, the
+     story is different.  */
+  else if (code == ZERO_EXTEND)
+    {
+      enum machine_mode inner_mode = GET_MODE (XEXP (x, 0));
+      rtx new, r = known_cond (XEXP (x, 0), cond, reg, val);
+
+      if (XEXP (x, 0) != r)
+	{
+	  /* We must simplify the zero_extend here, before we lose
+             track of the original inner_mode.  */
+	  new = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+					  r, inner_mode);
+	  if (new)
+	    return new;
+	  else
+	    SUBST (XEXP (x, 0), r);
+	}
+
+      return x;
+    }
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -8182,7 +8278,7 @@ nonzero_bits (x, mode)
 	 been zero-extended, we know that at least the high-order bits
 	 are zero, though others might be too.  */
 
-      if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x))
+      if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x) > 0)
 	nonzero = (GET_MODE_MASK (GET_MODE (x))
 		   & nonzero_bits (SUBREG_REG (x), GET_MODE (x)));
 
@@ -10797,6 +10893,11 @@ simplify_comparison (code, pop0, pop1)
 		  || (floor_log2 (const_op) + INTVAL (XEXP (op0, 1))
 		      < mode_width)))
 	    {
+	      /* If the shift was logical, then we must make the condition
+		 unsigned.  */
+	      if (GET_CODE (op0) == LSHIFTRT)
+		code = unsigned_condition (code);
+
 	      const_op <<= INTVAL (XEXP (op0, 1));
 	      op1 = GEN_INT (const_op);
 	      op0 = XEXP (op0, 0);
@@ -11237,7 +11338,7 @@ record_promoted_value (insn, subreg)
 
       if (reg_last_set[regno] == insn)
 	{
-	  if (SUBREG_PROMOTED_UNSIGNED_P (subreg))
+	  if (SUBREG_PROMOTED_UNSIGNED_P (subreg) > 0)
 	    reg_last_set_nonzero_bits[regno] &= GET_MODE_MASK (mode);
 	}
 
@@ -11584,6 +11685,7 @@ mark_used_regs_combine (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case PC:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:

@@ -25,6 +25,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "insn-config.h"
+#include "recog.h"
 #include "tm_p.h"
 
 /* Forward declarations */
@@ -64,6 +66,7 @@ rtx_unstable_p (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -139,6 +142,7 @@ rtx_varies_p (x, for_alias)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -502,6 +506,7 @@ count_occurrences (x, find, count_dest)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -580,7 +585,8 @@ reg_mentioned_p (reg, in)
 
     case CONST_INT:
       return GET_CODE (reg) == CONST_INT && INTVAL (in) == INTVAL (reg);
-      
+
+    case CONST_VECTOR:
     case CONST_DOUBLE:
       /* These are kept unique for a given value.  */
       return 0;
@@ -829,6 +835,7 @@ regs_set_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -875,6 +882,7 @@ modified_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -930,6 +938,7 @@ modified_in_p (x, insn)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2021,6 +2030,7 @@ volatile_insn_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2087,6 +2097,7 @@ volatile_refs_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2153,6 +2164,7 @@ side_effects_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2231,6 +2243,7 @@ may_trap_p (x)
       /* Handle these cases quickly.  */
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST:
@@ -2339,6 +2352,7 @@ inequality_comparisons_p (x)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -2405,6 +2419,40 @@ replace_rtx (x, from, to)
   if (x == 0)
     return 0;
 
+  if (GET_CODE (x) == SUBREG)
+    {
+      rtx new = replace_rtx (SUBREG_REG (x), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_subreg (GET_MODE (x), new,
+			       GET_MODE (SUBREG_REG (x)),
+			       SUBREG_BYTE (x));
+	  if (! x)
+	    abort ();
+	}
+      else
+	SUBREG_REG (x) = new;
+
+      return x;
+    }
+  else if (GET_CODE (x) == ZERO_EXTEND)
+    {
+      rtx new = replace_rtx (XEXP (x, 0), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+					new, GET_MODE (XEXP (x, 0)));
+	  if (! x)
+	    abort ();
+	}
+      else
+	XEXP (x, 0) = new;
+
+      return x;
+    }
+
   fmt = GET_RTX_FORMAT (GET_CODE (x));
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
     {
@@ -2452,6 +2500,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2542,6 +2591,7 @@ computed_jump_p_1 (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case REG:
       return 1;
@@ -3070,4 +3120,37 @@ find_first_parameter_load (call_insn, boundary)
         note_stores (PATTERN (before), parms_set, &parm);
     }
   return before;
+}
+
+/* Return true if we should avoid inserting code between INSN and preceeding
+   call instruction.  */
+
+bool
+keep_with_call_p (insn)
+     rtx insn;
+{
+  rtx set;
+
+  if (INSN_P (insn) && (set = single_set (insn)) != NULL)
+    {
+      if (GET_CODE (SET_DEST (set)) == REG
+	  && fixed_regs[REGNO (SET_DEST (set))]
+	  && general_operand (SET_SRC (set), VOIDmode))
+	return true;
+      if (GET_CODE (SET_SRC (set)) == REG
+	  && FUNCTION_VALUE_REGNO_P (REGNO (SET_SRC (set)))
+	  && GET_CODE (SET_DEST (set)) == REG
+	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER)
+	return true;
+      /* There may be a stack pop just after the call and before the store
+	 of the return register.  Search for the actual store when deciding
+	 if we can break or not.  */
+      if (SET_DEST (set) == stack_pointer_rtx)
+	{
+	  rtx i2 = next_nonnote_insn (insn);
+	  if (i2 && keep_with_call_p (i2))
+	    return true;
+	}
+    }
+  return false;
 }

@@ -950,6 +950,8 @@ stack_adjust_offset (pattern)
 	return 0;
 
       offset = INTVAL (XEXP (src, 1));
+      if (code == PLUS)
+	offset = -offset;
     }
   else if (GET_CODE (dest) == MEM)
     {
@@ -957,29 +959,46 @@ stack_adjust_offset (pattern)
       src = XEXP (dest, 0);
       code = GET_CODE (src);
 
-      if ((code != PRE_DEC && code != PRE_INC && code != PRE_MODIFY)
-	  || XEXP (src, 0) != stack_pointer_rtx)
-	return 0;
+      switch (code) 
+        {
+	case PRE_MODIFY:
+	case POST_MODIFY:
+	  if (XEXP (src, 0) == stack_pointer_rtx)
+	    {
+	      rtx val = XEXP (XEXP (src, 1), 1);
+	      /* We handle only adjustments by constant amount.  */
+	      if (GET_CODE (XEXP (src, 1)) != PLUS ||
+		  GET_CODE (val) != CONST_INT)
+		abort();
+	      offset = -INTVAL (val);
+	      break;
+	    }
+	  return 0;
 
-      if (code == PRE_MODIFY)
-	{
-	  rtx val = XEXP (XEXP (src, 1), 1);
+	case PRE_DEC:
+	case POST_DEC:
+	  if (XEXP (src, 0) == stack_pointer_rtx)
+	    {
+	      offset = GET_MODE_SIZE (GET_MODE (dest));
+	      break;
+	    }
+	  return 0;
 
-	  /* We handle only adjustments by constant amount.  */
-	  if (GET_CODE (XEXP (src, 1)) != PLUS ||
-	      GET_CODE (val) != CONST_INT)
-	    abort ();
+	case PRE_INC:
+	case POST_INC:
+	  if (XEXP (src, 0) == stack_pointer_rtx)
+	    {
+	      offset = -GET_MODE_SIZE (GET_MODE (dest));
+	      break;
+	    }
+	  return 0;
 
-	  offset = -INTVAL (val);
+	default:
+	  return 0;
 	}
-      else
-	offset = GET_MODE_SIZE (GET_MODE (dest));
     }
   else
     return 0;
-
-  if (code == PLUS || code == PRE_INC)
-    offset = -offset;
 
   return offset;
 }
@@ -3083,7 +3102,7 @@ static void dwarf2out_abstract_function PARAMS ((tree));
 
 /* The debug hooks structure.  */
 
-struct gcc_debug_hooks dwarf2_debug_hooks =
+const struct gcc_debug_hooks dwarf2_debug_hooks =
 {
   dwarf2out_init,
   dwarf2out_finish,
@@ -3234,8 +3253,6 @@ limbo_die_node;
 /* Information concerning the compilation unit's programming
    language, and compiler version.  */
 
-extern int flag_traditional;
-
 /* Fixed size portion of the DWARF compilation unit header.  */
 #define DWARF_COMPILE_UNIT_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 3)
 
@@ -3263,16 +3280,6 @@ extern int flag_traditional;
 #else
 #define DWARF2_ASM_LINE_DEBUG_INFO 0
 #endif
-#endif
-
-/* Define the architecture-dependent minimum instruction length (in bytes).
-   In this implementation of DWARF, this field is used for information
-   purposes only.  Since GCC generates assembly language, we have
-   no a priori knowledge of how many instruction bytes are generated
-   for each source line, and therefore can use only the  DW_LNE_set_address
-   and DW_LNS_fixed_advance_pc line information commands.  */
-#ifndef DWARF_LINE_MIN_INSTR_LENGTH
-#define DWARF_LINE_MIN_INSTR_LENGTH 4
 #endif
 
 /* Minimum line offset in a special line info. opcode.
@@ -7031,8 +7038,17 @@ output_line_info ()
   dw2_asm_output_delta (DWARF_OFFSET_SIZE, p2, p1, "Prolog Length");
   ASM_OUTPUT_LABEL (asm_out_file, p1);
 
-  dw2_asm_output_data (1, DWARF_LINE_MIN_INSTR_LENGTH,
+  /* Define the architecture-dependent minimum instruction length (in
+   bytes).  In this implementation of DWARF, this field is used for
+   information purposes only.  Since GCC generates assembly language,
+   we have no a priori knowledge of how many instruction bytes are
+   generated for each source line, and therefore can use only the
+   DW_LNE_set_address and DW_LNS_fixed_advance_pc line information
+   commands.  Accordingly, we fix this as `1', which is "correct
+   enough" for all architectures, and don't let the target override.  */
+  dw2_asm_output_data (1, 1,
 		       "Minimum Instruction Length");
+
   dw2_asm_output_data (1, DWARF_LINE_DEFAULT_IS_STMT_START,
 		       "Default is_stmt_start flag");
   dw2_asm_output_data (1, DWARF_LINE_BASE,
@@ -7566,7 +7582,12 @@ modified_type_die (type, is_const_type, is_volatile_type, context_die)
 	     copy was created to help us keep track of typedef names) and
 	     that copy might have a different TYPE_UID from the original
 	     ..._TYPE node.  */
-	  mod_type_die = lookup_type_die (type_main_variant (type));
+	  if (TREE_CODE (type) != VECTOR_TYPE)
+	    mod_type_die = lookup_type_die (type_main_variant (type));
+	  else
+	    /* Vectors have the debugging information in the type,
+	       not the main variant.  */
+	    mod_type_die = lookup_type_die (type);
 	  if (mod_type_die == NULL)
 	    abort ();
 	}
@@ -7801,10 +7822,24 @@ mem_loc_descriptor (rtl, mode)
 	 by a different symbol.  */
       if (GET_CODE (rtl) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (rtl))
 	{
-	  rtx tmp = get_pool_constant (rtl);
+	  bool marked;
+	  rtx tmp = get_pool_constant_mark (rtl, &marked);
 
 	  if (GET_CODE (tmp) == SYMBOL_REF)
-	    rtl = tmp;
+	    {
+	      rtl = tmp;
+	      if (CONSTANT_POOL_ADDRESS_P (tmp))
+		get_pool_constant_mark (tmp, &marked);
+	      else
+		marked = true;
+	    }
+
+	  /* If all references to this pool constant were optimized away,
+	     it was not output and thus we can't represent it.
+	     FIXME: might try to use DW_OP_const_value here, though
+	     DW_OP_piece complicates it.  */
+	  if (!marked)
+	    return 0;
 	}
 
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
@@ -8884,8 +8919,38 @@ rtl_for_decl_location (decl)
      and will have been substituted directly into all expressions that use it.
      C does not have such a concept, but C++ and other languages do.  */
   else if (TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
-    rtl = expand_expr (DECL_INITIAL (decl), NULL_RTX, VOIDmode,
-		       EXPAND_INITIALIZER);
+    {
+      /* If a variable is initialized with a string constant without embedded
+	 zeros, build CONST_STRING.  */
+      if (TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
+	  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+	{
+	  tree arrtype = TREE_TYPE (decl);
+	  tree enttype = TREE_TYPE (arrtype);
+	  tree domain = TYPE_DOMAIN (arrtype);
+	  tree init = DECL_INITIAL (decl);
+	  enum machine_mode mode = TYPE_MODE (enttype);
+
+	  if (GET_MODE_CLASS (mode) == MODE_INT && GET_MODE_SIZE (mode) == 1
+	      && domain
+	      && integer_zerop (TYPE_MIN_VALUE (domain))
+	      && compare_tree_int (TYPE_MAX_VALUE (domain),
+				   TREE_STRING_LENGTH (init) - 1) == 0
+	      && ((size_t) TREE_STRING_LENGTH (init)
+		  == strlen (TREE_STRING_POINTER (init)) + 1))
+	    rtl = gen_rtx_CONST_STRING (VOIDmode, TREE_STRING_POINTER (init));
+	}
+
+      if (rtl == NULL)
+	{
+	  rtl = expand_expr (DECL_INITIAL (decl), NULL_RTX, VOIDmode,
+			     EXPAND_INITIALIZER);
+	  /* If expand_expr returned a MEM, we cannot use it, since
+	     it won't be output, leading to unresolved symbol.  */
+	  if (rtl && GET_CODE (rtl) == MEM)
+	    rtl = NULL;
+	}
+    }
 
   return rtl;
 }
@@ -10561,6 +10626,20 @@ gen_inlined_subroutine_die (stmt, context_die, depth)
       decls_for_scope (stmt, subr_die, depth);
       current_function_has_inlines = 1;
     }
+  else
+    /* We may get here if we're the outer block of function A that was
+       inlined into function B that was inlined into function C.  When
+       generating debugging info for C, dwarf2out_abstract_function(B)
+       would mark all inlined blocks as abstract, including this one.
+       So, we wouldn't (and shouldn't) expect labels to be generated
+       for this one.  Instead, just emit debugging info for
+       declarations within the block.  This is particularly important
+       in the case of initializers of arguments passed from B to us:
+       if they're statement expressions containing declarations, we
+       wouldn't generate dies for their abstract variables, and then,
+       when generating dies for the real variables, we'd die (pun
+       intended :-)  */
+    gen_lexical_block_die (stmt, context_die, depth);
 }
 
 /* Generate a DIE for a field in a record, or structure.  */
@@ -10694,8 +10773,6 @@ gen_compile_unit_die (filename)
     language = DW_LANG_Pascal83;
   else if (strcmp (language_string, "GNU Java") == 0)
     language = DW_LANG_Java;
-  else if (flag_traditional)
-    language = DW_LANG_C;
   else
     language = DW_LANG_C89;
 
@@ -10963,10 +11040,13 @@ gen_type_die (type, context_die)
   if (type == NULL_TREE || type == error_mark_node)
     return;
 
-  /* We are going to output a DIE to represent the unqualified version of
-     this type (i.e. without any const or volatile qualifiers) so get the
-     main variant (i.e. the unqualified version) of this type now.  */
-  type = type_main_variant (type);
+  /* We are going to output a DIE to represent the unqualified version
+     of this type (i.e. without any const or volatile qualifiers) so
+     get the main variant (i.e. the unqualified version) of this type
+     now.  (Vectors are special because the debugging info is in the
+     cloned type itself).  */
+  if (TREE_CODE (type) != VECTOR_TYPE)
+    type = type_main_variant (type);
 
   if (TREE_ASM_WRITTEN (type))
     return;

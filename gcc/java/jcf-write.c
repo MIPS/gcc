@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -685,6 +685,8 @@ get_access_flags (decl)
       if (ANONYMOUS_CLASS_P (TREE_TYPE (decl))
 	  || LOCAL_CLASS_P (TREE_TYPE (decl)))
 	flags |= ACC_PRIVATE;
+      if (CLASS_STRICTFP (decl))
+	flags |= ACC_STRICT;
     }
   else
     abort ();
@@ -699,6 +701,8 @@ get_access_flags (decl)
 	flags |= ACC_SYNCHRONIZED;
       if (METHOD_ABSTRACT (decl))
 	flags |= ACC_ABSTRACT;
+      if (METHOD_STRICTFP (decl))
+	flags |= ACC_STRICT;
     }
   if (isfield)
     {
@@ -3366,14 +3370,14 @@ write_classfile (clas)
     {
       FILE *stream = fopen (class_file_name, "wb");
       if (stream == NULL)
-	fatal_io_error ("can't to open %s", class_file_name);
+	fatal_io_error ("can't open %s for writing", class_file_name);
 
       jcf_dependency_add_target (class_file_name);
       init_jcf_state (state, work);
       chunks = generate_classfile (clas, state);
       write_chunks (stream, chunks);
       if (fclose (stream))
-	fatal_io_error ("can't close %s", class_file_name);
+	fatal_io_error ("error closing %s", class_file_name);
       free (class_file_name);
     }
   release_jcf_state (state);

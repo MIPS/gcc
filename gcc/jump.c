@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -704,11 +704,6 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
       break;
     }
 
-  /* In case we give up IEEE compatibility, all comparisons are reversible.  */
-  if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-      || flag_unsafe_math_optimizations)
-    return reverse_condition (code);
-
   if (GET_MODE_CLASS (mode) == MODE_CC
 #ifdef HAVE_cc0
       || arg0 == cc0_rtx
@@ -757,11 +752,12 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
 	}
     }
 
-  /* An integer condition.  */
+  /* Test for an integer condition, or a floating-point comparison
+     in which NaNs can be ignored.  */
   if (GET_CODE (arg0) == CONST_INT
       || (GET_MODE (arg0) != VOIDmode
 	  && GET_MODE_CLASS (mode) != MODE_CC
-	  && ! FLOAT_MODE_P (mode)))
+	  && !HONOR_NANS (mode)))
     return reverse_condition (code);
 
   return UNKNOWN;
@@ -840,10 +836,6 @@ enum rtx_code
 reverse_condition_maybe_unordered (code)
      enum rtx_code code;
 {
-  /* Non-IEEE formats don't have unordered conditions.  */
-  if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
-    return reverse_condition (code);
-
   switch (code)
     {
     case EQ:
@@ -1913,13 +1905,12 @@ delete_for_peephole (from, to)
    so it's possible to get spurious warnings from this.  */
 
 void
-never_reached_warning (avoided_insn)
-     rtx avoided_insn;
+never_reached_warning (avoided_insn, finish)
+     rtx avoided_insn, finish;
 {
   rtx insn;
   rtx a_line_note = NULL;
-  int two_avoided_lines = 0;
-  int contains_insn = 0;
+  int two_avoided_lines = 0, contains_insn = 0, reached_end = 0;
 
   if (! warn_notreached)
     return;
@@ -1929,10 +1920,11 @@ never_reached_warning (avoided_insn)
 
   for (insn = avoided_insn; insn != NULL; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (finish == NULL && GET_CODE (insn) == CODE_LABEL)
 	break;
-      else if (GET_CODE (insn) == NOTE		/* A line number note?  */
-	       && NOTE_LINE_NUMBER (insn) >= 0)
+
+      if (GET_CODE (insn) == NOTE		/* A line number note?  */
+	  && NOTE_LINE_NUMBER (insn) >= 0)
 	{
 	  if (a_line_note == NULL)
 	    a_line_note = insn;
@@ -1941,7 +1933,14 @@ never_reached_warning (avoided_insn)
 				  != NOTE_LINE_NUMBER (insn));
 	}
       else if (INSN_P (insn))
-	contains_insn = 1;
+	{
+	  if (reached_end)
+	    break;
+	  contains_insn = 1;
+	}
+
+      if (insn == finish)
+	reached_end = 1;
     }
   if (two_avoided_lines && contains_insn)
     warning_with_file_and_line (NOTE_SOURCE_FILE (a_line_note),
@@ -2084,7 +2083,9 @@ redirect_jump (jump, nlabel, delete_unused)
       && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END)
     emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
-  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused)
+  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused
+      /* Undefined labels will remain outside the insn stream.  */
+      && INSN_UID (olabel))
     delete_related_insns (olabel);
 
   return 1;

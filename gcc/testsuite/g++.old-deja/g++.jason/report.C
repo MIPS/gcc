@@ -2,6 +2,8 @@
 // GROUPS passed error-reporting
 // Special g++ Options: -Wreturn-type
 
+// DR 295 allows qualification via typedef
+
 template <char C>
 class badoo
 {
@@ -44,7 +46,8 @@ class X{
 };
 
 typedef int const * bart ();
-typedef bart const * const * bar2; // ERROR - qualifiers
+typedef bart const * const * bar2; // ok - constifying qualifiers
+typedef bart volatile * const * bar2v; // WARNING - qualifiers
 
 bar2 baz (X::Y y)
 {				// ERROR - in this context
@@ -52,7 +55,7 @@ bar2 baz (X::Y y)
   bar2 wa [5];
   wa[0] = baz(f);
   undef2 (1); // ERROR - implicit declaration
-} // ERROR - non-void
+}
 
 int ninny ()
 {
@@ -67,4 +70,4 @@ int ninny ()
 int darg (char X::*p)
 {
    undef3 (1); // ERROR - implicit declaration
-} // ERROR - non-void
+}

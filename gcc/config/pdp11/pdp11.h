@@ -131,7 +131,6 @@ extern int target_flags;
 
 
 /* TYPE SIZES */
-#define CHAR_TYPE_SIZE		8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		(TARGET_INT16 ? 16 : 32)
 #define LONG_TYPE_SIZE		32
@@ -165,16 +164,6 @@ extern int target_flags;
 /* Define this if most significant word of a multiword number is numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-/*  This is a machine with 16-bit registers */
-#define BITS_PER_WORD 16
-
 /* Width of a word, in units (bytes). 
 
    UNITS OR BYTES - seems like units */
@@ -183,10 +172,6 @@ extern int target_flags;
 /* Maximum sized of reasonable data type 
    DImode or Dfmode ...*/
 #define MAX_FIXED_MODE_SIZE 64	
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 16
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 16

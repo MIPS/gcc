@@ -52,11 +52,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 enum bb_flags
 {
-    /* Set if life info needs to be recomputed for given BB.  */
-    BB_UPDATE_LIFE = 1,
     /* Set if BB is the forwarder block to avoid too many
        forwarder_block_p calls.  */
-    BB_FORWARDER_BLOCK = 2
+    BB_FORWARDER_BLOCK = 1
 };
 
 #define BB_FLAGS(BB) (enum bb_flags) (BB)->aux
@@ -91,6 +89,7 @@ static edge thread_jump			PARAMS ((int, edge, basic_block));
 static bool mark_effect			PARAMS ((rtx, bitmap));
 static void notice_new_block		PARAMS ((basic_block));
 static void update_forwarder_flag	PARAMS ((basic_block));
+static int mentions_nonequal_regs	PARAMS ((rtx *, void *));
 
 /* Set flags for newly created block.  */
 
@@ -101,7 +100,6 @@ notice_new_block (bb)
   if (!bb)
     return;
 
-  BB_SET_FLAG (bb, BB_UPDATE_LIFE);
   if (forwarder_block_p (bb))
     BB_SET_FLAG (bb, BB_FORWARDER_BLOCK);
 }
@@ -238,6 +236,32 @@ mark_effect (exp, nonequal)
 	return false;
     }
 }
+
+/* Return nonzero if X is an register set in regset DATA.
+   Called via for_each_rtx.  */
+static int
+mentions_nonequal_regs (x, data)
+     rtx *x;
+     void *data;
+{
+  regset nonequal = (regset) data;
+  if (REG_P (*x))
+    {
+      int regno;
+
+      regno = REGNO (*x);
+      if (REGNO_REG_SET_P (nonequal, regno))
+	return 1;
+      if (regno < FIRST_PSEUDO_REGISTER)
+	{
+	  int n = HARD_REGNO_NREGS (regno, GET_MODE (*x));
+	  while (--n > 0)
+	    if (REGNO_REG_SET_P (nonequal, regno + n))
+	      return 1;
+	}
+    }
+  return 0;
+}
 /* Attempt to prove that the basic block B will have no side effects and
    allways continues in the same edge if reached via E.  Return the edge
    if exist, NULL otherwise.  */
@@ -339,6 +363,11 @@ thread_jump (mode, e, b)
   /* Later we should clear nonequal of dead registers.  So far we don't
      have life information in cfg_cleanup.  */
   if (failed)
+    goto failed_exit;
+
+  /* cond2 must not mention any register that is not equal to the
+     former block.  */
+  if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
     goto failed_exit;
 
   /* In case liveness information is available, we need to prove equivalence
@@ -519,7 +548,6 @@ try_forward_edges (mode, b)
 
 	  if (!FORWARDER_BLOCK_P (b) && forwarder_block_p (b))
 	    BB_SET_FLAG (b, BB_FORWARDER_BLOCK);
-	  BB_SET_FLAG (b, BB_UPDATE_LIFE);
 
 	  do
 	    {
@@ -663,7 +691,7 @@ merge_blocks_move_predecessor_nojumps (a, b)
   /* Scramble the insn chain.  */
   if (a->end != PREV_INSN (b->head))
     reorder_insns_nobb (a->head, a->end, PREV_INSN (b->head));
-  BB_SET_FLAG (a, BB_UPDATE_LIFE);
+  a->flags |= BB_DIRTY;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Moved block %d before %d and merged.\n",
@@ -731,7 +759,6 @@ merge_blocks_move_successor_nojumps (a, b)
 
   /* Now blocks A and B are contiguous.  Merge them.  */
   merge_blocks_nomove (a, b);
-  BB_SET_FLAG (a, BB_UPDATE_LIFE);
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Moved block %d after %d and merged.\n",
@@ -760,12 +787,6 @@ merge_blocks (e, b, c, mode)
   if (e->flags & EDGE_FALLTHRU)
     {
       int b_index = b->index, c_index = c->index;
-      /* We need to update liveness in case C already has broken liveness
-	 or B ends by conditional jump to next instructions that will be
-	 removed.  */
-      if ((BB_FLAGS (c) & BB_UPDATE_LIFE)
-	  || GET_CODE (b->end) == JUMP_INSN)
-	BB_SET_FLAG (b, BB_UPDATE_LIFE);
       merge_blocks_nomove (b, c);
       update_forwarder_flag (b);
 
@@ -831,8 +852,6 @@ merge_blocks (e, b, c, mode)
 	  bb = force_nonfallthru (b_fallthru_edge);
 	  if (bb)
 	    notice_new_block (bb);
-	  else
-	    BB_SET_FLAG (b_fallthru_edge->src, BB_UPDATE_LIFE);
 	}
 
       merge_blocks_move_predecessor_nojumps (b, c);
@@ -1334,6 +1353,8 @@ try_crossjump_to_edge (mode, e1, e2)
 
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
+  /* We may have some registers visible trought the block.  */
+  redirect_to->flags |= BB_DIRTY;
 
   /* Recompute the frequencies and counts of outgoing edges.  */
   for (s = redirect_to->succ; s; s = s->succ_next)
@@ -1418,7 +1439,6 @@ try_crossjump_to_edge (mode, e1, e2)
     remove_edge (src1->succ);
   make_single_succ_edge (src1, redirect_to, 0);
 
-  BB_SET_FLAG (src1, BB_UPDATE_LIFE);
   update_forwarder_flag (src1);
 
   return true;
@@ -1524,13 +1544,15 @@ try_optimize_cfg (mode)
   bool changed_overall = false;
   bool changed;
   int iterations = 0;
-  sbitmap blocks;
 
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
 
   for (i = 0; i < n_basic_blocks; i++)
     update_forwarder_flag (BASIC_BLOCK (i));
+
+  if (mode & CLEANUP_UPDATE_LIFE)
+    clear_bb_flags ();
 
   if (! (* targetm.cannot_modify_jumps_p) ())
     {
@@ -1633,10 +1655,7 @@ try_optimize_cfg (mode)
 
 	      /* Simplify branch over branch.  */
 	      if ((mode & CLEANUP_EXPENSIVE) && try_simplify_condjump (b))
-		{
-		  BB_SET_FLAG (b, BB_UPDATE_LIFE);
-		  changed_here = true;
-		}
+		changed_here = true;
 
 	      /* If B has a single outgoing edge, but uses a
 		 non-trivial jump instruction without side-effects, we
@@ -1649,7 +1668,6 @@ try_optimize_cfg (mode)
 		  && onlyjump_p (b->end)
 		  && redirect_edge_and_branch (b->succ, b->succ->dest))
 		{
-		  BB_SET_FLAG (b, BB_UPDATE_LIFE);
 		  update_forwarder_flag (b);
 		  changed_here = true;
 		}
@@ -1687,26 +1705,6 @@ try_optimize_cfg (mode)
 
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_edges ();
-
-  if ((mode & CLEANUP_UPDATE_LIFE) && changed_overall)
-    {
-      bool found = 0;
-
-      blocks = sbitmap_alloc (n_basic_blocks);
-      sbitmap_zero (blocks);
-      for (i = 0; i < n_basic_blocks; i++)
-	if (BB_FLAGS (BASIC_BLOCK (i)) & BB_UPDATE_LIFE)
-	  {
-	    found = 1;
-	    SET_BIT (blocks, i);
-	  }
-
-      if (found)
-	update_life_info (blocks, UPDATE_LIFE_GLOBAL,
-			  PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-			  | PROP_KILL_DEAD_CODE);
-      sbitmap_free (blocks);
-    }
 
   for (i = 0; i < n_basic_blocks; i++)
     BASIC_BLOCK (i)->aux = NULL;
@@ -1750,9 +1748,39 @@ cleanup_cfg (mode)
   bool changed = false;
 
   timevar_push (TV_CLEANUP_CFG);
-  changed = delete_unreachable_blocks ();
-  if (try_optimize_cfg (mode))
-    delete_unreachable_blocks (), changed = true;
+  if (delete_unreachable_blocks ())
+    {
+      changed = true;
+      /* We've possibly created trivially dead code.  Cleanup it right
+	 now to introduce more oppurtunities for try_optimize_cfg.  */
+      if (!(mode & (CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
+	  && !reload_completed)
+	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+    }
+  while (try_optimize_cfg (mode))
+    {
+      delete_unreachable_blocks (), changed = true;
+      if (mode & CLEANUP_UPDATE_LIFE)
+	{
+	  /* Cleaning up CFG introduces more oppurtunities for dead code
+	     removal that in turn may introduce more oppurtunities for
+	     cleaning up the CFG.  */
+	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL,
+						 PROP_DEATH_NOTES
+						 | PROP_SCAN_DEAD_CODE
+						 | PROP_KILL_DEAD_CODE
+						 | PROP_LOG_LINKS))
+	    break;
+	}
+      else if (!(mode & CLEANUP_PRE_SIBCALL) && !reload_completed)
+	{
+	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	    break;
+	}
+      else
+	break;
+      delete_dead_jumptables ();
+    }
 
   /* Kill the data we won't maintain.  */
   free_EXPR_LIST_list (&label_value_list);

@@ -221,10 +221,6 @@ extern unsigned xtensa_current_frame_size;
 
 /* Target machine storage layout */
 
-/* Define in order to support both big and little endian float formats
-   in the same gcc binary.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
@@ -235,11 +231,6 @@ extern unsigned xtensa_current_frame_size;
 /* Define this if most significant word of a multiword number is the lowest. */
 #define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN != 0)
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-#define BITS_PER_WORD 32
 #define MAX_BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
@@ -256,11 +247,9 @@ extern unsigned xtensa_current_frame_size;
 #define LONG_TYPE_SIZE 32
 #define MAX_LONG_TYPE_SIZE 32
 #define LONG_LONG_TYPE_SIZE 64
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_DOUBLE_TYPE_SIZE 64
-#define POINTER_SIZE 32
 
 /* Tell the preprocessor the maximum size of wchar_t.  */
 #ifndef MAX_WCHAR_TYPE_SIZE
@@ -1264,7 +1253,7 @@ typedef struct xtensa_args {
 
 /* If we are referencing a function that is static, make the SYMBOL_REF
    special so that we can generate direct calls to it even with -fpic.  */
-#define ENCODE_SECTION_INFO(DECL)					\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
   do {									\
     if (TREE_CODE (DECL) == FUNCTION_DECL && ! TREE_PUBLIC (DECL))	\
       SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
@@ -1666,6 +1655,8 @@ typedef struct xtensa_args {
 	fprintf (FILE, "\t.begin\tliteral_prefix %s\n",			\
 		 strcmp (fnsectname, ".text") ? fnsectname : "");	\
       }									\
+    if ((SIZE) > 0)							\
+      function_section (FUNDECL);  					\
   } while (0)
 
 

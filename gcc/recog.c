@@ -392,6 +392,17 @@ apply_change_group ()
 
   if (i == num_changes)
     {
+      basic_block bb;
+
+      for (i = 0; i < num_changes; i++)
+	if (changes[i].object
+	    && INSN_P (changes[i].object)
+	    && basic_block_for_insn
+	    && ((unsigned int)INSN_UID (changes[i].object)
+		< basic_block_for_insn->num_elements)
+	    && (bb = BLOCK_FOR_INSN (changes[i].object)))
+        bb->flags |= BB_DIRTY;
+
       num_changes = 0;
       return 1;
     }
@@ -753,6 +764,7 @@ find_single_use_1 (dest, loc)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CLOBBER:
       return 0;
 
@@ -1704,16 +1716,6 @@ asm_operand_ok (op, constraint)
 	  break;
 
 	case 'E':
-#ifndef REAL_ARITHMETIC
-	  /* Match any floating double constant, but only if
-	     we can examine the bits of it reliably.  */
-	  if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-	       || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
-	      && GET_MODE (op) != VOIDmode && ! flag_pretend_float)
-	    break;
-#endif
-	  /* FALLTHRU */
-
 	case 'F':
 	  if (GET_CODE (op) == CONST_DOUBLE)
 	    return 1;
@@ -2480,18 +2482,6 @@ constrain_operands (strict)
 		break;
 
 	      case 'E':
-#ifndef REAL_ARITHMETIC
-		/* Match any CONST_DOUBLE, but only if
-		   we can examine the bits of it reliably.  */
-		if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-		     || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
-		    && GET_MODE (op) != VOIDmode && ! flag_pretend_float)
-		  break;
-#endif
-		if (GET_CODE (op) == CONST_DOUBLE)
-		  win = 1;
-		break;
-
 	      case 'F':
 		if (GET_CODE (op) == CONST_DOUBLE)
 		  win = 1;
@@ -3064,6 +3054,7 @@ peephole2_optimize (dump_file)
 	    {
 	      rtx try;
 	      int match_len;
+	      rtx note;
 
 	      /* Record this insn.  */
 	      if (--peep2_current < 0)
@@ -3115,7 +3106,6 @@ peephole2_optimize (dump_file)
 			   note = XEXP (note, 1))
 			switch (REG_NOTE_KIND (note))
 			  {
-			  case REG_EH_REGION:
 			  case REG_NORETURN:
 			  case REG_SETJMP:
 			  case REG_ALWAYS_RETURN:
@@ -3148,6 +3138,27 @@ peephole2_optimize (dump_file)
 		  /* Replace the old sequence with the new.  */
 		  try = emit_insn_after (try, peep2_insn_data[i].insn);
 		  delete_insn_chain (insn, peep2_insn_data[i].insn);
+
+		  /* Re-insert the EH_REGION notes.  */
+		  if (try == bb->end
+		      && (note = find_reg_note (peep2_insn_data[i].insn, 
+						REG_EH_REGION, NULL_RTX)))
+		    {
+		      rtx x;
+		      for (x = NEXT_INSN (peep2_insn_data[i].insn);
+			   x != NEXT_INSN (try); x = NEXT_INSN (x))
+			if (GET_CODE (x) == CALL_INSN
+			    || (flag_non_call_exceptions
+				&& may_trap_p (PATTERN (x))))
+			  REG_NOTES (x)
+			    = gen_rtx_EXPR_LIST (REG_EH_REGION,
+						 XEXP (note, 0),
+						 REG_NOTES (x));
+		    }
+		  /* Converting possibly trapping insn to non-trapping is
+		     possible.  Zap dummy outgoing edges.  */
+		  if (try == bb->end)
+		    purge_dead_edges (bb);
 
 #ifdef HAVE_conditional_execution
 		  /* With conditional execution, we cannot back up the

@@ -158,9 +158,7 @@ java::lang::System::arraycopy (jobject src, jint src_offset,
 jlong
 java::lang::System::currentTimeMillis (void)
 {
-  struct timeval tv;
-  _Jv_platform_gettimeofday (&tv);
-  return (jlong) tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  return _Jv_platform_gettimeofday ();
 }
 
 jint
@@ -304,14 +302,14 @@ java::lang::System::init_properties (void)
   // A mixture of the Java Product Versioning Specification
   // (introduced in 1.2), and earlier versioning properties.
   SET ("java.version", VERSION);
-  SET ("java.vendor", "Free Software Foundation");
+  SET ("java.vendor", "Free Software Foundation, Inc.");
   SET ("java.vendor.url", "http://gcc.gnu.org/java/");
-  SET ("java.class.version", GCJVERSION);
+  SET ("java.class.version", __VERSION__);
   SET ("java.vm.specification.version", "1.1");
   SET ("java.vm.specification.name", "Java(tm) Virtual Machine Specification");
   SET ("java.vm.specification.vendor", "Sun Microsystems Inc.");
-  SET ("java.vm.version", GCJVERSION);
-  SET ("java.vm.vendor", "Free Software Foundation");
+  SET ("java.vm.version", __VERSION__);
+  SET ("java.vm.vendor", "Free Software Foundation, Inc.");
   SET ("java.vm.name", "libgcj");
   SET ("java.specification.version", "1.1");
   SET ("java.specification.name", "Java(tm) Language Specification");

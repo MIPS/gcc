@@ -27,6 +27,12 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D__ELF__ -Dunix -D__hppa__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=hppa -Amachine=hppa -Amachine=bigendian"
 
+#undef	LIB_SPEC
+#define LIB_SPEC \
+  "%{shared: -lgcc -lc} \
+   %{!shared: %{mieee-fp:-lieee} %{pthread:-lpthread} \
+	%{shared-libgcc: -lgcc} %{profile:-lc_p} %{!profile: -lc}}"
+
 #undef ASM_SPEC
 #define ASM_SPEC \
   "%{v:-V} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*}"

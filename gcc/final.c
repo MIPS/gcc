@@ -2965,13 +2965,26 @@ alter_cond (cond)
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
 
 void
-output_operand_lossage (msgid)
-     const char *msgid;
+output_operand_lossage VPARAMS ((const char *msgid, ...))
 {
+  char *fmt_string;
+  char *new_message;
+  const char *pfx_str;
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
+
+  pfx_str = this_is_asm_operands ? _("invalid `asm': ") : "output_operand: ";
+  asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
+  vasprintf (&new_message, fmt_string, ap);
+  
   if (this_is_asm_operands)
-    error_for_asm (this_is_asm_operands, "invalid `asm': %s", _(msgid));
+    error_for_asm (this_is_asm_operands, "%s", new_message);
   else
-    internal_error ("output_operand: %s", _(msgid));
+    internal_error ("%s", new_message);
+
+  free (fmt_string);
+  free (new_message);
+  VA_CLOSE (ap);
 }
 
 /* Output of assembler code from a template, and its subroutines.  */
@@ -3217,7 +3230,7 @@ output_asm_insn (template, operands)
 	    c = atoi (p);
 
 	    if (! ISDIGIT (*p))
-	      output_operand_lossage ("operand number missing after %-letter");
+	      output_operand_lossage ("operand number missing after %%-letter");
 	    else if (this_is_asm_operands
 		     && (c < 0 || (unsigned int) c >= insn_noperands))
 	      output_operand_lossage ("operand number out of range");
@@ -3309,7 +3322,7 @@ output_asm_label (x)
 	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
-    output_operand_lossage ("`%l' operand isn't a label");
+    output_operand_lossage ("`%%l' operand isn't a label");
 
   assemble_name (asm_out_file, buf);
 }
@@ -3758,7 +3771,6 @@ split_double (value, first, second)
     }
   else
     {
-#ifdef REAL_ARITHMETIC
       REAL_VALUE_TYPE r;
       long l[2];
       REAL_VALUE_FROM_CONST_DOUBLE (r, value);
@@ -3787,30 +3799,6 @@ split_double (value, first, second)
 
       *first = GEN_INT ((HOST_WIDE_INT) l[0]);
       *second = GEN_INT ((HOST_WIDE_INT) l[1]);
-#else
-      if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-	   || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
-	  && ! flag_pretend_float)
-	abort ();
-
-      if (
-#ifdef HOST_WORDS_BIG_ENDIAN
-	  WORDS_BIG_ENDIAN
-#else
-	  ! WORDS_BIG_ENDIAN
-#endif
-	  )
-	{
-	  /* Host and target agree => no need to swap.  */
-	  *first = GEN_INT (CONST_DOUBLE_LOW (value));
-	  *second = GEN_INT (CONST_DOUBLE_HIGH (value));
-	}
-      else
-	{
-	  *second = GEN_INT (CONST_DOUBLE_LOW (value));
-	  *first = GEN_INT (CONST_DOUBLE_HIGH (value));
-	}
-#endif /* no REAL_ARITHMETIC */
     }
 }
 

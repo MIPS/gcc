@@ -687,10 +687,6 @@ extern struct sparc_cpu_select sparc_select[];
 
 /* target machine storage layout */
 
-/* Define for cross-compilation to a sparc target with no TFmode from a host
-   with a different float format (e.g. VAX).  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -710,14 +706,6 @@ extern struct sparc_cpu_select sparc_select[];
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		(TARGET_ARCH64 ? 64 : 32)
 #define MAX_BITS_PER_WORD	64
 
 /* Width of a word, in units (bytes).  */
@@ -740,7 +728,7 @@ extern struct sparc_cpu_select sparc_select[];
 #if 0
 /* ??? This does not work in SunOS 4.x, so it is not enabled here.
    Instead, it is enabled in sol2.h, because it does work under Solaris.  */
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 #endif
@@ -996,7 +984,7 @@ if (TARGET_ARCH64				\
 #define CONDITIONAL_REGISTER_USAGE				\
 do								\
   {								\
-    if (flag_pic)						\
+    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
       {								\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
@@ -1151,16 +1139,6 @@ extern int sparc_mode_class[];
       || !leaf_function_p ())				\
    : ! (leaf_function_p () && only_leaf_regs_used ()))
 
-/* C statement to store the difference between the frame pointer
-   and the stack pointer values immediately after the function prologue.
-
-   Note, we always pretend that this is a leaf function because if
-   it's not, there's no point in trying to eliminate the
-   frame pointer.  If it is a leaf function, we guessed right!  */
-#define INITIAL_FRAME_POINTER_OFFSET(VAR) \
-  ((VAR) = (TARGET_FLAT ? sparc_flat_compute_frame_size (get_frame_size ()) \
-	    : compute_frame_size (get_frame_size (), 1)))
-
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM FRAME_POINTER_REGNUM
 
@@ -1171,7 +1149,7 @@ extern int sparc_mode_class[];
 /* Register which holds offset table for position-independent
    data references.  */
 
-#define PIC_OFFSET_TABLE_REGNUM 23
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 23 : INVALID_REGNUM)
 
 /* Pick a default value we can notice from override_options:
    !v9: Default is on.
@@ -1393,7 +1371,8 @@ extern const char leaf_reg_remap[];
    `J' is used for the range which is just zero (since that is R0).
    `K' is used for constants which can be loaded with a single sethi insn.
    `L' is used for the range of constants supported by the movcc insns.
-   `M' is used for the range of constants supported by the movrcc insns.  */
+   `M' is used for the range of constants supported by the movrcc insns.
+   `N' is like K, but for constants wider than 32 bits.  */
 
 #define SPARC_SIMM10_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x200 < 0x400)
 #define SPARC_SIMM11_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x400 < 0x800)
@@ -1402,17 +1381,21 @@ extern const char leaf_reg_remap[];
    SMALL_INT is used throughout the port so we continue to use it.  */
 #define SMALL_INT(X) (SPARC_SIMM13_P (INTVAL (X)))
 /* 13 bit immediate, considering only the low 32 bits */
-#define SMALL_INT32(X) (SPARC_SIMM13_P ((int)INTVAL (X) & 0xffffffff))
+#define SMALL_INT32(X) (SPARC_SIMM13_P (trunc_int_for_mode \
+					(INTVAL (X), SImode)))
 #define SPARC_SETHI_P(X) \
-(((unsigned HOST_WIDE_INT) (X) & \
-  (TARGET_ARCH64 ? ~(unsigned HOST_WIDE_INT) 0xfffffc00 : 0x3ff)) == 0)
+  (((unsigned HOST_WIDE_INT) (X) \
+    & ((unsigned HOST_WIDE_INT) 0x3ff - GET_MODE_MASK (SImode) - 1)) == 0)
+#define SPARC_SETHI32_P(X) \
+  (SPARC_SETHI_P ((unsigned HOST_WIDE_INT) (X) & GET_MODE_MASK (SImode)))
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)  \
   ((C) == 'I' ? SPARC_SIMM13_P (VALUE)			\
    : (C) == 'J' ? (VALUE) == 0				\
-   : (C) == 'K' ? SPARC_SETHI_P (VALUE)			\
+   : (C) == 'K' ? SPARC_SETHI32_P (VALUE)		\
    : (C) == 'L' ? SPARC_SIMM11_P (VALUE)		\
    : (C) == 'M' ? SPARC_SIMM10_P (VALUE)		\
+   : (C) == 'N' ? SPARC_SETHI_P (VALUE)			\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1584,12 +1567,28 @@ extern const char leaf_reg_remap[];
 /* ??? In TARGET_FLAT mode we needn't have a hard frame pointer.  */
    
 #define ELIMINABLE_REGS \
-  {{ FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
+  {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
+   { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM} }
 
 #define CAN_ELIMINATE(FROM, TO) 1
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
-  ((OFFSET) = SPARC_STACK_BIAS)
+  do {								\
+    (OFFSET) = 0;						\
+    if ((TO) == STACK_POINTER_REGNUM)				\
+      {								\
+	/* Note, we always pretend that this is a leaf function	\
+	   because if it's not, there's no point in trying to	\
+	   eliminate the frame pointer.  If it is a leaf	\
+	   function, we guessed right!  */			\
+	if (TARGET_FLAT)					\
+	  (OFFSET) =						\
+	    sparc_flat_compute_frame_size (get_frame_size ());	\
+	else							\
+	  (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
+      }								\
+    (OFFSET) += SPARC_STACK_BIAS;				\
+  } while (0)
 
 /* Keep the stack pointer constant throughout the function.
    This is both an optimization and a necessity: longjmp
@@ -1956,7 +1955,8 @@ do {									\
    ? gen_rtx_REG (Pmode, 31)			\
    : gen_rtx_MEM (Pmode,			\
 		  memory_address (Pmode, plus_constant (frame, \
-							15 * UNITS_PER_WORD))))
+							15 * UNITS_PER_WORD \
+							+ SPARC_STACK_BIAS))))
 
 /* Before the prologue, the return address is %o7 + 8.  OK, sometimes it's
    +12, but always using +8 is close enough for frame unwind purposes.
@@ -2381,10 +2381,10 @@ do {                                                                    \
    In the Embedded Medium/Anywhere code model, %g4 points to the data segment
    so we must not add it to function addresses.  */
 
-#define ENCODE_SECTION_INFO(DECL) \
-  do {							\
-    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL) \
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
+  do {									\
+    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL)	\
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
   } while (0)
 
 /* Specify the machine mode that this machine uses

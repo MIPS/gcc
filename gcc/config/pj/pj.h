@@ -110,10 +110,6 @@ extern int target_flags;
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN  0
@@ -133,22 +129,10 @@ extern int target_flags;
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT  8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD  32
 #define MAX_BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD  4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY   32
@@ -746,7 +730,7 @@ struct pj_args
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                             \
 {                                                                             \
-  static int off[4] = { 1, 0, 4, 3 };                                         \
+  static const int off[4] = { 1, 0, 4, 3 };                                   \
   int i;                                                                      \
                                                                               \
   /* Move the FNADDR and CXT into the instruction stream. Do this byte        \
@@ -1252,7 +1236,6 @@ extern short pj_debugreg_renumber_vec[FIRST_PSEUDO_REGISTER];
 #undef  PREFERRED_DEBUGGING_TYPE 
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #define DWARF2_UNWIND_INFO 1
-#define DWARF_LINE_MIN_INSTR_LENGTH 1
 
 
 /* varargs and stdarg builtins.  */

@@ -1,6 +1,6 @@
 /* Specific flags and argument handling of the front-end of the 
    GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -46,6 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define RESOURCE_FILE_ARG (1<<7)
 
 static char *find_spec_file	PARAMS ((const char *));
+static int verify_class_name    PARAMS ((const char *));
 
 static const char *main_class_name = NULL;
 int lang_specific_extra_outfiles = 0;
@@ -65,7 +66,8 @@ static const char jvgenmain_spec[] =
 		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
 		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
 		   %{<findirect-dispatch} \
-		   %{<fclasspath*} %{<fCLASSPATH*} %{<foutput-class-dir}\
+		   %{<fno-store-check} %{<foutput-class-dir}\
+		   %{<fclasspath*} %{<fCLASSPATH*} %{<fbootclasspath*}\
 		   %{<fuse-divide-subroutine} %{<fno-use-divide-subroutine}\
 		   %{<fcheck-references} %{<fno-check-references}\
 		   %{<ffilelist-file}\
@@ -96,6 +98,45 @@ find_spec_file (dir)
     return spec;
   free (spec);
   return NULL;
+}
+
+/* FIXME: these should come from lex.h.  */
+#define JAVA_START_CHAR_P(c) (c < 128 && (ISIDST (c) || c == '$'))
+#define JAVA_PART_CHAR_P(c) (c < 128					      \
+			     && (ISIDNUM (c)				      \
+				 || c == '$'				      \
+				 || (c >= 0x00 && c <= 0x08)		      \
+				 || (c >= 0x0e && c <= 0x1b)		      \
+				 || c == 0x7f))
+
+/* Verify that NAME is a valid Java class name that might contain
+   `main'.  Return 0 on failure.  */
+static int
+verify_class_name (name)
+     const char *name;
+{
+  /* FIXME: what encoding do we use for command-line arguments?  For
+     now we assume plain ASCII, which of course is wrong.  */
+  while (*name)
+    {
+      int ch = *name++;
+      if (ch < 0 || ! JAVA_START_CHAR_P (ch))
+	return 0;
+      while (*name)
+	{
+	  ch = *name++;
+	  if (ch < 0)
+	    return 0;
+	  /* We found a break between class names.  Next character
+	     must be an identifier start again.  */
+	  if (ch == '.')
+	    break;
+	  if (! JAVA_PART_CHAR_P (ch))
+	    return 0;
+	}
+    }
+
+  return 1;
 }
 
 void
@@ -288,6 +329,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      quote = argv[i];
 	    }
 	  else if (strcmp(argv[i], "-classpath") == 0
+		   || strcmp(argv[i], "-bootclasspath") == 0
 		   || strcmp(argv[i], "-CLASSPATH") == 0)
 	    {
 	      quote = argv[i];
@@ -382,6 +424,9 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
   if (saw_D && ! main_class_name)
     fatal ("can't specify `-D' without `--main'\n");
+
+  if (main_class_name && ! verify_class_name (main_class_name))
+    fatal ("`%s' is not a valid class name", main_class_name);
 
   num_args = argc + added;
   if (saw_R)
@@ -478,6 +523,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	}
 
       if (strcmp (argv[i], "-classpath") == 0
+	  || strcmp (argv[i], "-bootclasspath") == 0
 	  || strcmp (argv[i], "-CLASSPATH") == 0)
 	{
 	  arglist[j] = concat ("-f", argv[i]+1, "=", argv[i+1], NULL);

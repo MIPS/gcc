@@ -255,6 +255,7 @@ struct rtvec_def {
   (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST_DOUBLE		\
    || GET_CODE (X) == CONST || GET_CODE (X) == HIGH			\
+   || GET_CODE (X) == CONST_VECTOR	                                \
    || GET_CODE (X) == CONSTANT_P_RTX)
 
 /* General accessor macros for accessing the fields of an rtx.  */
@@ -823,6 +824,12 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 /* Link for chain of all CONST_DOUBLEs in use in current function.  */
 #define CONST_DOUBLE_CHAIN(r) XCEXP (r, 0, CONST_DOUBLE)
 
+/* For a CONST_VECTOR, return element #n.  */
+#define CONST_VECTOR_ELT(RTX, N) XCVECEXP (RTX, 0, N, CONST_VECTOR)
+
+/* For a CONST_VECTOR, return the number of elements in a vector.  */
+#define CONST_VECTOR_NUNITS(RTX) XCVECLEN (RTX, 0, CONST_VECTOR)
+
 /* For a SUBREG rtx, SUBREG_REG extracts the value we want a subreg of.
    SUBREG_BYTE extracts the byte-number.  */
 
@@ -846,7 +853,16 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
    when assigning to SUBREG_REG.  */
 
 #define SUBREG_PROMOTED_VAR_P(RTX) ((RTX)->in_struct)
-#define SUBREG_PROMOTED_UNSIGNED_P(RTX) ((RTX)->unchanging)
+#define SUBREG_PROMOTED_UNSIGNED_SET(RTX, VAL)	\
+do {						\
+  if ((VAL) < 0)				\
+    (RTX)->volatil = 1;				\
+  else {					\
+    (RTX)->volatil = 0;				\
+    (RTX)->unchanging = (VAL);			\
+  }						\
+} while (0)
+#define SUBREG_PROMOTED_UNSIGNED_P(RTX) ((RTX)->volatil ? -1 : (RTX)->unchanging)
 
 /* Access various components of an ASM_OPERANDS rtx.  */
 
@@ -1294,6 +1310,7 @@ extern rtx force_const_mem		PARAMS ((enum machine_mode, rtx));
 
 /* In varasm.c  */
 extern rtx get_pool_constant		PARAMS ((rtx));
+extern rtx get_pool_constant_mark	PARAMS ((rtx, bool *));
 extern enum machine_mode get_pool_mode	PARAMS ((rtx));
 extern rtx get_pool_constant_for_function	PARAMS ((struct function *, rtx));
 extern enum machine_mode get_pool_mode_for_function	PARAMS ((struct function *, rtx));
@@ -1501,6 +1518,7 @@ extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
 extern rtx find_first_parameter_load	PARAMS ((rtx, rtx));
+extern bool keep_with_call_p		PARAMS ((rtx));
 
 /* flow.c */
 
@@ -1777,7 +1795,7 @@ struct cse_basic_block_data;
 
 extern int rtx_cost			PARAMS ((rtx, enum rtx_code));
 extern int address_cost			PARAMS ((rtx, enum machine_mode));
-extern void delete_trivially_dead_insns	PARAMS ((rtx, int, int));
+extern int delete_trivially_dead_insns	PARAMS ((rtx, int));
 #ifdef BUFSIZ
 extern int cse_main			PARAMS ((rtx, int, int, FILE *));
 #endif
@@ -1810,7 +1828,7 @@ extern enum rtx_code reversed_comparison_code_parts PARAMS ((enum rtx_code,
 							     rtx, rtx, rtx));
 extern void delete_for_peephole		PARAMS ((rtx, rtx));
 extern int condjump_in_parallel_p	PARAMS ((rtx));
-extern void never_reached_warning	PARAMS ((rtx));
+extern void never_reached_warning	PARAMS ((rtx, rtx));
 extern void purge_line_number_notes	PARAMS ((rtx));
 extern void copy_loop_headers		PARAMS ((rtx));
 
@@ -1838,6 +1856,7 @@ extern void set_new_first_and_last_insn		PARAMS ((rtx, rtx));
 extern void set_new_first_and_last_label_num	PARAMS ((int, int));
 extern void set_new_last_label_num		PARAMS ((int));
 extern void unshare_all_rtl_again		PARAMS ((rtx));
+extern void set_first_insn			PARAMS ((rtx));
 extern void set_last_insn			PARAMS ((rtx));
 extern void link_cc0_insns			PARAMS ((rtx));
 extern void add_insn				PARAMS ((rtx));
@@ -1857,6 +1876,8 @@ extern void renumber_insns                      PARAMS ((FILE *));
 extern void remove_unnecessary_notes             PARAMS ((void));
 extern rtx delete_insn			PARAMS ((rtx));
 extern void delete_insn_chain		PARAMS ((rtx, rtx));
+extern rtx delete_insn_and_edges	PARAMS ((rtx));
+extern void delete_insn_chain_and_edges	PARAMS ((rtx, rtx));
 
 /* In combine.c */
 extern int combine_instructions		PARAMS ((rtx, unsigned int));
@@ -1921,6 +1942,7 @@ extern void move_by_pieces		PARAMS ((rtx, rtx,
 /* In flow.c */
 extern void recompute_reg_usage			PARAMS ((rtx, int));
 extern int initialize_uninitialized_subregs	PARAMS ((void));
+extern void delete_dead_jumptables		PARAMS ((void));
 #ifdef BUFSIZ
 extern void print_rtl_with_bb			PARAMS ((FILE *, rtx));
 extern void dump_flow_info			PARAMS ((FILE *));

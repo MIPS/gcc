@@ -119,13 +119,15 @@ struct machine_function
 
 /* Pass on -mset-program-start=N and -mset-data-start=M to the linker.
    Provide default program start 0x100 unless -mno-set-program-start.
-   Link to ELF if requested.  */
+   Don't do this if linking relocatably, with -r.  For a final link,
+   produce mmo, unless ELF is requested or when linking relocatably.  */
 #define LINK_SPEC \
  "%{mset-program-start=*:--defsym __.MMIX.start..text=%*}\
   %{mset-data-start=*:--defsym __.MMIX.start..data=%*}\
   %{!mset-program-start=*:\
-    %{!mno-set-program-start:--defsym __.MMIX.start..text=0x100}}\
-  %{!melf:-m mmo}%{melf:-m elf64mmix}"
+    %{!mno-set-program-start:\
+     %{!r:--defsym __.MMIX.start..text=0x100}}}\
+  %{!melf:%{!r:-m mmo}}%{melf|r:-m elf64mmix}"
 
 /* Put unused option values here.  */
 extern const char *mmix_cc1_ignored_option;
@@ -251,10 +253,7 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
 #define FLOAT_WORDS_BIG_ENDIAN 1
-#define BITS_PER_UNIT 8
-#define BITS_PER_WORD 64
 #define UNITS_PER_WORD 8
-#define POINTER_SIZE 64
 
 /* FIXME: This macro is correlated to MAX_FIXED_MODE_SIZE in that
    e.g. this macro must not be 8 (default, UNITS_PER_WORD) when
@@ -483,7 +482,7 @@ extern int target_flags;
    assuming it is referenced a very limited number of times.  Other global
    and fixed registers come next; they are never allocated.  */
 #define MMIX_GNU_ABI_REG_ALLOC_ORDER		\
-{  252, 251, 250, 249, 248, 247, 246,		\
+ { 252, 251, 250, 249, 248, 247, 246,		\
    245, 244, 243, 242, 241, 240, 239, 238,	\
    237, 236, 235, 234, 233, 232, 231,		\
 						\
@@ -549,10 +548,10 @@ extern int target_flags;
 /* Node: Register Classes */
 
 enum reg_class
-{
-  NO_REGS, GENERAL_REGS, REMAINDER_REG, HIMULT_REG,
-  SYSTEM_REGS, ALL_REGS, LIM_REG_CLASSES
-};
+ {
+   NO_REGS, GENERAL_REGS, REMAINDER_REG, HIMULT_REG,
+   SYSTEM_REGS, ALL_REGS, LIM_REG_CLASSES
+ };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
@@ -626,10 +625,7 @@ enum reg_class
 #define STARTING_FRAME_OFFSET \
   mmix_starting_frame_offset ()
 
-/* There is a stack slot between the frame-pointer and the first
-   parameter, where the return address is sometimes stored.  FIXME:
-   Unnecessary.  */
-#define FIRST_PARM_OFFSET(FUNDECL) 8
+#define FIRST_PARM_OFFSET(FUNDECL) 0
 
 #define DYNAMIC_CHAIN_ADDRESS(FRAMEADDR) \
  mmix_dynamic_chain_address (FRAMEADDR)
@@ -939,8 +935,8 @@ const_section ()						\
 #define SELECT_SECTION(DECL, RELOC, ALIGN) \
  mmix_select_section (DECL, RELOC, ALIGN)
 
-#define ENCODE_SECTION_INFO(DECL) \
- mmix_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+ mmix_encode_section_info (DECL, FIRST)
 
 #define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
  (VAR) = mmix_strip_name_encoding (SYM_NAME)
@@ -1104,10 +1100,6 @@ const_section ()						\
 #define PRINT_OPERAND_ADDRESS(STREAM, X) \
  mmix_print_operand_address (STREAM, X)
 
-#if 0
-#define USER_LABEL_PREFIX "_"
-#endif
-
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO) \
  mmix_asm_output_reg_push (STREAM, REGNO)
 
@@ -1155,17 +1147,6 @@ const_section ()						\
 /* Node: SDB and DWARF */
 #define DWARF2_DEBUGGING_INFO
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-/* Node: Cross-compilation */
-
-/* FIXME: I don't know whether it is best to tweak emit-rtl.c to handle
-   the case where sizeof (float) == word_size / 2 on the target, or to fix
-   real.h to define REAL_ARITHMETIC in that case.  Anyway, it should be
-   documented that a target can define this to force emulation.  Note that
-   we don't check #ifdef CROSS_COMPILE here; not even if mmix gets
-   self-hosted must we do that.  Case gcc.c-torture/compile/930611-1.c.  */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 

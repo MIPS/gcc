@@ -14,6 +14,45 @@
 	* where.c: Strings need no longer be allocated in GCable memory;
 	remove my change of 30 Dec 1999.
 
+Tue Mar 12 20:23:18 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (tree_code_type, tree_code_length, tree_code_name):
+	Define.
+
+Sun Mar 10 12:37:42 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* target.c (ffetarget_print_hex): Const-ify.
+
+2002-03-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* version.c:  Fix misplaced leading blanks on first line.
+
+2002-03-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c, target.h: Remove all #ifndef REAL_ARITHMETIC
+	blocks, make all #ifdef REAL_ARITHMETIC blocks unconditional.
+	Delete some further #ifdef blocks predicated on REAL_ARITHMETIC.
+
+Thu Feb 28 07:53:46 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (copy_lang_decl): Delete.
+
+2002-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c, lex.c, top.c: Delete traditional-mode-related code
+	copied from the C front end but not used, or used only to
+	permit the compiler to link.
+
+2002-02-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: List Problem Reports fixed in 3.1.
+
+2002-02-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* data.c (ffedata_eval_offset_): Only convert index,
+	low and high bound in data statements to default integer
+	if they are constants.  Use a copy of the data structure.
+
 2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* data.c (ffedata_eval_offset_): Convert non-default integer

@@ -423,9 +423,18 @@ _Jv_CallAnyMethodA (jobject obj,
 
   Throwable *ex = NULL;
 
+  union
+  {
+    ffi_arg i;
+    jobject o;
+    jlong l;
+    jfloat f;
+    jdouble d;
+  } ffi_result;
+
   try
     {
-      ffi_call (&cif, (void (*)()) meth->ncode, result, values);
+      ffi_call (&cif, (void (*)()) meth->ncode, &ffi_result, values);
     }
   catch (Throwable *ex2)
     {
@@ -436,8 +445,47 @@ _Jv_CallAnyMethodA (jobject obj,
       ex = new InvocationTargetException (ex2);
     }
 
+  // Since ffi_call returns integer values promoted to a word, use
+  // a narrowing conversion for jbyte, jchar, etc. results.
+  // Note that boolean is handled either by the FFI_TYPE_SINT8 or
+  // FFI_TYPE_SINT32 case.
   if (is_constructor)
     result->l = obj;
+  else
+    {
+      switch (rtype->type)
+	{
+	case FFI_TYPE_VOID:
+	  break;
+	case FFI_TYPE_SINT8:
+	  result->b = (jbyte)ffi_result.i;
+	  break;
+	case FFI_TYPE_SINT16:
+	  result->s = (jshort)ffi_result.i;
+	  break;
+	case FFI_TYPE_UINT16:
+	  result->c = (jchar)ffi_result.i;
+	  break;
+	case FFI_TYPE_SINT32:
+	  result->i = (jint)ffi_result.i;
+	  break;
+	case FFI_TYPE_SINT64:
+	  result->j = (jlong)ffi_result.l;
+	  break;
+	case FFI_TYPE_FLOAT:
+	  result->f = (jfloat)ffi_result.f;
+	  break;
+	case FFI_TYPE_DOUBLE:
+	  result->d = (jdouble)ffi_result.d;
+	  break;
+	case FFI_TYPE_POINTER:
+	  result->l = (jobject)ffi_result.o;
+	  break;
+	default:
+	  JvFail ("Unknown ffi_call return type");
+	  break;
+	}
+    }
 
   return ex;
 #else

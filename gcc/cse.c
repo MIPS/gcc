@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "timevar.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -2323,6 +2324,22 @@ canon_hash (x, mode)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
       return hash;
 
+    case CONST_VECTOR:
+      {
+	int units;
+	rtx elt;
+
+	units = CONST_VECTOR_NUNITS (x);
+
+	for (i = 0; i < units; ++i)
+	  {
+	    elt = CONST_VECTOR_ELT (x, i);
+	    hash += canon_hash (elt, GET_MODE (elt));
+	  }
+
+	return hash;
+      }
+
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
       hash += ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
@@ -2776,6 +2793,7 @@ canon_reg (x, insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -3317,6 +3335,7 @@ fold_rtx (x, insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case REG:
@@ -3727,6 +3746,7 @@ fold_rtx (x, insn)
 	  case SYMBOL_REF:
 	  case LABEL_REF:
 	  case CONST_DOUBLE:
+	  case CONST_VECTOR:
 	    const_arg = arg;
 	    break;
 
@@ -3961,19 +3981,18 @@ fold_rtx (x, insn)
 					& HASH_MASK), mode_arg0))
 		      && p0->first_same_value == p1->first_same_value))
 		{
-		   /* Sadly two equal NaNs are not equivalent.  */
-		   if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-		       || ! FLOAT_MODE_P (mode_arg0) 
-		       || flag_unsafe_math_optimizations)
-		      return ((code == EQ || code == LE || code == GE
-			       || code == LEU || code == GEU || code == UNEQ
-			       || code == UNLE || code == UNGE || code == ORDERED)
-			      ? true_rtx : false_rtx);
-		   /* Take care for the FP compares we can resolve.  */
-		   if (code == UNEQ || code == UNLE || code == UNGE)
-		     return true_rtx;
-		   if (code == LTGT || code == LT || code == GT)
-		     return false_rtx;
+		  /* Sadly two equal NaNs are not equivalent.  */
+		  if (!HONOR_NANS (mode_arg0))
+		    return ((code == EQ || code == LE || code == GE
+			     || code == LEU || code == GEU || code == UNEQ
+			     || code == UNLE || code == UNGE
+			     || code == ORDERED)
+			    ? true_rtx : false_rtx);
+		  /* Take care for the FP compares we can resolve.  */
+		  if (code == UNEQ || code == UNLE || code == UNGE)
+		    return true_rtx;
+		  if (code == LTGT || code == LT || code == GT)
+		    return false_rtx;
 		}
 
 	      /* If FOLDED_ARG0 is a register, see if the comparison we are
@@ -5781,10 +5800,11 @@ cse_insn (insn, libcall_insn)
 	     and hope for the best.  */
 	  if (n_sets == 1)
 	    {
-	      rtx new = emit_jump_insn_before (gen_jump (XEXP (src, 0)), insn);
+	      rtx new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
 
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
+	      delete_insn (insn);
 	      insn = new;
 
 	      /* Now emit a BARRIER after the unconditional jump.  */
@@ -5795,7 +5815,7 @@ cse_insn (insn, libcall_insn)
 	  else
 	    INSN_CODE (insn) = -1;
 
-	  never_reached_warning (insn);
+	  never_reached_warning (insn, NULL);
 
 	  /* Do not bother deleting any unreachable code,
 	     let jump/flow do that.  */
@@ -6425,6 +6445,7 @@ cse_process_notes (x, object)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case PC:
     case CC0:
     case LO_SUM:
@@ -7416,6 +7437,7 @@ count_reg_usage (x, counts, dest, incr)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return;
@@ -7583,81 +7605,42 @@ dead_libcall_p (insn)
    move dead invariants out of loops or make givs for dead quantities.  The
    remaining passes of the compilation are also sped up.  */
 
-void
-delete_trivially_dead_insns (insns, nreg, preserve_basic_blocks)
+int
+delete_trivially_dead_insns (insns, nreg)
      rtx insns;
      int nreg;
-     int preserve_basic_blocks;
 {
   int *counts;
   rtx insn, prev;
-  int i;
   int in_libcall = 0, dead_libcall = 0;
-  basic_block bb;
+  int ndead = 0, nlastdead, niterations = 0;
 
+  timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
   counts = (int *) xcalloc (nreg, sizeof (int));
   for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
     count_reg_usage (insn, counts, NULL_RTX, 1);
 
-  /* Go from the last insn to the first and delete insns that only set unused
-     registers or copy a register to itself.  As we delete an insn, remove
-     usage counts for registers it uses.
+  do
+    {
+      nlastdead = ndead;
+      niterations++;
+      /* Go from the last insn to the first and delete insns that only set unused
+	 registers or copy a register to itself.  As we delete an insn, remove
+	 usage counts for registers it uses.
 
-     The first jump optimization pass may leave a real insn as the last
-     insn in the function.   We must not skip that insn or we may end
-     up deleting code that is not really dead.  */
-  insn = get_last_insn ();
-  if (! INSN_P (insn))
-    insn = prev_real_insn (insn);
+	 The first jump optimization pass may leave a real insn as the last
+	 insn in the function.   We must not skip that insn or we may end
+	 up deleting code that is not really dead.  */
+      insn = get_last_insn ();
+      if (! INSN_P (insn))
+	insn = prev_real_insn (insn);
 
-  if (!preserve_basic_blocks)
-    for (; insn; insn = prev)
-      {
-	int live_insn = 0;
-
-	prev = prev_real_insn (insn);
-
-	/* Don't delete any insns that are part of a libcall block unless
-	   we can delete the whole libcall block.
-
-	   Flow or loop might get confused if we did that.  Remember
-	   that we are scanning backwards.  */
-	if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	  {
-	    in_libcall = 1;
-	    live_insn = 1;
-	    dead_libcall = dead_libcall_p (insn);
-	  }
-	else if (in_libcall)
-	  live_insn = ! dead_libcall;
-	else
-	  live_insn = insn_live_p (insn, counts);
-
-	/* If this is a dead insn, delete it and show registers in it aren't
-	   being used.  */
-
-	if (! live_insn)
-	  {
-	    count_reg_usage (insn, counts, NULL_RTX, -1);
-	    delete_related_insns (insn);
-	  }
-
-	if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	  {
-	    in_libcall = 0;
-	    dead_libcall = 0;
-	  }
-      }
-  else
-    for (i = 0; i < n_basic_blocks; i++)
-      for (bb = BASIC_BLOCK (i), insn = bb->end; insn != bb->head; insn = prev)
+      for (; insn; insn = prev)
 	{
 	  int live_insn = 0;
 
-	  prev = PREV_INSN (insn);
-	  if (!INSN_P (insn))
-	    continue;
+	  prev = prev_real_insn (insn);
 
 	  /* Don't delete any insns that are part of a libcall block unless
 	     we can delete the whole libcall block.
@@ -7681,7 +7664,8 @@ delete_trivially_dead_insns (insns, nreg, preserve_basic_blocks)
 	  if (! live_insn)
 	    {
 	      count_reg_usage (insn, counts, NULL_RTX, -1);
-	      delete_insn (insn);
+	      delete_insn_and_edges (insn);
+	      ndead++;
 	    }
 
 	  if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
@@ -7690,7 +7674,13 @@ delete_trivially_dead_insns (insns, nreg, preserve_basic_blocks)
 	      dead_libcall = 0;
 	    }
 	}
+    } while (ndead != nlastdead);
 
+  if (rtl_dump_file && ndead)
+    fprintf (rtl_dump_file, "Deleted %i trivially dead insns; %i iterations\n",
+	     ndead, niterations);
   /* Clean up.  */
   free (counts);
+  timevar_pop (TV_DELETE_TRIVIALLY_DEAD);
+  return ndead;
 }

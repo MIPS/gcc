@@ -131,11 +131,6 @@ int flag_no_asm;
 
 int flag_no_gnu_keywords;
 
-/* Nonzero means do some things the same way PCC does.  Only provided so
-   the compiler will link.  */
-
-int flag_traditional;
-
 /* Nonzero means to treat bitfields as unsigned unless they say `signed'.  */
 
 int flag_signed_bitfields = 1;
@@ -495,9 +490,7 @@ cxx_decode_option (argc, argv)
 
   strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
 
-  if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
-    /* ignore */;
-  else if (p[0] == '-' && p[1] == 'f')
+  if (p[0] == '-' && p[1] == 'f')
     {
       /* Some kind of -f option.
 	 P's value is the option sans `-f'.
@@ -521,8 +514,7 @@ cxx_decode_option (argc, argv)
 	 caller that the option was processed successfully.  */
       if (bsearch (&positive_option, 
 		   unsupported_options, 
-		   (sizeof (unsupported_options) 
-		    / sizeof (unsupported_options[0])),
+		   ARRAY_SIZE (unsupported_options),
 		   sizeof (unsupported_options[0]),
 		   compare_options))
 	{
@@ -567,10 +559,7 @@ cxx_decode_option (argc, argv)
 	{
 	  int found = 0;
 
-	  for (j = 0;
-	       !found && j < (sizeof (lang_f_options) 
-			      / sizeof (lang_f_options[0]));
-	       j++)
+	  for (j = 0; !found && j < ARRAY_SIZE (lang_f_options); j++)
 	    {
 	      if (!strcmp (p, lang_f_options[j].string))
 		{
@@ -5219,7 +5208,7 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
 	    {
 	      /* According to the suggested resolution of core issue
 	     	 180, 'typename' is assumed after a class-key.  */
-	      decl = make_typename_type (scope, id, 1);
+	      decl = make_typename_type (scope, id, tf_error);
 	      if (decl != error_mark_node)
 		decl = TYPE_MAIN_DECL (decl);
 	      else
@@ -5263,7 +5252,13 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
 		     && TREE_CODE (context) != BOUND_TEMPLATE_TEMPLATE_PARM);
       if (*new_type_p)
 	push_scope (context);
-  
+
+      if (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE)
+	/* It is legal to define a class with a different class key,
+	   and this changes the default member access.  */
+	CLASSTYPE_DECLARED_CLASS (TREE_TYPE (decl))
+	  = aggr == class_type_node;
+	
       if (!xrefd_p && PROCESSING_REAL_TEMPLATE_DECL_P ())
 	decl = push_template_decl (decl);
     }

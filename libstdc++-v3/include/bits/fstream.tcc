@@ -35,6 +35,8 @@
 #ifndef _CPP_BITS_FSTREAM_TCC
 #define _CPP_BITS_FSTREAM_TCC 1
 
+#pragma GCC system_header
+
 namespace std
 {
   template<typename _CharT, typename _Traits>
@@ -647,6 +649,18 @@ namespace std
       // XXX The part in the above comment is not done.
       _M_last_overflowed = false;	
     }
+
+  // Inhibit implicit instantiations for required instantiations,
+  // which are defined via explicit instantiations elsewhere.  
+  // NB:  This syntax is a GNU extension.
+  extern template class basic_filebuf<char>;
+  extern template class basic_filebuf<wchar_t>;
+  extern template class basic_ifstream<char>;
+  extern template class basic_ifstream<wchar_t>;
+  extern template class basic_ofstream<char>;
+  extern template class basic_ofstream<wchar_t>;
+  extern template class basic_fstream<char>;
+  extern template class basic_fstream<wchar_t>;
 } // namespace std
 
 #endif 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  64 bit ABI support.
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -85,6 +85,19 @@ Boston, MA 02111-1307, USA.  */
 	      || mips_abi == ABI_EABI					\
 	      || GET_MODE_CLASS (MODE) == MODE_INT)))			\
       ? downward : upward))
+
+/* Modified version of the macro in expr.h.  */
+#define MUST_PASS_IN_STACK(MODE,TYPE)			\
+  ((TYPE) != 0						\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
+       || TREE_ADDRESSABLE (TYPE)			\
+       || ((MODE) == BLKmode 				\
+	   && mips_abi != ABI_32 && mips_abi != ABI_O64 \
+	   && ! ((TYPE) != 0 && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST \
+		 && 0 == (int_size_in_bytes (TYPE)	\
+			  % (PARM_BOUNDARY / BITS_PER_UNIT))) \
+	   && (FUNCTION_ARG_PADDING (MODE, TYPE)	\
+	       == (BYTES_BIG_ENDIAN ? upward : downward)))))
 
 /* Under the old (i.e., 32 and O64 ABIs) all BLKmode objects are
    returned in memory.  Under the new (N32 and 64-bit MIPS ABIs) small
@@ -209,33 +222,10 @@ Boston, MA 02111-1307, USA.  */
    does not make a copy.  Instead, it passes a pointer to the "live"
    value.  The called function must not modify this value.  If it can
    be determined that the value won't be modified, it need not make a
-   copy; otherwise a copy must be made.
-
-   ??? The MIPS EABI says that the caller should copy in ``K&R mode.''
-   I don't know how to detect that here, since flag_traditional is not
-   a back end flag.  */
+   copy; otherwise a copy must be made.  */
 #define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
   (mips_abi == ABI_EABI && (NAMED)					\
    && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
-
-/* Define LONG_MAX correctly for all users.  We need to handle 32 bit EABI,
-   64 bit EABI, N32, and N64 as possible defaults.  The checks performed here
-   are the same as the checks in override_options in mips.c that determines
-   whether MASK_LONG64 will be set.
-
-   This does not handle inappropriate options or ununusal option
-   combinations.  */
-
-#undef LONG_MAX_SPEC
-#if ((MIPS_ABI_DEFAULT == ABI_64) || ((MIPS_ABI_DEFAULT == ABI_EABI) && ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_64BIT)))
-#define LONG_MAX_SPEC \
-  "%{!mabi=32:%{!mabi=n32:%{!mlong32:%{!mgp32:%{!mips1:%{!mips2:-D__LONG_MAX__=9223372036854775807L}}}}}}"
-#else
-#define LONG_MAX_SPEC \
-  "%{mabi=64:-D__LONG_MAX__=9223372036854775807L} \
-   %{mlong64:-D__LONG_MAX__=9223372036854775807L} \
-   %{mgp64:-D__LONG_MAX__=9223372036854775807L}"
-#endif
 
 /* ??? Unimplemented stuff follows.  */
 

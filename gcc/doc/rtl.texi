@@ -501,9 +501,9 @@ Stored in the @code{jump} field and printed as @samp{/j}.
 In @code{mem} expressions, nonzero for reference to a scalar known not
 to be a member of a structure, union, or array.  Zero for such
 references and for indirections through pointers, even pointers pointing
-to scalar types.  If both this flag and @code{MEM_STRUCT_P} are clear, then we
-don't know whether this @code{mem} is in a structure or not.  Both flags should
-never be simultaneously set.
+to scalar types.  If both this flag and @code{MEM_IN_STRUCT_P} are clear,
+then we don't know whether this @code{mem} is in a structure or not.
+Both flags should never be simultaneously set.
 Stored in the @code{frame_related} field and printed as @samp{/f}.
 
 @findex MEM_VOLATILE_P
@@ -631,13 +631,29 @@ string constant pool.
 Stored in the @code{frame_related} field and printed as @samp{/f}.
 
 @findex SUBREG_PROMOTED_UNSIGNED_P
+@cindex @code{subreg} and @samp{/u} and @samp{/v}
+@cindex @code{unchanging}, in @code{subreg}
+@cindex @code{volatil}, in @code{subreg}
+@item SUBREG_PROMOTED_UNSIGNED_P (@var{x})
+Returns a value greater then zero for a @code{subreg} that has
+@code{SUBREG_PROMOTED_VAR_P} nonzero if the object being referenced is kept
+zero-extended, zero if it is kept sign-extended, and less then zero if it is
+extended some other way via the @code{ptr_extend} instruction.
+Stored in the @code{unchanging}
+field and @code{volatil} field, printed as @samp{/u} and @samp{/v}.
+This macro may only be used to get the value it may not be used to change
+the value.  Use @code{SUBREG_PROMOTED_UNSIGNED_SET} to change the value.
+
+@findex SUBREG_PROMOTED_UNSIGNED_SET
 @cindex @code{subreg} and @samp{/u}
 @cindex @code{unchanging}, in @code{subreg}
-@item SUBREG_PROMOTED_UNSIGNED_P (@var{x})
-Nonzero in a @code{subreg} that has @code{SUBREG_PROMOTED_VAR_P} nonzero
-if the object being referenced is kept zero-extended and zero if it
-is kept sign-extended.  Stored in the @code{unchanging} field and
-printed as @samp{/u}.
+@cindex @code{volatil}, in @code{subreg}
+@item SUBREG_PROMOTED_UNSIGNED_SET (@var{x})
+Set the @code{unchanging} and @code{volatil} fields in a @code{subreg}
+to reflect zero, sign, or other extension.  If @code{volatil} is
+zero, then @code{unchanging} as nonzero means zero extension and as
+zero means sign extension. If @code{volatil} is nonzero then some
+other type of extension was done via the @code{ptr_extend} instruction.
 
 @findex SUBREG_PROMOTED_VAR_P
 @cindex @code{subreg} and @samp{/s}
@@ -1156,6 +1172,20 @@ bits but small enough to fit within twice that number of bits (GCC
 does not provide a mechanism to represent even larger constants).  In
 the latter case, @var{m} will be @code{VOIDmode}.
 
+@findex const_vector
+@item (const_vector:@var{m} [@var{x0} @var{x1} @dots{}])
+Represents a vector constant.  The square brackets stand for the vector
+containing the constant elements.  @var{x0}, @var{x1} and so on are
+the @code{const_int} or @code{const_double} elements.
+
+The number of units in a @code{const_vector} is obtained with the macro
+@code{CONST_VECTOR_NUNITS} as in @code{CONST_VECTOR_NUNITS (@var{v})}.
+
+Individual elements in a vector constant are accessed with the macro
+@code{CONST_VECTOR_ELT} as in @code{CONST_VECTOR_ELT (@var{v}, @var{n})}
+where @var{v} is the vector constant and @var{n} is the element
+desired.
+
 @findex CONST_DOUBLE_MEM
 @findex CONST_DOUBLE_CHAIN
 @var{addr} is used to contain the @code{mem} expression that corresponds
@@ -1185,10 +1215,14 @@ the precise bit pattern used by the target machine, use the macro
 @findex CONST2_RTX
 The macro @code{CONST0_RTX (@var{mode})} refers to an expression with
 value 0 in mode @var{mode}.  If mode @var{mode} is of mode class
-@code{MODE_INT}, it returns @code{const0_rtx}.  Otherwise, it returns a
-@code{CONST_DOUBLE} expression in mode @var{mode}.  Similarly, the macro
+@code{MODE_INT}, it returns @code{const0_rtx}.  If mode @var{mode} is of
+mode class @code{MODE_FLOAT}, it returns a @code{CONST_DOUBLE}
+expression in mode @var{mode}.  Otherwise, it returns a
+@code{CONST_VECTOR} expression in mode @var{mode}.  Similarly, the macro
 @code{CONST1_RTX (@var{mode})} refers to an expression with value 1 in
-mode @var{mode} and similarly for @code{CONST2_RTX}.
+mode @var{mode} and similarly for @code{CONST2_RTX}.  The
+@code{CONST1_RTX} and @code{CONST2_RTX} macros are undefined
+for vector modes.
 
 @findex const_string
 @item (const_string @var{str})
@@ -2299,7 +2333,7 @@ either wrap around or use saturating addition depending on the value
 of a special control register:
 
 @example
-(parallel [(set (reg:SI 2) (unspec:SI [(reg:SI 3) 
+(parallel [(set (reg:SI 2) (unspec:SI [(reg:SI 3)
                                        (reg:SI 4)] 0))
            (use (reg:SI 1))])
 @end example
@@ -3330,6 +3364,11 @@ There is only one @code{cc0} expression.
 @item
 There is only one @code{const_double} expression with value 0 for
 each floating point mode.  Likewise for values 1 and 2.
+
+@cindex @code{const_vector}, RTL sharing
+@item
+There is only one @code{const_vector} expression with value 0 for
+each vector mode, be it an integer or a double constant vector.
 
 @cindex @code{label_ref}, RTL sharing
 @cindex @code{scratch}, RTL sharing

@@ -1,3 +1,46 @@
+2002-03-12  Tom Tromey  <tromey@redhat.com>
+
+	Test for PR java/5848:
+	* libjava.compile/PR5848.xfail: New file.
+	* libjava.compile/PR5848.java: New file.
+
+2002-03-12  Eric Blake  <ebb9@email.byu.edu>
+
+	* libjava.compile/PR5913.java: Expand test.
+
+2002-03-11  Eric Blake  <ebb9@email.byu.edu>
+
+	* libjava.compile/PR5902.java: New file.
+	* libjava.compile/PR5913.java: New file.
+	* libjava.compile/PR5913.xfail: New file.
+
+2002-02-23  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.lang/InvokeReturn.java: New file.
+	* libjava.lang/InvokeReturn.out: New file.
+
+2002-02-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* lib/libjava.exp: Add "xfail-byte-output" and "xfail-source-output".
+	Don't display expected and actual output for a failed output test.
+
+	* libjava.lang/ArrayStore.java: New file.
+	* libjava.lang/ArrayStore.out: New file.
+	* libjava.lang/ArrayStore.xfail: New file. xfail-byte-output.
+	* libjava.lang/ArrayStore2.java: New file.
+	* libjava.lang/ArrayStore2.out: New file.
+	* libjava.lang/ArrayStore2.xfail: New file. xfail-source-output.
+
+	* libjava.lang/stringconst.xfail: xfail-output -> xfail-source-output.
+
+2002-02-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/err7.xfail: Removed.
+	* libjava.lang/err8.xfail: Removed.
+	
+	* libjava.lang/ArrayStore.java: New file.
+	* libjava.lang/ArrayStore.out: New file.
+
 2002-02-10  Tom Tromey  <tromey@redhat.com>
 
 	For PR java/5641:

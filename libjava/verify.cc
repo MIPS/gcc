@@ -90,12 +90,6 @@ private:
   // be many `ret' instructions, so a linked list is ok.
   subr_entry_info *entry_points;
 
-  // The current top of the stack, in terms of slots.
-  int stacktop;
-  // The current depth of the stack.  This will be larger than
-  // STACKTOP when wide types are on the stack.
-  int stackdepth;
-
   // The bytecode itself.
   unsigned char *bytecode;
   // The exceptions.
@@ -231,9 +225,6 @@ private:
 	if (target->isPrimitive () || source->isPrimitive ())
 	  return false;
 
-	// Check array case first because we can have an array whose
-	// component type is not prepared; _Jv_IsAssignableFrom
-	// doesn't handle this correctly.
 	if (target->isArray ())
 	  {
 	    if (! source->isArray ())
@@ -241,11 +232,6 @@ private:
 	    target = target->getComponentType ();
 	    source = source->getComponentType ();
 	  }
-	// _Jv_IsAssignableFrom can handle a target which is an
-	// interface even if it hasn't been prepared.
-	else if ((target->state > JV_STATE_LINKED || target->isInterface ())
-		 && source->state > JV_STATE_LINKED)
-	  return _Jv_IsAssignableFrom (target, source);
 	else if (target->isInterface ())
 	  {
 	    for (int i = 0; i < source->interface_count; ++i)
@@ -259,10 +245,25 @@ private:
 	    if (source == NULL)
 	      return false;
 	  }
+	// We must do this check before we check to see if SOURCE is
+	// an interface.  This way we know that any interface is
+	// assignable to an Object.
 	else if (target == &java::lang::Object::class$)
 	  return true;
-	else if (source->isInterface ()
-		 || source == &java::lang::Object::class$)
+	else if (source->isInterface ())
+	  {
+	    for (int i = 0; i < target->interface_count; ++i)
+	      {
+		// We use a recursive call because we also need to
+		// check superinterfaces.
+		if (is_assignable_from_slow (target->interfaces[i], source))
+		  return true;
+	      }
+	    target = target->getSuperclass ();
+	    if (target == NULL)
+	      return false;
+	  }
+	else if (source == &java::lang::Object::class$)
 	  return false;
 	else
 	  source = source->getSuperclass ();
@@ -675,14 +676,19 @@ private:
 		      oldk = oldk->getComponentType ();
 		    }
 
-		  // This loop will end when we hit Object.
-		  while (true)
+		  // Ordinarily this terminates when we hit Object...
+		  while (k != NULL)
 		    {
 		      if (is_assignable_from_slow (k, oldk))
 			break;
 		      k = k->getSuperclass ();
 		      changed = true;
 		    }
+		  // ... but K could have been an interface, in which
+		  // case we'll end up here.  We just convert this
+		  // into Object.
+		  if (k == NULL)
+		    k = &java::lang::Object::class$;
 
 		  if (changed)
 		    {
@@ -761,10 +767,10 @@ private:
   // location.
   struct state
   {
-    // Current top of stack.
+    // The current top of the stack, in terms of slots.
     int stacktop;
-    // Current stack depth.  This is like the top of stack but it
-    // includes wide variable information.
+    // The current depth of the stack.  This will be larger than
+    // STACKTOP when wide types are on the stack.
     int stackdepth;
     // The stack.
     type *stack;
@@ -793,6 +799,11 @@ private:
     static const int INVALID = -1;
     // NO_NEXT marks the state at the end of the reverification list.
     static const int NO_NEXT = -2;
+
+    // This is used to mark the stack depth at the instruction just
+    // after a `jsr' when we haven't yet processed the corresponding
+    // `ret'.  See handle_jsr_insn for more information.
+    static const int NO_STACK = -1;
 
     state ()
       : this_type ()
@@ -892,8 +903,6 @@ private:
       stack[0] = t;
       for (int i = stacktop; i < max_stack; ++i)
 	stack[i] = unsuitable_type;
-
-      // FIXME: subroutine handling?
     }
 
     // Modify this state to reflect entry into a subroutine.
@@ -941,13 +950,29 @@ private:
 	  changed = true;
 	}
 
-      // Merge stacks.
-      if (state_old->stacktop != stacktop)
-	verifier->verify_fail ("stack sizes differ");
-      for (int i = 0; i < state_old->stacktop; ++i)
+      // Merge stacks.  Special handling for NO_STACK case.
+      if (state_old->stacktop == NO_STACK)
 	{
-	  if (stack[i].merge (state_old->stack[i], false, verifier))
-	    changed = true;
+	  // Nothing to do in this case; we don't care about modifying
+	  // the old state.
+	}
+      else if (stacktop == NO_STACK)
+	{
+	  stacktop = state_old->stacktop;
+	  stackdepth = state_old->stackdepth;
+	  for (int i = 0; i < stacktop; ++i)
+	    stack[i] = state_old->stack[i];
+	  changed = true;
+	}
+      else if (state_old->stacktop != stacktop)
+	verifier->verify_fail ("stack sizes differ");
+      else
+	{
+	  for (int i = 0; i < state_old->stacktop; ++i)
+	    {
+	      if (stack[i].merge (state_old->stack[i], false, verifier))
+		changed = true;
+	    }
 	}
 
       // Merge local variables.
@@ -962,8 +987,14 @@ private:
 	    {
 	      if (locals[i].merge (state_old->locals[i], true, verifier))
 		{
+		  // Note that we don't call `note_variable' here.
+		  // This change doesn't represent a real change to a
+		  // local, but rather a merge artifact.  If we're in
+		  // a subroutine which is called with two
+		  // incompatible types in a slot that is unused by
+		  // the subroutine, then we don't want to mark that
+		  // variable as having been modified.
 		  changed = true;
-		  note_variable (i);
 		}
 	    }
 
@@ -1032,6 +1063,8 @@ private:
     // Return true if this state is the unmerged result of a `ret'.
     bool is_unmerged_ret_state (int max_locals) const
     {
+      if (stacktop == NO_STACK)
+	return true;
       for (int i = 0; i < max_locals; ++i)
 	{
 	  if (locals[i].key == unused_by_subroutine_type)
@@ -1052,7 +1085,10 @@ private:
 	debug_print (".");
       debug_print ("    [local] ");
       for (i = 0; i < max_locals; ++i)
-	locals[i].print ();
+	{
+	  locals[i].print ();
+	  debug_print (local_changed[i] ? "+" : " ");
+	}
       if (subroutine == 0)
 	debug_print ("   | None");
       else
@@ -1324,10 +1360,9 @@ private:
 	npc = states[npc]->next;
       }
 
-    // If we've skipped states and there is nothing else, that's a
-    // bug.
-    if (skipped)
-      verify_fail ("pop_jump: can't happen");
+    // Note that we might have gotten here even when there are
+    // remaining states to process.  That can happen if we find a
+    // `jsr' without a `ret'.
     return state::NO_NEXT;
   }
 
@@ -1431,12 +1466,10 @@ private:
       current_state->check_no_uninitialized_objects (current_method->max_locals, this);
     check_nonrecursive_call (current_state->subroutine, npc);
 
-    // Create a new state and modify it as appropriate for entry into
-    // a subroutine.  We're writing this in a weird way because,
-    // unfortunately, push_type only works on the current state.
+    // Modify our state as appropriate for entry into a subroutine.
     push_type (return_address_type);
     push_jump_merge (npc, current_state);
-    // Clean up the weirdness.
+    // Clean up.
     pop_type (return_address_type);
 
     // On entry to the subroutine, the subroutine number must be set
@@ -1444,6 +1477,23 @@ private:
     // merging state so that we don't erroneously "notice" a variable
     // change merely on entry.
     states[npc]->enter_subroutine (npc, current_method->max_locals);
+
+    // Indicate that we don't know the stack depth of the instruction
+    // following the `jsr'.  The idea here is that we need to merge
+    // the local variable state across the jsr, but the subroutine
+    // might change the stack depth, so we can't make any assumptions
+    // about it.  So we have yet another special case.  We know that
+    // at this point PC points to the instruction after the jsr.
+
+    // FIXME: what if we have a jsr at the end of the code, but that
+    // jsr has no corresponding ret?  Is this verifiable, or is it
+    // not?  If it is then we need a special case here.
+    if (PC >= current_method->code_length)
+      verify_fail ("fell off end");
+
+    current_state->stacktop = state::NO_STACK;
+    push_jump_merge (PC, current_state);
+    invalidate_pc ();
   }
 
   jclass construct_primitive_array_type (type_val prim)
@@ -2035,6 +2085,7 @@ private:
 	      verify_fail ("can't happen: saw state::INVALID");
 	    if (PC == state::NO_NEXT)
 	      break;
+	    debug_print ("== State pop from pending list\n");
 	    // Set up the current state.
 	    current_state->copy (states[PC], current_method->max_stack,
 				 current_method->max_locals);
@@ -2769,9 +2820,28 @@ private:
 		      // In this case the PC doesn't matter.
 		      t.set_uninitialized (type::UNINIT, this);
 		    }
-		  t = pop_type (t);
+		  type raw = pop_raw ();
+		  bool ok = false;
+		  if (t.compatible (raw, this))
+		    {
+		      ok = true;
+		    }
+		  else if (opcode == op_invokeinterface)
+		    {
+		      // This is a hack.  We might have merged two
+		      // items and gotten `Object'.  This can happen
+		      // because we don't keep track of where merges
+		      // come from.  This is safe as long as the
+		      // interpreter checks interfaces at runtime.
+		      type obj (&java::lang::Object::class$);
+		      ok = raw.compatible (obj, this);
+		    }
+
+		  if (! ok)
+		    verify_fail ("incompatible type on stack");
+
 		  if (is_init)
-		    current_state->set_initialized (t.get_pc (),
+		    current_state->set_initialized (raw.get_pc (),
 						    current_method->max_locals);
 		}
 

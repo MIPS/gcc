@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "ggc.h"
 #include "target.h"
+#include "langhooks.h"
 
 #include "obstack.h"
 #define	obstack_chunk_alloc	xmalloc
@@ -368,8 +369,7 @@ copy_decl_for_inlining (decl, from_fn, to_fn)
   else
     {
       copy = copy_node (decl);
-      if (DECL_LANG_SPECIFIC (copy))
-	copy_lang_decl (copy);
+      (*lang_hooks.dup_lang_specific_decl) (copy);
 
       /* TREE_ADDRESSABLE isn't used to indicate that a label's
 	 address has been taken; it's for internal bookkeeping in
@@ -2120,6 +2120,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
     case PC:
     case CC0:
     case CONST_INT:
+    case CONST_VECTOR:
       return orig;
 
     case SYMBOL_REF:
@@ -2479,6 +2480,7 @@ subst_constants (loc, insn, map, memonly)
     case PC:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CONST:
     case LABEL_REF:
@@ -2969,7 +2971,7 @@ output_inline_function (fndecl)
 {
   struct function *old_cfun = cfun;
   enum debug_info_type old_write_symbols = write_symbols;
-  struct gcc_debug_hooks *old_debug_hooks = debug_hooks;
+  const struct gcc_debug_hooks *const old_debug_hooks = debug_hooks;
   struct function *f = DECL_SAVED_INSNS (fndecl);
 
   cfun = f;

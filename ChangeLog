@@ -1,3 +1,44 @@
+2002-03-12  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (NOTPARALLEL): New.  Use it instead of explicit
+	.NOTPARALLEL tag.
+	(do-check): Rename from check.
+	(check): Allow parallel check.
+
+2002-03-12  Bob Wilson  <bob.wilson@acm.org>
+
+	* MAINTAINERS: Add myself as maintainer for xtensa port.
+	Fix alphabetical order in CPU port maintainer list.
+	Remove myself from Write After Approval list.
+
+2002-03-11  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (.NOTPARALLEL): Add fake tag.
+
+2002-03-07  H.J. Lu  (hjl@gnu.org)
+
+	* configure.in: Enable gprof for mips*-*-linux*.
+
+2002-03-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-02-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (libstdcxx_flags): Don't add libstdc++-v3 flags for
+	libjava.
+	(CXX_FOR_TARGET): Explain why -shared-libgcc here.
+
+2002-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (MAKEINFO): Don't assume makeinfo will be built just
+	because its Makefile is there; test for the executable instead.
+
+2002-02-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (CXX_FOR_TARGET): Add -shared-libgcc for
+	libstdc++-v3 and libjava.
+
 2002-02-11  Adam Megacz <adam@xwt.org>
 
 	* gcc/Makefile.in: Removed libstdc++-v3 dependancy for libjava and

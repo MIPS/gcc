@@ -186,12 +186,16 @@ widen_operand (op, mode, oldmode, unsignedp, no_extend)
 {
   rtx result;
 
-  /* If we must extend do so.  If OP is either a constant or a SUBREG
-     for a promoted object, also extend since it will be more efficient to
-     do so.  */
+  /* If we don't have to extend and this is a constant, return it.  */
+  if (no_extend && GET_MODE (op) == VOIDmode)
+    return op;
+
+  /* If we must extend do so.  If OP is a SUBREG for a promoted object, also
+     extend since it will be more efficient to do so unless the signedness of
+     a promoted object differs from our extension.  */
   if (! no_extend
-      || GET_MODE (op) == VOIDmode
-      || (GET_CODE (op) == SUBREG && SUBREG_PROMOTED_VAR_P (op)))
+      || (GET_CODE (op) == SUBREG && SUBREG_PROMOTED_VAR_P (op)
+	  && SUBREG_PROMOTED_UNSIGNED_P (op) == unsignedp))
     return convert_modes (mode, oldmode, op, unsignedp);
 
   /* If MODE is no wider than a single word, we return a paradoxical
@@ -3395,6 +3399,7 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
      int *punsignedp;
 {
   enum rtx_code comparison = *pcomparison;
+  rtx tmp;
   rtx x = *px = protect_from_queue (*px, 0);
   rtx y = *py = protect_from_queue (*py, 0);
   enum machine_mode mode = GET_MODE (x);
@@ -3414,18 +3419,42 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
 
       case GT:
 	libfunc = gthf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LT;
+	    libfunc = lthf2_libfunc;
+	  }
 	break;
 
       case GE:
 	libfunc = gehf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LE;
+	    libfunc = lehf2_libfunc;
+	  }
 	break;
 
       case LT:
 	libfunc = lthf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GT;
+	    libfunc = gthf2_libfunc;
+	  }
 	break;
 
       case LE:
 	libfunc = lehf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GE;
+	    libfunc = gehf2_libfunc;
+	  }
 	break;
 
       case UNORDERED:
@@ -3448,18 +3477,42 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
 
       case GT:
 	libfunc = gtsf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LT;
+	    libfunc = ltsf2_libfunc;
+	  }
 	break;
 
       case GE:
 	libfunc = gesf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LE;
+	    libfunc = lesf2_libfunc;
+	  }
 	break;
 
       case LT:
 	libfunc = ltsf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GT;
+	    libfunc = gtsf2_libfunc;
+	  }
 	break;
 
       case LE:
 	libfunc = lesf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GE;
+	    libfunc = gesf2_libfunc;
+	  }
 	break;
 
       case UNORDERED:
@@ -3482,18 +3535,42 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
 
       case GT:
 	libfunc = gtdf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LT;
+	    libfunc = ltdf2_libfunc;
+	  }
 	break;
 
       case GE:
 	libfunc = gedf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LE;
+	    libfunc = ledf2_libfunc;
+	  }
 	break;
 
       case LT:
 	libfunc = ltdf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GT;
+	    libfunc = gtdf2_libfunc;
+	  }
 	break;
 
       case LE:
 	libfunc = ledf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GE;
+	    libfunc = gedf2_libfunc;
+	  }
 	break;
 
       case UNORDERED:
@@ -3516,18 +3593,42 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
 
       case GT:
 	libfunc = gtxf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LT;
+	    libfunc = ltxf2_libfunc;
+	  }
 	break;
 
       case GE:
 	libfunc = gexf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LE;
+	    libfunc = lexf2_libfunc;
+	  }
 	break;
 
       case LT:
 	libfunc = ltxf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GT;
+	    libfunc = gtxf2_libfunc;
+	  }
 	break;
 
       case LE:
 	libfunc = lexf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GE;
+	    libfunc = gexf2_libfunc;
+	  }
 	break;
 
       case UNORDERED:
@@ -3550,18 +3651,42 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
 
       case GT:
 	libfunc = gttf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LT;
+	    libfunc = lttf2_libfunc;
+	  }
 	break;
 
       case GE:
 	libfunc = getf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = LE;
+	    libfunc = letf2_libfunc;
+	  }
 	break;
 
       case LT:
 	libfunc = lttf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GT;
+	    libfunc = gttf2_libfunc;
+	  }
 	break;
 
       case LE:
 	libfunc = letf2_libfunc;
+	if (libfunc == NULL_RTX)
+	  {
+	    tmp = x; x = y; y = tmp;
+	    *pcomparison = GE;
+	    libfunc = getf2_libfunc;
+	  }
 	break;
 
       case UNORDERED:
@@ -4116,8 +4241,6 @@ expand_float (to, from, unsignedp)
 	  }
     }
 
-#if !defined (REAL_IS_NOT_DOUBLE) || defined (REAL_ARITHMETIC)
-
   /* Unsigned integer, and no way to convert directly.
      Convert as signed, then conditionally adjust the result.  */
   if (unsignedp)
@@ -4232,7 +4355,6 @@ expand_float (to, from, unsignedp)
       emit_label (label);
       goto done;
     }
-#endif
 
   /* No hardware instruction available; call a library routine to convert from
      SImode, DImode, or TImode into SFmode, DFmode, XFmode, or TFmode.  */
@@ -4383,7 +4505,6 @@ expand_fix (to, from, unsignedp)
 	  }
       }
 
-#if !defined (REAL_IS_NOT_DOUBLE) || defined (REAL_ARITHMETIC)
   /* For an unsigned conversion, there is one more way to do it.
      If we have a signed conversion, we generate code that compares
      the real value to the largest representable positive number.  If if
@@ -4463,7 +4584,6 @@ expand_fix (to, from, unsignedp)
 
 	  return;
 	}
-#endif
 
   /* We can't do it with an insn, so use a library call.  But first ensure
      that the mode of TO is at least as wide as SImode, since those are the

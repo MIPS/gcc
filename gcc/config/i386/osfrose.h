@@ -101,7 +101,7 @@ Boston, MA 02111-1307, USA.  */
 %{melf: -D__ELF__ %{fpic: -D__SHARED__}} \
 %{mno-underscores: -D__NO_UNDERSCORES__} \
 %{melf: %{!munderscores: -D__NO_UNDERSCORES__}} \
-%{.S:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}} \
+%{.S:	%{!ansi:%{!traditional-cpp: -traditional}}} \
 %{.S:	-D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
 %{.cc:	-D__LANGUAGE_C_PLUS_PLUS} \
 %{.cxx:	-D__LANGUAGE_C_PLUS_PLUS} \
@@ -449,21 +449,23 @@ while (0)
    `PRINT_OPERAND_ADDRESS'.  */
 
 #undef	ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL)					\
-do									\
-  {									\
-   if (HALF_PIC_P ())							\
-      HALF_PIC_ENCODE (DECL);						\
-									\
-   else if (flag_pic)							\
-     {									\
-       rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		  ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-       SYMBOL_REF_FLAG (XEXP (rtl, 0))					\
-	 = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	    || ! TREE_PUBLIC (DECL));					\
-      }									\
-  }									\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
+do								\
+  {								\
+    if (HALF_PIC_P ())						\
+      {								\
+	if (FIRST)						\
+	  HALF_PIC_ENCODE (DECL);				\
+      }								\
+    else if (flag_pic)						\
+      {								\
+	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
+		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
+	SYMBOL_REF_FLAG (XEXP (rtl, 0))				\
+	  = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
+	     || ! TREE_PUBLIC (DECL));				\
+      }								\
+  }								\
 while (0)
 
 

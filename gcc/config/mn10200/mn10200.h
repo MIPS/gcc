@@ -81,19 +81,9 @@ extern int target_flags;
    This is not true on the Matsushita MN10200.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.
-
-   This is a white lie.  Registers are really 24bits, but most operations
+/* This is a white lie.  Registers are really 24bits, but most operations
    only operate on 16 bits.   GCC chokes badly if we set this to a value
    that is not a power of two.  */
-#define BITS_PER_WORD		16
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		2
 
@@ -428,7 +418,7 @@ enum reg_class {
 #undef SIZE_TYPE
 #undef PTRDIFF_TYPE
 #define SIZE_TYPE "long unsigned int"
-#define PTRDIFF_TYPE "long unsigned int"
+#define PTRDIFF_TYPE "long int"
 
 /* Note sizeof (WCHAR_TYPE) must be equal to the value of WCHAR_TYPE_SIZE!  */
 #undef WCHAR_TYPE
@@ -924,10 +914,6 @@ struct cum_arg { int nbytes; };
 #define DEBUGGER_ARG_OFFSET(OFFSET, X) \
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed ? 0 : -total_frame_size ()))
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

@@ -70,7 +70,8 @@ static int process_option_with_no PARAMS ((const char *,
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-static const char java_tree_code_type[] = {
+const char tree_code_type[] = {
+#include "tree.def"
   'x',
 #include "java-tree.def"
 };
@@ -82,7 +83,8 @@ static const char java_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-static const int java_tree_code_length[] = {
+const unsigned char tree_code_length[] = {
+#include "tree.def"
   0,
 #include "java-tree.def"
 };
@@ -92,7 +94,8 @@ static const int java_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-static const char *const java_tree_code_name[] = {
+const char *const tree_code_name[] = {
+#include "tree.def"
   "@@dummy",
 #include "java-tree.def"
 };
@@ -157,6 +160,9 @@ int flag_optimize_sci = 1;
    in order to improve binary compatibility. */
 int flag_indirect_dispatch = 0;
 
+/* When zero, don't generate runtime array store checks. */
+int flag_store_check = 1;
+
 /* When non zero, print extra version information.  */
 static int version_flag = 0;
 
@@ -179,7 +185,8 @@ lang_f_options[] =
   {"check-references", &flag_check_references, 1},
   {"force-classes-archive-check", &flag_force_classes_archive_check, 1},
   {"optimize-static-class-initialization", &flag_optimize_sci, 1 },
-  {"indirect-dispatch", &flag_indirect_dispatch, 1}
+  {"indirect-dispatch", &flag_indirect_dispatch, 1},
+  {"store-check", &flag_store_check, 1}
 };
 
 static const struct string_option
@@ -214,6 +221,8 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_DECODE_OPTION java_decode_option
 #undef LANG_HOOKS_SET_YYDEBUG
 #define LANG_HOOKS_SET_YYDEBUG java_set_yydebug
+#undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
+#define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -257,6 +266,8 @@ java_decode_option (argc, argv)
 {
   char *p = argv[0];
 
+  jcf_path_init ();
+
   if (strcmp (p, "-version") == 0)
     {
       version_flag = 1;
@@ -299,6 +310,13 @@ java_decode_option (argc, argv)
       return 1;
     }
 #undef CLARG
+#define CLARG "-fCLASSPATH="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_classpath_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
 #define CLARG "-fclasspath="
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
@@ -306,10 +324,10 @@ java_decode_option (argc, argv)
       return 1;
     }
 #undef CLARG
-#define CLARG "-fCLASSPATH="
+#define CLARG "-fbootclasspath="
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
-      jcf_path_CLASSPATH_arg (p + sizeof (CLARG) - 1);
+      jcf_path_bootclasspath_arg (p + sizeof (CLARG) - 1);
       return 1;
     }
 #undef CLARG
@@ -490,19 +508,6 @@ java_init (filename)
   print_error_function = lang_print_error;
   lang_expand_expr = java_lang_expand_expr;
 
-  /* Append to Gcc tree node definition arrays */
-
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_type,
-	  (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_length,
-	  (LAST_JAVA_TREE_CODE - 
-	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
-	  java_tree_code_name,
-	  (LAST_JAVA_TREE_CODE - 
-	   (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
   java_init_decl_processing ();
 
   using_eh_for_cleanups ();

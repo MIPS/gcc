@@ -11790,11 +11790,7 @@ ffecom_init_0 ()
   {
     REAL_VALUE_TYPE point_5;
 
-#ifdef REAL_ARITHMETIC
     REAL_ARITHMETIC (point_5, RDIV_EXPR, dconst1, dconst2);
-#else
-    point_5 = .5;
-#endif
     ffecom_float_half_ = build_real (float_type_node, point_5);
     ffecom_double_half_ = build_real (double_type_node, point_5);
   }
@@ -14040,15 +14036,6 @@ convert (type, expr)
   return error_mark_node;
 }
 
-/* integrate_decl_tree calls this function, but since we don't use the
-   DECL_LANG_SPECIFIC field, this is a no-op.  */
-
-void
-copy_lang_decl (node)
-     tree node UNUSED;
-{
-}
-
 /* Return the list of declarations of the current level.
    Note that this list is in reverse order unless/until
    you nreverse it; and when you do nreverse it, you must
@@ -14218,6 +14205,37 @@ static void ffe_print_identifier PARAMS ((FILE *, tree, int));
 #define LANG_HOOKS_GET_ALIAS_SET hook_get_alias_set_0
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+
+/* Table indexed by tree code giving a string containing a character
+   classifying the tree code.  Possibilities are
+   t, d, s, c, r, <, 1, 2 and e.  See tree.def for details.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
+
+const char tree_code_type[] = {
+#include "tree.def"
+};
+#undef DEFTREECODE
+
+/* Table indexed by tree code giving number of expression
+   operands beyond the fixed part of the node structure.
+   Not used for types or decls.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
+
+const unsigned char tree_code_length[] = {
+#include "tree.def"
+};
+#undef DEFTREECODE
+
+/* Names of tree components.
+   Used for printing out the tree and error messages.  */
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
+
+const char *const tree_code_name[] = {
+#include "tree.def"
+};
+#undef DEFTREECODE
 
 static const char *
 ffe_init (filename)
@@ -16179,7 +16197,7 @@ typedef doublereal E_f; // real function with -R not specified //
 
 // (No such symbols should be defined in a strict ANSI C compiler.
    We can avoid trouble with f2c-translated code by using
-   gcc -ansi [-traditional].) //
+   gcc -ansi.) //
 
 
 

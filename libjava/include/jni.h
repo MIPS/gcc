@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -15,6 +15,9 @@ details.  */
 #define __GCJ_JNI_H__
 
 #include <gcj/libgcj-config.h>
+
+// We include <stdio.h> for compatibility with Sun's <jni.h>.
+#include <stdio.h>
 
 #include <stdarg.h>
 #define _Jv_va_list va_list
@@ -251,7 +254,7 @@ struct JNINativeInterface
 
   jobject  (*NewGlobalRef)                 (JNIEnv *, jobject);
   void     (*DeleteGlobalRef)              (JNIEnv *, jobject);
-  void     (*DeleteLocalRef)               (JNIEnv *, jobject);;
+  void     (*DeleteLocalRef)               (JNIEnv *, jobject);
   jboolean (*IsSameObject)                 (JNIEnv *, jobject, jobject);
 
   jobject  (*NewLocalRef)		   (JNIEnv *, jobject);

@@ -1,6 +1,6 @@
 // Explicit instantiation file.
 
-// Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,10 +34,12 @@
 #include <bits/c++config.h>
 #include <memory>
 #include <vector>
-#include <ostream>
 
 namespace std
 {
+  template class allocator<char>;
+  template class allocator<wchar_t>;
+
   template class __malloc_alloc_template<0>;
 
 #ifndef __USE_MALLOC
@@ -48,5 +50,4 @@ namespace std
     void
     vector<unsigned int>::
     _M_insert_aux(vector<unsigned int>::iterator, unsigned int const &);
-
 } // namespace std

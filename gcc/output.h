@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -81,7 +81,7 @@ extern rtx alter_subreg PARAMS ((rtx *));
 
 /* Report inconsistency between the assembler template and the operands.
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
-extern void output_operand_lossage  PARAMS ((const char *));
+extern void output_operand_lossage  PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
 
 /* Output a string of assembler code, substituting insn operands.
    Defined in final.c.  */
@@ -137,7 +137,7 @@ extern const char *get_insn_template PARAMS ((int, rtx));
 
 /* Add function NAME to the weak symbols list.  VALUE is a weak alias
    associated with NAME.  */
-extern int add_weak PARAMS ((const char *, const char *));
+extern int add_weak PARAMS ((tree, const char *, const char *));
 
 /* Functions in flow.c */
 extern void allocate_for_life_analysis	PARAMS ((void));
@@ -254,6 +254,8 @@ extern void make_var_volatile		PARAMS ((tree));
 extern void assemble_constant_align	PARAMS ((tree));
 
 extern void assemble_alias		PARAMS ((tree, tree));
+
+extern void assemble_visibility		PARAMS ((tree, const char *));
 
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */

@@ -59,6 +59,9 @@ int
 c_disregard_inline_limits (fn)
      tree fn;
 {
+  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
+    return 1;
+
   return DECL_DECLARED_INLINE_P (fn) && DECL_EXTERNAL (fn);
 }
 
@@ -142,6 +145,10 @@ c_cannot_inline_tree_fn (fnp)
   tree fn = *fnp;
   tree t;
 
+  if (optimize == 0
+      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
+    return 1;
+
   if (! function_attribute_inlinable_p (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
@@ -210,7 +217,7 @@ c_objc_common_init (filename)
 
   filename = c_common_init (filename);
 
-  add_c_tree_codes ();
+  lang_unsafe_for_reeval = c_unsafe_for_reeval;
 
   save_lang_status = &push_c_function_context;
   restore_lang_status = &pop_c_function_context;

@@ -49,6 +49,7 @@ AC_SUBST(glibcpp_srcdir)
 dnl This is here just to satisfy automake.
 ifelse(not,equal,[AC_CONFIG_AUX_DIR(..)])
 
+AC_PROG_AWK
 # Will set LN_S to either 'ln -s' or 'ln'.  With autoconf 2.50+, can also
 # be 'cp -p' if linking isn't available.
 #ac_cv_prog_LN_S='cp -p'
@@ -280,6 +281,8 @@ dnl safe (like an empty string).
 dnl
 dnl Define SECTION_LDFLAGS='-Wl,--gc-sections' if possible.
 dnl Define OPT_LDFLAGS='-Wl,-O1' if possible.
+dnl Define LD, with_gnu_ld, and (possibly) glibcpp_gnu_ld_version as
+dnl side-effects of testing.
 dnl
 dnl GLIBCPP_CHECK_LINKER_FEATURES
 AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
@@ -290,8 +293,32 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
   test -z "$OPT_LDFLAGS" && OPT_LDFLAGS=''
   AC_REQUIRE([AC_PROG_LD])
 
+  # The name set by libtool depends on the version of libtool.  Shame on us
+  # for depending on an impl detail, but c'est la vie.  Older versions used
+  # ac_cv_prog_gnu_ld, but now it's lt_cv_prog_gnu_ld, and is copied back on
+  # top of with_gnu_ld (which is also set by --with-gnu-ld, so that actually
+  # makes sense).  We'll test with_gnu_ld everywhere else, so if that isn't
+  # set (hence we're using an older libtool), then set it.
+  if test x${with_gnu_ld+set} != xset; then
+    if test x${ac_cv_prog_gnu_ld+set} != xset; then
+      # We got through "ac_require(ac_prog_ld)" and still not set?  Huh?
+      with_gnu_ld=no
+    else
+      with_gnu_ld=$ac_cv_prog_gnu_ld
+    fi
+  fi
+
+  # Start by getting the version number.  I think the libtool test already
+  # does some of this, but throws away the result.
+  changequote(,)
+  ldver=`$LD --version 2>/dev/null | head -1 | \
+         sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+  changequote([,])
+  glibcpp_gnu_ld_version=`echo $ldver | \
+         $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
+
   # Set --gc-sections.
-  if test "$ac_cv_prog_gnu_ld" = "notbroken"; then
+  if test "$with_gnu_ld" = "notbroken"; then
     # GNU ld it is!  Joy and bunny rabbits!
 
     # All these tests are for C++; save the language and the compiler flags.
@@ -329,8 +356,7 @@ AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
   fi
 
   # Set linker optimization flags.
-  if test x"$ac_cv_prog_gnu_ld" = x"yes" &&
-     test x"$enable_debug" = x"no"; then
+  if test x"$with_gnu_ld" = x"yes" && test x"$enable_debug" = x"no"; then
     OPT_LDFLAGS="-Wl,-O1 $OPT_LDFLAGS"
   fi
 
@@ -843,7 +869,7 @@ AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
 
   dnl Sanity check for existence of ISO C99 headers for extended encoding.
   AC_CHECK_HEADERS(wchar.h, ac_has_wchar_h=yes, ac_has_wchar_h=no)
-  AC_CHECK_HEADER(wctype.h, ac_has_wctype_h=yes, ac_has_wctype_h=no)
+  AC_CHECK_HEADERS(wctype.h, ac_has_wctype_h=yes, ac_has_wctype_h=no)
   
   dnl Only continue checking if the ISO C99 headers exist and support is on.
   if test x"$ac_has_wchar_h" = xyes &&
@@ -1100,16 +1126,16 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       # Don't use gettext.
       USE_NLS=no
 
-      CLOCALE_H=config/locale/c_locale_generic.h
-      CLOCALE_CC=config/locale/c_locale_generic.cc
-      CCODECVT_H=config/locale/codecvt_specializations_generic.h
-      CCOLLATE_CC=config/locale/collate_members_generic.cc
-      CCTYPE_CC=config/locale/ctype_members_generic.cc
-      CMESSAGES_H=config/locale/messages_members_generic.h
-      CMESSAGES_CC=config/locale/messages_members_generic.cc
-      CMONEY_CC=config/locale/moneypunct_members_generic.cc
-      CNUMERIC_CC=config/locale/numpunct_members_generic.cc
-      CTIME_CC=config/locale/time_members_generic.cc
+      CLOCALE_H=config/locale/generic/c_locale.h
+      CLOCALE_CC=config/locale/generic/c_locale.cc
+      CCODECVT_H=config/locale/generic/codecvt_specializations.h
+      CCOLLATE_CC=config/locale/generic/collate_members.cc
+      CCTYPE_CC=config/locale/generic/ctype_members.cc
+      CMESSAGES_H=config/locale/generic/messages_members.h
+      CMESSAGES_CC=config/locale/generic/messages_members.cc
+      CMONEY_CC=config/locale/generic/monetary_members.cc
+      CNUMERIC_CC=config/locale/generic/numeric_members.cc
+      CTIME_CC=config/locale/generic/time_members.cc
       ;;
     xgnu)
       AC_MSG_RESULT(gnu)
@@ -1130,33 +1156,33 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       AC_SUBST(glibcpp_MOFILES)
       AC_SUBST(glibcpp_POFILES)
 
-      CLOCALE_H=config/locale/c_locale_gnu.h
-      CLOCALE_CC=config/locale/c_locale_gnu.cc
-      CCODECVT_H=config/locale/codecvt_specializations_ieee_1003.1-200x.h
-      CCOLLATE_CC=config/locale/collate_members_gnu.cc
-      CCTYPE_CC=config/locale/ctype_members_gnu.cc
-      CMESSAGES_H=config/locale/messages_members_gnu.h
-      CMESSAGES_CC=config/locale/messages_members_gnu.cc
-      CMONEY_CC=config/locale/moneypunct_members_gnu.cc
-      CNUMERIC_CC=config/locale/numpunct_members_gnu.cc
-      CTIME_CC=config/locale/time_members_gnu.cc
+      CLOCALE_H=config/locale/gnu/c_locale.h
+      CLOCALE_CC=config/locale/gnu/c_locale.cc
+      CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCOLLATE_CC=config/locale/gnu/collate_members.cc
+      CCTYPE_CC=config/locale/gnu/ctype_members.cc
+      CMESSAGES_H=config/locale/gnu/messages_members.h
+      CMESSAGES_CC=config/locale/gnu/messages_members.cc
+      CMONEY_CC=config/locale/gnu/monetary_members.cc
+      CNUMERIC_CC=config/locale/gnu/numeric_members.cc
+      CTIME_CC=config/locale/gnu/time_members.cc
       ;;
-    xieee_1003.1)
+    xieee_1003.1-2001)
       AC_MSG_RESULT(generic)
 
       # Don't use gettext.
       USE_NLS=no
 
-      CLOCALE_H=config/locale/c_locale_ieee_1003.1-200x.h
-      CLOCALE_CC=config/locale/c_locale_ieee_1003.1-200x.cc
-      CCODECVT_H=config/locale/codecvt_specializations_ieee_1003.1-200x.h
-      CCOLLATE_CC=config/locale/collate_members_generic.cc
-      CCTYPE_CC=config/locale/ctype_members_generic.cc
-      CMESSAGES_H=config/locale/messages_members_ieee_1003.1-200x.h
-      CMESSAGES_CC=config/locale/messages_members_ieee_1003.1-200x.cc
-      CMONEY_CC=config/locale/moneypunct_members_generic.cc
-      CNUMERIC_CC=config/locale/numpunct_members_generic.cc
-      CTIME_CC=config/locale/time_members_generic.cc
+      CLOCALE_H=config/locale/ieee_1003.1-2001/c_locale.h
+      CLOCALE_CC=config/locale/ieee_1003.1-2001/c_locale.cc
+      CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCOLLATE_CC=config/locale/generic/collate_members.cc
+      CCTYPE_CC=config/locale/generic/ctype_members.cc
+      CMESSAGES_H=config/locale/ieee_1003.1-2001/messages_members.h
+      CMESSAGES_CC=config/locale/ieee_1003.1-2001/messages_members.cc
+      CMONEY_CC=config/locale/generic/monetary_members.cc
+      CNUMERIC_CC=config/locale/generic/numeric_members.cc
+      CTIME_CC=config/locale/generic/time_members.cc
       ;;
     *)
       echo "$enable_clocale is an unknown locale package" 1>&2
@@ -1177,8 +1203,8 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   AC_LINK_FILES($CCOLLATE_CC, src/collate.cc)
   AC_LINK_FILES($CCTYPE_CC, src/ctype.cc)
   AC_LINK_FILES($CMESSAGES_CC, src/messages.cc)
-  AC_LINK_FILES($CMONEY_CC, src/moneypunct.cc)
-  AC_LINK_FILES($CNUMERIC_CC, src/numpunct.cc)
+  AC_LINK_FILES($CMONEY_CC, src/monetary.cc)
+  AC_LINK_FILES($CNUMERIC_CC, src/numeric.cc)
   AC_LINK_FILES($CTIME_CC, src/time.cc)
 ])
 
@@ -2003,4 +2029,100 @@ if test x"$enable_concept_checks" = xyes; then
 fi
 ])
 
+
+dnl
+dnl Add version tags to symbols in shared library (or not), additionally
+dnl marking other symbols as private/local (or not).
+dnl
+dnl GLIBCPP_ENABLE_SYMVERS
+dnl --enable-symvers=style adds a version script to the linker call when
+dnl       creating the shared library.  The choice of version script is
+dnl       controlled by 'style'.
+dnl --disable-symvers does not.
+dnl  +  Usage:  GLIBCPP_ENABLE_SYMVERS[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
+dnl       defaults to `no'.  Passing `yes' tries to choose a default style
+dnl       based on linker characteristics.  Passing 'no' disables versioning.
+AC_DEFUN(GLIBCPP_ENABLE_SYMVERS, [dnl
+define([GLIBCPP_ENABLE_SYMVERS_DEFAULT], ifelse($1, yes, yes, no))dnl
+AC_ARG_ENABLE(symvers,
+changequote(<<, >>)dnl
+<<  --enable-symvers=style  enables symbol versioning of the shared library [default=>>GLIBCPP_ENABLE_SYMVERS_DEFAULT],
+changequote([, ])dnl
+[case "$enableval" in
+ yes) enable_symvers=yes ;;
+ no)  enable_symvers=no ;;
+ # other names here, just as sanity checks
+ #gnu|sun|etcetera) enable_symvers=$enableval ;;
+ gnu) enable_symvers=$enableval ;;
+ *)   AC_MSG_ERROR([Unknown argument to enable/disable symvers]) ;;
+ esac],
+enable_symvers=GLIBCPP_ENABLE_SYMVERS_DEFAULT)dnl
+
+# If we never went through the GLIBCPP_CHECK_LINKER_FEATURES macro, then we
+# don't know enough about $LD to do tricks... 
+if test x$enable_shared = xno || 
+	test x$LD = x || 
+	test x$glibcpp_gnu_ld_version = x; then
+  enable_symvers=no
+fi
+
+# Check to see if libgcc_s exists, indicating that shared libgcc is possible.
+AC_MSG_CHECKING([for shared libgcc])
+ac_save_CFLAGS="$CFLAGS"
+CFLAGS=' -lgcc_s'
+AC_TRY_LINK( , [return 0], glibcpp_shared_libgcc=yes, glibcpp_shared_libgcc=no)
+CFLAGS="$ac_save_CFLAGS"
+AC_MSG_RESULT($glibcpp_shared_libgcc)
+
+# For GNU ld, we need at least this version.  It's 2.12 in the same format
+# as the tested-for version.  See GLIBCPP_CHECK_LINKER_FEATURES for more.
+glibcpp_min_gnu_ld_version=21200
+
+# Check to see if unspecified "yes" value can win, given results
+# above.  
+if test $enable_symvers = yes ; then
+  if test $with_gnu_ld = yes &&
+    test $glibcpp_shared_libgcc = yes ;
+  then
+    if test $glibcpp_gnu_ld_version -ge $glibcpp_min_gnu_ld_version ; then
+        enable_symvers=gnu
+    else
+      ac_test_CFLAGS="${CFLAGS+set}"
+      ac_save_CFLAGS="$CFLAGS"
+      CFLAGS='-shared -Wl,--version-script,conftest.map'
+      enable_symvers=no
+      changequote(,)
+      echo 'FOO { global: f[a-z]o; local: *; };' > conftest.map
+      changequote([,])
+      AC_TRY_LINK([int foo;],, enable_symvers=gnu)
+      if test "$ac_test_CFLAGS" = set; then
+	CFLAGS="$ac_save_CFLAGS"
+      else
+	# this is the suspicious part
+	CFLAGS=''
+      fi
+      rm -f conftest.map
+    fi
+  else
+    # just fail for now
+    enable_symvers=no
+  fi
+fi
+
+dnl Everything parsed; figure out what file to use.
+case $enable_symvers in
+  no)
+      LINKER_MAP=config/linker-map.dummy
+      ;;
+  gnu)
+      LINKER_MAP=config/linker-map.gnu
+      ;;
+esac
+
+AC_LINK_FILES($LINKER_MAP, src/linker.map)
+AM_CONDITIONAL(GLIBCPP_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
+AC_MSG_CHECKING([versioning on shared library symbols])
+AC_MSG_RESULT($enable_symvers)
+])
 

@@ -294,14 +294,8 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-/* Define for XFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.  */
+/* Define for XFmode extended real floating point support.  */
 #define LONG_DOUBLE_TYPE_SIZE 96
-
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -321,21 +315,8 @@ extern int target_flags;
    So let's be consistent.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_SHORT ? 16 : 32)
@@ -406,7 +387,7 @@ extern int target_flags;
 #endif
 
 /* This defines the register which is used to hold the offset table for PIC.  */
-#define PIC_OFFSET_TABLE_REGNUM 13
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 13 : INVALID_REGNUM)
 
 #ifndef SUPPORT_SUN_FPA
 
@@ -488,43 +469,43 @@ extern int target_flags;
 
 #ifdef SUPPORT_SUN_FPA
 
-#define CONDITIONAL_REGISTER_USAGE \
-{ 						\
-  int i; 					\
-  HARD_REG_SET x; 				\
-  if (! TARGET_FPA)				\
-    { 						\
-      COPY_HARD_REG_SET (x, reg_class_contents[(int)FPA_REGS]); \
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ ) \
-       if (TEST_HARD_REG_BIT (x, i)) 		\
-	fixed_regs[i] = call_used_regs[i] = 1; 	\
-    } 						\
-  if (! TARGET_68881)				\
-    { 						\
-      COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]); \
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ ) \
-       if (TEST_HARD_REG_BIT (x, i)) 		\
-	fixed_regs[i] = call_used_regs[i] = 1; 	\
-    } 						\
-  if (flag_pic)					\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM]		\
-      = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;\
+#define CONDITIONAL_REGISTER_USAGE				\
+{ 								\
+  int i; 							\
+  HARD_REG_SET x; 						\
+  if (! TARGET_FPA)						\
+    { 								\
+      COPY_HARD_REG_SET (x, reg_class_contents[(int)FPA_REGS]);	\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ )		\
+       if (TEST_HARD_REG_BIT (x, i)) 				\
+	fixed_regs[i] = call_used_regs[i] = 1; 			\
+    } 								\
+  if (! TARGET_68881)						\
+    { 								\
+      COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]);	\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ )		\
+       if (TEST_HARD_REG_BIT (x, i)) 				\
+	fixed_regs[i] = call_used_regs[i] = 1; 			\
+    } 								\
+  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
+    fixed_regs[PIC_OFFSET_TABLE_REGNUM]				\
+      = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 }
 #else
-#define CONDITIONAL_REGISTER_USAGE \
-{ 						\
-  int i; 					\
-  HARD_REG_SET x; 				\
-  if (! TARGET_68881)				\
-    { 						\
-      COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]); \
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ ) \
-       if (TEST_HARD_REG_BIT (x, i)) 		\
-	fixed_regs[i] = call_used_regs[i] = 1; 	\
-    } 						\
-  if (flag_pic)					\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM]		\
-      = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;\
+#define CONDITIONAL_REGISTER_USAGE				\
+{ 								\
+  int i; 							\
+  HARD_REG_SET x; 						\
+  if (! TARGET_68881)						\
+    { 								\
+      COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]);	\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++ )		\
+       if (TEST_HARD_REG_BIT (x, i)) 				\
+	fixed_regs[i] = call_used_regs[i] = 1; 			\
+    } 								\
+  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
+    fixed_regs[PIC_OFFSET_TABLE_REGNUM]				\
+      = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 }
 
 #endif /* defined SUPPORT_SUN_FPA */
@@ -1570,6 +1551,12 @@ __transfer_from_trampoline ()					\
   case SYMBOL_REF:						\
     return 3;							\
   case CONST_DOUBLE:						\
+    /* Make 0.0 cheaper than other floating constants to	\
+       encourage creating tstsf and tstdf insns.  */		\
+    if ((OUTER_CODE) == COMPARE					\
+        && ((RTX) == CONST0_RTX (SFmode)			\
+	    || (RTX) == CONST0_RTX (DFmode)))			\
+      return 4;							\
     return 5;
 
 /* Compute the cost of various arithmetic operations.
