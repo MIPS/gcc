@@ -1,3 +1,198 @@
+2002-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from rtlopt branch:
+	2002-11-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloopanal.c (simple_loop_p): Count desc->n_branches.
+		* cfgloop.h (struct loop_desc): Add n_branches field.
+		* loop-unroll.c (decide_peel_simple, decide_unroll_stupid): Do not
+		unroll/peel loops containing branches.
+
+	2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* loop-unroll.c (decide_unrolling_and_peeling): Fix.
+
+	2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* loop-unroll.c (decide_unroll_constant_iterations,
+		decide_unroll_runtime_iterations, decide_peel_simple,
+		decide_unroll_stupid): Fix.
+
+	2002-11-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloop.c (flow_loop_dump, flow_loops_free, flow_loop_exit_edges_find,
+		get_loop_body, cancel_loop, verify_loop_structure):
+		Use unsigned variables where appropriate.
+		* cfgloopanal.c (simple_loop_p, mark_irreducible_loops,
+		num_loop_insns, expected_loop_iterations): Ditto.
+		* cfgloopmanip.c (record_exit_edges, duplicate_loop_to_header_edge,
+		loopify, fix_loop_placement, can_duplicate_loop_p, create_preheaders,
+		force_single_succ_latches): Ditto.
+		* loop-unswitch.c (may_unswitch_on_p, unswitch_single_loop): Ditto.
+		* predict.c (estimate_probability, estimate_loops_at_level): Ditto.
+		* loop-unroll.c (unroll_or_peel_loop): Removed.
+		(peel_loop_simple, peel_loop_completely, unroll_loop_stupid,
+		unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+		unroll_and_peel_loops): Modified.
+		(peel_loops_completely, decide_unrolling_and_peeling,
+		decide_peel_simple, decide_peel_once_rolling, decide_peel_completely,
+		decide_unroll_stupid, decide_unroll_constant_iterations,
+		decide_unroll_runtime_iterations): New.
+		* cfgloop.h (enum lpt_dec, struct lpt_decision): New.
+		(struct loop): Add lpt_decision, simple, desc, has_desc and ninsns
+		fields.
+		(expected_loop_iterations, duplicate_loop_to_header_edge): Declaration
+		changed.
+		(UAP_PEEL_COMPLETELY, UAP_PEEL_ONCE_ROLLING): Removed.
+
+	2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloopmanip.c (duplicate_loop_to_header_edge): Fix count &
+		frequencies updating.
+		* loop-unroll.c (unroll_loop_runtime_iterations): Fix edge
+		probabilities.
+
+	2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* loop-unroll.c (unroll_loop_runtime_iterations): New loop
+		preconditioning.
+		* params.def (PARAM_MAX_PEELED_INSNS,
+		PARAM_MAX_COMPLETELY_PEELED_INSNS): Increase default parameter values.
+		* toplev.c (dump_file): Sync with dump_file_index.
+
+	2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloopanal.c (count_loop_iterations): Undo my previous fix.
+		* loop-unroll.c (unroll_loop_runtime_iterations): Better
+		preconditioning for preincrement loops.
+
+	2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloopanal.c (count_loop_iterations): Use stride instead of
+		const1_rtx.
+		* loop-unroll.c (unroll_loop_runtime_iterations): Revert the wrong
+		fix, fix misleading comment.
+		(unroll_or_peel_loop): Add debugging info.
+
+	Sat Oct 26 00:04:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* loop-unroll.c (unroll_loop_runtime_iterations):  Compute edge probabilities properly.
+
+	Fri Oct 25 23:31:53 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* loop-unroll.c (unroll_loop_runtime_iterations): Fix.
+
+	Wed Oct 23 16:46:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* loop-unroll.c (unroll_or_peel_loop): Do complete unrolling
+		when -funroll-loop is specified.
+
+	2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* cfgloopmanip.c (fix_bb_placement, fix_bb_placements): New.
+		(remove_path): Use them.
+		(record_exit_edges): Prototype changed.
+
+	2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* params.def (PARAM_MAX_COMPLETELY_PEEL_TIMES): Fix spelling typo
+		in comment.
+
+	2002-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* loop-unroll.c (unroll_or_peel_loop): Modify loop peeling decision.
+		* params.def (PARAM_MAX_COMPLETELY_PEELED_INSNS,
+		PARAM_MAX_COMPLETELY_PEEL_TIMES, PARAM_MAX_ONCE_PEELED_INSNS): New.
+		* cfgloop.h (UAP_UNROLL_ALL, UAP_PEEL_COMPLETELY,
+		UAP_PEEL_ONCE_ROLLING): New.
+
+	2002-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* Makefile.in (cfgloopanal.o): New.
+		(doloop.o, predict.o, toplev.o, loop.o, unroll.o, cfgloop.o): Include
+		cfgloop.h
+		* basic-block.h (loop, loops): Forward declare.
+		(flow_loops_find, flow_loops_update, flow_loops_free, flow_loops_dump,
+		flow_loop_dump, flow_loop_scan, flow_loop_tree_node_add,
+		flow_loop_tree_node_remove, LOOP_*, flow_loop_outside_edge_p,
+		flow_loop_nested_p, flow_bb_inside_loop_p, get_loop_body,
+		dfs_enumerate_from, loop_preheader_edge, loop_latch_edge,
+		add_bb_to_loop, remove_bb_from_loops, find_common_loop,
+		verify_loop_structure, VLS_*): Move to ...
+		(BB_IRREDUCIBLE): New flag.
+		* cfgloop.h: ... here; new file;
+		(struct loop_desc, simple_loop_p, count_iterations): Declare.
+		* cfgloop.c: Include cfgloop.h
+		* doloop.c: Likewise.
+		* predict.c: Likewise.
+		(estimate_probability): Predict number of iterations.
+		* loop.c: Likewise.
+		(strength_reduce): kill PRED_LOOP_ITERATIONS prediction
+		* toplev.c: Include cfgloop.h
+		* unroll.c: Likewise.
+		* cfgloopanal.c: New file.
+
+		* Makefile.in (cfgloopmanip.o): New.
+		* cfglayout.c (cfg_layout_redirect_edge): Return exit status.
+		(cfg_layout_duplicate_bb): Set copy field.
+		* cfglayout.h (cfg_layout_redirect_edge): Declaration changed.
+		(struct reorder_block_def): Added new fields.
+		* cfgloop.c (cancel_loop, cancel_loop_tree): New functions.
+		* cfgloop.h: Reformated.
+		(struct loop): Added new field.
+		(cancel_loop, cancel_loop_tree, can_duplicate_loop_p,
+		duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+		Declare.
+		* cfgloopmanip.c: New.
+
+		* Makefile.in (loop-unswitch.o, loop-init.o): New.
+		(cfglayout.o): Add dependency on cfgloop.h.
+		(cfgloopmanip.o): Add dependency on output.h.
+		* basic-block.h (BB_SUPERBLOCK): New flag.
+		* cfglayout.h (cfg_layout_initialize): Declaration changed.
+		* cfglayout.c (cfgloop.h): Include.
+		(cleanup_unconditional_jumps, cfg_layout_initialize): Update loop data.
+		(break_superblocks): New.
+		(cfg_layout_finalize): Call it.
+		* bb_reorder.c (reorder_basic_blocks): Add parameter to
+		cfg_layout_initialize call.
+		* cfgloop.c (verify_loop_structure): Add irreducible loop info
+		verification.
+		* cfgloop.h (VLS_EXPECR_PREHEADERS, VLS_EXPECT_SIMPLE_LATCHES):
+		Merged to enum together with...
+		(VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS, VLS_FOR_LOOP): New flags.
+		(CP_SIMPLE_PREHEADERS, CP_INSIDE_CFGLAYOUT): New flags.
+		(num_loop_insns, loop_split_edge_with, fix_loop_placement,
+		create_preheaders, force_single_succ_latches, expected_loop_iterations,
+		loop_optimizer_init, loop_optimizer_finalize, unswitch_loops): Declare.
+		* cfgloopanal.c (num_loop_insns, expected_loop_iterations):
+		New functions.
+		* cfgloopmanip.c (output.h): Include.
+		(fix_loop_placement): Declaration moved to cfgloop.h.
+		(create_preheader, create_preheaders, force_sinle_succ_latches,
+		loop_split_edge_with): New functions.
+		* loop-init.c: New.
+		* loop-unswitch: New.
+		* params.def (PARAM_MAX_UNSWITCH_INSNS, PARAM_MAX_UNSWITCH_LEVEL): New.
+		* toplev.c (DFI_loop2): New.
+		(flag_unswitch_loops): New.
+		(rest_of_compilation): Add loop unswitching pass.
+		(parse_options_and_default_flags): Enable it at -O3.
+
+		* Makefile.in (loop-unroll.o): New.
+		* cfgloop.h (UAP_PEEL, UAP_UNROLL, UAP_UNROLL_ALL): New flags.
+		(unroll_and_peel_loops): Declare.
+		* loop-unroll.c: New.
+		* params.def (PARAM_MAX_UNROLL_TIMES, PARAM_MAX_PEELED_INSNS,
+		PARAM_MAX_PEEL_TIMES): New.
+		* toplev.c (flag_old_unroll_loops, flag_old_unroll_all_loops): Used
+		instead of ...
+		(flag_unroll_loops, flag_unroll_all_loops): Used for new loop optimizer.
+		(flag_peel_loops): New.
+		(parse_options_and_default_flags): Turn them on with -O3.
+		(process_options): Modified.
+		(rest_of_compilation): Add unrolling/peeling pass.
+
 Mon Dec  2 22:24:16 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cselib.c (cselib_current_insn_in_libcall): New static variable.

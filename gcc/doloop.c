@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "cfgloop.h"
 
 
 /* This module is used to modify loops with a determinable number of

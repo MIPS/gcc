@@ -924,7 +924,7 @@ reorder_basic_blocks ()
   if ((* targetm.cannot_modify_jumps_p) ())
     return;
 
-  cfg_layout_initialize ();
+  cfg_layout_initialize (NULL);
 
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
