@@ -3300,11 +3300,8 @@ generic_src_operand (op, mode)
       {
 	case MODE_INT:
 	case MODE_FLOAT:
-      /* Does not work yet due to partial lowering done by codegen.  */
-#if 0
 	case MODE_COMPLEX_INT:
 	case MODE_COMPLEX_FLOAT:
-#endif
 	case MODE_VECTOR_INT:
 	case MODE_VECTOR_FLOAT:
 	  break;
@@ -3318,13 +3315,17 @@ generic_src_operand (op, mode)
       case SYMBOL_REF:
       case CONST_INT:
       case CONST_DOUBLE:
-      case CONST:
       case CONSTANT_P_RTX:
       case VEC_CONST:
 	/* Accept registers.  */
       case ADDRESSOF:
       case REG:
 	return 1;
+	/* Allow only constant references supported by target.
+	   Later we will want to tweak this.  */
+      case CONST:
+	return (LEGITIMATE_CONSTANT_P (op)
+	        && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)));
 	/* Accept memory.  */
       case MEM:
 	return generic_address (XEXP (op, 0));
@@ -3350,11 +3351,8 @@ generic_dest_operand (op, mode)
       {
       case MODE_INT:
       case MODE_FLOAT:
-      /* Does not work yet due to partial lowering done by codegen.  */
-#if 0
       case MODE_COMPLEX_INT:
       case MODE_COMPLEX_FLOAT:
-#endif
       case MODE_VECTOR_INT:
       case MODE_VECTOR_FLOAT:
 	break;
