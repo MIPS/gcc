@@ -562,7 +562,6 @@ static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree handle_global_export_attribute (tree *, tree, tree, int, bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, tree);
@@ -642,8 +641,6 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_cleanup_attribute },
   { "warn_unused_result",     0, 0, false, true, true,
 			      handle_warn_unused_result_attribute },
-  { "global_export",          0, 0, true, false, false,
-                              handle_global_export_attribute }, 
   { "sentinel",               0, 1, false, true, true,
 			      handle_sentinel_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
@@ -4005,29 +4002,6 @@ handle_noinline_attribute (tree *node, tree name,
   else
     {
       warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
-/* Handle a "global_export" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_global_export_attribute (tree *node, tree name,
-				tree ARG_UNUSED (args),
-				int ARG_UNUSED (flags),
-				bool *no_add_attrs)
-{
-  if (DECL_P (*node))
-    {
-      /* Do nothing else, just set the attribute.  We'll get at
-	 it later with lookup_attribute.  */
-    }
-  else
-    {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 

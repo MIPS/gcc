@@ -1114,9 +1114,8 @@ cgraph_function_and_variable_visibility (void)
 	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl)
 		  && !flag_whole_program)))
 	node->local.externally_visible = 1;
-      if ((!node->local.externally_visible && node->analyzed
+      if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
-	  && !lookup_attribute ("global_export", DECL_ATTRIBUTES (node->decl)))
 	{
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (node->decl));
 	  TREE_PUBLIC (node->decl) = 0;
@@ -1131,8 +1130,7 @@ cgraph_function_and_variable_visibility (void)
 	  && (DECL_COMDAT (vnode->decl)
 	      || (TREE_PUBLIC (vnode->decl) && !flag_whole_program)))
 	vnode->externally_visible = 1;
-      if (!vnode->externally_visible 
-	  && !lookup_attribute ("global_export", DECL_ATTRIBUTES (vnode->decl)))
+      if (!vnode->externally_visible)
 	{
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
 	  TREE_PUBLIC (vnode->decl) = 0;

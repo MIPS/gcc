@@ -1,5 +1,13 @@
 2005-01-21  Caroline Tice  <ctice@apple.com>
 
+	Remove attribute "global_export".
+	* c-common.c (handle_global_export_attribute):  Remove function.
+	(c_common_attribute_table): Remove global_export attribute.
+	* cgraphunit.c (cgraph_function_and_variable_visibility):  Remove
+	global_export attribute.
+
+2005-01-21  Caroline Tice  <ctice@apple.com>
+
 	Merged with tree-profiling branch, as of 2005-01-17.  Tag on
 	the tree-profiling branch is "tree-profiling-merge-20050117".
 
