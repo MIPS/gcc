@@ -23,7 +23,6 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "basic-block.h"
 #include "resource.h"
 #include "ggc.h"
 #include "tree.h"
@@ -32,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "tree-ssa-operands.h"
+#include "basic-block.h"
 #include "fact-common.h"
 
 static hashval_t block_hash (const void *);
@@ -40,6 +40,8 @@ static bool compare_blocks (bb_decorator, bb_decorator, enum lfact_direction);
 
 #define DIR_EDGES(bb, alg) (alg == LFD_HOISTING ? bb->preds : bb->succs)
 #define DIR_BLOCKS(e, alg) (alg == LFD_HOISTING ? e->src : e->dest)
+#define INVDIR_EDGES(bb, alg) (alg != LFD_HOISTING ? bb->preds : bb->succs)
+#define INVDIR_BLOCKS(e, alg) (alg != LFD_HOISTING ? e->src : e->dest)
 
 /* Auxiliary function for hashing basic blocks.  */
 static hashval_t
@@ -183,7 +185,7 @@ collect_full_sibling (bb_decorator decorator, enum lfact_direction alg)
 	  ev = DIR_EDGES (temp->curr, alg);
 	  FOR_EACH_EDGE (f, ei, ev)
 	  {
-	    fv = DIR_EDGES (DIR_BLOCKS (f, alg), alg);
+	    fv = INVDIR_EDGES (DIR_BLOCKS (f, alg), alg);
 	    if (EDGE_COUNT (fv) != num_of_sibling)
 	      {
 		delete_siblings (temp);

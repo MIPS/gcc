@@ -1,3 +1,7 @@
+2005-01-17  Gabor Loki  <loki@gcc.gnu.org>
+
+	* fact-common.c (collect_full_sibling) : Fix the sibling counting.
+
 2004-11-25  Gabor Loki  <loki@gcc.gnu.org>
 
 	* Makefile.in (seqabstr.o): Depend on $(PARAMS_H) $(EXPR_H) $(TM_P_H).
