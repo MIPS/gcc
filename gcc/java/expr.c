@@ -412,9 +412,10 @@ can_widen_reference_to (tree source_type, tree target_type)
 
   if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
     {
-      warning ("assert: %s is assign compatible with %s", 
-	       xstrdup (lang_printable_name (target_type, 0)),
-	       xstrdup (lang_printable_name (source_type, 0)));
+      if (!quiet_flag)
+	warning ("assert: %s is assign compatible with %s", 
+		 xstrdup (lang_printable_name (target_type, 0)),
+		 xstrdup (lang_printable_name (source_type, 0)));
       return 1;
     }
   else
@@ -452,11 +453,13 @@ can_widen_reference_to (tree source_type, tree target_type)
 
 	  if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
 	    {
-	      warning ("assert: %s is assign compatible with %s", 
-		       xstrdup (lang_printable_name (target_type, 0)),
-		       xstrdup (lang_printable_name (source_type, 0)));
+	      if (! quiet_flag)
+		warning ("assert: %s is assign compatible with %s", 
+			 xstrdup (lang_printable_name (target_type, 0)),
+			 xstrdup (lang_printable_name (source_type, 0)));
 	      return 1;
 	    }
+
  	  /* class_depth can return a negative depth if an error occurred */
 	  if (source_depth < 0 || target_depth < 0)
 	    return 0;
@@ -1265,7 +1268,8 @@ build_instanceof (tree value, tree type)
 	 we only need to check for `null'.  */
       expr = build (NE_EXPR, itype, value, null_pointer_node);
     }
-  else if (! TYPE_ARRAY_P (type)
+  else if (flag_verify_invocations
+	   && ! TYPE_ARRAY_P (type)
 	   && ! TYPE_ARRAY_P (valtype)
 	   && DECL_P (klass) && DECL_P (valclass)
 	   && ! CLASS_INTERFACE (valclass)
@@ -1981,6 +1985,9 @@ build_invokevirtual (tree dtable, tree method)
 
   if (flag_indirect_dispatch)
     {
+      if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
+	abort ();
+
       otable_index 
 	= build_int_2 (get_symbol_table_index 
 		       (method, &TYPE_OTABLE_METHODS (output_class)), 0);
@@ -2111,6 +2118,13 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
     method = lookup_java_constructor (self_type, method_signature);
   else
     method = lookup_java_method (self_type, method_name, method_signature);
+
+  /* We've found a method in an interface, but this isn't an interface call.  */
+  if (opcode != OPCODE_invokeinterface
+      && method
+      && (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method)))))
+    method = NULL_TREE;
+
   if (method == NULL_TREE)
     {
       if (flag_verify_invocations || ! flag_indirect_dispatch)

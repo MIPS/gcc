@@ -126,9 +126,10 @@ defer_merging (tree type1, tree type2)
 {
   if (TYPE_DUMMY (type1) || TYPE_DUMMY (type2))
     {
-      warning ("assert: cannot merge types %s and %s", 
-	       xstrdup (lang_printable_name (type1, 0)),
-	       xstrdup (lang_printable_name (type2, 0)));
+      if (! quiet_flag)
+	warning ("assert: cannot merge types %s and %s", 
+		 xstrdup (lang_printable_name (type1, 0)),
+		 xstrdup (lang_printable_name (type2, 0)));
     }
 
   return object_ptr_type_node;

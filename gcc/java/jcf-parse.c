@@ -565,6 +565,8 @@ load_class (tree class_or_name, int verbose)
 {
   tree name, saved;
   int class_loaded = 0;
+  tree class_decl = NULL_TREE;
+  bool is_compiled_class = false;
 
   /* We've already failed, don't try again.  */
   if (TREE_CODE (class_or_name) == RECORD_TYPE
@@ -582,44 +584,62 @@ load_class (tree class_or_name, int verbose)
   else
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
-  saved = name;
-  
-  while (1)
+  class_decl = IDENTIFIER_CLASS_VALUE (name);
+  if (class_decl != NULL_TREE)
     {
-      char *separator;
-
-      /* We've already loaded it.  */
-      if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
-	{
-	  tree type_decl = IDENTIFIER_CLASS_VALUE (name);
-	  if (CLASS_PARSED_P (TREE_TYPE (type_decl)))
-	    break;
-	}
-	
-      if (read_class (name))
-	break;
-
-      /* We failed loading name. Now consider that we might be looking
-	 for a inner class. */
-      if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
-	  || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
-	{
-	  int c = *separator;
-	  *separator = '\0';
-	  name = get_identifier (IDENTIFIER_POINTER (name));
-	  *separator = c;
-	}
-      /* Otherwise, we failed, we bail. */
-      else
-	break;
+      tree type = TREE_TYPE (class_decl);
+      is_compiled_class
+	= ((TYPE_JCF (type) && JCF_SEEN_IN_ZIP (TYPE_JCF (type)))
+	   || CLASS_FROM_CURRENTLY_COMPILED_P (type));
     }
 
-  {
-    /* have we found the class we're looking for?  */
-    tree type_decl = IDENTIFIER_CLASS_VALUE (saved);
-    tree type = type_decl ? TREE_TYPE (type_decl) : NULL;
-    class_loaded = type && CLASS_PARSED_P (type);
-  }	      
+  saved = name;
+  
+  /* If flag_verify_invocations is unset, we don't try to load a class
+     unless we're looking for Object (which is fixed by the ABI) or
+     it's a class that we're going to compile.  */
+  if (flag_verify_invocations
+      || class_or_name == object_type_node
+      || is_compiled_class
+      || TREE_CODE (class_or_name) == IDENTIFIER_NODE)
+    {
+      while (1)
+	{
+	  char *separator;
+
+	  /* We've already loaded it.  */
+	  if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
+	    {
+	      tree tmp_decl = IDENTIFIER_CLASS_VALUE (name);
+	      if (CLASS_PARSED_P (TREE_TYPE (tmp_decl)))
+		break;
+	    }
+	
+	  if (read_class (name))
+	    break;
+
+	  /* We failed loading name. Now consider that we might be looking
+	     for a inner class. */
+	  if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
+	      || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
+	    {
+	      int c = *separator;
+	      *separator = '\0';
+	      name = get_identifier (IDENTIFIER_POINTER (name));
+	      *separator = c;
+	    }
+	  /* Otherwise, we failed, we bail. */
+	  else
+	    break;
+	}
+
+      {
+	/* have we found the class we're looking for?  */
+	tree type_decl = IDENTIFIER_CLASS_VALUE (saved);
+	tree type = type_decl ? TREE_TYPE (type_decl) : NULL;
+	class_loaded = type && CLASS_PARSED_P (type);
+      }	      
+    }
   
   if (!class_loaded)
     {
@@ -632,8 +652,9 @@ load_class (tree class_or_name, int verbose)
       else if (verbose)
 	{
 	  /* This is just a diagnostic during testing, not a real problem.  */
-	  warning("cannot find file for class %s", 
-		  IDENTIFIER_POINTER (saved));
+	  if (!quiet_flag)
+	    warning("cannot find file for class %s", 
+		    IDENTIFIER_POINTER (saved));
 	  
 	  /* Fake it.  */
 	  if (TREE_CODE (class_or_name) == RECORD_TYPE)
@@ -876,6 +897,7 @@ static void
 parse_source_file_2 (void)
 {
   int save_error_count = java_error_count;
+  flag_verify_invocations = true;
   java_complete_class ();	    /* Parse unsatisfied class decl. */
   java_parse_abort_on_error ();
 }
@@ -1141,6 +1163,10 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       input_filename = IDENTIFIER_POINTER (TREE_VALUE (node));
       if (CLASS_FILE_P (node))
 	{
+	  /* FIXME: These two flags really should be independent.  We
+	     should be able to compile fully binary compatible, but
+	     with flag_verify_invocations on.  */
+	  flag_verify_invocations = ! flag_indirect_dispatch;
 	  output_class = current_class = TREE_PURPOSE (node);
 	  current_jcf = TYPE_JCF (current_class);
 	  layout_class (current_class);
@@ -1235,6 +1261,14 @@ parse_zip_file_entries (void)
 	    FREE (class_name);
 	    current_jcf = TYPE_JCF (class);
 	    output_class = current_class = class;
+
+	    if (TYPE_DUMMY (class))
+	      {
+		/* This is a dummy class, and now we're compiling it
+		   for real.  Forget everything we thought we knew
+		   about its structure.  */
+		abort ();
+	      }
 
 	    if (! CLASS_LOADED_P (class))
 	      {

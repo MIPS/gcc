@@ -1,3 +1,28 @@
+2004-08-17  Andrew Haley  <aph@redhat.com>
+
+	* verify.c (defer_merging): Quieten.
+	* jcf-parse.c (load_class): Only try to open a class file if it's
+	java.lang.Object or if it's part of the current compilation.
+	Check that the class we just tried to load is the class we just
+	loaded.  Quieten.
+	(java_parse_file): Set flag_verify_invocations off if we're
+	compiling from .class.
+	(parse_zip_file_entries): Abort if we try to read a dummy class.
+	* expr.c (can_widen_reference_to): Quieten.
+	(build_invokevirtual): Abort if we try to invokevirtual an
+	interface.
+	(expand_invoke): Don't build a non-interface call to an interface.
+	(build_instanceof): Don't do premature optimization if
+	flag_verify_invocations is not set.
+	* class.c (set_super_info): Disable code that inherits TYPE_DUMMY
+	from superclass.
+	(build_static_field_ref): Add correct type conversion for
+	field_address.
+	(add_miranda_methods): Disable generation of Miranda methods for
+	dummy classes.
+	(layout_class_method): Don't complain about non-static method
+	overrides static method with dummy classes.
+
 2004-08-13  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (build_static_field_ref): Re-enable atable lookups for

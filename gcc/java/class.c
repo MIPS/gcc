@@ -488,10 +488,12 @@ set_super_info (int access_flags, tree this_class,
       TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (this_class)), 0)
 	= super_binfo;
       CLASS_HAS_SUPER (this_class) = 1;
+#if 0
       /* FIXME: This is wrong.  */
       if (TYPE_LANG_SPECIFIC (this_class)
 	  && TYPE_LANG_SPECIFIC (super_class))
 	TYPE_DUMMY (this_class) = TYPE_DUMMY (super_class);
+#endif
     }
 
   set_class_decl_access_flags (access_flags, class_decl);
@@ -1093,8 +1095,11 @@ build_static_field_ref (tree fdecl)
 	= build_int_2 (get_symbol_table_index 
 		       (fdecl, &TYPE_ATABLE_METHODS (output_class)), 0);
       tree field_address
-	= build (ARRAY_REF, build_pointer_type (TREE_TYPE (fdecl)), 
+	= build (ARRAY_REF, TREE_TYPE (TREE_TYPE (TYPE_ATABLE_DECL (output_class))), 
 		 TYPE_ATABLE_DECL (output_class), table_index);
+
+      field_address = convert (build_pointer_type (TREE_TYPE (fdecl)),
+			       field_address);
       return fold (build1 (INDIRECT_REF, TREE_TYPE (fdecl), 
 			   field_address));
     }
@@ -2095,6 +2100,11 @@ add_miranda_methods (tree base_class, tree search_class)
 	break;
       elt = BINFO_TYPE (elt);
 
+      /* FIXME: This is totally bogus.  We should not be handling
+	 Miranda methods at all if we're using the BC ABI.  */
+      if (TYPE_DUMMY (elt))
+	continue;
+
       /* Ensure that interface methods are seen in declared order.  */
       layout_class_methods (elt);
 
@@ -2233,6 +2243,7 @@ layout_class_method (tree this_class, tree super_class,
       tree super_method = lookup_argument_method (super_class, method_name,
 						  method_sig);
       if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method)
+	  && ! METHOD_DUMMY (super_method)
 	  && ! DECL_ARTIFICIAL (super_method))
 	{
 	  tree method_index = get_method_index (super_method);
