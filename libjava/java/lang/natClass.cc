@@ -1702,8 +1702,11 @@ _Jv_LinkSymbolTable(jclass klass)
 	  
 	  if (meth != NULL)
 	    {
-	      klass->otable->offsets[index] = 
-		_Jv_VTable::idx_to_offset (meth->index);	      
+	      int offset = _Jv_VTable::idx_to_offset (meth->index);
+	      if (offset == -1)
+		JvFail ("Bad method index");
+	      JvAssert (meth->index < target_class->vtable_method_count);
+	      klass->otable->offsets[index] = offset;
 	    }
 	  if (debug_link)
 	    fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s(%s))\n",
@@ -1732,6 +1735,14 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		if (_Jv_CheckAccess (klass, cls, field->flags))
 // 		  {
 
+		// FIXME size_in_bytes == -1 is an evil way to test
+		// for BC compiled programs
+		if (cls->size_in_bytes == (jint)-1)
+		  {
+		    int static_size;
+		    _Jv_LayoutClass(cls, &static_size);
+		  }
+
 		if (!field->isResolved ())
 		  _Jv_ResolveField (field, cls->loader);
 
@@ -1741,6 +1752,13 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		     ("field type mismatch with different loaders"));
 
 		the_field = field;
+		if (debug_link)
+		  fprintf (stderr, "  offsets[%d] = %d (class %s@%p : %s)\n",
+			   index,
+			   field->u.boffset,
+			   (const char*)cls->name->data,
+			   cls,
+			   (const char*)field->name->data);
 		goto end_of_field_search;
 	      }
 	  }
@@ -2110,7 +2128,7 @@ _Jv_LayoutClass(jclass klass, int *static_size)
   // superclasses and finding the maximum required alignment.  We
   // could consider caching this in the Class.
   int max_align = __alignof__ (java::lang::Object);
-  jclass super = klass->superclass;
+  jclass super = klass->getSuperclass();
   while (super != NULL)
     {
       // FIXME size_in_bytes == -1 is an evil way to test for BC compiled programs
@@ -2126,7 +2144,7 @@ _Jv_LayoutClass(jclass klass, int *static_size)
 	  ++field;
 	  --num;
 	}
-      super = super->superclass;
+      super = super->getSuperclass();
     }
 
   int instance_size;

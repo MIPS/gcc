@@ -13,6 +13,11 @@ import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.security.*;
 import gnu.gcj.Core;
+import java.util.Set;
+import java.util.Iterator;
+import java.util.HashSet;
+import java.nio.channels.FileChannel;
+import java.io.*;
 
 public class SharedLibHelper
 {
@@ -39,11 +44,26 @@ public class SharedLibHelper
   {
     synchronized (map)
       {
-	WeakReference ref = (WeakReference) map.get(libname);
-	if (ref != null)
-	  return (SharedLibHelper) ref.get();
+	Set s = (Set)map.get(libname);
+	if (s == null)
+	  return null;
+	for (Iterator i=s.iterator(); i.hasNext();)
+	  {
+	    WeakReference ref = (WeakReference)i.next();
+	    if (ref != null)
+	      return (SharedLibHelper) ref.get();
+	  }
 	return null;
       }
+  }
+
+  static void copyFile (File in, File out) throws java.io.IOException 
+  {
+    FileChannel source = new FileInputStream(in).getChannel();
+    FileChannel destination = new FileOutputStream(out).getChannel();
+    source.transferTo(0, source.size(), destination);
+    source.close();
+    destination.close();
   }
 
   public static SharedLibHelper findHelper (ClassLoader loader, String libname,
@@ -52,21 +72,54 @@ public class SharedLibHelper
     synchronized (map)
       {
 	SharedLibHelper result;
-	WeakReference ref = (WeakReference) map.get(libname);
-	if (ref != null)
+	Set s = (Set)map.get(libname);
+	if (s == null)
 	  {
-	    result = (SharedLibHelper) ref.get();
-	    if (result != null)
+	    s = new HashSet();
+	    map.put(libname, s);
+	  }
+	else
+	  {
+	    for (Iterator i=s.iterator(); i.hasNext();)
 	      {
-		if (result.loader != loader)
-		  // FIXME
-		  throw new UnknownError();
-		return result;
+		WeakReference ref = (WeakReference)i.next();
+		if (ref != null)
+		  {
+		    result = (SharedLibHelper) ref.get();
+		    if (result != null)
+		      {			
+			// A match succeeds if the library is already
+			// loaded by LOADER or any of its ancestors.
+			ClassLoader l = loader;
+			do
+			  {
+			    if (result.loader == l)
+			      return result;
+			    l = l.getParent();
+			  }
+			while (l != null);
+		      }
+		  }
+	      }
+
+	    // Oh dear.  We've already mapped this shared library, but
+	    // with a different class loader.  We need to copy it.
+	    try
+	      {
+		File copy 
+		  = File.createTempFile(new File(libname).getName(), 
+					".so", new File ("/tmp"));
+		File src = new File(libname);
+		copyFile (src, copy);
+		libname = copy.getPath();
+	      }
+	    catch (IOException e)
+	      {
+		return null;
 	      }
 	  }
-
 	result = new SharedLibHelper(libname, loader, source, 0);
-	map.put(libname, new WeakReference(result));
+	s.add(new WeakReference(result));
 	return result;
       }
   }
@@ -76,18 +129,18 @@ public class SharedLibHelper
   public Class findClass(String name)
   {
     ensureInit();
-    Class c = (Class) classMap.get(name);
+    Class c = (Class)classMap.get(name);
     if (c != null)
-    {
-      String s = System.getProperty("gnu.classpath.verbose");
-      if (s != null && s.equals("class"))
-	if (h.get(name) == null)
-	  {
-	    System.err.println("[Loading class " + name 
-			       + " from " + this + "]");
-	    h.put(name,name);
-	  }
-    }
+      {
+	String s = System.getProperty("gnu.classpath.verbose");
+	if (s != null && s.equals("class"))
+	  if (h.get(name) == null)
+	    {
+	      System.err.println("[Loading class " + name 
+				 + " from " + this + "]");
+	      h.put(name,name);
+	    }		
+      }
     return c;
   }
 

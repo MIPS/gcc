@@ -289,6 +289,8 @@ public class URLClassLoader extends SecureClassLoader
     final JarFile jarfile; // The jar file for this url
     final URL baseJarURL; // Base jar: url for all resources loaded from jar
 
+    SoURLLoader soURLLoader;
+
     public JarURLLoader(URLClassLoader classloader, URL baseURL)
     {
       super(classloader, baseURL);
@@ -301,16 +303,38 @@ public class URLClassLoader extends SecureClassLoader
       sb.append("!/");
       String jarURL = sb.toString();
 
+      this.soURLLoader = null;
       URL baseJarURL = null;
       JarFile jarfile = null;
       try
-        {
-	  baseJarURL =
-	    new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	{
+	  baseJarURL
+	    = new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	  jarfile
+	    = ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
 
-	  jarfile =
-	    ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
-        }
+	  if (jarfile != null)
+	    {
+	      String fileName = baseURL.getFile();
+	      if (fileName != null)
+		{
+		  File f = new File(fileName);
+		  String libDirName = f.getCanonicalFile().getParent()
+		    + File.separator + "GCJLIBS";
+		  File libDir = new File(libDirName);
+		  if (libDir != null && (libDir.isDirectory()))
+		    {
+		      File soFile = new File (libDirName + File.separator + f.getName() 
+					      + ".so");
+		      if (soFile != null && soFile.isFile())
+			this.soURLLoader = 
+			  new SoURLLoader
+			  (classloader, 
+			   new URL ("file", null, soFile.getCanonicalPath()));
+		    }
+		}
+	    }
+	}
       catch (IOException ioe)
         {
 	  /* ignored */
@@ -318,6 +342,13 @@ public class URLClassLoader extends SecureClassLoader
 
       this.baseJarURL = baseJarURL;
       this.jarfile = jarfile;
+    }
+
+    Class getClass(String className)
+    {
+      if (soURLLoader != null)
+	return soURLLoader.getClass(className);
+      return null;
     }
 
     /** get resource with the name "name" in the jar url */
@@ -334,6 +365,11 @@ public class URLClassLoader extends SecureClassLoader
 	return new JarURLResource(this, name, je);
       else
 	return null;
+    }
+
+    public String toString ()
+    {
+	return "jarfile " + jarfile.getName();
     }
 
     Manifest getManifest()
@@ -574,6 +610,11 @@ public class URLClassLoader extends SecureClassLoader
     public int getLength()
     {
       return (int) file.length();
+    }
+
+    public String toString ()
+    {
+	return "file " +file.getAbsolutePath();
     }
 
     public URL getURL()

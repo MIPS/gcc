@@ -52,7 +52,9 @@ import java.security.Policy;
 import java.security.ProtectionDomain;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
+
 
 /**
  * The ClassLoader is a way of customizing the way Java gets its classes
@@ -210,6 +212,9 @@ public abstract class ClassLoader
    */
   // Package visible for use by Class.
   Map classAssertionStatus;
+
+  // All our SharedLibHelpers: when we get gc'd, so do they.
+  Map SharedLibHelpers = new IdentityHashMap();
 
   /**
    * Create a new ClassLoader with as parent the system classloader. There
@@ -450,47 +455,108 @@ public abstract class ClassLoader
       domain = defaultProtectionDomain;
     if (! initialized)
       throw new SecurityException("attempt to define class from uninitialized class loader");
+    
+    Class retval = null;
 
-    Class retval = VMClassLoader.defineClass(this, name, data,
-					     offset, len, domain);
-
-    // FIXME: This is a temporary hack that allows you to compile some
-    // class files into a .so called "gcjlib.so" in the same
-    // directory.  To be removed as soon as gcj-JIT is ready.
-    java.security.CodeSource source = domain.getCodeSource();
-    java.net.URL url = source != null ? source.getLocation() : null;
-    String filename = url.getFile();
-    if (filename != null)
+    String gcjJitCompiler = System.getenv0 ("GCJ_JIT_COMPILER");
+    if (gcjJitCompiler != null)
       {
-	File f = new File(filename);
-	if (f.isDirectory())
+      compile:
+	try
 	  {
-	    try
+	    // FIXME: Make sure that the class represented by the
+	    // bytes in DATA really is the class named in NAME.  Make
+	    // sure it's not "java.*".
+	    java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+	    byte digest[] = md.digest(data);
+	    String tmpdir = System.getenv0("GCJ_JIT_TMPDIR");
+	    if (tmpdir == null)
+	      tmpdir = "/tmp";
+	    StringBuffer hexBytes = new StringBuffer(tmpdir);
+	    hexBytes.append("/");
+	    int digestLength = digest.length;
+	    for (int i=0; i<digestLength; i++)
+	      hexBytes.append(Integer.toHexString(digest[i]&0xff));
+	    StringBuffer fileName = new StringBuffer(hexBytes.toString());
+	    fileName.append(".so");
+	    File soFile = new File (fileName.toString());
+	    if (soFile.isFile())
 	      {
 		Class c = null;
-		String libname = filename + "gcjlib.so";
-		File soFile = new File (libname);
-		if (soFile.isFile())
-		  {
-		    SharedLibHelper helper 
-		      = SharedLibHelper.findHelper (this, libname, source);
-		    c = helper.findClass (retval.getName());
-		  }
+		SharedLibHelper helper 
+		  = SharedLibHelper.findHelper (this, fileName.toString(),
+						domain.getCodeSource());
+		c = helper.findClass (name);
 		if (c != null)
-		  retval = c;
+		  {
+		    SharedLibHelpers.put(helper,c);
+		    retval = c;
+		    _registerClass(retval);
+		    break compile;
+		  }
 	      }
-	    catch (UnknownError _)
+	    File classFile = new File(hexBytes+".class");
+	    classFile.delete();
+	    if (classFile.createNewFile() != true)	  
+	      throw new IOException ();
+	    java.io.FileOutputStream f = new java.io.FileOutputStream (classFile);
+	    byte[] b = new byte[len];
+	    System.arraycopy(data,offset,b,0,len);
+	    f.write(b);
+	
+	    StringBuffer command = new StringBuffer(gcjJitCompiler);
+	    command.append(" ");
+	    command.append(classFile);
+	    command.append(" ");
+	    String opts = System.getenv0("GCJ_JIT_OPTIONS");
+	    if (opts != null)
+	      command.append(opts);
+	    command.append(" -g -findirect-dispatch -shared -fPIC -o ");
+	    command.append(fileName);
+	    Process p = Runtime.getRuntime().exec(command.toString());
+	    StringBuffer err = new StringBuffer();
+	    {
+	      InputStream stderr = p.getErrorStream();
+	      int ch;
+	      // FIXME: We need a much better way to handle error output
+	      // from the compiler.
+	      while ((ch = stderr.read()) != -1)
+		err.append((char)ch);
+	    }
+	    if (p.waitFor() != 0)
 	      {
+		System.err.println(err.toString());
+		throw new IOException ();
 	      }
+	    {
+	      Class c = null;
+	      SharedLibHelper helper 
+		= SharedLibHelper.findHelper (this, fileName.toString(), 
+					      domain.getCodeSource());
+	      c = helper.findClass (name);
+	      if (c != null)
+		{
+		  SharedLibHelpers.put(helper,c);
+		  retval = c;
+		  _registerClass(retval);
+		}	
+	    }
+	  }
+	catch (Exception _)
+	  {
 	  }
       }
     
+    if (retval == null)
+      retval = VMClassLoader.defineClass(this, name, data,
+					 offset, len, domain);
+
     {	    
       String s = System.getProperty("gnu.classpath.verbose");
       if (s != null && s.equals("class"))
 	{
-// 		java.security.CodeSource source = domain.getCodeSource();
-// 		java.net.URL url = source != null ? source.getLocation() : null;
+	  java.security.CodeSource source = domain.getCodeSource();
+	  java.net.URL url = source != null ? source.getLocation() : null;
 	  String URLname = url != null ? url.toString() : null;
 	  if (URLname == null)
 	    URLname = "unknown location";
@@ -1015,4 +1081,6 @@ public abstract class ClassLoader
   }
 
     static private final native ClassLoader getClassLoader0(Class c);
+
+    private final native void _registerClass(Class c);
 }

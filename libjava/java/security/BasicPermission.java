@@ -80,9 +80,8 @@ public abstract class BasicPermission extends Permission
   private static final long serialVersionUID = 6279438298436773498L;
 
   /**
-   * Create a new instance with the specified permission name. If the name
-   * is empty, or contains an illegal wildcard character, an exception is
-   * thrown.
+   * Create a new instance with the specified permission name. If the
+   * name is empty an exception is thrown.
    *
    * @param name the name of this permission
    * @throws NullPointerException if name is null
@@ -91,12 +90,17 @@ public abstract class BasicPermission extends Permission
   public BasicPermission(String name)
   {
     super(name);
-    if (name.indexOf("*") != -1)
-      {
-        if ((! name.endsWith(".*") && ! name.equals("*"))
-            || name.indexOf("*") != name.lastIndexOf("*"))
-          throw new IllegalArgumentException("Bad wildcard: " + name);
-      }
+
+    //  FIXME: this arg checking isn't in the spec, and Sun's JDK
+    //  doesn't do it.
+
+//     if (name.indexOf("*") != -1)
+//       {
+//         if ((! name.endsWith(".*") && ! name.equals("*"))
+//             || name.indexOf("*") != name.lastIndexOf("*"))
+//           throw new IllegalArgumentException("Bad wildcard: " + name);
+//       }
+
     if ("".equals(name))
       throw new IllegalArgumentException("Empty name");
   }

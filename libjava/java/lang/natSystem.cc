@@ -130,6 +130,19 @@ java::lang::System::identityHashCode (jobject obj)
   return _Jv_HashCode (obj);
 }
 
+jstring
+java::lang::System::getenv0 (jstring name)
+{
+  jint len = _Jv_GetStringUTFLength (name);
+  char buf[len + 1];
+  jsize total = JvGetStringUTFRegion (name, 0, name->length(), buf);
+  buf[total] = '\0';
+  const char *value = ::getenv (buf);
+  if (value == NULL)
+    return NULL;
+  return JvNewStringUTF (value);
+}
+
 jboolean
 java::lang::System::isWordsBigEndian (void)
 {
