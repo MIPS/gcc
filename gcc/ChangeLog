@@ -1,3 +1,12 @@
+2003-05-13  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (STRIP_MAIN_TYPE_NOPS): New macro.
+
+	* tree.c (iterative_hash_expr): New fn.
+
+	* c-semantics.c (emit_local_var): Don't mess with temp slots if
+	there's no initializer.
+
 2003-05-10  Alexandre Oliva  <aoliva@redhat.com>
 
 	* reload1.c (reload_cse_move2add): Revert part of my 2003-05-09's
