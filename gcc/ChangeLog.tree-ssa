@@ -2,11 +2,6 @@
 
 	* tree-dfa.c (find_refs_in_expr): Terminate comment.
 
-2002-12-12  Daniel Berlin  <dberlin@dberlin.org>
-	
-	* gimplify.c (simplify_modify_expr): Break out constructors into
-	multiple assignments.
-	
 2002-12-12  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
 
 	* tree-cfg.c: Update doxygen documentation.
