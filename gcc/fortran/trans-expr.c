@@ -302,7 +302,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      || sym->attr.result
 	      || sym->attr.function
 	      || !sym->attr.dimension)
-          && !GFC_DECL_STRING (se->expr))
+          && sym->ts.type != BT_CHARACTER)
 	{
 	  se->expr = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (se->expr)),
 			     se->expr);
