@@ -492,7 +492,8 @@ machopic_mcount_stub_name (void)
       }
     ptr_name = get_identifier (buffer);
 #else
-  return "&L*mcount$stub";
+  rtx symbol = gen_rtx_SYMBOL_REF (Pmode, "*mcount");
+  return machopic_indirection_name (symbol, /*stub_p=*/true);
 }
 #endif /* MERGE_BORKED_DARWIN */
 
