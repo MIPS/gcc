@@ -256,7 +256,7 @@ private:
   static void link_exception_table(jclass);
   static void layout_interface_methods(jclass);
   static void layout_vtable_methods(jclass);
-  static void set_vtable_entries(jclass, _Jv_VTable *, jboolean *);
+  static void set_vtable_entries(jclass, _Jv_VTable *);
   static void make_vtable(jclass);
   static void ensure_fields_laid_out(jclass);
   static void ensure_class_linked(jclass);

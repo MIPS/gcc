@@ -1,5 +1,14 @@
 2004-11-04  Tom Tromey  <tromey@redhat.com>
 
+	* include/jvm.h (_Jv_Linker::set_vtable_entries): Updated.
+	* link.cc (make_vtable): Use correct index when searching for
+	missing method's name.  Don't use `flags'.
+	(set_vtable_entries): Removed `flags' argument.  Don't recurse
+	into superclasses.
+	(link_symbol_table): Ensure target class method table is
+	complete.  Ensure target fields are laid out before entering
+	loop.
+
 	* java/lang/natClass.cc (_Jv_getInterfaceMethod): Indentation
 	fix.
 

@@ -883,6 +883,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
       {
 	_Jv_Field *the_field = NULL;
 
+	wait_for_state(target_class, JV_STATE_PREPARED);
 	for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
 	  {
 	    for (int i = 0; i < cls->field_count; i++)
@@ -894,8 +895,6 @@ _Jv_Linker::link_symbol_table (jclass klass)
 		// FIXME: What access checks should we perform here?
 // 		if (_Jv_CheckAccess (klass, cls, field->flags))
 // 		  {
-
-		wait_for_state(cls, JV_STATE_PREPARED);
 
 		if (!field->isResolved ())
 		  resolve_field (field, cls->loader);
@@ -1004,6 +1003,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
       {
 	_Jv_Field *the_field = NULL;
 
+	wait_for_state(target_class, JV_STATE_PREPARED);
 	for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
 	  {
 	    for (int i = 0; i < cls->field_count; i++)
@@ -1018,8 +1018,6 @@ _Jv_Linker::link_symbol_table (jclass klass)
 
 		if (!field->isResolved ())
 		  resolve_field (field, cls->loader);
-
-		wait_for_state(target_class, JV_STATE_PREPARED);
 
 // 		if (field_type != 0 && field->type != field_type)
 // 		  throw new java::lang::LinkageError
@@ -1063,6 +1061,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
       jclass cls;
       int i;
 
+      wait_for_state(target_class, JV_STATE_LOADED);
       bool found = _Jv_getInterfaceMethod (target_class, cls, i,
 					   sym.name, sym.signature);
 
@@ -1205,35 +1204,21 @@ _Jv_Linker::layout_vtable_methods (jclass klass)
   klass->vtable_method_count = index;
 }
 
-// Set entries in VTABLE for virtual methods declared in KLASS. If
-// KLASS has an immediate abstract parent, recursively do its methods
-// first.  FLAGS is used to determine which slots we've actually set.
+// Set entries in VTABLE for virtual methods declared in KLASS.
 void
-_Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable,
-				  jboolean *flags)
+_Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable)
 {
-  using namespace java::lang::reflect;
-
-  jclass superclass = klass->getSuperclass();
-
-  if (superclass != NULL && (superclass->getModifiers() & Modifier::ABSTRACT))
-    set_vtable_entries (superclass, vtable, flags);
-
   for (int i = klass->method_count - 1; i >= 0; i--)
     {
+      using namespace java::lang::reflect;
+
       _Jv_Method *meth = &klass->methods[i];
       if (meth->index == (_Jv_ushort) -1)
 	continue;
       if ((meth->accflags & Modifier::ABSTRACT))
-	{
-	  vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
-	  flags[meth->index] = false;
-	}
+	vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
       else
-	{
-	  vtable->set_method(meth->index, meth->ncode);
-	  flags[meth->index] = true;
-	}
+	vtable->set_method(meth->index, meth->ncode);
     }
 }
 
@@ -1262,10 +1247,6 @@ _Jv_Linker::make_vtable (jclass klass)
   _Jv_VTable *vtable = _Jv_VTable::new_vtable (klass->vtable_method_count);
   klass->vtable = vtable;
 
-  jboolean flags[klass->vtable_method_count];
-  for (int i = 0; i < klass->vtable_method_count; ++i)
-    flags[i] = false;
-
   // Copy the vtable of the closest superclass.
   jclass superclass = klass->superclass;
   {
@@ -1273,36 +1254,33 @@ _Jv_Linker::make_vtable (jclass klass)
     make_vtable (superclass);
   }
   for (int i = 0; i < superclass->vtable_method_count; ++i)
-    {
-      vtable->set_method (i, superclass->vtable->get_method (i));
-      flags[i] = true;
-    }
+    vtable->set_method (i, superclass->vtable->get_method (i));
 
   // Set the class pointer and GC descriptor.
   vtable->clas = klass;
   vtable->gc_descr = _Jv_BuildGCDescr (klass);
 
-  // For each virtual declared in klass and any immediate abstract 
-  // superclasses, set new vtable entry or override an old one.
-  set_vtable_entries (klass, vtable, flags);
+  // For each virtual declared in klass, set new vtable entry or
+  // override an old one.
+  set_vtable_entries (klass, vtable);
 
   // It is an error to have an abstract method in a concrete class.
   if (! (klass->accflags & Modifier::ABSTRACT))
     {
       for (int i = 0; i < klass->vtable_method_count; ++i)
-	if (! flags[i])
+	if (vtable->get_method(i) == (void *) &_Jv_abstractMethodError)
 	  {
 	    using namespace java::lang;
 	    while (klass != NULL)
 	      {
 		for (int j = 0; j < klass->method_count; ++j)
 		  {
-		    if (klass->methods[i].index == i)
+		    if (klass->methods[j].index == i)
 		      {
 			StringBuffer *buf = new StringBuffer ();
-			buf->append (_Jv_NewStringUtf8Const (klass->methods[i].name));
+			buf->append (_Jv_NewStringUtf8Const (klass->methods[j].name));
 			buf->append ((jchar) ' ');
-			buf->append (_Jv_NewStringUtf8Const (klass->methods[i].signature));
+			buf->append (_Jv_NewStringUtf8Const (klass->methods[j].signature));
 			throw new AbstractMethodError (buf->toString ());
 		      }
 		  }
