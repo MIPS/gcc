@@ -576,7 +576,7 @@ tree widen_bitfield (tree, tree, tree);
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
-extern void propagate_copy (tree *, tree);
+extern void propagate_value (tree *, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

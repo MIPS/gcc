@@ -259,6 +259,7 @@ static void restore_vars_to_original_value (varray_type locals,
 					    varray_type table);
 static void register_definitions_for_stmt (tree, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
+static void propagate_copy (tree *, tree);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -279,7 +280,7 @@ local_fold (tree t)
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the operand pointed by OP_P.  */
 
-static void
+void
 propagate_value (tree *op_p, tree val)
 {
   if (TREE_CODE (val) == SSA_NAME)
@@ -3314,7 +3315,7 @@ avail_expr_eq (const void *p1, const void *p2)
    pointer, copy the memory tag used originally by *OP_P into VAR.  This is
    needed in cases where VAR had never been dereferenced in the program.  */
    
-void
+static void
 propagate_copy (tree *op_p, tree var)
 {
 #if defined ENABLE_CHECKING

@@ -1,3 +1,12 @@
+2004-02-20  Jeff Law  <law@redhat.com>
+
+	* tree-flow-inline.h (may_propagate_copy): Do not perform ABNORMAL_PHI
+	and DECL_HARD_REGISTER tests on virtual operands.
+	* tree-flow.h (propagate_copy): Kill prototype.
+	(propagate_value): New prototype.
+	* tree-ssa-dom.c (propagate_copy): Now static.
+	(propagate_value): No longer static.
+
 2004-02-20  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/14218

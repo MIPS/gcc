@@ -438,6 +438,11 @@ may_propagate_copy (tree dest, tree orig)
 	return false;
     }
 
+  /* We do not care about abnormal PHIs or user specified register
+     declarations for virtual operands.  */
+  if (! is_gimple_reg (dest))
+    return true;
+
   return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
 	  && (TREE_CODE (orig) != SSA_NAME
 	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
