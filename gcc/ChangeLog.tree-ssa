@@ -1,3 +1,9 @@
+2003-08-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Don't free hash tables
+	before statistics are made from them.
+	* tree-ssa.c (rewrite_into_ssa): Ditto.
+
 2003-08-21  Jason Merrill  <jason@redhat.com>
 
 	* tree-inline.c (copy_body_r): Don't convert when stripping &*.

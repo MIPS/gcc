@@ -385,8 +385,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
     BITMAP_XFREE (dfs[i]);
   free (dfs);
   sbitmap_free (globals);
-  htab_delete (def_blocks);
-  htab_delete (currdefs);
   if (vars == NULL)
     sbitmap_free (vars_to_rename);
 
@@ -407,6 +405,9 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_ssa, dump_file);
     }
+
+  htab_delete (def_blocks);
+  htab_delete (currdefs);
 
   timevar_pop (TV_TREE_SSA_OTHER);
 }

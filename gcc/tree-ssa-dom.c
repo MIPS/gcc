@@ -192,10 +192,6 @@ tree_ssa_dominator_optimize (tree fndecl)
     }
   while (found_unreachable);
 
-  htab_delete (const_and_copies);
-  htab_delete (avail_exprs);
-  BITMAP_XFREE (unreachable_bitmap);
-
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -204,6 +200,10 @@ tree_ssa_dominator_optimize (tree fndecl)
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_dom, dump_file);
     }
+
+  htab_delete (const_and_copies);
+  htab_delete (avail_exprs);
+  BITMAP_XFREE (unreachable_bitmap);
 
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 
