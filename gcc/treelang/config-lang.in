@@ -1,5 +1,5 @@
-# Top level configure fragment for GNU Ada (GNAT).
-#   Copyright (C) 1994-2003 Free Software Foundation, Inc.
+# Top level configure fragment for GNU C++.
+# Copyright (C) 1994, 1995, 1997, 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -22,20 +22,18 @@
 # We define several parameters used by configure:
 #
 # language	- name of language as it would appear in $(LANGUAGES)
-# boot_language - "yes" if we need to build this language in stage1
 # compilers	- value to add to $(COMPILERS)
 # stagestuff	- files to add to $(STAGESTUFF)
+# diff_excludes	- files to ignore when building diffs between two versions.
 
-language="ada"
-boot_language=yes
-boot_language_boot_flags='ADAFLAGS="$(BOOT_ADAFLAGS)"'
+language="treelang"
 
-compilers="gnat1\$(exeext)"
+compilers="tree1\$(exeext)"
 
-stagestuff="gnatbind\$(exeext) gnat1\$(exeext)"
+stagestuff=
 
-gtfiles="\$(srcdir)/ada/ada-tree.h \$(srcdir)/ada/gigi.h \$(srcdir)/ada/decl.c \$(srcdir)/ada/trans.c \$(srcdir)/ada/utils.c"
+diff_excludes="-x lex.c -x parse.c -x parse.h"
+headers=
+build_by_default="no"
 
-outputs=ada/Makefile
-
-target_libs="target-libada"
+gtfiles="\$(srcdir)/treelang/tree1.c \$(srcdir)/treelang/treetree.c \$(srcdir)/treelang/treelang.h"
