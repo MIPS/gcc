@@ -373,13 +373,6 @@ extern int target_flags;
 			""},						\
   {"no-svr4-struct-return", MASK_AIX_STRUCT_RET,			\
 			""},						\
-  /* APPLE LOCAL long-branch  */					\
-  {"long-branch",	MASK_LONG_BRANCH,				\
-	N_("Generate 32-bit call addresses (range > 64M)")},		\
-  {"no-long-branch",	-MASK_LONG_BRANCH, ""},				\
-  {"longcall",	MASK_LONG_BRANCH,					\
-	N_("Generate 32-bit call addresses (range > 64M)")},		\
-  {"no-longcall",	-MASK_LONG_BRANCH, ""},				\
   {"mfcrf",		MASK_MFCRF,					\
 			N_("Generate single field mfcr instruction")},	\
   {"no-mfcrf",		- MASK_MFCRF,					\
@@ -487,6 +480,11 @@ enum group_termination
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   /* APPLE LOCAL begin long-branch  */					\
+   {"long-branch", &rs6000_longcall_switch,				\
+    N_("Avoid all range limits on call instructions"), 0},		\
+   {"no-long-branch", &rs6000_longcall_switch, "", 0},			\
+   /* APPLE LOCAL end long-branch  */					\
    {"warn-altivec-long", &rs6000_warn_altivec_long_switch, \
     N_("Warn about deprecated 'vector long ...' AltiVec type usage"), 0}, \
    {"no-warn-altivec-long", &rs6000_warn_altivec_long_switch, "", 0}, \

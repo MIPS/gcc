@@ -1,3 +1,11 @@
+2004-12-09  Stuart Hastings <stuart@apple.com>
+
+	Radar 3855246
+	* gcc/config/rs6000/rs6000.c (init_cumulative_args): Remove APPLE LOCAL.
+	(macho_branch_islands): branch island formatting fixes.
+	* gcc/config/rs6000/rs6000.h (target_flags): Remove APPLE LOCAL.
+	(TARGET_OPTIONS): Add -mlong-branch as a synonym for -mlongcall.
+
 2004-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.c: Improve local markers.

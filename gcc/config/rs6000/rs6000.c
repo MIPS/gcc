@@ -4919,8 +4919,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 
   /* Check for a longcall attribute.  */
   if (fntype
-      /* APPLE LOCAL long-branch */
-      && TARGET_LONG_BRANCH
       && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
       && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
@@ -17962,13 +17960,21 @@ macho_branch_islands (void)
 	  name_buf[0] = '_';
 	  strcpy (name_buf+1, name);
 	}
-      strcpy (tmp_buf, "\n");
-      strcat (tmp_buf, label);
+      /* Omit leading tab here; output_asm_insn adds a leading tab
+	 every time it's invoked.  */
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
       if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	fprintf (asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
+	sprintf (tmp_buf, ".stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
 		 BRANCH_ISLAND_LINE_NUMBER(branch_island));
+      else
+	strcpy (tmp_buf, "\n");
+#else /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      /* Insert newline so the label won't be prefixed with the tab
+	 from output_asm_insn.  We prefer a blank line in the assembly
+	 output over a tabbed label.  */
+      strpy (tmp_buf, "\n");
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      strcat (tmp_buf, label);
       if (flag_pic)
 	{
 	  strcat (tmp_buf, ":\n\tmflr r0\n\tbcl 20,31,");
@@ -17998,20 +18004,20 @@ macho_branch_islands (void)
 	}
       else
 	{
-	  strcat (tmp_buf, ":\nlis r12,hi16(");
+	  strcat (tmp_buf, ":\n\tlis r12,hi16(");
 	  strcat (tmp_buf, name_buf);
 	  strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
 	  strcat (tmp_buf, name_buf);
-	  strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr");
+	  strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr\n");
 	}
-      output_asm_insn (tmp_buf, 0);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
       if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	fprintf(asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
-		BRANCH_ISLAND_LINE_NUMBER (branch_island));
+	sprintf (tmp_buf + strlen (tmp_buf),
+		 "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED,
+		 BRANCH_ISLAND_LINE_NUMBER(branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      output_asm_insn (tmp_buf, 0);
     }
-
   branch_island_list = 0;
 }
 
