@@ -1,3 +1,7 @@
+2003-02-01  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Fix comment typos.
+
 2003-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgbuild.c (find_basic_blocks): Update structure statistics.

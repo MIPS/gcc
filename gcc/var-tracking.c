@@ -42,18 +42,18 @@ enum location_type
 enum scan_operation
 {
   SO_COUNT,	/* Count the number of locations.  */
-  SO_STORE,	/* Store the locatons to the array VTI (bb)->locs.  */
+  SO_STORE,	/* Store the locations to the array VTI (bb)->locs.  */
   SO_SKIP	/* Skip current node, and scan and store its internals.  */
 };
 
-/* Where shall the note be emited? BEFORE or AFTER the instruction.  */
+/* Where shall the note be emitted? BEFORE or AFTER the instruction.  */
 enum where_emit_note
 {
   EMIT_NOTE_BEFORE_INSN,
   EMIT_NOTE_AFTER_INSN
 };
 
-/* Structute for remembering the location (register or memory).  */
+/* Structure for remembering the location (register or memory).  */
 typedef struct location_def
 {
   /* The location itself.  */
@@ -84,10 +84,10 @@ typedef struct scan_for_locations_data_def
    emit_note_if_var_changed.  */
 typedef struct emit_note_data_def
 {
-  /* The instruction that the note will be emited before/after.  */
+  /* The instruction that the note will be emitted before/after.  */
   rtx insn;
 
-  /* Where the note will be emited (before/after)?  */
+  /* Where the note will be emitted (before/after insn)?  */
   enum where_emit_note where;
 } emit_note_data;
 
@@ -169,7 +169,7 @@ typedef struct variable_def
   bool changed;
 } *variable;
 
-/* The hashtable of STRUCT VARIABLE_DEF.  */
+/* The hash table of STRUCT VARIABLE_DEF.  */
 static htab_t variable_htab;
 
 /* Hash function for MEM_IN and MEM_OUT.  */
@@ -349,7 +349,7 @@ attrs_list_insert (listp, decl, offset, loc)
   *listp = list;
 }
 
-/* Delete all occurences of the pairs DECL and OFFSET from the list *LISTP.  */
+/* Delete all occurrences of the pairs DECL and OFFSET from the list *LISTP.  */
 
 static void
 attrs_list_delete (listp, decl, offset)
@@ -1066,7 +1066,7 @@ dump_attrs_list_sets ()
 }
 
 /* Emit the NOTE_INSN_VAR_LOCATION for variable VAR. WHERE specifies
-   whether the note shall be emited before of after instruction INSN.  */
+   whether the note shall be emitted before of after instruction INSN.  */
 
 static void
 note_insn_var_location_emit (insn, where, var)
@@ -1117,7 +1117,7 @@ note_insn_var_location_emit (insn, where, var)
 
 /* Set the part of variable's location. The variable part is specified
    by variable's declaration DECL and offset OFFSET and the part's location
-   by LOC. The INSN and WHERE parameters specify where the note will be emited
+   by LOC. The INSN and WHERE parameters specify where the note will be emitted
    (see note_insn_var_location_emit).  */
 
 static void
@@ -1184,7 +1184,7 @@ set_location_part (decl, offset, loc, insn, where)
 
 /* Delete the part of variable's location. The variable part is specified
    by variable's declaration DECL and offset OFFSET.
-   The INSN and WHERE parameters specify where the note will be emited
+   The INSN and WHERE parameters specify where the note will be emitted
    (see note_insn_var_location_emit).  */
 
 static void
@@ -1220,7 +1220,7 @@ delete_location_part (decl, offset, insn, where)
 
 /* Delete marked location parts of a variable and emit notes if needed.
    SLOT is the address of pointer to description of parts of the variable.
-   AUX contains a pointer to data passed to functions emiting the notes.  */
+   AUX contains a pointer to data passed to functions emitting the notes.  */
 
 static int
 process_location_parts (slot, aux)
@@ -1243,7 +1243,7 @@ process_location_parts (slot, aux)
 
 /* Emit NOTE_INSN_VAR_LOCATION notes for description **SLOT of a variable
    if any of the variable parts has changed.
-   AUX contains data describing where the note will be emited (see
+   AUX contains data describing where the note will be emitted (see
    note_insn_var_location_emit).  */
 
 static void
