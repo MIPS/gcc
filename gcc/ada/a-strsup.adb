@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2003 Free Software Foundation, Inc.               --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,7 +42,8 @@ package body Ada.Strings.Superbounded is
 
    function Concat
      (Left  : Super_String;
-      Right : Super_String) return Super_String
+      Right : Super_String)
+      return  Super_String
    is
       Result : Super_String (Left.Max_Length);
       Llen   : constant Natural := Left.Current_Length;
@@ -63,7 +64,8 @@ package body Ada.Strings.Superbounded is
 
    function Concat
      (Left  : Super_String;
-      Right : String) return Super_String
+      Right : String)
+      return  Super_String
    is
       Result : Super_String (Left.Max_Length);
       Llen   : constant Natural := Left.Current_Length;
@@ -83,7 +85,8 @@ package body Ada.Strings.Superbounded is
 
    function Concat
      (Left  : String;
-      Right : Super_String) return Super_String
+      Right : Super_String)
+      return  Super_String
    is
       Result : Super_String (Right.Max_Length);
       Llen   : constant Natural := Left'Length;
@@ -104,7 +107,8 @@ package body Ada.Strings.Superbounded is
 
    function Concat
      (Left  : Super_String;
-      Right : Character) return Super_String
+      Right : Character)
+      return  Super_String
    is
       Result : Super_String (Left.Max_Length);
       Llen   : constant Natural := Left.Current_Length;
@@ -123,7 +127,8 @@ package body Ada.Strings.Superbounded is
 
    function Concat
      (Left  : Character;
-      Right : Super_String) return Super_String
+      Right : Super_String)
+      return  Super_String
    is
       Result : Super_String (Right.Max_Length);
       Rlen   : constant Natural := Right.Current_Length;
@@ -144,29 +149,22 @@ package body Ada.Strings.Superbounded is
    -- Equal --
    -----------
 
-   function "="
-     (Left  : Super_String;
-      Right : Super_String) return Boolean
-   is
+   function "=" (Left, Right : Super_String) return Boolean is
    begin
       return Left.Current_Length = Right.Current_Length
         and then Left.Data (1 .. Left.Current_Length) =
                    Right.Data (1 .. Right.Current_Length);
    end "=";
 
-   function Equal
-     (Left  : Super_String;
-      Right : String) return Boolean
-   is
+   function Equal (Left : Super_String; Right : String)
+                   return Boolean is
    begin
       return Left.Current_Length = Right'Length
         and then Left.Data (1 .. Left.Current_Length) = Right;
    end Equal;
 
-   function Equal
-     (Left  : String;
-      Right : Super_String) return Boolean
-   is
+   function Equal (Left : String; Right : Super_String)
+                   return Boolean is
    begin
       return Left'Length = Right.Current_Length
         and then Left = Right.Data (1 .. Right.Current_Length);
@@ -176,10 +174,7 @@ package body Ada.Strings.Superbounded is
    -- Greater --
    -------------
 
-   function Greater
-     (Left  : Super_String;
-      Right : Super_String) return Boolean
-   is
+   function Greater (Left, Right : Super_String) return Boolean is
    begin
       return Left.Data (1 .. Left.Current_Length) >
                Right.Data (1 .. Right.Current_Length);
@@ -187,7 +182,8 @@ package body Ada.Strings.Superbounded is
 
    function Greater
      (Left  : Super_String;
-      Right : String) return Boolean
+      Right : String)
+      return  Boolean
    is
    begin
       return Left.Data (1 .. Left.Current_Length) > Right;
@@ -195,7 +191,8 @@ package body Ada.Strings.Superbounded is
 
    function Greater
      (Left  : String;
-      Right : Super_String) return Boolean
+      Right : Super_String)
+      return  Boolean
    is
    begin
       return Left > Right.Data (1 .. Right.Current_Length);
@@ -205,10 +202,7 @@ package body Ada.Strings.Superbounded is
    -- Greater_Or_Equal --
    ----------------------
 
-   function Greater_Or_Equal
-     (Left  : Super_String;
-      Right : Super_String) return Boolean
-   is
+   function Greater_Or_Equal (Left, Right : Super_String) return Boolean is
    begin
       return Left.Data (1 .. Left.Current_Length) >=
                Right.Data (1 .. Right.Current_Length);
@@ -216,7 +210,8 @@ package body Ada.Strings.Superbounded is
 
    function Greater_Or_Equal
      (Left  : Super_String;
-      Right : String) return Boolean
+      Right : String)
+      return  Boolean
    is
    begin
       return Left.Data (1 .. Left.Current_Length) >= Right;
@@ -224,7 +219,8 @@ package body Ada.Strings.Superbounded is
 
    function Greater_Or_Equal
      (Left  : String;
-      Right : Super_String) return Boolean
+      Right : Super_String)
+      return  Boolean
    is
    begin
       return Left >= Right.Data (1 .. Right.Current_Length);
@@ -234,10 +230,7 @@ package body Ada.Strings.Superbounded is
    -- Less --
    ----------
 
-   function Less
-     (Left  : Super_String;
-      Right : Super_String) return Boolean
-   is
+   function Less (Left, Right : Super_String) return Boolean is
    begin
       return Left.Data (1 .. Left.Current_Length) <
                Right.Data (1 .. Right.Current_Length);
@@ -245,7 +238,8 @@ package body Ada.Strings.Superbounded is
 
    function Less
      (Left  : Super_String;
-      Right : String) return Boolean
+      Right : String)
+      return  Boolean
    is
    begin
       return Left.Data (1 .. Left.Current_Length) < Right;
@@ -253,7 +247,8 @@ package body Ada.Strings.Superbounded is
 
    function Less
      (Left  : String;
-      Right : Super_String) return Boolean
+      Right : Super_String)
+      return  Boolean
    is
    begin
       return Left < Right.Data (1 .. Right.Current_Length);
@@ -263,10 +258,7 @@ package body Ada.Strings.Superbounded is
    -- Less_Or_Equal --
    -------------------
 
-   function Less_Or_Equal
-     (Left  : Super_String;
-      Right : Super_String) return Boolean
-   is
+   function Less_Or_Equal (Left, Right : Super_String) return Boolean is
    begin
       return Left.Data (1 .. Left.Current_Length) <=
                Right.Data (1 .. Right.Current_Length);
@@ -274,7 +266,8 @@ package body Ada.Strings.Superbounded is
 
    function Less_Or_Equal
      (Left  : Super_String;
-      Right : String) return Boolean
+      Right : String)
+      return  Boolean
    is
    begin
       return Left.Data (1 .. Left.Current_Length) <= Right;
@@ -282,46 +275,12 @@ package body Ada.Strings.Superbounded is
 
    function Less_Or_Equal
      (Left  : String;
-      Right : Super_String) return Boolean
+      Right : Super_String)
+      return  Boolean
    is
    begin
       return Left <= Right.Data (1 .. Right.Current_Length);
    end Less_Or_Equal;
-
-   ----------------------
-   -- Set_Super_String --
-   ----------------------
-
-   procedure Set_Super_String
-     (Target : out Super_String;
-      Source : String;
-      Drop   : Truncation := Error)
-   is
-      Slen       : constant Natural := Source'Length;
-      Max_Length : constant Positive := Target.Max_Length;
-
-   begin
-      if Slen <= Max_Length then
-         Target.Current_Length := Slen;
-         Target.Data (1 .. Slen) := Source;
-
-      else
-         case Drop is
-            when Strings.Right =>
-               Target.Current_Length := Max_Length;
-               Target.Data (1 .. Max_Length) :=
-                 Source (Source'First .. Source'First - 1 + Max_Length);
-
-            when Strings.Left =>
-               Target.Current_Length := Max_Length;
-               Target.Data (1 .. Max_Length) :=
-                 Source (Source'Last - (Max_Length - 1) .. Source'Last);
-
-            when Strings.Error =>
-               raise Ada.Strings.Length_Error;
-         end case;
-      end if;
-   end Set_Super_String;
 
    ------------------
    -- Super_Append --
@@ -330,9 +289,9 @@ package body Ada.Strings.Superbounded is
    --  Case of Super_String and Super_String
 
    function Super_Append
-     (Left  : Super_String;
-      Right : Super_String;
-      Drop  : Truncation := Error) return Super_String
+     (Left, Right : Super_String;
+      Drop        : Strings.Truncation  := Strings.Error)
+      return        Super_String
    is
       Max_Length : constant Positive := Left.Max_Length;
       Result : Super_String (Max_Length);
@@ -382,7 +341,7 @@ package body Ada.Strings.Superbounded is
    procedure Super_Append
      (Source   : in out Super_String;
       New_Item : Super_String;
-      Drop     : Truncation := Error)
+      Drop     : Truncation  := Error)
    is
       Max_Length : constant Positive := Source.Max_Length;
       Llen       : constant Natural := Source.Current_Length;
@@ -427,7 +386,8 @@ package body Ada.Strings.Superbounded is
    function Super_Append
      (Left  : Super_String;
       Right : String;
-      Drop  : Strings.Truncation := Strings.Error) return Super_String
+      Drop  : Strings.Truncation := Strings.Error)
+      return  Super_String
    is
       Max_Length : constant Positive := Left.Max_Length;
       Result : Super_String (Max_Length);
@@ -480,7 +440,7 @@ package body Ada.Strings.Superbounded is
    procedure Super_Append
      (Source   : in out Super_String;
       New_Item : String;
-      Drop     : Truncation := Error)
+      Drop     : Truncation  := Error)
    is
       Max_Length : constant Positive := Source.Max_Length;
       Llen   : constant Natural := Source.Current_Length;
@@ -528,7 +488,8 @@ package body Ada.Strings.Superbounded is
    function Super_Append
      (Left  : String;
       Right : Super_String;
-      Drop  : Strings.Truncation := Strings.Error) return Super_String
+      Drop  : Strings.Truncation := Strings.Error)
+      return  Super_String
    is
       Max_Length : constant Positive := Right.Max_Length;
       Result     : Super_String (Max_Length);
@@ -582,7 +543,8 @@ package body Ada.Strings.Superbounded is
    function Super_Append
      (Left  : Super_String;
       Right : Character;
-      Drop  : Strings.Truncation := Strings.Error) return Super_String
+      Drop  : Strings.Truncation := Strings.Error)
+      return  Super_String
    is
       Max_Length : constant Positive := Left.Max_Length;
       Result     : Super_String (Max_Length);
@@ -616,7 +578,7 @@ package body Ada.Strings.Superbounded is
    procedure Super_Append
      (Source   : in out Super_String;
       New_Item : Character;
-      Drop     : Truncation := Error)
+      Drop     : Truncation  := Error)
    is
       Max_Length : constant Positive := Source.Max_Length;
       Llen       : constant Natural  := Source.Current_Length;
@@ -650,7 +612,8 @@ package body Ada.Strings.Superbounded is
    function Super_Append
      (Left  : Character;
       Right : Super_String;
-      Drop  : Strings.Truncation := Strings.Error) return Super_String
+      Drop  : Strings.Truncation := Strings.Error)
+      return  Super_String
    is
       Max_Length : constant Positive := Right.Max_Length;
       Result : Super_String (Max_Length);
@@ -686,9 +649,10 @@ package body Ada.Strings.Superbounded is
    -----------------
 
    function Super_Count
-     (Source  : Super_String;
-      Pattern : String;
-      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural
+     (Source   : Super_String;
+      Pattern  : String;
+      Mapping  : Maps.Character_Mapping := Maps.Identity)
+      return     Natural
    is
    begin
       return
@@ -697,9 +661,10 @@ package body Ada.Strings.Superbounded is
    end Super_Count;
 
    function Super_Count
-     (Source  : Super_String;
-      Pattern : String;
-      Mapping : Maps.Character_Mapping_Function) return Natural
+     (Source   : Super_String;
+      Pattern  : String;
+      Mapping  : Maps.Character_Mapping_Function)
+      return     Natural
    is
    begin
       return
@@ -709,7 +674,8 @@ package body Ada.Strings.Superbounded is
 
    function Super_Count
      (Source : Super_String;
-      Set    : Maps.Character_Set) return Natural
+      Set    : Maps.Character_Set)
+      return   Natural
    is
    begin
       return Search.Count (Source.Data (1 .. Source.Current_Length), Set);
@@ -722,7 +688,8 @@ package body Ada.Strings.Superbounded is
    function Super_Delete
      (Source  : Super_String;
       From    : Positive;
-      Through : Natural) return Super_String
+      Through : Natural)
+      return    Super_String
    is
       Result     : Super_String (Source.Max_Length);
       Slen       : constant Natural := Source.Current_Length;
@@ -780,7 +747,8 @@ package body Ada.Strings.Superbounded is
 
    function Super_Element
      (Source : Super_String;
-      Index  : Positive) return Character
+      Index  : Positive)
+      return   Character
    is
    begin
       if Index in 1 .. Source.Current_Length then
@@ -814,7 +782,8 @@ package body Ada.Strings.Superbounded is
      (Source : Super_String;
       Count  : Natural;
       Pad    : Character := Space;
-      Drop   : Strings.Truncation := Strings.Error) return Super_String
+      Drop   : Strings.Truncation := Strings.Error)
+      return   Super_String
    is
       Max_Length : constant Positive := Source.Max_Length;
       Result     : Super_String (Max_Length);
@@ -861,7 +830,7 @@ package body Ada.Strings.Superbounded is
    procedure Super_Head
      (Source : in out Super_String;
       Count  : Natural;
-      Pad    : Character := Space;
+      Pad    : Character  := Space;
       Drop   : Truncation := Error)
    is
       Max_Length : constant Positive := Source.Max_Length;
@@ -909,10 +878,11 @@ package body Ada.Strings.Superbounded is
    -----------------
 
    function Super_Index
-     (Source  : Super_String;
-      Pattern : String;
-      Going   : Strings.Direction := Strings.Forward;
-      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural
+     (Source   : Super_String;
+      Pattern  : String;
+      Going    : Strings.Direction := Strings.Forward;
+      Mapping  : Maps.Character_Mapping := Maps.Identity)
+      return     Natural
    is
    begin
       return Search.Index
@@ -920,10 +890,11 @@ package body Ada.Strings.Superbounded is
    end Super_Index;
 
    function Super_Index
-     (Source  : Super_String;
-      Pattern : String;
-      Going   : Direction := Forward;
-      Mapping : Maps.Character_Mapping_Function) return Natural
+     (Source   : Super_String;
+      Pattern  : String;
+      Going    : Direction := Forward;
+      Mapping  : Maps.Character_Mapping_Function)
+      return     Natural
    is
    begin
       return Search.Index
@@ -934,49 +905,12 @@ package body Ada.Strings.Superbounded is
      (Source : Super_String;
       Set    : Maps.Character_Set;
       Test   : Strings.Membership := Strings.Inside;
-      Going  : Strings.Direction  := Strings.Forward) return Natural
+      Going  : Strings.Direction  := Strings.Forward)
+      return   Natural
    is
    begin
       return Search.Index
         (Source.Data (1 .. Source.Current_Length), Set, Test, Going);
-   end Super_Index;
-
-   function Super_Index
-     (Source  : Super_String;
-      Pattern : String;
-      From    : Positive;
-      Going   : Direction := Forward;
-      Mapping : Maps.Character_Mapping := Maps.Identity) return Natural
-   is
-   begin
-      return Search.Index
-        (Source.Data (1 .. Source.Current_Length),
-         Pattern, From, Going, Mapping);
-   end Super_Index;
-
-   function Super_Index
-     (Source  : Super_String;
-      Pattern : String;
-      From    : Positive;
-      Going   : Direction := Forward;
-      Mapping : Maps.Character_Mapping_Function) return Natural
-   is
-   begin
-      return Search.Index
-        (Source.Data (1 .. Source.Current_Length),
-         Pattern, From, Going, Mapping);
-   end Super_Index;
-
-   function Super_Index
-     (Source : Super_String;
-      Set    : Maps.Character_Set;
-      From   : Positive;
-      Test   : Membership := Inside;
-      Going  : Direction := Forward) return Natural
-   is
-   begin
-      return Search.Index
-        (Source.Data (1 .. Source.Current_Length), Set, From, Test, Going);
    end Super_Index;
 
    ---------------------------
@@ -985,23 +919,13 @@ package body Ada.Strings.Superbounded is
 
    function Super_Index_Non_Blank
      (Source : Super_String;
-      Going  : Strings.Direction := Strings.Forward) return Natural
+      Going  : Strings.Direction := Strings.Forward)
+      return   Natural
    is
    begin
       return
         Search.Index_Non_Blank
           (Source.Data (1 .. Source.Current_Length), Going);
-   end Super_Index_Non_Blank;
-
-   function Super_Index_Non_Blank
-     (Source : Super_String;
-      From   : Positive;
-      Going  : Direction := Forward) return Natural
-   is
-   begin
-      return
-        Search.Index_Non_Blank
-          (Source.Data (1 .. Source.Current_Length), From, Going);
    end Super_Index_Non_Blank;
 
    ------------------
@@ -1012,7 +936,8 @@ package body Ada.Strings.Superbounded is
      (Source   : Super_String;
       Before   : Positive;
       New_Item : String;
-      Drop     : Strings.Truncation := Strings.Error) return Super_String
+      Drop     : Strings.Truncation := Strings.Error)
+      return     Super_String
    is
       Max_Length : constant Positive := Source.Max_Length;
       Result     : Super_String (Max_Length);
@@ -1107,10 +1032,11 @@ package body Ada.Strings.Superbounded is
    ---------------------
 
    function Super_Overwrite
-     (Source   : Super_String;
-      Position : Positive;
-      New_Item : String;
-      Drop     : Strings.Truncation := Strings.Error) return Super_String
+     (Source    : Super_String;
+      Position  : Positive;
+      New_Item  : String;
+      Drop      : Strings.Truncation := Strings.Error)
+      return      Super_String
    is
       Max_Length : constant Positive := Source.Max_Length;
       Result     : Super_String (Max_Length);
@@ -1246,11 +1172,12 @@ package body Ada.Strings.Superbounded is
    -------------------------
 
    function Super_Replace_Slice
-     (Source : Super_String;
-      Low    : Positive;
-      High   : Natural;
-      By     : String;
-      Drop   : Strings.Truncation := Strings.Error) return Super_String
+     (Source   : Super_String;
+      Low      : Positive;
+      High     : Natural;
+      By       : String;
+      Drop     : Strings.Truncation := Strings.Error)
+      return     Super_String
    is
       Max_Length : constant Positive := Source.Max_Length;
       Slen       : constant Natural  := Source.Current_Length;
@@ -1346,7 +1273,8 @@ package body Ada.Strings.Superbounded is
      (Count      : Natural;
       Item       : Character;
       Drop       : Truncation := Error;
-      Max_Length : Positive) return Super_String
+      Max_Length : Positive)
+      return       Super_String
    is
       Result : Super_String (Max_Length);
 
@@ -1369,7 +1297,8 @@ package body Ada.Strings.Superbounded is
      (Count      : Natural;
       Item       : String;
       Drop       : Truncation := Error;
-      Max_Length : Positive) return Super_String
+      Max_Length : Positive)
+      return       Super_String
    is
       Length : constant Integer := Count * Item'Length;
       Result : Super_String (Max_Length);
@@ -1425,7 +1354,8 @@ package body Ada.Strings.Superbounded is
    function Super_Replicate
      (Count : Natural;
       Item  : Super_String;
-      Drop  : Strings.Truncation := Strings.Error) return Super_String
+      Drop  : Strings.Truncation := Strings.Error)
+      return  Super_String
    is
    begin
       return
@@ -1443,7 +1373,8 @@ package body Ada.Strings.Superbounded is
    function Super_Slice
      (Source : Super_String;
       Low    : Positive;
-      High   : Natural) return String
+      High   : Natural)
+      return   String
    is
    begin
       --  Note: test of High > Length is in accordance with AI95-00128
@@ -1457,43 +1388,6 @@ package body Ada.Strings.Superbounded is
       end if;
    end Super_Slice;
 
-   function Super_Slice
-     (Source : Super_String;
-      Low    : Positive;
-      High   : Natural) return Super_String
-   is
-      Result : Super_String (Source.Max_Length);
-
-   begin
-      if Low > Source.Current_Length + 1
-        or else High > Source.Current_Length
-      then
-         raise Index_Error;
-      else
-         Result.Current_Length := High - Low + 1;
-         Result.Data (1 .. Source.Current_Length) := Source.Data (Low .. High);
-      end if;
-
-      return Result;
-   end Super_Slice;
-
-   procedure Super_Slice
-     (Source : Super_String;
-      Target : out Super_String;
-      Low    : Positive;
-      High   : Natural)
-   is
-   begin
-      if Low > Source.Current_Length + 1
-        or else High > Source.Current_Length
-      then
-         raise Index_Error;
-      else
-         Target.Current_Length := High - Low + 1;
-         Target.Data (1 .. Source.Current_Length) := Source.Data (Low .. High);
-      end if;
-   end Super_Slice;
-
    ----------------
    -- Super_Tail --
    ----------------
@@ -1502,7 +1396,8 @@ package body Ada.Strings.Superbounded is
      (Source : Super_String;
       Count  : Natural;
       Pad    : Character := Space;
-      Drop   : Strings.Truncation := Strings.Error) return Super_String
+      Drop   : Strings.Truncation := Strings.Error)
+      return   Super_String
    is
       Max_Length : constant Positive := Source.Max_Length;
       Result     : Super_String (Max_Length);
@@ -1550,7 +1445,7 @@ package body Ada.Strings.Superbounded is
    procedure Super_Tail
      (Source : in out Super_String;
       Count  : Natural;
-      Pad    : Character := Space;
+      Pad    : Character  := Space;
       Drop   : Truncation := Error)
    is
       Max_Length : constant Positive := Source.Max_Length;
@@ -1602,7 +1497,7 @@ package body Ada.Strings.Superbounded is
    -- Super_To_String --
    ---------------------
 
-   function Super_To_String (Source : Super_String) return String is
+   function Super_To_String (Source : in Super_String) return String is
    begin
       return Source.Data (1 .. Source.Current_Length);
    end Super_To_String;
@@ -1613,7 +1508,8 @@ package body Ada.Strings.Superbounded is
 
    function Super_Translate
      (Source  : Super_String;
-      Mapping : Maps.Character_Mapping) return Super_String
+      Mapping : Maps.Character_Mapping)
+      return    Super_String
    is
       Result : Super_String (Source.Max_Length);
 
@@ -1639,7 +1535,8 @@ package body Ada.Strings.Superbounded is
 
    function Super_Translate
      (Source  : Super_String;
-      Mapping : Maps.Character_Mapping_Function) return Super_String
+      Mapping : Maps.Character_Mapping_Function)
+      return    Super_String
    is
       Result : Super_String (Source.Max_Length);
 
@@ -1667,9 +1564,8 @@ package body Ada.Strings.Superbounded is
    -- Super_Trim --
    ----------------
 
-   function Super_Trim
-     (Source : Super_String;
-      Side   : Trim_End) return Super_String
+   function Super_Trim (Source : Super_String; Side : Trim_End)
+                        return   Super_String
    is
       Result : Super_String (Source.Max_Length);
       Last   : Natural := Source.Current_Length;
@@ -1725,7 +1621,8 @@ package body Ada.Strings.Superbounded is
    function Super_Trim
      (Source : Super_String;
       Left   : Maps.Character_Set;
-      Right  : Maps.Character_Set) return Super_String
+      Right  : Maps.Character_Set)
+      return   Super_String
    is
       Result : Super_String (Source.Max_Length);
 
@@ -1791,7 +1688,8 @@ package body Ada.Strings.Superbounded is
    function Times
      (Left       : Natural;
       Right      : Character;
-      Max_Length : Positive) return Super_String
+      Max_Length : Positive)
+      return  Super_String
    is
       Result : Super_String (Max_Length);
 
@@ -1813,7 +1711,8 @@ package body Ada.Strings.Superbounded is
    function Times
      (Left       : Natural;
       Right      : String;
-      Max_Length : Positive) return Super_String
+      Max_Length : Positive)
+      return  Super_String
    is
       Result : Super_String (Max_Length);
       Pos    : Positive         := 1;
@@ -1840,7 +1739,8 @@ package body Ada.Strings.Superbounded is
 
    function Times
      (Left  : Natural;
-      Right : Super_String) return Super_String
+      Right : Super_String)
+      return  Super_String
    is
       Result : Super_String (Right.Max_Length);
       Pos    : Positive := 1;
@@ -1873,7 +1773,8 @@ package body Ada.Strings.Superbounded is
    function To_Super_String
      (Source     : String;
       Max_Length : Natural;
-      Drop       : Truncation := Error) return Super_String
+      Drop       : Truncation := Error)
+      return       Super_String
    is
       Result : Super_String (Max_Length);
       Slen   : constant Natural := Source'Length;

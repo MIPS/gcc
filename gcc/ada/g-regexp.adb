@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1999-2002 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1999-2004 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,7 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -190,9 +191,9 @@ package body GNAT.Regexp is
          procedure Add_In_Map (C : Character);
          --  Add a character in the mapping, if it is not already defined
 
-         -----------------
-         --  Add_In_Map --
-         -----------------
+         ----------------
+         -- Add_In_Map --
+         ----------------
 
          procedure Add_In_Map (C : Character) is
          begin
@@ -418,7 +419,7 @@ package body GNAT.Regexp is
          --  end-state) :
          --
          --  regexp   state_num | a b * empty_string
-         --  -------  ---------------------------------------
+         --  -------  ------------------------------
          --    a          1 (s) | 2 - - -
          --               2 (e) | - - - -
          --

@@ -26,7 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -168,7 +169,7 @@ package body GNAT.Spitbol is
 
    procedure Reverse_String (Str : in out VString) is
       Len    : constant Natural := Length (Str);
-      Chars  : String_Access := Get_String (Str);
+      Chars  : constant String_Access := Get_String (Str);
       Temp   : Character;
 
    begin

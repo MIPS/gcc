@@ -1,0 +1,5 @@
+--             Copyright (C) 2002-2003 Ada Core Technologies, Inc.          --
+--  This is a LynxOS (POSIX Threads) version of this package.
+--  PLEASE DO NOT add any with-clauses to this package
+--  or remove the pragma Elaborate_Body.
+--  It is designed to be a bottom-level (leaf) package.

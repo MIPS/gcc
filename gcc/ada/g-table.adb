@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1998-2002 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1998-2004 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,7 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -59,8 +60,15 @@ package body GNAT.Table is
    --  in Max. Works correctly to do an initial allocation if the table
    --  is currently null.
 
+   pragma Warnings (Off);
+   --  Turn off warnings. The following unchecked conversions are only used
+   --  internally in this package, and cannot never result in any instances
+   --  of improperly aliased pointers for the client of the package.
+
    function To_Address is new Unchecked_Conversion (Table_Ptr, Address);
    function To_Pointer is new Unchecked_Conversion (Address, Table_Ptr);
+
+   pragma Warnings (On);
 
    --------------
    -- Allocate --
@@ -223,7 +231,7 @@ package body GNAT.Table is
       Item  : Table_Component_Type)
    is
    begin
-      if Integer (Index) > Max then
+      if Integer (Index) > Last_Val then
          Set_Last (Index);
       end if;
 

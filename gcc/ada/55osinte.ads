@@ -1,0 +1,1 @@
+--          Copyright (C) 1991-2003 Free Software Foundation, Inc.          --

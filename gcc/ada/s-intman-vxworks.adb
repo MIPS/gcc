@@ -86,6 +86,7 @@ package body System.Interrupt_Management is
 
    procedure Notify_Exception (signo : Signal) is
       Mask   : aliased sigset_t;
+      My_Id  : t_id;
 
       Result : int;
       pragma Unreferenced (Result);
@@ -94,6 +95,16 @@ package body System.Interrupt_Management is
       Result := pthread_sigmask (SIG_SETMASK, null, Mask'Unchecked_Access);
       Result := sigdelset (Mask'Access, signo);
       Result := pthread_sigmask (SIG_SETMASK, Mask'Unchecked_Access, null);
+
+      --  VxWorks will suspend the task when it gets a hardware
+      --  exception.  We take the liberty of resuming the task
+      --  for the application.
+
+      My_Id := taskIdSelf;
+
+      if taskIsSuspended (My_Id) /= 0 then
+         Result := taskResume (My_Id);
+      end if;
 
       Map_And_Raise_Exception (signo);
    end Notify_Exception;

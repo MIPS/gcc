@@ -502,11 +502,10 @@ package body GNAT.Sockets.Thin is
 
    begin
       for J in Iovec'Range loop
-         Res := C_Recv
+         Res := C_Read
            (Fd,
             Iovec (J).Base.all'Address,
-            Interfaces.C.int (Iovec (J).Length),
-            0);
+            Interfaces.C.int (Iovec (J).Length));
 
          if Res < 0 then
             return Res;
@@ -535,11 +534,10 @@ package body GNAT.Sockets.Thin is
 
    begin
       for J in Iovec'Range loop
-         Res := C_Send
+         Res := C_Write
            (Fd,
             Iovec (J).Base.all'Address,
-            Interfaces.C.int (Iovec (J).Length),
-            Constants.MSG_Forced_Flags);
+            Interfaces.C.int (Iovec (J).Length));
 
          if Res < 0 then
             return Res;
