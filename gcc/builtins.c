@@ -105,7 +105,6 @@ static rtx expand_builtin_frame_address	PARAMS ((tree));
 static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
 static rtx bounded_ptr_dest		PARAMS ((tree, rtx, rtx));
-static rtx expand_builtin_check_bounds	PARAMS ((tree));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -2177,6 +2176,8 @@ expand_builtin_va_arg (valist, type)
 
   want_va_type = va_list_type_node;
   have_va_type = TREE_TYPE (valist);
+  if (BOUNDED_POINTER_TYPE_P (have_va_type))
+    abort ();
   if (TREE_CODE (want_va_type) == ARRAY_TYPE)
     {
       /* If va_list is an array type, the argument may have decayed 

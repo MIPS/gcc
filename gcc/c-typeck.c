@@ -1222,17 +1222,23 @@ build_bounded_ptr_field_ref (bp, field_number)
      int field_number;
 {
   tree orig_bp = bp;
-  tree subtype = TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp));
-  tree field = TYPE_FIELDS (TREE_TYPE (bp));
+  tree subtype, field;
   int i;
-
-  if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)) != TREE_BOUNDED (bp))
-    abort ();
+  
   if (! TREE_BOUNDED (bp))
     {
-      error ("expected expression having bounded-pointer type");
+      if (field_number)
+	error ("can't take __ptr%s of unbounded pointer",
+	       ((field_number == 1) ? "base" : "extent"));
+      else
+	warning ("pointer is unbounded");
       return bp;
     }
+  if (! BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)))
+    abort ();
+
+  subtype = TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp));
+  field = TYPE_FIELDS (TREE_TYPE (bp));
 
   for (i = 0; i < field_number && field; i++)
     field = TREE_CHAIN (field);
@@ -1350,9 +1356,11 @@ build_bounded_ptr_check (bp, length)
       check = build_compound_expr (tree_cons (NULL_TREE, maybe_crash,
 					      tree_cons (NULL_TREE, value,
 							 NULL_TREE)));
+#if 0
       /* GKM FIXME: make this an error when it's reliable.  */
       if (integer_onep (compare))
 	warning ("bounds violation");
+#endif
       warn_unused = save_warn_unused;
       TREE_BOUNDS_CHECK (check) = 1;
       /* Save the original bp in case we later wish to toss the bounds
@@ -1452,10 +1460,14 @@ build_array_ref (array, index)
     return error_mark_node;
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE
-      && TREE_CODE (array) != INDIRECT_REF)
+      && TREE_CODE (array) != INDIRECT_REF
+      /* If we're checking bounds, compile a[i] as *(a + i).  */
+      && ! (flag_bounds_check && default_pointer_boundedness
+	    && lvalue_p (array)))
     {
       tree rval, type;
 
+      /* GKM FIXME: handle flag_bounds_check.  */;
       /* Subscripting with type char is likely to lose
 	 on a machine where chars are signed.
 	 So warn on any machine, but optionally.
@@ -2161,11 +2173,15 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   /* Binary operations on BP types should always be on the value field.  */
   if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (op0)))
     {
+      if (TREE_CODE (op0) == BIND_EXPR)
+	op0 = save_expr (op0);
       bp0 = op0;
       op0 = build_bounded_ptr_value_ref (bp0);
     }
   if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (op1)))
     {
+      if (TREE_CODE (op1) == BIND_EXPR)
+	op1 = save_expr (op1);
       bp1 = op1;
       op1 = build_bounded_ptr_value_ref (bp1);
     }
@@ -4325,6 +4341,14 @@ build_c_cast (type, expr)
 	  /* Don't warn about converting any constant.  */
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
+
+      if (BOUNDED_POINTER_TYPE_P (type) && ! TREE_BOUNDED (value)
+	  && ! integer_zerop (value))
+	{
+	  /* GKM FIXME: print better diagnostic message */
+	  warning ("cast to bounded pointer from unbounded type");
+	  type = TYPE_BOUNDED_SUBTYPE (type);
+	}
 
       ovalue = value;
       value = convert (type, value);

@@ -51,14 +51,14 @@ convert_to_pointer (type, expr)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (expr)) == BOUNDED_POINTER_TYPE_P (type))
+      if (! BOUNDED_POINTER_TYPE_P (type))
 	{
 	  expr = build1 (NOP_EXPR, type, expr);
 	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
 	  return expr;
 	}
       else
-	return build1 (CONVERT_EXPR, type, expr);
+	return build_bounded_ptr_constructor (expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
@@ -69,10 +69,8 @@ convert_to_pointer (type, expr)
       if (BOUNDED_POINTER_TYPE_P (type))
 	{
 	  expr = build1 (CONVERT_EXPR, TYPE_BOUNDED_SUBTYPE (type), expr);
-#if 1 /* GKM FIXME: this is experimental */
 	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
 	  return build_bounded_ptr_constructor (expr);
-#endif
 	}
       return build1 (CONVERT_EXPR, type, expr);
 

@@ -1288,11 +1288,12 @@ do {									\
 #else
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
 %{!mnewlib: %{shared:-lc} %{!shared: %{pthread:-lpthread } \
-%{profile:-lc_p} %{!profile:-lc}}}"
+%{profile:-lc_p} %{fbounded-pointers:-lc_b} %{!profile:%{!fbounded-pointers:-lc}}}}"
 #endif
 
 #define	STARTFILE_LINUX_SPEC "\
-%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
+%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
+   %{!p:%{fbounded-pointers:bcrt1.o%s} %{!fbounded-pointers:crt1.o%s}}}} \
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
 %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 

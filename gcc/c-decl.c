@@ -4661,11 +4661,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 
 	if (TREE_CODE (type) == ARRAY_TYPE)
 	  {
-	    /* Transfer const-ness of array into that of type pointed to.  */
+	    /* Force pointers to va_list arrays to be unbounded.  */
+	    enum tree_code code = ((TYPE_POINTER_DEPTH (type) == VA_LIST_POINTER_DEPTH)
+				   ? POINTER_TYPE : VOID_TYPE);
 	    type = TREE_TYPE (type);
 	    if (type_quals)
+	      /* Transfer const-ness of array into that of type pointed to.  */
 	      type = c_build_qualified_type (type, type_quals);
-	    type = build_default_pointer_type (type);
+	    type = build_pointer_type_2 (code, type);
 	    type_quals = TYPE_UNQUALIFIED;
 	    size_varies = 0;
 	  }

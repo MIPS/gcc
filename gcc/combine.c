@@ -368,7 +368,6 @@ static int n_occurrences;
 static void do_SUBST			PARAMS ((rtx *, rtx));
 static void do_SUBST_INT		PARAMS ((int *, int));
 static void init_reg_last_arrays	PARAMS ((void));
-static int rtx_and_links_equal_p	PARAMS ((rtx, rtx));
 static void setup_incoming_promotions   PARAMS ((void));
 static void set_nonzero_bits_and_sign_copies  PARAMS ((rtx, rtx, void *));
 static int can_combine_p	PARAMS ((rtx, rtx, rtx, rtx, rtx *, rtx *));
@@ -738,29 +737,6 @@ combine_instructions (f, nregs)
 	  if (GET_CODE (insn) != NOTE)
 	    record_dead_and_set_regs (insn);
 
-	  if (GET_CODE (insn) == INSN
-	      && GET_CODE (PATTERN (insn)) == TRAP_IF)
-	    {
-	      for (links = trap_insns; links; links = XEXP (links, 1))
-		{
-		  rtx earlier = XEXP (links, 0);
-		  if (rtx_and_links_equal_p (insn, earlier))
-		    {
-		      /* This conditional trap is redundant, so delete
-			 it after giving its notes to the earlier insn.  */
-		      distribute_notes (REG_NOTES (insn), insn, earlier, earlier,
-					NULL_RTX, NULL_RTX);
-		      PUT_CODE (insn, NOTE);
-		      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		      NOTE_SOURCE_FILE (insn) = 0;
-		      break;
-		    }
-		}
-	      if (GET_CODE (insn) == INSN)
-		/* This conditional trap is unique, so remember it.  */
-		trap_insns = alloc_INSN_LIST (insn, trap_insns);
-	    }
-
 	retry:
 	  ;
 	}
@@ -827,33 +803,6 @@ init_reg_last_arrays ()
   bzero ((char *) reg_last_set_mode, nregs * sizeof (enum machine_mode));
   bzero ((char *) reg_last_set_nonzero_bits, nregs * sizeof (HOST_WIDE_INT));
   bzero (reg_last_set_sign_bit_copies, nregs * sizeof (char));
-}
-
-/* Compare two insns and all the REG assignments they depend upon for
-   equality.  We use this in order to determine if two conditional traps
-   are identical, so that we may eliminate redundancies.  */
-
-static int
-rtx_and_links_equal_p (insn1, insn2)
-     rtx insn1;
-     rtx insn2;
-{
-  if (rtx_equal_p (PATTERN (insn1), PATTERN (insn2)))
-    {
-      rtx links1 = LOG_LINKS (insn1);
-      rtx links2 = LOG_LINKS (insn2);
-      while (links1 && links2)
-	{
-	  /* GKM FIXME: this condition is computationally expensive ...  */
-	  /* GKM FIXME: this is inadequate: if (XEXP (links1, 0) != XEXP (links2, 0)) */
-	  if (! rtx_and_links_equal_p (XEXP (links1, 0), XEXP (links2, 0)))
-	    return 0;
-	  links1 = XEXP (links1, 1);
-	  links2 = XEXP (links2, 1);
-	}
-      return 1;
-    }
-  return 0;
 }
 
 /* Set up any promoted values for incoming argument registers.  */

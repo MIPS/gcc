@@ -2000,9 +2000,9 @@ rs6000_build_va_list ()
   f_fpr = build_decl (FIELD_DECL, get_identifier ("fpr"), 
 		      unsigned_char_type_node);
   f_ovf = build_decl (FIELD_DECL, get_identifier ("overflow_arg_area"),
-		      ptr_type_node);
+		      unbounded_ptr_type_node);
   f_sav = build_decl (FIELD_DECL, get_identifier ("reg_save_area"),
-		      ptr_type_node);
+		      unbounded_ptr_type_node);
 
   DECL_FIELD_CONTEXT (f_gpr) = record;
   DECL_FIELD_CONTEXT (f_fpr) = record;
@@ -2208,7 +2208,7 @@ rs6000_va_arg (valist, type)
     }
 
   if (sav_ofs)
-    t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+    t = build (PLUS_EXPR, unbounded_ptr_type_node, sav, build_int_2 (sav_ofs, 0));
   else
     t = sav;
 
@@ -2221,7 +2221,7 @@ rs6000_va_arg (valist, type)
   u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
   TREE_SIDE_EFFECTS (u) = 1;
 
-  t = build (PLUS_EXPR, ptr_type_node, t, u);
+  t = build (PLUS_EXPR, unbounded_ptr_type_node, t, u);
   TREE_SIDE_EFFECTS (t) = 1;
 
   r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);

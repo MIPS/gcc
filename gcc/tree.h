@@ -434,13 +434,13 @@ extern void tree_class_check_failed PARAMS ((const tree, char,
   (BOUNDED_INDIRECT_TYPE_P (TYPE) \
    && TREE_CODE (TYPE_BOUNDED_SUBTYPE (TYPE)) == REFERENCE_TYPE)
 
-/* Nonzero if TYPE represents a pointer type, either bounded or unbounded.  */
-
 /* Nonzero if TYPE represents a pointer or reference type, either
    bounded or unbounded.  */
 
 #define MAYBE_BOUNDED_INDIRECT_TYPE_P(TYPE) \
   (POINTER_TYPE_P (TYPE) || BOUNDED_INDIRECT_TYPE_P (TYPE))
+
+/* Nonzero if TYPE represents a pointer type, either bounded or unbounded.  */
 
 #define MAYBE_BOUNDED_POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || BOUNDED_POINTER_TYPE_P (TYPE))

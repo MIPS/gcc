@@ -4712,10 +4712,16 @@ fold (expr)
   
   if (BOUNDED_POINTER_TYPE_P (type))
     {
-      while ((TREE_CODE (t) == NOP_EXPR
+      while (BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+	{
+	  if (TREE_CODE (t) == NOP_EXPR
 	      || TREE_CODE (t) == CONVERT_EXPR)
-	     && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
-	t = TREE_OPERAND (t, 0);
+	    t = TREE_OPERAND (t, 0);
+	  else if (TREE_CODE (t) == CONSTRUCTOR)
+	    t = TREE_VALUE (CONSTRUCTOR_ELTS (t));
+	  else
+	    break;
+	}
       if (t != expr && !BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
 	{
 	  while ((TREE_CODE (t) == NOP_EXPR
@@ -4724,10 +4730,16 @@ fold (expr)
 	    t = TREE_OPERAND (t, 0);
 	  if (t != expr && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
 	    {
-	      while ((TREE_CODE (t) == NOP_EXPR
+	      while (BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
+		{
+		  if (TREE_CODE (t) == NOP_EXPR
 		      || TREE_CODE (t) == CONVERT_EXPR)
-		     && BOUNDED_POINTER_TYPE_P (TREE_TYPE (t)))
-		t = TREE_OPERAND (t, 0);
+		    t = TREE_OPERAND (t, 0);
+		  else if (TREE_CODE (t) == CONSTRUCTOR)
+		    t = TREE_VALUE (CONSTRUCTOR_ELTS (t));
+		  else
+		    break;
+		}
 	      return convert (type, t);
 	    }
 	}

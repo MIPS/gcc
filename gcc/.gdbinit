@@ -1,9 +1,9 @@
 define tsti
-set args TST/$arg0.i -o TST/$arg0.s -quiet -O2 -g -W -Wall -fbounded-pointers -fbounded-pointer-thunks
+set args TST/$arg0.i -o TST/$arg0.s -quiet -O2 -g -W -Wall -fbounded-pointers
 end
 
 define libi
-set args LIBC/$arg0.i -o LIBC/$arg0.s -quiet -O -g -Wall -Winline -Wstrict-prototypes -Wwrite-strings -fbounded-pointers
+set args LIBC/$arg0.i -o LIBC/$arg0.s -quiet -O2 -g -Wall -Winline -Wstrict-prototypes -Wwrite-strings -fbounded-pointers
 end
 
 define gcci
