@@ -1913,6 +1913,8 @@ save_body (tree fn, tree *arg_copy)
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
     {
       tree new = copy_node (*parg);
+      (*lang_hooks.dup_lang_specific_decl) (new);
+      DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
       insert_decl_map (&id, *parg, new);
       TREE_CHAIN (new) = TREE_CHAIN (*parg);
       *parg = new;

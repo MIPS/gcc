@@ -1,5 +1,7 @@
 2004-02-07  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (save_body): Clone the parm decl correctly.
+
 	* cgraph.c: Add introductionary comment.
 	(cgraph_remove_node): Release DECL_SAVED_INSNS too.
 	* cgraphunit.c: Likewise.
