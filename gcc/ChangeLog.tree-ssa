@@ -1,5 +1,9 @@
-2003-09-20  Andrew MacLeod  <amacleod@redhat.com>
+2003-09-21  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): Rework code to propagate values
+	into PHI nodes to be more efficient.
+
+2003-09-20  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-flow.h (struct dataflow_d): Remove reaching fields, add 2 element
 	vector of trees.

@@ -481,33 +481,72 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	VARRAY_PUSH_TREE (stmts_to_rescan, bsi_stmt (si));
     }
 
-  /* Propagate known constants/copies into PHI nodes.  */
+  /* Propagate known constants/copies into PHI nodes.
+
+     This can get rather expensive if the implementation is naive in
+     how it finds the phi alternative associated with a particular edge.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      tree phi;
+      int phi_num_args;
+      int hint;
+
+      phi = phi_nodes (e->dest);
+      if (! phi)
+	continue;
+
+      /* There is no guarantee that for any two PHI nodes in a block that
+	 the phi alternative associated with a particular edge will be
+	 at the same index in the phi alternative array.
+
+	 However, it is very likely they will be the same.  So we keep
+	 track of the index of the alternative where we found the edge in
+	 the previous phi node and check that index first in the next
+	 phi node.  If that hint fails, then we actually search all
+	 the entries.  */
+      phi_num_args = PHI_NUM_ARGS (phi);
+      hint = phi_num_args;
+      for ( ; phi; phi = TREE_CHAIN (phi))
 	{
 	  int i;
+	  tree new;
+	  tree *orig_p;
 
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	  /* If the hint is valid (!= phi_num_args), see if it points
+	     us to the desired phi alternative.  */
+	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
+	    ;
+	  else
 	    {
-	      tree new;
-	      if (PHI_ARG_EDGE (phi, i) == e)
-		{
-		  tree *orig_p = &PHI_ARG_DEF (phi, i);
-
-		  if (! SSA_VAR_P (*orig_p))
-		    break;
-
-		  new = get_value_for (*orig_p, const_and_copies);
-		  /* We want to allow copy propagation as well as constant
-		     propagation.  */
-		  if (new
-		      && (TREE_CODE (new) == SSA_NAME || TREE_CONSTANT (new))
-		      && may_propagate_copy (*orig_p, new))
-		    *orig_p = new;
+	      /* The hint was either invalid or did not point to the
+		 correct phi alternative.  Search all the alternatives
+		 for the correct one.  Update the hint.  */
+	      for (i = 0; i < phi_num_args; i++)
+		if (PHI_ARG_EDGE (phi, i) == e)
 		  break;
-		}
+	      hint = i;
 	    }
+
+#ifdef ENABLE_CHECKING
+	  /* If we did not find the proper alternative, then something is
+	     horribly wrong.  */
+	  if (hint == phi_num_args)
+	    abort ();
+#endif
+
+	  /* The alternative may be associated with a constant, so verify
+	     it is an SSA_VAR before doing anything with it.  */
+	  orig_p = &PHI_ARG_DEF (phi, hint);
+	  if (! SSA_VAR_P (*orig_p))
+	    continue;
+
+	  /* If we have *ORIG_P in our constant/copy table, then replace
+	     ORIG_P with its value in our constant/copy table.  */
+	  new = get_value_for (*orig_p, const_and_copies);
+	  if (new
+	      && (TREE_CODE (new) == SSA_NAME || TREE_CONSTANT (new))
+	      && may_propagate_copy (*orig_p, new))
+	    *orig_p = new;
 	}
     }
 
