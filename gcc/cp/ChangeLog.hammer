@@ -1,3 +1,7 @@
+2004-02-21  Andreas Jaeger  <aj@suse.de>
+
+	* init.c: Include diagnostic.h for prototype of inform.
+
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
