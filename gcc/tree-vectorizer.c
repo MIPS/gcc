@@ -412,23 +412,6 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 }
 
 
-/* POINTER_ARITHMETIC
-
-   CHECKME: The RTL expander does not like an ARRAY_REF where the base is a
-   pointer; Until this is fixed, instead of generating
-
-   var = p[i]
-
-   we generate the following pointer arithmetic sequence:
-
-   1. T0 = (unsigned int)i
-   2. T1 = T0 * N	(N is the size of the vector in bytes)
-   3. T2 = p + T1
-   4. var = (*T2)
-*/
-#define POINTER_ARITHMETIC 1
-
-
 /* Function create_index_for_array_ref.
 
    Create an offset/index to be used to access a memory location.
@@ -440,52 +423,41 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
         function can be added here, or in the loop pre-header.
 
    Output:
-   If POINTER_ARITHMETIC is defined, this functions returns an offset that
-   will be added to a base pointer and used to refer to a memory location.
-   E.g., it will generate stmts 1 and 2 above, and return T1.
+
+   Return an index that will be used to index an array, using a pointer as 
+   a base.
 
    FORNOW: we are not trying to be efficient, and just creating the code
    sequence each time from scratch, even if the same offset can be reused.
    TODO: record the index in the array_ref_info or the stmt info and reuse
    it.
 
-   If POINTER_ARITHMETIC is undefined, this functions returns an index that
-   will be used to index an array, using a pointer as a base.
-
-   FORNOW: We are only handling array accesses with step 1, so the same
-   index as for the scalar access can be reused.
-
-   CHECKME: consider using a new index with step = vectorization_factor.
-   This depends on how we want to handle the loop bound.  */
+   FORNOW: We are only handling array accesses with step 1.  */
 
 static tree
 vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 {
-  tree T0, T1, vec_stmt, mult_expr, new_temp;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree expr = DR_REF (dr);
   varray_type access_fns = DR_ACCESS_FNS (dr);
   tree access_fn;
-  tree new_indx, scalar_indx; 
+  tree scalar_indx; 
   int init_val, step_val;
   tree init, step;
-  const char *new_name;
-  block_stmt_iterator pre_header_bsi;
   loop_vec_info loop_info = loop->aux;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
-  tree step_stmt;
   bool ok;
   int array_first_index;
   int vec_init_val;
+  tree indx_before_incr, indx_after_incr;
 
   if (TREE_CODE (expr) != ARRAY_REF)
     abort ();
 
   /* FORNOW: handle only one dimensional arrays.
-     This restriction will be relaxed in the future.  */
-  /* CHECKME */
+     This restriction will be relaxed in the future.  */ /* CHECKME */
   if (VARRAY_ACTIVE_SIZE (access_fns) != 1)
     abort ();
 
@@ -495,29 +467,19 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 	true))
     abort ();
 
-  /** Handle initialization.  **/
-
-  if (TREE_CODE (init) != INTEGER_CST
-      || TREE_CODE (step) != INTEGER_CST)
+  if (TREE_CODE (init) != INTEGER_CST || TREE_CODE (step) != INTEGER_CST)
     abort ();	
 
-  /* CHECKME */
-  if (TREE_INT_CST_HIGH (init) != 0
-      || TREE_INT_CST_HIGH (step) != 0)
+  if (TREE_INT_CST_HIGH (init) != 0 || TREE_INT_CST_HIGH (step) != 0)
     abort ();
 
   init_val = TREE_INT_CST_LOW (init); 
   step_val = TREE_INT_CST_LOW (step);
 
+
   /** Handle initialization.  **/
 
   scalar_indx =  TREE_OPERAND (expr, 1); 
-
-  /* Create a new variable and initialize it in the loop pre-header.  */
-
-  new_indx = vect_get_new_vect_var (size_type_node, vect_simple_var, "iv_");
-  add_referenced_tmp_var (new_indx); 	
-  bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
 
   /* The actual index depends on the (mis)alignment of the access.
      FORNOW: we verify that both the array base and the access are
@@ -530,112 +492,21 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
   ok = vect_get_array_first_index (expr, &array_first_index);
   if (!ok)
     abort ();
-  vec_init_val = (init_val - array_first_index) / vectorization_factor 
-	+ array_first_index;
+  vec_init_val = array_first_index +
+	(init_val - array_first_index)/vectorization_factor;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "vec_init_indx = %d\n", vec_init_val);
 
-  vec_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-		build_int_2 (vec_init_val, 0));
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, vec_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
+  init = build_int_2 (vec_init_val, 0);
+  step = integer_one_node;
 
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-    bsi_insert_before (&pre_header_bsi, vec_stmt, BSI_NEW_STMT);	
-  else
-    bsi_insert_after (&pre_header_bsi, vec_stmt, BSI_NEW_STMT);	
+  /* CHECKME: assuming that bsi_insert is used with BSI_NEW_STMT */
 
-  step_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-			build (PLUS_EXPR, size_type_node,
-			TREE_OPERAND (vec_stmt, 0), integer_one_node)); 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, step_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-  /* Have bsi point to new stmt.  */
-  bsi_insert_before (bsi, step_stmt, BSI_NEW_STMT);	
+  create_iv (init, step, NULL_TREE, loop, bsi, false, 
+	&indx_before_incr, &indx_after_incr); 
 
-
-#ifndef POINTER_ARITHMETIC
-
-  /* CHECKME: for now return the same index. May want to handle this
-     differently in the future.  */
-  return new_indx;
-
-
-#else /* POINTER_ARITHMETIC */
-
-
-  /* Given the array reference array[i], create
-     'new_idx = (unsigned int)i * N'
-     where N = UNITS_PER_SIMD_WORD
-
-     FORNOW: We only handle loops in which all stmts operate on the same
-             data type; therefore, for all the array accesses in the loop,
-             the following should hold:
-             UNITS_PER_SIMD_WORD =
-                      vectorization_factor * sizeof (data_type (array)).
-
-     FORNOW: The access pattern of all arrays in the loop is step 1.  */
-
-  /*** create: unsigned int T0; ***/
-
-  new_name = get_name (scalar_indx);
-  if (!new_name)
-    new_name = "iv_";
-  T0 = vect_get_new_vect_var (size_type_node, 
-				vect_simple_var, new_name);
-  add_referenced_tmp_var (T0);
-
-
-  /*** create: T0 = (unsigned int)i; ***/
-
-  vec_stmt = build (MODIFY_EXPR, size_type_node, T0,
-		    build1 (NOP_EXPR, size_type_node, new_indx));
-  new_temp = make_ssa_name (T0, vec_stmt);
-  TREE_OPERAND (vec_stmt, 0) = new_temp;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, vec_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
-
-
-  /*** create: unsigned int T1; ***/
-
-  new_name = get_name (scalar_indx);
-  if (!new_name)
-    new_name = "iv_";
-  T1 = vect_get_new_vect_var (size_type_node,
-                                vect_simple_var, new_name);
-  add_referenced_tmp_var (T1);
-
-
-  /*** create: T1 = T0 * N; ***/
-
-  mult_expr = build (MULT_EXPR, size_type_node,
-		     TREE_OPERAND (vec_stmt, 0),
-		     build_int_2 (UNITS_PER_SIMD_WORD, 0));
-  vec_stmt = build (MODIFY_EXPR, size_type_node, T1, mult_expr);
-  new_temp = make_ssa_name (T1, vec_stmt);
-  TREE_OPERAND (vec_stmt, 0) = new_temp;
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      print_generic_expr (dump_file, vec_stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
-
-  return (TREE_OPERAND (vec_stmt, 0));
-
-#endif /* POINTER_ARITHMETIC */
+  return indx_before_incr;
 }
 
 
@@ -757,9 +628,7 @@ vect_align_data_ref (tree ref, tree stmt)
       v8hi *p0;
       p0 = (v8hi *)&a;
 
-   3. If pointer arithmetic is defined, return '*(p0 + idx)'.
-         where idx is the offset in bytes.
-      Otherwise return the expression 'p0[idx]',
+   3. Return the expression '(*p0)[idx]',
          where idx is the index used for the scalar expr.
 
    FORNOW: handle only simple array accesses (step 1).  */
@@ -767,10 +636,10 @@ vect_align_data_ref (tree ref, tree stmt)
 static tree
 vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 {
+  tree new_base;
   tree data_ref;
   tree idx;
-  tree base = get_array_base (ref);
-  tree vec_stmt, T0;
+  tree vec_stmt;
   tree new_temp;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
@@ -793,34 +662,12 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 
   /*** create: vectype *p;  ***/
   ptr_type = build_pointer_type (vectype);
-  array_ptr = vect_get_new_vect_var (ptr_type, vect_pointer_var,
-		 get_name (array_base));
-  add_referenced_tmp_var (array_ptr);
-  get_var_ann (array_ptr)->type_mem_tag = array_base;
-  /* CHECKME: update name_mem_tag as well?  */
-
-  /*** create: p = (vectype *)&a; ***/
-  vec_stmt = build (MODIFY_EXPR, ptr_type, array_ptr,
-		    build1 (NOP_EXPR, ptr_type,
-			    build1 (ADDR_EXPR, ptr_type, base)));
-  TREE_ADDRESSABLE (base) = 1;
-  new_temp = make_ssa_name (array_ptr, vec_stmt);
-  TREE_OPERAND (vec_stmt, 0) = new_temp;
-  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
-
-  idx = vect_create_index_for_array_ref (stmt, bsi);
-
-#ifdef POINTER_ARITHMETIC
-
-  /*** create: vectype *T0; ***/
-
-  T0 = vect_get_new_vect_var (ptr_type, vect_pointer_var, 
+  array_ptr = vect_get_new_vect_var (ptr_type, vect_pointer_var, 
 		get_name (array_base));
-  add_referenced_tmp_var (T0);
-
+  add_referenced_tmp_var (array_ptr);
   if (TREE_CODE (array_base) == VAR_DECL)
     {
-      get_var_ann (T0)->type_mem_tag = array_base;
+      get_var_ann (array_ptr)->type_mem_tag = array_base;
       bitmap_set_bit (vars_to_rename, var_ann (array_base)->uid);
     }
   else
@@ -829,18 +676,19 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
       abort ();
     }
 
-  /* Also mark for renaming all aliased variables:  */
-  /* CHECKME */
-  if (vuses) 
+  /* CHECKME: update name_mem_tag as well?  */
+
+  /* Also mark for renaming all aliased variables:  */ /* CHECKME */
+  if (vuses)
     nvuses = NUM_VUSES (vuses);
-  if (vdefs) 
+  if (vdefs)
     nvdefs = NUM_VDEFS (vdefs);
   for (i = 0; i < nvuses; i++)
     {
       tree use = VUSE_OP (vuses, i);;
       if (TREE_CODE (use) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
-    } 
+    }
   for (i = 0; i < nvdefs; i++)
     {
       tree def = VDEF_RESULT (vdefs, i);
@@ -848,31 +696,23 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
     }
 
-
-  /*** create: T0 = idx + p; ***/
-
-  vec_stmt = build (MODIFY_EXPR, ptr_type, T0,
-		    build (PLUS_EXPR, ptr_type, TREE_OPERAND (vec_stmt, 0),
-			   idx));
-  new_temp = make_ssa_name (T0, vec_stmt);
+  /*** create: p = (vectype *)&a; ***/
+  vec_stmt = build (MODIFY_EXPR, void_type_node, array_ptr,
+    build1 (NOP_EXPR, ptr_type,
+	  build1 (ADDR_EXPR, 
+		build_pointer_type (TREE_TYPE (array_base)), array_base)));
+  TREE_ADDRESSABLE (array_base) = 1;
+  new_temp = make_ssa_name (array_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
 
+  idx = vect_create_index_for_array_ref (stmt, bsi);
 
-  /*** create dataref: '*T0' ***/
+  /*** create data ref: '(*p)[idx]' ***/
 
-  data_ref = build1 (INDIRECT_REF, vectype, TREE_OPERAND (vec_stmt, 0));
-
-
-#else /* POINTER_ARITHMETIC */
-
-
-  /*** create data ref: 'p[idx]' ***/
-
-  data_ref = build (ARRAY_REF, ptr_type, TREE_OPERAND (vec_stmt, 0), idx);
-
-
-#endif /* POINTER_ARITHMETIC */
+  new_base = build1 (INDIRECT_REF, build_array_type (vectype, 0), 
+		TREE_OPERAND (vec_stmt, 0)); 
+  data_ref = build (ARRAY_REF, vectype, new_base, idx);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     print_generic_expr (dump_file, data_ref, TDF_SLIM);
@@ -1446,10 +1286,10 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge exit_edge = loop_exit_edge (loop, 0);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
-  block_stmt_iterator pre_header_bsi;
+  tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
   int old_N, vf;
-  tree new_indx, init_stmt, step_stmt, cond_stmt;
+  tree cond_stmt;
   tree new_loop_bound;
 
   /* FORNOW: assuming the loop bound is known.  */
@@ -1470,35 +1310,22 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   if (orig_cond_expr != bsi_stmt (loop_exit_bsi))
     abort ();
 
-  /* create new induction var:  */
-  new_indx = vect_get_new_vect_var (size_type_node, vect_simple_var, "iv_");
-  add_referenced_tmp_var (new_indx);
-  bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
-  
+  create_iv (integer_zero_node, integer_one_node, NULL_TREE, loop, 
+	&loop_exit_bsi, false, &indx_before_incr, &indx_after_incr);
 
-  /* induction var initialization in loop prolog:  */
-  init_stmt = build (MODIFY_EXPR, size_type_node, new_indx, integer_zero_node);
-
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi))) 
-    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-
-  /* induction var update in loop:  */
-  step_stmt = build (MODIFY_EXPR, size_type_node, new_indx,
-                        build (PLUS_EXPR, size_type_node,
-			TREE_OPERAND (init_stmt, 0), integer_one_node));
-  bsi_insert_before (&loop_exit_bsi, step_stmt, BSI_SAME_STMT);   
-
+  /* CHECKME: bsi_insert is using BSI_NEW_STMT. We need to bump it back 
+     to point to the exit condition. */
+  bsi_next (&loop_exit_bsi);
+  if (bsi_stmt (loop_exit_bsi) != orig_cond_expr)
+    abort ();
 
   /* new loop exit test:  */
   new_loop_bound = build_int_2 (old_N/vf, 0);
-  cond_stmt = build (COND_EXPR, TREE_TYPE (orig_cond_expr),
-		build (LT_EXPR, boolean_type_node, new_indx, new_loop_bound),
-		TREE_OPERAND (orig_cond_expr, 1),
-		TREE_OPERAND (orig_cond_expr, 2));
+  cond_stmt = 
+	build (COND_EXPR, TREE_TYPE (orig_cond_expr),
+	build (LT_EXPR, boolean_type_node, indx_after_incr, new_loop_bound),
+	TREE_OPERAND (orig_cond_expr, 1), TREE_OPERAND (orig_cond_expr, 2));
+
   bsi_insert_before (&loop_exit_bsi, cond_stmt, BSI_SAME_STMT);   
 
   /* remove old loop exit test:  */
@@ -3507,8 +3334,7 @@ need_imm_uses_for (tree var)
    Entry Point to loop vectorization phase.  */
 
 void
-vectorize_loops (struct loops *loops,
-		 varray_type ev_info ATTRIBUTE_UNUSED)
+vectorize_loops (struct loops *loops)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;

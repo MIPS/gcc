@@ -164,7 +164,7 @@ typedef struct _loop_vec_info {
 /*-----------------------------------------------------------------*/
 
 /* Main driver.  */
-extern void vectorize_loops (struct loops *, varray_type);
+extern void vectorize_loops (struct loops *);
 
 /* creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);

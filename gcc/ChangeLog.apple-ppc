@@ -1,3 +1,22 @@
+2004-05-06  Dale Johannesen  <dalej@apple.com>
+
+	* Merge from lno branch as of 04-24.  Files changed:
+	 lambda-code.c
+	 lambda.h
+	 tree-chrec.c
+	 tree-chrec.h
+	 tree-data-ref.c
+	 tree-elim-check.c
+	 tree-flow.h
+	 tree-loop-linear.c
+	 tree-scalar-evolution.c
+	 tree-ssa-loop-im.c
+	 tree-ssa-loop-ivopts.c
+	 tree-ssa-loop-manip.c
+	 tree-ssa-loop.c
+	 tree-vectorizer.c
+	 tree-vectorizer.h
+
 2004-05-04  Caroline Tice <ctice@apple.com>
 
 	* config/rs6000/darwin.h (FP_SAVE_INLINE):  Modify this to

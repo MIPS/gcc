@@ -167,6 +167,10 @@ movement_possibility (tree stmt)
     return MOVE_IMPOSSIBLE;
 
   lhs = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (lhs) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+    return MOVE_IMPOSSIBLE;
+
   rhs = TREE_OPERAND (stmt, 1);
 
   if (TREE_SIDE_EFFECTS (rhs))

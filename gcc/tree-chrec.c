@@ -453,7 +453,6 @@ chrec_fold_multiply_ival_cst (tree type,
 			      tree cst)
 {
   tree lowm, upm;
-  bool pos;
 
 #if defined ENABLE_CHECKING
   if (ival == NULL_TREE
@@ -469,16 +468,19 @@ chrec_fold_multiply_ival_cst (tree type,
   if (ival == chrec_bot)
     return chrec_bot;
 
-  if (!chrec_is_positive (cst, &pos))
-    return chrec_top;
-  
   lowm = chrec_fold_multiply (type, CHREC_LOW (ival), cst);
   upm = chrec_fold_multiply (type, CHREC_UP (ival), cst);
-  
-  if (pos)
-    return build_interval_chrec (lowm, upm);
-  else
-    return build_interval_chrec (upm, lowm);
+
+  /* When the fold resulted in an overflow, conservatively answer
+     chrec_top.  */
+  if (!evolution_function_is_constant_p (lowm)
+      || !evolution_function_is_constant_p (upm)
+      || TREE_OVERFLOW (lowm)
+      || TREE_OVERFLOW (upm))
+    return chrec_top;
+
+  return build_interval_chrec (tree_fold_min (type, lowm, upm),
+			       tree_fold_max (type, lowm, upm));
 }
 
 /* Fold the multiplication of two polynomial functions.  */
@@ -694,7 +696,19 @@ chrec_fold_multiply_ival_ival (tree type,
   ad = tree_fold_multiply (type, CHREC_LOW (ival0), CHREC_UP (ival1));
   bc = tree_fold_multiply (type, CHREC_UP (ival0), CHREC_LOW (ival1));
   bd = tree_fold_multiply (type, CHREC_UP (ival0), CHREC_UP (ival1));
-  
+
+  /* When the fold resulted in an overflow, conservatively answer
+     chrec_top.  */
+  if (!evolution_function_is_constant_p (ac)
+      || !evolution_function_is_constant_p (ad)
+      || !evolution_function_is_constant_p (bc)
+      || !evolution_function_is_constant_p (bd)
+      || TREE_OVERFLOW (ac)
+      || TREE_OVERFLOW (ad)
+      || TREE_OVERFLOW (bc)
+      || TREE_OVERFLOW (bd))
+    return chrec_top;
+
   /* [a, b] * [c, d]  ->  [min (ac, ad, bc, bd), max (ac, ad, bc, bd)],
      for reference, see Moore's "Interval Arithmetic".  */
   return build_interval_chrec 
@@ -827,7 +841,7 @@ chrec_fold_plus_1 (enum tree_code code,
 	     CHREC_RIGHT (op1));
 	  
 	case EXPONENTIAL_CHREC:
-	  return chrec_fold_plus_cst_expo (code, type, op0, op1);
+	  return chrec_top;
 	  
 	case INTERVAL_CHREC:
 	  t1 = (code == PLUS_EXPR ? 
@@ -836,7 +850,15 @@ chrec_fold_plus_1 (enum tree_code code,
 	  t2 = (code == PLUS_EXPR ? 
 		chrec_fold_plus (type, CHREC_UP (op0), CHREC_UP (op1)) :
 		chrec_fold_minus (type, CHREC_UP (op0), CHREC_UP (op1)));
-	  
+
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
 	     tree_fold_max (type, t1, t2));
@@ -849,6 +871,14 @@ chrec_fold_plus_1 (enum tree_code code,
 		chrec_fold_plus (type, CHREC_UP (op0), op1) : 
 		chrec_fold_minus (type, CHREC_UP (op0), op1));
 	  
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
 	     tree_fold_max (type, t1, t2));
@@ -893,7 +923,15 @@ chrec_fold_plus_1 (enum tree_code code,
 	  t2 = (code == PLUS_EXPR ? 
 		chrec_fold_plus (type, op0, CHREC_UP (op1)) :
 		chrec_fold_minus (type, op0, CHREC_UP (op1)));
-	  
+
+	  /* When the fold resulted in an overflow, conservatively answer
+	     chrec_top.  */
+	  if (!evolution_function_is_constant_p (t1)
+	      || !evolution_function_is_constant_p (t2)
+	      || TREE_OVERFLOW (t1)
+	      || TREE_OVERFLOW (t2))
+	    return chrec_top;
+
 	  return build_interval_chrec 
 	      (tree_fold_min (type, t1, t2),
 	       tree_fold_max (type, t1, t2));
@@ -945,21 +983,6 @@ chrec_fold_minus (tree type,
   return chrec_fold_plus_1 (MINUS_EXPR, type, op0, op1);
 }
 
-/* Fold the negation of a two chrec.  */
-
-tree 
-chrec_fold_negate (tree type, tree op0)
-{
-  if (integer_zerop (op0)
-      || (TREE_CODE (op0) == INTERVAL_CHREC
-	  && integer_zerop (CHREC_LOW (op0))
-	  && integer_zerop (CHREC_UP (op0))))
-    return op0;
-  
-  return chrec_fold_plus_1 (MINUS_EXPR, type,
-			    convert (type, integer_zero_node),
-			    op0);
-}
 /* Fold the multiplication of two chrecs.  */
 
 tree
@@ -1182,7 +1205,13 @@ chrec_apply (unsigned var,
   tree res = chrec_top;
 
   if (automatically_generated_chrec_p (chrec)
-      || automatically_generated_chrec_p (x))
+      || automatically_generated_chrec_p (x)
+
+      /* When the symbols are defined in an outer loop, it is possible
+	 to symbolically compute the apply, since the symbols are
+	 constants with respect to the varying loop.  */
+      || chrec_contains_symbols_defined_in_loop (chrec, var)
+      || chrec_contains_symbols (x))
     return chrec_top;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1697,24 +1726,6 @@ is_pure_sum_chrec (tree chrec)
 	    && is_pure_sum_chrec (CHREC_RIGHT (chrec)));
   
   return true;
-}
-
-/* Determines whether CHREC is a loop invariant wrt. LOOP_NUM.  */
-
-bool
-no_evolution_in_loop_p (tree chrec,
-			unsigned loop_num)
-{
-  tree scev;
-  
-  if (chrec == chrec_not_analyzed_yet)
-    return true;
-  if (chrec == chrec_top)
-    return false;
-
-  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
-  return (TREE_CODE (scev) != POLYNOMIAL_CHREC
-	  && TREE_CODE (scev) != EXPONENTIAL_CHREC);
 }
 
 /* Determines whether the chrec contains symbolic names or not.  */

@@ -1061,6 +1061,60 @@ determine_biv_step (tree phi)
   return step;
 }
 
+/* Retunrs false if INDEX is a ssa name that occurs in an
+   abnormal phi node.  Callback for for_each_index.  */
+
+static bool
+idx_contains_abnormal_ssa_name_p (tree base ATTRIBUTE_UNUSED, tree *index,
+				  void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*index) != SSA_NAME)
+    return true;
+
+  return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*index) == 0;
+}
+
+/* Returns true if EXPR contains a ssa name that occurs in an
+   abnormal phi node.  */
+
+static bool
+contains_abnormal_ssa_name_p (tree expr)
+{
+  enum tree_code code = TREE_CODE (expr);
+  char class = TREE_CODE_CLASS (code);
+    
+  if (code == SSA_NAME)
+    return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
+
+  if (code == INTEGER_CST
+      || is_gimple_min_invariant (expr))
+    return false;
+
+  if (code == ADDR_EXPR)
+    return !for_each_index (&TREE_OPERAND (expr, 1),
+			    idx_contains_abnormal_ssa_name_p,
+			    NULL);
+
+  switch (class)
+    {
+    case '2':
+      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 1)))
+	return true;
+
+      /* Fallthru.  */
+    case '1':
+      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 0)))
+	return true;
+
+      break;
+
+    default:
+      abort ();
+    }
+
+  return false;
+}
+
 /* Finds basic ivs.  */
 
 static bool
@@ -1072,6 +1126,9 @@ find_bivs (struct ivopts_data *data)
 
   for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
     {
+      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+	continue;
+
       step = determine_biv_step (phi);
 
       if (!step)
@@ -1081,6 +1138,9 @@ find_bivs (struct ivopts_data *data)
 	continue;
 
       base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
+      if (contains_abnormal_ssa_name_p (base))
+	continue;
+
       type = TREE_TYPE (PHI_RESULT (phi));
       base = convert (type, base);
       step = convert (type, step);
@@ -1178,7 +1238,8 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
     return false;
 
   ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, lhs);
-  if (tree_does_not_contain_chrecs (ev))
+  if (tree_does_not_contain_chrecs (ev)
+      && !chrec_contains_symbols (ev))
     {
       *base = ev;
       return true;
@@ -1192,7 +1253,11 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
   if (TREE_CODE (*step) != INTEGER_CST)
     return false;
   *base = CHREC_LEFT (ev);
-  if (tree_contains_chrecs (*base))
+  if (tree_contains_chrecs (*base)
+      || chrec_contains_symbols (*base))
+    return false;
+
+  if (contains_abnormal_ssa_name_p (*base))
     return false;
 
   return true;

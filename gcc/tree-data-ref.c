@@ -717,19 +717,20 @@ analyze_siv_subscript_affine_cst (tree chrec_a,
   analyze_siv_subscript_cst_affine (chrec_b, chrec_a, overlaps_b, overlaps_a);
 }
 
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
+/* Determines the overlapping elements due to accesses CHREC_A and
+   CHREC_B, that are affine functions.  This is a part of the
+   subscript analyzer.  */
 
 static void
-analyze_siv_subscript_affine_affine (tree chrec_a, 
-				     tree chrec_b,
-				     tree *overlaps_a, 
-				     tree *overlaps_b)
+analyze_subscript_affine_affine (tree chrec_a, 
+				 tree chrec_b,
+				 tree *overlaps_a, 
+				 tree *overlaps_b)
 {
   tree left_a, left_b, right_a, right_b;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_siv_subscript_affine_affine \n");
+    fprintf (dump_file, "(analyze_subscript_affine_affine \n");
   
   /* For determining the initial intersection, we have to solve a
      Diophantine equation.  This is the most time consuming part.
@@ -752,11 +753,9 @@ analyze_siv_subscript_affine_affine (tree chrec_a,
       /* The first element accessed twice is on the first
 	 iteration.  */
       *overlaps_a = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_a), 
-	 integer_zero_node, integer_one_node);
+	(CHREC_VARIABLE (chrec_b), integer_zero_node, integer_one_node);
       *overlaps_b = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_b), 
-	 integer_zero_node, integer_one_node);
+	(CHREC_VARIABLE (chrec_a), integer_zero_node, integer_one_node);
     }
   
   else if (TREE_CODE (left_a) == INTEGER_CST
@@ -911,9 +910,9 @@ analyze_siv_subscript_affine_affine (tree chrec_a,
 			 tree_fold_multiply (integer_type_node, j1, t));
 		      
 		      *overlaps_a = build_polynomial_chrec 
-			(CHREC_VARIABLE (chrec_a), x0, u21);
+			(CHREC_VARIABLE (chrec_b), x0, u21);
 		      *overlaps_b = build_polynomial_chrec 
-			(CHREC_VARIABLE (chrec_b), y0, u22);
+			(CHREC_VARIABLE (chrec_a), y0, u22);
 		    }
 		  else
 		    {
@@ -982,8 +981,8 @@ analyze_siv_subscript (tree chrec_a,
   else if (evolution_function_is_affine_p (chrec_a)
 	   && evolution_function_is_affine_p (chrec_b)
 	   && (CHREC_VARIABLE (chrec_a) == CHREC_VARIABLE (chrec_b)))
-    analyze_siv_subscript_affine_affine (chrec_a, chrec_b, 
-					 overlaps_a, overlaps_b);
+    analyze_subscript_affine_affine (chrec_a, chrec_b, 
+				     overlaps_a, overlaps_b);
   else
     {
       *overlaps_a = chrec_top;
@@ -1065,35 +1064,16 @@ analyze_miv_subscript (tree chrec_a,
 	 {0, +, 1}_2  vs.  {0, +, 1}_3
 	 the overlapping elements are respectively located at iterations:
 	 {0, +, 1}_3 and {0, +, 1}_2.
-        
-	 The overlaps are computed by the classic siv tester, then the
-	 evolution loops are exchanged.
       */
-      
-      tree fake_b, fake_overlaps_a;
-      fake_b = build_polynomial_chrec 
-	(CHREC_VARIABLE (chrec_a), 
-	 CHREC_LEFT (chrec_b), CHREC_RIGHT (chrec_b));
-      /* Analyze the siv.  */
-      analyze_siv_subscript (chrec_a, fake_b, 
-			     &fake_overlaps_a, overlaps_b);
-      
-      /* Exchange the variables.  */
-      if (evolution_function_is_constant_p (*overlaps_b))
-	*overlaps_b = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_a), *overlaps_b, 
-	   integer_one_node);
-      
-      if (evolution_function_is_constant_p (fake_overlaps_a))
-	*overlaps_a = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_b), fake_overlaps_a, 
-	   integer_one_node);
-      
+      if (evolution_function_is_affine_p (chrec_a)
+	  && evolution_function_is_affine_p (chrec_b))
+	analyze_subscript_affine_affine (chrec_a, chrec_b, 
+					 overlaps_a, overlaps_b);
       else
-	*overlaps_a = build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_b), 
-	   CHREC_LEFT (fake_overlaps_a),
-	   CHREC_RIGHT (fake_overlaps_a));
+	{
+	  *overlaps_a = chrec_top;
+	  *overlaps_b = chrec_top;
+	}
     }
   
   else

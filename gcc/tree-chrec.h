@@ -78,7 +78,6 @@ static inline tree build_peeled_chrec (unsigned, tree, tree);
 /* Chrec folding functions.  */
 extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
-extern tree chrec_fold_negate (tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree);
 extern tree chrec_type (tree);
@@ -100,9 +99,9 @@ extern tree chrec_fold_automatically_generated_operands (tree, tree);
 /* Observers.  */
 extern bool is_multivariate_chrec (tree);
 extern bool is_pure_sum_chrec (tree);
-extern bool no_evolution_in_loop_p (tree, unsigned);
 extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
+extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
 extern bool chrec_contains_intervals (tree);
 extern bool tree_contains_chrecs (tree);
@@ -234,22 +233,23 @@ symbolic_parameter_expr_p (tree chrec)
   return false;
 }
 
-/* Determines whether the expression CHREC is a constant.  Be aware of
-   the fact that the expression is supposed to be part of an evolution
-   function, and not an expression from the AST of the program.  */
+/* Determines whether the expression CHREC is a constant.  */
 
 static inline bool 
 evolution_function_is_constant_p (tree chrec)
 {
   if (chrec == NULL_TREE)
     return false;
-  
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      || TREE_CODE (chrec) == EXPONENTIAL_CHREC
-      || TREE_CODE (chrec) == PEELED_CHREC)
-    return false;
-  
-  return true;
+
+  switch (TREE_CODE (chrec))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+      return true;
+      
+    default:
+      return false;
+    }
 }
 
 /* Determine whether the given tree is an affine evolution function or not.  */
@@ -328,6 +328,25 @@ static inline bool
 tree_does_not_contain_chrecs (tree expr)
 {
   return !tree_contains_chrecs (expr);
+}
+
+/* Determines whether CHREC is a loop invariant with respect to LOOP_NUM.  
+   Set the result in RES and return true when the property can be computed.  */
+
+static inline bool
+no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
+{
+  tree scev;
+  
+  if (chrec == chrec_not_analyzed_yet
+      || chrec == chrec_top
+      || chrec_contains_symbols_defined_in_loop (chrec, loop_num))
+    return false;
+
+  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
+  *res = (TREE_CODE (scev) != POLYNOMIAL_CHREC
+	  && TREE_CODE (scev) != EXPONENTIAL_CHREC);
+  return true;
 }
 
 #endif  /* GCC_TREE_CHREC_H  */

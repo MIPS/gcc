@@ -712,7 +712,21 @@ static void
 add_exit_phis_edge (basic_block exit, tree use)
 {
   tree phi, def_stmt = SSA_NAME_DEF_STMT (use);
+  basic_block def_bb = bb_for_stmt (def_stmt);
+  struct loop *def_loop;
   edge e;
+
+  /* Check that some of the edges entering the EXIT block exits a loop in
+     that USE is defined.  */
+  for (e = exit->pred; e; e = e->pred_next)
+    {
+      def_loop = find_common_loop (def_bb->loop_father, e->src->loop_father);
+      if (!flow_bb_inside_loop_p (def_loop, e->dest))
+	break;
+    }
+
+  if (!e)
+    return;
 
   phi = create_phi_node (use, exit);
 

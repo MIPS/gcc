@@ -985,17 +985,18 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
 static lambda_linear_expression
 gcc_tree_to_linear_expression (int depth, tree expr, 
 			       varray_type outerinductionvars,
-			       bool minusone)
+			       varray_type invariants,
+			       int extra)
 {
   lambda_linear_expression lle = NULL;
   switch (TREE_CODE (expr))
     {
     case INTEGER_CST:
       {
-	lle = lambda_linear_expression_new (depth, 0);
+	lle = lambda_linear_expression_new (depth, 2 * depth);
 	LLE_CONSTANT (lle) = TREE_INT_CST_LOW (expr);
-	if (minusone)
-	  LLE_CONSTANT (lle) -= 1;
+	if (extra != 0) 
+	  LLE_CONSTANT (lle) = extra;
 	
 	LLE_DENOMINATOR (lle) = 1;
       }
@@ -1009,14 +1010,27 @@ gcc_tree_to_linear_expression (int depth, tree expr,
 	      tree iv = VARRAY_TREE (outerinductionvars, i);
 	      if (SSA_NAME_VAR (iv) == SSA_NAME_VAR (expr))
 		{
-		  lle = lambda_linear_expression_new (depth, 0);
+		  lle = lambda_linear_expression_new (depth, 2 * depth);
 		  LLE_COEFFICIENTS (lle)[i] = 1;
-		  if (minusone)
-		    LLE_CONSTANT (lle) = -1;
+		  if (extra != 0)
+		    LLE_CONSTANT (lle) = extra;
 		  
 		  LLE_DENOMINATOR (lle) = 1;
 		}
 	    }
+	for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
+	  if (VARRAY_TREE (invariants, i) != NULL)
+	    {
+	      tree invar = VARRAY_TREE (invariants, i);
+	      if (SSA_NAME_VAR (invar) == SSA_NAME_VAR (expr))
+		{
+		  lle = lambda_linear_expression_new (depth, 2 * depth);
+		  LLE_INVARIANT_COEFFICIENTS (lle)[i] = 1;
+		  if (extra != 0)
+		    LLE_CONSTANT (lle) = extra;
+		  LLE_DENOMINATOR (lle) = 1;
+		}
+	    }	
       }
       break;
     default:
@@ -1026,11 +1040,30 @@ gcc_tree_to_linear_expression (int depth, tree expr,
   return lle;
 }
 
+/* Return true if OP is invariant in LOOP.  */
+static bool
+invariant_in_loop (struct loop *loop, tree op)
+{
+  if (TREE_CODE (op) == SSA_NAME)
+    {
+      if (TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL
+	  && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (op)))
+	return true;
+      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (op)))
+	return false;
+      return !flow_bb_inside_loop_p (loop, 
+				     bb_for_stmt (SSA_NAME_DEF_STMT (op)));
+    }
+  return false;
+}
+
+    
+
 /* Generate a lambda loop from a gcc loop.  */
 
 static lambda_loop
 gcc_loop_to_lambda_loop (struct loop *loop, int depth,
-			 int invariants ATTRIBUTE_UNUSED,
+			 varray_type *invariants,
 			 tree *ourinductionvar,
 			 varray_type outerinductionvars)
 {
@@ -1042,6 +1075,14 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   lambda_linear_expression lbound, ubound;
   tree test;
   int stepint;
+  int extra = 0;
+#if 0
+  tree ev;
+  tree nb_iter;
+  tree base;
+  tree final;
+#endif 
+  
   use_optype uses;
   
   
@@ -1063,7 +1104,9 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   
   
   test = TREE_OPERAND (exit_cond, 0);
-  if (TREE_CODE (test) != LE_EXPR && TREE_CODE (test) != LT_EXPR)
+  if (TREE_CODE (test) != LE_EXPR 
+      && TREE_CODE (test) != LT_EXPR
+      && TREE_CODE (test) != NE_EXPR)
     {
       
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1074,8 +1117,20 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 	}
       return NULL;
     }
+#if 0  
+  ev = analyze_scalar_evolution (loop, inductionvar);
   
+  if (!evolution_function_is_affine_or_constant_p (ev))
+    return NULL;
   
+  nb_iter = number_of_iterations_in_loop (loop);
+  nb_iter = chrec_fold_minus (chrec_type (nb_iter), nb_iter, 
+			      convert (chrec_type (nb_iter), integer_one_node));
+  base = CHREC_LEFT (ev);
+  step = CHREC_RIGHT (ev);
+  final = chrec_apply (loop->num, ev, nb_iter);
+#endif
+
   /* XXX - MUST BE BETTER WAY TO GET PHI NODE FOR INDUCTION
      VARIABLES.  */
   if (SSA_NAME_DEF_STMT (inductionvar) == NULL_TREE)
@@ -1087,9 +1142,11 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       return NULL;
     }
   
+  
   phi = SSA_NAME_DEF_STMT (inductionvar);
   if (TREE_CODE (phi) != PHI_NODE)
     {
+      get_stmt_operands (phi);
       uses = STMT_USE_OPS (phi);
 
       if (!uses)
@@ -1168,10 +1225,12 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   if (flow_bb_inside_loop_p (loop, PHI_ARG_EDGE (phi, 0)->src))
 
     lbound = gcc_tree_to_linear_expression (depth, PHI_ARG_DEF (phi, 1),
-					    outerinductionvars, false);
+					    outerinductionvars, *invariants,
+					    0);
   else
     lbound = gcc_tree_to_linear_expression (depth, PHI_ARG_DEF (phi, 0),
-					    outerinductionvars, false);
+					    outerinductionvars, *invariants,
+					    0);
   if (!lbound)
     {
       
@@ -1180,11 +1239,27 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       
       return NULL;
     }
+  if (TREE_CODE (TREE_OPERAND (test, 1)) == SSA_NAME)
+    if (invariant_in_loop (loop, TREE_OPERAND (test, 1)))
+      VARRAY_PUSH_TREE (*invariants, TREE_OPERAND (test, 1));
+  
+  /* We only size the vectors assuming we have, at max, 2 times as many
+     invariants as we do loops (one for each bound).  */
+  if (VARRAY_ACTIVE_SIZE (*invariants) > (unsigned int)(2 * depth))
+    abort ();
+
+  /* We might have some leftover. */
+  if (TREE_CODE (test) == LT_EXPR)
+    extra = -1 * stepint;
+  else if (TREE_CODE (test) == NE_EXPR)
+    extra = -1 * stepint;
   
   ubound = gcc_tree_to_linear_expression (depth, 
 					  TREE_OPERAND (test, 1),
-					  outerinductionvars, 
-					  TREE_CODE (exit_cond) == LT_EXPR);
+					  outerinductionvars,
+					  *invariants,
+					  extra);
+  
   if (!ubound)
     {
       
@@ -1225,11 +1300,11 @@ find_induction_var_from_exit_cond (struct loop *loop)
 
 lambda_loopnest 
 gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
-				 varray_type *inductionvars)
+				 varray_type *inductionvars,
+				 varray_type *invariants)
 {
   lambda_loopnest ret;
   struct loop *temp;
-  int invariants = 0; 
   int depth = 0;
   size_t i;
   varray_type loops;
@@ -1245,6 +1320,7 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
     }
   VARRAY_GENERIC_PTR_INIT (loops, 1, "Loop nest");
   VARRAY_GENERIC_PTR_INIT (*inductionvars, 1, "induction vars");
+  VARRAY_GENERIC_PTR_INIT (*invariants, 1, "Invariants");
   temp = loop_nest;
   while (temp)
     {
@@ -1256,7 +1332,7 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
       VARRAY_PUSH_GENERIC_PTR (loops, newloop);
       temp = temp->inner;
     }
-  ret = lambda_loopnest_new (depth, invariants);
+  ret = lambda_loopnest_new (depth, 2 * depth);
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loops); i++)
     LN_LOOPS(ret)[i] = VARRAY_GENERIC_PTR (loops, i);
   
@@ -1378,7 +1454,9 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
 
 static tree
 lle_to_gcc_expression (lambda_linear_expression lle,
+		       lambda_linear_expression offset,
 		       varray_type induction_vars,
+		       varray_type invariants,
 		       enum tree_code wrap, 
 		       tree *stmts_to_insert)
 {  
@@ -1402,7 +1480,8 @@ lle_to_gcc_expression (lambda_linear_expression lle,
       TREE_OPERAND (stmt, 0) = name;
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
-      
+    /* First do the induction variables.  
+       name = name + (coeff * induction variable)  */
       for (i = 0; i < VARRAY_ACTIVE_SIZE (induction_vars); i++)
 	{
 	  if (LLE_COEFFICIENTS (lle)[i] != 0)
@@ -1430,6 +1509,35 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 	    }     
 	}
+      /* Handle our invariants.
+      name = name + (coeff * invariant).  */
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
+	{
+	  if (LLE_INVARIANT_COEFFICIENTS (lle)[i] != 0)
+	    {
+	      tree newname;
+	      tree mult;
+	      tree coeff;
+	      coeff = build_int_cst (integer_type_node, 
+				     LLE_INVARIANT_COEFFICIENTS (lle)[i]);
+	      mult = fold (build (MULT_EXPR, integer_type_node,
+				  VARRAY_TREE (invariants, i), coeff));
+	      /* newname = coefficient * invariant */
+	      stmt = build (MODIFY_EXPR, void_type_node, resvar, mult);
+	      newname = make_ssa_name (resvar, stmt);
+	      TREE_OPERAND (stmt, 0) = newname;
+	      tsi = tsi_last (stmts);
+	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
+	      /* name = name + newname */
+	      stmt = build (MODIFY_EXPR, void_type_node, resvar,
+			    build (PLUS_EXPR, integer_type_node, 
+				   name, newname));
+	      name = make_ssa_name (resvar, stmt);
+	      TREE_OPERAND (stmt, 0) = name;
+	      tsi = tsi_last (stmts);
+	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
+	    }     
+	}
       
       /* Now handle the constant.
 	 name = name + constant.  */
@@ -1439,6 +1547,20 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 			build (PLUS_EXPR, integer_type_node, 
 			       name, build_int_cst (integer_type_node,
 						    LLE_CONSTANT (lle))));
+	  name = make_ssa_name (resvar, stmt);
+	  TREE_OPERAND (stmt, 0) = name;
+	  tsi = tsi_last (stmts);
+	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
+	}
+
+      /* Now handle the offset.
+	 name = name + linear offset.  */
+      if (LLE_CONSTANT (offset) != 0)
+	{
+	  stmt = build (MODIFY_EXPR, void_type_node, resvar,
+			build (PLUS_EXPR, integer_type_node, 
+			       name, build_int_cst (integer_type_node,
+						    LLE_CONSTANT (offset))));
 	  name = make_ssa_name (resvar, stmt);
 	  TREE_OPERAND (stmt, 0) = name;
 	  tsi = tsi_last (stmts);
@@ -1496,6 +1618,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 void 
 lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest, 
 				 varray_type old_ivs,
+				 varray_type invariants,
 				 lambda_loopnest new_loopnest,
 				 lambda_trans_matrix transform)
 {
@@ -1527,6 +1650,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       lambda_loop newloop;
       basic_block bb;
       tree ivvar, ivvarinced, exitcond, stmts;
+      enum tree_code testtype;
       tree newupperbound, newlowerbound;
       lambda_linear_expression offset;
       /* First, build the new induction variable temporary  */
@@ -1547,13 +1671,19 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       
       /* Now build the  new lower bounds, and insert the statements
 	 necessary to generate it on the loop preheader. */
-      newlowerbound = lle_to_gcc_expression (LL_LOWER_BOUND (newloop), new_ivs,
+      newlowerbound = lle_to_gcc_expression (LL_LOWER_BOUND (newloop), 
+					     LL_LINEAR_OFFSET (newloop),
+					     new_ivs,
+					     invariants,
 					     MAX_EXPR, &stmts);
       bsi_insert_on_edge_immediate (loop_preheader_edge (temp), stmts);
 
       /* Build the new upper bound and insert its statements in the
 	 basic block of the exit condition */ 
-      newupperbound = lle_to_gcc_expression (LL_UPPER_BOUND (newloop), new_ivs,
+      newupperbound = lle_to_gcc_expression (LL_UPPER_BOUND (newloop),
+					     LL_LINEAR_OFFSET (newloop),
+					     new_ivs,
+					     invariants,
 					     MIN_EXPR, &stmts);
       /* XXX Is this right, or do we want before the first statement? */
       exitcond = get_loop_exit_condition (temp);
@@ -1572,7 +1702,8 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 
       /* Replace the exit condition with the new upper bound
 	 comparison.  */
-      COND_EXPR_COND (exitcond) = build (LE_EXPR,
+      testtype = LL_STEP (newloop) >= 0 ? LE_EXPR : GE_EXPR;
+      COND_EXPR_COND (exitcond) = build (testtype,
 					 boolean_type_node, 
 					 ivvarinced, newupperbound);
       modify_stmt (exitcond);
