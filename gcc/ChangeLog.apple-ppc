@@ -1,3 +1,22 @@
+2004-04-10  Paolo Bonzini  <bonzini@gnu.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	PR target/14899
+
+	* c-common.c (vector_types_compatible_p): New function.
+	* c-typeck.c (comptypes): Recurse on vector types,
+	treat a non-opaque type as equivalent to an opaque type.
+	(convert_for_assignment): Use vector_types_compatible_p.
+	(digest_init): Use vector_types_compatible_p to check
+	validness of constant vector initializers; otherwise treat
+	them as scalars
+	* tree.c (make_or_reuse_type): New.
+	(build_common_tree_nodes): Use it.
+	* cp/call.c (standard_conversion): Likewise.
+	* cp/typeck.c (comptypes): Recurse on vector types, do not
+	treat a non-opaque type as equivalent to an opaque type.
+	(convert_for_assignment): Use vector_types_compatible_p.
+
 2004-04-13  Fariborz Jahanian <fjahanian@apple.com>
 
 	* combine.c (combine_instructions): 
