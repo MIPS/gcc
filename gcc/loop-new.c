@@ -1366,6 +1366,19 @@ can_duplicate_loop_p (loop)
 
   for (i = 0; i < loop->num_nodes; i++)
     {
+      edge e;
+
+      /* In case loop contains abnormal edge we can not redirect,
+         we can't perform duplication.  */
+
+      for (e = bbs[i]->succ; e; e = e->succ_next)
+	if ((e->flags & EDGE_ABNORMAL)
+	    && flow_bb_inside_loop_p (loop, e->dest))
+	  {
+	    free (bbs);
+	    return false;
+	  }
+
       if (!cfg_layout_can_duplicate_bb_p (bbs[i]))
 	{
 	  free (bbs);
