@@ -1,3 +1,8 @@
+Tue Sep  9 20:47:09 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* regmove.c (regmove_optimize): Don't try to make src and dst match
+	when they are in different modes.
+
 Tue Sep  9 02:32:09 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	Backport from mainline:
 	2003-06-25  H.J. Lu <hongjiu.lu@intel.com>
