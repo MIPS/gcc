@@ -47,7 +47,7 @@ static bool candidate_bb_for_phi_optimization (basic_block,
 					       basic_block *);
 
 /* This pass eliminates PHI nodes which can be trivially implemented as
-   an assignment from a conditional expression.  ie if we have something
+   an assignment from a conditional expression.  i.e. if we have something
    like:
 
      bb0:
@@ -341,7 +341,7 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   if (old_result)
     {
       tree new1;
-      if (TREE_CODE_CLASS (TREE_CODE (old_result)) != '<')
+      if (!COMPARISON_CLASS_P (old_result))
 	return false;
       
       new1 = build (TREE_CODE (old_result), TREE_TYPE (result),

@@ -5312,16 +5312,18 @@ build_new_method_call (tree instance, tree fns, tree args,
 	}
       else
 	{
-	  if (DECL_PURE_VIRTUAL_P (cand->fn)
+	  if (!(flags & LOOKUP_NONVIRTUAL)
+	      && DECL_PURE_VIRTUAL_P (cand->fn)
 	      && instance == current_class_ref
 	      && (DECL_CONSTRUCTOR_P (current_function_decl)
-		  || DECL_DESTRUCTOR_P (current_function_decl))
-	      && ! (flags & LOOKUP_NONVIRTUAL)
-	      && value_member (cand->fn, CLASSTYPE_PURE_VIRTUALS (basetype)))
-	    error ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
-		    "abstract virtual `%#D' called from constructor"
-		    : "abstract virtual `%#D' called from destructor"),
-		   cand->fn);
+		  || DECL_DESTRUCTOR_P (current_function_decl)))
+	    /* This is not an error, it is runtime undefined
+	       behavior.  */
+	    warning ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
+		      "abstract virtual `%#D' called from constructor"
+		      : "abstract virtual `%#D' called from destructor"),
+		     cand->fn);
+	  
 	  if (TREE_CODE (TREE_TYPE (cand->fn)) == METHOD_TYPE
 	      && is_dummy_object (instance_ptr))
 	    {
@@ -5865,7 +5867,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
   /* If we have two pseudo-candidates for conversions to the same type,
      or two candidates for the same function, arbitrarily pick one.  */
   if (cand1->fn == cand2->fn
-      && (TYPE_P (cand1->fn) || DECL_P (cand1->fn)))
+      && (IS_TYPE_OR_DECL_P (cand1->fn)))
     return 1;
 
   /* a viable function F1

@@ -6179,7 +6179,7 @@ set_frame_related_p (void)
 #define FRP(exp)  (start_sequence (), exp, set_frame_related_p ())
 
 /* Generates a store with the proper unwind info attached.  VALUE is
-   stored at BASE_REG+BASE_OFS.  If FRAME_BIAS is non-zero, then BASE_REG
+   stored at BASE_REG+BASE_OFS.  If FRAME_BIAS is nonzero, then BASE_REG
    contains SP+FRAME_BIAS, and that is the unwind info that should be
    generated.  If FRAME_REG != VALUE, then VALUE is being stored on
    behalf of FRAME_REG, and FRAME_REG should be present in the unwind.  */
@@ -8455,7 +8455,8 @@ vms_section_type_flags (tree decl, const char *name, int reloc)
    the section; 0 if the default should be used.  */
 
 static void
-vms_asm_named_section (const char *name, unsigned int flags)
+vms_asm_named_section (const char *name, unsigned int flags, 
+		       tree decl ATTRIBUTE_UNUSED)
 {
   fputc ('\n', asm_out_file);
   fprintf (asm_out_file, ".section\t%s", name);
@@ -8679,7 +8680,8 @@ unicosmk_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
    the section; 0 if the default should be used.  */
 
 static void
-unicosmk_asm_named_section (const char *name, unsigned int flags)
+unicosmk_asm_named_section (const char *name, unsigned int flags, 
+			    tree decl ATTRIBUTE_UNUSED)
 {
   const char *kind;
 

@@ -1,3 +1,16 @@
+2004-09-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-ccp.c (substitute_and_fold): Changing some piece
+	of a handled component may now change the v_may_def.
+	* tree-ssa-operands.c (fini_ssa_operands):
+	Free offset and size arrays too.
+	(add_stmt_operand): Use get_inner_reference to determine offset
+	and size when possible.
+	* tree-ssa.c: Add vd_pair_pool.
+	(init_tree_ssa): Alloc vd_pair pool.
+	(delete_tree_ssa): Free vd_pair pool.
+	* tree-ssa-structlias.c: Update for TREE_CODE_CLASS change.
+
 2004-09-15  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* Makefile.in (TREE_FLOW_H): Add vec.h.

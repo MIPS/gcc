@@ -599,7 +599,7 @@ get_constraint_for_component_ref (tree t)
   result.type = SCALAR;
   result.var = 0;
   
-  while (!SSA_VAR_P (t) && TREE_CODE_CLASS (TREE_CODE (t)) != 'c')
+  while (!SSA_VAR_P (t) && TREE_CODE_CLASS (TREE_CODE (t)) != tcc_constant)
     {
       VARRAY_PUSH_TREE (stack, t);
       t = TREE_OPERAND (t, 0);
@@ -698,7 +698,7 @@ get_constraint_for (tree t)
 
   switch (TREE_CODE_CLASS (TREE_CODE (t)))
     {
-    case 'e':
+    case tcc_expression:
       {
 	switch (TREE_CODE (t))
 	  {
@@ -732,7 +732,7 @@ get_constraint_for (tree t)
 	    }
 	  }
       }
-    case 'r':
+    case tcc_reference:
       {
 	switch (TREE_CODE (t))
 	  {
@@ -756,7 +756,7 @@ get_constraint_for (tree t)
 	    }
 	  }
       }
-    case 'x':
+    case tcc_exceptional:
       {
 	switch (TREE_CODE (t))
 	  {
@@ -773,7 +773,7 @@ get_constraint_for (tree t)
 	    }
 	  }
       }
-    case 'd':
+    case tcc_declaration:
       return get_constraint_exp_from_ssa_var (t);
     default:
       {
@@ -879,11 +879,11 @@ find_func_aliases (tree t)
 	      {
 		/* RHS's that are directly some other variable or thing, we
 		   just get the single constraint for.  */
-	      case 'r':
-	      case 'd':
-	      case 'c':
-	      case 'x':
-	      case 'e':
+	      case tcc_reference:
+	      case tcc_declaration:
+	      case tcc_constant:
+	      case tcc_exceptional:
+	      case tcc_expression:
 		{
 		  rhs = get_constraint_for ( rhsop);
 		  process_constraint (new_constraint (lhs, rhs));

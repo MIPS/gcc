@@ -39,7 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "libfuncs.h"
 #include "hard-reg-set.h"
-#include "loop.h"
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
@@ -268,7 +267,8 @@ expand_asm (tree string, int vol)
   if (TREE_CODE (string) == ADDR_EXPR)
     string = TREE_OPERAND (string, 0);
 
-  body = gen_rtx_ASM_INPUT (VOIDmode, TREE_STRING_POINTER (string));
+  body = gen_rtx_ASM_INPUT (VOIDmode,
+			    ggc_strdup (TREE_STRING_POINTER (string)));
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -313,7 +313,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
      message.  */
   if (!p)
     {
-      error ("output operand constraint lacks `='");
+      error ("output operand constraint lacks %<=%>");
       return false;
     }
 
@@ -328,7 +328,8 @@ parse_output_constraint (const char **constraint_p, int operand_num,
       size_t c_len = strlen (constraint);
 
       if (p != constraint)
-	warning ("output constraint `%c' for operand %d is not at the beginning",
+	warning ("output constraint %qc for operand %d "
+		 "is not at the beginning",
 		 *p, operand_num);
 
       /* Make a copy of the constraint.  */
@@ -350,13 +351,14 @@ parse_output_constraint (const char **constraint_p, int operand_num,
       {
       case '+':
       case '=':
-	error ("operand constraint contains incorrectly positioned '+' or '='");
+	error ("operand constraint contains incorrectly positioned "
+	       "%<+%> or %<=%>");
 	return false;
 
       case '%':
 	if (operand_num + 1 == ninputs + noutputs)
 	  {
-	    error ("`%%' constraint used with last operand");
+	    error ("%<%%%> constraint used with last operand");
 	    return false;
 	  }
 	break;
@@ -446,7 +448,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
       case '+':  case '=':  case '&':
 	if (constraint == orig_constraint)
 	  {
-	    error ("input operand constraint contains `%c'", constraint[j]);
+	    error ("input operand constraint contains %qc", constraint[j]);
 	    return false;
 	  }
 	break;
@@ -455,7 +457,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	if (constraint == orig_constraint
 	    && input_num + 1 == ninputs - ninout)
 	  {
-	    error ("`%%' constraint used with last operand");
+	    error ("%<%%%> constraint used with last operand");
 	    return false;
 	  }
 	break;
@@ -526,7 +528,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
       default:
 	if (! ISALPHA (constraint[j]))
 	  {
-	    error ("invalid punctuation `%c' in constraint", constraint[j]);
+	    error ("invalid punctuation %qc in constraint", constraint[j]);
 	    return false;
 	  }
 	if (REG_CLASS_FROM_CONSTRAINT (constraint[j], constraint + j)
@@ -605,7 +607,8 @@ decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
 	   regno++)
 	if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 	  {
-	    error ("asm-specifier for variable `%s' conflicts with asm clobber list",
+	    error ("asm-specifier for variable %qs conflicts with "
+		   "asm clobber list",
 		   IDENTIFIER_POINTER (DECL_NAME (decl)));
 
 	    /* Reset registerness to stop multiple errors emitted for a
@@ -693,7 +696,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if (i >= 0 || i == -4)
 	++nclobbers;
       else if (i == -2)
-	error ("unknown register name `%s' in `asm'", regname);
+	error ("unknown register name %qs in %<asm%>", regname);
 
       /* Mark clobbered registers.  */
       if (i >= 0)
@@ -701,7 +704,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  /* Clobbering the PIC register is an error */
 	  if (i == (int) PIC_OFFSET_TABLE_REGNUM)
 	    {
-	      error ("PIC register `%s' clobbered in `asm'", regname);
+	      error ("PIC register %qs clobbered in %<asm%>", regname);
 	      return;
 	    }
 
@@ -748,7 +751,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   ninputs += ninout;
   if (ninputs + noutputs > MAX_RECOG_OPERANDS)
     {
-      error ("more than %d operands in `asm'", MAX_RECOG_OPERANDS);
+      error ("more than %d operands in %<asm%>", MAX_RECOG_OPERANDS);
       return;
     }
 
@@ -849,7 +852,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
-			       TREE_STRING_POINTER (string),
+			       ggc_strdup (TREE_STRING_POINTER (string)),
 			       empty_string, 0, argvec, constraintvec,
 			       locus);
 
@@ -890,7 +893,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  if (allows_reg)
 	    op = force_reg (TYPE_MODE (type), op);
 	  else if (!allows_mem)
-	    warning ("asm operand %d probably doesn't match constraints",
+	    warning ("asm operand %d probably doesn%'t match constraints",
 		     i + noutputs);
 	  else if (MEM_P (op))
 	    {
@@ -930,7 +933,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       ASM_OPERANDS_INPUT (body, i) = op;
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
-	= gen_rtx_ASM_INPUT (TYPE_MODE (type), constraints[i + noutputs]);
+	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
+			     ggc_strdup (constraints[i + noutputs]));
 
       if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
 	clobber_conflict_found = 1;
@@ -964,7 +968,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   if (noutputs == 1 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
       emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
@@ -992,9 +996,9 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			   output_rtx[i],
 			   gen_rtx_ASM_OPERANDS
 			   (GET_MODE (output_rtx[i]),
-			    TREE_STRING_POINTER (string),
-			    constraints[i], i, argvec, constraintvec,
-			    locus));
+			    ggc_strdup (TREE_STRING_POINTER (string)),
+			    ggc_strdup (constraints[i]),
+			    i, argvec, constraintvec, locus));
 
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
 	}
@@ -1128,7 +1132,7 @@ check_operand_nalternatives (tree outputs, tree inputs)
 
       if (nalternatives + 1 > MAX_RECOG_ALTERNATIVES)
 	{
-	  error ("too many alternatives in `asm'");
+	  error ("too many alternatives in %<asm%>");
 	  return false;
 	}
 
@@ -1140,7 +1144,8 @@ check_operand_nalternatives (tree outputs, tree inputs)
 
 	  if (n_occurrences (',', constraint) != nalternatives)
 	    {
-	      error ("operand constraints for `asm' differ in number of alternatives");
+	      error ("operand constraints for %<asm%> differ "
+		     "in number of alternatives");
 	      return false;
 	    }
 
@@ -1192,7 +1197,7 @@ check_unique_operand_names (tree outputs, tree inputs)
   return true;
 
  failure:
-  error ("duplicate asm operand name '%s'",
+  error ("duplicate asm operand name %qs",
 	 TREE_STRING_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
   return false;
 }
@@ -1318,7 +1323,7 @@ resolve_operand_name_1 (char *p, tree outputs, tree inputs)
     }
 
   *q = '\0';
-  error ("undefined named operand '%s'", p + 1);
+  error ("undefined named operand %qs", p + 1);
   op = 0;
  found:
 
@@ -1468,16 +1473,14 @@ warn_if_unused_value (tree exp, location_t locus)
 
     default:
       /* Referencing a volatile value is a side effect, so don't warn.  */
-      if ((DECL_P (exp)
-	   || TREE_CODE_CLASS (TREE_CODE (exp)) == 'r')
+      if ((DECL_P (exp) || REFERENCE_CLASS_P (exp))
 	  && TREE_THIS_VOLATILE (exp))
 	return 0;
 
       /* If this is an expression which has no operands, there is no value
 	 to be unused.  There are no such language-independent codes,
 	 but front ends may define such.  */
-      if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'e'
-	  && TREE_CODE_LENGTH (TREE_CODE (exp)) == 0)
+      if (EXPRESSION_CLASS_P (exp) && TREE_CODE_LENGTH (TREE_CODE (exp)) == 0)
 	return 0;
 
     maybe_warn:

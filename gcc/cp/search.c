@@ -1875,9 +1875,8 @@ dfs_get_pure_virtuals (tree binfo, void *data)
 	   virtuals;
 	   virtuals = TREE_CHAIN (virtuals))
 	if (DECL_PURE_VIRTUAL_P (BV_FN (virtuals)))
-	  CLASSTYPE_PURE_VIRTUALS (type) 
-	    = tree_cons (NULL_TREE, BV_FN (virtuals),
-			 CLASSTYPE_PURE_VIRTUALS (type));
+	  VEC_safe_push (tree, CLASSTYPE_PURE_VIRTUALS (type),
+			 BV_FN (virtuals));
     }
   
   BINFO_MARKED (binfo) = 1;
@@ -1890,13 +1889,9 @@ dfs_get_pure_virtuals (tree binfo, void *data)
 void
 get_pure_virtuals (tree type)
 {
-  unsigned ix;
-  tree binfo;
-  VEC (tree) *vbases;
-
   /* Clear the CLASSTYPE_PURE_VIRTUALS list; whatever is already there
      is going to be overridden.  */
-  CLASSTYPE_PURE_VIRTUALS (type) = NULL_TREE;
+  CLASSTYPE_PURE_VIRTUALS (type) = NULL;
   /* Now, run through all the bases which are not primary bases, and
      collect the pure virtual functions.  We look at the vtable in
      each class to determine what pure virtual functions are present.
@@ -1905,23 +1900,6 @@ get_pure_virtuals (tree type)
      pure virtuals in the base class.  */
   dfs_walk (TYPE_BINFO (type), dfs_get_pure_virtuals, unmarkedp, type);
   dfs_walk (TYPE_BINFO (type), dfs_unmark, markedp, type);
-
-  /* Put the pure virtuals in dfs order.  */
-  CLASSTYPE_PURE_VIRTUALS (type) = nreverse (CLASSTYPE_PURE_VIRTUALS (type));
-
-  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
-       VEC_iterate (tree, vbases, ix, binfo); ix++)
-    {
-      tree virtuals;
-      
-      for (virtuals = BINFO_VIRTUALS (binfo); virtuals;
-	   virtuals = TREE_CHAIN (virtuals))
-	{
-	  tree base_fndecl = BV_FN (virtuals);
-	  if (DECL_NEEDS_FINAL_OVERRIDER_P (base_fndecl))
-	    error ("`%#D' needs a final overrider", base_fndecl);
-	}
-    }
 }
 
 /* DEPTH-FIRST SEARCH ROUTINES.  */
@@ -2064,15 +2042,15 @@ reinit_search_statistics (void)
 }
 
 /* Helper for lookup_conversions_r.  TO_TYPE is the type converted to
-   by a conversion op in base BINFO.  VIRTUAL_DEPTH is non-zero if
-   BINFO is morally virtual, and VIRTUALNESS is non-zero if virtual
+   by a conversion op in base BINFO.  VIRTUAL_DEPTH is nonzero if
+   BINFO is morally virtual, and VIRTUALNESS is nonzero if virtual
    bases have been encountered already in the tree walk.  PARENT_CONVS
    is the list of lists of conversion functions that could hide CONV
    and OTHER_CONVS is the list of lists of conversion functions that
    could hide or be hidden by CONV, should virtualness be involved in
    the hierarchy.  Merely checking the conversion op's name is not
    enough because two conversion operators to the same type can have
-   different names.  Return non-zero if we are visible.  */
+   different names.  Return nonzero if we are visible.  */
 
 static int
 check_hidden_convs (tree binfo, int virtual_depth, int virtualness,
@@ -2176,13 +2154,13 @@ split_conversions (tree my_convs, tree parent_convs,
 }
 
 /* Worker for lookup_conversions.  Lookup conversion functions in
-   BINFO and its children.  VIRTUAL_DEPTH is non-zero, if BINFO is in
-   a morally virtual base, and VIRTUALNESS is non-zero, if we've
+   BINFO and its children.  VIRTUAL_DEPTH is nonzero, if BINFO is in
+   a morally virtual base, and VIRTUALNESS is nonzero, if we've
    encountered virtual bases already in the tree walk.  PARENT_CONVS &
    PARENT_TPL_CONVS are lists of list of conversions within parent
    binfos.  OTHER_CONVS and OTHER_TPL_CONVS are conversions found
    elsewhere in the tree.  Return the conversions found within this
-   portion of the graph in CONVS and TPL_CONVS.  Return non-zero is we
+   portion of the graph in CONVS and TPL_CONVS.  Return nonzero is we
    encountered virtualness.  We keep template and non-template
    conversions separate, to avoid unnecessary type comparisons.
 

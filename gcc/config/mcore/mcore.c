@@ -138,7 +138,7 @@ const struct attribute_spec mcore_attribute_table[];
 static tree       mcore_handle_naked_attribute  (tree *, tree, tree, int, bool *);
 #ifdef OBJECT_FORMAT_ELF
 static void	  mcore_asm_named_section       (const char *,
-							unsigned int);
+						 unsigned int, tree);
 #endif
 static void       mcore_unique_section	        (tree, int);
 static void mcore_encode_section_info		(tree, rtx, int);
@@ -321,7 +321,7 @@ mcore_print_operand_address (FILE * stream, rtx x)
 /* Print operand x (an rtx) in assembler syntax to file stream
    according to modifier code.
 
-   'R'  print the next register or memory location along, ie the lsw in
+   'R'  print the next register or memory location along, i.e. the lsw in
         a double word value
    'O'  print a constant without the #
    'M'  print a constant as its negative
@@ -2782,7 +2782,7 @@ conditionalize_block (rtx first)
       if (code != BARRIER && code != NOTE && !is_cond_candidate (insn))
 	return NEXT_INSN (insn);
      
-      /* Remember the last real insn before the label (ie end of block 2).  */
+      /* Remember the last real insn before the label (i.e. end of block 2).  */
       if (code == JUMP_INSN || code == INSN)
 	{
 	  blk_size ++;
@@ -3424,7 +3424,9 @@ mcore_naked_function_p (void)
 
 #ifdef OBJECT_FORMAT_ELF
 static void
-mcore_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+mcore_asm_named_section (const char *name, 
+			 unsigned int flags ATTRIBUTE_UNUSED,
+			 tree decl ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file, "\t.section %s\n", name);
 }

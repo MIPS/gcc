@@ -619,6 +619,16 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  TREE_OPERAND (*tp, 1) = TREE_OPERAND (*tp, 3);
 	  TREE_OPERAND (*tp, 3) = NULL_TREE;
 	}
+
+      /* Variable substitution need not be simple.  In particular, the
+	 INDIRECT_REF substitution above.  Make sure that TREE_CONSTANT
+	 and friends are up-to-date.  */
+      else if (TREE_CODE (*tp) == ADDR_EXPR)
+	{
+	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
+	  recompute_tree_invarant_for_addr_expr (*tp);
+	  *walk_subtrees = 0;
+	}
     }
 
   /* Keep iterating.  */
@@ -1149,7 +1159,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   int *count = data;
   tree x = *tp;
 
-  if (TYPE_P (x) || DECL_P (x))
+  if (IS_TYPE_OR_DECL_P (x))
     {
       *walk_subtrees = 0;
       return NULL;
@@ -1157,8 +1167,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   /* Assume that constants and references counts nothing.  These should
      be majorized by amount of operations among them we count later
      and are common target of CSE and similar optimizations.  */
-  else if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
-	   || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
+  else if (CONSTANT_CLASS_P (x) || REFERENCE_CLASS_P (x))
     return NULL;
 
   switch (TREE_CODE (x))
@@ -2248,7 +2257,6 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   /* We make copies of most nodes.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
-      || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
       || code == TYPE_DECL)
@@ -2278,9 +2286,11 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
 
-  else if (TREE_CODE_CLASS (code) == 't')
+  else if (TREE_CODE_CLASS (code) == tcc_type)
     *walk_subtrees = 0;
-  else if (TREE_CODE_CLASS (code) == 'd')
+  else if (TREE_CODE_CLASS (code) == tcc_declaration)
+    *walk_subtrees = 0;
+  else if (TREE_CODE_CLASS (code) == tcc_constant)
     *walk_subtrees = 0;
   else
     gcc_assert (code != STATEMENT_LIST);

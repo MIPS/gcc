@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    way to build UNION_TYPE is borrowed from Richard Henderson.
  
    Transform common blocks.  An integral part of this is processing
-   equvalence variables.  Equivalenced variables that are not in a
+   equivalence variables.  Equivalenced variables that are not in a
    common block end up in a private block of their own.
 
    Each common block or local equivalence list is declared as a union.
@@ -136,7 +136,7 @@ get_segment_info (gfc_symbol * sym, HOST_WIDE_INT offset)
   /* Create the segment_info and fill it in.  */
   s = (segment_info *) gfc_getmem (sizeof (segment_info));
   s->sym = sym;
-  /* We will use this type when building the segment aggreagate type.  */
+  /* We will use this type when building the segment aggregate type.  */
   s->field = gfc_sym_type (sym);
   s->length = int_size_in_bytes (s->field);
   s->offset = offset;
@@ -400,7 +400,7 @@ create_common (gfc_common_head *com)
               if (s->offset < offset)
                 {
 		    /* We have overlapping initializers.  It could either be
-		       partially initilalized arrays (legal), or the user
+		       partially initialized arrays (legal), or the user
 		       specified multiple initial values (illegal).
 		       We don't implement this yet, so bail out.  */
                   gfc_todo_error ("Initialization of overlapping variables");
@@ -743,7 +743,7 @@ finish_equivalences (gfc_namespace *ns)
         sym = z->expr->symtree->n.sym;
         current_segment = get_segment_info (sym, 0);
 
-        /* All objects directly or indrectly equivalenced with this symbol.  */
+        /* All objects directly or indirectly equivalenced with this symbol.  */
         add_equivalences ();
 
         /* Calculate the minimal offset.  */

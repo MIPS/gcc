@@ -132,7 +132,7 @@ struct sra_elt
 };
 
 /* Random access to the child of a parent is performed by hashing.
-   This prevents quadratic behaviour, and allows SRA to function
+   This prevents quadratic behavior, and allows SRA to function
    reasonably on larger records.  */
 static htab_t sra_map;
 
@@ -182,7 +182,7 @@ type_can_be_decomposed_p (tree type)
   if (bitmap_bit_p (sra_type_decomp_cache, cache+1))
     return false;
 
-  /* The type must have a definite non-zero size.  */
+  /* The type must have a definite nonzero size.  */
   if (TYPE_SIZE (type) == NULL || integer_zerop (TYPE_SIZE (type)))
     goto fail;
 
@@ -1553,7 +1553,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     add_referenced_tmp_var (t);
 
-  if (DECL_P (t) || TYPE_P (t))
+  if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL;
@@ -1903,7 +1903,7 @@ mark_notrap (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       TREE_THIS_NOTRAP (t) = 1;
       *walk_subtrees = 0;
     }
-  else if (DECL_P (t) || TYPE_P (t))
+  else if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL;

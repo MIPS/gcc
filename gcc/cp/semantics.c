@@ -358,7 +358,7 @@ static tree
 maybe_cleanup_point_expr (tree expr)
 {
   if (!processing_template_decl && stmts_are_full_exprs_p ())
-    expr = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr));
+    expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr);
   return expr;
 }
 
@@ -1037,7 +1037,7 @@ finish_handler (tree handler)
 }
 
 /* Begin a compound statement.  FLAGS contains some bits that control the
-   behaviour and context.  If BCS_NO_SCOPE is set, the compound statement
+   behavior and context.  If BCS_NO_SCOPE is set, the compound statement
    does not define a scope.  If BCS_FN_BODY is set, this is the outermost
    block of a function.  If BCS_TRY_BLOCK is set, this is the block 
    created on behalf of a TRY statement.  Returns a token to be passed to
@@ -1239,7 +1239,7 @@ finish_mem_initializers (tree mem_inits)
 tree
 finish_parenthesized_expr (tree expr)
 {
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+  if (EXPR_P (expr))
     /* This inhibits warnings in c_common_truthvalue_conversion.  */
     TREE_NO_WARNING (expr) = 1;
 

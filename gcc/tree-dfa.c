@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
+#include "cgraph.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -107,6 +108,7 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
+  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -186,9 +188,9 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
 }
 
 
-/* Invalidates dataflow information for a statement STMT.  */
+/* Invalidates dataflow information for a statement STMT.   */
 
-static void
+void
 free_df_for_stmt (tree stmt)
 {
   dataflow_t *df;
@@ -219,7 +221,13 @@ free_df_for_stmt (tree stmt)
 }
 
 
-/* Invalidate dataflow information for the whole function.  */
+/* Invalidate dataflow information for the whole function. 
+
+   Note this only invalidates dataflow information on statements and
+   PHI nodes which are reachable.
+
+   A deleted statement may still have attached dataflow information
+   on it.  */
 
 void
 free_df (void)
@@ -525,6 +533,9 @@ dump_variable (FILE *file, tree var)
   ann = var_ann (var);
 
   fprintf (file, ", UID %u", (unsigned) ann->uid);
+
+  fprintf (file, ", ");
+  print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
   if (ann->type_mem_tag)
     {
@@ -836,9 +847,7 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
   /* Type, _DECL and constant nodes have no interesting children.
      Ignore them.  */
-  else if (DECL_P (*tp)
-	   || TYPE_P (*tp)
-	   || TREE_CODE_CLASS (TREE_CODE (*tp)) == 'c')
+  else if (IS_TYPE_OR_DECL_P (*tp) || CONSTANT_CLASS_P (*tp))
     *walk_subtrees = 0;
 
   return NULL_TREE;

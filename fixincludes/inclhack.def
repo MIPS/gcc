@@ -1082,6 +1082,22 @@ fix = {
 
 
 /*
+ *  Some releases of FreeBSD 4 and FreeBSD 5.0 and 5.1 system headers presume
+ *  neither the existence of GCC 4 nor its exact feature set yet break
+ *  (by design?) when __GNUC__ is set beyond 3.
+ */
+fix = {
+    hackname  = freebsd_gcc4_breakage;
+    mach      = *-*-freebsd*; 
+    files     = sys/cdefs.h;
+    select    = '^#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 \|\| __GNUC__ == 3$';
+    c_fix     = format;
+    c_fix_arg = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3';
+    test_text = '#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ == 3';
+};
+
+
+/*
  * Fix these files to use the types we think they should for
  * ptrdiff_t, size_t, and wchar_t.
  *
@@ -1853,6 +1869,23 @@ fix = {
     c_fix_arg = "#ifndef %1\n%0\n#endif";
     /* Second arg is select expression */
     test_text = " #\tdefine\tDBL_DIG \t 0  /* somthin' */";
+};
+
+
+/* The /usr/include/sys/ucontext.h on ia64-*linux-gnu systems defines
+ * an _SC_GR0_OFFSET macro using an idiom that isn't a compile time
+ * constant on recent versions of g++.
+ */
+fix = {
+    hackname = linux_ia64_ucontext;
+    files = "sys/ucontext.h";
+    mach = "ia64-*-linux*";
+    select = '\(\(\(char \*\) &\(\(struct sigcontext \*\) 0\)'
+             '->sc_gr\[0\]\) - \(char \*\) 0\)';
+    c_fix = format;
+    c_fix_arg = "__builtin_offsetof \(struct sigcontext, sc_gr[0]\)";
+    test_text = "# define _SC_GR0_OFFSET\t\\\\\n"
+	"\t(((char *) &((struct sigcontext *) 0)->sc_gr[0]) - (char *) 0)\n";
 };
 
 

@@ -1,3 +1,135 @@
+2004-09-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c, semantics.c: Follow spelling conventions.
+	* class.c: Fix a comment typo.
+
+2004-09-16  Geoffrey Keating  <geoffk@apple.com>
+
+	PR pch/13361
+	* cp/lex.c (handle_pragma_interface): Duplicate string from tree.
+	(handle_pragma_implementation): Likewise.
+
+2004-09-17  Jeffrey D. Oldham  <oldham@codesourcery.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* cp-tree.def: Use tree_code_class enumeration constants
+	instead of code letters.
+	* call.c, class.c, cp-gimplify.c, cp-lang.c, cxx-pretty-print.c
+	* mangle.c, pt.c, semantics.c, tree.c, typeck.c:
+	Update for new tree-class enumeration constants.
+
+2004-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16002
+	* parser.c (cp_parser_simple_declaration): Commit to tentative
+	parses after seeing a decl-specifier.
+	(cp_parser_simple_declaration): Eliminate spurious message.
+	(cp_parser_init_declarator): Adjust error message.
+
+	PR c++/16029
+	* lex.c (unqualified_name_lookup_error): Mark the dummy
+	declaration as used.
+
+	PR c++/17501
+	* parser.c (cp_parser_nested_name_specifier): Do not resolve
+	typename types if the user explicitly said "typename".
+
+2004-09-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* error.c (dump_decl): Make sure there is lang_specific info before
+	checking for DTOR and CTOR decls.
+
+2004-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (copy_virtuals): Remove.
+	(build_primary_vtable): Use copy_list directly.
+	(build_secondary_vtable): Likewise.
+	(update_vtable_entry_for_fn): Clear BV_CALL_INDEX here.
+	(create_vtable_ptr): Likewise.
+
+2004-09-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* search.c: Follow spelling conventions.
+
+2004-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct lang_type_class): Make pure_virtuals a
+	VEC(tree).
+	(CLASSTYPE_INLINE_FRIENDS, CLASSTYPE_PURE_VIRTUALS): Update
+	comments.
+	* call.c (build_new_method_call): Don't confirm a pure virtual is
+	in CLASSTYPE_PURE_VIRTUALS.  Reorder checks. Make it a warning.
+	* class.c (check_methods): CLASSTYPE_INLINE_FRIENDS is a VEC(tree).
+	(fixup_inline_methods, finish_struct): Likewise.
+	* decl.c (finish_method): Likewise.
+	* search.c (dfs_get_pure_virtuals, get_pure_virtuals):
+	CLASSTYPE_PURE_VIRTUALS is a VEC(tree).
+	* typeck2.c (abstract_virtuals_error): Likewise. Truncate the
+	vector to avoid repeating the list in error messages.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_COMDAT_GROUP): Define.
+	* cp-tree.h (cxx_comdat_group): Declare.
+	* decl.c (cxx_comdat_group): New function.
+
+2004-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* search.c (get_pure_virtuals): Remove unused variables.
+
+	* cp-tree.h (struct lang_decl_flags): Remove
+	needs_final_overrider.
+	(DECL_NEEDS_FINAL_OVERRIDER_P): Remove.
+	* decl.c (duplicate_decls): Do not copy DECL_NEEDS_FINAL_OVERRIDER_P.
+	* class.c (finish_struct_bits): Correct comment about
+	CLASSTYPE_PURE_VIRTUALS.
+	* search.c (get_pure_virtuals): Remove useless loop.
+
+2004-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17324
+	* mangle.c (partially_mangled_name): New variable.
+	(partially_mangled_name_len): Likewise.
+	(save_partially_mangled_name): New function.
+	(restore_partially_mangled_name): Likewise.
+	(write_encoding): Save and restore partially mangled names around
+	calls to get_mostly_instantiated_function_type.
+	(write_unqualified_name): Likewise.
+
+2004-09-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (unify): Replace gcc_unreachable with gcc_assert.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16162
+	* parser.c (cp_parser_id_expression): Correct value for
+	is_declarator.
+	(cp_parser_nested_name_specifier_opt): Look through typenames as
+	necessary.
+	(cp_parser_template_name): Honor check_dependency_p.
+
+	PR c++/16716
+	* parser.c (cp_parser_parse_and_diagnose_invalid_type_name):
+	Robustify.
+
+	PR c++/17327
+	* pt.c (unify): Add ENUMERAL_TYPE case.  Replace sorry with
+	gcc_unreacable.
+
+2004-09-12  Richard Henderson  <rth@redhat.com>
+
+	PR c++/16254
+	* semantics.c (maybe_cleanup_point_expr): Don't call fold.
+	* typeck.c (condition_conversion): Likewise.
+
+2004-09-11  Richard Henderson  <rth@redhat.com>
+
+	PR c++/17404
+	* pt.c (cur_stmt_expr): Move from tsubst_expr.
+	(tsubst_expr) <case STMT_EXPR>: Move ...
+	(tsubst_copy_and_build): ... here.
+
 2004-09-10  Zack Weinberg  <zack@codesourcery.com>
 
 	* cp-tree.h (interface_only, interface_unknown): Delete declarations;
@@ -490,7 +622,6 @@
 
 2004-08-25  Nathan Sidwell  <nathan@codesourcery.com>
 
-
 	* call.c (convert_class_to_reference): Adjust build_int_cst calls.
 	(build_user_type_conversion_1, convert_like_real,
 	build_java_interface_fn_ref, build_special_member_call): Likewise.
@@ -516,6 +647,7 @@
 
 	* repo.c (extract_string): Reset backquote after one character.
 	(get_base_filename): Fix indentation.
+
 2004-08-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* decl.c (cxx_init_decl_processing): Adjust

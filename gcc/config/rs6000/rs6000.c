@@ -650,7 +650,7 @@ static bool rs6000_elf_in_small_data_p (tree);
 #endif
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
-static void rs6000_xcoff_asm_named_section (const char *, unsigned int);
+static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
 static void rs6000_xcoff_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_xcoff_unique_section (tree, int);
 static void rs6000_xcoff_select_rtx_section (enum machine_mode, rtx,
@@ -4619,7 +4619,7 @@ function_arg_padding (enum machine_mode mode, tree type)
     {
       /* GCC used to pass structures of the same size as integer types as
 	 if they were in fact integers, ignoring FUNCTION_ARG_PADDING.
-	 ie. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
+	 i.e. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
 	 passed padded downward, except that -mstrict-align further
 	 muddied the water in that multi-component structures of 2 and 4
 	 bytes in size were passed padded upward.
@@ -11448,7 +11448,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	  if (j == nregs)
 	    j = 0;
 
-	  /* If compiler already emited move of first word by
+	  /* If compiler already emitted move of first word by
 	     store with update, no need to do anything.  */
 	  if (j == 0 && used_update)
 	    continue;
@@ -11605,7 +11605,7 @@ compute_save_world_info(rs6000_stack_t *info_ptr)
         info_ptr->vrsave_mask = compute_vrsave_mask ();
 
       /* Because the Darwin register save/restore routines only handle
-         F14 .. F31 and V20 .. V31 as per the ABI, perform a consistancy
+         F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
          check and abort if there's something worng.  */
       if (info_ptr->first_fp_reg_save < FIRST_SAVED_FP_REGNO
           || info_ptr->first_altivec_reg_save < FIRST_SAVED_ALTIVEC_REGNO)
@@ -16932,7 +16932,8 @@ rs6000_xcoff_asm_globalize_label (FILE *stream, const char *name)
 }
 
 static void
-rs6000_xcoff_asm_named_section (const char *name, unsigned int flags)
+rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
+				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
   static const char * const suffix[3] = { "PR", "RO", "RW" };

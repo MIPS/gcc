@@ -1,3 +1,27 @@
+2004-09-15  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Handler.java
+	(openConnection): Don't throw exception if host part for file: URI is
+	present. setURL() keeps file: protocol if ftp: protocol is not
+	available.
+
+2004-09-14  Richard Henderson  <rth@redhat.com>
+
+	* java/lang/natPosixProcess.cc (waitForSignal): Ignore return
+	value of sigsuspend.
+
+2004-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/CompoundName.java (CompoundName): Don't check for
+	separator in "flat" case.
+
+2004-09-12  Michael Koch  <konqueror@gmx.de>
+
+	* libltdl/configure.ac: Fixed AM_INIT_AUTOMAKE usage and replaces
+	AM_CONFIG_HEADER by AC_CONFIG_FILES.
+	* libltdl/Makefile.in, libltdl/aclocal.m4, libltdl/configure:
+	Regenerate.
+
 2004-09-11  Mohan Embar  <gnustuff@thisiscool.com>
 
 	PR libgcj/14751

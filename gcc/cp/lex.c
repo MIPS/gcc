@@ -471,7 +471,7 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else if (fname == 0)
     main_filename = lbasename (input_filename);
   else
-    main_filename = TREE_STRING_POINTER (fname);
+    main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
 
   finfo = get_fileinfo (input_filename);
 
@@ -519,7 +519,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
     }
   else
     {
-      main_filename = TREE_STRING_POINTER (fname);
+      main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
       if (cpp_included (parse_in, main_filename))
 	warning ("#pragma implementation for %s appears after file is included",
 		 main_filename);
@@ -572,6 +572,9 @@ unqualified_name_lookup_error (tree name)
 	  decl = build_decl (VAR_DECL, name, error_mark_node);
 	  DECL_CONTEXT (decl) = current_function_decl;
 	  push_local_binding (name, decl, 0);
+	  /* Mark the variable as used so that we do not get warnings
+	     about it being unused later.  */
+	  TREE_USED (decl) = 1;
 	}
     }
 
