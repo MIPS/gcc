@@ -1,5 +1,9 @@
 2005-03-03  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (handle_interfaces): Correctly set up constructor.
+
+2005-03-03  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_field_initializer): Wrote.
 
 2005-03-01  Tom Tromey  <tromey@redhat.com>

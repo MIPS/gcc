@@ -329,11 +329,12 @@ class_object_creator::handle_interfaces (model_class *real_class,
 	   i != ifaces.end ();
 	   ++i)
 	{
-	  ++len;
 	  gcj_abi *abi = builtins->find_abi ();
 	  tree one_iface = abi->build_class_reference (builtins, klass,
 						       (*i)->type ());
-	  result = tree_cons (NULL_TREE, one_iface, result);
+	  result = tree_cons (build_int_cst (type_jint, len), one_iface,
+			      result);
+	  ++len;
 	}
       result = nreverse (result);
 
@@ -343,7 +344,9 @@ class_object_creator::handle_interfaces (model_class *real_class,
       tree type_interface_array = build_array_type (type_class_ptr,
 						    type_index);
 
-      interfaces = make_decl (type_interface_array, result);
+      interfaces = make_decl (type_interface_array,
+			      build_constructor (type_interface_array,
+						 result));
     }
 
   iface_len = build_int_cst (type_jshort, len);
