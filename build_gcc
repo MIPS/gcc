@@ -375,13 +375,27 @@ done
 # its own.  We take care not to install the headers if Libc is already
 # providing them.
 cd $SRC_DIR/more-hdrs
-for h in `echo [^C]*` ; do
+for h in `echo *.h` ; do
   if [ ! -f /usr/include/$h -o -L /usr/include/$h ] ; then
     cp -R $h $DEST_DIR$HEADERPATH/$h || exit 1
     for t in $TARGETS ; do
       THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin$DARWIN_VERS/$VERS/include
       [ -f $THEADERPATH/$h ] || \
         ln -s ../../../../../include/gcc/darwin/$MAJ_VERS/$h $THEADERPATH/$h || \
+        exit 1
+    done
+  fi
+done
+mkdir -p $DEST_DIR$HEADERPATH/machine
+for h in `echo */*.h` ; do
+  if [ ! -f /usr/include/$h -o -L /usr/include/$h ] ; then
+    cp -R $h $DEST_DIR$HEADERPATH/$h || exit 1
+    for t in $TARGETS ; do
+      THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin$DARWIN_VERS/$VERS/include
+      mkdir -p $THEADERPATH/machine
+      # In fixincludes/fixinc.in we created this file...  always link for now
+      [ -f /disable/$THEADERPATH/$h ] || \
+        ln -f -s ../../../../../../include/gcc/darwin/$MAJ_VERS/$h $THEADERPATH/$h || \
         exit 1
     done
   fi
