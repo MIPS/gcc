@@ -230,6 +230,7 @@ static tree vect_get_memtag_and_dr
   (tree, tree, bool, loop_vec_info, tree, struct data_reference **);
 static bool vect_analyze_offset_expr (tree, struct loop *, tree, tree *, 
 				      tree *, tree *);
+static tree vect_strip_conversion (tree);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -1339,6 +1340,32 @@ vect_get_ptr_offset (tree ref ATTRIBUTE_UNUSED,
 }
 
 
+/* Function vect_strip_conversions
+
+   Strip conversions that don't narrow the mode.  */
+
+static tree 
+vect_strip_conversion (tree expr)
+{
+  tree to, ti, oprnd0;
+  
+  while (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
+    {
+      to = TREE_TYPE (expr);
+      oprnd0 = TREE_OPERAND (expr, 0);
+      ti = TREE_TYPE (oprnd0);
+ 
+      if (!INTEGRAL_TYPE_P (to) || !INTEGRAL_TYPE_P (ti))
+	return NULL_TREE;
+      if (GET_MODE_SIZE (TYPE_MODE (to)) < GET_MODE_SIZE (TYPE_MODE (ti)))
+	return NULL_TREE;
+      
+      expr = oprnd0;
+    }
+  return expr; 
+}
+
+
 /* Function vect_analyze_offset_expr
 
    Given an offset expression EXPR received from get_inner_reference, analyze
@@ -1390,15 +1417,18 @@ vect_analyze_offset_expr (tree expr,
   enum tree_code code;
   tree init, evolution, def_stmt;
 
-  STRIP_NOPS (expr);
-  
+  /* Strip conversions that don't narrow the mode.  */
+  expr = vect_strip_conversion (expr);
+  if (!expr)
+    return false;
+
   *step = NULL_TREE;
   *misalign = NULL_TREE;
   *initial_offset = NULL_TREE;
 
   /* Stop conditions:
      1. Constant.  */
-  if (TREE_CONSTANT (expr))
+  if (TREE_CODE (expr) == INTEGER_CST)
     {
       *initial_offset = fold_convert (sizetype, expr);
       *misalign = fold_convert (sizetype, expr);      
@@ -1435,7 +1465,7 @@ vect_analyze_offset_expr (tree expr,
 	/* Evolution is not constant.  */
 	return false;
 
-      if (TREE_CONSTANT (init))
+      if (TREE_CODE (init) == INTEGER_CST)
 	*misalign = fold_convert (sizetype, init);
       else
 	/* Not constant, misalignment cannot be calculated.  */
@@ -1448,6 +1478,16 @@ vect_analyze_offset_expr (tree expr,
     }
 
   /* Recursive computation.  */
+  if (!BINARY_CLASS_P (expr))
+    {
+      /* We expect to get binary expressions (PLUS/MINUS and MULT).  */
+      if (vect_debug_details (NULL))
+        {
+	  fprintf (dump_file, "Not binary expression ");
+          print_generic_expr (dump_file, expr, TDF_SLIM);
+	}
+      return false;
+    }
   oprnd0 = TREE_OPERAND (expr, 0);
   oprnd1 = TREE_OPERAND (expr, 1);
 
@@ -1462,12 +1502,16 @@ vect_analyze_offset_expr (tree expr,
   switch (code)
     {
     case MULT_EXPR:
-      if (!TREE_CONSTANT (right_offset))
+      if (TREE_CODE (right_offset) != INTEGER_CST)
 	/* RIGHT_OFFSET can be not constant. For example, for arrays of variable 
 	   sized types. 
 	   FORNOW: We don't support such cases.  */
 	return false;
 
+      /* Strip conversions that don't narrow the mode.  */
+      left_offset = vect_strip_conversion (left_offset);      
+      if (!left_offset)
+	return false;      
       /* Misalignment computation.  */
       if (SSA_VAR_P (left_offset))
 	{
@@ -3302,7 +3346,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
   /* If the loop bound is known at compile time we already verified that it is
      greater than vf; since the misalignment ('iters') is at most vf, there's
      no need to generate the MIN_EXPR in this case.  */
-  if (!TREE_CONSTANT (loop_niters))
+  if (TREE_CODE (loop_niters) != INTEGER_CST)
     iters = build2 (MIN_EXPR, niters_type, iters, loop_niters);
 
   var = create_tmp_var (niters_type, "prolog_loop_niters");
@@ -4584,7 +4628,7 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
 		
   STRIP_NOPS (init);
 
-  if (!TREE_CONSTANT (step))
+  if (TREE_CODE (step) != INTEGER_CST)
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
 	fprintf (dump_file, 

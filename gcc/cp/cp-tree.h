@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -3591,9 +3591,12 @@ struct cp_declarator {
   union {
     /* For identifiers.  */
     struct {
-      /* The name of the function -- an IDENTIFIER_NODE, BIT_NOT_EXPR,
-	 TEMPLATE_ID_EXPR, or SCOPE_REF.  */
-      tree name;
+      /* If non-NULL, the qualifiying scope (a NAMESPACE_DECL or
+         *_TYPE) for this identifier.  */
+      tree qualifying_scope;
+      /* The unqualified name of the entity -- an IDENTIFIER_NODE,
+	 BIT_NOT_EXPR, or TEMPLATE_ID_EXPR.  */
+      tree unqualified_name;
       /* If this is the name of a function, what kind of special
 	 function (if any).  */
       special_function_kind sfk;
@@ -3777,7 +3780,7 @@ extern int init_type_desc			(void);
 extern tree check_tag_decl			(cp_decl_specifier_seq *);
 extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
-extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, bool *);
+extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, tree *);
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);

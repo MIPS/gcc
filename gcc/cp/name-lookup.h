@@ -1,5 +1,5 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -299,7 +299,7 @@ extern void pop_from_top_level (void);
 extern void pop_everything (void);
 extern void keep_next_level (bool);
 extern bool is_ancestor (tree, tree);
-extern bool push_scope (tree);
+extern tree push_scope (tree);
 extern void pop_scope (tree);
 extern tree push_inner_scope (tree);
 extern void pop_inner_scope (tree, tree);
@@ -335,7 +335,7 @@ extern void pop_decl_namespace (void);
 extern void do_namespace_alias (tree, tree);
 extern void do_toplevel_using_decl (tree, tree, tree);
 extern void do_local_using_decl (tree, tree, tree);
-extern tree do_class_using_decl (tree);
+extern tree do_class_using_decl (tree, tree);
 extern void do_using_directive (tree);
 extern tree lookup_arg_dependent (tree, tree, tree);
 extern bool is_associated_namespace (tree, tree);

@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4874,16 +4874,8 @@ int_fits_type_p (tree c, tree type)
 {
   tree type_low_bound = TYPE_MIN_VALUE (type);
   tree type_high_bound = TYPE_MAX_VALUE (type);
-  int ok_for_low_bound, ok_for_high_bound;
-
-  /* Perform some generic filtering first, which may allow making a decision
-     even if the bounds are not constant.  First, negative integers never fit
-     in unsigned types, */
-  if ((TYPE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
-      /* Also, unsigned integers with top bit set never fit signed types.  */
-      || (! TYPE_UNSIGNED (type)
-	  && TYPE_UNSIGNED (TREE_TYPE (c)) && tree_int_cst_msb (c)))
-    return 0;
+  bool ok_for_low_bound, ok_for_high_bound;
+  tree tmp;
 
   /* If at least one bound of the type is a constant integer, we can check
      ourselves and maybe make a decision. If no such decision is possible, but
@@ -4895,42 +4887,57 @@ int_fits_type_p (tree c, tree type)
      for "unknown if constant fits", 0 for "constant known *not* to fit" and 1
      for "constant known to fit".  */
 
-  ok_for_low_bound = -1;
-  ok_for_high_bound = -1;
-
   /* Check if C >= type_low_bound.  */
   if (type_low_bound && TREE_CODE (type_low_bound) == INTEGER_CST)
     {
-      ok_for_low_bound = ! tree_int_cst_lt (c, type_low_bound);
-      if (! ok_for_low_bound)
+      if (tree_int_cst_lt (c, type_low_bound))
 	return 0;
+      ok_for_low_bound = true;
     }
+  else
+    ok_for_low_bound = false;
 
   /* Check if c <= type_high_bound.  */
   if (type_high_bound && TREE_CODE (type_high_bound) == INTEGER_CST)
     {
-      ok_for_high_bound = ! tree_int_cst_lt (type_high_bound, c);
-      if (! ok_for_high_bound)
+      if (tree_int_cst_lt (type_high_bound, c))
 	return 0;
+      ok_for_high_bound = true;
     }
+  else
+    ok_for_high_bound = false;
 
   /* If the constant fits both bounds, the result is known.  */
-  if (ok_for_low_bound == 1 && ok_for_high_bound == 1)
+  if (ok_for_low_bound && ok_for_high_bound)
     return 1;
+
+  /* Perform some generic filtering which may allow making a decision
+     even if the bounds are not constant.  First, negative integers
+     never fit in unsigned types, */
+  if (TYPE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
+    return 0;
+
+  /* Second, narrower types always fit in wider ones.  */
+  if (TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (c)))
+    return 1;
+
+  /* Third, unsigned integers with top bit set never fit signed types.  */
+  if (! TYPE_UNSIGNED (type)
+      && TYPE_UNSIGNED (TREE_TYPE (c))
+      && tree_int_cst_msb (c))
+    return 0;
 
   /* If we haven't been able to decide at this point, there nothing more we
      can check ourselves here. Look at the base type if we have one.  */
-  else if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
     return int_fits_type_p (c, TREE_TYPE (type));
 
   /* Or to force_fit_type, if nothing else.  */
-  else
-    {
-      c = copy_node (c);
-      TREE_TYPE (c) = type;
-      c = force_fit_type (c, -1, false, false);
-      return !TREE_OVERFLOW (c);
-    }
+  tmp = copy_node (c);
+  TREE_TYPE (tmp) = type;
+  tmp = force_fit_type (tmp, -1, false, false);
+  return TREE_INT_CST_HIGH (tmp) == TREE_INT_CST_HIGH (c)
+         && TREE_INT_CST_LOW (tmp) == TREE_INT_CST_LOW (c);
 }
 
 /* Subprogram of following function.  Called by walk_tree.

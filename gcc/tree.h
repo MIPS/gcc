@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -147,7 +147,7 @@ extern const enum tree_code_class tree_code_type[];
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS)\
-	(((CLASS) - tcc_reference) <= (tcc_expression - tcc_reference))
+	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -966,7 +966,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
-   was used.  */
+   was used.  
+   In a BLOCK, this means that the block contains variables that are used.  */
 #define TREE_USED(NODE) ((NODE)->common.used_flag)
 
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw

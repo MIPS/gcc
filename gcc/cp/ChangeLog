@@ -1,3 +1,110 @@
+2005-01-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19298
+	* pt.c (tsubst_qualified_id): Call convert_from_reference.
+
+2005-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19244
+	* class.c (add_implicitly_declared_members): Remove dead code.
+	* decl.c (grokfndecl): Add sfk parameter.  Use it do set
+	DECL_CONSTRUCTOR_P.
+	(grokdeclarator): Adjust calls to grokfndecl.
+	* method.c (implicitly_declare_fn): Improve documentation.
+	* parser.c (cp_parser_direct_declarator): Do not consider a
+	function to be a constructor if the containing class was
+	originally anonymous.
+
+2005-01-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17154
+	* search.c (lookup_field_1): Handle using declaration in
+	class template partial specialization.
+
+2005-01-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19258
+	* pt.c (push_access_scope): Handle friend defined in class.
+	(pop_access_scope): Likewise.
+
+2005-01-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19270
+	* pt.c (tsubst_copy) <ARRAY_REF case>: Handle separately.
+	(tsubst_copy_and_build) <ARRAY_REF case>: Remove obsolete
+	array-new handling code.  Use build_x_binary_op.
+
+2005-01-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19030
+	* cp-tree.h (start_decl): Take pointer to pushed scope, not bool.
+	* name-lookup.h (push_scope): Return pushed scope, not flag.
+	* name-lookup.c (push_scope): Return scope that should be popped,
+	not a flag.
+	* decl.c (start_decl): Adjust.
+	(grokfndecl): Adjust scope push and pop.
+	* decl2.c (check_classfn): Likewise.
+	* parser.c (cp_parser_condition, cp_parser_conversion_function_id,
+	cp_parser_init_declarator, cp_parser_direct_declarator,
+	cp_parser_class_specifier, cp_parser_class_head,
+	cp_parser_lookup_name,
+	cp_parser_constructor_declarator_p): Likewise.
+	* pt.c (instantiate_class_template,
+	resolve_typename_type): Likewise.
+
+2005-01-03  Volker Reichelt  <reichelt@igpm.rwth-aaachen.de>
+
+	PR c++/14136
+	* parser.c (cp_parser_unqualified_id): Do not issue error message
+	for typedef-name as destructor declarator when performing an
+	uncommitted tentative parse.
+
+2005-01-01  Steven Bosscher  <stevenb@suse.de>
+
+	PR middle-end/17544
+	* decl.c (finish_function): Fix comment.  Annotate the compiler
+	generated return with the current file name and line 0.
+
+2004-12-31  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/17799
+	* call.c (make_temporary_var_for_ref_to_temp): Set DECL_IGNORED_P.
+	* class.c (build_vtable): Don't conditionallize setting it
+	based on DWARF2_DEBUG.
+	(layout_class_type): Set DECL_IGNORED_P.
+	* decl2.c (get_guard): Likewise.
+	* rtti.c (get_tinfo_decl, build_lang_decl): Likewise.
+	* tree.c (build_local_temp): Likewise.
+
+2004-12-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (cp_declarator): Split "name" field into
+	qualifying_scope and unqualified_name.
+	* decl.c (get_scope_of_declarator): Adjust accordingly.
+	(grokdeclarator): Likewise.
+	* decl2.c (grokfield): Likewise, and adjust call to
+	do_class_using_decl.
+	* name-lookup.c (do_class_using_decl): Split "decl" into
+	"scope" and "name".  Remove unnecessary code.
+	* name-lookup.h (do_class_using_decl): Adjust declaration.
+	* parser.c (make_id_declarator): Split "id" into qualifying_scope
+	and unqualified_name.
+	(cp_parser_using_declaration): Adjust call to do_class_using_decl.
+	(cp_parser_direct_declarator): Adjust to handle the fact that
+	cp_parser_declarator_id no longer returns a SCOPE_REF.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_declarator_id): Do not create a SCOPE_REF for qualified
+	names.
+	(cp_parser_member_declaration): Adjust call to make_id_declarator.
+	(cp_parser_check_declarator_template_parameters): Do not expect a
+	SCOPE_REF. 
+	
+	* decl.c (duplicate_decls): Call ggc_free on declarations we will
+	not be needing any longer.
+
+	PR c++/19190
+	* cvt.c (convert_to_void): Do not use STRIP_NOPs.
+
 2004-12-28  Richard Henderson  <rth@redhat.com>
 
 	PR inline-asm/15740

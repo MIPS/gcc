@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7472,13 +7472,32 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
   op0 = operands[0];
   op1 = operands[1];
 
-  model = GET_CODE (op1) == SYMBOL_REF ? SYMBOL_REF_TLS_MODEL (op1) : 0;
-  if (model)
+  if (GET_CODE (op1) == SYMBOL_REF)
     {
-      op1 = legitimize_tls_address (op1, model, true);
-      op1 = force_operand (op1, op0);
-      if (op1 == op0)
-	return;
+      model = SYMBOL_REF_TLS_MODEL (op1);
+      if (model)
+	{
+	  op1 = legitimize_tls_address (op1, model, true);
+	  op1 = force_operand (op1, op0);
+	  if (op1 == op0)
+	    return;
+	}
+    }
+  else if (GET_CODE (op1) == CONST
+	   && GET_CODE (XEXP (op1, 0)) == PLUS
+	   && GET_CODE (XEXP (XEXP (op1, 0), 0)) == SYMBOL_REF)
+    {
+      model = SYMBOL_REF_TLS_MODEL (XEXP (XEXP (op1, 0), 0));
+      if (model)
+	{
+	  rtx addend = XEXP (XEXP (op1, 0), 1);
+	  op1 = legitimize_tls_address (XEXP (XEXP (op1, 0), 0), model, true);
+	  op1 = force_operand (op1, NULL);
+	  op1 = expand_simple_binop (Pmode, PLUS, op1, addend,
+				     op0, 1, OPTAB_DIRECT);
+	  if (op1 == op0)
+	    return;
+	}
     }
 
   if (flag_pic && mode == Pmode && symbolic_operand (op1, Pmode))
@@ -7645,11 +7664,10 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  else
 	    emit_insn (gen_rtx_CLOBBER (VOIDmode, op0));
 
-	  op0 = gen_lowpart (V4SFmode, op0);
-	  m = adjust_address (op1, V4SFmode, 0);
-	  emit_insn (gen_sse_movlps (op0, op0, m));
-	  m = adjust_address (op1, V4SFmode, 8);
-	  emit_insn (gen_sse_movhps (op0, op0, m));
+	  m = adjust_address (op1, V2SFmode, 0);
+	  emit_insn (gen_sse_loadlps (op0, op0, m));
+	  m = adjust_address (op1, V2SFmode, 8);
+	  emit_insn (gen_sse_loadhps (op0, op0, m));
 	}
     }
   else if (MEM_P (op0))
@@ -7684,11 +7702,10 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	}
       else
 	{
-	  op1 = gen_lowpart (V4SFmode, op1);
-	  m = adjust_address (op0, V4SFmode, 0);
-	  emit_insn (gen_sse_movlps (m, m, op1));
-	  m = adjust_address (op0, V4SFmode, 8);
-	  emit_insn (gen_sse_movhps (m, m, op1));
+	  m = adjust_address (op0, V2SFmode, 0);
+	  emit_insn (gen_sse_storelps (m, op1));
+	  m = adjust_address (op0, V2SFmode, 8);
+	  emit_insn (gen_sse_storehps (m, op1));
 	  return;
 	}
     }
@@ -12060,6 +12077,12 @@ do {									\
 				 NULL, NULL_TREE);			\
 } while (0)
 
+/* Bits for builtin_description.flag.  */
+
+/* Set when we don't support the comparison natively, and should
+   swap_comparison in order to support it.  */
+#define BUILTIN_DESC_SWAP_OPERANDS	1
+
 struct builtin_description
 {
   const unsigned int mask;
@@ -12113,14 +12136,18 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpeqps", IX86_BUILTIN_CMPEQPS, EQ, 0 },
   { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpltps", IX86_BUILTIN_CMPLTPS, LT, 0 },
   { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpleps", IX86_BUILTIN_CMPLEPS, LE, 0 },
-  { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpgtps", IX86_BUILTIN_CMPGTPS, LT, 1 },
-  { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpgeps", IX86_BUILTIN_CMPGEPS, LE, 1 },
+  { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpgtps", IX86_BUILTIN_CMPGTPS, LT,
+    BUILTIN_DESC_SWAP_OPERANDS },
+  { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpgeps", IX86_BUILTIN_CMPGEPS, LE,
+    BUILTIN_DESC_SWAP_OPERANDS },
   { MASK_SSE, CODE_FOR_maskcmpv4sf3, "__builtin_ia32_cmpunordps", IX86_BUILTIN_CMPUNORDPS, UNORDERED, 0 },
   { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpneqps", IX86_BUILTIN_CMPNEQPS, EQ, 0 },
   { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpnltps", IX86_BUILTIN_CMPNLTPS, LT, 0 },
   { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpnleps", IX86_BUILTIN_CMPNLEPS, LE, 0 },
-  { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpngtps", IX86_BUILTIN_CMPNGTPS, LT, 1 },
-  { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpngeps", IX86_BUILTIN_CMPNGEPS, LE, 1 },
+  { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpngtps", IX86_BUILTIN_CMPNGTPS, LT,
+    BUILTIN_DESC_SWAP_OPERANDS },
+  { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpngeps", IX86_BUILTIN_CMPNGEPS, LE,
+    BUILTIN_DESC_SWAP_OPERANDS },
   { MASK_SSE, CODE_FOR_maskncmpv4sf3, "__builtin_ia32_cmpordps", IX86_BUILTIN_CMPORDPS, UNORDERED, 0 },
   { MASK_SSE, CODE_FOR_vmmaskcmpv4sf3, "__builtin_ia32_cmpeqss", IX86_BUILTIN_CMPEQSS, EQ, 0 },
   { MASK_SSE, CODE_FOR_vmmaskcmpv4sf3, "__builtin_ia32_cmpltss", IX86_BUILTIN_CMPLTSS, LT, 0 },
@@ -12241,14 +12268,18 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpeqpd", IX86_BUILTIN_CMPEQPD, EQ, 0 },
   { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpltpd", IX86_BUILTIN_CMPLTPD, LT, 0 },
   { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmplepd", IX86_BUILTIN_CMPLEPD, LE, 0 },
-  { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpgtpd", IX86_BUILTIN_CMPGTPD, LT, 1 },
-  { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpgepd", IX86_BUILTIN_CMPGEPD, LE, 1 },
+  { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpgtpd", IX86_BUILTIN_CMPGTPD, LT,
+    BUILTIN_DESC_SWAP_OPERANDS },
+  { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpgepd", IX86_BUILTIN_CMPGEPD, LE,
+    BUILTIN_DESC_SWAP_OPERANDS },
   { MASK_SSE2, CODE_FOR_maskcmpv2df3, "__builtin_ia32_cmpunordpd", IX86_BUILTIN_CMPUNORDPD, UNORDERED, 0 },
   { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpneqpd", IX86_BUILTIN_CMPNEQPD, EQ, 0 },
   { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpnltpd", IX86_BUILTIN_CMPNLTPD, LT, 0 },
   { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpnlepd", IX86_BUILTIN_CMPNLEPD, LE, 0 },
-  { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpngtpd", IX86_BUILTIN_CMPNGTPD, LT, 1 },
-  { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpngepd", IX86_BUILTIN_CMPNGEPD, LE, 1 },
+  { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpngtpd", IX86_BUILTIN_CMPNGTPD, LT,
+    BUILTIN_DESC_SWAP_OPERANDS },
+  { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpngepd", IX86_BUILTIN_CMPNGEPD, LE,
+    BUILTIN_DESC_SWAP_OPERANDS },
   { MASK_SSE2, CODE_FOR_maskncmpv2df3, "__builtin_ia32_cmpordpd", IX86_BUILTIN_CMPORDPD, UNORDERED, 0 },
   { MASK_SSE2, CODE_FOR_vmmaskcmpv2df3, "__builtin_ia32_cmpeqsd", IX86_BUILTIN_CMPEQSD, EQ, 0 },
   { MASK_SSE2, CODE_FOR_vmmaskcmpv2df3, "__builtin_ia32_cmpltsd", IX86_BUILTIN_CMPLTSD, LT, 0 },
@@ -13120,7 +13151,7 @@ ix86_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
   if (VECTOR_MODE_P (mode1))
     op1 = safe_vector_operand (op1, mode1);
 
-  if (! target
+  if (optimize || !target
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -13138,9 +13169,11 @@ ix86_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
       || (GET_MODE (op1) != mode1 && GET_MODE (op1) != VOIDmode))
     abort ();
 
-  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+  if ((optimize && !register_operand (op0, mode0))
+      || !(*insn_data[icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
-  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+  if ((optimize && !register_operand (op1, mode1))
+      || !(*insn_data[icode].operand[2].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
   /* In the commutative cases, both op0 and op1 are nonimmediate_operand,
@@ -13193,7 +13226,7 @@ ix86_expand_unop_builtin (enum insn_code icode, tree arglist,
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
-  if (! target
+  if (optimize || !target
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -13204,7 +13237,8 @@ ix86_expand_unop_builtin (enum insn_code icode, tree arglist,
       if (VECTOR_MODE_P (mode0))
 	op0 = safe_vector_operand (op0, mode0);
 
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+      if ((optimize && !register_operand (op0, mode0))
+	  || ! (*insn_data[icode].operand[1].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
     }
 
@@ -13227,7 +13261,7 @@ ix86_expand_unop1_builtin (enum insn_code icode, tree arglist, rtx target)
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
-  if (! target
+  if (optimize || !target
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -13235,7 +13269,8 @@ ix86_expand_unop1_builtin (enum insn_code icode, tree arglist, rtx target)
   if (VECTOR_MODE_P (mode0))
     op0 = safe_vector_operand (op0, mode0);
 
-  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+  if ((optimize && !register_operand (op0, mode0))
+      || ! (*insn_data[icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
 
   op1 = op0;
@@ -13273,7 +13308,7 @@ ix86_expand_sse_compare (const struct builtin_description *d, tree arglist,
 
   /* Swap operands if we have a comparison that isn't available in
      hardware.  */
-  if (d->flag)
+  if (d->flag & BUILTIN_DESC_SWAP_OPERANDS)
     {
       rtx tmp = gen_reg_rtx (mode1);
       emit_move_insn (tmp, op1);
@@ -13281,14 +13316,16 @@ ix86_expand_sse_compare (const struct builtin_description *d, tree arglist,
       op0 = tmp;
     }
 
-  if (! target
+  if (optimize || !target
       || GET_MODE (target) != tmode
       || ! (*insn_data[d->icode].operand[0].predicate) (target, tmode))
     target = gen_reg_rtx (tmode);
 
-  if (! (*insn_data[d->icode].operand[1].predicate) (op0, mode0))
+  if ((optimize && !register_operand (op0, mode0))
+      || ! (*insn_data[d->icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
-  if (! (*insn_data[d->icode].operand[2].predicate) (op1, mode1))
+  if ((optimize && !register_operand (op1, mode1))
+      || ! (*insn_data[d->icode].operand[2].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
   op2 = gen_rtx_fmt_ee (comparison, mode0, op0, op1);
@@ -13322,7 +13359,7 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree arglist,
 
   /* Swap operands if we have a comparison that isn't available in
      hardware.  */
-  if (d->flag)
+  if (d->flag & BUILTIN_DESC_SWAP_OPERANDS)
     {
       rtx tmp = op1;
       op1 = op0;
@@ -13333,9 +13370,11 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree arglist,
   emit_move_insn (target, const0_rtx);
   target = gen_rtx_SUBREG (QImode, target, 0);
 
-  if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
+  if ((optimize && !register_operand (op0, mode0))
+      || !(*insn_data[d->icode].operand[0].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
-  if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
+  if ((optimize && !register_operand (op1, mode1))
+      || !(*insn_data[d->icode].operand[1].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
   op2 = gen_rtx_fmt_ee (comparison, mode0, op0, op1);
@@ -13432,12 +13471,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+      if ((optimize && !register_operand (op1, mode1))
+	  || ! (*insn_data[icode].operand[2].predicate) (op1, mode1))
 	op1 = copy_to_mode_reg (mode1, op1);
       if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
 	{
 	  error ("selector must be an integer constant in the range 0..%i",
-		  fcode == IX86_BUILTIN_PINSRW ? 15:255);
+		  fcode == IX86_BUILTIN_PINSRW ? 3:7);
 	  return const0_rtx;
 	}
       if (target == 0
@@ -13453,7 +13493,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
-	       ? (TARGET_64BIT ? CODE_FOR_mmx_maskmovq_rex : CODE_FOR_mmx_maskmovq)
+	       ? (TARGET_64BIT ? CODE_FOR_mmx_maskmovq_rex
+		  : CODE_FOR_mmx_maskmovq)
 	       : (TARGET_64BIT ? CODE_FOR_sse2_maskmovdqu_rex64
 		  : CODE_FOR_sse2_maskmovdqu));
       /* Note the arg order is different from the operand order.  */
@@ -13508,8 +13549,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_LOADLPS:
     case IX86_BUILTIN_LOADHPD:
     case IX86_BUILTIN_LOADLPD:
-      icode = (fcode == IX86_BUILTIN_LOADHPS ? CODE_FOR_sse_movhps
-	       : fcode == IX86_BUILTIN_LOADLPS ? CODE_FOR_sse_movlps
+      icode = (fcode == IX86_BUILTIN_LOADHPS ? CODE_FOR_sse_loadhps
+	       : fcode == IX86_BUILTIN_LOADLPS ? CODE_FOR_sse_loadlps
 	       : fcode == IX86_BUILTIN_LOADHPD ? CODE_FOR_sse2_loadhpd
 	       : CODE_FOR_sse2_loadlpd);
       arg0 = TREE_VALUE (arglist);
@@ -13520,12 +13561,11 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
 
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
+      op0 = force_reg (mode0, op0);
       op1 = gen_rtx_MEM (mode1, copy_to_mode_reg (Pmode, op1));
-      if (target == 0
+      if (optimize || target == 0
 	  || GET_MODE (target) != tmode
-	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	  || !register_operand (target, tmode))
 	target = gen_reg_rtx (tmode);
       pat = GEN_FCN (icode) (target, op0, op1);
       if (! pat)
@@ -13535,28 +13575,11 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_STOREHPS:
     case IX86_BUILTIN_STORELPS:
-      icode = (fcode == IX86_BUILTIN_STOREHPS ? CODE_FOR_sse_movhps
-	       : CODE_FOR_sse_movlps);
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      mode0 = insn_data[icode].operand[1].mode;
-      mode1 = insn_data[icode].operand[2].mode;
-
-      op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (op0, op0, op1);
-      if (! pat)
-	return 0;
-      emit_insn (pat);
-      return const0_rtx;
-
     case IX86_BUILTIN_STOREHPD:
     case IX86_BUILTIN_STORELPD:
-      icode = (fcode == IX86_BUILTIN_STOREHPD ? CODE_FOR_sse2_storehpd
+      icode = (fcode == IX86_BUILTIN_STOREHPS ? CODE_FOR_sse_storehps
+	       : fcode == IX86_BUILTIN_STORELPS ? CODE_FOR_sse_storelps
+	       : fcode == IX86_BUILTIN_STOREHPD ? CODE_FOR_sse2_storehpd
 	       : CODE_FOR_sse2_storelpd);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
@@ -13566,8 +13589,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       mode1 = insn_data[icode].operand[1].mode;
 
       op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
+      op1 = force_reg (mode1, op1);
 
       pat = GEN_FCN (icode) (op0, op1);
       if (! pat)
@@ -13610,7 +13632,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+      if ((optimize && !register_operand (op1, mode1))
+	  || !(*insn_data[icode].operand[2].predicate) (op1, mode1))
 	op1 = copy_to_mode_reg (mode1, op1);
       if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
 	{
@@ -13618,7 +13641,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  error ("mask must be an immediate");
 	  return gen_reg_rtx (tmode);
 	}
-      if (target == 0
+      if (optimize || target == 0
 	  || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
