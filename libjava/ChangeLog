@@ -1,5 +1,10 @@
 2004-07-13  Kim Ho  <kho@redhat.com>
 
+	* javax/swing/plaf/basic/BasicToolBarUI.java:
+	(DragWindow): Use the right constructor.
+
+2004-07-13  Kim Ho  <kho@redhat.com>
+
 	* javax/swing/JToolBar.java:
 	(layoutContainer): Use getComponents.
 	* javax/swing/plaf/basic/BasicToolBarUI.java:

@@ -1095,7 +1095,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     private DragWindow()
     {
-      super();
+      super(null);
     }
 
     /**
