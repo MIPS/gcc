@@ -1,3 +1,7 @@
+2003-11-30  Paul Brook  <paul@nowt.org>
+
+	* Makefile.in (GTFILES): Remove stray '\'.
+
 2003-11-30  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-config-lang.in: Move tree-alias-* from here
