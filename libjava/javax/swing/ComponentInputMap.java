@@ -1,5 +1,5 @@
 /* ComponentInputMap.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,79 +37,69 @@ exception statement from your version. */
 
 package javax.swing;
 
+
 /**
- * ComponentInputMap
- * @author	Andrew Selkirk
- * @version	1.0
+ * @author Andrew Selkirk
+ * @author Michael Koch
  */
-public class ComponentInputMap extends InputMap {
+public class ComponentInputMap extends InputMap
+{
+  /**
+   * component
+   */
+  private JComponent component;
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Constructor ComponentInputMap
+   * @param value0 TODO
+   */
+  public ComponentInputMap(JComponent value0)
+  {
+    // TODO
+  }
 
-	/**
-	 * component
-	 */
-	private JComponent component;
+  /**
+   * put
+   * @param keystroke TODO
+   * @param value TODO
+   */
+  public void put(KeyStroke keystroke, Object value)
+  {
+    // TODO
+  }
 
+  /**
+   * clear
+   */
+  public void clear()
+  {
+    // TODO
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * remove
+   * @param keystroke TODO
+   */
+  public void remove(KeyStroke keystroke)
+  {
+    // TODO
+  }
 
-	/**
-	 * Constructor ComponentInputMap
-	 * @param value0 TODO
-	 */
-	public ComponentInputMap(JComponent value0) {
-		// TODO
-	} // ComponentInputMap()
+  /**
+   * setParent
+   * @param parent TODO
+   */
+  public void setParent(InputMap parent)
+  {
+    // TODO
+  }
 
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * put
-	 * @param keystroke TODO
-	 * @param value TODO
-	 */
-	public void put(KeyStroke keystroke, Object value) {
-		// TODO
-	} // put()
-
-	/**
-	 * clear
-	 */
-	public void clear() {
-		// TODO
-	} // clear()
-
-	/**
-	 * remove
-	 * @param keystroke TODO
-	 */
-	public void remove(KeyStroke keystroke) {
-		// TODO
-	} // remove()
-
-	/**
-	 * setParent
-	 * @param parent TODO
-	 */
-	public void setParent(InputMap parent) {
-		// TODO
-	} // setParent()
-
-	/**
-	 * getComponent
-	 * @returns JComponent
-	 */
-	public JComponent getComponent() {
-		return null; // TODO
-	} // getComponent()
-
-
-} // ComponentInputMap
+  /**
+   * getComponent
+   * @returns JComponent
+   */
+  public JComponent getComponent()
+  {
+    return null; // TODO
+  }
+}

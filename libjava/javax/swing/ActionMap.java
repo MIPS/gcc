@@ -48,191 +48,174 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+
 /**
- * ActionMap
- * @author	Andrew Selkirk
- * @version	1.0
+ * @author Andrew Selkirk
+ * @author Michael Koch
  */
-public class ActionMap implements Serializable
+public class ActionMap
+  implements Serializable
 {
   static final long serialVersionUID = -6277518704513986346L;
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * actionMap
+   */
+  private Map actionMap = new HashMap();
 
-	/**
-	 * actionMap
-	 */
-	private Map actionMap = new HashMap();
+  /**
+   * parent
+   */
+  private ActionMap parent = null;
 
-	/**
-	 * parent
-	 */
-	private ActionMap parent = null;
+  /**
+   * Constructor ActionMap
+   */
+  public ActionMap()
+  {
+  }
 
+  /**
+   * get
+   * @param key TODO
+   * @returns Action
+   */
+  public Action get(Object key)
+  {
+    // Variables
+    Object result;
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+    // Check Local store
+    result = actionMap.get(key);
 
-	/**
-	 * Constructor ActionMap
-	 */
-	public ActionMap() {
-	} // ActionMap()
+    // Check Parent
+    if (result == null)
+      result = parent.get(key);
 
+    return (Action) result;
+  }
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * put
+   * @param key TODO
+   * @param action TODO
+   */
+  public void put(Object key, Action action)
+  {
+    if (action == null)
+      actionMap.remove(key);
+    else
+      actionMap.put(key, action);
+  }
 
-	/**
-	 * get
-	 * @param key TODO
-	 * @returns Action
-	 */
-	public Action get(Object key) {
+  /**
+   * remove
+   * @param key TODO
+   */
+  public void remove(Object key)
+  {
+    actionMap.remove(key);
+  }
 
-		// Variables
-		Object	result;
+  /**
+   * getParent
+   * @returns ActionMap
+   */
+  public ActionMap getParent()
+  {
+    return parent;
+  }
 
-		// Check Local store
-		result = actionMap.get(key);
+  /**
+   * setParent
+   * @param parentMap TODO
+   */
+  public void setParent(ActionMap parentMap)
+  {
+    parent = parentMap;
+  }
 
-		// Check Parent
-		if (result == null) {
-			result = parent.get(key);
-		} // if
+  /**
+   * size
+   * @returns int
+   */
+  public int size()
+  {
+    return actionMap.size();
+  }
 
-		return (Action) result;
+  /**
+   * clear
+   */
+  public void clear()
+  {
+    actionMap.clear();
+  }
 
-	} // get()
+  /**
+   * keys
+   * @returns Object[]
+   */
+  public Object[] keys()
+  {
+    return convertSet(actionMap.keySet());
+  }
 
-	/**
-	 * put
-	 * @param key TODO
-	 * @param action TODO
-	 */
-	public void put(Object key, Action action) {
-		if (action == null) {
-			actionMap.remove(key);
-		} else {
-			actionMap.put(key, action);
-		} // if
-	} // put()
+  /**
+   * allKeys
+   * @returns Object[]
+   */
+  public Object[] allKeys()
+  {
+    // Variables
+    Set set;
 
-	/**
-	 * remove
-	 * @param key TODO
-	 */
-	public void remove(Object key) {
-		actionMap.remove(key);
-	} // remove()
+    // Initialize
+    set = new HashSet();
 
-	/**
-	 * getParent
-	 * @returns ActionMap
-	 */
-	public ActionMap getParent() {
-		return parent;
-	} // getParent()
+    // Get Key Sets
+    if (parent != null)
+      set.addAll(Arrays.asList(parent.allKeys()));
+    set.addAll(actionMap.keySet());
 
-	/**
-	 * setParent
-	 * @param parentMap TODO
-	 */
-	public void setParent(ActionMap parentMap) {
-		parent = parentMap;
-	} // setParent()
+    return convertSet(set);
+  } // allKeys()
 
-	/**
-	 * size
-	 * @returns int
-	 */
-	public int size() {
-		return actionMap.size();
-	} // size()
+  private Object[] convertSet(Set set)
+  {
+    // Variables
+    int index;
+    Iterator iterator;
+    Object[] keys;
 
-	/**
-	 * clear
-	 */
-	public void clear() {
-		actionMap.clear();
-	} // clear()
+    // Create Final array
+    keys = new Object[set.size()];
+    iterator = set.iterator();
+    index = 0;
+    while (iterator.hasNext())
+      keys[index++] = iterator.next();
+    return keys;
+  }
 
-	/**
-	 * keys
-	 * @returns Object[]
-	 */
-	public Object[] keys() {
-		return convertSet(actionMap.keySet());
-	} // keys()
+  /**
+   * writeObject
+   * @param stream TODO
+   * @exception IOException TODO
+   */
+  private void writeObject(ObjectOutputStream value0) throws IOException
+  {
+    // TODO
+  }
 
-	/**
-	 * allKeys
-	 * @returns Object[]
-	 */
-	public Object[] allKeys() {
-
-		// Variables
-		Set			set;
-
-		// Initialize
-		set = new HashSet();
-
-		// Get Key Sets
-		if (parent != null) {
-			set.addAll(Arrays.asList(parent.allKeys()));
-		} // if
-		set.addAll(actionMap.keySet());
-
-		return convertSet(set);
-
-	} // allKeys()
-
-	private Object[] convertSet(Set set) {
-
-		// Variables
-		int			index;
-		Iterator	iterator;
-		Object[]	keys;
-
-		// Create Final array
-		keys = new Object[set.size()];
-		iterator = set.iterator();
-		index = 0;
-		while (iterator.hasNext()) {
-			keys[index++] = iterator.next();
-		} // while
-
-		return keys;
-
-	} // convertSet()
-
-
-	//-------------------------------------------------------------
-	// Interface: Serializable ------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * writeObject
-	 * @param stream TODO
-	 * @exception IOException TODO
-	 */
-	private void writeObject(ObjectOutputStream value0) throws IOException {
-		// TODO
-	} // writeObject()
-
-	/**
-	 * readObject
-	 * @param stream TODO
-	 * @exception ClassNotFoundException TODO
-	 * @exception IOException TODO
-	 */
-	private void readObject(ObjectInputStream value0) throws ClassNotFoundException, IOException {
-		// TODO
-	} // readObject()
-
-
-} // ActionMap
+  /**
+   * readObject
+   * @param stream TODO
+   * @exception ClassNotFoundException TODO
+   * @exception IOException TODO
+   */
+  private void readObject(ObjectInputStream value0)
+    throws ClassNotFoundException, IOException
+  {
+    // TODO
+  }
+}

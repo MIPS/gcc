@@ -41,56 +41,49 @@ import java.awt.event.ActionEvent;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 
+
 /**
  * TextAction
- * @author	Andrew Selkirk
- * @version	1.0
+ * @author Andrew Selkirk
  */
-public abstract class TextAction extends AbstractAction {
+public abstract class TextAction extends AbstractAction
+{
+  /**
+   * Constructor TextAction
+   * @param name TODO
+   */
+  public TextAction(String name)
+  {
+    // TODO
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * getTextComponent
+   * @param event TODO
+   * @return JTextComponent
+   */
+  protected final JTextComponent getTextComponent(ActionEvent event)
+  {
+    return null; // TODO
+  }
 
-	/**
-	 * Constructor TextAction
-	 * @param name TODO
-	 */
-	public TextAction(String name) {
-		// TODO
-	} // TextAction()
+  /**
+   * augmentList
+   * @param list1 TODO
+   * @param list2 TODO
+   * @return Action[]
+   */
+  public static final Action[] augmentList(Action[] list1, Action[] list2)
+  {
+    return null; // TODO
+  }
 
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * getTextComponent
-	 * @param event TODO
-	 * @returns JTextComponent
-	 */
-	protected final JTextComponent getTextComponent(ActionEvent event) {
-		return null; // TODO
-	} // getTextComponent()
-
-	/**
-	 * augmentList
-	 * @param list1 TODO
-	 * @param list2 TODO
-	 * @returns Action[]
-	 */
-	public static final Action[] augmentList(Action[] list1, Action[] list2) {
-		return null; // TODO
-	} // augmentList()
-
-	/**
-	 * getFocusedComponent
-	 * @returns JTextComponent
-	 */
-	protected final JTextComponent getFocusedComponent() {
-		return null; // TODO
-	} // getFocusedComponent()
-
-
-} // TextAction
+  /**
+   * getFocusedComponent
+   * @return JTextComponent
+   */
+  protected final JTextComponent getFocusedComponent()
+  {
+    return null; // TODO
+  }
+}

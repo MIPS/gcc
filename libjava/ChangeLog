@@ -1,5 +1,18 @@
 2004-07-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ActionMap.java,
+	javax/swing/ComponentInputMap.java,
+	javax/swing/InputMap.java,
+	javax/swing/table/DefaultTableColumnModel.java,
+	javax/swing/table/TableColumn.java,
+	javax/swing/table/TableColumnModel.java,
+	javax/swing/table/TableModel.java,
+	javax/swing/text/AbstractDocument.java,
+	javax/swing/text/TextAction.java:
+	Reformated.
+
+2004-07-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/LookAndFeel.java
 	(provideErrorFeedback): New method.
 

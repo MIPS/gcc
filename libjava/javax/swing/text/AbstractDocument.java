@@ -92,12 +92,11 @@ public abstract class AbstractDocument
     return new LeafElement(parent, a, p0, p1 - p0);
   }
 
-  public Position createPosition(final int offset)
-    throws BadLocationException
+  public Position createPosition(final int offset) throws BadLocationException
   {
     if (offset < 0 || offset > getLength())
       throw new BadLocationException(getText(0, getLength()), offset);
-    
+
     return new Position()
       {
 	public int getOffset()
@@ -199,8 +198,7 @@ public abstract class AbstractDocument
     return null;
   }
 
-  public String getText(int offset, int length)
-    throws BadLocationException
+  public String getText(int offset, int length) throws BadLocationException
   {
     return content.getString(offset, length);
   }
@@ -255,8 +253,7 @@ public abstract class AbstractDocument
   {
   }
 
-  public void remove(int offset, int length)
-    throws BadLocationException
+  public void remove(int offset, int length) throws BadLocationException
   {
   }
 
