@@ -509,7 +509,7 @@ arm_override_options ()
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
-      warning ("ignoring -mapcs-frame because -mthumb was used.");
+      /* warning ("ignoring -mapcs-frame because -mthumb was used."); */
       target_flags &= ~ARM_FLAG_APCS_FRAME;
     }
   
