@@ -123,7 +123,6 @@ extern int stmw_operation PARAMS ((rtx, enum machine_mode));
 extern int mtcrf_operation PARAMS ((rtx, enum machine_mode));
 extern int lmw_operation PARAMS ((rtx, enum machine_mode));
 extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
-extern void rs6000_emit_eh_toc_restore PARAMS ((rtx));
 extern void rs6000_emit_move PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_reload_address PARAMS ((rtx, enum machine_mode,
@@ -152,6 +151,8 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    int *, int));
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern int function_ok_for_sibcall PARAMS ((tree));
+extern void rs6000_elf_declare_function_name
+  PARAMS ((FILE *, const char *, tree));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));

@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
       builtin_define_std ("powerpc");     \
       builtin_assert ("cpu=powerpc");     \
       builtin_assert ("machine=powerpc"); \
+      TARGET_OS_SYSV_CPP_BUILTINS ();	  \
     }                                     \
   while (0)
 
@@ -81,6 +82,13 @@ Boston, MA 02111-1307, USA.  */
    structure return convention.  */
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET 1
+
+/* We are 32-bit all the time, so optimize a little.  */
+#undef TARGET_64BIT
+#define TARGET_64BIT 0
+ 
+/* We don't need to generate entries in .fixup.  */
+#undef RELOCATABLE_NEEDS_FIXUP
 
 #define ASM_FILE_END(FILE) \
   do {									\

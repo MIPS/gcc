@@ -2024,9 +2024,19 @@ powerpc-*-openbsd*)
 	extra_headers=
 	;;
 powerpc64-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux64.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
+	tmake_file="rs6000/t-rs6000 t-slibgcc-elf-ver t-linux"
+	if test x$enable_biarch = xyes; then
+	  case x$with_cpu in
+	  x|xpowerpc64|xdefault64) tm_file="${tm_file} rs6000/default64.h";;
+	  esac
+	  tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h"
+	  tmake_file="$tmake_file rs6000/t-ppccomm rs6000/t-linuxbi"
+	else
+	  tm_file="${tm_file} rs6000/default64.h rs6000/linux64.h"
+	  tmake_file="$tmake_file rs6000/t-ppcos rs6000/t-linux64"
+	fi
 	out_file=rs6000/rs6000.c
-	tmake_file="rs6000/t-rs6000 t-slibgcc-elf-ver t-linux rs6000/t-linux64"
 	;;
 powerpc64-*-gnu*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux64.h rs6000/gnu.h"
@@ -2953,7 +2963,7 @@ powerpc*-*-* | rs6000-*-*)
                 tm_file="$tm_file rs6000/altivec-defs.h"
         fi
 	case "x$with_cpu" in
-		x)
+		x | xdefault32 | xdefault64)
 			;;
 
 		xcommon | xpower | xpower2 | xpower3 | xpowerpc | xpowerpc64 \
