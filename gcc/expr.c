@@ -225,6 +225,13 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
   (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) CLEAR_RATIO)
 #endif
 
+/* This macro is used to determine whether store_by_pieces should be
+   called to "memset" storage with byte values other than zero, or
+   to "memcpy" storage when the source is a constant string.  */
+#ifndef STORE_BY_PIECES_P
+#define STORE_BY_PIECES_P(SIZE, ALIGN)	MOVE_BY_PIECES_P (SIZE, ALIGN)
+#endif
+
 /* This array records the insn_code of insns to perform block moves.  */
 enum insn_code movstr_optab[NUM_MACHINE_MODES];
 
@@ -2601,7 +2608,7 @@ can_store_by_pieces (len, constfun, constfundata, align)
   int reverse;
   rtx cst;
 
-  if (! MOVE_BY_PIECES_P (len, align))
+  if (! STORE_BY_PIECES_P (len, align))
     return 0;
 
   if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
@@ -2676,7 +2683,7 @@ store_by_pieces (to, len, constfun, constfundata, align)
 {
   struct store_by_pieces data;
 
-  if (! MOVE_BY_PIECES_P (len, align))
+  if (! STORE_BY_PIECES_P (len, align))
     abort ();
   to = protect_from_queue (to, 1);
   data.constfun = constfun;

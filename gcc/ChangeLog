@@ -1,3 +1,10 @@
+2002-09-22  Roger Sayle  <roger@eyesopen.com>
+
+	* expr.c (STORE_BY_PIECES_P): New target macro.
+	(can_store_by_pieces, store_by_pieces): Use STORE_BY_PIECES_P
+	instead of MOVE_BY_PIECES_P.
+	* doc/tm.texi: Document this new macro.
+
 2002-09-19  Roger Sayle  <roger@eyesopen.com>
 
 	* tree.c (integer_nonzerop): New predicate for nonzero integers.
