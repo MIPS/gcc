@@ -1,3 +1,8 @@
+Wed Jan  8 10:57:13 CET 2003  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* Makefile.in (PARTITION_H): New.
+	(BASIC_BLOCK_H): Added dependencies to PARTITION_H and hard-reg-set.h.
+
 2003-01-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopmanip.c (duplicate_loop_to_header_edge): Fix warning.
