@@ -1,3 +1,8 @@
+2004-08-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_stmt): Handle
+	arguments of CALL_EXPRs correctly.
+
 2004-08-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (get_dominated_by_region): Declare.

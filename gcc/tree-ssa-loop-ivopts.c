@@ -1602,6 +1602,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
   tree op, lhs, rhs;
   use_optype uses = NULL;
   unsigned i, n;
+  enum tree_code lhs_code, rhs_code;
 
   find_invariants_stmt (data, stmt);
 
@@ -1615,8 +1616,10 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
     {
       lhs = TREE_OPERAND (stmt, 0);
       rhs = TREE_OPERAND (stmt, 1);
+      lhs_code = TREE_CODE (lhs);
+      rhs_code = TREE_CODE (rhs);
 
-      if (TREE_CODE (lhs) == SSA_NAME)
+      if (lhs_code == SSA_NAME)
 	{
 	  /* If the statement defines an induction variable, the uses are not
 	     interesting by themselves.  */
@@ -1627,25 +1630,47 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	    return;
 	}
 
-      switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
-	{
-	case '<':
-	  find_interesting_uses_cond (data, stmt, &TREE_OPERAND (stmt, 1));
-	  return;
+      /* We handle here only a few common forms of assignment statements.
+	 The remaining cases are handled below as generic ones.  */
 
-	case 'r':
-	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 1));
-	  if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+      if (TREE_CODE_CLASS (rhs_code) == '<'
+	  || TREE_CODE_CLASS (rhs_code) == 'r'
+	  || TREE_CODE (rhs) == SSA_NAME
+	  || TREE_CODE (rhs) == CALL_EXPR
+	  || is_gimple_min_invariant (rhs))
+	{
+	  /* Process the lhs.  It is only interesting if it is an address.  */
+	  if (TREE_CODE_CLASS (lhs_code) == 'r')
 	    find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
-	  return;
 
-	default: ;
-	}
+	  /* Now handle each of the rhs possibilities.  */
+	  if (TREE_CODE_CLASS (rhs_code) == '<')
+	    find_interesting_uses_cond (data, stmt, &TREE_OPERAND (stmt, 1));
 
-      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
-	{
-	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
-	  find_interesting_uses_op (data, rhs);
+	  else if (TREE_CODE_CLASS (rhs_code) == 'r')
+	    find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 1));
+
+	  else if (TREE_CODE (rhs) == SSA_NAME)
+	    find_interesting_uses_op (data, rhs);
+
+	  else if (TREE_CODE (rhs) == CALL_EXPR)
+	    {
+	      /* Process the call arguments.  */
+	      tree args, arg;
+
+	      for (args = TREE_OPERAND (rhs, 1); args; args = TREE_CHAIN (args))
+		{
+		  arg = TREE_VALUE (args);
+
+		  if (TREE_CODE (arg) == SSA_NAME)
+		    find_interesting_uses_op (data, arg);
+
+		  else if (TREE_CODE_CLASS (TREE_CODE (arg)) == 'r')
+		    find_interesting_uses_address (data, stmt,
+						   &TREE_VALUE (args));
+		}
+	    }
+
 	  return;
 	}
     }
