@@ -4167,7 +4167,7 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 	    break;
 
 	  default:
-	    if (is_ctrl_altering_stmt (stmt))
+	    if (is_ctrl_altering_stmt (stmt) || is_ctrl_stmt (stmt))
 	      {
 	        /* The block ends in a CALL or something else which likely has
 		   abnormal edges.  In that case, we simple create a new block

@@ -1,3 +1,8 @@
+2003-08-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (find_insert_location): Handle other control
+	statements that may be at the end of the block.
+
 2003-08-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (tree-pretty-print.o): Add tree-iterator.h dependency.

@@ -1,3 +1,7 @@
+2003-08-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/builtins/string-4.x: Remove.
+
 2003-08-12  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/execute/forall_4.f90: Fix illegal code.

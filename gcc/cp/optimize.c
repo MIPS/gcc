@@ -93,8 +93,6 @@ optimize_function (tree fn)
       if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fn);
     }
-
-  dump_function (TDI_optimized, fn);
 }
 
 /* Called from calls_setjmp_p via walk_tree.  */

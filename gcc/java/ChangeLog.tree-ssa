@@ -1,3 +1,8 @@
+2003-08-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* java-gimplify.c (java_gimplify_block): If the body is a
+	NULL_TREE, return an empty statement.
+
 2003-08-08  Jason Merrill  <jason@redhat.com>
 
 	* parse.y (source_end_java_method): Support

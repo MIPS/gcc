@@ -1,3 +1,7 @@
+2003-08-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* optimize.c (optimize_function): Do not call dump_function.
+
 2003-08-08  Jason Merrill  <jason@redhat.com>
 
 	* optimize.c (optimize_function): Restore support for
