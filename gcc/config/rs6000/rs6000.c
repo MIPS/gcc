@@ -12516,7 +12516,8 @@ rs6000_output_function_epilogue (FILE *file,
       if (! strcmp (language_string, "GNU C")
 	  || ! strcmp (language_string, "GNU Objective-C"))
 	i = 0;
-      else if (! strcmp (language_string, "GNU F77"))
+      else if (! strcmp (language_string, "GNU F77")
+	       || ! strcmp (language_string, "GNU F95"))
 	i = 1;
       else if (! strcmp (language_string, "GNU Ada"))
 	i = 3;

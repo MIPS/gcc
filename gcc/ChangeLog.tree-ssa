@@ -1,3 +1,8 @@
+2003-12-14  Andreas Jaeger  <aj@suse.de>
+
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue): Handle
+	GNU F95.
+
 2003-12-14  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_expand_function):  Release function body when no
@@ -199,7 +204,7 @@
 		(maybe_fold_stmt_indirect, maybe_fold_stmt_plus): Likewise.
 		(maybe_fold_offset_to_array_ref): Likewise.
 		Don't fail for division remainder non-zero.
-		* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Use 
+		* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Use
 		handled_component_p and look inside references.
 		<MINUS_EXPR>: Always look past widening casts.
 
@@ -289,13 +294,13 @@
 2003-12-08  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c (andersen_same_points_to_set): Fix memory leak.
-	
+
 2003-12-08  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-live.c (register_ssa_partition): Kill legacy code which
 	recursively called register_ssa_partition on PHI arguments when
 	SSA_VAR was defined by a PHI_NODE.
-                                                                                
+
 2003-12-08  Jan Hubicka  <jh@suse.cz>
 
 	* tree-dump.c (dump_files): Fix ordering of tail call pass.
@@ -368,14 +373,14 @@
 	(maybe_fold_stmt_indirect, maybe_fold_stmt_plus): Likewise.
 	(maybe_fold_offset_to_array_ref): Likewise.  Don't fail for division
 	remainder non-zero.
-	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Use 
+	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Use
 	handled_component_p and look inside references.
 	<MINUS_EXPR>: Always look past widening casts.
 
 2003-12-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (compute_dominance_frontiers): Don't assume that
-	the first block has index 0.		
+	the first block has index 0.
 
 2003-12-07  Jan Hubicka  <jh@suse.cz>
 
@@ -591,11 +596,11 @@
 	to be null.
 
 2003-12-03  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	Fix PR 13177
 	* tree-ssa-pre.c (code_motion): Do phi nodes last, and rearrange
 	how we decide what temporary to choose so that we get it right.
-	
+
 2003-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-dfa.c (get_expr_operands): Don't record VUSEs for invariant
@@ -676,8 +681,8 @@
 	DIV/MOD into RSHIFT/BIT_AND or ABS_EXPR into NEG_EXPR.
 	(dom_opt_walk_stmts): Don't reload the block data pointer each
 	iteration of the loop.  Load it once outside the loop.
- 
-	* tree-dfa.c (cleanup_operand_arrays): Avoid creating a new 
+
+	* tree-dfa.c (cleanup_operand_arrays): Avoid creating a new
 	varray for the vuse operands.
 
 	* tree-ssa-dom.c (extract_range_from_cond): Use int_const_binop to
@@ -686,10 +691,10 @@
 	* tree-phinodes.c (add_phi_arg): If we receive a new node from
 	resize_phi_node, then release the old node and update the PHI
 	chain.
- 
+
 2003-12-02  Brian Booth  <bbooth@redhat.com>
 
-	* tree-pretty-print.c (dump_phi_nodes): Added code to always show phi 
+	* tree-pretty-print.c (dump_phi_nodes): Added code to always show phi
 	nodes of regular gimple scalars.
 	(dump_generic_bb_buff): Removed condition upon which to show phi nodes.
 
@@ -848,7 +853,7 @@
 	* tree-ssa-live.c (register_ssa_partition): Abort if a virtual SSA
 	version is registered.
 	(create_ssa_var_map): Always process PHI nodes.
-	* tree-ssa.c (Eliminate_virtual_phis): Rename from 
+	* tree-ssa.c (Eliminate_virtual_phis): Rename from
 	eliminate_extraneous_phis, and look specifically for virtuals.
 	(rewrite_out_of_ssa): Eliminate virtual PHI nodes before building
 	partitions.
@@ -958,7 +963,7 @@
 	* flow.c (count_or_remove_death_notes_bb): New.  Extracted from
 	count_or_remove_death_notes.
 	(count_or_remove_death_notes): Use EXECUTE_IF_SET_IN_SBITMAP.
- 
+
 2003-11-24  Richard Henderson  <rth@redhat.com>
 
 	PR 13174, PR 13143
@@ -982,7 +987,7 @@
 	(split_critical_edges): Just use FOR_ALL_BB.
 	(tree_perform_ssapre): Pre-split entry block successor edge if the
 	successor block has multiple preds.
-	
+
 	* tree-flow.h (struct bb_ann_d): Remove erefs varray.
 
 2003-11-24  Daniel Berlin  <dberlin@dberlin.org>
@@ -1039,7 +1044,7 @@
 	def_stmt field.
 	(SSA_NAME_OCCURS_IN_ABNORMAL_PHI): Use existing flag from tree_common.
 	(SSA_NAME_IN_FREE_LIST): Define.
-	(struct tree_ssa_name): Kill DEF_STMT and OCCURS_IN_ABNORMAL_PHI fields.                                                                                
+	(struct tree_ssa_name): Kill DEF_STMT and OCCURS_IN_ABNORMAL_PHI fields.
 
 2003-11-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
@@ -1059,7 +1064,7 @@
 
 	* tree-ssa-pre.c (build_dfs_id_array_1): > should be >=
 	(build_dfn_array): Ditto.
-	
+
 2003-11-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-dfa.o): Add dependency on $(TREE_DUMP_H)
@@ -1076,10 +1081,10 @@
 	Revert:
 
 	2003-11-21  Jan Hubicka  <jh@suse.cz>
-                                                                                
-       		* tree-dfa.c (get_expr_operands): Fix handling of CALL_EXPR.
+
+		* tree-dfa.c (get_expr_operands): Fix handling of CALL_EXPR.
 		* tree-must-alias.c (tree_compute_must_alias): promote pointers.
-       		(find_addressable_vars):  Deal with complex constant
+		(find_addressable_vars):  Deal with complex constant
 		expressions; do not clear may_point_to_global_mem.
 
 2003-11-21  Jeff Law  <law@redhat.com>
@@ -1129,7 +1134,7 @@
         * tree-ssa-ccp.c (visit_stmt): Use NUM_VDEFS.  Fix thinko in last
         change.
         (initialize): Use NUM_VDEFS.
- 
+
 	* tree-dfa.c (add_vdef): Revamp to handle new method for
 	recording vdefs.
 	(cleanup_operand_arrays): Similarly.
@@ -1153,12 +1158,12 @@
 
 	* tree-cfg.c (cfg_remove_useless_stmts): Set both VAR and VAL to
 	NULL anytime one of them is determined to be invalid.
-                                                                                
+
 2003-11-21  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (compact_var_map): Fix typo.  Clear correct field.
 	(calculate_live_on_entry): Remove unneeded stmt.
-	* tree-ssa-live.h (version_to_var): New.  Return variable associated 
+	* tree-ssa-live.h (version_to_var): New.  Return variable associated
 	with a specific SSA version.
 	* tree-ssa.c (eliminate_build): Add check that ignored results don't
 	have important arguments.  Allow ignored results.
@@ -1215,7 +1220,7 @@
 	remap_save_expr, mark_local_for_remap_r): Use it.
 
 2003-11-20  Frank Ch. Eigler  <fche@redhat.com>
- 
+
         libstdc++/11696
         * c-pragma.c (handle_pragma_redefine_extname): Define always.
         (init_pragma): Activate #pragma redefine_extname for mudflap.
@@ -1340,7 +1345,7 @@
 	true_exprs, false_exprs and nonzero_vars varrays to various children.
 	(optimize_stmt):  Accept block local nonzero_vars argument.  Pass
 	new varrays down to record_equivalences_from_stmt.
-	(thread_jumps_walk_stmt): Pass new varrays down to 
+	(thread_jumps_walk_stmt): Pass new varrays down to
 	record_equivalences_from_stmt.
 	(dom_opt_walk_stmt): Pass new varrays down to optimize_stmt.
 	(dump_dominator_optimizer_statistics): Dump new hash tables.
@@ -1355,7 +1360,7 @@
 	local true/false varrays rather than the main local expression
 	varray.
 	(true_false_expr_hash, true_false_expr_eq): New functions.
-	
+
         * Makefile.in (OBJS-sommon): Add tree-ssanames.o.
         (tree-ssanames.o): Add dependencies.
         * tree-dfa.c (remove_phi_node): Release SSA_NAME expression when
@@ -1375,7 +1380,7 @@
         * tree.c (dump_tree_statistics): Call into tree-ssaname statistics
         dumper too.
         (make_ssa_name): Kill.  Now in tree-ssanames.c
-                                                                                
+
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
 	* tree.c (recompute_tree_invarant_for_addr_expr): Split out from ...
@@ -1465,7 +1470,7 @@
 	Callers updated.  Pass NULL for block_avail_exprs in call to
 	lookup_avail_expr.  Record both the condition and the inverted
 	condition when threading across an edge.
- 
+
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa.c (tree_ssa_useless_type_conversion): Use TYPE_MAIN_VARIANT
@@ -1625,7 +1630,7 @@
 	* tree-ssa-pre.c (pre_stats): Add ephis_current member.
 	(create_ephi_node): Use xmalloc, not ggc_alloc_tree.
 	(clear_all_eref_arrays): Free the ephis here.
-	(expr_phi_insertion): Don't append the ephis to the erefs array. 
+	(expr_phi_insertion): Don't append the ephis to the erefs array.
 	(insert_occ_in_preorder_dt_order): Move building/freeing of dfn
 	array so that it only occurs once per function..
 	(rename_1): Ditto on the dfs_id array.
@@ -1640,7 +1645,7 @@
 	(tree_perform_ssapre): Alloc and free the ephi_use_pool.
 	Make stat printing per-expression.
 	Add checking that we freed all ephis.
-	
+
 2003-11-14  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt (ftree-ter): Document new option.
@@ -1660,9 +1665,9 @@
 	* tree-ssa.c (replace_variable): If an expression vector is passed in,
 	use replacement expression instead of mapped variable when available.
 	(struct value_expr_d): New structure for value lists.
-	(struct temp_expr_table_d): Structure used to build an expression 
+	(struct temp_expr_table_d): Structure used to build an expression
 	replacement table.
-	(new_temp_expr_table): New. Create a new TER (Temporary Expression 
+	(new_temp_expr_table): New. Create a new TER (Temporary Expression
 	Replacement) table.
 	(free_temp_expr_table): New. Free a TER table.
 	(new_value_expr): New. Allocate a value list element.
@@ -1676,7 +1681,7 @@
 	(finish_expr): New. Remove an expression from TER consideration.
 	(mark_replaceable): New. Finish a TER expression as a valid replacement.
 	(kill_expr): New. Finish dependent TER expressions as not replaceable.
-	(kill_virtual_exprs): New. Finish any TER expressions dependent on a 
+	(kill_virtual_exprs): New. Finish any TER expressions dependent on a
 	virtual operand as not replaceable.
 	(find_replaceable_in_bb): New. Process a basic block for TER expression.
 	(find_replaceable_exprs): New. Entry point for TER expression finder.
