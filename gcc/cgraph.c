@@ -328,12 +328,14 @@ cgraph_remove_node (struct cgraph_node *node)
     cgraph_remove_edge (node->callers);
   while (node->callees)
     cgraph_remove_edge (node->callees);
-  /* Nested functions can be removed now, provided they aren't inlined into
-     some other function (a caller of this one).  */
+  /* Nested functions can be removed now, provided they are inlined into
+     this function, or are not inlined and do not have their address taken.  */
   for (node2 = node->nested; node2; )
     {
       node2_next = node2->next_nested;
-      if (node2 && (!node2->global.inlined_to || node2->global.inlined_to == node))
+      if (node2 
+	  && ((!node2->global.inlined_to && !TREE_ADDRESSABLE (node2->decl))
+	      || node2->global.inlined_to == node))
 	cgraph_remove_node (node2);
       node2 = node2_next;
     }
@@ -725,10 +727,4 @@ cgraph_clone_node (struct cgraph_node *n)
   return new;
 }
 
-void fool_optimizer (tree_stmt_iterator *);
-
-void
-fool_optimizer (tree_stmt_iterator *i ATTRIBUTE_UNUSED)
-{
-}
 #include "gt-cgraph.h"

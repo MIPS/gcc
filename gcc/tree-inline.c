@@ -1035,11 +1035,12 @@ copy_cfg_body (inline_data *id)
 	     and the original call that we're inlining had EH
 	     edges, attach EH edges with the same destination
 	     to this block.  No region twiddling needed.  */
-	  if (eh_dst
-	      && tree_could_throw_p (orig_stmt)
-	      && VARRAY_ACTIVE_SIZE (eh_dst) > 0)
+	  else if (eh_dst
+		   && tree_could_throw_p (copy_stmt)
+		   && VARRAY_ACTIVE_SIZE (eh_dst) > 0)
 	    {
 	      unsigned int i;
+	      basic_block copied_call_bb = new_bb;
 	      if (tsi_stmt (tsi_end) != tsi_stmt (tsi))
 		/* Note that bb's predecessor edges aren't necessarily
 		   right at this point; split_block doesn't care.  */
@@ -1048,7 +1049,8 @@ copy_cfg_body (inline_data *id)
 		  new_bb = e->dest;
 		}
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
-	        make_edge (new_bb, VARRAY_BB (eh_dst, i), EDGE_EH | EDGE_ABNORMAL);
+	        make_edge (copied_call_bb, VARRAY_BB (eh_dst, i), 
+			    EDGE_EH | EDGE_ABNORMAL);
 	    }
 	}
     }
@@ -2210,6 +2212,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Backup from exit block.  */
   tail_copied_body = EXIT_BLOCK_PTR_FOR_FUNCTION (my_cfun)->prev_bb;
 
+  /* FIXME this should be using split_block.  */
   /* Split the block holding the CALL_EXPR.  */
   first_half_bb = id->oic_basic_block;
   orig_next_bb = first_half_bb->next_bb;

@@ -288,20 +288,23 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 void 
 cgraph_build_cfg (tree decl)
 {
-  if (DECL_STRUCT_FUNCTION (decl)
-      && (!DECL_STRUCT_FUNCTION (decl)->cfg
-          || !DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr))
+  if (!DECL_STRUCT_FUNCTION (decl)->cfg
+       || !DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr)
     {
       tree saved_current_function_decl = current_function_decl;
       current_function_decl = decl;
       push_cfun (DECL_STRUCT_FUNCTION (decl));
-      gimplify_function_tree (decl);
       lower_function_body ();
       lower_eh_constructs ();
       build_tree_cfg (&DECL_SAVED_TREE (decl));
-      tree_register_profile_hooks ();
-      branch_prob ();
-      coverage_end_function ();
+      if (flag_tree_based_profiling
+	  && (profile_arc_flag || flag_test_coverage 
+	      || flag_branch_probabilities))
+	{
+	  tree_register_profile_hooks ();
+	  branch_prob ();
+	  coverage_end_function ();
+	}
       current_function_decl = saved_current_function_decl;
       pop_cfun ();
     }
@@ -899,6 +902,9 @@ cgraph_expand_function (struct cgraph_node *node)
 
   if (flag_unit_at_a_time)
     announce_function (decl);
+
+  /* Last chance to build cfg.  */
+  cgraph_build_cfg (decl);
 
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
