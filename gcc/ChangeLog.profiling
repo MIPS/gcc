@@ -1,5 +1,9 @@
 2004-04-18  Jan Hubicka  <jh@suse.cz>
 
+	* predict.c (combine_predictions_for_bb): Fix pasto.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
 	* cfgexpand.c (add_reg_br_prob_note): New debug output.
 	(expand_block): Pass file argument.
 	(construct_exit_block): Properly compute frequencies of exit block.
