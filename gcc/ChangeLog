@@ -1,5 +1,11 @@
 I'm intentionally leaving the ChangeLogs conflicted during the merge.  robertl
 
+>>>>>>> 1.2472.2.9
+Tue Dec 15 07:26:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* fixinc/server.[ch]: lowercased variable names and
+	switched the copyright holder name to the FSF.
+
 1998-12-10  Manfred Hollstein  <manfred@s-direktnet.de>
 
 	* configure.in: Add new configure var. "fixinc_defs"; set it to
@@ -16,6 +22,7 @@ I'm intentionally leaving the ChangeLogs conflicted during the merge.  robertl
 	(FIXINC_BROKEN): Add code to force a compile error triggered by
 	the new FIXINC_DEFS/fixinc_defs macros.
 
+>>>>>>> 1.2472.2.8
 Tue Dec  1 12:40:00 1998  Bruce Korb <korb@datadesign.com>
 
 	* fixinc/fixincl.c (main): added retry count limit (10).
