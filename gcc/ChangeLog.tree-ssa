@@ -1,3 +1,10 @@
+2003-07-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa.c (struct _elim_graph): Add varray for constant copies.
+	(new_elim_graph): Initialize constant copy array..
+	(eliminate_build): Push constant copies onto stack instead of emitting.
+	(eliminate_phi): Emit any pending constant copies.
+
 2003-07-28  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (compute_immediate_uses_for): Do not assume that

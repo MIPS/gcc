@@ -123,6 +123,8 @@ typedef struct _elim_graph
   var_map map;
   /* edge being eliminated by this graph.  */
   edge e;
+  /* List of constant copies to emit.  These are pushed on in pairs.  */
+  varray_type  const_copies;
 } *elim_graph;
 
 /* Statistics for dominator optimizations.  */
@@ -908,6 +910,8 @@ new_elim_graph (int size)
     }
   g->visited = sbitmap_alloc (size);
   g->stack = (int *) xmalloc (sizeof (int) * size);
+
+  VARRAY_TREE_INIT (g->const_copies, 20, "Constant Copies");
   
   return g;
 }
@@ -1000,7 +1004,12 @@ eliminate_build (elim_graph g, basic_block B, int i)
 	  Ti = PHI_ARG_DEF (phi, pi);
 	}
       if (TREE_CONSTANT (Ti))
-	insert_copy_on_edge (g->e, T0, Ti);
+        {
+	  /* Save constant copies until all other copies have been emitted
+	     on this edge.  */
+	  VARRAY_PUSH_TREE (g->const_copies, T0);
+	  VARRAY_PUSH_TREE (g->const_copies, Ti);
+	}
       else
         {
 	  Ti = var_to_partition_to_var (g->map, Ti);
@@ -1119,6 +1128,8 @@ eliminate_phi (edge e, int i, elim_graph g)
 #if defined ENABLE_CHECKING
   if (i == -1)
     abort ();
+  if (VARRAY_ACTIVE_SIZE (g->const_copies) != 0)
+    abort ();
 #endif
 
   num_nodes = num_var_partitions (g->map);
@@ -1126,27 +1137,38 @@ eliminate_phi (edge e, int i, elim_graph g)
 
   x = eliminate_build (g, B, i);
 
-  if (g->num_nodes == 0)
-    return;
-
-  sbitmap_zero (g->visited);
-  g->top_of_stack = 0;
-
-  limit = g->num_nodes;
-  for (x = 0; limit; x++)
-     if (g->nodes[x])
-       {
-         limit--;
-	 if (!TEST_BIT (g->visited, x))
-	   elim_forward (g, x);
-       }
-   
-  sbitmap_zero (g->visited);
-  while (g->top_of_stack > 0)
+  if (g->num_nodes != 0)
     {
-      x = g->stack[--(g->top_of_stack)];
-      if (!TEST_BIT (g->visited, x))
-        elim_create (g, x);
+      sbitmap_zero (g->visited);
+      g->top_of_stack = 0;
+
+      limit = g->num_nodes;
+      for (x = 0; limit; x++)
+	 if (g->nodes[x])
+	   {
+	     limit--;
+	     if (!TEST_BIT (g->visited, x))
+	       elim_forward (g, x);
+	   }
+       
+      sbitmap_zero (g->visited);
+      while (g->top_of_stack > 0)
+	{
+	  x = g->stack[--(g->top_of_stack)];
+	  if (!TEST_BIT (g->visited, x))
+	    elim_create (g, x);
+	}
+    }
+
+  /* If there are any pending constant copies, issue them now.  */
+  while (VARRAY_ACTIVE_SIZE (g->const_copies) > 0)
+    {
+      tree src, dest;
+      src = VARRAY_TOP_TREE (g->const_copies);
+      VARRAY_POP (g->const_copies);
+      dest = VARRAY_TOP_TREE (g->const_copies);
+      VARRAY_POP (g->const_copies);
+      insert_copy_on_edge (e, dest, src);
     }
 }
 
