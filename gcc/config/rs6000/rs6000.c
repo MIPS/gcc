@@ -11426,8 +11426,10 @@ rs6000_elf_section_type_flags (decl, name, reloc)
 {
   unsigned int flags = default_section_type_flags (decl, name, reloc);
 
+#ifdef RELOCATABLE_NEEDS_FIXUP
   if (TARGET_RELOCATABLE)
     flags |= SECTION_WRITE;
+#endif
 
   return flags;
 }

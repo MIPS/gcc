@@ -74,6 +74,9 @@ Boston, MA 02111-1307, USA.  */
 #undef DRAFT_V4_STRUCT_RET
 #define DRAFT_V4_STRUCT_RET 1
 
+/* We don't need to generate entries in .fixup.  */
+#undef RELOCATABLE_NEEDS_FIXUP
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 

@@ -1,3 +1,9 @@
+2003-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux.h (RELOCATABLE_NEEDS_FIXUP): Undefine.
+	* config/rs6000/rs6000.c (rs6000_elf_section_type_flags): Make all
+	sections writeable only if RELOCATABLE_NEEDS_FIXUP is defined.
+
 2003-01-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/s390/s390.c (s390_encode_section_info): Use binds_local_p
