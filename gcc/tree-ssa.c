@@ -205,7 +205,7 @@ static int elim_unvisited_predecessor (elim_graph, int);
 static void elim_backward (elim_graph, int);
 static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
-static tree_live_info_p coalesce_ssa_name (var_map);
+static tree_live_info_p coalesce_ssa_name (var_map, int flags);
 static void assign_vars (var_map);
 static bool replace_variable (var_map, tree *, tree *);
 static void eliminate_virtual_phis (void);
@@ -1460,11 +1460,11 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
    which are associated with actual variables at this point are those which 
    are forced to be coalesced for various reason. (live on entry, live 
    across abnormal edges, etc.). 
-   Live range information is returned if flag_tree_combine_temps
-   is set, otherwise NULL.  */
+   Live range information is returned if FLAGS indicates that we are
+   combining temporaries, otherwise NULL is returned.  */
 
 static tree_live_info_p
-coalesce_ssa_name (var_map map)
+coalesce_ssa_name (var_map map, int flags)
 {
   int num, x;
   sbitmap live;
@@ -1506,7 +1506,7 @@ coalesce_ssa_name (var_map map)
 	SET_BIT (live, x);
     }
 
-  if (!flag_tree_combine_temps)
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
     {
       delete_tree_live_info (liveinfo);
       liveinfo = NULL;
@@ -1760,10 +1760,8 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 	      if (!phi_ssa_name_p (arg))
 	        continue;
 	      p2 = var_to_partition (map, arg);
-#ifdef ENABLE_CHECKING
 	      if (p2 == NO_PARTITION)
-	        abort();
-#endif
+		continue;
 	      if (p != p2)
 	        add_coalesce (cl, p, p2, 1);
 	    }
@@ -2507,7 +2505,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     dump_var_map (tree_dump_file, map);
 
-  liveinfo = coalesce_ssa_name (map);
+  liveinfo = coalesce_ssa_name (map, flags);
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
@@ -2580,6 +2578,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
       basic_block bb;
       tree phi;
       int i;
+      int ssa_flags;
 
       /* Search for PHIs in which one of the PHI arguments is marked for
 	 translation out of SSA form, but for which the PHI result is not
@@ -2663,7 +2662,11 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* Now that we have all the partitions registered, translate the
 	 appropriate variables out of SSA form.  */
-      remove_ssa_form (tree_dump_file, map, 0);
+      if (flag_tree_combine_temps)
+	ssa_flags = SSANORM_COMBINE_TEMPS;
+      else
+	ssa_flags = 0;
+      remove_ssa_form (tree_dump_file, map, ssa_flags);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */

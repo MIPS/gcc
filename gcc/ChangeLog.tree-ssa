@@ -1,3 +1,16 @@
+2004-01-29  Jeff Law <law@redhat.com>
+	    Andrew MacLeod <amacleod@redhat.com>
+
+	* tree-ssa-live.h (tpa_next_partition): Correctly handle compressed
+	elements.
+	* tree-ssa.c (coalesce_ssa_name): New argument, flags.  Callers
+	updated.  Test SSANORM_COMBINE_TEMPS in flags rather than
+	flag_tree_combine_temps.
+	(coalesce_vars): Either operand of a copy might not have a
+	partition when rewriting a subset of the variables out of SSA form.
+	(rewrite_vars_out_of_ssa): Honor -ftree-combine-temps by passing
+	in SSANORM_COMBINE_TEMPS in flags argument to remove_sas_form..
+
 2004-01-29  Dale Johannesen  <dalej@apple.com>
 	 
 	* Makefile.in (OBJS-common):  Move tree-nomudflap.o...

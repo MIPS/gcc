@@ -355,7 +355,21 @@ tpa_next_partition (tpa_p tpa, int i)
 static inline int 
 tpa_find_tree (tpa_p tpa, int i)
 {
-  return tpa->partition_to_tree_map[i];
+  int index;
+
+  index = tpa->partition_to_tree_map[i];
+  /* When compressed, any index higher than the number of tree elements is 
+     a compressed element, so return TPA_NONE.  */
+  if (index != TPA_NONE && index >= tpa_num_trees (tpa))
+    {
+#ifdef ENABLE_CHECKING
+      if (tpa->uncompressed_num == -1)
+        abort ();
+#endif
+      index = TPA_NONE;
+    }
+
+  return index;
 }
 
 /* Compacting removes lists with single elements. This routine puts them
