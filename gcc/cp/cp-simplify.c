@@ -190,7 +190,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
      case we want to replace the INIT_EXPR.  */
   if (TREE_CODE (from) == AGGR_INIT_EXPR)
     {
-      gimplify_expr (&to, pre_p, post_p, is_gimple_modify_expr_lhs, fb_lvalue);
+      gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
       TREE_OPERAND (from, 2) = to;
       *expr_p = from;
     }

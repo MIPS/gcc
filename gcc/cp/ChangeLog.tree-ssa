@@ -1,3 +1,7 @@
+2003-08-22  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_gimplify_init_expr): Update use of predicates.
+
 2003-08-21  Jason Merrill  <jason@redhat.com>
 
 	* cp-simplify.c (cp_gimplify_expr): Use simplify_aggr_init_expr.

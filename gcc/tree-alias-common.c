@@ -419,7 +419,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       return NULL_TREE;
     }
 
-  if (is_gimple_modify_expr (stp)
+  if (TREE_CODE (stp) == MODIFY_EXPR
       || (DECL_P (stp) && DECL_INITIAL (stp) != NULL_TREE ))
     {
       tree op0, op1;
@@ -450,10 +450,10 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 variable, since we can disambiguate based on TBAA first,
 	 and fall back on points-to. */
       /* x = <something> */
-      if (is_gimple_varname (op0))
+      if (is_gimple_variable (op0))
 	{
 	  /* x = y or x = foo.y */
-	  if (is_gimple_varname (op1))
+	  if (is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
@@ -469,8 +469,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = *y or x = foo->y */
-	  else if (TREE_CODE (op1) == INDIRECT_REF
-		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
+	  else if (TREE_CODE (op1) == INDIRECT_REF)
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->ptr_assign (current_alias_ops, lhsAV,
@@ -478,9 +477,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = &y = x = &foo.y */
-	  else if ((TREE_CODE (op1) == ADDR_EXPR
-		    || TREE_CODE (op1) == REFERENCE_EXPR)
-		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
+	  else if (TREE_CODE (op1) == ADDR_EXPR)
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->addr_assign (current_alias_ops, lhsAV,
@@ -488,7 +485,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = func(...) */
-	  else if (is_gimple_call_expr (op1))
+	  else if (TREE_CODE (op1) == CALL_EXPR)
 	    {
 	      /* Heap assignment. These are __attribute__ malloc or
 		 something, i'll deal with it later. */
@@ -650,7 +647,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
     }
   /* Calls without return values. */
-  else if (is_gimple_call_expr (stp))
+  else if (TREE_CODE (stp) == CALL_EXPR)
     {
       varray_type args;
       tree arg;

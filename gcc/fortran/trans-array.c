@@ -3388,8 +3388,8 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 		se->expr = TREE_OPERAND (desc, 0);
 	      else
 		{
-		  assert (is_gimple_varname (desc));
-		  if (is_gimple_id (desc))
+		  assert (is_gimple_lvalue (desc));
+		  if (is_gimple_variable (desc))
 		    TREE_ADDRESSABLE (desc) = 1;
 		  se->expr = build1 (ADDR_EXPR,
 				     build_pointer_type (TREE_TYPE (desc)),
@@ -3478,7 +3478,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       tmp = gfc_conv_descriptor_stride (desc, gfc_rank_cst[0]);
       gfc_add_modify_expr (&loop.pre, tmp, integer_zero_node);
 
-      assert (is_gimple_varname (desc));
+      assert (is_gimple_lvalue (desc));
       TREE_ADDRESSABLE (desc) = 1;
       se->expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (desc)),
 			 desc);

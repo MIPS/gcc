@@ -1,3 +1,45 @@
+2003-08-22  Jason Merrill  <jason@redhat.com>
+
+	* tree-simple.c: Total overhaul to only check forms and remove
+	unnecessary predicates.
+	(is_gimple_const): Accept function addresses here.
+	Don't accept LABEL_DECL or RESULT_DECL.
+	(is_gimple_val): Accept EXC_PTR_EXPR here.
+	(is_gimple_lvalue): Rename from is_gimple_modify_expr_lhs.
+	Accept BIT_FIELD_REF, REALPART_EXPR and IMAGPART_EXPR here.
+	(is_gimple_addr_expr_arg): Replace with former is_gimple_varname.
+	(is_gimple_constructor_elt): Just check for CONSTRUCTOR.
+	(is_gimple_initializer): Just hand off to is_gimple_rhs.
+	(is_gimple_rhs): Recognize most expressions here.
+	(is_gimple_variable): New fn.
+	(is_gimple_id): Use it.  Now static.
+	(is_gimple_reg): New fn.
+	(is_gimple_cast): Replace with former is_gimple_cast_op.
+	(is_gimple_constructor, is_gimple_expr): Remove.
+	(is_gimple_modify_expr, is_gimple_relop): Remove.
+	(is_gimple_binary_expr, is_gimple_unary_expr): Remove.
+	(is_gimple_call_expr, is_gimple_arglist): Remove.
+	(is_gimple_compound_lval, is_gimple_arrayref): Remove.
+	(is_gimple_compref, is_gimple_exprseq): Remove.
+	(is_gimplifiable_builtin): Remove.
+	* tree-simple.h: Adjust.
+	* gimplify.c (gimplify_conversion): Break out from gimplify_expr.
+	(gimplify_expr): Use is_gimple_reg predicate to force a temp.
+	<COMPONENT_REF>: Use gimplify_compound_lval.
+	<REALPART_EXPR, IMAGPART_EXPR>: Likewise.
+	<INDIRECT_REF>: Use is_gimple_reg predicate.
+	<MIN_EXPR, MAX_EXPR>: Use new gimplify_minimax_expr.
+	<TREE_LIST>: Reject.
+	(gimplify_tree_list, gimplify_component_ref): Remove.
+	(gimplify_compound_lval): Include REALPART_EXPR and IMAGPART_EXPR.
+	(gimplify_component_ref): Remove.
+	(gimplify_call_expr): Handle non-gimplifiable builtins and walking
+	the argument list here.
+	(gimplify_tree_list): Remove.
+	(gimplify_addr_expr): Use fb_either.
+	* tree-simple.h: Adjust.
+	* tree-alias-common.c (find_func_aliases): Update use of predicates.
+
 2003-08-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa.c (tree_ssa_useless_type_conversion): Check also the

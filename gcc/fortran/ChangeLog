@@ -1,3 +1,7 @@
+2003-08-22  Jason Merrill  <jason@redhat.com>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Update use of predicates.
+
 2003-08-22  Andreas Jaeger  <aj@suse.de>
 
 	* Make-lang.in (f95.install-common): Add DESTDIR support.
