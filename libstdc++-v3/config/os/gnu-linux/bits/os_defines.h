@@ -73,4 +73,86 @@ typedef __loff_t __off64_t;
 #define __glibcpp_long_double_bits 64
 #endif
 
+/* RHEL3 hack.  */
+#if defined(__i386__) || defined(__x86_64__) || defined(__ia64__) \
+    || defined(__s390__) || defined(__s390x__) || defined(__powerpc__) \
+    || defined(__powerpc64__)
+#define __glibcpp_float_has_quiet_NaN true
+#define __glibcpp_float_has_signaling_NaN true
+#define __glibcpp_float_has_denorm denorm_present
+#define __glibcpp_float_has_infinity true
+#define __glibcpp_float_round_style round_to_nearest
+#define __glibcpp_float_is_iec559 true
+#define __glibcpp_double_has_quiet_NaN true
+#define __glibcpp_double_has_signaling_NaN true
+#define __glibcpp_double_has_denorm denorm_present
+#define __glibcpp_double_has_infinity true
+#define __glibcpp_double_round_style round_to_nearest
+#define __glibcpp_double_is_iec559 true
+#define __glibcpp_long_double_has_quiet_NaN true
+#define __glibcpp_long_double_has_signaling_NaN true
+#define __glibcpp_long_double_has_denorm denorm_present
+#define __glibcpp_long_double_has_infinity true
+#define __glibcpp_long_double_round_style round_to_nearest
+#define __glibcpp_long_double_is_iec559 true
+
+#define __glibcpp_f32_round_error 0.5F
+#define __glibcpp_f64_round_error 0.5
+#define __glibcpp_f80_round_error 0.5L
+#define __glibcpp_f96_round_error 0.5L
+#define __glibcpp_f128_round_error 0.5L
+
+#define __glibcpp_float_infinity 1.0e+40F
+#define __glibcpp_double_infinity 1.0e+320
+#define __glibcpp_long_double_infinity 1.0e+5000L
+
+#define __glibcpp_float_denorm_min 1.40129846e-45F
+#define __glibcpp_double_denorm_min 4.9406564584124654e-324
+
+#define __glibcpp_float_quiet_NaN \
+  (__extension__ ((union { unsigned int __l; float __d; })		\
+		  { __l: 0x7fc00000 }).__d)
+#define __glibcpp_double_quiet_NaN \
+  (__extension__ ((union { unsigned long long __l; double __d; })	\
+		  { __l: 0x7ff8000000000000ULL }).__d)
+
+#define __glibcpp_float_signaling_NaN \
+  (__extension__ ({ union { unsigned int __l; float __d; } __u;		\
+		    __u.__l = 0x7fa00000;				\
+		    __asm ("" : : "r" (&__u) : "memory"); __u.__d; }))
+#define __glibcpp_double_signaling_NaN \
+  (__extension__ ({ union { unsigned long long __l; double __d; } __u;	\
+		    __u.__l = 0x7ff4000000000000ULL;			\
+		    __asm ("" : : "r" (&__u) : "memory"); __u.__d; }))
+
+#if __glibcpp_long_double_bits == 80
+
+#define __glibcpp_long_double_denorm_min 3.64519953188247460253e-4951L
+#define __glibcpp_long_double_quiet_NaN \
+  (__extension__ ({ union { unsigned long long __l[2];			\
+			    long double __d; } __u;			\
+		    __u.__l[0] = 0xcULL << 60; __u.__l[1] = 0x7fff;	\
+		    __u.__d; }))
+#define __glibcpp_long_double_signaling_NaN \
+  (__extension__ ({ union { unsigned long long __l[2];			\
+			    long double __d; } __u;			\
+		    __u.__l[0] = 0xaULL << 60; __u.__l[1] = 0x7fff;	\
+		    __asm ("" : : "r" (&__u) : "memory"); __u.__d; }))
+
+#else
+
+#define __glibcpp_long_double_denorm_min 4.9406564584124654e-324L
+#define __glibcpp_long_double_quiet_NaN \
+  (__extension__ ((union { unsigned long long __l; long double __d; })	\
+		  { __l: 0x7ff8000000000000ULL }).__d)
+#define __glibcpp_long_double_signaling_NaN \
+  (__extension__ ({ union { unsigned long long __l;			\
+			    long double __d; } __u;			\
+		     __u.__l = 0x7ff4000000000000ULL;			\
+		     __asm ("" : : "r" (&__u) : "memory"); __u.__d; }))
+
+#endif
+
+#endif
+
 #endif

@@ -1,3 +1,12 @@
+2004-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/os/gnu-linux/bits/os_defines.h: Define
+	__glibcpp_{float,double,long_double}* macros.
+	* config/cpu/x86-64/bits/cpu_limits.h (__glibcpp_long_bits): Only
+	define to 64 if __x86_64__.
+	* include/std/std_limits.h (__glibcpp_f*_round_error): Only define
+	if not yet defined.
+
 2004-07-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* acinclude.m4 (glibcxx_shared_libgcc): Correct
