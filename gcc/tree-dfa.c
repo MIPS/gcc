@@ -95,7 +95,7 @@ tree_find_varrefs ()
     }
 
   /* Debugging dumps.  */
-  if (dump_file && (dump_flags & TDF_VARREF))
+  if (dump_file && (dump_flags & TDF_REFS))
     {
       tree sym_n;
 

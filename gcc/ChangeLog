@@ -1,3 +1,8 @@
+2001-09-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (tree_find_varrefs): Use TDF_REFS instead of TDF_VARREF.
+	* tree-flow.h (TDF_VARREF): Remove.
+
 2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-common.h (tree_dump_index): Add more comments.

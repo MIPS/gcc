@@ -223,9 +223,6 @@ extern tree ref_symbols_list;
 
 extern int warn_notreached;
 
-/* Bitmasks for -fdump-tree-...  */
-#define TDF_VARREF 0x0001		/* Dump variable references.  */
-
 /* }}} */
 
 
