@@ -1,5 +1,13 @@
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
+	Radar 4025991
+        * tree-vectorizer.c (vect_is_simple_cond): Now second parameter is
+        loop_vec_info instead of loop *.
+        (vectorizable_select): Supply loop_vec_info to vect_is_simple_use.
+        (vect_build_dist_vector): Use loop nest's depth.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
 	* c-opts.c (c_common_handle_option): Remove QA_DISABLE_WERROR.
 
 2005-03-06  Devang Patel  <dpatel@apple.com>

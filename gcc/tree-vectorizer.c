@@ -222,9 +222,7 @@ static bool vect_is_simple_use (tree , loop_vec_info, tree *);
 /* APPLE LOCAL begin AV cond expr. -dpatel */
 /* Patch is waiting FSF review since mid Sep,  2004.
    New function, vect_is_simple_cond.  */
-#if 0 /* MERGE FIXME */
-static bool vect_is_simple_cond (tree, struct loop *);
-#endif
+static bool vect_is_simple_cond (tree, loop_vec_info);
 /* APPLE LOCAL end AV cond expr. -dpatel */
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
@@ -2833,12 +2831,6 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 static bool
 vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 {
-  (void) stmt;
-  (void) bsi;
-  (void) vec_stmt;
-  return false;  /* MERGE FIXME see above  */
-  
-#if 0
   tree scalar_dest = NULL_TREE;
   tree vec_dest = NULL_TREE;
   tree op = NULL_TREE;
@@ -2848,7 +2840,7 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vec_cond_lhs, vec_cond_rhs, vec_then_clause, vec_else_clause;
   tree vec_compare, vec_cond_expr;
   tree new_temp;
-  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum machine_mode vec_mode;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
@@ -2863,13 +2855,13 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   then_clause = TREE_OPERAND (op, 1);
   else_clause = TREE_OPERAND (op, 2);
 
-  if (!vect_is_simple_cond (cond_expr, loop))
+  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
     return false;
 
   if (TREE_CODE (then_clause) == SSA_NAME)
     {
       tree then_def_stmt = SSA_NAME_DEF_STMT (then_clause);
-      if (!vect_is_simple_use (then_clause, loop, &then_def_stmt))
+      if (!vect_is_simple_use (then_clause, loop_vinfo, &then_def_stmt))
 	return false;
     }
   else if (TREE_CODE (then_clause) != INTEGER_CST 
@@ -2879,7 +2871,7 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (TREE_CODE (else_clause) == SSA_NAME)
     {
       tree else_def_stmt = SSA_NAME_DEF_STMT (else_clause);
-      if (!vect_is_simple_use (else_clause, loop, &else_def_stmt))
+      if (!vect_is_simple_use (else_clause, loop_vinfo, &else_def_stmt))
 	return false;
     }
   else if (TREE_CODE (else_clause) != INTEGER_CST 
@@ -2919,7 +2911,6 @@ vectorizable_select (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
   
   return true;
-#endif
 }
 /* APPLE LOCAL end AV cond expr. -dpatel */
 
@@ -3548,8 +3539,6 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 }
 
 /* APPLE LOCAL begin AV cond expr. -dpatel */
-#if 0
-/* MERGE FIXME */
 /* Patch is waiting FSF review since mid Sep, 2004.  */
 /* FUnction vect_is_simple_cond.
   
@@ -3561,7 +3550,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
    condition operands are supportable using vec_is_simple_use.  */
 
 static bool
-vect_is_simple_cond (tree cond, struct loop *loop)
+vect_is_simple_cond (tree cond, loop_vec_info loop_vinfo)
 {
   tree lhs, rhs;
 
@@ -3574,7 +3563,7 @@ vect_is_simple_cond (tree cond, struct loop *loop)
   if (TREE_CODE (lhs) == SSA_NAME)
     {
       tree lhs_def_stmt = SSA_NAME_DEF_STMT (lhs);
-      if (!vect_is_simple_use (lhs, loop, &lhs_def_stmt))
+      if (!vect_is_simple_use (lhs, loop_vinfo, &lhs_def_stmt))
 	return false;
     }
   else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST)
@@ -3583,7 +3572,7 @@ vect_is_simple_cond (tree cond, struct loop *loop)
   if (TREE_CODE (rhs) == SSA_NAME)
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
-      if (!vect_is_simple_use (rhs, loop, &rhs_def_stmt))
+      if (!vect_is_simple_use (rhs, loop_vinfo, &rhs_def_stmt))
 	return false;
     }
   else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST)
@@ -3591,7 +3580,6 @@ vect_is_simple_cond (tree cond, struct loop *loop)
 
   return true;
 }
-#endif
 /* APPLE LOCAL end AV cond expr. -dpatel */
 
 /* Function vect_is_simple_use.
@@ -4094,7 +4082,7 @@ vect_build_dist_vector (struct loop *loop,
 
   /* Compute distance vector.  */
   compute_subscript_distance (ddr);
-  build_classic_dist_vector (ddr, loops_num, loop->num);
+  build_classic_dist_vector (ddr, loops_num, loop_nest->depth);
 
   return loop_depth - 1;
 }
