@@ -119,14 +119,6 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
-/* Return associated dependence_node with the statement.  */
-static inline dependence_node
-dg_node_for_stmt (tree t)
-{
-  stmt_ann_t ann = stmt_ann (t);
-  return ann ? ann->dg_node : NULL;
-}
-
 static inline varray_type
 may_aliases (tree var)
 {

@@ -120,10 +120,10 @@ struct data_dependence_relation GTY(())
        relation between A and B, and the description of this relation
        is given in the SUBSCRIPTS array,
      
-     - when "ARE_DEPENDENT == CHREC_BOT", there is no dependence and
+     - when "ARE_DEPENDENT == chrec_known", there is no dependence and
        SUBSCRIPTS is empty,
      
-     - when "ARE_DEPENDENT == CHREC_TOP", there may be a dependence,
+     - when "ARE_DEPENDENT == chrec_dont_know", there may be a dependence,
        but the analyzer cannot be more specific.  */
   tree are_dependent;
   
@@ -144,6 +144,9 @@ struct data_dependence_relation GTY(())
 
 
 
+struct data_dependence_relation *initialize_data_dependence_relation 
+(struct data_reference *, struct data_reference *);
+void compute_affine_dependence (struct data_dependence_relation *);
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *, 

@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
+#include "tree-data-ref.h"
 #include "tree-vectorizer.h"
 
 /* The loop tree currently optimized.  */
@@ -330,16 +331,8 @@ tree_vectorize (void)
   if (!current_loops)
     return;
 
-  timevar_push (TV_DEP_GRAPH);
-  dg_create_graph (current_loops);
-  timevar_pop (TV_DEP_GRAPH);
-		 
   bitmap_clear (vars_to_rename);
   vectorize_loops (current_loops);
-
-  timevar_push (TV_DEP_GRAPH);
-  dg_delete_graph ();
-  timevar_pop (TV_DEP_GRAPH);
 }
 
 static bool
@@ -405,15 +398,7 @@ tree_linear_transform (void)
   if (!current_loops)
     return;
 
-  timevar_push (TV_DEP_GRAPH);
-  dg_create_graph (current_loops);
-  timevar_pop (TV_DEP_GRAPH);
-
   linear_transform_loops (current_loops);
-
-  timevar_push (TV_DEP_GRAPH);
-  dg_delete_graph ();
-  timevar_pop (TV_DEP_GRAPH);
 }
 
 static bool

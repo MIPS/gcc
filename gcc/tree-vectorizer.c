@@ -158,7 +158,6 @@ static loop_vec_info vect_analyze_loop_form (struct loop *);
 static bool vect_analyze_data_refs (loop_vec_info);
 static bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
 static bool vect_analyze_scalar_cycles (loop_vec_info);
-static bool vect_analyze_data_ref_dependences (loop_vec_info);
 static bool vect_analyze_data_ref_accesses (loop_vec_info);
 static bool vect_analyze_data_refs_alignment (loop_vec_info);
 static void vect_compute_data_refs_alignment (loop_vec_info);
@@ -189,8 +188,6 @@ static tree vect_get_loop_niters (struct loop *, int *);
 static void vect_compute_data_ref_alignment 
   (struct data_reference *, loop_vec_info);
 static bool vect_analyze_data_ref_access (struct data_reference *);
-static bool vect_analyze_data_ref_dependence
-  (struct data_reference *, struct data_reference *);
 static int vect_get_array_first_index (tree);
 static bool vect_force_dr_alignment_p (struct data_reference *);
 static bool vect_analyze_loop_with_symbolic_num_of_iters 
@@ -2819,7 +2816,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
 static bool
 vect_analyze_data_ref_dependence (struct data_reference *dra,
-				  struct data_reference *drb)
+				  struct data_reference *drb, 
+				  struct loop *loop)
 {
   tree refa = DR_REF (dra);
   tree refb = DR_REF (drb);
@@ -2827,7 +2825,6 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   tree ptrb = TREE_OPERAND (refb, 0);
   tree ta = TREE_TYPE (ptra);
   tree tb = TREE_TYPE (ptrb);
-  tree stmt = DR_STMT (dra);
 
   /* Both refs are arrays:  */
 
@@ -2836,20 +2833,18 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
     {
       if (!array_base_name_differ_p (dra, drb))
         {
-	  int level = (loop_containing_stmt (stmt))->level;
-	  int loop_nest = level - 1;
+	  /* FORNOW: use most trivial and conservative test.  */
+	  struct data_dependence_relation *ddr = 
+	    initialize_data_dependence_relation (dra, drb);
+	  compute_affine_dependence (ddr);
 
-          /* FORNOW: use most trivial and conservative test.  */
-          enum data_dependence_direction ddd = ddg_direction_between_stmts 
-		(DR_STMT (dra), DR_STMT (drb), loop_nest);
-
-          if (ddd == dir_independent)
-            return false;
-
+	  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+	    return false;
+	  
           if (dump_file && (dump_flags & TDF_DETAILS))
             fprintf (dump_file,
                 "vect_analyze_data_ref_dependence: same base\n");
-	  vect_debug_stats (loop_containing_stmt (stmt), 
+	  vect_debug_stats (loop, 
 		"not vectorized: can't prove independence of array-refs.");
           return true;
         }
@@ -2877,7 +2872,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 	    {
               if (dump_file && (dump_flags & TDF_DETAILS))
 	        fprintf (dump_file,"non restricted pointers. may alias.\n"); 
-	      vect_debug_stats (loop_containing_stmt (stmt), 
+	      vect_debug_stats (loop, 
 		"not vectorized: can't prove independence of pointer-refs.");
 	      return true;
             }
@@ -2922,6 +2917,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
   unsigned int i, j;
   varray_type loop_write_refs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
   varray_type loop_read_refs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   /* examine store-store (output) dependences */
 
@@ -2936,7 +2932,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 	    VARRAY_GENERIC_PTR (loop_write_refs, i);
 	  struct data_reference *drb =
 	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb))
+	  if (vect_analyze_data_ref_dependence (dra, drb, loop))
 	    return false;
 	}
     }
@@ -2953,7 +2949,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 	  struct data_reference *dra = VARRAY_GENERIC_PTR (loop_read_refs, i);
 	  struct data_reference *drb =
 	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb))
+	  if (vect_analyze_data_ref_dependence (dra, drb, loop))
 	    return false;
 	}
     }

@@ -1,3 +1,40 @@
+2004-07-08  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (OBJS-common): Remove tree-dg.o.
+	(tree-dg.o): Removed.
+	(GTFILES): Remove tree-dg.h.
+	* gengtype.c (open_base_files): Remove tree-dg.h.
+	* tree-data-ref.c (subscript_dependence_tester): Don't define.
+	(dump_data_dependence_relation): Print data references only
+	when they are not NULL.
+	(analyze_array_top): Removed.
+	(initialize_data_dependence_relation): Is extern now.
+	When the data references are NULL the relation is not known.
+	(compute_affine_dependence): Is extern now.
+	(find_data_references_in_loop): Returns chrec_dont_know when
+	failing to analyze a difficult case.  
+	(compute_data_dependences_for_loop): Terminate earlier when 
+	find_data_references_in_loop fails.
+	* tree-data-ref.h (data_dependence_relation): Update comments.
+	(initialize_data_dependence_relation, compute_affine_dependence): 
+	Declared extern.
+	* tree-dg.c, tree-dg.h: Removed.
+	* tree-flow-inline.h (dg_node_for_stmt): Removed.
+	* tree-flow.h: Don't include tree-dg.h.
+	(stmt_ann_d): Remove dependence_node field.
+	* tree-ssa-loop.c: Include tree-data-ref.h.
+	(tree_vectorize, tree_linear_transform): Don't construct the dg_graph.
+	* tree-vectorizer.c: Remove some declarations of static functions.
+	(vect_analyze_data_ref_dependence): Extra parameter for the vectorized 
+	loop.  Don't rely on the information provided by the data
+	reference structure.  Compute directly the relation between
+	the data references instead of querying this information in
+	the dg_graph.
+	(vect_analyze_data_ref_dependences): Pass to
+	vect_analyze_data_ref_dependence the information about the
+	vectorized loop.
+	* varray.h (varray_data_tag): Remove dependence_node_def.
+
 2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (cand_value_at): Handle types correctly.

@@ -134,8 +134,6 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_TE")))	te[1];
   struct edge_def        *GTY ((length ("%0.num_elements"),
 	                        tag ("VARRAY_DATA_EDGE")))	e[1];
-  struct dependence_node_def *GTY ((length ("%0.num_elements"),
-				tag ("VARRAY_DATA_DG")))	dg[1];
   tree                   *GTY ((length ("%0.num_elements"), skip (""),
 	                        tag ("VARRAY_DATA_TREE_PTR")))	tp[1];
 } varray_data;

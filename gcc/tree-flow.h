@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
-#include "tree-dg.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -245,9 +244,6 @@ struct stmt_ann_d GTY(())
 
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
-
-  /* Node representing this stmt in dependence graph.  */
-  dependence_node GTY ((skip (""))) dg_node;
 
   /* Statement operands.  */
   struct def_optype_d * GTY (()) def_ops;

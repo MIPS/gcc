@@ -91,8 +91,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "lambda.h"
 
-static void subscript_dependence_tester (struct data_dependence_relation *);
-
 static unsigned int data_ref_id = 0;
 
 
@@ -311,7 +309,10 @@ dump_data_dependence_relation (FILE *outf,
   dra = DDR_A (ddr);
   drb = DDR_B (ddr);
   
-  fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));  
+  if (dra && drb)
+    fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));
+  else
+    fprintf (outf, "(Data Dep:");
 
   if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (ddr)))
     fprintf (outf, "    (don't know)\n");
@@ -524,35 +525,6 @@ init_data_ref (tree stmt,
   return res;
 }
 
-
-/* For a data reference REF contained in the statemet STMT, initialize
-   a DATA_REFERENCE structure, and return it.  Set the IS_READ flag to
-   true when REF is in the right hand side of an assignment.  */
-
-static struct data_reference *
-analyze_array_top (tree stmt)
-{
-  struct data_reference *res;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(analyze_array_top \n");
-
-  res = ggc_alloc (sizeof (struct data_reference));
-
-  DR_ID (res) = data_ref_id++;
-  DR_STMT (res) = stmt;
-  DR_REF (res) = NULL_TREE;
-  DR_BASE_NAME (res) = NULL_TREE;
-
-  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 1, "access_fns");
-  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), chrec_dont_know);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-
-  return res;
-}
-
 
 
 /* When there exists a dependence relation, determine its distance
@@ -587,7 +559,7 @@ compute_distance_vector (struct data_dependence_relation *ddr)
 
 /* Initialize a ddr.  */
 
-static struct data_dependence_relation *
+struct data_dependence_relation *
 initialize_data_dependence_relation (struct data_reference *a, 
 				     struct data_reference *b)
 {
@@ -597,7 +569,8 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_A (res) = a;
   DDR_B (res) = b;
 
-  if (DR_BASE_NAME (a) == NULL_TREE
+  if (a == NULL || b == NULL 
+      || DR_BASE_NAME (a) == NULL_TREE
       || DR_BASE_NAME (b) == NULL_TREE)
     DDR_ARE_DEPENDENT (res) = chrec_dont_know;    
 
@@ -1620,7 +1593,7 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
    relation the first time we detect a CHREC_KNOWN element for a given
    subscript.  */
 
-static void
+void
 compute_affine_dependence (struct data_dependence_relation *ddr)
 {
   struct data_reference *dra = DDR_A (ddr);
@@ -1690,14 +1663,15 @@ compute_rw_wr_ww_dependences (varray_type datarefs,
 }
 
 /* Search the data references in LOOP, and record the information into
-   DATAREFS.
+   DATAREFS.  Returns chrec_dont_know when failing to analyze a
+   difficult case, returns NULL_TREE otherwise.
    
    FIXME: This is a "dumb" walker over all the trees in the loop body.
    Find another technique that avoids this costly walk.  This is
    acceptable for the moment, since this function is used only for
    debugging purposes.  */
 
-static void 
+static tree 
 find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 {
   basic_block bb;
@@ -1734,10 +1708,11 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 					       true));
 
   	  else
-	    VARRAY_PUSH_GENERIC_PTR (*datarefs, 
-				     analyze_array_top (stmt));
+	    return chrec_dont_know;
 	}
     }
+
+  return NULL_TREE;
 }
 
 
@@ -1757,7 +1732,21 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 {
   unsigned int i;
 
-  find_data_references_in_loop (loop, datarefs);
+  /* If one of the data references is not computable, give up without
+     spending time to compute other dependences.  */
+  if (find_data_references_in_loop (loop, datarefs) == chrec_dont_know)
+    {
+      struct data_dependence_relation *ddr;
+
+      /* Insert a single relation into dependence_relations:
+	 chrec_dont_know.  */
+      ddr = initialize_data_dependence_relation (NULL, NULL);
+      VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
+      build_classic_dist_vector (ddr, classic_dist, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, classic_dir, nb_loops, loop->num);
+      return;
+    }
+
   compute_rw_wr_ww_dependences (*datarefs, dependence_relations);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (*dependence_relations); i++)
