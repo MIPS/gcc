@@ -616,3 +616,45 @@ is_upward_exposed (sym, bb_set, exclude_init_decl)
 
   return 0;
 }
+
+
+/* Remove the PHI alternative for the predecessor block BLOCK from
+   PHI_NODE. 
+
+   This routine assumes ordering of alternatives in the vector is
+   not important and implements removal by swapping the last alternative
+   with the alternative we want to delete, then shrinking the vector.  */
+
+void
+tree_ssa_remove_phi_alternative (phi_node, block)
+     varref phi_node;
+     basic_block block;
+{
+  varray_type phi_vec = VARDEF_PHI_CHAIN (phi_node);
+  unsigned int num_elem = VARRAY_ACTIVE_SIZE (phi_vec);
+  unsigned int i;
+
+  for (i = 0; i < num_elem; i++)
+    {
+      varref ref;
+
+      ref = (varref)VARRAY_GENERIC_PTR (phi_vec, i);
+
+      if (VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i) == block)
+	{
+	  /* If we are not at the last element, switch the last element
+	     with the element we want to delete.  */
+	  if (i != num_elem - 1)
+	    {
+	      VARRAY_GENERIC_PTR (phi_vec, i)
+		= VARRAY_GENERIC_PTR (phi_vec, num_elem - 1);
+	      VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i)
+		= VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), num_elem - 1);
+	    }
+
+	  /* Shrink the vector.  */
+	  VARRAY_ACTIVE_SIZE (phi_vec) -= 1;
+	}
+    }
+}
+

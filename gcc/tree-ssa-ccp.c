@@ -94,17 +94,11 @@ static value *values;
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
 
-/* A bitmap for all executable edges in the CFG.  */
-static sbitmap executable_edges;
-
 /* Array of control flow edges on the worklist.  */
-static edge *edge_info;
+static varray_type edge_info;
 
 /* We need an control flow edge list to be able to get indexes easily.  */
 static struct edge_list *edges;
-
-/* Current control flow edge we are operating on, from the worklist.  */
-static edge flow_edges;
 
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
@@ -127,7 +121,7 @@ static void def_to_varying             PARAMS ((varref));
 static void set_lattice_value          PARAMS ((varref, value));
 static void simulate_block             PARAMS ((basic_block));
 static void simulate_def_use_chains    PARAMS ((varref));
-static void optimize_unexecutable_edges PARAMS ((struct edge_list *, sbitmap));
+static void optimize_unexecutable_edges PARAMS ((struct edge_list *));
 static void ssa_ccp_substitute_constants PARAMS ((void));
 static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
 static value evaluate_expr             PARAMS ((tree));
@@ -161,13 +155,15 @@ tree_ssa_ccp (fndecl)
   initialize ();
 
   /* Iterate until the worklists are empty.  */
-  while (flow_edges != NULL || ssa_edges->last != NULL)
+  while (VARRAY_ACTIVE_SIZE (edge_info) > 0 || ssa_edges->last != NULL)
     {
-      if (flow_edges)
+      if (VARRAY_ACTIVE_SIZE (edge_info) > 0)
 	{
 	  /* Pull the next block to simulate off the worklist.  */
-	  basic_block dest_block = flow_edges->dest;
-	  flow_edges = edge_info[EIE (flow_edges->src, flow_edges->dest)];
+	  basic_block dest_block;
+
+	  dest_block = ((edge)VARRAY_TOP_GENERIC_PTR (edge_info))->dest;
+	  VARRAY_POP (edge_info);
 	  simulate_block (dest_block);
 	}
 
@@ -184,9 +180,11 @@ tree_ssa_ccp (fndecl)
   /* Now perform substitutions based on the known constant values.  */
   ssa_ccp_substitute_constants ();
 
+#if 0
   /* Remove unexecutable edges from the CFG and make appropriate
      adjustments to PHI nodes.  */
-  optimize_unexecutable_edges (edges, executable_edges);
+  optimize_unexecutable_edges (edges);
+#endif
 
   /* Now remove all unreachable insns and update the DF information.
      as appropriate.  */
@@ -263,23 +261,19 @@ simulate_block (block)
 	} 
 
       /* If we haven't looked at the next block, and it has a
-	  single successor, add it onto the worklist.  This is because
-	  if we only have one successor, we know it gets executed,
-	  so we don't have to wait for cprop to tell us. */
+	 single successor, add it onto the worklist.  This is because
+	 if we only have one successor, we know it gets executed,
+	 so we don't have to wait for cprop to tell us. */
       if (succ_edge != NULL
 	  && succ_edge->succ_next == NULL
-	  && !TEST_BIT (executable_edges,
-			EIE (succ_edge->src, succ_edge->dest)))
+	  && !(succ_edge->flags & EDGE_EXECUTABLE))
 	{
-	  int eix = EIE (succ_edge->src, succ_edge->dest);
-
-	  SET_BIT (executable_edges, eix);
-	  edge_info[eix] = flow_edges;
-	  flow_edges = succ_edge;
+	  succ_edge->flags |= EDGE_EXECUTABLE;
+	  VARRAY_PUSH_GENERIC_PTR (edge_info, succ_edge);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Adding edge %d (%d -> %d) to worklist\n\n",
-		      eix, flow_edges->src->index, flow_edges->dest->index);
+	    fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n",
+		      succ_edge->src->index, succ_edge->dest->index);
 	}
     }
 }
@@ -323,10 +317,40 @@ simulate_def_use_chains (def)
    yet as the DF analyzer can not deal with that yet.  */
 
 static void
-optimize_unexecutable_edges (edges, executable_edges)
+optimize_unexecutable_edges (edges)
      struct edge_list *edges ATTRIBUTE_UNUSED;
-     sbitmap executable_edges ATTRIBUTE_UNUSED;
 {
+  int i;
+
+  for (i = 0; i < NUM_EDGES (edges); i++)
+    {
+      edge edge = INDEX_EDGE (edges, i);
+
+      if (! (edge->flags & EDGE_EXECUTABLE))
+	{
+	  if (edge->flags & EDGE_ABNORMAL)
+	    continue;
+
+	  /* We found an edge that is not executable.  First simplify
+	     the PHI nodes in the target block.  This may make 
+	     simplifications possible in other optimizers.  */
+	  if (edge->dest != EXIT_BLOCK_PTR)
+	    {
+	      ref_list blockrefs = BB_REFS (edge->dest);
+	      varref ref;
+	      struct ref_list_node *tmp;
+
+	      FOR_EACH_REF (ref, tmp, blockrefs)
+		{
+		  if (VARREF_TYPE (ref) == VARPHI)
+		    tree_ssa_remove_phi_alternative (ref, edge->src);
+		}
+	    }
+
+	  /* Since the edge was not executable, remove it from the CFG.  */
+	  remove_edge (edge);
+	}
+    }
 }
  
 
@@ -454,10 +478,13 @@ visit_phi_node (phi_node)
     {
       varref ref;
       basic_block phiargbb, block;
+      edge e;
 
       ref = (varref) VARRAY_GENERIC_PTR (phi_vec, i);
       phiargbb = VARRAY_BB (VARDEF_PHI_CHAIN_BB (phi_node), i);
       block = VARREF_BB (phi_node);
+
+      e = find_edge (phiargbb, block);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -467,13 +494,13 @@ visit_phi_node (phi_node)
 	           phiargbb->index);
 	  fprintf (dump_file, "    Edge (%d -> %d) is %sexecutable\n",
 	           phiargbb->index, block->index,
-		   (TEST_BIT (executable_edges, EIE (phiargbb, block)))
+		   (e->flags & EDGE_EXECUTABLE)
 		   ? ""
 		   : "not ");
 	}
 
       /* Compute the meet operator for the current PHI argument.  */
-      if (TEST_BIT (executable_edges, EIE (phiargbb, block)))
+      if (e->flags & EDGE_EXECUTABLE)
 	{
 	  latticevalue current_parm_lattice_val;
 	  unsigned int current_parm = VARREF_ID (ref);
@@ -551,7 +578,7 @@ visit_phi_node (phi_node)
 
    - If the expression controls a conditional branch:
    	. If the expression evaluates to non-constant, add all edges to
-	  flow_edges.
+	  worklist.
 	. If the expression is constant, add the edge executed as the
 	  result of the branch.  */
 
@@ -710,7 +737,7 @@ visit_condexpr_for (ref)
      have not already been marked).   */
   for (curredge = block->succ; curredge; curredge = curredge->succ_next)
     {
-      int index = EIE (curredge->src, curredge->dest);
+      int index;
 
       /* If this is an edge for TRUE values but the predicate is false,
 	 then skip it.  */
@@ -724,16 +751,15 @@ visit_condexpr_for (ref)
 	continue;
 
       /* If the edge had already been added, skip it.  */
-      if (TEST_BIT (executable_edges, index))
+      if (curredge->flags & EDGE_EXECUTABLE)
 	continue;
 
-      SET_BIT (executable_edges, index);
-      edge_info[index] = flow_edges;
-      flow_edges = curredge;
+      curredge->flags |= EDGE_EXECUTABLE;
+      VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Adding edge %d (%d -> %d) to worklist\n\n",
-	    index, flow_edges->src->index, flow_edges->dest->index);
+	    index, curredge->src->index, curredge->dest->index);
     }
 }
 
@@ -946,20 +972,18 @@ initialize ()
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  executable_edges = sbitmap_alloc (NUM_EDGES (edges));
-  sbitmap_zero (executable_edges);
+  for (i = 0; i < NUM_EDGES (edges); i++)
+    edges->index_to_edge[i]->flags &= ~EDGE_EXECUTABLE;
 
-  edge_info = (edge *) xmalloc (NUM_EDGES (edges) * sizeof (edge));
-  flow_edges = ENTRY_BLOCK_PTR->succ;
+  VARRAY_GENERIC_PTR_INIT (edge_info, NUM_EDGES (edges) / 2, "edge_info");
 
   /* Add the successors of the entry block to the edge worklist.  That
      is enough of a seed to get SSA-CCP started.  */
   for (curredge = ENTRY_BLOCK_PTR->succ; curredge;
        curredge = curredge->succ_next)
     {
-      int index = EIE (curredge->src, curredge->dest);
-      SET_BIT (executable_edges, index);
-      edge_info[index] = curredge->succ_next;
+      curredge->flags |= EDGE_EXECUTABLE;
+      VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
     }
 }
 
@@ -972,17 +996,8 @@ finalize ()
   free (values);
   values = NULL;
 
-  free (edge_info);
-  edge_info = NULL;
-
-  sbitmap_free (executable_blocks);
-  executable_blocks = NULL;
-
   free_edge_list (edges);
   edges = NULL;
-
-  sbitmap_free (executable_edges);
-  executable_edges = NULL;
 }
 
 /* Set the lattice value for the variable defined by REF to UNDEFINED.  */

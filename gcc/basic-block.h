@@ -149,6 +149,8 @@ typedef struct edge_def {
 					   predicate is non zero.  */
 #define EDGE_FALSE_VALUE	256	/* Edge taken when controlling
 					   predicate is zero.  */
+#define EDGE_EXECUTABLE		512	/* Edge is executable.  Only
+					   valid during SSA-CCP.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -629,6 +631,7 @@ void print_edge_list			PARAMS ((FILE *, struct edge_list *));
 void verify_edge_list			PARAMS ((FILE *, struct edge_list *));
 int find_edge_index			PARAMS ((struct edge_list *,
 						 basic_block, basic_block));
+edge find_edge				PARAMS ((basic_block, basic_block));
 
 
 enum update_life_extent

@@ -99,11 +99,8 @@ static value *values;
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
 
-/* A bitmap for all executable edges in the CFG.  */
-static sbitmap executable_edges;
-
 /* Array of edges on the work list.  */
-static edge *edge_info;
+static varray_type edge_info;
 
 /* We need an edge list to be able to get indexes easily.  */
 static struct edge_list *edges;
@@ -111,16 +108,12 @@ static struct edge_list *edges;
 /* For building/following use-def and def-use chains.  */
 static struct df *df_analyzer;
 
-/* Current edge we are operating on, from the worklist */
-static edge flow_edges;
-
 /* Bitmap of SSA edges which will need reexamination as their definition
    has changed.  */
 static sbitmap ssa_edges;
 
 /* Simple macros to simplify code */
 #define SSA_NAME(x) REGNO (SET_DEST (x))
-#define EIE(x,y) EDGE_INDEX (edges, x, y)
 
 static void visit_phi_node             PARAMS ((rtx, basic_block));
 static void visit_expression           PARAMS ((rtx, basic_block));
@@ -129,7 +122,7 @@ static void defs_to_varying            PARAMS ((rtx));
 static void examine_flow_edges         PARAMS ((void));
 static int mark_references             PARAMS ((rtx *, void *));
 static void follow_def_use_chains      PARAMS ((void));
-static void optimize_unexecutable_edges PARAMS ((struct edge_list *, sbitmap));
+static void optimize_unexecutable_edges PARAMS ((struct edge_list *));
 static void ssa_ccp_substitute_constants PARAMS ((void));
 static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
 static void ssa_fast_dce PARAMS ((struct df *));
@@ -151,9 +144,10 @@ visit_phi_node (phi_node, block)
 
   for (i = 0; i < num_elem; i += 2)
     {
-      if (TEST_BIT (executable_edges,
-		    EIE (BASIC_BLOCK (INTVAL (RTVEC_ELT (phi_vec, i + 1))),
-			 block)))
+      edge e;
+
+      e = find_edge (BASIC_BLOCK (INTVAL (RTVEC_ELT (phi_vec, i + 1))), block);
+      if (e->flags & EDGE_EXECUTABLE)
 	{
 	  unsigned int current_parm
 	    = REGNO (RTVEC_ELT (phi_vec, i));
@@ -258,14 +252,11 @@ visit_expression (insn, block)
       for (curredge = block->succ; curredge;
 	   curredge = curredge->succ_next)
 	{
-	  int index = EIE (curredge->src, curredge->dest);
-
-	  if (TEST_BIT (executable_edges, index))
+	  if (curredge->flags & EDGE_EXECUTABLE)
 	    continue;
 
-	  SET_BIT (executable_edges, index);
-	  edge_info[index] = flow_edges;
-	  flow_edges = curredge;
+	  curredge->flags |= EDGE_EXECUTABLE;
+	  VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
 	}
     }
 
@@ -341,14 +332,11 @@ visit_expression (insn, block)
 	  for (curredge = block->succ; curredge;
 	       curredge = curredge->succ_next)
 	    {
-	      int index = EIE (curredge->src, curredge->dest);
-
-	      if (TEST_BIT (executable_edges, index))
+	      if (curredge->flags & EDGE_EXECUTABLE)
 		continue;
 
-	      SET_BIT (executable_edges, index);
-	      edge_info[index] = flow_edges;
-	      flow_edges = curredge;
+	      curredge->flags |= EDGE_EXECUTABLE;
+	      VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
 	    }
 	}
       else
@@ -381,14 +369,11 @@ visit_expression (insn, block)
 	      for (curredge = block->succ; curredge;
 	           curredge = curredge->succ_next)
 	        {
-	          int index = EIE (curredge->src, curredge->dest);
-
-	          if (TEST_BIT (executable_edges, index))
+	          if (curredge->flags & EDGE_EXECUTABLE)
 		    continue;
 
-	          SET_BIT (executable_edges, index);
-	          edge_info[index] = flow_edges;
-	          flow_edges = curredge;
+		  curredge->flags |= EDGE_EXECUTABLE;
+		  VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
 	        }
 	      return;
 	    }
@@ -417,9 +402,7 @@ visit_expression (insn, block)
 	  for (curredge = block->succ; curredge;
 	       curredge = curredge->succ_next)
 	    {
-	      int index = EIE (curredge->src, curredge->dest);
-
-	      if (TEST_BIT (executable_edges, index))
+	      if (curredge->flags & EDGE_EXECUTABLE)
 		continue;
 
 	      /* If we were unable to simplify the expression at this
@@ -438,9 +421,8 @@ visit_expression (insn, block)
 		  || (GET_CODE (x) == LABEL_REF
 		      && ! (curredge->flags & EDGE_FALLTHRU)))
 		{
-		  SET_BIT (executable_edges, index);
-		  edge_info[index] = flow_edges;
-		  flow_edges = curredge;
+		  curredge->flags |= EDGE_EXECUTABLE;
+		  VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
 		}
 	    }
 	}
@@ -625,14 +607,14 @@ visit_expression (insn, block)
 static void
 examine_flow_edges ()
 {
-  while (flow_edges != NULL)
+  while (VARRAY_ACTIVE_SIZE (edge_info) > 0)
     {
       basic_block succ_block;
       rtx curr_phi_node;
 
       /* Pull the next block to simulate off the worklist.  */
-      succ_block = flow_edges->dest;
-      flow_edges = edge_info[EIE (flow_edges->src, flow_edges->dest)];
+      succ_block = ((edge)VARRAY_TOP_GENERIC_PTR (edge_info))->dest;
+      VARRAY_POP (edge_info);
 
       /* There is nothing to do for the exit block.  */
       if (succ_block == EXIT_BLOCK_PTR)
@@ -675,13 +657,10 @@ examine_flow_edges ()
 	     so we don't have to wait for cprop to tell us.  */
 	  if (succ_edge != NULL
 	      && succ_edge->succ_next == NULL
-	      && !TEST_BIT (executable_edges,
-			    EIE (succ_edge->src, succ_edge->dest)))
+	      && !(succ_edge->flags & EDGE_EXECUTABLE))
 	    {
-	      SET_BIT (executable_edges,
-		       EIE (succ_edge->src, succ_edge->dest));
-	      edge_info[EIE (succ_edge->src, succ_edge->dest)] = flow_edges;
-	      flow_edges = succ_edge;
+	      succ_edge->flags |= EDGE_EXECUTABLE;
+	      VARRAY_PUSH_GENERIC_PTR (edge_info, succ_edge);
 	    }
 	}
     }
@@ -734,19 +713,18 @@ follow_def_use_chains ()
    the edge from the CFG.  Note we do not delete unreachable blocks
    yet as the DF analyzer can not deal with that yet.  */
 static void
-optimize_unexecutable_edges (edges, executable_edges)
+optimize_unexecutable_edges (edges)
      struct edge_list *edges;
-     sbitmap executable_edges;
 {
   int i;
   basic_block bb;
 
   for (i = 0; i < NUM_EDGES (edges); i++)
     {
-      if (!TEST_BIT (executable_edges, i))
-	{
-	  edge edge = INDEX_EDGE (edges, i);
+      edge edge = INDEX_EDGE (edges, i);
 
+      if (! (edge->flags & EDGE_EXECUTABLE))
+	{
 	  if (edge->flags & EDGE_ABNORMAL)
 	    continue;
 
@@ -1015,20 +993,18 @@ ssa_const_prop ()
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  executable_edges = sbitmap_alloc (NUM_EDGES (edges));
-  sbitmap_zero (executable_edges);
+  for (i = 0; i < NUM_EDGES (edges); i++)
+    edges->index_to_edge[i]->flags &= ~EDGE_EXECUTABLE;
 
-  edge_info = (edge *) xmalloc (NUM_EDGES (edges) * sizeof (edge));
-  flow_edges = ENTRY_BLOCK_PTR->succ;
+  VARRAY_GENERIC_PTR_INIT (edge_info, NUM_EDGES (edges) / 2, "edge_info");
 
   /* Add the successors of the entry block to the edge worklist.  That
      is enough of a seed to get SSA-CCP started.  */
   for (curredge = ENTRY_BLOCK_PTR->succ; curredge;
        curredge = curredge->succ_next)
     {
-      int index = EIE (curredge->src, curredge->dest);
-      SET_BIT (executable_edges, index);
-      edge_info[index] = curredge->succ_next;
+      curredge->flags |= EDGE_EXECUTABLE;
+      VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
     }
 
   /* Iterate until until the worklists are empty.  */
@@ -1037,14 +1013,14 @@ ssa_const_prop ()
       examine_flow_edges ();
       follow_def_use_chains ();
     }
-  while (flow_edges != NULL);
+  while (VARRAY_ACTIVE_SIZE (edge_info) > 0);
 
   /* Now perform substitutions based on the known constant values.  */
   ssa_ccp_substitute_constants ();
 
   /* Remove unexecutable edges from the CFG and make appropriate
      adjustments to PHI nodes.  */
-  optimize_unexecutable_edges (edges, executable_edges);
+  optimize_unexecutable_edges (edges);
 
   /* Now remove all unreachable insns and update the DF information.
      as appropriate.  */
@@ -1071,9 +1047,6 @@ ssa_const_prop ()
   free (values);
   values = NULL;
 
-  free (edge_info);
-  edge_info = NULL;
-
   sbitmap_free (executable_blocks);
   executable_blocks = NULL;
 
@@ -1082,9 +1055,6 @@ ssa_const_prop ()
 
   free_edge_list (edges);
   edges = NULL;
-
-  sbitmap_free (executable_edges);
-  executable_edges = NULL;
 
   df_finish (df_analyzer);
   end_alias_analysis ();

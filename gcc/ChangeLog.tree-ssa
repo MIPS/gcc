@@ -1,3 +1,20 @@
+2002-08-23  Jeffrey A Law  (law@redhat.com)
+
+	* basic-block.h (EDGE_EXECUTABLE): New edge flag.
+
+	* cfganal.c (find_edge): New function.
+
+	* ssa-ccp.c: Convert to use EDGE_EXECUTABLE bit in the 
+	edge flags rather than a bitmap.  Convert edge worklist
+	into a varray.  Avoids expensive find_index_edge calls.
+	* tree-ssa-ccp.c: Likewise.
+
+	* tree-flow.h (tree_ssa_remove_phi_alternative): Declare.
+	* tree-ssa.c (tree_ssa_remove_phi_alternative): New function.
+	* tree-ssa-ccp.c (optimize_unexecutable_edges): Remove
+	PHI alternatives for unexecutable edges.  Also remove
+	unexecutable edges from the CFG.
+
 2002-08-22  Jeffrey A Law  (law@redhat.com)
 
         * Makefile.in (tree-optimize.o): Depend on tree-dchain.o
