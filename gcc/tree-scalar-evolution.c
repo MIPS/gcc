@@ -28,7 +28,21 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the notion of versions of a variable, as it was the case for the
    previous implementations of the scalar evolution algorithm, but
    it assumes that each defined name is unique.
-     
+
+   The notation used in this file is called "chains of recurrences",
+   and has been proposed by Eugene Zima, Robert Van Engelen, and
+   others for describing induction variables in programs.  For example
+   "b -> {0, +, 2}_1" means that the scalar variable "b" is equal to 0
+   when entering in the loop_1 and has a step 2 in this loop, in other
+   words "for (b = 0; b < N; b+=2);".  Note that the coefficients of
+   this chain of recurrence (or chrec [shrek]) can contain the name of
+   other variables, in which case they are called parametric chrecs.
+   For example, "b -> {a, +, 2}_1" means that the initial value of "b"
+   is the value of "a".  In most of the cases these parametric chrecs
+   are fully instantiated before their use because symbolic names can
+   hide some difficult cases such as self-references described later
+   (see the Fibonacci example).
+   
    A short sketch of the algorithm is:
      
    Given a scalar variable to be analyzed, follow the SSA edge to
@@ -351,7 +365,7 @@ count_ev_in_wider_type (tree type, tree chrec)
 
   base = CHREC_LEFT (chrec);
   step = CHREC_RIGHT (chrec);
-  loop = loop_from_num (current_loops, CHREC_VARIABLE (chrec));
+  loop = current_loops->parray[CHREC_VARIABLE (chrec)];
 
   /* TODO -- if we knew the statement at that the conversion occurs,
      we could pass it to can_count_iv_in_wider_type and get a better
@@ -388,8 +402,8 @@ chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
   if (TREE_CODE (chrec) == SSA_NAME)
     {
       tree def = SSA_NAME_DEF_STMT (chrec);
-      struct loop *def_loop = loop_of_stmt (def);
-      struct loop *loop = loop_from_num (current_loops, loop_nb);
+      struct loop *def_loop = loop_containing_stmt (def);
+      struct loop *loop = current_loops->parray[loop_nb];
 
       if (def_loop == NULL)
 	return false;
@@ -436,7 +450,7 @@ loop_phi_node_p (tree phi)
      property: "all the loop-phi-nodes of a loop are contained in the
      loop's header basic block".  */
 
-  return loop_of_stmt (phi)->header == bb_for_stmt (phi);
+  return loop_containing_stmt (phi)->header == bb_for_stmt (phi);
 }
 
 /* Compute the scalar evolution for EVOLUTION_FN after crossing LOOP.
@@ -484,10 +498,10 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 
   else if (TREE_CODE (evolution_fn) == POLYNOMIAL_CHREC)
     {
-      if (CHREC_VARIABLE (evolution_fn) >= loop_num (loop))
+      if (CHREC_VARIABLE (evolution_fn) >= (unsigned) loop->num)
 	{
 	  struct loop *inner_loop = 
-	    loop_from_num (current_loops, CHREC_VARIABLE (evolution_fn));
+	    current_loops->parray[CHREC_VARIABLE (evolution_fn)];
 	  tree nb_iter = number_of_iterations_in_loop (inner_loop);
 
 	  if (nb_iter == chrec_dont_know)
@@ -556,12 +570,12 @@ chrec_is_positive (tree chrec, bool *value)
       /* Otherwise the chrec is under the form: "{-197, +, 2}_1",
 	 and the proof consists in showing that the sign never
 	 changes during the execution of the loop, from 0 to
-	 loop_nb_iterations ().  */
+	 loop->nb_iterations.  */
       if (!evolution_function_is_affine_p (chrec))
 	return false;
 
       nb_iter = number_of_iterations_in_loop
-	      (loop_from_num (current_loops, CHREC_VARIABLE (chrec)));
+	(current_loops->parray[CHREC_VARIABLE (chrec)]);
 
       if (chrec_contains_undetermined (nb_iter))
 	return false;
@@ -672,7 +686,13 @@ get_scalar_evolution (tree scalar)
   return res;
 }
 
-/* When CHREC_BEFORE has an evolution part in LOOP_NB, add to this
+/* Helper function for add_to_evolution.  Returns the evolution
+   function for an assignment of the form "a = b + c", where "a" and
+   "b" are on the strongly connected component.  CHREC_BEFORE is the
+   information that we already have collected up to this point.
+   TO_ADD is the evolution of "c".  
+   
+   When CHREC_BEFORE has an evolution part in LOOP_NB, add to this
    evolution the expression TO_ADD, otherwise construct an evolution
    part for this loop.  */
 
@@ -907,8 +927,6 @@ static inline tree
 set_nb_iterations_in_loop (struct loop *loop, 
 			   tree res)
 {
-  /* After the loop copy headers has transformed the code, each loop
-     runs at least once.  */
   res = chrec_fold_plus (chrec_type (res), res, integer_one_node);
   /* FIXME HWI: However we want to store one iteration less than the
      count of the loop in order to be compatible with the other
@@ -1001,13 +1019,13 @@ get_loop_exit_condition (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(get_loop_exit_condition \n  ");
   
-  if (loop_exit_edges (loop))
+  if (loop->exit_edges)
     {
       edge exit_edge;
       tree expr;
       
-      exit_edge = loop_exit_edge (loop, 0);
-      expr = last_stmt (edge_source (exit_edge));
+      exit_edge = loop->exit_edges[0];
+      expr = last_stmt (exit_edge->src);
       
       if (analyzable_condition (expr))
 	res = expr;
@@ -1032,11 +1050,11 @@ get_exit_conditions_rec (struct loop *loop,
     return;
   
   /* Recurse on the inner loops, then on the next (sibling) loops.  */
-  get_exit_conditions_rec (inner_loop (loop), exit_conditions);
-  get_exit_conditions_rec (next_loop (loop), exit_conditions);
+  get_exit_conditions_rec (loop->inner, exit_conditions);
+  get_exit_conditions_rec (loop->next, exit_conditions);
   
   flow_loop_scan (loop, LOOP_EXIT_EDGES);
-  if (loop_num_exits (loop) == 1)
+  if (loop->num_exits == 1)
     {
       tree loop_condition = get_loop_exit_condition (loop);
       
@@ -1057,7 +1075,7 @@ select_loops_exit_conditions (struct loops *loops,
 {
   struct loop *function_body = loops->parray[0];
   
-  get_exit_conditions_rec (inner_loop (function_body), exit_conditions);
+  get_exit_conditions_rec (function_body->inner, exit_conditions);
 }
 
 
@@ -1421,7 +1439,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
 				tree halting_phi,
 				tree *evolution_of_loop)
 {
-  struct loop *loop = loop_of_stmt (loop_phi_node);
+  struct loop *loop = loop_containing_stmt (loop_phi_node);
   tree ev = analyze_scalar_evolution (loop, PHI_RESULT (loop_phi_node));
 
   /* Sometimes, the inner loop is too difficult to analyze, and the
@@ -1470,7 +1488,7 @@ follow_ssa_edge (struct loop *loop,
   if (TREE_CODE (def) == NOP_EXPR)
     return false;
   
-  def_loop = loop_of_stmt (def);
+  def_loop = loop_containing_stmt (def);
   
   switch (TREE_CODE (def))
     {
@@ -1528,7 +1546,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 {
   int i;
   tree evolution_function = chrec_not_analyzed_yet;
-  struct loop *loop = loop_of_stmt (loop_phi_node);
+  struct loop *loop = loop_containing_stmt (loop_phi_node);
   basic_block bb;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1652,7 +1670,7 @@ static tree
 interpret_loop_phi (struct loop *loop, tree loop_phi_node)
 {
   tree res;
-  struct loop *phi_loop = loop_of_stmt (loop_phi_node);
+  struct loop *phi_loop = loop_containing_stmt (loop_phi_node);
   tree init_cond;
   
   if (phi_loop != loop)
@@ -1890,7 +1908,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
    determine the evolution function of the variable, use the following
    calls:
    
-   unsigned loop_nb = loop_num (loop_of_stmt (stmt));
+   unsigned loop_nb = loop_containing_stmt (stmt)->num;
    tree chrec_with_symbols = analyze_scalar_evolution (loop_nb, var);
    tree chrec_instantiated = instantiate_parameters 
    (loop_nb, chrec_with_symbols);
@@ -2174,7 +2192,7 @@ number_of_iterations_in_loop (struct loop *loop)
 
   /* Determine whether the number_of_iterations_in_loop has already
      been computed.  */
-  res = loop_nb_iterations (loop);
+  res = loop->nb_iterations;
   if (res)
     return res;
   res = chrec_dont_know;
@@ -2182,9 +2200,9 @@ number_of_iterations_in_loop (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(number_of_iterations_in_loop\n");
   
-  if (!loop_exit_edges (loop))
+  if (!loop->exit_edges)
     goto end;
-  exit = loop_exit_edge (loop, 0);
+  exit = loop->exit_edges[0];
 
   if (!number_of_iterations_exit (loop, exit, &niter_desc))
     goto end;
@@ -2215,7 +2233,7 @@ number_of_iterations_for_all_loops (varray_type exit_conditions)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (exit_conditions); i++)
     {
       tree res = number_of_iterations_in_loop 
-	(loop_of_stmt (VARRAY_TREE (exit_conditions, i)));
+	(loop_containing_stmt (VARRAY_TREE (exit_conditions, i)));
       if (chrec_contains_undetermined (res))
 	nb_chrec_dont_know_loops++;
       else
@@ -2371,8 +2389,8 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
       basic_block bb;
       tree phi, chrec;
       
-      loop = loop_of_stmt (VARRAY_TREE (exit_conditions, i));
-      bb = loop_header (loop);
+      loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
+      bb = loop->header;
       
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	if (is_gimple_reg (PHI_RESULT (phi)))

@@ -1,3 +1,16 @@
+2004-07-06  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* basic-block.h (edge_source, edge_destination): Removed.
+	* cfgloop.c (superloop_at_depth): Fix comment.
+	* cfgloop.h (loop_from_num, outer_loop, inner_loop, next_loop, 
+	loop_num, loop_depth, loop_header, loop_nb_iterations, 
+	loop_num_exits, loop_exit_edges, loop_exit_edge): Removed.
+	* lambda-code.c, tree-cfg.c, tree-data-ref.c, tree-dg.c, 
+	tree-elim-check.c, tree-scalar-evolution.c, tree-ssa-dom.c, 
+	tree-ssa-loop-ivcanon.c, tree-vectorizer.c: Inline removed functions.
+	* tree-data-ref.c: Rewrite some comments.
+	* tree-flow-inline.h (loop_of_stmt): Renamed loop_containing_stmt.
+
 2004-07-04  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_create_data_ref, vect_init_vector): 
@@ -642,7 +655,7 @@
 	(can_count_iv_in_wider_type): Pass the additional info to
 	can_count_iv_in_wider_type_bound.
 	(can_count_iv_in_wider_type_bound): Use the additional info.
-	* trre.h (lower_bound_in_type, upper_bound_in_type): Declare.
+	* tree.h (lower_bound_in_type, upper_bound_in_type): Declare.
 	* config/i386/i386.c (legitimate_constant_p): Do not allow
 	integer - symbol.
 

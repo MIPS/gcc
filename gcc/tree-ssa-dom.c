@@ -1720,7 +1720,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
 	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
-	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
 	{
 	  tree rhs_def_operand;
 
@@ -1750,7 +1750,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
 	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
-	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
+	  && loop_containing_stmt (rhs_def_stmt) == loop_containing_stmt (stmt))
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);

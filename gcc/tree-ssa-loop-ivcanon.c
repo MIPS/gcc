@@ -195,7 +195,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 
   if (TREE_CODE (niter) == INTEGER_CST)
     {
-      exit = loop_exit_edge (loop, 0);
+      exit = loop->exit_edges[0];
       if (!just_once_each_iteration_p (loop, exit->src))
 	return;
 

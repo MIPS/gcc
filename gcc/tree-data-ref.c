@@ -19,13 +19,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* This pass walks the whole program searching for array references.
-   The array accesses are recorded in DATA_REFERENCE nodes.  Since the
-   information in the DATA_REFERENCE nodes is too precise, the
-   dependence testers abstract this information into classic
-   representations: distance vectors, direction vectors, affine
-   dependence functions, ...  Both the precise and more abstract
-   informations are then exposed to the other passes.
+/* This pass walks a given loop structure searching for array
+   references.  The information about the array accesses is recorded
+   in DATA_REFERENCE structures. 
    
    The basic test for determining the dependences is: 
    given two access functions chrec1 and chrec2 to a same array, and 
@@ -48,7 +44,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
        - polyhedron dependence
      or with the chains of recurrences based representation,
      
-     
    - to define a knowledge base for storing the data dependeces 
      information,
      
@@ -57,23 +52,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    
    Definitions:
    
-   - What is a subscript?  Given two array accesses a subscript is the
-   tuple composed of the access functions for a given dimension.
-   Example: Given A[f1][f2][f3] and B[g1][g2][g3], there are three
-   subscripts: (f1, g1), (f2, g2), (f3, g3).
-   
-   - Vertical and horizontal couplings.  In some of the comments of
-   this analysis, I refer to the overlapping elements of a subscript
-   as the vertical coupling, in opposition to the horizontal coupling
-   that refers to the coupling between subscripts.
+   - subscript: given two array accesses a subscript is the tuple
+   composed of the access functions for a given dimension.  Example:
+   Given A[f1][f2][f3] and B[g1][g2][g3], there are three subscripts:
+   (f1, g1), (f2, g2), (f3, g3).
    
    References:
    
-   - "Advanced Compilation for High Performance Computing" by Randy Allen 
-   and Ken Kennedy.
+   - "Advanced Compilation for High Performance Computing" by Randy
+   Allen and Ken Kennedy.
+   http://citeseer.ist.psu.edu/goff91practical.html 
    
    - "Loop Transformations for Restructuring Compilers - The Foundations" 
    by Utpal Banerjee.
+
    
 */
 
@@ -489,7 +481,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
-    (loop_of_stmt (stmt), DR_ACCESS_FNS (res), ref);
+    (loop_containing_stmt (stmt), DR_ACCESS_FNS (res), ref);
   DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1439,36 +1431,36 @@ build_classic_dist_vector (struct data_dependence_relation *res,
     struct data_reference *a = DDR_A (res);
     struct data_reference *b = DDR_B (res);
     int lca_nb;
-    loop_a = loop_of_stmt (DR_STMT (a));
-    loop_b = loop_of_stmt (DR_STMT (b));
+    loop_a = loop_containing_stmt (DR_STMT (a));
+    loop_b = loop_containing_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
     
-    lca_nb = loop_num (lca);
+    lca_nb = lca->num;
     lca_nb -= first_loop;
     if (lca_nb < 0 || lca_nb >= nb_loops)
       abort ();
-    /* For each outer_loop where init_v is not set, the accesses are
+    /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
 	&& init_v[lca_nb] == 0)
       dist_v[lca_nb] = 1;
     
-    lca = outer_loop (lca);
+    lca = lca->outer;
     
     if (lca)
       {
-	lca_nb = loop_num (lca) - first_loop;
-	while (loop_depth (lca) != 0)
+	lca_nb = lca->num - first_loop;
+	while (lca->depth != 0)
 	  {
 	    if (lca_nb < 0 || lca_nb >= nb_loops)
 	      abort ();
 	    if (init_v[lca_nb] == 0)
 	      dist_v[lca_nb] = 1;
-	    lca = outer_loop (lca);
-	    lca_nb = loop_num (lca) - first_loop;
+	    lca = lca->outer;
+	    lca_nb = lca->num - first_loop;
 	  
 	  }
       }
@@ -1566,34 +1558,34 @@ build_classic_dir_vector (struct data_dependence_relation *res,
     struct data_reference *a = DDR_A (res);
     struct data_reference *b = DDR_B (res);
     int lca_nb;
-    loop_a = loop_of_stmt (DR_STMT (a));
-    loop_b = loop_of_stmt (DR_STMT (b));
+    loop_a = loop_containing_stmt (DR_STMT (a));
+    loop_b = loop_containing_stmt (DR_STMT (b));
     
     /* Get the common ancestor loop.  */
     lca = find_common_loop (loop_a, loop_b); 
-    lca_nb = loop_num (lca) - first_loop;
+    lca_nb = lca->num - first_loop;
 
     if (lca_nb < 0 || lca_nb >= nb_loops)
       abort ();
-    /* For each outer_loop where init_v is not set, the accesses are
+    /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
 	&& lca != loop_b
 	&& init_v[lca_nb] == 0)
       dir_v[lca_nb] = dir_positive;
     
-    lca = outer_loop (lca);
+    lca = lca->outer;
     if (lca)
       {
-	lca_nb = loop_num (lca) - first_loop;
-	while (loop_depth (lca) != 0)
+	lca_nb = lca->num - first_loop;
+	while (lca->depth != 0)
 	  {
 	    if (lca_nb < 0 || lca_nb >= nb_loops)
 	      abort ();
 	    if (init_v[lca_nb] == 0)
 	      dir_v[lca_nb] = dir_positive;
-	    lca = outer_loop (lca);
-	    lca_nb = loop_num (lca) - first_loop;
+	    lca = lca->outer;
+	    lca_nb = lca->num - first_loop;
 	   
 	  }
       }
@@ -1821,7 +1813,7 @@ analyze_all_data_dependences (struct loops *loops)
 			   "dependence_relations");
 
   /* Compute DDs on the whole function.  */
-  compute_data_dependences_for_loop (loops->num, loop_from_num (loops, 0), 
+  compute_data_dependences_for_loop (loops->num, loops->parray[0], 
 				     &datarefs, &dependence_relations, 
 				     &classic_dist, &classic_dir);
 

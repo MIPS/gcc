@@ -178,22 +178,6 @@ typedef struct edge_def *edge;
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
-/* Returns the block at the beginning of the edge.  */
-
-static inline struct basic_block_def *
-edge_source (edge e)
-{
-  return e->src;
-}
-
-/* Returns the block at the end of the edge.  */
-
-static inline struct basic_block_def *
-edge_destination (edge e)
-{
-  return e->dest;
-}
-
 /* Counter summary from the last set of coverage counts read by
    profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;

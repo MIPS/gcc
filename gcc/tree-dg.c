@@ -99,7 +99,7 @@ void dg_create_graph (struct loops *loops)
 
   /* Analyze data references and dependence relations using scev.  */
   
-  compute_data_dependences_for_loop (loops->num, loop_from_num (loops, 0), 
+  compute_data_dependences_for_loop (loops->num, loops->parray[0], 
 				     &datarefs, &dependence_relations, 
 				     &classic_dist, &classic_dir);
   

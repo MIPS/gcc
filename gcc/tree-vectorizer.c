@@ -539,7 +539,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   access_fn = DR_ACCESS_FN (dr, 0);
 
-  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step, 
+  if (!vect_is_simple_iv_evolution (loop->num, access_fn, &init, &step, 
 	true))
     abort ();
 
@@ -1694,7 +1694,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
 	(loop,
 	 analyze_scalar_evolution (loop, PHI_RESULT (phi)));
 
-      evolution_part = evolution_part_in_loop_num (access_fn, loop_num(loop));
+      evolution_part = evolution_part_in_loop_num (access_fn, loop->num);
       
       /* FORNOW: We do not transform initial conditions of IVs 
 	 which evolution functions are a polynomial of degree >= 2 or
@@ -1822,7 +1822,7 @@ static void
 vect_transform_loop_bound (loop_vec_info loop_vinfo, tree niters)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  edge exit_edge = loop_exit_edge (loop, 0);
+  edge exit_edge = loop->exit_edges[0];
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
   tree indx_before_incr, indx_after_incr;
   tree orig_cond_expr;
@@ -2756,7 +2756,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
            print_generic_expr (dump_file, access_fn, TDF_SLIM);
         }
 
-      if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &dummy, 
+      if (!vect_is_simple_iv_evolution (loop->num, access_fn, &dummy, 
 					&dummy, false))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2836,7 +2836,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
     {
       if (!array_base_name_differ_p (dra, drb))
         {
-	  int level = (loop_of_stmt (stmt))->level;
+	  int level = (loop_containing_stmt (stmt))->level;
 	  int loop_nest = level - 1;
 
           /* FORNOW: use most trivial and conservative test.  */
@@ -2849,7 +2849,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
           if (dump_file && (dump_flags & TDF_DETAILS))
             fprintf (dump_file,
                 "vect_analyze_data_ref_dependence: same base\n");
-	  vect_debug_stats (loop_of_stmt (stmt), 
+	  vect_debug_stats (loop_containing_stmt (stmt), 
 		"not vectorized: can't prove independence of array-refs.");
           return true;
         }
@@ -2877,7 +2877,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 	    {
               if (dump_file && (dump_flags & TDF_DETAILS))
 	        fprintf (dump_file,"non restricted pointers. may alias.\n"); 
-	      vect_debug_stats (loop_of_stmt (stmt), 
+	      vect_debug_stats (loop_containing_stmt (stmt), 
 		"not vectorized: can't prove independence of pointer-refs.");
 	      return true;
             }
@@ -3318,8 +3318,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
     }
   access_fn = DR_ACCESS_FN (dr, 0);
 
-  if (!vect_is_simple_iv_evolution (loop_num (loop_of_stmt (DR_STMT (dr))), 
-	access_fn, &init, &step, true))
+  if (!vect_is_simple_iv_evolution (loop_containing_stmt (DR_STMT (dr))->num, 
+				    access_fn, &init, &step, true))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -3510,8 +3510,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
                   print_generic_expr (dump_file, access_fn, TDF_SLIM);
                 }
 
-	      if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, 
-			&init, &step, false))
+	      if (!vect_is_simple_iv_evolution (loop->num, access_fn, 
+						&init, &step, false))
                 {
                   if (dump_file && (dump_flags & TDF_DETAILS))
                     fprintf (dump_file, "Access func for ptr too complicated.");
@@ -3571,7 +3571,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 #ifndef VECT_TRANSFORM_INDIRECT_REFS_TO_ARRAY_REFS
 	      indx_access_fn = build_polynomial_chrec 
-		(loop_num (loop), integer_zero_node, integer_one_node);
+		(loop->num, integer_zero_node, integer_one_node);
               if (dump_file && (dump_flags & TDF_DETAILS))
                 {
                   fprintf (dump_file, "Access function of ptr indx: ");
@@ -4017,7 +4017,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
            print_generic_expr (dump_file, access_fn, TDF_SLIM);
         }
 
-      evolution_part = evolution_part_in_loop_num (access_fn, loop_num(loop));
+      evolution_part = evolution_part_in_loop_num (access_fn, loop->num);
       
       if (evolution_part == NULL_TREE)
 	return false;

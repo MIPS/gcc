@@ -4413,10 +4413,10 @@ print_loop (FILE *file, struct loop *loop, int indent)
 
   /* Print the loop's header.  */
   fprintf (file, "%s(loop (num %d)", s_indent, loop->num);
-  if (loop_nb_iterations (loop))
+  if (loop->nb_iterations)
     {
       fprintf (file, " (nb_iterations ");
-      print_generic_expr (file, loop_nb_iterations (loop), 0);
+      print_generic_expr (file, loop->nb_iterations, 0);
       fprintf (file, ")");
     }
   

@@ -1189,7 +1189,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       return NULL;
     }
   
-  step = evolution_part_in_loop_num (access_fn, loop_num (loop));
+  step = evolution_part_in_loop_num (access_fn, loop->num);
   if (!step || step == chrec_dont_know)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

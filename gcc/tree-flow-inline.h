@@ -697,7 +697,7 @@ bsi_stmt_ptr (block_stmt_iterator i)
 /* Returns the loop of the statement STMT.  */
 
 static inline struct loop *
-loop_of_stmt (tree stmt)
+loop_containing_stmt (tree stmt)
 {
   basic_block bb = bb_for_stmt (stmt);
   if (!bb)
