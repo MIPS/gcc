@@ -1,5 +1,7 @@
 2003-11-13  Jan Hubicka  <jh@suse.cz>
 
+	* gcc.dg/tree-ssa/ssa-dce-1.c: New test.
+	* gcc.dg/tree-ssa/ssa-dce-2.c: New test.
 	* gcc.dg/tree-ssa/ssa-dom-ccp-1.c: New test.
 	* gcc.dg/tree-ssa/ssa-dom-cse-1.c: New test.
 	* gcc.dg/tree-ssa/ssa-dom-thread-1.c: New test.
