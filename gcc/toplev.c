@@ -3423,13 +3423,9 @@ rest_of_compilation (decl)
   if (optimize > 0)
     reload_cse_regs (insns);
 
-  /* If optimizing and we are performing instruction scheduling after
-     reload, then go ahead and split insns now since we are about to
-     recompute flow information anyway.
-
-     reload_cse_regs may expose more splitting opportunities, expecially
-     for double-word operations.  */
-  if (optimize > 0 && flag_schedule_insns_after_reload)
+  /* If optimizing, then go ahead and split insns now since we are about
+     to recompute flow information anyway.  */
+  if (optimize > 0)
     split_all_insns (0);
 
   /* Register allocation and reloading may have turned an indirect jump into

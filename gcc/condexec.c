@@ -163,7 +163,6 @@ cond_exec_process_insns (start, end, test, call_ok, undo)
 {
   int must_be_last = FALSE;
   rtx insn;
-  rtx seq;
   rtx set;
   rtx *p_set;
 
@@ -182,15 +181,6 @@ cond_exec_process_insns (start, end, test, call_ok, undo)
 	    fprintf (rtl_dump_file, "Insn not last at %d.\n",
 		     INSN_UID (insn));
 	  return FALSE;
-	}
-
-      /* See if we need to split the current insn.  */
-      while ((seq = split_insns (PATTERN (insn), insn)) != NULL_RTX)
-	{
-	  rtx p = insn;
-	  emit_insn_after (seq, insn);
-	  insn = NEXT_INSN (insn);
-	  delete_insn (p);
 	}
 
       if (GET_CODE (insn) == CALL_INSN)
