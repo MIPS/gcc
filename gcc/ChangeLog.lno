@@ -1,5 +1,16 @@
 2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-invariant.c (may_assign_reg_p): Prevent unused parameter
+	warning.
+	* tree-ssa-loop-manip.c (find_use_block, find_use_blocks,
+	defined_inside_loop_p): Removed.
+	(add_exit_phis_var, add_exit_phis, rewrite_into_loop_closed_ssa):
+	Make more efficient.
+	(find_uses_to_rename_use, find_uses_to_rename_stmt,
+	find_uses_to_rename): New functions.
+
+2004-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-flow.h (compute_global_livein): Declare.
 	* tree-into-ssa.c (struct def_blocks_d): New field
 	phi_blocks.

@@ -283,7 +283,7 @@ find_exits (struct loop *loop, basic_block *body,
 /* Check whether we may assign a value to X from a register.  */
 
 static bool
-may_assign_reg_p (rtx x)
+may_assign_reg_p (rtx x ATTRIBUTE_UNUSED)
 {
 #ifdef AVOID_CCMODE_COPIES
   if (GET_MODE_CLASS (GET_MODE (x)) == MODE_CC)
