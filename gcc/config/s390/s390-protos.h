@@ -78,6 +78,7 @@ extern void s390_expand_movstr (rtx, rtx, rtx);
 extern void s390_expand_clrstr (rtx, rtx);
 extern void s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
+extern rtx s390_back_chain_rtx (void);
 
 extern void s390_output_symbolic_const (FILE *, rtx);
 extern void print_operand_address (FILE *, rtx);

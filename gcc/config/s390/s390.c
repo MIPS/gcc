@@ -5325,6 +5325,23 @@ s390_reorg (void)
   s390_optimize_prologue (base_used);
 }
 
+/* Return an RTL expression representing the back chain stored in
+   the current stack frame.  */
+
+rtx
+s390_back_chain_rtx (void)
+{
+  rtx chain;
+
+  if (TARGET_BACKCHAIN)
+    chain = stack_pointer_rtx;
+  else
+    chain = plus_constant (stack_pointer_rtx,
+			   STACK_POINTER_OFFSET - UNITS_PER_WORD);
+
+  chain = gen_rtx_MEM (Pmode, chain);
+  return chain;
+}
 
 /* Return an RTL expression representing the value of the return address
    for the frame COUNT steps up from the current frame.  FRAME is the
