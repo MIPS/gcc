@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004
+   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -151,7 +151,7 @@ DEFTREECODE (ENUMERAL_TYPE, "enumeral_type", tcc_type, 0)
    INTEGRAL_TYPE. */
 DEFTREECODE (BOOLEAN_TYPE, "boolean_type", tcc_type, 0)
 
-/* CHAR in Java; not used in C.  Looks like an INTEGRAL_TYPE.  */
+/* Not used in C.  Looks like an INTEGRAL_TYPE.  */
 DEFTREECODE (CHAR_TYPE, "char_type", tcc_type, 0)
 
 /* Integer types in all languages, including char in C.
