@@ -4999,9 +4999,21 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
      if possible.  */
   if (rs6000_darwin64_abi
       && TREE_CODE (type) == RECORD_TYPE
-      && ((unsigned HOST_WIDE_INT) int_size_in_bytes (type) <= 32)
-      && ((unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 0))
-    return false;
+      && int_size_in_bytes (type) > 0)
+    {
+      CUMULATIVE_ARGS valcum;
+      rtx valret;
+
+      valcum.words = 0;
+      valcum.fregno = FP_ARG_MIN_REG;
+      valcum.vregno = ALTIVEC_ARG_MIN_REG;
+      /* Do a trial code generation as if this were going to be passed as
+	 an argument; if any part goes in memory, we return NULL.  */
+      valret = rs6000_darwin64_record_arg (&valcum, type, 1, true);
+      if (valret)
+	return false;
+      /* Otherwise fall through to more conventional ABI rules.  */
+    }
 
   if (AGGREGATE_TYPE_P (type)
       && (TARGET_AIX_STRUCT_RET
@@ -5672,7 +5684,6 @@ rs6000_darwin64_record_arg_flush_pending_int_fields (CUMULATIVE_ARGS *cum,
       this_regno += 1;
       intoffset = (intoffset | (UNITS_PER_WORD-1)) + 1;
       mode = word_mode;
-      cum->words += 1;
       intregs -= 1;
     }
   while (intregs > 0);
@@ -5717,7 +5728,7 @@ rs6000_darwin64_record_arg_recurs (CUMULATIVE_ARGS *cum, tree type,
 				    gen_rtx_REG (mode, cum->fregno++),
 				    GEN_INT (bitpos / BITS_PER_UNIT));
 	    if (mode == TFmode)
-		cum->fregno++;
+	      cum->fregno++;
 	  }
 	else if (cum->named && USE_ALTIVEC_FOR_ARG_P (cum, mode, ftype, 1))
 	  {
