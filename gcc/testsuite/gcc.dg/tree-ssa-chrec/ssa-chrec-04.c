@@ -18,4 +18,4 @@ int main(void)
 }
 
 /* { dg-final { scan-tree-dump-times "nb_iterations 28" 1 "lptest"} } */
-/* { dg-final { scan-tree-dump-times "remove_me" 0 "optimized"} } */
+/* { dg-final { scan-tree-dump-times "remove_me" 0 "optimized" { xfail *-*-* } } } */

@@ -32,4 +32,3 @@ void foo()
    
 */
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

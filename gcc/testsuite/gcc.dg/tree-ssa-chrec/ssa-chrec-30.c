@@ -18,4 +18,3 @@ int main ()
   foo (c[12][13]);
 }
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

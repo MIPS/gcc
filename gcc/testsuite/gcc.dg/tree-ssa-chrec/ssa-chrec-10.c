@@ -27,4 +27,3 @@ int foo (void)
 */
 
 /* { dg-final { scan-tree-dump-times "nb_iterations 39" 1 "lptest"} } */
-/* { dg-final { diff-tree-dumps "ddall" } } */

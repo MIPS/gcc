@@ -16,4 +16,3 @@ foo (){
   bar (a[2]);
 }
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

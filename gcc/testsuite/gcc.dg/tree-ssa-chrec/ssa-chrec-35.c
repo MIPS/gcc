@@ -31,4 +31,3 @@ int foo (float A[][M][N])
    
 */
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

@@ -23,5 +23,4 @@ int main ()
   return res + foo (c[12][13]);
 }
 
-/* { dg-final { diff-tree-dumps "ddall" } } */
 

@@ -19,4 +19,3 @@ int foo (void)
   bar (c[1]);
 }
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

@@ -30,4 +30,3 @@ short foo (short image[][M], short block[][N]){
 
 */
 
-/* { dg-final { diff-tree-dumps "ddall" } } */

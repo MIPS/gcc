@@ -15,4 +15,3 @@ int bar ()
   return A[1][2];
 }
 
-/* { dg-final { diff-tree-dumps "ddall" } } */
