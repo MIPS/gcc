@@ -378,12 +378,6 @@ vfy_fail (const char *message, int pc, vfy_jclass ignore1 ATTRIBUTE_UNUSED,
   return 1;
 }
 
-void
-vfy_notify_verified (int pc)
-{
-  instruction_bits[pc] |= BCODE_VERIFIED;
-}
-
 vfy_jclass
 vfy_get_primitive_type (int type)
 {
