@@ -500,6 +500,7 @@ lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
   IDENTIFIER_LABEL_VALUE (tnode) = NULL_TREE;
   TREE_USED (tnode) = 0;
   TREE_PUBLIC (tnode) = 0;
+  TREE_SYMBOL_REFERENCED (tnode) = 0;
   reset_hashnode (node);
 
   return 1;
