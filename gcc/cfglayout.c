@@ -833,18 +833,32 @@ cfg_layout_redirect_edge (e, dest)
      basic_block dest;
 {
   int old_index = dest->index;
+  basic_block src = e->src;
 
   /* Avoid redirect_edge_and_branch from overactive optimizing.  */
   dest->index = n_basic_blocks + 1;
   if (e->flags & EDGE_FALLTHRU)
-    redirect_edge_succ (e, dest);
+    {
+      /* In case we are redirecting fallthru edge to the branch edge
+         of conditional jump, remove it.  */
+      if (src->succ->succ_next
+	  && !src->succ->succ_next->succ_next)
+	{
+	  edge s = e->succ_next ? e->succ_next : src->succ;
+	  if (s->dest == dest
+	      && any_condjump_p (src->end)
+	      && onlyjump_p (src->end))
+	    delete_insn (src->end);
+	}
+      redirect_edge_succ_nodup (e, dest);
+    }
   else
     redirect_edge_and_branch (e, dest);
 
   /* We don't want simplejumps in the insn stream during cfglayout.  */
-  if (simplejump_p (e->src->end))
+  if (simplejump_p (src->end))
     {
-      delete_insn (e->src->end);
+      delete_insn (src->end);
       e->flags |= EDGE_FALLTHRU;
     }
   dest->index = old_index;
