@@ -1,3 +1,55 @@
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/8572
+	* cp-tree.h (grokoptypename): Add SCOPE parameter.
+	* decl2.c (grokoptypename): Add SCOPE parameter. tsubst the type
+	if in a template scope.
+	* parse.y (unoperator): Return the scope.
+	(operator_name): Adjust grokoptypename call.
+
+2002-12-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (make_unbound_class_template): Use tsubst_flags_t.
+	* decl.c (make_unbound_class_template): Adjust.  Check for tf_error.
+	* pt.c (tsubst) [OFFSET_TYPE]: Check for tf_error.
+
+2002-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Fix a typo.
+	* class.c: Fix comment typos.
+	* cp-tree.h: Likewise.
+
+2002-12-18  Jason Merrill  <jason@redhat.com>
+
+	Handle anonymous unions at the tree level.
+	C++ ABI change: Mangle anonymous unions using the name of their
+	first named field (by depth-first search).  Should not cause
+	binary compatibility problems, though, as the compiler previously
+	didn't emit anything for affected unions.
+	* cp-tree.def (ALIAS_DECL): New tree code.
+	* decl2.c (build_anon_union_vars): Build ALIAS_DECLs.  Return the
+	first field, not the largest.
+	(finish_anon_union): Don't mess with RTL.  Do set DECL_ASSEMBLER_NAME,
+	push the decl, and write it out at namespace scope.
+	* decl.c (lookup_name_real): See through an ALIAS_DECL.
+	(pushdecl): Add namespace bindings for ALIAS_DECLs.
+	* rtti.c (unemitted_tinfo_decl_p): Don't try to look at the name
+	of a decl which doesn't have one.
+	* typeck.c (build_class_member_access_expr): Don't recurse if
+	we already have the type we want.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8099
+	* friend.c (make_friend_class): Allow partial specialization
+	when declaration is not a template friend.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3663
+	* pt.c (lookup_template_class): Copy TREE_PRIVATE and
+	TREE_PROTECTED to created decl nodes.
+
 2002-12-18  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (build_base_field): Do not set DECL_PACKED on the
@@ -4820,7 +4872,7 @@ Tue Oct 23 14:00:20 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* parse.y (asm_operand): Allow named operands.
 	* semantics.c (finish_asm_stmt): Tweek for changed location
-	of the operand constrant.
+	of the operand constraint.
 
 2001-10-09  Jason Merrill  <jason_merrill@redhat.com>
 

@@ -42,12 +42,12 @@ extern const char *output_logical_op PARAMS ((enum machine_mode, rtx *));
 extern unsigned int compute_logical_op_length PARAMS ((enum machine_mode,
 						       rtx *));
 extern int compute_logical_op_cc PARAMS ((enum machine_mode, rtx *));
-extern int expand_a_shift PARAMS ((enum machine_mode, int, rtx[]));
+extern void expand_a_shift PARAMS ((enum machine_mode, int, rtx[]));
 extern int h8300_shift_needs_scratch_p PARAMS ((int, enum machine_mode));
 extern int expand_a_rotate PARAMS ((enum rtx_code, rtx[]));
 extern int fix_bit_operand PARAMS ((rtx *, int, enum rtx_code));
 extern int h8300_adjust_insn_length PARAMS ((rtx, int));
-extern void split_adds_subs PARAMS ((enum machine_mode, rtx[]));
+extern void split_adds_subs PARAMS ((enum machine_mode, rtx[], int));
 
 extern int general_operand_src PARAMS ((rtx, enum machine_mode));
 extern int general_operand_dst PARAMS ((rtx, enum machine_mode));
@@ -59,8 +59,12 @@ extern int small_call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int jump_address_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_memory_operand PARAMS ((rtx, enum machine_mode));
+extern int const_le_2_operand PARAMS ((rtx, enum machine_mode));
+extern int const_le_6_operand PARAMS ((rtx, enum machine_mode));
+extern int incdec_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operator PARAMS ((rtx, enum machine_mode));
 extern int nshift_operator PARAMS ((rtx, enum machine_mode));
+extern int eqne_operator PARAMS ((rtx, enum machine_mode));
 
 extern int h8300_eightbit_constant_address_p PARAMS ((rtx));
 extern int h8300_tiny_constant_address_p PARAMS ((rtx));

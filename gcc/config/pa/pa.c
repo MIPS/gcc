@@ -1458,7 +1458,7 @@ emit_move_sequence (operands, mode, scratch_reg)
      use scratch_reg to hold the address of the memory location.
 
      The proper fix is to change PREFERRED_RELOAD_CLASS to return
-     NO_REGS when presented with a const_int and an register class
+     NO_REGS when presented with a const_int and a register class
      containing only FP registers.  Doing so unfortunately creates
      more problems than it solves.   Fix this for 2.5.  */
   else if (fp_reg_operand (operand0, mode)
@@ -4300,7 +4300,7 @@ print_operand (file, x, code)
 	fputs ("\n\tnop", file);
       return;
     case '*':
-      /* Output an nullification completer if there's nothing for the */
+      /* Output a nullification completer if there's nothing for the */
       /* delay slot or nullification is requested.  */
       if (dbr_sequence_length () == 0 ||
 	  (final_sequence &&
@@ -5428,7 +5428,7 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  strcat (buf, " %2,%r1,%0");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -5650,7 +5650,7 @@ output_bb (operands, nullify, length, negated, insn, which)
 	  strcat (buf, " %0,%1,%2");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -5798,7 +5798,7 @@ output_bvb (operands, nullify, length, negated, insn, which)
 	  strcat (buf, "{ %0,%2| %0,%%sar,%2}");
 	break;
 
-     /* All long conditionals.  Note an short backward branch with an
+     /* All long conditionals.  Note a short backward branch with an
 	unfilled delay slot is treated just like a long backward branch
 	with an unfilled delay slot.  */
       case 8:
@@ -6223,7 +6223,7 @@ output_millicode_call (insn, call_dest)
   /* Handle the common case where we are sure that the branch will
      reach the beginning of the $CODE$ subspace.  The within reach
      form of the $$sh_func_adrs call has a length of 28.  Because
-     it has an attribute type of multi, it never has a non-zero
+     it has an attribute type of multi, it never has a nonzero
      sequence length.  The length of the $$sh_func_adrs is the same
      as certain out of reach PIC calls to other routines.  */
   if (!TARGET_LONG_CALLS
@@ -6878,14 +6878,26 @@ pa_function_ok_for_sibcall (decl, exp)
      tree decl;
      tree exp ATTRIBUTE_UNUSED;
 {
-#ifdef TARGET_HAS_STUBS_AND_ELF_SECTIONS
-  /* Sibcalls, stubs, and elf sections don't play well.  */
-  return false;
-#endif
+  /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
+     single subspace mode and the call is not indirect.  As far as I know,
+     there is no operating system support for the multiple subspace mode.
+     It might be possible to support indirect calls if we didn't use
+     $$dyncall (see the indirect sequence generated in output_call).  */
+  if (TARGET_ELF32)
+    return (decl != NULL_TREE);
+
+  /* Sibcalls are not ok because the arg pointer register is not a fixed
+     register.  This prevents the sibcall optimization from occuring.  In
+     addition, there are problems with stub placement using GNU ld.  This
+     is because a normal sibcall branch uses a 17-bit relocation while
+     a regular call branch uses a 22-bit relocation.  As a result, more
+     care needs to be taken in the placement of long-branch stubs.  */
+  if (TARGET_64BIT)
+    return false;
+
   return (decl
-	  && ! TARGET_PORTABLE_RUNTIME
-	  && ! TARGET_64BIT
-	  && ! TREE_PUBLIC (decl));
+	  && !TARGET_PORTABLE_RUNTIME
+	  && !TREE_PUBLIC (decl));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for

@@ -4249,6 +4249,11 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
       else
 	type_decl = TYPE_NAME (t);
 
+      TREE_PRIVATE (type_decl)
+	= TREE_PRIVATE (TYPE_STUB_DECL (template_type));
+      TREE_PROTECTED (type_decl)
+	= TREE_PROTECTED (TYPE_STUB_DECL (template_type));
+
       /* Set up the template information.  We have to figure out which
 	 template is the immediate parent if this is a full
 	 instantiation.  */
@@ -6815,7 +6820,7 @@ tsubst (t, args, complain, in_decl)
 	  }
 	if (TREE_CODE (type) == REFERENCE_TYPE)
 	  {
-	    if (complain)
+	    if (complain & tf_error)
 	      error ("creating pointer to member reference type `%T'", type);
 	    
 	    return error_mark_node;

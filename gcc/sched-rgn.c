@@ -1560,14 +1560,14 @@ enum INSN_TRAP_CLASS
 #define WORST_CLASS(class1, class2) \
 ((class1 > class2) ? class1 : class2)
 
-/* Non-zero if block bb_to is equal to, or reachable from block bb_from.  */
+/* Nonzero if block bb_to is equal to, or reachable from block bb_from.  */
 #define IS_REACHABLE(bb_from, bb_to)					\
   (bb_from == bb_to							\
    || IS_RGN_ENTRY (bb_from)						\
    || (TEST_BIT (ancestor_edges[bb_to],					\
 		 EDGE_TO_BIT (IN_EDGES (BB_TO_BLOCK (bb_from))))))
 
-/* Non-zero iff the address is comprised from at most 1 register.  */
+/* Nonzero iff the address is comprised from at most 1 register.  */
 #define CONST_BASED_ADDRESS_P(x)			\
   (GET_CODE (x) == REG					\
    || ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS	\
@@ -2909,17 +2909,10 @@ init_regions ()
 	  dominance_info dom;
 	  struct edge_list *edge_list;
 
-	  /* The scheduler runs after flow; therefore, we can't blindly call
-	     back into find_basic_blocks since doing so could invalidate the
-	     info in global_live_at_start.
-
-	     Consider a block consisting entirely of dead stores; after life
-	     analysis it would be a block of NOTE_INSN_DELETED notes.  If
-	     we call find_basic_blocks again, then the block would be removed
-	     entirely and invalidate our the register live information.
-
-	     We could (should?) recompute register live information.  Doing
-	     so may even be beneficial.  */
+	  /* The scheduler runs after estimate_probabilities; therefore, we
+	     can't blindly call back into find_basic_blocks since doing so
+	     could invalidate the branch probability info.  We could,
+	     however, call cleanup_cfg.  */
 	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  */

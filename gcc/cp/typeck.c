@@ -2000,7 +2000,6 @@ build_class_member_access_expr (tree object, tree member,
 	     cleaned up, this waste can be eliminated.  */
 	  && (!same_type_ignoring_top_level_qualifiers_p 
 	      (TREE_TYPE (object), DECL_CONTEXT (member))))
-
 	{
 	  tree anonymous_union;
 

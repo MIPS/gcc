@@ -127,7 +127,7 @@ struct diagnostic_context;
 
      The BV_DELTA of each node gives the amount by which to adjust the
      `this' pointer when calling the function.  If the method is an
-     overriden version of a base class method, then it is assumed
+     overridden version of a base class method, then it is assumed
      that, prior to adjustment, the this pointer points to an object
      of the base class.
 
@@ -149,7 +149,7 @@ struct diagnostic_context;
      function, it is eventually set to an INTEGER_CST indicating the
      index in the vtable at which this function can be found.  When
      a virtual function is declared, but before it is known what
-     function is overriden, this field is the error_mark_node.
+     function is overridden, this field is the error_mark_node.
 
      Temporarily, it may be set to a TREE_LIST whose TREE_VALUE is
      the virtual function this one overrides, and whose TREE_CHAIN is
@@ -3723,7 +3723,7 @@ extern void set_namespace_binding               PARAMS ((tree, tree, tree));
 extern tree lookup_namespace_name		PARAMS ((tree, tree));
 extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
 extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
-extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
+extern tree make_unbound_class_template		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
 extern tree lookup_qualified_name               (tree, tree, bool, int);
@@ -3833,7 +3833,7 @@ extern void check_member_template               PARAMS ((tree));
 extern tree grokfield				PARAMS ((tree, tree, tree, tree, tree));
 extern tree grokbitfield			PARAMS ((tree, tree, tree));
 extern tree groktypefield			PARAMS ((tree, tree));
-extern tree grokoptypename			PARAMS ((tree, tree));
+extern tree grokoptypename			PARAMS ((tree, tree, tree));
 extern void cplus_decl_attributes		PARAMS ((tree *, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));

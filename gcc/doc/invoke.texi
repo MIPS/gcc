@@ -559,7 +559,7 @@ in the following sections.
 -mcpu=@var{cpu-type}  -mtune=@var{cpu-type} @gol
 -mbwx  -mmax  -mfix  -mcix @gol
 -mfloat-vax  -mfloat-ieee @gol
--mexplicit-relocs  -msmall-data  -mlarge-data @gol
+-mexplicit-relocs  -msmall-data  -mlarge-data -msmall-text -mlarge-text @gol
 -mmemory-latency=@var{time}}
 
 @emph{DEC Alpha/VMS Options}
@@ -656,9 +656,10 @@ in the following sections.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{
+-mcpu=@var{cpu-type} -march=@var{cpu-type} @gol
 -mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
--m64 -m31 -mdebug -mno-debug}
+-m64 -m31 -mdebug -mno-debug -mesa -mzarch}
 
 @emph{CRIS Options}
 @gccoptlist{
@@ -792,6 +793,7 @@ C header file (not to be compiled or linked).
 @itemx @var{file}.cp
 @itemx @var{file}.cxx
 @itemx @var{file}.cpp
+@itemx @var{file}.CPP
 @itemx @var{file}.c++
 @itemx @var{file}.C
 C++ source code which must be preprocessed.  Note that in @samp{.cxx},
@@ -983,7 +985,7 @@ Display the version number and copyrights of the invoked GCC.
 @cindex suffixes for C++ source
 @cindex C++ source file suffixes
 C++ source files conventionally use one of the suffixes @samp{.C},
-@samp{.cc}, @samp{.cpp}, @samp{.c++}, @samp{.cp}, or @samp{.cxx};
+@samp{.cc}, @samp{.cpp}, @samp{.CPP}, @samp{.c++}, @samp{.cp}, or @samp{.cxx};
 preprocessed C++ files use the suffix @samp{.ii}.  GCC recognizes
 files with these names and compiles them as C++ programs even if you
 call the compiler the same way as for compiling C programs (usually with
@@ -8747,6 +8749,19 @@ heap instead of in the program's data segment.
 When generating code for shared libraries, @option{-fpic} implies
 @option{-msmall-data} and @option{-fPIC} implies @option{-mlarge-data}.
 
+@item -msmall-text
+@itemx -mlarge-text
+@opindex msmall-text
+@opindex mlarge-text
+When @option{-msmall-text} is used, the compiler assumes that the
+code of the entire program (or shared library) fits in 4MB, and is
+thus reachable with a branch instruction.  When @option{-msmall-data}
+is used, the compiler can assume that all local symbols share the
+same @code{$gp} value, and thus reduce the number of instructions
+required for a function call from 4 to 1.
+
+The default is @option{-mlarge-text}.
+
 @item -mcpu=@var{cpu_type}
 @opindex mcpu
 Set the instruction set and instruction scheduling parameters for
@@ -9802,6 +9817,18 @@ particular to generate 64-bit instructions.  For the @samp{s390}
 targets, the default is @option{-m31}, while the @samp{s390x}
 targets default to @option{-m64}.
 
+@item -mzarch
+@itemx -mesa
+@opindex mzarch
+@opindex mesa
+When @option{-mzarch} is specified, generate code using the 
+instructions available on z/Architecture. 
+When @option{-mesa} is specified, generate code using the 
+instructions available on ESA/390. Note that @option{-mesa} is
+not possible with @option{-m64}.
+For the @samp{s390} targets, the default is @option{-mesa}, 
+while the @samp{s390x} targets default to @option{-mzarch}.
+
 @item -mmvcle
 @itemx -mno-mvcle
 @opindex mmvcle
@@ -9816,6 +9843,18 @@ use a @code{mvc} loop instead.  This is the default.
 @opindex mno-debug
 Print (or do not print) additional debug information when compiling.
 The default is to not print debug information.
+
+@item -march=@var{arch}
+@opindex march
+Generate code that will run on @var{arch}, which is the name of system
+representing a certain processor type. Possible values for
+@var{cpu-type} are @samp{g5}, @samp{g6} and @samp{z900}. 
+
+@item -mcpu=@var{arch}
+@opindex mcpu
+Tune to @var{cpu-type} everything applicable about the generated code,
+ except for the ABI and the set of available instructions. 
+The list of @var{arch} values is the same as for @option{-march}.
 
 @end table
 

@@ -1,3 +1,44 @@
+2002-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/gcc.dg/i386-bitfield3.c: New test.
+	
+	* testsuite/gcc.dg/i386-bitfield2.c: New test.
+	
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/conv_op1.C: New test.
+
+2002-12-21  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20021220-1.c: Removed until bug fix is
+	approved.
+
+2002-12-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20021220-1.c: New test.
+
+2002-12-19  Casper S. Hornstrup  <chorns@users.sourceforge.net>
+
+	* gcc.dg/i386-fastcall-1.c: New.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20021219-1.c: New test.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-pic-1.c: New test.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8099
+	* g++.dg/template/friend9.C: New test.
+
+2002-11-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3663
+	* g++.dg/template/access7.C: New test.
+
 2002-12-18  Nick Clifton  <nickc@redhat.com>
 
 	* lib/g++.exp (g++_include_flags): Only invoke testsuite_flags if

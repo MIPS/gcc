@@ -715,17 +715,18 @@ update_alignment_for_field (rli, field, known_align)
       && DECL_BIT_FIELD_TYPE (field)
       && ! integer_zerop (TYPE_SIZE (type)))
     {
-      /* For these machines, a zero-length field does not
-	 affect the alignment of the structure as a whole.
-	 It does, however, affect the alignment of the next field
-	 within the structure.  */
-      if (! integer_zerop (DECL_SIZE (field)))
-	rli->record_align = MAX (rli->record_align, desired_align);
-      else if (! DECL_PACKED (field))
-	desired_align = TYPE_ALIGN (type);
+      /* A zero-length bit-field affects the alignment of the next
+	 field.  */
+      if (!DECL_PACKED (field) && integer_zerop (DECL_SIZE (field)))
+	{
+	  desired_align = TYPE_ALIGN (type);
+#ifdef ADJUST_FIELD_ALIGN
+	  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+#endif
+	}
 
-      /* A named bit field of declared type `int'
-	 forces the entire structure to have `int' alignment.  */
+      /* Named bit-fields cause the entire structure to have the
+	 alignment implied by their type.  */
       if (DECL_NAME (field) != 0)
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
@@ -740,7 +741,14 @@ update_alignment_for_field (rli, field, known_align)
 	  else if (DECL_PACKED (field))
 	    type_align = MIN (type_align, BITS_PER_UNIT);
 
+	  /* The alignment of the record is increased to the maximum
+	     of the current alignment, the alignment indicated on the
+	     field (i.e., the alignment specified by an __aligned__
+	     attribute), and the alignment indicated by the type of
+	     the field.  */
+	  rli->record_align = MAX (rli->record_align, desired_align);
 	  rli->record_align = MAX (rli->record_align, type_align);
+
 	  rli->unpadded_align = MAX (rli->unpadded_align, DECL_ALIGN (field));
 	  if (warn_packed)
 	    rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
@@ -784,7 +792,7 @@ place_union_field (rli, field)
 }
 
 /* A bitfield of SIZE with a required access alignment of ALIGN is allocated
-   at BYTE_OFFSET / BIT_OFFSET.  Return non-zero if the field would span more
+   at BYTE_OFFSET / BIT_OFFSET.  Return nonzero if the field would span more
    units of alignment than the underlying TYPE.  */
 static int
 excess_unit_span (byte_offset, bit_offset, size, align, type)

@@ -3030,6 +3030,10 @@ cp_parser_primary_expression (cp_parser *parser,
 		if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
 		  *qualifying_class = parser->scope;
 	      }
+	    /* Resolve references to variables of anonymous unions
+	       into COMPONENT_REFs.  */
+	    else if (TREE_CODE (decl) == ALIAS_DECL)
+	      decl = DECL_INITIAL (decl);
 	    else
 	      /* Transform references to non-static data members into
 		 COMPONENT_REFs.  */
@@ -3526,11 +3530,50 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	 done.  */
       if (!cp_parser_parse_definitely (parser))
 	{
+	  bool error_p = false;
+
 	  /* Restore the OLD_SCOPE since it was valid before the
 	     failed attempt at finding the last
 	     class-or-namespace-name.  */
 	  parser->scope = old_scope;
 	  parser->qualifying_scope = saved_qualifying_scope;
+	  /* If the next token is an identifier, and the one after
+	     that is a `::', then any valid interpretation would have
+	     found a class-or-namespace-name.  */
+	  while (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+		 && (cp_lexer_peek_nth_token (parser->lexer, 2)->type 
+		     == CPP_SCOPE)
+		 && (cp_lexer_peek_nth_token (parser->lexer, 3)->type 
+		     != CPP_COMPL))
+	    {
+	      token = cp_lexer_consume_token (parser->lexer);
+	      if (!error_p) 
+		{
+		  tree decl;
+
+		  decl = cp_parser_lookup_name_simple (parser, token->value);
+		  if (TREE_CODE (decl) == TEMPLATE_DECL)
+		    error ("`%D' used without template parameters",
+			   decl);
+		  else if (parser->scope)
+		    {
+		      if (TYPE_P (parser->scope))
+			error ("`%T::%D' is not a class-name or "
+			       "namespace-name",
+			       parser->scope, token->value);
+		      else
+			error ("`%D::%D' is not a class-name or "
+			       "namespace-name",
+			       parser->scope, token->value);
+		    }
+		  else
+		    error ("`%D' is not a class-name or namespace-name",
+			   token->value);
+		  parser->scope = NULL_TREE;
+		  error_p = true;
+		}
+	      cp_lexer_consume_token (parser->lexer);
+	    }
 	  break;
 	}
 
@@ -3647,6 +3690,16 @@ cp_parser_class_or_namespace_name (cp_parser *parser,
   tree saved_object_scope;
   tree scope;
 
+  /* If the next token is the `template' keyword, we know that we are
+     looking at a class-name.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
+    return cp_parser_class_name (parser, 
+				 typename_keyword_p,
+				 template_keyword_p,
+				 type_p,
+				 /*check_access_p=*/true,
+				 check_dependency_p,
+				 /*class_head_p=*/false);
   /* Before we try to parse the class-name, we must save away the
      current PARSER->SCOPE since cp_parser_class_name will destroy
      it.  */
@@ -7917,10 +7970,9 @@ cp_parser_type_parameter (parser)
    uninstantiated templates.  */
 
 static tree
-cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
-     cp_parser *parser;
-     bool template_keyword_p;
-     bool check_dependency_p;
+cp_parser_template_id (cp_parser *parser, 
+		       bool template_keyword_p, 
+		       bool check_dependency_p)
 {
   tree template;
   tree arguments;
@@ -10614,7 +10666,7 @@ cp_parser_parameter_declaration_list (parser)
 	}
       else
 	{
-	  cp_parser_error (parser, "expected `,' or `)'");
+	  cp_parser_error (parser, "expected `,' or `...'");
 	  break;
 	}
     }
@@ -11278,9 +11330,14 @@ cp_parser_class_name (cp_parser *parser,
   /* Try a template-id.  */
   decl = cp_parser_template_id (parser, template_keyword_p,
 				check_dependency_p);
-  /* If it wasn't a template-id, try a simple identifier.  */
-  if (!cp_parser_parse_definitely (parser))
+  if (cp_parser_parse_definitely (parser))
     {
+      if (decl == error_mark_node)
+	return error_mark_node;
+    }
+  else
+    {
+      /* If it wasn't a template-id, try a simple identifier.  */
       tree identifier;
 
       /* Look for the identifier.  */
@@ -11312,7 +11369,7 @@ cp_parser_class_name (cp_parser *parser,
 					check_dependency_p);
 	}
     }
-  
+
   decl = cp_parser_maybe_treat_template_as_class (decl, class_head_p);
 
   /* If this is a typename, create a TYPENAME_TYPE.  */
@@ -12125,7 +12182,13 @@ cp_parser_member_declaration (parser)
 		  if (TREE_CODE (declarator) == CALL_EXPR)
 		    initializer = cp_parser_pure_specifier (parser);
 		  else
-		    initializer = cp_parser_constant_initializer (parser);
+		    {
+		      /* This declaration cannot be a function
+			 definition.  */
+		      cp_parser_commit_to_tentative_parse (parser);
+		      /* Parse the initializer.  */
+		      initializer = cp_parser_constant_initializer (parser);
+		    }
 		}
 	      /* Otherwise, there is no initializer.  */
 	      else
@@ -12251,7 +12314,26 @@ cp_parser_constant_initializer (parser)
   /* Look for the `=' token.  */
   if (!cp_parser_require (parser, CPP_EQ, "`='"))
     return error_mark_node;
-  
+
+  /* It is invalid to write:
+
+       struct S { static const int i = { 7 }; };
+
+     */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    {
+      cp_parser_error (parser,
+		       "a brace-enclosed initializer is not allowed here");
+      /* Consume the opening brace.  */
+      cp_lexer_consume_token (parser->lexer);
+      /* Skip the initializer.  */
+      cp_parser_skip_to_closing_brace (parser);
+      /* Look for the trailing `}'.  */
+      cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+      
+      return error_mark_node;
+    }
+
   return cp_parser_constant_expression (parser);
 }
 
@@ -13204,6 +13286,9 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
   if (parser->scope)
     { 
       bool dependent_type_p;
+
+      if (parser->scope == error_mark_node)
+	return error_mark_node;
 
       /* If the SCOPE is dependent, the lookup must be deferred until
 	 the template is instantiated -- unless we are explicitly

@@ -886,7 +886,7 @@ static const struct compiler default_compilers[] =
   {".m",  "#Objective-C", 0}, {".mi",  "#Objective-C", 0},
   {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
   {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
-  {".ii", "#C++", 0},
+  {".CPP", "#C++", 0}, {".ii", "#C++", 0},
   {".ads", "#Ada", 0}, {".adb", "#Ada", 0},
   {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
@@ -6808,11 +6808,11 @@ next_member:
 	  switches[i].validated = 1;
     }
 
-  p++;
-  if (p[-1] == '|' || p[-1] == '&')
+  if (*p) p++;
+  if (*p && (p[-1] == '|' || p[-1] == '&'))
     goto next_member;
 
-  if (p[-1] == ':')
+  if (*p && p[-1] == ':')
     {
       while (*p && *p != ';' && *p != '}')
 	{
@@ -6824,11 +6824,11 @@ next_member:
 	      else if (p[0] == 'W' && p[1] == '{')
 		p = validate_switches (p+2);
 	    }
-	  p++;
+	  if (*p) p++;
 	}
 
-      p++;
-      if (p[-1] == ';')
+      if (*p) p++;
+      if (*p && p[-1] == ';')
 	goto next_member;
     }
 
