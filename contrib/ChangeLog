@@ -1,3 +1,7 @@
+2004-08-03  Richard Earnshaw <rearnsha@arm.com>
+
+	* gcc_update: gcc/config/arm/arm-tune.md -> arm-cores.def gentune.sh.
+
 2004-01-09  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* gcc_update (files_and_dependencies): Update fastjar/configure.in
