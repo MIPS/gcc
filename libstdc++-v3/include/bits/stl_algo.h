@@ -4177,9 +4177,6 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
-      __glibcpp_function_requires(_EqualOpConcept<
-	    typename iterator_traits<_InputIter>::value_type,
-	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_InputIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
