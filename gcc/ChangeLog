@@ -1,5 +1,16 @@
 2003-11-23  Per Bothner  <pbothner@apple.com>
 
+	Support compile-server dependency tracking for macros.
+	* c-opts.c (init_c_common_once):  Set uses_fragment callback.
+	* cpplib.h (struct cpp_callbacks):  New uses_fragment field.
+	* c-common.h (cb_uses_fragment):  New declaration.
+	* c-common.c (cb_uses_fragment):  New function.
+	* cpphash.h (struct cpp_macro):  New field defining_fragment.
+	* cppmacro.c (enter_macro_context):  Call uses_fragment callback.
+	(_cpp_create_definition):  Set defining_fragment field.
+	
+2003-11-23  Per Bothner  <pbothner@apple.com>
+
 	* c-format.c (init_dynamic_diag_info):  An identifier may exist yet
 	not have a global value, e.g. when the compiler sercer sees a new file.
 
