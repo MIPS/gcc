@@ -177,7 +177,7 @@ eat_spaces (void)
     {
       c = next_char ();
     }
-  while (c == ' ');
+  while (c == ' ' || c == '\t');
 
   unget_char (c);
   return c;

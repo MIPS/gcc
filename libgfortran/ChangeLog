@@ -1,3 +1,8 @@
+2003-10-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/12702
+	* io/list_read.c (eat_spaces): Treat tab as space.
+
 2003-10-30  Lars Segerlund  <Lars.Segerlund@comsys.se>
 
 	* intrinsics/random.c: Add reference to paper containing algorithm.
