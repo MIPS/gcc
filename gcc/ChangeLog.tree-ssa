@@ -1,8 +1,8 @@
 2004-02-17  Andrew Macleod  <amacleod@redhat.com>
 
-	* tree-ssa-live.c (coalesce_tpa_members):  Don't coalesce partitions
+	* tree-ssa-live.c (coalesce_tpa_members): Don't coalesce partitions
 	which are not in the same TPA group.
-	* tree-ssa.c (rewrite_out_of_ssa):  Coalesce via list first.
+	* tree-ssa.c (rewrite_out_of_ssa): Coalesce via list first.
 
 2004-02-17  Brian Booth  <bbooth@redhat.com>
 
