@@ -831,6 +831,9 @@ int flag_stack_check;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
+int stack_limit_reg = -1;
+const char *stack_limit_symbol;
+
 /* 0 if pointer arguments may alias each other.  True in C.
    1 if pointer arguments may not alias each other but may alias
    global variables.
@@ -3977,14 +3980,13 @@ decode_f_option (arg)
       if (reg < 0)
 	error ("unrecognized register name `%s'", option_value);
       else
-	stack_limit_rtx = gen_rtx_REG (Pmode, reg);
+	stack_limit_reg = reg;
     }
   else if ((option_value
 	    = skip_leading_substring (arg, "stack-limit-symbol=")))
     {
-      const char *nm;
-      nm = ggc_strdup (option_value);
-      stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
+      stack_limit_symbol = xstrdup (option_value);
+      stack_limit_reg = -2;
     }
   else if ((option_value
             = skip_leading_substring (arg, "message-length=")))
@@ -4003,7 +4005,7 @@ decode_f_option (arg)
 	error ("unrecognized option `%s'", arg - 2);
     }
   else if (!strcmp (arg, "no-stack-limit"))
-    stack_limit_rtx = NULL_RTX;
+    stack_limit_reg = -1;
   else if (!strcmp (arg, "preprocessed"))
     /* Recognise this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
@@ -5117,6 +5119,14 @@ lang_independent_init ()
 
   init_stringpool ();
   init_obstacks ();
+
+  if (stack_limit_reg == -2)
+    {
+      const char *nm = ggc_strdup (stack_limit_symbol);
+      stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
+    }
+  else if (stack_limit_reg >= 0)
+    stack_limit_rtx = gen_rtx_REG (Pmode, stack_limit_reg);
 
   /* init_emit_once uses reg_raw_mode and therefore must be called
      after init_regs which initialized reg_raw_mode.  */

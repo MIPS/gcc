@@ -1,3 +1,10 @@
+2003-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* toplev.c (stack_limit_reg, stack_limit_symbol): New.
+	(decode_f_option): Don't set stack_limit_rtx here, set
+	stack_limit_{reg,symbol} instead.
+	(lang_independent_init): Set stack_limit_rtx here.
+
 2003-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
