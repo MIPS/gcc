@@ -1,6 +1,9 @@
 gcjx also fails on PR 19629, though differently
 it creates the anonymous constructor incorrectly
 
+right now we use mmap() for reading files
+we should optionally use read() or fread()
+
 in a few places in the bytecode back end we
 add_utf(...->get_descriptor()).  this fails if the class is a member
 instead we need a new method on the constant pool
@@ -677,3 +680,5 @@ test 18281
 18789
 18796
 19070
+
+19674

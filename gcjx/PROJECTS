@@ -240,6 +240,9 @@ general compiler framework:
     global.hh
     visitor.hh
 
+code for helping ahead-of-time compilers:
+    everything in aot/
+
 if we write threading code, put in thread/; see bkoz's libthread++
 and also thread-local extension class.
 

@@ -12,7 +12,8 @@ gcjx_LDADD = libgcjx.la
 
 libgcjx_la_SOURCES = $(dot_sources) $(model_sources) $(reader_sources) \
 $(source_sources) $(format_sources) $(bytecode_sources)	\
-$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources)
+$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources) \
+$(aot_sources)
 
 BUILT_SOURCES = source/keyword.h source/chartables.h typedefs.hh.gch
 
@@ -130,3 +131,5 @@ fdlibm/w_fmod.c fdlibm/w_log.c fdlibm/w_pow.c fdlibm/w_remainder.c \
 fdlibm/w_sqrt.c
 
 fdlibm_cc_sources = fdlibm/classpath.cc
+
+aot_sources = aot/aotclass.cc aot/aotfactory.cc aot/mangle.cc

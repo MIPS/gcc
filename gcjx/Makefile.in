@@ -124,10 +124,11 @@ am__objects_8 = fdlibm/dtoa.lo fdlibm/e_acos.lo fdlibm/e_asin.lo \
 	fdlibm/w_exp.lo fdlibm/w_fmod.lo fdlibm/w_log.lo \
 	fdlibm/w_pow.lo fdlibm/w_remainder.lo fdlibm/w_sqrt.lo
 am__objects_9 = fdlibm/classpath.lo
+am__objects_10 = aot/aotclass.lo aot/aotfactory.lo aot/mangle.lo
 am_libgcjx_la_OBJECTS = $(am__objects_1) $(am__objects_2) \
 	$(am__objects_3) $(am__objects_4) $(am__objects_5) \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8) \
-	$(am__objects_9)
+	$(am__objects_9) $(am__objects_10)
 libgcjx_la_OBJECTS = $(am_libgcjx_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -267,7 +268,8 @@ gcjx_SOURCES = main.cc
 gcjx_LDADD = libgcjx.la
 libgcjx_la_SOURCES = $(dot_sources) $(model_sources) $(reader_sources) \
 $(source_sources) $(format_sources) $(bytecode_sources)	\
-$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources)
+$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources) \
+$(aot_sources)
 
 BUILT_SOURCES = source/keyword.h source/chartables.h typedefs.hh.gch
 EXTRA_DIST = source/keyword.gperf source/gen-table.pl
@@ -365,6 +367,7 @@ fdlibm/w_fmod.c fdlibm/w_log.c fdlibm/w_pow.c fdlibm/w_remainder.c \
 fdlibm/w_sqrt.c
 
 fdlibm_cc_sources = fdlibm/classpath.cc
+aot_sources = aot/aotclass.cc aot/aotfactory.cc aot/mangle.cc
 all: $(BUILT_SOURCES) gcjx-config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -733,6 +736,15 @@ fdlibm/w_sqrt.lo: fdlibm/$(am__dirstamp) \
 	fdlibm/$(DEPDIR)/$(am__dirstamp)
 fdlibm/classpath.lo: fdlibm/$(am__dirstamp) \
 	fdlibm/$(DEPDIR)/$(am__dirstamp)
+aot/$(am__dirstamp):
+	@$(mkdir_p) aot
+	@: > aot/$(am__dirstamp)
+aot/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) aot/$(DEPDIR)
+	@: > aot/$(DEPDIR)/$(am__dirstamp)
+aot/aotclass.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
+aot/aotfactory.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
+aot/mangle.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
 libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES) 
 	$(CXXLINK) -rpath $(libdir) $(libgcjx_la_LDFLAGS) $(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
@@ -769,6 +781,12 @@ gcjx$(EXEEXT): $(gcjx_OBJECTS) $(gcjx_DEPENDENCIES)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f aot/aotclass.$(OBJEXT)
+	-rm -f aot/aotclass.lo
+	-rm -f aot/aotfactory.$(OBJEXT)
+	-rm -f aot/aotfactory.lo
+	-rm -f aot/mangle.$(OBJEXT)
+	-rm -f aot/mangle.lo
 	-rm -f bytecode/attribute.$(OBJEXT)
 	-rm -f bytecode/attribute.lo
 	-rm -f bytecode/block.$(OBJEXT)
@@ -1072,6 +1090,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scope.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/warnings.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@aot/$(DEPDIR)/aotclass.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@aot/$(DEPDIR)/aotfactory.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@aot/$(DEPDIR)/mangle.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bytecode/$(DEPDIR)/attribute.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bytecode/$(DEPDIR)/block.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@bytecode/$(DEPDIR)/bytegen.Plo@am__quote@
@@ -1267,6 +1288,7 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+	-rm -rf aot/.libs aot/_libs
 	-rm -rf bytecode/.libs bytecode/_libs
 	-rm -rf fdlibm/.libs fdlibm/_libs
 	-rm -rf format/.libs format/_libs
@@ -1485,6 +1507,8 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+	-rm -f aot/$(DEPDIR)/$(am__dirstamp)
+	-rm -f aot/$(am__dirstamp)
 	-rm -f bytecode/$(DEPDIR)/$(am__dirstamp)
 	-rm -f bytecode/$(am__dirstamp)
 	-rm -f fdlibm/$(DEPDIR)/$(am__dirstamp)
@@ -1511,7 +1535,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-libtool distclean-tags
@@ -1539,7 +1563,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
