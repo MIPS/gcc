@@ -41,6 +41,24 @@ make_temp (tree type)
   return t;
 }
 
+/* Force EXP to be a gimple_val.  */
+
+static tree
+gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
+{
+  tree t, x;
+
+  if (is_gimple_val (exp))
+    return exp;
+
+  t = make_temp (type);
+  x = build (MODIFY_EXPR, type, t, exp);
+  SET_EXPR_LOCUS (x, EXPR_LOCUS (bsi_stmt (*bsi)));
+  bsi_insert_before (bsi, x, BSI_SAME_STMT);
+
+  return t;
+}
+
 /* Extract the real or imaginary part of a complex variable or constant.
    Make sure that it's a proper gimple_val and gimplify it if not.
    Emit any new code before BSI.  */
@@ -48,7 +66,7 @@ make_temp (tree type)
 static tree
 extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p)
 {
-  tree x, ret, inner_type;
+  tree ret, inner_type;
 
   inner_type = TREE_TYPE (TREE_TYPE (t));
   switch (TREE_CODE (t))
@@ -71,14 +89,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p)
       abort ();
     }
 
-  if (is_gimple_val (ret))
-    return ret;
-
-  t = make_temp (inner_type);
-  x = build (MODIFY_EXPR, inner_type, t, ret);
-  bsi_insert_before (bsi, x, BSI_SAME_STMT);
-
-  return t;
+  return gimplify_val (bsi, inner_type, ret);
 }
 
 /* Build a binary operation and gimplify it.  Emit code before BSI.
@@ -88,18 +99,12 @@ static tree
 do_binop (block_stmt_iterator *bsi, enum tree_code code,
 	  tree type, tree a, tree b)
 {
-  tree ret, t, x;
+  tree ret;
 
   ret = fold (build (code, type, a, b));
   STRIP_NOPS (ret);
-  if (is_gimple_val (ret))
-    return ret;
 
-  t = make_temp (type);
-  x = build (MODIFY_EXPR, type, t, ret);
-  bsi_insert_before (bsi, x, BSI_SAME_STMT);
-
-  return t;
+  return gimplify_val (bsi, type, ret);
 }
 
 /* Build a unary operation and gimplify it.  Emit code before BSI.
@@ -108,18 +113,12 @@ do_binop (block_stmt_iterator *bsi, enum tree_code code,
 static tree
 do_unop (block_stmt_iterator *bsi, enum tree_code code, tree type, tree a)
 {
-  tree ret, t, x;
+  tree ret;
 
   ret = fold (build1 (code, type, a));
   STRIP_NOPS (ret);
-  if (is_gimple_val (ret))
-    return ret;
 
-  t = make_temp (type);
-  x = build (MODIFY_EXPR, type, t, ret);
-  bsi_insert_before (bsi, x, BSI_SAME_STMT);
-
-  return t;
+  return gimplify_val (bsi, type, ret);
 }
 
 /* Update an assignment to a complex variable in place.  */
