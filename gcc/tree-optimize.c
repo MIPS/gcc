@@ -163,7 +163,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	}
 
       /* Eliminate tail recursion calls.  */
-      tree_optimize_tail_calls ();
+      tree_optimize_tail_calls (false, TDI_tail1);
 
 #ifdef ENABLE_CHECKING
       verify_ssa ();
@@ -238,9 +238,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 #endif
 	}
 
-#if 0
       /* Eliminate tail recursion calls and discover sibling calls.  */
       tree_optimize_tail_calls (true, TDI_tail2);
+
+#ifdef ENABLE_CHECKING
+      verify_ssa ();
 #endif
 
 #ifdef ENABLE_CHECKING

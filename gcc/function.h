@@ -389,6 +389,8 @@ struct function GTY(())
   int preferred_stack_boundary;
   /* Set when the call to function itself has been emit.  */
   bool recursive_call_emit;
+  /* Set when the tail call has been produced.  */
+  bool tail_call_emit;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;

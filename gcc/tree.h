@@ -174,6 +174,7 @@ struct tree_common GTY(())
 	   ..._TYPE, IDENTIFIER_NODE.
 	   In a STMT_EXPR, it means we want the result of the enclosed
 	   expression.
+       CALL_EXPR_TAILCALL in CALL_EXPR
 
    static_flag:
 
@@ -589,6 +590,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    had its address taken.  That matters for inline functions.  */
 #define TREE_ADDRESSABLE(NODE) ((NODE)->common.addressable_flag)
+
+#define CALL_EXPR_TAILCALL(NODE) (CALL_EXPR_CHECK(NODE)->common.addressable_flag)
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
@@ -3588,7 +3591,7 @@ enum tree_dump_index
   TDI_loop,
   TDI_mustalias,
   TDI_ssa_3,
-  TDI_tail,			/* dump after tail recursion elimination  */
+  TDI_tail1,			/* dump after tail recursion elimination  */
   TDI_sra,
   TDI_ssa_4,
   TDI_ccp,
@@ -3597,6 +3600,7 @@ enum tree_dump_index
   TDI_dom_2,
   TDI_ssa_6,
   TDI_dce_2,
+  TDI_tail2,			/* dump after tail recursion/tail call */
   TDI_optimized,
   TDI_mudflap2,
 

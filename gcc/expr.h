@@ -568,6 +568,8 @@ extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
 
 extern rtx expand_call (tree, rtx, int);
 
+extern void fixup_tail_calls (void);
+
 #ifdef TREE_CODE
 extern rtx expand_shift (enum tree_code, enum machine_mode, rtx, tree, rtx,
 			 int);
