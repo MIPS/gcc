@@ -1,5 +1,11 @@
 2005-02-17  Devang Patel  <dpatel@apple.com>
 
+	Radar 3984893
+	* tree-vectorizer.c (vect_analyze_data_ref_dependence): Check for NULL
+	distance vector.
+
+2005-02-17  Devang Patel  <dpatel@apple.com>
+
         Undo Radar 3964387 fix.
 
 2005-02-17  Fariborz Jahanian <fjahanian@apple.com>

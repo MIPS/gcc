@@ -1,3 +1,8 @@
+2005-02-18  Devang Patel  <dpatel@apple.com>
+
+	Radar 3984893
+	* gcc.dg/vect/vect-dv-1.c: New.
+
 2005-02-18  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4011192
