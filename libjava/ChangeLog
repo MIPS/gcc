@@ -1,3 +1,8 @@
+2004-07-02  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Panel.java (dispatchEventImpl): Override to prevent
+	Panel from being painted twice when it is first shown.
+
 2004-07-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
