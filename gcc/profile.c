@@ -883,7 +883,7 @@ compute_value_histograms (n_values, values)
 					   n_histogram_counters);
   sv_histogram_counts = get_histogram_counts (GCOV_TAG_SAME_VALUE_HISTOGRAMS,
    					      n_sv_histogram_counters);
-  if (!histogram_counts || !sv_histogram_counts)
+  if (!histogram_counts && !sv_histogram_counts)
     return;
 
   act_count = histogram_counts;

@@ -1,3 +1,8 @@
+2003-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* profile.c (compute_value_histograms): Fix.
+	* toplev.c (dump_file): Choose usable flag for vpt dump.
+
 Thu Feb 27 12:31:33 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (hammer-3_3-merge-20030226)

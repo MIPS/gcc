@@ -286,7 +286,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
-  { "vpt",	'v', 1, 0, 0 },
+  { "vpt",	'V', 1, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
