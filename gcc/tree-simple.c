@@ -61,6 +61,8 @@ Boston, MA 02111-1307, USA.  */
 			    references)
 	      	
 	      | SWITCH '(' val ')' casestmts
+	      | GOTO val		-> Not present in the original
+					   grammar.
 	      | ';'
 
       compsmt
@@ -101,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
 	      | case
 
       case
-	      : CASE CONST':' stmtlist stop_stmt
+	      : CASE CONST ':' stmtlist stop_stmt
 
       default
 	      : DEFAULT ':' stmtlist stop_stmt
@@ -912,6 +914,8 @@ is_simplifiable_builtin (expr)
     }
 }
 
+#if 0
+/* Soon  */
 /* Given a COMPOUND_EXPR TOP, reorganize all of the nested COMPOUND_EXPRs
    so that they only appear as the second operand.  */
 
@@ -943,9 +947,11 @@ rationalize_compound_expr (top)
     }
   return top;
 }
+#endif
+
 
 /* Given a SIMPLE varname (an ID, an arrayref or a compref), return the
-   base symbol for the object.  */
+   base symbol for the variable.  */
 
 tree
 get_base_symbol (t)
@@ -971,4 +977,3 @@ get_base_symbol (t)
       return NULL;
     }
 }
-

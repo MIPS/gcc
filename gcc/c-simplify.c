@@ -75,6 +75,7 @@ static void simplify_do_stmt         PARAMS ((tree));
 static void simplify_if_stmt         PARAMS ((tree, tree *));
 static void simplify_switch_stmt     PARAMS ((tree, tree *));
 static void simplify_return_stmt     PARAMS ((tree, tree *));
+static void simplify_goto_stmt       PARAMS ((tree, tree *));
 static void simplify_stmt_expr       PARAMS ((tree *, tree *));
 static void simplify_compound_literal_expr PARAMS ((tree *, tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
@@ -280,9 +281,12 @@ simplify_stmt (stmt_p)
 	  walk_tree (&CLEANUP_EXPR (stmt), mark_not_simple_r, NULL, NULL);
 	  break;
 
+	case GOTO_STMT:
+	  simplify_goto_stmt (stmt, &pre); 
+	  break;
+
 	/* Statements that need no simplification.  */
 	case LABEL_STMT:
-	case GOTO_STMT:
 	case CASE_LABEL:
 	case CONTINUE_STMT:
 	case BREAK_STMT:
@@ -863,6 +867,23 @@ simplify_return_stmt (stmt, pre_p)
 	}
     }
 }
+
+
+/* Simplify the GOTO_STMT node pointed by STMT.
+
+   PRE_P points to the list where side effects that must happen before
+	STMT should be stored.  */
+
+static void
+simplify_goto_stmt (stmt, pre_p)
+     tree stmt;
+     tree *pre_p;
+{
+  walk_tree (&GOTO_DESTINATION (stmt), mostly_copy_tree_r, NULL, NULL);
+  simplify_expr (&GOTO_DESTINATION (stmt), pre_p, NULL, is_simple_val,
+                 fb_rvalue);
+}
+
 
 /*  Simplifies a DECL_STMT node T.
 
