@@ -371,6 +371,8 @@ struct noce_if_info
   rtx jump, cond, cond_earliest;
 };
 
+static rtx noce_emit_store_flag		PARAMS ((struct noce_if_info *,
+						 rtx, int, int));
 static int noce_try_store_flag		PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_inc	PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_constants PARAMS ((struct noce_if_info *));
@@ -380,6 +382,71 @@ static rtx noce_emit_cmove		PARAMS ((struct noce_if_info *,
 						 rtx, rtx, rtx));
 static int noce_try_cmove		PARAMS ((struct noce_if_info *));
 static int noce_try_cmove_arith		PARAMS ((struct noce_if_info *));
+
+/* Helper function for noce_try_store_flag*.  */
+
+static rtx
+noce_emit_store_flag (if_info, x, reversep, normalize)
+     struct noce_if_info *if_info;
+     rtx x;
+     int reversep, normalize;
+{
+  rtx cond = if_info->cond;
+  int cond_complex;
+  enum rtx_code code;
+
+  cond_complex = (! general_operand (XEXP (cond, 0), VOIDmode)
+		  || ! general_operand (XEXP (cond, 1), VOIDmode));
+
+  /* If earliest == jump, or when the condition is complex, try to
+     build the store_flag insn directly.  */
+
+  if (cond_complex)
+    cond = XEXP (SET_SRC (PATTERN (if_info->jump)), 0);
+
+  if ((if_info->cond_earliest == if_info->jump || cond_complex)
+      && (normalize == 0 || STORE_FLAG_VALUE == normalize))
+    {
+      rtx tmp;
+
+      code = GET_CODE (cond);
+      if (reversep)
+	code = reverse_condition (code);
+
+      tmp = gen_rtx_fmt_ee (code, GET_MODE (x), XEXP (cond, 0),
+			    XEXP (cond, 1));
+      tmp = gen_rtx_SET (VOIDmode, x, tmp);
+
+      start_sequence ();
+      tmp = emit_insn (tmp);
+
+      if (recog_memoized (tmp) >= 0)
+	{
+	  tmp = get_insns ();
+	  end_sequence ();
+	  emit_insns (tmp);
+
+	  if_info->cond_earliest = if_info->jump;
+
+	  return x;
+	}
+
+      end_sequence ();
+    }
+
+  /* Don't even try if the comparison operands are weird.  */
+  if (cond_complex)
+    return NULL_RTX;
+
+  code = GET_CODE (cond);
+  if (reversep)
+    code = reverse_condition (code);
+
+  return emit_store_flag (x, code, XEXP (cond, 0),
+			  XEXP (cond, 1), VOIDmode,
+			  (code == LTU || code == LEU
+			   || code == GEU || code == GTU), normalize);
+}
 
 /* Convert "if (test) x = 1; else x = 0".
 
@@ -391,28 +458,24 @@ static int
 noce_try_store_flag (if_info)
      struct noce_if_info *if_info;
 {
-  enum rtx_code code;
+  int reversep;
   rtx target, seq;
 
   if (GET_CODE (if_info->b) == CONST_INT
       && INTVAL (if_info->b) == STORE_FLAG_VALUE
       && if_info->a == const0_rtx)
-    code = GET_CODE (if_info->cond);
+    reversep = 0;
   else if (if_info->b == const0_rtx
 	   && GET_CODE (if_info->a) == CONST_INT
 	   && INTVAL (if_info->a) == STORE_FLAG_VALUE
 	   && can_reverse_comparison_p (if_info->cond, if_info->jump))
-    code = reverse_condition (GET_CODE (if_info->cond));
+    reversep = 1;
   else
     return FALSE;
 
   start_sequence ();
 
-  target = emit_store_flag (if_info->x, code, XEXP (if_info->cond, 0),
-			    XEXP (if_info->cond, 1), VOIDmode,
-			    (code == LTU || code == LEU
-			     || code == GEU || code == GTU), 0);
-
+  target = noce_emit_store_flag (if_info, if_info->x, reversep, 0);
   if (target)
     {
       if (target != if_info->x)
@@ -440,34 +503,34 @@ noce_try_store_flag_constants (if_info)
   enum rtx_code code;
   rtx target, seq;
   int reversep;
-  HOST_WIDE_INT ai, bi, diff, tmp;
+  HOST_WIDE_INT itrue, ifalse, diff, tmp;
   int normalize, can_reverse;
 
   if (! no_new_pseudos
       && GET_CODE (if_info->a) == CONST_INT
       && GET_CODE (if_info->b) == CONST_INT)
     {
-      ai = INTVAL (if_info->a);
-      bi = INTVAL (if_info->b);
-      diff = bi - ai;
+      ifalse = INTVAL (if_info->a);
+      itrue = INTVAL (if_info->b);
+      diff = itrue - ifalse;
 
       can_reverse = can_reverse_comparison_p (if_info->cond, if_info->jump);
 
       reversep = 0;
       if (diff == STORE_FLAG_VALUE || diff == -STORE_FLAG_VALUE)
 	normalize = 0;
-      else if (bi == 0 && exact_log2 (ai) >= 0
+      else if (ifalse == 0 && exact_log2 (itrue) >= 0
 	       && (STORE_FLAG_VALUE == 1
 		   || BRANCH_COST >= 2))
 	normalize = 1;
-      else if (ai == 0 && exact_log2 (bi) >= 0 && can_reverse
+      else if (itrue == 0 && exact_log2 (ifalse) >= 0 && can_reverse
 	       && (STORE_FLAG_VALUE == 1 || BRANCH_COST >= 2))
 	normalize = 1, reversep = 1;
-      else if (ai == -1
+      else if (itrue == -1
 	       && (STORE_FLAG_VALUE == -1
 		   || BRANCH_COST >= 2))
 	normalize = -1;
-      else if (bi == -1 && can_reverse
+      else if (ifalse == -1 && can_reverse
 	       && (STORE_FLAG_VALUE == -1 || BRANCH_COST >= 2))
 	normalize = -1, reversep = 1;
       else if ((BRANCH_COST >= 2 && STORE_FLAG_VALUE == -1)
@@ -476,20 +539,14 @@ noce_try_store_flag_constants (if_info)
       else
 	return FALSE;
 
-      code = GET_CODE (if_info->cond);
       if (reversep)
       	{
-	  code = reverse_condition (code);
-	  tmp = ai, ai = bi, bi = tmp;
+	  tmp = itrue; itrue = ifalse; ifalse = tmp;
 	  diff = -diff;
 	}
 
       start_sequence ();
-      target = emit_store_flag (if_info->x, code, XEXP (if_info->cond, 0),
-				XEXP (if_info->cond, 1), VOIDmode,
-				(code == LTU || code == LEU
-				 || code == GEU || code == GTU),
-				normalize);
+      target = noce_emit_store_flag (if_info, if_info->x, reversep, normalize);
       if (! target)
 	{
 	  end_sequence ();
@@ -503,16 +560,25 @@ noce_try_store_flag_constants (if_info)
 	  target = expand_binop (GET_MODE (if_info->x),
 				 (diff == STORE_FLAG_VALUE
 				  ? add_optab : sub_optab),
-				 if_info->a, target, if_info->x, 0,
+				 GEN_INT (ifalse), target, if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
 
       /* if (test) x = 8; else x = 0;
 	 =>   x = (test != 0) << 3;  */
-      else if (bi == 0 && (tmp = exact_log2 (ai)) >= 0)
+      else if (ifalse == 0 && (tmp = exact_log2 (itrue)) >= 0)
 	{
 	  target = expand_binop (GET_MODE (if_info->x), ashl_optab,
 				 target, GEN_INT (tmp), if_info->x, 0,
+				 OPTAB_WIDEN);
+	}
+
+      /* if (test) x = -1; else x = b;
+	 =>   x = -(test != 0) | b;  */
+      else if (itrue == -1)
+	{
+	  target = expand_binop (GET_MODE (if_info->x), ior_optab,
+				 target, GEN_INT (ifalse), if_info->x, 0,
 				 OPTAB_WIDEN);
 	}
 
@@ -523,9 +589,10 @@ noce_try_store_flag_constants (if_info)
 	  target = expand_binop (GET_MODE (if_info->x), and_optab,
 				 target, GEN_INT (diff), if_info->x, 0,
 				 OPTAB_WIDEN);
-	  target = expand_binop (GET_MODE (if_info->x), add_optab,
-				 target, GEN_INT (ai), if_info->x, 0,
-				 OPTAB_WIDEN);
+	  if (target)
+	    target = expand_binop (GET_MODE (if_info->x), add_optab,
+				   target, GEN_INT (ifalse), if_info->x, 0,
+				   OPTAB_WIDEN);
 	}
 
       if (! target)
@@ -554,7 +621,6 @@ static int
 noce_try_store_flag_inc (if_info)
      struct noce_if_info *if_info;
 {
-  enum rtx_code code;
   rtx target, seq;
   int subtract, normalize;
 
@@ -570,8 +636,6 @@ noce_try_store_flag_inc (if_info)
       && rtx_equal_p (XEXP (if_info->a, 0), if_info->x)
       && can_reverse_comparison_p (if_info->cond, if_info->jump))
     {
-      code = reverse_condition (GET_CODE (if_info->cond));
-
       if (STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
 	subtract = 0, normalize = 0;
       else if (-STORE_FLAG_VALUE == INTVAL (XEXP (if_info->a, 1)))
@@ -581,12 +645,9 @@ noce_try_store_flag_inc (if_info)
       
       start_sequence ();
 
-      target = emit_store_flag (gen_reg_rtx (GET_MODE (if_info->x)), code, 
-				XEXP (if_info->cond, 0),
-				XEXP (if_info->cond, 1), VOIDmode,
-				(code == LTU || code == LEU
-				 || code == GTU || code == GEU),
-				normalize);
+      target = noce_emit_store_flag (if_info,
+				     gen_reg_rtx (GET_MODE (if_info->x)),
+				     1, normalize);
 
       if (target)
 	target = expand_binop (GET_MODE (if_info->x),
@@ -616,7 +677,6 @@ static int
 noce_try_store_flag_mask (if_info)
      struct noce_if_info *if_info;
 {
-  enum rtx_code code;
   rtx target, seq;
   int reversep;
 
@@ -631,34 +691,28 @@ noce_try_store_flag_mask (if_info)
 	      && if_info->b == const0_rtx
 	      && rtx_equal_p (if_info->a, if_info->x))))
     {
-      code = GET_CODE (if_info->cond);
-      if (reversep)
-	code = reverse_condition (code);
-
       start_sequence ();
-      target = emit_store_flag (gen_reg_rtx (GET_MODE (if_info->x)), code,
-				XEXP (if_info->cond, 0),
-				XEXP (if_info->cond, 1), VOIDmode,
-				(code == LTU || code == LEU
-				 || code == GEU || code == GTU), -1);
-      if (! target)
+      target = noce_emit_store_flag (if_info,
+				     gen_reg_rtx (GET_MODE (if_info->x)),
+				     reversep, -1);
+      if (target)
+        target = expand_binop (GET_MODE (if_info->x), and_optab,
+			       if_info->x, target, if_info->x, 0,
+			       OPTAB_WIDEN);
+
+      if (target)
 	{
+	  if (target != if_info->x)
+	    emit_move_insn (if_info->x, target);
+
+	  seq = get_insns ();
 	  end_sequence ();
-	  return FALSE;
+	  emit_insns_before (seq, if_info->cond_earliest);
+
+	  return TRUE;
 	}
 
-      target = expand_binop (GET_MODE (if_info->x), and_optab,
-			     if_info->x, target, if_info->x, 0,
-			     OPTAB_WIDEN);
-
-      if (target != if_info->x)
-	emit_move_insn (if_info->x, target);
-
-      seq = get_insns ();
       end_sequence ();
-      emit_insns_before (seq, if_info->cond_earliest);
-
-      return TRUE;
     }
 
   return FALSE;
@@ -672,7 +726,7 @@ noce_emit_cmove (if_info, x, code, cmp_a, cmp_b, vfalse, vtrue)
      rtx x, cmp_a, cmp_b, vfalse, vtrue;
      enum rtx_code code;
 {
-  /* ??? If earliest == jump, try to build the cmove insn directly.
+  /* If earliest == jump, try to build the cmove insn directly.
      This is helpful when combine has created some complex condition
      (like for alpha's cmovlbs) that we can't hope to regenerate
      through the normal interface.  */

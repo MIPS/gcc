@@ -1,3 +1,13 @@
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* condexec.c (noce_emit_store_flag): New.
+	(noce_try_store_flag): Use it.
+	(noce_try_store_flag_inc): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_store_flag_constants): Likewise.  Add missing (-1,b) case.
+
+	* config/i386/i386.md: Add fake SImode setcc patterns and splitter.
+
 2000-04-25  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (noce_emit_cmove): New.
