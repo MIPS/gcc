@@ -1,3 +1,24 @@
+2004-08-07  Jonathan Wakely  <redi@gcc.gnu.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+	
+	* src/debug.cc (_Error_formatter::_M_print_string): In order
+	to print individual words from __string, _M_format_word can't
+	be called since may be just sprintf, thus ignoring completely
+	__n: instead, use memmove and append '\0' by hand.
+
+2004-08-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.h (__convert_from_v): Don't
+	use a default for __prec, assume __prec >= 0 and simplify.
+	* config/locale/gnu/c_locale.h (__convert_from_v): Likewise.
+	* include/bits/locale_facets.tcc (money_put<>::do_put(long double)):
+	Pass format "%.*Lf" + precision == 0, equivalent to "%.0Lf".
+
+2004-08-04  Phil Edwards  <phil@codesourcery.com>
+
+	* docs/html/configopts.html:  Emphasize that options change.
+	* docs/html/17_intro/configury.html:  Update links.
+
 2004-08-03  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/list.tcc: Trivial formatting fixes.

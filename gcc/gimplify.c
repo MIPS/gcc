@@ -895,6 +895,9 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   else
     {
       result_decl = TREE_OPERAND (ret_expr, 0);
+      if (TREE_CODE (result_decl) == INDIRECT_REF)
+	/* See through a return by reference.  */
+	result_decl = TREE_OPERAND (result_decl, 0);
 #ifdef ENABLE_CHECKING
       if ((TREE_CODE (ret_expr) != MODIFY_EXPR
 	   && TREE_CODE (ret_expr) != INIT_EXPR)
@@ -3021,12 +3024,14 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
     default:
       /* We use fb_either here because the C frontend sometimes takes
-	 the address of a call that returns a struct.  */
+	 the address of a call that returns a struct; see
+	 gcc.dg/c99-array-lval-1.c.  The gimplifier will correctly make
+	 the implied temporary explicit.  */
       ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
 			   is_gimple_addressable, fb_either);
       if (ret != GS_ERROR)
 	{
-	  /* The above may have made an INDIRECT ref (e.g, Ada's NULL_EXPR),
+	  /* The above may have made an INDIRECT_REF (e.g, Ada's NULL_EXPR),
 	     so check for it here.  It's not worth checking for the other
 	     cases above.  */
 	  if (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)

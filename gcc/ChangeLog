@@ -1,3 +1,398 @@
+2004-08-08  Mostafa Hagog  <mustafa@il.ibm.com>
+	Ayal Zaks <zaks@il.ibm.com>
+
+	* common.opt (freschedule-modulo-scheduled-loops): New flag.
+	* final.c (final_scan_insn): Handle NOTE_DISABLE_SCHED_OF_BLOCK.
+	* modulo-sched.c (sms_schedule): Emit a note to disable scheduling
+	when -freschedule-modulo-scheduled-loops flag is not specified.
+	(sms_schedule_by_order, ps_insn_advance_column, add_node_to_ps,
+	add_node_to_ps, ps_has_conflicts, ps_add_node_check_conflicts):
+	More accurate placing of insn in row of partial schedule.
+	(ps_insn_find_column): New function.
+	* rtl.h (NOTE_DISABLE_SCHED_OF_BLOCK): New note.
+	* sched-rgn.c (sched_is_disabled_for_current_region_p): New.
+	(schedule_region): Use sched_is_disabled_for_current_region_p.
+	* docs/invoke.texi: Document -freschedule-modulo-scheduled-loops.
+
+2004-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_clrmem): Revert the last
+	change.
+
+2004-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_clrmem): Properly call
+	gen_strset for 64bit target.
+
+2004-08-07  Olivier Hainque  <hainque@act-europe.fr>
+
+	* config/vxworks.h (HANDLE_SYSV_PRAGMA): Remove definition.
+
+2004-08-07  Jason Merrill  <jason@redhat.com>
+
+	Make return in memory explicit.
+	* function.c (aggregate_value_p): Check DECL_BY_REFERENCE.
+	(assign_parm_find_data_types): Remove code for old front end
+	invisible reference handling.
+	(assign_parms): Handle DECL_BY_REFERENCE on the RESULT_DECL.
+	(expand_function_end): Likewise.
+	* gimplify.c (gimplify_return_expr): Handle a dereferenced
+	RESULT_DECL.
+	* tree-inline.c (copy_body_r): Don't bother looking for &* anymore.
+	(declare_return_variable): Handle DECL_BY_REFERENCE.
+	* cp/cp-gimplify.c (is_invisiref_parm): Also handle RESULT_DECL.
+	(cp_genericize_r): Use convert_from_reference.
+	Don't dereference a RESULT_DECL directly inside a RETURN_EXPR.
+	(cp_genericize): Handle the RESULT_DECL.  Unset TREE_ADDRESSABLE.
+
+	* c-common.c (c_warn_unused_result): Check TREE_USED before
+	warning about a CALL_EXPR with an unused value.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/symbian.h (CC1_SPEC): Avoid passing duplicate options
+	to the compiler.  Use -fshort-wchar by default.
+
+2004-08-06  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* params.def (PARAM_MIN_CROSSJUMP_INSNS): New.
+	* cfgcleanup.c (try_crossjump_to_edge): Add minimum insn match
+	threshhold.
+	* doc/invoke.texi (param): Document min-crossjump-insns.
+
+2004-08-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR c/13282
+	* c.opt (Wmissing-field-initializers): New option.
+	* c-opts.c (c_common_post_options): Make -Wextra turn it on by default.
+	* c-typeck.c (pop_init_level): Guard the missing field warning with
+	warn_missing_field_initializers rather than extra_warnings.
+	* doc/invoke.texi (-Wmissing-field-initializers): Document, moving
+	some of the explanation from...
+	(-Wextra): ...here.  Say that the missing field warning can be
+	seperately controlled by -Wmissing-field-initializers.
+
+2004-08-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* expr.c (expand_expr_real_1) <ENTRY_VALUE_EXPR>: Remove.
+	* tree-inline.c (estimate_num_insns_1) <ENTRY_VALUE_EXPR>: Remove.
+	* tree-pretty-print.c (dump_generic_node) <ENTRY_VALUE_EXPR>: Remove.
+	* tree.def (ENTRY_VALUE_EXPR): Remove.
+
+2004-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_clrmem): Move gen_cld down to
+	the places where it is actually needed.  Don't use repz; stosb
+	for -Os with sufficiently small constant sizes.
+	For sufficiently small repz; stos{l,q} repeat counts use a sequence
+	of stos{l,q} instructions instead.
+
+2004-08-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR tree-optimization/16807
+	* loop-iv.c (dump_iv_info): Dump invariants correctly.
+	(iv_subreg, iv_extend): Express value of invariant purely in
+	base field.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/symbian.h (CC1_SPEC): Add -fno-short-enums.
+	(CC1PLUS_SPEC): Define it to be the same as CC1_SPEC.
+
+2004-08-06  Roman Zippel  <zippel@linux-m68k.org>
+ 
+        * config/m68k/m68k.c (post_inc_operand,pre_dec_operand): New.
+        * config/m68k/m68k.h (PREDICATE_CODES): add post_inc_operand,
+        pre_dec_operand.
+        * config/m68k/m68k.md (zero_extend*2): delay the splitting of the
+        pattern until reload is finished to allow better code generation
+        and split them completely into separate instrunctions.
+        (*andsi3_split): New pattern.
+
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (handle_dll_attribute): Move here from i383/winnt.c.
+	Replace use of DECL_INLINE with DECL_DECLARED_INLINE_P.  Set
+	DECL_VISIBLITY.  Test TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* tree.h (handle_dll_attribute): Declare.  Test
+	TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* c-common.h (c_determine_visibility): Declare.
+	* c-common.c (c_determine_visibility): New function.
+	* c-decl.c (finish_decl): Use it.
+	(finish_function): Likewise.
+	* defaults.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define it to
+	zero, by default.  Use #if, not	#ifdef, to test it.
+	* config/arm/arm.c (arm_attribute_table): Use
+	handle_dll_attribute.  Test TARGET_DLLIMPORT_DECL_ATTRIBUTES with
+	#if.
+	* config/arm/pe.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define to 1.
+	* config/i386/cygming.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	to 1.
+	* config/i386/i386-protos.h (ix86_handle_dll_attribute): Remove.
+	* config/i386/i386.c (ix86_attribute_table): Use
+	handle_dll_attribute for dllimport/dllexport.  Test
+	TARGET_DLLIMPORT_DECL_ATTRIBUTES with #if.
+	* config/i386/winnt.c (ix86_handle_dll_attribute): Remove.
+	* config/mcore/mcore.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	it to 1.
+	* config/mcore/mcore.c (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Test it
+	with #if.
+	* config/sh/symbian-pre.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define
+	it to 1.
+	* doc/extend.texi (dllexport): Clarify and correct documentation.
+	(dllimport): Likewise.
+	* doc/tm.texi (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Mention
+	handle_dll_attribute.
+	
+2004-08-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-manip.c: New file.
+	* Makefile.in (tree-ssa-loop-manip.o): Add.
+	* tree-flow.h (rewrite_into_loop_closed_ssa, verify_loop_closed_ssa):
+	Declare.
+	* tree-ssa-loop.c (tree_loop_optimizer_init): Create loop closed ssa
+	form.
+	(tree_ssa_loop_done): Verify loop closed ssa form.
+	* tree-ssa-loop-im.c (move_computations): Update loop closed ssa form.
+
+2004-08-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (pa_asm_output_aligned_bss, pa_asm_output_aligned_common,
+	pa_asm_output_aligned_local): New functions.
+	* pa-protos.h: Add prototypes for pa_asm_output_aligned_bss,
+	pa_asm_output_aligned_common and pa_asm_output_aligned_local.
+	* pa-pro-end.h (ASM_OUTPUT_ALIGNED_COMMON): Use
+	pa_asm_output_aligned_common.
+	(ASM_OUTPUT_ALIGNED_LOCAL): Use pa_asm_output_aligned_local.
+	* pa.h (ASM_OUTPUT_ALIGNED_BSS): New macro.
+	(ASM_OUTPUT_ALIGNED_COMMON): Use pa_asm_output_aligned_common.
+	(ASM_OUTPUT_ALIGNED_LOCAL): Use pa_asm_output_aligned_local.
+	* pa64-hpux.h (MAX_OFILE_ALIGNMENT): New macro.
+	(ASM_OUTPUT_ALIGNED_COMMON): Use pa_asm_output_aligned_common.
+	(ASM_OUTPUT_ALIGNED_LOCAL): Use pa_asm_output_aligned_local.
+	* som.h (MAX_OFILE_ALIGNMENT): Provide maximum alignment of global
+	common data.
+
+2004-08-05  Andrew Pinski  <apinski@apple.com>
+
+	* objc/objc-act.c (build_objc_string_object): Mark the address
+	expression as constant.
+
+2004-08-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Fix mask_operand
+	and mask64_operand thinkos.  Handle ZERO_EXTRACT.  Handle
+	SIGN_EXTEND / ZERO_EXTEND of MEM.  Handle rlwinm patterns.
+
+2004-08-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* config/linux.h, config/i386/linux.h, config/sparc/linux.h:
+	Remove definitions conditioned on USE_GNULIBC_1 or conditioned
+	out, and associated obsolete comments.
+
+2004-08-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.h (force_fit_type): Return a tree, take three flags.
+	* fold-const.c (force_fit_type): Set TREE_OVERFLOW and
+	TREE_CONSTANT_OVERFLOW here.
+	(int_const_binop, const_binop): Adjust.
+	(size_int_type): Do sign extension here.
+	(fold_convert_const, optimize_bit_field_compare,
+	decode_field_reference, all_ones_mask_p, fold_div_compare, fold,
+	fold_negate_const, fold_abs_const, fold_not_const): Adjust.
+	* tree.c (size_in_bytes, int_fits_type_p): Adjust.
+
+2004-08-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR tree-optimization/16864
+	* tree-tailcall.c (eliminate_tail_call): Do not create phi nodes
+	for ssa names without default_def.
+
+2004-08-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_prologue): If the function uses a
+	frame pointer, restore eax with an ebp-relative address.
+
+2004-08-04  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 14516
+	* c-common.c (c_expand_decl): Don't special-case static VAR_DECLs.
+	* c-common.h (make_rtl_for_local_static): Delete.
+	* c-decl.c (shadow_tag_warned): Clean up comment.
+	(finish_decl): Clean up spacing.  Use set_user_assembler_name when
+	appropriate.  Don't pass asmspec to rest_of_decl_compilation.
+	* c-semantics.c (make_rtl_for_local_static): Delete.
+	* expr.c (init_block_move_fn): Use set_user_assembler_name.
+	(init_block_clear_fn): Likewise.
+	* passes.c (rest_of_decl_compilation): Remove asmspec parameter,
+	expect it to be in DECL_ASSEMBLER_NAME.  Update callers in many files.
+	* toplev.h (rest_of_decl_compilation): Remove asmspec parameter.
+	* tree.h (make_decl_rtl): Remove second parameter.
+	(set_user_assembler_name): New.
+	* varasm.c (set_user_assembler_name): New.
+	(make_decl_rtl): Remove second parameter.  Update callers in many
+	files.
+
+2004-08-05  Adam Nemet  <anemet@lnxw.com>
+
+	* config.gcc (case i[34567]86-*-lynxos*): Update to LynxOS 4.0.
+	(case rs6000-*-lynxos*): Rename it to powerpc-*-lynxos*.  Update
+	to LynxOS 4.0.
+	* gthr-lynx.h: New file.
+	* config/lynx-ng.h: Remove file.
+	* config/lynx.h: Update to LynxOS 4.0.
+	* config/t-lynx: New file.
+	* config/i386/lynx-ng.h: Remove file.
+	* config/i386/lynx.h: Update to LynxOS 4.0.
+	* config/rs6000/lynxbase.h: Remove file.
+	* config/rs6000/lynx.h: Update to LynxOS 4.0.
+	* config/rs6000/t-lynx: New file.
+	* doc/install.texi (Options specification): Remove reference to
+	LynxOS from systems where --with-gnu-as makes a difference.
+
+2004-08-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-common.c (c_stddef_cpp_builtins): Define __INTMAX_TYPE__ and
+	__UINTMAX_TYPE__.
+	* c-cppbuiltin.c (builtin_define_stdint_macros): New.  Define
+	__INTMAX_MAX__.
+	(c_cpp_builtins): Call it.
+	* doc/cpp.texi: Update.
+
+2004-08-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): LABEL_REFs are zero
+	cost.
+
+2004-08-04  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (profile_staus): New global variable.
+	* cfg.c (profile_status): Declare.
+	(check_bb_profile): Break out from ....; use profile_status
+	(dump_flow_info): ... here.
+	* cfgbuild.c (find_basic_blocks): Set profile_status.
+	* cfgexpand.c (tree_expand_cfg): Likewise.
+	* predict.c (estimate_probability): Likewise.
+	* profile.c (branch_prob): Likewise.
+	* tree-cfg.c (build_tree_cfg): Likewise.
+	(dump_function_to_file): Use check_bb_profile.
+	* tree-pretty-print (dump_bb_header): Likewise.
+	* tree-profile.c (do_tree_profiling): Cleanup.
+
+2004-08-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in (RTL_BASE_H, RTL_H): Correct.
+	(BUILD_RTL): Remove $(BUILD_PREFIX) from ggc-none.o.
+	(genobjs): Add errors.o, ggc-none.o, and min-insn-modes.o.
+	(read-rtl.o, gensupport.o, genconfig.o, genflags.o, gencodes.o)
+	(genconstants.o, genemit.o, genopinit.o, genrecog.o, genextract.o)
+	(genpeep.o, genattr.o, genattrtab.o, genautomata.o, genoutput.o)
+	(genconditions.o): Depend on $(RTL_BASE_H) not $(RTL_H).
+	(ggc-none.o, errors.o): Move rule to generators section;
+	correct dependencies.
+	(min-insn-modes.o): Move rule to generators section; remove
+	unnecessary explicit command; correct dependencies.
+	(print-rtl.o, print-rtl1.o): Correct dependencies.
+	($(BUILD_PREFIX_1)errors.o. $(BUILD_PREFIX_1)ggc-none.o): Delete rule.
+	(mostlyclean): Update.
+
+	* errors.c: Include bconfig.h not config.h.  Correct comment.
+	* gengtype.c, genpreds.c: Don't define NO_GENRTL_H.
+	* ggc-none.c: Include bconfig.h; not config.h or tm.h.
+	* print-rtl.c: Don't include tm_p.h.
+
+	* rtl.h: Move forward-decl of struct function down where it's
+	needed.  Include genrtl.h #ifndef GENERATOR_FILE, not
+	#ifndef NO_GENRTL_H.  Remove unnecessary #ifdef BUFSIZ statements.
+
+2004-08-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (tree_duplicate_bb): Mark duplicated definitions.
+	* tree-flow.h (rewrite_ssa_into_ssa): Declaration changed.
+	* tree-into-ssa.c (rewrite_ssa_into_ssa): Use new interface to
+	manipulate the duplicated ssa names.
+	* tree-ssanames.c (ssa_names_to_rewrite): New variable.
+	(marked_for_rewrite_p, any_marked_for_rewrite_p, mark_for_rewrite,
+	unmark_all_for_rewrite, marked_ssa_names, release_ssa_name_force):
+	New functions.
+	(release_ssa_name): Do not release ssa names that may have multiple
+	definitions.
+	* tree.h (release_ssa_name_force, mark_for_rewrite,
+	unmark_all_for_rewrite, marked_for_rewrite_p, any_marked_for_rewrite_p,
+	marked_ssa_names): Declare.
+	* tree-ssa-loop-ch.c (mark_defs_for_rewrite): Remove.
+	(duplicate_blocks): Remove call to mark_defs_for_rewrite.
+	Update call to rewrite_ssa_into_ssa.
+
+2004-08-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* defaults.h (TARGET_DECLSPEC): New macro.
+	* c-cppbuiltin.c (c_cpp_builtins): Handle TARGET_DECLSPEC.
+	* config/arm/pe.h (SUBTARGET_CPP_SPEC): Remove __declspec support.
+	* config/arm/symbian.h (TARGET_DLLIMPORT_DECL_ATTRIBUTES): Define.
+	* config/i386/beof-elf.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	(TARGET_DECLSPEC): Define.
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	* config/i386/i386-interix.h (TARGET_OS_CPP_BUILTINS): Remove
+	__declspec support.
+	(TARGET_DECLSPEC): Define.
+	* config/mcore/mcore.h (TARGET_CPU_CPP_BUILTINS): Remove
+	__declspec support.
+	* config/sh/symbian-pre.h (SUBTARGET_CPP_SPEC): Remove __declspec
+	support.
+	* doc/tm.texi (TARGET_DECLSPEC): Document.
+
+	* doc/extend.texi: Fix typo in comment.
+
+2004-08-04  Paul Brook  <paul@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_CDTOR_RETURNS_THIS): Define.
+	(TARGET_CXX): Use it.
+	* target.h (struct gcc_target): Add cdtor_returns_this.
+	* config/arm/arm.c (arm_cxx_cdtor_returns_this): New function.
+	(TARGET_CXX_CDTOR_RETURNS_THIS): Define.
+	* doc/tm.texi: Document TARGET_CXX_CDTOR_RETURNS_THIS.
+
+2004-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-lex.c (narrowest_unsigned_type, narrowest_signed_type): Take
+	low/high pair. Do range checking directly.
+	(interpret_integer): Adjust.
+
+2004-08-04  Nick Clifton  <nickc@redhat.com>
+
+	* config/sh/sh.h (TARGET_SWITCHES): Add no-renesas to select the
+	GCC ABI.
+	* doc/invoke.texi: Document this new switch and also the -mrenesas
+	switch.
+
+2004-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cfglayout.c (insn_locators_initialize): Update the current
+	location before initializing a location.
+
+2004-08-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* dbxout.c (dbxout_function_decl): Always call dbxout_function_end.
+	(dbxout_function_end): Return after emitting the "Lscope" symbol
+	under the same conditions that this function formerly wasn't called.
+	Add explanatory comments.
+
+	PR 14860
+	* c-decl.c (record_builtin_type): Call debug_hooks->type_decl
+	on the new decl.
+
+	PR 13956
+	* dbxout.c (dbx_output_lbrac, dbx_output_rbrac): New
+	functions, broken out of dbxout_block.
+	(dbxout_block): The block at depth 0 should get LBRAC/RBRAC
+	stabs too, if it contains symbols.  Use the begin_label and
+	the Lscope label (emitted by dbxout_function_end) for the
+	range of this block.
+
 2004-08-03  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* doc/install.texi: Update autoconf version requirements.

@@ -125,6 +125,7 @@ build_tree_cfg (tree *tp)
 
   /* Initialize the basic block array.  */
   init_flow ();
+  profile_status = PROFILE_ABSENT;
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
@@ -4297,8 +4298,19 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
+  tree phi;
+  def_optype defs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
+  unsigned j;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    {
+      mark_for_rewrite (PHI_RESULT (phi));
+    }
+
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -4307,6 +4319,21 @@ tree_duplicate_bb (basic_block bb)
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* Record the definitions.  */
+      get_stmt_operands (stmt);
+
+      defs = STMT_DEF_OPS (stmt);
+      for (j = 0; j < NUM_DEFS (defs); j++)
+	mark_for_rewrite (DEF_OP (defs, j));
+
+      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
+	mark_for_rewrite (V_MAY_DEF_RESULT (v_may_defs, j));
+
+      v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+      for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	mark_for_rewrite (V_MUST_DEF_OP (v_must_defs, j));
 
       copy = unshare_expr (stmt);
 
@@ -4370,6 +4397,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   if (basic_block_info)
     {
       /* Make a CFG based dump.  */
+      check_bb_profile (ENTRY_BLOCK_PTR, file);
       if (!ignore_topmost_bind)
 	fprintf (file, "{\n");
 
@@ -4380,6 +4408,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	dump_generic_bb (file, bb, 2, flags);
 	
       fprintf (file, "}\n");
+      check_bb_profile (EXIT_BLOCK_PTR, file);
     }
   else
     {
