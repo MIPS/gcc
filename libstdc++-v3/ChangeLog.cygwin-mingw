@@ -1,3 +1,8 @@
+2003-10-12  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: (Re) Add cygwin target support.
+	* configure: Regenerate.
+
 2003-06-27  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* src/functexcept.cc (__throw_ios_failure): Split out into
