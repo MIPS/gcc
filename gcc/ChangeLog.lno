@@ -1,3 +1,37 @@
+2004-01-21  Dorit Naishlos <dorit@il.ibm.com>
+
+	* Makefile.in: (tree-vectorizer.o): Add dependency on real.h.
+        * tree-vectorizer.c: (vect_is_simple_use): Allow constants.
+        (real.h): Included to support constants vectorization.
+        (vect_get_vec_def_for_operand): New function.
+        (vect_transform_binop): Use above new function.
+        (vect_transform_store): Likewise.
+        (vect_transform_load): Likewise.
+
+        (vect_get_new_vect_var): Allow more flexibility in naming scheme.
+        (vect_create_index_for_array_ref): Call vect_get_new_vect_var with a
+        name prefix instead of a variable.
+        (vect_create_data_ref): Likewise.
+        (vect_create_destination_var): Likewise.
+
+        (vect_analyze_data_refs): Temporarily restrict vectorizable data refs
+	to ARRYA_RES which base is a VAR_DECL.
+        (vect_create_data_ref): Support only VAR_DECL array base. Mark all 
+        vops for renaming. 
+
+        (vect_get_array_first_index): New function.
+        (vect_create_index_for_array_ref): Consider array_first_index.
+        (vect_analyze_data_ref_access): Likewise.
+
+        (vect_get_loop_niters): Use number_of_iterations_in_loop.
+        (vect_analyze_loop_form): Don't attempt to vectorize if 
+        number_of_iterations == 0.
+
+        (vect_analyze_operations): Fix vectype analysis.
+
+        (vect_create_index_for_array_ref): Fix code insertion in loop prolog.
+        (vect_transform_loop_bound): Likewise.
+
 2004-01-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>,
 	    Devang Patel <dpatel@apple.com>
 

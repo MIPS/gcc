@@ -168,6 +168,41 @@ main1 ()
         abort ();
     }
 
+
+  /* Tests 8,9,10 - constants.  */
+  for (i = 0; i < N; i++)
+    {
+      a[i] = 5.0;
+    }
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (a[i] != 5.0)
+        abort ();
+    }
+
+  for (i = 0; i < N; i++)
+    {
+      sa[i] = 5;
+    }
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (sa[i] != 5)
+        abort ();
+    }
+
+  for (i = 0; i < N; i++)
+    {
+      ia[i] = ib[i] + 5;
+    }
+  /* check results:  */
+  for (i = 0; i < N; i++)
+    {
+      if (ia[i] != ib[i] + 5)
+        abort ();
+    }
+
   return 0;
 }
 
@@ -189,4 +224,4 @@ int main (void)
 }
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 7 loops" 1 "vect"} } */
+/* { dg-final { scan-tree-dump-times "vectorized 10 loops" 1 "vect"} } */
