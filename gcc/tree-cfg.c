@@ -1,4 +1,4 @@
-/* {{{ Control flow functions for trees.
+/* Control flow functions for trees.
    Copyright (C) 2001 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -19,10 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Make sure that structures shared with the RTL optimizer use trees
-   instead of rtx.  */
-#define USE_TREE_IL 1
-
 #include "config.h"
 #include "system.h"
 #include "tree.h"
@@ -38,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "tree-opt.h"
 #include "tree-flow.h"
-
-/* }}} */
 
 /* {{{ Debug macros.  */
 
@@ -101,9 +95,7 @@ static void map_stmt_to_bb PARAMS ((tree, basic_block));
 /* Edges.  */
 static void make_edges PARAMS ((void));
 static void make_ctrl_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_back_edges PARAMS ((sbitmap *, basic_block));
 static void make_exit_edges PARAMS ((sbitmap *, basic_block));
-static void make_fallthru_edge PARAMS ((sbitmap *, basic_block bb));
 static void make_compound_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_for_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_while_stmt_edges PARAMS ((sbitmap *, basic_block));
@@ -117,7 +109,6 @@ static void make_return_stmt_edges PARAMS ((sbitmap *, basic_block));
 
 /* Various helpers.  */
 static basic_block get_successor_block PARAMS ((basic_block));
-static basic_block get_outermost_scope_block PARAMS ((basic_block));
 
 /* }}} */
 
@@ -151,10 +142,6 @@ tree_find_basic_blocks (t, nregs, file)
 
   /* Create the edges of the flowgraph.  */
   make_edges ();
-
-  /* Don't bother doing anything else if we found errors.  */
-  if (errorcount)
-    return;
 
   mark_critical_edges ();
 
@@ -478,9 +465,7 @@ make_edges ()
 
   make_edge (edge_cache, ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
-  /* Traverse basic block array placing edges. Note that order is
-     important, here.  In particular, exit edges take precedence over
-     back edges (think of a return statement at the end of a loop).  */
+  /* Traverse basic block array placing edges.  */
   for (i = 0; i < n_basic_blocks; i++)
     {
       basic_block bb = BASIC_BLOCK (i);
@@ -495,22 +480,15 @@ make_edges ()
       if (BB_EXIT_STMT (bb))
 	make_exit_edges (edge_cache, bb);
 
-      /* Back edges for the last block inside a loop construct.  */
-      if (is_last_block_of_loop (bb))
-	make_back_edges (edge_cache, bb);
-
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_fallthru_edge (edge_cache, bb);
+	make_edge (edge_cache, bb, get_successor_block (bb), EDGE_FALLTHRU);
     }
 
 
-  /* Reachability analysis.  Add fake edges to blocks with no
-     predecessors and give a warning if -Wunreachable-code is on.
-
-     FIXME: This is gross. We should not be adding fake edges.  But we
-     need them to avoid problems during DFA and SSA.  */
+  /* Basic reachability analysis.  Add fake edges to blocks with no
+     predecessors and give a warning if -Wunreachable-code is on.  */
 
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -520,16 +498,46 @@ make_edges ()
 	{
 	  basic_block parent;
 
-	  parent = (BB_PARENT (bb)) ? BB_PARENT (bb) : ENTRY_BLOCK_PTR;
-	  make_edge (edge_cache, parent, bb, EDGE_FAKE);
+	  /* Avoid false positives for blocks that only contain a closing
+	     brace.  e.g., in
 
-	  if (warn_notreached)
+	      if (...)
+		{
+		  ...
+		  return b;
+		}
+
+	      the closing brace is never reached, but a warning in this
+	      case will be more annoying than useful. Create a fake edge
+	      from the previous basic block.  */
+	  if (i > 0
+	      && bb->head_tree == bb->end_tree
+	      && TREE_CODE (bb->end_tree) == SCOPE_STMT
+	      && SCOPE_END_P (bb->end_tree))
 	    {
-	      while (!statement_code_p (TREE_CODE (head)))
-		head = (BB_PARENT (bb))->head_tree;
+	      make_edge (edge_cache, BASIC_BLOCK (i - 1), bb, EDGE_FAKE);
+	    }
+	  else
+	    {
+	      /* Otherwise, create a fake edge from BB's parent and give
+		 a warning.  It doesn't really matter where we make the
+		 fake edge from.  In the case of a closing brace, it's more
+		 natural to use the previous block, but these edges are
+		 ignored in data-flow computations anyway.
 
-	      prep_stmt (head);
-	      warning ("unreachable statement");
+		 FIXME - We should probably just collapse these unreachable
+			 nodes.  */
+	      parent = (BB_PARENT (bb)) ? BB_PARENT (bb) : ENTRY_BLOCK_PTR;
+	      make_edge (edge_cache, parent, bb, EDGE_FAKE);
+
+	      if (warn_notreached)
+		{
+		  while (!statement_code_p (TREE_CODE (head)))
+		    head = (BB_PARENT (bb))->head_tree;
+
+		  prep_stmt (head);
+		  warning ("unreachable statement");
+		}
 	    }
 	}
     }
@@ -581,43 +589,6 @@ make_ctrl_stmt_edges (edge_cache, bb)
 
 /* }}} */
 
-/* {{{ make_back_edges()
-
-   Create back edges from BB to its loop controlling node(s).  If BB is
-   the last block in a series of nested loops, this function will create
-   back edges to all the enclosing loop headers.
-   
-   Note: This function assumes that BB is in fact the last block of a
-   loop (see is_last_block_of_loop()).  */
-
-static void
-make_back_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
-{
-  basic_block cond_bb, loop_bb;
-
-  /* Find the innermost loop block containing BB.  */
-  loop_bb = find_loop_parent (bb);
-
-  /* Sanity check.  If BB is not inside a loop, something is wrong.  */
-  if (loop_bb == NULL || !is_loop_stmt (loop_bb->head_tree))
-    abort ();
-
-  /* Since BB may be contained in more than one loop, we keep going up
-     in the loop nesting structure until we find no more.  */
-  while (loop_bb)
-    {
-      cond_bb = get_condition_block (loop_bb);
-      make_edge (edge_cache, bb, cond_bb, 0);
-
-      /* See if our loop parent is itself inside a loop.  */ 
-      loop_bb = find_loop_parent (loop_bb);
-    }
-}
-
-/* }}} */
-
 /* {{{ make_exit_edges()
 
    Create exit edges for statements that alter the flow of control
@@ -649,48 +620,6 @@ make_exit_edges (edge_cache, bb)
     default:
       abort ();
     }
-}
-
-/* }}} */
-
-/* {{{ make_fallthru_edge()
-
-   Create a fallthru edge to the block holding the successor of the last
-   tree in the block, if needed.  Ignore blocks that already have
-   successors set up (e.g., nodes in control statements).  */
-
-static void
-make_fallthru_edge (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
-{
-  tree chain = TREE_CHAIN (bb->end_tree);
-  basic_block control_parent = BB_PARENT (bb);
-
-  /* Do nothing if successors have been set already.  */
-
-  if (bb->succ)
-    return;
-
-
-  /* If chain is NULL, maybe this is the last block inside a compound
-     statement. Try going up in the chain of control parents until we
-     find the topmost scope or a tree with a non-null chain.  */
-
-  while (chain == NULL && control_parent)
-    {
-      chain = TREE_CHAIN (control_parent->head_tree);
-      control_parent = BB_PARENT (control_parent);
-    }
-    
-
-  /* If chain is still NULL, this must be the last block in the
-     function. Add an edge to the exit block.  */
-
-  if (chain == NULL)
-    make_edge (edge_cache, bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
-  else
-    make_edge (edge_cache, bb, BB_FOR_STMT (chain), EDGE_FALLTHRU);
 }
 
 /* }}} */
@@ -868,7 +797,8 @@ make_do_stmt_edges (edge_cache, bb)
   cond_bb = (DO_COND (entry)) ? BASIC_BLOCK (index++) : NULL;
   body_bb = (DO_BODY (entry)) ? BASIC_BLOCK (index++) : NULL;
 
-  /* Create the following edges.
+  /* Create the following edges.  The remaining edges will be added
+     by the main loop in make_edges().
 
             DO_STMT
 	       |
@@ -1015,10 +945,6 @@ make_goto_stmt_edges (edge_cache, bb)
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
     abort ();
 
-  /* If the GOTO statement is followed by a scope statement, make the
-     edge out of the scope statement.  Otherwise, the block for the
-     scope statement will be disconnected from the graph.  */
-  bb = get_outermost_scope_block (bb);
   dest = GOTO_DESTINATION (goto_t);
 
   /* Look for the block starting with the destination label.  In the
@@ -1078,23 +1004,12 @@ make_break_stmt_edges (edge_cache, bb)
 
   if (control_parent == NULL)
     {
-      prep_stmt (BB_EXIT_STMT (bb));
-      error ("break statement not within loop or switch.");
+      prep_stmt (break_t);
+      error ("break statement not within loop or switch");
       return;
     }
 
-  /* If the BREAK statement is followed by a scope statement, make the
-     edge out of the scope statement.  Otherwise, the block for the
-     scope statement will be disconnected from the graph.  */
-  bb = get_outermost_scope_block (bb);
-
-  /* We might need to make a back-edge (or edges) if the control
-     parent's block is the last block of a loop.  Otherwise create an
-     edge to the successor block of BB's control parent.  */
-  if (is_last_block_of_loop (control_parent))
-    make_back_edges (edge_cache, bb);
-  else
-    make_edge (edge_cache, bb, get_successor_block (control_parent), 0);
+  make_edge (edge_cache, bb, get_successor_block (control_parent), 0);
 }
 /* }}} */
 
@@ -1109,7 +1024,6 @@ make_continue_stmt_edges (edge_cache, bb)
     basic_block bb;
 {
   tree continue_t;
-  int index;
   basic_block loop_bb;
 
   continue_t = BB_EXIT_STMT (bb);
@@ -1117,33 +1031,16 @@ make_continue_stmt_edges (edge_cache, bb)
     abort ();
   
   /* A continue statement *must* have an enclosing control structure.  */
-  loop_bb = BB_PARENT (bb);
+  loop_bb = find_loop_parent (bb);
+
   if (loop_bb == NULL)
-    abort ();
-
-  /* If the CONTINUE statement is followed by a scope statement, make the
-     edge out of the scope statement.  Otherwise, the block for the
-     scope statement will be disconnected from the graph.  */
-  bb = get_outermost_scope_block (bb);
-
-  /* Look for the innermost containing WHILE, FOR or DO structure.  */
-  while (!is_loop_stmt (loop_bb->head_tree))
-    loop_bb = BB_PARENT (loop_bb);
-
-  index = loop_bb->index + 1;
-  if (TREE_CODE (loop_bb->head_tree) == FOR_STMT)
     {
-      /* Usually, the loop expression in a FOR_STMT will be the third
-	 node after the loop entry block. However, a FOR_STMT may be
-	 missing both the INIT and COND expressions.  */
-      if (FOR_INIT_STMT (loop_bb->head_tree))
-	index++;
-
-      if (FOR_COND (loop_bb->head_tree))
-	index++;
+      prep_stmt (continue_t);
+      error ("continue statement not within a loop");
+      return;
     }
 
-  make_edge (edge_cache, bb, BASIC_BLOCK (index), 0);
+  make_edge (edge_cache, bb, get_condition_block (loop_bb), 0);
 }
 
 /* }}} */
@@ -1162,11 +1059,6 @@ make_return_stmt_edges (edge_cache, bb)
   if (return_t == NULL || TREE_CODE (return_t) != RETURN_STMT)
     abort ();
 
-  /* If the RETURN statement is followed by a scope statement, make the
-     edge out of the scope statement.  Otherwise, the block for the
-     scope statement will be disconnected from the graph.  */
-  bb = get_outermost_scope_block (bb);
-
   make_edge (edge_cache, bb, EXIT_BLOCK_PTR, 0);
 }
 
@@ -1183,9 +1075,9 @@ make_return_stmt_edges (edge_cache, bb)
 
 static basic_block
 get_successor_block (bb)
-    basic_block bb;
+     basic_block bb;
 {
-  basic_block parent_bb;
+  basic_block chain_bb, parent_bb;
 
   if (bb == NULL)
     abort ();
@@ -1195,117 +1087,31 @@ get_successor_block (bb)
   if (TREE_CHAIN (bb->end_tree))
     return BB_FOR_STMT (TREE_CHAIN (bb->end_tree));
   
+  /* Special case.  The successor to the last block in the graph (i.e.,
+     the function's closing brace) is always EXIT_BLOCK_PTR.  */
+  if (bb->index == n_basic_blocks - 1)
+    return EXIT_BLOCK_PTR;
+
   /* Walk up the control structure to see if our parent has a successor.
      Iterate until we find one or we reach nesting level 0.  */
+  chain_bb = NULL;
   parent_bb = BB_PARENT (bb);
 
-  while (parent_bb && TREE_CHAIN (parent_bb->head_tree) == NULL)
-    parent_bb = BB_PARENT (parent_bb);
-
-  /* If we found an enclosing control statement with a successor, return
-     the successor's basic block. Otherwise, we must be at the top of
-     the control hierarchy. In that case, return the exit block.  */
-  if (parent_bb)
-    return (BB_FOR_STMT (TREE_CHAIN (parent_bb->head_tree)));
-  else
-    return EXIT_BLOCK_PTR;
-}
-/* }}} */
-
-/* {{{ get_outermost_scope_block()
-
-   Given a basic block BB, find the outermost enclosing scope. If no scope
-   statements are found, return BB.  */
-
-static basic_block
-get_outermost_scope_block (bb)
-    basic_block bb;
-{
-  basic_block parent_bb, outer_bb;
-
-  if (bb == NULL)
-    abort ();
-
-  /* Traverse the BB_PARENT chain looking for the outermost COMPOUND_STMT.
-     This finds the outermost scope in a set of nested scopes.
-     (e.g., '{{ a = 4; }}').  */
-  outer_bb = bb;
-  bb = get_successor_block (bb);
-  while (bb && TREE_CODE (bb->head_tree) == SCOPE_STMT)
+  while (chain_bb == NULL)
     {
-      outer_bb = bb;
+      if (parent_bb == NULL)
+	chain_bb = EXIT_BLOCK_PTR;
 
-      /* We stop when BB's parent's parent is not a COMPOUND_STMT.  */
-      parent_bb = BB_PARENT (bb);
-      if (parent_bb) parent_bb = BB_PARENT (parent_bb);
+      else if (is_loop_stmt (parent_bb->head_tree))
+	chain_bb = get_condition_block (parent_bb);
 
-      if (parent_bb == NULL
-	  || TREE_CODE (parent_bb->head_tree) != COMPOUND_STMT)
-	break;
+      else if (TREE_CHAIN (parent_bb->head_tree))
+	chain_bb = BB_FOR_STMT (TREE_CHAIN (parent_bb->head_tree));
 
-      bb = get_successor_block (bb);
+      parent_bb = BB_PARENT (parent_bb);
     }
 
-  return outer_bb;
-}
-
-/* }}} */
-
-/* {{{ is_last_block_of_loop()
-
-   Returns 1 if BB is the last block of a loop body.  */
-
-int
-is_last_block_of_loop (bb)
-    basic_block bb;
-{
-  basic_block control_parent;
-
-  if (bb == NULL)
-    abort ();
-
-  /* A block BB is the last block in a loop construct if it complies with
-     all of the following:
-
-     1- TREE_CHAIN (BB->END_TREE) is NULL.
-
-     2- BB is not one of the loop header nodes.
-
-     3- BB->HEAD_TREE is not a compound statement.
-
-     4- BB is not a top-level block.
-
-     5- BB's control parent node is the entry block for a loop
-	construct. Or, if BB's control parent is a COMPOUND_STMT, the
-	compound statement's parent must be a loop construct.  */
-
-
-  /* Condition 1.  */
-  if (TREE_CHAIN (bb->end_tree))
-    return 0;
-
-  /* Condition 2.  */
-  if (BB_IS_LOOP_HEADER (bb))
-    return 0;
-
-  /* Condition 3.  */
-  if (TREE_CODE (bb->head_tree) == COMPOUND_STMT)
-    return 0;
-
-  /* Condition 4.  */
-  control_parent = BB_PARENT (bb);
-  if (control_parent == NULL)
-    return 0;
-
-  /* Condition 5.  */
-  if (TREE_CODE (control_parent->head_tree) == COMPOUND_STMT)
-    control_parent = BB_PARENT (control_parent);
-
-  if (control_parent == NULL
-      || !is_loop_stmt (control_parent->head_tree))
-    return 0;
-
-  return 1;
+  return chain_bb;
 }
 
 /* }}} */
@@ -1619,10 +1425,12 @@ tree_cfg2dot (fname)
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      if (e->flags & EDGE_FAKE)
-	continue;
+      fprintf (f, "\tENTRY -> %d", e->dest->index);
 
-      fprintf (f, "\tENTRY -> %d;\n", e->dest->index);
+      if (e->flags & EDGE_FAKE)
+	fprintf (f, " [weight=0, style=dotted]");
+
+      fprintf (f, ";\n");
     }
   fputc ('\n', f);
 
@@ -1653,13 +1461,15 @@ tree_cfg2dot (fname)
       
       for (e = bb->succ; e; e = e->succ_next)
 	{
-	  if (e->flags & EDGE_FAKE)
-	    continue;
-
 	  if (e->dest == EXIT_BLOCK_PTR)
-	    fprintf (f, "\t%d -> EXIT;\n", bb->index);
+	    fprintf (f, "\t%d -> EXIT", bb->index);
 	  else
-	    fprintf (f, "\t%d -> %d;\n", bb->index, e->dest->index);
+	    fprintf (f, "\t%d -> %d", bb->index, e->dest->index);
+
+	  if (e->flags & EDGE_FAKE)
+	    fprintf (f, " [weight=0, style=dotted]");
+
+	  fprintf (f, ";\n");
 	}
 
       if (i < n_basic_blocks - 1)

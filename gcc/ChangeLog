@@ -1,3 +1,33 @@
+2001-08-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (USE_TREE_IL): Remove.
+	(make_back_edges): Remove.
+	(make_fallthru_edge): Remove.
+	(get_outermost_scope_block): Remove.
+	(is_last_block_of_loop): Remove.
+	(tree_find_basic_blocks): Do not return early if 'errorcount' is set.
+	(make_edges): Do not treat back edges as a separate case.
+	Do not call make_fallthru_edge to create fall-through edges.
+	Do not emit a warning for unreachable blocks containing a single
+	closing brace.
+	(make_do_stmt_edges): Update comment.
+	(make_goto_stmt_edges): Do not call get_outermost_scope_block().
+	(make_break_stmt_edges): Do not call get_outermost_scope_block().
+	Do not call make_back_edges().
+	(make_continue_stmt_edges): Call find_loop_parent().  Emit an error
+	if the 'continue' statement is not inside a loop.  Call
+	get_condition_block() to find the target node.
+	(make_return_stmt_edges): Do not call get_outermost_scope_block().
+	(get_successor_block): Return EXIT_BLOCK_PTR if 'bb' is the last
+	block in the graph.
+	Return the condition node of the loop if 'bb' doesn't have a
+	natural successor and its parent is a loop header.
+	(tree_cfg2dot): Output fake edges with dotted lines.
+	* tree-dfa.c (USE_TREE_IL): Remove.
+	* tree-opt.c (USE_TREE_IL): Remove.
+	* tree-ssa.c (USE_TREE_IL): Remove.
+	* tree-flow.h (is_last_block_of_loop): Remove.
+
 2001-07-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (C_AND_OBJC_OBJS): Add tree-cfg.o, tree-dfa.o,

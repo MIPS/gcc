@@ -240,7 +240,6 @@ extern int warn_notreached;
 /* {{{ Functions in tree-cfg.c  */
 
 extern void tree_find_basic_blocks PARAMS ((tree, int, FILE *));
-extern int is_last_block_of_loop PARAMS ((basic_block));
 extern int is_ctrl_stmt PARAMS ((tree));
 extern int is_ctrl_altering_stmt PARAMS ((tree));
 extern int is_loop_stmt PARAMS ((tree));

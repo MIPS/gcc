@@ -1,4 +1,4 @@
-/* {{{ Data flow functions for trees.
+/* Data flow functions for trees.
    Copyright (C) 2001 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -19,10 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Make sure that structures shared with the RTL optimizer use trees
-   instead of rtx.  */
-#define USE_TREE_IL 1
-
 #include "config.h"
 #include "system.h"
 #include "tree.h"
@@ -37,8 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "tree-opt.h"
 #include "tree-flow.h"
-
-/* }}} */
 
 /* {{{ Debugging macros.  */
 #define DEBUG_TREE_DFA	/* Force debugging.  */
