@@ -1005,15 +1005,26 @@ propagate_freq (loop)
 		sreal_add (&frequency, &frequency, &tmp);
 	      }
 
-	  if (sreal_compare (&cyclic_probability, &real_almost_one) > 0)
-	    memcpy (&cyclic_probability, &real_almost_one, sizeof (real_zero));
+	  if (sreal_compare (&cyclic_probability, &real_zero) == 0)
+	    {
+	      memcpy (&BLOCK_INFO (bb)->frequency, &frequency,
+		      sizeof (real_zero));
+	    }
+	  else
+	    {
+	      if (sreal_compare (&cyclic_probability, &real_almost_one) > 0)
+		{
+		  memcpy (&cyclic_probability, &real_almost_one,
+			  sizeof (real_zero));
+		}
 
-	  /* BLOCK_INFO (bb)->frequency = frequency / (1 - cyclic_probability)
-	   */
+	      /* BLOCK_INFO (bb)->frequency = frequency 
+					      / (1 - cyclic_probability) */
 
-	  sreal_sub (&cyclic_probability, &real_one, &cyclic_probability);
-	  sreal_div (&BLOCK_INFO (bb)->frequency,
-		     &frequency, &cyclic_probability);
+	      sreal_sub (&cyclic_probability, &real_one, &cyclic_probability);
+	      sreal_div (&BLOCK_INFO (bb)->frequency,
+			 &frequency, &cyclic_probability);
+	    }
 	}
 
       BLOCK_INFO (bb)->tovisit = 0;
@@ -1218,12 +1229,12 @@ estimate_bb_frequencies (loops)
 	if (sreal_compare (&freq_max, &BLOCK_INFO (bb)->frequency) < 0)
 	  memcpy (&freq_max, &BLOCK_INFO (bb)->frequency, sizeof (freq_max));
 
+      sreal_div (&freq_max, &real_bb_freq_max, &freq_max);
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
 	{
 	  sreal tmp;
 
-	  sreal_mul (&tmp, &BLOCK_INFO (bb)->frequency, &real_bb_freq_max);
-	  sreal_div (&tmp, &tmp, &freq_max);
+	  sreal_mul (&tmp, &BLOCK_INFO (bb)->frequency, &freq_max);
 	  sreal_add (&tmp, &tmp, &real_one_half);
 	  bb->frequency = sreal_to_int (&tmp);
 	}
