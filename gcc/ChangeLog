@@ -1,3 +1,7 @@
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_emit_restore_regs_using_mov):  Deal with large offsets.
+
 2003-12-03  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (classify_argument): Make it 64bit clean.
