@@ -2880,7 +2880,8 @@ find_splittable_givs (bl, unroll_type, loop_start, loop_end, increment,
 		{
 		  /* If we've a non-trivial initial value, we must apply the
 		     extensions to the initial value.  */
-		  rtx p, new = copy_rtx (v->ext_dependant);
+		  rtx p, new;
+		  p = new = copy_rtx (v->ext_dependant);
 
 		  /* Find the base of a series of extensions and/or
 		     truncations. */
