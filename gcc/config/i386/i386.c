@@ -1350,9 +1350,8 @@ ix86_can_use_return_insn_p ()
   return nregs == 0 || ! frame_pointer_needed;
 }
 
-static rtx pic_label_rtx;
-static char pic_label_name [256];
-static int pic_label_no = 0;
+static char pic_label_name[32];
+static int pic_label_output;
 
 /* This function generates code for -fpic that loads %ebx with
    the return address of the caller and then returns.  */
@@ -1371,30 +1370,23 @@ asm_output_function_prefix (file, name)
   /* Deep branch prediction favors having a return for every call. */
   if (pic_reg_used && TARGET_DEEP_BRANCH_PREDICTION)
     {
-      tree prologue_node;
-
-      if (pic_label_rtx == 0)
+      if (!pic_label_output)
 	{
-	  pic_label_rtx = gen_label_rtx ();
-	  ASM_GENERATE_INTERNAL_LABEL (pic_label_name, "LPR", pic_label_no++);
-	  LABEL_NAME (pic_label_rtx) = pic_label_name;
+	  /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
+	     internal (non-global) label that's being emitted, it didn't make
+	     sense to have .type information for local labels.   This caused
+	     the SCO OpenServer 5.0.4 ELF assembler grief (why are you giving
+  	     me debug info for a label that you're declaring non-global?) this
+	     was changed to call ASM_OUTPUT_LABEL() instead. */
+
+	  ASM_OUTPUT_LABEL (file, pic_label_name); 
+
+	  xops[1] = gen_rtx_MEM (SImode, xops[1]);
+	  output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
+	  output_asm_insn ("ret", xops);
+
+	  pic_label_output = 1;
 	}
-
-      prologue_node = make_node (FUNCTION_DECL);
-      DECL_RESULT (prologue_node) = 0;
-
-      /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
-	 internal (non-global) label that's being emitted, it didn't make
-	 sense to have .type information for local labels.   This caused
-	 the SCO OpenServer 5.0.4 ELF assembler grief (why are you giving
-  	 me debug info for a label that you're declaring non-global?) this
-	 was changed to call ASM_OUTPUT_LABEL() instead. */
-
-      ASM_OUTPUT_LABEL (file, pic_label_name); 
-
-      xops[1] = gen_rtx_MEM (SImode, xops[1]);
-      output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
-      output_asm_insn ("ret", xops);
     }
 }
 
@@ -1407,14 +1399,9 @@ load_pic_register ()
 
   if (TARGET_DEEP_BRANCH_PREDICTION)
     {
-      if (pic_label_rtx == 0)
-	{
-	  pic_label_rtx = gen_label_rtx ();
-	  ASM_GENERATE_INTERNAL_LABEL (pic_label_name, "LPR", pic_label_no++);
-	  LABEL_NAME (pic_label_rtx) = pic_label_name;
-	}
-      pclab = gen_rtx_MEM (QImode,
-	gen_rtx_SYMBOL_REF (Pmode, LABEL_NAME (pic_label_rtx)));
+      if (pic_label_name[0] == '\0')
+	ASM_GENERATE_INTERNAL_LABEL (pic_label_name, "LPR", 0);
+      pclab = gen_rtx_MEM (QImode, gen_rtx_SYMBOL_REF (Pmode, pic_label_name));
     }
   else
     {
@@ -4961,8 +4948,6 @@ static rtx ix86_stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
 struct machine_function
 {
   rtx ix86_stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
-  rtx pic_label_rtx;
-  char pic_label_name[256];
 };
 
 /* Functions to save and restore ix86_stack_locals.
@@ -4977,8 +4962,6 @@ save_386_machine_status (p)
     = (struct machine_function *) xmalloc (sizeof (struct machine_function));
   bcopy ((char *) ix86_stack_locals, (char *) p->machine->ix86_stack_locals,
 	 sizeof ix86_stack_locals);
-  p->machine->pic_label_rtx = pic_label_rtx;
-  bcopy (pic_label_name, p->machine->pic_label_name, 256);
 }
 
 void
@@ -4987,8 +4970,6 @@ restore_386_machine_status (p)
 {
   bcopy ((char *) p->machine->ix86_stack_locals, (char *) ix86_stack_locals,
 	 sizeof ix86_stack_locals);
-  pic_label_rtx = p->machine->pic_label_rtx;
-  bcopy (p->machine->pic_label_name, pic_label_name, 256);
   free (p->machine);
   p->machine = NULL;
 }
@@ -5008,8 +4989,6 @@ clear_386_stack_locals ()
     for (n = 0; n < MAX_386_STACK_LOCALS; n++)
       ix86_stack_locals[(int) mode][n] = NULL_RTX;
 
-  pic_label_rtx = NULL_RTX;
-  bzero (pic_label_name, 256);
   /* Arrange to save and restore ix86_stack_locals around nested functions.  */
   save_machine_status = save_386_machine_status;
   restore_machine_status = restore_386_machine_status;

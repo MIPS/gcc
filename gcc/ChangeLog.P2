@@ -1,5 +1,16 @@
 1999-08-28  Richard Henderson  <rth@cygnus.com>
 
+	* i386.c (pic_label_rtx, pic_label_no): Remove.
+	(pic_label_output): New.
+	(asm_output_function_prefix): Output the pic stub only once.
+	(load_pic_register): Use pic_label_name directly.
+	(struct machine_function): Remove pic_label_rtx, pic_label_name.
+	(save_386_machine_status): Don't save them.
+	(restore_386_machine_status): Or restore them.
+	(clear_386_stack_locals): Don't clear pic_label_name.
+
+1999-08-28  Richard Henderson  <rth@cygnus.com>
+
 	* Makefile.in (STAGESTUFF): Add *.peephole2.
 	(mostlyclean): Likewise.
 	(recog.o): Depend on resource.h.
