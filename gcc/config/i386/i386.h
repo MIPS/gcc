@@ -41,9 +41,11 @@ struct processor_costs {
   const int lea;		/* cost of a lea instruction */
   const int shift_var;		/* variable shift costs */
   const int shift_const;	/* constant shift costs */
-  const int mult_init;		/* cost of starting a multiply */
+  const int mult_init[5];	/* cost of starting a multiply 
+				   in QImode, HImode, SImode, DImode, TImode*/
   const int mult_bit;		/* cost of multiply per each bit set */
-  const int divide;		/* cost of a divide/mod */
+  const int divide[5];		/* cost of a divide/mod 
+				   in QImode, HImode, SImode, DImode, TImode*/
   int movsx;			/* The cost of movsx operation.  */
   int movzx;			/* The cost of movzx operation.  */
   const int large_insn;		/* insns larger than this cost more */
@@ -120,7 +122,7 @@ extern int target_flags;
 #define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
 #define MASK_64BIT		0x00080000	/* Produce 64bit code */
 
-/* Unused:			0x03f0000	*/
+/* Unused:			0x03e0000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -205,6 +207,8 @@ extern int target_flags;
 #define TARGET_K6 (ix86_cpu == PROCESSOR_K6)
 #define TARGET_ATHLON (ix86_cpu == PROCESSOR_ATHLON)
 #define TARGET_PENTIUM4 (ix86_cpu == PROCESSOR_PENTIUM4)
+#define TARGET_K8 (ix86_cpu == PROCESSOR_K8)
+#define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 
 #define CPUMASK (1 << ix86_cpu)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -224,6 +228,7 @@ extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
 extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
+extern const int x86_use_ffreep;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
@@ -272,6 +277,7 @@ extern int x86_prefetch_sse;
 #define TARGET_DECOMPOSE_LEA (x86_decompose_lea & CPUMASK)
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & CPUMASK)
+#define TARGET_USE_FFREEP (x86_use_ffreep & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -540,6 +546,8 @@ extern int x86_prefetch_sse;
 	  if (last_cpu_char != 'n')				\
 	    builtin_define ("__tune_athlon_sse__");		\
 	}							\
+      else if (TARGET_K8)					\
+	builtin_define ("__tune_k8__");				\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
 								\
@@ -598,6 +606,11 @@ extern int x86_prefetch_sse;
 	  if (last_arch_char != 'n')				\
 	    builtin_define ("__athlon_sse__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_K8)			\
+	{							\
+	  builtin_define ("__k8");				\
+	  builtin_define ("__k8__");				\
+	}							\
       else if (ix86_arch == PROCESSOR_PENTIUM4)			\
 	{							\
 	  builtin_define ("__pentium4");			\
@@ -619,11 +632,12 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_k6_3 10
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
+#define TARGET_CPU_DEFAULT_k8 13
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4"}
+				  "athlon", "athlon-4", "k8"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -2602,6 +2616,14 @@ do {							\
 #define TOPLEVEL_COSTS_N_INSNS(N) \
   do { total = COSTS_N_INSNS (N); goto egress_rtx_costs; } while (0)
 
+/* Return index of given mode in mult and division cost tables.  */
+#define MODE_INDEX(mode)					\
+  ((mode) == QImode ? 0						\
+   : (mode) == HImode ? 1					\
+   : (mode) == SImode ? 2					\
+   : (mode) == DImode ? 3					\
+   : 4)
+
 /* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
    This can be used, for example, to indicate how costly a multiply
    instruction is.  In writing this macro, you can use the construct
@@ -2687,10 +2709,12 @@ do {							\
 	  } 								\
 									\
 	TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
+				[MODE_INDEX (GET_MODE (X))]		\
 			        + nbits * ix86_cost->mult_bit);		\
       }									\
     else			/* This is arbitrary */			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
+			      [MODE_INDEX (GET_MODE (X))]		\
 			      + 7 * ix86_cost->mult_bit);		\
 									\
   case DIV:								\
@@ -2700,7 +2724,8 @@ do {							\
     if (FLOAT_MODE_P (GET_MODE (X)))					\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->fdiv);				\
     else								\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);			\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide				\
+			      [MODE_INDEX (GET_MODE (X))]);		\
     break;								\
 									\
   case PLUS:								\
@@ -3306,6 +3331,7 @@ enum processor_type
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
+  PROCESSOR_K8,
   PROCESSOR_max
 };
 

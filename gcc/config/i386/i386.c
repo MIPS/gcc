@@ -55,9 +55,9 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   3,					/* cost of a lea instruction */
   2,					/* variable shift costs */
   3,					/* constant shift costs */
-  3,					/* cost of starting a multiply */
+  {3, 3, 3, 3, 5},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  3,					/* cost of a divide/mod */
+  {3, 3, 3, 3, 5},			/* cost of a divide/mod */
   3,					/* cost of movsx */
   3,					/* cost of movzx */
   0,					/* "large" insn */
@@ -100,9 +100,9 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   1,					/* cost of a lea instruction */
   3,					/* variable shift costs */
   2,					/* constant shift costs */
-  6,					/* cost of starting a multiply */
+  {6, 6, 6, 6, 6},			/* cost of starting a multiply */
   1,					/* cost of multiply per each bit set */
-  23,					/* cost of a divide/mod */
+  {23, 23, 23, 23, 23},			/* cost of a divide/mod */
   3,					/* cost of movsx */
   2,					/* cost of movzx */
   15,					/* "large" insn */
@@ -144,9 +144,9 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   1,					/* cost of a lea instruction */
   3,					/* variable shift costs */
   2,					/* constant shift costs */
-  12,					/* cost of starting a multiply */
+  {12, 12, 12, 12, 12},			/* cost of starting a multiply */
   1,					/* cost of multiply per each bit set */
-  40,					/* cost of a divide/mod */
+  {40, 40, 40, 40, 40},			/* cost of a divide/mod */
   3,					/* cost of movsx */
   2,					/* cost of movzx */
   15,					/* "large" insn */
@@ -188,9 +188,9 @@ struct processor_costs pentium_cost = {
   1,					/* cost of a lea instruction */
   4,					/* variable shift costs */
   1,					/* constant shift costs */
-  11,					/* cost of starting a multiply */
+  {11, 11, 11, 11, 11},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  25,					/* cost of a divide/mod */
+  {25, 25, 25, 25, 25},			/* cost of a divide/mod */
   3,					/* cost of movsx */
   2,					/* cost of movzx */
   8,					/* "large" insn */
@@ -232,9 +232,9 @@ struct processor_costs pentiumpro_cost = {
   1,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
-  4,					/* cost of starting a multiply */
+  {4, 4, 4, 4, 4},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  17,					/* cost of a divide/mod */
+  {17, 17, 17, 17, 17},			/* cost of a divide/mod */
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   8,					/* "large" insn */
@@ -276,9 +276,9 @@ struct processor_costs k6_cost = {
   2,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
-  3,					/* cost of starting a multiply */
+  {3, 3, 3, 3, 3},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  18,					/* cost of a divide/mod */
+  {18, 18, 18, 18, 18},			/* cost of a divide/mod */
   2,					/* cost of movsx */
   2,					/* cost of movzx */
   8,					/* "large" insn */
@@ -320,9 +320,9 @@ struct processor_costs athlon_cost = {
   2,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
-  5,					/* cost of starting a multiply */
+  {5, 5, 5, 5, 5},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  42,					/* cost of a divide/mod */
+  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   8,					/* "large" insn */
@@ -359,14 +359,58 @@ struct processor_costs athlon_cost = {
 };
 
 static const
+struct processor_costs k8_cost = {
+  1,					/* cost of an add instruction */
+  2,					/* cost of a lea instruction */
+  1,					/* variable shift costs */
+  1,					/* constant shift costs */
+  {3, 4, 3, 4, 5},			/* cost of starting a multiply */
+  0,					/* cost of multiply per each bit set */
+  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
+  1,					/* cost of movsx */
+  1,					/* cost of movzx */
+  8,					/* "large" insn */
+  9,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {3, 4, 3},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {3, 4, 3},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {4, 4, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {3, 3},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {4, 4},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {4, 3, 6},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {4, 4, 5},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  4,					/* cost of FADD and FSUB insns.  */
+  4,					/* cost of FMUL instruction.  */
+  19,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  35,					/* cost of FSQRT instruction.  */
+};
+
+static const
 struct processor_costs pentium4_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
   4,					/* variable shift costs */
   4,					/* constant shift costs */
-  15,					/* cost of starting a multiply */
+  {15, 15, 15, 15, 15},			/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  56,					/* cost of a divide/mod */
+  {56, 56, 56, 56, 56},			/* cost of a divide/mod */
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
@@ -412,54 +456,57 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_K6  (1<<PROCESSOR_K6)
 #define m_ATHLON  (1<<PROCESSOR_ATHLON)
 #define m_PENT4  (1<<PROCESSOR_PENTIUM4)
+#define m_K8  (1<<PROCESSOR_K8)
+#define m_ATHLON_K8  (m_K8 | m_ATHLON)
 
-const int x86_use_leave = m_386 | m_K6 | m_ATHLON;
-const int x86_push_memory = m_386 | m_K6 | m_ATHLON | m_PENT4;
+const int x86_use_leave = m_386 | m_K6 | m_ATHLON_K8;
+const int x86_push_memory = m_386 | m_K6 | m_ATHLON_K8 | m_PENT4;
 const int x86_zero_extend_with_and = m_486 | m_PENT;
-const int x86_movx = m_ATHLON | m_PPRO | m_PENT4 /* m_386 | m_K6 */;
+const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 /* m_386 | m_K6 */;
 const int x86_double_with_add = ~m_386;
 const int x86_use_bit_test = m_386;
-const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON | m_K6;
-const int x86_cmove = m_PPRO | m_ATHLON | m_PENT4;
-const int x86_3dnow_a = m_ATHLON;
-const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON | m_PENT4;
+const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
+const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4;
+const int x86_3dnow_a = m_ATHLON_K8;
+const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4;
 const int x86_branch_hints = m_PENT4;
 const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4;
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = m_K6;
-const int x86_use_fiop = ~(m_PPRO | m_ATHLON | m_PENT);
+const int x86_use_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT);
 const int x86_use_mov0 = m_K6;
 const int x86_use_cltd = ~(m_PENT | m_K6);
 const int x86_read_modify_write = ~m_PENT;
 const int x86_read_modify = ~(m_PENT | m_PPRO);
 const int x86_split_long_moves = m_PPRO;
-const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON;
+const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON_K8;
 const int x86_fast_prefix = ~(m_PENT | m_486 | m_386);
 const int x86_single_stringop = m_386 | m_PENT4;
 const int x86_qimode_math = ~(0);
 const int x86_promote_qi_regs = 0;
 const int x86_himode_math = ~(m_PPRO);
 const int x86_promote_hi_regs = m_PPRO;
-const int x86_sub_esp_4 = m_ATHLON | m_PPRO | m_PENT4;
-const int x86_sub_esp_8 = m_ATHLON | m_PPRO | m_386 | m_486 | m_PENT4;
-const int x86_add_esp_4 = m_ATHLON | m_K6 | m_PENT4;
-const int x86_add_esp_8 = m_ATHLON | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4;
-const int x86_integer_DFmode_moves = ~(m_ATHLON | m_PENT4 | m_PPRO);
-const int x86_partial_reg_dependency = m_ATHLON | m_PENT4;
-const int x86_memory_mismatch_stall = m_ATHLON | m_PENT4;
-const int x86_accumulate_outgoing_args = m_ATHLON | m_PENT4 | m_PPRO;
-const int x86_prologue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
-const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
+const int x86_sub_esp_4 = m_ATHLON_K8 | m_PPRO | m_PENT4;
+const int x86_sub_esp_8 = m_ATHLON_K8 | m_PPRO | m_386 | m_486 | m_PENT4;
+const int x86_add_esp_4 = m_ATHLON_K8 | m_K6 | m_PENT4;
+const int x86_add_esp_8 = m_ATHLON_K8 | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4;
+const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_PPRO);
+const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4;
+const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4;
+const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_PPRO;
+const int x86_prologue_using_move = m_ATHLON_K8 | m_PENT4 | m_PPRO;
+const int x86_epilogue_using_move = m_ATHLON_K8 | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
 const int x86_shift1 = ~m_486;
-const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON | m_PENT4;
+const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4;
 const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
 /* Set for machines where the type and dependencies are resolved on SSE register
    parts insetad of whole registers, so we may maintain just lower part of
    scalar values in proper format leaving the upper part undefined.  */
-const int x86_sse_partial_regs = m_ATHLON;
-const int x86_sse_typeless_stores = m_ATHLON;
+const int x86_sse_partial_regs = m_ATHLON_K8;
+const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
+const int x86_use_ffreep = m_ATHLON_K8;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -957,8 +1004,9 @@ override_options ()
       {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
       {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
       {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
-      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16},
-      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0}
+      {&athlon_cost, 0, 0, 16, 7, 16, 7, 16},
+      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0},
+      {&k8_cost, 0, 0, 16, 7, 16, 7, 16}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -973,7 +1021,8 @@ override_options ()
 	  PTA_MMX = 4,
 	  PTA_PREFETCH_SSE = 8,
 	  PTA_3DNOW = 16,
-	  PTA_3DNOW_A = 64
+	  PTA_3DNOW_A = 64,
+	  PTA_64BIT = 128
 	} flags;
     }
   const processor_alias_table[] =
@@ -1005,6 +1054,8 @@ override_options ()
 				      | PTA_3DNOW_A | PTA_SSE},
       {"athlon-mp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				      | PTA_3DNOW_A | PTA_SSE},
+      {"k8", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
+				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
@@ -1044,7 +1095,7 @@ override_options ()
   if (!ix86_cpu_string)
     ix86_cpu_string = cpu_names [TARGET_CPU_DEFAULT];
   if (!ix86_arch_string)
-    ix86_arch_string = TARGET_64BIT ? "athlon-4" : "i386";
+    ix86_arch_string = TARGET_64BIT ? "k8" : "i386";
 
   if (ix86_cmodel_string != 0)
     {
@@ -1110,6 +1161,8 @@ override_options ()
 	  target_flags |= MASK_SSE2;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you sellected does not support x86-64 instruction set");
 	break;
       }
 
@@ -11129,6 +11182,7 @@ ix86_issue_rate ()
     case PROCESSOR_PENTIUMPRO:
     case PROCESSOR_PENTIUM4:
     case PROCESSOR_ATHLON:
+    case PROCESSOR_K8:
       return 3;
 
     default:
@@ -11340,6 +11394,7 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       break;
 
     case PROCESSOR_ATHLON:
+    case PROCESSOR_K8:
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
@@ -11616,7 +11671,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 static int
 ia32_use_dfa_pipeline_interface ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM || ix86_cpu == PROCESSOR_ATHLON)
+  if (TARGET_PENTIUM || TARGET_ATHLON_K8)
     return 1;
   return 0;
 }
@@ -14380,7 +14435,7 @@ x86_machine_dependent_reorg (first)
 {
   edge e;
 
-  if (!TARGET_ATHLON || !optimize || optimize_size)
+  if (!TARGET_ATHLON_K8 || !optimize || optimize_size)
     return;
   for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
   {

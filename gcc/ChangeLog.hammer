@@ -1,3 +1,62 @@
+Tue Nov 26 00:24:17 CET 2002  Jan Hubicka  <jh@suse.cz>
+	Merge from 3.4-BIB:
+
+	Mon Nov 25 18:32:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (pushsf_rex64): Fix typo.
+
+	Sun Nov 24 10:38:04 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_use_ffreep): New global variable.
+		* i386.h (x86_use_frfeep): Declare
+		(TARGET_USE_FFREEP): New macro
+		* i386.md  (movs?f*): Use freep when asked for.
+		(push?f): Remove dead code.
+
+	Wed Nov 20 19:07:17 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* config.gcc: Add k8 target alias support
+		* i386.c (_cost): Declare costs for various variants of divides and
+		multiplies.
+		(k8_cost): New.
+		(m_K8, m_ATHLON_K8): New macros.
+		(x86_use_leave, x86_push_memory, x86_movx, x86_unroll_strlen,
+		x86_cmove, x86_3dnow_a, x86_deep_branch, x86_use_fiop,
+		x86_promote_QImode, x86_sub_esp_?, x86_add_esp_?,
+		x86_integer_DFmode_moves, x86_partial_reg_dependency,
+		x86_memory_mismatch_stall, x86_accumulate_outgoing_args,
+		x86_prologue_using_move, x86_epilogue_using_move,
+		x86_arch_always_fancy_math_387, x86_sse_partial_regs,
+		x86_sse_typeless_stores): Set for K8
+		(override_options): Add k8 support; fix athlon alignment;
+		complain about non-x86-64 capable CPU being used in x86-64 compilation.
+		(ix86_issue_rate): Set for K8.
+		(ix86_adjust_cost, ia32_use_dfa_pipeline_interface,
+		x86_machine_dependent_reorg): Handle K8 like
+		* i386.h
+		(x86_costs):  Change mult_init and divide into array.
+		(TARGET_K8, TARGET_ATHLON): New macros.
+		(MODE_INDEX): New macro.
+		(RTX_COST): Use new costs.
+		(TARGET_CPU_CPP_BUILTINS):  Define __k8__ and __tune_k8__.
+		(TARGET_CPU_DEFAULT_NAMES): Add k8
+		(TARGET_CPU_DEFAULT_k8): New constant
+		(enum processor_type): Add PROCESSOR_K8.
+		* i386.md (cpu attribute): Add k8.
+
+		* invoke.texi: Document -march=k8.
+
+		* i386.md (type attribute): Add leave
+		(mode attribute): Remove unknownfp.
+		(length_immediate, modrm, memory attributes): Handle leave correctly.
+		(fp comparison patterns): Determine FP mode.
+		(leave, leave_rex64): Remove special cases.
+		* ppro.md (ppro_uops, ppro_p2): Add leave
+		* pentiun.md (pent_pop): Handle leave too.
+		* k6.md (k6_load): Handle leave.
+		* athlon.md (athlon_leave, athlon_pop): Fix.
+		(athlon_decode): Handle leave.
+
 Mon Nov 25 18:00:50 CET 2002  Jan Hubicka  <jh@suse.cz>
 	Merge from mainline (hammer-3_3-merge-20022511 branch)
 
