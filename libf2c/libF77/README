@@ -110,3 +110,11 @@ or (on some systems)
 If your compiler complains about the signal calls in main.c, s_paus.c,
 and signal_.c, you may need to adjust signal1.h suitably.  See the
 comments in signal1.h.
+
+By default, the routines that implement complex and double complex
+division, c_div.c and z_div.c, call sig_die to print an error message
+and exit if they see a divisor of 0, as this is sometimes helpful for
+debugging.  On systems with IEEE arithmetic, compiling c_div.c and
+z_div.c with -DIEEE_COMPLEX_DIVIDE causes them instead to set both
+the real and imaginary parts of the result to +INFINITY if the
+numerator is nonzero, or to NaN if it vanishes.

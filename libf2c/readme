@@ -724,6 +724,18 @@ Sun Jun 27 22:05:47 EDT 1999
 increment could cause wrong array elements to be assigned; e.g.,
 "&input k(5)=10*1 &end" assigned k(5) and k(15 .. 23).
 
+Tue Sep  7 14:10:24 EDT 1999
+  f2c.h, libf2c/f2c.h0, libf2c/README: minor tweaks so a simple
+sed command converts f2c.h == libf2c/f2c.h0 to a form suitable for
+machines with 8-byte longs and doubles, 4-byte int's and floats,
+while working with a forthcoming (ill-advised) update to the C
+standard that outlaws plain "unsigned".
+  f2c.h, libf2c/f2c.h0: change "if 0" to "#ifdef INTEGER_STAR_8".
+  libf77, libf2c.zip: [cz]_div.c and README: arrange for compilation
+under -DIEEE_COMPLEX_DIVIDE to make these routines avoid calling sig_die
+when the denominator of a complex or double complex division vanishes;
+instead, they return pairs of NaNs or Infinities, depending whether the
+numerator also vanishes or not.
 
 Current timestamps of files in "all from f2c/src", sorted by time,
 appear below (mm/dd/year hh:mm:ss).  To bring your source up to date,

@@ -56,4 +56,11 @@ static char junk[] = "\n@(#)LIBF77 VERSION 19990503\n";
 			overlapping arguments caused by equivalence.
 	3 May 1999:	"invisible" tweaks to omit compiler warnings in
 			abort_.c, ef1asc_.c, s_rnge.c, s_stop.c.
+
+	7 Sept. 1999: [cz]_div.c: arrange for compilation under
+			-DIEEE_COMPLEX_DIVIDE to make these routines
+			avoid calling sig_die when the denominator
+			vanishes; instead, they return pairs of NaNs
+			or Infinities, depending whether the numerator
+			also vanishes or not.  VERSION not changed.
 */
