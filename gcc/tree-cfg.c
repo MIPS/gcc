@@ -701,7 +701,7 @@ void
 cleanup_tree_cfg ()
 {
   remove_unreachable_blocks ();
-  /*compact_blocks ();*/
+  compact_blocks ();
   /* FIXME  Optimize the CFG by stratightening out dead conditionals and
 	    whatnot.  */
 }

@@ -1,5 +1,10 @@
 2002-10-26  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-cfg.c (cleanup_tree_cfg): Uncomment call to
+	compact_blocks.
+
+2002-10-26  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (tree-pretty-print.o): Depend on $(TREE_FLOW_H)
 	* basic-block.h (BB_COMPOUND_ENTRY): Rename from BB_CONTROL_ENTRY.
 	* diagnostic.h (dump_generic_tree): Remove extern declaration.
@@ -74,8 +79,6 @@
 	(get_last_ref): Change to inline declaration.
 	(get_first_ref): Likewise.
 	(ref_list_empty): Declare.
-	(remove_decl): Declare.
-	(find_decl_location): Declare.
 
 	* tree-optimize.c (delete_tree_ssa): Remove declaration.
 
