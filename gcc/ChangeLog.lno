@@ -1,3 +1,9 @@
+2004-03-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-return.c (tree_ssa_return):
+	Move check for NULL return value above check
+	for a modify expr.
+
 2004-03-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (gate_scev_iv_canon): Do not check rtl

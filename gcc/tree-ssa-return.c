@@ -130,6 +130,10 @@ tree_ssa_return (void)
       if (!returnstmt_other || TREE_CODE (returnstmt_other) != RETURN_EXPR)
         continue;
 
+      /* No reason to do this if we are not returning a value.   */
+      if (TREE_OPERAND (returnstmt_other, 0) == NULL)
+        continue;
+
       /* If we do not have a modify expression on both returns, there is no point
          in doing this optimization. */
       if (TREE_CODE (TREE_OPERAND (returnstmt, 0)) != MODIFY_EXPR)
@@ -137,10 +141,6 @@ tree_ssa_return (void)
 
       if (TREE_CODE (TREE_OPERAND (returnstmt_other, 0)) != MODIFY_EXPR)
 	continue;
-
-      /* No reason to do this if we are not returning a value.   */
-      if (TREE_OPERAND (returnstmt_other, 0) == NULL)
-        continue;
       
       /* Create the new basic block.   */
       new_bb = create_empty_bb (bb_other);
