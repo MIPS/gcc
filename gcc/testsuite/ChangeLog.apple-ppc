@@ -1,3 +1,8 @@
+2004-12-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3866407
+	* g++.dg/ext/apple-altivec-3.C: New.
+
 2004-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3926484
