@@ -1,3 +1,8 @@
+Wed Oct 27 14:40:48 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/linux-gas.h: oops - this file was missed out when the
+	branch was created...
+
 Tue Oct 26 17:07:38 1999  Richard Earnshaw <rearnsha@arm.com>
 
 	* thumb.c: Deleted.  Move contents to ...
