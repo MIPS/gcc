@@ -117,6 +117,8 @@ optimize_function_tree (tree fndecl, tree *chain)
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_1);
 
+      ggc_collect ();
+
 #if 0
       /* Eliminate tail recursion calls.  */
       tree_optimize_tail_calls (false, TDI_tail1);
@@ -132,6 +134,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
+          ggc_collect ();
 	}
 
       /* Scalarize some structure references.  */
@@ -143,6 +146,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
+          ggc_collect ();
 	}
 
       /* Run SCCP (Sparse Conditional Constant Propagation).  */
@@ -154,11 +158,15 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
+          ggc_collect ();
 	}
 
       /* Run SSA-PRE (Partial Redundancy Elimination).  */
       if (flag_tree_pre)
-	tree_perform_ssapre (fndecl, TDI_pre);
+	{
+	  tree_perform_ssapre (fndecl, TDI_pre);
+	  ggc_collect ();
+	}
 
       /* Perform a second pass of dominator optimizations.  */
       if (flag_tree_dom)
@@ -173,7 +181,10 @@ optimize_function_tree (tree fndecl, tree *chain)
 
       /* Do a second DCE pass.  */
       if (flag_tree_dce)
-	tree_ssa_dce (fndecl, TDI_dce_2);
+	{
+	  tree_ssa_dce (fndecl, TDI_dce_2);
+	  ggc_collect ();
+	}
 
 #if 0
       /* Eliminate tail recursion calls and discover sibling calls.  */
@@ -185,6 +196,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 #endif
       /* Rewrite the function out of SSA form.  */
       rewrite_out_of_ssa (fndecl, TDI_optimized);
+      ggc_collect ();
 
       /* Flush out flow graph and SSA data.  */
       sbitmap_free (vars_to_rename);
