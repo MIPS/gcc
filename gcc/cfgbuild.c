@@ -442,15 +442,17 @@ make_edges (label_value_list, min, max, update_p)
 	}
 
       /* Find out if we can drop through to the next block.  */
-      insn = next_nonnote_insn (insn);
+      insn = NEXT_INSN (insn);
+      while (insn
+	     && GET_CODE (insn) == NOTE
+	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
+	insn = NEXT_INSN (insn);
+
       if (!insn || (i + 1 == n_basic_blocks && force_fallthru))
 	cached_make_edge (edge_cache, bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
       else if (i + 1 < n_basic_blocks)
 	{
-	  rtx tmp = BLOCK_HEAD (i + 1);
-	  if (GET_CODE (tmp) == NOTE)
-	    tmp = next_nonnote_insn (tmp);
-	  if (force_fallthru || insn == tmp)
+	  if (force_fallthru || insn == BLOCK_HEAD (i + 1))
 	    cached_make_edge (edge_cache, bb, BASIC_BLOCK (i + 1),
 			      EDGE_FALLTHRU);
 	}
@@ -766,9 +768,7 @@ compute_outgoing_frequencies (b)
       if (!note)
 	return;
 
-      probability = INTVAL (XEXP (find_reg_note (b->end,
-						 REG_BR_PROB, NULL),
-				  0));
+      probability = INTVAL (XEXP (note, 0));
       e = BRANCH_EDGE (b);
       e->probability = probability;
       e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
