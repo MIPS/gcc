@@ -1,8 +1,21 @@
 2002-02-14  Jeff Law  <law@redhat.com>
 
+	* tree-flow.h (struct stmt_ann_d): Add new field in_ccp_worklist.
+	* tree-ssa-ccp.c (simulate_stmt): Renamed from simulate_def_use_edges.
+	(add_var_to_ssa_edges_worklist): New function.  Only add statements
+	to the ssa_edges worklist if they are not already on the worklist.
+	(def_to_undefined, def_to_varying, set_lattice_value)
+	(tree_ssa_ccp): Only reevaluate the statement if in_ccp_worklist
+	is set for the element popped off the ssa_edges worklist.
+	(simulate_statement): Simplify now that ssa_edges is a worklist
+	of statements to reevaluate rather than a worklist of defs
+	that need their immediate uses reevaluated.
+	(visit_stmt): Clear in_ccp_worklist.
+
 	* tree-ssa-ccp.c (def_to_undefined): Directly store the new
 	lattice values rather than call set_value.
 	(def_to_varying): Likewise.
+	(set_lattice_value): Likewise.
 
 	* tree-ssa-ccp.c (def_to_undefined): Add some state transition
 	sanity checking.  Avoid calling set_value if nothing changed.

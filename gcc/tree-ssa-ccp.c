@@ -103,13 +103,14 @@ static value cp_lattice_meet		PARAMS ((value, value));
 static void visit_stmt			PARAMS ((tree));
 static void visit_cond_stmt		PARAMS ((tree));
 static void visit_assignment		PARAMS ((tree));
+static void add_var_to_ssa_edges_worklist PARAMS ((tree));
 static void add_outgoing_control_edges	PARAMS ((basic_block));
 static void add_control_edge		PARAMS ((edge));
 static void def_to_undefined		PARAMS ((tree));
 static void def_to_varying		PARAMS ((tree));
 static void set_lattice_value		PARAMS ((tree, value));
 static void simulate_block		PARAMS ((basic_block));
-static void simulate_def_use_edges	PARAMS ((tree));
+static void simulate_stmt		PARAMS ((tree));
 static void substitute_and_fold		PARAMS ((void));
 static value evaluate_stmt		PARAMS ((tree));
 static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
@@ -159,11 +160,17 @@ tree_ssa_ccp (fndecl)
          drain the entire worklist each iteration through this loop.  */
       while (VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
 	{
-	  /* Pull the next reference off the worklist.  The SSA edges
-	     worklist stores the origination definition for each edge.  */
-	  tree def = VARRAY_TOP_TREE (ssa_edges);
+	  /* Pull the statement to simulate off the worklist.  */
+	  tree stmt = VARRAY_TOP_TREE (ssa_edges);
 	  VARRAY_POP (ssa_edges);
-	  simulate_def_use_edges (def);
+
+	  /* visit_stmt can "cancel" reevaluation of some statements.
+	     If it does, then in_ccp_worklist will be zero.  */
+	  if (stmt_ann (stmt)->in_ccp_worklist)
+	    {
+	      stmt_ann (stmt)->in_ccp_worklist = 0;
+	      simulate_stmt (stmt);
+	    }
 	}
     }
 
@@ -240,38 +247,29 @@ simulate_block (block)
    statements reached by it.  */
 
 static void
-simulate_def_use_edges (def_stmt)
-     tree def_stmt;
+simulate_stmt (use_stmt)
+     tree use_stmt;
 {
-  size_t i;
-  varray_type imm_uses;
+  basic_block use_bb = bb_for_stmt (use_stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nSimulating def-use edges for statement: ");
-      print_generic_stmt (dump_file, def_stmt, 0);
+      fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
+      print_generic_stmt (dump_file, use_stmt, 0);
     }
 
-  imm_uses = immediate_uses (def_stmt);
-  if (imm_uses)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
-      {
-	tree use_stmt = VARRAY_TREE (imm_uses, i);
-	basic_block use_bb = bb_for_stmt (use_stmt);
-
-	if (TREE_CODE (use_stmt) == PHI_NODE)
-	  {
-	    /* PHI nodes are always visited, regardless of whether or not the
-	      destination block is executable.  */
-	    visit_phi_node (use_stmt);
-	  }
-	else if (TEST_BIT (executable_blocks, use_bb->index))
-	  {
-	    /* Otherwise, visit the statement containing the use reached by
-	      DEF, only if the destination block is marked executable.  */
-	    visit_stmt (use_stmt);
-	  }
-      }
+  if (TREE_CODE (use_stmt) == PHI_NODE)
+    {
+      /* PHI nodes are always visited, regardless of whether or not the
+         destination block is executable.  */
+      visit_phi_node (use_stmt);
+    }
+  else if (TEST_BIT (executable_blocks, use_bb->index))
+    {
+      /* Otherwise, visit the statement containing the use reached by
+         DEF, only if the destination block is marked executable.  */
+      visit_stmt (use_stmt);
+    }
 }
 
 
@@ -477,6 +475,13 @@ visit_stmt (stmt)
       fprintf (dump_file, "\n");
     }
   
+  /* If this statement is already in the worklist then "cancel" it.  The
+     reevaluation implied by the worklist entry will produce the same
+     value we generate here and thus reevaluting it again from the
+     worklist is pointless.  */
+  if (stmt_ann (stmt)->in_ccp_worklist)
+    stmt_ann (stmt)->in_ccp_worklist = 0;
+
   /* Now examine the statement.  If the statement produces an output
      value, evaluate it to see if the lattice value of its output has
      changed.  */
@@ -796,6 +801,29 @@ finalize ()
   htab_delete (const_values);
 }
 
+/* We have just definited a new value for VAR.  Add all immediate uses
+   of VAR to the ssa_edges worklist.  */
+static void
+add_var_to_ssa_edges_worklist (var)
+     tree var;
+{
+  varray_type imm_uses = immediate_uses (SSA_NAME_DEF_STMT (var));
+  if (imm_uses)
+    {
+      unsigned int i;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
+	{
+	  tree use = VARRAY_TREE (imm_uses, i);
+
+	  if (stmt_ann (use)->in_ccp_worklist == 0)
+	    {
+	      stmt_ann (use)->in_ccp_worklist = 1;
+	      VARRAY_PUSH_TREE (ssa_edges, use);
+	    }
+	}
+    }
+}
 
 /* Set the lattice value for the variable VAR to UNDEFINED.  */
 
@@ -812,7 +840,6 @@ def_to_undefined (var)
      Thus, it can appear that we get a VARYING -> UNDEFINED transition
      when all that is really happening is we are setting the initial
      value for the object to UNDEFINED.  */
-     VARYING
   if (value->lattice_val == CONSTANT)
     abort ();
 #endif
@@ -822,7 +849,7 @@ def_to_undefined (var)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
-      VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
+      add_var_to_ssa_edges_worklist (var);
       value->lattice_val = UNDEFINED;
       value->const_val = NULL_TREE;
     }
@@ -843,7 +870,7 @@ def_to_varying (var)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
-      VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
+      add_var_to_ssa_edges_worklist (var);
       value->lattice_val = VARYING;
       value->const_val = NULL_TREE;
     }
@@ -878,6 +905,8 @@ set_lattice_value (var, val)
 	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 
+          add_var_to_ssa_edges_worklist (var);
+
 #ifdef ENABLE_CHECKING
 	  /* VARYING -> CONSTANT is an invalid state transition.  */
 	  if (old_val->lattice_val == VARYING)
@@ -897,7 +926,6 @@ set_lattice_value (var, val)
 	      old_val->const_val = val.const_val;
 	    }
 
-	  VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
 	}
     }
 }
