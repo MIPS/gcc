@@ -1130,15 +1130,6 @@ remove_useless_stmts_goto (tree *stmt_p, struct rus_data *data)
   data->may_branch = true;
   data->last_goto = NULL;
 
-  /* ??? Why bother putting this back together when rtl is just
-     about to take it apart again?  */
-  if (factored_computed_goto_label
-      && (dest == LABEL_EXPR_LABEL (factored_computed_goto_label)))
-    {
-      GOTO_DESTINATION (*stmt_p) = GOTO_DESTINATION (factored_computed_goto);
-      return;
-    }
-
   /* Record the last goto expr, so that we can delete it if unnecessary.  */
   if (TREE_CODE (dest) == LABEL_DECL)
     data->last_goto = stmt_p;
@@ -1298,9 +1289,6 @@ remove_useless_stmts (tree *first_p)
       remove_useless_stmts_1 (first_p, &data);
     }
   while (data.repeat);
-
-  factored_computed_goto = NULL;
-  factored_computed_goto_label = NULL;
 }
 
 /* Remove obviously useless statements in basic block BB.  */
@@ -2305,7 +2293,7 @@ disband_implicit_edges (void)
   basic_block bb;
   block_stmt_iterator last;
   edge e;
-  tree stmt;
+  tree stmt, label;
 
   FOR_EACH_BB (bb)
     {
@@ -2370,11 +2358,20 @@ disband_implicit_edges (void)
       if (e->dest == EXIT_BLOCK_PTR)
 	abort ();
 
+      label = tree_block_label (e->dest);
+      /* ??? Why bother putting this back together when rtl is just
+	 about to take it apart again?  */
+      if (factored_computed_goto_label
+	  && label == LABEL_EXPR_LABEL (factored_computed_goto_label))
+	label = GOTO_DESTINATION (factored_computed_goto);
+
       bsi_insert_after (&last,
-			build1 (GOTO_EXPR, void_type_node,
-				tree_block_label (e->dest)),
+			build1 (GOTO_EXPR, void_type_node, label),
 			BSI_NEW_STMT);
     }
+
+  factored_computed_goto = NULL;
+  factored_computed_goto_label = NULL;
 }
 
 /* Remove all the blocks and edges that make up the flowgraph.  */
