@@ -1,3 +1,8 @@
+2004-09-02  Andreas Schwab  <schwab@suse.de>
+
+	* tree-loop-linear.c (linear_transform_loops): Fix call to
+	dump_dist_dir_vectors.
+
 2004-09-01  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* cfgloop.h (struct loop): New fields parallel_p, and 

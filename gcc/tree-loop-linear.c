@@ -220,7 +220,7 @@ linear_transform_loops (struct loops *loops)
       compute_data_dependences_for_loop (depth, loop_nest,
 					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
-	dump_dist_dir_vectors (dump_file, dependence_relations, loops->num);
+	dump_dist_dir_vectors (dump_file, dependence_relations);
 
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
