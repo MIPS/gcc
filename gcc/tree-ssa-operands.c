@@ -32,7 +32,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
-#include "cgraph.h"
 
 #include "langhooks.h"
 
@@ -147,8 +146,8 @@ static inline void append_def (tree *);
 static inline void append_use (tree *);
 static void append_v_may_def (tree, unsigned int, unsigned int);
 static void append_v_must_def (tree);
-static void add_call_clobber_ops (tree, tree);
-static void add_call_read_ops (tree, tree);
+static void add_call_clobber_ops (tree);
+static void add_call_read_ops (tree);
 static void add_stmt_operand (tree *, tree, int);
 
 /* Return a vector of contiguous memory for NUM def operands.  */
@@ -216,7 +215,7 @@ allocate_v_must_def_optype (unsigned num)
 {
   v_must_def_optype v_must_def_ops;
   unsigned size;
-  size = sizeof (struct v_must_def_optype_d) + sizeof (tree) * (num - 1);
+  size = sizeof (struct v_must_def_optype_d) + sizeof (v_def_use_operand_type_t) * (num - 1);
   v_must_def_ops =  ggc_alloc (size);
   v_must_def_ops->num_v_must_defs = num;
   return v_must_def_ops;
@@ -733,7 +732,7 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
       build_diff = false;
       for (x = 0; x < num; x++)
         {
-	  tree var = old_ops->v_must_defs[x];
+	  tree var = old_ops->v_must_defs[x].def;
 	  if (TREE_CODE (var) == SSA_NAME)
 	    var = SSA_NAME_VAR (var);
 	  if (var != VARRAY_TREE (build_v_must_defs, x))
@@ -760,17 +759,21 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
 	  /* Look for VAR in the original vector.  */
 	  for (i = 0; i < old_num; i++)
 	    {
-	      result = old_ops->v_must_defs[i];
+	      result = old_ops->v_must_defs[i].def;
 	      if (TREE_CODE (result) == SSA_NAME)
 		result = SSA_NAME_VAR (result);
 	      if (result == var)
 	        {
-		  v_must_def_ops->v_must_defs[x] = old_ops->v_must_defs[i];
+		  v_must_def_ops->v_must_defs[x].def = old_ops->v_must_defs[i].def;
+		  v_must_def_ops->v_must_defs[x].use = old_ops->v_must_defs[i].use;
 		  break;
 		}
 	    }
 	  if (i == old_num)
-	    v_must_def_ops->v_must_defs[x] = var;
+	    {
+	      v_must_def_ops->v_must_defs[x].def = var;
+	      v_must_def_ops->v_must_defs[x].use = var;
+	    }
 	}
     }
   VARRAY_POP_ALL (build_v_must_defs);
@@ -1361,7 +1364,7 @@ get_asm_expr_operands (tree stmt)
   for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
     if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
       {
-	size_t i;
+	unsigned i;
 	bitmap_iterator bi;
 
 	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
@@ -1496,7 +1499,6 @@ get_call_expr_operands (tree stmt, tree expr)
 {
   tree op;
   int call_flags = call_expr_flags (expr);
-  tree callee = get_callee_fndecl (expr);
 
   /* Find uses in the called function.  */
   get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
@@ -1506,16 +1508,16 @@ get_call_expr_operands (tree stmt, tree expr)
 
   get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
 
-  if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
+  if (!bitmap_empty_p (call_clobbered_vars))
     {
       /* A 'pure' or a 'const' functions never call clobber anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt, callee);
+	add_call_clobber_ops (stmt);
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt, callee);
+	add_call_read_ops (stmt);
     }
 }
 
@@ -1798,7 +1800,7 @@ note_addressable (tree var, stmt_ann_t s_ann)
    clobbered variables in the function.  */
 
 static void
-add_call_clobber_ops (tree stmt, tree callee)
+add_call_clobber_ops (tree stmt)
 {
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
@@ -1813,60 +1815,17 @@ add_call_clobber_ops (tree stmt, tree callee)
     add_stmt_operand (&global_var, stmt, opf_is_def);
   else
     {
-      size_t i;
-      bitmap not_read_b = NULL, not_written_b = NULL;
+      unsigned i;
       bitmap_iterator bi;
-
-      /* Get info for module level statics.  There is a bit set for
-	 each static if the call being processed does not read or
-	 write that variable.  */
-
-      /* ??? Turn off the optimization until it gets fixed.  */
-      if (0 && callee)
-	{
-	  not_read_b = get_global_statics_not_read (callee);
-	  not_written_b = get_global_statics_not_written (callee);
-	}
 
       EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	{
 	  tree var = referenced_var (i);
-
-	  bool not_read
-	    = not_read_b ? bitmap_bit_p (not_read_b, i) : false;
-	  bool not_written
-	    = not_written_b ? bitmap_bit_p (not_written_b, i) : false;
-
-	  if (not_read)
-	    {
-	      /* The var is not read during the call.  */
-	      if (!not_written)
-		add_stmt_operand (&var, stmt, opf_is_def);
-	    }
+	  if (TREE_READONLY (var)
+	      && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+	    add_stmt_operand (&var, stmt, opf_none);
 	  else
-	    {
-	      /* The var is read during the call.  */
-	      if (not_written) 
-		add_stmt_operand (&var, stmt, opf_none);
-
-	      /* The not_read and not_written bits are only set for module
-		 static variables.  Neither is set here, so we may be dealing
-		 with a module static or we may not.  So we still must look
-		 anywhere else we can (such as the TREE_READONLY) to get
-		 better info.  */
-
-	      /* If VAR is read-only, don't add a V_MAY_DEF, just a
-		 VUSE operand.  FIXME, this is quirky.  TREE_READONLY
-		 by itself is not enough here.  We can only decide
-		 that the call will not affect VAR if all these
-		 conditions are met.  One would think that
-		 TREE_READONLY should be sufficient.  */
-	      else if (TREE_READONLY (var)
-		       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
-		add_stmt_operand (&var, stmt, opf_none);
-	      else
-		add_stmt_operand (&var, stmt, opf_is_def);
-	    }
+	    add_stmt_operand (&var, stmt, opf_is_def);
 	}
     }
 }
@@ -1876,7 +1835,7 @@ add_call_clobber_ops (tree stmt, tree callee)
    function.  */
 
 static void
-add_call_read_ops (tree stmt, tree callee)
+add_call_read_ops (tree stmt)
 {
   bitmap_iterator bi;
 
@@ -1888,16 +1847,11 @@ add_call_read_ops (tree stmt, tree callee)
     add_stmt_operand (&global_var, stmt, opf_none);
   else
     {
-      size_t i;
-      bitmap not_read_b = callee 
-	? get_global_statics_not_read (callee) : NULL; 
-
+      unsigned i;
+      
       EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	{
 	  tree var = referenced_var (i);
-	  bool not_read = not_read_b 
-	    ? bitmap_bit_p(not_read_b, i) : false;
-	  if (!not_read)
 	  add_stmt_operand (&var, stmt, opf_none);
 	}
     }
@@ -1945,7 +1899,10 @@ copy_virtual_operands (tree dst, tree src)
     {
       *v_must_defs_new = allocate_v_must_def_optype (NUM_V_MUST_DEFS (v_must_defs));
       for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	SET_V_MUST_DEF_OP (*v_must_defs_new, i, V_MUST_DEF_OP (v_must_defs, i));
+	{
+	  SET_V_MUST_DEF_RESULT (*v_must_defs_new, i, V_MUST_DEF_RESULT (v_must_defs, i));
+	  SET_V_MUST_DEF_KILL (*v_must_defs_new, i, V_MUST_DEF_KILL (v_must_defs, i));
+	}
     }
 }
 
@@ -1974,7 +1931,7 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
   free_vuses (&(ann->operands.vuse_ops));
   free_v_may_defs (&(ann->operands.v_may_def_ops));
   free_v_must_defs (&(ann->operands.v_must_def_ops));
-
+  
   /* For each VDEF on the original statement, we want to create a
      VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
      statement.  */
@@ -1990,7 +1947,7 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
     
   for (j = 0; j < NUM_V_MUST_DEFS (old_ops->v_must_def_ops); j++)
     {
-      op = V_MUST_DEF_OP (old_ops->v_must_def_ops, j);
+      op = V_MUST_DEF_RESULT (old_ops->v_must_def_ops, j);
       append_vuse (op, 0, ~0);
     }
 

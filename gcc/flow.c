@@ -520,12 +520,13 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
     }
   else
     {
-      int i;
+      unsigned i;
+      reg_set_iterator rsi;
 
       /* Find the set of changed registers.  */
       XOR_REG_SET (new_live_at_start, bb->global_live_at_start);
 
-      EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i,
+      EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i, rsi)
 	{
 	  /* No registers should die.  */
 	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
@@ -540,7 +541,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	    }
 	  /* Verify that the now-live register is wider than word_mode.  */
 	  verify_wide_reg (i, bb);
-	});
+	}
     }
 }
 
@@ -569,7 +570,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
 {
   regset tmp;
   regset_head tmp_head;
-  int i;
+  unsigned i;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
 
@@ -680,13 +681,15 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
 
   if (prop_flags & PROP_REG_INFO)
     {
+      reg_set_iterator rsi;
+
       /* The only pseudos that are live at the beginning of the function
 	 are those that were not set anywhere in the function.  local-alloc
 	 doesn't know how to handle these correctly, so mark them as not
 	 local to any one basic block.  */
       EXECUTE_IF_SET_IN_REG_SET (ENTRY_BLOCK_PTR->global_live_at_end,
-				 FIRST_PSEUDO_REGISTER, i,
-				 { REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL; });
+				 FIRST_PSEUDO_REGISTER, i, rsi)
+	REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL;
 
       /* We have a problem with any pseudoreg that lives across the setjmp.
 	 ANSI says that if a user variable does not change in value between
@@ -697,14 +700,14 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
 	 that hard reg where this pseudo is dead, thus clobbering the pseudo.
 	 Conclusion: such a pseudo must not go in a hard reg.  */
       EXECUTE_IF_SET_IN_REG_SET (regs_live_at_setjmp,
-				 FIRST_PSEUDO_REGISTER, i,
-				 {
-				   if (regno_reg_rtx[i] != 0)
-				     {
-				       REG_LIVE_LENGTH (i) = -1;
-				       REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
-				     }
-				 });
+				 FIRST_PSEUDO_REGISTER, i, rsi)
+	{
+	  if (regno_reg_rtx[i] != 0)
+	    {
+	      REG_LIVE_LENGTH (i) = -1;
+	      REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
+	    }
+	}
     }
   if (reg_deaths)
     {
@@ -1111,11 +1114,9 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	    /* ??? Abnormal call edges ignored for the moment, as this gets
 	       confused by sibling call edges, which crashes reg-stack.  */
 	    if (e->flags & EDGE_EH)
-	      {
-		bitmap_operation (tmp, sb->global_live_at_start,
-				  invalidated_by_call, BITMAP_AND_COMPL);
-		IOR_REG_SET (new_live_at_end, tmp);
-	      }
+	      bitmap_ior_and_compl_into (new_live_at_end,
+					 sb->global_live_at_start,
+					 invalidated_by_call);
 	    else
 	      IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
 
@@ -1184,39 +1185,32 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	     rescan the block.  This wouldn't be necessary if we had
 	     precalculated local_live, however with PROP_SCAN_DEAD_CODE
 	     local_live is really dependent on live_at_end.  */
-	  CLEAR_REG_SET (tmp);
-	  rescan = bitmap_operation (tmp, bb->global_live_at_end,
-				     new_live_at_end, BITMAP_AND_COMPL);
+	  rescan = bitmap_intersect_compl_p (bb->global_live_at_end,
+					     new_live_at_end);
 
-	  if (! rescan)
-	    {
-	      /* If any of the registers in the new live_at_end set are
-		 conditionally set in this basic block, we must rescan.
-	         This is because conditional lifetimes at the end of the
-		 block do not just take the live_at_end set into account,
-		 but also the liveness at the start of each successor
-		 block.  We can miss changes in those sets if we only
-		 compare the new live_at_end against the previous one.  */
-	      CLEAR_REG_SET (tmp);
-	      rescan = bitmap_operation (tmp, new_live_at_end,
-					 bb->cond_local_set, BITMAP_AND);
-	    }
+	  if (!rescan)
+	    /* If any of the registers in the new live_at_end set are
+	       conditionally set in this basic block, we must rescan.
+	       This is because conditional lifetimes at the end of the
+	       block do not just take the live_at_end set into
+	       account, but also the liveness at the start of each
+	       successor block.  We can miss changes in those sets if
+	       we only compare the new live_at_end against the
+	       previous one.  */
+	    rescan = bitmap_intersect_p (new_live_at_end,
+					 bb->cond_local_set);
 
-	  if (! rescan)
+	  if (!rescan)
 	    {
 	      /* Find the set of changed bits.  Take this opportunity
 		 to notice that this set is empty and early out.  */
-	      CLEAR_REG_SET (tmp);
-	      changed = bitmap_operation (tmp, bb->global_live_at_end,
-					  new_live_at_end, BITMAP_XOR);
-	      if (! changed)
+	      bitmap_xor (tmp, bb->global_live_at_end, new_live_at_end);
+	      if (bitmap_empty_p (tmp))
 		continue;
-
+  
 	      /* If any of the changed bits overlap with local_set,
-		 we'll have to rescan the block.  Detect overlap by
-		 the AND with ~local_set turning off bits.  */
-	      rescan = bitmap_operation (tmp, tmp, bb->local_set,
-					 BITMAP_AND_COMPL);
+ 		 we'll have to rescan the block.  */
+	      rescan = bitmap_intersect_p (tmp, bb->local_set);
 	    }
 	}
 
@@ -1229,14 +1223,11 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	{
 	  /* Add to live_at_start the set of all registers in
 	     new_live_at_end that aren't in the old live_at_end.  */
-
-	  bitmap_operation (tmp, new_live_at_end, bb->global_live_at_end,
-			    BITMAP_AND_COMPL);
+	  
+	  changed = bitmap_ior_and_compl_into (bb->global_live_at_start,
+					       new_live_at_end,
+					       bb->global_live_at_end);
 	  COPY_REG_SET (bb->global_live_at_end, new_live_at_end);
-
-	  changed = bitmap_operation (bb->global_live_at_start,
-				      bb->global_live_at_start,
-				      tmp, BITMAP_IOR);
 	  if (! changed)
 	    continue;
 	}
@@ -1361,7 +1352,7 @@ initialize_uninitialized_subregs (void)
 {
   rtx insn;
   edge e;
-  int reg, did_something = 0;
+  unsigned reg, did_something = 0;
   find_regno_partial_param param;
   edge_iterator ei;
 
@@ -1369,8 +1360,9 @@ initialize_uninitialized_subregs (void)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;
-      EXECUTE_IF_SET_IN_REG_SET (map,
-				 FIRST_PSEUDO_REGISTER, reg,
+      reg_set_iterator rsi;
+
+      EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
 	{
 	  int uid = REGNO_FIRST_UID (reg);
 	  rtx i;
@@ -1398,7 +1390,7 @@ initialize_uninitialized_subregs (void)
 		  did_something = 1;
 		}
 	    }
-	});
+	}
     }
 
   if (did_something)
@@ -1525,7 +1517,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
   int insn_is_dead = 0;
   int libcall_is_dead = 0;
   rtx note;
-  int i;
+  unsigned i;
 
   if (! INSN_P (insn))
     return prev;
@@ -1671,8 +1663,11 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	 record this for them.  */
 
       if (CALL_P (insn) && (flags & PROP_REG_INFO))
-	EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i,
-				   { REG_N_CALLS_CROSSED (i)++; });
+	{
+	  reg_set_iterator rsi;
+	  EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
+	    REG_N_CALLS_CROSSED (i)++;
+	}
 
       /* Record sets.  Do this even for dead instructions, since they
 	 would have killed the values if they hadn't been deleted.  */
@@ -1826,7 +1821,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
       regset_head diff_head;
       regset diff = INITIALIZE_REG_SET (diff_head);
       basic_block bb_true, bb_false;
-      int i;
+      unsigned i;
 
       /* Identify the successor blocks.  */
       bb_true = EDGE_SUCC (bb, 0)->dest;
@@ -1853,9 +1848,11 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	}
 
       /* Compute which register lead different lives in the successors.  */
-      if (bitmap_operation (diff, bb_true->global_live_at_start,
-			    bb_false->global_live_at_start, BITMAP_XOR))
-	{
+      bitmap_xor (diff, bb_true->global_live_at_start,
+		  bb_false->global_live_at_start);
+      
+      if (!bitmap_empty_p (diff))
+	  {
 	  /* Extract the condition from the branch.  */
 	  rtx set_src = SET_SRC (pc_set (BB_END (bb)));
 	  rtx cond_true = XEXP (set_src, 0);
@@ -1878,6 +1875,8 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		= gen_rtx_fmt_ee (inv_cond,
 				  GET_MODE (cond_true), XEXP (cond_true, 0),
 				  XEXP (cond_true, 1));
+	      reg_set_iterator rsi;
+
 	      if (GET_CODE (XEXP (set_src, 1)) == PC)
 		{
 		  rtx t = cond_false;
@@ -1888,25 +1887,24 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (reg));
 
 	      /* For each such register, mark it conditionally dead.  */
-	      EXECUTE_IF_SET_IN_REG_SET
-		(diff, 0, i,
-		 {
-		   struct reg_cond_life_info *rcli;
-		   rtx cond;
+	      EXECUTE_IF_SET_IN_REG_SET (diff, 0, i, rsi)
+		{
+		  struct reg_cond_life_info *rcli;
+		  rtx cond;
 
-		   rcli = xmalloc (sizeof (*rcli));
+		  rcli = xmalloc (sizeof (*rcli));
 
-		   if (REGNO_REG_SET_P (bb_true->global_live_at_start, i))
-		     cond = cond_false;
-		   else
-		     cond = cond_true;
-		   rcli->condition = cond;
-		   rcli->stores = const0_rtx;
-		   rcli->orig_condition = cond;
+		  if (REGNO_REG_SET_P (bb_true->global_live_at_start, i))
+		    cond = cond_false;
+		  else
+		    cond = cond_true;
+		  rcli->condition = cond;
+		  rcli->stores = const0_rtx;
+		  rcli->orig_condition = cond;
 
-		   splay_tree_insert (pbi->reg_cond_dead, i,
-				      (splay_tree_value) rcli);
-		 });
+		  splay_tree_insert (pbi->reg_cond_dead, i,
+				     (splay_tree_value) rcli);
+		}
 	    }
 	}
 
@@ -1965,12 +1963,14 @@ free_propagate_block_info (struct propagate_block_info *pbi)
   if (pbi->flags & PROP_REG_INFO)
     {
       int num = pbi->insn_num;
-      int i;
+      unsigned i;
+      reg_set_iterator rsi;
 
-      EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i,
-	 { REG_LIVE_LENGTH (i) += num - reg_deaths[i];
-	   reg_deaths[i] = 0;
-         });
+      EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
+	{
+	  REG_LIVE_LENGTH (i) += num - reg_deaths[i];
+	  reg_deaths[i] = 0;
+	}
     }
   if (pbi->reg_next_use)
     free (pbi->reg_next_use);
@@ -2008,12 +2008,13 @@ propagate_block (basic_block bb, regset live, regset local_set,
 
   if (flags & PROP_REG_INFO)
     {
-      int i;
+      unsigned i;
+      reg_set_iterator rsi;
 
       /* Process the regs live at the end of the block.
 	 Mark them as not local to any one basic block.  */
-      EXECUTE_IF_SET_IN_REG_SET (live, 0, i,
-				 { REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL; });
+      EXECUTE_IF_SET_IN_REG_SET (live, 0, i, rsi)
+	REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL;
     }
 
   /* Scan the block an insn at a time from end to beginning.  */
@@ -4134,20 +4135,22 @@ find_use_as_address (rtx x, rtx reg, HOST_WIDE_INT plusconst)
 void
 dump_regset (regset r, FILE *outf)
 {
-  int i;
+  unsigned i;
+  reg_set_iterator rsi;
+
   if (r == NULL)
     {
       fputs (" (nil)", outf);
       return;
     }
 
-  EXECUTE_IF_SET_IN_REG_SET (r, 0, i,
+  EXECUTE_IF_SET_IN_REG_SET (r, 0, i, rsi)
     {
       fprintf (outf, " %d", i);
       if (i < FIRST_PSEUDO_REGISTER)
 	fprintf (outf, " [%s]",
 		 reg_names[i]);
-    });
+    }
 }
 
 /* Print a human-readable representation of R on the standard error
@@ -4321,7 +4324,7 @@ clear_log_links (sbitmap blocks)
 void
 reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
 {
-  int i;
+  unsigned i;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)

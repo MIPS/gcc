@@ -118,7 +118,7 @@ execute_cleanup_cfg_post_optimizing (void)
 
 static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 {
-  NULL,					/* name */
+  "final_cleanup",			/* name */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
   NULL,					/* sub */
@@ -129,7 +129,7 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
+  TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -346,9 +346,9 @@ init_tree_optimization_passes (void)
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_ssa);
-  NEXT_PASS (pass_build_pta);
+  /*  NEXT_PASS (pass_build_pta); */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_del_pta);
+  /*  NEXT_PASS (pass_del_pta); */
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
@@ -357,9 +357,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
-  NEXT_PASS (pass_build_pta);
+  /*  NEXT_PASS (pass_build_pta); */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_del_pta);
+  /*  NEXT_PASS (pass_del_pta); */
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
@@ -396,11 +396,11 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
-  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
@@ -422,6 +422,11 @@ execute_todo (int properties, unsigned int flags)
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
+      bitmap_clear (vars_to_rename);
+    }
+  if (flags & TODO_fix_def_def_chains)
+    {
+      rewrite_def_def_chains ();
       bitmap_clear (vars_to_rename);
     }
 
@@ -682,10 +687,10 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Jsize of return value of '%D' is %u bytes",
+	    warning ("%Jsize of return value of %qD is %u bytes",
                      fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Jsize of return value of '%D' is larger than %wd bytes",
+	    warning ("%Jsize of return value of %qD is larger than %wd bytes",
                      fndecl, fndecl, larger_than_size);
 	}
     }

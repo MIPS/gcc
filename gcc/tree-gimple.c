@@ -111,9 +111,12 @@ is_gimple_reg_rhs (tree t)
 bool
 is_gimple_mem_rhs (tree t)
 {
-  /* If we're dealing with a renamable type, either source or dest
-     must be a renamed variable.  */
-  if (is_gimple_reg_type (TREE_TYPE (t)))
+  /* If we're dealing with a renamable type, either source or dest must be
+     a renamed variable.  Also force a temporary if the type doesn't need
+     to be stored in memory, since it's cheap and prevents erroneous
+     tailcalls (PR 17526).  */
+  if (is_gimple_reg_type (TREE_TYPE (t))
+      || TYPE_MODE (TREE_TYPE (t)) != BLKmode)
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_rhs (t);
@@ -130,16 +133,6 @@ rhs_predicate_for (tree lhs)
     return is_gimple_reg_rhs;
   else
     return is_gimple_mem_rhs;
-}
-
-/* Returns true if T is a valid CONSTRUCTOR component in GIMPLE, either
-   a val or another CONSTRUCTOR.  */
-
-bool
-is_gimple_constructor_elt (tree t)
-{
-  return (is_gimple_val (t)
-	  || TREE_CODE (t) == CONSTRUCTOR);
 }
 
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */

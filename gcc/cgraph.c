@@ -386,21 +386,6 @@ cgraph_mark_needed_node (struct cgraph_node *node)
   cgraph_mark_reachable_node (node);
 }
 
-/* Return true when CALLER_DECL calls CALLEE_DECL.  */
-
-bool
-cgraph_calls_p (tree caller_decl, tree callee_decl)
-{
-  struct cgraph_node *caller = cgraph_node (caller_decl);
-  struct cgraph_node *callee = cgraph_node (callee_decl);
-  struct cgraph_edge *edge;
-
-  for (edge = callee->callers; edge && (edge)->caller != caller;
-       edge = (edge->next_caller))
-    continue;
-  return edge != NULL;
-}
-
 /* Return local info for the compiled function.  */
 
 struct cgraph_local_info *
@@ -471,15 +456,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " tree");
   if (node->output)
     fprintf (f, " output");
-
   if (node->local.local)
     fprintf (f, " local");
-  if (node->local.external)
-    fprintf (f, " external");
-  if (node->local.calls_read_all)
-    fprintf (f, " calls_read_all");
-  if (node->local.calls_write_all)
-    fprintf (f, " calls_write_all");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)

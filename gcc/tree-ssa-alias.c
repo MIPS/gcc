@@ -152,7 +152,6 @@ static void collect_points_to_info_for (struct alias_info *, tree);
 static bool ptr_is_dereferenced_by (tree, tree, bool *);
 static void maybe_create_global_var (struct alias_info *ai);
 static void group_aliases (struct alias_info *);
-static struct ptr_info_def *get_ptr_info (tree t);
 static void set_pt_anything (tree ptr);
 static void set_pt_malloc (tree ptr);
 
@@ -380,7 +379,7 @@ init_alias_info (void)
   /* If aliases have been computed before, clear existing information.  */
   if (aliases_computed_p)
     {
-      size_t i;
+      unsigned i;
       bitmap_iterator bi;
 
       /* Clear the call-clobbered set.  We are going to re-discover
@@ -571,7 +570,7 @@ static void
 compute_points_to_and_addr_escape (struct alias_info *ai)
 {
   basic_block bb;
-  size_t i;
+  unsigned i;
   tree op;
   ssa_op_iter iter;
 
@@ -748,8 +747,7 @@ create_name_tags (struct alias_info *ai)
 	  continue;
 	}
 
-      if (pi->pt_vars
-	  && bitmap_first_set_bit (pi->pt_vars) >= 0)
+      if (pi->pt_vars && !bitmap_empty_p (pi->pt_vars))
 	{
 	  size_t j;
 	  tree old_name_tag = pi->name_mem_tag;
@@ -833,7 +831,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
-      size_t j;
+      unsigned j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
@@ -1482,7 +1480,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 static void
 maybe_create_global_var (struct alias_info *ai)
 {
-  size_t i, n_clobbered;
+  unsigned i, n_clobbered;
   bitmap_iterator bi;
   
   /* No need to create it, if we have one already.  */
@@ -1689,14 +1687,21 @@ set_pt_malloc (tree ptr)
 }
 
 
-/* Given two pointers DEST and ORIG.  Merge the points-to information in
-   ORIG into DEST.  AI is as in collect_points_to_info.  */
+/* Given two different pointers DEST and ORIG.  Merge the points-to
+   information in ORIG into DEST.  AI is as in
+   collect_points_to_info.  */
 
 static void
 merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 {
   struct ptr_info_def *dest_pi, *orig_pi;
 
+  /* FIXME: It is erroneous to call this function with identical
+     nodes, however that currently occurs during bootstrap.  This check
+     stops further breakage.  PR 18307 documents the issue.  */
+  if (dest == orig)
+    return;
+  
   /* Make sure we have points-to information for ORIG.  */
   collect_points_to_info_for (ai, orig);
 
@@ -1727,6 +1732,8 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	 smart enough to determine that the two come from the same
 	 malloc call.  Copy propagation before aliasing should cure
 	 this.  */
+      gcc_assert (orig_pi != dest_pi);
+      
       dest_pi->pt_malloc = 0;
 
       if (orig_pi->pt_malloc || orig_pi->pt_anything)
@@ -1734,7 +1741,7 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 
       if (!dest_pi->pt_anything
 	  && orig_pi->pt_vars
-	  && bitmap_first_set_bit (orig_pi->pt_vars) >= 0)
+	  && !bitmap_empty_p (orig_pi->pt_vars))
 	{
 	  if (dest_pi->pt_vars == NULL)
 	    {
@@ -1742,9 +1749,7 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	      bitmap_copy (dest_pi->pt_vars, orig_pi->pt_vars);
 	    }
 	  else
-	    bitmap_a_or_b (dest_pi->pt_vars,
-		           dest_pi->pt_vars,
-		           orig_pi->pt_vars);
+	    bitmap_ior_into (dest_pi->pt_vars, orig_pi->pt_vars);
 	}
     }
   else
@@ -2262,7 +2267,7 @@ debug_alias_info (void)
 /* Return the alias information associated with pointer T.  It creates a
    new instance if none existed.  */
 
-static struct ptr_info_def *
+struct ptr_info_def *
 get_ptr_info (tree t)
 {
   struct ptr_info_def *pi;

@@ -1,5 +1,5 @@
 /* ResourceBundle -- aids in loading resource bundles
-   Copyright (C) 1998, 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,10 +38,10 @@ exception statement from your version. */
 
 package java.util;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
-import java.io.InputStream;
-import java.io.IOException;
 
 /**
  * A resource bundle contains locale-specific data. If you need localized
@@ -473,7 +473,14 @@ public abstract class ResourceBundle
           rbClass = Class.forName(localizedName);
         else
           rbClass = classloader.loadClass(localizedName);
-        bundle = (ResourceBundle) rbClass.newInstance();
+	// Note that we do the check up front instead of catching
+	// ClassCastException.  The reason for this is that some crazy
+	// programs (Eclipse) have classes that do not extend
+	// ResourceBundle but that have the same name as a property
+	// bundle; in fact Eclipse relies on ResourceBundle not
+	// instantiating these classes.
+	if (ResourceBundle.class.isAssignableFrom(rbClass))
+	  bundle = (ResourceBundle) rbClass.newInstance();
       }
     catch (IllegalAccessException ex) {}
     catch (InstantiationException ex) {}

@@ -95,6 +95,7 @@ netbsd			Jason Thorpe		thorpej@wasabisystems.com
 sco5, unixware, sco udk	Kean Johnston		jkj@sco.com
 sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 RTEMS Ports		Joel Sherrill		joel@oarcorp.com
+RTEMS Ports		Ralf Corsepius		ralf.corsepius@rtems.org
 VxWorks ports		Zack Weinberg		zack@codesourcery.com
 VxWorks ports		Nathan Sidwell		nathan@codesourcery.com
 windows, cygwin, mingw	Christopher Faylor	cgf@redhat.com
@@ -182,7 +183,7 @@ tree-ssa		Diego Novillo		dnovillo@redhat.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE, points-to		Daniel Berlin		dberlin@dberlin.org
 mudflap			Frank Ch. Eigler	fche@redhat.com
-tree browser/unparser	Sebastian Pop		s.pop@laposte.net
+tree browser/unparser	Sebastian Pop		pop@cri.ensmp.fr
 profile feedback	Jan Hubicka		jh@suse.cz
 type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 
@@ -197,7 +198,6 @@ Matt Austern                                    austern@apple.com
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
-Daniel Berlin					dan@dberlin.org
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
 Uros Bizjak					uros@kss-loka.si
@@ -221,9 +221,7 @@ David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
 Chris Demetriou					cgd@broadcom.com
 Zdenek Dvorak					dvorakz@suse.cz
-Frank Ch. Eigler				fche@redhat.com
 Steve Ellcey					sje@cup.hp.com
-Ben Elliston					bje@gnu.org
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
@@ -243,7 +241,6 @@ Bernardo Innocenti				bernie@develer.com
 Daniel Jacobowitz				dan@debian.org
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
-Dale Johannesen 				dalej@apple.com
 Klaus Kaempf					kkaempf@progis.de
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
@@ -251,6 +248,7 @@ Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
 Matt Kraai					kraai@alumni.cmu.edu
+Aaron W. LaFramboise				aaronavay62@aaronwl.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
 James Lemke					jim@wasabisystems.com
@@ -258,6 +256,7 @@ Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
 Ralph Loader					rcl@ihug.co.nz
+Gabor Loki					loki@inf.u-szeged.hu
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
@@ -278,7 +277,6 @@ Devang Patel					dpatel@apple.com
 Graeme Peterson					gp@qnx.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org
-Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
 Jerry Quinn					jlquinn@optonline.net
 Rolf Rasmussen					rolfwr@gcc.gnu.org

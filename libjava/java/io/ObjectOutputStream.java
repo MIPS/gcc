@@ -220,7 +220,6 @@ public class ObjectOutputStream extends OutputStream
 	      {
 		Class cl = (Class)obj;
 		ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(cl);
-		assignNewHandle(obj);
 		realOutput.writeByte(TC_CLASS);
 		if (!osc.isProxyClass)
 		  {
@@ -241,6 +240,7 @@ public class ObjectOutputStream extends OutputStream
 		    
 		    writeObject(osc.getSuper());
 		  }
+		assignNewHandle(obj);
 		break;
 	      }
 
@@ -893,7 +893,7 @@ public class ObjectOutputStream extends OutputStream
    *
    * XXX: finish up comments
    */
-  public static abstract class PutField
+  public abstract static class PutField
   {
     public abstract void put (String name, boolean value);
     public abstract void put (String name, byte value);
@@ -1239,7 +1239,8 @@ public class ObjectOutputStream extends OutputStream
 
 
   // Toggles writing primitive data to block-data buffer.
-  private boolean setBlockDataMode(boolean on) throws IOException
+  // Package-private to avoid a trampoline constructor.
+  boolean setBlockDataMode(boolean on) throws IOException
   {
     if (on == writeDataAsBlocks)
       return on;
@@ -1552,7 +1553,7 @@ public class ObjectOutputStream extends OutputStream
   }
 
   // this value comes from 1.2 spec, but is used in 1.1 as well
-  private final static int BUFFER_SIZE = 1024;
+  private static final int BUFFER_SIZE = 1024;
 
   private static int defaultProtocolVersion = PROTOCOL_VERSION_2;
 
@@ -1563,7 +1564,8 @@ public class ObjectOutputStream extends OutputStream
   private byte[] blockData;
   private int blockDataCount;
   private Object currentObject;
-  private ObjectStreamClass currentObjectStreamClass;
+  // Package-private to avoid a trampoline.
+  ObjectStreamClass currentObjectStreamClass;
   private PutField currentPutField;
   private boolean fieldsAlreadyWritten;
   private boolean replacementEnabled;

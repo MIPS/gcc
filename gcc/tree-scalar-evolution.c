@@ -1049,7 +1049,7 @@ get_exit_conditions_rec (struct loop *loop,
 }
 
 /* Select the candidate loop nests for the analysis.  This function
-   initializes the EXIT_CONDITIONS array.   */
+   initializes the EXIT_CONDITIONS array.  */
 
 static void
 select_loops_exit_conditions (struct loops *loops, 
@@ -2374,7 +2374,7 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (varray_type exit_conditions)
       loop = loop_containing_stmt (VARRAY_TREE (exit_conditions, i));
       bb = loop->header;
       
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	if (is_gimple_reg (PHI_RESULT (phi)))
 	  {
 	    chrec = instantiate_parameters 

@@ -5058,7 +5058,6 @@ irix_output_external_libcall (rtx fun)
 void
 mips_output_filename (FILE *stream, const char *name)
 {
-  char ltext_label_name[100];
 
   /* If we are emitting DWARF-2, let dwarf2out handle the ".file"
      directives.  */
@@ -5069,44 +5068,24 @@ mips_output_filename (FILE *stream, const char *name)
       mips_output_filename_first_time = 0;
       num_source_filenames += 1;
       current_function_file = name;
-      ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
+      fprintf (stream, "\t.file\t%d ", num_source_filenames);
+      output_quoted_string (stream, name);
+      putc ('\n', stream);
     }
 
+  /* If we are emitting stabs, let dbxout.c handle this (except for
+     the mips_output_filename_first_time case).  */
   else if (write_symbols == DBX_DEBUG)
-    {
-      ASM_GENERATE_INTERNAL_LABEL (ltext_label_name, "Ltext", 0);
-      fputs ("\t.stabs\t", stream);
-      output_quoted_string (stream, name);
-      fprintf (stream, ",%d,0,0,%s\n", N_SOL, &ltext_label_name[1]);
-    }
+    return;
 
   else if (name != current_function_file
 	   && strcmp (name, current_function_file) != 0)
     {
       num_source_filenames += 1;
       current_function_file = name;
-      ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
-    }
-}
-
-/* Emit a linenumber.  For encapsulated stabs, we need to put out a stab
-   as well as a .loc, since it is possible that MIPS ECOFF might not be
-   able to represent the location for inlines that come from a different
-   file.  */
-
-void
-mips_output_lineno (FILE *stream, int line)
-{
-  if (write_symbols == DBX_DEBUG)
-    {
-      ++sym_lineno;
-      fprintf (stream, "%sLM%d:\n\t.stabn\t%d,0,%d,%sLM%d\n",
-	       LOCAL_LABEL_PREFIX, sym_lineno, N_SLINE, line,
-	       LOCAL_LABEL_PREFIX, sym_lineno);
-    }
-  else
-    {
-      fprintf (stream, "\n\t.loc\t%d %d\n", num_source_filenames, line);
+      fprintf (stream, "\t.file\t%d ", num_source_filenames);
+      output_quoted_string (stream, name);
+      putc ('\n', stream);
     }
 }
 
@@ -5963,7 +5942,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
 #ifdef SDB_DEBUGGING_INFO
   if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
-    ASM_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl), 0);
+    SDB_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl));
 #endif
 
   /* In mips16 mode, we may need to generate a 32 bit to handle
@@ -6858,35 +6837,44 @@ mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
   return mips_abi == ABI_EABI && named;
 }
 
-/* Return the class of registers for which a mode change from FROM to TO
-   is invalid.
-
-   In little-endian mode, the hi-lo registers are numbered backwards,
-   so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
-   word as intended.
-
-   Similarly, when using paired floating-point registers, the first
-   register holds the low word, regardless of endianness.  So in big
-   endian mode, (subreg:SI (reg:DF $f0) 0) does not get the high word
-   as intended.
-
-   Also, loading a 32-bit value into a 64-bit floating-point register
-   will not sign-extend the value, despite what LOAD_EXTEND_OP says.
-   We can't allow 64-bit float registers to change from a 32-bit
-   mode to a 64-bit mode.  */
+/* Return true if registers of class CLASS cannot change from mode FROM
+   to mode TO.  */
 
 bool
 mips_cannot_change_mode_class (enum machine_mode from,
 			       enum machine_mode to, enum reg_class class)
 {
-  if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
+  if (MIN (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) <= UNITS_PER_WORD
+      && MAX (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) > UNITS_PER_WORD)
     {
       if (TARGET_BIG_ENDIAN)
-	return reg_classes_intersect_p (FP_REGS, class);
-      if (TARGET_FLOAT64)
-	return reg_classes_intersect_p (HI_AND_FP_REGS, class);
-      return reg_classes_intersect_p (HI_REG, class);
+	{
+	  /* When a multi-word value is stored in paired floating-point
+	     registers, the first register always holds the low word.
+	     We therefore can't allow FPRs to change between single-word
+	     and multi-word modes.  */
+	  if (FP_INC > 1 && reg_classes_intersect_p (FP_REGS, class))
+	    return true;
+	}
+      else
+	{
+	  /* LO_REGNO == HI_REGNO + 1, so if a multi-word value is stored
+	     in LO and HI, the high word always comes first.  We therefore
+	     can't allow values stored in HI to change between single-word
+	     and multi-word modes.  */
+	  if (reg_classes_intersect_p (HI_REG, class))
+	    return true;
+	}
     }
+  /* Loading a 32-bit value into a 64-bit floating-point register
+     will not sign-extend the value, despite what LOAD_EXTEND_OP says.
+     We can't allow 64-bit float registers to change from SImode to
+     to a wider mode.  */
+  if (TARGET_FLOAT64
+      && from == SImode
+      && GET_MODE_SIZE (to) >= UNITS_PER_WORD
+      && reg_classes_intersect_p (FP_REGS, class))
+    return true;
   return false;
 }
 

@@ -669,7 +669,7 @@ allocno_compare (const void *v1p, const void *v2p)
 static void
 global_conflicts (void)
 {
-  int i;
+  unsigned i;
   basic_block b;
   rtx insn;
   int *block_start_allocnos;
@@ -700,20 +700,20 @@ global_conflicts (void)
       {
 	regset old = b->global_live_at_start;
 	int ax = 0;
+	reg_set_iterator rsi;
 
 	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
-	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i,
-				   {
-				     int a = reg_allocno[i];
-				     if (a >= 0)
-				       {
-					 SET_ALLOCNO_LIVE (a);
-					 block_start_allocnos[ax++] = a;
-				       }
-				     else if ((a = reg_renumber[i]) >= 0)
-				       mark_reg_live_nc
-					 (a, PSEUDO_REGNO_MODE (i));
-				   });
+	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i, rsi)
+	  {
+	    int a = reg_allocno[i];
+	    if (a >= 0)
+	      {
+		SET_ALLOCNO_LIVE (a);
+		block_start_allocnos[ax++] = a;
+	      }
+	    else if ((a = reg_renumber[i]) >= 0)
+	      mark_reg_live_nc (a, PSEUDO_REGNO_MODE (i));
+	  }
 
 	/* Record that each allocno now live conflicts with each hard reg
 	   now live.
@@ -1816,7 +1816,7 @@ build_insn_chain (rtx first)
 
       if (first == BB_HEAD (b))
 	{
-	  int i;
+	  unsigned i;
 	  bitmap_iterator bi;
 
 	  CLEAR_REG_SET (live_relevant_regs);
@@ -2306,8 +2306,8 @@ modify_bb_reg_pav (basic_block bb, basic_block pred, bool changed_p)
   bb_pavin = bb_info->pavin;
   bb_pavout = bb_info->pavout;
   if (pred->index != ENTRY_BLOCK)
-    bitmap_a_or_b (bb_pavin, bb_pavin, BB_INFO (pred)->pavout);
-  changed_p |= bitmap_union_of_diff (bb_pavout, bb_info->avloc,
+    bitmap_ior_into (bb_pavin, BB_INFO (pred)->pavout);
+  changed_p |= bitmap_ior_and_compl (bb_pavout, bb_info->avloc,
 				     bb_pavin, bb_info->killed);
   return changed_p;
 }
@@ -2405,14 +2405,14 @@ modify_reg_pav (void)
 	 insn if the pseudo-register is used first time in given BB
 	 and not lived at the BB start.  To prevent this we don't
 	 change life information for such pseudo-registers.  */
-      bitmap_a_or_b (bb_info->pavin, bb_info->pavin, bb_info->earlyclobber);
+      bitmap_ior_into (bb_info->pavin, bb_info->earlyclobber);
 #ifdef STACK_REGS
       /* We can not use the same stack register for uninitialized
 	 pseudo-register and another living pseudo-register because if the
 	 uninitialized pseudo-register dies, subsequent pass reg-stack
 	 will be confused (it will believe that the other register
 	 dies).  */
-      bitmap_a_or_b (bb_info->pavin, bb_info->pavin, stack_regs);
+      bitmap_ior_into (bb_info->pavin, stack_regs);
 #endif
     }
 #ifdef STACK_REGS
@@ -2444,10 +2444,8 @@ make_accurate_live_analysis (void)
     {
       bb_info = BB_INFO (bb);
       
-      bitmap_a_and_b (bb->global_live_at_start, bb->global_live_at_start,
-		      bb_info->pavin);
-      bitmap_a_and_b (bb->global_live_at_end, bb->global_live_at_end,
-		      bb_info->pavout);
+      bitmap_and_into (bb->global_live_at_start, bb_info->pavin);
+      bitmap_and_into (bb->global_live_at_end, bb_info->pavout);
     }
   free_bb_info ();
 }

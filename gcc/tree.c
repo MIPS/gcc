@@ -125,9 +125,16 @@ struct type_hash GTY(())
 static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
      htab_t type_hash_table;
 
+/* Hash table and temporary node for larger integer const values.  */
+static GTY (()) tree int_cst_node;
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t int_cst_hash_table;
+
 static void set_type_quals (tree, int);
 static int type_hash_eq (const void *, const void *);
 static hashval_t type_hash_hash (const void *);
+static hashval_t int_cst_hash_hash (const void *);
+static int int_cst_hash_eq (const void *, const void *);
 static void print_type_hash_statistics (void);
 static tree make_vector_type (tree, int, enum machine_mode);
 static int type_hash_marked_p (const void *);
@@ -145,6 +152,9 @@ init_ttree (void)
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create_ggc (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				     type_hash_eq, 0);
+  int_cst_hash_table = htab_create_ggc (1024, int_cst_hash_hash,
+					int_cst_hash_eq, NULL);
+  int_cst_node = make_node (INTEGER_CST);
 }
 
 
@@ -522,8 +532,38 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
   return ret;
 }
 
+/* These are the hash table functions for the hash table of INTEGER_CST
+   nodes of a sizetype.  */
+
+/* Return the hash code code X, an INTEGER_CST.  */
+
+static hashval_t
+int_cst_hash_hash (const void *x)
+{
+  tree t = (tree) x;
+
+  return (TREE_INT_CST_HIGH (t) ^ TREE_INT_CST_LOW (t)
+	  ^ htab_hash_pointer (TREE_TYPE (t)));
+}
+
+/* Return nonzero if the value represented by *X (an INTEGER_CST tree node)
+   is the same as that given by *Y, which is the same.  */
+
+static int
+int_cst_hash_eq (const void *x, const void *y)
+{
+  tree xt = (tree) x;
+  tree yt = (tree) y;
+
+  return (TREE_TYPE (xt) == TREE_TYPE (yt)
+	  && TREE_INT_CST_HIGH (xt) == TREE_INT_CST_HIGH (yt)
+	  && TREE_INT_CST_LOW (xt) == TREE_INT_CST_LOW (yt));
+}
+
 /* Create an INT_CST node of TYPE and value HI:LOW.  If TYPE is NULL,
-   integer_type_node is used.  */
+   integer_type_node is used.  The returned node is always shared.
+   For small integers we use a per-type vector cache, for larger ones
+   we use a single hash table.  */
 
 tree
 build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
@@ -580,6 +620,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
   if (ix >= 0)
     {
+      /* Look for it in the type's vector of small shared ints.  */
       if (!TYPE_CACHED_VALUES_P (type))
 	{
 	  TYPE_CACHED_VALUES_P (type) = 1;
@@ -593,20 +634,75 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 	  gcc_assert (TREE_TYPE (t) == type);
 	  gcc_assert (TREE_INT_CST_LOW (t) == low);
 	  gcc_assert (TREE_INT_CST_HIGH (t) == hi);
-	  return t;
+	}
+      else
+	{
+	  /* Create a new shared int.  */
+	  t = make_node (INTEGER_CST);
+
+	  TREE_INT_CST_LOW (t) = low;
+	  TREE_INT_CST_HIGH (t) = hi;
+	  TREE_TYPE (t) = type;
+	  
+	  TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
+	}
+    }
+  else
+    {
+      /* Use the cache of larger shared ints.  */
+      void **slot;
+
+      TREE_INT_CST_LOW (int_cst_node) = low;
+      TREE_INT_CST_HIGH (int_cst_node) = hi;
+      TREE_TYPE (int_cst_node) = type;
+
+      slot = htab_find_slot (int_cst_hash_table, int_cst_node, INSERT);
+      t = *slot;
+      if (!t)
+	{
+	  /* Insert this one into the hash table.  */
+	  t = int_cst_node;
+	  *slot = t;
+	  /* Make a new node for next time round.  */
+	  int_cst_node = make_node (INTEGER_CST);
 	}
     }
 
-  t = make_node (INTEGER_CST);
-
-  TREE_INT_CST_LOW (t) = low;
-  TREE_INT_CST_HIGH (t) = hi;
-  TREE_TYPE (t) = type;
-
-  if (ix >= 0)
-    TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
-
   return t;
+}
+
+/* Builds an integer constant in TYPE such that lowest BITS bits are ones
+   and the rest are zeros.  */
+
+tree
+build_low_bits_mask (tree type, unsigned bits)
+{
+  unsigned HOST_WIDE_INT low;
+  HOST_WIDE_INT high;
+  unsigned HOST_WIDE_INT all_ones = ~(unsigned HOST_WIDE_INT) 0;
+
+  gcc_assert (bits <= TYPE_PRECISION (type));
+
+  if (bits == TYPE_PRECISION (type)
+      && !TYPE_UNSIGNED (type))
+    {
+      /* Sign extended all-ones mask.  */
+      low = all_ones;
+      high = -1;
+    }
+  else if (bits <= HOST_BITS_PER_WIDE_INT)
+    {
+      low = all_ones >> (HOST_BITS_PER_WIDE_INT - bits);
+      high = 0;
+    }
+  else
+    {
+      bits -= HOST_BITS_PER_WIDE_INT;
+      low = all_ones;
+      high = all_ones >> (HOST_BITS_PER_WIDE_INT - bits);
+    }
+
+  return build_int_cst_wide (type, low, high);
 }
 
 /* Checks that X is integer constant that can be expressed in (unsigned)
@@ -1477,16 +1573,19 @@ staticp (tree arg)
   switch (TREE_CODE (arg))
     {
     case FUNCTION_DECL:
-      /* Nested functions aren't static, since taking their address
-	 involves a trampoline.  */
-      return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	      && ! DECL_NON_ADDR_CONST_P (arg)
-	      ? arg : NULL);
+      /* Nested functions are static, even though taking their address will
+	 involve a trampoline as we unnest the nested function and create
+	 the trampoline on the tree level.  */
+      return arg;
 
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      && ! DECL_THREAD_LOCAL (arg)
 	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      ? arg : NULL);
+
+    case CONST_DECL:
+      return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      ? arg : NULL);
 
     case CONSTRUCTOR:
@@ -2311,16 +2410,13 @@ do { tree _node = (NODE); \
     }
 
   /* Now see what's inside.  If it's an INDIRECT_REF, copy our properties from
-     it.  If it's a decl, it's invariant and constant if the decl is static.
-     It's also invariant if it's a decl in the current function.  (Taking the
-     address of a volatile variable is not volatile.)  If it's a constant,
-     the address is both invariant and constant.  Otherwise it's neither.  */
+     the address, since &(*a)->b is a form of addition.  If it's a decl, it's
+     invariant and constant if the decl is static.  It's also invariant if it's
+     a decl in the current function.  Taking the address of a volatile variable
+     is not volatile.  If it's a constant, the address is both invariant and
+     constant.  Otherwise it's neither.  */
   if (TREE_CODE (node) == INDIRECT_REF)
-    {
-      /* If this is &((T*)0)->field, then this is a form of addition.  */
-      if (TREE_CODE (TREE_OPERAND (node, 0)) != INTEGER_CST)
-	UPDATE_TITCSE (node);
-    }
+    UPDATE_TITCSE (TREE_OPERAND (node, 0));
   else if (DECL_P (node))
     {
       if (staticp (node))
@@ -4332,9 +4428,12 @@ build_array_type (tree elt_type, tree index_type)
   t = make_node (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
-
+  
   if (index_type == 0)
-    return t;
+    {
+      layout_type (t);
+      return t;
+    }
 
   hashcode = iterative_hash_object (TYPE_HASH (elt_type), hashcode);
   hashcode = iterative_hash_object (TYPE_HASH (index_type), hashcode);
@@ -5929,7 +6028,7 @@ tree_fold_gcd (tree a, tree b)
 
   while (1)
     {
-      a_mod_b = fold (build2 (CEIL_MOD_EXPR, type, a, b));
+      a_mod_b = fold (build2 (FLOOR_MOD_EXPR, type, a, b));
 
       if (!TREE_INT_CST_LOW (a_mod_b)
 	  && !TREE_INT_CST_HIGH (a_mod_b))

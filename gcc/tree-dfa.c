@@ -109,7 +109,6 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
-  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -132,7 +131,7 @@ struct tree_opt_pass pass_referenced_vars =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_FIND_REFERENCED_VARS,		/* tv_id */
   PROP_gimple_leh | PROP_cfg,		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -189,7 +188,7 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
 }
 
 
-/* Invalidates dataflow information for a statement STMT.   */
+/* Invalidates dataflow information for a statement STMT.  */
 
 void
 free_df_for_stmt (tree stmt)
@@ -313,7 +312,14 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
-    }
+      
+      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_KILLS)
+	{
+	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (use);
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
+	    add_immediate_use (imm_rdef_stmt, stmt);
+	}
+    }  
 }
 
 
@@ -682,7 +688,7 @@ dump_dfa_stats (FILE *file)
 
   size = num_referenced_vars * sizeof (tree);
   total += size;
-  fprintf (file, fmt_str_1, "Referenced variables", num_referenced_vars,
+  fprintf (file, fmt_str_1, "Referenced variables", (unsigned long)num_referenced_vars,
 	   SCALE (size), LABEL (size));
 
   size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
@@ -998,7 +1004,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   if (found_exposed_symbol
       || v_may_defs_before > v_may_defs_after
       || v_must_defs_before > v_must_defs_after)
-    bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
+    bitmap_ior_into (vars_to_rename, vars_in_vops_to_rename);
 
   BITMAP_XFREE (vars_in_vops_to_rename);
 }

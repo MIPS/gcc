@@ -99,7 +99,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
    TODO: Adding offsets to pointer-to-structures can be handled (IE not punted
    on and turned into anything), but isn't.  You can just see what field
-   numbre inside the pointed-to struct it's going to access.
+   number inside the pointed-to struct it's going to access.
    
    TODO: Constant bounded arrays can be handled as if they were structs of the
    same number of elements. 
@@ -114,11 +114,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
    TODO: Use malloc vectors and a bitmap obstack, not ggc_alloc'd things.
    Also, we allocate a lot of bitmaps we don't need.  */
-static unsigned int create_variable_info_for (tree, const char *, unsigned int);
+static unsigned int create_variable_info_for (tree, const char *);
 static struct constraint_expr get_constraint_for (tree);
 static void build_constraint_graph (void);
-static unsigned int max_fields;
-static splay_tree num_fields_for_type;
+
 DEF_VEC_GC_P(constraint_t);
 static struct constraint_stats
 {
@@ -131,12 +130,19 @@ static struct constraint_stats
 
 struct variable_info
 {
+  /* ID of this variable  */
+  unsigned int id;
   /* Name of this variable */
   const char *name;
   /* Tree that this variable is associated with.  */
   tree decl;
-  /* ID of the last field/etc of this variable.  */
-  unsigned int end;
+  struct variable_info *base;
+  /* Offset of this variable, in bits, from the base variable  */
+  unsigned HOST_WIDE_INT offset;  
+  /* Size of the variable, in bits.  */
+  unsigned HOST_WIDE_INT size;
+  /* Full size of the base variable, in bits.  */
+  unsigned HOST_WIDE_INT fullsize;
   /* Node in the graph that represents the constraints and points-to
      solution for the variable.  */
   unsigned int node;
@@ -159,8 +165,13 @@ struct variable_info
   /* Vector of complex constraints for this node.  Complex
      constraints are those involving dereferences.  */
   VEC(constraint_t) *complicated;
+  /* A link to the variable for the next field in this structure.  */
+  struct variable_info *next;
 };
 typedef struct variable_info *varinfo_t;
+
+static varinfo_t first_vi_for_offset (varinfo_t, unsigned HOST_WIDE_INT);
+static varinfo_t next_vi_for_offset (varinfo_t, unsigned HOST_WIDE_INT);
 
 /* Pool of variable info structures.  */
 static alloc_pool variable_info_pool;
@@ -192,12 +203,12 @@ static unsigned int integer_id;
    named NAME, ending at id END, and using constraint graph node
    NODE.  */
 static varinfo_t
-new_var_info (tree t, const char *name, unsigned int end, unsigned int node)
+new_var_info (tree t, unsigned int id, const char *name, unsigned int node)
 {
   varinfo_t ret = pool_alloc (variable_info_pool);
+  ret->id = id;
   ret->name = name;
   ret->decl = t;
-  ret->end = end;
   ret->node = node;
   ret->address_taken = false;
   ret->indirect_target = false;
@@ -208,6 +219,7 @@ new_var_info (tree t, const char *name, unsigned int end, unsigned int node)
   ret->variables = BITMAP_GGC_ALLOC ();
   bitmap_clear (ret->variables);
   ret->complicated = NULL;
+  ret->next = NULL;
   return ret;
 }
 
@@ -389,7 +401,6 @@ lookup_id_for_tree (tree t)
   return pair->id;
 }
 #endif
-static unsigned int get_num_fields_for_var (tree);
 
 /* Find the variable ID for tree T in the hashtable.  */
 static unsigned int
@@ -400,8 +411,7 @@ get_id_for_tree (tree t)
   finder.t = t;
   pair = htab_find (id_for_tree,  &finder);
   if (pair == NULL)
-    return create_variable_info_for (t, alias_get_name (t),
-				     get_num_fields_for_var (t));
+    return create_variable_info_for (t, alias_get_name (t));
   
   return pair->id;
 }
@@ -411,6 +421,8 @@ static struct constraint_expr
 get_constraint_exp_from_ssa_var (tree t)
 {
   struct constraint_expr cexpr;
+
+  gcc_assert (SSA_VAR_P (t) || DECL_P (t));
 
   if (TREE_CODE (t) == SSA_NAME 
       && TREE_CODE (SSA_NAME_VAR (t)) == PARM_DECL 
@@ -443,7 +455,7 @@ get_constraint_exp_from_ssa_var (tree t)
    list.  */
 
 static void
-process_constraint (constraint_t t)
+process_constraint (constraint_t t, bool needexpand)
 {
   struct constraint_expr rhs = t->rhs;
   struct constraint_expr lhs = t->lhs;
@@ -460,7 +472,7 @@ process_constraint (constraint_t t)
       rhs = t->lhs;
       lhs = t->rhs;
       lhs.type = SCALAR;
-      process_constraint (t);
+      process_constraint (t, needexpand);
     }   
   /* This can happen in our IR with things like n->a = *p */
   else if (rhs.type == DEREF && lhs.type == DEREF)
@@ -468,26 +480,18 @@ process_constraint (constraint_t t)
       /* Split into tmp = *rhs, *lhs = tmp */
       tree tmpvar = create_tmp_var_raw (ptr_type_node, "doubledereftmp");
       struct constraint_expr tmplhs = get_constraint_exp_from_ssa_var (tmpvar);
-      process_constraint (new_constraint (tmplhs, rhs));
-      process_constraint (new_constraint (lhs, tmplhs));
+      process_constraint (new_constraint (tmplhs, rhs), needexpand);
+      process_constraint (new_constraint (lhs, tmplhs), needexpand);
     }
   else if (rhs.type == ADDRESSOF)
     {
-      /* Normalize the constraint.  */
-      unsigned int v = rhs.var + rhs.offset;     
-      unsigned int end = get_varinfo (rhs.var)->end;
-      constraint_t nc;
-      struct constraint_expr new_expr;
-      new_expr.type = ADDRESSOF;
-      new_expr.var = v;
-      new_expr.offset = 0;
-      nc = new_constraint (lhs, new_expr);
-      while (v < end)
-	{
-	  get_varinfo (v)->address_taken = true;
-	  v++;
-	}
-      VEC_safe_push (constraint_t, constraints, nc);
+      varinfo_t vi;
+      gcc_assert (rhs.offset == 0);
+      
+      for (vi = get_varinfo (rhs.var); vi->next != NULL; vi = vi->next)
+	vi->address_taken = true;
+
+      VEC_safe_push (constraint_t, constraints, t);
     }
   else
     {
@@ -497,98 +501,15 @@ process_constraint (constraint_t t)
     }
 }
 
-/* Map from type, offset to fieldnumber.  */
-struct fieldnum_offset
-{
-  tree type;
-  HOST_WIDE_INT offset;
-  unsigned int fieldnum;
-};
-typedef struct fieldnum_offset *fieldnum_offset_t;
-
-static unsigned int get_num_fields_for_type (tree);
-
-static hashval_t
-fieldnum_offset_hash (const void *p)
-{
-  const fieldnum_offset_t fo = (fieldnum_offset_t) p;
-  return iterative_hash_object (TYPE_HASH (fo->type), fo->offset);
-}
- 
-static int
-fieldnum_offset_eq (const void *p1, const void *p2)
-{
-  const fieldnum_offset_t fo1 = (fieldnum_offset_t) p1;
-  const fieldnum_offset_t fo2 = (fieldnum_offset_t) p2;
-  return fo1->type == fo2->type && fo1->offset == fo2->offset;
-}
-static htab_t fieldnum_table;
-
-/* Find {type,offset} in the hashtable, and return the corresponding field
-   number.  */
-
-static fieldnum_offset_t
-lookup_fieldnum_of_offset (tree type, HOST_WIDE_INT offset)
-{
-  struct fieldnum_offset lookfor;
-  void **slot;
-  lookfor.type = type;
-  lookfor.offset = offset;
-  slot = htab_find_slot (fieldnum_table, &lookfor, NO_INSERT);
-  if (!slot)
-    return NULL;
-  return ((fieldnum_offset_t) *slot);
-}
-
-/*  Insert {type,offset}->fieldnum into the fieldnum hashtable.  */
-
-static void
-insert_offset_for_fieldnum (tree type, HOST_WIDE_INT offset,
-			    unsigned int fieldnum)
-{
-  void **slot;
-  fieldnum_offset_t new_fo = xmalloc (sizeof (struct fieldnum_offset));
-  new_fo->type = type;
-  new_fo->offset = offset;
-  new_fo->fieldnum = fieldnum;
-  slot = htab_find_slot (fieldnum_table, new_fo, INSERT);
-  if (*slot)
-    free (*slot);
-  *slot = (void *)new_fo;
-}
 
 /* Return the position, in bits, of FIELD_DECL from the beginning of it's
    structure.  */
 	    
-static HOST_WIDE_INT
+static unsigned HOST_WIDE_INT
 bitpos_of_field (const tree fdecl)
 {
   return (tree_low_cst (DECL_FIELD_OFFSET (fdecl), 1) * 8) 
     + tree_low_cst (DECL_FIELD_BIT_OFFSET (fdecl), 1);
-}
-
-/* Find the field number for a given FIELD_DECL, and return it.
-   abort if we can't find one.  */
-
-static unsigned int
-get_fieldnum_for_field_decl (tree t)
-{
-  fieldnum_offset_t result;
-  result = lookup_fieldnum_of_offset (DECL_FIELD_CONTEXT (t), 
-				      bitpos_of_field (t));
-
-  /* This can happen in the degenerate case that none of the variables
-     themselves directly have this type, but are pointers to it, etc.
-     So we process that type and retry the lookup.  If this fails, of
-     course, then something is definitely broken. */
-  if (!result)
-    {
-      get_num_fields_for_type (DECL_FIELD_CONTEXT (t));
-      result = lookup_fieldnum_of_offset (DECL_FIELD_CONTEXT (t),
-					  bitpos_of_field (t));
-      gcc_assert (result != NULL);
-    }
-  return result->fieldnum;
 }
 
 /* Given a component ref, return the constraint_expr for it.  */
@@ -597,62 +518,40 @@ static struct constraint_expr
 get_constraint_for_component_ref (tree t)
 {
   struct constraint_expr result;
-  struct constraint_expr varlookup;
-  varray_type stack;
-  VARRAY_TREE_INIT (stack, 1, "component ref stack");
-
+  HOST_WIDE_INT bitsize;
+  HOST_WIDE_INT bitpos;
+  tree offset;
+  enum machine_mode mode;
+  int unsignedp;
+  int volatilep;
+  
   result.offset = 0;
   result.type = SCALAR;
   result.var = 0;
+  t = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
+			   &unsignedp, &volatilep);
+  result = get_constraint_for (t);
+
+  /* Errf. No point in doing something weird here.  */
+  if (TREE_CODE (t) != ADDR_EXPR && result.type == ADDRESSOF)
+    result.type = SCALAR;
   
-  while (!SSA_VAR_P (t) && TREE_CODE_CLASS (TREE_CODE (t)) != tcc_constant)
+  if (offset == NULL && bitsize != -1)
     {
-      VARRAY_PUSH_TREE (stack, t);
-      t = TREE_OPERAND (t, 0);
-    }
-
-  if (!integer_zerop (t))
-    {
-      varlookup = get_constraint_exp_from_ssa_var (t);
-      if (varlookup.var <= integer_id)
-	result.type = DEREF;
-      
-      result.var = varlookup.var;
-    }
+      result.offset = bitpos;
+    }	
   else
-    {    
-      result.var = nothing_id;
-    }
-
-  while (VARRAY_ACTIVE_SIZE (stack) > 0)
     {
-      tree operator = VARRAY_TOP_TREE (stack);
-      tree operand = NULL_TREE;
-
-      VARRAY_POP (stack);
-      if (TREE_CODE (operator) != INDIRECT_REF)
-	operand = TREE_OPERAND (operator, 1);
-
-      if (TREE_CODE (operator) == COMPONENT_REF
-	  && TREE_CODE (DECL_FIELD_CONTEXT (operand)) == RECORD_TYPE)
-	result.offset += get_fieldnum_for_field_decl (operand);
-      else if (TREE_CODE (operator) == COMPONENT_REF)
-	{
-	  break;
-	}
-      else if (TREE_CODE (operator) == ARRAY_REF)
-	{
-	  result = do_deref (result);
-	  break;
-	}
-      else if (TREE_CODE (operator) == INDIRECT_REF)
-	{
-	  result = do_deref (result);
-	}
+      /* MAY NEED TO CHANGE THIS TO PROCESS A CONSTRAINT FROM RESULT.VAR TO
+	 ANYTHING.  */
+      result.var = anything_id;
+      result.offset = 0;      
     }
+
   if (result.type == SCALAR)
     {
-      result.var += result.offset;
+      result.var = first_vi_for_offset (get_varinfo (result.var), 
+					result.offset)->id;
       result.offset= 0;
     }
   
@@ -681,7 +580,7 @@ do_deref (struct constraint_expr cons)
     {
       tree tmpvar = create_tmp_var_raw (ptr_type_node, "derefmp");
       struct constraint_expr tmplhs = get_constraint_exp_from_ssa_var (tmpvar);
-      process_constraint (new_constraint (tmplhs, cons));
+      process_constraint (new_constraint (tmplhs, cons), true);
       cons.var = tmplhs.var;
       return cons;
     }
@@ -722,8 +621,8 @@ get_constraint_for (tree t)
 	      {
 		tree heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
 		temp.var = create_variable_info_for (heapvar,
-						     alias_get_name (heapvar),
-						     1);
+						     alias_get_name (heapvar));
+		
 		get_varinfo (temp.var)->is_artificial_var = 1;
 		temp.type = ADDRESSOF;
 		temp.offset = 0;
@@ -799,44 +698,48 @@ static void
 do_structure_copy (tree lhsop, tree rhsop)
 {
   struct constraint_expr lhs, rhs;
-  size_t size;
-  size_t i;
+  varinfo_t p;
   
   lhs = get_constraint_for (lhsop);  
   rhs = get_constraint_for (rhsop);
   /* If the RHS is anything, set all the LHS fields to anything */
   if (rhs.var == anything_id)
     {
-      size = get_num_fields_for_type (TREE_TYPE (lhsop));
-      for (i = 0; i < size; i++)
+      for (p = get_varinfo (lhs.var); p; p = p->next)
 	{
 	  struct constraint_expr templhs = lhs;
 	  struct constraint_expr temprhs = rhs;
-	  if (templhs.type == SCALAR)
-	    templhs.var += i;
+	  if (templhs.type == SCALAR )
+	    templhs.var = p->id;
 	  else
-	    templhs.offset +=i;
-	  process_constraint (new_constraint (templhs, temprhs));
+	    templhs.offset = p->offset;
+	  process_constraint (new_constraint (templhs, temprhs), false);
 	}
     }
   else
     {
-      size = get_num_fields_for_type (TREE_TYPE (rhsop));
-      for (i = 0; i < size; i++)
+      /* Grrr. O(n^2) for now */
+      for (p = get_varinfo (rhs.var); p; p = p->next)
 	{
+	  varinfo_t q;
 	  struct constraint_expr templhs = lhs;
 	  struct constraint_expr temprhs = rhs;
-	  
-	  if (templhs.type == SCALAR)
-	    templhs.var += i;
+	  if (templhs.type == SCALAR || temprhs.type == ADDRESSOF)
+	    temprhs.var = p->id;
 	  else
-	    templhs.offset += i;
+	    temprhs.offset = p->offset;
 	  
-	  if (temprhs.type == SCALAR)
-	    temprhs.var += i;
-	  else
-	    temprhs.offset += i;
-	  process_constraint (new_constraint (templhs, temprhs));
+	  q = get_varinfo (templhs.var);
+	  for (q = first_vi_for_offset (q, p->offset); 
+	       q != NULL; 
+	       q = next_vi_for_offset (q, p->offset))
+	    {
+	      if (templhs.type == SCALAR)
+		templhs.var = q->id;
+	      else
+		templhs.offset = q->offset;
+	      process_constraint (new_constraint (templhs, temprhs), false);
+	    }
 	}
     }
 }
@@ -864,7 +767,7 @@ find_func_aliases (tree t)
 	for (i = 0; i < PHI_NUM_ARGS (t); i++)
 	  {
 	    rhs = get_constraint_for (PHI_ARG_DEF (t, i));
-	    process_constraint (new_constraint (lhs, rhs));
+	    process_constraint (new_constraint (lhs, rhs), true);
 	  }
       }
       break;
@@ -892,7 +795,7 @@ find_func_aliases (tree t)
 	      case tcc_expression:
 		{
 		  rhs = get_constraint_for ( rhsop);
-		  process_constraint (new_constraint (lhs, rhs));
+		  process_constraint (new_constraint (lhs, rhs), true);
 		}
 		break;
 	      default:
@@ -900,7 +803,7 @@ find_func_aliases (tree t)
 		  {
 		    tree op = TREE_OPERAND (rhsop, i);
 		    rhs = get_constraint_for (op);
-		    process_constraint (new_constraint (lhs, rhs));
+		    process_constraint (new_constraint (lhs, rhs), true);
 		  }
 	      }      
 	  }
@@ -911,36 +814,138 @@ find_func_aliases (tree t)
     }
 }
 
+static varinfo_t 
+first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
+{
+  varinfo_t curr = start->base;
+  while (curr)
+    {
+      if (offset < (curr->offset + curr->size))
+	return curr;
+      curr = curr->next;
+    }
+  gcc_unreachable ();
+}
+
+static varinfo_t
+next_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
+{
+  varinfo_t curr = start->next;
+  while (curr)
+    {
+      if (offset < (curr->offset + curr->size))
+	return curr;
+      curr = curr->next;
+    }
+  return curr;
+}
+
+ static void
+insert_into_field_list (varinfo_t base, varinfo_t field)
+{
+  varinfo_t prev = base;
+  varinfo_t curr = base->next;
+  
+  if (curr == NULL)
+    {
+      prev->next = field;
+      field->next = NULL;
+    }
+  else
+    {
+      while (curr)
+	{
+	  if (field->offset < (curr->offset + curr->size))
+	    break;
+	  prev = curr;
+	  curr = curr->next;
+	}
+      field->next = prev->next;
+      prev->next = field;
+    }
+}
+static void
+push_fields_onto_typestack (tree type, varray_type *fieldstack)
+{
+  tree field = TYPE_FIELDS (type);
+  VARRAY_PUSH_TREE (*fieldstack, field);
+  if (AGGREGATE_TYPE_P (TREE_TYPE (field)) 
+      && TREE_CODE (TREE_TYPE (field)) != ARRAY_TYPE)
+    push_fields_onto_typestack (TREE_TYPE (field), fieldstack);
+  for (field = TREE_CHAIN (field); field; field = TREE_CHAIN (field))
+    {
+      VARRAY_PUSH_TREE (*fieldstack, field);
+      if (AGGREGATE_TYPE_P (TREE_TYPE (field)) 
+	  && TREE_CODE (TREE_TYPE (field)) != ARRAY_TYPE)
+	push_fields_onto_typestack (TREE_TYPE (field), fieldstack);
+    }
+}
+
+  
 /* Create a varinfo structure for name, and add it to the varmap.  */
 static unsigned int
-create_variable_info_for (tree decl, const char *name, unsigned int num_fields)
+create_variable_info_for (tree decl, const char *name)
 {
   unsigned int index = VEC_length (varinfo_t, varmap);
-  unsigned int end;
-  unsigned int j = 0;
+  varray_type fieldstack;
   varinfo_t vi;
-  if (num_fields == 0)
-    num_fields = 1;
- 
-  end = VEC_length (varinfo_t, varmap) + num_fields;
-  vi = new_var_info (decl, name, end, index);
+  tree decltype = TREE_TYPE (decl);
+  vi = new_var_info (decl, index, name, index);
   vi->decl = decl;
-  if (decl 
-      && (TREE_CODE (TREE_TYPE (decl)) == UNION_TYPE 
-	  || TREE_CODE (TREE_TYPE (decl)) == QUAL_UNION_TYPE
-	  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE))
-    vi->is_unknown_size_var = true;
+  vi->base = vi;
+  vi->offset = 0;
+  if (!TYPE_SIZE (decltype) || TREE_CODE (TYPE_SIZE  (decltype)) != INTEGER_CST
+      || TREE_CODE (decltype) == ARRAY_TYPE)
+    {
+      vi->is_unknown_size_var = true;
+      vi->fullsize = ~0;
+      vi->size = ~0;
+    }
+  else
+    {
+      vi->fullsize = TREE_INT_CST_LOW (TYPE_SIZE (decltype));
+      vi->size = vi->fullsize;
+    }
+  
   insert_id_for_tree (vi->decl, index);  
   VEC_safe_push (varinfo_t, varmap, vi);
+
   stats.total_vars++;
-  while (--num_fields > 0)
+  if (!vi->is_unknown_size_var && AGGREGATE_TYPE_P (decltype))
     {
       unsigned int newindex = VEC_length (varinfo_t, varmap);
-      char *newname = xcalloc (1, strlen (vi->name) + 4);
-      sprintf (newname, "%s#%d", name, ++j);
-      vi = new_var_info (decl, newname, end, newindex);
-      VEC_safe_push (varinfo_t, varmap, vi);
-      stats.total_vars++;
+      tree field;
+      VARRAY_TREE_INIT (fieldstack, 1, "field stack");
+      push_fields_onto_typestack (decltype, &fieldstack);
+      /* First field is special, actually */
+      field = VARRAY_TREE (fieldstack, 0);
+      VARRAY_TREE (fieldstack, 0) = NULL_TREE;
+      gcc_assert (bitpos_of_field (field) == 0);
+      vi->size = TREE_INT_CST_LOW(DECL_SIZE (field));
+      while (VARRAY_ACTIVE_SIZE (fieldstack) != 0)
+	{
+	  unsigned HOST_WIDE_INT offset;
+	  varinfo_t newvi;
+	  char *newname;
+	  field = VARRAY_TOP_TREE (fieldstack);
+	  VARRAY_POP (fieldstack); 
+	  if (field == NULL_TREE)
+	    continue;
+	  newindex = VEC_length (varinfo_t, varmap);
+	  offset = bitpos_of_field (field);
+	  newname = xcalloc (1, strlen (vi->name) + 8 
+			     + strlen (alias_get_name (field)));
+	  sprintf (newname, "%s#" HOST_WIDE_INT_PRINT_DEC "%s", name, 
+		   offset, alias_get_name (field));
+	  newvi = new_var_info (decl, newindex, newname, newindex);
+	  newvi->base = vi;
+	  newvi->offset = offset;
+	  newvi->size = TREE_INT_CST_LOW (DECL_SIZE (field));
+	  newvi->fullsize = vi->fullsize;
+	  insert_into_field_list (vi, newvi);
+	  VEC_safe_push (varinfo_t, varmap, newvi);
+	  stats.total_vars++;	  
+	}
     }
   return index;
 }
@@ -968,60 +973,6 @@ debug_solution_for_var (unsigned int var)
   print_solution_for_var (stdout, var);
 }
 
-/* Return the number of fields for type T. 
-   We punt on arrays and unions.  */
-
-static unsigned int
-get_num_fields_for_type (tree t)
-{
-  unsigned int counter = 0;
-  splay_tree_node result;
-  result = splay_tree_lookup (num_fields_for_type, (splay_tree_key) t);
-  if (result)
-    return result->value;
-
-  if (TREE_CODE (t) == RECORD_TYPE)
-    {
-      tree field;
-      for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
-	{	
-	  if (TREE_CODE (field) == FIELD_DECL)
-	    {
-	      tree fieldtype = TREE_TYPE (field);	     
-	      insert_offset_for_fieldnum (t, 
-					  bitpos_of_field (field),
-					  counter);
-	      if (AGGREGATE_TYPE_P (fieldtype) && fieldtype != t)
-		counter += get_num_fields_for_type (fieldtype);
-	      else
-	    counter++;
-	    }
-	}
-    }
-  else if (TREE_CODE (t) == ARRAY_TYPE)
-    { 
-      return 1;
-    }
-  /* Must be a union */
-  else if (TREE_CODE (t) == UNION_TYPE || TREE_CODE (t) == QUAL_UNION_TYPE)
-    {
-      return 1;
-    }
-  else
-    return 1;
-  max_fields = MAX (max_fields, counter);
-  splay_tree_insert (num_fields_for_type, (splay_tree_key) t, 
-		     (splay_tree_value) counter);
-  return counter;
-}
-	    
-static unsigned int
-get_num_fields_for_var (tree t)
-{
-  if (!AGGREGATE_TYPE_P (TREE_TYPE (t)))
-    return 0;
-  return get_num_fields_for_type (TREE_TYPE (t));
-}
 /* Create varinfo structures for all of the variables in the
    function.  */
 
@@ -1029,12 +980,11 @@ static void
 create_variable_infos (void)
 {
   tree t;
-  size_t i;
 #if 0
   tree tmpvar;
   
   tmpvar = create_tmp_var_raw (ptr_type_node, "OUTSIDEOFFUNC");
-  i = create_variable_info_for (tmpvar, "OUTSIDEOFFUNC", 0);
+  i = create_variable_info_for (tmpvar, "OUTSIDEOFFUNC");
   get_varinfo (i)->is_artificial_var = 1;
 #endif
   for (t = DECL_ARGUMENTS (current_function_decl);
@@ -1044,10 +994,12 @@ create_variable_infos (void)
       struct constraint_expr lhs;
       struct constraint_expr rhs;
       size_t lhsvar;
+      varinfo_t p;
+      
       lhs.offset = 0;
       lhs.type = SCALAR;
-      lhs.var  = create_variable_info_for (t, alias_get_name (t),
-					   get_num_fields_for_var (t));
+      lhs.var  = create_variable_info_for (t, alias_get_name (t));
+      
       get_varinfo (lhs.var)->is_artificial_var = true;
 #if 0
       rhs.var = lookup_id_for_tree (tmpvar);
@@ -1057,12 +1009,12 @@ create_variable_infos (void)
       rhs.type = ADDRESSOF;
       rhs.offset = 0;
       lhsvar = lhs.var;
-      for (i = 0 ; i < get_num_fields_for_var (t); i++)
+
+      for (p = get_varinfo (lhsvar)->next; p; p = p->next)
 	{
 	  struct constraint_expr temp = lhs;
-	  temp.var += i;
-	  
-	  process_constraint (new_constraint (temp, rhs));
+	  temp.var = p->id;
+	  process_constraint (new_constraint (temp, rhs), false);
 	}
     }	
 
@@ -1160,7 +1112,7 @@ constraint_set_union (VEC(constraint_t) **to,
    and return the result.  */
 
 static void
-solution_set_add (bitmap set, unsigned int offset)
+solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
 {
   bitmap result = BITMAP_XMALLOC ();
   unsigned int i;
@@ -1171,10 +1123,16 @@ solution_set_add (bitmap set, unsigned int offset)
       /* If this is a properly sized variable, only add offset if it's less than
 	 end.  Otherwise, it is globbed to a single variable.  */
       
-      if ((i + offset) < get_varinfo (i)->end)
+      if ((get_varinfo (i)->offset + offset) < get_varinfo (i)->fullsize)
 	{
-	  bitmap_set_bit (result, i + offset);
-      }
+	  varinfo_t v;
+	  for (v = first_vi_for_offset (get_varinfo (i), offset);
+	       v;
+	       v = next_vi_for_offset (v, offset))
+	    {	      
+	      bitmap_set_bit (result, v->id);
+	    }
+	}
       else if (get_varinfo (i)->is_artificial_var 
 	       || get_varinfo (i)->is_unknown_size_var)
 	{
@@ -1193,7 +1151,7 @@ static bool
 set_union_with_increment  (bitmap to, bitmap from, unsigned int inc)
 {
   if (inc == 0)
-    return bitmap_a_or_b (to, to, from);
+    return bitmap_ior_into (to, from);
   else
     {
       bitmap tmp;
@@ -1201,7 +1159,7 @@ set_union_with_increment  (bitmap to, bitmap from, unsigned int inc)
       tmp = BITMAP_XMALLOC ();
       bitmap_copy (tmp, from);
       solution_set_add (tmp, inc);
-      res = bitmap_a_or_b (to, to, tmp);
+      res = bitmap_ior_into (to, tmp);
       BITMAP_XFREE (tmp);
       return res;
     }
@@ -1262,7 +1220,7 @@ condense_varmap_nodes (unsigned int to, unsigned int src)
 {
   varinfo_t tovi = get_varinfo (to);
   varinfo_t srcvi = get_varinfo (src);
-  int i;
+  unsigned int i;
   constraint_t c;
   bitmap_iterator bi;
   
@@ -1275,7 +1233,7 @@ condense_varmap_nodes (unsigned int to, unsigned int src)
   
   /* Merge the src node variables and the to node variables.  */
   bitmap_set_bit (tovi->variables, src);
-  bitmap_a_or_b (tovi->variables, tovi->variables, srcvi->variables);
+  bitmap_ior_into (tovi->variables, srcvi->variables);
   bitmap_clear (srcvi->variables);
   
   /* Move all complex constraints to the to node  */
@@ -1384,7 +1342,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int n, unsigned int w)
       olde.dest = c->dest;
       temp = get_graph_weights (graph, olde);
       weights = get_graph_weights (graph, newe);
-      bitmap_a_or_b (weights, weights, temp);
+      bitmap_ior_into (weights, temp);
     }
   
   for (i = 0; VEC_iterate (constraint_edge_t, succvec, i, c); i++)
@@ -1403,7 +1361,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int n, unsigned int w)
       olde.dest = w;
       temp = get_graph_weights (graph, olde);
       weights = get_graph_weights (graph, newe);
-      bitmap_a_or_b (weights, weights, temp);
+      bitmap_ior_into (weights, temp);
     }
   clear_edges_for_node (graph, w);
 }
@@ -1516,13 +1474,20 @@ build_constraint_graph (void)
 	}
       else if (rhs.var > anything_id && lhs.var > anything_id)
 	{
-	  struct constraint_edge edge;
-	  edge.src = lhs.var;
-	  edge.dest = rhs.var;
-	  /* x = y (simple) */
-	  add_graph_edge (graph, edge);
-	  bitmap_set_bit (get_graph_weights (graph, edge),
-			  rhs.offset);
+	  /* Ignore 0 weighted self edges, as they can't possibly contribute
+	     anything */
+	  if (lhs.var != rhs.var || rhs.offset != 0 || lhs.offset != 0)
+	    {
+	      
+	      struct constraint_edge edge;
+	      edge.src = lhs.var;
+	      edge.dest = rhs.var;
+	      /* x = y (simple) */
+	      add_graph_edge (graph, edge);
+	      bitmap_set_bit (get_graph_weights (graph, edge),
+			      rhs.offset);
+	    }
+	  
 	}
     }
 }
@@ -1604,7 +1569,7 @@ collapse_nodes (constraint_graph_t graph, unsigned int to, unsigned int from)
   condense_varmap_nodes (to, from);
   tosol = get_varinfo (to)->solution;
   fromsol = get_varinfo (from)->solution;
-  bitmap_a_or_b (tosol, tosol, fromsol);
+  bitmap_ior_into (tosol, fromsol);
   merge_graph_nodes (graph, to, from);
   edge.src = to;
   edge.dest = to;
@@ -1612,7 +1577,7 @@ collapse_nodes (constraint_graph_t graph, unsigned int to, unsigned int from)
     {
       bitmap weights = get_graph_weights (graph, edge);
       bitmap_clear_bit (weights, 0);
-      if (bitmap_first_set_bit (weights) == -1)
+      if (bitmap_empty_p (weights))
 	erase_graph_edge (graph, edge);
     }
   bitmap_clear (fromsol);
@@ -1641,7 +1606,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	stats.unified_vars_dynamic++;
       else
 	stats.unified_vars_static++;
-      bitmap_a_or_b (tmp, tmp, get_varinfo (tounify)->solution);
+      bitmap_ior_into (tmp, get_varinfo (tounify)->solution);
       merge_graph_nodes (graph, n, tounify);
       condense_varmap_nodes (n, tounify);
       
@@ -1671,9 +1636,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	  struct constraint_edge edge;
 	  /* If the solution changes because of the merging, we need to mark
 	     the variable as changed.  */
-	  if (bitmap_a_or_b (get_varinfo (n)->solution,
-			     tmp,
-			     get_varinfo (n)->solution))
+	  if (bitmap_ior_into (get_varinfo (n)->solution, tmp))
 	    {
 	      if (update_changed && !TEST_BIT (changed, n))
 		{
@@ -1688,7 +1651,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	    {
 	      bitmap weights = get_graph_weights (graph, edge);
 	      bitmap_clear_bit (weights, 0);
-	      if (bitmap_first_set_bit (weights) == -1)
+	      if (bitmap_empty_p (weights))
 		erase_graph_edge (graph, edge);
 	    }
 	}
@@ -1758,7 +1721,7 @@ type_safe (unsigned int n, unsigned int *offset)
       *offset = 0;
       return true;
     }
-  return n > anything_id && (n + *offset) < get_varinfo (n)->end;
+  return n > anything_id && (get_varinfo (n)->offset + *offset) < get_varinfo (n)->fullsize;
 }
 
 /* Process a constraint C that represents *x = &y.  */
@@ -1777,17 +1740,24 @@ do_da_constraint (constraint_graph_t graph ATTRIBUTE_UNUSED,
       if (type_safe (j, &offset))
 	{
 	  /* *x != NULL && *x != UNKNOWN */
-	  unsigned int t = get_varinfo (j + offset)->node;
-	  bitmap tmp = get_varinfo (t)->solution;
-	  if (!bitmap_bit_p (tmp, rhs))
+	  varinfo_t v;
+	  for (v = first_vi_for_offset (get_varinfo (j), offset);
+	       v;
+	       v = next_vi_for_offset (v, offset))
 	    {
-	      bitmap sol = get_varinfo (t)->solution;
-	      bitmap_set_bit (tmp, rhs);
-	      bitmap_a_or_b (sol, sol, tmp);
-	      if (!TEST_BIT (changed, t))
+	      unsigned int t = v->node;
+	      bitmap tmp = get_varinfo (t)->solution;
+	      if (!bitmap_bit_p (tmp, rhs))
 		{
-		  SET_BIT (changed, t);
-		  changed_count++;
+		  
+		  bitmap sol = get_varinfo (t)->solution;
+		  bitmap_set_bit (tmp, rhs);
+		  bitmap_ior_into (sol, tmp);
+		  if (!TEST_BIT (changed, t))
+		    {
+		      SET_BIT (changed, t);
+		      changed_count++;
+		    }
 		}
 	    }
 	}
@@ -1818,9 +1788,16 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
     {
       if (type_safe (j, &roffset))
 	{
-	  unsigned int t = get_varinfo (j + roffset)->node;
-	  if (int_add_graph_edge (graph, lhs, t, 0))
-	  flag |= bitmap_a_or_b (sol, sol, get_varinfo (t)->solution);
+	  varinfo_t v;
+	  for (v = first_vi_for_offset (get_varinfo (j), roffset);
+	       v;
+	       v = next_vi_for_offset (v, roffset))
+	    {    
+	      unsigned int t = v->node;
+	      if (int_add_graph_edge (graph, lhs, t, 0))
+		flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
+	    }
+	  
 	}
       else if (dump_file)
 	fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
@@ -1855,21 +1832,28 @@ do_ds_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
     {
       if (type_safe (j, &loff))
 	{
-	  unsigned int t = get_varinfo (j + loff)->node;
-	  if (int_add_graph_edge (graph, t, rhs, roff))
+	  varinfo_t v;
+	  for (v = first_vi_for_offset (get_varinfo (j), loff);
+	       v;
+	       v = next_vi_for_offset (v, loff))
 	    {
-	      bitmap tmp = get_varinfo (t)->solution;
-	      if (set_union_with_increment (tmp, sol, roff))
+	      unsigned int t = v->node;
+	      
+	      if (int_add_graph_edge (graph, t, rhs, roff))
 		{
-		  get_varinfo (t)->solution = tmp;
-		  if (t == rhs)
+		  bitmap tmp = get_varinfo (t)->solution;
+		  if (set_union_with_increment (tmp, sol, roff))
 		    {
-		      sol = get_varinfo (rhs)->solution;
-		    }
-		  if (!TEST_BIT (changed, t))
-		    {
-		      SET_BIT (changed, t);
-		      changed_count++;
+		      get_varinfo (t)->solution = tmp;
+		      if (t == rhs)
+			{
+			  sol = get_varinfo (rhs)->solution;
+			}
+		      if (!TEST_BIT (changed, t))
+			{
+			  SET_BIT (changed, t);
+			  changed_count++;
+			}
 		    }
 		}
 	    }
@@ -1960,6 +1944,17 @@ compute_topo_order (constraint_graph_t graph,
       topo_visit (graph, ti, i);
 }
 
+static bool
+bitmap_other_than_zero_bit_set (bitmap b)
+{
+  unsigned int i;
+  bitmap_iterator bi;
+  EXECUTE_IF_SET_IN_BITMAP (b, 1, i, bi)
+    return true;
+  /* Maybe bitmap_empty_p here */
+  return false;
+}
+
 /* Perform offline variable substitution, as per Rountev and Chandra.
    This is a linear time way of identifying variables that must have
    equivalent points-to sets, including those caused by static cycles,
@@ -1998,8 +1993,7 @@ perform_rountev_chandra (constraint_graph_t graph)
 	
 	  /* We can't eliminate variables that have non-zero weighted
 	     edges between them.  */
-	  if (bitmap_first_set_bit (weight) != 0 
-	      || bitmap_last_set_bit (weight) != 0)
+	  if (bitmap_other_than_zero_bit_set (weight))
 	    {
 	      okay_to_elim = false;
 	      break;
@@ -2024,10 +2018,9 @@ perform_rountev_chandra (constraint_graph_t graph)
 	     points-to set, then i has that same points-to set as
 	     those predecessors.  */
 	  tmp = BITMAP_XMALLOC ();
-	  bitmap_operation (tmp, get_varinfo (i)->solution, 
-			    get_varinfo (w)->solution,
-			    BITMAP_AND_COMPL);
-	  if (bitmap_first_set_bit (tmp) != -1)
+	  bitmap_and_compl (tmp, get_varinfo (i)->solution,
+			    get_varinfo (w)->solution);
+	  if (!bitmap_empty_p (tmp))
 	    {
 	      okay_to_elim = false;
 	      BITMAP_XFREE (tmp);
@@ -2106,7 +2099,7 @@ solve_graph (constraint_graph_t graph)
 		  bitmap weights = e->weights;
 		  bitmap_iterator bi;
 
-		  gcc_assert (bitmap_first_set_bit (weights) != -1);
+		  gcc_assert (!bitmap_empty_p (weights));
 		  EXECUTE_IF_SET_IN_BITMAP (weights, 0, k, bi)
 		    {
 		      flag |= set_union_with_increment (tmp, solution, k);
@@ -2137,10 +2130,6 @@ create_alias_vars (void)
   basic_block bb;
   struct constraint_expr lhs, rhs;
 
-  max_fields = 0;
-  num_fields_for_type = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  fieldnum_table = htab_create (511, fieldnum_offset_hash, fieldnum_offset_eq,
-				free);
   constraint_pool = create_alloc_pool ("Constraint pool", 
 				       sizeof (struct constraint), 30);
   variable_info_pool = create_alloc_pool ("Variable info pool",
@@ -2156,18 +2145,26 @@ create_alias_vars (void)
   /* Create the NULL variable, used to represent that a variable points
      to NULL.  */
   nothing_tree = create_tmp_var_raw (void_type_node, "NULL");
-  var_nothing = new_var_info (nothing_tree, "NULL", 1, 0);
+  var_nothing = new_var_info (nothing_tree, 0, "NULL", 0);
   insert_id_for_tree (nothing_tree, 0);
   var_nothing->is_artificial_var = 1;
+  var_nothing->offset = 0;
+  var_nothing->size = ~0;
   nothing_id = 0;
   VEC_safe_push (varinfo_t, varmap, var_nothing);
 
   /* Create the ANYTHING variable, used to represent that a variable
      points to some unknown piece of memory.  */
   anything_tree = create_tmp_var_raw (void_type_node, "ANYTHING");
-  var_anything = new_var_info (anything_tree, "ANYTHING", 2, 1); 
+  var_anything = new_var_info (anything_tree, 1, "ANYTHING", 1); 
   insert_id_for_tree (anything_tree, 1);
   var_anything->is_artificial_var = 1;
+  var_anything->size = ~0;
+  var_anything->offset = 0;
+  var_anything->next = NULL;
+  var_anything->base = var_anything;
+  
+  
   anything_id = 1;
   VEC_safe_push (varinfo_t, varmap, var_anything);
   lhs.type = SCALAR;
@@ -2183,8 +2180,14 @@ create_alias_vars (void)
   /* Create the READONLY variable, used to represent that a variable
      points to readonly memory.  */
   readonly_tree = create_tmp_var_raw (void_type_node, "READONLY");
-  var_readonly = new_var_info (readonly_tree, "READONLY", 3, 2);
+  var_readonly = new_var_info (readonly_tree, 2, "READONLY", 2);
   var_readonly->is_artificial_var = 1;
+  var_readonly->offset = 0;
+  var_readonly->size = ~0;
+  var_readonly->next = NULL;
+  var_readonly->base = var_readonly;
+  
+  
   insert_id_for_tree (readonly_tree, 2);
   readonly_id = 2;
   VEC_safe_push (varinfo_t, varmap, var_readonly);
@@ -2195,15 +2198,22 @@ create_alias_vars (void)
   rhs.var = readonly_id;
   rhs.offset = 0;
   var_readonly->address_taken = true;
+
   VEC_safe_push (constraint_t, constraints, 
 		 new_constraint (lhs, rhs));
   
   /* Create the INTEGER variable, used to represent that a variable points
      to an INTEGER.  */
   integer_tree = create_tmp_var_raw (void_type_node, "INTEGER");
-  var_integer = new_var_info (integer_tree, "INTEGER", 4, 3);
+  var_integer = new_var_info (integer_tree, 3, "INTEGER", 3);
   insert_id_for_tree (integer_tree, 3);
   var_integer->is_artificial_var = 1;
+  var_integer->size = ~0;
+  var_integer->offset = 0;
+  var_integer->next = NULL;
+  var_integer->base = var_integer;
+  
+  
   integer_id = 3;
   VEC_safe_push (varinfo_t, varmap, var_integer);
 

@@ -268,11 +268,8 @@ ident_subst (const char* old_name,
   int prefix_len = strlen (prefix);
   int suffix_len = strlen (suffix);
   int i = prefix_len + old_length + suffix_len + 1;
-#ifdef __GNUC__
-  char buffer[i];
-#else
   char *buffer = alloca (i);
-#endif
+
   strcpy (buffer, prefix);
   for (i = 0; i < old_length; i++)
     {
@@ -1212,10 +1209,15 @@ make_local_function_alias (tree method)
 {
 #ifdef ASM_OUTPUT_DEF
   tree alias;
+  
   const char *method_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (method));
   char *name = alloca (strlen (method_name) + 2);
   char *buf = alloca (strlen (method_name) + 128);
-  
+
+  /* Only create aliases for local functions.  */
+  if (DECL_EXTERNAL (method))
+    return method;
+    
   /* Prefix method_name with 'L' for the alias label.  */
   *name = 'L';
   strcpy (name + 1, method_name);

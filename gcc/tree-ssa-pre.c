@@ -363,7 +363,7 @@ expr_pred_trans_eq (const void *p1, const void *p2)
     return false;
 
   /* If they are for the same basic block, determine if the
-     expressions are equal.   */  
+     expressions are equal.  */  
   if (expressions_equal_p (ve1->e, ve2->e))
     return true;
   
@@ -768,7 +768,7 @@ bitmap_print_value_set (FILE *outfile, bitmap_set_t set,
   fprintf (outfile, "%s[%d] := { ", setname, blockindex);
   if (set)
     {
-      int i;
+      unsigned i;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (set->expressions, 0, i, bi)
@@ -778,7 +778,7 @@ bitmap_print_value_set (FILE *outfile, bitmap_set_t set,
 	  fprintf (outfile, " (");
 	  print_generic_expr (outfile, get_value_handle (ssa_name (i)), 0);
 	  fprintf (outfile, ") ");
-	  if (bitmap_last_set_bit (set->expressions) != i)
+	  if (bitmap_last_set_bit (set->expressions) != (int)i)
 	    fprintf (outfile, ", ");
 	}
     }
@@ -866,7 +866,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_reference:
-      /* XXX: Until we have PRE of loads working, none will be ANTIC. */
+      /* XXX: Until we have PRE of loads working, none will be ANTIC.  */
       return NULL;
 
     case tcc_binary:
@@ -1415,7 +1415,7 @@ insert_aux (basic_block block)
       dom = get_immediate_dominator (CDI_DOMINATORS, block);
       if (dom)
 	{
-	  int i;
+	  unsigned i;
 	  bitmap_iterator bi;
 
 	  bitmap_set_t newset = NEW_SETS (dom);
@@ -1983,7 +1983,7 @@ fini_pre (void)
   free_dominance_info (CDI_POST_DOMINATORS);
   vn_delete ();
 
-  if (bitmap_first_set_bit (need_eh_cleanup) >= 0)
+  if (!bitmap_empty_p (need_eh_cleanup))
     {
       tree_purge_all_dead_eh_edges (need_eh_cleanup);
       cleanup_tree_cfg ();

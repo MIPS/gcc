@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2001, 2003 Free Software Foundation, Inc.
+#   Copyright (C) 1999, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,6 +48,12 @@ proc check_weak_available { } {
 	return 1
     }
 
+    # Windows targets Cygwin and MingW32 support it
+
+    if { [regexp ".*mingw32|.*cygwin" $target_triplet] } {
+	return 1
+    }
+
     # ELF and ECOFF support it. a.out does with gas/gld but may also with
     # other linkers, so we should try it
 
@@ -57,6 +63,7 @@ proc check_weak_available { } {
         elf      { return 1 }
         ecoff    { return 1 }
         a.out    { return 1 }
+	mach-o	 { return 1 }
         unknown  { return -1 }
         default  { return 0 }
     }
@@ -87,6 +94,7 @@ proc check_visibility_available { } {
 
     switch $objformat {
         elf      { return 1 }
+        mach-o   { return 1 }
         unknown  { return -1 }
         default  { return 0 }
     }

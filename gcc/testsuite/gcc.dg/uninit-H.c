@@ -10,6 +10,10 @@
 # define ASM __asm__("r1")
 #elif defined __s390__
 # define ASM __asm__("r15")
+#elif defined __mips
+# define ASM __asm__("$sp")
+#elif defined __sparc__
+# define ASM __asm__("sp")
 #else
 # define ASM
 #endif

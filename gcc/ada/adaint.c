@@ -1348,7 +1348,7 @@ __gnat_get_libraries_from_registry (void)
     {
       value_size = name_size = 256;
       res = RegEnumValue (reg_key, index, name, &name_size, 0,
-                          &type, value, &value_size);
+                          &type, (LPBYTE)value, &value_size);
 
       if (res == ERROR_SUCCESS && type == REG_SZ)
         {
@@ -1512,7 +1512,7 @@ __gnat_is_symbolic_link (char *name ATTRIBUTE_UNUSED)
 #if defined (__vxworks)
   return 0;
 
-#elif defined (_AIX) || defined (unix)
+#elif defined (_AIX) || defined (__unix__)
   int ret;
   struct stat statbuf;
 
@@ -1551,7 +1551,7 @@ __gnat_portable_spawn (char *args[])
 
 #if defined (MSDOS) || defined (_WIN32)
   /* args[0] must be quotes as it could contain a full pathname with spaces */
-  const char *args_0 = args[0];
+  char *args_0 = args[0];
   args[0] = (char *)xmalloc (strlen (args_0) + 3);
   strcpy (args[0], "\"");
   strcat (args[0], args_0);
@@ -2441,7 +2441,7 @@ _flush_cache()
   || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
       && ! (defined (linux) && defined (i386)) \
       && ! defined (__FreeBSD__) \
-      && ! defined (hpux) \
+      && ! defined (__hpux__) \
       && ! defined (_AIX) \
       && ! (defined (__alpha__)  && defined (__osf__)) \
       && ! defined (__MINGW32__) \

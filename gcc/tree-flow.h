@@ -201,11 +201,6 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
-
-  /* Pointer to the structure that contains the sets of global
-     variables modified by function calls.  This field is only used
-     for FUNCTION_DECLs.  */
-  static_vars_info_t static_vars_info;
 };
 
 
@@ -417,7 +412,7 @@ typedef struct {
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
-block_stmt_iterator stmt_for_bsi (tree);
+block_stmt_iterator bsi_for_stmt (tree);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
@@ -485,6 +480,7 @@ extern basic_block label_to_block (tree);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
+extern void bsi_commit_one_edge_insert (edge e, basic_block *);
 extern void bsi_commit_edge_inserts (int *);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
@@ -562,6 +558,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern struct ptr_info_def *get_ptr_info (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -586,6 +583,7 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
+extern void flush_pending_stmts (edge e);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
@@ -597,6 +595,7 @@ extern void kill_redundant_phi_nodes (void);
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (void);
+extern void rewrite_def_def_chains (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);

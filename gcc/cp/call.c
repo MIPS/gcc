@@ -92,6 +92,9 @@ struct conversion {
      copy constructor must be accessible, even though it is not being
      used.  */
   BOOL_BITFIELD check_copy_constructor_p : 1;
+  /* If KIND is ck_ptr or ck_pmem, true to indicate that a conversion
+     from a pointer-to-derived to pointer-to-base is being performed.  */ 
+  BOOL_BITFIELD base_p : 1;
   /* The type of the expression resulting from the conversion.  */
   tree type;
   union {
@@ -125,12 +128,15 @@ static int compare_ics (conversion *, conversion *);
 static tree build_over_call (struct z_candidate *, int);
 static tree build_java_interface_fn_ref (tree, tree);
 #define convert_like(CONV, EXPR)				\
-  convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0, 		\
-		     /*issue_conversion_warnings=*/true)
+  convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0,		\
+		     /*issue_conversion_warnings=*/true,	\
+		     /*c_cast_p=*/false)
 #define convert_like_with_context(CONV, EXPR, FN, ARGNO)	\
-  convert_like_real ((CONV), (EXPR), (FN), (ARGNO), 0, 		\
-		     /*issue_conversion_warnings=*/true)
-static tree convert_like_real (conversion *, tree, tree, int, int, bool);
+  convert_like_real ((CONV), (EXPR), (FN), (ARGNO), 0,		\
+		     /*issue_conversion_warnings=*/true,	\
+                     /*c_cast_p=*/false)
+static tree convert_like_real (conversion *, tree, tree, int, int, bool,
+			       bool);
 static void op_error (enum tree_code, enum tree_code, tree, tree,
 			    tree, const char *);
 static tree build_object_call (tree, tree);
@@ -528,6 +534,7 @@ build_conv (conversion_kind code, tree type, conversion *from)
   t->rank = rank;
   t->user_conv_p = (code == ck_user || from->user_conv_p);
   t->bad_p = from->bad_p;
+  t->base_p = false;
   return t;
 }
 
@@ -711,9 +718,9 @@ standard_conversion (tree to, tree from, tree expr)
 		  _class.derived_) of D.  If B is an inaccessible
 		  (clause _class.access_) or ambiguous
 		  (_class.member.lookup_) base class of D, a program
-		  that necessitates this conversion is ill-formed.  */
-	       /* Therefore, we use DERIVED_FROM_P, and not
-		  ACCESSIBLY_UNIQUELY_DERIVED_FROM_P, in this test.  */
+		  that necessitates this conversion is ill-formed.
+	          Therefore, we use DERIVED_FROM_P, and do not check
+	          access or uniqueness.  */
 	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
 	  from = 
@@ -721,6 +728,7 @@ standard_conversion (tree to, tree from, tree expr)
 				     cp_type_quals (TREE_TYPE (from)));
 	  from = build_pointer_type (from);
 	  conv = build_conv (ck_ptr, from, conv);
+	  conv->base_p = true;
 	}
 
       if (tcode == POINTER_TYPE)
@@ -771,6 +779,7 @@ standard_conversion (tree to, tree from, tree expr)
 					 TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
       from = build_ptrmemfunc_type (build_pointer_type (from));
       conv = build_conv (ck_pmem, from, conv);
+      conv->base_p = true;
     }
   else if (tcode == BOOLEAN_TYPE)
     {
@@ -4051,7 +4060,7 @@ enforce_access (tree basetype_path, tree decl)
 {
   gcc_assert (TREE_CODE (basetype_path) == TREE_BINFO);
   
-  if (!accessible_p (basetype_path, decl))
+  if (!accessible_p (basetype_path, decl, true))
     {
       if (TREE_PRIVATE (decl))
 	cp_error_at ("%q+#D is private", decl);
@@ -4113,11 +4122,14 @@ build_temp (tree expr, tree type, int flags,
    being called to continue a conversion chain. It is negative when a
    reference binding will be applied, positive otherwise.  If
    ISSUE_CONVERSION_WARNINGS is true, warnings about suspicious
-   conversions will be emitted if appropriate.  */
+   conversions will be emitted if appropriate.  If C_CAST_P is true,
+   this conversion is coming from a C-style cast; in that case,
+   conversions to inaccessible bases are permitted.  */
 
 static tree
 convert_like_real (conversion *convs, tree expr, tree fn, int argnum, 
-		   int inner, bool issue_conversion_warnings)
+		   int inner, bool issue_conversion_warnings,
+		   bool c_cast_p)
 {
   tree totype = convs->type;
   void (*diagnostic_fn)(const char *, ...);
@@ -4133,12 +4145,14 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  if (t->kind == ck_user || !t->bad_p)
 	    {
 	      expr = convert_like_real (t, expr, fn, argnum, 1,
-					/*issue_conversion_warnings=*/false);
+					/*issue_conversion_warnings=*/false,
+					/*c_cast_p=*/false);
 	      break;
 	    }
 	  else if (t->kind == ck_ambig)
 	    return convert_like_real (t, expr, fn, argnum, 1,
-				      /*issue_conversion_warnings=*/false);
+				      /*issue_conversion_warnings=*/false,
+				      /*c_cast_p=*/false);
 	  else if (t->kind == ck_identity)
 	    break;
 	}
@@ -4225,7 +4239,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
-	return expr;
+      return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
       return build_user_type_conversion
@@ -4237,7 +4251,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
   expr = convert_like_real (convs->u.next, expr, fn, argnum,
 			    convs->kind == ck_ref_bind ? -1 : 1,
-			    /*issue_conversion_warnings=*/false);
+			    /*issue_conversion_warnings=*/false,
+			    c_cast_p);
   if (expr == error_mark_node)
     return error_mark_node;
 
@@ -4256,8 +4271,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    check_constructor_callable (TREE_TYPE (expr), expr);
 	  /* Build an expression for `*((base*) &expr)'.  */
 	  expr = build_unary_op (ADDR_EXPR, expr, 0);
-	  expr = perform_implicit_conversion (build_pointer_type (totype), 
-					      expr);
+	  expr = convert_to_base (expr, build_pointer_type (totype),
+				  !c_cast_p, /*nonnull=*/true);
 	  expr = build_indirect_ref (expr, "implicit conversion");
 	  return expr;
 	}
@@ -4321,7 +4336,17 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       /* Warn about deprecated conversion if appropriate.  */
       string_conv_p (totype, expr, 1);
       break;
-      
+
+    case ck_ptr:
+      if (convs->base_p)
+	expr = convert_to_base (expr, totype, !c_cast_p,
+				/*nonnull=*/false);
+      return build_nop (totype, expr);
+
+    case ck_pmem:
+      return convert_ptrmem (totype, expr, /*allow_inverse_p=*/false,
+			     c_cast_p);
+
     default:
       break;
     }
@@ -4404,7 +4429,7 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type %q#T' through %<...%>; "
+      warning ("cannot receive objects of non-POD type %q#T through %<...%>; "
                "call will abort at runtime", type);
       expr = convert (build_pointer_type (type), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
@@ -4652,8 +4677,8 @@ build_over_call (struct z_candidate *cand, int flags)
       tree base_binfo;
       
       if (convs[i]->bad_p)
-	pedwarn ("passing `%T' as `this' argument of `%#D' discards qualifiers",
-		    TREE_TYPE (argtype), fn);
+	pedwarn ("passing %qT as %<this%> argument of %q#D discards qualifiers",
+                 TREE_TYPE (argtype), fn);
 
       /* [class.mfct.nonstatic]: If a nonstatic member function of a class
 	 X is called for an object that is not of type X, or of a type
@@ -4670,7 +4695,7 @@ build_over_call (struct z_candidate *cand, int flags)
 				       1);
       /* Check that the base class is accessible.  */
       if (!accessible_base_p (TREE_TYPE (argtype), 
-			      BINFO_TYPE (cand->conversion_path)))
+			      BINFO_TYPE (cand->conversion_path), true))
 	error ("%qT is not an accessible base of %qT",
 	       BINFO_TYPE (cand->conversion_path),
 	       TREE_TYPE (argtype));
@@ -4678,7 +4703,7 @@ build_over_call (struct z_candidate *cand, int flags)
          will be to the derived class, not the base declaring fn. We
          must convert from derived to base.  */
       base_binfo = lookup_base (TREE_TYPE (TREE_TYPE (converted_arg)),
-				TREE_TYPE (parmtype), ba_ignore, NULL);
+				TREE_TYPE (parmtype), ba_unique, NULL);
       converted_arg = build_base_path (PLUS_EXPR, converted_arg,
 				       base_binfo, 1);
       
@@ -6273,10 +6298,15 @@ perform_implicit_conversion (tree type, tree expr)
 /* Convert EXPR to TYPE (as a direct-initialization) if that is
    permitted.  If the conversion is valid, the converted expression is
    returned.  Otherwise, NULL_TREE is returned, except in the case
-   that TYPE is a class type; in that case, an error is issued.  */
+   that TYPE is a class type; in that case, an error is issued.  If
+   C_CAST_P is true, then this direction initialization is taking
+   place as part of a static_cast being attempted as part of a C-style
+   cast.  */
 
 tree
-perform_direct_initialization_if_possible (tree type, tree expr)
+perform_direct_initialization_if_possible (tree type, 
+					   tree expr,
+					   bool c_cast_p)
 {
   conversion *conv;
   void *p;
@@ -6308,7 +6338,8 @@ perform_direct_initialization_if_possible (tree type, tree expr)
     expr = NULL_TREE;
   else
     expr = convert_like_real (conv, expr, NULL_TREE, 0, 0, 
-			      /*issue_conversion_warnings=*/false);
+			      /*issue_conversion_warnings=*/false,
+			      c_cast_p);
 
   /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);
@@ -6436,7 +6467,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
       conv = conv->u.next;
       /* If the next conversion is a BASE_CONV, skip that too -- but
 	 remember that the conversion was required.  */
-      if (conv->kind == ck_base && conv->need_temporary_p)
+      if (conv->kind == ck_base)
 	{
 	  if (conv->check_copy_constructor_p)
  	    check_constructor_callable (TREE_TYPE (expr), expr);
@@ -6449,7 +6480,8 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
       expr = convert_like_real (conv, expr,
 				/*fn=*/NULL_TREE, /*argnum=*/0,
 				/*inner=*/-1,
-				/*issue_conversion_warnings=*/true);
+				/*issue_conversion_warnings=*/true,
+				/*c_cast_p=*/false);
       if (!real_lvalue_p (expr))
 	{
 	  tree init;
@@ -6505,6 +6537,11 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	    }
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
+	  if (base_conv_type)
+	    expr = convert_to_base (expr, 
+				    build_pointer_type (base_conv_type),
+				    /*check_access=*/true,
+				    /*nonnull=*/true);
 	  expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	}
       else

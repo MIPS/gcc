@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 /* expr.h is needed for MOVE_RATIO.  */
 #include "expr.h"
+#include "params.h"
 
 
 /* This object of this pass is to replace a non-addressable aggregate with a
@@ -1017,7 +1018,7 @@ scan_function (void)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      size_t i;
+      unsigned i;
 
       fputs ("\nScan results:\n", dump_file);
       EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
@@ -1106,6 +1107,7 @@ instantiate_element (struct sra_elt *elt)
   DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (base);
   TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
   DECL_ARTIFICIAL (var) = DECL_ARTIFICIAL (base);
+  DECL_IGNORED_P (var) = DECL_IGNORED_P (base);
 
   if (DECL_NAME (base) && !DECL_IGNORED_P (base))
     {
@@ -1291,6 +1293,14 @@ decide_block_copy (struct sra_elt *elt)
 	{
 	  unsigned HOST_WIDE_INT full_size, inst_size = 0;
 	  unsigned int inst_count;
+	  unsigned int max_size;
+
+	  /* If the sra-max-structure-size parameter is 0, then the
+	     user has not overridden the parameter and we can choose a
+	     sensible default.  */
+	  max_size = SRA_MAX_STRUCTURE_SIZE
+	    ? SRA_MAX_STRUCTURE_SIZE
+	    : MOVE_RATIO * UNITS_PER_WORD;
 
 	  full_size = tree_low_cst (size_tree, 1);
 
@@ -1301,14 +1311,14 @@ decide_block_copy (struct sra_elt *elt)
 
 	  /* If the structure is small, and we've made copies, go ahead
 	     and instantiate, hoping that the copies will go away.  */
-	  if (full_size <= (unsigned) MOVE_RATIO * UNITS_PER_WORD
+	  if (full_size <= max_size
 	      && elt->n_copies > elt->n_uses)
 	    use_block_copy = false;
 	  else
 	    {
 	      inst_count = sum_instantiated_sizes (elt, &inst_size);
 
-	      if (inst_size * 4 >= full_size * 3)
+	      if (inst_size * 100 >= full_size * SRA_FIELD_STRUCTURE_RATIO)
 		use_block_copy = false;
 	    }
 
@@ -1378,10 +1388,8 @@ decide_instantiations (void)
 
   if (cleared_any)
     {
-      bitmap_operation (sra_candidates, sra_candidates, &done_head,
-			BITMAP_AND_COMPL);
-      bitmap_operation (needs_copy_in, needs_copy_in, &done_head,
-			BITMAP_AND_COMPL);
+      bitmap_and_compl_into (sra_candidates, &done_head);
+      bitmap_and_compl_into (needs_copy_in, &done_head);
     }
   bitmap_clear (&done_head);
 
@@ -1959,7 +1967,7 @@ static void
 scalarize_parms (void)
 {
   tree list = NULL;
-  size_t i;
+  unsigned i;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (needs_copy_in, 0, i, bi)

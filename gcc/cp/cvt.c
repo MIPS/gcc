@@ -87,8 +87,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       intype = complete_type (intype);
       if (!COMPLETE_TYPE_P (intype))
 	{
-	  error ("can't convert from incomplete type `%T' to `%T'",
-		    intype, type);
+	  error ("can't convert from incomplete type %qT to %qT",
+                 intype, type);
 	  return error_mark_node;
 	}
 
@@ -96,8 +96,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       if (rval)
 	{
 	  if (rval == error_mark_node)
-	    error ("conversion of `%E' from `%T' to `%T' is ambiguous",
-		      expr, intype, type);
+	    error ("conversion of %qE from %qT to %qT is ambiguous",
+                   expr, intype, type);
 	  return rval;
 	}
     }
@@ -107,28 +107,9 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       && (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	  || VOID_TYPE_P (TREE_TYPE (type))))
     {
-      /* Allow an implicit this pointer for pointer to member
-	 functions.  */
-      if (TYPE_PTRMEMFUNC_P (intype))
-	{
-	  if (pedantic || warn_pmf2ptr)
-	    pedwarn ("converting from `%T' to `%T'", intype, type);
-	  if (TREE_CODE (expr) == PTRMEM_CST)
-	    expr = build_address (PTRMEM_CST_MEMBER (expr));
-	  else
-	    {
-	      tree decl = maybe_dummy_object (TYPE_PTRMEM_CLASS_TYPE (intype), 
-					      0);
-	      decl = build_address (decl);
-	      expr = get_member_function_from_ptrfunc (&decl, expr);
-	    }
-	}
-      else if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
-	{
-	  if (pedantic || warn_pmf2ptr)
-	    pedwarn ("converting from `%T' to `%T'", intype, type);
-	  expr = build_addr_func (expr);
-	}
+      if (TYPE_PTRMEMFUNC_P (intype)
+	  || TREE_CODE (intype) == METHOD_TYPE)
+	return convert_member_func_to_ptr (type, expr);
       if (TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE)
 	return build_nop (type, expr);
       intype = TREE_TYPE (expr);
@@ -184,8 +165,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 
       if (TYPE_PTRMEMFUNC_P (type))
 	{
-	  error ("cannot convert `%E' from type `%T' to type `%T'",
-		    expr, intype, type);
+	  error ("cannot convert %qE from type %qT to type %qT",
+                 expr, intype, type);
 	  return error_mark_node;
 	}
 
@@ -213,12 +194,12 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       if (bk == bk_via_virtual)
 	{
 	  if (force)
-	    warning ("pointer to member cast from `%T' to `%T' is via virtual base",
-		     intype, type);
+	    warning ("pointer to member cast from %qT to %qT is via"
+                     " virtual base", intype, type);
 	  else
 	    {
-	      error ("pointer to member cast from `%T' to `%T' is via virtual base",
-		     intype, type);
+	      error ("pointer to member cast from %qT to %qT is"
+                     " via virtual base", intype, type);
 	      return error_mark_node;
 	    }
 	  /* This is a reinterpret cast, whose result is unspecified.
@@ -236,7 +217,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       return build_nop (type, expr);
     }
   else if (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype))
-    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
+    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
+			     /*c_cast_p=*/false);
   else if (TYPE_PTRMEMFUNC_P (intype))
     {
       if (!warn_pmf2ptr)
@@ -252,15 +234,16 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 						       TREE_OPERAND (expr, 1));
 	    }
 	}
-      error ("cannot convert `%E' from type `%T' to type `%T'",
-		expr, intype, type);
+      error ("cannot convert %qE from type %qT to type %qT",
+             expr, intype, type);
       return error_mark_node;
     }
 
   if (integer_zerop (expr))
     {
       if (TYPE_PTRMEMFUNC_P (type))
-	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
+	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
+				 /*c_cast_p=*/false);
 
       if (TYPE_PTRMEM_P (type))
 	{
@@ -277,7 +260,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
     }
   else if (TYPE_PTR_TO_MEMBER_P (type) && INTEGRAL_CODE_P (form))
     {
-      error ("invalid conversion from '%T' to '%T'", intype, type);
+      error ("invalid conversion from %qT to %qT", intype, type);
       return error_mark_node;
     }
 
@@ -298,8 +281,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
   if (type_unknown_p (expr))
     return instantiate_type (type, expr, tf_error | tf_warning);
 
-  error ("cannot convert `%E' from type `%T' to type `%T'",
-	    expr, intype, type);
+  error ("cannot convert %qE from type %qT to type %qT",
+         expr, intype, type);
   return error_mark_node;
 }
 
@@ -327,11 +310,11 @@ convert_to_pointer_force (tree type, tree expr)
 	  tree binfo;
 
 	  binfo = lookup_base (TREE_TYPE (intype), TREE_TYPE (type),
-			       ba_ignore, NULL);
+			       ba_unique, NULL);
 	  if (!binfo)
 	    {
 	      binfo = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
-				   ba_ignore, NULL);
+				   ba_unique, NULL);
 	      code = MINUS_EXPR;
 	    }
 	  if (binfo == error_mark_node)
@@ -430,13 +413,17 @@ warn_ref_binding (tree reftype, tree intype, tree decl)
       const char *msg;
 
       if (CP_TYPE_VOLATILE_P (ttl) && decl)
-	  msg = "initialization of volatile reference type `%#T' from rvalue of type `%T'";
+	  msg = "initialization of volatile reference type %q#T from"
+            " rvalue of type %qT";
       else if (CP_TYPE_VOLATILE_P (ttl))
-	  msg = "conversion to volatile reference type `%#T' from rvalue of type `%T'";
+	  msg = "conversion to volatile reference type %q#T "
+            " from rvalue of type %qT";
       else if (decl)
-	  msg = "initialization of non-const reference type `%#T' from rvalue of type `%T'";
+	  msg = "initialization of non-const reference type %q#T from"
+            " rvalue of type %qT";
       else
-	  msg = "conversion to non-const reference type `%#T' from rvalue of type `%T'";
+	  msg = "conversion to non-const reference type %q#T from"
+            " rvalue of type %qT";
 
       pedwarn (msg, reftype, intype);
     }
@@ -509,8 +496,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 	  
 	  if (! (convtype & CONV_CONST)
 		   && !at_least_as_qualified_p (ttl, ttr))
-	    pedwarn ("conversion from `%T' to `%T' discards qualifiers",
-			ttr, reftype);
+	    pedwarn ("conversion from %qT to %qT discards qualifiers",
+                     ttr, reftype);
 	}
 
       return build_up_reference (reftype, expr, flags, decl);
@@ -527,7 +514,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       if (TREE_CODE (intype) == POINTER_TYPE
 	  && (comptypes (TREE_TYPE (intype), type,
 			 COMPARE_BASE | COMPARE_DERIVED)))
-	warning ("casting `%T' to `%T' does not dereference pointer",
+	warning ("casting %qT to %qT does not dereference pointer",
 		 intype, reftype);
 	  
       rval = build_unary_op (ADDR_EXPR, expr, 0);
@@ -554,7 +541,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
     }
 
   if (flags & LOOKUP_COMPLAIN)
-    error ("cannot convert type `%T' to type `%T'", intype, reftype);
+    error ("cannot convert type %qT to type %qT", intype, reftype);
 
   return error_mark_node;
 }
@@ -675,10 +662,13 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       /* enum = enum, enum = int, enum = float, (enum)pointer are all
          errors.  */
       if (TREE_CODE (type) == ENUMERAL_TYPE
-	  && ((ARITHMETIC_TYPE_P (intype) && ! (convtype & CONV_STATIC))
-	      || (TREE_CODE (intype) == POINTER_TYPE)))
+	  && (((INTEGRAL_OR_ENUMERATION_TYPE_P (intype)
+	        || TREE_CODE (intype) == REAL_TYPE)
+	       && ! (convtype & CONV_STATIC))
+	      || TREE_CODE (intype) == POINTER_TYPE))
 	{
-	  pedwarn ("conversion from `%#T' to `%#T'", intype, type);
+	  if (flags & LOOKUP_COMPLAIN)
+	    pedwarn ("conversion from %q#T to %q#T", intype, type);
 
 	  if (flag_pedantic_errors)
 	    return error_mark_node;
@@ -690,7 +680,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	  if (rval)
 	    return rval;
 	  if (flags & LOOKUP_COMPLAIN)
-	    error ("`%#T' used where a `%T' was expected", intype, type);
+	    error ("%q#T used where a %qT was expected", intype, type);
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
@@ -710,7 +700,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
           if (ret_val)
             return ret_val;
           if (flags & LOOKUP_COMPLAIN)
-            error ("`%#T' used where a `%T' was expected", in_vtype, type);
+            error ("%q#T used where a %qT was expected", in_vtype, type);
           return error_mark_node;
 	}
       return fold_if_not_in_template (convert_to_vector (type, e));
@@ -725,7 +715,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	    return rval;
 	  else
 	    if (flags & LOOKUP_COMPLAIN)
-	      error ("`%#T' used where a floating point value was expected",
+	      error ("%q#T used where a floating point value was expected",
 			TREE_TYPE (e));
 	}
       if (code == REAL_TYPE)
@@ -772,8 +762,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
     }
 
   if (flags & LOOKUP_COMPLAIN)
-    error ("conversion from `%T' to non-scalar type `%T' requested",
-	      TREE_TYPE (expr), type);
+    error ("conversion from %qT to non-scalar type %qT requested",
+           TREE_TYPE (expr), type);
   return error_mark_node;
 }
 
@@ -860,12 +850,12 @@ convert_to_void (tree expr, const char *implicit)
         int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (is_volatile && !is_complete)
-          warning ("object of incomplete type `%T' will not be accessed in %s",
-                      type, implicit ? implicit : "void context");
+          warning ("object of incomplete type %qT will not be accessed in %s",
+                   type, implicit ? implicit : "void context");
         else if (is_reference && is_volatile)
-          warning ("object of type `%T' will not be accessed in %s",
-                      TREE_TYPE (TREE_OPERAND (expr, 0)),
-                      implicit ? implicit : "void context");
+          warning ("object of type %qT will not be accessed in %s",
+                   TREE_TYPE (TREE_OPERAND (expr, 0)),
+                   implicit ? implicit : "void context");
         if (is_reference || !is_volatile || !is_complete)
           expr = TREE_OPERAND (expr, 0);
       
@@ -879,8 +869,8 @@ convert_to_void (tree expr, const char *implicit)
         int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (TYPE_VOLATILE (type) && !is_complete)
-          warning ("object `%E' of incomplete type `%T' will not be accessed in %s",
-                      expr, type, implicit ? implicit : "void context");
+          warning ("object %qE of incomplete type %qT will not be accessed in %s",
+                   expr, type, implicit ? implicit : "void context");
         break;
       }
 
@@ -901,7 +891,7 @@ convert_to_void (tree expr, const char *implicit)
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       /* Only warn when there is no &.  */
-      warning ("%s is a reference, not call, to function `%E'",
+      warning ("%s is a reference, not call, to function %qE",
 		  implicit, expr);
   }
   
@@ -979,10 +969,9 @@ convert_force (tree type, tree expr, int convtype)
        || integer_zerop (e)
        || TYPE_PTRMEMFUNC_P (TREE_TYPE (e)))
       && TYPE_PTRMEMFUNC_P (type))
-    {
-      /* compatible pointer to member functions.  */
-      return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), e, 1);
-    }
+    /* compatible pointer to member functions.  */
+    return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), e, 1,
+			     /*c_cast_p=*/1);
 
   return ocp_convert (type, e, CONV_C_CAST|convtype, LOOKUP_NORMAL);
 }
@@ -1094,10 +1083,10 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	    {
 	      if (complain)
 		{
-		  error ("ambiguous default type conversion from `%T'",
-			    basetype);
-		  error ("  candidate conversions include `%D' and `%D'",
-			    winner, cand);
+		  error ("ambiguous default type conversion from %qT",
+                         basetype);
+		  error ("  candidate conversions include %qD and %qD",
+                         winner, cand);
 		}
 	      return error_mark_node;
 	    }

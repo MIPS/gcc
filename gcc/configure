@@ -11039,6 +11039,71 @@ _ACEOF
   fi
 
 
+
+  echo "$as_me:$LINENO: checking for nl_langinfo and CODESET" >&5
+echo $ECHO_N "checking for nl_langinfo and CODESET... $ECHO_C" >&6
+if test "${am_cv_langinfo_codeset+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <langinfo.h>
+int
+main ()
+{
+char* cs = nl_langinfo(CODESET);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  am_cv_langinfo_codeset=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+am_cv_langinfo_codeset=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+
+fi
+echo "$as_me:$LINENO: result: $am_cv_langinfo_codeset" >&5
+echo "${ECHO_T}$am_cv_langinfo_codeset" >&6
+  if test $am_cv_langinfo_codeset = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LANGINFO_CODESET 1
+_ACEOF
+
+  fi
+
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
@@ -11940,9 +12005,11 @@ fi
 # UNSORTED
 # --------
 
+use_cxa_atexit=no
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
-   echo "$as_me:$LINENO: checking for __cxa_atexit" >&5
+  if test x$host = x$target; then
+    echo "$as_me:$LINENO: checking for __cxa_atexit" >&5
 echo $ECHO_N "checking for __cxa_atexit... $ECHO_C" >&6
 if test "${ac_cv_func___cxa_atexit+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -12033,15 +12100,23 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_func___cxa_atexit" >&5
 echo "${ECHO_T}$ac_cv_func___cxa_atexit" >&6
 if test $ac_cv_func___cxa_atexit = yes; then
+  use_cxa_atexit=yes
+else
+  echo "__cxa_atexit can't be enabled on this target"
+fi
+
+  else
+    # We can't check for __cxa_atexit when building a cross, so assume
+    # it is available
+    use_cxa_atexit=yes
+  fi
+  if test x$use_cxa_atexit = xyes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define DEFAULT_USE_CXA_ATEXIT 1
 _ACEOF
 
-else
-  echo "__cxa_atexit can't be enabled on this target"
-fi
-
+  fi
 fi
 
 # Look for a file containing extra machine modes.
@@ -12608,16 +12683,10 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	STMP_FIXINC=
-	STMP_FIXPROTO=
+	if  "x$STMP_FIXPROTO" != x  ; then
+	  STMP_FIXPROTO=stmp-install-fixproto
+	fi
     fi
-fi
-
-# When bootstrapping from the toplevel, only run fixincludes during stage1
-if test -d ../prev-gcc
-then
-    STMP_FIXINC=
-    cp -R ../prev-gcc/include include
 fi
 
 # Expand extra_headers to include complete path.
@@ -12672,9 +12741,9 @@ gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -x as$host_exeext; then
+elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
-	gcc_cv_as=./as$host_exeext
+	gcc_cv_as=./as$build_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
      && test -f ../gas/Makefile \
      && test x$build = x$host; then
@@ -12702,8 +12771,8 @@ gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
 			    + $gcc_cv_gas_minor_version \) \* 1000 \
 			    + $gcc_cv_gas_patch_version`
 
-  rm -f as$host_exeext
-  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  rm -f as$build_exeext
+  $LN_S ../gas/as-new$build_exeext as$build_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -12743,9 +12812,9 @@ if test "x$gcc_cv_as" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_as=${program_prefix}as$host_exeext
+		gcc_cv_as=${program_prefix}as$build_exeext
 	else
-		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -12774,8 +12843,8 @@ if test "x$gcc_cv_as" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/as$host_exeext; then
-			gcc_cv_as=$dir/as$host_exeext
+		if test -x $dir/as$build_exeext; then
+			gcc_cv_as=$dir/as$build_exeext
 			break;
 		fi
 	done
@@ -12808,9 +12877,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x collect-ld$host_exeext; then
+elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
-	gcc_cv_ld=./collect-ld$host_exeext
+	gcc_cv_ld=./collect-ld$build_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile \
      && test x$build = x$host; then
@@ -12833,8 +12902,8 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	done
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
-	rm -f collect-ld$host_exeext
-	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
+	rm -f collect-ld$build_exeext
+	$LN_S ../ld/ld-new$build_exeext collect-ld$build_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -12867,9 +12936,9 @@ if test "x$gcc_cv_ld" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_ld=${program_prefix}ld$host_exeext
+		gcc_cv_ld=${program_prefix}ld$build_exeext
 	else
-		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -12898,8 +12967,8 @@ if test "x$gcc_cv_ld" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/ld$host_exeext; then
-			gcc_cv_ld=$dir/ld$host_exeext
+		if test -x $dir/ld$build_exeext; then
+			gcc_cv_ld=$dir/ld$build_exeext
 			break;
 		fi
 	done
@@ -12920,19 +12989,19 @@ gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
 echo "$as_me:$LINENO: checking what nm to use" >&5
 echo $ECHO_N "checking what nm to use... $ECHO_C" >&6
 in_tree_nm=no
-if test -x nm$host_exeext; then
-	gcc_cv_nm=./nm$host_exeext
+if test -x nm$build_exeext; then
+	gcc_cv_nm=./nm$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_nm=yes
-	gcc_cv_nm=./nm$host_exeext
-	rm -f nm$host_exeext
-	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	gcc_cv_nm=./nm$build_exeext
+	rm -f nm$build_exeext
+	$LN_S ../binutils/nm-new$build_exeext nm$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_nm=${program_prefix}nm$host_exeext
+	gcc_cv_nm=${program_prefix}nm$build_exeext
 else
-	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_nm in
   yes) echo "$as_me:$LINENO: result: \"newly built nm\"" >&5
@@ -12945,20 +13014,20 @@ esac
 echo "$as_me:$LINENO: checking what objdump to use" >&5
 echo $ECHO_N "checking what objdump to use... $ECHO_C" >&6
 in_tree_objdump=no
-if test -x objdump$host_exeext; then
-	gcc_cv_objdump=./objdump$host_exeext
+if test -x objdump$build_exeext; then
+	gcc_cv_objdump=./objdump$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_objdump=yes
-	gcc_cv_objdump=./objdump$host_exeext
-	rm -f objdump$host_exeext
-	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
+	gcc_cv_objdump=./objdump$build_exeext
+	rm -f objdump$build_exeext
+	$LN_S ../binutils/objdump$build_exeext objdump$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_objdump=${program_prefix}objdump$host_exeext
+	gcc_cv_objdump=${program_prefix}objdump$build_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$host_exeext
+		sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_objdump in
   yes) echo "$as_me:$LINENO: result: \"newly built objdump\"" >&5
@@ -14371,7 +14440,7 @@ fi
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.machine power4
+      *) conftest_s='	.machine power4
 	.text
 	mfcr 3,128';;
     esac
@@ -14915,7 +14984,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile gccbug mklibgcc mkheaders libada-mk'
+all_outputs='Makefile gccbug mklibgcc libada-mk'
 # List of language makefile fragments.
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.

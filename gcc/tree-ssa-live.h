@@ -69,7 +69,7 @@ extern tree make_ssa_temp (tree);
 extern void register_ssa_partition_check (tree ssa_var);
 #endif
 
-static inline int num_var_partitions (var_map);
+static inline unsigned num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
@@ -82,7 +82,7 @@ extern var_map create_ssa_var_map (int);
 
 /* Number of partitions in MAP.  */
 
-static inline int 
+static inline unsigned
 num_var_partitions (var_map map)
 {
   return map->num_partitions;
@@ -309,7 +309,7 @@ live_var_map (tree_live_info_p live)
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
-  bitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
+  bitmap_ior_into (live->livein[p1], live->livein[p2]);
   bitmap_zero (live->livein[p2]);
 }
 

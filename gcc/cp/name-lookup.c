@@ -2008,7 +2008,7 @@ push_overloaded_decl (tree decl, int flags)
 	  if (IS_AGGR_TYPE (t) && warn_shadow
 	      && (! DECL_IN_SYSTEM_HEADER (decl)
 		  || ! DECL_IN_SYSTEM_HEADER (old)))
-	    warning ("`%#D' hides constructor for `%#T'", decl, t);
+	    warning ("%q#D hides constructor for %q#T", decl, t);
 	  old = NULL_TREE;
 	}
       else if (is_overloaded_fn (old))
@@ -2783,7 +2783,7 @@ push_class_level_binding (tree name, tree x)
   gcc_assert (TYPE_BEING_DEFINED (current_class_type));
   /* We could have been passed a tree list if this is an ambiguous
      declaration. If so, pull the declaration out because
-     check_template_shadow will not handle a TREE_LIST. */
+     check_template_shadow will not handle a TREE_LIST.  */
   if (TREE_CODE (decl) == TREE_LIST 
       && TREE_TYPE (decl) == error_mark_node)
     decl = TREE_VALUE (decl);
@@ -3000,8 +3000,8 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
   
   /* It is ok for friends to be qualified in parallel space.  */
   if (!friendp && !is_ancestor (current_namespace, scope))
-    error ("declaration of `%D' not in a namespace surrounding `%D'",
-	      decl, scope);
+    error ("declaration of %qD not in a namespace surrounding %qD",
+           decl, scope);
   DECL_CONTEXT (decl) = FROB_CONTEXT (scope);
   if (scope != current_namespace)
     {
@@ -3227,6 +3227,7 @@ do_namespace_alias (tree alias, tree namespace)
   alias = build_lang_decl (NAMESPACE_DECL, alias, void_type_node);     
   DECL_NAMESPACE_ALIAS (alias) = namespace;
   DECL_EXTERNAL (alias) = 1;
+  DECL_CONTEXT (alias) = FROB_CONTEXT (current_scope ());
   pushdecl (alias);
 
   /* Emit debug info for namespace alias.  */

@@ -39,6 +39,9 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.http;
 
+import gnu.java.net.HeaderFieldHelper;
+import gnu.java.security.action.GetPropertyAction;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -52,14 +55,11 @@ import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.URL;
-import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import gnu.java.net.HeaderFieldHelper;
-import gnu.java.security.action.GetPropertyAction;
 
 /**
  * This subclass of java.net.URLConnection models a URLConnection via
@@ -217,8 +217,10 @@ public final class Connection extends HttpURLConnection
       new PrintWriter(new OutputStreamWriter(outputStream, "8859_1")); 
     
     // Send request including any request properties that were set.
-    outputWriter.print (getRequestMethod() + " " + url.getFile()
-                        + " HTTP/1.1\r\n");
+    String requestFile = url.getFile();
+    outputWriter.print(getRequestMethod() + " "
+		       + (requestFile.length() != 0 ? requestFile : "/")
+                       + " HTTP/1.1\r\n");
 
     // Set additional HTTP headers.
     if (getRequestProperty ("Host") == null)
@@ -389,7 +391,8 @@ public final class Connection extends HttpURLConnection
   }
 
   /**
-   * Returns on OutputStream for writing to this connection.
+   * Returns on OutputStream for writing to this connection. This method
+   * implicitely changes request method to <code>POST</code>.
    *
    * @return An OutputStream for this connection.
    *
@@ -408,6 +411,9 @@ public final class Connection extends HttpURLConnection
     if (bufferedOutputStream == null)
       bufferedOutputStream = new ByteArrayOutputStream (256); //default is too small
     
+    // Force POST request method.
+    setRequestMethod("POST");
+
     return bufferedOutputStream;
   }
 

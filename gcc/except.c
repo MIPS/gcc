@@ -2279,7 +2279,7 @@ remove_eh_handler (struct eh_region *region)
   cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
-      int i;
+      unsigned i;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (region->aka, 0, i, bi)
@@ -2293,7 +2293,7 @@ remove_eh_handler (struct eh_region *region)
       if (!outer->aka)
         outer->aka = BITMAP_GGC_ALLOC ();
       if (region->aka)
-	bitmap_a_or_b (outer->aka, outer->aka, region->aka);
+	bitmap_ior_into (outer->aka, region->aka);
       bitmap_set_bit (outer->aka, region->region_number);
     }
 

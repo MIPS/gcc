@@ -81,6 +81,7 @@ static bool s390_function_ok_for_sibcall (tree, tree);
 static bool s390_call_saved_register_used (tree);
 static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
+static bool s390_fixed_condition_code_regs (unsigned int *, unsigned int *);
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
@@ -155,6 +156,9 @@ static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL s390_function_ok_for_sibcall
+
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS s390_fixed_condition_code_regs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1355,7 +1359,8 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
-  ADDR_REGS,    NO_REGS,   ADDR_REGS, ADDR_REGS
+  ADDR_REGS,    CC_REGS,   ADDR_REGS, ADDR_REGS,
+  ACCESS_REGS,	ACCESS_REGS
 };
 
 /* Return attribute type of insn.  */
@@ -2019,6 +2024,22 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Split DImode access register reference REG (on 64-bit) into its constituent
+   low and high parts, and store them into LO and HI.  Note that gen_lowpart/
+   gen_highpart cannot be used as they assume all registers are word-sized,
+   while our access registers have only half that size.  */
+
+void
+s390_split_access_reg (rtx reg, rtx *lo, rtx *hi)
+{
+  gcc_assert (TARGET_64BIT);
+  gcc_assert (ACCESS_REG_P (reg));
+  gcc_assert (GET_MODE (reg) == DImode);
+  gcc_assert (!(REGNO (reg) & 1));
+
+  *lo = gen_rtx_REG (SImode, REGNO (reg) + 1);
+  *hi = gen_rtx_REG (SImode, REGNO (reg));
+}
 
 /* Return true if OP contains a symbol reference */
 
@@ -2276,6 +2297,9 @@ s390_secondary_input_reload_class (enum reg_class class ATTRIBUTE_UNUSED,
   if (s390_plus_operand (in, mode))
     return ADDR_REGS;
 
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    return GENERAL_REGS;
+
   return NO_REGS;
 }
 
@@ -2296,6 +2320,9 @@ s390_secondary_output_reload_class (enum reg_class class,
       && !offsettable_memref_p (out)
       && !s_operand (out, VOIDmode))
     return ADDR_REGS;
+
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    return GENERAL_REGS;
 
   return NO_REGS;
 }
@@ -3027,10 +3054,9 @@ legitimize_pic_address (rtx orig, rtx reg)
 static rtx
 get_thread_pointer (void)
 {
-  rtx tp;
+  rtx tp = gen_reg_rtx (Pmode);
 
-  tp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_TP);
-  tp = force_reg (Pmode, tp);
+  emit_move_insn (tp, gen_rtx_REG (Pmode, TP_REGNUM));
   mark_reg_pointer (tp, BITS_PER_WORD);
 
   return tp;
@@ -3579,16 +3605,11 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
       else
         emit_move_insn (target, const0_rtx);
     }
-
-  else /* if (TARGET_MVCLE) */
+  else if (TARGET_MVCLE)
     {
       emit_insn (gen_cmpmem_long (op0, op1, convert_to_mode (Pmode, len, 1)));
       emit_move_insn (target, result);
     }
-
-#if 0
-  /* Deactivate for now as profile code cannot cope with
-     CC being live across basic block boundaries.  */
   else
     {
       rtx addr0, addr1, count, blocks, temp;
@@ -3656,7 +3677,6 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 
       emit_move_insn (target, result);
     }
-#endif
 }
 
 
@@ -8313,6 +8333,17 @@ s390_function_ok_for_sibcall (tree decl, tree exp)
       && s390_call_saved_register_used (TREE_OPERAND (exp, 1)))
       return false;
 
+  return true;
+}
+
+/* Return the fixed registers used for condition codes.  */
+
+static bool
+s390_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
+{
+  *p1 = CC_REGNUM;
+  *p2 = INVALID_REGNUM;
+ 
   return true;
 }
 

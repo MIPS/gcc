@@ -88,7 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    DEPENDENCE_STEPS = 3000
    NB_DEPS_NOT_CARRIED_BY_LOOP = 7
    ACCESS_STRIDES = 8010
-  */
+*/
 
 static void
 gather_interchange_stats (varray_type dependence_relations, 
@@ -112,22 +112,17 @@ gather_interchange_stats (varray_type dependence_relations,
 	(struct data_dependence_relation *) 
 	VARRAY_GENERIC_PTR (dependence_relations, i);
 
-      /* Compute the dependence strides.  */
+      /* If we don't know anything about this dependence, or the distance
+	 vector is NULL, or there is no dependence, then there is no reuse of
+	 data.  */
 
-      if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-	{
-	  (*dependence_steps) += 0;
-	  continue;
-	}
+      if (DDR_DIST_VECT (ddr) == NULL
+	  || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know
+	  || DDR_ARE_DEPENDENT (ddr) == chrec_known)
+	continue;
+      
 
-      /* When we know that there is no dependence, we know that there
-	 is no reuse of the data.  */
-      if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
-	{
-	  (*dependence_steps) += 0;
-	  continue;
-	}
-
+      
       dist = DDR_DIST_VECT (ddr)[loop_number];
       if (dist == 0)
 	(*nb_deps_not_carried_by_loop) += 1;
@@ -165,7 +160,8 @@ gather_interchange_stats (varray_type dependence_relations,
     }
 }
 
-/* Apply to TRANS any loop interchange that minimize inner loop steps.
+/* Attempt to apply interchange transformations to TRANS to maximize the
+   spatial and temporal locality of the loop.  
    Returns the new transform matrix.  The smaller the reuse vector
    distances in the inner loops, the fewer the cache misses.
    FIRST_LOOP is the loop->num of the first loop in the analyzed loop
@@ -239,7 +235,8 @@ void
 linear_transform_loops (struct loops *loops)
 {
   unsigned int i;
-
+  
+  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
@@ -247,8 +244,8 @@ linear_transform_loops (struct loops *loops)
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
-      VEC (tree) *oldivs;
-      VEC (tree) *invariants;
+      VEC (tree) *oldivs = NULL;
+      VEC (tree) *invariants = NULL;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
@@ -306,11 +303,11 @@ linear_transform_loops (struct loops *loops)
 		{
 		  fprintf (dump_file, "DISTANCE_V (");
 		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), 
-				       loops->num);
+				       DDR_SIZE_VECT (ddr));
 		  fprintf (dump_file, ")\n");
 		  fprintf (dump_file, "DIRECTION_V (");
 		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), 
-				       loops->num);
+				       DDR_SIZE_VECT (ddr));
 		  fprintf (dump_file, ")\n");
 		}
 	    }
@@ -319,6 +316,7 @@ linear_transform_loops (struct loops *loops)
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
       lambda_matrix_id (LTM_MATRIX (trans), depth);
+
       trans = try_interchange_loops (trans, depth, dependence_relations,
 				     datarefs, loop_nest->num);
 
@@ -359,11 +357,17 @@ linear_transform_loops (struct loops *loops)
 	}
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
+      if (dump_file)
+	fprintf (dump_file, "Successfully transformed loop.\n");
       oldivs = NULL;
       invariants = NULL;
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
-  rewrite_into_loop_closed_ssa ();
   free_df ();
+  scev_reset ();
+  rewrite_into_loop_closed_ssa ();
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
 }

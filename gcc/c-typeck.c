@@ -659,6 +659,10 @@ comptypes (tree type1, tree type2)
 	   protocol qualifiers may be involved.  */
       if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
 	break;
+      /* Do not remove mode or aliasing information.  */
+      if (TYPE_MODE (t1) != TYPE_MODE (t2)
+	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
+	break;
       val = (TREE_TYPE (t1) == TREE_TYPE (t2)
 	     ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2)));
       break;
@@ -1263,9 +1267,21 @@ default_function_array_conversion (tree exp)
 
       ptrtype = build_pointer_type (restype);
 
+      if (TREE_CODE (exp) == VAR_DECL)
+	{
+	  /* We are making an ADDR_EXPR of ptrtype.  This is a valid
+	     ADDR_EXPR because it's the best way of representing what
+	     happens in C when we take the address of an array and place
+	     it in a pointer to the element type.  */
+	  adr = build1 (ADDR_EXPR, ptrtype, exp);
+	  if (!c_mark_addressable (exp))
+	    return error_mark_node;
+	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
+	  return adr;
+	}
       /* This way is better for a COMPONENT_REF since it can
 	 simplify the offset for a component.  */
-      adr = build_unary_op (ADDR_EXPR, build_array_ref (exp, integer_zero_node), 1);
+      adr = build_unary_op (ADDR_EXPR, exp, 1);
       return convert (ptrtype, adr);
     }
   return exp;
@@ -1712,24 +1728,13 @@ build_external_ref (tree id, int fun)
 {
   tree ref;
   tree decl = lookup_name (id);
-  tree objc_ivar = objc_lookup_ivar (id);
+
+  /* In Objective-C, an instance variable (ivar) may be preferred to
+     whatever lookup_name() found.  */
+  decl = objc_lookup_ivar (decl, id);
 
   if (decl && decl != error_mark_node)
-    {
-      /* Properly declared variable or function reference.  */
-      if (!objc_ivar)
-	ref = decl;
-      else if (decl != objc_ivar && !DECL_FILE_SCOPE_P (decl))
-	{
-	  warning ("local declaration of %qs hides instance variable",
-		   IDENTIFIER_POINTER (id));
-	  ref = decl;
-	}
-      else
-	ref = objc_ivar;
-    }
-  else if (objc_ivar)
-    ref = objc_ivar;
+    ref = decl;
   else if (fun)
     /* Implicit function declaration.  */
     ref = implicitly_declare (id);
@@ -2619,12 +2624,13 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  return TREE_OPERAND (arg, 0);
 	}
 
-      /* For &x[y], just return &x[y] */
+      /* For &x[y], return x+y */
       if (TREE_CODE (arg) == ARRAY_REF)
 	{
 	  if (!c_mark_addressable (TREE_OPERAND (arg, 0)))
 	    return error_mark_node;
-          return build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (arg)), arg);
+	  return build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
+				  TREE_OPERAND (arg, 1), 1);
 	}
 
       /* Anything not already handled and not a true memory reference
@@ -2649,13 +2655,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       if (!c_mark_addressable (arg))
 	return error_mark_node;
 
-      if (TREE_CODE (arg) == COMPONENT_REF
-	  && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
-	{
-	  error ("attempt to take address of bit-field structure member %qD",
-		 TREE_OPERAND (arg, 1));
-	  return error_mark_node;
-	}
+      gcc_assert (TREE_CODE (arg) != COMPONENT_REF
+		  || !DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)));
 
       argtype = build_pointer_type (argtype);
 
@@ -2805,8 +2806,8 @@ c_mark_addressable (tree exp)
       case COMPONENT_REF:
 	if (DECL_C_BIT_FIELD (TREE_OPERAND (x, 1)))
 	  {
-	    error ("cannot take address of bit-field %qs",
-		   IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (x, 1))));
+	    error
+	      ("cannot take address of bit-field %qD", TREE_OPERAND (x, 1));
 	    return false;
 	  }
 
@@ -2833,24 +2834,19 @@ c_mark_addressable (tree exp)
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
-		error ("global register variable %qs used in nested function",
-		       IDENTIFIER_POINTER (DECL_NAME (x)));
+		error
+		  ("global register variable %qD used in nested function", x);
 		return false;
 	      }
-	    pedwarn ("register variable %qs used in nested function",
-		     IDENTIFIER_POINTER (DECL_NAME (x)));
+	    pedwarn ("register variable %qD used in nested function", x);
 	  }
 	else if (C_DECL_REGISTER (x))
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
-	      {
-		error ("address of global register variable %qs requested",
-		       IDENTIFIER_POINTER (DECL_NAME (x)));
-		return false;
-	      }
-
-	    pedwarn ("address of register variable %qs requested",
-		     IDENTIFIER_POINTER (DECL_NAME (x)));
+	      error ("address of global register variable %qD requested", x);
+	    else
+	      error ("address of register variable %qD requested", x);
+	    return false;
 	  }
 
 	/* drops in */
@@ -5666,7 +5662,7 @@ static void
 output_init_element (tree value, bool strict_string, tree type, tree field,
 		     int pending)
 {
-  if (type == error_mark_node)
+  if (type == error_mark_node || value == error_mark_node)
     {
       constructor_erroneous = 1;
       return;

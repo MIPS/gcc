@@ -426,22 +426,34 @@ build_simple_base_path (tree expr, tree binfo)
   gcc_unreachable ();
 }
 
-/* Convert OBJECT to the base TYPE.  If CHECK_ACCESS is true, an error
-   message is emitted if TYPE is inaccessible.  OBJECT is assumed to
-   be non-NULL.  */
+/* Convert OBJECT to the base TYPE.  OBJECT is an expression whose
+   type is a class type or a pointer to a class type.  In the former
+   case, TYPE is also a class type; in the latter it is another
+   pointer type.  If CHECK_ACCESS is true, an error message is emitted
+   if TYPE is inaccessible.  If OBJECT has pointer type, the value is
+   assumed to be non-NULL.  */
 
 tree
-convert_to_base (tree object, tree type, bool check_access)
+convert_to_base (tree object, tree type, bool check_access, bool nonnull)
 {
   tree binfo;
+  tree object_type;
 
-  binfo = lookup_base (TREE_TYPE (object), type, 
-		       check_access ? ba_check : ba_ignore, 
+  if (TYPE_PTR_P (TREE_TYPE (object)))
+    {
+      object_type = TREE_TYPE (TREE_TYPE (object));
+      type = TREE_TYPE (type);
+    }
+  else
+    object_type = TREE_TYPE (object);
+
+  binfo = lookup_base (object_type, type,
+		       check_access ? ba_check : ba_unique, 
 		       NULL);
   if (!binfo || binfo == error_mark_node)
     return error_mark_node;
 
-  return build_base_path (PLUS_EXPR, object, binfo, /*nonnull=*/1);
+  return build_base_path (PLUS_EXPR, object, binfo, nonnull);
 }
 
 /* EXPR is an expression with unqualified class type.  BASE is a base
@@ -485,7 +497,8 @@ build_vfield_ref (tree datum, tree type)
 
   /* First, convert to the requested type.  */
   if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
-    datum = convert_to_base (datum, type, /*check_access=*/false);
+    datum = convert_to_base (datum, type, /*check_access=*/false,
+			     /*nonnull=*/true);
 
   /* Second, the requested type may not be the owner of its own vptr.
      If not, convert to the base class that owns it.  We cannot use
@@ -526,7 +539,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
   if (fixed_type && !cdtorp)
     {
       tree binfo = lookup_base (fixed_type, basetype,
-				ba_ignore|ba_quiet, NULL);
+				ba_unique | ba_quiet, NULL);
       if (binfo)
 	vtbl = unshare_expr (BINFO_VTABLE (binfo));
     }
@@ -982,7 +995,7 @@ add_method (tree type, tree method)
 		return;
 	      else
 		{
-		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
+		  cp_error_at ("%q#D and %q#D cannot be overloaded",
 			       method, fn);
 
 		  /* We don't call duplicate_decls here to merge
@@ -1014,7 +1027,7 @@ add_method (tree type, tree method)
 	VEC_quick_insert (tree, method_vec, slot, overload);
     }
   else
-    /* Replace the current slot. */
+    /* Replace the current slot.  */
     VEC_replace (tree, method_vec, slot, overload);
 }
 
@@ -2859,7 +2872,8 @@ check_field_decls (tree t, tree *access_decls,
 	    }
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
 	    {
-	      cp_error_at ("%qD may not have reference type `%T' because it is a member of a union",
+	      cp_error_at ("%qD may not have reference type %qT because"
+                           " it is a member of a union",
 			   x, type);
 	      continue;
 	    }
@@ -4054,7 +4068,7 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
 
-  /* Synthesize any needed methods.   */
+  /* Synthesize any needed methods.  */
   add_implicitly_declared_members (t, cant_have_default_ctor,
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
@@ -4392,13 +4406,17 @@ warn_about_ambiguous_bases (tree t)
   tree binfo;
   tree base_binfo;
 
+  /* If there are no repeated bases, nothing can be ambiguous.  */
+  if (!CLASSTYPE_REPEATED_BASE_P (t))
+    return;
+  
   /* Check direct bases.  */
   for (binfo = TYPE_BINFO (t), i = 0;
        BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
     {
       basetype = BINFO_TYPE (base_binfo);
 
-      if (!lookup_base (t, basetype, ba_ignore | ba_quiet, NULL))
+      if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
 	warning ("direct base %qT inaccessible in %qT due to ambiguity",
 		 basetype, t);
     }
@@ -4410,7 +4428,7 @@ warn_about_ambiguous_bases (tree t)
       {
 	basetype = BINFO_TYPE (binfo);
 	
-	if (!lookup_base (t, basetype, ba_ignore | ba_quiet, NULL))
+	if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
 	  warning ("virtual base %qT inaccessible in %qT due to ambiguity",
 		   basetype, t);
       }
@@ -4582,7 +4600,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	      else
 		{
 		  if (warn_abi && TREE_CODE (t) == UNION_TYPE)
-		    warning ("size assigned to `%T' may not be "
+		    warning ("size assigned to %qT may not be "
 			     "ABI-compliant and may change in a future "
 			     "version of GCC", 
 			     t);
@@ -5598,9 +5616,9 @@ resolve_address_of_overloaded_function (tree target_type,
   else 
     {
       if (flags & tf_error)
-	error ("\
-cannot resolve overloaded function `%D' based on conversion to type `%T'", 
-		  DECL_NAME (OVL_FUNCTION (overload)), target_type);
+	error ("cannot resolve overloaded function %qD based on"
+               " conversion to type %qT", 
+               DECL_NAME (OVL_FUNCTION (overload)), target_type);
       return error_mark_node;
     }
   

@@ -1,3 +1,553 @@
+2004-11-06  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/pr16286.c: Also test for bool and pixel.
+
+2004-11-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/anon-struct-6.c, gcc.dg/anon-struct-7.c,
+	gcc.dg/anon-struct-8.c, gcc.dg/bitfld-10.c, gcc.dg/bitfld-11.c,
+	gcc.dg/bitfld-12.c, gcc.dg/func-outside-1.c,
+	gcc.dg/func-outside-2.c, gcc.dg/label-decl-1.c,
+	gcc.dg/label-decl-2.c, gcc.dg/label-decl-3.c,
+	gcc.dg/label-decl-4.c, gcc.dg/struct-empty-1.c,
+	gcc.dg/struct-empty-2.c, gcc.dg/struct-empty-3.c,
+	gcc.dg/struct-semi-1.c, gcc.dg/struct-semi-2.c,
+	gcc.dg/struct-semi-3.c: New tests.
+
+2004-11-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/nothrow1.C: Use -42 instead of 42.
+
+2004-11-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/compat/generate-random.c (generate_random_data unsafe_state):
+	Do not use C99 designators.
+
+2004-11-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/pragma-re-1.C (p, q): Fix type and remove cast.
+
+2004-11-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/simd-5.c: Do not XFAIL on SPARC 64-bit.
+	* gcc.c-torture/execute/20020227-1.x: Do not XFAIL at -O3.
+	* gcc.c-torture/execute/simd-5.x: Remove.
+
+2004-11-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR rtl-optimization/17933
+	* gcc.dg/torture/pr17933-1.c: New test.
+
+2004-11-06  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	PR target/18106
+	* lib/target-supports.exp (check_weak_available): Support
+	Windows.
+
+2004-11-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.dg/compat/struct-layout-1_generate.c (main): Generate a
+	call to fflush(stdout) before abort.
+	(my_ffsll): New function.
+	(generate_fields): Use it.
+
+2004-11-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/init-undef-1.c: New test.
+
+2004-11-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/20040910-1.c, gcc.dg/cpp/digraph2.c,
+	gcc.dg/cpp/direct2.c, gcc.dg/cpp/direct2s.c,
+	gcc.dg/cpp/separate-1.c, gcc.dg/noncompile/951123-1.c,
+	gcc.dg/noncompile/971104-1.c, gcc.dg/noncompile/990416-1.c: Adjust
+	expected messages for new parser.
+
+2004-11-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/ext/visibility/symbian1.C: New test.
+	
+2004-11-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pragma-align.c (sixteen): Use 8-byte alignment
+	on LP64 targets.
+
+2004-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/asm-qual-1.c, gcc.dg/declspec-15.c, gcc.dg/declspec-16.c,
+	gcc.dg/declspec-17.c, gcc.dg/empty-source-1.c,
+	gcc.dg/empty-source-2.c, gcc.dg/empty-source-3.c,
+	gcc.dg/extra-semi-1.c, gcc.dg/extra-semi-2.c,
+	gcc.dg/extra-semi-3.c, gcc.dg/gnu-cond-expr-1.c,
+	gcc.dg/gnu-cond-expr-2.c, gcc.dg/gnu-cond-expr-3.c,
+	gcc.dg/init-empty-1.c, gcc.dg/init-empty-2.c,
+	gcc.dg/init-empty-3.c, gcc.dg/noncompile/old-style-parm-1.c,
+	gcc.dg/noncompile/old-style-parm-2.c, gcc.dg/stmt-expr-1.c,
+	gcc.dg/stmt-expr-2.c, gcc.dg/stmt-expr-3.c: New tests.
+
+2004-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c90-restrict-1.c, gcc.dg/c99-arraydecl-2.c,
+	gcc.dg/c99-func-2.c, gcc.dg/charset/asm2.c, gcc.dg/concat.c,
+	gcc.dg/cpp/19990413-1.c, gcc.dg/cpp/paste4.c,
+	gcc.dg/init-desig-obs-1.c, gcc.dg/noncompile/920721-2.c,
+	gcc.dg/noncompile/930622-2.c, gcc.dg/noncompile/940112-1.c,
+	gcc.dg/noncompile/950921-1.c, gcc.dg/switch-2.c,
+	objc.dg/naming-1.m, objc.dg/naming-2.m: Adjust expected messages
+	for new parser.
+
+2004-11-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/15342
+	* gcc.dg/20041104-1.c: New test.
+
+2004-11-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/template/nontype7.C: New test.
+	* g++.dg/template/nontype8.C: Likewise.
+	* g++.dg/template/nontype9.C: Likewise.
+	* g++.dg/template/nontype10.C: Likewise.
+	* g++.dg/tc1/dr49.C: Likewise.
+	* g++.dg/template/ptrmem8.C: Relax dg-error checks.
+	* g++.old-deja/g++.other/null1.C: Remove a buggy error check
+
+2004-11-04  Ben Elliston  <bje@au.ibm.com>
+
+	* g++.dg/rtti/tinfo1.C: Remove xfails.
+
+2004-11-04  Ben Elliston  <bje@au.ibm.com>
+
+	* g++.old-deja/g++.other/enum5.C (enum conditions): Move the
+	packed attribute to the definition to satisfy the new C++ parser.
+
+2004-11-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/stdarg-2.c (foo): Split multiple
+	invocations of va_arg.
+
+2004-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18124
+	* g++.dg/template/crash25.C: New test.
+
+	PR c++/18155
+	* g++.dg/template/typedef2.C: New test.
+	* g++.dg/parse/crash13.C: Adjust error markers.
+
+	PR c++/18177
+	* g++.dg/conversion/const3.C: New test.
+	
+2004-11-03  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17535
+	PR fortran/17583
+	PR fortran/17713
+	* gfortran.dg/generic_[123].f90: New testcases.
+
+2004-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/uninit-C.c: Remove special-casing for SPARC.
+	* gcc.dg/uninit-H.c: Define to "sp" on SPARC.
+
+2004-11-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/16808
+	* gcc.c-torture/compile/pr16808.c: New test.
+
+2004-11-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR rtl-optimization/17104
+	* gcc.dg/ppc-bitfield1.c: New.
+
+2004-11-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/uninit-H.c (ASM): Define to "$sp" on MIPS targets.
+
+2004-11-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/abi/mangle6.C: Run for all MIPS targets.  Provide dummy
+	strings for 32-bit code.
+
+2004-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/18239
+	* gcc.dg/parm-impl-decl-1.c, gcc.dg/parm-impl-decl-2.c: New tests.
+
+2004-11-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18064
+	* g++.old-deja/g++.mike/p811.C: Avoid covariant extension.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15172
+	* g++.dg/init/aggr2.C: New test.
+
+2004-10-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/local-decl-1.m: New test.
+
+2004-10-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* gcc.dg/20040910-1.c: Adjust regex.
+
+2004-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/18084
+	* g++.dg/opt/pr18084-1.C: New testcase.
+
+2004-10-30  Matt Austern  <austern@apple.com>
+
+	PR c++/17542
+	* g++.dg/ext/attrib18.C: New test.
+	
+2004-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18096
+	* gcc.dg/pr18096-1.c: New test case.
+
+2004-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/pr17581-1.c: Add missing prototype for abort.
+
+2004-10-30  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/16666
+	* gcc.dg/dremf-type-compat-1.c, gcc.dg/dremf-type-compat-2.c,
+	gcc.dg/dremf-type-compat-3.c, gcc.dg/dremf-type-compat-4.c,
+	gcc.dg/old-style-prom-1.c, gcc.dg/old-style-prom-2.c,
+	gcc.dg/old-style-prom-3.c: New tests.
+
+2004-10-30  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.dg/bf-ms-attrib.c: Add protototype for abort.
+	Remove unnecessary inclusion of stdio.h.
+
+2004-10-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17581
+	* gcc.dg/pr17581-1.c: New test case.
+
+2004-10-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/conversion/dr195.C: Adjust expected errors for DR195 not
+	being implemented.
+	* g++.dg/conversion/dr195-1.C: New.
+	* g++.old-deja/g++.brendan/operators4.C: Don't be pedantic.
+	* g++.old-deja/g++.mike/p10148.C: Likewise.
+
+2004-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17695
+	* g++.dg/debug/typedef2.C: New test.
+
+2004-10-29  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/13490
+	* gfortran.dg/g77/20030326-1.f: Change xfail on error to warning.
+	* gfortran.dg/g77/README: Update.
+
+2004-10-28  Matt Austern  <austern@apple.com>
+
+	PR c++/14124
+	* g++.dg/ext/packed7.C: New test.
+	
+2004-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/visibility-[1-9a].c: Change to use scan-hidden instead of
+	scan-assembler.
+	* lib/scanasm.exp (hidden-scan-for): New proc.
+	(scan-hidden): Use hidden-scan-for instead of constructing the scan
+	string.
+	(scan-not-hidden): Likewise.
+	* lib/target-supports.exp (check_visibility_available): mach-o is
+	support too.
+
+2004-10-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17132
+	* g++.dg/template/memclass3.C: New test.
+
+2004-10-28  Adam Nemet  <anemet@lnxw.com>
+
+	PR middle-end/18160  
+	* gcc.dg/register-var-1.c: New test.
+	* gcc.dg/register-var-2.c: New test.
+	* gcc.dg/asm-7.c: Taking the address of a register variable is an
+	error now.
+
+2004-10-28  Dorit Naishlos <dorit@il.ibm.com>
+
+	PR other/18172
+	* gcc.dg/vect/vect-20.c: Use 'signed char' instaed of 'char'. Remove 
+	unused variables.
+	* gcc.dg/vect/vect-22.c: Likewise.
+
+2004-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/i386-rotate-1.c: New test.
+
+2004-10-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/ref12.C: Add "run" marker.
+
+	PR c++/17435
+	* g++.dg/init/ref12.C: New test.
+
+	PR c++/18140
+	* g++.dg/template/shift1.C: New test.
+	* g++.dg/template/error10.C: Adjust error markers.
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17529
+	* gcc.c-torture/compile/pr17529.c: Remove the xfail.
+
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/weak/typeof-2.c: Needs aliases as well as weak.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/weak/weak-5.c: Likewise.
+	* gcc.dg/weak/weak-9.c: Likewise.
+	* lib/file-format.exp (gcc_target_object_format): Darwin has Mach-O.
+	* lib/target-supports.exp (check_weak_available): Mach-O does weak.
+
+	* gcc.dg/darwin-weakimport-1.c: New.
+
+2004-10-28  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/tree-ssa/sra-1.c: Pass --param sra-max-structure-size.
+
+2004-10-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/cpp/direct2.c: Cope with different bison 'parse' or
+	'syntax' error messages.
+	* gcc.dg/cpp/direct2s.c: Likewise.
+
+2004-10-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c-torture/compile/20041026-1.c: New.
+
+2004-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18093
+	* g++.dg/lookup/ns2.C: New test.
+
+	PR c++/18020
+	* g++.dg/template/enum4.C: New test.
+
+	PR c++/18161
+	* g++.dg/template/expr1.C: New test.
+
+2004-10-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/tree-ssa/20030922-2.c: Now passing, so remove xfail.
+
+2004-10-26  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/decl-nospec-1.c, gcc.dg/decl-nospec-2.c,
+	gcc.dg/decl-nospec-3.c: New tests.
+
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/super-class-3.m: New test.
+
+2004-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/cpp/direct2.c: Adjust expected errors, robustify parser
+	resyncing.
+	* gcc.dg/cpp/direct2s.c: Likewise.
+
+2004-10-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* objc.dg/image-info.m: Update for changes to section selection.
+
+2004-10-25  David Ayers  <d.ayers@inode.at>
+	    Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/call-super-2.m: Add messages to 'Class <Proto>'; update
+	diagnostics when messaging 'id <Proto>'.
+	* objc.dg/class-protocol-1.m: New test.
+	* objc.dg/desig-init-1.m: Add message to an invalid receiver using
+	a non-existent method signature.
+	* objc.dg/method-5.m, objc.dg/method-6.m, objc.dg/proto-hier-1.m:
+	Update diagnostics when messaging with non-existent method signature.
+	* objc.dg/proto-hier-2.m: Adjust wording of diagnostic.
+	* objc.dg/proto-lossage-1.m, objc.dg/proto-lossage-4.m: Messages to
+	invalid receivers are now resolved as if messaging 'id'; remove
+	extraneous diagnostics.
+
+2004-10-25  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/16667
+	* gcc.dg/init-desig-obs-1.c, gcc.dg/init-desig-obs-2.c,
+	gcc.dg/init-desig-obs-3.c: New tests.
+
+2004-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/debug/20041023-1.c: New test.
+
+2004-10-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17407
+	* gcc.c-torture/compile/pr17407.c: New test.
+
+	PR c++/18121
+	* g++.dg/template/array8.C: New test.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* lib/g++.exp: Accept more than one multilib libgcc.
+	* lib/gcc-dg.exp: Likewise.
+	* lib/objc.exp: Likewise.
+	* lib/treelang.exp: Likewise.
+	* lib/gfortran.exp: Likewise.
+
+2004-10-24  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/c90-const-expr-3.c: Reference the ISO C standard.
+
+2004-10-24  Geoffrey Keating  <geoffk@geoffk.org>
+
+	* gcc.dg/c90-const-expr-3.c: xfail all the ASSERT_NOT_NPC tests.
+	* gcc.dg/c99-const-expr-3.c: Likewise.
+
+2004-10-23  Andrew Pinski  <pinskia@physics.uc.edu>.
+
+	* gcc.dg/tree-ssa/loop-1.c: Add -static for *-*-darwin*.
+
+2004-10-23  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.c-torture/execute/loop-2e.x: Remove.
+
+2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18095
+	* g++.dg/parse/crash18.C: New.
+	* g++.dg/parse/crash19.C: New.
+
+2004-10-22  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* g++.dg/ext/dllimport1.C: Move dg-warnings.
+	* g++.dg/ext/dllimport2.C: Same.
+	* g++.dg/ext/dllimport8.C: Same.
+
+2004-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10841
+	* g++.dg/conversion/cast1.C: New test.
+	* g++.dg/overload/pmf1.C: Adjust error marker.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/17923
+	* objc.dg/const-str-7.m: New test.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/memfriend11.C: Fix comment typo.
+	* g++.dg/template/memfriend14.C: Likewise.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/cleanup-10.c, gcc.dg/cleanup-11.c, gcc.dg/cleanup-8.c,
+	gcc.dg/cleanup-9.c: Use -fnon-call-exceptions, not
+	-fasynchronous-unwind-tables.
+
+2004-10-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/unsorted/call386.c (foo): Fix return type.
+	(main): Return success.
+	* gcc.c-torture/unsorted/subcc.c (foo, bar): Fix return types.
+	(main): Return success.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13495
+	* g++.dg/template/memfriend9.C: New test.
+	* g++.dg/template/memfriend10.C: Likewise.
+	* g++.dg/template/memfriend11.C: Likewise.
+	* g++.dg/template/memfriend12.C: Likewise.
+	* g++.dg/template/memfriend13.C: Likewise.
+	* g++.dg/template/memfriend14.C: Likewise.
+	* g++.dg/template/memfriend15.C: Likewise.
+	* g++.dg/template/memfriend16.C: Likewise.
+	* g++.dg/template/memfriend17.C: Likewise.
+	* g++.old-deja/g++.pt/friend44.C: Remove bogus error.
+
+2004-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/conversion/dr195.C: New.
+	* g++.old-deja/g++.mike/p10148.C: Remove ill-formed cast.
+
+2004-10-20  Ben Elliston  <bje@au.ibm.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa/ifc-20040816-2.c: Use integer arithmetic instead
+	of floating point arithmetic, which could trap.
+
+2004-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14035
+	* g++.dg/conversion/reinterpret1.C: Adjust error markers.
+	* g++.dg/conversion/const2.C: New test.
+	* g++.dg/expr/reinterpret2.C: New test.
+	* g++.dg/expr/reinterpret3.C: New test.
+	* g++.dg/expr/cast2.C: New test.
+	* g++.dg/expr/copy1.C: New test.
+	* g++.dg/other/conversion1.C: Change error message.
+	* g++.dg/parse/comma1.C: Use __extension__ to allow casts from
+	function pointers to void *.
+	* g++.old-deja/g++.mike/p10148.C: Likewise.
+
+2004-10-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: Pass -mtune=i486 only on x86.
+
+2004-10-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/18047
+
+	* g++.dg/parse/expr3.C: New test.
+
+2004-10-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/smod-1.c: New test.
+
+2004-10-18  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/method-14.m: New test.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/pr17529.c: Fix test for non x86.
+	Also xfail as the patch was reverted.
+
+2004-10-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/16973
+	* gcc.dg/pr16973.c: New test.
+
+2004-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17656
+	* testsuite/gcc.c-torture/compile/pr17656.c: New test.
+
+2004-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/eh/shadow1.C: New.
+
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20041018-1.c: New test.
+
+2004-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/ppc-sdata-1.c: Update to consider the possibility of the
+	compiler referring to register 0 when accessing sdata.  The linker
+	now patches things up.
+
 2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/17529

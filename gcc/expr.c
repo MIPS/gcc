@@ -144,7 +144,7 @@ static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
 				     tree, tree, int, int);
 static void store_constructor (tree, rtx, int, HOST_WIDE_INT);
 static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT, enum machine_mode,
-			tree, enum machine_mode, int, tree, int);
+			tree, tree, int);
 
 static unsigned HOST_WIDE_INT highest_pow2_factor (tree);
 static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (tree, tree);
@@ -1567,8 +1567,27 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, src;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_src);
 
   gcc_assert (GET_CODE (dst) == PARALLEL);
+
+  if (!SCALAR_INT_MODE_P (m)
+      && !MEM_P (orig_src) && GET_CODE (orig_src) != CONCAT)
+    {
+      enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_src));
+      if (imode == BLKmode)
+	src = assign_stack_temp (GET_MODE (orig_src), ssize, 0);
+      else
+	src = gen_reg_rtx (imode);
+      if (imode != BLKmode)
+	src = gen_lowpart (GET_MODE (orig_src), src);
+      emit_move_insn (src, orig_src);
+      /* ...and back again.  */
+      if (imode != BLKmode)
+	src = gen_lowpart (imode, src);
+      emit_group_load (dst, src, type, ssize);
+      return;
+    }
 
   /* Check for a NULL entry, used to indicate that the parameter goes
      both on the stack and in registers.  */
@@ -1723,8 +1742,24 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, dst;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_dst);
 
   gcc_assert (GET_CODE (src) == PARALLEL);
+
+  if (!SCALAR_INT_MODE_P (m)
+      && !MEM_P (orig_dst) && GET_CODE (orig_dst) != CONCAT)
+    {
+      enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_dst));
+      if (imode == BLKmode)
+        dst = assign_stack_temp (GET_MODE (orig_dst), ssize, 0);
+      else
+        dst = gen_reg_rtx (imode);
+      emit_group_store (dst, src, type, ssize);
+      if (imode != BLKmode)
+        dst = gen_lowpart (GET_MODE (orig_dst), dst);
+      emit_move_insn (orig_dst, dst);
+      return;
+    }
 
   /* Check for a NULL entry, used to indicate that the parameter goes
      both on the stack and in registers.  */
@@ -3405,13 +3440,10 @@ get_subtarget (rtx x)
 	  ? 0 : x);
 }
 
-/* Expand an assignment that stores the value of FROM into TO.
-   If WANT_VALUE is nonzero, return an rtx for the value of TO.
-   (If the value is constant, this rtx is a constant.)
-   Otherwise, the returned value is NULL_RTX.  */
+/* Expand an assignment that stores the value of FROM into TO.  */
 
-rtx
-expand_assignment (tree to, tree from, int want_value)
+void
+expand_assignment (tree to, tree from)
 {
   rtx to_rtx = 0;
   rtx result;
@@ -3421,7 +3453,7 @@ expand_assignment (tree to, tree from, int want_value)
   if (TREE_CODE (to) == ERROR_MARK)
     {
       result = expand_expr (from, NULL_RTX, VOIDmode, 0);
-      return want_value ? result : NULL_RTX;
+      return;
     }
 
   /* Assignment of a structure component needs special treatment
@@ -3448,9 +3480,6 @@ expand_assignment (tree to, tree from, int want_value)
 
       /* If we are going to use store_bit_field and extract_bit_field,
 	 make sure to_rtx will be safe for multiple use.  */
-
-      if (mode1 == VOIDmode && want_value)
-	tem = stabilize_reference (tem);
 
       orig_to_rtx = to_rtx = expand_expr (tem, NULL_RTX, VOIDmode, 0);
 
@@ -3513,7 +3542,7 @@ expand_assignment (tree to, tree from, int want_value)
 	}
 
       /* Optimize bitfld op= val in certain cases.  */
-      while (mode1 == VOIDmode && !want_value
+      while (mode1 == VOIDmode
 	     && bitsize > 0 && bitsize < BITS_PER_WORD
 	     && GET_MODE_BITSIZE (GET_MODE (to_rtx)) <= BITS_PER_WORD
 	     && !TREE_SIDE_EFFECTS (to)
@@ -3616,7 +3645,7 @@ expand_assignment (tree to, tree from, int want_value)
 		emit_move_insn (str_rtx, result);
 	      free_temp_slots ();
 	      pop_temp_slots ();
-	      return NULL_RTX;
+	      return;
 
 	    default:
 	      break;
@@ -3626,12 +3655,7 @@ expand_assignment (tree to, tree from, int want_value)
 	}
 
       result = store_field (to_rtx, bitsize, bitpos, mode1, from,
-			    (want_value
-			     /* Spurious cast for HPUX compiler.  */
-			     ? ((enum machine_mode)
-				TYPE_MODE (TREE_TYPE (to)))
-			     : VOIDmode),
-			    unsignedp, TREE_TYPE (tem), get_alias_set (to));
+			    TREE_TYPE (tem), get_alias_set (to));
 
       preserve_temp_slots (result);
       free_temp_slots ();
@@ -3639,11 +3663,7 @@ expand_assignment (tree to, tree from, int want_value)
 
       /* If the value is meaningful, convert RESULT to the proper mode.
 	 Otherwise, return nothing.  */
-      return (want_value ? convert_modes (TYPE_MODE (TREE_TYPE (to)),
-					  TYPE_MODE (TREE_TYPE (from)),
-					  result,
-					  TYPE_UNSIGNED (TREE_TYPE (to)))
-	      : NULL_RTX);
+      return;
     }
 
   /* If the rhs is a function call and its value is not an aggregate,
@@ -3684,7 +3704,7 @@ expand_assignment (tree to, tree from, int want_value)
       preserve_temp_slots (to_rtx);
       free_temp_slots ();
       pop_temp_slots ();
-      return want_value ? to_rtx : NULL_RTX;
+      return;
     }
 
   /* Ordinary treatment.  Expand TO to get a REG or MEM rtx.
@@ -3711,7 +3731,7 @@ expand_assignment (tree to, tree from, int want_value)
       preserve_temp_slots (to_rtx);
       free_temp_slots ();
       pop_temp_slots ();
-      return want_value ? to_rtx : NULL_RTX;
+      return;
     }
 
   /* In case we are returning the contents of an object which overlaps
@@ -3737,29 +3757,21 @@ expand_assignment (tree to, tree from, int want_value)
       preserve_temp_slots (to_rtx);
       free_temp_slots ();
       pop_temp_slots ();
-      return want_value ? to_rtx : NULL_RTX;
+      return;
     }
 
   /* Compute FROM and store the value in the rtx we got.  */
 
   push_temp_slots ();
-  result = store_expr (from, to_rtx, want_value);
+  result = store_expr (from, to_rtx, 0);
   preserve_temp_slots (result);
   free_temp_slots ();
   pop_temp_slots ();
-  return want_value ? result : NULL_RTX;
+  return;
 }
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
-
-   If WANT_VALUE & 1 is nonzero, return a copy of the value
-   not in TARGET, so that we can be sure to use the proper
-   value in a containing expression even if TARGET has something
-   else stored in it.  If possible, we copy the value through a pseudo
-   and return that pseudo.  Or, if the value is constant, we try to
-   return the constant.  In some cases, we return a pseudo
-   copied *from* TARGET.
 
    If the mode is BLKmode then we may return TARGET itself.
    It turns out that in BLKmode it doesn't cause a problem.
@@ -3768,27 +3780,22 @@ expand_assignment (tree to, tree from, int want_value)
    with no sequence point.  Will other languages need this to
    be more thorough?
 
-   If WANT_VALUE & 1 is 0, we return NULL, to make sure
-   to catch quickly any cases where the caller uses the value
-   and fails to set WANT_VALUE.
-
-   If WANT_VALUE & 2 is set, this is a store into a call param on the
+   If CALL_PARAM_P is nonzero, this is a store into a call param on the
    stack, and block moves may need to be treated specially.  */
 
 rtx
-store_expr (tree exp, rtx target, int want_value)
+store_expr (tree exp, rtx target, int call_param_p)
 {
   rtx temp;
   rtx alt_rtl = NULL_RTX;
   int dont_return_target = 0;
-  int dont_store_target = 0;
 
   if (VOID_TYPE_P (TREE_TYPE (exp)))
     {
       /* C++ can generate ?: expressions with a throw expression in one
 	 branch and an rvalue in the other. Here, we resolve attempts to
 	 store the throw expression's nonexistent result.  */
-      gcc_assert (!want_value);
+      gcc_assert (!call_param_p);
       expand_expr (exp, const0_rtx, VOIDmode, 0);
       return NULL_RTX;
     }
@@ -3797,8 +3804,8 @@ store_expr (tree exp, rtx target, int want_value)
       /* Perform first part of compound expression, then assign from second
 	 part.  */
       expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
-		   want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
-      return store_expr (TREE_OPERAND (exp, 1), target, want_value);
+		   call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+      return store_expr (TREE_OPERAND (exp, 1), target, call_param_p);
     }
   else if (TREE_CODE (exp) == COND_EXPR && GET_MODE (target) == BLKmode)
     {
@@ -3812,40 +3819,15 @@ store_expr (tree exp, rtx target, int want_value)
       do_pending_stack_adjust ();
       NO_DEFER_POP;
       jumpifnot (TREE_OPERAND (exp, 0), lab1);
-      store_expr (TREE_OPERAND (exp, 1), target, want_value & 2);
+      store_expr (TREE_OPERAND (exp, 1), target, call_param_p);
       emit_jump_insn (gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
-      store_expr (TREE_OPERAND (exp, 2), target, want_value & 2);
+      store_expr (TREE_OPERAND (exp, 2), target, call_param_p);
       emit_label (lab2);
       OK_DEFER_POP;
 
-      return want_value & 1 ? target : NULL_RTX;
-    }
-  else if ((want_value & 1) != 0
-	   && MEM_P (target)
-	   && ! MEM_VOLATILE_P (target)
-	   && GET_MODE (target) != BLKmode)
-    /* If target is in memory and caller wants value in a register instead,
-       arrange that.  Pass TARGET as target for expand_expr so that,
-       if EXP is another assignment, WANT_VALUE will be nonzero for it.
-       We know expand_expr will not use the target in that case.
-       Don't do this if TARGET is volatile because we are supposed
-       to write it and then read it.  */
-    {
-      temp = expand_expr (exp, target, GET_MODE (target),
-			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
-      if (GET_MODE (temp) != BLKmode && GET_MODE (temp) != VOIDmode)
-	{
-	  /* If TEMP is already in the desired TARGET, only copy it from
-	     memory and don't store it there again.  */
-	  if (temp == target
-	      || (rtx_equal_p (temp, target)
-		  && ! side_effects_p (temp) && ! side_effects_p (target)))
-	    dont_store_target = 1;
-	  temp = copy_to_reg (temp);
-	}
-      dont_return_target = 1;
+      return NULL_RTX;
     }
   else if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
     /* If this is a scalar in a register that is stored in a wider mode
@@ -3855,14 +3837,13 @@ store_expr (tree exp, rtx target, int want_value)
     {
       rtx inner_target = 0;
 
-      /* If we don't want a value, we can do the conversion inside EXP,
-	 which will often result in some optimizations.  Do the conversion
-	 in two steps: first change the signedness, if needed, then
-	 the extend.  But don't do this if the type of EXP is a subtype
-	 of something else since then the conversion might involve
-	 more than just converting modes.  */
-      if ((want_value & 1) == 0
-	  && INTEGRAL_TYPE_P (TREE_TYPE (exp))
+      /* We can do the conversion inside EXP, which will often result
+	 in some optimizations.  Do the conversion in two steps: first
+	 change the signedness, if needed, then the extend.  But don't
+	 do this if the type of EXP is a subtype of something else
+	 since then the conversion might involve more than just
+	 converting modes.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (exp))
 	  && TREE_TYPE (TREE_TYPE (exp)) == 0
 	  && (!lang_hooks.reduce_bit_field_operations
 	      || (GET_MODE_PRECISION (GET_MODE (target))
@@ -3883,15 +3864,7 @@ store_expr (tree exp, rtx target, int want_value)
 	}
 
       temp = expand_expr (exp, inner_target, VOIDmode,
-			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
-
-      /* If TEMP is a MEM and we want a result value, make the access
-	 now so it gets done only once.  Strictly speaking, this is
-	 only necessary if the MEM is volatile, or if the address
-	 overlaps TARGET.  But not performing the load twice also
-	 reduces the amount of rtl we generate and then have to CSE.  */
-      if (MEM_P (temp) && (want_value & 1) != 0)
-	temp = copy_to_reg (temp);
+			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -3907,31 +3880,12 @@ store_expr (tree exp, rtx target, int want_value)
       convert_move (SUBREG_REG (target), temp,
 		    SUBREG_PROMOTED_UNSIGNED_P (target));
 
-      /* If we promoted a constant, change the mode back down to match
-	 target.  Otherwise, the caller might get confused by a result whose
-	 mode is larger than expected.  */
-
-      if ((want_value & 1) != 0 && GET_MODE (temp) != GET_MODE (target))
-	{
-	  if (GET_MODE (temp) != VOIDmode)
-	    {
-	      temp = gen_lowpart_SUBREG (GET_MODE (target), temp);
-	      SUBREG_PROMOTED_VAR_P (temp) = 1;
-	      SUBREG_PROMOTED_UNSIGNED_SET (temp,
-		SUBREG_PROMOTED_UNSIGNED_P (target));
-	    }
-	  else
-	    temp = convert_modes (GET_MODE (target),
-				  GET_MODE (SUBREG_REG (target)),
-				  temp, SUBREG_PROMOTED_UNSIGNED_P (target));
-	}
-
-      return want_value & 1 ? temp : NULL_RTX;
+      return NULL_RTX;
     }
   else
     {
       temp = expand_expr_real (exp, target, GET_MODE (target),
-			       (want_value & 2
+			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
       /* Return TARGET if it's a specified hardware register.
@@ -3945,7 +3899,7 @@ store_expr (tree exp, rtx target, int want_value)
 	    && REGNO (target) < FIRST_PSEUDO_REGISTER)
 	  && !(MEM_P (target) && MEM_VOLATILE_P (target))
 	  && ! rtx_equal_p (temp, target)
-	  && (CONSTANT_P (temp) || (want_value & 1) != 0))
+	  && CONSTANT_P (temp))
 	dont_return_target = 1;
     }
 
@@ -3981,7 +3935,6 @@ store_expr (tree exp, rtx target, int want_value)
        || (temp != target && (side_effects_p (temp)
 			      || side_effects_p (target))))
       && TREE_CODE (exp) != ERROR_MARK
-      && ! dont_store_target
       /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
 	 but TARGET is not valid memory reference, TEMP will differ
 	 from TARGET although it is really the same location.  */
@@ -4019,7 +3972,7 @@ store_expr (tree exp, rtx target, int want_value)
 	  if (GET_CODE (size) == CONST_INT
 	      && INTVAL (size) < TREE_STRING_LENGTH (exp))
 	    emit_block_move (target, temp, size,
-			     (want_value & 2
+			     (call_param_p
 			      ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 	  else
 	    {
@@ -4030,7 +3983,7 @@ store_expr (tree exp, rtx target, int want_value)
 			      size_int (TREE_STRING_LENGTH (exp)));
 	      rtx copy_size_rtx
 		= expand_expr (copy_size, NULL_RTX, VOIDmode,
-			       (want_value & 2
+			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL));
 	      rtx label = 0;
 
@@ -4038,7 +3991,7 @@ store_expr (tree exp, rtx target, int want_value)
 	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx,
 					       TYPE_UNSIGNED (sizetype));
 	      emit_block_move (target, temp, copy_size_rtx,
-			       (want_value & 2
+			       (call_param_p
 				? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
 
 	      /* Figure out how much is left in TARGET that we have to clear.
@@ -4082,7 +4035,7 @@ store_expr (tree exp, rtx target, int want_value)
 			 int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
 	emit_block_move (target, temp, expr_size (exp),
-			 (want_value & 2
+			 (call_param_p
 			  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
       else
 	{
@@ -4092,24 +4045,7 @@ store_expr (tree exp, rtx target, int want_value)
 	}
     }
 
-  /* If we don't want a value, return NULL_RTX.  */
-  if ((want_value & 1) == 0)
-    return NULL_RTX;
-
-  /* If we are supposed to return TEMP, do so as long as it isn't a MEM.
-     ??? The latter test doesn't seem to make sense.  */
-  else if (dont_return_target && !MEM_P (temp))
-    return temp;
-
-  /* Return TARGET itself if it is a hard register.  */
-  else if ((want_value & 1) != 0
-	   && GET_MODE (target) != BLKmode
-	   && ! (REG_P (target)
-		 && REGNO (target) < FIRST_PSEUDO_REGISTER))
-    return copy_to_reg (target);
-
-  else
-    return target;
+  return NULL_RTX;
 }
 
 /* Examine CTOR.  Discover how many scalar fields are set to nonzero
@@ -4276,7 +4212,7 @@ count_type_elements (tree type)
 
 /* Return 1 if EXP contains mostly (3/4)  zeros.  */
 
-int
+static int
 mostly_zeros_p (tree exp)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR)
@@ -4343,8 +4279,7 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
       store_constructor (exp, target, cleared, bitsize / BITS_PER_UNIT);
     }
   else
-    store_field (target, bitsize, bitpos, mode, exp, VOIDmode, 0, type,
-		 alias_set);
+    store_field (target, bitsize, bitpos, mode, exp, type, alias_set);
 }
 
 /* Store the value of constructor EXP into the rtx TARGET.
@@ -4732,7 +4667,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		       the loop.  */
 		    expand_assignment (index,
 				       build2 (PLUS_EXPR, TREE_TYPE (index),
-					       index, integer_one_node), 0);
+					       index, integer_one_node));
 		    
 		    emit_jump (loop_start);
 		    
@@ -5095,12 +5030,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
    BITSIZE bits, starting BITPOS bits from the start of TARGET.
    If MODE is VOIDmode, it means that we are storing into a bit-field.
 
-   If VALUE_MODE is VOIDmode, return nothing in particular.
-   UNSIGNEDP is not used in this case.
-
-   Otherwise, return an rtx for the value stored.  This rtx
-   has mode VALUE_MODE if that is convenient to do.
-   In this case, UNSIGNEDP must be nonzero if the value is an unsigned type.
+   Always return const0_rtx unless we have something particular to
+   return.
 
    TYPE is the type of the underlying object,
 
@@ -5110,8 +5041,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 static rtx
 store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
-	     enum machine_mode mode, tree exp, enum machine_mode value_mode,
-	     int unsignedp, tree type, int alias_set)
+	     enum machine_mode mode, tree exp, tree type, int alias_set)
 {
   HOST_WIDE_INT width_mask = 0;
 
@@ -5146,8 +5076,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       if (bitsize != (HOST_WIDE_INT) GET_MODE_BITSIZE (GET_MODE (target)))
 	emit_move_insn (object, target);
 
-      store_field (blk_object, bitsize, bitpos, mode, exp, VOIDmode, 0, type,
-		   alias_set);
+      store_field (blk_object, bitsize, bitpos, mode, exp, type, alias_set);
 
       emit_move_insn (target, object);
 
@@ -5160,7 +5089,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       /* We're storing into a struct containing a single __complex.  */
 
       gcc_assert (!bitpos);
-      return store_expr (exp, target, value_mode != VOIDmode);
+      return store_expr (exp, target, 0);
     }
 
   /* If the structure is in a register or if the component
@@ -5221,62 +5150,18 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 				    / BITS_PER_UNIT),
 			   BLOCK_OP_NORMAL);
 
-	  return value_mode == VOIDmode ? const0_rtx : target;
+	  return const0_rtx;
 	}
 
       /* Store the value in the bitfield.  */
       store_bit_field (target, bitsize, bitpos, mode, temp);
 
-      if (value_mode != VOIDmode)
-	{
-	  /* The caller wants an rtx for the value.
-	     If possible, avoid refetching from the bitfield itself.  */
-	  if (width_mask != 0
-	      && ! (MEM_P (target) && MEM_VOLATILE_P (target)))
-	    {
-	      tree count;
-	      enum machine_mode tmode;
-
-	      tmode = GET_MODE (temp);
-	      if (tmode == VOIDmode)
-		tmode = value_mode;
-
-	      if (unsignedp)
-		return expand_and (tmode, temp,
-				   gen_int_mode (width_mask, tmode),
-				   NULL_RTX);
-
-	      count = build_int_cst (NULL_TREE,
-				     GET_MODE_BITSIZE (tmode) - bitsize);
-	      temp = expand_shift (LSHIFT_EXPR, tmode, temp, count, 0, 0);
-	      return expand_shift (RSHIFT_EXPR, tmode, temp, count, 0, 0);
-	    }
-
-	  return extract_bit_field (target, bitsize, bitpos, unsignedp,
-				    NULL_RTX, value_mode, VOIDmode);
-	}
       return const0_rtx;
     }
   else
     {
-      rtx addr = XEXP (target, 0);
-      rtx to_rtx = target;
-
-      /* If a value is wanted, it must be the lhs;
-	 so make the address stable for multiple use.  */
-
-      if (value_mode != VOIDmode && !REG_P (addr)
-	  && ! CONSTANT_ADDRESS_P (addr)
-	  /* A frame-pointer reference is already stable.  */
-	  && ! (GET_CODE (addr) == PLUS
-		&& GET_CODE (XEXP (addr, 1)) == CONST_INT
-		&& (XEXP (addr, 0) == virtual_incoming_args_rtx
-		    || XEXP (addr, 0) == virtual_stack_vars_rtx)))
-	to_rtx = replace_equiv_address (to_rtx, copy_to_reg (addr));
-
       /* Now build a reference to just the desired component.  */
-
-      to_rtx = adjust_address (target, mode, bitpos / BITS_PER_UNIT);
+      rtx to_rtx = adjust_address (target, mode, bitpos / BITS_PER_UNIT);
 
       if (to_rtx == target)
 	to_rtx = copy_rtx (to_rtx);
@@ -5285,7 +5170,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       if (!MEM_KEEP_ALIAS_SET_P (to_rtx) && MEM_ALIAS_SET (to_rtx) != 0)
 	set_mem_alias_set (to_rtx, alias_set);
 
-      return store_expr (exp, to_rtx, value_mode != VOIDmode);
+      return store_expr (exp, to_rtx, 0);
     }
 }
 
@@ -7275,7 +7160,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    /* Store data into beginning of memory target.  */
 	    store_expr (TREE_OPERAND (exp, 0),
 			adjust_address (target, TYPE_MODE (valtype), 0),
-			modifier == EXPAND_STACK_PARM ? 2 : 0);
+			modifier == EXPAND_STACK_PARM);
 
 	  else
 	    {
@@ -7288,7 +7173,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 				 * BITS_PER_UNIT),
 				(HOST_WIDE_INT) GET_MODE_BITSIZE (mode)),
 			   0, TYPE_MODE (valtype), TREE_OPERAND (exp, 0),
-			   VOIDmode, 0, type, 0);
+			   type, 0);
 	    }
 
 	  /* Return the entire union.  */
@@ -8046,13 +7931,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
        op1 = gen_label_rtx ();
        jumpifnot (TREE_OPERAND (exp, 0), op0);
        store_expr (TREE_OPERAND (exp, 1), temp,
- 		  modifier == EXPAND_STACK_PARM ? 2 : 0);
+ 		  modifier == EXPAND_STACK_PARM);
 
        emit_jump_insn (gen_jump (op1));
        emit_barrier ();
        emit_label (op0);
        store_expr (TREE_OPERAND (exp, 2), temp,
- 		  modifier == EXPAND_STACK_PARM ? 2 : 0);
+ 		  modifier == EXPAND_STACK_PARM);
 
        emit_label (op1);
        OK_DEFER_POP;
@@ -8067,7 +7952,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree lhs = TREE_OPERAND (exp, 0);
 	tree rhs = TREE_OPERAND (exp, 1);
 
-	temp = 0;
+	gcc_assert (ignore);
 
 	/* Check for |= or &= of a bitfield of size one into another bitfield
 	   of size 1.  In this case, (unless we need the result of the
@@ -8077,8 +7962,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	   ??? At this point, we can't get a BIT_FIELD_REF here.  But if
 	   things change so we do, this code should be enhanced to
 	   support it.  */
-	if (ignore
-	    && TREE_CODE (lhs) == COMPONENT_REF
+	if (TREE_CODE (lhs) == COMPONENT_REF
 	    && (TREE_CODE (rhs) == BIT_IOR_EXPR
 		|| TREE_CODE (rhs) == BIT_AND_EXPR)
 	    && TREE_OPERAND (rhs, 0) == lhs
@@ -8094,16 +7978,15 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    expand_assignment (lhs, convert (TREE_TYPE (rhs),
 					     (TREE_CODE (rhs) == BIT_IOR_EXPR
 					      ? integer_one_node
-					      : integer_zero_node)),
-			       0);
+					      : integer_zero_node)));
 	    do_pending_stack_adjust ();
 	    emit_label (label);
 	    return const0_rtx;
 	  }
 
-	temp = expand_assignment (lhs, rhs, ! ignore);
+	expand_assignment (lhs, rhs);
 
-	return temp;
+	return const0_rtx;
       }
 
     case RETURN_EXPR:

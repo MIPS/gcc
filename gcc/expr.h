@@ -298,6 +298,9 @@ extern void emit_cmp_and_jump_insns (rtx, rtx, enum rtx_code, rtx,
 /* Generate code to indirectly jump to a location given in the rtx LOC.  */
 extern void emit_indirect_jump (rtx);
 
+/* Generate a conditional trap instruction.  */
+extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
+
 #include "insn-config.h"
 
 #ifdef HAVE_conditional_move
@@ -329,19 +332,6 @@ extern rtx emit_store_flag (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 /* Like emit_store_flag, but always succeeds.  */
 extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 				  enum machine_mode, int, int);
-
-/* Functions from loop.c:  */
-
-/* Given an insn and condition, return a canonical description of
-   the test being made.  */
-extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
-
-/* Given a JUMP_INSN, return a canonical description of the test
-   being made.  */
-extern rtx get_condition (rtx, rtx *, int, int);
-
-/* Generate a conditional trap instruction.  */
-extern rtx gen_cond_trap (enum rtx_code, rtx, rtx, rtx);
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -350,9 +340,7 @@ extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
-extern void expand_builtin_longjmp (rtx, rtx);
 extern rtx expand_builtin_saveregs (void);
-extern void expand_builtin_trap (void);
 
 /* Functions from expr.c:  */
 
@@ -466,7 +454,7 @@ extern void emit_push_insn (rtx, enum machine_mode, tree, rtx, unsigned int,
 			    int, rtx, int, rtx, rtx, int, rtx);
 
 /* Expand an assignment that stores the value of FROM into TO.  */
-extern rtx expand_assignment (tree, tree, int);
+extern void expand_assignment (tree, tree);
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
@@ -498,6 +486,9 @@ extern void expand_var (tree);
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);
+
+/* Discard any pending stack adjustment.  */
+extern void discard_pending_stack_adjust (void);
 
 /* When exiting from function, if safe, clear out any pending stack adjust
    so the adjustment won't get done.  */

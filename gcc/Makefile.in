@@ -703,7 +703,7 @@ SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h varray.h
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
 CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
-CGRAPH_H = cgraph.h bitmap.h tree.h $(HASHTAB_H)
+CGRAPH_H = cgraph.h tree.h 
 DF_H = df.h bitmap.h sbitmap.h $(BASIC_BLOCK_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
@@ -912,9 +912,7 @@ OBJS-common = \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o modulo-sched.o optabs.o options.o opts.o			   \
  params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o integrate.o intl.o jump.o langhooks.o lcm.o lists.o 	   \
- local-alloc.o loop.o modulo-sched.o optabs.o options.o opts.o		   \
- params.o pointer-set.o postreload.o postreload-gcse.o predict.o 	   \
+ insn-preds.o pointer-set.o postreload.o				   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -1081,9 +1079,6 @@ gccbug:	$(srcdir)/gccbug.in
 
 mklibgcc: $(srcdir)/mklibgcc.in
 	CONFIG_FILES=mklibgcc CONFIG_HEADERS= ./config.status
-
-mkheaders: $(srcdir)/mkheaders.in
-	CONFIG_FILES=mkheaders CONFIG_HEADERS= ./config.status
 
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
@@ -1886,7 +1881,7 @@ optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    $(FLAGS_H) $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
    insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h \
-   $(GGC_H) gt-dbxout.h
+   $(GGC_H) $(OBSTACK_H) gt-dbxout.h
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) debug.h \
    $(TREE_H) $(GGC_H) varray.h $(RTL_H) $(REGS_H) $(FLAGS_H) insn-config.h \
@@ -2040,7 +2035,7 @@ loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H)
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) $(PARAMS_H) \
-   output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H)
+   output.h $(EXPR_H) coretypes.h $(TM_H) $(HASHTAB_H) $(RECOG_H) $(VARRAY_H)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h
 et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h alloc-pool.h
@@ -2409,7 +2404,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/reload.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
-  $(srcdir)/cgraphunit.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
@@ -2789,31 +2783,24 @@ stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) xlimits.h
 	chmod a+r include/limits.h
 # Install the README
 	rm -f include/README
-	cp $(srcdir)/README-fixinc include/README
+	cp $(srcdir)/../fixincludes/README-fixinc include/README
 	chmod a+r include/README
 	$(STAMP) $@
-
-# fixinc.sh depends on this, not on specs directly.
-# The idea is to make sure specs gets built, but not rerun fixinc.sh
-# after each stage just because specs' mtime has changed.
-# It also depends on cc1 since fixinc.sh uses it.
-specs.ready: specs cc1$(exeext)
-	-if [ -f specs.ready ] ; then \
-		true; \
-	else \
-		$(STAMP) specs.ready; \
-	fi
-
-fixinc.sh: mkfixinc.sh fixinc.in
-	build_subdir="$(build_subdir)" srcdir="$(srcdir)" \
-	  $(SHELL) $(srcdir)/mkfixinc.sh $(build) $(target)
 
 .PHONY: install-gcc-tooldir
 install-gcc-tooldir:
 	$(mkinstalldirs) $(DESTDIR)$(gcc_tooldir)
 
+macro_list : $(GCC_PASSES)
+	echo | $(GCC_FOR_TARGET) -E -dM - | \
+	  sed -n 's/^#define \([^_][a-zA-Z0-9_]*\).*/\1/p ; \
+		s/^#define \(_[^_A-Z][a-zA-Z0-9_]*\).*/\1/p' | \
+	  sort -u > $@
+
 # Build fixed copies of system files.
-stmp-fixinc: fixinc.sh gsyslimits.h specs.ready
+stmp-fixinc: gsyslimits.h macro_list \
+  ../$(build_subdir)/fixincludes/fixincl \
+  ../$(build_subdir)/fixincludes/fixinc.sh
 	@if test ! -d ${SYSTEM_HEADER_DIR}; then \
 	  echo The directory that should contain system headers does not exist: >&2 ; \
 	  echo "  ${SYSTEM_HEADER_DIR}" >&2 ; \
@@ -2823,16 +2810,18 @@ stmp-fixinc: fixinc.sh gsyslimits.h specs.ready
 	rm -rf include; mkdir include
 	-chmod a+rx include
 	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD_COMMAND}`; \
-	SHELL='$(SHELL)' ;\
-	export TARGET_MACHINE srcdir SHELL ; \
-	$(SHELL) ./fixinc.sh `${PWD_COMMAND}`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
-	rm -f include/syslimits.h; \
+	  SHELL='$(SHELL)'; MACRO_LIST=`${PWD_COMMAND}`/macro_list ; \
+	  export TARGET_MACHINE srcdir SHELL MACRO_LIST && \
+	  cd ../$(build_subdir)/fixincludes && \
+	  $(SHELL) ./fixinc.sh ../../gcc/include \
+	    $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS) )
+	rm -f include/syslimits.h
 	if [ -f include/limits.h ]; then \
 	  mv include/limits.h include/syslimits.h; \
 	else \
 	  cp $(srcdir)/gsyslimits.h include/syslimits.h; \
-	fi; \
-	chmod a+r include/syslimits.h)
+	fi
+	chmod a+r include/syslimits.h
 	$(STAMP) stmp-fixinc
 
 # Files related to the fixproto script.
@@ -2915,6 +2904,12 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	  $(STAMP) include/fixed; \
 	fi
 	$(STAMP) stmp-fixproto
+
+# We can't run fixproto (it's being built for a different host), but we still
+# need to install it so that the user can run it when the compiler is
+# installed.
+stmp-install-fixproto: fixproto
+	$(STAMP) $@
 #
 # Remake the info files.
 
@@ -3059,10 +3054,8 @@ mostlyclean: lang.mostlyclean
 	-rm -f specs $(SPECS) SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump
 # Delete files generated for fixproto
-	-rm -rf fix-header$(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
+	-rm -rf $(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
 	  gen-protos$(build_exeext) fixproto.list fixtmp.* fixhdr.ready
-# Delete files generated for fixincl
-	-rm -rf fixinc.sh specs.ready
 # Delete unwanted output files from TeX.
 	-rm -f *.toc *.log *.vr *.fn *.cp *.tp *.ky *.pg
 	-rm -f */*.toc */*.log */*.vr */*.fn */*.cp */*.tp */*.ky */*.pg
@@ -3080,7 +3073,7 @@ mostlyclean: lang.mostlyclean
 # that don't exist in the distribution.
 clean: mostlyclean lang.clean
 	-rm -f libgcc.a libgcc_eh.a libgcov.a
-	-rm -f libgcc_s$(SHLIB_EXT) libgcc_s$(SHLIB_EXT).1
+	-rm -f libgcc_s*
 	-rm -f libunwind*
 	-rm -f config.h tconfig.h bconfig.h tm_p.h tm.h
 	-rm -f options.c options.h optionlist
@@ -3120,12 +3113,11 @@ distclean: clean lang.distclean
 	-cd testsuite && rm -f *.out *.gcov *$(coverageexts)
 	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f cxxmain.c
-	-rm -f mklibgcc mkheaders gccbug .gdbinit configargs.h
+	-rm -f mklibgcc gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
-	-rm -f fixinc/Makefile
 # Delete po/*.gmo only if we are not building in the source directory.
 	-if [ ! -f po/exgettext ]; then rm -f po/*.gmo; fi
-	-rmdir ada cp f java objc fixinc intl po testsuite 2>/dev/null
+	-rmdir ada cp f java objc intl po testsuite 2>/dev/null
 
 # Get rid of every file that's generated from some other file, except for `configure'.
 # Most of these files ARE PRESENT in the GCC distribution.
@@ -3355,28 +3347,18 @@ install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 
 itoolsdir = $(libexecsubdir)/install-tools
 itoolsdatadir = $(libsubdir)/install-tools
-# Don't install the headers.  Instead, install appropriate scripts
-# and supporting files for fixincludes to be run later.
+# Install supporting files for fixincludes to be run later.
 install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
-    mkheaders xlimits.h
-	-rm -rf $(DESTDIR)$(itoolsdir) $(DESTDIR)$(itoolsdatadir)
-	$(mkinstalldirs) $(DESTDIR)$(itoolsdatadir)/include
-	$(mkinstalldirs) $(DESTDIR)$(itoolsdir)
+  macro_list xlimits.h
 	for file in $(USER_H); do \
 	  realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
 	  $(INSTALL_DATA) $$file \
 	    $(DESTDIR)$(itoolsdatadir)/include/$$realfile ; \
 	done
 	$(INSTALL_DATA) xlimits.h $(DESTDIR)$(itoolsdatadir)/include/limits.h
-	if [ x$(STMP_FIXINC) != x ] ; then \
-	  $(INSTALL_DATA) $(srcdir)/README-fixinc \
-	    $(DESTDIR)$(itoolsdatadir)/include/README ; \
-	  $(INSTALL_SCRIPT) fixinc.sh $(DESTDIR)$(itoolsdir)/fixinc.sh ; \
-	  $(INSTALL_PROGRAM) ../$(build_subdir)/fixincludes/fixincl$(build_exeext) \
-		$(DESTDIR)$(itoolsdir)/fixincl ; \
-	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h \
-	    $(DESTDIR)$(itoolsdatadir)/gsyslimits.h ; \
-	else :; fi
+	$(INSTALL_DATA) $(srcdir)/gsyslimits.h \
+	  $(DESTDIR)$(itoolsdatadir)/gsyslimits.h
+	$(INSTALL_DATA) macro_list $(DESTDIR)$(itoolsdatadir)/macro_list
 	if [ x$(STMP_FIXPROTO) != x ] ; then \
 	  $(INSTALL_SCRIPT) $(mkinstalldirs) \
 		$(DESTDIR)$(itoolsdir)/mkinstalldirs ; \
@@ -3384,7 +3366,6 @@ install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
 	  $(INSTALL_PROGRAM) build/fix-header$(build_exeext) \
 		$(DESTDIR)$(itoolsdir)/fix-header$(build_exeext) ; \
 	else :; fi
-	$(INSTALL_SCRIPT) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
 	echo 'SYSTEM_HEADER_DIR="'"$(SYSTEM_HEADER_DIR)"'"' \
 		> $(DESTDIR)$(itoolsdatadir)/mkheaders.conf
 	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
@@ -3914,7 +3895,7 @@ stage1-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
 	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind*
+	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -3923,7 +3904,7 @@ stage1-start:
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage1
-	-cp libunwind* stage1
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage1
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -3953,7 +3934,7 @@ stage2-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
 	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind*
+	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -3962,7 +3943,7 @@ stage2-start:
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage2
-	-cp libunwind* stage2
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage2
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -3988,7 +3969,7 @@ stage3-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
 	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind*
+	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -3997,7 +3978,7 @@ stage3-start:
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage3
-	-cp libunwind* stage3
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage3
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -4023,7 +4004,7 @@ stage4-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
 	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind*
+	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -4032,7 +4013,7 @@ stage4-start:
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stage4
-	-cp libunwind* stage4
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stage4
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \
@@ -4056,7 +4037,7 @@ stageprofile-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
 	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind*
+	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -4065,7 +4046,7 @@ stageprofile-start:
 	   $(RANLIB_FOR_TARGET) stageprofile/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stageprofile
-	-cp libunwind* stageprofile
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stageprofile
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stageprofile/$${f} . ; \
 	else true; \
@@ -4089,7 +4070,7 @@ stagefeedback-start:
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
 	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
 	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind*
+	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
 	-rm -f *.da
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
@@ -4103,7 +4084,7 @@ stagefeedback-start:
 	   $(RANLIB_FOR_TARGET) stagefeedback/libgcc_eh.a; \
 	fi
 	-cp libgcc_s*$(SHLIB_EXT) stagefeedback
-	-cp libunwind* stagefeedback
+	-cp libunwind.a libunwind*$(SHLIB_EXT) stagefeedback
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stagefeedback/$${f} . ; \
 	else true; \

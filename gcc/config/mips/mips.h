@@ -393,18 +393,24 @@ extern const struct mips_cpu_info *mips_tune_info;
       if (!flag_iso)						\
 	builtin_define ("mips");				\
 								\
-      /* Treat _R3000 and _R4000 like register-size defines,	\
-	 which is how they've historically been used.  */	\
       if (TARGET_64BIT)						\
+	builtin_define ("__mips64");				\
+								\
+      if (!TARGET_IRIX)						\
 	{							\
-	  builtin_define ("__mips64");     			\
-	  builtin_define_std ("R4000");				\
-	  builtin_define ("_R4000");				\
-	}							\
-      else							\
-	{							\
-	  builtin_define_std ("R3000");				\
-	  builtin_define ("_R3000");				\
+	  /* Treat _R3000 and _R4000 like register-size		\
+	     defines, which is how they've historically		\
+	     been used.  */					\
+	  if (TARGET_64BIT)					\
+	    {							\
+	      builtin_define_std ("R4000");			\
+	      builtin_define ("_R4000");			\
+	    }							\
+	  else							\
+	    {							\
+	      builtin_define_std ("R3000");			\
+	      builtin_define ("_R3000");			\
+	    }							\
 	}							\
       if (TARGET_FLOAT64)					\
 	builtin_define ("__mips_fpr=64");			\
@@ -2790,20 +2796,15 @@ while (0)
 #define ASM_OUTPUT_SOURCE_FILENAME(STREAM, NAME)			\
   mips_output_filename (STREAM, NAME)
 
-/* This is defined so that it can be overridden in iris6.h.  */
-#define ASM_OUTPUT_FILENAME(STREAM, NUM_SOURCE_FILENAMES, NAME) \
-do								\
-  {								\
-    fprintf (STREAM, "\t.file\t%d ", NUM_SOURCE_FILENAMES);	\
-    output_quoted_string (STREAM, NAME);			\
-    fputs ("\n", STREAM);					\
-  }								\
-while (0)
+/* mips-tfile does not understand .stabd directives.  */
+#define DBX_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) do {	\
+  dbxout_begin_stabn_sline (LINE);				\
+  dbxout_stab_value_internal_label ("LM", &COUNTER);		\
+} while (0)
 
-#ifndef ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)		\
-  mips_output_lineno (STREAM, LINE)
-#endif
+/* Use .loc directives for SDB line numbers.  */
+#define SDB_OUTPUT_SOURCE_LINE(STREAM, LINE)			\
+  fprintf (STREAM, "\t.loc\t%d %d\n", num_source_filenames, LINE)
 
 /* The MIPS implementation uses some labels for its own purpose.  The
    following lists what labels are created, and are all formed by the

@@ -1446,8 +1446,6 @@ extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
 extern rtx get_pool_constant_for_function (struct function *, rtx);
-extern enum machine_mode get_pool_mode_for_function (struct function *, rtx);
-extern int get_pool_offset (rtx);
 extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
@@ -1530,7 +1528,6 @@ extern void cleanup_barriers (void);
 extern bool squeeze_notes (rtx *, rtx *);
 extern rtx delete_related_insns (rtx);
 extern void delete_jump (rtx);
-extern void delete_barrier (rtx);
 extern rtx get_label_before (rtx);
 extern rtx get_label_after (rtx);
 extern rtx follow_jumps (rtx);
@@ -1570,6 +1567,7 @@ extern rtx simplify_gen_subreg (enum machine_mode, rtx, enum machine_mode,
 extern rtx simplify_replace_rtx (rtx, rtx, rtx);
 extern rtx simplify_rtx (rtx);
 extern rtx avoid_constant_pool_reference (rtx);
+extern bool mode_signbit_p (enum machine_mode, rtx);
 
 /* In regclass.c  */
 extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
@@ -1657,6 +1655,15 @@ extern rtx find_first_parameter_load (rtx, rtx);
 extern bool keep_with_call_p (rtx);
 extern bool label_is_jump_target_p (rtx, rtx);
 extern int insn_rtx_cost (rtx);
+
+/* Given an insn and condition, return a canonical description of
+   the test being made.  */
+extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
+
+/* Given a JUMP_INSN, return a canonical description of the test
+   being made.  */
+extern rtx get_condition (rtx, rtx *, int, int);
+
 
 /* flow.c */
 
@@ -2018,6 +2025,8 @@ extern void print_inline_rtx (FILE *, rtx, int);
 /* In loop.c */
 extern void init_loop (void);
 extern void loop_optimize (rtx, FILE *, int);
+
+/* In bt-load.c */
 extern void branch_target_load_optimize (bool);
 
 /* In function.c */

@@ -50,21 +50,20 @@ typedef bitmap regset;
 #define REG_SET_EQUAL_P(A, B) bitmap_equal_p (A, B)
 
 /* `and' a register set with a second register set.  */
-#define AND_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_AND)
+#define AND_REG_SET(TO, FROM) bitmap_and_into (TO, FROM)
 
 /* `and' the complement of a register set with a register set.  */
-#define AND_COMPL_REG_SET(TO, FROM) \
-  bitmap_operation (TO, TO, FROM, BITMAP_AND_COMPL)
+#define AND_COMPL_REG_SET(TO, FROM) bitmap_and_compl_into (TO, FROM)
 
 /* Inclusive or a register set with a second register set.  */
-#define IOR_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_IOR)
+#define IOR_REG_SET(TO, FROM) bitmap_ior_into (TO, FROM)
 
 /* Exclusive or a register set with a second register set.  */
-#define XOR_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_XOR)
+#define XOR_REG_SET(TO, FROM) bitmap_xor_into (TO, FROM)
 
 /* Or into TO the register set FROM1 `and'ed with the complement of FROM2.  */
 #define IOR_AND_COMPL_REG_SET(TO, FROM1, FROM2) \
-  bitmap_ior_and_compl (TO, FROM1, FROM2)
+  bitmap_ior_and_compl_into (TO, FROM1, FROM2)
 
 /* Clear a single register in a register set.  */
 #define CLEAR_REGNO_REG_SET(HEAD, REG) bitmap_clear_bit (HEAD, REG)
@@ -83,46 +82,24 @@ do {									\
   reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
 
+typedef bitmap_iterator reg_set_iterator;
+
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
    register number and executing CODE for all registers that are set.  */
-#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, CODE)		\
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, bi)		\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in the first regset and not set in the second.  */
-#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi) \
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET, MIN, REGNUM, RSI)	\
+  EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET, MIN, REGNUM, RSI)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
    set in both regsets.  */
-#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
-  do									\
-    {									\
-      bitmap_iterator bi;						\
-									\
-      EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, bi)	\
-	{								\
-	  CODE;								\
-        }								\
-    } while (0)
+#define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
+  EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
 /* Allocate a register set with oballoc.  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
@@ -589,7 +566,7 @@ ei_start_1 (VEC(edge) **ev)
 }
 
 /* Return an iterator pointing to the last element of an edge
-   vector. */
+   vector.  */
 static inline edge_iterator
 ei_last_1 (VEC(edge) **ev)
 {

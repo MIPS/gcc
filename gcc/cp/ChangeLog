@@ -1,3 +1,361 @@
+2004-11-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c, decl.c, lex.c, name-lookup.c, parser.c, pt.c,
+	search.c, typeck2.c: Fix comment formatting.
+
+2004-11-04  Ulrich Weigand  <uweigand@de.ibm.com>
+	
+	PR tree-optimization/18184
+	* cp-objcp-common.c (cxx_types_compatible_p): Do not treat pointers
+	of different modes or alias-all flags as equivalent.
+	* typeck.c (comptypes): Likewise.
+
+2004-11-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	DR 49, 100
+	* cp-tree.h (TYPE_REF_OBJ_P): New macro.
+	(TYPE_PTR_P, TYPE_PTROB_P, TYPE_PTROBV_P, TYPE_PTRFN_P,
+	TYPE_REFFN_P): Document.
+	(fold_decl_constant_value): New prototype.
+	* pt.c (convert_nontype_argument_function): Rewrite and extract
+	parts into...
+	(fold_decl_constant_value, convert_nontype_argument_function): New.
+	(lookup_template_class): Add comment about useless double call.
+	* mangle.c (write_expression): Strip conversions before lowering
+	pointer to members.
+	* cvt.c (ocp_convert): Check LOOKUP_COMPLAIN for a pedwarn. Disallow
+	enum to enum conversion.
+
+2004-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18124
+	* parser.c (cp_parser_type_parameter): Robustify.
+
+	PR c++/18155
+	* parser.c (cp_parser_single_declaration): Disallow template
+	typedefs.
+
+	PR c++/18177
+	* typeck.c (build_const_cast): Use error_operand_p.
+
+2004-11-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-lang.c (cxx_types_compatible_p): Remove prototype and definition.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Move to cp-objcp-common.h.
+	* cp-objcp-common.c (cxx_types_compatible_p): Moved definition here
+	from cp-lang.c.
+	* cp-objcp-common.h (cxx_types_compatible_p): Moved prototype here
+	from cp-lang.c.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Moved here from cp-lang.c.
+
+2004-11-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18064
+	* search.c (check_final_overrider): Deprecate gnu covariant extension.
+
+2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Convert diagnostics to use quoting flag q 9/n
+	* typeck.c (build_x_unary_op, convert_member_func_to_ptr, 
+	get_delta_difference):  Use new quotation style.
+	* repo.c (reopen_repo_file_for_write): Likewise.
+	* pt.c (do_type_instantiation): Likewise.
+	* parser.c (cp_parser_diagnose_invalid_type_name): 
+	* name-lookup.c (push_overloaded_decl, set_decl_namespace): 
+	* error.c (cp_print_error_function,
+	print_instantiation_full_context): Likewise.
+	* decl.c (define_label, grok_reference_init, 
+	maybe_deduce_size_from_array_init, revert_static_member_fn): 
+	* decl2.c (check_classfn): Likewise.
+	* class.c (add_method, check_field_decls, layout_class_type, 
+	resolve_address_of_overloaded_function): Likewise.
+	* call.c (build_x_va_arg, build_over_call): Likewise.
+
+2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Convert diagnostics to use quoting flag q 8/n
+	* cvt.c (cp_convert_to_pointer, warn_ref_binding, 
+	convert_to_reference, ocp_convert, convert_to_void 
+	cp_convert_to_pointer): Use new quotation style.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15172
+	* typeck2.c (store_init_value): Use split_nonconstant_init even
+	for types that require construction.
+	
+1004-10-28  Matt Austern  <austern@apple.com>
+
+	PR c++/17542
+	* cp-tree.h (class_key_or_enum_as_string): Declare.
+	* error.c (class_key_or_enum): Rename to class_key_or_enum_as_string
+	and remove static qualifier.
+	* decl.c (shadow_tag): Warn about ignored attributes in class/struct/
+	union/enum declaration.
+	
+2004-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* pt.c: Fix a comment typo.
+
+2004-10-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* typeck.c (composite_pointer_type): Remove comment about DR 195.
+	(build_reinterpret_cast_1): Revert DR195 patch. Only emit a
+	warning when being pedantic.
+	(build_reinterpet_cast, build_c_cast): Adjust.
+
+2004-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17695
+	* decl.c (grokdeclarator): Mark TYPE_DECLs as abstract when they
+	appear in a constructor/destructor that will be cloned.
+
+1004-10-28  Matt Austern  <austern@apple.com>
+
+	PR c++/14124
+	* decl.c (finish_enum): Handle packed attribute.
+	* parser.c (cp_parser_enum_specifier): Process trailing attributes.
+	
+2004-10-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17132
+	* pt.c (instantiate_class_template): Increment
+	processing_template_decl when substituting into a member class
+	template.
+
+2004-10-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17435
+	* call.c (convert_like_real): Fix formatting.
+	(initialize_reference): When binding a temporary to a base class,
+	ensure that the nominal copy made is to the derived class, not the
+	base class.
+
+	PR c++/18140
+	* parser.c (cp_parser_next_token_ends_template_argument_p): Do not
+	include ">>".
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (bad_specifiers): Move the q after the %.
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parser.c (cp_parser_diagnose_invalid_type_name): Move the q after
+	the %.
+
+2004-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.c (do_namespace_alias): Use FROB_CONTEXT.
+	* search.c (current_scope): Fix prototype.
+
+	PR c++/18093
+	* search.c (current_scope): Return the innermost non-block scope,
+	not the innermost non-block, non-namespace scope.
+	(at_namespace_scope_p): Adjust accordingly.
+	(dfs_accessible_post): Do not pass namespaces to is_friend.
+	(dfs_walk_once_accessible_r): Likewise.
+	* decl.c (grokvardecl): Adjust call to current_scope.
+	(build_enumerator): Likewise.
+	* parser.c (cp_parser_using_declaration): Likewise.
+	(cp_parser_direct_declarator): Use at_namespace_scope_p instead of
+	current_scope.
+	(cp_parser_class_head): Adjust call to current_scope.
+	* name-lookup.c (do_namespace_alias): Set the DECL_CONTEXT for the
+	alias.
+
+	PR c++/18020
+	* pt.c (tusbst_copy_and_build): Resolve enumeration constants to
+	their underlying values.
+
+	PR c++/18161
+	* typeck.c (build_binary_op): Honor build_type, even when in a
+	template.
+
+2004-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_lexer_get_preprocessor_token): Remove unneeded
+	padding token checking.
+
+2004-10-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18121
+	* decl.c (grokdeclarator) <case cdk_array>: Remove the call
+	layout_type as it is already done by create_array_type_for_decl.
+
+2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18095
+	* parser.c (eof_token): Make const, correctly initialize rid and
+	location fields.
+	(struct cp_lexer): Replace buffer_end pointer with buffer_length
+	count. Adjust.
+	(cp_lexer_new_main): Directly grow lexer's buffer here.  Don't
+	zero it out.
+	(cp_lexer_new_from_tokens): Adjust.
+	(cp_lexer_grow_buffer): Remove.
+	(cp_lexer_peek_nth_token, cp_lexer_consume_token,
+	cp_lexer_purge_token): Add const casts.
+
+2004-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18073
+	PR c++/10841
+	* cp-tree.h (convert_to_base): Change prototype.
+	(build_ptrmemfunc): Likewise.
+	(convert_ptrmem): New function.
+	* call.c (struct conversion): Adjust documentation for base_p.
+	(standard_conversion): Set base_p for ck_pmem conversions as
+	appropriate.
+	(convert_like_real): Use convert_to_base for ck_pmem and ck_ptr
+	conversions.
+	* class.c (convert_to_base): Handle both pointers and objects.
+	Add nonnull parameter.
+	(build_vfield_ref): Adjust call to convert_to_base.
+	* cvt.c (cp_convert_to_pointer): Adjust call to build_ptrmemfunc.
+	(convert_force): Likewise.
+	* typeck.c (build_unary_op): Likewise.
+	(convert_ptrmem): New function.
+	(build_static_cast_1): Use it.
+	(build_reinterpret_cast): Allow conversions to vector types.
+	(get_delta_difference): Add c_cast_p parameter.
+	(build_ptrmemfunc): Likewise.  Adjust calls to
+	get_delta_difference.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/13560
+	* error.c (cp_error_at): Output the context as it might be
+	different file as the other location.
+
+2004-10-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Fix a comment typo.
+
+2004-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13495
+	* decl.c (make_unbound_class_template): Add PARM_LIST parameter.
+	* cp-tree.h (make_unbound_class_template): Adjust prototype.
+	* parser.c (cp_parser_lookup_name): Adjust call to
+	make_unbound_class_template.
+	(cp_parser_single_declaration): Handle member class of class
+	template as template friend parsing correctly.
+	* friend.c (is_friend): Call is_specialization_of_friend for
+	template friend class.
+	(make_friend_class): Handle member class of class template as
+	template friend.
+	* pt.c (is_specialization_of_friend): Likewise.
+	(instantiate_class_template): Likewise.
+	(tsubst): Adjust call to make_unbound_class_template.
+
+2004-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* typeck.c (composite_pointer_type): Add comment about DR 195
+	(build_reinterpret_cast_1): Add for_reinterpret_cast_p parameter.
+	Allow function pointer conversions that DR195 suggests.
+	(build_reinterpret_cast, build_c_cast): Update
+	build_reinterpret_cast_1 calls. 
+
+2004-10-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c, typeck.c: Fix comment typos.
+
+2004-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_token_position): New typedef. Define VEC thereof.
+	(struct cp_lexer): Allow buffer and buffer_end to be NULL. Make
+	next_token and last_token cp_token_position. Make saved_tokens a
+	VEC(cp_token_position).
+	(eof_token): New static variable.
+	(CP_SAVED_TOKENS_SIZE): Rename to ...
+	(CP_SAVED_TOKEN_STACK): ... here.
+	(cp_lexer_new_main): Adjust main lexer creation and buffer
+	filling.
+	(cp_lexer_new_from_tokens): Do not copy the tokens, merely point
+	to the parent buffer.  Do not append eof token.
+	(cp_lexer_destroy): Only free buffer if non-NULL. Free token
+	stack.
+	(cp_lexer_next_token, cp_lexer_prev_token): Remove.
+	(cp_lexer_token_position, cp_lexer_token_at): New.
+	(cp_lexer_saving_tokens): Adjust. Make inline.
+	(cp_lexer_advance_token, cp_lexer_token_difference): Remove.
+	(cp_lexer_peek_token_emit_debug_info): Fold into ...
+	(cp_lexer_peek_token): ... here.
+	(cp_lexer_peek_nth_token): Don't peek past EOF.
+	(cp_lexer_consume_token): Set next_token to eof_token, if reaching
+	EOF.
+	(cp_lexer_purge_token): Adjust eof setting.
+	(cp_lexer_purge_tokens_after): Likewise.
+	(cp_lexer_save_tokens): Push next_token directly.
+	(cp_lexer_commit_tokens): Adjust.
+	(cp_lexer_rollback_tokens): Pop next_token directly.
+	(cp_parser_check_for_invalid_template_id): Adjust token purging.
+	(cp_parser_translation_unit): Do not consume the EOF.
+	(cp_parser_nested_name_specifier_opt): Adjust token purging.
+	(cp_parser_template_id, cp_parser_template_name): Likewise.
+
+2004-10-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14035
+	* call.c (struct conversion): Add base_p.
+	(convert_like): Add c_cast_p argument.
+	(convert_like_with_conversion): Likewise.
+	(build_conv): Clear base_p.
+	(standard_conversion): Set it, for derived-to-base conversions.
+	(convert_like_real): Add c_cast_p parameter.  Handle pointer
+	conversions directly rather than relying on ocp_convert.
+	(perform_direct_initialization_if_possible): Add c_cast_p
+	parameter.
+	* cp-tree.h (perform_direct_initialization_if_possible): Change
+	prototype.
+	(convert_member_func_to_ptr): New function.
+	* typeck.c (check_for_casting_away_constness): Add diag_fn
+	parameter.
+	(build_static_cast_1): New function, split out from ...
+	(build_static_cast): ... here.  Use build_static_cast_1.
+	(build_reinterpret_cast_1): New function, split out from ...
+	(build_reinterpret_cast): ... here.  Use build_reinterpret_cast_1.
+	(build_const_cast_1): New function, split out from ...
+	(build_const_cast): ... here.  Use build_const_cast_1.
+	(build_c_cast): Rewrite to use build_const_cast_1,
+	build_static_cast_1, and build_reinterpret_cast_1.
+	(convert_member_func_to_ptr): New function.
+
+2004-10-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/18047
+	* parser.c (enum cp_parser_prec): Give relational expressions
+	a higher precedence than equality expressions.
+
+2004-10-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (UNIQUELY_DERIVED_FROM_P): Adjust lookup_base call.
+	(ACCESSIBLY_UNIQUELY_DERIVED_P): Remove.
+	(PUBLICLY_UNIQUELY_DERIVED_P): Adjust lookup_base call.
+	(enum base_access): Reorganize.
+	(accessible_base_p, accessible_p): Add consider_local_p parameter.
+	* call.c (standard_conversion): Update comment about
+	DERIVED_FROM_P.
+	(enforce_access): Adjust accessible_p call.
+	(build_over_call): Adjust accessible_base_p call.
+	* class.c (convert_to_base): Adjust lookup_base call.
+	(build_vtbl_ref_1): Likewise.
+	(warn_about_ambiguous_bases): Likewise. Add early exit.
+	* cvt.c (convert_to_pointer_force) Adjust lookup_base call.
+	* search.c (accessible_base_p): Add consider_local_p parameter.
+	(lookup_base): Pass consider_local_p to accessible_base_p call.
+	(friend_accessible_p): Check whether scope is a class member.
+	Remove unnecessary class template check.
+	(accessible_p): Add consider_local_p parameter. Use it.
+	(adjust_result_of_qualified_name_lookup): Adjust lookup_base call.
+	* tree.c (maybe_dummy_object): Likewise.
+	* typeck.c (comp_except_type): Use PUBLICLY_UNIQUELY_DERIVED_P.
+	(build_class_member_access_expr): Adjust lookup_base call.
+	* typeck2.c (binfo_or_else): Likewise.
+	* rtti.c (build_dynamic_cast_1): Access can consider friendship
+	and current scope.
+
 2004-10-17  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/17743

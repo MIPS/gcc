@@ -1118,7 +1118,8 @@ update_equiv_regs (void)
   /* Clear all dead REGNOs from all basic block's live info.  */
   if (clear_regnos)
     {
-      int j;
+      unsigned j;
+      
       if (clear_regnos > 8)
 	{
 	  FOR_EACH_BB (bb)
@@ -1128,14 +1129,17 @@ update_equiv_regs (void)
 	    }
 	}
       else
-	EXECUTE_IF_SET_IN_REG_SET (&cleared_regs, 0, j,
-	  {
-	    FOR_EACH_BB (bb)
-	      {
-	        CLEAR_REGNO_REG_SET (bb->global_live_at_start, j);
-	        CLEAR_REGNO_REG_SET (bb->global_live_at_end, j);
-	      }
-	  });
+	{
+	  reg_set_iterator rsi;
+	  EXECUTE_IF_SET_IN_REG_SET (&cleared_regs, 0, j, rsi)
+	    {
+	      FOR_EACH_BB (bb)
+		{
+		  CLEAR_REGNO_REG_SET (bb->global_live_at_start, j);
+		  CLEAR_REGNO_REG_SET (bb->global_live_at_end, j);
+		}
+	    }
+	}
     }
 
   /* Clean up.  */

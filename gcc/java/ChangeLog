@@ -1,3 +1,66 @@
+2004-11-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/16843:
+	* gjavah.c (HANDLE_END_FIELD): Call print_field_info when
+	generating a JNI header.
+	(print_field_info): Handle JNI headers.
+	(jni_print_float): Likewise.
+	(jni_print_double): Likewise.
+
+2004-11-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (end_java_method): Remove duplicated code.
+
+2004-11-06  Zack Weinberg  <zack@codesourcery.com>
+            Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* lex.h (HAVE_ICONV): Undefine if we do not have HAVE_ICONV_H
+	as well.
+
+2004-11-02  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/17265
+	* class.c: Reinstate 2004-08-18 patch. 
+	(make_local_function_alias): Don't create an alias for extern (native)
+	functions.
+
+2004-10-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR java/17265
+	* class.c (make_local_function_alias): Revert 2004-08-18 change.
+	(make_method_value): Likewise.
+
+2004-10-21  Andrew Haley  <aph@redhat.com>
+
+	PR java/18091:
+	* jcf-parse.c (set_source_filename): Add code to build new sfname.
+
+2004-10-20  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (end_java_method): Don't expand if flag_syntax_only.
+	Remove duplicated code block.
+
+2004-10-18  Steven Bosscher  <stevenb@suse.de>
+
+	* Make-lang.in (java/parse.o-warn, java/parse-scan.o-warn):
+	New rules to work around old Bison warnings.
+
+2004-10-17  Steven Bosscher  <stevenb@suse.de>
+
+	* class.c (ident_subst): Always alloca buffer.
+	* java-opcodes.h (LAST_AND_UNUSED_JAVA_OPCODE): Add this dummy
+	opcode after including javaop.def.
+	* jcf-dump.c (CHECK_PC_IN_RANGE): Return 0 from the arm of the
+	conditional expression that exits, to avoid warnings.
+	* verify.c (CHECK_PC_IN_RANGE): Mark the __GNUC__ definition as
+	a user of an extension.
+	* win32-host.c: Move check down to have non-empty file when
+	WIN32 is not defined.
+
+	* Make-lang.in (java-warn): Add STRICT_WARN.
+	(java/jcf-io.o-warn): Don't have Werror for this file.
+	* jcf-io.c (caching_stat): Add FIXME for non-POSIX scandir use.
+
 2004-10-16  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	* expr.c (expr_add_location): Move declaration to before all

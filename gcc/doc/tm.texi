@@ -781,7 +781,7 @@ for that option, but it will not count as an undocumented option.  The
 actual option name is made by appending @samp{-m} to the specified name.
 Non-empty description strings should be marked with @code{N_(@dots{})} for
 @command{xgettext}.  Please do not mark empty strings because the empty
-string is reserved by GNU gettext. @code{gettext("")} returns the header entry
+string is reserved by GNU gettext.  @code{gettext("")} returns the header entry
 of the message catalog with meta information, not the empty string.
 
 In addition to the description for @option{--help},
@@ -814,7 +814,7 @@ Each subgrouping contains a string constant, that defines the option
 name, the address of a variable, a description string, and a value.
 Non-empty description strings should be marked with @code{N_(@dots{})}
 for @command{xgettext}.  Please do not mark empty strings because the
-empty string is reserved by GNU gettext. @code{gettext("")} returns the
+empty string is reserved by GNU gettext.  @code{gettext("")} returns the
 header entry of the message catalog with meta information, not the empty
 string.
 
@@ -980,7 +980,7 @@ target to perform any target specific initialization of the
 @code{struct function} structure.  It is intended that this would be
 used to initialize the @code{machine} of that structure.
 
-@code{struct machine_function} structures are expected to be freed by GC.
+@code{struct machine_function} structures are expected to be freed by GC@.
 Generally, any memory that they reference must be allocated by using
 @code{ggc_alloc}, including the structure itself.
 @end deftypevar
@@ -1538,12 +1538,12 @@ When a bit-field is inserted into a packed record, the whole size
 of the underlying type is used by one or more same-size adjacent
 bit-fields (that is, if its long:3, 32 bits is used in the record,
 and any additional adjacent long bit-fields are packed into the same
-chunk of 32 bits. However, if the size changes, a new field of that
-size is allocated). In an unpacked record, this is the same as using
+chunk of 32 bits.  However, if the size changes, a new field of that
+size is allocated).  In an unpacked record, this is the same as using
 alignment, but not equivalent when packing.
 
 If both MS bit-fields and @samp{__attribute__((packed))} are used,
-the latter will take precedence. If @samp{__attribute__((packed))} is
+the latter will take precedence.  If @samp{__attribute__((packed))} is
 used on a single field when MS bit-fields are in use, it will take
 precedence for that field, but the alignment of the rest of the structure
 may affect its placement.
@@ -1604,7 +1604,7 @@ target machine.  If you don't define this, the default is one word.
 
 @defmac ADA_LONG_TYPE_SIZE
 On some machines, the size used for the Ada equivalent of the type
-@code{long} by a native Ada compiler differs from that used by C.  In
+@code{long} by a native Ada compiler differs from that used by C@.  In
 that situation, define this macro to be a C expression to be used for
 the size of that type.  If you don't define this, the default is the
 value of @code{LONG_TYPE_SIZE}.
@@ -2860,7 +2860,7 @@ Here is the basic stack layout.
 Define this macro if pushing a word onto the stack moves the stack
 pointer to a smaller address.
 
-When we say, ``define this macro if @dots{},'' it means that the
+When we say, ``define this macro if @dots{}'', it means that the
 compiler checks this macro only with @code{#ifdef} so the precise
 definition used does not matter.
 @end defmac
@@ -3811,7 +3811,7 @@ declaration node of the function.  @var{fndecl} is also set when
 being compiled.  @var{n_named_args} is set to the number of named
 arguments, including a structure return address if it is passed as a
 parameter, when making a call.  When processing incoming arguments,
-@var{n_named_args} is set to -1.
+@var{n_named_args} is set to @minus{}1.
 
 When processing a call to a compiler support library function,
 @var{libname} identifies which one.  It is a @code{symbol_ref} rtx which
@@ -4830,7 +4830,7 @@ functions (like @code{__cmpdi2}) return 0 to indicate that the first
 operand is smaller than the second, 1 to indicate that they are equal,
 and 2 to indicate that the first operand is greater than the second.
 If this macro evalutes to @code{false} the comparison functions return
--1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
+@minus{}1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
 in @file{libgcc.a}, you do not need to define this macro.
 @end defmac
 
@@ -5024,7 +5024,7 @@ you define this macro, the compiler will use it instead of
 A C expression which is nonzero if @var{x} (assumed to be a @code{reg} RTX)
 is suitable for use as a base register in base plus index operand addresses,
 accessing memory in mode @var{mode}.  It may be either a suitable hard
-register or a pseudo register that has been allocated such a hard register. 
+register or a pseudo register that has been allocated such a hard register.
 You should define this macro if base plus index addresses have different
 requirements than other base register uses.
 @end defmac
@@ -5560,7 +5560,7 @@ necessary.  Traditionally, the default costs are @code{COSTS_N_INSNS (5)}
 for multiplications, @code{COSTS_N_INSNS (7)} for division and modulus
 operations, and @code{COSTS_N_INSNS (1)} for all other operations.
 
-When optimizing for code size, i.e@. when @code{optimize_size} is
+When optimizing for code size, i.e.@: when @code{optimize_size} is
 nonzero, this target hook should be used to estimate the relative
 size cost of an expression, again relative to @code{COSTS_N_INSNS}.
 
@@ -5728,7 +5728,7 @@ This hook is executed by the scheduler after function level initializations.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_FINISH_GLOBAL (FILE *@var{file}, int @var{verbose})
-This is the cleanup hook corresponding to TARGET_SCHED_INIT_GLOBAL.
+This is the cleanup hook corresponding to @code{TARGET_SCHED_INIT_GLOBAL}.
 @var{file} is either a null pointer, or a stdio stream to write any debug output to.
 @var{verbose} is the verbose level provided by @option{-fsched-verbose-@var{n}}.
 @end deftypefn
@@ -5829,7 +5829,7 @@ where (a) it's practically hopeless to predict the actual data/resource
 delays, however: (b) there's a better chance to predict the actual grouping
 that will be formed, and (c) correctly emulating the grouping can be very
 important.  In such targets one may want to allow issuing dependent insns
-closer to one another - i.e, closer than the dependence distance;  however,
+closer to one another---i.e., closer than the dependence distance;  however,
 not in cases of "costly dependences", which this hooks allows to define.
 @end deftypefn
 
@@ -5980,7 +5980,18 @@ in bits.
 
 The default version of this function takes care of putting read-only
 variables in @code{readonly_data_section}.
+
+See also @var{USE_SELECT_SECTION_FOR_FUNCTIONS}.
 @end deftypefn
+
+@defmac USE_SELECT_SECTION_FOR_FUNCTIONS
+Define this macro if you wish TARGET_ASM_SELECT_SECTION to be called
+for @code{FUNCTION_DECL}s as well as for variables and constants.
+
+In the case of a @code{FUNCTION_DECL}, @var{reloc} will be zero if the
+function has been determined to be likely to be called, and nonzero if
+it is unlikely to be called.
+@end defmac
 
 @deftypefn {Target Hook} void TARGET_ASM_UNIQUE_SECTION (tree @var{decl}, int @var{reloc})
 Build up a unique section name, expressed as a @code{STRING_CST} node,
@@ -6257,17 +6268,6 @@ A C statement to output the string @var{string} to the stdio stream
 in your config files, GCC will only call it to output filenames to
 the assembler source.  So you can use it to canonicalize the format
 of the filename using this macro.
-@end defmac
-
-@defmac ASM_OUTPUT_SOURCE_LINE (@var{stream}, @var{line}, @var{counter})
-A C statement to output DBX or SDB debugging information before code
-for line number @var{line} of the current source file to the
-stdio stream @var{stream}. @var{counter} is the number of time the
-macro was invoked, including the current invocation; it is intended
-to generate unique labels in the assembly output.
-
-This macro need not be defined if the standard form of debugging
-information for the debugger in use is appropriate.
 @end defmac
 
 @defmac ASM_OUTPUT_IDENT (@var{stream}, @var{string})
@@ -6911,7 +6911,7 @@ should be excluded; on many systems, the letter @samp{L} at the
 beginning of a label has this effect.  You should find out what
 convention your system uses, and follow it.
 
-The default version of this function utilizes ASM_GENERATE_INTERNAL_LABEL.
+The default version of this function utilizes @code{ASM_GENERATE_INTERNAL_LABEL}.
 @end deftypefn
 
 @defmac ASM_OUTPUT_DEBUG_LABEL (@var{stream}, @var{prefix}, @var{num})
@@ -7571,13 +7571,13 @@ the jump-table.
 @end defmac
 
 @deftypefn {Target Hook} void TARGET_ASM_EMIT_UNWIND_LABEL (@var{stream}, @var{decl}, @var{for_eh}, @var{empty})
-This target hook emits a label at the beginning of each FDE.  It
+This target hook emits a label at the beginning of each FDE@.  It
 should be defined on targets where FDEs need special labels, and it
 should write the appropriate label, for the FDE associated with the
 function declaration @var{decl}, to the stdio stream @var{stream}.
 The third argument, @var{for_eh}, is a boolean: true if this is for an
 exception table.  The fourth argument, @var{empty}, is a boolean:
-true if this is a placeholder label for an omitted FDE.
+true if this is a placeholder label for an omitted FDE@.
 
 The default is that FDEs are not given nonlocal labels.
 @end deftypefn
@@ -7977,11 +7977,6 @@ passed in registers.  DBX format does not customarily provide any way to
 do this.  The default is @code{'P'}.
 @end defmac
 
-@defmac DBX_MEMPARM_STABS_LETTER
-The letter to use in DBX symbol data to identify a symbol as a stack
-parameter.  The default is @code{'p'}.
-@end defmac
-
 @defmac DBX_FUNCTION_FIRST
 Define this macro if the DBX information for a function and its
 arguments should precede the assembler code for the function.  Normally,
@@ -7990,9 +7985,16 @@ code.
 @end defmac
 
 @defmac DBX_BLOCKS_FUNCTION_RELATIVE
-Define this macro if the value of a symbol describing the scope of a
-block (@code{N_LBRAC} or @code{N_RBRAC}) should be relative to the start
-of the enclosing function.  Normally, GCC uses an absolute address.
+Define this macro, with value 1, if the value of a symbol describing
+the scope of a block (@code{N_LBRAC} or @code{N_RBRAC}) should be
+relative to the start of the enclosing function.  Normally, GCC uses
+an absolute address.
+@end defmac
+
+@defmac DBX_LINES_FUNCTION_RELATIVE
+Define this macro, with value 1, if the value of a symbol indicating
+the current line number (@code{N_SLINE}) should be relative to the
+start of the enclosing function.  Normally, GCC uses an absolute address.
 @end defmac
 
 @defmac DBX_USE_BINCL
@@ -8026,12 +8028,15 @@ Define this macro if the target machine requires special handling to
 output an @code{N_FUN} entry for the function @var{decl}.
 @end defmac
 
-@defmac DBX_OUTPUT_FUNCTION_END (@var{stream}, @var{function})
-Define this macro if the target machine requires special output at the
-end of the debugging information for a function.  The definition should
-be a C statement (sans semicolon) to output the appropriate information
-to @var{stream}.  @var{function} is the @code{FUNCTION_DECL} node for
-the function.
+@defmac DBX_OUTPUT_SOURCE_LINE (@var{stream}, @var{line}, @var{counter})
+A C statement to output DBX debugging information before code for line
+number @var{line} of the current source file to the stdio stream
+@var{stream}.  @var{counter} is the number of time the macro was
+invoked, including the current invocation; it is intended to generate
+unique labels in the assembly output.
+
+This macro should not be defined if the default output is correct, or
+if it can be made correct by defining @code{DBX_LINES_FUNCTION_RELATIVE}.
 @end defmac
 
 @defmac NO_DBX_FUNCTION_END
@@ -8055,29 +8060,46 @@ This describes file names in DBX format.
 
 @defmac DBX_OUTPUT_MAIN_SOURCE_FILENAME (@var{stream}, @var{name})
 A C statement to output DBX debugging information to the stdio stream
-@var{stream} which indicates that file @var{name} is the main source
+@var{stream}, which indicates that file @var{name} is the main source
 file---the file specified as the input file for compilation.
 This macro is called only once, at the beginning of compilation.
 
 This macro need not be defined if the standard form of output
 for DBX debugging information is appropriate.
+
+It may be necessary to refer to a label equal to the beginning of the
+text section.  You can use @samp{assemble_name (stream, ltext_label_name)}
+to do so.  If you do this, you must also set the variable
+@var{used_ltext_label_name} to @code{true}.
 @end defmac
 
-@defmac DBX_OUTPUT_MAIN_SOURCE_DIRECTORY (@var{stream}, @var{name})
-A C statement to output DBX debugging information to the stdio stream
-@var{stream} which indicates that the current directory during
-compilation is named @var{name}.
+@defmac NO_DBX_MAIN_SOURCE_DIRECTORY
+Define this macro, with value 1, if GCC should not emit an indication
+of the current directory for compilation and current source language at
+the beginning of the file.
+@end defmac
 
-This macro need not be defined if the standard form of output
-for DBX debugging information is appropriate.
+@defmac NO_DBX_GCC_MARKER
+Define this macro, with value 1, if GCC should not emit an indication
+that this object file was compiled by GCC@.  The default is to emit
+an @code{N_OPT} stab at the beginning of every source file, with
+@samp{gcc2_compiled.} for the string and value 0.
 @end defmac
 
 @defmac DBX_OUTPUT_MAIN_SOURCE_FILE_END (@var{stream}, @var{name})
 A C statement to output DBX debugging information at the end of
-compilation of the main source file @var{name}.
+compilation of the main source file @var{name}.  Output should be
+written to the stdio stream @var{stream}.
 
 If you don't define this macro, nothing special is output at the end
 of compilation, which is correct for most machines.
+@end defmac
+
+@defmac DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
+Define this macro @emph{instead of} defining
+@code{DBX_OUTPUT_MAIN_SOURCE_FILE_END}, if what needs to be output at
+the end of compilation is a @code{N_SO} stab with an empty string,
+whose value is the highest absolute text address in the file.
 @end defmac
 
 @need 2000
@@ -8153,12 +8175,6 @@ a new set of @code{PUT_SDB_@var{op}} macros if this is the only change
 required.
 @end defmac
 
-@defmac SDB_GENERATE_FAKE
-Define this macro to override the usual method of constructing a dummy
-name for anonymous structure and union types.  See @file{sdbout.c} for
-more information.
-@end defmac
-
 @defmac SDB_ALLOW_UNKNOWN_REFERENCES
 Define this macro to allow references to unknown structure,
 union, or enumeration tags to be emitted.  Standard COFF does not
@@ -8170,6 +8186,12 @@ it.
 Define this macro to allow references to structure, union, or
 enumeration tags that have not yet been seen to be handled.  Some
 assemblers choke if forward tags are used, while some require it.
+@end defmac
+
+@defmac SDB_OUTPUT_SOURCE_LINE (@var{stream}, @var{line})
+A C statement to output SDB debugging information before code for line
+number @var{line} of the current source file to the stdio stream
+@var{stream}.  The default is to emit an @code{.ln} directive.
 @end defmac
 
 @need 2000
@@ -8332,8 +8354,8 @@ If you define @code{OPTIMIZE_MODE_SWITCHING}, you have to define this as
 initializer for an array of integers.  Each initializer element
 N refers to an entity that needs mode switching, and specifies the number
 of different modes that might need to be set for this entity.
-The position of the initializer in the initializer - starting counting at
-zero - determines the integer that is used to refer to the mode-switched
+The position of the initializer in the initializer---starting counting at
+zero---determines the integer that is used to refer to the mode-switched
 entity in question.
 In macros that take mode arguments / yield a mode result, modes are
 represented as numbers 0 @dots{} N @minus{} 1.  N is used to specify that no mode
@@ -8350,21 +8372,21 @@ be switched into prior to the execution of @var{insn}.
 
 @defmac MODE_AFTER (@var{mode}, @var{insn})
 If this macro is defined, it is evaluated for every @var{insn} during
-mode switching. It determines the mode that an insn results in (if
+mode switching.  It determines the mode that an insn results in (if
 different from the incoming mode).
 @end defmac
 
 @defmac MODE_ENTRY (@var{entity})
 If this macro is defined, it is evaluated for every @var{entity} that needs
-mode switching. It should evaluate to an integer, which is a mode that
-@var{entity} is assumed to be switched to at function entry. If @code{MODE_ENTRY}
+mode switching.  It should evaluate to an integer, which is a mode that
+@var{entity} is assumed to be switched to at function entry.  If @code{MODE_ENTRY}
 is defined then @code{MODE_EXIT} must be defined.
 @end defmac
 
 @defmac MODE_EXIT (@var{entity})
 If this macro is defined, it is evaluated for every @var{entity} that needs
-mode switching. It should evaluate to an integer, which is a mode that
-@var{entity} is assumed to be switched to at function exit. If @code{MODE_EXIT}
+mode switching.  It should evaluate to an integer, which is a mode that
+@var{entity} is assumed to be switched to at function exit.  If @code{MODE_EXIT}
 is defined then @code{MODE_ENTRY} must be defined.
 @end defmac
 
@@ -8500,7 +8522,7 @@ be preserved even if it does not appear that the register is used again
 later in the function.
 
 Another note: according to the MIPS spec, coprocessor 1 (if present) is
-the FPU.  One accesses COP1 registers through standard mips
+the FPU@.  One accesses COP1 registers through standard mips
 floating-point support; they are not included in this mechanism.
 
 There is one macro used in defining the MIPS coprocessor interface which
@@ -8560,7 +8582,7 @@ This hook returns the size of the cookie to use when allocating an array
 whose elements have the indicated @var{type}.  Assumes that it is already
 known that a cookie is needed.  The default is
 @code{max(sizeof (size_t), alignof(type))}, as defined in section 2.7 of the
-IA64/Generic C++ ABI.
+IA64/Generic C++ ABI@.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_CXX_COOKIE_HAS_SIZE (void)
@@ -8571,7 +8593,7 @@ array cookies.  The default is to return @code{false}.
 @deftypefn {Target Hook} int TARGET_CXX_IMPORT_EXPORT_CLASS (tree  @var{type}, int @var{import_export})
 If defined by a backend this hook allows the decision made to export
 class @var{type} to be overruled.  Upon entry @var{import_export}
-will contain 1 if the class is going to be exported, -1 if it is going
+will contain 1 if the class is going to be exported, @minus{}1 if it is going
 to be imported and 0 otherwise.  This function should return the
 modified value and perform any other actions necessary to support the
 backend's targeted operating system.
@@ -8978,7 +9000,7 @@ Note that regardless of this macro the ``definedness'' of @code{clz}
 and @code{ctz} at zero do @emph{not} extend to the builtin functions
 visible to the user.  Thus one may be free to adjust the value at will
 to match the target expansion of these operations without fear of
-breaking the API.
+breaking the API@.
 @end defmac
 
 @defmac Pmode
@@ -9091,11 +9113,11 @@ When a bit-field is inserted into a packed record, the whole size
 of the underlying type is used by one or more same-size adjacent
 bit-fields (that is, if its long:3, 32 bits is used in the record,
 and any additional adjacent long bit-fields are packed into the same
-chunk of 32 bits. However, if the size changes, a new field of that
+chunk of 32 bits.  However, if the size changes, a new field of that
 size is allocated).
 
 If both MS bit-fields and @samp{__attribute__((packed))} are used,
-the latter will take precedence. If @samp{__attribute__((packed))} is
+the latter will take precedence.  If @samp{__attribute__((packed))} is
 used on a single field when MS bit-fields are in use, it will take
 precedence for that field, but the alignment of the rest of the structure
 may affect its placement.
@@ -9455,7 +9477,7 @@ that are different from @option{-I}.
 @deftypefn {Target Hook} bool TARGET_USE_LOCAL_THUNK_ALIAS_P (tree @var{fndecl})
 This target hook returns @code{true} if it is safe to use a local alias
 for a virtual function @var{fndecl} when constructing thunks,
-@code{false} otherwise. By default, the hook returns @code{true} for all
+@code{false} otherwise.  By default, the hook returns @code{true} for all
 functions, if a target supports aliases (i.e.@: defines
 @code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn

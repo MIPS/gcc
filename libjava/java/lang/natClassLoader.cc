@@ -131,12 +131,12 @@ _Jv_PrepareCompiledClass (jclass klass)
   // If superclass looks like a constant pool entry,
   // resolve it now.
   if ((uaddr) klass->superclass < pool->size)
-    klass->superclass = pool->data[(int) klass->superclass].clazz;
+    klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
 
   // Likewise for interfaces.
   for (int i = 0; i < klass->interface_count; i++)
     if ((uaddr) klass->interfaces[i] < pool->size)
-      klass->interfaces[i] = pool->data[(int) klass->interfaces[i]].clazz;
+      klass->interfaces[i] = pool->data[(uaddr) klass->interfaces[i]].clazz;
 
   // Resolve the remaining constant pool entries.
   for (int index = 1; index < pool->size; ++index)
@@ -316,11 +316,29 @@ _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 // class chain.  At all other times, the caller should synchronize on
 // Class::class$.
 void
-_Jv_RegisterClasses (jclass *classes)
+_Jv_RegisterClasses (const jclass *classes)
 {
   for (; *classes; ++classes)
     {
       jclass klass = *classes;
+
+      (*_Jv_RegisterClassHook) (klass);
+
+      // registering a compiled class causes
+      // it to be immediately "prepared".  
+      if (klass->state == JV_STATE_NOTHING)
+	klass->state = JV_STATE_COMPILED;
+    }
+}
+
+// This is a version of _Jv_RegisterClasses that takes a count.
+void
+_Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
+{
+  size_t i;
+  for (i = 0; i < count; i++)
+    {
+      jclass klass = classes[i];
 
       (*_Jv_RegisterClassHook) (klass);
 

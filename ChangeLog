@@ -1,3 +1,79 @@
+2004-11-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (noconfigdirs) [mmix-*-*]: Disable
+	target-libgfortran.
+	* configure: Regenerate.
+
+2004-11-07  David Edelsohn  <edelsohn@gnu.org>
+
+	* config-ml.in: Pass FCFLAGS for multilibs, handle GFORTRAN
+	like CC.
+
+2004-11-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (host fixincludes): Specify missing targets.
+	* Makefile.in: Regenerate.
+
+2004-11-05  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* MAINTAINERS: Add myself
+
+2004-11-05  Gabor Loki  <loki@inf.u-szeged.hu>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-11-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.def: Build fixincludes for the host, too.
+	* Makefile.in: Regenerate.
+	* configure.in (host_tools): Add fixincludes.
+	* configure: Regenerate.
+
+2004-11-04  Daniel Jacobowitz  <dan@debian.org>
+
+	* configure.in (arm-*-oabi*, thumb-*-oabi*): Remove.
+	* configure: Regenerated.
+
+2004-11-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/17783
+	* configure.in: Set up LD_LIBRARY_PATH by default for gcc.
+	* configure: Regenerated.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.SCO: Update per FSF instructions.
+
+2004-10-28  Eric B. Weddington  <ericw@evcohs.com>
+
+	PR target/18151
+	* configure.in (case ${target}): Do not build fixincludes for avr.
+	* configure: Regenerated.
+
+2004-10-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (case ${target}): Do not build fixincludes
+	on platforms where it is not used.
+	* configure: Regenerated.
+
+2004-10-23  Daniel Jacobowitz  <dan@debian.org>
+
+	* configure.in: Use an absolute path to install-sh.
+	* configure: Regenerated.
+
+2004-10-19  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-10-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Remove from Write After Approval those that are
+	already maintainers.
+
+2004-10-19  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* MAINTAINERS:  Update my email address.
+
 2004-10-12  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* configure.in (*-*-cygwin*): Supress warning if newlib not present.

@@ -1978,6 +1978,11 @@ fold_convert (tree type, tree arg)
 tree
 non_lvalue (tree x)
 {
+  /* While we are in GIMPLE, NON_LVALUE_EXPR doesn't mean anything to
+     us.  */
+  if (in_gimple_form)
+    return x;
+
   /* We only need to wrap lvalue tree codes.  */
   switch (TREE_CODE (x))
   {
@@ -5967,6 +5972,84 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   return 0;
 }
 
+/* Tries to replace &a[idx] CODE s * delta with &a[idx CODE delta], if s is
+   step of the array.  TYPE is the type of the expression.  ADDR is the address.
+   MULT is the multiplicative expression.  If the function succeeds, the new
+   address expression is returned.  Otherwise NULL_TREE is returned.  */
+
+static tree
+try_move_mult_to_index (tree type, enum tree_code code, tree addr, tree mult)
+{
+  tree s, delta, step;
+  tree arg0 = TREE_OPERAND (mult, 0), arg1 = TREE_OPERAND (mult, 1);
+  tree ref = TREE_OPERAND (addr, 0), pref;
+  tree ret, pos;
+  tree itype;
+
+  STRIP_NOPS (arg0);
+  STRIP_NOPS (arg1);
+  
+  if (TREE_CODE (arg0) == INTEGER_CST)
+    {
+      s = arg0;
+      delta = arg1;
+    }
+  else if (TREE_CODE (arg1) == INTEGER_CST)
+    {
+      s = arg1;
+      delta = arg0;
+    }
+  else
+    return NULL_TREE;
+
+  for (;; ref = TREE_OPERAND (ref, 0))
+    {
+      if (TREE_CODE (ref) == ARRAY_REF)
+	{
+	  step = array_ref_element_size (ref);
+
+	  if (TREE_CODE (step) != INTEGER_CST)
+	    continue;
+
+	  itype = TREE_TYPE (step);
+
+	  /* If the type sizes do not match, we might run into problems
+	     when one of them would overflow.  */
+	  if (TYPE_PRECISION (itype) != TYPE_PRECISION (type))
+	    continue;
+
+	  if (!operand_equal_p (step, fold_convert (itype, s), 0))
+	    continue;
+
+	  delta = fold_convert (itype, delta);
+	  break;
+	}
+
+      if (!handled_component_p (ref))
+	return NULL_TREE;
+    }
+
+  /* We found the suitable array reference.  So copy everything up to it,
+     and replace the index.  */
+
+  pref = TREE_OPERAND (addr, 0);
+  ret = copy_node (pref);
+  pos = ret;
+
+  while (pref != ref)
+    {
+      pref = TREE_OPERAND (pref, 0);
+      TREE_OPERAND (pos, 0) = copy_node (pref);
+      pos = TREE_OPERAND (pos, 0);
+    }
+
+  TREE_OPERAND (pos, 1) = fold (build2 (code, itype,
+					TREE_OPERAND (pos, 1),
+					delta));
+
+  return build1 (ADDR_EXPR, type, ret);
+}
+
 /* Perform constant folding and related simplification of EXPR.
    The related simplifications include x*1 => x, x*0 => 0, etc.,
    and application of the associative law.
@@ -6508,17 +6591,21 @@ fold (tree expr)
 	  /* Reassociate (plus (plus (mult) (foo)) (mult)) as
 	     (plus (plus (mult) (mult)) (foo)) so that we can
 	     take advantage of the factoring cases below.  */
-	  if ((TREE_CODE (arg0) == PLUS_EXPR
+	  if (((TREE_CODE (arg0) == PLUS_EXPR
+		|| TREE_CODE (arg0) == MINUS_EXPR)
 	       && TREE_CODE (arg1) == MULT_EXPR)
-	      || (TREE_CODE (arg1) == PLUS_EXPR
+	      || ((TREE_CODE (arg1) == PLUS_EXPR
+		   || TREE_CODE (arg1) == MINUS_EXPR)
 		  && TREE_CODE (arg0) == MULT_EXPR))
 	    {
 	      tree parg0, parg1, parg, marg;
+	      enum tree_code pcode;
 
-	      if (TREE_CODE (arg0) == PLUS_EXPR)
+	      if (TREE_CODE (arg1) == MULT_EXPR)
 		parg = arg0, marg = arg1;
 	      else
 		parg = arg1, marg = arg0;
+	      pcode = TREE_CODE (parg);
 	      parg0 = TREE_OPERAND (parg, 0);
 	      parg1 = TREE_OPERAND (parg, 1);
 	      STRIP_NOPS (parg0);
@@ -6526,7 +6613,7 @@ fold (tree expr)
 
 	      if (TREE_CODE (parg0) == MULT_EXPR
 		  && TREE_CODE (parg1) != MULT_EXPR)
-		return fold (build2 (PLUS_EXPR, type,
+		return fold (build2 (pcode, type,
 				     fold (build2 (PLUS_EXPR, type,
 						   fold_convert (type, parg0),
 						   fold_convert (type, marg))),
@@ -6534,10 +6621,11 @@ fold (tree expr)
 	      if (TREE_CODE (parg0) != MULT_EXPR
 		  && TREE_CODE (parg1) == MULT_EXPR)
 		return fold (build2 (PLUS_EXPR, type,
-				     fold (build2 (PLUS_EXPR, type,
-						   fold_convert (type, parg1),
-						   fold_convert (type, marg))),
-				     fold_convert (type, parg0)));
+				     fold_convert (type, parg0),
+				     fold (build2 (pcode, type,
+						   fold_convert (type, marg),
+						   fold_convert (type,
+								 parg1)))));
 	    }
 
 	  if (TREE_CODE (arg0) == MULT_EXPR && TREE_CODE (arg1) == MULT_EXPR)
@@ -6599,8 +6687,27 @@ fold (tree expr)
 	      if (same)
 		return fold (build2 (MULT_EXPR, type,
 				     fold (build2 (PLUS_EXPR, type,
-						   alt0, alt1)),
+						   fold_convert (type, alt0),
+						   fold_convert (type, alt1))),
 				     same));
+	    }
+
+	  /* Try replacing &a[i1] + c * i2 with &a[i1 + i2], if c is step
+	     of the array.  Loop optimizer sometimes produce this type of
+	     expressions.  */
+	  if (TREE_CODE (arg0) == ADDR_EXPR
+	      && TREE_CODE (arg1) == MULT_EXPR)
+	    {
+	      tem = try_move_mult_to_index (type, PLUS_EXPR, arg0, arg1);
+	      if (tem)
+		return fold (tem);
+	    }
+	  else if (TREE_CODE (arg1) == ADDR_EXPR
+		   && TREE_CODE (arg0) == MULT_EXPR)
+	    {
+	      tem = try_move_mult_to_index (type, PLUS_EXPR, arg1, arg0);
+	      if (tem)
+		return fold (tem);
 	    }
 	}
       else
@@ -6974,10 +7081,21 @@ fold (tree expr)
 				     &diff))
 	  return build_int_cst_type (type, diff);
       }
+	  
+      /* Try replacing &a[i1] - c * i2 with &a[i1 - i2], if c is step
+	 of the array.  Loop optimizer sometimes produce this type of
+	 expressions.  */
+      if (TREE_CODE (arg0) == ADDR_EXPR
+	  && TREE_CODE (arg1) == MULT_EXPR)
+	{
+	  tem = try_move_mult_to_index (type, MINUS_EXPR, arg0, arg1);
+	  if (tem)
+	    return fold (tem);
+	}
 
       if (TREE_CODE (arg0) == MULT_EXPR
 	  && TREE_CODE (arg1) == MULT_EXPR
-	  && (INTEGRAL_TYPE_P (type) || flag_unsafe_math_optimizations))
+	  && (!FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations))
 	{
           /* (A * C) - (B * C) -> (A-B) * C.  */
 	  if (operand_equal_p (TREE_OPERAND (arg0, 1),

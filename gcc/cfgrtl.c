@@ -69,7 +69,6 @@ static int can_delete_label_p (rtx);
 static void commit_one_edge_insertion (edge, int);
 static rtx last_loop_beg_note (rtx);
 static bool back_edge_of_syntactic_loop_p (basic_block, basic_block);
-basic_block force_nonfallthru_and_redirect (edge, basic_block);
 static basic_block rtl_split_edge (edge);
 static bool rtl_move_block_after (basic_block, basic_block);
 static int rtl_verify_flow_info (void);
@@ -986,7 +985,7 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
 /* Like force_nonfallthru below, but additionally performs redirection
    Used by redirect_edge_and_branch_force.  */
 
-basic_block
+static basic_block
 force_nonfallthru_and_redirect (edge e, basic_block target)
 {
   basic_block jump_block, new_bb = NULL, src = e->src;
@@ -1059,7 +1058,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	    {
 	      if (tmp == e)
 		{
-		  VEC_ordered_remove (edge, ENTRY_BLOCK_PTR->succs, ei.index);
+		  VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ei.index);
 		  found = true;
 		  break;
 		}
@@ -1069,7 +1068,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	  
 	  gcc_assert (found);
 	  
-	  VEC_safe_insert (edge, bb->succs, 0, e);
+	  VEC_safe_push (edge, bb->succs, e);
 	  make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
 	}
     }
@@ -1463,8 +1462,10 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   regset_head killed_head;
   regset killed = INITIALIZE_REG_SET (killed_head);
   rtx save_regs = NULL_RTX;
-  int regno, noccmode;
+  unsigned regno;
+  int noccmode;
   enum machine_mode mode;
+  reg_set_iterator rsi;
 
 #ifdef AVOID_CCMODE_COPIES
   noccmode = true;
@@ -1475,10 +1476,9 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   for (x = insn; x; x = NEXT_INSN (x))
     if (INSN_P (x))
       note_stores (PATTERN (x), mark_killed_regs, killed);
-  bitmap_operation (killed, killed, e->dest->global_live_at_start,
-		    BITMAP_AND);
+  bitmap_and_into (killed, e->dest->global_live_at_start);
 
-  EXECUTE_IF_SET_IN_REG_SET (killed, 0, regno,
+  EXECUTE_IF_SET_IN_REG_SET (killed, 0, regno, rsi)
     {
       mode = regno < FIRST_PSEUDO_REGISTER
 	      ? reg_raw_mode[regno]
@@ -1494,7 +1494,7 @@ safe_insert_insn_on_edge (rtx insn, edge e)
 						    gen_reg_rtx (mode),
 						    gen_raw_REG (mode, regno)),
 				   save_regs);
-    });
+    }
 
   if (save_regs)
     {
@@ -2073,7 +2073,9 @@ rtl_verify_flow_info_1 (void)
 	}
 
       for (x = BB_HEAD (bb); x != NEXT_INSN (BB_END (bb)); x = NEXT_INSN (x))
-	if (BLOCK_FOR_INSN (x) != bb)
+	/* We may have a barrier inside a basic block before dead code
+	   elimination.  There is no BLOCK_FOR_INSN field in a barrier.  */
+	if (!BARRIER_P (x) && BLOCK_FOR_INSN (x) != bb)
 	  {
 	    debug_rtx (x);
 	    if (! BLOCK_FOR_INSN (x))

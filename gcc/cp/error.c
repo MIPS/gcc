@@ -70,7 +70,6 @@ static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
 static void dump_parameters (tree, int);
 static void dump_exception_spec (tree, int);
-static const char *class_key_or_enum (tree);
 static void dump_template_argument (tree, int);
 static void dump_template_argument_list (tree, int);
 static void dump_template_parameter (tree, int);
@@ -396,8 +395,8 @@ dump_typename (tree t, int flags)
 
 /* Return the name of the supplied aggregate, or enumeral type.  */
 
-static const char *
-class_key_or_enum (tree t)
+const char *
+class_key_or_enum_as_string (tree t)
 {
   if (TREE_CODE (t) == ENUMERAL_TYPE)
     return "enum";
@@ -416,7 +415,7 @@ static void
 dump_aggr_type (tree t, int flags)
 {
   tree name;
-  const char *variety = class_key_or_enum (t);
+  const char *variety = class_key_or_enum_as_string (t);
   int typdef = 0;
   int tmplate = 0;
 
@@ -2153,7 +2152,7 @@ cp_print_error_function (diagnostic_context *context,
       if (current_function_decl == NULL)
         pp_base_string (context->printer, "At global scope:");
       else
-        pp_printf (context->printer, "In %s `%s':",
+        pp_printf (context->printer, "In %s %qs:",
                    function_category (current_function_decl),
                    cxx_printable_name (current_function_decl, 2));
       pp_base_newline (context->printer);
@@ -2207,7 +2206,7 @@ print_instantiation_full_context (diagnostic_context *context)
 	    /* Avoid redundancy with the the "In function" line.  */;
 	  else
 	    pp_verbatim (context->printer,
-                         "%s: In instantiation of `%s':\n",
+                         "%s: In instantiation of %qs:\n",
 			 LOCATION_FILE (location),
                          decl_as_string (TINST_DECL (p),
                                          TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
@@ -2395,6 +2394,9 @@ cp_error_at (const char *msgid, ...)
   va_end (ap);
 
   va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap,
+                       input_location, DK_ERROR);
+  cp_diagnostic_starter (global_dc, &diagnostic);
   diagnostic_set_info (&diagnostic, msgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);

@@ -57,10 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-#ifndef ASM_STABS_OP
-#define ASM_STABS_OP "\t.stabs\t"
-#endif
-
 /* The (assembler) name of the first globally-visible object output.  */
 const char *first_global_object_name;
 const char *weak_global_object_name;
@@ -567,20 +563,34 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 
 /* Switch to the section for function DECL.
 
-   If DECL is NULL_TREE, switch to the text section.
-   ??? It's not clear that we will ever be passed NULL_TREE, but it's
-   safer to handle it.  */
+   If DECL is NULL_TREE, switch to the text section.  We can be passed
+   NULL_TREE under some circumstances by dbxout.c at least.  */
 
 void
 function_section (tree decl)
 {
-  if (scan_ahead_for_unlikely_executed_note (get_insns()))
-    unlikely_text_section ();
-  else if (decl != NULL_TREE
-	   && DECL_SECTION_NAME (decl) != NULL_TREE)
-    named_section (decl, (char *) 0, 0);
+  if (decl == NULL_TREE)
+    text_section ();
   else
-    text_section (); 
+    {
+      /* ??? Typical use of this function maybe shouldn't be looking
+	 for unlikely blocks at all - in the event that an entire
+	 function is going into the unlikely-execute section, that
+	 should be reflected in its DECL_SECTION_NAME.  */
+      rtx insns = cfun && cfun->emit ? get_insns () : 0;
+      bool unlikely = insns && scan_ahead_for_unlikely_executed_note (insns);
+
+#ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
+      targetm.asm_out.select_section (decl, unlikely, DECL_ALIGN (decl));
+#else
+      if (unlikely)
+	unlikely_text_section ();
+      else if (DECL_SECTION_NAME (decl))
+	named_section (decl, 0, 0);
+      else
+	text_section ();
+#endif
+    }
 }
 
 /* Switch to read-only data section associated with function DECL.  */
@@ -1015,14 +1025,18 @@ assemble_asm (tree string)
    between 0 and MAX_INIT_PRIORITY.  */
 
 void
-default_stabs_asm_out_destructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+default_stabs_asm_out_destructor (rtx symbol ATTRIBUTE_UNUSED,
+				  int priority ATTRIBUTE_UNUSED)
 {
+#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */
-  fprintf (asm_out_file, "%s\"___DTOR_LIST__\",22,0,0,", ASM_STABS_OP);
-  assemble_name (asm_out_file, XSTR (symbol, 0));
-  fputc ('\n', asm_out_file);
+  dbxout_begin_simple_stabs ("___DTOR_LIST__", 22 /* N_SETT */);
+  dbxout_stab_value_label (XSTR (symbol, 0));
+#else
+  sorry ("global destructors not supported on this target");
+#endif
 }
 
 void
@@ -1072,14 +1086,18 @@ default_dtor_section_asm_out_destructor (rtx symbol,
 /* Likewise for global constructors.  */
 
 void
-default_stabs_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+default_stabs_asm_out_constructor (rtx symbol ATTRIBUTE_UNUSED,
+				   int priority ATTRIBUTE_UNUSED)
 {
+#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
   /* Tell GNU LD that this is part of the static destructor set.
      This will work for any system that uses stabs, most usefully
      aout systems.  */
-  fprintf (asm_out_file, "%s\"___CTOR_LIST__\",22,0,0,", ASM_STABS_OP);
-  assemble_name (asm_out_file, XSTR (symbol, 0));
-  fputc ('\n', asm_out_file);
+  dbxout_begin_simple_stabs ("___CTOR_LIST__", 22 /* N_SETT */);
+  dbxout_stab_value_label (XSTR (symbol, 0));
+#else
+  sorry ("global constructors not supported on this target");
+#endif
 }
 
 void
@@ -3037,20 +3055,6 @@ enum machine_mode
 get_pool_mode (rtx addr)
 {
   return find_pool_constant (cfun->varasm->pool, addr)->mode;
-}
-
-enum machine_mode
-get_pool_mode_for_function (struct function *f, rtx addr)
-{
-  return find_pool_constant (f->varasm->pool, addr)->mode;
-}
-
-/* Similar, return the offset in the constant pool.  */
-
-int
-get_pool_offset (rtx addr)
-{
-  return find_pool_constant (cfun->varasm->pool, addr)->offset;
 }
 
 /* Return the size of the constant pool.  */

@@ -1015,7 +1015,6 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
-
 	  switch (tls_kind)
 	    {
 	    case TLS_MODEL_GLOBAL_DYNAMIC:
@@ -1042,8 +1041,12 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 
 	    case TLS_MODEL_INITIAL_EXEC:
 	      if (! flag_pic)
-		emit_insn (gen_GOTaddr2picreg ());
-	      tga_op1 = gen_reg_rtx (Pmode);
+		{
+		  emit_insn (gen_GOTaddr2picreg ());
+		  emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode,
+								 PIC_REG)));
+		}
+	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
 	      emit_insn (gen_tls_initial_exec (tga_op1, tmp));
 	      op1 = tga_op1;
@@ -5107,7 +5110,7 @@ shmedia_target_regs_stack_adjust (HARD_REG_SET *live_regs_mask)
 static int
 calc_live_regs (HARD_REG_SET *live_regs_mask)
 {
-  int reg;
+  unsigned int reg;
   int count;
   int interrupt_handler;
   int pr_live, has_call;
@@ -5157,7 +5160,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  || current_function_has_nonlocal_label))
     pr_live = 1;
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
-  for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
+  for (count = 0, reg = FIRST_PSEUDO_REGISTER; reg-- != 0; )
     {
       if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
@@ -5179,13 +5182,13 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	     (TARGET_SHCOMPACT
 	      && flag_pic
 	      && current_function_args_info.call_cookie
-	      && reg == (int) PIC_OFFSET_TABLE_REGNUM)
+	      && reg == PIC_OFFSET_TABLE_REGNUM)
 	     || (regs_ever_live[reg] && ! call_really_used_regs[reg])
 	     || (current_function_calls_eh_return
-		 && (reg == (int) EH_RETURN_DATA_REGNO (0)
-		     || reg == (int) EH_RETURN_DATA_REGNO (1)
-		     || reg == (int) EH_RETURN_DATA_REGNO (2)
-		     || reg == (int) EH_RETURN_DATA_REGNO (3)))
+		 && (reg == EH_RETURN_DATA_REGNO (0)
+		     || reg == EH_RETURN_DATA_REGNO (1)
+		     || reg == EH_RETURN_DATA_REGNO (2)
+		     || reg == EH_RETURN_DATA_REGNO (3)))
 	     || ((reg == MACL_REG || reg == MACH_REG)
 		 && regs_ever_live[reg]
 		 && sh_cfun_attr_renesas_p ())
@@ -5329,8 +5332,8 @@ sh5_schedule_saves (HARD_REG_SET *live_regs_mask, save_schedule *schedule,
 	  && ! (cfun->static_chain_decl != NULL && i == STATIC_CHAIN_REGNUM)
 	  && ! (current_function_calls_eh_return
 		&& (i == EH_RETURN_STACKADJ_REGNO
-		    || ((unsigned) i <= EH_RETURN_DATA_REGNO (0)
-			&& (unsigned) i >= EH_RETURN_DATA_REGNO (3)))))
+		    || ((unsigned) i >= EH_RETURN_DATA_REGNO (0)
+			&& (unsigned) i <= EH_RETURN_DATA_REGNO (3)))))
 	schedule->temps[tmpx++] = i;
   entry->reg = -1;
   entry->mode = VOIDmode;
@@ -5561,7 +5564,7 @@ sh_expand_prologue (void)
       for (entry = &schedule.entries[1]; entry->mode != VOIDmode; entry++)
         {
 	  enum machine_mode mode = entry->mode;
-	  int reg = entry->reg;
+	  unsigned int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
 	  rtx orig_reg_rtx;
 
@@ -5828,6 +5831,10 @@ sh_expand_epilogue (bool sibcall_p)
 
   if (frame_pointer_needed)
     {
+      /* We must avoid scheduling the epilogue with previous basic blocks
+	 when exception handling is enabled.  See PR/18032.  */
+      if (flag_exceptions)
+	emit_insn (gen_blockage ());
       output_stack_adjust (frame_size, frame_pointer_rtx, e, &live_regs_mask);
 
       /* We must avoid moving the stack pointer adjustment past code
@@ -6404,7 +6411,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 {
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
-  tree addr, lab_over, result = NULL;
+  tree addr, lab_over = NULL, result = NULL;
   int pass_by_ref = targetm.calls.must_pass_in_stack (TYPE_MODE (type), type);
 
   if (pass_by_ref)
@@ -7184,7 +7191,7 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
+      const char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
       sp_switch = gen_rtx_SYMBOL_REF (VOIDmode, s);
     }
 

@@ -452,7 +452,7 @@ builtin_save_expr (tree exp)
    times to get the address of either a higher stack frame, or a return
    address located within it (depending on FNDECL_CODE).  */
 
-rtx
+static rtx
 expand_builtin_return_addr (enum built_in_function fndecl_code, int count,
 			    rtx tem)
 {
@@ -688,7 +688,7 @@ expand_builtin_setjmp (tree arglist, rtx target)
    scheme in the compiler and will only work in the method used by
    them.  */
 
-void
+static void
 expand_builtin_longjmp (rtx buf_addr, rtx value)
 {
   rtx fp, lab, stack, insn, last;
@@ -2725,7 +2725,7 @@ expand_builtin_memmove (tree arglist, tree type, rtx target,
       tree result = fold_builtin_memmove (arglist, type);
 
       if (result)
-	expand_expr (result, target, mode, EXPAND_NORMAL);
+	return expand_expr (result, target, mode, EXPAND_NORMAL);
 
       /* If DEST is not a pointer type, call the normal function.  */
       if (dest_align == 0)
@@ -4420,7 +4420,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   return ret;
 }
 
-void
+static void
 expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
@@ -7602,13 +7602,12 @@ fold_builtin_unordered_cmp (tree exp,
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
   enum tree_code code;
   tree arg0, arg1;
+  tree type0, type1;
+  enum tree_code code0, code1;
+  tree cmp_type = NULL_TREE;
 
   if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     {
-      enum tree_code code0, code1;
-      tree type0, type1;
-      tree cmp_type = 0;
-
       /* Check that we have exactly two arguments.  */
       if (arglist == 0 || TREE_CHAIN (arglist) == 0)
 	{
@@ -7622,39 +7621,34 @@ fold_builtin_unordered_cmp (tree exp,
 		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 	  return error_mark_node;
 	}
-
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-
-      type0 = TREE_TYPE (arg0);
-      type1 = TREE_TYPE (arg1);
-
-      code0 = TREE_CODE (type0);
-      code1 = TREE_CODE (type1);
-
-      if (code0 == REAL_TYPE && code1 == REAL_TYPE)
-	/* Choose the wider of two real types.  */
-        cmp_type = TYPE_PRECISION (type0) >= TYPE_PRECISION (type1)
-		   ? type0 : type1;
-      else if (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
-	cmp_type = type0;
-      else if (code0 == INTEGER_TYPE && code1 == REAL_TYPE)
-	cmp_type = type1;
-      else
-	{
-	  error ("non-floating-point argument to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-
-      arg0 = fold_convert (cmp_type, arg0);
-      arg1 = fold_convert (cmp_type, arg1);
     }
+
+  arg0 = TREE_VALUE (arglist);
+  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  
+  type0 = TREE_TYPE (arg0);
+  type1 = TREE_TYPE (arg1);
+  
+  code0 = TREE_CODE (type0);
+  code1 = TREE_CODE (type1);
+  
+  if (code0 == REAL_TYPE && code1 == REAL_TYPE)
+    /* Choose the wider of two real types.  */
+    cmp_type = TYPE_PRECISION (type0) >= TYPE_PRECISION (type1)
+      ? type0 : type1;
+  else if (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
+    cmp_type = type0;
+  else if (code0 == INTEGER_TYPE && code1 == REAL_TYPE)
+    cmp_type = type1;
   else
     {
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      error ("non-floating-point argument to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      return error_mark_node;
     }
+  
+  arg0 = fold_convert (cmp_type, arg0);
+  arg1 = fold_convert (cmp_type, arg1);
 
   if (unordered_code == UNORDERED_EXPR)
     {

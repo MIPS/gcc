@@ -100,6 +100,27 @@ ssa_redirect_edge (edge e, basic_block dest)
   return e;
 }
 
+/* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
+   E->dest.  */
+
+void
+flush_pending_stmts (edge e)
+{
+  tree phi, arg;
+
+  if (!PENDING_STMT (e))
+    return;
+
+  for (phi = phi_nodes (e->dest), arg = PENDING_STMT (e);
+       phi;
+       phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
+    {
+      tree def = TREE_VALUE (arg);
+      add_phi_arg (&phi, def, e);
+    }
+
+  PENDING_STMT (e) = NULL;
+}
 
 /* Return true if SSA_NAME is malformed and mark it visited.
 
@@ -449,8 +470,7 @@ verify_flow_sensitive_alias_info (void)
 
       if (pi->name_mem_tag
 	  && !pi->pt_malloc
-	  && (pi->pt_vars == NULL
-	      || bitmap_first_set_bit (pi->pt_vars) < 0))
+	  && (pi->pt_vars == NULL || bitmap_empty_p (pi->pt_vars)))
 	{
 	  error ("Pointers with a memory tag, should have points-to sets or point to malloc");
 	  goto err;
@@ -672,7 +692,7 @@ verify_ssa (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
 			      op, stmt, false, true,
@@ -818,6 +838,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      implement the ABI.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
@@ -825,6 +848,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
            && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
 					     TREE_TYPE (outer_type)))
     return true;
@@ -1086,7 +1112,8 @@ replace_immediate_uses (tree var, tree repl)
 	}
       else
 	{
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, 
+				    SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
 	    if (USE_FROM_PTR (use_p) == var)
 	      propagate_value (use_p, repl);
 	}
@@ -1097,7 +1124,8 @@ replace_immediate_uses (tree var, tree repl)
 	 with a new expression.  Since the current def-use machinery
 	 does not return pointers to statements, we call fold_stmt
 	 with the address of a local temporary, if that call changes
-	 the temporary then we fall on our swords.
+	 the temporary then we fallback on looking for a proper
+	 pointer to STMT by scanning STMT's basic block.
 
 	 Note that all this will become unnecessary soon.  This
 	 pass is being replaced with a proper copy propagation pass
@@ -1106,8 +1134,13 @@ replace_immediate_uses (tree var, tree repl)
 	{
 	  tree tmp = stmt;
 	  fold_stmt (&tmp);
+          mark_new_vars = true;
 	  if (tmp != stmt)
-	    abort ();
+	    {
+	      block_stmt_iterator si = bsi_for_stmt (stmt);
+	      bsi_replace (&si, tmp, true);
+	      stmt = bsi_stmt (si);
+	    }
 	}
 
       /* If REPL is a pointer, it may have different memory tags associated
@@ -1252,7 +1285,7 @@ kill_redundant_phi_nodes (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  var = PHI_RESULT (phi);
 	  check_phi_redundancy (phi, eq_to);
@@ -1366,7 +1399,7 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
   /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
   if (TREE_CODE (t) == SSA_NAME)
     {
-      warn_uninit (t, "%H'%D' is used uninitialized in this function", locus);
+      warn_uninit (t, "%H%qD is used uninitialized in this function", locus);
       *walk_subtrees = 0;
     }
   else if (IS_TYPE_OR_DECL_P (t))
@@ -1391,7 +1424,7 @@ warn_uninitialized_phi (tree phi)
     {
       tree op = PHI_ARG_DEF (phi, i);
       if (TREE_CODE (op) == SSA_NAME)
-	warn_uninit (op, "%H'%D' may be used uninitialized in this function",
+	warn_uninit (op, "%H%qD may be used uninitialized in this function",
 		     NULL);
     }
 }
@@ -1463,3 +1496,4 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,                                    /* todo_flags_finish */
   0				        /* letter */
 };
+	  

@@ -1342,8 +1342,6 @@ struct tree_ssa_name GTY(())
   /* _DECL wrapped by this SSA name.  */
   tree var;
 
-  tree equiv;
-
   /* SSA version number.  */
   unsigned int version;
 
@@ -1407,7 +1405,7 @@ struct tree_phi_node GTY(())
   /* Dataflow information.  */
   struct dataflow_d *df;
 
-  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
+  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
 
 
@@ -2770,7 +2768,6 @@ extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 
 /* Tree nodes for SSA analysis.  */
 
-extern tree make_phi_node (tree, int);
 extern void init_phinodes (void);
 extern void fini_phinodes (void);
 extern void release_phi_node (tree);
@@ -3252,7 +3249,6 @@ extern bool initializer_zerop (tree);
 
 extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern HOST_WIDE_INT count_type_elements (tree);
-extern int mostly_zeros_p (tree);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
 
@@ -3469,7 +3465,6 @@ extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
 extern void expand_label (tree);
 extern void expand_goto (tree);
-extern void expand_asm (tree, int);
 
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
@@ -3543,6 +3538,7 @@ tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
+extern tree build_low_bits_mask (tree, unsigned);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -3654,7 +3650,6 @@ extern bool debug_find_tree (tree, tree);
 extern tree unsave_expr_now (tree);
 
 /* In expr.c */
-extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
 /* In emit-rtl.c */
@@ -3738,9 +3733,7 @@ extern bool parse_output_constraint (const char **, int, int, int,
 				     bool *, bool *, bool *);
 extern bool parse_input_constraint (const char **, int, int, int, int,
 				    const char * const *, bool *, bool *);
-extern void expand_asm_operands (tree, tree, tree, tree, int, location_t);
 extern void expand_asm_expr (tree);
-extern bool asm_op_is_mem_input (tree, tree);
 extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);

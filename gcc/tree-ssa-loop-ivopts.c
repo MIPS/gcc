@@ -805,7 +805,7 @@ find_bivs (struct ivopts_data *data)
   bool found = false;
   struct loop *loop = data->current_loop;
 
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
 	continue;
@@ -848,7 +848,7 @@ mark_bivs (struct ivopts_data *data)
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
 
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       iv = get_iv (data, PHI_RESULT (phi));
       if (!iv)
@@ -1510,7 +1510,7 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 {
   tree phi, def;
 
-  for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
     {
       def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       find_interesting_uses_outer (data, def);
@@ -1543,7 +1543,7 @@ find_interesting_uses (struct ivopts_data *data)
 	    && !flow_bb_inside_loop_p (data->current_loop, e->dest))
 	  find_interesting_uses_outside (data, e);
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	find_interesting_uses_stmt (data, phi);
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_interesting_uses_stmt (data, bsi_stmt (bsi));
@@ -2485,7 +2485,8 @@ get_address_cost (bool symbol_present, bool var_present,
   s_offset = offset;
 
   cost = 0;
-  offset_p = (min_offset <= s_offset && s_offset <= max_offset);
+  offset_p = (s_offset != 0
+	      && min_offset <= s_offset && s_offset <= max_offset);
   ratio_p = (ratio != 1
 	     && -MAX_RATIO <= ratio && ratio <= MAX_RATIO
 	     && TEST_BIT (valid_mult, ratio + MAX_RATIO));
@@ -2509,6 +2510,9 @@ get_address_cost (bool symbol_present, bool var_present,
       if (ratio_p)
 	addr = gen_rtx_fmt_ee (MULT, Pmode, addr, GEN_INT (rat));
 
+      if (var_present)
+	addr = gen_rtx_fmt_ee (PLUS, Pmode, reg1, addr);
+
       if (symbol_present)
 	{
 	  base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (""));
@@ -2517,15 +2521,6 @@ get_address_cost (bool symbol_present, bool var_present,
 				  gen_rtx_fmt_ee (PLUS, Pmode,
 						  base,
 						  GEN_INT (off)));
-	  if (var_present)
-	    base = gen_rtx_fmt_ee (PLUS, Pmode, reg1, base);
-	}
-
-      else if (var_present)
-	{
-	  base = reg1;
-	  if (offset_p)
-	    base = gen_rtx_fmt_ee (PLUS, Pmode, base, GEN_INT (off));
 	}
       else if (offset_p)
 	base = GEN_INT (off);
@@ -3420,7 +3415,7 @@ determine_set_costs (struct ivopts_data *data)
     }
 
   n = 0;
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       op = PHI_RESULT (phi);
 
@@ -3478,8 +3473,8 @@ find_best_candidate (struct ivopts_data *data,
     {
       asol = BITMAP_XMALLOC ();
 
-      bitmap_a_or_b (asol, data->important_candidates, use->related_cands);
-      bitmap_a_and_b (asol, asol, sol);
+      bitmap_ior (asol, data->important_candidates, use->related_cands);
+      bitmap_and_into (asol, sol);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (asol, 0, c, bi)
@@ -3505,7 +3500,7 @@ find_best_candidate (struct ivopts_data *data,
 	      goto next_cand;
 	    }
 	  if (used_inv)
-	    bitmap_a_or_b (used_inv, used_inv, depends_on);
+	    bitmap_ior_into (used_inv, depends_on);
 	}
 
       cnd = acnd;
@@ -3603,20 +3598,32 @@ try_add_cand_for (struct ivopts_data *data, bitmap ivs, bitmap inv,
   bitmap act_inv = BITMAP_XMALLOC ();
   unsigned i;
   struct cost_pair *cp;
+  bitmap_iterator bi;
+  struct iv_cand *cand;
+  bitmap depends_on;
 
   bitmap_copy (best_ivs, ivs);
   bitmap_copy (best_inv, inv);
 
-  for (i = 0; i < use->n_map_members; i++)
+  /* First try important candidates.  Only if it fails, try the specific ones.
+     Rationale -- in loops with many variables the best choice often is to use
+     just one generic biv.  If we added here many ivs specific to the uses,
+     the optimization algorithm later would be likely to get stuck in a local
+     minimum, thus causing us to create too many ivs.  The approach from
+     few ivs to more seems more likely to be successful -- starting from few
+     ivs, replacing an expensive use by a specific iv should always be a
+     win.  */
+  EXECUTE_IF_SET_IN_BITMAP (data->important_candidates, 0, i, bi)
     {
-      cp = use->cost_map + i;
-      if (cp->cost == INFTY)
+      cand = iv_cand (data, i);
+
+      if (get_use_iv_cost (data, use, cand, &depends_on) == INFTY)
 	continue;
 
       bitmap_copy (act_ivs, ivs);
-      bitmap_set_bit (act_ivs, cp->cand->id);
-      if (cp->depends_on)
-	bitmap_a_or_b (act_inv, inv, cp->depends_on);
+      bitmap_set_bit (act_ivs, cand->id);
+      if (depends_on)
+	bitmap_ior (act_inv, inv, depends_on);
       else
 	bitmap_copy (act_inv, inv);
       act_cost = set_cost_up_to (data, act_ivs, act_inv, use->id + 1);
@@ -3626,6 +3633,35 @@ try_add_cand_for (struct ivopts_data *data, bitmap ivs, bitmap inv,
 	  best_cost = act_cost;
 	  bitmap_copy (best_ivs, act_ivs);
 	  bitmap_copy (best_inv, act_inv);
+	}
+    }
+
+  if (best_cost == INFTY)
+    {
+      for (i = 0; i < use->n_map_members; i++)
+	{
+	  cp = use->cost_map + i;
+	  if (cp->cost == INFTY)
+	    continue;
+
+	  /* Already tried this.  */
+	  if (cp->cand->important)
+	    continue;
+
+	  bitmap_copy (act_ivs, ivs);
+	  bitmap_set_bit (act_ivs, cp->cand->id);
+	  if (cp->depends_on)
+	    bitmap_ior (act_inv, inv, cp->depends_on);
+	  else
+	    bitmap_copy (act_inv, inv);
+	  act_cost = set_cost_up_to (data, act_ivs, act_inv, use->id + 1);
+
+	  if (act_cost < best_cost)
+	    {
+	      best_cost = act_cost;
+	      bitmap_copy (best_ivs, act_ivs);
+	      bitmap_copy (best_inv, act_inv);
+	    }
 	}
     }
 
@@ -3878,7 +3914,7 @@ remove_statement (tree stmt, bool including_defined_name)
     }
   else
     {
-      block_stmt_iterator bsi = stmt_for_bsi (stmt);
+      block_stmt_iterator bsi = bsi_for_stmt (stmt);
 
       bsi_remove (&bsi);
     }
@@ -3916,7 +3952,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 
     case MODIFY_EXPR:
       tgt = TREE_OPERAND (use->stmt, 0);
-      bsi = stmt_for_bsi (use->stmt);
+      bsi = bsi_for_stmt (use->stmt);
       break;
 
     default:
@@ -4055,7 +4091,7 @@ rewrite_use_address (struct ivopts_data *data,
 {
   tree comp = unshare_expr (get_computation (data->current_loop,
 					     use, cand));
-  block_stmt_iterator bsi = stmt_for_bsi (use->stmt);
+  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
   tree stmts;
   tree op = force_gimple_operand (comp, &stmts, true, NULL_TREE);
 
@@ -4075,7 +4111,7 @@ rewrite_use_compare (struct ivopts_data *data,
 {
   tree comp;
   tree *op_p, cond, op, stmts, bound;
-  block_stmt_iterator bsi = stmt_for_bsi (use->stmt);
+  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
   enum tree_code compare;
   
   if (may_eliminate_iv (data->current_loop,
@@ -4134,7 +4170,7 @@ protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
     return;
 
   /* Try finding a phi node that copies the value out of the loop.  */
-  for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
     if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
       break;
 
@@ -4268,7 +4304,7 @@ rewrite_use_outer (struct ivopts_data *data,
       if (stmts && name_info (data, tgt)->preserve_biv)
 	return;
 
-      for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  use_operand_p use_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, exit);
 
@@ -4575,6 +4611,11 @@ tree_ssa_iv_optimize (struct loops *loops)
       else
 	loop = loop->outer;
     }
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+  verify_stmts ();
+#endif
 
   tree_ssa_iv_optimize_finalize (loops, &data);
 }

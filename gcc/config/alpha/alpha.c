@@ -3164,6 +3164,35 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
   rtx meml, memh, addr, extl, exth, tmp, mema;
   enum machine_mode mode;
 
+  if (TARGET_BWX && size == 2)
+    {
+      meml = adjust_address (mem, QImode, 0);
+      memh = adjust_address (mem, QImode, 1);
+      if (BYTES_BIG_ENDIAN)
+	tmp = meml, meml = memh, memh = tmp;
+      extl = gen_reg_rtx (DImode);
+      exth = gen_reg_rtx (DImode);
+      emit_insn (gen_zero_extendqidi2 (extl, meml));
+      emit_insn (gen_zero_extendqidi2 (exth, memh));
+      exth = expand_simple_binop (DImode, ASHIFT, exth, GEN_INT (8),
+				  NULL, 1, OPTAB_LIB_WIDEN);
+      addr = expand_simple_binop (DImode, IOR, extl, exth,
+				  NULL, 1, OPTAB_LIB_WIDEN);
+
+      if (sign && GET_MODE (tgt) != HImode)
+	{
+	  addr = gen_lowpart (HImode, addr);
+	  emit_insn (gen_extend_insn (tgt, addr, GET_MODE (tgt), HImode, 0));
+	}
+      else
+	{
+	  if (GET_MODE (tgt) != DImode)
+	    addr = gen_lowpart (GET_MODE (tgt), addr);
+	  emit_move_insn (tgt, addr);
+	}
+      return;
+    }
+
   meml = gen_reg_rtx (DImode);
   memh = gen_reg_rtx (DImode);
   addr = gen_reg_rtx (DImode);
@@ -3276,7 +3305,7 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
     }
 
   if (addr != tgt)
-    emit_move_insn (tgt, gen_lowpart(GET_MODE (tgt), addr));
+    emit_move_insn (tgt, gen_lowpart (GET_MODE (tgt), addr));
 }
 
 /* Similarly, use ins and msk instructions to perform unaligned stores.  */
@@ -3286,6 +3315,28 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
 			      HOST_WIDE_INT size, HOST_WIDE_INT ofs)
 {
   rtx dstl, dsth, addr, insl, insh, meml, memh, dsta;
+
+  if (TARGET_BWX && size == 2)
+    {
+      if (src != const0_rtx)
+	{
+	  dstl = gen_lowpart (QImode, src);
+	  dsth = expand_simple_binop (DImode, LSHIFTRT, src, GEN_INT (8),
+				      NULL, 1, OPTAB_LIB_WIDEN);
+	  dsth = gen_lowpart (QImode, dsth);
+	}
+      else
+	dstl = dsth = const0_rtx;
+
+      meml = adjust_address (dst, QImode, 0);
+      memh = adjust_address (dst, QImode, 1);
+      if (BYTES_BIG_ENDIAN)
+	addr = meml, meml = memh, memh = addr;
+
+      emit_move_insn (meml, dstl);
+      emit_move_insn (memh, dsth);
+      return;
+    }
 
   dstl = gen_reg_rtx (DImode);
   dsth = gen_reg_rtx (DImode);
@@ -6547,6 +6598,9 @@ alpha_expand_prologue (void)
     emit_insn (gen_blockage ());
 }
 
+/* Count the number of .file directives, so that .loc is up to date.  */
+int num_source_filenames = 0;
+
 /* Output the textual info surrounding the prologue.  */
 
 void
@@ -6613,10 +6667,10 @@ alpha_start_function (FILE *file, const char *fnname,
       ASM_OUTPUT_SOURCE_FILENAME (file,
 				  DECL_SOURCE_FILE (current_function_decl));
 #endif
-#ifdef ASM_OUTPUT_SOURCE_LINE
+#ifdef SDB_OUTPUT_SOURCE_LINE
       if (debug_info_level != DINFO_LEVEL_TERSE)
-        ASM_OUTPUT_SOURCE_LINE (file,
-				DECL_SOURCE_LINE (current_function_decl), 0);
+        SDB_OUTPUT_SOURCE_LINE (file,
+				DECL_SOURCE_LINE (current_function_decl));
 #endif
     }
 
@@ -7149,14 +7203,6 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
 int sdb_label_count = 0;
 
-/* Next label # for each statement.  */
-
-static int sym_lineno = 0;
-
-/* Count the number of .file directives, so that .loc is up to date.  */
-
-static int num_source_filenames = 0;
-
 /* Name of the file containing the current function.  */
 
 static const char *current_function_file = "";
@@ -7172,7 +7218,6 @@ void
 alpha_output_filename (FILE *stream, const char *name)
 {
   static int first_time = TRUE;
-  char ltext_label_name[100];
 
   if (first_time)
     {
@@ -7187,12 +7232,8 @@ alpha_output_filename (FILE *stream, const char *name)
     }
 
   else if (write_symbols == DBX_DEBUG)
-    {
-      ASM_GENERATE_INTERNAL_LABEL (ltext_label_name, "Ltext", 0);
-      fprintf (stream, "%s", ASM_STABS_OP);
-      output_quoted_string (stream, name);
-      fprintf (stream, ",%d,0,0,%s\n", N_SOL, &ltext_label_name[1]);
-    }
+    /* dbxout.c will emit an appropriate .stabs directive.  */
+    return;
 
   else if (name != current_function_file
 	   && strcmp (name, current_function_file) != 0)
@@ -7209,22 +7250,6 @@ alpha_output_filename (FILE *stream, const char *name)
       output_quoted_string (stream, name);
       fprintf (stream, "\n");
     }
-}
-
-/* Emit a linenumber to a stream.  */
-
-void
-alpha_output_lineno (FILE *stream, int line)
-{
-  if (write_symbols == DBX_DEBUG)
-    {
-      /* mips-tfile doesn't understand .stabd directives.  */
-      ++sym_lineno;
-      fprintf (stream, "$LM%d:\n%s%d,0,%d,$LM%d\n",
-	       sym_lineno, ASM_STABN_OP, N_SLINE, line, sym_lineno);
-    }
-  else
-    fprintf (stream, "\n\t.loc\t%d %d\n", num_source_filenames, line);
 }
 
 /* Structure to show the current status of registers and memory.  */
