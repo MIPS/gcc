@@ -1,3 +1,7 @@
+2004-09-21  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/MultiPixelPackedSampleModel.java: Implement.
+
 2004-09-16  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/Raster.java (getNumBands): Implement.

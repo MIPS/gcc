@@ -1148,6 +1148,7 @@ java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
 java/awt/image/LookupTable.java \
+java/awt/image/MultiPixelPackedSampleModel.java \
 java/awt/image/PackedColorModel.java \
 java/awt/image/PixelInterleavedSampleModel.java \
 java/awt/image/Raster.java \
