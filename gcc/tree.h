@@ -3817,5 +3817,10 @@ extern int tree_node_sizes[];
    be restricted.  False if we are not in gimple form and folding is not
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
-    
+
+/* In tree-ssa-loop-niter.c.  */
+
+tree lower_bound_in_type (tree, tree);
+tree upper_bound_in_type (tree, tree);
+
 #endif  /* GCC_TREE_H  */

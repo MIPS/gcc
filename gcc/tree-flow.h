@@ -647,6 +647,8 @@ struct tree_niter_desc
   tree may_be_zero;	/* Condition under that the loop exits in the first
 			   iteration.  */
   tree niter;		/* Number of iterations.  */
+  tree additional_info;	/* Additional conditions taken into account when
+			   deriving the information above.  */
 };
 
 void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
