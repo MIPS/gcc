@@ -199,31 +199,27 @@ stmt_modified_p (tree t)
 }
 
 static inline varray_type
-def_ops (tree stmt)
+def_ops (stmt_ann_t ann)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->ops ? ann->ops->def_ops : NULL) : NULL;
 }
 
 static inline varray_type
-use_ops (tree stmt)
+use_ops (stmt_ann_t ann)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->ops ? ann->ops->use_ops : NULL) : NULL;
 }
 
 
 static inline varray_type
-vdef_ops (tree stmt)
+vdef_ops (stmt_ann_t ann)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->vops ? ann->vops->vdef_ops : NULL) : NULL;
 }
 
 static inline varray_type
-vuse_ops (tree stmt)
+vuse_ops (stmt_ann_t ann)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->vops ? ann->vops->vuse_ops : NULL) : NULL;
 }
 

@@ -1356,10 +1356,10 @@ cprop_into_stmt (tree stmt)
   bool may_have_exposed_new_symbols;
   stmt_ann_t ann = stmt_ann (stmt);
 
-  defs = def_ops (stmt);
-  uses = use_ops (stmt);
-  vuses = vuse_ops (stmt);
-  vdefs = vdef_ops (stmt);
+  defs = def_ops (ann);
+  uses = use_ops (ann);
+  vuses = vuse_ops (ann);
+  vdefs = vdef_ops (ann);
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
   operand_tables[0] = uses;
@@ -1485,8 +1485,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
     return false;
 
   get_stmt_operands (stmt);
-  vdefs = vdef_ops (stmt);
   ann = stmt_ann (stmt);
+  vdefs = vdef_ops (ann);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
@@ -1606,7 +1606,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 #endif
 
 	  if (TREE_CODE (cached_lhs) == SSA_NAME)
-	    fixup_var_scope (cached_lhs, stmt_ann (stmt)->scope);
+	    fixup_var_scope (cached_lhs, ann->scope);
 	  else if (TREE_CODE (cached_lhs) == ADDR_EXPR
 		   || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
 		       && is_gimple_min_invariant (cached_lhs)))
@@ -2173,7 +2173,7 @@ avail_expr_hash (const void *p)
      because compound variables like arrays are not renamed in the
      operands.  Rather, the rename is done on the virtual variable
      representing all the elements of the array.  */
-  ops = vuse_ops (stmt);
+  ops = vuse_ops (stmt_ann (stmt));
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     val = iterative_hash_expr (VARRAY_TREE (ops, i), val);
 
@@ -2214,8 +2214,8 @@ avail_expr_eq (const void *p1, const void *p2)
 	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
       && operand_equal_p (rhs1, rhs2, 0))
     {
-      varray_type ops1 = vuse_ops (s1);
-      varray_type ops2 = vuse_ops (s2);
+      varray_type ops1 = vuse_ops (stmt_ann (s1));
+      varray_type ops2 = vuse_ops (stmt_ann (s2));
 
       if (ops1 == NULL && ops2 == NULL)
 	{

@@ -1927,7 +1927,8 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
 	 definitions made here, but that is expensive and can easily
 	 be checked by every pass by checking if SSA_NAME_DEF_STMT is
 	 a nop.  */ 
-      defs = def_ops (stmt);
+      stmt_ann_t ann = stmt_ann (stmt);
+      defs = def_ops (ann);
       for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
 	{
 	  tree *def_p = VARRAY_TREE_PTR (defs, i);
@@ -1935,7 +1936,7 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
 	    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
 	}
       
-      vdefs = vdef_ops (stmt);
+      vdefs = vdef_ops (ann);
       for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
 	{
 	  tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));

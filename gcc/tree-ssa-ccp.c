@@ -169,13 +169,14 @@ tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
 	{
 	  /* Pull the statement to simulate off the worklist.  */
 	  tree stmt = VARRAY_TOP_TREE (ssa_edges);
+	  stmt_ann_t ann = stmt_ann (stmt);
 	  VARRAY_POP (ssa_edges);
 
 	  /* visit_stmt can "cancel" reevaluation of some statements.
 	     If it does, then in_ccp_worklist will be zero.  */
-	  if (stmt_ann (stmt)->in_ccp_worklist)
+	  if (ann->in_ccp_worklist)
 	    {
-	      stmt_ann (stmt)->in_ccp_worklist = 0;
+	      ann->in_ccp_worklist = 0;
 	      simulate_stmt (stmt);
 	    }
 	}
@@ -550,6 +551,7 @@ static void
 visit_stmt (tree stmt)
 {
   size_t i;
+  stmt_ann_t ann;
   varray_type ops;
 
   /* If the statement has already been deemed to be VARYING, don't simulate
@@ -564,12 +566,14 @@ visit_stmt (tree stmt)
       fprintf (dump_file, "\n");
     }
 
+  ann = stmt_ann (stmt);
+
   /* If this statement is already in the worklist then "cancel" it.  The
      reevaluation implied by the worklist entry will produce the same
      value we generate here and thus reevaluting it again from the
      worklist is pointless.  */
-  if (stmt_ann (stmt)->in_ccp_worklist)
-    stmt_ann (stmt)->in_ccp_worklist = 0;
+  if (ann->in_ccp_worklist)
+    ann->in_ccp_worklist = 0;
 
   /* Now examine the statement.  If the statement is an assignment that
      produces a single output value, evaluate its RHS to see if the lattice
@@ -580,10 +584,10 @@ visit_stmt (tree stmt)
 
   /* Definitions made by statements other than assignments to SSA_NAMEs
      represent unknown modifications to their outputs.  Mark them VARYING.  */
-  else if (def_ops (stmt))
+  else if (def_ops (ann))
     {
       DONT_SIMULATE_AGAIN (stmt) = 1;
-      ops = def_ops (stmt);
+      ops = def_ops (ann);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
 	  tree *def_p = VARRAY_TREE_PTR (ops, i);
@@ -609,7 +613,7 @@ visit_stmt (tree stmt)
     }
 
   /* Mark all VDEF operands VARYING.  */
-  ops = vdef_ops (stmt);
+  ops = vdef_ops (ann);
   if (ops)
     {
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
@@ -858,7 +862,7 @@ ccp_fold (tree stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      varray_type uses = use_ops (stmt);
+      varray_type uses = use_ops (stmt_ann (stmt));
       if (uses)
 	{
 	  tree *orig;
@@ -1073,6 +1077,7 @@ initialize (void)
     {
       block_stmt_iterator i;
       tree stmt;
+      stmt_ann_t ann;
       varray_type ops;
       size_t x;
       int vary;
@@ -1083,7 +1088,8 @@ initialize (void)
 	  vary = 0;
 	  stmt = bsi_stmt (i);
 	  get_stmt_operands (stmt);
-	  ops = def_ops (stmt);
+	  ann = stmt_ann (stmt);
+	  ops = def_ops (ann);
 	  if (ops)
 	    for (x = 0; x < VARRAY_ACTIVE_SIZE (ops); x++)
 	      {
@@ -1094,7 +1100,7 @@ initialize (void)
 	  DONT_SIMULATE_AGAIN (stmt) = vary;
 
 	  /* Mark all VDEF operands VARYING.  */
-	  ops = vdef_ops (stmt);
+	  ops = vdef_ops (ann);
 	  if (ops)
 	    {
 	      for (x = 0; x < VARRAY_ACTIVE_SIZE (ops); x++)
@@ -1251,10 +1257,14 @@ add_var_to_ssa_edges_worklist (tree var)
     {
       tree use = immediate_use (df, i);
 
-      if (!DONT_SIMULATE_AGAIN (use) && stmt_ann (use)->in_ccp_worklist == 0)
+      if (!DONT_SIMULATE_AGAIN (use))
 	{
-	  stmt_ann (use)->in_ccp_worklist = 1;
-	  VARRAY_PUSH_TREE (ssa_edges, use);
+	  stmt_ann_t ann = stmt_ann (use);
+	  if (ann->in_ccp_worklist == 0)
+	    {
+	      ann->in_ccp_worklist = 1;
+	      VARRAY_PUSH_TREE (ssa_edges, use);
+	    }
 	}
     }
 }
@@ -1378,7 +1388,7 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p)
 
   get_stmt_operands (stmt);
 
-  uses = use_ops (stmt);
+  uses = use_ops (stmt_ann (stmt));
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *use = VARRAY_TREE_PTR (uses, i);
@@ -1459,7 +1469,7 @@ likely_value (tree stmt)
 
   get_stmt_operands (stmt);
 
-  uses = use_ops (stmt);
+  uses = use_ops (ann);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *use = VARRAY_TREE_PTR (uses, i);

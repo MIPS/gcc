@@ -1220,6 +1220,7 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 {
   size_t i;
   varray_type ops;
+  stmt_ann_t ann;
 
   /* PHI nodes are handled elsewhere.  */
 #ifdef ENABLE_CHECKING
@@ -1228,9 +1229,10 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 #endif
 
   /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
-  if ((flags & TDFA_USE_OPS) && use_ops (stmt))
+  ann = stmt_ann (stmt);
+  if ((flags & TDFA_USE_OPS) && use_ops (ann))
     {
-      ops = use_ops (stmt);
+      ops = use_ops (ann);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
 	  tree *use_p = VARRAY_TREE_PTR (ops, i);
@@ -1240,9 +1242,9 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 	}
     }
 
-  if ((flags & TDFA_USE_VOPS) && vuse_ops (stmt))
+  if ((flags & TDFA_USE_VOPS) && vuse_ops (ann))
     {
-      ops = vuse_ops (stmt);
+      ops = vuse_ops (ann);
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
 	{
 	  tree vuse = VARRAY_TREE (ops, i);
@@ -2918,6 +2920,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
   sbitmap vars_in_vops_to_rename;
   bool found_exposed_symbol = false;
   varray_type vdefs_before, vdefs_after;
+  stmt_ann_t ann;
 
   vars_in_vops_to_rename = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (vars_in_vops_to_rename);
@@ -2931,8 +2934,8 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
      We flag them in a separate bitmap because we don't really want to
      rename them if there are not any newly exposed symbols in the
      statement operands.  */
-
-  vdefs_before = ops = vdef_ops (stmt);
+  ann = stmt_ann (stmt);
+  vdefs_before = ops = vdef_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
@@ -2941,7 +2944,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
       SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
     }
 
-  ops = vuse_ops (stmt);
+  ops = vuse_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VARRAY_TREE (ops, i);
@@ -2955,7 +2958,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
   modify_stmt (stmt);
   get_stmt_operands (stmt);
 
-  ops = def_ops (stmt);
+  ops = def_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree *var_p = VARRAY_TREE_PTR (ops, i);
@@ -2966,7 +2969,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
 	}
     }
 
-  ops = use_ops (stmt);
+  ops = use_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree *var_p = VARRAY_TREE_PTR (ops, i);
@@ -2977,7 +2980,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
 	}
     }
 
-  vdefs_after = ops = vdef_ops (stmt);
+  vdefs_after = ops = vdef_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
@@ -2988,7 +2991,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
 	}
     }
 
-  ops = vuse_ops (stmt);
+  ops = vuse_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VARRAY_TREE (ops, i);

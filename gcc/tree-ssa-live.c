@@ -319,6 +319,7 @@ create_ssa_var_map (void)
   basic_block bb;
   tree *dest, *use;
   tree stmt;
+  stmt_ann_t ann;
   varray_type ops;
   unsigned x;
   var_map map;
@@ -343,9 +344,10 @@ create_ssa_var_map (void)
         {
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
 
 	  /* Register USE and DEF operands in each statement.  */
-	  ops = use_ops (stmt);
+	  ops = use_ops (ann);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      use = VARRAY_TREE_PTR (ops, x);
@@ -355,7 +357,7 @@ create_ssa_var_map (void)
 #endif
 	    }
 
-	  ops = def_ops (stmt);
+	  ops = def_ops (ann);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      dest = VARRAY_TREE_PTR (ops, x);
@@ -368,7 +370,7 @@ create_ssa_var_map (void)
 	  /* While we do not care about virtual operands for
 	     out of SSA, we do need to look at them to make sure
 	     we mark all the variables which are used.  */
-	  ops = vuse_ops (stmt);
+	  ops = vuse_ops (ann);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      tree var = VARRAY_TREE (ops, x);
@@ -378,7 +380,7 @@ create_ssa_var_map (void)
 #endif
 	    }
 
-	  ops = vdef_ops (stmt);
+	  ops = vdef_ops (ann);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
 	      tree var = VDEF_OP (VARRAY_TREE (ops, x));
@@ -535,6 +537,7 @@ calculate_live_on_entry (var_map map)
   varray_type stack;
   block_stmt_iterator bsi;
   varray_type ops;
+  stmt_ann_t ann;
 
   saw_def = sbitmap_alloc (num_var_partitions (map));
 
@@ -579,8 +582,9 @@ calculate_live_on_entry (var_map map)
         {
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
 
-	  ops = use_ops (stmt);
+	  ops = use_ops (ann);
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
@@ -588,7 +592,7 @@ calculate_live_on_entry (var_map map)
 	      add_livein_if_notdef (live, saw_def, *vec, bb);
 	    }
 
-	  ops = vuse_ops (stmt);
+	  ops = vuse_ops (ann);
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
@@ -596,7 +600,7 @@ calculate_live_on_entry (var_map map)
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
-	  ops = vdef_ops (stmt);
+	  ops = vdef_ops (ann);
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
@@ -604,7 +608,7 @@ calculate_live_on_entry (var_map map)
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
-	  ops = def_ops (stmt);
+	  ops = def_ops (ann);
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
@@ -612,7 +616,7 @@ calculate_live_on_entry (var_map map)
 	      set_if_valid (map, saw_def, *vec);
 	    }
 
-	  ops = vdef_ops (stmt);
+	  ops = vdef_ops (ann);
 	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	  for (i = 0; i < num; i++)
 	    {
@@ -1288,6 +1292,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   int num, x, y, i;
   basic_block bb;
   varray_type stmt_stack, ops;
+  stmt_ann_t ann;
   tree stmt, *var_p;
 
   map = live_var_map (liveinfo);
@@ -1308,6 +1313,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	  tree important_copy_rhs_partition = NULL_TREE;
 
 	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
 
 	  /* Copies between 2 partitions do not introduce an interference 
 	     by itself.  If they did, you would never be able to coalesce 
@@ -1355,7 +1361,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
 	  if (!important_copy_rhs_partition)
 	    {
-	      ops = def_ops (stmt);
+	      ops = def_ops (ann);
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{
@@ -1363,7 +1369,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 		  add_conflicts_if_valid (tpa, graph, map, live, *var_p);
 		}
 
-	      ops = use_ops (stmt);
+	      ops = use_ops (ann);
 	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 	      for (x = 0; x < num; x++)
 		{

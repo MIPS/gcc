@@ -512,13 +512,15 @@ mark_def_sites (sbitmap globals)
 	  varray_type ops;
 	  size_t i, uid;
 	  tree stmt;
+	  stmt_ann_t ann;
 
 	  stmt = bsi_stmt (si);
 	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
 
 	  /* If a variable is used before being set, then the variable
 	     is live across a block boundary, so add it to NONLOCAL_VARS.  */
-	  ops = use_ops (stmt);
+	  ops = use_ops (ann);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *use_p = VARRAY_TREE_PTR (ops, i);
@@ -532,7 +534,7 @@ mark_def_sites (sbitmap globals)
 	    }
 	  
 	  /* Similarly for virtual uses.  */
-	  ops = vuse_ops (stmt);
+	  ops = vuse_ops (ann);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *use_p = &VARRAY_TREE (ops, i);
@@ -550,7 +552,7 @@ mark_def_sites (sbitmap globals)
 	     definition of the variable.  However, the operand of a virtual
 	     definitions is a use of the variable, so it may affect
 	     GLOBALS.  */
-	  ops = vdef_ops (stmt);
+	  ops = vdef_ops (ann);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, i);
@@ -569,7 +571,7 @@ mark_def_sites (sbitmap globals)
 	    }
 
 	  /* Now process the definition made by this statement.  */
-	  ops = def_ops (stmt);
+	  ops = def_ops (ann);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *def_p = VARRAY_TREE_PTR (ops, i);
@@ -1667,14 +1669,16 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 	  tree stmt = bsi_stmt (si);
 	  tree *use_p = NULL;
 	  int remove = 0, is_copy = 0;
+	  stmt_ann_t ann;
 
 	  get_stmt_operands (stmt);
+	  ann = stmt_ann (stmt);
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
 	    is_copy = 1;
 
-	  ops = use_ops (stmt);
+	  ops = use_ops (ann);
 	  num_uses = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 
 	  for (i = 0; i < num_uses; i++)
@@ -1683,7 +1687,7 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 	      replace_variable (map, use_p);
 	    }
 
-	  ops = def_ops (stmt);
+	  ops = def_ops (ann);
 	  num_defs = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 
 	  for (i = 0; i < num_defs; i++)
@@ -2009,13 +2013,10 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     abort ();
 #endif
 
-  /* FIXME: Must change the interface to statement annotations.  Helpers
-	    should receive the annotation, not the statement.  Otherwise,
-	    we call stmt_ann() more than necessary.  */
-  defs = def_ops (stmt);
-  uses = use_ops (stmt);
-  vuses = vuse_ops (stmt);
-  vdefs = vdef_ops (stmt);
+  defs = def_ops (ann);
+  uses = use_ops (ann);
+  vuses = vuse_ops (ann);
+  vdefs = vdef_ops (ann);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)

@@ -96,6 +96,7 @@ copyprop_stmt (tree stmt)
 {
   varray_type uses;
   size_t i;
+  stmt_ann_t ann;
   bool modified;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -109,7 +110,8 @@ copyprop_stmt (tree stmt)
   modified = false;
 
   /* Propagate real uses.  */
-  uses = use_ops (stmt);
+  ann = stmt_ann (stmt);
+  uses = use_ops (ann);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *use_p = VARRAY_TREE_PTR (uses, i);
@@ -126,7 +128,7 @@ copyprop_stmt (tree stmt)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  propagate_copy (use_p, orig, stmt_ann (stmt)->scope);
+	  propagate_copy (use_p, orig, ann->scope);
 	  modified = true;
 	}
     }

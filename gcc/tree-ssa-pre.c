@@ -440,7 +440,7 @@ maybe_find_rhs_use_for_var (tree def, tree var, unsigned int startpos)
       return NULL_TREE;
     }
   get_stmt_operands (def);
-  uses = use_ops (def);
+  uses = use_ops (stmt_ann (def));
 
   if (!uses)
     return NULL_TREE;
@@ -726,7 +726,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 	continue;
       occur = TREE_OPERAND (occur, 1);
       get_stmt_operands (occurp);
-      uses = use_ops (occurp);
+      uses = use_ops (stmt_ann (occurp));
       for (j = 0; j < VARRAY_ACTIVE_SIZE (uses); j ++)
 	{
 	  tree *usep = VARRAY_TREE_PTR (uses, j);
@@ -936,10 +936,10 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
 
   if (expr1val == expr2val)
     {
-      ops = vuse_ops (t1);
+      ops = vuse_ops (stmt_ann (t1));
       for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
         expr1val = iterative_hash_expr (VARRAY_TREE (ops, i), expr1val);
-      ops = vuse_ops (t2);
+      ops = vuse_ops (stmt_ann (t2));
       for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
         expr2val = iterative_hash_expr (VARRAY_TREE (ops, i), expr2val);
       if (expr1val != expr2val)
@@ -1016,7 +1016,7 @@ static void
 generate_expr_as_of_bb (struct expr_info *ei ATTRIBUTE_UNUSED, tree expr,
 			int j, basic_block bb)
 {
-  varray_type uses = use_ops (expr);
+  varray_type uses = use_ops (stmt_ann (expr));
   bool replaced_constants = false;
   size_t k;
 
@@ -1110,10 +1110,10 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
 
   if (expr1val == expr2val)
     {
-      ops = vuse_ops (def);
+      ops = vuse_ops (stmt_ann (def));
       for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
         expr1val = iterative_hash_expr (VARRAY_TREE (ops, i), expr1val);
-      ops = vuse_ops (use);
+      ops = vuse_ops (stmt_ann (use));
       for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
         expr2val = iterative_hash_expr (VARRAY_TREE (ops, i), expr2val);
       if (expr1val != expr2val)
@@ -1146,7 +1146,7 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
 {
   bool not_mod = true;
   size_t i;
-  varray_type cruses = use_ops (cr);
+  varray_type cruses = use_ops (stmt_ann (cr));
   if (!cruses)
     return false;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (cruses); i++)
@@ -1612,7 +1612,7 @@ get_default_def (tree var, htab_t seen)
     }
 
 
-  defs = def_ops (defstmt);
+  defs = def_ops (stmt_ann (defstmt));
   for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
     {
       tree *def_p = VARRAY_TREE_PTR (defs, i);
@@ -1662,7 +1662,7 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
 	break;
 
       get_stmt_operands (bsi_stmt (bsi));
-      defs = def_ops (bsi_stmt (bsi));
+      defs = def_ops (stmt_ann (bsi_stmt (bsi)));
       for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
 	{
 	  def = VARRAY_TREE_PTR (defs, i);
@@ -2945,10 +2945,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	struct expr_info *slot = NULL;
 
 	get_stmt_operands (expr);
-	if (use_ops (expr) == NULL)
-	  continue;
-
 	ann = stmt_ann (expr);
+	if (use_ops (ann) == NULL)
+	  continue;
 
 	if (TREE_CODE (expr) == MODIFY_EXPR)
 	  expr = TREE_OPERAND (expr, 1);

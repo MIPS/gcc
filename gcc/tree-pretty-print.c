@@ -1994,8 +1994,9 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc)
 {
   size_t i;
   basic_block bb;
-  varray_type vdefs = vdef_ops (stmt);
-  varray_type vuses = vuse_ops (stmt);
+  stmt_ann_t ann = stmt_ann (stmt);
+  varray_type vdefs = vdef_ops (ann);
+  varray_type vuses = vuse_ops (ann);
 
   bb = bb_for_stmt (stmt);
   if (bb && bb != last_bb && bb->tree_annotations)

@@ -227,6 +227,7 @@ static bool
 stmt_useful_p (tree stmt)
 {
   varray_type ops;
+  stmt_ann_t ann;
   size_t i;
 
   /* Instructions that are implicitly live.  Function calls, asm and return
@@ -276,17 +277,18 @@ stmt_useful_p (tree stmt)
     return true;
 
   /* If the statement has volatile operands, it needs to be preserved.  */
-  if (stmt_ann (stmt)->has_volatile_ops)
+  ann = stmt_ann (stmt);
+  if (ann->has_volatile_ops)
     return true;
 
   get_stmt_operands (stmt);
 
-  ops = def_ops (stmt);
+  ops = def_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     if (need_to_preserve_store (*(VARRAY_TREE_PTR (ops, i))))
       return true;
 
-  ops = vdef_ops (stmt);
+  ops = vdef_ops (ann);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     if (need_to_preserve_store (VDEF_RESULT (VARRAY_TREE (ops, i))))
       return true;
@@ -342,18 +344,20 @@ process_worklist (void)
 	     Mark all the statements which feed this statement's uses as
 	     necessary.  */
 	  varray_type ops;
+	  stmt_ann_t ann;
 	  size_t k;
 
 	  get_stmt_operands (i);
+	  ann = stmt_ann (i);
 
-	  ops = use_ops (i);
+	  ops = use_ops (ann);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree *use_p = VARRAY_TREE_PTR (ops, k);
 	      mark_necessary (SSA_NAME_DEF_STMT (*use_p));
 	    }
 
-	  ops = vuse_ops (i);
+	  ops = vuse_ops (ann);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vuse = VARRAY_TREE (ops, k);
@@ -363,7 +367,7 @@ process_worklist (void)
 	  /* The operands of VDEF expressions are also needed as they
 	     represent potential definitions that may reach this
 	     statement (VDEF operands allow us to follow def-def links).  */
-	  ops = vdef_ops (i);
+	  ops = vdef_ops (ann);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, k);
