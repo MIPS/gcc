@@ -638,7 +638,13 @@ arm_override_options ()
       else
 	arm_pic_register = pic_register;
     }
-  
+
+  if (TARGET_THUMB && flag_schedule_insns)
+    {
+      /* Don't warn since it's on by default in -O2.  */
+      flag_schedule_insns = 0;
+    }
+
   /* If optimizing for space, don't synthesize constants.
      For processors with load scheduling, it never costs more than 2 cycles
      to load a constant, and the load scheduler may well reduce that to 1.  */
