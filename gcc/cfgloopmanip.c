@@ -289,13 +289,27 @@ remove_path (loops, e)
      struct loops *loops;
      edge e;
 {
-  edge ae;
+  edge ae, other;
   basic_block *rem_bbs, *bord_bbs, *dom_bbs, from, bb;
-  int i, nrem, n_bord_bbs, n_dom_bbs;
+  basic_block *other_part;
+  int i, nrem, n_bord_bbs, n_dom_bbs, n_other_part;
   sbitmap seen;
+  int scale;
 
-  /* First identify the branch.  */
+  if (!e->src->succ->succ_next || e->src->succ->succ_next->succ_next)
+    abort ();
+
+  other = e->src->succ;
+  if (other == e)
+    other = other->succ_next;
+  if (other->probability == 0)
+    scale = 10;
+  else
+    scale = RDIV (10 * REG_BR_PROB_BASE, other->probability);
+  
+  /* First identify the branches.  */
   nrem = find_branch (e, loops->cfg.dom, &rem_bbs);
+  n_other_part = find_branch (other, loops->cfg.dom, &other_part);
 
   /* Find blocks whose immediate dominators may be affected.  */
   n_dom_bbs = 0;
@@ -374,6 +388,10 @@ remove_path (loops, e)
   /* Fix loop placements.  */
   fix_loop_placements (from->loop_father);
 
+  /* Fix frequencies of other affected blocks.  */
+  scale_bbs_frequencies (other_part, n_other_part, scale, 10);
+  free (other_part);
+
   return true;
 }
 
@@ -425,10 +443,10 @@ scale_bbs_frequencies (bbs, nbbs, num, den)
 
   for (i = 0; i < nbbs; i++)
     {
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = (bbs[i]->count * num) / den;
+      bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
       for (e = bbs[i]->succ; e; e = e->succ_next)
-	e->count = (e->count * num) /den;
+	e->count = RDIV (e->count * num, den);
     }
 }
 
@@ -893,9 +911,6 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
       free (my_blocks);
     }
 }
-
-
-#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of
    updating LOOPS structure.  E's destination must be LOOP header for this to

@@ -67,7 +67,7 @@ XCFLAGS =
 TCFLAGS =
 CFLAGS = -g -O2
 STAGE1_CFLAGS = -g @stage1_cflags@
-BOOT_CFLAGS = -g -O2
+BOOT_CFLAGS = -g -O2 -funswitch-loops
 
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage

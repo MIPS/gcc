@@ -1,3 +1,12 @@
+2003-06-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (RDIV): New.
+	(EDGE_FREQUENCY): Use it.
+	* cfgloopmanip.c (remove_path): Update frequencies on the other
+	path.
+	(scale_bbs_frequencies): Use RDIV.
+	(RDIV): Moved to basic-block.h.
+
 Wed Jun 25 22:22:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcse.c (local_variable_p): Proper fix.
