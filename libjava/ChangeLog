@@ -1,3 +1,28 @@
+2004-07-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkPanelPeer.java (handleEvent): Handle
+	MOUSE_PRESSED event.
+	* java/awt/Component.java (requestFocus()): Handle Panel
+	specially.  Post FOCUS_LOST event on opposite component.
+	(requestFocus(boolean)): Likewise.
+	(requestFocusInWindow(boolean)): Likewise.
+	(paramString): Reorder dimension fields.
+	* java/awt/Container.java (paramString): Fix string format.
+	* java/awt/DefaultKeyboardFocusManager.java (dispatchEvent):
+	Handle FOCUS_LOST events.  Don't handle Windows specially.  Only
+	process key events if the focus owner is non-null.
+	(dispatchKeyEvent): Likewise.
+	* java/awt/Frame.java (paramString): Fix formatting.
+	(generateName): New method.
+	(getUniqueLong): Likewise.
+	* java/awt/KeyboardFocusManager.java (getFocusOwner): Check if
+	the temporary focus owner is null.  If so, return the permanent
+	focus owner.
+	* java/awt/Panel.java (generateName): New method.
+	(getUniqueLong): Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c: Rework
+	signal handling to make callbacks more specific.
+
 2004-07-09  Olga Rodimina <rodimina@redhat.com>
 	
 	* javax/swing/JMenuItem.java:

@@ -65,9 +65,18 @@ static void window_delete_cb (GtkWidget *widget, GdkEvent *event,
 static void window_destroy_cb (GtkWidget *widget, GdkEvent *event,
 			       jobject peer);
 static void window_show_cb (GtkWidget *widget, jobject peer);
-static void window_focus_or_active_state_change_cb (GtkWidget *widget,
-                                                    GParamSpec *pspec,
-                                                    jobject peer);
+static void window_active_state_change_cb (GtkWidget *widget,
+                                           GParamSpec *pspec,
+                                           jobject peer);
+static void window_focus_state_change_cb (GtkWidget *widget,
+                                          GParamSpec *pspec,
+                                          jobject peer);
+static gboolean window_focus_in_cb (GtkWidget * widget,
+                                    GdkEventFocus *event,
+                                    jobject peer);
+static gboolean window_focus_out_cb (GtkWidget * widget,
+                                     GdkEventFocus *event,
+                                     jobject peer);
 static gboolean window_window_state_cb (GtkWidget *widget,
 					GdkEvent *event,
 					jobject peer);
@@ -229,8 +238,17 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
   g_signal_connect (G_OBJECT (ptr), "show",
 		    G_CALLBACK (window_show_cb), *gref);
 
-  g_signal_connect (G_OBJECT (ptr), "notify",
-		    G_CALLBACK (window_focus_or_active_state_change_cb), *gref);
+  g_signal_connect (G_OBJECT (ptr), "notify::is-active",
+  		    G_CALLBACK (window_active_state_change_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "notify::has-toplevel-focus",
+  		    G_CALLBACK (window_focus_state_change_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "focus-in-event",
+                    G_CALLBACK (window_focus_in_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "focus-out-event",
+                    G_CALLBACK (window_focus_out_cb), *gref);
 
   g_signal_connect (G_OBJECT (ptr), "window-state-event",
 		    G_CALLBACK (window_window_state_cb), *gref);
@@ -607,36 +625,64 @@ window_show_cb (GtkWidget *widget __attribute__((unused)),
 }
 
 static void
-window_focus_or_active_state_change_cb (GtkWidget *widget,
-                                        GParamSpec *pspec,
-                                        jobject peer)
+window_active_state_change_cb (GtkWidget *widget,
+                               GParamSpec *pspec,
+                               jobject peer)
 {
-  if (!strcmp (g_param_spec_get_name (pspec), "is-active"))
-    {
-      if (GTK_WINDOW (widget)->is_active)
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_GAINED_FOCUS,
-                                    (jobject) NULL, (jint) 0);
-      else
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_DEACTIVATED,
-                                    (jobject) NULL, (jint) 0);
-    }
-  else if (!strcmp (g_param_spec_get_name (pspec), "has-toplevel-focus"))
-    {
-      if (GTK_WINDOW (widget)->has_toplevel_focus)
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_ACTIVATED,
-                                    (jobject) NULL, (jint) 0);
-      else
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
-                                    postWindowEventID,
-                                    (jint) AWT_WINDOW_LOST_FOCUS,
-                                    (jobject) NULL, (jint) 0);
-    }
+  /* FIXME: not sure if this is needed or not. */
+#if 0
+  if (GTK_WINDOW (widget)->is_active)
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_GAINED_FOCUS,
+                                (jobject) NULL, (jint) 0);
+  else
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_DEACTIVATED,
+                                (jobject) NULL, (jint) 0);
+#endif
+}
+
+static void
+window_focus_state_change_cb (GtkWidget *widget,
+                              GParamSpec *pspec,
+                              jobject peer)
+{
+  if (GTK_WINDOW (widget)->has_toplevel_focus)
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_ACTIVATED,
+                                (jobject) NULL, (jint) 0);
+  else
+    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                                postWindowEventID,
+                                (jint) AWT_WINDOW_DEACTIVATED,
+                                (jobject) NULL, (jint) 0);
+}
+
+static gboolean
+window_focus_in_cb (GtkWidget * widget,
+                   GdkEventFocus *event,
+                   jobject peer)
+{
+  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                              postWindowEventID,
+                              (jint) AWT_WINDOW_GAINED_FOCUS,
+                              (jobject) NULL, (jint) 0);
+  return FALSE;
+}
+
+static gboolean
+window_focus_out_cb (GtkWidget * widget,
+                    GdkEventFocus *event,
+                    jobject peer)
+{
+  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                              postWindowEventID,
+                              (jint) AWT_WINDOW_LOST_FOCUS,
+                              (jobject) NULL, (jint) 0);
+  return FALSE;
 }
 
 static gboolean

@@ -3643,7 +3643,8 @@ public abstract class Component
             Window toplevel = (Window) parent;
             if (toplevel.isFocusableWindow ())
               {
-                if (peer != null)
+                if (peer != null
+                    && !(this instanceof Panel))
                   // This call will cause a FOCUS_GAINED event to be
                   // posted to the system event queue if the native
                   // windowing system grants the focus request.
@@ -3654,7 +3655,20 @@ public abstract class Component
                     // lightweight component.  In either case we want to
                     // post a FOCUS_GAINED event.
                     EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-                    eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED));
+                    synchronized (eq)
+                      {
+                        KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+                        Component currentFocusOwner = manager.getGlobalPermanentFocusOwner ();
+                        if (currentFocusOwner != null)
+                          {
+                            eq.postEvent (new FocusEvent(currentFocusOwner, FocusEvent.FOCUS_LOST,
+                                                         false, this));
+                            eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, false,
+                                                         currentFocusOwner));
+                          }
+                        else
+                          eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, false));
+                      }
                   }
               }
             else
@@ -3716,7 +3730,8 @@ public abstract class Component
             Window toplevel = (Window) parent;
             if (toplevel.isFocusableWindow ())
               {
-                if (peer != null)
+                if (peer != null
+                    && !(this instanceof Panel))
                   // This call will cause a FOCUS_GAINED event to be
                   // posted to the system event queue if the native
                   // windowing system grants the focus request.
@@ -3727,7 +3742,23 @@ public abstract class Component
                     // lightweight component.  In either case we want to
                     // post a FOCUS_GAINED event.
                     EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-                    eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                    synchronized (eq)
+                      {
+                        KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+                        Component currentFocusOwner = manager.getGlobalPermanentFocusOwner ();
+                        if (currentFocusOwner != null)
+                          {
+                            eq.postEvent (new FocusEvent(currentFocusOwner,
+                                                         FocusEvent.FOCUS_LOST,
+                                                         temporary, this));
+                            eq.postEvent (new FocusEvent(this,
+                                                         FocusEvent.FOCUS_GAINED,
+                                                         temporary,
+                                                         currentFocusOwner));
+                          }
+                        else
+                          eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                      }
                   }
               }
             else
@@ -3820,7 +3851,9 @@ public abstract class Component
                 // Check if top-level ancestor is currently focused window.
                 if (focusedWindow == toplevel)
                   {
-                    if (peer != null)
+                    if (peer != null
+                        && !(this instanceof Panel)
+                        && !(this instanceof Window))
                       // This call will cause a FOCUS_GAINED event to be
                       // posted to the system event queue if the native
                       // windowing system grants the focus request.
@@ -3831,7 +3864,19 @@ public abstract class Component
                         // lightweight component.  In either case we want to
                         // post a FOCUS_GAINED event.
                         EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-                        eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                        synchronized (eq)
+                          {
+                            Component currentFocusOwner = manager.getGlobalPermanentFocusOwner ();
+                            if (currentFocusOwner != null)
+                              {
+                                eq.postEvent (new FocusEvent(currentFocusOwner, FocusEvent.FOCUS_LOST,
+                                                             temporary, this));
+                                eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary,
+                                                             currentFocusOwner));
+                              }
+                            else
+                              eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                          }
                       }
                   }
                 else
@@ -4009,8 +4054,8 @@ public abstract class Component
     String name = getName();
     if (name != null)
       param.append(name).append(",");
-    param.append(width).append("x").append(height).append("+").append(x)
-      .append("+").append(y);
+    param.append(x).append(",").append(y).append(",").append(width)
+      .append("x").append(height);
     if (! isValid())
       param.append(",invalid");
     if (! isVisible())

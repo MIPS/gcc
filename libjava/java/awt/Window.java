@@ -658,8 +658,8 @@ public class Window extends Container implements Accessible
     // The currently-focused Component belongs to the active Window.
     if (activeWindow == this)
       return manager.getFocusOwner ();
-
-    return null;
+    else
+      return null;
   }
 
   /**

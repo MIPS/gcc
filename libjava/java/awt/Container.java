@@ -1027,7 +1027,7 @@ public class Container extends Component
   {
     String param = super.paramString();
     if (layoutMgr != null)
-      param = param + "," + layoutMgr.getClass().getName();
+      param = param + ",layout=" + layoutMgr.getClass().getName();
 
     return param;
   }

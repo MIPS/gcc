@@ -71,6 +71,11 @@ public class Panel extends Container implements Accessible
       consumed. */
   private transient boolean initialUpdateConsumed;
 
+  /*
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_panel_number = 0;
+
   /**
    * Initializes a new instance of <code>Panel</code> that has a default
    * layout manager of <code>FlowLayout</code>.
@@ -180,5 +185,20 @@ public class Panel extends Container implements Accessible
     {
       return AccessibleRole.PANEL;
     }
-  } // class AccessibleAWTPanel
-} // class Panel 
+  }
+
+  /**
+   * Generate a unique name for this panel.
+   *
+   * @return A unique name for this panel.
+   */
+  String generateName ()
+  {
+    return "panel" + getUniqueLong ();
+  }
+
+  private static synchronized long getUniqueLong ()
+  {
+    return next_panel_number++;
+  }
+}

@@ -162,17 +162,22 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
       {
         Component target = (Component) e.getSource ();
 
-        if (e.id == FocusEvent.FOCUS_GAINED
-            && !(target instanceof Window))
+        if (e.id == FocusEvent.FOCUS_GAINED)
           {
             if (((FocusEvent) e).isTemporary ())
               setGlobalFocusOwner (target);
             else
               setGlobalPermanentFocusOwner (target);
           }
+        else if (e.id == FocusEvent.FOCUS_LOST)
+          {
+            if (((FocusEvent) e).isTemporary ())
+              setGlobalFocusOwner (null);
+            else
+              setGlobalPermanentFocusOwner (null);
+          }
 
-        if (!(target instanceof Window))
-          target.dispatchEvent (e);
+        target.dispatchEvent (e);
 
         return true;
       }
@@ -192,7 +197,9 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
         // processKeyEvent checks if this event represents a focus
         // traversal key stroke.
         Component focusOwner = getGlobalPermanentFocusOwner ();
-        processKeyEvent (focusOwner, (KeyEvent) e);
+
+        if (focusOwner != null)
+          processKeyEvent (focusOwner, (KeyEvent) e);
 
         if (e.isConsumed ())
           return true;
@@ -230,7 +237,8 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
   {
     Component focusOwner = getGlobalPermanentFocusOwner ();
 
-    focusOwner.dispatchEvent (e);
+    if (focusOwner != null)
+      focusOwner.dispatchEvent (e);
 
     // Loop through all registered KeyEventPostProcessors, giving
     // each a chance to process this event.
