@@ -109,9 +109,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Debugging dumps.  */
 static FILE *dump_file;
-static FILE *graph_dump_file;
 static int dump_flags;
-static int graph_dump_flags;
 
 struct expr_info;
 static bool expr_lexically_eq (const tree, const tree);

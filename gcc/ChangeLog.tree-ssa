@@ -1,3 +1,8 @@
+2003-09-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-pre.c (graph_dump_file, graph_dump_flags): Remove 
+	unused variables.
+
 2003-09-11  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c: s/#if ENABLE_CHECKING/#ifdef ENABLE_CHECKING/g.
