@@ -1,5 +1,9 @@
 2004-03-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/20040311-1.c: New test.
+
+2004-03-11  Jakub Jelinek  <jakub@redhat.com>
+
 	PR target/12308
 	* gcc.c-torture/execute/20040311-1.c: New test.
 
