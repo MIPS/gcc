@@ -88,10 +88,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
-
-#ifdef HALF_PIC_DEBUG
-#include "halfpic.h"
-#endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
@@ -2801,10 +2797,6 @@ rest_of_compilation (decl)
       if (flag_delete_null_pointer_checks)
 	delete_null_pointer_checks (get_insns ());
 
-      timevar_push (TV_IFCVT);
-      if (flag_if_conversion)
-	if_convert (0);
-      timevar_pop (TV_IFCVT);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       close_dump_file (DFI_null, print_rtl_with_bb, get_insns ());
     }
@@ -2816,7 +2808,7 @@ rest_of_compilation (decl)
      we'll save big on memory.  */
   renumber_insns (rtl_dump_file);
   if (optimize)
-    compute_bb_for_insn (get_max_uid ());
+    compute_bb_for_insn ();
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl_with_bb, get_insns ());
@@ -2869,7 +2861,7 @@ rest_of_compilation (decl)
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
-      compute_bb_for_insn (get_max_uid ());
+      compute_bb_for_insn ();
 
       timevar_pop (TV_CSE);
       close_dump_file (DFI_cse, print_rtl_with_bb, get_insns ());

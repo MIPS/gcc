@@ -201,7 +201,7 @@ insert_profiler_initialization ()
   fix = emit_label (label_no_threads);
   LABEL_NUSES (fix) = 1;
 
-  seq = gen_sequence ();
+  seq = get_insns ();
   end_sequence ();
   
   insert_insn_on_edge (seq, e);
@@ -1383,7 +1383,7 @@ gen_edge_profiler (edgeno)
   if (tmp != mem_ref)
     emit_move_insn (copy_rtx (mem_ref), tmp);
 
-  sequence = gen_sequence ();
+  sequence = get_insns ();
   end_sequence ();
   return sequence;
 }

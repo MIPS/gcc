@@ -2,6 +2,18 @@ Thu Jun  6 22:57:34 CEST 2002  Pavel Nejedly <bim@atrey.karlin.mff.cuni.cz>
 
 	* et-forest.h: New file
 
+2002-06-06  DJ Delorie  <dj@redhat.com>
+
+	* hashtab.h (htab): Rearrange new members for backward
+	compatibility.
+	(htab_create): Don't use a macro that requires other headers.
+
+2002-06-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* hashtab.h (htab_create): Restore prototype for backward
+	compatibility.
+	(htab_try_create): Likewise.
+
 2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
 
 	* hashtab.h (struct htab): Update for change to length specifier.

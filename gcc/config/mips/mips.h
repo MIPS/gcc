@@ -172,20 +172,6 @@ extern int mips_string_length;		/* length of strings for mips16 */
 extern void		sdata_section PARAMS ((void));
 extern void		sbss_section PARAMS ((void));
 
-/* Stubs for half-pic support if not OSF/1 reference platform.  */
-
-#ifndef HALF_PIC_P
-#define HALF_PIC_P() 0
-#define HALF_PIC_NUMBER_PTRS 0
-#define HALF_PIC_NUMBER_REFS 0
-#define HALF_PIC_ENCODE(DECL)
-#define HALF_PIC_DECLARE(NAME)
-#define HALF_PIC_INIT()	error ("half-pic init called on systems that don't support it")
-#define HALF_PIC_ADDRESS_P(X) 0
-#define HALF_PIC_PTR(X) X
-#define HALF_PIC_FINISH(STREAM)
-#endif
-
 /* Macros to silence warnings about numbers being signed in traditional
    C and unsigned in ISO C when compiled on 32-bit hosts.  */
 
@@ -210,7 +196,7 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_SOFT_FLOAT	   0x00000100	/* software floating point */
 #define MASK_FLOAT64	   0x00000200	/* fp registers are 64 bits */
 #define MASK_ABICALLS	   0x00000400	/* emit .abicalls/.cprestore/.cpload */
-#define MASK_HALF_PIC	   0x00000800	/* Emit OSF-style pic refs to externs*/
+#define MASK_UNUSED1	   0x00000800	/* Unused Mask.  */
 #define MASK_LONG_CALLS	   0x00001000	/* Always call through a register */
 #define MASK_64BIT	   0x00002000	/* Use 64 bit GP registers and insns */
 #define MASK_EMBEDDED_PIC  0x00004000	/* Generate embedded PIC code */
@@ -285,9 +271,6 @@ extern void		sbss_section PARAMS ((void));
 					/* .abicalls, etc from Pyramid V.4 */
 #define TARGET_ABICALLS		(target_flags & MASK_ABICALLS)
 
-					/* OSF pic references to externs */
-#define TARGET_HALF_PIC		(target_flags & MASK_HALF_PIC)
-
 					/* software floating point */
 #define TARGET_SOFT_FLOAT	(target_flags & MASK_SOFT_FLOAT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
@@ -338,6 +321,14 @@ extern void		sbss_section PARAMS ((void));
 					/* Generate mips16 code */
 #define TARGET_MIPS16		(target_flags & MASK_MIPS16)
 
+/* Generic ISA defines.  */
+#define ISA_MIPS1		    (mips_isa == 1)
+#define ISA_MIPS2		    (mips_isa == 2)
+#define ISA_MIPS3                   (mips_isa == 3)
+#define ISA_MIPS4		    (mips_isa == 4)
+#define ISA_MIPS32		    (mips_isa == 32)
+#define ISA_MIPS64                  (mips_isa == 64)
+
 /* Architecture target defines.  */
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
@@ -352,6 +343,126 @@ extern void		sbss_section PARAMS ((void));
 #define TUNE_MIPS4000               (mips_tune == PROCESSOR_R4000)
 #define TUNE_MIPS5000               (mips_tune == PROCESSOR_R5000)
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()				\
+  do								\
+    {								\
+      builtin_assert ("cpu=mips");				\
+      builtin_define ("__mips__");     				\
+      builtin_define ("_mips");					\
+								\
+      /* We do this here because __mips is defined below	\
+	 and so we can't use builtin_define_std.  */		\
+      if (!flag_iso)						\
+	  builtin_define ("mips");				\
+								\
+      if (TARGET_64BIT)						\
+	{							\
+	  builtin_define ("__mips64");     			\
+	  /* Silly, but will do until processor defines.  */	\
+	  builtin_define_std ("R4000");				\
+	  builtin_define ("_R4000");				\
+	}							\
+      else							\
+	{							\
+	  /* Ditto.  */						\
+	  builtin_define_std ("R3000");				\
+	  builtin_define ("_R3000");				\
+	}							\
+      if (TARGET_FLOAT64)					\
+	  builtin_define ("__mips_fpr=64");			\
+      else							\
+	  builtin_define ("__mips_fpr=32");			\
+								\
+      if (TARGET_MIPS16)					\
+	  builtin_define ("__mips16");				\
+								\
+      if (ISA_MIPS1)						\
+	{							\
+	  builtin_define ("__mips=1");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS1");		\
+	}							\
+      else if (ISA_MIPS2)					\
+	{							\
+	  builtin_define ("__mips=2");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS2");		\
+	}							\
+      else if (ISA_MIPS3)					\
+	{							\
+	  builtin_define ("__mips=3");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS3");		\
+	}							\
+      else if (ISA_MIPS4)					\
+	{							\
+	  builtin_define ("__mips=4");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS4");		\
+	}							\
+      else if (ISA_MIPS32)					\
+	{							\
+	  builtin_define ("__mips=32");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS32");	\
+	}							\
+      else if (ISA_MIPS64)					\
+	{							\
+	  builtin_define ("__mips=64");				\
+	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");	\
+	}							\
+								\
+      if (TARGET_HARD_FLOAT)					\
+	  builtin_define ("__mips_hard_float");			\
+      else if (TARGET_SOFT_FLOAT)				\
+	  builtin_define ("__mips_soft_float");			\
+								\
+      if (TARGET_SINGLE_FLOAT)					\
+	  builtin_define ("__mips_single_float");		\
+								\
+      if (TARGET_LONG64)					\
+	  builtin_define ("__LONG_MAX__=9223372036854775807L"); \
+								\
+      if (TARGET_BIG_ENDIAN)					\
+	{							\
+	  builtin_define_std ("MIPSEB");			\
+	  builtin_define ("_MIPSEB");				\
+	}							\
+      else							\
+	{							\
+	  builtin_define_std ("MIPSEL");			\
+	  builtin_define ("_MIPSEL");				\
+	}							\
+								\
+        /* Macros dependent on the C dialect.  */		\
+      if (preprocessing_asm_p ())				\
+	{							\
+          builtin_define_std ("LANGUAGE_ASSEMBLY");		\
+	  builtin_define ("_LANGUAGE_ASSEMBLY");		\
+	}							\
+      else if (c_language == clk_c)				\
+	{							\
+          builtin_define_std ("LANGUAGE_C");			\
+	  builtin_define ("_LANGUAGE_C");			\
+	}							\
+      else if (c_language == clk_cplusplus)			\
+        {							\
+	  builtin_define ("_LANGUAGE_C_PLUS_PLUS");		\
+          builtin_define ("__LANGUAGE_C_PLUS_PLUS");		\
+          builtin_define ("__LANGUAGE_C_PLUS_PLUS__");		\
+        }							\
+      else if (c_language == clk_objective_c)			\
+        {							\
+	  builtin_define ("_LANGUAGE_OBJECTIVE_C");		\
+          builtin_define ("__LANGUAGE_OBJECTIVE_C");		\
+	  /* Bizzare, but needed at least for Irix.  */		\
+	  builtin_define_std ("LANGUAGE_C");			\
+	  builtin_define ("_LANGUAGE_C");			\
+        }							\
+								\
+      if (mips_abi == ABI_EABI)					\
+	builtin_define ("__mips_eabi");				\
+								\
+} while (0)
+
+
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -417,10 +528,6 @@ extern void		sbss_section PARAMS ((void));
      N_("Use Irix PIC")},						\
   {"no-abicalls",	 -MASK_ABICALLS,				\
      N_("Don't use Irix PIC")},						\
-  {"half-pic",		  MASK_HALF_PIC,				\
-     N_("Use OSF PIC")},						\
-  {"no-half-pic",	 -MASK_HALF_PIC,				\
-     N_("Don't use OSF PIC")},						\
   {"long-calls",	  MASK_LONG_CALLS,				\
      N_("Use indirect calls")},						\
   {"no-long-calls",	 -MASK_LONG_CALLS,				\
@@ -506,11 +613,7 @@ extern void		sbss_section PARAMS ((void));
 #endif
 
 #ifndef TARGET_ENDIAN_DEFAULT
-#ifndef DECSTATION
 #define TARGET_ENDIAN_DEFAULT MASK_BIG_ENDIAN
-#else
-#define TARGET_ENDIAN_DEFAULT 0
-#endif
 #endif
 
 #ifndef MIPS_ISA_DEFAULT
@@ -606,12 +709,12 @@ extern void		sbss_section PARAMS ((void));
 /* This is meant to be redefined in the host dependent files.  */
 #define SUBTARGET_TARGET_OPTIONS
 
-#define GENERATE_BRANCHLIKELY  (!TARGET_MIPS16 && ISA_HAS_BRANCHLIKELY)
+#define GENERATE_BRANCHLIKELY   (!TARGET_MIPS16 && ISA_HAS_BRANCHLIKELY)
 
 /* Generate three-operand multiply instructions for SImode.  */
 #define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
-                                  || mips_isa == 32                     \
-                                  || mips_isa == 64)                    \
+                                  || ISA_MIPS32	                        \
+                                  || ISA_MIPS64)                        \
                                  && !TARGET_MIPS16)
 
 /* Generate three-operand multiply instructions for DImode.  */
@@ -622,62 +725,62 @@ extern void		sbss_section PARAMS ((void));
    depending on the instruction set architecture level.  */
 
 #define BRANCH_LIKELY_P()	GENERATE_BRANCHLIKELY
-#define HAVE_SQRT_P()		(mips_isa != 1)
+#define HAVE_SQRT_P()		(!ISA_MIPS1)
 
 /* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3).  */
-#define ISA_HAS_64BIT_REGS	(mips_isa == 3          \
-				 || mips_isa == 4 	\
-                                 || mips_isa == 64)
+#define ISA_HAS_64BIT_REGS	(ISA_MIPS3	        \
+				 || ISA_MIPS4		\
+                                 || ISA_MIPS64)
 
 /* ISA has branch likely instructions (eg. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
-#define ISA_HAS_BRANCHLIKELY	(mips_isa != 1                          \
-				 && ! TARGET_MIPS16)
+#define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1                          \
+				 && !TARGET_MIPS16)
 
 /* ISA has the conditional move instructions introduced in mips4.  */
-#define ISA_HAS_CONDMOVE        ((mips_isa == 4				\
-				  || mips_isa == 32                     \
-				  || mips_isa == 64)			\
-				 && ! TARGET_MIPS16)
+#define ISA_HAS_CONDMOVE        ((ISA_MIPS4				\
+				  || ISA_MIPS32	                        \
+				  || ISA_MIPS64)			\
+				 && !TARGET_MIPS16)
 
 /* ISA has just the integer condition move instructions (movn,movz) */
 #define ISA_HAS_INT_CONDMOVE     0
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC.  */
-#define ISA_HAS_8CC		(mips_isa == 4				\
-                         	 || mips_isa == 32                      \
-				 || mips_isa == 64)
+#define ISA_HAS_8CC		(ISA_MIPS4				\
+                         	 || ISA_MIPS32	                        \
+				 || ISA_MIPS64)
 
 /* This is a catch all for the other new mips4 instructions: indexed load and
    indexed prefetch instructions, the FP madd,msub,nmadd, and nmsub instructions,
    and the FP recip and recip sqrt instructions */
-#define ISA_HAS_FP4             (mips_isa == 4				\
- 				 && ! TARGET_MIPS16)
+#define ISA_HAS_FP4             (ISA_MIPS4				\
+ 				 && !TARGET_MIPS16)
 
 /* ISA has conditional trap instructions.  */
-#define ISA_HAS_COND_TRAP	(mips_isa >= 2				\
-				 && ! TARGET_MIPS16)
+#define ISA_HAS_COND_TRAP	(!ISA_MIPS1				\
+				 && !TARGET_MIPS16)
 
 /* ISA has multiply-accumulate instructions, madd and msub.  */
-#define ISA_HAS_MADD_MSUB       ((mips_isa == 32			\
-				  || mips_isa == 64			\
-				  ) && ! TARGET_MIPS16)
+#define ISA_HAS_MADD_MSUB       ((ISA_MIPS32				\
+				  || ISA_MIPS64				\
+				  ) && !TARGET_MIPS16)
 
 /* ISA has nmadd and nmsub instructions.  */
-#define ISA_HAS_NMADD_NMSUB	(mips_isa == 4				\
+#define ISA_HAS_NMADD_NMSUB	(ISA_MIPS4				\
 				 && ! TARGET_MIPS16)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
-#define ISA_HAS_CLZ_CLO         ((mips_isa == 32			\
-                                  || mips_isa == 64			\
-                                 ) && ! TARGET_MIPS16)
+#define ISA_HAS_CLZ_CLO         ((ISA_MIPS32				\
+                                  || ISA_MIPS64				\
+                                 ) && !TARGET_MIPS16)
 
 /* ISA has double-word count leading zeroes/ones instruction (not
    implemented).  */
-#define ISA_HAS_DCLZ_DCLO       (mips_isa == 64				\
-				 && ! TARGET_MIPS16)
+#define ISA_HAS_DCLZ_DCLO       (ISA_MIPS64				\
+				 && !TARGET_MIPS16)
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -780,49 +883,12 @@ while (0)
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
 
-/* Complain about missing specs and predefines that should be defined in each
-   of the target tm files to override the defaults.  This is mostly a place-
-   holder until I can get each of the files updated [mm].  */
-
-#if defined(OSF_OS) \
-    || defined(DECSTATION) \
-    || defined(SGI_TARGET) \
-    || defined(MIPS_NEWS) \
-    || defined(MIPS_SYSV) \
-    || defined(MIPS_SVR4) \
-    || defined(MIPS_BSD43)
-
-#ifndef CPP_PREDEFINES
-	#error "Define CPP_PREDEFINES in the appropriate tm.h file"
-#endif
-
-#ifndef LIB_SPEC
-	#error "Define LIB_SPEC in the appropriate tm.h file"
-#endif
-
-#ifndef STARTFILE_SPEC
-	#error "Define STARTFILE_SPEC in the appropriate tm.h file"
-#endif
-
-#ifndef MACHINE_TYPE
-	#error "Define MACHINE_TYPE in the appropriate tm.h file"
-#endif
-#endif
-
 /* Tell collect what flags to pass to nm.  */
 #ifndef NM_FLAGS
 #define NM_FLAGS "-Bn"
 #endif
 
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#ifndef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dmips -Dunix -Dhost_mips -DMIPSEB -DR3000 -DSYSTYPE_BSD43 \
--D_mips -D_unix -D_host_mips -D_MIPSEB -D_R3000 -D_SYSTYPE_BSD43 \
--Asystem=unix -Asystem=bsd -Acpu=mips -Amachine=mips"
-#endif
-
 /* Assembler specs.  */
 
 /* MIPS_AS_ASM_SPEC is passed when using the MIPS assembler rather
@@ -1001,10 +1067,6 @@ extern int mips_abi;
 %{mint64|mlong64|mlong32:-mexplicit-type-size }\
 %{mgp32: %{mfp64:%emay not use both -mgp32 and -mfp64} %{!mfp32: -mfp32}} \
 %{G*} %{EB:-meb} %{EL:-mel} %{EB:%{EL:%emay not use both -EB and -EL}} \
-%{pic-none:   -mno-half-pic} \
-%{pic-lib:    -mhalf-pic} \
-%{pic-extern: -mhalf-pic} \
-%{pic-calls:  -mhalf-pic} \
 %{save-temps: } \
 %(subtarget_cc1_spec) \
 %(cc1_cpu_spec)"
@@ -1012,119 +1074,13 @@ extern int mips_abi;
 
 /* Preprocessor specs.  */
 
-/* Rules for SIZE_TYPE and PTRDIFF_TYPE are:
-
-   both gp64 and long64 (not the options, but the corresponding flags,
-   so defaults came into play) are required in order to have `long' in
-   SIZE_TYPE and PTRDIFF_TYPE.
-
-   on eabi, -mips1, -mips2 and -mips32 disable gp64, whereas mips3,
-   -mips4, -mips5 and -mips64 enable it.
-
-   on other ABIs, -mips* options do not affect gp32/64, but the
-   default ISA affects the default gp size.
-
-   -mgp32 disables gp64, whereas -mgp64 enables it.
-
-   on eabi, gp64 implies long64.
-
-   -mlong64, and -mabi=64 are the only other ways to enable long64.
-
-*/
-
-#if MIPS_ISA_DEFAULT != 3 && MIPS_ISA_DEFAULT != 4 && MIPS_ISA_DEFAULT != 5 && MIPS_ISA_DEFAULT != 64
-
-/* 32-bit cases first.  */
-
-#if MIPS_ABI_DEFAULT == ABI_EABI
-#define LONG_MAX_SPEC "\
-%{mlong64:-D__LONG_MAX__=9223372036854775807L}\
-%{!mlong64:\
- %{mabi=eabi|!mabi=*:\
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__LONG_MAX__=9223372036854775807L}}}}}}}} \
-"
-#else /* ABI_DEFAULT != ABI_EABI */
-#define LONG_MAX_SPEC "\
-%{mlong64:-D__LONG_MAX__=9223372036854775807L}\
-%{!mlong64:\
- %{mabi=eabi:\
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    %{mips3|mips4|mips5|mips64|mgp64: \
-      -D__LONG_MAX__=9223372036854775807L}}}}}}}} \
-"
-#endif
-
-#else
-
-/* 64-bit default ISA.  */
-#if MIPS_ABI_DEFAULT == ABI_EABI
-#define LONG_MAX_SPEC "\
-%{mlong64:-D__LONG_MAX__=9223372036854775807L}\
-%{!mlong64:\
- %{mabi=eabi|!mabi=*:\
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__LONG_MAX__=9223372036854775807L}}}}}}}\
-"
-#else /* ABI_DEFAULT != ABI_EABI */
-#define LONG_MAX_SPEC "\
-%{mlong64:-D__LONG_MAX__=9223372036854775807L}\
-%{!mlong64:\
- %{mabi=eabi:\
-  %{!mips1:%{!mips2:%{!mips32:%{!mgp32:%{!mlong32: \
-    -D__LONG_MAX__=9223372036854775807L}}}}}}}\
-"
-#endif
-
-#endif
-
 /* SUBTARGET_CPP_SPEC is passed to the preprocessor.  It may be
    overridden by subtargets.  */
 #ifndef SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC ""
 #endif
 
-/* Define appropriate macros for fpr register size.  */
-#ifndef CPP_FPR_SPEC
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_FLOAT64)
-#define CPP_FPR_SPEC "-D__mips_fpr=64"
-#else
-#define CPP_FPR_SPEC "-D__mips_fpr=32"
-#endif
-#endif
-
-/* For C++ we need to ensure that _LANGUAGE_C_PLUS_PLUS is defined independent
-   of the source file extension.  */
-#undef CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "\
--D__LANGUAGE_C_PLUS_PLUS -D_LANGUAGE_C_PLUS_PLUS \
-%(cpp) \
-"
-/* CPP_SPEC is the set of arguments to pass to the preprocessor.  */
-
-#ifndef CPP_SPEC
-#define CPP_SPEC "\
-%{.m:	-D__LANGUAGE_OBJECTIVE_C -D_LANGUAGE_OBJECTIVE_C -D__LANGUAGE_C -D_LANGUAGE_C} \
-%{.S|.s: -D__LANGUAGE_ASSEMBLY -D_LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
-%{!.S: %{!.s: %{!.cc: %{!.cxx: %{!.cpp: %{!.cp: %{!.c++: %{!.C: %{!.m: -D__LANGUAGE_C -D_LANGUAGE_C %{!ansi:-DLANGUAGE_C}}}}}}}}}} \
-%(subtarget_cpp_size_spec) \
-%{mips3:-U__mips -D__mips=3 -D__mips64} \
-%{mips4:-U__mips -D__mips=4 -D__mips64} \
-%{mips32:-U__mips -D__mips=32} \
-%{mips64:-U__mips -D__mips=64 -D__mips64} \
-%{mgp32:-U__mips64} %{mgp64:-D__mips64} \
-%{mfp32:-D__mips_fpr=32} %{mfp64:-D__mips_fpr=64} %{!mfp32: %{!mfp64: %{mgp32:-D__mips_fpr=32} %{!mgp32: %(cpp_fpr_spec)}}} \
-%{msingle-float:%{!msoft-float:-D__mips_single_float}} \
-%{m4650:%{!msoft-float:-D__mips_single_float}} \
-%{msoft-float:-D__mips_soft_float} \
-%{mabi=eabi:-D__mips_eabi} \
-%{mips16:%{!mno-mips16:-D__mips16}} \
-%{EB:-UMIPSEL -U_MIPSEL -U__MIPSEL -U__MIPSEL__ -D_MIPSEB -D__MIPSEB -D__MIPSEB__ %{!ansi:-DMIPSEB}} \
-%{EL:-UMIPSEB -U_MIPSEB -U__MIPSEB -U__MIPSEB__ -D_MIPSEL -D__MIPSEL -D__MIPSEL__ %{!ansi:-DMIPSEL}} \
-%(long_max_spec) \
-%(subtarget_cpp_spec) "
-#endif
+#define CPP_SPEC "%(subtarget_cpp_spec)"
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -1140,8 +1096,6 @@ extern int mips_abi;
   { "subtarget_cc1_spec", SUBTARGET_CC1_SPEC },				\
   { "cc1_cpu_spec", CC1_CPU_SPEC},                                      \
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },				\
-  { "long_max_spec", LONG_MAX_SPEC },					\
-  { "cpp_fpr_spec", CPP_FPR_SPEC },					\
   { "mips_as_asm_spec", MIPS_AS_ASM_SPEC },				\
   { "gas_asm_spec", GAS_ASM_SPEC },					\
   { "abi_gas_asm_spec", ABI_GAS_ASM_SPEC },                             \
@@ -2234,7 +2188,6 @@ extern enum reg_class mips_char_to_class[256];
 
    `Q'	is for mips16 GP relative constants
    `R'	is for memory references which take 1 word for the instruction.
-   `S'	is for references to extern items which are PIC for OSF/rose.
    `T'	is for memory addresses that can be used to load two words.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
@@ -2243,8 +2196,6 @@ extern enum reg_class mips_char_to_class[256];
 			     && mips16_gp_offset_p (OP))		\
    : (GET_CODE (OP) != MEM) ? FALSE					\
    : ((CODE) == 'R')	  ? simple_memory_operand (OP, GET_MODE (OP))	\
-   : ((CODE) == 'S')	  ? (HALF_PIC_P () && CONSTANT_P (OP)		\
-			     && HALF_PIC_ADDRESS_P (OP))		\
    : FALSE)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -2363,7 +2314,7 @@ extern enum reg_class mips_char_to_class[256];
 	: current_function_outgoing_args_size)
 #endif
 
-/* The return address for the current frame is in r31 is this is a leaf
+/* The return address for the current frame is in r31 if this is a leaf
    function.  Otherwise, it is on the stack.  It is at a variable offset
    from sp/fp/ap, so we define a fake hard register rap which is a
    poiner to the return address on the stack.  This always gets eliminated
@@ -3092,14 +3043,13 @@ typedef struct mips_args {
    `la $5,s;sw $4,70000($5)' via LEGITIMIZE_ADDRESS.  */
 /* ??? SGI Irix 6 assembler fails for CONST address, so reject them.  */
 #define CONSTANT_ADDRESS_P(X)						\
-  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
     || (GET_CODE (X) == CONST						\
 	&& ! (flag_pic && pic_address_needs_scratch (X))		\
 	&& (mips_abi == ABI_32						\
 	    || mips_abi == ABI_O64					\
-	    || mips_abi == ABI_EABI)))					\
-   && (!HALF_PIC_P () || !HALF_PIC_ADDRESS_P (X)))
+	    || mips_abi == ABI_EABI)))
 
 /* Define this, so that when PIC, reload won't try to reload invalid
    addresses which require two reload registers.  */
@@ -3353,13 +3303,6 @@ typedef struct mips_args {
    so give the MEM rtx a words's mode.  */
 
 #define FUNCTION_MODE (Pmode == DImode ? DImode : SImode)
-
-/* Define TARGET_MEM_FUNCTIONS if we want to use calls to memcpy and
-   memset, instead of the BSD functions bcopy and bzero.  */
-
-#if defined(MIPS_SYSV) || defined(OSF_OS)
-#define TARGET_MEM_FUNCTIONS
-#endif
 
 
 /* A part of a C `switch' statement that describes the relative
@@ -4161,7 +4104,7 @@ typedef struct mips_args {
   ALL_COP_ADDITIONAL_REGISTER_NAMES					\
 }
 
-/* This is meant to be redefined in the host dependent files.  It is a 
+/* This is meant to be redefined in the host dependent files.  It is a
    set of alternative names and regnums for mips coprocessors.  */
 
 #define ALL_COP_ADDITIONAL_REGISTER_NAMES
@@ -4282,8 +4225,7 @@ while (0)
 	LM[0-9]+	Silicon Graphics/ECOFF stabs label before each stmt.
 	$Lb[0-9]+	Begin blocks for MIPS debug support
 	$Lc[0-9]+	Label for use in s<xx> operation.
-	$Le[0-9]+	End blocks for MIPS debug support
-	$Lp\..+		Half-pic labels.  */
+	$Le[0-9]+	End blocks for MIPS debug support  */
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.
@@ -4316,7 +4258,6 @@ do {									\
 do									\
  {									\
    mips_declare_object (STREAM, NAME, "", ":\n", 0);			\
-   HALF_PIC_DECLARE (NAME);						\
  }									\
 while (0)
 
@@ -4393,10 +4334,10 @@ do {							\
    emitting the label is moved to function_prologue, so that we can
    get the line number correctly emitted before the .ent directive,
    and after any .file directives.  */
-
+/*
 #undef ASM_DECLARE_FUNCTION_NAME
-#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)	\
-  HALF_PIC_DECLARE (NAME)
+#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)
+*/
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */

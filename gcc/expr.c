@@ -214,12 +214,17 @@ init_expr_once ()
   enum machine_mode mode;
   int num_clobbers;
   rtx mem, mem1;
+  rtx reg;
 
   /* Try indexing by frame ptr and try by stack ptr.
      It is known that on the Convex the stack ptr isn't a valid index.
      With luck, one or the other is valid on any machine.  */
   mem = gen_rtx_MEM (VOIDmode, stack_pointer_rtx);
   mem1 = gen_rtx_MEM (VOIDmode, frame_pointer_rtx);
+
+  /* A scratch register we can modify in-place below to avoid
+     useless RTL allocations.  */
+  reg = gen_rtx_REG (VOIDmode, -1);
 
   insn = rtx_alloc (INSN);
   pat = gen_rtx_SET (0, NULL_RTX, NULL_RTX);
@@ -229,11 +234,11 @@ init_expr_once ()
        mode = (enum machine_mode) ((int) mode + 1))
     {
       int regno;
-      rtx reg;
 
       direct_load[(int) mode] = direct_store[(int) mode] = 0;
       PUT_MODE (mem, mode);
       PUT_MODE (mem1, mode);
+      PUT_MODE (reg, mode);
 
       /* See if there is some register that can be used in this mode and
 	 directly loaded or stored from memory.  */
@@ -246,7 +251,7 @@ init_expr_once ()
 	    if (! HARD_REGNO_MODE_OK (regno, mode))
 	      continue;
 
-	    reg = gen_rtx_REG (mode, regno);
+	    REGNO (reg) = regno;
 
 	    SET_SRC (pat) = mem;
 	    SET_DEST (pat) = reg;
@@ -469,13 +474,29 @@ emit_queue ()
     {
       rtx body = QUEUED_BODY (p);
 
-      if (GET_CODE (body) == SEQUENCE)
+      switch (GET_CODE (body))
 	{
-	  QUEUED_INSN (p) = XVECEXP (QUEUED_BODY (p), 0, 0);
-	  emit_insn (QUEUED_BODY (p));
+	case INSN:
+	case JUMP_INSN:
+	case CALL_INSN:
+	case CODE_LABEL:
+	case BARRIER:
+	case NOTE:
+	  QUEUED_INSN (p) = body;
+	  emit_insn (body);
+	  break;
+
+#ifdef ENABLE_CHECKING
+	case SEQUENCE:
+	  abort ();
+	  break;
+#endif
+
+	default:
+	  QUEUED_INSN (p) = emit_insn (body);
+	  break;
 	}
-      else
-	QUEUED_INSN (p) = emit_insn (QUEUED_BODY (p));
+
       pending_chain = QUEUED_NEXT (p);
     }
 }
@@ -2293,7 +2314,7 @@ use_regs (call_fusage, regno, nregs)
     abort ();
 
   for (i = 0; i < nregs; i++)
-    use_reg (call_fusage, gen_rtx_REG (reg_raw_mode[regno + i], regno + i));
+    use_reg (call_fusage, regno_reg_rtx[regno + i]);
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each REG contained in the
@@ -3109,7 +3130,7 @@ emit_move_insn_1 (x, y)
 	  last_insn = emit_move_insn (xpart, ypart);
 	}
 
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
 
       /* Show the output dies here.  This is necessary for SUBREGs
@@ -6714,7 +6735,7 @@ expand_expr (exp, target, tmode, modifier)
 	{
 	  if (RTL_EXPR_SEQUENCE (exp) == const0_rtx)
 	    abort ();
-	  emit_insns (RTL_EXPR_SEQUENCE (exp));
+	  emit_insn (RTL_EXPR_SEQUENCE (exp));
 	  RTL_EXPR_SEQUENCE (exp) = const0_rtx;
 	}
       preserve_rtl_expr_result (RTL_EXPR_RTL (exp));
@@ -8854,7 +8875,7 @@ expand_expr (exp, target, tmode, modifier)
 	if (GET_CODE (target) != CONCAT)
 	  emit_no_conflict_block (insns, target, op0, op1, NULL_RTX);
 	else
-	  emit_insns (insns);
+	  emit_insn (insns);
 
 	return target;
       }
@@ -8903,7 +8924,7 @@ expand_expr (exp, target, tmode, modifier)
 	if (GET_CODE (target) != CONCAT)
 	  emit_no_conflict_block (insns, target, op0, NULL_RTX, NULL_RTX);
 	else
-	  emit_insns (insns);
+	  emit_insn (insns);
 
 	return target;
       }

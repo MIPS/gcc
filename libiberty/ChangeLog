@@ -3,6 +3,12 @@ Thu Jun  6 22:57:34 CEST 2002  Pavel Nejedly <bim@atrey.karlin.mff.cuni.cz>
 	* Makefile.in (et-forest.c): Add.
 	* et-forest.c: New file.
 
+2002-06-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* hashtab.c (htab_create): New stub function for backward
+	compatibility.
+	(htab_try_create): Likewise.
+
 2002-06-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* hashtab.c (htab_create): Delete.

@@ -116,6 +116,9 @@ init_caller_save ()
   int i, j;
   enum machine_mode mode;
   enum rtl_form old = cfun->rtl_form;
+  rtx savepat, restpat;
+  rtx test_reg, test_mem;
+  rtx saveinsn, restinsn;
 
   cfun->rtl_form = RTL_FORM_LOW;
 
@@ -182,21 +185,36 @@ init_caller_save ()
     address = addr_reg;
 
   /* Next we try to form an insn to save and restore the register.  We
-     see if such an insn is recognized and meets its constraints.  */
+     see if such an insn is recognized and meets its constraints. 
+
+     To avoid lots of unnecessary RTL allocation, we construct all the RTL
+     once, then modify the memory and register operands in-place.  */
+
+  test_reg = gen_rtx_REG (VOIDmode, 0);
+  test_mem = gen_rtx_MEM (VOIDmode, address);
+  savepat = gen_rtx_SET (VOIDmode, test_mem, test_reg);
+  restpat = gen_rtx_SET (VOIDmode, test_reg, test_mem);
 
   start_sequence ();
+
+  saveinsn = emit_insn (savepat);
+  restinsn = emit_insn (restpat);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (mode = 0 ; mode < MAX_MACHINE_MODE; mode++)
       if (HARD_REGNO_MODE_OK (i, mode))
         {
-	  rtx mem = gen_rtx_MEM (mode, address);
-	  rtx reg = gen_rtx_REG (mode, i);
-	  rtx savepat = gen_rtx_SET (VOIDmode, mem, reg);
-	  rtx restpat = gen_rtx_SET (VOIDmode, reg, mem);
-	  rtx saveinsn = emit_insn (savepat);
-	  rtx restinsn = emit_insn (restpat);
 	  int ok;
+
+	  /* Update the register number and modes of the register
+	     and memory operand.  */
+	  REGNO (test_reg) = i;
+	  PUT_MODE (test_reg, mode);
+	  PUT_MODE (test_mem, mode);
+
+	  /* Force re-recognition of the modified insns.  */
+	  INSN_CODE (saveinsn) = -1;
+	  INSN_CODE (restinsn) = -1;
 
 	  reg_save_code[i][mode] = recog_memoized (saveinsn);
 	  reg_restore_code[i][mode] = recog_memoized (restinsn);
@@ -224,6 +242,7 @@ init_caller_save ()
 	  reg_save_code[i][mode] = -1;
 	  reg_restore_code[i][mode] = -1;
 	}
+
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 1; j <= MOVE_MAX_WORDS; j++)
       if (reg_save_code [i][regno_save_mode[i][j]] == -1)

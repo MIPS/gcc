@@ -1,5 +1,5 @@
 /* Generic partial redundancy elimination with lazy code motion support.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1024,7 +1024,7 @@ optimize_mode_switching (file)
   int n_entities;
   int max_num_modes = 0;
   bool emited = false;
-  basic_block post_entry, pre_exit ATTRIBUTE_UNUSED;
+  basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
 
   clear_bb_flags ();
 
@@ -1228,12 +1228,11 @@ optimize_mode_switching (file)
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
-	      mode_set = gen_sequence ();
+	      mode_set = get_insns ();
 	      end_sequence ();
 
 	      /* Do not bother to insert empty sequence.  */
-	      if (GET_CODE (mode_set) == SEQUENCE
-		  && !XVECLEN (mode_set, 0))
+	      if (mode_set == NULL_RTX)
 		continue;
 
 	      /* If this is an abnormal edge, we'll insert at the end
@@ -1298,12 +1297,11 @@ optimize_mode_switching (file)
 
 		  start_sequence ();
 		  EMIT_MODE_SET (entity_map[j], ptr->mode, ptr->regs_live);
-		  mode_set = gen_sequence ();
+		  mode_set = get_insns ();
 		  end_sequence ();
 
 		  /* Do not bother to insert empty sequence.  */
-		  if (GET_CODE (mode_set) == SEQUENCE
-		      && !XVECLEN (mode_set, 0))
+		  if (mode_set == NULL_RTX)
 		    continue;
 
 		  emited = true;

@@ -92,6 +92,7 @@ struct JCF;
       CLASS_PUBLIC (in TYPE_DECL).
    2: METHOD_STATIC (in FUNCTION_DECL).
       (But note that FIELD_STATIC uses TREE_STATIC!)
+      FIELD_SYNTHETIC (in FIELD_DECL)
       CLASS_COMPLETE_P (in TYPE_DECL)
    3: METHOD_FINAL (in FUNCTION_DECL)
       FIELD_FINAL (in FIELD_DECL)
@@ -812,6 +813,9 @@ union lang_tree_node
 #define DECL_INIT_CALLS_THIS(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.init_calls_this)
 
+/* True when DECL (a field) is Synthetic.  */
+#define FIELD_SYNTHETIC(DECL) DECL_LANG_FLAG_2 (DECL)
+
 /* True when DECL aliases an outer context local variable.  */
 #define FIELD_LOCAL_ALIAS(DECL) DECL_LANG_FLAG_6 (DECL)
 
@@ -1037,6 +1041,7 @@ struct lang_decl GTY(())
 #define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->pic)
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->poic)
 #define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC(T)->strictfp)
+#define TYPE_USES_ASSERTIONS(T) (TYPE_LANG_SPECIFIC(T)->assertions)
 
 struct lang_type GTY(())
 {
@@ -1057,23 +1062,8 @@ struct lang_type GTY(())
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
   unsigned strictfp:1;		/* `strictfp' class.  */
+  unsigned assertions:1;	/* Any method uses `assert'.  */
 };
-
-#ifdef JAVA_USE_HANDLES
-/* TYPE_BINFO_HANDLE points from a handle-class to its corresponding
-   non-handle-class, and vice verse. */
-
-#define BINFO_HANDLE(NODE) TREE_VEC_ELT ((NODE), 6)
-
-/* Given a RECORD_TYPE for a handle type, return the corresponding class. */
-#define HANDLE_TO_CLASS_TYPE(HTYPE) BINFO_HANDLE (TYPE_BINFO (HTYPE))
-
-/* Given a RECORD_TYPE for a class, return the corresponding handle type. */
-#define CLASS_TO_HANDLE_TYPE(TYPE) BINFO_HANDLE (TYPE_BINFO (TYPE))
-#else
-#define HANDLE_TO_CLASS_TYPE(HTYPE) (HTYPE)
-#define CLASS_TO_HANDLE_TYPE(TYPE) (TYPE)
-#endif
 
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
@@ -1261,13 +1251,8 @@ extern void jcf_print_utf8 PARAMS ((FILE *, const unsigned char *, int));
 extern void jcf_print_char PARAMS ((FILE *, int));
 extern void jcf_print_utf8_replace PARAMS ((FILE *, const unsigned char *,
 					   int, int, int));
-# if JCF_USE_STDIO
-extern const char* open_class PARAMS ((const char *, struct JCF *,
-				       FILE *, const char *));
-# else
 extern const char* open_class PARAMS ((const char *, struct JCF *,
 				       int, const char *));
-# endif /* JCF_USE_STDIO */
 #endif
 extern void java_debug_context PARAMS ((void));
 extern void safe_layout_class PARAMS ((tree));
@@ -1351,6 +1336,7 @@ struct rtx_def * java_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define CLASS_PRIVATE(DECL) (TYPE_PRIVATE_INNER_CLASS (TREE_TYPE (DECL)))
 #define CLASS_PROTECTED(DECL) (TYPE_PROTECTED_INNER_CLASS (TREE_TYPE (DECL)))
 #define CLASS_STRICTFP(DECL) (TYPE_STRICTFP (TREE_TYPE (DECL)))
+#define CLASS_USES_ASSERTIONS(DECL) (TYPE_USES_ASSERTIONS (TREE_TYPE (DECL)))
 
 /* @deprecated marker flag on methods, fields and classes */
 

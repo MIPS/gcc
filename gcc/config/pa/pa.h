@@ -1173,7 +1173,11 @@ extern int may_call_alloca;
 			     ? GET_MODE (OP)		\
 			     : DFmode),			\
 			    XEXP (OP, 0))		\
-       && GET_CODE (XEXP (OP, 0)) != LO_SUM		\
+       && !(GET_CODE (XEXP (OP, 0)) == LO_SUM		\
+	    && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG \
+	    && REG_OK_FOR_BASE_P (XEXP (XEXP (OP, 0), 0))\
+	    && GET_CODE (XEXP (XEXP (OP, 0), 1)) == UNSPEC\
+	    && GET_MODE (XEXP (OP, 0)) == Pmode)	\
        && !(GET_CODE (XEXP (OP, 0)) == PLUS		\
 	    && (GET_CODE (XEXP (XEXP (OP, 0), 0)) == MULT\
 		|| GET_CODE (XEXP (XEXP (OP, 0), 1)) == MULT)))\
@@ -1510,11 +1514,6 @@ do { 									\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode word_mode
-
-/* Add any extra modes needed to represent the condition code.
-
-   HPPA floating comparisons produce condition codes.  */
-#define EXTRA_CC_MODES CC(CCFPmode, "CCFP")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode

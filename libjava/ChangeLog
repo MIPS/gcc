@@ -1,3 +1,58 @@
+2002-06-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (Class::desiredAssertionStatus): Declare.
+	(Class::getPackagePortion): Likewise.
+	* java/lang/Class.java (desiredAssertionStatus): New method from
+	Classpath.
+	(getPackagePortion): Likewise.
+	* java/lang/VMClassLoader.java (defaultAssertionStatus,
+	packageAssertionStatus, classAssertionStatus): New methods from
+	Classpath.
+	* java/lang/ClassLoader.java (defaultAssertionStatus,
+	systemPackageAssertionStatus, packageAssertionStatus,
+	systemClassAssertionStatus, classAssertionStatus): New fields from
+	Classpath.
+	(setDefaultAssertionStatus, setPackageAssertionStatus,
+	setClassAssertionStatus, clearAssertionStatus): New methods from
+	Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (core_java_source_files): Added AssertionError.java.
+	* java/lang/AssertionError.java: New from Classpath.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* configure.host: Disable hash synchronization and slow_pthread_self
+	for cygwin.
+
+2002-06-06  Adam Megacz <adam@xwt.org>
+
+        * java/io/natFileDescriptorWin32.cc (open): Disable Win32 file
+        locking, just like the Sun JVM does.
+	
+2002-06-05  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile.am (libgcj_convenience.la): Revert the last change.
+	(libgcj.la): Likewise.
+	* Makefile.in: Regenerated.
+
+2002-06-04  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile.am (libgcj_convenience.la): New target.
+	(libgcj.la): Depend on libgcj_convenience.la.
+	* Makefile.in: Regenerated.
+
+2002-06-04  H.J. Lu  (hjl@gnu.org)
+
+	* configure.in (--with-newlib): New option:
+	Check ${with_newlib} instead of ${with_cross_host} for newlib.
+	(HAVE_PROC_SELF_EXE): Defined to 1 only for cross compiling to
+	Linux.
+	* configure: Regenerated.
+
+2002-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/natTimeZone.cc: Include <stdio.h>.
+
 2002-05-29  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* configure.host [s390*-linux*]: Set can_unwind_signal=yes.

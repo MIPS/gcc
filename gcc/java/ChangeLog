@@ -1,3 +1,80 @@
+2002-06-11  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_classfile): Use FIELD_SYNTHETIC.
+	* parse-scan.y (statement_without_trailing_substatement): Added
+	assert_statement.
+	(assert_statement): New rule.
+	* java-tree.h (struct lang_type) [assertions]: New field.
+	(TYPE_USES_ASSERTIONS): New macro.
+	(CLASS_USES_ASSERTIONS): Likewise.
+	(FIELD_SYNTHETIC): New define.
+	* lex.c (java_lval;): Added ASSERT_TK.
+	* parse.y (ASSERT_TK): Added.
+	(statement_without_trailing_substatement): Added assert_statement.
+	(assert_statement): New rule.
+	(build_assertion): New function.
+	(maybe_generate_pre_expand_clinit): Create and initialize
+	$assertionsDisabled.
+	(lookup_package_type): Removed decl.
+	* keyword.h: Rebuilt.
+	* keyword.gperf (assert): New token.
+
+2002-06-10  Akim Demaille  <akim@epita.fr>
+
+	* parse.y (interface_type_list, class_member_declaration)
+	(unary_expression_not_plus_minus): Remove duplicate %type.
+	Whitespace changes.
+
+2002-06-09  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/lang.o): Use LANGHOOKS_DEF_H.
+
+	* parse.y (method_header): Give error message in all cases.
+	Fixes PR java/6865.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Don't use RTL inlining. Fix for PR java/6820.
+	* lang.c (LANG_HOOKS_POST_OPTIONS): Define.
+	(flag_really_inline): New.
+	(java_decode_option): Set flag_really_inline if -finline-functions
+	is seen.
+	(java_post_options): New function. Turn off inlining unless
+	flag_really_inline is set.
+
+2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gjavah.c (throwable_p): Accept argument as either a classname or 
+	signature fragment. Create null-terminated classname string for super
+	when calling itself recursively.
+	(decode_signature_piece): Skip first character from class name 
+	signature when calling throwable_p.
+
+2002-06-08  H.J. Lu  (hjl@gnu.org)
+
+	* jcf-path.c (jcf_path_init): Allocate 1 more byte for string.
+
+2002-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (perform_relocations): Optmize a goto to a goto.
+
+2002-06-04  Michael Koch  <konqueror@gmx.de>
+
+	* gcj.texi (Input Options): Fixed typo.
+
+2002-06-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* java-tree.h, class.c, expr.c, jcf-parse.c, parse.y,
+	typeck.c, verify.c: Remove all #if JAVA_USE_HANDLES blocks,
+	all mention of CLASS_TO_HANDLE_TYPE or HANDLE_TO_CLASS_TYPE,
+	and all now-pointless local variables.  Rename other local
+	variables to reflect their not being handles.
+
+	* java-tree.h, jcf-dump.c, jcf-io.c: Remove all
+	#if JCF_USE_STDIO blocks.
+
+	* parse.y: Add missing semicolon at end of rule.
+
 2002-06-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* check-init.c (attach_initialized_static_class): Delete, unused.
@@ -7,7 +84,7 @@
 	(struct lang_decl_func): Use htab_t, set up for gengtype.
 	(struct init_test_hash_entry): Delete.
 	(struct treetreehash_entry): New.
-	(java_treetreehash_find): New 
+	(java_treetreehash_find): New
 	(java_treetreehash_new): New prototype.
 	(java_treetreehash_create): New prototype.
 	(java_mark_tree): Delete prototype.
@@ -128,7 +205,7 @@
 	* jcf.h (JCF_USE_SCANDIR): Define.
 	* parse.y (java_expand_classes): Write the class files in reverse
 	order.
-	
+
 2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* Make-lang.in: Allow for PWDCMD to override hardcoded pwd.
@@ -141,7 +218,7 @@
 
 2002-05-08  Mark Mitchell  <mark@codesourcery.com>
 
-	* jcf-write.c (write_classfile): Write the file to a 
+	* jcf-write.c (write_classfile): Write the file to a
 	temporary file and then rename it.
 
 2002-05-07  Tom Tromey  <tromey@redhat.com>
@@ -157,7 +234,7 @@
 
 2002-05-07  Andreas Jaeger  <aj@suse.de>
 
-        * parse.y (finish_for_loop): Fix if statement.
+	* parse.y (finish_for_loop): Fix if statement.
 
 2002-05-06  Tom Tromey  <tromey@redhat.com>
 
@@ -216,13 +293,13 @@
 
 2002-04-19  Andrew Haley  <aph@redhat.com>
 
-        * jcf-write.c (push_long_const): lo, hi: New variables.
-        Use rshift_double to extract the high part of a 64-bit long.
-        Use WORD_TO_INT to extract the low part.
+	* jcf-write.c (push_long_const): lo, hi: New variables.
+	Use rshift_double to extract the high part of a 64-bit long.
+	Use WORD_TO_INT to extract the low part.
 
-        * jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
-        HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
-        CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
+	* jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
+	HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
+	CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
 
 2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
 

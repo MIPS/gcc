@@ -1815,6 +1815,7 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 		tm_file="mips/little.h $tm_file" 
 		;;
 	esac
+	tmake_file="${tmake_file} mips/t-netbsd"
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h mips/linux.h"
@@ -1978,6 +1979,7 @@ powerpc-*-darwin*)
 	tm_p_file="${tm_p_file} darwin-protos.h"
 	tmake_file=rs6000/t-darwin
 	extra_objs="darwin.o"
+	config_gtfiles="${config_gtfiles} \$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
 	# Darwin linker does collect2 functionality
@@ -2206,20 +2208,27 @@ s390x-*-linux*)
 		thread_file='posix'
 	fi
 	;;
-sh-*-elf*)
+sh-*-elf* | shl*-*-elf* | sh64*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
+	case $machine in
+	shl* | sh64l*)
+		tm_file="sh/little.h ${tm_file}"
+		tmake_file="${tmake_file} sh/t-le"
+		;;
+	esac
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h"
 	float_format=sh
-	;;
-sh64-*-elf*)
-	tmake_file="sh/t-sh sh/t-elf sh/t-sh64"
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/embed-elf.h sh/sh64.h"
-	float_format=sh
-	extra_headers="shmedia.h ushmedia.h sshmedia.h"
-	# Not strictly necessary to check this, but a good idea anyway.
-	if test $machine = $target; then
-		target_requires_64bit_host_wide_int=yes
-	fi
+	case $machine in
+	sh64*)
+		tmake_file="${tmake_file} sh/t-sh64"
+		tm_file="${tm_file} sh/sh64.h"
+		extra_headers="shmedia.h ushmedia.h sshmedia.h"
+		# Not strictly necessary to check this, but a good idea anyway.
+		if test $machine = $target; then
+			target_requires_64bit_host_wide_int=yes
+		fi
+		;;
+	esac
 	;;
 sh-*-rtemself*)
 	xm_defines=POSIX
@@ -2265,12 +2274,12 @@ sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
 	sh5*-*)
 		# SHmedia, 32-bit ABI
 		target_cpu_default="SH5_BIT|SH4_BIT|SH3E_BIT"
-		tmake_file="${tmake_file} sh/t-netbsd-sh5 sh/t-netbsd-sh5-32"
+		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5"
 		;;
 	sh64*-*)
 		# SHmedia, 64-bit ABI
 		target_cpu_default="SH5_BIT|SH4_BIT"
-		tmake_file="${tmake_file} sh/t-netbsd-sh5 sh/t-netbsd-sh5-64"
+		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5 sh/t-netbsd-sh5-64"
 		;;
 	*)
 		# SH3, software floating point

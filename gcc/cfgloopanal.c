@@ -1227,7 +1227,7 @@ loop_split_edge_with (e, insns, loops)
       emit_insn (insns);
       insns = get_insns ();
       end_sequence ();
-      emit_insns_after (insns, new_bb->end);
+      emit_insn_after (insns, new_bb->end);
     }
 
   set_immediate_dominator (loops->cfg.dom, new_bb, src);

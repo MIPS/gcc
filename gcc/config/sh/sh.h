@@ -320,13 +320,18 @@ extern int target_flags;
 #define SUBTARGET_CPP_SPEC ""
 #endif
 
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
 #define EXTRA_SPECS						\
   { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },			\
   { "link_emul_prefix", LINK_EMUL_PREFIX },			\
   { "link_default_cpu_emul", LINK_DEFAULT_CPU_EMUL },		\
   { "subtarget_link_emul_suffix", SUBTARGET_LINK_EMUL_SUFFIX },	\
   { "subtarget_link_spec", SUBTARGET_LINK_SPEC },		\
-  { "subtarget_asm_endian_spec", SUBTARGET_ASM_ENDIAN_SPEC },
+  { "subtarget_asm_endian_spec", SUBTARGET_ASM_ENDIAN_SPEC },	\
+  SUBTARGET_EXTRA_SPECS
 
 #define ASM_SPEC  "%(subtarget_asm_endian_spec) %{mrelax:-relax}"
 
@@ -2090,6 +2095,14 @@ while (0)
   (((COUNT) == 0)				\
    ? get_hard_reg_initial_val (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
    : (rtx) 0)
+
+/* A C expression whose value is RTL representing the location of the
+   incoming return address at the beginning of any function, before the
+   prologue.  This RTL is either a REG, indicating that the return
+   value is saved in REG, or a MEM representing a location in
+   the stack.  */
+#define INCOMING_RETURN_ADDR_RTX \
+  gen_rtx_REG (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 
 /* Generate necessary RTL for __builtin_saveregs().  */
 #define EXPAND_BUILTIN_SAVEREGS() sh_builtin_saveregs ()
@@ -3224,6 +3237,8 @@ extern struct rtx_def *fpscr_rtx;
 
 #define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
   sh_can_redirect_branch ((INSN), (SEQ))
+
+#define DWARF_FRAME_RETURN_COLUMN (TARGET_SH5 ? PR_MEDIA_REG : PR_REG)
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section

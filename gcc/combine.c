@@ -2167,30 +2167,23 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	    }
 	}
 
-      /* If we've split a jump pattern, we'll wind up with a sequence even
-	 with one instruction.  We can handle that below, so extract it.  */
-      if (m_split && GET_CODE (m_split) == SEQUENCE
-	  && XVECLEN (m_split, 0) == 1)
-	m_split = PATTERN (XVECEXP (m_split, 0, 0));
-
-      if (m_split && GET_CODE (m_split) != SEQUENCE)
+      if (m_split && NEXT_INSN (m_split) == NULL_RTX)
 	{
+	  m_split = PATTERN (m_split);
 	  insn_code_number = recog_for_combine (&m_split, i3, &new_i3_notes);
 	  if (insn_code_number >= 0)
 	    newpat = m_split;
 	}
-      else if (m_split && GET_CODE (m_split) == SEQUENCE
-	       && XVECLEN (m_split, 0) == 2
+      else if (m_split && NEXT_INSN (NEXT_INSN (m_split)) == NULL_RTX
 	       && (next_real_insn (i2) == i3
-		   || ! use_crosses_set_p (PATTERN (XVECEXP (m_split, 0, 0)),
-					   INSN_CUID (i2))))
+		   || ! use_crosses_set_p (PATTERN (m_split), INSN_CUID (i2))))
 	{
 	  rtx i2set, i3set;
-	  rtx newi3pat = PATTERN (XVECEXP (m_split, 0, 1));
-	  newi2pat = PATTERN (XVECEXP (m_split, 0, 0));
+	  rtx newi3pat = PATTERN (NEXT_INSN (m_split));
+	  newi2pat = PATTERN (m_split);
 
-	  i3set = single_set (XVECEXP (m_split, 0, 1));
-	  i2set = single_set (XVECEXP (m_split, 0, 0));
+	  i3set = single_set (NEXT_INSN (m_split));
+	  i2set = single_set (m_split);
 
 	  /* In case we changed the mode of I2DEST, replace it in the
 	     pseudo-register table here.  We can't do it above in case this
@@ -2960,20 +2953,22 @@ find_split_point (loc, insn)
 	     we can make put both sources together and make a split point
 	     in the middle.  */
 
-	  if (seq && XVECLEN (seq, 0) == 2
-	      && GET_CODE (XVECEXP (seq, 0, 0)) == INSN
-	      && GET_CODE (PATTERN (XVECEXP (seq, 0, 0))) == SET
-	      && SET_DEST (PATTERN (XVECEXP (seq, 0, 0))) == reg
+	  if (seq
+	      && NEXT_INSN (seq) != NULL_RTX
+	      && NEXT_INSN (NEXT_INSN (seq)) == NULL_RTX
+	      && GET_CODE (seq) == INSN
+	      && GET_CODE (PATTERN (seq)) == SET
+	      && SET_DEST (PATTERN (seq)) == reg
 	      && ! reg_mentioned_p (reg,
-				    SET_SRC (PATTERN (XVECEXP (seq, 0, 0))))
-	      && GET_CODE (XVECEXP (seq, 0, 1)) == INSN
-	      && GET_CODE (PATTERN (XVECEXP (seq, 0, 1))) == SET
-	      && SET_DEST (PATTERN (XVECEXP (seq, 0, 1))) == reg
+				    SET_SRC (PATTERN (seq)))
+	      && GET_CODE (NEXT_INSN (seq)) == INSN
+	      && GET_CODE (PATTERN (NEXT_INSN (seq))) == SET
+	      && SET_DEST (PATTERN (NEXT_INSN (seq))) == reg
 	      && memory_address_p (GET_MODE (x),
-				   SET_SRC (PATTERN (XVECEXP (seq, 0, 1)))))
+				   SET_SRC (PATTERN (NEXT_INSN (seq)))))
 	    {
-	      rtx src1 = SET_SRC (PATTERN (XVECEXP (seq, 0, 0)));
-	      rtx src2 = SET_SRC (PATTERN (XVECEXP (seq, 0, 1)));
+	      rtx src1 = SET_SRC (PATTERN (seq));
+	      rtx src2 = SET_SRC (PATTERN (NEXT_INSN (seq)));
 
 	      /* Replace the placeholder in SRC2 with SRC1.  If we can
 		 find where in SRC2 it was placed, that can become our
@@ -3866,7 +3861,12 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 
       /* simplify_subreg can't use gen_lowpart_for_combine.  */
       if (CONSTANT_P (SUBREG_REG (x))
-	  && subreg_lowpart_offset (mode, op0_mode) == SUBREG_BYTE (x))
+	  && subreg_lowpart_offset (mode, op0_mode) == SUBREG_BYTE (x)
+	     /* Don't call gen_lowpart_for_combine if the inner mode
+		is VOIDmode and we cannot simplify it, as SUBREG without
+		inner mode is invalid.  */
+	  && (GET_MODE (SUBREG_REG (x)) != VOIDmode
+	      || gen_lowpart_common (mode, SUBREG_REG (x))))
 	return gen_lowpart_for_combine (mode, SUBREG_REG (x));
 
       if (GET_MODE_CLASS (GET_MODE (SUBREG_REG (x))) == MODE_CC)
@@ -11944,7 +11944,7 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
 		if (i < regno || i >= ourend)
 		  REG_NOTES (where_dead)
 		    = gen_rtx_EXPR_LIST (REG_DEAD,
-					 gen_rtx_REG (reg_raw_mode[i], i),
+					 regno_reg_rtx[i],
 					 REG_NOTES (where_dead));
 	    }
 
@@ -11971,7 +11971,7 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
 		offset = 1;
 
 	      for (i = regno + offset; i < ourend; i++)
-		move_deaths (gen_rtx_REG (reg_raw_mode[i], i),
+		move_deaths (regno_reg_rtx[i],
 			     maybe_kill_insn, from_cuid, to_insn, &oldnotes);
 	    }
 
@@ -12593,7 +12593,7 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 		      for (i = regno; i < endregno;
 			   i += HARD_REGNO_NREGS (i, reg_raw_mode[i]))
 			{
-			  rtx piece = gen_rtx_REG (reg_raw_mode[i], i);
+			  rtx piece = regno_reg_rtx[i];
 			  basic_block bb = this_basic_block;
 
 			  if (! dead_or_set_p (place, piece)

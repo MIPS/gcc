@@ -441,7 +441,6 @@ reg_to_stack (first, file)
      build the CFG and run life analysis.  */
   if (!optimize)
     {
-      find_basic_blocks (first, max_reg_num (), file);
       count_or_remove_death_notes (NULL, 1);
       life_analysis (first, file, PROP_DEATH_NOTES);
     }
@@ -2588,16 +2587,13 @@ compensate_edge (e, file)
       current_block = NULL;
       start_sequence ();
 
-      /* ??? change_stack needs some point to emit insns after.
-         Also needed to keep gen_sequence from returning a
-         pattern as opposed to a sequence, which would lose
-         REG_DEAD notes.  */
+      /* ??? change_stack needs some point to emit insns after.  */
       after = emit_note (NULL, NOTE_INSN_DELETED);
 
       tmpstack = regstack;
       change_stack (after, &tmpstack, target_stack, EMIT_BEFORE);
 
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
 
       insert_insn_on_edge (seq, e);

@@ -223,7 +223,8 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 
 /* If we have named sections, and we're using crtstuff to run ctors,
    use them for registering eh frame information.  */
-#if defined (TARGET_ASM_NAMED_SECTION) && !defined(EH_FRAME_IN_DATA_SECTION)
+#if defined (TARGET_ASM_NAMED_SECTION) && DWARF2_UNWIND_INFO \
+    && !defined(EH_FRAME_IN_DATA_SECTION)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
 #endif
@@ -494,6 +495,12 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#endif
+
+/* Determine whether __cxa_atexit, rather than atexit, is used to
+   register C++ destructors for local statics and global objects. */
+#ifndef DEFAULT_USE_CXA_ATEXIT
+#define DEFAULT_USE_CXA_ATEXIT 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

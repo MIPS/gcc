@@ -56,6 +56,8 @@
    (UNSPEC_AMASK	24)
    (UNSPEC_IMPLVER	25)
    (UNSPEC_PERR		26)
+   (UNSPEC_CTLZ		27)
+   (UNSPEC_CTPOP	28)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -6738,7 +6740,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && prev_nonnote_insn (insn) == operands[0]"
   [(const_int 0)]
-  "DONE;")
+  "
+{
+  emit_note (NULL, NOTE_INSN_DELETED);
+  DONE;
+}")
 
 (define_insn "*builtin_setjmp_receiver_1"
   [(unspec_volatile [(label_ref (match_operand 0 "" ""))] UNSPECV_SETJMPR)]
@@ -6990,6 +6996,51 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ;; actually differentiate between ILOG and ICMP in the schedule.
   [(set_attr "type" "icmp")])
 
+(define_expand "builtin_extbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (8), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extwl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
 (define_expand "builtin_extql"
   [(match_operand:DI 0 "register_operand" "")
    (match_operand:DI 1 "reg_or_0_operand" "")
@@ -7002,6 +7053,36 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   else
     gen = gen_extxl_le;
   emit_insn ((*gen) (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extwh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extwh_be;
+  else
+    gen = gen_extwh_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extlh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extlh_be;
+  else
+    gen = gen_extlh_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
   DONE;
 })
 
@@ -7020,6 +7101,198 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   DONE;
 })
 
+(define_expand "builtin_insbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insbl_be;
+  else
+    gen = gen_insbl_le;
+  operands[1] = gen_lowpart (QImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inswl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_inswl_be;
+  else
+    gen = gen_inswl_le;
+  operands[1] = gen_lowpart (HImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insll_be;
+  else
+    gen = gen_insll_le;
+  operands[1] = gen_lowpart (SImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insql"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insql_be;
+  else
+    gen = gen_insql_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inswh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inslh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insqh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = GEN_INT (0xff);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskwl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = GEN_INT (0xffff);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = immed_double_const (0xffffffff, 0, DImode);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskql"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = constm1_rtx;
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskwh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_msklh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskqh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
 (define_expand "builtin_zap"
   [(set (match_operand:DI 0 "register_operand" "")
 	(and:DI (unspec:DI
@@ -7032,12 +7305,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     {
       rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
 
-      if (operands[1] == const0_rtx)
+      if (mask == const0_rtx)
 	{
 	  emit_move_insn (operands[0], const0_rtx);
 	  DONE;
 	}
-      if (operands[1] == constm1_rtx)
+      if (mask == constm1_rtx)
 	{
 	  emit_move_insn (operands[0], operands[1]);
 	  DONE;
@@ -7125,12 +7398,12 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
     {
       rtx mask = alpha_expand_zap_mask (~ INTVAL (operands[2]));
 
-      if (operands[1] == const0_rtx)
+      if (mask == const0_rtx)
 	{
 	  emit_move_insn (operands[0], const0_rtx);
 	  DONE;
 	}
-      if (operands[1] == constm1_rtx)
+      if (mask == constm1_rtx)
 	{
 	  emit_move_insn (operands[0], operands[1]);
 	  DONE;
@@ -7365,6 +7638,29 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 				      (const_int 3)]))))]
   "TARGET_MAX"
   "unpkbw %r1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_cttz"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "")]
+		   UNSPEC_CTTZ))]
+  "TARGET_CIX"
+  "")
+
+(define_insn "builtin_ctlz"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
+		   UNSPEC_CTLZ))]
+  "TARGET_CIX"
+  "ctlz %1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "builtin_ctpop"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
+		   UNSPEC_CTPOP))]
+  "TARGET_CIX"
+  "ctpop %1,%0"
   [(set_attr "type" "mvi")])
 
 ;; The call patterns are at the end of the file because their

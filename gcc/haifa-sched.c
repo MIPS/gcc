@@ -1233,8 +1233,6 @@ unlink_other_notes (insn, tail)
       /* See sched_analyze to see how these are handled.  */
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_BEG
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_END
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
@@ -1727,23 +1725,12 @@ reemit_notes (insn, last)
 	{
 	  enum insn_note note_type = INTVAL (XEXP (note, 0));
 
-	  if (note_type == NOTE_INSN_RANGE_BEG
-              || note_type == NOTE_INSN_RANGE_END)
-	    {
-	      last = emit_note_before (note_type, last);
-	      remove_note (insn, note);
-	      note = XEXP (note, 1);
-	      NOTE_RANGE_INFO (last) = XEXP (note, 0);
-	    }
-	  else
-	    {
-	      last = emit_note_before (note_type, last);
-	      remove_note (insn, note);
-	      note = XEXP (note, 1);
-	      if (note_type == NOTE_INSN_EH_REGION_BEG
-		  || note_type == NOTE_INSN_EH_REGION_END)
-		NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
-	    }
+	  last = emit_note_before (note_type, last);
+	  remove_note (insn, note);
+	  note = XEXP (note, 1);
+	  if (note_type == NOTE_INSN_EH_REGION_BEG
+	      || note_type == NOTE_INSN_EH_REGION_END)
+	    NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
 	  remove_note (insn, note);
 	}
     }
@@ -2180,7 +2167,10 @@ schedule_block (b, rgn_n_insns)
 	    can_issue_more =
 	      (*targetm.sched.variable_issue) (sched_dump, sched_verbose,
 					       insn, can_issue_more);
-	  else
+	  /* A naked CLOBBER or USE generates no instruction, so do
+	     not count them against the issue rate.  */
+	  else if (GET_CODE (PATTERN (insn)) != USE
+		   && GET_CODE (PATTERN (insn)) != CLOBBER)
 	    can_issue_more--;
 
 	  schedule_insn (insn, &ready, clock_var);
@@ -2379,7 +2369,7 @@ sched_init (dump_file)
 
   init_dependency_caches (luid);
 
-  compute_bb_for_insn (old_max_uid);
+  compute_bb_for_insn ();
 
   init_alias_analysis ();
 

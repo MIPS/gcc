@@ -70,11 +70,16 @@ struct pragma_entry
    conditional; IF_COND an opening conditional.  INCL means to treat
    "..." and <...> as q-char and h-char sequences respectively.  IN_I
    means this directive should be handled even if -fpreprocessed is in
-   effect (these are the directives with callback hooks).  */
+   effect (these are the directives with callback hooks).
+
+   EXPAND is set on directives that are always macro-expanded.  If
+   INCL is set, macro expansion is special-cased and EXPAND should not
+   be set.  */
 #define COND		(1 << 0)
 #define IF_COND		(1 << 1)
 #define INCL		(1 << 2)
 #define IN_I		(1 << 3)
+#define EXPAND		(1 << 4)
 
 /* Defines one #-directive, including how to handle it.  */
 typedef void (*directive_handler) PARAMS ((cpp_reader *));
@@ -93,6 +98,7 @@ struct directive
 static void skip_rest_of_line	PARAMS ((cpp_reader *));
 static void check_eol		PARAMS ((cpp_reader *));
 static void start_directive	PARAMS ((cpp_reader *));
+static void prepare_directive_trad PARAMS ((cpp_reader *));
 static void end_directive	PARAMS ((cpp_reader *, int));
 static void directive_diagnostics
 	PARAMS ((cpp_reader *, const directive *, int));
@@ -144,12 +150,12 @@ D(define,	T_DEFINE = 0,	KANDR,     IN_I)	   /* 270554 */ \
 D(include,	T_INCLUDE,	KANDR,     INCL)	   /*  52262 */ \
 D(endif,	T_ENDIF,	KANDR,     COND)	   /*  45855 */ \
 D(ifdef,	T_IFDEF,	KANDR,     COND | IF_COND) /*  22000 */ \
-D(if,		T_IF,		KANDR,     COND | IF_COND) /*  18162 */ \
+D(if,		T_IF,		KANDR, COND | IF_COND | EXPAND) /*  18162 */ \
 D(else,		T_ELSE,		KANDR,     COND)	   /*   9863 */ \
 D(ifndef,	T_IFNDEF,	KANDR,     COND | IF_COND) /*   9675 */ \
 D(undef,	T_UNDEF,	KANDR,     IN_I)	   /*   4837 */ \
-D(line,		T_LINE,		KANDR,     0)		   /*   2465 */ \
-D(elif,		T_ELIF,		STDC89,    COND)	   /*    610 */ \
+D(line,		T_LINE,		KANDR,     EXPAND)	   /*   2465 */ \
+D(elif,		T_ELIF,		STDC89,    COND | EXPAND)  /*    610 */ \
 D(error,	T_ERROR,	STDC89,    0)		   /*    475 */ \
 D(pragma,	T_PRAGMA,	STDC89,    IN_I)	   /*    195 */ \
 D(warning,	T_WARNING,	EXTENSION, 0)		   /*     22 */ \
@@ -248,6 +254,14 @@ end_directive (pfile, skip_line)
      cpp_reader *pfile;
      int skip_line;
 {
+  if (CPP_OPTION (pfile, traditional))
+    {
+      if (pfile->directive == &dtable[T_DEFINE])
+	skip_line = false;
+      else
+	_cpp_remove_overlay (pfile);
+    }
+
   /* We don't skip for an assembler #.  */
   if (skip_line)
     {
@@ -264,6 +278,27 @@ end_directive (pfile, skip_line)
   pfile->state.in_directive = 0;
   pfile->state.angled_headers = 0;
   pfile->directive = 0;
+}
+
+/* Prepare to handle the directive in pfile->directive.  */
+static void
+prepare_directive_trad (pfile)
+     cpp_reader *pfile;
+{
+  if (pfile->directive == &dtable[T_DEFINE])
+    CUR (pfile->context) = pfile->buffer->cur;
+  else
+    {
+      bool no_expand = ! (pfile->directive->flags & EXPAND);
+
+      if (no_expand)
+	pfile->state.prevent_expansion++;
+      _cpp_read_logical_line_trad (pfile);
+      if (no_expand)
+	pfile->state.prevent_expansion--;
+      _cpp_overlay_buffer (pfile, pfile->out.base,
+			   pfile->out.cur - pfile->out.base);
+    }
 }
 
 /* Output diagnostics for a directive DIR.  INDENTED is non-zero if
@@ -404,6 +439,8 @@ _cpp_handle_directive (pfile, indented)
 	  ! CPP_OPTION (pfile, discard_comments_in_macro_exp);
 
       pfile->directive = dir;
+      if (CPP_OPTION (pfile, traditional))
+	prepare_directive_trad (pfile);
       (*pfile->directive->handler) (pfile);
     }
   else if (skip == 0)
@@ -435,6 +472,8 @@ run_directive (pfile, dir_no, buf, count)
   /* We don't want a leading # to be interpreted as a directive.  */
   pfile->buffer->saved_flags = 0;
   pfile->directive = &dtable[dir_no];
+  if (CPP_OPTION (pfile, traditional))
+    prepare_directive_trad (pfile);
   (void) (*pfile->directive->handler) (pfile);
   end_directive (pfile, 1);
   _cpp_pop_buffer (pfile);
@@ -446,7 +485,6 @@ static cpp_hashnode *
 lex_macro_node (pfile)
      cpp_reader *pfile;
 {
-  cpp_hashnode *node;
   const cpp_token *token = _cpp_lex_token (pfile);
 
   /* The token immediately after #define must be an identifier.  That
@@ -465,33 +503,27 @@ lex_macro_node (pfile)
 	token = _cpp_lex_token (pfile);
     }
 
-  if (token->type != CPP_NAME)
+  if (token->type == CPP_NAME)
     {
-      if (token->type == CPP_EOF)
-	cpp_error (pfile, DL_ERROR, "no macro name given in #%s directive",
-		   pfile->directive->name);
-      else if (token->flags & NAMED_OP)
+      cpp_hashnode *node = token->val.node;
+
+      if (node == pfile->spec_nodes.n_defined)
 	cpp_error (pfile, DL_ERROR,
-	   "\"%s\" cannot be used as a macro name as it is an operator in C++",
-		   NODE_NAME (token->val.node));
-      else
-	cpp_error (pfile, DL_ERROR, "macro names must be identifiers");
-
-      return 0;
+		   "\"defined\" cannot be used as a macro name");
+      else if (! (node->flags & NODE_POISONED))
+	return node;
     }
+  else if (token->flags & NAMED_OP)
+    cpp_error (pfile, DL_ERROR,
+       "\"%s\" cannot be used as a macro name as it is an operator in C++",
+	       NODE_NAME (token->val.node));
+  else if (token->type == CPP_EOF)
+    cpp_error (pfile, DL_ERROR, "no macro name given in #%s directive",
+	       pfile->directive->name);
+  else
+    cpp_error (pfile, DL_ERROR, "macro names must be identifiers");
 
-  node = token->val.node;
-  if (node->flags & NODE_POISONED)
-    return 0;
-
-  if (node == pfile->spec_nodes.n_defined)
-    {
-      cpp_error (pfile, DL_ERROR, "\"%s\" cannot be used as a macro name",
-		 NODE_NAME (node));
-      return 0;
-    }
-
-  return node;
+  return NULL;
 }
 
 /* Process a #define directive.  Most work is done in cppmacro.c.  */
@@ -1890,6 +1922,9 @@ cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
 
   pfile->buffer = new;
 
+  if (CPP_OPTION (pfile, traditional))
+    _cpp_set_trad_context (pfile);
+
   return new;
 }
 
@@ -1934,6 +1969,9 @@ _cpp_pop_buffer (pfile)
 	    _cpp_maybe_push_include_file (pfile);
 	}
     }
+
+  if (pfile->buffer && CPP_OPTION (pfile, traditional))
+    _cpp_set_trad_context (pfile);
 }
 
 /* Enter all recognised directives in the hash table.  */

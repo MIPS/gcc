@@ -66,6 +66,7 @@ static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_unique_section PARAMS ((tree, int));
 static void   avr_encode_section_info PARAMS ((tree, int));
+static unsigned int avr_section_type_flags PARAMS ((tree, const char *, int));
 
 static void   avr_asm_out_ctor PARAMS ((rtx, int));
 static void   avr_asm_out_dtor PARAMS ((rtx, int));
@@ -170,6 +171,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90s8515", 2, "__AVR_AT90S8515__" },
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
+  { "at86rf401", 2, "__AVR_AT86RF401__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -181,12 +183,14 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "avr4",      4, NULL },
   { "atmega8",   4, "__AVR_ATmega8__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
+  { "atmega8535", 4, "__AVR_ATmega8535__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
   { "atmega161", 5, "__AVR_ATmega161__" },
   { "atmega162", 5, "__AVR_ATmega162__" },
   { "atmega163", 5, "__AVR_ATmega163__" },
+  { "atmega169", 5, "__AVR_ATmega169__" },
   { "atmega32",  5, "__AVR_ATmega32__" },
   { "atmega323", 5, "__AVR_ATmega323__" },
   { "atmega64",  5, "__AVR_ATmega64__" },
@@ -220,6 +224,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_UNIQUE_SECTION avr_unique_section
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO avr_encode_section_info
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS avr_section_type_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -395,6 +401,11 @@ avr_regs_to_save (set)
   if (set)
     CLEAR_HARD_REG_SET (*set);
   count = 0;
+
+  /* No need to save any registers if the function never returns.  */
+  if (TREE_THIS_VOLATILE (current_function_decl))
+    return 0;
+
   for (reg = 0; reg < 32; reg++)
     {
       /* Do not push/pop __tmp_reg__, __zero_reg__, as well as
@@ -609,11 +620,16 @@ avr_output_function_prologue (file, size)
   int main_p;
   int live_seq;
   int minimize;
-  
+
+  last_insn_address = 0;
+  jump_tables_size = 0;
+  prologue_size = 0;
+  fprintf (file, "/* prologue: frame size=%d */\n", size);
+
   if (avr_naked_function_p (current_function_decl))
     {
-      fprintf (file, "/* prologue: naked */\n");
-      return;
+      fputs ("/* prologue: naked */\n", file);
+      goto out;
     }
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
@@ -623,11 +639,6 @@ avr_output_function_prologue (file, size)
   minimize = (TARGET_CALL_PROLOGUES
 	      && !interrupt_func_p && !signal_func_p && live_seq);
 
-  last_insn_address = 0;
-  jump_tables_size = 0;
-  prologue_size = 0;
-  fprintf (file, "/* prologue: frame size=%d */\n", size);
-  
   if (interrupt_func_p)
     {
       fprintf (file,"\tsei\n");
@@ -722,6 +733,8 @@ avr_output_function_prologue (file, size)
 	  }
 	}
     }
+
+ out:
   fprintf (file, "/* prologue end (size=%d) */\n", prologue_size);
 }
 
@@ -739,25 +752,39 @@ avr_output_function_epilogue (file, size)
   int function_size;
   int live_seq;
   int minimize;
+  rtx last = get_last_nonnote_insn ();
+
+  function_size = jump_tables_size;
+  if (last)
+    {
+      rtx first = get_first_nonnote_insn ();
+      function_size += (INSN_ADDRESSES (INSN_UID (last)) -
+			INSN_ADDRESSES (INSN_UID (first)));
+      function_size += get_attr_length (last);
+    }
+
+  fprintf (file, "/* epilogue: frame size=%d */\n", size);
+  epilogue_size = 0;
 
   if (avr_naked_function_p (current_function_decl))
     {
-      fprintf (file, "/* epilogue: naked */\n");
-      return;
+      fputs ("/* epilogue: naked */\n", file);
+      goto out;
+    }
+
+  if (last && GET_CODE (last) == BARRIER)
+    {
+      fputs ("/* epilogue: noreturn */\n", file);
+      goto out;
     }
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
   main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
-  function_size = (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
-		   - INSN_ADDRESSES (INSN_UID (get_insns ())));
-  function_size += jump_tables_size;
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
 	      && !interrupt_func_p && !signal_func_p && live_seq);
   
-  epilogue_size = 0;
-  fprintf (file, "/* epilogue: frame size=%d */\n", size);
   if (main_p)
     {
       /* Return value from main() is already in the correct registers
@@ -850,7 +877,8 @@ avr_output_function_epilogue (file, size)
 	fprintf (file, "\tret\n");
       ++epilogue_size;
     }
-  
+
+ out:
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
   fprintf (file, "/* function %s size %d (%d) */\n", current_function_name,
 	   prologue_size + function_size + epilogue_size, function_size);
@@ -4806,6 +4834,27 @@ avr_encode_section_info (decl, first)
       DECL_SECTION_NAME (decl) = build_string (strlen (dsec), dsec);
       TREE_READONLY (decl) = 1;
     }
+}
+
+static unsigned int
+avr_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (strncmp (name, ".noinit", 7) == 0)
+    {
+      if (decl && TREE_CODE (decl) == VAR_DECL
+	  && DECL_INITIAL (decl) == NULL_TREE)
+	flags |= SECTION_BSS;  /* @nobits */
+      else
+	warning ("only uninitialized variables can be placed in the "
+		 ".noinit section");
+    }
+
+  return flags;
 }
 
 /* Outputs to the stdio stream FILE some

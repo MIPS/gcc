@@ -351,7 +351,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 			       niter,
 			       const1_rtx, NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
-  init_code = gen_sequence ();
+  init_code = get_insns ();
   end_sequence ();
 
   /* Precondition the loop.  */
@@ -381,7 +381,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	  JUMP_LABEL (get_last_insn ()) = loop_beg_label;
 	  LABEL_NUSES (loop_beg_label)++;
 	}
-      branch_code = gen_sequence ();
+      branch_code = get_insns ();
       end_sequence ();
 
       preheader =

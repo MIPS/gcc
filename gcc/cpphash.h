@@ -50,22 +50,54 @@ typedef unsigned char uchar;
    efficiency, and partly to limit runaway recursion.  */
 #define CPP_STACK_MAX 200
 
+/* Host alignment handling.  */
+struct dummy
+{
+  char c;
+  union
+  {
+    double d;
+    int *p;
+  } u;
+};
+
+#define DEFAULT_ALIGNMENT offsetof (struct dummy, u)
+#define CPP_ALIGN2(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
+#define CPP_ALIGN(size) CPP_ALIGN2 (size, DEFAULT_ALIGNMENT)
+
 /* Each macro definition is recorded in a cpp_macro structure.
    Variadic macros cannot occur with traditional cpp.  */
 struct cpp_macro
 {
-  cpp_hashnode **params;	/* Parameters, if any.  */
+  /* Parameters, if any.  */
+  cpp_hashnode **params;
+
+  /* Replacement tokens (ISO) or replacement text (traditional).  See
+     comment at top of cpptrad.c for how traditional function-like
+     macros are encoded.  */
   union
   {
-    cpp_token *tokens;	        /* Tokens of replacement list (ISO).  */
-    const uchar *text;		/* Expansion text (traditional).  */
+    cpp_token *tokens;
+    const uchar *text;
   } exp;
-  unsigned int line;		/* Starting line number.  */
-  unsigned int count;		/* Number of tokens / bytes in expansion.  */
-  unsigned short paramc;	/* Number of parameters.  */
-  unsigned int fun_like : 1;	/* If a function-like macro.  */
-  unsigned int variadic : 1;	/* If a variadic macro.  */
-  unsigned int syshdr   : 1;	/* If macro defined in system header.  */
+
+  /* Definition line number.  */
+  unsigned int line;
+
+  /* Number of tokens in expansion, or bytes for traditional macros.  */
+  unsigned int count;
+
+  /* Number of parameters.  */
+  unsigned short paramc;
+
+  /* If a function-like macro.  */
+  unsigned int fun_like : 1;
+
+  /* If a variadic macro.  */
+  unsigned int variadic : 1;
+
+  /* If macro defined in system header.  */
+  unsigned int syshdr   : 1;
 };
 
 /* A generic memory buffer, and operations on it.  */
@@ -126,16 +158,36 @@ struct tokenrun
   cpp_token *base, *limit;
 };
 
+/* Accessor macros for struct cpp_context.  */
+#define FIRST(c) (c->u.iso.first)
+#define LAST(c) (c->u.iso.last)
+#define CUR(c) (c->u.trad.cur)
+#define RLIMIT(c) (c->u.trad.rlimit)
+
 typedef struct cpp_context cpp_context;
 struct cpp_context
 {
   /* Doubly-linked list.  */
   cpp_context *next, *prev;
 
-  /* Contexts other than the base context are contiguous tokens.
-     e.g. macro expansions, expanded argument tokens.  */
-  union utoken first;
-  union utoken last;
+  union
+  {
+    /* For ISO macro expansion.  Contexts other than the base context
+       are contiguous tokens.  e.g. macro expansions, expanded
+       argument tokens.  */
+    struct
+    {
+      union utoken first;
+      union utoken last;
+    } iso;
+
+    /* For traditional macro expansion.  */
+    struct
+    {
+      const uchar *cur;
+      const uchar *rlimit;
+    } trad;
+  } u;
 
   /* If non-NULL, a buffer used for storage related to this context.
      When the context is popped, the buffer is released.  */
@@ -351,17 +403,21 @@ struct cpp_reader
      preprocessor.  */
   struct spec_nodes spec_nodes;
 
-  /* Whether to print our version number.  Done this way so
-     we don't get it twice for -v -version.  */
-  unsigned char print_version;
-
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
 
-  /* Traditional preprocessing output buffer.  */
-  uchar *trad_out_base, *trad_out_limit;
-  uchar *trad_out_cur;
-  unsigned int trad_line;
+  /* Traditional preprocessing output buffer (a logical line).  */
+  struct
+  {
+    uchar *base;
+    uchar *limit;
+    uchar *cur;
+    unsigned int first_line;
+  } out;
+
+  /* Used to save the original line number during traditional
+     preprocessing.  */
+  unsigned int saved_line;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -404,8 +460,15 @@ extern int _cpp_begin_message PARAMS ((cpp_reader *, int,
 
 /* In cppmacro.c */
 extern void _cpp_free_definition	PARAMS ((cpp_hashnode *));
-extern int _cpp_create_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
+extern bool _cpp_create_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_pop_context		PARAMS ((cpp_reader *));
+extern void _cpp_push_text_context	PARAMS ((cpp_reader *, cpp_hashnode *,
+						 const uchar *, size_t));
+extern bool _cpp_save_parameter		PARAMS ((cpp_reader *, cpp_macro *,
+						 cpp_hashnode *));
+extern bool _cpp_arguments_ok		PARAMS ((cpp_reader *, cpp_macro *,
+						 const cpp_hashnode *,
+						 unsigned int));
 
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
@@ -458,6 +521,12 @@ extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
+extern void _cpp_remove_overlay PARAMS ((cpp_reader *));
+extern cpp_hashnode *_cpp_lex_identifier_trad PARAMS ((cpp_reader *));
+extern void _cpp_set_trad_context PARAMS ((cpp_reader *));
+extern bool _cpp_create_trad_definition PARAMS ((cpp_reader *, cpp_macro *));
+extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
+						    const cpp_macro *));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

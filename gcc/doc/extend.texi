@@ -4294,7 +4294,10 @@ This function returns the return address of the current function, or of
 one of its callers.  The @var{level} argument is number of frames to
 scan up the call stack.  A value of @code{0} yields the return address
 of the current function, a value of @code{1} yields the return address
-of the caller of the current function, and so forth.
+of the caller of the current function, and so forth. When inlining
+the expected behavior is that the function will return the address of
+the function that will be returned to.  To work around this behavior use
+the @code{noinline} function attribute.
 
 The @var{level} argument must be a constant integer.
 
@@ -4765,7 +4768,7 @@ instructions, but allow the compiler to schedule those calls.
 These built-in functions are available for the Alpha family of
 processors, depending on the command-line switches used.
 
-The following built-in functions are always available.  They 
+The following built-in functions are always available.  They
 all generate the machine instruction that is part of the name.
 
 @example
@@ -4773,8 +4776,28 @@ long __builtin_alpha_implver (void)
 long __builtin_alpha_rpcc (void)
 long __builtin_alpha_amask (long)
 long __builtin_alpha_cmpbge (long, long)
+long __builtin_alpha_extbl (long, long)
+long __builtin_alpha_extwl (long, long)
+long __builtin_alpha_extll (long, long)
 long __builtin_alpha_extql (long, long)
+long __builtin_alpha_extwh (long, long)
+long __builtin_alpha_extlh (long, long)
 long __builtin_alpha_extqh (long, long)
+long __builtin_alpha_insbl (long, long)
+long __builtin_alpha_inswl (long, long)
+long __builtin_alpha_insll (long, long)
+long __builtin_alpha_insql (long, long)
+long __builtin_alpha_inswh (long, long)
+long __builtin_alpha_inslh (long, long)
+long __builtin_alpha_insqh (long, long)
+long __builtin_alpha_mskbl (long, long)
+long __builtin_alpha_mskwl (long, long)
+long __builtin_alpha_mskll (long, long)
+long __builtin_alpha_mskql (long, long)
+long __builtin_alpha_mskwh (long, long)
+long __builtin_alpha_msklh (long, long)
+long __builtin_alpha_mskqh (long, long)
+long __builtin_alpha_umulh (long, long)
 long __builtin_alpha_zap (long, long)
 long __builtin_alpha_zapnot (long, long)
 @end example
@@ -4798,6 +4821,17 @@ long __builtin_alpha_maxsb8 (long, long)
 long __builtin_alpha_maxuw4 (long, long)
 long __builtin_alpha_maxsw4 (long, long)
 long __builtin_alpha_perr (long, long)
+@end example
+
+The following built-in functions are always with @option{-mcix}
+or @option{-mcpu=@var{cpu}} where @var{cpu} is @code{ev67} or
+later.  They all generate the machine instruction that is part
+of the name.
+
+@example
+long __builtin_alpha_cttz (long)
+long __builtin_alpha_ctlz (long)
+long __builtin_alpha_ctpop (long)
 @end example
 
 @node X86 Built-in Functions
@@ -6144,7 +6178,7 @@ subsequent functions.
 The RS/6000 and PowerPC targets define one pragma for controlling
 whether or not the @code{longcall} attribute is added to function
 declarations by default.  This pragma overrides the @option{-mlongcall}
-option, but not the @code{longcall} and @code{shortcall} attributes.  
+option, but not the @code{longcall} and @code{shortcall} attributes.
 @xref{RS/6000 and PowerPC Options}, for more information about when long
 calls are and are not necessary.
 
@@ -6227,7 +6261,7 @@ is supported.
 
 This pragma renames all subsequent function and variable declarations
 such that @var{string} is prepended to the name.  This effect may be
-terminated by using another @code{extern_prefix} pragma with the 
+terminated by using another @code{extern_prefix} pragma with the
 empty string.
 
 This pragma is similar in intent to to the asm labels extension
@@ -6419,7 +6453,7 @@ one thread.
 New text after paragraph 7
 
 @quotation
-It is unspecified whether additional action must be taken to 
+It is unspecified whether additional action must be taken to
 ensure when and whether side effects are visible to other threads.
 @end quotation
 
@@ -6435,7 +6469,7 @@ Add after paragraph 5
 
 @quotation
 The thread that begins execution at the @code{main} function is called
-the @dfn{main thread}.  It is implementation defined how functions 
+the @dfn{main thread}.  It is implementation defined how functions
 beginning threads other than the main thread are designated or typed.
 A function so designated, as well as the @code{main} function, is called
 a @dfn{thread startup function}.  It is implementation defined what

@@ -1061,7 +1061,7 @@ gen_thread_pointer ()
       thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
       RTX_UNCHANGING_P (thread_pointer_rtx);
     }
-  return tp;
+  return thread_pointer_rtx;
 }
 
 rtx
@@ -2050,7 +2050,7 @@ spill_restore_mem (reg, cfa_off)
 				 spill_fill_data.init_reg[iter],
 				 disp_rtx));
 
-	  seq = gen_sequence ();
+	  seq = get_insns ();
 	  end_sequence ();
 	}
 
@@ -6933,7 +6933,7 @@ ia64_reorg (insns)
 {
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
-  compute_bb_for_insn (get_max_uid ());
+  compute_bb_for_insn ();
 
   /* If optimizing, we'll have split before scheduling.  */
   if (optimize == 0)

@@ -1767,8 +1767,7 @@ propagate_one_insn (pbi, insn)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	      {
 		/* We do not want REG_UNUSED notes for these registers.  */
-		mark_set_1 (pbi, CLOBBER, gen_rtx_REG (reg_raw_mode[i], i),
-			    cond, insn,
+		mark_set_1 (pbi, CLOBBER, regno_reg_rtx[i], cond, insn,
 			    pbi->flags & ~(PROP_DEATH_NOTES | PROP_REG_INFO));
 	      }
 	}
@@ -1816,8 +1815,7 @@ propagate_one_insn (pbi, insn)
 	     so they are made live.  */
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (global_regs[i])
-	      mark_used_reg (pbi, gen_rtx_REG (reg_raw_mode[i], i),
-			     cond, insn);
+	      mark_used_reg (pbi, regno_reg_rtx[i], cond, insn);
 	}
     }
 
@@ -2817,7 +2815,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 		    if (! REGNO_REG_SET_P (pbi->reg_live, i))
 		      REG_NOTES (insn)
 			= alloc_EXPR_LIST (REG_UNUSED,
-					   gen_rtx_REG (reg_raw_mode[i], i),
+					   regno_reg_rtx[i],
 					   REG_NOTES (insn));
 		}
 	    }
@@ -3347,7 +3345,7 @@ attempt_auto_inc (pbi, inc, insn, mem, incr, incr_reg)
 
       /* We now know we'll be doing this change, so emit the
 	 new insn(s) and do the updates.  */
-      emit_insns_before (insns, insn);
+      emit_insn_before (insns, insn);
 
       if (pbi->bb->head == insn)
 	pbi->bb->head = insns;
@@ -3625,7 +3623,7 @@ mark_used_reg (pbi, reg, cond, insn)
 		&& ! dead_or_set_regno_p (insn, i))
 	      REG_NOTES (insn)
 		= alloc_EXPR_LIST (REG_DEAD,
-				   gen_rtx_REG (reg_raw_mode[i], i),
+				   regno_reg_rtx[i],
 				   REG_NOTES (insn));
 	}
     }

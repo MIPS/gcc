@@ -34,20 +34,6 @@ Boston, MA 02111-1307, USA.  */
    ADDR_BEG, ADDR_END, PRINT_IREG, PRINT_SCALE, PRINT_B_I_S, and many
    that start with ASM_ or end in ASM_OP.  */
 
-/* Stubs for half-pic support if not OSF/1 reference platform.  */
-
-#ifndef HALF_PIC_P
-#define HALF_PIC_P() 0
-#define HALF_PIC_NUMBER_PTRS 0
-#define HALF_PIC_NUMBER_REFS 0
-#define HALF_PIC_ENCODE(DECL)
-#define HALF_PIC_DECLARE(NAME)
-#define HALF_PIC_INIT()	error ("half-pic init called on systems that don't support it")
-#define HALF_PIC_ADDRESS_P(X) 0
-#define HALF_PIC_PTR(X) (X)
-#define HALF_PIC_FINISH(STREAM)
-#endif
-
 /* Define the specific costs for a given cpu */
 
 struct processor_costs {
@@ -140,7 +126,7 @@ extern int target_flags;
 
 /* Compile using ret insn that pops args.
    This will not work unless you use prototypes at least
-   for all functions that can take varying numbers of args.  */  
+   for all functions that can take varying numbers of args.  */
 #define TARGET_RTD (target_flags & MASK_RTD)
 
 /* Align doubles to a two word boundary.  This breaks compatibility with
@@ -215,7 +201,7 @@ extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
 extern const int x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
-extern const int x86_promote_QImode, x86_single_stringop;
+extern const int x86_promote_QImode, x86_single_stringop, x86_fast_prefix;
 extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
 extern const int x86_promote_hi_regs, x86_integer_DFmode_moves;
 extern const int x86_add_esp_4, x86_add_esp_8, x86_sub_esp_4, x86_sub_esp_8;
@@ -247,6 +233,7 @@ extern int x86_prefetch_sse;
 #define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & CPUMASK)
 #define TARGET_READ_MODIFY (x86_read_modify & CPUMASK)
 #define TARGET_PROMOTE_QImode (x86_promote_QImode & CPUMASK)
+#define TARGET_FAST_PREFIX (x86_fast_prefix & CPUMASK)
 #define TARGET_SINGLE_STRINGOP (x86_single_stringop & CPUMASK)
 #define TARGET_QIMODE_MATH (x86_qimode_math & CPUMASK)
 #define TARGET_HIMODE_MATH (x86_himode_math & CPUMASK)
@@ -474,23 +461,121 @@ extern int x86_prefetch_sse;
 #endif
 
 /* Target CPU builtins.  */
-#define TARGET_CPU_CPP_BUILTINS()			\
-  do							\
-    {							\
-      if (TARGET_64BIT)					\
-	{						\
-	  builtin_assert ("cpu=x86_64");		\
-	  builtin_assert ("machine=x86_64");		\
-	  builtin_define ("__x86_64");			\
-	  builtin_define ("__x86_64__");		\
-	}						\
-      else						\
-	{						\
-	  builtin_assert ("cpu=i386");			\
-	  builtin_assert ("machine=i386");		\
-	  builtin_define_std ("i386");			\
-	}						\
-    }							\
+#define TARGET_CPU_CPP_BUILTINS()				\
+  do								\
+    {								\
+      size_t arch_len = strlen (ix86_arch_string);		\
+      size_t cpu_len = strlen (ix86_cpu_string);		\
+      int last_arch_char = ix86_arch_string[arch_len - 1];	\
+      int last_cpu_char = ix86_cpu_string[cpu_len - 1];		\
+								\
+      if (TARGET_64BIT)						\
+	{							\
+	  builtin_assert ("cpu=x86_64");			\
+	  builtin_assert ("machine=x86_64");			\
+	  builtin_define ("__x86_64");				\
+	  builtin_define ("__x86_64__");			\
+	}							\
+      else							\
+	{							\
+	  builtin_assert ("cpu=i386");				\
+	  builtin_assert ("machine=i386");			\
+	  builtin_define_std ("i386");				\
+	}							\
+								\
+      /* Built-ins based on -mcpu= (or -march= if no		\
+	 CPU given).  */					\
+      if (TARGET_386)						\
+	builtin_define ("__tune_i386__");			\
+      else if (TARGET_486)					\
+	builtin_define ("__tune_i486__");			\
+      else if (TARGET_PENTIUM)					\
+	{							\
+	  builtin_define ("__tune_i586__");			\
+	  builtin_define ("__tune_pentium__");			\
+	  if (last_cpu_char == 'x')				\
+	    builtin_define ("__tune_pentium_mmx__");		\
+	}							\
+      else if (TARGET_PENTIUMPRO)				\
+	{							\
+	  builtin_define ("__tune_i686__");			\
+	  builtin_define ("__tune_pentiumpro__");		\
+	}							\
+      else if (TARGET_K6)					\
+	{							\
+	  builtin_define ("__tune_k6__");			\
+	  if (last_cpu_char == '2')				\
+	    builtin_define ("__tune_k6_2__");			\
+	  else if (last_cpu_char == '3')			\
+	    builtin_define ("__tune_k6_3__");			\
+	}							\
+      else if (TARGET_ATHLON)					\
+	{							\
+	  builtin_define ("__tune_athlon__");			\
+	  /* Only plain "athlon" lacks SSE.  */			\
+	  if (last_cpu_char != 'n')				\
+	    builtin_define ("__tune_athlon_sse__");		\
+	}							\
+      else if (TARGET_PENTIUM4)					\
+	builtin_define ("__tune_pentium4__");			\
+								\
+      if (TARGET_MMX)						\
+	builtin_define ("__MMX__");				\
+      if (TARGET_3DNOW)						\
+	builtin_define ("__3dNOW__");				\
+      if (TARGET_3DNOW_A)					\
+	builtin_define ("__3dNOW_A__");				\
+      if (TARGET_SSE)						\
+	builtin_define ("__SSE__");				\
+      if (TARGET_SSE2)						\
+	builtin_define ("__SSE2__");				\
+								\
+      /* Built-ins based on -march=.  */			\
+      if (ix86_arch == PROCESSOR_I486)				\
+	{							\
+	  builtin_define ("__i486");				\
+	  builtin_define ("__i486__");				\
+	}							\
+      else if (ix86_arch == PROCESSOR_PENTIUM)			\
+	{							\
+	  builtin_define ("__i586");				\
+	  builtin_define ("__i586__");				\
+	  builtin_define ("__pentium");				\
+	  builtin_define ("__pentium__");			\
+	  if (last_arch_char == 'x')				\
+	    builtin_define ("__pentium_mmx__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_PENTIUMPRO)		\
+	{							\
+	  builtin_define ("__i686");				\
+	  builtin_define ("__i686__");				\
+	  builtin_define ("__pentiumpro");			\
+	  builtin_define ("__pentiumpro__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_K6)			\
+	{							\
+								\
+	  builtin_define ("__k6");				\
+	  builtin_define ("__k6__");				\
+	  if (last_arch_char == '2')				\
+	    builtin_define ("__k6_2__");			\
+	  else if (last_arch_char == '3')			\
+	    builtin_define ("__k6_3__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_ATHLON)			\
+	{							\
+	  builtin_define ("__athlon");				\
+	  builtin_define ("__athlon__");			\
+	  /* Only plain "athlon" lacks SSE.  */			\
+	  if (last_arch_char != 'n')				\
+	    builtin_define ("__athlon_sse__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_PENTIUM4)			\
+	{							\
+	  builtin_define ("__pentium4");			\
+	  builtin_define ("__pentium4__");			\
+	}							\
+    }								\
   while (0)
 
 #define TARGET_CPU_DEFAULT_i386 0
@@ -511,96 +596,6 @@ extern int x86_prefetch_sse;
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
 				  "athlon", "athlon-4"}
-#ifndef CPP_CPU_DEFAULT_SPEC
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_i486
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i486__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i586__ -D__tune_pentium__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium_mmx
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i586__ -D__tune_pentium__ -D__tune_pentium_mmx__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentiumpro
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium2
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium3
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i686__ -D__tune_pentiumpro__\
--D__tune_pentium2__ -D__tune_pentium3__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium4
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_pentium4__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_k6
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_k6__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_k6_2
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_k6__ -D__tune_k6_2__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_k6_3
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_k6__ -D__tune_k6_3__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_athlon
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__"
-#endif
-#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_athlon_sse
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__ -D__tune_athlon_sse__"
-#endif
-#ifndef CPP_CPU_DEFAULT_SPEC
-#define CPP_CPU_DEFAULT_SPEC "-D__tune_i386__"
-#endif
-#endif /* CPP_CPU_DEFAULT_SPEC */
-
-#define CPP_CPU_SPEC "\
-%{march=i386:%{!mcpu*:-D__tune_i386__ }}\
-%{march=i486:-D__i486 -D__i486__ %{!mcpu*:-D__tune_i486__ }}\
-%{march=pentium|march=i586:-D__i586 -D__i586__ -D__pentium -D__pentium__ \
-  %{!mcpu*:-D__tune_i586__ -D__tune_pentium__ }}\
-%{march=pentium-mmx:-D__i586 -D__i586__ -D__pentium -D__pentium__ \
-  -D__pentium__mmx__ \
-  %{!mcpu*:-D__tune_i586__ -D__tune_pentium__ -D__tune_pentium_mmx__}}\
-%{march=pentiumpro|march=i686:-D__i686 -D__i686__ \
-  -D__pentiumpro -D__pentiumpro__ \
-  %{!mcpu*:-D__tune_i686__ -D__tune_pentiumpro__ }}\
-%{march=k6:-D__k6 -D__k6__ %{!mcpu*:-D__tune_k6__ }}\
-%{march=k6-2:-D__k6 -D__k6__ -D__k6_2__ \
-  %{!mcpu*:-D__tune_k6__ -D__tune_k6_2__ }}\
-%{march=k6-3:-D__k6 -D__k6__ -D__k6_3__ \
-  %{!mcpu*:-D__tune_k6__ -D__tune_k6_3__ }}\
-%{march=athlon|march=athlon-tbird:-D__athlon -D__athlon__ \
-  %{!mcpu*:-D__tune_athlon__ }}\
-%{march=athlon-4|march=athlon-xp|march=athlon-mp:-D__athlon -D__athlon__ \
-  -D__athlon_sse__ \
-  %{!mcpu*:-D__tune_athlon__ -D__tune_athlon_sse__ }}\
-%{march=pentium4:-D__pentium4 -D__pentium4__ %{!mcpu*:-D__tune_pentium4__ }}\
-%{m386|mcpu=i386:-D__tune_i386__ }\
-%{m486|mcpu=i486:-D__tune_i486__ }\
-%{mpentium|mcpu=pentium|mcpu=i586|mcpu=pentium-mmx:-D__tune_i586__ -D__tune_pentium__ }\
-%{mpentiumpro|mcpu=pentiumpro|mcpu=i686|cpu=pentium2|cpu=pentium3:-D__tune_i686__ \
--D__tune_pentiumpro__ }\
-%{mcpu=k6|mcpu=k6-2|mcpu=k6-3:-D__tune_k6__ }\
-%{mcpu=athlon|mcpu=athlon-tbird|mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
--D__tune_athlon__ }\
-%{mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
--D__tune_athlon_sse__ }\
-%{mcpu=pentium4:-D__tune_pentium4__ }\
-%{march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
--D__SSE__ }\
-%{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
-|march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp|march=pentium2|march=pentium3|march=pentium4: -D__MMX__ }\
-%{march=k6-2|march=k6-3\
-|march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp: -D__3dNOW__ }\
-%{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp: -D__3dNOW_A__ }\
-%{msse2: -D__SSE2__ }\
-%{march=pentium4: -D__SSE2__ }\
-%{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -621,8 +616,6 @@ extern int x86_prefetch_sse;
 #endif
 
 #define EXTRA_SPECS							\
-  { "cpp_cpu_default",	CPP_CPU_DEFAULT_SPEC },				\
-  { "cpp_cpu",	CPP_CPU_SPEC },						\
   { "cc1_cpu",  CC1_CPU_SPEC },						\
   SUBTARGET_EXTRA_SPECS
 
@@ -706,7 +699,7 @@ extern int x86_prefetch_sse;
    and all fundamental data types supported by the hardware
    might need to be aligned. No data type wants to be aligned
    rounder than this.
-   
+
    Pentium+ preferrs DFmode values to be aligned to 64 bit boundary
    and Pentium Pro XFmode values at 128 bit boundaries.  */
 
@@ -820,7 +813,7 @@ extern int x86_prefetch_sse;
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
    On the 80386, the stack pointer is such, as is the arg pointer.
- 
+
    The value is an mask - bit 1 is set for fixed registers
    for 32bit target, while 2 is set for fixed registers for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
@@ -838,15 +831,15 @@ extern int x86_prefetch_sse;
      1,   1,   1,   1,   1,   1,   1,   1,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
      1,   1,    1,    1,    1,    1,    1,    1}
- 
+
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
    registers that can be used without being saved.
    The latter must include the registers where values are returned
    and the register where structure-value addresses are passed.
-   Aside from that, you can include as many other registers as you like. 
- 
+   Aside from that, you can include as many other registers as you like.
+
    The value is an mask - bit 1 is set for call used
    for 32bit target, while 2 is set for call used for 64bit.
    Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
@@ -932,7 +925,7 @@ do {									\
    This is ordinarily the length in words of a value of mode MODE
    but can be less for certain modes in special long registers.
 
-   Actually there are no two word move instructions for consecutive 
+   Actually there are no two word move instructions for consecutive
    registers.  And only registers 0-3 may have mov byte instructions
    applied to them.
    */
@@ -1045,7 +1038,7 @@ do {									\
 
 #define FIRST_SSE_REG (FRAME_POINTER_REGNUM + 1)
 #define LAST_SSE_REG  (FIRST_SSE_REG + 7)
- 
+
 #define FIRST_MMX_REG  (LAST_SSE_REG + 1)
 #define LAST_MMX_REG   (FIRST_MMX_REG + 7)
 
@@ -1081,7 +1074,7 @@ do {									\
 /* Register to hold the addressing base for position independent
    code access to data items.  We don't use PIC pointer for 64bit
    mode.  Define the regnum to dummy value to prevent gcc from
-   pessimizing code dealing with EBX. 
+   pessimizing code dealing with EBX.
 
    To avoid clobbering a call-saved register unnecessarily, we renumber
    the pic register when possible.  The change is visible after the
@@ -1294,7 +1287,7 @@ enum reg_class
 
 #define MMX_REGNO_P(N) ((N) >= FIRST_MMX_REG && (N) <= LAST_MMX_REG)
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
-  
+
 #define STACK_REG_P(XOP)		\
   (REG_P (XOP) &&		       	\
    REGNO (XOP) >= FIRST_STACK_REG &&	\
@@ -1425,7 +1418,7 @@ enum reg_class
   ix86_secondary_memory_needed ((CLASS1), (CLASS2), (MODE), 1)
 
 /* QImode spills from non-QI registers need a scratch.  This does not
-   happen often -- the only example so far requires an uninitialized 
+   happen often -- the only example so far requires an uninitialized
    pseudo.  */
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)			\
@@ -1472,7 +1465,7 @@ enum reg_class
    || ((CLASS) == DIREG))
 
 /* A C statement that adds to CLOBBERS any hard regs the port wishes
-   to automatically clobber for all asms. 
+   to automatically clobber for all asms.
 
    We do this in the new i386 backend to maintain source compatibility
    with the old cc0-based compiler.  */
@@ -1510,7 +1503,7 @@ enum reg_class
    On 386 pushw decrements by exactly 2 no matter what the position was.
    On the 386 there is no pushb; we use pushw instead, and this
    has the effect of rounding up to 2.
- 
+
    For 64bit ABI we round up to 8 bytes.
  */
 
@@ -1731,7 +1724,7 @@ do {									\
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
    No definition is equivalent to always zero.  */
-/* Note on the 386 it might be more efficient not to define this since 
+/* Note on the 386 it might be more efficient not to define this since
    we have to restore it ourselves from the frame pointer, in order to
    use pop */
 
@@ -1950,7 +1943,7 @@ do {									\
 #define REWRITE_ADDRESS(X) rewrite_address (X)
 
 /* Nonzero if the constant value X is a legitimate general operand
-   when generating PIC code.  It is given that flag_pic is on and 
+   when generating PIC code.  It is given that flag_pic is on and
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
 #define LEGITIMATE_PIC_OPERAND_P(X) legitimate_pic_operand_p (X)
@@ -2140,7 +2133,7 @@ enum ix86_builtins
   IX86_BUILTIN_RSQRTSS,
   IX86_BUILTIN_SQRTPS,
   IX86_BUILTIN_SQRTSS,
-  
+
   IX86_BUILTIN_UNPCKHPS,
   IX86_BUILTIN_UNPCKLPS,
 
@@ -2513,7 +2506,7 @@ do {							\
    precise value of the constant, which is available for examination
    in X, and the rtx code of the expression in which it is contained,
    found in OUTER_CODE.
-  
+
    CODE is the expression code--redundant, since it can be obtained
    with `GET_CODE (X)'.  */
 
@@ -2706,7 +2699,10 @@ do {							\
     TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);				\
 									\
   case FLOAT_EXTEND:							\
-    TOPLEVEL_COSTS_N_INSNS (0);						\
+    if (!TARGET_SSE_MATH						\
+	|| !VALID_SSE_REG_MODE (GET_MODE (X)))				\
+      TOPLEVEL_COSTS_N_INSNS (0);					\
+    break;								\
 									\
   egress_rtx_costs:							\
     break;
@@ -2842,34 +2838,6 @@ do {							\
 
 #define NO_RECURSIVE_FUNCTION_CSE
 
-/* Add any extra modes needed to represent the condition code.
-
-   For the i386, we need separate modes when floating-point
-   equality comparisons are being done. 
-   
-   Add CCNO to indicate comparisons against zero that requires
-   Overflow flag to be unset.  Sign bit test is used instead and
-   thus can be used to form "a&b>0" type of tests.
-
-   Add CCGC to indicate comparisons agains zero that allows
-   unspecified garbage in the Carry flag.  This mode is used
-   by inc/dec instructions.
-
-   Add CCGOC to indicate comparisons agains zero that allows
-   unspecified garbage in the Carry and Overflow flag. This
-   mode is used to simulate comparisons of (a-b) and (a+b)
-   against zero using sub/cmp/add operations.
-
-   Add CCZ to indicate that only the Zero flag is valid.  */
-
-#define EXTRA_CC_MODES		\
-	CC (CCGCmode, "CCGC")	\
-	CC (CCGOCmode, "CCGOC")	\
-	CC (CCNOmode, "CCNO")	\
-	CC (CCZmode, "CCZ")	\
-	CC (CCFPmode, "CCFP")	\
-	CC (CCFPUmode, "CCFPU")
-
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.
 
@@ -2905,7 +2873,7 @@ do {							\
    For float regs, the stack top is sometimes referred to as "%st(0)"
    instead of just "%st".  PRINT_REG handles this with the "y" code.  */
 
-#undef  HI_REGISTER_NAMES						
+#undef  HI_REGISTER_NAMES
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)","",	\
@@ -2955,7 +2923,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
   gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
- 
+
 /* After the prologue, RA is at -4(AP) in the current frame.  */
 #define RETURN_ADDR_RTX(COUNT, FRAME)					   \
   ((COUNT) == 0								   \
@@ -3028,7 +2996,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 #define JUMP_TABLES_IN_TEXT_SECTION \
   (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
 
-/* A C statement that outputs an address constant appropriate to 
+/* A C statement that outputs an address constant appropriate to
    for DWARF debugging.  */
 
 #define ASM_OUTPUT_DWARF_ADDR_CONST(FILE, X) \
@@ -3285,7 +3253,7 @@ extern const char *ix86_asm_string;
 extern enum asm_dialect ix86_asm_dialect;
 
 extern int ix86_regparm;
-extern const char *ix86_regparm_string;	
+extern const char *ix86_regparm_string;
 
 extern int ix86_preferred_stack_boundary;
 extern const char *ix86_preferred_stack_boundary_string;
@@ -3313,12 +3281,12 @@ extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
    redundant computation of new control word by the mode switching pass.
    The fldcw instructions are still emitted redundantly, but this is probably
    not going to be noticeable problem, as most CPUs do have fast path for
-   the sequence.  
+   the sequence.
 
    The machinery is to emit simple truncation instructions and split them
    before reload to instructions having USEs of two memory locations that
    are filled by this code to old and new control word.
- 
+
    Post-reload pass may be later used to eliminate the redundant fildcw if
    needed.  */
 

@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
     {							\
       NETBSD_OS_CPP_BUILTINS_ELF();			\
       builtin_define ("__NO_LEADING_UNDERSCORES__");	\
-      builtin_define ("__mips__");			\
       builtin_define ("__GP_SUPPORT__");		\
       builtin_assert ("machine=mips");			\
       if (TARGET_LONG64)				\
@@ -67,7 +66,6 @@ Boston, MA 02111-1307, USA.  */
 #undef US_SOFTWARE_GOFAST
 #undef INIT_SUBTARGET_OPTABS
 #define INIT_SUBTARGET_OPTABS
-#undef CPP_PREDEFINES
 
 
 /* Get generic NetBSD definitions.  */
@@ -78,47 +76,13 @@ Boston, MA 02111-1307, USA.  */
 #include <netbsd-elf.h>
 
 
-/* Provide a CPP_SPEC appropriate for NetBSD.  This is a simplified
-   CPP_SPEC from <mips/mips.h>.  We (mostly) use the SUBTARGET_CPP_SPEC
-   to deal with NetBSD-specific CPP options.
-
-   We default to MIPS-I at the very beginning of the spec, and let the
-   value get overridden later, as necessary.  We also set up a default
-   endian spec.
-
-   This will get cleaned up once the MIPS target uses
-   TARGET_CPU_CPP_BUILTINS().  */
-
-#undef CPP_SPEC
-#define CPP_SPEC							\
-  "-D__mips=1								\
-   %(subtarget_cpp_size_spec)						\
-   %{mips3:-U__mips -D__mips=3 -D__mips64}				\
-   %{mips4:-U__mips -D__mips=4 -D__mips64}				\
-   %{mips32:-U__mips -D__mips=32}					\
-   %{mips64:-U__mips -D__mips=64 -D__mips64}				\
-   %{mgp32:-U__mips64} %{mgp64:-D__mips64}				\
-   %{mfp32:-D__mips_fpr=32} %{mfp64:-D__mips_fpr=64}			\
-   %{!mfp32:								\
-     %{!mfp64:								\
-       %{mgp32:-D__mips_fpr=32}						\
-       %{!mgp32: %(cpp_fpr_spec)}}}					\
-   %{msingle-float:							\
-     %{!msoft-float:-D__mips_single_float}}				\
-   %{m4650:								\
-     %{!msoft-float:-D__mips_single_float}}				\
-   %{msoft-float:-D__mips_soft_float}					\
-   %{mabi=eabi:-D__mips_eabi}						\
-   %{mips16:%{!mno-mips16:-D__mips16}}					\
-   %{EB:-D__MIPSEB__} %{EL:-D__MIPSEL__}				\
-   %{!EB:%{!EL:%(subtarget_endian_default)}}				\
-   %(subtarget_cpp_spec) "
-
 /* Extra specs we need.  */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS						\
   { "subtarget_endian_default",	SUBTARGET_ENDIAN_DEFAULT_SPEC },	\
-  { "netbsd_cpp_spec",		NETBSD_CPP_SPEC },
+  { "netbsd_cpp_spec",		NETBSD_CPP_SPEC },			\
+  { "netbsd_link_spec",		NETBSD_LINK_SPEC_ELF },			\
+  { "netbsd_entry_point",	NETBSD_ENTRY_POINT },
 
 #if TARGET_ENDIAN_DEFAULT != 0
 #define SUBTARGET_ENDIAN_DEFAULT_SPEC "-D__MIPSEB__"
@@ -136,24 +100,15 @@ Boston, MA 02111-1307, USA.  */
    the MIPS target.  */
 
 #undef LINK_SPEC
-#define LINK_SPEC							\
-  "%{assert*} %{R*} %{rpath*}						\
-   %{EL:-m elf32lmip}							\
-   %{EB:-m elf32bmip}							\
-   %(endian_spec)							\
-   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64}	\
-   %{bestGnum} %{call_shared} %{no_archive} %{exact_version}		\
-   %{shared:-shared}							\
-   %{!shared:								\
-     -dc -dp								\
-     %{!nostdlib:							\
-       %{!r*:								\
-	 %{!e*:-e __start}}}						\
-     %{!static:								\
-       %{rdynamic:-export-dynamic}					\
-       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}	\
-     %{static:-static}}"
+#define LINK_SPEC \
+  "%{EL:-m elf32lmip} \
+   %{EB:-m elf32bmip} \
+   %(endian_spec) \
+   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips64} \
+   %{bestGnum} %{call_shared} %{no_archive} %{exact_version} \
+   %(netbsd_link_spec)"
 
+#define NETBSD_ENTRY_POINT "__start"
 
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC						\
@@ -163,8 +118,8 @@ Boston, MA 02111-1307, USA.  */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
    in the small data section if the user explicitly asks for it.  */
 
-#undef MIPS_DEFAULT_GVALUE 
-#define MIPS_DEFAULT_GVALUE 0 
+#undef MIPS_DEFAULT_GVALUE
+#define MIPS_DEFAULT_GVALUE 0
 
 
 /* This defines which switch letters take arguments.  -G is a MIPS
@@ -179,6 +134,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_FINAL_SPEC
 #undef SET_ASM_OP
+
+
+/* NetBSD hasn't historically provided _flush_cache(), but rather
+   _cacheflush(), which takes the same arguments as the former.  */
+#undef CACHE_FLUSH_FUNC
+#define CACHE_FLUSH_FUNC "_cacheflush"
 
 
 /* Make gcc agree with <machine/ansi.h> */
