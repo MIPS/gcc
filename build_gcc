@@ -247,9 +247,9 @@ lipo -output .$DEST_ROOT/bin/gcov-$MAJ_VERS -create \
   $DIR/dst-*-$TARG0$DEST_ROOT/bin/*gcov* || exit 1
 # The fully-named drivers, which have the same target on every host.
 for t in $TARGETS ; do
-  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc || exit 1
-  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-g++-$VERS -create \
+  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$MAJ_VERS -create \
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS || exit 1
+  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-g++-$MAJ_VERS -create \
     $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-g++ || exit 1
 done
 
@@ -319,21 +319,27 @@ done
 # installed using proper name.
 mv $DEST_DIR$DEST_ROOT/share/man/man1/g++.1 \
    $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1
+for t in $TARGETS ; do
+  ln -f $DEST_DIR$DEST_ROOT/share/man/man1/gcc-$MAJ_VERS.1 \
+     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin-gcc-$MAJ_VERS.1
+  ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
+     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin-g++-$MAJ_VERS.1
+done
 
 # Build driver-driver using fully-named drivers
 for t in $TARGETS ; do
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$MAJ_VERS                      \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	-DPDN="\"-apple-darwin-gcc-$VERS\""                                    \
+	-DPDN="\"-apple-darwin-gcc-$MAJ_VERS\""                                \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
 	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
 	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin/lib/                    \
 	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-gcc-$MAJ_VERS || exit 1
 
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$MAJ_VERS                      \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	-DPDN="\"-apple-darwin-g++-$VERS\""                                    \
+	-DPDN="\"-apple-darwin-g++-$MAJ_VERS\""                                \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
 	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
