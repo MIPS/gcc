@@ -1,3 +1,9 @@
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR optimization/15245
+	* tree-ssa-phiopt.c (conditional_replacement): Use fold_convert
+	instead of convert.
+
 2004-05-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (gimplify_compound_lval): Gimplify non-constant
