@@ -408,9 +408,9 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, bool& __v) const
     {
-      // Parse bool values as unsigned long
       if (!(__io.flags() & ios_base::boolalpha))
         {
+	  // Parse bool values as unsigned long
           // NB: We can't just call do_get(long) here, as it might
           // refer to a derived class.
           string __xtrc;
@@ -424,45 +424,44 @@ namespace std
 	  else 
             __err |= ios_base::failbit;
         }
-
-      // Parse bool values as alphanumeric
       else
         {
+	  // Parse bool values as alphanumeric
 	  typedef char_traits<_CharT>	      	__traits_type;
 	  typedef basic_string<_CharT>   	__string_type;
 
-          locale __loc = __io.getloc();
+          const locale& __loc = __io._M_getloc();
 	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc); 
 	  const __string_type __true = __np.truename();
 	  const __string_type __false = __np.falsename();
-          const char_type* __trues = __true.c_str();
-          const char_type* __falses = __false.c_str();
-          const size_t __truen =  __true.size() - 1;
-          const size_t __falsen =  __false.size() - 1;
 
-          for (size_t __n = 0; __beg != __end; ++__n)
+	  bool __testf = true;
+	  bool __testt = true;
+	  size_t __n;
+          for (__n = 0; __beg != __end; ++__n, ++__beg)
             {
-              char_type __c = *__beg++;
-              bool __testf = __n <= __falsen 
-		             ? __traits_type::eq(__c, __falses[__n]) : false;
-              bool __testt = __n <= __truen 
-		             ? __traits_type::eq(__c, __trues[__n]) : false;
-              if (!(__testf || __testt))
-                {
-                  __err |= ios_base::failbit;
-                  break;
-                }
-              else if (__testf && __n == __falsen)
-                {
-                  __v = 0;
-                  break;
-                }
-              else if (__testt && __n == __truen)
-                {
-                  __v = 1;
-                  break;
-                }
+	      if (__testf)
+		if (__n < __false.size())
+		  __testf = __traits_type::eq(*__beg, __false[__n]);
+		else
+		  break;
+
+	      if (__testt)
+		if (__n < __true.size())
+		  __testt = __traits_type::eq(*__beg, __true[__n]);
+		else
+		  break;
+
+	      if (!__testf && !__testt)
+		break;
             }
+	  if (__testf && __n == __false.size())
+	    __v = 0;
+	  else if (__testt && __n == __true.size())
+	    __v = 1;
+	  else
+	    __err |= ios_base::failbit;
+
           if (__beg == __end)
             __err |= ios_base::eofbit;
         }

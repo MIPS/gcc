@@ -1,3 +1,10 @@
+2004-08-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get::do_get(bool&)):
+	Fail as soon as the begins of both truename and falsename
+	stop to match; always leave __beg one position beyond the
+	last char successfully matched.
+
 2004-08-10  Michael Matz  <matz@suse.de>
 
 	Merged to 3.3 branch at tag hammer-3_3-merge-20040809 .
