@@ -421,9 +421,7 @@ initialize_gcc_primitive_types ()
   pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned byte"),
 			type_jubyte));
 
-  type_jchar = make_node (CHAR_TYPE);
-  TYPE_PRECISION (type_jchar) = 16;
-  fixup_unsigned_type (type_jchar);
+  type_jchar = make_unsigned_type (16);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("char"), type_jchar));
 
   type_jshort = make_signed_type (16);

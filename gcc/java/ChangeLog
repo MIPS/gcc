@@ -1,5 +1,10 @@
 2005-02-28  Tom Tromey  <tromey@redhat.com>
 
+	* decl.cc (initialize_gcc_primitive_types): Make jchar an ordinary
+	unsigned integer, not a CHAR_TYPE.
+
+2005-02-28  Tom Tromey  <tromey@redhat.com>
+
 	* abi.cc (build_method_call): For virtual dispatch, wrap object in
 	SAVE_EXPR.
 
