@@ -495,7 +495,7 @@ doloop_optimize (loops, loop)
 
   iterations = GEN_INT (n_iterations);
   iterations_max = GEN_INT (n_iterations_max);
-  level = get_loop_level (loop);
+  level = get_loop_level (loop) + 1;
 
   /* Generate looping insn.  If the pattern FAILs then give up trying
      to modify the loop since there is some aspect the back-end does

@@ -1,3 +1,8 @@
+2003-07-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* doloop.c (doloop_optimize): Pass correct loop level to
+	gen_doloop_end.
+
 2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-iv.c (get_reg_value_at): Prevent warning.
