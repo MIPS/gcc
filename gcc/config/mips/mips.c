@@ -1306,7 +1306,7 @@ mips_fetch_insns (x)
 /* Return true if OP is a symbolic constant that refers to a
    global PIC symbol.  */
 
-int
+bool
 mips_global_pic_constant_p (op)
      rtx op;
 {
