@@ -2828,7 +2828,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  gcc_assert (auto_delete != sfk_base_destructor);
 	  auto_delete = sfk_deleting_destructor;
 	}
-      /* APPLE LOCAL  end double destructor  --matt 20020501  */
+      /* APPLE LOCAL end KEXT double destructor  --matt 20020501  */
 
       expr = build_dtor_call (build_indirect_ref (addr, NULL),
 			      auto_delete, flags);
