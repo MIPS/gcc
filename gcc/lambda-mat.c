@@ -89,7 +89,7 @@ lambda_matrix_id_p (lambda_matrix mat, int size)
 	      return false;
 	  }
       }
-  abort ();
+  return true;
 }
 
 /* Negate the elements of the M x N matrix MAT1 and store it in MAT2.  */
