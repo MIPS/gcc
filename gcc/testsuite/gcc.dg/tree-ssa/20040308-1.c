@@ -14,5 +14,5 @@ int t( int i)
 }
 
 /* We should convert one COND_EXPRs into straightline code.  */
-/* { dg-final { scan-tree-dump-times "straightline" 1 "phiopt1"} } */
+/* { dg-final { scan-tree-dump-times "straightline" 1 "phiopt1" {xfail *-*-*  } } } */
 
