@@ -1,3 +1,87 @@
+2000-06-09  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cp-demangle.c (demangle_operator_name): Add spaces before
+	names beginning with a letter: delete, delete[], new, new[],
+	sizeof.
+	(demangle_special_name): Handle TF <type> and TJ <type>.
+
+Thu Jun  8 18:52:24 2000  Philippe De Muyter  <phdm@macqel.be>
+
+	* cp-demangle.c (template_arg_list_new): Revert previous PARAMS patch.
+
+Thu Jun  8 09:25:54 2000  Philippe De Muyter  <phdm@macqel.be>
+
+	* cp-demangle.c (stdio.h): File included unconditionaly.
+	(template_arg_list_new): Parameter list is PARAMS ((void)), not ().
+	* dyn-string.c (stdio.h): File included.
+	* partition.c (partition_print): No `&' needed to take the address of
+	a function.
+
+2000-06-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (ac_libiberty_warn_cflags): Add -pedantic.
+	
+	* choose-temp.c (try, choose_temp_base, make_temp_file): Constify.
+
+	* cp-demangle.c (demangle_char): Change parameter from char to int.
+	(demangle_expression, demangle_expr_primary): Remove extra
+	semi-colon in prototype.
+
+	* dyn-string.c (dyn_string_append_char): Change parameter from
+	char to int.
+
+	* memcmp.c (memcmp): Constify.
+
+	* mkstemps.c (gcc_uint64_t): Mark GNUC `long long' case with
+	__extension__.
+
+	* partition.c (elem_compare): Prototype.  Don't cast away
+	const-ness.
+
+	* setenv.c (setenv): Use braces to avoid ambiguous `else'.
+	
+2000-06-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (cp-demangle.o): Depend on $(INCDIR)/demangle.h.
+
+	* cp-demangle.c: Include demangle.h.
+	(template_arg_list_new): DeANSIfy.
+	(cp_demangle): Make static and add prototype.
+	(operator_code, operators): Constify.
+	(demangle_operator_name): Likewise for variables `p1', `p2' and `p'.
+
+2000-06-05  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c (demangle_prefix): Cast argument to isdigit to
+	unsigned char.
+	(demangle_unqualified_name): Likewise.
+	(demangle_number_literally): Likewise.
+	(demangle_type): Likewise.
+	(demangle_substitution): Likewise.
+	(is_mangled_char): Likewise, for isalnum.
+
+2000-06-04  Alex Samuel  <samuel@codesourcery.com>
+
+	* Makefile.in (CFILES): Add cp-demangle.c and dyn-string.c.
+	(REQUIRED_OFILES): Add cp-demangle.o and dyn-string.o.
+	(cp-demangle.o): New dependency.
+	(dyn-string.o): Likewise.
+
+	* dyn-string.c: Move here from gcc/dyn-string.c.  Add new functions.
+
+	* cplus-dem.c (libiberty_demanglers): Add initializer for new-ABI
+	demangler.
+	(cplus_demangle): Call cplus_demangle_new_abi if in new-ABI
+	demangling mode.
+	(gnu_new_abi_symbol_characters): New function.
+	(main): Use gnu_new_abi_symbol_characters.  * cp-demangle.c: New
+	file.
+	* cp-demangle.c: New file.
+	
+Tue May 30 16:45:25 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* floatformat.c: Add name to each floatformat field.
+
 Tue May 30 15:07:52 2000  Jeffrey A Law  (law@cygnus.com)
 
 	* Makefile.in (objalloc.o): Depend on config.h

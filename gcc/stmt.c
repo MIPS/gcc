@@ -1011,7 +1011,7 @@ expand_fixup (tree_label, rtl_label, last_insn)
     {
       /* Ok, a fixup is needed.  Add a fixup to the list of such.  */
       struct goto_fixup *fixup
-	= (struct goto_fixup *) ggc_alloc_obj (sizeof (struct goto_fixup), 0);
+	= (struct goto_fixup *) ggc_alloc (sizeof (struct goto_fixup));
       /* In case an old stack level is restored, make sure that comes
 	 after any pending stack adjust.  */
       /* ?? If the fixup isn't to come at the present position,
@@ -1860,7 +1860,7 @@ expand_expr_stmt (exp)
       if (! TREE_SIDE_EFFECTS (exp)
 	  && (extra_warnings || warn_unused_value)
 	  && !(TREE_CODE (exp) == CONVERT_EXPR
-	       && TREE_TYPE (exp) == void_type_node))
+	       && VOID_TYPE_P (TREE_TYPE (exp))))
 	warning_with_file_and_line (emit_filename, emit_lineno,
 				    "statement with no effect");
       else if (warn_unused_value)
@@ -1970,7 +1970,7 @@ warn_if_unused_value (exp)
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
       /* Don't warn about values cast to void.  */
-      if (TREE_TYPE (exp) == void_type_node)
+      if (VOID_TYPE_P (TREE_TYPE (exp)))
 	return 0;
       /* Don't warn about conversions not explicit in the user's program.  */
       if (TREE_NO_UNUSED_WARNING (exp))
@@ -2849,12 +2849,14 @@ expand_return (retval)
   cleanups = 1;
 #endif
 
-  if (TREE_CODE (retval) == RESULT_DECL)
+  if (retval == error_mark_node)
+    retval_rhs = NULL_TREE;
+  else if (TREE_CODE (retval) == RESULT_DECL)
     retval_rhs = retval;
   else if ((TREE_CODE (retval) == MODIFY_EXPR || TREE_CODE (retval) == INIT_EXPR)
 	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
     retval_rhs = TREE_OPERAND (retval, 1);
-  else if (TREE_TYPE (retval) == void_type_node)
+  else if (VOID_TYPE_P (TREE_TYPE (retval)))
     /* Recognize tail-recursive call to void function.  */
     retval_rhs = retval;
   else
@@ -3079,7 +3081,7 @@ expand_return (retval)
     }
   else if (cleanups
       && retval_rhs != 0
-      && TREE_TYPE (retval_rhs) != void_type_node
+      && !VOID_TYPE_P (TREE_TYPE (retval_rhs))
       && (GET_CODE (result_rtl) == REG
 	  || (GET_CODE (result_rtl) == PARALLEL)))
     {
@@ -3797,7 +3799,8 @@ expand_decl (decl)
 	/* An initializer is going to decide the size of this array.
 	   Until we know the size, represent its address with a reg.  */
 	DECL_RTL (decl) = gen_rtx_MEM (BLKmode, gen_reg_rtx (Pmode));
-      MEM_SET_IN_STRUCT_P (DECL_RTL (decl), AGGREGATE_TYPE_P (type));
+
+      set_mem_attributes (DECL_RTL (decl), decl, 1);
     }
   else if (DECL_MODE (decl) != BLKmode
 	   /* If -ffloat-store, don't put explicit float vars
@@ -3821,7 +3824,8 @@ expand_decl (decl)
       if (POINTER_TYPE_P (type))
 	mark_reg_pointer (DECL_RTL (decl),
 			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-			  
+
+      maybe_set_unchanging (DECL_RTL (decl), decl);
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -3846,12 +3850,11 @@ expand_decl (decl)
 	}
 
       DECL_RTL (decl) = assign_temp (TREE_TYPE (decl), 1, 1, 1);
-      MEM_SET_IN_STRUCT_P (DECL_RTL (decl),
-			   AGGREGATE_TYPE_P (TREE_TYPE (decl)));
 
       /* Set alignment we actually gave this decl.  */
       DECL_ALIGN (decl) = (DECL_MODE (decl) == BLKmode ? BIGGEST_ALIGNMENT
 			   : GET_MODE_BITSIZE (DECL_MODE (decl)));
+      DECL_USER_ALIGN (decl) = 0;
 
       if (oldaddr)
 	{
@@ -3859,20 +3862,6 @@ expand_decl (decl)
 	  if (addr != oldaddr)
 	    emit_move_insn (oldaddr, addr);
 	}
-
-      /* If this is a memory ref that contains aggregate components,
-	 mark it as such for cse and loop optimize.  */
-      MEM_SET_IN_STRUCT_P (DECL_RTL (decl),
-			   AGGREGATE_TYPE_P (TREE_TYPE (decl)));
-#if 0
-      /* If this is in memory because of -ffloat-store,
-	 set the volatile bit, to prevent optimizations from
-	 undoing the effects.  */
-      if (flag_float_store && TREE_CODE (type) == REAL_TYPE)
-	MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
-#endif
-
-      MEM_ALIAS_SET (DECL_RTL (decl)) = get_alias_set (decl);
     }
   else
     /* Dynamic-size object: must push space on the stack.  */
@@ -3910,10 +3899,7 @@ expand_decl (decl)
       /* Reference the variable indirect through that rtx.  */
       DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl), address);
 
-      /* If this is a memory ref that contains aggregate components,
-	 mark it as such for cse and loop optimize.  */
-      MEM_SET_IN_STRUCT_P (DECL_RTL (decl),
-			   AGGREGATE_TYPE_P (TREE_TYPE (decl)));
+      set_mem_attributes (DECL_RTL (decl), decl, 1);
 
       /* Indicate the alignment we actually gave this variable.  */
 #ifdef STACK_BOUNDARY
@@ -3921,13 +3907,8 @@ expand_decl (decl)
 #else
       DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
 #endif
+      DECL_USER_ALIGN (decl) = 0;
     }
-
-  if (TREE_THIS_VOLATILE (decl))
-    MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
-
-  if (TREE_READONLY (decl))
-    RTX_UNCHANGING_P (DECL_RTL (decl)) = 1;
 }
 
 /* Emit code to perform the initialization of a declaration DECL.  */
@@ -4230,6 +4211,7 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
 
       /* Propagate the union's alignment to the elements.  */
       DECL_ALIGN (decl_elt) = DECL_ALIGN (decl);
+      DECL_USER_ALIGN (decl_elt) = DECL_USER_ALIGN (decl);
 
       /* If the element has BLKmode and the union doesn't, the union is
          aligned such that the element doesn't need to have BLKmode, so
@@ -5584,10 +5566,10 @@ expand_end_case (orig_index)
 #ifdef HAVE_tablejump
 	  if (! win && HAVE_tablejump)
 	    {
-	      index_expr = convert (thiscase->data.case_stmt.nominal_type,
-				    fold (build (MINUS_EXPR, index_type,
-						 index_expr, minval)));
-	      index_type = TREE_TYPE (index_expr);
+	      index_type = thiscase->data.case_stmt.nominal_type;
+	      index_expr = fold (build (MINUS_EXPR, index_type,
+			                convert (index_type, index_expr),
+				        convert (index_type, minval)));
 	      index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
 	      emit_queue ();
 	      index = protect_from_queue (index, 0);

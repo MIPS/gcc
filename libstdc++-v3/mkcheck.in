@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# 2000-05-17 bkoz 
-
 # Script to do automated testing and data collection
 # for various test files, so that we don't have to do this by hand on
 # every test file.  It attempts to collect some diagnostic info about
@@ -61,26 +59,22 @@ fi
 
 #LIB_PATH == where to find the build library binaries.
 if [ $WHICH != "1" ]; then
-  LIB_PATH="-L$BUILD_DIR/src/.libs"
-# BSD seems to want this
-#  LIB_PATH="-L$BUILD_DIR/src/.libs -R$BUILD_DIR/src/.libs"
+  LIB_PATH="$BUILD_DIR/src/.libs"
   CXX="../../gcc/g++ -B../../gcc/"
 elif [ $WHICH -eq 1 ]; then
-  LIB_PATH="-L$PREFIX_DIR/lib"
-# BSD seems to want this
-#  LIB_PATH="-L$PREFIX_DIR/lib -R$PREFIX_DIR/lib"
+  LIB_PATH="$PREFIX_DIR/lib"
   CXX="$PREFIX_DIR/bin/g++"
 fi
 
 # gcc compiler flags
 #CXX_FLAG="-fsquangle -fhonor-std -fnew-exceptions -g -O2 -DDEBUG_ASSERT "
 #CXX_FLAG="-g -O2 -DDEBUG_ASSERT "
-CXX_FLAG="-g -DDEBUG_ASSERT "
+CXX_FLAG="-g -DDEBUG_ASSERT @SECTION_FLAGS@ @SECTION_LDFLAGS@"
 
-# a specific flag to force the use of shared libraries, if any
+# a specific flag(s) to force the use of shared libraries, if any
 SH_FLAG=""
 
-# a specific flag to force the use of static libraries, if any
+# a specific flag(s) to force the use of static libraries, if any
 ST_FLAG="-static"
 
 # Set up the testing directory, which should be in a directory called
@@ -171,9 +165,12 @@ test_file()
 {
     # NB: S_FLAG has to be last argument because it may be null, and
     # error checking hasn't been invented yet.
-    FILENAME=$1
+    NAME=$1
     EXENAME=$2
     S_FLAG=$3
+
+    SRC_NAME="$SRC_DIR/testsuite/$1"
+    TEST_NAME="$TEST_DIR/`basename $NAME`"
 
     # This would be deliciously easy if GNU date's %s were always around.
     # There are three ways to do this:  1) use the builtin 'time' like we
@@ -183,8 +180,8 @@ test_file()
     # eventually have to calculate time_t anyhow.  Or 3) just grab two
     # time_t's (no more overhead than grabbing two date(1)'s).
     COMP_TIME_START=$($TEST_DIR/printnow)
-    $CXX $CXX_FLAG $S_FLAG $INC_PATH $LIB_PATH $FILENAME \
-	 -o $EXENAME 2>> $LOG_FILE
+    $CXX $CXX_FLAG $S_FLAG $INC_PATH -L$LIB_PATH -Wl,--rpath -Wl,$LIB_PATH \
+         $SRC_NAME -o $EXENAME 2>> $LOG_FILE
     COMP_TIME_END=$($TEST_DIR/printnow)
 
     if [ $COMP_TIME_START -lt $COMP_TIME_END ]; then
@@ -256,7 +253,7 @@ test_file()
 	    # ls on MATCH, a pattern description generated with sed.
 
 	    # this is the name of the resulting diff file, if any
-	    DIFF_FILE="`echo $PRE_NAME | sed 's/cc$/diff/'`"
+	    DIFF_FILE="`echo $TEST_NAME | sed 's/cc$/diff/'`"
 	    # construct wildcard names,ie for $NAME=filebuf.cc, makes
 	    # "filebuf*.tst"
 	    DATA_FILES="`echo $NAME | sed 's/\.cc/\*\.tst/g'`"
@@ -286,15 +283,14 @@ test_file()
 		    RESULT="+"
 		fi
 	    fi
-	rm "$EXENAME"
 	# sometimes you want to save all failing exe files for review:
-	#if [ "$RESULT" = "+" ]; then
-	#    rm "$EXENAME"
-	#fi
+	if [ "$RESULT" = "+" ]; then
+	    rm "$EXENAME"
+	fi
     else
         # the file did not compile. Write out compilation info to the log file.
-	echo "$CXX $CXX_FLAG $ST_FLAG $INC_PATH $LIB_PATH $CNAME -o $EXENAME" \
-        2>> $LOG_FILE
+ echo "$CXX $CXX_FLAG $S_FLAG $INC_PATH -L$LIB_PATH -Wl,--rpath -Wl,$LIB_PATH \
+         $SRC_NAME -o $EXENAME" 2>> $LOG_FILE
 
 	RESULT="-"
 	TEXT="0"
@@ -323,10 +319,9 @@ do
     PRE_NAME="$TEST_DIR/`basename $NAME`"
     ST_NAME="`echo $PRE_NAME | sed 's/cc$/st-exe/'`"
     SH_NAME="`echo $PRE_NAME | sed 's/cc$/sh-exe/'`"
-    CNAME="$SRC_DIR/testsuite/$NAME"
 
-    test_file $CNAME $ST_NAME $ST_FLAG 
-    test_file $CNAME $SH_NAME $SH_FLAG 
+    test_file $NAME $ST_NAME $ST_FLAG 
+    test_file $NAME $SH_NAME $SH_FLAG 
     echo "$NAME" | awk '{printf("%s\n", $1)}'
 
     echo "" >> $RESULTS_FILE

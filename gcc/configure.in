@@ -182,16 +182,16 @@ AC_ARG_ENABLE(checking,
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
 			  Categories are: misc,tree,rtl,gc,gcac; default
-			  is misc,tree,rtl],
+			  is misc,tree,gc],
 [ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
 ac_gc_checking=
 ac_gc_always_collect=
 case "${enableval}" in
-yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_rtl_checking=1 ;;
+yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_gc_checking=1 ;;
 no)	;;
-*)	IFS="${IFS= 	}"; ac_save_IFS="$IFS" IFS="$IFS,"
+*)	IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
 	set fnord $enableval; shift
 	IFS="$ac_save_IFS"
 	for check
@@ -207,6 +207,9 @@ no)	;;
 	done
 	;;
 esac
+], 
+# Enable some checks by default for development versions of GCC
+[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1;])
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
 [Define if you want more run-time sanity checks.  This one gets a grab
@@ -235,7 +238,7 @@ if test x$ac_gc_always_collect != x ; then
    paranoid mode, validating the entire heap and collecting garbage at
    every opportunity.  This is extremely expensive.])
 fi
-])
+
 
 AC_ARG_ENABLE(cpp,
 [  --disable-cpp           don't provide a user-visible C preprocessor.],
@@ -377,6 +380,8 @@ if test x"${DEFAULT_LINKER+set}" = x"set"; then
 else
     AC_MSG_RESULT(no)
 fi
+
+AC_C_INLINE
 
 # Find some useful tools
 AC_PROG_AWK
@@ -1254,7 +1259,7 @@ changequote([,])dnl
 		use_collect2=yes
 		;;
 	hppa*-*-mpeix*)
-		tm_file="${tm_file} pa/pa-mpeix.h"
+		tm_file="${tm_file} pa/pa32-regs.h pa/long_double.h pa/som.h pa/pa-mpeix.h"
 		xm_file=pa/xm-pampeix.h 
 		xmake_file=pa/x-pa-mpeix 
 		echo "You must use gas. Assuming it is already installed." 
@@ -1434,7 +1439,13 @@ changequote([,])dnl
 #		use_collect2=yes
 		;;
 changequote(,)dnl
-	i[34567]86-*-freebsdelf*)
+	i[34567]86-*-freebsd[12] | i[34567]86-*-freebsd[12].* | i[34567]86-*-freebsd*aout*)
+changequote([,])dnl
+		tm_file="i386/freebsd.h i386/perform.h"
+		tmake_file=t-freebsd
+		;;
+changequote(,)dnl
+	i[34567]86-*-freebsd*)
 changequote([,])dnl
 		tm_file="i386/i386.h i386/att.h svr4.h freebsd.h i386/freebsd-elf.h i386/perform.h"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
@@ -1448,12 +1459,6 @@ changequote([,])dnl
 			tmake_file="${tmake_file} t-freebsd-thread"
 			;;
 		esac
-		;;
-changequote(,)dnl
-	i[34567]86-*-freebsd*)
-changequote([,])dnl
-		tm_file="i386/freebsd.h i386/perform.h"
-		tmake_file=t-freebsd
 		;;
 changequote(,)dnl
 	i[34567]86-*-netbsd*)
@@ -4054,7 +4059,7 @@ do
 
 	for file in `eval echo '$'$var`; do
 		case $file in
-		auto-config.h)
+		auto-host.h | auto-build.h )
 			;;
 		*)
 			echo '#ifdef IN_GCC' >>$link
@@ -4062,7 +4067,7 @@ do
 		esac
 		echo "#include \"$file\"" >>$link
 		case $file in
-		auto-config.h)
+		auto-host.h | auto-build.h )
 			;;
 		*)
 			echo '#endif' >>$link
@@ -4102,12 +4107,20 @@ AC_DEFINE_UNQUOTED(VERSION, "$VERSION",
 AC_SUBST(PACKAGE)
 AC_SUBST(VERSION)
 
-ALL_LINGUAS="en_UK"
+ALL_LINGUAS="en_GB"
 
-# NLS support is still experimental, so disable it by default for now.
+# Enable NLS support by default
 AC_ARG_ENABLE(nls,
-  [  --enable-nls            use Native Language Support (disabled by default)],
-  , enable_nls=no)
+  [  --enable-nls            use Native Language Support (default)],
+  , enable_nls=yes)
+
+# if cross compiling, disable NLS support.
+# It's not worth the trouble, at least for now.
+
+if test "${build}" != "${host}" && test "x$enable_nls" == "xyes"; then
+  AC_MSG_WARN(Disabling NLS support for canadian cross compiler.)
+  enable_nls=no
+fi
 
 AM_GNU_GETTEXT
 XGETTEXT="AWK='$AWK' \$(SHELL) \$(top_srcdir)/exgettext $XGETTEXT"
@@ -4540,6 +4553,25 @@ case "$target" in
 		[Define if your assembler supports .register.])
     fi
 
+    AC_CACHE_CHECK([assembler supports -relax],
+	gcc_cv_as_relax_opt, [
+	gcc_cv_as_relax_opt=unknown
+	if test x$gcc_cv_as != x; then
+	    # Check if gas supports -relax
+	    echo ".text" > conftest.s
+	    if $gcc_cv_as -relax -o conftest.o conftest.s > /dev/null 2>&1; then
+		gcc_cv_as_relax_opt=yes
+	    else
+		gcc_cv_as_relax_opt=no
+	    fi
+	    rm -f conftest.s conftest.o
+	fi
+    ])
+    if test "x$gcc_cv_as_relax_opt" = xyes; then
+	AC_DEFINE(HAVE_AS_RELAX_OPTION, 1,
+		[Define if your assembler supports -relax option.])
+    fi
+
     case "$tm_file" in
     *64*)
 	AC_CACHE_CHECK([for 64 bit support in assembler ($gcc_cv_as)],
@@ -4748,6 +4780,25 @@ else
 fi
 AC_DEFINE_UNQUOTED(ENABLE_STD_NAMESPACE, $ac_esn,
   [Define to 1 if you want to enable namespaces (-fhonor-std) by default.])
+
+dnl Very limited version of automake's enable-maintainer-mode
+
+AC_MSG_CHECKING([whether to enable maintainer-specific portions of Makefiles])
+  dnl maintainer-mode is disabled by default
+  AC_ARG_ENABLE(maintainer-mode,
+[  --enable-maintainer-mode enable make rules and dependencies not useful
+                          (and sometimes confusing) to the casual installer],
+      maintainer_mode=$enableval,
+      maintainer_mode=no)
+
+AC_MSG_RESULT($maintainer_mode)
+
+if test "$maintainer_mode" = "yes"; then
+  MAINT=''
+else
+  MAINT='#'
+fi
+AC_SUBST(MAINT)dnl
 
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.

@@ -136,6 +136,7 @@ static tree obtain_incomplete_type PARAMS ((tree));
 static tree java_complete_lhs PARAMS ((tree));
 static tree java_complete_tree PARAMS ((tree));
 static tree maybe_generate_pre_expand_clinit PARAMS ((tree));
+static int maybe_yank_clinit PARAMS ((tree));
 static void java_complete_expand_method PARAMS ((tree));
 static int  unresolved_type_p PARAMS ((tree, tree *));
 static void create_jdep_list PARAMS ((struct parser_ctxt *));
@@ -4612,10 +4613,8 @@ check_modifiers_consistency (flags)
 
   acc_count = 0;
   cl = NULL_TREE;
-  THIS_MODIFIER_ONLY (flags, ACC_FINAL, FINAL_TK - PUBLIC_TK,
-		      acc_count, cl);
-  THIS_MODIFIER_ONLY (flags, ACC_VOLATILE, VOLATILE_TK - PUBLIC_TK,
-		      acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_FINAL, FINAL_TK, acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_VOLATILE, VOLATILE_TK, acc_count, cl);
   if (acc_count > 1)
     parse_error_context (cl,
 			 "Inconsistent member declaration.  At most one of `final' or `volatile' may be specified");
@@ -5250,6 +5249,7 @@ java_complete_class ()
 		pop_obstacks ();
 		TREE_TYPE (field_decl) = field_type;
 		DECL_ALIGN (field_decl) = 0;
+		DECL_USER_ALIGN (field_decl) = 0;
 		layout_decl (field_decl, 0);
 		SOURCE_FRONTEND_DEBUG 
 		  (("Completed field/var decl `%s' with `%s'",
@@ -7387,17 +7387,17 @@ maybe_generate_pre_expand_clinit (class_type)
 
   end_artificial_method_body (mdecl);
 
-  /* Now we want to place <clinit> as the last method for interface so
-     that it doesn't interfere with the dispatch table based
-     lookup. */
-  if (CLASS_INTERFACE (TYPE_NAME (class_type))
-      && TREE_CHAIN (TYPE_METHODS (class_type)))
+  /* Now we want to place <clinit> as the last method (because we need
+     it at least for interface so that it doesn't interfere with the
+     dispatch table based lookup. */
+  if (TREE_CHAIN (TYPE_METHODS (class_type)))
     {
-      tree current = 
-	TYPE_METHODS (class_type) = TREE_CHAIN (TYPE_METHODS (class_type));
+      current = TREE_CHAIN (TYPE_METHODS (class_type));
+      TYPE_METHODS (class_type) = current;
 
       while (TREE_CHAIN (current))
 	current = TREE_CHAIN (current);
+
       TREE_CHAIN (current) = mdecl;
       TREE_CHAIN (mdecl) = NULL_TREE;
     }
@@ -7405,12 +7405,63 @@ maybe_generate_pre_expand_clinit (class_type)
   return mdecl;
 }
 
+/* See whether we could get rid of <clinit>. Criteria are: all static
+   final fields have constant initial values and the body of <clinit>
+   is empty. Return 1 if <clinit> was discarded, 0 otherwise. */
+
+static int
+maybe_yank_clinit (mdecl)
+     tree mdecl;
+{
+  tree type, current;
+  tree fbody, bbody;
+  
+  if (!DECL_CLINIT_P (mdecl))
+    return 0;
+  
+  /* If the body isn't empty, then we keep <clinit> */
+  fbody = DECL_FUNCTION_BODY (mdecl);
+  if ((bbody = BLOCK_EXPR_BODY (fbody)))
+    bbody = BLOCK_EXPR_BODY (bbody);
+  if (bbody && bbody != empty_stmt_node)
+    return 0;
+  
+  type = DECL_CONTEXT (mdecl);
+  current = TYPE_FIELDS (type);
+
+  for (current = (current ? TREE_CHAIN (current) : current); 
+       current; current = TREE_CHAIN (current))
+    if (!(FIELD_STATIC (current) && FIELD_FINAL (current)
+	  && DECL_INITIAL (current) && TREE_CONSTANT (DECL_INITIAL (current))))
+      break;
+
+  if (current)
+    return 0;
+
+  /* Get rid of <clinit> in the class' list of methods */
+  if (TYPE_METHODS (type) == mdecl)
+    TYPE_METHODS (type) = TREE_CHAIN (mdecl);
+  else
+    for (current = TYPE_METHODS (type); current; 
+	 current = TREE_CHAIN (current))
+      if (TREE_CHAIN (current) == mdecl)
+	{
+	  TREE_CHAIN (current) = TREE_CHAIN (mdecl);
+	  break;
+	}
+
+  return 1;
+}
+
+
 /* Complete and expand a method.  */
 
 static void
 java_complete_expand_method (mdecl)
      tree mdecl;
 {
+  int yank_clinit = 0;
+
   current_function_decl = mdecl;
   /* Fix constructors before expanding them */
   if (DECL_CONSTRUCTOR_P (mdecl))
@@ -7459,15 +7510,19 @@ java_complete_expand_method (mdecl)
 	  && !flag_emit_xref)
 	missing_return_error (current_function_decl);
 
-      complete_start_java_method (mdecl); 
-
+      /* Check wether we could just get rid of clinit, now the picture
+         is complete. */
+      if (!(yank_clinit = maybe_yank_clinit (mdecl)))
+	complete_start_java_method (mdecl); 
+      
       /* Don't go any further if we've found error(s) during the
-         expansion */
-      if (!java_error_count)
+	 expansion */
+      if (!java_error_count && !yank_clinit)
 	source_end_java_method ();
       else
 	{
-	  pushdecl_force_head (DECL_ARGUMENTS (mdecl));
+	  if (java_error_count)
+	    pushdecl_force_head (DECL_ARGUMENTS (mdecl));
 	  poplevel (1, 0, 1);
 	}
 
@@ -7888,7 +7943,7 @@ build_access_to_thisn (from, to, lc)
 
 /* Build an access function to the this$<n> local to TYPE. NULL_TREE
    is returned if nothing needs to be generated. Otherwise, the method
-   generated, fully walked and a method decl is returned.  
+   generated and a method decl is returned.  
 
    NOTE: These generated methods should be declared in a class file
    attribute so that they can't be referred to directly.  */
@@ -8231,6 +8286,7 @@ verify_constructor_super (mdecl)
      tree mdecl;
 {
   tree class = CLASSTYPE_SUPER (current_class);
+  int super_inner = PURE_INNER_CLASS_TYPE_P (class);
   tree sdecl;
 
   if (!class)
@@ -8243,10 +8299,11 @@ verify_constructor_super (mdecl)
       for (sdecl = TYPE_METHODS (class); sdecl; sdecl = TREE_CHAIN (sdecl))
 	if (DECL_CONSTRUCTOR_P (sdecl))
 	  {
-	    tree arg_type;
-	    for (arg_type = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (sdecl)));
-		 arg_type != end_params_node && 
-		   mdecl_arg_type != end_params_node;
+	    tree arg_type = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (sdecl)));
+	    if (super_inner)
+	      arg_type = TREE_CHAIN (arg_type);
+	    for (; (arg_type != end_params_node 
+		    && mdecl_arg_type != end_params_node);
 		 arg_type = TREE_CHAIN (arg_type), 
 		 mdecl_arg_type = TREE_CHAIN (mdecl_arg_type))
 	      if (TREE_VALUE (arg_type) != TREE_VALUE (mdecl_arg_type))
@@ -8261,9 +8318,10 @@ verify_constructor_super (mdecl)
     {
       for (sdecl = TYPE_METHODS (class); sdecl; sdecl = TREE_CHAIN (sdecl))
 	{
-	  if (DECL_CONSTRUCTOR_P (sdecl)
-	      && TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (sdecl))) 
-	         == end_params_node)
+	  tree arg = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (sdecl)));
+	  if (super_inner)
+	    arg = TREE_CHAIN (arg);
+	  if (DECL_CONSTRUCTOR_P (sdecl) && arg == end_params_node)
 	    return 0;
 	}
     }
@@ -8591,6 +8649,18 @@ resolve_field_access (qual_wfl, field_decl, field_type)
       tree length = build_java_array_length_access (where_found);
       field_ref =
 	build_java_arraynull_check (type_found, length, int_type_node);
+
+      /* In case we're dealing with a static array, we need to
+	 initialize its class before the array length can be fetched.
+	 It's also a good time to create a DECL_RTL for the field if
+	 none already exists, otherwise if the field was declared in a
+	 class found in an external file and hasn't been (and won't
+	 be) accessed for its value, none will be created. */
+      if (TREE_CODE (where_found) == VAR_DECL && FIELD_STATIC (where_found))
+	{
+	  build_static_field_ref (where_found);
+	  field_ref = build_class_init (DECL_CONTEXT (where_found), field_ref);
+	}
     }
   /* We might have been trying to resolve field.method(). In which
      case, the resolution is over and decl is the answer */
@@ -8606,7 +8676,7 @@ resolve_field_access (qual_wfl, field_decl, field_type)
 	  && JPRIMITIVE_TYPE_P (TREE_TYPE (decl))
 	  && DECL_INITIAL (decl))
 	{
-	  field_ref = DECL_INITIAL (decl);
+	  field_ref = java_complete_tree (DECL_INITIAL (decl));
 	  static_final_found = 1;
 	}
       else
@@ -9321,6 +9391,16 @@ patch_method_invocation (patch, primary, where, is_static, ret_decl)
 
       type = GET_SKIP_TYPE (resolved);
       resolve_and_layout (type, NULL_TREE);
+      
+      if (JPRIMITIVE_TYPE_P (type))
+        {
+        parse_error_context
+          (identifier_wfl,
+          "Can't invoke a method on primitive type `%s'",
+          IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))));
+        PATCH_METHOD_RETURN_ERROR ();         
+      }      
+      
       list = lookup_method_invoke (0, identifier_wfl, type, identifier, args);
       args = nreverse (args);
 
@@ -9530,6 +9610,30 @@ patch_method_invocation (patch, primary, where, is_static, ret_decl)
 	args = tree_cons (NULL_TREE, (primary ? primary : current_this), args);
       else
 	args = tree_cons (NULL_TREE, integer_zero_node, args);
+    }
+
+  /* This handles the situation where a constructor invocation needs
+     to have an enclosing context passed as a second parameter (the
+     constructor is one of an inner class. We extract it from the
+     current function.  */
+  if (is_super_init && PURE_INNER_CLASS_TYPE_P (DECL_CONTEXT (list)))
+    {
+      tree enclosing_decl = DECL_CONTEXT (TYPE_NAME (current_class));
+      tree extra_arg;
+
+      if (ANONYMOUS_CLASS_P (current_class) || !DECL_CONTEXT (enclosing_decl))
+	{
+	  extra_arg = DECL_FUNCTION_BODY (current_function_decl);
+	  extra_arg = TREE_CHAIN (BLOCK_EXPR_DECLS (extra_arg));
+	}
+      else
+	{
+	  tree dest = TREE_TYPE (DECL_CONTEXT (enclosing_decl));
+	  extra_arg = 
+	    build_access_to_thisn (TREE_TYPE (enclosing_decl), dest, 0);
+	  extra_arg = java_complete_tree (extra_arg);
+	}
+      args = tree_cons (NULL_TREE, extra_arg, args);
     }
 
   is_static_flag = METHOD_STATIC (list);

@@ -78,7 +78,7 @@ int ia64_local_regs;
 int ia64_need_regstk;
 
 /* Register names for ia64_expand_prologue.  */
-char *ia64_reg_numbers[96] =
+static const char * const ia64_reg_numbers[96] =
 { "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
   "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
   "r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
@@ -93,11 +93,11 @@ char *ia64_reg_numbers[96] =
   "r120","r121","r122","r123","r124","r125","r126","r127"};
 
 /* ??? These strings could be shared with REGISTER_NAMES.  */
-char *ia64_input_reg_names[8] =
+static const char * const ia64_input_reg_names[8] =
 { "in0",  "in1",  "in2",  "in3",  "in4",  "in5",  "in6",  "in7" };
 
 /* ??? These strings could be shared with REGISTER_NAMES.  */
-char *ia64_local_reg_names[80] =
+static const char * const ia64_local_reg_names[80] =
 { "loc0", "loc1", "loc2", "loc3", "loc4", "loc5", "loc6", "loc7",
   "loc8", "loc9", "loc10","loc11","loc12","loc13","loc14","loc15",
   "loc16","loc17","loc18","loc19","loc20","loc21","loc22","loc23",
@@ -110,7 +110,7 @@ char *ia64_local_reg_names[80] =
   "loc72","loc73","loc74","loc75","loc76","loc77","loc78","loc79" };
 
 /* ??? These strings could be shared with REGISTER_NAMES.  */
-char *ia64_output_reg_names[8] =
+static const char * const ia64_output_reg_names[8] =
 { "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7" };
 
 /* String used with the -mfixed-range= option.  */
@@ -119,8 +119,20 @@ const char *ia64_fixed_range_string;
 /* Variables which are this size or smaller are put in the sdata/sbss
    sections.  */
 
-int ia64_section_threshold;
-
+unsigned int ia64_section_threshold;
+
+static enum machine_mode hfa_element_mode PARAMS ((tree, int));
+static void fix_range PARAMS ((const char *));
+static void ia64_add_gc_roots PARAMS ((void));
+static void ia64_init_machine_status PARAMS ((struct function *));
+static void ia64_mark_machine_status PARAMS ((struct function *));
+static void emit_insn_group_barriers PARAMS ((rtx));
+static void emit_predicate_relation_info PARAMS ((rtx));
+static int process_set PARAMS ((FILE *, rtx));
+static rtx ia64_expand_compare_and_swap PARAMS ((enum insn_code, tree,
+						 rtx, int));
+static rtx ia64_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
+
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
 
 int
@@ -144,13 +156,19 @@ sdata_symbolic_operand (op, mode)
 {
   switch (GET_CODE (op))
     {
-    case SYMBOL_REF:
-      return XSTR (op, 0)[0] == SDATA_NAME_FLAG_CHAR;
-
     case CONST:
-      return (GET_CODE (XEXP (op, 0)) == PLUS
-	      && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
-	      && XSTR (XEXP (XEXP (op, 0), 0), 0)[0] == SDATA_NAME_FLAG_CHAR);
+      if (GET_CODE (XEXP (op, 0)) != PLUS
+	  || GET_CODE (XEXP (XEXP (op, 0), 0)) != SYMBOL_REF)
+	break;
+      op = XEXP (XEXP (op, 0), 0);
+      /* FALLTHRU */
+
+    case SYMBOL_REF:
+      if (CONSTANT_POOL_ADDRESS_P (op))
+	return GET_MODE_SIZE (get_pool_mode (op)) <= ia64_section_threshold;
+      else
+        return XSTR (op, 0)[0] == SDATA_NAME_FLAG_CHAR;
+
     default:
       break;
     }
@@ -480,6 +498,42 @@ predicate_operator (op, mode)
 	  && (code == EQ || code == NE));
 }
 
+/* Begin the assembly file.  */
+
+void
+ia64_file_start (f)
+     FILE *f;
+{
+  unsigned int rs, re;
+  int out_state;
+
+  rs = 1;
+  out_state = 0;
+  while (1)
+    {
+      while (rs < 64 && call_used_regs[PR_REG (rs)])
+	rs++;
+      if (rs >= 64)
+	break;
+      for (re = rs + 1; re < 64 && ! call_used_regs[PR_REG (re)]; re++)
+	continue;
+      if (out_state == 0)
+	{
+	  fputs ("\t.pred.safe_across_calls ", f);
+	  out_state = 1;
+	}
+      else
+	fputc (',', f);
+      if (re == rs + 1)
+	fprintf (f, "p%u", rs);
+      else
+	fprintf (f, "p%u-p%u", rs, re - 1);
+      rs = re + 1;
+    }
+  if (out_state)
+    fputc ('\n', f);
+}
+
 /* Structure to be filled in by ia64_compute_frame_size with register
    save masks and offsets for the current function.  */
 
@@ -601,10 +655,9 @@ ia64_compute_frame_size (size)
   total_size = IA64_STACK_ALIGN (tmp);
   extra_size = total_size - tmp + 16;
 
-  /* If this is a leaf routine (BR_REG (0) is not live), and if there is no
-     stack space needed for register saves, then don't allocate the 16 byte
-     scratch area.  */
-  if (total_size == 16 && ! regs_ever_live[BR_REG (0)])
+  /* If this is a leaf routine, and if there is no stack space needed for
+     register saves, then don't allocate the 16 byte scratch area.  */
+  if (total_size == 16 && current_function_is_leaf)
     {
       total_size = 0;
       extra_size = 0;
@@ -806,17 +859,8 @@ ia64_expand_prologue ()
   rtx insn, offset;
   int i, locals, inputs, outputs, rotates;
   int frame_size = ia64_compute_frame_size (get_frame_size ());
-  int leaf_function;
   int epilogue_p;
   edge e;
-
-  /* ??? This seems like a leaf_function_p bug.  It calls get_insns which
-     returns the first insn of the current sequence, not the first insn
-     of the function.  We work around this by pushing to the topmost
-     sequence first.  */
-  push_topmost_sequence ();
-  leaf_function = leaf_function_p ();
-  pop_topmost_sequence ();
 
   /* If there is no epilogue, then we don't need some prologue insns.  We
      need to avoid emitting the dead prologue insns, because flow will complain
@@ -935,7 +979,7 @@ ia64_expand_prologue ()
      locals and outputs are both zero sized.  Since we have already allocated
      two locals for rp and ar.pfs, we check for two locals.  */
   /* Leaf functions can use output registers as call-clobbered temporaries.  */
-  if (locals == 2 && outputs == 0 && leaf_function)
+  if (locals == 2 && outputs == 0 && current_function_is_leaf)
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -960,13 +1004,11 @@ ia64_expand_prologue ()
       /* Emit a save of BR_REG (0) if we call other functions.
 	 Do this even if this function doesn't return, as EH
          depends on this to be able to unwind the stack.  */
-      if (! leaf_function)
+      if (! current_function_is_leaf)
 	{
 	  rtx ia64_rp_reg;
 
 	  ia64_rp_regno = LOC_REG (locals - 2);
-	  reg_names[RETURN_ADDRESS_REGNUM] = reg_names[ia64_rp_regno];
-
 	  ia64_rp_reg = gen_rtx_REG (DImode, ia64_rp_regno);
 	  insn = emit_move_insn (ia64_rp_reg, gen_rtx_REG (DImode,
 							   BR_REG (0)));
@@ -978,6 +1020,10 @@ ia64_expand_prologue ()
 		 appear dead and will elicit a warning from flow.  */
 	      emit_insn (gen_rtx_USE (VOIDmode, ia64_rp_reg));
 	    }
+
+	  /* Fix up the return address placeholder.  */
+	  if (regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM])
+	    XINT (return_address_pointer_rtx, 0) = ia64_rp_regno;
 	}
       else
 	ia64_rp_regno = 0;
@@ -995,6 +1041,8 @@ ia64_expand_prologue ()
 	offset = GEN_INT (-frame_size);
       else
 	{
+	  /* ??? We use r2 to tell process_set that this is a stack pointer
+	     decrement.  See also ia64_expand_epilogue.  */
 	  offset = gen_rtx_REG (DImode, GR_REG (2));
 	  insn = emit_insn (gen_movdi (offset, GEN_INT (-frame_size)));
 	  RTX_FRAME_RELATED_P (insn) = 1;
@@ -1027,6 +1075,8 @@ ia64_expand_prologue ()
 void
 ia64_expand_epilogue ()
 {
+  rtx insn;
+
   /* Restore registers from frame.  */
   save_restore_insns (0);
 
@@ -1047,8 +1097,10 @@ ia64_expand_epilogue ()
 	/* If there is a frame pointer, then we need to make the stack pointer
 	   restore depend on the frame pointer, so that the stack pointer
 	   restore won't be moved up past fp-relative loads from the frame.  */
-	emit_insn (gen_epilogue_deallocate_stack (stack_pointer_rtx,
-						  hard_frame_pointer_rtx));
+	insn
+	  = emit_insn (gen_epilogue_deallocate_stack (stack_pointer_rtx,
+						      hard_frame_pointer_rtx));
+	RTX_FRAME_RELATED_P (insn) = 1;
       }
     else
       {
@@ -1061,11 +1113,14 @@ ia64_expand_epilogue ()
 	      offset = GEN_INT (frame_size);
 	    else
 	      {
-		offset = gen_rtx_REG (DImode, GR_REG (2));
+		/* ??? We use r3 to tell process_set that this is a stack
+		   pointer increment.  See also ia64_expand_prologue.  */
+		offset = gen_rtx_REG (DImode, GR_REG (3));
 		emit_insn (gen_movdi (offset, GEN_INT (frame_size)));
 	      }
-	    emit_insn (gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx,
-				   offset));
+	    insn = emit_insn (gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx,
+					  offset));
+	    RTX_FRAME_RELATED_P (insn) = 1;
 	  }
       }
     }
@@ -1130,6 +1185,18 @@ ia64_function_prologue (file, size)
     fprintf (file, "\t.prologue\n");
 }
 
+/* Emit the .body directive at the scheduled end of the prologue.  */
+
+void
+ia64_output_end_prologue (file)
+     FILE *file;
+{
+  if (!flag_unwind_tables && (!flag_exceptions || exceptions_via_longjmp))
+    return;
+
+  fputs ("\t.body\n", file);
+}
+
 /* Emit the function epilogue.  */
 
 void
@@ -1169,19 +1236,17 @@ ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
 	{
 	  int i;
 	  int first_reg = GR_ARG_FIRST + cum.words + offset;
-	  rtx tmp_reg = gen_rtx_REG (DImode, GR_REG (16));
-	  rtx tmp_post_inc = gen_rtx_POST_INC (DImode, tmp_reg);
-	  rtx mem = gen_rtx_MEM (DImode, tmp_post_inc);
-	  rtx insn;
+	  rtx reg1 = gen_reg_rtx (Pmode);
+	  rtx mem1 = gen_rtx_MEM (DImode, reg1);
 
 	  /* We must emit st8.spill insns instead of st8 because we might
-	     be saving non-argument registers, and non-argument registers might
-	     not contain valid values.  */
-	  emit_move_insn (tmp_reg, virtual_incoming_args_rtx);
+	     be saving non-argument registers, and non-argument registers
+	     might not contain valid values.  */
+	  emit_move_insn (reg1, virtual_incoming_args_rtx);
 	  for (i = first_reg; i < GR_ARG_FIRST + 8; i++)
 	    {
-	      insn = emit_insn (gen_gr_spill (mem, gen_rtx_REG (DImode, i)));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, tmp_reg, 0);
+	      emit_insn (gen_gr_spill (mem1, gen_rtx_REG (DImode, i)));
+	      emit_insn (gen_adddi3 (reg1, reg1, GEN_INT (8)));
 	    }
 	}
       *pretend_size = ((MAX_ARGUMENT_SLOTS - cum.words - offset)
@@ -1714,8 +1779,6 @@ ia64_print_operand (file, x, code)
 {
   switch (code)
     {
-      /* XXX Add other codes here.  */
-
     case 0:
       /* Handled below.  */
       break;
@@ -1819,7 +1882,7 @@ ia64_print_operand (file, x, code)
     case 'U':
       if (! TARGET_GNU_AS && GET_CODE (x) == CONST_INT)
 	{
-	  char *prefix = "0x";
+	  const char *prefix = "0x";
 	  if (INTVAL (x) & 0x80000000)
 	    {
 	      fprintf (file, "0xffffffff");
@@ -1839,6 +1902,36 @@ ia64_print_operand (file, x, code)
       else
 	output_operand_lossage ("invalid %%r value");
       return;
+
+    case '+':
+      {
+	const char *which;
+	
+	/* For conditional branches, returns or calls, substitute
+	   sptk, dptk, dpnt, or spnt for %s.  */
+	x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
+	if (x)
+	  {
+	    int pred_val = INTVAL (XEXP (x, 0));
+
+	    /* Guess top and bottom 10% statically predicted.  */
+	    if (pred_val < REG_BR_PROB_BASE / 10)
+	      which = ".spnt";
+	    else if (pred_val < REG_BR_PROB_BASE / 2)
+	      which = ".dpnt";
+	    else if (pred_val < REG_BR_PROB_BASE * 9 / 10)
+	      which = ".dptk";
+	    else
+	      which = ".sptk";
+	  }
+	else if (GET_CODE (current_output_insn) == CALL_INSN)
+	  which = ".sptk";
+	else
+	  which = ".dptk";
+
+	fputs (which, file);
+	return;
+      }
 
     default:
       output_operand_lossage ("ia64_print_operand: unknown code");
@@ -1871,48 +1964,6 @@ ia64_print_operand (file, x, code)
     }
 
   return;
-}
-
-/* For conditional branches, returns or calls, substitute
-   sptk, dptk, dpnt, or spnt for %s.  */
-
-const char *
-ia64_expand_prediction (insn, template)
-     rtx insn;
-     const char *template;
-{
-  static char const pred_name[4][5] = {
-	"spnt", "dpnt", "dptk", "sptk"
-  };
-  static char new_template[64];
-
-  int pred_val, pred_which;
-  rtx note;
-
-  note = find_reg_note (insn, REG_BR_PROB, 0);
-  if (note)
-    {
-      pred_val = INTVAL (XEXP (note, 0));
-
-      /* Guess top and bottom 10% statically predicted.  */
-      if (pred_val < REG_BR_PROB_BASE / 10)
-	pred_which = 0;
-      else if (pred_val < REG_BR_PROB_BASE / 2)
-	pred_which = 1;
-      else if (pred_val < REG_BR_PROB_BASE * 9 / 10)
-	pred_which = 2;
-      else
-	pred_which = 3;
-    }
-  else
-    pred_which = 2;
-
-  if (strlen (template) >= sizeof (new_template) - 3)
-    abort ();
-
-  sprintf (new_template, template, pred_name[pred_which]);
-
-  return new_template;
 }
 
 
@@ -1956,7 +2007,7 @@ ia64_secondary_reload_class (class, mode, x)
      because paradoxical subregs are not accepted by register_operand when
      INSN_SCHEDULING is defined.  Or alternatively, stop the paradoxical subreg
      stupidity in the *_operand functions in recog.c.  */
-  if ((class == FR_REGS || class == FR_INT_REGS || class == FR_FP_REGS)
+  if (class == FR_REGS
       && GET_CODE (x) == MEM
       && (GET_MODE (x) == SImode || GET_MODE (x) == HImode
 	  || GET_MODE (x) == QImode))
@@ -1965,15 +2016,7 @@ ia64_secondary_reload_class (class, mode, x)
   /* This can happen because of the ior/and/etc patterns that accept FP
      registers as operands.  If the third operand is a constant, then it
      needs to be reloaded into a FP register.  */
-  if ((class == FR_REGS || class == FR_INT_REGS || class == FR_FP_REGS)
-      && GET_CODE (x) == CONST_INT)
-    return GR_REGS;
-
-  /* Moving a integer from an FP register to memory requires a general register
-     as an intermediary.  This is not necessary if we are moving a DImode
-     subreg of a DFmode value from an FP register to memory, since stfd will
-     do the right thing in this case.  */
-  if (class == FR_INT_REGS && GET_CODE (x) == MEM && GET_MODE (x) == DImode)
+  if (class == FR_REGS && GET_CODE (x) == CONST_INT)
     return GR_REGS;
 
   /* ??? This happens if we cse/gcse a CCmode value across a call, and the
@@ -2033,17 +2076,21 @@ ia64_asm_output_external (file, decl, name)
 /* Parse the -mfixed-range= option string.  */
 
 static void
-fix_range (str)
-     char *str;
+fix_range (const_str)
+     const char *const_str;
 {
   int i, first, last;
-  char *dash, *comma;
+  char *str, *dash, *comma;
 
   /* str must be of the form REG1'-'REG2{,REG1'-'REG} where REG1 and
      REG2 are either register names or register numbers.  The effect
      of this option is to mark the registers in the range from REG1 to
      REG2 as ``fixed'' so they won't be used by the compiler.  This is
      used, e.g., to ensure that kernel mode code doesn't use f32-f127.  */
+
+  i = strlen (const_str);
+  str = (char *) alloca (i + 1);
+  memcpy (str, const_str, i + 1);
 
   while (1)
     {
@@ -2108,6 +2155,9 @@ ia64_init_machine_status (p)
 {
   p->machine =
     (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
+
+  /* Reset from the previous function's potential modifications.  */
+  XINT (return_address_pointer_rtx, 0) = RETURN_ADDRESS_POINTER_REGNUM;
 }
 
 static void
@@ -2189,6 +2239,11 @@ struct reg_flags
   unsigned int is_fp : 1;	/* Is register used as part of an fp op?  */
   unsigned int is_branch : 1;	/* Is register used as part of a branch?  */
 };
+
+static void rws_update PARAMS ((struct reg_write_state *, int,
+				struct reg_flags, int));
+static int rws_access_reg PARAMS ((int, struct reg_flags, int));
+static int rtx_needs_barrier PARAMS ((rtx, struct reg_flags, int));
 
 /* Update *RWS for REGNO, which is being written by the current instruction,
    with predicate PRED, and associated register flags in FLAGS.  */
@@ -2639,6 +2694,10 @@ rtx_needs_barrier (x, flags, pred)
 	  need_barrier = rws_access_reg (REG_AR_PFS, new_flags, pred);
 	  break;
 
+	case 5: /* set_bsp  */
+	  need_barrier = 1;
+          break;
+
 	case 6: /* mov pr= */
 	  /* This writes all predicate registers.  */
 	  new_flags.is_write = 1;
@@ -2649,9 +2708,8 @@ rtx_needs_barrier (x, flags, pred)
 	    need_barrier |= rws_access_reg (i, new_flags, pred);
 	  break;
 
-	case 5: /* set_bsp  */
-	  need_barrier = 1;
-          break;
+	case 7: /* pred.rel.mutex */
+	  return 0;
 
 	default:
 	  abort ();
@@ -2811,12 +2869,54 @@ emit_insn_group_barriers (insns)
     }
 }
 
+/* Emit pseudo-ops for the assembler to describe predicate relations.
+   At present this assumes that we only consider predicate pairs to
+   be mutex, and that the assembler can deduce proper values from
+   straight-line code.  */
+
+static void
+emit_predicate_relation_info (insns)
+     rtx insns;
+{
+  int i;
+
+  /* Make sure the CFG and global_live_at_start are correct.  */
+  find_basic_blocks (insns, max_reg_num (), NULL);
+  life_analysis (insns, NULL, 0);
+
+  for (i = n_basic_blocks - 1; i >= 0; --i)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      int r;
+      rtx head = bb->head;
+
+      /* We only need such notes at code labels.  */
+      if (GET_CODE (head) != CODE_LABEL)
+	continue;
+      if (GET_CODE (NEXT_INSN (head)) == NOTE
+	  && NOTE_LINE_NUMBER (NEXT_INSN (head)) == NOTE_INSN_BASIC_BLOCK)
+	head = NEXT_INSN (head);
+
+      for (r = PR_REG (0); r < PR_REG (64); r += 2)
+	if (REGNO_REG_SET_P (bb->global_live_at_start, r))
+	  {
+	    rtx p1 = gen_rtx_REG (CCmode, r);
+	    rtx p2 = gen_rtx_REG (CCmode, r + 1);
+	    rtx n = emit_insn_after (gen_pred_rel_mutex (p1, p2), head);
+	    if (head == bb->end)
+	      bb->end = n;
+	    head = n;
+	  }
+    }
+}
+
 /* Perform machine dependent operations on the rtl chain INSNS.  */
 
 void
 ia64_reorg (insns)
      rtx insns;
 {
+  emit_predicate_relation_info (insns);
   emit_insn_group_barriers (insns);
 }
 
@@ -2918,7 +3018,8 @@ ia64_encode_section_info (decl)
 
   /* Careful not to prod global register variables.  */
   if (TREE_CODE (decl) != VAR_DECL
-      || GET_CODE (DECL_RTL (decl)) != SYMBOL_REF)
+      || GET_CODE (DECL_RTL (decl)) != MEM
+      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
     return;
     
   symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
@@ -3029,19 +3130,40 @@ process_set (asm_out_file, pat)
 	  rtx op1 = XEXP (src, 1);
 	  if (op0 == dest && GET_CODE (op1) == CONST_INT)
 	    {
-	      fputs ("\t.fframe ", asm_out_file);
-	      fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, -INTVAL (op1));
-	      fputc ('\n', asm_out_file);
-	      frame_size = INTVAL (op1);
-	      return 1;
+	      if (INTVAL (op1) < 0)
+		{
+		  fputs ("\t.fframe ", asm_out_file);
+		  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC,
+			   -INTVAL (op1));
+		  fputc ('\n', asm_out_file);
+		  frame_size = INTVAL (op1);
+		}
+	      else
+		fprintf (asm_out_file, "\t.restore sp\n");
 	    }
 	  else if (op0 == dest && GET_CODE (op1) == REG)
 	    {
-	      fprintf (asm_out_file, "\t.vframe r%d\n", REGNO (op1));
-	      frame_size = 0;
-	      return 1;
+	      /* ia64_expand_prologue uses r2 for stack pointer decrements,
+		 ia64_expand_epilogue uses r3 for stack pointer increments.  */
+	      if (REGNO (op1) == GR_REG (2))
+		{
+		  fprintf (asm_out_file, "\t.vframe r%d\n", REGNO (op1));
+		  frame_size = 0;
+		}
+	      else if (REGNO (op1) == GR_REG (3))
+		fprintf (asm_out_file, "\t.restore sp\n");
+	      else
+		abort ();
 	    }
+	  else
+	    abort ();
 	}
+      else if (GET_CODE (src) == REG && REGNO (src) == FRAME_POINTER_REGNUM)
+	fprintf (asm_out_file, "\t.restore sp\n");
+      else
+	abort ();
+
+      return 1;
     }
   /* Look for a frame offset.  */
   if (GET_CODE (dest) == REG)
@@ -3125,8 +3247,7 @@ process_set (asm_out_file, pat)
 	      if (!spill_offset_emitted)
 	        {
 		  fprintf (asm_out_file, "\t.spill %d\n",
-/*			   (frame_size + 16 - spill_offset ) / 4); */
-			   (-(spill_offset - 8) + 16) / 4);
+			   (-(spill_offset - 8) + 16));
 		  spill_offset_emitted = 1;
 		}
 	    }
@@ -3146,10 +3267,10 @@ process_set (asm_out_file, pat)
 		  /* register 9 is ar.unat.  */
 		  if (tmp_saved == 9)
 		    fprintf (asm_out_file, "\t.savesp ar.unat, %d\n",
-			     (sp_offset - 8) / 4);
+			     (sp_offset - 8));
 		  else if (tmp_saved == 5)
 		    fprintf (asm_out_file, "\t.savesp pr, %d\n",
-			     (sp_offset - 8) / 4);
+			     (sp_offset - 8));
 		  else if (tmp_saved >= BR_REG (1) && tmp_saved <= BR_REG (5))
 		    {
 		      /* BR regs are saved this way too.  */
@@ -3232,62 +3353,87 @@ struct builtin_description
 /* All 32 bit intrinsics that take 2 arguments. */
 static struct builtin_description bdesc_2argsi[] =
 {
-  { CODE_FOR_fetch_and_add_si, "__sync_fetch_and_add_si", IA64_BUILTIN_FETCH_AND_ADD_SI, 0, 0 },
-  { CODE_FOR_fetch_and_sub_si, "__sync_fetch_and_sub_si", IA64_BUILTIN_FETCH_AND_SUB_SI, 0, 0 },
-  { CODE_FOR_fetch_and_or_si, "__sync_fetch_and_or_si", IA64_BUILTIN_FETCH_AND_OR_SI, 0, 0 },
-  { CODE_FOR_fetch_and_and_si, "__sync_fetch_and_and_si", IA64_BUILTIN_FETCH_AND_AND_SI, 0, 0 },
-  { CODE_FOR_fetch_and_xor_si, "__sync_fetch_and_xor_si", IA64_BUILTIN_FETCH_AND_XOR_SI, 0, 0 },
-  { CODE_FOR_fetch_and_nand_si, "__sync_fetch_and_nand_si", IA64_BUILTIN_FETCH_AND_NAND_SI, 0, 0 },
-  { CODE_FOR_add_and_fetch_si, "__sync_add_and_fetch_si", IA64_BUILTIN_ADD_AND_FETCH_SI, 0, 0 },
-  { CODE_FOR_sub_and_fetch_si, "__sync_sub_and_fetch_si", IA64_BUILTIN_SUB_AND_FETCH_SI, 0, 0 },
-  { CODE_FOR_or_and_fetch_si, "__sync_or_and_fetch_si", IA64_BUILTIN_OR_AND_FETCH_SI, 0, 0 },
-  { CODE_FOR_and_and_fetch_si, "__sync_and_and_fetch_si", IA64_BUILTIN_AND_AND_FETCH_SI, 0, 0 },
-  { CODE_FOR_xor_and_fetch_si, "__sync_xor_and_fetch_si", IA64_BUILTIN_XOR_AND_FETCH_SI, 0, 0 },
-  { CODE_FOR_nand_and_fetch_si, "__sync_nand_and_fetch_si", IA64_BUILTIN_NAND_AND_FETCH_SI, 0, 0 }
+  { CODE_FOR_fetch_and_add_si, "__sync_fetch_and_add_si",
+    IA64_BUILTIN_FETCH_AND_ADD_SI, 0, 0 },
+  { CODE_FOR_fetch_and_sub_si, "__sync_fetch_and_sub_si",
+    IA64_BUILTIN_FETCH_AND_SUB_SI, 0, 0 },
+  { CODE_FOR_fetch_and_or_si, "__sync_fetch_and_or_si",
+    IA64_BUILTIN_FETCH_AND_OR_SI, 0, 0 },
+  { CODE_FOR_fetch_and_and_si, "__sync_fetch_and_and_si",
+    IA64_BUILTIN_FETCH_AND_AND_SI, 0, 0 },
+  { CODE_FOR_fetch_and_xor_si, "__sync_fetch_and_xor_si",
+    IA64_BUILTIN_FETCH_AND_XOR_SI, 0, 0 },
+  { CODE_FOR_fetch_and_nand_si, "__sync_fetch_and_nand_si",
+    IA64_BUILTIN_FETCH_AND_NAND_SI, 0, 0 },
+  { CODE_FOR_add_and_fetch_si, "__sync_add_and_fetch_si",
+    IA64_BUILTIN_ADD_AND_FETCH_SI, 0, 0 },
+  { CODE_FOR_sub_and_fetch_si, "__sync_sub_and_fetch_si",
+    IA64_BUILTIN_SUB_AND_FETCH_SI, 0, 0 },
+  { CODE_FOR_or_and_fetch_si, "__sync_or_and_fetch_si",
+    IA64_BUILTIN_OR_AND_FETCH_SI, 0, 0 },
+  { CODE_FOR_and_and_fetch_si, "__sync_and_and_fetch_si",
+    IA64_BUILTIN_AND_AND_FETCH_SI, 0, 0 },
+  { CODE_FOR_xor_and_fetch_si, "__sync_xor_and_fetch_si",
+    IA64_BUILTIN_XOR_AND_FETCH_SI, 0, 0 },
+  { CODE_FOR_nand_and_fetch_si, "__sync_nand_and_fetch_si",
+    IA64_BUILTIN_NAND_AND_FETCH_SI, 0, 0 }
 };
 
 /* All 64 bit intrinsics that take 2 arguments. */
 static struct builtin_description bdesc_2argdi[] =
 {
-  { CODE_FOR_fetch_and_add_di, "__sync_fetch_and_add_di", IA64_BUILTIN_FETCH_AND_ADD_DI, 0, 0 },
-  { CODE_FOR_fetch_and_sub_di, "__sync_fetch_and_sub_di", IA64_BUILTIN_FETCH_AND_SUB_DI, 0, 0 },
-  { CODE_FOR_fetch_and_or_di, "__sync_fetch_and_or_di", IA64_BUILTIN_FETCH_AND_OR_DI, 0, 0 },
-  { CODE_FOR_fetch_and_and_di, "__sync_fetch_and_and_di", IA64_BUILTIN_FETCH_AND_AND_DI, 0, 0 },
-  { CODE_FOR_fetch_and_xor_di, "__sync_fetch_and_xor_di", IA64_BUILTIN_FETCH_AND_XOR_DI, 0, 0 },
-  { CODE_FOR_fetch_and_nand_di, "__sync_fetch_and_nand_di", IA64_BUILTIN_FETCH_AND_NAND_DI, 0, 0 },
-  { CODE_FOR_add_and_fetch_di, "__sync_add_and_fetch_di", IA64_BUILTIN_ADD_AND_FETCH_DI, 0, 0 },
-  { CODE_FOR_sub_and_fetch_di, "__sync_sub_and_fetch_di", IA64_BUILTIN_SUB_AND_FETCH_DI, 0, 0 },
-  { CODE_FOR_or_and_fetch_di, "__sync_or_and_fetch_di", IA64_BUILTIN_OR_AND_FETCH_DI, 0, 0 },
-  { CODE_FOR_and_and_fetch_di, "__sync_and_and_fetch_di", IA64_BUILTIN_AND_AND_FETCH_DI, 0, 0 },
-  { CODE_FOR_xor_and_fetch_di, "__sync_xor_and_fetch_di", IA64_BUILTIN_XOR_AND_FETCH_DI, 0, 0 },
-  { CODE_FOR_nand_and_fetch_di, "__sync_nand_and_fetch_di", IA64_BUILTIN_NAND_AND_FETCH_DI, 0, 0 }
+  { CODE_FOR_fetch_and_add_di, "__sync_fetch_and_add_di",
+    IA64_BUILTIN_FETCH_AND_ADD_DI, 0, 0 },
+  { CODE_FOR_fetch_and_sub_di, "__sync_fetch_and_sub_di",
+    IA64_BUILTIN_FETCH_AND_SUB_DI, 0, 0 },
+  { CODE_FOR_fetch_and_or_di, "__sync_fetch_and_or_di",
+    IA64_BUILTIN_FETCH_AND_OR_DI, 0, 0 },
+  { CODE_FOR_fetch_and_and_di, "__sync_fetch_and_and_di",
+    IA64_BUILTIN_FETCH_AND_AND_DI, 0, 0 },
+  { CODE_FOR_fetch_and_xor_di, "__sync_fetch_and_xor_di",
+    IA64_BUILTIN_FETCH_AND_XOR_DI, 0, 0 },
+  { CODE_FOR_fetch_and_nand_di, "__sync_fetch_and_nand_di",
+    IA64_BUILTIN_FETCH_AND_NAND_DI, 0, 0 },
+  { CODE_FOR_add_and_fetch_di, "__sync_add_and_fetch_di",
+    IA64_BUILTIN_ADD_AND_FETCH_DI, 0, 0 },
+  { CODE_FOR_sub_and_fetch_di, "__sync_sub_and_fetch_di",
+    IA64_BUILTIN_SUB_AND_FETCH_DI, 0, 0 },
+  { CODE_FOR_or_and_fetch_di, "__sync_or_and_fetch_di",
+    IA64_BUILTIN_OR_AND_FETCH_DI, 0, 0 },
+  { CODE_FOR_and_and_fetch_di, "__sync_and_and_fetch_di",
+    IA64_BUILTIN_AND_AND_FETCH_DI, 0, 0 },
+  { CODE_FOR_xor_and_fetch_di, "__sync_xor_and_fetch_di",
+    IA64_BUILTIN_XOR_AND_FETCH_DI, 0, 0 },
+  { CODE_FOR_nand_and_fetch_di, "__sync_nand_and_fetch_di",
+    IA64_BUILTIN_NAND_AND_FETCH_DI, 0, 0 }
 };
 
 void
 ia64_init_builtins ()
 {
-  int i;
-  struct builtin_description *d;
+  size_t i;
 
   tree psi_type_node = build_pointer_type (integer_type_node);
   tree pdi_type_node = build_pointer_type (long_integer_type_node);
   tree endlink = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
-
 
   /* __sync_val_compare_and_swap_si, __sync_bool_compare_and_swap_si */
   tree si_ftype_psi_si_si
     = build_function_type (integer_type_node,
                            tree_cons (NULL_TREE, psi_type_node,
                                       tree_cons (NULL_TREE, integer_type_node,
-                                                 tree_cons (NULL_TREE, integer_type_node,
+                                                 tree_cons (NULL_TREE,
+							    integer_type_node,
                                                             endlink))));
 
   /* __sync_val_compare_and_swap_di, __sync_bool_compare_and_swap_di */
   tree di_ftype_pdi_di_di
     = build_function_type (long_integer_type_node,
                            tree_cons (NULL_TREE, pdi_type_node,
-                                      tree_cons (NULL_TREE, long_integer_type_node,
-                                                 tree_cons (NULL_TREE, long_integer_type_node,
+                                      tree_cons (NULL_TREE,
+						 long_integer_type_node,
+                                                 tree_cons (NULL_TREE,
+							    long_integer_type_node,
                                                             endlink))));
   /* __sync_synchronize */
   tree void_ftype_void
@@ -3303,45 +3449,59 @@ ia64_init_builtins ()
   tree di_ftype_pdi_di
     = build_function_type (long_integer_type_node,
                            tree_cons (NULL_TREE, pdi_type_node,
-                           tree_cons (NULL_TREE, long_integer_type_node, endlink)));
+                           tree_cons (NULL_TREE, long_integer_type_node,
+				      endlink)));
 
   /* __sync_lock_release_si */
   tree void_ftype_psi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, psi_type_node, endlink));
+    = build_function_type (void_type_node, tree_cons (NULL_TREE, psi_type_node,
+						      endlink));
 
   /* __sync_lock_release_di */
   tree void_ftype_pdi
-    = build_function_type (void_type_node, tree_cons (NULL_TREE, pdi_type_node, endlink));
+    = build_function_type (void_type_node, tree_cons (NULL_TREE, pdi_type_node,
+						      endlink));
 
-  def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si, IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);
+  def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si,
+	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);
 
-  def_builtin ("__sync_val_compare_and_swap_di", di_ftype_pdi_di_di, IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI);
+  def_builtin ("__sync_val_compare_and_swap_di", di_ftype_pdi_di_di,
+	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI);
 
-  def_builtin ("__sync_bool_compare_and_swap_si", si_ftype_psi_si_si, IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI);
+  def_builtin ("__sync_bool_compare_and_swap_si", si_ftype_psi_si_si,
+	       IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI);
 
-  def_builtin ("__sync_bool_compare_and_swap_di", di_ftype_pdi_di_di, IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI);
+  def_builtin ("__sync_bool_compare_and_swap_di", di_ftype_pdi_di_di,
+	       IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI);
 
-  def_builtin ("__sync_synchronize", void_ftype_void, IA64_BUILTIN_SYNCHRONIZE);
+  def_builtin ("__sync_synchronize", void_ftype_void,
+	       IA64_BUILTIN_SYNCHRONIZE);
 
-  def_builtin ("__sync_lock_test_and_set_si", si_ftype_psi_si, IA64_BUILTIN_LOCK_TEST_AND_SET_SI);
+  def_builtin ("__sync_lock_test_and_set_si", si_ftype_psi_si,
+	       IA64_BUILTIN_LOCK_TEST_AND_SET_SI);
 
-  def_builtin ("__sync_lock_test_and_set_di", di_ftype_pdi_di, IA64_BUILTIN_LOCK_TEST_AND_SET_DI);
+  def_builtin ("__sync_lock_test_and_set_di", di_ftype_pdi_di,
+	       IA64_BUILTIN_LOCK_TEST_AND_SET_DI);
 
-  def_builtin ("__sync_lock_release_si", void_ftype_psi, IA64_BUILTIN_LOCK_RELEASE_SI);
+  def_builtin ("__sync_lock_release_si", void_ftype_psi,
+	       IA64_BUILTIN_LOCK_RELEASE_SI);
 
-  def_builtin ("__sync_lock_release_di", void_ftype_pdi, IA64_BUILTIN_LOCK_RELEASE_DI);
+  def_builtin ("__sync_lock_release_di", void_ftype_pdi,
+	       IA64_BUILTIN_LOCK_RELEASE_DI);
 
-  def_builtin ("__builtin_ia64_bsp", build_function_type (ptr_type_node, endlink), IA64_BUILTIN_BSP);
+  def_builtin ("__builtin_ia64_bsp",
+	       build_function_type (ptr_type_node, endlink),
+	       IA64_BUILTIN_BSP);
 
   def_builtin ("__builtin_ia64_flushrs", 
 	       build_function_type (void_type_node, endlink), 
 	       IA64_BUILTIN_FLUSHRS);
 
   /* Add all builtins that are operations on two args. */
-  for (i=0, d = bdesc_2argsi; i < sizeof(bdesc_2argsi) / sizeof *d; i++, d++)
-    def_builtin (d->name, si_ftype_psi_si, d->code);
-  for (i=0, d = bdesc_2argdi; i < sizeof(bdesc_2argdi) / sizeof *d; i++, d++)
-    def_builtin (d->name, di_ftype_pdi_di, d->code);
+  for (i = 0; i < sizeof(bdesc_2argsi) / sizeof *bdesc_2argsi; i++)
+    def_builtin (bdesc_2argsi[i].name, si_ftype_psi_si, bdesc_2argsi[i].code);
+  for (i = 0; i < sizeof(bdesc_2argdi) / sizeof *bdesc_2argdi; i++)
+    def_builtin (bdesc_2argdi[i].name, si_ftype_psi_si, bdesc_2argdi[i].code);
 }
 
 /* Expand fetch_and_op intrinsics.  The basic code sequence is:
@@ -3661,7 +3821,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
   int fcode = DECL_FUNCTION_CODE (fndecl);
   enum machine_mode tmode, mode0, mode1;
   enum insn_code icode;
-  int i;
+  size_t i;
   struct builtin_description *d;
 
   switch (fcode)
@@ -3687,7 +3847,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       tmp_reg = gen_rtx_REG (DImode, GR_REG(0));
       target = gen_rtx_MEM (BLKmode, tmp_reg);
       emit_insn (gen_mf (target));
-      return 0;
+      return const0_rtx;
 
     case IA64_BUILTIN_LOCK_TEST_AND_SET_SI:
       icode = CODE_FOR_lock_test_and_set_si;
@@ -3741,7 +3901,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       op0 = gen_rtx_MEM (SImode, copy_to_mode_reg (Pmode, op0));
       MEM_VOLATILE_P (op0) = 1;
       emit_insn (gen_movsi (op0, GEN_INT(0)));
-      return 0;
+      return const0_rtx;
 
     case IA64_BUILTIN_LOCK_RELEASE_DI:
       arg0 = TREE_VALUE (arglist);
@@ -3749,7 +3909,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       op0 = gen_rtx_MEM (DImode, copy_to_mode_reg (Pmode, op0));
       MEM_VOLATILE_P (op0) = 1;
       emit_insn (gen_movdi (op0, GEN_INT(0)));
-      return 0;
+      return const0_rtx;
 
     case IA64_BUILTIN_BSP:
       {
@@ -3759,10 +3919,8 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       }
 
     case IA64_BUILTIN_FLUSHRS:
-      {
-	emit_insn (gen_flushrs ());
-	return 0;
-      }
+      emit_insn (gen_flushrs ());
+      return const0_rtx;
 
     default:
       break;

@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "output.h"
 #include "tm_p.h"
+#include "timevar.h"
 #include "ggc.h"
 
 #ifndef ACCUMULATE_OUTGOING_ARGS
@@ -851,6 +852,7 @@ precompute_register_parameters (num_actuals, args, reg_parm_seen)
   /* The argument list is the property of the called routine and it
      may clobber it.  If the fixed area has been used for previous
      parameters, we must save and restore it.  */
+
 static rtx
 save_fixed_argument_area (reg_parm_stack_space, argblock,
 			  low_to_save, high_to_save)
@@ -892,10 +894,11 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 	save_mode = BLKmode;
 
 #ifdef ARGS_GROW_DOWNWARD
-      stack_area = gen_rtx_MEM (save_mode,
-				memory_address (save_mode,
-						plus_constant (argblock,
-							       - *high_to_save)));
+      stack_area
+	= gen_rtx_MEM (save_mode,
+		       memory_address (save_mode,
+				       plus_constant (argblock,
+						      - *high_to_save)));
 #else
       stack_area = gen_rtx_MEM (save_mode,
 				memory_address (save_mode,
@@ -1108,7 +1111,7 @@ initialize_argument_information (num_actuals, args, args_size, n_named_args,
       /* If TYPE is a transparent union, pass things the way we would
 	 pass the first field of the union.  We have already verified that
 	 the modes are the same.  */
-      if (TYPE_TRANSPARENT_UNION (type))
+      if (TREE_CODE (type) == UNION_TYPE && TYPE_TRANSPARENT_UNION (type))
 	type = TREE_TYPE (TYPE_FIELDS (type));
 
       /* Decide where to pass this arg.
@@ -1192,17 +1195,12 @@ initialize_argument_information (num_actuals, args, args_size, n_named_args,
 		    }
 
 		  copy = gen_rtx_MEM (BLKmode,
-				      allocate_dynamic_stack_space (size_rtx,
-								    NULL_RTX,
-								    TYPE_ALIGN (type)));
+				      allocate_dynamic_stack_space
+				      (size_rtx, NULL_RTX, TYPE_ALIGN (type)));
+		  set_mem_attributes (copy, type, 1);
 		}
 	      else
-		{
-		  int size = int_size_in_bytes (type);
-		  copy = assign_stack_temp (TYPE_MODE (type), size, 0);
-		}
-
-	      MEM_SET_IN_STRUCT_P (copy, AGGREGATE_TYPE_P (type));
+		copy = assign_temp (type, 0, 1, 0);
 
 	      store_expr (args[i].tree_value, copy, 0);
 	      *ecf_flags &= ~(ECF_CONST | ECF_PURE);
@@ -1586,9 +1584,8 @@ compute_argument_addresses (args, argblock, num_actuals)
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
-	  MEM_SET_IN_STRUCT_P 
-	    (args[i].stack,
-	     AGGREGATE_TYPE_P (TREE_TYPE (args[i].tree_value)));
+	  set_mem_attributes (args[i].stack,
+			      TREE_TYPE (args[i].tree_value), 1);
 
 	  if (GET_CODE (slot_offset) == CONST_INT)
 	    addr = plus_constant (arg_reg, INTVAL (slot_offset));
@@ -1597,6 +1594,8 @@ compute_argument_addresses (args, argblock, num_actuals)
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
+	  set_mem_attributes (args[i].stack_slot,
+			      TREE_TYPE (args[i].tree_value), 1);
 	}
     }
 }
@@ -1736,7 +1735,7 @@ load_register_parameters (args, num_actuals, call_fusage, flags)
     }
 }
 
-/* Try to integreate function.  See expand_inline_function for documentation
+/* Try to integrate function.  See expand_inline_function for documentation
    about the parameters.  */
 
 static rtx
@@ -1764,9 +1763,13 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 
   before_call = get_last_insn ();
 
+  timevar_push (TV_INTEGRATION);
+
   temp = expand_inline_function (fndecl, actparms, target,
 				 ignore, type,
 				 structure_value_addr);
+
+  timevar_pop (TV_INTEGRATION);
 
   /* If inlining succeeded, return.  */
   if (temp != (rtx) (HOST_WIDE_INT) - 1)
@@ -2494,8 +2497,8 @@ expand_call (exp, target, ignore)
 	 recursion "call".  That way we know any adjustment after the tail
 	 recursion call can be ignored if we indeed use the tail recursion
 	 call expansion.  */
-      int save_pending_stack_adjust;
-      int save_stack_pointer_delta;
+      int save_pending_stack_adjust = 0;
+      int save_stack_pointer_delta = 0;
       rtx insns;
       rtx before_call, next_arg_reg;
 
@@ -3066,11 +3069,11 @@ expand_call (exp, target, ignore)
 	{
 	  if (target == 0 || GET_CODE (target) != MEM)
 	    {
-	      target = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)),
-				    memory_address (TYPE_MODE (TREE_TYPE (exp)),
-						    structure_value_addr));
-	      MEM_SET_IN_STRUCT_P (target,
-				   AGGREGATE_TYPE_P (TREE_TYPE (exp)));
+	      target
+		= gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)),
+			       memory_address (TYPE_MODE (TREE_TYPE (exp)),
+					       structure_value_addr));
+	      set_mem_attributes (target, exp, 1);
 	    }
 	}
       else if (pcc_struct_value)
@@ -3080,7 +3083,7 @@ expand_call (exp, target, ignore)
 	     never use this value more than once in one expression.  */
 	  target = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)),
 				copy_to_reg (valreg));
-	  MEM_SET_IN_STRUCT_P (target, AGGREGATE_TYPE_P (TREE_TYPE (exp)));
+	  set_mem_attributes (target, exp, 1);
 	}
       /* Handle calls that return values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */

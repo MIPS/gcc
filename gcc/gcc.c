@@ -4628,7 +4628,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      q = v;
 	      while (ISDIGIT (*q))
 		q++;
-	      if (*q != 0 && *q != ' ' && *q != '.' && *q != '-')
+	      if (*q != 0 && q > v && *q != ' ' && *q != '.' && *q != '-')
 		abort ();
 
               if (q > v)
@@ -5144,12 +5144,12 @@ fatal_error (signum)
   kill (getpid (), signum);
 }
 
-extern int main PARAMS ((int, const char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)
      int argc;
-     const char **argv;
+     char **argv;
 {
   register size_t i;
   size_t j;

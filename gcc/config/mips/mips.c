@@ -9144,8 +9144,10 @@ machine_dependent_reorg (first)
 		   + pool_size
 		   + mips_string_length)
 		  >= 0x8000)
-	      val = src;
-	      mode = Pmode;
+		{
+		  val = src;
+		  mode = Pmode;
+		}
 	      max_internal_pool_size -= Pmode;
 	    }
 

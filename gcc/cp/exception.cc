@@ -118,6 +118,10 @@ struct cp_eh_info
 
 extern "C" cp_eh_info **__get_eh_info (); 	// actually void **
 
+/* Exception allocate and free, defined in libgcc2. */
+extern "C" void *__eh_alloc(size_t);
+extern "C" void __eh_free();
+
 /* Is P the type_info node for a pointer of some kind?  */
 
 extern bool __is_pointer (void *);
@@ -157,29 +161,6 @@ __start_cp_handler (void)
   p->caught = 1;
   p->handlers++;
   return p;
-}
-
-/* Allocate a buffer for a cp_eh_info and an exception object of size SIZE,
-   and return a pointer to the beginning of the object's space.  */
-
-extern "C" void * malloc (size_t);
-extern "C" void *
-__eh_alloc (size_t size)
-{
-  void *p = malloc (size);
-  if (p == 0)
-    terminate ();
-  return p;
-}
-
-/* Free the memory for an cp_eh_info and associated exception, given
-   a pointer to the cp_eh_info.  */
-
-extern "C" void free (void *);
-extern "C" void
-__eh_free (void *p)
-{
-  free (p);
 }
 
 extern "C" int __throw_type_match_rtti_2 (const void *, const void *,
@@ -247,16 +228,36 @@ __cp_push_exception (void *value, void *type, cleanup_fn cleanup)
 extern "C" void
 __cp_pop_exception (cp_eh_info *p)
 {
-  cp_eh_info **q = __get_eh_info ();
+  cp_eh_info **stack = __get_eh_info ();
+  cp_eh_info **q = stack;
 
   --p->handlers;
 
-  /* Don't really pop if there are still active handlers for our exception,
-     or if our exception is being rethrown (i.e. if the active exception is
-     our exception and it is uncaught).  */
-  if (p->handlers != 0
-      || (p == *q && !p->caught))
+  /* Do nothing if our exception is being rethrown (i.e. if the active
+     exception is our exception and it is uncaught).  */
+  if (p == *q && !p->caught)
     return;
+
+  /* Don't really pop if there are still active handlers for our exception;
+     rather, push it down past any uncaught exceptions.  */
+  if (p->handlers != 0)
+    {
+      if (p == *q && p->next && !p->next->caught)
+	{
+	  q = &(p->next);
+	  while (1)
+	    {
+	      if (*q == 0 || (*q)->caught)
+		break;
+
+	      q = &((*q)->next);
+	    }
+	  *stack = p->next;
+	  p->next = *q;
+	  *q = p;
+	}
+      return;
+    }
 
   for (; *q; q = &((*q)->next))
     if (*q == p)
@@ -277,12 +278,35 @@ __cp_pop_exception (cp_eh_info *p)
   __eh_free (p);
 }
 
+/* We're doing a rethrow.  Find the currently handled exception, mark it
+   uncaught, and move it to the top of the EH stack.  */
+
 extern "C" void
 __uncatch_exception (void)
 {
-  cp_eh_info *p = CP_EH_INFO;
-  if (p == 0)
-    terminate ();
+  cp_eh_info **stack = __get_eh_info ();
+  cp_eh_info **q = stack;
+  cp_eh_info *p;
+
+  while (1)
+    {
+      p = *q;
+
+      if (p == 0)
+	terminate ();
+      if (p->caught)
+	break;
+
+      q = &(p->next);
+    }
+
+  if (q != stack)
+    {
+      *q = p->next;
+      p->next = *stack;
+      *stack = p;
+    }
+
   p->caught = false;
 }
 

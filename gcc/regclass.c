@@ -203,18 +203,20 @@ static char *in_inc_dec;
 
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
+#ifdef CLASS_CANNOT_CHANGE_MODE
 
 /* These are the classes containing only registers that can be used in
-   a SUBREG expression that changes the size of the register.  */
+   a SUBREG expression that changes the mode of the register in some
+   way that is illegal.  */
 
-static int class_can_change_size[N_REG_CLASSES];
+static int class_can_change_mode[N_REG_CLASSES];
 
-/* Registers, including pseudos, which change size.  */
+/* Registers, including pseudos, which change modes in some way that
+   is illegal.  */
 
-static regset reg_changes_size;
+static regset reg_changes_mode;
 
-#endif /* CLASS_CANNOT_CHANGE_SIZE */
+#endif /* CLASS_CANNOT_CHANGE_MODE */
 
 #ifdef HAVE_SECONDARY_RELOADS
 
@@ -458,21 +460,21 @@ init_reg_sets_1 ()
 	  may_move_out_cost[i][j] = cost;
       }
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
+#ifdef CLASS_CANNOT_CHANGE_MODE
   {
     HARD_REG_SET c;
-    COMPL_HARD_REG_SET (c, reg_class_contents[CLASS_CANNOT_CHANGE_SIZE]);
+    COMPL_HARD_REG_SET (c, reg_class_contents[CLASS_CANNOT_CHANGE_MODE]);
       
     for (i = 0; i < N_REG_CLASSES; i++)
       {
 	GO_IF_HARD_REG_SUBSET (reg_class_contents[i], c, ok_class);
-	class_can_change_size [i] = 0;
+	class_can_change_mode [i] = 0;
 	continue;
       ok_class:
-	class_can_change_size [i] = 1;
+	class_can_change_mode [i] = 1;
       }
     }
-#endif /* CLASS_CANNOT_CHANGE_SIZE */
+#endif /* CLASS_CANNOT_CHANGE_MODE */
 }
 
 /* Compute the table of register modes.
@@ -515,6 +517,7 @@ init_regs ()
     /* Make some fake stack-frame MEM references for use in
        memory_move_secondary_cost.  */
     int i;
+
     for (i = 0; i < MAX_MACHINE_MODE; i++)
       top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
     ggc_add_rtx_root (top_of_stack, MAX_MACHINE_MODE);
@@ -859,10 +862,10 @@ record_operand_costs (insn, op_costs, reg_pref)
       if (GET_CODE (recog_data.operand[i]) == SUBREG)
 	{
 	  rtx inner = SUBREG_REG (recog_data.operand[i]);
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-	  if (GET_MODE_SIZE (modes[i]) != GET_MODE_SIZE (GET_MODE (inner))
-	      && GET_CODE (inner) == REG)
-	    SET_REGNO_REG_SET (reg_changes_size, REGNO (inner));
+#ifdef CLASS_CANNOT_CHANGE_MODE
+	  if (GET_CODE (inner) == REG
+	      && CLASS_CANNOT_CHANGE_MODE_P (modes[i], GET_MODE (inner)))
+	    SET_REGNO_REG_SET (reg_changes_mode, REGNO (inner));
 #endif
 	  recog_data.operand[i] = inner;
 	}
@@ -1047,8 +1050,8 @@ regclass (f, nregs, dump)
 
   costs = (struct costs *) xmalloc (nregs * sizeof (struct costs));
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-  reg_changes_size = BITMAP_XMALLOC();
+#ifdef CLASS_CANNOT_CHANGE_MODE
+  reg_changes_mode = BITMAP_XMALLOC();
 #endif  
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
@@ -1189,9 +1192,9 @@ regclass (f, nregs, dump)
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 		  || (in_inc_dec[i] && forbidden_inc_dec_class[class])
 #endif
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-		  || (REGNO_REG_SET_P (reg_changes_size, i)
-		      && ! class_can_change_size [class])
+#ifdef CLASS_CANNOT_CHANGE_MODE
+		  || (REGNO_REG_SET_P (reg_changes_mode, i)
+		      && ! class_can_change_mode [class])
 #endif
 		  )
 		;
@@ -1219,9 +1222,9 @@ regclass (f, nregs, dump)
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 		  && ! (in_inc_dec[i] && forbidden_inc_dec_class[class])
 #endif
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-		  && ! (REGNO_REG_SET_P (reg_changes_size, i)
-			&& ! class_can_change_size [class])
+#ifdef CLASS_CANNOT_CHANGE_MODE
+		  && ! (REGNO_REG_SET_P (reg_changes_mode, i)
+			&& ! class_can_change_mode [class])
 #endif
 		  )
 		alt = reg_class_subunion[(int) alt][class];
@@ -1255,8 +1258,8 @@ regclass (f, nregs, dump)
 #ifdef FORBIDDEN_INC_DEC_CLASSES
   free (in_inc_dec);
 #endif
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-  BITMAP_XFREE (reg_changes_size);
+#ifdef CLASS_CANNOT_CHANGE_MODE
+  BITMAP_XFREE (reg_changes_mode);
 #endif
   free (costs);
 }

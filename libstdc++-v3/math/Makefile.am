@@ -31,6 +31,7 @@ EXTRA_LONG_DOUBLE_yes = \
 	signbitl.c cabsl.c 
 
 EXTRA_DIST = \
+	cosf.c fabsf.c sinf.c sqrtf.c \
 	ccos.c ccosf.c ccosh.c ccoshf.c ccoshl.c \
 	cexp.c cexpf.c c_log.c c_logf.c  clog10.c clog10f.c \
 	cpow.c cpowf.c csin.c csinf.c csinh.c csinhf.c \
@@ -41,7 +42,7 @@ EXTRA_DIST = \
 
 libmath_la_LIBADD = \
 	@LIBMATHOBJS@ \
-	$(EXTRA_LONG_DOUBLE_$(USE_LONG_DOUBLE)) 
+	$(EXTRA_LONG_DOUBLE_$(USE_COMPLEX_LONG_DOUBLE)) 
 
 libmath_la_DEPENDENCIES = $(libmath_la_LIBADD)
 

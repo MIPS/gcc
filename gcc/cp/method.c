@@ -137,6 +137,8 @@ init_method ()
   ggc_add_tree_varray_root (&btypelist, 1);
   ggc_add_tree_varray_root (&ktypelist, 1);
   ggc_add_tree_varray_root (&typevec, 1);
+  if (flag_new_abi)
+    init_mangle ();
 }
 
 /* This must be large enough to hold any printed integer or floating-point
@@ -156,6 +158,9 @@ static int numeric_output_need_bar;
 static inline void
 start_squangling ()
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200005222);
+
   if (flag_do_squangling)
     {
       nofold = 0;
@@ -523,13 +528,11 @@ mangle_expression (value)
       const char *name;
 
       name = operator_name_info[TREE_CODE (value)].mangled_name;
-      my_friendly_assert (name != NULL, 0);
-      if (name[0] != '_' || name[1] != '_')
+      if (name == NULL)
 	/* On some erroneous inputs, we can get here with VALUE a
-	   LOOKUP_EXPR.  In that case, the NAME will be the
-	   identifier for "<invalid operator>".  We must survive
-	   this routine in order to issue a sensible error
-	   message, so we fall through to the case below.  */
+	   LOOKUP_EXPR. We must survive this routine in order to issue
+	   a sensible error message, so we fall through to the case
+	   below.  */
 	goto bad_value;
 
       for (i = 0; i < operands; ++i)
@@ -824,6 +827,9 @@ build_overload_value (type, value, flags)
       /* Fall through.  */
 
     case REFERENCE_TYPE:
+      if (TREE_CODE (value) == ADDR_EXPR)
+	value = TREE_OPERAND (value, 0);
+
       if (TREE_CODE (value) == VAR_DECL)
 	{
 	  my_friendly_assert (DECL_NAME (value) != 0, 245);
@@ -947,7 +953,7 @@ build_template_parm_names (parmlist, arglist)
      tree arglist;
 {
   int i, nparms;
-  tree inner_args = innermost_args (arglist);
+  tree inner_args = INNERMOST_TEMPLATE_ARGS (arglist);
 
   nparms = TREE_VEC_LENGTH (parmlist);
   icat (nparms);
@@ -981,7 +987,7 @@ build_template_parm_names (parmlist, arglist)
 	}
       else
 	{
-	  parm = tsubst (parm, arglist, /*complain=*/1, NULL_TREE);
+	  parm = tsubst (parm, inner_args, /*complain=*/1, NULL_TREE);
 	  /* It's a PARM_DECL.  */
 	  build_mangled_name_for_type (TREE_TYPE (parm));
 	  build_overload_value (TREE_TYPE (parm), arg, 
@@ -1127,6 +1133,10 @@ build_overload_name (parmtypes, begin, end)
      int begin, end;
 {
   char *ret;
+
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200005221);
+
   start_squangling ();
   ret = build_mangled_name (parmtypes, begin, end);
   end_squangling ();
@@ -1142,6 +1152,9 @@ build_mangled_name (parmtypes, begin, end)
      tree parmtypes;
      int begin, end;
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200004105);
+
   if (begin) 
     OB_INIT ();
 
@@ -1555,6 +1568,9 @@ tree
 build_static_name (context, name)
      tree context, name;
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200004106);
+
   OB_INIT ();
   numeric_output_need_bar = 0;
   start_squangling ();
@@ -1589,6 +1605,9 @@ build_decl_overload_real (decl, parms, ret_type, tparms, targs,
 {
   const char *name;
   enum tree_code operator_code;
+
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 20000410);
 
   operator_code = DECL_OVERLOADED_OPERATOR_P (decl);
   if (!DECL_CONV_FN_P (decl) && operator_code)
@@ -1725,6 +1744,12 @@ set_mangled_name_for_decl (decl)
     /* There's no need to mangle the name of a template function.  */
     return;
 
+  if (flag_new_abi)
+    {
+      DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
+      return;
+    }
+
   parm_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
 
   if (DECL_STATIC_FUNCTION_P (decl))
@@ -1754,6 +1779,9 @@ build_typename_overload (type)
 {
   tree id;
 
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200004108);
+
   OB_INIT ();
   OB_PUTS (OPERATOR_TYPENAME_FORMAT);
   nofold = 1;
@@ -1771,6 +1799,9 @@ tree
 build_overload_with_type (name, type)
      tree name, type;
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200004109);
+
   OB_INIT ();
   OB_PUTID (name);
   nofold = 1;
@@ -1786,6 +1817,9 @@ get_id_2 (name, name2)
      const char *name;
      tree name2;
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 20000411);
+
   OB_INIT ();
   OB_PUTCP (name);
   OB_PUTID (name2);
@@ -1802,6 +1836,9 @@ get_ctor_vtbl_name (type, binfo)
      tree type;
      tree binfo;
 {
+  /* This function is obsoleted by the new ABI.  */
+  my_friendly_assert (!flag_new_abi, 200005220);
+
   start_squangling ();
   OB_INIT ();
   OB_PUTCP (CTOR_VTBL_NAME_PREFIX);
@@ -2025,6 +2062,11 @@ hack_identifier (value, name)
 }
 
 
+/* Return a thunk to FUNCTION.  For a virtual thunk, DELTA is the
+   offset to this used to locate the vptr, and VCALL_INDEX is used to
+   look up the eventual subobject location.  For a non-virtual thunk,
+   DELTA is the offset to this and VCALL_INDEX is zero.  */
+
 tree
 make_thunk (function, delta, vcall_index)
      tree function;
@@ -2034,6 +2076,7 @@ make_thunk (function, delta, vcall_index)
   tree thunk_id;
   tree thunk;
   tree func_decl;
+  int vcall_offset = vcall_index * int_size_in_bytes (vtable_entry_type);
 
   if (TREE_CODE (function) != ADDR_EXPR)
     abort ();
@@ -2041,24 +2084,29 @@ make_thunk (function, delta, vcall_index)
   if (TREE_CODE (func_decl) != FUNCTION_DECL)
     abort ();
 
-  OB_INIT ();
-  OB_PUTS ("__thunk_");
-  if (delta > 0)
-    {
-      OB_PUTC ('n');
-      icat (delta);
-    }
+  if (flag_new_abi) 
+    thunk_id = mangle_thunk (TREE_OPERAND (function, 0),  delta, vcall_offset);
   else
-    icat (-delta);
-  OB_PUTC ('_');
-  if (vcall_index)
     {
-      icat (vcall_index);
+      OB_INIT ();
+      OB_PUTS ("__thunk_");
+      if (delta > 0)
+	{
+	  OB_PUTC ('n');
+	  icat (delta);
+	}
+      else
+	icat (-delta);
       OB_PUTC ('_');
+      if (vcall_index)
+	{
+	  icat (vcall_index);
+	  OB_PUTC ('_');
+	}
+      OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
+      OB_FINISH ();
+      thunk_id = get_identifier (obstack_base (&scratch_obstack));
     }
-  OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
-  OB_FINISH ();
-  thunk_id = get_identifier (obstack_base (&scratch_obstack));
 
   thunk = IDENTIFIER_GLOBAL_VALUE (thunk_id);
   if (thunk && !DECL_THUNK_P (thunk))
@@ -2079,8 +2127,7 @@ make_thunk (function, delta, vcall_index)
       SET_DECL_THUNK_P (thunk);
       DECL_INITIAL (thunk) = function;
       THUNK_DELTA (thunk) = delta;
-      THUNK_VCALL_OFFSET (thunk) 
-	= vcall_index * int_size_in_bytes (vtable_entry_type);
+      THUNK_VCALL_OFFSET (thunk) = vcall_offset;
       /* The thunk itself is not a constructor or destructor, even if
        the thing it is thunking to is.  */
       DECL_INTERFACE_KNOWN (thunk) = 1;
@@ -2090,6 +2137,7 @@ make_thunk (function, delta, vcall_index)
       DECL_CONSTRUCTOR_P (thunk) = 0;
       DECL_EXTERNAL (thunk) = 1;
       DECL_ARTIFICIAL (thunk) = 1;
+      DECL_VTT_PARM (thunk) = NULL_TREE;
       /* Even if this thunk is a member of a local class, we don't
 	 need a static chain.  */
       DECL_NO_STATIC_CHAIN (thunk) = 1;
@@ -2271,22 +2319,24 @@ do_build_copy_constructor (fndecl)
       tree fields = TYPE_FIELDS (current_class_type);
       int n_bases = CLASSTYPE_N_BASECLASSES (current_class_type);
       tree binfos = TYPE_BINFO_BASETYPES (current_class_type);
+      tree member_init_list = NULL_TREE;
+      tree base_init_list = NULL_TREE;
       int i;
 
       /* Initialize all the base-classes.  */
       for (t = CLASSTYPE_VBASECLASSES (current_class_type); t;
 	   t = TREE_CHAIN (t))
-	current_base_init_list 
+	base_init_list 
 	  = tree_cons (BINFO_TYPE (TREE_VALUE (t)), parm, 
-		       current_base_init_list);
+		       base_init_list);
       for (i = 0; i < n_bases; ++i)
 	{
 	  t = TREE_VEC_ELT (binfos, i);
 	  if (TREE_VIA_VIRTUAL (t))
 	    continue; 
 
-	  current_base_init_list 
-	    = tree_cons (BINFO_TYPE (t), parm, current_base_init_list);
+	  base_init_list 
+	    = tree_cons (BINFO_TYPE (t), parm, base_init_list);
 	}
 
       for (; fields; fields = TREE_CHAIN (fields))
@@ -2320,12 +2370,12 @@ do_build_copy_constructor (fndecl)
 	  init = build (COMPONENT_REF, TREE_TYPE (field), init, field);
 	  init = build_tree_list (NULL_TREE, init);
 
-	  current_member_init_list
-	    = tree_cons (field, init, current_member_init_list);
+	  member_init_list
+	    = tree_cons (field, init, member_init_list);
 	}
-      current_member_init_list = nreverse (current_member_init_list);
-      current_base_init_list = nreverse (current_base_init_list);
-      setup_vtbl_ptr ();
+      member_init_list = nreverse (member_init_list);
+      base_init_list = nreverse (base_init_list);
+      setup_vtbl_ptr (member_init_list, base_init_list);
     }
 }
 
@@ -2468,7 +2518,7 @@ synthesize_method (fndecl)
       need_body = 0;
     }
   else if (DECL_DESTRUCTOR_P (fndecl))
-    setup_vtbl_ptr ();
+    setup_vtbl_ptr (NULL_TREE, NULL_TREE);
   else
     {
       tree arg_chain = FUNCTION_ARG_CHAIN (fndecl);
@@ -2477,7 +2527,7 @@ synthesize_method (fndecl)
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
       else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
-	setup_vtbl_ptr ();
+	setup_vtbl_ptr (NULL_TREE, NULL_TREE);
     }
 
   /* If we haven't yet generated the body of the function, just

@@ -2093,7 +2093,7 @@ while (0)
       : (GET_MODE_SIZE (MODE)==2					\
 	 ? (IN ? ix86_cost->int_load[1] : ix86_cost->int_store[1])	\
 	 : ((IN ? ix86_cost->int_load[2] : ix86_cost->int_store[2])	\
-	    * GET_MODE_SIZE (MODE) / 4))))
+	    * (int) GET_MODE_SIZE (MODE) / 4))))
 
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
@@ -2496,6 +2496,7 @@ do { long l;						\
 /* Define the codes that are matched by predicates in i386.c.  */
 
 #define PREDICATE_CODES							\
+  {"const_int_1_operand", {CONST_INT}},					\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		       LABEL_REF, SUBREG, REG, MEM}},			\

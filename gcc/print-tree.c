@@ -430,7 +430,11 @@ print_node (file, prefix, node, indent)
 		 built_in_names[(int) DECL_FUNCTION_CODE (node)]);
 
       if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
-	fprintf (file, " alias set %d", DECL_POINTER_ALIAS_SET (node));
+	{
+	  fprintf (file, " alias set ");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, 
+		   DECL_POINTER_ALIAS_SET (node));
+	}
 
       if (TREE_CODE (node) == FIELD_DECL)
 	{
@@ -485,8 +489,17 @@ print_node (file, prefix, node, indent)
 	fputs (" string-flag", file);
       if (TYPE_NEEDS_CONSTRUCTING (node))
 	fputs (" needs-constructing", file);
-      if (TYPE_TRANSPARENT_UNION (node))
-	fputs (" transparent-union", file);
+      /* The transparent-union flag is used for different things in
+	 different nodes.  */
+      if (TYPE_CHECK (node)->type.transparent_union_flag)
+	{
+	  if (TREE_CODE (node) == UNION_TYPE)
+	    fputs (" transparent-union", file);
+	  else if (TREE_CODE (node) == ARRAY_TYPE)
+	    fputs (" nonaliased-component", file);
+	  else
+	    fputs (" tu-flag", file);
+	}
       if (TYPE_PACKED (node))
 	fputs (" packed", file);
       if (TYPE_RESTRICT (node))
@@ -519,7 +532,8 @@ print_node (file, prefix, node, indent)
 
       fprintf (file, " align %d", TYPE_ALIGN (node));
       fprintf (file, " symtab %d", TYPE_SYMTAB_ADDRESS (node));
-      fprintf (file, " alias set %d", TYPE_ALIAS_SET (node));
+      fprintf (file, " alias set ");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TYPE_ALIAS_SET (node));
 
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 

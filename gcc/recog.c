@@ -1003,13 +1003,13 @@ register_operand (op, mode)
       if (! reload_completed && GET_CODE (SUBREG_REG (op)) == MEM)
 	return general_operand (op, mode);
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
+#ifdef CLASS_CANNOT_CHANGE_MODE
       if (GET_CODE (SUBREG_REG (op)) == REG
 	  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER
-	  && TEST_HARD_REG_BIT (reg_class_contents[(int) CLASS_CANNOT_CHANGE_SIZE],
-				REGNO (SUBREG_REG (op)))
-	  && (GET_MODE_SIZE (mode)
-	      != GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
+	  && (TEST_HARD_REG_BIT
+	      (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
+	       REGNO (SUBREG_REG (op))))
+	  && CLASS_CANNOT_CHANGE_MODE_P (mode, GET_MODE (SUBREG_REG (op)))
 	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op))) != MODE_COMPLEX_INT
 	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op))) != MODE_COMPLEX_FLOAT)
 	return 0;
@@ -1939,11 +1939,10 @@ mode_independent_operand (op, mode)
   return 0;
 }
 
-/* Given an operand OP that is a valid memory reference
-   which satisfies offsettable_memref_p,
-   return a new memory reference whose address has been adjusted by OFFSET.
-   OFFSET should be positive and less than the size of the object referenced.
-*/
+/* Given an operand OP that is a valid memory reference which
+   satisfies offsettable_memref_p, return a new memory reference whose
+   address has been adjusted by OFFSET.  OFFSET should be positive and
+   less than the size of the object referenced.  */
 
 rtx
 adj_offsettable_operand (op, offset)
@@ -1961,7 +1960,7 @@ adj_offsettable_operand (op, offset)
 	{
 	  new = gen_rtx_MEM (GET_MODE (op),
 			     plus_constant_for_output (y, offset));
-	  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (op);
+	  MEM_COPY_ATTRIBUTES (new, op);
 	  return new;
 	}
 
@@ -1981,7 +1980,7 @@ adj_offsettable_operand (op, offset)
 	}
 
       new = gen_rtx_MEM (GET_MODE (op), plus_constant_for_output (y, offset));
-      RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (op);
+      MEM_COPY_ATTRIBUTES (new, op);
       return new;
     }
   abort ();

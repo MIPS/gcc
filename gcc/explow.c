@@ -628,6 +628,93 @@ validize_mem (ref)
   return change_address (ref, GET_MODE (ref), XEXP (ref, 0));
 }
 
+/* Given REF, either a MEM or a REG, and T, either the type of X or
+   the expression corresponding to REF, set RTX_UNCHANGING_P if
+   appropriate.  */
+
+void
+maybe_set_unchanging (ref, t)
+     rtx ref;
+     tree t;
+{
+  /* We can set RTX_UNCHANGING_P from TREE_READONLY for decls whose
+     initialization is only executed once, or whose initializer always
+     has the same value.  Currently we simplify this to PARM_DECLs in the
+     first case, and decls with TREE_CONSTANT initializers in the second.  */
+  if ((TREE_READONLY (t) && DECL_P (t)
+       && (TREE_CODE (t) == PARM_DECL
+	   || DECL_INITIAL (t) == NULL_TREE
+	   || TREE_CONSTANT (DECL_INITIAL (t))))
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+    RTX_UNCHANGING_P (ref) = 1;
+}
+
+/* Given REF, a MEM, and T, either the type of X or the expression
+   corresponding to REF, set the memory attributes.  OBJECTP is nonzero
+   if we are making a new object of this type.  */
+
+void
+set_mem_attributes (ref, t, objectp)
+     rtx ref;
+     tree t;
+     int objectp;
+{
+  tree type;
+
+  /* It can happen that type_for_mode was given a mode for which there
+     is no language-level type.  In which case it returns NULL, which
+     we can see here.  */
+  if (t == NULL_TREE)
+    return;
+
+  type = TYPE_P (t) ? t : TREE_TYPE (t);
+
+  /* Get the alias set from the expression or type (perhaps using a
+     front-end routine) and then copy bits from the type.  */
+
+  /* It is incorrect to set RTX_UNCHANGING_P from TREE_READONLY (type)
+     here, because, in C and C++, the fact that a location is accessed
+     through a const expression does not mean that the value there can
+     never change.  */
+  MEM_ALIAS_SET (ref) = get_alias_set (t);
+  MEM_VOLATILE_P (ref) = TYPE_VOLATILE (type);
+  MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
+
+  /* If we are making an object of this type, we know that it is a scalar if
+     the type is not an aggregate. */
+  if (objectp && ! AGGREGATE_TYPE_P (type))
+    MEM_SCALAR_P (ref) = 1;
+
+  /* If T is a type, this is all we can do.  Otherwise, we may be able
+     to deduce some more information about the expression.  */
+  if (TYPE_P (t))
+    return;
+
+  maybe_set_unchanging (ref, t);
+  if (TREE_THIS_VOLATILE (t))
+    MEM_VOLATILE_P (ref) = 1;
+
+  /* Now see if we can say more about whether it's an aggregate or
+     scalar.  If we already know it's an aggregate, don't bother.  */
+  if (MEM_IN_STRUCT_P (ref))
+    return;
+
+  /* Now remove any NOPs: they don't change what the underlying object is.
+     Likewise for SAVE_EXPR.  */
+  while (TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR
+	 || TREE_CODE (t) == NON_LVALUE_EXPR || TREE_CODE (t) == SAVE_EXPR)
+    t = TREE_OPERAND (t, 0);
+
+  /* Since we already know the type isn't an aggregate, if this is a decl,
+     it must be a scalar.  Or if it is a reference into an aggregate,
+     this is part of an aggregate.   Otherwise we don't know.  */
+  if (DECL_P (t))
+    MEM_SCALAR_P (ref) = 1;
+  else if (TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF
+	   || TREE_CODE (t) == BIT_FIELD_REF)
+    MEM_IN_STRUCT_P (ref) = 1;
+}
+
 /* Return a modified copy of X with its memory address copied
    into a temporary register to protect it from side effects.
    If X is not a MEM, it is returned unchanged (and not copied).
@@ -638,25 +725,17 @@ stabilize (x)
      rtx x;
 {
   register rtx addr;
+
   if (GET_CODE (x) != MEM)
     return x;
+
   addr = XEXP (x, 0);
   if (rtx_unstable_p (addr))
     {
-      rtx temp = copy_all_regs (addr);
-      rtx mem;
-
-      if (GET_CODE (temp) != REG)
-	temp = copy_to_reg (temp);
-      mem = gen_rtx_MEM (GET_MODE (x), temp);
-
-      /* Mark returned memref with in_struct if it's in an array or
-	 structure.  Copy everything else from original memref.  */
+      rtx temp = force_reg (Pmode, copy_all_regs (addr));
+      rtx mem = gen_rtx_MEM (GET_MODE (x), temp);
 
       MEM_COPY_ATTRIBUTES (mem, x);
-      if (GET_CODE (addr) == PLUS)
-	MEM_SET_IN_STRUCT_P (mem, 1);
-
       return mem;
     }
   return x;

@@ -392,7 +392,6 @@ static void put_condition_code PARAMS ((enum rtx_code, enum machine_mode,
 static enum rtx_code unsigned_comparison PARAMS ((enum rtx_code code));
 static rtx ix86_expand_int_compare PARAMS ((enum rtx_code, rtx, rtx));
 static enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
-static int ix86_use_fcomi_compare PARAMS ((enum rtx_code));
 static enum rtx_code ix86_prepare_fp_compare_args PARAMS ((enum rtx_code,
 							   rtx *, rtx *));
 static rtx gen_push PARAMS ((rtx));
@@ -913,8 +912,8 @@ function_arg_advance (cum, mode, type, named)
      tree type;			/* type of the argument or 0 if lib support */
      int named;			/* whether or not the argument was named */
 {
-  int bytes
-    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  int bytes =
+    (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   if (TARGET_DEBUG_ARG)
@@ -956,8 +955,8 @@ function_arg (cum, mode, type, named)
      int named;			/* != 0 for normal args, == 0 for ... args */
 {
   rtx ret   = NULL_RTX;
-  int bytes
-    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  int bytes =
+    (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   switch (mode)
@@ -993,6 +992,17 @@ function_arg (cum, mode, type, named)
   return ret;
 }
 
+
+/* Return nonzero if OP is (const_int 1), else return zero.  */
+
+int
+const_int_1_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) == 1);
+}
+
 /* Returns 1 if OP is either a symbol reference or a sum of a symbol
    reference and a constant.  */
 
@@ -4550,7 +4560,7 @@ ix86_fp_compare_mode (code)
 
 /* Return true if we should use an FCOMI instruction for this fp comparison.  */
 
-static int
+int
 ix86_use_fcomi_compare (code)
      enum rtx_code code;
 {

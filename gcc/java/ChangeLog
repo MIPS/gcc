@@ -1,3 +1,66 @@
+2000-06-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-write.c (CHECK_PUT): Add static prototype.  Make pointer
+	types the same in comparison.
+	(CHECK_OP): Add static prototype.
+
+2000-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* typeck.c (build_java_array_type): Set TYPE_USER_ALIGN.
+	* parse.y (java_complete_class): Set DECL_USER_ALIGN.
+	* parse.c: Rebuilt.
+
+2000-06-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl.c (create_primitive_vtable): Prototype.
+
+	* jcf-write.c (generate_bytecode_insns): Initialize variable
+	`saved_context'.
+
+	* lang.c (lang_get_alias_set): Mark parameter with ATTRIBUTE_UNUSED.
+
+Tue Jun  6 11:39:05 2000  Tom Tromey  <tromey@ferrule.cygnus.com>
+
+	* parse.y (check_modifiers_consistency): Don't subtract out
+	`PUBLIC_TK' from argument to THIS_MODIFIER_ONLY.
+
+2000-06-04  Philipp Thomas  <pthomas@suse.de>
+
+	* Makefile.in (INTLLIBS): New.
+	(LIBS): Add above.
+	(DEPLIBS): Ditto.
+
+Fri Jun  2 16:48:55 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (get_dispatch_table): Build the vtable dummy entry list
+ 	element with a null purpose. Fixed leading comment.
+	(build_dtable_decl): Build an accurate dtable type when appropriate
+ 	and use it.
+
+2000-06-02  Richard Henderson  <rth@cygnus.com>
+
+	* lang.c (lang_get_alias_set): New.
+
+2000-05-31  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_field_access): Complete the DECL_INITIAL tree
+	before using it as the accessed field.
+
+2000-05-31  Tom Tromey  <tromey@cygnus.com>
+
+	* java-tree.h (boolean_array_vtable, byte_array_vtable,
+	char_array_vtable, short_array_vtable, int_array_vtable,
+	long_array_vtable, float_array_vtable, double_array_vtable):
+	Declare.
+	* expr.c (get_primitive_array_vtable): New function.
+	(create_primitive_vtable): New function.
+	(java_lang_expand_expr): Enable code to statically generate
+	arrays.
+	* decl.c (init_decl_processing): Create primitive vtables.
+	(boolean_array_vtable, byte_array_vtable, char_array_vtable,
+	short_array_vtable, int_array_vtable, long_array_vtable,
+	float_array_vtable, double_array_vtable): Define.
+
 2000-05-26  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* java/parse.y (find_applicable_accessible_methods_list):
@@ -14,16 +77,40 @@
 	`wfl_operator', to maybe_build_primttype_type_ref.
 	Fixes PR gcj/235.
 
+2000-05-23  Bryce McKinlay  <bryce@albatross.co.nz>
+
+       * parse.y (patch_method_invocation): Don't try to lookup methods
+       in primitive types.
+
+2000-05-02  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (resolve_field_access): Call the appropriate <clinit>
+	before accessing the length of a static array. Craft a decl for
+	the field while its time. Fixes PR gcj/129.
+ 
 2000-05-01  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (resolve_package): Correctly set `*next' (was off by
 	one.)
 	(resolve_qualified_expression_name): Fixed comment.
 
+Thu Apr 27 17:47:34 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* jcf-parse.c (jcf_parse_source): Reset current_class and 
+ 	current_function_decl to NULL before parsing a new file.
+
 Thu Apr 27 17:25:33 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (block_end:): If the collected block doesn't feature a
  	statement, insert an empty statement.
+
+2000-04-17  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (maybe_yank_clinit): New function.
+        (maybe_generate_pre_expand_clinit): Always link <clinit> at the
+        end of the list of methods belonging to a class.
+        (java_complete_expand_method): Check whether <clinit> is really
+        necessary and expand it accordingly.
 
 2000-04-17  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
@@ -172,6 +259,18 @@ Wed Apr 26 14:29:33 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (register_incomplete_type): Handle JDEP_ANONYMOUS.
 
+2000-04-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* class.c (common_enclosing_context_p): New function.
+	* java-tree.h (common_enclosing_context_p): Added prototype.
+	* parse.h (INNER_ENCLOSING_SCOPE_CHECK): Relaxed test to allow
+	classes sharing an outer context with the current instance.
+	* parse.y (build_access_to_thisn): Fixed leading comment.
+	(verify_constructor_super): New local `supper_inner'. Skip
+	enclosing context argument in the case of inner class constructors.
+	(patch_method_invocation): Insert proper context as second
+	parameter to pure inner class constructor super invocations.
+
 Mon Apr 24 14:59:36 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (end_class_declaration): Reset the interface number
@@ -276,6 +375,11 @@ Thu Apr 20 18:20:58 2000  Jason Schroeder  <shrode@subnature.com>
 	(patch_binop): New temp `cn'. Call patch_string on LHS/RHS of
 	the `==' and `!=' operators.
 
+2000-04-05  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* jcf-write.c (generate_bytecode_insns): At invokation time,
+	always relate an interface method to the type of its selector.
+	
 2000-04-05  Tom Tromey  <tromey@cygnus.com>
 
 	Fix for PR gcj/2:

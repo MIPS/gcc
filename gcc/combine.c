@@ -3401,15 +3401,15 @@ subst (x, from, to, in_dest, unique_copy)
 		      )
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
+#ifdef CLASS_CANNOT_CHANGE_MODE
 		  if (code == SUBREG
 		      && GET_CODE (to) == REG
 		      && REGNO (to) < FIRST_PSEUDO_REGISTER
 		      && (TEST_HARD_REG_BIT
-			  (reg_class_contents[(int) CLASS_CANNOT_CHANGE_SIZE],
+			  (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
 			   REGNO (to)))
-		      && (GET_MODE_BITSIZE (GET_MODE (to)) 
-			  != GET_MODE_BITSIZE (GET_MODE (x))))
+		      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (to),
+						     GET_MODE (x)))
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 #endif
 
@@ -5037,13 +5037,13 @@ simplify_set (x)
       && (GET_MODE_SIZE (GET_MODE (src))
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (src))))
 #endif
-#ifdef CLASS_CANNOT_CHANGE_SIZE
+#ifdef CLASS_CANNOT_CHANGE_MODE
       && ! (GET_CODE (dest) == REG && REGNO (dest) < FIRST_PSEUDO_REGISTER
 	    && (TEST_HARD_REG_BIT
-		(reg_class_contents[(int) CLASS_CANNOT_CHANGE_SIZE],
+		(reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
 		 REGNO (dest)))
-	    && (GET_MODE_SIZE (GET_MODE (src))
-		!= GET_MODE_SIZE (GET_MODE (SUBREG_REG (src)))))
+	    && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (src),
+					   GET_MODE (SUBREG_REG (src))))
 #endif				  
       && (GET_CODE (dest) == REG
 	  || (GET_CODE (dest) == SUBREG
@@ -6589,17 +6589,19 @@ get_pos_from_mask (m, plen)
 {
   /* Get the bit number of the first 1 bit from the right, -1 if none.  */
   int pos = exact_log2 (m & - m);
+  int len;
 
   if (pos < 0)
     return -1;
 
   /* Now shift off the low-order zero bits and see if we have a power of
      two minus 1.  */
-  *plen = exact_log2 ((m >> pos) + 1);
+  len = exact_log2 ((m >> pos) + 1);
 
-  if (*plen <= 0)
+  if (len <= 0)
     return -1;
 
+  *plen = len;
   return pos;
 }
 
@@ -9679,13 +9681,15 @@ gen_lowpart_for_combine (mode, x)
     }
 
   result = gen_lowpart_common (mode, x);
+#ifdef CLASS_CANNOT_CHANGE_MODE
   if (result != 0
       && GET_CODE (result) == SUBREG
       && GET_CODE (SUBREG_REG (result)) == REG
       && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER
-      && (GET_MODE_SIZE (GET_MODE (result))
-	  != GET_MODE_SIZE (GET_MODE (SUBREG_REG (result)))))
-    REG_CHANGES_SIZE (REGNO (SUBREG_REG (result))) = 1;
+      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (result),
+				     GET_MODE (SUBREG_REG (result))))
+    REG_CHANGES_MODE (REGNO (SUBREG_REG (result))) = 1;
+#endif
 
   if (result)
     return result;

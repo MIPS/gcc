@@ -238,10 +238,10 @@ extern const char *ia64_fixed_range_string;
 
 #if ((TARGET_CPU_DEFAULT | TARGET_DEFAULT) & MASK_GNU_AS) != 0
 /* GNU AS.  */
-#define ASM_SPEC "%{mno-gnu-as:-N so}"
+#define ASM_SPEC "%{mno-gnu-as:-N so}%{!mno-gnu-as: -x}"
 #else
 /* Intel ias.  */
-#define ASM_SPEC "%{!mgnu-as:-N so}"
+#define ASM_SPEC "%{!mgnu-as:-N so}%{mgnu-as: -x}"
 #endif
 
 /* A C string constant that tells the GNU CC driver program options to pass to
@@ -543,19 +543,15 @@ while (0)
 #define FIRST_PSEUDO_REGISTER 330
 
 /* Ranges for the various kinds of registers.  */
-#define ADDL_REGNO_P(REGNO) ((REGNO) >= 0 && (REGNO) <= 3)
-#define GR_REGNO_P(REGNO) ((REGNO) >= 0 && (REGNO) <= 127)
-#define FR_FP_REGNO_P(REGNO) \
-  (((REGNO) >= 128 && (REGNO) <= 143) || ((REGNO) >= 152 && (REGNO) <= 223))
-#define FR_INT_REGNO_P(REGNO) \
-  (((REGNO) >= 144 && (REGNO) <= 151) || ((REGNO) >= 224 && (REGNO) <= 255))
+#define ADDL_REGNO_P(REGNO) ((unsigned HOST_WIDE_INT) (REGNO) <= 3)
+#define GR_REGNO_P(REGNO) ((unsigned HOST_WIDE_INT) (REGNO) <= 127)
 #define FR_REGNO_P(REGNO) ((REGNO) >= 128 && (REGNO) <= 255)
 #define PR_REGNO_P(REGNO) ((REGNO) >= 256 && (REGNO) <= 319)
 #define BR_REGNO_P(REGNO) ((REGNO) >= 320 && (REGNO) <= 327)
 #define GENERAL_REGNO_P(REGNO) \
   (GR_REGNO_P (REGNO)							\
    || (REGNO) == FRAME_POINTER_REGNUM					\
-   || (REGNO) == RETURN_ADDRESS_REGNUM)
+   || (REGNO) == RETURN_ADDRESS_POINTER_REGNUM)
 
 #define GR_REG(REGNO) ((REGNO) + 0)
 #define FR_REG(REGNO) ((REGNO) + 128)
@@ -792,7 +788,7 @@ while (0)
   /* Special branch registers.  */					   \
   R_BR (0),								   \
   /* Frame pointer.  Return address.  */				   \
-  FRAME_POINTER_REGNUM, RETURN_ADDRESS_REGNUM,				   \
+  FRAME_POINTER_REGNUM, RETURN_ADDRESS_POINTER_REGNUM,			   \
 }
 
 
@@ -816,10 +812,7 @@ while (0)
    that one).  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
-  (FR_FP_REGNO_P (REGNO) ? ! INTEGRAL_MODE_P (MODE)			\
-   : FR_INT_REGNO_P (REGNO) ? ! FLOAT_MODE_P (MODE)			\
-   : PR_REGNO_P (REGNO) ? (MODE) == CCmode				\
-   : 1)
+  (PR_REGNO_P (REGNO) ? (MODE) == CCmode : 1)
 
 /* A C expression that is nonzero if it is desirable to choose register
    allocation so as to avoid move instructions between a value of mode MODE1
@@ -861,11 +854,6 @@ while (0)
    register class, followed by one more enumeral value, `LIM_REG_CLASSES',
    which is not a register class but rather tells how many classes there
    are.  */
-/* ??? FP registers hold INT and FP values in different representations, so
-   we can't just use a subreg to convert between the two.  We get around this
-   problem by segmenting the FP register set into two parts.  One part (FR_INT)
-   only holds integer values, and one part (FR_FP) only hold FP values.  Thus
-   we always know which representation is being used.  */
 /* ??? When compiling without optimization, it is possible for the only use of
    a pseudo to be a parameter load from the stack with a REG_EQUIV note.
    Regclass handles this case specially and does not assign any costs to the
@@ -879,11 +867,7 @@ enum reg_class
   BR_REGS,
   ADDL_REGS,
   GR_REGS,
-  FR_INT_REGS,
-  FR_FP_REGS,
   FR_REGS,
-  GR_AND_FR_INT_REGS,
-  GR_AND_FR_FP_REGS,
   GR_AND_FR_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
@@ -897,9 +881,8 @@ enum reg_class
 /* An initializer containing the names of the register classes as C string
    constants.  These names are used in writing some of the debugging dumps.  */
 #define REG_CLASS_NAMES \
-{ "NO_REGS", "PR_REGS", "BR_REGS", "ADDL_REGS", "GR_REGS", "FR_INT_REGS", \
-  "FR_FP_REGS", "FR_REGS", "GR_AND_FR_INT_REGS", "GR_AND_FR_FP_REGS",	  \
-  "GR_AND_FR_REGS", "ALL_REGS" }
+{ "NO_REGS", "PR_REGS", "BR_REGS", "ADDL_REGS", "GR_REGS", \
+  "FR_REGS", "GR_AND_FR_REGS", "ALL_REGS" }
 
 /* An initializer containing the contents of the register classes, as integers
    which are bit masks.  The Nth integer specifies the contents of class N.
@@ -927,26 +910,10 @@ enum reg_class
   { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0x00000000, 0x00000000, 0x300 },			\
-  /* FR_INT_REGS.  */					\
-  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0x00FF0000, 0x00000000, 0x00000000, 0xFFFFFFFF,	\
-    0x00000000, 0x00000000, 0x000 },			\
-  /* FR_FP_REGS.  */					\
-  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
-    0xFF00FFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000,	\
-    0x00000000, 0x00000000, 0x000 },			\
   /* FR_REGS.  */					\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0x00000000, 0x00000000, 0x000 },			\
-  /* GR_AND_FR_INT_REGS.  */				\
-  { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
-    0x00FF0000, 0x00000000, 0x00000000, 0xFFFFFFFF,	\
-    0x00000000, 0x00000000, 0x300 },			\
-  /* GR_AND_FR_FP_REGS.  */				\
-  { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
-    0xFF00FFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000,	\
-    0x00000000, 0x00000000, 0x300 },			\
   /* GR_AND_FR_REGS.  */				\
   { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
@@ -966,8 +933,7 @@ enum reg_class
 #define REGNO_REG_CLASS(REGNO) \
 (ADDL_REGNO_P (REGNO) ? ADDL_REGS	\
  : GENERAL_REGNO_P (REGNO) ? GR_REGS	\
- : FR_FP_REGNO_P (REGNO) ? FR_FP_REGS	\
- : FR_INT_REGNO_P (REGNO) ? FR_INT_REGS	\
+ : FR_REGNO_P (REGNO) ? FR_REGS		\
  : PR_REGNO_P (REGNO) ? PR_REGS		\
  : BR_REGNO_P (REGNO) ? BR_REGS		\
  : NO_REGS)
@@ -990,8 +956,7 @@ enum reg_class
    will not be passed to this macro; you do not need to handle it.  */
 
 #define REG_CLASS_FROM_LETTER(CHAR) \
-((CHAR) == 'f' ? FR_FP_REGS		\
- : (CHAR) == 'e' ? FR_INT_REGS		\
+((CHAR) == 'f' ? FR_REGS		\
  : (CHAR) == 'a' ? ADDL_REGS		\
  : (CHAR) == 'b' ? BR_REGS		\
  : (CHAR) == 'c' ? PR_REGS		\
@@ -1041,10 +1006,18 @@ enum reg_class
    This is closely related to the macro `HARD_REGNO_NREGS'.  */
 
 #define CLASS_MAX_NREGS(CLASS, MODE) \
-  ((MODE) == CCmode && (CLASS) == PR_REGS ? 2				\
-   : (((CLASS) == FR_REGS || (CLASS) == FR_FP_REGS			\
-       || (CLASS) == FR_INT_REGS) && (MODE) == XFmode) ? 1		\
+  ((MODE) == CCmode && (CLASS) == PR_REGS ? 2			\
+   : ((CLASS) == FR_REGS && (MODE) == XFmode) ? 1		\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+
+/* If defined, gives a class of registers that cannot be used as the
+   operand of a SUBREG that changes the mode of the object illegally.  */
+
+#define CLASS_CANNOT_CHANGE_MODE        FR_REGS
+
+/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
+
+#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) 1
 
 /* A C expression that defines the machine-dependent operand constraint letters
    (`I', `J', `K', .. 'P') that specify particular ranges of integer values.  */
@@ -1094,9 +1067,12 @@ enum reg_class
 /* A C expression that defines the optional machine-dependent constraint
    letters (`Q', `R', `S', `T', `U') that can be used to segregate specific
    types of operands, usually memory references, for the target machine.  */
-/* ??? This might be useful considering that we have already used all of the
-   integer constant contraint letters.  */
-/* #define EXTRA_CONSTRAINT(VALUE, C) */
+
+#define CONSTRAINT_OK_FOR_Q(VALUE) \
+  (memory_operand((VALUE), VOIDmode) && ! MEM_VOLATILE_P (VALUE))
+
+#define EXTRA_CONSTRAINT(VALUE, C) \
+  ((C) == 'Q' ? CONSTRAINT_OK_FOR_Q (VALUE) : 0)
 
 /* Basic Stack Layout */
 
@@ -1137,13 +1113,8 @@ enum reg_class
    unwind info, so we don't try to support them.  We would also need to define
    DYNAMIC_CHAIN_ADDRESS and SETUP_FRAME_ADDRESS (for the reg stack flush).  */
 
-/* ??? This only works for non-leaf functions.  In a leaf function, the return
-   address would be in b0 (rp).  */
-
-#define RETURN_ADDR_RTX(COUNT, FRAMEADDR) \
-  (((COUNT) == 0)							\
-   ? gen_rtx_REG (Pmode, RETURN_ADDRESS_REGNUM)				\
-   : (rtx) 0)
+#define RETURN_ADDR_RTX(COUNT, FRAME) \
+  ((COUNT) == 0 ? return_address_pointer_rtx : const0_rtx)
 
 /* A C expression whose value is RTL representing the location of the incoming
    return address at the beginning of any function, before the prologue.  This
@@ -1151,6 +1122,7 @@ enum reg_class
    or a `MEM' representing a location in the stack.  This enables DWARF2
    unwind info for C++ EH.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
+
 /* ??? This is not defined because of three problems.
    1) dwarf2out.c assumes that DWARF_FRAME_RETURN_COLUMN fits in one byte.
    The default value is FIRST_PSEUDO_REGISTER which doesn't.  This can be
@@ -1203,10 +1175,12 @@ extern int ia64_local_regs;
    in it.  */
 #define ARG_POINTER_REGNUM R_GR(0)
 
-/* The register number for the return address register.  This is modified by
-   ia64_expand_prologue to point to the real return address save register.  */
+/* The register number for the return address register.  This is not actually
+   a pointer as the name suggests, but that's a name that gen_rtx_REG 
+   already takes care to keep unique.  We modify return_address_pointer_rtx
+   in ia64_expand_prologue to reference the final output regnum.  */
 
-#define RETURN_ADDRESS_REGNUM 329
+#define RETURN_ADDRESS_POINTER_REGNUM 329
 
 /* Register numbers used for passing a function's static chain pointer.  */
 
@@ -1228,14 +1202,15 @@ extern int ia64_local_regs;
 {									\
   {ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM},				\
   {ARG_POINTER_REGNUM,	 FRAME_POINTER_REGNUM},				\
-  {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}				\
+  {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},				\
+  {RETURN_ADDRESS_POINTER_REGNUM, BR_REG (0)}				\
 }
 
 /* A C expression that returns non-zero if the compiler is allowed to try to
-   replace register number FROM with register number TO.  There are no ia64
-   specific restrictions.  */
+   replace register number FROM with register number TO.  */
 
-#define CAN_ELIMINATE(FROM, TO) 1
+#define CAN_ELIMINATE(FROM, TO) \
+  (TO == BR_REG (0) ? current_function_is_leaf : 1)
 
 /* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It specifies the
    initial difference between the specified pair of registers.  This macro must
@@ -1264,6 +1239,8 @@ extern int ia64_local_regs;
 	  abort ();							\
 	}								\
     }									\
+  else if ((TO) == BR_REG (0))						\
+    (OFFSET) = 0;							\
   else									\
     abort ();								\
 }
@@ -1464,6 +1441,10 @@ do {									\
 #define FUNCTION_PROLOGUE(FILE, SIZE) \
   ia64_function_prologue (FILE, SIZE)
 
+/* This macro notes the end of the prologue.  */
+
+#define FUNCTION_END_PROLOGUE(FILE)  ia64_output_end_prologue (FILE)
+
 /* Define this macro as a C expression that is nonzero if the return
    instruction or the function epilogue ignores the value of the stack pointer;
    in other words, if it is safe to delete an instruction to adjust the stack
@@ -1481,6 +1462,11 @@ do {									\
 
 #define FUNCTION_EPILOGUE(FILE, SIZE) \
   ia64_function_epilogue (FILE, SIZE)
+
+/* Output at beginning of assembler file.  */
+
+#define ASM_FILE_START(FILE) \
+  ia64_file_start (FILE)
 
 /* A C compound statement that outputs the assembler code for a thunk function,
    used to implement C++ virtual function calls with multiple inheritance.  */
@@ -1912,8 +1898,6 @@ do {									\
 ((FROM) == BR_REGS && (TO) == BR_REGS ? 8				\
  : (((FROM) == BR_REGS && (TO) != GENERAL_REGS)				\
     || ((TO) == BR_REGS && (FROM) != GENERAL_REGS)) ? 6			\
- : (((FROM) == FR_FP_REGS && (TO) == FR_INT_REGS)			\
-    || ((FROM) == FR_INT_REGS && (TO) == FR_FP_REGS)) ? 4		\
  : 2)
 
 /* A C expression for the cost of moving data of mode M between a register and
@@ -2348,7 +2332,7 @@ do {									\
   /* Branch registers.  */						\
   "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7",			\
   /* Frame pointer.  Return address.  */				\
-  "fp", "ra"								\
+  "sfp", "retaddr"							\
 }
 
 /* If defined, a C initializer for an array of structures containing a name and
@@ -2469,7 +2453,7 @@ do {									\
 
 /* ??? Keep this around for now, as we might need it later.  */
 
-/* #define PRINT_OPERAND_PUNCT_VALID_P(CODE) */
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)   ((CODE) == '+')
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand that is a memory reference whose address is X.  X

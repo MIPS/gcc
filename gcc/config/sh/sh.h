@@ -48,6 +48,7 @@ extern int code_for_indirect_jump_scratch;
 %{m4-single:-D__SH4_SINGLE__} \
 %{m4:-D__SH4__} \
 %{!m1:%{!m2:%{!m3:%{!m3e:%{!m4:%{!m4-single:%{!m4-single-only:-D__sh1__}}}}}}} \
+%{mnomacsave:-D__NOMACSAVE__} \
 %{mhitachi:-D__HITACHI__}"
 
 #define CPP_PREDEFINES "-D__sh__ -Acpu(sh) -Amachine(sh)"
@@ -77,7 +78,7 @@ extern int code_for_indirect_jump_scratch;
 	}								\
     }									\
   /* Hitachi saves and restores mac registers on call.  */		\
-  if (TARGET_HITACHI)							\
+  if (TARGET_HITACHI && ! TARGET_NOMACSAVE)				\
     {									\
       call_used_regs[MACH_REG] = 0;					\
       call_used_regs[MACL_REG] = 0;					\
@@ -103,6 +104,7 @@ extern int target_flags;
 #define BIGTABLE_BIT  	(1<<14)
 #define RELAX_BIT	(1<<15)
 #define HITACHI_BIT     (1<<22)
+#define NOMACSAVE_BIT   (1<<23)
 #define PADSTRUCT_BIT  (1<<28)
 #define LITTLE_ENDIAN_BIT (1<<29)
 #define IEEE_BIT (1<<30)
@@ -162,6 +164,9 @@ extern int target_flags;
 /* Nonzero if using Hitachi's calling convention.  */
 #define TARGET_HITACHI 		(target_flags & HITACHI_BIT)
 
+/* Nonzero if not saving macl/mach when using -mhitachi */
+#define TARGET_NOMACSAVE	(target_flags & NOMACSAVE_BIT)
+
 /* Nonzero if padding structures to a multiple of 4 bytes.  This is
    incompatible with Hitachi's compiler, and gives unusual structure layouts
    which confuse programmers.
@@ -185,6 +190,7 @@ extern int target_flags;
   {"dalign",  	DALIGN_BIT},			\
   {"fmovd",  	FMOVD_BIT},			\
   {"hitachi",	HITACHI_BIT},			\
+  {"nomacsave", NOMACSAVE_BIT},			\
   {"ieee",  	IEEE_BIT},			\
   {"isize", 	ISIZE_BIT},			\
   {"l",		LITTLE_ENDIAN_BIT},  		\
@@ -819,9 +825,14 @@ extern enum reg_class reg_class_from_letter[];
      ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the size of the object.  */
+   operand of a SUBREG that changes the mode of the object illegally.  */
 
-#define CLASS_CANNOT_CHANGE_SIZE	DF_REGS
+#define CLASS_CANNOT_CHANGE_MODE        DF_REGS
+
+/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
+
+#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
 
 /* Stack layout; function entry, exit and calling.  */
 

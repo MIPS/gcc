@@ -405,6 +405,12 @@ static void dwarf2out_frame_debug_expr	PARAMS ((rtx, const char *));
   fprintf ((FILE), "\t%s\t0x%x", UNALIGNED_INT_ASM_OP, (unsigned) (VALUE))
 #endif
 
+#ifndef ASM_OUTPUT_DWARF_DATA8
+#define ASM_OUTPUT_DWARF_DATA8(FILE,VALUE) \
+  fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_DOUBLE_INT_ASM_OP, \
+	   (unsigned long) (VALUE))
+#endif
+
 #ifndef ASM_OUTPUT_DWARF_DATA
 #define ASM_OUTPUT_DWARF_DATA(FILE,VALUE) \
   fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_OFFSET_ASM_OP, \
@@ -417,8 +423,8 @@ static void dwarf2out_frame_debug_expr	PARAMS ((rtx, const char *));
 	   (unsigned long) (VALUE))
 #endif
 
-#ifndef ASM_OUTPUT_DWARF_DATA8
-#define ASM_OUTPUT_DWARF_DATA8(FILE,HIGH_VALUE,LOW_VALUE)		\
+#ifndef ASM_OUTPUT_DWARF_CONST_DOUBLE
+#define ASM_OUTPUT_DWARF_CONST_DOUBLE(FILE,HIGH_VALUE,LOW_VALUE)	\
   do {									\
     if (WORDS_BIG_ENDIAN)						\
       {									\
@@ -1289,6 +1295,16 @@ dwarf2out_frame_debug_expr (expr, label)
       dwarf2out_def_cfa (label, cfa_reg, cfa_offset);
       break;
 
+      /* Skip over HIGH, assuming it will be followed by a LO_SUM, which
+	 will fill in all of the bits.  */
+    case HIGH:
+      break;
+
+    case LO_SUM:
+      cfa_temp_reg = REGNO (dest);
+      cfa_temp_value = INTVAL (XEXP (src, 1));
+      break;
+
     case MEM:
       /* Saving a register to the stack.  Make sure dest is relative to the
 	 CFA register.  */
@@ -2001,6 +2017,7 @@ typedef struct pubname_struct *pubname_ref;
 typedef dw_die_ref *arange_ref;
 
 /* Describe a double word constant value.  */
+/* ??? Every instance of long_long in the code really means CONST_DOUBLE.  */
 
 typedef struct dw_long_long_struct
 {
@@ -4627,7 +4644,7 @@ size_of_die (die)
 	  }
 	  break;
 	case dw_val_class_const:
-	  size += 4;
+	  size += size_of_sleb128 (AT_int (a));
 	  break;
 	case dw_val_class_unsigned_const:
 	  size += constant_size (AT_unsigned (a));
@@ -4784,7 +4801,7 @@ value_format (a)
 	  abort ();
 	}
     case dw_val_class_const:
-      return DW_FORM_data4;
+      return DW_FORM_sdata;
     case dw_val_class_unsigned_const:
       switch (constant_size (AT_unsigned (a)))
 	{
@@ -5072,7 +5089,10 @@ output_die (die)
 	  break;
 
 	case dw_val_class_const:
-	  ASM_OUTPUT_DWARF_DATA4 (asm_out_file, AT_int (a));
+	  /* ??? It would be slightly more efficient to use a scheme like is
+	     used for unsigned constants below, but gdb 4.x does not sign
+	     extend.  Gdb 5.x does sign extend.  */
+	  output_sleb128 (AT_int (a));
 	  break;
 
 	case dw_val_class_unsigned_const:
@@ -5088,9 +5108,7 @@ output_die (die)
 	      ASM_OUTPUT_DWARF_DATA4 (asm_out_file, AT_unsigned (a));
 	      break;
 	    case 8:
-	      ASM_OUTPUT_DWARF_DATA8 (asm_out_file,
-				      a->dw_attr_val.v.val_long_long.hi,
-				      a->dw_attr_val.v.val_long_long.low);
+	      ASM_OUTPUT_DWARF_DATA8 (asm_out_file, AT_unsigned (a));
 	      break;
 	    default:
 	      abort ();
@@ -5104,9 +5122,9 @@ output_die (die)
 		   ASM_COMMENT_START, dwarf_attr_name (a->dw_attr));
 
 	  fputc ('\n', asm_out_file);
-	  ASM_OUTPUT_DWARF_DATA8 (asm_out_file,
-				  a->dw_attr_val.v.val_long_long.hi,
-				  a->dw_attr_val.v.val_long_long.low);
+	  ASM_OUTPUT_DWARF_CONST_DOUBLE (asm_out_file,
+					 a->dw_attr_val.v.val_long_long.hi,
+					 a->dw_attr_val.v.val_long_long.low);
 
 	  if (flag_debug_asm)
 	    fprintf (asm_out_file,

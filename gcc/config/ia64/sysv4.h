@@ -179,14 +179,12 @@ do {									\
 /* ??? Unrelated, but dwarf2out.c emits unnecessary newlines after strings,
    may as well fix at the same time.  */
 
-#if 0
 #undef ASM_FILE_START
 #define ASM_FILE_START(STREAM) \
 do {									\
-  fputs (ASM_APP_OFF, STREAM);						\
   output_file_directive (STREAM, main_input_filename);			\
+  ia64_file_start(STREAM);						\
 } while (0)
-#endif
 
 /* Case label alignment is handled by ADDR_VEC_ALIGN now.  */
 
@@ -221,6 +219,21 @@ do {									\
   /* This could be a CONSTRUCTOR containing ADDR_EXPR of a VAR_DECL,	\
      in which case we can't put it in a shared library rodata.  */	\
   else if (flag_pic && (RELOC))						\
+    data_section ();							\
+  else									\
+    const_section ();							\
+}
+
+/* Similarly for constant pool data.  */
+
+extern unsigned int ia64_section_threshold;
+#undef SELECT_RTX_SECTION
+#define SELECT_RTX_SECTION(MODE, RTX)					\
+{									\
+  if (GET_MODE_SIZE (MODE) > 0						\
+      && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
+    sdata_section ();							\
+  else if (flag_pic && symbolic_operand ((RTX), (MODE)))		\
     data_section ();							\
   else									\
     const_section ();							\

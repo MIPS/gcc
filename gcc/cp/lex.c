@@ -341,9 +341,8 @@ get_time_identifier (name)
   return time_identifier;
 }
 
-/* Table indexed by tree code giving a string containing a character
-   classifying the tree code.  Possibilities are
-   t, d, s, c, r, <, 1 and 2.  See cp/cp-tree.def for details.  */
+
+/* Tree code classes. */
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
@@ -392,7 +391,7 @@ lang_init_options ()
   /* Mark as "unspecified".  */
   flag_bounds_check = -1;
   /* By default wrap lines at 72 characters.  */
-  set_message_length (72);
+  diagnostic_message_length_per_line = 72;
   /* By default, emit location information once for every
      diagnostic message.  */
   set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
@@ -468,9 +467,9 @@ init_operators ()
   
 #define DEF_OPERATOR(NAME, CODE, NEW_MANGLING, OLD_MANGLING, ARITY, ASSN_P) \
   my_friendly_assert ((strlen ("operator ") + strlen (NAME) + 1		    \
-		       <= 256),						    \
+                       + ISALPHA (NAME[0])  <= 256),    		    \
 		      20000526);					    \
-  sprintf (buffer, "operator %s", NAME);				    \
+  sprintf (buffer, ISALPHA (NAME[0]) ? "operator %s" : "operator%s", NAME); \
   identifier = get_identifier (buffer);					    \
   IDENTIFIER_OPNAME_P (identifier) = 1;					    \
 									    \
@@ -581,15 +580,17 @@ init_parse (filename)
   init_tree ();
   init_cplus_expand ();
 
-  memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
+  add_c_tree_codes ();
+
+  memcpy (tree_code_type + (int) LAST_C_TREE_CODE,
 	  cplus_tree_code_type,
-	  (int)LAST_CPLUS_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
-  memcpy (tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE,
+	  (int)LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE);
+  memcpy (tree_code_length + (int) LAST_C_TREE_CODE,
 	  cplus_tree_code_length,
-	  (LAST_CPLUS_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
-  memcpy (tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE,
+	  (LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE) * sizeof (int));
+  memcpy (tree_code_name + (int) LAST_C_TREE_CODE,
 	  cplus_tree_code_name,
-	  (LAST_CPLUS_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
+	  (LAST_CPLUS_TREE_CODE - (int)LAST_C_TREE_CODE) * sizeof (char *));
 
   init_operators ();
   init_method ();
@@ -728,13 +729,6 @@ finish_parse ()
 #else
   fclose (finput);
 #endif
-}
-
-void
-reinit_parse_for_function ()
-{
-  current_base_init_list = NULL_TREE;
-  current_member_init_list = NULL_TREE;
 }
 
 inline void
@@ -935,10 +929,10 @@ extract_interface_info ()
 
   if (flag_alt_external_templates)
     {
-      struct tinst_level *til = tinst_for_decl ();
+      tree til = tinst_for_decl ();
   
       if (til)
-	fileinfo = get_time_identifier (til->file);
+	fileinfo = get_time_identifier (TINST_FILE (til));
     }
   if (!fileinfo)
     fileinfo = get_time_identifier (input_filename);
@@ -4778,7 +4772,7 @@ retrofit_lang_decl (t)
   else
     size = sizeof (struct lang_decl_flags);
 
-  ld = (struct lang_decl *) ggc_alloc_obj (size, 1);
+  ld = (struct lang_decl *) ggc_alloc_cleared (size);
 
   DECL_LANG_SPECIFIC (t) = ld;
   if (current_lang_name == lang_name_cplusplus)

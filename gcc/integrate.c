@@ -201,7 +201,8 @@ function_cannot_inline_p (fndecl)
     {
       if (int_size_in_bytes (TREE_TYPE (parms)) < 0)
 	return N_("function with varying-size parameter cannot be inline");
-      else if (TYPE_TRANSPARENT_UNION (TREE_TYPE (parms)))
+      else if (TREE_CODE (TREE_TYPE (parms)) == UNION_TYPE
+	       && TYPE_TRANSPARENT_UNION (TREE_TYPE (parms)))
 	return N_("function with transparent unit parameter cannot be inline");
     }
 
@@ -1191,7 +1192,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
       target = gen_rtx_MEM (TYPE_MODE (type),
 			    memory_address (TYPE_MODE (type),
 					    structure_value_addr));
-      MEM_SET_IN_STRUCT_P (target, 1);
+      set_mem_attributes (target, type, 1);
     }
 
   /* Make sure we free the things we explicitly allocated with xmalloc.  */

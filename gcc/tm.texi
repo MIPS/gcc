@@ -849,9 +849,10 @@ on machines that don't have byte or half-word store operations.
 
 @findex BIGGEST_FIELD_ALIGNMENT
 @item BIGGEST_FIELD_ALIGNMENT
-Biggest alignment that any structure field can require on this machine,
-in bits.  If defined, this overrides @code{BIGGEST_ALIGNMENT} for
-structure fields only.
+Biggest alignment that any structure or union field can require on this
+machine, in bits.  If defined, this overrides @code{BIGGEST_ALIGNMENT} for
+structure and union fields only, unless the field alignment has been set
+by the @code{__attribute__ ((aligned (@var{n})))} construct.
 
 @findex ADJUST_FIELD_ALIGN
 @item ADJUST_FIELD_ALIGN (@var{field}, @var{computed})
@@ -2088,17 +2089,25 @@ should be the maximum value of @code{HARD_REGNO_NREGS (@var{regno},
 This macro helps control the handling of multiple-word values
 in the reload pass.
 
-@item CLASS_CANNOT_CHANGE_SIZE
-If defined, a C expression for a class that contains registers which the
-compiler must always access in a mode that is the same size as the mode
-in which it loaded the register.
+@item CLASS_CANNOT_CHANGE_MODE
+If defined, a C expression for a class that contains registers for
+which the compiler may not change modes arbitrarily.
+
+@item CLASS_CANNOT_CHANGE_MODE_P(@var{from}, @var{to})
+A C expression that is true if, for a register in
+@code{CLASS_CANNOT_CHANGE_MODE}, the requested mode punning is illegal.
 
 For the example, loading 32-bit integer or floating-point objects into
 floating-point registers on the Alpha extends them to 64-bits.
 Therefore loading a 64-bit object and then storing it as a 32-bit object
 does not store the low-order 32-bits, as would be the case for a normal
-register.  Therefore, @file{alpha.h} defines this macro as
-@code{FLOAT_REGS}.
+register.  Therefore, @file{alpha.h} defines @code{CLASS_CANNOT_CHANGE_MODE}
+as @code{FLOAT_REGS} and @code{CLASS_CANNOT_CHANGE_MODE_P} restricts
+mode changes to same-size modes.
+
+Compare this to IA-64, which extends floating-point values to 82-bits,
+and stores 64-bit integers in a different format than 64-bit doubles.
+Therefore @code{CLASS_CANNOT_CHANGE_MODE_P} is always true.
 @end table
 
 Three other special macros describe which operands fit which constraint
@@ -7973,4 +7982,29 @@ A C expression for the maximum number of instructions to execute via
 conditional execution instructions instead of a branch.  A value of
 @code{BRANCH_COST}+1 is the default if the machine does not use cc0, and
 1 if it does use cc0.
+
+@findex IFCVT_MODIFY_TESTS
+@item IFCVT_MODIFY_TESTS
+A C expression to modify the tests in @code{TRUE_EXPR}, and
+@code{FALSE_EXPPR} for use in converting insns in @code{TEST_BB},
+@code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB} basic blocks to
+conditional execution.  Set either @code{TRUE_EXPR} or @code{FALSE_EXPR}
+to a null pointer if the tests cannot be converted.
+
+@findex IFCVT_MODIFY_INSN
+@item IFCVT_MODIFY_INSN
+A C expression to modify the @code{PATTERN} of an @code{INSN} that is to
+be converted to conditional execution format.
+
+@findex IFCVT_MODIFY_FINAL
+@item IFCVT_MODIFY_FINAL
+A C expression to perform any final machine dependent modifications in
+converting code to conditional execution in the basic blocks
+@code{TEST_BB}, @code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB}.
+
+@findex IFCVT_MODIFY_CANCEL
+@item IFCVT_MODIFY_CANCEL
+A C expression to cancel any machine dependent modifications in
+converting code to conditional execution in the basic blocks
+@code{TEST_BB}, @code{THEN_BB}, @code{ELSE_BB}, and @code{JOIN_BB}.
 @end table

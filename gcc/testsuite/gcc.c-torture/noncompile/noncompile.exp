@@ -1,4 +1,4 @@
-#   Copyright (C) 1988, 90-92, 1997, 1999 Free Software Foundation, Inc.
+#   Copyright (C) 1988, 90-92, 1997, 1999, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -323,16 +323,6 @@ set compiler_output ".*:6:"
 set groups {passed gcc-noncompile}
 
 postbase_with_opts $src_code $run $groups
-
-# Test poison-1.c
-prebase
-
-set src_code poison-1.c
-set compiler_output ".*c:2:.*c:4:.*c:5:.*c:7:.*c:8:.*c:9:.*c:11:.*c:12:.*c:13:.*c:14:.*c:17:.*c:20:"
-
-set groups {passed gcc-noncompile}
-
-postbase $src_code $run $groups
 
 # Test bp-1.c
 prebase

@@ -47,6 +47,7 @@ static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
 static tree cp_unsave_r PARAMS ((tree *, int *, void *));
 static void cp_unsave PARAMS ((tree *));
 static tree build_target_expr PARAMS ((tree, tree));
+static tree count_trees_r PARAMS ((tree *, int *, void *));
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
@@ -1395,6 +1396,30 @@ walk_tree (tp, func, data)
 
 #undef WALK_SUBTREE
 }
+
+/* Called from count_trees via walk_tree.  */
+
+static tree
+count_trees_r (tp, walk_subtrees, data)
+     tree *tp ATTRIBUTE_UNUSED;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data;
+{
+  ++ *((int*) data);
+  return NULL_TREE;
+}
+
+/* Debugging function for measuring the rough complexity of a tree
+   representation.  */
+
+int
+count_trees (t)
+     tree t;
+{
+  int n_trees = 0;
+  walk_tree (&t, count_trees_r, &n_trees);
+  return n_trees;
+}  
 
 /* Passed to walk_tree.  Checks for the use of types with no linkage.  */
 

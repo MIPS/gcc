@@ -45,7 +45,6 @@ Boston, MA 02111-1307, USA.  */
 #include "dwarfout.h"
 #include "ggc.h"
 #include "timevar.h"
-#include "diagnostic.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -95,6 +94,7 @@ static tree prune_vars_needing_no_initialization PARAMS ((tree));
 static void write_out_vars PARAMS ((tree));
 static void import_export_class	PARAMS ((tree));
 static tree key_method PARAMS ((tree));
+static int compare_options PARAMS ((const PTR, const PTR));
 
 extern int current_class_depth;
 
@@ -247,7 +247,7 @@ int flag_const_strings = 1;
 /* If non-NULL, dump the tree structure for the entire translation
    unit to this file.  */
 
-char *flag_dump_translation_unit = 0;
+const char *flag_dump_translation_unit = 0;
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -471,9 +471,6 @@ int max_tinst_depth = 17;
    arguments.  */
 int name_mangling_version = 2;
 
-/* Nonzero means that guiding declarations are allowed.  */
-int flag_guiding_decls;
-
 /* Nonzero if wchar_t should be `unsigned short' instead of whatever it
    would normally be, for use with WINE.  */
 int flag_short_wchar;
@@ -503,6 +500,10 @@ int flag_enforce_eh_specs = 1;
    after the file has been completely parsed.  */
 
 void (*back_end_hook) PARAMS ((tree));
+
+/* The variant of the C language being processed.  */
+
+c_language_kind c_language = clk_cplusplus;
 
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
@@ -561,6 +562,28 @@ lang_f_options[] =
   {"xref", &flag_gnu_xref, 1}
 };
 
+/* The list of `-f' options that we no longer support.  The `-f'
+   prefix is not given in this table.  The `-fno-' variants are not
+   listed here.  This table must be kept in alphabetical order.  */
+static const char * const unsupported_options[] = {
+  "all-virtual",
+  "enum-int-equiv",
+  "guiding-decls",
+  "nonnull-objects",
+  "this-is-variable",
+};
+
+/* Compare two option strings, pointed two by P1 and P2, for use with
+   bsearch.  */
+
+static int
+compare_options (p1, p2)
+     const PTR p1;
+     const PTR p2;
+{
+  return strcmp (*((const char *const *) p1), *((const char *const *) p2));
+}
+
 /* Decode the string P as a language-specific option.
    Return the number of strings consumed for a valid option.
    Otherwise return 0.  Should not complain if it does not
@@ -576,7 +599,7 @@ lang_decode_option (argc, argv)
      char **argv;
 {
   int strings_processed;
-  char *p = argv[0];
+  const char *p = argv[0];
 #if USE_CPPLIB
   strings_processed = cpp_handle_option (&parse_in, argc, argv);
 #else
@@ -591,19 +614,36 @@ lang_decode_option (argc, argv)
 	 P's value is the option sans `-f'.
 	 Search for it in the table of options.  */
       const char *option_value = NULL;
+      const char *positive_option;
       size_t j;
 
       p += 2;
       /* Try special -f options.  */
 
+      /* See if this is one of the options no longer supported.  We
+	 used to support these options, so we continue to accept them,
+	 with a warning.  */
+      if (strncmp (p, "no-", strlen ("no-")) == 0)
+	positive_option = p + strlen ("no-");
+      else
+	positive_option = p;
+
+      /* If the option is present, issue a warning.  Indicate to our
+	 caller that the option was processed successfully.  */
+      if (bsearch (&positive_option, 
+		   unsupported_options, 
+		   (sizeof (unsupported_options) 
+		    / sizeof (unsupported_options[0])),
+		   sizeof (unsupported_options[0]),
+		   compare_options))
+	{
+	  warning ("-f%s is no longer supported", p);
+	  return 1;
+	}
+
       if (!strcmp (p, "handle-exceptions")
 	  || !strcmp (p, "no-handle-exceptions"))
 	warning ("-fhandle-exceptions has been renamed to -fexceptions (and is now on by default)");
-      else if (!strcmp (p, "all-virtual")
-	       || !strcmp (p, "enum-int-equiv")
-	       || !strcmp (p, "no-nonnull-objects")
-	       || !strcmp (p, "this-is-variable"))
-	warning ("-f%s is no longer supported", p);
       else if (! strcmp (p, "alt-external-templates"))
 	{
 	  flag_external_templates = 1;
@@ -617,13 +657,6 @@ lang_decode_option (argc, argv)
 	  flag_use_repository = 1;
 	  flag_implicit_templates = 0;
 	}
-      else if (!strcmp (p, "guiding-decls"))
-	{
-	  flag_guiding_decls = 1;
-	  name_mangling_version = 0;
-	}
-      else if (!strcmp (p, "no-guiding-decls"))
-	flag_guiding_decls = 0;
       else if (!strcmp (p, "external-templates"))
         {
           flag_external_templates = 1;
@@ -648,21 +681,6 @@ lang_decode_option (argc, argv)
                 = skip_leading_substring (p, "name-mangling-version-")))
 	name_mangling_version 
 	  = read_integral_parameter (option_value, p - 2, name_mangling_version);
-      else if ((option_value
-                = skip_leading_substring (p, "message-length=")))
-	set_message_length
-	  (read_integral_parameter (option_value, p - 2,
-				    /* default line-wrap length */ 72));
-      else if ((option_value
-                = skip_leading_substring (p, "diagnostics-show-location=")))
-        {
-          if (!strcmp (option_value, "once"))
-            set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
-          else if (!strcmp (option_value, "every-line"))
-            set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE);
-          else
-            error ("Unrecognized option `%s'", p - 2);
-        }
       else if ((option_value
                 = skip_leading_substring (p, "dump-translation-unit-")))
 	{
@@ -881,14 +899,14 @@ warn_if_unknown_interface (decl)
 
   if (flag_alt_external_templates)
     {
-      struct tinst_level *til = tinst_for_decl ();
+      tree til = tinst_for_decl ();
       int sl = lineno;
       const char *sf = input_filename;
 
       if (til)
 	{
-	  lineno = til->line;
-	  input_filename = til->file;
+	  lineno = TINST_LINE (til);
+	  input_filename = TINST_FILE (til);
 	}
       cp_warning ("template `%#D' instantiated in file without #pragma interface",
 		  decl);
@@ -1086,7 +1104,12 @@ grokclassfn (ctype, function, flags, quals)
   if (flags == DTOR_FLAG)
     {
       DECL_DESTRUCTOR_P (function) = 1;
-      DECL_ASSEMBLER_NAME (function) = build_destructor_name (ctype);
+
+      if (flag_new_abi) 
+	set_mangled_name_for_decl (function);
+      else
+	DECL_ASSEMBLER_NAME (function) = build_destructor_name (ctype);
+
       TYPE_HAS_DESTRUCTOR (ctype) = 1;
     }
   else
@@ -1548,6 +1571,8 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
 
   my_friendly_assert (TREE_PUBLIC (decl), 0);
 
+  DECL_CONTEXT (decl) = current_class_type;
+
   /* We cannot call pushdecl here, because that would fill in the
      decl of our TREE_CHAIN.  Instead, we modify cp_finish_decl to do
      the right thing, namely, to put this decl out straight away.  */
@@ -1555,8 +1580,11 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
   if (!asmspec && current_class_type)
     {
       DECL_INITIAL (decl) = error_mark_node;
-      DECL_ASSEMBLER_NAME (decl)
-	= build_static_name (current_class_type, DECL_NAME (decl));
+      if (flag_new_abi)
+	DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
+      else
+	DECL_ASSEMBLER_NAME (decl) 
+	  = build_static_name (current_class_type, DECL_NAME (decl));
     }
   if (! processing_template_decl)
     {
@@ -1581,7 +1609,6 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
     TREE_USED (decl) = 1;
   DECL_INITIAL (decl) = init;
   DECL_IN_AGGR_P (decl) = 1;
-  DECL_CONTEXT (decl) = current_class_type;
 
   cp_finish_decl (decl, init, asmspec_tree, flags);
 }
@@ -1687,9 +1714,14 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       /* Now that we've updated the context, we need to remangle the
 	 name for this TYPE_DECL.  */
       DECL_ASSEMBLER_NAME (value) = DECL_NAME (value);
-      if (!uses_template_parms (value))
-	DECL_ASSEMBLER_NAME (value) =
-	  get_identifier (build_overload_name (TREE_TYPE (value), 1, 1));
+      if (!uses_template_parms (value)) 
+	{
+	  if (flag_new_abi)
+	    DECL_ASSEMBLER_NAME (value) = mangle_type (TREE_TYPE (value));
+	  else
+	    DECL_ASSEMBLER_NAME (value) =
+	      get_identifier (build_overload_name (TREE_TYPE (value), 1, 1));
+	}
 
       if (processing_template_decl)
 	value = push_template_decl (value);
@@ -1875,7 +1907,10 @@ grokoptypename (declspecs, declarator)
      tree declspecs, declarator;
 {
   tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL_TREE);
-  return build_typename_overload (t);
+  if (flag_new_abi)
+    return mangle_conv_op_name_for_type (t);
+  else
+    return build_typename_overload (t);
 }
 
 /* When a function is declared with an initializer,
@@ -2262,6 +2297,7 @@ finish_builtin_type (type, name, fields, len, align_type)
     }
   DECL_FIELD_CONTEXT (fields[i]) = type;
   TYPE_ALIGN (type) = TYPE_ALIGN (align_type);
+  TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (align_type);
   layout_type (type);
 #if 0 /* not yet, should get fixed properly later */
   TYPE_NAME (type) = make_type_decl (get_identifier (name), type);
@@ -2826,16 +2862,25 @@ build_cleanup (decl)
   return temp;
 }
 
+/* Returns the initialization guard variable for the non-local
+   variable DECL.  */
+
 static tree
-get_sentry (base)
-     tree base;
+get_sentry (decl)
+     tree decl;
 {
-  tree sname = get_id_2 ("__sn", base);
+  tree sname;
+  tree sentry;
+
+  if (!flag_new_abi)
+    sname = get_id_2 ("__sn", DECL_ASSEMBLER_NAME (decl));
+  else
+    sname = mangle_guard_variable (decl);
+
   /* For struct X foo __attribute__((weak)), there is a counter
      __snfoo. Since base is already an assembler name, sname should
      be globally unique */
-  tree sentry = IDENTIFIER_GLOBAL_VALUE (sname);
-
+  sentry = IDENTIFIER_GLOBAL_VALUE (sname);
   if (! sentry)
     {
       sentry = build_decl (VAR_DECL, sname, integer_type_node);
@@ -3209,7 +3254,9 @@ start_static_initialization_or_destruction (decl, initp)
   cond = build_binary_op (TRUTH_ANDIF_EXPR, cond, init_cond);
 
   /* We need a sentry if this is an object with external linkage that
-     might be initialized in more than one place.  */
+     might be initialized in more than one place.  (For example, a
+     static data member of a template, when the data member requires
+     construction.)  */
   if (TREE_PUBLIC (decl) && (DECL_COMMON (decl) 
 			     || DECL_ONE_ONLY (decl)
 			     || DECL_WEAK (decl)))
@@ -3217,7 +3264,7 @@ start_static_initialization_or_destruction (decl, initp)
       tree sentry;
       tree sentry_cond;
 
-      sentry = get_sentry (DECL_ASSEMBLER_NAME (decl));
+      sentry = get_sentry (decl);
 
       /* We do initializations only if the SENTRY is zero, i.e., if we
 	 are the first to initialize the variable.  We do destructions
@@ -4768,7 +4815,7 @@ arg_assoc_class (k, type)
   /* Process template arguments.  */
   if (CLASSTYPE_TEMPLATE_INFO (type))
     {
-      list = innermost_args (CLASSTYPE_TI_ARGS (type));
+      list = INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type));
       for (i = 0; i < TREE_VEC_LENGTH (list); ++i) 
         arg_assoc_template_arg (k, TREE_VEC_ELT (list, i));
     }

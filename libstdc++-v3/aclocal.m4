@@ -167,27 +167,10 @@ AC_SUBST(GLIBCPP_CXXFLAGS)
 
 dnl
 dnl Check to see if g++ can compile this library, and if so, if any version-
-dnl specific precautions need to be taken. In particular, test for
-dnl newer compiler features, or features that are present in newer
-dnl compiler version but not older compiler versions should be placed
-dnl here.
-dnl
-dnl Define FMTFLAGS='-fdiagnostics-show-location=once' if possible
-dnl Define WERROR='-Werror' if possible; g++'s that lack the new inlining
-dnl    code or the new system_header pragma will die.  Other options dealing
-dnl    with warnings, errors, and compiler complaints may be folded into
-dnl    the WERROR variable.
-dnl
+dnl specific precautions need to be taken. 
+dnl 
 dnl GLIBCPP_CHECK_COMPILER_VERSION
 AC_DEFUN(GLIBCPP_CHECK_COMPILER_VERSION, [
-  # All these tests are for C++; save the language and the compiler flags.
-  # The CXXFLAGS thing is suspicious, but based on similar bits 
-  # found in GLIBCPP_CONFIGURE.
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
-  ac_test_CXXFLAGS="${CXXFLAGS+set}"
-  ac_save_CXXFLAGS="$CXXFLAGS"
-  WERROR='-Werror'
 
   # Sanity check that g++ is capable of dealing with v-3.
   AC_MSG_CHECKING([for g++ that will successfully compile this code])
@@ -197,6 +180,31 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_VERSION, [
   #endif
   ], gpp_satisfactory=yes, AC_MSG_ERROR("please upgrade to gcc-2.95 or above"))
   AC_MSG_RESULT($gpp_satisfactory)
+])
+
+
+dnl
+dnl Test for newer compiler features, or features that are present in newer
+dnl compiler version but not older compiler versions should be placed
+dnl here.
+dnl
+dnl Define WFMT_FLAGS='-fdiagnostics-show-location=once' if possible
+dnl 
+dnl Define WERROR='-Werror' if possible; g++'s that lack the new inlining
+dnl code or the new system_header pragma will die.  
+dnl
+dnl Define SECTION_FLAGS='-ffunction-sections -fdata-sections' if
+dnl compiler supports it.  
+dnl GLIBCPP_CHECK_COMPILER_FEATURES
+AC_DEFUN(GLIBCPP_CHECK_COMPILER_FEATURES, [
+  # All these tests are for C++; save the language and the compiler flags.
+  # The CXXFLAGS thing is suspicious, but based on similar bits 
+  # found in GLIBCPP_CONFIGURE.
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  WERROR='-Werror'
 
   # Check for pragma system_header.
   AC_MSG_CHECKING([for g++ that supports pragma system_header])
@@ -226,62 +234,749 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_VERSION, [
     CXXFLAGS=''
   fi
   if test "$ac_gabydiags" = "yes"; then
-    FMTFLAGS='-fdiagnostics-show-location=once'
+    WFMT_FLAGS='-fdiagnostics-show-location=once'
   fi
   AC_MSG_RESULT($ac_gabydiags)
 
+  # Check for -ffunction-sections -fdata-sections
+  AC_MSG_CHECKING([for g++ that supports -ffunction-sections -fdata-sections])
+  CXXFLAGS='-ffunction-sections -fdata-sections'
+  AC_TRY_COMPILE(, [int foo;
+  ], [ac_fdsections=yes], [ac_fdsections=no])
+  if test "$ac_test_CXXFLAGS" = set; then
+    CXXFLAGS="$ac_save_CXXFLAGS"
+  else
+    # this is the suspicious part
+    CXXFLAGS=''
+  fi
+  if test "$ac_fdsections" = "yes"; then
+    SECTION_FLAGS='-ffunction-sections -fdata-sections'
+  fi
+  AC_MSG_RESULT($ac_fdsections)
+
   AC_LANG_RESTORE
   AC_SUBST(WERROR)
-  AC_SUBST(FMTFLAGS)
+  AC_SUBST(WFMT_FLAGS)
+  AC_SUBST(SECTION_FLAGS)
+])
+
+
+dnl
+dnl Check to see if tricky linker opts can be used.
+dnl
+dnl Define SECTION_LDFLAGS='-Wl,--gc-sections' if possible
+dnl GLIBCPP_CHECK_LINKER_FEATURES
+AC_DEFUN(GLIBCPP_CHECK_LINKER_FEATURES, [
+  # All these tests are for C++; save the language and the compiler flags.
+  # The CXXFLAGS thing is suspicious, but based on similar bits 
+  # found in GLIBCPP_CONFIGURE.
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+
+  # Check for -Wl,--gc-sections
+  AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
+  CXXFLAGS='-Wl,--gc-sections'
+  AC_TRY_COMPILE(, [
+   try
+     {
+       throw 1;
+     }
+   catch (...) {};
+  ], [ac_sectionLDflags=yes], [ac_sectionLFflags=no])
+  if test "$ac_test_CXXFLAGS" = set; then
+    CXXFLAGS="$ac_save_CXXFLAGS"
+  else
+    # this is the suspicious part
+    CXXFLAGS=''
+  fi
+  if test "$ac_sectionLDflags" = "yes"; then
+    SECTION_LDFLAGS='-Wl,--gc-sections'
+  fi
+  AC_MSG_RESULT($ac_sectionLDflags)
+
+  AC_LANG_RESTORE
+  AC_SUBST(SECTION_LDFLAGS)
 ])
 
 
 dnl
 dnl Check to see what builtin math functions are supported
 dnl
-dnl Define _GLIBCPP_HAS_BUILTIN_SINF if __builtin_sinf
-dnl Define _GLIBCPP_HAS_BUILTIN_COSF if __builtin_cosf
-dnl Define _GLIBCPP_HAS_BUILTIN_FABSF if __builtin_fabsf
-dnl Define _GLIBCPP_HAS_BUILTIN_SQRTF if __builtin_sqrtf
-dnl
+dnl check for __builtin_acos
+dnl check for __builtin_acosf
+dnl check for __builtin_acosl
+dnl check for __builtin_asin
+dnl check for __builtin_asinf
+dnl check for __builtin_asinl
+dnl check for __builtin_atan
+dnl check for __builtin_atanf
+dnl check for __builtin_atanl
+dnl check for __builtin_atan2
+dnl check for __builtin_atan2f
+dnl check for __builtin_atan2l
+dnl check for __builtin_ceil
+dnl check for __builtin_ceilf
+dnl check for __builtin_ceill
+dnl check for __builtin_cos
+dnl check for __builtin_cosf
+dnl check for __builtin_cosl
+dnl check for __builtin_cosh
+dnl check for __builtin_coshf
+dnl check for __builtin_coshl
+dnl check for __builtin_exp
+dnl check for __builtin_expf
+dnl check for __builtin_expl
+dnl check for __builtin_fabs
+dnl check for __builtin_fabsf
+dnl check for __builtin_fabsl
+dnl check for __builtin_floor
+dnl check for __builtin_floorf
+dnl check for __builtin_floorl
+dnl check for __builtin_fmod
+dnl check for __builtin_fmodf
+dnl check for __builtin_fmodl
+dnl check for __builtin_frexp
+dnl check for __builtin_frexpf
+dnl check for __builtin_frexpl
+dnl check for __builtin_ldexp
+dnl check for __builtin_ldexpf
+dnl check for __builtin_ldexpl
+dnl check for __builtin_log
+dnl check for __builtin_logf
+dnl check for __builtin_logl
+dnl check for __builtin_log10
+dnl check for __builtin_log10f
+dnl check for __builtin_log10l
+dnl check for __builtin_modf
+dnl check for __builtin_modff
+dnl check for __builtin_modfl
+dnl check for __builtin_pow
+dnl check for __builtin_powf
+dnl check for __builtin_powl
+dnl check for __builtin_sin
+dnl check for __builtin_sinf
+dnl check for __builtin_sinl
+dnl check for __builtin_sinh
+dnl check for __builtin_sinhf
+dnl check for __builtin_sinhl
+dnl check for __builtin_sqrt
+dnl check for __builtin_sqrtf
+dnl check for __builtin_sqrtl
+dnl check for __builtin_tan
+dnl check for __builtin_tanf
+dnl check for __builtin_tanl
+dnl check for __builtin_tanh
+dnl check for __builtin_tanhf
+dnl check for __builtin_tanhl
 dnl GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT
 AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
   dnl Test for builtin math functions.
-  AC_MSG_CHECKING([for __builtin_sinf])
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  AC_MSG_CHECKING([for __builtin_acos])
   AC_TRY_COMPILE([#include <math.h>], 
-  [float foo(void) { __builtin_sinf(0.0); }], 
-  use_builtin_sinf=yes, use_builtin_sinf=no)
-  AC_MSG_RESULT($use_builtin_sinf)
-  if test $use_builtin_sinf = "yes"; then
-    AC_DEFINE(_GLIBCPP_HAS_BUILTIN_SINF)
+  [ __builtin_acos(0.0);], 
+  use_builtin_acos=yes, use_builtin_acos=no)
+  AC_MSG_RESULT($use_builtin_acos)
+  if test $use_builtin_acos = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ACOS)
   fi
-
+  AC_MSG_CHECKING([for __builtin_acosf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_acosf(0.0);], 
+  use_builtin_acosf=yes, use_builtin_acosf=no)
+  AC_MSG_RESULT($use_builtin_acosf)
+  if test $use_builtin_acosf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ACOSF)
+  fi
+  AC_MSG_CHECKING([for __builtin_acosl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_acosl(0.0);], 
+  use_builtin_acosl=yes, use_builtin_acosl=no)
+  AC_MSG_RESULT($use_builtin_acosl)
+  if test $use_builtin_acosl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ACOSL)
+  fi
+  AC_MSG_CHECKING([for __builtin_asin])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_asin(0.0);], 
+  use_builtin_asin=yes, use_builtin_asin=no)
+  AC_MSG_RESULT($use_builtin_asin)
+  if test $use_builtin_asin = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ASIN)
+  fi
+  AC_MSG_CHECKING([for __builtin_asinf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_asinf(0.0);], 
+  use_builtin_asinf=yes, use_builtin_asinf=no)
+  AC_MSG_RESULT($use_builtin_asinf)
+  if test $use_builtin_asinf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ASINF)
+  fi
+  AC_MSG_CHECKING([for __builtin_asinl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_asinl(0.0);], 
+  use_builtin_asinl=yes, use_builtin_asinl=no)
+  AC_MSG_RESULT($use_builtin_asinl)
+  if test $use_builtin_asinl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ASINL)
+  fi
+  AC_MSG_CHECKING([for __builtin_atan])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atan(0.0);], 
+  use_builtin_atan=yes, use_builtin_atan=no)
+  AC_MSG_RESULT($use_builtin_atan)
+  if test $use_builtin_atan = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATAN)
+  fi
+  AC_MSG_CHECKING([for __builtin_atanf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atanf(0.0);], 
+  use_builtin_atanf=yes, use_builtin_atanf=no)
+  AC_MSG_RESULT($use_builtin_atanf)
+  if test $use_builtin_atanf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATANF)
+  fi
+  AC_MSG_CHECKING([for __builtin_atanl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atanl(0.0);], 
+  use_builtin_atanl=yes, use_builtin_atanl=no)
+  AC_MSG_RESULT($use_builtin_atanl)
+  if test $use_builtin_atanl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATANL)
+  fi
+  AC_MSG_CHECKING([for __builtin_atan2])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atan2(0.0, 0.0);], 
+  use_builtin_atan2=yes, use_builtin_atan2=no)
+  AC_MSG_RESULT($use_builtin_atan2)
+  if test $use_builtin_atan2 = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATAN2)
+  fi
+  AC_MSG_CHECKING([for __builtin_atan2f])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atan2f(0.0, 0.0);], 
+  use_builtin_atan2f=yes, use_builtin_atan2f=no)
+  AC_MSG_RESULT($use_builtin_atan2f)
+  if test $use_builtin_atan2f = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATAN2F)
+  fi
+  AC_MSG_CHECKING([for __builtin_atan2l])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_atan2l(0.0, 0.0);], 
+  use_builtin_atan2l=yes, use_builtin_atan2l=no)
+  AC_MSG_RESULT($use_builtin_atan2l)
+  if test $use_builtin_atan2l = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_ATAN2L)
+  fi
+  AC_MSG_CHECKING([for __builtin_ceil])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fceil(0.0);], 
+  use_builtin_ceil=yes, use_builtin_ceil=no)
+  AC_MSG_RESULT($use_builtin_ceil)
+  if test $use_builtin_ceil = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_CEIL)
+  fi
+  AC_MSG_CHECKING([for __builtin_ceilf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_ceilf(0.0);], 
+  use_builtin_ceilf=yes, use_builtin_ceilf=no)
+  AC_MSG_RESULT($use_builtin_ceilf)
+  if test $use_builtin_ceilf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_CEILF)
+  fi
+  AC_MSG_CHECKING([for __builtin_ceill])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_ceill(0.0);], 
+  use_builtin_ceill=yes, use_builtin_ceill=no)
+  AC_MSG_RESULT($use_builtin_ceill)
+  if test $use_builtin_ceill = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_CEILL)
+  fi
+  AC_MSG_CHECKING([for __builtin_cos])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_cos(0.0);], 
+  use_builtin_cos=yes, use_builtin_cos=no)
+  AC_MSG_RESULT($use_builtin_cos)
+  if test $use_builtin_cos = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_COS)
+  fi
   AC_MSG_CHECKING([for __builtin_cosf])
   AC_TRY_COMPILE([#include <math.h>], 
-  [float foo(void) { __builtin_cosf(0.0); }], 
+  [ __builtin_cosf(0.0);], 
   use_builtin_cosf=yes, use_builtin_cosf=no)
   AC_MSG_RESULT($use_builtin_cosf)
   if test $use_builtin_cosf = "yes"; then
-    AC_DEFINE(_GLIBCPP_HAS_BUILTIN_COSF)
+    AC_DEFINE(HAVE_BUILTIN_COSF)
   fi
-
+  AC_MSG_CHECKING([for __builtin_cosl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_cosl(0.0);], 
+  use_builtin_cosl=yes, use_builtin_cosl=no)
+  AC_MSG_RESULT($use_builtin_cosl)
+  if test $use_builtin_cosl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_COSL)
+  fi
+  AC_MSG_CHECKING([for __builtin_cosh])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_cosh(0.0);], 
+  use_builtin_cosh=yes, use_builtin_cosh=no)
+  AC_MSG_RESULT($use_builtin_cosh)
+  if test $use_builtin_cosh = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_COSH)
+  fi
+  AC_MSG_CHECKING([for __builtin_coshf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_coshf(0.0);], 
+  use_builtin_coshf=yes, use_builtin_coshf=no)
+  AC_MSG_RESULT($use_builtin_coshf)
+  if test $use_builtin_coshf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_COSHF)
+  fi
+  AC_MSG_CHECKING([for __builtin_coshl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_coshl(0.0);], 
+  use_builtin_coshl=yes, use_builtin_coshl=no)
+  AC_MSG_RESULT($use_builtin_coshl)
+  if test $use_builtin_coshl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_COSHL)
+  fi
+  AC_MSG_CHECKING([for __builtin_exp])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_exp(0.0);], 
+  use_builtin_exp=yes, use_builtin_exp=no)
+  AC_MSG_RESULT($use_builtin_exp)
+  if test $use_builtin_exp = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_EXP)
+  fi
+  AC_MSG_CHECKING([for __builtin_expf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_expf(0.0);], 
+  use_builtin_expf=yes, use_builtin_expf=no)
+  AC_MSG_RESULT($use_builtin_expf)
+  if test $use_builtin_expf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_EXPF)
+  fi
+  AC_MSG_CHECKING([for __builtin_expl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_expl(0.0);], 
+  use_builtin_expl=yes, use_builtin_expl=no)
+  AC_MSG_RESULT($use_builtin_expl)
+  if test $use_builtin_expl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_EXPL)
+  fi
+  AC_MSG_CHECKING([for __builtin_fabs])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fabs(0.0);], 
+  use_builtin_fabs=yes, use_builtin_fabs=no)
+  AC_MSG_RESULT($use_builtin_fabs)
+  if test $use_builtin_fabs = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FABS)
+  fi
   AC_MSG_CHECKING([for __builtin_fabsf])
   AC_TRY_COMPILE([#include <math.h>], 
-  [float foo(void) { __builtin_fabsf(0.0); }], 
+  [ __builtin_fabsf(0.0);], 
   use_builtin_fabsf=yes, use_builtin_fabsf=no)
   AC_MSG_RESULT($use_builtin_fabsf)
   if test $use_builtin_fabsf = "yes"; then
-    AC_DEFINE(_GLIBCPP_HAS_BUILTIN_FABSF)
+    AC_DEFINE(HAVE_BUILTIN_FABSF)
   fi
-
+  AC_MSG_CHECKING([for __builtin_fabsl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fabsl(0.0);], 
+  use_builtin_fabsl=yes, use_builtin_fabsl=no)
+  AC_MSG_RESULT($use_builtin_fabsl)
+  if test $use_builtin_fabsl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FABSL)
+  fi
+  AC_MSG_CHECKING([for __builtin_floor])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_floor(0.0);], 
+  use_builtin_floor=yes, use_builtin_floor=no)
+  AC_MSG_RESULT($use_builtin_floor)
+  if test $use_builtin_floor = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FLOOR)
+  fi
+  AC_MSG_CHECKING([for __builtin_floorf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_floorf(0.0);], 
+  use_builtin_floorf=yes, use_builtin_floorf=no)
+  AC_MSG_RESULT($use_builtin_floorf)
+  if test $use_builtin_floorf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FLOORF)
+  fi
+  AC_MSG_CHECKING([for __builtin_floorl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_floorl(0.0);], 
+  use_builtin_floorl=yes, use_builtin_floorl=no)
+  AC_MSG_RESULT($use_builtin_floorl)
+  if test $use_builtin_floorl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FLOORL)
+  fi
+  AC_MSG_CHECKING([for __builtin_fmod])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fmod(0.0, 0.0);], 
+  use_builtin_fmod=yes, use_builtin_fmod=no)
+  AC_MSG_RESULT($use_builtin_fmod)
+  if test $use_builtin_fmod = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FMOD)
+  fi
+  AC_MSG_CHECKING([for __builtin_fmodf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fmodf(0.0, 0.0);], 
+  use_builtin_fmodf=yes, use_builtin_fmodf=no)
+  AC_MSG_RESULT($use_builtin_fmodf)
+  if test $use_builtin_fmodf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FMODF)
+  fi
+  AC_MSG_CHECKING([for __builtin_fmodl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fmodl(0.0, 0.0);], 
+  use_builtin_fmodl=yes, use_builtin_fmodl=no)
+  AC_MSG_RESULT($use_builtin_fmodl)
+  if test $use_builtin_fmodl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FMODL)
+  fi
+  AC_MSG_CHECKING([for __builtin_frexp])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_frexp(0.0, 0);], 
+  use_builtin_frexp=yes, use_builtin_frexp=no)
+  AC_MSG_RESULT($use_builtin_frexp)
+  if test $use_builtin_frexp = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FREXP)
+  fi
+  AC_MSG_CHECKING([for __builtin_frexpf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_frexpf(0.0, 0);], 
+  use_builtin_frexpf=yes, use_builtin_frexpf=no)
+  AC_MSG_RESULT($use_builtin_frexpf)
+  if test $use_builtin_frexpf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FREXPF)
+  fi
+  AC_MSG_CHECKING([for __builtin_frexpl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_frexpl(0.0, 0);], 
+  use_builtin_frexpl=yes, use_builtin_frexpl=no)
+  AC_MSG_RESULT($use_builtin_frexpl)
+  if test $use_builtin_frexpl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_FREXPL)
+  fi
+  AC_MSG_CHECKING([for __builtin_ldexp])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_ldexp(0.0, 0);], 
+  use_builtin_ldexp=yes, use_builtin_ldexp=no)
+  AC_MSG_RESULT($use_builtin_ldexp)
+  if test $use_builtin_ldexp = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LDEXP)
+  fi
+  AC_MSG_CHECKING([for __builtin_ldexpf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_ldexpf(0.0, 0);], 
+  use_builtin_ldexpf=yes, use_builtin_ldexpf=no)
+  AC_MSG_RESULT($use_builtin_ldexpf)
+  if test $use_builtin_ldexpf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LDEXPF)
+  fi
+  AC_MSG_CHECKING([for __builtin_ldexpl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_ldexpl(0.0, 0);], 
+  use_builtin_ldexpl=yes, use_builtin_ldexpl=no)
+  AC_MSG_RESULT($use_builtin_ldexpl)
+  if test $use_builtin_ldexpl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LDEXPL)
+  fi
+  AC_MSG_CHECKING([for __builtin_log])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_log(0.0);], 
+  use_builtin_log=yes, use_builtin_log=no)
+  AC_MSG_RESULT($use_builtin_log)
+  if test $use_builtin_log = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOG)
+  fi
+  AC_MSG_CHECKING([for __builtin_logf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_logf(0.0);], 
+  use_builtin_logf=yes, use_builtin_logf=no)
+  AC_MSG_RESULT($use_builtin_logf)
+  if test $use_builtin_logf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOGF)
+  fi
+  AC_MSG_CHECKING([for __builtin_logl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_logl(0.0);], 
+  use_builtin_logl=yes, use_builtin_logl=no)
+  AC_MSG_RESULT($use_builtin_logl)
+  if test $use_builtin_logl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOGL)
+  fi
+  AC_MSG_CHECKING([for __builtin_log10])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_log10(0.0);], 
+  use_builtin_log10=yes, use_builtin_log10=no)
+  AC_MSG_RESULT($use_builtin_log10)
+  if test $use_builtin_log10 = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOG10)
+  fi
+  AC_MSG_CHECKING([for __builtin_log10f])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_log10f(0.0);], 
+  use_builtin_log10f=yes, use_builtin_log10f=no)
+  AC_MSG_RESULT($use_builtin_log10f)
+  if test $use_builtin_log10f = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOG10F)
+  fi
+  AC_MSG_CHECKING([for __builtin_log10l])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_log10l(0.0);], 
+  use_builtin_log10l=yes, use_builtin_log10l=no)
+  AC_MSG_RESULT($use_builtin_log10l)
+  if test $use_builtin_log10l = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_LOG10L)
+  fi
+  AC_MSG_CHECKING([for __builtin_modf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_modf(0.0, 0);], 
+  use_builtin_modf=yes, use_builtin_modf=no)
+  AC_MSG_RESULT($use_builtin_modf)
+  if test $use_builtin_modf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_MODF)
+  fi
+  AC_MSG_CHECKING([for __builtin_modff])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_modff(0.0, 0);], 
+  use_builtin_modff=yes, use_builtin_modff=no)
+  AC_MSG_RESULT($use_builtin_modff)
+  if test $use_builtin_modff = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_MODFF)
+  fi
+  AC_MSG_CHECKING([for __builtin_modfl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_modfl(0.0, 0);], 
+  use_builtin_modfl=yes, use_builtin_modfl=no)
+  AC_MSG_RESULT($use_builtin_modfl)
+  if test $use_builtin_modfl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_MODFL)
+  fi
+  AC_MSG_CHECKING([for __builtin_pow])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_pow(0.0, 0.0);], 
+  use_builtin_pow=yes, use_builtin_pow=no)
+  AC_MSG_RESULT($use_builtin_pow)
+  if test $use_builtin_pow = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_POW)
+  fi
+  AC_MSG_CHECKING([for __builtin_powf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_powf(0.0, 0.0);], 
+  use_builtin_powf=yes, use_builtin_powf=no)
+  AC_MSG_RESULT($use_builtin_powf)
+  if test $use_builtin_powf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_POWF)
+  fi
+  AC_MSG_CHECKING([for __builtin_powl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_powl(0.0, 0.0);], 
+  use_builtin_powl=yes, use_builtin_powl=no)
+  AC_MSG_RESULT($use_builtin_powl)
+  if test $use_builtin_powl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_POWL)
+  fi
+  AC_MSG_CHECKING([for __builtin_sin])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sin(0.0);], 
+  use_builtin_sin=yes, use_builtin_sin=no)
+  AC_MSG_RESULT($use_builtin_sin)
+  if test $use_builtin_sin = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SIN)
+  fi
+  AC_MSG_CHECKING([for __builtin_sinf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sinf(0.0);], 
+  use_builtin_sinf=yes, use_builtin_sinf=no)
+  AC_MSG_RESULT($use_builtin_sinf)
+  if test $use_builtin_sinf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SINF)
+  fi
+  AC_MSG_CHECKING([for __builtin_sinl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sinl(0.0);], 
+  use_builtin_sinl=yes, use_builtin_sinl=no)
+  AC_MSG_RESULT($use_builtin_sinl)
+  if test $use_builtin_sinl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SINL)
+  fi
+  AC_MSG_CHECKING([for __builtin_sinh])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sinh(0.0);], 
+  use_builtin_sinh=yes, use_builtin_sinh=no)
+  AC_MSG_RESULT($use_builtin_sinh)
+  if test $use_builtin_sinh = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SINH)
+  fi
+  AC_MSG_CHECKING([for __builtin_sinhf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sinhf(0.0);], 
+  use_builtin_sinhf=yes, use_builtin_sinhf=no)
+  AC_MSG_RESULT($use_builtin_sinhf)
+  if test $use_builtin_sinhf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SINHF)
+  fi
+  AC_MSG_CHECKING([for __builtin_sinhl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sinhl(0.0);], 
+  use_builtin_sinhl=yes, use_builtin_sinhl=no)
+  AC_MSG_RESULT($use_builtin_sinhl)
+  if test $use_builtin_sinhl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SINHL)
+  fi
+  AC_MSG_CHECKING([for __builtin_sqrt])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_fsqrt(0.0);], 
+  use_builtin_sqrt=yes, use_builtin_sqrt=no)
+  AC_MSG_RESULT($use_builtin_sqrt)
+  if test $use_builtin_sqrt = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SQRT)
+  fi
   AC_MSG_CHECKING([for __builtin_sqrtf])
   AC_TRY_COMPILE([#include <math.h>], 
-  [float foo(void) { __builtin_sqrtf(0.0); }], 
+  [ __builtin_sqrtf(0.0);], 
   use_builtin_sqrtf=yes, use_builtin_sqrtf=no)
   AC_MSG_RESULT($use_builtin_sqrtf)
   if test $use_builtin_sqrtf = "yes"; then
-    AC_DEFINE(_GLIBCPP_HAS_BUILTIN_SQRTF)
+    AC_DEFINE(HAVE_BUILTIN_SQRTF)
   fi
+  AC_MSG_CHECKING([for __builtin_sqrtl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_sqrtl(0.0);], 
+  use_builtin_sqrtl=yes, use_builtin_sqrtl=no)
+  AC_MSG_RESULT($use_builtin_sqrtl)
+  if test $use_builtin_sqrtl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_SQRTL)
+  fi
+  AC_MSG_CHECKING([for __builtin_tan])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tan(0.0);], 
+  use_builtin_tan=yes, use_builtin_tan=no)
+  AC_MSG_RESULT($use_builtin_tan)
+  if test $use_builtin_tan = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TAN)
+  fi
+  AC_MSG_CHECKING([for __builtin_tanf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tanf(0.0);], 
+  use_builtin_tanf=yes, use_builtin_tanf=no)
+  AC_MSG_RESULT($use_builtin_tanf)
+  if test $use_builtin_tanf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TANF)
+  fi
+  AC_MSG_CHECKING([for __builtin_tanl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tanl(0.0);], 
+  use_builtin_tanl=yes, use_builtin_tanl=no)
+  AC_MSG_RESULT($use_builtin_tanl)
+  if test $use_builtin_tanl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TANL)
+  fi
+  AC_MSG_CHECKING([for __builtin_tanh])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tanh(0.0);], 
+  use_builtin_tanh=yes, use_builtin_tanh=no)
+  AC_MSG_RESULT($use_builtin_tanh)
+  if test $use_builtin_tanh = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TANH)
+  fi
+  AC_MSG_CHECKING([for __builtin_tanhf])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tanhf(0.0);], 
+  use_builtin_tanhf=yes, use_builtin_tanhf=no)
+  AC_MSG_RESULT($use_builtin_tanhf)
+  if test $use_builtin_tanhf = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TANHF)
+  fi
+  AC_MSG_CHECKING([for __builtin_tanhl])
+  AC_TRY_COMPILE([#include <math.h>], 
+  [ __builtin_tanhl(0.0);], 
+  use_builtin_tanhl=yes, use_builtin_tanhl=no)
+  AC_MSG_RESULT($use_builtin_tanhl)
+  if test $use_builtin_tanhl = "yes"; then
+    AC_DEFINE(HAVE_BUILTIN_TANHL)
+  fi
+  AC_LANG_RESTORE
+])
+
+
+dnl
+dnl Check to see what the underlying c library or math library is like.
+dnl
+dnl Define HAVE_CARGF etc if "cargf" is found.
+dnl
+dnl GLIBCPP_CHECK_MATH_SUPPORT
+AC_DEFUN(GLIBCPP_CHECK_MATH_SUPPORT, [
+
+  dnl NB: can't use AC_LANG_CPLUSPLUS here, because g++ tries to link
+  dnl in libstdc++, which we are building right now.
+  dnl Yet, we need to use the c++ compiler so that __cplusplus is defined.
+  dnl So, use this.
+  ac_test_CFLAGS="${CFLAGS+set}"
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS='-x c++'
+
+  dnl Check libm
+  AC_CHECK_LIB(m, sin, libm="-lm")
+  save_LIBS="$LIBS"
+  LIBS="$LIBS $libm"
+
+  dnl Check to see if basic C math functions have float, long double versions.
+  AC_REPLACE_MATHFUNCS(cosf fabsf sinf sqrtf)
+  AC_CHECK_FUNCS(isnan isnanf isnanl isinf isinff isinfl copysign copysignl \
+  acosf acosl asinf asinl atanf atanl atan2f atan2l ceilf ceill cosl \
+  coshf coshl expf expl fabsl floorf floorl fmodf fmodl frexpf frexpl ldexpf \
+  ldexpl logf logl log10f log10l modff modfl powf powl sinl sinhf \
+  sinhl sqrtl tanf tanl tanhf tanhl strtof strtold sincos sincosf \
+  sincosl finite finitef finitel fqfinite fpclass qfpclass)
+
+#Some runtimes have these functions with a preceding underscore. Please
+# keep this sync'd with the one above. And if you add any new symbol,
+# please add the corresponding block in the @BOTTOM@ section of
+# acconfig.h.
+
+  AC_CHECK_FUNCS(_isnan _isnanf _isnanl _isinf _isinff _isinfl _copysign \
+  _copysignl _acosf _acosl _asinf _asinl _atanf _atanl _atan2f _atan2l \
+  _ceilf _ceill _cosf _cosl _coshf _coshl _expf _expl _fabsf _fabsl \
+  _floorf _floorl _fmodf _fmodl _frexpf _frexpl _ldexpf _ldexpl _logf _logl \
+  _log10f _log10l _modff _modfl _powf _powl _sinf _sinl _sinhf _sinhl \
+  _sqrtf _sqrtl _tanf _tanl _tanhf _tanhl _strtof _strtold _sincos _sincosf \
+  _sincosl _finite _finitef _finitel _fqfinite _fpclass _qfpclass)
+
+  LIBS="$save_LIBS"
+  CFLAGS="$ac_save_CFLAGS"
+])
+
+
+dnl
+dnl Check to see if there is native support for complex 
+dnl
+dnl Don't compile bits in math/* if native support exits.
+dnl
+dnl Define USE_COMPLEX_LONG_DOUBLE etc if "cargf" is found.
+dnl
+dnl GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT
+AC_DEFUN(GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT, [
+  dnl Check for complex versions of math functions of platform.
+  AC_CHECK_HEADERS([complex.h])
+  AC_REPLACE_MATHFUNCS(ccos ccosf ccosh ccoshf cexp cexpf c_log c_logf \
+  clog10 clog10f cpow cpowf csin csinf csinh csinhf csqrt csqrtf \
+  ctan ctanf ctanh ctanhf \
+  carg cargf nan hypot hypotf atan2f expf copysignf)
+
+  dnl We compile the long double complex functions only if the function 
+  dnl provides the non-complex long double functions.
+  USE_LONG_DOUBLE=no
+  AC_CHECK_FUNC(copysignl,
+  USE_LONG_DOUBLE=yes
+  AC_REPLACE_MATHFUNCS(ccoshl ccosl cexpl cpowl csinhl csinl \
+  csqrtl ctanhl ctanl cargl hypotl signbitl c_logl clog10l))
+  AC_SUBST(USE_COMPLEX_LONG_DOUBLE)
 ])
 
 
@@ -296,7 +991,7 @@ dnl
 dnl GLIBCPP_CHECK_CPU
 AC_DEFUN(GLIBCPP_CHECK_CPU, [
     AC_MSG_CHECKING([for cpu primitives directory])
-    CPUFLAGS=			
+    CPU_FLAGS=			
     case "$target_cpu" in
       alpha*)
 	cpu_include_dir="config/cpu/alpha"
@@ -312,7 +1007,7 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
         ;;
       powerpc | rs6000)
 	cpu_include_dir="config/cpu/powerpc"
-    	CPUFLAGS='-mcpu=powerpc'
+    	CPU_FLAGS='-mcpu=powerpc'
         ;;
       sparc64 | ultrasparc)
 	cpu_include_dir="config/cpu/sparc/sparc64"
@@ -326,7 +1021,7 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
     esac
     AC_MSG_RESULT($cpu_include_dir)
     AC_SUBST(cpu_include_dir)
-    AC_SUBST(CPUFLAGS)
+    AC_SUBST(CPU_FLAGS)
 ])
 
  
@@ -482,109 +1177,90 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
 
 
 dnl
-dnl Check to see what the underlying c library or math library is like.
-dnl
-dnl Define HAVE_CARGF etc if "cargf" is found.
-dnl
-dnl GLIBCPP_CHECK_MATH_SUPPORT
-AC_DEFUN(GLIBCPP_CHECK_MATH_SUPPORT, [
-  AC_CHECK_LIB(m, sin, libm="-lm")
-  save_LIBS="$LIBS"
-  LIBS="$LIBS $libm"
-
-  dnl Check for complex versions of math functions of platform.
-  AC_CHECK_HEADERS([complex.h])
-  AC_REPLACE_MATHFUNCS(ccos ccosf ccosh ccoshf cexp cexpf c_log c_logf \
-  clog10 clog10f cpow cpowf csin csinf csinh csinhf csqrt csqrtf \
-  ctan ctanf ctanh ctanhf \
-  carg cargf nan hypot hypotf atan2f expf copysignf)
-
-  dnl We compile the long double complex functions only if the function 
-  dnl provides the non-complex long double functions.
-  USE_LONG_DOUBLE=no
-  AC_CHECK_FUNC(copysignl,
-  USE_LONG_DOUBLE=yes
-  AC_REPLACE_MATHFUNCS(ccoshl ccosl cexpl cpowl csinhl csinl \
-  csqrtl ctanhl ctanl cargl hypotl signbitl c_logl clog10l))
-  AC_SUBST(USE_LONG_DOUBLE)
-
-  dnl Check to see if basic C math functions have faster float versions.
-  AC_CHECK_FUNCS(modf isnan isnanf isnanl isinf isinff isinfl copysign \
-  copysignl cosf coshf logf log10f powf sinf sinhf sqrtf tanf tanhf \
-  strtof strtold fabsf sincos sincosf sincosl finite finite fqfinite \
-  fpclass qfpclass)
-
-#Some runtimes have these functions with a preceding underscore. Please
-# keep this sync'd with the one above. And if you add any new symbol,
-# please add the corresponding block in the @BOTTOM@ section of
-# acconfig.h.
-AC_CHECK_FUNCS(_modf _isnan _isnanf _isnanl _isinf _isinff _isinfl _copysign \
-_copysignl _cosf _coshf _logf _log10f _powf _sinf _sinhf _sqrtf _tanf _tanhf \
-_strtof _strtold _fabsf _sincos _sincosf _sincosl _finite _finitef _qfinite \
-_fpclass _qfpclass)
-
-LIBS="$save_LIBS"
-])
-
-
-dnl
 dnl Check to see if this target can enable the wchar_t parts of libstdc++.
 dnl
 dnl Define _GLIBCPP_USE_WCHAR_T if all the bits are found 
 dnl Define _GLIBCPP_NEED_MBSTATE_T if mbstate_t is not in wchar.h
-dnl Define _GLIBCPP_HAS_WCHAR_MIN_MAX if WCHAR_MIN, WCHAR_MAX in wchar.h
 dnl
 dnl GLIBCPP_CHECK_WCHAR_T_SUPPORT
 AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
-  AC_CHECK_HEADER(wchar.h,[
-  dnl Test wchar.h for mbstate_t, which is needed for char_traits and others.
-  AC_MSG_CHECKING([for native mbstate_t])
-  AC_TRY_COMPILE([#include <wchar.h>],
-  [mbstate_t teststate;], 
-  use_native_mbstatet=yes, use_native_mbstatet=no)
-  AC_MSG_RESULT($use_native_mbstatet)
-  if test $use_native_mbstatet = "no"; then
+
+  dnl Sanity check for existence of ISO C9X headers for extended encoding.
+  AC_CHECK_HEADER(wchar.h, ac_has_wchar_h=yes, ac_has_wchar_h=no)
+  AC_CHECK_HEADER(wctype.h, ac_has_wctype_h=yes, ac_has_wctype_h=no)
+	
+  dnl Only continue checking if the ISO C9X headers exist.
+  if test x"$ac_has_wchar_h" = xyes && test x"$ac_has_wctype_h" = xyes; then
+
+    dnl Test wchar.h for mbstate_t, which is needed for char_traits and others.
+    AC_MSG_CHECKING([for mbstate_t])
+    AC_TRY_COMPILE([#include <wchar.h>],
+    [mbstate_t teststate;], 
+    use_native_mbstatet=yes, use_native_mbstatet=no)
+    AC_MSG_RESULT($use_native_mbstatet)
+    if test x"$use_native_mbstatet" = xno; then
+      AC_DEFINE(_GLIBCPP_NEED_MBSTATE_T)
+    fi
+  
+    dnl Test wchar.h for WCHAR_MIN, WCHAR_MAX, which is needed before
+    dnl numeric_limits can instantiate type_traits<wchar_t>
+    AC_MSG_CHECKING([for WCHAR_MIN and WCHAR_MAX])
+    AC_TRY_COMPILE([#include <wchar.h>],
+    [int i = WCHAR_MIN; int j = WCHAR_MAX;], 
+    has_wchar_minmax=yes, has_wchar_minmax=no)
+    AC_MSG_RESULT($has_wchar_minmax)
+  
+    dnl Test wchar.h for WEOF, which is what we use to determine whether
+    dnl to specialize for char_traits<wchar_t> or not.
+    AC_MSG_CHECKING([for WEOF])
+    AC_TRY_COMPILE([
+      #include <wchar.h>
+      #include <stddef.h>],
+    [wint_t i = WEOF;],
+    has_weof=yes, has_weof=no)
+    AC_MSG_RESULT($has_weof)
+
+    dnl Tests for wide character functions used in char_traits<wchar_t>.
+    AC_CHECK_FUNCS(wcslen wmemchr wmemcmp wmemcpy wmemmove wmemset, ac_wfuncs=yes, ac_wfuncs=no)
+
+    AC_MSG_CHECKING([for ISO C9X wchar_t support])
+    if test x"$has_weof" = xyes && test x"$has_wchar_minmax" = xyes && test x"$ac_wfuncs" = xyes; then
+      ac_isoC9X_wchar_t=yes
+    else
+      ac_isoC9X_wchar_t=no
+    fi
+    AC_MSG_RESULT($ac_isoC9X_wchar_t)
+
+    dnl Use iconv for wchar_t to char conversions. As such, check for 
+    dnl X/Open Portability Guide, version 2 features (XPG2).
+    AC_CHECK_HEADER(iconv.h, ac_has_iconv_h=yes, ac_has_iconv_h=no)
+    AC_CHECK_FUNCS(iconv_open iconv_close iconv, ac_XPG2funcs=yes, ac_XPG2funcs=no)
+
+    AC_MSG_CHECKING([for XPG2 wchar_t support])
+    if test x"$ac_has_iconv_h" = xyes && test x"$ac_XPG2funcs" = xyes; then
+      ac_XPG2_wchar_t=yes
+    else
+      ac_XPG2_wchar_t=no
+    fi
+    AC_MSG_RESULT($ac_XPG2_wchar_t)
+
+    dnl At the moment, only enable wchar_t specializations if all the
+    dnl above support is present.
+    AC_MSG_CHECKING([for enabled wchar_t specializations])
+    if test x"$ac_isoC9X_wchar_t" = xyes && test x"$ac_XPG2_wchar_t" = xyes; then
+      libinst_wstring_la="libinst-wstring.la"
+      AC_DEFINE(_GLIBCPP_USE_WCHAR_T)
+      AC_MSG_RESULT("yes")
+    else
+      libinst_wstring_la=""
+      AC_MSG_RESULT("no")
+    fi
+    AC_SUBST(libinst_wstring_la)
+
+  else
+    AC_MSG_WARN([<wchar.h> not found])
     AC_DEFINE(_GLIBCPP_NEED_MBSTATE_T)
   fi
-  
-  dnl Test wchar.h for WCHAR_MIN, WCHAR_MAX, which is needed before
-  dnl numeric_limits can instantiate type_traits<wchar_t>
-  AC_MSG_CHECKING([for WCHAR_MIN and WCHAR_MAX])
-  AC_TRY_COMPILE([#include <wchar.h>],
-  [int i = WCHAR_MIN; int j = WCHAR_MAX;], 
-  has_wchar_minmax=yes, has_wchar_minmax=no)
-  AC_MSG_RESULT($has_wchar_minmax)
-  if test $has_wchar_minmax = "yes"; then
-    AC_DEFINE(_GLIBCPP_HAS_WCHAR_MIN_MAX)
-  fi
-  
-  # Test wchar.h for WEOF, which is what we use to determine whether
-  # to specialize for wchar_t or not.
-  AC_MSG_CHECKING([for WEOF])
-  AC_TRY_COMPILE([
-    #include <wchar.h>
-    #include <stddef.h>],
-  [wint_t i = WEOF;],
-  has_weof=yes, has_weof=no)
-  AC_MSG_RESULT($has_weof)
-
-  dnl Tests for wide character functions.
-  AC_REPLACE_STRINGFUNCS(wcslen wmemchr wmemcmp wmemcpy wmemmove wmemset)
-  AC_SUBST(libinst_wstring_la)
-
-  AC_MSG_CHECKING([for wide character support])
-  if test $has_weof = "yes" && test $has_wchar_minmax = "yes"; then
-    libinst_wstring_la="libinst-wstring.la"
-    AC_DEFINE(_GLIBCPP_USE_WCHAR_T)
-    AC_MSG_RESULT(ok)
-  else
-    libinst_wstring_la=""
-    AC_MSG_RESULT("not specializing for wchar_t")
-  fi
-  ],[
-  AC_MSG_WARN([<wchar.h> not found])
-  AC_DEFINE(_GLIBCPP_NEED_MBSTATE_T)
-  ])
 ])
 
 
@@ -594,9 +1270,33 @@ dnl __complex__ float support.
 dnl
 dnl Define _GLIBCPP_BUGGY_FLOAT_COMPLEX if buggy.
 dnl
-dnl GLIBCPP_CHECK_COMPLEX_FLOAT_SUPPORT
-AC_DEFUN(GLIBCPP_CHECK_COMPLEX_FLOAT_SUPPORT, [
+dnl Check to see if this version of GNU C++ is afflicted by bugs in 
+dnl __complex__ support.Check for buggy __complex__ that will cause ICE in
+dnl gcc-2.95.x when using the library, unless we define the default copy
+dnl ctor in the specializations of complex<>. 
+dnl 
+dnl Define _GLIBCPP_BUGGY_COMPLEX if buggy.
+dnl GLIBCPP_CHECK_COMPLEX_MATH_COMPILER_SUPPORT
+AC_DEFUN(GLIBCPP_CHECK_COMPLEX_MATH_COMPILER_SUPPORT, [
   AC_REQUIRE([AC_PROG_CXX])
+
+  AC_MSG_CHECKING([for GNU C++ __complex__ support])
+  AC_CACHE_VAL(glibcpp_cv_complex, [
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    AC_TRY_COMPILE([struct dcomplex { __complex__ double x; }; \
+		    dcomplex f(const dcomplex& x) { return dcomplex(x); }], \
+		    [ dcomplex x; f(x); ],
+      glibcpp_cv_complex=ok,
+      glibcpp_cv_complex=buggy
+    )
+    AC_LANG_RESTORE
+  ])
+  AC_MSG_RESULT($glibcpp_cv_complex)
+  if test $glibcpp_cv_complex = buggy; then
+    AC_DEFINE(_GLIBCPP_BUGGY_COMPLEX)
+  fi
+
   AC_MSG_CHECKING([for GNU C++ __complex__ float support])
   AC_CACHE_VAL(glibcpp_cv_float_complex, [
     AC_LANG_SAVE
@@ -634,37 +1334,6 @@ EOB
 
 
 dnl
-dnl 
-dnl Check to see if this version of GNU C++ is afflicted by bugs in 
-dnl __complex__ support.Check for buggy __complex__ that will cause ICE in
-dnl gcc-2.95.x when using the library, unless we define the default copy
-dnl ctor in the specializations of complex<>. 
-dnl 
-dnl Define _GLIBCPP_BUGGY_COMPLEX if buggy.
-dnl
-dnl GLIBCPP_CHECK_COMPLEX_SUPPORT
-AC_DEFUN(GLIBCPP_CHECK_COMPLEX_SUPPORT, [
-  AC_REQUIRE([AC_PROG_CXX])
-  AC_MSG_CHECKING([for GNU C++ __complex__ support])
-  AC_CACHE_VAL(glibcpp_cv_complex, [
-    AC_LANG_SAVE
-    AC_LANG_CPLUSPLUS
-    AC_TRY_COMPILE([struct dcomplex { __complex__ double x; }; \
-		    dcomplex f(const dcomplex& x) { return dcomplex(x); }], \
-		    [ dcomplex x; f(x); ],
-      glibcpp_cv_complex=ok,
-      glibcpp_cv_complex=buggy
-    )
-    AC_LANG_RESTORE
-  ])
-  AC_MSG_RESULT($glibcpp_cv_complex)
-  if test $glibcpp_cv_complex = buggy; then
-    AC_DEFINE(_GLIBCPP_BUGGY_COMPLEX)
-  fi
-])
-
-
-dnl
 dnl Check for special debugging mode; not for production use.
 dnl
 dnl GLIBCPP_ENABLE_DEBUG
@@ -691,13 +1360,13 @@ enable_debug=GLIBCPP_ENABLE_DEBUG_DEFAULT)dnl
 dnl Option parsed, now set things appropriately
 case "$enable_debug" in
     yes) 
-	DEBUGFLAGS='-O0 -ggdb'			
+	DEBUG_FLAGS='-O0 -ggdb'			
 	;;
     no)   
-	DEBUGFLAGS='-g'
+	DEBUG_FLAGS='-g'
         ;;
 esac
-AC_SUBST(DEBUGFLAGS)
+AC_SUBST(DEBUG_FLAGS)
 ])
 
 
@@ -960,9 +1629,7 @@ dnl
 dnl GLIBCPP_ENABLE_LONG_LONG
 AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
   define([GLIBCPP_ENABLE_LONG_LONG_DEFAULT], ifelse($1, yes, yes, no))dnl
-  # must do check_func outside the local msg_checking/msg_result
-  AC_CHECK_FUNC(strtoll,,ac_ll=no)
-  AC_MSG_CHECKING([for enabled long long])
+
   AC_ARG_ENABLE(long-long,
   changequote(<<, >>)dnl
   <<--enable-long-long      turns on 'long long' [default=>>GLIBCPP_ENABLE_LONG_LONG_DEFAULT],
@@ -973,8 +1640,17 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
    *)   AC_MSG_ERROR([Unknown argument to enable/disable long long]) ;;
    esac],
   enable_long_long=GLIBCPP_ENABLE_LONG_LONG_DEFAULT)dnl
-  if test x"$ac_ll" = xno; then enable_long_long=no; fi; unset ac_ll
+
+  # Check for the existance of functions used if long long is enabled.
+  AC_CHECK_FUNC(strtoll,,ac_strtoll=no)
+  AC_CHECK_FUNC(strtoull,,ac_strtoull=no)
+
+  AC_MSG_CHECKING([for enabled long long])
+  if test x"$ac_strtoll" = xno || test x"$ac_strtoull" = xno; then 
+    enable_long_long=no; 
+  fi; 
   AC_MSG_RESULT($enable_long_long)
+
   dnl Option parsed, now set things appropriately
   case "$enable_long_long" in
     yes)  AC_DEFINE(_GLIBCPP_USE_LONG_LONG)
@@ -1014,7 +1690,7 @@ AC_MSG_RESULT($enable_cshadow_headers)
 dnl Option parsed, now set things appropriately
 case "$enable_cshadow_headers" in
     yes) 
-	CSHADOWFLAGS="-D_ISOC9X_SOURCE"
+	CSHADOWFLAGS="-D_GNU_SOURCE"
 	CSHADOW_INCLUDES=" -I$srcdir/shadow -I$blddir/cshadow"
 	;;
     no)   

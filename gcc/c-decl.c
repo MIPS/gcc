@@ -30,9 +30,11 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+#include "rtl.h"
 #include "flags.h"
 #include "function.h"
 #include "output.h"
+#include "expr.h"
 #include "c-tree.h"
 #include "c-lex.h"
 #include "toplev.h"
@@ -454,6 +456,10 @@ int warn_float_equal = 0;
 /* Nonzero means warn about use of multicharacter literals.  */
 
 int warn_multichar = 1;
+
+/* The variant of the C language being processed.  */
+
+c_language_kind c_language = clk_c;
 
 /* Nonzero means `$' can be in an identifier.  */
 
@@ -1817,7 +1823,10 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	  DECL_MODE (newdecl) = DECL_MODE (olddecl);
 	  if (TREE_CODE (olddecl) != FUNCTION_DECL)
 	    if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
-	      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+	      {
+		DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+		DECL_USER_ALIGN (newdecl) |= DECL_ALIGN (olddecl);
+	      }
 	}
 
       if (TYPE_BOUNDED (newtype) != TYPE_BOUNDED (oldtype))
@@ -2452,8 +2461,12 @@ pushdecl (x)
 	    b->shadowed = tree_cons (name, oldlocal, b->shadowed);
 	}
 
-      /* Keep count of variables in this level with incomplete type.  */
-      if (!COMPLETE_TYPE_P (TREE_TYPE (x)))
+      /* Keep count of variables in this level with incomplete type.
+	 If the input is erroneous, we can have error_mark in the type
+	 slot (e.g. "f(void a, ...)") - that doesn't count as an
+	 incomplete type.  */
+      if (TREE_TYPE (x) != error_mark_node
+	  && !COMPLETE_TYPE_P (TREE_TYPE (x)))
 	++b->n_incomplete;
     }
 
@@ -3049,9 +3062,11 @@ init_decl_processing ()
      array type.  */
   char_array_type_node
     = build_array_type (char_type_node, array_domain_type);
+
   /* Likewise for arrays of ints.  */
   int_array_type_node
     = build_array_type (integer_type_node, array_domain_type);
+
   /* This is for wide string constants.  */
   wchar_array_type_node
     = build_array_type (wchar_type_node, array_domain_type);
@@ -3166,7 +3181,6 @@ init_decl_processing ()
 
   incomplete_decl_finalize_hook = finish_incomplete_decl;
 
-  lang_get_alias_set = c_get_alias_set;
   valid_lang_attribute = c_valid_lang_attribute;
 
   /* Record our roots.  */
@@ -4364,7 +4378,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 
 	  /* Check for some types that there cannot be arrays of.  */
 
-	  if (TYPE_MAIN_VARIANT (type) == void_type_node)
+	  if (VOID_TYPE_P (type))
 	    {
 	      error ("declaration of `%s' as array of voids", name);
 	      type = error_mark_node;
@@ -4692,7 +4706,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
      We don't complain about parms either, but that is because
      a better error message can be made later.  */
 
-  if (TYPE_MAIN_VARIANT (type) == void_type_node && decl_context != PARM
+  if (VOID_TYPE_P (type) && decl_context != PARM
       && ! ((decl_context != FIELD && TREE_CODE (type) != FUNCTION_TYPE)
 	    && ((specbits & (1 << (int) RID_EXTERN))
 		|| (current_binding_level == global_binding_level
@@ -4787,6 +4801,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 #endif
 	  }
 	decl = build_decl (FIELD_DECL, declarator, type);
+	DECL_NONADDRESSABLE_P (decl) = bitfield;
+
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
       }
@@ -4820,7 +4836,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 	  pedwarn ("ANSI C forbids qualified function types");
 
 	if (pedantic
-	    && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (decl))) == void_type_node
+	    && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl)))
 	    && TYPE_QUALS (TREE_TYPE (TREE_TYPE (decl)))
 	    && ! DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn ("ANSI C forbids qualified void function return type");
@@ -4828,7 +4844,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 	/* GNU C interprets a `volatile void' return type to indicate
 	   that the function does not return.  */
 	if ((type_quals & TYPE_QUAL_VOLATILE)
-	    && TREE_TYPE (TREE_TYPE (decl)) != void_type_node)
+	    && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl))))
 	  warning ("`noreturn' function returns non-void value");
 
 	if (extern_ref)
@@ -5064,7 +5080,7 @@ get_parm_info (void_at_end, varargs_boundedness)
   /* Just `void' (and no ellipsis) is special.  There are really no parms.  */
   if (void_at_end && parms != 0
       && TREE_CHAIN (parms) == 0
-      && TYPE_MAIN_VARIANT (TREE_TYPE (parms)) == void_type_node
+      && VOID_TYPE_P (TREE_TYPE (parms))
       && DECL_NAME (parms) == 0)
     {
       parms = NULL_TREE;
@@ -5125,7 +5141,7 @@ get_parm_info (void_at_end, varargs_boundedness)
 	  DECL_ARG_TYPE (decl) = integer_type_node;
 
 	types = tree_cons (NULL_TREE, TREE_TYPE (decl), types);
-	if (TYPE_MAIN_VARIANT (TREE_VALUE (types)) == void_type_node && ! erred
+	if (VOID_TYPE_P (TREE_VALUE (types)) && ! erred
 	    && DECL_NAME (decl) == 0)
 	  {
 	    error ("`void' in parameter list must be the entire list");
@@ -5217,6 +5233,7 @@ xref_tag (code, name)
 	 to avoid crashing if it does not get defined.  */
       TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
       TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
+      TYPE_USER_ALIGN (ref) = 0;
       TREE_UNSIGNED (ref) = 1;
       TYPE_PRECISION (ref) = TYPE_PRECISION (unsigned_type_node);
       TYPE_MIN_VALUE (ref) = TYPE_MIN_VALUE (unsigned_type_node);
@@ -5443,8 +5460,11 @@ finish_struct (t, fieldlist, attributes)
 #endif
 #ifdef PCC_BITFIELD_TYPE_MATTERS
 		  if (PCC_BITFIELD_TYPE_MATTERS)
-		    DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
-					  TYPE_ALIGN (TREE_TYPE (x)));
+		    {
+		      DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
+					    TYPE_ALIGN (TREE_TYPE (x)));
+		      DECL_USER_ALIGN (x) |= TYPE_USER_ALIGN (TREE_TYPE (x));
+		    }
 #endif
 		}
 	    }
@@ -5458,6 +5478,8 @@ finish_struct (t, fieldlist, attributes)
 	  /* Non-bit-fields are aligned for their type, except packed
 	     fields which require only BITS_PER_UNIT alignment.  */
 	  DECL_ALIGN (x) = MAX (DECL_ALIGN (x), min_align);
+	  if (! DECL_PACKED (x))
+	    DECL_USER_ALIGN (x) |= TYPE_USER_ALIGN (TREE_TYPE (x));
 	}
 
       DECL_INITIAL (x) = 0;
@@ -5515,6 +5537,7 @@ finish_struct (t, fieldlist, attributes)
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
       TYPE_LANG_SPECIFIC (x) = TYPE_LANG_SPECIFIC (t);
       TYPE_ALIGN (x) = TYPE_ALIGN (t);
+      TYPE_USER_ALIGN (x) = TYPE_USER_ALIGN (t);
       TYPE_POINTER_DEPTH (x) = TYPE_POINTER_DEPTH (t);
       TYPE_BOUNDED (x) = TYPE_BOUNDED (t);
     }
@@ -5701,6 +5724,7 @@ finish_enum (enumtype, values, attributes)
 	  DECL_SIZE (enu) = TYPE_SIZE (enumtype);
 	  DECL_SIZE_UNIT (enu) = TYPE_SIZE_UNIT (enumtype);
 	  DECL_ALIGN (enu) = TYPE_ALIGN (enumtype);
+	  DECL_USER_ALIGN (enu) = TYPE_USER_ALIGN (enumtype);
 	  DECL_MODE (enu) = TYPE_MODE (enumtype);
 	  DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
 
@@ -5724,6 +5748,7 @@ finish_enum (enumtype, values, attributes)
       TYPE_MODE (tem) = TYPE_MODE (enumtype);
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
+      TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
       TREE_UNSIGNED (tem) = TREE_UNSIGNED (enumtype);
     }
 
@@ -6128,8 +6153,7 @@ store_parm_decls ()
 	      if (DECL_NAME (parm) == 0)
 		error_with_decl (parm, "parameter name omitted");
 	      else if (TREE_CODE (TREE_TYPE (parm)) != ERROR_MARK
-		       && (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
-			   == void_type_node))
+		       && VOID_TYPE_P (TREE_TYPE (parm)))
 		{
 		  error_with_decl (parm, "parameter `%s' declared void");
 		  /* Change the type to error_mark_node so this parameter
@@ -6232,7 +6256,7 @@ store_parm_decls ()
 	    }
 
 	  /* If the declaration says "void", complain and ignore it.  */
-	  if (found && TYPE_MAIN_VARIANT (TREE_TYPE (found)) == void_type_node)
+	  if (found && VOID_TYPE_P (TREE_TYPE (found)))
 	    {
 	      error_with_decl (found, "parameter `%s' declared void");
 	      TREE_TYPE (found) = integer_type_node;
@@ -6553,7 +6577,7 @@ combine_parm_decls (specparms, parmlist, void_at_end)
 	}
 
       /* If the declaration says "void", complain and ignore it.  */
-      if (found && TYPE_MAIN_VARIANT (TREE_TYPE (found)) == void_type_node)
+      if (found && VOID_TYPE_P (TREE_TYPE (found)))
 	{
 	  error_with_decl (found, "parameter `%s' declared void");
 	  TREE_TYPE (found) = integer_type_node;
@@ -6725,7 +6749,7 @@ finish_function (nested)
   if (TREE_THIS_VOLATILE (fndecl) && current_function_returns_null)
     warning ("`noreturn' function does return");
   else if (warn_return_type && can_reach_end
-	   && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl))) != void_type_node)
+	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl))))
     /* If this function returns non-void and control can drop through,
        complain.  */
     warning ("control reaches end of non-void function");

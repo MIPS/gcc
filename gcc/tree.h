@@ -161,8 +161,8 @@ struct tree_common
    addressable_flag:
 
        TREE_ADDRESSABLE in
-   	   VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, LABEL_DECL, ..._TYPE
-	   IDENTIFIER_NODE
+   	   VAR_DECL, FUNCTION_DECL, FIELD_DECL, CONSTRUCTOR, LABEL_DECL,
+	   ..._TYPE, IDENTIFIER_NODE
        TREE_BOUNDS_CHECK in COMPOUND_EXPR
 
    static_flag:
@@ -310,10 +310,10 @@ struct tree_common
     __t; })
 
 extern void tree_check_failed PARAMS ((const tree, enum tree_code,
-				     const char *, int, const char *))
+				       const char *, int, const char *))
     ATTRIBUTE_NORETURN;
-extern void tree_class_check_failed PARAMS ((const tree, char,
-					   const char *, int, const char *))
+extern void tree_class_check_failed PARAMS ((const tree, int,
+					     const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
@@ -454,9 +454,12 @@ extern void tree_class_check_failed PARAMS ((const tree, char,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is the (possibly qualified) void type.  */
+#define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
+
 /* Nonzero if this type is complete or is cv void.  */
 #define COMPLETE_OR_VOID_TYPE_P(NODE) \
-    (COMPLETE_TYPE_P (NODE) || TREE_CODE (NODE) == VOID_TYPE)
+    (COMPLETE_TYPE_P (NODE) || VOID_TYPE_P (NODE))
 
 /* Nonzero if this type is complete or is an array with unspecified bound.  */
 #define COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(NODE) \
@@ -472,6 +475,9 @@ extern void tree_class_check_failed PARAMS ((const tree, char,
    So it cannot be in a register.
    In a FUNCTION_DECL, nonzero means its address is needed.
    So it must be compiled even if it is an inline function.
+   In a FIELD_DECL node, it means that the programmer is permitted to
+   construct the address of this field.  This is used for aliasing
+   purposes: see record_component_aliases.
    In CONSTRUCTOR nodes, it means object constructed must be in memory.
    In LABEL_DECL nodes, it means a goto for this label has been seen 
    from a place outside all binding contours that restore stack levels.
@@ -675,7 +681,7 @@ extern void tree_class_check_failed PARAMS ((const tree, char,
 
 struct tree_int_cst
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 			   (rtl) info */
   union {
@@ -704,7 +710,7 @@ struct tree_int_cst
 
 struct tree_real_cst
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 				   (rtl) info */
   REAL_VALUE_TYPE real_cst;
@@ -716,7 +722,7 @@ struct tree_real_cst
 
 struct tree_string
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 				   (rtl) info */
   int length;
@@ -729,7 +735,7 @@ struct tree_string
 
 struct tree_complex
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 				   (rtl) info */
   union tree_node *real;
@@ -743,7 +749,7 @@ struct tree_complex
 
 struct tree_identifier
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   int length;
   char *pointer;
 };
@@ -754,7 +760,7 @@ struct tree_identifier
 
 struct tree_list
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   union tree_node *purpose;
   union tree_node *value;
 };
@@ -766,7 +772,7 @@ struct tree_list
 
 struct tree_vec
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   int length;
   union tree_node *a[1];
 };
@@ -822,7 +828,7 @@ struct tree_vec
 
 struct tree_exp
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   int complexity;
   union tree_node *operands[1];
 };
@@ -848,7 +854,7 @@ struct tree_exp
 
 struct tree_block
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
 
   unsigned handler_block_flag : 1;
   unsigned abstract_flag : 1;
@@ -937,6 +943,10 @@ struct tree_block
    The value is an int, measured in bits.  */
 #define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->type.align)
 
+/* 1 if the alignment for this type was requested by "aligned" attribute,
+   0 if it is the default for this type.  */
+#define TYPE_USER_ALIGN(NODE) (TYPE_CHECK (NODE)->type.user_align)
+
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) \
   (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
@@ -1016,11 +1026,18 @@ struct tree_block
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
-#define TYPE_NEEDS_CONSTRUCTING(NODE) (TYPE_CHECK (NODE)->type.needs_constructing_flag)
+#define TYPE_NEEDS_CONSTRUCTING(NODE) \
+  (TYPE_CHECK (NODE)->type.needs_constructing_flag)
 
 /* Indicates that objects of this type (a UNION_TYPE), should be passed
    the same way that the first union alternative would be passed.  */
-#define TYPE_TRANSPARENT_UNION(NODE) (TYPE_CHECK (NODE)->type.transparent_union_flag)
+#define TYPE_TRANSPARENT_UNION(NODE)  \
+  (UNION_TYPE_CHECK (NODE)->type.transparent_union_flag)
+
+/* For an ARRAY_TYPE, indicates that it is not permitted to
+   take the address of a component of the type.  */
+#define TYPE_NONALIASED_COMPONENT(NODE) \
+  (ARRAY_TYPE_CHECK (NODE)->type.transparent_union_flag)
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
@@ -1079,15 +1096,15 @@ struct tree_block
    default_pointer_boundedness at the time TYPE was created.  It is
    useful for choosing default boundedness of function arguments for
    non-prototype function decls and for varargs/stdarg lists.  */
-
-#define TYPE_AMBIENT_BOUNDEDNESS(TYPE) (TYPE_CHECK (TYPE)->type.transparent_union_flag)
+#define TYPE_AMBIENT_BOUNDEDNESS(TYPE) \
+  (FUNCTION_TYPE_CHECK (TYPE)->type.transparent_union_flag)
 
 #define MAX_POINTER_DEPTH 2
 #define VA_LIST_POINTER_DEPTH 3
 
 struct tree_type
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   union tree_node *values;
   union tree_node *size;
   union tree_node *size_unit;
@@ -1112,6 +1129,7 @@ struct tree_type
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
+  unsigned user_align : 1;
 
   unsigned int align;
   union tree_node *pointer_to;
@@ -1126,7 +1144,7 @@ struct tree_type
   union tree_node *noncopied_parts;
   union tree_node *context;
   struct obstack *obstack;
-  int alias_set;
+  HOST_WIDE_INT alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
 };
@@ -1296,6 +1314,9 @@ struct tree_type
 #define DECL_ALIGN(NODE) (DECL_CHECK (NODE)->decl.u1.a.align)
 /* For FIELD_DECLs, holds the alignment that DECL_FIELD_OFFSET has.  */
 #define DECL_OFFSET_ALIGN(NODE) (FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align)
+/* 1 if the alignment for this type was requested by "aligned" attribute,
+   0 if it is the default for this type.  */
+#define DECL_USER_ALIGN(NODE) (DECL_CHECK (NODE)->decl.user_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
@@ -1531,6 +1552,11 @@ struct tree_type
    an address constant.  */
 #define DECL_NON_ADDR_CONST_P(NODE) (DECL_CHECK (NODE)->decl.non_addr_const_p)
 
+/* Used in a FIELD_DECL to indicate that we cannot form the address of
+   this component.  */
+#define DECL_NONADDRESSABLE_P(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl.non_addressable)
+
 /* Used to indicate an alias set for the memory pointed to by this
    particular FIELD_DECL, PARM_DECL, or VAR_DECL, which must have
    pointer (or reference) type.  */
@@ -1560,7 +1586,7 @@ struct tree_type
 
 struct tree_decl
 {
-  char common[sizeof (struct tree_common)];
+  struct tree_common common;
   const char *filename;
   int linenum;
   unsigned int uid;
@@ -1591,9 +1617,13 @@ struct tree_decl
   unsigned comdat_flag : 1;
   unsigned malloc_flag : 1;
   unsigned no_limit_stack : 1;
-  unsigned pure_flag : 1;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
+
+  unsigned pure_flag : 1;
   unsigned pointer_depth : 2;
+  unsigned non_addressable : 1;
+  unsigned user_align : 1;
+  /* Three unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1639,7 +1669,7 @@ struct tree_decl
   } u2;
 
   union tree_node *vindex;
-  int pointer_alias_set;
+  HOST_WIDE_INT pointer_alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
@@ -2450,9 +2480,6 @@ extern tree get_file_function_name_long 	PARAMS ((const char *));
 extern tree get_set_constructor_bits		PARAMS ((tree, char *, int));
 extern tree get_set_constructor_bytes		PARAMS ((tree,
 						       unsigned char *, int));
-extern int get_alias_set                        PARAMS ((tree));
-extern int new_alias_set			PARAMS ((void));
-extern int (*lang_get_alias_set)                PARAMS ((tree));
 extern tree get_callee_fndecl                   PARAMS ((tree));
 
 /* In stmt.c */

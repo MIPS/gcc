@@ -244,7 +244,8 @@ _cpp_handle_directive (pfile)
 	 assembler pseudo-ops.  Don't complain about invalid directives
 	 in skipped conditional groups (6.10 p4). */
       if (!pfile->skipping && !CPP_OPTION (pfile, lang_asm))
-	cpp_error (pfile, "invalid preprocessing directive #%s", ident);
+	cpp_error (pfile, "invalid preprocessing directive #%.*s",
+		   (int) len, ident);
       return 0;
     }
   /* And anything else means the # wasn't a directive marker.   */
@@ -411,27 +412,7 @@ parse_include (pfile, name)
 
   len = CPP_WRITTEN (pfile) - old_written;
 
-  if (token == CPP_STRING)
-    ; /* No special treatment required.  */
-#ifdef VMS
-  else if (token == CPP_NAME)
-    {
-      /* Support '#include xyz' like VAX-C.  It is taken as
-         '#include <xyz.h>' and generates a warning.  */
-      cpp_warning (pfile, "#%s filename is obsolete, use #%s <filename.h>",
-		   name, name);
-
-      /* Rewrite the token to <xyz.h>.  */
-      CPP_RESERVE (pfile, 4);
-      len += 4;
-      memmove (pfile->token_buffer + old_written + 1,
-	       pfile->token_buffer + old_written,
-	       CPP_WRITTEN (pfile) - old_written);
-      pfile->token_buffer[old_written] = '<';
-      CPP_PUTS_Q (pfile, ".h>", 2);
-    }
-#endif
-  else
+  if (token != CPP_STRING)
     {
       cpp_error (pfile, "#%s expects \"FILENAME\" or <FILENAME>", name);
       CPP_SET_WRITTEN (pfile, old_written);
@@ -1146,10 +1127,13 @@ do_ifdef (pfile)
 {
   int def = 0;
   const cpp_hashnode *node = parse_ifdef (pfile, dtable[T_IFDEF].name);
-  if (node->type == T_POISON)
-    cpp_error (pfile, "attempt to use poisoned `%s'", node->name);
-  else
-    def = (node->type != T_VOID);
+  if (node)
+    {
+      if (node->type == T_POISON)
+	cpp_error (pfile, "attempt to use poisoned `%s'", node->name);
+      else
+	def = (node->type != T_VOID);
+    }
   push_conditional (pfile, !def, T_IFDEF, 0);
   return 0;
 }
@@ -1167,11 +1151,13 @@ do_ifndef (pfile)
 
   start_of_file = pfile->only_seen_white == 2;
   cmacro = parse_ifdef (pfile, dtable[T_IFNDEF].name);
-  if (cmacro->type == T_POISON)
-    cpp_error (pfile, "attempt to use poisoned `%s'", cmacro->name);
-  else
-    def = (cmacro->type != T_VOID);
-
+  if (cmacro)
+    {
+      if (cmacro->type == T_POISON)
+	cpp_error (pfile, "attempt to use poisoned `%s'", cmacro->name);
+      else
+	def = (cmacro->type != T_VOID);
+    }
   push_conditional (pfile, def, T_IFNDEF,
 		    start_of_file ? cmacro : 0);
   return 0;

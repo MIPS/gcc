@@ -390,15 +390,7 @@ namespace std
      // Types:
       typedef wchar_t 					char_type;
       typedef ctype::mask 				mask;
-      typedef size_t					__table_type;
-
-    private:
-      __to_type const& 		_M_toupper;
-      __to_type const& 		_M_tolower;
-      const mask* const& 	_M_ctable;
-      static const __table_type	_S_table_size = ctype<char>::table_size;
       
-    public:
       static locale::id id;
 
       explicit 
@@ -597,7 +589,7 @@ namespace std
       // Types:
       typedef _InternT intern_type;
       typedef _ExternT extern_type;
-      typedef _StateT state_type;
+      typedef _StateT  state_type;
 
       // Data Members:
       static locale::id id;
@@ -618,8 +610,8 @@ namespace std
     {
     public:      
       // Types:
-      typedef char intern_type;
-      typedef char extern_type;
+      typedef char 	intern_type;
+      typedef char 	extern_type;
       typedef mbstate_t state_type;
 
       explicit codecvt (size_t __refs = 0);
@@ -657,8 +649,8 @@ namespace std
     {
     public:
       // Types:
-      typedef wchar_t intern_type;
-      typedef char extern_type;
+      typedef wchar_t 	intern_type;
+      typedef char 	extern_type;
       typedef mbstate_t state_type;
 
       explicit codecvt(size_t __refs = 0);
@@ -774,7 +766,7 @@ namespace std
 
       // A list of valid numeric literals: for the standard "C" locale,
       // this would usually be: "-+xX0123456789abcdef0123456789ABCDEF"
-      static const char _S_literals[];
+      static const char 	_S_literals[];
 
       // NB: Code depends on the order of definitions of the names
       // these are indices into _S_literals, above.
@@ -783,8 +775,8 @@ namespace std
       {  
 	_S_minus, 
 	_S_plus, 
-	_S_ecks, 
-	_S_Ecks, 
+	_S_x, 
+	_S_X, 
 	_S_digits,
 	_S_digits_end = _S_digits + 16,
 	_S_udigits = _S_digits_end,  

@@ -47,6 +47,9 @@ Boston, MA 02111-1307, USA.  */
    message within this initializer.  */
 static int missing_braces_mentioned;
 
+/* 1 if we explained undeclared var errors.  */
+static int undeclared_variable_notice;
+
 static int comp_target_types_how	PARAMS ((tree, tree, int));
 #define comp_target_types(a, b) comp_target_types_physically ((a), (b))
 #define comp_target_types_physically(a, b) comp_target_types_how ((a), (b), 0)
@@ -1598,6 +1601,95 @@ build_array_ref (array, index)
   }
 }
 
+/* Build an external reference to identifier ID.  FUN indicates
+   whether this will be used for a function call.  */
+tree
+build_external_ref (id, fun)
+     tree id;
+     int fun;
+{
+  tree ref;
+  tree decl = lookup_name (id);
+  tree objc_ivar = lookup_objc_ivar (id);
+
+  if (!decl || decl == error_mark_node || C_DECL_ANTICIPATED (decl))
+    {
+      if (objc_ivar)
+	ref = objc_ivar;
+      else if (fun)
+	{
+	  if (!decl || decl == error_mark_node)
+	    /* Ordinary implicit function declaration.  */
+	    ref = implicitly_declare (id);
+	  else
+	    {
+	      /* Implicit declaration of built-in function.  Don't
+		 change the built-in declaration, but don't let this
+		 go by silently, either.  */
+	      pedwarn ("implicit declaration of function `%s'",
+		       IDENTIFIER_POINTER (DECL_NAME (decl)));
+	      C_DECL_ANTICIPATED (decl) = 0;  /* only issue this warning once */
+	      ref = decl;
+	    }
+	}
+      else
+	{
+	  /* Reference to undeclared variable, including reference to
+	     builtin outside of function-call context.  */
+	  if (current_function_decl == 0)
+	    error ("`%s' undeclared here (not in a function)",
+		   IDENTIFIER_POINTER (id));
+	  else
+	    {
+	      if (IDENTIFIER_GLOBAL_VALUE (id) != error_mark_node
+		  || IDENTIFIER_ERROR_LOCUS (id) != current_function_decl)
+		{
+		  error ("`%s' undeclared (first use in this function)",
+			 IDENTIFIER_POINTER (id));
+
+		  if (! undeclared_variable_notice)
+		    {
+		      error ("(Each undeclared identifier is reported only once");
+		      error ("for each function it appears in.)");
+		      undeclared_variable_notice = 1;
+		    }
+		}
+	      IDENTIFIER_GLOBAL_VALUE (id) = error_mark_node;
+	      IDENTIFIER_ERROR_LOCUS (id) = current_function_decl;
+	    }
+	  return error_mark_node;
+	}
+    }
+  else
+    {
+      /* Properly declared variable or function reference.  */
+      if (!objc_ivar)
+	ref = decl;
+      else if (decl != objc_ivar && IDENTIFIER_LOCAL_VALUE (id))
+	{
+	  warning ("local declaration of `%s' hides instance variable",
+		   IDENTIFIER_POINTER (id));
+	  ref = decl;
+	}
+      else
+	ref = objc_ivar;
+    }
+
+  if (TREE_TYPE (ref) == error_mark_node)
+    return error_mark_node;
+
+  assemble_external (ref);
+  TREE_USED (ref) = 1;
+
+  if (TREE_CODE (ref) == CONST_DECL)
+    {
+      ref = DECL_INITIAL (ref);
+      TREE_CONSTANT (ref) = 1;
+    }
+
+  return ref;
+}
+
 /* Build a function call to function FUNCTION with parameters PARAMS.
    PARAMS is a list--a chain of TREE_LIST nodes--in which the
    TREE_VALUE of each node is a parameter-expression.
@@ -1677,7 +1769,7 @@ build_function_call (function, params)
 		  function, coerced_params, NULL_TREE);
 
   TREE_SIDE_EFFECTS (result) = 1;
-  if (TREE_TYPE (result) == void_type_node)
+  if (VOID_TYPE_P (TREE_TYPE (result)))
     return result;
   return require_complete_type (result);
 }
@@ -2450,7 +2542,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	     and both must be object or both incomplete.  */
 	  if (comp_target_types (type0, type1))
 	    result_type = common_type (type0, type1);
-	  else if (TYPE_MAIN_VARIANT (tt0) == void_type_node)
+	  else if (VOID_TYPE_P (tt0))
 	    {
 	      /* op0 != orig_op0 detects the case of something
 		 whose value is 0 but which isn't a valid null ptr const.  */
@@ -2458,7 +2550,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		  && TREE_CODE (tt1) == FUNCTION_TYPE)
 		pedwarn ("ANSI C forbids comparison of `void *' with function pointer");
 	    }
-	  else if (TYPE_MAIN_VARIANT (tt1) == void_type_node)
+	  else if (VOID_TYPE_P (tt1))
 	    {
 	      if (pedantic && (!integer_zerop (op1) || op1 != orig_op1)
 		  && TREE_CODE (tt0) == FUNCTION_TYPE)
@@ -4002,8 +4094,10 @@ build_conditional_expr (ifexp, op1, op2)
       else
 	result_type = TYPE_MAIN_PHYSICAL_VARIANT (type2);
     }
-  else if ((code1 == INTEGER_TYPE || code1 == REAL_TYPE)
-           && (code2 == INTEGER_TYPE || code2 == REAL_TYPE))
+  else if ((code1 == INTEGER_TYPE || code1 == REAL_TYPE
+            || code1 == COMPLEX_TYPE)
+           && (code2 == INTEGER_TYPE || code2 == REAL_TYPE
+               || code2 == COMPLEX_TYPE))
     {
       result_type = common_type (type1, type2);
 
@@ -4056,14 +4150,14 @@ build_conditional_expr (ifexp, op1, op2)
 	       && TREE_CODE (orig_op2) != NOP_EXPR)
 	result_type = c_build_qualified_type (type1, (TYPE_QUALS (type1)
 						      | TYPE_QUALS (type2)));
-      else if (TYPE_MAIN_VARIANT (subtype1) == void_type_node)
+      else if (VOID_TYPE_P (subtype1))
 	{
 	  if (pedantic && TREE_CODE (subtype2) == FUNCTION_TYPE)
 	    pedwarn ("ANSI C forbids conditional expr between `void *' and function pointer");
 	  result_type = c_build_qualified_type (type1, (TYPE_QUALS (type1)
 							| TYPE_QUALS (type2)));
 	}
-      else if (TYPE_MAIN_VARIANT (subtype2) == void_type_node)
+      else if (VOID_TYPE_P (subtype2))
 	{
 	  if (pedantic && TREE_CODE (subtype1) == FUNCTION_TYPE)
 	    pedwarn ("ANSI C forbids conditional expr between `void *' and function pointer");
@@ -4184,7 +4278,7 @@ internal_build_compound_expr (list, first_p)
 	 any side-effects, unless it was explicitly cast to (void).  */
       if ((extra_warnings || warn_unused_value)
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
-                && TREE_TYPE (TREE_VALUE (list)) == void_type_node))
+                && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
         warning ("left-hand operand of comma expression has no effect");
 
       /* When pedantic, a compound expression can be neither an lvalue
@@ -4683,8 +4777,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 		 and vice versa; otherwise, targets must be the same.
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
-	      if (TYPE_MAIN_VARIANT (ttl) == void_type_node
-		  || TYPE_MAIN_VARIANT (ttr) == void_type_node
+	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 		  || comp_target_types (memb_type, rhstype))
 		{
 		  /* If this type won't generate any warnings, use it.  */
@@ -4760,17 +4853,15 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
-      if (TYPE_MAIN_VARIANT (ttl) == void_type_node
-	  || TYPE_MAIN_VARIANT (ttr) == void_type_node
+      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || comp_target_types (type, rhstype)
 	  || (unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
 	  if (pedantic
-	      && ((TYPE_MAIN_VARIANT (ttl) == void_type_node
-		   && TREE_CODE (ttr) == FUNCTION_TYPE)
+	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
 		  ||
-		  (TYPE_MAIN_VARIANT (ttr) == void_type_node
+		  (VOID_TYPE_P (ttr)
 		   /* Check TREE_CODE to catch cases like (void *) (char *) 0
 		      which are not ANSI null ptr constants.  */
 		   && (!integer_zerop (rhs) || TREE_CODE (rhs) == NOP_EXPR)
@@ -4791,8 +4882,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 				     errtype, funname, parmnum);
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
-	      else if (TYPE_MAIN_VARIANT (ttl) == void_type_node
-		       || TYPE_MAIN_VARIANT (ttr) == void_type_node
+	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 		       || comp_target_types (type, rhstype))
 		;
 	      /* If there is a mismatch, do warn.  */
@@ -6310,7 +6400,7 @@ add_pending_init (purpose, value)
 	}
     }
 
-  r = (struct init_node *) ggc_alloc_obj (sizeof (struct init_node), 0);
+  r = (struct init_node *) ggc_alloc (sizeof (struct init_node));
   r->purpose = purpose;
   r->value = value;
 

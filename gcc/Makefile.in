@@ -682,18 +682,18 @@ C_AND_OBJC_OBJS = c-lex.o c-pragma.o c-decl.o c-typeck.o c-convert.o \
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
-OBJS = diagnostic.o \
- toplev.o version.o tree.o print-tree.o stor-layout.o fold-const.o \
- function.o stmt.o except.o expr.o calls.o expmed.o explow.o optabs.o real.o \
- builtins.o intl.o varasm.o rtl.o print-rtl.o rtlanal.o emit-rtl.o genrtl.o \
- dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o alias.o gcse.o \
- integrate.o jump.o cse.o loop.o unroll.o flow.o combine.o varray.o \
+OBJS = diagnostic.o							      \
+ toplev.o version.o tree.o print-tree.o stor-layout.o fold-const.o	      \
+ function.o stmt.o except.o expr.o calls.o expmed.o explow.o optabs.o real.o  \
+ builtins.o intl.o varasm.o rtl.o print-rtl.o rtlanal.o emit-rtl.o genrtl.o   \
+ dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o alias.o gcse.o  \
+ integrate.o jump.o cse.o loop.o unroll.o flow.o combine.o varray.o	      \
  regclass.o regmove.o local-alloc.o global.o reload.o reload1.o caller-save.o \
- insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o regrename.o \
- insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o lcm.o \
- profile.o insn-attrtab.o $(out_object_file) $(EXTRA_OBJS) convert.o \
- mbchar.o dyn-string.o splay-tree.o graph.o sbitmap.o resource.o hash.o \
- predict.o lists.o ggc-common.o $(GGC) simplify-rtx.o ssa.o bb-reorder.o \
+ insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o regrename.o    \
+ insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o lcm.o    \
+ profile.o insn-attrtab.o $(out_object_file) $(EXTRA_OBJS) convert.o	      \
+ mbchar.o splay-tree.o graph.o sbitmap.o resource.o hash.o predict.o	      \
+ lists.o ggc-common.o $(GGC) simplify-rtx.o ssa.o bb-reorder.o		      \
  sibcall.o conflict.o timevar.o ifcvt.o
 
 # GEN files are listed separately, so they can be built before doing parallel
@@ -941,16 +941,6 @@ xlimits.h: glimits.h limitx.h limity.h
 #
 # Build libgcc.a.
 
-# Compiling libgcc.a requires making sure that cc1, etc. have been compiled.
-# But recompiling cc1 should not force recompilation of libgcc.a.
-# If you want to force recompilation, delete libgcc.a.
-libgcc.ready: $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO)
-	-if [ -f libgcc.ready ] ; then \
-		true; \
-	else \
-		touch libgcc.ready; \
-	fi
-
 LIB2ADD = $(LIB2ADDEH) $(LIB2FUNCS_EXTRA) $(LANG_LIB2FUNCS)
 
 libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) xgcc$(exeext)
@@ -970,9 +960,15 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) xgcc$(exeext)
 	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
 	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
-	$(SHELL) $(srcdir)/move-if-change tmp-libgcc.mk libgcc.mk
+	mv tmp-libgcc.mk libgcc.mk
 
-libgcc.a: libgcc.ready libgcc.mk $(FPBIT) $(DPBIT)
+# All the things that might cause us to want to recompile bits of libgcc.
+LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
+	libgcc.mk $(srcdir)/libgcc1.c $(srcdir)/libgcc2.c $(CONFIG_H) \
+	$(MACHMODE_H) longlong.h frame.h gbl-ctors.h config.status \
+	stmp-int-hdrs tsystem.h $(FPBIT) $(DPBIT) $(LIB2ADD)
+
+libgcc.a: $(LIBGCC_DEPS)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
@@ -1003,7 +999,7 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	touch s-mlib
 
 # Build multiple copies of libgcc.a, one for each target switch.
-stmp-multilib: libgcc.ready libgcc.mk $(FPBIT) $(DPBIT)
+stmp-multilib: $(LIBGCC_DEPS)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
@@ -1073,7 +1069,8 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 # C language specific files.
 
 c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) \
-    $(srcdir)/c-parse.h c-tree.h c-common.h input.h flags.h system.h toplev.h
+    $(srcdir)/c-parse.h c-tree.h c-common.h input.h flags.h system.h \
+    toplev.h output.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 		-DYYFILE=\"$(srcdir)/c-parse.y\" -c $(srcdir)/c-parse.c
 $(srcdir)/c-parse.h: $(srcdir)/c-parse.c
@@ -1093,12 +1090,13 @@ $(srcdir)/c-gperf.h: c-parse.gperf
 	exit 1 )
 	 $(SHELL) $(srcdir)/move-if-change tmp-gperf.h $(srcdir)/c-gperf.h
 
-c-decl.o : c-decl.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h $(GGC_H) \
-    c-lex.h flags.h function.h output.h toplev.h defaults.h
+c-decl.o : c-decl.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-tree.h \
+    c-common.h $(GGC_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
+    toplev.h defaults.h
 c-typeck.o : c-typeck.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h \
     flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h
-c-lang.o : c-lang.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h $(GGC_H) \
-    c-lex.h toplev.h output.h function.h
+c-lang.o : c-lang.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h \
+    $(GGC_H)  c-lex.h toplev.h output.h function.h
 c-lex.o : c-lex.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-lex.h c-tree.h \
     c-common.h $(srcdir)/c-parse.h $(srcdir)/c-gperf.h c-pragma.h input.h \
     intl.h flags.h toplev.h output.h mbchar.h $(GGC_H)
@@ -1235,7 +1233,7 @@ diagnostic.o : diagnostic.c diagnostic.h \
    $(CONFIG_H) system.h $(TREE_H) $(RTL_H) tm_p.h flags.h \
    $(GGC_H) input.h insn-attr.h insn-codes.h insn-config.h toplev.h intl.h 
 toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
-   flags.h input.h insn-attr.h xcoffout.h defaults.h output.h \
+   flags.h input.h insn-attr.h xcoffout.h defaults.h output.h diagnostic.h \
    insn-codes.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h dwarfout.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h loop.h  except.h regs.h $(TIMEVAR_H) $(lang_options_files)
@@ -1384,7 +1382,6 @@ recog.o : recog.c $(CONFIG_H) system.h $(RTL_H) function.h $(BASIC_BLOCK_H) \
 reg-stack.o : reg-stack.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h flags.h insn-config.h insn-flags.h toplev.h \
    varray.h function.h
-dyn-string.o: dyn-string.c dyn-string.h $(CONFIG_H) system.h
 predict.o: predict.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) insn-flags.h function.h except.h $(EXPR_H)
@@ -1578,7 +1575,7 @@ $(MD_FILE): $(MD_DEPS)
 	mv tmp-$@ $@
 
 gensupport.o: gensupport.c $(RTL_H) $(OBSTACK_H) system.h errors.h gensupport.h
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)$(srcdir)/gensupport.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/gensupport.c
 
 genconfig : genconfig.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
@@ -1747,12 +1744,7 @@ intl.o: intl.c intl.h gansidecl.h Makefile
 	  -DLOCALEDIR=\"$(localedir)\" \
 	  -c `echo $(srcdir)/intl.c | sed 's,^\./,,'`
 
-# This is needed to when doing a partial build after a `make clean'.
-# libintl.a does not depend on intl.all,
-# as that would force a lot of recompiling.
-$(top_builddir)/intl/libintl.a:
-	@echo "$(MAKE) intl.all"
-	@$(MAKE) $(FLAGS_TO_PASS) intl.all
+$(top_builddir)/intl/libintl.a: intl.all
 
 # Make sure all the headers are there for xgettext to scan.
 $(INTL_TARGETS): $(srcdir)/c-gperf.h \
@@ -1764,6 +1756,7 @@ intl.all intl.install intl.uninstall intl.distdir \
 	  target=`expr $@ : 'intl.\(.*\)'` && \
 	  echo "(cd $$d && $(MAKE) $$target)" && \
 	  (cd $$d && AWK='$(AWK)' $(MAKE) $(SUBDIR_FLAGS_TO_PASS) $$target); \
+	  if [ $$? -eq 0 ] ; then true ; else exit 1 ; fi ; \
 	done
 
 # intl.distdir doesn't copy the intl makefiles (since they aren't distributed),
@@ -2124,7 +2117,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	  gen-protos fixproto.list fixtmp.* fixhdr.ready
 # Delete files generated for fixincl
 	-rm -rf fixincl fixinc.sh specs.ready
-	(cd fixinc && make clean)
+	(cd fixinc && $(MAKE) clean)
 # Delete unwanted output files from TeX.
 	-rm -f *.toc *.log *.vr *.fn *.cp *.tp *.ky *.pg
 	-rm -f */*.toc */*.log */*.vr */*.fn */*.cp */*.tp */*.ky */*.pg
@@ -2137,7 +2130,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # that don't exist in the distribution.
 INTL_CLEAN = intl.clean
 clean: mostlyclean $(INTL_CLEAN) lang.clean
-	-rm -f libgcc.a libgcc.ready
+	-rm -f libgcc.a
 	-rm -f *.dvi
 	-rm -f */*.dvi
 	-if [ -f md.pre-cpp ]; then \

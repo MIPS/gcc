@@ -39,6 +39,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #  define MMAP_THRESHOLD 0
 #endif
 
+#ifndef O_BINARY
+# define O_BINARY 0
+#endif
+
 static IHASH *redundant_include_p PARAMS ((IHASH *, struct file_name_list *));
 static IHASH *make_IHASH	PARAMS ((const char *, const char *,
 					 struct file_name_list *,
@@ -216,14 +220,18 @@ make_IHASH (name, fname, path, hash, slot)
    paranoia is a virtue).
 
    Use the three-argument form of open even though we aren't
-   specifying O_CREAT, to defend against broken system headers.  */
+   specifying O_CREAT, to defend against broken system headers.
+
+   O_BINARY tells some runtime libraries (notably DJGPP) not to do
+   newline translation; we can handle DOS line breaks just fine
+   ourselves.  */
 
 static inline int
 open_include_file (pfile, filename)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
      const char *filename;
 {
-  return open (filename, O_RDONLY|O_NOCTTY, 0666);
+  return open (filename, O_RDONLY|O_NOCTTY|O_BINARY, 0666);
 }
 
 /* Search for include file FNAME in the include chain starting at
@@ -719,8 +727,11 @@ read_include_file (pfile, fd, ihash)
 	 the max size of a file might be bigger than the address
 	 space.  We can't handle a file that large.  (Anyone with
 	 a single source file bigger than 2GB needs to rethink
-	 their coding style.)  */
-      if (st.st_size > SSIZE_MAX)
+	 their coding style.)  Some systems (e.g. AIX 4.1) define
+	 SSIZE_MAX to be much smaller than the actual range of the
+	 type.  Use INTTYPE_MAXIMUM unconditionally to ensure this
+	 does not bite us.  */
+      if (st.st_size > INTTYPE_MAXIMUM (ssize_t))
 	{
 	  cpp_error (pfile, "%s is too large", ihash->name);
 	  goto fail;

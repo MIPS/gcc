@@ -1,3 +1,40 @@
+2000-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (init_decl_processing): Set TYPE_USER_ALIGN.
+	(layout_enum): Set DECL_USER_ALIGN resp. TYPE_USER_ALIGN.
+	* typeck.c (layout_chill_range_type): Set TYPE_USER_ALIGN.
+	(apply_chill_field_layout): Set DECL_USER_ALIGN.
+	(layout_chill_struct_type): Set TYPE_USER_ALIGN.
+
+Tue Jun 13 15:30:46 2000  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* Make-lang.in (CHILL.install-common): Use $(INSTALL_SCRIPT), not
+	$(INSTALL_PROGRAM) for chill.install.
+
+2000-06-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (EXPR_H): New dependency variable.
+	(actions.o, expr.o): Use EXPR_H.
+	(lang.o): Depend on RTL_H and EXPR_H.
+
+	* lang.c: Include rtl.h and expr.h.
+	(lang_get_alias_set): Mark parameter with ATTRIBUTE_UNUSED.
+
+2000-06-04  Philipp Thomas  <pthomas@suse.de>
+
+	* Makefile.in(INTLLIBS): New macro.
+	(LIBS): Add INTLLIBS.
+	(DEPLIBS): Likewise.
+	* config-lang(outputs): Specify ch/Makefile.
+
+Sat Jun  3 15:31:07 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* chill.texi (INFO-DIR-ENTRY): Fix chill entry.
+
+2000-06-02  Richard Henderson  <rth@cygnus.com>
+
+	* lang.c (lang_get_alias_set): New.
+
 Sat May 27 11:24:26 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* lang.c (deep_const_expr): Use first_rtl_op.

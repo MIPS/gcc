@@ -246,10 +246,6 @@ static int next_decl_uid;
 /* Unique id for next type created.  */
 static int next_type_uid = 1;
 
-/* The language-specific function for alias analysis.  If NULL, the
-   language does not do any special alias analysis.  */
-int (*lang_get_alias_set) PARAMS ((tree));
-
 /* Here is how primitive or already-canonicalized types' hash
    codes are made.  */
 #define TYPE_HASH(TYPE) ((unsigned long) (TYPE) & 0777777)
@@ -1045,10 +1041,9 @@ make_node (code)
   if (ggc_p)
     t = ggc_alloc_tree (length);
   else
-    {
-      t = (tree) obstack_alloc (obstack, length);
-      memset ((PTR) t, 0, length);
-    }
+    t = (tree) obstack_alloc (obstack, length);
+
+  memset ((PTR) t, 0, length);
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)kind]++;
@@ -1068,6 +1063,7 @@ make_node (code)
     case 'd':
       if (code != FUNCTION_DECL)
 	DECL_ALIGN (t) = 1;
+      DECL_USER_ALIGN (t) = 0;
       DECL_IN_SYSTEM_HEADER (t) = in_system_header;
       DECL_SOURCE_LINE (t) = lineno;
       DECL_SOURCE_FILE (t) = 
@@ -1081,6 +1077,7 @@ make_node (code)
     case 't':
       TYPE_UID (t) = next_type_uid++;
       TYPE_ALIGN (t) = 1;
+      TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
       TYPE_OBSTACK (t) = obstack;
       TYPE_ATTRIBUTES (t) = NULL_TREE;
@@ -1630,11 +1627,9 @@ make_tree_vec (len)
   if (ggc_p)
     t = ggc_alloc_tree (length);
   else
-    {
-      t = (tree) obstack_alloc (obstack, length);
-      bzero ((PTR) t, length);
-    }
+    t = (tree) obstack_alloc (obstack, length);
 
+  memset ((PTR) t, 0, length);
   TREE_SET_CODE (t, TREE_VEC);
   TREE_VEC_LENGTH (t) = len;
   TREE_SET_PERMANENT (t);
@@ -2190,10 +2185,9 @@ tree_cons (purpose, value, chain)
   if (ggc_p)
     node = ggc_alloc_tree (sizeof (struct tree_list));
   else
-    {
-      node = (tree) obstack_alloc (current_obstack, sizeof (struct tree_list));
-      memset (node, 0, sizeof (struct tree_common));
-    }
+    node = (tree) obstack_alloc (current_obstack, sizeof (struct tree_list));
+
+  memset (node, 0, sizeof (struct tree_common));
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int) x_kind]++;
@@ -3442,20 +3436,20 @@ build1 (code, type, node)
   if (ggc_p)
     t = ggc_alloc_tree (length);
   else
-    {
-      t = (tree) obstack_alloc (obstack, length);
-      memset ((PTR) t, 0, length);
-    }
+    t = (tree) obstack_alloc (obstack, length);
+
+  memset ((PTR) t, 0, sizeof (struct tree_common));
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)kind]++;
   tree_node_sizes[(int)kind] += length;
 #endif
 
-  TREE_TYPE (t) = type;
   TREE_SET_CODE (t, code);
   TREE_SET_PERMANENT (t);
 
+  TREE_TYPE (t) = type;
+  TREE_COMPLEXITY (t) = 0;
   TREE_OPERAND (t, 0) = node;
   if (node && first_rtl_op (code) != 0 && TREE_SIDE_EFFECTS (node))
     TREE_SIDE_EFFECTS (t) = 1;
@@ -4443,7 +4437,9 @@ host_integerp (t, pos)
 	  && ((TREE_INT_CST_HIGH (t) == 0
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
-		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)));
+		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)
+	      || (! pos && TREE_INT_CST_HIGH (t) == 0
+		  && TREE_UNSIGNED (TREE_TYPE (t)))));
 }
 
 /* Return the HOST_WIDE_INT least significant bits of T if it is an
@@ -4853,6 +4849,7 @@ build_index_type (maxval)
   TYPE_SIZE (itype) = TYPE_SIZE (sizetype);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (sizetype);
   TYPE_ALIGN (itype) = TYPE_ALIGN (sizetype);
+  TYPE_USER_ALIGN (itype) = TYPE_USER_ALIGN (sizetype);
 
   if (host_integerp (maxval, 1))
     return type_hash_canon (tree_low_cst (maxval, 1), itype);
@@ -4885,6 +4882,7 @@ build_range_type (type, lowval, highval)
   TYPE_SIZE (itype) = TYPE_SIZE (type);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (type);
   TYPE_ALIGN (itype) = TYPE_ALIGN (type);
+  TYPE_USER_ALIGN (itype) = TYPE_USER_ALIGN (type);
 
   if (host_integerp (lowval, 0) && highval != 0 && host_integerp (highval, 0))
     return type_hash_canon (tree_low_cst (highval, 0)
@@ -5827,7 +5825,7 @@ tree_check_failed (node, code, file, line, function)
 void
 tree_class_check_failed (node, cl, file, line, function)
      const tree node;
-     char cl;
+     int cl;
      const char *file;
      int line;
      const char *function;
@@ -5840,38 +5838,6 @@ tree_class_check_failed (node, cl, file, line, function)
 
 #endif /* ENABLE_TREE_CHECKING */
 
-/* Return the alias set for T, which may be either a type or an
-   expression.  */
-
-int
-get_alias_set (t)
-     tree t;
-{
-  /* If we're not doing any lanaguage-specific alias analysis, just
-     assume everything aliases everything else.  */
-  if (! flag_strict_aliasing || lang_get_alias_set == 0)
-    return 0;
-
-  /* If this is a type with a known alias set, return it since this must
-     be the correct thing to do.  */
-  else if (TYPE_P (t) && TYPE_ALIAS_SET_KNOWN_P (t))
-    return TYPE_ALIAS_SET (t);
-  else
-    return (*lang_get_alias_set) (t);
-}
-
-/* Return a brand-new alias set.  */
-
-int
-new_alias_set ()
-{
-  static int last_alias_set;
-
-  if (flag_strict_aliasing)
-    return ++last_alias_set;
-  else
-    return 0;
-}
 
 #ifndef CHAR_TYPE_SIZE
 #define CHAR_TYPE_SIZE BITS_PER_UNIT
@@ -5978,6 +5944,7 @@ build_common_tree_nodes_2 (short_double)
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
+  TYPE_USER_ALIGN (void_type_node) = 0;
 
   unbounded_ptr_type_node = build_pointer_type_2 (POINTER_TYPE, void_type_node);
   bounded_ptr_type_node = build_pointer_type_2 (RECORD_TYPE, void_type_node);

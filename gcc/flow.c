@@ -2201,6 +2201,8 @@ merge_blocks_nomove (a, b)
 
       a_end = prev;
     }
+  else if (GET_CODE (NEXT_INSN (a_end)) == BARRIER)
+    del_first = NEXT_INSN (a_end);
 
   /* Delete everything marked above as well as crap that might be
      hanging out between the two blocks.  */
@@ -2604,9 +2606,13 @@ life_analysis (f, file, flags)
      Otherwise offsets and such may be incorrect.
 
      Reload will make some registers as live even though they do not
-     appear in the rtl.  */
+     appear in the rtl.  
+
+     We don't want to create new auto-incs after reload, since they
+     are unlikely to be useful and can cause problems with shared
+     stack slots.  */
   if (reload_completed)
-    flags &= ~PROP_REG_INFO;
+    flags &= ~(PROP_REG_INFO | PROP_AUTOINC);
 
   /* We want alias analysis information for local dead store elimination.  */
   if (flags & PROP_SCAN_DEAD_CODE)
@@ -3464,8 +3470,7 @@ propagate_one_insn (pbi, insn)
     register rtx x = single_set (insn);
 
     /* Does this instruction increment or decrement a register?  */
-    if (!reload_completed
-	&& (flags & PROP_AUTOINC)
+    if ((flags & PROP_AUTOINC)
 	&& x != 0
 	&& GET_CODE (SET_DEST (x)) == REG
 	&& (GET_CODE (SET_SRC (x)) == PLUS
@@ -3639,7 +3644,8 @@ init_propagate_block_info (bb, live, local_set, flags)
   /* If this block ends in a conditional branch, for each register live
      from one side of the branch and not the other, record the register
      as conditionally dead.  */
-  if (GET_CODE (bb->end) == JUMP_INSN
+  if ((flags & (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE))
+      && GET_CODE (bb->end) == JUMP_INSN
       && any_condjump_p (bb->end))
     {
       regset_head diff_head;
@@ -3716,6 +3722,31 @@ init_propagate_block_info (bb, live, local_set, flags)
       FREE_REG_SET (diff);
     }
 #endif
+
+  /* If this block has no successors, any stores to the frame that aren't
+     used later in the block are dead.  So make a pass over the block
+     recording any such that are made and show them dead at the end.  We do
+     a very conservative and simple job here.  */
+  if ((flags & PROP_SCAN_DEAD_CODE)
+      && (bb->succ == NULL
+          || (bb->succ->succ_next == NULL
+	      && bb->succ->dest == EXIT_BLOCK_PTR)))
+    {
+      rtx insn;
+      for (insn = bb->end; insn != bb->head; insn = PREV_INSN (insn))
+	if (GET_CODE (insn) == INSN
+	    && GET_CODE (PATTERN (insn)) == SET
+	    && GET_CODE (SET_DEST (PATTERN (insn))) == MEM)
+	  {
+	    rtx mem = SET_DEST (PATTERN (insn));
+
+	    if (XEXP (mem, 0) == frame_pointer_rtx
+		|| (GET_CODE (XEXP (mem, 0)) == PLUS
+		    && XEXP (XEXP (mem, 0), 0) == frame_pointer_rtx
+		    && GET_CODE (XEXP (XEXP (mem, 0), 1)) == CONST_INT))
+	      pbi->mem_set_list = alloc_EXPR_LIST (0, mem, pbi->mem_set_list);
+	  }
+    }
 
   return pbi;
 }
@@ -3924,6 +3955,16 @@ insn_dead_p (pbi, x, call_ok, notes)
 		return 0;
 #endif
 
+#ifdef PIC_OFFSET_TABLE_REGNUM
+	      /* Before reload, do not allow sets of the pic register
+		 to be deleted.  Reload can insert references to
+		 constant pool memory anywhere in the function, making
+		 the PIC register live where it wasn't before.  */
+	      if (regno == PIC_OFFSET_TABLE_REGNUM && fixed_regs[regno]
+		  && ! reload_completed)
+		return 0;
+#endif
+
 	      /* Otherwise, the set is dead.  */
 	      return 1;
 	    }
@@ -4111,8 +4152,18 @@ mark_set_regs (pbi, x, insn)
      rtx x, insn;
 {
   rtx cond = NULL_RTX;
+  rtx link;
   enum rtx_code code;
 
+  if (insn)
+    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+      {
+	if (REG_NOTE_KIND (link) == REG_INC)
+	  mark_set_1 (pbi, SET, XEXP (link, 0),
+		      (GET_CODE (x) == COND_EXEC
+		       ? COND_EXEC_TEST (x) : NULL_RTX),
+		      insn, pbi->flags);
+      }
  retry:
   switch (code = GET_CODE (x))
     {
@@ -5232,11 +5283,13 @@ mark_used_regs (pbi, x, cond, insn)
       break;
 
     case SUBREG:
+#ifdef CLASS_CANNOT_CHANGE_MODE
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER
-	  && (GET_MODE_SIZE (GET_MODE (x))
-	      != GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
-	REG_CHANGES_SIZE (REGNO (SUBREG_REG (x))) = 1;
+	  && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
+					 GET_MODE (SUBREG_REG (x))))
+	REG_CHANGES_MODE (REGNO (SUBREG_REG (x))) = 1;
+#endif
 
       /* While we're here, optimize this case.  */
       x = SUBREG_REG (x);
@@ -5279,12 +5332,14 @@ mark_used_regs (pbi, x, cond, insn)
 	       || GET_CODE (testreg) == SIGN_EXTRACT
 	       || GET_CODE (testreg) == SUBREG)
 	  {
+#ifdef CLASS_CANNOT_CHANGE_MODE
 	    if (GET_CODE (testreg) == SUBREG
 		&& GET_CODE (SUBREG_REG (testreg)) == REG
 		&& REGNO (SUBREG_REG (testreg)) >= FIRST_PSEUDO_REGISTER
-		&& (GET_MODE_SIZE (GET_MODE (testreg))
-		    != GET_MODE_SIZE (GET_MODE (SUBREG_REG (testreg)))))
-	      REG_CHANGES_SIZE (REGNO (SUBREG_REG (testreg))) = 1;
+		&& CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (SUBREG_REG (testreg)),
+					       GET_MODE (testreg)))
+	      REG_CHANGES_MODE (REGNO (SUBREG_REG (testreg))) = 1;
+#endif
 
 	    /* Modifying a single register in an alternate mode
 	       does not use any of the old value.  But these other

@@ -6,6 +6,7 @@
 #include <functional>
 #include <algorithm>
 #include <cassert>
+using namespace std;
 int main()
 {
       list<int> l;

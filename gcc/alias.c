@@ -57,10 +57,10 @@ Boston, MA 02111-1307, USA.  */
     In this situation we say the alias set for `struct S' is the
    `superset' and that those for `int' and `double' are `subsets'.
 
-   To see whether two alias sets can point to the same memory, we must go
-   down the list of decendents of each and see if there is some alias set
-   in common.  We need not trace past immediate decendents, however, since
-   we propagate all grandchildren up one level.
+   To see whether two alias sets can point to the same memory, we must
+   see if either alias set is a subset of the other. We need not trace
+   past immediate decendents, however, since we propagate all
+   grandchildren up one level.
 
    Alias set zero is implicitly a superset of all other alias sets.
    However, this is no actual entry for alias set zero.  It is an
@@ -69,7 +69,7 @@ Boston, MA 02111-1307, USA.  */
 typedef struct alias_set_entry
 {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
-  int alias_set;
+  HOST_WIDE_INT alias_set;
 
   /* The children of the alias set.  These are not just the immediate
      children, but, in fact, all decendents.  So, if we have:
@@ -79,6 +79,10 @@ typedef struct alias_set_entry
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
   splay_tree children;
+
+  /* Nonzero if would have a child of zero: this effectively makes this
+     alias set the same as alias set zero.  */
+  int has_zero_child;
 } *alias_set_entry;
 
 static int rtx_equal_for_memref_p	PARAMS ((rtx, rtx));
@@ -93,9 +97,10 @@ static int base_alias_check		PARAMS ((rtx, rtx, enum machine_mode,
 static rtx find_base_value		PARAMS ((rtx));
 static int mems_in_disjoint_alias_sets_p PARAMS ((rtx, rtx));
 static int insert_subset_children       PARAMS ((splay_tree_node, void*));
-static alias_set_entry get_alias_set_entry PARAMS ((int));
+static tree find_base_decl            PARAMS ((tree));
+static alias_set_entry get_alias_set_entry PARAMS ((HOST_WIDE_INT));
 static rtx fixed_scalar_and_varying_struct_p PARAMS ((rtx, rtx, rtx, rtx,
-						      int (*)(rtx)));
+						      int (*) (rtx)));
 static int aliases_everything_p         PARAMS ((rtx));
 static int write_dependence_p           PARAMS ((rtx, rtx, int));
 static int nonlocal_reference_p         PARAMS ((rtx));
@@ -140,7 +145,7 @@ static rtx *new_reg_base_value;
 static unsigned int reg_base_value_size; /* size of reg_base_value array */
 
 #define REG_BASE_VALUE(X) \
-  ((unsigned) REGNO (X) < reg_base_value_size ? reg_base_value[REGNO (X)] : 0)
+  (REGNO (X) < reg_base_value_size ? reg_base_value[REGNO (X)] : 0)
 
 /* Vector of known invariant relationships between registers.  Set in
    loop unrolling.  Indexed by register number, if nonzero the value
@@ -187,7 +192,7 @@ static splay_tree alias_sets;
 
 static alias_set_entry
 get_alias_set_entry (alias_set)
-     int alias_set;
+     HOST_WIDE_INT alias_set;
 {
   splay_tree_node sn
     = splay_tree_lookup (alias_sets, (splay_tree_key) alias_set);
@@ -236,17 +241,20 @@ mems_in_disjoint_alias_sets_p (mem1, mem2)
   if (MEM_ALIAS_SET (mem1) == MEM_ALIAS_SET (mem2))
     return 0;
 
-  /* Iterate through each of the children of the first alias set,
-     comparing it with the second alias set.  */
+  /* See if the first alias set is a subset of the second.  */
   ase = get_alias_set_entry (MEM_ALIAS_SET (mem1));
-  if (ase != 0 && splay_tree_lookup (ase->children,
-				     (splay_tree_key) MEM_ALIAS_SET (mem2)))
+  if (ase != 0
+      && (ase->has_zero_child
+	  || splay_tree_lookup (ase->children,
+				(splay_tree_key) MEM_ALIAS_SET (mem2))))
     return  0;
 
   /* Now do the same, but with the alias sets reversed.  */
   ase = get_alias_set_entry (MEM_ALIAS_SET (mem2));
-  if (ase != 0 && splay_tree_lookup (ase->children,
-				     (splay_tree_key) MEM_ALIAS_SET (mem1)))
+  if (ase != 0
+      && (ase->has_zero_child
+	  || splay_tree_lookup (ase->children,
+				(splay_tree_key) MEM_ALIAS_SET (mem1))))
     return  0;
 
   /* The two MEMs are in distinct alias sets, and neither one is the
@@ -266,6 +274,204 @@ insert_subset_children (node, data)
 
   return 0;
 }
+
+/* T is an expression with pointer type.  Find the DECL on which this
+   expression is based.  (For example, in `a[i]' this would be `a'.)
+   If there is no such DECL, or a unique decl cannot be determined,
+   NULL_TREE is retured.  */
+
+static tree
+find_base_decl (t)
+     tree t;
+{
+  tree d0, d1, d2;
+
+  if (t == 0 || t == error_mark_node || ! POINTER_TYPE_P (TREE_TYPE (t)))
+    return 0;
+
+  /* If this is a declaration, return it.  */
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'd')
+    return t;
+
+  /* Handle general expressions.  It would be nice to deal with
+     COMPONENT_REFs here.  If we could tell that `a' and `b' were the
+     same, then `a->f' and `b->f' are also the same.  */
+  switch (TREE_CODE_CLASS (TREE_CODE (t)))
+    {
+    case '1':
+      return find_base_decl (TREE_OPERAND (t, 0));
+
+    case '2':
+      /* Return 0 if found in neither or both are the same.  */
+      d0 = find_base_decl (TREE_OPERAND (t, 0));
+      d1 = find_base_decl (TREE_OPERAND (t, 1));
+      if (d0 == d1)
+	return d0;
+      else if (d0 == 0)
+	return d1;
+      else if (d1 == 0)
+	return d0;
+      else
+	return 0;
+
+    case '3':
+      d0 = find_base_decl (TREE_OPERAND (t, 0));
+      d1 = find_base_decl (TREE_OPERAND (t, 1));
+      d0 = find_base_decl (TREE_OPERAND (t, 0));
+      d2 = find_base_decl (TREE_OPERAND (t, 2));
+
+      /* Set any nonzero values from the last, then from the first.  */
+      if (d1 == 0) d1 = d2;
+      if (d0 == 0) d0 = d1;
+      if (d1 == 0) d1 = d0;
+      if (d2 == 0) d2 = d1;
+
+      /* At this point all are nonzero or all are zero.  If all three are the
+	 same, return it.  Otherwise, return zero.  */
+      return (d0 == d1 && d1 == d2) ? d0 : 0;
+
+    default:
+      return 0;
+    }
+}
+
+/* Return the alias set for T, which may be either a type or an
+   expression.  Call language-specific routine for help, if needed.  */
+
+HOST_WIDE_INT
+get_alias_set (t)
+     tree t;
+{
+  tree orig_t;
+  HOST_WIDE_INT set;
+
+  /* If we're not doing any alias analysis, just assume everything
+     aliases everything else.  Also return 0 if this or its type is
+     an error.  */
+  if (! flag_strict_aliasing || t == error_mark_node
+      || (! TYPE_P (t)
+	  && (TREE_TYPE (t) == 0 || TREE_TYPE (t) == error_mark_node)))
+    return 0;
+
+  /* We can be passed either an expression or a type.  This and the
+     language-specific routine may make mutually-recursive calls to
+     each other to figure out what to do.  At each juncture, we see if
+     this is a tree that the language may need to handle specially.
+     First handle things that aren't types and start by removing nops
+     since we care only about the actual object.  */
+  if (! TYPE_P (t))
+    {
+      while (TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR
+	     || TREE_CODE (t) == NON_LVALUE_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      /* Now give the language a chance to do something but record what we
+	 gave it this time.  */
+      orig_t = t;
+      if ((set = lang_get_alias_set (t)) != -1)
+	return set;
+
+      /* Now loop the same way as get_inner_reference and get the alias
+	 set to use.  Pick up the outermost object that we could have
+	 a pointer to.  */
+      while (1)
+	{
+	  /* Unnamed bitfields are not an addressable object.  */
+	  if (TREE_CODE (t) == BIT_FIELD_REF)
+	    ;
+	  else if (TREE_CODE (t) == COMPONENT_REF)
+	    {
+	      if (! DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1)))
+		/* Stop at an adressable decl.  */
+		break;
+	    }
+	  else if (TREE_CODE (t) == ARRAY_REF)
+	    {
+	      if (! TYPE_NONALIASED_COMPONENT
+		  (TREE_TYPE (TREE_OPERAND (t, 0))))
+		/* Stop at an addresssable array element.  */
+		break;
+	    }
+	  else if (TREE_CODE (t) != NON_LVALUE_EXPR
+		   && ! ((TREE_CODE (t) == NOP_EXPR
+		      || TREE_CODE (t) == CONVERT_EXPR)
+		     && (TYPE_MODE (TREE_TYPE (t))
+			 == TYPE_MODE (TREE_TYPE (TREE_OPERAND (t, 0))))))
+	    /* Stop if not one of above and not mode-preserving conversion. */
+	    break;
+
+	  t = TREE_OPERAND (t, 0);
+	}
+		   
+      if (TREE_CODE (t) == INDIRECT_REF)
+	{
+	  /* Check for accesses through restrict-qualified pointers.  */
+	  tree decl = find_base_decl (TREE_OPERAND (t, 0));
+
+	  if (decl && DECL_POINTER_ALIAS_SET_KNOWN_P (decl))
+	    /* We use the alias set indicated in the declaration.  */
+	    return DECL_POINTER_ALIAS_SET (decl);
+
+	  /* If we have an INDIRECT_REF via a void pointer, we don't
+	     know anything about what that might alias.  */
+	  if (TREE_CODE (TREE_TYPE (t)) == VOID_TYPE)
+	    return 0;
+	}
+
+      /* Give the language another chance to do something special.  */
+      if (orig_t != t
+	  && (set = lang_get_alias_set (t)) != -1)
+	return set;
+
+      /* Now all we care about is the type.  */
+      t = TREE_TYPE (t);
+    }
+
+  /* Variant qualifiers don't affect the alias set, so get the main
+     variant. If this is a type with a known alias set, return it.  */
+  t = TYPE_MAIN_VARIANT (t);
+  if (TYPE_P (t) && TYPE_ALIAS_SET_KNOWN_P (t))
+    return TYPE_ALIAS_SET (t);
+
+  /* See if the language has special handling for this type.  */
+  if ((set = lang_get_alias_set (t)) != -1)
+    {
+      /* If the alias set is now known, we are done.  */
+      if (TYPE_ALIAS_SET_KNOWN_P (t))
+	return TYPE_ALIAS_SET (t);
+    }
+
+  /* There are no objects of FUNCTION_TYPE, so there's no point in
+     using up an alias set for them.  (There are, of course, pointers
+     and references to functions, but that's different.)  */
+  else if (TREE_CODE (t) == FUNCTION_TYPE)
+    set = 0;
+  else
+    /* Otherwise make a new alias set for this type.  */
+    set = new_alias_set ();
+
+  TYPE_ALIAS_SET (t) = set;
+
+  /* If this is an aggregate type, we must record any component aliasing
+     information.  */
+  if (AGGREGATE_TYPE_P (t))
+    record_component_aliases (t);
+
+  return set;
+}
+
+/* Return a brand-new alias set.  */
+
+HOST_WIDE_INT
+new_alias_set ()
+{
+  static HOST_WIDE_INT last_alias_set;
+
+  if (flag_strict_aliasing)
+    return ++last_alias_set;
+  else
+    return 0;
+}
 
 /* Indicate that things in SUBSET can alias things in SUPERSET, but
    not vice versa.  For example, in C, a store to an `int' can alias a
@@ -278,8 +484,8 @@ insert_subset_children (node, data)
 
 void
 record_alias_subset (superset, subset)
-     int superset;
-     int subset;
+     HOST_WIDE_INT superset;
+     HOST_WIDE_INT subset;
 {
   alias_set_entry superset_entry;
   alias_set_entry subset_entry;
@@ -297,23 +503,31 @@ record_alias_subset (superset, subset)
       superset_entry->alias_set = superset;
       superset_entry->children 
 	= splay_tree_new (splay_tree_compare_ints, 0, 0);
+      superset_entry->has_zero_child = 0;
       splay_tree_insert (alias_sets, (splay_tree_key) superset,
 			 (splay_tree_value) superset_entry);
-
     }
 
-  subset_entry = get_alias_set_entry (subset);
+  if (subset == 0)
+    superset_entry->has_zero_child = 1;
+  else
+    {
+      subset_entry = get_alias_set_entry (subset);
+      /* If there is an entry for the subset, enter all of its children
+	 (if they are not already present) as children of the SUPERSET.  */
+      if (subset_entry) 
+	{
+	  if (subset_entry->has_zero_child)
+	    superset_entry->has_zero_child = 1;
 
-  /* If there is an entry for the subset, enter all of its children
-     (if they are not already present) as children of the SUPERSET.  */
-  if (subset_entry) 
-    splay_tree_foreach (subset_entry->children,
-			insert_subset_children,
-			superset_entry->children);
+	  splay_tree_foreach (subset_entry->children, insert_subset_children,
+			      superset_entry->children);
+	}
 
-  /* Enter the SUBSET itself as a child of the SUPERSET.  */
-  splay_tree_insert (superset_entry->children, 
-		     (splay_tree_key) subset, 0);
+      /* Enter the SUBSET itself as a child of the SUPERSET.  */
+      splay_tree_insert (superset_entry->children, 
+			 (splay_tree_key) subset, 0);
+    }
 }
 
 /* Record that component types of TYPE, if any, are part of that type for
@@ -326,8 +540,7 @@ void
 record_component_aliases (type)
      tree type;
 {
-  int superset = get_alias_set (type);
-  int subset;
+  HOST_WIDE_INT superset = get_alias_set (type);
   tree field;
 
   if (superset == 0)
@@ -336,26 +549,49 @@ record_component_aliases (type)
   switch (TREE_CODE (type))
     {
     case ARRAY_TYPE:
-    case COMPLEX_TYPE:
-      subset = get_alias_set (TREE_TYPE (type));
-      if (subset != 0)
-	record_alias_subset (superset, subset);
+      if (! TYPE_NONALIASED_COMPONENT (type))
+	record_alias_subset (superset, get_alias_set (TREE_TYPE (type)));
       break;
 
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
-	{
-	  subset = get_alias_set (TREE_TYPE (field));
-	  if (TREE_ADDRESSABLE (field) && subset != 0 && subset != superset)
-	    record_alias_subset (superset, subset);
-	}
+	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
+	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
       break;
 
     default:
       break;
     }
+}
+
+/* Allocate an alias set for use in storing and reading from the varargs
+   spill area.  */
+
+HOST_WIDE_INT
+get_varargs_alias_set ()
+{
+  static HOST_WIDE_INT set = -1;
+
+  if (set == -1)
+    set = new_alias_set ();
+
+  return set;
+}
+
+/* Likewise, but used for the fixed portions of the frame, e.g., register
+   save areas.  */
+
+HOST_WIDE_INT
+get_frame_alias_set ()
+{
+  static HOST_WIDE_INT set = -1;
+
+  if (set == -1)
+    set = new_alias_set ();
+
+  return set;
 }
 
 /* Inside SRC, the source of a SET, find a base address.  */
@@ -975,6 +1211,7 @@ base_alias_check (x, y, x_mode, y_mode)
 /* Convert the address X into something we can use.  This is done by returning
    it unchanged unless it is a value; in the latter case we call cselib to get
    a more useful rtx.  */
+
 static rtx
 get_addr (x)
      rtx x;

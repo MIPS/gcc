@@ -611,6 +611,7 @@ expand_call_inline (tp, walk_subtrees, data)
   tree scope_stmt;
   tree use_stmt;
   tree arg_inits;
+  tree *inlined_body;
   splay_tree st;
 
   /* See what we've got.  */
@@ -723,8 +724,10 @@ expand_call_inline (tp, walk_subtrees, data)
   
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  STMT_EXPR_STMT (expr)
-    = chainon (STMT_EXPR_STMT (expr), copy_body (id));
+  inlined_body = &STMT_EXPR_STMT (expr);
+  while (*inlined_body)
+    inlined_body = &TREE_CHAIN (*inlined_body);
+  *inlined_body = copy_body (id);
 
   /* Close the block for the parameters.  */
   scope_stmt = build_min_nt (SCOPE_STMT, DECL_INITIAL (fn));
@@ -770,7 +773,7 @@ expand_call_inline (tp, walk_subtrees, data)
   TREE_USED (*tp) = 1;
 
   /* Recurse into the body of the just inlined function.  */
-  expand_calls_inline (tp, id);
+  expand_calls_inline (inlined_body, id);
   VARRAY_POP (id->fns);
 
   /* Don't walk into subtrees.  We've already handled them above.  */
@@ -906,6 +909,10 @@ maybe_clone_body (fn)
       DECL_WEAK (clone) = DECL_WEAK (fn);
       DECL_ONE_ONLY (clone) = DECL_ONE_ONLY (fn);
       DECL_SECTION_NAME (clone) = DECL_SECTION_NAME (fn);
+      DECL_USE_TEMPLATE (clone) = DECL_USE_TEMPLATE (fn);
+      DECL_EXTERNAL (clone) = DECL_EXTERNAL (fn);
+      DECL_INTERFACE_KNOWN (clone) = DECL_INTERFACE_KNOWN (fn);
+      DECL_NOT_REALLY_EXTERN (clone) = DECL_NOT_REALLY_EXTERN (fn);
 
       /* Start processing the function.  */
       push_to_top_level ();

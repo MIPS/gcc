@@ -51,8 +51,6 @@
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
 #endif
 
-#define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
-
 #define NULL_EDGE	((struct edge_def *)NULL)
 #define NULL_BLOCK	((struct basic_block_def *)NULL)
 
@@ -207,6 +205,7 @@ cond_exec_process_insns (start, end, test, prob_val, mod_ok)
 {
   int must_be_last = FALSE;
   rtx insn;
+  rtx pattern;
 
   for (insn = start; ; insn = NEXT_INSN (insn))
     {
@@ -216,10 +215,8 @@ cond_exec_process_insns (start, end, test, prob_val, mod_ok)
       if (GET_CODE (insn) != INSN && GET_CODE (insn) != CALL_INSN)
 	abort ();
 
-      /* Remove USE and CLOBBER insns that get in the way.  */
-      if (reload_completed
-	  && (GET_CODE (PATTERN (insn)) == USE
-	      || GET_CODE (PATTERN (insn)) == CLOBBER))
+      /* Remove USE insns that get in the way.  */
+      if (reload_completed && GET_CODE (PATTERN (insn)) == USE)
 	{
 	  /* ??? Ug.  Actually unlinking the thing is problematic, 
 	     given what we'd have to coordinate with our callers.  */
@@ -241,9 +238,20 @@ cond_exec_process_insns (start, end, test, prob_val, mod_ok)
 	}
 
       /* Now build the conditional form of the instruction.  */
+      pattern = PATTERN (insn);
+
+      /* If the machine needs to modify the insn being conditionally executed,
+         say for example to force a constant integer operand into a temp
+         register, do so here.  */
+#ifdef IFCVT_MODIFY_INSN
+      IFCVT_MODIFY_INSN (pattern, insn);
+      if (! pattern)
+	return FALSE;
+#endif
+
       validate_change (insn, &PATTERN (insn),
 		       gen_rtx_COND_EXEC (VOIDmode, copy_rtx (test),
-					  PATTERN (insn)), 1);
+					  pattern), 1);
 
       if (GET_CODE (insn) == CALL_INSN && prob_val)
 	validate_change (insn, &REG_NOTES (insn),
@@ -297,8 +305,8 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   rtx test_expr;		/* expression in IF_THEN_ELSE that is tested */
   rtx then_start;		/* first insn in THEN block */
   rtx then_end;			/* last insn + 1 in THEN block */
-  rtx else_start;		/* first insn in ELSE block or NULL */
-  rtx else_end;			/* last insn + 1 in ELSE block */
+  rtx else_start = NULL_RTX;	/* first insn in ELSE block or NULL */
+  rtx else_end = NULL_RTX;	/* last insn + 1 in ELSE block */
   int max;			/* max # of insns to convert. */
   int then_mod_ok;		/* whether conditional mods are ok in THEN */
   rtx true_expr;		/* test for else block insns */
@@ -311,6 +319,11 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
      the test.  */
   test_expr = cond_exec_get_condition (test_bb->end);
   if (! test_expr)
+    return FALSE;
+
+  /* If the conditional jump is more than just a conditional jump,
+     then we can not do conditional execution conversion on this block.  */
+  if (!onlyjump_p (test_bb->end))
     return FALSE;
 
   /* Collect the bounds of where we're to search.  */
@@ -366,6 +379,17 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
 			       GET_MODE (true_expr), XEXP (true_expr, 0),
 			       XEXP (true_expr, 1));
 
+#ifdef IFCVT_MODIFY_TESTS
+  /* If the machine description needs to modify the tests, such as setting a
+     conditional execution register from a comparison, it can do so here.  */
+  IFCVT_MODIFY_TESTS (true_expr, false_expr, test_bb, then_bb, else_bb,
+		      join_bb);
+
+  /* See if the conversion failed */
+  if (!true_expr || !false_expr)
+    goto fail;
+#endif
+
   true_prob_val = find_reg_note (test_bb->end, REG_BR_PROB, NULL_RTX);
   if (true_prob_val)
     {
@@ -395,6 +419,11 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   if (! apply_change_group ())
     return FALSE;
 
+#ifdef IFCVT_MODIFY_FINAL
+  /* Do any machine dependent final modifications */
+  IFCVT_MODIFY_FINAL (test_bb, then_bb, else_bb, join_bb);
+#endif
+
   /* Conversion succeeded.  */
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "%d insn%s converted to conditional execution.\n",
@@ -405,6 +434,11 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   return TRUE;
 
  fail:
+#ifdef IFCVT_MODIFY_CANCEL
+  /* Cancel any machine dependent changes.  */
+  IFCVT_MODIFY_CANCEL (test_bb, then_bb, else_bb, join_bb);
+#endif
+
   cancel_changes (0);
   return FALSE;
 }
@@ -1106,6 +1140,11 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
   if (! cond)
     return FALSE;
 
+  /* If the conditional jump is more than just a conditional jump,
+     then we can not do if-conversion on this block.  */
+  if (! onlyjump_p (jump))
+    return FALSE;
+
   /* We must be comparing objects whose modes imply the size.  */
   if (GET_MODE (XEXP (cond, 0)) == BLKmode)
     return FALSE;
@@ -1348,8 +1387,10 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
   /* The JOIN block may have had quite a number of other predecessors too.
      Since we've already merged the TEST, THEN and ELSE blocks, we should
      have only one remaining edge from our if-then-else diamond.  If there
-     is more than one remaining edge, it must come from elsewhere.  */
-  else if (join_bb->pred->pred_next == NULL)
+     is more than one remaining edge, it must come from elsewhere.  There
+     may be zero incoming edges if the THEN block didn't actually join 
+     back up (as with a call to abort).  */
+  else if (join_bb->pred == NULL || join_bb->pred->pred_next == NULL)
     {
       /* We can merge the JOIN.  */
       if (combo_bb->global_live_at_end)
@@ -1451,15 +1492,29 @@ find_if_block (test_bb, then_edge, else_edge)
   if (then_bb->pred->pred_next != NULL_EDGE)
     return FALSE;
 
-  /* The THEN block of an IF-THEN combo must have exactly one successor.  */
-  if (then_succ == NULL_EDGE
-      || then_succ->succ_next != NULL_EDGE
-      || (then_succ->flags & EDGE_COMPLEX))
+  /* The THEN block of an IF-THEN combo must have zero or one successors.  */
+  if (then_succ != NULL_EDGE
+      && (then_succ->succ_next != NULL_EDGE
+          || (then_succ->flags & EDGE_COMPLEX)))
     return FALSE;
+
+  /* If the THEN block has no successors, conditional execution can still
+     make a conditional call.  Don't do this unless the ELSE block has
+     only one incoming edge -- the CFG manipulation is too ugly otherwise.  */
+  if (then_succ == NULL)
+    {
+      if (else_bb->pred->pred_next == NULL_EDGE)
+	{
+	  join_bb = else_bb;
+	  else_bb = NULL_BLOCK;
+	}
+      else
+	return FALSE;
+    }
 
   /* If the THEN block's successor is the other edge out of the TEST block,
      then we have an IF-THEN combo without an ELSE.  */
-  if (then_succ->dest == else_bb)
+  else if (then_succ->dest == else_bb)
     {
       join_bb = else_bb;
       else_bb = NULL_BLOCK;
@@ -1808,6 +1863,9 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       end = PREV_INSN (end);
     }
 
+  /* Disable handling dead code by conditional execution if the machine needs
+     to do anything funny with the tests, etc.  */
+#ifndef IFCVT_MODIFY_TESTS
   if (HAVE_conditional_execution)
     {
       /* In the conditional execution case, we have things easy.  We know
@@ -1839,6 +1897,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       earliest = jump;
     }
   else
+#endif
     {
       /* In the non-conditional execution case, we have to verify that there
 	 are no trapping operations, no calls, no references to memory, and

@@ -2,6 +2,12 @@
 // Special g++ Options: -fno-squangle
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
-static unsigned int strlen (const char*) {} // ERROR - previous declaration
+#if (!defined (__GXX_ABI_VERSION) || __GXX_ABI_VERSION < 100)
+#define NAME(OLD, NEW) OLD
+#else
+#define NAME(OLD, NEW) NEW
+#endif /* (!defined (__GXX_ABI_VERSION) || __GXX_ABI_VERSION < 100) */
 
-int strlen__FPCc = 0; // ERROR - duplicate declaration
+static unsigned int strlen (const char*) {return 0;} // ERROR - previous declaration
+
+int NAME (strlen__FPCc, _Z6strlenPKc) = 0; // ERROR - duplicate declaration

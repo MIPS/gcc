@@ -1,3 +1,90 @@
+2000-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/loop-6.c: New test.
+
+2000-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20000614-1.c: New test.
+	* gcc.dg/20000614-2.c: New test.
+
+2000-06-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	* g++.old-deja/g++.other/inline12.C: New test.
+
+2000-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.old-deja/g++.other/eh1.C: New test.
+
+2000-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.old-deja/g++.other/type.C: New test.
+
+2000-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.old-deja/g++.other/initstring.C: New test.
+
+2000-06-12  Jason Merrill  <jason@redhat.com>
+
+	* g++.old-deja/old-deja.exp: Add -Wno-long-long.
+
+Fri Jun  9 22:46:34 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000609-1.c: New test.
+
+Fri Jun  9 21:54:28 2000  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* gcc.dg/20000609-1.c: New test.
+
+2000-06-08  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.c-torture/noncompile/noncompile.exp: Remove poison-1 block.
+	* gcc.c-torture/noncompile/poison-1.c: Move...
+	* gcc.dg/poison-1.c: ...here, and adapt to dg framework.
+	* gcc.dg/cpp-li1.c: Add a token after the #line.
+
+2000-06-05  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000605-2.c: New test.
+	* gcc.c-torture/execute/20000605-3.c: New test.
+
+2000-06-06  David Billinghurst  <David Billinghurst@riotinto.com.au>
+
+	* g77.f-torture/execute/20000503-1.x: New file.
+
+2000-06-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: New test.
+
+2000-06-05  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000605-1.c: New test.
+
+2000-06-05  Jakub Jelinek  <jakub@redhat.com>
+	    Nathan Sidwell <nathan@codesourcery.com>
+
+	* gcc.c-torture/compile/20000605-1.c: New test.
+
+2000-06-03  David Billinghurst  <David Billinghurst@riotinto.com.au>
+
+        * g77.f-torture/compile/20000601-1.f:  New test.
+
+2000-06-03  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000603-1.c: New.
+
+2000-06-02  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/noreturn-1.c (foo7, foo8): Revert previous change.
+	* gcc.dg/noreturn-2.c (noreturn): Likewise.
+
+2000-06-01  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/compare2.c (case 12): XFAIL.
+	* gcc.dg/noreturn-1.c (foo7, foo8): XFAIL.
+	* gcc.dg/noreturn-2.c (noreturn): XFAIL.
+
+	* gcc.dg/cpp-tradwarn2.c: Update egrep pattern.
+
 2000-05-29  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* gcc.dg/cpp-mi.c: Add another case, cpp-mix.h, where the

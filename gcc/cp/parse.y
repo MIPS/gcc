@@ -391,7 +391,8 @@ cp_parse_init ()
 %type <itype> new delete
 /* %type <ttype> primary_no_id */
 %type <ttype> maybe_parmlist
-%type <itype> member_init_list
+%type <ttype> member_init
+%type <ftype> member_init_list
 %type <ttype> template_header template_parm_list template_parm
 %type <ttype> template_type_parm template_template_parm
 %type <code>  template_close_bracket
@@ -855,9 +856,10 @@ return_init:
 base_init:
 	  ':' .set_base_init member_init_list
 		{
-		  if ($3 == 0)
-		    error ("no base initializers given following ':'");
-		  setup_vtbl_ptr ();
+		  if ($3.new_type_flag == 0)
+		    error ("no base or member initializers given following ':'");
+
+		  finish_mem_initializers ($3.t);
 		}
 	;
 
@@ -879,10 +881,26 @@ base_init:
 
 member_init_list:
 	  /* empty */
-		{ $$ = 0; }
+		{ 
+		  $$.new_type_flag = 0; 
+		  $$.t = NULL_TREE; 
+		}
 	| member_init
-		{ $$ = 1; }
+		{ 
+		  $$.new_type_flag = 1; 
+		  $$.t = $1; 
+		}
 	| member_init_list ',' member_init
+                { 
+		  if ($3) 
+		    {
+		      $$.new_type_flag = 1; 
+		      TREE_CHAIN ($3) = $1.t;
+		      $$.t = $3;
+		    }
+		  else
+		    $$ = $1;
+		}
 	| member_init_list error
 	;
 
@@ -891,29 +909,36 @@ member_init:
 		{
 		  if (current_class_name)
 		    pedwarn ("anachronistic old style base class initializer");
-		  expand_member_init (current_class_ref, NULL_TREE, $2);
+		  $$ = expand_member_init (current_class_ref, NULL_TREE, $2);
 		}
 	| LEFT_RIGHT
 		{
 		  if (current_class_name)
 		    pedwarn ("anachronistic old style base class initializer");
-		  expand_member_init (current_class_ref, NULL_TREE, void_type_node);
+		  $$ = expand_member_init (current_class_ref,
+					   NULL_TREE, 
+					   void_type_node);
 		}
 	| notype_identifier '(' nonnull_exprlist ')'
-		{ expand_member_init (current_class_ref, $1, $3); }
+		{ $$ = expand_member_init (current_class_ref, $1, $3); }
 	| notype_identifier LEFT_RIGHT
-		{ expand_member_init (current_class_ref, $1, void_type_node); }
+		{ $$ = expand_member_init (current_class_ref, $1,
+					   void_type_node); }
 	| nonnested_type '(' nonnull_exprlist ')'
-		{ expand_member_init (current_class_ref, $1, $3); }
+		{ $$ = expand_member_init (current_class_ref, $1, $3); }
 	| nonnested_type LEFT_RIGHT
-		{ expand_member_init (current_class_ref, $1, void_type_node); }
+		{ $$ = expand_member_init (current_class_ref, $1,
+					   void_type_node); }
 	| typename_sub '(' nonnull_exprlist ')'
-		{ expand_member_init (current_class_ref, TYPE_MAIN_DECL ($1),
-				      $3); }
+		{ $$ = expand_member_init (current_class_ref,
+					   TYPE_MAIN_DECL ($1),
+					   $3); }
 	| typename_sub LEFT_RIGHT
-		{ expand_member_init (current_class_ref, TYPE_MAIN_DECL ($1),
-				      void_type_node); }
+		{ $$ = expand_member_init (current_class_ref,
+					   TYPE_MAIN_DECL ($1),
+					   void_type_node); }
         | error
+                { $$ = NULL_TREE }
 	;
 
 identifier:
@@ -1663,7 +1688,7 @@ nodecls:
 		{
 		  if (! current_function_parms_stored)
 		    store_parm_decls ();
-		  setup_vtbl_ptr ();
+		  setup_vtbl_ptr (NULL_TREE, NULL_TREE);
 		}
 	;
 
@@ -2105,8 +2130,7 @@ fn.defpen:
 	PRE_PARSED_FUNCTION_DECL
 		{ start_function (NULL_TREE, $1->fndecl, NULL_TREE, 
 				  (SF_DEFAULT | SF_PRE_PARSED 
-				   | SF_INCLASS_INLINE));
-		  reinit_parse_for_function (); }
+				   | SF_INCLASS_INLINE)); }
 
 pending_inline:
 	  fn.defpen maybe_return_init ctor_initializer_opt compstmt_or_error
@@ -3279,13 +3303,13 @@ simple_stmt:
 	  xexpr ')'
                 { finish_for_expr ($9, $<ttype>2); }
 	  already_scoped_stmt
-                { finish_for_stmt ($9, $<ttype>2); }
+                { finish_for_stmt ($<ttype>2); }
 	| SWITCH 
                 { $<ttype>$ = begin_switch_stmt (); }
 	    '(' condition ')'
                 { finish_switch_cond ($4, $<ttype>2); }
 	  implicitly_scoped_stmt
-                { finish_switch_stmt ($4, $<ttype>2); }
+                { finish_switch_stmt ($<ttype>2); }
 	| CASE expr_no_commas ':'
                 { finish_case_label ($2, NULL_TREE); }
 	  stmt

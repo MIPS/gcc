@@ -3339,7 +3339,7 @@ make_range (exp, pin_p, plow, phigh)
 	  if (TREE_CODE_CLASS (code) == '2' 
 	      || TREE_CODE_CLASS (code) == '<'
 	      || (TREE_CODE_CLASS (code) == 'e' 
-		  && tree_code_length[(int) code] > 1))
+		  && TREE_CODE_LENGTH (code) > 1))
 	    arg1 = TREE_OPERAND (exp, 1);
 	}
 
@@ -4795,10 +4795,9 @@ fold (expr)
 	   do arithmetic on them.  */
 	wins = 0;
     }
-  else if (kind == 'e' || kind == '<'
-	   || kind == '1' || kind == '2' || kind == 'r')
+  else if (IS_EXPR_CODE_CLASS (kind) || kind == 'r')
     {
-      register int len = tree_code_length[(int) code];
+      register int len = TREE_CODE_LENGTH (code);
       register int i;
       for (i = 0; i < len; i++)
 	{
@@ -6990,6 +6989,10 @@ fold (expr)
 	      tree comp_op0 = TREE_OPERAND (arg0, 0);
 	      tree comp_op1 = TREE_OPERAND (arg0, 1);
 	      tree comp_type = TREE_TYPE (comp_op0);
+
+	      /* Avoid adding NOP_EXPRs in case this is an lvalue.  */
+	      if (TYPE_MAIN_VARIANT (comp_type) == TYPE_MAIN_VARIANT (type))
+		comp_type = type;
 
 	      switch (comp_code)
 		{

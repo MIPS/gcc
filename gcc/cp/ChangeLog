@@ -1,5 +1,631 @@
+2000-06-19  Benjamin Chelf  <chelf@cabriolet.stanford.edu>
+
+	* cp-tree.h (genrtl_try_block): Declare function.
+	(genrtl_handler): Likewise.
+	(genrtl_catch_block): Likewise.
+	(genrtl_ctor_stmt): Likewise.
+	(genrtl_subobject): Likewise.
+	(genrtl_decl_cleanup): Likewise.
+	(genrtl_do_poplevel): Likewise.
+	(genrtl_do_pushlevel): Likewise.
+	(genrtl_clear_out_block): Likewise.
+	(genrtl_goto_stmt): Likewise.
+	(genrtl_expr_stmt): Likewise.
+	(genrtl_decl_stmt): Likewise.
+	(genrtl_if_stmt): Likewise.
+	(genrtl_while_stmt): Likewise.
+	(genrtl_do_stmt): Likewise.
+	(genrtl_return_stmt): Likewise.
+	(genrtl_for_stmt): Likewise.
+	(genrtl_break_stmt): Likewise.
+	(genrtl_continue_stmt): Likewise.
+	(genrtl_scope_stmt): Likewise.
+	(genrtl_switch_stmt): Likewise.
+	(genrtl_case_label): Likewise.
+	(genrtl_begin_compound_stmt): Likewise.
+	(genrtl_finish_compound_stmt): Likewise.
+	(genrtl_compound_stmt): Likewise.
+	(genrtl_asm_stmt): Likewise.
+	(genrtl_named_return_value): Likewise.
+	(genrtl_begin_stmt_expr): Likewise.
+	(genrtl_finish_stmt_expr): Likewise.
+	(finish_for_stmt): Removed first argument.
+	(finish_switch_stmt): Likewise.
+
+	* semantics.c (genrtl_try_block): Define function.
+	(genrtl_handler): Likewise.
+	(genrtl_catch_block): Likewise.
+	(genrtl_ctor_stmt): Likewise.
+	(genrtl_subobject): Likewise.
+	(genrtl_decl_cleanup): Likewise.
+	(genrtl_do_poplevel): Likewise.
+	(genrtl_do_pushlevel): Likewise.
+	(genrtl_clear_out_block): Likewise.
+	(genrtl_goto_stmt): Likewise.
+	(genrtl_expr_stmt): Likewise.
+	(genrtl_decl_stmt): Likewise.
+	(genrtl_if_stmt): Likewise.
+	(genrtl_while_stmt): Likewise.
+	(genrtl_do_stmt): Likewise.
+	(genrtl_return_stmt): Likewise.
+	(genrtl_for_stmt): Likewise.
+	(genrtl_break_stmt): Likewise.
+	(genrtl_continue_stmt): Likewise.
+	(genrtl_scope_stmt): Likewise.
+	(genrtl_switch_stmt): Likewise.
+	(genrtl_case_label): Likewise.
+	(genrtl_begin_compound_stmt): Likewise.
+	(genrtl_finish_compound_stmt): Likewise.
+	(genrtl_compound_stmt): Likewise.
+	(genrtl_asm_stmt): Likewise.
+	(genrtl_named_return_value): Likewise.
+	(genrtl_begin_stmt_expr): Likewise.
+	(genrtl_finish_stmt_expr): Likewise.
+	(finish_for_stmt): Removed first argument and generate rtl 
+	specific code.
+	(finish_switch_stmt): Likewise.
+	(do_poplevel): Removed generate rtl specific code.
+	(do_pushlevel): Likewise.
+	(add_tree): Likewise.
+	(finish_goto_stmt): Likewise.
+	(finish_expr_stmt): Likewise.
+	(begin_if_stmt): Likewise.
+	(finish_if_stmt_cond): Likewise.
+	(finish_then_clause): Likewise.
+	(begin_else_clause): Likewise.
+	(finish_else_clause): Likewise.
+	(finish_if_stmt): Likewise.
+	(clear_out_block): Likewise.
+	(begin_while_stmt): Likewise.
+	(finish_while_stmt_cond): Likewise.
+	(finish_while_stmt): Likewise.
+	(begin_do_stmt): Likewise.
+	(finish_do_body): Likewise.
+	(finish_do_stmt): Likewise.
+	(finish_return_stmt): Likewise.
+	(begin_for_stmt): Likewise.
+	(finish_for_init_stmt): Likewise.
+	(finish_for_cond): Likewise.
+	(finish_for_expr): Likewise.
+	(finish_break_stmt): Likewise.
+	(finish_continue_stmt): Likewise.
+	(begin_switch_stmt): Likewise.
+	(finish_switch_cond): Likewise.
+	(finish_case_label): Likewise.
+	(begin_try_block): Likewise.
+	(begin_function_try_block): Likewise.
+	(finish_try_block): Likewise.
+	(finish_cleanup_try_block): Likewise.
+	(finish_cleanup): Likewise.
+	(finish_function_try_block): Likewise.
+	(finish_handler_sequence): Likewise.
+	(finish_function_handler_sequence): Likewise.
+	(begin_handler): Likewise.
+	(finish_handler_parms): Likewise.
+	(begin_catch_block): Likewise.
+	(finish_handler): Likewise.
+	(begin_compound_stmt): Likewise.
+	(finish_compound_stmt): Likewise.
+	(finish_asm_stmt): Likewise.
+	(finish_label_stmt): Likewise.
+	(finish_label_decl): Likewise.
+	(finish_subobject): Likewise.
+	(finish_decl_cleanup): Likewise.
+	(finish_named_return_value): Likewise.
+	(begin_stmt_expr): Likewise.
+	(finish_stmt_expr): Likewise.
+	
+	* decl.c (initialize_local_var): Changed call to finish_expr_stmt
+	to call genrtl_expr_stmt when appropriate.
+
+	* init.c (begin_init_stmts): Changed calls to begin_stmt_expr and
+	begin_compound_expr to call genrtl_begin_stmt_expr and
+	genrtl_begin_compound_expr when appropriate.
+	(finish_init_stmts): Changed calls to finish_compound_expr and
+	finish_stmt_expr to call genrtl_finish_compound_expr and
+	genrtl_finish_stmt_expr when appropriate.
+	(expand_default_init): Changed call to finish_expr_stmt to call
+	genrtl_expr_stmt when appropriate.
+	(build_vec_init): Likewise.
+
+	* parse.y (simple_stmt): Removed first argument from call to 
+	finish_for_stmt. Removed first argument from call to 
+	finish_switch_stmt.
+
+	* parse.c: Regenerated.
+
+	* pt.c (tsubst_expr): Removed first argument from call to 
+	finish_for_stmt. Removed first argument from call to 
+	finish_switch_stmt.
+	
+2000-06-16  Benjamin Chelf  <chelf@codesourcery.com>
+
+	* cp-tree.h (enum cplus_tree_code): Changed __DUMMY to
+	CP_DUMMY_TREE_CODE. Remove #include "c-common.def".
+
+	* lex.c (cplus_tree_code_type[]): Removed #include "c-common.def".
+	(cplus_tree_code_length[]): Likewise.
+	(cplus_tree_code_name[]): Likewise.
+	(init_parse): Added call to add_c_tree_codes. Changed 
+	LAST_AND_UNUSED_TREE_CODE to LAST_C_TREE_CODE.
+	
+2000-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (finish_mem_initializers): Declare.
+	(count_trees): Likewise.
+	* parse.y (base_init): Use finish_mem_initializers.
+	* semantics.c (finish_mem_initializers): New function.
+
+	* tree.c (count_trees_r): Prototype.  Use DATA parameter to store
+	the number of trees.
+	(n_trees): Remove.
+	(count_trees): Don't use it.
+	
+2000-06-15  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (count_trees): New debugging function.
+
+	* typeck.c (build_x_function_call): Use DECL_FUNCTION_TEMPLATE_P.
+	* init.c (build_member_call): Pull out the name of a DECL.
+
+	* Makefile.in (semantics.o, pt.o): Depend on TIMEVAR_H.
+	* semantics.c (expand_body): Push to TV_INTEGRATION here.
+	* optimize.c (optimize_function): Not here.
+	* pt.c (instantiate_decl): Push to TV_PARSE.
+
+2000-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (struct language_function): Remove x_base_init_list
+	and x_member_init_list.
+	(current_base_init_list): Remove.
+	(current_member_init_list): Likewise.
+	(setup_vtbl_ptr): Change prototype.
+	(emit_base_init): Likewise.
+	(expand_member_init): Likewise.
+	(reinit_parse_for_function): Remove.
+	* decl.c (save_function_data): Don't clear x_base_init_list and
+	x_member_init_list.
+	(mark_language_function): Don't mark them.
+	* init.c (perform_member_init): Tweak comment.
+	(sort_member_init): Take the list of initializers as an argument.
+	(sort_base_init): Likewise.
+	(emit_base_init): Likewise.
+	(expand_member_init): Return the initializer.  Don't use global
+	variables.
+	* lex.c (reinit_parse_for_function): Remove.
+	* method.c (build_template_parm_names): Correct substitution.
+	(do_build_copy_constructor): Don't use current_member_init_list
+	and current_base_init_list.
+	(synthesize_method): Likewise.
+	* parse.y (base_init): Split mem-initializers into
+	base-initializers and field-initializers.
+	(member_init_list): Build up the list here.
+	(member_init): Return the initializer.
+	(fn.depfn): Don't use reinit_parse_for_function.
+	* parse.c: Regenerated.
+	* pt.c (convert_nontype_argument): Don't make an ADDR_EXPR of the
+	ERROR_MARK.
+	(tsubst_expr): Don't use current_member_init_list
+	and current_base_init_list.
+	(tsubst_expr_values): Rename to ...
+	(tsubst_initializer_list): ... this.  Use convert_from_reference.
+	* semantics.c (setup_vtbl_ptr): Don't use current_member_init_list
+	and current_base_init_list.
+	(begin_function_definition): Don't call reinit_parse_for_function.
+	
+	* dump.c (dequeue_and_dump): Use TREE_VEC_LENGTH with vectors.
+
+	* error.c (dump_expr): Handle ADDR_EXPRs with REFERENCE_TYPE
+	correctly.
+	
+	* cp-tree.h (DECL_PENDING_INLINE_P): Relax checking.
+
+2000-06-14  Benjamin Chelf  <chelf@codesourcery.com>
+
+	* cp-tree.h (IF_COND): Move to c-common.h.
+	(THEN_CLAUSE): Likewise.
+	(ELSE_CLAUSE): Likewise.
+	(WHILE_COND): Likewise.
+	(WHILE_BODY): Likewise.
+	(DO_COND): Likewise.
+	(DO_BODY): Likewise.
+	(RETURN_EXPR): Likewise.
+	(EXPR_STMT_EXPR): Likewise.
+	(FOR_INIT_STMT): Likewise.
+	(FOR_COND): Likewise.
+	(FOR_EXPR): Likewise.
+	(FOR_BODY): Likewise.
+	(SWITCH_COND): Likewise.
+	(SWITCH_BODY): Likewise.
+	(CASE_LOW): Likewise.
+	(CASE_HIGH): Likewise.
+	(GOTO_DESTINATION): Likewise.
+	(COMPOUND_BODY): Likewise.
+	(ASM_CV_QUAL): Likewise.
+	(ASM_STRING): Likewise.
+	(ASM_OUTPUTS): Likewise.
+	(ASM_INPUTS): Likewise.
+	(ASM_CLOBBERS): Likewise.
+	(DECL_STMT_DECL): Likewise.
+	(STMT_EXPR_STMT): Likewise.
+	(LABEL_STMT_LABEL): Likewise.
+	(SCOPE_BEGIN_P): Likewise.
+	(SCOPE_END_P): Likewise.
+	(SCOPE_STMT_BLOCK): Likewise.
+	(SCOPE_NULLIFIED_P): Likewise.
+	(SCOPE_NO_CLEANUPS_P): Likewise.
+	(SCOPE_PARTIAL_P): Likewise.
+	(ASM_VOLATILE_P): Likewise.
+	(STMT_LINENO): Likewise.
+	(STMT_LINENO_FOR_FN_P): Likewise.
+
+	* cp-tree.def: Removed SRCLOC, SIZEOF_EXPR, ARROW_EXPR,
+	ALIGNOF_EXPR, EXPR_STMT, COMPOUND_STMT, DECL_STMT, IF_STMT,
+	FOR_STMT, WHILE_STMT, DO_STMT, RETURN_STMT, BREAK_STMT,
+	CONTINUE_STMT, SWITCH_STMT, GOTO_STMT, LABEL_STMT, ASM_STMT,
+	SCOPE_STMT, CASE_LABEL, STMT_EXPR.
+
+	* Makefile.in (CXX_TREE_H): Added $(srcdir)/../c-common.def.
+
+	* Make-lang.in (CXX_SRCS): Added $(srcdir)/c-common.def.
+	(cc1plus$(exeext)): Added $(srcdir)/c-common.def.
+	
+	* lex.c (cplus_tree_code_type[]): Added '#include "c-common.def"'.
+	(cplus_tree_code_length[]): Added '#include "c-common.def"'.
+	(cplus_tree_code_name[]): Added '#include "c-common.def"'.
+	
+2000-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (BINFO_OVERRIDE_ALONG_VIRTUAL_PATH): New macro.
+	* class.c (dfs_find_final_overrider): Set it appropriately.
+	(dfs_built_vtt_inits): Check BINFO_OVERRIDE_ALONG_VIRTUAL_PATH to
+	avoid unneeded secondary vptrs.
+
+2000-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* class.c (build_secondary_vtable): Set DECL_USER_ALIGN.
+	(check_bitfield_decl, check_field_decl): Likewise.
+	(build_vtbl_or_vbase_field, build_base_field): Likewise.
+	(layout_class_type): Set DECL_USER_ALIGN resp. CLASSTYPE_USER_ALIGN.
+	* decl.c (record_unknown_type): Set TYPE_USER_ALIGN.
+	(xfer_tag, finish_enum): Likewise.
+	* decl2.c (finish_builtin_type): Likewise.
+	* init.c (init_init_processing): Likewise.
+	* pt.c (instantiate_class_template): Likewise.
+	* rtti.c (get_tinfo_decl, synthesize_tinfo_fn): Set DECL_USER_ALIGN.
+	* cp-tree.h (struct lang_type): Add user_align member.
+	(CLASSTYPE_USER_ALIGN): Define.
+
+Tue Jun 13 15:48:03 2000  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* Make-lang.in (c++.install-common): Install g++-cross in
+	$(gcc_tooldir)/bin as g++ and c++; g++ in $(bindir) as
+	$(target_alias)-g++ and $(target_alias)-c++.
+
+2000-06-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (vcall_offset_data_s): Add last_init and fns.
+	(overrides): Rename to same_signature_p.
+	(dfs_find_final_overrider): Adjust accordingly.
+	(mark_overriders): Likewise.
+	(warn_hidden): Likewise.
+	(build_vtbl_initializer): Reorganize machinery for building things
+	at negative offsets.
+	(build_vcall_and_vbase_vtbl_entries): Likewise.
+	(build_vbase_offset_vtbl_entries): Likewise.
+	(dfs_build_vcall_offset_vtbl_entries): Correct order of vcall
+	offset entries.  Do not create two entries for functions with the
+	same signature.
+	(build_vcall_offset_vtbl_entries): Initialize vod->fns.
+	(build_rtti_vtbl_entries): Reorganize machinery for building things
+	at negative offsets.
+
+	* optimize.c (expand_call_inline): Don't recurse into the code
+	used to initialize the parameters more than once.
+
+2000-06-11  Mark Mitchell <mark@codesourcery.com>
+	
+	* mangle.c (NESTED_TEMPLATE_MATCH): Fix typo in comment.
+	(is_std_substitution): Don't check CLASSTYPE_USE_TEMPLATE here.
+	(find_substitution): Only use the `Sa' substitution for
+	std::allocator, not instantiations of it.
+	(write_template_prefix): Move comment.  Only use a TREE_LIST to
+	represent substitutions for a member template.
+	(write_array_type): Mangle array dimensions correctly.
+	* optimize.c (maybe_clone_body): Copy more information from the
+	cloned function.
+	* pt.c (regenerate_decl_from_template): Preserve DECL_USE_TEMPLATE
+	on the regenerated declaration.
+
+2000-06-11  Chip Salzenberg  <chip@valinux.com>
+	    Mark Mitchell <mark@codesourcery.com>
+
+	* class.c (build_vtable): Clarify comment.
+	(build_ctor_vtbl_group): Pass the most derived type to
+	build_vtable.
+	
+2000-06-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl2.c (compare_options): Don't needlessly cast away const-ness.
+
+2000-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (add_binding): Handle duplicate declarations of external
+	variables.
+
+2000-06-09  Chip Salzenberg  <chip@valinux.com>
+	    Mark Mitchell <mark@codesourcery.com>
+
+	* mangle.c (write_number): Take an unsigned HOST_WIDE_INT as an
+	argument.
+	(write_signed_number): New macro.
+	(write_unsigned_number): Likewise.
+	(write_source_name): Use them.
+	(write_number): Handle signed and unsigned values.
+	(write_integer_cst): Use tree_int_cst_sgn, and use
+	write_unsigned_number or write_signed_number as appropriate.
+	(write_discriminator): Use write_unsigned_number or
+	write_signed_number as appropriate.
+	(write_template_arg_literal): Likewise.
+	(write_array_type): Use tree_low_cst.
+	(write_template_parm):  Use write_unsigned_number or
+	write_signed_number as appropriate.
+	(write_substitution): Adjust call to write_number.
+	(write_type): Get the TYPE_MAIN_VARIANT before mangling it.
+	(write_expression): Handle non-type template arguments of
+	reference type correctly.
+	(mangle_thunk): Use write_signed_number.
+
+2000-06-09  Chip Salzenberg  <chip@valinux.com>
+
+	* mangle.c (find_substition): Don't mangle objects with typename
+	substitutions (e.g. "cin" as "Si").
+
+2000-06-09  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* call.c (add_candidate): Use ggc_alloc_cleared.
+	* decl.c (lookup_label): Likewise.
+	* lex.c (retrofit_lang_decl): Likewise.
+
+2000-06-09  Jason Merrill  <jason@casey.soma.redhat.com>
+
+	* semantics.c (expand_body): Push to TV_EXPAND.
+	* optimize.c (optimize_function): Push to TV_INTEGRATION.
+	* decl.c (start_function): Always call announce_function.
+
+	* tinfo2.cc: Just declare abort.
+
+2000-06-09  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* lex.c (DEF_OPERATOR): Say `operator@' -not- `operator @'
+	whenever @ is a symbolic name.
+
+2000-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* method.c (make_thunk): Clear DECL_VTT_PARM in thunk.
+
+2000-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (pushdecl): Look up functions by DECL_NAME, not
+	DECL_ASSEMBLER_NAME.
+
+2000-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (c_language): Define.
+
+2000-06-06  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* lex.c (lang_init_options): Tweak.
+
+	* decl2.c: Remove #inclusion of diagnostic.h
+	(lang_decode_option): Move diagnostic formatting options to
+	toplevel. 
+
+	* lang-options.h: Remove documentation for diagnostic options.
+
+	* Makefile.in (lex.o): Depends upon diagnostic.h
+
+2000-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (redeclaration_error_message): If two TEMPLATE_DECLs have
+	the same DECL_RESULT, it's not a redefinition.
+	* pt.c (tsubst_decl): Remove code to handle illegal
+	specializations.
+
+2000-06-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* exception.cc: (__eh_alloc, __eh_free): Moved to libgcc2.c
+
+2000-06-05  Jason Merrill  <jason@casey.soma.redhat.com>
+
+	* search.c (maybe_suppress_debug_info): Don't check
+	CLASSTYPE_INTERFACE_ONLY if CLASSTYPE_INTERFACE_KNOWN isn't set.
+
+	* pt.c (mark_decl_instantiated): Do SET_DECL_EXPLICIT_INSTANTIATION
+	here if extern_p.
+
+	Remember instantiation context in deferred instantiations.
+	* cp-tree.h (struct tinst_level): Remove.
+	(TINST_DECL, TINST_LINE, TINST_FILE): New macros.
+	* pt.c (current_tinst_level): Now a tree.
+	(print_template_context, push_tinst_level, pop_tinst_level,
+	tinst_for_decl): Adjust.
+	(reopen_tinst_level): New fn.
+	(init_pt): Register current_tinst_level as a root.
+	(add_pending_template): Put current_tinst_level in TREE_PURPOSE
+	of the pending templates list.
+	(instantiate_pending_templates): Adjust.  Call reopen_tinst_level.
+	* lex.c (extract_interface_info): Adjust.
+	* decl2.c (warn_if_unknown_interface): Adjust.
+
+2000-06-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (indirect_primary_base_p): New function.
+	(determine_primary_base): Use it.
+
+2000-06-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Update new-abi dynamic cast algorithm.
+	* tinfo.cc (__class_type_info::__dyncast_result): Add
+	whole_details. Adjust constructor.
+	(__vmi_class_type_info::__do_dyncast): Adjust for vmi_flags.
+	Avoid unnecessary searching.
+	(__dynamic_cast): Adjust for __dyncast_result::whole_details.
+
+Mon Jun  5 06:48:55 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* decl.c (init_decl_processing): Don't call record_component_aliases.
+	* tree.c (build_cplus_array_type_1): Likewise.
+
+2000-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* ir.texi: Correct typo.
+	* mangle.c (write_expression): Handle non-type template arguments
+	with reference type.
+	* method.c (build_overload_value): Likewise.
+	* pt.c (convert_nontype_argument): Explicitly represent conversion
+	to a reference with an ADDR_EXPR.
+	(unify): Always unify arguments in left-to-right order.
+
+2000-06-03  Alex Samuel    <samuel@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (CXX_SRCS): Add mangle.c.
+	* Makefile.in (CXX_OBJS): Add mangle.o.
+	(mangle.o): New rule.
+
+	* class.c (local_classes): New variable.
+	* class.c (get_vtable_name): Use mangle_vtable_for_type for new ABI.
+	(get_vtt_name): Use mangle_vtt_name for new ABI.
+	(init_class_processing): Initialize local_classes.
+	(build_ctor_vtbl_group): Use mangle_ctor_vtbl_for_type for new ABI.
+	* cp-tree.h (cp_tree_index): Add CPTI_STD_IDENTIFIER.
+	(std_identifier): New macro.
+	(DECL_VOLATILE_MEMFUNC_P): New macro.
+	(DECL_NAMESPACE_STD_P): Likewise.
+	(local_classes): Declare.
+	(get_mostly_instantiated_function_type): Declare.
+	(init_mangle): Declare.
+	(mangle_decl): Likewise.
+	(mangle_type_string): Likewise.
+	(mangle_type): Likewise.
+	(mangle_typeinfo_for_type): Likewise.
+	(mangle_typeinfo_string_for_type): Likewise.
+	(mangle_vtbl_for_type): Likewise.
+	(mangle_vtt_for_type): Likewise.
+	(mangle_ctor_vtbl_for_type): Likewise.
+	(mangle_thunk): Likewise.
+	(mangle_conv_op_name_for_type): Likewise.
+	(mangle_guard_variable): Likewise.
+	* decl.c (pushtag): Keep track of local classes.
+	(initialize_predefined_identifiers): Initialize std_identifier.
+	(init_decl_processing): Use std_identifier.
+	(start_decl): Don't treat instantiations as specializations.
+	(grokdeclarator): Likewise.
+	(grokvardecl): Call mangle_decl for new ABI.  Only set mangled
+	name for fully-instantiated templates.
+	* decl2.c (grokclassfn): Use set_mangled_name_for_decl for
+	destructors with the new ABI.	
+	(finish_static_data_member_decl): Use mangle_decl under the new ABI.
+	(grokfield): Use mangle_type for new ABI.
+	(grokoptypename): Use mangle_conv_op_for_type for new ABI.
+	(get_sentry): Use mangle_guard_variable for new ABI.
+	(start_static_initialization_or_destruction): Likewise.
+	* expr.c (extract_aggr_init): Remove.
+	(extract_scalar_init): Likewise.
+	(extract_init): Remove #if 0'd code.
+	* mangle.c: New function.
+	* method.c (build_mangled_name): Assert not flag_new_abi.
+	(build_static_name): Likewise.
+	(build_decl_overload_real): Likewise.
+	(build_typename_overload): Likewise.
+	(build_overload_with_type): Likewise.
+	(build_overload_name): Likewise.
+	(get_ctor_vtbl_name): Likewise.
+	(start_squangling): Likewise.
+	(get_id_2): Likewise.
+	(set_mangled_name_for_decl): Call mangle_decl for new ABI.
+	(init_method): Call init_mangle for new ABI.
+	(make_thunk): Call mangle_thunk for new ABI.
+	* operators.def: Correct new ABI manglings for the `%' operator.
+	Add `::' operator.
+	* pt.c (build_template_decl): Copy DECL_OVERLOADED_OPERATOR_P and
+	DECL_ASSIGNMENT_OPERATOR_P to the TEMPLATE_DECL.
+	(lookup_template_class): Call mangle_decl for new ABI.
+	(get_mostly_instantiated_function_type): New function.
+	(set_mangled_name_for_template_decl): Use it.
+	(tsubst_decl): Use set_mangled_name_for_decl for destructors with
+	the new ABI.  Use mangle_conv_op_name_for_type for instantiated
+	conversion op names.
+	* rtti.c (tinfo_name): Call mangle_type_string for new ABI.
+	(get_tinfo_decl): Call mangle_typeinfo_for_type for new	ABI.
+	(tinfo_base_init):  Likewise.  Mangle typeinfo string name with
+	mangle_typeinfo_string_for_type.
+	
+2000-06-01  Richard Henderson  <rth@cygnus.com>
+
+	* decl.c (init_decl_processing): Set lang_get_alias_set first thing.
+
+2000-06-01  Richard Henderson  <rth@cygnus.com>
+
+	* decl2.c (unsupported_options): Fix typo, make const.
+	(lang_decode_option): Fix bsearch argument order.
+
+2000-06-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (resolve_offset_ref): Remove check for TREE_ADDRESSABLE
+	on FIELD_DECLs.
+
+Wed May 31 14:09:00 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* cp-tree.h (c_get_alias_set): Deleted.
+	* Makefile.in (decl.o): Include ../expr.h.
+	* decl.c (expr.h): Include.
+	(init_decl_processing): Call record_component_aliases for arrays.
+	(grokdeclarator): Likewise.
+	Set TREE_ADDRESSABLE for fields that aren't bitfields.
+	* tree.c (build_cplus_array_type_1): Call record_component_aliases.
+
+2000-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	Remove guiding declaration support.
+	* cp/cp-tree.h (flag_dump_translation_unit): Make it const.
+	(flag_guiding_decls): Remove.
+	* call.c (build_user_type_conversion_1): Remove support for
+	guiding decls.
+	(build_new_function_call): Likewise.
+	(build_new_op): Likewise.
+	(build_new_method_call): Likewise.
+	* decl.c (start_function): Likewise.
+	* friend.c (is_friend): Likewise.
+	(do_friend): Likewise.
+	* decl2.c ((flag_dump_translation_unit): Make it const.
+	(flag_guiding_decls): Remove.
+	(unsupported_options): New variable
+	(compare_options): New function.
+	(lang_decode_option): Use them.
+	
+	* decl.c (build_cp_library_fn): Set DECL_CONTEXT.
+
+	* method.c (mangle_expression): Adjust test for legal expression
+	operators.
+
+	* pt.c (instantiate_decl): Save and restore the local
+	specializations list.
+
+2000-05-30  Jason Merrill  <jason@decepticon.cygnus.com>
+
+	* decl.c (grok_reference_init): Pass LOOKUP_ONLYCONVERTING.
+
 2000-05-30  Mark Mitchell  <mark@codesourcery.com>
 
+	* call.c (add_template_candidate_real): Handle member template
+	constructors for classes with virtual bases.
+	(build_user_type_conversion_1): Use in_charge_arg_for_name.
+	(build_new_method_call): Use DECL_NONSTATIC_MEMBER_FUNCTION_P.
+
+	* ir.texi: Update thunk documentation.
+	
 	* call.c (joust): Fix handling of overloaded builtin operators.
 
 2000-05-30  Zack Weinberg  <zack@wolery.cumb.org>

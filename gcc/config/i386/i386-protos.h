@@ -41,6 +41,7 @@ extern int ix86_aligned_p PARAMS ((rtx));
 extern int standard_80387_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 
+extern int const_int_1_operand PARAMS ((rtx, enum machine_mode));
 extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int pic_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
@@ -100,6 +101,7 @@ extern int ix86_unary_operator_ok PARAMS ((enum rtx_code, enum machine_mode,
 extern int ix86_match_ccmode PARAMS ((rtx, enum machine_mode));
 extern rtx ix86_expand_fp_compare PARAMS ((enum rtx_code, rtx, rtx, rtx));
 extern rtx ix86_expand_compare PARAMS ((enum rtx_code));
+extern int ix86_use_fcomi_compare PARAMS ((enum rtx_code));
 extern void ix86_expand_branch PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
