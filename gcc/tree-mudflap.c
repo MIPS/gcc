@@ -391,7 +391,7 @@ mf_varname_tree (tree decl)
 static tree
 mf_file_function_line_tree (location_t *locus)
 {
-  const char *file, *colon, *line, *op, *name, *cp;
+  const char *file = NULL, *colon, *line, *op, *name, *cp;
   char linebuf[18];
   char *string;
   tree result;
