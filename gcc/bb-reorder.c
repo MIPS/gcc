@@ -319,11 +319,12 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		    {
 		      edge e;
 
-		      /* Find the edge that enters the loop.  */
+		      /* Check whether the loop has not been rotated yet.  */
 		      for (e = best_edge->dest->succ; e; e = e->succ_next)
 			if (e->dest == RBI (best_edge->dest)->next)
 			  break;
-		      if (e && e->probability > 2 * REG_BR_PROB_BASE / 3)
+		      if (e && (EDGE_FREQUENCY (best_edge)
+				> 2 * best_edge->dest->frequency / 3))
 			/* The loop has not been rotated yet
 			   && has at least 2 iterations.  */
 			{
