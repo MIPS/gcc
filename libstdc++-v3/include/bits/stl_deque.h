@@ -319,7 +319,7 @@ namespace std
   operator-(const _Deque_iterator<_Tp, _RefL, _PtrL>& __x,
   	  const _Deque_iterator<_Tp, _RefR, _PtrR>& __y)
   {
-    return _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
+    return typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
       (_Deque_iterator<_Tp, _RefL, _PtrL>::_S_buffer_size()) *
       (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first) +
       (__y._M_last - __y._M_cur);
@@ -1549,12 +1549,12 @@ namespace std
    *  @brief  Deque ordering relation.
    *  @param  x  A %deque.
    *  @param  y  A %deque of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the
    *  deques.  The elements must be comparable with @c <.
    *
-   *  See std::lexographical_compare() for how the determination is made.
+   *  See std::lexicographical_compare() for how the determination is made.
   */
   template <typename _Tp, typename _Alloc>
   inline bool operator<(const deque<_Tp, _Alloc>& __x,

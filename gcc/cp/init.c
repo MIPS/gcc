@@ -3,20 +3,20 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -912,16 +912,29 @@ member_init_ok_or_else (field, type, member_name)
 {
   if (field == error_mark_node)
     return 0;
-  if (field == NULL_TREE || initializing_context (field) != type)
+  if (!field)
+    {
+      error ("class `%T' does not have any field named `%D'", type,
+	     member_name);
+      return 0;
+    }
+  if (TREE_CODE (field) == VAR_DECL)
+    {
+      error ("`%#D' is a static data member; it can only be "
+	     "initialized at its definition",
+	     field);
+      return 0;
+    }
+  if (TREE_CODE (field) != FIELD_DECL)
+    {
+      error ("`%#D' is not a non-static data member of `%T'",
+	     field, type);
+      return 0;
+    }
+  if (initializing_context (field) != type)
     {
       error ("class `%T' does not have any field named `%D'", type,
 		member_name);
-      return 0;
-    }
-  if (TREE_STATIC (field))
-    {
-      error ("field `%#D' is static; the only point of initialization is its definition",
-		field);
       return 0;
     }
 
@@ -1600,7 +1613,7 @@ build_offset_ref (type, name)
 
   decl = maybe_dummy_object (type, &basebinfo);
 
-  if (BASELINK_P (name))
+  if (BASELINK_P (name) || DECL_P (name))
     member = name;
   else
     {
@@ -1944,7 +1957,7 @@ build_new (placement, decl, init, use_global_new)
 	      else
 		{
 		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, 0)
+						  this_nelts, false)
 		      == NULL_TREE)
 		    pedwarn ("size in array new must have integral type");
 

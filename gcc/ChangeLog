@@ -511,12 +511,762 @@
 	(dwarf2out_init): Don't call ggc_add_root.
 
 *** End of unmerged pch-branch ChangeLog ***
+2003-01-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (stack_pointer_operand): New.
+	(const_int_gt_2_operand): Likewise.
+	(const_int_ge_8_operand): Likewise.
+	* config/h8300/h8300.md (a splitter): Likewise.
+	(a peephole2): Likewise.
+	* config/h8300/h8300-protos.h: Add prototypes for the new
+	functions above.
+
+2003-01-02  Steven Bosscher <s.bosscher@student.tudelft.nl>
+
+	* objc/Make-lang.in, objc/config-lang.in, objc/lang-specs.h,
+	objc/objc-act.h: Fix copyright years.
+
+2003-01-02  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* doc/passes.texi: Fix documentation for -fssa-ccp
+
+2003-01-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gccbug.in: Update for new categories.
+
+2003-01-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Reorder some patterns.
+
+2003-01-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (output_logical_op): Fix a warning.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* config/darwin-protos.h, config/c4x/c4x-protos.h,
+	config/cris/cris-protos.h, config/i370/i370-protos.h,
+	config/i960/i960-protos.h, config/ia64/ia64-protos.h,
+	config/v850/v850-protos.h: Use struct, and don't conditionally
+	compile on GCC_C_PRAGMA_H.
+
+2003-01-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/arm/arm-protos.h: Remove #ifdef GCC_C_PRAGMA_H.
+	* config/h8300/h8300-protos.h: Likewise.
+	* config/sh/sh-protos.h: Likewise.
+
+2003-01-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/arm/arm-protos.h: Use struct cpp_reader instead of
+	cpp_reader.
+	* config/h8300/h8300-protos.h: Likewise.
+	* config/sh/sh-protos.h: Likewise.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* config/arm/arm.c (arm_pr_long_calls, arm_pr_no_long_calls,
+	arm_pr_long_calls_off): Use struct.
+	* config/h8300/h8300.c (h8300_pr-interrupt, h8300_pr_saveall)
+	: Similarly.
+	Don't include cpplib.h.
+	* config/sh/sh.c (sh_pr_interrupt, sh_pr_trapa,
+	sh_pr_nosave_low_regs): Similarly.
+
+2003-01-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c: Include cpplib.h.
+
+2003-01-01  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* objc/Make-lang.in, objc/config-lang.in, objc/lang-options.h,
+	  objc/lang-specs.h, objc/objc-act.c, objc/objc-act.h,
+	  objc/objc-lang.c, objc/objc-tree.def: Replace "GNU CC" with
+	  "GCC" in the copyright header.
+
+2003-01-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-pragma.c (c_register_pragma): New.
+	(init_pragma): Use it.
+	* c-pragma.h (cpp_register_pragma): Don't declare.
+	(c_register_pragma): New.
+	* cpplib.h: Remove #ifdef GCC_C_PRAGMA_H.
+	* config/darwin.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/arm/arm.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/c4x/c4x.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/h8300/h8300.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/i370/i370.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/i960/i960.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/ia64/hpux.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/rs6000/rs6000.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/sh/sh.h (REGISTER_TARGET_PRAGMAS): Update.
+	* config/v850/v850.h (REGISTER_TARGET_PRAGMAS): Update.
+	* doc/tm.texi (REGISTER_TARGET_PRAGMAS): Update
+
+2002-12-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Update the prototypes.
+	* config/h8300/h8300.c (const_le_2_operand): Change to
+	const_int_le_2_operand.
+	(const_int_le_6_operand): Change to const_int_le_6_operand.
+	* config/h8300/h8300.md (two peepholes): Update the function
+	names.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Testing): Fixed typo.
+
+2002-12-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (TRAMPOLINE_TEMPLATE): Remove.
+	(TRAMPOLINE_SIZE): Support the normal mode.
+	(INITIALIZE_TRAMPOLINE): Emit the entire trampoline.
+
+2002-12-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-common.h (pending_lang_change): Declare.
+
+2002-12-31  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): Clean up -O flag
+	descriptions.
+
+2002-12-31  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): List the options
+	enabled by each -O flag.
+
+2002-12-31  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Configuration): Explicitly refer
+	gcc/config.gcc for a list of cpu models.
+
+2002-12-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h: Fix comment typos.
+
+2002-12-30  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (WIDEST_HARDWARE_FP_SIZE): Define.
+
+2002-12-30  Tom Tromey  <tromey@redhat.com>
+
+	* doc/install.texi (Testing): Mention Jacks.
+
+2002-12-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/gcc.texi, doc/gccint.texi: Update last modification dates.
+
+2002-12-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (output_logical_op): Use extu.w in more
+	cases.
+	(compute_logical_op_length): Update to reflect the change in
+	output_logical_op.
+	(compute_logical_op_cc): Likewise.
+
+2002-12-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/service.texi: Uncomment and update FAQ link.
+
+2002-12-30  Andreas Jaeger  <aj@suse.de>
+
+	* unwind-dw2-fde.h (last_fde): Add unused attribute for obj.
+
+2002-12-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*addsi3_lshiftrt_16_zexthi): New.
+
+2002-12-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (output_logical_op): Use extu.w if we
+	are clearing the most significant byte.
+	(compute_logical_op_length): Update to reflect the change in
+	output_logical_op.
+	(compute_logical_op_cc): Likewise.
+
+2002-12-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Give internal names to anonymous
+	insns.
+
+2002-12-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Reorder some insns.
+
+2002-12-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add prototypes for
+	const_int_qi_operand and const_int_hi_operand.
+	* config/h8300/h8300.c (const_int_qi_operand): New.
+	(const_int_hi_operand): Likewise.
+	* config/h8300/h8300.md (three peepholes): New.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/cpp.texi, doc/gcc.texi, doc/gccint.texi, doc/install.texi:
+	Use @copying.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* configure.in: Increase makeinfo version requirement to 4.[2-9].
+	* configure: Regenerate.
+	* doc/install.texi: Update Texinfo version requirement.
+
+2002-12-28  Andreas Jaeger  <aj@suse.de>
+
+	* config/i386/i386.c (x86_function_profiler): Mark labelno as
+	possibly unused.
+
+	* c-parse.in (yyprint): Use HOST_WIDE_INT_PRINT_DOUBLE_HEX for
+	correct format.
+
+2002-12-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*iorhi_shift_8): Change the name to
+	*iorhi_ashift_8.
+	(*iorhi_lshiftrt_8): New.
+
+2002-12-27  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/texinfo.tex: Update to version 2002-12-26.16.
+
+2002-12-27  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Add Abramo and Roberto Bagnara.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Fix comment typos.
+	Update copyright.
+	* config/h8300/h8300.c: Fix comment typos.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (IDENT_ASM_OP): End with a tab.
+
+2002-12-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/i386/athlon.md: Fix comment typos.
+	* config/i386/crtdll.h: Likewise.
+	* config/i386/djgpp.h: Likewise.
+	* config/i386/i386-interix.h: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/i386/i386.md: Likewise.
+	* config/i386/k6.md: Likewise.
+	* config/i386/mingw32.h: Likewise.
+	* config/i386/pentium.md: Likewise.
+	* config/i386/sco5.h: Likewise.
+	* config/i386/winnt.c: Likewise.
+	* config/i386/xmmintrin.h: Likewise.
+
+2002-12-26  Jose Renau <renau@cs.uiuc.edu>
+
+	* ssa-dce.c (EXECUTE_IF_UNNECESSARY): Verify INSN is an
+	INSN_P before checking to see if it is dead.
+	(mark_all_insn_unnecessary): Similarly.
+	(ssa_eliminate_dead_code): Similarly.
+	* rtl.h (struct rtx_def): Update comments for in_struct usage
+	in dead code elimination pass.
+	(INSN_DEAD_CODE_P): Allow JUMP_INSN and CALL_INSN as well.
+
+2002-12-26  Andreas Schwab  <schwab@suse.de>
+
+	* config.gcc (powerpc*-*-*, rs6000-*-*): Fix assignment syntax.
+
+2002-12-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Convert to
+	tartet_flags_explicit.
+	* config/rs6000/rs6000.h (MASK_MULTIPLE_SET, MASK_STRING_SET): Delete.
+	Compact target_flags bits.
+	(TARGET_MULTIPLE_SET, TARGET_STRING_SET): Delete.
+	(TARGET_SWITCHES): Delete references to *_SET flags.
+
+Wed Dec 25 20:30:53 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (memory attribute): Fix setcc attribute.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* output.h: Fix comment typos.
+	* predict.c: Likewise.
+	* print-tree.c: Likewise.
+	* profile.c: Likewise.
+	* ra-build.c: Likewise.
+	* ra-colorize.c: Likewise.
+	* ra-debug.c: Likewise.
+	* ra-rewrite.c: Likewise.
+	* ra.c: Likewise.
+	* ra.h: Likewise.
+	* real.c: Likewise.
+	* recog.c: Likewise.
+	* reg-stack.c: Likewise.
+	* regclass.c: Likewise.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (print_operand_address): Do not negate
+	a negative number when printing one.
+
+2002-12-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add prototypes for
+	output_plussi, compute_plussi_length, and compute_plussi_cc.
+	* config/h8300/h8300.c (output_plussi): New.
+	(compute_plussi_length): Likewise.
+	(compute_plussi_cc): Likewise.
+	* config/h8300/h8300.md (addsi_h8300h): Call
+	output_plussi, compute_plussi_length, and compute_plussi_cc.
+
+2002-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (two peepholes): Use match_dup instead
+	of match_operand in the new patterns.
+
+2002-12-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/texinfo.tex: Update to version 2002-11-25.11.
+
+2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (enable-coverage): Add SELF_COVERAGE.
+	* profile.c (end_branch_prob): Use SELF_COVERAGE.
+
+2002-12-24  Jim Wilson  <wilson@redhat.com>
+
+	* alias.c (record_set): Handle multi-reg hard registers.
+
+2002-12-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* regmove.c: Fix comment typos.
+	* reload.c: Likewise.
+	* reload1.c: Likewise.
+	* resource.c: Likewise.
+	* rtl.def: Likewise.
+	* rtl.h: Likewise.
+	* rtlanal.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sibcall.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* ssa-ccp.c: Likewise.
+	* ssa.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* system.h: Likewise.
+	* tlink.c: Likewise.
+	* toplev.c: Likewise.
+	* tracer.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree.c: Likewise.
+	* tree.h: Likewise.
+	* unroll.c: Likewise.
+	* varasm.c: Likewise.
+
+2002-12-23  Larin Hennessy  <larin@science.oregonstate.edu>
+
+	* doc/install.texi: Remove i386-*-isc, i860-*-bsd,
+	m68k-altos-sysv, m68k-isi-bsd, m68k-sony-bsd entries.
+	* doc/invoke.texi: Remove AMD 29K, ARM RISC/iX, Clipper, Convex,
+	DG/UX entries.
+	* doc/md.texi: Remove AMD 29K entries.
+	* doc/trouble.texi: Remove Alliant, DG/UX, Iris 4.0.5F, GAS
+	1.38.1, NewsOS, RT PC, WE32K entries.
+
+2002-12-23  Aldy Hernandez  <aldyh@redhat.com>
+
+        PR/8763
+        * config/rs6000/altivec.md (mulv4sf3): Rewrite to add -0.0 vector.
+        (altivec_vspltisw_v4sf): Name pattern.
+        (altivec_vslw_v4sf): New pattern.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/include/gcc-common.texi: Define DEVELOPMENT.
+
+2002-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* stor-layout.c (update_alignment_for_field): Correct handling of
+	unnamed bitfields on PCC_BITFIELD_TYPE_MATTERS machines.
+	* doc/tm.texi (PCC_BITFIELD_TYPE_MATTERS): Note that an unnamed
+	bitfield does not affect alignment.
+
+2002-12-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* expr.c (expand_assignment): Apply special treatment to
+	ARRAY_TYPE.
+
+2002-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Update the prototype of
+	expand_a_shift.
+	* config/h8300/h8300.c (expand_a_shift): Change the return
+	type to void.
+	* config/h8300/h8300.md: Update all the uses of
+	expand_a_shift.
+
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.c (save_expr): Allow either side of a dyadic operand to be
+	constant.
+
+	* doc/portability.texi (portability): Update portability goals.
+
+2002-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (output_a_shift): Remove unused code.
+
+2002-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* stor-layout.c (update_alignment_for_field): Guard use of
+	ADJUST_FIELD_ALIGN with #ifdef.
+
+	* stor-layout.c (update_alignment_for_field): Use
+	ADJUST_FIELD_ALIGN when computing the alignment for a zero-width
+	bitfield when PCC_BITFIELD_TYPE_MATTERS.
+
+2002-12-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* genautomata.c: Fix comment typos.
+
+Sun Dec 22 18:23:44 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* params.def (tracer-min-branch-probability-feedback): Fix default.
+	* final.c (compute_alignments): Use profile to avoid code bloat.
+
+2002-12-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (get_shift_alg): Make shift insn
+	sequences end with a valid cc0 whenever possible.
+
+2002-12-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (negsf2): New.
+	(*negsf2_h8300): Likewise.
+	(*negsf2_h8300hs): Likewise.
+
 2002-12-21  Geoffrey Keating  <geoffk@apple.com>
 
 	* integrate.c (output_inline_function): Don't hold private
 	pointers to 'struct function' over GC calls.
 
-2002-11-18  Geoffrey Keating  <geoffk@apple.com>
+2002-12-21  Kaz kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/lib1funcs.asm (__fpscr_values): Conditionalize with
+	NO_FPSCR_VALUES.
+	* config/sh/t-linux (TARGET_LIBGCC2_CFLAGS): Add -DNO_FPSCR_VALUES.
+
+2002-12-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (zero_extendqisi2): Correct the
+	length.
+
+2002-12-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*zero_extendqihi2_h8300): Make the
+	second alternative "#".
+	(*zero_extendqihi2_h8300hs): Likewise.
+	(a define_split): New.
+
+2002-12-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Update the prototype for
+	split_adds_subs.
+	Add prototypes for const_le_2_operand and const_le_6_operand.
+	* config/h8300/h8300.c (split_adds_subs): Add an argument to
+	specify whether inc/dec should be used when possible.
+	(const_le_2_operand): New.
+	(const_le_6_operand): Likewise.
+	* config/h8300/h8300.md (two peepholes): New.
+
+2002-12-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/fr30/fr30.md: Fix a comment typo.
+	* config/i386/i386.c: Likewise.
+	* config/ip2k/ip2k.h: Likewise.
+
+2002-12-20  Jim Wilson  <wilson@redhat.com>
+
+	* config/rs6000/spe.h (__ev_subifw): Reverse arguments.
+	(__ev_subw, __ev_subiw): New.
+	(ev_mwlssf, ev_mwlsmf, ev_mwlssfa, ev_mwlsmfa, ev_mwlssfaaw,
+	ev_mwlsmfaaw, ev_mwlssfanw, ev_mwlsmfanw): Delete.
+
+2002-12-20  John David Anglin  <dave.anglin@nrc.gc.ca>
+
+	* pa-linux.h (TARGET_HAS_STUBS_AND_ELF_SECTIONS): Delete define.
+	* pa32-linux.h (FUNCTION_OK_FOR_SIBCALL): Delete define.
+	* pa.c (pa_function_ok_for_sibcall): Allow non indirect sibcalls on
+	TARGET_ELF32.  Add comment on sibcall issues for TARGET_64BIT.
+
+2002-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add prototypes for
+	incdec_operand and eqne_operator.
+	* config/h8300/h8300.c (incdec_operand): New.
+	(eqne_operator): Likewise.
+	* config/h8300/h8300.h (CONST_OK_FOR_M): Likewise.
+	(CONST_OK_FOR_O): Likewise.
+	(CONST_OK_FOR_LETTER_P): Use CONST_OK_FOR_M and
+	CONST_OK_FOR_O.
+	* config/h8300/h8300.md (UNSPEC_INCDEC): New.
+	(addhi3_incdec): New.
+	(addsi3_incdec): Likewise.
+	(two peepholes): Likewise.
+
+2002-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (dosize): Remove warnings.
+	(print_operand): Likewise.
+
+2002-12-20  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (decl_has_samegp): New.
+	(samegp_function_operand): Use it.  Rename from
+	current_file_function_operand.
+	(direct_call_operand): Handle -msmall-text via symbol->jump.
+	(tls_symbolic_operand_1): Use T for tprel64, t for smaller tprel.
+	(tls_symbolic_operand_type): Likewise.
+	(alpha_encode_section_info): Likewise.  Handle -msmall-text.
+	(alpha_function_ok_for_sibcall): Use decl_has_samegp.
+	(alpha_end_function): Set symbol->jump for functions defined in
+	the text section.
+	* config/alpha/alpha-protos.h: Update.
+	* config/alpha/alpha.h (MASK_SMALL_TEXT, TARGET_SMALL_TEXT): New.
+	(TARGET_SWITCHES): Add -msmall-text and -mlarge-text.
+	(PREDICATE_CODES): Update.
+	* config/alpha/alpha.md (call patterns): Update for
+	samegp_function_operand rename; use !samegp reloc if
+	TARGET_EXPLICIT_RELOCS.
+	* doc/invoke.text: Document -msmall-text and -mlarge-text.
+
+2002-12-20  Ian Dall  <ian@sibyl.beware.dropbear.id.au>
+
+        * config/ns32k/ns32k.md (movdi): Use "l" instead of "f" to match
+        all registers capable of holding a double float.
+        (*rcond): change name of "reverse branch" insns to
+        something more meaningful.
+        (*rbgt, *rblt, *rbge, *rble): Reverse branches to handle IEEE
+        comparisons properly.
+        (*ffs): Change operand 0 from write to read-modify-write.
+        (*ffsssi2): Drop constraints from define_expand.
+
+        * config/ns32k/ns32k.h (STORE_RATIO, STORE_BY_PIECES): Avoid using
+        MOVE_RATIO as default for store operations.
+
+        * config/ns32k/ns32k.h (enum reg_class, REG_CLASS_NAMES): Add
+        LONG_REGS class.
+        (CANNOT_CHANGE_MODE_CLASS): Can't subreg LONG_REGS.
+        (GO_IF_LEGITIMATE_ADDRESS): Remove spurious abort().
+        * config/ns32k/ns32k.c (regclass_map): Add LONG_REGS class.
+
+        * config/ns32k/STATUS: New File
+        * config/ns32k/NOTES: New file.
+
+2002-12-20  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* doc/invoke.texi: Document -mzarch, -mesa, -mcpu= and -march=
+	option for S/390 and zSeries.
+        * config/s390/s390.c (s390_cpu, s390_cpu_string, s390_arch,
+        s390_arch_string): New variables.
+        (override_options): Checking for options and setting of
+	appropriate target_flags, cpu and arch flags.
+        * config/s390/s390.h: (processor_type): New enum.
+        (TARGET_SWITCHES): New switches -mesa/zarch.
+        * config/s390/s390.md: New attribute 'cpu'.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* c-pretty-print.h: Fix comment typos.
+	* integrate.c: Likewise.
+	* varasm.c: Likewise.
+	* config/c4x/c4x.h: Likewise.
+	* config/c4x/c4x.md: Likewise.
+	* config/fr30/fr30.md: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/i386.h: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/ia64/ia64.h: Likewise.
+	* config/ip2k/ip2k.md: Likewise.
+	* config/m68hc11/m68hc11-crt0.S: Likewise.
+	* config/m68hc11/m68hc11.h: Likewise.
+	* config/m68hc11/m68hc11.md: Likewise.
+	* config/m68hc11/m68hc12.h: Likewise.
+	* config/mcore/mcore.md: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/mips/mips.md: Likewise.
+	* config/mmix/mmix-modes.def: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.h: Likewise.
+	* config/rs6000/rs6000.md: Likewise.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (output_a_shift): Clean up the code to
+	output shifts using rotation.
+
+2002-12-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* flow.c (allocate_reg_life_data): Reset REG_FREQ.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (pushqi_h8300): Don't push the stack
+	pointer.
+	(pushqi_h8300hs): Likewise.
+	(pushhi_h8300): Likewise.
+	(pushhi_h8300hs): Likewise.
+
+Thu Dec 19 23:44:09 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sched-rgn.c (init_regions): Update comment.
+
+2002-12-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (define_attr type): Remove altivec.
+	* config/rs6000/altivec.md (movv4si_internal): Set correct instruction
+	attributes.
+	(movv8hi_internal,movv16qi_internal,movv4sf_internal): Same.
+	(get_vrsave_internal,set_vrsave_internal): Same.
+	(altivec_vspltisb,altivec_vspltish,altivec_vspltisw): Same.
+	(absv16qi2,absv8hi2,absv4si2,absv4sf2): Same
+	(altivec_abss_v16qi,altivec_abss_v8hi,altivec_abss_v4si): Same.
+
+2002-12-19  Casper S. Hornstrup  <chorns@users.sourceforge.net>
+	    Danny Smith  <dannysmith@users.sourceforge.net>
+	    Eric Kohl  <ekohl@rz-online.de>
+
+	* config/i386/i386.c (ix86_handle_cdecl_attribute): Check for
+	attributes incompatible with fastcall attribute.
+	(ix86_handle_regparm_attribute): Likewise.
+
+	* config/i386/i386.c (ix86_comp_type_attributes): Check for mismatched
+	fastcall types.
+
+	* config/i386/cygwin.h (TARGET_OS_CPP_BUILTINS): Add fastcall
+	attributes.
+	(ASM_OUTPUT_LABELREF): Define as i386_pe_output_labelref.
+	* config/i386/i386-protos.h (i386_pe_output_labelref): Declare.
+	* config/i386/winnt.c (i386_pe_mark_dllimport). Add __imp_ prefix in
+	i386_pe_output_labelref rather than here.
+	(gen_fastcall_suffix): New function. Decorates a label name with the
+	fastcall prefix (@) and the stdcall suffix.
+	(i386_pe_encode_section_info): Call gen_fastcall_suffix() if a symbol
+	has a fastcall attribute.
+	(i386_pe_output_labelref): New function. Outputs a label reference.
+	* config/i386/i386.c (ix86_attribute_table): Accept 'fastcall' as a
+	valid attribute.
+	(ix86_return_pops_args): Fastcall functions pop the stack.
+	(init_cumulative_args): Reserve registers ECX and EDX if function has
+	fastcall attribute.
+	(function_arg): Use registers ECX and EDX if function has fastcall
+	attribute.
+	* config/i386/i386.h (CUMULATIVE_ARGS): Add fastcall attribute flag.
+	(DLL_IMPORT_EXPORT_PREFIX): Redefine as '#'.
+	(FASTCALL_PREFIX): Define as '@'.
+	* config/i386/mingw32.h (TARGET_OS_CPP_BUILTINS): Add fastcall
+	attributes.
+	* doc/extend.texi: Add documentation of fastcall attribute.
+
+2002-12-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: FORBUILD when build!=host changed from
+	../$build-alias to ../build-$build_alias to match change made
+	in top directory.
+	* configure: Regenerated.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8988
+	* loop.c (maybe_eliminate_biv): Kill REG_EQUAL notes mentioning
+	the biv when eliminating.
+
+2002-12-19  Devang Patel  <dpatel@apple.com>
+	* gcc.c (struct default_compiler): Recognizes input file name with
+	.CPP extension as C++ source files
+	* cp/lang-spec.h: Same
+	* doc/invoke.texi:  Add documentation for .CPP support.
+
+2002-12-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 8553
+	* config/rs6000/altivec.md ("absv8hi2"): Add & to clobbered
+	registers.
+	("absv16qi2"): Same.
+	("absv4si2"): Same.
+	("absv4sf2"): Same.
+	("altivec_abss_v16qi"): Same.
+	("altivec_abss_v8hi"): Same.
+	("altivec_abss_v4si"): Same.
+
+2002-12-19  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*tsthiCCT", "*tsthiCCT_cconly",
+	"*tstqiCCT", "*tstqiCCT_cconly"): New insns.
+
+2002-12-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/8340
+	* stmt.c (expand_asm_operands): Produce an error when
+	the PIC register is clobbered.
+
+2002-12-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in (OBJS): Add alloc-pool.o
+	(alloc-pool.o): New object.
+
+	* alloc-pool.c: New file.
+	* alloc-pool.h: New file.
+
+2002-12-18  Loren James Rittle  <rittle@labs.mot.com>
+
+	* gcc.c (validate_switches): Robustify against skipping past '\0'.
+
+2002-12-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* config.gcc: Set extra_objs in the generic Darwin rule,
+	not in the machine-specific rules.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* ChangeLog.2: Likewise.
+	* ChangeLog.4: Likewise.
+	* ChangeLog.5: Likewise.
+	* cppexp.c: Likewise.
+	* df.c: Likewise.
+	* gcov.c: Likewise.
+	* gengtype.c: Likewise.
+	* reload1.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* timevar.c: Likewise.
+	* toplev.c: Likewise.
+	* tree.h: Likewise.
+	* varasm.c: Likewise.
+	* config/fr30/fr30.md: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/pa/pa.c: Likewise.
+
+2002-12-18  Roger Sayle  <roger@eyesopen.com>
+
+	* basic-block.h (flow_bb_inside_loop_p): Correct prototype.
+
+2002-12-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 8551
+	* config/rs6000/altivec.h (vec_cmplt macro): Reverse arguments in
+	macro.
+	(vec_cmplt C++ functions): Reverse arguments.
+
+2002-12-18  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/rs6000/t-rs6000: Move contents to t-fprules,
 	add rules for dependencies of rs6000.o and to build rs6000-c.o
@@ -548,13 +1298,10 @@
 	* tree.c (make_node): Don't set TREE_TYPE on 's' class nodes.
 	(build1): Always set TREE_SIDE_EFFECTS on 's' class nodes.
 
-        * gcc.c (do_spec_1) ['W']: End any pending argument from the braces.
+	* gcc.c (do_spec_1) ['W']: End any pending argument from the braces.
 
 	* calls.c (expand_call): Don't try to be clever about expanding
 	the return slot address.
-
-	* calls.c (expand_call): Handle CALL_EXPR_HAS_RETURN_SLOT_ADDR
-	with special struct-return ABIs.
 
 2002-12-18  Kaz kojima  <kkojima@gcc.gnu.org>
 
@@ -2270,7 +3017,7 @@ Wed Nov 20 19:07:17 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(ggc_realloc): Update valgrind annotations.
 	* ggc-page.c [!ENABLE_VALGRIND_CHECKING] (VALGRIND_DISCARD):
 	Define as empty.
- 	(alloc_anon, free_page, ggc_alloc, poison_pages): Add machinery to
+	(alloc_anon, free_page, ggc_alloc, poison_pages): Add machinery to
 	valgrind-annotate memory.
 
 2002-11-20  Ulrich Weigand  <uweigand@de.ibm.com>
@@ -2739,7 +3486,6 @@ Fri Nov 15 14:54:19 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* gthr-posix.h: Fix formatting.
 
 2002-11-12  Devang Patel <dpatel@apple.com>
-
 	* gcc.c (display_help): Two new options -Xpreprocessor and -Xassembler.
 	(process_command): Same.
 	* doc/invoke.texi: Info about these two new options.
@@ -3576,7 +4322,7 @@ Tue Oct 29 19:32:16 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(sched_get_priority_max, sched_get_priority_min)
 	(pthread_getschedparam, pthread_setschedparam): Only use
 	if _POSIX_THREAD_PRIORITY_SCHEDULING is defined.
-	(__gthread_objc_thread_set_priority): Don't treat all non-zero
+	(__gthread_objc_thread_set_priority): Don't treat all nonzero
 	returns from sched_get_priority_max and sched_get_priority_min
 	as an error.
 
@@ -5530,7 +6276,7 @@ Thu Oct  3 23:20:58 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(multilib_os_dir): New variable.
 	(static_specs): Add multilib_options.
 	(find_a_file): Add multilib argument.  Search in GCC or OS multilib
-	subdirs if non-zero.
+	subdirs if nonzero.
 	(read_specs, execute): Update callers.
 	(find_file): Likewise.  Don't prefix name with multilib_dir, instead
 	pass 1 as multilib option.

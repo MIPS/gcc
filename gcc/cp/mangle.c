@@ -2,20 +2,20 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Alex Samuel <sameul@codesourcery.com>
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it
+   GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but
+   GCC is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to the Free
+   along with GCC; see the file COPYING.  If not, write to the Free
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
@@ -2545,10 +2545,7 @@ mangle_call_offset (fixed_offset, virtual_offset)
      tree fixed_offset;
      tree virtual_offset;
 {
-  if (virtual_offset)
-    write_char (virtual_offset ? 'v' : 'h');
-  else
-    write_char ('h');
+  write_char (virtual_offset ? 'v' : 'h');
 
   /* For either flavor, write the fixed offset.  */
   write_integer_cst (fixed_offset);
@@ -2590,24 +2587,27 @@ mangle_thunk (fn_decl, this_adjusting, fixed_offset, virtual_offset)
   write_string ("_Z");
   write_char ('T');
   
-  if (this_adjusting && !DECL_RESULT_THUNK_P (fn_decl))
-    /* Plain this adjusting thunk.  */
-    mangle_call_offset (fixed_offset, virtual_offset);
-  else if (!this_adjusting)
+  if (!this_adjusting)
     {
       /* Covariant thunk with no this adjustment */
       write_char ('c');
       mangle_call_offset (integer_zero_node, NULL_TREE);
       mangle_call_offset (fixed_offset, virtual_offset);
     }
+  else if (!DECL_THUNK_P (fn_decl))
+    /* Plain this adjusting thunk.  */
+    mangle_call_offset (fixed_offset, virtual_offset);
   else
     {
       /* This adjusting thunk to covariant thunk.  */
       write_char ('c');
       mangle_call_offset (fixed_offset, virtual_offset);
-      mangle_call_offset (ssize_int (THUNK_FIXED_OFFSET (fn_decl)),
-			  THUNK_VIRTUAL_OFFSET (fn_decl));
-      fn_decl = TREE_OPERAND (DECL_INITIAL (fn_decl), 0);
+      fixed_offset = ssize_int (THUNK_FIXED_OFFSET (fn_decl));
+      virtual_offset = THUNK_VIRTUAL_OFFSET (fn_decl);
+      if (virtual_offset)
+	virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
+      mangle_call_offset (fixed_offset, virtual_offset);
+      fn_decl = THUNK_TARGET (fn_decl);
     }
 
   /* Scoped name.  */

@@ -3,20 +3,20 @@
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -1033,20 +1033,6 @@ really_overloaded_fn (x)
 	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
 }
 
-/* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
-   OVERLOAD, FUNCTION_DECL, TEMPLATE_ID_EXPR, or baselink.  */
-
-tree
-get_overloaded_fn (fns)
-     tree fns;
-{
-  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
-    fns = TREE_OPERAND (fns, 0);
-  if (BASELINK_P (fns))
-    fns = BASELINK_FUNCTIONS (fns);
-  return fns;
-}
-
 tree
 get_first_fn (from)
      tree from;
@@ -1117,7 +1103,6 @@ cp_statement_code_p (code)
   switch (code)
     {
     case CTOR_INITIALIZER:
-    case RETURN_INIT:
     case TRY_BLOCK:
     case HANDLER:
     case EH_SPEC_BLOCK:

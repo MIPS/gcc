@@ -1,3 +1,175 @@
+2003-01-02  Mark Wielaard  <mark@klomp.org>
+	    Jeroen Frijters  <jeroen@sumatra.nl>
+
+	* java/net/URLClassLoader.java (Resource.getCodeSource):
+	Fix check certs == null.
+	(getCanonicalFileURL): Removed method.
+	(JarURLLoader): Don't call removed method.
+	(FileURLLoader): Likewise.
+	(FileURLLoader.getResource): Don't canonicalize file name.
+
+2003-01-01  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (rmi_java_source_files): Added RMIClassLoaderSpi.
+	* java/awt/AlphaComposite.java, java/awt/BasicStroke.java,
+	java/awt/BufferCapabilities.java, java/awt/Button.java,
+	java/awt/CheckboxMenuItem.java, java/awt/Choice.java,
+	java/awt/Container.java, java/awt/Cursor.java,
+	java/awt/EventQueue.java, java/awt/FileDialog.java,
+	java/awt/Graphics2D.java, java/awt/Label.java, java/awt/Menu.java,
+	java/awt/MenuBar.java, java/awt/MenuComponent.java,
+	java/awt/PopupMenu.java, java/awt/ScrollPane.java,
+	java/awt/Scrollbar.java, java/awt/TextArea.java,
+	java/awt/TextField.java, java/awt/color/CMMException.java,
+	java/awt/color/ColorSpace.java, java/awt/color/ICC_Profile.java,
+	java/awt/color/ProfileDataException.java,
+	java/awt/datatransfer/Clipboard.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/awt/datatransfer/FlavorMap.java,
+	java/awt/datatransfer/SystemFlavorMap.java,
+	java/awt/dnd/DragGestureEvent.java,
+	java/awt/dnd/DragGestureRecognizer.java,
+	java/awt/dnd/DragSource.java, java/awt/dnd/DropTarget.java,
+	java/awt/event/WindowEvent.java, java/awt/geom/PathIterator.java,
+	java/awt/im/InputMethodHighlight.java,
+	java/io/PipedOutputStream.java, java/io/PipedWriter.java,
+	java/rmi/server/RMIClassLoader.java: Merged from Classpath.
+
+	* gnu/awt/j2d/Graphics2DImpl.java (drawImage): Changed type of
+	`op' to BufferedImageOp.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/7416:
+	* javax/naming/InitialContext.java (init): Use
+	gnu.classpath.home.url.
+	* java/security/Security.java: Use new properties.
+	(loadProviders): Accept base url; use it.
+	* java/lang/System.java: Document gnu.classpath.vm.shortname, and
+	gnu.classpath.home.url.
+	(gnu.classpath.home.url): Define.
+	(gnu.classpath.vm.shortname): Likewise.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+            Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fix for PR libgcj/8997:
+	* java/lang/natObject.cc (spin): Use _Jv_platform_usleep.
+	Include platform.h.
+	* include/posix.h (_Jv_platform_usleep): New function.
+	* include/win32.h (_Jv_platform_usleep): New function.
+
+2002-12-29  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated.
+	* scripts/classes.pl (scan): Removed stray semicolon.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLStreamHandler.java (toExternalForm): Ignore port
+	if zero or smaller.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Properties (formatForOutput): Don't fall through to
+	default case after escaping character.
+
+2002-12-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/StringBuffer.java (getChars): Remove wrong dstOffset check
+	against count.
+
+2002-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* boehm.cc: Remove stray semicolon.
+	* interpret.cc: Likewise.
+	* prims.cc: Likewise.
+	* verify.cc (_Jv_BytecodeVerifier::verify_fail): Move definition
+	earlier to ensure default arguments are processed.
+	* gcj/array.h (JArray): Add forward declaration.
+	(elements): Likewise.
+	* gcj/javaprim.h: Remove stray semicolons.
+	* include/bohm-gc.h: Likewise.
+	* include/jni.h: Likewise.
+	* include/jvm.h: Likewise.
+	* java/lang/Class.h (_Jv_GetArrayClass): Declare _Jv_NewArrayClass.
+	
+2002-12-23  Jeff Sturm  <jsturm@one-point.com>
+
+	* exception.cc (PERSONALITY_FUNCTION): Clear least-significant-bit
+	of catch_type.
+	* java/lang/natClass.cc (initializeClass): Link vtable, otable,
+	idt tables after initializing superclass.
+	* java/lang/natClassLoader.cc (uaddr): New typedef.
+	(_Jv_PrepareCompiledClass): Resolve superclass, interfaces
+	if they are constant pool indicies.  Don't link vtable, otable yet.
+
+2002-12-21  Anthony Green  <green@redhat.com>
+
+	* Makefile.am: Move org.xml.sax and org.w3c.dom into their own
+	libraries.
+	* Makefile.in: Rebuilt.
+
+2002-12-19  Anthony Green  <green@redhat.com>
+
+	* Makefile.am (ordinary_java_source_files): Add
+	org/xml/sax/helpers/NewInstance.java.
+	* Makefile.in: Rebuilt.
+	* org/xml/sax/package.html, org/xml/sax/ext/package.html,
+	org/xml/sax/helpers/package.html: New files.
+	* org/xml/sax/*: Upgrade to SAX 2.0.1 release from
+	http://www.saxproject.org.
+
+2002-12-19  Andrew Haley  <aph@redhat.com>
+
+	* java/util/natResourceBundle.cc: Include
+	ArrayIndexOutOfBoundsException.h.
+	(getCallingClassLoader): Don't put upper bound on stack search.
+	Catch ArrayIndexOutOfBoundsException.
+
+2002-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* libtool-version: Increased `current'.
+
+2002-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (defineClass0): Removed erroneous
+	comment.
+	* java/lang/ClassLoader.java (defineClass): Use chained
+	exception when rethrowing.
+	* defineclass.cc (handleClassBegin): Mark class as interpreted.
+	* java/lang/reflect/Modifier.java (INVISIBLE, INTERPRETED): New
+	constants.
+	* resolve.cc (_Jv_PrepareMissingMethods): New function.
+	(_Jv_PrepareClass): Use it.
+	* include/java-interp.h (_Jv_IsInterpretedClass): Rewrote.
+	(_Jv_InterpClass): _Jv_PrepareMissingMethods now friend.
+	* java/lang/Class.h (Class::getModifiers): Mask with ALL_FLAGS.
+	(Class): _Jv_PrepareMissingMethods now friend.
+	* java/lang/natClassLoader.cc (defineClass0): Use JvSynchronize.
+	Record `NULL' for system class loader.
+	(_Jv_RegisterInitiatingLoader): Use JvSynchronize.  Special case
+	system class loader.
+	(_Jv_FindClassInCache): Likewise.
+	(_Jv_UnregisterClass): Use JvSynchronize.  Free old loader info.
+	(_Jv_FindClass): Special case system class loader.
+	* java/lang/natClass.cc (_Jv_abstractMethodError): New function.
+	(_Jv_SetVTableEntries): Put _Jv_abstractMethodError into empty
+	vtable slots.
+	(_Jv_LayoutVTableMethods): Don't generate vtable slot for a method
+	in a final class.
+	(_getDeclaredMethod): Don't return synthetic methods.
+	(getDeclaredMethods): Likewise.
+	(_getMethod): Likewise.
+	(_getMethods): Likewise.
+
+2002-12-18  Raif Naffah  <raif@fl.net.au>
+
+	* java/math/BigInteger.java (euclidInv): Make sure quot and rem are in
+	canonical form after divide().
+	(modInverse): Likewise.
+
 2002-12-13  Casey Marshall  <rsdio@metastatic.org>
 	    Mark Wielaard  <mark@klomp.org>
 

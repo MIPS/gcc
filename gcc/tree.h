@@ -604,7 +604,7 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
 
-/* Non-zero if NODE is a _DECL with TREE_READONLY set.  */
+/* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))
 
 /* Value of expression is constant.
@@ -1608,7 +1608,7 @@ struct tree_type GTY(())
 #define DECL_EXTERNAL(NODE) (DECL_CHECK (NODE)->decl.external_flag)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
-   initializatons.  */
+   initializations.  */
 #define DEFAULT_INIT_PRIORITY 65535
 #define MAX_INIT_PRIORITY 65535
 #define MAX_RESERVED_INIT_PRIORITY 100
@@ -2421,7 +2421,7 @@ extern tree build_qualified_type        PARAMS ((tree, int));
 
 /* Like build_qualified_type, but only deals with the `const' and
    `volatile' qualifiers.  This interface is retained for backwards
-   compatiblity with the various front-ends; new code should use
+   compatibility with the various front-ends; new code should use
    build_qualified_type instead.  */
 
 #define build_type_variant(TYPE, CONST_P, VOLATILE_P)			\
@@ -2675,7 +2675,7 @@ enum tree_node_structure_enum tree_node_structure PARAMS ((tree));
 
 extern tree unsave_expr			PARAMS ((tree));
 
-/* Reset EXP in place so that it can be expaned again.  Does not
+/* Reset EXP in place so that it can be expanded again.  Does not
    recurse into subtrees.  */
 
 extern void unsave_expr_1               PARAMS ((tree));

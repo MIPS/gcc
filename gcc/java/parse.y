@@ -1,22 +1,23 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -10774,7 +10775,11 @@ patch_invoke (patch, method, args)
      is NULL.  */
   if (check != NULL_TREE)
     {
-      patch = build (COMPOUND_EXPR, TREE_TYPE (patch), check, patch);
+      /* We have to call force_evaluation_order now because creating a
+ 	 COMPOUND_EXPR wraps the arg list in a way that makes it
+ 	 unrecognizable by force_evaluation_order later.  Yuk.  */
+      patch = build (COMPOUND_EXPR, TREE_TYPE (patch), check, 
+ 		     force_evaluation_order (patch));
       TREE_SIDE_EFFECTS (patch) = 1;
     }
 
@@ -14050,7 +14055,16 @@ patch_incomplete_class_ref (node)
   if (!(ref_type = resolve_type_during_patch (type)))
     return error_mark_node;
 
-  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type)
+  /* Generate the synthetic static method `class$'.  (Previously we
+     deferred this, causing different method tables to be emitted
+     for native code and bytecode.)  */
+  if (!TYPE_DOT_CLASS (current_class))
+      build_dot_class_method (current_class);
+
+  /* If we're not emitting class files and we know ref_type is a
+     compiled class, build a direct reference.  */
+  if ((! flag_emit_class_files && is_compiled_class (ref_type))
+      || JPRIMITIVE_TYPE_P (ref_type)
       || TREE_CODE (ref_type) == VOID_TYPE)
     {
       tree dot = build_class_ref (ref_type);
@@ -14061,10 +14075,7 @@ patch_incomplete_class_ref (node)
     }
 
   /* If we're emitting class files and we have to deal with non
-     primitive types, we invoke (and consider generating) the
-     synthetic static method `class$'. */
-  if (!TYPE_DOT_CLASS (current_class))
-      build_dot_class_method (current_class);
+     primitive types, we invoke the synthetic static method `class$'.  */
   ref_type = build_dot_class_method_invocation (ref_type);
   return java_complete_tree (ref_type);
 }

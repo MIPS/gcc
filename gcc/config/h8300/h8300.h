@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    Hitachi H8/300 version generating coff
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -466,16 +466,22 @@ enum reg_class {
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 4	\
    : (VALUE) == 1 || (VALUE) == 2)
+#define CONST_OK_FOR_M(VALUE)				\
+  ((VALUE) == 1 || (VALUE) == 2)
 #define CONST_OK_FOR_N(VALUE)				\
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
    : (VALUE) == -1 || (VALUE) == -2)
+#define CONST_OK_FOR_O(VALUE)				\
+  ((VALUE) == -1 || (VALUE) == -2)
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
    (C) == 'J' ? CONST_OK_FOR_J (VALUE) :	\
    (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
+   (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
    (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
+   (C) == 'O' ? CONST_OK_FOR_O (VALUE) :	\
    0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -713,54 +719,58 @@ struct cum_arg
 
 #define EXIT_IGNORE_STACK 0
 
-/* Output assembler code for a block containing the constant parts
-   of a trampoline, leaving space for the variable parts.
+/* We emit the entire trampoline with INITIALIZE_TRAMPOLINE.
+   Depending on the pointer size, we use a different trampoline.
 
-   H8/300
+   Pmode == HImode
 	      vvvv context
-   1 0000 7900xxxx		mov.w	#0x1234,r3
+   1 0000 7903xxxx		mov.w	#0x1234,r3
    2 0004 5A00xxxx		jmp	@0x1234
 	      ^^^^ function
 
-   H8/300H
+   Pmode == SImode
 	      vvvvvvvv context
-   2 0000 7A00xxxxxxxx		mov.l	#0x12345678,er3
+   2 0000 7A03xxxxxxxx		mov.l	#0x12345678,er3
    3 0006 5Axxxxxx		jmp	@0x123456
 	    ^^^^^^ function
 */
 
-#define TRAMPOLINE_TEMPLATE(FILE)				\
-  do								\
-    {								\
-      if (TARGET_H8300)						\
-	{							\
-	  fprintf (FILE, "\tmov.w	#0x1234,r3\n");		\
-	  fprintf (FILE, "\tjmp	@0x1234\n");			\
-	}							\
-      else							\
-	{							\
-	  fprintf (FILE, "\tmov.l	#0x12345678,er3\n");	\
-	  fprintf (FILE, "\tjmp	@0x123456\n");			\
-	}							\
-    }								\
-  while (0)
-
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE (TARGET_H8300 ? 8 : 12)
+#define TRAMPOLINE_SIZE ((TARGET_H8300 || TARGET_NORMAL_MODE) ? 8 : 12)
 
-/* Emit RTL insns to initialize the variable parts of a trampoline.
+/* Emit RTL insns to build a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			    \
-{									    \
-  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)), CXT);    \
-  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)), FNADDR); \
-  if (TARGET_H8300H || TARGET_H8300S)					    \
-    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	    \
-		    GEN_INT (0x5A));					    \
-}
+  do									    \
+    {									    \
+      if (Pmode == HImode)						    \
+	{								    \
+	  emit_move_insn (gen_rtx_MEM (HImode, (TRAMP)), GEN_INT (0x7903)); \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)),  \
+			  (CXT));					    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 4)),  \
+			  GEN_INT (0x5a00));				    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)),  \
+			  (FNADDR));					    \
+	}								    \
+      else								    \
+	{								    \
+	  rtx tem = gen_reg_rtx (Pmode);				    \
+									    \
+	  emit_move_insn (gen_rtx_MEM (HImode, (TRAMP)), GEN_INT (0x7a03)); \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)),  \
+			  (CXT));					    \
+	  emit_move_insn (tem, (FNADDR));				    \
+	  emit_insn (gen_andsi3 (tem, tem, GEN_INT (0x00ffffff)));	    \
+	  emit_insn (gen_iorsi3 (tem, tem, GEN_INT (0x5a000000)));	    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)),  \
+			  tem);						    \
+	}								    \
+    }									    \
+  while (0)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1074,7 +1084,7 @@ struct cum_arg
 #define ASM_APP_OFF "; #NO_APP\n"
 
 #define FILE_ASM_OP "\t.file\n"
-#define IDENT_ASM_OP "\t.ident\n"
+#define IDENT_ASM_OP "\t.ident\t"
 
 /* The assembler op to get a word, 2 bytes for the H8/300, 4 for H8/300H.  */
 #define ASM_WORD_OP							\
@@ -1247,12 +1257,12 @@ struct cum_arg
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
 /* H8300 specific pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE)					\
-  do									\
-    {									\
-      cpp_register_pragma (PFILE, 0, "saveall", h8300_pr_saveall);	\
-      cpp_register_pragma (PFILE, 0, "interrupt", h8300_pr_interrupt);	\
-    }									\
+#define REGISTER_TARGET_PRAGMAS()				\
+  do								\
+    {								\
+      c_register_pragma (0, "saveall", h8300_pr_saveall);	\
+      c_register_pragma (0, "interrupt", h8300_pr_interrupt);	\
+    }								\
   while (0)
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop)	\

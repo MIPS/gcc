@@ -390,7 +390,7 @@ struct stmt_status GTY(())
 #define emit_lineno (cfun->stmt->x_emit_lineno)
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
 
-/* Non-zero if we are using EH to handle cleanups.  */
+/* Nonzero if we are using EH to handle cleanups.  */
 static int using_eh_for_cleanups_p = 0;
 
 static int n_occurrences		PARAMS ((int, const char *));
@@ -1122,7 +1122,7 @@ expand_asm (body)
    will be true if the operand is read-write, i.e., if it is used as
    an input as well as an output.  If *CONSTRAINT_P is not in
    canonical form, it will be made canonical.  (Note that `+' will be
-   rpelaced with `=' as part of this process.)
+   replaced with `=' as part of this process.)
 
    Returns TRUE if all went well; FALSE if an error occurred.  */
 
@@ -1509,7 +1509,16 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       /* Mark clobbered registers.  */
       if (i >= 0)
-	SET_HARD_REG_BIT (clobbered_regs, i);
+        {
+	  /* Clobbering the PIC register is an error */
+	  if ((unsigned) i == PIC_OFFSET_TABLE_REGNUM)
+	    {
+	      error ("PIC register `%s' clobbered in `asm'", regname);
+	      return;
+	    }
+
+	  SET_HARD_REG_BIT (clobbered_regs, i);
+	}
     }
 
   clear_last_expr ();
@@ -2588,7 +2597,7 @@ expand_end_loop ()
 	end_label:
 
      We rely on the presence of NOTE_INSN_LOOP_END_TOP_COND to mark
-     the end of the entry condtional.  Without this, our lexical scan
+     the end of the entry conditional.  Without this, our lexical scan
      can't tell the difference between an entry conditional and a
      body conditional that exits the loop.  Mistaking the two means
      that we can misplace the NOTE_INSN_LOOP_CONT note, which can

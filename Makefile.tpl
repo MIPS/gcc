@@ -23,12 +23,6 @@ in
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# Tell GNU make 3.79 not to run the top level in parallel.  This 
-# prevents contention for $builddir/$target/config.cache, as well
-# as minimizing scatter in file system caches.
-NOTPARALLEL = .NOTPARALLEL
-$(NOTPARALLEL):
-
 VPATH=@srcdir@
 links=@configlinks@
 
@@ -72,7 +66,8 @@ includedir = @includedir@
 oldincludedir = @oldincludedir@
 infodir = @infodir@
 mandir = @mandir@
-gxx_include_dir=@gxx_include_dir@
+gxx_include_dir = @gxx_include_dir@
+libstdcxx_incdir = @libstdcxx_incdir@
 
 tooldir = @tooldir@
 build_tooldir = @build_tooldir@
@@ -281,7 +276,7 @@ USUAL_AS_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AS); \
     else \
-       t='$(program_transform_name)'; echo as | sed -e 's/x/x/' $$t ; \
+       echo as | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -295,7 +290,7 @@ USUAL_LD_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(LD); \
     else \
-       t='$(program_transform_name)'; echo ld | sed -e 's/x/x/' $$t ; \
+       echo ld | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -307,7 +302,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(DLLTOOL); \
     else \
-       t='$(program_transform_name)'; echo dlltool | sed -e 's/x/x/' $$t ; \
+       echo dlltool | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -319,7 +314,7 @@ USUAL_WINDRES_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(WINDRES); \
     else \
-       t='$(program_transform_name)'; echo windres | sed -e 's/x/x/' $$t ; \
+       echo windres | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -331,7 +326,7 @@ USUAL_AR_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(AR); \
     else \
-       t='$(program_transform_name)'; echo ar | sed -e 's/x/x/' $$t ; \
+       echo ar | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -347,7 +342,7 @@ USUAL_RANLIB_FOR_TARGET = ` \
          echo ranlib; \
       fi; \
     else \
-       t='$(program_transform_name)'; echo ranlib | sed -e 's/x/x/' $$t ; \
+       echo ranlib | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -361,7 +356,7 @@ USUAL_NM_FOR_TARGET = ` \
     if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
       echo $(NM); \
     else \
-       t='$(program_transform_name)'; echo nm | sed -e 's/x/x/' $$t ; \
+       echo nm | sed '$(program_transform_name)' ; \
     fi; \
   fi`
 
@@ -371,6 +366,10 @@ all: all.normal
 .PHONY: all
 
 #### host and target specific makefile fragments come in here.
+@target_makefile_frag@
+@alphaieee_frag@
+@ospace_frag@
+@host_makefile_frag@
 ###
 
 # Flags to pass down to all sub-makes.
@@ -588,13 +587,13 @@ do-[+target+]:
 	      done; \
 	      ;; \
 	    esac ; \
-	    if (cd ./$$i; \
+	    (cd ./$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			[+target+]); \
-	    then true; else exit 1; fi; \
+			[+target+]) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 	# Break into two pieces
@@ -606,13 +605,13 @@ do-[+target+]:
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
 		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	    done; \
-	    if (cd $(TARGET_SUBDIR)/$$i; \
+	    (cd $(TARGET_SUBDIR)/$$i && \
 	        $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
 			"CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	                "`echo \"RANLIB=$${RANLIB}\" | sed -e 's/.*=$$/XFOO=/'`" \
 			"DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-			[+target+]); \
-	    then true; else exit 1; fi; \
+			[+target+]) \
+	    || exit 1; \
 	  else true; fi; \
 	done
 [+ ENDFOR recursive_targets +]
@@ -642,6 +641,7 @@ local-clean:
 
 local-distclean:
 	-rm -f Makefile config.status config.cache mh-frag mt-frag
+	-rm -f multilib.out multilib.tmp maybedep.tmp serdep.tmp
 	-if [ "$(TARGET_SUBDIR)" != "." ]; then \
 	  rm -rf $(TARGET_SUBDIR); \
 	else true; fi
@@ -670,7 +670,7 @@ $(CLEAN_MODULES) $(CLEAN_X11_MODULES) clean-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) clean); \
+	  (cd $${dir} && $(MAKE) $(FLAGS_TO_PASS) clean); \
 	else \
 	  true; \
 	fi
@@ -683,7 +683,7 @@ $(CLEAN_TARGET_MODULES):
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/$${dir}; $(MAKE) $(TARGET_FLAGS_TO_PASS) clean); \
+	  (cd $(TARGET_SUBDIR)/$${dir} && $(MAKE) $(TARGET_FLAGS_TO_PASS) clean); \
 	else \
 	  true; \
 	fi
@@ -741,7 +741,7 @@ install.all: install-no-fixedincludes
 	@if [ -f ./gcc/Makefile ] ; then \
 		r=`${PWD}` ; export r ; \
 		$(SET_LIB_PATH) \
-		(cd ./gcc; \
+		(cd ./gcc && \
 		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
 	else \
 		true ; \
@@ -783,16 +783,16 @@ etags tags: TAGS
 # built are.
 TAGS: do-TAGS
 
-
 # --------------------------------------
 # Modules which run on the build machine
 # --------------------------------------
 [+ FOR build_modules +]
 .PHONY: configure-build-[+module+] maybe-configure-build-[+module+]
 maybe-configure-build-[+module+]:
-configure-build-[+module+]: $(BUILD_SUBDIR)/[+module+]/Makefile
-$(BUILD_SUBDIR)/[+module+]/Makefile: config.status
-	@[ -d $(BUILD_SUBDIR)/[+module+] ] || mkdir $(BUILD_SUBDIR)/[+module+];\
+configure-build-[+module+]:
+	@test ! -f $(BUILD_SUBDIR)/[+module+]/Makefile || exit 0; \
+	    [ -d $(BUILD_SUBDIR)/[+module+] ] || \
+		mkdir $(BUILD_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    AR="$(AR_FOR_BUILD)"; export AR; \
@@ -863,10 +863,9 @@ all-build-[+module+]: configure-build-[+module+]
 [+ FOR host_modules +]
 .PHONY: configure-[+module+] maybe-configure-[+module+]
 maybe-configure-[+module+]:
-configure-[+module+]: [+module+]/Makefile
-
-[+module+]/Makefile: config.status
-	@[ -d [+module+] ] || mkdir [+module+]; \
+configure-[+module+]:
+	@test ! -f [+module+]/Makefile || exit 0; \
+	[ -d [+module+] ] || mkdir [+module+]; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -908,7 +907,7 @@ all-[+module+]: configure-[+module+]
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
+	  (cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
 	    ENDIF with_x +] all)
@@ -924,7 +923,7 @@ check-[+module+]:
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
-	    (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
+	    (cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	      IF with_x 
 	        +] $(X11_FLAGS_TO_PASS)[+ 
 	      ENDIF with_x +] check); \
@@ -935,7 +934,7 @@ check-[+module+]:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
+	  (cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
 	    ENDIF with_x +] check)
@@ -952,7 +951,7 @@ install-[+module+]: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
+	  (cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
 	    ENDIF with_x +] install)
@@ -965,18 +964,18 @@ install-[+module+]: installdirs
 [+ FOR target_modules +]
 .PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
 maybe-configure-target-[+module+]:
-configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/Makefile
 
-# Don't manually override CC_FOR_TARGET at make time; get it set right
-# at configure time.  Otherwise multilibs may be wrong.
-$(TARGET_SUBDIR)/[+module+]/multilib.out: maybe-all-gcc
-	@[ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
-	r=`${PWD}`; export r; \
-	echo "Configuring multilibs for [+module+]"; \
-	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/[+module+]/multilib.out 2> /dev/null
+# There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+$(TARGET_SUBDIR)/[+module+]/multilib.out: multilib.out
+	@[ -d $(TARGET_SUBDIR)/[+module+] ] || \
+	    mkdir $(TARGET_SUBDIR)/[+module+]; \
+	rm -f $(TARGET_SUBDIR)/[+module+]/Makefile || : ; \
+	cp multilib.out $(TARGET_SUBDIR)/[+module+]/multilib.out
 
-$(TARGET_SUBDIR)/[+module+]/Makefile: config.status $(TARGET_SUBDIR)/[+module+]/multilib.out
-	@[ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
+configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
+	@test ! -f $(TARGET_SUBDIR)/[+module+]/Makefile || exit 0; \
+	    [ -d $(TARGET_SUBDIR)/[+module+] ] || \
+		mkdir $(TARGET_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -1045,7 +1044,7 @@ all-target-[+module+]: configure-target-[+module+]
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/[+module+]; \
+	  (cd $(TARGET_SUBDIR)/[+module+] && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
 	       IF raw_cxx 
 	         +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
@@ -1061,7 +1060,7 @@ check-target-[+module+]:
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/[+module+]; \
+	  (cd $(TARGET_SUBDIR)/[+module+] && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
 	       IF raw_cxx 
 	         +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
@@ -1080,7 +1079,7 @@ install-target-[+module+]: installdirs
 	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd $(TARGET_SUBDIR)/[+module+]; \
+	  (cd $(TARGET_SUBDIR)/[+module+] && \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 [+ ENDIF no_install +]
 [+ ENDFOR target_modules +]
@@ -1096,10 +1095,9 @@ install-target-[+module+]: installdirs
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
-configure-gcc: gcc/Makefile
-
-gcc/Makefile: config.status
-	@[ -d gcc ] || mkdir gcc; \
+configure-gcc:
+	@test ! -f gcc/Makefile || exit 0; \
+	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	CC="$(CC)"; export CC; \
@@ -1145,12 +1143,12 @@ all-gcc: configure-gcc
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) quickstrap); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) quickstrap); \
 	else \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
 	fi
 
 # Building GCC uses some tools for rebuilding "source" files
@@ -1212,7 +1210,7 @@ check-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
 	else \
 	  true; \
 	fi
@@ -1223,7 +1221,7 @@ check-gcc-c++:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
 	else \
 	  true; \
 	fi
@@ -1238,7 +1236,7 @@ install-gcc:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
+	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	else \
 	  true; \
 	fi
@@ -1258,7 +1256,7 @@ gcc-no-fixedincludes:
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}` ; export s; \
 	  $(SET_LIB_PATH) \
-	  (cd ./gcc; \
+	  (cd ./gcc && \
 	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	  rm -rf gcc/include; \
 	  mv gcc/tmp-include gcc/include 2>/dev/null; \
@@ -1394,21 +1392,42 @@ configure-target-qthreads: $(ALL_GCC_C)
 # Regenerating top level configury
 # --------------------------------
 
+# Multilib.out tells target dirs what multilibs they should build.
+# There is really only one copy.  We use the 'timestamp' method to
+# work around various timestamp bugs on some systems.
+# We use move-if-change so that it's only considered updated when it
+# actually changes, because it has to depend on a phony target.
+multilib.out: maybe-all-gcc
+	@r=`${PWD}`; export r; \
+	echo "Checking multilib configuration..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > multilib.tmp 2> /dev/null ; \
+	$(SHELL) $(srcdir)/move-if-change multilib.tmp multilib.out ; \
+
 # Rebuilding Makefile.in, using autogen.
+AUTOGEN = autogen
 $(srcdir)/Makefile.in: # $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
-	cd $(srcdir) && autogen Makefile.def
+	cd $(srcdir) && $(AUTOGEN) Makefile.def
 
-# with the gnu make, this is done automatically.
+# Rebuilding Makefile.
+Makefile: $(srcdir)/Makefile.in config.status
+	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-host_makefile_frag=@host_makefile_frag@
-target_makefile_frag=@target_makefile_frag@
+config.status: configure $(gcc_version_trigger)
+	$(SHELL) ./config.status --recheck
 
-Makefile: Makefile.in configure.in $(host_makefile_frag) $(target_makefile_frag) $(gcc_version_trigger)
-	$(SHELL) ./config.status
-
+# Rebuilding configure.
+AUTOCONF = autoconf
+$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/config/acx.m4
+	cd $(srcdir) && $(AUTOCONF)
 #
 
 .NOEXPORT:
 MAKEOVERRIDES=
+
+# Tell GNU make 3.79 not to run the top level in parallel.  This 
+# prevents contention for $builddir/$target/config.cache, as well
+# as minimizing scatter in file system caches.
+NOTPARALLEL = .NOTPARALLEL
+$(NOTPARALLEL):
 
 # end of Makefile.in
