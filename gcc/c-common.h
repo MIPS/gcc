@@ -218,6 +218,7 @@ extern GTY(()) struct c_include_fragment *builtins_c_fragment;
 extern struct cpp_fragment *builtins_fragment;
 extern int currently_nested;
 
+extern void restore_fragment (cpp_fragment *);
 extern void register_decl_dependency (tree);
 extern struct c_include_fragment * alloc_include_fragment (void);
 extern void reset_hashnode (cpp_hashnode*);

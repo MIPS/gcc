@@ -1,3 +1,11 @@
+2003-08-17  Per Bothner  <pbothner@apple.com>
+
+	* c-common.c (restore_fragment):  New function.
+	(reset_cpp_hashnodes, cb_enter_fragment):  use it.
+	* c-common.h (restore_fragment):  New declaration.
+	* c-decl.c (init_c_decl_processing_eachsrc):  Remove call to
+	restore_fragment_bindings as it is handled by reset_cpp_hashnodes.
+
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
 	* objc/objc-act.c (init_objc):  Inline into objc_init.

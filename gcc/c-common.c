@@ -4165,7 +4165,8 @@ struct c_include_fragment *current_c_fragment;
 /* Special pseudo-fragment providing the <built-in> declarations. */
 struct cpp_fragment *builtins_fragment;
 
-/* The c_include_frgment corresponding to builtins_fragment. */
+/* The c_include_frgment corresponding to builtins_fragment.
+   Equivalent to C_FRAGMENT (builtins_fragment), but we need this for gc. */
 struct c_include_fragment *builtins_c_fragment;
 
 extern void register_fragment_dependency PARAMS ((struct c_include_fragment*));
@@ -4408,15 +4409,22 @@ reset_cpp_hashnodes ()
   cpp_undef_all (parse_in);
 #endif
   cpp_forall_identifiers (parse_in, lang_clear_identifier, NULL);
-  _cpp_restore_macros (parse_in,
-		       builtins_fragment->macro_notes, builtins_fragment->macro_notes_count);
+  restore_fragment (builtins_fragment);
   /*  parse_in->buffer = NULL;*/
+}
+
+void
+restore_fragment (cpp_fragment *fragment)
+{
+  _cpp_restore_macros (parse_in,
+		       fragment->macro_notes, fragment->macro_notes_count);
+  restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
 }
 
 /* Called from cpp at the start of a new fragment.
    Check if the fragment has been seen before and we can re-use the
    previously-seen bindings.  If so restore them and return true
-   (so cpp can skip to teh end of the fragment).  Otherwise, sets things
+   (so cpp can skip to the end of the fragment).  Otherwise, sets things
    up so we can remember new bindings as we see them. */
 
 bool
@@ -4461,9 +4469,7 @@ cb_enter_fragment (reader, fragment, name, line)
 	{
 	  if (! quiet_flag)
 	    fprintf (stderr, "(reusing cached fragment %s:%d)\n", name, line);
-	  restore_fragment_bindings (st->bindings);
-	  _cpp_restore_macros (parse_in,
-			       fragment->macro_notes, fragment->macro_notes_count);
+	  restore_fragment (fragment);
 	}
     }
   else

@@ -507,11 +507,10 @@ init_c_decl_processing_eachsrc ()
       current_scope = global_scope;
       if (server_mode != 1)
 	{
-	  reset_cpp_hashnodes ();
 	  current_scope = global_scope;
 	  global_scope->tags = NULL_TREE;
 	  global_scope->names = NULL_TREE;
-	  restore_fragment_bindings (builtins_c_fragment->bindings);
+	  reset_cpp_hashnodes ();
 	}
   }
 
