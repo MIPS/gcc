@@ -740,7 +740,8 @@ int flag_pedantic_errors = 0;
    global_alloc.  */
 
 int flag_schedule_insns = 0;
-static int flag_superblock_scheduling = 1;
+static int flag_superblock_scheduling = 0;
+static int flag_trace_scheduling = 0;
 int flag_schedule_insns_after_reload = 0;
 
 /* The following flags have effect only for scheduling before register
@@ -1084,6 +1085,8 @@ static const lang_independent_options f_options[] =
    N_("Reschedule instructions before register allocation") },
   {"schedule-superblocks", &flag_superblock_scheduling, 1,
    N_("When scheduling, do superblock sheduling") },
+  {"schedule-traces", &flag_trace_scheduling, 1,
+   N_("When scheduling, do trace sheduling") },
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
    N_("Reschedule instructions after register allocation") },
   {"sched-interblock",&flag_schedule_interblock, 1,
@@ -3440,7 +3443,8 @@ rest_of_compilation (decl)
     {
       life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+		   | (flag_crossjumping && !flag_trace_scheduling
+		      ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3518,11 +3522,11 @@ rest_of_compilation (decl)
 	  /* No liveness updating code yet, but it should be easy to do  */
 	  count_or_remove_death_notes (NULL, 1);
 	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
         }
       else
 	schedule_insns (rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       close_dump_file (DFI_sched2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_SCHED2);
@@ -4889,6 +4893,7 @@ parse_options_and_default_flags (argc, argv)
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
       flag_schedule_insns_after_reload = 1;
+      flag_trace_scheduling = 1;
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;
@@ -5084,6 +5089,10 @@ process_options ()
   /* Same for new loop unrolling.  */
   if (flag_new_unroll_all_loops)
     flag_new_unroll_loops = 1;
+  if (flag_trace_scheduling)
+    flag_superblock_scheduling = flag_tracer = 1;
+  if (flag_superblock_scheduling)
+    flag_schedule_insns_after_reload = 1;
   if (flag_unroll_all_loops && flag_new_unroll_loops)
     flag_new_unroll_all_loops = 1;
 
