@@ -653,6 +653,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dot", "tree-dot", 0, 0},
   {".pta", "tree-pta", 0, 0},
   {".ssa", "tree-ssa", 0, 0},
+  {".dom", "tree-dom", 0, 0},
   {".mustalias", "tree-mustalias", 0, 0},
   {".predot", "tree-predot", 0, 0},
   {".pre", "tree-pre", 0, 0},

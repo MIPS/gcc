@@ -1,3 +1,22 @@
+2003-07-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa-dom.o): Add dependency on $(TREE_DUMP_H).
+	* fold-const.c (fold): Remove unusued local variable 'invert'.
+	* tree-dump.c (dump_files): Add entry for -fdump-tree-dom.
+	* tree-flow.h (tree_ssa_dominator_optimize): Change declaration to
+	accept a function decl.
+	* tree-ssa-dom.c: Include timevar.h and tree-dump.h.
+	(tree_ssa_dominator_optimize): Change to receive the function decl
+	for the function to optimize.  Update callers.
+	Use own dump file instead of dumping on the .ssa dump file.
+	Dump function at the end.
+	Push and pop TV_TREE_SSA_DOMINATOR_OPTS.
+	* tree-ssa.c (rewrite_into_ssa): Restore check for number of times
+	that the rename loop has been executed.  Abort if the loop executes
+	more than twice.
+	* tree.h (enum tree_dump_index): Add TDI_dom.
+	* doc/invoke.texi: Document -fdump-tree-dom.
+
 2003-07-21  Steven Bosscher  <steven@gcc.gnu.org>
             Diego Novillo  <dnovillo@redhat.com>
 

@@ -472,7 +472,7 @@ void tree_ssa_ccp (tree);
 void fold_stmt (tree);
 
 /* In tree-ssa-dom.c  */
-extern bool tree_ssa_dominator_optimize (FILE *, int);
+extern bool tree_ssa_dominator_optimize (tree);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 

@@ -3402,6 +3402,8 @@ enum tree_dump_index
   TDI_pta,                      /* dump points-to information for each
 				   function.  */
   TDI_ssa,                      /* dump SSA information for each function.  */
+  TDI_dom,			/* dump dominator optimization information
+				   for each function.  */
   TDI_mustalias,		/* dump must-alias information for each
 				   function.  */
   TDI_predot,

@@ -4912,7 +4912,7 @@ fold (tree expr)
   tree arg0 = NULL_TREE, arg1 = NULL_TREE;
   enum tree_code code = TREE_CODE (t);
   int kind = TREE_CODE_CLASS (code);
-  int invert;
+
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;

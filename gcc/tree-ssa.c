@@ -352,14 +352,9 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       rewrite_block (ENTRY_BLOCK_PTR);
       timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
+      /* Now optimize all the basic blocks in the program.  */
       if (flag_tree_dom)
-	{
-	  /* Now optimize all the basic blocks in the program.  */
-	  timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
-	  addr_expr_propagated_p = tree_ssa_dominator_optimize (dump_file,
-								dump_flags);
-	  timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
-	}
+	addr_expr_propagated_p = tree_ssa_dominator_optimize (fndecl);
 
       /* If the dominator optimizations propagated ADDR_EXPRs, we may need
 	 to repeat the SSA renaming process for the new symbols that may
@@ -380,6 +375,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	      sbitmap_zero (globals);
 	    }
 	}
+
+      /* Sanity check.  We should not iterate more than twice.  */
+      if (rename_count++ >= 2)
+	abort ();
     }
   while (sbitmap_first_set_bit (vars_to_rename) >= 0);
 

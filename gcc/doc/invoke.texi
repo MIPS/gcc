@@ -248,7 +248,7 @@ in the following sections.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
--fdump-tree-must-alias@r{[}-@var{n}@r{]} @gol
+-fdump-tree-must-alias@r{[}-@var{n}@r{]} -fdump-tree-dom@r{[}-@var{n}@r{]}@gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -3397,6 +3397,11 @@ made by appending @file{.mudflap} to the source file name.
 Dump each function after computing must-alias information and promoting
 virtual operands to real operands.  The file name is made by appending
 @file{.must-alias} to the source file name.
+
+@item dom
+@opindex fdump-tree-dom
+Dump each function after applying dominator tree optimizations.  The file
+name is made by appending @file{.dom} to the source file name.
 
 @item all
 @opindex fdump-tree-all

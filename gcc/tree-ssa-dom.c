@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "timevar.h"
+#include "tree-dump.h"
 #include "tree-flow.h"
 
 /* This file implements optimizations on the dominator tree.  */
@@ -93,7 +95,7 @@ static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 
-/* Optimize the current function based on the dominator tree.  This does
+/* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
    value numbering.
 
@@ -103,11 +105,12 @@ static void htab_statistics (FILE *, htab_t);
    ADDR_EXPRs to their pointer use sites.  */
 
 bool
-tree_ssa_dominator_optimize (FILE *file, int flags)
+tree_ssa_dominator_optimize (tree fndecl)
 {
+  timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
+
   /* Set up debugging dump files.  */
-  dump_file = file;
-  dump_flags = flags;
+  dump_file = dump_begin (TDI_dom, &dump_flags);
 
   /* Create our hash tables.  */
   const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
@@ -129,7 +132,11 @@ tree_ssa_dominator_optimize (FILE *file, int flags)
     {
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
+      dump_end (TDI_dom, dump_file);
     }
+
+  dump_function (TDI_dom, fndecl);
+  timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 
   return addr_expr_propagated_p;
 }
