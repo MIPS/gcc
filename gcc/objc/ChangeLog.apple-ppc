@@ -1,3 +1,10 @@
+2005-01-03  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3926282 (PR objc/18971)
+	* objc-act.c (get_arg_type_list, start_method_def): Decay
+	array arguments into pointers.
+	(gen_type_name_0): Learn to pretty-print array types.
+
 2004-11-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3761423

@@ -1,3 +1,9 @@
+2005-01-03  Alexander Malmberg  <alexander@malmberg.org>
+	    Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3926282 (PR objc/18971)
+	* objc.dg/encode-5.m: New test.
+
 2004-12-22  Devang Patel <dpatel@apple.com>
 
 	* gcc.apple/Wextra-tokens-2.c: Remove.
