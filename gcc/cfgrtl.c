@@ -1203,7 +1203,6 @@ split_edge (edge_in)
      edge edge_in;
 {
   basic_block bb;
-  edge edge_out;
   rtx before;
 
   /* Abnormal edges cannot be split.  */
@@ -1269,7 +1268,7 @@ split_edge (edge_in)
 		    edge_in->dest->global_live_at_start);
     }
 
-  edge_out = make_single_succ_edge (bb, edge_in->dest, EDGE_FALLTHRU);
+  make_single_succ_edge (bb, edge_in->dest, EDGE_FALLTHRU);
 
   /* For non-fallthry edges, we must adjust the predecessor's
      jump instruction to target our new block.  */

@@ -3314,10 +3314,6 @@ struct file_table
 /* Filenames referenced by this compilation unit.  */
 static struct file_table file_table;
 
-/* Local pointer to the name of the main input file.  Initialized in
-   dwarf2out_init.  */
-static const char *primary_filename;
-
 /* A pointer to the base of a table of references to DIE's that describe
    declarations.  The table is indexed by DECL_UID() which is a unique
    number identifying each decl.  */
@@ -11971,12 +11967,9 @@ dwarf2out_init (main_input_filename)
 {
   init_file_table ();
 
-  /* Remember the name of the primary input file.  */
-  primary_filename = main_input_filename;
-
-  /* Add it to the file table first, under the assumption that we'll
-     be emitting line number data for it first, which avoids having
-     to add an initial DW_LNS_set_file.  */
+  /* Add the name of the primary input file to the file table first,
+     under the assumption that we'll be emitting line number data for
+     it first, which avoids having to add an initial DW_LNS_set_file.  */
   lookup_filename (main_input_filename);
 
   /* Allocate the initial hunk of the decl_die_table.  */

@@ -136,10 +136,6 @@ static unsigned int insn_noperands;
 
 static rtx last_ignored_compare = 0;
 
-/* Flag indicating this insn is the start of a new basic block.  */
-
-static int new_block = 1;
-
 /* Assign a unique number to each insn that is output.
    This can be used to generate unique local labels.  */
 
@@ -1823,7 +1819,6 @@ final (first, file, optimize, prescan)
   int max_uid = 0;
 
   last_ignored_compare = 0;
-  new_block = 1;
 
   /* Make a map indicating which line numbers appear in this function.
      When producing SDB debugging info, delete troublesome line number
@@ -2218,7 +2213,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 #endif
       if (prescan > 0)
 	break;
-      new_block = 1;
 
 #ifdef FINAL_PRESCAN_LABEL
       FINAL_PRESCAN_INSN (insn, NULL, 0);
@@ -2760,7 +2754,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	    if (prev_nonnote_insn (insn) != last_ignored_compare)
 	      abort ();
-	    new_block = 0;
 
 	    /* We have already processed the notes between the setter and
 	       the user.  Make sure we don't process them again, this is
@@ -2794,7 +2787,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    abort ();
 #endif
 
-	    new_block = 0;
 	    return new;
 	  }
 

@@ -1700,10 +1700,8 @@ rtx_for_function_call (fndecl, exp)
   else
     /* Generate an rtx (probably a pseudo-register) for the address.  */
     {
-      rtx funaddr;
       push_temp_slots ();
-      funaddr = funexp
-	= expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
+      funexp = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
       emit_queue ();
     }

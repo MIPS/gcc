@@ -1,3 +1,22 @@
+2002-09-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+        * c-typeck.c (build_function_call): Remove unused variable(s).
+	(build_c_cast): Likewise.
+        * calls.c (rtx_for_function_call): Likewise.
+        * cfglayout.c (duplicate_insn_chain): Likewise.
+        * cfgloop.c (flow_loop_nodes_find): Likewise.
+        * cfgrtl.c (split_edge): Likewise.
+        * df.c (df_ref_create): Likewise.
+        * except.c (expand_end_catch): Likewise.
+        * expr.c (emit_push_insn, store_constructor, expand_expr): Likewise.
+        * function.c (emit_return_into_block): Likewise.
+	(reposition_prologue_and_epilogue_notes): Likewise.
+        * gengtype.c (get_file_basename, write_gc_structure_fields): Likewise.
+        * combine.c (subst_prev_insn, need_refresh): Remove.
+        * dwarf2out.c (primary_filename): Remove.
+        * final.c (new_block): Remove.
+        * gcse.c (orig_bb_count): Remove.
+
 2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* dsp16xx-protos.h (dsp16xx_compare_gen): Change to bool.

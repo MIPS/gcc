@@ -719,10 +719,6 @@ gcse_main (f, file)
   /* Point to release obstack data from for each pass.  */
   char *gcse_obstack_bottom;
 
-  /* Insertion of instructions on edges can create new basic blocks; we
-     need the original basic block count so that we can properly deallocate
-     arrays sized on the number of basic blocks originally in the cfg.  */
-  int orig_bb_count;
   /* We do not construct an accurate cfg in functions which call
      setjmp, so just punt to be safe.  */
   if (current_function_calls_setjmp)
@@ -742,7 +738,6 @@ gcse_main (f, file)
   if (file)
     dump_flow_info (file);
 
-  orig_bb_count = n_basic_blocks;
   /* Return if there's nothing to do.  */
   if (n_basic_blocks <= 1)
     return 0;
@@ -841,7 +836,6 @@ gcse_main (f, file)
 		= (rtx *) gmalloc (last_basic_block * sizeof (rtx));
 	      memset ((char *) modify_mem_list, 0, last_basic_block * sizeof (rtx));
 	      memset ((char *) canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
-	      orig_bb_count = n_basic_blocks;
 	    }
 	  free_reg_set_mem ();
 	  alloc_reg_set_mem (max_reg_num ());

@@ -7183,10 +7183,7 @@ emit_return_into_block (bb, line_note)
      basic_block bb;
      rtx line_note;
 {
-  rtx p, end;
-
-  p = NEXT_INSN (bb->end);
-  end = emit_jump_insn_after (gen_return (), bb->end);
+  emit_jump_insn_after (gen_return (), bb->end);
   if (line_note)
     emit_line_note_after (NOTE_SOURCE_FILE (line_note),
 			  NOTE_LINE_NUMBER (line_note), PREV_INSN (bb->end));
@@ -7842,8 +7839,6 @@ reposition_prologue_and_epilogue_notes (f)
 
       if (last)
 	{
-	  rtx next;
-
 	  /* Find the prologue-end note if we haven't already, and
 	     move it to just after the last prologue insn.  */
 	  if (note == 0)
@@ -7853,8 +7848,6 @@ reposition_prologue_and_epilogue_notes (f)
 		    && NOTE_LINE_NUMBER (note) == NOTE_INSN_PROLOGUE_END)
 		  break;
 	    }
-
-	  next = NEXT_INSN (note);
 
 	  /* Avoid placing note between CODE_LABEL and BASIC_BLOCK note.  */
 	  if (GET_CODE (last) == CODE_LABEL)

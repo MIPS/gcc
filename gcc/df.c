@@ -781,7 +781,6 @@ df_ref_create (df, reg, loc, insn, ref_type, ref_flags)
      enum df_ref_flags ref_flags;
 {
   struct ref *this_ref;
-  unsigned int uid;
 
   this_ref = (struct ref *) obstack_alloc (&df_ref_obstack,
 					   sizeof (*this_ref));
@@ -791,7 +790,6 @@ df_ref_create (df, reg, loc, insn, ref_type, ref_flags)
   DF_REF_CHAIN (this_ref) = 0;
   DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
-  uid = INSN_UID (insn);
 
   if (ref_type == DF_REF_REG_DEF)
     {

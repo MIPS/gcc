@@ -672,12 +672,12 @@ expand_start_catch (type_or_list)
 void
 expand_end_catch ()
 {
-  struct eh_region *try_region, *catch_region;
+  struct eh_region *try_region;
 
   if (! doing_eh (0))
     return;
 
-  catch_region = expand_eh_region_end ();
+  expand_eh_region_end ();
   try_region = cfun->eh->try_region;
 
   emit_jump (try_region->u.try.continue_label);

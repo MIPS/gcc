@@ -331,11 +331,9 @@ flow_loop_nodes_find (header, loop)
   basic_block *stack;
   int sp;
   int num_nodes = 1;
-  int findex, lindex;
 
   header->loop_father = loop;
   header->loop_depth = loop->depth;
-  findex = lindex = header->index;
 
   if (loop->latch->loop_father != loop)
     {

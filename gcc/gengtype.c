@@ -648,7 +648,6 @@ static const char *
 get_file_basename (f)
      const char *f;
 {
-  size_t len;
   const char *basename;
   unsigned i;
   
@@ -657,7 +656,6 @@ get_file_basename (f)
   if (!basename)
     return f;
   
-  len = strlen (f);
   basename++;
   
   for (i = 1; i < NUM_BASE_FILES; i++)
@@ -1023,11 +1021,10 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	{
 	  if (param != NULL)
 	    {
-	      type_p t1;
 	      type_p nt = param;
 	      int arraycount = 0;
 	      
-	      for (t1 = t; t->kind == TYPE_ARRAY; t = t->u.a.p)
+	      for (; t->kind == TYPE_ARRAY; t = t->u.a.p)
 		arraycount++;
 	      for (; t->kind == TYPE_POINTER; t = t->u.p)
 		nt = create_pointer (nt);
