@@ -1,5 +1,17 @@
 2005-01-23  Tom Tromey  <tromey@redhat.com>
 
+	* defassign.cc (join_state::pending_target): New structure.
+	(join_state::pending_pairs_type): Redefine.
+	(join_state::add_pending): Rewrote.
+	(join_state::abnormal_finally): Removed.
+	(join_state): Updated.
+	(definite_assignment_visitor::visit_try): Updated.
+	(definite_assignment_visitor::propagate_branch): Unconditionally
+	return when a 'try' is seen.
+	(variable_state::set_definite_assignment_from): New method.
+
+2005-01-23  Tom Tromey  <tromey@redhat.com>
+
 	* aclocal.m4, configure, Makefile.in, gcjx-config.h.in: Rebuilt.
 	* Makefile.am (AM_CPPFLAGS): Removed -D options.
 	* configure.ac (_GLIBCXX_DEBUG, _GLIBCPP_USE_C99): Define.

@@ -1,6 +1,6 @@
 // Definite assignment.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -126,6 +126,25 @@ public:
     assign = other.assign;
   }
 
+  // This updates our state with the delta between FIRST and SECOND.
+  void set_definite_assignment_from (const variable_state &first,
+				     const variable_state &second)
+  {
+    for (map_type::const_iterator i = second.assign.begin ();
+	 i != second.assign.end ();
+	 ++i)
+      {
+	if (! (*i).second)
+	  continue;
+	map_type::const_iterator it = first.assign.find ((*i).first);
+	if (it != first.assign.end () && ! (*it).second)
+	  {
+	    assign[(*i).first] = true;
+	    unassign[(*i).first] = false;
+	  }
+      }
+  }
+
   void insert (const model_variable_decl *decl, bool is_set = false)
   {
     assert (assign.find (decl) == assign.end ());
@@ -188,15 +207,19 @@ public:
   // True if the 'continue' state has been set.
   bool is_continue_set;
 
-  // True if this represents a 'try' statement where the 'finally'
-  // cannot complete normally.
-  bool abnormal_finally;
-
   // All variable settings.
   variable_state state;
   variable_state continue_state;
 
-  typedef std::multimap<model_stmt *, bool> pending_pairs_type;
+  // Used when considering pending targets.
+  struct pending_target
+  {
+    model_stmt *statement;
+    variable_state state;
+    bool is_continue;
+  };
+
+  typedef std::list<pending_target> pending_pairs_type;
 
   // For 'try' statements we keep a list of all pending targets
   // post-'finally'.
@@ -206,7 +229,6 @@ public:
     : statement (s),
       has_continue (false),
       is_continue_set (false),
-      abnormal_finally (false),
       state (init)
   {
     // We don't really want the state in 'init' -- we just want the
@@ -241,7 +263,11 @@ public:
 		    const variable_state &new_state)
   {
     merge (new_state);
-    pending_pairs.insert (std::make_pair (target, is_continue));
+    pending_target targ;
+    targ.statement = target;
+    targ.state = new_state;
+    targ.is_continue = is_continue;
+    pending_pairs.push_back (targ);
   }
 
   variable_state &get_state ()
@@ -658,8 +684,6 @@ public:
 		  const ref_block &finally)
   {
     join_state save (trystmt, current);
-    if (finally && ! finally->can_complete_normally ())
-      save.abnormal_finally = true;
     variable_state pre_statement = current;
     // The state in SAVE is also touched by things like throw and
     // return which propagate upward.  We also need an accumulator
@@ -696,22 +720,22 @@ public:
 	accum.merge_finally (current);
       }
 
-    current = accum;
+    // Propagate to all pending targets, but only if the finally
+    // clause completes normally.
+    if (! finally || finally->can_complete_normally ())
+      {
+	for (join_state::pending_pairs_type::const_iterator i
+	       = save.pending_pairs.begin ();
+	     i != save.pending_pairs.end ();
+	     ++i)
+	  {
+	    current = (*i).state;
+	    current.set_definite_assignment_from (save.get_state (), accum);
+	    propagate_branch ((*i).statement, (*i).is_continue);
+	  }
+      }
 
-    // Propagate to all pending targets.
-    // FIXME: at the moment this is handled by having the 'return' in
-    // propagate_branch be conditional.  But, that is wrong, since it
-    // doesn't handle the case where a 'finally' clause sets a
-    // variable and exits normally.  One fix might be to track states
-    // independently, then compute the variables that were made DA in
-    // the finally, add them to the saved states, and propagate.
-    // Then go back and merge all the saved states for the finally
-    // computation.
-//     for (join_state::pending_pairs_type::const_iterator i
-// 	   = save.pending_pairs.begin ();
-// 	 i != save.pending_pairs.end ();
-// 	 ++i)
-//       propagate_branch ((*i).first, (*i).second);
+    current = accum;
   }
 
   void visit_variable_stmt (model_variable_stmt *,
@@ -1508,15 +1532,15 @@ public:
 	    else
 	      state->merge (current);
 	    // We're done.
-	    return;
+	    break;
 	  }
 
-	// See if we hit a 'try' statement.
+	// If we hit a 'try' statement, record the state as pending
+	// and handle it when processing the 'try'.
 	if (dynamic_cast<model_try *> (state->statement) != NULL)
 	  {
 	    state->add_pending (target, is_continue, current);
-	    if (state->abnormal_finally)
-	      return;
+	    break;
 	  }
       }
   }
