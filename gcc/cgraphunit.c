@@ -561,6 +561,8 @@ cgraph_finalize_compilation_unit (void)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
 	  cgraph_remove_node (node);
 	}
+      else
+	node->next_needed = NULL;
     }
   if (cgraph_dump_file)
     {
@@ -704,16 +706,21 @@ cgraph_postorder (struct cgraph_node **order)
 static bool
 cgraph_remove_unreachable_nodes (void)
 {
-  struct cgraph_node *first = (void *)1;
+  struct cgraph_node *first = (void *) 1;
   struct cgraph_node *node;
   bool changed = false;
   int insns = 0;
 
+  verify_cgraph ();
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nReclaiming functions:");
+#ifdef ENABLE_CHECKING
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->needed
-	&& (!DECL_EXTERNAL (node->decl) || !DECL_SAVED_TREE (node->decl)))
+    if (node->aux)
+      abort ();
+#endif
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->needed && (!DECL_EXTERNAL (node->decl) || !node->analyzed))
       {
 	node->aux = first;
 	first = node;
@@ -724,7 +731,7 @@ cgraph_remove_unreachable_nodes (void)
   /* Perform reachability analysis.  As a special case do not consider
      extern inline functions not inlined as live because we won't output
      them at all.  */
-  while (first != (void *)1)
+  while (first != (void *) 1)
     {
       struct cgraph_edge *e;
       node = first;
@@ -732,7 +739,8 @@ cgraph_remove_unreachable_nodes (void)
 
       for (e = node->callees; e; e = e->next_callee)
 	if (!e->callee->aux
-	    && (!e->inline_failed || !DECL_SAVED_TREE (e->callee->decl)
+	    && node->analyzed
+	    && (!e->inline_failed || !e->callee->analyzed
 		|| !DECL_EXTERNAL (e->callee->decl)))
 	  {
 	    e->callee->aux = first;
@@ -752,40 +760,50 @@ cgraph_remove_unreachable_nodes (void)
     {
       if (!node->aux)
 	{
-	  struct cgraph_edge *e = NULL;
+	  int local_insns;
+	  tree decl = node->decl;
 
+	  if (DECL_SAVED_INSNS (decl))
+	    local_insns = node->local.self_insns;
+	  else
+	    local_insns = 0;
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
-	  insns += node->local.self_insns;
-
-	  if (DECL_EXTERNAL (node->decl) && DECL_SAVED_TREE (node->decl))
+	  if (!node->analyzed || !DECL_EXTERNAL (node->decl))
+	    cgraph_remove_node (node);
+	  else
 	    {
+	      struct cgraph_edge *e;
+
 	      for (e = node->callers; e; e = e->next_caller)
 		if (e->caller->aux)
 		  break;
-	    }
-	  if (e || node->needed)
-	    {
-	      struct cgraph_node *clone;
+	      if (e || node->needed)
+		{
+		  struct cgraph_node *clone;
 
-	      for (clone = node->next_clone; clone; clone = clone->next_clone)
-		if (clone->aux)
-		  break;
-	      if (!clone)
-	        DECL_SAVED_TREE (node->decl) = NULL_TREE;
-	      while (node->callees)
-	        cgraph_remove_edge (node->callees);
-	      node->analyzed = false;
+		  for (clone = node->next_clone; clone;
+		       clone = clone->next_clone)
+		    if (clone->aux)
+		      break;
+		  if (!clone)
+		    DECL_SAVED_TREE (node->decl) = NULL_TREE;
+		  while (node->callees)
+		    cgraph_remove_edge (node->callees);
+		  node->analyzed = false;
+		}
+	      else
+		cgraph_remove_node (node);
 	    }
-	  else
-	    cgraph_remove_node (node);
+	  if (!DECL_SAVED_TREE (decl))
+	    insns += local_insns;
 	  changed = true;
 	}
     }
   for (node = cgraph_nodes; node; node = node->next)
     node->aux = NULL;
   if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nReclaimed %i insns:", insns);
+    fprintf (cgraph_dump_file, "\nReclaimed %i insns", insns);
   verify_cgraph ();
   return changed;
 }

@@ -1,3 +1,10 @@
+2004-01-19  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/13729
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Fix memory leak.
+	(cgraph_remove_unreachable_nodes):  Do not mix analyzed and DECL_SAVED_TREE
+	flags.
+
 2004-01-18  Richard Henderson  <rth@redhat.com>
 
 	* tree-sra.c (REALPART_INDEX, IMAGPART_INDEX): Remove.
