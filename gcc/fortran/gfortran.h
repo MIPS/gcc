@@ -181,7 +181,7 @@ extern mstring intrinsic_operators[];
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
+  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
 }
 arith;
 
@@ -218,7 +218,7 @@ interface_type;
 
 /* Symbol flavors: these are all mutually exclusive.
    10 elements = 4 bits.  */
-typedef enum
+typedef enum sym_flavor
 {
   FL_UNKNOWN = 0, FL_PROGRAM, FL_BLOCK_DATA, FL_MODULE, FL_VARIABLE,
   FL_PARAMETER, FL_LABEL, FL_PROCEDURE, FL_DERIVED, FL_NAMELIST
@@ -226,27 +226,27 @@ typedef enum
 sym_flavor;
 
 /* Procedure types.  7 elements = 3 bits.  */
-typedef enum
+typedef enum procedure_type
 { PROC_UNKNOWN, PROC_MODULE, PROC_INTERNAL, PROC_DUMMY,
   PROC_INTRINSIC, PROC_ST_FUNCTION, PROC_EXTERNAL
 }
 procedure_type;
 
 /* Intent types.  */
-typedef enum
+typedef enum sym_intent
 { INTENT_UNKNOWN = 0, INTENT_IN, INTENT_OUT, INTENT_INOUT
 }
 sym_intent;
 
 /* Access types.  */
-typedef enum
-{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE, 
+typedef enum gfc_access
+{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE
 }
 gfc_access;
 
 /* Flags to keep track of where an interface came from.
    4 elements = 2 bits.  */
-typedef enum
+typedef enum ifsrc
 { IFSRC_UNKNOWN = 0, IFSRC_DECL, IFSRC_IFBODY, IFSRC_USAGE
 }
 ifsrc;
@@ -292,6 +292,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_BTEST,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
+  GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_CONJG,
@@ -317,6 +318,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
   GFC_ISYM_GETUID,
+  GFC_ISYM_HOSTNM,
   GFC_ISYM_IACHAR,
   GFC_ISYM_IAND,
   GFC_ISYM_IARGC,
@@ -325,15 +327,18 @@ enum gfc_generic_isym_id
   GFC_ISYM_IBSET,
   GFC_ISYM_ICHAR,
   GFC_ISYM_IEOR,
+  GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
+  GFC_ISYM_KILL,
   GFC_ISYM_LBOUND,
   GFC_ISYM_LEN,
   GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LINK,
   GFC_ISYM_LGE,
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
@@ -359,6 +364,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_PRODUCT,
   GFC_ISYM_RAND,
   GFC_ISYM_REAL,
+  GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
   GFC_ISYM_RRSPACING,
@@ -378,9 +384,12 @@ enum gfc_generic_isym_id
   GFC_ISYM_SR_KIND,
   GFC_ISYM_STAT,
   GFC_ISYM_SUM,
+  GFC_ISYM_SYMLNK,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
   GFC_ISYM_TANH,
+  GFC_ISYM_TIME,
+  GFC_ISYM_TIME8,
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
@@ -431,12 +440,12 @@ typedef struct
   unsigned referenced:1;
 
   /* Mutually exclusive multibit attributes.  */
-  gfc_access access:2;
-  sym_intent intent:2;
-  sym_flavor flavor:4;
-  ifsrc if_source:2;
+  ENUM_BITFIELD (gfc_access) access:2;
+  ENUM_BITFIELD (sym_intent) intent:2;
+  ENUM_BITFIELD (sym_flavor) flavor:4;
+  ENUM_BITFIELD (ifsrc) if_source:2;
 
-  procedure_type proc:3;
+  ENUM_BITFIELD (procedure_type) proc:3;
 
 }
 symbol_attribute;

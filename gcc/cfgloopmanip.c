@@ -45,7 +45,6 @@ static bool fix_bb_placement (struct loops *, basic_block);
 static void fix_bb_placements (struct loops *, basic_block);
 static void place_new_loop (struct loops *, struct loop *);
 static void scale_loop_frequencies (struct loop *, int, int);
-static void scale_bbs_frequencies (basic_block *, int, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
 static void unloop (struct loops *, struct loop *);
@@ -331,8 +330,8 @@ remove_path (struct loops *loops, edge e)
      e, but we only have basic block dominators.  This is easy to
      fix -- when e->dest has exactly one predecessor, this corresponds
      to blocks dominated by e->dest, if not, split the edge.  */
-  if (EDGE_COUNT (e->dest->preds) > 1)
-    e = EDGE_PRED (loop_split_edge_with (e, NULL_RTX), 0);
+  if (!single_pred_p (e->dest))
+    e = single_pred_edge (loop_split_edge_with (e, NULL_RTX));
 
   /* It may happen that by removing path we remove one or more loops
      we belong to.  In this case first unloop the loops, then proceed
@@ -450,24 +449,6 @@ add_loop (struct loops *loops, struct loop *loop)
   free (bbs);
 }
 
-/* Multiply all frequencies of basic blocks in array BBS of length NBBS
-   by NUM/DEN.  */
-static void
-scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
-{
-  int i;
-  edge e;
-
-  for (i = 0; i < nbbs; i++)
-    {
-      edge_iterator ei;
-      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = RDIV (bbs[i]->count * num, den);
-      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	e->count = (e->count * num) /den;
-    }
-}
-
 /* Multiply all frequencies in LOOP by NUM/DEN.  */
 static void
 scale_loop_frequencies (struct loop *loop, int num, int den)
@@ -475,7 +456,7 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
   basic_block *bbs;
 
   bbs = get_loop_body (loop);
-  scale_bbs_frequencies (bbs, loop->num_nodes, num, den);
+  scale_bbs_frequencies_int (bbs, loop->num_nodes, num, den);
   free (bbs);
 }
 
@@ -623,7 +604,7 @@ unloop (struct loops *loops, struct loop *loop)
   loops->parray[loop->num] = NULL;
   flow_loop_free (loop);
 
-  remove_edge (EDGE_SUCC (latch, 0));
+  remove_edge (single_succ_edge (latch));
   fix_bb_placements (loops, latch);
 
   /* If the loop was inside an irreducible region, we would have to somehow
@@ -802,8 +783,8 @@ loop_delete_branch_edge (edge e, int really_delete)
 
   if (!redirect_edge_and_branch (e, newdest))
     return false;
-  EDGE_SUCC (src, 0)->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-  EDGE_SUCC (src, 0)->flags |= irr;
+  single_succ_edge (src)->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  single_succ_edge (src)->flags |= irr;
   
   return true;
 }
@@ -1059,7 +1040,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
       /* Set counts and frequencies.  */
       if (flags & DLTHE_FLAG_UPDATE_FREQ)
 	{
-	  scale_bbs_frequencies (new_bbs, n, scale_act, REG_BR_PROB_BASE);
+	  scale_bbs_frequencies_int (new_bbs, n, scale_act, REG_BR_PROB_BASE);
 	  scale_act = RDIV (scale_act * scale_step[j], REG_BR_PROB_BASE);
 	}
     }
@@ -1071,7 +1052,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
     set_immediate_dominator (CDI_DOMINATORS, e->dest, e->src);
   if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
-      scale_bbs_frequencies (bbs, n, scale_main, REG_BR_PROB_BASE);
+      scale_bbs_frequencies_int (bbs, n, scale_main, REG_BR_PROB_BASE);
       free (scale_step);
     }
 
@@ -1121,10 +1102,10 @@ mfb_keep_just (edge e)
 static void
 mfb_update_loops (basic_block jump)
 {
-  struct loop *loop = EDGE_SUCC (jump, 0)->dest->loop_father;
+  struct loop *loop = single_succ (jump)->loop_father;
 
   if (dom_computed[CDI_DOMINATORS])
-    set_immediate_dominator (CDI_DOMINATORS, jump, EDGE_PRED (jump, 0)->src);
+    set_immediate_dominator (CDI_DOMINATORS, jump, single_pred (jump));
   add_bb_to_loop (jump, loop);
   loop->latch = jump;
 }
@@ -1154,7 +1135,7 @@ create_preheader (struct loop *loop, int flags)
 	continue;
       irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
-      if (EDGE_COUNT (e->src->succs) == 1)
+      if (single_succ_p (e->src))
 	one_succ_pred = e;
     }
   gcc_assert (nentry);
@@ -1165,7 +1146,7 @@ create_preheader (struct loop *loop, int flags)
       e = EDGE_PRED (loop->header,
 		     EDGE_PRED (loop->header, 0)->src == loop->latch);
 
-      if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
+      if (!(flags & CP_SIMPLE_PREHEADERS) || single_succ_p (e->src))
 	return NULL;
     }
 
@@ -1206,7 +1187,7 @@ create_preheader (struct loop *loop, int flags)
   if (irred)
     {
       dummy->flags |= BB_IRREDUCIBLE_LOOP;
-      EDGE_SUCC (dummy, 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_succ_edge (dummy)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   if (dump_file)
@@ -1239,7 +1220,7 @@ force_single_succ_latches (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
-      if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
+      if (loop->latch != loop->header && single_succ_p (loop->latch))
 	continue;
 
       e = find_edge (loop->latch, loop->header);
@@ -1341,9 +1322,9 @@ create_loop_notes (void)
 		      && onlyjump_p (insn))
 		    {
 		      pbb = BLOCK_FOR_INSN (insn);
-		      gcc_assert (pbb && EDGE_COUNT (pbb->succs) == 1);
+		      gcc_assert (pbb && single_succ_p (pbb));
 
-		      if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (pbb, 0)->dest))
+		      if (!flow_bb_inside_loop_p (loop, single_succ (pbb)))
 			insn = BB_HEAD (first[loop->num]);
 		    }
 		  else
@@ -1371,4 +1352,103 @@ create_loop_notes (void)
       free (stack);
     }
   flow_loops_free (&loops);
+}
+
+/* The structure of LOOPS might have changed.  Some loops might get removed
+   (and their headers and latches were set to NULL), loop exists might get
+   removed (thus the loop nesting may be wrong), and some blocks and edges
+   were changed (so the information about bb --> loop mapping does not have
+   to be correct).  But still for the remaining loops the header dominates
+   the latch, and loops did not get new subloobs (new loops might possibly
+   get created, but we are not interested in them).  Fix up the mess.
+ 
+   If CHANGED_BBS is not NULL, basic blocks whose loop has changed are
+   marked in it.  */
+
+void
+fix_loop_structure (struct loops *loops, bitmap changed_bbs)
+{
+  basic_block bb;
+  struct loop *loop, *ploop;
+  unsigned i;
+
+  /* Remove the old bb -> loop mapping.  */
+  FOR_EACH_BB (bb)
+    {
+      bb->aux = (void *) (size_t) bb->loop_father->depth;
+      bb->loop_father = loops->tree_root;
+    }
+
+  /* Remove the dead loops from structures.  */
+  loops->tree_root->num_nodes = n_basic_blocks + 2;
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      loop->num_nodes = 0;
+      if (loop->header)
+	continue;
+
+      while (loop->inner)
+	{
+	  ploop = loop->inner;
+	  flow_loop_tree_node_remove (ploop);
+	  flow_loop_tree_node_add (loop->outer, ploop);
+	}
+
+      /* Remove the loop and free its data.  */
+      flow_loop_tree_node_remove (loop);
+      loops->parray[loop->num] = NULL;
+      flow_loop_free (loop);
+    }
+
+  /* Rescan the bodies of loops, starting from the outermost.  */
+  loop = loops->tree_root;
+  while (1)
+    {
+      if (loop->inner)
+	loop = loop->inner;
+      else
+	{
+	  while (!loop->next
+		 && loop != loops->tree_root)
+	    loop = loop->outer;
+	  if (loop == loops->tree_root)
+	    break;
+
+	  loop = loop->next;
+	}
+
+      loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
+    }
+
+  /* Now fix the loop nesting.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      bb = loop_preheader_edge (loop)->src;
+      if (bb->loop_father != loop->outer)
+	{
+	  flow_loop_tree_node_remove (loop);
+	  flow_loop_tree_node_add (bb->loop_father, loop);
+	}
+    }
+
+  /* Mark the blocks whose loop has changed.  */
+  FOR_EACH_BB (bb)
+    {
+      if (changed_bbs
+	  && (void *) (size_t) bb->loop_father->depth != bb->aux)
+	bitmap_set_bit (changed_bbs, bb->index);
+
+      bb->aux = NULL;
+    }
+
+  mark_single_exit_loops (loops);
+  mark_irreducible_loops (loops);
 }

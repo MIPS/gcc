@@ -52,6 +52,8 @@
 
 #ifdef VMS
 #define _POSIX_EXIT 1
+#define HOST_EXECUTABLE_SUFFIX ".exe"
+#define HOST_OBJECT_SUFFIX ".obj"
 #endif
 
 #ifdef IN_RTS
@@ -96,13 +98,13 @@
 
 /* Header files and definitions for __gnat_set_file_time_name.  */
 
-#include <rms.h>
-#include <atrdef.h>
-#include <fibdef.h>
-#include <stsdef.h>
-#include <iodef.h>
+#include <vms/rms.h>
+#include <vms/atrdef.h>
+#include <vms/fibdef.h>
+#include <vms/stsdef.h>
+#include <vms/iodef.h>
 #include <errno.h>
-#include <descrip.h>
+#include <vms/descrip.h>
 #include <string.h>
 #include <unixlib.h>
 
@@ -1925,23 +1927,6 @@ __gnat_portable_wait (int *process_status)
   return pid;
 }
 
-int
-__gnat_waitpid (int pid)
-{
-  int status = 0;
-
-#if defined (_WIN32)
-  cwait (&status, pid, _WAIT_CHILD);
-#elif defined (__EMX__) || defined (MSDOS) || defined (__vxworks)
-  /* Status is already zero, so nothing to do.  */
-#else
-  waitpid (pid, &status, 0);
-  status =  WEXITSTATUS (status);
-#endif
-
-  return status;
-}
-
 void
 __gnat_os_exit (int status)
 {
@@ -2491,6 +2476,7 @@ _flush_cache()
       && ! (defined (linux) && defined (i386)) \
       && ! defined (__FreeBSD__) \
       && ! defined (__hpux__) \
+      && ! defined (__APPLE__) \
       && ! defined (_AIX) \
       && ! (defined (__alpha__)  && defined (__osf__)) \
       && ! defined (__MINGW32__) \

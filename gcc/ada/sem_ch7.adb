@@ -1506,12 +1506,21 @@ package body Sem_Ch7 is
    ----------------------------------
 
    procedure Install_Visible_Declarations (P : Entity_Id) is
-      Id : Entity_Id;
+      Id          : Entity_Id;
+      Last_Entity : Entity_Id;
 
    begin
+      pragma Assert (Is_Package (P) or else Is_Record_Type (P));
+
+      if Is_Package (P) then
+         Last_Entity := First_Private_Entity (P);
+      else
+         Last_Entity := Empty;
+      end if;
+
       Id := First_Entity (P);
 
-      while Present (Id) and then Id /= First_Private_Entity (P) loop
+      while Present (Id) and then Id /= Last_Entity loop
          Install_Package_Entity (Id);
          Next_Entity (Id);
       end loop;
@@ -1685,6 +1694,8 @@ package body Sem_Ch7 is
                                                                       (Full));
          Set_Is_Volatile       (Priv, Is_Volatile       (Full));
          Set_Treat_As_Volatile (Priv, Treat_As_Volatile (Full));
+         Set_Is_Ada_2005       (Priv, Is_Ada_2005       (Full));
+         --  Why is atomic not copied here ???
 
          if Referenced (Full) then
             Set_Referenced (Priv);

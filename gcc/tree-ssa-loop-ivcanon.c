@@ -168,9 +168,6 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
     
   if (n_unroll)
     {
-      if (!flag_unroll_loops)
-	return false;
-
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
       modify_stmt (cond);
@@ -262,24 +259,23 @@ canonicalize_induction_variables (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
+  bool changed = false;
   
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
 
       if (loop)
-	canonicalize_loop_induction_variables (loops, loop, true, false, true);
+	changed |= canonicalize_loop_induction_variables (loops, loop,
+							  true, false, true);
     }
 
   /* Clean up the information about numbers of iterations, since brute force
      evaluation could reveal new information.  */
   scev_reset ();
 
-#if 0
-  /* The necessary infrastructure is not in yet.  */
   if (changed)
     cleanup_tree_cfg_loop ();
-#endif
 }
 
 /* Unroll LOOPS completely if they iterate just few times.  */
@@ -307,9 +303,6 @@ tree_unroll_loops_completely (struct loops *loops)
      unrolling might have invalidated it.  */
   scev_reset ();
 
-#if 0
-  /* The necessary infrastructure is not in yet.  */
   if (changed)
     cleanup_tree_cfg_loop ();
-#endif
 }

@@ -91,11 +91,11 @@ static sbitmap last_stmt_necessary;
    use a bitmap for each block recording its edges.  An array holds the
    bitmap.  The Ith bit in the bitmap is set if that block is dependent
    on the Ith edge.  */
-bitmap *control_dependence_map;
+static bitmap *control_dependence_map;
 
 /* Vector indicating that a basic block has already had all the edges
    processed that it is control dependent on.  */
-sbitmap visited_control_parents;
+static sbitmap visited_control_parents;
 
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
@@ -221,7 +221,6 @@ static inline void
 mark_stmt_necessary (tree stmt, bool add_to_worklist)
 {
   gcc_assert (stmt);
-  gcc_assert (stmt != error_mark_node);
   gcc_assert (!DECL_P (stmt));
 
   if (NECESSARY (stmt))
@@ -684,7 +683,7 @@ remove_dead_phis (basic_block bb)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  remove_phi_node (phi, prev, bb);
+	  remove_phi_node (phi, prev);
 	  stats.removed_phis++;
 	  phi = next;
 	}
@@ -757,7 +756,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      while (EDGE_COUNT (bb->succs) != 1)
+      while (!single_succ_p (bb))
         remove_edge (EDGE_SUCC (bb, 1));
     }
   

@@ -948,6 +948,12 @@ decls_match (tree newdecl, tree olddecl)
     }
   else
     {
+      /* Need to check scope for variable declaration (VAR_DECL).
+	 For typedef (TYPE_DECL), scope is ignored.  */
+      if (TREE_CODE (newdecl) == VAR_DECL
+	  && CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl))
+	return 0;
+
       if (TREE_TYPE (newdecl) == error_mark_node)
 	types_match = TREE_TYPE (olddecl) == error_mark_node;
       else if (TREE_TYPE (olddecl) == NULL_TREE)
@@ -3924,9 +3930,7 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	    DECL_EXTERNAL (decl) = 1;
 	}
 
-      if (pedantic && TYPE_DOMAIN (type) != NULL_TREE
-	  && tree_int_cst_lt (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
-			      integer_zero_node))
+      if (failure == 3)
 	error ("zero-size array %qD", decl);
 
       layout_decl (decl, 0);
@@ -3940,9 +3944,6 @@ static void
 layout_var_decl (tree decl)
 {
   tree type = TREE_TYPE (decl);
-#if 0
-  tree ttype = target_type (type);
-#endif
 
   /* If we haven't already layed out this declaration, do so now.
      Note that we must not call complete type for an external object
@@ -4104,13 +4105,18 @@ reshape_init_array (tree elt_type, tree max_index,
 		    tree *initp, tree new_init)
 {
   bool sized_array_p = (max_index != NULL_TREE);
-  HOST_WIDE_INT max_index_cst = 0;
-  HOST_WIDE_INT index;
+  unsigned HOST_WIDE_INT max_index_cst = 0;
+  unsigned HOST_WIDE_INT index;
 
   if (sized_array_p)
-    /* HWI is either 32bit or 64bit, so it must be enough to represent the
-	array size.  */
-    max_index_cst = tree_low_cst (max_index, 1);
+    {
+      if (host_integerp (max_index, 1))
+	max_index_cst = tree_low_cst (max_index, 1);
+      /* sizetype is sign extended, not zero extended.  */
+      else
+	max_index_cst = tree_low_cst (fold_convert (size_type_node, max_index),
+				      1);
+    }
 
   /* Loop until there are no more initializers.  */
   for (index = 0;
@@ -4127,27 +4133,16 @@ reshape_init_array (tree elt_type, tree max_index,
       CONSTRUCTOR_ELTS (new_init) = element_init;
       designated_index = TREE_PURPOSE (element_init);
       if (designated_index)
-      {
+	{
 	  /* Handle array designated initializers (GNU extension).  */
 	  if (TREE_CODE (designated_index) == IDENTIFIER_NODE)
 	    {
 	      error ("name %qD used in a GNU-style designated "
-                     "initializer for an array", designated_index);
+		     "initializer for an array", designated_index);
 	      TREE_PURPOSE (element_init) = NULL_TREE;
 	    }
 	  else
-	    {
-	      gcc_assert (TREE_CODE (designated_index) == INTEGER_CST);
-	      if (sized_array_p
-		  && tree_int_cst_lt (max_index, designated_index))
-		{
-		  error ("Designated initializer %qE larger than array "
-			 "size", designated_index);
-		  TREE_PURPOSE (element_init) = NULL_TREE;
-		}
-	      else
-		index = tree_low_cst (designated_index, 1);
-	    }
+	    gcc_unreachable ();
 	}
     }
 
@@ -4710,7 +4705,6 @@ void
 cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 {
   tree type;
-  tree ttype = NULL_TREE;
   tree cleanup;
   const char *asmspec = NULL;
   int was_readonly = 0;
@@ -4794,10 +4788,6 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 				at_eof);
       goto finish_end;
     }
-
-  if (TREE_CODE (decl) != FUNCTION_DECL)
-    ttype = target_type (type);
-
 
   /* A reference will be modified here, as it is initialized.  */
   if (! DECL_EXTERNAL (decl) 
@@ -5337,7 +5327,8 @@ expand_static_init (tree decl, tree init)
 
 /* Make TYPE a complete type based on INITIAL_VALUE.
    Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
-   2 if there was no information (in which case assume 0 if DO_DEFAULT).  */
+   2 if there was no information (in which case assume 0 if DO_DEFAULT),
+   3 if the initializer list is empty (in pedantic mode). */
 
 int
 complete_array_type (tree type, tree initial_value, int do_default)
@@ -5379,6 +5370,9 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	      else
 		maxindex = size_binop (PLUS_EXPR, maxindex, ssize_int (1));
 	    }
+
+	  if (pedantic && tree_int_cst_equal (maxindex, ssize_int (-1)))
+	    value = 3;
 	}
       else
 	{
@@ -8660,11 +8654,10 @@ unary_op_p (enum tree_code code)
 	  || code == TYPE_EXPR);
 }
 
-/* DECL is a declaration for an overloaded operator.  Returns true if
-   the declaration is valid; false otherwise.  If COMPLAIN is true,
+/* DECL is a declaration for an overloaded operator.  If COMPLAIN is true,
    errors are issued for invalid declarations.  */
 
-bool
+void
 grok_op_properties (tree decl, int friendp, bool complain)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
@@ -8673,10 +8666,6 @@ grok_op_properties (tree decl, int friendp, bool complain)
   tree name = DECL_NAME (decl);
   enum tree_code operator_code;
   int arity;
-  bool ok;
-
-  /* Assume that the declaration is valid.  */
-  ok = true;
 
   /* Count the number of arguments.  */
   for (argtype = argtypes, arity = 0;
@@ -8774,14 +8763,20 @@ grok_op_properties (tree decl, int friendp, bool complain)
 	      || operator_code == COMPONENT_REF
 	      || operator_code == ARRAY_REF
 	      || operator_code == NOP_EXPR)
-	    error ("%qD must be a nonstatic member function", decl);
+	    {
+	      error ("%qD must be a nonstatic member function", decl);
+	      return;
+	    }
 	  else
 	    {
 	      tree p;
 
 	      if (DECL_STATIC_FUNCTION_P (decl))
-		error ("%qD must be either a non-static member "
-                       "function or a non-member function", decl);
+		{
+		  error ("%qD must be either a non-static member "
+			 "function or a non-member function", decl);
+		  return;
+		}
 
 	      for (p = argtypes; p && p != void_list_node; p = TREE_CHAIN (p))
 		{
@@ -8796,12 +8791,11 @@ grok_op_properties (tree decl, int friendp, bool complain)
 	      if (!p || p == void_list_node)
 		{
 		  if (!complain)
-		    return false;
+		    return;
 
 		  error ("%qD must have an argument of class or "
 			 "enumerated type",
 			 decl);
-		  ok = false;
 		}
 	    }
 	}
@@ -8809,7 +8803,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
       /* There are no restrictions on the arguments to an overloaded
 	 "operator ()".  */
       if (operator_code == CALL_EXPR)
-	return ok;
+	return;
 
       if (IDENTIFIER_TYPENAME_P (name) && ! DECL_TEMPLATE_INFO (decl))
 	{
@@ -8994,7 +8988,6 @@ grok_op_properties (tree decl, int friendp, bool complain)
 
     }
 
-  return ok;
 }
 
 /* Return a string giving the keyword associate with CODE.  */
@@ -9094,7 +9087,6 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   void f(class C);		// No template header here
 
 	 then the required template argument is missing.  */
-
       error ("template argument required for %<%s %T%>",
 	     tag_name (tag_code),
 	     DECL_NAME (CLASSTYPE_TI_TEMPLATE (type)));
@@ -9116,7 +9108,19 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
   tree t;
   tree decl;
   if (scope == ts_global)
-    decl = lookup_name (name, 2);
+    {
+      /* First try ordinary name lookup, ignoring hidden class name
+	 injected via friend declaration.  */
+      decl = lookup_name (name, 2);
+      /* If that fails, the name will be placed in the smallest
+	 non-class, non-function-prototype scope according to 3.3.1/5.
+	 We may already have a hidden name declared as friend in this
+	 scope.  So lookup again but not ignoring hidden name.
+	 If we find one, that name will be made visible rather than
+	 creating a new tag.  */
+      if (!decl)
+	decl = lookup_type_scope (name, ts_within_enclosing_non_class);
+    }
   else
     decl = lookup_type_scope (name, scope);
 
@@ -9276,8 +9280,7 @@ xref_tag (enum tag_types tag_code, tree name,
 	{
 	  t = make_aggr_type (code);
 	  TYPE_CONTEXT (t) = context;
-	  /* pushtag only cares whether SCOPE is zero or not.  */
-	  t = pushtag (name, t, scope != ts_current);
+	  t = pushtag (name, t, scope);
 	}
     }
   else
@@ -9291,6 +9294,20 @@ xref_tag (enum tag_types tag_code, tree name,
 	  error ("redeclaration of %qT as a non-template", t);
 	  t = error_mark_node;
 	}
+
+      /* Make injected friend class visible.  */
+      if (scope != ts_within_enclosing_non_class
+	  && hidden_name_p (TYPE_NAME (t)))
+	{
+	  DECL_ANTICIPATED (TYPE_NAME (t)) = 0;
+	  DECL_FRIEND_P (TYPE_NAME (t)) = 0;
+
+	  if (TYPE_TEMPLATE_INFO (t))
+	    {
+	      DECL_ANTICIPATED (TYPE_TI_TEMPLATE (t)) = 0;
+	      DECL_FRIEND_P (TYPE_TI_TEMPLATE (t)) = 0;
+	    }
+     	}
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -9532,7 +9549,7 @@ start_enum (tree name)
 	name = make_anon_name ();
 
       enumtype = make_node (ENUMERAL_TYPE);
-      enumtype = pushtag (name, enumtype, 0);
+      enumtype = pushtag (name, enumtype, /*tag_scope=*/ts_current);
     }
 
   return enumtype;
@@ -9992,7 +10009,12 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      class scope, current_class_type will be NULL_TREE until set above
      by push_nested_class.)  */
   if (processing_template_decl)
-    decl1 = push_template_decl (decl1);
+    {
+      /* FIXME: Handle error_mark_node more gracefully.  */
+      tree newdecl1 = push_template_decl (decl1);
+      if (newdecl1 != error_mark_node)
+        decl1 = newdecl1;
+    }
 
   /* We are now in the scope of the function being defined.  */
   current_function_decl = decl1;

@@ -1476,6 +1476,7 @@ the enclosing block.
 @cindex function attributes
 @cindex declaring attributes of functions
 @cindex functions that never return
+@cindex functions that return more than once
 @cindex functions that have no side effects
 @cindex functions in arbitrary sections
 @cindex functions that behave like malloc
@@ -1495,7 +1496,7 @@ The keyword @code{__attribute__} allows you to specify special
 attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
-@code{noreturn}, @code{noinline}, @code{always_inline},
+@code{noreturn}, @code{returns_twice}, @code{noinline}, @code{always_inline},
 @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
@@ -1527,7 +1528,8 @@ void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
 declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
-mangled name for the target must be used.
+mangled name for the target must be used.  It is an error if @samp{__f}
+is not defined in the same translation unit.
 
 Not all target machines support this attribute.
 
@@ -2089,6 +2091,16 @@ safe since the loaders there save all registers.  (Lazy binding can be
 disabled with the linker or the loader if desired, to avoid the
 problem.)
 
+@item returns_twice
+@cindex @code{returns_twice} attribute
+The @code{returns_twice} attribute tells the compiler that a function may
+return more than one time.  The compiler will ensure that all registers
+are dead before calling such a function and will emit a warning about
+the variables that may be clobbered after the second return from the
+function.  Examples of such functions are @code{setjmp} and @code{vfork}.
+The @code{longjmp}-like counterpart of such function, if any, might need
+to be marked with the @code{noreturn} attribute.
+
 @item saveall
 @cindex save all registers on the H8/300, H8/300H, and H8S
 Use this attribute on the H8/300, H8/300H, and H8S to indicate that
@@ -2575,7 +2587,7 @@ int isroot P((uid_t));
 
 /* @r{Old-style function definition.}  */
 int
-isroot (x)   /* ??? lossage here ??? */
+isroot (x)   /* @r{??? lossage here ???} */
      uid_t x;
 @{
   return x == 0;
@@ -2854,13 +2866,13 @@ int init_data __attribute__ ((section ("INITDATA"))) = 0;
 
 main()
 @{
-  /* Initialize stack pointer */
+  /* @r{Initialize stack pointer} */
   init_sp (stack + sizeof (stack));
 
-  /* Initialize initialized data */
+  /* @r{Initialize initialized data} */
   memcpy (&init_data, &data, &edata - &data);
 
-  /* Turn on the serial ports */
+  /* @r{Turn on the serial ports} */
   init_duart (&a);
   init_duart (&b);
 @}
@@ -2899,8 +2911,8 @@ int foo __attribute__((section ("shared"), shared)) = 0;
 int
 main()
 @{
-  /* Read and write foo.  All running
-     copies see the same value.  */
+  /* @r{Read and write foo.  All running
+     copies see the same value.}  */
   return 0;
 @}
 @end smallexample
@@ -3464,7 +3476,7 @@ GCC does not inline any functions when not optimizing unless you specify
 the @samp{always_inline} attribute for the function, like this:
 
 @smallexample
-/* Prototype.  */
+/* @r{Prototype.}  */
 inline void foo (const char) __attribute__((always_inline));
 @end smallexample
 
@@ -3634,7 +3646,7 @@ example for the VAX:
 
 @smallexample
 asm volatile ("movc3 %0,%1,%2"
-              : /* no outputs */
+              : /* @r{no outputs} */
               : "g" (from), "g" (to), "g" (count)
               : "r0", "r1", "r2", "r3", "r4", "r5");
 @end smallexample
@@ -5249,11 +5261,11 @@ type is @code{long double}.
 @deftypefn {Built-in Function} double __builtin_inf (void)
 Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
-This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
+This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} {long double} __builtin_infl (void)
@@ -8568,6 +8580,7 @@ for further explanation.
 * Solaris Pragmas::
 * Symbol-Renaming Pragmas::
 * Structure-Packing Pragmas::
+* Weak Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -8750,7 +8763,7 @@ way of knowing that that happened.)
 @node Structure-Packing Pragmas
 @subsection Structure-Packing Pragmas
 
-For compatibility with Win32, GCC supports as set of @code{#pragma}
+For compatibility with Win32, GCC supports a set of @code{#pragma}
 directives which change the maximum alignment of members of structures,
 unions, and classes subsequently defined.  The @var{n} value below always
 is required to be a small power of two and specifies the new alignment
@@ -8770,6 +8783,28 @@ stack; thus it is possible to have @code{#pragma pack(push)} followed by
 multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @code{#pragma pack(pop)}.
 @end enumerate
+
+@node Weak Pragmas
+@subsection Weak Pragmas
+
+For compatibility with SVR4, GCC supports a set of @code{#pragma}
+directives for declaring symbols to be weak, and defining weak
+aliases.
+
+@table @code
+@item #pragma weak @var{symbol}
+@cindex pragma, weak
+This pragma declares @var{symbol} to be weak, as if the declaration
+had the attribute of the same name.  The pragma may appear before
+or after the declaration of @var{symbol}, but must appear before 
+either its first use or its definition.  It is not an error for
+@var{symbol} to never be defined at all.
+
+@item #pragma weak @var{symbol1} = @var{symbol2}
+This pragma declares @var{symbol1} to be a weak alias of @var{symbol2}.
+It is an error if @var{symbol2} is not defined in the current
+translation unit.
+@end table
 
 @node Unnamed Fields
 @section Unnamed struct/union fields within structs/unions
@@ -9095,7 +9130,6 @@ test specifically for GNU C++ (@pxref{Common Predefined Macros,,
 Predefined Macros,cpp,The GNU C Preprocessor}).
 
 @menu
-* Min and Max::		C++ Minimum and maximum operators.
 * Volatiles::		What constitutes an access to a volatile object.
 * Restricted Pointers:: C99 restricted pointers and references.
 * Vague Linkage::       Where G++ puts inlines, vtables and such.
@@ -9111,51 +9145,6 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
 @end menu
-
-@node Min and Max
-@section Minimum and Maximum Operators in C++
-
-It is very convenient to have operators which return the ``minimum'' or the
-``maximum'' of two arguments.  In GNU C++ (but not in GNU C),
-
-@table @code
-@item @var{a} <? @var{b}
-@findex <?
-@cindex minimum operator
-is the @dfn{minimum}, returning the smaller of the numeric values
-@var{a} and @var{b};
-
-@item @var{a} >? @var{b}
-@findex >?
-@cindex maximum operator
-is the @dfn{maximum}, returning the larger of the numeric values @var{a}
-and @var{b}.
-@end table
-
-These operations are not primitive in ordinary C++, since you can
-use a macro to return the minimum of two things in C++, as in the
-following example.
-
-@smallexample
-#define MIN(X,Y) ((X) < (Y) ? : (X) : (Y))
-@end smallexample
-
-@noindent
-You might then use @w{@samp{int min = MIN (i, j);}} to set @var{min} to
-the minimum value of variables @var{i} and @var{j}.
-
-However, side effects in @code{X} or @code{Y} may cause unintended
-behavior.  For example, @code{MIN (i++, j++)} will fail, incrementing
-the smaller counter twice.  The GNU C @code{typeof} extension allows you
-to write safe macros that avoid this kind of problem (@pxref{Typeof}).
-However, writing @code{MIN} and @code{MAX} as macros also forces you to
-use function-call notation for a fundamental arithmetic operation.
-Using GNU C++ extensions, you can write @w{@samp{int min = i <? j;}}
-instead.
-
-Since @code{<?} and @code{>?} are built into the compiler, they properly
-handle expressions with side-effects;  @w{@samp{int min = i++ <? j++;}}
-works correctly.
 
 @node Volatiles
 @section When is a Volatile Object Accessed?
@@ -9802,6 +9791,11 @@ G++ allows a virtual function returning @samp{void *} to be overridden
 by one returning a different pointer type.  This extension to the
 covariant return type rules is now deprecated and will be removed from a
 future version.
+
+The G++ minimum and maximum operators (@samp{<?} and @samp{>?}) and
+their compound forms (@samp{<?=}) and @samp{>?=}) have been deprecated
+and will be removed in a future version.  Code using these operators
+should be modified to use @code{std::min} and @code{std::max} instead.
 
 The named return value extension has been deprecated, and is now
 removed from G++.

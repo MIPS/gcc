@@ -138,7 +138,26 @@ enum mem_tag_kind {
   TYPE_TAG,
 
   /* This variable is a name memory tag (NMT).  */
-  NAME_TAG
+  NAME_TAG,
+
+  /* This variable represents a structure field.  */
+  STRUCT_FIELD
+};
+struct subvar;
+typedef struct subvar *subvar_t;
+
+/* This structure represents a fake sub-variable for a structure field.  */
+
+struct subvar GTY(())
+{
+  /* Fake variable name */
+  tree var;
+  /* Offset inside structure.  */
+  HOST_WIDE_INT offset;
+  /* Size of field.  */
+  HOST_WIDE_INT size;
+  /* Next subvar for this structure.  */
+  subvar_t next;
 };
 
 struct var_ann_d GTY(())
@@ -211,6 +230,8 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+  
+  subvar_t subvars;
 };
 
 
@@ -478,6 +499,7 @@ extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern bool cleanup_tree_cfg (void);
+extern void cleanup_tree_cfg_loop (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -522,7 +544,7 @@ extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
-extern void remove_phi_node (tree, tree, basic_block);
+extern void remove_phi_node (tree, tree);
 extern void remove_all_phi_nodes_for (bitmap);
 extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
@@ -552,10 +574,11 @@ extern tree make_rename_temp (tree, const char *);
 #define TDFA_USE_VOPS		(1 << 1)
 
 /* In gimple-low.c  */
-struct lower_data;
-extern void lower_stmt_body (tree, struct lower_data *);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
+
+typedef tree tree_on_heap;
+DEF_VEC_MALLOC_P (tree_on_heap);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);
@@ -568,13 +591,18 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
+static inline subvar_t get_subvars_for_var (tree);
+static inline bool ref_contains_array_ref (tree);
+extern tree okay_component_ref_for_subvars (tree, HOST_WIDE_INT *,
+					    HOST_WIDE_INT *);
+static inline bool var_can_have_subvars (tree);
+static inline bool overlap_subvar (HOST_WIDE_INT, HOST_WIDE_INT,
+				   subvar_t, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
-typedef tree tree_on_heap;
-DEF_VEC_MALLOC_P (tree_on_heap);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
@@ -673,7 +701,7 @@ tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
 tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
-void rewrite_into_loop_closed_ssa (void);
+void rewrite_into_loop_closed_ssa (bitmap);
 void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);

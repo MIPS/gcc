@@ -1,3 +1,16 @@
+2005-03-24  Ben Elliston  <bje@au.ibm.com>
+
+	Resolve merge conflicts:
+	* BASE-VER: Include the branch name.
+	* real.c (decimal_single_format): Add an initialiser for
+	signbit_ro member.
+	(decimal_double_format): Likewise.
+	(decimal_quad_format): Likewise.
+
+2005-03-23  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_decimal_float.
+
 2005-03-23  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* Makefile.in: HAVE_DECNUMBER controls building in of decNumber

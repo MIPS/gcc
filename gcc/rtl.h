@@ -1915,6 +1915,7 @@ extern int redirect_jump_1 (rtx, rtx);
 extern void redirect_jump_2 (rtx, rtx, rtx, int, int);
 extern int redirect_jump (rtx, rtx, int);
 extern void rebuild_jump_labels (rtx);
+extern rtx reversed_comparison (rtx, enum machine_mode);
 extern enum rtx_code reversed_comparison_code (rtx, rtx);
 extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
@@ -2119,6 +2120,10 @@ struct md_constant { char *name, *value; };
 /* In read-rtl.c */
 extern int read_skip_spaces (FILE *);
 extern bool read_rtx (FILE *, rtx *, int *);
+extern void copy_rtx_ptr_loc (const void *, const void *);
+extern void print_rtx_ptr_loc (const void *);
+extern const char *join_c_conditions (const char *, const char *);
+extern void print_c_condition (const char *);
 extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 
@@ -2186,6 +2191,7 @@ extern void sms_schedule (FILE *);
 struct rtl_hooks
 {
   rtx (*gen_lowpart) (enum machine_mode, rtx);
+  rtx (*gen_lowpart_no_emit) (enum machine_mode, rtx);
   rtx (*reg_nonzero_bits) (rtx, enum machine_mode, rtx, enum machine_mode,
 			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
   rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,

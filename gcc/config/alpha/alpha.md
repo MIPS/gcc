@@ -26,7 +26,6 @@
 
 (define_constants
   [(UNSPEC_ARG_HOME	0)
-   (UNSPEC_CTTZ		1)
    (UNSPEC_INSXH	2)
    (UNSPEC_MSKXH	3)
    (UNSPEC_CVTQL	4)
@@ -56,9 +55,7 @@
    (UNSPEC_AMASK	24)
    (UNSPEC_IMPLVER	25)
    (UNSPEC_PERR		26)
-   (UNSPEC_CTLZ		27)
-   (UNSPEC_CTPOP	28)
-   (UNSPEC_COPYSIGN     29)
+   (UNSPEC_COPYSIGN     27)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -90,8 +87,8 @@
 ;; Processor type -- this attribute must exactly match the processor_type
 ;; enumeration in alpha.h.
 
-(define_attr "cpu" "ev4,ev5,ev6"
-  (const (symbol_ref "alpha_cpu")))
+(define_attr "tune" "ev4,ev5,ev6"
+  (const (symbol_ref "alpha_tune")))
 
 ;; Define an insn type attribute.  This is used in function unit delay
 ;; computations, among other purposes.  For the most part, we use the names
@@ -1333,7 +1330,7 @@
 
 (define_expand "ffsdi2"
   [(set (match_dup 2)
-	(unspec:DI [(match_operand:DI 1 "register_operand" "")] UNSPEC_CTTZ))
+	(ctz:DI (match_operand:DI 1 "register_operand" "")))
    (set (match_dup 3)
 	(plus:DI (match_dup 2) (const_int 1)))
    (set (match_operand:DI 0 "register_operand" "")
@@ -1344,15 +1341,6 @@
   operands[2] = gen_reg_rtx (DImode);
   operands[3] = gen_reg_rtx (DImode);
 })
-
-(define_insn "*cttz"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "r")] UNSPEC_CTTZ))]
-  "TARGET_CIX"
-  "cttz %1,%0"
-  ; EV6 calls all mvi and cttz/ctlz/popc class imisc, so just
-  ; reuse the existing type name.
-  [(set_attr "type" "mvi")])
 
 (define_insn "clzdi2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6994,7 +6982,7 @@
   [(prefetch (match_operand:DI 0 "address_operand" "p")
 	     (match_operand:DI 1 "const_int_operand" "n")
 	     (match_operand:DI 2 "const_int_operand" "n"))]
-  "TARGET_FIXUP_EV5_PREFETCH || TARGET_CPU_EV6"
+  "TARGET_FIXUP_EV5_PREFETCH || alpha_cpu == PROCESSOR_EV6"
 {
   /* Interpret "no temporal locality" as this data should be evicted once
      it is used.  The "evict next" alternatives load the data into the cache
@@ -7715,29 +7703,6 @@
 				      (const_int 3)]))))]
   "TARGET_MAX"
   "unpkbw %r1,%0"
-  [(set_attr "type" "mvi")])
-
-(define_expand "builtin_cttz"
-  [(set (match_operand:DI 0 "register_operand" "")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "")]
-		   UNSPEC_CTTZ))]
-  "TARGET_CIX"
-  "")
-
-(define_insn "builtin_ctlz"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
-		   UNSPEC_CTLZ))]
-  "TARGET_CIX"
-  "ctlz %1,%0"
-  [(set_attr "type" "mvi")])
-
-(define_insn "builtin_ctpop"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
-		   UNSPEC_CTPOP))]
-  "TARGET_CIX"
-  "ctpop %1,%0"
   [(set_attr "type" "mvi")])
 
 ;; The call patterns are at the end of the file because their

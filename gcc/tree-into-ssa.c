@@ -111,7 +111,7 @@ static htab_t def_blocks;
 static VEC(tree_on_heap) *block_defs_stack;
 
 /* Basic block vectors used in this file ought to be allocated in the heap.  */
-DEF_VEC_MALLOC_P(basic_block);
+DEF_VEC_MALLOC_P(int);
 
 /* Global data to attach to the main dominator walk structure.  */
 struct mark_def_sites_global_data
@@ -503,40 +503,41 @@ find_idf (bitmap def_blocks, bitmap *dfs)
 {
   bitmap_iterator bi;
   unsigned bb_index;
-  VEC(basic_block) *work_stack;
+  VEC(int) *work_stack;
   bitmap phi_insertion_points;
 
-  work_stack = VEC_alloc (basic_block, n_basic_blocks);
+  work_stack = VEC_alloc (int, n_basic_blocks);
   phi_insertion_points = BITMAP_ALLOC (NULL);
 
   /* Seed the work list with all the blocks in DEF_BLOCKS.  */
   EXECUTE_IF_SET_IN_BITMAP (def_blocks, 0, bb_index, bi)
-    VEC_safe_push (basic_block, work_stack, BASIC_BLOCK (bb_index));
+    /* We use VEC_quick_push here for speed.  This is safe because we
+       know that the number of definition blocks is no greater than
+       the number of basic blocks, which is the initial capacity of
+       WORK_STACK.  */
+    VEC_quick_push (int, work_stack, bb_index);
 
   /* Pop a block off the worklist, add every block that appears in
      the original block's DF that we have not already processed to
      the worklist.  Iterate until the worklist is empty.   Blocks
      which are added to the worklist are potential sites for
      PHI nodes.  */
-  while (VEC_length (basic_block, work_stack) > 0)
+  while (VEC_length (int, work_stack) > 0)
     {
-      basic_block bb = VEC_pop (basic_block, work_stack);
-      bb_index = bb->index;
+      bb_index = VEC_pop (int, work_stack);
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index], phi_insertion_points,
 				      0, bb_index, bi)
 	{
-	  bb = BASIC_BLOCK (bb_index);
-
 	  /* Use a safe push because if there is a definition of VAR
 	     in every basic block, then WORK_STACK may eventually have
 	     more than N_BASIC_BLOCK entries.  */
-	  VEC_safe_push (basic_block, work_stack, bb);
+	  VEC_safe_push (int, work_stack, bb_index);
 	  bitmap_set_bit (phi_insertion_points, bb_index);
 	}
     }
 
-  VEC_free (basic_block, work_stack);
+  VEC_free (int, work_stack);
 
   return phi_insertion_points;
 }
@@ -819,14 +820,12 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	      basic_block bb ATTRIBUTE_UNUSED,
 	      block_stmt_iterator si)
 {
-  stmt_ann_t ann;
   tree stmt;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
 
   stmt = bsi_stmt (si);
-  ann = stmt_ann (stmt);
 
   /* If mark_def_sites decided that we don't need to rewrite this
      statement, ignore it.  */
@@ -1272,9 +1271,8 @@ mark_def_site_blocks (void)
       those variables are removed from the flow graph so that they can
       be computed again.
 
-   2- Compute dominance frontier and immediate dominators, needed to
-      insert PHI nodes and rename the function in dominator tree
-      order.
+   2- Compute dominance frontier, needed to insert PHI nodes and
+      rename the function in dominator tree order.
 
    3- Find and mark all the blocks that define variables
       (mark_def_site_blocks).
@@ -1320,9 +1318,7 @@ rewrite_into_ssa (bool all)
 
   mark_def_site_blocks ();
 
-  /* Initialize dominance frontier and immediate dominator bitmaps. 
-     Also count the number of predecessors for each block.  Doing so
-     can save significant time during PHI insertion for large graphs.  */
+  /* Initialize dominance frontier.  */
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     dfs[bb->index] = BITMAP_ALLOC (NULL);

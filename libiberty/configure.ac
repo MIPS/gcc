@@ -225,6 +225,7 @@ funcs="$funcs clock"
 funcs="$funcs ffs"
 funcs="$funcs getcwd"
 funcs="$funcs getpagesize"
+funcs="$funcs gettimeofday"
 funcs="$funcs index"
 funcs="$funcs insque"
 funcs="$funcs memchr"
@@ -272,7 +273,7 @@ checkfuncs="$checkfuncs getsysinfo table sysctl"
 # autoheader happy without adding a bunch of text to acconfig.h.
 if test "x" = "y"; then
   AC_CHECK_FUNCS(asprintf atexit basename bcmp bcopy bsearch bzero calloc clock \
-  getcwd getpagesize index insque mkstemps memchr memcmp memcpy \
+  getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
   strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strrchr strstr \
   strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
@@ -445,6 +446,11 @@ if test -z "${setobjs}"; then
     libiberty_cv_var_sys_errlist=yes
     ;;
 
+  *-*-msdosdjgpp*)
+    # vfork and fork are stubs.
+    ac_cv_func_vfork_works=no
+    ;;
+
   *-*-uwin*)
     # Under some versions of uwin, vfork is notoriously buggy and the test 
     # can hang configure; on other versions, vfork exists just as a stub.
@@ -518,7 +524,6 @@ case "${host}" in
      *-*-mingw* | *-*-winnt*)	pexecute=./pex-win32.o  ;;
      *-*-msdosdjgpp*)		pexecute=./pex-djgpp.o  ;;
      *-*-msdos*)		pexecute=./pex-msdos.o  ;;
-     *-*-os2-emx*)		pexecute=./pex-os2.o    ;;
      *)				pexecute=./pex-unix.o   ;;
 esac
 AC_SUBST(pexecute)

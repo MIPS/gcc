@@ -87,6 +87,12 @@ proc check_weak_available { } {
 	return 1
     }
 
+    # HP-UX 10.X doesn't support it
+
+    if { [regexp "hppa.*hpux10" $target_triplet] } {
+	return 0
+    }
+
     # ELF and ECOFF support it. a.out does with gas/gld but may also with
     # other linkers, so we should try it
 
@@ -97,6 +103,7 @@ proc check_weak_available { } {
         ecoff    { return 1 }
         a.out    { return 1 }
 	mach-o	 { return 1 }
+	som	 { return 1 }
         unknown  { return -1 }
         default  { return 0 }
     }
@@ -276,7 +283,7 @@ proc check_profiling_available { test_what } {
     return $profiling_available_saved
 }
 
-# Return true if iconv is supported on the target. In particular IBM-1047.
+# Return true if iconv is supported on the target. In particular IBM1047.
 
 proc check_iconv_available { test_what } {
     global tool
@@ -296,6 +303,10 @@ proc check_iconv_available { test_what } {
     puts $f "return 0;\n}"
     close $f
 
+    # If the tool configuration file has not set libiconv, try "-liconv"
+    if { ![info exists libiconv] } {
+	set libiconv "-liconv"
+    }
     set lines [${tool}_target_compile $src $exe executable "libs=$libiconv" ]
     file delete $src
 
@@ -303,7 +314,7 @@ proc check_iconv_available { test_what } {
 	# No error messages, everything is OK.
 
 	set result [${tool}_load "./$exe" "" ""]
-	set status [lindex $result 0];
+	set status [lindex $result 0]
 	remote_file build delete $exe
 
 	verbose "check_iconv_available status is <$status>" 2
@@ -364,8 +375,16 @@ proc check_vmx_hw_available { } {
 	puts $f "  return 0; }"
 	close $f
 
+	# Most targets don't require special flags for this test case, but
+	# Darwin does.
+	if [istarget *-*-darwin*] {
+	  set opts "additional_flags=-maltivec"
+	} else {
+	  set opts ""
+	}
+
 	verbose "check_vmx_hw_available  compiling testfile $src" 2
-	set lines [${tool}_target_compile $src $exe executable ""]
+	set lines [${tool}_target_compile $src $exe executable "$opts"]
 	file delete $src
 
 	if [string match "" $lines] then {

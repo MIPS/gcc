@@ -1,3 +1,422 @@
+2005-03-23  Sven de Marothy  <sven@physto.se>
+
+	PR libgcj/2641, PR libgcj/9854, PR libgcj/14892, PR libgcj/18083,
+	PR libgcj/11085:
+	* java/util/Calendar.java
+	(set): Use starting day of week when one is needed if none is given.
+	* java/text/SimpleDateFormat.java
+	(parse): Handle 1-12 and 1-24 timestamps correctly.
+	* java/util/GregorianCalendar.java
+	(computeTime, computeFields): HOUR should be in 0-11 format.
+	(nonLeniencyCheck): Adjust leniency checking to that fact.
+	(getLinearDay): Should be private.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+ 
+	* include/jvm.h (GCJ_40_BC_ABI_VERSION): New define.
+	(_Jv_CheckABIVersion): Use it.
+
+2005-03-22  Mike Stump  <mrs@apple.com>
+
+	* stacktrace.cc: Delete unused _Jv_FindCallingClassState.
+
+	* include/posix.h: .dylib is used on all Apple MACH platforms.
+	* java/lang/ieeefp.h: ppc64 is also __IEEE_BIG_ENDIAN.
+
+2005-03-22  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java (usage): Fixed output.
+
+2005-03-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/VMCompiler.java (static block): Also catch
+	BufferUnderflowException.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Do not invoke TL_AC_GCC_VERSION.  Do not
+	set tool_include_dir.  In all substitutions, leave $(gcc_version)
+	to be expanded by the Makefile.
+	* aclocal.m4, configure: Regenerate.
+	* Makefile.am: Set gcc_version.  Replace all uses of
+	@gcc_version@ with $(gcc_version).
+	* external/Makefile.am, external/sax/Makefile.am
+	* external/w3c_dom/Makefile.am, gcj/Makefile.am
+	* testsuite/Makefile.am: Set gcc_version.
+	* include/Makefile.am: Set gcc_version and tool_include_dir.
+	* Makefile.in, external/Makefile.in, external/sax/Makefile.in
+	* external/w3c_dom/Makefile.in, gcj/Makefile.in, include/Makefile.in
+	* testsuite/Makefile.in: Regenerate.
+
+2005-03-17  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natVMSecurityManager.cc (getClassContext): Add new
+	arg: klass.
+	Pass klass to _Jv_StackTrace::GetClassContext().
+	* java/lang/ClassLoader.java (getParent): Pass class to
+	VMSecurityManager.getClassContext()
+	(getSystemClassLoader): Likewise.
+	* java/lang/Package.java (getPackage): Likewise.
+	(getPackages): Likewise.
+	* java/lang/SecurityManager.java (getClassContext): Likewise.
+	(currentClassLoader): Likewise.
+	* java/lang/VMSecurityManager.java: (getClassContext): Likewise.
+	(currentClassLoader) Add new arg: caller.
+	Pass caller to VMSecurityManager.getClassContext.
+
+	* stacktrace.cc (GetClassContext): Correct calculation of
+	jframe_count.
+
+	* boehm.cc (_Jv_MarkObj): (_Jv_MarkObj): Mark
+	im->source_file_name.
+
+2005-03-16  Andrew Haley  <aph@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Mark the interpreted method line_table.
+
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (ensure_class_linked): Removed #ifdef.
+	(print_class_loaded): Likewise.
+	(wait_for_state): Likewise.
+	* java/lang/Class.h (_Jv_IsInterpretedClass): Always declare.
+	* include/jvm.h (_Jv_IsInterpretedClass): Moved from...
+	* include/java-interp.h: ... here.
+
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/lang/MainThread.java (run): Load main class using
+	system class loader.
+
+2005-03-16  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_invocation_test_one): Add
+	lgcc_s to the libraries to link for Darwin.
+
+2005-03-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* stacktrace.cc (_Jv_StackTrace::UnwindTraceFn): Protect
+	interpreter-specific code with #ifdef INTERPRETER.
+	(_Jv_StackTrace::getLineNumberForFrame): Likewise.
+	(_Jv_StackTrace::FillInFrameInfo): Likewise.
+	(_Jv_StackTrace::non_system_trace_fn): Likewise.
+	* include/java-stack.h (struct _Jv_InterpFrameInfo): Protect with
+	#ifdef INTERPRETER. Also protect declarations that use it.
+	* java/lang/Class.h: Move _Jv_StackTrace friend declaration outside
+	#ifdef INTERPRETER block.
+
+2005-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/20251
+	* Makefile.am (libjawt_la_LIBADD): Add -L$(here)/.libs.
+	* Makefile.in: Rebuilt.
+
+2005-03-15  David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (read_helper): Handle
+	count == 0 case.
+
+2005-03-15  David Daney  <ddaney@avtrex.com>
+
+	* java/io/BufferedInputStream.java (available): Use 'in' instead
+	of 'super' for underlying stream access.
+	(close): Ditto.
+	(read(byte[], int, int)): Ditto.
+	(refill): Ditto.
+	(skip): Call skip on underlying stream when possible.
+
+2005-03-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* stacktrace.cc (GetCallerInfo): Return nothing in case of
+	SJLJ_EXCEPTIONS is defined.
+
+2005-03-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Add XFAILs for new JSR-201
+	tests.
+
+2005-03-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_init): Use the same target
+	check for Darwin.
+	(libjava_arguments): Likewise.
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Likewise.
+	(gcj_jni_test_one): Likewise.
+	(gcj_jni_invocation_compile_c_to_binary): Likewise.
+	Add flags to keep the Darwin linker quiet.
+	(gcj_jni_invocation_test_one): Use the same target check for Darwin.
+	Add -liconv for Darwin.
+
+2005-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* include/jvm.h (GCJ_40_BC_ABI_VERSION): New define.
+	(_Jv_CheckABIVersion): Use it.
+
+2005-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Handle '-p'.
+	(usage): Document '-p'.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (dbexecdir): New variable.
+	(db_name): Likewise.
+	(dbexec_DATA): Likewise.
+	($(db_name)): New target.
+	(AM_CXXFLAGS): Define LIBGCJ_DEFAULT_DATABASE.
+	* java/lang/natRuntime.cc (insertSystemProperties): Set default
+	system database.
+
+2005-03-10  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* exception.cc: Remove stray MethodRef.h include.
+	* java/lang/natClass.cc: Likewise.
+	* gnu/gcj/runtime/MethodRef.java: Removed.
+	* gnu/gcj/runtime/StackTrace.java, gnu/gcj/runtime/natNameFinder.cc,
+	gnu/gcj/runtime/natStackTrace.cc: Really removed.
+	* java/lang/natRuntime.cc (_load): Remove unsed variable.
+	* Makefile.am (ordinary_java_source_files): Remove MethodRef.java.
+	* Makefile.in: Rebuilt.
+
+2005-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added MethodRef.java.
+
+2005-03-10  Chris Burdess  <dog@bluezoo.org>
+
+	* gnu/xml/dom/ls/SAXEventSink.java: Ignore element declarations if
+	not currently parsing the DTD.
+
+2005-03-10  Bryce McKinlay  <mckinlay@redhat.com>
+
+	New Stack Trace infrastructure.
+	* Makefile.am (libgcj0_convenience_la_SOURCES): Add stacktrace.cc.
+	(gnu/gcj/runtime/StackTrace.java): Removed.
+	(ordinary_java_source_files): Remove obsolete files.
+	(nat_source_files): Remove obsolete files. Add natVMThrowable.cc.
+	* configure.host (fallback_backtrace_h): Set backtrace header
+	for mingw and cygwin targets.
+	* configure.ac: Make symlink for fallback backtrace headers.
+	* Makefile.in, configure: Rebuilt.
+	* defineclass.cc (_Jv_ClassReader::read_one_code_attribute):
+	Read 'LineNumberTable' attribute.
+	(_Jv_ClassReader::read_one_class_attribute): Read 'SourceFile'
+	attribute.
+	(_Jv_ClassReader::handleCodeAttribute): Initialize method line
+	table fields.
+	* exception.cc: Remove unused include.
+	* interpret.cc (DIRECT_THREADED, insn_slot): Moved to java-interp.h.
+	(SAVE_PC): New macro. Save current PC in the interpreter frame.
+	(NULLCHECK, NULLARRAYCHECK): Use SAVE_PC.
+	(_Jv_InterpMethod::compile): Translate bytecode PC values in the line
+	table to direct threaded instruction values.
+	(_Jv_StartOfInterpreter, _Jv_EndOfInterpreter): Removed.
+	(_Jv_InterpMethod::run): No longer member function. All
+	callers updated. Remove _Unwind calls. Call SAVE_PC whenever a call
+	is made or where an instruction could throw.
+	(_Jv_InterpMethod::get_source_line): New. Look up source line numbers
+	in line_table.
+	* prims.cc (catch_segv): Construct exception after MAKE_THROW_FRAME.
+	(catch_fpe): Likewise.
+	* stacktrace.cc: New file. Stack trace code now here.
+	* gnu/gcj/runtime/MethodRef.java:
+	* gnu/gcj/runtime/NameFinder.java: Mostly reimplemented. Now simply
+	calls addr2line to look up PC addresses in a given binary or shared
+	library.
+	* gnu/gcj/runtime/StackTrace.java, gnu/gcj/runtime/natNameFinder.cc,
+	gnu/gcj/runtime/natStackTrace.cc: Removed.
+	* gnu/java/lang/MainThread.java (call_main): Add comment warning that
+	this function name is specially recognised by the stack trace code
+	and shouldn't be changed.
+	* include/java-interp.h (DIRECT_THREADED, insn_slot): Moved here.
+	(struct  _Jv_LineTableEntry, line_table, line_table_len): New.
+	(_Jv_InterpMethod::run): Update declaration.
+	(_Jv_StackTrace_): New friend. NameFinder and StackTrace no longer
+	friends.
+	(_Jv_InterpFrame): Renamed from _Jv_MethodChain. Add PC field.
+	* include/java-stack.h: New file. Declarations for stack tracing.
+	* include/jvm.h (_Jv_Frame_info): Removed.
+	* java/lang/Class.h: Update friend declarations.
+	* java/lang/VMClassLoader.java (getSystemClassLoader): Simplify
+	exception message.
+	* java/lang/VMThrowable.java (fillInStackTrace): Now native.
+	(getStackTrace): Now native.
+	(data): New RawDataManaged field.
+	* java/lang/natClass.cc: Update includes.
+	(forName): Use _Jv_StackTrace::GetCallingClass for
+	calling-classloader check.
+	(getClassLoader): Likewise.
+	* java/lang/natRuntime.cc: Update includes.
+	(_load): Use _Jv_StackTrace::GetFirstNonSystemClassLoader.
+	* java/lang/natVMSecurityManager.cc: Update includes.
+	(getClassContext): Use _Jv_StackTrace::GetClassContext.
+	* java/lang/natVMThrowable.cc: New file. Native methods for
+	VMThrowable.
+	* java/lang/reflect/natArray.cc: Update includes.
+	(newInstance): Use _Jv_StackTrace::GetCallingClass to implement
+	accessibility check.
+	* java/lang/reflect/natConstructor.cc: Update includes.
+	(newInstance): Use _Jv_StackTrace::GetCallingClass to implement
+	accessibility check.
+	* java/lang/reflect/natField.cc: Update includes.
+	(getAddr): Use _Jv_StackTrace::GetCallingClass to implement
+	accessibility check.
+	* java/lang/reflect/natMethod.cc: Update includes.
+	(invoke): Use _Jv_StackTrace::GetCallingClass to implement
+	accessibility check.
+	* java/util/natResourceBundle.cc: Update includes.
+	(getCallingClassLoader): Use _Jv_StackTrace::GetCallingClass.
+	* java/util/logging/natLogger.cc: Update includes. Use
+	_Jv_StackTrace::GetCallerInfo to get call-site info.
+	* sysdep/generic/backtrace.h: Fallback backtrace code. Stub
+	implementation.
+	* sysdep/i386/backtrace.h: New. Fallback backtrace code. i386
+	implementation.
+
+2005-03-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.compile/PR20312.java: New file.
+	* testsuite/libjava.compile/PR20312.xfail: Likewise.
+	* testsuite/libjava.jacks/jacks.xfail: Remove 9.2-implicit-15.
+
+2005-03-09  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/nio/channels/FileChannelImpl.java (smallTransferFrom):
+	New.
+	(smallTransferTo): New.
+	(transferFrom): Loop around smallTransferFrom, copying pageSize
+	bytes each time.
+	(transferTo): Likewise.
+
+2005-03-09  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/20389
+	Merge BufferedInputStream from GNU Classpath.
+	* java/io/BufferedInputStream.java (marktarget): Field removed.
+	(CHUNKSIZE): Field removed.
+	(bufferSize): New field.
+	(BufferedInputStream): Initialize fields.
+	(close): Invalidate mark and buffer indexes.
+	(mark):  Rewritten.
+	(read()): Move mark handling code to refill.
+	(read(byte[], int, int)): Ditto.
+	(skip): Ditto and simplify EOF testing.
+	(refill): Rewritten.
+	* java/io/InputStreamReader.java (refill): Removed mark and reset
+	of internal BufferedInputStream.
+
+2005-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natVMClassLoader.cc (defineClass): Reference
+	'systemClassLoader' field directly.
+	* java/lang/natRuntime.cc (_load): Reference 'systemClassLoader'
+	field directly.
+	* java/lang/natClassLoader.cc (_Jv_RegisterInitiatingLoader):
+	Reference 'systemClassLoader' field directly.
+	(_Jv_UnregisterInitiatingLoader): Likewise.
+	(_Jv_FindClass): Likewise.
+
+2005-03-09  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/lang/fdlibm.h: Merge an AIX define from GNU Classpath.
+
+	* java/lang/mprec.h: Remove commented headers. Fix comment to match
+	the file in GNU Classpath style.
+
+2005-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (addURLImpl): Reset 'thisString'.
+	(toString): Synchronize.
+
+2005-03-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.lang/pr13107_2.xfail: Remove xfail.
+	* testsuite/libjava.lang/pr13107_3.xfail: Likewise.
+
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Recognize '-f'.
+	(usage): Document '-f'.
+
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/VMCompiler.java (md5Digest): New field.
+	(compileClass): Clone md5Digest instead of looking up a new one.
+
+2005-03-07  Tom Tromey  <tromey@redhat.com>
+
+	PR java/20215:
+	* include/jvm.h (_Jv_Linker::find_field_helper): Updated.
+	* link.cc (find_field_helper): Added 'type' argument.
+	(find_field): Updated.
+
+2005-04-07  Scott Gilbertson  <scottg@mantatest.com>
+	* gnu/gcj/xlib/natXAnyEvent.cc (loadNext): Added timeout.
+	* gnu/awt/xlib/XCanvasPeer.java (setBackground): Removed
+	throw UnsupportedOperationException, fixed comments.
+	(setFont, setForeground): Fixed comments.
+	* gnu/awt/xlib/XEventLoop.java (postNextEvent): Changed
+	return type to boolean.
+	(getNextEvent): Fixed javadocs.
+	* gnu/awt/xlib/XToolkit.java (interrupted): Removed field.
+	(nativeQueueEmpty): Removed unused code.
+	(iterateNativeQueue): Removed outer loop.
+
+2005-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR libgcj/20155
+	* Makefile.am (libgcj0_convenience.la): Revert last change.
+	* Makefile.in: Regenerate.
+
+2005-03-05  Anthony Green  <green@redhat.com>
+
+	* jni/gtk-peer/gtk_jawt.c (classpath_jawt_get_drawable,
+	classpath_jawt_lock, classpath_jawt_unlock): New functions.
+	* jawt.c (_Jv_AWTLock, _Jv_AWTUnlock): New functions.
+	(_Jv_GetDrawingSurface): Set visualID.
+	(_Jv_FreeDrawingSurfaceInfo): Clear visualID.
+	(JAWT_GetAWT): Set Lock and Unlock.
+	* include/jawt_md.h (struct _JAWT_X11DrawingSurfaceInfo): Add
+	visualID.
+	* include/jawt.h (JAWT_VERSION_1_4, JAWT_LOCK_ERROR,
+	JAWT_LOCK_CLIP_CHANGED, JAWT_LOCK_BOUNDS_CHANGED,
+	JAWT_LOCK_SURFACE_CHANGED): New macros.
+	(struct _JAWT): Add Lock and Unlock.
+
+2005-03-05  Roger Sayle  <roger@eyesopen.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	    Kelley Cook  <kcook@gcc.gnu.org>
+
+	PR libgcj/20155
+	* Makefile.am (libgcj0_convenience.la): New rule to create a file
+	of the object files to link to avoid exceeding the command line
+	length limits on some platforms.
+	(clean-local): Clean up objectlist files.
+	* Makefile.in: Regenerate.
+
+2005-03-05  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/lang/dtoa.c (_dtoa_r): Initialize variables ilim, ilim1 and
+	spec_case. Initialize pointer mlo.
+
+	* java/lang/strtod.c (_strtod_r): Initialize pointers bb, bd, ds and
+	delta.
+
+	* java/lang/e_asin.c (__ieee754_asin): Initialize variable t.
+
+	* java/lang/e_exp.c (__ieee754_exp): Initialize variables hi, lo
+	and k.
+
+	* java/lang/e_rem_pio2.c (__ieee754_rem_pio2): Initialize
+	uninitialized variable z.
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (mcastGrp): Ifdef
+	possible unused variables.
+
+	* gnu/java/nio/natPipeImplPosix.cc (init): Remove self.
+
+	* jawt.c: Include <stdlib.h> to fix implict declaration of malloc.
+
 2005-03-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	PR libgcj/20292
@@ -209,7 +628,7 @@
 
 	Merge serialization from GNU Classpath.
 	* gcj/method.h: Add missing #includes.
-	* java/io/ObjectInputStream.java (readClassDescriptor): Check for 
+	* java/io/ObjectInputStream.java (readClassDescriptor): Check for
 	primitive class IDs on the stream here...
 	(resolveClass): ...not here.
 	* java/io/ObjectStreamField.java: Use VMObjectStream class calls to set
@@ -240,7 +659,7 @@
 	# Fixes bug #11957
 	* java/io/ObjectInputStream.java (resolveClass): Don't check "void"
 	twice.
-	
+
 2005-02-21  Mark Wielaard  <mark@klomp.org>
 
 	Fixes bug #11618.
@@ -282,7 +701,7 @@
 
 	* java/io/ObjectStreamClass.java
 	(firstNonSerializableParent): Removed.
-	(firstNonSerializableParentConstructor): Added.	
+	(firstNonSerializableParentConstructor): Added.
 
 2005-02-21  Mark Wielaard  <mark@klomp.org>
 
@@ -323,15 +742,15 @@
 
 2005-02-21  Sven de Marothy  <sven@physto.se>
 
-	* java/util/Calendar.java 
+	* java/util/Calendar.java
 	(clear): Dates should clear to local time.
-	* java/util/GregorianCalendar.java      
+	* java/util/GregorianCalendar.java
 	(computeTime): Fix priority problem with DAY_OF_WEEK,
 	Handle non-sunday-startig weeks and minimumDaysInFirstWeek.
 
 2005-02-21  Sven de Marothy  <sven@physto.se>
 
-	* java/util/Calendar.java 
+	* java/util/Calendar.java
 	(Calendar): Constructor should clear fields.
 
 2005-02-21  Sven de Marothy  <sven@physto.se>
@@ -387,14 +806,14 @@
 
 2005-02-21  Sven de Marothy <sven@physto.se>
 
-        * java/util/GregorianCalendar.java
-        (GregorianCalendar): Update fields in the constructor
+	* java/util/GregorianCalendar.java
+	(GregorianCalendar): Update fields in the constructor
 
 2005-02-21  Noa Resare  <noa@resare.com>
 
-        * java/util/Calendar.java (explicitDSTOffset): New instance field.
-        (set(int,int)): Set and use new field.
-        (set(int,int,int)): Check new field.
+	* java/util/Calendar.java (explicitDSTOffset): New instance field.
+	(set(int,int)): Set and use new field.
+	(set(int,int,int)): Check new field.
 
 2005-02-21  Noa Resare  <address@hidden>
 
@@ -726,7 +1145,7 @@
 
 2005-02-18  Bryce McKinlay  <mckinlay@redhat.com>
 
-	* java/util/LinkedHashMap (addEntry): Call remove() with key argument, 
+	* java/util/LinkedHashMap (addEntry): Call remove() with key argument,
 	not the HashEntry. Reported by Jean-Marie White.
 
 2005-02-18  Tom Tromey  <tromey@redhat.com>
@@ -1710,20 +2129,6 @@
 	(minimumLayoutSize): Likewise.
 	(layoutContainer): Don't try to layout when there is no view.
 
-2005-02-15  Anthony Green  <green@redhat.com>
-
-	* jni/gtk-peer/gtk_jawt.c (classpath_jawt_get_drawable,
-	classpath_jawt_lock, classpath_jawt_unlock): New functions.
-	* jawt.c (_Jv_JAWT_Lock, _Jv_JAWT_Unlock): New functions.
-	(_Jv_GetDrawingSurface): Set visualID.
-	(_Jv_FreeDrawingSurfaceInfo): Clear visualID.
-	(JAWT_GetAWT): Set Lock and Unlock.
-	* include/jawt_md.h (struct _JAWT_X11DrawingSurfaceInfo): Add visualID.
-	* include/jawt.h (JAWT_VERSION_1_4, JAWT_LOCK_ERROR,
-	JAWT_LOCK_CLIP_CHANGED, JAWT_LOCK_BOUNDS_CHANGED,
-	JAWT_LOCK_SURFACE_CHANGED): New macros.
-	(struct _JAWT): Add Lock and Unlock.
-
 2005-02-15  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jawt.c: New file.
@@ -1862,19 +2267,19 @@
 	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java:
 	(finalize): Call finish from here.
 	(produce): Not from here.
-	* Makefile.am (gtk_c_source_files): 
+	* Makefile.am (gtk_c_source_files):
 	Remove jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c.
 	* Makefile.in: Regenerate.
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
 	(cairoSetFont):
 	(cairoDrawGdkTextLayout):
-	(cairoDrawString): 
+	(cairoDrawString):
 	(getPeerTextMetrics):
 	(getPeerFontMetrics): Remove.
 	(setFont): Don't call cairoSetFont.
 	(cairoDrawGlyphVector): Accept font peer argument.
 	(drawGlyphVector): Pass font peer to cairoDrawGlyphVector.
-	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c	
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
 	(ensure_metrics_cairo):
 	(gnu_java_awt_peer_gtk_GdkGraphics2D_cairoSetFont):
 	(gnu_java_awt_peer_gtk_GdkGraphics2D_cairoDrawString):
@@ -1903,9 +2308,9 @@
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c: Remove.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c
 	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector):
-	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getFontMetrics): 
-	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getTextMetrics): New methods.	
-	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c: Remove.	
+	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getFontMetrics):
+	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getTextMetrics): New methods.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c: Remove.
 	* gnu/java/awt/peer/gtk/GdkFontPeer.java
 	(getGlyphVector):
 	(getFontMetrics):
@@ -2486,9 +2891,9 @@
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c:
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c:
 	Rewrite uses of extern variable to be function calls.
-	* jni/gtk-peer/gtkpeer.h (gdk_env): Change declaration to 
+	* jni/gtk-peer/gtkpeer.h (gdk_env): Change declaration to
 	function, from extern variable.
-	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
 	(gdk_env): Remove variable, add new function.
 	(java_vm): Add new variable.
 	(Java_gnu_java_awt_peer_gtk_GtkToolkit_gtkInit): Initialize
@@ -2511,11 +2916,11 @@
 	* gnu/gcj/xlib/natXAnyEvent.cc: Likewise.
 	* gnu/java/awt/ClasspathToolkit.java: Likewise.
 	* gnu/java/awt/peer/gtk/GtkToolkit.java: Likewise.
-	* java/awt/EventQueue.java (getNextEvent): 
+	* java/awt/EventQueue.java (getNextEvent):
 	Adjust event loop to switch to native mode after 100ms.
 	* javax/swing/Timer.java (drainEvents): Reuse Runnable.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c
-	(Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose): 
+	(Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose):
 	Wake up event thread.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
 	(Java_gnu_java_awt_peer_gtk_GtkToolkit_iterateNativeQueue):
@@ -2648,23 +3053,23 @@
 
 2005-02-15  Graydon Hoare  <graydon@redhat.com>
 
-	* gnu/java/awt/ClasspathToolkit.java 
+	* gnu/java/awt/ClasspathToolkit.java
 	(registerImageIOSpis): New method.
-	* gnu/java/awt/image/ImageDecoder.java 
+	* gnu/java/awt/image/ImageDecoder.java
 	(imageDecoder): New constructor using InputStream
 	(startProduction): Handle existing InputStream.
-	* gnu/java/awt/peer/gtk/GdkGraphics2D.java 
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
 	(findSimpleIntegerArray): Make public and static.
 	(updateBufferedImage): Set each pixel, in a loop.
-	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java: 
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java:
 	Implement ImageIO SPI classes.
 	(createBufferedImage): Rewrite in terms of SPI classes.
 	* gnu/java/awt/peer/gtk/GtkToolkit.java
 	(registerImageIOSpis): New method.
-	* java/lang/reflect/natMethod.cc 
-	(_Jv_CallAnyMethodA): Borrow a patch from aph, applied to trunk, 
+	* java/lang/reflect/natMethod.cc
+	(_Jv_CallAnyMethodA): Borrow a patch from aph, applied to trunk,
 	which lets JNI call interface methods properly.
-	* javax/imageio/ImageIO.java 
+	* javax/imageio/ImageIO.java
 	(WriterFormatFilter.filter): Fix copy-and-paste typos.
 	(WriterMIMETypeFilter.filter): Likewise.
 	(ImageReaderIterator): Pass extension argument through to SPI.
@@ -2678,7 +3083,7 @@
 	(getImageWritersBySuffix): Likewise.
 	(read): Implement.
 	(write): Implement.
-	* javax/imageio/ImageReader.java 
+	* javax/imageio/ImageReader.java
 	(progressListeners): Initialize.
 	(setInput): Implement.
 	* javax/imageio/ImageWriter.java
@@ -2708,22 +3113,22 @@
 	(rowAtPoint): Likewise.
 	(countSelections): Fixed few small count errors.
 	(getSelections): Likewise.
-	(setSelectionMode): Set selection mode for column 
+	(setSelectionMode): Set selection mode for column
 	selection model in addition to row selection model.
 	* javax/swing/plaf/basic/BasicTableUI.java:
 	(getRowForPoint): Removed. Replaced by
 	JTable.rowAtPoint().
-	(getColForPoint): Removed. Replaced by 
+	(getColForPoint): Removed. Replaced by
 	JTable.columnAtPoint().
-	(updateSelection): Updated to call JTable.columnAtPoint 
+	(updateSelection): Updated to call JTable.columnAtPoint
 	and JTable.rowAtPoint.
 	* javax/swing/table/DefaultTableColumnModel.java:
 	(getSelectedColumns): Implemented.
-	(getSelectedColumnCount): Implemented.		
+	(getSelectedColumnCount): Implemented.
 
 2005-02-15  Graydon Hoare  <graydon@redhat.com>
 
-	* Makefile.am 
+	* Makefile.am
 	(jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c)
 	(gnu/java/awt/peer/gtk/GtkMainThread.java) : Remove.
 	* Makefile.in: Regenerate.
@@ -2732,7 +3137,7 @@
 	* gnu/awt/xlib/XToolkit.java: Likewise.
 	* gnu/gcj/xlib/XAnyEvent.java: Likewise.
 	* gnu/gcj/xlib/natXAnyEvent.cc: Likewise.
-	* gnu/java/awt/ClasspathToolkit.java 
+	* gnu/java/awt/ClasspathToolkit.java
 	(nativeQueueEmpty)
 	(wakeNativeQueue)
 	(iterateNativeQueue): New methods.
@@ -2746,7 +3151,7 @@
 	(wakeNativeQueue)
 	(iterateNativeQueue): New methods.
 	* java/awt/Component.java (removeNotify): Remove race.
-	* java/awt/EventDispatchThread.java 
+	* java/awt/EventDispatchThread.java
 	(EventDispatchThread): Don't start on construction.
 	(run): Remove isInterrupted check.
 	* java/awt/EventQueue.java (shutdown): New flag.
@@ -2755,7 +3160,7 @@
 	(getNextEvent): Restructure to use ClasspathToolkit.
 	(postEvent): Activate new thread on posting, wake thread on
 	post of possible shutdown condition event.
-	* java/awt/Frame.java 
+	* java/awt/Frame.java
 	(Frame): Call noteFrame in all constructors.
 	(fireDummyEvent): New helper method.
 	(addNotify): Fire a dummy event to wake up queue.
@@ -2763,7 +3168,7 @@
 	(noteFrame): New method.
 	(weakFrames): New static field.
 	(getFrames): Implement.
-	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c: 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c:
 	Remove.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c:
 	Move everything from GtkMainThread into this file
@@ -2945,7 +3350,7 @@
 	not in dataModel.
 	(removeColumn): Implemented.
 	(moveColumm): Likewise.
-	(setRowHeight): throw IllegalArgumentException if height is 
+	(setRowHeight): throw IllegalArgumentException if height is
 	less then 1.
 	* javax/swing/table/DefaultTableColumnModel.java: Add javadocs.
 	(DefaultTableColumnModel):Add call to createSelectionModel().
@@ -2961,8 +3366,8 @@
 	(fireColumnMarginChanged): Likewise.
 	(getListeners): Changed parameter name.
 	(propertyChange): Implemented.
-	(valueChanged): Changed parameter name. 
-	(createSelectionModel): Implemented.	
+	(valueChanged): Changed parameter name.
+	(createSelectionModel): Implemented.
 
 2005-02-15  Michael Koch  <konqueror@gmx.de>
 
@@ -3527,14 +3932,14 @@
 
 2005-02-15  Graydon Hoare  <graydon@redhat.com>
 
-	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: 
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:
 	Rework painting into BufferedImages
 	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java:
 	Construct BufferedImage with alpha only when alpha is
 	present in colormodel.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
 	Rework painting into client-side jint arrays.
-	* jni/gtk-peer/gtkcairopeer.h: 
+	* jni/gtk-peer/gtkcairopeer.h:
 	Likewise.
 
 2005-02-15  Michael Koch  <konqueror@gmx.de>
@@ -3622,7 +4027,7 @@
 
 	* java/awt/image/IndexColorModel.java:
 	Add FIXME with respect to alpha handling.
-	(getAlpha): Default to returning opaque pixels. 
+	(getAlpha): Default to returning opaque pixels.
 	* java/awt/image/MultiPixelPackedSampleModel.java
 	(MultiPixelPackedSampleModel): Corrected parameters, order of
 	bit shifts and masks, stride length off by one.
@@ -3684,7 +4089,7 @@
 	implementation class names to conform to Classpath guidelines.  Make
 	DomLSException use JDK 1.4+ exception chaining.
 	* gnu/xml/util/SAXNullTransformerFactory.java,
-	gnu/xml/xpath/Predicate.java: Use constants relative to 
+	gnu/xml/xpath/Predicate.java: Use constants relative to
 	declaring class or interface.
 
 2005-02-16  Andrew Haley  <aph@redhat.com>
@@ -3703,14 +4108,14 @@
 	(addStub): New method.
 	(deleteStub): New method.
 	(toStub): Rewrite.
-	
+
 	* java/lang/VMCompiler.java (loadSharedLibrary): Pass
 	true to findHelper (tryParents).
 	* gnu/gcj/runtime/SharedLibLoader.java (SharedLibLoader):
 	Likewise.
 	* java/net/URLClassLoader.java (SoURLLoader): Likewise.
 	* gnu/gcj/runtime/SharedLibHelper.java (SharedLibHelper): Pass
-	ProtectionDomain.  
+	ProtectionDomain.
 	If tryParents is false, don't scan parent class loaders.
 
 	* java/security/Permissions.java (PermissionsHash.implies):
@@ -3746,7 +4151,7 @@
 
 2005-02-15  David Daney <ddaney@avtrex.com>
 	    Bryce McKinlay  <mckinlay@redhat.com>
-	    
+
 	* prims.cc (_Jv_CreateJavaVM): Add comment about initialization order.
 	* posix-threads.cc (_Jv_InitThreads): Call block_sigchld() here to
 	ensure that GC threads inherit the new signal mask.
@@ -3782,7 +4187,7 @@
 	(FileResource.toString): Removed method.
 
 2005-02-15  Mark Wielaard  <mark@klomp.org>
- 
+
 	* javax/net/ssl/SSLContext.java (getInstance): Add exception message
 	and/or cause before throwing.
 
@@ -3868,7 +4273,7 @@
 
 2005-02-10  Bryce McKinlay  <mckinlay@redhat.com>
 
-	* testsuite/libjava.mauve/xfails: Updated to reflect current state 
+	* testsuite/libjava.mauve/xfails: Updated to reflect current state
 	of mauve and libjava.
 
 2005-02-09  Tom Tromey  <tromey@redhat.com>
@@ -3914,21 +4319,21 @@
 
 2005-02-07  Mark Wielaard  <mark@klomp.org>
 
-        Reported by Timo Lindfors <timo.lindfors@iki.fi>
-        java/util/regex/Matcher.java (lookingAt): Set position when match
-        found.
-        (matches): Implemented through lookingAt().
+	Reported by Timo Lindfors <timo.lindfors@iki.fi>
+	java/util/regex/Matcher.java (lookingAt): Set position when match
+	found.
+	(matches): Implemented through lookingAt().
 
 2005-02-07  Mark Wielaard  <mark@klomp.org>
 
-        Fix suggested by Timo Lindfors <timo.lindfors@iki.fi>
-        * java/util/regex/Pattern.java (split(CharSequence,int)):
-        Fix while empties > 0 loops.
+	Fix suggested by Timo Lindfors <timo.lindfors@iki.fi>
+	* java/util/regex/Pattern.java (split(CharSequence,int)):
+	Fix while empties > 0 loops.
 
 2005-02-07  Robert Schuster  <thebohemian@gmx.net>
 
 	* gnu/java/nio/charset/ISO_8859_1.java,
-	gnu/java/nio/charset/US_ASCII.java, 
+	gnu/java/nio/charset/US_ASCII.java,
 	gnu/java/nio/charset/UTF_16.java,
 	gnu/java/nio/charset/UTF_16_LE.java,
 	gnu/java/nio/charset/UTF_16_BE.java,
@@ -3938,7 +4343,7 @@
 	 "http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html"
 	 and "http://oss.software.ibm.com/cgi-bin/icu/convexp?s=ALL".
 	* gnu/java/nio/charset/Provider.java: Made charset lookup
-	 case-insensitive which fixes bug #11740. 
+	 case-insensitive which fixes bug #11740.
 
 2005-02-07  Tom Tromey  <tromey@redhat.com>
 
@@ -8561,7 +8966,7 @@
 2004-11-06  Michael Koch  <konqueror@gmx.de>
 
 	* javax/imageio/event/IIOReadProgressListener.java,
-        javax/imageio/event/IIOReadUpdateListener.java,
+	javax/imageio/event/IIOReadUpdateListener.java,
 	javax/imageio/event/IIOReadWarningListener.java,
 	javax/imageio/event/IIOWriteProgressListener.java,
 	javax/imageio/event/IIOWriteWarningListener.java,
@@ -9478,8 +9883,8 @@
 
 2004-10-15  Andrew Haley  <aph@redhat.com>
 
-        * Makefile.am (nat_files, xlib_nat_files): New.
-        * Makefile.in: Regenerate.
+	* Makefile.am (nat_files, xlib_nat_files): New.
+	* Makefile.in: Regenerate.
 
 2004-10-14  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -9694,7 +10099,7 @@
 	* testsuite/libjava.compile/pr17500.java: New file.
 
 2004-09-25  Shashank Bapat  <shashankbapat@yahoo.com>
-            Mark Wielaard  <mark@klomp.org>
+	    Mark Wielaard  <mark@klomp.org>
 
 	* gnu/regexp/RE.java (initialize): Add RETokenLookAhead support.
 	* gnu/regexp/RETokenLookAhead.java: New file.
@@ -10259,7 +10664,7 @@
 	Changed pfn from static local to local.
 
 2004-09-03  Bryce McKinlay  <mckinlay@redhat.com>
-            H.J. Lu  <hongjiu.lu@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libgcj/17290
 	* Makefile.am (GCJCOMPILE): Remove definition.
@@ -12578,25 +12983,25 @@
 2004-07-21  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JCheckBox.java: Reformated.
-        (JCheckBox): Fixed all constructors.
-        (isBorderPaintedFlat): New method.
-        (setBorderPaintedFlat): New method.
+	(JCheckBox): Fixed all constructors.
+	(isBorderPaintedFlat): New method.
+	(setBorderPaintedFlat): New method.
 	* javax/swing/JEditorPane.java
-        (createEditorKitForContentType): Made public.
-        (scrollToReference): Likewise.
+	(createEditorKitForContentType): Made public.
+	(scrollToReference): Likewise.
 	* javax/swing/JTextArea.java
-        (setLineWrap): Fire property change.
+	(setLineWrap): Fire property change.
 	* javax/swing/JToggleButton.java
-        (JToggleButton): New constructor.
-        (JToggleButton): Simplified.
+	(JToggleButton): New constructor.
+	(JToggleButton): Simplified.
 	* javax/swing/text/AttributeSet.java
-        (FontAttribute): Renamed from FontCharacterAttribute.
+	(FontAttribute): Renamed from FontCharacterAttribute.
 	* javax/swing/text/JTextComponent.java
-        (KeyBinBinding): Added javadoc.
-        (JTextComponent): Likewise.
-        (getAccessibleContext): Fixed javadoc.
+	(KeyBinBinding): Added javadoc.
+	(JTextComponent): Likewise.
+	(getAccessibleContext): Fixed javadoc.
 	* javax/swing/text/View.java
-        (View): Added javadoc.
+	(View): Added javadoc.
 	* javax/swing/text/TabableView.java: New file.
 	* Makefile.am: Added javax/swing/text/TabableView.java.
 	* Makefile.in: Regenerated.
@@ -13707,18 +14112,18 @@
 	java/nio/ShortBuffer.java,
 	java/nio/ShortBufferImpl.java,
 	java/nio/ShortViewBufferImpl.java:
-        Fixed javadocs all over. Improved input error
-        checking.
+	Fixed javadocs all over. Improved input error
+	checking.
 
 	* java/nio/Buffer.java
 	(checkForUnderflow, checkForOverflow, checkIndex,
 	checkIfReadOnly, checkArraySize): New helper methods
-        for error checking.
+	for error checking.
 
 	* java/nio/ByteBufferHelper.java
 	(checkRemainingForRead, checkRemainingForWrite,
 	checkAvailableForRead, checkAvailableForWrite): Removed
-        no longer needed methods.
+	no longer needed methods.
 
 2004-07-09  Michael Koch  <konqueror@gmx.de>
 
@@ -16198,15 +16603,15 @@
 2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/util/SimpleTimeZone.java (startTimeMode, endTimeMode,
-        WALL_TIME, STANDARD_TIME, UTC_TIME): New members.
+	WALL_TIME, STANDARD_TIME, UTC_TIME): New members.
 	(SimpleTimeZone): Tweak docs.  Add new variation.
 	(setStartRule,setEndRule): Add new variations.  Use
-        startTimeMode and endTimeMode.
+	startTimeMode and endTimeMode.
 
 2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/util/Calendar.java (getActualMinimum,
-        getActualMaximum):  Remove abstract.  Implement.
+	getActualMaximum):  Remove abstract.  Implement.
 
 2004-05-06  Bryce McKinlay  <mckinlay@redhat.com>
 
@@ -16463,7 +16868,7 @@
 2004-05-04  Ingo Proetel  <proetel@aicas.com>
 
 	* java/awt/image/ColorModel.java (getRGBdefault): Default ColorModel has
-        32 bit pixels not 8 bit pixels.
+	32 bit pixels not 8 bit pixels.
 	(isCompatibleRaster): Added javadoc comment.
 
 2004-05-04  Ingo Proetel  <proetel@aicas.com>
@@ -16575,7 +16980,7 @@
 	(getByName): Return null when no interface was found.
 
 2004-04-30  Ranjit Mathew  <rmathew@hotmail.com>
-            Tom Tromey  <tromey@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
 	additional option "-Wmissing-prototypes" for compiling C sources.
@@ -16597,7 +17002,7 @@
 2004-04-24  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/text/CollationElementIterator.java (reset): Reset
-        lookahead variables.
+	lookahead variables.
 
 2004-04-23  Mark Wielaard  <mark@klomp.org>
 
@@ -17075,7 +17480,7 @@
 
 2004-04-20  Guilhem Lavaux <guilhem@kaffe.org>
 
-        Reported by Nektarios Papadopoulos <npapadop@inaccessnetworks.com>
+	Reported by Nektarios Papadopoulos <npapadop@inaccessnetworks.com>
 	* java/io/FileOutputStream.java
 	(FileOutputStream) Reorganized constructors. Constructors now
 	check whether the given path is directory.
@@ -17318,7 +17723,7 @@
 	(SCROLL_TAB_LAYOUT): Make public, value is 1.
 	(WRAP_TAB_LAYOUT): Make public, value is 0.
 	* javax/swing/plaf/basic/BasicTabbedPaneUI.java (ScrollingButton):
-        Make private static inner class.
+	Make private static inner class.
 
 2004-04-16  Bryce McKinlay  <mckinlay@redhat.com>
 
@@ -17602,7 +18007,7 @@
 	* java/lang/natString.cc (_Jv_AllocString): Move to prims.cc.
 
 2004-04-14  Andrew Haley  <aph@redhat.com>
-            Bryce McKinlay  <mckinlay@redhat.com>
+	    Bryce McKinlay  <mckinlay@redhat.com>
 
 	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Use
 	_Jv_LookupInterfaceMethodIdx for calls to interfaces.
@@ -17645,8 +18050,8 @@
 
 2004-03-21  Ito Kazumitsu <kaz@maczuka.gcd.org>
 
-        * java/net/ServerSocket.java
-        (accept): Close the socket when error occured.
+	* java/net/ServerSocket.java
+	(accept): Close the socket when error occured.
 
 2004-03-21  Jeroen Frijters  <jeroen@frijters.net>
 
@@ -17997,7 +18402,7 @@
 	(setFont): Call new native method gtkSetFont.
 	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
 	(setFont): For all child components who do not their fonts set,
-        set their peers' fonts with this container's font.
+	set their peers' fonts with this container's font.
 	* gnu/java/awt/peer/gtk/GtkLabelPeer.java:
 	Move all native method declarations to the top for readability.
 	(gtkSetFont): New native method declaration.
@@ -18354,9 +18759,9 @@
 2004-02-13  David Jee  <djee@redhat.com>
 
 	* java/awt/Component.java
-        (show): Only do something if component is invisible at the moment.
-        (hide): Only do something if component is visible at the moment.
-        (reshape): If lightweight, erase old bounds and repaint new bounds.
+	(show): Only do something if component is invisible at the moment.
+	(hide): Only do something if component is visible at the moment.
+	(reshape): If lightweight, erase old bounds and repaint new bounds.
 
 2004-02-13  Kim Ho  <kho@redhat.com>
 
@@ -18803,7 +19208,7 @@
 2004-02-15  Ito Kazumitsu  <kaz@maczuka.gcd.org>
 
 	* java/io/ObjectInputStream.java (readClassDescriptor): Avoid the
-        overflow of fieldmapping.
+	overflow of fieldmapping.
 
 2004-02-14  Sascha Brawer  <brawer@dandelis.ch>
 
@@ -19430,7 +19835,7 @@
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
 	(handleEvent): Implemented. Handles PaintEvents.
 	(paint): Implemented. Use GTK native methods to queue updates
-        for this heavyweight peer.
+	for this heavyweight peer.
 	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
 	(handleEvent): Removed.
 	* java/awt/Component.java
@@ -19776,7 +20181,7 @@
 	* testsuite/libjava.compile/PR13733.xfail: New file.
 
 2004-01-22  Arnaud Vandyck  <arnaud.vandyck@ulg.ac.be>
-            Michael Koch  <konqueror@gmx.de>
+	    Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/table/DefaultTableCellRenderer.java
 	(DefaultTableCellRenderer): Added javadoc for the class and for
@@ -19968,7 +20373,7 @@
 
 2004-01-16  Kim Ho  <kho@redhat.com>
 
-        * gnu/java/awt/peer/gtk/GtkComponentPeer.java (GtkComponentPeer): If
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java (GtkComponentPeer): If
 	it is a FileDialog and has dimensions of 0 by 0, then the initial
 	size is set to size request plus insets.
 	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java

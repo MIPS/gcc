@@ -434,14 +434,14 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 
       /* Save the prediction into CFG in case we are seeing non-degenerated
 	 conditional jump.  */
-      if (EDGE_COUNT (bb->succs) > 1)
+      if (!single_succ_p (bb))
 	{
 	  BRANCH_EDGE (bb)->probability = combined_probability;
 	  FALLTHRU_EDGE (bb)->probability
 	    = REG_BR_PROB_BASE - combined_probability;
 	}
     }
-  else if (EDGE_COUNT (bb->succs) > 1)
+  else if (!single_succ_p (bb))
     {
       int prob = INTVAL (XEXP (prob_note, 0));
 
@@ -449,7 +449,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
       FALLTHRU_EDGE (bb)->probability = REG_BR_PROB_BASE - prob;
     }
   else
-    EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+    single_succ_edge (bb)->probability = REG_BR_PROB_BASE;
 }
 
 /* Combine predictions into single probability and store them into CFG.
@@ -695,7 +695,10 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
     }
 
   if (!rtlsimpleloops)
-    scev_finalize ();
+    {
+      scev_finalize ();
+      current_loops = NULL;
+    }
 }
 
 /* Attempt to predict probabilities of BB outgoing edges using local
@@ -830,8 +833,8 @@ estimate_probability (struct loops *loops_info)
 	     care for error returns and other are often used for fast paths
 	     trought function.  */
 	  if ((e->dest == EXIT_BLOCK_PTR
-	       || (EDGE_COUNT (e->dest->succs) == 1
-		   && EDGE_SUCC (e->dest, 0)->dest == EXIT_BLOCK_PTR))
+	       || (single_succ_p (e->dest)
+		   && single_succ (e->dest) == EXIT_BLOCK_PTR))
 	       && !predicted_by_p (bb, PRED_NULL_RETURN)
 	       && !predicted_by_p (bb, PRED_CONST_RETURN)
 	       && !predicted_by_p (bb, PRED_NEGATIVE_RETURN)
@@ -1207,14 +1210,9 @@ apply_return_prediction (int *heads)
       || !SSA_NAME_DEF_STMT (return_val)
       || TREE_CODE (SSA_NAME_DEF_STMT (return_val)) != PHI_NODE)
     return;
-  phi = SSA_NAME_DEF_STMT (return_val);
-  while (phi)
-    {
-      tree next = PHI_CHAIN (phi);
-      if (PHI_RESULT (phi) == return_val)
-	break;
-      phi = next;
-    }
+  for (phi = SSA_NAME_DEF_STMT (return_val); phi; phi = PHI_CHAIN (phi))
+    if (PHI_RESULT (phi) == return_val)
+      break;
   if (!phi)
     return;
   phi_num_args = PHI_NUM_ARGS (phi);
@@ -1316,7 +1314,7 @@ tree_estimate_probability (void)
 	     fast paths trought function.  */
 	  if (e->dest == EXIT_BLOCK_PTR
 	      && TREE_CODE (last_stmt (bb)) == RETURN_EXPR
-	      && EDGE_COUNT (bb->preds) > 1)
+	      && !single_pred_p (bb))
 	    {
 	      edge e1;
 	      edge_iterator ei1;
@@ -1459,8 +1457,8 @@ last_basic_block_p (basic_block bb)
 
   return (bb->next_bb == EXIT_BLOCK_PTR
 	  || (bb->next_bb->next_bb == EXIT_BLOCK_PTR
-	      && EDGE_COUNT (bb->succs) == 1
-	      && EDGE_SUCC (bb, 0)->dest->next_bb == EXIT_BLOCK_PTR));
+	      && single_succ_p (bb)
+	      && single_succ (bb)->next_bb == EXIT_BLOCK_PTR));
 }
 
 /* Sets branch probabilities according to PREDiction and
@@ -1813,7 +1811,7 @@ estimate_bb_frequencies (struct loops *loops)
 
       mark_dfs_back_edges ();
 
-      EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->probability = REG_BR_PROB_BASE;
+      single_succ_edge (ENTRY_BLOCK_PTR)->probability = REG_BR_PROB_BASE;
 
       /* Set up block info for each basic block.  */
       tovisit = BITMAP_ALLOC (NULL);

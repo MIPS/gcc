@@ -481,7 +481,7 @@ was_declared (gfc_symbol * sym)
   if (!a.implicit_type && sym->ts.type != BT_UNKNOWN)
     return 1;
 
-  if (a.allocatable || a.dimension || a.external || a.intrinsic
+  if (a.allocatable || a.dimension || a.dummy || a.external || a.intrinsic
       || a.optional || a.pointer || a.save || a.target
       || a.access != ACCESS_UNKNOWN || a.intent != INTENT_UNKNOWN)
     return 1;
@@ -1249,6 +1249,36 @@ resolve_call (gfc_code * c)
   return t;
 }
 
+/* Compare the shapes of two arrays that have non-NULL shapes.  If both
+   op1->shape and op2->shape are non-NULL return SUCCESS if their shapes
+   match.  If both op1->shape and op2->shape are non-NULL return FAILURE
+   if their shapes do not match.  If either op1->shape or op2->shape is
+   NULL, return SUCCESS.  */
+
+static try
+compare_shapes (gfc_expr * op1, gfc_expr * op2)
+{
+  try t;
+  int i;
+
+  t = SUCCESS;
+		  
+  if (op1->shape != NULL && op2->shape != NULL)
+    {
+      for (i = 0; i < op1->rank; i++)
+	{
+	  if (mpz_cmp (op1->shape[i], op2->shape[i]) != 0)
+	   {
+	     gfc_error ("Shapes for operands at %L and %L are not conformable",
+			 &op1->where, &op2->where);
+	     t = FAILURE;
+	     break;
+	   }
+	}
+    }
+
+  return t;
+}
 
 /* Resolve an operator expression node.  This can involve replacing the
    operation with a user defined function call.  */
@@ -1460,10 +1490,14 @@ resolve_operator (gfc_expr * e)
 	  if (op1->rank == op2->rank)
 	    {
 	      e->rank = op1->rank;
-
 	      if (e->shape == NULL)
+		{
+		  t = compare_shapes(op1, op2);
+		  if (t == FAILURE)
+		    e->shape = NULL;
+		  else
 		e->shape = gfc_copy_shape (op1->shape, op1->rank);
-
+		}
 	    }
 	  else
 	    {
@@ -1499,10 +1533,12 @@ resolve_operator (gfc_expr * e)
   return t;
 
 bad_op:
+
   if (gfc_extend_expr (e) == SUCCESS)
     return SUCCESS;
 
   gfc_error (msg, &e->where);
+
   return FAILURE;
 }
 
@@ -1665,19 +1701,26 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
   if (gfc_resolve_expr (index) == FAILURE)
     return FAILURE;
 
-  if (index->ts.type != BT_INTEGER)
-    {
-      gfc_error ("Array index at %L must be of INTEGER type", &index->where);
-      return FAILURE;
-    }
-
   if (check_scalar && index->rank != 0)
     {
       gfc_error ("Array index at %L must be scalar", &index->where);
       return FAILURE;
     }
 
-  if (index->ts.kind != gfc_index_integer_kind)
+  if (index->ts.type != BT_INTEGER && index->ts.type != BT_REAL)
+    {
+      gfc_error ("Array index at %L must be of INTEGER type",
+		 &index->where);
+      return FAILURE;
+    }
+
+  if (index->ts.type == BT_REAL)
+    if (gfc_notify_std (GFC_STD_GNU, "Extension: REAL array index at %L",
+			&index->where) == FAILURE)
+      return FAILURE;
+
+  if (index->ts.kind != gfc_index_integer_kind
+      || index->ts.type != BT_INTEGER)
     {
       ts.type = BT_INTEGER;
       ts.kind = gfc_index_integer_kind;
@@ -3652,10 +3695,17 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  break;
 
 	case EXEC_GOTO:
-          if (code->expr != NULL && code->expr->ts.type != BT_INTEGER)
-            gfc_error ("ASSIGNED GOTO statement at %L requires an INTEGER "
+          if (code->expr != NULL)
+	    {
+	      if (code->expr->ts.type != BT_INTEGER)
+		gfc_error ("ASSIGNED GOTO statement at %L requires an INTEGER "
                        "variable", &code->expr->where);
-          else
+	      else if (code->expr->symtree->n.sym->attr.assign != 1)
+		gfc_error ("Variable '%s' has not been assigned a target label "
+			"at %L", code->expr->symtree->n.sym->name,
+			&code->expr->where);
+	    }
+	  else
             resolve_branch (code->label, code);
 	  break;
 
@@ -4713,10 +4763,11 @@ gfc_resolve (gfc_namespace * ns)
       if (cl->length == NULL || gfc_resolve_expr (cl->length) == FAILURE)
 	continue;
 
-      if (cl->length->ts.type != BT_INTEGER)
-	gfc_error
-	  ("Character length specification at %L must be of type INTEGER",
-	   &cl->length->where);
+      if (gfc_simplify_expr (cl->length, 0) == FAILURE)
+	continue;
+
+      if (gfc_specification_expr (cl->length) == FAILURE)
+	continue;
     }
 
   gfc_traverse_ns (ns, resolve_values);

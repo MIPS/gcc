@@ -129,6 +129,7 @@ static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
 static bool cleanup_control_flow (void);
 static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
+static edge find_taken_edge_computed_goto (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
@@ -456,9 +457,9 @@ fold_cond_expr_cond (void)
 	{
 	  tree cond = fold (COND_EXPR_COND (stmt));
 	  if (integer_zerop (cond))
-	    COND_EXPR_COND (stmt) = integer_zero_node;
+	    COND_EXPR_COND (stmt) = boolean_false_node;
 	  else if (integer_onep (cond))
-	    COND_EXPR_COND (stmt) = integer_one_node;
+	    COND_EXPR_COND (stmt) = boolean_true_node;
 	}
     }
 }
@@ -836,7 +837,7 @@ label_to_block (tree dest)
 static void
 make_goto_expr_edges (basic_block bb)
 {
-  tree goto_t, dest;
+  tree goto_t;
   basic_block target_bb;
   int for_call;
   block_stmt_iterator last = bsi_last (bb);
@@ -847,13 +848,10 @@ make_goto_expr_edges (basic_block bb)
      CALL_EXPR or MODIFY_EXPR), then the edge is an abnormal edge resulting
      from a nonlocal goto.  */
   if (TREE_CODE (goto_t) != GOTO_EXPR)
-    {
-      dest = error_mark_node;
-      for_call = 1;
-    }
+    for_call = 1;
   else
     {
-      dest = GOTO_DESTINATION (goto_t);
+      tree dest = GOTO_DESTINATION (goto_t);
       for_call = 0;
 
       /* A GOTO to a local label creates normal edges.  */
@@ -957,6 +955,30 @@ cleanup_tree_cfg (void)
   return retval;
 }
 
+
+/* Cleanup cfg and repair loop structures.  */
+
+void
+cleanup_tree_cfg_loop (void)
+{
+  bitmap changed_bbs = BITMAP_ALLOC (NULL);
+
+  cleanup_tree_cfg ();
+
+  fix_loop_structure (current_loops, changed_bbs);
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* This usually does nothing.  But sometimes parts of cfg that originally
+     were inside a loop get out of it due to edge removal (since they
+     become unreachable by back edges from latch).  */
+  rewrite_into_loop_closed_ssa (changed_bbs);
+
+  BITMAP_FREE (changed_bbs);
+
+#ifdef ENABLE_CHECKING
+  verify_loop_structure (current_loops);
+#endif
+}
 
 /* Cleanup useless labels in basic blocks.  This is something we wish
    to do early because it allows us to group case labels before creating
@@ -1167,7 +1189,7 @@ group_case_labels (void)
           i = 0;
 	  while (i < old_size - 1)
 	    {
-	      tree base_case, base_label, base_high, type;
+	      tree base_case, base_label, base_high;
 	      base_case = TREE_VEC_ELT (labels, i);
 
 	      gcc_assert (base_case);
@@ -1183,7 +1205,6 @@ group_case_labels (void)
 		  continue;
 		}
 
-	      type = TREE_TYPE (CASE_LOW (base_case));
 	      base_high = CASE_HIGH (base_case) ?
 		CASE_HIGH (base_case) : CASE_LOW (base_case);
 	      i++;
@@ -1235,16 +1256,16 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
   tree stmt;
   block_stmt_iterator bsi;
 
-  if (EDGE_COUNT (a->succs) != 1)
+  if (!single_succ_p (a))
     return false;
 
-  if (EDGE_SUCC (a, 0)->flags & EDGE_ABNORMAL)
+  if (single_succ_edge (a)->flags & EDGE_ABNORMAL)
     return false;
 
-  if (EDGE_SUCC (a, 0)->dest != b)
+  if (single_succ (a) != b)
     return false;
 
-  if (EDGE_COUNT (b->preds) > 1)
+  if (!single_pred_p (b))
     return false;
 
   if (b == EXIT_BLOCK_PTR)
@@ -1276,6 +1297,11 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
 	return false;
     }
 
+  /* Protect the loop latches.  */
+  if (current_loops
+      && b->loop_father->latch == b)
+    return false;
+
   return true;
 }
 
@@ -1294,14 +1320,29 @@ tree_merge_blocks (basic_block a, basic_block b)
   /* Ensure that B follows A.  */
   move_block_after (b, a);
 
-  gcc_assert (EDGE_SUCC (a, 0)->flags & EDGE_FALLTHRU);
+  gcc_assert (single_succ_edge (a)->flags & EDGE_FALLTHRU);
   gcc_assert (!last_stmt (a) || !stmt_ends_bb_p (last_stmt (a)));
 
   /* Remove labels from B and set bb_for_stmt to A for other statements.  */
   for (bsi = bsi_start (b); !bsi_end_p (bsi);)
     {
       if (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
-	bsi_remove (&bsi);
+	{
+	  tree label = bsi_stmt (bsi);
+
+	  bsi_remove (&bsi);
+	  /* Now that we can thread computed gotos, we might have
+	     a situation where we have a forced label in block B
+	     However, the label at the start of block B might still be
+	     used in other ways (think about the runtime checking for
+	     Fortran assigned gotos).  So we can not just delete the
+	     label.  Instead we move the label to the start of block A.  */
+	  if (FORCED_LABEL (LABEL_EXPR_LABEL (label)))
+	    {
+	      block_stmt_iterator dest_bsi = bsi_start (a);
+	      bsi_insert_before (&dest_bsi, label, BSI_NEW_STMT);
+	    }
+	}
       else
 	{
 	  set_bb_for_stmt (bsi_stmt (bsi), a);
@@ -1877,16 +1918,17 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 
   /* Check whether we come here from a condition, and if so, get the
      condition.  */
-  if (EDGE_COUNT (bb->preds) != 1
-      || !(EDGE_PRED (bb, 0)->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+  if (!single_pred_p (bb)
+      || !(single_pred_edge (bb)->flags
+	   & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     return;
 
-  cond = COND_EXPR_COND (last_stmt (EDGE_PRED (bb, 0)->src));
+  cond = COND_EXPR_COND (last_stmt (single_pred (bb)));
 
   if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
     {
       var = cond;
-      val = (EDGE_PRED (bb, 0)->flags & EDGE_FALSE_VALUE
+      val = (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE
 	     ? boolean_false_node : boolean_true_node);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR
@@ -1894,12 +1936,12 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL))
     {
       var = TREE_OPERAND (cond, 0);
-      val = (EDGE_PRED (bb, 0)->flags & EDGE_FALSE_VALUE
+      val = (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE
 	     ? boolean_true_node : boolean_false_node);
     }
   else
     {
-      if (EDGE_PRED (bb, 0)->flags & EDGE_FALSE_VALUE)
+      if (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE)
 	cond = invert_truthvalue (cond);
       if (TREE_CODE (cond) == EQ_EXPR
 	  && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
@@ -1997,7 +2039,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   while (phi)
     {
       tree next = PHI_CHAIN (phi);
-      remove_phi_node (phi, NULL_TREE, bb);
+      remove_phi_node (phi, NULL_TREE);
       phi = next;
     }
 
@@ -2013,7 +2055,11 @@ static void
 remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
+#ifdef USE_MAPPED_LOCATION
+  source_location loc = UNKNOWN_LOCATION;
+#else
   source_locus loc = 0;
+#endif
 
   if (dump_file)
     {
@@ -2022,6 +2068,20 @@ remove_bb (basic_block bb)
 	{
 	  dump_bb (bb, dump_file, 0);
 	  fprintf (dump_file, "\n");
+	}
+    }
+
+  /* If we remove the header or the latch of a loop, mark the loop for
+     removal by setting its header and latch to NULL.  */
+  if (current_loops)
+    {
+      struct loop *loop = bb->loop_father;
+
+      if (loop->latch == bb
+	  || loop->header == bb)
+	{
+	  loop->latch = NULL;
+	  loop->header = NULL;
 	}
     }
 
@@ -2052,15 +2112,15 @@ remove_bb (basic_block bb)
 	 program that are indeed unreachable.  */
       if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_HAS_LOCATION (stmt) && !loc)
 	{
-	  source_locus t;
-
 #ifdef USE_MAPPED_LOCATION
-	  t = EXPR_LOCATION (stmt);
+	  if (EXPR_HAS_LOCATION (stmt))
+	    loc = EXPR_LOCATION (stmt);
 #else
+	  source_locus t;
 	  t = EXPR_LOCUS (stmt);
-#endif
 	  if (t && LOCATION_LINE (*t) > 0)
 	    loc = t;
+#endif
 	}
     }
 
@@ -2068,10 +2128,11 @@ remove_bb (basic_block bb)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-  if (warn_notreached && loc)
 #ifdef USE_MAPPED_LOCATION
+  if (warn_notreached && loc != UNKNOWN_LOCATION)
     warning ("%Hwill never be executed", &loc);
 #else
+  if (warn_notreached && loc)
     warning ("%Hwill never be executed", loc);
 #endif
 
@@ -2117,6 +2178,52 @@ cleanup_control_flow (void)
 	  || TREE_CODE (stmt) == SWITCH_EXPR)
 	retval |= cleanup_control_expr_graph (bb, bsi);
 
+      /* If we had a computed goto which has a compile-time determinable
+	 destination, then we can eliminate the goto.  */
+      if (TREE_CODE (stmt) == GOTO_EXPR
+	  && TREE_CODE (GOTO_DESTINATION (stmt)) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (GOTO_DESTINATION (stmt), 0)) == LABEL_DECL)
+	{
+	  edge e;
+	  tree label;
+	  edge_iterator ei;
+	  basic_block target_block;
+	  bool removed_edge = false;
+
+	  /* First look at all the outgoing edges.  Delete any outgoing
+	     edges which do not go to the right block.  For the one
+	     edge which goes to the right block, fix up its flags.  */
+	  label = TREE_OPERAND (GOTO_DESTINATION (stmt), 0);
+	  target_block = label_to_block (label);
+	  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+	    {
+	      if (e->dest != target_block)
+		{
+		  removed_edge = true;
+		  remove_edge (e);
+		}
+	      else
+	        {
+		  /* Turn off the EDGE_ABNORMAL flag.  */
+		  e->flags &= ~EDGE_ABNORMAL;
+
+		  /* And set EDGE_FALLTHRU.  */
+		  e->flags |= EDGE_FALLTHRU;
+		  ei_next (&ei);
+		}
+	    }
+
+	  /* If we removed one or more edges, then we will need to fix the
+	     dominators.  It may be possible to incrementally update them.  */
+	  if (removed_edge)
+	    free_dominance_info (CDI_DOMINATORS);
+
+	  /* Remove the GOTO_EXPR as it is not needed.  The CFG has all the
+	     relevant information we need.  */
+	  bsi_remove (&bsi);
+	  retval = true;
+	}
+
       /* Check for indirect calls that have been turned into
 	 noreturn calls.  */
       if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
@@ -2139,7 +2246,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   bool retval = false;
   tree expr = bsi_stmt (bsi), val;
 
-  if (EDGE_COUNT (bb->succs) > 1)
+  if (!single_succ_p (bb))
     {
       edge e;
       edge_iterator ei;
@@ -2181,7 +2288,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	taken_edge->probability = REG_BR_PROB_BASE;
     }
   else
-    taken_edge = EDGE_SUCC (bb, 0);
+    taken_edge = single_succ_edge (bb);
 
   bsi_remove (&bsi);
   taken_edge->flags = EDGE_FALLTHRU;
@@ -2224,7 +2331,7 @@ find_taken_edge (basic_block bb, tree val)
   gcc_assert (is_ctrl_stmt (stmt));
   gcc_assert (val);
 
-  if (TREE_CODE (val) != INTEGER_CST)
+  if (! is_gimple_min_invariant (val))
     return NULL;
 
   if (TREE_CODE (stmt) == COND_EXPR)
@@ -2233,9 +2340,31 @@ find_taken_edge (basic_block bb, tree val)
   if (TREE_CODE (stmt) == SWITCH_EXPR)
     return find_taken_edge_switch_expr (bb, val);
 
+  if (computed_goto_p (stmt))
+    return find_taken_edge_computed_goto (bb, TREE_OPERAND( val, 0));
+
   gcc_unreachable ();
 }
 
+/* Given a constant value VAL and the entry block BB to a GOTO_EXPR
+   statement, determine which of the outgoing edges will be taken out of the
+   block.  Return NULL if either edge may be taken.  */
+
+static edge
+find_taken_edge_computed_goto (basic_block bb, tree val)
+{
+  basic_block dest;
+  edge e = NULL;
+
+  dest = label_to_block (val);
+  if (dest)
+    {
+      e = find_edge (bb, dest);
+      gcc_assert (e != NULL);
+    }
+
+  return e;
+}
 
 /* Given a constant value VAL and the entry block BB to a COND_EXPR
    statement, determine which of the two edges will be taken out of the
@@ -2247,19 +2376,10 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   edge true_edge, false_edge;
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-
-  /* Otherwise, try to determine which branch of the if() will be taken.
-     If VAL is a constant but it can't be reduced to a 0 or a 1, then
-     we don't really know which edge will be taken at runtime.  This
-     may happen when comparing addresses (e.g., if (&var1 == 4)).  */
-  if (integer_nonzerop (val))
-    return true_edge;
-  else if (integer_zerop (val))
-    return false_edge;
-
-  gcc_unreachable ();
+  
+  gcc_assert (TREE_CODE (val) == INTEGER_CST);
+  return (zero_p (val) ? false_edge : true_edge);
 }
-
 
 /* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
    statement, determine which edge will be taken out of the block.  Return
@@ -2730,14 +2850,14 @@ disband_implicit_edges (void)
 	{
 	  /* Remove the RETURN_EXPR if we may fall though to the exit
 	     instead.  */
-	  gcc_assert (EDGE_COUNT (bb->succs) == 1);
-	  gcc_assert (EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR);
+	  gcc_assert (single_succ_p (bb));
+	  gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR);
 
 	  if (bb->next_bb == EXIT_BLOCK_PTR
 	      && !TREE_OPERAND (stmt, 0))
 	    {
 	      bsi_remove (&last);
-	      EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
+	      single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 	    }
 	  continue;
 	}
@@ -3032,7 +3152,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
      would have to examine the PHIs to prove that none of them used
      the value set by the statement we want to insert on E.  That
      hardly seems worth the effort.  */
-  if (EDGE_COUNT (dest->preds) == 1
+  if (single_pred_p (dest)
       && ! phi_nodes (dest)
       && dest != EXIT_BLOCK_PTR)
     {
@@ -3064,7 +3184,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
      Except for the entry block.  */
   src = e->src;
   if ((e->flags & EDGE_ABNORMAL) == 0
-      && EDGE_COUNT (src->succs) == 1
+      && single_succ_p (src)
       && src != ENTRY_BLOCK_PTR)
     {
       *bsi = bsi_last (src);
@@ -3095,7 +3215,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
   dest = split_edge (e);
   if (new_bb)
     *new_bb = dest;
-  e = EDGE_PRED (dest, 0);
+  e = single_pred_edge (dest);
   goto restart;
 }
 
@@ -3110,7 +3230,7 @@ bsi_commit_edge_inserts (void)
   edge e;
   edge_iterator ei;
 
-  bsi_commit_one_edge_insert (EDGE_SUCC (ENTRY_BLOCK_PTR, 0), NULL);
+  bsi_commit_one_edge_insert (single_succ_edge (ENTRY_BLOCK_PTR), NULL);
 
   FOR_EACH_BB (bb)
     FOR_EACH_EDGE (e, ei, bb->succs)
@@ -3567,6 +3687,12 @@ verify_stmts (void)
 	{
 	  int phi_num_args = PHI_NUM_ARGS (phi);
 
+	  if (bb_for_stmt (phi) != bb)
+	    {
+	      error ("bb_for_stmt (phi) is set to a wrong basic block\n");
+	      err |= true;
+	    }
+
 	  for (i = 0; i < phi_num_args; i++)
 	    {
 	      tree t = PHI_ARG_DEF (phi, i);
@@ -3605,6 +3731,13 @@ verify_stmts (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
 	{
 	  tree stmt = bsi_stmt (bsi);
+
+	  if (bb_for_stmt (stmt) != bb)
+	    {
+	      error ("bb_for_stmt (stmt) is set to a wrong basic block\n");
+	      err |= true;
+	    }
+
 	  bsi_next (&bsi);
 	  err |= verify_stmt (stmt, bsi_end_p (bsi));
 	  addr = walk_tree (&stmt, verify_node_sharing, htab, NULL);
@@ -3808,14 +3941,15 @@ tree_verify_flow_info (void)
 	  break;
 
 	case RETURN_EXPR:
-	  if (EDGE_COUNT (bb->succs) != 1
-	      || (EDGE_SUCC (bb, 0)->flags & (EDGE_FALLTHRU | EDGE_ABNORMAL
-		  		     | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
+	  if (!single_succ_p (bb)
+	      || (single_succ_edge (bb)->flags
+		  & (EDGE_FALLTHRU | EDGE_ABNORMAL
+		     | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
 	    {
 	      error ("Wrong outgoing edge flags at end of bb %d\n", bb->index);
 	      err = 1;
 	    }
-	  if (EDGE_SUCC (bb, 0)->dest != EXIT_BLOCK_PTR)
+	  if (single_succ (bb) != EXIT_BLOCK_PTR)
 	    {
 	      error ("Return edge does not point to exit in bb %d\n",
 		     bb->index);
@@ -3932,7 +4066,7 @@ tree_make_forwarder_block (edge fallthru)
   dummy = fallthru->src;
   bb = fallthru->dest;
 
-  if (EDGE_COUNT (bb->preds) == 1)
+  if (single_pred_p (bb))
     return;
 
   /* If we redirected a branch we must create new phi nodes at the
@@ -3973,16 +4107,16 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
   block_stmt_iterator bsi;
 
   /* BB must have a single outgoing edge.  */
-  if (EDGE_COUNT (bb->succs) != 1
+  if (single_succ_p (bb) != 1
       /* If PHI_WANTED is false, BB must not have any PHI nodes.
 	 Otherwise, BB must have PHI nodes.  */
       || (phi_nodes (bb) != NULL_TREE) != phi_wanted
       /* BB may not be a predecessor of EXIT_BLOCK_PTR.  */
-      || EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR
+      || single_succ (bb) == EXIT_BLOCK_PTR
       /* Nor should this be an infinite loop.  */
-      || EDGE_SUCC (bb, 0)->dest == bb
+      || single_succ (bb) == bb
       /* BB may not have an abnormal outgoing edge.  */
-      || (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
+      || (single_succ_edge (bb)->flags & EDGE_ABNORMAL))
     return false; 
 
 #if ENABLE_CHECKING
@@ -4010,6 +4144,18 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
   if (find_edge (ENTRY_BLOCK_PTR, bb))
     return false;
 
+  if (current_loops)
+    { 
+      basic_block dest;
+      /* Protect loop latches, headers and preheaders.  */
+      if (bb->loop_father->header == bb)
+	return false;
+      dest = EDGE_SUCC (bb, 0)->dest;
+ 
+      if (dest->loop_father->header == dest)
+	return false;
+    }
+
   return true;
 }
 
@@ -4035,7 +4181,7 @@ has_abnormal_incoming_edge_p (basic_block bb)
 static bool
 remove_forwarder_block (basic_block bb, basic_block **worklist)
 {
-  edge succ = EDGE_SUCC (bb, 0), e, s;
+  edge succ = single_succ_edge (bb), e, s;
   basic_block dest = succ->dest;
   tree label;
   tree phi;
@@ -4194,7 +4340,7 @@ cleanup_forwarder_blocks (void)
 static void
 remove_forwarder_block_with_phi (basic_block bb)
 {
-  edge succ = EDGE_SUCC (bb, 0);
+  edge succ = single_succ_edge (bb);
   basic_block dest = succ->dest;
   tree label;
   basic_block dombb, domdest, dom;
@@ -4235,7 +4381,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 	  /* PHI arguments are different.  Create a forwarder block by
 	     splitting E so that we can merge PHI arguments on E to
 	     DEST.  */
-	  e = EDGE_SUCC (split_edge (e), 0);
+	  e = single_succ_edge (split_edge (e));
 	}
 
       s = redirect_edge_and_branch (e, dest);
@@ -4337,7 +4483,7 @@ merge_phi_nodes (void)
       if (!tree_forwarder_block_p (bb, true))
 	continue;
 
-      dest = EDGE_SUCC (bb, 0)->dest;
+      dest = single_succ (bb);
 
       /* We have to feed into another basic block with PHI
 	 nodes.  */

@@ -829,9 +829,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  gcc_unreachable ();
 	}
 
-      val = trunc_int_for_mode (val, mode);
-
-      return GEN_INT (val);
+      return gen_int_mode (val, mode);
     }
 
   /* We can do some operations on integer CONST_DOUBLEs.  Also allow
@@ -1706,15 +1704,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  : const0_rtx;
 	  /* x/1 is x.  */
 	  if (trueop1 == const1_rtx)
-	    {
-	      /* Handle narrowing UDIV.  */
-	      rtx x = gen_lowpart_common (mode, op0);
-	      if (x)
-		return x;
-	      if (mode != GET_MODE (op0) && GET_MODE (op0) != VOIDmode)
-		return gen_lowpart_SUBREG (mode, op0);
-	      return op0;
-	    }
+	    return rtl_hooks.gen_lowpart_no_emit (mode, op0);
 	  /* Convert divide by power of two into shift.  */
 	  if (GET_CODE (trueop1) == CONST_INT
 	      && (val = exact_log2 (INTVAL (trueop1))) > 0)
@@ -1770,22 +1760,11 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      : const0_rtx;
 	  /* x/1 is x.  */
 	  if (trueop1 == const1_rtx)
-	    {
-	      /* Handle narrowing DIV.  */
-	      rtx x = gen_lowpart_common (mode, op0);
-	      if (x)
-		return x;
-	      if (mode != GET_MODE (op0) && GET_MODE (op0) != VOIDmode)
-		return gen_lowpart_SUBREG (mode, op0);
-	      return op0;
-	    }
+	    return rtl_hooks.gen_lowpart_no_emit (mode, op0);
 	  /* x/-1 is -x.  */
 	  if (trueop1 == constm1_rtx)
 	    {
-	      rtx x = gen_lowpart_common (mode, op0);
-	      if (!x)
-		x = (mode != GET_MODE (op0) && GET_MODE (op0) != VOIDmode)
-		  ? gen_lowpart_SUBREG (mode, op0) : op0;
+	      rtx x = rtl_hooks.gen_lowpart_no_emit (mode, op0);
 	      return simplify_gen_unary (NEG, mode, x, mode);
 	    }
 	}
@@ -2491,8 +2470,7 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  gcc_unreachable ();
 	}
 
-      val = trunc_int_for_mode (val, mode);
-      return GEN_INT (val);
+      return gen_int_mode (val, mode);
     }
 
   return NULL_RTX;
@@ -2885,7 +2863,7 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  /* If op0 is a comparison, extract the comparison arguments form it.  */
 	  if (code == NE)
 	    {
-	      if (GET_MODE (op0) == cmp_mode)
+	      if (GET_MODE (op0) == mode)
 		return simplify_rtx (op0);
 	      else
 		return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,

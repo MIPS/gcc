@@ -266,6 +266,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sink @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
+-fdump-tree-salias @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
@@ -322,6 +323,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
+-ftree-salias @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -548,7 +550,7 @@ Objective-C and Objective-C++ Dialects}.
 -mxgot  -mno-xgot  -mgp32  -mgp64  -mfp32  -mfp64 @gol
 -mhard-float  -msoft-float  -msingle-float  -mdouble-float @gol
 -mpaired-single  -mips3d @gol
--mint64  -mlong64  -mlong32 @gol
+-mint64  -mlong64  -mlong32  -msym32  -mno-sym32 @gol
 -G@var{num}  -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -msplit-addresses  -mno-split-addresses  @gol
@@ -558,7 +560,8 @@ Objective-C and Objective-C++ Dialects}.
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
--mfix-vr4120  -mno-fix-vr4120  -mfix-sb1  -mno-fix-sb1 @gol
+-mfix-vr4120  -mno-fix-vr4120  -mfix-vr4130 @gol
+-mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-likely  -mno-branch-likely @gol
 -mfp-exceptions -mno-fp-exceptions @gol
@@ -3036,6 +3039,51 @@ Do not warn if a multicharacter constant (@samp{'FOOF'}) is used.
 Usually they indicate a typo in the user's code, as they have
 implementation-defined values, and should not be used in portable code.
 
+@item -Wnormalized=<none|id|nfc|nfkc>
+@opindex Wnormalized
+@cindex NFC
+@cindex NFKC
+@cindex character set, input normalization
+In ISO C and ISO C++, two identifiers are different if they are
+different sequences of characters.  However, sometimes when characters
+outside the basic ASCII character set are used, you can have two
+different character sequences that look the same.  To avoid confusion,
+the ISO 10646 standard sets out some @dfn{normalization rules} which
+when applied ensure that two sequences that look the same are turned into
+the same sequence.  GCC can warn you if you are using identifiers which
+have not been normalized; this option controls that warning.
+
+There are four levels of warning that GCC supports.  The default is
+@option{-Wnormalized=nfc}, which warns about any identifier which is
+not in the ISO 10646 ``C'' normalized form, @dfn{NFC}.  NFC is the
+recommended form for most uses.
+
+Unfortunately, there are some characters which ISO C and ISO C++ allow
+in identifiers that when turned into NFC aren't allowable as
+identifiers.  That is, there's no way to use these symbols in portable
+ISO C or C++ and have all your identifiers in NFC.
+@option{-Wnormalized=id} suppresses the warning for these characters.
+It is hoped that future versions of the standards involved will correct
+this, which is why this option is not the default.
+
+You can switch the warning off for all characters by writing
+@option{-Wnormalized=none}.  You would only want to do this if you
+were using some other normalization scheme (like ``D''), because
+otherwise you can easily create bugs that are literally impossible to see.
+
+Some characters in ISO 10646 have distinct meanings but look identical
+in some fonts or display methodologies, especially once formatting has
+been applied.  For instance @code{\u207F}, ``SUPERSCRIPT LATIN SMALL
+LETTER N'', will display just like a regular @code{n} which has been
+placed in a superscript.  ISO 10646 defines the @dfn{NFKC}
+normalisation scheme to convert all these into a standard form as
+well, and GCC will warn if your code is not in NFKC if you use
+@option{-Wnormalized=nfkc}.  This warning is comparable to warning
+about every identifier that contains the letter O because it might be
+confused with the digit 0, and so is not the default, but may be
+useful as a local coding convention if the programming environment is
+unable to be fixed to display these characters distinctly.
+
 @item -Wno-deprecated-declarations
 @opindex Wno-deprecated-declarations
 Do not warn about uses of functions, variables, and types marked as
@@ -3344,6 +3392,15 @@ explicitly specified and it is not the final executable, otherwise it is
 the basename of the source file.  In both cases any suffix is removed
 (e.g.@: @file{foo.gcda} for input file @file{dir/foo.c}, or
 @file{dir/foo.gcda} for output file specified as @option{-o dir/foo.o}).
+
+@cindex @command{gcov}
+@item --coverage
+@opindex coverage
+
+This option is used to compile and link code instrumented for coverage
+analysis.  The option is a synonym for @option{-fprofile-arcs}
+@option{-ftest-coverage} (when compiling) and @option{-lgcov} (when
+linking).  See the documentation for those options for more details.
 
 @itemize
 
@@ -3808,6 +3865,11 @@ appending @file{.ch} to the source file name.
 @opindex fdump-tree-ssa
 Dump SSA related information to a file.  The file name is made by appending
 @file{.ssa} to the source file name.
+
+@item salias
+@opindex fdump-tree-salias
+Dump structure aliasing variable information to a file.  This file name
+is made by appending @file{.salias} to the source file name.
 
 @item alias
 @opindex fdump-tree-alias
@@ -4685,6 +4747,10 @@ that are computed on all paths leading to the redundant computation.
 This analysis faster than PRE, though it exposes fewer redundancies.
 This flag is enabled by default at @option{-O} and higher.
 
+@item -ftree-salias
+Perform structural alias analysis on trees.  This flag
+is enabled by default at @option{-O} and higher.
+
 @item -ftree-sink
 Perform forward store motion  on trees.  This flag is
 enabled by default at @option{-O} and higher.
@@ -5452,7 +5518,7 @@ This number sets the maximum number of instructions (counted in GCC's
 internal representation) in a single function that the tree inliner
 will consider for inlining.  This only affects functions declared
 inline and methods implemented in a class declaration (C++).
-The default value is 500.
+The default value is 450.
 
 @item max-inline-insns-auto
 When you use @option{-finline-functions} (included in @option{-O3}),
@@ -5460,7 +5526,7 @@ a lot of functions that would otherwise not be considered for inlining
 by the compiler will be investigated.  To those functions, a different
 (more restrictive) limit compared to functions declared inline can
 be applied.
-The default value is 120.
+The default value is 90.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
@@ -5469,7 +5535,7 @@ limit after inlining inlining is constrained by
 to avoid extreme compilation time caused by non-linear algorithms used by the
 backend.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 3000.
+The default value is 2700.
 
 @item large-function-growth
 Specifies maximal growth of large function caused by inlining in percents.
@@ -5492,7 +5558,7 @@ For functions declared inline @option{--param max-inline-insns-recursive} is
 taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-insns-recursive-auto} is used.  The
-default value is 500.
+default value is 450.
 
 @item max-inline-recursive-depth
 @itemx max-inline-recursive-depth-auto
@@ -5502,7 +5568,16 @@ For functions declared inline @option{--param max-inline-recursive-depth} is
 taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
-default value is 500.
+default value is 450.
+
+@item inline-call-cost
+Specify cost of call instruction relative to simple arithmetics operations
+(having cost of 1).  Increasing this cost disqualifies inlining of non-leaf
+functions and at the same time increases size of leaf function that is believed to
+reduce function size by being inlined.  In effect it increases amount of
+inlining for code having large abstraction penalty (many functions that just
+pass the arguments to other functions) and decrease inlining for code with low
+abstraction penalty.  The default value is 16.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -9670,6 +9745,15 @@ uses 64-bit @code{long}s, as does the 64-bit EABI; the others use
 32-bit @code{long}s.  Pointers are the same size as @code{long}s,
 or the same size as integer registers, whichever is smaller.
 
+@item -msym32
+@itemx -mno-sym32
+@opindex msym32
+@opindex mno-sym32
+Assume (do not assume) that all symbols have 32-bit values, regardless
+of the selected ABI@.  This option is useful in combination with
+@option{-mabi=64} and @option{-mno-abicalls} because it allows GCC
+to generate shorter and faster references to symbolic addresses.
+
 @item -G @var{num}
 @opindex G
 @cindex smaller data references (MIPS)
@@ -9829,6 +9913,14 @@ the @code{mips64vr*-elf} configurations.
 
 Other VR4120 errata require a nop to be inserted between certain pairs of
 instructions.  These errata are handled by the assembler, not by GCC itself.
+
+@item -mfix-vr4130
+@opindex mfix-vr4130
+Work around the VR4130 @code{mflo}/@code{mfhi} errata.  The
+workarounds are implemented by the assembler rather than by GCC,
+although GCC will avoid using @code{mflo} and @code{mfhi} if the
+VR4130 @code{macc}, @code{macchi}, @code{dmacc} and @code{dmacchi}
+instructions are available instead.
 
 @item -mfix-sb1
 @itemx -mno-fix-sb1
@@ -10364,7 +10456,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
 @samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
-@samp{860}, @samp{970}, @samp{common}, @samp{ec603e}, @samp{G3},
+@samp{860}, @samp{970}, @samp{8540}, @samp{common}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
 @samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
@@ -12373,7 +12465,7 @@ Note that due to ISO C++ specification requirements, operator new and
 operator delete must always be of default visibility.
 
 An overview of these techniques, their benefits and how to use them
-is at @w{@uref{http://www.nedprod.com/programs/gccvisibility.html}}.
+is at @w{@uref{http://gcc.gnu.org/wiki/Visibility}}.
 
 @end table
 

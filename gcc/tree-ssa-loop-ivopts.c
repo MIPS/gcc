@@ -3681,8 +3681,11 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
 
   cand->cost = cost_step + cost_base / AVG_LOOP_NITER (current_loop);
 
-  /* Prefer the original iv unless we may gain something by replacing it.  */
-  if (cand->pos == IP_ORIGINAL)
+  /* Prefer the original iv unless we may gain something by replacing it;
+     this is not really relevant for artificial ivs created by other
+     passes.  */
+  if (cand->pos == IP_ORIGINAL
+      && !DECL_ARTIFICIAL (SSA_NAME_VAR (cand->var_before)))
     cand->cost--;
   
   /* Prefer not to insert statements into latch unless there are some
@@ -4017,7 +4020,7 @@ iv_ca_delta_add (struct iv_use *use, struct cost_pair *old_cp,
 }
 
 /* Joins two lists of changes L1 and L2.  Destructive -- old lists
-   are rewritten.   */
+   are rewritten.  */
 
 static struct iv_ca_delta *
 iv_ca_delta_join (struct iv_ca_delta *l1, struct iv_ca_delta *l2)
@@ -4652,7 +4655,7 @@ remove_statement (tree stmt, bool including_defined_name)
 	  /* Prevent the ssa name defined by the statement from being removed.  */
 	  SET_PHI_RESULT (stmt, NULL);
 	}
-      remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+      remove_phi_node (stmt, NULL_TREE);
     }
   else
     {
@@ -4987,7 +4990,7 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
   block_stmt_iterator bsi;
   tree phi, stmt, def, next;
 
-  if (EDGE_COUNT (exit->dest->preds) > 1)
+  if (!single_pred_p (exit->dest))
     split_loop_exit_edge (exit);
 
   if (TREE_CODE (stmts) == STATEMENT_LIST)

@@ -298,8 +298,7 @@ static void
 c_lex_one_token (c_token *token)
 {
   timevar_push (TV_LEX);
-  token->type = c_lex (&token->value);
-  token->location = input_location;
+  token->type = c_lex_with_flags (&token->value, &token->location, NULL);
   token->in_system_header = in_system_header;
   switch (token->type)
     {
@@ -1843,6 +1842,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       c_parser_error (parser, "expected %<{%>");
       ret.spec = error_mark_node;
       ret.kind = ctsk_tagref;
+      return ret;
     }
   ret = parser_xref_tag (code, ident);
   return ret;
@@ -1899,7 +1899,7 @@ c_parser_struct_declaration (c_parser *parser)
   specs = build_null_declspecs ();
   c_parser_declspecs (parser, specs, false, true, true);
   if (parser->error)
-    return error_mark_node;
+    return NULL_TREE;
   if (!specs->declspecs_seen_p)
     {
       c_parser_error (parser, "expected specifier-qualifier-list");
@@ -2194,6 +2194,7 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
       struct c_declarator *inner
 	= build_id_declarator (c_parser_peek_token (parser)->value);
       *seen_id = true;
+      inner->id_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
       return c_parser_direct_declarator_inner (parser, *seen_id, inner);
     }
@@ -3597,7 +3598,8 @@ c_parser_paren_condition (c_parser *parser)
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return error_mark_node;
   loc = c_parser_peek_token (parser)->location;
-  cond = lang_hooks.truthvalue_conversion (c_parser_expression (parser).value);
+  cond = c_objc_common_truthvalue_conversion
+    (c_parser_expression (parser).value);
   if (EXPR_P (cond))
     SET_EXPR_LOCATION (cond, loc);
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -3778,7 +3780,7 @@ static void
 c_parser_for_statement (c_parser *parser)
 {
   tree block, cond, incr, save_break, save_cont, body;
-  location_t loc;
+  location_t loc = UNKNOWN_LOCATION;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
@@ -3833,7 +3835,7 @@ c_parser_for_statement (c_parser *parser)
       else
 	{
 	  tree ocond = c_parser_expression (parser).value;
-	  cond = lang_hooks.truthvalue_conversion (ocond);
+	  cond = c_objc_common_truthvalue_conversion (ocond);
 	  if (EXPR_P (cond))
 	    SET_EXPR_LOCATION (cond, loc);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
@@ -4168,13 +4170,14 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
 	pedwarn ("ISO C forbids omitting the middle term of a ?: expression");
       /* Make sure first operand is calculated only once.  */
       exp1.value = save_expr (default_conversion (cond.value));
-      cond.value = lang_hooks.truthvalue_conversion (exp1.value);
+      cond.value = c_objc_common_truthvalue_conversion (exp1.value);
       skip_evaluation += cond.value == truthvalue_true_node;
     }
   else
     {
       cond.value
-	= lang_hooks.truthvalue_conversion (default_conversion (cond.value));
+	= c_objc_common_truthvalue_conversion
+	(default_conversion (cond.value));
       skip_evaluation += cond.value == truthvalue_false_node;
       exp1 = c_parser_expression (parser);
       skip_evaluation += ((cond.value == truthvalue_true_node)
@@ -4411,12 +4414,12 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after)
       switch (ocode)
 	{
 	case TRUTH_ANDIF_EXPR:
-	  stack[sp].expr.value = lang_hooks.truthvalue_conversion
+	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_false_node;
 	  break;
 	case TRUTH_ORIF_EXPR:
-	  stack[sp].expr.value = lang_hooks.truthvalue_conversion
+	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_true_node;
 	  break;
@@ -5036,7 +5039,6 @@ c_parser_postfix_expression (c_parser *parser)
 	    tree c;
 
 	    c = fold (e1.value);
-	    STRIP_NOPS (c);
 	    if (TREE_CODE (c) != INTEGER_CST)
 	      error ("first argument to %<__builtin_choose_expr%> not"
 		     " a constant");

@@ -501,7 +501,7 @@ slpeel_update_phi_nodes_for_guard (edge guard_edge,
   tree orig_phi, new_phi, update_phi;
   tree guard_arg, loop_arg;
   basic_block new_merge_bb = guard_edge->dest;
-  edge e = EDGE_SUCC (new_merge_bb, 0);
+  edge e = single_succ_edge (new_merge_bb);
   basic_block update_bb = e->dest;
   basic_block orig_bb = (entry_phis ? loop->header : update_bb);
 
@@ -742,7 +742,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
   edge new_e, enter_e;
   tree cond_stmt, then_label, else_label;
 
-  enter_e = EDGE_SUCC (guard_bb, 0);
+  enter_e = single_succ_edge (guard_bb);
   enter_e->flags &= ~EDGE_FALLTHRU;
   enter_e->flags |= EDGE_FALSE_VALUE;
   bsi = bsi_last (guard_bb);
@@ -963,7 +963,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   add_bb_to_loop (bb_before_second_loop, first_loop->outer);
 
   pre_condition =
-        build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node);
+    fold (build2 (LE_EXPR, boolean_type_node, first_niters, integer_zero_node));
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard (skip_e, first_loop, true /* entry-phis */,
@@ -1001,7 +1001,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   bb_after_second_loop = split_edge (second_loop->single_exit);
   add_bb_to_loop (bb_after_second_loop, second_loop->outer);
 
-  pre_condition = build2 (EQ_EXPR, boolean_type_node, first_niters, niters);
+  pre_condition = 
+	fold (build2 (EQ_EXPR, boolean_type_node, first_niters, niters));
   skip_e = slpeel_add_loop_guard (bb_between_loops, pre_condition,
                                   bb_after_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard (skip_e, second_loop, false /* exit-phis */,
@@ -1166,6 +1167,7 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
   STMT_VINFO_MEMTAG (res) = NULL;
+  STMT_VINFO_SUBVARS (res) = NULL;
   STMT_VINFO_VECT_DR_BASE_ADDRESS (res) = NULL;
   STMT_VINFO_VECT_INIT_OFFSET (res) = NULL_TREE;
   STMT_VINFO_VECT_STEP (res) = NULL_TREE;
@@ -1213,7 +1215,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_EXIT_COND (res) = NULL;
   LOOP_VINFO_NITERS (res) = NULL;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
-  LOOP_DO_PEELING_FOR_ALIGNMENT (res) = false;
+  LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
 			   "loop_write_datarefs");
@@ -1617,6 +1619,6 @@ vectorize_loops (struct loops *loops)
     }
 
   rewrite_into_ssa (false);
-  rewrite_into_loop_closed_ssa (); /* FORNOW */
+  rewrite_into_loop_closed_ssa (NULL); /* FORNOW */
   bitmap_clear (vars_to_rename);
 }

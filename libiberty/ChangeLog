@@ -1,3 +1,36 @@
+2005-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac (funcs): Add gettimeofday.
+	* configure: Regenerated.
+	* gettimeofday.c: New file.
+	* Makefile.in (CFILES): Add gettimeofday.
+	(CONFIGURED_OFILES): Add gettimeofday.o.
+	(./gettimeofday.o): New rule.
+
+2005-03-09  Ian Lance Taylor  <ian@airs.com>
+
+	* pex-os2.c: Remove.
+	* configure.ac: Remove *-*-os2-emx* case when setting pexecute.
+	* Makefile.in (CFILES): Remove pex-os2.c.
+	(CONFIGURED_OFILES): Remove pex-os2.o.
+	(pex-os2.o): Remove target.
+	* configure: Rebuild.
+
+2005-03-07  Ian Lance Taylor  <ian@airs.com>
+
+	* mpw-config.in: Remove.
+	* mpw-make.sed: Remove.
+	* mpw.c: Remove.
+	* Makefile.in (CFILES): Remove pex-mpw.c.
+	(CONFIGURED_OFILES): Remove pex-mpw.o.
+	(mpw.o, pex-mpw.o): Remove targets.
+	* maint-tool (undoc): Remove reference to mpw.c.
+
+2005-03-06  DJ Delorie  <dj@redhat.com>
+
+	* configure.ac (target_header_dir): vfork is a stub under djgpp.
+	* configure: Regenerated.
+
 2005-03-01  Jan Beulich  <jbeulich@novell.com>
 
 	* Makefile.in (CFILES): Add unlink-if-ordinary.c

@@ -191,6 +191,8 @@ enum optab_index
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
+  OTI_lrint,
+  OTI_llrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -317,6 +319,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
+#define lrint_optab (optab_table[OTI_lrint])
+#define llrint_optab (optab_table[OTI_llrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
@@ -463,7 +467,6 @@ extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
 
 /* Expand the copysign operation.  */
 extern rtx expand_copysign (rtx, rtx, rtx);
-extern rtx expand_copysign_absneg (enum machine_mode, rtx, rtx, rtx, int, bool);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */

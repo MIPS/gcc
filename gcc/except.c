@@ -1637,10 +1637,10 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	    || NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK))
       break;
   if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
-    insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+    insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
   else
     {
-      rtx last = BB_END (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest);
+      rtx last = BB_END (single_succ (ENTRY_BLOCK_PTR));
       for (; ; fn_begin = NEXT_INSN (fn_begin))
 	if ((NOTE_P (fn_begin)
 	     && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
@@ -2082,7 +2082,7 @@ struct reachable_info
 /* A subroutine of reachable_next_level.  Return true if TYPE, or a
    base class of TYPE, is in HANDLED.  */
 
-int
+static int
 check_handled (tree handled, tree type)
 {
   tree t;

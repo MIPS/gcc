@@ -990,7 +990,8 @@ Each time a class is initialized, print a short message on standard error.
 @c man begin SYNOPSIS gcj-dbtool
 gcj-dbtool @option{OPTION} @var{DBFILE} [@option{MORE}] @dots{}
 
-gcj-dbtool [@option{-n}] [@option{-a}] [@option{-t}] [@option{-l}]
+gcj-dbtool [@option{-n}] [@option{-a}] [@option{-f}]
+  [@option{-t}] [@option{-l}] [@option{-p}]
   [@option{-v}] [@option{--version}] [@option{--help}]
 
 @c man end
@@ -1027,17 +1028,24 @@ you can choose a larger initial size if desired.  The default size is
 32,749.
 
 @item -a @var{DBFILE} @var{JARFILE} @var{LIB}
+@itemx -f @var{DBFILE} @var{JARFILE} @var{LIB}
 This adds a jar file to the database.  For each class file in the jar,
 a cryptographic signature of the bytecode representation of the class
 is recorded in the database.  At runtime, a class is looked up by its
 signature and the compiled form of the class is looked for in the
-corresponding shared library.
+corresponding shared library.  The @option{-a} option will verify
+that @var{LIB} exists before adding it to the database; @option{-f}
+skips this check.
 
 @item -t @var{DBFILE}
 Test a database.
 
 @item -l @var{DBFILE}
 List the contents of a database.
+
+@item -p
+Print the name of the default database.  If there is no default
+database, this prints a blank line.
 
 @item --help
 Print a help message, then exit.
@@ -2527,7 +2535,8 @@ be set to a directory that is writable by any other user.
 This is a sequence of file names, each referring to a file created by
 @command{gcj-dbtool}.  These files will be used by @code{libgcj} to
 find shared libraries corresponding to classes that are loaded from
-bytecode.
+bytecode.  @code{libgcj} often has a built-in default database; it
+can be queried using @code{gcj-dbtool -p}.
 
 @end table
 

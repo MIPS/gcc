@@ -1,6 +1,7 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -448,6 +449,20 @@ reversed_comparison_code (rtx comparison, rtx insn)
 					 XEXP (comparison, 0),
 					 XEXP (comparison, 1), insn);
 }
+
+/* Return comparison with reversed code of EXP.
+   Return NULL_RTX in case we fail to do the reversal.  */
+rtx
+reversed_comparison (rtx exp, enum machine_mode mode)
+{
+  enum rtx_code reversed_code = reversed_comparison_code (exp, NULL_RTX);
+  if (reversed_code == UNKNOWN)
+    return NULL_RTX;
+  else
+    return simplify_gen_relational (reversed_code, mode, VOIDmode,
+                                    XEXP (exp, 0), XEXP (exp, 1));
+}
+
 
 /* Given an rtx-code for a comparison, return the code for the negated
    comparison.  If no such code exists, return UNKNOWN.
@@ -1715,7 +1730,9 @@ invert_jump_1 (rtx jump, rtx nlabel)
   if (num_validated_changes () == ochanges)
     return 0;
 
-  return redirect_jump_1 (jump, nlabel);
+  /* redirect_jump_1 will fail of nlabel == olabel, and the current use is
+     in Pmode, so checking this is not merely an optimization.  */
+  return nlabel == JUMP_LABEL (jump) || redirect_jump_1 (jump, nlabel);
 }
 
 /* Invert the condition of the jump JUMP, and make it jump to label

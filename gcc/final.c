@@ -1,6 +1,7 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -835,7 +836,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      max_log = log;
 	      max_skip = LABEL_ALIGN_MAX_SKIP;
 	    }
-	  next = NEXT_INSN (insn);
+	  next = next_nonnote_insn (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
 	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
@@ -1677,6 +1678,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_cc0
   rtx set;
 #endif
+  rtx next;
 
   insn_counter++;
 
@@ -1932,10 +1934,11 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  fputs (ASM_APP_OFF, file);
 	  app_on = 0;
 	}
-      if (NEXT_INSN (insn) != 0
-	  && JUMP_P (NEXT_INSN (insn)))
+
+      next = next_nonnote_insn (insn);
+      if (next != 0 && JUMP_P (next))
 	{
-	  rtx nextbody = PATTERN (NEXT_INSN (insn));
+	  rtx nextbody = PATTERN (next);
 
 	  /* If this label is followed by a jump-table,
 	     make sure we put the label in the read-only section.  Also
@@ -1956,7 +1959,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		  targetm.asm_out.function_rodata_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
-		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));
+		  log_align = ADDR_VEC_ALIGN (next);
 #else
 		  log_align = exact_log2 (BIGGEST_ALIGNMENT / BITS_PER_UNIT);
 #endif
@@ -1967,7 +1970,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
-				     NEXT_INSN (insn));
+				     next);
 #else
 	      targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
@@ -2021,6 +2024,11 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (prescan > 0)
 	      break;
+
+	    if (! JUMP_TABLES_IN_TEXT_SECTION)
+	      targetm.asm_out.function_rodata_section (current_function_decl);
+	    else
+	      function_section (current_function_decl);
 
 	    if (app_on)
 	      {
@@ -2157,7 +2165,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  {
 	    /* A delayed-branch sequence */
 	    int i;
-	    rtx next;
 
 	    if (prescan > 0)
 	      break;
@@ -2259,20 +2266,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		  }
 	      }
 	  }
-#endif
-
-#ifndef STACK_REGS
-	/* Don't bother outputting obvious no-ops, even without -O.
-	   This optimization is fast and doesn't interfere with debugging.
-	   Don't do this if the insn is in a delay slot, since this
-	   will cause an improper number of delay insns to be written.  */
-	if (final_sequence == 0
-	    && prescan >= 0
-	    && NONJUMP_INSN_P (insn) && GET_CODE (body) == SET
-	    && REG_P (SET_SRC (body))
-	    && REG_P (SET_DEST (body))
-	    && REGNO (SET_SRC (body)) == REGNO (SET_DEST (body)))
-	  break;
 #endif
 
 #ifdef HAVE_cc0

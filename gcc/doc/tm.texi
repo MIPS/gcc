@@ -721,8 +721,34 @@ it yourself.
 @end defmac
 
 @deftypevar {extern int} target_flags
-This declaration should be present.
+This variable is declared in @file{options.h}, which is included before
+any target-specific headers.
 @end deftypevar
+
+@deftypevar {Target Hook} int TARGET_DEFAULT_TARGET_FLAGS
+This variable specifies the initial value of @code{target_flags}.
+Its default setting is 0.
+
+If the target defines @code{TARGET_SWITCHES}, the null
+@code{TARGET_SWITCHES} entry will override this value.
+@end deftypevar
+
+@deftypefn {Target Hook} bool TARGET_HANDLE_OPTION (size_t @var{code}, const char *@var{arg}, int @var{value})
+This hook is called whenever the user specifies one of the
+target-specific options described by the @file{.opt} definition files
+(@pxref{Options}).  It has the opportunity to do some option-specific
+processing and should return true if the option is valid.  The default
+definition does nothing but return true.
+
+@var{code} specifies the @code{OPT_@var{name}} enumeration value
+associated with the selected option; @var{name} is just a rendering of
+the option name in which non-alphanumeric characters are replaced by
+underscores.  @var{arg} specifies the string argument and is null if
+no argument was given.  If the option is flagged as a @code{UInteger}
+(@pxref{Option properties}), @var{value} is the numeric value of the
+argument.  Otherwise @var{value} is 1 if the positive form of the
+option was used and 0 if the ``no-'' form was.
+@end deftypefn
 
 @cindex optional hardware or system features
 @cindex features, optional, in system conventions
@@ -792,6 +818,10 @@ with opposite meanings, and picks the latter as the default:
     @{ "", MASK_68020, "" @},          \
   @}
 @end smallexample
+
+This macro is being kept for compatibility with older backends.
+New targets should use option definition files instead.
+@xref{Back End}.
 @end defmac
 
 @defmac TARGET_OPTIONS
@@ -849,7 +879,7 @@ checking the state of the option (documentation is elided for brevity).
 
 @smallexample
 [chip.c]
-char *chip_alu = ""; /* Specify default here.  */
+char *chip_alu = ""; /* @r{Specify default here.}  */
 
 [chip.h]
 extern char *chip_alu;
@@ -861,6 +891,10 @@ extern char *chip_alu;
 #define TARGET_ALU1 (chip_alu[0] == '1')
 #define TARGET_ALU2 (chip_alu[0] == '2')
 @end smallexample
+
+This macro is being kept for compatibility with older backends.
+New targets should use option definition files instead.
+@xref{Back End}.
 @end defmac
 
 @defmac TARGET_VERSION
@@ -9280,11 +9314,15 @@ from shared libraries (DLLs).
 You need not define this macro if it would always evaluate to zero.
 @end defmac
 
-@deftypefn {Target Hook} tree TARGET_MD_ASM_CLOBBERS (tree @var{clobbers})
+@deftypefn {Target Hook} tree TARGET_MD_ASM_CLOBBERS (tree @var{outputs}, tree @var{inputs}, tree @var{clobbers})
 This target hook should add to @var{clobbers} @code{STRING_CST} trees for
-any hard regs the port wishes to automatically clobber for all asms.
+any hard regs the port wishes to automatically clobber for an asm.
 It should return the result of the last @code{tree_cons} used to add a
-clobber.
+clobber.  The @var{outputs}, @var{inputs} and @var{clobber} lists are the
+corresponding parameters to the asm and may be inspected to avoid
+clobbering a register that is an input or output of the asm.  You can use
+@code{decl_overlaps_hard_reg_set_p}, declared in @file{tree.h}, to test
+for overlap with regards to asm-declared registers.
 @end deftypefn
 
 @defmac MATH_LIBRARY
@@ -9412,13 +9450,14 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{exp}, bool @var{ignore})
+@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{fndecl}, tree @var{arglist}, bool @var{ignore})
 
-Expand a call to a machine specific built-in function that was set up by
-@samp{TARGET_INIT_BUILTINS}.  @var{exp} is the expression for the
-function call; the result is another tree containing a simplified
-expression for the call's result.  If @var{ignore} is true the
-value will be ignored.
+Fold a call to a machine specific built-in function that was set up by
+@samp{TARGET_INIT_BUILTINS}.  @var{fndecl} is the declaration of the
+built-in function.  @var{arglist} is the list of arguments passed to
+the built-in function.  The result is another tree containing a
+simplified expression for the call's result.  If @var{ignore} is true
+the value will be ignored.
 @end deftypefn
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
@@ -9585,6 +9624,12 @@ important, an explicit memory barrier must be used.  This is true of
 many recent processors which implement a policy of ``relaxed,''
 ``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,
 and ia64.  The default is @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} const char *TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN (tree @var{typelist}, tree @var{funcdecl}, tree @var{val})
+If defined, this macro returns the diagnostic message when it is 
+illegal to pass argument @var{val} to function @var{funcdecl} 
+with prototype @var{typelist}.
 @end deftypefn
 
 @defmac TARGET_USE_JCR_SECTION

@@ -2877,19 +2877,14 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
   if (push_operand (x, mode))
     return emit_move_complex_push (mode, x, y);
 
-  /* For memory to memory moves, optimal behavior can be had with the
-     existing block move logic.  */
-  if (MEM_P (x) && MEM_P (y))
-    {
-      emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
-		       BLOCK_OP_NO_LIBCALL);
-      return get_last_insn ();
-    }
-
   /* See if we can coerce the target into moving both values at once.  */
 
+  /* Move floating point as parts.  */
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      && mov_optab->handlers[GET_MODE_INNER (mode)].insn_code != CODE_FOR_nothing)
+    try_int = false;
   /* Not possible if the values are inherently not adjacent.  */
-  if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
+  else if (GET_CODE (x) == CONCAT || GET_CODE (y) == CONCAT)
     try_int = false;
   /* Is possible if both are registers (or subregs of registers).  */
   else if (register_operand (x, mode) && register_operand (y, mode))
@@ -2907,7 +2902,18 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 
   if (try_int)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret;
+
+      /* For memory to memory moves, optimal behavior can be had with the
+	 existing block move logic.  */
+      if (MEM_P (x) && MEM_P (y))
+	{
+	  emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
+			   BLOCK_OP_NO_LIBCALL);
+	  return get_last_insn ();
+	}
+
+      ret = emit_move_via_integer (mode, x, y);
       if (ret)
 	return ret;
     }
@@ -3824,7 +3830,6 @@ expand_assignment (tree to, tree from)
     {
       enum machine_mode mode1;
       HOST_WIDE_INT bitsize, bitpos;
-      rtx orig_to_rtx;
       tree offset;
       int unsignedp;
       int volatilep = 0;
@@ -3837,7 +3842,7 @@ expand_assignment (tree to, tree from)
       /* If we are going to use store_bit_field and extract_bit_field,
 	 make sure to_rtx will be safe for multiple use.  */
 
-      orig_to_rtx = to_rtx = expand_expr (tem, NULL_RTX, VOIDmode, 0);
+      to_rtx = expand_expr (tem, NULL_RTX, VOIDmode, 0);
 
       if (offset != 0)
 	{
@@ -7877,9 +7882,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* If op1 was placed in target, swap op0 and op1.  */
       if (target != op0 && target == op1)
 	{
-	  rtx tem = op0;
+	  temp = op0;
 	  op0 = op1;
-	  op1 = tem;
+	  op1 = temp;
 	}
 
       /* We generate better code and avoid problems with op1 mentioning
@@ -7887,10 +7892,51 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (! CONSTANT_P (op1))
 	op1 = force_reg (mode, op1);
 
+#ifdef HAVE_conditional_move
+      /* Use a conditional move if possible.  */
+      if (can_conditionally_move_p (mode))
+	{
+	  enum rtx_code comparison_code;
+	  rtx insn;
+
+	  if (code == MAX_EXPR)
+	    comparison_code = unsignedp ? GEU : GE;
+	  else
+	    comparison_code = unsignedp ? LEU : LE;
+
+	  /* ??? Same problem as in expmed.c: emit_conditional_move
+	     forces a stack adjustment via compare_from_rtx, and we
+	     lose the stack adjustment if the sequence we are about
+	     to create is discarded.  */
+	  do_pending_stack_adjust ();
+
+	  start_sequence ();
+
+	  /* Try to emit the conditional move.  */
+	  insn = emit_conditional_move (target, comparison_code,
+					op0, op1, mode,
+					op0, op1, mode,
+					unsignedp);
+
+	  /* If we could do the conditional move, emit the sequence,
+	     and return.  */
+	  if (insn)
+	    {
+	      rtx seq = get_insns ();
+	      end_sequence ();
+	      emit_insn (seq);
+	      return target;
+	    }
+
+	  /* Otherwise discard the sequence and fall back to code with
+	     branches.  */
+	  end_sequence ();
+	}
+#endif
       if (target != op0)
 	emit_move_insn (target, op0);
 
-      op0 = gen_label_rtx ();
+      temp = gen_label_rtx ();
 
       /* If this mode is an integer too wide to compare properly,
 	 compare word by word.  Rely on cse to optimize constant cases.  */
@@ -7899,18 +7945,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	{
 	  if (code == MAX_EXPR)
 	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
-					  NULL_RTX, op0);
+					  NULL_RTX, temp);
 	  else
 	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
-					  NULL_RTX, op0);
+					  NULL_RTX, temp);
 	}
       else
 	{
 	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX, op0);
+				   unsignedp, mode, NULL_RTX, NULL_RTX, temp);
 	}
       emit_move_insn (target, op1);
-      emit_label (op0);
+      emit_label (temp);
       return target;
 
     case BIT_NOT_EXPR:

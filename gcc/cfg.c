@@ -88,7 +88,7 @@ varray_type basic_block_info;
 basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
 
 /* Memory alloc pool for bb member rbi.  */
-alloc_pool rbi_pool;
+static alloc_pool rbi_pool;
 
 void debug_flow_info (void);
 static void free_edge (edge);
@@ -96,6 +96,8 @@ static void free_edge (edge);
 /* Indicate the presence of the profile.  */
 enum profile_status profile_status;
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Called once at initialization time.  */
 
 void
@@ -327,7 +329,7 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
    edge cache CACHE.  Return the new edge, NULL if already exist.  */
 
 edge
-cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int flags)
+cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flags)
 {
   if (edge_cache == NULL
       || src == ENTRY_BLOCK_PTR
@@ -335,11 +337,11 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
     return make_edge (src, dst, flags);
 
   /* Does the requested edge already exist?  */
-  if (! TEST_BIT (edge_cache[src->index], dst->index))
+  if (! TEST_BIT (edge_cache, dst->index))
     {
       /* The edge does not exist.  Create one and update the
 	 cache.  */
-      SET_BIT (edge_cache[src->index], dst->index);
+      SET_BIT (edge_cache, dst->index);
       return unchecked_make_edge (src, dst, flags);
     }
 
@@ -933,10 +935,10 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
     }
   else if (prob != REG_BR_PROB_BASE)
     {
-      int scale = REG_BR_PROB_BASE / prob;
+      int scale = 65536 * REG_BR_PROB_BASE / prob;
 
       FOR_EACH_EDGE (c, ei, bb->succs)
-	c->probability *= scale;
+	c->probability *= scale / 65536;
     }
 
   if (bb != taken_edge->src)
@@ -944,4 +946,41 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
   taken_edge->count -= count;
   if (taken_edge->count < 0)
     taken_edge->count = 0;
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in int arithmetic.  May lose some accuracy.  */
+void
+scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
+{
+  int i;
+  edge e;
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
+   function but considerably slower.  */
+void
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
+			         gcov_type den)
+{
+  int i;
+  edge e;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
 }

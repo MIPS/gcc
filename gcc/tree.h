@@ -134,10 +134,6 @@ extern const enum tree_code_class tree_code_type[];
 #define EXPRESSION_CLASS_P(CODE)\
 	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_expression)
 
-/* Returns nonzero iff CLASS is not the tree code of a type.  */
-
-#define IS_NON_TYPE_CODE_CLASS(CLASS) ((CLASS) != tcc_type)
-
 /* Returns nonzero iff CODE represents a type or declaration.  */
 
 #define IS_TYPE_OR_DECL_P(CODE)\
@@ -557,8 +553,7 @@ struct tree_common GTY(())
 /* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
-    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
-    if (!IS_NON_TYPE_CODE_CLASS (__c))					\
+    if (TYPE_P (__t))							\
       tree_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
     __t; })
@@ -756,7 +751,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  Keep these checks in ascending code
-   order. */
+   order.  */
 
 #define INTEGRAL_TYPE_P(TYPE)  \
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
@@ -2064,8 +2059,8 @@ struct tree_binfo GTY (())
 #define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
 				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
-/* Nonzero if a _DECL means that the name of this decl should be ignored
-   for symbolic debug purposes.  */
+/* Nonzero for a given ..._DECL node means that the name of this node should
+   be ignored for symbolic debug purposes.  */ 
 #define DECL_IGNORED_P(NODE) (DECL_CHECK (NODE)->decl.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -2076,8 +2071,8 @@ struct tree_binfo GTY (())
    any code or allocate any data space for such instances.  */
 #define DECL_ABSTRACT(NODE) (DECL_CHECK (NODE)->decl.abstract_flag)
 
-/* Nonzero if a _DECL means that no warnings should be generated just
-   because this decl is unused.  */
+/* Nonzero for a given ..._DECL node means that no warnings should be
+   generated just because this node is unused.  */
 #define DECL_IN_SYSTEM_HEADER(NODE) \
   (DECL_CHECK (NODE)->decl.in_system_header_flag)
 
@@ -2181,10 +2176,20 @@ struct tree_binfo GTY (())
    not an alias.  */
 #define DECL_IS_MALLOC(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.malloc_flag)
 
+/* Nonzero in a FUNCTION_DECL means this function may return more
+   than once.  */
+#define DECL_IS_RETURNS_TWICE(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.returns_twice_flag)
+
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as "pure" function (like const function, but may read global memory).  */
 #define DECL_IS_PURE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.pure_flag)
 
+/* Nonzero in a FUNCTION_DECL means this function should be treated
+   as "novops" function (function that does not read global memory,
+   but may have arbitrary side effects).  */
+#define DECL_IS_NOVOPS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.novops_flag)
+     
 /* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
    specially.  */
 #define DECL_BIT_FIELD(NODE) (FIELD_DECL_CHECK (NODE)->decl.bit_field_flag)
@@ -2365,7 +2370,6 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned seen_in_bind_expr : 1;
   ENUM_BITFIELD(symbol_visibility) visibility : 2;
   unsigned visibility_specified : 1;
 
@@ -2382,7 +2386,10 @@ struct tree_decl GTY(())
   unsigned preserve_flag: 1;
   unsigned gimple_formal_temp : 1;
   unsigned debug_expr_is_from : 1;
-  /* 12 unused bits.  */
+  unsigned returns_twice_flag : 1;
+  unsigned seen_in_bind_expr : 1;
+  unsigned novops_flag : 1;
+  /* 9 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -3235,9 +3242,6 @@ extern unsigned int maximum_field_alignment;
 /* and its original value in bytes, specified via -fpack-struct=<value>.  */
 extern unsigned int initial_max_fld_align;
 
-/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
-extern unsigned int set_alignment;
-
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
    by making the last node in X point to Y.
    Returns X, except if X is 0 returns Y.  */
@@ -3506,6 +3510,9 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_build1 (enum tree_code, tree, tree);
+extern tree fold_build2 (enum tree_code, tree, tree, tree);
+extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);
 extern tree fold_initializer (tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
@@ -3574,10 +3581,10 @@ extern enum tree_code swap_tree_comparison (enum tree_code);
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
 
 /* In builtins.c */
-extern tree fold_builtin (tree, bool);
+extern tree fold_builtin (tree, tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
-extern tree fold_builtin_strcpy (tree, tree);
-extern tree fold_builtin_strncpy (tree, tree);
+extern tree fold_builtin_strcpy (tree, tree, tree);
+extern tree fold_builtin_strncpy (tree, tree, tree);
 extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
@@ -3705,6 +3712,9 @@ extern rtx emit_line_note (location_t);
 #define ECF_SP_DEPRESSED	256
 /* Create libcall block around the call.  */
 #define ECF_LIBCALL_BLOCK	512
+/* Function does not read or write memory (but may have side effects, so
+   it does not necessarily fit ECF_CONST).  */
+#define ECF_NOVOPS		1024
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);
@@ -3747,7 +3757,8 @@ extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
 extern void set_user_assembler_name (tree, const char *);
 extern void process_pending_assemble_externals (void);
-extern void process_pending_assemble_output_defs (void);
+extern void finish_aliases_1 (void);
+extern void finish_aliases_2 (void);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);
@@ -3760,6 +3771,10 @@ extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
+#ifdef HARD_CONST
+/* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
+extern bool decl_overlaps_hard_reg_set_p (tree, const HARD_REG_SET);
+#endif
 
 /* In gimplify.c.  */
 extern tree create_artificial_label (void);

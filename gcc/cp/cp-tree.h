@@ -3597,6 +3597,7 @@ struct cp_declarator {
   /* For all but cdk_id and cdk_error, the contained declarator.  For
      cdk_id and cdk_error, guaranteed to be NULL.  */
   cp_declarator *declarator;
+  location_t id_loc; /* Currently only set for cdk_id. */
   union {
     /* For identifiers.  */
     struct {
@@ -3760,7 +3761,7 @@ extern void maybe_push_cleanup_level (tree);
 extern void finish_scope                        (void);
 extern void push_switch				(tree);
 extern void pop_switch				(void);
-extern tree pushtag				(tree, tree, int);
+extern tree pushtag				(tree, tree, tag_scope);
 extern tree make_anon_name			(void);
 extern int decls_match				(tree, tree);
 extern tree duplicate_decls			(tree, tree);
@@ -3794,7 +3795,7 @@ extern int copy_fn_p				(tree);
 extern tree get_scope_of_declarator             (const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
-extern bool grok_op_properties			(tree, int, bool);
+extern void grok_op_properties			(tree, int, bool);
 extern tree xref_tag				(enum tag_types, tree, tag_scope, bool);
 extern tree xref_tag_from_type			(tree, tree, tag_scope);
 extern void xref_basetypes			(tree, tree);
@@ -4267,7 +4268,6 @@ extern tree fold_if_not_in_template             (tree);
 extern int string_conv_p			(tree, tree, int);
 extern tree cp_truthvalue_conversion		(tree);
 extern tree condition_conversion		(tree);
-extern tree target_type				(tree);
 extern tree require_complete_type		(tree);
 extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree);
@@ -4283,7 +4283,7 @@ extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);
-extern tree perform_integral_promotions         (tree);
+extern tree default_conversion                  (tree);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool);
 extern tree finish_class_member_access_expr     (tree, tree);
 extern tree build_x_indirect_ref		(tree, const char *);
@@ -4332,6 +4332,8 @@ extern tree lookup_anon_field                   (tree, tree);
 extern bool invalid_nonstatic_memfn_p           (tree);
 extern tree convert_member_func_to_ptr          (tree, tree);
 extern tree convert_ptrmem                      (tree, tree, bool, bool);
+extern int lvalue_or_else                       (tree, enum lvalue_use);
+extern int lvalue_p                             (tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);

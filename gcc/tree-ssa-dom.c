@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "cfgloop.h"
 #include "output.h"
 #include "errors.h"
 #include "expr.h"
@@ -368,6 +369,7 @@ tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
   unsigned int i;
+  struct loops loops_info;
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -407,6 +409,17 @@ tree_ssa_dominator_optimize (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
 
+  /* We need to know which edges exit loops so that we can
+     aggressively thread through loop headers to an exit
+     edge.  */
+  flow_loops_find (&loops_info);
+  mark_loop_exit_edges (&loops_info);
+  flow_loops_free (&loops_info);
+
+  /* Clean up the CFG so that any forwarder blocks created by loop
+     canonicalization are removed.  */
+  cleanup_tree_cfg ();
+
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
      have turned into copies which allows better propagation of
@@ -416,6 +429,10 @@ tree_ssa_dominator_optimize (void)
     {
       /* Optimize the dominator tree.  */
       cfg_altered = false;
+
+      /* We need accurate information regarding back edges in the CFG
+	 for jump threading.  */
+      mark_dfs_back_edges ();
 
       /* Recursively walk the dominator tree optimizing statements.  */
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -445,8 +462,24 @@ tree_ssa_dominator_optimize (void)
 	}
 
       if (cfg_altered)
-	free_dominance_info (CDI_DOMINATORS);
+        free_dominance_info (CDI_DOMINATORS);
+
       cfg_altered |= cleanup_tree_cfg ();
+
+      if (rediscover_loops_after_threading)
+	{
+	  /* Rerun basic loop analysis to discover any newly
+	     created loops and update the set of exit edges.  */
+	  rediscover_loops_after_threading = false;
+	  flow_loops_find (&loops_info);
+	  mark_loop_exit_edges (&loops_info);
+	  flow_loops_free (&loops_info);
+
+	  /* Remove any forwarder blocks inserted by loop
+	     header canonicalization.  */
+	  cleanup_tree_cfg ();
+	}
+
       calculate_dominance_info (CDI_DOMINATORS);
 
       rewrite_ssa_into_ssa ();
@@ -682,7 +715,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      arm will be taken.  */
   if (stmt
       && (TREE_CODE (stmt) == COND_EXPR
-	  || TREE_CODE (stmt) == SWITCH_EXPR))
+	  || TREE_CODE (stmt) == SWITCH_EXPR
+	  || TREE_CODE (stmt) == GOTO_EXPR))
     {
       tree cond, cached_lhs;
 
@@ -690,6 +724,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 expression in the hash tables.  */
       if (TREE_CODE (stmt) == COND_EXPR)
 	cond = COND_EXPR_COND (stmt);
+      else if (TREE_CODE (stmt) == GOTO_EXPR)
+	cond = GOTO_DESTINATION (stmt);
       else
 	cond = SWITCH_COND (stmt);
 
@@ -959,13 +995,25 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (EDGE_COUNT (bb->succs) == 1
-      && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (bb, 0)->dest) != bb
-	  || phi_nodes (EDGE_SUCC (bb, 0)->dest)))
+  if (single_succ_p (bb)
+      && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
+      && (get_immediate_dominator (CDI_DOMINATORS, single_succ (bb)) != bb
+	  || phi_nodes (single_succ (bb))))
 	
     {
-      thread_across_edge (walk_data, EDGE_SUCC (bb, 0));
+      thread_across_edge (walk_data, single_succ_edge (bb));
+    }
+  else if ((last = last_stmt (bb))
+	   && TREE_CODE (last) == GOTO_EXPR
+	   && TREE_CODE (TREE_OPERAND (last, 0)) == SSA_NAME)
+    {
+      edge_iterator ei;
+      edge e;
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  thread_across_edge (walk_data, e);
+	}
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR

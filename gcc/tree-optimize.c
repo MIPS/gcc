@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cgraph.h"
 #include "graph.h"
+#include "cfgloop.h"
 
 
 /* Global variables used to communicate with passes.  */
@@ -347,6 +348,7 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -450,7 +452,12 @@ execute_todo (int properties, unsigned int flags)
     }
 
   if (flags & TODO_cleanup_cfg)
-    cleanup_tree_cfg ();
+    {
+      if (current_loops)
+	cleanup_tree_cfg_loop ();
+      else
+	cleanup_tree_cfg ();
+    }
 
   if ((flags & TODO_dump_func) && dump_file)
     {

@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "integrate.h"
 #include "varray.h"
 #include "hashtab.h"
-#include "pointer-set.h"
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "cgraph.h"
@@ -1165,6 +1164,23 @@ inlinable_function_p (tree fn)
   return inlinable;
 }
 
+/* Estimate the cost of a memory move.  Use machine dependent
+   word size and take possible memcpy call into account.  */
+
+int
+estimate_move_cost (tree type)
+{
+  HOST_WIDE_INT size;
+
+  size = int_size_in_bytes (type);
+
+  if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
+    /* Cost of a memcpy call, 3 arguments and the call.  */
+    return 4;
+  else
+    return ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
+}
+
 /* Used by estimate_num_insns.  Estimate number of instructions seen
    by given statement.  */
 
@@ -1243,28 +1259,50 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 
-    /* Recognize assignments of large structures and constructors of
-       big arrays.  */
+    /* Try to estimate the cost of assignments.  We have three cases to
+       deal with:
+	1) Simple assignments to registers;
+	2) Stores to things that must live in memory.  This includes
+	   "normal" stores to scalars, but also assignments of large
+	   structures, or constructors of big arrays;
+	3) TARGET_EXPRs.
+
+       Let us look at the first two cases, assuming we have "a = b + C":
+       <modify_expr <var_decl "a"> <plus_expr <var_decl "b"> <constant C>>
+       If "a" is a GIMPLE register, the assignment to it is free on almost
+       any target, because "a" usually ends up in a real register.  Hence
+       the only cost of this expression comes from the PLUS_EXPR, and we
+       can ignore the MODIFY_EXPR.
+       If "a" is not a GIMPLE register, the assignment to "a" will most
+       likely be a real store, so the cost of the MODIFY_EXPR is the cost
+       of moving something into "a", which we compute using the function
+       estimate_move_cost.
+
+       The third case deals with TARGET_EXPRs, for which the semantics are
+       that a temporary is assigned, unless the TARGET_EXPR itself is being
+       assigned to something else.  In the latter case we do not need the
+       temporary.  E.g. in <modify_expr <var_decl "a"> <target_expr>>, the
+       MODIFY_EXPR is free.  */
     case INIT_EXPR:
     case MODIFY_EXPR:
-      x = TREE_OPERAND (x, 0);
-      /* FALLTHRU */
+      /* Is the right and side a TARGET_EXPR?  */
+      if (TREE_CODE (TREE_OPERAND (x, 1)) == TARGET_EXPR)
+	break;
+      /* ... fall through ...  */
+
     case TARGET_EXPR:
+      x = TREE_OPERAND (x, 0);
+      /* Is this an assignments to a register?  */
+      if (is_gimple_reg (x))
+	break;
+      /* Otherwise it's a store, so fall through to compute the move cost.  */
+      
     case CONSTRUCTOR:
-      {
-	HOST_WIDE_INT size;
-
-	size = int_size_in_bytes (TREE_TYPE (x));
-
-	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
-	  *count += 10;
-	else
-	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
-      }
+      *count += estimate_move_cost (TREE_TYPE (x));
       break;
 
-      /* Assign cost of 1 to usual operations.
-	 ??? We may consider mapping RTL costs to this.  */
+    /* Assign cost of 1 to usual operations.
+       ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:
 
     case PLUS_EXPR:
@@ -1351,6 +1389,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case CALL_EXPR:
       {
 	tree decl = get_callee_fndecl (x);
+	tree arg;
 
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
@@ -1363,7 +1402,12 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	    default:
 	      break;
 	    }
-	*count += 10;
+
+	arg = TREE_OPERAND (x, 1);
+	for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
+	  *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+
+	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;
       }
     default:
@@ -1393,7 +1437,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   tree expr;
   tree stmt;
   tree use_retvar;
-  tree decl;
   tree fn;
   tree arg_inits;
   tree *inlined_body;
@@ -1604,8 +1647,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     modify_dest = NULL;
 
   /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, return_slot_addr,
-				  modify_dest, &use_retvar);
+  declare_return_variable (id, return_slot_addr,
+			   modify_dest, &use_retvar);
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
@@ -1920,356 +1963,6 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
   /* Clean up.  */
   splay_tree_delete (id.decl_map);
   return body;
-}
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, pset);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-/* This is a subroutine of walk_tree that walks field of TYPE that are to
-   be walked whenever a type is seen in the tree.  Rest of operands and return
-   value are as for walk_tree.  */
-
-static tree
-walk_type_fields (tree type, walk_tree_fn func, void *data,
-		  struct pointer_set_t *pset)
-{
-  tree result = NULL_TREE;
-
-  switch (TREE_CODE (type))
-    {
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      /* We have to worry about mutually recursive pointers.  These can't
-	 be written in C.  They can in Ada.  It's pathological, but
-	 there's an ACATS test (c38102a) that checks it.  Deal with this
-	 by checking if we're pointing to another pointer, that one
-	 points to another pointer, that one does too, and we have no htab.
-	 If so, get a hash table.  We check three levels deep to avoid
-	 the cost of the hash table if we don't need one.  */
-      if (POINTER_TYPE_P (TREE_TYPE (type))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (type)))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (TREE_TYPE (type))))
-	  && !pset)
-	{
-	  result = walk_tree_without_duplicates (&TREE_TYPE (type),
-						 func, data);
-	  if (result)
-	    return result;
-
-	  break;
-	}
-
-      /* ... fall through ... */
-
-    case COMPLEX_TYPE:
-      WALK_SUBTREE (TREE_TYPE (type));
-      break;
-
-    case METHOD_TYPE:
-      WALK_SUBTREE (TYPE_METHOD_BASETYPE (type));
-
-      /* Fall through.  */
-
-    case FUNCTION_TYPE:
-      WALK_SUBTREE (TREE_TYPE (type));
-      {
-	tree arg;
-
-	/* We never want to walk into default arguments.  */
-	for (arg = TYPE_ARG_TYPES (type); arg; arg = TREE_CHAIN (arg))
-	  WALK_SUBTREE (TREE_VALUE (arg));
-      }
-      break;
-
-    case ARRAY_TYPE:
-      /* Don't follow this nodes's type if a pointer for fear that we'll
-	 have infinite recursion.  Those types are uninteresting anyway.  */
-      if (!POINTER_TYPE_P (TREE_TYPE (type))
-	  && TREE_CODE (TREE_TYPE (type)) != OFFSET_TYPE)
-	WALK_SUBTREE (TREE_TYPE (type));
-      WALK_SUBTREE (TYPE_DOMAIN (type));
-      break;
-
-    case BOOLEAN_TYPE:
-    case ENUMERAL_TYPE:
-    case INTEGER_TYPE:
-    case CHAR_TYPE:
-    case REAL_TYPE:
-      WALK_SUBTREE (TYPE_MIN_VALUE (type));
-      WALK_SUBTREE (TYPE_MAX_VALUE (type));
-      break;
-
-    case OFFSET_TYPE:
-      WALK_SUBTREE (TREE_TYPE (type));
-      WALK_SUBTREE (TYPE_OFFSET_BASETYPE (type));
-      break;
-
-    default:
-      break;
-    }
-
-  return NULL_TREE;
-}
-
-/* Apply FUNC to all the sub-trees of TP in a pre-order traversal.  FUNC is
-   called with the DATA and the address of each sub-tree.  If FUNC returns a
-   non-NULL value, the traversal is aborted, and the value returned by FUNC
-   is returned.  If PSET is non-NULL it is used to record the nodes visited,
-   and to avoid visiting a node more than once.  */
-
-tree
-walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
-{
-  enum tree_code code;
-  int walk_subtrees;
-  tree result;
-
-#define WALK_SUBTREE_TAIL(NODE)				\
-  do							\
-    {							\
-       tp = & (NODE);					\
-       goto tail_recurse;				\
-    }							\
-  while (0)
-
- tail_recurse:
-  /* Skip empty subtrees.  */
-  if (!*tp)
-    return NULL_TREE;
-
-  /* Don't walk the same tree twice, if the user has requested
-     that we avoid doing so.  */
-  if (pset && pointer_set_insert (pset, *tp))
-    return NULL_TREE;
-
-  /* Call the function.  */
-  walk_subtrees = 1;
-  result = (*func) (tp, &walk_subtrees, data);
-
-  /* If we found something, return it.  */
-  if (result)
-    return result;
-
-  code = TREE_CODE (*tp);
-
-  /* Even if we didn't, FUNC may have decided that there was nothing
-     interesting below this point in the tree.  */
-  if (!walk_subtrees)
-    {
-      if (code == TREE_LIST)
-	/* But we still need to check our siblings.  */
-	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-      else
-	return NULL_TREE;
-    }
-
-  result = lang_hooks.tree_inlining.walk_subtrees (tp, &walk_subtrees, func,
-						   data, pset);
-  if (result || ! walk_subtrees)
-    return result;
-
-  /* If this is a DECL_EXPR, walk into various fields of the type that it's
-     defining.  We only want to walk into these fields of a type in this
-     case.  Note that decls get walked as part of the processing of a
-     BIND_EXPR.
-
-     ??? Precisely which fields of types that we are supposed to walk in
-     this case vs. the normal case aren't well defined.  */
-  if (code == DECL_EXPR
-      && TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL
-      && TREE_CODE (TREE_TYPE (DECL_EXPR_DECL (*tp))) != ERROR_MARK)
-    {
-      tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
-
-      /* Call the function for the type.  See if it returns anything or
-	 doesn't want us to continue.  If we are to continue, walk both
-	 the normal fields and those for the declaration case.  */
-      result = (*func) (type_p, &walk_subtrees, data);
-      if (result || !walk_subtrees)
-	return NULL_TREE;
-
-      result = walk_type_fields (*type_p, func, data, pset);
-      if (result)
-	return result;
-
-      WALK_SUBTREE (TYPE_SIZE (*type_p));
-      WALK_SUBTREE (TYPE_SIZE_UNIT (*type_p));
-
-      /* If this is a record type, also walk the fields.  */
-      if (TREE_CODE (*type_p) == RECORD_TYPE
-	  || TREE_CODE (*type_p) == UNION_TYPE
-	  || TREE_CODE (*type_p) == QUAL_UNION_TYPE)
-	{
-	  tree field;
-
-	  for (field = TYPE_FIELDS (*type_p); field;
-	       field = TREE_CHAIN (field))
-	    {
-	      /* We'd like to look at the type of the field, but we can easily
-		 get infinite recursion.  So assume it's pointed to elsewhere
-		 in the tree.  Also, ignore things that aren't fields.  */
-	      if (TREE_CODE (field) != FIELD_DECL)
-		continue;
-
-	      WALK_SUBTREE (DECL_FIELD_OFFSET (field));
-	      WALK_SUBTREE (DECL_SIZE (field));
-	      WALK_SUBTREE (DECL_SIZE_UNIT (field));
-	      if (TREE_CODE (*type_p) == QUAL_UNION_TYPE)
-		WALK_SUBTREE (DECL_QUALIFIER (field));
-	    }
-	}
-    }
-
-  else if (code != SAVE_EXPR
-	   && code != BIND_EXPR
-	   && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
-    {
-      int i, len;
-
-      /* Walk over all the sub-trees of this operand.  */
-      len = TREE_CODE_LENGTH (code);
-      /* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
-	 But, we only want to walk once.  */
-      if (code == TARGET_EXPR
-	  && TREE_OPERAND (*tp, 3) == TREE_OPERAND (*tp, 1))
-	--len;
-
-      /* Go through the subtrees.  We need to do this in forward order so
-         that the scope of a FOR_EXPR is handled properly.  */
-#ifdef DEBUG_WALK_TREE
-      for (i = 0; i < len; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-#else
-      for (i = 0; i < len - 1; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-
-      if (len)
-	{
-	  /* The common case is that we may tail recurse here.  */
-	  if (code != BIND_EXPR
-	      && !TREE_CHAIN (*tp))
-	    WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
-	  else
-	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
-	}
-#endif
-    }
-
-  /* If this is a type, walk the needed fields in the type.  */
-  else if (TYPE_P (*tp))
-    {
-      result = walk_type_fields (*tp, func, data, pset);
-      if (result)
-	return result;
-    }
-  else
-    {
-      /* Not one of the easy cases.  We must explicitly go through the
-	 children.  */
-      switch (code)
-	{
-	case ERROR_MARK:
-	case IDENTIFIER_NODE:
-	case INTEGER_CST:
-	case REAL_CST:
-	case VECTOR_CST:
-	case STRING_CST:
-	case BLOCK:
-	case PLACEHOLDER_EXPR:
-	case SSA_NAME:
-	case FIELD_DECL:
-	case RESULT_DECL:
-	  /* None of thse have subtrees other than those already walked
-	     above.  */
-	  break;
-
-	case TREE_LIST:
-	  WALK_SUBTREE (TREE_VALUE (*tp));
-	  WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-	  break;
-
-	case TREE_VEC:
-	  {
-	    int len = TREE_VEC_LENGTH (*tp);
-
-	    if (len == 0)
-	      break;
-
-	    /* Walk all elements but the first.  */
-	    while (--len)
-	      WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
-
-	    /* Now walk the first one as a tail call.  */
-	    WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
-	  }
-
-	case COMPLEX_CST:
-	  WALK_SUBTREE (TREE_REALPART (*tp));
-	  WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
-
-	case CONSTRUCTOR:
-	  WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
-
-	case SAVE_EXPR:
-	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
-
-	case BIND_EXPR:
-	  {
-	    tree decl;
-	    for (decl = BIND_EXPR_VARS (*tp); decl; decl = TREE_CHAIN (decl))
-	      {
-		/* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-		   into declarations that are just mentioned, rather than
-		   declared; they don't really belong to this part of the tree.
-		   And, we can see cycles: the initializer for a declaration
-		   can refer to the declaration itself.  */
-		WALK_SUBTREE (DECL_INITIAL (decl));
-		WALK_SUBTREE (DECL_SIZE (decl));
-		WALK_SUBTREE (DECL_SIZE_UNIT (decl));
-	      }
-	    WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
-	  }
-
-	case STATEMENT_LIST:
-	  {
-	    tree_stmt_iterator i;
-	    for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
-	      WALK_SUBTREE (*tsi_stmt_ptr (i));
-	  }
-	  break;
-
-	default:
-	  /* ??? This could be a language-defined node.  We really should make
-	     a hook for it, but right now just ignore it.  */
-	  break;
-	}
-    }
-
-  /* We didn't find what we were looking for.  */
-  return NULL_TREE;
-
-#undef WALK_SUBTREE
-#undef WALK_SUBTREE_TAIL
-}
-
-/* Like walk_tree, but does not walk duplicate nodes more than once.  */
-
-tree
-walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
-{
-  tree result;
-  struct pointer_set_t *pset;
-
-  pset = pointer_set_create ();
-  result = walk_tree (tp, func, data, pset);
-  pointer_set_destroy (pset);
-  return result;
 }
 
 /* Passed to walk_tree.  Copies the node pointed to, if appropriate.  */

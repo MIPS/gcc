@@ -287,43 +287,41 @@ typedef struct reorder_block_def
 
 /* Masks for basic_block.flags.
 
-   BB_VISITED should not be used by passes, it is used internally by
-   dfs_enumerate_from.
-
    BB_HOT_PARTITION and BB_COLD_PARTITION should be preserved throughout
    the compilation, so they are never cleared.
 
    All other flags may be cleared by clear_bb_flags().  It is generally
    a bad idea to rely on any flags being up-to-date.  */
 
-/* Set if insns in BB have are modified.  Used for updating liveness info.  */
-#define BB_DIRTY		1
+enum
+{
 
-/* Only set on blocks that have just been created by create_bb.  */
-#define BB_NEW			2
+  /* Set if insns in BB have are modified.  Used for updating liveness info.  */
+  BB_DIRTY = 1,
 
-/* Set by find_unreachable_blocks.  Do not rely on this being set in any
-   pass.  */
-#define BB_REACHABLE		4
+  /* Only set on blocks that have just been created by create_bb.  */
+  BB_NEW = 2,
 
-/* Used by dfs_enumerate_from to keep track of visited basic blocks.  */
-#define BB_VISITED		8
+  /* Set by find_unreachable_blocks.  Do not rely on this being set in any
+     pass.  */
+  BB_REACHABLE = 4,
 
-/* Set for blocks in an irreducible loop by loop analysis.  */
-#define BB_IRREDUCIBLE_LOOP	16
+  /* Set for blocks in an irreducible loop by loop analysis.  */
+  BB_IRREDUCIBLE_LOOP = 8,
 
-/* Set on blocks that may actually not be single-entry single-exit block.  */
-#define BB_SUPERBLOCK		32
+  /* Set on blocks that may actually not be single-entry single-exit block.  */
+  BB_SUPERBLOCK = 16,
 
-/* Set on basic blocks that the scheduler should not touch.  This is used
-   by SMS to prevent other schedulers from messing with the loop schedule.  */
-#define BB_DISABLE_SCHEDULE	64
+  /* Set on basic blocks that the scheduler should not touch.  This is used
+     by SMS to prevent other schedulers from messing with the loop schedule.  */
+  BB_DISABLE_SCHEDULE = 32,
 
-/* Set on blocks that should be put in a hot section.  */
-#define BB_HOT_PARTITION	128
+  /* Set on blocks that should be put in a hot section.  */
+  BB_HOT_PARTITION = 64,
 
-/* Set on blocks that should be put in a cold section.  */
-#define BB_COLD_PARTITION	256
+  /* Set on blocks that should be put in a cold section.  */
+  BB_COLD_PARTITION = 128
+};
 
 /* Dummy flag for convenience in the hot/cold partitioning code.  */
 #define BB_UNPARTITIONED	0
@@ -351,6 +349,10 @@ extern int last_basic_block;
 /* Number of edges in the current function.  */
 
 extern int n_edges;
+
+/* TRUE if we should re-run loop discovery after threading jumps, FALSE
+   otherwise.  */
+extern bool rediscover_loops_after_threading;
 
 /* Signalize the status of profile information in the CFG.  */
 extern enum profile_status
@@ -392,10 +394,6 @@ extern GTY(()) varray_type basic_block_info;
 
 #define FOR_ALL_BB(BB) \
   for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
-
-/* What registers are live at the setjmp call.  */
-
-extern regset regs_live_at_setjmp;
 
 /* Special labels found during CFG build.  */
 
@@ -451,7 +449,7 @@ extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
-extern edge cached_make_edge (sbitmap *, basic_block, basic_block, int);
+extern edge cached_make_edge (sbitmap, basic_block, basic_block, int);
 extern edge make_edge (basic_block, basic_block, int);
 extern edge make_single_succ_edge (basic_block, basic_block, int);
 extern void remove_edge (edge);
@@ -470,6 +468,9 @@ extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
+extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type, 
+					     gcov_type);
 
 /* Structure to group all of the information to process IF-THEN and
    IF-THEN-ELSE blocks for the conditional execution support.  This
@@ -546,6 +547,60 @@ struct edge_list
 #define EDGE_I(ev,i)			VEC_index  (edge, (ev), (i))
 #define EDGE_PRED(bb,i)			VEC_index  (edge, (bb)->preds, (i))
 #define EDGE_SUCC(bb,i)			VEC_index  (edge, (bb)->succs, (i))
+
+/* Returns true if BB has precisely one successor.  */
+
+static inline bool
+single_succ_p (basic_block bb)
+{
+  return EDGE_COUNT (bb->succs) == 1;
+}
+
+/* Returns true if BB has precisely one predecessor.  */
+
+static inline bool
+single_pred_p (basic_block bb)
+{
+  return EDGE_COUNT (bb->preds) == 1;
+}
+
+/* Returns the single successor edge of basic block BB.  Aborts if
+   BB does not have exactly one successor.  */
+
+static inline edge
+single_succ_edge (basic_block bb)
+{
+  gcc_assert (single_succ_p (bb));
+  return EDGE_SUCC (bb, 0);
+}
+
+/* Returns the single predecessor edge of basic block BB.  Aborts
+   if BB does not have exactly one predecessor.  */
+
+static inline edge
+single_pred_edge (basic_block bb)
+{
+  gcc_assert (single_pred_p (bb));
+  return EDGE_PRED (bb, 0);
+}
+
+/* Returns the single successor block of basic block BB.  Aborts
+   if BB does not have exactly one successor.  */
+
+static inline basic_block
+single_succ (basic_block bb)
+{
+  return single_succ_edge (bb)->dest;
+}
+
+/* Returns the single predecessor block of basic block BB.  Aborts
+   if BB does not have exactly one predecessor.*/
+
+static inline basic_block
+single_pred (basic_block bb)
+{
+  return single_pred_edge (bb)->src;
+}
 
 /* Iterator object for edges.  */
 
@@ -764,9 +819,8 @@ extern rtx block_label (basic_block);
 extern bool forwarder_block_p (basic_block);
 extern bool purge_all_dead_edges (int);
 extern bool purge_dead_edges (basic_block);
-extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
-extern void rtl_make_eh_edge (sbitmap *, basic_block, rtx);
+extern void rtl_make_eh_edge (sbitmap, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
 extern bool could_fall_through (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);

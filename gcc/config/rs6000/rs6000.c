@@ -53,6 +53,7 @@
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
+#include "intl.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -722,7 +723,7 @@ static void rs6000_parse_yes_no_option (const char *, const char *, int *);
 static void rs6000_parse_float_gprs_option (void);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
-static void compute_save_world_info(rs6000_stack_t *info_ptr);
+static void compute_save_world_info (rs6000_stack_t *info_ptr);
 static void is_altivec_return_reg (rtx, void *);
 static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
@@ -731,7 +732,7 @@ static rtx rs6000_dwarf_register_span (rtx);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
 static rtx rs6000_tls_get_addr (void);
 static rtx rs6000_got_sym (void);
-static inline int rs6000_tls_symbol_ref_1 (rtx *, void *);
+static int rs6000_tls_symbol_ref_1 (rtx *, void *);
 static const char *rs6000_get_some_local_dynamic_name (void);
 static int rs6000_get_some_local_dynamic_name_1 (rtx *, void *);
 static rtx rs6000_complex_function_value (enum machine_mode);
@@ -757,6 +758,7 @@ static bool rs6000_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				      tree, bool);
 static int rs6000_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, bool);
+static const char *invalid_arg_for_unprototyped_fn (tree, tree, tree);
 #if TARGET_MACHO
 static void macho_branch_islands (void);
 static void add_compiler_branch_island (tree, tree, int);
@@ -1002,6 +1004,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P rs6000_vector_mode_supported_p
+
+#undef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN invalid_arg_for_unprototyped_fn
 
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
@@ -2260,7 +2265,7 @@ small_data_operand (rtx op ATTRIBUTE_UNUSED,
 	 that must be 32k from _SDA_BASE_, not just the symbol.  */
       summand = INTVAL (XEXP (sum, 1));
       if (summand < 0 || (unsigned HOST_WIDE_INT) summand > g_switch_value)
-       return 0;
+	return 0;
 
       sym_ref = XEXP (sum, 0);
     }
@@ -2307,7 +2312,7 @@ gpr_or_gpr_p (rtx op0, rtx op1)
 static int
 constant_pool_expr_1 (rtx op, int *have_sym, int *have_toc)
 {
-  switch (GET_CODE(op))
+  switch (GET_CODE (op))
     {
     case SYMBOL_REF:
       if (RS6000_SYMBOL_REF_TLS_P (op))
@@ -2483,7 +2488,7 @@ bool
 macho_lo_sum_memory_operand (rtx x, enum machine_mode mode)
 {
   if (!TARGET_MACHO || !flag_pic
-      || mode != SImode || GET_CODE(x) != MEM)
+      || mode != SImode || GET_CODE (x) != MEM)
     return false;
   x = XEXP (x, 0);
 
@@ -2919,7 +2924,7 @@ rs6000_tls_referenced_p (rtx x)
 /* Return 1 if *X is a thread-local symbol.  This is the same as
    rs6000_tls_symbol_ref except for the type of the unused argument.  */
 
-static inline int
+static int
 rs6000_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
 {
   return RS6000_SYMBOL_REF_TLS_P (*x);
@@ -4055,6 +4060,20 @@ function_arg_boundary (enum machine_mode mode, tree type)
     return PARM_BOUNDARY;
 }
 
+/* For a function parm of MODE and TYPE, return the starting word in
+   the parameter area.  NWORDS of the parameter area are already used.  */
+
+static unsigned int
+rs6000_parm_start (enum machine_mode mode, tree type, unsigned int nwords)
+{
+  unsigned int align;
+  unsigned int parm_offset;
+
+  align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
+  parm_offset = DEFAULT_ABI == ABI_V4 ? 2 : 6;
+  return nwords + (-(parm_offset + nwords) & align);
+}
+
 /* Compute the size (in words) of a function argument.  */
 
 static unsigned long
@@ -4309,15 +4328,10 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else
     {
       int n_words = rs6000_arg_size (mode, type);
-      int align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
+      int start_words = cum->words;
+      int align_words = rs6000_parm_start (mode, type, start_words);
 
-      /* The simple alignment calculation here works because
-	 function_arg_boundary / PARM_BOUNDARY will only be 1 or 2.
-	 If we ever want to handle alignments larger than 8 bytes for
-	 32-bit or 16 bytes for 64-bit, then we'll need to take into
-	 account the offset to the start of the parm save area.  */
-      align &= cum->words;
-      cum->words += align + n_words;
+      cum->words = align_words + n_words;
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
@@ -4330,7 +4344,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  fprintf (stderr, "nargs = %4d, proto = %d, mode = %4s, ",
 		   cum->nargs_prototype, cum->prototype, GET_MODE_NAME (mode));
 	  fprintf (stderr, "named = %d, align = %d, depth = %d\n",
-		   named, align, depth);
+		   named, align_words - start_words, depth);
 	}
     }
 }
@@ -4354,7 +4368,7 @@ spe_build_register_parallel (enum machine_mode mode, int gregno)
       r3 = gen_rtx_EXPR_LIST (VOIDmode, r3, GEN_INT (8));
       return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r3));
     }
-  abort();
+  abort ();
   return NULL_RTX;
 }
 
@@ -4672,7 +4686,7 @@ rs6000_mixed_function_arg (enum machine_mode mode, tree type, int align_words)
    with MODE and TYPE set to that of the pointer to the arg, not the arg
    itself.  */
 
-struct rtx_def *
+rtx
 function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      tree type, int named)
 {
@@ -4821,8 +4835,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   else
     {
-      int align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
-      int align_words = cum->words + (cum->words & align);
+      int align_words = rs6000_parm_start (mode, type, cum->words);
 
       if (USE_FP_FOR_ARG_P (cum, mode, type))
 	{
@@ -4935,8 +4948,6 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			  tree type, bool named)
 {
   int ret = 0;
-  int align;
-  int parm_offset;
   int align_words;
 
   if (DEFAULT_ABI == ABI_V4)
@@ -4952,9 +4963,7 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       && int_size_in_bytes (type) > 0)
     return 0;
 
-  align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
-  parm_offset = TARGET_32BIT ? 2 : 0;
-  align_words = cum->words + ((parm_offset - cum->words) & align);
+  align_words = rs6000_parm_start (mode, type, cum->words);
 
   if (USE_FP_FOR_ARG_P (cum, mode, type)
       /* If we are passing this arg in gprs as well, then this function
@@ -5066,14 +5075,14 @@ rs6000_move_block_from_reg (int regno, rtx x, int nregs)
 
   for (i = 0; i < nregs; i++)
     {
-      rtx tem = adjust_address_nv (x, reg_mode, i*GET_MODE_SIZE(reg_mode));
+      rtx tem = adjust_address_nv (x, reg_mode, i * GET_MODE_SIZE (reg_mode));
       if (reload_completed)
 	{
 	  if (! strict_memory_address_p (reg_mode, XEXP (tem, 0)))
 	    tem = NULL_RTX;
 	  else
 	    tem = simplify_gen_subreg (reg_mode, x, BLKmode,
-				       i * GET_MODE_SIZE(reg_mode));
+				       i * GET_MODE_SIZE (reg_mode));
 	}
       else
 	tem = replace_equiv_address (tem, XEXP (tem, 0));
@@ -7637,9 +7646,9 @@ altivec_init_builtins (void)
          targetm.vectorize.builtin_mask_for_load.  */
 
       decl = lang_hooks.builtin_function ("__builtin_altivec_mask_for_load",
-                               v16qi_ftype_long_pcvoid,
-                               ALTIVEC_BUILTIN_MASK_FOR_LOAD,
-                               BUILT_IN_MD, NULL, NULL_TREE);
+					  v16qi_ftype_long_pcvoid,
+					  ALTIVEC_BUILTIN_MASK_FOR_LOAD,
+					  BUILT_IN_MD, NULL, NULL_TREE);
       /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
       altivec_builtin_mask_for_load = decl;
     }
@@ -7867,7 +7876,7 @@ rs6000_common_init_builtins (void)
 	      type = v16qi_ftype_v16qi_v16qi_v16qi;
 	      break;
 	    default:
-	      abort();
+	      abort ();
 	    }
 	}
       else if (mode0 == mode1 && mode1 == mode2 && mode3 == V16QImode)
@@ -7887,7 +7896,7 @@ rs6000_common_init_builtins (void)
 	      type = v16qi_ftype_v16qi_v16qi_v16qi;
 	      break;
 	    default:
-	      abort();
+	      abort ();
 	    }
 	}
       else if (mode0 == V4SImode && mode1 == V16QImode && mode2 == V16QImode
@@ -8970,7 +8979,7 @@ ccr_bit (rtx op, int scc_p)
 
 /* Return the GOT register.  */
 
-struct rtx_def *
+rtx
 rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
 {
   /* The second flow pass currently (June 1999) can't update
@@ -9189,7 +9198,7 @@ print_operand (FILE *file, rtx x, int code)
     case 'B':
       /* If the low-order bit is zero, write 'r'; otherwise, write 'l'
 	 for 64-bit mask direction.  */
-      putc (((INT_LOWPART(x) & 1) == 0 ? 'r' : 'l'), file);
+      putc (((INT_LOWPART (x) & 1) == 0 ? 'r' : 'l'), file);
       return;
 
       /* %c is output_addr_const if a CONSTANT_ADDRESS_P, otherwise
@@ -9211,8 +9220,7 @@ print_operand (FILE *file, rtx x, int code)
       /* Bit 1 is EQ bit.  */
       i = 4 * (REGNO (x) - CR0_REGNO) + 2;
 
-      /* If we want bit 31, write a shift count of zero, not 32.  */
-      fprintf (file, "%d", i == 31 ? 0 : i + 1);
+      fprintf (file, "%d", i);
       return;
 
     case 'E':
@@ -10017,7 +10025,7 @@ rs6000_generate_compare (enum rtx_code code)
   if ((TARGET_E500 && !TARGET_FPRS && TARGET_HARD_FLOAT)
       && rs6000_compare_fp_p)
     {
-      rtx cmp, or1, or2, or_result, compare_result2;
+      rtx cmp, or_result, compare_result2;
       enum machine_mode op_mode = GET_MODE (rs6000_compare_op0);
 
       if (op_mode == VOIDmode)
@@ -10091,9 +10099,6 @@ rs6000_generate_compare (enum rtx_code code)
 	    default: abort ();
 	    }
 
-	  or1 = gen_reg_rtx (SImode);
-	  or2 = gen_reg_rtx (SImode);
-	  or_result = gen_reg_rtx (CCEQmode);
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
 	  /* Do the EQ.  */
@@ -10112,14 +10117,10 @@ rs6000_generate_compare (enum rtx_code code)
 	  else abort ();
 	  emit_insn (cmp);
 
-	  or1 = gen_rtx_GT (SImode, compare_result, const0_rtx);
-	  or2 = gen_rtx_GT (SImode, compare_result2, const0_rtx);
-
 	  /* OR them together.  */
-	  cmp = gen_rtx_SET (VOIDmode, or_result,
-			     gen_rtx_COMPARE (CCEQmode,
-					      gen_rtx_IOR (SImode, or1, or2),
-					      const_true_rtx));
+	  or_result = gen_reg_rtx (CCFPmode);
+	  cmp = gen_e500_cr_ior_compare (or_result, compare_result,
+					   compare_result2);
 	  compare_result = or_result;
 	  code = EQ;
 	}
@@ -10164,10 +10165,10 @@ rs6000_generate_compare (enum rtx_code code)
     }
 
   /* Some kinds of FP comparisons need an OR operation;
-     under flag_unsafe_math_optimizations we don't bother.  */
+     under flag_finite_math_only we don't bother.  */
   if (rs6000_compare_fp_p
-      && ! flag_unsafe_math_optimizations
-      && ! (TARGET_HARD_FLOAT && TARGET_E500 && !TARGET_FPRS)
+      && !flag_finite_math_only
+      && !(TARGET_HARD_FLOAT && TARGET_E500 && !TARGET_FPRS)
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -10229,9 +10230,9 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
 	abort ();
 
       if (cond_code == NE)
-	emit_insn (gen_e500_flip_eq_bit (t, t));
+	emit_insn (gen_e500_flip_gt_bit (t, t));
 
-      emit_insn (gen_move_from_CR_eq_bit (result, t));
+      emit_insn (gen_move_from_CR_gt_bit (result, t));
       return;
     }
 
@@ -10412,9 +10413,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   return string;
 }
 
-/* Return the string to flip the EQ bit on a CR.  */
+/* Return the string to flip the GT bit on a CR.  */
 char *
-output_e500_flip_eq_bit (rtx dst, rtx src)
+output_e500_flip_gt_bit (rtx dst, rtx src)
 {
   static char string[64];
   int a, b;
@@ -10423,9 +10424,9 @@ output_e500_flip_eq_bit (rtx dst, rtx src)
       || GET_CODE (src) != REG || ! CR_REGNO_P (REGNO (src)))
     abort ();
 
-  /* EQ bit.  */
-  a = 4 * (REGNO (dst) - CR0_REGNO) + 2;
-  b = 4 * (REGNO (src) - CR0_REGNO) + 2;
+  /* GT bit.  */
+  a = 4 * (REGNO (dst) - CR0_REGNO) + 1;
+  b = 4 * (REGNO (src) - CR0_REGNO) + 1;
 
   sprintf (string, "crnot %d,%d", a, b);
   return string;
@@ -12216,7 +12217,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
 
   if (INTVAL (todec) != -size)
     {
-      warning("stack frame too large");
+      warning ("stack frame too large");
       emit_insn (gen_trap ());
       return;
     }
@@ -12264,7 +12265,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
       if (size > 32767)
 	{
 	  /* Need a note here so that try_split doesn't get confused.  */
-	  if (get_last_insn() == NULL_RTX)
+	  if (get_last_insn () == NULL_RTX)
 	    emit_note (NOTE_INSN_DELETED);
 	  insn = emit_move_insn (tmp_reg, todec);
 	  try_split (PATTERN (insn), insn, 0);
@@ -14183,7 +14184,7 @@ rs6000_hash_constant (rtx k)
 	else
 	  {
 	    size_t i;
-	    for (i = 0; i < sizeof(HOST_WIDE_INT)/sizeof(unsigned); i++)
+	    for (i = 0; i < sizeof (HOST_WIDE_INT) / sizeof (unsigned); i++)
 	      result = result * 613 + (unsigned) (XWINT (k, fidx)
 						  >> CHAR_BIT * i);
 	  }
@@ -14226,7 +14227,7 @@ toc_hash_eq (const void *h1, const void *h2)
    to whether or not an object is a vtable.  */
 
 #define VTABLE_NAME_P(NAME)				\
-  (strncmp ("_vt.", name, strlen("_vt.")) == 0		\
+  (strncmp ("_vt.", name, strlen ("_vt.")) == 0		\
   || strncmp ("_ZTV", name, strlen ("_ZTV")) == 0	\
   || strncmp ("_ZTT", name, strlen ("_ZTT")) == 0	\
   || strncmp ("_ZTI", name, strlen ("_ZTI")) == 0	\
@@ -15288,7 +15289,7 @@ get_next_active_insn (rtx insn, rtx tail)
 
   while (next_insn
   	 && next_insn != tail
-	 && (GET_CODE(next_insn) == NOTE
+	 && (GET_CODE (next_insn) == NOTE
 	     || GET_CODE (PATTERN (next_insn)) == USE
 	     || GET_CODE (PATTERN (next_insn)) == CLOBBER))
     {
@@ -15427,7 +15428,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
 
       while (can_issue_more > 0)
 	{
-	  nop = gen_nop();
+	  nop = gen_nop ();
 	  emit_insn_before (nop, next_insn);
 	  can_issue_more--;
 	}
@@ -15585,7 +15586,7 @@ redefine_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
 	}
 
       if (GET_MODE (next_insn) == TImode && can_issue_more)
-	PUT_MODE(next_insn, VOIDmode);
+	PUT_MODE (next_insn, VOIDmode);
       else if (!can_issue_more && GET_MODE (next_insn) != TImode)
 	PUT_MODE (next_insn, TImode);
 
@@ -15641,7 +15642,7 @@ pad_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
 	      && !insn_terminates_group_p (insn, current_group)
 	      && !insn_terminates_group_p (next_insn, previous_group))
 	    {
-	      if (!is_branch_slot_insn(next_insn))
+	      if (!is_branch_slot_insn (next_insn))
 		can_issue_more--;
 
 	      while (can_issue_more)
@@ -15945,7 +15946,7 @@ rs6000_set_default_type_attributes (tree type)
 /* Return a reference suitable for calling a function with the
    longcall attribute.  */
 
-struct rtx_def *
+rtx
 rs6000_longcall_ref (rtx call_ref)
 {
   const char *call_name;
@@ -16100,7 +16101,7 @@ rs6000_elf_in_small_data_p (tree decl)
    register by this routine since our caller will try to
    increment the returned register via an "la" instruction.  */
 
-struct rtx_def *
+rtx
 find_addr_reg (rtx addr)
 {
   while (GET_CODE (addr) == PLUS)
@@ -16338,7 +16339,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
 
       label++;
-      local_label_0 = alloca (sizeof("\"L0000000000$spb\""));
+      local_label_0 = alloca (sizeof ("\"L0000000000$spb\""));
       sprintf (local_label_0, "\"L%011d$spb\"", label);
 
       fprintf (file, "\tmflr r0\n");
@@ -16380,7 +16381,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
    position-independent addresses go into a reg.  This is REG if non
    zero, otherwise we allocate register(s) as necessary.  */
 
-#define SMALL_INT(X) ((unsigned) (INTVAL(X) + 0x8000) < 0x10000)
+#define SMALL_INT(X) ((unsigned) (INTVAL (X) + 0x8000) < 0x10000)
 
 rtx
 rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
@@ -16473,7 +16474,7 @@ rs6000_darwin_file_start (void)
   const char *cpu_id = "";
   size_t i;
 
-  rs6000_file_start();
+  rs6000_file_start ();
 
   /* Determine the argument to -mcpu=.  Default to G3 if not specified.  */
   for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
@@ -17510,6 +17511,20 @@ rs6000_vector_mode_supported_p (enum machine_mode mode)
 
   else
     return false;
+}
+
+/* Target hook for invalid_arg_for_unprototyped_fn. */ 
+static const char * 
+invalid_arg_for_unprototyped_fn (tree typelist, tree funcdecl, tree val)
+{
+  return (!rs6000_darwin64_abi
+	  && typelist == 0
+          && TREE_CODE (TREE_TYPE (val)) == VECTOR_TYPE
+          && (funcdecl == NULL_TREE
+              || (TREE_CODE (funcdecl) == FUNCTION_DECL
+                  && DECL_BUILT_IN_CLASS (funcdecl) != BUILT_IN_MD)))
+	  ? N_("AltiVec argument passed to unprototyped function")
+	  : NULL;
 }
 
 #include "gt-rs6000.h"

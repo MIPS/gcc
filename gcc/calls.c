@@ -119,7 +119,7 @@ static sbitmap stored_args_map;
    returns a BLKmode struct) and expand_call must take special action
    to make sure the object being constructed does not overlap the
    argument list for the constructor call.  */
-int stack_arg_under_construction;
+static int stack_arg_under_construction;
 
 static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
@@ -463,7 +463,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
    For example, if the function might return more than one time (setjmp), then
    set RETURNS_TWICE to a nonzero value.
 
-   Similarly set LONGJMP for if the function is in the longjmp family.
+   Similarly set NORETURN if the function is in the longjmp family.
 
    Set MAY_BE_ALLOCA for any memory allocation function that might allocate
    space from the stack such as alloca.  */
@@ -538,7 +538,7 @@ special_function_p (tree fndecl, int flags)
   return flags;
 }
 
-/* Return nonzero when tree represent call to longjmp.  */
+/* Return nonzero when FNDECL represents a call to setjmp.  */
 
 int
 setjmp_call_p (tree fndecl)
@@ -585,9 +585,16 @@ flags_from_decl_or_type (tree exp)
       if (DECL_IS_MALLOC (exp))
 	flags |= ECF_MALLOC;
 
+      /* The function exp may have the `returns_twice' attribute.  */
+      if (DECL_IS_RETURNS_TWICE (exp))
+	flags |= ECF_RETURNS_TWICE;
+
       /* The function exp may have the `pure' attribute.  */
       if (DECL_IS_PURE (exp))
 	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
+
+      if (DECL_IS_NOVOPS (exp))
+	flags |= ECF_NOVOPS;
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
