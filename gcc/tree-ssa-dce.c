@@ -92,7 +92,7 @@ static void find_useful_stmts			PARAMS ((void));
 static bool stmt_useful_p			PARAMS ((tree));
 static void process_worklist			PARAMS ((void));
 static void remove_dead_stmts			PARAMS ((void));
-static void remove_dead_stmt			PARAMS ((gimple_stmt_iterator,
+static void remove_dead_stmt			PARAMS ((block_stmt_iterator,
       							 basic_block));
 static void remove_dead_phis			PARAMS ((basic_block));
 
@@ -158,18 +158,18 @@ static void
 mark_control_parent_necessary (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
   tree t;
 
   /* Loops through the stmts in this block, marking them as necessary. */
   while (bb != NULL && bb->index != INVALID_BLOCK)
     {
-      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
 	  /* Avoid needless calls back to this routine by directly calling 
 	     mark_tree since we know we are going to cycle through all parent 
 	     blocks and their statements.  */
-	  t = gsi_stmt (i);
+	  t = bsi_stmt (i);
 	  mark_tree_necessary (t);
 	}
       bb = parent_block (bb);
@@ -240,6 +240,10 @@ need_to_preserve_store (var)
   if (may_alias_global_mem_p (sym))
     return true;
 
+  /* If SYM is used to declare VLAs, we need to preserve it.  */
+  if (is_vla_decl (sym))
+    return true;
+
   return false;
 }
 
@@ -251,7 +255,7 @@ static void
 find_useful_stmts ()
 {
   basic_block bb;
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
 
   FOR_EACH_BB (bb)
     {
@@ -263,9 +267,9 @@ find_useful_stmts ()
 	  mark_necessary (phi);
 
       /* Check all statements in the block.  */
-      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
-	  tree stmt = gsi_stmt (i);
+	  tree stmt = bsi_stmt (i);
 	  STRIP_NOPS (stmt);
 
 	  if (stmt_useful_p (stmt))
@@ -292,8 +296,8 @@ stmt_useful_p (stmt)
   if ((TREE_CODE (stmt) == ASM_EXPR)
       || (TREE_CODE (stmt) == RETURN_EXPR)
       || (TREE_CODE (stmt) == CASE_LABEL_EXPR)
-      || (TREE_CODE (stmt) == CALL_EXPR)
       || (TREE_CODE (stmt) == LABEL_EXPR)
+      || (TREE_CODE (stmt) == CALL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
 	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
     return true;
@@ -418,7 +422,7 @@ remove_dead_stmts ()
 {
   basic_block bb;
   tree t;
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
 
   dom_info = NULL;
 
@@ -428,9 +432,9 @@ remove_dead_stmts ()
       remove_dead_phis (bb);
 
       /* Remove dead statements.  */
-      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
-	  t = gsi_stmt (i);
+	  t = bsi_stmt (i);
 	  stats.total++;
 
 	  /* If `i' is not in `necessary' then remove from B.  */
@@ -479,12 +483,12 @@ remove_dead_phis (bb)
 
 static void
 remove_dead_stmt (i, bb)
-     gimple_stmt_iterator i;
+     block_stmt_iterator i;
      basic_block bb;
 {
   tree t;
 
-  t = gsi_stmt (i);
+  t = bsi_stmt (i);
   STRIP_NOPS (t);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -524,7 +528,7 @@ remove_dead_stmt (i, bb)
       make_edge (bb, nb, EDGE_FALLTHRU);
     }
 
-  gsi_remove (i);
+  bsi_remove (i);
 }
 
 /* Main routine to eliminate dead code.  */

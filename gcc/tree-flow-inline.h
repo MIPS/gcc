@@ -75,12 +75,47 @@ may_aliases (var)
   return ann ? ann->may_aliases : NULL;
 }
 
+static inline void
+set_may_alias_global_mem (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->may_alias_global_mem = 1;
+}
+
 static inline bool
 may_alias_global_mem_p (var)
      tree var;
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_alias_global_mem : false;
+}
+
+static inline void
+set_may_point_to_global_mem (var)
+     tree var;
+{
+  var_ann_t ann;
+
+#if defined ENABLE_CHECKING
+  if (!POINTER_TYPE_P (TREE_TYPE (var)))
+    abort ();
+#endif
+
+  ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->may_point_to_global_mem = 1;
+}
+
+static inline bool
+may_point_to_global_mem_p (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->may_point_to_global_mem : false;
 }
 
 static inline void
@@ -100,6 +135,24 @@ indirect_ref (var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->indirect_ref : NULL_TREE;
+}
+
+static inline bool
+is_vla_decl (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->is_vla_decl : false;
+}
+
+static inline void
+set_vla_decl (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->is_vla_decl = 1;
 }
 
 static inline int
@@ -273,37 +326,71 @@ dom_children (bb)
   return bb_ann (bb)->dom_children;
 }
 
-/* Similar to gsi_step() but stops at basic block boundaries and ignores
-   empty_stmt_nodes inside a basic block.  */
-static inline void
-gsi_step_in_bb (i, bb)
-     gimple_stmt_iterator *i;
-     basic_block bb;
-{
-  do
-    gsi_step (i);
-  while (i->tp && gsi_stmt (*i) == NULL_TREE);
-
-  if (i->tp && bb_for_stmt (*(i->tp)) != bb)
-    i->tp = NULL;
-}
-
-
-/* Similar to gsi_step() but stops at basic block boundaries. Assumes stmt
-   has bb_for_stmt() set (can't be an empty_stmt_node).  */
-static inline void
-gsi_step_bb (i)
-     gimple_stmt_iterator *i;
-{
-  basic_block bb = bb_for_stmt (*(i->tp));
-  gsi_step_in_bb (i, bb);
-}
+/*  -----------------------------------------------------------------------  */
 
 static inline bool
-gsi_end_bb_p (i)
-gimple_stmt_iterator i;
+bsi_end_p (i)
+block_stmt_iterator i;
 {
-  return (i.tp == NULL || gsi_stmt (i) == NULL_TREE);
+  return (i.tp == NULL || bsi_stmt (i) == NULL_TREE);
+}
+
+/* Similar to tsi_next() but stops at basic block boundaries. Assumes stmt
+   has bb_for_stmt() set (can't be an empty_stmt_node).  */
+static inline void
+bsi_next (i)
+     block_stmt_iterator *i;
+{
+  extern void bsi_next_in_bb (block_stmt_iterator *, basic_block);
+
+  basic_block bb = bb_for_stmt (*(i->tp));
+  bsi_next_in_bb (i, bb);
+}
+
+static inline void
+bsi_prev (i)
+     block_stmt_iterator *i;
+{
+  printf (" bsi_prev (%p) is not implemented yet\n",(void *)i);
+  abort();
+}
+
+static inline tree *
+bsi_stmt_ptr (i)
+     block_stmt_iterator i;
+{
+  tree t;
+
+#if defined ENABLE_CHECKING
+  if (i.tp == NULL || *i.tp == NULL_TREE)
+    abort ();
+#endif
+
+  t = *(i.tp);
+  STRIP_NOPS (t);
+
+  if (TREE_CODE (t) == COMPOUND_EXPR)
+    return &TREE_OPERAND (t, 0);
+  else
+    return i.tp;
+}
+
+static inline tree
+bsi_stmt (i)
+     block_stmt_iterator i;
+{
+  tree t = *(bsi_stmt_ptr (i));
+  STRIP_NOPS (t);
+  if (t == empty_stmt_node || t == error_mark_node)
+    t = NULL_TREE;
+  return t;
+}
+
+static inline tree *
+bsi_container (i)
+     block_stmt_iterator i;
+{
+  return i.tp;
 }
 
 static inline bool

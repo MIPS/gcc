@@ -80,7 +80,11 @@ genericize_try_block (stmt_p)
   tree cleanup = TRY_HANDLERS (*stmt_p);
 
   c_simplify_stmt (&body);
-  /* cleanup is an expression, so it doesn't need to be genericized.  */
+
+  if (CLEANUP_P (*stmt_p))
+    /* cleanup is an expression, so it doesn't need to be genericized.  */;
+  else
+    c_simplify_stmt (&cleanup);
 
   *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
@@ -152,6 +156,10 @@ cp_simplify_expr (expr_p, pre_p, post_p)
 
     case EMPTY_CLASS_EXPR:
       *expr_p = integer_zero_node;
+      return 1;
+
+    case BASELINK:
+      *expr_p = BASELINK_FUNCTIONS (*expr_p);
       return 1;
 
     default:

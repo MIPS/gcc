@@ -5965,9 +5965,6 @@ lookup_name_real (tree name,
 	val = OVL_FUNCTION (val);
     }
 
-  if (val && TREE_CODE (val) == ALIAS_DECL)
-    val = unshare_expr (DECL_INITIAL (val));
-
   return val;
 }
 

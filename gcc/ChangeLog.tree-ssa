@@ -1,3 +1,127 @@
+2003-02-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_vars_r): Assume that the RHS of an INDIRECT_REF,
+	that is also an SSA variable, is a VAR_DECL.
+	(get_virtual_var): Handle INDIRECT_REF nodes that are not valid SSA
+	variables.
+
+	* tree-ssa-dce.c (stmt_useful_p): Revert kludge in previous commit.
+	VA_ARG_EXPR nodes are not inherently live.
+
+	* tree-ssa.c (mark_def_sites): Don't process the LHS of assignments
+	twice.
+	The operand of a virtual definition constitutes a use of the
+	variable which should be considered a non-local if it had not been
+	killed inside the block.
+
+	* tree.h (SSA_VAR_P): Only return true for INDIRECT_REFs if their
+	operand is a _DECL node.
+
+2003-02-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* config/rs6000/t-rs6000 (simplify-rtx.o): Compile with -Wno-error.
+
+2003-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* toplev.c (parse_options_and_default_flags): Enable SSA DCE by
+	default.
+
+	* tree-dfa.c (get_expr_operands): Recurse into LHS of an ARRAY_REF
+	when it's not a regular variable.  Always recurse into the RHS.
+	(add_stmt_operand): Set may_point_to_global_mem for pointers that
+	are assigned expressions that may reference global memory.  Also
+	set its dereference variable to be an alias of global memory.
+	(dump_variable): Show may_point_to_global_mem flag.
+	(compute_alias_sets): Also dump all referenced variables when
+	dumping alias information.
+	(add_may_alias): Check for global memory aliasing.
+	(may_access_global_mem_p): Rename from may_access_global_mem.
+	Return true if the expression is a variable that may point to or
+	alias global memory.
+	(add_referenced_var): Pointer arguments and global pointers may
+	point to global memory.
+	(set_may_alias_global_mem): Move ...
+	* tree-flow-inline.h (set_may_alias_global_mem): ... here.
+	(set_may_point_to_global_mem): New function.
+	(may_point_to_global_mem_p): New function.
+
+	* tree-ssa-dce.c (stmt_useful_p): VA_ARG_EXPRs are inherently live.
+	* tree-ssa.c (rewrite_into_ssa): Don't call dump_referenced_vars.
+
+2003-02-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct alias_tags, alias_tags, num_alias_tags):
+	Remove.  Update all users.
+	(struct alias_set_d): New.
+	(alias_sets): New file local variable.
+	(compute_alias_sets): New function.
+	(compute_may_aliases): Call it when not doing points-to analysis.
+	(register_alias_set): New function.
+	(find_alias_for): New function.
+	(may_alias_p): Declare static.
+	Don't assume that VAR may not be aliased if it's a non-addressable
+	_DECL.
+	If VAR and PTR are aggregate types, check if they can have a field
+	that points to the other one.
+	(find_may_aliases_for): Move handling of global memory aliasing ...
+	(add_may_alias): ... here.
+	Also accept the base symbols for the variable and its alias.
+	(register_new_alias): Remove.  Update all users.
+	(find_alias_tag): Remove.  Update all users.
+	(find_vars_r): Update VAR after re-writing *TP when sharing
+	INDIRECT_REF nodes.
+	* tree-flow.h (may_alias_p): Remove declaration.
+
+	* tree-ssa.c (rewrite_into_ssa): Include referenced variables in
+	default debug dumps.
+
+	Support for VLAs.
+
+	* tree-dfa.c (find_vla_decls): New function.
+	(compute_may_aliases): Call it.
+	(find_vla_decls_r): New function.
+	(dump_variable): Show whether the variable is used in a VLA
+	declaration.
+	* tree-flow-inline.h (is_vla_decl): New function.
+	(set_vla_decl): New function.
+	* tree-flow.h (struct var_ann_d): Add bitfield 'is_vla_decl'.
+	* tree-ssa-dce.c (need_to_preserve_store): Return true if SYM is
+	used inside a VLA declaration.
+
+2003-02-05  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in : Include new file tree-iterator.h in tree-simple.h
+	* gimplify.c (simplify_cleanup_point_expr): Use tsi_ rather than gsi_.
+	* tree-cfg.c (make_blocks, remove_bb): Use tsi_ not gsi_ routines.
+	(bsi_remove): Renamed from gsi_remove, use bsi_ routines.
+	(successor_block, first_exec_stmt): Use tsi_ not gsi_ routines.
+	(first_stmt, last_stmt, last_stmt_ptr): Use bsi_ not gsi_ routines.
+	(bsi_init): Split out from bsi_start.
+	(bsi_start): Renamed from gsi_start_bb, use bsi_ routines.
+	(bsi_next_in_bb): Moved from tree-flow-inline.h and renamed from 
+	gsi_step_in_bb. Also verify BB of new stmt.
+	* tree-dfa.c (compute_immediate_uses, dump_immediate_uses, 
+	collect_dfa_stats, compute_may_aliases): Use block_stmt_iterator.
+	* tree-flow-inline.h (gsi_step_in_bb): Moved to tree-cfg.c
+	(bsi_end_p): Renamed from gsi_end_bb_p.
+	(bsi_next): renamed from gsi_step_bb
+	(bsi_prev): New function.
+	(bsi_stmt_ptr): Block version of gsi_stmt_ptr.
+	(bsi_stmt): Block version of gsi_stmt.
+	(bsi_container): Block version of gsi_container.
+	* tree-flow.h (block_stmt_iterator): New iterator type.
+	* tree-iterator.h: New include file for tree_iterator.
+	* tree-simple.h : Include tree-iterator.h
+	(gimple_stmt_iterator, gsi_start, gsi_end_p, gsi_stmt_ptr,
+	gsi_stmt, gsi_container): Move to tree-iterator.h and rename to tsi_.
+	(gsi_step): Move to tree-iterator.h and renamed to tsi_next.
+	* tree-ssa-ccp.c (simulate_block, substitute_and_fold): Use block
+	iterators instead of gimple_stmt_iterator.
+	* tree-ssa-dce.c (mark_control_parent_necessary, find_useful_stmts,
+	remove_dead_stmts, remove_dead_stmt): Use block_stmt_iterator.
+	* tree-ssa.c (mark_def_sites, rewrite_out_of_ssa, rewrite_stmts): Use
+	block_stmt_iterator.
+
 2003-02-04  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (get_alias_var_decl): If it's a global var,

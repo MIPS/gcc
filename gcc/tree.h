@@ -1534,7 +1534,8 @@ struct tree_type GTY(())
    decls, SSA names and INDIRECT_REF nodes.  */
 #define SSA_VAR_P(NODE) (SSA_DECL_P (NODE) \
     			 || TREE_CODE (NODE) == SSA_NAME \
-    			 || TREE_CODE (NODE) == INDIRECT_REF)
+    			 || (TREE_CODE (NODE) == INDIRECT_REF \
+			     && DECL_P (TREE_OPERAND (NODE, 0))))
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */

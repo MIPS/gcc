@@ -2028,7 +2028,7 @@ simplify_cleanup_point_expr (expr_p, pre_p)
      tree *expr_p;
      tree *pre_p;
 {
-  gimple_stmt_iterator iter;
+  tree_stmt_iterator iter;
   tree body;
 
   tree temp = voidify_wrapper_expr (*expr_p);
@@ -2043,12 +2043,12 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 
   gimplify_ctxp->conditions = old_conds;  
   
-  for (iter = gsi_start (&body); !gsi_end_p (iter); )
+  for (iter = tsi_start (&body); !tsi_end_p (iter); )
     {
-      tree wce = gsi_stmt (iter);
+      tree wce = tsi_stmt (iter);
       if (wce && TREE_CODE (wce) == WITH_CLEANUP_EXPR)
 	{
-	  tree *container = gsi_container (iter);
+	  tree *container = tsi_container (iter);
 	  tree next, tfe;
 
 	  if (TREE_CODE (*container) == COMPOUND_EXPR)
@@ -2059,10 +2059,10 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 	  tfe = build (TRY_FINALLY_EXPR, void_type_node,
 		       next, TREE_OPERAND (wce, 1));
 	  *container = tfe;
-	  iter = gsi_start (&TREE_OPERAND (tfe, 0));
+	  iter = tsi_start (&TREE_OPERAND (tfe, 0));
 	}
       else
-	gsi_step (&iter);
+	tsi_next (&iter);
     }
   
   if (temp)

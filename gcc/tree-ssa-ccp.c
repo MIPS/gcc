@@ -217,13 +217,13 @@ simulate_block (block)
      must simulate each of its statements.  */
   if (!TEST_BIT (executable_blocks, block->index))
     {
-      gimple_stmt_iterator j;
+      block_stmt_iterator j;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      for (j = gsi_start_bb (block); !gsi_end_bb_p (j); gsi_step_bb (&j))
-	visit_stmt (gsi_stmt (j));
+      for (j = bsi_start (block); !bsi_end_p (j); bsi_next (&j))
+	visit_stmt (bsi_stmt (j));
 
       /* If the block has a single successor, it will always get executed.
 	 Add it to the worklist.  */
@@ -286,11 +286,11 @@ substitute_and_fold ()
   /* Substitute constants in every statement of every basic block.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator i;
+      block_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
-	  tree stmt = gsi_stmt (i);
+	  tree stmt = bsi_stmt (i);
 
 	  /* Skip statements that have been folded already.  */
 	  if (stmt_modified_p (stmt) || !is_exec_stmt (stmt))

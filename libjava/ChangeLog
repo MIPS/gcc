@@ -1,3 +1,79 @@
+2003-02-07  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/jar/JarFile.java (JarFile(String, boolean)): Read manifest
+	when verify is true.
+	(JarFile(File, boolean)): Likewise.
+	(manifestRead): Set manifestRead field correctly.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/math/BigDecimal(valueOf): fix DiagBigDecimal val008, val013
+	tests; see patch #1016 on Savannah.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/math/BigDecimal.java (BigDecimal): enhance parsing of exponents
+	(toString): do not return Strings starting with . and - erroneously.
+	Improves Mauve results to 12 of 600 instead of 16 of 338 on
+	DiagBigDecimal.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/beans/PropertyDescriptor.java
+	(PropertyDescriptor(String, Class)): Sanity check getter and setter
+	methods.
+	(PropertyDescriptor(String, Class, String, String)): Likewise.
+	(PropertyDescriptor(String, Method, Method): Factor out getter and
+	setter method sanity checks into new method.
+	(findMethods): Don't do parameter sanity checking of get method here.
+	(checkMethods): New method.
+
+2003-02-07  Stephen Crawley  <crawley@dstc.edu.au>
+
+	* java/beans/PropertyDescriptor.java: Reformat.
+
+2003-02-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/PipedOutputStream.java (flush): Declare as throwing
+	IOException.
+	(close): Likewise.
+	* java/io/PipedWriter.java (close): Declare as throwing
+	IOException.
+	* java/io/StringWriter.java (close): Declare as throwing
+	IOException.
+
+2003-02-03  Ranjit Mathew <rmathew@hotmail.com>
+
+	* java/lang/natRuntime.cc (java::lang::Runtime::_load)): Take care
+	of the fact that on Win32, JNI_OnLoad is an "stdcall" function and
+	could also have been exported as "JNI_OnLoad@8" (MinGW) or
+	"_JNI_OnLoad@8" (MSVC).
+
+2003-02-03  Ranjit Mathew <rmathew@hotmail.com>
+
+	* resolve.cc (_Jv_JNIMethod::ncode): Use stdcall calling
+	convention on Win32 to invoke native JNI methods.
+
+2003-02-03  Andrew Haley  <aph@redhat.com>
+
+	* configure.host (x86_64): Enable interpreter.
+
+2003-02-03  Andrew Haley  <aph@redhat.com>
+
+	* libgcj.spec.in (jc1): Add BACKTRACESPEC.
+        * configure.host (x86_64): Default to -fno-omit-frame-pointer.
+        * configure.in (BACKTRACESPEC): New.
+        * configure: Regenerate.
+
+2003-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in (TOOLKIT) [xlib]: Set correctly.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (lib_gnu_awt_xlib_la_LDFLAGS): Link against
+	libstdc++.
+
 2003-01-31  Mark WIelaard  <mark@klomp.org>
 
 	* Makefile.in: Rebuilt.

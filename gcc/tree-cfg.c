@@ -110,6 +110,10 @@ static edge find_taken_edge_cond_expr	PARAMS ((basic_block, tree));
 static edge find_taken_edge_switch_expr	PARAMS ((basic_block, tree));
 static bool value_matches_some_label	PARAMS ((edge, tree, edge *));
 
+/* Block iterator helpers.  */
+
+static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
+
 
 /* Remove any COMPOUND_EXPR container from NODE.  */
 #define STRIP_CONTAINERS(NODE)					\
@@ -211,7 +215,7 @@ make_blocks (first_p, parent_block)
 {
   basic_block bb;
   bool start_new_block;
-  gimple_stmt_iterator i;
+  tree_stmt_iterator i;
   tree stmt;
 
   if (first_p == NULL
@@ -222,14 +226,14 @@ make_blocks (first_p, parent_block)
   bb = NULL;
   start_new_block = true;
   stmt = NULL_TREE;
-  for (i = gsi_start (first_p); !gsi_end_p (i); gsi_step (&i))
+  for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
     {
       tree prev_stmt;
       enum tree_code code;
-      tree *container = gsi_container (i);
+      tree *container = tsi_container (i);
 
       prev_stmt = stmt;
-      stmt = gsi_stmt (i);
+      stmt = tsi_stmt (i);
 
       /* Set the block for the container of non-executable statements.  */
       if (stmt == NULL_TREE)
@@ -898,7 +902,7 @@ remove_bb (bb, remove_stmts)
      basic_block bb;
      int remove_stmts;
 {
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -911,13 +915,13 @@ remove_bb (bb, remove_stmts)
     }
 
   /* Remove all the instructions in the block.  */
-  for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+  for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
     {
-      tree stmt = gsi_stmt (i);
+      tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmts)
-	gsi_remove (i);
+	bsi_remove (i);
     }
 
   /* Remove the edges into and out of this block.  */
@@ -1042,8 +1046,8 @@ is_parent (bb, child_bb)
     function.  */
 
 void
-gsi_remove (i)
-     gimple_stmt_iterator i;
+bsi_remove (i)
+     block_stmt_iterator i;
 {
   tree t = *(i.tp);
 
@@ -1375,11 +1379,11 @@ value_matches_some_label (dest_edge, val, default_edge_p)
      edge *default_edge_p;
 {
   basic_block dest_bb = dest_edge->dest;
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
 
-  for (i = gsi_start_bb (dest_bb); !gsi_end_p (i); gsi_step (&i))
+  for (i = bsi_start (dest_bb); !bsi_end_p (i); bsi_next (&i))
     {
-      tree stmt = gsi_stmt (i);
+      tree stmt = bsi_stmt (i);
 
       /* No more labels.  We haven't found a match.  */
       if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
@@ -1730,7 +1734,7 @@ successor_block (bb)
      basic_block bb;
 {
   basic_block succ_bb, parent_bb;
-  gimple_stmt_iterator i;
+  tree_stmt_iterator i;
 
 #if defined ENABLE_CHECKING
   if (bb == NULL)
@@ -1739,9 +1743,9 @@ successor_block (bb)
 
   /* By default, the successor block will be the block for the statement
      following BB's last statement.  */
-  i = gsi_start (bb->end_tree_p);
-  gsi_step (&i);
-  succ_bb = first_exec_block (gsi_container (i));
+  i = tsi_start (bb->end_tree_p);
+  tsi_next (&i);
+  succ_bb = first_exec_block (tsi_container (i));
   if (succ_bb)
     return succ_bb;
 
@@ -1760,9 +1764,9 @@ successor_block (bb)
 
       /* Otherwise, If BB's control parent has a successor, return its
          block.  */
-      i = gsi_start (parent_bb->end_tree_p);
-      gsi_step (&i);
-      succ_bb = first_exec_block (gsi_container (i));
+      i = tsi_start (parent_bb->end_tree_p);
+      tsi_next (&i);
+      succ_bb = first_exec_block (tsi_container (i));
       if (succ_bb)
 	return succ_bb;
 
@@ -1971,12 +1975,12 @@ static tree *
 first_exec_stmt (entry_p)
      tree *entry_p;
 {
-  gimple_stmt_iterator i;
+  tree_stmt_iterator i;
   tree stmt;
 
-  for (i = gsi_start (entry_p); !gsi_end_p (i); gsi_step (&i))
+  for (i = tsi_start (entry_p); !tsi_end_p (i); tsi_next (&i))
     {
-      stmt = gsi_stmt (i);
+      stmt = tsi_stmt (i);
       if (!stmt)
         continue;
 
@@ -1986,7 +1990,7 @@ first_exec_stmt (entry_p)
 	 statement, not the statement itself.  This is to allow the caller to
 	 start iterating from this point.  */
       if (is_exec_stmt (stmt))
-	return gsi_container (i);
+	return tsi_container (i);
     }
 
   return NULL;
@@ -2037,17 +2041,17 @@ tree
 first_stmt (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
   tree t;
 
   if (bb == NULL || bb->index < 0)
     return NULL_TREE;
 
-  i = gsi_start_bb (bb);
+  i = bsi_start (bb);
   /* Check for blocks with no remaining statements.  */
-  if (gsi_end_bb_p (i))
+  if (bsi_end_p (i))
     return NULL_TREE;
-  t = gsi_stmt (i);
+  t = bsi_stmt (i);
   STRIP_NOPS (t);
   return t;
 }
@@ -2063,21 +2067,22 @@ tree
 last_stmt (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i;
+  tree_stmt_iterator i;
+  block_stmt_iterator b;
   tree t;
   
   if (bb == NULL || bb->index == INVALID_BLOCK)
     return NULL_TREE;
 
-  i = gsi_start (bb->end_tree_p);
-  t = gsi_stmt (i);
+  i = tsi_start (bb->end_tree_p);
+  t = tsi_stmt (i);
 
   /* If the last statement is an empty_stmt_node, we have to traverse through
      the basic block until we find the last non-empty statement. ick.  */
   if (!t)
     {
-      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
-        t = gsi_stmt(i);
+      for (b = bsi_start (bb); !bsi_end_p (b); bsi_next (&b))
+        t = bsi_stmt(b);
     }
   if (t)
     {
@@ -2093,7 +2098,7 @@ tree *
 last_stmt_ptr (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i, last;
+  block_stmt_iterator i, last;
 
   if (bb == NULL || bb->index == INVALID_BLOCK)
     return NULL;
@@ -2101,36 +2106,95 @@ last_stmt_ptr (bb)
   /* We can be more efficient here if we check if end_tree_p points to a
      non empty_stmt_node first.  */
      
-  for (last = i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
+  for (last = i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
     last = i;
-  return gsi_stmt_ptr (last);
+  return bsi_stmt_ptr (last);
 }
 
 
-/* Similar to gsi_start() but initializes the iterator at the first
+/* Initialize a block stmt iterator with a container that contains stmt's
+   in a specified basic block. If the first real stmt is not in the
+   specified basic block, then return an empty iterator.  */
+static block_stmt_iterator
+bsi_init (tp, bb)
+     tree *tp;
+     basic_block bb;
+{
+  block_stmt_iterator i;
+  tree stmt;
+
+  i.tp = tp;
+  i.context = NULL_TREE;
+  /* If the first stmt is empty, get the next non-empty one.  */
+  if (i.tp != NULL)
+    {
+      stmt = bsi_stmt (i);
+      if (stmt == NULL_TREE)
+	bsi_next_in_bb (&i, bb);
+    }
+
+  /* Now check that its the right basic block.  */
+  if (i.tp != NULL)
+    {
+      stmt = bsi_stmt (i);
+      if (bb_for_stmt (stmt) != bb)
+        i.tp = NULL;
+    }
+
+  return i;
+}
+
+/* Similar to tsi_next() but stops at basic block boundaries and ignores
+   empty_stmt_nodes inside a basic block.  */
+
+void
+bsi_next_in_bb (i, bb)
+     block_stmt_iterator *i;
+     basic_block bb;
+{
+  tree t;
+  do
+    {
+      t = *(i->tp);
+      STRIP_NOPS (t);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	i->tp = &(TREE_OPERAND (t, 1));
+      else
+	i->tp = NULL;
+    }
+  while (i->tp && bsi_stmt (*i) == NULL_TREE);
+
+  if (i->tp && bb_for_stmt (*(i->tp)) != bb) 
+    i->tp = NULL;
+}
+
+/* Similar to tsi_start() but initializes the iterator at the first
    statement in basic block BB which isn't an empty_stmt_node.
 
    NULL is returned if there are no such statements.  */
 
-gimple_stmt_iterator
-gsi_start_bb (bb)
+block_stmt_iterator
+bsi_start (bb)
      basic_block bb;
 {
-  gimple_stmt_iterator i;
+  block_stmt_iterator i;
+  tree t;
 
   if (bb && bb->index != INVALID_BLOCK)
     {
       tree *tp = bb->head_tree_p;
-      i = gsi_start (tp);
-      /* If the first stmt is empty, get the next non-empty one.  */
-      if (i.tp != NULL && gsi_stmt (i) == NULL_TREE)
-	gsi_step_in_bb (&i, bb);
-      /* If there were nothing but empty_stmt_nodes, just point to one.  */
-      if (i.tp == NULL)
-        i = gsi_start (tp);
-    }
-  else
-    i.tp = NULL;
+      i = bsi_init (tp, bb);
+      if (i.tp != NULL)
+	{
+	  /* If we get back a statement which is not within this basic 
+	     block, that is wrong!  */
+	  t = bsi_stmt (i);
+	  if (t != NULL_TREE && bb_for_stmt (t) != bb)
+	    abort ();
+	}
+      }
+    else
+      i.tp = NULL;
 
   return i;
 }

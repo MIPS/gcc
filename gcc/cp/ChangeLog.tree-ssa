@@ -1,3 +1,14 @@
+2003-02-07  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_simplify_expr): Handle BASELINK.
+
+	* parser.c (cp_parser_primary_expression): Unshare a COMPONENT_REF
+	from an ALIAS_DECL.
+
+2003-02-05  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (genericize_try_block): Do genericize catch blocks.
+
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* parser.c (cp_parser_asm_definition): Call finish_asm_stmt with

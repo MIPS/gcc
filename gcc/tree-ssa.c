@@ -249,9 +249,6 @@ rewrite_into_ssa (fndecl)
   /* Debugging dumps.  */
   if (tree_ssa_dump_file)
     {
-      if (tree_ssa_dump_flags & (TDF_DETAILS))
-	dump_referenced_vars (tree_ssa_dump_file);
-
       if (tree_ssa_dump_flags & TDF_STATS)
 	dump_dfa_stats (tree_ssa_dump_file);
 
@@ -281,7 +278,7 @@ mark_def_sites (idom)
      dominance_info idom;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
   sbitmap nonlocal_vars;
   sbitmap killed_vars;
 
@@ -304,21 +301,17 @@ mark_def_sites (idom)
 	 zero out KILLED_VARS.  */
       sbitmap_zero (killed_vars);
 
-      for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  varray_type ops;
 	  size_t i;
 	  tree stmt;
 	  tree *dest;
 
-	  stmt = gsi_stmt (si);
+	  stmt = bsi_stmt (si);
 	  STRIP_NOPS (stmt);
 
 	  get_stmt_operands (stmt);
-
-	  dest = def_op (stmt);
-	  if (dest)
-	    set_def_block (*dest, bb);
 
 	  /* If a variable is used before being set, then the variable
 	     is live across a block boundary, so add it to NONLOCAL_VARS.  */
@@ -328,7 +321,7 @@ mark_def_sites (idom)
 	      tree *use = VARRAY_GENERIC_PTR (ops, i);
 	      int uid = var_ann (*use)->uid;
 
-	      if (! TEST_BIT (killed_vars, uid))
+	      if (!TEST_BIT (killed_vars, uid))
 	        SET_BIT (nonlocal_vars, uid);
 	    }
 	  
@@ -339,24 +332,38 @@ mark_def_sites (idom)
 	      tree use = VARRAY_GENERIC_PTR (ops, i);
 	      int uid = var_ann (use)->uid;
 
-	      if (! TEST_BIT (killed_vars, uid))
+	      if (!TEST_BIT (killed_vars, uid))
 	        SET_BIT (nonlocal_vars, uid);
 	    }
 
-	  /* Now process the single destination of this statement. 
-
-	     Note that virtual definitions are irrelavent for
-	     computing NONLOCAL_VARs and KILLED_VARS, so they are
-	     ignored here.  */
+	  /* Now process the definition made by this statement.  */
+	  dest = def_op (stmt);
 	  if (dest)
-	    SET_BIT (killed_vars, var_ann (*dest)->uid);
+	    {
+	      set_def_block (*dest, bb);
+	      SET_BIT (killed_vars, var_ann (*dest)->uid);
+	    }
 
+	  /* Note that virtual definitions are irrelevant for computing
+	     KILLED_VARS because a VDEF does not constitute a killing
+	     definition of the variable.  However, the operand of a virtual
+	     definitions is a use of the variable, so it may affect
+	     NONLOCAL_VARS.  */
 	  ops = vdef_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
+	    {
+	      tree vdef = VARRAY_TREE (ops, i);
+	      int uid = var_ann (VDEF_OP (vdef))->uid;
+
+	      set_def_block (VDEF_RESULT (vdef), bb);
+	      if (!TEST_BIT (killed_vars, uid))
+		SET_BIT (nonlocal_vars, uid);
+	    }
 	}
     }
+
   free (killed_vars);
+
   return nonlocal_vars;
 }
 
@@ -507,14 +514,14 @@ rewrite_out_of_ssa (fndecl)
      tree fndecl;
 {
   basic_block bb;
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
 
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	size_t i;
 	varray_type ops;
-	tree stmt = gsi_stmt (si);
+	tree stmt = bsi_stmt (si);
 	STRIP_NOPS (stmt);
 
 	get_stmt_operands (stmt);
@@ -723,7 +730,7 @@ rewrite_stmts (bb, block_defs_p)
      basic_block bb;
      varray_type *block_defs_p;
 {
-  gimple_stmt_iterator si;
+  block_stmt_iterator si;
   tree phi;
 
   /* Process PHI nodes in the block.  Conceptually, all the PHI nodes are
@@ -735,8 +742,8 @@ rewrite_stmts (bb, block_defs_p)
   /* Rewrite every variable used in each statement the block with its
      immediate reaching definitions.  Update the current definition of a
      variable when a new real or virtual definition is found.  */
-  for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-    rewrite_stmt (gsi_stmt (si), block_defs_p);
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    rewrite_stmt (bsi_stmt (si), block_defs_p);
 }
 
 

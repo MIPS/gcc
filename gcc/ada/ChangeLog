@@ -1,3 +1,20 @@
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gnat_rm.texi, gnat_ug.texi: Update to GFDL 1.2.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2003-02-03  Christian Cornelssen <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-info): Let $(DESTDIR)$(infodir)
+	be created if necessary.
+	(ada.install-common): Let $(DESTDIR)$(bindir) be created
+	if necessary.  Remove erroneous and redundant gnatchop
+	installation commands.	Test for gnatdll before attempting
+	to install it.
+	(ada.uninstall): Also uninstall gnatfind, gnatxref, gnatlbr,
+	and gnatdll from all plausible locations.
+
 2003-02-01  Richard Sandiford  <rsandifo@redhat.com>
 
 	* utils2.c (build_unary_op): Don't check flag_volatile.
