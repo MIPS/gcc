@@ -1,3 +1,10 @@
+2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (calculate_preorder): New function.
+	(tree_perform_ssapre): Use it, rather than
+	flow_compute_preorder_tranversal, which seems to not do 
+	what we want.
+
 2002-07-18  Daniel Berlin <dberlin@dberlin.org>
 	
 	* tree-alias-type.c: Move gt-tree-alias-type include to end of file.

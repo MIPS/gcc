@@ -98,7 +98,7 @@ static varref phi_for_operand PARAMS ((struct expr_info *, varref));\
 static void set_save PARAMS ((struct expr_info *, varref));
 static void set_replacement PARAMS ((struct expr_info *, varref, varref));
 static bool requires_edge_placement PARAMS ((varref));
-
+static void calculate_preorder PARAMS ((void));
 static int *pre_preorder;
 static dominance_info pre_idom;
 static sbitmap *pre_dfs;
@@ -1730,7 +1730,70 @@ pre_part_1_trav (slot, data)
   return 0;
 }
 
+static
+void calculate_preorder ()
+{
+  edge *stack;
+  int i;
+  int sp;
+  int prenum = 0;
+  sbitmap visited;
+  basic_block bb;
 
+  /* Allocate the preorder number arrays.  */
+  pre_preorder = (int *) xcalloc (last_basic_block+1, sizeof (int));
+  
+  /* Allocate stack for back-tracking up CFG.  */
+  stack = (edge *) xmalloc ((last_basic_block + 1) * sizeof (edge));
+  sp = 0;
+
+  /* Allocate bitmap to track nodes that have been visited.  */
+  visited = sbitmap_alloc (last_basic_block);
+  
+  /* None of the nodes in the CFG have been visited yet.  */
+  sbitmap_zero (visited);
+
+  /* Push the first edge on to the stack.  */
+  stack[sp++] = ENTRY_BLOCK_PTR->succ;
+
+  while (sp)
+    {
+      edge e;
+      basic_block src;
+      basic_block dest;
+
+      /* Look at the edge on the top of the stack.  */
+      e = stack[sp - 1];
+      src = e->src;
+      dest = e->dest;
+
+      /* Check if the edge destination has been visited yet.  */
+      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
+	{
+	  /* Mark that we have visited the destination.  */
+	  SET_BIT (visited, dest->index);
+
+	  pre_preorder[dest->index] = prenum++;
+
+	  if (dest->succ)
+	    {
+	      /* Since the DEST node has been visited for the first
+		 time, check its successors.  */
+	      stack[sp++] = dest->succ;
+	    }
+	}
+      else
+	{
+	  
+	  if (e->succ_next)
+	    stack[sp - 1] = e->succ_next;
+	  else
+	    sp--;
+	}
+    }
+  free (stack);
+  sbitmap_free (visited);
+}
 void 
 tree_perform_ssapre ()
 {
@@ -1764,8 +1827,7 @@ tree_perform_ssapre ()
   sbitmap_vector_zero (pre_dfs, last_basic_block);
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
-  pre_preorder = xmalloc (last_basic_block * sizeof (int));
-  flow_preorder_transversal_compute (pre_preorder);
+  calculate_preorder ();
   FOR_EACH_BB (bb)
     {    
       varref ref;
