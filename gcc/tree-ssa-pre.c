@@ -862,7 +862,24 @@ defs_match_p (struct expr_info *ei, const varray_type t1uses, const tree t2)
 	return false;
       
       if (SSA_NAME_DEF_STMT (use1) != SSA_NAME_DEF_STMT (use2))
-	return false;
+	/* Not the same statement, see if they are copies of the same
+	   version.  */
+	{
+	  tree def1 = SSA_NAME_DEF_STMT (use1);
+	  tree def2 = SSA_NAME_DEF_STMT (use2);
+	  if (TREE_CODE (def1) != MODIFY_EXPR
+	      || TREE_CODE (def2) != MODIFY_EXPR)
+	    return false;
+	  def1 = TREE_OPERAND (def1, 1);
+	  def2 = TREE_OPERAND (def2, 1);
+	  STRIP_NOPS (def1);
+	  STRIP_NOPS (def2);
+	  if (TREE_CODE (def1) != SSA_NAME
+	      || TREE_CODE (def2) != SSA_NAME)
+	    return false;
+	  if (SSA_NAME_VERSION (def1) != SSA_NAME_VERSION (def2))
+	    return false;
+	}
     }
   return true;
 }
