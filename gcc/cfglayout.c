@@ -702,7 +702,7 @@ cfg_layout_duplicate_bb (bb, e)
 	  /* This code is common to INSN, JUMP_INSN and CALL_INSN.  */
 	insn_common:
 	  /* Record the INSN_SCOPE.  */
-	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
+	  VARRAY_GROW (insn_scopes, INSN_UID (new) + 1);
 	  VARRAY_TREE (insn_scopes, INSN_UID (new))
 	    = VARRAY_TREE (insn_scopes, INSN_UID (insn));
 
