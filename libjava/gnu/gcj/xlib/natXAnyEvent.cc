@@ -51,7 +51,7 @@ void gnu::gcj::xlib::XAnyEvent::finalize()
   structure = 0;
 }
 
-jboolean gnu::gcj::xlib::XAnyEvent::loadNext()
+jboolean gnu::gcj::xlib::XAnyEvent::loadNext(jboolean block)
 {
   ::Display* dpy = (::Display*) display->display;
   ::XEvent* evt = (::XEvent*) structure;
@@ -61,6 +61,9 @@ jboolean gnu::gcj::xlib::XAnyEvent::loadNext()
       XNextEvent(dpy, evt);
       return true;  
     }
+
+  if (!block)
+    return false;
 
   int *pipe = reinterpret_cast<int *>(pipefds);
   int xfd = XConnectionNumber(dpy);

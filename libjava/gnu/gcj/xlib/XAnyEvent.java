@@ -70,7 +70,7 @@ public final class XAnyEvent
   /**
    * Load next event into the event structure.
    */
-  public native boolean loadNext();
+  public native boolean loadNext(boolean block);
   public native void interrupt();
 
   public native int getType();

@@ -1,3 +1,21 @@
+2005-01-17  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/awt/xlib/XEventLoop.java: Add non-blocking event mode.
+	* gnu/awt/xlib/XToolkit.java: Likewise.
+	* gnu/gcj/xlib/XAnyEvent.java: Likewise.
+	* gnu/gcj/xlib/natXAnyEvent.cc: Likewise.
+	* gnu/java/awt/ClasspathToolkit.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java: Likewise.
+	* java/awt/EventQueue.java (getNextEvent): 
+	Adjust event loop to switch to native mode after 100ms.
+	* javax/swing/Timer.java (drainEvents): Reuse Runnable.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose): 
+	Wake up event thread.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
+	(Java_gnu_java_awt_peer_gtk_GtkToolkit_iterateNativeQueue):
+	Adjust event loop to switch to java mode after 100ms.
+
 2005-01-13  Graydon Hoare  <graydon@redhat.com>
 
 	* jni.cc (_Jv_JNI_RegisterNatives): Re-add sync, which was

@@ -457,10 +457,10 @@ public class XToolkit extends ClasspathToolkit
     eventLoop.interrupt();
   }
 
-  public void iterateNativeQueue(java.awt.EventQueue locked) 
+  public void iterateNativeQueue(java.awt.EventQueue locked, boolean block) 
   {
     interrupted = false;
     while (!interrupted)
-      eventLoop.postNextEvent();
+      eventLoop.postNextEvent(block);
   }; 
 }

@@ -42,23 +42,23 @@ public class XEventLoop
     anyEvent.interrupt();
   }
 
-  void postNextEvent()
+  void postNextEvent(boolean block)
   {
-    AWTEvent evt = getNextEvent();
+    AWTEvent evt = getNextEvent(block);
     if (evt != null)
       queue.postEvent(evt);
   }
     
   /** get next event. Will block until events become available. */
  
-  public AWTEvent getNextEvent()
+  public AWTEvent getNextEvent(boolean block)
   {
     // ASSERT:
     if (isIdle())
       throw new Error("should not be idle");
     
     AWTEvent event = null;
-    if (loadNextEvent())
+    if (loadNextEvent(block))
       {
         event = createEvent();        
         event = lightweightRedirector.redirect(event);
@@ -66,7 +66,7 @@ public class XEventLoop
     return event;
   }
 
-  boolean loadNextEvent()
+  boolean loadNextEvent(boolean block)
   {
     boolean gotEvent = false;
     try
@@ -95,7 +95,7 @@ public class XEventLoop
 	   of events. */
 	
 	//display.flush(); // implicit?
-	gotEvent = anyEvent.loadNext();
+	gotEvent = anyEvent.loadNext(block);
       }
     catch (RuntimeException re)
       {
