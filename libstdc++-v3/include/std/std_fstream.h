@@ -512,7 +512,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      __filebuf_type	_M_filebuf;
+     /* APPLE LOCAL work with -malign-natural.  */
+      __filebuf_type	_M_filebuf __attribute((aligned(8)));
 
     public:
       // Constructors/Destructors:
@@ -634,7 +635,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      __filebuf_type	_M_filebuf;
+     /* APPLE LOCAL work with -malign-natural.  */
+      __filebuf_type	_M_filebuf __attribute__((aligned(8)));
 
     public:
       // Constructors:

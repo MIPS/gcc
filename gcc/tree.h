@@ -2031,6 +2031,9 @@ struct tree_type GTY(())
    ELF-style "weak" symbols.  */
 #define DECL_COALESCED(NODE) (DECL_CHECK (NODE)->decl.coalesced_flag)
 
+/* APPLE LOCAL handling duplicate decls across files */
+#define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
+
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_CHECK (NODE)->decl.transparent_union)
@@ -2184,8 +2187,10 @@ struct tree_decl GTY(())
   unsigned weak_import_flag : 1;
   /* APPLE LOCAL coalescing  */
   unsigned coalesced_flag : 1;
+  /* APPLE LOCAL duplicate decls in different files */
+  unsigned duplicate_decl : 1;
   /* APPLE LOCAL unused bits */
-  /* 13 unused bits.  */
+  /* 12 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is

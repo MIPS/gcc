@@ -826,8 +826,10 @@ rs6000_override_options (const char *default_cpu)
       align_jumps = 16;
       set_fast_math_flags (1);
       flag_reorder_blocks = 1;
+#if 0
       if (flag_branch_probabilities)
 	flag_reorder_blocks_and_partition = 1;
+#endif
       if (!flag_pic)
         set_target_switch ("dynamic-no-pic");
         
@@ -836,14 +838,8 @@ rs6000_override_options (const char *default_cpu)
         set_target_switch ("powerpc-gpopt");
         set_target_switch ("powerpc64");
       }
-      if (flag_fast 
-#if 0
-	/* C++ libraries which are part of the compiler package do not have the
-	   -malign-natural workaround. So, eon will fail with -fastcp. */
-	  || flag_fastcp
-#endif
-      )
-        /* This doesn't work with NAG Fortran output.  The Panther C++ libraries
+      if (flag_fast || flag_fastcp)
+        /* This doesn't work with NAG Fortran output.  The gcc 3.5 C++ libraries
            have been adjusted so that it now works with them.  */
         set_target_switch ("align-natural");
       if (flag_fastf)

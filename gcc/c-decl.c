@@ -1513,16 +1513,19 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 
   /* APPLE LOCAL begin peserve invisible flag for gap */
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
-     But preserve OLDDECL's DECL_UID and C_DECL_INVISIBLE.  */
+     But preserve OLDDECL's DECL_UID, C_DECL_INVISIBLE, and
+     DUPLICATE_DECL.  */
   {
     unsigned olddecl_uid = DECL_UID (olddecl);
     unsigned olddecl_c_decl_invisible = C_DECL_INVISIBLE (olddecl);
+    unsigned olddecl_duplicate_decl = DECL_DUPLICATE_DECL (olddecl);
 
     memcpy ((char *) olddecl + sizeof (struct tree_common),
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
     C_DECL_INVISIBLE (olddecl) = olddecl_c_decl_invisible;
+    DECL_DUPLICATE_DECL (olddecl) = olddecl_duplicate_decl;
   }
   /* APPLE LOCAL end peserve invisible flag for gap */
 
@@ -6670,7 +6673,37 @@ link_hash_eq (const void *x1_p, const void *x2_p)
 
 /* Propagate information between definitions and uses between multiple
    translation units in TU_LIST based on linkage rules.  */
+/* APPLE LOCAL rewritten to support -fno-common, no unit-at-a-time.
+   The general idea is to identify the unique definition, and mark 
+   all the other declarations that refer to the same object as duplicates.  
+   varasm emits only non-duplicates.  I think some of the problems are actually
+   connected with unit-at-a-time rather  than no-common, now that you mention it.   
+   The following used to fail and now work:
 
+file1:
+int i2 = 2;    // optionally add 'extern'
+
+file 2:
+extern int i2;     // optionally elide 'extern'
+
+cc file1.c file2.c
+FATAL:  Symbol _i2 already defined.
+
+This is independent of -fno-common.  The order of the files may be interchanged.
+(With -fno-common, the variant where you omit 'extern' in file 2 is of course an
+error, which was and still is detected correctly at compile time.)
+
+file 1:
+int i1;
+
+file 2:
+extern int i1;
+
+cc file1.c file2.c
+6:  Ignoring attempt to redefine symbol.
+
+This used to fail with -fno-common, in either order.
+*/
 void
 merge_translation_unit_decls (void)
 {
@@ -6693,23 +6726,43 @@ merge_translation_unit_decls (void)
 
   link_hash_table = htab_create (1021, link_hash_hash, link_hash_eq, NULL);
 
-  /* Enter any actual definitions into the hash table.  */
+  /* Enter any actual definitions into the hash table.
+     For functions, ignore declarations.  For variables, declarations
+     are kept in the table until a definition is found; duplicate
+     declarations are so marked, so that varasm will emit only one
+     of them.  */
   for (tu = tu_list; tu; tu = TREE_CHAIN (tu))
     for (decl = BLOCK_VARS (DECL_INITIAL (tu)); decl; decl = TREE_CHAIN (decl))
-      if (TREE_PUBLIC (decl) && ! DECL_EXTERNAL (decl))
+      if (TREE_PUBLIC (decl) && 
+	    (TREE_CODE (decl) == VAR_DECL || !DECL_EXTERNAL (decl)))
 	{
 	  PTR *slot;
+	  tree old_decl;
+
+	  /* Insert in table.  Declarations go in.  */
 	  slot = htab_find_slot (link_hash_table, decl, INSERT);
+	  old_decl = *slot;
 
-	  /* If we've already got a definition, work out which one is
-	     the real one, put it into the hash table, and make the
-	     other one DECL_EXTERNAL.  This is important to avoid
-	     putting out two definitions of the same symbol in the
-	     assembly output.  */
-	  if (*slot != NULL)
+	  if (old_decl == NULL)
 	    {
-	      tree old_decl = (tree) *slot;
-
+	      /* New definition or declaration.  */
+	      *slot = decl;
+	    }
+	  else if (old_decl == decl)
+	    /* This currently gets called once per file (seems like 
+	       potentially a big time sink, but doesn't show up as 
+	       such), so this can happen.  */
+	    ;
+	  /* If this is a definition and we've already got a definition, 
+	     work out which one is the real one, put it into the hash 
+	     table, and make the other one DECL_EXTERNAL.  This is 
+	     important to avoid putting out two definitions of the 
+	     same symbol in the assembly output.  */
+	  else if (!DECL_EXTERNAL (old_decl) && !DECL_EXTERNAL (decl))
+	    {
+	      /* Should be from different files.  */
+	      if (DECL_CONTEXT (old_decl) == DECL_CONTEXT (decl))
+		abort ();
 	      /* If this is weak or common or whatever, suppress it
 		 in favor of the other definition.  */
 	      if (DECL_WEAK (decl))
@@ -6727,6 +6780,7 @@ merge_translation_unit_decls (void)
 		  DECL_COMMON (decl) = 0;
 		  DECL_ONE_ONLY (decl) = 0;
 		  DECL_WEAK (decl) = 0;
+		  DECL_DUPLICATE_DECL (decl) = 1;
 		}
 	      else if (DECL_EXTERNAL (old_decl))
 		{
@@ -6734,6 +6788,7 @@ merge_translation_unit_decls (void)
 		  DECL_COMMON (old_decl) = 0;
 		  DECL_ONE_ONLY (old_decl) = 0;
 		  DECL_WEAK (old_decl) = 0;
+		  DECL_DUPLICATE_DECL (old_decl) = 1;
 		  *slot = decl;
 		}
 	      else
@@ -6742,8 +6797,20 @@ merge_translation_unit_decls (void)
 		  error ("%J'%D' previously defined here", old_decl, old_decl);
 		}
 	    }
+	  else if (DECL_EXTERNAL (old_decl))
+	    {
+	      /* Old entry is a declaration.  Mark it duplicate and
+		 replace with new decl (whether declaration or
+		 definition).  */
+	      DECL_DUPLICATE_DECL (old_decl) = 1;
+	      *slot = decl;
+	    }
 	  else
-	    *slot = decl;
+	    {
+	      /* Old entry is definition, new one declaration.
+		 Mark the declaration as a dup.  */
+	      DECL_DUPLICATE_DECL (decl) = 1;
+	    }
 	}
 
   /* Now insert the desired information from all the definitions
@@ -6772,6 +6839,7 @@ merge_translation_unit_decls (void)
 
   htab_delete (link_hash_table);
 }
+/* APPLE LOCAL end rewrite */
 
 /* Perform final processing on file-scope data.  */
 

@@ -1440,6 +1440,10 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (flag_syntax_only)
     return;
 
+  /* APPLE LOCAL duplicate decls in multiple files.  */
+  if (DECL_DUPLICATE_DECL (decl))
+    return;
+
   app_disable ();
 
   if (! dont_output_data

@@ -1072,6 +1072,10 @@ decode_options (unsigned int argc, const char **argv)
     {
       optimize = 3;
       optimize_size = 0;
+      /* This goes here, rather than in rs6000.c, so that
+	 later -fcommon can override it.  */
+      if (flag_fast || flag_fastcp)
+        flag_no_common = 1;
     }
     /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
