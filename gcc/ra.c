@@ -37,6 +37,9 @@
 #include "flags.h"
 #include "ggc.h"
 #include "reload.h"
+#include "real.h"
+#include "pre-reload.h"
+
 
 #define NO_REMAT
 #define obstack_chunk_alloc xmalloc
@@ -436,7 +439,7 @@ static void delete_overlapping_slots PARAMS ((struct rtx_list **, rtx));
 static int slot_member_p PARAMS ((struct rtx_list *, rtx));
 static void insert_stores PARAMS ((bitmap));
 static int spill_same_color_p PARAMS ((struct web *, struct web *)); 
-static int is_partly_live_1 PARAMS ((sbitmap, struct web *));
+static unsigned int is_partly_live_1 PARAMS ((sbitmap, struct web *));
 static void update_spill_colors PARAMS ((HARD_REG_SET *, struct web *, int));
 static int spill_is_free PARAMS ((HARD_REG_SET *, struct web *));
 static void emit_loads PARAMS ((struct rewrite_info *, int, rtx));
@@ -551,6 +554,12 @@ static unsigned char byte2bitcount[256];
 #define SUBWEB_P(W) (GET_CODE ((W)->orig_x) == SUBREG)
 
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
+
+extern struct df2ra build_df2ra PARAMS ((struct df*, struct ra_info*));
+static struct ra_info *ra_info;
+struct df2ra df2ra;
+static enum reg_class web_preferred_class PARAMS ((struct web *));
+void web_class PARAMS ((void));
 
 #define DUMP_COSTS	0x0001
 #define DUMP_WEBS	0x0002
@@ -1075,7 +1084,7 @@ ra_debug_insns (insn, num)
      rtx insn;
      int num;
 {
-  int i, count = num == 0 ? 1 : num < 0 ? -num : num;
+  int i, count = (num == 0 ? 1 : num < 0 ? -num : num);
   if (num < 0)
     for (i = count / 2; i > 0 && PREV_INSN (insn); i--)
       insn = PREV_INSN (insn);
@@ -1706,7 +1715,7 @@ defuse_overlap_p_1 (def, use)
 
 static int
 live_out_1 (df, use, insn)
-     struct df *df;
+     struct df *df ATTRIBUTE_UNUSED;
      struct curr_use *use;
      rtx insn;
 {
@@ -1978,7 +1987,7 @@ dump_number_seen (void)
 static void
 update_regnos_mentioned (void)
 {
-  unsigned int last_uid = last_max_uid;
+  int last_uid = last_max_uid;
   rtx insn;
   basic_block bb;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -2917,7 +2926,7 @@ compare_and_free_webs (link)
 
 static void
 init_webs_defs_uses (df)
-     struct df *df;
+     struct df *df ATTRIBUTE_UNUSED;
 {
   struct dlist *d;
   /* Setup and fill uses[] and defs[] arrays of the webs.  */
@@ -3292,7 +3301,7 @@ check_conflict_numbers (void)
   for (i = 0; i < num_webs; i++)
     {
       struct web *web = ID2WEB (i);
-      unsigned int new_conf = web->add_hardregs;
+      int new_conf = web->add_hardregs;
       struct conflict_link *cl;
       for (cl = web->conflict_list; cl; cl = cl->next)
 	if (cl->t->type != SELECT && cl->t->type != COALESCED)
@@ -5404,7 +5413,6 @@ colorize_one_web (web, hard)
 
   while (1)
     {
-      int i;
       HARD_REG_SET call_clobbered;
 	
       /* Here we choose a hard-reg for the current web.  For non spill
@@ -5896,6 +5904,7 @@ try_recolor_web (web)
 		    web2->color = old_colors[web2->id] - 1;
 		  else
 		    abort ();
+		}
 	    }
 	}
       free (old_colors);
@@ -6838,7 +6847,6 @@ insert_stores (new_deaths)
 		}
 	      else
 		{
-		  rtx insns = get_insns ();
 		  end_sequence ();
 		  /* Ignore insns from adjust_address() above.  */
 		}
@@ -6885,7 +6893,7 @@ spill_same_color_p (web1, web2)
   return 1;
 }
 
-static int
+static unsigned int
 is_partly_live_1 (live, web)
      sbitmap live;
      struct web *web;
@@ -9130,8 +9138,8 @@ powraise (power)
 }
 static bool 
 find_splits (name, colors)
-     unsigned int name;
-     int *colors;
+     unsigned int name ATTRIBUTE_UNUSED;
+     int *colors ATTRIBUTE_UNUSED;
 {
   return FALSE;
 }
@@ -9301,8 +9309,9 @@ reg_alloc (void)
     rtl_dump_file = NULL;
   regclass (get_insns (), max_reg_num (), rtl_dump_file);
   rtl_dump_file = ra_dump_file;
-  pre_reload ();
 
+  ra_info = ra_info_init (max_reg_num ());
+  pre_reload (ra_info);
   {
     allocate_reg_info (max_reg_num (), FALSE, FALSE);
     compute_bb_for_insn (get_max_uid ());
@@ -9312,6 +9321,8 @@ reg_alloc (void)
     max_regno = max_reg_num ();
     regclass (get_insns (), max_reg_num (), rtl_dump_file);
   }
+  ra_info_free (ra_info);
+  free (ra_info);
   
   split_live_ranges = FALSE;
   /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
@@ -9360,12 +9371,38 @@ reg_alloc (void)
       debug_msg (DUMP_NEARLY_EVER, "RegAlloc Pass %d\n\n", ra_pass);
       if (ra_pass++ > 40)
 	internal_error ("Didn't find a coloring.\n");
+
+      /* FIXME denisc@overta.ru
+	 Example of usage ra_info ... routines */
+#if 0
+      ra_info = ra_info_init (max_reg_num ());
+      pre_reload (ra_info);
+
+      {
+	allocate_reg_info (max_reg_num (), FALSE, FALSE);
+	compute_bb_for_insn (get_max_uid ());
+	delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
+	reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
+			 max_regno);
+	max_regno = max_reg_num ();
+	regclass (get_insns (), max_reg_num (), rtl_dump_file);
+	orig_max_uid = get_max_uid ();
+	death_insns_max_uid = orig_max_uid;
+      }
+#endif
+      
       df_analyse (df, (ra_pass == 1) ? 0 : (bitmap) -1,
 		  DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN
 #ifndef NO_REMAT
 		  | DF_DU_CHAIN | DF_UD_CHAIN
 #endif
 		 );
+      
+      /* FIXME denisc@overta.ru
+	 Example of usage ra_info ... routines */
+#if 0
+      df2ra = build_df2ra (df, ra_info);
+#endif
       if ((debug_new_regalloc & DUMP_DF) != 0)
 	{
 	  rtx insn;
@@ -9379,6 +9416,15 @@ reg_alloc (void)
       check_df (df);
       alloc_mem (df);
       changed = one_pass (df, ra_pass > 1);
+
+      /* FIXME denisc@overta.ru
+	 Example of usage ra_info ... routines */
+#if 0
+      ra_info_free (ra_info);
+      free (df2ra.def2def);
+      free (df2ra.use2use);
+      free (ra_info);
+#endif 
       if (!changed)
 	{
           emit_colors (df);
@@ -9477,6 +9523,80 @@ reg_alloc (void)
     ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
 }
 
+static int web_conflicts_p PARAMS ((struct web *, struct web *));
+
+static int
+web_conflicts_p (web1, web2)
+     struct web * web1;
+     struct web * web2;
+{
+  if (web1->type == PRECOLORED && web2->type == PRECOLORED)
+    return 0;
+  
+  if (web1->type == PRECOLORED)
+    return TEST_HARD_REG_BIT (web2->usable_regs, web1->regno);
+
+  if (web2->type == PRECOLORED)
+    return TEST_HARD_REG_BIT (web1->usable_regs, web2->regno);
+    
+  return hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs);
+}
+
+static void dump_web_conflicts PARAMS ((struct web *));
+
+/* Dump conflicts for web WEB.  */
+static void
+dump_web_conflicts (web)
+     struct web *web;
+{
+  int num = 0;
+  unsigned int def2;
+
+  debug_msg (DUMP_EVER, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
+	     web->id, web->regno, web->add_hardregs,
+	     reg_class_names[web->regclass],
+	     web->num_freedom, web->num_conflicts);
+  
+  for (def2 = 0; def2 < num_webs; def2++)
+    if (TEST_BIT (igraph, igraph_index (web->id, def2)) && web->id != def2)
+      {
+	if ((num % 9) == 5)
+	  debug_msg (DUMP_EVER, "\n             ");
+	num++;
+	
+	debug_msg (DUMP_EVER, " %d(%d)", def2, id2web[def2]->regno);
+	if (id2web[def2]->add_hardregs)
+	  debug_msg (DUMP_EVER, "+%d", id2web[def2]->add_hardregs);
+
+	if (web_conflicts_p (web, id2web[def2]))
+	  debug_msg (DUMP_EVER, "/x");
+
+	if (id2web[def2]->type == SELECT)
+	  debug_msg (DUMP_EVER, "/s");
+	  
+	if (id2web[def2]->type == COALESCED)
+	  debug_msg (DUMP_EVER,"/c/%d", alias (id2web[def2])->id);
+      }
+  debug_msg (DUMP_EVER, "\n");
+  {
+    struct conflict_link *wl;
+    num = 0;
+    debug_msg (DUMP_EVER, "By conflicts:     ");
+    for (wl = web->conflict_list; wl; wl = wl->next)
+      {
+	struct web* w = wl->t;
+	if ((num % 9) == 8)
+	  debug_msg (DUMP_EVER, "\n              ");
+	num++;
+	debug_msg (DUMP_EVER, "%d(%d)%s ", w->id, w->regno,
+		   web_conflicts_p (web, w) ? "+" : "");
+      }
+    debug_msg (DUMP_EVER, "\n");  
+  }
+}
+
+void debug_hard_reg_set PARAMS ((HARD_REG_SET));
+/* Output SET to stderr.  */
 void
 debug_hard_reg_set (set)
      HARD_REG_SET set;
@@ -9492,6 +9612,88 @@ debug_hard_reg_set (set)
   fprintf (stderr, "\n");
 }
 
+static enum reg_class *reg_class_of_web;
+
+static enum reg_class
+web_preferred_class (web)
+     struct web *web;
+{
+  if (!reg_class_of_web)
+    abort ();
+
+  if (web->id >= num_webs)
+    abort ();
+
+  return reg_class_of_web[find_web_for_subweb(web)->id];
+}
+
+void
+web_class ()
+{
+  unsigned int n;
+  unsigned int i;
+  char class[LIM_REG_CLASSES];
+  ra_ref *rref;
+  struct ref* dref;
+  enum reg_class best;
+
+  if (reg_class_of_web)
+    free (reg_class_of_web);
+
+  reg_class_of_web = xmalloc (sizeof (enum reg_class) * (num_webs
+							 - num_subwebs));
+  for (n = 0; n < num_webs - num_subwebs; ++n)
+    {
+      struct web *web = id2web[n];
+      int founded = 0;
+
+      reg_class_of_web[n] = NO_REGS;
+
+      if (web->type == PRECOLORED)
+	continue;
+      
+      for (i = 0; i < LIM_REG_CLASSES; ++i)
+	class[i] = 0;
+
+      for (i = 0; i < web->num_defs; ++i)
+	{
+	  dref = web->defs[i];
+	  rref = DF2RA (dref);
+	  if (rref)
+	    ++class[rref->class];
+	}
+
+      for (i = 0; i < web->num_uses; ++i)
+	{
+	  dref = web->uses[i];
+	  rref = DF2RA (dref);
+	  if (rref)
+	    ++class[rref->class];
+	}
+
+/*        fprintf (stderr, "Web: %d ", web->id); */
+      best = ALL_REGS;
+      for (i = 0; i < LIM_REG_CLASSES; ++i)
+	if (class[i])
+	  {
+	    if (reg_class_subset_p (i, best))
+	      {
+		best = i;
+		founded = 1;
+	      }
+	    else if (!reg_class_subset_p (best, i))
+	      best = NO_REGS;
+/*  	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]); */
+	  }
+      /*  fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
+      if (best == NO_REGS)
+	{
+	  fprintf (stderr, "Web: %d NO_REGS\n", web->id);
+	  best = GENERAL_REGS;
+	}
+      reg_class_of_web[n] = best;
+    }
+}
 
 /*
 vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:

@@ -1,4 +1,4 @@
-/* Communication between reload.c, reload1.c and pre-reload.c.
+/* Communication between reload.c, reload1.c, pre-reload.c and ra.c.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
@@ -76,6 +76,84 @@ struct replacement
 };
 
 
+enum ra_ref_type {RA_REF_NONE    = 0,
+		  RA_REF_READ    = 0x1,
+		  RA_REF_WRITE   = 0x2,
+		  RA_REF_RDWR    = 0x3,
+		  RA_REF_ADDRESS = 0x4,
+		  RA_REF_CLOBBER = 0x8};
+
+#define RA_REF_SET_TYPE(RA_REF,TYPE) ((RA_REF)->type |= (TYPE))
+#define RA_REF_READ_P(RA_REF)    ((RA_REF)->type & RA_REF_READ)
+#define RA_REF_WRITE_P(RA_REF)   ((RA_REF)->type & RA_REF_WRITE)
+#define RA_REF_CLOBBER_P(RA_REF) ((RA_REF)->type & RA_REF_CLOBBER)
+#define RA_REF_ADDRESS_P(RA_REF) ((RA_REF)->type & RA_REF_ADDRESS)
+#define RA_REF_RDWR_P(RA_REF)    ((RA_REF)->type & RA_REF_RDWR)
+#define RA_REF_ID(RA_REF)        ((RA_REF)->id)
+#define RA_REF_REGNO(REF)        (REGNO ((REF)->reg))
+
+struct ra_ref
+{
+  int id;			/* ra_ref unique identifier */
+  rtx reg;			/* register rtx */
+  rtx *loc;			/* *loc = ref */
+  rtx insn;			/* insn which contain register rtx */
+  int opno;			/* operand number in insn */
+  rtx operand;			/* operand which contain register rtx */
+  rtx *opernad_loc;		/* *operand_loc = operand */
+  enum ra_ref_type type;	/* type of operand */
+  struct ra_ref *matches;	/* This reg must match  */
+  struct ra_ref *matched;	/* This reg matched by  */
+  HARD_REG_SET hardregs;	/* Register can be one of hardregs */
+  /* Fields for debugging.  */
+  int alt;			/* selected constraints alternative  */
+  enum reg_class class;		/* Register class */
+  char *constraints;		/* constraints terminated by ',' or '\0' */
+};
+
+typedef struct ra_ref ra_ref;
+
+
+#define RA_INSN_DEFS(RA_INFO, INSN) (RA_INFO)->insns[INSN_UID(INSN)]->defs
+#define RA_INSN_USES(RA_INFO, INSN) (RA_INFO)->insns[INSN_UID(INSN)]->uses
+#define RA_INSN_REFS(RA_INFO, INSN) (RA_INFO)->insns[INSN_UID(INSN)]
+#define RA_REG_DEFS(RA_INFO, REGNO) (RA_INFO)->regs[REGNO]->defs
+#define RA_REG_USES(RA_INFO, REGNO) (RA_INFO)->regs[REGNO]->uses
+#define RA_REG_REFS(RA_INFO, REGNO) (RA_INFO)->regs[REGNO]
+
+/* Link on a def-use or use-def chain.  */
+struct ra_link
+{
+  struct ra_link *next;
+  struct ra_ref *ref;
+};
+
+struct ra_refs
+{
+  struct ra_link *defs;
+  struct ra_link *uses;
+  int n_defs;
+  int n_uses;
+};
+
+struct ra_info
+{
+  ra_ref **defs;		/* Def table, indexed by def_id.  */
+  ra_ref **uses;		/* Use table, indexed by use_id.  */
+  ra_ref **reg_def_last;	/* Indexed by regno.  */
+  struct ra_refs **regs;	/* Regs table, index by regno.  */
+  int reg_size;			/* Size of regs table.  */
+  struct ra_refs **insns;	/* Insn table, indexed by insn UID.  */
+  int insn_size;		/* Size of insn table.  */
+  int def_id;			/* Next def ID.  */
+  int def_size;			/* Size of def table.  */
+  int n_defs;			/* Size of def bitmaps.  */
+  int use_id;			/* Next use ID.  */
+  int use_size;			/* Size of use table.  */
+  int n_uses;			/* Size of use bitmaps.  */
+  int n_regs;			/* Number of regs.  */
+};
+
 
 /* Replacing reloads.
 
@@ -119,15 +197,25 @@ extern int output_reloadnum;
 
 
 
-extern void push_replacement (rtx *, int , enum machine_mode);
-
-extern int reload_inner_reg_of_subreg PARAMS ((rtx, enum machine_mode));
-extern int find_pre_reloads (rtx, int);
+extern void push_replacement           PARAMS ((rtx *, int ,
+						enum machine_mode));
+extern int reload_inner_reg_of_subreg  PARAMS ((rtx, enum machine_mode));
+extern int find_pre_reloads            PARAMS ((rtx, int));
 extern enum reg_class find_valid_class PARAMS ((enum machine_mode, int));
-extern void copy_eh_notes		PARAMS ((rtx, rtx));
+extern void copy_eh_notes	       PARAMS ((rtx, rtx));
 extern int alternative_allows_memconst PARAMS ((const char *, int));
-extern void subst_pre_reloads (rtx);
-extern void emit_pre_reload_insns (rtx);
+extern void subst_pre_reloads          PARAMS ((rtx));
+extern void emit_pre_reload_insns      PARAMS ((rtx));
+extern void pre_reload                 PARAMS ((struct ra_info *));
+extern struct ra_info *ra_info_init    PARAMS ((int));
+extern void ra_info_free               PARAMS ((struct ra_info *));
 
-
-
+struct df2ra
+{
+  ra_ref **def2def;
+  ra_ref **use2use;
+};
+extern struct df2ra df2ra;
+#define DF2RA(DF_REF) (*(DF_REF_REG_DEF_P (DF_REF)		\
+		         ? &df2ra.def2def[DF_REF_ID (DF_REF)]	\
+		         : &df2ra.use2use[DF_REF_ID (DF_REF)]))

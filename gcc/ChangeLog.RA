@@ -1,3 +1,73 @@
+Sat Mar 16 12:33:21 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* pre-reload.h (ra_ref_type): New enum. Type of ra_ref.
+	(RA_REF_SET_TYPE): New. Add type to ra_ref.
+        (RA_REF_READ_P): New. Query type of ra_ref.
+	(RA_REF_WRITE_P): Likewise.
+	(RA_REF_CLOBBER_P): Likewise.
+	(RA_REF_ADDRESS_P): Likewise.
+	(RA_REF_RDWR_P): Likewise.
+	(RA_REF_ID): Access of ra_ref id.
+	(RA_REF_REGNO): Register number of ra_ref.
+	(ra_ref): New. Structure for description one reference to
+	register.
+	(ra_ref): New type.
+	(RA_INSN_DEFS): New. Defs for insn linked to list of ra_link's.
+	(RA_INSN_USES): Likewise, but it's uses.
+	(RA_INSN_REFS): New. Pointer to ra_refs structure for insn.
+	(RA_REG_DEFS): New. Defs of reg linked to list of ra_link's.
+	(RA_REG_USES): Likewise, but it's uses of regs.
+	(RA_REG_REFS): New. Pointer to ra_refs structure for register.
+	(ra_refs): New structure. Describe all defs and uses for one
+	register or for one insn.
+	(ra_info): New structure. Head of all ra_info ... information.
+	(df2ra): New structure. Translate df ref to ra_ref.
+	(DF2RA): New macro for easy access ra_ref by df ref.
+
+	* pre-reload.c: Add PARAMS to all function declarations.
+	(ra_info_obstack): New obstack.
+	(ra_link_create): New. Create a link in def/use chain.
+	(pseudo_clobbered_p): New.
+	(push_pre_reload): Few bugfix.
+	(pseudo_fits_class_p): New.
+	(scan_addr_state): New struct. Auxilary structure for scan
+	addresses.
+	(scan_addr_func): New. Main address scanner.
+	(scan_addr_create_ref): New. Create ra_ref from
+	scan_addr_state.
+	(collect_insn_info): New. Reload insn or collect defs/uses.
+	(find_pre_reloads): Converted to collect_insn_info.
+	(ra_insn_table_realloc): New. Increase the insn info table.
+	(ra_reg_table_realloc): New. Increase the reg info table.
+	(ra_info_init): New. Allocate and initialise dataflow memory.
+	(ra_info_free): New. Free all the dataflow info.
+	(debug_ra_insn_refs): New. Print all defs/uses for INSN from
+	RA_INFO.
+	(ra_info_add_insn_refs): New. Put pointer REFS (pointer to
+	defs/uses for INSN) to ra_info->insns array.
+	(ra_info_add_reg_refs): Add reference to ra_info->regs array
+	for each register of INSN.
+	(build_ra_refs_for_insn): New. List of defs/uses builded from
+	plain arrays.
+	(build_df2ra): New. Check ra_info by comparing it with the df
+	info and build array for translation df ref to ra_ref.
+	(pre_reload): Changet to use pre_reload_collect.
+	(pre_reload_collect): New. Collect all ra_refs for all insns.
+
+	* ra.c: Fix signed/unsigned types.
+	(try_recolor_web): Probably serious bugfix. I lose '}' in
+	previous commit.
+	(reg_alloc): Usage ra_info_init, pre_reload,
+	ra_info_free.
+	
+	(reg_alloc): Commented examples of usage ra_info
+	... routines. I can't bootstrap with these.
+	
+	(web_conflicts_p): New. Helper for dump_web_conflicts.
+	(dump_web_conflicts): Dump conflicts for web.
+	(web_preferred_class): New. Return preferred class for web
+	(web_class): New. Dumb and very simple.
+
 Thu Feb 28 22:14:34 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c: (try_recolor_web): Restore original colors: spilled,
