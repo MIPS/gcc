@@ -85,9 +85,13 @@ rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
 
 /* APPLE LOCAL begin AltiVec */
 /* Keep the AltiVec keywords handy for fast comparisons.  */
-static GTY(()) cpp_hashnode *__vector_keyword, *vector_keyword;
-static GTY(()) cpp_hashnode *__pixel_keyword, *pixel_keyword;
-static GTY(()) cpp_hashnode *__bool_keyword, *bool_keyword, *_Bool_keyword;
+static GTY(()) cpp_hashnode *__vector_keyword;
+static GTY(()) cpp_hashnode *vector_keyword;
+static GTY(()) cpp_hashnode *__pixel_keyword;
+static GTY(()) cpp_hashnode *pixel_keyword;
+static GTY(()) cpp_hashnode *__bool_keyword;
+static GTY(()) cpp_hashnode *bool_keyword;
+static GTY(()) cpp_hashnode *_Bool_keyword;
 
 /* Called to decide whether a conditional macro should be expanded.  */
 
