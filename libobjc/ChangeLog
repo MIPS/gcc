@@ -1,3 +1,7 @@
+2002-12-02  Zack Weinberg  <zack@codesourcery.com>
+
+	* thr-objc.c: Include coretypes.h and tm.h.
+
 2002-12-01  Zack Weinberg  <zack@codesourcery.com>
 
 	* encoding.c, sendmsg.c: Include coretypes.h and tm.h.
