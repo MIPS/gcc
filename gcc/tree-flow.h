@@ -617,15 +617,11 @@ void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
 void canonicalize_induction_variables (struct loops *loops);
 void test_unrolling_and_peeling (struct loops *loops);
-tree collect_defs (struct loop *loop);
-void rename_variables_in_bb (basic_block bb);
-void rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy);
-void allocate_new_names (tree definitions, unsigned ndupl, bool origin);
-void free_new_names (tree definitions, bool origin);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,
 					 unsigned int *, int);
+bool tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void test_loop_versioning (struct loops *loops);

@@ -1,3 +1,19 @@
+2004-05-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop-manip.o): Add cfglayout.h dependency.
+	* tree-flow.h (collect_defs, rename_variables_in_bb, rename_op,
+	allocate_new_names, free_new_names): Declaration removed.
+	(tree_duplicate_loop_to_exit): Declare.
+	* tree-ssa-loop-manip.c: Include cfglayout.h.
+	(collect_defs, rename_variables_in_bb, rename_op,
+	allocate_new_names, free_new_names): Made static.
+	(tdlte_rename_variables_in_loop, tdlte_copy_phi_nodes,
+	tree_duplicate_loop_to_exit_cfg, tree_duplicate_loop_to_exit):
+	Moved from tree-vectorizer.c.
+	* tree-vectorizer.c (vect_duplicate_loopm vect_copy_phi_nodes,
+	vect_rename_variables_in_loop, vect_tree_duplicate_loop): Moved
+	to tree-ssa-loop-manip.c and renamed.
+
 2004-05-20  Olga Golovanevsky  <olga@il.ibm.com>
             Dorit Naishlos <dorit@il.ibm.com>
 
