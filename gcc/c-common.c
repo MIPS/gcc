@@ -5492,7 +5492,7 @@ handle_nonnull_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
   for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
     {
       tree argument;
-      unsigned HOST_WIDE_INT arg_num, ck_num;
+      unsigned HOST_WIDE_INT arg_num = 0, ck_num;
 
       if (! get_nonnull_operand (TREE_VALUE (args), &arg_num))
 	{
@@ -5574,7 +5574,7 @@ check_function_nonnull (tree attrs, tree params)
 static bool
 nonnull_check_p (tree args, unsigned HOST_WIDE_INT param_num)
 {
-  unsigned HOST_WIDE_INT arg_num;
+  unsigned HOST_WIDE_INT arg_num = 0;
 
   for (; args; args = TREE_CHAIN (args))
     {

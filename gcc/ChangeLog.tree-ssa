@@ -1,3 +1,10 @@
+2003-12-18  Jan Hubicka  <jh@suse.cz>
+
+	* c-common.c (handle_nonnull_attribute, check_function_nonnull):
+	Initialize arg_num.
+	* c-format.c (handle_format_attribute): Initialize format_num.
+	* rtlanal.c (get_related_value): Initialize get_jump_table_offset
+
 2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* stmt.c (expand_start_loop, expand_loop_continue_here,

@@ -445,8 +445,8 @@ get_related_value (rtx x)
 rtx
 get_jump_table_offset (rtx insn, rtx *earliest)
 {
-  rtx label;
-  rtx table;
+  rtx label = NULL;
+  rtx table = NULL;
   rtx set;
   rtx old_insn;
   rtx x;
