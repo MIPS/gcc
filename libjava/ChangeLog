@@ -1,5 +1,9 @@
 2004-06-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* java/awt/MenuItem.java (dispatchEventImpl): If the event
+	wasn't consumed by normal processing, send it to the parent
+	menu.
+
 	* gnu/java/awt/peer/gtk/GtkImagePainter.java
 	(setPixels(int,int,int,int,ColorModel,int[],int,int)): Remove
 	translation.
