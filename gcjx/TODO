@@ -1,3 +1,8 @@
+there's a bug with implicit qualifiers for field references.
+qualification in general needs some inspection.
+eg, for 'Foo.super.field', 'Foo.super' should probably be a qualifying
+expression, not part of the field reference itself.
+
 we initialize fields that were added by variable capture
 even when the constructor calls this().  this is wrong
 we could fix this by attaching the assignments to the super() call
@@ -47,6 +52,8 @@ would also be convenient to have an assembler
 Elliott suggests:
 - print floating point values as hex integers
 - quote strings as they would appear in the source
+[ this task probably doesn't belong in gcjx but instead perhaps
+  in classpath tools.  or just use jasmin and other existing tools ]
 
 it is invalid to look up a cached class while parsing
 the compiler ought to enforce this with asserts

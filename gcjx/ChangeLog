@@ -1,5 +1,10 @@
 2005-01-15  Tom Tromey  <tromey@redhat.com>
 
+	* model/fieldref.cc (resolve): Reverted earlier patch, with
+	commentary.
+
+2005-01-15  Tom Tromey  <tromey@redhat.com>
+
 	* source/lex.cc (lexer): Updated.
 	(get): Rewrote again.
 	* source/lex.hh (lexer::was_return): New field.

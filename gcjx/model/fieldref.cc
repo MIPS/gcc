@@ -171,8 +171,17 @@ model_field_ref::resolve (resolution_scope *scope)
   else
     {
       // This is an unqualified reference to a field.  In this case we
-      // use the implicit qualifier, which is the current class.
-      qualifier = scope->get_current_class ();
+      // use the implicit qualifier.  FIXME: if we have a qualified
+      // reference like 'Derived.field', but the field is actually
+      // declared in 'Base', we will wind up with 'Base.field' here,
+      // which is incorrect.  Fixing this requires extracting more
+      // information from classify_expression_name().  Even the
+      // commented out code here doesn't work, since for something
+      // like 'System.out.println()', nothing tells the field reference
+      // that it is qualified.
+      //       qualifier = (qualified ? field->get_declaring_class ()
+      // 		   : scope->get_current_class ());
+      qualifier = field->get_declaring_class ();
     }
 
   set_type (field->type ());
