@@ -471,6 +471,9 @@ do {					\
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
 
+/* Default Darwin ASM_SPEC, very simple.  */
+#define ASM_SPEC "-arch %(darwin_arch)"
+
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1

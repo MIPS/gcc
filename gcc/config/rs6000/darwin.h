@@ -135,16 +135,9 @@ do {									\
 "%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 /* APPLE LOCAL begin .machine assembler directive (radar 3492132) */
-/* It's virtually impossible to predict all the possible combinations
-   of -mcpu and -maltivec and whatnot, so just supply
-   -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
-   assembler is asking for a .machine directive so we could get this
-   really right.  */
-#define ASM_SPEC " %(darwin_arch_asm_spec)\
-  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec:-force_cpusubtype_ALL}}"
+/* FIXME this change has nothing to do with .machine */
 
-#define DARWIN_ARCH_LD_SPEC                                        \
+#define DARWIN_ARCH_LD_SPEC						       \
 "%{m64: %{!Zdynamiclib:-arch ppc64} %{Zdynamiclib:-arch_only ppc64}}	       \
  %{!m64:								       \
  %{mcpu=601: %{!Zdynamiclib:-arch ppc601} %{Zdynamiclib:-arch_only ppc601}}    \
@@ -155,29 +148,17 @@ do {									\
  %{mcpu=7400: %{!Zdynamiclib:-arch ppc7400} %{Zdynamiclib:-arch_only ppc7400}} \
  %{mcpu=7450: %{!Zdynamiclib:-arch ppc7450} %{Zdynamiclib:-arch_only ppc7450}} \
  %{mcpu=970: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
- %{mcpu=G5: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
- %{!mcpu*:%{!march*:%{!Zdynamiclib:-arch ppc} %{Zdynamiclib:-arch_only ppc}}}} "
-
-#define DARWIN_ARCH_ASM_SPEC                                        \
-"%{m64: -arch ppc64}	     \
- %{!m64:		     \
- %{mcpu=601: -arch ppc601}   \
- %{mcpu=603: -arch ppc603}   \
- %{mcpu=604: -arch ppc604}   \
- %{mcpu=604e: -arch ppc604e} \
- %{mcpu=750: -arch ppc750}   \
- %{mcpu=7400: -arch ppc7400} \
- %{mcpu=7450: -arch ppc7450} \
- %{mcpu=970: -arch ppc970}   \
- %{mcpu=G5: -arch ppc970}   \
- %{!mcpu*:%{!march*: -arch ppc}}} "
+ %{mcpu=G5: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}} "
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch_asm_spec",	DARWIN_ARCH_ASM_SPEC },     \
   { "darwin_arch_ld_spec",	DARWIN_ARCH_LD_SPEC },     \
   { "darwin_arch", "ppc" },
 /* APPLE LOCAL end .machine assembler directive */
+
+/* Output a .machine directive.  */
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START rs6000_darwin_file_start
 
 /* The "-faltivec" option should have been called "-maltivec" all
    along.  -ffix-and-continue and -findirect-data is for compatibility
