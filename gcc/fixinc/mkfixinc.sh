@@ -124,6 +124,10 @@ fi
 #
 echo $MAKE SHELL=\"$SHELL\" install
 
+#  make and install either the binary or the default script
+#
+$MAKE SHELL="$SHELL" install && exit 0
+
 #  Where is our inclhack script?  That is the backup
 #  in case we are unable to make a working binary.
 #
@@ -134,6 +138,7 @@ else
     INCLHACK=${srcdir}/inclhack.sh
 fi
 
-#  make and install either the binary or the default script
-#
-$MAKE SHELL="$SHELL" install || cp ${INCLHACK} ${target}
+echo Could not install binary fixincludes.
+echo Installing shell script instead.
+
+cp ${INCLHACK} ${target}

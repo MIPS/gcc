@@ -136,6 +136,8 @@ install: $(TARGETS)
 		cp fixincl .. ; \
 		chmod 555 ../fixincl ; \
 	else \
+		echo Could not install binary fixincludes.  ; \
+		echo Installing shell script instead. ; \
 		echo cp inclhack.sh ../fixinc.sh ; \
 		if [ -f ./inclhack.sh ] ; \
 		then cp inclhack.sh ../fixinc.sh ; \
