@@ -6,10 +6,10 @@
   Scalar evolution functions: 
 
 temp_var
-  ->  i_1 + j_5;
+  ->  i_1 + j_4;
 
 i
-  ->  {0, +, j_5 + 2}_1
+  ->  {0, +, j_4 + 2}_1
 
 
 

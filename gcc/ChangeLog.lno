@@ -1,3 +1,12 @@
+2004-02-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-optimize.c (init_tree_optimization_passes): Move ch after
+	the first dominator optimization pass.
+	* tree-ssa-loop.c (should_duplicate_loop_header_p,
+	copy_loop_headers): Work over ssa.
+	(pass_ch): Require and update ssa form.
+	(mark_defs_for_rewrite, duplicate_blocks): New.
+
 2004-02-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (for_each_index, prepare_decl_rtl,

@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
+/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
 
 #define L 100
 #define M 100

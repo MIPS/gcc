@@ -32,26 +32,26 @@ T.7
   ->  {1, +, 2}_2
 
 (Data Ref 0: 
-  stmt: T.4_25 = input[T.3_24];
-  ref: input[T.3_24];
+  stmt: T.4_23 = input[T.3_22];
+  ref: input[T.3_22];
   base_name: input
   Access function 0: {{21, +, 2}_1, +, -2}_2
 )
 (Data Ref 1: 
-  stmt: T.8_29 = coefs[T.7_28];
-  ref: coefs[T.7_28];
+  stmt: T.8_27 = coefs[T.7_26];
+  ref: coefs[T.7_26];
   base_name: coefs
   Access function 0: {1, +, 2}_2
 )
 (Data Ref 2: 
-  stmt: T.11_34 = input[T.2_23];
-  ref: input[T.2_23];
+  stmt: T.11_32 = input[T.2_21];
+  ref: input[T.2_21];
   base_name: input
   Access function 0: {{20, +, 2}_1, +, -2}_2
 )
 (Data Ref 3: 
-  stmt: T.13_37 = coefs[T.6_27];
-  ref: coefs[T.6_27];
+  stmt: T.13_35 = coefs[T.6_25];
+  ref: coefs[T.6_25];
   base_name: coefs
   Access function 0: {0, +, 2}_2
 )

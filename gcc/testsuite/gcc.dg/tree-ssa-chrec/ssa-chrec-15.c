@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev" } */
+/* { dg-options "-O1 -fscalar-evolutions -fno-tree-ch -fdump-tree-scev" } */
 
 
 int main (void)

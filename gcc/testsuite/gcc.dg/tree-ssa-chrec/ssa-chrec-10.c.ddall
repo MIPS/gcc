@@ -47,8 +47,8 @@ T.5
   Access function 1: {15, +, 1}_1
 )
 (Data Ref 2: 
-  stmt: c[x_4][T.1_5] = T.8_12;
-  ref: c[x_4][T.1_5];
+  stmt: c[x_4][T.1_16] = T.8_12;
+  ref: c[x_4][T.1_16];
   base_name: c
   Access function 0: {12, +, 1}_1
   Access function 1: {16, +, 1}_1

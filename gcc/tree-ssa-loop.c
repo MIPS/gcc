@@ -76,8 +76,30 @@ tree_ssa_loop_opt (void)
     }
 }
 
+static bool
+gate_loop (void)
+{
+  return flag_tree_loop != 0;
+}
+
+struct tree_opt_pass pass_loop = 
+{
+  "loop",				/* name */
+  gate_loop,				/* gate */
+  tree_ssa_loop_opt,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+};
 
 /* Checks whether the STMT is a call, and if so, returns the call_expr.  */
+
 static tree
 call_expr_p (tree stmt)
 {
@@ -87,16 +109,21 @@ call_expr_p (tree stmt)
   return TREE_CODE (stmt) == CALL_EXPR ? stmt : NULL_TREE;
 }
 
-/* Check whether we should duplicate header of LOOP.  At most *LIMIT
+/* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
    instructions should be duplicated, limit is decreased by the actual
    amount.  */
 
 static bool
-should_duplicate_loop_header_p (struct loop *loop, int *limit)
+should_duplicate_loop_header_p (basic_block header, struct loop *loop,
+				int *limit)
 {
   block_stmt_iterator bsi;
-  basic_block header = loop->header;
   tree last;
+
+  /* Do not copy one block more than once (we do not really want to do
+     loop peeling here).  */
+  if (header->aux)
+    return false;
 
   if (!header->succ)
     abort ();
@@ -106,6 +133,12 @@ should_duplicate_loop_header_p (struct loop *loop, int *limit)
     return false;
   if (flow_bb_inside_loop_p (loop, header->succ->dest)
       && flow_bb_inside_loop_p (loop, header->succ->succ_next->dest))
+    return false;
+
+  /* If this is not the original loop header, we want it to have just
+     one predecessor in order to match the && pattern.  */
+  if (header != loop->header
+      && header->pred->pred_next)
     return false;
 
   last = last_stmt (header);
@@ -132,6 +165,115 @@ should_duplicate_loop_header_p (struct loop *loop, int *limit)
   return true;
 }
 
+/* Marks variables defined in basic block BB for rewriting.  */
+
+static void
+mark_defs_for_rewrite (basic_block bb)
+{
+  tree stmt, var;
+  block_stmt_iterator bsi;
+  stmt_ann_t ann;
+  def_optype defs;
+  vdef_optype vdefs;
+  vuse_optype vuses;
+  unsigned i;
+
+  for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
+    {
+      var = SSA_NAME_VAR (PHI_RESULT (stmt));
+      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+    }
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
+
+      defs = DEF_OPS (ann);
+      for (i = 0; i < NUM_DEFS (defs); i++)
+	{
+	  var = SSA_NAME_VAR (DEF_OP (defs, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+
+      vdefs = VDEF_OPS (ann);
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	{
+	  var = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+
+      /* We also need to rewrite vuses, since we will copy the statements
+	 and the ssa versions could not be recovered in the copy.  */
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	{
+	  var = SSA_NAME_VAR (VUSE_OP (vuses, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+    }
+}
+
+/* Duplicates destinations of edges in BBS_TO_DUPLICATE.  */
+
+static void
+duplicate_blocks (varray_type bbs_to_duplicate)
+{
+  unsigned i;
+  edge preheader_edge, e, e1;
+  basic_block header, new_header;
+  tree phi;
+  size_t old_num_referenced_vars = num_referenced_vars;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
+    {
+      preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
+      header = preheader_edge->dest;
+
+      mark_defs_for_rewrite (header);
+    }
+
+  rewrite_vars_out_of_ssa (vars_to_rename);
+
+  for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
+    {
+      bitmap_set_bit (vars_to_rename, i);
+      var_ann (referenced_var (i))->out_of_ssa_tag = 0;
+    }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
+    {
+      preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
+      header = preheader_edge->dest;
+
+      /* We might have split the edge into the loop header when we have
+	 eliminated the phi nodes, so find the edge to that we want to
+	 copy the header.  */
+      while (!header->aux)
+	{
+	  preheader_edge = header->succ;
+	  header = preheader_edge->dest;
+	}
+      header->aux = NULL;
+
+      new_header = duplicate_block (header, preheader_edge);
+
+      /* Add the phi arguments to the outgoing edges.  */
+      for (e = header->succ; e; e = e->succ_next)
+	{
+	  for (e1 = new_header->succ; e1->dest != e->dest; e1 = e1->succ_next)
+	    continue;
+
+	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	    {
+	      tree def = phi_element_for_edge (phi, e)->def;
+	      add_phi_arg (&phi, def, e1);
+	    }
+	}
+    }
+}
+
 /* For all loops, copy the condition at the end of the loop body in front
    of the loop.  */
 
@@ -141,8 +283,9 @@ copy_loop_headers (void)
   struct loops *loops;
   unsigned i;
   struct loop *loop;
-  basic_block header_copy, preheader, new_header;
-  edge preheader_edge, succ_in_loop;
+  basic_block header;
+  edge preheader_edge;
+  varray_type bbs_to_duplicate = NULL;
 
   loops = loop_optimizer_init (tree_dump_file);
   if (!loops)
@@ -167,51 +310,50 @@ copy_loop_headers (void)
       int limit = 20;
 
       loop = loops->parray[i];
+      preheader_edge = loop_preheader_edge (loop);
+      header = preheader_edge->dest;
 
       /* Iterate the header copying up to limit; this takes care of the cases
 	 like while (a && b) {...}, where we want to have both of the conditions
-	 copied.  */
-      while (should_duplicate_loop_header_p (loop, &limit))
+	 copied.  TODO -- handle while (a || b) - like cases, by not requiring
+	 the header to have just a single successor and copying up to
+	 postdominator. 
+	 
+	 We do not really copy the blocks immediatelly, so that we do not have
+	 to worry about updating loop structures, and also so that we do not
+	 have to rewrite variables out of and into ssa form for each block.
+	 Instead we just record the block into worklist and duplicate all of
+	 them at once.  */
+      while (should_duplicate_loop_header_p (header, loop, &limit))
 	{
-	  preheader_edge = loop_preheader_edge (loop);
-	  preheader = preheader_edge->src;
+	  if (!bbs_to_duplicate)
+	    VARRAY_GENERIC_PTR_NOGC_INIT (bbs_to_duplicate, 10,
+					  "bbs_to_duplicate");
+	  VARRAY_PUSH_GENERIC_PTR_NOGC (bbs_to_duplicate, preheader_edge);
+	  header->aux = &header->aux;
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file,
+		     "Scheduled basic block %d for duplication.\n",
+		     header->index);
 
 	  /* Find a successor of header that is inside a loop; i.e. the new
 	     header after the condition is copied.  */
-	  if (flow_bb_inside_loop_p (loop, loop->header->succ->dest))
-	    succ_in_loop = loop->header->succ;
+	  if (flow_bb_inside_loop_p (loop, header->succ->dest))
+	    preheader_edge = header->succ;
 	  else
-	    succ_in_loop = loop->header->succ->succ_next;
-
-	  /* But if it has more than one predecessor, split the edge so that
-	     we do not create loops with multiple latch edges.  */
-	  if (!succ_in_loop->dest->pred->pred_next)
-	    new_header = succ_in_loop->dest;
-	  else
-	    new_header = loop_split_edge_with (succ_in_loop, NULL);
-
-	  /* Copy the condition and update the loop structures.  */
-	  header_copy = duplicate_block (loop->header, preheader_edge);
-	  add_bb_to_loop (header_copy, preheader->loop_father);
-	  loop->latch = loop->header;
-	  loop->header = new_header;
-
-	  /* Predict the loop to be entered.  */
-	  predict_edge_def (loop_preheader_edge (loop), PRED_LOOP_HEADER,
-			    TAKEN);
-
-	  /* Ensure that the latch has just a single successor.  */
-	  loop_split_edge_with (loop_latch_edge (loop), NULL);
+	    preheader_edge = header->succ->succ_next;
+	  header = preheader_edge->dest;
 	}
     }
 
-#ifdef ENABLE_CHECKING
-  verify_loop_structure (loops);
-#endif
+  loop_optimizer_finalize (loops, NULL);
 
-  loop_optimizer_finalize (loops,
-			   (tree_dump_flags & TDF_DETAILS
-			    ? tree_dump_file : NULL));
+  if (bbs_to_duplicate)
+    {
+      duplicate_blocks (bbs_to_duplicate);
+      VARRAY_FREE (bbs_to_duplicate);
+    }
 
   /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
      that we cleanup the blocks created in order to get the loops into a
@@ -220,32 +362,10 @@ copy_loop_headers (void)
 }
 
 static bool
-gate_loop (void)
-{
-  return flag_tree_loop != 0;
-}
-
-static bool
 gate_ch (void)
 {
   return flag_tree_ch != 0;
 }
-
-struct tree_opt_pass pass_loop = 
-{
-  "loop",				/* name */
-  gate_loop,				/* gate */
-  tree_ssa_loop_opt,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_LOOP,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
-};
 
 struct tree_opt_pass pass_ch = 
 {
@@ -256,9 +376,11 @@ struct tree_opt_pass pass_ch =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CH,				/* tv_id */
-  PROP_cfg,				/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  (TODO_rename_vars
+   | TODO_dump_func
+   | TODO_verify_ssa)			/* todo_flags_finish */
 };

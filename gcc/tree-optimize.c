@@ -276,13 +276,13 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_build_cfg);
-  NEXT_PASS (pass_ch);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_ch);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_profile);

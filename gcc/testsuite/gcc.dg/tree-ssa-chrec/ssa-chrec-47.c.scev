@@ -6,12 +6,12 @@
   Scalar evolution functions: 
 
 p
-  ->  {p_2, +, -1}_1
+  ->  {p_8, +, -1}_1
 
 
 
   Scalar evolution functions: 
 
 p
-  ->  {[MIN_EXPR <p_6, p_8>, MAX_EXPR <p_6, p_8>], +, -1}_1
+  ->  {[MIN_EXPR <p_7, p_5>, MAX_EXPR <p_7, p_5>], +, -1}_1
 
