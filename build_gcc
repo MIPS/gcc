@@ -387,5 +387,12 @@ find $DEST_DIR \( -name \*.a -or -name \*.dylib \) -type f -print \
 find $DEST_DIR -name \*.a -type f -print \
   | xargs ranlib || exit 1
 
+if [ "$MAJ_VERS" = "3.5" ]; then
+    rm -f `find $DEST_DIR -name \*.dylib -print`
+    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/fsf-funding.7
+    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/gfdl.7
+    rm -f $DEST_DIR$DEST_ROOT/share/man/man7/gpl.7
+fi
+
 # Done!
 exit 0
