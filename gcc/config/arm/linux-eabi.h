@@ -48,3 +48,7 @@
    use the GNU/Linux version, not the generic BPABI version.  */
 #undef LINK_SPEC
 #define LINK_SPEC LINUX_TARGET_LINK_SPEC
+
+/* Use the default LIBGCC_SPEC, not the version in linux-elf.h, as we
+   do not use -lfloat.  */
+#undef LIBGCC_SPEC
