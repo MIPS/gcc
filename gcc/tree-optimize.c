@@ -78,9 +78,6 @@ optimize_function_tree (tree fndecl, tree *chain)
       /* Find all the variables referenced in the function.  */
       find_referenced_vars (fndecl);
 
-      /* Eliminate tail recursion calls.  */
-      tree_optimize_tail_calls ();
-
       /* Compute aliasing information for all the variables referenced in
 	 the function.  */
       compute_may_aliases (fndecl);
@@ -119,6 +116,9 @@ optimize_function_tree (tree fndecl, tree *chain)
 	 dead pointer assignments taking the address of local variables.  */
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl, TDI_dce_1);
+
+      /* Eliminate tail recursion calls.  */
+      tree_optimize_tail_calls ();
 
       /* The must-alias pass removes the aliasing and addressability bits
 	 from variables that used to have their address taken.  */

@@ -5168,7 +5168,10 @@ make_phi_node (tree var, int len)
   TREE_SET_CODE (phi, PHI_NODE);
   PHI_NUM_ARGS (phi) = 0;
   PHI_ARG_CAPACITY (phi) = len;
-  PHI_RESULT (phi) = make_ssa_name (var, phi);
+  if (TREE_CODE (var) == SSA_NAME)
+    PHI_RESULT (phi) = var;
+  else
+    PHI_RESULT (phi) = make_ssa_name (var, phi);
 
   return phi;
 }

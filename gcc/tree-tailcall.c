@@ -57,8 +57,8 @@ struct tailcall
 };
 
 static bool suitable_for_tail_opt_p (void);
-static bool optimize_tail_call (struct tailcall *, tree *);
-static void eliminate_tail_call (struct tailcall *, tree);
+static bool optimize_tail_call (struct tailcall *, bool *);
+static void eliminate_tail_call (struct tailcall *);
 static void find_tail_calls (basic_block, struct tailcall *, struct tailcall **);
 
 /* Returns false when the function is not suitable for tail call optimization
@@ -80,6 +80,7 @@ suitable_for_tail_opt_p (void)
       tree var = VARRAY_TREE (referenced_vars, i);
 
       if (decl_function_context (var) == current_function_decl
+	  && !TREE_STATIC (var)
 	  && TREE_ADDRESSABLE (var))
 	return false;
     }
@@ -99,6 +100,7 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
   bool seen_return = false, found = false, tail_recursion = false;
   struct tailcall *nw;
   edge e;
+  tree old_ret_variable = act->ret_variable;
 
   if (bb->succ->succ_next)
     return;
@@ -182,8 +184,25 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
      predecessors.  */
   if (!found)
     {
-      for (e = bb->pred; e; e = e->pred_next)
-	find_tail_calls (e->src, act, ret);
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	if (PHI_RESULT (phi) == act->ret_variable)
+	  break;
+      if (phi)
+	{
+	  int phi_num_args = PHI_NUM_ARGS (phi);
+	  int i;
+
+	  for (i = 0; i < phi_num_args; i++)
+	    {
+	      act->ret_variable = PHI_ARG_DEF (phi, i);
+	      find_tail_calls (PHI_ARG_EDGE (phi, i)->src, act, ret);
+	    }
+	}
+      else
+        for (e = bb->pred; e; e = e->pred_next)
+	  find_tail_calls (e->src, act, ret);
     }
 
   if (seen_return)
@@ -192,62 +211,32 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
       act->ret_variable = NULL_TREE;
       act->return_block = NULL;
     }
+  act->ret_variable = old_ret_variable;
 }
 
 /* Eliminates tail call described by T.  TMP_VARS is a list of
    temporary variables used to copy the function arguments.  */
 
 static void
-eliminate_tail_call (struct tailcall *t, tree tmp_vars)
+eliminate_tail_call (struct tailcall *t)
 {
-  tree param, stmt, args, tmp_var;
+  tree param, stmt, args;
   basic_block bb;
+  edge e;
+  tree phi;
 
   stmt = bsi_stmt (t->call_bsi);
   bb = t->call_block;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Eliminated tail call in bb %d : ", bb->index);
+      fprintf (dump_file, "Eliminated tail recursion in bb %d : ", bb->index);
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     stmt = TREE_OPERAND (stmt, 1);
-
-  /* Copy the args if needed.  */
-  for (param = DECL_ARGUMENTS (current_function_decl),
-       args = TREE_OPERAND (stmt, 1),
-       tmp_var = tmp_vars;
-       param;
-       param = TREE_CHAIN (param),
-       args = TREE_CHAIN (args),
-       tmp_var = TREE_CHAIN (tmp_var))
-    if (param != TREE_VALUE (args)
-	/* If the parameter is unused, it was not scanned in
-	   find_referenced_vars, so we don't want to introduce
-	   it here.  Additionally, it would obviously be
-	   useless anyway.  */
-	&& var_ann (param))
-      bsi_insert_before (&t->call_bsi,
-			 build (MODIFY_EXPR, TREE_TYPE (param),
-				TREE_VALUE (tmp_var),
-				unshare_expr (TREE_VALUE (args))),
-			 BSI_SAME_STMT);
-  for (param = DECL_ARGUMENTS (current_function_decl),
-       args = TREE_OPERAND (stmt, 1),
-       tmp_var = tmp_vars;
-       param;
-       param = TREE_CHAIN (param),
-       args = TREE_CHAIN (args),
-       tmp_var = TREE_CHAIN (tmp_var))
-    if (param != TREE_VALUE (args)
-	&& var_ann (param))
-      bsi_insert_before (&t->call_bsi,
-			 build (MODIFY_EXPR, TREE_TYPE (param),
-				param, TREE_VALUE (tmp_var)),
-			 BSI_SAME_STMT);
 
   /* Replace the call by jump to the start of function.  */
   if (t->return_block == bb)
@@ -257,40 +246,71 @@ eliminate_tail_call (struct tailcall *t, tree tmp_vars)
     }
   bsi_remove (&t->call_bsi);
 
-  if (!redirect_edge_and_branch (t->call_block->succ,
-				 ENTRY_BLOCK_PTR->succ->dest))
+  e = redirect_edge_and_branch (t->call_block->succ,
+				ENTRY_BLOCK_PTR->succ->dest);
+  if (!e)
     abort ();
+  /* We expect that each PHI node on first basic block represent an argument.
+     Add proper entries.  */
+  for (phi = phi_nodes (ENTRY_BLOCK_PTR->succ->dest); phi;
+       phi = TREE_CHAIN (phi))
+    {
+      for (param = DECL_ARGUMENTS (current_function_decl),
+	   args = TREE_OPERAND (stmt, 1);
+	   param;
+	   param = TREE_CHAIN (param),
+	   args = TREE_CHAIN (args))
+	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
+	  break;
+      if (!param)
+	abort ();
+      add_phi_arg (&phi, TREE_VALUE (args), e);
+    }
 }
 
-/* Optimizes the tailcall described by T.  *TMP_VARS is set to a list of
-   temporary variables used to copy the function arguments the first time
-   they are needed.  Returns true if cfg is changed.  */
+/* Optimizes the tailcall described by T.  First time we optimize tail
+   call, we need to create PHI nodes for arguments.  This is indicated
+   by PHIS_CONSTRUCTED.  */
 
 static bool
-optimize_tail_call (struct tailcall *t, tree *tmp_vars)
+optimize_tail_call (struct tailcall *t, bool *phis_constructed)
 {
-  tree tmp_var, param;
-
-  /* Nothing to do unless it is tail recursion.  */
-  if (!t->tail_recursion)
-    return false;
-
-  if (!*tmp_vars)
+  if (t->tail_recursion)
     {
-      /* Prepare the temporary variables.  */
-      for (param = DECL_ARGUMENTS (current_function_decl);
-	   param;
-	   param = TREE_CHAIN (param))
-	{
-	  tmp_var = create_tmp_var (TREE_TYPE (param), "tailtmp");
-	  add_referenced_tmp_var (tmp_var);
-	  *tmp_vars = tree_cons (NULL_TREE, tmp_var, *tmp_vars);
-	}
-      *tmp_vars = nreverse (*tmp_vars);
-    }
+      basic_block first = ENTRY_BLOCK_PTR->succ->dest;
+      tree param;
 
-  eliminate_tail_call (t, *tmp_vars);
-  return true;
+      if (!*phis_constructed)
+	{
+	  /* Ensure that there is only one predecestor of the block.  */
+	  if (first->pred->pred_next)
+	    first = split_edge (ENTRY_BLOCK_PTR->succ);
+	  /* Copy the args if needed.  */
+	  for (param = DECL_ARGUMENTS (current_function_decl);
+	       param;
+	       param = TREE_CHAIN (param))
+	    if (var_ann (param)
+		/* Also parameters that are only defined but never used need not
+		   be copied.  */
+		&& (var_ann (param)->default_def
+		    && TREE_CODE (var_ann (param)->default_def) == SSA_NAME))
+	    {
+	      tree name = var_ann (param)->default_def;
+	      tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
+	      tree phi;
+
+	      var_ann (param)->default_def = new_name;
+	      phi = create_phi_node (name, first);
+	      SSA_NAME_DEF_STMT (name) = phi;
+	      add_phi_arg (&phi, new_name, first->pred);
+	    }
+	  *phis_constructed = true;
+	}
+
+      eliminate_tail_call (t);
+      return true;
+    }
+  return false;
 }
 
 /* Optimizes tail calls in the function, turning the tail recursion
@@ -300,7 +320,7 @@ void
 tree_optimize_tail_calls (void)
 {
   edge e;
-  tree tmp_vars = NULL_TREE;
+  bool phis_constructed = false;
   struct tailcall common, *tailcalls = NULL, *next;
   bool changed = false;
 
@@ -323,7 +343,7 @@ tree_optimize_tail_calls (void)
   for (; tailcalls; tailcalls = next)
     {
       next = tailcalls->next;
-      changed |= optimize_tail_call (tailcalls, &tmp_vars);
+      changed |= optimize_tail_call (tailcalls, &phis_constructed);
       free (tailcalls);
     }
 

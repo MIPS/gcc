@@ -1,3 +1,10 @@
+2003-11-18  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/tailrecursion-1.c: New test.
+	* gcc.dg/tree-ssa/tailrecursion-2.c: New test.
+	* gcc.dg/tree-ssa/tailrecursion-3.c: New test.
+	* gcc.dg/tree-ssa/tailrecursion-4.c: New test.
+
 2003-11-13  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/execute/module_interface.f90: New test.
