@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -3981,8 +3981,12 @@ load_pic_register (void)
   add_pc_to_pic_symbol = gen_rtx_SYMBOL_REF (Pmode, add_pc_to_pic_symbol_name);
 
   flag_pic = 0;
-  emit_insn (gen_load_pcrel_sym (pic_offset_table_rtx, global_offset_table,
-				 add_pc_to_pic_symbol));
+  if (TARGET_ARCH64)
+    emit_insn (gen_load_pcrel_symdi (pic_offset_table_rtx, global_offset_table,
+				     add_pc_to_pic_symbol));
+  else
+    emit_insn (gen_load_pcrel_symsi (pic_offset_table_rtx, global_offset_table,
+				     add_pc_to_pic_symbol));
   flag_pic = orig_flag_pic;
 
   /* Need to emit this whether or not we obey regdecls,

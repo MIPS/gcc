@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -212,11 +212,11 @@ class java::io::ObjectStreamClass;
 
 void _Jv_RegisterClassHookDefault (jclass klass);
 void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
 void _Jv_UnregisterClass (jclass);
 jclass _Jv_FindClass (_Jv_Utf8Const *name,
 		      java::lang::ClassLoader *loader);
-jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
-			     java::lang::ClassLoader *loader);
+jclass _Jv_FindClassInCache (_Jv_Utf8Const *name);
 jclass _Jv_PopClass (void);
 void _Jv_PushClass (jclass k);
 void _Jv_NewArrayClass (jclass element,
@@ -437,11 +437,11 @@ private:
 					     size_t count);
   friend void ::_Jv_RegisterClassHookDefault (jclass klass);
   friend void ::_Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void ::_Jv_UnregisterClass (jclass);
   friend jclass (::_Jv_FindClass) (_Jv_Utf8Const *name,
 				   java::lang::ClassLoader *loader);
-  friend jclass (::_Jv_FindClassInCache) (_Jv_Utf8Const *name,
-					  java::lang::ClassLoader *loader);
+  friend jclass (::_Jv_FindClassInCache) (_Jv_Utf8Const *name);
   friend jclass (::_Jv_PopClass) (void);
   friend void ::_Jv_PushClass (jclass k);
   friend void ::_Jv_NewArrayClass (jclass element,
@@ -490,8 +490,10 @@ private:
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);
 
-  // Chain for class pool.
-  jclass next;
+  // Chain for class pool.  This also doubles as the ABI version
+  // number.  It is only used for this purpose at class registration
+  // time, and only for precompiled classes.
+  jclass next_or_version;
   // Name of class.
   _Jv_Utf8Const *name;
   // Access flags for class.

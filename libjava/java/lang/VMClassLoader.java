@@ -1,6 +1,6 @@
 /* VMClassLoader.java -- Reference implementation of native interface
    required by ClassLoader
-   Copyright (C) 1998, 2001, 2002, 2003, 2004 Free Software Foundation
+   Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -40,15 +40,19 @@ package java.lang;
 
 import gnu.java.util.EmptyEnumeration;
 import java.lang.reflect.Constructor;
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.security.AllPermission;
 import java.security.Permission;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 /**
  * java.lang.VMClassLoader is a package-private helper for VMs to implement
@@ -75,6 +79,8 @@ final class VMClassLoader
     permissions.add(new AllPermission());
     unknownProtectionDomain = new ProtectionDomain(null, permissions);  
   }
+
+  static final HashMap definedPackages = new HashMap();
 
   /**
    * Helper to define a class using a string of bytes. This assumes that
@@ -173,9 +179,9 @@ final class VMClassLoader
    * @param name the name to find
    * @return the named package, if it exists
    */
-  static Package getPackage(String name)
+  static synchronized Package getPackage(String name)
   {
-    return null;
+    return (Package) definedPackages.get(name);
   }
 
   /**
@@ -185,9 +191,33 @@ final class VMClassLoader
    *
    * @return all named packages, if any exist
    */
-  static Package[] getPackages()
+  static synchronized Package[] getPackages()
   {
-    return new Package[0];
+    Package[] packages = new Package[definedPackages.size()];
+    return (Package[]) definedPackages.values().toArray(packages);
+  }
+
+  // Define a package for something loaded natively.
+  static synchronized void definePackageForNative(String className)
+  {
+    int lastDot = className.lastIndexOf('.');
+    if (lastDot != -1)
+      {
+	String packageName = className.substring(0, lastDot);
+	if (getPackage(packageName) == null)
+	  {
+	    // FIXME: this assumes we're defining the core, which
+	    // isn't necessarily so.  We could detect this and set up
+	    // appropriately.  We could also look at a manifest file
+	    // compiled into the .so.
+	    Package p = new Package(packageName,
+				    "Java Platform API Specification",
+				    "GNU", "1.4", "gcj", "GNU",
+				    null, // FIXME: gcj version.
+				    null);
+	    definedPackages.put(packageName, p);
+	  }
+      }
   }
 
   /**

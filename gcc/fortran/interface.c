@@ -1,5 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -213,7 +213,8 @@ gfc_match_interface (void)
       if (gfc_get_symbol (name, NULL, &sym))
 	return MATCH_ERROR;
 
-      if (!sym->attr.generic && gfc_add_generic (&sym->attr, NULL) == FAILURE)
+      if (!sym->attr.generic 
+	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
       current_interface.sym = gfc_new_block = sym;

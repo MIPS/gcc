@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -964,9 +964,10 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   // of VMClassLoader.
   _Jv_InitClass (&java::lang::ClassLoader::class$);
 
-  // Once the bootstrap loader is in place, change it into a kind of
-  // system loader, by having it read the class path.
+  // Set up the system class loader.
   gnu::gcj::runtime::VMClassLoader::initialize();
+
+  _Jv_RegisterBootstrapPackages();
 
   no_memory = new java::lang::OutOfMemoryError;
 

@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,8 +45,6 @@ extern bool hook_callee_copies_named
 extern void default_unwind_emit (FILE *, rtx);
 
 extern bool default_scalar_mode_supported_p (enum machine_mode);
-
-extern bool default_vect_misaligned_mem_ok (enum machine_mode);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

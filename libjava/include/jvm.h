@@ -1,6 +1,6 @@
 // jvm.h - Header file for private implementation information. -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -250,6 +250,9 @@ namespace gcj
 class _Jv_Linker
 {
 private:
+  static _Jv_Field *find_field_helper(jclass, _Jv_Utf8Const *, jclass *);
+  static _Jv_Field *find_field(jclass, jclass, _Jv_Utf8Const *,
+			       _Jv_Utf8Const *);
   static void prepare_constant_time_tables(jclass);
   static jshort get_interfaces(jclass, _Jv_ifaces *);
   static void link_symbol_table(jclass);
@@ -519,6 +522,9 @@ extern void _Jv_JNI_Init (void);
 _Jv_JNIEnv *_Jv_GetCurrentJNIEnv ();
 void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *);
 
+/* Free a JNIEnv. */
+void _Jv_FreeJNIEnv (_Jv_JNIEnv *);
+
 struct _Jv_JavaVM;
 _Jv_JavaVM *_Jv_GetJavaVM (); 
 
@@ -557,5 +563,22 @@ extern void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 
 /* FIXME: this should really be defined in some more generic place */
 #define ROUND(V, A) (((((unsigned) (V))-1) | ((A)-1))+1)
+
+extern void _Jv_RegisterBootstrapPackages ();
+
+
+// This is used to find ABI versions we recognize.
+#define GCJ_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 10)
+#define GCJ_BINARYCOMPAT_ADDITION 5
+
+inline bool
+_Jv_CheckABIVersion (unsigned long value)
+{
+  // For this release, recognize just our defined C++ ABI and our
+  // defined BC ABI.  (In the future we may recognize past BC ABIs as
+  // well.)
+  return (value == GCJ_VERSION
+	  || value == (GCJ_VERSION + GCJ_BINARYCOMPAT_ADDITION));
+}
 
 #endif /* __JAVA_JVM_H__ */

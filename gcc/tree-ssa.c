@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,18 +56,16 @@ ssa_redirect_edge (edge e, basic_block dest)
   tree phi, next;
   tree list = NULL, *last = &list;
   tree src, dst, node;
-  int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
       next = PHI_CHAIN (phi);
 
-      i = phi_arg_from_edge (phi, e);
-      if (PHI_ARG_DEF (phi, i) == NULL_TREE)
+      if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
 	continue;
 
-      src = PHI_ARG_DEF (phi, i);
+      src = PHI_ARG_DEF (phi, e->dest_idx);
       dst = PHI_RESULT (phi);
       node = build_tree_list (dst, src);
       *last = node;
@@ -110,8 +108,6 @@ flush_pending_stmts (edge e)
 static bool
 verify_ssa_name (tree ssa_name, bool is_virtual)
 {
-  TREE_VISITED (ssa_name) = 1;
-
   if (TREE_CODE (ssa_name) != SSA_NAME)
     {
       error ("Expected an SSA_NAME object");
@@ -221,6 +217,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
   bool err = false;
 
   err = verify_ssa_name (ssa_name, is_virtual);
+  TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
       && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
@@ -469,7 +466,11 @@ DEF_VEC_MALLOC_P (bitmap);
    same name tag must have the same points-to set. 
    So we check a single variable for each name tag, and verify that its
    points-to set is different from every other points-to set for other name
-   tags.  */
+   tags.
+
+   Additionally, given a pointer P_i with name tag NMT and type tag
+   TMT, this function verified the alias set of TMT is a superset of
+   the alias set of NMT.  */
 
 static void
 verify_name_tags (void)
@@ -479,25 +480,62 @@ verify_name_tags (void)
   bitmap first, second;  
   VEC (tree) *name_tag_reps = NULL;
   VEC (bitmap) *pt_vars_for_reps = NULL;
+  bitmap type_aliases = BITMAP_XMALLOC ();
 
   /* First we compute the name tag representatives and their points-to sets.  */
   for (i = 0; i < num_ssa_names; i++)
     {
-      if (ssa_name (i))
+      struct ptr_info_def *pi;
+      tree tmt, ptr = ssa_name (i);
+
+      if (ptr == NULL_TREE)
+	continue;
+      
+      pi = SSA_NAME_PTR_INFO (ptr);
+
+      if (!TREE_VISITED (ptr) 
+	  || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
+	  || !pi
+	  || !pi->name_mem_tag 
+	  || TREE_VISITED (pi->name_mem_tag))
+	continue;
+
+      TREE_VISITED (pi->name_mem_tag) = 1;
+
+      if (pi->pt_vars == NULL)
+	continue;
+
+      VEC_safe_push (tree, name_tag_reps, ptr);
+      VEC_safe_push (bitmap, pt_vars_for_reps, pi->pt_vars);
+
+      /* Verify that alias set of PTR's type tag is a superset of the
+	 alias set of PTR's name tag.  */
+      tmt = var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+      if (tmt)
 	{
-	  tree ptr = ssa_name (i);
-	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
-	  if (!TREE_VISITED (ptr) 
-	      || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
-	      || !pi
-	      || !pi->name_mem_tag 
-	      || TREE_VISITED (pi->name_mem_tag))
+	  size_t i;
+	  varray_type aliases = var_ann (tmt)->may_aliases;
+	  bitmap_clear (type_aliases);
+	  for (i = 0; aliases && i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	    {
+	      tree alias = VARRAY_TREE (aliases, i);
+	      bitmap_set_bit (type_aliases, var_ann (alias)->uid);
+	    }
+
+	  /* When grouping, we may have added PTR's type tag into the
+	     alias set of PTR's name tag.  To prevent a false
+	     positive, pretend that TMT is in its own alias set.  */
+	  bitmap_set_bit (type_aliases, var_ann (tmt)->uid);
+
+	  if (bitmap_equal_p (type_aliases, pi->pt_vars))
 	    continue;
-	  TREE_VISITED (pi->name_mem_tag) = 1;
-	  if (pi->pt_vars != NULL)
-	    {    
-	      VEC_safe_push (tree, name_tag_reps, ptr);
-	      VEC_safe_push (bitmap, pt_vars_for_reps, pi->pt_vars);
+
+	  if (!bitmap_intersect_compl_p (type_aliases, pi->pt_vars))
+	    {
+	      error ("Alias set of a pointer's type tag should be a superset of the corresponding name tag");
+	      debug_variable (tmt);
+	      debug_variable (pi->name_mem_tag);
+	      goto err;
 	    }
 	}
     }
@@ -532,13 +570,17 @@ verify_name_tags (void)
 	  TREE_VISITED (pi->name_mem_tag) = 0;
 	}
     } 
+
   VEC_free (bitmap, pt_vars_for_reps);
+  BITMAP_FREE (type_aliases);
   return;
   
 err:
   debug_variable (VEC_index (tree, name_tag_reps, i));
   internal_error ("verify_name_tags failed");
 }
+
+
 /* Verify the consistency of aliasing information.  */
 
 static void
@@ -724,6 +766,7 @@ delete_tree_ssa (void)
   call_clobbered_vars = NULL;
   BITMAP_XFREE (addressable_vars);
   addressable_vars = NULL;
+  modified_noreturn_calls = NULL;
 }
 
 
@@ -1065,6 +1108,8 @@ replace_immediate_uses (tree var, tree repl)
 	  if (tmp != stmt)
 	    {
 	      block_stmt_iterator si = bsi_for_stmt (stmt);
+	      mark_new_vars_to_rename (tmp, vars_to_rename);
+	      redirect_immediate_uses (stmt, tmp);
 	      bsi_replace (&si, tmp, true);
 	      stmt = bsi_stmt (si);
 	    }

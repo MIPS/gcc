@@ -1,6 +1,6 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1708,6 +1708,13 @@ try_crossjump_bb (int mode, basic_block bb)
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (EDGE_COUNT (bb->preds) < 2)
+    return false;
+
+  /* Don't crossjump if this block ends in a computed jump,
+     unless we are optimizing for size.  */
+  if (!optimize_size
+      && bb != EXIT_BLOCK_PTR
+      && computed_jump_p (BB_END (bb)))
     return false;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to

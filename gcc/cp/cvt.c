@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -569,19 +569,6 @@ convert_from_reference (tree val)
   return val;
 }
 
-/* Implicitly convert the lvalue EXPR to another lvalue of type TOTYPE,
-   preserving cv-qualification.  */
-
-tree
-convert_lvalue (tree totype, tree expr)
-{
-  totype = cp_build_qualified_type (totype, TYPE_QUALS (TREE_TYPE (expr)));
-  totype = build_reference_type (totype);
-  expr = convert_to_reference (totype, expr, CONV_IMPLICIT, LOOKUP_NORMAL,
-			       NULL_TREE);
-  return convert_from_reference (expr);
-}
-
 /* Really perform an lvalue-to-rvalue conversion, including copying an
    argument of class type into a temporary.  */
 
@@ -806,6 +793,11 @@ convert_to_void (tree expr, const char *implicit)
     return expr;
   if (invalid_nonstatic_memfn_p (expr))
     return error_mark_node;
+  if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
+    {
+      error ("pseudo-destructor is not called");
+      return error_mark_node;
+    }
   if (VOID_TYPE_P (TREE_TYPE (expr)))
     return expr;
   switch (TREE_CODE (expr))

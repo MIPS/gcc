@@ -1924,7 +1924,7 @@ static int
 aliases_everything_p (rtx mem)
 {
   if (GET_CODE (XEXP (mem, 0)) == AND)
-    /* If the address is an AND, its very hard to know at what it is
+    /* If the address is an AND, it's very hard to know at what it is
        actually pointing.  */
     return 1;
 

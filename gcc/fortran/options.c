@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -42,7 +42,6 @@ unsigned int
 gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 		  const char **argv ATTRIBUTE_UNUSED)
 {
-
   gfc_option.source = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
@@ -74,6 +73,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.d8 = 0;
 
   flag_argument_noalias = 2;
+  flag_errno_math = 0;
 
   gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
     | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU;

@@ -1,7 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1463,6 +1463,42 @@ __fixunssfSI (SFtype a)
     return (Wtype) (a + Wtype_MIN) - Wtype_MIN;
   return (Wtype) a;
 }
+#endif
+
+/* Integer power helper used from __builtin_powi for non-constant
+   exponents.  */
+
+#if defined(L_powisf2) || defined(L_powidf2) \
+    || (defined(L_powixf2) && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80) \
+    || (defined(L_powitf2) && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
+# if defined(L_powisf2)
+#  define TYPE SFtype
+#  define NAME __powisf2
+# elif defined(L_powidf2)
+#  define TYPE DFtype
+#  define NAME __powidf2
+# elif defined(L_powixf2)
+#  define TYPE XFtype
+#  define NAME __powixf2
+# elif defined(L_powitf2)
+#  define TYPE TFtype
+#  define NAME __powitf2
+# endif
+
+TYPE
+NAME (TYPE x, Wtype m)
+{
+  UWtype n = m < 0 ? -m : m;
+  TYPE y = n % 2 ? x : 1;
+  while (n >>= 1)
+    {
+      x = x * x;
+      if (n % 2)
+	y = y * x;
+    }
+  return m < 0 ? 1/y : y;
+}
+
 #endif
 
 /* From here on down, the routines use normal data types.  */

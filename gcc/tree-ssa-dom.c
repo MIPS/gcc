@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -246,7 +246,7 @@ struct vrp_hash_elt
    in this basic block.  We use this during finalization to know
    which variables need their VRP data updated.  */
 
-/* Stack of SSA_NAMEs which had their values constrainted by operations
+/* Stack of SSA_NAMEs which had their values constrained by operations
    in this basic block.  During finalization of this block we use this
    list to determine which variables need their VRP data updated.
 
@@ -374,11 +374,6 @@ tree_ssa_dominator_optimize (void)
   for (i = 0; i < num_referenced_vars; i++)
     var_ann (referenced_var (i))->current_def = NULL;
 
-  /* Mark loop edges so we avoid threading across loop boundaries.
-     This may result in transforming natural loop into irreducible
-     region.  */
-  mark_dfs_back_edges ();
-
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq, free);
@@ -462,8 +457,29 @@ tree_ssa_dominator_optimize (void)
 
       for (i = 0; i < num_referenced_vars; i++)
 	var_ann (referenced_var (i))->current_def = NULL;
+
+      /* Finally, remove everything except invariants in SSA_NAME_VALUE.
+
+	 This must be done before we iterate as we might have a
+	 reference to an SSA_NAME which was removed by the call to
+	 rewrite_ssa_into_ssa.
+
+	 Long term we will be able to let everything in SSA_NAME_VALUE
+	 persist.  However, for now, we know this is the safe thing to do.  */
+      for (i = 0; i < num_ssa_names; i++)
+	{
+	  tree name = ssa_name (i);
+	  tree value;
+
+	  if (!name)
+	    continue;
+
+	  value = SSA_NAME_VALUE (name);
+	  if (value && !is_gimple_min_invariant (value))
+	    SSA_NAME_VALUE (name) = NULL;
+	}
     }
-  while (cfg_altered);
+  while (optimize > 1 && cfg_altered);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -483,24 +499,6 @@ tree_ssa_dominator_optimize (void)
   /* Free nonzero_vars.  */
   BITMAP_XFREE (nonzero_vars);
   BITMAP_XFREE (need_eh_cleanup);
-
-  /* Finally, remove everything except invariants in SSA_NAME_VALUE.
-
-     Long term we will be able to let everything in SSA_NAME_VALUE
-     persist.  However, for now, we know this is the safe thing to
-     do.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      tree value;
-
-      if (!name)
-	continue;
-
-      value = SSA_NAME_VALUE (name);
-      if (value && !is_gimple_min_invariant (value))
-	SSA_NAME_VALUE (name) = NULL;
-    }
   
   VEC_free (tree_on_heap, block_defs_stack);
   VEC_free (tree_on_heap, avail_exprs_stack);
@@ -607,8 +605,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  use_optype uses = USE_OPS (ann);
 	  vuse_optype vuses = VUSE_OPS (ann);
-	  tree *uses_copy = xcalloc (NUM_USES (uses),  sizeof (tree));
-	  tree *vuses_copy = xcalloc (NUM_VUSES (vuses), sizeof (tree));
+	  tree *uses_copy = xmalloc (NUM_USES (uses) * sizeof (tree));
+	  tree *vuses_copy = xmalloc (NUM_VUSES (vuses) * sizeof (tree));
 	  unsigned int i;
 
 	  /* Make a copy of the uses into USES_COPY, then cprop into
@@ -1259,7 +1257,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
   basic_block parent;
   struct edge_info *edge_info;
 
-  /* If our parent block ended with a control statment, then we may be
+  /* If our parent block ended with a control statement, then we may be
      able to record some equivalences based on which outgoing edge from
      the parent was followed.  */
   parent = get_immediate_dominator (CDI_DOMINATORS, bb);
@@ -1390,7 +1388,7 @@ record_cond (tree cond, tree value)
   initialize_hash_element (cond, value, element);
 
   slot = htab_find_slot_with_hash (avail_exprs, (void *)element,
-				   element->hash, true);
+				   element->hash, INSERT);
   if (*slot == NULL)
     {
       *slot = (void *) element;
@@ -2090,10 +2088,18 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	      tree tmp_high, tmp_low;
 	      int dummy;
 
-	      /* The last element has not been processed.  Process it now.  */
-	      extract_range_from_cond (element->cond, &tmp_high,
-				       &tmp_low, &dummy);
-	  
+	      /* The last element has not been processed.  Process it now.
+		 record_range should ensure for cond inverted is not set.
+		 This call can only fail if cond is x < min or x > max,
+		 which fold should have optimized into false.
+		 If that doesn't happen, just pretend all values are
+		 in the range.  */
+	      if (! extract_range_from_cond (element->cond, &tmp_high,
+					     &tmp_low, &dummy))
+		gcc_unreachable ();
+	      else
+		gcc_assert (dummy == 0);
+
 	      /* If this is the only element, then no merging is necessary, 
 		 the high/low values from extract_range_from_cond are all
 		 we need.  */
@@ -2815,6 +2821,14 @@ cprop_operand (tree stmt, use_operand_p op_p)
 	 extensions.  */
       else if (!may_propagate_copy (op, val))
 	return false;
+      
+      /* Do not propagate copies if the propagated value is at a deeper loop
+	 depth than the propagatee.  Otherwise, this may move loop variant
+	 variables outside of their loops and prevent coalescing
+	 opportunities.  If the value was loop invariant, it will be hoisted
+	 by LICM and exposed for copy propagation.  */
+      if (loop_depth_of_name (val) > loop_depth_of_name (op))
+	return false;
 
       /* Dump details.  */
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3094,7 +3108,7 @@ lookup_avail_expr (tree stmt, bool insert)
   void **slot;
   tree lhs;
   tree temp;
-  struct expr_hash_elt *element = xcalloc (sizeof (struct expr_hash_elt), 1);
+  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
 
   lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
 
@@ -3206,8 +3220,10 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case GT_EXPR:
-      low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
       high = TYPE_MAX_VALUE (type);
+      if (!tree_int_cst_lt (op1, high))
+	return 0;
+      low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
       inverted = 0;
       break;
 
@@ -3218,8 +3234,10 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case LT_EXPR:
-      high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);
       low = TYPE_MIN_VALUE (type);
+      if (!tree_int_cst_lt (low, op1))
+	return 0;
+      high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);
       inverted = 0;
       break;
 

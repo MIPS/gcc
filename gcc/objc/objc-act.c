@@ -1,6 +1,6 @@
 /* Implement classes and message passing for Objective C.
    Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -73,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "libfuncs.h"
 #include "hashtab.h"
+#include "langhooks-def.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 
@@ -590,6 +591,7 @@ objc_finish_file (void)
 #ifdef OBJCPLUS
   /* We need to instantiate templates _before_ we emit ObjC metadata;
      if we do not, some metadata (such as selectors) may go missing.  */
+  at_eof = 1;
   instantiate_pending_templates (0);
 #endif
 
@@ -835,6 +837,27 @@ objc_is_class_id (tree type)
 {
   return OBJC_TYPE_NAME (type) == objc_class_id;
 }
+
+
+int
+objc_types_compatible_p (tree type1, tree type2)
+{
+
+  if (objc_is_object_ptr (type1) || objc_is_object_ptr (type2)
+      || objc_is_class_name (type1) || objc_is_class_name (type2))
+    {
+      return lhd_types_compatible_p (type1, type2);
+    }
+  else
+    {
+#ifdef OBJCPLUS
+      return cxx_types_compatible_p (type1, type2);
+#else
+      return c_types_compatible_p (type1, type2);
+#endif
+    }
+}
+
 
 /* Return 1 if LHS and RHS are compatible types for assignment or
    various other operations.  Return 0 if they are incompatible, and
@@ -2342,8 +2365,15 @@ build_selector_translation_table (void)
               }
           }
         if (!found)
-	  warning ("%Jcreating selector for nonexistent method %qE",
-		   TREE_PURPOSE (chain), TREE_VALUE (chain));
+	  {
+	    location_t *loc;
+	    if (flag_next_runtime && TREE_PURPOSE (chain))
+	      loc = &DECL_SOURCE_LOCATION (TREE_PURPOSE (chain));
+	    else
+	      loc = &input_location;
+	    warning ("%Hcreating selector for nonexistent method %qE",
+		     loc, TREE_VALUE (chain));
+	  }
       }
 
       expr = build_selector (TREE_VALUE (chain));
@@ -5298,9 +5328,11 @@ get_arg_type_list (tree meth, int context, int superflag)
     {
       tree arg_type = TREE_VALUE (TREE_TYPE (akey));
 
-      /* Decay arrays into pointers.  */
+      /* Decay arrays and functions into pointers.  */
       if (TREE_CODE (arg_type) == ARRAY_TYPE)
 	arg_type = build_pointer_type (TREE_TYPE (arg_type));
+      else if (TREE_CODE (arg_type) == FUNCTION_TYPE)
+	arg_type = build_pointer_type (arg_type);
 
       chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
@@ -7379,11 +7411,22 @@ static GTY(()) tree objc_parmlist = NULL_TREE;
 static void
 objc_push_parm (tree parm)
 {
-  /* Convert array parameters of unknown size into pointers.  */
-  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE
-      && !TYPE_SIZE (TREE_TYPE (parm)))
+  /* Decay arrays and functions into pointers.  */
+  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
     TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (TREE_TYPE (parm)));
+  else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
+    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
 
+  DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
+  DECL_ARG_TYPE (parm)
+    = lang_hooks.types.type_promotes_to (TREE_TYPE (parm));
+
+  /* Record constancy and volatility.  */
+  c_apply_type_quals_to_decl
+  ((TYPE_READONLY (TREE_TYPE (parm)) ? TYPE_QUAL_CONST : 0)
+   | (TYPE_RESTRICT (TREE_TYPE (parm)) ? TYPE_QUAL_RESTRICT : 0)
+   | (TYPE_VOLATILE (TREE_TYPE (parm)) ? TYPE_QUAL_VOLATILE : 0), parm);
+  
   objc_parmlist = chainon (objc_parmlist, parm);
 }
 
@@ -7415,7 +7458,8 @@ objc_get_parm_info (int have_ellipsis)
       tree next = TREE_CHAIN (parm_info);
 
       TREE_CHAIN (parm_info) = NULL_TREE; 
-      pushdecl (parm_info);
+      parm_info = pushdecl (parm_info);
+      finish_decl (parm_info, NULL_TREE, NULL_TREE);
       parm_info = next;
     }
   arg_info = get_parm_info (have_ellipsis);
@@ -7476,10 +7520,6 @@ start_method_def (tree method)
   while (parmlist)
     {
       tree type = TREE_VALUE (TREE_TYPE (parmlist)), parm;
-
-      /* Decay arrays into pointers.  */
-      if (TREE_CODE (type) == ARRAY_TYPE)
-	type = build_pointer_type (TREE_TYPE (type));
 
       parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist), type);
       objc_push_parm (parm);
@@ -7619,24 +7659,26 @@ objc_start_function (tree name, tree type, tree attrs,
 
 #ifdef OBJCPLUS
   DECL_ARGUMENTS (fndecl) = params;
-#endif
   DECL_INITIAL (fndecl) = error_mark_node;
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
-
-#ifdef OBJCPLUS
   retrofit_lang_decl (fndecl);
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
+  DECL_INITIAL (fndecl) = error_mark_node;
+  DECL_EXTERNAL (fndecl) = 0;
+  TREE_STATIC (fndecl) = 1;
   current_function_decl = pushdecl (fndecl);
   push_scope ();
   declare_parm_level ();
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE,
 		  TREE_TYPE (TREE_TYPE (current_function_decl)));
+  DECL_ARTIFICIAL (DECL_RESULT (current_function_decl)) = 1;
+  DECL_IGNORED_P (DECL_RESULT (current_function_decl)) = 1;
   start_fname_decls ();
   store_parm_decls_from (params);
 #endif

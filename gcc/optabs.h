@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -193,6 +193,8 @@ enum optab_index
   OTI_tan,
   /* Inverse tangent */
   OTI_atan,
+  /* Copy sign */
+  OTI_copysign,
 
   /* Compare insn; two operands.  */
   OTI_cmp,
@@ -232,6 +234,9 @@ enum optab_index
   OTI_vec_init,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
+
+  /* Perform a raise to the power of integer.  */
+  OTI_powi,
 
   OTI_MAX
 };
@@ -311,6 +316,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define rint_optab (optab_table[OTI_rint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
+#define copysign_optab (optab_table[OTI_copysign])
 
 #define cmp_optab (optab_table[OTI_cmp])
 #define ucmp_optab (optab_table[OTI_ucmp])
@@ -336,6 +342,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
+
+#define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -450,6 +458,10 @@ extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
 
+/* Expand the copysign operation.  */
+extern rtx expand_copysign (rtx, rtx, rtx);
+extern rtx expand_copysign_absneg (enum machine_mode, rtx, rtx, rtx, int, bool);
+
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
 extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
@@ -487,11 +499,6 @@ extern enum insn_code can_extend_p (enum machine_mode, enum machine_mode, int);
    into X (with mode MTO).  Do zero-extension if UNSIGNEDP is nonzero.  */
 extern rtx gen_extend_insn (rtx, rtx, enum machine_mode,
 			    enum machine_mode, int);
-
-/* Initialize the tables that control conversion between fixed and
-   floating values.  */
-extern void init_fixtab (void);
-extern void init_floattab (void);
 
 /* Call this to reset the function entry for one optab.  */
 extern void set_optab_libfunc (optab, enum machine_mode, const char *);

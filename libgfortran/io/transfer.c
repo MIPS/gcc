@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,6 +7,15 @@ Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -834,6 +843,9 @@ us_read (void)
   n = sizeof (gfc_offset);
   p = salloc_r (current_unit->s, &n);
 
+  if (n == 0)
+    return;  /* end of file */
+
   if (p == NULL || n != sizeof (gfc_offset))
     {
       generate_error (ERROR_BAD_US, NULL);
@@ -1029,7 +1041,7 @@ data_transfer_init (int read_flag)
 
   if (read_flag)
     {
-      if (ioparm.eor != 0 && advance_status == ADVANCE_NO)
+      if (ioparm.eor != 0 && advance_status != ADVANCE_NO)
 	generate_error (ERROR_MISSING_OPTION,
 			"EOR specification requires an ADVANCE specification of NO");
 
@@ -1351,6 +1363,9 @@ next_record (int done)
   else
     next_record_w (done);
 
+  /* keep position up to date for INQUIRE */
+  current_unit->flags.position = POSITION_ASIS;
+
   current_unit->current_record = 0;
   if (current_unit->flags.access == ACCESS_DIRECT)
    {
@@ -1374,6 +1389,9 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)
@@ -1548,9 +1566,13 @@ st_write_done (void)
 	current_unit->endfile = AT_ENDFILE;	/* Just at it now.  */
 	break;
 
-      case NO_ENDFILE:	/* Get rid of whatever is after this record.  */
-	if (struncate (current_unit->s) == FAILURE)
-	  generate_error (ERROR_OS, NULL);
+      case NO_ENDFILE:
+	if (current_unit->current_record > current_unit->last_record)
+          {
+            /* Get rid of whatever is after this record.  */
+            if (struncate (current_unit->s) == FAILURE)
+              generate_error (ERROR_OS, NULL);
+          }
 
 	current_unit->endfile = AT_ENDFILE;
 	break;

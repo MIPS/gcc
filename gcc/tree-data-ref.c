@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -1111,7 +1111,7 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
    | y (t, u, v) = {{0, +, 1336}_u, +, 1}_v
    | z (t, u, v) = {{{0, +, 1}_t, +, 1335}_u, +, 1}_v
 
-   FORNOW: This is a specialized implementation for a case occuring in
+   FORNOW: This is a specialized implementation for a case occurring in
    a common benchmark.  Implement the general algorithm.  */
 
 static void

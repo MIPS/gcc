@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-mudflap.h"
+#include "tree-flow.h"
 #include "function.h"
 #include "ggc.h"
 #include "tree-flow.h"
@@ -608,6 +609,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Replace this variable with the copy.  */
       STRIP_TYPE_NOPS (new_decl);
       *tp = new_decl;
+      *walk_subtrees = 0;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
     {
@@ -1347,6 +1349,8 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
+  if (fn == current_function_decl)
+    p = DECL_STRUCT_FUNCTION (fn)->saved_static_chain_decl;
   if (p)
     {
       /* No static chain?  Seems like a bug in tree-nested.c.  */
@@ -1767,6 +1771,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case BIT_FIELD_REF:
     case MEM_REF:
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
     case OBJ_TYPE_REF:
@@ -1899,6 +1905,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
     case ASM_EXPR:
 
+    case REALIGN_LOAD_EXPR:
+
     case RESX_EXPR:
       *count += 1;
       break;
@@ -1921,7 +1929,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       {
 	tree decl = get_callee_fndecl (x);
 
-	if (decl && DECL_BUILT_IN (decl))
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
 	    case BUILT_IN_CONSTANT_P:
@@ -2247,10 +2255,18 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Find the lhs to which the result of this call is assigned.  */
   modify_dest = tsi_stmt (id->original_tsi);
   if (TREE_CODE (modify_dest) == MODIFY_EXPR)
-    modify_dest = TREE_OPERAND (modify_dest, 0);
-  else if (TREE_CODE (modify_dest) == RETURN_EXPR
-	   && TREE_CODE (TREE_OPERAND (modify_dest, 0)) == MODIFY_EXPR)
-    modify_dest = TREE_OPERAND (TREE_OPERAND (modify_dest, 0), 0);
+    {
+      modify_dest = TREE_OPERAND (modify_dest, 0);
+
+      /* The function which we are inlining might not return a value,
+	 in which case we should issue a warning that the function
+	 does not return a value.  In that case the optimizers will
+	 see that the variable to which the value is assigned was not
+	 initialized.  We do not want to issue a warning about that
+	 uninitialized variable.  */
+      if (DECL_P (modify_dest))
+	TREE_NO_WARNING (modify_dest) = 1;
+    }
   else
     modify_dest = NULL;
 
@@ -2286,6 +2302,21 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
   dup_fndecl = copy_body (id, id->oic_basic_block->count, id->oic_basic_block->frequency);
+#if 0
+  /* If the function uses a return slot, then it may legitimately
+     fall through while still returning a value, so we have to skip
+     the warning here.  */
+  if (warn_return_type
+      && !TREE_NO_WARNING (fn)
+      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+      && return_slot_addr == NULL_TREE
+      && block_may_fallthru (dup_fndecl))
+    {
+      warning ("control may reach end of non-void function %qD being inlined",
+      	 fn);
+      TREE_NO_WARNING (fn) = 1;
+    }
+#endif
   id->current_node = old_node;
   my_cfun = DECL_STRUCT_FUNCTION (dup_fndecl);
   /* Append copied EH information to that of current function.  */

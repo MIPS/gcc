@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -57,6 +57,7 @@ static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
+static tree convert_arguments (tree, tree, tree, int);
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -137,12 +138,11 @@ complete_type (tree type)
 }
 
 /* Like complete_type, but issue an error if the TYPE cannot be completed.
-   VALUE is used for informative diagnostics.  DIAG_TYPE indicates the type
-   of diagnostic: 0 for an error, 1 for a warning, 2 for a pedwarn.
+   VALUE is used for informative diagnostics.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_diagnostic (tree type, tree value, int diag_type)
+complete_type_or_else (tree type, tree value)
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -150,7 +150,7 @@ complete_type_or_diagnostic (tree type, tree value, int diag_type)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      cxx_incomplete_type_diagnostic (value, type, diag_type);
+      cxx_incomplete_type_diagnostic (value, type, 0);
       return NULL_TREE;
     }
   else
@@ -174,7 +174,7 @@ type_unknown_p (tree exp)
    As an optimization, free the space we allocate if the parameter
    lists are already common.  */
 
-tree
+static tree
 commonparms (tree p1, tree p2)
 {
   tree oldargs = p1, newargs, n;
@@ -1020,7 +1020,7 @@ comptypes (tree t1, tree t2, int strict)
       
       /* We may be dealing with Objective-C instances...  */
       if (TREE_CODE (t1) == RECORD_TYPE
-	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+	  && ((retval = objc_comptypes (t1, t2, 0)) >= 0))
          return retval;
       /* ...but fall through if we are not.  */
 
@@ -1087,17 +1087,6 @@ at_least_as_qualified_p (tree type1, tree type2)
   
   /* All qualifiers for TYPE2 must also appear in TYPE1.  */
   return (q1 & q2) == q2;
-}
-
-/* Returns 1 if TYPE1 is more qualified than TYPE2.  */
-
-bool
-more_qualified_p (tree type1, tree type2)
-{
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
-  return q1 != q2 && (q1 & q2) == q2;
 }
 
 /* Returns 1 if TYPE1 is more cv-qualified than TYPE2, -1 if TYPE2 is
@@ -1588,9 +1577,6 @@ build_class_member_access_expr (tree object, tree member,
   if (object == error_mark_node || member == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (member) == PSEUDO_DTOR_EXPR)
-    return member;
-
   gcc_assert (DECL_P (member) || BASELINK_P (member));
 
   /* [expr.ref]
@@ -1833,9 +1819,6 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
 	     TYPE_MAIN_VARIANT (object_type), dtor_type);
       return error_mark_node;
     }
-  if (!TYPE_HAS_DESTRUCTOR (dtor_type))
-    return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope,
-		   dtor_type);
   expr = lookup_member (dtor_type, complete_dtor_identifier,
 			/*protect=*/1, /*want_type=*/false);
   expr = (adjust_result_of_qualified_name_lookup
@@ -2199,7 +2182,7 @@ build_array_ref (tree array, tree idx)
 
       /* Apply integral promotions *after* noticing character types.
 	 (It is unclear why we do these promotions -- the standard
-	 does not say that we should.  In fact, the natual thing would
+	 does not say that we should.  In fact, the natural thing would
 	 seem to be to convert IDX to ptrdiff_t; we're performing
 	 pointer arithmetic.)  */
       idx = perform_integral_promotions (idx);
@@ -2336,7 +2319,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	function = save_expr (function);
 
       /* Start by extracting all the information from the PMF itself.  */
-      e3 = PFN_FROM_PTRMEMFUNC (function);
+      e3 = pfn_from_ptrmemfunc (function);
       delta = build_ptrmemfunc_access_expr (function, delta_identifier);
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
@@ -2504,7 +2487,7 @@ build_function_call (tree function, tree params)
    In C++, unspecified trailing parameters can be filled in with their
    default arguments, if such were specified.  Do so here.  */
 
-tree
+static tree
 convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 {
   tree typetail, valtail;
@@ -5822,57 +5805,6 @@ pfn_from_ptrmemfunc (tree t)
     }
 
   return build_ptrmemfunc_access_expr (t, pfn_identifier);
-}
-
-/* Expression EXPR is about to be implicitly converted to TYPE.  Warn
-   if this is a potentially dangerous thing to do.  Returns a possibly
-   marked EXPR.  */
-
-tree
-dubious_conversion_warnings (tree type, tree expr,
-			     const char *errtype, tree fndecl, int parmnum)
-{
-  type = non_reference (type);
-  
-  /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if (ARITHMETIC_TYPE_P (type) && expr == null_node)
-    {
-      if (fndecl)
-        warning ("passing NULL used for non-pointer %s %P of %qD",
-                 errtype, parmnum, fndecl);
-      else
-        warning ("%s to non-pointer type %qT from NULL", errtype, type);
-    }
-  
-  /* Warn about assigning a floating-point type to an integer type.  */
-  if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-      && TREE_CODE (type) == INTEGER_TYPE)
-    {
-      if (fndecl)
-	warning ("passing %qT for %s %P of %qD",
-                 TREE_TYPE (expr), errtype, parmnum, fndecl);
-      else
-	warning ("%s to %qT from %qT", errtype, type, TREE_TYPE (expr));
-    }
-  /* And warn about assigning a negative value to an unsigned
-     variable.  */
-  else if (TYPE_UNSIGNED (type) && TREE_CODE (type) != BOOLEAN_TYPE)
-    {
-      if (TREE_CODE (expr) == INTEGER_CST && TREE_NEGATED_INT (expr))
-	{
-	  if (fndecl)
-	    warning ("passing negative value %qE for %s %P of %qD",
-                     expr, errtype, parmnum, fndecl);
-	  else
-	    warning ("%s of negative value %qE to %qT", errtype, expr, type);
-	}
-
-      overflow_warning (expr);
-
-      if (TREE_CONSTANT (expr))
-	expr = fold_if_not_in_template (expr);
-    }
-  return expr;
 }
 
 /* Convert value RHS to type TYPE as preparation for an assignment to

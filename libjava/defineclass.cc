@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -868,7 +868,7 @@ _Jv_ClassReader::handleClassBegin (int access_flags, int this_class, int super_c
   // was ClassLoader.defineClass called with an expected class name?
   if (def->name == 0)
     {
-      jclass orig = _Jv_FindClassInCache (loadedName, def->loader);
+      jclass orig = def->loader->findLoadedClass(loadedName->toString());
 
       if (orig == 0)
 	{
@@ -908,16 +908,14 @@ _Jv_ClassReader::handleClassBegin (int access_flags, int this_class, int super_c
 	throw_no_class_def_found_error ("loading java.lang.Object");
     }
 
-  // In the pre-loading state, it can be looked up in the
-  // cache only by this thread!  This allows the super-class
-  // to include references to this class.
-
   def->state = JV_STATE_PRELOADING;
 
-  {
-    JvSynchronize sync (&java::lang::Class::class$);
-    _Jv_RegisterClass (def);
-  }
+  // Register this class with its defining loader as well (despite the
+  // name of the function we're calling), so that super class lookups
+  // work properly.  If there is an error, our caller will unregister
+  // this class from the class loader.  Also, we don't need to hold a
+  // lock here, as our caller has acquired it.
+  _Jv_RegisterInitiatingLoader (def, def->loader);
 
   if (super_class != 0)
     {

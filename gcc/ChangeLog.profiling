@@ -1,3 +1,7 @@
+2005-02-12  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20050211)
+
 2005-02-09  Razya Ladelsky  <razya@il.ibm.com>
 
  	* ipa_prop.c: Change/add comments and adjust to GNU standards.

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -123,6 +123,7 @@ static void pa_asm_out_destructor (rtx, int);
 static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
 static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static bool pa_scalar_mode_supported_p (enum machine_mode);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
 static struct deferred_plabel *get_plabel (const char *)
@@ -291,6 +292,9 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR hppa_gimplify_va_arg_expr
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P pa_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -752,11 +756,24 @@ move_src_operand (rtx op, enum machine_mode mode)
 }
 
 /* Accept anything that can be used as the source operand for a prefetch
-   instruction.  */
+   instruction with a cache-control completer.  */
 int
-prefetch_operand (rtx op, enum machine_mode mode)
+prefetch_cc_operand (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) != MEM)
+    return 0;
+
+  op = XEXP (op, 0);
+
+  /* We must reject virtual registers as we don't allow REG+D.  */
+  if (op == virtual_incoming_args_rtx
+      || op == virtual_stack_vars_rtx
+      || op == virtual_stack_dynamic_rtx
+      || op == virtual_outgoing_args_rtx
+      || op == virtual_cfa_rtx)
+    return 0;
+
+  if (!REG_P (op) && !IS_INDEX_ADDR_P (op))
     return 0;
 
   /* Until problems with management of the REG_POINTER flag are resolved,
@@ -764,12 +781,34 @@ prefetch_operand (rtx op, enum machine_mode mode)
      until CSE is not expected.  */
   if (!TARGET_NO_SPACE_REGS
       && !cse_not_expected
-      && GET_CODE (XEXP (op, 0)) == PLUS
-      && REG_P (XEXP (XEXP (op, 0), 0))
-      && REG_P (XEXP (XEXP (op, 0), 1)))
+      && GET_CODE (op) == PLUS
+      && REG_P (XEXP (op, 0)))
     return 0;
 
-  return memory_address_p (mode, XEXP (op, 0));
+  return memory_address_p (mode, op);
+}
+
+/* Accept anything that can be used as the source operand for a prefetch
+   instruction with no cache-control completer.  */
+int
+prefetch_nocc_operand (rtx op, enum machine_mode mode)
+{
+  if (GET_CODE (op) != MEM)
+    return 0;
+
+  op = XEXP (op, 0);
+
+  /* Until problems with management of the REG_POINTER flag are resolved,
+     we need to delay creating prefetch insns with unscaled indexed addresses
+     until CSE is not expected.  */
+  if (!TARGET_NO_SPACE_REGS
+      && !cse_not_expected
+      && GET_CODE (op) == PLUS
+      && REG_P (XEXP (op, 0))
+      && REG_P (XEXP (op, 1)))
+    return 0;
+
+  return memory_address_p (mode, op);
 }
 
 /* Accept REG and any CONST_INT that can be moved in one instruction into a
@@ -6184,6 +6223,50 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
     }
 }
 
+/* True if MODE is valid for the target.  By "valid", we mean able to
+   be manipulated in non-trivial ways.  In particular, this means all
+   the arithmetic is supported.
+
+   Currently, TImode is not valid as the HP 64-bit runtime documentation
+   doesn't document the alignment and calling conventions for this type. 
+   Thus, we return false when PRECISION is 2 * BITS_PER_WORD and
+   2 * BITS_PER_WORD isn't equal LONG_LONG_TYPE_SIZE.  */
+
+static bool
+pa_scalar_mode_supported_p (enum machine_mode mode)
+{
+  int precision = GET_MODE_PRECISION (mode);
+
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_PARTIAL_INT:
+    case MODE_INT:
+      if (precision == CHAR_TYPE_SIZE)
+	return true;
+      if (precision == SHORT_TYPE_SIZE)
+	return true;
+      if (precision == INT_TYPE_SIZE)
+	return true;
+      if (precision == LONG_TYPE_SIZE)
+	return true;
+      if (precision == LONG_LONG_TYPE_SIZE)
+	return true;
+      return false;
+
+    case MODE_FLOAT:
+      if (precision == FLOAT_TYPE_SIZE)
+	return true;
+      if (precision == DOUBLE_TYPE_SIZE)
+	return true;
+      if (precision == LONG_DOUBLE_TYPE_SIZE)
+	return true;
+      return false;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* This routine handles all the normal conditional branch sequences we
    might need to generate.  It handles compare immediate vs compare
    register, nullification of delay slots, varying length branches,
@@ -8253,6 +8336,17 @@ pa_asm_output_aligned_common (FILE *stream,
 			      unsigned HOST_WIDE_INT size,
 			      unsigned int align)
 {
+  unsigned int max_common_align;
+
+  max_common_align = TARGET_64BIT ? 128 : (size >= 4096 ? 256 : 64);
+  if (align > max_common_align)
+    {
+      warning ("alignment (%u) for %s exceeds maximum alignment "
+	       "for global common data.  Using %u",
+	       align / BITS_PER_UNIT, name, max_common_align / BITS_PER_UNIT);
+      align = max_common_align;
+    }
+
   bss_section ();
 
   assemble_name (stream, name);

@@ -1,5 +1,5 @@
 /* Header file for libgcc2.c.  */
-/* Copyright (C) 2000, 2001, 2004
+/* Copyright (C) 2000, 2001, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -305,18 +305,22 @@ extern UWtype __fixunsdfSI (DFtype);
 extern UWtype __fixunssfSI (SFtype);
 extern DWtype __fixunsdfDI (DFtype);
 extern DWtype __fixunssfDI (SFtype);
+extern SFtype __powisf2 (SFtype, Wtype);
+extern DFtype __powidf2 (DFtype, Wtype);
 
 #if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80
 extern DWtype __fixxfdi (XFtype);
 extern DWtype __fixunsxfDI (XFtype);
 extern XFtype __floatdixf (DWtype);
 extern UWtype __fixunsxfSI (XFtype);
+extern XFtype __powixf2 (XFtype, Wtype);
 #endif
 
 #if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
 extern DWtype __fixunstfDI (TFtype);
 extern DWtype __fixtfdi (TFtype);
 extern TFtype __floatditf (DWtype);
+extern TFtype __powitf2 (TFtype, Wtype);
 #endif
 #endif /* BITS_PER_UNIT == 8 */
 

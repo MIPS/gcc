@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -989,16 +998,17 @@ tempfile (void)
 
 
 /* regular_file()-- Open a regular file.
- * Change flags->action if it is ACTION_UNSPECIFIED on entry.
+ * Change flags->action if it is ACTION_UNSPECIFIED on entry,
+ * unless an error occurs.
  * Returns the descriptor, which is less than zero on error. */
 
 static int
 regular_file (unit_flags *flags)
 {
   char path[PATH_MAX + 1];
-  struct stat statbuf;
   int mode;
   int rwflag;
+  int crflag;
   int fd;
 
   if (unpack_filename (path, ioparm.file, ioparm.file_len))
@@ -1031,21 +1041,20 @@ regular_file (unit_flags *flags)
   switch (flags->status)
     {
     case STATUS_NEW:
-      rwflag |= O_CREAT | O_EXCL;
+      crflag = O_CREAT | O_EXCL;
       break;
 
-    case STATUS_OLD:		/* file must exist, so check for its existence */
-      if (stat (path, &statbuf) < 0)
-	return -1;
+    case STATUS_OLD:		/* open will fail if the file does not exist*/
+      crflag = 0;
       break;
 
     case STATUS_UNKNOWN:
     case STATUS_SCRATCH:
-      rwflag |= O_CREAT;
+      crflag = O_CREAT;
       break;
 
     case STATUS_REPLACE:
-        rwflag |= O_CREAT | O_TRUNC;
+        crflag = O_CREAT | O_TRUNC;
       break;
 
     default:
@@ -1055,29 +1064,39 @@ regular_file (unit_flags *flags)
   /* rwflag |= O_LARGEFILE; */
 
   mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-  fd = open (path, rwflag, mode);
-  if (flags->action == ACTION_UNSPECIFIED)
+  fd = open (path, rwflag | crflag, mode);
+  if (flags->action != ACTION_UNSPECIFIED)
+      return fd;
+
+  if (fd >= 0)
     {
-      if (fd < 0)
-        {
-          rwflag = rwflag & !O_RDWR | O_RDONLY;
-          fd = open (path, rwflag, mode);
-          if (fd < 0)
-            {
-	      rwflag = rwflag & !O_RDONLY | O_WRONLY;
-              fd = open (path, rwflag, mode);
-              if (fd < 0)
-                flags->action = ACTION_READWRITE; /* Could not open at all.  */
-              else
-                flags->action = ACTION_WRITE;
-            }
-          else
-            flags->action = ACTION_READ;
-        }
-      else
-        flags->action = ACTION_READWRITE;
+      flags->action = ACTION_READWRITE;
+      return fd;
     }
-  return fd;
+  if (errno != EACCES)
+     return fd;
+
+  /* retry for read-only access */
+  rwflag = O_RDONLY;
+  fd = open (path, rwflag | crflag, mode);
+  if (fd >=0)
+    {
+      flags->action = ACTION_READ;
+      return fd;               /* success */
+    }
+  
+  if (errno != EACCES)
+    return fd;                 /* failure */
+
+  /* retry for write-only access */
+  rwflag = O_WRONLY;
+  fd = open (path, rwflag | crflag, mode);
+  if (fd >=0)
+    {
+      flags->action = ACTION_WRITE;
+      return fd;               /* success */
+    }
+  return fd;                   /* failure */
 }
 
 
@@ -1100,7 +1119,8 @@ open_external (unit_flags *flags)
     }
   else
     {
-      /* regular_file resets flags->action if it is ACTION_UNSPECIFIED.  */
+      /* regular_file resets flags->action if it is ACTION_UNSPECIFIED and
+       * if it succeeds */
       fd = regular_file (flags);
     }
 
@@ -1140,7 +1160,7 @@ input_stream (void)
 }
 
 
-/* output_stream()-- Return a stream pointer to the default input stream.
+/* output_stream()-- Return a stream pointer to the default output stream.
  * Called on initialization. */
 
 stream *
@@ -1149,6 +1169,15 @@ output_stream (void)
   return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
 }
 
+
+/* error_stream()-- Return a stream pointer to the default error stream.
+ * Called on initialization. */
+
+stream *
+error_stream (void)
+{
+  return fd_to_stream (STDERR_FILENO, PROT_WRITE);
+}
 
 /* init_error_stream()-- Return a pointer to the error stream.  This
  * subroutine is called when the stream is needed, rather than at

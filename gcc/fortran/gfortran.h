@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -29,8 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    multiple header files.  Besides, Microsoft's winnt.h was 250k last
    time I looked, so by comparison this is perfectly reasonable.  */
 
-/* We need system.h for HOST_WIDE_INT. Including hwint.h by itself doesn't
-   seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
 #include "input.h"
@@ -53,9 +51,6 @@ char *alloca ();
 #endif /* not _AIX */
 #endif /* do not HAVE_ALLOCA_H */
 #endif /* not __GNUC__ */
-
-
-#include <stdio.h>		/* need FILE * here */
 
 /* Major control parameters.  */
 
@@ -1578,32 +1573,33 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
 try gfc_add_allocatable (symbol_attribute *, locus *);
-try gfc_add_dimension (symbol_attribute *, locus *);
+try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
 try gfc_add_intrinsic (symbol_attribute *, locus *);
 try gfc_add_optional (symbol_attribute *, locus *);
 try gfc_add_pointer (symbol_attribute *, locus *);
-try gfc_add_result (symbol_attribute *, locus *);
-try gfc_add_save (symbol_attribute *, locus *);
+try gfc_add_result (symbol_attribute *, const char *, locus *);
+try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_saved_common (symbol_attribute *, locus *);
 try gfc_add_target (symbol_attribute *, locus *);
-try gfc_add_dummy (symbol_attribute *, locus *);
-try gfc_add_generic (symbol_attribute *, locus *);
+try gfc_add_dummy (symbol_attribute *, const char *, locus *);
+try gfc_add_generic (symbol_attribute *, const char *, locus *);
 try gfc_add_common (symbol_attribute *, locus *);
-try gfc_add_in_common (symbol_attribute *, locus *);
-try gfc_add_data (symbol_attribute *, locus *);
-try gfc_add_in_namelist (symbol_attribute *, locus *);
-try gfc_add_sequence (symbol_attribute *, locus *);
+try gfc_add_in_common (symbol_attribute *, const char *, locus *);
+try gfc_add_data (symbol_attribute *, const char *, locus *);
+try gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
+try gfc_add_sequence (symbol_attribute *, const char *, locus *);
 try gfc_add_elemental (symbol_attribute *, locus *);
 try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
-try gfc_add_function (symbol_attribute *, locus *);
-try gfc_add_subroutine (symbol_attribute *, locus *);
+try gfc_add_function (symbol_attribute *, const char *, locus *);
+try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 
-try gfc_add_access (symbol_attribute *, gfc_access, locus *);
-try gfc_add_flavor (symbol_attribute *, sym_flavor, locus *);
-try gfc_add_entry (symbol_attribute *, locus *);
-try gfc_add_procedure (symbol_attribute *, procedure_type, locus *);
+try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
+try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
+try gfc_add_entry (symbol_attribute *, const char *, locus *);
+try gfc_add_procedure (symbol_attribute *, procedure_type,
+		       const char *, locus *);
 try gfc_add_intent (symbol_attribute *, sym_intent, locus *);
 try gfc_add_explicit_interface (gfc_symbol *, ifsrc,
 				gfc_formal_arglist *, locus *);
@@ -1807,6 +1803,7 @@ try gfc_resolve_dt (gfc_dt *);
 void gfc_module_init_2 (void);
 void gfc_module_done_2 (void);
 void gfc_dump_module (const char *, int);
+bool gfc_check_access (gfc_access, gfc_access);
 
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);

@@ -123,7 +123,7 @@ public class InetAddress implements Serializable
    */
   InetAddress(byte[] ipaddr, String hostname)
   {
-    addr = ipaddr;
+    addr = (null == ipaddr) ? null : (byte[]) ipaddr.clone();
     hostName = hostname;
     
     if (ipaddr != null)
@@ -714,7 +714,7 @@ public class InetAddress implements Serializable
 	  }
       }
     
-    if (hostname != null)
+    if (hostname != null && hostname.length() != 0)
       {
 	try
 	  {
@@ -725,6 +725,8 @@ public class InetAddress implements Serializable
 	  {
 	  }
       }
+    else
+      throw new UnknownHostException();
     
     if (localhost == null)
       localhost = new InetAddress (loopbackAddress, "localhost");

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  
    Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -926,7 +926,6 @@ extern void		sbss_section  (void);
 
 
 #undef ASM_SPEC
-#define ASM_SPEC "%{march=iq2000: -m2000} %{march=iq10: -m10} %{!march=*: -m2000}"
 
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.

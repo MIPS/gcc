@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003 2004  Free Software Foundation, Inc.
+;;  2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -1895,7 +1895,7 @@
 
 	emit_insn (gen_andsi3 (op1, operands[0], GEN_INT (~mask2)));
 	emit_insn (gen_iorsi3 (subtarget, op1,
-			       GEN_INT (op3_value << start_bit)));
+			       gen_int_mode (op3_value << start_bit, SImode)));
       }
     else if (start_bit == 0
 	     && !(const_ok_for_arm (mask)
@@ -7436,7 +7436,7 @@
   "*
   {
     if (!TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__call_via_%0\";
+      return thumb_call_via_reg (operands[0]);
     else if (operands[1] == const0_rtx)
       return \"bl\\t%__interwork_call_via_%0\";
     else if (frame_pointer_needed)
@@ -7530,7 +7530,7 @@
   "*
   {
     if (!TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__call_via_%1\";
+      return thumb_call_via_reg (operands[1]);
     else if (operands[2] == const0_rtx)
       return \"bl\\t%__interwork_call_via_%1\";
     else if (frame_pointer_needed)

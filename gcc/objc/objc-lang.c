@@ -1,5 +1,5 @@
 /* Language-dependent hooks for Objective-C.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -45,6 +45,8 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME objc_printable_name
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P objc_types_compatible_p
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

@@ -44,6 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tree-iterator.h"
 #include "tree-gimple.h"
+#include "tree-flow.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -296,7 +297,9 @@ composite_type (tree t1, tree t2)
     case ARRAY_TYPE:
       {
 	tree elt = composite_type (TREE_TYPE (t1), TREE_TYPE (t2));
-	
+	int quals;
+	tree unqual_elt;
+
 	/* We should not have any type quals on arrays at all.  */
 	gcc_assert (!TYPE_QUALS (t1) && !TYPE_QUALS (t2));
 	
@@ -311,8 +314,16 @@ composite_type (tree t1, tree t2)
 	if (elt == TREE_TYPE (t2) && !TYPE_DOMAIN (t2) && !TYPE_DOMAIN (t1))
 	  return build_type_attribute_variant (t2, attributes);
 	
-	/* Merge the element types, and have a size if either arg has one.  */
-	t1 = build_array_type (elt, TYPE_DOMAIN (TYPE_DOMAIN (t1) ? t1 : t2));
+	/* Merge the element types, and have a size if either arg has
+	   one.  We may have qualifiers on the element types.  To set
+	   up TYPE_MAIN_VARIANT correctly, we need to form the
+	   composite of the unqualified types and add the qualifiers
+	   back at the end.  */
+	quals = TYPE_QUALS (strip_array_types (elt));
+	unqual_elt = c_build_qualified_type (elt, TYPE_UNQUALIFIED);
+	t1 = build_array_type (unqual_elt,
+			       TYPE_DOMAIN (TYPE_DOMAIN (t1) ? t1 : t2));
+	t1 = c_build_qualified_type (t1, quals);
 	return build_type_attribute_variant (t1, attributes);
       }
 
@@ -434,8 +445,8 @@ static tree
 common_pointer_type (tree t1, tree t2)
 {
   tree attributes;
-  tree pointed_to_1;
-  tree pointed_to_2;
+  tree pointed_to_1, mv1;
+  tree pointed_to_2, mv2;
   tree target;
 
   /* Save time if the two types are the same.  */
@@ -455,11 +466,15 @@ common_pointer_type (tree t1, tree t2)
   attributes = targetm.merge_type_attributes (t1, t2);
 
   /* Find the composite type of the target types, and combine the
-     qualifiers of the two types' targets.  */
-  pointed_to_1 = TREE_TYPE (t1);
-  pointed_to_2 = TREE_TYPE (t2);
-  target = composite_type (TYPE_MAIN_VARIANT (pointed_to_1),
-			   TYPE_MAIN_VARIANT (pointed_to_2));
+     qualifiers of the two types' targets.  Do not lose qualifiers on
+     array element types by taking the TYPE_MAIN_VARIANT.  */
+  mv1 = pointed_to_1 = TREE_TYPE (t1);
+  mv2 = pointed_to_2 = TREE_TYPE (t2);
+  if (TREE_CODE (mv1) != ARRAY_TYPE)
+    mv1 = TYPE_MAIN_VARIANT (pointed_to_1);
+  if (TREE_CODE (mv2) != ARRAY_TYPE)
+    mv2 = TYPE_MAIN_VARIANT (pointed_to_2);
+  target = composite_type (mv1, mv2);
   t1 = build_pointer_type (c_build_qualified_type
 			   (target,
 			    TYPE_QUALS (pointed_to_1) |
@@ -475,8 +490,8 @@ common_pointer_type (tree t1, tree t2)
    This is the type for the result of most arithmetic operations
    if the operands have the given two types.  */
 
-tree
-common_type (tree t1, tree t2)
+static tree
+c_common_type (tree t1, tree t2)
 {
   enum tree_code code1;
   enum tree_code code2;
@@ -527,7 +542,7 @@ common_type (tree t1, tree t2)
     {
       tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TYPE (t1) : t1;
       tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TYPE (t2) : t2;
-      tree subtype = common_type (subtype1, subtype2);
+      tree subtype = c_common_type (subtype1, subtype2);
 
       if (code1 == COMPLEX_TYPE && TREE_TYPE (t1) == subtype)
 	return t1;
@@ -596,7 +611,19 @@ common_type (tree t1, tree t2)
   else
     return t2;
 }
-
+
+/* Wrapper around c_common_type that is used by c-common.c.  ENUMERAL_TYPEs
+   are allowed here and are converted to their compatible integer types.  */
+tree
+common_type (tree t1, tree t2)
+{
+  if (TREE_CODE (t1) == ENUMERAL_TYPE)
+    t1 = c_common_type_for_size (TYPE_PRECISION (t1), 1);
+  if (TREE_CODE (t2) == ENUMERAL_TYPE)
+    t2 = c_common_type_for_size (TYPE_PRECISION (t2), 1);
+  return c_common_type (t1, t2);
+}
+
 /* Return 1 if TYPE1 and TYPE2 are compatible types for assignment
    or various other operations.  Return 2 if they are compatible
    but a warning may be needed if you use them together.  */
@@ -667,7 +694,8 @@ comptypes_internal (tree type1, tree type2)
      definition.  Note that we already checked for equality of the type
      qualifiers (just above).  */
 
-  if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+  if (TREE_CODE (t1) != ARRAY_TYPE
+      && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return 1;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -773,13 +801,21 @@ static int
 comp_target_types (tree ttl, tree ttr, int reflexive)
 {
   int val;
+  tree mvl, mvr;
 
   /* Give objc_comptypes a crack at letting these types through.  */
   if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
     return val;
 
-  val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
-		   TYPE_MAIN_VARIANT (TREE_TYPE (ttr)));
+  /* Do not lose qualifiers on element types of array types that are
+     pointer targets by taking their TYPE_MAIN_VARIANT.  */
+  mvl = TREE_TYPE (ttl);
+  mvr = TREE_TYPE (ttr);
+  if (TREE_CODE (mvl) != ARRAY_TYPE)
+    mvl = TYPE_MAIN_VARIANT (mvl);
+  if (TREE_CODE (mvr) != ARRAY_TYPE)
+    mvr = TYPE_MAIN_VARIANT (mvr);
+  val = comptypes (mvl, mvr);
 
   if (val == 2 && pedantic)
     pedwarn ("types are not quite compatible");
@@ -1143,61 +1179,67 @@ type_lists_compatible_p (tree args1, tree args2)
 
   while (1)
     {
+      tree a1, mv1, a2, mv2;
       if (args1 == 0 && args2 == 0)
 	return val;
       /* If one list is shorter than the other,
 	 they fail to match.  */
       if (args1 == 0 || args2 == 0)
 	return 0;
+      mv1 = a1 = TREE_VALUE (args1);
+      mv2 = a2 = TREE_VALUE (args2);
+      if (mv1 && mv1 != error_mark_node && TREE_CODE (mv1) != ARRAY_TYPE)
+	mv1 = TYPE_MAIN_VARIANT (mv1);
+      if (mv2 && mv2 != error_mark_node && TREE_CODE (mv2) != ARRAY_TYPE)
+	mv2 = TYPE_MAIN_VARIANT (mv2);
       /* A null pointer instead of a type
 	 means there is supposed to be an argument
 	 but nothing is specified about what type it has.
 	 So match anything that self-promotes.  */
-      if (TREE_VALUE (args1) == 0)
+      if (a1 == 0)
 	{
-	  if (c_type_promotes_to (TREE_VALUE (args2)) != TREE_VALUE (args2))
+	  if (c_type_promotes_to (a2) != a2)
 	    return 0;
 	}
-      else if (TREE_VALUE (args2) == 0)
+      else if (a2 == 0)
 	{
-	  if (c_type_promotes_to (TREE_VALUE (args1)) != TREE_VALUE (args1))
+	  if (c_type_promotes_to (a1) != a1)
 	    return 0;
 	}
       /* If one of the lists has an error marker, ignore this arg.  */
-      else if (TREE_CODE (TREE_VALUE (args1)) == ERROR_MARK
-	       || TREE_CODE (TREE_VALUE (args2)) == ERROR_MARK)
+      else if (TREE_CODE (a1) == ERROR_MARK
+	       || TREE_CODE (a2) == ERROR_MARK)
 	;
-      else if (!(newval = comptypes_internal (TYPE_MAIN_VARIANT (TREE_VALUE (args1)),
-				     TYPE_MAIN_VARIANT (TREE_VALUE (args2)))))
+      else if (!(newval = comptypes_internal (mv1, mv2)))
 	{
 	  /* Allow  wait (union {union wait *u; int *i} *)
 	     and  wait (union wait *)  to be compatible.  */
-	  if (TREE_CODE (TREE_VALUE (args1)) == UNION_TYPE
-	      && (TYPE_NAME (TREE_VALUE (args1)) == 0
-		  || TYPE_TRANSPARENT_UNION (TREE_VALUE (args1)))
-	      && TREE_CODE (TYPE_SIZE (TREE_VALUE (args1))) == INTEGER_CST
-	      && tree_int_cst_equal (TYPE_SIZE (TREE_VALUE (args1)),
-				     TYPE_SIZE (TREE_VALUE (args2))))
+	  if (TREE_CODE (a1) == UNION_TYPE
+	      && (TYPE_NAME (a1) == 0
+		  || TYPE_TRANSPARENT_UNION (a1))
+	      && TREE_CODE (TYPE_SIZE (a1)) == INTEGER_CST
+	      && tree_int_cst_equal (TYPE_SIZE (a1),
+				     TYPE_SIZE (a2)))
 	    {
 	      tree memb;
-	      for (memb = TYPE_FIELDS (TREE_VALUE (args1));
+	      for (memb = TYPE_FIELDS (a1);
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes_internal (TREE_TYPE (memb), TREE_VALUE (args2)))
+		if (comptypes_internal (TREE_TYPE (memb), a2))
 		  break;
 	      if (memb == 0)
 		return 0;
 	    }
-	  else if (TREE_CODE (TREE_VALUE (args2)) == UNION_TYPE
-		   && (TYPE_NAME (TREE_VALUE (args2)) == 0
-		       || TYPE_TRANSPARENT_UNION (TREE_VALUE (args2)))
-		   && TREE_CODE (TYPE_SIZE (TREE_VALUE (args2))) == INTEGER_CST
-		   && tree_int_cst_equal (TYPE_SIZE (TREE_VALUE (args2)),
-					  TYPE_SIZE (TREE_VALUE (args1))))
+	  else if (TREE_CODE (a2) == UNION_TYPE
+		   && (TYPE_NAME (a2) == 0
+		       || TYPE_TRANSPARENT_UNION (a2))
+		   && TREE_CODE (TYPE_SIZE (a2)) == INTEGER_CST
+		   && tree_int_cst_equal (TYPE_SIZE (a2),
+					  TYPE_SIZE (a1)))
 	    {
 	      tree memb;
-	      for (memb = TYPE_FIELDS (TREE_VALUE (args2));
+	      for (memb = TYPE_FIELDS (a2);
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes_internal (TREE_TYPE (memb), TREE_VALUE (args1)))
+		if (comptypes_internal (TREE_TYPE (memb), a1))
 		  break;
 	      if (memb == 0)
 		return 0;
@@ -1643,7 +1685,12 @@ build_indirect_ref (tree ptr, const char *errorstring)
       else
 	{
 	  tree t = TREE_TYPE (type);
-	  tree ref = build1 (INDIRECT_REF, TYPE_MAIN_VARIANT (t), pointer);
+	  tree mvt = t;
+	  tree ref;
+
+	  if (TREE_CODE (mvt) != ARRAY_TYPE)
+	    mvt = TYPE_MAIN_VARIANT (mvt);
+	  ref = build1 (INDIRECT_REF, mvt, pointer);
 
 	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
@@ -1770,8 +1817,10 @@ build_array_ref (tree array, tree index)
 	  else if (!flag_isoc99 && !lvalue_p (foo))
 	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
-      
-      type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
+
+      type = TREE_TYPE (TREE_TYPE (array));
+      if (TREE_CODE (type) != ARRAY_TYPE)
+	type = TYPE_MAIN_VARIANT (type);
       rval = build4 (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
 
 
@@ -2196,7 +2245,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	  /* Formal parm type is specified by a function prototype.  */
 	  tree parmval;
 
-	  if (!COMPLETE_TYPE_P (type))
+	  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
 	    {
 	      error ("type of formal parameter %d is incomplete", parmnum + 1);
 	      parmval = val;
@@ -2994,7 +3043,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
            && (code2 == INTEGER_TYPE || code2 == REAL_TYPE
                || code2 == COMPLEX_TYPE))
     {
-      result_type = common_type (type1, type2);
+      result_type = c_common_type (type1, type2);
 
       /* If -Wsign-compare, warn here if type1 and type2 have
 	 different signedness.  We'll promote the signed to unsigned
@@ -3340,9 +3389,6 @@ build_c_cast (tree type, tree expr)
 	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
 
       ovalue = value;
-      /* Replace a nonvolatile const static variable with its value.  */
-      if (optimize && TREE_CODE (value) == VAR_DECL)
-	value = decl_constant_value (value);
       value = convert (type, value);
 
       /* Ignore any integer overflow caused by the cast.  */
@@ -3737,9 +3783,15 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     {
       tree ttl = TREE_TYPE (type);
       tree ttr = TREE_TYPE (rhstype);
+      tree mvl = ttl;
+      tree mvr = ttr;
       bool is_opaque_pointer;
       int target_cmp = 0;   /* Cache comp_target_types () result.  */
 
+      if (TREE_CODE (mvl) != ARRAY_TYPE)
+	mvl = TYPE_MAIN_VARIANT (mvl);
+      if (TREE_CODE (mvr) != ARRAY_TYPE)
+	mvr = TYPE_MAIN_VARIANT (mvr);
       /* Opaque pointers are treated like void pointers.  */
       is_opaque_pointer = (targetm.vector_opaque_p (type)
                            || targetm.vector_opaque_p (rhstype))
@@ -3752,8 +3804,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || (target_cmp = comp_target_types (type, rhstype, 0))
 	  || is_opaque_pointer
-	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
-	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
+	  || (c_common_unsigned_type (mvl)
+	      == c_common_unsigned_type (mvr)))
 	{
 	  if (pedantic
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
@@ -3792,7 +3844,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
-	      else
+	      else if (warn_pointer_sign)
 		WARN_FOR_ASSIGNMENT (N_("pointer targets in passing argument "
 					"%d of %qE differ in signedness"),
 				     N_("pointer targets in assignment "
@@ -4284,18 +4336,32 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
   /* Build a VECTOR_CST from a *constant* vector constructor.  If the
      vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
      below and handle as a constructor.  */
-    if (code == VECTOR_TYPE
-	&& TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
-        && vector_types_convertible_p (TREE_TYPE (inside_init), type)
-        && TREE_CONSTANT (inside_init))
-      {
-	if (TREE_CODE (inside_init) == VECTOR_CST
-            && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
-			  TYPE_MAIN_VARIANT (type)))
-	  return inside_init;
-	else
-	  return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
-      }
+  if (code == VECTOR_TYPE
+      && TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
+      && vector_types_convertible_p (TREE_TYPE (inside_init), type)
+      && TREE_CONSTANT (inside_init))
+    {
+      if (TREE_CODE (inside_init) == VECTOR_CST
+	  && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (inside_init)),
+			TYPE_MAIN_VARIANT (type)))
+	return inside_init;
+
+      if (TREE_CODE (inside_init) == CONSTRUCTOR)
+	{
+	  tree link;
+
+	  /* Iterate through elements and check if all constructor
+	     elements are *_CSTs.  */
+	  for (link = CONSTRUCTOR_ELTS (inside_init);
+	       link;
+	       link = TREE_CHAIN (link))
+	    if (! CONSTANT_CLASS_P (TREE_VALUE (link)))
+	      break;
+
+	  if (link == NULL)
+	    return build_vector (type, CONSTRUCTOR_ELTS (inside_init));
+	}
+    }
 
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
@@ -4758,7 +4824,10 @@ really_start_incremental_init (tree type)
 		       TYPE_MIN_VALUE (TYPE_DOMAIN (constructor_type)));
 	}
       else
-	constructor_index = bitsize_zero_node;
+	{
+	  constructor_index = bitsize_zero_node;
+	  constructor_max_index = NULL_TREE;
+	}
 
       constructor_unfilled_index = constructor_index;
     }
@@ -4962,7 +5031,8 @@ push_init_level (int implicit)
     }
   else
     {
-      warning_init ("braces around scalar initializer");
+      if (constructor_type != error_mark_node)
+	warning_init ("braces around scalar initializer");
       constructor_fields = constructor_type;
       constructor_unfilled_fields = constructor_type;
     }
@@ -6324,7 +6394,8 @@ process_init_element (struct c_expr value)
 
       /* Handle the sole element allowed in a braced initializer
 	 for a scalar variable.  */
-      else if (constructor_fields == 0)
+      else if (constructor_type != error_mark_node
+	       && constructor_fields == 0)
 	{
 	  pedwarn_init ("excess elements in scalar initializer");
 	  break;
@@ -6476,8 +6547,14 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
 	{
 	  /* If the operand is going to end up in memory,
 	     mark it addressable.  */
-	  if (!allows_reg && allows_mem && !c_mark_addressable (input))
-	    input = error_mark_node;
+	  if (!allows_reg && allows_mem)
+	    {
+	      /* Strip the nops as we allow this case.  FIXME, this really
+		 should be rejected or made deprecated.  */
+	      STRIP_NOPS (input);
+	      if (!c_mark_addressable (input))
+		input = error_mark_node;
+	  }
 	}
       else
 	input = error_mark_node;
@@ -6683,8 +6760,7 @@ c_start_case (tree exp)
 
   /* Add this new SWITCH_STMT to the stack.  */
   cs = XNEW (struct c_switch);
-  cs->switch_stmt = build_stmt ((enum tree_code) SWITCH_STMT, exp, NULL_TREE,
-				orig_type);
+  cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, orig_type);
   cs->orig_type = orig_type;
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
   cs->next = c_switch_stack;
@@ -6703,7 +6779,7 @@ do_case (tree low_value, tree high_value)
   if (c_switch_stack)
     {
       label = c_add_case_label (c_switch_stack->cases,
-				SWITCH_COND (c_switch_stack->switch_stmt),
+				SWITCH_STMT_COND (c_switch_stack->switch_stmt),
 				c_switch_stack->orig_type,
 				low_value, high_value);
       if (label == error_mark_node)
@@ -6724,7 +6800,7 @@ c_finish_case (tree body)
 {
   struct c_switch *cs = c_switch_stack;
 
-  SWITCH_BODY (cs->switch_stmt) = body;
+  SWITCH_STMT_BODY (cs->switch_stmt) = body;
 
   /* Emit warnings as needed.  */
   c_do_switch_warnings (cs->cases, cs->switch_stmt);
@@ -6883,10 +6959,23 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 tree
 c_finish_bc_stmt (tree *label_p, bool is_break)
 {
+  bool skip;
   tree label = *label_p;
 
+  /* In switch statements break is sometimes stylistically used after
+     a return statement.  This can lead to spurious warnings about
+     control reaching the end of a non-void function when it is
+     inlined.  Note that we are calling block_may_fallthru with
+     language specific tree nodes; this works because
+     block_may_fallthru returns true when given something it does not
+     understand.  */
+  skip = !block_may_fallthru (cur_stmt_list);
+
   if (!label)
-    *label_p = label = create_artificial_label ();
+    {
+      if (!skip)
+	*label_p = label = create_artificial_label ();
+    }
   else if (TREE_CODE (label) != LABEL_DECL)
     {
       if (is_break)
@@ -6895,6 +6984,9 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
         error ("continue statement not within a loop");
       return NULL_TREE;
     }
+
+  if (skip)
+    return NULL_TREE;
 
   return add_stmt (build1 (GOTO_EXPR, void_type_node, label));
 }
@@ -7519,7 +7611,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
 
       if (shorten || common || short_compare)
-	result_type = common_type (type0, type1);
+	result_type = c_common_type (type0, type1);
 
       /* For certain operations (which identify themselves by shorten != 0)
 	 if both args were extended from the same smaller type,
@@ -7577,7 +7669,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && (unsigned0 || !uns))
 	    result_type
 	      = c_common_signed_or_unsigned_type
-	      (unsigned0, common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
+	      (unsigned0, c_common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
 	  else if (TREE_CODE (arg0) == INTEGER_CST
 		   && (unsigned1 || !uns)
 		   && (TYPE_PRECISION (TREE_TYPE (arg1))

@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -2796,7 +2796,8 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       tree do_delete = NULL_TREE;
       tree ifexp;
 
-      gcc_assert (TYPE_HAS_DESTRUCTOR (type));
+      if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+	lazily_declare_fn (sfk_destructor, type);
 
       /* For `::delete x', we must not use the deleting destructor
 	 since then we would not be sure to get the global `operator
@@ -2933,34 +2934,6 @@ push_base_cleanups (void)
 	  finish_decl_cleanup (NULL_TREE, expr);
 	}
     }
-}
-
-/* For type TYPE, delete the virtual baseclass objects of DECL.  */
-
-tree
-build_vbase_delete (tree type, tree decl)
-{
-  unsigned ix;
-  tree binfo;
-  tree result;
-  VEC (tree) *vbases;
-  tree addr = build_unary_op (ADDR_EXPR, decl, 0);
-
-  gcc_assert (addr != error_mark_node);
-
-  result = convert_to_void (integer_zero_node, NULL);
-  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
-       VEC_iterate (tree, vbases, ix, binfo); ix++)
-    {
-      tree base_addr = convert_force
-	(build_pointer_type (BINFO_TYPE (binfo)), addr, 0);
-      tree base_delete = build_delete
-	(TREE_TYPE (base_addr), base_addr, sfk_base_destructor,
-	 LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 0);
-      
-      result = build_compound_expr (result, base_delete);
-    }
-  return result;
 }
 
 /* Build a C++ vector delete expression.

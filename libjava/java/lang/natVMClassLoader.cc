@@ -1,6 +1,6 @@
 // natVMClassLoader.cc - VMClassLoader native methods
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -24,6 +24,7 @@ details.  */
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/VMCompiler.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
+#include <gnu/gcj/runtime/SystemClassLoader.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Class.h>
 #include <java/lang/Throwable.h>
@@ -56,13 +57,8 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
   jclass klass = VMCompiler::compileClass(loader, name, data,
 					  offset, length, pd);
 
-  if (klass != NULL)
-    {
-      JvSynchronize sync (&java::lang::Class::class$);
-      _Jv_RegisterClass (klass);
-    }
 #ifdef INTERPRETER
-  else
+  if (klass == NULL)
     {
       klass = new java::lang::Class ();
 
@@ -95,7 +91,7 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 	  klass->state = JV_STATE_ERROR;
 	  klass->notifyAll ();
 
-	  _Jv_UnregisterClass (klass);
+	  _Jv_UnregisterInitiatingLoader (klass, klass->loader);
 
 	  // If EX is not a ClassNotFoundException, that's ok, because we
 	  // account for the possibility in defineClass().
@@ -114,7 +110,7 @@ java::lang::ClassLoader *
 java::lang::VMClassLoader::getSystemClassLoaderInternal()
 {
   _Jv_InitClass (&gnu::gcj::runtime::VMClassLoader::class$);
-  return gnu::gcj::runtime::VMClassLoader::instance;
+  return gnu::gcj::runtime::VMClassLoader::system_instance;
 }
 
 jclass
@@ -130,7 +126,7 @@ jclass
 java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
 {
   _Jv_Utf8Const *utf = _Jv_makeUtf8Const (name);
-  jclass klass = _Jv_FindClassInCache (utf, NULL);
+  jclass klass = _Jv_FindClassInCache (utf);
   if (klass)
     {
       // We never want to return a class without its supers linked.
@@ -140,6 +136,9 @@ java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
 	_Jv_InitClass (klass);
       else
 	_Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
+
+      definePackageForNative(name);
     }
+
   return klass;
 }
