@@ -742,7 +742,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       break;
     }
 
-  if (EXPR_LOCUS (node))
+  if (EXPR_HAS_LOCATION (node))
     {
       indent_to (file, indent+4);
       fprintf (file, "%s:%d",

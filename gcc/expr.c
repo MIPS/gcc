@@ -209,9 +209,6 @@ enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
-/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
-struct file_stack *expr_wfl_stack;
-
 /* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
@@ -6353,10 +6350,10 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
      information.  It would be better of the diagnostic routines 
      used the file/line information embedded in the tree nodes rather
      than globals.  */
-  if (cfun && EXPR_LOCUS (exp))
+  if (cfun && EXPR_HAS_LOCATION (exp))
     {
       location_t saved_location = input_location;
-      input_location = *EXPR_LOCUS (exp);
+      input_location = EXPR_LOCATION (exp);
       emit_line_note (input_location);
       
       /* Record where the insns produced belong.  */
@@ -8444,9 +8441,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  for (; TREE_CODE (exp) == COND_EXPR; exp = TREE_OPERAND (exp, 2))
 	    {
 	      expand_start_else ();
-	      if (EXPR_LOCUS (exp))
+	      if (EXPR_HAS_LOCATION (exp))
 		{
-		  emit_line_note (*(EXPR_LOCUS (exp)));
+		  emit_line_note (EXPR_LOCATION (exp));
 		  if (cfun->dont_emit_block_notes)
 		    record_block_change (TREE_BLOCK (exp));
 		}

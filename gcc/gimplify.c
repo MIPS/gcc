@@ -569,7 +569,7 @@ annotate_all_with_locus (tree *stmt_p, location_t locus)
 #endif
 
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
-	  && ! EXPR_LOCUS (t)
+	  && ! EXPR_HAS_LOCATION (t)
 	  && should_carry_locus_p (t))
 	annotate_with_locus (t, locus);
     }

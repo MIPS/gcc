@@ -125,7 +125,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
 {
   tree stmt = tsi_stmt (*tsi);
 
-  if (EXPR_LOCUS (stmt) && data)
+  if (EXPR_HAS_LOCATION (stmt) && data)
     TREE_BLOCK (stmt) = data->block;
 
   switch (TREE_CODE (stmt))

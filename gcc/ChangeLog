@@ -1,3 +1,19 @@
+2004-04-23  Per Bothner  <per@bothner.com>
+
+	* expr.c (expr_wfl_stack):  Remove unused global.
+
+	Pre-patches for future source_location / location_t merge.
+	* tree.h (EXPR_LOCATION, EXPR_HAS_LOCATION):  New macros.
+	* expr.c (expand_expr_real, expand_expr_real_1):  Use new macros.
+	* gimple-low.c (lower_stmt):  Likewise.
+	* gimplify.c (annotate_all_with_locus):  Likewise.
+	* print-tree.c (print_node):  Likewise.
+	* tree-inline.c (expand_call_inline):  Likewise.
+	* tree-pretty-print.c (tree-pretty-print.c):  Likewise.
+	* tree-sra.c (scalarize_structure_assignment, emit_scalar_copies,
+	scalarize_call_expr):  Likewise.
+	* tree-ssa-pre.c (code_motion):  Likewise.
+	
 2004-04-28  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* Makefile.in ($(DESTDIR)$(infodir)/%.info): Don't condition

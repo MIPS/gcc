@@ -197,7 +197,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   if (dumping_stmts
       && (flags & TDF_LINENO)
-      && EXPR_LOCUS (node))
+      && EXPR_HAS_LOCATION (node))
     {
       pp_character (buffer, '[');
       if (EXPR_FILENAME (node))

@@ -1069,6 +1069,16 @@ struct tree_vec GTY(())
   (EXPR_CHECK (NODE)->exp.locus->file)
 #define EXPR_LINENO(NODE) \
   (EXPR_CHECK (NODE)->exp.locus->line)
+#ifdef USE_MAPPED_LOCATION
+#define EXPR_LOCATION(NODE)					\
+  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
+   ? (NODE)->exp.locus						\
+   : UNKNOWN_LOCATION)
+#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
+#else
+#define EXPR_LOCATION(NODE) (*EXPR_LOCUS (NODE))
+#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCUS (NODE) != NULL)
+#endif
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)

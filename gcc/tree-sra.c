@@ -497,8 +497,8 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
     return;
 
   /* Set line number information for our replacements.  */
-  if (EXPR_LOCUS (orig_stmt))
-    annotate_all_with_locus (&list, *EXPR_LOCUS (orig_stmt));
+  if (EXPR_HAS_LOCATION (orig_stmt))
+    annotate_all_with_locus (&list, EXPR_LOCATION (orig_stmt));
 
   /* Replace the existing statement with the newly created list of
      scalarized copies.  When replacing the original statement, the first
@@ -814,8 +814,8 @@ emit_scalar_copies (block_stmt_iterator *bsi, tree lhs, tree rhs,
   tree list = create_scalar_copies (lhs, rhs, mode);
   tree stmt = bsi_stmt (*bsi);
 
-  if (EXPR_LOCUS (stmt))
-    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
+  if (EXPR_HAS_LOCATION (stmt))
+    annotate_all_with_locus (&list, EXPR_LOCATION (stmt));
 
   bsi_insert_before (bsi, list, BSI_SAME_STMT);
 }
@@ -1007,8 +1007,8 @@ scalarize_call_expr (block_stmt_iterator *si_p)
       if (is_sra_candidate_decl (var))
 	{
 	  tree list = create_scalar_copies (var, var, SCALAR_FIELD);
-	  if (EXPR_LOCUS (stmt))
-	    annotate_all_with_locus (&list, *EXPR_LOCUS (stmt));
+	  if (EXPR_HAS_LOCATION (stmt))
+	    annotate_all_with_locus (&list, EXPR_LOCATION (stmt));
 	  if (stmt_ends_bb_p (stmt))
 	    insert_edge_copies (list, bb_for_stmt (stmt));
 	  else

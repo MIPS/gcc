@@ -1419,8 +1419,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
   saved_location = input_location;
-  if (EXPR_LOCUS (t))
-    input_location = *EXPR_LOCUS (t);
+  if (EXPR_HAS_LOCATION (t))
+    input_location = EXPR_LOCATION (t);
 
   /* Recurse, but letting recursive invocations know that we are
      inside the body of a TARGET_EXPR.  */

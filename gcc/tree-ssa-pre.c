@@ -2784,7 +2784,7 @@ code_motion (struct expr_info *ei)
 	      fprintf (dump_file, " before statement ");
 	      print_generic_expr (dump_file, use_stmt, dump_flags);
 	      fprintf (dump_file, "\n");
-	      if (EXPR_LOCUS (use_stmt))
+	      if (EXPR_HAS_LOCATION (use_stmt))
 		fprintf (dump_file, " on line %d\n",
 			 EXPR_LINENO (use_stmt));
 	    }
@@ -2816,7 +2816,7 @@ code_motion (struct expr_info *ei)
 	      fprintf (dump_file, " in statement ");
 	      print_generic_stmt (dump_file, use_stmt, dump_flags);
 	      fprintf (dump_file, "\n");
-	      if (EXPR_LOCUS (use_stmt))
+	      if (EXPR_HAS_LOCATION (use_stmt))
 		fprintf (dump_file, " on line %d\n",
 			 EXPR_LINENO (use_stmt));
 	    }
