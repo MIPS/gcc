@@ -334,6 +334,9 @@ demangle:
 ls:
 	@echo Makefile $(CFILES)
 
+c++filt: c++filt.o $(TARGETLIB)
+	$(CC) $(CFLAGS) -o $@ $< -I$(srcdir)/../include $(TARGETLIB)
+
 # Various targets for maintainers.
 
 maint-missing :
