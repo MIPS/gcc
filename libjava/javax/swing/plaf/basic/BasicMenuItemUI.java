@@ -323,7 +323,7 @@ public class BasicMenuItemUI extends MenuItemUI
     SwingUtilities.calculateInsetArea(br, b.getMargin(), vr);        
     paintBackground(g, (JMenuItem) c, c.getBackground());
     
-    if ((b.getModel().isArmed() && b.getModel().isPressed()) || b.isSelected())
+    if ((b.getModel().isArmed() && b.getModel().isPressed()))
       {
         if (((AbstractButton) b).isContentAreaFilled())
           {

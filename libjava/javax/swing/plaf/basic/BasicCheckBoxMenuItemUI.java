@@ -1,5 +1,5 @@
-/* ImageIcon.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* BasicCheckBoxMenuItemUI.java
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,70 +35,43 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+package javax.swing.plaf.basic;
 
-package javax.swing;
+import java.awt.event.MouseEvent;
 
-import java.awt.Component;
-import java.awt.Graphics;
-import java.awt.Image;
-import java.awt.MediaTracker;
-import java.awt.Toolkit;
-import java.io.Serializable;
-import java.net.URL;
-import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleContext;
+import javax.swing.AbstractButton;
+import javax.swing.Icon;
+import javax.swing.JComponent;
+import javax.swing.JMenuItem;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
+import javax.swing.plaf.ComponentUI;
 
-public class ImageIcon implements Icon
+
+public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
 {
-    Image image;
-    String file, descr;
-    Component observer;
+  public static ComponentUI createUI(final JComponent c)
+  {
+    return new BasicCheckBoxMenuItemUI();
+  }
 
-  public ImageIcon(String s)
-    {
-    	// if description is not specified, then file name becomes
-	// desciption for this icon
-	
-	this(s, s);
-    }
+  protected String getPropertyPrefix()
+  {
+    return null; // TODO
+  }
 
-  public ImageIcon(String file,
-	      String descr)
-    {
-        this.file = file;
-        this.descr = descr;
+  protected void installDefaults()
+  {
+    super.installDefaults();
 
-        image = Toolkit.getDefaultToolkit().getImage(file);
-        if (image == null) {
-            return;
-        }
-        //loadImage(image);
-    }
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    checkIcon = defaults.getIcon("CheckBoxMenuItem.checkIcon");
+  }
 
-    // not in SUN's spec !!!
-    public void setParent(Component p)
-    {
-	observer = p;
-    }
-
-    public Image getImage() 
-    {  return image;    }
-
-    public String getDescription() 
-    {  return descr;    }
-    public void setDescription(String description) 
-    {  this.descr = description;    }
-
-    public int getIconHeight()
-    {	return image.getHeight(observer);    }
-    public int getIconWidth()
-    {	return image.getWidth(observer);    }
-
-    public void paintIcon(Component c, 
-			  Graphics g,
-			  int x, 
-			  int y)
-    {
-	g.drawImage(image, x, y, observer);
-    }
+  void processMouseEvent(JMenuItem item, MouseEvent e, MenuElement[] path,
+                         MenuSelectionManager manager)
+  {
+  }
 }

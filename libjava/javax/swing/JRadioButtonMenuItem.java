@@ -78,24 +78,23 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
 
   public JRadioButtonMenuItem(String text, Icon icon)
   {
-    super(text, icon);
+    this(text, icon, false);
   } // JRadioButtonMenuItem()
 
   public JRadioButtonMenuItem(String text, boolean selected)
   {
-    this(text, null);
-    model.setSelected(selected);
+    this(text, null, selected);
   } // JRadioButtonMenuItem()
 
   public JRadioButtonMenuItem(Icon icon, boolean selected)
   {
-    this(null, icon);
-    model.setSelected(selected);
+    this(null, icon, selected);
   } // JRadioButtonMenuItem()
 
   public JRadioButtonMenuItem(String text, Icon icon, boolean selected)
   {
-    this(text, icon);
+    super(text, icon);  
+    setModel(new JToggleButton.ToggleButtonModel());	
     model.setSelected(selected);
   } // JRadioButtonMenuItem()
 
