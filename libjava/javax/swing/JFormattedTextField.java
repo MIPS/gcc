@@ -131,6 +131,8 @@ public class JFormattedTextField extends JTextField
   public static final int REVERT = 2;
   public static final int PERSIST = 3;
 
+  private Object value;
+  
   public JFormattedTextField ()
   {
     throw new InternalError ("not implemented");
@@ -158,7 +160,7 @@ public class JFormattedTextField extends JTextField
 
   public JFormattedTextField (Object value)
   {
-    throw new InternalError ("not implemented");
+    this.value = value;
   }
 
   public void commitEdit ()
@@ -194,7 +196,7 @@ public class JFormattedTextField extends JTextField
 
   public Object getValue ()
   {
-    throw new InternalError ("not implemented");
+    return value;
   }
 
   protected void invalidEdit ()
@@ -232,8 +234,8 @@ public class JFormattedTextField extends JTextField
     throw new InternalError ("not implemented");
   }
 
-  public void setValue (Object value)
+  public void setValue (Object newValue)
   {
-    throw new InternalError ("not implemented");
+    value = newValue;
   }
 }

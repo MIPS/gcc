@@ -1,5 +1,5 @@
-/* BasicPanelUI.java
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+/* BasicTextFieldUI.java
+   Copyright (C) 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,29 +39,44 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
+
 import javax.swing.JComponent;
-import javax.swing.UIManager;
+import javax.swing.JTextField;
 import javax.swing.plaf.ComponentUI;
-import javax.swing.plaf.RootPaneUI;
+import javax.swing.text.Element;
+import javax.swing.text.FieldView;
+import javax.swing.text.PlainDocument;
+import javax.swing.text.View;
 
-
-public class BasicRootPaneUI extends RootPaneUI
-  implements PropertyChangeListener
+public class BasicTextFieldUI extends BasicTextUI
 {
-  public static ComponentUI createUI(JComponent x) 
+  public BasicTextFieldUI()
   {
-    return new BasicRootPaneUI();
+    super();
+  }
+
+  public View create(Element elem)
+  {
+    return new FieldView(elem);
+  }
+  
+  public static ComponentUI createUI(JComponent c)
+  {
+    return new BasicTextFieldUI();
+  }
+
+  protected String getPropertyPrefix()
+  {
+    return "TextField";
   }
 
   public void installUI(JComponent c)
   {
-    c.setOpaque(true);
-    c.setBackground(UIManager.getColor("control"));
     super.installUI(c);
   }
 
-  public void propertyChange(PropertyChangeEvent event)
+  protected void propertyChange(PropertyChangeEvent event)
   {
+    // Does nothing by default.
   }
 }

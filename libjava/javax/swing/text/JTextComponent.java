@@ -306,8 +306,6 @@ public abstract class JTextComponent extends JComponent
 
   public Document getDocument()
   {
-    if (doc == null)
-      System.out.println("doc == null !!!");
     return doc;
   }
 

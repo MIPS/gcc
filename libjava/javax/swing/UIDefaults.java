@@ -43,17 +43,14 @@ import java.awt.Font;
 import java.awt.Insets;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.lang.reflect.Method;
-import java.util.HashSet;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
-import java.util.Set;
-
 import javax.swing.border.Border;
 import javax.swing.plaf.ComponentUI;
 
@@ -66,10 +63,9 @@ import javax.swing.plaf.ComponentUI;
  */
 public class UIDefaults extends Hashtable
 {
-
-  LinkedList bundles;
-  Set listeners;
-  Locale defaultLocale;
+  private LinkedList bundles;
+  private Locale defaultLocale;
+  private PropertyChangeSupport propertyChangeSupport;
 
   public interface ActiveValue
   {
@@ -217,7 +213,7 @@ public class UIDefaults extends Hashtable
   {
     bundles = new LinkedList();
     defaultLocale = Locale.getDefault();
-    listeners = new HashSet ();
+    propertyChangeSupport = new PropertyChangeSupport(this);
   }
 
   public UIDefaults(Object[] entries)
@@ -476,43 +472,38 @@ public class UIDefaults extends Hashtable
       }
   }
 
-  void addPropertyChangeListener(PropertyChangeListener listener)
+  public void addPropertyChangeListener(PropertyChangeListener listener)
   {
-    listeners.add (listener);
+    propertyChangeSupport.addPropertyChangeListener(listener);
   }
 
   void removePropertyChangeListener(PropertyChangeListener listener)
   {
-    listeners.remove (listener);
+    propertyChangeSupport.removePropertyChangeListener(listener);
   }
 
   public PropertyChangeListener[] getPropertyChangeListeners()
   {
-    return (PropertyChangeListener[]) listeners.toArray ();
+    return propertyChangeSupport.getPropertyChangeListeners();
   }
 
-  protected void firePropertyChange(String property, Object o, Object n)
+  protected void firePropertyChange(String property,
+				    Object oldValue, Object newValue)
   {
-    Iterator i = listeners.iterator ();
-    PropertyChangeEvent pce = new PropertyChangeEvent (this, property, o, n);
-    while (i.hasNext ())
-      {
-        PropertyChangeListener pcl = (PropertyChangeListener) i.next ();
-        pcl.propertyChange (pce);
-      }
+    propertyChangeSupport.firePropertyChange(property, oldValue, newValue);
   }
 
-  void addResourceBundle(String name)
+  public void addResourceBundle(String name)
   {
     bundles.addFirst(name);
   }
 
-  void removeResourceBundle(String name)
+  public void removeResourceBundle(String name)
   {
     bundles.remove(name);
   }
 
-  void setDefaultLocale(Locale loc)
+  public void setDefaultLocale(Locale loc)
   {
     defaultLocale = loc;
   }

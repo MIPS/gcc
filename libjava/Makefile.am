@@ -1324,6 +1324,7 @@ javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
+javax/swing/plaf/basic/BasicTextFieldUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
@@ -1496,16 +1497,19 @@ javax/swing/text/Caret.java \
 javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
+javax/swing/text/DefaultHighlighter.java \
 javax/swing/text/Document.java \
 javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
+javax/swing/text/FieldView.java \
 javax/swing/text/GapContent.java \
 javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/LayeredHighlighter.java \
 javax/swing/text/PlainDocument.java \
+javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \

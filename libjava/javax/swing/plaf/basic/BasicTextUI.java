@@ -55,6 +55,7 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.DefaultEditorKit;
+import javax.swing.text.DefaultHighlighter;
 import javax.swing.text.Document;
 import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
@@ -77,6 +78,14 @@ public abstract class BasicTextUI extends TextUI
     }
   }
 
+  public static class BasicHighlighter extends DefaultHighlighter
+    implements UIResource
+  {
+    public BasicHighlighter()
+    {
+    }
+  }
+  
   private class RootView extends View
   {
     private JTextComponent textComponent;
@@ -135,6 +144,11 @@ public abstract class BasicTextUI extends TextUI
     return new BasicCaret();
   }
 
+  protected Highlighter createHighlighter()
+  {
+    return new BasicHighlighter();
+  }
+  
   protected final JTextComponent getComponent()
   {
     return textComponent;

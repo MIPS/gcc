@@ -1,5 +1,37 @@
 2004-06-29  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JFormattedTextField.java
+	(value): New field.
+	(JFormattedTextField): Implemented.
+	(getValue): Likewise.
+	(setValue): Likewise.
+	* javax/swing/LookAndFeel.java
+	(getSupportsWindowDecorations): New method.
+	* javax/swing/UIDefaults.java:
+	Use java.beans.PropertyChangeSupport instead of doing all ourself.
+	(addPropertyChangeListener): Made public.
+	(addResourceBundle): Likewise.
+	(removeResourceBundle): Likewise.
+	(setDefaultLocale): Likewise.
+	* javax/swing/plaf/basic/BasicRootPaneUI.java
+	(BasicRootPaneUI): Implements PropertyChangeListener.
+	(propertyChange): New method.
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(BasicHighlighter): New inner class.
+	(createHighlighter): New method.
+	* javax/swing/plaf/basic/BasicToolBarUI.java
+	(DragWindow): Extends java.awt.Window.
+	* javax/swing/text/JTextComponent.java
+	(getDocument): Removed debug output.
+	* javax/swing/plaf/basic/BasicTextFieldUI.java,
+	javax/swing/text/DefaultHighlighter.java,
+	javax/swing/text/FieldView.java,
+	javax/swing/text/PlainView.java: New files.
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerated.
+
+2004-06-29  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ImageIcon.java
 	(file): Removed.
 	(description): Renamed from descr.

@@ -44,6 +44,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Point;
+import java.awt.Window;
 import java.awt.event.ContainerListener;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseAdapter;
@@ -68,9 +69,9 @@ import javax.swing.plaf.ToolBarUI;
 public class BasicToolBarUI extends ToolBarUI
   implements SwingConstants
 {
-
-  public class DragWindow
-  {}
+  public class DragWindow extends Window
+  {
+  }
 
     protected String constraintBeforeFloating;
     protected Color dockingBorderColor;
