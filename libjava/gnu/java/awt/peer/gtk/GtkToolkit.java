@@ -367,10 +367,18 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    * @deprecated part of the older "logical font" system in earlier AWT
    * implementations. Our newer Font class uses getClasspathFontPeer.
    */
-  protected FontPeer getFontPeer (String name, int style) 
+  protected FontPeer getFontPeer (String name, int style) {
+    // All fonts get a default size of 1 if size is not specified.
+    return getFontPeer(name, style, 1);
+  }
+
+  /**
+   * Private method that allows size to be set at initialization time.
+   */
+  private FontPeer getFontPeer (String name, int style, int size) 
   {
     try {
-      GtkFontPeer fp = new GtkFontPeer (name, style);
+      GtkFontPeer fp = new GtkFontPeer (name, style, size);
       return fp;
     } catch (MissingResourceException ex) {
       return null;
@@ -389,6 +397,8 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
       return new GdkClasspathFontPeer (name, attrs);
     else
       {
+        // All fonts get a default size of 1 if size is not specified.
+        int size = 1;
         int style = Font.PLAIN;
 
         if (attrs.containsKey (TextAttribute.WEIGHT))
@@ -405,7 +415,13 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
               style += Font.ITALIC;
           }
         
-        return (ClasspathFontPeer) this.getFontPeer (name, style);
+        if (attrs.containsKey (TextAttribute.SIZE))
+          {
+            Float fsize = (Float) attrs.get (TextAttribute.SIZE);
+            size = fsize.intValue();
+          }
+ 
+        return (ClasspathFontPeer) this.getFontPeer (name, style, size);
       }
   }
 

@@ -1,3 +1,14 @@
+2004-02-25  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFontPeer.java
+	(GtkFontPeer(String,int)): Call the new constructor with size 1.
+	(GtkFontPeer(String,int,int)): New constructor with size attribute.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java
+	(getFontPeer(String,int)): Call the new overload method with size 1.
+	(getFontPeer(String,int,int)): New method. Overloaded with size
+	attribute.
+	(getClasspathFontPeer): Set the size of the font.
+
 2004-02-24  Olga Rodimina  <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
