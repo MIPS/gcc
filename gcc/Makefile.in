@@ -2039,7 +2039,7 @@ stmp-headers:
 fixinc.sh: $(srcdir)/fixinc/mkfixinc.sh
 	MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc; pwd` ; \
 	export MAKE srcdir ; \
-	cd ./fixinc; $(SHELL) $${srcdir}/mkfixinc.sh
+	cd ./fixinc; $(SHELL) $${srcdir}/mkfixinc.sh $(target)
 ##stmp-fixinc: $(FIXINCLUDES) gsyslimits.h
 ##	rm -rf include
 ##	mkdir include
