@@ -216,7 +216,6 @@ static void copy_loops_to PARAMS ((struct loops *, struct loop **, int, struct l
 static void loop_redirect_edge PARAMS ((edge, basic_block));
 static void loop_delete_branch_edge PARAMS ((edge));
 static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *));
-static void remove_exit_edges PARAMS ((basic_block *, int, basic_block));
 static struct loop *unswitch_loop PARAMS ((struct loops *, struct loop *, basic_block));
 static void remove_bbs PARAMS ((basic_block *, int));
 static bool rpe_enum_p PARAMS ((basic_block, void *));
@@ -233,6 +232,7 @@ static edge split_loop_bb PARAMS ((struct loops *, basic_block, rtx));
 static rtx reversed_condition PARAMS ((rtx));
 static void scale_loop_frequencies PARAMS ((struct loop *, int, int));
 static void scale_bbs_frequencies PARAMS ((basic_block *, int, int, int));
+static void record_exit_edges PARAMS ((edge, basic_block *, int, edge *, int *, bool));
 
 /* Initialize loop optimizer.  */
 
@@ -693,7 +693,7 @@ remove_path (loops, e)
 	      }
 	}
     }
-  else
+  else if (e->dest != EXIT_BLOCK_PTR)
     bord_bbs[n_bord_bbs++] = e->dest;
 
   /* OK. Remove the path.  */
@@ -988,7 +988,8 @@ unswitch_loop (loops, loop, unswitch_on)
   /* Make a copy.  */
   zero_bitmap = sbitmap_alloc (2);
   sbitmap_zero (zero_bitmap);
-  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, zero_bitmap, DLTHE_FLAG_UPDATE_DOMINATORS))
+  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1,
+	zero_bitmap, NULL, NULL, NULL, 0))
     return NULL;
   free (zero_bitmap);
 
@@ -1226,46 +1227,6 @@ copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_ed
    RBI ((*new_bbs)[i])->duplicated = 0;
 }
 
-/* Remove edges going out from BBS, except edge to HEADER.  */
-static void
-remove_exit_edges (bbs, n, header)
-     basic_block *bbs;
-     int n;
-     basic_block header;
-{
-  basic_block bb;
-  edge e;
-  int i;
-
-  /* duplicated is not supposed to be used for this, but I need
-     something to mark blocks.  */
-  for (i = 0 ; i < n; i++)
-    {
-      bb = bbs[i];
-      RBI (bb)->duplicated = 1;
-    }
-  RBI (header)->duplicated = 1;
-
-  for (i = 0 ; i < n; i++)
-    {
-      edge succ_e;
-      bb = bbs[i];
-      for (e = bb->succ; e; e = succ_e)
-	{
-	  succ_e = e->succ_next;
-	  if (!RBI (e->dest)->duplicated)
-	    loop_delete_branch_edge (e);
-	}
-    }
-
-  for (i = 0 ; i < n; i++)
-    {
-      bb = bbs[i];
-      RBI (bb)->duplicated = 0;
-    }
-  RBI (header)->duplicated = 0;
-}
-
 /* Check whether LOOP's body can be duplicated.  */
 bool
 can_duplicate_loop_p (loop)
@@ -1302,18 +1263,71 @@ can_duplicate_loop_p (loop)
   return true;
 }
 
+/* Store edges created by copying ORIG edge (simply this ORIG edge if IS_ORIG)
+   (if ORIG is NULL, then all exit edges) into TO_REMOVE array.  */
+static void
+record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
+     edge orig;
+     basic_block *bbs;
+     int nbbs;
+     edge *to_remove;
+     int *n_to_remove;
+     bool is_orig;
+{
+  sbitmap my_blocks;
+  int i;
+  edge e;
+
+  if (orig)
+    {
+      if (is_orig)
+	{
+	  to_remove[(*n_to_remove)++] = orig;
+	  return;
+	}
+
+      for (e = RBI (orig->src)->copy->succ; e; e = e->succ_next)
+	if (e->dest == orig->dest)
+	  break;
+      if (!e)
+	abort ();
+
+      to_remove[(*n_to_remove)++] = e;
+    }
+  else
+    {
+      my_blocks = sbitmap_alloc (n_basic_blocks);
+      sbitmap_zero (my_blocks);
+      for (i = 0; i < nbbs; i++)
+        SET_BIT (my_blocks, bbs[i]->index);
+
+      for (i = 0; i < nbbs; i++)
+	for (e = bbs[i]->succ; e; e = e->succ_next)
+	  if (e->dest == EXIT_BLOCK_PTR ||
+	      !TEST_BIT (my_blocks, e->dest->index))
+	    to_remove[(*n_to_remove)++] = e;
+
+      free (my_blocks);
+    }
+}
+
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of
    updating LOOPS structure.  E's destination must be LOOP header for this to
-   work.  Remove exit edges from copies corresponding to set bits in WONT_EXIT
-   (bit 0 corresponds to original LOOP body).  Returns false if
-   duplication is impossible.  */
+   work.  Store edges created by copying ORIG edge (if NULL, then all exit
+   edges) from copies corresponding to set bits in WONT_EXIT (bit 0 corresponds
+   to original LOOP body) into TO_REMOVE array.  Returns false if duplication
+   is impossible.  */
 int
-duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
+duplicate_loop_to_header_edge (loop, e, loops, ndupl,
+			       wont_exit, orig, to_remove, n_to_remove, flags)
      struct loop *loop;
      edge e;
      struct loops *loops;
      int ndupl;
      sbitmap wont_exit;
+     edge orig;
+     edge *to_remove;
+     int *n_to_remove;
      int flags;
 {
   struct loop *target, *aloop;
@@ -1323,15 +1337,23 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
   basic_block *new_bbs, *bbs, *first_active;
   basic_block new_bb, bb, first_active_latch = NULL;
   edge ae, latch_edge, he;
-  int i, j, n, more_active = 0;
+  int i, j, n;
   int is_latch = (latch == e->src);
   int k0, k, kk, freq_in, freq_e, freq_le;
-  int loop_made_infinite;
 
   if (e->dest != loop->header)
     abort ();
   if (ndupl <= 0)
     abort ();
+
+  if (orig)
+    {
+      /* Orig must be edge out of the loop.  */
+      if (!flow_bb_inside_loop_p (loop, orig->src))
+	abort ();
+      if (flow_bb_inside_loop_p (loop, orig->dest))
+	abort ();
+    }
 
   bbs = get_loop_body (loop);
 
@@ -1407,25 +1429,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
       abort ();
     }
 
-  /* Check whether we will create an infinite loop.  */
-  if (is_latch)
-    {
-      loop_made_infinite = 1;
-      for (i = 0; i <= ndupl; i++)
-	if (!TEST_BIT (wont_exit, i))
-	  {
-	    loop_made_infinite = 0;
-	    break;
-	  }
-    }
-  else
-    loop_made_infinite = TEST_BIT (wont_exit, 0);
-  /* We cannot handle infinite loops yet.  It is relatively hard to do,
-     as outer loops might become infinite too.  */
-  if (loop_made_infinite)
-    abort ();
-
-  /* Loop to that new bbs will belong.  */
+  /* Loop the new bbs will belong to.  */
   target = find_common_loop (e->src->loop_father, e->dest->loop_father);
 
   /* Original loops.  */
@@ -1442,11 +1446,15 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
   n = loop->num_nodes;
 
   first_active = xcalloc(n, sizeof (basic_block));
-  if (is_latch && !TEST_BIT (wont_exit, 0))
+  if (is_latch)
     {
       memcpy (first_active, bbs, n * sizeof (basic_block));
       first_active_latch = latch;
     }
+
+  /* Record exit edges in original loop body.  */
+  if (TEST_BIT (wont_exit, 0))
+    record_exit_edges (orig, bbs, n, to_remove, n_to_remove, true);
   
   for (j = 0; j < ndupl; j++)
     {
@@ -1458,6 +1466,10 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
       if (is_latch)
 	loop->latch = RBI (latch)->copy;
 
+      /* Record exit edges in this copy.  */
+      if (TEST_BIT (wont_exit, j + 1))
+	record_exit_edges (orig, new_bbs, n, to_remove, n_to_remove, false);
+  
       /* Set counts and frequencies.  */
       kk = (kk * k) / REG_BR_PROB_BASE;
       for (i = 0; i < n; i++)
@@ -1484,16 +1496,11 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
 	    }
 	}
 
-      /* Remove exit edges if needed.  */
-      if (TEST_BIT (wont_exit, j + 1))
-	remove_exit_edges (new_bbs, n, header);
-      else if (!first_active_latch)
+      if (!first_active_latch)
 	{
 	  memcpy (first_active, new_bbs, n * sizeof (basic_block));
 	  first_active_latch = RBI (latch)->copy;
 	}
-      else
-	more_active = 1;
       
       /* Update edge counts.  */
       for (i = 0; i < n; i++)
@@ -1503,10 +1510,6 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
 	    ae->count = (bb->count * ae->probability +
 			 REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
 	}
-
-      /* Update loops info.  */
-      for (i = 0; i < n_orig_loops; i++)
-	flow_loop_scan (loops, orig_loops[i]->copy, 0);
 
       free (new_bbs);
 
@@ -1526,10 +1529,6 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
 
   /* Now handle original loop.  */
   
-  /* Remove exit edges if needed.  */
-  if (TEST_BIT (wont_exit, 0))
-    remove_exit_edges (bbs, n, latch_edge->dest);
- 
   /* Update edge counts.  */
   if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
@@ -1546,50 +1545,29 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
 	}
     }
 
-  if (!first_active_latch)
-    {
-      memcpy (first_active, bbs, n * sizeof (basic_block));
-      first_active_latch = latch;
-    }
-  else
-    more_active = 1;
-
   /* Update dominators of other blocks if affected.  */
-  if (flags & DLTHE_FLAG_UPDATE_DOMINATORS)
+  for (i = 0; i < n; i++)
     {
-      for (i = 0; i < n; i++)
-	{
-	  basic_block dominated, dom_bb, *dom_bbs;
-	  int n_dom_bbs,j;
+      basic_block dominated, dom_bb, *dom_bbs;
+      int n_dom_bbs,j;
 
-	  bb = bbs[i];
-	  n_dom_bbs = get_dominated_by (loops->cfg.dom, bb, &dom_bbs);
-	  for (j = 0; j < n_dom_bbs; j++)
-	    {
-	      dominated = dom_bbs[j];
-	      if (flow_bb_inside_loop_p (loop, dominated))
-		continue;
-	      if (more_active)
-		{
-		  dom_bb = nearest_common_dominator (
-		    loops->cfg.dom, first_active[i], first_active_latch);
-		}
-	      else
-		dom_bb = first_active[i];
-	      set_immediate_dominator (loops->cfg.dom, dominated, dom_bb);
-	    }
-	  free (dom_bbs);
+      bb = bbs[i];
+      n_dom_bbs = get_dominated_by (loops->cfg.dom, bb, &dom_bbs);
+      for (j = 0; j < n_dom_bbs; j++)
+	{
+	  dominated = dom_bbs[j];
+	  if (flow_bb_inside_loop_p (loop, dominated))
+	    continue;
+	  dom_bb = nearest_common_dominator (
+			loops->cfg.dom, first_active[i], first_active_latch);
+          set_immediate_dominator (loops->cfg.dom, dominated, dom_bb);
 	}
+      free (dom_bbs);
     }
   free (first_active);
 
   free (bbs);
 
-  /* Fill other info for father loops.  */
-  for (aloop = target; aloop->depth > 0; aloop = aloop->outer)
-    flow_loop_scan (loops, aloop, 0);
-
   return true;
-
 }
 

@@ -451,9 +451,11 @@ struct loop_desc
 };
 
 bool can_duplicate_loop_p PARAMS ((struct loop *loop));
-#define DLTHE_FLAG_UPDATE_DOMINATORS	1
-#define DLTHE_FLAG_UPDATE_FREQ		2
-#define DLTHE_FLAG_ALL			(DLTHE_FLAG_UPDATE_DOMINATORS \
-					| DLTHE_FLAG_UPDATE_FREQ)
-int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int, sbitmap, int));
+
+#define DLTHE_FLAG_UPDATE_FREQ		1
+#define DLTHE_FLAG_ALL			(DLTHE_FLAG_UPDATE_FREQ)
+int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int,
+					   sbitmap, edge, edge *, int *, int));
+
 void remove_path PARAMS ((struct loops *, edge));
+
