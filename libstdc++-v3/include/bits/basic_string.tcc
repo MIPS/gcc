@@ -394,23 +394,15 @@ namespace std
       const size_type __new_size = __old_size + __len2 - __len1;
       const size_type __how_much = __old_size - __pos - __len1;
       
-      if (_M_rep()->_M_is_shared() || __new_size > capacity())
+      if (__new_size > capacity() || _M_rep()->_M_is_shared())
 	{
 	  // Must reallocate.
 	  allocator_type __a = get_allocator();
-	  // See below (_S_create) for the meaning and value of these
-	  // constants.
-	  const size_type __pagesize = 4096;
-	  const size_type __malloc_header_size = 4 * sizeof (void*);
-	  // The biggest string which fits in a memory page
-	  const size_type __page_capacity = (__pagesize - __malloc_header_size
-					     - sizeof(_Rep) - sizeof(_CharT)) 
-	    				     / sizeof(_CharT);
 	  _Rep* __r;
-	  if (__new_size > capacity() && __new_size > __page_capacity)
+	  if (__new_size > capacity())
 	    // Growing exponentially.
-	    __r = _Rep::_S_create(__new_size > 2*capacity() ?
-				  __new_size : 2*capacity(), __a);
+	    __r = _Rep::_S_create(__new_size > 2 * capacity() ?
+				  __new_size : 2 * capacity(), __a);
 	  else
 	    __r = _Rep::_S_create(__new_size, __a);
 
@@ -482,7 +474,6 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::_Rep::
     _S_create(size_t __capacity, const _Alloc& __alloc)
     {
-      typedef basic_string<_CharT, _Traits, _Alloc> __string_type;
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
       // 83.  String::npos vs. string::max_size()
       if (__capacity > _S_max_size)
@@ -519,7 +510,6 @@ namespace std
       // malloc implementations that allocate memory blocks rounded up
       // to a size which is a power of 2).
       const size_t __pagesize = 4096; // must be 2^i * __subpagesize
-      const size_t __subpagesize = 128; // should be >> __malloc_header_size
       const size_t __malloc_header_size = 4 * sizeof (void*);
       if ((__size + __malloc_header_size) > __pagesize)
 	{
@@ -530,14 +520,6 @@ namespace std
 	  // Never allocate a string bigger than _S_max_size.
 	  if (__capacity > _S_max_size)
 	    __capacity = _S_max_size;
-	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
-	}
-      else if (__size > __subpagesize)
-	{
-	  const size_t __extra =
-	    (__subpagesize - ((__size + __malloc_header_size) % __subpagesize))
-	    % __subpagesize;
-	  __capacity += __extra / sizeof(_CharT);
 	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
 	}
 
@@ -558,18 +540,11 @@ namespace std
     {
       // Requested capacity of the clone.
       const size_type __requested_cap = _M_length + __res;
-      // See above (_S_create) for the meaning and value of these constants.
-      const size_type __pagesize = 4096;
-      const size_type __malloc_header_size = 4 * sizeof (void*);
-      // The biggest string which fits in a memory page.
-      const size_type __page_capacity =
-        (__pagesize - __malloc_header_size - sizeof(_Rep) - sizeof(_CharT))
-        / sizeof(_CharT);
       _Rep* __r;
-      if (__requested_cap > _M_capacity && __requested_cap > __page_capacity)
+      if (__requested_cap > _M_capacity)
         // Growing exponentially.
-        __r = _Rep::_S_create(__requested_cap > 2*_M_capacity ?
-                              __requested_cap : 2*_M_capacity, __alloc);
+        __r = _Rep::_S_create(__requested_cap > 2 * _M_capacity ?
+                              __requested_cap : 2 * _M_capacity, __alloc);
       else
         __r = _Rep::_S_create(__requested_cap, __alloc);
       

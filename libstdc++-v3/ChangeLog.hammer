@@ -1,3 +1,9 @@
+2004-11-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_M_mutate, _Rep::_M_clone): Use
+	consistently the exponential policy, simplify.
+	(_S_create): Simplify, don't use the subpagesize remnant.
+
 2004-10-29  Chris Jefferson  <chris@bubblescope.net>
 
 	* include/bit/stl_algo.h (find_first_of(,,,,pred)):
