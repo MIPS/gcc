@@ -510,7 +510,7 @@ extern edge ssa_redirect_edge (edge, basic_block);
 extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern void build_dominator_tree (dominance_info);
-extern unsigned int next_ssa_version;
+extern unsigned int highest_ssa_version;
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree, enum tree_dump_index);

@@ -334,7 +334,7 @@ create_ssa_var_map (int flags)
   sbitmap used_in_virtual_ops;
 #endif
 
-  map = init_var_map (next_ssa_version + 1);
+  map = init_var_map (highest_ssa_version + 1);
 
 #if defined ENABLE_CHECKING
   used_in_real_ops = sbitmap_alloc (num_referenced_vars);
@@ -346,8 +346,9 @@ create_ssa_var_map (int flags)
 
   if (flags & SSA_VAR_MAP_REF_COUNT)
     {
-      map->ref_count = (int *)xmalloc (((next_ssa_version + 1) * sizeof (int)));
-      memset (map->ref_count, 0, (next_ssa_version + 1) * sizeof (int));
+      map->ref_count
+	= (int *)xmalloc (((highest_ssa_version + 1) * sizeof (int)));
+      memset (map->ref_count, 0, (highest_ssa_version + 1) * sizeof (int));
     }
 
   FOR_EACH_BB (bb)
@@ -1651,7 +1652,7 @@ dump_var_map (FILE *f, var_map map)
         continue;
 
       t = 0;
-      for (y = 1; y < next_ssa_version; y++)
+      for (y = 1; y < highest_ssa_version; y++)
         {
 	  p = partition_find (map->var_partition, y);
 	  if (map->partition_to_compact)

@@ -58,10 +58,6 @@ Boston, MA 02111-1307, USA.  */
    13(4):451-490, October 1991.  */
 
 
-/* Next SSA version number to be assigned by make_ssa_name.  Initialized by
-   init_tree_ssa.  */
-unsigned int next_ssa_version;
-
 /* Dump file and flags.  */
 static FILE *dump_file;
 static int dump_flags;
@@ -732,14 +728,17 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
     return false;
 
   /* The variable needs to be renamed.  If it already had an
-      SSA_NAME, strip it off.  This way, the SSA rename pass
-      doesn't need to deal with existing SSA names.  */
+     SSA_NAME, strip it off.  This way, the SSA rename pass
+     doesn't need to deal with existing SSA names.  */
   if (TREE_CODE (*op_p) == SSA_NAME)
-    *op_p = var;
+    {
+      if (default_def (SSA_NAME_VAR (*op_p)) != *op_p)
+	release_ssa_name (*op_p);
+      *op_p = var;
+    }
 
   return true;
 }
-
 
 /* Insert PHI nodes at the dominance frontier of blocks with variable
    definitions.  DFS contains the dominance frontier information for the
@@ -1851,7 +1850,7 @@ new_temp_expr_table (var_map map)
   t = (temp_expr_table_p) xmalloc (sizeof (struct temp_expr_table_d));
   t->map = map;
 
-  t->version_info = xcalloc (next_ssa_version + 1, sizeof (void *));
+  t->version_info = xcalloc (highest_ssa_version + 1, sizeof (void *));
   t->partition_dep_list = xcalloc (num_var_partitions (map) + 1, 
 				   sizeof (value_expr_p));
 
@@ -2299,7 +2298,7 @@ dump_replaceable_exprs (FILE *f, tree *expr)
   tree stmt, var;
   int x;
   fprintf (f, "\nReplacing Expressions\n");
-  for (x = 0; x < (int)next_ssa_version + 1; x++)
+  for (x = 0; x < (int)highest_ssa_version + 1; x++)
     if (expr[x])
       {
         stmt = expr[x];
@@ -2814,17 +2813,14 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 }
 
 
-/*---------------------------------------------------------------------------
-			     Various helpers.
----------------------------------------------------------------------------*/
 /* Initialize global DFA and SSA structures.  */
 
 void
 init_tree_ssa (void)
 {
-  next_ssa_version = 1;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
+  init_ssanames ();
   memset (&ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
 }
@@ -2843,6 +2839,8 @@ delete_tree_ssa (tree fndecl)
   /* Remove annotations from every referenced variable.  */
   for (i = 0; i < num_referenced_vars; i++)
     referenced_var (i)->common.ann = NULL;
+
+  fini_ssanames ();
 
   referenced_vars = NULL;
   global_var = NULL_TREE;

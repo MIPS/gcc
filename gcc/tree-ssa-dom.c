@@ -321,10 +321,10 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
 
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-  VARRAY_TREE_INIT (const_and_copies, next_ssa_version, "const_and_copies");
+  VARRAY_TREE_INIT (const_and_copies, highest_ssa_version, "const_and_copies");
   VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
   VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
-  VARRAY_GENERIC_PTR_INIT (vrp_data, next_ssa_version, "vrp_data");
+  VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
   VARRAY_GENERIC_PTR_INIT (walk_data.block_data_stack, 2, "block_data");
 
 
@@ -456,8 +456,10 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
 	{
 	  rewrite_into_ssa (fndecl, vars_to_rename, TDI_none);
 	  sbitmap_zero (vars_to_rename);
-	  VARRAY_GROW (const_and_copies, next_ssa_version);
-	  VARRAY_GROW (vrp_data, next_ssa_version);
+	  VARRAY_GROW (const_and_copies, highest_ssa_version);
+	  VARRAY_GROW (vrp_data, highest_ssa_version);
+	  VARRAY_CLEAR (const_and_copies);
+	  VARRAY_CLEAR (vrp_data);
 	}
     }
   while (cfg_altered);

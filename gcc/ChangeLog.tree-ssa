@@ -1,3 +1,25 @@
+2003-11-19  Jeff Law  <law@redhat.com>
+
+        * Makefile.in (OBJS-sommon): Add tree-ssanames.o.
+        (tree-ssanames.o): Add dependencies.
+        * tree-dfa.c (remove_phi_node): Release SSA_NAME expression when
+        we remove the PHI node.
+        (remove_all_phi_nodes_for): Similarly.
+        * tree-ssa.c (prepare_operand_for_rename): Similarly when we
+        strip away an SSA_NAME expression from an operand.
+        (init_tree_ssa): Call the SSA_NAME initializer.
+        (delete_tree_ssa): Call the SSA_NAME finalizer.
+        * tree-ssa-dom.c (tree_ssa_dominator_optimize_1): Clear the
+        const_and_copies and vrp_data virtual arrays.
+        * tree-ssanames.c: New file for management of SSA_NAME expressions.
+        * tree.h: Prototypes for functions exported by tree-ssanames.c.
+        * tree-flow.h, tree-ssa-ccp.c, tree-ssa-dce.c: Use highest_ssa_version
+        rather than next_ssa_version.
+        * tree-ssa-dom.c, tree-ssa-live.c, tree-ssa.c: Similarly.
+        * tree.c (dump_tree_statistics): Call into tree-ssaname statistics
+        dumper too.
+        (make_ssa_name): Kill.  Now in tree-ssanames.c
+                                                                                
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
 	* tree.c (recompute_tree_invarant_for_addr_expr): Split out from ...

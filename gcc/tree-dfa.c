@@ -1054,12 +1054,20 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
     {
       /* Rewire the list if we are given a PREV pointer.  */
       TREE_CHAIN (prev) = TREE_CHAIN (phi);
+
+      /* If we are deleting the PHI node, then we should release the
+	 SSA_NAME node so that it can be reused.  */
+      release_ssa_name (PHI_RESULT (phi));
     }
   else if (phi == phi_nodes (bb))
     {
       /* Update the list head if removing the first element.  */
       bb_ann_t ann = bb_ann (bb);
       ann->phi_nodes = TREE_CHAIN (phi);
+
+      /* If we are deleting the PHI node, then we should release the
+	 SSA_NAME node so that it can be reused.  */
+      release_ssa_name (PHI_RESULT (phi));
     }
   else
     {
@@ -1107,6 +1115,12 @@ remove_all_phi_nodes_for (sbitmap vars)
 		  TREE_CHAIN (last_phi) = phi;
 		  last_phi = phi;
 		}
+	    }
+	  else
+	    {
+	      /* If we are deleting the PHI node, then we should release the
+		 SSA_NAME node so that it can be reused.  */
+	      release_ssa_name (PHI_RESULT (phi));
 	    }
 	}
 

@@ -525,7 +525,7 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
-  processed = sbitmap_alloc (next_ssa_version + 1);
+  processed = sbitmap_alloc (highest_ssa_version + 1);
   sbitmap_zero (processed);
 
   /* Initialize dump_file for debugging dumps.  */

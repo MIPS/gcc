@@ -2526,8 +2526,15 @@ extern tree make_tree_vec (int);
 
 extern tree make_phi_node (tree, int);
 extern void resize_phi_node (tree *, int);
-extern tree make_ssa_name (tree, tree);
 extern tree build_vdef_expr (tree);
+
+extern void init_ssanames (void);
+extern void fini_ssanames (void);
+extern tree make_ssa_name (tree, tree);
+extern void release_ssa_name (tree);
+#ifdef GATHER_STATISTICS
+extern void ssanames_print_statistics (void);
+#endif
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */

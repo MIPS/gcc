@@ -4611,6 +4611,7 @@ dump_tree_statistics (void)
   fprintf (stderr, "---------------------------------------\n");
   fprintf (stderr, "%-20s %7d %10d\n", "Total", total_nodes, total_bytes);
   fprintf (stderr, "---------------------------------------\n");
+  ssanames_print_statistics ();
 #else
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
@@ -5220,36 +5221,6 @@ resize_phi_node (tree *phi, int len)
 
   *phi = new_phi;
 }
-
-
-/* Return an SSA_NAME node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
-
-tree
-make_ssa_name (tree var, tree stmt)
-{
-  tree t;
-
-#if defined ENABLE_CHECKING
-  if ((!DECL_P (var)
-       && TREE_CODE (var) != INDIRECT_REF)
-      || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != PHI_NODE))
-    abort ();
-#endif
-
-  t = make_node (SSA_NAME);
-
-  TREE_TYPE (t) = TREE_TYPE (var);
-  SSA_NAME_VAR (t) = var;
-  SSA_NAME_DEF_STMT (t) = stmt;
-  SSA_NAME_VERSION (t) = next_ssa_version++;
-
-  return t;
-}
-
 
 /* Build a VDEF_EXPR node for variable VAR.  This creates the pseudo
    assignment VAR = VDEF <VAR>.  The SSA builder is responsible for
