@@ -5026,7 +5026,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_STACK_ALLOC:
       expand_stack_alloc (TREE_VALUE (arglist),
 			  TREE_VALUE (TREE_CHAIN (arglist)));
-      return NULL_RTX;
+      return const0_rtx;
+
+    case BUILT_IN_STACK_SAVE:
+      return expand_stack_save ();
+
+    case BUILT_IN_STACK_RESTORE:
+      expand_stack_restore (TREE_VALUE (arglist));
+      return const0_rtx;
 
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:

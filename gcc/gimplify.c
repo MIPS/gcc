@@ -89,10 +89,12 @@ static tree gimple_boolify (tree);
 static void gimplify_conversion (tree *);
 static int gimplify_init_constructor (tree *, tree *, int);
 static void gimplify_minimax_expr (tree *, tree *, tree *);
+static void build_stack_save_restore (tree *, tree *);
 
 static struct gimplify_ctx
 {
   tree current_bind_expr;
+  bool save_stack;
   tree temps;
   tree conditional_cleanups;
   int conditions;
@@ -879,9 +881,28 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
 {
   tree bind_expr = *expr_p;
   tree temp = voidify_wrapper_expr (bind_expr);
+  bool old_save_stack = gimplify_ctxp->save_stack;
 
   gimple_push_bind_expr (bind_expr);
+  gimplify_ctxp->save_stack = false;
+
   gimplify_stmt (&BIND_EXPR_BODY (bind_expr));
+  if (gimplify_ctxp->save_stack)
+    {
+      tree stack_save, stack_restore;
+
+      /* Save stack on entry and restore it on exit.  Add a try_finally
+	 block to achieve this.  */
+      build_stack_save_restore (&stack_save, &stack_restore);
+      BIND_EXPR_BODY (bind_expr) =
+	  build (COMPOUND_EXPR, void_type_node,
+		 stack_save,
+		 build (TRY_FINALLY_EXPR, void_type_node,
+			BIND_EXPR_BODY (bind_expr),
+			stack_restore));
+    }
+
+  gimplify_ctxp->save_stack = old_save_stack;
   gimple_pop_bind_expr ();
 
   if (temp)
@@ -1583,6 +1604,17 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  mark_not_gimple (expr_p);
 	  return;
 	}
+
+      /* If it is allocation of stack, record the need to restore the memory
+	 when the enclosing bind_expr is exited.  */
+      if (DECL_FUNCTION_CODE (decl) == BUILT_IN_STACK_ALLOC)
+	gimplify_ctxp->save_stack = true;
+
+      /* If it is restore of the stack, reset it, since it means we are
+	 regimplifying the bind_expr.  Note that we use the fact that
+	 for try_finally_expr, try part is processed first.  */
+      if (DECL_FUNCTION_CODE (decl) == BUILT_IN_STACK_RESTORE)
+	gimplify_ctxp->save_stack = false;
 
       new = simplify_builtin (*expr_p, gimple_test_f == is_gimple_stmt);
 
@@ -2882,4 +2914,23 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
     }
 
   *expr_p = temp;
+}
+
+/* Prepare calls to builtins to SAVE and RESTORE the stack as well as temporary
+   through that they comunicate.  */
+
+static void
+build_stack_save_restore (tree *save, tree *restore)
+{
+  tree save_call, tmp_var;
+
+  save_call =
+      build_function_call_expr (implicit_built_in_decls[BUILT_IN_STACK_SAVE],
+				NULL_TREE);
+  tmp_var = create_tmp_var (ptr_type_node, "saved_stack");
+
+  *save = build (MODIFY_EXPR, ptr_type_node, tmp_var, save_call);
+  *restore =
+      build_function_call_expr (implicit_built_in_decls[BUILT_IN_STACK_RESTORE],
+				tree_cons (NULL_TREE, tmp_var, NULL_TREE));
 }

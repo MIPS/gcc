@@ -1,3 +1,16 @@
+2003-08-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* builtins.c (expand_builtin): Expand BUILT_IN_STACK_SAVE and
+	BUILT_IN_STACK_RESTORE.
+	* builtins.def (BUILT_IN_STACK_SAVE, BUILT_IN_STACK_RESTORE): New.
+	* gimplify.c (build_stack_save_restore): New functions.
+	(struct gimplify_ctx): New field save_stack.
+	(gimplify_bind_expr, gimplify_call_expr): Arrange save of stack on
+	BIND_EXPR entry and restore on exits.
+	* stmt.c (expand_stack_alloc): Saving of stack removed.
+	(expand_stack_save, expand_stack_restore): New.
+	* tree.h (expand_stack_save, expand_stack_restore): Declare.
+
 2003-08-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_vdef): Check for duplicate voperands first.

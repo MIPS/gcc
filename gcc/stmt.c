@@ -4059,11 +4059,6 @@ expand_stack_alloc (tree alloc, tree t_size)
 
   type = TREE_TYPE (var);
 
-  /* Record the stack pointer on entry to block, if have
-     not already done so.  */
-  do_pending_stack_adjust ();
-  save_stack_pointer ();
-
   /* In function-at-a-time mode, variable_size doesn't expand this,
      so do it now.  */
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
@@ -4087,6 +4082,26 @@ expand_stack_alloc (tree alloc, tree t_size)
   DECL_ALIGN (var) = BIGGEST_ALIGNMENT;
 #endif
   DECL_USER_ALIGN (var) = 0;
+}
+
+/* Emit code to save the current value of stack.  */
+rtx
+expand_stack_save ()
+{
+  rtx ret = NULL_RTX;
+
+  do_pending_stack_adjust ();
+  emit_stack_save (SAVE_BLOCK, &ret, NULL_RTX);
+  return ret;
+}
+
+/* Emit code to restore the current value of stack.  */
+void
+expand_stack_restore (tree var)
+{
+  rtx sa = DECL_RTL (var);
+
+  emit_stack_restore (SAVE_BLOCK, sa, NULL_RTX);
 }
 
 /* Emit code to perform the initialization of a declaration DECL.  */
