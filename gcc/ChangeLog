@@ -1,3 +1,7 @@
+Tue Oct 29 23:28:10 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (negdf splitter): Fix construction of the constant.
+
 Tue Oct 29 20:47:06 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (negsf, negdf): Reorganize to use vector modes
