@@ -322,8 +322,8 @@ const_section ()						\
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
-#define HOT_TEXT_SECTION_ASM_OP	"\t.section\t.text.hot, \"x\""
-#define UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP "\t.section\t.text.unlikely, \"x\""
+#define HOT_TEXT_SECTION_ASM_OP	"\t.section\t.text.hot, \"ax\""
+#define UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP "\t.section\t.text.unlikely, \"ax\""
 
 /* A C statement or statements to switch to the appropriate
    section for output of RTX in mode MODE.  RTX is some kind

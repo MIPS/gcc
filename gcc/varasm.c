@@ -610,18 +610,22 @@ function_section (decl)
     named_section (decl, (char *) 0, 0);
   else if (decl == current_function_decl)
     {
-      switch (cfun->function_frequency)
-	{
-	  case FUNCTION_FREQUENCY_HOT:
-	    hot_text_section ();
-	    break;
-	  case FUNCTION_FREQUENCY_COLD:
-	    text_section ();
-	    break;
-	  case FUNCTION_FREQUENCY_UNLIKELY_EXECUTED:
-	    unlikely_executed_text_section ();
-	    break;
-	}
+      if (!flag_reorder_functions
+	  || debug_info_level != DINFO_LEVEL_NONE)
+	text_section ();
+      else
+	switch (cfun->function_frequency)
+	  {
+	    case FUNCTION_FREQUENCY_HOT:
+	      hot_text_section ();
+	      break;
+	    case FUNCTION_FREQUENCY_COLD:
+	      text_section ();
+	      break;
+	    case FUNCTION_FREQUENCY_UNLIKELY_EXECUTED:
+	      unlikely_executed_text_section ();
+	      break;
+	  }
     }
   else
     text_section ();
