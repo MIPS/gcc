@@ -3022,6 +3022,16 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	}
       break;
 
+    case MODIFY_EXPR:
+      x = TREE_OPERAND (t, 0);
+      if (TREE_CODE (x) == BIT_FIELD_REF
+	  && is_gimple_reg (TREE_OPERAND (x, 0)))
+	{
+	  error ("GIMPLE register modified with BIT_FIELD_REF");
+	  return *tp;
+	}
+      break;
+
     case ADDR_EXPR:
       x = TREE_OPERAND (t, 0);
       while (TREE_CODE (x) == ARRAY_REF

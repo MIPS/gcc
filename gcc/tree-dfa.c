@@ -990,6 +990,12 @@ get_virtual_var (tree var)
       code = TREE_CODE (var);
     }
 
+#ifdef ENABLE_CHECKING
+  if (!SSA_VAR_P (var)
+      || is_gimple_reg (var))
+    abort ();
+#endif
+
   return var;
 }
 
@@ -1222,6 +1228,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
       while ((TREE_CODE (t) == ARRAY_REF
 	      && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
 	     || (TREE_CODE (t) == COMPONENT_REF
+		 || TREE_CODE (t) == BIT_FIELD_REF
 		 || TREE_CODE (t) == REALPART_EXPR
 		 || TREE_CODE (t) == IMAGPART_EXPR))
 	t = TREE_OPERAND (t, 0);

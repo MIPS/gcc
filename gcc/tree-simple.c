@@ -113,8 +113,13 @@ Boston, MA 02111-1307, USA.  */
      op1 -> arglist
 
    addr-expr-arg : compref | ID
-   lhs: addr-expr-arg | '*' ID
+   lhs: addr-expr-arg | '*' ID | bitfieldref
    min-lval: ID | '*' ID
+   bitfieldref :
+     BIT_FIELD_REF
+       op0 -> compref | min-lval
+       op1 -> CONST
+       op2 -> CONST
    compref :
      COMPONENT_REF
        op0 -> compref | min-lval

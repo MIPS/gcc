@@ -440,6 +440,7 @@ set_is_used (tree t)
 	case COMPONENT_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
+	case BIT_FIELD_REF:
 	case INDIRECT_REF:
 	  t = TREE_OPERAND (t, 0);
 	  break;

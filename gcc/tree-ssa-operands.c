@@ -1077,11 +1077,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       return;
     }
 
-  /* VA_ARG_EXPR nodes read and modify the argument pointer.  Add it to
-     VOPS to avoid optimizations messing it up.  */
+
+  /* Mark VA_ARG_EXPR nodes as making volatile references.  FIXME,
+     this is needed because we currently do not gimplify VA_ARG_EXPR
+     properly.  */
   if (code == VA_ARG_EXPR)
     {
-      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, opf_is_def, prev_vops);
+      stmt_ann (stmt)->has_volatile_ops = true;
       return;
     }
 

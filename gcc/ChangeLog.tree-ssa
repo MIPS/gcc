@@ -1,3 +1,18 @@
+2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (find_func_aliases): Support
+	assigning to BIT_FIELD_REFs.
+	* tree-cfg.c (verify_expr): Don't allow assign to
+	a register with BIT_FIELD_REF.
+	* tree-dfa.c (get_virtual_var): Add consistency check on
+	the shape of expected VARs.
+	(discover_nonconstant_array_refs_r): Go through BIT_FIELD_REFs.
+	* tree-simple.c: Document that BIT_FIELD_REFs are valid lvalues.
+	* tree-ssa.c (set_is_used): Go through BIT_FIELD_REFs.
+        * tree-ssa-operands.c (get_expr_operands): Mark VA_ARG_EXPR
+	nodes as making volatile references.
+
 2004-04-02  Fariborz Jahanian <fjahanian@apple.com>
 
         * c-convert.c (convert): Make convert work when converting 
