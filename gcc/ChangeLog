@@ -1,3 +1,37 @@
+2002-11-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* dbxout.c: Include gt-dbxout.h.
+	(lastfile): Mark for PCH/GGC.
+	(cwd): Likewise.
+	(struct typeinfo): Likewise.
+	(typevec): Likewise.
+	(typevec_len): Likewise.
+	(next_type_number): Likewise.
+	(struct dbx_file): Likewise.
+	(current_file): Likewise.
+	(next_file_number): Likewise.
+	(dbxout_init): Allocate typevec, struct dbx_file with GGC.
+	(dbxout_start_source_file): Allocate struct dbx_file with GGC.
+	(dbxout_end_source_file): Don't free struct dbx_file.
+	(dbxout_type): Use GGC to allocate typevec.
+	* Makefile.in (dbxout.o): Depend on gt-dbxout.h, $(GGC_H).
+	(GTFILES): Add dbxout.c.
+	(gt-dbxout.h): New rule.
+	
+	* Makefile.in (c-pch.o): Add debug.h as dependency.
+	* c-pch.c: Include debug.h.
+	(pch_init): Call start_source_file to keep nesting right.
+	(c_common_read_pch): Add orig_name parameter.  Call
+	start_source_file debug hook.  Call end_source_file debug hook.
+	* c-common.h (c_common_read_pch): Update prototype.
+	* cpplib.h (struct cpp_callbacks): Add fourth field to read_pch
+	callback.
+	* cppfiles.c (struct include_file): Add new field `header_name'.
+	(find_or_create_entry): Default it to `name'.
+	(open_file_pch): Set it to the original header file searched for.
+	(stack_include_file): Don't stack an empty buffer, just handle
+	PCH files immediately.  Pass header_name field to read_pch callback.
+
 2002-11-19  Geoffrey Keating  <geoffk@apple.com>
 
 	* function.c (funcdef_no): Mark to be saved in a PCH.

@@ -2676,6 +2676,7 @@ write_array (f, v, wtd)
       oprintf (f, "}\n\n");
     }
 
+  d.opt = v->opt;
   oprintf (f, "static void gt_%sa_%s PARAMS ((void *));\n",
 	   wtd->prefix, v->name);
   oprintf (f, "static void\ngt_%sa_%s (x_p)\n",

@@ -80,6 +80,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 struct include_file
 {
   const char *name;		/* actual path name of file */
+  const char *header_name;	/* the original header found */
   const cpp_hashnode *cmacro;	/* macro, if any, preventing reinclusion.  */
   const struct search_path *foundhere;
 				/* location in search path where file was
@@ -215,6 +216,7 @@ find_or_create_entry (pfile, fname)
     {
       file = xcnew (struct include_file);
       file->name = name;
+      file->header_name = name;
       file->err_no = errno;
       node = splay_tree_insert (pfile->all_include_files,
 				(splay_tree_key) file->name,
@@ -330,6 +332,8 @@ open_file_pch (pfile, filename)
 	{
 	  if ((file->pch & 2) == 0)
 	    file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+	  file->header_name = xstrdup (filename);
+	  _cpp_simplify_pathname (file->header_name);
 	  if (INCLUDE_PCH_P (file))
 	    return file;
 	  close (file->fd);
@@ -365,47 +369,40 @@ stack_include_file (pfile, inc)
 	deps_add_dep (pfile->deps, inc->name);
     }
 
-  /* PCH files get dealt with immediately.  
-     We stack a zero-sized buffer below.  
-     The reason for this is that reading a PCH directly into memory
-     will approximately double the memory consumption of the compiler.  */
+  /* PCH files get dealt with immediately.  */
   if (INCLUDE_PCH_P (inc))
     {
-      pfile->cb.read_pch (pfile, inc->name, inc->fd);
+      pfile->cb.read_pch (pfile, inc->name, inc->fd, inc->header_name);
       close (inc->fd);
       inc->fd = -1;
-      
-      fp = cpp_push_buffer (pfile, (unsigned char *)"", 0, 0, 0);
+      return false;
     }
-  else
+
+  /* Not in cache?  */
+  if (! inc->buffer)
     {
-      /* Not in cache?  */
-      if (! inc->buffer)
+      if (read_include_file (pfile, inc))
 	{
-	  if (read_include_file (pfile, inc))
-	    {
-	      /* If an error occurs, do not try to read this file again.  */
-	      _cpp_never_reread (inc);
-	      return false;
-	    }
-	  /* Mark a regular, zero-length file never-reread.  We read it,
-	     NUL-terminate it, and stack it once, so preprocessing a main
-	     file of zero length does not raise an error.  */
-	  if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
-	    _cpp_never_reread (inc);
-	  close (inc->fd);
-	  inc->fd = -1;
+	  /* If an error occurs, do not try to read this file again.  */
+	  _cpp_never_reread (inc);
+	  return false;
 	}
-      
-      if (pfile->buffer)
-	/* We don't want MI guard advice for the main file.  */
-	inc->include_count++;
-      
-      /* Push a buffer.  */
-      fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
-			    /* from_stage3 */ CPP_OPTION (pfile, preprocessed),
-			    0);
+      /* Mark a regular, zero-length file never-reread.  We read it,
+	 NUL-terminate it, and stack it once, so preprocessing a main
+	 file of zero length does not raise an error.  */
+      if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
+	_cpp_never_reread (inc);
+      close (inc->fd);
+      inc->fd = -1;
     }
+
+  if (pfile->buffer)
+    /* We don't want MI guard advice for the main file.  */
+    inc->include_count++;
+
+  /* Push a buffer.  */
+  fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
+			/* from_stage3 */ CPP_OPTION (pfile, preprocessed), 0);
   fp->inc = inc;
   fp->inc->refcnt++;
 

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "output.h"
 #include "toplev.h"
+#include "debug.h"
 #include "c-pragma.h"
 #include "ggc.h"
 
@@ -47,6 +48,10 @@ pch_init ()
   
   if (pch_file)
     {
+      /* We're precompiling a header file, so when it's actually used,
+	 it'll be at least one level deep.  */
+      (*debug_hooks->start_source_file) (lineno, input_filename);
+
       f = fopen (pch_file, "w+b");
       if (f == NULL)
 	fatal_io_error ("can't open %s", pch_file);
@@ -163,16 +168,21 @@ c_common_valid_pch (pfile, name, fd)
 }
 
 void
-c_common_read_pch (pfile, name, fd)
+c_common_read_pch (pfile, name, fd, orig_name)
      cpp_reader *pfile;
      const char *name;
      int fd;
+     const char *orig_name;
 {
   FILE *f;
   struct c_pch_header h;
   char *buf;
   unsigned long written;
   struct save_macro_data *smd;
+  
+  /* Before we wrote the file, we started a source file, so we have to start
+     one here to match.  */
+  (*debug_hooks->start_source_file) (lineno, orig_name);
   
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -210,4 +220,6 @@ c_common_read_pch (pfile, name, fd)
     return;
 
   fclose (f);
+
+  (*debug_hooks->end_source_file) (lineno);
 }

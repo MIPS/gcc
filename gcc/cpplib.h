@@ -427,7 +427,7 @@ struct cpp_callbacks
      built-ins with cpp_define() and cpp_assert().  */
   void (*register_builtins) PARAMS ((cpp_reader *));
   int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
-  void (*read_pch) PARAMS ((cpp_reader *, const char *, int));
+  void (*read_pch) PARAMS ((cpp_reader *, const char *, int, const char *));
 };
 
 /* Name under which this program was invoked.  */

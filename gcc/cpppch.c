@@ -563,6 +563,7 @@ cpp_read_state (r, name, f, data)
   struct lexer_state old_state;
   struct save_macro_data *d;
   size_t i;
+  int saved_line = r->line;
 
   /* First, erase all the existing hashtable entries for macros.  At
      this point, they're all from the PCH file, and their pointers
@@ -639,6 +640,7 @@ cpp_read_state (r, name, f, data)
     }
 
   r->state = old_state;
+  r->line = saved_line;
   free (defn);
   defn = NULL;
 

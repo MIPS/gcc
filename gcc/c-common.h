@@ -1272,7 +1272,8 @@ extern int c_common_valid_pch			PARAMS ((cpp_reader *pfile,
 							 int fd));
 extern void c_common_read_pch			PARAMS ((cpp_reader *pfile,
 							 const char *name,
-							 int fd));
+							 int fd,
+							 const char *orig));
 extern void c_common_write_pch			PARAMS ((void));
 
 #endif /* ! GCC_C_COMMON_H */
