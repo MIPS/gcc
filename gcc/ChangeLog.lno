@@ -1,3 +1,11 @@
+2004-09-02  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* lambda-code.c (gcc_loop_to_lambda_loop): Handle GT_EXPR and GE_EXPR.
+	Get rid of unhandled loop exit test stuff.
+	Handle induction variable being on right side of test.
+	(find_induction_var_from_exit_cond): Handle induction variable
+	being on right side of test.
+
 2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (analyze_array_indexes): Determine the estimation 

@@ -1084,6 +1084,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   tree test;
   int stepint;
   int extra = 0;
+  tree uboundvar;
 #if 0
   tree ev;
   tree nb_iter;
@@ -1110,19 +1111,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     }
   
   test = TREE_OPERAND (exit_cond, 0);
-  if (TREE_CODE (test) != LE_EXPR 
-      && TREE_CODE (test) != LT_EXPR
-      && TREE_CODE (test) != NE_EXPR)
-    {
-      
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "Unable to convert loop: Loop exit test uses unhandled test condition:");    
-	  print_generic_stmt (dump_file, test, 0);
-	  fprintf (dump_file, "\n");
-	}
-      return NULL;
-    }
 #if 0
   ev = analyze_scalar_evolution (loop, inductionvar);
   
@@ -1247,10 +1235,22 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       
       return NULL;
     }
-  if (TREE_CODE (TREE_OPERAND (test, 1)) == SSA_NAME)
-    if (invariant_in_loop (loop, TREE_OPERAND (test, 1)))
-      VARRAY_PUSH_TREE (*invariants, TREE_OPERAND (test, 1));
+  /* One part of the test might be a loop invariant tree.  */
+  if (TREE_CODE (TREE_OPERAND (test, 1)) == SSA_NAME
+      && invariant_in_loop (loop, TREE_OPERAND (test, 1)))
+    VARRAY_PUSH_TREE (*invariants, TREE_OPERAND (test, 1));
+  else if (TREE_CODE (TREE_OPERAND (test, 0)) == SSA_NAME
+	   && invariant_in_loop (loop, TREE_OPERAND (test, 0)))
+    VARRAY_PUSH_TREE (*invariants, TREE_OPERAND (test, 0));
   
+  
+  /* The non-induction variable part of the test is the upper bound variable.
+   */
+  if (TREE_OPERAND (test, 0) == inductionvar)
+    uboundvar = TREE_OPERAND (test, 1);
+  else
+    uboundvar = TREE_OPERAND (test, 0);
+
   /* We only size the vectors assuming we have, at max, 2 times as many
      invariants as we do loops (one for each bound).  */
   if (VARRAY_ACTIVE_SIZE (*invariants) > (unsigned int)(2 * depth))
@@ -1261,13 +1261,14 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
     extra = -1 * stepint;
   else if (TREE_CODE (test) == NE_EXPR)
     extra = -1 * stepint;
+  else if (TREE_CODE (test) == GT_EXPR)
+    extra = -1 * stepint;
   
   ubound = gcc_tree_to_linear_expression (depth, 
-					  TREE_OPERAND (test, 1),
+					  uboundvar,
 					  outerinductionvars,
 					  *invariants,
 					  extra);
-  
   if (!ubound)
     {
       
@@ -1292,6 +1293,8 @@ find_induction_var_from_exit_cond (struct loop *loop)
 {
   tree expr = get_loop_exit_condition (loop);
   tree test;
+  tree ivarop;
+  
   if (expr == NULL_TREE)
     return NULL_TREE;
   if (TREE_CODE (expr) != COND_EXPR)
@@ -1299,9 +1302,29 @@ find_induction_var_from_exit_cond (struct loop *loop)
   test = TREE_OPERAND (expr, 0);
   if (TREE_CODE_CLASS (TREE_CODE (test)) != '<')
     return NULL_TREE;
-  if (TREE_CODE (TREE_OPERAND (test, 0)) != SSA_NAME)
+  /* This is a guess.  We say that for a <,!=,<= b, a is the induction
+     variable.
+     For >, >=, we guess b is the induction variable.
+     If we are wrong, it'll fail the rest of the induction variable tests, and
+     everything will be fine anyway.  */
+  switch (TREE_CODE (test))
+    {
+    case LT_EXPR:
+    case LE_EXPR:
+    case NE_EXPR:
+      ivarop = TREE_OPERAND (test, 0);
+      break;
+    case GT_EXPR:
+    case GE_EXPR:
+      ivarop = TREE_OPERAND (test, 1);
+      break;
+    default:
+      abort ();
+    }
+  if (TREE_CODE (ivarop) != SSA_NAME)
     return NULL_TREE;
-  return TREE_OPERAND (test, 0);
+ 
+  return ivarop;
 }
 
 /* Generate a lambda loopnest from a gcc loopnest. */
@@ -1318,7 +1341,6 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
   varray_type loops;
   lambda_loop newloop;
   tree inductionvar = NULL;
-  
 
   temp = loop_nest;
   while (temp)
