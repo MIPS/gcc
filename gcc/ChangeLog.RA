@@ -1,3 +1,12 @@
+2003-02-26  Denis Chertykov  <denisc@overta.ru>
+	    Michael Matz  <matz@suse.de>
+
+	* ra-build.c (copy_p_type): New enum.
+	(copy_p_cache): Use it.
+	(copy_insn_p): Ditto.
+	(remember_move): Don't remember all copy insns.
+	(update_regnos_mentioned): Ditto.
+
 2003-02-25  Michael Matz  <matz@suse.de>
 
 	* ra-colorize.c (merge_moves): Fix list handling.

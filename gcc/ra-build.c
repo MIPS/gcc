@@ -204,11 +204,24 @@ rtx_to_undefined (x)
   return ret;
 }
 
+/* The type of the copy insn.  */
+enum copy_p_type
+{
+  /* We haven't analyzed this insn yet.  */
+  COPY_P_NOTSEEN = 0,
+  /* Analyzed and not a copy insn.  */
+  COPY_P_NONMOVE = 1,
+  /* A copy insn involving only normal pseudos or only spill pseudos.  */
+  COPY_P_MOVE = 2,
+  /* A copy insn involving a spill pseudo and a normal pseudo.  */
+  COPY_P_SPILL = 3
+};
+
 /* We remember if we've analyzed an insn for being a move insn, and if yes
    between which operands.  */
 struct copy_p_cache
 {
-  int seen;
+  enum copy_p_type seen;
   rtx source;
   rtx target;
 };
@@ -219,9 +232,10 @@ static struct copy_p_cache * copy_cache;
 
 int *number_seen;
 
-/* For INSN, return nonzero, if it's a move insn, we consider to coalesce
-   later, and place the operands in *SOURCE and *TARGET, if they are
-   not NULL.  */
+/* For INSN, return the classification of it, regarding being a copy
+   insn (and if yes, what type).  This is zero if it's not a copy insn,
+   otherwise it's non-zero (and of values in copy_p_type) and the operands
+   of it are put into *SOURCE and *TARGET, if those are not NULL.  */
 
 int
 copy_insn_p (insn, source, target)
@@ -237,22 +251,22 @@ copy_insn_p (insn, source, target)
     abort ();
 
   /* First look, if we already saw this insn.  */
-  if (copy_cache[uid].seen)
+  if (copy_cache[uid].seen != COPY_P_NOTSEEN)
     {
       /* And if we saw it, if it's actually a copy insn.  */
-      if (copy_cache[uid].seen == 1)
+      if (copy_cache[uid].seen != COPY_P_NONMOVE)
 	{
 	  if (source)
 	    *source = copy_cache[uid].source;
 	  if (target)
 	    *target = copy_cache[uid].target;
-	  return 1;
+	  return copy_cache[uid].seen;
 	}
       return 0;
     }
 
   /* Mark it as seen, but not being a copy insn.  */
-  copy_cache[uid].seen = 2;
+  copy_cache[uid].seen = COPY_P_NONMOVE;
   insn = single_set (insn);
   if (!insn)
     return 0;
@@ -278,9 +292,7 @@ copy_insn_p (insn, source, target)
 
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
   if ((s_regno < FIRST_PSEUDO_REGISTER
-       && d_regno < FIRST_PSEUDO_REGISTER)
-      || SPILL_SLOT_P (s_regno)
-      || SPILL_SLOT_P (d_regno))
+       && d_regno < FIRST_PSEUDO_REGISTER))
     return 0;
 
   if (source)
@@ -288,11 +300,14 @@ copy_insn_p (insn, source, target)
   if (target)
     *target = d;
 
-  /* Still mark it as seen, but as a copy insn this time.  */
-  copy_cache[uid].seen = 1;
+  /* Mark it as seen, but as a copy insn this time.  */
+  if (SPILL_SLOT_P (s_regno) != SPILL_SLOT_P (d_regno))
+    copy_cache[uid].seen = COPY_P_SPILL;
+  else
+    copy_cache[uid].seen = COPY_P_MOVE;
   copy_cache[uid].source = s;
   copy_cache[uid].target = d;
-  return 1;
+  return copy_cache[uid].seen;
 }
 
 /* We build webs, as we process the conflicts.  For each use we go upward
@@ -562,7 +577,7 @@ remember_move (insn)
     {
       rtx s, d;
       SET_BIT (move_handled, INSN_UID (insn));
-      if (copy_insn_p (insn, &s, &d))
+      if (copy_insn_p (insn, &s, &d) == COPY_P_MOVE)
 	{
 	  /* Some sanity test for the copy insn. */
 	  struct df_link *slink = DF_INSN_USES (df, insn);
@@ -1025,7 +1040,7 @@ update_regnos_mentioned ()
 	  {
 	    /* XXX We should also remember moves over iterations (we already
 	       save the cache, but not the movelist).  */
-	    if (copy_insn_p (insn, NULL, NULL))
+	    if (copy_insn_p (insn, NULL, NULL) == COPY_P_MOVE)
 	      remember_move (insn);
 	  }
 	else if ((bb = BLOCK_FOR_INSN (insn)) != NULL)
@@ -1037,7 +1052,7 @@ update_regnos_mentioned ()
 	    if (last_changed_insns
 		&& bitmap_bit_p (last_changed_insns, INSN_UID (insn)))
 	      copy_cache[INSN_UID (insn)].seen = 0;
-	    if (copy_insn_p (insn, &source, NULL))
+	    if (copy_insn_p (insn, &source, NULL) == COPY_P_MOVE)
 	      {
 		remember_move (insn);
 		bitmap_set_bit (mentioned,
