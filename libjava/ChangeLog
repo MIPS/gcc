@@ -1,3 +1,8 @@
+2004-07-29  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/DirectColorModel.java (DirectColorModel): Fix
+	constructor param comments.
+
 2004-07-28  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/Component.java: Document AWT 1.0 event handler
