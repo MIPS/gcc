@@ -1,3 +1,9 @@
+2004-04-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa.c (raise_value): Removed.
+	(get_eq_name, check_phi_redundancy): New.
+	(kill_redundant_phi_nodes): Use standard algorithm.
+
 2004-04-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-manip.c (allocate_new_names): Use duplicate_ssa_name.
