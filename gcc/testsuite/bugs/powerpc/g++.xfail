@@ -174,8 +174,8 @@
 #3796204: g++.dg/kext3.C  (test for errors, line 18)
 #3796204: g++.dg/kext3.C (test for excess errors)
 3843119: g++.dg/abi/local1.C execution test
-3843135: g++.dg/kext2.C (test for excess errors)
-3843135: g++.dg/kext4.C (test for excess errors)
+#3843135: g++.dg/kext2.C (test for excess errors)
+#3843135: g++.dg/kext4.C (test for excess errors)
 3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 7)
 3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 8)
 3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 22)
