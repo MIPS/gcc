@@ -1,3 +1,8 @@
+2005-03-24  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3982365
+	* cp/tree.c (cp_tree_equal):  Fix from mainline.
+
 2005-03-22  Devang Patel  <dpatel@apple.com>
 
         Radar 4023104 
