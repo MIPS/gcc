@@ -1,3 +1,8 @@
+2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* execute/intrinsic_count.f90: Fix typo.
+	* execute/intrinsic_mmloc.f90: Fix typo.
+
 2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.c-torture/compile/20040419-1.c: New test.
