@@ -1226,8 +1226,8 @@ common_handle_option (size_t scode, const char *arg,
     case OPT_fprofile_use:
       if (!flag_branch_probabilities_set)
         flag_branch_probabilities = value;
-      if (!flag_profile_values_set)
-        flag_profile_values = value;
+      /*if (!flag_profile_values_set)
+        flag_profile_values = value;*/
       if (!flag_unroll_loops_set)
         flag_unroll_loops = value;
       if (!flag_peel_loops_set)
@@ -1241,8 +1241,8 @@ common_handle_option (size_t scode, const char *arg,
     case OPT_fprofile_generate:
       if (!profile_arc_flag_set)
         profile_arc_flag = value;
-      if (!flag_profile_values_set)
-        flag_profile_values = value;
+      /*if (!flag_profile_values_set)
+        flag_profile_values = value;*/
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
       break;

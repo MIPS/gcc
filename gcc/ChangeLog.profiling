@@ -1,3 +1,8 @@
+2004-03-16  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (common_handle_option): Disable value profilng until it is
+	updated for tree-ssa.
+
 2004-03-15  Jan Hubicka  <jh@suse.cz>
 
 	* gimple-low.c (lower_cond_expr):  Do not re-use explicit gotos.
