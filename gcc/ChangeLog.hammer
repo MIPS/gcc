@@ -1,3 +1,7 @@
+Thu Jul 31 18:52:44 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (create_edge): Fix typo.
+
 Wed Jul 30 19:01:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcse.c (insert_store): Ignore fake edges.
