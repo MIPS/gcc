@@ -3604,8 +3604,15 @@ tree_split_block (basic_block bb, void *stmt)
   block_stmt_iterator bsi, bsi_tgt;
   tree act;
   basic_block new_bb;
+  edge e;
 
   new_bb = create_empty_bb (bb);
+
+  /* Redirect the outgoing edges.  */
+  new_bb->succ = bb->succ;
+  bb->succ = NULL;
+  for (e = new_bb->succ; e; e = e->succ_next)
+    e->src = new_bb;
 
   if (stmt && TREE_CODE ((tree) stmt) == LABEL_EXPR)
     stmt = NULL;

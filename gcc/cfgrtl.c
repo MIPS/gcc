@@ -465,6 +465,7 @@ rtl_split_block (basic_block bb, void *insnp)
 {
   basic_block new_bb;
   rtx insn = insnp;
+  edge e;
 
   if (!insn)
     {
@@ -485,6 +486,12 @@ rtl_split_block (basic_block bb, void *insnp)
   /* Create the new basic block.  */
   new_bb = create_basic_block (NEXT_INSN (insn), BB_END (bb), bb);
   BB_END (bb) = insn;
+
+  /* Redirect the outgoing edges.  */
+  new_bb->succ = bb->succ;
+  bb->succ = NULL;
+  for (e = new_bb->succ; e; e = e->succ_next)
+    e->src = new_bb;
 
   if (bb->global_live_at_start)
     {

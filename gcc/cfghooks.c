@@ -303,7 +303,6 @@ edge
 split_block (basic_block bb, void *i)
 {
   basic_block new_bb;
-  edge e;
 
   if (!cfg_hooks->split_block)
     internal_error ("%s does not support split_block.", cfg_hooks->name);
@@ -315,12 +314,6 @@ split_block (basic_block bb, void *i)
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;
-
-  /* Redirect the outgoing edges.  */
-  new_bb->succ = bb->succ;
-  bb->succ = NULL;
-  for (e = new_bb->succ; e; e = e->succ_next)
-    e->src = new_bb;
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
     {
