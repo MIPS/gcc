@@ -758,7 +758,7 @@ make_goto_expr_edges (bb)
 	 been marked as a potential target for a computed goto.  */
       else if (TREE_CODE (dest) != LABEL_DECL
 	       && TREE_CODE (target) == LABEL_EXPR
-	       && FORCED_LABEL (target)
+	       && FORCED_LABEL (LABEL_EXPR_LABEL (target))
 	       && for_call == 0)
 	make_edge (bb, target_bb, edge_flags);
 
@@ -766,7 +766,7 @@ make_goto_expr_edges (bb)
 	 been marked as a potential target for a nonlocal goto.  */
       else if (TREE_CODE (dest) != LABEL_DECL
 	       && TREE_CODE (target) == LABEL_EXPR
-	       && NONLOCAL_LABEL (target)
+	       && NONLOCAL_LABEL (LABEL_EXPR_LABEL (target))
 	       && for_call == 1)
 	make_edge (bb, target_bb, edge_flags);
     }

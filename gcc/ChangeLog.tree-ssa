@@ -1,5 +1,8 @@
 2003-01-22  Jeff Law <law@redhat.com>
 
+ 	* tree-cfg.c (make_goto_expr_edges): Check the underlying
+	LABEL_DECL, not the LABEL_EXPR for FORCED_LABEL and NONLOCAL_LABEL.
+
 	* gimplify.c (simplify_expr, case GOTO_EXPR): Identify and mark
 	labels which are targets of nonlocal gotos and mark functions which
 	have labels which are targets of nonlocal gotos.
