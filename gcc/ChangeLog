@@ -1,6 +1,239 @@
+Sat Aug 28 16:24:31 1999  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (flow_delete_insn_chain): Rename from delete_insn_chain.
+	(update_life_info) [REG_WAS_0]: Search the original insns rather
+	than the new insns for the note.  Fix typos finding note_dest.
+	If no dest found, discard the note rather than abort.
+	[REG_NOALIAS]: Handle as REG_NO_CONFLICT.
+	(replace_insns): Remove the old insn list after update_life_info
+	not before.
+
+Sat Aug 28 16:20:12 1999  Richard Henderson  <rth@cygnus.com>
+
+        * haifa-sched.c (sched_analyze): Clear LOG_LINKS before calling
+        sched_analyze_insn.
+        (sched_analyze_1): Let add_dependence care for not adding dups.
+        (sched_analyze_2): Likewise.
+        (add_branch_dependences): Likewise.
+
+Sat Aug 28 15:58:16 1999  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* i386/winnt.c (export_list): New type.
+	(exports_head): Rename to
+	(export_head):  this.
+	(i386_pe_record_exported_symbol): Add is_data flag.
+	(i386_pe_asm_file_end): Emit directive for exported variables.
+	* i386/cygwin.h (i386_pe_record_exported_symbol): Update
+	prototype.
+	* i386/cygwin.h (ASM_OUTPUT_COMMON): Specify symbol type.
+	(ASM_DECLARE_OBJECT_NAME): Likewise.
+	(ASM_DECLARE_FUNCTION_NAME): Likewise.
+	* i386/uwin.h (ASM_DECLARE_FUNCTION_NAME): Likewise.
+
+Fri Aug 27 15:35:24 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* cse.c (fold_rtx): Work around bug in Sun V5.0 compilers.
+
+	* pa.c (emit_move_sequence): Do not stop on SUBREG_WORD of an
+	operand.
+
+Fri Aug 27 14:01:19 1999  Marc Espie <espie@cvs.openbsd.org>
+
+	* config/openbsd.h: Define SET_ASM_OP.
+	* tm.texi: cross-reference SET_ASM_OP in the index.
+
+1999-08-27 13:27 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* rtl.c: Define CONST_DOUBLE_FORMAT to the appropriate format
+	for a CONST_DOUBLE, at compile time.  Initialize rtx_length
+	and class_narrowest_mode at compile time.  Kill init_rtl.
+	Mark rtx_length, mode_class, mode_size, mode_unit_size,
+	mode_wider_mode, mode_mask_array, class_narrowest_mode, and
+	rtx_format as const.  Kill all references to EXTRA_CC_MODES or
+	EXTRA_CC_NAMES.
+	* rtl.def (CONST_DOUBLE): Use CONST_DOUBLE_FORMAT macro for
+	format.
+	* rtl.h: Declare rtx_length and rtx_format as const.
+	* machmode.def: Define CC().  Use CC() to define CCmode.  If
+	EXTRA_CC_MODES is defined, expand it here.
+	* machmode.h: Declare mode_class, mode_size, mode_unit_size,
+	mode_wider_mode, mode_mask_array, and class_narrowest_mode as
+	const.  Kill all references to EXTRA_CC_MODES.
+
+	* toplev.c: Don't prototype or call init_rtl.
+	* optabs.c: Don't call init_mov_optab.
+	* genemit.c: Don't generate init_mov_optab.  Don't call
+	init_rtl.
+	* gengenrtl.c: Duplicate calculation of CONST_DOUBLE_FORMAT
+	here.
+	* genattr.c, genattrtab.c, gencodes.c, genconfig.c,
+	genextract.c, genflags.c, genopinit.c, genoutput.c, genpeep.c,
+	genrecog.c: Don't call init_rtl.
+
+	* arc.h, arm.h, c4x.h, i386.h, i960.h, m88k.h, pa.h, pdp11.h,
+	rs6000.h, sparc.h: Don't define EXTRA_CC_NAMES.  Use CC() in
+	definition of EXTRA_CC_MODES.
+
+	* md.texi: Kill ref to EXTRA_CC_NAMES.
+	* tm.texi: Document new way to define EXTRA_CC_MODES.
+
+	* genrecog.c: Do not look up the name of a define_split.
+	(Unrelated bugfix.)
+
+Fri Aug 27 17:03:42 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/v850/v850.md: Fix typo introduced by previous delta.
+
+Fri Aug 27 09:48:59 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c (fatal): Make definition static to match prototype.
+
+Fri Aug 27 10:33:35 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* combine.c (get_last_value): Don't look for earlier sets if the last
+	known set is somewhere in between the insns being combined.
+
+Fri Aug 27 10:03:12 BST 1999  Nathan Sidwell  <nathan@acm.org>
+
+	* configure.in: Don't use shell ! to negate exit codes
+	* configure: Regenerate
+
+Fri Aug 27 09:36:17 1999  Andreas Schwab  <schwab@suse.de>
+
+	* function.c (assign_stack_temp_for_type): Fix change of Mar 5 for
+	the fact that ALIGN is measured in bits, not bytes.
+
+1999-08-27 00:27 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* errors.c: New file; defines functions error, warning, and
+	fatal, variables have_error and progname.
+	* errors.h: New file; prototypes and decls for stuff in errors.c.
+
+	* Makefile: Add rules to build errors.o and
+	$(HOST_PREFIX)errors.o.  Link genconfig, gencodes, genemit,
+	genopinit, genrecog, genextract, genpeep, genattr, and
+	genoutput with errors.o.  Add errors.h to deps of genconfig.o,
+	gencodes.o, genemit.o, genopinit.o, genrecog.o, genextract.o,
+	genpeep.o, genattr.o, and genoutput.o.
+
+	* genconfig.c, gencodes.c, genemit.c, genopinit.c, genrecog.c,
+	genextract.c, genpeep.c, genattr.c:  Include errors.h.  Don't
+	define or prototype fatal.  Set progname at beginning of main.
+	* genoutput.c:  Likewise, and don't define or prototype error
+	either.
+	
+	* c-typeck.c (c_expand_start_case): Return immediately if exp
+	is an ERROR_MARK.
+	* fold-const.c (operand_equal_p): Return immediately if arg1
+	or arg0 are ERROR_MARKs.
+	* stor-layout.c (layout_type [case RECORD_TYPE]): Ignore
+	fields of type ERROR_MARK when calculating if the record can
+	go in a register.
+
+Fri Aug 27 01:03:48 1999  Jim Kingdon  <http://developer.redhat.com>
+	with much help from Jeffrey A Law and Richard Henderson
+
+	* i386.md: In the 6 insns which call output_fix_trunc,
+	earlyclobber operands[0].
+
+Fri Aug 27 01:01:51 1999  Philip Blundell  <pb@nexus.co.uk>  
+
+	* jump.c (duplicate_loop_exit_test): Call reg_scan_update after
+	creating new registers.
+
+1999-08-26 23:09 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* i386.h: Declare ix86_cpu_string, ix86_arch_string,
+	i386_reg_alloc_order, i386_regparm_string,
+	i386_align_loops_string, i386_align_jumps_string,
+	i386_align_funcs_string, i386_preferred_stack_boundary_string,
+	and i386_branch_cost_string as type "const char *".
+	* i386.c: Define all above strings as type "const char *".
+
+Thu Aug 26 20:36:30 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* dwarf2out.c (output_aranges): Check DWARF_OFFSET_SIZE not PTR_SIZE
+	when emitting alignment padding.  Emit padding byte of 0 instead of 4.
+
+Thu Aug 26 18:11:20 1999  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (array_type_nelts): Don't create RTL_EXPRs from
+	SAVE_EXPRs unless the SAVE_EXPRs have already been expanded.
+
+Thu Aug 26 19:33:23 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* dwarf2out.c (DWARF2_ASM_LINE_DEBUG_INFO): Add default definition.
+	(debug_dwarf): Add DWARF2_ASM_LINE_DEBUG_INFO support.
+	(dwarf2out_line, dwarf2out_finish): Likewise.
+	* tm.texi (DWARF2_ASM_LINE_DEBUG_INFO): Add documetation.
+
+Thu Aug 26 16:10:56 1999  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* tree.c (lang_unsave_expr_now) : Correct return type.
+	* tree.h (lang_unsave_expr_now) : Same.
+
+Thu Aug 26 13:12:29 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* pa.c (cint_ok_for_move): Use CONST_INT_OK_FOR_LETTER_P macros
+	instead of duplicating code.
+
 Thu Aug 26 18:32:32 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* gcse.c (hash_scan_insn): Don't scan obvious no-ops.
+
+1999-08-26 09:42 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* tree.h: fancy_abort always takes three args.
+	* resource.c: Move include of system.h before toplev.h.
+
+Thu Aug 26 09:46:16 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Accept LABEL_REFs as well
+	as SYMBOL_REFs.
+
+1999-08-25 22:10 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* system.h: Don't redefine abort or trim_filename.
+	* rtl.h: Define abort to fancy_abort (__FILE__, __LINE__, 0)
+	or fancy_abort (__FILE__, __LINE__, __FUNCTION__) depending on
+	whether or not __FUNCTION__ is available.
+	* tree.h: Duplicate rtl.h's definition of abort, for files
+	that don't include rtl.h.  Delete all code to perform type
+	checking with a compiler other than GCC.
+	* varray.h: Delete all code to perform type checking with a
+	compiler other than GCC.  Make VARRAY_CHECK() always evaluate
+	its arguments exactly once, using a statement expression.
+	Adjust the VARRAY_<type> accessor macros to match.
+	* toplev.h (fatal_insn, fatal_insn_not_found): Kill.
+	(_fatal_insn, _fatal_insn_not_found): New fns, take info on
+	caller's location.  Define fatal_insn and fatal_insn_not_found
+	as macros that use _fatal_insn and _fatal_insn_not_found.
+	(fancy_abort, trim_filename): Kill prototypes.
+
+	* rtl.c (trim_filename): Move here from toplev.c.
+	(fancy_abort): New function.
+	(DIR_SEPARATOR): Provide default definition.
+	* tree.c (tree_check_failed, tree_class_check_failed): Go
+	through fancy_abort.
+	(tree_check, tree_class_check, cst_or_constructor_check,
+	expr_check): Delete.
+	* varray.c (varray_check_failed): New function.
+	* toplev.c (fatal_insn, fatal_insn_not_found): Replace with
+	_fatal_insn and _fatal_insn_not_found.  Go through
+	fancy_abort.
+	(trim_filename, fancy_abort): Delete.
+
+	* builtins.c (expand_builtin_args_info): Report ICE with abort.
+	* except.c (start_catch_handler): Report ICE with error/abort
+	combo.
+	* final.c (output_operand_lossage): Likewise.
+	* flow.c (verify_flow_info): Likewise.
+
+	* gcc.c: Prototype fatal.
+	* gengenrtl.c: Undef abort after including rtl.h not system.h.
+	* genattr.c, genattrtab.c, genemit.c, genextract.c,
+	genflags.c, genopinit.c, genoutput.c, genpeep.c, genrecog.c:
+	Don't define fancy_abort.
 
 Wed Aug 25 17:56:59 1999  Richard Henderson  <rth@cygnus.com>
 
@@ -20,6 +253,15 @@ Wed Aug 25 15:35:55 1999  Richard Henderson  <rth@cygnus.com>
 	* m88k/sysv4.h (VERSION_INFO1): Likewise.
 	* m88k.c (out_rcs_id, tm_rcs_id): Kill.
 	(output_file_start): Adjust for death of VERSION_STRING.
+
+1999-08-25 13:51 -0700  Jim Meyering  <meyering@ascend.com>
+
+	* cpplib.c (detect_if_not_defined): New function.
+	(do_if): Use it to detect potential once-only headers.
+
+Wed Aug 25 14:00:18 1999  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* c-common.c (combine_strings): Always set TREE_CONSTANT.
 
 Wed Aug 25 15:27:22 1999  Gavin Romig-Koch  <gavin@cygnus.com>
 
@@ -678,7 +920,7 @@ Fri Aug 20 22:32:17 1999  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
 	* gencheck.c: Do not define any *_CHECK1 macros.
 
 Thu Aug 19 14:42:38 1999  Mike Stump <mrs@wrs.com>
-	                  Mark Mitchell <mark@codesourcery.com>
+		          Mark Mitchell <mark@codesourcery.com>
 
 	* c-common.c (c_get_alias_set): Fix support for poitners and
 	references.
@@ -2166,8 +2408,8 @@ Thu Jul 29 09:21:42 1999  Nick Clifton  <nickc@cygnus.com>
 
 Wed Jul 28 12:50:48 1999  Geoff Keating  <geoffk@cygnus.com>
 
-        * config/mips/mips.c: system.h handles MIN and MAX, don't undefine
-        them here.
+	* config/mips/mips.c: system.h handles MIN and MAX, don't undefine
+	them here.
 
 Wed Jul 28 13:18:35 1999  Jeffrey A Law  (law@cygnus.com)
 
@@ -2175,8 +2417,8 @@ Wed Jul 28 13:18:35 1999  Jeffrey A Law  (law@cygnus.com)
 	proper mode in the condition string.
 	(icacheflush, dcacheflush): Remove modes from match_operands.
 
-        * pa.c (emit_move_sequence): Always convert scratch_reg to the
-        proper mode before using it.
+	* pa.c (emit_move_sequence): Always convert scratch_reg to the
+	proper mode before using it.
 
 	* pa.md (adddi3, subdi3): Turn into a define_expand/define_insn
 	pair.
@@ -2193,7 +2435,7 @@ Wed Jul 28 13:18:35 1999  Jeffrey A Law  (law@cygnus.com)
 	* pa.md (call, call_value): Use "word_mode" instead of "SImode" as
 	needed.
 
-        * README: Update.
+	* README: Update.
 
 Wed Jul 28 11:28:04 1999  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
@@ -2791,7 +3033,7 @@ Mon Jul 19 09:36:27 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 	dialects.
 
 1999-07-17  Alexandre Oliva  <oliva@dcc.unicamp.br>
-        
+	
 	* gcc.texi: Update e-mail addresses and URLs to gcc.gnu.org.
 	Removed paragraph about compression of files and size limitation,
 	duplicated in the FAQ.  Use gcc-patches for posting patches.
@@ -2801,8 +3043,8 @@ Mon Jul 19 09:36:27 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 1999-07-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
-        * Makefile.in (stmp-multilib-sub): Make the files extracted
-        from $(LIBGCC1) writable.
+	* Makefile.in (stmp-multilib-sub): Make the files extracted
+	from $(LIBGCC1) writable.
 
 Sat Jul 17 14:25:46 1999  Nick Clifton  <nickc@cygnus.com>
 
@@ -3145,7 +3387,7 @@ Fri Jul  2 01:36:36 1999  Robert Lipe  <robertlipe@usa.net>
 	ntohs.
 
 Fri Jul  2 00:46:47 1999  Richard Henderson  <rth@cygnus.com>
-                          Jeff Law <law@cygnus.com>
+	                  Jeff Law <law@cygnus.com>
 
 	* ginclude/varargs.h (va_dcl): Use word_mode for type of
 	__builtin_va_list.
@@ -3568,7 +3810,7 @@ Fri Jun 18 07:02 1999  Bruce Korb <ddsinc09@ix.netcom.com>
 
 Thu Jun 17 15:06:10 PDT 1999 Don Lindsay  <dlindsay@cygnus.com>
 
-        * added support for -mpcrel (PC relative addressing for m68k) 
+	* added support for -mpcrel (PC relative addressing for m68k) 
 	based on code done by Michael Tiemann  <tiemann@axon.cygnus.com>.
 	* invoke.texi (m68000 options): Add documentation for -mpcrel flag.
 	* m68k.c (print_operand_address): Handle 32-bit PIC case.
@@ -3716,8 +3958,8 @@ Mon Jun 14 17:26:40 1999  David Edelsohn  <edelsohn@gnu.org>
 
 Mon Jun 14 12:57:38 1999  David Mosberger  <davidm@hpl.hp.com>
 
-        * combine.c (simplify_logical, case AND): Only call
-        simplify_and_const_int if the mode is no wider than HOST_WIDE_INT
+	* combine.c (simplify_logical, case AND): Only call
+	simplify_and_const_int if the mode is no wider than HOST_WIDE_INT
 	or the constant is positive.
 
 Mon Jun 14 11:43:41 1999  Nick Clifton  <nickc@cygnus.com>
@@ -3904,7 +4146,7 @@ Mon Jun  7 22:05:03 1999  Mark Kettenis  <kettenis@gnu.org>
 	* fixinc/fixincl.x, fixinc/fixincl.sh: Rebuilt.
 
 Mon Jun  7 20:34:20 1999  Robert Lipe <robertlipe@usa.net>
-                          Jeffrey A Law  (law@cygnus.com)
+	                  Jeffrey A Law  (law@cygnus.com)
 
 	* varasm.c (assemble_start_function): Remove the function
 	from the pending weak decls list when we define a function.
@@ -4036,8 +4278,8 @@ Thu Jun  3 01:19:03 1999  Jeffrey A Law  (law@cygnus.com)
 
 Wed Jun  2 15:44:15 1999  Mark Mitchell <mark@codesourcery.com>
 
-        Revert this change:
-        * fold-const.c (fold): STRIP_NOPS when deciding whether or not
+	Revert this change:
+	* fold-const.c (fold): STRIP_NOPS when deciding whether or not
 	something is a candidate for optimize_bit_field_compare.
 
 Wed Jun  2 21:53:05 1999  J"orn Rennecke <amylaar@cygnus.co.uk>
@@ -4113,8 +4355,8 @@ Mon May 31 15:23:23 1999  Richard Henderson  <rth@cygnus.com>
 
 Mon May 31 11:48:07 1999  Mark Mitchell  <mark@codesourcery.com>
 
-        * cccp.c (handle_directive): Handle backslash-newlines in quoted
-        strings correctly.
+	* cccp.c (handle_directive): Handle backslash-newlines in quoted
+	strings correctly.
 
 Mon May 31 09:36:11 1999  Cort Dougan  <cort@cs.nmt.edu>
 
@@ -4137,7 +4379,7 @@ Mon May 31 00:46:17 1999  Jeffrey A Law  (law@cygnus.com)
 	* configure.in (native gas tests): Search for an assembler in the
 	same manner that the installed compiler will.
 	* configure: Rebuilt.
-        * tm.texi (MD_EXEC_PREFIX): Note need to update configure.in too.
+	* tm.texi (MD_EXEC_PREFIX): Note need to update configure.in too.
 
 	* alias.c (find_base_term): Improve handling of addresses
 	constructed from binary operations.
@@ -4177,12 +4419,12 @@ Fri May 28 03:47:03 1999  Eric Raskin (ehr@listworks.com)
 
 Fri May 28 03:41:02 1999  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
-        * rs6000/sysv4.h (CC1_SPEC): Add support for -profile
-        (LIB_LINUX_SPEC): Likewise.
-        (LIB_LINUX_SPEC): Add support for -pthread
-        (CPP_OS_LINUX_SPEC): Likewise.
-        (CPP_SYSV_SPEC): Avoid redefinitions if both -fpic and -fPIC are
-        specified.
+	* rs6000/sysv4.h (CC1_SPEC): Add support for -profile
+	(LIB_LINUX_SPEC): Likewise.
+	(LIB_LINUX_SPEC): Add support for -pthread
+	(CPP_OS_LINUX_SPEC): Likewise.
+	(CPP_SYSV_SPEC): Avoid redefinitions if both -fpic and -fPIC are
+	specified.
 
 Thu May 27 13:04:52 1999  H.J. Lu  (hjl@gnu.org)
 
@@ -4229,7 +4471,7 @@ Wed May 26 14:18:05 1999  Richard Henderson  <rth@cygnus.com>
 
 Wed May 26 09:53:05 1999  Mark Mitchell  <mark@codesourcery.com>
 
-        * fold-const.c (fold): STRIP_NOPS when deciding whether or not
+	* fold-const.c (fold): STRIP_NOPS when deciding whether or not
 	something is a candidate for optimize_bit_field_compare.
 
 Wed May 26 09:40:02 1999  Mark Mitchell  <mark@codesourcery.com>
@@ -4298,7 +4540,7 @@ Mon May 24 01:02:12 1999  Mark Mitchell  <mark@codesourcery.com>
 
 Sun May 23 20:31:16 1999  Jeffrey A Law  (law@cygnus.com)
 
-        * loop.c (strength_reduce): Grow reg_single_usage as needed.
+	* loop.c (strength_reduce): Grow reg_single_usage as needed.
 
 Sun May 23 10:13:20 1999  David O'Brien <obrien@FreeBSD.org>
 

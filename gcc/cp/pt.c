@@ -7264,18 +7264,23 @@ tsubst_expr (t, args, complain, in_decl)
 
 	lineno = STMT_LINENO (t);
 	decl = DECL_STMT_DECL (t);
-	init = DECL_INITIAL (decl);
-	decl = tsubst (decl, args, complain, in_decl);
-	init = tsubst_expr (init, args, complain, in_decl);
-	DECL_INITIAL (decl) = init;
-	/* By marking the declaration as instantiated, we avoid trying
+	if (TREE_CODE (decl) == LABEL_DECL)
+	  finish_label_decl (DECL_NAME (decl));
+	else
+	  {
+	    init = DECL_INITIAL (decl);
+	    decl = tsubst (decl, args, complain, in_decl);
+	    init = tsubst_expr (init, args, complain, in_decl);
+	    DECL_INITIAL (decl) = init;
+	    /* By marking the declaration as instantiated, we avoid trying
 	   to instantiate it.  Since instantiate_decl can't handle
 	   local variables, and since we've already done all that
 	   needs to be done, that's the right thing to do.  */
-	if (TREE_CODE (decl) == VAR_DECL)
-	  DECL_TEMPLATE_INSTANTIATED (decl) = 1;
-	maybe_push_decl (decl);
-	add_decl_stmt (decl);
+	    if (TREE_CODE (decl) == VAR_DECL)
+	      DECL_TEMPLATE_INSTANTIATED (decl) = 1;
+	    maybe_push_decl (decl);
+	    add_decl_stmt (decl);
+	  }
 	resume_momentary (i);
 	return decl;
       }
@@ -7392,20 +7397,21 @@ tsubst_expr (t, args, complain, in_decl)
 			 tsubst_expr (CASE_HIGH (t), args, complain, in_decl));
       break;
 
-    case LABEL_DECL:
-      lineno = DECL_SOURCE_LINE (t);
-      input_filename = DECL_SOURCE_FILE (t);
-      finish_label_stmt (DECL_NAME (t));
+    case LABEL_STMT:
+      lineno = STMT_LINENO (t);
+      finish_label_stmt (DECL_NAME (LABEL_STMT_LABEL (t)));
       break;
 
     case GOTO_STMT:
       lineno = STMT_LINENO (t);
       t = GOTO_DESTINATION (t);
-      if (TREE_CODE (t) != IDENTIFIER_NODE)
+      if (TREE_CODE (t) != LABEL_DECL)
 	/* Computed goto's must be tsubst'd into.  On the other hand,
 	   non-computed gotos must not be; the identifier in question
 	   will have no binding.  */
 	t = tsubst_expr (t, args, complain, in_decl);
+      else
+	t = DECL_NAME (t);
       finish_goto_stmt (t);
       break;
 
@@ -7424,12 +7430,17 @@ tsubst_expr (t, args, complain, in_decl)
       stmt = begin_try_block ();
       tsubst_expr (TRY_STMTS (t), args, complain, in_decl);
       finish_try_block (stmt);
-      {
-	tree handler = TRY_HANDLERS (t);
-	for (; handler; handler = TREE_CHAIN (handler))
-	  tsubst_expr (handler, args, complain, in_decl);
-      }
-      finish_handler_sequence (stmt);
+      if (CLEANUP_P (t))
+	finish_cleanup (tsubst_expr (TRY_HANDLERS (t), args,
+				     complain, in_decl),
+			stmt);
+      else
+	{
+	  tree handler = TRY_HANDLERS (t);
+	  for (; handler; handler = TREE_CHAIN (handler))
+	    tsubst_expr (handler, args, complain, in_decl);
+	  finish_handler_sequence (stmt);
+	}
       break;
 
     case HANDLER:
@@ -9127,7 +9138,11 @@ do_decl_instantiation (declspecs, declarator, storage)
   tree result = NULL_TREE;
   int extern_p = 0;
 
-  if (! DECL_LANG_SPECIFIC (decl))
+  if (!decl)
+    /* An error ocurred, for which grokdeclarator has already issued
+       an appropriate message.  */
+    return;
+  else if (! DECL_LANG_SPECIFIC (decl))
     {
       cp_error ("explicit instantiation of non-template `%#D'", decl);
       return;

@@ -190,6 +190,9 @@ static void warn_about_implicit_typename_lookup PROTO((tree, tree));
 static int walk_namespaces_r PROTO((tree, walk_namespaces_fn, void *));
 static int walk_globals_r PROTO((tree, void *));
 static void add_decl_to_level PROTO((tree, struct binding_level *));
+static tree make_label_decl PROTO((tree, int));
+static void pop_label PROTO((tree));
+static void pop_labels PROTO((tree));
 
 #if defined (DEBUG_CP_BINDING_LEVELS)
 static void indent PROTO((void));
@@ -419,13 +422,10 @@ static tree current_function_parm_tags;
 
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
    that have names.  Here so we can clear out their names' definitions
-   at the end of the function.  */
+   at the end of the function.  The TREE_VALUE is a LABEL_DECL; the
+   TREE_PURPOSE is the previous binding of the label.  */
 
 static tree named_labels;
-
-/* A list of LABEL_DECLs from outer contexts that are currently shadowed.  */
-
-static tree shadowed_labels;
 
 /* The FUNCTION_DECL for the function currently being compiled,
    or 0 if between functions.  */
@@ -587,6 +587,11 @@ struct binding_level
        is used for all binding levels.  */
     tree type_shadowed;
 
+    /* A TREE_LIST.  Each TREE_VALUE is the LABEL_DECL for a local
+       label in this scope.  The TREE_PURPOSE is the previous value of
+       the IDENTIFIER_LABEL VALUE.  */
+    tree shadowed_labels;
+
     /* For each level (except not the global one),
        a chain of BLOCK nodes for all the levels
        that were entered and exited one level down.  */
@@ -669,10 +674,6 @@ static struct binding_level *free_binding_level;
 
 static struct binding_level *global_binding_level;
 
-/* Binding level structures are initialized by copying this one.  */
-
-static struct binding_level clear_binding_level;
-
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
 
 static int keep_next_level_flag;
@@ -700,7 +701,7 @@ push_binding_level (newlevel, tag_transparent, keep)
 {
   /* Add this level to the front of the chain (stack) of levels that
      are active.  */
-  *newlevel = clear_binding_level;
+  bzero ((char*) newlevel, sizeof (struct binding_level));
   newlevel->level_chain = current_binding_level;
   current_binding_level = newlevel;
   newlevel->tag_transparent = tag_transparent;
@@ -882,10 +883,15 @@ namespace_bindings_p ()
   return b->namespace_p;
 }
 
+/* If KEEP is non-zero, make a BLOCK node for the next binding level,
+   unconditionally.  Otherwise, use the normal logic to decide whether
+   or not to create a BLOCK.  */
+
 void
-keep_next_level ()
+keep_next_level (keep)
+     int keep;
 {
-  keep_next_level_flag = 1;
+  keep_next_level_flag = keep;
 }
 
 /* Nonzero if the current level needs to have a BLOCK made.  */
@@ -962,9 +968,7 @@ pushlevel (tag_transparent)
       free_binding_level = free_binding_level->level_chain;
     }
   else
-    {
-      newlevel = make_binding_level ();
-    }
+    newlevel = make_binding_level ();
 
   push_binding_level (newlevel, tag_transparent, keep_next_level_flag);
   GNU_xref_start_scope ((HOST_WIDE_INT) newlevel);
@@ -1272,6 +1276,51 @@ pop_binding (id, decl)
     }
 }
 
+/* When a label goes out of scope, check to see if that label was used
+   in a valid manner, and issue any appropriate warnings or errors.  */
+
+static void
+pop_label (link)
+     tree link;
+{
+  tree label = TREE_VALUE (link);
+
+  if (DECL_INITIAL (label) == NULL_TREE)
+    {
+      cp_error_at ("label `%D' used but not defined", label);
+      /* Avoid crashing later.  */
+      define_label (input_filename, 1, DECL_NAME (label));
+    }
+  else if (warn_unused && !TREE_USED (label))
+    cp_warning_at ("label `%D' defined but not used", label);
+
+  SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), TREE_PURPOSE (link));
+}
+
+/* At the end of a function, all labels declared within the fucntion
+   go out of scope.  BLOCK is the top-level block for the 
+   function.  */
+
+static void
+pop_labels (block)
+     tree block;
+{
+  tree link;
+
+  /* Clear out the definitions of all label names, since their scopes
+     end here.  */
+  for (link = named_labels; link; link = TREE_CHAIN (link))
+    {
+      pop_label (link);
+      /* Put the labels into the "variables" of the top-level block,
+	 so debugger can see them.  */
+      TREE_CHAIN (TREE_VALUE (link)) = BLOCK_VARS (block);
+      BLOCK_VARS (block) = TREE_VALUE (link);
+    }
+
+  named_labels = NULL_TREE;
+}
+
 /* Exit a binding level.
    Pop the level off, and restore the state of the identifier-decl mappings
    that were in effect when this level was entered.
@@ -1507,7 +1556,13 @@ poplevel (keep, reverse, functionbody)
   for (link = current_binding_level->type_shadowed;
        link; link = TREE_CHAIN (link))
     SET_IDENTIFIER_TYPE_VALUE (TREE_PURPOSE (link), TREE_VALUE (link));
-  
+
+  /* Restore the IDENTIFIER_LABEL_VALUEs for local labels.  */
+  for (link = current_binding_level->shadowed_labels;
+       link; 
+       link = TREE_CHAIN (link))
+    pop_label (link);
+
   /* There may be OVERLOADs (wrapped in TREE_LISTs) on the BLOCK_VARs
      list if a `using' declaration put them there.  The debugging
      back-ends won't understand OVERLOAD, so we remove them here.
@@ -1529,40 +1584,13 @@ poplevel (keep, reverse, functionbody)
 
   /* If the level being exited is the top level of a function,
      check over all the labels.  */
-
   if (functionbody)
     {
-      /* If this is the top level block of a function,
-         the vars are the function's parameters.
-         Don't leave them in the BLOCK because they are
-         found in the FUNCTION_DECL instead.  */
-
+      /* Since this is the top level block of a function, the vars are
+	 the function's parameters.  Don't leave them in the BLOCK
+	 because they are found in the FUNCTION_DECL instead.  */
       BLOCK_VARS (block) = 0;
-
-      /* Clear out the definitions of all label names,
-	 since their scopes end here.  */
-
-      for (link = named_labels; link; link = TREE_CHAIN (link))
-	{
-	  register tree label = TREE_VALUE (link);
-
-	  if (DECL_INITIAL (label) == NULL_TREE)
-	    {
-	      cp_error_at ("label `%D' used but not defined", label);
-	      /* Avoid crashing later.  */
-	      define_label (input_filename, 1, DECL_NAME (label));
-	    }
-	  else if (warn_unused && !TREE_USED (label))
-	    cp_warning_at ("label `%D' defined but not used", label);
-	  SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), NULL_TREE);
-
-          /* Put the labels into the "variables" of the
-             top-level block, so debugger can see them.  */
-          TREE_CHAIN (label) = BLOCK_VARS (block);
-          BLOCK_VARS (block) = label;
-	}
-
-      named_labels = NULL_TREE;
+      pop_labels (block);
     }
 
   /* Any uses of undefined labels now operate under constraints
@@ -2542,7 +2570,6 @@ maybe_push_to_top_level (pseudo)
   current_lang_name = lang_name_cplusplus;
   strict_prototype = strict_prototypes_lang_cplusplus;
   named_labels = NULL_TREE;
-  shadowed_labels = NULL_TREE;
   previous_class_type = previous_class_values = NULL_TREE;
   class_cache_firstobj = 0;
   processing_specialization = 0;
@@ -4779,25 +4806,40 @@ redeclaration_error_message (newdecl, olddecl)
     }
 }
 
-/* Get the LABEL_DECL corresponding to identifier ID as a label.
-   Create one if none exists so far for the current function.
-   This function is called for both label definitions and label references.  */
+/* Create a new label, named ID.  */
 
-tree
-lookup_label (id)
+static tree
+make_label_decl (id, local_p)
      tree id;
+     int local_p;
 {
-  register tree decl = IDENTIFIER_LABEL_VALUE (id);
+  tree decl;
 
-  if (current_function_decl == NULL_TREE)
-    {
-      error ("label `%s' referenced outside of any function",
-	     IDENTIFIER_POINTER (id));
-      return NULL_TREE;
-    }
+  if (building_stmt_tree ())
+    push_permanent_obstack ();
+  decl = build_decl (LABEL_DECL, id, void_type_node);
+  if (building_stmt_tree ())
+    pop_obstacks ();
+  else
+    /* Make sure every label has an rtx.  */
+    label_rtx (decl);
 
-  if ((decl == NULL_TREE
-      || DECL_SOURCE_LINE (decl) == 0)
+  DECL_CONTEXT (decl) = current_function_decl;
+  DECL_MODE (decl) = VOIDmode;
+  C_DECLARED_LABEL_FLAG (decl) = local_p;
+
+  /* Say where one reference is to the label, for the sake of the
+     error if it is not defined.  */
+  DECL_SOURCE_LINE (decl) = lineno;
+  DECL_SOURCE_FILE (decl) = input_filename;
+
+  /* Record the fact that this identifier is bound to this label.  */
+  SET_IDENTIFIER_LABEL_VALUE (id, decl);
+
+  /* Record this label on the list of used labels so that we can check
+     at the end of the function to see whether or not the label was
+     actually defined.  */
+  if ((named_label_uses == NULL || named_label_uses->label_decl != decl)
       && (named_label_uses == NULL
 	  || named_label_uses->names_in_scope != current_binding_level->names
 	  || named_label_uses->label_decl != decl))
@@ -4814,60 +4856,65 @@ lookup_label (id)
       named_label_uses = new_ent;
     }
 
-  /* Use a label already defined or ref'd with this name.  */
-  if (decl != NULL_TREE)
+  return decl;
+}
+
+/* Look for a label named ID in the current function.  If one cannot
+   be found, create one.  (We keep track of used, but undefined,
+   labels, and complain about them at the end of a function.)  */
+
+tree 
+lookup_label (id)
+     tree id;
+{
+  tree decl;
+
+  /* You can't use labels at global scope.  */
+  if (current_function_decl == NULL_TREE)
     {
-      /* But not if it is inherited and wasn't declared to be inheritable.  */
-      if (DECL_CONTEXT (decl) != current_function_decl
-	  && ! C_DECLARED_LABEL_FLAG (decl))
-	return shadow_label (id);
-      return decl;
+      error ("label `%s' referenced outside of any function",
+	     IDENTIFIER_POINTER (id));
+      return NULL_TREE;
     }
+  
+  /* See if we've already got this label.  */
+  decl = IDENTIFIER_LABEL_VALUE (id);
+  if (decl != NULL_TREE && DECL_CONTEXT (decl) == current_function_decl)
+    return decl;
 
-  decl = build_decl (LABEL_DECL, id, void_type_node);
-
-  /* Make sure every label has an rtx.  */
-  label_rtx (decl);
-
-  /* A label not explicitly declared must be local to where it's ref'd.  */
-  DECL_CONTEXT (decl) = current_function_decl;
-
-  DECL_MODE (decl) = VOIDmode;
-
-  /* Say where one reference is to the label,
-     for the sake of the error if it is not defined.  */
-  DECL_SOURCE_LINE (decl) = lineno;
-  DECL_SOURCE_FILE (decl) = input_filename;
-
-  SET_IDENTIFIER_LABEL_VALUE (id, decl);
-
-  named_labels = tree_cons (NULL_TREE, decl, named_labels);
-  named_label_uses->label_decl = decl;
+  /* Record this label on the list of labels used in this function.
+     We do this before calling make_label_decl so that we get the
+     IDENTIFIER_LABEL_VALUE before the new label is declared.  */
+  named_labels = tree_cons (IDENTIFIER_LABEL_VALUE (id), NULL_TREE,
+			    named_labels);
+  /* We need a new label.  */
+  decl = make_label_decl (id, /*local_p=*/0);
+  /* Now fill in the information we didn't have before.  */
+  TREE_VALUE (named_labels) = decl;
 
   return decl;
 }
 
-/* Make a label named NAME in the current function,
-   shadowing silently any that may be inherited from containing functions
-   or containing scopes.
-
-   Note that valid use, if the label being shadowed
-   comes from another scope in the same function,
-   requires calling declare_nonlocal_label right away.  */
+/* Declare a local label named ID.  */
 
 tree
-shadow_label (name)
-     tree name;
+declare_local_label (id)
+     tree id;
 {
-  register tree decl = IDENTIFIER_LABEL_VALUE (name);
+  tree decl;
 
-  if (decl != NULL_TREE)
-    {
-      shadowed_labels = tree_cons (NULL_TREE, decl, shadowed_labels);
-      SET_IDENTIFIER_LABEL_VALUE (name, NULL_TREE);
-    }
-
-  return lookup_label (name);
+  /* Add a new entry to the SHADOWED_LABELS list so that when we leave
+     this scope we can restore the old value of
+     IDENTIFIER_TYPE_VALUE.  */
+  current_binding_level->shadowed_labels 
+    = tree_cons (IDENTIFIER_LABEL_VALUE (id), NULL_TREE,
+		 current_binding_level->shadowed_labels);
+  /* Look for the label.  */
+  decl = make_label_decl (id, /*local_p=*/1);
+  /* Now fill in the information we didn't have before.  */
+  TREE_VALUE (current_binding_level->shadowed_labels) = decl;
+  
+  return decl;
 }
 
 /* Define a label, specifying the location in the source file.
@@ -4885,14 +4932,6 @@ define_label (filename, line, name)
   /* After labels, make any new cleanups go into their
      own new (temporary) binding contour.  */
   current_binding_level->more_cleanups_ok = 0;
-
-  /* If label with this name is known from an outer context, shadow it.  */
-  if (decl != NULL_TREE && DECL_CONTEXT (decl) != current_function_decl)
-    {
-      shadowed_labels = tree_cons (NULL_TREE, decl, shadowed_labels);
-      SET_IDENTIFIER_LABEL_VALUE (name, NULL_TREE);
-      decl = lookup_label (name);
-    }
 
   if (name == get_identifier ("wchar_t"))
     cp_pedwarn ("label named wchar_t");
@@ -7908,7 +7947,16 @@ cp_finish_decl (decl, init, asmspec_tree, need_pop, flags)
 		{
 		  emit_line_note (DECL_SOURCE_FILE (decl),
 				  DECL_SOURCE_LINE (decl));
-		  expand_aggr_init (decl, init, flags);
+		  /* We call push_momentary here so that when
+		     finish_expr_stmt clears the momentary obstack it
+		     doesn't destory any momentary expressions we may
+		     have lying around.  Although cp_finish_decl is
+		     usually called at the end of a declaration
+		     statement, it may also be called for a temporary
+		     object in the middle of an expression.  */
+		  push_momentary ();
+		  finish_expr_stmt (build_aggr_init (decl, init, flags));
+		  pop_momentary ();
 		}
 
 	      /* Set this to 0 so we can tell whether an aggregate which
@@ -8024,6 +8072,8 @@ expand_static_init (decl, init)
     {
       /* Emit code to perform this initialization but once.  */
       tree temp;
+      tree assignment;
+      tree temp_init;
 
       /* Remember this information until end of file.  */
       push_obstacks (&permanent_obstack, &permanent_obstack);
@@ -8058,26 +8108,35 @@ expand_static_init (decl, init)
       /* Begin the conditional initialization.  */
       expand_start_cond (build_binary_op (EQ_EXPR, temp,
 					  integer_zero_node), 0);
-      expand_start_target_temps ();
 
       /* Do the initialization itself.  */
       if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))
 	  || (init && TREE_CODE (init) == TREE_LIST))
-	{
-	  expand_aggr_init (decl, init, 0);
-	  do_pending_stack_adjust ();
-	}
+	assignment = build_aggr_init (decl, init, 0);
       else if (init)
-	expand_assignment (decl, init, 0, 0);
+	assignment = build_modify_expr (decl, NOP_EXPR, init);
+      else
+	assignment = NULL_TREE;
 
-      /* Set TEMP to 1.  */
-      expand_assignment (temp, integer_one_node, 0, 0);
-
-      /* Cleanup any temporaries needed for the initial value.  If
-	 destroying one of the temporaries causes an exception to be
-	 thrown, then the object itself has still been fully
-	 constructed.  */
-      expand_end_target_temps ();
+      /* Once the assignment is complete, set TEMP to 1.  Since the
+	 construction of the static object is complete at this point,
+	 we want to make sure TEMP is set to 1 even if a temporary
+	 constructed during the initialization throws an exception
+	 when it is destroyed.  So, we combine the initialization and
+	 the assignment to TEMP into a single expression, ensuring
+	 that when we call finish_expr_stmt the cleanups will not be
+	 run until after TEMP is set to 1.  */
+      temp_init = build_modify_expr (temp, NOP_EXPR, integer_one_node);
+      if (assignment)
+	{
+	  assignment = tree_cons (NULL_TREE, assignment,
+				  build_tree_list (NULL_TREE, 
+						   temp_init));
+	  assignment = build_compound_expr (assignment);
+	}
+      else
+	assignment = temp_init;
+      finish_expr_stmt (assignment);
 
       /* Use atexit to register a function for destroying this static
 	 variable.  */
@@ -11042,10 +11101,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	    if (staticp)
 	      {
-		/* C++ allows static class members.
-		   All other work for this is done by grokfield.
-		   This VAR_DECL is built by build_lang_decl.
-		   All other VAR_DECLs are built by build_decl.  */
+		/* C++ allows static class members.  All other work
+		   for this is done by grokfield.  */
 		decl = build_lang_decl (VAR_DECL, declarator, type);
 		TREE_STATIC (decl) = 1;
 		/* In class context, 'static' means public access.  */
@@ -12788,7 +12845,6 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
   current_function_returns_value = 0;
   current_function_returns_null = 0;
   named_labels = 0;
-  shadowed_labels = 0;
   current_function_assigns_this = 0;
   current_function_just_assigned_this = 0;
   current_function_parms_stored = 0;
@@ -12812,25 +12868,6 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
   if (pre_parsed_p)
     {
       decl1 = declarator;
-
-#if 0
-      /* What was this testing for, exactly?  */
-      if (! DECL_ARGUMENTS (decl1)
-	  && !DECL_STATIC_FUNCTION_P (decl1)
-	  && !DECL_ARTIFICIAL (decl1)
-	  && DECL_CLASS_SCOPE_P (decl1)
-	  && TYPE_IDENTIFIER (DECL_CONTEXT (decl1))
-	  && IDENTIFIER_TEMPLATE (TYPE_IDENTIFIER (DECL_CONTEXT (decl1))))
-	{
-	  tree binding = binding_for_name (DECL_NAME (decl1), 
-					   current_namespace);
-	  cp_error ("redeclaration of `%#D'", decl1);
-	  if (IDENTIFIER_CLASS_VALUE (DECL_NAME (decl1)))
-	    cp_error_at ("previous declaration here", IDENTIFIER_CLASS_VALUE (DECL_NAME (decl1)));
-	  else if (BINDING_VALUE (binding))
-	    cp_error_at ("previous declaration here", BINDING_VALUE (binding));
-	}
-#endif
 
       fntype = TREE_TYPE (decl1);
       if (TREE_CODE (fntype) == METHOD_TYPE)
@@ -13161,6 +13198,10 @@ start_function (declspecs, declarator, attrs, pre_parsed_p)
      on the permanent obstack in case we need to inline it later.  */
   if (! hack_decl_function_context (decl1))
     temporary_allocation ();
+  
+  /* Make sure that we always have a momntary obstack while we're in a
+     function body.  */
+  push_momentary ();
 
   if (building_stmt_tree ())
     begin_stmt_tree (decl1);
@@ -13224,6 +13265,12 @@ store_parm_decls ()
 
   /* Initialize RTL machinery.  */
   init_function_start (fndecl, input_filename, lineno);
+  /* Even though we're inside a function body, we still don't want to
+     call expand_expr to calculate the size of a variable-sized array.
+     We haven't necessarily assigned RTL to all variables yet, so it's
+     not safe to try to expand expressions involving them.  */
+  immediate_size_expand = 0;
+  get_pending_sizes ();
 
   /* Create a binding level for the parms.  */
   expand_start_bindings (0);
@@ -13811,6 +13858,12 @@ finish_function (lineno, flags, nested)
 	  expand_label (no_return_label);
 	}
 
+      /* We hard-wired immediate_size_expand to zero in
+	 start_function.  Expand_function_end will decrement this
+	 variable.  So, we set the variable to one here, so that after
+	 the decrement it will remain zero.  */
+      immediate_size_expand = 1;
+
       /* Generate rtl for function exit.  */
       expand_function_end (input_filename, lineno, 1);
     }
@@ -13855,6 +13908,9 @@ finish_function (lineno, flags, nested)
   /* Set the BLOCK_SUPERCONTEXT of the outermost function scope to point
      to the FUNCTION_DECL node itself.  */
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+
+  /* Undo the call to push_momentary in start_function.  */
+  pop_momentary ();
 
   if (expand_p)
     {
@@ -14261,9 +14317,6 @@ void
 cplus_expand_expr_stmt (exp)
      tree exp;
 {
-  /* Arrange for all temps to disappear.  */
-  expand_start_target_temps ();
-
   exp = require_complete_type_in_void (exp);
   
   if (TREE_CODE (exp) == FUNCTION_DECL)
@@ -14288,10 +14341,6 @@ cplus_expand_expr_stmt (exp)
      go outside the bounds of the type.  */
   if (exp != error_mark_node)
     expand_expr_stmt (break_out_cleanups (exp));
-
-  /* Clean up any pending cleanups.  This happens when a function call
-     returns a cleanup-needing value that nobody uses.  */
-  expand_end_target_temps ();
 }
 
 /* When a stmt has been parsed, this function is called.  */
@@ -14365,7 +14414,6 @@ struct cp_function
   int temp_name_counter;
   tree named_labels;
   struct named_label_list *named_label_uses;
-  tree shadowed_labels;
   tree ctor_label;
   tree dtor_label;
   rtx last_dtor_insn;
@@ -14381,6 +14429,7 @@ struct cp_function
   int static_labelno;
   int in_function_try_handler;
   int expanding_p;
+  int stmts_are_full_exprs_p; 
   tree last_tree;
   tree last_expr_type;
 };
@@ -14406,7 +14455,6 @@ push_cp_function_context (context)
 
   p->named_labels = named_labels;
   p->named_label_uses = named_label_uses;
-  p->shadowed_labels = shadowed_labels;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->binding_level = current_binding_level;
@@ -14429,10 +14477,15 @@ push_cp_function_context (context)
   p->last_tree = last_tree;
   p->last_expr_type = last_expr_type;
   p->expanding_p = expanding_p;
-  
+  p->stmts_are_full_exprs_p = stmts_are_full_exprs_p;
+
   /* For now, we always assume we're expanding all the way to RTL
      unless we're explicitly doing otherwise.  */
   expanding_p = 1;
+
+  /* Whenever we start a new function, we destroy temporaries in the
+     usual way.  */
+  stmts_are_full_exprs_p = 1;
 }
 
 /* Restore the variables used during compilation of a C++ function.  */
@@ -14442,13 +14495,6 @@ pop_cp_function_context (context)
      tree context;
 {
   struct cp_function *p = cp_function_chain;
-  tree link;
-
-  /* Bring back all the labels that were shadowed.  */
-  for (link = shadowed_labels; link; link = TREE_CHAIN (link))
-    if (DECL_NAME (TREE_VALUE (link)) != 0)
-      SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (TREE_VALUE (link)),
-				  TREE_VALUE (link));
 
   pop_function_context_from (context);
 
@@ -14456,7 +14502,6 @@ pop_cp_function_context (context)
 
   named_labels = p->named_labels;
   named_label_uses = p->named_label_uses;
-  shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_binding_level = p->binding_level;
@@ -14479,6 +14524,7 @@ pop_cp_function_context (context)
   last_tree = p->last_tree;
   last_expr_type = p->last_expr_type;
   expanding_p = p->expanding_p;
+  stmts_are_full_exprs_p = p->stmts_are_full_exprs_p;
 
   free (p);
 }

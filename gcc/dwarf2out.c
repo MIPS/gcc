@@ -2237,6 +2237,11 @@ extern char *language_string;
 #define DWARF_ARANGES_HEADER_SIZE \
   (DWARF_ROUND (2 * DWARF_OFFSET_SIZE + 4, PTR_SIZE * 2) - DWARF_OFFSET_SIZE)
 
+/* The default is to have gcc emit the line number tables.  */
+#ifndef DWARF2_ASM_LINE_DEBUG_INFO
+#define DWARF2_ASM_LINE_DEBUG_INFO 0
+#endif
+
 /* Define the architecture-dependent minimum instruction length (in bytes).
    In this implementation of DWARF, this field is used for information
    purposes only.  Since GCC generates assembly language, we have
@@ -4446,7 +4451,8 @@ debug_dwarf ()
 {
   print_indent = 0;
   print_die (comp_unit_die, stderr);
-  print_dwarf_line_table (stderr);
+  if (! DWARF2_ASM_LINE_DEBUG_INFO)
+    print_dwarf_line_table (stderr);
 }
 
 /* Traverse the DIE, and add a sibling attribute if it may have the
@@ -5676,8 +5682,14 @@ output_aranges ()
 	     ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_DATA4 (asm_out_file, 4);
-  if (PTR_SIZE == 8)
+  /* We need to align to twice the pointer size here.
+     If DWARF_OFFSET_SIZE == 4, then we have emitted 12 bytes, and need 4
+     bytes of padding to align for either 4 or 8 byte pointers.  */
+  ASM_OUTPUT_DWARF_DATA4 (asm_out_file, 0);
+  /* If DWARF_OFFSET_SIZE == 8, then we have emitted 20 bytes, and need 12
+     bytes of padding to align for 8 byte pointers.  We have already emitted
+     4 bytes of padding, so emit 8 more here.  */
+  if (DWARF_OFFSET_SIZE == 8)
     fprintf (asm_out_file, ",0,0");
 
   if (flag_debug_asm)
@@ -6615,6 +6627,10 @@ mem_loc_descriptor (rtl)
       add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_deref, 0, 0));
       break;
 
+     case LABEL_REF:
+       /* Some ports can transform a symbol ref into a label ref, because
+ 	 the symbol ref is too far away and has to be dumped into a constant
+ 	 pool.  */
     case CONST:
     case SYMBOL_REF:
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
@@ -9846,7 +9862,27 @@ dwarf2out_line (filename, line)
     {
       function_section (current_function_decl);
 
-      if (DECL_SECTION_NAME (current_function_decl))
+      if (DWARF2_ASM_LINE_DEBUG_INFO)
+	{
+	  static char *lastfile;
+
+	  /* Emit the .file and .loc directives understood by GNU as.  */
+	  if (lastfile == 0 || strcmp (filename, lastfile))
+	    {
+	      fprintf (asm_out_file, "\t.file 0 \"%s\"\n", filename);
+	      lastfile = filename;
+	    }
+
+	  fprintf (asm_out_file, "\t.loc 0 %d 0\n", line);
+
+	  /* Indicate that line number info exists.  */
+	  ++line_info_table_in_use;
+
+	  /* Indicate that multiple line number tables exist.  */
+	  if (DECL_SECTION_NAME (current_function_decl))
+	    ++separate_line_info_table_in_use;
+	}
+      else if (DECL_SECTION_NAME (current_function_decl))
 	{
 	  register dw_separate_line_info_ref line_info;
 	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, SEPARATE_LINE_CODE_LABEL,
@@ -10093,9 +10129,12 @@ dwarf2out_finish ()
   /* Output the source line correspondence table.  */
   if (line_info_table_in_use > 1 || separate_line_info_table_in_use)
     {
-      fputc ('\n', asm_out_file);
-      ASM_OUTPUT_SECTION (asm_out_file, DEBUG_LINE_SECTION);
-      output_line_info ();
+      if (! DWARF2_ASM_LINE_DEBUG_INFO)
+	{
+	  fputc ('\n', asm_out_file);
+	  ASM_OUTPUT_SECTION (asm_out_file, DEBUG_LINE_SECTION);
+	  output_line_info ();
+	}
 
       /* We can only use the low/high_pc attributes if all of the code
 	 was in .text.  */

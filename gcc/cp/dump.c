@@ -731,6 +731,13 @@ dequeue_and_dump (di)
       dump_next_stmt (di, t);
       break;
 
+    case LABEL_STMT:
+      dump_stmt (di, t);
+      if (dump_children_p)
+	dump_child ("labl", LABEL_STMT_LABEL (t));
+      dump_next_stmt (di, t);
+      break;
+
     case RETURN_STMT:
       dump_stmt (di, t);
       if (dump_children_p)
@@ -768,6 +775,13 @@ dequeue_and_dump (di)
       dump_next_stmt (di, t);
       break;
 
+    case SUBOBJECT:
+      dump_stmt (di, t);
+      if (dump_children_p)
+	dump_child ("clnp", TREE_OPERAND (t, 0));
+      dump_next_stmt (di, t);
+      break;
+
     case INTEGER_CST:
       if (TREE_INT_CST_HIGH (t))
 	dump_int (di, "high", TREE_INT_CST_HIGH (t));
@@ -798,6 +812,7 @@ dequeue_and_dump (di)
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
+    case INIT_EXPR:
     case MODIFY_EXPR:
     case COMPONENT_REF:
     case COMPOUND_EXPR:
@@ -842,6 +857,16 @@ dequeue_and_dump (di)
 	}
       break;
       
+    case AGGR_INIT_EXPR:
+      dump_int (di, "ctor", AGGR_INIT_VIA_CTOR_P (t));
+      if (dump_children_p)
+	{
+	  dump_child ("fn", TREE_OPERAND (t, 0));
+	  dump_child ("args", TREE_OPERAND (t, 1));
+	  dump_child ("decl", TREE_OPERAND (t, 2));
+	}
+      break;
+
     default:
       /* There are no additional fields to print.  */
       break;

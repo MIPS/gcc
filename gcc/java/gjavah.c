@@ -753,6 +753,8 @@ decode_signature_piece (stream, signature, limit, need_space)
     case 'Z': ctype = "jboolean";  goto printit;
     case 'V': ctype = "void";  goto printit;
     case 'L':
+      /* Print a leading "::" so we look in the right namespace.  */
+      fputs ("::", stream);
       ++signature;
       while (*signature && *signature != ';')
 	{
@@ -838,7 +840,7 @@ DEFUN(print_c_decl, (stream, jcf, name_index, signature_index, is_init,
     }
 }
 
-// Print the unqualified method name followed by the signature.
+/* Print the unqualified method name followed by the signature. */
 static void
 DEFUN(print_full_cxx_name, (stream, jcf, name_index, signature_index, is_init, name_override),
       FILE* stream AND JCF* jcf
@@ -988,6 +990,10 @@ print_cxx_classname (stream, prefix, jcf, index)
     return 0;
 
   fputs (prefix, stream);
+
+  /* Print a leading "::" so we look in the right namespace.  */
+  fputs ("::", stream);
+
   while (s < limit)
     {
       c = UTF8_GET (s, limit);

@@ -2092,10 +2092,10 @@ while (0)
    No Carry.  This is typically used on the output of logicals,
    and is only valid in comparisons against zero.  */
 
-#define EXTRA_CC_MODES CCNOmode, CCFPmode, CCFPUmode
-
-/* Define the names for the modes specified above.  */
-#define EXTRA_CC_NAMES "CCNO", "CCFP", "CCFPU"
+#define EXTRA_CC_MODES \
+	CC(CCNOmode, "CCNO") \
+	CC(CCFPmode, "CCFP") \
+	CC(CCCPUmode, "CCFPU")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.

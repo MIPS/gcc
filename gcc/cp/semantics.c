@@ -42,11 +42,26 @@
    much easier since it will be able to make use of these routines.  */
 
 static void expand_stmts PROTO((tree));
+static void do_pushlevel PROTO((void));
+static tree do_poplevel PROTO((void));
 
 /* Non-zero if we should generate RTL for functions that we process.
    When this is zero, we just accumulate tree structure, without
    interacting with the back end.  */
 int expanding_p = 1;
+
+/* Non-zero if we should treat statements as full expressions.  In
+   particular, this variable is no-zero if at the end of a statement
+   we should destroy any temporaries created during that statement.
+   Similarly, if, at the end of a block, we should destroy any local
+   variables in this block.  Normally, this variable is non-zero,
+   since those are the normal semantics of C++.
+
+   However, in order to represent aggregate initialization code as
+   tree structure, we use statement-expressions.  The statements
+   within the statement expression should not result in cleanups being
+   run until the entire enclosing statement is complete.  */
+int stmts_are_full_exprs_p = 1;
 
 /* The type of the last expression-statement we have seen.  This is
    required because the type of a statement-expression is the type of
@@ -91,10 +106,18 @@ finish_expr_stmt (expr)
 	       && lvalue_p (expr))
 	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE)
 	    expr = default_conversion (expr);
-	  cplus_expand_expr_stmt (expr);
-	}
 
-      clear_momentary ();
+	  if (stmts_are_full_exprs_p)
+	    expand_start_target_temps ();
+	    
+	  cplus_expand_expr_stmt (expr);
+
+	  if (stmts_are_full_exprs_p)
+	    {
+	      expand_end_target_temps ();
+	      clear_momentary ();
+	    }
+	}
     }
 
   finish_stmt ();
@@ -455,7 +478,7 @@ finish_for_stmt (expr, for_stmt)
       emit_line_note (input_filename, lineno);
       expand_loop_continue_here ();
       if (expr) 
-	cplus_expand_expr_stmt (expr);
+	finish_expr_stmt (expr);
       expand_end_loop ();
     }
 
@@ -576,17 +599,19 @@ void
 finish_goto_stmt (destination)
      tree destination;
 {
+  if (TREE_CODE (destination) == IDENTIFIER_NODE)
+    destination = lookup_label (destination);
+
   if (building_stmt_tree ())
     add_tree (build_min_nt (GOTO_STMT, destination));
   else
     {
       emit_line_note (input_filename, lineno);
 
-      if (TREE_CODE (destination) == IDENTIFIER_NODE)
+      if (TREE_CODE (destination) == LABEL_DECL)
 	{
-	  tree decl = lookup_label (destination);
-	  TREE_USED (decl) = 1;
-	  expand_goto (decl); 
+	  TREE_USED (destination) = 1;
+	  expand_goto (destination); 
 	}
       else
 	expand_computed_goto (destination);
@@ -647,11 +672,28 @@ finish_try_block (try_block)
     expand_start_all_catch ();  
 }
 
+/* Finish an implicitly generated try-block, with a cleanup is given
+   by CLEANUP.  */
+
+void
+finish_cleanup (cleanup, try_block)
+     tree cleanup;
+     tree try_block;
+{
+  if (building_stmt_tree ()) 
+    {
+      TRY_HANDLERS (try_block) = copy_to_permanent (cleanup);
+      CLEANUP_P (try_block) = 1;
+    }
+  else
+    expand_eh_region_end (protect_with_terminate (cleanup));
+}
+
 /* Likewise, for a function-try-block.  */
 
 void
 finish_function_try_block (try_block)
-     tree try_block;
+     tree try_block; 
 {
   if (building_stmt_tree ())
     RECHAIN_STMTS_FROM_LAST (try_block, TRY_STMTS (try_block));
@@ -673,9 +715,7 @@ finish_handler_sequence (try_block)
   if (building_stmt_tree ())
     RECHAIN_STMTS_FROM_CHAIN (try_block, TRY_HANDLERS (try_block));
   else
-    {
-      expand_end_all_catch ();
-    }
+    expand_end_all_catch ();
 }
 
 /* Likewise, for a function-try-block.  */
@@ -762,6 +802,12 @@ begin_compound_stmt (has_no_scope)
 
   if (!has_no_scope)
     do_pushlevel ();
+  else
+    /* Normally, we try hard to keep the BLOCK for a
+       statement-expression.  But, if it's a statement-expression with
+       a scopeless block, there's nothing to keep, and we don't want
+       to accidentally keep a block *inside* the scopeless block.  */ 
+    keep_next_level (0);
 
   return r;
 }
@@ -870,23 +916,25 @@ void
 finish_label_stmt (name)
      tree name;
 {
-  tree decl;
+  tree decl = define_label (input_filename, lineno, name);
 
   if (building_stmt_tree ())
-    {
-      push_permanent_obstack ();
-      decl = build_decl (LABEL_DECL, name, void_type_node);
-      pop_obstacks ();
-      DECL_SOURCE_LINE (decl) = lineno;
-      DECL_SOURCE_FILE (decl) = input_filename;
-      add_tree (decl);
-    }
-  else
-    {
-      decl = define_label (input_filename, lineno, name);
-      if (decl)
-	expand_label (decl);
-    }
+    add_tree (build_min_nt (LABEL_STMT, decl));
+  else if (decl)
+    expand_label (decl);
+}
+
+/* Finish a series of declarations for local labels.  G++ allows users
+   to declare "local" labels, i.e., labels with scope.  This extension
+   is useful when writing code involving statement-expressions.  */
+
+void
+finish_label_decl (name)
+     tree name;
+{
+  tree decl = declare_local_label (name);
+  if (building_stmt_tree ())
+    add_decl_stmt (decl);
 }
 
 /* Create a declaration statement for the declaration given by the
@@ -902,6 +950,23 @@ add_decl_stmt (decl)
   TREE_TYPE (decl) = copy_to_permanent (TREE_TYPE (decl));
   decl_stmt = build_min_nt (DECL_STMT, decl);
   add_tree (decl_stmt);
+}
+
+/* We're in a constructor, and have just constructed a a subobject of
+   *THIS.  CLEANUP is code to run if an exception is thrown before the
+   end of the current function is reached.   */
+
+void 
+finish_subobject (cleanup)
+     tree cleanup;
+{
+  if (building_stmt_tree ())
+    {
+      tree r = build_min_nt (SUBOBJECT, cleanup);
+      add_tree (r);
+    }
+  else
+    add_partial_entry (cleanup);
 }
 
 /* Bind a name and initialization to the return value of
@@ -975,13 +1040,18 @@ setup_vtbl_ptr ()
 		  (CTOR_INITIALIZER,
 		   current_member_init_list, current_base_init_list));
       else
-	emit_base_init (current_class_type, 0);
+	emit_base_init (current_class_type);
     }
+
+  /* Always keep the BLOCK node associated with the outermost pair of
+     curley braces of a function.  These are needed for correct
+     operation of dwarfout.c.  */
+  keep_next_level (1);
 }
 
 /* Begin a new scope.  */
 
-void
+static void
 do_pushlevel ()
 {
   if (!building_stmt_tree ())
@@ -989,22 +1059,26 @@ do_pushlevel ()
       emit_line_note (input_filename, lineno);
       clear_last_expr ();
     }
-  pushlevel (0);
   push_momentary ();
-  if (!building_stmt_tree ())
+  if (stmts_are_full_exprs_p)
+    pushlevel (0);
+  if (!building_stmt_tree () && stmts_are_full_exprs_p)
     expand_start_bindings (0);
-}  
+}
 
 /* Finish a scope.  */
 
-tree
+static tree
 do_poplevel ()
 {
   tree t;
 
-  if (!building_stmt_tree ())
+  if (!building_stmt_tree () && stmts_are_full_exprs_p)
     expand_end_bindings (getdecls (), kept_level_p (), 0);
-  t = poplevel (kept_level_p (), 1, 0);
+  if (stmts_are_full_exprs_p)
+    t = poplevel (kept_level_p (), 1, 0);
+  else
+    t = NULL_TREE;
   pop_momentary ();
   return t;
 }
@@ -1028,7 +1102,7 @@ finish_parenthesized_expr (expr)
 tree 
 begin_stmt_expr ()
 {
-  keep_next_level ();
+  keep_next_level (1);
   /* If we're building a statement tree, then the upcoming compound
      statement will be chained onto the tree structure, starting at
      last_tree.  We return last_tree so that we can later unhook the
@@ -1055,39 +1129,35 @@ finish_stmt_expr (rtl_expr, expr)
       TREE_SIDE_EFFECTS (rtl_expr) = 1;
     }
 
-  if (TREE_CODE (expr) == BLOCK)
-    {
-      /* Make a BIND_EXPR for the BLOCK already made.  */
-      if (building_stmt_tree ())
-	{
-	  /* If the last thing in the statement-expression was not an
-	     expression-statement, then it has type `void'.  */
-	  if (!last_expr_type)
-	    last_expr_type = void_type_node;
-	  result = build_min (STMT_EXPR, last_expr_type, last_tree);
-	  /* FIXME: Do we need this?  */
-	  TREE_SIDE_EFFECTS (result) = 1;
-	}
-      else
-	result = build (BIND_EXPR, TREE_TYPE (rtl_expr),
-			NULL_TREE, rtl_expr, expr);
-      
-      /* Remove the block from the tree at this point.  It gets put
-	 back at the proper place when the STMT_EXPR or BIND_EXPR is
-	 expanded.  */
-      delete_block (expr);
-    }
-  else
-    result = expr;
-
   if (building_stmt_tree ())
     {
+      /* If the last thing in the statement-expression was not an
+	 expression-statement, then it has type `void'.  */
+      if (!last_expr_type)
+	last_expr_type = void_type_node;
+      result = build_min (STMT_EXPR, last_expr_type, last_tree);
+      TREE_SIDE_EFFECTS (result) = 1;
+      
       /* Remove the compound statement from the tree structure; it is
 	 now saved in the STMT_EXPR.  */
       last_tree = rtl_expr;
       TREE_CHAIN (last_tree) = NULL_TREE;
     }
-  
+  else if (expr && TREE_CODE (expr) == BLOCK)
+    {
+      result = build (BIND_EXPR, TREE_TYPE (rtl_expr),
+		      NULL_TREE, rtl_expr, expr);
+      delete_block (expr);
+    }
+  else
+    result = rtl_expr;
+
+  if (expr && TREE_CODE (expr) == BLOCK)
+    /* Remove the block from the tree at this point.  It gets put back
+       at the proper place when the STMT_EXPR or BIND_EXPR is
+       expanded.  */
+    delete_block (expr);
+
   return result;
 }
 
@@ -1962,17 +2032,22 @@ expand_stmt (t)
 	lineno = STMT_LINENO (t);
 	emit_line_note (input_filename, lineno);
 	decl = DECL_STMT_DECL (t);
-	/* We need to clear DECL_CONTEXT so that maybe_push_decl
-	   will push it into the current scope.  */
-	if (DECL_CONTEXT (decl) == current_function_decl)
-	  DECL_CONTEXT (decl) = NULL_TREE;
-	/* If we marked this variable as dead when we processed it
-	   before, we must undo that now.  The variable has been
-	   resuscitated.  */
-	if (TREE_CODE (decl) == VAR_DECL)
-	  DECL_DEAD_FOR_LOCAL (decl) = 0;
-	maybe_push_decl (decl);
-	cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0, 0);
+	if (TREE_CODE (decl) == LABEL_DECL)
+	  finish_label_decl (DECL_NAME (decl));
+	else
+	  {
+	    /* We need to clear DECL_CONTEXT so that maybe_push_decl
+	       will push it into the current scope.  */
+	    if (DECL_CONTEXT (decl) == current_function_decl)
+	      DECL_CONTEXT (decl) = NULL_TREE;
+	    /* If we marked this variable as dead when we processed it
+	       before, we must undo that now.  The variable has been
+	       resuscitated.  */
+	    if (TREE_CODE (decl) == VAR_DECL)
+	      DECL_DEAD_FOR_LOCAL (decl) = 0;
+	    maybe_push_decl (decl);
+	    cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0, 0);
+	  }
 	resume_momentary (i);
       }
       break;
@@ -2062,16 +2137,17 @@ expand_stmt (t)
       finish_case_label (CASE_LOW (t), CASE_HIGH (t));
       break;
 
-    case LABEL_DECL:
-      t = define_label (DECL_SOURCE_FILE (t), DECL_SOURCE_LINE (t),
-			DECL_NAME (t));
-      if (t)
-	expand_label (t);
+    case LABEL_STMT:
+      lineno = STMT_LINENO (t);
+      finish_label_stmt (DECL_NAME (LABEL_STMT_LABEL (t)));
       break;
 
     case GOTO_STMT:
       lineno = STMT_LINENO (t);
-      finish_goto_stmt (GOTO_DESTINATION (t));
+      if (TREE_CODE (GOTO_DESTINATION (t)) == LABEL_DECL)
+	finish_goto_stmt (DECL_NAME (GOTO_DESTINATION (t)));
+      else
+	finish_goto_stmt (GOTO_DESTINATION (t));
       break;
 
     case ASM_STMT:
@@ -2082,11 +2158,20 @@ expand_stmt (t)
 
     case TRY_BLOCK:
       lineno = STMT_LINENO (t);
-      begin_try_block ();
-      expand_stmt (TRY_STMTS (t));
-      finish_try_block (NULL_TREE);
-      expand_stmts (TRY_HANDLERS (t));
-      finish_handler_sequence (NULL_TREE);
+      if (CLEANUP_P (t))
+	{
+	  expand_eh_region_start ();
+	  expand_stmt (TRY_STMTS (t));
+	  finish_cleanup (TRY_HANDLERS (t), NULL_TREE);
+	}
+      else
+	{
+	  begin_try_block ();
+	  expand_stmt (TRY_STMTS (t));
+	  finish_try_block (NULL_TREE);
+	  expand_stmts (TRY_HANDLERS (t));
+	  finish_handler_sequence (NULL_TREE);
+	}
       break;
 
     case HANDLER:
@@ -2103,6 +2188,11 @@ expand_stmt (t)
       finish_handler_parms (NULL_TREE);
       expand_stmt (HANDLER_BODY (t));
       finish_handler (NULL_TREE);
+      break;
+
+    case SUBOBJECT:
+      lineno = STMT_LINENO (t);
+      finish_subobject (SUBOBJECT_CLEANUP (t));
       break;
 
     default:
@@ -2167,11 +2257,6 @@ expand_body (fn)
   /* If this is a constructor, we need to initialize our members and
      base-classes.  */
   setup_vtbl_ptr ();
-
-  /* Always keep the BLOCK node associated with the outermost pair of
-     curly braces of a function.  These are needed for correct
-     operation of dwarfout.c.  */
-  keep_next_level ();
 
   /* Expand the body.  */
   expand_stmt (t);

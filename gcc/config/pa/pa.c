@@ -299,8 +299,9 @@ cint_ok_for_move (intval)
      HOST_WIDE_INT intval;
 {
   /* OK if ldo, ldil, or zdepi, can be used.  */
-  return (VAL_14_BITS_P (intval) || (intval & 0x7ff) == 0
-	  || zdepi_cint_p (intval));
+  return (CONST_OK_FOR_LETTER_P (intval, 'J')
+	  || CONST_OK_FOR_LETTER_P (intval, 'N')
+	  || CONST_OK_FOR_LETTER_P (intval, 'K'));
 }
 
 /* Accept anything that can be moved in one instruction into a general
@@ -1135,8 +1136,12 @@ emit_move_sequence (operands, mode, scratch_reg)
 	   && GET_CODE (SUBREG_REG (operand0)) == REG
 	   && REGNO (SUBREG_REG (operand0)) >= FIRST_PSEUDO_REGISTER)
     {
-      SUBREG_REG (operand0) = reg_equiv_mem[REGNO (SUBREG_REG (operand0))];
-      operand0 = alter_subreg (operand0);
+     /* We must not alter SUBREG_WORD (operand0) since that would confuse
+	the code which tracks sets/uses for delete_output_reload.  */
+      rtx temp = gen_rtx_SUBREG (GET_MODE (operand0),
+				 reg_equiv_mem [REGNO (SUBREG_REG (operand0))],
+				 SUBREG_WORD (operand0));
+      operand0 = alter_subreg (temp);
     }
 
   if (scratch_reg
@@ -1148,8 +1153,12 @@ emit_move_sequence (operands, mode, scratch_reg)
 	   && GET_CODE (SUBREG_REG (operand1)) == REG
 	   && REGNO (SUBREG_REG (operand1)) >= FIRST_PSEUDO_REGISTER)
     {
-      SUBREG_REG (operand1) = reg_equiv_mem[REGNO (SUBREG_REG (operand1))];
-      operand1 = alter_subreg (operand1);
+     /* We must not alter SUBREG_WORD (operand0) since that would confuse
+	the code which tracks sets/uses for delete_output_reload.  */
+      rtx temp = gen_rtx_SUBREG (GET_MODE (operand1),
+				 reg_equiv_mem [REGNO (SUBREG_REG (operand1))],
+				 SUBREG_WORD (operand1));
+      operand1 = alter_subreg (temp);
     }
 
   if (scratch_reg && reload_in_progress && GET_CODE (operand0) == MEM

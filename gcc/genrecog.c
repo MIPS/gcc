@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "obstack.h"
+#include "errors.h"
 
 #define OUTPUT_LABEL(INDENT_STRING, LABEL_NUMBER) \
   printf("%sL%d: ATTRIBUTE_UNUSED_LABEL\n", (INDENT_STRING), (LABEL_NUMBER))
@@ -198,12 +199,6 @@ static void write_tree		PROTO((struct decision *, const char *,
 				       enum routine_type));
 static void change_state	PROTO((const char *, const char *, int,
 				       struct decision *));
-static char *copystr		PROTO((const char *));
-static void mybzero		PROTO((char *, unsigned));
-static void mybcopy		PROTO((char *, char *, unsigned));
-void fatal		PVPROTO((const char *, ...))
-  ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-void fancy_abort		PROTO((void)) ATTRIBUTE_NORETURN;
 
 /* Construct and return a sequence of decisions
    that will recognize INSN.
@@ -223,7 +218,7 @@ make_insn_sequence (insn, type)
   {
     static const char *last_real_name = "insn";
     static int last_real_code = 0;
-    char *name;
+    char *name = 0;
 
     if (insn_name_ptr_size <= next_insn_code)
       {
@@ -235,7 +230,8 @@ make_insn_sequence (insn, type)
 	insn_name_ptr_size = new_size;
       }
 
-    name = XSTR (insn, 0);
+    if (type == RECOG)
+      name = XSTR (insn, 0);
     if (!name || name[0] == '\0')
       {
 	name = xmalloc (strlen (last_real_name) + 10);
@@ -1897,37 +1893,6 @@ xmalloc (size)
   return val;
 }
 
-void
-fatal VPROTO ((const char *format, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *format;
-#endif
-  va_list ap;
-
-  VA_START (ap, format);
-
-#ifndef ANSI_PROTOTYPES
-  format = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "genrecog: ");
-  vfprintf (stderr, format, ap);
-  va_end (ap);
-  fprintf (stderr, "\n");
-  fprintf (stderr, "after %d definitions\n", next_index);
-  exit (FATAL_EXIT_CODE);
-}
-
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
-
-void
-fancy_abort ()
-{
-  fatal ("Internal gcc abort.");
-}
-
 int
 main (argc, argv)
      int argc;
@@ -1940,6 +1905,7 @@ main (argc, argv)
   FILE *infile;
   register int c;
 
+  progname = "genrecog";
   obstack_init (rtl_obstack);
   recog_tree.first = recog_tree.last = split_tree.first = split_tree.last = 0;
   peephole2_tree.first = peephole2_tree.last = 0;
@@ -1954,7 +1920,6 @@ main (argc, argv)
       exit (FATAL_EXIT_CODE);
     }
 
-  init_rtl ();
   next_insn_code = 0;
   next_index = 0;
 

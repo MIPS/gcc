@@ -524,6 +524,8 @@ expand_start_catch_block (declspecs, declarator)
 	{
 	  decl = grokdeclarator (declarator, declspecs, CATCHPARM,
 				 1, NULL_TREE);
+	  if (processing_template_decl)
+	    decl = push_template_decl (decl);
 	  pushdecl (decl);
 	  add_decl_stmt (decl);
 	}
@@ -965,9 +967,7 @@ expand_throw (exp)
 	     ourselves into expand_call.  */
 	  if (TREE_SIDE_EFFECTS (exp))
 	    {
-	      tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (exp));
-	      DECL_ARTIFICIAL (temp) = 1;
-	      DECL_RTL (temp) = assign_temp (TREE_TYPE (exp), 2, 0, 1);
+	      tree temp = create_temporary_var (TREE_TYPE (exp));
 	      DECL_INITIAL (temp) = exp;
 	      cp_finish_decl (temp, exp, NULL_TREE, 0, LOOKUP_ONLYCONVERTING);
 	      exp = temp;

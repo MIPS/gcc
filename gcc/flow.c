@@ -287,7 +287,7 @@ static void commit_one_edge_insertion	PROTO((edge));
 static void delete_unreachable_blocks	PROTO((void));
 static void delete_eh_regions		PROTO((void));
 static int can_delete_note_p		PROTO((rtx));
-static void delete_insn_chain		PROTO((rtx, rtx));
+static void flow_delete_insn_chain	PROTO((rtx, rtx));
 static int delete_block			PROTO((basic_block));
 static void expunge_block		PROTO((basic_block));
 static rtx flow_delete_insn		PROTO((rtx));
@@ -1641,7 +1641,7 @@ can_delete_note_p (note)
    that must be paired.  */
 
 static void
-delete_insn_chain (start, finish)
+flow_delete_insn_chain (start, finish)
      rtx start, finish;
 {
   /* Unchain the insns one by one.  It would be quicker to delete all
@@ -1733,7 +1733,7 @@ delete_block (b)
   end = next_nonnote_insn (b->end);
   if (!end || GET_CODE (end) != BARRIER)
     end = b->end;
-  delete_insn_chain (insn, end);
+  flow_delete_insn_chain (insn, end);
 
 no_delete_insns:
 
@@ -2022,7 +2022,7 @@ tidy_fallthru_edge (e, b, c)
 
   /* Selectively unlink the sequence.  */
   if (q != PREV_INSN (c->head))
-    delete_insn_chain (NEXT_INSN (q), PREV_INSN (c->head));
+    flow_delete_insn_chain (NEXT_INSN (q), PREV_INSN (c->head));
 
   e->flags |= EDGE_FALLTHRU;
 }
@@ -5774,14 +5774,13 @@ update_life_info (notes, first, last, orig_first_insn, orig_last_insn)
 	      }
 	    else
 	      {
-		note_dest = find_insn_with_note (note, first, last);
+		note_dest = find_insn_with_note (note, orig_first_insn,
+						 orig_last_insn);
 		if (note_dest != NULL_RTX)
 		  {
-		    note_dest = single_set (orig_dest);
+		    note_dest = single_set (note_dest);
 		    if (note_dest != NULL_RTX)
-		      {
-			note_dest = SET_DEST (orig_dest);
-		      }
+		      note_dest = SET_DEST (note_dest);
 		  }
 	      }
 	      /* This note applies to the dest of the original insn.  Find the
@@ -5789,7 +5788,7 @@ update_life_info (notes, first, last, orig_first_insn, orig_last_insn)
 		 there.  */
 
 	    if (! note_dest)
-	      abort ();
+	      break;
 
 	    for (insn = first; ; insn = NEXT_INSN (insn))
 	      {
@@ -5812,10 +5811,9 @@ update_life_info (notes, first, last, orig_first_insn, orig_last_insn)
 		    && HARD_REGNO_NREGS (REGNO (note_dest),
 					 GET_MODE (note_dest)) > 1)
 		  break;
-		/* It must be set somewhere; fail if we couldn't find
+
+		/* It must be set somewhere; bail if we couldn't find
 		   where it was set.  */
-		if (insn == last)
-		  abort ();
 	      }
 	  }
 	  break;
@@ -5828,6 +5826,7 @@ update_life_info (notes, first, last, orig_first_insn, orig_last_insn)
 	    break;
 
 	case REG_NO_CONFLICT:
+	case REG_NOALIAS:
 	  /* These notes apply to the dest of the original insn.  Find the last
 	     new insn that now has the same dest, and move the note there.  
 
@@ -6091,29 +6090,19 @@ replace_insns (first, last, first_new, notes)
   if (notes == NULL_RTX)
     {
       for (curr = first; curr != stop; curr = NEXT_INSN (curr))
-	{
+	if (GET_RTX_CLASS (GET_CODE (curr)) == 'i')
 	  notes = prepend_reg_notes (notes, REG_NOTES (curr));
-	}
     }
-  for (curr = first; curr; curr = next)
-    {
-      next = NEXT_INSN (curr);
-      delete_insn (curr);
-      if (curr == last)
-	break;
-    }
+
   last_new = emit_insn_after (first_new, prev);
   first_new = NEXT_INSN (prev);
+
   for (i = 0; i < n_basic_blocks; i++)
     {
       if (BLOCK_HEAD (i) == first)
-	{
-	  BLOCK_HEAD (i) = first_new;
-	}
+	BLOCK_HEAD (i) = first_new;
       if (BLOCK_END (i) == last)
-	{
-	  BLOCK_END (i) = last_new;
-	}
+	BLOCK_END (i) = last_new;
     }
   /* This is probably bogus. */
   if (first_new == last_new)
@@ -6125,6 +6114,7 @@ replace_insns (first, last, first_new, notes)
 	}
     }
   update_life_info (notes, first_new, last_new, first, last);
+  flow_delete_insn_chain (first, last);
 }
 
 /* Verify the CFG consistency.  This function check some CFG invariants and
@@ -6171,8 +6161,9 @@ verify_flow_info ()
 	  break;
       if (!x)
 	{
-	  fatal ("verify_flow_info: Head insn %d for block %d not found in the insn stream.\n",
+	  error ("Head insn %d for block %d not found in the insn stream.",
 		 INSN_UID (bb->head), bb->index);
+	  abort ();
 	}
 
       /* Check the end pointer and make sure that it is pointing into
@@ -6181,8 +6172,9 @@ verify_flow_info ()
 	{
 	  if (bb_info[INSN_UID (x)] != NULL)
 	    {
-	      fatal ("verify_flow_info: Insn %d is in multiple basic blocks (%d and %d)",
+	      error ("Insn %d is in multiple basic blocks (%d and %d)",
 		     INSN_UID (x), bb->index, bb_info[INSN_UID (x)]->index);
+	      abort ();
 	    }
 	  bb_info[INSN_UID (x)] = bb;
 
@@ -6191,8 +6183,9 @@ verify_flow_info ()
 	}
       if (!x)
 	{
-	  fatal ("verify_flow_info: End insn %d for block %d not found in the insn stream.\n",
+	  error ("End insn %d for block %d not found in the insn stream.",
 		 INSN_UID (bb->end), bb->index);
+	  abort ();
 	}
     }
 
@@ -6224,8 +6217,8 @@ verify_flow_info ()
 		e2 = e2->pred_next;
 	      if (!e2)
 		{
-		  fatal ("verify_flow_info: Basic block %i edge lists are corrupted\n",
-			 bb->index);
+		  error ("Basic block %i edge lists are corrupted", bb->index);
+		  abort ();
 		}
 	    }
 	  e = e->succ_next;
@@ -6236,13 +6229,12 @@ verify_flow_info ()
 	{
 	  if (e->dest != bb)
 	    {
-	      fprintf (stderr, "verify_flow_info: Basic block %d pred edge is corrupted\n",
-		       bb->index);
-	      fprintf (stderr, "Predecessor: ");
+	      error ("Basic block %d pred edge is corrupted", bb->index);
+	      fputs ("Predecessor: ", stderr);
 	      dump_edge_info (stderr, e, 0);
-	      fprintf (stderr, "\nSuccessor: ");
+	      fputs ("\nSuccessor: ", stderr);
 	      dump_edge_info (stderr, e, 1);
-	      fflush (stderr);
+	      fputc ('\n', stderr);
 	      abort ();
 	    }
 	  if (e->src != ENTRY_BLOCK_PTR)
@@ -6252,8 +6244,8 @@ verify_flow_info ()
 		e2 = e2->succ_next;
 	      if (!e2)
 		{
-		  fatal ("verify_flow_info: Basic block %i edge lists are corrupted\n",
-			 bb->index);
+		  error ("Basic block %i edge lists are corrupted", bb->index);
+		  abort;
 		}
 	    }
 	  e = e->pred_next;
@@ -6267,7 +6259,9 @@ verify_flow_info ()
 	{
 	  if (bb->end == x)
 	    {
-	      fatal ("verify_flow_info: Basic block contains only CODE_LABEL and no NOTE_INSN_BASIC_BLOCK note\n");
+	      error ("NOTE_INSN_BASIC_BLOCK is missing for block %d",
+		     bb->index);
+	      abort ();
 	    }
 	  x = NEXT_INSN (x);
 	}
@@ -6275,8 +6269,9 @@ verify_flow_info ()
 	  || NOTE_LINE_NUMBER (x) != NOTE_INSN_BASIC_BLOCK
 	  || NOTE_BASIC_BLOCK (x) != bb)
 	{
-	  fatal ("verify_flow_info: NOTE_INSN_BASIC_BLOCK is missing for block %d\n",
+	  error ("NOTE_INSN_BASIC_BLOCK is missing for block %d\n",
 		 bb->index);
+	  abort ();
 	}
 
       if (bb->end == x)
@@ -6291,8 +6286,9 @@ verify_flow_info ()
 	      if (GET_CODE (x) == NOTE
 		  && NOTE_LINE_NUMBER (x) == NOTE_INSN_BASIC_BLOCK)
 		{
-		  fatal ("verify_flow_info: NOTE_INSN_BASIC_BLOCK %d in the middle of basic block %d\n",
+		  error ("NOTE_INSN_BASIC_BLOCK %d in the middle of basic block %d",
 			 INSN_UID (x), bb->index);
+		  abort ();
 		}
 
 	      if (x == bb->end)
@@ -6302,8 +6298,8 @@ verify_flow_info ()
 		  || GET_CODE (x) == CODE_LABEL
 		  || GET_CODE (x) == BARRIER)
 		{
-		  fatal_insn ("verify_flow_info: Incorrect insn in the middle of basic block %d\n",
-			      x, bb->index);
+		  error ("In basic block %d:", bb->index);
+		  fatal_insn ("Flow control insn inside a basic block", x);
 		}
 
 	      x = NEXT_INSN (x);
@@ -6336,7 +6332,7 @@ verify_flow_info ()
 	      break;
 
 	    default:
-	      fatal_insn ("verify_flow_info: Insn outside basic block\n", x);
+	      fatal_insn ("Insn outside basic block", x);
 	    }
 	}
 

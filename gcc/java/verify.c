@@ -400,7 +400,8 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  || handler_pc < 0 || handler_pc >= length
 	  || (handler_pc >= start_pc && handler_pc < end_pc)
 	  || ! (instruction_bits [start_pc] & BCODE_INSTRUCTION_START)
-	  || ! (instruction_bits [end_pc] & BCODE_INSTRUCTION_START)
+	  || (end_pc < length &&
+	     ! (instruction_bits [end_pc] & BCODE_INSTRUCTION_START))
 	  || ! (instruction_bits [handler_pc] & BCODE_INSTRUCTION_START))
 	{
 	  error ("bad pc in exception_table");
@@ -1065,7 +1066,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  break;
 
 	case OPCODE_athrow:
-	  // FIXME: athrow also empties the stack.
+	  /* FIXME: athrow also empties the stack. */
 	  pop_type (throwable_type_node);
 	  INVALIDATE_PC;
 	  break;

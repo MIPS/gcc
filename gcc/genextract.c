@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "obstack.h"
+#include "errors.h"
 #include "insn-config.h"
 
 static struct obstack obstack;
@@ -98,10 +99,7 @@ static struct code_ptr *peepholes;
 static void gen_insn PROTO ((rtx));
 static void walk_rtx PROTO ((rtx, const char *));
 static void print_path PROTO ((char *));
-void fatal PVPROTO ((const char *, ...))
-  ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-void fancy_abort PROTO ((void)) ATTRIBUTE_NORETURN;
-
+
 static void
 gen_insn (insn)
      rtx insn;
@@ -370,36 +368,6 @@ xrealloc (old, size)
   return ptr;
 }
 
-void
-fatal VPROTO ((const char *format, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *format;
-#endif
-  va_list ap;
-
-  VA_START (ap, format);
-
-#ifndef ANSI_PROTOTYPES
-  format = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "genextract: ");
-  vfprintf (stderr, format, ap);
-  va_end (ap);
-  fprintf (stderr, "\n");
-  exit (FATAL_EXIT_CODE);
-}
-
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
-
-void
-fancy_abort ()
-{
-  fatal ("Internal gcc abort.");
-}
-
 char *
 xstrdup (input)
   const char *input;
@@ -421,6 +389,7 @@ main (argc, argv)
   struct extraction *p;
   struct code_ptr *link;
 
+  progname = "genextract";
   obstack_init (rtl_obstack);
 
   if (argc <= 1)
@@ -432,8 +401,6 @@ main (argc, argv)
       perror (argv[1]);
       exit (FATAL_EXIT_CODE);
     }
-
-  init_rtl ();
 
   /* Assign sequential codes to all entries in the machine description
      in parallel with the tables in insn-output.c.  */

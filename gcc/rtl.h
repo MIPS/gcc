@@ -48,13 +48,13 @@ enum rtx_code  {
 #define NUM_RTX_CODE ((int)LAST_AND_UNUSED_RTX_CODE)
 				/* The cast here, saves many elsewhere.  */
 
-extern int rtx_length[];
+extern const int rtx_length[];
 #define GET_RTX_LENGTH(CODE)		(rtx_length[(int) (CODE)])
 
 extern const char * const rtx_name[];
 #define GET_RTX_NAME(CODE)		(rtx_name[(int) (CODE)])
 
-extern const char *rtx_format[];
+extern const char * const rtx_format[];
 #define GET_RTX_FORMAT(CODE)		(rtx_format[(int) (CODE)])
 
 extern const char rtx_class[];
@@ -1542,6 +1542,20 @@ extern int supports_one_only		PROTO ((void));
 /* In rtl.c */
 extern void init_rtl			PROTO ((void));
 extern void rtx_free			PROTO ((rtx));
+
+/* Redefine abort to report an internal error w/o coredump, and
+   reporting the location of the error in the source file.  This logic
+   is duplicated in rtl.h and tree.h because every file that needs the
+   special abort includes one or both.  toplev.h gets too few files,
+   system.h gets too many.  */
+
+extern void fancy_abort PROTO((const char *, int, const char *))
+    ATTRIBUTE_NORETURN;
+#if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 7)
+#define abort() fancy_abort (__FILE__, __LINE__, 0)
+#else
+#define abort() fancy_abort (__FILE__, __LINE__, __PRETTY_FUNCTION__)
+#endif
 
 /* In alias.c */
 extern int true_dependence		PROTO ((rtx, enum machine_mode, rtx,

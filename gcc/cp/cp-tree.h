@@ -35,6 +35,8 @@ Boston, MA 02111-1307, USA.  */
       IDENTIFIER_MARKED (used by search routines).
       LOCAL_BINDING_P (in CPLUS_BINDING)
       ICS_USER_FLAG (in _CONV)
+      CLEANUP_P (in TRY_BLOCK)
+      AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -1527,6 +1529,10 @@ struct lang_decl
 #define DELETE_EXPR_USE_VEC(NODE)	TREE_LANG_FLAG_1 (NODE)
 #define LOOKUP_EXPR_GLOBAL(NODE)	TREE_LANG_FLAG_0 (NODE)
 
+/* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
+   constructor call, rather than an ordinary function call.  */
+#define AGGR_INIT_VIA_CTOR_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
 /* The TYPE_MAIN_DECL for a class template type is a TYPE_DECL, not a
    TEMPLATE_DECL.  This macro determines whether or not a given class
    type is really a template type, as opposed to an instantiation or
@@ -2141,6 +2147,7 @@ extern int flag_new_for_scope;
 #define GOTO_DESTINATION(NODE)  TREE_OPERAND (NODE, 0)
 #define TRY_STMTS(NODE)         TREE_OPERAND (NODE, 0)
 #define TRY_HANDLERS(NODE)      TREE_OPERAND (NODE, 1)
+#define CLEANUP_P(NODE)         TREE_LANG_FLAG_0 (NODE)
 #define HANDLER_PARMS(NODE)     TREE_OPERAND (NODE, 0)
 #define HANDLER_BODY(NODE)      TREE_OPERAND (NODE, 1)
 #define COMPOUND_BODY(NODE)     TREE_OPERAND (NODE, 0)
@@ -2151,6 +2158,7 @@ extern int flag_new_for_scope;
 #define ASM_CLOBBERS(NODE)      TREE_OPERAND (NODE, 4)
 #define DECL_STMT_DECL(NODE)    TREE_OPERAND (NODE, 0)
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (NODE, 0)
+#define SUBOBJECT_CLEANUP(NODE) TREE_OPERAND (NODE, 0)
 
 /* Nonzero for an ASM_STMT if the assembly statement is volatile.  */
 #define ASM_VOLATILE_P(NODE)			\
@@ -2841,7 +2849,7 @@ extern void set_identifier_local_value		PROTO((tree, tree));
 extern int global_bindings_p			PROTO((void));
 extern int toplevel_bindings_p			PROTO((void));
 extern int namespace_bindings_p			PROTO((void));
-extern void keep_next_level			PROTO((void));
+extern void keep_next_level			PROTO((int));
 extern int kept_level_p				PROTO((void));
 extern void declare_parm_level			PROTO((void));
 extern void declare_pseudo_global_level		PROTO((void));
@@ -3009,7 +3017,6 @@ extern void setup_vtbl_ptr			PROTO((void));
 extern void mark_inline_for_output		PROTO((tree));
 extern void clear_temp_name			PROTO((void));
 extern tree get_temp_name			PROTO((tree, int));
-extern tree get_temp_regvar			PROTO((tree, tree));
 extern void finish_anon_union			PROTO((tree));
 extern tree finish_table			PROTO((tree, tree, tree, int));
 extern void finish_builtin_type			PROTO((tree, const char *,
@@ -3105,10 +3112,10 @@ extern tree do_friend				PROTO((tree, tree, tree, tree, tree, enum overload_flag
 /* in init.c */
 extern void init_init_processing		PROTO((void));
 extern void expand_direct_vtbls_init		PROTO((tree, tree, int, int, tree));
-extern void emit_base_init			PROTO((tree, int));
+extern void emit_base_init			PROTO((tree));
 extern void check_base_init			PROTO((tree));
 extern void expand_member_init			PROTO((tree, tree, tree));
-extern void expand_aggr_init			PROTO((tree, tree, int));
+extern tree build_aggr_init			PROTO((tree, tree, int));
 extern int is_aggr_typedef			PROTO((tree, int));
 extern int is_aggr_type				PROTO((tree, int));
 extern tree get_aggr_from_typedef		PROTO((tree, int));
@@ -3119,11 +3126,12 @@ extern tree resolve_offset_ref			PROTO((tree));
 extern tree decl_constant_value			PROTO((tree));
 extern tree build_new				PROTO((tree, tree, tree, int));
 extern tree build_new_1				PROTO((tree));
-extern tree expand_vec_init			PROTO((tree, tree, tree, tree, int));
+extern tree build_vec_init			PROTO((tree, tree, tree, tree, int));
 extern tree build_x_delete			PROTO((tree, int, tree));
 extern tree build_delete			PROTO((tree, tree, tree, int, int));
 extern tree build_vbase_delete			PROTO((tree, tree));
 extern tree build_vec_delete			PROTO((tree, tree, tree, tree, int));
+extern tree create_temporary_var                PROTO((tree));
 
 /* in input.c */
 
@@ -3234,7 +3242,6 @@ extern void mark_class_instantiated		PROTO((tree, int));
 extern void do_decl_instantiation		PROTO((tree, tree, tree));
 extern void do_type_instantiation		PROTO((tree, tree));
 extern tree instantiate_decl			PROTO((tree));
-extern tree do_poplevel				PROTO((void));
 extern tree get_bindings			PROTO((tree, tree, tree));
 extern void add_tree				PROTO((tree));
 extern void begin_tree                          PROTO((void));
@@ -3242,7 +3249,6 @@ extern void end_tree                            PROTO((void));
 extern void add_maybe_template			PROTO((tree, tree));
 extern void pop_tinst_level			PROTO((void));
 extern int more_specialized_class		PROTO((tree, tree));
-extern void do_pushlevel			PROTO((void));
 extern int is_member_template                   PROTO((tree));
 extern int template_parms_equal                 PROTO((tree, tree));
 extern int comp_template_parms                  PROTO((tree, tree));
@@ -3349,10 +3355,12 @@ extern void finish_function_handler_sequence    PROTO((tree));
 extern tree begin_handler                       PROTO((void));
 extern void finish_handler_parms                PROTO((tree));
 extern void finish_handler                      PROTO((tree));
+extern void finish_cleanup                      PROTO((tree, tree));
 extern tree begin_compound_stmt                 PROTO((int));
 extern tree finish_compound_stmt                PROTO((int, tree));
 extern void finish_asm_stmt                     PROTO((tree, tree, tree, tree, tree));
 extern void finish_label_stmt                   PROTO((tree));
+extern void finish_subobject                    PROTO((tree));
 extern tree finish_parenthesized_expr           PROTO((tree));
 extern tree begin_stmt_expr                     PROTO((void));
 extern tree finish_stmt_expr                    PROTO((tree, tree));
@@ -3395,6 +3403,7 @@ extern void expand_body                         PROTO((tree));
 extern void begin_stmt_tree                     PROTO((tree));
 extern void finish_stmt_tree                    PROTO((tree));
 extern int expanding_p;
+extern int stmts_are_full_exprs_p;
 extern tree last_expr_type;
 /* Non-zero if we are presently building a statement tree, rather
    than expanding each statement as we encounter it.  */
@@ -3409,7 +3418,7 @@ extern tree arbitrate_lookup			PROTO((tree, tree, tree));
 
 /* in tree.c */
 extern void init_cplus_unsave			PROTO((void));
-extern tree cplus_unsave_expr_now               PROTO((tree));
+extern void cplus_unsave_expr_now               PROTO((tree));
 extern int pod_type_p				PROTO((tree));
 extern void unshare_base_binfos			PROTO((tree));
 extern int member_p				PROTO((tree));

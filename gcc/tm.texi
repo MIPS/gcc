@@ -4498,26 +4498,23 @@ two places, the @file{md} file and in @code{NOTICE_UPDATE_CC}.
 
 @findex EXTRA_CC_MODES
 @item EXTRA_CC_MODES
-A list of names to be used for additional modes for condition code
-values in registers (@pxref{Jump Patterns}).  These names are added
-to @code{enum machine_mode} and all have class @code{MODE_CC}.  By
-convention, they should start with @samp{CC} and end with @samp{mode}.
+A list of additional modes for condition code values in registers 
+(@pxref{Jump Patterns}).  This macro should expand to a sequence of
+calls of the macro @code{CC} separated by white space.  @code{CC} takes
+two arguments.  The first is the enumeration name of the mode, which
+should begin with @samp{CC} and end with @samp{mode}.  The second is a C
+string giving the printable name of the mode; it should be the same as
+the first argument, but with the trailing @samp{mode} removed.
 
-You should only define this macro if your machine does not use @code{cc0}
-and only if additional modes are required.
+You should only define this macro if additional modes are required.
 
-@findex EXTRA_CC_NAMES
-@item EXTRA_CC_NAMES
-A list of C strings giving the names for the modes listed in
-@code{EXTRA_CC_MODES}.  For example, the Sparc defines this macro and
-@code{EXTRA_CC_MODES} as
-
+A sample definition of @code{EXTRA_CC_MODES} is:
 @smallexample
-#define EXTRA_CC_MODES CC_NOOVmode, CCFPmode, CCFPEmode
-#define EXTRA_CC_NAMES "CC_NOOV", "CCFP", "CCFPE"
+#define EXTRA_CC_MODES            \
+    CC(CC_NOOVmode, "CC_NOOV")    \
+    CC(CCFPmode, "CCFP")          \
+    CC(CCFPEmode, "CCFPE")
 @end smallexample
-
-This macro is not required if @code{EXTRA_CC_MODES} is not defined.
 
 @findex SELECT_CC_MODE
 @item SELECT_CC_MODE (@var{op}, @var{x}, @var{y})
@@ -5775,6 +5772,7 @@ between the name and the number will suffice.
 A C statement to output to the stdio stream @var{stream} assembler code
 which defines (equates) the symbol @var{name} to have the value @var{value}.
 
+@findex SET_ASM_OP
 If SET_ASM_OP is defined, a default definition is provided which is
 correct for most systems.
 
@@ -5795,6 +5793,7 @@ the difference of the two symbols @var{high} and @var{low}, i.e.
 and @var{low} are already known by the assembler so that the difference
 resolves into a constant.
 
+@findex SET_ASM_OP
 If SET_ASM_OP is defined, a default definition is provided which is
 correct for most systems.
 
@@ -6942,6 +6941,12 @@ By default, the Dwarf 2 debugging information generator will generate a
 label to mark the beginning of the text section.  If it is better simply
 to use the name of the text section itself, rather than an explicit label,
 to indicate the beginning of the text section, define this macro to zero.
+
+@findex DWARF2_ASM_LINE_DEBUG_INFO
+@item DWARF2_ASM_LINE_DEBUG_INFO
+Define this macro to be a nonzero value if the assembler can generate Dwarf 2
+line debug info sections.  This will result in much more compact line number
+tables, and hence is desirable if it works.
 
 @findex PUT_SDB_@dots{}
 @item PUT_SDB_@dots{}

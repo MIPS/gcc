@@ -780,10 +780,6 @@ base_init:
 		  if ($3 == 0)
 		    error ("no base initializers given following ':'");
 		  setup_vtbl_ptr ();
-		  /* Always keep the BLOCK node associated with the outermost
-		     pair of curley braces of a function.  These are needed
-		     for correct operation of dwarfout.c.  */
-		  keep_next_level ();
 		}
 	;
 
@@ -1623,10 +1619,6 @@ nodecls:
 		  if (! current_function_parms_stored)
 		    store_parm_decls ();
 		  setup_vtbl_ptr ();
-		  /* Always keep the BLOCK node associated with the outermost
-		     pair of curley braces of a function.  These are needed
-		     for correct operation of dwarfout.c.  */
-		  keep_next_level ();
 		}
 	;
 
@@ -3176,12 +3168,11 @@ label_decls:
 
 label_decl:
 	  LABEL identifiers_or_typenames ';'
-		{ tree link;
-		  for (link = $2; link; link = TREE_CHAIN (link))
+                { 
+		  while ($2)
 		    {
-		      tree label = shadow_label (TREE_VALUE (link));
-		      C_DECLARED_LABEL_FLAG (label) = 1;
-		      declare_nonlocal_label (label);
+		      finish_label_decl (TREE_VALUE ($2));
+		      $2 = TREE_CHAIN ($2);
 		    }
 		}
 	;

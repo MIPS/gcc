@@ -220,6 +220,7 @@ build_cplus_new (type, init)
      tree type;
      tree init;
 {
+  tree fn;
   tree slot;
   tree rval;
 
@@ -233,9 +234,22 @@ build_cplus_new (type, init)
   slot = build (VAR_DECL, type);
   DECL_ARTIFICIAL (slot) = 1;
   layout_decl (slot, 0);
-  rval = build (AGGR_INIT_EXPR, type,
-		TREE_OPERAND (init, 0), TREE_OPERAND (init, 1), slot);
+
+  /* We split the CALL_EXPR into its function and its arguments here.
+     Then, in expand_expr, we put them back together.  The reason for
+     this is that this expression might be a default argument
+     expression.  In that case, we need a new temporary every time the
+     expression is used.  That's what break_out_target_exprs does; it
+     replaces every AGGR_INIT_EXPR with a copy that uses a fresh
+     temporary slot.  Then, expand_expr builds up a call-expression
+     using the new slot.  */
+  fn = TREE_OPERAND (init, 0);
+  rval = build (AGGR_INIT_EXPR, type, fn, TREE_OPERAND (init, 1), slot);
   TREE_SIDE_EFFECTS (rval) = 1;
+  AGGR_INIT_VIA_CTOR_P (rval) 
+    = (TREE_CODE (fn) == ADDR_EXPR
+       && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+       && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0)));
   rval = build (TARGET_EXPR, type, slot, rval, NULL_TREE, NULL_TREE);
   TREE_SIDE_EFFECTS (rval) = 1;
 
@@ -508,7 +522,10 @@ cp_build_qualified_type_real (type, type_quals, complain)
 
   if (type == error_mark_node)
     return type;
-  
+
+  if (type_quals == TYPE_QUALS (type))
+    return type;
+
   /* A restrict-qualified pointer type must be a pointer (or reference)
      to object or incomplete type.  */
   if ((type_quals & TYPE_QUAL_RESTRICT)
@@ -1656,6 +1673,7 @@ search_tree (t, func)
     case CALL_EXPR:
     case COMPOUND_EXPR:
     case MODIFY_EXPR:
+    case INIT_EXPR:
       TRY (TREE_OPERAND (t, 0));
       TRY (TREE_OPERAND (t, 1));
       break;
@@ -1920,6 +1938,7 @@ mapcar (t, func)
     case WITH_CLEANUP_EXPR:
     case COMPOUND_EXPR:
     case MODIFY_EXPR:
+    case INIT_EXPR:
       t = copy_node (t);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
       TREE_OPERAND (t, 1) = mapcar (TREE_OPERAND (t, 1), func);
@@ -2861,12 +2880,12 @@ init_cplus_unsave ()
 /* The C++ version of unsave_expr_now.
    See gcc/tree.c:unsave_expr_now for comments. */
 
-tree
+void
 cplus_unsave_expr_now (expr)
      tree expr;
 {
   if (expr == NULL)
-    return expr;
+    return;
 
   else if (TREE_CODE (expr) == AGGR_INIT_EXPR)
     {
@@ -2882,10 +2901,10 @@ cplus_unsave_expr_now (expr)
 	    }
 	}
       unsave_expr_now (TREE_OPERAND (expr,2));
-      return expr;
+      return;
     }
 
   else
-    return expr;
+    return;
 }
 

@@ -1,3 +1,157 @@
+1999-08-28  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.def (LABEL_STMT): New tree node.
+	(LABEL_STMT_LABEL): New macro.
+	(shadow_label): Remove.
+	(declare_local_label): New function.
+	(finish_label_decl): Likewise.
+	* decl.c (make_label_decl): New function, split out from
+	lookup_label.
+	(shadowed_labels): Remove.
+	(binding_level): Add shadowed_labels.
+	(clear_binding_level): Remove.
+	(push_binding_level): Just bzero the new binding level.
+	(pushlevel): Fix indentation.
+	(pop_label): New function.
+	(pop_labels): Likewise, split out from poplevel.
+	(poplevel): Pop local labels.  Use pop_labels.
+	(maybe_push_to_top_level): Don't clear shadowed_labels.
+	(lookup_label): Use make_label_decl.
+	(shadow_label): Remove.
+	(declare_local_label): New function.
+	(define_label): Simplify.
+	(start_function): Don't clear shadowed_labels.
+	(cp_function): Remove shadowed_labels.
+	(push_cp_function_context): Don't save shadowed_labels.
+	(pop_cp_function_context): Don't restore it.
+	* dump.c (dequeue_and_dump): Handle LABEL_STMT.
+	* parse.y (label_decl): Use finish_label_decl.
+	* pt.c (tsubst_expr): Handle LABEL_STMTs, and local label
+	declarations.
+	* semantics.c (finish_label_stmt): Add a LABEL_STMT when
+	building_stmt_tree.
+	(finish_label_decl): New function.
+	(expand_stmt): Handle LABEL_STMTs and local label declarations.
+	
+1999-08-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (lookup_label): Build labels on the permanent obstack
+	when building statement trees.  Don't build RTL for labels when
+	building statement trees.
+	* semantics.c (finish_goto_stmt): Use LABEL_DECLs even when
+	building statement trees.
+	(finish_label_stmt): Likewise.
+	(expand_stmt): Adjust accordingly.
+	* pt.c (tsubst_expr); Likewise.
+	(do_decl_instantiation): Robustify.
+	
+	* cp-tree.h (AGGR_INIT_VIA_CTOR_P): New macro.
+	* tree.c (build_cplus_new): Set it.
+	* expr.c (cplus_expand_expr): Use it.
+	* dump.c (deque_and_dump): Handle AGGR_INIT_EXPR.
+	
+	* decl.c (store_parm_decls): Reset immediate_size_expand.
+	(finish_function): Likewise.
+	
+	* tree.c (cplus_unsave_expr_now): Don't return a value.
+
+	* semantics.c (do_poplevel): Always initialize the return value.
+
+1999-08-26  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* cp-tree.h (cplus_unsave_expr_now) : Correct return type.
+	* tree.h (cplus_unsave_expr_now) : Same.
+
+1999-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (grokdeclarator): Amend comment.
+	* except.c (expand_start_catch_block): Call push_template_decl for
+	catch-block parameters.
+	* method.c (synthesize_method): Build an empty compound statement
+	for the body of a constructor.
+
+1999-08-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (cp_build_qualified_type_real): If we're asking for the
+	same quals we already have, just return.
+
+1999-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.def (SUBOBJECT): New tree node.
+	* cp-tree.h (CLEANUP_P): New macro.
+	(SUBOBJECT_CLEANUP): Likewise.
+	(keep_next_level): Add parameter.
+	(get_temp_regvar): Don't declare.
+	(emit_base_init): Remove parameter.
+	(expand_aggr_init): Rename to build_aggr_init.
+	(expand_vec_init): Rename to build_vec_init.
+	(do_pushlevel): Remove.
+	(do_poplevel): Likewise.
+	(finish_cleanup): New function.
+	(finish_subobject): Likewise.
+	(stmts_are_full_exprs_p): New variable.
+	* decl.c (keep_next_level): Add parameter.
+	(cp_finish_decl): Use build_aggr_init, not
+	expand_aggr_init.  Use finish_expr_stmt to expand the code.
+	(expand_static_init): Use tree-generating, not RTL-generating,
+	functions to handle the initialization.
+	(start_function): Remove dead code.  Always have a momentary
+	obstack inside the function, even before hitting the first curly
+	brace.
+	(cplus_expand_expr_stmt): Move calls to
+	expand_{start,end}_target_temps into semantics.c.
+	(cp_function): Add stmts_are_full_exprs_p.
+	(push_cp_function_context): Save it.
+	(pop_cp_function_context): Restore it.
+	* decl2.c (get_temp_regvar): Move to init.c.
+	(do_static_initialization): Use build_{aggr,vec}_init.
+	(do_static_destruction): Fix typo in comment.
+	* dump.c (dequeue_and_dump): Handle INIT_EXPR.
+	* except.c (expand_throw): Use create_temporary_var.
+	* expr.c (cplus_expand_expr): Use build_{aggr,vec}_init.
+	* init.c (expand_vec_init_try_block): Remove.
+	(expand_vec_init_catch_clause): Likewise.
+	(get_temp_regvar): New function.
+	(begin_init_stmts): Likewise.
+	(finish_init_stmts): Likewise.
+	(perform_member_init): Use build_{aggr,vec}_init.  Build up tree
+	structure here.
+	(emit_base_init): Likewise.  Remove unused parameter.
+	(expand_virtual_init): Likewise.
+	(expand_cleanup_for_base): Use finish_subobject.
+	(expand_aggr_vbase_init_1): Simplify.
+	(construct_virtual_bases): Use tree-generating functions to build
+	up initialization.
+	(expand_aggr_init): Likewise.  Rename to build_aggr_init.
+	(expand_default_init): Likewise.
+	(expand_aggr_init_1): Likewise.
+	(expand_vec_init): Rename to build_vec_init.
+	* method.c (do_build_copy_constructor): Use tree-generating
+	functions.  Don't call clear_last_expr.
+	(do_build_assign_ref): Likewise.
+	(synthesize_method): Call clear_last_expr here.
+	* parse.y (base_init): Don't call clear_last_expr here.
+	(nodecls): Likewise.
+	* pt.c (tsubst_expr): Handle a TRY_BLOCK with CLEANUP_P set.
+	* semantics.c (do_pushlevel): Move to here.
+	(do_poplevel): Likewise.
+	(stmts_are_full_exprs_p): New variable.
+	(finish_expr_stmt): Handle logic for temoprary cleanup here.
+	(finish_for_stmt): Use finish_expr_stmt.
+	(finish_cleanup): New function.
+	(finish_function_try_block): Fix indentation.
+	(finish_subobject): New function.
+	(setup_vtbl_ptr): Call keep_next_level here.
+	(finish_stmt_expr): Handle a block with no scope inside the
+	statement-expression.
+	(expand_stmt): Handle a TRY_BLOCK with CLEANUP_P set.  Handle
+	SUBOBJECT.
+	* tree.c (search_tree): Handle INIT_EXPR.
+	(mapcar): Likewise.
+	* typeck.c (build_modify_expr): Don't build an RTL_EXPR.
+	* typeck2.c (store_init_value): Change expand_aggr_init to
+	build_aggr_init in comment.
+	
 1999-08-25  Mark Mitchell  <mark@codesourcery.com>
 
 	* dump.c (dequeue_and_dump): Dump TARGET_EXPRs.
