@@ -1,3 +1,389 @@
+2003-01-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa32-regs.h (REGNO_REG_CLASS, REG_CLASS_FROM_LETTER): Delete
+	duplicated code.
+
+2003-01-30  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_compute_initial_elimination_offset): If optimizing for
+	size, the link register is always saved if any other register is
+	saved.
+
+2003-01-30  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): Group together
+	optional and experimental flags.  Move trapv and bounds-check
+	out of this section.  Group floating point flags together.
+	(Code Gen Options): Move trapv and bounds-check to here.
+
+2003-01-30  Jerry Quinn  <jlquinn@optonline.net>
+
+	* gcc/doc/invoke.texi (Optimization Options): List -O levels
+	for each optimization flag.
+
+2003-01-30  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	PR target/9316 
+	* config/rs6000/rtems.h: Add CPP_OS_DEFAULT_SPEC.
+	* config/rs6000/sysv4.h: Add CPP_OS_RTEMS_SPEC.
+	* config/rs6000/t-rtems: New file. multilib variants to match OS.
+	* config.gcc (powerpc-*-rtems*): Use rs6000/t-rtems instead of
+	rs6000/t-ppcgas so we get the desired multilibs.
+
+2003-01-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/fp-bit.h (__make_dp): Declare if TMODES.
+
+2003-01-29	Steve Ellcey <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_rwreloc_section_type_flags): New.
+	* config/ia64/hpux.h (TARGET_SECTION_TYPE_FLAGS): New.
+
+2003-01-29	Steve Ellcey <sje@cup.hp.com>
+
+        * config/ia64/ia64.c (ia64_rwreloc_select_rtx_section): Rename
+        from ia64_aix_select_rtx_section.
+        (ia64_rwreloc_select_section): Simlarly; use default*_1 function
+        instead of saving and restoring flag_pic.
+        (ia64_rwreloc_unique_section): Similarly.
+        * config/ia64/aix.h (TARGET_ASM_SELECT_SECTION,
+        TARGET_ASM_UNIQUE_SECTION, TARGET_ASM_SELECT_RTX_SECTION): Update.
+        * config/ia64/hpux.h (TARGET_ASM_SELECT_SECTION,
+        TARGET_ASM_UNIQUE_SECTION, TARGET_ASM_SELECT_RTX_SECTION): New.
+
+2003-01-29  Joel Sherrill  <joel@OARcorp.com>
+
+	PR bootstrap/9296
+	* gthr-rtems.h: Define __GTHREAD_MUTEX_INIT.  Apparently no code
+	depended on it being defined until now.
+
+2003-01-29  Joel Sherrill  <joel@OARcorp.com>
+
+	PR target/9295
+	* config/mips/rtems.h: Predefine __USE_INIT_FINI__ so generic
+	RTEMS code knows which C++ initialization style the toolset
+	configuration is using.
+
+2003-01-29  Joel Sherrill  <joel@OARcorp.com>
+
+	PR bootstrap/9293
+	* config/m68k/t-crtstuff: Replace spaces with tabs, add 
+	 $(MULTILIB_CFLAGS) as compiler option and multilib crtbegin/end.o.
+
+2003-01-29  Joel Sherrill  <joel@OARcorp.com>
+
+	PR bootstrap/9292
+	* config.gcc (hppa1.1-rtems):  Did not include t-rtems nor enable
+	RTEMS threads.
+	* config/pa/rtems.h (LIB_SPEC): Use -N when linking.
+
+2003-01-25  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c (walk_tree): Add CHAR_TYPE.
+
+2003-01-28  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* doc/install.texi: Add documentation for installation into
+	tooldirs and with DESTDIR.
+
+2003-01-28  Andreas Schwab  <schwab@suse.de>
+
+        * config/m68k/m68k.md (tablejump+2): Don't sign extend an address
+        register.
+        * config/m68k/apollo68.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/mot3300.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Likewise.
+        * config/m68k/pbb.h (ASM_RETURN_CASE_JUMP): Likewise.
+
+2003-01-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (movti_string): Remove clobber.
+	* config/rs6000/rs6000.c (rs6000_emit_move, TImode): Explicitly
+	generate PARALLEL with clobber for TARGET_POWER.
+
+2003-01-28  Richard Henderson  <rth@redhat.com>
+ 
+	* ifcvt.c (noce_process_if_block): Re-add check vs X being changed
+	in no-else-block case.  Add commentary.
+
+2003-01-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.h (UNITS_PER_HWFPVALUE): Renamed from...
+	(UNITS_PER_FPVALUE): Defined as the width of a long double, or
+	zero if no hardware floating point.
+	(LONG_DUBLE_TYPE_SIZE): Set to 128 on N32 and N64.
+	(MAX_FIXED_MODE_SIZE): Define to LONG_DOUBLE_TYPE_SIZE.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Define.
+	(BIGGEST_ALIGNMENT): Same as LONG_DOUBLE_TYPE_SIZE.
+	(FUNCTION_VALUE_REGNO_P): Set for FP_RETURN+2 on N32 and N64.
+	* config/mips/iris6.h (MIPS_TFMODE_FORMAT): Define.
+	* config/mips/mips.c (override_options): Use it.
+	(mips_arg_info): Pass TFmode values in even FP registers on N32
+	and N64.
+	(mips_setup_incoming_varargs): Use UNITS_PER_HWFPVALUE.
+	(mips_va_start): Adjust alignment of ARG_POINTER_REGNUM.
+	(mips_va_arg): Use UNITS_PER_HWFPVALUE.  Impose additional
+	even-register-like alignment to 128-bit arguments.
+	(save_restore_insns): Use UNITS_PER_HWFPVALUE.
+	(mips_function_value): Likewise.  Return TFmode in $f0 and $f2
+	on N32 or N64.
+	* config/mips/_tilib.c (__negti2, __ashlti3, __lshrti3): New.
+	* config/mips/t-iris6 (LIB2FUNCS_EXTRA): Add _tilib.c.
+	(TPBIT): Set to tp-bit.c.
+	(tp-bit.c): Create out of fp-bit.c.
+
+2003-01-27  Gabriel Dos_Reis  <gdosreis@sophia.inria.fr>
+
+	* c-parse.in: Remove '%expect 32' directive when in objc mode.
+	
+2003-01-27  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcse.c (constprop_register): Check NEXT_INSN (insn) != NULL.
+
+2003-01-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR optimization/9090
+	* function.c (purge_addressof_1): After pushing an addressed register
+	onto the stack, simplify the result.
+
+2003-01-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* doc/extend.texi: Fix typo.
+
+2003-01-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* doc/cppopts.texi: Fix typo.
+	* doc/objc.texi: Likewise.
+	* doc/passes.texi: Likewise.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* real.c (ibm_extended_format): Add 53 to minimum exponent.
+	(encode_ibm_extended): Adjust.
+
+2003-01-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/gccint.texi: Update the copyright.
+
+2003-01-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/cpp.texi: Fix typos.
+	* doc/extend.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.in (ORDINARY_FLAGS_TO_PASS): Also pass DESTDIR.
+	(install-cpp, installdirs, install-common)
+	(install-driver, install-info, install-man)
+	(install-headers, install-include-dir, install-headers-tar)
+	(install-headers-cpio, install-headers-cp, install-mkheaders)
+	(install-collect2, uninstall): Prepend $(DESTDIR) to
+	destination paths in all (un)installation commands.
+	(install-driver): Rewrite $(LN) commands to support DESTDIR
+	with "ln" as well as with "ln -s".
+	(installdirs): Simply use mkinstalldirs.
+	(install-libgcc, install-multilib): Also pass DESTDIR.
+	* mklibgcc.in: Prepend $(DESTDIR) to $(libsubdir) in the
+	installation destination variable ldir.
+	* config/alpha/t-osf4 (SHLIB_INSTALL): Prepend $$(DESTDIR)
+	to $$(slibdir) in the installation commands.
+	* config/arm/t-netbsd (SHLIB_INSTALL): Likewise.
+	* config/ia64/t-hpux (SHLIB_INSTALL): Likewise.
+	* config/mips/t-iris5-6 (SHLIB_INSTALL): Likewise.
+	* config/pa/t-hpux-shlib (SHLIB_INSTALL): Likewise.
+	* config/rs6000/t-aix43 (SHLIB_INSTALL): Likewise.
+	* config/rs6000/t-aix52 (SHLIB_INSTALL): Likewise.
+	* config/t-slibgcc-elf-ver (SHLIB_INSTALL): Likewise.
+	* config/t-slibgcc-sld (SHLIB_INSTALL): Likewise.
+	* config/arc/t-arc (install-multilib-arc): Prepend $(DESTDIR) to
+	$(libsubdir) in the installation commands.
+
+2003-01-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fp-bit.h: Define macros for TFmode floating-point constants
+	in IBM-extended TFmode types.
+	(TMODES): Define if __LDBL_MANT_DIG__ has the newly-supported
+	widths.
+	* config/fp-bit.c (pack_d, unpack_d): Support IBM-extended
+	TFmode type.
+
+	* config/fp-bit.h: Define macros for TFmode floating-point
+	constants in IEEE quad TFmode type.  Declare functions according
+	to L_ macros.
+	(TMODES): Define if __LDBL_MANT_DIG__ is 113.
+	(TFtype, TItype, UTItype): Define if TMODES is defined.
+	(MAX_UDI_INT, MAX_DI_INT, BITS_PER_DI): Likewise.
+	(F_T_BITOFF, D_T_BITOFF): Define.
+	(IMPLICIT_1, IMPLICIT_2): Cast constants to types that are
+	guaranteed to be wide enough.
+	* config/fp-bit.c: Check for L_ macros for tf functions.
+	(__thenan_tf): New.
+	(nan): Adjust.
+	(pack_d, unpack_d): Support IEEE 854 quad type.
+	(_fpmul_parts): Support TFmode.  Compute exponent adjustment
+	from FRAC_NBITS, FRAC_BITS and NGARDS.
+	(usi_to_float): Cast constants to be shifted to fractype
+	instead of assuming long long is wide enough.
+	(sf_to_tf, df_to_tf, __make_tp, tf_to_df, tf_to_sf): New.
+
+	* Makefile.in (FPBIT_FUNCS): Added _sf_to_tf.
+	(DBBIT_FUNCS): Added _df_to_tf.
+	(TPBIT_FUNCS): New.
+	(libgcc.mk): Pass TPBIT and TPBIT_FUNCS down.
+	(LIBGCC_DEPS): Added TPBIT.
+	* mklibgcc.in: Support TPBIT and TPBIT_FUNCS.
+
+	* optabs.c (expand_binop) <add, sub>: Return xtarget if we haven't
+	been able to move the result to target.
+
+	* expr.c (emit_group_store): Initialize dst with CONST0_RTX
+	for the appropriate mode.
+
+	* calls.c (emit_library_call_value_1): Handle return values
+	in a PARALLEL.
+
+	* rtl.c (get_mode_alignment): Moved to...
+	* stor-layout.c: ... here.
+
+	* print-rtl.c (print_rtx): Don't print MEM details in
+	GENERATOR_FILEs.
+
+2003-01-26  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* df.c (df_uses_record): Handle CC0.
+
+Sat Jan 25 21:04:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+			      Eric Botcazou <ebotcazou@libertysurf.fr>
+	PR opt/8492
+	* gcse.c (one_cprop_pass): Delete unreachable blocks.
+
+2003-01-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+        * reload.c (maybe_memory_address_p): New function.
+        (find_reloads_address): Use it instead of memory_address_p.
+
+2003-01-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        * final.c (shorten_branches): Align the address of code label
+        when computing initial lengths and addresses.
+
+2003-01-25  Richard Henderson  <rth@redhat.com>
+
+	2002-02-19  Robert Lipe  <robertlipe@usa.net>
+	* config/i386/t-sco5gas: (CRTSTUFF_T_CFLAGS_S): Delete -mcoff.
+
+2003-01-23  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/crtend.asm [HAVE_INITFINI_ARRAY]: Make
+	__do_global_ctors_aux hidden global and don't put it in
+	.init_array.
+	* config/ia64/crtbegin.asm [HAVE_INITFINI_ARRAY]: Put it here
+	instead so that it comes first.
+
+2003-01-25  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* config/c4x/c4x.h (ASM_SPEC): Fix for new gas format.
+
+2003-01-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* calls.c (fix_unsafe_tree): Prototype.
+	* loop.c (loop_invariant_p): Avoid signed/unsigned warning.
+
+2003-01-24  Richard Henderson  <rth@redhat.com>
+
+	PR optimization/4382
+	* tree-inline.c (find_builtin_longjmp_call_1): New.
+	(find_builtin_longjmp_call): New.
+	(inlinable_function_p): Use it.
+
+2003-01-24  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.in (HAVE_AS_TLS): Add s390-*-* and s390x-*-* cases.
+	* configure: Regenerate.
+
+	* config/s390/s390-protos.h (tls_symbolic_operand): Add prototype.
+	(tls_symbolic_reference_mentioned_p): Add prototype.
+	(s390_tls_get_offset): Add prototype.
+	(emit_pic_move): Remove prototype, replace by ...
+	(emit_symbolic_move): .. this new prototype.
+
+	* config/s390/s390.c (TARGET_HAVE_TLS): Conditionally define.
+	(tls_model_chars): New global variable.
+	(s390_encode_section_info): Encode TLS model.
+	Use targetm.binds_local_p to check for local symbols.
+	(s390_strip_name_encoding): New function.
+	(TARGET_STRIP_NAME_ENCODING): Define.
+
+	(get_thread_pointer): New function.
+	(legitimize_tls_address): New function.	
+	(legitimize_address): Call it.
+	(emit_pic_move): Remove, replace by ...
+	(emit_symbolic_move): ... this new function.
+
+	(larl_operand): Handle TLS operands.
+	(legitimate_constant_p): Likewise.
+	(s390_decompose_address): Likewise.
+	(s390_cannot_force_const_mem): New function.
+	(TARGET_CANNOT_FORCE_CONST_MEM): Define.
+
+	(s390_output_symbolic_const): Handle TLS unspecs.
+	(print_operand): New code 'J'.
+	(machine_function): Add struct member 'some_ld_name'.
+	(get_some_local_dynamic_name, get_some_local_dynamic_name_1): New.
+
+	(enum s390_builtin): New type.
+	(code_for_builtin_64, code_for_builtin_31): New global variables.
+	(s390_init_builtins, s390_expand_builtin): New functions.
+	(TARGET_INIT_BUILTINS, TARGET_EXPAND_BUILTIN): Define.
+
+	* config/s390/s390.h (TLS_SYMBOLIC_CONST): New macro.
+	(ASM_OUTPUT_LABELREF): Define.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY): Handle TLS constants.
+
+	* config/s390/s390.md: Define TLS UNSPEC constants.
+	("movdi", "movsi"): Handle TLS operands.
+	("get_tp_64", "get_tp_31", "set_tp_64", "set_tp_31"): New insns.
+	("*tls_load_64", "*tls_load_31"): New insns.
+	("call_value_tls", "call_value_tls_exp"): New expanders.
+	("brasl_tls", "bras_tls", "basr_tls_64", "basr_tls_31", 
+	"bas_tls_64", "bas_tls_31"): New insns.
+
+2003-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* doc/passes.texi: Fix typo.
+
+2003-01-24  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* timevar.def (TV_NAME_LOOKUP, TV_OVERLOAD,
+	TV_TEMPLATE_INSTANTIATION):  New timevar_id eumerations.
+	* timevar.h (POP_TIMEVAR_AND_RETURN): New macro.
+	* timevar.c (timevar_pop): Be verbose when aborting.  Include
+	"toplev.h". 
+
+2003-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* doc/bugreport.texi: Use @command instead of @code for commands.
+	* doc/collect2.texi: Likewise.
+	* doc/headerdirs.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/standards.texi: Likewise.
+	* doc/tm.texi: Likewise.
+	* doc/trouble.texi: Likewise.
+
+2003-01-23  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR java/6748
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Don't destroy
+	regs->nip. Fix rt_sigreturn frame layout. Add support for newer
+	kernels.
+
 2003-01-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR other/7341
@@ -39,14 +425,14 @@ Mon Jan 20 14:36:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-21  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
 
-        PR opt/7507
-        * calls.c (fix_unsafe_tree): Split out from ...
-        (expand_call): ... here.  Use it on the function address too.
+	PR opt/7507
+	* calls.c (fix_unsafe_tree): Split out from ...
+	(expand_call): ... here.  Use it on the function address too.
 
 2003-01-20  Richard Henderson  <rth@redhat.com>
 
-        PR opt/7154
-        * stmt.c (expand_asm_operands): Validize memory operands.
+	PR opt/7154
+	* stmt.c (expand_asm_operands): Validize memory operands.
 
 2003-01-20  Richard Henderson  <rth@redhat.com>
 
@@ -104,8 +490,8 @@ Mon Jan 20 14:36:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-16  Kaz Kojima  <kkojima@gcc.gnu.org>
 
-        * config/sh/sh.c (sh_initialize_trampoline): Emit rotrdi3_mextr
-        instead of rotldi3_mextr.
+	* config/sh/sh.c (sh_initialize_trampoline): Emit rotrdi3_mextr
+	instead of rotldi3_mextr.
 
 2003-01-16  Stephane Carrez  <stcarrez@nerim.fr>
 
@@ -180,8 +566,8 @@ Mon Jan 20 14:36:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-10  Andrew Haley  <aph@redhat.com>
 
-        * config/i386/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Rename
-        registers to be in correct order.  Add rip.
+	* config/i386/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Rename
+	registers to be in correct order.  Add rip.
 
 2003-01-14  Denis Chertykov  <denisc@overta.ru>
 
@@ -189,7 +575,7 @@ Mon Jan 20 14:36:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 	(VALID_MACHINE_TYPE_ATTRIBUTE): Remove.
 
 	* config/ip2k/ip2k.c (ip2k_attribute_table): New table of
-        attributes.
+	attributes.
 	(TARGET_ATTRIBUTE_TABLE): New macro.
 	(valid_machine_type_attribute): Remove.
 	(valid_machine_decl_attribute): Remove.
@@ -295,9 +681,9 @@ Wed Jan  8 14:09:30 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-08  Danny Smith  <dannysmith@users.sourceforge.net>
 
-        PR optimization/8750
-        * config/i386/i386.c (ix86_expand_prologue): Don't allow
-        scheduling pass to move insns across __alloca call.
+	PR optimization/8750
+	* config/i386/i386.c (ix86_expand_prologue): Don't allow
+	scheduling pass to move insns across __alloca call.
 
 2003-01-08  Jeff Sturm  <jsturm@one-point.com>
 
@@ -335,16 +721,16 @@ Wed Jan  8 19:53:56 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 2003-01-07  Sylvain Pion <Sylvain.Pion@mpi-sb.mpg.de>
   
-        * config/i386/i386.c (ix86_init_mmx_sse_builtins):
-        __builtin_ia32_ldmxcsr and __builtin_ia32_stmxcsr are SSE, not MXX.
-        * config/i386/i386.md (ldmxcsr, stmxcsr): SSE, not MMX.
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins):
+	__builtin_ia32_ldmxcsr and __builtin_ia32_stmxcsr are SSE, not MXX.
+	* config/i386/i386.md (ldmxcsr, stmxcsr): SSE, not MMX.
 
 2003-01-07  Benjamin Kosnik  <bkoz@redhat.com>
-            Sunil Davasam  <sunil.k.davasam@intel.com>
+	    Sunil Davasam  <sunil.k.davasam@intel.com>
 
-        PR libstdc++/9076 
-        * unwind-dw2.c (execute_cfa_program): DW_CFA_undefined,
-        DW_CFA_same_value, read next and ignore.
+	PR libstdc++/9076 
+	* unwind-dw2.c (execute_cfa_program): DW_CFA_undefined,
+	DW_CFA_same_value, read next and ignore.
 
 2003-01-07  Richard Henderson  <rth@redhat.com>
 
@@ -354,9 +740,9 @@ Wed Jan  8 19:53:56 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	Segher Boessenkool  <segher@koffie.nl>
 
-        * config/rs6000/rs6000.c (rs6000_reg_names): Add missing registers.
-        (alt_reg_names): Ditto, fix formatting.
-        * config/rs6000/rs6000.h (DEBUG_REGISTER_NAMES): Fix formatting.
+	* config/rs6000/rs6000.c (rs6000_reg_names): Add missing registers.
+	(alt_reg_names): Ditto, fix formatting.
+	* config/rs6000/rs6000.h (DEBUG_REGISTER_NAMES): Fix formatting.
 
 2003-01-06  Bruce Korb  <bkorb@gnu.org>
 
@@ -1017,7 +1403,7 @@ Wed Dec  4 15:20:54 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-12-03  Aldy Hernandez  <aldyh@redhat.com>
 
-        * config/rs6000/spe.md (*movv1di_const0): New pattern.
+	* config/rs6000/spe.md (*movv1di_const0): New pattern.
 
 2002-12-03  Richard Henderson  <rth@redhat.com>
 

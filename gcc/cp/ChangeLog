@@ -1,3 +1,45 @@
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8849
+	* error.c (dump_expr): Handle BASELINK.
+	* pt.c (resolve_overloaded_unification): Handle FUNCTION_DECL.
+
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9453
+	* friend.c (is_friend): Always accept when SUPPLICANT is still
+	a TEMPLATE_DECL.
+	* pt.c (push_access_scope_real): Call push_to_top_level for
+	function in namespace scope.
+	(push_access_scope): Remove ARGS argument, all caller adjusted.
+	(pop_access_scope): Call pop_from_top_level for function in
+	namespace scope.
+	(regenerate_decl_from_template): Use push_access_scope_real.
+	
+2003-01-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9437
+	* pt.c (unify): Don't unify '*T' with 'U C::*'.
+
+2003-01-27  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/47
+	* cp-tree.h (lookup_nested_field): Add declaration.
+	* decl.c (lookup_name_real): Call lookup_nested_field.
+	* search.c (lookup_nested_field): Add function.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (c++.install-common, c++.install-man)
+	(c++.uninstall): Prepend $(DESTDIR) to destination paths in
+	all (un)installation commands.
+	(c++.install-common): Rewrite $(LN) commands to support
+	DESTDIR with "ln" as well as with "ln -s".
+
+2003-01-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl2.c (check_classfn): Fix uninitialized warning.
+
 2003-01-22  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9328

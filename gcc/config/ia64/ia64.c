@@ -166,13 +166,16 @@ static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
-static void ia64_aix_select_section PARAMS ((tree, int,
-					     unsigned HOST_WIDE_INT))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_unique_section PARAMS ((tree, int))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
+static void ia64_rwreloc_select_section PARAMS ((tree, int,
 					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					             unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static unsigned int ia64_rwreloc_section_type_flags
+     PARAMS ((tree, const char *, int))
      ATTRIBUTE_UNUSED;
 
 static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
@@ -8180,34 +8183,28 @@ ia64_select_rtx_section (mode, x, align)
     default_elf_select_rtx_section (mode, x, align);
 }
 
-/* It is illegal to have relocations in shared segments on AIX.
+/* It is illegal to have relocations in shared segments on AIX and HPUX.
    Pretend flag_pic is always set.  */
 
 static void
-ia64_aix_select_section (exp, reloc, align)
+ia64_rwreloc_select_section (exp, reloc, align)
      tree exp;
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_elf_select_section (exp, reloc, align);
-  flag_pic = save_pic;
+  default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
-ia64_aix_unique_section (decl, reloc)
+ia64_rwreloc_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_unique_section (decl, reloc);
-  flag_pic = save_pic;
+  default_unique_section_1 (decl, reloc, true);
 }
 
 static void
-ia64_aix_select_rtx_section (mode, x, align)
+ia64_rwreloc_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
      unsigned HOST_WIDE_INT align;
@@ -8217,6 +8214,16 @@ ia64_aix_select_rtx_section (mode, x, align)
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
 }
+
+static unsigned int
+ia64_rwreloc_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  return default_section_type_flags_1 (decl, name, reloc, true);
+}
+
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for

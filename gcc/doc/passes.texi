@@ -206,7 +206,7 @@ the input file name.
 
 @cindex sibling call optimization
 @item
-Sibiling call optimization.   This pass performs tail recursion
+Sibling call optimization.   This pass performs tail recursion
 elimination, and tail and sibling call optimizations.  The purpose of
 these optimizations is to reduce the overhead of function calls,
 whenever possible.
@@ -288,7 +288,7 @@ the input file name.
 SSA Conditional Constant Propagation.  Turned on by the @option{-fssa-ccp}
 option.  This pass performs conditional constant propagation to simplify
 instructions including conditional branches.  This pass is more aggressive
-than the constant propagation done by the CSE and GCSE pases, but operates
+than the constant propagation done by the CSE and GCSE passes, but operates
 in linear time.
 
 @opindex dW
@@ -460,7 +460,7 @@ appending @samp{.sched} to the input file name.
 
 @cindex register allocation
 @item
-Register allocation.  These passes make sure that all occurences of pseudo
+Register allocation.  These passes make sure that all occurrences of pseudo
 registers are eliminated, either by allocating them to a hard register,
 replacing them by an equivalent expression (e.g.@: a constant) or by placing
 them on the stack.  This is done in several subpasses:

@@ -1,3 +1,80 @@
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9433
+	* libsupc++/tinfo.cc (__vmi_class_type_info::__do_dyncast): Cope
+	with bases which are very ambiguous.
+
+2003-01-28  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* src/Makefile.am (CONFIG_CXXFLAGS): Reverse order of
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@.
+	* libsupc++/Makefile.am (CONFIG_CXXFLAGS): Likewise.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (glibcpp_toolexeclibdir): Instead of
+	$(MULTISUBDIR), use `$CC -print-multi-os-directory`, unless
+	version_specific_libs is enabled.
+	* aclocal.m4, configure: Rebuilt.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* include/Makefile.am (install-data-local): Prepend
+	$(DESTDIR) to destination paths in all (un)installation
+	commands.  Use ${c_base_builddir} and ${std_builddir}
+	as destination subdirectories to achieve consistency with
+	preceding mkinstalldirs commands.  No effect because both
+	variables contain "." only.
+	* include/Makefile.in: Regenerate.
+
+2003-01-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	Bulk documentation merge (copy) from trunk.
+	* docs/doxygen/tables.html, docs/doxygen/user.cfg.in,
+	docs/html/configopts.html, docs/html/debug.html,
+	docs/html/documentation.html, docs/html/17_intro/howto.html,
+	docs/html/19_diagnostics/howto.html, docs/html/ext/sgiexts.html:
+	Merge from trunk.
+
+2003-01-23  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9322
+	* include/std/std_streambuf.h
+	(basic_streambuf::basic_streambuf,
+	basic_streambuf::~basic_streambuf,
+	basic_streambuf::getloc, basic_streambuf::imbue):
+	Remove _M_buf_locale_init use.
+	* include/bits/fstream.tcc (basic_filebuf::imbue):  Likewise
+	* testsuite/27_io/filebuf_virtuals.cc (test08):  Add.
+	* testsuite/27_io/streambuf_members.cc (test08):  Add.
+	* testsuite/27_io/stringbuf_virtuals.cc (test08):  Add.
+
+2003-01-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Revert include ordering.
+	* config/locale/generic/c_locale.h: Add include guards.
+	* config/locale/gnu/c_locale.h: Same.
+	* include/bits/locale_classes.h: Remove cctype include.
+	* include/std/std_iosfwd.h: Add c++locale.h, cctype includes.
+	* include/std/std_fstream.h: Remove streambuf include.
+	* include/std/std_sstream.h: Remove streambuf include.
+
+2003-01-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Match 3.2.0 ABI.
+	* include/bits/stl_alloc.h: Revert.
+
+	* include/bits/codecvt.h: Revert.
+	* config/locale/gnu/codecvt_members.cc: Revert.
+	* src/codecvt.cc: Revert.
+	* src/localename.cc: Revert.
+
+	* include/bits/ios_base.h (ios_base::~ios_base): Revert.
+
+	* config/linker-map.gnu: Mostly match 3_2-branch file.
+	
 2003-01-22  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/bits/locale_facets.h: Move non-facet classes requiring

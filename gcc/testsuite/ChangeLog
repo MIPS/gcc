@@ -1,3 +1,75 @@
+2003-01-31  Paolo Carlini  <pcarlini@unitus.it>
+
+	Further tweaks for Bison-1.875.
+	* g++.dg/lookup/using2.C: Test for "(parse|syntax) error".
+	* g++.dg/other/do1.C: Likewise.
+	* g++.dg/parse/angle-bracket.C: Likewise.
+	* g++.dg/template/typename3.C: Likewise.
+
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8849
+	* g++.dg/template/ptrmem4.C: New test.
+
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9453
+	* g++.dg/template/friend14.C: New test.
+	* g++.dg/template/friend15.C: New test.
+	* g++.old-deja/g++.other/defarg1.C: Adjust error message.
+
+2003-01-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9437
+	* g++.dg/template/unify4.C: New test.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/dcast1.C: New test.
+
+2003-01-28  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/9258
+	* g77.dg/pr9258.f: New test.
+
+2003-01-27  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/47
+	* g++.old-deja/g++.other/lookup24.C: New test.
+
+2003-01-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/7227
+	* gcc.dg/uninit-C.c: New test.
+	
+Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/8492
+	* gcc.c-torture/compile/20030125-1.c
+
+2003-01-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030123-1.c: New test.
+
+2003-01-25  Paolo Carlini  <pcarlini@unitus.it>
+
+	Tweaks for Bison-1.875. From the NEWS file:
+ 	"- `parse error' -> `syntax error'
+	Bison now uniformly uses the term `syntax error'"
+	* gcc.dg/cpp/19990413-1.c: Test for "(parse|syntax) error".
+	* gcc.dg/cpp/digraph2.c: Likewise.
+	* gcc.dg/cpp/direct2.c: Likewise.
+	* gcc.dg/cpp/paste4.c: Likewise.
+	* gcc.dg/c90-restrict-1.c: Likewise.
+	* gcc.dg/c99-func-2.c: Likewise.
+	* gcc.dg/noncompile/920721-2.c: Likewise.
+	* gcc.dg/noncompile/930622-2.c: Likewise.
+	* gcc.dg/noncompile/940112-1.c: Likewise.
+	* gcc.dg/noncompile/950921-1.c: Likewise.
+	* gcc.dg/noncompile/951123-1.c: Likewise.
+	* gcc.dg/noncompile/971104-1.c: Likewise.
+	* gcc.dg/noncompile/990416-1.c: Likewise.
+
 2003-01-22  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9328

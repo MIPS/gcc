@@ -1,3 +1,19 @@
+2003-01-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Document fixing PR fortran/7681
+	and PR optimization/9258.
+
+2003-01-26  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* lang-specs.h: Revert change to solve 9038.
+	* news.texi: Document this.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (f77.install-common, f77.install-info)
+	(f77.install-man, f77.uninstall): Prepend $(DESTDIR) to
+	destination paths in all (un)installation commands.
+
 2003-01-05  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	PR Fortran/9038
