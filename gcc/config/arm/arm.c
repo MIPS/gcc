@@ -144,6 +144,9 @@ static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void emit_constant_insn (rtx cond, rtx pattern);
 
+#ifdef OBJECT_FORMAT_ELF
+static void arm_elf_asm_constructor (rtx, int);
+#endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
 #endif
@@ -11035,6 +11038,26 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
     }
 
   return default_assemble_integer (x, size, aligned_p);
+}
+
+
+/* Add a function to the list of static constructors.  */
+
+static void
+arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+{
+  if (!TARGET_AAPCS_BASED)
+    {
+      default_named_section_asm_out_constructor (symbol, priority);
+      return;
+    }
+
+  /* Put these in the .init_array section, using a special relocation.  */
+  ctors_section ();
+  assemble_align (POINTER_SIZE);
+  fputs ("\t.word\t", asm_out_file);
+  output_addr_const (asm_out_file, symbol);
+  fputs ("(target1)\n", asm_out_file);
 }
 #endif
 

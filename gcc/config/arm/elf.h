@@ -124,6 +124,10 @@
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 
+/* Output an element in the static constructor array.  */
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR arm_elf_asm_constructor
+
 /* For PIC code we need to explicitly specify (PLT) and (GOT) relocs.  */
 #define NEED_PLT_RELOC	flag_pic
 #define NEED_GOT_RELOC	flag_pic
@@ -147,4 +151,5 @@
     }							\
   while (0)
 
-#define SUPPORTS_INIT_PRIORITY 1
+/* The EABI doesn't provide a way of implementing init_priority.  */
+#define SUPPORTS_INIT_PRIORITY (!TARGET_AAPCS_BASED)

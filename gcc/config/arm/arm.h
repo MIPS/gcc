@@ -2112,6 +2112,38 @@ typedef struct
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
 
+/* The EABI specifies that constructors should go in .init_array.
+   Other targets use .ctors for compatibility.  */
+#undef CTORS_SECTION_ASM_OP
+#define CTORS_SECTION_ASM_OP (TARGET_AAPCS_BASED \
+			      ? "\t.section\t.init_array,\"aw\",%init_array" \
+			      : "\t.section\t.ctors,\"aw\",%progbits")
+
+/* There macros are used in target files.  We need to define them here
+   because CTORS_SECTION_ASM_OP is not a constant.  The code is identical
+   to the code in crtstuff.c, but duplicated here to avoid depending on
+   TARGET_AAPCS_BASED.  */
+
+#ifdef __ARM_EABI__
+#define CTORS_SECTION_FOR_TARGET "\t.section\t.init_array,\"aw\",%init_array"
+#else
+#define CTORS_SECTION_FOR_TARGET "\t.section\t.ctors,\"aw\",%progbits"
+#endif
+
+#define CTOR_LIST_END \
+static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { }; \
+asm (CTORS_SECTION_FOR_TARGET); \
+STATIC func_ptr __CTOR_END__[1] \
+  __attribute__((aligned(sizeof(func_ptr)))) \
+  = { (func_ptr) 0 };
+#define CTOR_LIST_BEGIN \
+static func_ptr force_to_data[1] __attribute__ ((__unused__)) = { }; \
+asm (CTORS_SECTION_FOR_TARGET); \
+STATIC func_ptr __CTOR_LIST__[1] \
+  __attribute__ ((__unused__, aligned(sizeof(func_ptr)))) \
+  = { (func_ptr) (-1) };
+
+
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
 

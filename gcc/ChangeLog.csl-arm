@@ -1,3 +1,11 @@
+2004-09-25  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_elf_asm_constructor): New function.
+	* config/arm/arm.h (CTORS_SECTION_ASM_OP): Define.
+	(CTORS_SECTION_FOR_TARGET, CTOR_LIST_END, CTOR_LIST_BEGIN): Define.
+	* config/arm/elf.h (TARGET_ASM_CONSTRUCTOR): Define.
+	(SUPPORTS_INIT_PRIORITY): Evaluate to false for EABI based targets.
+
 2004-09-24  Paul Brook  <paul@codesourcery.com>
 
 	* vasasm.c (default_unique_section_1): Don't use .gnu.linkonce
