@@ -1,6 +1,6 @@
 /* With tree-ssa, gcc.dg/20000724-1.c fails because we miss a VUSE
    of x in the asm statement.  */
-/* { dg-do compile } */
+/* { dg-do compile { target i?86-*-* } } */
 /* { dg-options "-O1 -fdump-tree-ssa1-vops" } */
 struct s {
   int a;
