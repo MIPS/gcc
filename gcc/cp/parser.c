@@ -10992,7 +10992,7 @@ cp_parser_member_declaration (parser)
 	     a class-declaration.  */
 	  type = check_tag_decl (decl_specifiers, &friend_p);
 	  /* If not, the user should have had a declarator.  */
-	  if (!type)
+	  if (!type || !declares_class_or_enum)
 	    cp_error ("expected declarator");
 	  /* Nested classes have already been added to the class, but
 	     a `friend' needs to be explicitly registered.  */
