@@ -1,3 +1,14 @@
+2005-03-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.c (arm_all_abis): Add aapcs-linux.
+	(arm_override_options): Use TARGET_AAPCS_BASED.
+	* config/arm/arm.h (enum arm_abi_type): Add ARM_ABI_AAPCS_LINUX.
+	(PTRDIFF_TYPE): Use int for AAPCS.
+	(DEFAULT_SHORT_ENUMS): Use false for aapcs-linux.
+	* config/arm/linux-eabi.h (ARM_DEFAULT_ABI, WCHAR_TYPE): Define.
+	(DEFAULT_SHORT_ENUMS): Delete.
+	* doc/invoke.texi (ARM Options): Document -mabi=aapcs-linux.
+
 2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/arm/linux-elf.h (ARM_FUNCTION_PROFILER): Do not use (PLT)

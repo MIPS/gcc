@@ -628,7 +628,8 @@ static const struct abi_name arm_all_abis[] =
   {"apcs-gnu",    ARM_ABI_APCS},
   {"atpcs",   ARM_ABI_ATPCS},
   {"aapcs",   ARM_ABI_AAPCS},
-  {"iwmmxt",  ARM_ABI_IWMMXT}
+  {"iwmmxt",  ARM_ABI_IWMMXT},
+  {"aapcs-linux",   ARM_ABI_AAPCS_LINUX}
 };
 
 /* Return the number of bits set in VALUE.  */
@@ -1109,7 +1110,7 @@ arm_override_options (void)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
   
   /* Override the default structure alignment for AAPCS ABI.  */
-  if (arm_abi == ARM_ABI_AAPCS)
+  if (TARGET_AAPCS_BASED)
     arm_structure_size_boundary = 8;
 
   if (structure_size_string != NULL)

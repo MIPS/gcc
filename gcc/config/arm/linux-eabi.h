@@ -36,6 +36,11 @@
 #undef TARGET_DEFAULT_FLOAT_ABI
 #define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
 
+/* We default to the "aapcs-linux" ABI so that enums are int-sized by
+   default.  */
+#undef ARM_DEFAULT_ABI
+#define ARM_DEFAULT_ABI ARM_ABI_AAPCS_LINUX
+
 #undef SUBTARGET_EXTRA_LINK_SPEC
 #define SUBTARGET_EXTRA_LINK_SPEC "-m armelf_linux_eabi"
 
@@ -53,5 +58,7 @@
    do not use -lfloat.  */
 #undef LIBGCC_SPEC
 
-/* Do not use short enums for the GNU/Linux platform.  */
-#define DEFAULT_SHORT_ENUMS 0
+/* Use the AAPCS type for wchar_t, or the previous Linux default for
+   non-AAPCS.  */
+#undef WCHAR_TYPE
+#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long int")

@@ -490,7 +490,8 @@ enum arm_abi_type
   ARM_ABI_APCS,
   ARM_ABI_ATPCS,
   ARM_ABI_AAPCS,
-  ARM_ABI_IWMMXT
+  ARM_ABI_IWMMXT,
+  ARM_ABI_AAPCS_LINUX
 };
 
 extern enum arm_abi_type arm_abi;
@@ -716,8 +717,12 @@ extern const char * structure_size_string;
 #define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
 #endif
 
+#ifndef PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? "int" : "long int")
+#endif
+
 #ifndef DEFAULT_SHORT_ENUMS
-#define DEFAULT_SHORT_ENUMS TARGET_AAPCS_BASED
+#define DEFAULT_SHORT_ENUMS (TARGET_AAPCS_BASED && arm_abi != ARM_ABI_AAPCS_LINUX)
 #endif
 
 /* AAPCS requires that structure alignment is affected by bitfields.  */
