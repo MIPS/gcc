@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "toplev.h"
 #include "basic-block.h"
+#include "resource.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -2715,7 +2716,7 @@ recog_next_insn (insn, n, newinsn)
 /* Perform the peephole2 optimization pass. */
 void
 peephole2_optimize (dump_file)
-     FILE *dump_file;
+     FILE *dump_file ATTRIBUTE_UNUSED;
 {
   rtx insn;
   rtx epilogue_insn = 0;

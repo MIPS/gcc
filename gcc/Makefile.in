@@ -1580,9 +1580,10 @@ final.o : final.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h intl.h \
    defaults.h toplev.h reload.h dwarfout.h dwarf2out.h sdbout.h dbxout.h
 recog.o : recog.c $(CONFIG_H) system.h $(RTL_H)  \
    $(REGS_H) $(RECOG_H) hard-reg-set.h flags.h insn-config.h insn-attr.h \
-   insn-flags.h insn-codes.h real.h toplev.h
+   insn-flags.h insn-codes.h real.h toplev.h resource.h
 reg-stack.o : reg-stack.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) recog.h \
-   $(REGS_H) hard-reg-set.h flags.h insn-config.h insn-flags.h toplev.h
+   $(REGS_H) hard-reg-set.h flags.h insn-config.h insn-flags.h toplev.h \
+   varray.h
 dyn-string.o: dyn-string.c dyn-string.h $(CONFIG_H) system.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) \

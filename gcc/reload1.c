@@ -1242,7 +1242,7 @@ static void
 maybe_fix_stack_asms ()
 {
 #ifdef STACK_REGS
-  char *constraints[MAX_RECOG_OPERANDS];
+  const char *constraints[MAX_RECOG_OPERANDS];
   enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
   struct insn_chain *chain;
 
@@ -1277,7 +1277,7 @@ maybe_fix_stack_asms ()
       /* For every operand, see what registers are allowed.  */
       for (i = 0; i < noperands; i++)
 	{
-	  char *p = constraints[i];
+	  const char *p = constraints[i];
 	  /* For every alternative, we compute the class of registers allowed
 	     for reloading in CLS, and merge its contents into the reg set
 	     ALLOWED.  */

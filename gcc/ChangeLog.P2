@@ -1,3 +1,46 @@
+1999-06-26  Richard Henderson  <rth@cygnus.com>
+
+	* loop.c (loop_emit_jump_insn_before): New function.
+	(loop_emit_jump_insn_after): Likewise.
+	(check_dbra_loop): Use it.
+	(instrument_loop_bct): Likewise.
+	(fixup_decr_loop_info): Likewise.
+	(check_decr_loop): Likewise.  Delete unused variables.
+
+	* reg-stack.c: Merge Jan Hubicka's patch of 12 April.
+
+	* Makefile.in (recog.o): Depend on resource.h.
+	(reg-stack.o): Depend on varray.h.
+	* recog.c: Include resource.h.
+	(peephole2_optimize): Mark `dump_file' unused.
+	* reload1.c (maybe_fix_stack_asms): Mark `constraints' const.
+	* rtl.c (shallow_copy_rtx): Delete unused variable.
+	* rtl.h (stack_regs_mentioned_p): Delete prototype.
+
+	* i386.c (hi_reg_name): Mark const.
+	(qi_reg_name, qi_high_reg_name): Likewise.
+	(ix86_cpu_string, ix86_arch_string): Likewise.
+	(ix86_reg_alloc_order, ix86_regparm_string): Likewise.
+	(ix86_align_loops_string, ix86_align_jumps_string): Likewise.
+	(ix86_branch_cost_string, ix86_align_funcs_string): Likewise.
+	(ix86_expand_prologue): Delete unused variables.
+	(output_fp_compare): Likewise.
+	(ix86_expand_int_movcc): Likewise.
+	(ix86_output_block_profiler): Mark args unused.
+	(ix86_sched_init, ix86_sched_reorder): Likewise.
+	* i386.h (TARGET_SWITCHES): Merge documentation changes.
+	(TARGET_OPTIONS): Likewise.
+	(pic_symbolic_operand): Declare.
+	(fcmov_comparison_operator, arith_or_logical_operator): Likewise.
+	(ix86_split_ashldi, ix86_split_ashrdi, ix86_split_lshrdi): Likewise.
+	(ix86_attr_length_default, ix86_sched_init): Likewise.
+	(ix86_sched_reorder, ix86_variable_issue): Likewise.
+	* i386.md (pushsf): Add default case.
+	(pushdf): Likewise.
+	(andsi_1): Cast constants to HOST_WIDE_INT for warning prevention.
+	(extzv): Remove unused variable.
+	(prologue_get_pc): Likewise.
+
 1999-06-21  Richard Henderson  <rth@cygnus.com>
 
 	* Pass 0 merge checked into egcs.
