@@ -1,3 +1,12 @@
+2002-11-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c: Convert debug defines and ifdefs into
+	dump_file use.
+
+	* tree.h: Add TDI_pta.
+
+	* tree-dump.c: Add dump-tree-pta and TDI_pta.
+
 2002-11-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa-pre.o, tree-cfg.o, gimplify.o, tree-ssa-dce.o,
