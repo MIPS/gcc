@@ -1,5 +1,10 @@
 2004-07-30  Dalibor Topic <robilad@kaffe.org>
 
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+	(filenameFilterCallback): Declare local variable accepted before use.
+
+2004-07-30  Dalibor Topic <robilad@kaffe.org>
+
 	* gnu/java/awt/ComponentDataBlitOp.java:
 	Cleaned up imports.
 
