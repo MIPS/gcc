@@ -365,6 +365,33 @@ find_var_scev_info (tree var)
   return &res->chrec;
 }
 
+/* Tries to express CHREC in wider type TYPE.  */
+
+tree
+count_ev_in_wider_type (tree type, tree chrec)
+{
+  tree base, step;
+  struct loop *loop;
+
+  if (!evolution_function_is_affine_p (chrec))
+    return convert (type, chrec);
+
+  base = CHREC_LEFT (chrec);
+  step = CHREC_RIGHT (chrec);
+  loop = loop_from_num (current_loops, CHREC_VARIABLE (chrec));
+
+  /* TODO -- if we knew the statement at that the conversion occurs,
+     we could pass it to can_count_iv_in_wider_type and get a better
+     result.  */
+  step = can_count_iv_in_wider_type (loop, type, base, step, NULL_TREE);
+  if (!step)
+    return convert (type, chrec);
+  base = chrec_convert (type, base);
+
+  return build_polynomial_chrec (CHREC_VARIABLE (chrec),
+				 base, step);
+}
+
 /* Determines whether the chrec contains symbolic names defined in
    LOOP_NB.  */
 
@@ -3006,6 +3033,9 @@ number_of_iterations_in_loop (struct loop *loop)
   
   test = TREE_OPERAND (cond, 0);
   exit = loop_exit_edge (loop, 0);
+  if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
+    return set_nb_iterations_in_loop (loop, chrec_top);
+
   if (exit->flags & EDGE_TRUE_VALUE)
     test = invert_truthvalue (test);
 
@@ -3385,6 +3415,23 @@ scev_initialize (struct loops *loops)
       flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
 }
 
+/* Cleans up the information cached by the scalar evolutions analysis.  */
+
+void
+scev_reset (void)
+{
+  unsigned i;
+  struct loop *loop;
+
+  htab_empty (scalar_evolution_info);
+  for (i = 1; i < current_loops->num; i++)
+    {
+      loop = current_loops->parray[i];
+      if (loop)
+	loop->nb_iterations = NULL_TREE;
+    }
+}
+
 /* Initialize the analysis of scalar evolutions.  */
 
 static void
@@ -3394,6 +3441,46 @@ scev_init (void)
   if (!current_loops)
     return;
   scev_initialize (current_loops);
+}
+
+/* Checks whether OP behaves as a simple affine iv of LOOP in STMT and returns
+   its BASE and STEP if possible.  */
+
+bool
+simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
+{
+  basic_block bb = bb_for_stmt (stmt);
+  tree type, ev;
+
+  *base = NULL_TREE;
+  *step = NULL_TREE;
+
+  type = TREE_TYPE (op);
+  if (TREE_CODE (type) != INTEGER_TYPE
+      && TREE_CODE (type) != POINTER_TYPE)
+    return false;
+
+  ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, op);
+  if (tree_does_not_contain_chrecs (ev)
+      && !chrec_contains_symbols_defined_in_loop (ev, loop->num))
+    {
+      *base = ev;
+      return true;
+    }
+
+  if (TREE_CODE (ev) != POLYNOMIAL_CHREC
+      || CHREC_VARIABLE (ev) != (unsigned) loop->num)
+    return false;
+
+  *step = CHREC_RIGHT (ev);
+  if (TREE_CODE (*step) != INTEGER_CST)
+    return false;
+  *base = CHREC_LEFT (ev);
+  if (tree_contains_chrecs (*base)
+      || chrec_contains_symbols_defined_in_loop (*base, loop->num))
+    return false;
+
+  return true;
 }
 
 /* Runs the analysis of scalar evolutions.  */

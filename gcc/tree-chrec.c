@@ -37,7 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 
-
 /* Extended folder for chrecs.  */
 
 /* Determines whether CST is not a constant evolution.  */
@@ -185,8 +184,8 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 	return build_polynomial_chrec 
 	  (CHREC_VARIABLE (poly1), 
 	   chrec_fold_minus (type, poly0, CHREC_LEFT (poly1)),
-	   chrec_fold_multiply (integer_type_node, CHREC_RIGHT (poly1), 
-				integer_minus_one_node));
+	   chrec_fold_multiply (type, CHREC_RIGHT (poly1), 
+				convert (type, integer_minus_one_node)));
     }
   
   if (CHREC_VARIABLE (poly0) > CHREC_VARIABLE (poly1))
@@ -1012,7 +1011,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return integer_zero_node;
+	    return convert (type, integer_zero_node);
 	  
 	  return build_polynomial_chrec 
 	    (CHREC_VARIABLE (op0), 
@@ -1033,7 +1032,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return integer_zero_node;
+	    return convert (type, integer_zero_node);
 	  
 	  return build_peeled_chrec 
 	    (CHREC_VARIABLE (op0),
@@ -1054,7 +1053,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return integer_zero_node;
+	    return convert (type, integer_zero_node);
 	  
 	  return build_exponential_chrec 
 	    (CHREC_VARIABLE (op0),
@@ -1090,7 +1089,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return integer_zero_node;
+	    return convert (type, integer_zero_node);
 	  return chrec_fold_multiply_ival_cst (type, op0, op1);
 	}
       
@@ -1099,7 +1098,7 @@ chrec_fold_multiply (tree type,
 	return op1;
       
       if (integer_zerop (op0))
-	return integer_zero_node;
+	return convert (type, integer_zero_node);
       
       switch (TREE_CODE (op1))
 	{
@@ -1128,7 +1127,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return integer_zero_node;
+	    return convert (type, integer_zero_node);
 	  return tree_fold_multiply (type, op0, op1);
 	}
     }
@@ -1583,6 +1582,8 @@ tree
 chrec_merge (tree chrec1, 
 	     tree chrec2)
 {
+  tree type = chrec_type (chrec1);
+
   if (chrec1 == chrec_top
       || chrec2 == chrec_top)
     return chrec_top;
@@ -1613,13 +1614,15 @@ chrec_merge (tree chrec1,
 	  return build_polynomial_chrec 
 	    (CHREC_VARIABLE (chrec2),
 	     chrec_merge (chrec1, CHREC_LEFT (chrec2)),
-	     chrec_merge (integer_zero_node, CHREC_RIGHT (chrec2)));
+	     chrec_merge (convert (type, integer_zero_node),
+			  CHREC_RIGHT (chrec2)));
 	  
 	case EXPONENTIAL_CHREC:
 	  return build_exponential_chrec 
 	    (CHREC_VARIABLE (chrec2),
 	     chrec_merge (chrec1, CHREC_LEFT (chrec2)),
-	     chrec_merge (integer_one_node, CHREC_RIGHT (chrec2)));
+	     chrec_merge (convert (type, integer_one_node),
+			  CHREC_RIGHT (chrec2)));
 
 	default:
 	  return chrec_top;
@@ -1633,7 +1636,8 @@ chrec_merge (tree chrec1,
 	  return build_polynomial_chrec 
 	    (CHREC_VARIABLE (chrec1),
 	     chrec_merge (CHREC_LEFT (chrec1), chrec2),
-	     chrec_merge (CHREC_RIGHT (chrec1), integer_zero_node));
+	     chrec_merge (CHREC_RIGHT (chrec1),
+			  convert (type, integer_zero_node)));
 	  
 	case POLYNOMIAL_CHREC:
 	  if (CHREC_VARIABLE (chrec1) == CHREC_VARIABLE (chrec2))
@@ -1645,12 +1649,14 @@ chrec_merge (tree chrec1,
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (chrec2),
 	       chrec_merge (chrec1, CHREC_LEFT (chrec2)),
-	       chrec_merge (integer_zero_node, CHREC_RIGHT (chrec2)));
+	       chrec_merge (convert (type, integer_zero_node),
+			    CHREC_RIGHT (chrec2)));
 	  else
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (chrec1),
 	       chrec_merge (CHREC_LEFT (chrec1), chrec2),
-	       chrec_merge (CHREC_RIGHT (chrec1), integer_zero_node));
+	       chrec_merge (CHREC_RIGHT (chrec1),
+			    convert (type, integer_zero_node)));
 	  
 	case EXPONENTIAL_CHREC:
 	  return chrec_top;
@@ -1965,7 +1971,7 @@ chrec_convert (tree type,
     return chrec;
 
   if (TYPE_PRECISION (ct) < TYPE_PRECISION (type))
-    return convert (type, chrec);
+    return count_ev_in_wider_type (type, chrec);
 
   switch (TREE_CODE (chrec))
     {

@@ -209,7 +209,6 @@ static void df_bitmaps_free (struct df *, int);
 static void df_free (struct df *);
 static void df_alloc (struct df *, int);
 
-static rtx df_reg_clobber_gen (unsigned int);
 static rtx df_reg_use_gen (unsigned int);
 
 static inline struct df_link *df_link_create (struct ref *, struct df_link *);
@@ -244,7 +243,7 @@ static void df_bb_du_chain_create (struct df *, basic_block, bitmap);
 static void df_du_chain_create (struct df *, bitmap);
 static void df_bb_ud_chain_create (struct df *, basic_block);
 static void df_ud_chain_create (struct df *, bitmap);
-static void df_bb_rd_local_compute (struct df *, basic_block);
+static void df_bb_rd_local_compute (struct df *, basic_block, bitmap);
 static void df_rd_local_compute (struct df *, bitmap);
 static void df_bb_ru_local_compute (struct df *, basic_block);
 static void df_ru_local_compute (struct df *, bitmap);
@@ -607,19 +606,6 @@ static rtx df_reg_use_gen (unsigned int regno)
   reg = regno_reg_rtx[regno];
 
   use = gen_rtx_USE (GET_MODE (reg), reg);
-  return use;
-}
-
-
-/* Return a CLOBBER for register REGNO.  */
-static rtx df_reg_clobber_gen (unsigned int regno)
-{
-  rtx reg;
-  rtx use;
-
-  reg = regno_reg_rtx[regno];
-
-  use = gen_rtx_CLOBBER (GET_MODE (reg), reg);
   return use;
 }
 
@@ -1226,6 +1212,11 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 	{
 	  rtx note;
 
+	  /* The problem here is that there are awfully many hard registers
+	     clobbered by call and "defs" created through them are not
+	     interesting.  So we must just make sure we include them when
+	     computing kill bitmaps.  */
+#if 0
 	  if (df->flags & DF_HARD_REGS)
 	    {
 	      /* Kill all registers invalidated by a call.  */
@@ -1236,6 +1227,7 @@ df_insn_refs_record (struct df *df, basic_block bb, rtx insn)
 		    df_defs_record (df, reg_clob, bb, insn);
 		  }
 	    }
+#endif
 
 	  /* There may be extra registers to be clobbered.  */
 	  for (note = CALL_INSN_FUNCTION_USAGE (insn);
@@ -1634,12 +1626,14 @@ df_lr_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 
 /* Compute local reaching def info for basic block BB.  */
 static void
-df_bb_rd_local_compute (struct df *df, basic_block bb)
+df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 {
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
+  bitmap seen = BITMAP_XMALLOC ();
+  bool call_seen = false;
 
-  FOR_BB_INSNS (bb, insn)
+  FOR_BB_INSNS_REVERSE (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
       struct df_link *def_link;
@@ -1653,6 +1647,12 @@ df_bb_rd_local_compute (struct df *df, basic_block bb)
 	  unsigned int regno = DF_REF_REGNO (def);
 	  struct df_link *def2_link;
 
+	  if (bitmap_bit_p (seen, regno)
+	      || (call_seen
+		  && regno < FIRST_PSEUDO_REGISTER
+		  && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)))
+	    continue;
+
 	  for (def2_link = df->regs[regno].defs; def2_link;
 	       def2_link = def2_link->next)
 	    {
@@ -1663,14 +1663,21 @@ df_bb_rd_local_compute (struct df *df, basic_block bb)
 		 be killed by this BB but it keeps things a lot
 		 simpler.  */
 	      bitmap_set_bit (bb_info->rd_kill, DF_REF_ID (def2));
-
-	      /* Zap from the set of gens for this BB.  */
-	      bitmap_clear_bit (bb_info->rd_gen, DF_REF_ID (def2));
 	    }
 
 	  bitmap_set_bit (bb_info->rd_gen, DF_REF_ID (def));
+	  bitmap_set_bit (seen, regno);
+	}
+
+      if (GET_CODE (insn) == CALL_INSN && (df->flags & DF_HARD_REGS))
+	{
+	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
+			    call_killed_defs, BITMAP_IOR);
+	  call_seen = 1;
 	}
     }
+
+  BITMAP_XFREE (seen);
 }
 
 
@@ -1679,11 +1686,32 @@ static void
 df_rd_local_compute (struct df *df, bitmap blocks)
 {
   basic_block bb;
+  bitmap killed_by_call = NULL;
+  unsigned regno;
+  struct df_link *def_link;
+
+  if (df->flags & DF_HARD_REGS)
+    {
+      killed_by_call = BITMAP_XMALLOC ();
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+	{
+	  if (!TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+	    continue;
+	  
+	  for (def_link = df->regs[regno].defs;
+	       def_link;
+	       def_link = def_link->next)
+	    bitmap_set_bit (killed_by_call, DF_REF_ID (def_link->ref));
+	}
+    }
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
   {
-    df_bb_rd_local_compute (df, bb);
+    df_bb_rd_local_compute (df, bb, killed_by_call);
   });
+
+  if (df->flags & DF_HARD_REGS)
+    BITMAP_XFREE (killed_by_call);
 }
 
 
@@ -2374,6 +2402,8 @@ df_analyze_subcfg (struct df *df, bitmap blocks, int flags)
 	    }
 	}
     }
+  
+  df->flags = flags;
 
   df_reg_def_chain_clean (df);
   df_reg_use_chain_clean (df);

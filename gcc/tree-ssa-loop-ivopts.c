@@ -121,15 +121,6 @@ struct version_info
   bool preserve_biv;	/* For the original biv, whether to preserve it.  */
 };
 
-/* Description of number of iterations of a loop.  */
-struct tree_niter_desc
-{
-  tree assumptions;	/* Assumptions for the number of iterations be valid.  */
-  tree may_be_zero;	/* Condition under that the loop exits in the first
-			   iteration.  */
-  tree niter;		/* Number of iterations.  */
-};
-
 /* Information attached to loop.  */
 struct loop_data
 {
@@ -252,9 +243,7 @@ static unsigned spill_cost;	/* The cost for register when we need to spill.  */
 
 static varray_type decl_rtl_to_reset;
 
-#define SWAP(X, Y) do { void *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
-
-static tree force_gimple_operand (tree, tree *, bool);
+static tree force_gimple_operand (tree, tree *, bool, tree);
 
 /* Number of uses recorded in DATA.  */
 
@@ -606,7 +595,7 @@ idx_force_simple (tree base ATTRIBUTE_UNUSED, tree *idx, void *data)
   struct idx_fs_data *d = data;
   tree stmts;
 
-  *idx = force_gimple_operand (*idx, &stmts, true);
+  *idx = force_gimple_operand (*idx, &stmts, true, NULL_TREE);
 
   if (stmts)
     {
@@ -640,10 +629,11 @@ update_addressable_flag (tree expr)
 
 /* Expands EXPR to list of gimple statements STMTS, forcing it to become
    a gimple operand that is returned.  If SIMPLE is true, force the operand
-   to be either ssa_name or integer constant.  */
+   to be either ssa_name or integer constant.  If VAR is not NULL, make the
+   base variable of the final destination be VAR if possible.  */
 
 static tree
-force_gimple_operand (tree expr, tree *stmts, bool simple)
+force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 {
   enum tree_code code;
   char class;
@@ -676,20 +666,28 @@ force_gimple_operand (tree expr, tree *stmts, bool simple)
     {
       op0 = TREE_OPERAND (expr, 0);
       if (TREE_CODE (op0) == INDIRECT_REF)
-	return force_gimple_operand (TREE_OPERAND (op0, 0), stmts, simple);
+	return force_gimple_operand (TREE_OPERAND (op0, 0), stmts, simple,
+				     NULL_TREE);
     }
 
-  atmp = create_tmp_var (TREE_TYPE (expr), "fgotmp");
-  add_referenced_tmp_var (atmp);
+  if (var)
+    atmp = var;
+  else
+    {
+      atmp = create_tmp_var (TREE_TYPE (expr), "fgotmp");
+      add_referenced_tmp_var (atmp);
+    }
 
   switch (class)
     {
     case '1':
     case '2':
-      op0 = force_gimple_operand (TREE_OPERAND (expr, 0), &stmts0, false);
+      op0 = force_gimple_operand (TREE_OPERAND (expr, 0), &stmts0, false,
+				  NULL_TREE);
       if (class == '2')
 	{
-	  op1 = force_gimple_operand (TREE_OPERAND (expr, 1), &stmts1, false);
+	  op1 = force_gimple_operand (TREE_OPERAND (expr, 1), &stmts1, false,
+				      NULL_TREE);
 	  rhs = build (code, TREE_TYPE (expr), op0, op1);
 	}
       else
@@ -938,6 +936,8 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
   VARRAY_GENERIC_PTR_NOGC_INIT (decl_rtl_to_reset, 20, "decl_rtl_to_reset");
 
   scev_initialize (loops);
+  estimate_numbers_of_iterations (loops);
+  scev_reset ();
 }
 
 /* Allocates an induction variable with given initial value BASE and step STEP
@@ -1151,33 +1151,6 @@ mark_bivs (struct ivopts_data *data)
     }
 }
 
-/* Finds definition of VAR and fills in BASE and STEP accordingly.  */
-
-static bool
-get_var_def (struct ivopts_data *data, tree var, tree *base, tree *step)
-{
-  struct iv *iv;
-  
-  if (is_gimple_min_invariant (var))
-    {
-      *base = var;
-      *step = NULL_TREE;
-      return true;
-    }
-
-  if (TREE_CODE (var) != SSA_NAME)
-    return false;
-
-  iv = get_iv (data, var);
-  if (!iv)
-    return false;
-
-  *base = iv->base;
-  *step = iv->step;
-
-  return true;
-}
-
 /* Checks whether STMT defines a linear induction variable and stores its
    parameters to BASE and STEP.  */
 
@@ -1185,9 +1158,8 @@ static bool
 find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
 			tree *base, tree *step)
 {
-  tree lhs, type, ev;
+  tree lhs;
   struct loop *loop = data->current_loop;
-  basic_block bb = bb_for_stmt (stmt);
 
   *base = NULL_TREE;
   *step = NULL_TREE;
@@ -1199,29 +1171,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  type = TREE_TYPE (lhs);
-  if (TREE_CODE (type) != INTEGER_TYPE
-      && TREE_CODE (type) != POINTER_TYPE)
-    return false;
-
-  ev = analyze_scalar_evolution_in_loop (loop, bb->loop_father, lhs);
-  if (tree_does_not_contain_chrecs (ev)
-      && !chrec_contains_symbols (ev))
-    {
-      *base = ev;
-      return true;
-    }
-
-  if (TREE_CODE (ev) != POLYNOMIAL_CHREC
-      || CHREC_VARIABLE (ev) != (unsigned) loop->num)
-    return false;
-
-  *step = CHREC_RIGHT (ev);
-  if (TREE_CODE (*step) != INTEGER_CST)
-    return false;
-  *base = CHREC_LEFT (ev);
-  if (tree_contains_chrecs (*base)
-      || chrec_contains_symbols (*base))
+  if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), base, step))
     return false;
 
   if (contains_abnormal_ssa_name_p (*base))
@@ -1268,386 +1218,18 @@ find_givs (struct ivopts_data *data)
   free (body);
 }
 
-/* Computes inverse of X modulo 2^s, where MASK = 2^s-1.  */
-
-static tree
-inverse (tree x, tree mask)
-{
-  tree type = TREE_TYPE (x);
-  tree ctr = EXEC_BINARY (RSHIFT_EXPR, type, mask, integer_one_node);
-  tree rslt = convert (type, integer_one_node);
-
-  while (integer_nonzerop (ctr))
-    {
-      rslt = EXEC_BINARY (MULT_EXPR, type, rslt, x);
-      rslt = EXEC_BINARY (BIT_AND_EXPR, type, rslt, mask);
-      x = EXEC_BINARY (MULT_EXPR, type, x, x);
-      x = EXEC_BINARY (BIT_AND_EXPR, type, x, mask);
-      ctr = EXEC_BINARY (RSHIFT_EXPR, type, ctr, integer_one_node);
-    }
-
-  return rslt;
-}
-
-/* Determine the number of iterations according to condition (for staying
-   inside loop) BASE0 + STEP0 * i (CODE) BASE1 + STEP1 * i, computed in TYPE.
-   Store the results to NITER.  */
-
-static void
-number_of_iterations_cond (tree type, tree base0, tree step0,
-			   enum tree_code code, tree base1, tree step1,
-			   struct tree_niter_desc *niter)
-{
-  tree step, delta, mmin, mmax;
-  tree may_xform, bound, s, d, tmp;
-  bool was_sharp = false;
-  tree assumption;
-  tree assumptions = boolean_true_node;
-  tree noloop_assumptions = boolean_false_node;
-  tree unsigned_step_type;
-
-  /* The meaning of these assumptions is this:
-     if !assumptions
-       then the rest of information does not have to be valid
-     if noloop_assumptions then the loop does not have to roll
-       (but it is only conservative approximation, i.e. it only says that
-       if !noloop_assumptions, then the loop does not end before the computed
-       number of iterations)  */
-
-  /* Make < comparison from > ones.  */
-  if (code == GE_EXPR
-      || code == GT_EXPR)
-    {
-      SWAP (base0, base1);
-      SWAP (step0, step1);
-      code = swap_tree_comparison (code);
-    }
-
-  /* We can take care of the case of two induction variables chasing each other
-     if the test is NE. I have never seen a loop using it, but still it is
-     cool.  */
-  if (!zero_p (step0) && !zero_p (step1))
-    {
-      if (code != NE_EXPR)
-	return;
-
-      step0 = EXEC_BINARY (MINUS_EXPR, type, step0, step1);
-      step1 = NULL_TREE;
-    }
-
-  /* If the result is a constant,  the loop is weird.  More precise handling
-     would be possible, but the situation is not common enough to waste time
-     on it.  */
-  if (zero_p (step0) && zero_p (step1))
-    return;
-
-  /* Ignore loops of while (i-- < 10) type.  */
-  if (code != NE_EXPR)
-    {
-      if (step0 && !tree_expr_nonnegative_p (step0))
-	return;
-
-      if (!zero_p (step1) && tree_expr_nonnegative_p (step1))
-	return;
-    }
-
-  /* For pointers these are NULL.  We assume pointer arithmetics never
-     overflows.  */
-  mmin = TYPE_MIN_VALUE (type);
-  mmax = TYPE_MAX_VALUE (type);
-
-  /* Some more condition normalization.  We must record some assumptions
-     due to overflows.  */
-
-  if (code == LT_EXPR)
-    {
-      /* We want to take care only of <=; this is easy,
-	 as in cases the overflow would make the transformation unsafe the loop
-	 does not roll.  Seemingly it would make more sense to want to take
-	 care of <, as NE is more simmilar to it, but the problem is that here
-	 the transformation would be more difficult due to possibly infinite
-	 loops.  */
-      if (zero_p (step0))
-	{
-	  if (mmax)
-	    assumption = fold (build (EQ_EXPR, boolean_type_node, base0, mmax));
-	  else
-	    assumption = boolean_true_node;
-	  if (integer_nonzerop (assumption))
-	    goto zero_iter;
-	  base0 = fold (build (PLUS_EXPR, type, base0,
-			       convert (type, integer_one_node)));
-	}
-      else
-	{
-	  if (mmin)
-	    assumption = fold (build (EQ_EXPR, boolean_type_node, base1, mmin));
-	  else
-	    assumption = boolean_true_node;
-	  if (integer_nonzerop (assumption))
-	    goto zero_iter;
-	  base1 = fold (build (MINUS_EXPR, type, base1,
-			       convert (type, integer_one_node)));
-	}
-      noloop_assumptions = assumption;
-      code = LE_EXPR;
-
-      /* It will be useful to be able to tell the difference once more in
-	 <= -> != reduction.  */
-      was_sharp = true;
-    }
-
-  /* Take care of trivially infinite loops.  */
-  if (code != NE_EXPR)
-    {
-      if (zero_p (step0)
-	  && mmin
-	  && operand_equal_p (base0, mmin, 0))
-	return;
-      if (zero_p (step1)
-	  && mmax
-	  && operand_equal_p (base1, mmax, 0))
-	return;
-    }
-
-  /* If we can we want to take care of NE conditions instead of size
-     comparisons, as they are much more friendly (most importantly
-     this takes care of special handling of loops with step 1).  We can
-     do it if we first check that upper bound is greater or equal to
-     lower bound, their difference is constant c modulo step and that
-     there is not an overflow.  */
-  if (code != NE_EXPR)
-    {
-      if (zero_p (step0))
-	step = EXEC_UNARY (NEGATE_EXPR, type, step1);
-      else
-	step = step0;
-      delta = build (MINUS_EXPR, type, base1, base0);
-      delta = fold (build (FLOOR_MOD_EXPR, type, delta, step));
-      may_xform = boolean_false_node;
-
-      if (TREE_CODE (delta) == INTEGER_CST)
-	{
-	  tmp = EXEC_BINARY (MINUS_EXPR, type, step,
-			     convert (type, integer_one_node));
-	  if (was_sharp
-	      && operand_equal_p (delta, tmp, 0))
-	    {
-	      /* A special case.  We have transformed condition of type
-		 for (i = 0; i < 4; i += 4)
-		 into
-		 for (i = 0; i <= 3; i += 4)
-		 obviously if the test for overflow during that transformation
-		 passed, we cannot overflow here.  Most importantly any
-		 loop with sharp end condition and step 1 falls into this
-		 cathegory, so handling this case specially is definitely
-		 worth the troubles.  */
-	      may_xform = boolean_true_node;
-	    }
-	  else if (zero_p (step0))
-	    {
-	      if (!mmin)
-		may_xform = boolean_true_node;
-	      else
-		{
-		  bound = EXEC_BINARY (PLUS_EXPR, type, mmin, step);
-		  bound = EXEC_BINARY (MINUS_EXPR, type, bound, delta);
-		  may_xform = fold (build (LE_EXPR, boolean_type_node,
-					   bound, base0));
-		}
-	    }
-	  else
-	    {
-	      if (!mmax)
-		may_xform = boolean_true_node;
-	      else
-		{
-		  bound = EXEC_BINARY (MINUS_EXPR, type, mmax, step);
-		  bound = EXEC_BINARY (PLUS_EXPR, type, bound, delta);
-		  may_xform = fold (build (LE_EXPR, boolean_type_node,
-					   base1, bound));
-		}
-	    }
-	}
-
-      if (!integer_zerop (may_xform))
-	{
-	  /* We perform the transformation always provided that it is not
-	     completely senseless.  This is OK, as we would need this assumption
-	     to determine the number of iterations anyway.  */
-	  if (!integer_nonzerop (may_xform))
-	    assumptions = may_xform;
-
-	  if (zero_p (step0))
-	    {
-	      base0 = build (PLUS_EXPR, type, base0, delta);
-	      base0 = fold (build (MINUS_EXPR, type, base0, step));
-	    }
-	  else
-	    {
-	      base1 = build (MINUS_EXPR, type, base1, delta);
-	      base1 = fold (build (PLUS_EXPR, type, base1, step));
-	    }
-
-	  assumption = fold (build (GT_EXPR, boolean_type_node, base0, base1));
-	  noloop_assumptions = fold (build (TRUTH_OR_EXPR, boolean_type_node,
-					    noloop_assumptions, assumption));
-	  code = NE_EXPR;
-	}
-    }
-
-  /* Count the number of iterations.  */
-  if (code == NE_EXPR)
-    {
-      /* Everything we do here is just arithmetics modulo size of mode.  This
-	 makes us able to do more involved computations of number of iterations
-	 than in other cases.  First transform the condition into shape
-	 s * i <> c, with s positive.  */
-      base1 = fold (build (MINUS_EXPR, type, base1, base0));
-      base0 = NULL_TREE;
-      if (!zero_p (step1))
-  	step0 = EXEC_UNARY (NEGATE_EXPR, type, step1);
-      step1 = NULL_TREE;
-      if (!tree_expr_nonnegative_p (step0))
-	{
-	  step0 = EXEC_UNARY (NEGATE_EXPR, type, step0);
-	  base1 = fold (build1 (NEGATE_EXPR, type, base1));
-	}
-
-      /* Let nsd (s, size of mode) = d.  If d does not divide c, the loop
-	 is infinite.  Otherwise, the number of iterations is
-	 (inverse(s/d) * (c/d)) mod (size of mode/d).  */
-      s = step0;
-      d = integer_one_node;
-      unsigned_step_type = make_unsigned_type (TYPE_PRECISION (type));
-      bound = convert (unsigned_step_type, build_int_2 (~0, ~0));
-      while (1)
-	{
-	  tmp = EXEC_BINARY (BIT_AND_EXPR, type, s, integer_one_node);
-	  if (integer_nonzerop (tmp))
-	    break;
-	  
-	  s = EXEC_BINARY (RSHIFT_EXPR, type, s, integer_one_node);
-	  d = EXEC_BINARY (LSHIFT_EXPR, type, d, integer_one_node);
-	  bound = EXEC_BINARY (RSHIFT_EXPR, type, bound, integer_one_node);
-	}
-
-      tmp = fold (build (EXACT_DIV_EXPR, type, base1, d));
-      tmp = fold (build (MULT_EXPR, type, tmp, inverse (s, bound)));
-      niter->niter = fold (build (BIT_AND_EXPR, type, tmp, bound));
-    }
-  else
-    {
-      if (zero_p (step1))
-	/* Condition in shape a + s * i <= b
-	   We must know that b + s does not overflow and a <= b + s and then we
-	   can compute number of iterations as (b + s - a) / s.  (It might
-	   seem that we in fact could be more clever about testing the b + s
-	   overflow condition using some information about b - a mod s,
-	   but it was already taken into account during LE -> NE transform).  */
-	{
-	  if (mmax)
-	    {
-	      bound = EXEC_BINARY (MINUS_EXPR, type, mmax, step0);
-	      assumption = fold (build (LE_EXPR, boolean_type_node,
-					base1, bound));
-	      assumptions = fold (build (TRUTH_AND_EXPR, boolean_type_node,
-					 assumptions, assumption));
-	    }
-	  step = step0;
-	  tmp = fold (build (PLUS_EXPR, type, base1, step0));
-	  assumption = fold (build (GT_EXPR, boolean_type_node, base0, tmp));
-	  delta = fold (build (PLUS_EXPR, type, base1, step));
-	  delta = fold (build (MINUS_EXPR, type, delta, base0));
-	}
-      else
-	{
-	  /* Condition in shape a <= b - s * i
-	     We must know that a - s does not overflow and a - s <= b and then
-	     we can again compute number of iterations as (b - (a - s)) / s.  */
-	  if (mmin)
-	    {
-	      bound = EXEC_BINARY (MINUS_EXPR, type, mmin, step1);
-	      assumption = fold (build (LE_EXPR, boolean_type_node,
-					bound, base0));
-	      assumptions = fold (build (TRUTH_AND_EXPR, boolean_type_node,
-					 assumptions, assumption));
-	    }
-	  step = fold (build1 (NEGATE_EXPR, type, step1));
-	  tmp = fold (build (PLUS_EXPR, type, base0, step1));
-	  assumption = fold (build (GT_EXPR, boolean_type_node, tmp, base1));
-	  delta = fold (build (MINUS_EXPR, type, base0, step));
-	  delta = fold (build (MINUS_EXPR, type, base1, delta));
-	}
-      noloop_assumptions = fold (build (TRUTH_OR_EXPR, boolean_type_node,
-					noloop_assumptions, assumption));
-      delta = fold (build (FLOOR_DIV_EXPR, type, delta, step));
-      niter->niter = delta;
-    }
-
-  niter->assumptions = assumptions;
-  niter->may_be_zero = noloop_assumptions;
-  return;
-
-zero_iter:
-  niter->assumptions = boolean_true_node;
-  niter->may_be_zero = boolean_true_node;
-  niter->niter = convert (type, integer_zero_node);
-  return;
-}
-
 /* Determine the number of iterations of the current loop.  */
 
 static void
 determine_number_of_iterations (struct ivopts_data *data)
 {
-  tree stmt, cond, type;
-  tree op0, base0, step0;
-  tree op1, base1, step1;
-  enum tree_code code;
   struct loop *loop = data->current_loop;
+  edge exit = loop_data (loop)->single_exit;
 
-  if (!loop_data (loop)->single_exit)
+  if (!exit)
     return;
 
-  stmt = last_stmt (loop_data (loop)->single_exit->src);
-  if (!stmt || TREE_CODE (stmt) != COND_EXPR)
-    return;
-
-  /* We want the condition for staying inside loop.  */
-  cond = COND_EXPR_COND (stmt);
-  if (loop_data (loop)->single_exit->flags & EDGE_TRUE_VALUE)
-    cond = invert_truthvalue (cond);
-
-  code = TREE_CODE (cond);
-  switch (code)
-    {
-    case GT_EXPR:
-    case GE_EXPR:
-    case NE_EXPR:
-    case LT_EXPR:
-    case LE_EXPR:
-      break;
-
-    default:
-      return;
-    }
-  
-  op0 = TREE_OPERAND (cond, 0);
-  op1 = TREE_OPERAND (cond, 1);
-  type = TREE_TYPE (op0);
-
-  if (TREE_CODE (type) != INTEGER_TYPE
-    && TREE_CODE (type) != POINTER_TYPE)
-    return;
-      
-  if (!get_var_def (data, op0, &base0, &step0))
-    return;
-  if (!get_var_def (data, op1, &base1, &step1))
-    return;
-
-  number_of_iterations_cond (type, base0, step0, code, base1, step1,
-			     &loop_data (loop)->niter);
+  number_of_iterations_exit (loop, exit, &loop_data (loop)->niter);
 }
 
 /* For each ssa name defined in LOOP determines whether it is an induction
@@ -1888,18 +1470,24 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
    initial ones.  Returns false when the value of the index cannot be determined.
    Callback for for_each_index.  */
 
-static struct ivopts_data *ifs_ivopts_data;
+struct ifs_ivopts_data
+{
+  struct ivopts_data *ivopts_data;
+  tree stmt;
+  tree *step_p;
+};
+
 static bool
 idx_find_step (tree base, tree *idx, void *data)
 {
-  tree *step_p = data;
+  struct ifs_ivopts_data *dta = data;
   struct iv *iv;
-  tree step, type, iv_type;
+  tree step, type, iv_type, iv_step;
   
   if (TREE_CODE (*idx) != SSA_NAME)
     return true;
 
-  iv = get_iv (ifs_ivopts_data, *idx);
+  iv = get_iv (dta->ivopts_data, *idx);
   if (!iv)
     return false;
 
@@ -1922,36 +1510,23 @@ idx_find_step (tree base, tree *idx, void *data)
     }
 
   if (TYPE_PRECISION (iv_type) < TYPE_PRECISION (type))
+    iv_step = can_count_iv_in_wider_type (dta->ivopts_data->current_loop,
+					  type, iv->base, iv->step, dta->stmt);
+  else
+    iv_step = convert (iv_type, iv->step);
+
+  if (!iv_step)
     {
       /* The index might wrap.  */
-
-      /* TODO -- this is especially bad for targets where
-	 sizeof (int) < sizeof (void *).  We should at least:
-
-	 1) Use the number of iterations of the current loop to prove
-	    that the index cannot wrap.
-	 2) Record whether only a signed arithmetics is used during computation
-	    of the index (behavior of overflows during signed arithmetics is
-	    undefined, so we may assume that it does not happen). Problems:
-	    * The optimizations may create overflowing signed arithmetics.
-	    * And they may also remove the no-op casts used to make the
-	      behavior of overflows defined.
-	 3) Use array bounds when known (if the memory is accessed at each
-	    iteration, we know the index cannot come out of them).  Better,
-	    use this to estimate the number of iterations of the loop.
-	 4) If all indices are of the same type, we can also rewrite the
-	    access as &base + (extend) (step * i), and optimize the step * i
-	    part separately.  */
       return false;
     }
 
-  step = EXEC_BINARY (MULT_EXPR, type, step,
-		      convert (type, iv->step));
+  step = EXEC_BINARY (MULT_EXPR, type, step, iv_step);
 
-  if (!*step_p)
-    *step_p = step;
+  if (!*dta->step_p)
+    *dta->step_p = step;
   else
-    *step_p = EXEC_BINARY (PLUS_EXPR, type, *step_p, step);
+    *dta->step_p = EXEC_BINARY (PLUS_EXPR, type, *dta->step_p, step);
 
   return true;
 }
@@ -1974,6 +1549,7 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 {
   tree base = unshare_expr (*op_p), step = NULL;
   struct iv *civ;
+  struct ifs_ivopts_data ifs_ivopts_data;
 
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
@@ -1981,8 +1557,10 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
       && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1)))
     goto fail;
 
-  ifs_ivopts_data = data;
-  if (!for_each_index (&base, idx_find_step, &step)
+  ifs_ivopts_data.ivopts_data = data;
+  ifs_ivopts_data.stmt = stmt;
+  ifs_ivopts_data.step_p = &step;
+  if (!for_each_index (&base, idx_find_step, &ifs_ivopts_data)
       || zero_p (step))
     goto fail;
 
@@ -3122,16 +2700,71 @@ static unsigned
 force_var_cost (struct ivopts_data *data,
 		tree expr, bitmap *depends_on)
 {
+  static bool costs_initialized = false;
+  static unsigned integer_cost;
+  static unsigned symbol_cost;
+  static unsigned address_cost;
+
+  if (!costs_initialized)
+    {
+      tree var = create_tmp_var_raw (integer_type_node, "test_var");
+      rtx x = gen_rtx_SYMBOL_REF (Pmode, "test_var");
+      tree addr;
+      tree type = build_pointer_type (integer_type_node);
+
+      integer_cost = computation_cost (convert (integer_type_node,
+						build_int_2 (2000, 0)));
+
+      SET_DECL_RTL (var, x);
+      TREE_STATIC (var) = 1;
+      addr = build (ADDR_EXPR, type, var);
+      symbol_cost = computation_cost (addr);
+
+      address_cost = computation_cost (build (PLUS_EXPR, type,
+					      addr,
+					      convert (type,
+						       build_int_2 (2000, 0))));
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "force_var_cost:\n");
+	  fprintf (dump_file, "  integer %d\n", (int) integer_cost);
+	  fprintf (dump_file, "  symbol %d\n", (int) symbol_cost);
+	  fprintf (dump_file, "  address %d\n", (int) address_cost);
+	  fprintf (dump_file, "  other %d\n", (int) spill_cost);
+	  fprintf (dump_file, "\n");
+	}
+
+      costs_initialized = true;
+    }
+
   if (depends_on)
     {
       fd_ivopts_data = data;
       walk_tree (&expr, find_depends, depends_on, NULL);
     }
 
-  if (TREE_INVARIANT (expr)
-      || SSA_VAR_P (expr))
+  if (SSA_VAR_P (expr))
     return 0;
 
+  if (TREE_INVARIANT (expr))
+    {
+      if (TREE_CODE (expr) == INTEGER_CST)
+	return integer_cost;
+
+      if (TREE_CODE (expr) == ADDR_EXPR)
+	{
+	  tree obj = TREE_OPERAND (expr, 0);
+
+	  if (TREE_CODE (obj) == VAR_DECL
+	      || TREE_CODE (obj) == PARM_DECL
+	      || TREE_CODE (obj) == RESULT_DECL)
+	    return symbol_cost;
+	}
+
+      return address_cost;
+    }
+
+  /* Just an arbitrary value, FIXME.  */
   return spill_cost;
 }
 
@@ -4329,7 +3962,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   else
     bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
 
-  initial = force_gimple_operand (base, &stmts, false);
+  initial = force_gimple_operand (base, &stmts, false, var);
   if (stmts)
     {
       basic_block new_bb;
@@ -4461,7 +4094,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       bsi = stmt_bsi (use->stmt);
     }
 
-  op = force_gimple_operand (comp, &stmts, false);
+  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (*use->op_p));
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
@@ -4490,22 +4123,14 @@ rewrite_use_address (struct ivopts_data *data,
 					     use, cand));
   block_stmt_iterator bsi = stmt_bsi (use->stmt);
   tree stmts;
-  tree op = force_gimple_operand (comp, &stmts, false);
-  tree var, tmp_var, name;
+  tree op = force_gimple_operand (comp, &stmts, false, NULL_TREE);
+  tree var, new_var, new_name, copy, name;
 
   if (stmts)
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   if (TREE_CODE (op) == SSA_NAME)
     {
-      /* We need to add a memory tag for the variable.  But we do not want
-	 to add it to the temporary used for the computations, since this leads
-	 to problems in redundancy elimination when there are common parts
-	 in two computations refering to the different arrays.  So we rewrite
-	 the base variable of the ssa name to a new temporary.  */
-      tmp_var = create_tmp_var (TREE_TYPE (op), "ruatmp");
-      add_referenced_tmp_var (tmp_var);
-
       var = get_base_address (*use->op_p);
       if (TREE_CODE (var) == INDIRECT_REF)
 	var = TREE_OPERAND (var, 0);
@@ -4518,20 +4143,25 @@ rewrite_use_address (struct ivopts_data *data,
 	name = NULL_TREE;
       if (var_ann (var)->type_mem_tag)
 	var = var_ann (var)->type_mem_tag;
-      var_ann (tmp_var)->type_mem_tag = var;
 
+      /* We need to add a memory tag for the variable.  But we do not want
+	 to add it to the temporary used for the computations, since this leads
+	 to problems in redundancy elimination when there are common parts
+	 in two computations refering to the different arrays.  So we copy
+	 the variable to a new temporary.  */
+      copy = build (MODIFY_EXPR, void_type_node, NULL_TREE, op);
       if (name)
+	new_name = duplicate_ssa_name (name, copy);
+      else
 	{
-	  ssa_name_ann_t ann = ssa_name_ann (name), new_ann;
-
-	  if (ann && ann->name_mem_tag)
-	    {
-	      new_ann = get_ssa_name_ann (op);
-	      new_ann->name_mem_tag = ann->name_mem_tag;
-	    }
+	  new_var = create_tmp_var (TREE_TYPE (op), "ruatmp");
+	  add_referenced_tmp_var (new_var);
+	  var_ann (new_var)->type_mem_tag = var;
+	  new_name = make_ssa_name (new_var, copy);
 	}
-
-      SSA_NAME_VAR (op) = tmp_var;
+      TREE_OPERAND (copy, 0) = new_name;
+      bsi_insert_before (&bsi, copy, BSI_SAME_STMT);
+      op = new_name;
     }
 
   *use->op_p = build1 (INDIRECT_REF, TREE_TYPE (*use->op_p), op);
@@ -4552,7 +4182,8 @@ rewrite_use_compare (struct ivopts_data *data,
   if (may_eliminate_iv (data->current_loop,
 			use, cand, &compare, &bound))
     {
-      op = force_gimple_operand (unshare_expr (bound), &stmts, false);
+      op = force_gimple_operand (unshare_expr (bound), &stmts, false,
+				 NULL_TREE);
 
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
@@ -4574,7 +4205,7 @@ rewrite_use_compare (struct ivopts_data *data,
       || zero_p (get_iv (data, *op_p)->step))
     op_p = &TREE_OPERAND (cond, 1);
 
-  op = force_gimple_operand (comp, &stmts, false);
+  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (*op_p));
   if (stmts)
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
@@ -4739,7 +4370,7 @@ rewrite_use_outer (struct ivopts_data *data,
 	value = get_computation_at (data->current_loop,
 				    use, cand, last_stmt (exit->src));
 
-      op = force_gimple_operand (value, &stmts, true);
+      op = force_gimple_operand (value, &stmts, true, SSA_NAME_VAR (tgt));
 	  
       /* If we will preserve the iv anyway and we would need to perform
 	 some computation to replace the final value, do nothing.  */
@@ -4932,6 +4563,7 @@ tree_ssa_iv_optimize_finalize (struct loops *loops, struct ivopts_data *data)
   VARRAY_FREE (data->iv_candidates);
 
   scev_finalize ();
+  free_numbers_of_iterations_estimates (loops);
 }
 
 /* Optimizes the LOOP.  Returns true if anything changed.  */
@@ -4994,6 +4626,12 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
   loop_commit_inserts ();
 
   BITMAP_XFREE (iv_set);
+
+  /* We have changed the structure of induction variables; it might happen
+     that definitions in the scev database refer to some of them that were
+     eliminated.  */
+  scev_reset ();
+
 finish:
   free_loop_data (data);
 

@@ -1,3 +1,53 @@
+2004-04-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-niter.c: New file.
+	* Makefile.in (tree-ssa-loop-niter.o): New.
+	* cfgloop.h (struct loop): Add bounds field.
+	* df.c (df_reg_clobber_gen): Removed.
+	(df_bb_rd_local_compute, df_insn_refs_record, df_rd_local_compute):
+	Make more effective for hard regs.
+	* loop-invariant.c (check_maybe_invariant, find_defs,
+	find_invariant_insn): Handle hard regs.
+	* tree-chrec.c (chrec_fold_plus_poly_poly, chrec_fold_multiply,
+	chrec_fold_multiply, chrec_merge): Handle types correctly.
+	(chrec_convert): Use count_ev_in_wider_type.
+	* tree-chrec.h (count_ev_in_wider_type): Declare.
+	* tree-flow.h (struct tree_niter_desc): Moved from
+	tree-ssa-loop-ivopts.c.
+	(number_of_iterations_cond, number_of_iterations_exit,
+	loop_niter_by_eval, find_loop_niter_by_eval,
+	estimate_numbers_of_iterations, can_count_iv_in_wider_type,
+	free_numbers_of_iterations_estimates): Declare.
+	* tree-scalar-evolution.c (count_ev_in_wider_type, scev_reset,
+	simple_iv): New.
+	(number_of_iterations_in_loop): Check that the exit condition
+	is tested in every iteration.
+	* tree-scalar-evolution.h (scev_reset, simple_iv): Declare.
+	* tree-ssa-loop-ivcanon.c (MAX_ITERATIONS_TO_TRACK,
+	chain_of_csts_start, get_base_for, get_val_for,
+	loop_niter_by_eval, find_loop_niter_by_eval): Moved to
+	tree-ssa-loop-niter.c.
+	* tree-ssa-loop-ivopts.c (struct tree_niter_desc): Moved to
+	tree-flow.h.
+	(force_gimple_operand): Accept a variable for the target of
+	the assignment.
+	(create_iv, rewrite_use_nonlinear_expr,
+	rewrite_use_address, rewrite_use_compare,
+	rewrite_use_outer): Changed due to this.
+	(tree_ssa_iv_optimize_init): Call estimate_numbers_of_iterations.
+	(get_var_def): Removed.
+	(find_givs_in_stmt_scev): Use simple_iv.
+	(inverse, number_of_iterations_cond): Moved to tree-ssa-loop-niter.c.
+	(determine_number_of_iterations): Use number_of_iterations_exit.
+	(idx_find_step, find_interesting_uses_address): Use
+	can_count_iv_in_wider_type.
+	(force_var_cost): Determine the costs more precisely.
+	(tree_ssa_iv_optimize_finalize): Call
+	free_numbers_of_iterations_estimates.
+	(tree_ssa_iv_optimize_loop): Call scev_reset.
+	* varasm.c (force_const_mem): Set MEM_NOTRAP_P flag.
+	* config/rs6000/rs6000.c (rs6000_emit_move): Set MEM_NOTRAP_P flag.
+
 2004-04-27  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* lambda-code.c (build_int_cst): Moved...

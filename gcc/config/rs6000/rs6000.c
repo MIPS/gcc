@@ -3803,6 +3803,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 			       create_TOC_reference (XEXP (operands[1], 0)));
 	      set_mem_alias_set (operands[1], get_TOC_alias_set ());
 	      RTX_UNCHANGING_P (operands[1]) = 1;
+	      MEM_NOTRAP_P (operands[1]) = 1;
 	    }
 	}
       break;

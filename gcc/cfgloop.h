@@ -174,6 +174,9 @@ struct loop
      this field directly: number_of_iterations_in_loop computes and
      caches the computed information in this field.  */
   tree nb_iterations;
+
+  /* Upper bound on number of iterations of a loop.  */
+  struct nb_iter_bound *bounds;
 };
 
 /* Flags for state of loop structure.  */
