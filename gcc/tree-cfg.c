@@ -30,12 +30,14 @@ Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 #include "flags.h"
 #include "expr.h"
-#include "c-common.h"
-#include "c-tree.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
+
+/* This should be eventually be generalized to other languages, but
+   this would require a shared function-as-trees infrastructure.  */
+#include "c-common.h"
 
 /* Local declarations.  */
 

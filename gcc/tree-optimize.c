@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "output.h"
 #include "expr.h"
-#include "c-common.h"
 #include "diagnostic.h"
 #include "basic-block.h"
 #include "flags.h"

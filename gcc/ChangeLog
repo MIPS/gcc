@@ -1,3 +1,12 @@
+2001-12-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-optimize.o): Don't depend on c-common.h
+	* tree-cfg.c: Don't include c-tree.h.  Explain why we need to
+	include c-common.h.
+	* tree-dfa.c: Explain why we need to include c-common.h.
+	* tree-ssa.c: Ditto.
+	* tree-optimize.c: Don't include c-common.h
+
 2001-12-22  Diego Novillo  <dnovillo@redhat.com>
 
 	Merge from trunk as of 2001-12-17.

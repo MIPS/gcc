@@ -29,10 +29,13 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "errors.h"
 #include "expr.h"
-#include "c-common.h"
 #include "ggc.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
+
+/* This should be eventually be generalized to other languages, but
+   this would require a shared function-as-trees infrastructure.  */
+#include "c-common.h"
 
 /* Local declarations.  */
 
