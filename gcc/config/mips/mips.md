@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -1808,6 +1808,7 @@
       || TARGET_MIPS5400
       || TARGET_MIPS5500
       || ISA_MIPS32
+      || ISA_MIPS32R2
       || ISA_MIPS64)
     return \"mul\\t%0,%1,%2\";
   return \"mult\\t%0,%1,%2\";
@@ -4379,6 +4380,13 @@ move\\t%0,%z4\\n\\
   ""
   "
 {
+  if (ISA_HAS_SEB_SEH)
+    {
+      emit_insn (gen_extendhisi2_hw (operands[0],
+                                     force_reg (HImode, operands[1]))); 
+      DONE;
+    }
+
   if (optimize && GET_CODE (operands[1]) == MEM)
     operands[1] = force_not_mem (operands[1]);
 
@@ -4393,6 +4401,14 @@ move\\t%0,%z4\\n\\
       DONE;
     }
 }")
+
+(define_insn "extendhisi2_hw" 
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (sign_extend:SI (match_operand:HI 1 "register_operand" "r")))]
+  "ISA_HAS_SEB_SEH"     
+  "seh\\t%0,%1"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
 
 (define_insn "extendhisi2_internal"
   [(set (match_operand:SI 0 "register_operand" "=d,d")
@@ -4441,6 +4457,12 @@ move\\t%0,%z4\\n\\
   ""
   "
 {
+  if (ISA_HAS_SEB_SEH)
+    {
+      emit_insn (gen_extendqisi2_hw (operands[0],
+                                     force_reg (QImode, operands[1]))); 
+      DONE;
+    }
   if (optimize && GET_CODE (operands[1]) == MEM)
     operands[1] = force_not_mem (operands[1]);
 
@@ -4455,6 +4477,14 @@ move\\t%0,%z4\\n\\
       DONE;
     }
 }")
+
+(define_insn "extendqisi2_hw" 
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (sign_extend:SI (match_operand:QI 1 "register_operand" "r")))]
+  "ISA_HAS_SEB_SEH"     
+  "seb\\t%0,%1"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
 
 (define_insn "extendqisi2_insn"
   [(set (match_operand:SI 0 "register_operand" "=d,d")
@@ -6413,16 +6443,16 @@ move\\t%0,%z4\\n\\
 }")
 
 (define_insn "movdf_internal1"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,R,To,*f,*d,*d,*d,*d,*R,*T")
-	(match_operand:DF 1 "general_operand" "f,R,To,fG,fG,*d,*f,*d*G,*R,*T,*d,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand"  "=f,f,f,f,R,To,*f,*d,*d,*d,*d,*R,*T")
+       (match_operand:DF 1 "general_operand"  "f,G,R,To,fG,fG,*d,*f,*d*G,*R,*T,*d,*d"))]
   "TARGET_HARD_FLOAT && !(TARGET_FLOAT64 && !TARGET_64BIT)
    && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || nonmemory_operand (operands[1], DFmode))"
   "* return mips_move_2words (operands, insn); "
-  [(set_attr "type"	"move,load,load,store,store,xfer,xfer,move,load,load,store,store")
-   (set_attr "mode"	"DF")
-   (set_attr "length"	"4,8,16,8,16,8,8,8,8,16,8,16")])
+  [(set_attr "type"    "move,move,load,load,store,store,xfer,xfer,move,load,load,store,store")
+   (set_attr "mode"    "DF")
+   (set_attr "length"  "4,8,8,16,8,16,8,8,8,8,16,8,16")])
 
 (define_insn "movdf_internal1a"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,R,R,To,To,*d,*d,*To,*R,*d")
@@ -6550,6 +6580,12 @@ move\\t%0,%z4\\n\\
 ;; fill a delay slot.  This also prevents a bug in delayed branches
 ;; from showing up, which reuses one of the registers in our clobbers.
 
+;; ??? Disabled because it doesn't preserve alias information for
+;; operands 0 and 1.  Also, the rtl for the second insn doesn't mention
+;; that it uses the registers clobbered by the first.
+;;
+;; It would probably be better to split the block into individual
+;; instructions instead.
 (define_split
   [(set (mem:BLK (match_operand:SI 0 "register_operand" ""))
 	(mem:BLK (match_operand:SI 1 "register_operand" "")))
@@ -6561,7 +6597,7 @@ move\\t%0,%z4\\n\\
    (use (match_operand:SI 3 "small_int" ""))
    (use (const_int 0))]
 
-  "reload_completed && !TARGET_DEBUG_D_MODE && INTVAL (operands[2]) > 0"
+  "reload_completed && 0 && INTVAL (operands[2]) > 0"
 
   ;; All but the last move
   [(parallel [(set (mem:BLK (match_dup 0))
@@ -11196,7 +11232,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   [(set (match_operand:DI 0 "register_operand" "=d")
         (match_operand:DI 1 "address_operand" "p"))]
   "Pmode == DImode"
-  "la %0,%a1"
+  "dla %0,%a1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")
    (set_attr "length"	"40")])

@@ -109,22 +109,21 @@ struct method_declarator {
 };
 #define NEW_METHOD_DECLARATOR(D,N,A)					     \
 {									     \
-  (D) = 								     \
-    (struct method_declarator *)xmalloc (sizeof (struct method_declarator)); \
+  (D) = xmalloc (sizeof (struct method_declarator));			     \
   (D)->method_name = (N);						     \
   (D)->args = (A);							     \
 }
 
 /* Two actions for this grammar */
-static int make_class_name_recursive PARAMS ((struct obstack *stack,
-					      struct class_context *ctx));
-static char *get_class_name PARAMS ((void));
-static void report_class_declaration PARAMS ((const char *));
-static void report_main_declaration PARAMS ((struct method_declarator *));
-static void push_class_context PARAMS ((const char *));
-static void pop_class_context PARAMS ((void));
+static int make_class_name_recursive (struct obstack *stack,
+				      struct class_context *ctx);
+static char *get_class_name (void);
+static void report_class_declaration (const char *);
+static void report_main_declaration (struct method_declarator *);
+static void push_class_context (const char *);
+static void pop_class_context (void);
 
-void report PARAMS ((void)); 
+void report (void); 
 
 #include "lex.h"
 #include "parse.h"
@@ -1179,8 +1178,7 @@ constant_expression:
 void
 java_push_parser_context ()
 {
-  struct parser_ctxt *new = 
-    (struct parser_ctxt *) xcalloc (1, sizeof (struct parser_ctxt));
+  struct parser_ctxt *new = xcalloc (1, sizeof (struct parser_ctxt));
 
   new->next = ctxp;
   ctxp = new;
@@ -1192,7 +1190,7 @@ push_class_context (name)
 {
   struct class_context *ctx;
 
-  ctx = (struct class_context *) xmalloc (sizeof (struct class_context));
+  ctx = xmalloc (sizeof (struct class_context));
   ctx->name = (char *) name;
   ctx->next = current_class_context;
   current_class_context = ctx;

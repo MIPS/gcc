@@ -1355,7 +1355,7 @@ maybe_fix_stack_asms ()
 
 	  for (;;)
 	    {
-	      char c = *p++;
+	      char c = *p;
 
 	      if (c == '\0' || c == ',' || c == '#')
 		{
@@ -1363,6 +1363,7 @@ maybe_fix_stack_asms ()
 		     class, and reset the class.  */
 		  IOR_HARD_REG_SET (allowed, reg_class_contents[cls]);
 		  cls = NO_REGS;
+		  p++;
 		  if (c == '#')
 		    do {
 		      c = *p++;
@@ -1393,13 +1394,14 @@ maybe_fix_stack_asms ()
 		  break;
 
 		default:
-		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    cls = (int) reg_class_subunion[cls]
 		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
 		  else
 		    cls = (int) reg_class_subunion[cls]
-		      [(int) REG_CLASS_FROM_LETTER (c)];
+		      [(int) REG_CLASS_FROM_CONSTRAINT (c, p)];
 		}
+	      p += CONSTRAINT_LEN (c, p);
 	    }
 	}
       /* Those of the registers which are clobbered, but allowed by the
@@ -7609,6 +7611,11 @@ delete_output_reload (insn, j, last_reload_reg)
   rtx i1;
   rtx substed;
 
+  /* It is possible that this reload has been only used to set another reload
+     we eliminated earlier and thus deleted this instruction too.  */
+  if (INSN_DELETED_P (output_reload_insn))
+    return;
+
   /* Get the raw pseudo-register referred to.  */
 
   while (GET_CODE (reg) == SUBREG)
@@ -8414,7 +8421,7 @@ reload_cse_simplify_operands (insn, testreg)
 	  p = constraints[i];
 	  for (;;)
 	    {
-	      char c = *p++;
+	      char c = *p;
 
 	      switch (c)
 		{
@@ -8438,7 +8445,9 @@ reload_cse_simplify_operands (insn, testreg)
 
 		default:
 		  class
-		    = reg_class_subunion[(int) class][(int) REG_CLASS_FROM_LETTER ((unsigned char) c)];
+		    = (reg_class_subunion
+		       [(int) class]
+		       [(int) REG_CLASS_FROM_CONSTRAINT ((unsigned char) c, p)]);
 		  break;
 
 		case ',': case '\0':
@@ -8458,6 +8467,7 @@ reload_cse_simplify_operands (insn, testreg)
 		  j++;
 		  break;
 		}
+	      p += CONSTRAINT_LEN (c, p);
 
 	      if (c == '\0')
 		break;

@@ -48,16 +48,16 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define O_BINARY 0 /* MS-DOS brain-damage */
 #endif
 
-static tree make_method_value PARAMS ((tree));
-static tree build_java_method_type PARAMS ((tree, tree, int));
-static int32 hashUtf8String PARAMS ((const char *, int));
-static tree make_field_value PARAMS ((tree));
-static tree get_dispatch_vector PARAMS ((tree));
-static tree get_dispatch_table PARAMS ((tree, tree));
-static void add_interface_do PARAMS ((tree, tree, int));
-static tree maybe_layout_super_class PARAMS ((tree, tree));
-static int assume_compiled PARAMS ((const char *));
-static tree build_method_symbols_entry PARAMS ((tree));
+static tree make_method_value (tree);
+static tree build_java_method_type (tree, tree, int);
+static int32 hashUtf8String (const char *, int);
+static tree make_field_value (tree);
+static tree get_dispatch_vector (tree);
+static tree get_dispatch_table (tree, tree);
+static void add_interface_do (tree, tree, int);
+static tree maybe_layout_super_class (tree, tree);
+static int assume_compiled (const char *);
+static tree build_method_symbols_entry (tree);
 
 static GTY(()) rtx registerClass_libfunc;
 static GTY(()) rtx registerResource_libfunc;
@@ -86,8 +86,8 @@ typedef struct assume_compiled_node_struct
   struct assume_compiled_node_struct *child;
 } assume_compiled_node;
 
-static assume_compiled_node *find_assume_compiled_node
-			PARAMS ((assume_compiled_node *, const char *));
+static assume_compiled_node *find_assume_compiled_node (assume_compiled_node *,
+							const char *);
 
 /* This is the root of the include/exclude tree.  */
 
@@ -150,6 +150,7 @@ add_assume_compiled (ident, excludep)
      const char *ident;
      int excludep;
 {
+  int len;
   assume_compiled_node *parent;
   assume_compiled_node *node = 
     xmalloc (sizeof (assume_compiled_node));
@@ -183,7 +184,8 @@ add_assume_compiled (ident, excludep)
      class or a package name.  Adjust PARENT accordingly.  */
 
   parent = find_assume_compiled_node (assume_compiled_tree, ident);
-  if (ident[strlen (parent->ident)] != '.')
+  len = strlen (parent->ident);
+  if (parent->ident[len] && parent->ident[len] != '.')
     parent = parent->parent;
 
   /* Insert NODE into the tree.  */
@@ -194,7 +196,7 @@ add_assume_compiled (ident, excludep)
 }
 
 /* Returns nonzero if IDENT is the name of a class that the compiler
-   should assume has been compiled to FIXME  */
+   should assume has been compiled to object code.  */
 
 static int
 assume_compiled (ident)
@@ -2132,7 +2134,7 @@ emit_register_classes ()
     }
   else
     {
-      extern tree get_file_function_name PARAMS ((int));
+      extern tree get_file_function_name (int);
       tree init_name = get_file_function_name ('I');
       tree init_type = build_function_type (void_type_node, end_params_node);
       tree init_decl;
@@ -2268,8 +2270,8 @@ init_class_processing ()
   gcc_obstack_init (&temporary_obstack);
 }
 
-static hashval_t java_treetreehash_hash PARAMS ((const void *));
-static int java_treetreehash_compare PARAMS ((const void *, const void *));
+static hashval_t java_treetreehash_hash (const void *);
+static int java_treetreehash_compare (const void *, const void *);
 
 /* A hash table mapping trees to trees.  Used generally.  */
 
@@ -2312,7 +2314,7 @@ java_treetreehash_new (ht, t)
      htab_t ht;
      tree t;
 {
-  PTR *e;
+  void **e;
   struct treetreehash_entry *tthe;
   hashval_t hv = JAVA_TREEHASHHASH_H (t);
 
@@ -2321,7 +2323,7 @@ java_treetreehash_new (ht, t)
     {
       tthe = (*ht->alloc_f) (1, sizeof (*tthe));
       tthe->key = t;
-      *e = (PTR) tthe;
+      *e = tthe;
     }
   else
     tthe = (struct treetreehash_entry *) *e;

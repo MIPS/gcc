@@ -1,3 +1,48 @@
+2003-01-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Substitute TOPLEVEL_CONFIGURE_ARGUMENTS.
+	* Makefile.tpl: Pass TOPLEVEL_CONFIGURE_ARGUMENTS to gcc.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2003-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Remove Makefile in build, host and target modules
+	unless configure was run with --no-recursion.
+	* configure: Rebuilt.
+
+2003-01-09  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.tpl (BASE_FLAGS_TO_PASS): Also pass DESTDIR.
+	(install-info, dir.info): Prepend $(DESTDIR) to $(infodir).
+	* Makefile.in: Regenerate.
+
+2003-01-08  Chris Demetriou  <cgd@broadcom.com>
+
+	* config.guess: Update to 2003-01-03 version.
+	* config.sub: Update to 2003-01-03 version.
+
+2003-01-07  Christopher Faylor  <cgf@redhat.com>
+
+	* configure: Regenerate with proper autoconf 2.13.
+
+2003-01-07  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Add AC_PREREQ for consistency.
+	* configure: Regenerate.
+
+2003-01-06  Andrew Cagney  <ac131313@redhat.com>
+
+	* configure.in (GDB_TK): Add tcl directories conditional on
+	gdb/gdbtk directory being present.
+	* configure: Regenerate.
+	
+2003-01-04 John David Anglin  <dave.anglin@nrc.ca>
+
+	* configure.in (LD): Improve test for gcc.  Try to set LD to the ld used
+	by gcc if LD is not defined and we are not doing a Canadian Cross.
+	* configure: Rebuilt.
+
 2002-12-31  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.

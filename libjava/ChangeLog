@@ -1,3 +1,58 @@
+2003-01-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(ch): Description added.
+	(remotePort): Initialize with -1.
+	(connect): Doesnt throws SocketException.
+	* java/net/MulticastSocket.java
+	(setInterface): Merge with Classpath.
+	* java/net/ServerSocket.java
+	(closed): New member variable.
+	(bind): Check if socket is closed.
+	(close): Close an associated channel too, set new value to closed.
+	(isBound): Reindented.
+	(isClosed): Implemented.
+	* java/net/Socket.java
+	(closed): New member variable.
+	(bind): Check if socket is closed.
+	(connect): Check if socket is closed.
+	(close): Close an associated channel too, set new value to closed.
+	(isClosed): Implemented.
+
+2003-01-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/DisplayMode.java
+	(equals): Fixed argument type and implementation.
+
+2003-01-07  Tom Tromey  <tromey@redhat.com>
+
+	* include/posix.h (_Jv_platform_usleep): Wrap in ifdef
+	JV_HASH_SYNCHRONIZATION.
+	* include/win32.h (_Jv_platform_usleep): Wrap in ifdef
+	JV_HASH_SYNCHRONIZATION.
+
+2003-01-07  Michael Koch  <konqueror@gmx.de>
+ 
+ 	* java/net/DatagramSocket.java:
+ 	Added classpath license info.
+ 	(DatagramSocket): Merged description with classpath.
+ 	(close): Merged description with classpath.
+ 	(getChannel): Merged description with classpath.
+ 	(getInetAddress): Merged description with classpath.
+ 	(getPort): Merged description with classpath.
+ 	(getLocalAddress): Merged description with classpath.
+ 	(getLocalPort): Merged description with classpath.
+ 	(getSoTimeout): Merged description with classpath.
+ 	(setSoTimeout): Merged description with classpath.
+ 	(getSendBufferSize): Merged description with classpath.
+ 	(setSendBufferSize): Merged description with classpath.
+ 	(getReceiveBufferSize): Merged description with classpath.
+ 	(setReceiveBufferSize): Merged description with classpath.
+	
+2003-01-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/List.java: Merged with Classpath.
+
 2003-01-03  Mark Wielaard  <mark@klomp.org>
 
 	* java/io/FileDescriptor.java (position): New private field.

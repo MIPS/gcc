@@ -44,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "c-common.h"
@@ -52,104 +51,105 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 
-static tree grokparms				PARAMS ((tree));
-static const char *redeclaration_error_message	PARAMS ((tree, tree));
+static tree grokparms (tree);
+static const char *redeclaration_error_message (tree, tree);
 
-static void push_binding_level PARAMS ((struct cp_binding_level *, int,
-				      int));
-static void pop_binding_level PARAMS ((void));
-static void suspend_binding_level PARAMS ((void));
-static void resume_binding_level PARAMS ((struct cp_binding_level *));
-static struct cp_binding_level *make_binding_level PARAMS ((void));
-static void declare_namespace_level PARAMS ((void));
-static int decl_jump_unsafe PARAMS ((tree));
-static void storedecls PARAMS ((tree));
-static void require_complete_types_for_parms PARAMS ((tree));
-static int ambi_op_p PARAMS ((enum tree_code));
-static int unary_op_p PARAMS ((enum tree_code));
-static tree store_bindings PARAMS ((tree, tree));
-static tree lookup_tag_reverse PARAMS ((tree, tree));
-static void push_local_name PARAMS ((tree));
-static void warn_extern_redeclared_static PARAMS ((tree, tree));
-static tree grok_reference_init PARAMS ((tree, tree, tree));
-static tree grokfndecl PARAMS ((tree, tree, tree, tree, int,
-			      enum overload_flags, tree,
-			      tree, int, int, int, int, int, int, tree));
-static tree grokvardecl PARAMS ((tree, tree, RID_BIT_TYPE *, int, int, tree));
-static tree follow_tag_typedef PARAMS ((tree));
-static tree lookup_tag PARAMS ((enum tree_code, tree,
-			      struct cp_binding_level *, int));
+static void push_binding_level (struct cp_binding_level *, int,
+				int);
+static void pop_binding_level (void);
+static void suspend_binding_level (void);
+static void resume_binding_level (struct cp_binding_level *);
+static struct cp_binding_level *make_binding_level (void);
+static void declare_namespace_level (void);
+static int decl_jump_unsafe (tree);
+static void storedecls (tree);
+static void require_complete_types_for_parms (tree);
+static int ambi_op_p (enum tree_code);
+static int unary_op_p (enum tree_code);
+static tree store_bindings (tree, tree);
+static tree lookup_tag_reverse (tree, tree);
+static void push_local_name (tree);
+static void warn_extern_redeclared_static (tree, tree);
+static tree grok_reference_init (tree, tree, tree);
+static tree grokfndecl (tree, tree, tree, tree, int,
+			enum overload_flags, tree,
+			tree, int, int, int, int, int, int, tree);
+static tree grokvardecl (tree, tree, RID_BIT_TYPE *, int, int, tree);
+static tree follow_tag_typedef (tree);
+static tree lookup_tag (enum tree_code, tree,
+			struct cp_binding_level *, int);
 static void set_identifier_type_value_with_scope
-	PARAMS ((tree, tree, struct cp_binding_level *));
-static void record_unknown_type PARAMS ((tree, const char *));
-static tree builtin_function_1 PARAMS ((const char *, tree, tree, int,
-                                      enum built_in_class, const char *,
-				      tree));
-static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
-static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
-static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
-				  int));
-static tree maybe_process_template_type_declaration PARAMS ((tree, int, struct cp_binding_level*));
-static void check_for_uninitialized_const_var PARAMS ((tree));
-static hashval_t typename_hash PARAMS ((const void *));
-static int typename_compare PARAMS ((const void *, const void *));
-static void push_binding PARAMS ((tree, tree, struct cp_binding_level*));
-static int add_binding PARAMS ((tree, tree));
-static void pop_binding PARAMS ((tree, tree));
-static tree local_variable_p_walkfn PARAMS ((tree *, int *, void *));
-static tree find_binding PARAMS ((tree, tree));
-static tree select_decl PARAMS ((tree, int));
-static int lookup_flags PARAMS ((int, int));
-static tree qualify_lookup PARAMS ((tree, int));
-static tree record_builtin_java_type PARAMS ((const char *, int));
-static const char *tag_name PARAMS ((enum tag_types code));
-static void find_class_binding_level PARAMS ((void));
-static struct cp_binding_level *innermost_nonclass_level PARAMS ((void));
-static void warn_about_implicit_typename_lookup PARAMS ((tree, tree));
-static int walk_namespaces_r PARAMS ((tree, walk_namespaces_fn, void *));
-static int walk_globals_r PARAMS ((tree, void *));
-static int walk_vtables_r PARAMS ((tree, void*));
-static void add_decl_to_level PARAMS ((tree, struct cp_binding_level *));
-static tree make_label_decl PARAMS ((tree, int));
-static void use_label PARAMS ((tree));
-static void check_previous_goto_1 PARAMS ((tree, struct cp_binding_level *, tree,
-					   const char *, int));
-static void check_previous_goto PARAMS ((struct named_label_use_list *));
-static void check_switch_goto PARAMS ((struct cp_binding_level *));
-static void check_previous_gotos PARAMS ((tree));
-static void pop_label PARAMS ((tree, tree));
-static void pop_labels PARAMS ((tree));
-static void maybe_deduce_size_from_array_init PARAMS ((tree, tree));
-static void layout_var_decl PARAMS ((tree));
-static void maybe_commonize_var PARAMS ((tree));
+	(tree, tree, struct cp_binding_level *);
+static void record_unknown_type (tree, const char *);
+static tree builtin_function_1 (const char *, tree, tree, int,
+                                enum built_in_class, const char *,
+				tree);
+static tree build_library_fn_1 (tree, enum tree_code, tree);
+static int member_function_or_else (tree, tree, enum overload_flags);
+static void bad_specifiers (tree, const char *, int, int, int, int,
+			    int);
+static tree maybe_process_template_type_declaration 
+	(tree, int, struct cp_binding_level*);
+static void check_for_uninitialized_const_var (tree);
+static hashval_t typename_hash (const void *);
+static int typename_compare (const void *, const void *);
+static void push_binding (tree, tree, struct cp_binding_level*);
+static int add_binding (tree, tree);
+static void pop_binding (tree, tree);
+static tree local_variable_p_walkfn (tree *, int *, void *);
+static tree find_binding (tree, tree);
+static tree select_decl (tree, int);
+static int lookup_flags (int, int);
+static tree qualify_lookup (tree, int);
+static tree record_builtin_java_type (const char *, int);
+static const char *tag_name (enum tag_types code);
+static void find_class_binding_level (void);
+static struct cp_binding_level *innermost_nonclass_level (void);
+static void warn_about_implicit_typename_lookup (tree, tree);
+static int walk_namespaces_r (tree, walk_namespaces_fn, void *);
+static int walk_globals_r (tree, void*);
+static int walk_vtables_r (tree, void*);
+static void add_decl_to_level (tree, struct cp_binding_level *);
+static tree make_label_decl (tree, int);
+static void use_label (tree);
+static void check_previous_goto_1 (tree, struct cp_binding_level *, tree,
+				   const char *, int);
+static void check_previous_goto (struct named_label_use_list *);
+static void check_switch_goto (struct cp_binding_level *);
+static void check_previous_gotos (tree);
+static void pop_label (tree, tree);
+static void pop_labels (tree);
+static void maybe_deduce_size_from_array_init (tree, tree);
+static void layout_var_decl (tree);
+static void maybe_commonize_var (tree);
 static tree check_initializer (tree, tree, int);
-static void make_rtl_for_nonlocal_decl PARAMS ((tree, tree, const char *));
-static void save_function_data PARAMS ((tree));
-static void check_function_type PARAMS ((tree, tree));
-static void begin_constructor_body PARAMS ((void));
-static void finish_constructor_body PARAMS ((void));
-static void begin_destructor_body PARAMS ((void));
-static void finish_destructor_body PARAMS ((void));
-static tree create_array_type_for_decl PARAMS ((tree, tree, tree));
-static tree get_atexit_node PARAMS ((void));
-static tree get_dso_handle_node PARAMS ((void));
-static tree start_cleanup_fn PARAMS ((void));
-static void end_cleanup_fn PARAMS ((void));
-static tree cp_make_fname_decl PARAMS ((tree, int));
-static void initialize_predefined_identifiers PARAMS ((void));
-static tree check_special_function_return_type
-  PARAMS ((special_function_kind, tree, tree));
-static tree push_cp_library_fn PARAMS ((enum tree_code, tree));
-static tree build_cp_library_fn PARAMS ((tree, enum tree_code, tree));
-static void store_parm_decls PARAMS ((tree));
-static int cp_missing_noreturn_ok_p PARAMS ((tree));
+static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
+static void save_function_data (tree);
+static void check_function_type (tree, tree);
+static void begin_constructor_body (void);
+static void finish_constructor_body (void);
+static void begin_destructor_body (void);
+static void finish_destructor_body (void);
+static tree create_array_type_for_decl (tree, tree, tree);
+static tree get_atexit_node (void);
+static tree get_dso_handle_node (void);
+static tree start_cleanup_fn (void);
+static void end_cleanup_fn (void);
+static tree cp_make_fname_decl (tree, int);
+static void initialize_predefined_identifiers (void);
+static tree check_special_function_return_type 
+	(special_function_kind, tree, tree);
+static tree push_cp_library_fn (enum tree_code, tree);
+static tree build_cp_library_fn (tree, enum tree_code, tree);
+static void store_parm_decls (tree);
+static int cp_missing_noreturn_ok_p (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
 static tree reshape_init (tree, tree *);
 
 #if defined (DEBUG_BINDING_LEVELS)
-static void indent PARAMS ((void));
+static void indent (void);
 #endif
 
 /* Erroneous argument lists can use this *IFF* they do not modify it.  */
@@ -464,7 +464,7 @@ static int binding_depth = 0;
 static int is_class_level = 0;
 
 static void
-indent ()
+indent (void)
 {
   register unsigned i;
 
@@ -473,12 +473,12 @@ indent ()
 }
 #endif /* defined(DEBUG_BINDING_LEVELS) */
 
-static tree pushdecl_with_scope	PARAMS ((tree, struct cp_binding_level *));
+static tree pushdecl_with_scope	(tree, struct cp_binding_level *);
 
 static void
-push_binding_level (newlevel, tag_transparent, keep)
-     struct cp_binding_level *newlevel;
-     int tag_transparent, keep;
+push_binding_level (struct cp_binding_level *newlevel, 
+                    int tag_transparent, 
+                    int keep)
 {
   /* Add this level to the front of the chain (stack) of levels that
      are active.  */
@@ -503,7 +503,7 @@ push_binding_level (newlevel, tag_transparent, keep)
    CLASS_BINDING_LEVEL appropriately.  */
 
 static void
-find_class_binding_level ()
+find_class_binding_level (void)
 {
   struct cp_binding_level *level = current_binding_level;
 
@@ -516,7 +516,7 @@ find_class_binding_level ()
 }
 
 static void
-pop_binding_level ()
+pop_binding_level (void)
 {
   if (global_binding_level)
     {
@@ -552,7 +552,7 @@ pop_binding_level ()
 }
 
 static void
-suspend_binding_level ()
+suspend_binding_level (void)
 {
   if (class_binding_level)
     current_binding_level = class_binding_level;
@@ -582,8 +582,7 @@ suspend_binding_level ()
 }
 
 static void
-resume_binding_level (b)
-     struct cp_binding_level *b;
+resume_binding_level (struct cp_binding_level* b)
 {
   /* Resuming binding levels is meant only for namespaces,
      and those cannot nest into classes.  */
@@ -605,7 +604,7 @@ resume_binding_level (b)
 
 static
 struct cp_binding_level *
-make_binding_level ()
+make_binding_level (void)
 {
   /* NOSTRICT */
   return (struct cp_binding_level *) ggc_alloc (sizeof (struct cp_binding_level));
@@ -614,7 +613,7 @@ make_binding_level ()
 /* Nonzero if we are currently in the global binding level.  */
 
 int
-global_bindings_p ()
+global_bindings_p (void)
 {
   return current_binding_level == global_binding_level;
 }
@@ -622,7 +621,7 @@ global_bindings_p ()
 /* Return the innermost binding level that is not for a class scope.  */
 
 static struct cp_binding_level *
-innermost_nonclass_level ()
+innermost_nonclass_level (void)
 {
   struct cp_binding_level *b;
 
@@ -640,7 +639,7 @@ innermost_nonclass_level ()
    also include a class whose context is toplevel.  */
 
 int
-toplevel_bindings_p ()
+toplevel_bindings_p (void)
 {
   struct cp_binding_level *b = innermost_nonclass_level ();
 
@@ -652,7 +651,7 @@ toplevel_bindings_p ()
    such a class, etc.  */
 
 int
-namespace_bindings_p ()
+namespace_bindings_p (void)
 {
   struct cp_binding_level *b = innermost_nonclass_level ();
 
@@ -664,8 +663,7 @@ namespace_bindings_p ()
    or not to create a BLOCK.  */
 
 void
-keep_next_level (keep)
-     int keep;
+keep_next_level (int keep)
 {
   keep_next_level_flag = keep;
 }
@@ -673,7 +671,7 @@ keep_next_level (keep)
 /* Nonzero if the current level needs to have a BLOCK made.  */
 
 int
-kept_level_p ()
+kept_level_p (void)
 {
   return (current_binding_level->blocks != NULL_TREE
 	  || current_binding_level->keep
@@ -683,7 +681,7 @@ kept_level_p ()
 }
 
 static void
-declare_namespace_level ()
+declare_namespace_level (void)
 {
   current_binding_level->namespace_p = 1;
 }
@@ -692,7 +690,7 @@ declare_namespace_level ()
    parameters.  */
 
 int
-template_parm_scope_p ()
+template_parm_scope_p (void)
 {
   return current_binding_level->template_parms_p;
 }
@@ -702,8 +700,7 @@ template_parm_scope_p ()
    explicit scope qualifications.  */
 
 tmpl_spec_kind
-current_tmpl_spec_kind (n_class_scopes)
-     int n_class_scopes;
+current_tmpl_spec_kind (int n_class_scopes)
 {
   int n_template_parm_scopes = 0;
   int seen_specialization_p = 0;
@@ -787,8 +784,7 @@ current_tmpl_spec_kind (n_class_scopes)
 }
 
 void
-set_class_shadows (shadows)
-     tree shadows;
+set_class_shadows (tree shadows)
 {
   class_binding_level->class_shadowed = shadows;
 }
@@ -798,8 +794,7 @@ set_class_shadows (shadows)
    not for that of tags.  */
 
 void
-pushlevel (tag_transparent)
-     int tag_transparent;
+pushlevel (int tag_transparent)
 {
   struct cp_binding_level *newlevel;
 
@@ -828,8 +823,7 @@ pushlevel (tag_transparent)
    scope, create a new binding level.  */
 
 void
-maybe_push_cleanup_level (type)
-     tree type;
+maybe_push_cleanup_level (tree type)
 {
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
       && current_binding_level->more_cleanups_ok == 0)
@@ -845,8 +839,7 @@ maybe_push_cleanup_level (type)
    created.  */
 
 void
-begin_scope (sk)
-     scope_kind sk;
+begin_scope (scope_kind sk)
 {
   pushlevel (0);
 
@@ -883,7 +876,7 @@ begin_scope (sk)
 /* Exit the current scope.  */
 
 void
-finish_scope ()
+finish_scope (void)
 {
   poplevel (0, 0, 0);
 }
@@ -902,10 +895,9 @@ static GTY((deletable (""))) tree free_bindings;
    level at which this declaration is being bound.  */
 
 static void
-push_binding (id, decl, level)
-     tree id;
-     tree decl;
-     struct cp_binding_level* level;
+push_binding (tree id, 
+              tree decl,
+              struct cp_binding_level* level)
 {
   tree binding;
 
@@ -937,9 +929,7 @@ push_binding (id, decl, level)
    responsibility of the caller to check that inserting this name is
    valid here.  Returns nonzero if the new binding was successful.  */
 static int
-add_binding (id, decl)
-     tree id;
-     tree decl;
+add_binding (tree id, tree decl)
 {
   tree binding = IDENTIFIER_BINDING (id);
   int ok = 1;
@@ -1006,9 +996,8 @@ add_binding (id, decl)
 /* Add DECL to the list of things declared in B.  */
 
 static void
-add_decl_to_level (decl, b)
-     tree decl;
-     struct cp_binding_level *b;
+add_decl_to_level (tree decl, 
+                   struct cp_binding_level* b)
 {
   if (TREE_CODE (decl) == NAMESPACE_DECL 
       && !DECL_NAMESPACE_ALIAS (decl))
@@ -1037,10 +1026,7 @@ add_decl_to_level (decl, b)
    through a using-declaration.  */
 
 void
-push_local_binding (id, decl, flags)
-     tree id;
-     tree decl;
-     int flags;
+push_local_binding (tree id, tree decl, int flags)
 {
   struct cp_binding_level *b;
 
@@ -1078,9 +1064,7 @@ push_local_binding (id, decl, flags)
    binding was successful.  */
 
 int
-push_class_binding (id, decl)
-     tree id;
-     tree decl;
+push_class_binding (tree id, tree decl)
 {
   int result = 1;
   tree binding = IDENTIFIER_BINDING (id);
@@ -1144,9 +1128,7 @@ push_class_binding (id, decl)
    for ID.  */
 
 static void
-pop_binding (id, decl)
-     tree id;
-     tree decl;
+pop_binding (tree id, tree decl)
 {
   tree binding;
 
@@ -1191,9 +1173,7 @@ pop_binding (id, decl)
    in a valid manner, and issue any appropriate warnings or errors.  */
 
 static void
-pop_label (label, old_value)
-     tree label;
-     tree old_value;
+pop_label (tree label, tree old_value)
 {
   if (!processing_template_decl && doing_semantic_analysis_p ())
     {
@@ -1215,8 +1195,7 @@ pop_label (label, old_value)
    function.  */
 
 static void
-pop_labels (block)
-     tree block;
+pop_labels (tree block)
 {
   struct named_label_list *link;
 
@@ -1250,10 +1229,7 @@ pop_labels (block)
    them into the BLOCK.  */
 
 tree
-poplevel (keep, reverse, functionbody)
-     int keep;
-     int reverse;
-     int functionbody;
+poplevel (int keep, int reverse, int functionbody)
 {
   register tree link;
   /* The chain of decls was accumulated in reverse order.
@@ -1567,8 +1543,7 @@ poplevel (keep, reverse, functionbody)
    so that the block can be reinserted where appropriate.  */
 
 void
-delete_block (block)
-     tree block;
+delete_block (tree block)
 {
   tree t;
   if (current_binding_level->blocks == block)
@@ -1591,8 +1566,7 @@ delete_block (block)
    to handle the BLOCK node inside the BIND_EXPR.  */
 
 void
-insert_block (block)
-     tree block;
+insert_block (tree block)
 {
   TREE_USED (block) = 1;
   current_binding_level->blocks
@@ -1603,8 +1577,7 @@ insert_block (block)
    (the one we are currently in).  */
 
 void
-set_block (block)
-    tree block ATTRIBUTE_UNUSED;
+set_block (tree block ATTRIBUTE_UNUSED )
 {
   /* The RTL expansion machinery requires us to provide this callback,
      but it is not applicable in function-at-a-time mode.  */
@@ -1614,7 +1587,7 @@ set_block (block)
 /* Do a pushlevel for class declarations.  */
 
 void
-pushlevel_class ()
+pushlevel_class (void)
 {
   register struct cp_binding_level *newlevel;
 
@@ -1645,7 +1618,7 @@ pushlevel_class ()
 /* ...and a poplevel for class declarations.  */
 
 void
-poplevel_class ()
+poplevel_class (void)
 {
   register struct cp_binding_level *level = class_binding_level;
   tree shadowed;
@@ -1720,7 +1693,7 @@ poplevel_class ()
    for any names in enclosing classes.  */
 
 void
-clear_identifier_class_values ()
+clear_identifier_class_values (void)
 {
   tree t;
 
@@ -1736,9 +1709,7 @@ clear_identifier_class_values ()
 /* Returns nonzero if T is a virtual function table.  */
 
 int
-vtable_decl_p (t, data)
-     tree t;
-     void *data ATTRIBUTE_UNUSED;
+vtable_decl_p (tree t, void* data ATTRIBUTE_UNUSED )
 {
   return (TREE_CODE (t) == VAR_DECL && DECL_VIRTUAL_P (t));
 }
@@ -1747,9 +1718,7 @@ vtable_decl_p (t, data)
    functions.  */
 
 int
-vtype_decl_p (t, data)
-     tree t;
-     void *data ATTRIBUTE_UNUSED;
+vtype_decl_p (tree t, void *data ATTRIBUTE_UNUSED )
 {
   return (TREE_CODE (t) == TYPE_DECL
 	  && TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
@@ -1759,8 +1728,7 @@ vtype_decl_p (t, data)
 /* Return the declarations that are members of the namespace NS.  */
 
 tree
-cp_namespace_decls (ns)
-     tree ns;
+cp_namespace_decls (tree ns)
 {
   return NAMESPACE_LEVEL (ns)->names;
 }
@@ -1776,9 +1744,7 @@ struct walk_globals_data {
    to F returns a nonzero value, return a nonzero value.  */
 
 static int
-walk_vtables_r (namespace, data)
-     tree namespace;
-     void *data;
+walk_vtables_r (tree namespace, void* data)
 {
   struct walk_globals_data* wgd = (struct walk_globals_data *) data;
   walk_globals_fn f = wgd->f;
@@ -1810,10 +1776,7 @@ walk_vtables (walk_globals_pred p, walk_globals_fn f, void *data)
    itself, calling F for each.  The DATA is passed to F as well.  */
 
 static int
-walk_namespaces_r (namespace, f, data)
-     tree namespace;
-     walk_namespaces_fn f;
-     void *data;
+walk_namespaces_r (tree namespace, walk_namespaces_fn f, void* data)
 {
   int result = 0;
   tree current = NAMESPACE_LEVEL (namespace)->namespaces;     
@@ -1830,9 +1793,7 @@ walk_namespaces_r (namespace, f, data)
    F as well.  */
 
 int
-walk_namespaces (f, data)
-     walk_namespaces_fn f;
-     void *data;
+walk_namespaces (walk_namespaces_fn f, void* data)
 {
   return walk_namespaces_r (global_namespace, f, data);
 }
@@ -1842,9 +1803,7 @@ walk_namespaces (f, data)
    to F returns a nonzero value, return a nonzero value.  */
 
 static int
-walk_globals_r (namespace, data)
-     tree namespace;
-     void *data;
+walk_globals_r (tree namespace, void* data)
 {
   struct walk_globals_data* wgd = (struct walk_globals_data *) data;
   walk_globals_pred p = wgd->p;
@@ -1891,9 +1850,7 @@ walk_globals (walk_globals_pred p, walk_globals_fn f, void *data)
    wrapup_global_declarations for this NAMESPACE.  */
 
 int
-wrapup_globals_for_namespace (namespace, data)
-     tree namespace;
-     void *data;
+wrapup_globals_for_namespace (tree namespace, void* data)
 {
   tree globals = cp_namespace_decls (namespace);
   int len = NAMESPACE_LEVEL (namespace)->names_size;
@@ -1930,8 +1887,7 @@ static int no_print_functions = 0;
 static int no_print_builtins = 0;
 
 void
-print_binding_level (lvl)
-     struct cp_binding_level *lvl;
+print_binding_level (struct cp_binding_level* lvl)
 {
   tree t;
   int i = 0, len;
@@ -2031,8 +1987,7 @@ print_binding_level (lvl)
 }
 
 void
-print_other_binding_stack (stack)
-     struct cp_binding_level *stack;
+print_other_binding_stack (struct cp_binding_level *stack)
 {
   struct cp_binding_level *level;
   for (level = stack; level != global_binding_level; level = level->level_chain)
@@ -2045,7 +2000,7 @@ print_other_binding_stack (stack)
 }
 
 void
-print_binding_stack ()
+print_binding_stack (void)
 {
   struct cp_binding_level *b;
   fprintf (stderr, "current_binding_level=");
@@ -2082,9 +2037,7 @@ print_binding_stack ()
    of bindings. Returns the binding found, or NULL_TREE.  */
 
 static tree
-find_binding (name, scope)
-     tree name;
-     tree scope;
+find_binding (tree name, tree scope)
 {
   tree iter, prev = NULL_TREE;
 
@@ -2116,9 +2069,7 @@ find_binding (name, scope)
    If no binding is found, make a new one.  */
 
 tree
-binding_for_name (name, scope)
-     tree name;
-     tree scope;
+binding_for_name (tree name, tree scope)
 {
   tree b = IDENTIFIER_NAMESPACE_BINDINGS (name);
   tree result;
@@ -2148,9 +2099,7 @@ binding_for_name (name, scope)
    namespace_binding may or may not be a list of CPLUS_BINDINGS.  */
 
 tree
-namespace_binding (name, scope)
-     tree name;
-     tree scope;
+namespace_binding (tree name, tree scope)
 {
   tree b = IDENTIFIER_NAMESPACE_BINDINGS (name);
   if (b == NULL_TREE)
@@ -2169,10 +2118,7 @@ namespace_binding (name, scope)
    of global_namespace is attempted, try to optimize it.  */
 
 void
-set_namespace_binding (name, scope, val)
-     tree name;
-     tree scope;
-     tree val;
+set_namespace_binding (tree name, tree scope, tree val)
 {
   tree b;
 
@@ -2196,8 +2142,7 @@ set_namespace_binding (name, scope, val)
    select a name that is unique to this compilation unit.  */
 
 void
-push_namespace (name)
-     tree name;
+push_namespace (tree name)
 {
   tree d = NULL_TREE;
   int need_new = 1;
@@ -2265,7 +2210,7 @@ push_namespace (name)
 /* Pop from the scope of the current namespace.  */
 
 void
-pop_namespace ()
+pop_namespace (void)
 {
   my_friendly_assert (current_namespace != global_namespace, 20010801);
   current_namespace = CP_DECL_CONTEXT (current_namespace);
@@ -2277,8 +2222,7 @@ pop_namespace ()
    nested within another namespace.  */
 
 void
-push_nested_namespace (ns)
-     tree ns;
+push_nested_namespace (tree ns)
 {
   if (ns == global_namespace)
     push_to_top_level ();
@@ -2293,8 +2237,7 @@ push_nested_namespace (ns)
    entered with push_nested_namespace.  */
 
 void
-pop_nested_namespace (ns)
-     tree ns;
+pop_nested_namespace (tree ns)
 {
   while (ns != global_namespace)
     {
@@ -2314,8 +2257,7 @@ pop_nested_namespace (ns)
 struct saved_scope *scope_chain;
 
 static tree
-store_bindings (names, old_bindings)
-     tree names, old_bindings;
+store_bindings (tree names, tree old_bindings)
 {
   tree t;
   tree search_bindings = old_bindings;
@@ -2357,8 +2299,7 @@ store_bindings (names, old_bindings)
 }
 
 void
-maybe_push_to_top_level (pseudo)
-     int pseudo;
+maybe_push_to_top_level (int pseudo)
 {
   struct saved_scope *s;
   struct cp_binding_level *b;
@@ -2421,13 +2362,13 @@ maybe_push_to_top_level (pseudo)
 }
 
 void
-push_to_top_level ()
+push_to_top_level (void)
 {
   maybe_push_to_top_level (0);
 }
 
 void
-pop_from_top_level ()
+pop_from_top_level (void)
 {
   struct saved_scope *s = scope_chain;
   tree t;
@@ -2470,10 +2411,9 @@ pop_from_top_level ()
    the type that ID maps to.  */
 
 static void
-set_identifier_type_value_with_scope (id, type, b)
-     tree id;
-     tree type;
-     struct cp_binding_level *b;
+set_identifier_type_value_with_scope (tree id, 
+                                      tree type, 
+                                      struct cp_binding_level* b)
 {
   if (!b->namespace_p)
     {
@@ -2496,9 +2436,7 @@ set_identifier_type_value_with_scope (id, type, b)
 /* As set_identifier_type_value_with_scope, but using current_binding_level.  */
 
 void
-set_identifier_type_value (id, type)
-     tree id;
-     tree type;
+set_identifier_type_value (tree id, tree type)
 {
   set_identifier_type_value_with_scope (id, type, current_binding_level);
 }
@@ -2506,8 +2444,7 @@ set_identifier_type_value (id, type)
 /* Return the type associated with id.  */
 
 tree
-identifier_type_value (id)
-     tree id;
+identifier_type_value (tree id)
 {
   /* There is no type with that name, anywhere.  */
   if (REAL_IDENTIFIER_TYPE_VALUE (id) == NULL_TREE)
@@ -2528,7 +2465,7 @@ identifier_type_value (id)
    We don't pop past namespaces, as they might be valid.  */
 
 void
-pop_everything ()
+pop_everything (void)
 {
 #ifdef DEBUG_BINDING_LEVELS
   fprintf (stderr, "XXX entering pop_everything ()\n");
@@ -2555,10 +2492,9 @@ pop_everything ()
    processing.  */
 
 static tree
-maybe_process_template_type_declaration (type, globalize, b)
-     tree type;
-     int globalize;
-     struct cp_binding_level* b;
+maybe_process_template_type_declaration (tree type, 
+                                         int globalize, 
+                                         struct cp_binding_level* b)
 {
   tree decl = TYPE_NAME (type);
 
@@ -2621,9 +2557,7 @@ maybe_process_template_type_declaration (type, globalize, b)
    the TYPE_DECL for TYPE.  */
 
 tree
-create_implicit_typedef (name, type)
-     tree name;
-     tree type;
+create_implicit_typedef (tree name, tree type)
 {
   tree decl;
 
@@ -2641,8 +2575,7 @@ create_implicit_typedef (name, type)
 /* Remember a local name for name-mangling purposes.  */
 
 static void
-push_local_name (decl)
-     tree decl;
+push_local_name (tree decl)
 {
   size_t i, nelts;
   tree t, name;
@@ -2680,9 +2613,7 @@ push_local_name (decl)
    The latter is needed for implicit declarations.  */
 
 void
-pushtag (name, type, globalize)
-     tree name, type;
-     int globalize;
+pushtag (tree name, tree type, int globalize)
 {
   register struct cp_binding_level *b;
 
@@ -2799,13 +2730,13 @@ pushtag (name, type, globalize)
 
 /* Counter used to create anonymous type names.  */
 
-static int anon_cnt = 0;
+static GTY(()) int anon_cnt;
 
 /* Return an IDENTIFIER which can be used as a name for
    anonymous structs and unions.  */
 
 tree
-make_anon_name ()
+make_anon_name (void)
 {
   char buf[32];
 
@@ -2817,7 +2748,7 @@ make_anon_name ()
    This keeps dbxout from getting confused.  */
 
 void
-clear_anon_tags ()
+clear_anon_tags (void)
 {
   register struct cp_binding_level *b;
   register tree tags;
@@ -2852,8 +2783,7 @@ clear_anon_tags ()
    `const int&'.  */
 
 int
-decls_match (newdecl, olddecl)
-     tree newdecl, olddecl;
+decls_match (tree newdecl, tree olddecl)
 {
   int types_match;
 
@@ -2956,8 +2886,7 @@ decls_match (newdecl, olddecl)
    the user's control.  */
 
 static void
-warn_extern_redeclared_static (newdecl, olddecl)
-     tree newdecl, olddecl;
+warn_extern_redeclared_static (tree newdecl, tree olddecl)
 {
   static const char *const explicit_extern_static_warning
     = "`%D' was declared `extern' and later `static'";
@@ -3002,8 +2931,7 @@ warn_extern_redeclared_static (newdecl, olddecl)
    Otherwise, return 0.  */
 
 int
-duplicate_decls (newdecl, olddecl)
-     tree newdecl, olddecl;
+duplicate_decls (tree newdecl, tree olddecl)
 {
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0;
@@ -3761,8 +3689,7 @@ duplicate_decls (newdecl, olddecl)
    to agree with what X says.  */
 
 tree
-pushdecl (x)
-     tree x;
+pushdecl (tree x)
 {
   register tree t;
   register tree name;
@@ -4208,9 +4135,7 @@ pushdecl (x)
    caller to set DECL_CONTEXT properly.  */
 
 static tree
-pushdecl_with_scope (x, level)
-     tree x;
-     struct cp_binding_level *level;
+pushdecl_with_scope (tree x, struct cp_binding_level* level)
 {
   register struct cp_binding_level *b;
   tree function_decl = current_function_decl;
@@ -4238,8 +4163,7 @@ pushdecl_with_scope (x, level)
    if appropriate.  */
 
 tree
-pushdecl_namespace_level (x)
-     tree x;
+pushdecl_namespace_level (tree x)
 {
   register struct cp_binding_level *b = current_binding_level;
   register tree t;
@@ -4284,8 +4208,7 @@ pushdecl_namespace_level (x)
    if appropriate.  */
 
 tree
-pushdecl_top_level (x)
-     tree x;
+pushdecl_top_level (tree x)
 {
   push_to_top_level ();
   x = pushdecl_namespace_level (x);
@@ -4296,8 +4219,7 @@ pushdecl_top_level (x)
 /* Make the declaration of X appear in CLASS scope.  */
 
 void
-pushdecl_class_level (x)
-     tree x;
+pushdecl_class_level (tree x)
 {
   tree name;
 
@@ -4329,8 +4251,7 @@ pushdecl_class_level (x)
    DECL, or a modified version thereof.  */
 
 tree
-maybe_push_decl (decl)
-     tree decl;
+maybe_push_decl (tree decl)
 {
   tree type = TREE_TYPE (decl);
 
@@ -4359,9 +4280,7 @@ maybe_push_decl (decl)
    under the name NAME.  */
 
 void
-push_class_level_binding (name, x)
-     tree name;
-     tree x;
+push_class_level_binding (tree name, tree x)
 {
   tree binding;
   /* The class_binding_level will be NULL if x is a template
@@ -4440,9 +4359,7 @@ push_class_level_binding (name, x)
    scope, a using decl might extend any previous bindings).  */
 
 tree
-push_using_decl (scope, name)
-     tree scope;
-     tree name;
+push_using_decl (tree scope, tree name)
 {
   tree decl;
 
@@ -4465,8 +4382,7 @@ push_using_decl (scope, name)
    TREE_LIST otherwise.  */
 
 tree
-push_using_directive (used)
-     tree used;
+push_using_directive (tree used)
 {
   tree ud = current_binding_level->using_directives;
   tree iter, ancestor;
@@ -4506,9 +4422,7 @@ push_using_directive (used)
    it's always DECL (and never something that's not a _DECL).  */
 
 tree
-push_overloaded_decl (decl, flags)
-     tree decl;
-     int flags;
+push_overloaded_decl (tree decl, int flags)
 {
   tree name = DECL_NAME (decl);
   tree old;
@@ -4624,8 +4538,7 @@ push_overloaded_decl (decl, flags)
    as a function of type int ().  Print a warning if appropriate.  */
 
 tree
-implicitly_declare (functionid)
-     tree functionid;
+implicitly_declare (tree functionid)
 {
   register tree decl;
 
@@ -4661,8 +4574,7 @@ implicitly_declare (functionid)
    where the identifier should go.  */
 
 static const char *
-redeclaration_error_message (newdecl, olddecl)
-     tree newdecl, olddecl;
+redeclaration_error_message (tree newdecl, tree olddecl)
 {
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
@@ -4738,9 +4650,7 @@ redeclaration_error_message (newdecl, olddecl)
 /* Create a new label, named ID.  */
 
 static tree
-make_label_decl (id, local_p)
-     tree id;
-     int local_p;
+make_label_decl (tree id, int local_p)
 {
   tree decl;
 
@@ -4770,8 +4680,7 @@ make_label_decl (id, local_p)
    this use is valid.  */
 
 static void
-use_label (decl)
-     tree decl;
+use_label (tree decl)
 {
   if (named_label_uses == NULL
       || named_label_uses->names_in_scope != current_binding_level->names
@@ -4795,8 +4704,7 @@ use_label (decl)
    labels, and complain about them at the end of a function.)  */
 
 tree
-lookup_label (id)
-     tree id;
+lookup_label (tree id)
 {
   tree decl;
   struct named_label_list *ent;
@@ -4835,8 +4743,7 @@ lookup_label (id)
 /* Declare a local label named ID.  */
 
 tree
-declare_local_label (id)
-     tree id;
+declare_local_label (tree id)
 {
   tree decl;
 
@@ -4858,8 +4765,7 @@ declare_local_label (id)
    DECL.  Returns 2 if it's also a real problem.  */
 
 static int
-decl_jump_unsafe (decl)
-     tree decl;
+decl_jump_unsafe (tree decl)
 {
   if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl))
     return 0;
@@ -4883,12 +4789,11 @@ decl_jump_unsafe (decl)
    context; FILE and LINE are the source position of the jump or 0.  */
 
 static void
-check_previous_goto_1 (decl, level, names, file, line)
-     tree decl;
-     struct cp_binding_level *level;
-     tree names;
-     const char *file;
-     int line;
+check_previous_goto_1 (tree decl,
+                       struct cp_binding_level* level,
+                       tree names,
+                       const char* file,
+                       int line)
 {
   int identified = 0;
   int saw_eh = 0;
@@ -4949,8 +4854,7 @@ check_previous_goto_1 (decl, level, names, file, line)
 }
 
 static void
-check_previous_goto (use)
-     struct named_label_use_list *use;
+check_previous_goto (struct named_label_use_list* use)
 {
   check_previous_goto_1 (use->label_decl, use->binding_level,
 			 use->names_in_scope, use->filename_o_goto,
@@ -4958,8 +4862,7 @@ check_previous_goto (use)
 }
 
 static void
-check_switch_goto (level)
-     struct cp_binding_level *level;
+check_switch_goto (struct cp_binding_level* level)
 {
   check_previous_goto_1 (NULL_TREE, level, level->names, NULL, 0);
 }
@@ -4968,8 +4871,7 @@ check_switch_goto (level)
    are OK.  Called by define_label.  */
 
 static void
-check_previous_gotos (decl)
-     tree decl;
+check_previous_gotos (tree decl)
 {
   struct named_label_use_list **usep;
 
@@ -4993,8 +4895,7 @@ check_previous_gotos (decl)
    finish_goto_stmt.  */
 
 void
-check_goto (decl)
-     tree decl;
+check_goto (tree decl)
 {
   int identified = 0;
   tree bad;
@@ -5054,10 +4955,7 @@ check_goto (decl)
    Otherwise return 0.  */
 
 tree
-define_label (filename, line, name)
-     const char *filename;
-     int line;
-     tree name;
+define_label (const char* filename, int line, tree name)
 {
   tree decl = lookup_label (name);
   struct named_label_list *ent;
@@ -5123,8 +5021,7 @@ static struct cp_switch *switch_stack;
    SWITCH_STMT is the switch statement being parsed.  */
 
 void
-push_switch (switch_stmt)
-     tree switch_stmt;
+push_switch (tree switch_stmt)
 {
   struct cp_switch *p
     = (struct cp_switch *) xmalloc (sizeof (struct cp_switch));
@@ -5136,7 +5033,7 @@ push_switch (switch_stmt)
 }
 
 void
-pop_switch ()
+pop_switch (void)
 {
   struct cp_switch *cs;
 
@@ -5150,9 +5047,7 @@ pop_switch ()
    is a bad place for one.  */
 
 tree
-finish_case_label (low_value, high_value)
-     tree low_value;
-     tree high_value;
+finish_case_label (tree low_value, tree high_value)
 {
   tree cond, r;
   register struct cp_binding_level *p;
@@ -5204,7 +5099,7 @@ finish_case_label (low_value, high_value)
    store the result back using `storedecls' or you will lose.  */
 
 tree
-getdecls ()
+getdecls (void)
 {
   return current_binding_level->names;
 }
@@ -5212,7 +5107,7 @@ getdecls ()
 /* Return the list of type-tags (for structs, etc) of the current level.  */
 
 tree
-gettags ()
+gettags (void)
 {
   return current_binding_level->tags;
 }
@@ -5222,8 +5117,7 @@ gettags ()
    after they are modified in the light of any missing parameters.  */
 
 static void
-storedecls (decls)
-     tree decls;
+storedecls (tree decls)
 {
   current_binding_level->names = decls;
 }
@@ -5231,8 +5125,7 @@ storedecls (decls)
 /* Similarly, store the list of tags of the current level.  */
 
 void
-storetags (tags)
-     tree tags;
+storetags (tree tags)
 {
   current_binding_level->tags = tags;
 }
@@ -5261,8 +5154,7 @@ storetags (tags)
    Return null for this case.  */
 
 static tree
-follow_tag_typedef (type)
-     tree type;
+follow_tag_typedef (tree type)
 {
   tree original;
 
@@ -5290,11 +5182,10 @@ follow_tag_typedef (type)
    reported.  */
 
 static tree
-lookup_tag (form, name, binding_level, thislevel_only)
-     enum tree_code form;
-     tree name;
-     struct cp_binding_level *binding_level;
-     int thislevel_only;
+lookup_tag (enum tree_code form,
+            tree name,
+            struct cp_binding_level* binding_level,
+            int thislevel_only)
 {
   register struct cp_binding_level *level;
   /* Nonzero if, we should look past a template parameter level, even
@@ -5391,15 +5282,6 @@ lookup_tag (form, name, binding_level, thislevel_only)
   return NULL_TREE;
 }
 
-#if 0
-void
-set_current_level_tags_transparency (tags_transparent)
-     int tags_transparent;
-{
-  current_binding_level->tag_transparent = tags_transparent;
-}
-#endif
-
 /* Given a type, find the tag that was defined for it and return the tag name.
    Otherwise return 0.  However, the value can never be 0
    in the cases in which this is used.
@@ -5408,9 +5290,7 @@ set_current_level_tags_transparency (tags_transparent)
    done when replacing anonymous tags with real tag names.  */
 
 static tree
-lookup_tag_reverse (type, name)
-     tree type;
-     tree name;
+lookup_tag_reverse (tree type, tree name)
 {
   register struct cp_binding_level *level;
 
@@ -5433,8 +5313,7 @@ lookup_tag_reverse (type, name)
 /* Look up NAME in the NAMESPACE.  */
 
 tree
-lookup_namespace_name (namespace, name)
-     tree namespace, name;
+lookup_namespace_name (tree namespace, tree name)
 {
   tree val;
   tree template_id = NULL_TREE;
@@ -5513,8 +5392,7 @@ lookup_namespace_name (namespace, name)
 /* Hash a TYPENAME_TYPE.  K is really of type `tree'.  */
 
 static hashval_t
-typename_hash (k)
-     const void * k;
+typename_hash (const void* k)
 {
   hashval_t hash;
   tree t = (tree) k;
@@ -5528,9 +5406,7 @@ typename_hash (k)
 /* Compare two TYPENAME_TYPEs.  K1 and K2 are really of type `tree'.  */
 
 static int
-typename_compare (k1, k2)
-     const void * k1;
-     const void * k2;
+typename_compare (const void * k1, const void * k2)
 {
   tree t1;
   tree t2;
@@ -5561,11 +5437,7 @@ typename_compare (k1, k2)
 static GTY ((param_is (union tree_node))) htab_t typename_htab;
 
 tree
-build_typename_type (context, name, fullname, base_type)
-     tree context;
-     tree name;
-     tree fullname;
-     tree base_type;
+build_typename_type (tree context, tree name, tree fullname, tree base_type)
 {
   tree t;
   tree d;
@@ -5608,9 +5480,7 @@ build_typename_type (context, name, fullname, base_type)
    complain about errors, otherwise be quiet.  */
 
 tree
-make_typename_type (context, name, complain)
-     tree context, name;
-     tsubst_flags_t complain;
+make_typename_type (tree context, tree name, tsubst_flags_t complain)
 {
   tree fullname;
 
@@ -5671,10 +5541,13 @@ make_typename_type (context, name, complain)
 	      return error_mark_node;
 	    }
 
-	  if (complain & tf_parsing)
-	    type_access_control (context, tmpl);
-	  else
-	    enforce_access (context, tmpl);
+	  if (complain & tf_error)
+	    {
+	      if (complain & tf_parsing)
+		type_access_control (context, tmpl);
+	      else
+		enforce_access (context, tmpl);
+	    }
 
 	  return lookup_template_class (tmpl,
 					TREE_OPERAND (fullname, 1),
@@ -5703,10 +5576,13 @@ make_typename_type (context, name, complain)
 		  return error_mark_node;
 		}
 
-	      if (complain & tf_parsing)
-		type_access_control (context, t);
-	      else
-		enforce_access (context, t);
+	      if (complain & tf_error)
+		{
+	      	  if (complain & tf_parsing)
+		    type_access_control (context, t);
+		  else
+		    enforce_access (context, t);
+		}
 
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
@@ -5745,9 +5621,7 @@ make_typename_type (context, name, complain)
    that occur.  */
 
 tree
-make_unbound_class_template (context, name, complain)
-     tree context, name;
-     tsubst_flags_t complain;
+make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
 {
   tree t;
   tree d;
@@ -5774,10 +5648,13 @@ make_unbound_class_template (context, name, complain)
 	  return error_mark_node;
 	}
       
-      if (complain & tf_parsing)
-	type_access_control (context, tmpl);
-      else
-	enforce_access (context, tmpl);
+      if (complain & tf_error)
+	{
+	  if (complain & tf_parsing)
+	    type_access_control (context, tmpl);
+	  else
+	    enforce_access (context, tmpl);
+	}
 
       return tmpl;
     }
@@ -5800,9 +5677,7 @@ make_unbound_class_template (context, name, complain)
 /* Select the right _DECL from multiple choices.  */
 
 static tree
-select_decl (binding, flags)
-     tree binding;
-     int flags;
+select_decl (tree binding, int flags)
 {
   tree val;
   val = BINDING_VALUE (binding);
@@ -5835,10 +5710,7 @@ select_decl (binding, flags)
    of the namespaces we've considered in it.  */
 
 tree
-unqualified_namespace_lookup (name, flags, spacesp)
-     tree name;
-     int flags;
-     tree *spacesp;
+unqualified_namespace_lookup (tree name, int flags, tree* spacesp)
 {
   tree b = make_node (CPLUS_BINDING);
   tree initial = current_decl_namespace ();
@@ -5904,8 +5776,7 @@ unqualified_namespace_lookup (name, flags, spacesp)
 /* Combine prefer_type and namespaces_only into flags.  */
 
 static int
-lookup_flags (prefer_type, namespaces_only)
-  int prefer_type, namespaces_only;
+lookup_flags (int prefer_type, int namespaces_only)
 {
   if (namespaces_only)
     return LOOKUP_PREFER_NAMESPACES;
@@ -5920,9 +5791,7 @@ lookup_flags (prefer_type, namespaces_only)
    ignore it or not.  Subroutine of lookup_name_real.  */
 
 static tree
-qualify_lookup (val, flags)
-     tree val;
-     int flags;
+qualify_lookup (tree val, int flags)
 {
   if (val == NULL_TREE)
     return val;
@@ -5939,9 +5808,7 @@ qualify_lookup (val, flags)
    that.  */
 
 static void
-warn_about_implicit_typename_lookup (typename, binding)
-     tree typename;
-     tree binding;
+warn_about_implicit_typename_lookup (tree typename, tree binding)
 {
   tree subtype = TREE_TYPE (TREE_TYPE (typename));
   tree name = DECL_NAME (typename);
@@ -6159,24 +6026,19 @@ lookup_name_real (tree name,
 }
 
 tree
-lookup_name_nonclass (name)
-     tree name;
+lookup_name_nonclass (tree name)
 {
   return lookup_name_real (name, 0, 1, 0, LOOKUP_COMPLAIN);
 }
 
 tree
-lookup_function_nonclass (name, args)
-     tree name;
-     tree args;
+lookup_function_nonclass (tree name, tree args)
 {
   return lookup_arg_dependent (name, lookup_name_nonclass (name), args);
 }
 
 tree
-lookup_name (name, prefer_type)
-     tree name;
-     int prefer_type;
+lookup_name (tree name, int prefer_type)
 {
   return lookup_name_real (name, prefer_type, 0, 0, LOOKUP_COMPLAIN);
 }
@@ -6185,8 +6047,7 @@ lookup_name (name, prefer_type)
    binding level.  */
 
 tree
-lookup_name_current_level (name)
-     tree name;
+lookup_name_current_level (tree name)
 {
   struct cp_binding_level *b;
   tree t = NULL_TREE;
@@ -6224,8 +6085,7 @@ lookup_name_current_level (name)
 /* Like lookup_name_current_level, but for types.  */
 
 tree
-lookup_type_current_level (name)
-     tree name;
+lookup_type_current_level (tree name)
 {
   register tree t = NULL_TREE;
 
@@ -6256,10 +6116,9 @@ lookup_type_current_level (name)
    up the builtin type.  TYPE is the _TYPE node for the builtin type.  */
 
 void
-record_builtin_type (rid_index, name, type)
-     enum rid rid_index;
-     const char *name;
-     tree type;
+record_builtin_type (enum rid rid_index, 
+                     const char* name, 
+                     tree type)
 {
   tree rname = NULL_TREE, tname = NULL_TREE;
   tree tdecl = NULL_TREE;
@@ -6300,9 +6159,7 @@ record_builtin_type (rid_index, name, type)
  * otherwise it is the negative of the size of one of the other types.  */
 
 static tree
-record_builtin_java_type (name, size)
-     const char *name;
-     int size;
+record_builtin_java_type (const char* name, int size)
 {
   tree type, decl;
   if (size > 0)
@@ -6333,9 +6190,7 @@ record_builtin_java_type (name, size)
 /* Push a type into the namespace so that the back-ends ignore it.  */
 
 static void
-record_unknown_type (type, name)
-     tree type;
-     const char *name;
+record_unknown_type (tree type, const char* name)
 {
   tree decl = pushdecl (build_decl (TYPE_DECL, get_identifier (name), type));
   /* Make sure the "unknown type" typedecl gets ignored for debug info.  */
@@ -6363,7 +6218,7 @@ typedef struct predefined_identifier
 /* Create all the predefined identifiers.  */
 
 static void
-initialize_predefined_identifiers ()
+initialize_predefined_identifiers (void)
 {
   const predefined_identifier *pid;
 
@@ -6404,7 +6259,7 @@ initialize_predefined_identifiers ()
    Make definitions for built-in primitive functions.  */
 
 void
-cxx_init_decl_processing ()
+cxx_init_decl_processing (void)
 {
   tree void_ftype;
   tree void_ftype_ptr;
@@ -6612,8 +6467,7 @@ cxx_init_decl_processing ()
    ERROR_MARK node which should be replaced later.  */
 
 tree
-cp_fname_init (name)
-     const char *name;
+cp_fname_init (const char* name)
 {
   tree domain = NULL_TREE;
   tree type;
@@ -6647,9 +6501,7 @@ cp_fname_init (name)
    lazily at the point of first use, so we musn't push the decl now.  */
 
 static tree
-cp_make_fname_decl (id, type_dep)
-     tree id;
-     int type_dep;
+cp_make_fname_decl (tree id, int type_dep)
 {
   const char *const name = (type_dep && processing_template_decl
 		      ? NULL : fname_as_string (type_dep));
@@ -6693,14 +6545,13 @@ cp_make_fname_decl (id, type_dep)
    list.  */
 
 static tree
-builtin_function_1 (name, type, context, code, class, libname, attrs)
-     const char *name;
-     tree type;
-     tree context;
-     int code;
-     enum built_in_class class;
-     const char *libname;
-     tree attrs;
+builtin_function_1 (const char* name,
+                    tree type,
+                    tree context,
+                    int code,
+                    enum built_in_class class,
+                    const char* libname,
+                    tree attrs)
 {
   tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
   DECL_BUILT_IN_CLASS (decl) = class;
@@ -6747,13 +6598,12 @@ builtin_function_1 (name, type, context, code, class, libname, attrs)
    list.  */
 
 tree
-builtin_function (name, type, code, class, libname, attrs)
-     const char *name;
-     tree type;
-     int code;
-     enum built_in_class class;
-     const char *libname;
-     tree attrs;
+builtin_function (const char* name,
+                  tree type,
+                  int code,
+                  enum built_in_class class,
+                  const char* libname,
+                  tree attrs)
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
@@ -6772,10 +6622,7 @@ builtin_function (name, type, code, class, libname, attrs)
    function.  Not called directly.  */
 
 static tree
-build_library_fn_1 (name, operator_code, type)
-     tree name;
-     enum tree_code operator_code;
-     tree type;
+build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
 {
   tree fn = build_lang_decl (FUNCTION_DECL, name, type);
   DECL_EXTERNAL (fn) = 1;
@@ -6792,9 +6639,7 @@ build_library_fn_1 (name, operator_code, type)
    callers should unset TREE_NOTHROW.  */
 
 tree
-build_library_fn (name, type)
-     tree name;
-     tree type;
+build_library_fn (tree name, tree type)
 {
   return build_library_fn_1 (name, ERROR_MARK, type);
 }
@@ -6802,10 +6647,7 @@ build_library_fn (name, type)
 /* Returns the _DECL for a library function with C++ linkage.  */
 
 static tree
-build_cp_library_fn (name, operator_code, type)
-     tree name;
-     enum tree_code operator_code;
-     tree type;
+build_cp_library_fn (tree name, enum tree_code operator_code, tree type)
 {
   tree fn = build_library_fn_1 (name, operator_code, type);
   TREE_NOTHROW (fn) = TYPE_NOTHROW_P (type);
@@ -6819,9 +6661,7 @@ build_cp_library_fn (name, operator_code, type)
    IDENTIFIER_NODE.  */
 
 tree
-build_library_fn_ptr (name, type)
-     const char *name;
-     tree type;
+build_library_fn_ptr (const char* name, tree type)
 {
   return build_library_fn (get_identifier (name), type);
 }
@@ -6830,9 +6670,7 @@ build_library_fn_ptr (name, type)
    IDENTIFIER_NODE.  */
 
 tree
-build_cp_library_fn_ptr (name, type)
-     const char *name;
-     tree type;
+build_cp_library_fn_ptr (const char* name, tree type)
 {
   return build_cp_library_fn (get_identifier (name), ERROR_MARK, type);
 }
@@ -6841,8 +6679,7 @@ build_cp_library_fn_ptr (name, type)
    be able to find it via IDENTIFIER_GLOBAL_VALUE.  */
 
 tree
-push_library_fn (name, type)
-     tree name, type;
+push_library_fn (tree name, tree type)
 {
   tree fn = build_library_fn (name, type);
   pushdecl_top_level (fn);
@@ -6853,9 +6690,7 @@ push_library_fn (name, type)
    will be found by normal lookup.  */
 
 static tree
-push_cp_library_fn (operator_code, type)
-     enum tree_code operator_code;
-     tree type;
+push_cp_library_fn (enum tree_code operator_code, tree type)
 {
   tree fn = build_cp_library_fn (ansi_opname (operator_code),
 				 operator_code,
@@ -6868,8 +6703,7 @@ push_cp_library_fn (operator_code, type)
    a FUNCTION_TYPE.  */
 
 tree
-push_void_library_fn (name, parmtypes)
-     tree name, parmtypes;
+push_void_library_fn (tree name, tree parmtypes)
 {
   tree type = build_function_type (void_type_node, parmtypes);
   return push_library_fn (name, type);
@@ -6879,8 +6713,7 @@ push_void_library_fn (name, parmtypes)
    and does not return.  Used for __throw_foo and the like.  */
 
 tree
-push_throw_library_fn (name, type)
-     tree name, type;
+push_throw_library_fn (tree name, tree type)
 {
   tree fn = push_library_fn (name, type);
   TREE_THIS_VOLATILE (fn) = 1;
@@ -6892,8 +6725,7 @@ push_throw_library_fn (name, type)
    attributes.  */
 
 void
-cxx_insert_default_attributes (decl)
-     tree decl;
+cxx_insert_default_attributes (tree decl)
 {
   if (!DECL_EXTERN_C_FUNCTION_P (decl))
     return;
@@ -6913,8 +6745,7 @@ cxx_insert_default_attributes (decl)
    union type.)  */
 
 void
-fixup_anonymous_aggr (t)
-     tree t;
+fixup_anonymous_aggr (tree t)
 {
   tree *q;
 
@@ -6975,8 +6806,7 @@ fixup_anonymous_aggr (t)
    Returns the type declared; or NULL_TREE if none.  */
 
 tree
-check_tag_decl (declspecs)
-     tree declspecs;
+check_tag_decl (tree declspecs)
 {
   int found_type = 0;
   int saw_friend = 0;
@@ -7112,8 +6942,7 @@ check_tag_decl (declspecs)
    Returns the TYPE declared -- or NULL_TREE if none.  */
 
 tree
-shadow_tag (declspecs)
-     tree declspecs;
+shadow_tag (tree declspecs)
 {
   tree t = check_tag_decl (declspecs);
 
@@ -7145,8 +6974,7 @@ shadow_tag (declspecs)
 /* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
 
 tree
-groktypename (typename)
-     tree typename;
+groktypename (tree typename)
 {
   tree specs, attrs;
   tree type;
@@ -7176,19 +7004,15 @@ groktypename (typename)
    grokfield and not through here.  */
 
 tree
-start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
-     tree declarator, declspecs;
-     int initialized;
-     tree attributes, prefix_attributes;
+start_decl (tree declarator, 
+            tree declspecs, 
+            int initialized, 
+            tree attributes, 
+            tree prefix_attributes)
 {
   tree decl;
   register tree type, tem;
   tree context;
-
-#if 0
-  /* See code below that used this.  */
-  int init_written = initialized;
-#endif
 
   /* This should only be done once on the top most decl.  */
   if (have_extern_spec)
@@ -7352,7 +7176,9 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
      wrong semantics.  If we say -fno-conserve-space, we want this to
      produce errors about redefs; to do this we force variables into the
      data segment.  */
-  DECL_COMMON (tem) = flag_conserve_space || ! TREE_PUBLIC (tem);
+  DECL_COMMON (tem) = ((TREE_CODE (tem) != VAR_DECL
+			|| !DECL_THREAD_LOCAL (tem))
+		       && (flag_conserve_space || ! TREE_PUBLIC (tem)));
 #endif
 
   if (! processing_template_decl)
@@ -7362,8 +7188,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 }
 
 void
-start_decl_1 (decl)
-     tree decl;
+start_decl_1 (tree decl)
 {
   tree type = TREE_TYPE (decl);
   int initialized = (DECL_INITIAL (decl) != NULL_TREE);
@@ -7437,8 +7262,7 @@ start_decl_1 (decl)
    Quotes on semantics can be found in ARM 8.4.3.  */
 
 static tree
-grok_reference_init (decl, type, init)
-     tree decl, type, init;
+grok_reference_init (tree decl, tree type, tree init)
 {
   tree tmp;
 
@@ -7503,9 +7327,7 @@ grok_reference_init (decl, type, init)
    situation we're in, update DECL accordingly.  */
 
 static void
-maybe_deduce_size_from_array_init (decl, init)
-     tree decl;
-     tree init;
+maybe_deduce_size_from_array_init (tree decl, tree init)
 {
   tree type = TREE_TYPE (decl);
 
@@ -7547,8 +7369,7 @@ maybe_deduce_size_from_array_init (decl, init)
    any appropriate error messages regarding the layout.  */
 
 static void
-layout_var_decl (decl)
-     tree decl;
+layout_var_decl (tree decl)
 {
   tree type = TREE_TYPE (decl);
 #if 0
@@ -7612,8 +7433,7 @@ layout_var_decl (decl)
    instance of the variable at link-time.  */
 
 static void
-maybe_commonize_var (decl)
-     tree decl;
+maybe_commonize_var (tree decl)
 {
   /* Static data in a function with comdat linkage also has comdat
      linkage.  */
@@ -7664,8 +7484,7 @@ maybe_commonize_var (decl)
 /* Issue an error message if DECL is an uninitialized const variable.  */
 
 static void
-check_for_uninitialized_const_var (decl)
-     tree decl;
+check_for_uninitialized_const_var (tree decl)
 {
   tree type = TREE_TYPE (decl);
 
@@ -8045,10 +7864,7 @@ check_initializer (tree decl, tree init, int flags)
 /* If DECL is not a local variable, give it RTL.  */
 
 static void
-make_rtl_for_nonlocal_decl (decl, init, asmspec)
-     tree decl;
-     tree init;
-     const char *asmspec;
+make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 {
   int toplev = toplevel_bindings_p ();
   int defer_p;
@@ -8133,8 +7949,7 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
    declaration into the surrounding scope.  */
 
 void
-maybe_inject_for_scope_var (decl)
-     tree decl;
+maybe_inject_for_scope_var (tree decl)
 {
   if (!DECL_NAME (decl))
     return;
@@ -8177,9 +7992,7 @@ maybe_inject_for_scope_var (decl)
 /* Generate code to initialize DECL (a local variable).  */
 
 static void
-initialize_local_var (decl, init)
-     tree decl;
-     tree init;
+initialize_local_var (tree decl, tree init)
 {
   tree type = TREE_TYPE (decl);
 
@@ -8256,10 +8069,7 @@ initialize_local_var (decl, init)
    if the (init) syntax was used.  */
 
 void
-cp_finish_decl (decl, init, asmspec_tree, flags)
-     tree decl, init;
-     tree asmspec_tree;
-     int flags;
+cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 {
   register tree type;
   tree ttype = NULL_TREE;
@@ -8516,9 +8326,7 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
 /* This is here for a midend callback from c-common.c */
 
 void
-finish_decl (decl, init, asmspec_tree)
-     tree decl, init;
-     tree asmspec_tree;
+finish_decl (tree decl, tree init, tree asmspec_tree)
 {
   cp_finish_decl (decl, init, asmspec_tree, 0);
 }
@@ -8531,9 +8339,7 @@ finish_decl (decl, init, asmspec_tree)
    variables.  */
 
 tree
-declare_global_var (name, type)
-     tree name;
-     tree type;
+declare_global_var (tree name, tree type)
 {
   tree decl;
 
@@ -8554,7 +8360,7 @@ declare_global_var (name, type)
    `__cxa_atexit' function specified in the IA64 C++ ABI.  */
 
 static tree
-get_atexit_node ()
+get_atexit_node (void)
 {
   tree atexit_fndecl;
   tree arg_types;
@@ -8617,7 +8423,7 @@ get_atexit_node ()
 /* Returns the __dso_handle VAR_DECL.  */
 
 static tree
-get_dso_handle_node ()
+get_dso_handle_node (void)
 {
   if (dso_handle_node)
     return dso_handle_node;
@@ -8633,7 +8439,7 @@ get_dso_handle_node ()
    to destroy some particular variable.  */
 
 static tree
-start_cleanup_fn ()
+start_cleanup_fn (void)
 {
   static int counter = 0;
   int old_interface_only = interface_only;
@@ -8699,7 +8505,7 @@ start_cleanup_fn ()
 /* Finish the cleanup function begun by start_cleanup_fn.  */
 
 static void
-end_cleanup_fn ()
+end_cleanup_fn (void)
 {
   expand_body (finish_function (0));
 
@@ -8710,8 +8516,7 @@ end_cleanup_fn ()
    static storage duration.  */
 
 void
-register_dtor_fn (decl)
-     tree decl;
+register_dtor_fn (tree decl)
 {
   tree cleanup;
   tree compound_stmt;
@@ -8766,9 +8571,7 @@ register_dtor_fn (decl)
    and destruction of DECL.  */
 
 static void
-expand_static_init (decl, init)
-     tree decl;
-     tree init;
+expand_static_init (tree decl, tree init)
 {
   tree oldstatic;
 
@@ -8868,9 +8671,7 @@ expand_static_init (decl, init)
 /* Finish the declaration of a catch-parameter.  */
 
 tree
-start_handler_parms (declspecs, declarator)
-     tree declspecs;
-     tree declarator;
+start_handler_parms (tree declspecs, tree declarator)
 {
   tree decl;
   if (declspecs)
@@ -8892,9 +8693,7 @@ start_handler_parms (declspecs, declarator)
    2 if there was no information (in which case assume 0 if DO_DEFAULT).  */
 
 int
-complete_array_type (type, initial_value, do_default)
-     tree type, initial_value;
-     int do_default;
+complete_array_type (tree type, tree initial_value, int do_default)
 {
   register tree maxindex = NULL_TREE;
   int value = 0;
@@ -8989,9 +8788,7 @@ complete_array_type (type, initial_value, do_default)
    message to print in that case.  Otherwise, quietly return 1.  */
 
 static int
-member_function_or_else (ctype, cur_type, flags)
-     tree ctype, cur_type;
-     enum overload_flags flags;
+member_function_or_else (tree ctype, tree cur_type, enum overload_flags flags)
 {
   if (ctype && ctype != cur_type)
     {
@@ -9012,10 +8809,13 @@ member_function_or_else (ctype, cur_type, flags)
    This is for ARM $7.1.2.  */
 
 static void
-bad_specifiers (object, type, virtualp, quals, inlinep, friendp, raises)
-     tree object;
-     const char *type;
-     int virtualp, quals, friendp, raises, inlinep;
+bad_specifiers (tree object,
+                const char* type,
+                int virtualp,
+                int quals,
+                int inlinep,
+                int friendp,
+                int raises)
 {
   if (virtualp)
     error ("`%D' declared as a `virtual' %s", object, type);
@@ -9050,17 +8850,21 @@ bad_specifiers (object, type, virtualp, quals, inlinep, friendp, raises)
    applicable error messages.  */
 
 static tree
-grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
-	    raises, check, friendp, publicp, inlinep, funcdef_flag,
-	    template_count, in_namespace)
-     tree ctype, type;
-     tree declarator;
-     tree orig_declarator;
-     int virtualp;
-     enum overload_flags flags;
-     tree quals, raises;
-     int check, friendp, publicp, inlinep, funcdef_flag, template_count;
-     tree in_namespace;
+grokfndecl (tree ctype, 
+            tree type,
+            tree declarator,
+            tree orig_declarator,
+            int virtualp,
+            enum overload_flags flags,
+            tree quals, 
+            tree raises,
+            int check, 
+            int friendp, 
+            int publicp, 
+            int inlinep, 
+            int funcdef_flag, 
+            int template_count,
+            tree in_namespace)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -9338,13 +9142,12 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
    the innermost enclosings scope.  */
 
 static tree
-grokvardecl (type, name, specbits_in, initialized, constp, scope)
-     tree type;
-     tree name;
-     RID_BIT_TYPE *specbits_in;
-     int initialized;
-     int constp;
-     tree scope;
+grokvardecl (tree type,
+             tree name,
+             RID_BIT_TYPE * specbits_in,
+             int initialized,
+             int constp,
+             tree scope)
 {
   tree decl;
   RID_BIT_TYPE specbits;
@@ -9458,8 +9261,7 @@ grokvardecl (type, name, specbits_in, initialized, constp, scope)
    TYPE, which is a POINTER_TYPE to a METHOD_TYPE.  */
 
 tree
-build_ptrmemfunc_type (type)
-     tree type;
+build_ptrmemfunc_type (tree type)
 {
   tree field, fields;
   tree t;
@@ -9536,9 +9338,7 @@ build_ptrmem_type (tree class_type, tree member_type)
    otherwise.  */
 
 int
-check_static_variable_definition (decl, type)
-     tree decl;
-     tree type;
+check_static_variable_definition (tree decl, tree type)
 {
   /* Motion 10 at San Diego: If a static const integral data member is
      initialized with an integral constant expression, the initializer
@@ -9570,9 +9370,7 @@ check_static_variable_definition (decl, type)
    name of the thing being declared.  */
 
 tree
-compute_array_index_type (name, size)
-     tree name;
-     tree size;
+compute_array_index_type (tree name, tree size)
 {
   tree itype;
 
@@ -9700,8 +9498,7 @@ compute_array_index_type (name, size)
    unqualified name, NULL_TREE is returned.  */
 
 tree
-get_scope_of_declarator (declarator)
-     tree declarator;
+get_scope_of_declarator (tree declarator)
 {
   if (!declarator)
     return NULL_TREE;
@@ -9742,10 +9539,7 @@ get_scope_of_declarator (declarator)
    with this type.  */
 
 static tree
-create_array_type_for_decl (name, type, size)
-     tree name;
-     tree type;
-     tree size;
+create_array_type_for_decl (tree name, tree type, tree size)
 {
   tree itype = NULL_TREE;
   const char* error_msg;
@@ -9825,10 +9619,9 @@ create_array_type_for_decl (name, type, size)
    special functions.  */
 
 static tree
-check_special_function_return_type (sfk, type, optype)
-     special_function_kind sfk;
-     tree type;
-     tree optype;
+check_special_function_return_type (special_function_kind sfk,
+                                    tree type,
+                                    tree optype)
 {
   switch (sfk)
     {
@@ -9901,12 +9694,11 @@ check_special_function_return_type (sfk, type, optype)
    should not be `S'.  */
 
 tree
-grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
-     tree declspecs;
-     tree declarator;
-     enum decl_context decl_context;
-     int initialized;
-     tree *attrlist;
+grokdeclarator (tree declarator,
+                tree declspecs,
+                enum decl_context decl_context,
+                int initialized,
+                tree* attrlist)
 {
   RID_BIT_TYPE specbits;
   int nclasses = 0;
@@ -12120,8 +11912,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
    is a parmlist.  Otherwise, it is an exprlist.  */
 
 int
-parmlist_is_exprlist (exprs)
-     tree exprs;
+parmlist_is_exprlist (tree exprs)
 {
   if (exprs == NULL_TREE || TREE_PARMLIST (exprs))
     return 0;
@@ -12146,8 +11937,7 @@ parmlist_is_exprlist (exprs)
    function definition.  */
 
 static void
-require_complete_types_for_parms (parms)
-     tree parms;
+require_complete_types_for_parms (tree parms)
 {
   for (; parms; parms = TREE_CHAIN (parms))
     {
@@ -12164,8 +11954,7 @@ require_complete_types_for_parms (parms)
 /* Returns nonzero if T is a local variable.  */
 
 int
-local_variable_p (t)
-     tree t;
+local_variable_p (tree t)
 {
   if ((TREE_CODE (t) == VAR_DECL
        /* A VAR_DECL with a context that is a _TYPE is a static data
@@ -12184,8 +11973,7 @@ local_variable_p (t)
    containing them is duplicated.)  */
 
 int
-nonstatic_local_decl_p (t)
-     tree t;
+nonstatic_local_decl_p (tree t)
 {
   return ((local_variable_p (t) && !TREE_STATIC (t))
 	  || TREE_CODE (t) == LABEL_DECL
@@ -12196,10 +11984,9 @@ nonstatic_local_decl_p (t)
    function.  */
 
 static tree
-local_variable_p_walkfn (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
+local_variable_p_walkfn (tree* tp,
+                         int* walk_subtrees ATTRIBUTE_UNUSED ,
+                         void* data ATTRIBUTE_UNUSED )
 {
   return ((local_variable_p (*tp) && !DECL_ARTIFICIAL (*tp))
 	  ? *tp : NULL_TREE);
@@ -12211,9 +11998,7 @@ local_variable_p_walkfn (tp, walk_subtrees, data)
    DECL, if there is no DECL available.  */
 
 tree
-check_default_argument (decl, arg)
-     tree decl;
-     tree arg;
+check_default_argument (tree decl, tree arg)
 {
   tree var;
   tree decl_type;
@@ -12295,8 +12080,7 @@ check_default_argument (decl, arg)
    Also set last_function_parms to the chain of PARM_DECLs.  */
 
 static tree
-grokparms (first_parm)
-     tree first_parm;
+grokparms (tree first_parm)
 {
   tree result = NULL_TREE;
   tree decls = NULL_TREE;
@@ -12433,8 +12217,7 @@ grokparms (first_parm)
    operator.  */
 
 int
-copy_fn_p (d)
-     tree d;
+copy_fn_p (tree d)
 {
   tree args;
   tree arg_type;
@@ -12480,8 +12263,7 @@ copy_fn_p (d)
 
 /* Remember any special properties of member function DECL.  */
 
-void grok_special_member_properties (decl)
-     tree decl;
+void grok_special_member_properties (tree decl)
 {
   if (!DECL_NONSTATIC_MEMBER_FUNCTION_P(decl))
     ; /* Not special.  */
@@ -12530,8 +12312,7 @@ void grok_special_member_properties (decl)
    if the class has a constructor of the form X(X).  */
 
 int
-grok_ctor_properties (ctype, decl)
-     tree ctype, decl;
+grok_ctor_properties (tree ctype, tree decl)
 {
   int ctor_parm = copy_fn_p (decl);
 
@@ -12564,8 +12345,7 @@ grok_ctor_properties (ctype, decl)
 /* An operator with this code is unary, but can also be binary.  */
 
 static int
-ambi_op_p (code)
-     enum tree_code code;
+ambi_op_p (enum tree_code code)
 {
   return (code == INDIRECT_REF
 	  || code == ADDR_EXPR
@@ -12578,8 +12358,7 @@ ambi_op_p (code)
 /* An operator with this name can only be unary.  */
 
 static int
-unary_op_p (code)
-     enum tree_code code;
+unary_op_p (enum tree_code code)
 {
   return (code == TRUTH_NOT_EXPR
 	  || code == BIT_NOT_EXPR
@@ -12590,9 +12369,7 @@ unary_op_p (code)
 /* Do a little sanity-checking on how they declared their operator.  */
 
 void
-grok_op_properties (decl, friendp)
-     tree decl;
-     int friendp;
+grok_op_properties (tree decl, int friendp)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
   tree argtype;
@@ -12920,8 +12697,7 @@ grok_op_properties (decl, friendp)
 }
 
 static const char *
-tag_name (code)
-     enum tag_types code;
+tag_name (enum tag_types code)
 {
   switch (code)
     {
@@ -13163,9 +12939,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
 }
 
 tree
-xref_tag_from_type (old, id, globalize)
-     tree old, id;
-     int globalize;
+xref_tag_from_type (tree old, tree id, int globalize)
 {
   enum tag_types tag_kind;
 
@@ -13187,9 +12961,7 @@ xref_tag_from_type (old, id, globalize)
    struct, or union.  */
 
 void
-xref_basetypes (ref, binfo)
-     tree ref;
-     tree binfo;
+xref_basetypes (tree ref, tree binfo)
 {
   /* In the declaration `A : X, Y, ... Z' we mark all the types
      (A, X, Y, ..., Z) so we can check for duplicates.  */
@@ -13363,8 +13135,7 @@ xref_basetypes (ref, binfo)
    may be used to declare the individual values as they are read.  */
 
 tree
-start_enum (name)
-     tree name;
+start_enum (tree name)
 {
   register tree enumtype = NULL_TREE;
   struct cp_binding_level *b = current_binding_level;
@@ -13397,8 +13168,7 @@ start_enum (name)
    ENUMTYPE is the type object and VALUES a list of name-value pairs.  */
 
 void
-finish_enum (enumtype)
-     tree enumtype;
+finish_enum (tree enumtype)
 {
   tree pair;
   tree minnode;
@@ -13519,10 +13289,7 @@ finish_enum (enumtype)
    Assignment of sequential values by default is handled here.  */
 
 void
-build_enumerator (name, value, enumtype)
-     tree name;
-     tree value;
-     tree enumtype;
+build_enumerator (tree name, tree value, tree enumtype)
 {
   tree decl;
   tree context;
@@ -13641,9 +13408,7 @@ build_enumerator (name, value, enumtype)
 /* We're defining DECL.  Make sure that it's type is OK.  */
 
 static void
-check_function_type (decl, current_function_parms)
-     tree decl;
-     tree current_function_parms;
+check_function_type (tree decl, tree current_function_parms)
 {
   tree fntype = TREE_TYPE (decl);
   tree return_type = complete_type (TREE_TYPE (fntype));
@@ -13700,9 +13465,7 @@ check_function_type (decl, current_function_parms)
    applied to it with the argument list [1, 2].  */
 
 int
-start_function (declspecs, declarator, attrs, flags)
-     tree declspecs, declarator, attrs;
-     int flags;
+start_function (tree declspecs, tree declarator, tree attrs, int flags)
 {
   tree decl1;
   tree ctype = NULL_TREE;
@@ -14062,8 +13825,7 @@ start_function (declspecs, declarator, attrs, flags)
    Also install to binding contour return value identifier, if any.  */
 
 static void
-store_parm_decls (current_function_parms)
-     tree current_function_parms;
+store_parm_decls (tree current_function_parms)
 {
   register tree fndecl = current_function_decl;
   register tree parm;
@@ -14140,8 +13902,7 @@ store_parm_decls (current_function_parms)
    when we want to generate RTL later we know what to do.  */
 
 static void
-save_function_data (decl)
-     tree decl;
+save_function_data (tree decl)
 {
   struct language_function *f;
 
@@ -14181,7 +13942,7 @@ save_function_data (decl)
    fully-constructed bases and members.  */
 
 static void
-begin_constructor_body ()
+begin_constructor_body (void)
 {
 }
 
@@ -14190,7 +13951,7 @@ begin_constructor_body ()
    members.  */
 
 static void
-finish_constructor_body ()
+finish_constructor_body (void)
 {
 }
 
@@ -14198,7 +13959,7 @@ finish_constructor_body ()
    vtable pointers and cleanups for bases and members.  */
 
 static void
-begin_destructor_body ()
+begin_destructor_body (void)
 {
   tree if_stmt;
   tree compound_stmt;
@@ -14245,7 +14006,7 @@ begin_destructor_body ()
    necessary.  Do that now.  */
 
 static void
-finish_destructor_body ()
+finish_destructor_body (void)
 {
   tree exprstmt;
 
@@ -14287,7 +14048,7 @@ finish_destructor_body ()
    In other functions, this isn't necessary, but it doesn't hurt.  */
 
 tree
-begin_function_body ()
+begin_function_body (void)
 {
   tree stmt;
 
@@ -14322,8 +14083,7 @@ begin_function_body ()
    main() would also need to return 0.  */
 
 void
-finish_function_body (compstmt)
-     tree compstmt;
+finish_function_body (tree compstmt)
 {
   /* Close the block.  */
   finish_compound_stmt (0, compstmt);
@@ -14347,8 +14107,7 @@ finish_function_body (compstmt)
        after the class definition is complete.)  */
 
 tree
-finish_function (flags)
-     int flags;
+finish_function (int flags)
 {
   register tree fndecl = current_function_decl;
   tree fntype, ctype = NULL_TREE;
@@ -14546,8 +14305,7 @@ finish_function (flags)
    CHANGES TO CODE IN `grokfield'.  */
 
 tree
-start_method (declspecs, declarator, attrlist)
-     tree declarator, declspecs, attrlist;
+start_method (tree declspecs, tree declarator, tree attrlist)
 {
   tree fndecl = grokdeclarator (declarator, declspecs, MEMFUNCDEF, 0,
 				&attrlist);
@@ -14624,8 +14382,7 @@ start_method (declspecs, declarator, attrlist)
    DECL is the ..._DECL that `start_method' provided.  */
 
 tree
-finish_method (decl)
-     tree decl;
+finish_method (tree decl)
 {
   register tree fndecl = decl;
   tree old_initial;
@@ -14677,8 +14434,7 @@ finish_method (decl)
    we can lay it out later, when and if its type becomes complete.  */
 
 void
-maybe_register_incomplete_var (var)
-     tree var;
+maybe_register_incomplete_var (tree var)
 {
   my_friendly_assert (TREE_CODE (var) == VAR_DECL, 20020406);
 
@@ -14705,8 +14461,7 @@ maybe_register_incomplete_var (var)
    declaration, update them now.  */
 
 void
-complete_vars (type)
-     tree type;
+complete_vars (tree type)
 {
   tree *list = &incomplete_vars;
 
@@ -14731,8 +14486,7 @@ complete_vars (type)
    here.  */
 
 tree
-cxx_maybe_build_cleanup (decl)
-     tree decl;
+cxx_maybe_build_cleanup (tree decl)
 {
   tree type = TREE_TYPE (decl);
 
@@ -14770,7 +14524,7 @@ cxx_maybe_build_cleanup (decl)
 /* When a stmt has been parsed, this function is called.  */
 
 void
-finish_stmt ()
+finish_stmt (void)
 {
   /* Always assume this statement was not an expression statement.  If
      it actually was an expression statement, its our callers
@@ -14782,8 +14536,7 @@ finish_stmt ()
    but turned out to be static.  Update it accordingly.  */
 
 void
-revert_static_member_fn (decl)
-     tree decl;
+revert_static_member_fn (tree decl)
 {
   tree tmp;
   tree function = TREE_TYPE (decl);
@@ -14809,8 +14562,7 @@ revert_static_member_fn (decl)
    function.  */
 
 void
-cxx_push_function_context (f)
-     struct function *f;
+cxx_push_function_context (struct function * f)
 {
   struct language_function *p
     = ((struct language_function *)
@@ -14830,8 +14582,7 @@ cxx_push_function_context (f)
    compiling the function.  */
 
 void
-cxx_pop_function_context (f)
-     struct function *f;
+cxx_pop_function_context (struct function * f)
 {
   f->language = 0;
 }
@@ -14840,8 +14591,7 @@ cxx_pop_function_context (f)
    one of the language-independent trees.  */
 
 enum cp_tree_node_structure_enum
-cp_tree_node_structure (t)
-     union lang_tree_node *t;
+cp_tree_node_structure (union lang_tree_node * t)
 {
   switch (TREE_CODE (&t->generic))
     {
@@ -14861,15 +14611,14 @@ cp_tree_node_structure (t)
    the definition of IDENTIFIER_GLOBAL_VALUE is different for C and C++.  */
 
 tree
-identifier_global_value	(t)
-     tree t;
+identifier_global_value	(tree t)
 {
   return IDENTIFIER_GLOBAL_VALUE (t);
 }
 
 /* Build the void_list_node (void_type_node having been created).  */
 tree
-build_void_list_node ()
+build_void_list_node (void)
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
   TREE_PARMLIST (t) = 1;
@@ -14877,8 +14626,7 @@ build_void_list_node ()
 }
 
 static int
-cp_missing_noreturn_ok_p (decl)
-     tree decl;
+cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);

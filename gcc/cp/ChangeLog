@@ -1,3 +1,303 @@
+2003-01-11  Phil Edwards  <pme@gcc.gnu.org>
+
+	* parser.c:  Fix comment typos.
+
+2003-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9099
+	* parser.c (cp_parser_scope_through_which_access_occurs): Handle
+	an object_type which is not a class type.
+
+2003-01-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* parser.c (cp_parser_late_parsing_for_member): Don't cast to void.
+	(cp_parser_late_parsing_default_args): Likewise.
+
+2003-01-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* cfns.gperf: ANSIfy function declarations.
+	* cfns.h: Regenerate.
+	* cp-tree.h: ANSIfy function declarations.
+
+2003-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (reparse_absdcl_as_expr): Remove.
+	(reparse_absdcl_as_casts): Likewise.
+	(reparse_decl_as_expr): Likewise.
+	(finish_decl_parsing): Likewise.
+	* decl2.c (reparse_absdcl_as_expr): Remove.
+	(reparse_absdcl_as_casts): Likewise.
+	(repase_decl_as_expr): Likewise.
+	(finish_decl_parsing): Likewise.
+
+	PR c++/9128
+	PR c++/9153
+	PR c++/9171
+	* parser.c (cp_parser_pre_parsed_nested_name_specifier): New
+	function.
+	(cp_parser_nested_name_specifier_opt): Correct the
+	check_dependency_p false.
+	(cp_parser_postfix_expression): Fix formatting.
+	(cp_parser_decl_specifier_seq): Avoid looking for constructor
+	declarators when possible.
+	(cp_parser_template_id): Avoid performing name-lookup when
+	possible.
+	(cp_parser_class_head): Do not count specializations when counting
+	levels of templates.
+	(cp_parser_constructor_declarator_p): Return immediately if
+	there's no chance that the tokens form a constructor declarator.
+	* rtti.c (throw_bad_typeid): Add comment.  Do not return an
+	expression with reference type.
+	(get_tinfo_decl_dynamic): Do not return an expression with
+	reference type.
+	(build_typeid): Add comment.  Do not return an expression with
+	reference type.
+	* typeck.c (build_class_member_access_expr): Improve handling of
+	conditionals and comma-expressions as objects.
+
+2003-01-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+        * cfns.gperf: ANSIfy function declarations.
+        * cfns.h: Regenerate.
+        * cp-tree.h: ANSIfy function declarations.
+        * parser.c: ANSIfy function declarations & definitions.
+
+	* decl.c (bad_specifiers): Fix parameter order error I introduced.
+
+2003-01-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Merge from pch-branch:
+
+	2003-01-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Merge to tag pch-merge-20030102:
+	
+	* semantics.c (finish_translation_unit): Don't call finish_file.
+	* parser.c: Don't include ggc.h.
+	(cp_lexer_new_main): Rename from cp_lexer_new, only create main lexer,
+	read first token here.  Don't allow PCH files after the first
+	token is read.
+	(cp_lexer_new_from_tokens): Duplicate functionality from cp_lexer_new.
+	(cp_lexer_get_preprocessor_token): Allow LEXER to be NULL.
+	(cp_parser_new): Call cp_lexer_new_main before allocating GCed memory.
+	(cp_parser_late_parsing_for_member): Don't duplicate call to
+	cp_lexer_set_source_position_from_token.
+	(cp_parser_late_parsing_default_args): Likewise.
+	(yyparse): Call finish_file after clearing the_parser.
+
+	2002-12-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in: Remove $(GGC_H) from all dependencies.
+	(CXX_TREE_H): Add $(GGC_H).
+	* class.c: Don't include ggc.h. 
+	(field_decl_cmp): Make parameters be 'const void *' to match qsort.
+	(method_name_cmp): Likewise.
+	(resort_data): New variable.
+	(resort_field_decl_cmp): New.
+	(resort_method_name_cmp): New.
+	(resort_sorted_fields): New.
+	(resort_type_method_vec): New.
+	(finish_struct_methods): Delete cast.
+	(finish_struct_1): Delete cast.
+	* cp-tree.h: Include ggc.h.
+	(struct lang_type_class): Add reorder attribute to field `methods'.
+	(union lang_decl_u3): Add reorder attribute to field `sorted_fields'.
+	(resort_sorted_fields): New prototype.
+	(resort_type_method_vec): New prototype.
+	* call.c: Don't include ggc.h.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* init.c: Likewise.
+	* lex.c: Likewise.
+	* method.c: Likewise.
+	* optimize.c: Likewise.
+	* parse.y: Likewise.
+	* pt.c: Likewise.
+	* repo.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* spew.c: Likewise.
+	* tree.c: Likewise.
+
+	* lang-specs.h: Remove comment.
+
+	2002-12-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (struct operator_name_info_t): Mark for GTY machinery.
+	(operator_name_info): Mark to be saved for PCH, specify size.
+	(assignment_operator_name_info): Likewise.
+
+	2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (anon_cnt): Mark to be saved for PCH.
+
+	2002-10-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* lex.c  (init_reswords): Delete now-untrue comment.
+	Allocate ridpointers using GGC.
+
+	2002-10-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (union lang_decl_u2): Add tags to all fields.
+
+	* g++spec.c (lang_specific_driver): Don't include standard
+	libraries in `added'.
+
+	2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* decl2.c (finish_file): Call c_common_write_pch.
+	* Make-lang.in (CXX_C_OBJS): Add c-pch.o.
+
+	2002-08-17  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++spec.c (lang_specific_driver): Treat .h files as C++ header
+	files when using g++.
+	* lang-specs.h: Handle compiling C++ header files.
+
+2003-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (start_decl): Only check DECL_THREAD_LOCAL for VAR_DECLs.
+
+2003-01-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (push_access_scope_real): Call push_to_top_level for
+	function in namespace scope.
+	(pop_access_scope): Call pop_from_top_level for function in
+	namespace scope.
+
+2003-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (start_decl): Don't set DECL_COMMON for __thread variables.
+
+2003-01-09  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (c++.install-common, c++.install-man,
+	c++.uninstall): Prepend $(DESTDIR) to destination paths in
+	all (un)installation commands.
+	(c++.install-common): Rewrite $(LN) commands to support
+	DESTDIR with "ln" as well as with "ln -s".
+
+2003-01-08  Jason Merrill  <jason@redhat.com>
+
+	* parser.c (cp_parser_primary_expression): See through explicitly
+	scoped ALIAS_DECLs, too.
+
+2003-01-08  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* decl.c: Remove some #if 0 code.
+
+	* decl.c: ANSIfy function declarations.
+
+2003-01-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_asm_definition): Correct handling of omitted
+	operands.
+
+2003-01-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9030
+	* decl.c (make_typename_type): Check access only when tf_error.
+	(make_unbound_class_template): Likewise.
+	* pt.c (saved_access_scope): New variable.
+	(push_access_scope_real): New function.
+	(push_access_scope): Likewise.
+	(pop_access_scope): Likewise.
+	(tsubst_default_argument): Use them.
+	(instantiate_template): Likewise.
+	(regenerate_decl_from_template): Likewise.
+	(instantiate_decl): Likewise.
+	(get_mostly_instantiated_function_type): Likewise.
+
+2003-01-07  Nathanael Nerode <neroden@gcc.gnu.org>
+
+	* tree.c: Delete bogus #if 0 code.
+
+2003-01-07  Andreas Schwab  <schwab@suse.de>
+
+	* class.c (layout_class_type): Don't use
+	PCC_BITFIELD_TYPE_MATTERS if not defined.
+
+2003-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9165
+	* decl2.c (build_cleanup): Mark the object as used.
+
+	* pt.c (retrieve_local_specialization): Revert 2003-01-05 change.
+	(hash_local_specialization): New function.
+	(register_local_specialization): Revert 2003-01-05 change.
+	(instantiate_decl): Use hash_local_specialization when creating
+	the local_specializations table.
+	
+	* decl2.c (mark_used): Do not synthesize thunks.
+
+	* class.c (layout_class_type): Correct handling of unnamed
+	bitfields wider than their types.
+
+	PR c++/9189
+	* parser.c (cp_parser): Remove default_arg_types.  Update
+	documentation for unparsed_functions_queues.
+	(cp_parser_late_parsing_default_args): Take a FUNCTION_DECL as the
+	parameter.
+	(cp_parser_new): Don't set parser->default_arg_types.
+	(cp_parser_function_definition): Adjust usage of
+	unparsed_funtions_queues.
+	(cp_parser_class_specifier): Don't mess with
+	parser->default_arg_types.  Handle default argument processing in
+	a separate phase from function body processing.
+	(cp_parser_template_declaration_after_export): Adjust usage of
+	unparsed_functions_queues.
+	(cp_parser_late_parsing_for_member): Do not handle default
+	arguments.
+
+2003-01-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9109
+	* parser.c (cp_parser_declarator_kind): New enum.
+	(cp_parser_declarator): Adjust.
+	(cp_parser_direct_declarator): Adjust. Allow for either named or
+	abstract declarator. Prefer abstract, if possible. Allow
+	parenthesized function name.
+	(cp_parser_condition): Adjust cp_parser_declarator call.
+	(cp_parser_explicit_instantiation): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_type_id): Likewise.
+	(cp_parser_function_definition): Likewise.
+	(cp_parser_member_declaration): Likewise.
+	(cp_parser_parameter_declaration): Use cp_parser_declarator to do
+	the tentative parsing.
+	(cp_parser_exception_declaration): Likewise.
+
+2003-01-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_template_parameter): Adjust call to
+	cp_parser_parameter_declaration.
+	(cp_parser_parameter_declaration_list): Likewise.
+	(cp_parser_parameter_declaration): Replace
+	greater_than_is_operator_p with template_parm_p parameter.  Do not
+	cache tokens for template default arguments.
+
+	* pt.c (retrieve_local_specialization): Use htab_find, not
+	htab_find_with_hash.
+	(register_local_specialization): Use htab_find_slot, not
+	htab_find_slot_with_hash.
+	(instantiate_decl): Pass a hash function to htab_create.
+	
+2003-01-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* parser.c (cp_parser_binary_expression,
+	cp_parser_multiplicative_expression,
+	cp_parser_additive_expression, cp_parser_shift_expression,
+	cp_parser_relational_expression, cp_parser_equality_expression,
+	cp_parser_and_expression, cp_parser_exclusive_or_expression,
+	cp_parser_inclusive_or_expression,
+	cp_parser_logical_and_expression, cp_parser_logical_or_expression,
+	cp_parser_binary_expression): Const-ify.
+
+2003-01-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* method.c (use_thunk): Disable access control while building the
+	body of the thunk.
+
 2003-01-03  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* cvt.c, decl.c, decl2.c: This is the C++ front end, not the C 

@@ -42,7 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "timevar.h"
 #include "cpplib.h"
 #include "target.h"
@@ -1865,11 +1864,23 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
 
+/* Return an expression that performs the destruction of DECL, which
+   must be a VAR_DECL whose type has a non-trivial destructor, or is
+   an array whose (innermost) elements have a non-trivial destructor.  */
+
 tree
 build_cleanup (tree decl)
 {
   tree temp;
   tree type = TREE_TYPE (decl);
+
+  /* This function should only be called for declarations that really
+     require cleanups.  */
+  my_friendly_assert (!TYPE_HAS_TRIVIAL_DESTRUCTOR (type), 20030106);
+
+  /* Treat all objects with destructors as used; the destructor may do
+     something substantive.  */
+  mark_used (decl);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     temp = decl;
@@ -2577,6 +2588,9 @@ finish_file ()
   if (! global_bindings_p () || current_class_type || decl_namespace_list)
     return;
 
+  if (pch_file)
+    c_common_write_pch ();
+
   /* Otherwise, GDB can get confused, because in only knows
      about source for LINENO-1 lines.  */
   lineno -= 1;
@@ -2860,79 +2874,6 @@ finish_file ()
       dump_tree_statistics ();
       dump_time_statistics ();
     }
-}
-
-/* This is something of the form 'A()()()()()+1' that has turned out to be an
-   expr.  Since it was parsed like a type, we need to wade through and fix
-   that.  Unfortunately, since operator() is left-associative, we can't use
-   tail recursion.  In the above example, TYPE is `A', and DECL is
-   `()()()()()'.
-
-   Maybe this shouldn't be recursive, but how often will it actually be
-   used?  (jason) */
-
-tree
-reparse_absdcl_as_expr (type, decl)
-     tree type, decl;
-{
-  /* do build_functional_cast (type, NULL_TREE) at bottom */
-  if (TREE_OPERAND (decl, 0) == NULL_TREE)
-    return build_functional_cast (type, NULL_TREE);
-
-  /* recurse */
-  decl = reparse_absdcl_as_expr (type, TREE_OPERAND (decl, 0));
-
-  return finish_call_expr (decl, NULL_TREE, /*disallow_virtual=*/false);
-}
-
-/* This is something of the form `int ((int)(int)(int)1)' that has turned
-   out to be an expr.  Since it was parsed like a type, we need to wade
-   through and fix that.  Since casts are right-associative, we are
-   reversing the order, so we don't have to recurse.
-
-   In the above example, DECL is the `(int)(int)(int)', and EXPR is the
-   `1'.  */
-
-tree
-reparse_absdcl_as_casts (decl, expr)
-     tree decl, expr;
-{
-  tree type;
-  int non_void_p = 0;
-  
-  if (TREE_CODE (expr) == CONSTRUCTOR
-      && TREE_TYPE (expr) == 0)
-    {
-      type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
-      decl = TREE_OPERAND (decl, 0);
-
-      if (processing_template_decl)
-	TREE_TYPE (expr) = type;
-      else
-	{
-	  expr = digest_init (type, expr, (tree *) 0);
-	  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	    {
-	      int failure = complete_array_type (type, expr, 1);
-	      my_friendly_assert (!failure, 78);
-	    }
-	}
-    }
-
-  while (decl)
-    {
-      type = groktypename (TREE_VALUE (CALL_DECLARATOR_PARMS (decl)));
-      decl = TREE_OPERAND (decl, 0);
-      if (!VOID_TYPE_P (type))
-	non_void_p = 1;
-      expr = build_c_cast (type, expr);
-    }
-
-  if (warn_old_style_cast && ! in_system_header
-      && non_void_p && current_lang_name != lang_name_c)
-    warning ("use of old-style cast");
-
-  return expr;
 }
 
 /* T is the parse tree for an expression.  Return the expression after
@@ -3445,62 +3386,6 @@ build_call_from_tree (tree fn, tree args, bool disallow_virtual)
     }
 
   return finish_call_expr (fn, args, disallow_virtual);
-}
-
-/* This is something of the form `int (*a)++' that has turned out to be an
-   expr.  It was only converted into parse nodes, so we need to go through
-   and build up the semantics.  Most of the work is done by
-   build_expr_from_tree, above.
-
-   In the above example, TYPE is `int' and DECL is `*a'.  */
-
-tree
-reparse_decl_as_expr (tree type, tree decl)
-{
-  decl = build_expr_from_tree (decl);
-  if (type)
-    return build_functional_cast (type, build_tree_list (NULL_TREE, decl));
-  else
-    return decl;
-}
-
-/* This is something of the form `int (*a)' that has turned out to be a
-   decl.  It was only converted into parse nodes, so we need to do the
-   checking that make_{pointer,reference}_declarator do.  */
-
-tree
-finish_decl_parsing (tree decl)
-{
-  switch (TREE_CODE (decl))
-    {
-    case IDENTIFIER_NODE:
-      return decl;
-    case INDIRECT_REF:
-      return make_pointer_declarator
-	(NULL_TREE, finish_decl_parsing (TREE_OPERAND (decl, 0)));
-    case ADDR_EXPR:
-      return make_reference_declarator
-	(NULL_TREE, finish_decl_parsing (TREE_OPERAND (decl, 0)));
-    case BIT_NOT_EXPR:
-      TREE_OPERAND (decl, 0) = finish_decl_parsing (TREE_OPERAND (decl, 0));
-      return decl;
-    case SCOPE_REF:
-      push_nested_class (TREE_TYPE (TREE_OPERAND (decl, 0)), 3);
-      TREE_COMPLEXITY (decl) = current_class_depth;
-      return decl;
-    case ARRAY_REF:
-      TREE_OPERAND (decl, 0) = finish_decl_parsing (TREE_OPERAND (decl, 0));
-      return decl;
-    case TREE_LIST:
-      /* For attribute handling.  */
-      TREE_VALUE (decl) = finish_decl_parsing (TREE_VALUE (decl));
-      return decl;
-    case TEMPLATE_ID_EXPR:
-      return decl;
-    default:
-      abort ();
-      return NULL_TREE;
-    }
 }
 
 /* Return 1 if root encloses child.  */
@@ -4614,6 +4499,7 @@ mark_used (tree decl)
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
       && DECL_ARTIFICIAL (decl) 
+      && !DECL_THUNK_P (decl)
       && ! DECL_INITIAL (decl)
       /* Kludge: don't synthesize for default args.  */
       && current_function_decl)

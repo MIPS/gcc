@@ -7,12 +7,12 @@
     This had to be done to correct non-standard usages in the
     original, manufacturer supplied header file.  */
 
-#ifndef FIXINC_SUNOS_MATHERR_DECL_CHECK
-#define FIXINC_SUNOS_MATHERR_DECL_CHECK 1
+#ifndef FIXINC_WRAP_MATH_H_SUNOS_MATHERR_DECL
+#define FIXINC_WRAP_MATH_H_SUNOS_MATHERR_DECL 1
 
 struct exception;
-#ifndef FIXINC_MATH_EXCEPTION_CHECK
-#define FIXINC_MATH_EXCEPTION_CHECK 1
+#ifndef FIXINC_WRAP_MATH_H_MATH_EXCEPTION
+#define FIXINC_WRAP_MATH_H_MATH_EXCEPTION 1
 
 #ifdef __cplusplus
 #define exception __math_exception
@@ -28,11 +28,6 @@ struct exception;
  /* This is a comment
                          and it ends here. */
 #endif  /* BROKEN_CABS_CHECK */
-
-
-#if defined( FIX_HEADER_BREAKAGE_CHECK )
-extern double floor(), ceil(), fmod(), fabs _PARAMS((double));
-#endif  /* FIX_HEADER_BREAKAGE_CHECK */
 
 
 #if defined( HPUX11_CPP_POW_INLINE_CHECK )
@@ -58,23 +53,6 @@ extern "C" int abs(int);
 #if defined( ISC_FMOD_CHECK )
 extern double	fmod(double, double);
 #endif  /* ISC_FMOD_CHECK */
-
-
-#if defined( M88K_BAD_HYPOT_OPT_CHECK )
-extern double hypot();
-/* Workaround a stupid Motorola optimization if one
-   of x or y is 0.0 and the other is negative!  */
-#ifdef __STDC__
-static __inline__ double fake_hypot (double x, double y)
-#else
-static __inline__ double fake_hypot (x, y)
-	double x, y;
-#endif
-{
-	return fabs (hypot (x, y));
-}
-#define hypot	fake_hypot
-#endif  /* M88K_BAD_HYPOT_OPT_CHECK */
 
 
 #if defined( MATH_EXCEPTION_CHECK )
@@ -144,6 +122,6 @@ extern double atof(const char *__nptr);
 #undef exception
 #endif
 
-#endif  /* FIXINC_MATH_EXCEPTION_CHECK */
+#endif  /* FIXINC_WRAP_MATH_H_MATH_EXCEPTION */
 
-#endif  /* FIXINC_SUNOS_MATHERR_DECL_CHECK */
+#endif  /* FIXINC_WRAP_MATH_H_SUNOS_MATHERR_DECL */

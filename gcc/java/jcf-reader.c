@@ -28,19 +28,19 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "zipfile.h"
 
-static int get_attribute PARAMS ((JCF *));
-static int jcf_parse_preamble PARAMS ((JCF *));
-static int jcf_parse_constant_pool PARAMS ((JCF *));
-static void jcf_parse_class PARAMS ((JCF *));
-static int jcf_parse_fields PARAMS ((JCF *));
-static int jcf_parse_one_method PARAMS ((JCF *));
-static int jcf_parse_methods PARAMS ((JCF *));
-static int jcf_parse_final_attributes PARAMS ((JCF *));
+static int get_attribute (JCF *);
+static int jcf_parse_preamble (JCF *);
+static int jcf_parse_constant_pool (JCF *);
+static void jcf_parse_class (JCF *);
+static int jcf_parse_fields (JCF *);
+static int jcf_parse_one_method (JCF *);
+static int jcf_parse_methods (JCF *);
+static int jcf_parse_final_attributes (JCF *);
 #ifdef NEED_PEEK_ATTRIBUTE
-static int peek_attribute PARAMS ((JCF *, int, const char *, int));
+static int peek_attribute (JCF *, int, const char *, int);
 #endif
 #ifdef NEED_SKIP_ATTRIBUTE
-static void skip_attribute PARAMS ((JCF *, int));
+static void skip_attribute (JCF *, int);
 #endif
 
 /* Go through all available attribute (ATTRIBUTE_NUMER) and try to
@@ -108,8 +108,7 @@ skip_attribute (jcf, number_of_attribute)
 #endif
 
 static int
-DEFUN(get_attribute, (jcf),
-      JCF *jcf)
+get_attribute (JCF *jcf)
 {
   uint16 attribute_name = (JCF_FILL (jcf, 6), JCF_readu2 (jcf));
   uint32 attribute_length = JCF_readu4 (jcf);
@@ -241,8 +240,7 @@ DEFUN(get_attribute, (jcf),
 
 /* Read and handle the pre-amble. */
 static int
-DEFUN(jcf_parse_preamble, (jcf),
-      JCF* jcf)
+jcf_parse_preamble (JCF* jcf)
 {
   uint32 magic = (JCF_FILL (jcf, 8), JCF_readu4 (jcf));
   uint16 minor_version ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
@@ -262,13 +260,12 @@ DEFUN(jcf_parse_preamble, (jcf),
    Return -2 if a bad cross-reference (index of other constant) was seen.
 */
 static int
-DEFUN(jcf_parse_constant_pool, (jcf),
-      JCF* jcf)
+jcf_parse_constant_pool (JCF* jcf)
 {
   int i, n;
   JPOOL_SIZE (jcf) = (JCF_FILL (jcf, 2), JCF_readu2 (jcf));
-  jcf->cpool.tags = ALLOC (JPOOL_SIZE (jcf));
-  jcf->cpool.data = ALLOC (sizeof (jword) * JPOOL_SIZE (jcf));
+  jcf->cpool.tags = ggc_alloc (JPOOL_SIZE (jcf));
+  jcf->cpool.data = ggc_alloc (sizeof (jword) * JPOOL_SIZE (jcf));
   jcf->cpool.tags[0] = 0;
 #ifdef HANDLE_START_CONSTANT_POOL
   HANDLE_START_CONSTANT_POOL (JPOOL_SIZE (jcf));
@@ -288,25 +285,25 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 	{
 	case CONSTANT_String:
 	case CONSTANT_Class:
-	  jcf->cpool.data[i] = JCF_readu2 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu2 (jcf);
 	  break;
 	case CONSTANT_Fieldref:
 	case CONSTANT_Methodref:
 	case CONSTANT_InterfaceMethodref:
 	case CONSTANT_NameAndType:
-	  jcf->cpool.data[i] = JCF_readu2 (jcf);
-	  jcf->cpool.data[i] |= JCF_readu2 (jcf) << 16;
+	  jcf->cpool.data[i].w = JCF_readu2 (jcf);
+	  jcf->cpool.data[i].w |= JCF_readu2 (jcf) << 16;
 	  break;
 	case CONSTANT_Integer:
 	case CONSTANT_Float:
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  break;
 	case CONSTANT_Long:
 	case CONSTANT_Double:
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  i++; /* These take up two spots in the constant pool */
 	  jcf->cpool.tags[i] = 0;
-	  jcf->cpool.data[i] = JCF_readu4 (jcf);
+	  jcf->cpool.data[i].w = JCF_readu4 (jcf);
 	  break;
 	case CONSTANT_Utf8:
 	  n = JCF_readu2 (jcf);
@@ -314,7 +311,7 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 #ifdef HANDLE_CONSTANT_Utf8
 	  HANDLE_CONSTANT_Utf8(jcf, i, n);
 #else
-	  jcf->cpool.data[i] = JCF_TELL(jcf) - 2;
+	  jcf->cpool.data[i].w = JCF_TELL(jcf) - 2;
 	  JCF_SKIP (jcf, n);
 #endif
 	  break;
@@ -328,8 +325,7 @@ DEFUN(jcf_parse_constant_pool, (jcf),
 /* Read various class flags and numbers. */
 
 static void
-DEFUN(jcf_parse_class, (jcf),
-      JCF* jcf)
+jcf_parse_class (JCF* jcf)
 {
   int i;
   uint16 interfaces_count;
@@ -357,8 +353,7 @@ DEFUN(jcf_parse_class, (jcf),
 
 /* Read fields. */
 static int
-DEFUN(jcf_parse_fields, (jcf),
-      JCF* jcf)
+jcf_parse_fields (JCF* jcf)
 {
   int i, j;
   uint16 fields_count;
@@ -397,8 +392,7 @@ DEFUN(jcf_parse_fields, (jcf),
 /* Read methods. */
 
 static int
-DEFUN(jcf_parse_one_method, (jcf),
-      JCF* jcf)
+jcf_parse_one_method (JCF* jcf)
 {
   int i;
   uint16 access_flags = (JCF_FILL (jcf, 8), JCF_readu2 (jcf));
@@ -421,8 +415,7 @@ DEFUN(jcf_parse_one_method, (jcf),
 }
 
 static int
-DEFUN(jcf_parse_methods, (jcf),
-      JCF* jcf)
+jcf_parse_methods (JCF* jcf)
 {
   int i;
   uint16 methods_count;
@@ -445,8 +438,7 @@ DEFUN(jcf_parse_methods, (jcf),
 
 /* Read attributes. */
 static int
-DEFUN(jcf_parse_final_attributes, (jcf),
-      JCF *jcf)
+jcf_parse_final_attributes (JCF *jcf)
 {
   int i;
   uint16 attributes_count = (JCF_FILL (jcf, 2), JCF_readu2 (jcf));

@@ -3226,6 +3226,8 @@ clear_parm_order ()
   current_binding_level->parm_order = NULL_TREE;
 }
 
+static GTY(()) int compound_literal_number;
+
 /* Build a COMPOUND_LITERAL_EXPR.  TYPE is the type given in the compound
    literal, which may be an incomplete array type completed by the
    initializer; INIT is a CONSTRUCTOR that initializes the compound
@@ -3273,10 +3275,10 @@ build_compound_literal (type, init)
       /* This decl needs a name for the assembler output.  We also need
 	 a unique suffix to be added to the name.  */
       char *name;
-      extern int var_labelno;
 
-      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", var_labelno);
-      var_labelno++;
+      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", 
+			       compound_literal_number);
+      compound_literal_number++;
       DECL_NAME (decl) = get_identifier (name);
       DECL_DEFER_OUTPUT (decl) = 1;
       DECL_COMDAT (decl) = 1;
@@ -6424,11 +6426,18 @@ c_expand_deferred_function (fndecl)
 {
   /* DECL_INLINE or DECL_RESULT might got cleared after the inline
      function was deferred, e.g. in duplicate_decls.  */
-  if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
+  if (/*DECL_INLINE (fndecl) && DECL_RESULT (fndecl)*/1)
     {
       c_expand_body (fndecl, 0, 0);
       current_function_decl = NULL;
     }
+}
+void
+expand_deferred_function (fndecl)
+     tree fndecl;
+{
+  c_expand_body (fndecl, 0, 0);
+  current_function_decl = NULL;
 }
 
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
@@ -6448,6 +6457,8 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (flag_syntax_only)
     return;
 
+  create_cgraph_edges (fndecl, DECL_SAVED_TREE (fndecl));
+
   if (flag_inline_trees)
     {
       /* First, cache whether the current function is inlinable.  Some
@@ -6456,16 +6467,19 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       timevar_push (TV_INTEGRATION);
       uninlinable = ! tree_inlinable_function_p (fndecl);
       
-      if (! uninlinable && can_defer_p
-	  /* Save function tree for inlining.  Should return 0 if the
-             language does not support function deferring or the
-             function could not be deferred.  */
-	  && defer_fn (fndecl))
+      if (can_defer_p
+	  && (flag_unit_at_time || (! uninlinable && can_defer_p)))
 	{
-	  /* Let the back-end know that this function exists.  */
-	  (*debug_hooks->deferred_inline_function) (fndecl);
-          timevar_pop (TV_INTEGRATION);
-	  return;
+	       /* Save function tree for inlining.  Should return 0 if the
+		  language does not support function deferring or the
+		  function could not be deferred.  */
+	  if (defer_fn (fndecl))
+	    {
+	      /* Let the back-end know that this function exists.  */
+	      (*debug_hooks->deferred_inline_function) (fndecl);
+	      timevar_pop (TV_INTEGRATION);
+	      return;
+	    }
 	}
       
       /* Then, inline any functions called in it.  */

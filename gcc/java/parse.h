@@ -36,8 +36,8 @@ extern int quiet_flag;
 
 #ifndef JC1_LITE
 /* Function extern to java/ */
-extern int int_fits_type_p PARAMS ((tree, tree));
-extern tree stabilize_reference PARAMS ((tree));
+extern int int_fits_type_p (tree, tree);
+extern tree stabilize_reference (tree);
 #endif
 
 /* Macros for verbose debug info  */
@@ -427,9 +427,6 @@ enum {
   INVOKE_VIRTUAL
 };
 
-/* We need the resolution stuff only if we compile jc1 */
-#ifndef JC1_LITE
-
 /* Unresolved type identifiers handling. When we process the source
    code, we blindly accept an unknown type identifier and try to
    resolve it later. When an unknown type identifier is encountered
@@ -509,13 +506,12 @@ typedef struct _jdep {
 #define JDEP_RESOLVED_P(J)    \
 	(!(J)->solv || TREE_CODE ((J)->solv) != POINTER_TYPE)
 
-typedef struct _jdeplist {
+struct jdeplist_s {
   jdep *first;
   jdep *last;
-  struct _jdeplist *next;
-} jdeplist;
-
-#endif /* JC1_LITE */
+  struct jdeplist_s *next;
+};
+typedef struct jdeplist_s jdeplist;
 
 #define CLASSD_FIRST(CD) ((CD)->first)
 #define CLASSD_LAST(CD)  ((CD)->last)
@@ -727,14 +723,15 @@ typedef struct _jdeplist {
 #define DECL_INHERITED_SOURCE_LINE(DECL) (DECL_CHECK (DECL)->decl.u2.i)
      
 /* Parser context data structure. */
-struct parser_ctxt {
+struct parser_ctxt GTY(()) {
 
   const char *filename;		    /* Current filename */
   struct parser_ctxt *next;
 
-  java_lexer *lexer;		     /* Current lexer state */
+  java_lexer * GTY((skip (""))) lexer; /* Current lexer state */
   char marker_begining;		     /* Marker. Should be a sub-struct */
-  struct java_line *p_line, *c_line; /* Previous and current line */
+  struct java_line * GTY ((skip (""))) p_line; /* Previous line */
+  struct java_line * GTY ((skip (""))) c_line; /* Current line */
   java_lc elc;			     /* Error's line column info */
   int ccb_indent;		     /* Keep track of {} indent, lexer */
   int first_ccb_indent1;	     /* First { at ident level 1 */
@@ -742,7 +739,7 @@ struct parser_ctxt {
   int parser_ccb_indent;	     /* Keep track of {} indent, parser */
   int osb_depth;		     /* Current depth of [ in an expression */
   int osb_limit;		     /* Limit of this depth */
-  int *osb_number;		     /* Keep track of ['s */
+  int * GTY ((skip (""))) osb_number; /* Keep track of ['s */
   int lineno;			     /* Current lineno */
   char marker_end;		     /* End marker. Should be a sub-struct */
 
@@ -761,13 +758,12 @@ struct parser_ctxt {
   /* Flag to report certain errors (fix this documentation. FIXME) */
   unsigned class_err:1;
 
-  /* This section is defined only if we compile jc1 */
-#ifndef JC1_LITE
+  /* This section is used only if we compile jc1 */
   tree modifier_ctx [12];	    /* WFL of modifiers */
   tree class_type;		    /* Current class */
   tree function_decl;	            /* Current function decl, save/restore */
 
-  struct JCF *current_jcf;	    /* CU jcf */
+  struct JCF * current_jcf;	    /* CU jcf */
 
   int prevent_ese;	            /* Prevent expression statement error */
 
@@ -778,7 +774,7 @@ struct parser_ctxt {
 
   /* These two lists won't survive file traversal */
   tree  class_list;		    /* List of classes in a CU */
-  jdeplist *classd_list;	    /* Classe dependencies in a CU */
+  jdeplist * GTY((skip (""))) classd_list; /* Classe dependencies in a CU */
   
   tree  current_parsed_class;	    /* Class currently parsed */
   tree  current_parsed_class_un;    /* Curr. parsed class unqualified name */
@@ -801,7 +797,6 @@ struct parser_ctxt {
 				       constructor. This flag is used to trap
 				       illegal argument usage during an
 				       explicit constructor invocation. */
-#endif /* JC1_LITE */
 };
 
 /* A set of macros to push/pop/access the currently parsed class.  */
@@ -920,34 +915,34 @@ struct parser_ctxt {
 #define JAVA_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
 
 #ifndef JC1_LITE
-void java_complete_class PARAMS ((void));
-void java_check_circular_reference PARAMS ((void));
-void java_fix_constructors PARAMS ((void));
-void java_layout_classes PARAMS ((void));
-void java_reorder_fields PARAMS ((void));
-tree java_method_add_stmt PARAMS ((tree, tree));
-int java_report_errors PARAMS ((void));
-extern tree do_resolve_class PARAMS ((tree, tree, tree, tree));
+void java_complete_class (void);
+void java_check_circular_reference (void);
+void java_fix_constructors (void);
+void java_layout_classes (void);
+void java_reorder_fields (void);
+tree java_method_add_stmt (tree, tree);
+int java_report_errors (void);
+extern tree do_resolve_class (tree, tree, tree, tree);
 #endif
-char *java_get_line_col PARAMS ((const char *, int, int));
-extern void reset_report PARAMS ((void));
+char *java_get_line_col (const char *, int, int);
+extern void reset_report (void);
 
 /* Always in use, no matter what you compile */
-void java_push_parser_context PARAMS ((void));
-void java_pop_parser_context PARAMS ((int));
-void java_init_lex PARAMS ((FILE *, const char *));
-extern void java_parser_context_save_global PARAMS ((void));
-extern void java_parser_context_restore_global PARAMS ((void));
-int yyparse PARAMS ((void));
-extern int java_parse PARAMS ((void));
-extern void yyerror PARAMS ((const char *))
+void java_push_parser_context (void);
+void java_pop_parser_context (int);
+void java_init_lex (FILE *, const char *);
+extern void java_parser_context_save_global (void);
+extern void java_parser_context_restore_global (void);
+int yyparse (void);
+extern int java_parse (void);
+extern void yyerror (const char *)
 #ifdef JC1_LITE
 ATTRIBUTE_NORETURN
 #endif
 ;
-extern void java_expand_classes PARAMS ((void));
+extern void java_expand_classes (void);
 
-extern struct parser_ctxt *ctxp;
-extern struct parser_ctxt *ctxp_for_generation;
+extern GTY(()) struct parser_ctxt *ctxp;
+extern GTY(()) struct parser_ctxt *ctxp_for_generation;
 
 #endif /* ! GCC_JAVA_PARSE_H */

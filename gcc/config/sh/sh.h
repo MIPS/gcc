@@ -470,10 +470,13 @@ do {									\
   if (flag_pic && ! TARGET_PREFERGOT)					\
     flag_no_function_cse = 1;						\
 									\
-  /* Never run scheduling before reload, since that can			\
-     break global alloc, and generates slower code anyway due		\
-     to the pressure on R0.  */						\
-  flag_schedule_insns = 0;						\
+  if (SMALL_REGISTER_CLASSES)						\
+    {									\
+      /* Never run scheduling before reload, since that can		\
+	 break global alloc, and generates slower code anyway due	\
+	 to the pressure on R0.  */					\
+      flag_schedule_insns = 0;						\
+    }									\
 									\
   /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
@@ -2571,7 +2574,7 @@ while (0)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
-#define CASE_VECTOR_MODE (TARGET_BIGTABLE ? SImode : HImode)
+#define CASE_VECTOR_MODE ((! optimize || TARGET_BIGTABLE) ? SImode : HImode)
 
 #define CASE_VECTOR_SHORTEN_MODE(MIN_OFFSET, MAX_OFFSET, BODY) \
 ((MIN_OFFSET) >= 0 && (MAX_OFFSET) <= 127 \
@@ -3041,7 +3044,7 @@ while (0)
 /* Output an absolute table element.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM,VALUE)  				\
-  if (TARGET_BIGTABLE) 							\
+  if (! optimize || TARGET_BIGTABLE)					\
     asm_fprintf ((STREAM), "\t.long\t%LL%d\n", (VALUE)); 		\
   else									\
     asm_fprintf ((STREAM), "\t.word\t%LL%d\n", (VALUE));

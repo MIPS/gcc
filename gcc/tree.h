@@ -98,7 +98,7 @@ enum built_in_function
 extern const char *const built_in_names[(int) END_BUILTINS];
 
 /* An array of _DECL trees for the above.  */
-extern tree built_in_decls[(int) END_BUILTINS];
+extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 
 /* The definition of tree nodes fills the next several pages.  */
 
@@ -1273,9 +1273,9 @@ struct tree_type GTY(())
   tree pointer_to;
   tree reference_to;
   union tree_type_symtab {
-    int address; 
+    int GTY ((tag ("0"))) address; 
     char * GTY ((tag ("1"))) pointer; 
-    struct die_struct * GTY ((tag ("2"), skip (""))) die;
+    struct die_struct * GTY ((tag ("2"))) die;
   } GTY ((desc ("debug_hooks == &sdb_debug_hooks ? 1 : debug_hooks == &dwarf2_debug_hooks ? 2 : 0"), 
 	  descbits ("2"))) symtab;
   tree name;
@@ -1881,7 +1881,7 @@ struct tree_decl GTY(())
     struct function * GTY ((tag ("FUNCTION_DECL"))) f;
     rtx GTY ((tag ("PARM_DECL"))) r;
     tree GTY ((tag ("FIELD_DECL"))) t;
-    int i;
+    int GTY ((tag ("VAR_DECL"))) i;
   } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
 
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
@@ -2835,7 +2835,7 @@ extern void expand_decl_init			PARAMS ((tree));
 extern void clear_last_expr			PARAMS ((void));
 extern void expand_label			PARAMS ((tree));
 extern void expand_goto				PARAMS ((tree));
-extern void expand_asm				PARAMS ((tree));
+extern void expand_asm				PARAMS ((tree, int));
 extern void expand_start_cond			PARAMS ((tree, int));
 extern void expand_end_cond			PARAMS ((void));
 extern void expand_start_else			PARAMS ((void));
@@ -3170,6 +3170,14 @@ extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl		PARAMS ((tree, rtx));
+
+void expand_deferred_function PARAMS ((tree));
+/* In callgraph.c  */
+void create_cgraph_edges		PARAMS ((tree, tree));
+void dump_cgraph			PARAMS ((FILE *));
+void cgraph_output_all_functions	PARAMS ((void));
+void cgraph_remove_call			PARAMS ((tree, tree));
+bool cgraph_calls_p			PARAMS ((tree, tree));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

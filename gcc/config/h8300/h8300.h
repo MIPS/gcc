@@ -802,8 +802,7 @@ struct cum_arg
        /* We handle signed and unsigned offsets here.  */	\
        && INTVAL (X) > (TARGET_H8300 ? -0x10000 : -0x1000000)	\
        && INTVAL (X) < (TARGET_H8300 ? 0x10000 : 0x1000000))	\
-   || ((GET_CODE (X) == HIGH || GET_CODE (X) == CONST)		\
-       && TARGET_H8300))
+   || (GET_CODE (X) == HIGH || GET_CODE (X) == CONST))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
@@ -1299,5 +1298,28 @@ struct cum_arg
   while (0)
 
 #define MOVE_RATIO 3
+
+/* Define the codes that are matched by predicates in h8300.c.  */
+
+#define PREDICATE_CODES					\
+  {"single_one_operand", {CONST_INT}},			\
+  {"single_zero_operand", {CONST_INT}},			\
+  {"call_insn_operand", {MEM}},				\
+  {"small_call_insn_operand", {MEM}},			\
+  {"jump_address_operand", {REG, MEM}},			\
+  {"two_insn_adds_subs_operand", {CONST_INT}},		\
+  {"bit_operand", {REG, SUBREG, MEM}},			\
+  {"bit_memory_operand", {MEM}},			\
+  {"stack_pointer_operand", {REG}},			\
+  {"const_int_le_2_operand", {CONST_INT}},		\
+  {"const_int_le_6_operand", {CONST_INT}},		\
+  {"const_int_gt_2_operand", {CONST_INT}},		\
+  {"const_int_ge_8_operand", {CONST_INT}},		\
+  {"const_int_qi_operand", {CONST_INT}},		\
+  {"const_int_hi_operand", {CONST_INT}},		\
+  {"incdec_operand", {CONST_INT}},			\
+  {"bit_operator", {XOR, AND, IOR}},			\
+  {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},	\
+  {"eqne_operator", {EQ, NE}},
 
 #endif /* ! GCC_H8300_H */

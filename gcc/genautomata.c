@@ -367,10 +367,9 @@ static regexp_t regexp_transform_func
 static regexp_t transform_regexp            PARAMS ((regexp_t));
 static void transform_insn_regexps          PARAMS ((void));
 
-static void process_unit_to_form_the_same_automaton_unit_lists
-                                            PARAMS ((regexp_t, regexp_t, int));
-static void form_the_same_automaton_unit_lists_from_regexp PARAMS ((regexp_t));
-static void form_the_same_automaton_unit_lists PARAMS ((void));
+static void check_unit_distribution_in_reserv PARAMS ((const char *, regexp_t,
+						       regexp_t, int));
+static void check_regexp_units_distribution   PARAMS ((const char *, regexp_t));
 static void check_unit_distributions_to_automata PARAMS ((void));
 
 static int process_seq_for_forming_states   PARAMS ((regexp_t, automaton_t,
@@ -734,14 +733,6 @@ struct unit_decl
   /* The following field value is nonzero if the unit is used in an
      regexp.  */
   char unit_is_used;
-
-  /* The following field value is used to form cyclic lists of units
-     which should be in the same automaton because the unit is
-     reserved not on all alternatives of a regexp on a cycle.  */
-  unit_decl_t the_same_automaton_unit;
-  /* The following field is TRUE if we already reported that the unit
-     is not in the same automaton.  */
-  int the_same_automaton_message_reported_p;
 
   /* The following field value is order number (0, 1, ...) of given
      unit.  */
@@ -3812,9 +3803,6 @@ static vla_ptr_t units_container;
 /* The start address of the array.  */
 static unit_decl_t *units_array;
 
-/* Empty reservation of maximal length.  */
-static reserv_sets_t empty_reserv;
-
 /* Temporary reservation of maximal length.  */
 static reserv_sets_t temp_reserv;
 
@@ -4377,7 +4365,6 @@ initiate_states ()
   initiate_alt_states ();
   VLA_PTR_CREATE (free_states, 1500, "free states");
   state_table = htab_create (1500, state_hash, state_eq_p, (htab_del) 0);
-  empty_reserv = alloc_empty_reserv_sets ();
   temp_reserv = alloc_empty_reserv_sets ();
 }
 
@@ -5449,25 +5436,25 @@ transform_insn_regexps ()
 
 
 
-/* The following variable is an array indexed by cycle.  Each element
-   contains cyclic list of units which probably should be in the same
-   automaton.  */
-static unit_decl_t *the_same_automaton_lists;
+/* The following variable value is TRUE if the first annotated message
+   about units to automata distribution has been output.  */
+static int annotation_message_reported_p;
 
 /* The function processes all alternative reservations on CYCLE in
-   given REGEXP to check the UNIT (or another unit from the same
-   automaton) is not reserved on the all alternatives.  If it is true,
-   the unit should be in the same automaton with other analogous units
-   reserved on CYCLE in given REGEXP.  */
+   given REGEXP of insn reservation with INSN_RESERV_NAME to check the
+   UNIT (or another unit from the same automaton) is not reserved on
+   the all alternatives.  If it is true, the function outputs message
+   about the rule violation.  */
 static void
-process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
+check_unit_distribution_in_reserv (insn_reserv_name, unit, regexp, cycle)
+     const char *insn_reserv_name;
      regexp_t unit;
      regexp_t regexp;
      int cycle;
 {
   int i, k;
   regexp_t seq, allof;
-  unit_decl_t unit_decl, last;
+  unit_decl_t unit_decl;
 
   if (regexp == NULL || regexp->mode != rm_oneof)
     abort ();
@@ -5478,7 +5465,7 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
       if (seq->mode == rm_sequence)
 	{
 	  if (cycle >= REGEXP_SEQUENCE (seq)->regexps_num)
-	    break;
+	    continue;
 	  allof = REGEXP_SEQUENCE (seq)->regexps [cycle];
 	  if (allof->mode == rm_allof)
 	    {
@@ -5497,7 +5484,7 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
 	    break;
 	}
       else if (cycle != 0)
-	break;
+	continue;
       else if (seq->mode == rm_allof)
 	{
 	  for (k = 0; k < REGEXP_ALLOF (seq)->regexps_num; k++)
@@ -5515,30 +5502,23 @@ process_unit_to_form_the_same_automaton_unit_lists (unit, regexp, cycle)
     }
   if (i >= 0)
     {
-      if (the_same_automaton_lists [cycle] == NULL)
-	the_same_automaton_lists [cycle] = unit_decl;
-      else
+      if (!annotation_message_reported_p)
 	{
-	  for (last = the_same_automaton_lists [cycle];;)
-	    {
-	      if (last == unit_decl)
-		return;
-	      if (last->the_same_automaton_unit
-		  == the_same_automaton_lists [cycle])
-		break;
-	      last = last->the_same_automaton_unit;
-	    }
-	  last->the_same_automaton_unit = unit_decl->the_same_automaton_unit;
-	  unit_decl->the_same_automaton_unit
-	    = the_same_automaton_lists [cycle];
+	  fprintf (stderr, "\n");
+	  error ("The following units do not satisfy units-automata distribution rule");
+	  error ("  (A unit of given unit automaton should be on each reserv. altern.)");
+	  annotation_message_reported_p = TRUE;
 	}
+      error ("Unit %s, reserv. %s, cycle %d",
+	     unit_decl->name, insn_reserv_name, cycle);
     }
 }
 
-/* The function processes given REGEXP to find units which should be
-   in the same automaton.  */
+/* The function processes given REGEXP to find units with the wrong
+   distribution.  */
 static void
-form_the_same_automaton_unit_lists_from_regexp (regexp)
+check_regexp_units_distribution (insn_reserv_name, regexp)
+     const char *insn_reserv_name;
      regexp_t regexp;
 {
   int i, j, k;
@@ -5546,8 +5526,6 @@ form_the_same_automaton_unit_lists_from_regexp (regexp)
 
   if (regexp == NULL || regexp->mode != rm_oneof)
     return;
-  for (i = 0; i < description->max_insn_reserv_cycles; i++)
-    the_same_automaton_lists [i] = NULL;
   for (i = REGEXP_ONEOF (regexp)->regexps_num - 1; i >= 0; i--)
     {
       seq = REGEXP_ONEOF (regexp)->regexps [i];
@@ -5560,14 +5538,14 @@ form_the_same_automaton_unit_lists_from_regexp (regexp)
 		{
 		  unit = REGEXP_ALLOF (allof)->regexps [k];
 		  if (unit->mode == rm_unit)
-		    process_unit_to_form_the_same_automaton_unit_lists
-		      (unit, regexp, j);
+		    check_unit_distribution_in_reserv (insn_reserv_name, unit,
+						       regexp, j);
 		  else if (unit->mode != rm_nothing)
 		    abort ();
 		}
 	    else if (allof->mode == rm_unit)
-	      process_unit_to_form_the_same_automaton_unit_lists
-		(allof, regexp, j);
+	      check_unit_distribution_in_reserv (insn_reserv_name, allof,
+						 regexp, j);
 	    else if (allof->mode != rm_nothing)
 	      abort ();
 	  }
@@ -5576,78 +5554,37 @@ form_the_same_automaton_unit_lists_from_regexp (regexp)
 	  {
 	    unit = REGEXP_ALLOF (seq)->regexps [k];
 	    if (unit->mode == rm_unit)
-	      process_unit_to_form_the_same_automaton_unit_lists
-		(unit, regexp, 0);
+	      check_unit_distribution_in_reserv (insn_reserv_name, unit,
+						 regexp, 0);
 	    else if (unit->mode != rm_nothing)
 	      abort ();
 	  }
       else if (seq->mode == rm_unit)
-	process_unit_to_form_the_same_automaton_unit_lists (seq, regexp, 0);
+	check_unit_distribution_in_reserv (insn_reserv_name, seq, regexp, 0);
       else if (seq->mode != rm_nothing)
 	abort ();
     }
 }
 
-/* The function initializes data to search for units which should be
-   in the same automaton and call function
-   `form_the_same_automaton_unit_lists_from_regexp' for each insn
-   reservation regexp.  */
-static void
-form_the_same_automaton_unit_lists ()
-{
-  decl_t decl;
-  int i;
-
-  the_same_automaton_lists
-    = (unit_decl_t *) xmalloc (description->max_insn_reserv_cycles
-			       * sizeof (unit_decl_t));
-  for (i = 0; i < description->decls_num; i++)
-    {
-      decl = description->decls [i];
-      if (decl->mode == dm_unit)
-	{
-	  DECL_UNIT (decl)->the_same_automaton_message_reported_p = FALSE;
-	  DECL_UNIT (decl)->the_same_automaton_unit = DECL_UNIT (decl);
-	}
-    }
-  for (i = 0; i < description->decls_num; i++)
-    {
-      decl = description->decls [i];
-      if (decl->mode == dm_insn_reserv)
-	form_the_same_automaton_unit_lists_from_regexp
-	  (DECL_INSN_RESERV (decl)->transformed_regexp);
-    }
-  free (the_same_automaton_lists);
-}
-
-/* The function finds units which should be in the same automaton and,
-   if they are not, reports about it.  */
+/* The function finds units which violates units to automata
+   distribution rule.  If the units exist, report about them.  */
 static void
 check_unit_distributions_to_automata ()
 {
   decl_t decl;
-  unit_decl_t start_unit_decl, unit_decl;
   int i;
 
-  form_the_same_automaton_unit_lists ();
+  fprintf (stderr, "Check unit distributions to automata...");
+  annotation_message_reported_p = FALSE;
   for (i = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
-      if (decl->mode == dm_unit)
-	{
-	  start_unit_decl = DECL_UNIT (decl);
-	  if (!start_unit_decl->the_same_automaton_message_reported_p)
-	    for (unit_decl = start_unit_decl->the_same_automaton_unit;
-		 unit_decl != start_unit_decl;
-		 unit_decl = unit_decl->the_same_automaton_unit)
-	      if (start_unit_decl->automaton_decl != unit_decl->automaton_decl)
-		{
-		  error ("Units `%s' and `%s' should be in the same automaton",
-			 start_unit_decl->name, unit_decl->name);
-		  unit_decl->the_same_automaton_message_reported_p = TRUE;
-		}
-	}
+      if (decl->mode == dm_insn_reserv)
+	check_regexp_units_distribution
+	  (DECL_INSN_RESERV (decl)->name,
+	   DECL_INSN_RESERV (decl)->transformed_regexp);
     }
+  fprintf (stderr, "done\n");
 }
 
 

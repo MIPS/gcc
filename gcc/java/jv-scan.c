@@ -39,15 +39,15 @@ Boston, MA 02111-1307, USA.  */
 
 #include <getopt.h>
 
-extern void fatal_error PARAMS ((const char *s, ...))
+extern void fatal_error (const char *s, ...)
      ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-void warning PARAMS ((const char *s, ...)) ATTRIBUTE_PRINTF_1;
-void gcc_obstack_init PARAMS ((struct obstack *obstack));
-void report PARAMS ((void));
+void warning (const char *s, ...) ATTRIBUTE_PRINTF_1;
+void gcc_obstack_init (struct obstack *obstack);
+void report (void);
 
-static void usage PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void help PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
+static void usage (void) ATTRIBUTE_NORETURN;
+static void help (void) ATTRIBUTE_NORETURN;
+static void version (void) ATTRIBUTE_NORETURN;
 
 #define JC1_LITE
 #include "jcf.h"
@@ -134,8 +134,7 @@ version ()
 
 /* jc1-lite main entry point */
 int
-DEFUN (main, (argc, argv),
-       int argc AND char **argv)
+main (int argc, char **argv)
 {
   int i = 1;
   const char *output_file = NULL;
@@ -242,28 +241,26 @@ DEFUN (main, (argc, argv),
    functions */
 
 void
-fatal_error VPARAMS ((const char *s, ...))
+fatal_error (const char *s, ...)
 {
-  VA_OPEN (ap, s);
-  VA_FIXEDARG (ap, const char *, s);
-
+  va_list ap;
+  va_start (ap, s);
   fprintf (stderr, "%s: error: ", exec_name);
   vfprintf (stderr, s, ap);
   fputc ('\n', stderr);
-  VA_CLOSE (ap);
+  va_end (ap);
   exit (1);
 }
 
 void
-warning VPARAMS ((const char *s, ...))
+warning (const char *s, ...)
 {
-  VA_OPEN (ap, s);
-  VA_FIXEDARG (ap, const char *, s);
-
+  va_list ap;
+  va_start (ap, s);
   fprintf (stderr, "%s: warning: ", exec_name);
   vfprintf (stderr, s, ap);
   fputc ('\n', stderr);
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 void

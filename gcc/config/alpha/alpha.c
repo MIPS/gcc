@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc. 
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include <splay-tree.h>
 
 /* Specify which cpu to schedule for.  */
 
@@ -1841,7 +1842,9 @@ decl_has_samegp (decl)
     return true;
 
   /* Functions that are not external are defined in this UoT.  */
-  return !DECL_EXTERNAL (decl);
+  /* ??? Irritatingly, static functions not yet emitted are still
+     marked "external".  Apply this to non-static functions only.  */
+  return !TREE_PUBLIC (decl) || !DECL_EXTERNAL (decl);
 }
 
 /* Return true if EXP should be placed in the small data section.  */
@@ -1974,18 +1977,22 @@ alpha_encode_section_info (decl, first)
     {
       char *newstr;
       size_t len;
+      char want_prefix = (is_local ? '@' : '%');
+      char other_prefix = (is_local ? '%' : '@');
 
-      if (symbol_str[0] == (is_local ? '@' : '%'))
+      if (symbol_str[0] == want_prefix)
 	{
 	  if (symbol_str[1] == encoding)
 	    return;
 	  symbol_str += 2;
 	}
+      else if (symbol_str[0] == other_prefix)
+	symbol_str += 2;
 
       len = strlen (symbol_str) + 1;
       newstr = alloca (len + 2);
 
-      newstr[0] = (is_local ? '@' : '%');
+      newstr[0] = want_prefix;
       newstr[1] = encoding;
       memcpy (newstr + 2, symbol_str, len);
 	  
@@ -9019,6 +9026,20 @@ alpha_elf_select_rtx_section (mode, x, align)
 
 #endif /* OBJECT_FORMAT_ELF */
 
+/* Structure to collect function names for final output
+   in link section.  */
+
+enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
+
+struct alpha_links GTY(())
+{
+  rtx linkage;
+  enum links_kind kind;
+};
+
+static GTY ((param1_is (char *), param2_is (struct alpha_links *)))
+  splay_tree alpha_links;
+
 #if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
@@ -9054,26 +9075,6 @@ alpha_arg_info_reg_val (cum)
   return GEN_INT (regval);
 }
 
-/* Protect alpha_links from garbage collection.  */
-
-static int
-mark_alpha_links_node (node, data)
-     splay_tree_node node;
-     void *data ATTRIBUTE_UNUSED;
-{
-  struct alpha_links *links = (struct alpha_links *) node->value;
-  ggc_mark_rtx (links->linkage);
-  return 0;
-}
-
-static void
-mark_alpha_links (ptr)
-     void *ptr;
-{
-  splay_tree tree = *(splay_tree *) ptr;
-  splay_tree_foreach (tree, mark_alpha_links_node, NULL);
-}
-
 /* Make (or fake) .linkage entry for function call.
 
    IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.
@@ -9135,16 +9136,11 @@ alpha_need_linkage (name, is_local)
     }
   else
     {
-      alpha_links_tree = splay_tree_new
-	((splay_tree_compare_fn) strcmp, 
-	 (splay_tree_delete_key_fn) free,
-	 (splay_tree_delete_key_fn) free);
-
-      ggc_add_root (&alpha_links_tree, 1, 1, mark_alpha_links);
+      alpha_links = splay_tree_new_ggc ((splay_tree_compare_fn) strcmp);
     }
 
-  al = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
-  name = xstrdup (name);
+  al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
+  name = ggc_strdup (name);
 
   /* Assume external if no definition.  */
   al->lkind = (is_local ? KIND_UNUSED : KIND_EXTERN);

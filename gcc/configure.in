@@ -1,7 +1,8 @@
 # configure.in for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+# Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -783,12 +784,10 @@ if test $gcc_cv_type_clock_t = yes; then
   [Define if <time.h> defines clock_t.])
 fi
 
-AC_ARG_ENABLE(initfini-array,
-	[  --enable-initfini-array	use .init_array/.fini_array sections],
-	gcc_cv_initfinit_array=$enableval, [gcc_AC_INITFINI_ARRAY])
-
 # Restore CFLAGS from before the gcc_AC_NEED_DECLARATIONS tests.
 CFLAGS="$saved_CFLAGS"
+
+gcc_AC_INITFINI_ARRAY
 
 # mkdir takes a single argument on some systems. 
 gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG
@@ -2264,9 +2263,9 @@ elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
   echo '.byte 1' >> conftest2.s
   echo '.section "myfoosect", "a"' > conftest3.s
   echo '.byte 0' >> conftest3.s
-  if $gcc_cv_as -o conftest1.o conftest1.s \
-     && $gcc_cv_as -o conftest2.o conftest2.s \
-     && $gcc_cv_as -o conftest3.o conftest3.s \
+  if $gcc_cv_as -o conftest1.o conftest1.s > /dev/null 2>&1 \
+     && $gcc_cv_as -o conftest2.o conftest2.s > /dev/null 2>&1 \
+     && $gcc_cv_as -o conftest3.o conftest3.s > /dev/null 2>&1 \
      && $gcc_cv_ld -shared -o conftest1.so conftest1.o \
 	conftest2.o conftest3.o; then
     gcc_cv_ld_ro_rw_mix=`$gcc_cv_objdump -h conftest1.so \

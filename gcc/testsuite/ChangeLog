@@ -1,3 +1,228 @@
+2003-01-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.dg/bf-ms-layout.c: Enable for cygwin and mingw32 targets.
+	* gcc.dg/bf-no-ms-layout.c: Likewise.
+ 	* gcc.dg/bf-ms-attrib.c: Likewise.
+
+2003-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9099
+	* g++.dg/parse/dtor1.C: New file.
+
+	PR c++/9128
+	* g++.dg/rtti/typeid1.C: New file.
+
+	PR c++/9153
+	* g++.dg/parse/lookup1.C: New file.
+
+	PR c++/9171
+	* g++.dg/templ/spec5.C: New file.
+	
+2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* gcc.c-torture/compile/20030110-1.c: New test.
+
+2003-01-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Merge from pch-branch:
+
+	2002-12-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/cpp-1.h: New.
+	* gcc.dg/pch/cpp-1.c: New.
+	* gcc.dg/pch/cpp-2.h: New.
+	* gcc.dg/pch/cpp-2.c: New.
+
+	2002-11-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/except-1.h: New.
+	* gcc.dg/pch/except-1.c: New.
+
+	2002-11-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Ensure that <test>.hp doesn't exist before
+	running test.
+	* gcc.dg/pch: Include *.hp not *.h.
+	* gcc.dg/pch/system-1.h: New.
+	* gcc.dg/pch/system-1.c: New.
+
+	2002-11-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Compare .s files with/without PCH,
+	rather than trying to build and run a program using PCH.
+	* gcc.dg/pch: Remove dg-do commands from test files.
+	
+	2002-11-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/macro-3.c: New.
+	* gcc.dg/pch/macro-3.h: New.
+
+	2002-11-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/common-1.c: New.
+	* gcc.dg/pch/common-1.h: New.
+	* gcc.dg/pch/decl-1.c: New.
+	* gcc.dg/pch/decl-1.h: New.
+	* gcc.dg/pch/decl-2.c: New.
+	* gcc.dg/pch/decl-2.h: New.
+	* gcc.dg/pch/decl-3.c: New.
+	* gcc.dg/pch/decl-3.h: New.
+	* gcc.dg/pch/decl-4.c: New.
+	* gcc.dg/pch/decl-4.h: New.
+	* gcc.dg/pch/decl-5.c: New.
+	* gcc.dg/pch/decl-5.h: New.
+	* gcc.dg/pch/global-1.c: New.
+	* gcc.dg/pch/global-1.h: New.
+	* gcc.dg/pch/inline-1.c: New.
+	* gcc.dg/pch/inline-1.h: New.
+	* gcc.dg/pch/inline-2.c: New.
+	* gcc.dg/pch/inline-2.h: New.
+	* gcc.dg/pch/static-1.c: New.
+	* gcc.dg/pch/static-1.h: New.
+	* gcc.dg/pch/static-2.c: New.
+	* gcc.dg/pch/static-2.h: New.
+
+	2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/pch/pch.exp: Better handle failing testcases.
+	* gcc.dg/pch/pch.exp: Likewise.
+	* gcc.dg/pch/macro-1.c: New.
+	* gcc.dg/pch/macro-1.h: New.
+	* gcc.dg/pch/macro-2.c: New.
+	* gcc.dg/pch/macro-2.h: New.
+
+	2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/dg.exp: Treat files in pch/ specially.
+	* g++.dg/pch/pch.exp: New file.
+	* g++.dg/pch/empty.H: New file.
+	* g++.dg/pch/empty.C: New file.
+	* lib/g++-dg.exp (g++-dg-test): Add case for when $do_what is
+	"precompile".
+
+	* gcc.dg/pch/pch.exp: New file.
+	* gcc.dg/pch/empty.h: New file.
+	* gcc.dg/pch/empty.c: New file.
+	* lib/gcc-dg.exp (gcc-dg-test): Add case for when $do_what is
+	"precompile".
+
+2003-01-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/friend14.C: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/old-style-asm-1.c: New test.
+
+2003-01-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20030109-1.c: New test.
+
+2003-01-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030109-1.c: New test.
+
+2003-01-08  Larin Hennessey  <larin@science.oregonstate.edu>
+
+	* g++.old-deja/g++.mike/dyncast1.C: Remove reference to AMD A29K
+	* g++.old-deja/g++.mike/dyncast2.C: Likewise
+	* g++.old-deja/g++.mike/dyncast3.C: Likewise
+	* g++.old-deja/g++.mike/eh2.C: Likewise
+	* g++.old-deja/g++.mike/eh3.C: Likewise
+	* g++.old-deja/g++.mike/eh5.C: Likewise
+	* g++.old-deja/g++.mike/eh6.C: Likewise
+	* g++.old-deja/g++.mike/eh7.C: Likewise
+	* g++.old-deja/g++.mike/eh8.C: Likewise
+	* g++.old-deja/g++.mike/eh9.C: Likewise
+	* g++.old-deja/g++.mike/eh10.C: Likewise
+	* g++.old-deja/g++.mike/eh12.C: Likewise
+	* g++.old-deja/g++.mike/eh13.C: Likewise
+	* g++.old-deja/g++.mike/eh14.C: Likewise
+	* g++.old-deja/g++.mike/eh16.C: Likewise
+	* g++.old-deja/g++.mike/eh17.C: Likewise
+	* g++.old-deja/g++.mike/eh18.C: Likewise
+	* g++.old-deja/g++.mike/eh21.C: Likewise
+	* g++.old-deja/g++.mike/eh23.C: Likewise
+	* g++.old-deja/g++.mike/eh24.C: Likewise
+	* g++.old-deja/g++.mike/eh25.C: Likewise
+	* g++.old-deja/g++.mike/eh26.C: Likewise
+	* g++.old-deja/g++.mike/eh27.C: Likewise
+	* g++.old-deja/g++.mike/eh28.C: Likewise
+	* g++.old-deja/g++.mike/eh29.C: Likewise
+	* g++.old-deja/g++.mike/eh31.C: Likewise
+	* g++.old-deja/g++.mike/eh33.C: Likewise
+	* g++.old-deja/g++.mike/eh34.C: Likewise
+	* g++.old-deja/g++.mike/eh35.C: Likewise
+	* g++.old-deja/g++.mike/eh36.C: Likewise
+	* g++.old-deja/g++.mike/eh37.C: Likewise
+	* g++.old-deja/g++.mike/eh38.C: Likewise
+	* g++.old-deja/g++.mike/eh39.C: Likewise
+	* g++.old-deja/g++.mike/eh40.C: Likewise
+	* g++.old-deja/g++.mike/eh41.C: Likewise
+	* g++.old-deja/g++.mike/eh42.C: Likewise
+	* g++.old-deja/g++.mike/eh44.C: Likewise
+	* g++.old-deja/g++.mike/eh46.C: Likewise
+	* g++.old-deja/g++.mike/eh47.C: Likewise
+	* g++.old-deja/g++.mike/eh48.C: Likewise
+	* g++.old-deja/g++.mike/eh49.C: Likewise
+	* g++.old-deja/g++.mike/eh50.C: Likewise
+	* g++.old-deja/g++.mike/eh51.C: Likewise
+	* g++.old-deja/g++.mike/eh53.C: Likewise
+	* g++.old-deja/g++.mike/eh55.C: Likewise
+	* g++.old-deja/g++.mike/p7912.C: Likewise
+	* g++.old-deja/g++.mike/p9706.C: Likewise
+	* g++.old-deja/g++.mike/p10416.C: Likewise
+	* g++.old-deja/g++.mike/p11667.C: Likewise
+	* g77.f-torture/compile/20010519-1.f: Remove reference to Convex. 
+	Remove redundant reference to Iris.
+	* gcc.dg/20020312-2.c: Remove references to AMD A29K, Clipper, Convex,
+	Elxsi, i860, Pico Java, and WE32K.
+
+2003-01-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/asm4.C: New test.
+
+2003-01-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9030
+	* g++.dg/template/friend12.C: New test.
+	* g++.dg/template/friend13.C: Likewise.
+	* g++.old-deja/g++.eh/spec6.C: Add missing error message.
+
+Wed Jan  8 11:41:47 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-cadd.c: New test.
+	* gcc.dg/i386-cmov4.c: Likewise.
+
+2003-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9165
+	* g++.dg/warn/Wunused-3.C: New test.
+
+	* g++.dg/abi/bitfield9.C: New test.
+
+	PR c++/9189
+	* g++.dg/parse/defarg3.C: New test.
+
+2003-01-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/ambig1.C: New test.
+	* g++.dg/parse/defarg2.C: New test.
+
+2003-01-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/defarg-1.C: New test.
+	* g++.dg/template/local2.C: Likewise.
+
+2003-01-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20030105-1.c: New test.
+
+2003-01-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/parse/namespace3.C: Remove extra semicolons.
+	* g++.dg/parse/namespace4.C: Likewise.
+
 2003-01-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/template/ntp2.C: New test.

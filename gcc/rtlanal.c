@@ -1037,7 +1037,7 @@ regs_set_between_p (x, start, end)
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
-   X contains a MEM; this routine does not perform any memory aliasing.  */
+   X contains a MEM; this routine does usememory aliasing.  */
 
 int
 modified_between_p (x, start, end)
@@ -1048,6 +1048,7 @@ modified_between_p (x, start, end)
   const char *fmt;
   int i, j;
   rtx insn;
+
   if (start == end)
     return 0;
 
@@ -1100,7 +1101,7 @@ modified_between_p (x, start, end)
 
 /* Similar to reg_set_p, but check all registers in X.  Return 0 only if none
    of them are modified in INSN.  Return 1 if X contains a MEM; this routine
-   does not perform any memory aliasing.  */
+   does use memory aliasing.  */
 
 int
 modified_in_p (x, insn)
@@ -2236,7 +2237,6 @@ volatile_insn_p (x)
     case REG:
     case SCRATCH:
     case CLOBBER:
-    case ASM_INPUT:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
     case CALL:
@@ -2247,6 +2247,7 @@ volatile_insn_p (x)
  /* case TRAP_IF: This isn't clear yet.  */
       return 1;
 
+    case ASM_INPUT:
     case ASM_OPERANDS:
       if (MEM_VOLATILE_P (x))
 	return 1;
@@ -2303,7 +2304,6 @@ volatile_refs_p (x)
     case REG:
     case SCRATCH:
     case CLOBBER:
-    case ASM_INPUT:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
       return 0;
@@ -2312,6 +2312,7 @@ volatile_refs_p (x)
       return 1;
 
     case MEM:
+    case ASM_INPUT:
     case ASM_OPERANDS:
       if (MEM_VOLATILE_P (x))
 	return 1;
@@ -2367,7 +2368,6 @@ side_effects_p (x)
     case PC:
     case REG:
     case SCRATCH:
-    case ASM_INPUT:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
       return 0;
@@ -2390,6 +2390,7 @@ side_effects_p (x)
       return 1;
 
     case MEM:
+    case ASM_INPUT:
     case ASM_OPERANDS:
       if (MEM_VOLATILE_P (x))
 	return 1;

@@ -125,7 +125,7 @@ int current_function_uses_only_leaf_regs;
 int virtuals_instantiated;
 
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
-static int funcdef_no;
+static GTY(()) int funcdef_no;
 
 /* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
@@ -4477,6 +4477,12 @@ assign_parms (fndecl)
 
 	  if (nregs > 0)
 	    {
+#if defined (REG_PARM_STACK_SPACE) && !defined (MAYBE_REG_PARM_STACK_SPACE)
+	      /* When REG_PARM_STACK_SPACE is nonzero, stack space for
+		 split parameters was allocated by our caller, so we
+		 won't be pushing it in the prolog.  */
+	      if (REG_PARM_STACK_SPACE (fndecl) == 0)
+#endif
 	      current_function_pretend_args_size
 		= (((nregs * UNITS_PER_WORD) + (PARM_BOUNDARY / BITS_PER_UNIT) - 1)
 		   / (PARM_BOUNDARY / BITS_PER_UNIT)

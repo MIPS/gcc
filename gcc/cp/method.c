@@ -1,7 +1,7 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
-   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "flags.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 
@@ -480,6 +479,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	 doesn't work for varargs.  */
 
       tree a, t;
+      int saved_check_access;
 
       if (varargs_function_p (function))
 	error ("generic thunk code fails for method `%#D' which uses `...'",
@@ -501,8 +501,11 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       start_function (NULL_TREE, thunk_fndecl, NULL_TREE, SF_PRE_PARSED);
       /* We don't bother with a body block for thunks.  */
 
+      /* There's no need to check accessibility inside the thunk body.  */
+      saved_check_access = scope_chain->check_access;
+      scope_chain->check_access = 0;
+
       t = a;
-      
       if (this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/1,
 			  fixed_offset, virtual_offset);
@@ -528,6 +531,9 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       /* But we don't want debugging information about it.  */
       DECL_IGNORED_P (thunk_fndecl) = 1;
+
+      /* Re-enable access control.  */
+      scope_chain->check_access = saved_check_access;
 
       expand_body (finish_function (0));
     }

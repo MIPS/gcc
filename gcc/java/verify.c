@@ -36,12 +36,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "toplev.h"
 
-static void push_pending_label PARAMS ((tree));
-static tree merge_types PARAMS ((tree, tree));
-static const char *check_pending_block PARAMS ((tree));
-static void type_stack_dup PARAMS ((int, int));
-static int start_pc_cmp PARAMS ((const PTR, const PTR));
-static char *pop_argument_types PARAMS ((tree));
+static void push_pending_label (tree);
+static tree merge_types (tree, tree);
+static const char *check_pending_block (tree);
+static void type_stack_dup (int, int);
+static int start_pc_cmp (const void *, const void *);
+static char *pop_argument_types (tree);
 
 extern int stack_pointer;
 
@@ -351,8 +351,8 @@ struct pc_index
 /* A helper that is used when sorting exception ranges.  */
 static int
 start_pc_cmp (xp, yp)
-     const PTR xp;
-     const PTR yp;
+     const void *xp;
+     const void *yp;
 {
   const struct pc_index *x = (const struct pc_index *) xp;
   const struct pc_index *y = (const struct pc_index *) yp;

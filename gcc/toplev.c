@@ -1,6 +1,6 @@
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -921,6 +921,10 @@ int flag_new_regalloc = 0;
 
 int flag_tracer = 0;
 
+/* Nonzero if we porform compilation unit at time compilation.  */
+
+int flag_unit_at_time = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1033,6 +1037,8 @@ static const lang_independent_options f_options[] =
    N_("Optimize sibling and tail recursive calls") },
   {"tracer", &flag_tracer, 1,
    N_("Perform superblock formation via tail duplication") },
+  {"unit-at-time", &flag_unit_at_time, 1,
+   N_("Compile whole compilation unit at time") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -1364,6 +1370,8 @@ documented_lang_options[] =
   { "-Wimport",
     N_("Warn about the use of the #import directive") },
   { "-Wno-import", "" },
+  { "-Winvalid-pch",
+    N_("Warn about PCH files that are found but not used") },
   { "-Wlong-long","" },
   { "-Wno-long-long",
     N_("Do not warn about using 'long long' when -pedantic") },
@@ -4831,7 +4839,7 @@ init_asm_output (name)
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w");
+	asm_out_file = fopen (asm_file_name, "w+");
       if (asm_out_file == 0)
 	fatal_io_error ("can't open %s for writing", asm_file_name);
     }
@@ -5021,6 +5029,7 @@ parse_options_and_default_flags (argc, argv)
       flag_web = 1;
       flag_value_histograms = 1;
       flag_value_profile_transformations = 1;
+      flag_unit_at_time = 1;
     }
 
   if (optimize >= 3)
