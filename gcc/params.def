@@ -316,6 +316,10 @@ DEFPARAM(GGC_MIN_HEAPSIZE,
 #undef GGC_MIN_EXPAND_DEFAULT
 #undef GGC_MIN_HEAPSIZE_DEFAULT
 
+DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
+	 "max-cselib-memory-locations",
+	 "The maximum memory locations recorded by cselib",
+	 500)
 /*
 Local variables:
 mode:c

@@ -8140,7 +8140,7 @@ reload_cse_regs_1 (first)
   rtx insn;
   rtx testreg = gen_rtx_REG (VOIDmode, -1);
 
-  cselib_init ();
+  cselib_init (true);
   init_alias_analysis ();
 
   for (insn = first; insn; insn = NEXT_INSN (insn))

@@ -9903,7 +9903,7 @@ load_mems (loop)
     ;
   prev_ebb_head = p;
 
-  cselib_init ();
+  cselib_init (true);
 
   /* Build table of mems that get set to constant values before the
      loop.  */
