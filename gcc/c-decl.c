@@ -428,10 +428,6 @@ int warn_sign_compare = -1;
 
 int warn_float_equal = 0;
 
-/* Nonzero means warn about use of multicharacter literals.  */
-
-int warn_multichar = 1;
-
 /* Nonzero means `$' can be in an identifier.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -547,6 +543,7 @@ c_decode_option (argc, argv)
 	  flag_no_nonansi_builtin = 1;
 	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 0;
+	  flag_iso = 1;
 	}
       else if (!strcmp (argstart, "iso9899:199409"))
 	{
@@ -564,6 +561,7 @@ c_decode_option (argc, argv)
 	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 1;
 	  flag_isoc94 = 1;
+	  flag_iso = 1;
 	}
       else if (!strcmp (argstart, "gnu89"))
 	{
@@ -642,6 +640,8 @@ c_decode_option (argc, argv)
     ;
   else if (!strcmp (p, "-ansi"))
     goto iso_1990;
+  else if (!strcmp (p, "-undef"))
+    flag_undef = 1;
   else if (!strcmp (p, "-Werror-implicit-function-declaration"))
     mesg_implicit_function_declaration = 2;
   else if (!strncmp (p, "-Wformat=", 9))

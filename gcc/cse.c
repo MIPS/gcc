@@ -691,7 +691,7 @@ static int check_dependence	PARAMS ((rtx *, void *));
 static void flush_hash_table	PARAMS ((void));
 static bool insn_live_p		PARAMS ((rtx, int *));
 static bool set_live_p		PARAMS ((rtx, rtx, int *));
-static bool dead_libcall_p	PARAMS ((rtx));
+static bool dead_libcall_p	PARAMS ((rtx, int *));
 
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
@@ -842,13 +842,7 @@ rtx_cost (x, outer_code)
   switch (code)
     {
     case MULT:
-      /* Count multiplication by 2**n as a shift,
-	 because if we are considering it, we would output it as a shift.  */
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
-	total = 2;
-      else
-	total = COSTS_N_INSNS (5);
+      total = COSTS_N_INSNS (5);
       break;
     case DIV:
     case UDIV:
@@ -7571,8 +7565,9 @@ insn_live_p (insn, counts)
 /* Return true if libcall is dead as a whole.  */
 
 static bool
-dead_libcall_p (insn)
+dead_libcall_p (insn, counts)
      rtx insn;
+     int *counts;
 {
   rtx note;
   /* See if there's a REG_EQUAL note on this insn and try to
@@ -7589,11 +7584,17 @@ dead_libcall_p (insn)
       if (!new)
 	new = XEXP (note, 0);
 
+      /* While changing insn, we must update the counts accordingly.  */
+      count_reg_usage (insn, counts, NULL_RTX, -1);
+
       if (set && validate_change (insn, &SET_SRC (set), new, 0))
 	{
+          count_reg_usage (insn, counts, NULL_RTX, 1);
 	  remove_note (insn, find_reg_note (insn, REG_RETVAL, NULL_RTX));
+	  remove_note (insn, note);
 	  return true;
 	}
+       count_reg_usage (insn, counts, NULL_RTX, 1);
     }
   return false;
 }
@@ -7652,7 +7653,7 @@ delete_trivially_dead_insns (insns, nreg)
 	    {
 	      in_libcall = 1;
 	      live_insn = 1;
-	      dead_libcall = dead_libcall_p (insn);
+	      dead_libcall = dead_libcall_p (insn, counts);
 	    }
 	  else if (in_libcall)
 	    live_insn = ! dead_libcall;

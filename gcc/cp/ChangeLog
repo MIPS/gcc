@@ -1,3 +1,24 @@
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (flag_ansi): Remove.
+	* decl2.c (flag_ansi): Remove.
+	(cxx_decode_option): Set flag_iso and flag_undef.
+
+2002-05-09  Jason Merrill  <jason@redhat.com>
+
+	* typeck.c (get_member_function_from_ptrfunc): Reorganize.
+	Use subtraction rather than a bitmask to get the index.
+	* cvt.c (cp_convert_to_pointer): Bail on an error_mark_node.
+
+	* pt.c (tsubst_expr) [ASM_STMT]: Copy ASM_INPUT_P.
+
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Make-lang.in (decl2.o): Update.
+	* cp-tree.h (warn_multichar): Remove.
+	* decl2.c: Include c-common.h.
+	(warn_multichar): Remove.
+
 2002-05-03  Jason Merrill  <jason@redhat.com>
 
 	* tree.c (build_cplus_array_type): Only const and volatile get
@@ -14,6 +35,7 @@
 
 2002-04-30  Jason Merrill  <jason@redhat.com>
 
+	PR debug/6436
 	* decl.c (grokdeclarator): Don't override TYPE_NAME of an
 	anonymous class with a typedef if there are attributes.
 

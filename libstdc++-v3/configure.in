@@ -4,6 +4,12 @@
 AC_PREREQ(2.13)
 AC_INIT(src/ios.cc)
 
+# This works around the fact that libtool configuration may change LD
+# for this particular configuration, but some shells, instead of
+# keeping the changes in LD private, export them just because LD is
+# exported.
+ORIGINAL_LD_FOR_MULTILIBS=$LD
+
 PACKAGE=libstdc++
 AC_SUBST(PACKAGE)
 # For typical GNU versioning info, format is MAJOR.MINOR.MICRO
@@ -152,6 +158,9 @@ if test -n "$with_cross_host" || test x"$build" != x"$host"; then
       GLIBCPP_CHECK_WCHAR_T_SUPPORT
       os_include_dir="config/os/mingw32"
       ;;
+    *-windiss*)
+      os_include_dir="config/os/windiss"
+      ;;
     *)
       os_include_dir="config/os/newlib"
       AC_DEFINE(HAVE_HYPOT)
@@ -160,6 +169,32 @@ if test -n "$with_cross_host" || test x"$build" != x"$host"; then
 
   case "$target_alias" in
     *-mingw32*)
+      ;;
+    *-windiss*)
+      AC_DEFINE(HAVE_ACOSF)
+      AC_DEFINE(HAVE_ASINF)
+      AC_DEFINE(HAVE_ATAN2F)
+      AC_DEFINE(HAVE_ATANF)
+      AC_DEFINE(HAVE_CEILF)
+      AC_DEFINE(HAVE_COPYSIGN)
+      AC_DEFINE(HAVE_COPYSIGNF)
+      AC_DEFINE(HAVE_COSF)
+      AC_DEFINE(HAVE_COSHF)
+      AC_DEFINE(HAVE_EXPF)
+      AC_DEFINE(HAVE_FABSF)
+      AC_DEFINE(HAVE_FLOORF)
+      AC_DEFINE(HAVE_FMODF)
+      AC_DEFINE(HAVE_FREXPF)
+      AC_DEFINE(HAVE_LDEXPF)
+      AC_DEFINE(HAVE_LOG10F)
+      AC_DEFINE(HAVE_LOGF)
+      AC_DEFINE(HAVE_MODFF)
+      AC_DEFINE(HAVE_POWF)
+      AC_DEFINE(HAVE_SINF)
+      AC_DEFINE(HAVE_SINHF)
+      AC_DEFINE(HAVE_SQRTF)
+      AC_DEFINE(HAVE_TANF)
+      AC_DEFINE(HAVE_TANHF)
       ;;
     *)
       # GLIBCPP_CHECK_STDLIB_SUPPORT
@@ -318,6 +353,7 @@ AC_OUTPUT(Makefile \
     libmath/Makefile libio/Makefile libsupc++/Makefile \
     po/Makefile testsuite/Makefile mkcheck testsuite_flags,
 [if test -n "$CONFIG_FILES"; then
+  LD="${ORIGINAL_LD_FOR_MULTILIBS}"
   ac_file=Makefile . ${glibcpp_basedir}/../config-ml.in
   grep '^MULTISUBDIR =' Makefile >> src/Makefile
   grep '^MULTISUBDIR =' Makefile >> libsupc++/Makefile

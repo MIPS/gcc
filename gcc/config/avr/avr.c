@@ -56,7 +56,6 @@ static int    out_set_stack_ptr    PARAMS ((FILE *, int, int));
 static RTX_CODE compare_condition  PARAMS ((rtx insn));
 static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
-static int    io_address_p         PARAMS ((rtx x, int size));
 void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
@@ -138,9 +137,10 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "avr2",      AVR2 },
   { "at90s2313", AVR2 },
   { "at90s2323", AVR2 },
-  { "attiny22",  AVR2 },
   { "at90s2333", AVR2 },
   { "at90s2343", AVR2 },
+  { "attiny22",  AVR2 },
+  { "attiny26",  AVR2 },
   { "at90s4414", AVR2 },
   { "at90s4433", AVR2 },
   { "at90s4434", AVR2 },
@@ -152,22 +152,24 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega103", AVR3 },
   { "atmega603", AVR3 },
   { "at43usb320", AVR3 },
+  { "at43usb355", AVR3 },
   { "at76c711",  AVR3 },
     /* Enhanced, <= 8K.  */
   { "avr4",      AVR4 },
   { "atmega8",   AVR4 },
   { "atmega83",  AVR4 },
   { "atmega85",  AVR4 },
+  { "atmega8515", AVR4 },
     /* Enhanced, > 8K.  */
   { "avr5",      AVR5 },
   { "atmega16",  AVR5 },
   { "atmega161", AVR5 },
+  { "atmega162", AVR5 },
   { "atmega163", AVR5 },
   { "atmega32",  AVR5 },
   { "atmega323", AVR5 },
   { "atmega64",  AVR5 },
   { "atmega128", AVR5 },
-  { "at43usb355", AVR5 },
   { "at94k",     AVR5 },
     /* Assembler only.  */
   { "avr1",      AVR1 },
@@ -1001,7 +1003,8 @@ print_operand_address (file, addr)
 
     default:
       if (CONSTANT_ADDRESS_P (addr)
-	  && (SYMBOL_REF_FLAG (addr) || GET_CODE (addr) == LABEL_REF))
+	  && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
+	      || GET_CODE (addr) == LABEL_REF))
 	{
 	  fprintf (file, "pm(");
 	  output_addr_const (file,addr);
@@ -1802,7 +1805,7 @@ out_movqi_r_mr (insn, op, l)
   
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	{
 	  *l = 1;
 	  return AS2 (in,%0,%1-0x20);
@@ -1971,7 +1974,7 @@ out_movhi_r_mr (insn, op, l)
     }
   else if (CONSTANT_ADDRESS_P (base))
     {
-      if (io_address_p (base, 2))
+      if (avr_io_address_p (base, 2))
 	{
 	  *l = 2;
 	  return (AS2 (in,%A0,%A1-0x20) CR_TAB
@@ -2514,7 +2517,7 @@ out_movqi_mr_r (insn, op, l)
   
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	{
 	  *l = 1;
 	  return AS2 (out,%0-0x20,%1);
@@ -2592,7 +2595,7 @@ out_movhi_mr_r (insn, op, l)
     l = &tmp;
   if (CONSTANT_ADDRESS_P (base))
     {
-      if (io_address_p (base, 2))
+      if (avr_io_address_p (base, 2))
 	{
 	  *l = 2;
 	  return (AS2 (out,%B0-0x20,%B1) CR_TAB
@@ -4927,7 +4930,7 @@ avr_address_cost (x)
     return 18;
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	return 2;
       return 4;
     }
@@ -5246,10 +5249,11 @@ reg_was_0 (insn, op)
 }
 
 /* Returns 1 if X is a valid address for an I/O register of size SIZE
-   (1 or 2).  Used for lds/sts -> in/out optimization.  */
+   (1 or 2).  Used for lds/sts -> in/out optimization.  Add 0x20 to SIZE
+   to check for the lower half of I/O space (for cbi/sbi/sbic/sbis).  */
 
-static int
-io_address_p (x, size)
+int
+avr_io_address_p (x, size)
      rtx x;
      int size;
 {

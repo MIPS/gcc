@@ -62,7 +62,7 @@ static basic_block create_bb PARAMS ((tree, tree, basic_block, tree *,
                                       basic_block));
 static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree, tree *));
 static void map_stmt_to_bb PARAMS ((tree, basic_block));
-static void delete_unreachable_blocks PARAMS ((void));
+static void remove_unreachable_blocks PARAMS ((void));
 static void delete_bb PARAMS ((basic_block));
 
 /* Edges.  */
@@ -1153,17 +1153,17 @@ make_continue_stmt_edges (bb)
 void
 tree_cleanup_cfg ()
 {
-  delete_unreachable_blocks ();
+  remove_unreachable_blocks ();
 }
 
 /* }}} */
 
-/* {{{ delete_unreachable_blocks()
+/* {{{ remove_unreachable_blocks()
    
    Delete all unreachable basic blocks.   */
 
 static void
-delete_unreachable_blocks ()
+remove_unreachable_blocks ()
 {
   int i;
 

@@ -196,10 +196,10 @@ struct cpp_token
 #ifndef MAX_WCHAR_TYPE_SIZE
 # define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
 #endif
-#if SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
+#if CHAR_BIT * SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
 # define CPPCHAR_SIGNED_T int
 #else
-# if SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
+# if CHAR_BIT * SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
 #  define CPPCHAR_SIGNED_T long
 # else
 #  define CPPCHAR_SIGNED_T long long
@@ -251,18 +251,11 @@ struct cpp_options
   /* -fleading_underscore sets this to "_".  */
   const char *user_label_prefix;
 
-  /* Precision for target CPP arithmetic, target characters, target
-     ints and target wide characters, respectively.  */
-  size_t precision, char_precision, int_precision, wchar_precision;
-
   /* The language we're preprocessing.  */
   enum c_lang lang;
 
   /* Non-0 means -v, so print the full set of include dirs.  */
   unsigned char verbose;
-
-  /* Nonzero means chars are signed.  */
-  unsigned char signed_char;
 
   /* Nonzero means use extra default include directories for C++.  */
   unsigned char cplusplus;
@@ -329,6 +322,9 @@ struct cpp_options
   /* Nonzero means warn if #import is used.  */
   unsigned char warn_import;
 
+  /* Nonzero means warn about multicharacter charconsts.  */
+  unsigned char warn_multichar;
+
   /* Nonzero means warn about various incompatibilities with
      traditional C.  */
   unsigned char warn_traditional;
@@ -392,6 +388,15 @@ struct cpp_options
      options.  Stand-alone CPP should then bail out after option
      parsing; drivers might want to continue printing help.  */
   unsigned char help_only;
+
+  /* Target-specific features set by the front end or client.  */
+
+  /* Precision for target CPP arithmetic, target characters, target
+     ints and target wide characters, respectively.  */
+  size_t precision, char_precision, int_precision, wchar_precision;
+
+  /* Nonzero means chars (wide chars) are unsigned.  */
+  unsigned char unsigned_char, unsigned_wchar;
 };
 
 /* Call backs.  */
@@ -558,7 +563,7 @@ extern void _cpp_backup_tokens PARAMS ((cpp_reader *, unsigned int));
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
 extern cppchar_t
 cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
-				 int, unsigned int *, int *));
+				 unsigned int *, int *));
 
 /* Used to register builtins during the register_builtins callback.
    The text is the same as the command line argument.  */

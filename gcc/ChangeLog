@@ -1,3 +1,84 @@
+2002-05-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/pa32-regs.h (HARD_REGNO_MODE_OK): Revise sets of general registers
+	used for DImode and TImode.
+
+2002-05-11  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cpplex.c (_cpp_lex_direct): When in a directive at EOF
+	fake a newline.
+
+2002-05-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_default_long_calls,
+	rs6000_longcall_switch, rs6000_set_default_type_attributes): New.
+	(TARGET_SET_DEFAULT_TYPE_ATTRIBUTES): Set it.
+	(rs6000_override_options): Handle -m(no-)longcall.
+	(init_cumulative_args, output_mi_thunk): Check for both
+	longcall and shortcall attributes on the function.
+	(rs6000_attribute_table): Add "shortcall".
+	(rs6000_handle_longcall_attribute): Update comment.
+	(altivec_expand_unop_builtin, altivec_expand_binop_builtin,
+	altivec_expand_ternop_builtin): Add default clauses to switches
+	to silence warnings.
+
+	* config/rs6000/rs6000.h: Declare rs6000_longcall_switch and
+	rs6000_default_long_calls.  Define REGISTER_TARGET_PRAGMAS.
+	(TARGET_OPTIONS): Add longcall and no-longcall.
+
+	* config/rs6000/rs6000.md (call_nonlocal_sysv,
+	call_value_nonlocal_sysv): Split by alternatives.  One pair
+	accepts only SYMBOL_REFs and rejects if CALL_LONG is set in
+	the call cookie.  The other pair accepts only LR/CTR and has
+	no restriction.
+
+	* config.gcc (rs6000-*-* | powerpc*-*-* trailer stanza):
+	Set c_target_objs, cxx_target_objs; add t-rs6000-c-rule to
+	tmake_file.
+	* config/rs6000/rs6000-c.c: New file.
+	* config/rs6000/t-rs6000-c-rule: New file.
+	* config/rs6000/rs6000-protos.c: Add multiple-include guard.
+	Prototype rs6000_pragma_longcall.
+
+	* doc/extend.texi: Document shortcall attribute.
+	* doc/invoke.texi: Document -mlongcall, -mno-longcall.
+
+2002-05-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* reorg.c (dbr_schedule): Remove unnecessary test.
+
+Sat May 11 14:34:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (testsi to testqi spliters): New.
+
+	2002-01-14  Josef Zlomek  <zlomek@matfyz.cz>
+
+	cfg.c (dump_edge_info): added dumping of EDGE_CAN_FALLTHRU.
+
+	Wed Jan  9 2002  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* basic-block.h: New flag EDGE_CAN_FALLTHRU
+	* cfganal.c (set_edge_can_fallthru_flag): New function; marks the edges
+	that can be made fallthru.
+
+	Mon Nov 12 16:25:53 CET 2001  Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (cleanup_unconditional_jumps): New static function.
+	(cfg_layout_initialize): Use it.
+
+2002-05-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* dbxout.c: Fix formatting.
+	* dependence.c: Likewise.
+	* df.c: Likewise.
+	* diagnostic.c: Likewise.
+	* doloop.c: Likewise.
+	* dominance.c: Likewise.
+	* doschk.c: Likewise.
+	* dwarf2asm.c: Likewise.
+	* dwarf2out.c: Likewise.
+	* dwarfout.c: Likewise.
+
 2002-05-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* c-pretty-print.c (dump_c_node): Print "<unnamed whatever>" for
@@ -8,6 +89,73 @@
 	Print SAVE_EXPR () around SAVE_EXPRs.
 	(print_call_name): Handle EXPR_WITH_FILE_LOCATION.
 
+2002-05-10  Richard Henderson  <rth@redhat.com>
+
+	* final.c (end_final): Tidy whitespace.  Don't honor flag_pack_struct.
+	Convert integers constants as needed.  Replace "nwords" field with
+	"sizeof_bb".
+	(final): Save profile data if cfun->arc_profile, not profile_arc_flag.
+	* function.h: Fix typo in comment.
+	* libgcc2.c (struct bb): Replace "nwords" with "sizeof_bb".
+
+2002-05-10  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (build_range_check): Optimize (c>=1) && (c<=127)
+	into the equivalent (signed char)c > 0.
+
+2002-05-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* loop.c: (PREFETCH_EXTREME_DIFFERENCE, PREFETCH_BEFORE_LOOP): New.
+	(PREFETCH_CONDITIONAL): Renamed from PREFETCH_NOT_ALWAYS.
+	(struct prefetch_info): Fix spelling of member bytes_accessed.
+	(emit_prefetch_instructions): Make dump messages more regular;
+	restructure code to add more dump messages; use new macros for
+	heuristics. (There are no code generation changes in any of this).
+
+2002-05-10  David S. Miller  <davem@redhat.com>
+
+	* rtl.h (INSN_ANNULLED_BRANCH_P): Accept INSN too, update comment.
+	(struct rtx_def): Update unchanging flag comment.
+	* doc/rtl.texi (INSN_ANNULLED_BRANCH_P): Update description.
+	* reorg.c (delete_from_delay_list): INSN_ANNULLED_BRANCH_P needs
+	to be handled to INSN too.
+	(dbr_schedule): Likewise.
+	* resource.c (next_insn_no_annul): Likewise.
+
+	* cse.c (rtx_cost): Remove multiplication by power of 2 special
+	casing.
+
+2002-05-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/t-iris6 (SHLIB_SLIBDIR_SUFFIXES): Use mabi=64 and
+	. as N64/N32 libgcc_s.so subdirs.
+
+2002-05-10  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md: Use define_constants for unspec numbers.
+
+	* rtl.h (struct rtx_def): Document unchanging and in_struct flags
+	more accurately.
+	(INSN_ANNULLED_BRANCH_P): Only valid for JUMP_INSN and CALL_INSN, fix
+	comment.
+	(INSN_FROM_TARGET_P): Valid also for CALL_INSN.
+	* doc/rtl.texi: Document these macros more accurately.
+	* recog.c (whole file): Only mess with INSN_ANNULLED_BRANCH_P for
+	JUMP_INSNs and CALL_INSNs.
+	* resource.c (whole file): Only mess with INSN_ANNULLED_BRANCH_P
+	or INSN_FROM_TARGET_P if the code is appropriate.
+
+2002-05-10  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* config/avr/avr.c (print_operand): Check that addr is a SYMBOL_REF
+	before using SYMBOL_REF_FLAG (addr).
+
+	* config/avr/avr-protos.h (avr_io_address_p): Declare.
+	* config/avr/avr.c (io_address_p): Rename to avr_io_address_p.
+	Make non-static.  Update all callers.
+	* config/avr/avr.md (*cbi, *sbi, *sbix_branch, *sbix_branch_bit7):
+	New insns to clear/set/test a single bit in I/O address space.
+
 2002-05-09  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (dump_varref): Tree inlining generates variables with
@@ -15,6 +163,349 @@
 
 	* tree-inline.c (expand_call_inline): Generate a proper STMT_EXPR
 	(it was missing COMPOUND_STMT).
+
+2002-05-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* rtl.h (ENABLE_RTL_FLAG_CHECKING): Also check for gcc >= 2.7.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Makefile.in: Update.
+	* c-common.c (flag_iso, flag_undef, cb_register_builtins,
+	builtin_define_std): New.
+	(c_common_init): Register CPP builtins callback.
+	* c-common.h (flag_iso, flag_undef): New.
+	* c-decl.c (c_decode_option): Set flag_iso and flag_undef.
+	* c-lex.c: Don't include target.h.
+	(cb_register_builtins): Move to c-common.c.
+	(init_c_lex): Don't register hook here.
+	* c-lex.h (builtin_define, builtin_assert, builtin_define_std): New.
+	(cpp_define, cpp_assert): Remove.
+	* gcc.c (cc1_options): Pass -undef to front end.
+	* target-def.h (TARGET_REGISTER_CPP_BUILTINS): Remove.
+	(TARGET_INITIALIZER): Update.
+	* target.h (struct cpp_reader): Don't predeclare.
+	(struct gcc_target): Remove cpp builtin hook.
+	* tree.c (default_register_cpp_builtins): Remove.
+doc:
+	* tm.texi: Update.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppexp.c (_cpp_expand_op_stack): Set op_limit.
+
+2002-05-09  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/t-iris6 (SHLIB_SLIBDIR_SUFFIXES): Define.
+	(SHLIB_LINK, SHLIB_INSTALL): Adjust.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/t-linux64 (SHLIB_MAPFILES): Set.
+	* config/sparc/libgcc-sparc-glibc.ver: New file.
+	* config/cris/t-linux (SHLIB_MAPFILES): Remove.
+	* mklibgcc.in: Preprocess SHLIB_MAPFILES with ml flags.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/6429
+	* Makefile.in (libgcc.mk): Pass SHLIB_SLIBDIR_SUFFIXES to mklibgcc.
+	* mklibgcc.in: If SHLIB_SLIBDIR_SUFFIXES is defined, put libgcc_s
+	shared libraries into multilib dirs, with SONAME libgcc_s.so.1 for
+	base multilibs.
+	* config/t-slibgcc-elf-ver (SHLIB_LINK): Adjust for the above.
+	* config/t-slibgcc-sld (SHLIB_LINK): Likewise.
+	* config/sparc/t-linux64 (SHLIB_SLIBDIR_SUFFIXES): Define.
+	* config/sparc/t-sol2-64 (SHLIB_SLIBDIR_SUFFIXES): Define.
+
+2002-05-09  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.md: Use define_constants for unspec numbers.
+	* config/ia64/ia64.c: Likewise.
+
+2002-05-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_add_large_offset_to_sp): Remove FILE arg.
+	(save_restore_insns): Likewise.
+	(mips_expand_prologue, mips_expand_epilogue): Update callers.
+	(highpart_shift_operator): Attach ATTRIBUTE_UNUSED to mode argument.
+
+Thu May  9 11:50:09 2002  Jeffrey A Law  (law@cygnus.com)
+
+	* athlon.md, k6.md, pentium.md, ppro.md): New files.
+	* i386.md: Move scheduling information into new files.
+
+	* i386.md (type attribute): Add "rotate" for rotate insns.
+	(rotate insns): Set type to "rotate".
+	(various attributes and function units): Treat rotate like shift.
+	(pent_pair attribute): Only rotates by one bit position are
+	pairable.
+	(sbb insns): Explicitly set pent_pair attribute on a couple
+	that were missing it.
+
+Thu May  9 18:29:24 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_builtin_saveregs): If starting with an odd fp register,
+	make sure that buffer starts on odd word address.
+	(sh_va_arg): Skip odd fp registers when reading a double precision
+	value.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* tree.h (preserve_data, object_permanent_p, type_precision):
+	Remove.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cpplib.c (cpp_init_internal_pragmas): Remove #pragma poison.
+	* cppmacro.c (paste_all_tokens): Bad pastes are a hard error.
+doc:
+	* cpp.texi: Update for removal of obsolete features.
+
+Thu May  9 07:46:18 2002  Jan Hubicka <jh@suse.cz>
+			  Jeffrey A Law  (law@redhat.com)
+
+	* i386.c (ia32_use_dfa_pipeline_interface): New function.  Use
+	the DFA interface for Pentium processors.
+	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): DEFINE.
+	(attr_pent_pair, ix86_pent_find_pair): Remove.
+	(ix86_sched_reorder_pentium): Remove.
+	(ix86_sched_reorder): Remove reordering for Pentium.
+	* i386.md (Pentium scheduling): Rewrite using DFA description.
+
+Thu May  9 14:55:39 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfganal.c (can_fallthru): Fix fast path.
+	* cfgrtl.c (verify_flow_info): Avoid crash on conditionals
+	with edges to the next block.
+
+Thu May  9 14:52:45 CEST 2002  Jan Hubicka  <jh@suse.cz>
+			       Pavel Nejedly  <bim@atrey.karlin.mff.cuni.cz>
+
+	* final.c (end_final): Use C trees to output data structures for profiling.
+
+	* Makefile.in (LIBGCC_DEPS): Added missing dependency on gcov-io.h
+        (profile.o): New dependency profile.h
+        (final.o): New dependency profile.h
+        * profile.h: New file. New global structure profile_info.
+        * final.h (count_edges_instrumented_now): Declare.
+        (current_function_cfg_checksum): Declare.
+        (function_list): New structure.
+        (functions_head, functions_tail): New static variables.
+        (end_final): Emits more data, removed some -ax stuff.
+        (final): Stores function names and chcksums.
+        * gcov-io.h (__write_gcov_string): New function.
+        (__read_gcov_string): New function.
+        * gcov.c (read_profile): New function.
+        (create_program_flow_graph): Uses read_profile instead of reading
+	da_file.
+        (read_files): Removed da_file checking, it's done by read_profile now.
+        * libgcc2.c (bb_function_info): New structure.
+        (bb): New field in structure, removed some -ax stuff.
+        (__bb_exit_func): Changed structure of da_file.
+        * profile.c (count_edges_instrumented_now): New global variable.
+        (current_function_cfg_checksum): New global variable.
+        (max_counter_in_program): New global variable.
+        (get_exec_counts): New function.
+        (compute_checksum): New function.
+        (instrument_edges): Sets count_edges_instrumented_now.
+        (compute_branch_probabilities): Uses get_exec_counts instead of
+	reading da_file.
+        (branch_prob): Calls compute_checksum and writes extra data to bbg_file.
+        (init_branch_prob): Removed da_file checking, done in get_exec_counts
+	now.
+        (end_branch_prob): Removed da_file checking, done in get_exec_counts
+	now.
+        * gcov.texi: Updated information about gcov file format.
+
+2002-05-09  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* sbitmap.c: Fix formatting.
+	* scan.c: Likewise.
+	* scan-decls.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-ebb.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sched-vis.c: Likewise.
+	* sdbout.c: Likewise.
+	* sibcall.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* ssa.c: Likewise.
+	* ssa-ccp.c: Likewise.
+	* ssa-dce.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* stringpool.c: Likewise.
+
+2002-05-09  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sol2.h (ASM_CPU_SPEC): Handle -mcpu=v9.
+
+2002-05-07  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.h (TARGET_BUGGY_QP_LIB): Define to zero.
+	* config/sparc/sol2.h (TARGET_BUGGY_QP_LIB): Override to one.
+	* config/sparc/sparc.c (emit_soft_tfmode_libcall): If the Qp
+	library implementation clobbers the output before the inputs
+	are fully consumed, use stack temporary for the output.
+
+2002-05-09  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/netbsd.h (CPP_SPEC): Remove.
+	* config/i386/netbsd-elf.h (CPP_SPEC): Define.
+	* config/i386/netbsd.h (CPP_SPEC): Define.
+	* config/ns32k/netbsd.h (CPP_SPEC): Define.
+	* config/sparc/netbsd-elf.h (CPP_SPEC): Remove.
+	* config/sparc/netbsd.h (CPP_SPEC): Define.
+	* config/vax/netbsd.h (CPP_SPEC): Define.
+
+2002-05-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* read-rtl.c: Fix formatting.
+	* real.c: Likewise.
+	* recog.c: Likewise.
+	* regclass.c: Likewise.
+	* regmove.c: Likewise.
+	* reg-stack.c: Likewise.
+	* reload1.c: Likewise.
+	* reload.c: Likewise.
+	* resource.c: Likewise.
+	* rtlanal.c: Likewise.
+	* rtl.c: Likewise.
+	* rtl-error.c: Likewise.
+
+2002-05-08  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/pa-64.h (MAX_WCHAR_TYPE_SIZE): Delete.
+	* pa/pa.h (MAX_WCHAR_TYPE_SIZE): Delete.
+
+2002-05-08  Bernd Schmidt  <bernds@redhat.com>
+
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Tweak previous change to
+	use __SSE2__ macro instead.
+	* config/i386/xmmintrin.h: Likewise.
+
+2002-05-08  Janis Johnson  <janis187@us.ibm.com>
+
+	* rtl.h (RTL_FLAG_CHECK*): Add an argument for the macro name,
+	and use it in all invocations of these macros.  Clean up comments.
+	* rtl.c (rtl_check_failed_flag): Add an argument for the name
+	of the flag access macro whose check failed.
+	* doc/rtl.texi (Flags): Document additional flag uses.
+
+2002-05-08  Robert Spier <rspier@pobox.com>
+	    Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	PR preprocessor/6521
+	* cppfiles.c (handle_missing_header): Don't do anything
+	different for <> includes.
+doc:
+	* cppopts.texi: Update documentation for -MG.
+
+2002-05-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cpplex.c (cpp_interpret_charconst): Truncate as well as
+	sign-extend.
+doc:
+	* cpp.texi: Clarify multichar charconst valuation.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/invoke.texi: Document -mwindiss option.
+
+2002-05-08  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (output_call_frame_info): Don't emit a CIE with no FDEs.
+
+	* dwarf2out.c (gen_type_die): Abort on broken recursion.
+
+	PR c++/6381
+	* dwarf2out.c (rtl_for_decl_location): Only expand INTEGER_CST and
+	REAL_CST.
+
+2002-05-08  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* config/arm/t-arm-elf (MULTILIB): Do not allow big-endian/
+	little-endian multilibs to override arm/thumb multilibs.
+	Do not build hardware floating point multilibs, nor apcs-26
+	multilibs for the Thumb.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c/6569.
+	* varasm.c (mark_weak): New function.
+	(merge_weak): Use it.  Do not call declare_weak.
+	(declare_weak): Use merge_weak.
+
+Wed May  8 13:12:11 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (dead_libcall_p): Update counts.
+	(delete_trivially_dead_insns): Update call of dead_libcall_p.
+
+Wed May  8 11:08:50 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (function_tail_eff_head): Rename to ...
+	(function_footer): ... this one.
+	(unlink_insn_chain): New functions.
+	(label_for_bb): Only call block_label and emit debug message.
+	(record_effective_endpoints): Actually unlink the headers and footers.
+	(fixup_reorder_cahin): Re-insert the unlinked sequences.
+	(cfg_layout_duplicate_bb): Use duplicate_insn_chain.
+	* cfglayout.h (struct reorder_block_def): New fields footer/header;
+	remove eff_head/eff_end.
+	* rtl.h (set_first_insn): Declare.
+	* emit-rtl.c (set_first_insn): New function.
+
+	* cfglayout.c (fixup_reorder_chain): Dump duplicated
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_rerirect_edge,
+	cfg_layout_duplicate_bb): New global function.
+	(duplicate_insn_chain): New static function.
+	* cfglayout.h (cfg_layout_can_duplicate_bb_p, cfg_layout_rerirect_edge,
+	cfg_layout_duplicate_bb): Declare.
+	(struct reorder_block_def): Add "original" field.
+	* emit-rtl.c (emit_copy_of_insn_after): New function.
+	* rtl.h (emit_copy_of_insn_after): Declare.
+
+	* cfglayout.c (fixup_fallthru_exit_predecessor): Kill.
+	(fixup_reorder_chain): properly handle edges to exit block.
+
+Wed May  8 11:10:31 CEST 2002  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+			       Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (note_prediction_to_br_prob): declare.
+	* c-semantics.c: Inlucde predit.h
+	(expand_stmt): predict GOTO_STMT as not taken.
+	* cfgcleanup.c: (delete_unreachable_blocks): Make global.
+	(cleanup_cfg): Do not free tail_recursion_list.
+	* cfgrtl.c (can_delete_note_p): Delete NOTE_INSN_PREDICTION.
+	(flow_delete_block): Kill predictions past end of basic block.
+	* output.h (delete_unreachable_blocks): Declare.
+	* predict.c (predicted_by_p, process_note_predictions,
+	process_note_prediction, last_block_p): New function.
+	(estimate_probability): Bypass loop on PRED_CONTINUE;
+	do not handle noreturn heuristics; kill PRED_RETURN; add
+	PRED_EARLY_RETURN.
+	* predict.def (PRED_CONTINUE, PRED_EARLY_RETURN, PRED_GOTO,
+	PRED_CONST_RETURN, PRED_NEGATIVE_RETURN, PRED_NULL_RETURN): New.
+	* predict.h (IS_TAKEN): New constant.
+	* print-rtl.c (print_rtx): Pretty print NOTE_INSN_PREDICTION.
+	* rtl.c (NOTE_INSN_PREDICTION): New.
+	* rtl.h (NOTE_PREDICTION, NOTE_PREDICTION_ALG, NOTE_PREDICTION_FLAGS):
+	New macro.
+	(insn_note): add NOTE_INSN_PREDICTION.
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Do not build
+	CFG; free tail_recursion_label_list.
+	* stmt.c: Include predict.h;
+	(return_prediction): New.
+	(expand_value_return): Use it.
+	* toplev.c: Lower NOTE_INSN_PREDICTION before sibcall.
+
+2002-05-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md: Name the unspecs with define_constant.
+	(*HILO_delay): Rename to 'hilo_delay' (no star).
+	(reload_indi): Replace gen_rtx_UNSPEC with gen_hilo_delay.
+	(reload_outdi, reload_outsi): Likewise.
 
 2002-05-08  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -47,7 +538,77 @@
 	(dump_varref): Add support for dumping EXPR* refs.
 
 	* tree-ssa.c (search_fud_chains): Add BB to VARDEF_PHI_CHAIN_BB.
-	
+
+2002-05-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* toplev.c: Fix formatting.
+
+2002-05-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* config.in (ENABLE_RTL_FLAG_CHECKING): New.
+	* configure.in (ac_rtlflag_checking): New.
+	* doc/install.texi (--enable-checking): Document RTL flag checking.
+
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* c-common.c (c_common_init): Set options->unsigned_wchar.
+	* cppinit.c (cpp_create_reader): Default unsigned_wchar,
+	group target dependencies.
+	(init_builtins, cpp_handle_option): Update.
+	* cpplex.c (cpp_interpret_charconst): Update.
+	* cpplib.h (struct cpp_options): Add unsigned_wchar, rename
+	signed_char to unsigned_char, group target dependencies.
+	* defaults.h (WCHAR_UNSIGNED): Remove.
+	* system.h (WCHAR_UNSIGNED, MAX_CHAR_TYPE_SIZE): Poison.
+config:
+	* freebsd.h, interix.h, alpha/freebsd.h, arm/freebsd.h,
+	i386/386bsd.h, i386/beos-elf.h, i386/bsd386.h, i386/cygwin.h,
+	i386/djgpp.h, i386/freebsd-aout.h, i386/i386-interix.h,
+	i386/win32.h, ia64/freebsd.h, mips/netbsd.h, rs6000/freebsd.h,
+	sh/elf.h, sh/sh.h, sparc/freebsd.h: Remove WCHAR_UNSIGNED.
+doc:
+	* tm.texi: Remove MAX_CHAR_TYPE_SIZE.
+
+2002-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* fixinc/inclhack.def (windiss_math1): New fix.
+	(windiss_math2): Likewise.
+	(windiss_valist): Likewise.
+	* fixinc/fixincl.x: Regenerated.
+
+2002-05-07  Andreas Jaeger  <aj@suse.de>
+
+	* genautomata.c (output_internal_min_issue_delay_func): Add
+	ATTRIBUTE_UNUSED to avoid warning with empty dfa.
+	(output_internal_trans_func): Likewise.
+
+Tue May  7 10:06:22 2002  Jeffrey A Law  (law@redhat.com)
+
+	* pa.c (hppa_profile_hook): Use force_reg to get the address
+	of the profile hook into an appropriate pseudo register.
+
+2002-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/rs6000/sysv4.h (SUBTARGET_SWITCHES): Add -mwindiss.
+	(LINK_START_SPEC): Handle it.
+	(LINK_OS_SPEC): Likewise.
+	(CPP_SPEC): Likewise.
+	(STARTFILE_SPEC): Likewise.
+	(LIB_SPEC): Likewise.
+	(ENDFILE_SPEC): Likewise.  Do not assume crtsavres.o is used on
+	all platforms.
+	(CRTSAVRES_DEFAULT_SPEC): New macro.
+	(LIB_WINDISS_SPEC): New macro.
+	(CPP_OS_WINDISS_SPEC): Likewise.
+	(STARTFILE_WINDISS_SPEC): Likewise.
+	(ENDFILE_WINDISS_SPEC): Likewise.
+	(LINK_START_WINDISS_SPEC): Likewise.
+	(LINK_OS_WINDISS_SPEC): Likewise.
+	* config/rs6000/windiss.h: New file.
+
+2002-05-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Fix vmax typos.
 
 2002-05-07  Diego Novillo  <dnovillo@redhat.com>
 
@@ -78,6 +639,116 @@
 	node.
 	(deep_copy_node): Do not check for NULL nodes.  Do not deep copy
 	declarations, types and constants.
+
+2002-05-06  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.md (shift insns): Do not mask off
+	second operand, 'I' constraint and SHIFT_COUNT_TRUNCATED
+	take care of it.
+
+2002-05-06  Richard Henderson  <rth@redhat.com>
+
+	PR c++/6212
+	* expr.c (highest_pow2_factor_for_type): New.
+	(expand_assignment): Use it.
+
+2002-05-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md ("altivec_mtvscr"): Change to
+	unspec_volatile.
+	("altivec_mfvscr"): Same.
+
+2002-05-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* rtl.h (struct rtx_def): Update comments.
+	(RTL_FLAG_CHECK[12345678]): New.  (rtl_check_failed_flag): Declare.
+	(RTL_FLAG): New.  (CLEAR_RTX_FLAGS): New.  (flag access macros): Use
+	RTL_FLAG_CHECK macros with list of expected RTL codes.
+	* rtl.c (copy_rtx, shallow_copy_rtx): Use RTX_FLAG macro.
+	(rtl_check_failed_flag): New.
+	* reload1.c (reload): Use REG macro before changing rtx to MEM.
+	(reload_cse_noop_set_p): Check rtx code before using access macro.
+	* config/ia64/ia64.c (process_for_unwind_directive): Check rtx code
+	before using access macro.
+
+2002-05-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/rtl.texi (Flags): Update to reflect current usage.
+
+2002-05-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR opt/3995
+	* fold-const.c (sign_bit_p): New function.
+	(fold) [EQ_EXPR]: Use this to convert (A & C) == 0 into A >= 0 and
+	(A & C) != 0 into A < 0, when constant C is the sign bit of A's type.
+	Reapply fold when converting (A & C) == C into (A & C) != 0.
+	(fold_binary_op_with_conditional_arg): Fix typo in comment.
+
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* c-common.c (warn_multichar): New.
+	(c_common_init): Set CPP's warn_multichar.
+	* c-common.h (warn_multichar): New.
+	* c-decl.c (warn_multichar): Remove.
+	* c-lex.c (lex_charconst): Update.
+	* c-tree.h (warn_multichar): Remove.
+	* cppexp.c (eval_token): Sign-extend charconst value.
+	* cppinit.c (cpp_create_reader): Set warn_multichar.
+	* cpplex.c (cpp_interpret_charconst): Don't sign-extend
+	each character.  Update prototype.  Sign-extend the result.
+	* cpplib.h: Fix conditions.
+	(struct cpp_options): Add new warning flag.
+	(cpp_interpret_charconst): Update prototype.
+doc:
+	* cpp.texi: Update documentation.
+
+2002-05-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (form_the_same_automaton_unit_lists_from_regexp):
+	Fix typo in usage of allof instead of unit.
+
+2002-05-06  Richard Henderson  <rth@redhat.com>
+
+	* recog.c (if_test_bypass_p): Accept multiple set insns for OUT,
+	and any jump or call for IN.
+
+2002-05-06  Bernd Schmidt  <bernds@redhat.com>
+
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Define __SSE2_BUILTINS__ if
+	-msse2.
+	* config/i386/xmmintrin.h: Use it to conditionalize SSE2 support.
+
+2002-05-06  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (lshift-double): Cast the high word to an unsigned
+	HOST_WIDE_INT when extracting sign bit to avoid compiler warning.
+	(div_and_round_double): Cast carry to a signed HOST_WIDE_INT to
+	avoid compiler warning.  (fold): Remove redundant code from
+	BIT_AND_EXPR as integer operands are canonicalized to be arg1.
+
+2002-05-06  Jeff Law  <law@redhat.com>
+
+	* pa-protos.h (hppa_fpstore_bypass_p): Declare.
+	* pa.c (pa_adjust_cost): Remove all true dependency cost
+	adjustments.  Also remove support for non-DFA scheduling.
+	* pa.md (700, 7100, 7100lc, 7200, 7300): Use bypass mechanism
+	to adjust true dependency costs.  Update various comments.
+	(7100lc, 7200, 7300 scheduling): Simplify by combining the
+	FP ALU & MPY units into a single unit.
+
+2002-05-06  Catherine Moore  <clm@redhat.com>
+
+	* config/v850/v850.c (compute_register_save_size): Make sure
+	to count all of the registers that will be saved.
+
+Mon May  6 18:03:11 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (q_regs_operand): Use ANY_QI_REGS_P.
+
+2002-05-06  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.c (emit_soft_tfmode_libcall): Do not
+	allow result to overlap input operands in memory.
 
 2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -187,7 +858,7 @@ doc:
 
 	* config/sparc/ultra3.md (us3_a0, us3_a1): Move the units into
 	automaton `ultrasparc3_1'.
-	
+
 2002-05-05  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* c-common.c (c_common_init): Set up CPP arithmetic.
@@ -217,7 +888,7 @@ doc:
 
 2002-05-05  Tim Josling  <tej@melbpc.org.au>
 
-	* treelang; New directory for new sample language treelang. 
+	* treelang; New directory for new sample language treelang.
 
 2002-05-04  Neil Booth  <neil@daikokuya.demon.co.uk>
 
@@ -278,10 +949,10 @@ doc:
 	_mm_min_pd, _mm_min_sd, _mm_max_sd, _mm_max_pd, _mm_and_pd,
 	_mm_andnot_pd, _mm_xor_pd, _mm_or_pd, _mm_cmpeq_pd, _mm_cmplt_pd,
 	_mm_cmple_pd, _mm_cmpgt_pd, _mm_cmpge_pd, _mm_cmpneq_pd,
-	_mm_cmpnlt_pd, _mm_cmpnle_pd, _mm_cmpngt_pd, _mm_cmpnge_pd, 
+	_mm_cmpnlt_pd, _mm_cmpnle_pd, _mm_cmpngt_pd, _mm_cmpnge_pd,
 	_mm_cmpord_pd, _mm_cmpunord_pd, _mm_cmpeq_sd, _mm_cmplt_sd,
 	_mm_cmple_sd, _mm_cmpgt_sd, _mm_cmpge_sd, _mm_cmpneq_sd,
-	_mm_cmpnlt_sd, _mm_cmpnle_sd, _mm_cmpngt_sd, _mm_cmpnge_sd, 
+	_mm_cmpnlt_sd, _mm_cmpnle_sd, _mm_cmpngt_sd, _mm_cmpnge_sd,
 	_mm_cmpord_sd, _mm_cmpunord_sd, _mm_comieq_sd, _mm_comilt_sd,
 	_mm_comile_sd, _mm_comigt_sd, _mm_comige_sd, _mm_comineq_sd,
 	_mm_ucomieq_sd, _mm_ucomieq_sd, _mm_ucomilt_sd, _mm_ucomile_sd,
@@ -311,7 +982,7 @@ doc:
 	_mm_sad_epu8, _mm_stream_si32, _mm_stream_si128, _mm_stream_pd,
 	_mm_movpi64_epi64, _mm_clflush, _mm_lfence, _mm_mfence): New
 	functions.
-	(_mm_shufflehi_epi16, _mm_shufflelo_epi16, _mm_shuffle_epi32, 
+	(_mm_shufflehi_epi16, _mm_shufflelo_epi16, _mm_shuffle_epi32,
 	_mm_extract_epi16, _mm_insert_epi16, _mm_shuffle_pd): New macros.
 
 2002-05-04  Kazu Hirata  <kazu@cs.umass.edu>

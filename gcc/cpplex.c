@@ -930,7 +930,7 @@ _cpp_lex_direct (pfile)
       /* EOF.  */
       buffer->cur--;
       buffer->saved_flags = BOL;
-      if (!pfile->state.parsing_args && !pfile->state.in_directive)
+      if (!pfile->state.parsing_args)
 	{
 	  if (buffer->cur != buffer->line_base)
 	    {
@@ -942,7 +942,7 @@ _cpp_lex_direct (pfile)
 	    }
 
 	  /* Don't pop the last buffer.  */
-	  if (buffer->prev)
+	  if (!pfile->state.in_directive && buffer->prev)
 	    {
 	      unsigned char stop = buffer->return_at_eof;
 
@@ -1861,10 +1861,9 @@ cpp_parse_escape (pfile, pstr, limit, wide)
    characters seen, and UNSIGNEDP to a variable that indicates whether
    the result has signed type.  */
 cppchar_t
-cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen, unsignedp)
+cpp_interpret_charconst (pfile, token, pchars_seen, unsignedp)
      cpp_reader *pfile;
      const cpp_token *token;
-     int warn_multi;
      unsigned int *pchars_seen;
      int *unsignedp;
 {
@@ -1884,13 +1883,13 @@ cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen, unsignedp)
     {
       width = CPP_OPTION (pfile, char_precision);
       max_chars = CPP_OPTION (pfile, int_precision) / width;
-      unsigned_p = CPP_OPTION (pfile, signed_char) == 0;
+      unsigned_p = CPP_OPTION (pfile, unsigned_char);
     }
   else
     {
       width = CPP_OPTION (pfile, wchar_precision);
       max_chars = 1;
-      unsigned_p = WCHAR_UNSIGNED;
+      unsigned_p = CPP_OPTION (pfile, unsigned_wchar);
     }
 
   if (width < BITS_PER_CPPCHAR_T)
@@ -1930,11 +1929,10 @@ cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen, unsignedp)
       
       chars_seen++;
 
-      /* Sign-extend the character, scale result, and add the two.  */
-      if (!unsigned_p && (c & (1 << (width - 1))))
-	c |= ~mask;
+      /* Truncate the character, scale the result and merge the two.  */
+      c &= mask;
       if (width < BITS_PER_CPPCHAR_T)
-	result = (result << width) + c;
+	result = (result << width) | c;
       else
 	result = c;
     }
@@ -1945,14 +1943,29 @@ cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen, unsignedp)
     {
       /* Multichar charconsts are of type int and therefore signed.  */
       unsigned_p = 0;
+
       if (chars_seen > max_chars)
 	{
 	  chars_seen = max_chars;
 	  cpp_error (pfile, DL_WARNING,
 		     "character constant too long for its type");
 	}
-      else if (warn_multi)
+      else if (CPP_OPTION (pfile, warn_multichar))
 	cpp_error (pfile, DL_WARNING, "multi-character character constant");
+    }
+
+  /* Sign-extend or truncate the constant to cppchar_t.  The value is
+     in WIDTH bits, but for multi-char charconsts it's value is the
+     full target type's width.  */
+  if (chars_seen > 1)
+    width *= max_chars;
+  if (width < BITS_PER_CPPCHAR_T)
+    {
+      mask = ((cppchar_t) 1 << width) - 1;
+      if (unsigned_p || !(result & (1 << (width - 1))))
+	result &= mask;
+      else
+	result |= ~mask;
     }
 
   *pchars_seen = chars_seen;

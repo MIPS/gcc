@@ -1,3 +1,31 @@
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* java/jcf-write.c (write_classfile): Write the file to a 
+	temporary file and then rename it.
+
+2002-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (throwable_p): Use xstrdup, not strdup.
+
+	Fix for PR java/1200:
+	* gjavah.c (throwable_p): New function.
+	(decode_signature_piece): Use it.  A `WeakReference' isn't the
+	same as a `jweak'.
+	Include hashtab.h.
+	(gcjh_streq): New function.
+
+2002-05-07  Andreas Jaeger  <aj@suse.de>
+
+        * parse.y (finish_for_loop): Fix if statement.
+
+2002-05-06  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/5941:
+	* parse.y (finish_for_loop): Set SUPPRESS_UNREACHABLE_ERROR for
+	loop update expression.
+	(java_complete_lhs): Use SUPPRESS_UNREACHABLE_ERROR.
+	* java-tree.h (SUPPRESS_UNREACHABLE_ERROR): New macro.
+
 2002-05-04  Mark Wielaard  <mark@klomp.org>
 
 	For PR java/6519:
@@ -77,7 +105,7 @@
 	Fix for PR java/6294:
 	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
 	interfaces.
-	
+
 2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	Fix for PR java/6085:
@@ -224,7 +252,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5993:
 	* parse.y (resolve_package): Return the decl if resolution was
-	successful. Don't special case "java.lang" and "java.lang.reflect" 
+	successful. Don't special case "java.lang" and "java.lang.reflect"
 	packages. Set type_name to the merged identifier.
 	(resolved_qualified_expression_name): Print error using "name" if
 	resolve_package returns NULL_TREE.
@@ -302,7 +330,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-03-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
 
-       	* gcj.texi: @code{gcj} becomes @command{gcj}.
+	* gcj.texi: @code{gcj} becomes @command{gcj}.
 	@code{gcc} becomes @command{gcc}.
 	GcjRaw changed to gnu.gcc.RawData.
 

@@ -1021,12 +1021,6 @@ extern int interface_only, interface_unknown;
 
 extern int flag_elide_constructors;
 
-/* Nonzero means enable obscure standard features and disable GNU
-   extensions that might cause standard-compliant code to be
-   miscompiled.  */
-
-extern int flag_ansi;
-
 /* Nonzero means that member functions defined in class scope are
    inline by default.  */
 
@@ -3110,9 +3104,6 @@ extern int flag_ms_extensions;
    same name as a virtual in the base class, but fails to match the
    type signature of any virtual function in the base class.  */
 extern int warn_overloaded_virtual;
-
-/* Nonzero means warn about use of multicharacter literals.  */
-extern int warn_multichar;
 
 /* Set by add_implicitly_declared_members() to keep those members from
    being flagged as deprecated or reported as using deprecated

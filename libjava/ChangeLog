@@ -1,3 +1,50 @@
+2002-05-11  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/text/SentenceBreakIterator.java (next): Skip all java white
+	space characters.
+	(previous_internal): Likewise.
+
+2002-05-09  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNIFunctions): Fixed typo.
+
+	* java/util/ResourceBundle.java: New version from Classpath.
+	* java/util/Locale.java: Likewise.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Append all
+	multilib dirs containing libgcc_s*.so.1 below gcc object dir to
+	LD_LIBRARY_PATH.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* libjava/Makefile.am (all_java_source_files): New variable.
+	(all_java_class_files): Likewise.
+	.java.class: New rule.
+	(CLEANFILES): Remove tmp-list.
+	* libjava/Makefile.in: Regenerated.
+	
+2002-05-09  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_javac):
+	Append .exe to executable names.  Fix for cygwin.
+
+2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
+	script entry, and set LD to it when configuring multilibs.
+	* configure: Rebuilt.
+
+2002-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (unintern): Fixed typo.
+
+2002-05-06  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Don't link
+	with -no-install on *-*-cygwin*.
+
 2002-05-06  David.Billinghurst  <David.Billinghurst@riotinto.com>
 
 	* testsuite/lib/libjava.exp (test_libjava_from_source):
