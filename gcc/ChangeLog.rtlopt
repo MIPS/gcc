@@ -1,3 +1,9 @@
+2002-12-28  Andreas Jaeger  <aj@suse.de>
+
+	* Makefile.in (vpt.o, cfgloop.o, cfgloopanal.o, cfgloopmanip.o,
+	loop-unswitch.o, loop-unroll.o, lists.o, tracer.o, web.o): Add
+	dependency on tm.h.
+
 Fri Dec 27 22:59:18 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* vpt.c (gen_divmod_fixed_value,  gen_mod_pow2, gen_mod_subtract):
@@ -363,7 +369,7 @@ Sat Nov 16 18:14:05 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* loop-unroll.c (decide_unrolling_and_peeling): Fix.
 
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
-	
+
 	* profile.c (gen_loop_profiler): Fix.
 
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
@@ -767,4 +773,3 @@ Wed Oct 16 17:33:27 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	trim_ld_motion_mems, reg_set_info, compute_store_table,
 	build_store_vectors, insert_store, free_store_memory,
 	store_motion): Modified due to removal of global variables.
-
