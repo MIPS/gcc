@@ -191,7 +191,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
-  { "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork", "fno-leading-underscore" }
+  { "marm", "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork", "fno-leading-underscore" }
 #endif
 
 /* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS

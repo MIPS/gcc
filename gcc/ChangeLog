@@ -1,3 +1,9 @@
+1999-12-08  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/arm/elf.h (MULTILIB_DEFAULTS): Add "marm".
+	* config/arm/linux-elf.h (MULTILIB_DEFAULTS): Add "marm".
+	* config/arm/coff.h (MULTILIB_DEFAULTS): Add "marm".
+
 1999-11-21  Nick Clifton  <nickc@cygnus.com>
 
 	* invoke.texi (ARM Options): Replace -mshort-load-bytes with

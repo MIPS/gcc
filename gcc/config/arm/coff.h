@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT (ARM_FLAG_SOFT_FLOAT | ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
 
 #define MULTILIB_DEFAULTS \
-  { "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
+  { "marm", "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
 
 /* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
    is a valid machine specific attribute for DECL.

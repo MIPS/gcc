@@ -38,7 +38,7 @@ Boston, MA 02111-1307, USA.  */
 # define SUBTARGET_EXTRA_ASM_SPEC	\
 	" %{mapcs-26:-mapcs-26} %(!mapcs-26:-mapcs-32}"
 # define MULTILIB_DEFAULTS \
-	{ "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
+	{ "marm", "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
 # define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
 #else	/* default is APCS-26 */
 # define TARGET_DEFAULT (ARM_FLAG_SHORT_BYTE)
@@ -52,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
 # define SUBTARGET_EXTRA_ASM_SPEC	\
 	" %{mapcs-32:-mapcs-32} %(!mapcs-32:-mapcs-26}"
 # define MULTILIB_DEFAULTS \
-	{ "mlittle-endian", "mhard-float", "mapcs-26", "mno-thumb-interwork" }
+	{ "marm", "mlittle-endian", "mhard-float", "mapcs-26", "mno-thumb-interwork" }
 #endif
 
 /* This was defined in linux.h.  Define it here also. */
