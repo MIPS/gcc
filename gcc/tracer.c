@@ -85,7 +85,7 @@ static bool ignore_bb_p			PARAMS ((basic_block));
    wastefull and overactive tracing of badly predictable jumps interfere
    badly with if converison pass.  The thresholds needs to be different.  */
 
-#define MIN_BRANCH_PROBABILITY (flag_branch_probabilities ? 0.8 : 0.5)
+#define MIN_BRANCH_PROBABILITY (flag_branch_probabilities ? 0.3 : 0.5)
 
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
