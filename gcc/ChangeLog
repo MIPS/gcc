@@ -419,33 +419,10 @@
 	* objc/Make-lang.in (objc-act.o): Add varray.h.
 	* objc/objc-act.c: Include varray.h.
 
-2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
-
-	* gengenrtl.c: Delete unnecessary rtl_obstack declaration.
-
 2002-07-25  Geoffrey Keating  <geoffk@redhat.com>
 
 	* dwarf2out.c (dw_cfi_oprnd2_desc): Fix ISO-only function definition.
 	(dw_cfi_oprnd1_desc): Likewise.
-
-	* config/rs6000/t-rs6000: Move contents to t-fprules,
-	add new rules for dependencies of rs6000.o.
-	* config/rs6000/t-fprules: New file from t-rs6000.
-	* config/rs6000/t-beos: Remove soft-fp rules.
-	* config/rs6000/t-ppccomm: Likewise.
-	* config/rs6000/t-newas: Likewise.
-	* config/rs6000/t-darwin: Likewise.
-	* config.gcc: Use t-fprules for rs6000/ ports when appropriate.  Use 
-	t-rs6000 for all rs6000/ ports.
-	* config/rs6000/rs6000.c: Include gt-rs6000.h.
-	(rs6000_add_gc_roots): Delete.
-	(toc_hash_mark_entry): Delete.
-	(toc_hash_mark_table): Delete.
-	(rs6000_override_options): Don't call rs6000_add_gc_roots.
-	(struct toc_hash_struct): Use gengtype to mark.
-	(toc_hash_table): Use gengtype to mark.
-	(output_toc): Don't add LABEL_REFs in toc_hash_table, create 
-	toc_hash_table here.
 
 2002-07-17  Geoffrey Keating  <geoffk@redhat.com>
 
@@ -487,6 +464,20 @@
 	(dwarf2out_init): Don't call ggc_add_root.
 
 *** End of unmerged pch-branch ChangeLog ***
+2002-11-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/t-rs6000: Move contents to t-fprules,
+	add rules for dependencies of rs6000.o and to build rs6000-c.o
+	* config/rs6000/t-fprules: New file from t-rs6000.
+	* config/rs6000/t-beos: Remove soft-fp rules.
+	* config/rs6000/t-ppccomm: Likewise.
+	* config/rs6000/t-newas: Likewise.
+	* config/rs6000/t-rs6000-c-rule: Delete.
+	* config.gcc: Use t-fprules for rs6000/ ports when appropriate.
+	Use t-rs6000 for all rs6000/ ports instead of t-rs6000-c-rule.
+
+	* gengenrtl.c (gencode): Delete unnecessary rtl_obstack declaration.
+
 2002-11-24  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* config/netbsd-elf.h (STARTFILE_SPEC): Rename to
