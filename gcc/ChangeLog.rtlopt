@@ -1,3 +1,9 @@
+2002-11-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* vpt.c (find_values_to_profile): Move liveness analysis ...
+	* toplev.c (rest_of_compilation): ... here.  Also do cleanup
+	afterwards.
+
 Sat Nov 23 02:24:39 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* bb-reorder.c (copy_bb_p): Limit expansion only to hot basic block;

@@ -169,10 +169,6 @@ find_values_to_profile (n_values, values)
   rtx insn;
   unsigned i;
 
-  /* Mark unused registers.  This is needed to turn divmods back into
-     corresponding divs/mods.  */
-  life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
-
   *n_values = 0;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     insn_values_to_profile (insn, n_values, NULL);

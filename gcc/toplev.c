@@ -3031,7 +3031,15 @@ rest_of_compilation (decl)
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
       if (cfun->arc_profile || flag_branch_probabilities)
-	branch_prob ();
+	{
+	  if (flag_value_histograms)
+	    {
+	      /* Mark unused registers.  This is needed to turn divmods back into
+		 corresponding divs/mods.  */
+	      life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
+	    }
+	  branch_prob ();
+	}
 
       /* Discover and record the loop depth at the head of each basic
 	 block.  The loop infrastructure does the real job for us.  */
@@ -3060,6 +3068,12 @@ rest_of_compilation (decl)
 	cleanup_cfg (CLEANUP_EXPENSIVE);
 
       close_dump_file (DFI_vpt, print_rtl_with_bb, get_insns ());
+    }
+  if ((cfun->arc_profile || flag_branch_probabilities)
+      && flag_value_histograms)
+    {
+      reg_scan (get_insns (), max_reg_num (), 1);
+      count_or_remove_death_notes (NULL, 1);
     }
 
   if (optimize >= 0)
