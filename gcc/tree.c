@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
+#include "basic-block.h"
+#include "tree-flow.h"
 
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p (struct obstack *h, void *obj);
@@ -5158,6 +5160,21 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       /* Create a new node with the same 'next' link as the current one.  */
       ce = build (COMPOUND_EXPR, void_type_node, t, next);
 
+      /* If the 'next' statement is a COMPOUND_EXPR and was the first
+	 statement of a basic block, we need to adjust the 'head_tree_p'
+	 field of that block because we are about to move the statement one
+	 position down in the CE chain.  */
+      {
+	basic_block bb = bb_for_stmt (next);
+	if (bb && bb->head_tree_p == &TREE_OPERAND (*(i->tp), 1))
+	  {
+	    /* We may also need to update end_tree_p.  */
+	    if (bb->head_tree_p == bb->end_tree_p)
+	      bb->end_tree_p = &TREE_OPERAND (ce, 1);
+	    bb->head_tree_p = &TREE_OPERAND (ce, 1);
+	  }
+      }
+
       /* Make the current one's 'next' link point to our new stmt.  */
       TREE_OPERAND (*(i->tp), 1) = ce;
 
@@ -5165,8 +5182,6 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       if (mode == TSI_NEW_STMT)
 	i->tp = &(TREE_OPERAND (*(i->tp), 1));
     }
-
-  
 }
 
 /* Remove a stmt from the tree list.  The iterator is updated to point to
