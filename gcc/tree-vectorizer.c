@@ -1408,6 +1408,16 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
   vec_mode = TYPE_MODE (vectype);
+  if (!VECTOR_MODE_P (vec_mode))
+    {
+      /* TODO: tree-complex.c sometimes can parallelize operations
+	 on generic vectors.  We can vectorize the loop in that case,
+	 but then we should re-run the lowering pass.  */
+      if (vect_debug_details (NULL))
+	fprintf (dump_file, "mode not supported by target.");
+      return false;
+    }
+
   if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (vect_debug_details (NULL))
@@ -1421,7 +1431,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform binary/unary operation.");
@@ -1876,8 +1886,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */
 
-  gcc_assert (loop->header->pred->pred_next);
-  gcc_assert (!loop->header->pred->pred_next->pred_next);
+  gcc_assert (EDGE_COUNT (loop->header->preds) == 2);
 
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
 

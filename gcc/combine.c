@@ -1176,6 +1176,8 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
       /* Don't substitute into an incremented register.  */
       || FIND_REG_INC_NOTE (i3, dest)
       || (succ && FIND_REG_INC_NOTE (succ, dest))
+      /* Don't substitute into a non-local goto, this confuses CFG.  */
+      || (JUMP_P (i3) && find_reg_note (i3, REG_NON_LOCAL_GOTO, NULL_RTX))
 #if 0
       /* Don't combine the end of a libcall into anything.  */
       /* ??? This gives worse code, and appears to be unnecessary, since no
@@ -7336,6 +7338,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	 in STORE_FLAG_VALUE and FOO has a single bit that might be nonzero,
 	 which is equal to STORE_FLAG_VALUE.  */
       if ((mask & ~STORE_FLAG_VALUE) == 0 && XEXP (x, 1) == const0_rtx
+	  && GET_MODE (XEXP (x, 0)) == mode
 	  && exact_log2 (nonzero_bits (XEXP (x, 0), mode)) >= 0
 	  && (nonzero_bits (XEXP (x, 0), mode)
 	      == (unsigned HOST_WIDE_INT) STORE_FLAG_VALUE))

@@ -1,3 +1,71 @@
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/MessageFormat.java (Field): Constructor now
+	protected.
+
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* javax/crypto/MacSpi.java: Fixed typo.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java: Reformatted.
+	(loopback): Initialize with Inet4Address object.
+	(static): Initialize ANY_IF with Inet4Address object.
+	(InetAddress): Removed unused package-private constructor.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java,
+	java/beans/EventHandler.java,
+	java/beans/EventSetDescriptor.java,
+	java/beans/Introspector.java,
+	java/beans/PropertyEditorManager.java,
+	java/beans/beancontext/BeanContext.java,
+	java/beans/beancontext/BeanContextChild.java,
+	java/beans/beancontext/BeanContextChildSupport.java,
+	java/beans/beancontext/BeanContextMembershipEvent.java:
+	Reordered import statements and removed redundant modifiers.
+
+2004-09-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/17715:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj-@gcc_version@.jar): Include properties
+	files.
+	(all_property_files): New macro.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Re-sorted.
+	(libgcj.la): Moved to old location near lib-gnu-awt-xlib.la.
+
+2004-09-28  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_RegisterNatives): Formatting fixlets.
+
+	PR libgcj/17222:
+	* Makefile.am (libgcj.la): Restored.
+	* Makefile.in: Rebuilt.
+
+2004-09-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java: Reformatted.
+	* java/net/URLClassLoader.java: Reformatted.
+	(getContent): Reordered return of content.
+	(getContentHandler): Don't check for null explicitely.
+
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedInputStream.java
+	(BufferedInputStream): Added Jeroen Frijters to authors.
+	(count): Don't explicitely initialize with default value.
+	(pos): Likewise.
+	(marklimit): Likewise.
+	(read): Changed boolean expression to match GNU classpath' version.
+	(reset): Add proper message to exception.
+	(skip): Check for closed stream.
+	(refill): Likewise.
+
 2004-09-26  Per Bothner  <per@bothner.com>
 
 	* prims.cc (unblock_signal): Annotate signum with __unused__ to

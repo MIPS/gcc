@@ -1,3 +1,79 @@
+2004-10-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/sstream.tcc (seekpos): Minor rearrangement of two
+	conditionals consistently with seekoff.
+	* include/std/std_sstream.h (setbuf): Avoid a string temporary.
+	(_M_sync): Simplify a bit, clean-up comment.
+
+2004-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/10975 (DR 453)
+	* include/bits/sstream.tcc (seekoff): Don't fail if __beg == 0
+	and __off == 0.
+	* docs/html/ext/howto.html: Add an entry for DR 453.
+	* testsuite/27_io/basic_stringbuf/seekoff/char/10975.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekoff/wchar_t/10975.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/char/1.cc: Tweak consistently.
+	* testsuite/27_io/basic_ostream/tellp/char/1.cc: Likewise.
+	* testsuite/27_io/basic_ostream/tellp/char/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/seekg/char/2346-fstream.cc: Fix and
+	move to...
+	* testsuite/27_io/basic_istream/seekp/char/2346-fstream.cc: ... here.
+	* testsuite/27_io/basic_istream/seekg/char/2346-sstream.cc: Fix and
+	move to...
+	* testsuite/27_io/basic_istream/seekp/char/2346-sstream.cc: ... here.
+
+2004-09-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf(ios_base::openmode)):
+	Don't use _M_stringbuf_init, keep the pointers null, per 27.7.1.1.
+	(str()): Slightly tweak, protect from pptr() == 0.
+	(_M_update_egptr()): Likewise.
+	* include/bits/sstream.tcc (ssekoff, seekpos): In order to check
+	for an empty buffer use __beg instead of _M_string.capacity().
+	* testsuite/27_io/basic_stringbuf/cons/char/1.cc: New.
+	* testsuite/27_io/basic_stringbuf/cons/wchar_t/1.cc: Likewise.
+
+	* testsuite/27_io/basic_filebuf/cons/char/1.cc: New.
+	* testsuite/27_io/basic_filebuf/cons/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_streambuf/cons/char/1.cc: Update.
+	* testsuite/27_io/basic_streambuf/cons/wchar_t/1.cc: Likewise.
+
+2004-09-29  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/testsuite_io.h (class constraint_buf): New, extended
+	and templatized version of constraint_filebuf; add typedefs for
+	streambuf/stringbuf/filebuf and wchar_t counterparts.
+
+2004-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16612
+	* include/bits/basic_string.h (_M_dispose, _M_refcopy,
+	basic_string()): When _GLIBCXX_FULLY_DYNAMIC_STRING is defined,
+	don't deal with _S_empty_rep.
+	* include/bits/basic_string.tcc (_S_construct, _M_destroy,
+	_M_leak_hard, _M_mutate): Likewise.
+	* acinclude.m4 (GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING): New.
+	* acconfig.h: Add corresponding undef. 	
+	* configure.ac: Use GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING.
+	* docs/html/configopts.html: Document --enable-fully-dynamic-string.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+
+2004-09-28  Benjamin Kosnik  <bkoz@redhat.com>
+            Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/21_strings/basic_string/operations/char/1.cc: New.
+	* testsuite/21_strings/basic_string/operations/wchar_t/1.cc: New.
+	* testsuite/21_strings/basic_string/element_access/char/empty.cc: New.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/empty.cc: 
+	New.
+
+2004-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* README: Remove obsolete entry about include/c_shadow.
+
 2004-09-24  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libstdc++/17469

@@ -1,3 +1,82 @@
+2004-10-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/pr17343.c: Remove.
+
+2004-10-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17343
+	* gcc.dg/tree-ssa/pr17343.c: New test.
+
+2004-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/stdarg-1.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-2.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-3.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-4.c: Removed.
+	* gcc.dg/tree-ssa/stdarg-5.c: Removed.
+
+2004-09-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/lvalue-2.c: New test.
+
+2004-09-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17730
+	* gcc.dg/pr17730-1.c: New test
+
+2004-09-29  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/7425
+	* gcc.dg/deprecated-3.c, g++.dg/warn/deprecated-2.C: New tests.
+
+2004-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/stdarg-1.c: New test.
+	* gcc.c-torture/execute/stdarg-2.c: New test.
+	* gcc.c-torture/execute/stdarg-3.c: New test.
+	* gcc.dg/tree-ssa/stdarg-1.c: New test.
+	* gcc.dg/tree-ssa/stdarg-2.c: New test.
+	* gcc.dg/tree-ssa/stdarg-3.c: New test.
+	* gcc.dg/tree-ssa/stdarg-4.c: New test.
+	* gcc.dg/tree-ssa/stdarg-5.c: New test.
+
+2004-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/17697
+	* g++.dg/opt/pr17697-1.C: New test.
+	* g++.dg/opt/pr17697-2.C: New test.
+	* g++.dg/opt/pr17697-3.C: New test.
+
+2004-09-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/16409
+	* gcc.dg/vla-init-2.c, gcc.dg/vla-init-3.c, gcc.dg/vla-init-4.c,
+	gcc.dg/vla-init-5.c: New tests.
+
+2004-09-27  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/13804
+	* gcc.dg/pr13804-1.c: New test.
+
+2004-09-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16938
+	* gfortran.dg/pr16938.f90: New test.
+
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/crash23.C: New test.
+
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17585
+	* g++.dg/template/static8.C: New test.
+
+2004-09-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17681
+	* g++.dg/other/error9.C: New test.
+
 2004-09-26  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc.dg/tree-ssa/loop-1.c: Use -msmall-exec on s390-*-* targets.

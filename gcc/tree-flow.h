@@ -343,10 +343,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Number of predecessors for this block.  This is only valid during
-     SSA rewriting.  It is not maintained after conversion into SSA form.  */
-  int num_preds;
-
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
@@ -619,6 +615,7 @@ extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern bool may_propagate_copy_into_asm (tree);
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader

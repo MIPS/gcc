@@ -331,7 +331,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			 && DECL_NAME (TYPE_NAME (node)))
 		  dump_decl_name (buffer, TYPE_NAME (node), flags);
 		else
-                  pp_string (buffer, "<unnamed type>");
+		  pp_string (buffer, "<unnamed type>");
+	      }
+	    else if (TREE_CODE (node) == VECTOR_TYPE)
+	      {
+		pp_string (buffer, "vector ");
+		dump_generic_node (buffer, TREE_TYPE (node), 
+				   spc, flags, false);
 	      }
 	    else
               pp_string (buffer, "<unnamed type>");
@@ -1470,6 +1476,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ">");
       break;
       
+    case VEC_COND_EXPR:
+      pp_string (buffer, " VEC_COND_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     default:
       NIY;
     }
@@ -1548,6 +1564,14 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
       /* Print variable's name.  */
       pp_space (buffer);
       dump_generic_node (buffer, t, spc, flags, false);
+    }
+
+  if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
+    {
+      pp_string (buffer, " __asm__ ");
+      pp_character (buffer, '(');
+      dump_generic_node (buffer, DECL_ASSEMBLER_NAME (t), spc, flags, false);
+      pp_character (buffer, ')');
     }
 
   /* The initial value of a function serves to determine wether the function
@@ -2152,6 +2176,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
   tree stmt;
+  edge_iterator ei;
 
   if (flags & TDF_BLOCKS)
     {
@@ -2175,8 +2200,8 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
-      for (e = bb->pred; e; e = e->pred_next)
-        if (flags & TDF_SLIM)
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (flags & TDF_SLIM)
 	  {
 	    pp_string (buffer, " ");
 	    if (e->src == ENTRY_BLOCK_PTR)
@@ -2211,11 +2236,12 @@ static void
 dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
+  edge_iterator ei;
 
   INDENT (indent);
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     if (flags & TDF_SLIM)
       {
 	pp_string (buffer, " ");
@@ -2281,10 +2307,11 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
 {
   edge e;
+  edge_iterator ei;
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e && e->dest != bb->next_bb)

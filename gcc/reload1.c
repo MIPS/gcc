@@ -7008,25 +7008,25 @@ emit_reload_insns (struct insn_chain *chain)
      reloads for the operand.  The RELOAD_OTHER output reloads are
      output in descending order by reload number.  */
 
-  emit_insn_before_sameloc (other_input_address_reload_insns, insn);
-  emit_insn_before_sameloc (other_input_reload_insns, insn);
+  emit_insn_before (other_input_address_reload_insns, insn);
+  emit_insn_before (other_input_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      emit_insn_before_sameloc (inpaddr_address_reload_insns[j], insn);
-      emit_insn_before_sameloc (input_address_reload_insns[j], insn);
-      emit_insn_before_sameloc (input_reload_insns[j], insn);
+      emit_insn_before (inpaddr_address_reload_insns[j], insn);
+      emit_insn_before (input_address_reload_insns[j], insn);
+      emit_insn_before (input_reload_insns[j], insn);
     }
 
-  emit_insn_before_sameloc (other_operand_reload_insns, insn);
-  emit_insn_before_sameloc (operand_reload_insns, insn);
+  emit_insn_before (other_operand_reload_insns, insn);
+  emit_insn_before (operand_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      rtx x = emit_insn_after_sameloc (outaddr_address_reload_insns[j], insn);
-      x = emit_insn_after_sameloc (output_address_reload_insns[j], x);
-      x = emit_insn_after_sameloc (output_reload_insns[j], x);
-      emit_insn_after_sameloc (other_output_reload_insns[j], x);
+      rtx x = emit_insn_after (outaddr_address_reload_insns[j], insn);
+      x = emit_insn_after (output_address_reload_insns[j], x);
+      x = emit_insn_after (output_reload_insns[j], x);
+      emit_insn_after (other_output_reload_insns[j], x);
     }
 
   /* For all the spill regs newly reloaded in this instruction,
@@ -8033,10 +8033,11 @@ fixup_abnormal_edges (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
       /* Look for cases we are interested in - calls or instructions causing
          exceptions.  */
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->flags & EDGE_ABNORMAL_CALL)
 	    break;
@@ -8049,7 +8050,7 @@ fixup_abnormal_edges (void)
 	{
 	  rtx insn = BB_END (bb), stop = NEXT_INSN (BB_END (bb));
 	  rtx next;
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_FALLTHRU)
 	      break;
 	  /* Get past the new insns generated. Allow notes, as the insns may

@@ -454,16 +454,21 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p)
 
   FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      value *val = get_value (USE_FROM_PTR (use));
+      tree tuse = USE_FROM_PTR (use);
+      value *val = get_value (tuse);
 
-      if (val->lattice_val == CONSTANT)
-	{
-	  SET_USE (use, val->const_val);
-	  replaced = true;
-	  if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (use))) 
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
-	}
+      if (val->lattice_val != CONSTANT)
+	continue;
+
+      if (TREE_CODE (stmt) == ASM_EXPR
+	  && !may_propagate_copy_into_asm (tuse))
+	continue;
+
+      SET_USE (use, val->const_val);
+
+      replaced = true;
+      if (POINTER_TYPE_P (TREE_TYPE (tuse)) && replaced_addresses_p)
+	*replaced_addresses_p = true;
     }
 
   return replaced;
@@ -2141,6 +2146,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
 static void
 execute_fold_all_builtins (void)
 {
+  bool cfg_changed = false;
   basic_block bb;
   FOR_EACH_BB (bb)
     {
@@ -2185,6 +2191,9 @@ execute_fold_all_builtins (void)
 		abort ();
 	    }
 	  modify_stmt (*stmtp);
+	  if (maybe_clean_eh_stmt (*stmtp)
+	      && tree_purge_dead_eh_edges (bb))
+	    cfg_changed = true;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2194,6 +2203,10 @@ execute_fold_all_builtins (void)
 	    }
 	}
     }
+
+  /* Delete unreachable blocks.  */
+  if (cfg_changed)
+    cleanup_tree_cfg ();
 }
 
 

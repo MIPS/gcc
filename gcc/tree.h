@@ -96,6 +96,12 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* Nonzero if CODE represents a INDIRECT_REF.  */
+#define INDIRECT_REF_P(CODE)\
+  (TREE_CODE (CODE) == INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+
 /* Nonzero if CODE represents a reference.  */
 
 #define REFERENCE_CLASS_P(CODE)\
@@ -2117,7 +2123,7 @@ struct tree_binfo GTY (())
 
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
+#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl.inline_flag)
 
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)

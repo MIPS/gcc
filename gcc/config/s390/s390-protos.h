@@ -23,8 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void optimization_options (int, int);
 extern void override_options (void);
-extern HOST_WIDE_INT s390_arg_frame_offset (void);
-extern HOST_WIDE_INT s390_return_address_offset (void);
+extern bool s390_can_eliminate (int, int);
+extern HOST_WIDE_INT s390_initial_elimination_offset (int, int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
@@ -84,6 +84,9 @@ extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_back_chain_rtx (void);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
+extern void s390_expand_logical_operator (enum rtx_code,
+					  enum machine_mode, rtx *);
+extern bool s390_logical_operator_ok_p (rtx *);
 
 extern bool s390_output_addr_const_extra (FILE*, rtx);
 extern void print_operand_address (FILE *, rtx);
