@@ -1,6 +1,17 @@
 2003-01-15  Andrew MacLeod  <amacleod@redhat.com>
 	    Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (thread_across_edge): Accept dom_walk argument.
+	Record temporary equivalences created by PHIs and temporarily
+	const/copy propagate into conditionals.
+	(dom_opt_finalize_block): Thread across an edge to a dominated block
+	if the dominated block has PHIs.  Remove temporary equivalenecs
+	created by PHIs in thread_across_edge.  Update code to restore the
+	various hash tables to use the actual varray rather than a local
+	copy of the varray.
+	(simplify_rhs_and_lookup_avail_expr): Set the condition's code
+	before settings its operands.
+
 	* tree-ssa.c (create_temp): Use add_referenced_var rather than
 	an incomplete inline of its behavior.  Also make sure to
 	set is_dereferenced_{load,store}, is_call_clobbered and is_stored.
