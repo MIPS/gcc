@@ -1,3 +1,7 @@
+2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* bool.h: Can't include gcc's system.h and bool.h at the same time.
+
 2003-06-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	* compiler.h: Fix the grouping of the #if

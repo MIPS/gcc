@@ -30,7 +30,13 @@
 
 #ifndef BOOL_H
 #define BOOL_H
-#include <config.h>
+#ifndef GCC_SYSTEM_H
+#include "config.h"
+/* 1 if we have _Bool.  */
+#ifndef HAVE__BOOL
+# define HAVE__BOOL \
+   ((GCC_VERSION >= 3000) || (__STDC_VERSION__ >= 199901L))
+#endif
 /* Provide some sort of boolean type.  We use stdbool.h if it's
   available.  This must be after all inclusion of system headers,
   as some of them will mess us up.  */
@@ -53,4 +59,5 @@ typedef char _Bool;
 
 #define TRUE true
 #define FALSE false
+#endif
 #endif
