@@ -389,6 +389,9 @@ int flag_test_coverage = 0;
 
 int flag_branch_probabilities = 0;
 
+/* Nonzero if generating or using histograms for loop iterations.  */
+int flag_loop_histograms = 0;
+
 /* Nonzero if basic blocks should be reordered.  */
 
 int flag_reorder_blocks = 0;
@@ -1120,6 +1123,8 @@ static const lang_independent_options f_options[] =
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    N_("Use profiling information for branch probabilities") },
+  {"loop-histograms", &flag_loop_histograms, 1,
+   N_("Insert code to measure loop histograms and/or use them") },
   {"profile", &profile_flag, 1,
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,

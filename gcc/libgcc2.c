@@ -1311,8 +1311,10 @@ gcov_exit (void)
       int merging = 0;
       long base;
       const struct function_info *fn_info;
-      gcov_type *count_ptr;
+      gcov_type *count_ptr, *histograms_ptr;
       gcov_type object_max_one = 0;
+      gcov_type count;
+      unsigned tag, length, flength, checksum;
 
       ptr->wkspc = 0;
       if (!ptr->filename)
@@ -1354,7 +1356,6 @@ gcov_exit (void)
       if (merging)
 	{
 	  /* Merge data from file.  */
-	  unsigned tag, length;
 	      
 	  if (gcov_read_unsigned (da_file, &tag) || tag != GCOV_DATA_MAGIC)
 	    {
@@ -1373,6 +1374,7 @@ gcov_exit (void)
 	  
 	  /* Merge execution counts for each function.  */
 	  count_ptr = ptr->arc_counts;
+	  histograms_ptr = ptr->histogram_counts;
 	  for (ix = ptr->n_functions, fn_info = ptr->functions;
 	       ix--; fn_info++)
 	    {
@@ -1393,17 +1395,15 @@ gcov_exit (void)
 			   ptr->filename, fn_info->name);
 		  goto read_fatal;
 		}
-	      {
-		unsigned flength, checksum;
-		
-		if (gcov_read_unsigned (da_file, &flength)
-		    || gcov_skip_string (da_file, flength)
-		    || gcov_read_unsigned (da_file, &checksum))
-		  goto read_error;
-		if (flength != strlen (fn_info->name)
-		    || checksum != fn_info->checksum)
-		  goto read_mismatch;
-	      }
+
+	      if (gcov_read_unsigned (da_file, &flength)
+		  || gcov_skip_string (da_file, flength)
+		  || gcov_read_unsigned (da_file, &checksum))
+		goto read_error;
+	      if (flength != strlen (fn_info->name)
+		  || checksum != fn_info->checksum)
+		goto read_mismatch;
+
 	      /* Check arc counts */
 	      if (gcov_read_unsigned (da_file, &tag)
 		  || gcov_read_unsigned (da_file, &length))
@@ -1411,15 +1411,26 @@ gcov_exit (void)
 	      if (tag != GCOV_TAG_ARC_COUNTS
 		  || length / 8 != fn_info->n_arc_counts)
 		goto read_mismatch;
-	      {
-		gcov_type count;
 		
-		for (jx = fn_info->n_arc_counts; jx--; count_ptr++)
-		  if (gcov_read_counter (da_file, &count))
-		    goto read_error;
-		  else
-		    *count_ptr += count;
-	      }
+      	      for (jx = fn_info->n_arc_counts; jx--; count_ptr++)
+		if (gcov_read_counter (da_file, &count))
+		  goto read_error;
+		else
+		  *count_ptr += count;
+
+	      /* Loop histograms. */ 
+	      if (gcov_read_unsigned (da_file, &tag)
+		  || gcov_read_unsigned (da_file, &length))
+		goto read_error;
+	      if (tag != GCOV_TAG_LOOP_HISTOGRAMS
+		  || length / 8 != fn_info->n_loop_histogram_counters)
+		goto read_mismatch;
+		
+      	      for (jx = fn_info->n_loop_histogram_counters; jx--; histograms_ptr++)
+		if (gcov_read_counter (da_file, &count))
+		  goto read_error;
+		else
+		  *histograms_ptr += count;
 	    }
 
 	  /* Check object summary */
@@ -1499,6 +1510,7 @@ gcov_exit (void)
       
       /* Write execution counts for each function.  */
       count_ptr = ptr->arc_counts;
+      histograms_ptr = ptr->histogram_counts;
       for (ix = ptr->n_functions, fn_info = ptr->functions; ix--; fn_info++)
 	{
 	  /* Announce function. */
@@ -1526,6 +1538,22 @@ gcov_exit (void)
 		object.arc_max_sum = count;
 	      if (gcov_write_counter (da_file, count))
 		goto write_error; /* RIP Edsger Dijkstra */
+	    }
+	  if (gcov_write_length (da_file, base))
+	    goto write_error;
+
+	  /* loop histograms.  */
+	  if (gcov_write_unsigned (da_file, GCOV_TAG_LOOP_HISTOGRAMS)
+	      || !(base = gcov_reserve_length (da_file)))
+	    goto write_error;
+	  
+	  for (jx = fn_info->n_loop_histogram_counters; jx--;)
+	    {
+	      gcov_type count = *histograms_ptr++;
+	      
+	      object.arc_sum += count;
+	      if (gcov_write_counter (da_file, count))
+		goto write_error;
 	    }
 	  if (gcov_write_length (da_file, base))
 	    goto write_error;
@@ -1668,6 +1696,8 @@ __gcov_flush (void)
       
       for (i = ptr->n_arc_counts; i--;)
 	ptr->arc_counts[i] = 0;
+      for (i = ptr->n_histogram_counts; i--;)
+	ptr->histogram_counts[i] = 0;
     }
 }
 

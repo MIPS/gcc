@@ -34,6 +34,9 @@ struct loop
   /* Basic block of loop pre-header or NULL if it does not exist.  */
   basic_block pre_header;
 
+  /* Histogram for a loop.  */
+  struct loop_histogram *histogram;
+
   /* Array of edges along the pre-header extended basic block trace.
      The source of the first edge is the root node of pre-header
      extended basic block, if it exists.  */
@@ -144,6 +147,22 @@ struct loop
   int exit_count;
 };
 
+/* Histogram of a loop.  */
+struct loop_histogram
+{
+  int steps;
+  gcov_type *counts;
+  gcov_type more;
+};
+
+/* Flags for state of loop structure.  */
+enum
+{
+  LOOPS_HAVE_PREHEADERS = 1,
+  LOOPS_HAVE_SIMPLE_LATCHES = 2,
+  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
+  LOOPS_HAVE_HISTOGRAMS_ON_EDGES = 8
+};
 
 /* Structure to hold CFG information about natural loops within a function.  */
 struct loops
@@ -182,6 +201,9 @@ struct loops
 
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
+
+  /* State of loops.  */
+  int state;
 };
 
 /* Description of loop for simple loop unrolling.  */
@@ -213,16 +235,6 @@ struct loop_desc
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
 #define LOOP_ALL	       15	/* All of the above  */
 
-/* Flags for verify_loop_structure.  */
-enum
-{
-  VLS_EXPECT_PREHEADERS = 1,
-  VLS_EXPECT_SIMPLE_LATCHES = 2,
-  VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS = 4,
-  VLS_FOR_LOOP = VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES
-		     | VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS
-};
-
 /* Loop recognition.  */
 extern int flow_loops_find		PARAMS ((struct loops *, int flags));
 extern int flow_loops_update		PARAMS ((struct loops *, int flags));
@@ -250,12 +262,9 @@ extern int num_loop_insns		PARAMS ((struct loop *));
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body	PARAMS ((const struct loop *));
-extern int dfs_enumerate_from		PARAMS ((basic_block, int,
-						bool (*)(basic_block, void *),
-						basic_block *, int, void *));
 
-extern edge loop_preheader_edge		PARAMS ((struct loop *));
-extern edge loop_latch_edge		PARAMS ((struct loop *));
+extern edge loop_preheader_edge		PARAMS ((const struct loop *));
+extern edge loop_latch_edge		PARAMS ((const struct loop *));
 
 extern void add_bb_to_loop		PARAMS ((basic_block, struct loop *));
 extern void remove_bb_from_loops	PARAMS ((basic_block));
@@ -275,7 +284,12 @@ enum
 extern void create_preheaders		PARAMS ((struct loops *, int));
 extern void force_single_succ_latches	PARAMS ((struct loops *));
 
-extern void verify_loop_structure	PARAMS ((struct loops *, int));
+extern void move_histograms_to_loops	PARAMS ((struct loops *));
+extern struct loop_histogram *copy_histogram PARAMS ((struct loop_histogram *, int));
+extern void add_histogram		PARAMS ((struct loop_histogram *, struct loop_histogram *, int));
+extern void free_histogram		PARAMS ((struct loop_histogram *));
+
+extern void verify_loop_structure	PARAMS ((struct loops *));
 
 /* Loop analysis.  */
 extern bool simple_loop_p		PARAMS ((struct loops *, struct loop *,
@@ -289,7 +303,9 @@ extern int expected_loop_iterations	PARAMS ((const struct loop *));
 extern bool can_duplicate_loop_p	PARAMS ((struct loop *loop));
 
 #define DLTHE_FLAG_UPDATE_FREQ		1
-#define DLTHE_FLAG_ALL			(DLTHE_FLAG_UPDATE_FREQ)
+#define DLTHE_PROB_UPDATING(X)		(X & 6)
+#define DLTHE_USE_HISTOGRAM_PROB	0
+#define DLTHE_USE_WONT_EXIT		2
 extern int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge,
 						struct loops *, int,
 						sbitmap, edge, edge *,

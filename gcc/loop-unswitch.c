@@ -61,7 +61,7 @@ unswitch_loops (loops)
       unswitch_single_loop (loops, loop, NULL_RTX, 0);
 #ifdef ENABLE_CHECKING
       verify_dominators (loops->cfg.dom);
-      verify_loop_structure (loops, VLS_FOR_LOOP);
+      verify_loop_structure (loops);
 #endif
     }
 }
@@ -290,6 +290,7 @@ unswitch_loop (loops, loop, unswitch_on)
   struct loop *nloop;
   sbitmap zero_bitmap;
   int irred_flag;
+  int prob;
 
   /* Some sanity checking.  */
   if (!flow_bb_inside_loop_p (loop, unswitch_on))
@@ -342,7 +343,14 @@ unswitch_loop (loops, loop, unswitch_on)
        latch_edge = latch_edge->succ_next);
   nloop = loopify (loops, latch_edge,
 		   RBI (loop->header)->copy->pred, switch_bb);
- 
+
+  /* Fix histograms.  */
+  if (loop->histogram)
+    {
+      nloop->histogram = copy_histogram (loop->histogram, prob);
+      add_histogram (loop->histogram, nloop->histogram, -REG_BR_PROB_BASE);
+    }
+
   /* Remove paths from loop copies.  We rely on the fact that
      cfg_layout_duplicate_bb reverses list of edges here.  */
   for (e = unswitch_on->succ->succ_next->dest->pred; e; e = e->pred_next)

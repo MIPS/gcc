@@ -175,6 +175,7 @@ typedef long long gcov_type;
 #define GCOV_TAG_ARCS		 ((unsigned)0x01430000)
 #define GCOV_TAG_LINES		 ((unsigned)0x01450000)
 #define GCOV_TAG_ARC_COUNTS  	 ((unsigned)0x01a10000)
+#define GCOV_TAG_LOOP_HISTOGRAMS ((unsigned)0x01a30000)
 #define GCOV_TAG_OBJECT_SUMMARY  ((unsigned)0xa1000000)
 #define GCOV_TAG_PROGRAM_SUMMARY ((unsigned)0xa3000000)
 #define GCOV_TAG_PLACEHOLDER_SUMMARY ((unsigned)0xa5000000)
@@ -226,6 +227,8 @@ struct function_info
   const char *name;	        /* (mangled) name of function */
   unsigned checksum;		/* function checksum */
   unsigned n_arc_counts;	/* number of instrumented arcs */
+  unsigned n_loop_histogram_counters;
+  				/* number of histogram counters */
 };
 
 /* Information about a single object file.  */
@@ -242,6 +245,8 @@ struct gcov_info
 
   gcov_type *arc_counts;	/* table of arc counts */
   unsigned n_arc_counts;	/* number of arc counts */
+  gcov_type *histogram_counts;	/* table of loop histogram counters */
+  unsigned n_histogram_counts;	/* number of histogram counts */
 };
 
 /* Register a new object file module.  */
@@ -453,6 +458,7 @@ gcov_write_length (file, place)
   return result;
 }
 
+#define GCOV_SUMMARY_LENGTH 44
 static int
 gcov_read_summary (da_file, summary)
      FILE *da_file;

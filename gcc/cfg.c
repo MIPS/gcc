@@ -633,6 +633,7 @@ dump_edge_info (file, e, do_succ)
      int do_succ;
 {
   basic_block side = (do_succ ? e->dest : e->src);
+  int comma = 0;
 
   if (side == ENTRY_BLOCK_PTR)
     fputs (" ENTRY", file);
@@ -650,11 +651,10 @@ dump_edge_info (file, e, do_succ)
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, e->count);
     }
 
-  if (e->flags)
+  if (e->flags || e->loop_histogram)
     {
       static const char * const bitnames[]
 	= {"fallthru", "ab", "abcall", "eh", "fake", "dfs_back", "can_fallthru"};
-      int comma = 0;
       int i, flags = e->flags;
 
       fputs (" (", file);
@@ -671,6 +671,13 @@ dump_edge_info (file, e, do_succ)
 	      fprintf (file, "%d", i);
 	    comma = 1;
 	  }
+  
+      if (e->loop_histogram)
+	{
+	  if (comma)
+	    fputc (',', file);
+	  fputs ("carries loop histogram", file);
+	}
 
       fputc (')', file);
     }

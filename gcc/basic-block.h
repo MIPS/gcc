@@ -130,6 +130,9 @@ typedef struct edge_def {
   /* Instructions queued on the edge.  */
   rtx insns;
 
+  /* Histogram of loop whose latch is this edge.  */
+  struct loop_histogram *loop_histogram;
+
   /* Auxiliary info specific to a pass.  */
   void *aux;
 
@@ -155,6 +158,7 @@ typedef struct edge_def {
 /* Declared in cfgloop.h.  */
 struct loop;
 struct loops;
+struct loop_histogram;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
@@ -364,6 +368,9 @@ extern void tidy_fallthru_edges		PARAMS ((void));
 extern void flow_reverse_top_sort_order_compute	PARAMS ((int *));
 extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
 extern void flow_preorder_transversal_compute	PARAMS ((int *));
+extern int dfs_enumerate_from		PARAMS ((basic_block, int,
+						bool (*)(basic_block, void *),
+						basic_block *, int, void *));
 extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));

@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "toplev.h"
 #include "cfgloop.h"
+#include "flags.h"
 
 /* Ratio of frequencies of edges so that one of more latch edges is
    considered to belong to inner loop with same header.  */
@@ -113,7 +114,9 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
      int verbose;
 {
   basic_block *bbs;
+  edge e;
   int i;
+  struct loop_histogram *histogram = NULL;
 
   if (! loop || ! loop->header)
     return;
@@ -127,6 +130,30 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
   fprintf (file, ";;  depth %d, level %d, outer %ld\n",
 	   loop->depth, loop->level,
 	   (long) (loop->outer ? loop->outer->num : -1));
+
+  if (loop->num)
+    {
+      e = loop_latch_edge (loop);
+      if (e->loop_histogram)
+	histogram = e->loop_histogram;
+      if (loop->histogram)
+	histogram = loop->histogram;
+    }
+  if (histogram)
+    {
+      fprintf (file, ";; histogram of iterations:");
+      for (i = 0; i < histogram->steps; i++)
+	{
+	  fprintf (file, " %d : ", i);
+	  fprintf (file, HOST_WIDEST_INT_PRINT_DEC,
+		   (HOST_WIDEST_INT) histogram->counts[i]);
+	  fprintf (file, ";");
+	}
+      fprintf (file, " more ");
+      fprintf (file, HOST_WIDEST_INT_PRINT_DEC,
+	       (HOST_WIDEST_INT) histogram->more);
+      fprintf (file, "\n");
+    }
 
   if (loop->pre_header_edges)
     flow_edge_list_print (";;  pre-header edges", loop->pre_header_edges,
@@ -194,6 +221,8 @@ flow_loop_free (loop)
     free (loop->exit_edges);
   if (loop->pred)
     free (loop->pred);
+  if (loop->histogram)
+    free_histogram (loop->histogram);
   free (loop);
 }
 
@@ -584,6 +613,8 @@ redirect_edge_with_latch_update (e, to)
       alloc_aux_for_edge (jump->pred, sizeof (int));
       LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
       LATCH_EDGE (jump->pred) = 0;
+      jump->succ->loop_histogram = e->loop_histogram;
+      e->loop_histogram = NULL;
     }
 }
 
@@ -605,6 +636,7 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
   edge e, next_e, fallthru;
   basic_block dummy;
   rtx insn;
+  struct loop_histogram *histogram = NULL;
 
   insn = PREV_INSN (first_insn_after_basic_block_note (bb));
 
@@ -619,6 +651,25 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
   bb->aux = xmalloc (sizeof (int));
   HEADER_BLOCK (dummy) = 0;
   HEADER_BLOCK (bb) = 1;
+
+  /* Merge histograms.  */
+  if (conn_latch)
+    {
+      histogram = NULL;
+      for (e = dummy->pred; e; e = e->pred_next)
+	if (e->loop_histogram && e != except)
+	  {
+	    if (histogram)
+	      {
+		add_histogram (histogram, e->loop_histogram, REG_BR_PROB_BASE);
+		free_histogram (e->loop_histogram);
+	      }
+	    else
+	      histogram = e->loop_histogram;
+	    e->loop_histogram = NULL;
+	  }
+      fallthru->loop_histogram = histogram;
+    }
 
   /* Redirect back edges we want to keep.  */
   for (e = dummy->pred; e; e = next_e)
@@ -928,9 +979,11 @@ flow_loops_find (loops, flags)
       loops->cfg.dom = NULL;
       free_dominance_info (dom);
     }
+
+  loops->state = 0;
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
-  verify_loop_structure (loops, 0);
+  verify_loop_structure (loops);
 #endif
 
   return loops->num;
@@ -1119,17 +1172,18 @@ cancel_loop_tree (loops, loop)
      -- loop header have just single entry edge and single latch edge
      -- loop latches have only single successor that is header of their loop
      -- irreducible loops are correctly marked
+     -- loop histograms are in loop headers
   */
 void
-verify_loop_structure (loops, flags)
+verify_loop_structure (loops)
      struct loops *loops;
-     int flags;
 {
   int *sizes, i, j;
   sbitmap irreds;
   basic_block *bbs, bb;
   struct loop *loop;
   int err = 0;
+  edge e;
 
   /* Check sizes.  */
   sizes = xcalloc (loops->num, sizeof (int));
@@ -1179,14 +1233,14 @@ verify_loop_structure (loops, flags)
       if (!loop)
 	continue;
 
-      if ((flags & VLS_EXPECT_PREHEADERS)
+      if ((loops->state & LOOPS_HAVE_PREHEADERS)
 	  && (!loop->header->pred->pred_next
 	      || loop->header->pred->pred_next->pred_next))
 	{
 	  error ("Loop %d's header does not have exactly 2 entries.", i);
 	  err = 1;
 	}
-      if (flags & VLS_EXPECT_SIMPLE_LATCHES)
+      if (loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
 	{
 	  if (!loop->latch->succ
 	      || loop->latch->succ->succ_next)
@@ -1213,7 +1267,7 @@ verify_loop_structure (loops, flags)
     }
 
   /* Check irreducible loops.  */
-  if (flags & VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS)
+  if (loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
     {
       /* Record old info.  */
       irreds = sbitmap_alloc (last_basic_block);
@@ -1245,14 +1299,103 @@ verify_loop_structure (loops, flags)
       free (irreds);
     }
 
+  /* Check loop histograms.  */
+  if (loops->state & LOOPS_HAVE_HISTOGRAMS_ON_EDGES)
+    {
+      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+	{
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->loop_histogram
+		&& (e->dest->loop_father->header != e->dest
+		    || e->dest->loop_father->latch != bb))
+	      {
+		error ("Lost histogram on edge from %d to %d.", e->src->index, e->dest->index);
+		err = 1;
+	      }
+	}
+    }
+
   if (err)
     abort ();
+}
+
+/* Move histograms for LOOPS from latch edges to loop datastructure.  */
+void
+move_histograms_to_loops (loops)
+     struct loops *loops;
+{
+  int i;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      struct loop *loop = loops->parray[i];
+      edge e;
+
+      if (!loop)
+	continue;
+
+      e = loop_latch_edge (loop);
+
+      loop->histogram = e->loop_histogram;
+      e->loop_histogram = NULL;
+    }
+  loops->state &= ~LOOPS_HAVE_HISTOGRAMS_ON_EDGES;
+}
+
+/* Copies loop HISTOGRAM, scaling it by PROB.  */
+struct loop_histogram *
+copy_histogram (histogram, prob)
+     struct loop_histogram *histogram;
+     int prob;
+{
+  int i, steps;
+  struct loop_histogram *retval;
+
+  retval = xmalloc (sizeof (struct loop_histogram));
+  steps = retval->steps = histogram->steps;
+  retval->counts = xmalloc (sizeof (gcov_type) * steps);
+  for (i = 0; i < steps; i++)
+    retval->counts[i] = histogram->counts[i] * prob /REG_BR_PROB_BASE;
+  retval->more = histogram->more * prob /REG_BR_PROB_BASE;
+
+  return retval;
+}
+
+/* Add HISTOGRAM to TARGET, scaling it by PROB.  */
+void
+add_histogram (target, histogram, prob)
+     struct loop_histogram *target;
+     struct loop_histogram *histogram;
+     int prob;
+{
+  int i;
+
+  if (target->steps > histogram->steps)
+    {
+      for (i = histogram->steps; i < target->steps; i++)
+	target->more += target->counts[i];
+      target->steps = histogram->steps;
+    }
+  for (i = 0; i < target->steps; i++)
+    target->counts[i] += histogram->counts[i] * prob /REG_BR_PROB_BASE;
+  for (; i < histogram->steps; i++)
+    target->more += histogram->counts[i] * prob /REG_BR_PROB_BASE;
+  target->more += histogram->more * prob /REG_BR_PROB_BASE;
+}
+
+/* Free the HISTOGRAM.  */
+void
+free_histogram (histogram)
+     struct loop_histogram *histogram;
+{
+  free (histogram->counts);
+  free (histogram);
 }
 
 /* Returns latch edge of LOOP.  */
 edge
 loop_latch_edge (loop)
-     struct loop *loop;
+     const struct loop *loop;
 {
   edge e;
 
@@ -1265,7 +1408,7 @@ loop_latch_edge (loop)
 /* Returns preheader edge of LOOP.  */
 edge
 loop_preheader_edge (loop)
-     struct loop *loop;
+     const struct loop *loop;
 {
   edge e;
 

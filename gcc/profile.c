@@ -62,11 +62,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "cfgloop.h"
+#include "params.h"
 #include "gcov-io.h"
 #include "target.h"
 #include "profile.h"
 #include "libfuncs.h"
 #include "langhooks.h"
+#include "hashtab.h"
 
 /* Additional information about the edges we need.  */
 struct edge_info {
@@ -94,6 +97,7 @@ struct function_list
   const char *name; 		/* function name */
   unsigned cfg_checksum;	/* function checksum */
   unsigned count_edges;	        /* number of intrumented edges  */
+  unsigned histogram_counters;	/* number of histogram counters  */
 };
 
 static struct function_list *functions_head = 0;
@@ -125,6 +129,9 @@ static char *da_file_name;
 /* The name of the count table. Used by the edge profiling code.  */
 static GTY(()) rtx profiler_label;
 
+/* The name of the loop histograms table.  */
+static GTY(()) rtx loop_histograms_label;
+
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
 
@@ -142,9 +149,18 @@ static int total_num_branches;
 /* Forward declarations.  */
 static void find_spanning_tree PARAMS ((struct edge_list *));
 static rtx gen_edge_profiler PARAMS ((int));
+static rtx gen_loop_profiler PARAMS ((rtx, int, int));
 static void instrument_edges PARAMS ((struct edge_list *));
+static void instrument_loops PARAMS ((struct loops *));
 static void compute_branch_probabilities PARAMS ((void));
+static void compute_loop_histograms PARAMS ((struct loops *));
+static hashval_t htab_counts_index_hash PARAMS ((const void *));
+static int htab_counts_index_eq PARAMS ((const void *, const void *));
+static void htab_counts_index_del PARAMS ((void *));
+static void cleanup_counts_index PARAMS ((int));
+static int index_counts_file PARAMS ((void));
 static gcov_type * get_exec_counts PARAMS ((void));
+static gcov_type * get_histogram_counts PARAMS ((int, int));
 static unsigned compute_checksum PARAMS ((void));
 static basic_block find_group PARAMS ((basic_block));
 static void union_groups PARAMS ((basic_block, basic_block));
@@ -193,67 +209,184 @@ instrument_edges (el)
   total_num_blocks_created += num_edges;
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "%d edges instrumented\n", num_instr_edges);
-
-  commit_edge_insertions_watch_calls ();
 }
 
-
-/* Computes hybrid profile for all matching entries in da_file.
-   Sets max_counter_in_program as a side effect.
-   FIXME: This is O(nfuncs^2). It should be reorganised to read the da
-   file once. */
-
-static gcov_type *
-get_exec_counts ()
+/* Add code that counts histograms of first iterations of LOOPS.  */
+static void
+instrument_loops (loops)
+     struct loops *loops;
 {
-  unsigned num_edges = 0;
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx *loop_counters;
+  rtx sequence;
+  int i, histogram_steps;
   basic_block bb;
-  gcov_type *profile;
+  edge e;
+  int n_histogram_counters;
+  
+  histogram_steps = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
+  if (histogram_steps < PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+    histogram_steps = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
+
+  loop_counters = xmalloc (sizeof (rtx) * loops->num);
+  for (i = 1; i < loops->num; i++)
+    loop_counters[i] = gen_reg_rtx (mode);
+
+  /* First the easy part -- code to initalize counter on preheader edge &
+     to increase it on latch one.  */
+  for (i = 1; i < loops->num; i++)
+    {
+      rtx tmp;
+
+      start_sequence ();
+      emit_move_insn (loop_counters[i], const0_rtx);
+      sequence = get_insns ();
+      end_sequence ();
+      insert_insn_on_edge (sequence, loop_preheader_edge (loops->parray[i]));
+
+      start_sequence ();
+      tmp = expand_simple_binop (mode, PLUS, loop_counters[i], const1_rtx,
+				 loop_counters[i], 0, OPTAB_WIDEN);
+      if (tmp != loop_counters[i])
+	emit_move_insn (loop_counters[i], tmp);
+      sequence = get_insns ();
+      end_sequence ();
+      insert_insn_on_edge (sequence, loop_latch_edge (loops->parray[i]));
+    }
+ 
+  /* And now emit code to generate the histogram on exit edges. The trouble
+     is that there may be more than one edge leaving the loop and the single
+     edge may exit multiple loops.  The other problem is that the exit edge
+     may be abnormal & critical; in this case we just ignore it.  */
+
+  FOR_EACH_BB (bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  struct loop *src_loop, *dest_loop, *loop;
+
+	  if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
+	    continue;
+
+	  src_loop = e->src->loop_father;
+	  dest_loop = find_common_loop (src_loop, e->dest->loop_father);
+
+	  for (loop = src_loop; loop != dest_loop; loop = loop->outer)
+	    insert_insn_on_edge (gen_loop_profiler (loop_counters[loop->num],
+						    loop->num,
+						    histogram_steps),
+				 e);
+	}
+    }
+  free (loop_counters);
+
+  n_histogram_counters = (loops->num - 1) * (histogram_steps + 1);
+  profile_info.count_histogram_counters_now = n_histogram_counters;
+  profile_info.count_histogram_counters += n_histogram_counters;
+}
+
+struct section_reference
+{
+  long offset;
+  int owns_summary;
+  long *summary;
+};
+
+struct da_index_entry
+{
+  /* We hash by  */
+  char *function_name;
+  unsigned section;
+  /* and store  */
+  unsigned checksum;
+  unsigned n_offsets;
+  struct section_reference *offsets;
+};
+
+static hashval_t
+htab_counts_index_hash (of)
+     const void *of;
+{
+  const struct da_index_entry *entry = of;
+
+  return htab_hash_string (entry->function_name) ^ entry->section;
+}
+
+static int
+htab_counts_index_eq (of1, of2)
+     const void *of1;
+     const void *of2;
+{
+  const struct da_index_entry *entry1 = of1;
+  const struct da_index_entry *entry2 = of2;
+
+  return !strcmp (entry1->function_name, entry2->function_name)
+	  && entry1->section == entry2->section;
+}
+
+static void
+htab_counts_index_del (what)
+     void *what;
+{
+  struct da_index_entry *entry = what;
+  unsigned i;
+
+  for (i = 0; i < entry->n_offsets; i++)
+    {
+      struct section_reference *act = entry->offsets + i;
+      if (act->owns_summary)
+	free (act->summary);
+    }
+  free (entry->function_name);
+  free (entry->offsets);
+  free (entry);
+}
+
+static char *counts_file_name;
+static htab_t counts_file_index = NULL;
+
+static void
+cleanup_counts_index (close_file)
+     int close_file;
+{
+  if (da_file && close_file)
+    {
+      fclose (da_file);
+      da_file = NULL;
+    }
+  if (counts_file_name)
+    free (counts_file_name);
+  counts_file_name = NULL;
+  if (counts_file_index)
+    htab_delete (counts_file_index);
+  counts_file_index = NULL;
+}
+
+static int
+index_counts_file ()
+{
   char *function_name_buffer = NULL;
-  gcov_type max_count = 0;
-  gcov_type prog_sum_max = 0;
-  gcov_type prog_runs = 0;
-  unsigned seen_fn = 0; /* 0 = not seen fn, 1 = function now,
-			   2 = seen fn, 3 = seen prog summaries */
-  unsigned magic, version;
-  unsigned ix;
-  const char *name = IDENTIFIER_POINTER
-		      (DECL_ASSEMBLER_NAME (current_function_decl));
+  unsigned magic, version, ix, checksum;
+  long *summary;
 
-  profile_info.max_counter_in_program = 0;
-  profile_info.count_profiles_merged = 0;
+  if (!da_file)
+    return 0;
+  counts_file_index = htab_create (10, htab_counts_index_hash, htab_counts_index_eq, htab_counts_index_del);
 
-  /* No .da file, no execution counts.  */
+  /* No .da file, no data.  */
   if (!da_file)
     return 0;
 
-  /* Count the edges to be (possibly) instrumented.  */
+  /* Now index all profile sections.  */
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    {
-      edge e;
-      for (e = bb->succ; e; e = e->succ_next)
-	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
-	  num_edges++;
-    }
-
-  /* now read and combine all matching profiles.  */
-
-  profile = xmalloc (sizeof (gcov_type) * num_edges);
   rewind (da_file);
 
-  for (ix = 0; ix < num_edges; ix++)
-    profile[ix] = 0;
+  summary = NULL;
 
   if (gcov_read_unsigned (da_file, &magic) || magic != GCOV_DATA_MAGIC)
     {
       warning ("`%s' is not a gcov data file", da_file_name);
-    cleanup:;
-      fclose (da_file);
-      da_file = NULL;
-      free (profile);
-      free (function_name_buffer);
-      return 0;
+      goto cleanup;
     }
   if (gcov_read_unsigned (da_file, &version) || version != GCOV_VERSION)
     {
@@ -273,8 +406,9 @@ get_exec_counts ()
   while (1)
     {
       unsigned tag, length;
-      long base;
+      long offset;
       
+      offset = gcov_save_position (da_file);
       if (gcov_read_unsigned (da_file, &tag)
 	  || gcov_read_unsigned (da_file, &length))
 	{
@@ -284,91 +418,193 @@ get_exec_counts ()
 	  warning ("`%s' is corrupted", da_file_name);
 	  goto cleanup;
 	}
-      base = gcov_save_position (da_file);
       if (tag == GCOV_TAG_FUNCTION)
 	{
-	  unsigned checksum;
-
-	  if (seen_fn == 3)
-	    {
-	      profile_info.count_profiles_merged += prog_runs;
-	      profile_info.max_counter_in_program += prog_sum_max;
-	      if (!prog_runs)
-		{
-		  profile_info.count_profiles_merged++;
-		  profile_info.max_counter_in_program += max_count;
-		}
-	      seen_fn = 0;
-	    }
-	  else if (seen_fn == 1)
-	    seen_fn = 2;
-	  
 	  if (gcov_read_string (da_file, &function_name_buffer, NULL)
 	      || gcov_read_unsigned (da_file, &checksum))
 	    goto corrupt;
-	  
-	  if (strcmp (name, function_name_buffer))
-	    ;
-	  else if (checksum != profile_info.current_function_cfg_checksum)
-	    {
-	    mismatch:;
-	      warning ("profile mismatch for `%s'", current_function_name);
-	      goto cleanup;
-	    }
-	  else
-	    seen_fn = 1;
+	  continue;
 	}
-      else if (tag == GCOV_TAG_PROGRAM_SUMMARY)
+      if (tag == GCOV_TAG_PROGRAM_SUMMARY)
 	{
-	  struct gcov_summary summary;
-
-	  if (gcov_read_summary (da_file, &summary))
+	  if (length != GCOV_SUMMARY_LENGTH)
 	    goto corrupt;
 
-	  if (seen_fn == 1)
-	    seen_fn = 2;
-	  if (seen_fn == 2)
-	    seen_fn = 3;
-	  if (seen_fn == 3)
-	    {
-	      prog_runs += summary.runs;
-	      prog_sum_max += summary.arc_sum_max;
-	    }
+	  if (length != GCOV_SUMMARY_LENGTH)
+	    goto corrupt;
+
+	  if (summary)
+	    *summary = offset;
+	  summary = NULL;
 	}
-      else if (tag == GCOV_TAG_ARC_COUNTS)
+      else
 	{
-	  unsigned num = length / 8;
-
-	  if (seen_fn == 1 && num != num_edges)
-	    goto mismatch;
-	  
-	  for (ix = 0; ix != num; ix++)
+	  if (function_name_buffer)
 	    {
-	      gcov_type count;
+	      struct da_index_entry **slot, elt;
+	      elt.function_name = function_name_buffer;
+	      elt.section = tag;
 
-	      if (gcov_read_counter (da_file, &count))
-		goto corrupt;
-	      if (count > max_count)
-		max_count = count;
-	      if (seen_fn == 1)
-		profile[ix] = count;
+	      slot = (struct da_index_entry **)
+		htab_find_slot (counts_file_index, &elt, INSERT);
+	      if (*slot)
+		{
+		  if ((*slot)->checksum != checksum)
+		    {
+		      warning ("profile mismatch for `%s'", function_name_buffer);
+		      goto cleanup;
+		    }
+		  (*slot)->n_offsets++;
+		  (*slot)->offsets = xrealloc ((*slot)->offsets,
+					       sizeof (long) * (*slot)->n_offsets);
+		}
+	      else
+		{
+		  *slot = xmalloc (sizeof (struct da_index_entry));
+		  (*slot)->function_name = xstrdup (function_name_buffer);
+		  (*slot)->section = tag;
+		  (*slot)->checksum = checksum;
+		  (*slot)->n_offsets = 1;
+		  (*slot)->offsets = xmalloc (sizeof (long));
+		}
+	      (*slot)->offsets[(*slot)->n_offsets - 1].offset = offset;
+	      if (summary)
+		(*slot)->offsets[(*slot)->n_offsets - 1].owns_summary = 0;
+	      else
+		{
+		  summary = xmalloc (sizeof (long));
+		  *summary = -1;
+		  (*slot)->offsets[(*slot)->n_offsets - 1].owns_summary = 1;
+		}
+	      (*slot)->offsets[(*slot)->n_offsets - 1].summary = summary;
 	    }
 	}
-      gcov_resync (da_file, base, length);
+      if (gcov_skip (da_file, length))
+	goto corrupt;
     }
 
-  if (seen_fn == 3)
+  free (function_name_buffer);
+
+  return 1;
+
+cleanup:
+  cleanup_counts_index (1);
+  if (function_name_buffer)
+    free (function_name_buffer);
+  return 0;
+}
+
+/* Computes hybrid profile for all matching entries in da_file.
+   Sets max_counter_in_program as a side effect.  */
+
+static gcov_type *
+get_exec_counts ()
+{
+  unsigned num_edges = 0;
+  basic_block bb;
+  gcov_type *profile;
+  gcov_type max_count;
+  unsigned ix, i, tag, length, num;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+  struct da_index_entry *entry, what;
+  struct section_reference *act;
+  gcov_type count;
+  struct gcov_summary summ;
+
+  profile_info.max_counter_in_program = 0;
+  profile_info.count_profiles_merged = 0;
+
+  /* No .da file, no execution counts.  */
+  if (!da_file)
+    return NULL;
+  if (!counts_file_index)
+    abort ();
+
+  /* Count the edges to be (possibly) instrumented.  */
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      profile_info.count_profiles_merged += prog_runs;
-      profile_info.max_counter_in_program += prog_sum_max;
-      if (!prog_runs)
+      edge e;
+      for (e = bb->succ; e; e = e->succ_next)
+	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
+	  num_edges++;
+    }
+
+  /* now read and combine all matching profiles.  */
+
+  profile = xmalloc (sizeof (gcov_type) * num_edges);
+
+  for (ix = 0; ix < num_edges; ix++)
+    profile[ix] = 0;
+
+  what.function_name = (char *) name;
+  what.section = GCOV_TAG_ARC_COUNTS;
+  entry = htab_find (counts_file_index, &what);
+  if (!entry)
+    {
+      warning ("No profile for function '%s' found.", name);
+      goto cleanup;
+    }
+  
+  if (entry->checksum != profile_info.current_function_cfg_checksum)
+    {
+      warning ("profile mismatch for `%s'", current_function_name);
+      goto cleanup;
+    }
+
+  for (i = 0; i < entry->n_offsets; i++)
+    {
+      act = entry->offsets + i;
+
+      /* Read arc counters.  */
+      max_count = 0;
+      gcov_resync (da_file, act->offset, 0);
+
+      if (gcov_read_unsigned (da_file, &tag)
+	  || gcov_read_unsigned (da_file, &length)
+	  || tag != GCOV_TAG_ARC_COUNTS)
+	{
+	  /* We have already passed through file, so any error means
+	     something is rotten.  */
+	  abort ();
+	}
+      num = length / 8;
+
+      if (num != num_edges)
+	{
+	  warning ("profile mismatch for `%s'", current_function_name);
+	  goto cleanup;
+	}
+	  
+      for (ix = 0; ix != num; ix++)
+	{
+	  if (gcov_read_counter (da_file, &count))
+	    abort ();
+	  if (count > max_count)
+	    max_count = count;
+	  profile[ix] += count;
+	}
+
+      /* Read program summary.  */
+      if (*act->summary != -1)
+	{
+	  gcov_resync (da_file, *act->summary, 0);
+	  if (gcov_read_unsigned (da_file, &tag)
+	      || gcov_read_unsigned (da_file, &length)
+	      || tag != GCOV_TAG_PROGRAM_SUMMARY
+	      || gcov_read_summary (da_file, &summ))
+	    abort ();
+	  profile_info.count_profiles_merged += summ.runs;
+	  profile_info.max_counter_in_program += summ.arc_sum_max;
+	}
+      else
+	summ.runs = 0;
+      if (!summ.runs)
 	{
 	  profile_info.count_profiles_merged++;
 	  profile_info.max_counter_in_program += max_count;
 	}
     }
-  
-  free (function_name_buffer);
 
   if (rtl_dump_file)
     {
@@ -378,8 +614,137 @@ get_exec_counts ()
     }
 
   return profile;
+
+cleanup:;
+  free (profile);
+  cleanup_counts_index (1);
+  return 0;
+}
+
+/* Get loop histogram counters.  */
+static gcov_type *
+get_histogram_counts (loops, steps)
+     int loops;
+     int steps;
+{
+  gcov_type *profile;
+  gcov_type max_count;
+  unsigned ix, i, tag, length, num;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+  struct da_index_entry *entry, what;
+  struct section_reference *act;
+  gcov_type count;
+  unsigned n_counters;
+
+  profile_info.max_counter_in_program = 0;
+  profile_info.count_profiles_merged = 0;
+
+  /* No .da file, no execution counts.  */
+  if (!da_file)
+    return NULL;
+  if (!counts_file_index)
+    abort ();
+
+  /* now read and combine all matching profiles.  */
+
+  n_counters = loops * (steps + 1);
+  profile = xmalloc (sizeof (gcov_type) * n_counters);
+
+  for (ix = 0; ix < n_counters; ix++)
+    profile[ix] = 0;
+
+  what.function_name = (char *) name;
+  what.section = GCOV_TAG_LOOP_HISTOGRAMS;
+  entry = htab_find (counts_file_index, &what);
+  if (!entry)
+    {
+      warning ("No profile for function '%s' found.", name);
+      goto cleanup;
+    }
+  
+  if (entry->checksum != profile_info.current_function_cfg_checksum)
+    {
+      warning ("profile mismatch for `%s'", current_function_name);
+      goto cleanup;
+    }
+
+  for (i = 0; i < entry->n_offsets; i++)
+    {
+      act = entry->offsets + i;
+
+      /* Read arc counters.  */
+      max_count = 0;
+      gcov_resync (da_file, act->offset, 0);
+
+      if (gcov_read_unsigned (da_file, &tag)
+	  || gcov_read_unsigned (da_file, &length)
+	  || tag != GCOV_TAG_LOOP_HISTOGRAMS)
+	{
+	  /* We have already passed through file, so any error means
+	     something is rotten.  */
+	  abort ();
+	}
+      num = length / 8;
+
+      if (num != n_counters)
+	{
+	  warning ("profile mismatch for `%s'", current_function_name);
+	  goto cleanup;
+	}
+	  
+      for (ix = 0; ix != num; ix++)
+	{
+	  if (gcov_read_counter (da_file, &count))
+	    abort ();
+	  if (count > max_count)
+	    max_count = count;
+	  profile[ix] += count;
+	}
+    }
+
+  return profile;
+
+cleanup:;
+  free (profile);
+  cleanup_counts_index (1);
+  return 0;
 }
 
+/* Load loop histograms from .da file.  */
+static void
+compute_loop_histograms (loops)
+     struct loops *loops;
+{
+  int histogram_steps;
+  int i;
+  gcov_type *histogram_counts, *act_count;
+  
+  histogram_steps = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
+  if (histogram_steps < PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+    histogram_steps = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
+
+  histogram_counts = get_histogram_counts (loops->num - 1, histogram_steps);
+  if (!histogram_counts)
+    return;
+
+  act_count = histogram_counts;
+  for (i = 1; i < loops->num; i++)
+    {
+      edge latch = loop_latch_edge (loops->parray[i]);
+
+      latch->loop_histogram = xmalloc (sizeof (struct loop_histogram));
+      latch->loop_histogram->steps = histogram_steps;
+      latch->loop_histogram->counts = xmalloc (histogram_steps * sizeof (gcov_type));
+      memcpy (latch->loop_histogram->counts, act_count,
+	      histogram_steps * sizeof (gcov_type));
+      latch->loop_histogram->more = act_count[histogram_steps];
+      act_count += histogram_steps + 1;
+    }
+
+  free (histogram_counts);
+  loops->state |= LOOPS_HAVE_HISTOGRAMS_ON_EDGES;
+  profile_info.have_loop_histograms = 1;
+}
 
 /* Compute the branch probabilities for the various branches.
    Annotate them accordingly.  */
@@ -757,10 +1122,12 @@ branch_prob ()
   int i;
   int num_edges, ignored_edges;
   struct edge_list *el;
+  struct loops loops;
   const char *name = IDENTIFIER_POINTER
 		      (DECL_ASSEMBLER_NAME (current_function_decl));
 
   profile_info.current_function_cfg_checksum = compute_checksum ();
+  profile_info.have_loop_histograms = 0;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "CFG checksum is %u\n",
@@ -845,6 +1212,19 @@ branch_prob ()
 	    fprintf (rtl_dump_file, "Adding fake entry edge to bb %i\n",
 		     bb->index);
 	  make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
+	}
+    }
+
+  if (flag_loop_histograms)
+    {
+      /* Find loops and bring them into canonical shape.  */
+      flow_loops_find (&loops, LOOP_TREE);
+      create_preheaders (&loops, 0);
+      /* Release dominators -- we aren't going to need them nor update them.  */
+      if (loops.cfg.dom)
+	{
+	  free_dominance_info (loops.cfg.dom);
+	  loops.cfg.dom = NULL;
 	}
     }
 
@@ -964,6 +1344,7 @@ branch_prob ()
 		    goto bbg_error;
 	        }
 	    }
+
 	  if (gcov_write_length (bbg_file, offset))
 	    goto bbg_error;
 	}
@@ -1030,6 +1411,7 @@ branch_prob ()
 		  }
 		insn = NEXT_INSN (insn);
 	      }
+
 	    if (offset)
 	      {
 		if (gcov_write_unsigned (bbg_file, 0)
@@ -1047,7 +1429,11 @@ branch_prob ()
     }
 
   if (flag_branch_probabilities)
-    compute_branch_probabilities ();
+    {
+      compute_branch_probabilities ();
+      if (flag_loop_histograms)
+	compute_loop_histograms (&loops);
+    }
 
   /* For each edge not on the spanning tree, add counting code as rtl.  */
 
@@ -1056,6 +1442,11 @@ branch_prob ()
       struct function_list *item;
       
       instrument_edges (el);
+      if (flag_loop_histograms)
+	instrument_loops (&loops);
+
+      /* Commit changes done by instrument_edges and instrument_loops.  */
+      commit_edge_insertions_watch_calls ();
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
       /* ??? Probably should re-use the existing struct function.  */
@@ -1068,16 +1459,23 @@ branch_prob ()
       item->name = xstrdup (name);
       item->cfg_checksum = profile_info.current_function_cfg_checksum;
       item->count_edges = profile_info.count_edges_instrumented_now;
+      item->histogram_counters = profile_info.count_histogram_counters_now;
+    }
+
+  if (flag_loop_histograms)
+    {
+      /* Free the loop datastructure.  */
+      flow_loops_free (&loops);
     }
 
   remove_fake_edges ();
+  free_aux_for_edges ();
   /* Re-merge split basic blocks and the mess introduced by
      insert_insn_on_edge.  */
   cleanup_cfg (profile_arc_flag ? CLEANUP_EXPENSIVE : 0);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
 
-  free_aux_for_edges ();
   free_edge_list (el);
 }
 
@@ -1232,6 +1630,10 @@ init_branch_prob (filename)
       if (!da_file)
 	warning ("file %s not found, execution counts assumed to be zero",
 		 da_file_name);
+      if (counts_file_index && strcmp (da_file_name, counts_file_name))
+       	cleanup_counts_index (0);
+      if (index_counts_file ())
+	counts_file_name = xstrdup (da_file_name);
     }
 
   if (profile_arc_flag)
@@ -1241,6 +1643,12 @@ init_branch_prob (filename)
       
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
       profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+
+      if (flag_loop_histograms)
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 3);
+	  loop_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+	}
     }
   
   total_num_blocks = 0;
@@ -1343,7 +1751,8 @@ create_profiler ()
   rtx structure_address;
   int save_flag_inline_functions = flag_inline_functions;
 
-  if (!profile_info.count_instrumented_edges)
+  if (!profile_info.count_instrumented_edges
+      && !profile_info.count_histogram_counters)
     return;
   
   string_type = build_pointer_type
@@ -1408,7 +1817,7 @@ create_profiler ()
     int num_nodes = 0;
     tree array_value = NULL_TREE;
     tree finfo_type, finfo_ptr_type;
-    tree name, checksum, arcs;
+    tree name, checksum, arcs, histogram_counters;
     
     finfo_type = (*lang_hooks.types.make_type) (RECORD_TYPE);
     name = build_decl (FIELD_DECL, NULL_TREE, string_type);
@@ -1416,8 +1825,10 @@ create_profiler ()
     TREE_CHAIN (checksum) = name;
     arcs = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
     TREE_CHAIN (arcs) = checksum;
+    histogram_counters = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+    TREE_CHAIN (histogram_counters) = arcs;
     finish_builtin_struct (finfo_type, "__function_info",
-			   arcs, NULL_TREE);
+			   histogram_counters, NULL_TREE);
     finfo_ptr_type = build_pointer_type
       (build_qualified_type (finfo_type, TYPE_QUAL_CONST));
     
@@ -1439,6 +1850,10 @@ create_profiler ()
 	finfo_value = tree_cons (arcs, convert
 				 (unsigned_type_node,
 				  build_int_2 (item->count_edges, 0)),
+				 finfo_value);
+	finfo_value = tree_cons (histogram_counters, convert
+				 (unsigned_type_node,
+				  build_int_2 (item->histogram_counters, 0)),
 				 finfo_value);
 	array_value = tree_cons (NULL_TREE, build
 				 (CONSTRUCTOR, finfo_type, NULL_TREE,
@@ -1506,6 +1921,41 @@ create_profiler ()
 		     (unsigned_type_node,
 		      build_int_2 (profile_info
 				   .count_instrumented_edges, 0)),
+		     value);
+  
+  /* histogram counters table */
+  {
+    tree counts_table = null_pointer_node;
+    
+    if (profile_info.count_histogram_counters)
+      {
+	tree gcov_type_array_type
+	  = build_array_type (gcov_type, build_index_type
+			      (build_int_2 (profile_info.
+					    count_histogram_counters - 1, 0)));
+	/* No values.  */
+	counts_table
+	  = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
+	TREE_STATIC (counts_table) = 1;
+	DECL_NAME (counts_table) = get_identifier (XSTR (loop_histograms_label, 0));
+	assemble_variable (counts_table, 0, 0, 0);
+	counts_table = build1 (ADDR_EXPR, gcov_ptr_type, counts_table);
+      }
+    
+    field = build_decl (FIELD_DECL, NULL_TREE, gcov_ptr_type);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    value = tree_cons (fields, counts_table, value);
+  }
+  
+  /* number of histogram counters */
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (fields, convert
+		     (unsigned_type_node,
+		      build_int_2 (profile_info
+				   .count_histogram_counters, 0)),
 		     value);
   
   finish_builtin_struct (ginfo_type, "__gcov_info", fields, NULL_TREE);
@@ -1591,6 +2041,68 @@ gen_edge_profiler (edgeno)
   mem_ref = validize_mem (gen_rtx_MEM (mode, tmp));
 
   set_mem_alias_set (mem_ref, new_alias_set ());
+
+  tmp = expand_simple_binop (mode, PLUS, mem_ref, const1_rtx,
+			     mem_ref, 0, OPTAB_WIDEN);
+
+  if (tmp != mem_ref)
+    emit_move_insn (copy_rtx (mem_ref), tmp);
+
+  sequence = get_insns ();
+  end_sequence ();
+  return sequence;
+}
+
+/* Output instructions as RTL to increment the loop histogram counter.  */
+
+static rtx
+gen_loop_profiler (iterations, loop, steps)
+     rtx iterations;
+     int loop;
+     int steps;
+{
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  rtx mem_ref, tmp, tmp1, mr, lab, jump;
+  rtx sequence;
+  int base = (loop - 1) * (steps + 1);
+  rtx in_range_label = gen_label_rtx ();
+  rtx end_of_code_label = gen_label_rtx ();
+  int per_counter = GCOV_TYPE_SIZE / BITS_PER_UNIT;
+
+  start_sequence ();
+
+  mr = gen_reg_rtx (Pmode);
+
+  tmp = force_reg (Pmode, loop_histograms_label);
+  tmp = plus_constant (tmp,
+		       per_counter * (base + profile_info.count_histogram_counters));
+
+  do_compare_rtx_and_jump (iterations, GEN_INT (steps), GE, 0, mode, NULL_RTX,
+			   in_range_label, NULL_RTX);
+  jump = get_last_insn ();
+  JUMP_LABEL (jump) = in_range_label;
+
+  tmp1 = expand_simple_binop (Pmode, PLUS, tmp, GEN_INT (per_counter * steps), mr, 0, OPTAB_WIDEN);
+  if (tmp1 != mr)
+    emit_move_insn (mr, tmp1);
+
+  jump = emit_jump_insn (gen_jump (end_of_code_label));
+  JUMP_LABEL (jump) = end_of_code_label;
+  emit_barrier ();
+
+  lab = emit_label (in_range_label);
+  LABEL_NUSES (lab) = 1;
+
+  tmp1 = expand_simple_binop (mode, MULT, iterations, GEN_INT (per_counter),
+			      NULL_RTX, 0, OPTAB_WIDEN);
+  tmp1 = expand_simple_binop (Pmode, PLUS, tmp, tmp1, mr, 0, OPTAB_WIDEN);
+  if (tmp1 != mr)
+    emit_move_insn (mr, tmp1);
+
+  lab = emit_label (end_of_code_label);
+  LABEL_NUSES (lab) = 1;
+
+  mem_ref = validize_mem (gen_rtx_MEM (mode, mr));
 
   tmp = expand_simple_binop (mode, PLUS, mem_ref, const1_rtx,
 			     mem_ref, 0, OPTAB_WIDEN);

@@ -620,6 +620,8 @@ cleanup_unconditional_jumps (loops)
      struct loops *loops;
 {
   basic_block bb;
+  struct loop_histogram *histogram;
+  edge e;
 
   FOR_EACH_BB (bb)
     {
@@ -639,6 +641,7 @@ cleanup_unconditional_jumps (loops)
 		fprintf (rtl_dump_file, "Removing forwarder BB %i\n",
 			 bb->index);
 
+	      histogram = bb->succ->loop_histogram;
 	      if (loops)
 		{
 		  /* bb cannot be loop header, as it only has one entry
@@ -658,7 +661,8 @@ cleanup_unconditional_jumps (loops)
 		  delete_from_dominance_info (loops->cfg.dom, bb);
 		}
 
-	      redirect_edge_succ_nodup (bb->pred, bb->succ->dest);
+	      e = redirect_edge_succ_nodup (bb->pred, bb->succ->dest);
+	      e->loop_histogram = histogram;
 	      flow_delete_block (bb);
 	      bb = prev;
 	    }
@@ -950,6 +954,12 @@ cfg_layout_duplicate_bb (bb, e)
     {
       n = make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
+      /* Duplicate histograms.  */
+      if (s->loop_histogram)
+	{
+	  n->loop_histogram = copy_histogram (s->loop_histogram, new_count * 10000 / bb->count);
+	  add_histogram (s->loop_histogram, n->loop_histogram, -10000);
+	}
       if (new_count)
 	/* Take care for overflows!  */
 	n->count = s->count * (new_count * 10000 / bb->count) / 10000;

@@ -158,7 +158,7 @@ find_trace (bb, trace)
      basic_block *trace;
 {
   int i = 0;
-  edge e;
+  edge e, te;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Trace seed %i [%i]", bb->index, bb->frequency);
@@ -169,6 +169,10 @@ find_trace (bb, trace)
       if (seen (bb2) || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 	  || find_best_successor (bb2) != e)
 	break;
+      /* Stop trace from starting outside the loop.  */
+      for (te = bb2->pred; te; te = te->pred_next)
+	if (te->flags & EDGE_DFS_BACK)
+	  break;
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ",%i [%i]", bb->index, bb->frequency);
       bb = bb2;
@@ -184,6 +188,13 @@ find_trace (bb, trace)
       if (seen (bb) || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 	  || find_best_predecessor (bb) != e)
 	break;
+      /* Prevent loop peeling -- stop trace at loop header.  */
+      for (te = bb->pred; te; te = te->pred_next)
+	if (te->flags & EDGE_DFS_BACK)
+	  break;
+      if (te)
+	break;
+
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ",%i [%i]", bb->index, bb->frequency);
       trace[i++] = bb;

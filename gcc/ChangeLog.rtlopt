@@ -1,3 +1,81 @@
+2002-11-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (profile.o): Add hashtab.h, cfgloop.h and params.h
+	dependency.
+	(cfgloop.o): Add flags.h dependency.
+	(loop-init.o): Add profile.h dependency.
+	* basic_block.h (struct edge_def): Add loop_histogram field.
+	(dfs_enumerate_from): Moved from cfgloop.h.
+	* cfg.c (dump_edge_info): Dump info about histograms.
+	* cfgcleanup.c (try_simplify_condjump, try_forward_edges, merge_blocks):
+	Keep histograms alive.
+	* cfglayout.c (cleanup_unconditional_jumps, cfg_layout_duplicate_bb):
+	Keep histograms alive.
+	* cfgloop.c: Include flags.h
+	(flow_loop_dump): Dump histograms.
+	(flow_loop_free): Free histogram.
+	(redirect_edge_with_latch_update, make_forwarder_block): Keep histograms
+	alive.
+	(flow_loops_find): Modified.
+	(verify_loop_structure): Removed argument flags (use loops->state instead).
+	Verify loop histograms.
+	(move_histograms_to_loops, copy_histogram, add_histogram, free_histogram):
+	New functions.
+	(loop_latch_edge, loop_preheader_edge): Declare parameter as const.
+	* cfgloop.h (struct loop): Add histogram field.
+	(struct loop_histogram): New.
+	(LOOPS_HAVE_PREHEADERS, LOOPS_HAVE_SIMPLE_LATCHES,
+	LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS, LOOPS_HAVE_HISTOGRAMS_ON_EDGES):
+	New flags for loops->state.
+	(struct loops): Add state field.
+	(VLS_EXPECT_PREHEADERS, VLS_EXPECT_SIMPLE_LATCHES,
+	VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS, VLS_FOR_LOOP): Removed.
+	(dfs_enumerate_from): Declaration moved to basic_block.h.
+	(loop_preheader_edge, loop_latch_edge, verify_loop_structure): Declaration
+	changed.
+	(move_histograms_to_loops, loop_histogram, add_histogram, free_histogram):
+	Declare.
+	(DLTHE_PROB_UPDATING, DLTHE_USE_HISTOGRAM_PROB, DLTHE_USE_WONT_EXIT):
+	New flags.
+	(DLTHE_FLAG_ALL): Removed.
+	* cfgloopanal.c (mark_irreducible_loops): Set loops->state.
+	* cfgloopmanip.c (duplicate_loop, duplicate_subloops, copy_loops_to):
+	Update histograms.
+	(scale_loop_histograms): New.
+	(duplicate_loop_to_header_edge): Use histograms for updating counts.
+	(create_preheader): Update loop information correctly.
+	(create_preheaders, force_single_succ_latches): Set loops->state.
+	(loop_split_edge_with): Keep histograms alive.
+	* cfgrtl.c (merge_blocks_nomove): Keep histograms alive.
+	* flags.h (flag_loop_histograms): Declare.
+	* gcov-io.h (GCOV_TAG_LOOP_HISTOGRAMS, GCOV_SUMMARY_LENGTH): New.
+	(struct function_info): Add n_loop_histogram_counters field.
+	(struct gcov_info): Add histogram_counts and n_histogram_counts fields.
+	* libgcc2.c (gcov_exit, __gcov_flush): Write out histograms.
+	* loop-init.c: Include profile.h.
+	(loop_optimizer_init): Move histograms to loops.
+	* loop-unroll.c (unroll_and_peel_loops): Modified.
+	(peel_loop_completely, unroll_loop_constant_iterations,
+	unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+	peel_loop_simple, unroll_loop_stupid): Update/use histograms.
+	(unroll_or_peel_loop): Use histograms to decide peeling.
+	* loop-unswitch.c (unswitch_loops, unswitch_loop): Modified.
+	* params.def (PARAM_HISTOGRAM_PEEL_RATIO): New.
+	* profile.c: Include cfgloop.h, params.h and hashtab.h.
+	(struct function_list): Add histogram_counters field.
+	(loop_histograms_label): New.
+	(gen_loop_profiler, instrument_loops, compute_loop_histograms,
+	htab_counts_index_hash, htab_counts_index_eq, htab_counts_index_del,
+	cleanup_counts_index, index_counts_file, get_histogram_counts): New.
+	(get_exec_counts, instrument_edges, init_branch_prob,
+	create_profiler): Modified.
+	(branch_prob): Read loop histograms and add code to generate them.
+	* profile.h (struct profile_info): Add count_histogram_counters,
+	count_histogram_counters_now and have_loop_histograms fields.
+	* toplev.c (flag_loop_histograms): New.
+	* tracer.c (find_trace): Prevent loop peeling.
+	* doc/invoke.texi: Document -floop-histograms.
+
 2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopmanip.c (duplicate_loop_to_header_edge): Fix count &

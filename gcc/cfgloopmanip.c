@@ -28,11 +28,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 
 static struct loop * duplicate_loop	PARAMS ((struct loops *,
-						struct loop *, struct loop *));
+						struct loop *, struct loop *, int));
+static void scale_loop_histograms	PARAMS ((struct loop *, int));
 static void duplicate_subloops		PARAMS ((struct loops *, struct loop *,
-						struct loop *));
+						struct loop *, int));
 static void copy_loops_to		PARAMS ((struct loops *, struct loop **,
-						int, struct loop *));
+						int, struct loop *, int));
 static void loop_redirect_edge		PARAMS ((edge, basic_block));
 static bool loop_delete_branch_edge	PARAMS ((edge));
 static void copy_bbs			PARAMS ((basic_block *, int, edge,
@@ -589,6 +590,20 @@ fix_loop_placements (loop)
     }
 }
 
+/* Scales histograms of LOOP and subloops by PROB.  */
+static void
+scale_loop_histograms (loop, prob)
+     struct loop *loop;
+     int prob;
+{
+  struct loop *aloop;
+
+  for (aloop = loop->inner; aloop; aloop = aloop->next)
+    scale_loop_histograms (aloop, prob);
+  if (loop->histogram)
+    add_histogram (loop->histogram, loop->histogram, prob - REG_BR_PROB_BASE);
+}
+
 /* Creates place for a new LOOP.  */
 static void
 place_new_loop (loops, loop)
@@ -602,12 +617,13 @@ place_new_loop (loops, loop)
   loop->num = loops->num++;
 }
 
-/* Copies structure of LOOP into TARGET.  */
+/* Copies structure of LOOP into TARGET, scaling histogram by PROB.  */
 static struct loop *
-duplicate_loop (loops, loop, target)
+duplicate_loop (loops, loop, target, prob)
      struct loops *loops;
      struct loop *loop;
      struct loop *target;
+     int prob;
 {
   struct loop *cloop;
   cloop = xcalloc (1, sizeof (struct loop));
@@ -619,43 +635,49 @@ duplicate_loop (loops, loop, target)
   /* Set it as copy of loop.  */
   loop->copy = cloop;
 
+  /* Scale histogram.  */
+  if (loop->histogram)
+    cloop->histogram = copy_histogram (loop->histogram, prob);
+
   /* Add it to target.  */
   flow_loop_tree_node_add (target, cloop);
 
   return cloop;
 }
 
-/* Copies structure of subloops of LOOP into TARGET.  */
+/* Copies structure of subloops of LOOP into TARGET; histograms are scaled by PROB.  */
 static void 
-duplicate_subloops (loops, loop, target)
+duplicate_subloops (loops, loop, target, prob)
      struct loops *loops;
      struct loop *loop;
      struct loop *target;
+     int prob;
 {
   struct loop *aloop, *cloop;
 
   for (aloop = loop->inner; aloop; aloop = aloop->next)
     {
-      cloop = duplicate_loop (loops, aloop, target);
-      duplicate_subloops (loops, aloop, cloop);
+      cloop = duplicate_loop (loops, aloop, target, prob);
+      duplicate_subloops (loops, aloop, cloop, prob);
     }
 }
 
 /*  Copies structure of COPIED_LOOPS into TARGET.  */
 static void 
-copy_loops_to (loops, copied_loops, n, target)
+copy_loops_to (loops, copied_loops, n, target, prob)
      struct loops *loops;
      struct loop **copied_loops;
      int n;
      struct loop *target;
+     int prob;
 {
   struct loop *aloop;
   int i;
 
   for (i = 0; i < n; i++)
     {
-      aloop = duplicate_loop (loops, copied_loops[i], target);
-      duplicate_subloops (loops, copied_loops[i], aloop);
+      aloop = duplicate_loop (loops, copied_loops[i], target, prob);
+      duplicate_subloops (loops, copied_loops[i], aloop, prob);
     }
 }
 
@@ -901,8 +923,8 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
    to original LOOP body) into TO_REMOVE array.  Returns false if duplication
    is impossible.  */
 int
-duplicate_loop_to_header_edge (loop, e, loops, ndupl,
-			       wont_exit, orig, to_remove, n_to_remove, flags)
+duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
+			       to_remove, n_to_remove, flags)
      struct loop *loop;
      edge e;
      struct loops *loops;
@@ -922,9 +944,10 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   edge ae, latch_edge, he;
   int i, j, n;
   int is_latch = (latch == e->src);
-  int scale_act, scale_step, scale_main, p, freq_in, freq_le;
-  int prob_pass_thru;
+  int scale_act, *scale_step, scale_main, p, freq_in, freq_le, freq_out_orig, hsteps;
+  int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
+  gcov_type all_counters, iterations;
 
   if (e->dest != loop->header)
     abort ();
@@ -958,47 +981,103 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   /* Find edge from latch.  */
   latch_edge = loop_latch_edge (loop);
 
-  /* For updating frequencies.  */
-  freq_in = header->frequency;
-  freq_le = EDGE_FREQUENCY (latch_edge);
-  if (freq_in == 0)
-    freq_in = 1;
-  if (freq_in < freq_le)
-    freq_in = freq_le;
-
-  prob_pass_thru = RDIV (REG_BR_PROB_BASE * freq_le, freq_in);
-  scale_step = prob_pass_thru;
-
-  if (is_latch)
+  if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
-      /* Should work well unless something inside depends on parity of
-	 iteration counter.  */
-      p = REG_BR_PROB_BASE;
-      scale_main = 0;
-      for (i = 0; i < ndupl + 1; i++)
+      /* For updating frequencies.  */
+      freq_in = header->frequency;
+      freq_le = EDGE_FREQUENCY (latch_edge);
+      if (freq_in == 0)
+	freq_in = 1;
+      if (freq_in < freq_le)
+	freq_in = freq_le;
+      freq_out_orig = orig ? EDGE_FREQUENCY (orig) : freq_in - freq_le;
+      if (freq_out_orig > freq_in - freq_le)
+	freq_out_orig = freq_in - freq_le;
+      prob_pass_thru = RDIV (REG_BR_PROB_BASE * freq_le, freq_in);
+      prob_pass_wont_exit = RDIV (REG_BR_PROB_BASE * (freq_le + freq_out_orig), freq_in);
+
+      scale_step = xmalloc (ndupl * sizeof (int));
+
+      switch (DLTHE_PROB_UPDATING (flags))
 	{
-	  scale_main += p;
-	  p = RDIV (p * scale_step, REG_BR_PROB_BASE);
-	}
-      scale_main = RDIV (REG_BR_PROB_BASE * REG_BR_PROB_BASE, scale_main);
-      scale_act = RDIV (scale_main * scale_step, REG_BR_PROB_BASE);
-    }
-  else
-    {
-      /* This is wrong; first iteration of cycle is certainly somewhat
-	 special.  But I cannot do anything with it. */
+	  case DLTHE_USE_HISTOGRAM_PROB:
+	    if (is_latch || !loop->histogram)
+	      abort ();
+	    iterations = latch_edge->count;
+	    all_counters = loop->histogram->more;
+	    for (i = 0; i < loop->histogram->steps; i++)
+	      all_counters += loop->histogram->counts[i];
+	    hsteps = ndupl;
+	    if (hsteps > loop->histogram->steps)
+	      hsteps = loop->histogram->steps;
+	    for (i = 0; i < hsteps; i++)
+	      {
+		if (all_counters)
+		  scale_step[i] = (all_counters - loop->histogram->counts[i]) * REG_BR_PROB_BASE / all_counters;
+		else
+		  scale_step[i] = 0;
+		all_counters -= loop->histogram->counts[i];
+		iterations -= i * loop->histogram->counts[i];
+	      }
+	    if (iterations < 0)
+	      iterations = 0;
+	    if (iterations)
+	      p = iterations * REG_BR_PROB_BASE / (iterations + all_counters);
+	    else
+	      p = 0;
+	    for (; i < ndupl; i++)
+	      scale_step[i] = p;
 
-      scale_main = REG_BR_PROB_BASE;
+	    /* Update histogram.  */
+	    if (ndupl >= loop->histogram->steps)
+	      {
+		free (loop->histogram->counts);
+		free (loop->histogram);
+		loop->histogram = NULL;
+	      }
+	    else
+	      {
+		for (i = ndupl; i < loop->histogram->steps; i++)
+		  loop->histogram->counts[i - ndupl] = loop->histogram->counts[i];
+		loop->histogram->steps -= ndupl;
+	      }
+	    break;
+
+	  case DLTHE_USE_WONT_EXIT:
+	    for (i = 1; i <= ndupl; i++)
+	      scale_step[i - 1] = TEST_BIT (wont_exit, i) ? prob_pass_wont_exit : prob_pass_thru;
+	    break;
+
+	  default:
+	    abort ();
+	}
+
+      if (is_latch)
+	{
+	  prob_pass_main = TEST_BIT (wont_exit, 0) ? prob_pass_wont_exit : prob_pass_thru;
+	  p = prob_pass_main;
+	  scale_main = REG_BR_PROB_BASE;
+	  for (i = 0; i < ndupl; i++)
+	    {
+	      scale_main += p;
+	      p = RDIV (p * scale_step[i], REG_BR_PROB_BASE);
+	    }
+	  scale_main = RDIV (REG_BR_PROB_BASE * REG_BR_PROB_BASE, scale_main);
+	  scale_act = RDIV (scale_main * prob_pass_main, REG_BR_PROB_BASE);
+	}
+      else
+	{
+	  scale_main = REG_BR_PROB_BASE;
+	  for (i = 0; i < ndupl; i++)
+	    scale_main = RDIV (scale_main * scale_step[i], REG_BR_PROB_BASE);
+	  scale_act = REG_BR_PROB_BASE - prob_pass_thru;
+	}
       for (i = 0; i < ndupl; i++)
-	scale_main = RDIV (scale_main * scale_step, REG_BR_PROB_BASE);
-      scale_act = REG_BR_PROB_BASE - scale_step;
-    }
-  if (scale_main < 0 || scale_main > REG_BR_PROB_BASE ||
-      scale_act < 0  || scale_act > REG_BR_PROB_BASE ||
-      scale_step < 0 || scale_step > REG_BR_PROB_BASE)
-    {
-      /* Something is wrong.  */
-      abort ();
+	if (scale_step[i] < 0 || scale_step[i] > REG_BR_PROB_BASE)
+	  abort ();
+      if (scale_main < 0 || scale_main > REG_BR_PROB_BASE
+	  || scale_act < 0  || scale_act > REG_BR_PROB_BASE)
+	abort ();
     }
 
   /* Loop the new bbs will belong to.  */
@@ -1031,7 +1110,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   for (j = 0; j < ndupl; j++)
     {
       /* Copy loops.  */
-      copy_loops_to (loops, orig_loops, n_orig_loops, target);
+      copy_loops_to (loops, orig_loops, n_orig_loops, target, scale_act);
 
       /* Copy bbs.  */
       copy_bbs (bbs, n, e, latch_edge, &new_bbs, loops, &e, &he, add_irreducible_flag);
@@ -1064,7 +1143,8 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
     	    ae->count = RDIV (new_bb->count * ae->probability,
 			      REG_BR_PROB_BASE);
 	}
-      scale_act = RDIV (scale_act * scale_step, REG_BR_PROB_BASE);
+      if (flags & DLTHE_FLAG_UPDATE_FREQ)
+	scale_act = RDIV (scale_act * scale_step[j], REG_BR_PROB_BASE);
 
       if (!first_active_latch)
 	{
@@ -1086,8 +1166,6 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
 	       latch_edge = latch_edge->pred_next);
 	}
     }
-  free (orig_loops);
-
   /* Now handle original loop.  */
   
   /* Update edge counts.  */
@@ -1101,7 +1179,11 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
 	  for (ae = bb->succ; ae; ae = ae->succ_next)
 	    ae->count = RDIV (bb->count * ae->probability, REG_BR_PROB_BASE);
 	}
+      for (i = 0; i < n_orig_loops; i++)
+	scale_loop_histograms (orig_loops[i], scale_main);
+      free (scale_step);
     }
+  free (orig_loops);
 
   /* Update dominators of other blocks if affected.  */
   for (i = 0; i < n; i++)
@@ -1211,6 +1293,7 @@ create_preheader (loop, dom, flags)
 	  add_to_dominance_info (dom, jump);
 	  set_immediate_dominator (dom, jump, src);
 	  add_bb_to_loop (jump, loop);
+	  loop->latch = jump;
 	}
     }
 
@@ -1236,6 +1319,7 @@ create_preheaders (loops, flags)
   int i;
   for (i = 1; i < loops->num; i++)
     create_preheader (loops->parray[i], loops->cfg.dom, flags);
+  loops->state |= LOOPS_HAVE_PREHEADERS;
 }
 
 /* Forces all loop latches to have only single successor.  */
@@ -1256,6 +1340,7 @@ force_single_succ_latches (loops)
       for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
 	loop_split_edge_with (e, NULL_RTX, loops);
     }
+  loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }
 
 /* A quite stupid function to put INSNS on E. They are supposed to form
@@ -1293,6 +1378,9 @@ loop_split_edge_with (e, insns, loops)
   new_e = make_edge (new_bb, dest, EDGE_FALLTHRU);
   new_e->probability = REG_BR_PROB_BASE;
   new_e->count = e->count;
+
+  new_e->loop_histogram = e->loop_histogram;
+  e->loop_histogram = NULL;
 
   new_bb->count = e->count;
 

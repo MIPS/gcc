@@ -67,7 +67,7 @@ unroll_and_peel_loops (loops, flags)
       unroll_or_peel_loop (loops, loop, flags);
 #ifdef ENABLE_CHECKING
       verify_dominators (loops->cfg.dom);
-      verify_loop_structure (loops, VLS_FOR_LOOP);
+      verify_loop_structure (loops);
 #endif
       loop = next;
     }
@@ -101,7 +101,7 @@ peel_loop_completely (loops, loop, desc)
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 	loops, npeel + 1,
 	wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-	DLTHE_FLAG_ALL))
+	DLTHE_FLAG_UPDATE_FREQ | (loop->histogram ? DLTHE_USE_HISTOGRAM_PROB : DLTHE_USE_WONT_EXIT)))
     abort ();
 
   free (wont_exit);
@@ -122,7 +122,7 @@ peel_loop_completely (loops, loop, desc)
   remove_path (loops, e);
 
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n",npeel);
+    fprintf (rtl_dump_file, ";; Peeled loop completely, %d times\n", (int) npeel);
 
   return true;
 }
@@ -202,7 +202,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	  && !duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, exit_mod,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	abort ();
 
       SET_BIT (wont_exit, 1);
@@ -227,7 +227,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, exit_mod + 1,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	    abort ();
 
 	  SET_BIT (wont_exit, 0);
@@ -241,7 +241,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 		loops, max_unroll,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     abort ();
 
   free (wont_exit);
@@ -250,6 +250,14 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
   for (i = 0; i < n_remove_edges; i++)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
+
+  if (loop->histogram)
+    {
+      /* We could try to update histogram, but there is no sense as the information
+	 is not used any more.  */
+      free_histogram (loop->histogram);
+      loop->histogram = NULL;
+    }
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Unrolled loop %d times, constant # of iterations %i insns\n",max_unroll, num_loop_insns (loop));
@@ -350,7 +358,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, 1,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     abort ();
 
   /* Record the place where switch will be built for preconditioning.  */
@@ -366,7 +374,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
       if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, 1,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     	abort ();
 
       if (i != n_peel)
@@ -374,6 +382,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	  /* Create item for switch.  */
 	  j = n_peel - i - (extra_zero_check ? 0 : 1);
 	  p = REG_BR_PROB_BASE / (i + 2);
+
 	  preheader = loop_split_edge_with (loop_preheader_edge (loop),
 					    NULL_RTX, loops);
 	  label = block_label (preheader);
@@ -439,7 +448,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 	 	loops, max_unroll,
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_ALL))
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     abort ();
 
   free (wont_exit);
@@ -448,6 +457,14 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   for (i = 0; i < n_remove_edges; i++)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
+
+  if (loop->histogram)
+    {
+      /* We could try to update histogram, but there is no sense as the information
+	 is not used any more.  */
+      free_histogram (loop->histogram);
+      loop->histogram = NULL;
+    }
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file,
@@ -470,7 +487,8 @@ peel_loop_simple (loops, loop, npeel)
   sbitmap_zero (wont_exit);
 
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-		loops, npeel, wont_exit, NULL, NULL, NULL, DLTHE_FLAG_ALL))
+		loops, npeel, wont_exit, NULL, NULL, NULL,
+		DLTHE_FLAG_UPDATE_FREQ | (loop->histogram ? DLTHE_USE_HISTOGRAM_PROB : DLTHE_USE_WONT_EXIT)))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
@@ -498,7 +516,8 @@ unroll_loop_stupid (loops, loop, nunroll)
   sbitmap_zero (wont_exit);
 
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-		loops, nunroll, wont_exit, NULL, NULL, NULL, DLTHE_FLAG_ALL))
+		loops, nunroll, wont_exit, NULL, NULL, NULL,
+		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";;  Not unrolling loop, can't duplicate\n");
@@ -506,6 +525,15 @@ unroll_loop_stupid (loops, loop, nunroll)
     }
 
   free (wont_exit);
+  
+  if (loop->histogram)
+    {
+      /* We could try to update histogram, but there is no sense as the information
+	 is not used any more.  */
+      free_histogram (loop->histogram);
+      loop->histogram = NULL;
+    }
+
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Unrolled loop %d times, %i insns\n",
 	     nunroll, num_loop_insns (loop));
@@ -520,8 +548,9 @@ unroll_or_peel_loop (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  int ninsns;
-  unsigned HOST_WIDE_INT nunroll, npeel, npeel_completely, peel_once, niter = 0;
+  int ninsns, i;
+  unsigned HOST_WIDE_INT niter = 0;
+  unsigned nunroll, npeel, npeel_completely, peel_once;
   struct loop_desc desc;
   bool simple, exact;
 
@@ -644,23 +673,66 @@ unroll_or_peel_loop (loops, loop, flags)
   if (exact)
     {
       /* If estimate is good, use it to decide and bound number of peelings.  */
-      if (niter + 1 > npeel)
+
+      /* If we have histogram, use it.  */
+      if (loop->histogram)
+	{
+	  gcov_type all_counters, act_counters;
+	  all_counters = loop->histogram->more;
+	  for (i = 0; i < loop->histogram->steps; i++)
+	    all_counters += loop->histogram->counts[i];
+	  act_counters = 0;
+	  if (!all_counters)
+	    {
+	      if ((flags & UAP_PEEL) && rtl_dump_file)
+		fprintf (rtl_dump_file, ";; Not peeling loop, never exits\n");
+	      flags &= ~UAP_PEEL;
+	    }
+	  else
+	    {
+	      for (i = 0; i < loop->histogram->steps; i++)
+		{
+		  if (act_counters * REG_BR_PROB_BASE >= all_counters * PARAM_VALUE (PARAM_HISTOGRAM_PEEL_RATIO))
+		    break;
+		  act_counters += loop->histogram->counts[i];
+		}
+	      if (act_counters * REG_BR_PROB_BASE < all_counters * PARAM_VALUE (PARAM_HISTOGRAM_PEEL_RATIO))
+		i = npeel + 1;
+	      if ((unsigned) i > npeel)
+		{
+		  if ((flags & UAP_PEEL) && rtl_dump_file)
+		    fprintf (rtl_dump_file,
+		  	     ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings])\n",
+		  	     i, (int) npeel);
+		  flags &= ~UAP_PEEL;
+		}
+	      else
+		npeel = i;
+	    }
+	}
+      else if (niter + 1 > npeel)
 	{
 	  if ((flags & UAP_PEEL) && rtl_dump_file)
-	    fprintf (rtl_dump_file,
-		     ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings])\n",
-		     niter + 1, npeel);
+	    {
+	      fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (");
+	      fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC, (HOST_WIDEST_INT) (niter + 1));
+	      fprintf (rtl_dump_file, " iterations > %d [maximum peelings])\n", npeel);
+	    }
 	  flags &= ~UAP_PEEL;
 	}
+      else
+       	npeel = niter + 1;
+
       if (niter + 1 > npeel_completely)
 	{
 	  if ((flags & UAP_PEEL_COMPLETELY) && rtl_dump_file)
-	    fprintf (rtl_dump_file,
-		     ";; Not peeling loop completely, rolls too much (%d iterations > %d [maximum peelings])\n",
-		     niter + 1, npeel_completely);
+	    {
+	      fprintf (rtl_dump_file, ";; Not peeling loop completely, rolls too much (");
+	      fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC,(HOST_WIDEST_INT) (niter + 1));
+	      fprintf (rtl_dump_file, "iterations > %d [maximum peelings])\n", npeel_completely);
+	    }
 	  flags &= ~UAP_PEEL_COMPLETELY;
 	}
-      npeel = niter + 1;
 
       /* And unrollings.  */
       if (niter < 2 * nunroll)

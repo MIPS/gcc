@@ -544,6 +544,7 @@ merge_blocks_nomove (a, b)
   rtx del_first = NULL_RTX, del_last = NULL_RTX;
   int b_empty = 0;
   edge e;
+  struct loop_histogram *histogram = NULL;
 
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (GET_CODE (b_head) == CODE_LABEL)
@@ -607,7 +608,15 @@ merge_blocks_nomove (a, b)
      be merging a TEST block with THEN and ELSE successors.  Free the
      whole lot of them and hope the caller knows what they're doing.  */
   while (a->succ)
-    remove_edge (a->succ);
+    {
+      if (a->succ->loop_histogram)
+	{
+	  if (histogram)
+	    abort ();
+	  histogram = a->succ->loop_histogram;
+	}
+      remove_edge (a->succ);
+    }
 
   /* Adjust the edges out of B for the new owner.  */
   for (e = b->succ; e; e = e->succ_next)
@@ -639,6 +648,13 @@ merge_blocks_nomove (a, b)
     }
 
   a->end = a_end;
+
+  if (histogram)
+    {
+      if (!a->pred || a->pred->pred_next || a->pred->loop_histogram)
+	abort ();
+      a->pred->loop_histogram = histogram;
+    }
 }
 
 /* Return the label in the head of basic block BLOCK.  Create one if it doesn't

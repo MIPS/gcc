@@ -124,6 +124,7 @@ try_simplify_condjump (cbranch_block)
   basic_block jump_block, jump_dest_block, cbranch_dest_block;
   edge cbranch_jump_edge, cbranch_fallthru_edge;
   rtx cbranch_insn;
+  struct loop_histogram *histogram;
 
   /* Verify that there are exactly two successors.  */
   if (!cbranch_block->succ
@@ -168,12 +169,14 @@ try_simplify_condjump (cbranch_block)
   /* Success.  Update the CFG to match.  Note that after this point
      the edge variable names appear backwards; the redirection is done
      this way to preserve edge profile data.  */
+  histogram = jump_block->succ->loop_histogram;
   cbranch_jump_edge = redirect_edge_succ_nodup (cbranch_jump_edge,
 						cbranch_dest_block);
   cbranch_fallthru_edge = redirect_edge_succ_nodup (cbranch_fallthru_edge,
 						    jump_dest_block);
   cbranch_jump_edge->flags |= EDGE_FALLTHRU;
   cbranch_fallthru_edge->flags &= ~EDGE_FALLTHRU;
+  cbranch_fallthru_edge->loop_histogram = histogram;
   update_br_prob_note (cbranch_block);
 
   /* Delete the block with the unconditional jump, and clean up the mess.  */
@@ -448,6 +451,10 @@ try_forward_edges (mode, b)
 	      /* Bypass trivial infinite loops.  */
 	      if (target == target->succ->dest)
 		counter = n_basic_blocks;
+	      /* Do not try to thread over loop latches when we have loop histograms
+    		 to keep (to avoid creating loops with shared headers).  */
+	      if (target->succ->loop_histogram)
+		break;
 	      new_target = target->succ->dest;
 	    }
 
@@ -456,8 +463,13 @@ try_forward_edges (mode, b)
 	  else if (mode & CLEANUP_THREADING)
 	    {
 	      edge t = thread_jump (mode, e, target);
+
 	      if (t)
 		{
+		  /* Do not try to thread over loop latches when we have loop histograms
+		     to keep (to avoid creating loops with shared headers).  */
+		  if (t->loop_histogram)
+		    break;
 		  if (!threaded_edges)
 		    threaded_edges = xmalloc (sizeof (*threaded_edges)
 					      * n_basic_blocks);
@@ -546,21 +558,26 @@ try_forward_edges (mode, b)
 	  int edge_probability = e->probability;
 	  int edge_frequency;
 	  int n = 0;
+	  basic_block jump;
 
 	  /* Don't force if target is exit block.  */
 	  if (threaded && target != EXIT_BLOCK_PTR)
 	    {
-	      notice_new_block (redirect_edge_and_branch_force (e, target));
+	      jump = redirect_edge_and_branch_force (e, target);
+	      notice_new_block (jump);
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "Conditionals threaded.\n");
 	    }
-	  else if (!redirect_edge_and_branch (e, target))
+	  else
 	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
-			 "Forwarding edge %i->%i to %i failed.\n",
-			 b->index, e->dest->index, target->index);
-	      continue;
+	      if (!redirect_edge_and_branch (e, target))
+		{
+		  if (rtl_dump_file)
+		    fprintf (rtl_dump_file,
+			     "Forwarding edge %i->%i to %i failed.\n",
+			     b->index, e->dest->index, target->index);
+		  continue;
+		}
 	    }
 
 	  /* We successfully forwarded the edge.  Now update profile
@@ -793,6 +810,11 @@ merge_blocks (e, b, c, mode)
      basic_block b, c;
      int mode;
 {
+  /* Forbid creation of shared headers in case we have loop histograms attached.  */
+  if (e->loop_histogram
+      && (!e->src->pred || e->src->pred->pred_next || e->src->pred->loop_histogram))
+    return false;
+
   /* If C has a tail recursion label, do not merge.  There is no
      edge recorded from the call_placeholder back to this label, as
      that would make optimize_sibling_and_tail_recursive_calls more

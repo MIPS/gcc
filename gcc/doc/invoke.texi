@@ -265,7 +265,7 @@ in the following sections.
 -falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
 -fbounds-check @gol
--fbranch-probabilities  -fcaller-saves -fcprop-registers @gol
+-fbranch-probabilities -floop-histograms -fcaller-saves -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -2989,7 +2989,9 @@ generate the arc profile information by running the program on a
 selected workload, and then compile the program again with the same
 optimization and code generation options plus
 @option{-fbranch-probabilities} (@pxref{Optimize Options,,Options that
-Control Optimization}).
+Control Optimization}). You may also add @option{-floop-histograms}
+to both of the compilations to measure histograms of iterations of
+loops. This information is useful for loop optimizer.
 
 The other use of @option{-fprofile-arcs} is for use with @code{gcov},
 when it is used with the @option{-ftest-coverage} option.
@@ -3970,6 +3972,13 @@ These can be used to improve optimization.  Currently, they are only
 used in one place: in @file{reorg.c}, instead of guessing which path a
 branch is mostly to take, the @samp{REG_BR_PROB} values are used to
 exactly determine which path is taken more often.
+
+@item -floop-histograms
+@opindex floop-histograms
+Add this option to @option{-fprofile-arcs} to also add code to measure
+histograms of loop iterations.  By adding it to @option{-fbranch-probabilities}
+you instruct compiler to read back these histograms and use them in loop
+optimizer.
 
 @item -fno-guess-branch-probability
 @opindex fno-guess-branch-probability

@@ -26,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
+#include "profile.h"
 
 /* Initialize loop optimizer.  */
 
@@ -64,12 +65,16 @@ loop_optimizer_init (dumpfile)
   /* Mark irreducible loops.  */
   mark_irreducible_loops (loops);
 
+  /* Do we have histograms?  */
+  if (profile_info.have_loop_histograms)
+    move_histograms_to_loops (loops);
+
   /* Dump loops.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);
 
 #ifdef ENABLE_CHECKING
   verify_dominators (loops->cfg.dom);
-  verify_loop_structure (loops, VLS_FOR_LOOP);
+  verify_loop_structure (loops);
 #endif
 
   return loops;

@@ -958,6 +958,7 @@ next:;
     free (edges[i]);
   free (edges);
   free (n_edges);
+  loops->state |= LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
 }
 
 /* Counts number of insns inside LOOP.  */
