@@ -852,13 +852,14 @@ duplicate_insn_chain (from, to)
 }
 
 /* Redirect Edge to DEST.  */
-void
+bool
 cfg_layout_redirect_edge (e, dest)
      edge e;
      basic_block dest;
 {
   int old_index = dest->index;
   basic_block src = e->src;
+  bool ret;
 
   /* Avoid redirect_edge_and_branch from overactive optimizing.  */
   dest->index = n_basic_blocks + 1;
@@ -876,9 +877,11 @@ cfg_layout_redirect_edge (e, dest)
 	    delete_insn (src->end);
 	}
       redirect_edge_succ_nodup (e, dest);
+
+      ret = true;
     }
   else
-    redirect_edge_and_branch (e, dest);
+    ret = redirect_edge_and_branch (e, dest);
 
   /* We don't want simplejumps in the insn stream during cfglayout.  */
   if (simplejump_p (src->end))
@@ -888,6 +891,8 @@ cfg_layout_redirect_edge (e, dest)
       src->succ->flags |= EDGE_FALLTHRU;
     }
   dest->index = old_index;
+
+  return ret;
 }
 
 /* Create an duplicate of the basic block BB and redirect edge E into it.  */

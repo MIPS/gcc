@@ -214,7 +214,7 @@ static struct loop * duplicate_loop PARAMS ((struct loops *, struct loop *, stru
 static void duplicate_subloops PARAMS ((struct loops *, struct loop *, struct loop *));
 static void copy_loops_to PARAMS ((struct loops *, struct loop **, int, struct loop *));
 static void loop_redirect_edge PARAMS ((edge, basic_block));
-static void loop_delete_branch_edge PARAMS ((edge));
+static bool loop_delete_branch_edge PARAMS ((edge));
 static void copy_bbs PARAMS ((basic_block *, int, edge, edge, basic_block **, struct loops *, edge *, edge *));
 static struct loop *unswitch_loop PARAMS ((struct loops *, struct loop *, basic_block));
 static void remove_bbs PARAMS ((basic_block *, int));
@@ -658,7 +658,7 @@ find_branch (e, doms, bbs)
 }
 
 /* Removes path beginning at E.  */
-void
+bool
 remove_path (loops, e)
      struct loops *loops;
      edge e;
@@ -670,11 +670,6 @@ remove_path (loops, e)
 
   /* First identify the branch.  */
   nrem = find_branch (e, loops->cfg.dom, &rem_bbs);
-
-  /* Now cancel contained loops.  */
-  for (i = 0; i < nrem; i++)
-    if (rem_bbs[i]->loop_father->header == rem_bbs[i])
-      cancel_loop_tree (loops, rem_bbs[i]->loop_father);
 
   /* Find blocks whose immediate dominators may be affected.  */
   n_dom_bbs = 0;
@@ -705,7 +700,14 @@ remove_path (loops, e)
 
   /* OK. Remove the path.  */
   from = e->src;
-  loop_delete_branch_edge (e);
+  if (!loop_delete_branch_edge (e))
+    return false;
+
+  /* Now cancel contained loops.  */
+  for (i = 0; i < nrem; i++)
+    if (rem_bbs[i]->loop_father->header == rem_bbs[i])
+      cancel_loop_tree (loops, rem_bbs[i]->loop_father);
+
   remove_bbs (rem_bbs, nrem);
   free (rem_bbs);
 
@@ -737,6 +739,8 @@ remove_path (loops, e)
 
   /* Fix loop placements.  */
   fix_loop_placements (from->loop_father);
+
+  return true;
 }
 
 /* Predicate for enumeration in add_loop.  */
@@ -1113,7 +1117,7 @@ loop_redirect_edge (e, dest)
 }
 
 /* Deletes edge if possible.  */
-static void
+static bool
 loop_delete_branch_edge (e)
      edge e;
 {
@@ -1124,21 +1128,25 @@ loop_delete_branch_edge (e)
       basic_block newdest;
       /* Cannot handle more than two exit edges.  */
       if (src->succ->succ_next->succ_next)
-	return;
+	return false;
       /* Neither this.  */
       if (!any_condjump_p (src->end))
-	return;
+	return false;
+
       newdest = (e == src->succ
 		 ? src->succ->succ_next->dest : src->succ->dest);
       if (newdest == EXIT_BLOCK_PTR)
-	return;
-      cfg_layout_redirect_edge (e, newdest);
+	return false;
+
+      return cfg_layout_redirect_edge (e, newdest);
     }
   else
     {
       /* Cannot happen -- we are duplicating loop! */
       abort ();
     }
+
+  return false;  /* To avoid warning, cannot get here.  */
 }
 
 /* Duplicates BBS. Newly created bbs are placed into NEW_BBS, edges to

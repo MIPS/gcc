@@ -47,14 +47,15 @@ static bool simple_condition_p PARAMS ((struct loop *, basic_block *,
 static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
 					     basic_block *,
 					     struct loop_desc *));
-static rtx variable_initial_value PARAMS ((struct loop *, rtx));
+static rtx variable_initial_value PARAMS ((rtx, basic_block, rtx, rtx *));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *,
 				   struct loop_desc *));
 static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 					edge, basic_block *,
 					struct loop_desc *));
 static bool constant_iterations PARAMS ((struct loop_desc *,
-					 unsigned HOST_WIDE_INT *));
+					 unsigned HOST_WIDE_INT *,
+					 bool *));
 static rtx count_loop_iterations PARAMS ((struct loop_desc *, bool));
 static void unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
@@ -69,6 +70,7 @@ static bool unroll_loop_runtime_iterations PARAMS ((struct loops *,
 						    struct loop_desc *));
 static rtx test_for_iteration PARAMS ((struct loop_desc *desc,
 				       unsigned HOST_WIDE_INT));
+static bool invariant_in_blocks_p PARAMS ((rtx, basic_block *, int));
 
 /* Unroll and peel (depending on FLAGS) LOOPS.  */
 void
@@ -102,6 +104,22 @@ unroll_and_peel_loops (loops, flags)
     }
 }
 
+/* Checks whether EXPR is invariant in basic blocks BBS.  */
+static bool
+invariant_in_blocks_p (expr, bbs, nbbs)
+    rtx expr;
+    basic_block *bbs;
+    int nbbs;
+{
+  int i;
+
+  for (i = 0; i < nbbs; i++)
+    if (modified_between_p (expr, bbs[i]->head, NEXT_INSN (bbs[i]->end)))
+      return false;
+
+  return true;
+}
+
 /* Checks whether CONDITION is a simple comparison in that one of operands
    is register and the other one is invariant in the LOOP. Fills var, lim
    and cond fields in DESC.  */
@@ -112,8 +130,8 @@ simple_condition_p (loop, body, condition, desc)
      rtx condition;
      struct loop_desc *desc;
 {
-  rtx op0, op1;
-  int i;
+  rtx op0, op1, set_insn;
+  edge e = loop_preheader_edge (loop);
 
   /* Check condition.  */
   switch (GET_CODE (condition))
@@ -143,21 +161,19 @@ simple_condition_p (loop, body, condition, desc)
   op1 = XEXP (condition, 1);
   
   /* One of operands must be invariant.  */
-  for (i = 0; i < loop->num_nodes; i++)
-    if (modified_between_p (op0, body[i]->head, NEXT_INSN (body[i]->end)))
-      break;
-  if (i == loop->num_nodes)
+  if (invariant_in_blocks_p (op0, body, loop->num_nodes))
     {
       /* And the other one must be a register.  */
       if (!REG_P (op1))
 	return false;
       desc->var = op1;
       desc->lim = op0;
-#if 0
-      op0 = variable_initial_value (loop, op0);
-      if (op0)
+
+      set_insn = e->src->end;
+      while (REG_P (op0)
+	     && (op0 = variable_initial_value (set_insn, e->src, op0, &set_insn)))
 	desc->lim = op0;
-#endif
+
       desc->cond = swap_condition (GET_CODE (condition));
       if (desc->cond == UNKNOWN)
 	return false;
@@ -165,21 +181,19 @@ simple_condition_p (loop, body, condition, desc)
     }
 
   /* Check the other operand. */
-  for (i = 0; i < loop->num_nodes; i++)
-    if (modified_between_p (op1, body[i]->head, NEXT_INSN (body[i]->end)))
-      break;
-  if (i != loop->num_nodes)
+  if (!invariant_in_blocks_p (op1, body, loop->num_nodes))
     return false;
   if (!REG_P (op0))
     return false;
 
   desc->var = op0;
   desc->lim = op1;
-#if 0
-  op1 = variable_initial_value (loop, op1);
-  if (op1)
+
+  set_insn = e->src->end;
+  while (REG_P (op1)
+	 && (op1 = variable_initial_value (set_insn, e->src, op1, &set_insn)))
     desc->lim = op1;
-#endif
+
   desc->cond = GET_CODE (condition);
 
   return true;
@@ -246,23 +260,24 @@ simple_increment (loops, loop, body, desc)
   return mod_bb;
 }
 
-/* Tries to find initial value of VAR in LOOP.  */
+/* Tries to find initial value of VAR in INSN.  This value must be valid in
+   END_BB too.  If SET_INSN is not NULL, insn in that var is set is placed
+   here.  */
 static rtx
-variable_initial_value (loop, var)
-     struct loop *loop;
+variable_initial_value (insn, end_bb, var, set_insn)
+     rtx insn;
+     basic_block end_bb;
      rtx var;
+     rtx *set_insn;
 {
-  edge e;
   basic_block bb;
-  rtx set, insn;
+  rtx set;
 
   /* Go back through cfg.  */
-  e = loop_preheader_edge (loop);
-  for (bb = e->src; bb->pred; bb = bb->pred->src)
+  bb = BLOCK_FOR_INSN (insn);
+  while (1)
     {
-      for (insn = bb->end;
-	   insn != bb->head;
-	   insn = PREV_INSN (insn))
+      for (; insn != bb->head; insn = PREV_INSN (insn))
 	if (modified_between_p (var, PREV_INSN (insn), NEXT_INSN (insn)))
 	  break;
 
@@ -273,7 +288,7 @@ variable_initial_value (loop, var)
 	  basic_block b;
 	  rtx val;
 	  rtx note;
-
+          
 	  set = single_set (insn);
 	  if (!set)
 	    return NULL;
@@ -286,15 +301,22 @@ variable_initial_value (loop, var)
 	    val = XEXP (note, 0);
 	  else
 	    val = SET_SRC (set);
-	  if (modified_between_p (val, insn, bb->end))
+	  if (modified_between_p (val, insn, NEXT_INSN (bb->end)))
 	    return NULL;
-	  for (b = e->src; b != bb; b = b->pred->src)
-	    if (modified_between_p (val, b->head, b->end))
+	  for (b = end_bb; b != bb; b = b->pred->src)
+	    if (modified_between_p (val, b->head, NEXT_INSN (b->end)))
 	      return NULL;
+
+	  if (set_insn)
+	    *set_insn = insn;
 	  return val;
 	}
-      if (bb->pred->pred_next)
+
+      if (bb->pred->pred_next || bb->pred->src == ENTRY_BLOCK_PTR)
 	return NULL;
+
+      bb = bb->pred->src;
+      insn = bb->end;
     }
 
   return NULL;
@@ -339,27 +361,42 @@ simple_loop_p (loops, loop, desc)
 /* Counts constant number of iterations of the loop described by DESC;
    returns false if impossible.  */
 static bool
-constant_iterations (desc, niter)
+constant_iterations (desc, niter, may_be_zero)
      struct loop_desc *desc;
      unsigned HOST_WIDE_INT *niter;
+     bool *may_be_zero;
 {
   rtx test, expr;
 
   test = test_for_iteration (desc, 0);
-  if (test && test == const0_rtx)
+  if (test == const0_rtx)
     {
       *niter = 0;
+      *may_be_zero = false;
       return true;
     }
+
+  *may_be_zero = (test != const_true_rtx);
 
   if (!(expr = count_loop_iterations (desc, true)))
     abort ();
 
-  if (GET_CODE (expr) != CONST_INT)
-    return false;
+  if (GET_CODE (expr) == CONST_INT)
+    {
+      *niter = INTVAL (expr);
+      return true;
+    }
 
-  *niter = INTVAL (expr);
-  return true;
+  if (!(expr = count_loop_iterations (desc, false)))
+    abort ();
+
+  if (GET_CODE (expr) == CONST_INT)
+    {
+      *niter = INTVAL (expr);
+      return true;
+    }
+
+  return false;
 }
 
 /* Tests whether exit at EXIT_EDGE from LOOP is simple.  Returns simple loop
@@ -375,7 +412,7 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
   basic_block mod_bb, exit_bb;
   int fallthru_out;
   rtx condition;
-  edge ei;
+  edge ei, e;
 
   exit_bb = exit_edge->src;
 
@@ -417,12 +454,13 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
   desc->neg = !fallthru_out;
 
   /* Find initial value of var.  */
-  desc->init = variable_initial_value (loop, desc->var);
+  e = loop_preheader_edge (loop);
+  desc->init = variable_initial_value (e->src->end, e->src, desc->var, NULL);
 
   /* Number of iterations. */
   if (!count_loop_iterations (desc, false))
     return false;
-  desc->const_iter = constant_iterations (desc, &desc->niter);
+  desc->const_iter = constant_iterations (desc, &desc->niter, &desc->may_be_zero);
 
   if (rtl_dump_file)
     {
@@ -655,6 +693,8 @@ peel_loop_completely (loops, loop, desc)
   sbitmap_ones (wont_exit);
   RESET_BIT (wont_exit, 0);
   RESET_BIT (wont_exit, npeel + 1);
+  if (desc->may_be_zero)
+    RESET_BIT (wont_exit, 1);
 
   remove_edges = xcalloc (npeel, sizeof (edge));
   n_remove_edges = 0;
@@ -696,17 +736,49 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 {
   unsigned HOST_WIDE_INT niter, exit_mod;
   sbitmap wont_exit;
-  int n_remove_edges, i;
+  int n_remove_edges, i, n_copies;
   edge *remove_edges;
+  int best_copies, best_unroll;
 
   niter = desc->niter;
 
-  if (niter <= (unsigned) max_unroll)
-    abort ();  /* Should get into peeling instead.  */
+  if (niter <= (unsigned) max_unroll + 1)
+    abort ();  /* Should not get here.  */
+
+  /* Find good number of unrollings.  */
+  best_copies = 2 * max_unroll + 10;
+
+  i = 2 * max_unroll + 2;
+  if ((unsigned) i - 1 >= niter)
+    i = niter - 2;
+
+  for (; i >= max_unroll; i--)
+    {
+      exit_mod = niter % (i + 1);
+
+      if (desc->postincr)
+	n_copies = exit_mod + i + 1;
+      else if (exit_mod != (unsigned) i || desc->may_be_zero)
+	n_copies = exit_mod + i + 2;
+      else
+	n_copies = i + 1;
+
+      if (n_copies < best_copies)
+	{
+	  best_copies = n_copies;
+	  best_unroll = i;
+	}
+    }
+
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; max_unroll %d (%d copies, initial %d).\n",
+	     best_unroll, best_copies, max_unroll);
+  max_unroll = best_unroll;
+
+  exit_mod = niter % (max_unroll + 1);
 
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
-  exit_mod = niter % (max_unroll + 1);
 
   remove_edges = xcalloc (max_unroll + exit_mod + 1, sizeof (edge));
   n_remove_edges = 0;
@@ -721,6 +793,8 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 
       /* Peel exit_mod iterations.  */
       RESET_BIT (wont_exit, 0);
+      if (desc->may_be_zero)
+	RESET_BIT (wont_exit, 1);
 
       if (exit_mod
 	  && !duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
@@ -728,6 +802,8 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
 		DLTHE_FLAG_ALL))
 	abort ();
+
+      SET_BIT (wont_exit, 1);
     }
   else
     {
@@ -736,13 +812,15 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Condition on end of loop.\n");
 
-      /* We know that niter >= max_unroll + 1; so we do not need to care of
+      /* We know that niter >= max_unroll + 2; so we do not need to care of
 	 case when we would exit before reaching the loop.  So just peel
 	 exit_mod + 1 iterations.
 	 */
-      if (exit_mod != (unsigned) max_unroll)
+      if (exit_mod != (unsigned) max_unroll || desc->may_be_zero)
 	{
 	  RESET_BIT (wont_exit, 0);
+	  if (desc->may_be_zero)
+	    RESET_BIT (wont_exit, 1);
 
 	  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, exit_mod + 1,
@@ -751,6 +829,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	    abort ();
 
 	  SET_BIT (wont_exit, 0);
+	  SET_BIT (wont_exit, 1);
 	}
 
       RESET_BIT (wont_exit, max_unroll);
@@ -1097,7 +1176,7 @@ unroll_or_peel_loop (loops, loop, flags)
   exact = false;
   if (simple)
     {
-      /* Loop iterating 0 times.  These should really be elliminated earlier,
+      /* Loop iterating 0 times.  These should really be eliminated earlier,
 	 but we may create them by other transformations.  */
 
       if (desc.const_iter && desc.niter == 0)
@@ -1148,17 +1227,8 @@ unroll_or_peel_loop (loops, loop, flags)
          will be effective, so disable it.  */
       if ((flags & UAP_PEEL) && rtl_dump_file)
 	fprintf (rtl_dump_file,
-		 ";; Not peeling loop, no evidence it will be profitable\n",
-		 niter, npeel);
+		 ";; Not peeling loop, no evidence it will be profitable\n");
       flags &= ~UAP_PEEL;
-    }
-
-  /* We might have lost simpleness when counting loop iterations.  */
-  if (!simple && !(flags & UAP_UNROLL_ALL))
-    {
-      if ((flags & UAP_UNROLL) && rtl_dump_file)
-	fprintf (rtl_dump_file, ";;  Not unrolling loop, isn't simple\n");
-      flags &= ~UAP_UNROLL;
     }
 
   /* Shortcut.  */

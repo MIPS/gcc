@@ -444,6 +444,7 @@ struct loop_desc
   bool const_iter;      /* True if it iterates constant number of times.  */
   unsigned HOST_WIDE_INT niter;
 			/* Number of iterations if it is constant.  */
+  bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
   edge out_edge;	/* The exit edge.  */
@@ -457,5 +458,5 @@ bool can_duplicate_loop_p PARAMS ((struct loop *loop));
 int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge, struct loops *, int,
 					   sbitmap, edge, edge *, int *, int));
 
-void remove_path PARAMS ((struct loops *, edge));
+bool remove_path PARAMS ((struct loops *, edge));
 
