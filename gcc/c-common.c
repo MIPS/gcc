@@ -4842,6 +4842,9 @@ create_output_fragment (void)
 {
   struct c_include_fragment* st;
   cpp_fragment *fragment;
+  if (!lang_hooks.uses_conditional_symtab)
+    return;
+  /* FIXME check server_mode! */
   fragment = xcalloc (1, sizeof (cpp_fragment));
   fragment->name = "<built-in>";
   parse_in->current_fragment = fragment;
@@ -4860,6 +4863,8 @@ create_output_fragment (void)
 void
 end_output_fragment (void)
 {
+  if (!lang_hooks.uses_conditional_symtab)
+    return;
   /* Fold these into cb_exit_fragment as well?!  */
   if (C_FRAGMENT (output_fragment) != current_c_fragment)
     abort ();
@@ -4882,7 +4887,8 @@ void init_output_fragment ()
 void
 activate_output_fragment (void)
 {
-  output_c_fragment->include_timestamp = main_timestamp;
+  if (output_c_fragment != NULL)
+    output_c_fragment->include_timestamp = main_timestamp;
 }
 
 /* Handle extra debugging of C tree nodes.  */

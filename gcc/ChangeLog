@@ -1,3 +1,12 @@
+2003-12-01  Per Bothner  <pbothner@apple.com>
+
+	* c-common.c (create_output_fragment):  Do nothing unless C++, for now.
+	(end_output_fragment):  Likewise.
+	(activate_output_fragment):  Likewise.
+	* toplev.c (finalize):  Zero asm_out_file.
+
+	* toplev.c (server_loop):  Call report_fragmemt_statistics (kludge).
+
 2003-11-30  Per Bothner  <pbothner@apple.com>
 
 	Remember a tag type across compilation units.

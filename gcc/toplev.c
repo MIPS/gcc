@@ -4366,9 +4366,12 @@ finalize (void)
       fflush (asm_out_file);
       if (ferror (asm_out_file) != 0)
 	fatal_error ("error writing to %s: %m", asm_file_name);
-      if (asm_out_file != stdout
-	  && fclose (asm_out_file) != 0)
-	fatal_error ("error closing %s: %m", asm_file_name);
+      if (asm_out_file != stdout)
+	{
+	  if (fclose (asm_out_file) != 0)
+	    fatal_error ("error closing %s: %m", asm_file_name);
+	  asm_out_file = NULL;
+	}
     }
 
   /* Do whatever is necessary to finish printing the graphs.  */
@@ -4785,7 +4788,7 @@ get_request_from_load_balancer (int *sockp)
   static int idle_servers[SERVER_MAX];
   static int nservers = 0;
   /* For debugging, turn this off.  */
-  static int do_load_balancing = 1;
+  static int do_load_balancing = 0;
   int fd;
   char xbuf[1];
 
@@ -5103,6 +5106,10 @@ server_loop ()
     }
   else
       fprintf(stderr, "server done\n");
+  { /* Kludge - fails unless linked with c-common.o. */
+    extern void report_fragment_statistics (void);
+    report_fragment_statistics ();
+  }
 #endif
 }
 
