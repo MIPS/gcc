@@ -385,6 +385,9 @@ void gfc_trans_runtime_check (tree, tree, stmtblock_t *);
 /* Generate code for an assigment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
 
+/* Generate code for an pointer assignment.  */
+tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
+
 /* Initialize function decls for library functions.  */
 void gfc_build_intrinsic_lib_fndecls (void);
 /* Create function decls for IO library functions.  */

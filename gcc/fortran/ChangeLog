@@ -1,3 +1,11 @@
+2003-07-26  Lifang Zeng  <zlf605@hotmail.com>
+
+	* trans.h: Declare g95_trans_pointer_assignment.
+	* trans-expr.c (g95_trans_pointer_assignment): New function.
+	(g95_trans_pointer_assign): Use it.
+	* trans-stmt.c (g95_trans_forall_1): Handle pointer assignment.
+	(g95_trans_pointer_assign_need_temp): New function.
+
 2003-07-26  Paul Brook  <paul@nowt.org>
 
 	* gfortran.texi: Replace references to g95.

@@ -1424,6 +1424,13 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 tree
 gfc_trans_pointer_assign (gfc_code * code)
 {
+  return gfc_trans_pointer_assignment (code->expr, code->expr2);
+}
+
+
+tree
+gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
+{
   gfc_se lse;
   gfc_se rse;
   gfc_ss *lss;
@@ -1435,16 +1442,16 @@ gfc_trans_pointer_assign (gfc_code * code)
 
   gfc_init_se (&lse, NULL);
 
-  lss = gfc_walk_expr (code->expr);
-  rss = gfc_walk_expr (code->expr2);
+  lss = gfc_walk_expr (expr1);
+  rss = gfc_walk_expr (expr2);
   if (lss == gfc_ss_terminator)
     {
       lse.want_pointer = 1;
-      gfc_conv_expr (&lse, code->expr);
+      gfc_conv_expr (&lse, expr1);
       assert (rss == gfc_ss_terminator);
       gfc_init_se (&rse, NULL);
       rse.want_pointer = 1;
-      gfc_conv_expr (&rse, code->expr2);
+      gfc_conv_expr (&rse, expr2);
       gfc_add_block_to_block (&block, &lse.pre);
       gfc_add_block_to_block (&block, &rse.pre);
       gfc_add_modify_expr (&block, lse.expr, rse.expr);
@@ -1453,9 +1460,9 @@ gfc_trans_pointer_assign (gfc_code * code)
     }
   else
     {
-      gfc_conv_expr_descriptor (&lse, code->expr, lss);
+      gfc_conv_expr_descriptor (&lse, expr1, lss);
       /* Implement Nullify.  */
-      if (code->expr2->expr_type == EXPR_NULL)
+      if (expr2->expr_type == EXPR_NULL)
         {
           lse.expr = gfc_conv_descriptor_data (lse.expr);
           rse.expr = null_pointer_node;
@@ -1465,7 +1472,7 @@ gfc_trans_pointer_assign (gfc_code * code)
       else
         {
           lse.direct_byref = 1;
-          gfc_conv_expr_descriptor (&lse, code->expr2, rss);
+          gfc_conv_expr_descriptor (&lse, expr2, rss);
         }
       gfc_add_block_to_block (&block, &lse.pre);
       gfc_add_block_to_block (&block, &lse.post);

@@ -1058,7 +1058,7 @@ accept_statement (gfc_statement st)
       {
         gfc_symbol *block_data = NULL;
         symbol_attribute attr;
- 
+
         gfc_get_symbol ("_BLOCK_DATA__", gfc_current_ns, &block_data);
         gfc_clear_attr (&attr);
         attr.flavor = FL_PROCEDURE;
@@ -1071,7 +1071,7 @@ accept_statement (gfc_statement st)
       }
 
       break;
- 
+
     case_executable:
     case_exec_markers:
       add_statement ();
