@@ -148,22 +148,21 @@ tree_ssa_eliminate_dead_code (fndecl)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
-  /* Debugging dumps.  */
+  /* Initialize dump_file for debugging dumps.  */
   dump_file = dump_begin (TDI_dce, &dump_flags);
-  if (dump_file)
+
+  /* Dump function tree before DCE.  */ 
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "%s\n", get_name (fndecl));
+      fprintf (dump_file, "%s() before SSA-DCE\n", get_name (fndecl));
       
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
 	print_c_tree (dump_file, fnbody);
 
-      fclose (dump_file);
+      fprintf (dump_file, "Finding obviously useful instructions:\n");
     }
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Finding obviously useful instructions:\n");
 
   /* Find obviously useful instructions.  */
   FOR_EACH_BB (bb)
@@ -273,6 +272,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (bb_empty_p (bb))
 	continue;
 
+      prev = NULL_TREE;
       for (t = bb->head_tree; t;)
 	{
 	  stats.total++;
@@ -307,10 +307,19 @@ tree_ssa_eliminate_dead_code (fndecl)
 	}
     }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file)
     {
-      fprintf (dump_file, "New translation unit:\n");
-      print_c_tree (dump_file, fnbody);
+      /* Dump the function tree after DCE.  */
+      fprintf (dump_file, "%s() after SSA-DCE\n", get_name (fndecl));
+
+      if (dump_flags & TDF_RAW)
+        dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+        print_c_tree (dump_file, fnbody);
+
+      print_stats ();
+
+      fclose (dump_file);
     }
-  print_stats ();
 }
+

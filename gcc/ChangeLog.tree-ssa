@@ -1,3 +1,10 @@
+2002-10-10  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* tree-ssa-dce (tree_ssa_eliminate_dead_code): Initialize prev to
+	NULL_TREE.
+	Don't close dump_file until end of function.
+	Dump the the tree after DCE for -fdump-tree-dce.
+
 2002-10-08  Richard Henderson  <rth@redhat.com>
 	    Jason Merrill  <jason@redhat.com>
 	    Diego Novillo  <dnovillo@redhat.com>
