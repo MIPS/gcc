@@ -759,7 +759,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	      addr_expr_propagated_p = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
-	      propagate_copy (op_p, val);
+	      propagate_copy (op_p, val, stmt_ann (stmt)->scope);
 	    else
 	      *op_p = val;
 
@@ -828,6 +828,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    }
 
 	  opt_stats.num_re++;
+	  if (TREE_CODE (cached_lhs) == SSA_NAME)
+	    fixup_var_scope (cached_lhs, stmt_ann (stmt)->scope);
 	  *expr_p = cached_lhs;
 	  ann->modified = 1;
 	}

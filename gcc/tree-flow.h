@@ -120,6 +120,9 @@ struct var_ann_d GTY(())
 
   /* Used by the root-var object in tree-ssa-live.[ch].  */
   unsigned root_index;
+
+  /* The BIND_EXPR in that the variable is declared.  */
+  tree scope;
 };
 
 
@@ -232,6 +235,12 @@ struct stmt_ann_d GTY(())
 
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
+
+  /* The BIND_EXPR to that the statement belongs.  */
+  tree scope;
+
+  /* For BIND_EXPR, its level in the tree of BIND_EXPRs.  */
+  int scope_level;
 };
 
 
@@ -494,8 +503,8 @@ void tree_ssa_dce (tree);
 
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree);
-void propagate_copy (tree *, tree);
-
+void propagate_copy (tree *, tree, tree);
+void fixup_var_scope (tree, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

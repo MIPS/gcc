@@ -1,3 +1,22 @@
+2003-08-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (struct var_ann_d): New field scope.
+	(struct stmt_ann_d): New field scope.
+	(propagate_copy): Declaration changed.
+	(fixup_var_scope): Declare.
+	* tree-cfg.c (make_blocks, make_cond_expr_blocks,
+	make_catch_expr_blocks, make_eh_filter_expr_blocks,
+	make_try_expr_blocks, make_loop_expr_blocks, make_switch_expr_blocks,
+	make_bind_expr_blocks, build_tree_cfg): Assign variables and statements
+	to scopes.
+	(assign_vars_to_scope): New.
+	* tree-ssa-copyprop.c (move_var_to_scope): New.
+	(copyprop_stmt): Pass scope of statement to propagate_copy.
+	(propagate_copy): Assign variable to the right bind_expr.
+	(fixup_var_scope): New.
+	* tree-ssa-dom.c (optimize_stmt): Pass scope of statement to
+	propagate_copy.
+
 2003-08-19  Daniel Berlin <dberlin@dberlin.org>
 
 	* tree-cfg (bsi_move_after): New function.

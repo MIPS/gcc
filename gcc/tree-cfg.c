@@ -84,14 +84,15 @@ static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
-static basic_block make_blocks (tree *, tree, tree, basic_block);
-static void make_cond_expr_blocks (tree *, tree, basic_block);
-static void make_catch_expr_blocks (tree *, tree, basic_block);
-static void make_eh_filter_expr_blocks (tree *, tree, basic_block);
-static void make_try_expr_blocks (tree *, tree, basic_block);
-static void make_loop_expr_blocks (tree *, basic_block);
-static void make_switch_expr_blocks (tree *, tree, basic_block);
-static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree);
+static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
+static void make_loop_expr_blocks (tree *, basic_block, tree);
+static void make_cond_expr_blocks (tree *, tree, basic_block, tree);
+static void make_catch_expr_blocks (tree *, tree, basic_block, tree);
+static void make_eh_filter_expr_blocks (tree *, tree, basic_block, tree);
+static void make_try_expr_blocks (tree *, tree, basic_block, tree);
+static void make_switch_expr_blocks (tree *, tree, basic_block, tree);
+static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
+					  tree);
 static inline void add_stmt_to_bb (tree *, basic_block, tree);
 static inline void append_stmt_to_bb (tree *, basic_block, tree);
 static inline void set_parent_stmt (tree *, tree);
@@ -106,6 +107,7 @@ static void make_goto_expr_edges (basic_block);
 static void make_case_label_edges (basic_block);
 
 /* Various helpers.  */
+static void assign_vars_to_scope (tree);
 static basic_block successor_block (basic_block);
 static basic_block last_exec_block (tree *);
 static tree *first_exec_stmt (tree *);
@@ -268,7 +270,7 @@ build_tree_cfg (tree fnbody)
   first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
   if (first_p)
     {
-      make_blocks (first_p, NULL_TREE, NULL, NULL);
+      make_blocks (first_p, NULL_TREE, NULL, NULL, fnbody);
 
       if (n_basic_blocks > 0)
 	{
@@ -388,13 +390,15 @@ clear_blocks_annotations (void)
    BB is the block where the statements should be added to.  If BB is NULL,
       a new basic block will be created for the statements.
 
+   SCOPE is the BIND_EXPR block containing *FIRST_P.
+
    Return the last basic block added to the graph.  This is used to know if
    a recursive invocation built a sub-graph whose last block can accept
    more statements or not.  */
 
 static basic_block
 make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
-	     basic_block bb)
+	     basic_block bb, tree scope)
 {
   tree_stmt_iterator i;
   tree stmt, last;
@@ -430,19 +434,20 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
       append_stmt_to_bb (stmt_p, bb, parent_stmt);
+      get_stmt_ann (stmt)->scope = scope;
 
       if (code == LOOP_EXPR)
-	make_loop_expr_blocks (stmt_p, bb);
+	make_loop_expr_blocks (stmt_p, bb, scope);
       else if (code == COND_EXPR)
-	make_cond_expr_blocks (stmt_p, next_block_link, bb);
+	make_cond_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == SWITCH_EXPR)
-	make_switch_expr_blocks (stmt_p, next_block_link, bb);
+	make_switch_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == CATCH_EXPR)
-	make_catch_expr_blocks (stmt_p, next_block_link, bb);
+	make_catch_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == EH_FILTER_EXPR)
-	make_eh_filter_expr_blocks (stmt_p, next_block_link, bb);
+	make_eh_filter_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
-	make_try_expr_blocks (stmt_p, next_block_link, bb);
+	make_try_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == BIND_EXPR)
 	{
 	  int num_blocks_before;
@@ -454,9 +459,13 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 	     will be the last basic block of the BIND_EXPR's subgraph.  We
 	     point STMT to LAST_BB's last statement to determine if we
 	     should start a new block or not.  */
-	  num_blocks_before = n_basic_blocks;
+ 	  num_blocks_before = n_basic_blocks;
+	  assign_vars_to_scope (stmt);
+	  get_stmt_ann (stmt)->scope_level =
+		  get_stmt_ann (scope)->scope_level + 1;
+
 	  last_bb = make_bind_expr_blocks (stmt_p, next_block_link, bb,
-	                                   parent_stmt);
+	                                   parent_stmt, stmt);
 	  if (last_bb)
 	    {
 	      bb = last_bb;
@@ -548,10 +557,12 @@ could_trap_p (tree expr)
       lexical scope, this will be the statement that comes after LOOP_P's
       container (see the documentation for NEXT_BLOCK_LINK).
 
-   ENTRY is the block whose last statement is *LOOP_P.  */
+   ENTRY is the block whose last statement is *LOOP_P.
+   
+   SCOPE is the BIND_EXPR node holding *LOOP_P. */
 
 static void
-make_loop_expr_blocks (tree *loop_p, basic_block entry)
+make_loop_expr_blocks (tree *loop_p, basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree loop = *loop_p;
@@ -585,7 +596,7 @@ make_loop_expr_blocks (tree *loop_p, basic_block entry)
 	next_block_link = *(tsi_container (si));
     }
 
-  make_blocks (&LOOP_EXPR_BODY (loop), next_block_link, loop, NULL);
+  make_blocks (&LOOP_EXPR_BODY (loop), next_block_link, loop, NULL, scope);
 }
 
 
@@ -596,11 +607,13 @@ make_loop_expr_blocks (tree *loop_p, basic_block entry)
       lexical scope, this will be the statement that comes after COND_P's
       container (see the documentation for NEXT_BLOCK_LINK).
 
-   ENTRY is the block whose last statement is *COND_P.  */
+   ENTRY is the block whose last statement is *COND_P.
+   
+   SCOPE is the BIND_EXPR node holding *COND_P.  */
 
 static void
 make_cond_expr_blocks (tree *cond_p, tree next_block_link,
-		       basic_block entry)
+		       basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree cond = *cond_p;
@@ -618,8 +631,8 @@ make_cond_expr_blocks (tree *cond_p, tree next_block_link,
     next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (cond);
-  make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL);
-  make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL);
+  make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL, scope);
+  make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL, scope);
 }
 
 /* Derive an exception handling region type from STMT.  */
@@ -642,11 +655,13 @@ get_eh_region_type (tree stmt)
 }
 
 /* Create the blocks for the TRY_CATCH_EXPR or TRY_FINALLY_EXPR node
-   pointed by expr_p.  */
+   pointed by expr_p.
+   
+   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
 
 static void
 make_try_expr_blocks (tree *expr_p, tree next_block_link,
-		      basic_block entry)
+		      basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -670,13 +685,13 @@ make_try_expr_blocks (tree *expr_p, tree next_block_link,
   VARRAY_PUSH_TREE (eh_stack, expr);
 
   /* Make blocks for the TRY block.  */
-  make_blocks (&TREE_OPERAND (expr, 0), next_block_link, expr, NULL);
+  make_blocks (&TREE_OPERAND (expr, 0), next_block_link, expr, NULL, scope);
 
   /* And pop the stack of exception handlers.  */
   VARRAY_POP (eh_stack);
 
   /* Make blocks for the handler itself.  */
-  make_blocks (&TREE_OPERAND (expr, 1), next_block_link, expr, NULL);
+  make_blocks (&TREE_OPERAND (expr, 1), next_block_link, expr, NULL, scope);
 
   /* If this is a cleanup, then record which cleanup higher in the
      stack it can directly reach.  */
@@ -689,11 +704,13 @@ make_try_expr_blocks (tree *expr_p, tree next_block_link,
     }
 }
 
-/* Create the blocks for the CATCH_EXPR node pointed to by expr_p.  */
+/* Create the blocks for the CATCH_EXPR node pointed to by expr_p.
+   
+   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
 
 static void
 make_catch_expr_blocks (tree *expr_p, tree next_block_link,
-			basic_block entry)
+			basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -708,14 +725,16 @@ make_catch_expr_blocks (tree *expr_p, tree next_block_link,
     tsi_next (&si);
 
   STRIP_CONTAINERS (expr);
-  make_blocks (&CATCH_BODY (expr), next_block_link, expr, NULL);
+  make_blocks (&CATCH_BODY (expr), next_block_link, expr, NULL, scope);
 }
 
-/* Create the blocks for the EH_FILTER_EXPR node pointed to by expr_p.  */
+/* Create the blocks for the EH_FILTER_EXPR node pointed to by expr_p.
+   
+   SCOPE is the BIND_EXPR node holding *EXPR_P.  */
 
 static void
 make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
-			    basic_block entry)
+			    basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree expr = *expr_p;
@@ -730,7 +749,7 @@ make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
     tsi_next (&si);
 
   STRIP_CONTAINERS (expr);
-  make_blocks (&EH_FILTER_FAILURE (expr), next_block_link, expr, NULL);
+  make_blocks (&EH_FILTER_FAILURE (expr), next_block_link, expr, NULL, scope);
 }
 
 
@@ -741,11 +760,13 @@ make_eh_filter_expr_blocks (tree *expr_p, tree next_block_link,
       inside a lexical scope, this will be the statement that comes after
       *SWITCH_E_P's container (see the documentation for NEXT_BLOCK_LINK).
 
-   ENTRY is the block whose last statement is *SWITCH_E_P.  */
+   ENTRY is the block whose last statement is *SWITCH_E_P.
+   
+   SCOPE is the BIND_EXPR node holding *SWITCH_E_P.  */
 
 static void
 make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
-			 basic_block entry)
+			 basic_block entry, tree scope)
 {
   tree_stmt_iterator si;
   tree switch_e = *switch_e_p;
@@ -763,7 +784,7 @@ make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
     next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (switch_e);
-  make_blocks (&SWITCH_BODY (switch_e), next_block_link, switch_e, NULL);
+  make_blocks (&SWITCH_BODY (switch_e), next_block_link, switch_e, NULL, scope);
 }
 
 
@@ -782,11 +803,14 @@ make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
 
    Return the last basic block added to the BIND_EXPR's subgraph.  This
    allows the caller to determine whether a new block should be started or
-   not.  */
+   not.
+   
+   SCOPE is the BIND_EXPR node holding *BIND_P (in fact it is equal to
+   *BIND_P).  */
 
 static basic_block
 make_bind_expr_blocks (tree *bind_p, tree next_block_link,
-		       basic_block entry, tree parent_stmt)
+		       basic_block entry, tree parent_stmt, tree scope)
 {
   tree_stmt_iterator si;
   tree bind = *bind_p;
@@ -810,7 +834,7 @@ make_bind_expr_blocks (tree *bind_p, tree next_block_link,
      ends with a block terminating statement.  */
   STRIP_CONTAINERS (bind);
   return make_blocks (&BIND_EXPR_BODY (bind), next_block_link, parent_stmt,
-		      entry);
+		      entry, scope);
 }
 
 
@@ -5141,4 +5165,14 @@ tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+}
+
+/* Assigns a scope to variables defined in bind_expr SCOPE.  */
+static void
+assign_vars_to_scope (tree scope)
+{
+  tree var;
+
+  for (var = BIND_EXPR_VARS (scope); var; var = TREE_CHAIN (var))
+    get_var_ann (var)->scope = scope;
 }
