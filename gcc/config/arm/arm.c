@@ -288,7 +288,7 @@ int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Bit values used to identify processor capabilities.  */
 #define FL_CO_PROC    (1 << 0)        /* Has external co-processor bus */
-#define FL_FAST_MULT  (1 << 1)        /* Fast multiply */
+#define FL_ARCH3M     (1 << 1)        /* Extended multiply */
 #define FL_MODE26     (1 << 2)        /* 26-bit mode support */
 #define FL_MODE32     (1 << 3)        /* 32-bit mode support */
 #define FL_ARCH4      (1 << 4)        /* Architecture rel 4 */
@@ -299,26 +299,25 @@ int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 #define FL_ARCH5E     (1 << 9)        /* DSP extensions to v5 */
 #define FL_XSCALE     (1 << 10)	      /* XScale */
 #define FL_CIRRUS     (1 << 11)	      /* Cirrus/DSP.  */
-#define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
-#define FL_ARCH6J     (1 << 12)       /* Architecture rel 6.  Adds
+#define FL_ARCH6      (1 << 12)       /* Architecture rel 6.  Adds
 					 media instructions.  */
 #define FL_VFPV2      (1 << 13)       /* Vector Floating Point V2.  */
+
+#define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
 /* The bits in this mask specify which
    instructions we are allowed to generate.  */
 static unsigned long insn_flags = 0;
 
 /* The bits in this mask specify which instruction scheduling options should
-   be used.  Note - there is an overlap with the FL_FAST_MULT.  For some
-   hardware we want to be able to generate the multiply instructions, but to
-   tune as if they were not present in the architecture.  */
+   be used.  */
 static unsigned long tune_flags = 0;
 
 /* The following are used in the arm.md file as equivalents to bits
    in the above two flag variables.  */
 
-/* Nonzero if this is an "M" variant of the processor.  */
-int arm_fast_multiply = 0;
+/* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
+int arm_arch3m = 0;
 
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 int arm_arch4 = 0;
@@ -330,7 +329,7 @@ int arm_arch5 = 0;
 int arm_arch5e = 0;
 
 /* Nonzero if this chip supports the ARM Architecture 6 extensions.  */
-int arm_arch6j = 0;
+int arm_arch6 = 0;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 int arm_ld_sched = 0;
@@ -419,18 +418,18 @@ static const struct processors all_architectures[] =
   { "armv2",     arm2,       FL_CO_PROC | FL_MODE26 , NULL},
   { "armv2a",    arm2,       FL_CO_PROC | FL_MODE26 , NULL},
   { "armv3",     arm6,       FL_CO_PROC | FL_MODE26 | FL_MODE32 , NULL},
-  { "armv3m",    arm7m,      FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT , NULL},
-  { "armv4",     arm7tdmi,   FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 , NULL},
+  { "armv3m",    arm7m,      FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_ARCH3M , NULL},
+  { "armv4",     arm7tdmi,   FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_ARCH3M | FL_ARCH4 , NULL},
   /* Strictly, FL_MODE26 is a permitted option for v4t, but there are no
      implementations that support it, so we will leave it out for now.  */
-  { "armv4t",    arm7tdmi,   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB , NULL},
-  { "armv5",     arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
-  { "armv5t",    arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
-  { "armv5te",   arm1026ejs, FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E , NULL},
-  { "armv6",     arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J , NULL},
-  { "armv6j",    arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J , NULL},
-  { "ep9312",	 ep9312, 			      FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS , NULL},
-  {"iwmmxt",     iwmmxt,                              FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT , NULL},
+  { "armv4t",    arm7tdmi,   FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB , NULL},
+  { "armv5",     arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
+  { "armv5t",    arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
+  { "armv5te",   arm1026ejs, FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E , NULL},
+  { "armv6",     arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6 , NULL},
+  { "armv6j",    arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6 , NULL},
+  { "ep9312",	 ep9312, 			      FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS , NULL},
+  {"iwmmxt",     iwmmxt,                              FL_MODE32 | FL_ARCH3M | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT , NULL},
   { NULL, arm_none, 0 , NULL}
 };
 
@@ -786,20 +785,20 @@ arm_override_options (void)
     warning ("passing floating point arguments in fp regs not yet supported");
   
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
-  arm_fast_multiply = (insn_flags & FL_FAST_MULT) != 0;
-  arm_arch4         = (insn_flags & FL_ARCH4) != 0;
-  arm_arch5         = (insn_flags & FL_ARCH5) != 0;
-  arm_arch5e        = (insn_flags & FL_ARCH5E) != 0;
-  arm_arch6j	    = (insn_flags & FL_ARCH6J) != 0;
-  arm_arch_xscale     = (insn_flags & FL_XSCALE) != 0;
+  arm_arch3m = (insn_flags & FL_ARCH3M) != 0;
+  arm_arch4 = (insn_flags & FL_ARCH4) != 0;
+  arm_arch5 = (insn_flags & FL_ARCH5) != 0;
+  arm_arch5e = (insn_flags & FL_ARCH5E) != 0;
+  arm_arch6 = (insn_flags & FL_ARCH6) != 0;
+  arm_arch_xscale = (insn_flags & FL_XSCALE) != 0;
 
-  arm_ld_sched      = (tune_flags & FL_LDSCHED) != 0;
-  arm_is_strong     = (tune_flags & FL_STRONG) != 0;
-  thumb_code	    = (TARGET_ARM == 0);
-  arm_is_6_or_7     = (((tune_flags & (FL_MODE26 | FL_MODE32))
-		       && !(tune_flags & FL_ARCH4))) != 0;
-  arm_tune_xscale       = (tune_flags & FL_XSCALE) != 0;
-  arm_arch_iwmmxt   = (insn_flags & FL_IWMMXT) != 0;
+  arm_ld_sched = (tune_flags & FL_LDSCHED) != 0;
+  arm_is_strong = (tune_flags & FL_STRONG) != 0;
+  thumb_code = (TARGET_ARM == 0);
+  arm_is_6_or_7 = (((tune_flags & (FL_MODE26 | FL_MODE32))
+		    && !(tune_flags & FL_ARCH4))) != 0;
+  arm_tune_xscale = (tune_flags & FL_XSCALE) != 0;
+  arm_arch_iwmmxt = (insn_flags & FL_IWMMXT) != 0;
 
   if (TARGET_IWMMXT && (! TARGET_ATPCS))
     target_flags |= ARM_FLAG_ATPCS;    
@@ -3459,7 +3458,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       abort ();
 
     case TRUNCATE:
-      if (arm_fast_multiply && mode == SImode
+      if (arm_arch3m && mode == SImode
 	  && GET_CODE (XEXP (x, 0)) == LSHIFTRT
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
 	  && (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0))

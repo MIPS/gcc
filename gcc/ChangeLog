@@ -1,3 +1,16 @@
+2004-01-08  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (FL_ARCH3M): Renamed from FL_FAST_MULT.
+	(FL_ARCH6): Renamed from FL_ARCH6J.
+	(arm_arch3m): Renamed from arm_fast_multiply.
+	(arm_arch6): Renamed from arm_arch6j.
+	* arm.h: Update all uses of above.
+	* arm-cores.def: Likewise.
+	* arm.md: Likewise.
+
+	* arm.h (CPP_CPU_ARCH_SPEC): Emit __ARM_ARCH_6J__ define for armV6j,
+	not arm6j.  Add entry for arch armv6.
+
 2004-01-07  Richard Earnshaw  <rearnsha@arm.com>
 
 	* arm.c (arm_emit_extendsi): Delete.

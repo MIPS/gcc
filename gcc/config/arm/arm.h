@@ -274,6 +274,7 @@ extern GTY(()) rtx aof_pic_label;
 %{march=armv5t:-D__ARM_ARCH_5T__} \
 %{march=armv5e:-D__ARM_ARCH_5E__} \
 %{march=armv5te:-D__ARM_ARCH_5TE__} \
+%{march=arm6:-D__ARM_ARCH6__} \
 %{march=arm6j:-D__ARM_ARCH6J__} \
 %{!march=*: \
  %{mcpu=arm2:-D__ARM_ARCH_2__} \
@@ -681,21 +682,20 @@ extern enum float_abi_type arm_float_abi;
 #define FPUTYPE_DEFAULT FPUTYPE_MAVERICK
 #endif
 
-/* Nonzero if the processor has a fast multiply insn, and one that does
-   a 64-bit multiply of two 32-bit values.  */
-extern int arm_fast_multiply;
+/* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
+extern int arm_arch3m;
 
-/* Nonzero if this chip supports the ARM Architecture 4 extensions */
+/* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 extern int arm_arch4;
 
-/* Nonzero if this chip supports the ARM Architecture 5 extensions */
+/* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 extern int arm_arch5;
 
-/* Nonzero if this chip supports the ARM Architecture 5E extensions */
+/* Nonzero if this chip supports the ARM Architecture 5E extensions.  */
 extern int arm_arch5e;
 
-/* Nonzero if this chip supports the ARM Architecture 6 extensions */
-extern int arm_arch6j;
+/* Nonzero if this chip supports the ARM Architecture 6 extensions.  */
+extern int arm_arch6;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;

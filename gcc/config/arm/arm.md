@@ -1175,7 +1175,7 @@
 	  (sign_extend:DI (match_operand:SI 2 "s_register_operand" "%r"))
 	  (sign_extend:DI (match_operand:SI 3 "s_register_operand" "r")))
 	 (match_operand:DI 1 "s_register_operand" "0")))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "smlal%?\\t%Q0, %R0, %3, %2"
   [(set_attr "insn" "smlal")
    (set_attr "predicable" "yes")]
@@ -1186,7 +1186,7 @@
 	(mult:DI
 	 (sign_extend:DI (match_operand:SI 1 "s_register_operand" "%r"))
 	 (sign_extend:DI (match_operand:SI 2 "s_register_operand" "r"))))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "smull%?\\t%Q0, %R0, %1, %2"
   [(set_attr "insn" "smull")
    (set_attr "predicable" "yes")]
@@ -1197,7 +1197,7 @@
 	(mult:DI
 	 (zero_extend:DI (match_operand:SI 1 "s_register_operand" "%r"))
 	 (zero_extend:DI (match_operand:SI 2 "s_register_operand" "r"))))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "umull%?\\t%Q0, %R0, %1, %2"
   [(set_attr "insn" "umull")
    (set_attr "predicable" "yes")]
@@ -1212,7 +1212,7 @@
 	  (zero_extend:DI (match_operand:SI 2 "s_register_operand" "%r"))
 	  (zero_extend:DI (match_operand:SI 3 "s_register_operand" "r")))
 	 (match_operand:DI 1 "s_register_operand" "0")))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "umlal%?\\t%Q0, %R0, %3, %2"
   [(set_attr "insn" "umlal")
    (set_attr "predicable" "yes")]
@@ -1227,7 +1227,7 @@
 	   (sign_extend:DI (match_operand:SI 2 "s_register_operand" "r,r")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=&r,&r"))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "smull%?\\t%3, %0, %2, %1"
   [(set_attr "insn" "smull")
    (set_attr "predicable" "yes")]
@@ -1242,7 +1242,7 @@
 	   (zero_extend:DI (match_operand:SI 2 "s_register_operand" "r,r")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=&r,&r"))]
-  "TARGET_ARM && arm_fast_multiply"
+  "TARGET_ARM && arm_arch3m"
   "umull%?\\t%3, %0, %2, %1"
   [(set_attr "insn" "umull")
    (set_attr "predicable" "yes")]
@@ -3158,7 +3158,7 @@
     if (!s_register_operand (operands[1], HImode))
       operands[1] = copy_to_mode_reg (HImode, operands[1]);
 
-    if (arm_arch6j)
+    if (arm_arch6)
       {
 	emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 				gen_rtx_ZERO_EXTEND (SImode, operands[1])));
@@ -3173,7 +3173,7 @@
 (define_insn "*thumb_zero_extendhisi2"
   [(set (match_operand:SI 0 "register_operand" "=l")
 	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
-  "TARGET_THUMB && !arm_arch6j"
+  "TARGET_THUMB && !arm_arch6"
   "*
   rtx mem = XEXP (operands[1], 0);
 
@@ -3215,7 +3215,7 @@
 (define_insn "*thumb_zero_extendhisi2_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))]
-  "TARGET_THUMB && arm_arch6j"
+  "TARGET_THUMB && arm_arch6"
   "*
   rtx mem;
 
@@ -3262,7 +3262,7 @@
 (define_insn "*arm_zero_extendhisi2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
-  "TARGET_ARM && arm_arch4 && !arm_arch6j"
+  "TARGET_ARM && arm_arch4 && !arm_arch6"
   "ldr%?h\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3273,7 +3273,7 @@
 (define_insn "*arm_zero_extendhisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "@
    uxth%?\\t%0, %1
    ldr%?h\\t%0, %1"
@@ -3287,7 +3287,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (zero_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "uxtah%?\\t%0, %2, %1"
   [(set_attr "type" "alu_shift")
    (set_attr "predicable" "yes")]
@@ -3328,7 +3328,7 @@
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "")))]
   "TARGET_EITHER"
   "
-  if (!arm_arch6j && GET_CODE (operands[1]) != MEM)
+  if (!arm_arch6 && GET_CODE (operands[1]) != MEM)
     {
       if (TARGET_ARM)
         {
@@ -3366,7 +3366,7 @@
 (define_insn "*thumb_zero_extendqisi2"
   [(set (match_operand:SI 0 "register_operand" "=l")
 	(zero_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
-  "TARGET_THUMB && !arm_arch6j"
+  "TARGET_THUMB && !arm_arch6"
   "ldrb\\t%0, %1"
   [(set_attr "length" "2")
    (set_attr "type" "load_byte")
@@ -3376,7 +3376,7 @@
 (define_insn "*thumb_zero_extendqisi2_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "l,m")))]
-  "TARGET_THUMB && arm_arch6j"
+  "TARGET_THUMB && arm_arch6"
   "@
    uxtb\\t%0, %1
    ldrb\\t%0, %1"
@@ -3388,7 +3388,7 @@
 (define_insn "*arm_zero_extendqisi2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(zero_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
-  "TARGET_ARM && !arm_arch6j"
+  "TARGET_ARM && !arm_arch6"
   "ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3399,7 +3399,7 @@
 (define_insn "*arm_zero_extendqisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "@
    uxtb%?\\t%0, %1
    ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
@@ -3413,7 +3413,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (zero_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "uxtab%?\\t%0, %2, %1"
   [(set_attr "predicable" "yes")
    (set_attr "type" "alu_shift")]
@@ -3476,7 +3476,7 @@
     if (!s_register_operand (operands[1], HImode))
       operands[1] = copy_to_mode_reg (HImode, operands[1]);
 
-    if (arm_arch6j)
+    if (arm_arch6)
       {
 	if (TARGET_THUMB)
 	  emit_insn (gen_thumb_extendhisi2 (operands[0], operands[1]));
@@ -3496,7 +3496,7 @@
   [(set (match_operand:SI 0 "register_operand" "=l")
 	(sign_extend:SI (match_operand:HI 1 "memory_operand" "m")))
    (clobber (match_scratch:SI 2 "=&l"))]
-  "TARGET_THUMB && !arm_arch6j"
+  "TARGET_THUMB && !arm_arch6"
   "*
   {
     rtx ops[4];
@@ -3561,7 +3561,7 @@
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))
    (clobber (match_scratch:SI 2 "=X,l"))]
-  "TARGET_THUMB && arm_arch6j"
+  "TARGET_THUMB && arm_arch6"
   "*
   {
     rtx ops[4];
@@ -3663,7 +3663,7 @@
 (define_insn "*arm_extendhisi2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(sign_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
-  "TARGET_ARM && arm_arch4 && !arm_arch6j"
+  "TARGET_ARM && arm_arch4 && !arm_arch6"
   "ldr%?sh\\t%0, %1"
   [(set_attr "type" "load_byte")
    (set_attr "predicable" "yes")
@@ -3674,7 +3674,7 @@
 (define_insn "*arm_extendhisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "@
    sxth%?\\t%0, %1
    ldr%?sh\\t%0, %1"
@@ -3688,7 +3688,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (sign_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "sxtah%?\\t%0, %2, %1"
 )
 
@@ -3819,7 +3819,7 @@
     if (!s_register_operand (operands[1], QImode))
       operands[1] = copy_to_mode_reg (QImode, operands[1]);
 
-    if (arm_arch6j)
+    if (arm_arch6)
       {
         emit_insn (gen_rtx_SET (VOIDmode, operands[0],
 			        gen_rtx_SIGN_EXTEND (SImode, operands[1])));
@@ -3836,7 +3836,7 @@
 (define_insn "*arm_extendqisi"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(sign_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
-  "TARGET_ARM && arm_arch4 && !arm_arch6j"
+  "TARGET_ARM && arm_arch4 && !arm_arch6"
   "*
   /* If the address is invalid, this will split the instruction into two.  */
   if (bad_signed_byte_operand (operands[1], VOIDmode))
@@ -3853,7 +3853,7 @@
 (define_insn "*arm_extendqisi_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "*
   if (which_alternative == 0)
     return \"sxtb%?\\t%0, %1\";
@@ -3875,7 +3875,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (sign_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_ARM && arm_arch6j"
+  "TARGET_ARM && arm_arch6"
   "sxtab%?\\t%0, %2, %1"
   [(set_attr "type" "alu_shift")
    (set_attr "predicable" "yes")]
@@ -3917,7 +3917,7 @@
 (define_insn "*thumb_extendqisi2"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(sign_extend:SI (match_operand:QI 1 "memory_operand" "V,m")))]
-  "TARGET_THUMB && !arm_arch6j"
+  "TARGET_THUMB && !arm_arch6"
   "*
   {
     rtx ops[3];
@@ -3996,7 +3996,7 @@
 (define_insn "*thumb_extendqisi2_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l,l")
 	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "l,V,m")))]
-  "TARGET_THUMB && arm_arch6j"
+  "TARGET_THUMB && arm_arch6"
   "*
   {
     rtx ops[3];
