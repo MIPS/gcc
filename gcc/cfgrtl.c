@@ -1233,53 +1233,52 @@ commit_one_edge_insertion (e, watch_calls)
 
   /* Special case -- avoid inserting code between call and storing
      its return value.  */
-  if (watch_calls
-      && (e->flags & EDGE_FALLTHRU)
-      && !e->dest->pred->pred_next)
+  if (watch_calls && (e->flags & EDGE_FALLTHRU) && !e->dest->pred->pred_next)
     {
       rtx insert_after = e->src->end;
       if (insert_after
-          && SMALL_REGISTER_CLASSES
-          && GET_CODE (insert_after) == CALL_INSN
-          && (GET_CODE (PATTERN (insert_after)) == SET
-           || (GET_CODE (PATTERN (insert_after)) == PARALLEL
-            && GET_CODE (XVECEXP (PATTERN (insert_after), 0, 0)) == SET)))
-        {
-          rtx return_reg;
-          rtx next_insert_after = next_nonnote_insn (insert_after);
+	  && SMALL_REGISTER_CLASSES
+	  && GET_CODE (insert_after) == CALL_INSN
+	  && (GET_CODE (PATTERN (insert_after)) == SET
+	      || (GET_CODE (PATTERN (insert_after)) == PARALLEL
+		  && GET_CODE (XVECEXP (PATTERN (insert_after), 0, 0)) ==
+		  SET)))
+	{
+	  rtx return_reg;
+	  rtx next_insert_after = next_nonnote_insn (insert_after);
 
-          /* The first insn after the call may be a stack pop, skip it.  */
-          if (next_insert_after
-              && GET_CODE (next_insert_after) == INSN
-              && GET_CODE (PATTERN (next_insert_after)) == SET
-              && SET_DEST (PATTERN (next_insert_after)) == stack_pointer_rtx)
-            next_insert_after = next_nonnote_insn (next_insert_after);
-          if (next_insert_after
-              && GET_CODE (next_insert_after) == INSN)
-            {
-              if (GET_CODE (PATTERN (insert_after)) == SET)
-                return_reg = SET_DEST (PATTERN (insert_after));
-              else
-                return_reg = SET_DEST (XVECEXP (PATTERN (insert_after), 0, 0));
+	  /* The first insn after the call may be a stack pop, skip it.  */
+	  if (next_insert_after
+	      && GET_CODE (next_insert_after) == INSN
+	      && GET_CODE (PATTERN (next_insert_after)) == SET
+	      && SET_DEST (PATTERN (next_insert_after)) == stack_pointer_rtx)
+	    next_insert_after = next_nonnote_insn (next_insert_after);
+	  if (next_insert_after && GET_CODE (next_insert_after) == INSN)
+	    {
+	      if (GET_CODE (PATTERN (insert_after)) == SET)
+		return_reg = SET_DEST (PATTERN (insert_after));
+	      else
+		return_reg =
+		  SET_DEST (XVECEXP (PATTERN (insert_after), 0, 0));
 
-              /* Now, NEXT_INSERT_AFTER may be an instruction that uses the
-                 return value.  However, it could also be something else,
-                 like a CODE_LABEL, so check that the code is INSN.  */
-              if (next_insert_after
-                  && GET_RTX_CLASS (GET_CODE (next_insert_after)) == 'i'
-                  && reg_referenced_p (return_reg, PATTERN (next_insert_after)))
-                insert_after = next_insert_after;
-            }
-          after = insert_after;
-          bb = e->dest;
-        }
+	      /* Now, NEXT_INSERT_AFTER may be an instruction that uses the
+	         return value.  However, it could also be something else,
+	         like a CODE_LABEL, so check that the code is INSN.  */
+	      if (next_insert_after
+		  && GET_CODE (next_insert_after) == INSN
+		  && reg_referenced_p (return_reg,
+				       PATTERN (next_insert_after)))
+		insert_after = next_insert_after;
+	    }
+	  after = insert_after;
+	  bb = e->dest;
+	}
     }
   if (!before && !after)
     {
       /* Figure out where to put these things.  If the destination has
-	 one predecessor, insert there.  Except for the exit block.  */
-      if (e->dest->pred->pred_next == NULL
-	  && e->dest != EXIT_BLOCK_PTR)
+         one predecessor, insert there.  Except for the exit block.  */
+      if (e->dest->pred->pred_next == NULL && e->dest != EXIT_BLOCK_PTR)
 	{
 	  bb = e->dest;
 
@@ -1292,12 +1291,14 @@ commit_one_edge_insertion (e, watch_calls)
 	    tmp = NEXT_INSN (tmp);
 	  if (tmp == bb->head)
 	    before = tmp;
-	  else
+	  else if (tmp)
 	    after = PREV_INSN (tmp);
+	  else
+	    after = get_last_insn ();
 	}
 
       /* If the source has one successor and the edge is not abnormal,
-	 insert there.  Except for the entry block.  */
+         insert there.  Except for the entry block.  */
       else if ((e->flags & EDGE_ABNORMAL) == 0
 	       && e->src->succ->succ_next == NULL
 	       && e->src != ENTRY_BLOCK_PTR)
@@ -1313,8 +1314,8 @@ commit_one_edge_insertion (e, watch_calls)
 	  if (GET_CODE (bb->end) == JUMP_INSN)
 	    for (before = bb->end;
 		 GET_CODE (PREV_INSN (before)) == NOTE
-		 && NOTE_LINE_NUMBER (PREV_INSN (before)) == NOTE_INSN_LOOP_BEG;
-		 before = PREV_INSN (before))
+		 && NOTE_LINE_NUMBER (PREV_INSN (before)) ==
+		 NOTE_INSN_LOOP_BEG; before = PREV_INSN (before))
 	      ;
 	  else
 	    {
@@ -1347,13 +1348,12 @@ commit_one_edge_insertion (e, watch_calls)
     {
       /* ??? Remove all outgoing edges from BB and add one for EXIT.
          This is not currently a problem because this only happens
-	 for the (single) epilogue, which already has a fallthru edge
-	 to EXIT.  */
+         for the (single) epilogue, which already has a fallthru edge
+         to EXIT.  */
 
       e = bb->succ;
       if (e->dest != EXIT_BLOCK_PTR
-	  || e->succ_next != NULL
-	  || (e->flags & EDGE_FALLTHRU) == 0)
+	  || e->succ_next != NULL || (e->flags & EDGE_FALLTHRU) == 0)
 	abort ();
 
       e->flags &= ~EDGE_FALLTHRU;
