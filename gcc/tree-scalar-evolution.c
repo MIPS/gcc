@@ -2187,6 +2187,10 @@ number_of_iterations_in_loop (struct loop *loop)
   
   if (!loop->exit_edges)
     goto end;
+  /* APPLE LOCAL begin can't compute iterations if more than one exit --dbj */
+  if (loop->num_exits > 1)
+    goto end;
+  /* APPLE LOCAL end can't compute iterations if more than one exit --dbj */
   exit = loop->exit_edges[0];
 
   if (!number_of_iterations_exit (loop, exit, &niter_desc))

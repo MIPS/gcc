@@ -1,3 +1,10 @@
+2004-08-12  Dale Johannesen <dalej@apple.com>
+	* gcc.c (default_compilers): Handle -fast same as -combine.
+	(process_command): Make -fast imply -combine.
+	* tree-scalar-evolution.c (number_of_iterations_in_loop):
+	Don't compute iteration count for multiple-exit loops.
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Replace from mainline.
+
 2004-08-10  Devang Patel  <dpatel@apple.com>
 
         Remove Symbol Separation.

@@ -993,26 +993,27 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
+   /* APPLE LOCAL begin treat -fast same as -combine --dbj */
      "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
       "/* APPLE LOCAL cpp-precomp compatibility */"\
       %{precomp:%ecpp-precomp not supported}%{no-cpp-precomp:}%{Wno-precomp:}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
-       %{!combine:\
+      %{combine|fast:\
+	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
+		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
+	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
+                %{!fsyntax-only:%(invoke_as)}};:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %<fpredictive-compilation* %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
-          %{!fsyntax-only:%(invoke_as)}} \
-      %{combine:\
-	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
-		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
-	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		cc1 %(cpp_unique_options) %(cc1_options)}}\
-                %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
+          %{!fsyntax-only:%(invoke_as)}}}}}", 0, 1, 1},
+   /* APPLE LOCAL end treat -fast same as -combine --dbj */
   {"-",
    "%{!E:%e-E required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
@@ -3734,15 +3735,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  save_temps_flag = 1;
 	  n_switches++;
 	}
-#if 0
-      /* IMA out of commission for now! */
       /* APPLE LOCAL begin IMA */
       else if (strcmp (argv[i], "-fast") == 0)
 	{
 	  combine_flag = 1;
 	  n_switches++;
 	}
-#endif
       else if (strcmp (argv[i], "-traditional-cpp") == 0)
         {
           traditional_cpp_flag = 1;
