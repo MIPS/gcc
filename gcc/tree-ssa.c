@@ -155,55 +155,54 @@ struct ssa_stats_d
 static struct ssa_stats_d ssa_stats;
 
 /* Local functions.  */
-static void init_tree_ssa		PARAMS ((void));
-static void delete_tree_ssa		PARAMS ((tree));
-static void mark_def_sites		PARAMS ((dominance_info, sbitmap));
-static void compute_global_livein	PARAMS ((varray_type));
-static void set_def_block		PARAMS ((tree, basic_block));
-static void set_livein_block		PARAMS ((tree, basic_block));
-static void insert_phi_nodes		PARAMS ((bitmap *, sbitmap));
-static void insert_phis_for_deferred_variables PARAMS ((varray_type));
-static void rewrite_block		PARAMS ((basic_block, tree));
-static int rewrite_stmt			PARAMS ((block_stmt_iterator,
-						 varray_type *,
-						 varray_type *));
-static inline void rewrite_operand	PARAMS ((tree *));
-static void register_new_def		PARAMS ((tree, tree, varray_type *));
-static void insert_phi_nodes_for	PARAMS ((tree, bitmap *, varray_type));
-static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
-static tree get_reaching_def		PARAMS ((tree));
-static tree get_value_for		PARAMS ((tree, htab_t));
-static void set_value_for		PARAMS ((tree, tree, htab_t));
-static hashval_t def_blocks_hash	PARAMS ((const void *));
-static int def_blocks_eq		PARAMS ((const void *, const void *));
-static hashval_t var_value_hash		PARAMS ((const void *));
-static int var_value_eq			PARAMS ((const void *, const void *));
-static void def_blocks_free		PARAMS ((void *));
-static int debug_def_blocks_r		PARAMS ((void **, void *));
-static tree lookup_avail_expr		PARAMS ((tree, varray_type *));
-static tree get_eq_expr_value		PARAMS ((tree));
-static hashval_t avail_expr_hash	PARAMS ((const void *));
-static int avail_expr_eq		PARAMS ((const void *, const void *));
-static struct def_blocks_d *get_def_blocks_for PARAMS ((tree));
-static void htab_statistics		PARAMS ((FILE *, htab_t));
+static void init_tree_ssa (void);
+static void delete_tree_ssa (tree);
+static void mark_def_sites (dominance_info, sbitmap);
+static void compute_global_livein (varray_type);
+static void set_def_block (tree, basic_block);
+static void set_livein_block (tree, basic_block);
+static void insert_phi_nodes (bitmap *, sbitmap);
+static void insert_phis_for_deferred_variables (varray_type);
+static void rewrite_block (basic_block, tree);
+static int rewrite_stmt (block_stmt_iterator, varray_type *, varray_type *);
+static inline void rewrite_operand (tree *);
+static void register_new_def (tree, tree, varray_type *);
+static void insert_phi_nodes_for (tree, bitmap *, varray_type);
+static tree remove_annotations_r (tree *, int *, void *);
+static tree get_reaching_def (tree);
+static tree get_value_for (tree, htab_t);
+static void set_value_for (tree, tree, htab_t);
+static hashval_t def_blocks_hash (const void *);
+static int def_blocks_eq (const void *, const void *);
+static hashval_t var_value_hash (const void *);
+static int var_value_eq (const void *, const void *);
+static void def_blocks_free (void *);
+static int debug_def_blocks_r (void **, void *);
+static tree lookup_avail_expr (tree, varray_type *);
+static tree get_eq_expr_value (tree);
+static hashval_t avail_expr_hash (const void *);
+static int avail_expr_eq (const void *, const void *);
+static struct def_blocks_d *get_def_blocks_for (tree);
+static void htab_statistics (FILE *, htab_t);
 
-static tree create_temp			PARAMS ((tree));
-static void insert_copy_on_edge		PARAMS ((edge, tree, tree));
-static elim_graph new_elim_graph	PARAMS ((int));
-static void delete_elim_graph		PARAMS ((elim_graph));
-static void clear_elim_graph		PARAMS ((elim_graph));
-static void eliminate_name		PARAMS ((elim_graph, tree));
-static int eliminate_build		PARAMS ((elim_graph, basic_block, int));
-static void elim_forward		PARAMS ((elim_graph, int));
-static int elim_unvisited_predecessor	PARAMS ((elim_graph, int));
-static void elim_backward		PARAMS ((elim_graph, int));
-static void elim_create			PARAMS ((elim_graph, int));
-static void eliminate_phi		PARAMS ((edge, int, elim_graph));
-static void coalesce_ssa_name		PARAMS ((var_map));
-static void assign_vars			PARAMS ((var_map));
-static inline void set_if_valid		PARAMS ((var_map, sbitmap, tree));
-static inline void add_conflicts_if_valid	PARAMS ((root_var_p, conflict_graph, var_map, sbitmap, tree));
-static void replace_variable		PARAMS ((var_map, tree *));
+static tree create_temp (tree);
+static void insert_copy_on_edge (edge, tree, tree);
+static elim_graph new_elim_graph (int);
+static void delete_elim_graph (elim_graph);
+static void clear_elim_graph (elim_graph);
+static void eliminate_name (elim_graph, tree);
+static int eliminate_build (elim_graph, basic_block, int);
+static void elim_forward (elim_graph, int);
+static int elim_unvisited_predecessor (elim_graph, int);
+static void elim_backward (elim_graph, int);
+static void elim_create (elim_graph, int);
+static void eliminate_phi (edge, int, elim_graph);
+static void coalesce_ssa_name (var_map);
+static void assign_vars (var_map);
+static inline void set_if_valid (var_map, sbitmap, tree);
+static inline void add_conflicts_if_valid (root_var_p, conflict_graph,
+					   var_map, sbitmap, tree);
+static void replace_variable (var_map, tree *);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.
@@ -287,8 +286,7 @@ static void replace_variable		PARAMS ((var_map, tree *));
    increased compilation time.  */
 
 void
-rewrite_into_ssa (fndecl)
-     tree fndecl;
+rewrite_into_ssa (tree fndecl)
 {
   bitmap *dfs;
   sbitmap globals;
@@ -374,8 +372,7 @@ rewrite_into_ssa (fndecl)
    life computation by having a varray with a single element.  */
 
 static void
-compute_global_livein (def_maps)
-     varray_type def_maps;
+compute_global_livein (varray_type def_maps)
 {
   basic_block bb, *worklist, *tos;
   bitmap in_worklist = BITMAP_XMALLOC ();
@@ -461,9 +458,7 @@ compute_global_livein (def_maps)
    we create.  */
 
 static void
-mark_def_sites (idom, globals)
-     dominance_info idom;
-     sbitmap globals;
+mark_def_sites (dominance_info idom, sbitmap globals)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -559,9 +554,7 @@ mark_def_sites (idom, globals)
 /* Mark block BB as the definition site for variable VAR.  */
 
 static void
-set_def_block (var, bb)
-     tree var;
-     basic_block bb;
+set_def_block (tree var, basic_block bb)
 {
   struct def_blocks_d db, *db_p;
   void **slot;
@@ -587,9 +580,7 @@ set_def_block (var, bb)
 /* Mark block BB as having VAR live at the entry to BB.  */
 
 static void
-set_livein_block (var, bb)
-     tree var;
-     basic_block bb;
+set_livein_block (tree var, basic_block bb)
 {
   struct def_blocks_d db, *db_p;
   void **slot;
@@ -622,9 +613,7 @@ set_livein_block (var, bb)
    need PHI nodes.  */
 
 static void
-insert_phi_nodes (dfs, globals)
-     bitmap *dfs;
-     sbitmap globals;
+insert_phi_nodes (bitmap *dfs, sbitmap globals)
 {
   size_t i;
   varray_type def_maps;
@@ -704,9 +693,7 @@ insert_phi_nodes (dfs, globals)
    constant propagator can find more propagation opportunities.  */
 
 static void
-rewrite_block (bb, eq_expr_value)
-     basic_block bb;
-     tree eq_expr_value;
+rewrite_block (basic_block bb, tree eq_expr_value)
 {
   edge e;
   varray_type block_defs, block_avail_exprs;
@@ -844,8 +831,7 @@ rewrite_block (bb, eq_expr_value)
    type of the variable which already represents a partition.  */
 
 static tree
-create_temp (t)
-     tree t;
+create_temp (tree t)
 {
   tree tmp;
   const char *name = NULL;
@@ -875,9 +861,7 @@ create_temp (t)
    on the specified edge.  */
 
 static void
-insert_copy_on_edge (e, dest, src)
-     edge e;
-     tree dest, src;
+insert_copy_on_edge (edge e, tree dest, tree src)
 {
   tree copy;
 
@@ -898,8 +882,7 @@ insert_copy_on_edge (e, dest, src)
 /* Create an elimination graph and associated data structures.  */
 
 static elim_graph
-new_elim_graph (size)
-     int size;
+new_elim_graph (int size)
 {
   int x;
   elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
@@ -921,8 +904,7 @@ new_elim_graph (size)
 }
 
 static void
-clear_elim_graph (g)
-     elim_graph g;
+clear_elim_graph (elim_graph g)
 {
   int x;
   int size = g->size;
@@ -938,8 +920,7 @@ clear_elim_graph (g)
 
 /* Delete an elimination graph.  */
 static void
-delete_elim_graph (g)
-     elim_graph g;
+delete_elim_graph (elim_graph g)
 {
   int x;
   free (g->stack);
@@ -964,9 +945,7 @@ delete_elim_graph (g)
 /* Add T to the elimination graph.  */
 
 static void
-eliminate_name (g, T)
-     elim_graph g;
-     tree T;
+eliminate_name (elim_graph g, tree T)
 {
   int version = var_to_partition (g->map, T);
 
@@ -987,10 +966,7 @@ eliminate_name (g, T)
 /* Build the auxillary graph.  */
 
 static int
-eliminate_build (g, B, i)
-     elim_graph g;
-     basic_block B;
-     int i;
+eliminate_build (elim_graph g, basic_block B, int i)
 {
   tree phi;
   tree T0, Ti;
@@ -1020,9 +996,7 @@ eliminate_build (g, B, i)
 /* Push successors onto the stack depth first.  */
 
 static void 
-elim_forward (g, T)
-     elim_graph g;
-     int T;
+elim_forward (elim_graph g, int T)
 {
   int S;
   SET_BIT (g->visited, T);
@@ -1039,9 +1013,7 @@ elim_forward (g, T)
 /* Are there unvisited predecessors?  */
 
 static int
-elim_unvisited_predecessor (g, T)
-     elim_graph g;
-     int T;
+elim_unvisited_predecessor (elim_graph g, int T)
 {
   int P;
   EXECUTE_IF_SET_IN_BITMAP (g->pred[T], 0, P,
@@ -1055,9 +1027,7 @@ elim_unvisited_predecessor (g, T)
 /* Process predecessors first, and insert a copy.  */
 
 static void
-elim_backward (g, T)
-     elim_graph g;
-     int T;
+elim_backward (elim_graph g, int T)
 {
   int P;
   SET_BIT (g->visited, T);
@@ -1078,9 +1048,7 @@ elim_backward (g, T)
    required copies.  */
 
 static void 
-elim_create (g, T)
-     elim_graph g;
-     int T;
+elim_create (elim_graph g, int T)
 {
   tree U;
   int P, S;
@@ -1116,10 +1084,7 @@ elim_create (g, T)
 /* Eliminate all the phi nodes on this edge.  */
 
 static void
-eliminate_phi (e, i, g)
-     edge e;
-     int i;
-     elim_graph g;
+eliminate_phi (edge e, int i, elim_graph g)
 {
   tree phi;
   int num_phi = 0;
@@ -1169,10 +1134,7 @@ eliminate_phi (e, i, g)
 /* Set the bit for a partition index if the variable is in a partition.  */
 
 static inline void 
-set_if_valid (map, vec, var)
-     var_map map;
-     sbitmap vec;
-     tree var;
+set_if_valid (var_map map, sbitmap vec, tree var)
 { 
   int p = var_to_partition (map, var);
   if (p != NO_PARTITION)
@@ -1183,12 +1145,8 @@ set_if_valid (map, vec, var)
    conflict between it and any other live partition.  Reset the live bit.  */
 
 static inline void 
-add_conflicts_if_valid (rv, graph, map, vec, var)
-     root_var_p rv;
-     conflict_graph graph;
-     var_map map;
-     sbitmap vec;
-     tree var;
+add_conflicts_if_valid (root_var_p rv, conflict_graph graph,
+			var_map map, sbitmap vec, tree var)
 { 
   int p, y;
   p = var_to_partition (map, var);
@@ -1211,8 +1169,7 @@ add_conflicts_if_valid (rv, graph, map, vec, var)
    edges, etc.)  */
 
 static void
-coalesce_ssa_name (map)
-     var_map map;
+coalesce_ssa_name (var_map map)
 {
   int num, x, y, z;
   conflict_graph graph;
@@ -1455,8 +1412,7 @@ coalesce_ssa_name (map)
 /* Take the ssa-name var_map, and assign real variables to each partition.  */
 
 static void
-assign_vars (map)
-     var_map map;
+assign_vars (var_map map)
 {
   int x, i, num;
   tree t, var;
@@ -1538,9 +1494,7 @@ assign_vars (map)
 /* Replace *p with whatever variable it has been rewritten to.  */
 
 static void
-replace_variable (map, p)
-     var_map map;
-     tree *p;
+replace_variable (var_map map, tree *p)
 {
   tree new_var;
   tree var = *p;
@@ -1569,8 +1523,7 @@ replace_variable (map, p)
 /* Take function FNDECL out of SSA form.  */
 
 void
-rewrite_out_of_ssa (fndecl)
-     tree fndecl;
+rewrite_out_of_ssa (tree fndecl)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -1717,8 +1670,7 @@ ssa_remove_edge (edge e)
 /* Dump SSA information to FILE.  */
 
 void
-dump_tree_ssa (file)
-     FILE *file;
+dump_tree_ssa (FILE *file)
 {
   basic_block bb;
   const char *funcname
@@ -1739,7 +1691,7 @@ dump_tree_ssa (file)
 /* Dump SSA information to stderr.  */
 
 void
-debug_tree_ssa ()
+debug_tree_ssa (void)
 {
   dump_tree_ssa (stderr);
 }
@@ -1748,8 +1700,7 @@ debug_tree_ssa ()
 /* Dump SSA statistics on FILE.  */
 
 void
-dump_tree_ssa_stats (file)
-     FILE *file;
+dump_tree_ssa_stats (FILE *file)
 {
   long n_exprs;
 
@@ -1793,7 +1744,7 @@ dump_tree_ssa_stats (file)
 /* Dump SSA statistics on stderr.  */
 
 void
-debug_tree_ssa_stats ()
+debug_tree_ssa_stats (void)
 {
   dump_tree_ssa_stats (stderr);
 }
@@ -1802,9 +1753,7 @@ debug_tree_ssa_stats ()
 /* Dump statistics for the hash table HTAB.  */
 
 static void
-htab_statistics (file, htab)
-     FILE *file;
-     htab_t htab;
+htab_statistics (FILE *file, htab_t htab)
 {
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
 	   (long) htab_size (htab),
@@ -1831,8 +1780,7 @@ htab_statistics (file, htab)
    object.  */
 
 static void
-insert_phis_for_deferred_variables (def_maps)
-     varray_type def_maps;
+insert_phis_for_deferred_variables (varray_type def_maps)
 {
   unsigned int i;
   unsigned int num_elements;
@@ -1866,10 +1814,7 @@ insert_phis_for_deferred_variables (def_maps)
 /* Insert PHI nodes for variable VAR.  */
 
 static void
-insert_phi_nodes_for (var, dfs, def_maps)
-     tree var;
-     bitmap *dfs;
-     varray_type def_maps;
+insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
@@ -2006,10 +1951,8 @@ insert_phi_nodes_for (var, dfs, def_maps)
       simplistic propagation while renaming.  */
 
 static int
-rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
-     block_stmt_iterator si;
-     varray_type *block_defs_p;
-     varray_type *block_avail_exprs_p;
+rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p,
+	      varray_type *block_avail_exprs_p)
 {
   size_t i;
   stmt_ann_t ann;
@@ -2177,8 +2120,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
    definition.  */
 
 static inline void
-rewrite_operand (op_p)
-     tree *op_p;
+rewrite_operand (tree *op_p)
 {
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
@@ -2193,10 +2135,7 @@ rewrite_operand (op_p)
    current reaching definition into the stack pointed by BLOCK_DEFS_P.  */
 
 static void
-register_new_def (var, def, block_defs_p)
-     tree var;
-     tree def;
-     varray_type *block_defs_p;
+register_new_def (tree var, tree def, varray_type *block_defs_p)
 {
   tree currdef = get_value_for (var, currdefs);
 
@@ -2224,7 +2163,7 @@ register_new_def (var, def, block_defs_p)
 /* Initialize DFA/SSA structures.  */
 
 static void
-init_tree_ssa ()
+init_tree_ssa (void)
 {
   next_ssa_version = 1;
   num_referenced_vars = 0;
@@ -2253,8 +2192,7 @@ init_tree_ssa ()
 /* Deallocate memory associated with SSA data structures for FNDECL.  */
 
 static void
-delete_tree_ssa (fndecl)
-     tree fndecl;
+delete_tree_ssa (tree fndecl)
 {
   size_t i;
 
@@ -2277,10 +2215,8 @@ delete_tree_ssa (fndecl)
    *TP.  */
 
 static tree
-remove_annotations_r (tp, walk_subtrees, data)
-    tree *tp;
-    int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data ATTRIBUTE_UNUSED;
+remove_annotations_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		      void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
   enum tree_code code = TREE_CODE (t);
@@ -2316,8 +2252,7 @@ remove_annotations_r (tp, walk_subtrees, data)
    has been clobbered by a function call since its last assignment.  */
 
 static tree
-get_reaching_def (var)
-     tree var;
+get_reaching_def (tree var)
 {
   tree default_def, currdef_var;
   
@@ -2342,8 +2277,7 @@ get_reaching_def (var)
 /* Free memory allocated for a <def, def_blocks> tuple.  */
 
 static void
-def_blocks_free (p)
-     void *p;
+def_blocks_free (void *p)
 {
   struct def_blocks_d *db_p = (struct def_blocks_d *) p;
   BITMAP_XFREE (db_p->def_blocks);
@@ -2355,16 +2289,14 @@ def_blocks_free (p)
 /* Hashing and equality functions for DEF_BLOCKS.  */
 
 static hashval_t
-def_blocks_hash (p)
-     const void *p;
+def_blocks_hash (const void *p)
 {
-  return htab_hash_pointer ((const void *)((const struct def_blocks_d *)p)->var);
+  return htab_hash_pointer
+	((const void *)((const struct def_blocks_d *)p)->var);
 }
 
 static int
-def_blocks_eq (p1, p2)
-     const void *p1;
-     const void *p2;
+def_blocks_eq (const void *p1, const void *p2)
 {
   return ((const struct def_blocks_d *)p1)->var
 	 == ((const struct def_blocks_d *)p2)->var;
@@ -2374,16 +2306,14 @@ def_blocks_eq (p1, p2)
 /* Hashing and equality functions for VAR_VALUE_D.  */
 
 static hashval_t
-var_value_hash (p)
-     const void *p;
+var_value_hash (const void *p)
 {
-  return htab_hash_pointer ((const void *)((const struct var_value_d *)p)->var);
+  return htab_hash_pointer
+	((const void *)((const struct var_value_d *)p)->var);
 }
 
 static int
-var_value_eq (p1, p2)
-     const void *p1;
-     const void *p2;
+var_value_eq (const void *p1, const void *p2)
 {
   return ((const struct var_value_d *)p1)->var
 	 == ((const struct var_value_d *)p2)->var;
@@ -2393,7 +2323,7 @@ var_value_eq (p1, p2)
 /* Dump the DEF_BLOCKS hash table on stderr.  */
 
 void
-debug_def_blocks ()
+debug_def_blocks (void)
 {
   htab_traverse (def_blocks, debug_def_blocks_r, NULL);
 }
@@ -2401,9 +2331,7 @@ debug_def_blocks ()
 /* Callback for htab_traverse to dump the DEF_BLOCKS hash table.  */
 
 static int
-debug_def_blocks_r (slot, data)
-     void **slot;
-     void *data ATTRIBUTE_UNUSED;
+debug_def_blocks_r (void **slot, void *data ATTRIBUTE_UNUSED)
 {
   unsigned long i;
   struct def_blocks_d *db_p = (struct def_blocks_d *) *slot;
@@ -2426,9 +2354,7 @@ debug_def_blocks_r (slot, data)
 /* Return the value associated with variable VAR in TABLE.  */
 
 static tree
-get_value_for (var, table)
-     tree var;
-     htab_t table;
+get_value_for (tree var, htab_t table)
 {
   struct var_value_d *vm_p, vm;
 
@@ -2446,10 +2372,7 @@ get_value_for (var, table)
 /* Associate VALUE to variable VAR in TABLE.  */
 
 static void
-set_value_for (var, value, table)
-     tree var;
-     tree value;
-     htab_t table;
+set_value_for (tree var, tree value, htab_t table)
 {
   struct var_value_d *vm_p, vm;
   void **slot;
@@ -2487,9 +2410,7 @@ set_value_for (var, value, table)
 	 aliased references.  */
 
 static tree
-lookup_avail_expr (stmt, block_avail_exprs_p)
-     tree stmt;
-     varray_type *block_avail_exprs_p;
+lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p)
 {
   void **slot;
   tree rhs;
@@ -2522,8 +2443,7 @@ lookup_avail_expr (stmt, block_avail_exprs_p)
    form 'X'.  The assignment 'X = 1' is returned.  */
 
 static tree
-get_eq_expr_value (if_stmt)
-     tree if_stmt;
+get_eq_expr_value (tree if_stmt)
 {
   tree cond, value;
 
@@ -2555,8 +2475,7 @@ get_eq_expr_value (if_stmt)
    the code of the expression and the SSA numbers of its operands.  */
 
 static hashval_t
-avail_expr_hash (p)
-     const void *p;
+avail_expr_hash (const void *p)
 {
   hashval_t val = 0;
   tree rhs;
@@ -2590,9 +2509,7 @@ avail_expr_hash (p)
 
 
 static int
-avail_expr_eq (p1, p2)
-     const void *p1;
-     const void *p2;
+avail_expr_eq (const void *p1, const void *p2)
 {
   tree s1, s2, rhs1, rhs2;
 
@@ -2632,8 +2549,7 @@ avail_expr_eq (p1, p2)
    where VAR is live on entry (livein).  */
 
 static struct def_blocks_d *
-get_def_blocks_for (var)
-     tree var;
+get_def_blocks_for (tree var)
 {
   struct def_blocks_d dm;
 

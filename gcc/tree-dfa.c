@@ -118,30 +118,27 @@ extern int tree_ssa_dump_flags;
 
 
 /* Local functions.  */
-static void get_expr_operands		PARAMS ((tree, tree *, int,
-      						 voperands_t));
-static void collect_dfa_stats		PARAMS ((struct dfa_stats_d *));
-static tree collect_dfa_stats_r		PARAMS ((tree *, int *, void *));
-static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
-static void compute_alias_sets		PARAMS ((void));
-static void register_alias_set		PARAMS ((tree));
-static void find_alias_for		PARAMS ((tree, HOST_WIDE_INT));
-static bool may_alias_p			PARAMS ((tree, HOST_WIDE_INT,
-						 tree, HOST_WIDE_INT));
-static bool may_access_global_mem_p 	PARAMS ((tree));
-static void set_def			PARAMS ((tree *, tree));
-static void add_use			PARAMS ((tree *, tree));
-static void add_vdef			PARAMS ((tree, tree, voperands_t));
-static void add_stmt_operand		PARAMS ((tree *, tree, int,
-      						 voperands_t));
-static void add_immediate_use		PARAMS ((tree, tree));
-static tree find_vars_r			PARAMS ((tree *, int *, void *));
-static void add_referenced_var		PARAMS ((tree, struct walk_state *));
-static void compute_immediate_uses_for	PARAMS ((tree, int));
-static void add_may_alias		PARAMS ((tree, tree));
-static bool call_may_clobber		PARAMS ((tree));
-static void find_hidden_use_vars	PARAMS ((tree));
-static tree find_hidden_use_vars_r	PARAMS ((tree *, int *, void *));
+static void get_expr_operands (tree, tree *, int, voperands_t);
+static void collect_dfa_stats (struct dfa_stats_d *);
+static tree collect_dfa_stats_r (tree *, int *, void *);
+static tree clobber_vars_r (tree *, int *, void *);
+static void compute_alias_sets (void);
+static void register_alias_set (tree);
+static void find_alias_for (tree, HOST_WIDE_INT);
+static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
+static bool may_access_global_mem_p (tree);
+static void set_def (tree *, tree);
+static void add_use (tree *, tree);
+static void add_vdef (tree, tree, voperands_t);
+static void add_stmt_operand (tree *, tree, int, voperands_t);
+static void add_immediate_use (tree, tree);
+static tree find_vars_r (tree *, int *, void *);
+static void add_referenced_var (tree, struct walk_state *);
+static void compute_immediate_uses_for (tree, int);
+static void add_may_alias (tree, tree);
+static bool call_may_clobber (tree);
+static void find_hidden_use_vars (tree);
+static tree find_hidden_use_vars_r (tree *, int *, void *);
 
 
 /* Global declarations.  */
@@ -191,8 +188,7 @@ tree global_var;
    statement is marked modified by a call to modify_stmt().  */
 
 void
-get_stmt_operands (stmt)
-     tree stmt;
+get_stmt_operands (tree stmt)
 {
   enum tree_code code;
   stmt_ann_t ann;
@@ -299,11 +295,7 @@ get_stmt_operands (stmt)
    operands found.  PREV_VOPS is as in add_vdef and add_vuse.  */
 
 static void
-get_expr_operands (stmt, expr_p, flags, prev_vops)
-     tree stmt;
-     tree *expr_p;
-     int flags;
-     voperands_t prev_vops;
+get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 {
   enum tree_code code;
   char class;
@@ -540,11 +532,7 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       already had them (See add_vdef and add_vuse).  */
 
 static void
-add_stmt_operand (var_p, stmt, flags, prev_vops)
-     tree *var_p;
-     tree stmt;
-     int flags;
-     voperands_t prev_vops;
+add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 {
   bool is_scalar;
   tree var;
@@ -665,9 +653,7 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
 /* Set DEF_P to be the pointer to the operand defined by STMT.  */
 
 static void
-set_def (def_p, stmt)
-     tree *def_p;
-     tree stmt;
+set_def (tree *def_p, tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
 
@@ -692,9 +678,7 @@ set_def (def_p, stmt)
 /* Add USE_P to the list of pointers to operands used by STMT.  */
 
 static void
-add_use (use_p, stmt)
-     tree *use_p;
-     tree stmt;
+add_use (tree *use_p, tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
 
@@ -726,10 +710,7 @@ add_use (use_p, stmt)
    operands.  */
 
 static void
-add_vdef (var, stmt, prev_vops)
-     tree var;
-     tree stmt;
-     voperands_t prev_vops;
+add_vdef (tree var, tree stmt, voperands_t prev_vops)
 {
   tree vdef;
   stmt_ann_t ann;
@@ -765,10 +746,7 @@ add_vdef (var, stmt, prev_vops)
    operands.  */
 
 void
-add_vuse (var, stmt, prev_vops)
-     tree var;
-     tree stmt;
-     voperands_t prev_vops;
+add_vuse (tree var, tree stmt, voperands_t prev_vops)
 {
   stmt_ann_t ann;
   size_t i;
@@ -798,9 +776,7 @@ add_vuse (var, stmt, prev_vops)
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
 tree
-create_phi_node (var, bb)
-     tree var;
-     basic_block bb;
+create_phi_node (tree var, basic_block bb)
 {
   tree phi;
   bb_ann_t ann;
@@ -831,10 +807,7 @@ create_phi_node (var, bb)
    argument is added at the end of the argument list.  */
 
 void
-add_phi_arg (phi, def, e)
-     tree phi;
-     tree def;
-     edge e;
+add_phi_arg (tree phi, tree def, edge e)
 {
   int i = PHI_NUM_ARGS (phi);
 
@@ -861,9 +834,7 @@ add_phi_arg (phi, def, e)
    the PHI argument is coming from.  */
 
 void
-remove_phi_arg (phi, block)
-     tree phi;
-     basic_block block;
+remove_phi_arg (tree phi, basic_block block)
 {
   int i, num_elem = PHI_NUM_ARGS (phi);
 
@@ -911,10 +882,7 @@ remove_phi_arg_num (tree phi, int i)
    used as the node immediately before PHI in the linked list.  */
 
 void
-remove_phi_node (phi, prev, bb)
-    tree phi;
-    tree prev;
-    basic_block bb;
+remove_phi_node (tree phi, tree prev, basic_block bb)
 {
   if (prev)
     {
@@ -946,8 +914,7 @@ remove_phi_node (phi, prev, bb)
 /* Compute immediate uses.  */
 
 void
-compute_immediate_uses (flags)
-     int flags;
+compute_immediate_uses (int flags)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -969,9 +936,7 @@ compute_immediate_uses (flags)
    and STMT.  */
 
 static void
-compute_immediate_uses_for (stmt, flags)
-     tree stmt;
-     int flags;
+compute_immediate_uses_for (tree stmt, int flags)
 {
   size_t i;
   varray_type ops;
@@ -1022,8 +987,7 @@ compute_immediate_uses_for (stmt, flags)
 /* Compute reached uses.  */
 
 void
-compute_reached_uses (flags)
-     int flags ATTRIBUTE_UNUSED;
+compute_reached_uses (int flags ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -1032,8 +996,7 @@ compute_reached_uses (flags)
 /* Compute reaching definitions.  */
 
 void
-compute_reaching_defs (flags)
-    int flags ATTRIBUTE_UNUSED;
+compute_reaching_defs (int flags ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -1044,9 +1007,7 @@ compute_reaching_defs (flags)
     made by STMT.  */
 
 static void
-add_immediate_use (stmt, use_stmt)
-     tree stmt;
-     tree use_stmt;
+add_immediate_use (tree stmt, tree use_stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
 
@@ -1069,8 +1030,7 @@ add_immediate_use (stmt, use_stmt)
 /* Create a new annotation for a _DECL node T.  */
 
 var_ann_t
-create_var_ann (t)
-     tree t;
+create_var_ann (tree t)
 {
   var_ann_t ann;
 
@@ -1093,8 +1053,7 @@ create_var_ann (t)
 /* Create a new annotation for a statement node T.  */
 
 stmt_ann_t
-create_stmt_ann (t)
-     tree t;
+create_stmt_ann (tree t)
 {
   stmt_ann_t ann;
 
@@ -1149,8 +1108,7 @@ create_stmt_ann (t)
    FILE.  */
 
 void
-dump_referenced_vars (file)
-     FILE *file;
+dump_referenced_vars (FILE *file)
 {
   size_t i;
 
@@ -1170,7 +1128,7 @@ dump_referenced_vars (file)
 /* Dump the list of all the referenced variables to stderr.  */
 
 void
-debug_referenced_vars ()
+debug_referenced_vars (void)
 {
   dump_referenced_vars (stderr);
 }
@@ -1179,9 +1137,7 @@ debug_referenced_vars ()
 /* Dump variable VAR and its may-aliases to FILE.  */
 
 void
-dump_variable (file, var)
-     FILE *file;
-     tree var;
+dump_variable (FILE *file, tree var)
 {
   var_ann_t ann;
   varray_type aliases;
@@ -1243,8 +1199,7 @@ dump_variable (file, var)
 /* Dump variable VAR and its may-aliases to stderr.  */
 
 void
-debug_variable (var)
-     tree var;
+debug_variable (tree var)
 {
   dump_variable (stderr, var);
 }
@@ -1253,8 +1208,7 @@ debug_variable (var)
 /* Dump def-use edges on FILE.  */
 
 void
-dump_immediate_uses (file)
-     FILE *file;
+dump_immediate_uses (FILE *file)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -1281,7 +1235,7 @@ dump_immediate_uses (file)
 /* Dump def-use edges on stderr.  */
 
 void
-debug_immediate_uses ()
+debug_immediate_uses (void)
 {
   dump_immediate_uses (stderr);
 }
@@ -1290,9 +1244,7 @@ debug_immediate_uses ()
 /* Dump all immediate uses for STMT on FILE.  */
 
 void
-dump_immediate_uses_for (file, stmt)
-     FILE *file;
-     tree stmt;
+dump_immediate_uses_for (FILE *file, tree stmt)
 {
   varray_type imm_uses = immediate_uses (stmt);
 
@@ -1319,8 +1271,7 @@ dump_immediate_uses_for (file, stmt)
 /* Dump immediate uses for STMT on stderr.  */
 
 void
-debug_immediate_uses_for (stmt)
-     tree stmt;
+debug_immediate_uses_for (tree stmt)
 {
   dump_immediate_uses_for (stderr, stmt);
 }
@@ -1329,8 +1280,7 @@ debug_immediate_uses_for (stmt)
 /* Dump various DFA statistics to FILE.  */
 
 void
-dump_dfa_stats (file)
-     FILE *file;
+dump_dfa_stats (FILE *file)
 {
   struct dfa_stats_d dfa_stats;
 
@@ -1418,7 +1368,7 @@ dump_dfa_stats (file)
 /* Dump DFA statistics on stderr.  */
 
 void
-debug_dfa_stats ()
+debug_dfa_stats (void)
 {
   dump_dfa_stats (stderr);
 }
@@ -1428,8 +1378,7 @@ debug_dfa_stats ()
    DFA_STATS_P.  */
 
 static void
-collect_dfa_stats (dfa_stats_p)
-     struct dfa_stats_d *dfa_stats_p;
+collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
 {
   htab_t htab;
   basic_block bb;
@@ -1468,10 +1417,8 @@ collect_dfa_stats (dfa_stats_p)
    children.  */
 
 static tree
-collect_dfa_stats_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data;
+collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		     void *data)
 {
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
@@ -1523,10 +1470,8 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
    TP.  */
 
 static tree
-clobber_vars_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data;
+clobber_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		void *data)
 {
   enum tree_code code = TREE_CODE (*tp);
 
@@ -1550,8 +1495,7 @@ clobber_vars_r (tp, walk_subtrees, data)
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
 void
-compute_may_aliases (fndecl)
-     tree fndecl;
+compute_may_aliases (tree fndecl)
 {
   static htab_t vars_found;
   static htab_t aliased_objects_found;
@@ -1645,7 +1589,7 @@ compute_may_aliases (fndecl)
    documentation in tree-ssa.c.  */
 
 static void
-compute_alias_sets ()
+compute_alias_sets (void)
 {
   size_t i;
 
@@ -1733,8 +1677,7 @@ compute_alias_sets ()
       VAR's alias set is not already represented.  */
 
 static void
-register_alias_set (var)
-     tree var;
+register_alias_set (tree var)
 {
   size_t i;
   struct alias_set_d *curr;
@@ -1789,9 +1732,7 @@ register_alias_set (var)
    conflicting alias set with VAR.  */
 
 static void
-find_alias_for (var, var_set)
-     tree var;
-     HOST_WIDE_INT var_set;
+find_alias_for (tree var, HOST_WIDE_INT var_set)
 {
   size_t i;
 
@@ -1816,11 +1757,8 @@ find_alias_for (var, var_set)
    set for V1.  V2_ALIAS_SET is the alias set for V2.  */
 
 static bool
-may_alias_p (v1, v1_alias_set, v2, v2_alias_set)
-     tree v1;
-     HOST_WIDE_INT v1_alias_set;
-     tree v2;
-     HOST_WIDE_INT v2_alias_set;
+may_alias_p (tree v1, HOST_WIDE_INT v1_alias_set,
+	     tree v2, HOST_WIDE_INT v2_alias_set)
 {
   tree var;
   HOST_WIDE_INT var_alias_set;
@@ -1913,9 +1851,7 @@ may_alias_p (v1, v1_alias_set, v2, v2_alias_set)
 /* Add ALIAS to the set of variables that may alias VAR.  */
 
 static void
-add_may_alias (var, alias)
-     tree var;
-     tree alias;
+add_may_alias (tree var, tree alias)
 {
   size_t i;
   var_ann_t v_ann = get_var_ann (var);
@@ -1950,8 +1886,7 @@ add_may_alias (var, alias)
 /* Dump alias information on FILE.  */
 
 void
-dump_alias_info (file)
-     FILE *file;
+dump_alias_info (FILE *file)
 {
   size_t i, j, k;
   const char *funcname
@@ -1993,7 +1928,7 @@ dump_alias_info (file)
 /* Dump alias information on stderr.  */
 
 void
-debug_alias_info ()
+debug_alias_info (void)
 {
   dump_alias_info (stderr);
 }
@@ -2007,8 +1942,7 @@ debug_alias_info ()
    function scope.  */
 
 static bool
-may_access_global_mem_p (expr)
-     tree expr;
+may_access_global_mem_p (tree expr)
 {
   char class;
 
@@ -2057,9 +1991,7 @@ may_access_global_mem_p (expr)
 /* Remove variable DECL from the block that declares it.  */
 
 void
-remove_decl (decl, block)
-     tree decl;
-     tree block;
+remove_decl (tree decl, tree block)
 {
   tree *loc;
   
@@ -2075,9 +2007,7 @@ remove_decl (decl, block)
    located.  */
 
 tree *
-find_decl_location (decl, block)
-     tree decl;
-     tree block;
+find_decl_location (tree decl, tree block)
 {
   tree d, sub;
 
@@ -2105,10 +2035,8 @@ find_decl_location (decl, block)
    the function.  */
 
 static tree
-find_vars_r (tp, walk_subtrees, data)
-    tree *tp;
-    int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data;
+find_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+	     void *data)
 {
   tree t = *tp;
   struct walk_state *walk_state = (struct walk_state *)data;
@@ -2223,9 +2151,7 @@ find_vars_r (tp, walk_subtrees, data)
    assumes that VAR is a valid SSA variable.  */
 
 static void
-add_referenced_var (var, walk_state)
-     tree var;
-     struct walk_state *walk_state;
+add_referenced_var (tree var, struct walk_state *walk_state)
 {
   void **slot;
   htab_t vars_found = walk_state->vars_found;
@@ -2315,8 +2241,7 @@ add_referenced_var (var, walk_state)
 /* Return the virtual variable associated to the non-scalar variable VAR.  */
 
 tree
-get_virtual_var (var)
-     tree var;
+get_virtual_var (tree var)
 {
   enum tree_code code;
 
@@ -2344,8 +2269,7 @@ get_virtual_var (var)
    globals and local addressable variables.  */
 
 static bool
-call_may_clobber (expr)
-     tree expr;
+call_may_clobber (tree expr)
 {
   tree callee;
   int flags;
@@ -2364,8 +2288,7 @@ call_may_clobber (expr)
    A hidden use can occur due to VLA declarations or nested functions.   */
 
 static void
-find_hidden_use_vars (block)
-    tree block;
+find_hidden_use_vars (tree block)
 {
   tree sub, decl;
 
@@ -2397,10 +2320,8 @@ find_hidden_use_vars (block)
    as having hidden uses.  */
 
 static tree
-find_hidden_use_vars_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
+find_hidden_use_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			void *data ATTRIBUTE_UNUSED)
 {
   int *inside_vla = (int *) data;
 
@@ -2437,7 +2358,7 @@ find_hidden_use_vars_r (tp, walk_subtrees, data)
    the program.  */
 
 void
-create_global_var ()
+create_global_var (void)
 {
   global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
                            size_type_node);

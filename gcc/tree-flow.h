@@ -426,35 +426,35 @@ extern int call_expr_flags (tree);
 extern int remove_useless_stmts_and_vars (tree *);
 
 /* In tree-dfa.c  */
-extern void get_stmt_operands		PARAMS ((tree));
-extern var_ann_t create_var_ann 	PARAMS ((tree));
-extern stmt_ann_t create_stmt_ann 	PARAMS ((tree));
-extern tree create_phi_node		PARAMS ((tree, basic_block));
-extern void add_phi_arg			PARAMS ((tree, tree, edge));
-extern void remove_phi_arg		PARAMS ((tree, basic_block));
-extern void remove_phi_arg_num		PARAMS ((tree, int));
-extern void remove_phi_node		PARAMS ((tree, tree, basic_block));
-extern void dump_dfa_stats		PARAMS ((FILE *));
-extern void debug_dfa_stats		PARAMS ((void));
-extern void debug_referenced_vars	PARAMS ((void));
-extern void dump_referenced_vars	PARAMS ((FILE *));
-extern void dump_variable		PARAMS ((FILE *, tree));
-extern void debug_variable		PARAMS ((tree));
-extern void dump_immediate_uses		PARAMS ((FILE *));
-extern void debug_immediate_uses	PARAMS ((void));
-extern void dump_immediate_uses_for	PARAMS ((FILE *, tree));
-extern void debug_immediate_uses_for	PARAMS ((tree));
-extern void remove_decl			PARAMS ((tree, tree));
-extern tree *find_decl_location		PARAMS ((tree, tree));
-extern void compute_may_aliases		PARAMS ((tree));
-extern void compute_reached_uses	PARAMS ((int));
-extern void compute_immediate_uses	PARAMS ((int));
-extern void compute_reaching_defs	PARAMS ((int));
-extern void dump_alias_info		PARAMS ((FILE *));
-extern void debug_alias_info		PARAMS ((void));
-extern tree get_virtual_var		PARAMS ((tree));
-extern void add_vuse			PARAMS ((tree, tree, voperands_t));
-extern void create_global_var		PARAMS ((void));
+extern void get_stmt_operands (tree);
+extern var_ann_t create_var_ann (tree);
+extern stmt_ann_t create_stmt_ann (tree);
+extern tree create_phi_node (tree, basic_block);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_arg (tree, basic_block);
+extern void remove_phi_arg_num (tree, int);
+extern void remove_phi_node (tree, tree, basic_block);
+extern void dump_dfa_stats (FILE *);
+extern void debug_dfa_stats (void);
+extern void debug_referenced_vars (void);
+extern void dump_referenced_vars (FILE *);
+extern void dump_variable (FILE *, tree);
+extern void debug_variable (tree);
+extern void dump_immediate_uses (FILE *);
+extern void debug_immediate_uses (void);
+extern void dump_immediate_uses_for (FILE *, tree);
+extern void debug_immediate_uses_for (tree);
+extern void remove_decl (tree, tree);
+extern tree *find_decl_location (tree, tree);
+extern void compute_may_aliases (tree);
+extern void compute_reached_uses (int);
+extern void compute_immediate_uses (int);
+extern void compute_reaching_defs (int);
+extern void dump_alias_info (FILE *);
+extern void debug_alias_info (void);
+extern tree get_virtual_var (tree);
+extern void add_vuse (tree, tree, voperands_t);
+extern void create_global_var (void);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -462,16 +462,16 @@ extern void create_global_var		PARAMS ((void));
 
 
 /* In tree-ssa.c  */
-extern void rewrite_into_ssa		PARAMS ((tree));
-extern void rewrite_out_of_ssa		PARAMS ((tree));
-extern void dump_reaching_defs		PARAMS ((FILE *));
-extern void debug_reaching_defs		PARAMS ((void));
-extern void dump_tree_ssa		PARAMS ((FILE *));
-extern void debug_tree_ssa		PARAMS ((void));
-extern void debug_def_blocks		PARAMS ((void));
-extern void dump_tree_ssa_stats		PARAMS ((FILE *));
-extern void debug_tree_ssa_stats	PARAMS ((void));
-extern void ssa_remove_edge		(edge);
+extern void rewrite_into_ssa (tree);
+extern void rewrite_out_of_ssa (tree);
+extern void dump_reaching_defs (FILE *);
+extern void debug_reaching_defs (void);
+extern void dump_tree_ssa (FILE *);
+extern void debug_tree_ssa (void);
+extern void debug_def_blocks (void);
+extern void dump_tree_ssa_stats (FILE *);
+extern void debug_tree_ssa_stats (void);
+extern void ssa_remove_edge (edge);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre		PARAMS ((tree));

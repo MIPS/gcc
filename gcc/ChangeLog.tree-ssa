@@ -1,7 +1,7 @@
 2003-06-09  Steven Bosscher  <steven@gcc.gnu.org>
 
-	* basic-block.h, tree-cfg.c, tree-flow.h: Convert function
-	prototypes to ISO C.
+	* basic-block.h, tree-dfa.c, tree-ssa.c, tree-cfg.c,
+	tree-flow.h: Convert function prototypes to ISO C.
 
 2003-06-09  Daniel Berlin  <dberlin@dberlin.org>
 
