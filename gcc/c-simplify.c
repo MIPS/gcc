@@ -821,19 +821,6 @@ gimplify_return_stmt (tree *stmt_p)
   return GS_OK;
 }
 
-/* walk_tree helper function for gimplify_decl_stmt.  */
-
-static tree
-mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
-{
-  if (TYPE_P (*tp))
-    *walk_subtrees = 0;
-  if (TREE_CODE (*tp) == LABEL_DECL)
-    FORCED_LABEL (*tp) = 1;
-
-  return NULL_TREE;
-}
-
 /* Gimplifies a DECL_STMT node T.
 
    If a declaration V has an initial value I, create an expression 'V = I'
@@ -907,7 +894,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	    {
 	      /* We must still examine initializers for static variables
 		 as they may contain a label address.  */
-	      walk_tree (&init, mark_labels_r, NULL, NULL);
+	      walk_tree (&init, force_labels_r, NULL, NULL);
 	    }
 	}
 

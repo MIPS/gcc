@@ -2783,7 +2783,8 @@ rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
-  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_COALESCE_PARTITIONS);
+  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST
+		   | SSANORM_COALESCE_PARTITIONS);
 
   eliminate_virtual_phis ();
 
@@ -3489,7 +3490,6 @@ init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   call_clobbered_vars = BITMAP_XMALLOC ();
-  bitmap_clear (call_clobbered_vars);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();

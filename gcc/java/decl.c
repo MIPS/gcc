@@ -1267,7 +1267,6 @@ poplevel (int keep, int reverse, int functionbody)
   tree decl;
   tree bind = 0;
   int block_previously_created;
-    {
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   binding_depth--;
@@ -1299,37 +1298,11 @@ poplevel (int keep, int reverse, int functionbody)
   else
     decls = current_binding_level->names;
 
-  /* Output any nested inline functions within this block
-     if they weren't already output.  */
-
   for (decl = decls; decl; decl = TREE_CHAIN (decl))
-    if (TREE_CODE (decl) == FUNCTION_DECL
-	&& ! TREE_ASM_WRITTEN (decl)
-	&& DECL_INITIAL (decl) != 0
-	&& TREE_ADDRESSABLE (decl))
-      {
-	  /* If this decl was copied from a file-scope decl on account
-	     of a block-scope extern decl, propagate TREE_ADDRESSABLE
-	     to the file-scope decl.
-	     
-	     DECL_ABSTRACT_ORIGIN can be set to itself if
-	     warn_return_type is true, since then the decl goes
-	     through save_for_inline_copying.  */
-	if (DECL_ABSTRACT_ORIGIN (decl) != 0
-	    && DECL_ABSTRACT_ORIGIN (decl) != decl)
-	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
-	else
-	  {
-	    push_function_context ();
-	    output_inline_function (decl);
-	    pop_function_context ();
-	  }
-      }
-      else if (TREE_CODE (decl) == VAR_DECL
-	       && DECL_LANG_SPECIFIC (decl) != NULL
-	       && DECL_LOCAL_SLOT_NUMBER (decl))
-	LOCAL_VAR_OUT_OF_SCOPE_P (decl) = 1;
-    }
+    if (TREE_CODE (decl) == VAR_DECL
+	&& DECL_LANG_SPECIFIC (decl) != NULL
+	&& DECL_LOCAL_SLOT_NUMBER (decl))
+      LOCAL_VAR_OUT_OF_SCOPE_P (decl) = 1;
 
   /* If there were any declarations in that level,
      or if this level is a function body,

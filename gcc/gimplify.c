@@ -1101,6 +1101,20 @@ gimplify_exit_expr (tree *expr_p)
   return GS_OK;
 }
 
+/* A helper function to be called via walk_tree.  Mark all labels under *TP
+   as being forced.  To be called for DECL_INITIAL of static variables.  */
+
+tree
+force_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    FORCED_LABEL (*tp) = 1;
+
+  return NULL_TREE;
+}
+
 /* Break out elements of a constructor used as an initializer into separate
    MODIFY_EXPRs.
 
@@ -1163,6 +1177,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    TREE_STATIC (object) = 1;
 	    if (!DECL_NAME (object))
 	      DECL_NAME (object) = create_tmp_var_name ("C");
+	    walk_tree (&DECL_INITIAL (object), force_labels_r, NULL, NULL);
 
 	    /* ??? C++ doesn't automatically append a .<number> to the
 	       assembler name, and even when it does, it looks a FE private
@@ -1214,6 +1229,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 		    DECL_ALIGN (new) = align;
 		    DECL_USER_ALIGN (new) = 1;
 		  }
+	        walk_tree (&DECL_INITIAL (new), force_labels_r, NULL, NULL);
 
 		TREE_OPERAND (*expr_p, 1) = new;
 		break;

@@ -2382,8 +2382,8 @@ copy_most_rtx (rtx orig, rtx may_share)
   RTX_FLAG (copy, in_struct) = RTX_FLAG (orig, in_struct);
   RTX_FLAG (copy, volatil) = RTX_FLAG (orig, volatil);
   RTX_FLAG (copy, unchanging) = RTX_FLAG (orig, unchanging);
-  RTX_FLAG (copy, integrated) = RTX_FLAG (orig, integrated);
   RTX_FLAG (copy, frame_related) = RTX_FLAG (orig, frame_related);
+  RTX_FLAG (copy, return_val) = RTX_FLAG (orig, return_val);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 

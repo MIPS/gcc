@@ -215,6 +215,8 @@ static htab_t visited_nodes;
 static bool
 decide_is_function_needed (struct cgraph_node *node, tree decl)
 {
+  struct cgraph_node *origin;
+
   /* If we decided it was needed before, but at the time we didn't have
      the body of the function available, then it's still needed.  We have
      to go back and re-check its dependencies now.  */
@@ -251,6 +253,11 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
   /* "extern inline" functions are never output locally.  */
   if (DECL_EXTERNAL (decl))
     return false;
+  /* Nested functions of extern inline function shall not be emit unless
+     we inlined the origin.  */
+  for (origin = node->origin; origin; origin = origin->origin)
+    if (DECL_EXTERNAL (origin->decl))
+      return false;
   /* We want to emit COMDAT functions only when absolutely necessary.  */
   if (DECL_COMDAT (decl))
     return false;
@@ -783,7 +790,7 @@ cgraph_expand_function (struct cgraph_node *node)
 
   /* Make sure that BE didn't gave up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
-  if (0 && !TREE_ASM_WRITTEN (node->decl))
+  if (!TREE_ASM_WRITTEN (node->decl))
     abort ();
 
   current_function_decl = NULL;

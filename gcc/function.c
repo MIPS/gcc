@@ -135,9 +135,6 @@ static GTY(()) int funcdef_no;
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) (void);
 
-/* The FUNCTION_DECL for an inline function currently being expanded.  */
-tree inline_function_decl;
-
 /* The currently compiled function.  */
 struct function *cfun = 0;
 
@@ -1302,7 +1299,7 @@ put_var_into_stack (tree decl, int rescan)
      because it might not be in any active function.
      FIXME: Is that really supposed to happen?
      It does in ObjC at least.  */
-  if (context != current_function_decl && context != inline_function_decl)
+  if (context != current_function_decl)
     for (function = outer_function_chain; function; function = function->outer)
       if (function->decl == context)
 	break;
@@ -5707,7 +5704,7 @@ fix_lexical_addr (rtx addr, tree var)
   rtx base = 0;
 
   /* If this is the present function, we need not do anything.  */
-  if (context == current_function_decl || context == inline_function_decl)
+  if (context == current_function_decl)
     return addr;
 
   fp = find_function_data (context);

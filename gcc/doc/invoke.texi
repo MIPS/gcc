@@ -250,6 +250,7 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-dot -fdump-tree-alias @gol
+-fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
@@ -309,7 +310,7 @@ in the following sections.
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -ftree-dominator-opts -ftree-dse @gol
--ftree-loop-optimize -ftree-sra @gol
+-ftree-ch -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3477,6 +3478,11 @@ made by appending @file{.cfg} to the source file name.
 Dump a dot language representation of the control flow graph to a file.  The
 file name is made by appending @file{.dot} to the source file name.
 
+@item ch
+@opindex fdump-tree-ch
+Dump each function after copying loop headers.  The file name is made by
+appending @file{.ch} to the source file name.
+
 @item ssa
 @opindex fdump-tree-ssa
 Dump SSA related information to a file.  The file name is made by appending
@@ -4308,6 +4314,12 @@ default at -O and higher.
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at -O and higher.
 
+@item -ftree-ch
+Perform loop header copying on trees.  This is beneficial since it increases
+effectivity of code motion optimizations.  It also saves one jump.  This flag
+is enabled by default at -O and higher.  It is not enabled for -Os, since it
+usually increases code size.
+
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
@@ -5065,19 +5077,21 @@ order to make tracer effective.
 
 Maximum number of basic blocks on path that cse considers.
 
-@item calls-threshold-global-var
+@item global-var-threshold
 
-Number of calls used in determining the threshold for treating all
-call-clobbered variables as a single object for aliasing purposes.
-The threshold is the product of this parameter and the next one
+Counts the number of function calls (N) and the number of
+call-clobbered variables (V).  If NxV is larger than this limit, a
+single artificial variable will be created to represent all the
+call-clobbered variables at function call sites.  This artificial
+variable will then be made to alias every call-clobbered variable.
 (done as int * size_t on the host machine; beware overflow).
 
-@item clobbered-vars-threshold-global-var
-  
-Number of variables used in determining the threshold for treating all
-call-clobbered variables as a single object for aliasing purposes.
-The threshold is the product of this parameter and the previous one
-(done as int * size_t on the host machine; beware overflow).
+@item max-aliased-vops
+
+Maxiumum number of virtual operands allowed to represent aliases
+before triggering the alias grouping heuristic.  Alias grouping
+reduces compile times and memory consumption needed for aliasing at
+the expense of precision loss in alias information.
 
 @item ggc-min-expand
 

@@ -129,7 +129,6 @@ static void print_switch_values (FILE *, int, int, const char *,
 				 const char *, const char *);
 
 /* Rest of compilation helper functions.  */
-static bool rest_of_handle_inlining (tree);
 static void rest_of_handle_cse (tree, rtx);
 static void rest_of_handle_cse2 (tree, rtx);
 static void rest_of_handle_gcse (tree, rtx);
@@ -983,6 +982,9 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable loop header copying on tree-ssa.  */
+int flag_tree_ch = 0;
+
 /* Enable loop optimization on tree-ssa.  */
 int flag_tree_loop = 0;
 
@@ -1206,6 +1208,7 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
+  { "tree-ch", &flag_tree_ch, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 }
 };
 
@@ -1687,18 +1690,6 @@ wrapup_global_declarations (tree *vec, int len)
 		  reconsider = 1;
 		  rest_of_decl_compilation (decl, NULL, 1, 1);
 		}
-	    }
-
-	  if (TREE_CODE (decl) == FUNCTION_DECL
-	      && DECL_INITIAL (decl) != 0
-	      && DECL_STRUCT_FUNCTION (decl) != 0
-	      && DECL_STRUCT_FUNCTION (decl)->saved_for_inline
-	      && (flag_keep_inline_functions
-		  || (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
-		  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
-	    {
-	      reconsider = 1;
-	      output_inline_function (decl);
 	    }
 	}
 
@@ -2673,155 +2664,6 @@ rest_of_handle_jump_bypass (tree decl, rtx insns)
 #endif
 }
 
-/* Handle inlining of functions in rest_of_compilation.  Return TRUE
-   if we must exit rest_of_compilation upon return.  */
-static bool
-rest_of_handle_inlining (tree decl)
-{
-  rtx insns;
-  int inlinable = 0;
-  tree parent;
-  const char *lose;
-
-  /* If we are reconsidering an inline function at the end of
-     compilation, skip the stuff for making it inline.  */
-  if (cfun->rtl_inline_init)
-    return 0;
-  cfun->rtl_inline_init = 1;
-
-  /* If this is nested inside an inlined external function, pretend
-     it was only declared.  Since we cannot inline such functions,
-     generating code for this one is not only not necessary but will
-     confuse some debugging output writers.  */
-  for (parent = DECL_CONTEXT (current_function_decl);
-       parent != NULL_TREE;
-       parent = get_containing_scope (parent))
-    if (TREE_CODE (parent) == FUNCTION_DECL
-	&& DECL_INLINE (parent) && DECL_EXTERNAL (parent))
-      {
-	DECL_INITIAL (decl) = 0;
-	return true;
-      }
-    else if (TYPE_P (parent))
-      /* A function in a local class should be treated normally.  */
-      break;
-
-  /* If requested, consider whether to make this function inline.  */
-  if ((DECL_INLINE (decl) && !flag_no_inline)
-      || flag_inline_functions)
-    {
-      timevar_push (TV_INTEGRATION);
-      lose = function_cannot_inline_p (decl);
-      timevar_pop (TV_INTEGRATION);
-      if (lose || ! optimize)
-	{
-	  if (warn_inline && lose && DECL_INLINE (decl))
-            {
-              char *msg = concat ("%J", lose, NULL);
-              warning (msg, decl);
-              free (msg);
-            }
-	  DECL_ABSTRACT_ORIGIN (decl) = 0;
-	  /* Don't really compile an extern inline function.
-	     If we can't make it inline, pretend
-	     it was only declared.  */
-	  if (DECL_EXTERNAL (decl))
-	    {
-	      DECL_INITIAL (decl) = 0;
-	      return true;
-	    }
-	}
-      else
-	inlinable = DECL_INLINE (decl) = 1;
-    }
-
-  insns = get_insns ();
-
-  /* Dump the rtl code if we are dumping rtl.  */
-
-  if (open_dump_file (DFI_rtl, decl))
-    {
-      if (DECL_STRUCT_FUNCTION (decl)
-	  && DECL_STRUCT_FUNCTION (decl)->saved_for_inline)
-	fprintf (rtl_dump_file, ";; (integrable)\n\n");
-      close_dump_file (DFI_rtl, print_rtl, insns);
-    }
-
-  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  Delay this until after the
-     initial rtl dump so that we can see the original nesting.  */
-  convert_from_eh_region_ranges ();
-
-  /* If function is inline, and we don't yet know whether to
-     compile it by itself, defer decision till end of compilation.
-     wrapup_global_declarations will (indirectly) call
-     rest_of_compilation again for those functions that need to
-     be output.  Also defer those functions that we are supposed
-     to defer.  */
-
-  if (inlinable
-      || (DECL_INLINE (decl)
-	  /* Egad.  This RTL deferral test conflicts with Fortran assumptions
-	     for unreferenced symbols.  See g77.f-torture/execute/980520-1.f.
-	     But removing this line from the check breaks all languages that
-	     use the call graph to output symbols.  This hard-coded check is
-	     the least invasive work-around.  */
-	  && (flag_inline_functions
-	      || strcmp (lang_hooks.name, "GNU F77") == 0)
-	  && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
-	       && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
-	       && ! flag_keep_inline_functions)
-	      || DECL_EXTERNAL (decl))))
-    DECL_DEFER_OUTPUT (decl) = 1;
-
-  if (DECL_INLINE (decl))
-    /* DWARF wants separate debugging info for abstract and
-       concrete instances of all inline functions, including those
-       declared inline but not inlined, and those inlined even
-       though they weren't declared inline.  Conveniently, that's
-       what DECL_INLINE means at this point.  */
-    (*debug_hooks->deferred_inline_function) (decl);
-
-  if (DECL_DEFER_OUTPUT (decl))
-    {
-      /* If -Wreturn-type, we have to do a bit of compilation.  We just
-	 want to call cleanup the cfg to figure out whether or not we can
-	 fall off the end of the function; we do the minimum amount of
-	 work necessary to make that safe.  */
-      if (warn_return_type)
-	{
-	  int saved_optimize = optimize;
-
-	  optimize = 0;
-	  rebuild_jump_labels (insns);
-	  find_exception_handler_labels ();
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
-	  optimize = saved_optimize;
-
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
-	}
-
-      set_nothrow_function_flags ();
-      if (current_function_nothrow)
-	/* Now we know that this can't throw; set the flag for the benefit
-	   of other functions later in this translation unit.  */
-	TREE_NOTHROW (current_function_decl) = 1;
-
-      timevar_push (TV_INTEGRATION);
-      save_for_inline (decl);
-      timevar_pop (TV_INTEGRATION);
-      DECL_STRUCT_FUNCTION (decl)->inlinable = inlinable;
-      return true;
-    }
-
-  /* If specified extern inline but we aren't inlining it, we are
-     done.  This goes for anything that gets here with DECL_EXTERNAL
-     set, not just things with DECL_INLINE.  */
-  return (bool) DECL_EXTERNAL (decl);
-}
-
 /* Try to identify useless null pointer tests and delete them.  */
 static void
 rest_of_handle_null_pointer (tree decl, rtx insns)
@@ -3201,8 +3043,10 @@ rest_of_compilation (tree decl)
 
   init_flow ();
 
-  if (rest_of_handle_inlining (decl))
-    goto exit_rest_of_compilation;
+  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
+     sorts of eh initialization.  Delay this until after the
+     initial rtl dump so that we can see the original nesting.  */
+  convert_from_eh_region_ranges ();
 
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
@@ -3340,12 +3184,6 @@ rest_of_compilation (tree decl)
 
   create_loop_notes ();
 
-  if (optimize)
-    {
-      free_bb_for_insn ();
-      copy_loop_headers (insns);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-    }
   purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);

@@ -491,8 +491,7 @@ force_label_rtx (tree label)
   if (!function)
     abort ();
 
-  if (function != current_function_decl
-      && function != inline_function_decl)
+  if (function != current_function_decl)
     p = find_function_data (function);
   else
     p = cfun;

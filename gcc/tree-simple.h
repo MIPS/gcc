@@ -121,6 +121,7 @@ tree gimple_build_eh_filter (tree, tree, tree);
 tree build_and_jump (tree *);
 tree alloc_stmt_list (void);
 void free_stmt_list (tree);
+tree force_labels_r (tree *, int *, void *);
 
 /* In tree-nested.c.  */
 extern void lower_nested_functions (tree);

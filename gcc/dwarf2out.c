@@ -9481,10 +9481,7 @@ rtl_for_decl_location (tree decl)
      This happens (for example) for inlined-instances of inline function formal
      parameters which are never referenced.  This really shouldn't be
      happening.  All PARM_DECL nodes should get valid non-NULL
-     DECL_INCOMING_RTL values, but integrate.c doesn't currently generate these
-     values for inlined instances of inline function parameters, so when we see
-     such cases, we are just out-of-luck for the time being (until integrate.c
-     gets fixed).  */
+     DECL_INCOMING_RTL values.  FIXME.  */
 
   /* Use DECL_RTL as the "location" unless we find something better.  */
   rtl = DECL_RTL_IF_SET (decl);

@@ -1,3 +1,7 @@
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (poplevel): Don't output nested inline functions.
+
 2004-02-16  Richard Henderson  <rth@redhat.com>
 
 	* call.c (build_call, build_over_call, build_new_method_call): Add

@@ -715,6 +715,10 @@ ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
+ftree-ch
+Common
+Enable loop header copying on trees
+
 ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass

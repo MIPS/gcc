@@ -110,6 +110,7 @@ static void bsi_commit_edge_inserts_1 (edge e);
 static void tree_merge_blocks (basic_block, basic_block);
 static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
+static void cleanup_dead_labels (void);
 static bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
@@ -129,6 +130,9 @@ build_tree_cfg (tree *tp)
 {
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
+
+  /* Initialize rbi_pool.  */
+  alloc_rbi_pool ();
 
   /* Initialize the basic block array.  */
   init_flow ();
@@ -393,6 +397,7 @@ create_bb (void *h, void *e, basic_block after)
   n_basic_blocks++;
   last_basic_block++;
 
+  initialize_bb_rbi (bb);
   return bb;
 }
 
@@ -464,6 +469,9 @@ make_edges (void)
   /* We do not care about fake edges, so remove any that the CFG
      builder inserted for completeness.  */
   remove_fake_edges ();
+
+  /* To speed up statement iterator walks, we first purge dead labels.  */
+  cleanup_dead_labels ();
 
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
@@ -737,6 +745,127 @@ cleanup_tree_cfg (void)
   verify_flow_info ();
 #endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
+}
+
+/* Cleanup useless labels from the flow graph.  */
+static void
+cleanup_dead_labels (void)
+{
+  basic_block bb;
+  tree *label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+
+  /* Find a suitable label for each block.  We use the first user-defined
+     label is there is one, or otherwise just the first label we see.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+	  tree label, stmt = bsi_stmt (i);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
+	    break;
+
+	  label = LABEL_EXPR_LABEL (stmt);
+
+	  /* If we have not yet seen a label for the current block,
+	     remember this one and see if there are more labels.  */
+	  if (! label_for_bb[bb->index])
+	    {
+	      label_for_bb[bb->index] = label;
+	      continue;
+	    }
+
+	  /* If we did see a label for the current block already, but it
+	     is an artificially created label, replace it if the current
+	     label is a user defined label.  */
+	  if (! DECL_ARTIFICIAL (label)
+	      && DECL_ARTIFICIAL (label_for_bb[bb->index]))
+	    {
+	      label_for_bb[bb->index] = label;
+	      break;
+	    }
+	}
+    }
+
+  /* Now redirect all jumps/branches to the selected label for each block.  */
+  FOR_EACH_BB (bb)
+    {
+      tree stmt = last_stmt (bb);
+      if (!stmt)
+	continue;
+
+      switch (TREE_CODE (stmt))
+	{
+	case COND_EXPR:
+	  {
+	    tree true_branch, false_branch;
+	    basic_block true_bb, false_bb;
+
+	    true_branch = COND_EXPR_THEN (stmt);
+	    false_branch = COND_EXPR_ELSE (stmt);
+	    true_bb = label_to_block (GOTO_DESTINATION (true_branch));
+	    false_bb = label_to_block (GOTO_DESTINATION (false_branch));
+
+	    GOTO_DESTINATION (true_branch) = label_for_bb[true_bb->index];
+	    GOTO_DESTINATION (false_branch) = label_for_bb[false_bb->index];
+
+	    break;
+	  }
+  
+	case SWITCH_EXPR:
+	  {
+	    size_t i;
+	    tree vec = SWITCH_LABELS (stmt);
+	    size_t n = TREE_VEC_LENGTH (vec);
+  
+	    /* Replace all destination labels.  */
+	    for (i = 0; i < n; ++i)
+	      {
+		tree label = CASE_LABEL (TREE_VEC_ELT (vec, i));
+
+		CASE_LABEL (TREE_VEC_ELT (vec, i)) =
+		  label_for_bb[label_to_block (label)->index];
+	      }
+  
+	    break;
+	  }
+
+	default:
+	  break;
+      }
+    }
+
+  /* Finally, purge dead labels.  All user-defined labels and labels that
+     can be the target of non-local gotos are preserved.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      tree label_for_this_bb = label_for_bb[bb->index];
+
+      if (! label_for_this_bb)
+	continue;
+
+      for (i = bsi_start (bb); !bsi_end_p (i); )
+	{
+	  tree label, stmt = bsi_stmt (i);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
+	    break;
+
+	  label = LABEL_EXPR_LABEL (stmt);
+
+	  if (label == label_for_this_bb
+	      || ! DECL_ARTIFICIAL (label)
+	      || DECL_NONLOCAL (label))
+	    bsi_next (&i);
+	  else
+	    bsi_remove (&i);
+	}
+    }
+
+  free (label_for_bb);
 }
 
 /* Checks whether we can merge block B into block A.  */
@@ -2360,6 +2489,7 @@ delete_tree_cfg_annotations (void)
   free_dominance_info (CDI_DOMINATORS);
 
   label_to_block_map = NULL;
+  free_rbi_pool ();
 }
 
 /* Remove all the blocks and edges that make up the flowgraph.  */
@@ -3682,20 +3812,22 @@ tree_move_block_after (basic_block bb, basic_block after)
   return true;
 }
 
-/* Create a duplicate of the basic block BB and redirect edge E into it.  Does
-   not work over ssa.  */
-
-basic_block
-tree_duplicate_bb (basic_block bb, edge e)
+/* Return true if basic_block can be duplicated.  */
+static bool
+tree_can_duplicate_bb_p (basic_block bb ATTRIBUTE_UNUSED)
 {
-  edge s, n;
+  return true;
+}
+
+/* Create a duplicate of the basic block BB.  Does not work over ssa.  */
+
+static basic_block
+tree_duplicate_bb (basic_block bb)
+{
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
 
-  if (e->dest != bb)
-    abort ();
-
-  new_bb = create_empty_bb (e->src);
+  new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -3706,18 +3838,6 @@ tree_duplicate_bb (basic_block bb, edge e)
 
       bsi_insert_after (&bsi_tgt, unshare_expr (stmt), BSI_NEW_STMT);
     }
-
-  new_bb->loop_depth = bb->loop_depth;
-  new_bb->flags = bb->flags;
-  for (s = bb->succ; s; s = s->succ_next)
-    {
-      /* Since we are creating edges from a new block to successors
-	 of another block (which therefore are known to be disjoint), there
-	 is no need to actually check for duplicated edges.  */
-      n = unchecked_make_edge (new_bb, s->dest, s->flags);
-    }
-
-  redirect_edge_and_branch_force (e, new_bb);
 
   return new_bb;
 }
@@ -4116,6 +4236,8 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_merge_blocks,		/* merge_blocks  */
   tree_predict_edge,		/* predict_edge  */
   tree_predicted_by_p,		/* predicted_by_p  */
+  tree_can_duplicate_bb_p,	/* can_duplicate_block_p  */
+  tree_duplicate_bb,		/* duplicate_block  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */

@@ -45,6 +45,29 @@ Boston, MA 02111-1307, USA.  */
 #include "params.h"
 
 
+/* Structure to map a variable to its alias set and keep track of the
+   virtual operands that will be needed to represent it.  */
+struct alias_map_d
+{
+  /* Variable and its alias set.  */
+  tree var;
+  HOST_WIDE_INT set;
+
+  /* Total number of virtual operands that will be needed to represent
+     all the aliases of VAR.  */
+  long total_alias_vops;
+
+  /* Nonzero if the aliases for this memory tag have been grouped
+     already.  Used in group_aliases.  */
+  unsigned int grouped_p : 1;
+
+  /* Set of variables aliased with VAR.  This is the exact same
+     information contained in VAR_ANN (VAR)->MAY_ALIASES, but in
+     bitmap form to speed up alias grouping.  */
+  sbitmap may_aliases;
+};
+
+
 /* Alias information used by compute_may_aliases and its helpers.  */
 struct alias_info
 {
@@ -61,14 +84,25 @@ struct alias_info
 
   /* ADDRESSABLE_VARS contains all the global variables and locals that
      have had their address taken.  */
-  varray_type addressable_vars;
+  struct alias_map_d **addressable_vars;
+  size_t num_addressable_vars;
 
-  /* POINTERS contains all the _DECL pointers that have been referenced in
-     the program.  */
-  varray_type pointers;
+  /* POINTERS contains all the _DECL pointers with unique memory tags
+     that have been referenced in the program.  */
+  struct alias_map_d **pointers;
+  size_t num_pointers;
 
   /* Number of function calls found in the program.  */
   size_t num_calls_found;
+
+  /* Array of counters to keep track of how many times each pointer has
+     been dereferenced in the program.  This is used by the alias grouping
+     heuristic in compute_flow_insensitive_aliasing.  */
+  size_t *num_references;
+
+  /* Total number of virtual operands that will be needed to represent
+     all the aliases of all the pointers found in the program.  */
+  long total_alias_vops;
 };
 
 
@@ -84,16 +118,6 @@ struct alias_stats_d
   unsigned int tbaa_resolved;
   unsigned int pta_queries;
   unsigned int pta_resolved;
-};
-
-
-/* Tuple to map a variable to its alias set.  Used to cache the results of
-   calls to get_alias_set().  */
-struct alias_map_d
-{
-  tree var;
-  HOST_WIDE_INT set;
-  size_t num_aliases;
 };
 
 
@@ -121,6 +145,7 @@ static void create_global_var (void);
 static void collect_points_to_info_for (struct alias_info *, tree);
 static bool ptr_is_dereferenced_by (tree, tree);
 static void maybe_create_global_var (struct alias_info *ai);
+static void group_aliases (struct alias_info *);
 
 /* Global declarations.  */
 
@@ -286,11 +311,13 @@ compute_may_aliases (void)
   setup_pointers_and_addressables (ai);
 
   /* Compute flow-sensitive, points-to based aliasing for all the name
-     memory tags.  */
+     memory tags.  Note that this pass needs to be done before flow
+     insensitive analysis because it uses the points-to information
+     gathered before to mark call-clobbered type tags.  */
   compute_flow_sensitive_aliasing (ai);
 
-  /* Compute type-based flow-insensitive aliasing for all the type memory
-     tags.  */
+  /* Compute type-based flow-insensitive aliasing for all the type
+     memory tags.  */
   compute_flow_insensitive_aliasing (ai);
 
   /* If the program has too many call-clobbered variables and/or function
@@ -343,12 +370,13 @@ init_alias_info (void)
 
   ai = xcalloc (1, sizeof (struct alias_info));
   ai->ssa_names_visited = BITMAP_XMALLOC ();
-  bitmap_clear (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 20, "processed_ptrs");
   ai->addresses_needed = BITMAP_XMALLOC ();
-  bitmap_clear (ai->addresses_needed);
-  VARRAY_GENERIC_PTR_INIT (ai->addressable_vars, 20, "addressable_vars");
-  VARRAY_GENERIC_PTR_INIT (ai->pointers, 20, "pointers");
+  /* FIXME.  We probably want a hash table here.  This array has to
+     be big enough to hold the existing variables and the memory tags
+     created during alias analysis.  Since we can't create more than 2 tags
+     per pointer, 3 times the number of referenced vars is enough.  */
+  ai->num_references = xcalloc (3 * num_referenced_vars, sizeof (size_t));
 
   return ai;
 }
@@ -359,11 +387,27 @@ init_alias_info (void)
 static void
 delete_alias_info (struct alias_info *ai)
 {
+  size_t i;
+
   BITMAP_FREE (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
   BITMAP_FREE (ai->addresses_needed);
-  ai->addressable_vars = NULL;
-  ai->pointers = NULL;
+
+  for (i = 0; i < ai->num_addressable_vars; i++)
+    {
+      sbitmap_free (ai->addressable_vars[i]->may_aliases);
+      free (ai->addressable_vars[i]);
+    }
+  free (ai->addressable_vars);
+
+  for (i = 0; i < ai->num_pointers; i++)
+    {
+      sbitmap_free (ai->pointers[i]->may_aliases);
+      free (ai->pointers[i]);
+    }
+  free (ai->pointers);
+
+  free (ai->num_references);
   free (ai);
 }
 
@@ -444,6 +488,7 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  use_optype uses;
+	  def_optype defs;
 	  stmt_ann_t ann;
 	  bitmap addr_taken;
 	  tree stmt = bsi_stmt (si);
@@ -472,7 +517,11 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	  for (i = 0; i < NUM_USES (uses); i++)
 	    {
 	      tree op = USE_OP (uses, i);
+	      var_ann_t v_ann = var_ann (SSA_NAME_VAR (op));
 	      ssa_name_ann_t ptr_ann;
+
+	      if (may_be_aliased (SSA_NAME_VAR (op)))
+		ai->num_references[v_ann->uid]++;
 
 	      if (!POINTER_TYPE_P (TREE_TYPE (op)))
 		continue;
@@ -492,6 +541,10 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		     of name tags.  Find ways around this limitation.  */
 		  if (ptr_ann->pt_malloc || ptr_ann->pt_vars)
 		    ptr_ann->name_mem_tag = get_nmt_for (op);
+
+		  /* Keep track of how many time we've dereferenced each
+		     pointer.  */
+		  ai->num_references[v_ann->uid]++;
 		}
 	      else if (stmt_escapes_p)
 		{
@@ -501,6 +554,17 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		     dereferenced by STMT.  */
 		  ptr_ann->value_escapes_p = 1;
 		}
+	    }
+
+	  /* Update reference counter for definitions to any
+	     potentially aliased variable.  This is used in the alias
+	     grouping heuristics.  */
+	  defs = DEF_OPS (ann);
+	  for (i = 0; i < NUM_DEFS (defs); i++)
+	    {
+	      tree op = DEF_OP (defs, i);
+	      if (may_be_aliased (SSA_NAME_VAR (op)))
+		ai->num_references[var_ann (SSA_NAME_VAR (op))->uid]++;
 	    }
 
 	  /* After promoting variables and computing aliasing we will
@@ -553,10 +617,9 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	    {
 	      HOST_WIDE_INT ptr_set;
 	      ptr_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
-	      for (j = 0; j < VARRAY_ACTIVE_SIZE (ai->addressable_vars); j++)
+	      for (j = 0; j < ai->num_addressable_vars; j++)
 		{
-		  struct alias_map_d *alias_map;
-		  alias_map = VARRAY_GENERIC_PTR (ai->addressable_vars, j);
+		  struct alias_map_d *alias_map = ai->addressable_vars[j];
 		  if (alias_map->set == ptr_set)
 		    mark_call_clobbered (alias_map->var);
 		}
@@ -576,7 +639,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 
       /* Set up aliasing information for PTR's name memory tag (if it has
 	 one).  Note that only pointers that have been dereferenced will
-	 have a memory tag.  */
+	 have a name memory tag.  */
       if (ann->name_mem_tag && ann->pt_vars)
 	EXECUTE_IF_SET_IN_BITMAP (ann->pt_vars, 0, j,
 	    add_may_alias (ann->name_mem_tag, referenced_var (j)));
@@ -585,66 +648,322 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 
 
 /* Compute type-based alias sets.  Traverse all the pointers and
-   addressable variables found in setup_pointers_and_addressables.  For
-   every pointer P in AI->POINTERS and addressable variable V in
-   AI->ADDRESSABLE_VARS, add V to the may-alias sets of P's type memory tag
-   (TMT) if their alias sets conflict.  */
+   addressable variables found in setup_pointers_and_addressables.
+   
+   For every pointer P in AI->POINTERS and addressable variable V in
+   AI->ADDRESSABLE_VARS, add V to the may-alias sets of P's type
+   memory tag (TMT) if their alias sets conflict.  V is then marked as
+   an alias tag so that the operand scanner knows that statements
+   containing V have aliased operands.  */
 
 static void
 compute_flow_insensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
 
+  /* Initialize counter for the total number of virtual operands that
+     aliasing will introduce.  When AI->TOTAL_ALIAS_VOPS goes beyond the
+     threshold set by --params max-alias-vops, we enable alias
+     grouping.  */
+  ai->total_alias_vops = 0;
+
   /* For every pointer P, determine which addressable variables may alias
      with P's type memory tag.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->pointers); i++)
+  for (i = 0; i < ai->num_pointers; i++)
     {
       size_t j;
-      struct alias_map_d *p_map = VARRAY_GENERIC_PTR (ai->pointers, i);
-      tree mem = var_ann (p_map->var)->type_mem_tag;
-      var_ann_t mem_ann = var_ann (mem);
+      struct alias_map_d *p_map = ai->pointers[i];
+      tree tag = var_ann (p_map->var)->type_mem_tag;
+      var_ann_t tag_ann = var_ann (tag);
 
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (ai->addressable_vars); j++)
+      p_map->total_alias_vops = 0;
+      p_map->may_aliases = sbitmap_alloc (num_referenced_vars);
+      sbitmap_zero (p_map->may_aliases);
+
+      for (j = 0; j < ai->num_addressable_vars; j++)
 	{
 	  struct alias_map_d *v_map;
 	  var_ann_t v_ann;
+	  tree var;
 	  
-	  v_map = VARRAY_GENERIC_PTR (ai->addressable_vars, j);
-	  v_ann = var_ann (v_map->var);
+	  v_map = ai->addressable_vars[j];
+	  var = v_map->var;
+	  v_ann = var_ann (var);
 
 	  /* Skip memory tags and variables that have never been written to.  */
-	  if (!mem_ann->is_stored && !v_ann->is_stored)
+	  if (!tag_ann->is_stored && !v_ann->is_stored)
 	    continue;
 	     
 	  /* Skip memory tags which are written if the variable is readonly.  */
-	  if (mem_ann->is_stored && TREE_READONLY (v_map->var))
+	  if (tag_ann->is_stored && TREE_READONLY (var))
 	    continue;
 
-	  if (may_alias_p (p_map->var, p_map->set, v_map->var, v_map->set))
+	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
 	    {
-	      /* If MEM has less than MAX_ALIAS_SET_SIZE aliases in its
-		 alias set, add V_MAP->VAR to the list of aliases for MEM.
-		 Otherwise, set the may-alias set for V_MAP->VAR to be the
-		 same alias set as MEM.  This is to avoid the problem of
-		 having large may-alias sets.  Large may-alias sets
-		 translate into lots of virtual operands which can slow
-		 down the SSA pass tremendously.  */
-	      if (mem_ann->may_aliases
-		  && p_map->num_aliases >= (size_t) MAX_ALIAS_SET_SIZE)
-		{
-		  VARRAY_TREE_INIT (v_ann->may_aliases,
-				    VARRAY_SIZE (mem_ann->may_aliases),
-				    "aliases");
-		  varray_copy (v_ann->may_aliases, mem_ann->may_aliases);
-		}
-	      else
-		{
-		  add_may_alias (mem, v_map->var);
-		  p_map->num_aliases++;
-		}
+	      size_t num_tag_refs = ai->num_references[tag_ann->uid];
+	      size_t num_var_refs = ai->num_references[v_ann->uid];
+
+	      /* Add VAR to TAG's may-aliases set.  */
+	      add_may_alias (tag, var);
+
+	      /* Update the total number of virtual operands due to
+		 aliasing.  Since we are adding one more alias to TAG's
+		 may-aliases set, the total number of virtual operands due
+		 to aliasing will be increased by the number of references
+		 made to VAR and TAG (every reference to TAG will also
+		 count as a reference to VAR).  */
+	      ai->total_alias_vops += (num_var_refs + num_tag_refs);
+	      p_map->total_alias_vops += (num_var_refs + num_tag_refs);
+
+	      /* Update the bitmap used to represent TAG's alias set
+		 in case we need to group aliases.  */
+	      SET_BIT (p_map->may_aliases, var_ann (var)->uid);
 	    }
 	}
     }
+
+  if (tree_dump_file)
+    fprintf (tree_dump_file, "%s: Total number of aliased vops: %ld\n",
+	     get_name (current_function_decl),
+	     ai->total_alias_vops);
+
+  /* Determine if we need to enable alias grouping.  */
+  if (ai->total_alias_vops >= MAX_ALIASED_VOPS)
+    group_aliases (ai);
+}
+
+
+/* Comparison function for qsort used in group_aliases.  */
+
+static int
+total_alias_vops_cmp (const void *p, const void *q)
+{
+  const struct alias_map_d **p1 = (const struct alias_map_d **)p;
+  const struct alias_map_d **p2 = (const struct alias_map_d **)q;
+  long n1 = (*p1)->total_alias_vops;
+  long n2 = (*p2)->total_alias_vops;
+
+  /* We want to sort in descending order.  */
+  return (n1 > n2 ? -1 : (n1 == n2) ? 0 : 1);
+}
+
+/* Group all the aliases for TAG to make TAG represent all the
+   variables in its alias set.  Update the total number
+   of virtual operands due to aliasing (AI->TOTAL_ALIAS_VOPS).  This
+   function will make TAG be the unique alias tag for all the
+   variables in its may-aliases.  So, given:
+
+   	may-aliases(TAG) = { V1, V2, V3 }
+
+   This function will group the variables into:
+
+   	may-aliases(V1) = { TAG }
+	may-aliases(V2) = { TAG }
+	may-aliases(V2) = { TAG }  */
+
+static void
+group_aliases_into (tree tag, sbitmap tag_aliases, struct alias_info *ai)
+{
+  size_t i;
+  var_ann_t tag_ann = var_ann (tag);
+  size_t num_tag_refs = ai->num_references[tag_ann->uid];
+
+  EXECUTE_IF_SET_IN_SBITMAP (tag_aliases, 0, i,
+    {
+      tree var = referenced_var (i);
+      var_ann_t ann = var_ann (var);
+
+      /* Make TAG the unique alias of VAR.  */
+      ann->is_alias_tag = 0;
+      ann->may_aliases = NULL;
+      add_may_alias (var, tag);
+
+      /* Reduce total number of virtual operands contributed
+	 by TAG on behalf of VAR.  Notice that the references to VAR
+	 itself won't be removed.  We will merely replace them with
+	 references to TAG.  */
+      ai->total_alias_vops -= num_tag_refs;
+    });
+
+  /* We have reduced the number of virtual operands that TAG makes on
+     behalf of all the variables formerly aliased with it.  However,
+     we have also "removed" all the virtual operands for TAG itself,
+     so we add them back.  */
+  ai->total_alias_vops += num_tag_refs;
+
+  /* TAG no longer has any aliases.  */
+  tag_ann->may_aliases = NULL;
+}
+
+
+/* Group may-aliases sets to reduce the number of virtual operands due
+   to aliasing.
+
+     1- Sort the list of pointers in decreasing number of contributed
+	virtual operands.
+
+     2- Take the first entry in AI->POINTERS and revert the role of
+	the memory tag and its aliases.  Usually, whenever an aliased
+	variable Vi is found to alias with a memory tag T, we add Vi
+	to the may-aliases set for T.  Meaning that after alias
+	analysis, we will have:
+
+		may-aliases(T) = { V1, V2, V3, ..., Vn }
+
+	This means that every statement that references T, will get 'n'
+	virtual operands for each of the Vi tags.  But, when alias
+	grouping is enabled, we make T an alias tag and add it to the
+	alias set of all the Vi variables:
+
+		may-aliases(V1) = { T }
+		may-aliases(V2) = { T }
+		...
+		may-aliases(Vn) = { T }
+
+	This has two effects: (a) statements referencing T will only get
+	a single virtual operand, and, (b) all the variables Vi will now
+	appear to alias each other.  So, we lose alias precision to
+	improve compile time.  But, in theory, a program with such a high
+	level of aliasing should not be very optimizable in the first
+	place.
+
+     3- Since variables may be in the alias set of more than one
+	memory tag, the grouping done in step (2) needs to be extended
+	to all the memory tags that have a non-empty intersection with
+	the may-aliases set of tag T.  For instance, if we originally
+	had these may-aliases sets:
+
+		may-aliases(T) = { V1, V2, V3 }
+		may-aliases(R) = { V2, V4 }
+
+	In step (2) we would have reverted the aliases for T as:
+
+		may-aliases(V1) = { T }
+		may-aliases(V2) = { T }
+		may-aliases(V3) = { T }
+
+	But note that now V2 is no longer aliased with R.  We could
+	add R to may-aliases(V2), but we are in the process of
+	grouping aliases to reduce virtual operands so what we do is
+	add V4 to the grouping to obtain:
+
+		may-aliases(V1) = { T }
+		may-aliases(V2) = { T }
+		may-aliases(V3) = { T }
+		may-aliases(V4) = { T }
+
+     4- If the total number of virtual operands due to aliasing is
+	still above the threshold set by max-alias-vops, go back to (2).  */
+
+static void
+group_aliases (struct alias_info *ai)
+{
+  size_t i;
+  sbitmap res;
+
+  /* Sort the POINTERS array in descending order of contributed
+     virtual operands.  */
+  qsort (ai->pointers, ai->num_pointers, sizeof (struct alias_map_d *),
+         total_alias_vops_cmp);
+
+  res = sbitmap_alloc (num_referenced_vars);
+
+  /* For every pointer in AI->POINTERS, reverse the roles of its tag
+     and the tag's may-aliases set.  */
+  for (i = 0; i < ai->num_pointers; i++)
+    {
+      size_t j;
+      tree tag1 = var_ann (ai->pointers[i]->var)->type_mem_tag;
+      sbitmap tag1_aliases = ai->pointers[i]->may_aliases;
+
+      /* Skip tags that have been grouped already.  */
+      if (ai->pointers[i]->grouped_p)
+	continue;
+
+      /* See if TAG1 had any aliases in common with other type tags.
+	 If we find a TAG2 with common aliases with TAG1, add TAG2's
+	 aliases into TAG1.  */
+      for (j = i + 1; j < ai->num_pointers; j++)
+	{
+	  sbitmap tag2_aliases = ai->pointers[j]->may_aliases;
+
+	  sbitmap_a_and_b (res, tag1_aliases, tag2_aliases);
+	  if (sbitmap_first_set_bit (res) >= 0)
+	    {
+	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
+
+	      sbitmap_a_or_b (tag1_aliases, tag1_aliases, tag2_aliases);
+
+	      /* TAG2 does not need its aliases anymore.  */
+	      sbitmap_zero (tag2_aliases);
+	      var_ann (tag2)->may_aliases = NULL;
+
+	      /* TAG1 is the unique alias of TAG2.  */
+	      add_may_alias (tag2, tag1);
+
+	      ai->pointers[j]->grouped_p = true;
+	    }
+	}
+
+      /* Now group all the aliases we collected into TAG1.  */
+      group_aliases_into (tag1, tag1_aliases, ai);
+
+      /* If we've reduced total number of virtual operands below the
+	 threshold, stop.  */
+      if (ai->total_alias_vops < MAX_ALIASED_VOPS)
+	break;
+    }
+
+  /* Finally, all the variables that have been grouped cannot be in
+     the may-alias set of name memory tags.  Suppose that we have
+     grouped the aliases in this code so that may-aliases(a) = TMT.20
+
+     	p_5 = &a;
+	...
+	# a_9 = VDEF <a_8>
+	p_5->field = 0
+	... Several modifications to TMT.20 ... 
+	# VUSE <a_9>
+	x_30 = p_5->field
+
+     Since p_5 points to 'a', the optimizers will try to propagate 0
+     into p_5->field, but that is wrong because there have been
+     modifications to 'TMT.20' in between.  To prevent this we have to
+     replace 'a' with 'TMT.20' in the name tag of p_5.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+    {
+      size_t j;
+      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
+      tree name_tag = ssa_name_ann (ptr)->name_mem_tag;
+      varray_type aliases;
+      
+      if (name_tag == NULL_TREE)
+	continue;
+
+      aliases = var_ann (name_tag)->may_aliases;
+      for (j = 0; aliases && j < VARRAY_ACTIVE_SIZE (aliases); j++)
+	{
+	  tree alias = VARRAY_TREE (aliases, j);
+	  var_ann_t ann = var_ann (alias);
+	  if (ann->may_aliases)
+	    {
+#if defined ENABLE_CHECKING
+	      if (VARRAY_ACTIVE_SIZE (ann->may_aliases) != 1)
+		abort ();
+#endif
+	      VARRAY_TREE (aliases, j) = VARRAY_TREE (ann->may_aliases, 0);
+	    }
+	}
+    }
+
+  sbitmap_free (res);
+
+  if (tree_dump_file)
+    fprintf (tree_dump_file,
+	     "%s: Total number of aliased vops after grouping: %ld%s\n",
+	     get_name (current_function_decl),
+	     ai->total_alias_vops,
+	     (ai->total_alias_vops < 0) ? " (negative values are OK)" : "");
 }
 
 
@@ -657,7 +976,30 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 static void
 setup_pointers_and_addressables (struct alias_info *ai)
 {
-  size_t i, n_vars;
+  size_t i, n_vars, num_addressable_vars, num_pointers;
+
+  /* Size up the arrays ADDRESSABLE_VARS and POINTERS.  */
+  num_addressable_vars = num_pointers = 0;
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      tree var = referenced_var (i);
+
+      if (may_be_aliased (var))
+	num_addressable_vars++;
+
+      if (POINTER_TYPE_P (TREE_TYPE (var)))
+	num_pointers++;
+    }
+
+  /* Create ADDRESSABLE_VARS and POINTERS.  Note that these arrays are
+     always going to be slightly bigger than we actually need them
+     because some TREE_ADDRESSABLE variables will be marked
+     non-addressable below and only pointers with unique type tags are
+     going to be added to POINTERS.  */
+  ai->addressable_vars = xcalloc (num_addressable_vars, sizeof (tree));
+  ai->pointers = xcalloc (num_pointers, sizeof (tree));
+  ai->num_addressable_vars = 0;
+  ai->num_pointers = 0;
 
   /* Since we will be creating type memory tags within this loop, cache the
      value of NUM_REFERENCED_VARS to avoid processing the additional tags
@@ -704,15 +1046,14 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	{
 	  /* Create a new alias set entry for VAR.  */
 	  struct alias_map_d *alias_map;
-	  alias_map = ggc_alloc (sizeof (*alias_map));
-	  memset (alias_map, 0, sizeof (*alias_map));
+	  alias_map = xcalloc (1, sizeof (*alias_map));
 	  alias_map->var = var;
 
 	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
 	    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
 	  else
 	    alias_map->set = get_alias_set (var);
-	  VARRAY_PUSH_GENERIC_PTR (ai->addressable_vars, alias_map);
+	  ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
@@ -743,6 +1084,11 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	     memory tag should be considered a global variable.  */
 	  if (TREE_CODE (var) == PARM_DECL || needs_to_live_in_memory (var))
 	    mark_call_clobbered (tag);
+
+	  /* All the dereferences of pointer VAR count as references of
+	     TAG.  Since TAG can be associated with several pointers, add
+	     the dereferences of VAR to the TAG.  */
+	  ai->num_references[t_ann->uid] += ai->num_references[v_ann->uid];
 	}
     }
 }
@@ -1306,9 +1652,9 @@ get_tmt_for (tree ptr, struct alias_info *ai)
 
   /* To avoid creating unnecessary memory tags, only create one memory tag
      per alias set class.  */
-  for (i = 0, tag = NULL_TREE; i < VARRAY_ACTIVE_SIZE (ai->pointers); i++)
+  for (i = 0, tag = NULL_TREE; i < ai->num_pointers; i++)
     {
-      struct alias_map_d *curr = VARRAY_GENERIC_PTR (ai->pointers, i);
+      struct alias_map_d *curr = ai->pointers[i];
       if (tag_set == curr->set 
 	  && (flag_tree_points_to == PTA_NONE 
 	      || same_points_to_set (curr->var, ptr)))
@@ -1331,11 +1677,10 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
 	 PTR points to.  */
-      alias_map = ggc_alloc (sizeof (*alias_map));
-      memset (alias_map, 0, sizeof (*alias_map));
+      alias_map = xcalloc (1, sizeof (*alias_map));
       alias_map->var = ptr;
       alias_map->set = tag_set;
-      VARRAY_PUSH_GENERIC_PTR (ai->pointers, alias_map);
+      ai->pointers[ai->num_pointers++] = alias_map;
     }
 
   return tag;

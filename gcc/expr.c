@@ -2959,9 +2959,6 @@ emit_move_insn_1 (rtx x, rtx y)
 						   GET_MODE_SIZE (mode), 0);
 		      rtx cmem = adjust_address (mem, mode, 0);
 
-		      cfun->cannot_inline
-			= N_("function using short complex types cannot be inline");
-
 		      if (packed_dest_p)
 			{
 			  rtx sreg = gen_rtx_SUBREG (reg_mode, x, 0);
@@ -6532,7 +6529,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	temp = gen_rtx_LABEL_REF (Pmode, temp);
 
 	if (function != current_function_decl
-	    && function != inline_function_decl
 	    && function != 0)
 	  LABEL_REF_NONLOCAL_P (temp) = 1;
 
@@ -6579,13 +6575,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       /* Handle variables inherited from containing functions.  */
       context = decl_function_context (exp);
 
-      /* We treat inline_function_decl as an alias for the current function
-	 because that is the inline function whose vars, types, etc.
-	 are being merged into the current function.
-	 See expand_inline_function.  */
-
       if (context != 0 && context != current_function_decl
-	  && context != inline_function_decl
 	  /* If var is static, we don't need a static chain to access it.  */
 	  && ! (GET_CODE (DECL_RTL (exp)) == MEM
 		&& CONSTANT_P (XEXP (DECL_RTL (exp), 0))))
@@ -6751,11 +6741,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (context == 0)
 	SAVE_EXPR_CONTEXT (exp) = current_function_decl;
 
-      /* We treat inline_function_decl as an alias for the current function
-	 because that is the inline function whose vars, types, etc.
-	 are being merged into the current function.
-	 See expand_inline_function.  */
-      if (context == current_function_decl || context == inline_function_decl)
+      if (context == current_function_decl)
 	context = 0;
 
       /* If this is non-local, handle it.  */
@@ -6902,7 +6888,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case BIND_EXPR:
       {
-	tree vars;
 	tree block = BIND_EXPR_BLOCK (exp);
 	int mark_ends;
 
@@ -6944,22 +6929,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 			    tmode, modifier);
 
 	expand_end_bindings (BIND_EXPR_VARS (exp), mark_ends, 0);
-
-	/* If we're at the end of a scope that contains inlined nested
-	   functions, we have to decide whether or not to write them out.  */
-	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
-	  {
-	    if (TREE_CODE (vars) == FUNCTION_DECL 
-		&& DECL_CONTEXT (vars) == current_function_decl
-		&& DECL_STRUCT_FUNCTION (vars)
-		&& !TREE_ASM_WRITTEN (vars)
-		&& TREE_ADDRESSABLE (vars))
-	      {
-		push_function_context ();
-		output_inline_function (vars);
-		pop_function_context ();
-	      }
-	  }
 
 	return temp;
       }

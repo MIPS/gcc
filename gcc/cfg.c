@@ -89,6 +89,9 @@ varray_type basic_block_info;
 /* The special entry and exit blocks.  */
 basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
 
+/* Memory alloc pool for bb member rbi.  */
+alloc_pool rbi_pool;
+
 void debug_flow_info (void);
 static void free_edge (edge);
 
@@ -179,6 +182,36 @@ alloc_block (void)
   basic_block bb;
   bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
+}
+
+/* Create memory pool for rbi_pool.  */
+
+void
+alloc_rbi_pool (void)
+{
+  rbi_pool = create_alloc_pool ("rbi pool", 
+				sizeof (struct reorder_block_def),
+				n_basic_blocks + 2);
+}
+
+/* Free rbi_pool.  */
+
+void
+free_rbi_pool (void)
+{
+  free_alloc_pool (rbi_pool);
+}
+
+/* Initialize rbi (the structure containing data used by basic block
+   duplication and reordering) for the given basic block.  */
+
+void
+initialize_bb_rbi (basic_block bb)
+{
+  if (bb->rbi)
+    abort ();
+  bb->rbi = pool_alloc (rbi_pool);
+  memset (bb->rbi, 0, sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */

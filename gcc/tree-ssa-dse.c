@@ -36,13 +36,43 @@ Boston, MA 02111-1307, USA.  */
 #include "domwalk.h"
 #include "flags.h"
 
-/* This is the global bitmap for store statements.
+/* This file implements dead store elimination.
 
-   Each statement has a unique ID.  When we encounter a store statement
-   that we want to record, set the bit corresponding to the statement's
-   unique ID in this bitmap.  */
+   A dead store is a store into a memory location which will later be
+   overwritten by another store without any intervening loads.  In this
+   case the earlier store can be deleted.
+
+   In our SSA + virtual operand world we use immediate uses of virtual
+   operands to detect dead stores.  If a store's virtual definition
+   is used precisely once by a later store to the same location which
+   post dominates the first store, then the first store is dead. 
+
+   The single use of the store's virtual definition ensures that
+   there are no intervening aliased loads and the requirement that
+   the second load post dominate the first ensures that if the earlier
+   store executes, then the later stores will execute before the function
+   exits.
+
+   It may help to think of this as first moving the earlier store to
+   the point immediately before the later store.  Again, the single
+   use of the virtual defintion and the post-dominance relationship
+   ensure that such movement would be safe.  Clearly if there are 
+   back to back stores, then the second is redundant.
+
+   Reviewing section 10.7.2 in Morgan's "Building an Optimizing Compiler"
+   may also help in understanding this code since it discusses the
+   relationship between dead store and redundant load elimination.  In
+   fact, they are the same transformation applied to different views of
+   the CFG.  */
+   
+
 struct dse_global_data
 {
+  /* This is the global bitmap for store statements.
+
+     Each statement has a unique ID.  When we encounter a store statement
+     that we want to record, set the bit corresponding to the statement's
+     unique ID in this bitmap.  */
   bitmap stores;
 };
 
@@ -71,13 +101,13 @@ static void record_voperand_set (bitmap, bitmap *, unsigned int);
 /* Function indicating whether we ought to include information for 'var'
    when calculating immediate uses.  For this pass we only want use
    information for virtual variables.  */
-                                                                                
+
 static bool
 need_imm_uses_for (tree var)
 {
   return !is_gimple_reg (var);
 }
-                                                                                
+
 
 /* Replace uses in PHI which match VDEF_RESULTs in STMT with the 
    corresponding VDEF_OP in STMT.  */
@@ -271,6 +301,13 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	    fix_phi_uses (skipped_phi, stmt);
 	  else
 	    fix_stmt_vdefs (use, stmt);
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+            {
+              fprintf (tree_dump_file, "  Deleted dead store '");
+              print_generic_expr (tree_dump_file, bsi_stmt (bsi), 0);
+              fprintf (tree_dump_file, "'\n");
+            }
 
 	  /* Any immediate uses which reference STMT need to instead
 	     reference USE.  This allows us to cascade dead stores.  */
