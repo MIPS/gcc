@@ -1913,7 +1913,7 @@ GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
   $(srcdir)/disjoint-set.c \
-  $(srcdir)/tree.c $(srcdir)/varasm.c \
+  $(srcdir)/tree.c $(srcdir)/tree-mudflap.c $(srcdir)/varasm.c \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(out_file) \
   @all_gtfiles@
@@ -1932,6 +1932,7 @@ gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-tree-alias-steen.h : s-gtype ; @true
 gt-tree-alias-type.h : s-gtype ; @true
+gt-tree-mudflap.h : s-gtype ; @true
 gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile

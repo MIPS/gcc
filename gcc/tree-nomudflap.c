@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "ggc.h"
 
 
 
@@ -76,3 +77,13 @@ mudflap_finish_file ()
 {
   abort ();
 }
+
+
+/* Instead of:
+#include "gt-tree-mudflap.h"
+We prepare a little dummy struct here.
+*/
+
+const struct ggc_root_tab gt_ggc_r_gt_tree_mudflap_h[] = {
+  LAST_GGC_ROOT_TAB
+};

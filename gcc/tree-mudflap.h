@@ -27,7 +27,4 @@ extern void mudflap_enqueue_decl PARAMS ((tree, const char *));
 extern void mudflap_enqueue_constant PARAMS ((tree, const char *));
 extern void mudflap_finish_file PARAMS ((void));
 
-extern tree mf_static_data;
-
-
 #endif /* TREE_MUDFLAP_H */

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "tree-mudflap.h"
 
 static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
 static tree inline_forbidden_p PARAMS ((tree *, int *, void *));

@@ -1,3 +1,21 @@
+2002-08-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	static object registration support:
+	* tree-mudflap.c (mudflap_enqueue_decl, mudflap_enqueue_constant):
+	Replace stubs with real code.
+	(mf_enqueue_register_call): New function to generate asm-object
+	call to __mf_register.
+	(mf_flush_enqueued_calls): New function to emit global ctor function
+	with enqueued __mf_register calls.
+	(mf_varname_tree): Tolerate being called from non-function context.
+	* c-objc-common.c: #include <tree-mudflap.h>.
+
+	gengtypes support for mudflap:
+	* Makefile.in (GTFILES): Include tree-mudflap.c.
+	(gt-tree-mudflap.h): New target.
+	* tree-mudflap.c: Annotate global tree nodes with GTY(()).
+	* tree-nomudflap.c: Add dummy ggc root table.
+	
 2002-08-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_expr): If the current sub-expression is

@@ -35,6 +35,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "ggc.h"
+#include "target.h"
+#include "flags.h"
+#include "rtl.h"
+#include "toplev.h"
+#include "function.h"
 
 
 /* {{{ Internal function decls */
@@ -45,14 +51,14 @@ static void mf_init_extern_trees PARAMS ((void));
 static void mf_decl_extern_trees PARAMS ((void));
 static tree mf_find_addrof PARAMS ((tree, tree));
 static tree mf_varname_tree PARAMS ((tree));
-
+static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
+static void mf_flush_enqueued_calls PARAMS ((void));
 static tree mx_external_ref PARAMS ((tree, int));
 static tree mx_flag PARAMS ((tree));
 static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 
-/* }}} */
 
 /* These macros are used to mark tree nodes, so that they are not
    repeatedly transformed.  The `bounded' flag is not otherwise used.  */
@@ -60,9 +66,9 @@ static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 #define MARK_TREE_MUDFLAPPED(tree)  do { TREE_BOUNDED (tree) = 1; } while (0)
 #define TREE_MUDFLAPPED_P(tree)  TREE_BOUNDED (tree)
 
-
+/* }}} */
 /* {{{ extern mudflap functions */
- 
+
 /* Perform the mudflap tree transforms on the given function.  */
  
 void 
@@ -104,42 +110,23 @@ mudflap_c_function (t)
 /* ------------------------------------------------------------------------ */
 
 
-#if 0
-struct mf_static
-{
-  const char *object_label;
-  const char *name_label;
-  size_t object_size;
-
-  struct mf_static *next;
-} *mf_statics;
-#endif
-
-
 /* Remember given node as a static of some kind: global data,
    function-scope static, or an anonymous constant.  Its assembler
    label is given.
 */
-
 
 void 
 mudflap_enqueue_decl (obj, label)
      tree obj;
      const char *label;
 {
-#if 0
-  fprintf (stderr, "decl `%s': ", label);
-  print_c_tree (stderr, obj);
-
-  /* Don't process VAR_DECLs emitted by mudflap code. */
-  if (TREE_MUDFLAPPED_P (obj))
+  if (! TREE_MUDFLAPPED_P (obj))
     {
-      /* Ignore these objects.  */
-      fprintf (stderr, " (mf)");
+      mf_enqueue_register_call (label,
+				c_size_in_bytes (TREE_TYPE (obj)),
+				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+				mf_varname_tree (obj));
     }
-
-  fprintf (stderr, "\n");
-#endif
 }
 
 
@@ -148,50 +135,42 @@ mudflap_enqueue_constant (obj, label)
      tree obj;
      const char *label;
 {
-#if 0
-  fprintf (stderr, "static `%s': ", label);
-  print_c_tree (stderr, obj);
-
-  /* Don't process STRING_CSTs emitted by mudflap code. */
-  if (TREE_MUDFLAPPED_P (obj))
+  if ((TREE_CODE (obj) == STRING_CST) &&
+      ! TREE_MUDFLAPPED_P (obj))
     {
-      /* Ignore these objects.  */
-      fprintf (stderr, " (mf)");
+      mf_enqueue_register_call (label,
+				build_int_2 (TREE_STRING_LENGTH (obj), 0),
+				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+				mx_flag (fix_string_type
+					 (build_string (15, "string literal"))));
     }
-
-  fprintf (stderr, "\n");
-#endif
+  /* XXX: what about other object types? */
 }
 
 
-
-/* XXX: Emit file-wide instrumentation.  */
- 
+/* Emit any file-wide instrumentation.  */
 void 
 mudflap_finish_file ()
 {
-
+  mf_flush_enqueued_calls ();
 }
 
-
 /* }}} */
-
-
 /* {{{ global tree nodes */
 
 /* Global tree objects for global variables and functions exported by
    mudflap runtime library.  mf_init_extern_trees must be called
    before using these.  */
 
-static tree mf_uintptr_type;      /* uintptr_t (usually "unsigned long") */
-static tree mf_cache_struct_type; /* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
-static tree mf_cache_structptr_type; /* struct __mf_cache * const */
-static tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
-static tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
-static tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
-static tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz); */
-static tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
-static tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
+static GTY (()) tree mf_uintptr_type;      /* uintptr_t (usually "unsigned long") */
+static GTY (()) tree mf_cache_struct_type; /* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
+static GTY (()) tree mf_cache_structptr_type; /* struct __mf_cache * const */
+static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
+static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
+static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
+static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz); */
+static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
+static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
 
 
 
@@ -310,9 +289,7 @@ mf_decl_extern_trees ()
 }
 
 /* }}} */
-
-/* {{{ utility function */
-
+/* {{{ utility functions */
 
 /* Mark and return the given tree node to prevent further mudflap
    transforms.  */
@@ -354,7 +331,7 @@ mf_varname_tree (decl)
   const char *buf_contents;
   tree result;
 
-  if (decl == NULL_TREE || current_function_decl == NULL_TREE)
+  if (decl == NULL_TREE)
     abort ();
 
   init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
@@ -365,7 +342,7 @@ mf_varname_tree (decl)
     unsigned sourceline;
 
     sourcefile = DECL_SOURCE_FILE (decl);
-    if (sourcefile == NULL)
+    if (sourcefile == NULL && current_function_decl != NULL_TREE)
       sourcefile = DECL_SOURCE_FILE (current_function_decl);
     if (sourcefile == NULL)
       sourcefile = "<unknown file>";
@@ -380,18 +357,23 @@ mf_varname_tree (decl)
       }
   }
 
-  /* Add (FUNCTION): */
-  output_add_string (buf, " (");
-  {
-    const char *funcname;
-    if (DECL_NAME (current_function_decl))
-      funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
-    if (funcname == NULL)
-      funcname = "anonymous fn";
-
-    output_add_string (buf, funcname);
-  }
-  output_add_string (buf, ") ");
+  if (current_function_decl != NULL_TREE)
+    {
+      /* Add (FUNCTION): */
+      output_add_string (buf, " (");
+      {
+	const char *funcname;
+	if (DECL_NAME (current_function_decl))
+	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	if (funcname == NULL)
+	  funcname = "anonymous fn";
+	
+	output_add_string (buf, funcname);
+      }
+      output_add_string (buf, ") ");
+    }
+  else
+    output_add_string (buf, " ");
 
   /* Add <variable-declaration> */
   dump_c_node (buf, decl, 0, 0);
@@ -583,7 +565,6 @@ mf_build_check_statement_for (ptrvalue, finale)
 
   return t0;
 }
-
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -938,9 +919,146 @@ mf_find_addrof (stmt, decl)
 /* ------------------------------------------------------------------------ */
 /* {{{ global variable transform */
 
-tree mf_static_data = NULL_TREE;
+/* A chain of EXPR_STMTs for calling __mf_register() at initialization
+   time.  */
+static GTY (()) tree enqueued_call_stmt_chain = NULL_TREE;
 
 
+/* Build and enqueue EXPR_STMT for calling __mf_register on the object
+   given by the parameters.  One odd thing: the object's address is
+   given by the given assembler label string (since that's all we may
+   know about a string literal, or the static data thingie may be out
+   of the future scope).  To turn that into a validish C tree, we
+   create a weird synthetic VAR_DECL node.
+*/ 
 
+static void
+mf_enqueue_register_call (label, regsize, regtype, regname)
+     const char* label;
+     tree regsize;
+     tree regtype;
+     tree regname;
+{
+  tree decltype, decl;
+  tree call_params;
+  tree call_stmt;
+
+  mf_init_extern_trees ();
+
+  /* See gcc-checker's c-bounds.c (declare_private_statics)  */
+  decltype = build_array_type (char_type_node, build_index_type (integer_zero_node));
+  decl = mx_flag (build_decl (VAR_DECL, get_identifier (label), decltype));
+
+  TREE_STATIC (decl) = 1;
+  TREE_READONLY (decl) = 1;
+  TREE_ASM_WRITTEN (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  DECL_INITIAL (decl) = NULL_TREE;
+  layout_decl (decl, 0);
+  TREE_USED (decl) = 1;
+  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+  DECL_DEFER_OUTPUT (decl) = 1;
+  /* XXX: what else? */
+  /* rest_of_decl_compilation (decl, build_string (strlen (label) + 1, label), 1, 0); */
+  /* make_decl_rtl (decl,  build_string (strlen (label) + 1, label)); */
+
+  call_params = tree_cons (NULL_TREE,
+			   convert (mf_uintptr_type, 
+				    mx_flag (build1 (ADDR_EXPR, 
+						     build_pointer_type (TREE_TYPE (decl)),
+						     decl))),
+			   tree_cons (NULL_TREE, 
+				      convert (mf_uintptr_type, regsize),
+				      tree_cons (NULL_TREE,
+						 regtype,
+						 tree_cons (NULL_TREE,
+							    regname,
+							    NULL_TREE))));
+
+  call_stmt = build1 (EXPR_STMT, void_type_node,
+		      build_function_call (mx_external_ref (mf_register_fndecl, 1),
+					   call_params));
+
+  /* Link this call into the chain. */
+  TREE_CHAIN (call_stmt) = enqueued_call_stmt_chain;
+  enqueued_call_stmt_chain = call_stmt;
+}
+
+
+/* Emit a synthetic CTOR function for the current file.  Populate it
+   from the enqueued __mf_register calls.  Call the RTL expanders
+   inline.  */
+
+static void
+mf_flush_enqueued_calls ()
+{
+  /* See profile.c (output_func_start_profiler) */
+  tree fnname;
+  char *nmplus;
+  tree fndecl;
+  tree body;
+
+  /* Short-circuit!  */
+  if (enqueued_call_stmt_chain == NULL_TREE)
+    return;
+
+  /* Create the COMPOUND_STMT that becomes the new function's body.  */
+  body = make_node (COMPOUND_STMT);
+  COMPOUND_BODY (body) = enqueued_call_stmt_chain;
+
+  /* Create a ctor function declaration.  */
+  nmplus = concat (IDENTIFIER_POINTER (get_file_function_name ('I')), "_mudflap", NULL);
+  fnname = get_identifier (nmplus);
+  free (nmplus);
+  fndecl = build_decl (FUNCTION_DECL, fnname,
+		       build_function_type (void_type_node, NULL_TREE));
+  DECL_EXTERNAL (fndecl) = 0;
+  TREE_PUBLIC (fndecl) = ! targetm.have_ctors_dtors;
+  TREE_USED (fndecl) = 1;
+  DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+
+  /* Now compile the sucker as we go.  This is a weird semi-inlined
+  form of the guts of the c-parse.y `fndef' production, and a hybrid
+  with c_expand_body. */
+
+  /* start_function */
+  fndecl = pushdecl (fndecl);
+  pushlevel (0);
+  rest_of_decl_compilation (fndecl, 0, 1, 0);
+  announce_function (fndecl);
+  current_function_decl = fndecl;
+  DECL_INITIAL (fndecl) = error_mark_node;
+  DECL_SAVED_TREE (fndecl) = body;
+  make_decl_rtl (fndecl, NULL);
+
+  /* store_parm_decls */
+  init_function_start (fndecl, input_filename, lineno);
+  cfun->x_whole_function_mode_p = 1;
+
+  /* finish_function */
+  poplevel (1, 0, 1);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+
+  /* c_expand_body */
+  expand_function_start (fndecl, 0);
+  expand_stmt (DECL_SAVED_TREE (fndecl));
+  if (lang_expand_function_end)
+    (*lang_expand_function_end) ();
+  expand_function_end (input_filename, lineno, 0);
+  rest_of_compilation (fndecl);
+  if (! quiet_flag) 
+    fflush (asm_out_file);
+  current_function_decl = NULL_TREE;
+  if (targetm.have_ctors_dtors)
+    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
+                                     DEFAULT_INIT_PRIORITY);
+  else
+    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+
+  /* XXX: We could free up enqueued_call_stmt_chain here. */
+}
 
 /* }}} */
+
+
+#include "gt-tree-mudflap.h"
