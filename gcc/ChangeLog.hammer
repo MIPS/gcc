@@ -1,3 +1,7 @@
+2003-07-30  Michael Matz  <matz@suse.de>
+
+	* semantics.c (finish_hander_parms): Don't segfault.
+
 Wed Jul 30 17:38:41 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* semantics.c (finish_hander_parms): Mark typeinfo as used.

@@ -793,18 +793,18 @@ finish_handler_parms (decl, handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
-  if (TREE_CODE (type) == TREE_LIST)
+  if (type && TREE_CODE (type) == TREE_LIST)
     while (type)
       {
 	tree tinfo = get_tinfo_decl (TREE_VALUE (type));
 	mark_used (tinfo);
 	type = TREE_CHAIN (type);
       }
-   else
-     {
-	tree tinfo = get_tinfo_decl (type);
-	mark_used (tinfo);
-     }
+  else if (type)
+    {
+      tree tinfo = get_tinfo_decl (type);
+      mark_used (tinfo);
+    }
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
