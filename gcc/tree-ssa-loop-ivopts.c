@@ -203,7 +203,8 @@ enum iv_position
   IP_START,		/* At the very beginning of the loop body.  */
 #endif
   IP_NORMAL,		/* At the end, just before the exit condition.  */
-  IP_END		/* At the end of the latch block.  */
+  IP_END,		/* At the end of the latch block.  */
+  IP_ORIGINAL		/* The original biv.  */
 };
 
 /* The induction variable candidate.  */
@@ -213,6 +214,8 @@ struct iv_cand
   bool important;	/* Whether this is an "important" candidate, i.e. such
 			   that it should be considered by all uses.  */
   enum iv_position pos;	/* Where it is computed.  */
+  tree incremented_at;	/* For original biv, the statement where it is
+			   incremented.  */
   tree var_before;	/* The variable used for it before incrementation.  */
   tree var_after;	/* The variable used for it after incrementation.  */
   struct iv *iv;	/* The value of the candidate.  */
@@ -376,6 +379,10 @@ dump_cand (FILE *file, struct iv_cand *cand)
 
     case IP_END:
       fprintf (file, "  incremented at end\n");
+      break;
+
+    case IP_ORIGINAL:
+      fprintf (file, "  original biv\n");
       break;
     }
 
@@ -896,6 +903,60 @@ stmt_after_ip_normal_pos (tree stmt)
   return stmt == last_stmt (bb);
 }
 
+/* Returns true if STMT if after the place where the original induction
+   variable CAND is incremented.  */
+
+static bool
+stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
+{
+  basic_block cand_bb = bb_for_stmt (cand->incremented_at);
+  basic_block stmt_bb = bb_for_stmt (stmt);
+  block_stmt_iterator bsi;
+
+  if (!dominated_by_p (CDI_DOMINATORS, stmt_bb, cand_bb))
+    return false;
+
+  if (stmt_bb != cand_bb)
+    return true;
+
+  /* Scan the block from the end, since the original ivs are usually
+     incremented at the end of the loop body.  */
+  for (bsi = bsi_last (stmt_bb); ; bsi_prev (&bsi))
+    {
+      if (bsi_stmt (bsi) == cand->incremented_at)
+	return false;
+      if (bsi_stmt (bsi) == stmt)
+	return true;
+    }
+}
+
+/* Returns true if STMT if after the place where the induction variable
+   CAND is incremented.  */
+
+static bool
+stmt_after_increment (struct iv_cand *cand, tree stmt)
+{
+  switch (cand->pos)
+    {
+#if DISABLE_IP_START
+    case IP_START:
+      return true;
+#endif
+
+    case IP_END:
+      return false;
+
+    case IP_NORMAL:
+      return stmt_after_ip_normal_pos (stmt);
+
+    case IP_ORIGINAL:
+      return stmt_after_ip_original_pos (cand, stmt);
+
+    default:
+      abort ();
+    }
+}
+
 /* Initializes data structures used by the iv optimization pass.  LOOPS is the
    loop tree.  */
 
@@ -1170,6 +1231,13 @@ find_givs_in_stmt (tree stmt)
       op0 = TREE_OPERAND (rhs, 0);
       if (!get_var_def (op0, &base0, &step0))
 	return;
+
+      if (TREE_TYPE (op0) != type)
+	{
+	  base0 = convert (type, base0);
+	  if (step0)
+	    step0 = convert (type, step0);
+	}
     }
 
   if (class == '2')
@@ -1177,6 +1245,13 @@ find_givs_in_stmt (tree stmt)
       op1 = TREE_OPERAND (rhs, 1);
       if (!get_var_def (op1, &base, &step))
 	return;
+
+      if (TREE_TYPE (op1) != type)
+	{
+	  base = convert (type, base);
+	  if (step)
+	    step = convert (type, step);
+	}
     }
 
   switch (code)
@@ -1744,7 +1819,8 @@ record_invariant (tree op, bool nonlinear_use)
   basic_block bb;
   struct version_info *info;
 
-  if (TREE_CODE (op) != SSA_NAME)
+  if (TREE_CODE (op) != SSA_NAME
+      || !is_gimple_reg (op))
     return;
 
   bb = bb_for_stmt (SSA_NAME_DEF_STMT (op));
@@ -2128,9 +2204,9 @@ find_interesting_uses (void)
    position to POS.  If USE is not NULL, the candidate is set as related to
    it.  */
 
-static void
+static struct iv_cand *
 add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
-		 struct iv_use *use)
+		 struct iv_use *use, tree incremented_at)
 {
   unsigned i;
   struct iv_cand *cand = NULL;
@@ -2140,6 +2216,9 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
       cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
 
       if (cand->pos != pos)
+	continue;
+
+      if (cand->incremented_at != incremented_at)
 	continue;
 
       if (!operand_equal_p (base, cand->iv->base, 0))
@@ -2163,9 +2242,13 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
       cand->id = i;
       cand->iv = alloc_iv (base, step);
       cand->pos = pos;
-      cand->var_before = create_tmp_var_raw (TREE_TYPE (base), "ivtmp");
-      cand->var_after = cand->var_before;
+      if (pos != IP_ORIGINAL)
+	{
+	  cand->var_before = create_tmp_var_raw (TREE_TYPE (base), "ivtmp");
+	  cand->var_after = cand->var_before;
+	}
       cand->important = important;
+      cand->incremented_at = incremented_at;
       VARRAY_PUSH_GENERIC_PTR_NOGC (iv_candidates, cand);
 
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -2186,6 +2269,8 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
 	fprintf (tree_dump_file, "Candidate %d is related to use %d\n",
 		 cand->id, use->id);
     }
+
+  return cand;
 }
 
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
@@ -2196,12 +2281,14 @@ static void
 add_candidate (tree base, tree step, bool important, struct iv_use *use)
 {
 #if DISABLE_IP_START
-  add_candidate_1 (base, step, important, IP_START, use);
+  /* Shift the initial value so that the value in the body matches.  */
+  add_candidate_1 (fold (MINUS_EXPR, TREE_TYPE (base), base, step),
+		   step, important, IP_START, use, NULL_TREE);
 #endif
   if (ip_normal_pos ())
-    add_candidate_1 (base, step, important, IP_NORMAL, use);
+    add_candidate_1 (base, step, important, IP_NORMAL, use, NULL_TREE);
   if (ip_end_pos ())
-    add_candidate_1 (base, step, important, IP_END, use);
+    add_candidate_1 (base, step, important, IP_END, use, NULL_TREE);
 }
 
 /* Adds standard iv candidates.  */
@@ -2225,12 +2312,27 @@ add_standard_iv_candidates (void)
 
 static void
 add_old_iv_candidates (struct iv *iv)
-{ 
+{
+  tree phi, def;
+  struct iv_cand *cand;
+
   add_candidate (iv->base, iv->step, true, NULL);
 
   /* The same, but with initial value zero.  */
   add_candidate (convert (TREE_TYPE (iv->base), integer_zero_node),
 		 iv->step, true, NULL);
+
+  phi = SSA_NAME_DEF_STMT (iv->ssa_name);
+  if (TREE_CODE (phi) == PHI_NODE)
+    {
+      /* Additionally record the possibility of leaving the original iv
+	 untouched.  */
+      def = phi_element_for_edge (phi, loop_latch_edge (current_loop))->def;
+      cand = add_candidate_1 (iv->base, iv->step, true, IP_ORIGINAL, NULL,
+			      SSA_NAME_DEF_STMT (def));
+      cand->var_before = iv->ssa_name;
+      cand->var_after = def;
+    }
 }
 
 /* Adds candidates based on the old induction variables.  */
@@ -2542,25 +2644,10 @@ computation_cost (tree expr)
 static tree
 var_at_use (struct iv_use *use, struct iv_cand *cand)
 {
-  switch (cand->pos)
-    {
-#if DISABLE_IP_START
-    case IP_START:
-      return cand->var_after;
-#endif
-
-    case IP_NORMAL:
-      if (stmt_after_ip_normal_pos (use->stmt))
-	return cand->var_after;
-      else
-	return cand->var_before;
-
-    case IP_END:
-      return cand->var_before;
-
-    default:
-      abort ();
-    }
+  if (stmt_after_increment (cand, use->stmt))
+    return cand->var_after;
+  else
+    return cand->var_before;
 }
 
 /* Determines the expression by that USE is expressed from induction variable
@@ -2607,10 +2694,8 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
       return NULL_TREE;
     }
 
-  /* If we are after the "normal" position, the value of the candidate is
-     higher by one iteration.  */
-  if (cand->pos == IP_NORMAL
-      && stmt_after_ip_normal_pos (use->stmt))
+  /* We may need to shift the value if we are after the increment.  */
+  if (stmt_after_increment (cand, use->stmt))
     cbase = fold (build (PLUS_EXPR, utype, cbase, cstep));
 
   /* use = ubase + ratio * (var - cbase).  If either cbase is a constant
@@ -3278,10 +3363,9 @@ get_computation_cost (struct iv_use *use, struct iv_cand *cand,
 			       depends_on);
     }
 
-  /* If we are after the "normal" position, the value of the candidate is
-     higher by one iteration.  */
-  if (cand->pos == IP_NORMAL
-      && stmt_after_ip_normal_pos (use->stmt))
+  /* If we are after the increment, the value of the candidate is higher by
+     one iteration.  */
+  if (stmt_after_increment (cand, use->stmt))
     offset -= ratio * cstepi;
 
   /* Now the computation is in shape symbol + var1 + const + ratio * var2.
@@ -3357,8 +3441,7 @@ cand_value_at (struct iv_cand *cand, struct iv_use *use, tree niter)
   tree val;
   tree type = TREE_TYPE (niter);
 
-  if (cand->pos == IP_NORMAL
-      && stmt_after_ip_normal_pos (use->stmt))
+  if (stmt_after_increment (cand, use->stmt))
     niter = fold (build (PLUS_EXPR, type, niter,
 			 convert (type, integer_one_node)));
 
@@ -3551,22 +3634,15 @@ determine_iv_cost (struct iv_cand *cand)
      and its initialization.  The second is almost negligible for any loop
      that rolls enough, so we take it just very little into account.  */
 
-#if DISABLE_IP_START
-  tree type = TREE_TYPE (base);
-
-  if (cand->pos == IP_START)
-    {
-      /* We must decrease the base, because it will get increased just at the
-	 start of the loop body.  */
-      base = fold (build (MINUS_EXPR, type, base, cand->iv->step));
-    }
-#endif
-
   cost_base = force_var_cost (base, NULL);
   cost_step = add_cost (TYPE_MODE (TREE_TYPE (base)));
 
   /* TODO use profile to determine the ratio here.  */
   cand->cost = cost_step + cost_base / 5;
+
+  /* Prefer the original iv unless we may gain something by replacing it.  */
+  if (cand->pos == IP_ORIGINAL)
+    cand->cost--;
 }
 
 /* Determines costs of computation of the candidates.  */
@@ -3757,8 +3833,16 @@ find_best_candidate (struct iv_use *use, bitmap sol, bitmap inv,
       acnd = VARRAY_GENERIC_PTR_NOGC (iv_candidates, c);
       cost = get_use_iv_cost (use, acnd, &depends_on);
 
-      if (cost >= best_cost)
+      if (cost == INFTY)
 	goto next_cand;
+      if (cost > best_cost)
+	goto next_cand;
+      if (cost == best_cost)
+	{
+	  /* Prefer the cheaper iv.  */
+	  if (acnd->cost >= cnd->cost)
+	    goto next_cand;
+	}
 
       if (depends_on)
 	{
@@ -4067,20 +4151,16 @@ create_new_iv (struct iv_cand *cand)
       incr_pos = bsi_last (ip_end_pos ());
       after = true;
       break;
+
+    case IP_ORIGINAL:
+      /* Nothing to do here.  */
+      return;
     }
  
   gimple_add_tmp_var (cand->var_before);
   add_referenced_tmp_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
-#if DISABLE_IP_START
-  if (cand->pos == IP_START)
-    {
-      /* We must decrease the base, because it will get increased just at the
-	 start of the loop body.  */
-      base = fold (build (MINUS_EXPR, TREE_TYPE (base), base, cand->iv->step));
-    }
-#endif
 
   create_iv (base, cand->iv->step, cand->var_before, current_loop,
 	     &incr_pos, after, &cand->var_before, &cand->var_after);

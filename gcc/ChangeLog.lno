@@ -1,3 +1,15 @@
+2004-03-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (enum iv_position): Add IP_ORIGINAL.
+	(struct iv_cand): Add incremented_at.
+	(dump_cand, add_candidate_1, add_candidate, add_old_iv_candidates,
+	var_at_use, get_computation, get_computation_cost,
+	cand_value_at, determine_iv_cost, find_best_candidate,
+	create_new_iv): Handle IP_ORIGINAL.
+	(stmt_after_ip_original_pos, stmt_after_increment): New functions.
+	(find_givs_in_stmt): Cast the values to the result type.
+	(record_invariant): Do not record virtual operands.
+
 2004-03-03  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-scalar-evolution.c: Use pointers to varray instead of
