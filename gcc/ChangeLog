@@ -1,3 +1,103 @@
+2004-04-06  Devang Patel  <dpatel@apple.com>
+
+	PR 14467
+	* config/darwin.h (LINK_COMMAND_SPEC): Use c++filt instead of c++filt3.
+	
+2004-03-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* expr.c (store_constructor): Use gen_int_mode to correctly
+	sign-extend CONST_INT value.
+
+2004-04-01  Alan Modra  <amodra@bigpond.net.au>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (init_gcc_specs): If HAVE_LD_AS_NEEDED, link with
+	-lgcc --as-needed -lgcc_s --no-as-needed by default.
+	* configure.in (HAVE_LD_AS_NEEDED): Check for ld --as-needed.
+	* configure: Rebuilt.
+	* config.in: Rebuilt.
+	* Makefile.in (stage1-start): Copy also libgcc_s*$(SHLIB_EXT).
+	(stage2-start, stage3-start, stage4-start): Likewise.
+	(stageprofile-start, stagefeedback-start): Likewise.
+
+2004-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/14755
+	* fold-const.c (fold) <EQ_EXPR>: Properly compute newconst in
+	"bitfld++ == const" to "++bitfld == const + incr" transformations.
+
+2004-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/14069
+	* c-decl.c (finish_struct): Change type of incorrect flexible array
+	field into error_mark_node.
+
+	Backport from mainline:
+	2003-04-07  J"orn Rennecke  <joern.rennecke@superh.com>
+
+	* c-typeck.c (output_init_element): Check for type == error_mark_node.
+
+2004-04-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* dwarf2out.c (DEBUG_STR_SECTION_FLAGS): Heed flag_merge_constants.
+
+2004-03-30  Matthias Klose  <doko@debian.org>
+
+	Backport:
+
+	2004-01-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR bootstrap/12527
+	* config.gcc (arm*-*-linux*): Don't include unknown-elf.h in tm_file.
+	Move linux-gas.h and linux-elf.h before aout.h.
+	* arm/arm.h (INITIALIZE_TRAMPOLINE): Only define if not already.
+	* arm/linux-elf.h (SUBTARGET_CPU_DEFAULT): Define.
+
+	2003-05-15  Philip Blundell  <philb@gnu.org>
+
+	* config/arm/arm.c (arm_is_xscale): Rename to arm_arch_xscale.
+	All uses updated.
+	(arm_tune_xscale): New variable.
+	(arm_override_options): Set it.
+	(arm_adjust_cost): Use it in place of arm_arch_xscale.
+	(arm_gen_load_multiple): Likewise.
+	(arm_gen_store_multiple): Likewise.
+	* config/arm/arm.md (is_xscale): Likewise.
+	* config/arm/arm.h (arm_tune_xscale): Declare.
+
+	2003-04-28  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/elf.h (ASM_OUTPUT_ALIGNED_COMMON): Remove definition.
+
+2004-03-29  Matthias Klose  <doko@debian.org>
+
+	2003-09-17  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/rs6000/sysv4.h (LIB_LINUX_SPEC): Give -lpthread before -lc.
+
+2004-03-29  Matthias Klose  <doko@debian.org>
+
+	Backport:
+	2004-01-15  Andreas Schwab  <schwab@suse.de>
+ 
+	PR bootstrap/13562
+	* config/m68k/m68k.c (output_move_const_into_data_reg): Clear cc
+	status for NOTB/NOTW/NEGW methods.
+
+2004-03-29  Aldy Hernandez  <aldyh@redhat.com>
+ 
+        PR 14219
+        * c-typeck.c (build_binary_op): Do not allow comparisons of
+        vectors.
+
+2004-03-27  Matthias Klose  <doko@debian.org>
+
+	PR target/11716
+	Michael Eager <eager@mvista.com>
+
+	* config/mips/mips.md: Limit the maximum length of a short branch to
+	64K instead of 128K.
+
 2004-03-26  Richard Henderson  <rth@redhat.com>
 
 	PR 11527
