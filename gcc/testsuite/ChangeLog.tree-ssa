@@ -1,3 +1,8 @@
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14377
+	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Add new test.
+
 2004-04-08  Brian Booth  <bbooth@redhat.com>
 
 	* gcc.dg/tree-ssa/20040408-1.c: New test.

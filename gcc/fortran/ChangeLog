@@ -1,3 +1,8 @@
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14377
+	* simplify.c (simplify_min_max): Convert the type of the result.
+
 2004-04-11  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.texi: Use full target triplet.
