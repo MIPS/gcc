@@ -217,6 +217,10 @@ typedef struct basic_block_def {
  
   /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
   int frequency;
+
+  /* Reachability flag.  Set to non-zero if this block is reachable from
+     the flowgraph's entry node.  */
+  int reachable;
 } *basic_block;
  
 #define BB_FREQ_MAX 10000
@@ -597,6 +601,7 @@ extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));
 extern void allocate_bb_life_data	PARAMS ((void));
 extern void find_unreachable_blocks	PARAMS ((void));
+extern void expunge_block		PARAMS ((basic_block));
 
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about

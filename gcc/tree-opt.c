@@ -47,11 +47,14 @@ optimize_tree (t)
   tree_find_basic_blocks (t, 0, 0);
 
   /* Don't bother doing anything else if we found errors in the program.  */
-  if (errorcount)
+  if (errorcount > 0)
     return;
 
-  tree_find_varrefs (t, NULL);
-  tree_build_ssa ();
+  if (n_basic_blocks > 0)
+    {
+      tree_find_varrefs ();
+      tree_build_ssa ();
+    }
 
   /* Flush out DFA and SSA data.  */
   delete_varref_list (&ref_symbols_list);

@@ -127,7 +127,7 @@ tree_build_ssa ()
     }
 #endif
 
-  /* Insert the phi nodes and build FUD chains.  */
+  /* Insert the PHI nodes and build FUD chains.  */
   insert_phi_terms (dfs);
   build_fud_chains (idom);
 
@@ -174,24 +174,24 @@ insert_phi_terms (dfs)
 
   /* Array ADDED (indexed by basic block number) is used to determine
      whether a phi term for the current variable has already been
-     inserted at node X.  */
+     inserted at block X.  */
   VARRAY_TREE_INIT (added, n_basic_blocks, "added");
 
   /* Array IN_WORK (indexed by basic block number) is used to determine
-     whether node X has already been added to WORK_LIST for the current
+     whether block X has already been added to WORK_LIST for the current
      variable.  */
   VARRAY_TREE_INIT (in_work, n_basic_blocks, "in_work");
 
-  /* Array WORK_LIST is a stack of CFG nodes.  Each node that contains
-     an assignment or phi term will be added to this work list.  */
+  /* Array WORK_LIST is a stack of CFG blocks.  Each block that contains
+     an assignment or PHI term will be added to this work list.  */
   VARRAY_BB_INIT (work_list, n_basic_blocks, "work_list");
 
   work_list_top = 0;
 
   /* Iterate over all referenced symbols in the function. For each
-     symbol, add to the work list all the nodes that have a definition
+     symbol, add to the work list all the blocks that have a definition
      for the symbol.  PHI terms will be added to the dominance frontier
-     nodes of each definition node.  */
+     blocks of each definition block.  */
 
   for (m = ref_symbols_list; m; m = TREE_CHAIN (m))
     {
@@ -204,30 +204,30 @@ insert_phi_terms (dfs)
 
       for (i = VARREF_LIST_FIRST (TREE_REFS (sym)); i; i = VARREF_NODE_NEXT (i))
 	{
-	  basic_block node;
+	  basic_block bb;
 	  varref ref = VARREF_NODE_ELEM (i);
 
 	  if (VARREF_TYPE (ref) != VARDEF)
 	    continue;
 
-	  node = VARREF_BLOCK (ref);
+	  bb = VARREF_BLOCK (ref);
 	  /* Grow WORK_LIST by ~25%.  */
 	  if (work_list_top >= VARRAY_SIZE (work_list))
 	    VARRAY_GROW (work_list, work_list_top + (work_list_top + 3) / 4);
-	  VARRAY_BB (work_list, work_list_top) = node;
+	  VARRAY_BB (work_list, work_list_top) = bb;
 	  work_list_top++;
-	  VARRAY_TREE (in_work, node->index) = sym;
+	  VARRAY_TREE (in_work, bb->index) = sym;
 	}
 
       while (work_list_top > 0)
 	{
 	  int w;
-	  basic_block node;
+	  basic_block bb;
 	  
 	  work_list_top--;
-	  node = VARRAY_BB (work_list, work_list_top);
+	  bb = VARRAY_BB (work_list, work_list_top);
 
-	  EXECUTE_IF_SET_IN_SBITMAP (dfs[node->index], 0, w,
+	  EXECUTE_IF_SET_IN_SBITMAP (dfs[bb->index], 0, w,
 	    {
 	      if (VARRAY_TREE (added, w) != sym)
 		{

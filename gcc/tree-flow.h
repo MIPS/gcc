@@ -101,7 +101,6 @@ struct varphi
 
 /* }}} */
 
-
 /* {{{ Generic variable reference structure.  */
 
 union varref_def
@@ -148,7 +147,6 @@ struct varref_list_def
 
 typedef struct varref_list_def *varref_list;
 
-
 #define VARREF_LIST_FIRST(l) ((l) ? (l)->first : NULL)
 #define VARREF_LIST_LAST(l) ((l) ? (l)->last : NULL)
 
@@ -164,9 +162,12 @@ struct tree_ann_def
   /* For _DECL trees, list of references made to this variable.  */
   varref_list refs;
 
-  /* Most recent definition for this symbol. Used when placing FUD
+  /* Most recent definition for this symbol.  Used when placing FUD
      chains.  */
   varref currdef;
+
+  /* Immediately enclosing compound statement to which this tree belongs.  */
+  tree compound_stmt;
 };
 
 typedef struct tree_ann_def *tree_ann;
@@ -183,6 +184,9 @@ typedef struct tree_ann_def *tree_ann;
 #define TREE_REFS(NODE)		\
     ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->refs : NULL)
 
+#define TREE_COMPOUND_STMT(NODE)\
+    ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->compound_stmt : NULL)
+
 /* }}} */
   
 /* {{{ Block annotations stored in basic_block.aux.  */
@@ -194,32 +198,18 @@ struct basic_block_ann_def
 
   /* List of references made in this block.  */
   varref_list refs;
-
-  /* Control flow altering statement found in the block (CONTINUE, BREAK
-     RETURN, or GOTO).  NOTE: there can be only one.  */
-  tree exit_stmt;
-
-  /* Loop header flag.  If set, this block belongs to the head of a loop
-     construct (e.g., the block for a FOR_COND expression).  */
-  int is_loop_header;
 };
 
 typedef struct basic_block_ann_def *basic_block_ann;
 
-#define BB_ANN(NODE)		\
-    ((basic_block_ann)((NODE)->aux))
+#define BB_ANN(BLOCK)		\
+    ((basic_block_ann)((BLOCK)->aux))
 
-#define BB_PARENT(NODE)		\
-    ((BB_ANN (NODE)) ? BB_ANN (NODE)->parent : NULL)
+#define BB_PARENT(BLOCK)		\
+    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->parent : NULL)
 
-#define BB_REFS(NODE)		\
-    ((BB_ANN (NODE)) ? BB_ANN (NODE)->refs : NULL)
-
-#define BB_EXIT_STMT(NODE)	\
-    ((BB_ANN (NODE)) ? BB_ANN (NODE)->exit_stmt : NULL)
-
-#define BB_IS_LOOP_HEADER(NODE)	\
-    ((BB_ANN (NODE)) ? BB_ANN (NODE)->is_loop_header : 0)
+#define BB_REFS(BLOCK)		\
+    ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->refs : NULL)
 
 /* }}} */
 
@@ -251,14 +241,17 @@ extern void tree_dump_bb PARAMS ((FILE *, const char *, basic_block, int));
 extern void tree_debug_bb PARAMS ((basic_block));
 extern void tree_debug_cfg PARAMS ((void));
 extern void tree_cfg2dot PARAMS ((char *fname));
-extern basic_block find_loop_parent PARAMS ((basic_block));
-extern basic_block get_condition_block PARAMS ((basic_block));
+extern basic_block loop_parent PARAMS ((basic_block));
+extern basic_block condition_block PARAMS ((basic_block));
+extern basic_block switch_parent PARAMS ((basic_block));
+extern tree first_exec_stmt PARAMS ((tree));
+extern int is_exec_stmt PARAMS ((tree));
 
 /* }}} */
 
 /* {{{ Functions in tree-dfa.c  */
 
-extern void tree_find_varrefs PARAMS ((tree, tree));
+extern void tree_find_varrefs PARAMS ((void));
 extern void add_ref_to_sym PARAMS ((varref, tree sym, int));
 extern void add_ref_to_bb PARAMS ((varref, basic_block));
 extern int add_ref_symbol PARAMS ((tree, tree *));

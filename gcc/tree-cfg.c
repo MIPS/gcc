@@ -81,34 +81,33 @@ static const int initial_cfg_capacity = 20;
 /* {{{ Local function declarations.  */
 
 /* Basic blocks and flowgraphs.  */
-static void make_nodes PARAMS ((tree, basic_block));
-static void make_compound_stmt_nodes PARAMS ((tree, basic_block));
-static void make_for_stmt_nodes PARAMS ((tree, basic_block));
-static void make_if_stmt_nodes PARAMS ((tree, basic_block));
-static void make_while_stmt_nodes PARAMS ((tree, basic_block));
-static void make_switch_stmt_nodes PARAMS ((tree, basic_block));
-static void make_do_stmt_nodes PARAMS ((tree, basic_block));
-static basic_block create_bb PARAMS ((tree, tree, basic_block, int));
-static tree create_maximal_bb PARAMS ((tree, basic_block, int));
+static void make_blocks PARAMS ((tree, basic_block, tree));
+static void make_for_stmt_blocks PARAMS ((tree, basic_block, tree));
+static void make_if_stmt_blocks PARAMS ((tree, basic_block, tree));
+static void make_while_stmt_blocks PARAMS ((tree, basic_block, tree));
+static void make_switch_stmt_blocks PARAMS ((tree, basic_block, tree));
+static void make_do_stmt_blocks PARAMS ((tree, basic_block, tree));
+static basic_block create_bb PARAMS ((tree, tree, basic_block));
+static basic_block create_maximal_bb PARAMS ((tree, basic_block, tree));
 static void map_stmt_to_bb PARAMS ((tree, basic_block));
+static void delete_unreachable_blocks PARAMS ((void));
+static void delete_block PARAMS ((basic_block));
 
 /* Edges.  */
 static void make_edges PARAMS ((void));
 static void make_ctrl_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_exit_edges PARAMS ((sbitmap *, basic_block));
-static void make_compound_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_for_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_while_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_do_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_if_stmt_edges PARAMS ((sbitmap *, basic_block));
-static void make_switch_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_goto_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_break_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_continue_stmt_edges PARAMS ((sbitmap *, basic_block));
 static void make_return_stmt_edges PARAMS ((sbitmap *, basic_block));
 
 /* Various helpers.  */
-static basic_block get_successor_block PARAMS ((basic_block));
+static basic_block successor_block PARAMS ((basic_block));
 
 /* }}} */
 
@@ -133,73 +132,90 @@ tree_find_basic_blocks (t, nregs, file)
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Find the basic blocks for the flowgraph.  */
-  make_nodes (t, NULL);
+  make_blocks (t, NULL, NULL);
 
 #ifdef DEBUG_TREE_FLOW
   if (DEBUG_TREE_FLOW (2))
     tree_debug_cfg ();
 #endif	/* DEBUG_TREE_FLOW  */
 
-  /* Create the edges of the flowgraph.  */
-  make_edges ();
+  if (n_basic_blocks > 0)
+    {
+      /* Create the edges of the flowgraph.  */
+      make_edges ();
 
-  mark_critical_edges ();
+      mark_critical_edges ();
 
 #ifdef DEBUG_TREE_FLOW
-  if (DEBUG_TREE_FLOW (1))
-    {
-      char name[1024];
+      if (DEBUG_TREE_FLOW (1))
+	{
+	  char name[1024];
 
-      tree_debug_cfg ();
-      sprintf (name, "%s.dot", 
-	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-      tree_cfg2dot (name);
-    }
+	  tree_debug_cfg ();
+	  sprintf (name, "%s.dot", 
+		  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+	  tree_cfg2dot (name);
+	}
 #endif	/* DEBUG_TREE_FLOW  */
+    }
 }
 /* }}} */
 
-/* {{{ make_nodes()
+/* {{{ make_blocks()
 
-   Build a flowgraph for the tree starting with T. Make CONTROL_PARENT
-   the block dominating all the nodes in the new flowgraph.  */
+   Build a flowgraph for the tree starting with T.
+   
+   CONTROL_PARENT is the header block for the control structure immediately
+   enclosing the new sub-graph.
+ 
+   COMPOUND_STMT is the immediately enclosing compound statement to which T
+   belongs.  These statements are not represented in the flowgraph, but are
+   important to determine successor basic blocks in successor_block().  */
 
 static void
-make_nodes (t, control_parent)
+make_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
   /* Traverse the statement chain building basic blocks.  */
   while (t && t != error_mark_node)
     {
+      get_tree_ann (t)->compound_stmt = compound_stmt;
+
       switch (TREE_CODE (t))
 	{
 	case COMPOUND_STMT:
-	  make_compound_stmt_nodes (t, control_parent);
+	  make_blocks (COMPOUND_BODY (t), control_parent, t);
 	  break;
 
 	case FOR_STMT:
-	  make_for_stmt_nodes (t, control_parent);
+	  make_for_stmt_blocks (t, control_parent, compound_stmt);
 	  break;
 
 	case IF_STMT:
-	  make_if_stmt_nodes (t, control_parent);
+	  make_if_stmt_blocks (t, control_parent, compound_stmt);
 	  break;
 
 	case WHILE_STMT:
-	  make_while_stmt_nodes (t, control_parent);
+	  make_while_stmt_blocks (t, control_parent, compound_stmt);
 	  break;
 
 	case SWITCH_STMT:
-	  make_switch_stmt_nodes (t, control_parent);
+	  make_switch_stmt_blocks (t, control_parent, compound_stmt);
 	  break;
 
 	case DO_STMT:
-	  make_do_stmt_nodes (t, control_parent);
+	  make_do_stmt_blocks (t, control_parent, compound_stmt);
 	  break;
 
 	default:
-	  t = create_maximal_bb (t, control_parent, 0);
+	  if (is_exec_stmt (t))
+	    {
+	      basic_block bb;
+	      bb = create_maximal_bb (t, control_parent, compound_stmt);
+	      t = bb->end_tree;
+	    }
 	  break;
 	}
 
@@ -209,115 +225,117 @@ make_nodes (t, control_parent)
 }
 /* }}} */
 
-/* {{{ make_compound_stmt_nodes()
+/* {{{ make_for_stmt_blocks()
 
-   Create the nodes for a COMPOUND_STMT.  */
-
-static void
-make_compound_stmt_nodes (t, control_parent)
-    tree t;
-    basic_block control_parent;
-{
-  basic_block bb = create_bb (t, t, control_parent, 0);
-  make_nodes (COMPOUND_BODY (t), bb);
-}
-/* }}} */
-
-/* {{{ make_for_stmt_nodes()
-
-   Create the nodes for a FOR_STMT.  */
+   Create the blocks for a FOR_STMT.  */
 
 static void
-make_for_stmt_nodes (t, control_parent)
+make_for_stmt_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
   basic_block bb;
+  tree cond;
 
-  bb = create_bb (t, t, control_parent, 1);
-  create_maximal_bb (FOR_INIT_STMT (t), bb, 1);
-  create_maximal_bb (FOR_COND (t), bb, 1);
-  create_maximal_bb (FOR_EXPR (t), bb, 1);
-  make_nodes (FOR_BODY (t), bb);
+  /* Make sure that the condition block will be created even if the loop
+     has no condition.  This avoids a self-referencing edge into the loop
+     header (which would create loop carried dependencies for the
+     statements in FOR_INIT_STMT.  */
+  cond = (FOR_COND (t)) ? FOR_COND (t) : build_int_2 (1, 0);
+
+  bb = create_bb (t, FOR_INIT_STMT (t), control_parent);
+  create_maximal_bb (cond, bb, compound_stmt);
+  create_maximal_bb (FOR_EXPR (t), bb, compound_stmt);
+  make_blocks (FOR_BODY (t), bb, compound_stmt);
 }
 /* }}} */
 
-/* {{{ make_while_stmt_nodes ()
+/* {{{ make_while_stmt_blocks ()
 
-   Create the nodes for a WHILE_STMT.  */
+   Create the blocks for a WHILE_STMT.  */
 
 static void
-make_while_stmt_nodes (t, control_parent)
+make_while_stmt_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
-  basic_block bb = create_bb (t, t, control_parent, 1);
-  create_maximal_bb (WHILE_COND (t), bb, 1);
-  make_nodes (WHILE_BODY (t), bb);
+  basic_block bb = create_bb (t, t, control_parent);
+  make_blocks (WHILE_BODY (t), bb, compound_stmt);
 }
 /* }}} */
 
-/* {{{ make_do_stmt_nodes ()
+/* {{{ make_do_stmt_blocks ()
 
-   Create the nodes for a DO_STMT.  */
+   Create the blocks for a DO_STMT.  */
 
 static void
-make_do_stmt_nodes (t, control_parent)
+make_do_stmt_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
-  basic_block bb = create_bb (t, t, control_parent, 0);
-  create_maximal_bb (DO_COND (t), bb, 1);
-  make_nodes (DO_BODY (t), bb);
+  basic_block bb = create_bb (t, t, control_parent);
+  create_maximal_bb (DO_COND (t), bb, compound_stmt);
+  make_blocks (DO_BODY (t), bb, compound_stmt);
 }
 /* }}} */
 
-/* {{{ make_if_stmt_nodes ()
+/* {{{ make_if_stmt_blocks ()
 
-   Create the nodes for an IF_STMT.  */
+   Create the blocks for an IF_STMT.  */
 
 static void
-make_if_stmt_nodes (t, control_parent)
+make_if_stmt_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
-  basic_block bb = create_bb (t, t, control_parent, 0);
-  create_maximal_bb (IF_COND (t), bb, 0);
-  make_nodes (THEN_CLAUSE (t), bb);
-  make_nodes (ELSE_CLAUSE (t), bb);
+  basic_block bb = create_bb (t, IF_COND (t), control_parent);
+  make_blocks (THEN_CLAUSE (t), bb, compound_stmt);
+  make_blocks (ELSE_CLAUSE (t), bb, compound_stmt);
 }
 /* }}} */
 
-/* {{{ make_switch_stmt_nodes ()
+/* {{{ make_switch_stmt_blocks ()
 
-   Create the nodes for a SWITCH_STMT.  */
+   Create the blocks for a SWITCH_STMT.  */
 
 static void
-make_switch_stmt_nodes (t, control_parent)
+make_switch_stmt_blocks (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
+    tree compound_stmt;
 {
-  basic_block bb = create_bb (t, t, control_parent, 0);
-  create_maximal_bb (SWITCH_COND (t), bb, 0);
-  make_nodes (SWITCH_BODY (t), bb);
+  basic_block bb = create_bb (t, SWITCH_COND (t), control_parent);
+  make_blocks (SWITCH_BODY (t), bb, compound_stmt);
 }
 /* }}} */
 
 /* {{{ create_maximal_bb ()
 
-   Create a maximal basic block. A maximal basic block is a maximal
+   Create a maximal basic block.  A maximal basic block is a maximal
    length sequence of consecutive statements that are always executed
-   together. That is, if the first statement of the block is executed,
-   then all the other statements will be executed in sequence until and
-   including the last one in the block. 
+   together.  In other words, if the first statement of the block is
+   executed, then all the other statements will be executed in sequence
+   until and including the last one in the block. 
 
-   Returns the last statement in the basic block.  */
+   T is the first tree of the basic block.
 
-static tree
-create_maximal_bb (t, control_parent, is_loop_header)
+   CONTROL_PARENT is the basic block of the innermost containing control
+      structure.
+
+   COMPOUND_STMT is the immediately enclosing compound statement to which
+      the first tree of the block belongs.
+
+   Returns the new basic block.  */
+
+static basic_block
+create_maximal_bb (t, control_parent, compound_stmt)
     tree t;
     basic_block control_parent;
-    int is_loop_header;
+    tree compound_stmt;
 {
   tree first, last;
   basic_block bb;
@@ -326,52 +344,42 @@ create_maximal_bb (t, control_parent, is_loop_header)
     return NULL;
 
   first = last = t;
-  bb = create_bb (first, last, control_parent, is_loop_header);
+  bb = create_bb (first, last, control_parent);
 
   while (last && last != error_mark_node)
     {
-      map_stmt_to_bb (last, bb);
+      get_tree_ann (last)->compound_stmt = compound_stmt;
 
-      /* If this is a control flow altering statement, store it in
-	 bb->exit_stmt.  */
-      if (is_ctrl_altering_stmt (last))
+      if (is_exec_stmt (last))
 	{
-	  /* Sanity check. Allow only one control flow altering
-	     statement per basic block.  */
-	  if (BB_EXIT_STMT (bb))
-	    abort ();
-
-	  get_bb_ann (bb)->exit_stmt = last;
-	}
-
-      /* If this statement is the end of the basic block, save it and
-	 return.  */
-      if (stmt_ends_bb_p (last))
-	{
+	  map_stmt_to_bb (last, bb);
 	  bb->end_tree = last;
-	  break;
 	}
+
+      if (stmt_ends_bb_p (last))
+	break;
 
       last = TREE_CHAIN (last);
     }
 
-  return last;
+  return bb;
 }
 /* }}} */
 
 /* {{{ create_bb()
 
-   Creates and returns a new basic block. HEAD and END are the first and
-   last statements in the block. CONTROL_PARENT is the entry block for
-   the control structure containing the new block.  Flag IS_LOOP_HEADER
-   is non-zero if this block is part of a loop header.  */
+   Creates and returns a new basic block.
+
+   HEAD and END are the first and last statements in the block.
+
+   CONTROL_PARENT is the entry block for the control structure containing
+   the new block.  */
 
 static basic_block
-create_bb (head, end, control_parent, is_loop_header)
+create_bb (head, end, control_parent)
     tree head;
     tree end;
     basic_block control_parent;
-    int is_loop_header;
 {
   basic_block bb;
 
@@ -383,7 +391,6 @@ create_bb (head, end, control_parent, is_loop_header)
   bb->end_tree = end;
   bb->index = n_basic_blocks;
   get_bb_ann (bb)->parent = control_parent;
-  get_bb_ann (bb)->is_loop_header = is_loop_header;
 
   /* Grow the basic block array if needed.  */
   if ((size_t)n_basic_blocks == VARRAY_SIZE (basic_block_info))
@@ -399,7 +406,6 @@ create_bb (head, end, control_parent, is_loop_header)
 
   return bb;
 }
-
 /* }}} */
 
 /* {{{ map_stmt_to_bb()
@@ -426,7 +432,7 @@ map_stmt_to_bb (t, bb)
 
 /* {{{ get_bb_ann()
 
-   Get the annotation for the given block. Create a new one if
+   Get the annotation for the given block.  Create a new one if
    necessary.  */
 
 basic_block_ann
@@ -477,70 +483,33 @@ make_edges ()
       /* Edges for control flow altering statements (goto, break,
 	 continue, return) need an edge to the corresponding target
 	 block.  */
-      if (BB_EXIT_STMT (bb))
+      if (is_ctrl_altering_stmt (bb->end_tree))
 	make_exit_edges (edge_cache, bb);
+
+      /* Incoming edges for label blocks in switch statements.  It's easier
+	 to deal with these bottom-up than top-down.  */
+      if (TREE_CODE (bb->head_tree) == CASE_LABEL)
+	{
+	  basic_block switch_bb = switch_parent (bb);
+
+	  if (switch_bb == NULL)
+	    {
+	      prep_stmt (bb->head_tree);
+	      error ("case label not within a switch statement");
+	      return;
+	    }
+
+	  make_edge (edge_cache, switch_bb, bb, 0);
+	}
 
       /* Finally, if no edges were created above, this is a regular
 	 basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
-	make_edge (edge_cache, bb, get_successor_block (bb), EDGE_FALLTHRU);
+	make_edge (edge_cache, bb, successor_block (bb), EDGE_FALLTHRU);
     }
 
-
-  /* Basic reachability analysis.  Add fake edges to blocks with no
-     predecessors and give a warning if -Wunreachable-code is on.  */
-
-  for (i = 0; i < n_basic_blocks; i++)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      tree head = bb->head_tree;
-      if (bb->pred == NULL)
-	{
-	  basic_block parent;
-
-	  /* Avoid false positives for blocks that only contain a closing
-	     brace.  e.g., in
-
-	      if (...)
-		{
-		  ...
-		  return b;
-		}
-
-	      the closing brace is never reached, but a warning in this
-	      case will be more annoying than useful. Create a fake edge
-	      from the previous basic block.  */
-	  if (i > 0
-	      && bb->head_tree == bb->end_tree
-	      && TREE_CODE (bb->end_tree) == SCOPE_STMT
-	      && SCOPE_END_P (bb->end_tree))
-	    {
-	      make_edge (edge_cache, BASIC_BLOCK (i - 1), bb, EDGE_FAKE);
-	    }
-	  else
-	    {
-	      /* Otherwise, create a fake edge from BB's parent and give
-		 a warning.  It doesn't really matter where we make the
-		 fake edge from.  In the case of a closing brace, it's more
-		 natural to use the previous block, but these edges are
-		 ignored in data-flow computations anyway.
-
-		 FIXME - We should probably just collapse these unreachable
-			 nodes.  */
-	      parent = (BB_PARENT (bb)) ? BB_PARENT (bb) : ENTRY_BLOCK_PTR;
-	      make_edge (edge_cache, parent, bb, EDGE_FAKE);
-
-	      if (warn_notreached)
-		{
-		  while (!statement_code_p (TREE_CODE (head)))
-		    head = (BB_PARENT (bb))->head_tree;
-
-		  prep_stmt (head);
-		  warning ("unreachable statement");
-		}
-	    }
-	}
-    }
+  /* Clean up the graph and warn for unreachable code.  */
+  delete_unreachable_blocks ();
 
   if (edge_cache)
     sbitmap_vector_free (edge_cache);
@@ -558,10 +527,6 @@ make_ctrl_stmt_edges (edge_cache, bb)
 {
   switch (TREE_CODE (bb->head_tree))
     {
-    case COMPOUND_STMT:
-      make_compound_stmt_edges (edge_cache, bb);
-      break;
-
     case FOR_STMT:
       make_for_stmt_edges (edge_cache, bb);
       break;
@@ -579,14 +544,14 @@ make_ctrl_stmt_edges (edge_cache, bb)
       break;
 
     case SWITCH_STMT:
-      make_switch_stmt_edges (edge_cache, bb);
+      /* Nothing to do.  Each label inside the switch statement will create
+	 its own edge form the switch block.  */
       break;
 
     default:
       abort ();
     }
 }
-
 /* }}} */
 
 /* {{{ make_exit_edges()
@@ -599,7 +564,7 @@ make_exit_edges (edge_cache, bb)
     sbitmap *edge_cache;
     basic_block bb;
 {
-  switch (TREE_CODE (BB_EXIT_STMT (bb)))
+  switch (TREE_CODE (bb->end_tree))
     {
     case BREAK_STMT:
       make_break_stmt_edges (edge_cache, bb);
@@ -621,36 +586,6 @@ make_exit_edges (edge_cache, bb)
       abort ();
     }
 }
-
-/* }}} */
-
-/* {{{ make_compound_stmt_edges()
-
-   Create edges for a COMPOUND_STMT structure that starts at basic block bb.  */
-
-static void
-make_compound_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
-{
-  tree entry = bb->head_tree;
-  basic_block body_bb;
-
-  if (TREE_CODE (entry) != COMPOUND_STMT)
-    abort ();
-
-  body_bb = (COMPOUND_BODY (entry)) ? BASIC_BLOCK (bb->index + 1) : NULL;
-
-  /* Create the following edges.
-
-	     COMPOUND_STMT
-	          |
-		  v
-	     COMPOUND_BODY  */
-
-  if (body_bb)
-    make_edge (edge_cache, bb, body_bb, 0);
-}
 /* }}} */
 
 /* {{{ make_for_stmt_edges()
@@ -663,26 +598,15 @@ make_for_stmt_edges (edge_cache, bb)
     basic_block bb;
 {
   tree entry = bb->head_tree;
-  int index;
-  basic_block init_bb, cond_bb, expr_bb, body_bb;
+  int ix;
+  basic_block cond_bb, expr_bb, body_bb;
 
   if (TREE_CODE (entry) != FOR_STMT)
     abort ();
 
-  /* Basic blocks for each component. Note that the block numbers are
-     determined by make_for_stmt_nodes().  */
-  index = bb->index + 1;
-  init_bb = (FOR_INIT_STMT (entry)) ? BASIC_BLOCK (index++) : NULL;
-  cond_bb = (FOR_COND (entry))      ? BASIC_BLOCK (index++) : NULL;
-  expr_bb = (FOR_EXPR (entry))      ? BASIC_BLOCK (index++) : NULL;
-  body_bb = (FOR_BODY (entry))      ? BASIC_BLOCK (index++) : NULL;
-
   /* Create the following edges.
 
      		FOR_STMT
-		   |
-		   v
-		FOR_INIT
 		   |
                    v
             +-- FOR_COND <----------+
@@ -693,35 +617,35 @@ make_for_stmt_edges (edge_cache, bb)
             |   FOR_BODY
             |
 	    |
-            +--> EXIT
+            +--> Next block
    
-     - If the loop does not have a condition expression, edges involving
-       the condition block, go to the loop header ("infinite" loops).
-
      - If the loop does not have an expression block, we replace it with
        the condition block.
        
-     - Similarly, if the body is empty, we replace it with the
-       expression block. Hence, loops with neither component will reduce
-       to the header block with a self-referencing edge.  */
+     - Similarly, if the body is empty, we replace it with the expression 
+       block. Hence, loops with neither component will reduce to the
+       condition block with a self-referencing edge.  */
 
-  if (init_bb == NULL)
-    init_bb = bb;
+  /* Basic blocks for each component.  Note that the block numbers are
+     determined by make_for_stmt_blocks().  */
+  ix = bb->index + 1;
 
-  if (cond_bb == NULL) 
-    cond_bb = init_bb;
+  /* make_for_stmt_blocks() guarantees that the condition block is created
+     even for unconditional loops.  */
+  cond_bb = BASIC_BLOCK (ix++);
+  expr_bb = (FOR_EXPR (entry)) ? BASIC_BLOCK (ix++) : cond_bb;
+  body_bb = (first_exec_stmt (FOR_BODY (entry))) ? BASIC_BLOCK (ix) : expr_bb;
 
-  if (expr_bb == NULL) 
-    expr_bb = cond_bb;
-
-  if (body_bb == NULL) 
-    body_bb = expr_bb;
-
-  make_edge (edge_cache, bb, init_bb, 0);
-  make_edge (edge_cache, init_bb, cond_bb, 0);
+  make_edge (edge_cache, bb, cond_bb, 0);
   make_edge (edge_cache, cond_bb, body_bb, 0);
-  make_edge (edge_cache, expr_bb, cond_bb, 0);
-  make_edge (edge_cache, cond_bb, get_successor_block (bb), 0);
+
+  /* Special case.  Only create the edge expr_bb -> cond_bb if there really
+     is a block for FOR_EXPR.  Otherwise, if the loop has a body, and since
+     in this case expr_bb == cond_bb, we end up with an unnecessary
+     self-referencing edge in cond_bb.  */
+  if (FOR_EXPR (entry))
+    make_edge (edge_cache, expr_bb, cond_bb, 0);
+  make_edge (edge_cache, cond_bb, successor_block (bb), 0);
 }
 /* }}} */
 
@@ -735,25 +659,15 @@ make_while_stmt_edges (edge_cache, bb)
     basic_block bb;
 {
   tree entry = bb->head_tree;
-  basic_block cond_bb, body_bb;
-  int index;
+  basic_block body_bb;
 
   if (TREE_CODE (entry) != WHILE_STMT)
     abort ();
 
-  /* Basic blocks for each component. Note that the block numbers are
-     determined by make_for_stmt_nodes().  */
-  index = bb->index + 1;
-  cond_bb = (WHILE_COND (entry)) ? BASIC_BLOCK (index++) : NULL;
-  body_bb = (WHILE_BODY (entry)) ? BASIC_BLOCK (index++) : NULL;
-
-  /* Create the following edges. The other edges will be naturally created
+  /* Create the following edges.  The other edges will be naturally created
      by the main loop in create_edges().
 
-             WHILE_STMT
-	         |
-		 v
-          +- WHILE_COND
+          +- WHILE_STMT
 	  |      |
           |      v
           |  WHILE_BODY
@@ -763,15 +677,14 @@ make_while_stmt_edges (edge_cache, bb)
           
      If the body doesn't exist, we use the header instead.  */
 
-  if (cond_bb == NULL)
-    cond_bb = bb;
+  /* Basic blocks for each component.  Note that the block numbers are
+     determined by make_while_stmt_blocks().  */
+  body_bb = (first_exec_stmt (WHILE_BODY (entry)))
+            ? BASIC_BLOCK (bb->index + 1)
+	    : bb;
 
-  if (body_bb == NULL)
-    body_bb = cond_bb;
-
-  make_edge (edge_cache, bb, cond_bb, 0);
-  make_edge (edge_cache, cond_bb, body_bb, 0);
-  make_edge (edge_cache, cond_bb, get_successor_block (bb), 0);
+  make_edge (edge_cache, bb, body_bb, 0);
+  make_edge (edge_cache, bb, successor_block (bb), 0);
 }
 /* }}} */
 
@@ -786,16 +699,9 @@ make_do_stmt_edges (edge_cache, bb)
 {
   tree entry = bb->head_tree;
   basic_block cond_bb, body_bb;
-  int index;
 
   if (TREE_CODE (entry) != DO_STMT)
     abort ();
-
-  /* Basic blocks for each component. Note that the block numbers are
-     determined by make_for_stmt_nodes().  */
-  index = bb->index + 1;
-  cond_bb = (DO_COND (entry)) ? BASIC_BLOCK (index++) : NULL;
-  body_bb = (DO_BODY (entry)) ? BASIC_BLOCK (index++) : NULL;
 
   /* Create the following edges.  The remaining edges will be added
      by the main loop in make_edges().
@@ -813,15 +719,17 @@ make_do_stmt_edges (edge_cache, bb)
 
      If the body doesn't exist, we use the condition instead.  */
 
-  if (cond_bb == NULL)
-    cond_bb = bb;
+  /* Basic blocks for each component. Note that the block numbers are
+     determined by make_do_stmt_blocks().  */
+  cond_bb = BASIC_BLOCK (bb->index + 1);	/* This block always exists.  */
 
-  if (body_bb == NULL)
-    body_bb = cond_bb;
+  body_bb = (first_exec_stmt (DO_BODY (entry)))
+	    ? BASIC_BLOCK (bb->index + 2)
+	    : cond_bb;
 
   make_edge (edge_cache, bb, body_bb, 0);
   make_edge (edge_cache, cond_bb, body_bb, 0);
-  make_edge (edge_cache, cond_bb, get_successor_block (bb), 0);
+  make_edge (edge_cache, cond_bb, successor_block (bb), 0);
 }
 /* }}} */
 
@@ -835,98 +743,39 @@ make_if_stmt_edges (edge_cache, bb)
     basic_block bb;
 {
   tree entry = bb->head_tree;
-  basic_block cond_bb, then_bb, else_bb;
-  int index;
+  basic_block then_bb, else_bb;
+  tree then_t, else_t;
 
   if (TREE_CODE (entry) != IF_STMT)
     abort ();
  
-  /* Basic blocks for each component.  */
-  index = bb->index + 1;
-  cond_bb = BASIC_BLOCK (bb->index + 1);
-  then_bb = (THEN_CLAUSE (entry)) ? BB_FOR_STMT (THEN_CLAUSE (entry)): NULL;
-  else_bb = (ELSE_CLAUSE (entry)) ? BB_FOR_STMT (ELSE_CLAUSE (entry)): NULL;
+  /* Entry basic blocks for each component.  */
+  then_t = first_exec_stmt (THEN_CLAUSE (entry));
+  then_bb = (then_t) ? BB_FOR_STMT (then_t) : NULL;
+
+  else_t = first_exec_stmt (ELSE_CLAUSE (entry));
+  else_bb = (else_t) ? BB_FOR_STMT (else_t) : NULL;
 
   /* Create the following edges.
 
 	      IF_STMT
-	         |
-		 v
-	      IF_COND
 		/ \
 	       /   \
 	    THEN   ELSE
 
      Either clause may be empty.  */
 
-  make_edge (edge_cache, bb, cond_bb, 0);
-
   if (then_bb)
-    make_edge (edge_cache, cond_bb, then_bb, 0);
+    make_edge (edge_cache, bb, then_bb, 0);
 
   if (else_bb)
-    make_edge (edge_cache, cond_bb, else_bb, 0);
+    make_edge (edge_cache, bb, else_bb, 0);
 
-  /* We only need an edge to the exit block if one of the clauses is
+  /* We only need an edge to BB's successor block if one of the clauses is
      missing.  */
   if (then_bb == NULL || else_bb == NULL)
-    make_edge (edge_cache, cond_bb, get_successor_block (bb), 0);
+    make_edge (edge_cache, bb, successor_block (bb), 0);
 }
-/* }}} */
-
-/* {{{ make_switch_stmt_edges()
-
-   Create edges for a SWITCH_STMT structure starting at block bb.  */
-
-static void
-make_switch_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
-{
-  tree t, body;
-  tree entry = bb->head_tree;
-  basic_block cond_bb;
-
-  if (TREE_CODE (entry) != SWITCH_STMT)
-    abort ();
-
-  /* Create the following edges.
-
-		      SWITCH_STMT
-		           |
-			   v
-		      SWITCH_COND
-		         / | \
-		        /  |  \
-                       L1 ... Ln  */
-
-  cond_bb = BASIC_BLOCK (bb->index + 1);
-  make_edge (edge_cache, bb, cond_bb, 0);
-
-  /* Make an edge to each case label in the body.  The first label is
-     treated differently.  Instead of creating an edge to the first
-     label, create an edge to the COMPOUND_STMT containing all the
-     labels.  This prevents the blocks for the COMPOUND_STMT and
-     SCOPE_STMT to be left disconnected from the graph.  */
-
-  body = SWITCH_BODY (entry);
-  if (TREE_CODE (body) != COMPOUND_STMT)
-    abort ();
-
-  make_edge (edge_cache, cond_bb, BB_FOR_STMT (body), 0);
-
-  body = COMPOUND_BODY (body);
-  while (body && TREE_CODE (body) != CASE_LABEL)
-    body = TREE_CHAIN (body);
-
-  if (body == NULL)
-    abort ();
-
-  for (t = TREE_CHAIN (body); t; t = TREE_CHAIN (t))
-    if (TREE_CODE (t) == CASE_LABEL)
-      make_edge (edge_cache, cond_bb, BB_FOR_STMT (t), 0);
-}
-
 /* }}} */
 
 /* {{{ make_goto_stmt_edges()
@@ -941,14 +790,14 @@ make_goto_stmt_edges (edge_cache, bb)
   tree goto_t, dest;
   int i;
   
-  goto_t = BB_EXIT_STMT (bb);
+  goto_t = bb->end_tree;
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
     abort ();
 
   dest = GOTO_DESTINATION (goto_t);
 
   /* Look for the block starting with the destination label.  In the
-     case of a computed goto, make an edge to any label node we find
+     case of a computed goto, make an edge to any label block we find
      in the CFG.  */
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -965,19 +814,18 @@ make_goto_stmt_edges (edge_cache, bb)
 	  break;
 	}
 
-      /* Computed GOTOs.  Make an edge to every label node.  */
+      /* Computed GOTOs.  Make an edge to every label block.  */
       else if (TREE_CODE (dest) != LABEL_DECL
 	       && TREE_CODE (target) == LABEL_STMT)
 	make_edge (edge_cache, bb, target_bb, 0);
     }
 }
-
 /* }}} */
 
 /* {{{ make_break_stmt_edges()
 
-   A break statement creates an edge from the break node to the successor
-   node for the break statement's control parent.  */
+   A break statement creates an edge from the break block to the successor
+   block for the break statement's control parent.  */
 
 static void
 make_break_stmt_edges (edge_cache, bb)
@@ -987,20 +835,14 @@ make_break_stmt_edges (edge_cache, bb)
   tree break_t;
   basic_block control_parent;
 
-  break_t = BB_EXIT_STMT (bb);
+  break_t = bb->end_tree;
   if (break_t == NULL || TREE_CODE (break_t) != BREAK_STMT)
     abort ();
 
-  /* A break statement *must* have an enclosing control structure.  */
-  control_parent = BB_PARENT (bb);
+  /* Look for the innermost containing SWITCH, WHILE, FOR or DO.  */
+  control_parent = switch_parent (bb);
   if (control_parent == NULL)
-    abort ();
-
-  /* Look for the innermost containing WHILE, FOR, DO or SWITCH statement.  */
-  while (control_parent
-         && !is_loop_stmt (control_parent->head_tree)
-	 && TREE_CODE (control_parent->head_tree) != SWITCH_STMT)
-    control_parent = BB_PARENT (control_parent);
+    control_parent = loop_parent (bb);
 
   if (control_parent == NULL)
     {
@@ -1009,14 +851,14 @@ make_break_stmt_edges (edge_cache, bb)
       return;
     }
 
-  make_edge (edge_cache, bb, get_successor_block (control_parent), 0);
+  make_edge (edge_cache, bb, successor_block (control_parent), 0);
 }
 /* }}} */
 
 /* {{{ make_continue_stmt_edges()
 
-   A continue statement creates an edge from the continue node to the
-   control parent's expression node.  */
+   A continue statement creates an edge from the continue block to the
+   control parent's expression block.  */
 
 static void
 make_continue_stmt_edges (edge_cache, bb)
@@ -1026,12 +868,12 @@ make_continue_stmt_edges (edge_cache, bb)
   tree continue_t;
   basic_block loop_bb;
 
-  continue_t = BB_EXIT_STMT (bb);
+  continue_t = bb->end_tree;
   if (continue_t == NULL || TREE_CODE (continue_t) != CONTINUE_STMT)
     abort ();
   
   /* A continue statement *must* have an enclosing control structure.  */
-  loop_bb = find_loop_parent (bb);
+  loop_bb = loop_parent (bb);
 
   if (loop_bb == NULL)
     {
@@ -1040,9 +882,8 @@ make_continue_stmt_edges (edge_cache, bb)
       return;
     }
 
-  make_edge (edge_cache, bb, get_condition_block (loop_bb), 0);
+  make_edge (edge_cache, bb, condition_block (loop_bb), 0);
 }
-
 /* }}} */
 
 /* {{{ make_return_stmt_edges()
@@ -1054,66 +895,164 @@ make_return_stmt_edges (edge_cache, bb)
     sbitmap *edge_cache;
     basic_block bb;
 {
-  tree return_t = BB_EXIT_STMT (bb);
+  tree return_t = bb->end_tree;
 
   if (return_t == NULL || TREE_CODE (return_t) != RETURN_STMT)
     abort ();
 
   make_edge (edge_cache, bb, EXIT_BLOCK_PTR, 0);
 }
+/* }}} */
 
+
+/* Flowgraph analysis.  */
+
+/* {{{ delete_unreachable_blocks()
+   
+   Delete all unreachable basic blocks.   */
+
+static void
+delete_unreachable_blocks ()
+{
+  int i;
+
+  find_unreachable_blocks ();
+
+  /* Delete all unreachable basic blocks.  Count down so that we
+     don't interfere with the block renumbering that happens in
+     delete_block.  */
+  for (i = n_basic_blocks - 1; i >= 0; --i)
+    {
+      basic_block b = BASIC_BLOCK (i);
+
+      if (!b->reachable)
+	delete_block (b);
+    }
+}
+/* }}} */
+
+/* {{{ delete_block()
+
+   Remove a block from the flowgraph.  Emit a warning if -Wunreachable-code
+   is set.  */
+
+static void
+delete_block (bb)
+     basic_block bb;
+{
+  edge e, next, *q;
+  tree t;
+
+  if (warn_notreached)
+    {
+      tree stmt;
+
+      /* The only nodes whose head tree is not a statement are condition
+	 nodes for DO_STMT and WHILE_STMT loops.  */
+      if (statement_code_p (TREE_CODE (bb->head_tree)))
+	stmt = bb->head_tree;
+      else
+	stmt = BB_PARENT (bb)->head_tree;
+
+      prep_stmt (stmt);
+      warning ("unreachable statement");
+    }
+
+  /* Remove all the instructions in the block.
+
+     FIXME - This merely unmaps the statements.  We should remove them.  */
+  t = bb->head_tree;
+  while (t)
+    {
+      map_stmt_to_bb (t, NULL);
+      if (t == bb->end_tree)
+	break;
+      t = TREE_CHAIN (t);
+    }
+
+  /* Remove the edges into and out of this block.  Note that there
+     may indeed be edges in, if we are removing an unreachable loop.  */
+  for (e = bb->pred; e; e = next)
+    {
+      for (q = &e->src->succ; *q != e; q = &(*q)->succ_next)
+	continue;
+      *q = e->succ_next;
+      next = e->pred_next;
+      n_edges--;
+      free (e);
+    }
+
+  for (e = bb->succ; e; e = next)
+    {
+      for (q = &e->dest->pred; *q != e; q = &(*q)->pred_next)
+	continue;
+      *q = e->pred_next;
+      next = e->succ_next;
+      n_edges--;
+      free (e);
+    }
+
+  bb->pred = NULL;
+  bb->succ = NULL;
+
+  /* Remove the basic block from the array, and compact behind it.  */
+  expunge_block (bb);
+}
 /* }}} */
 
 
 /* Helper functions and predicates.  */
 
-/* {{{ get_successor_block()
+/* {{{ successor_block()
 
-   Return the successor block for BB. If the block has no successors we try
-   the enclosing control structure until we find one. If we reached nesting
+   Return the successor block for BB.  If the block has no successors we try
+   the enclosing control structure until we find one.  If we reached nesting
    level 0, return the exit block.  */
 
 static basic_block
-get_successor_block (bb)
+successor_block (bb)
      basic_block bb;
 {
-  basic_block chain_bb, parent_bb;
+  basic_block parent_bb;
+  tree succ_stmt;
 
   if (bb == NULL)
     abort ();
 
-  /* Common case.  Try to return the basic block of the last statement's
-     successor.  */
-  if (TREE_CHAIN (bb->end_tree))
-    return BB_FOR_STMT (TREE_CHAIN (bb->end_tree));
+  /* Common case.  For control flow header blocks, return the successor of
+     the block's first statement.  For regular blocks, return the successor
+     of the block's last statement.  */
+  succ_stmt = is_ctrl_stmt (bb->head_tree)
+	      ? first_exec_stmt (TREE_CHAIN (bb->head_tree))
+	      : first_exec_stmt (TREE_CHAIN (bb->end_tree));
+
+  if (succ_stmt)
+    return BB_FOR_STMT (succ_stmt);
   
-  /* Special case.  The successor to the last block in the graph (i.e.,
-     the function's closing brace) is always EXIT_BLOCK_PTR.  */
-  if (bb->index == n_basic_blocks - 1)
-    return EXIT_BLOCK_PTR;
-
-  /* Walk up the control structure to see if our parent has a successor.
-     Iterate until we find one or we reach nesting level 0.  */
-  chain_bb = NULL;
+  /* We couldn't find a successor for BB.  Walk up the control structure to
+     see if our parent has a successor. Iterate until we find one or we
+     reach nesting level 0.  */
   parent_bb = BB_PARENT (bb);
-
-  while (chain_bb == NULL)
+  while (parent_bb)
     {
-      if (parent_bb == NULL)
-	chain_bb = EXIT_BLOCK_PTR;
+      /* If BB is the last block inside a loop body, return the condition
+	 block for the loop structure.  */
+      if (is_loop_stmt (parent_bb->head_tree))
+	return condition_block (parent_bb);
 
-      else if (is_loop_stmt (parent_bb->head_tree))
-	chain_bb = get_condition_block (parent_bb);
+      /* Otherwise, If BB's control parent has a successor, return its
+	 block.  */
+      succ_stmt = first_exec_stmt (TREE_CHAIN (parent_bb->head_tree));
+      if (succ_stmt)
+	return BB_FOR_STMT (succ_stmt);
 
-      else if (TREE_CHAIN (parent_bb->head_tree))
-	chain_bb = BB_FOR_STMT (TREE_CHAIN (parent_bb->head_tree));
-
+      /* None of the above.  Keeping going up the control parent chain.  */
       parent_bb = BB_PARENT (parent_bb);
     }
 
-  return chain_bb;
+  /* We reached nesting level 0.  Return the exit block.  */
+  return EXIT_BLOCK_PTR;
 }
-
 /* }}} */
 
 /* {{{ is_ctrl_stmt()
@@ -1131,8 +1070,7 @@ is_ctrl_stmt (t)
 	  || TREE_CODE (t) == IF_STMT
 	  || TREE_CODE (t) == WHILE_STMT
 	  || TREE_CODE (t) == SWITCH_STMT
-	  || TREE_CODE (t) == DO_STMT
-	  || TREE_CODE (t) == COMPOUND_STMT);
+	  || TREE_CODE (t) == DO_STMT);
 }
 /* }}} */
 
@@ -1153,7 +1091,6 @@ is_ctrl_altering_stmt (t)
 	  || TREE_CODE (t) == BREAK_STMT
 	  || TREE_CODE (t) == RETURN_STMT);
 }
-
 /* }}} */
 
 /* {{{ is_loop_stmt()
@@ -1187,6 +1124,7 @@ stmt_starts_bb_p (t)
   return (TREE_CODE (t) == CASE_LABEL
 	  || TREE_CODE (t) == LABEL_STMT
 	  || TREE_CODE (t) == RETURN_STMT
+	  || TREE_CODE (t) == COMPOUND_STMT
 	  || is_ctrl_stmt (t));
 }
 /* }}} */
@@ -1201,7 +1139,6 @@ stmt_ends_bb_p (t)
     tree t;
 {
   /* Sanity check.  */
-
   if (t == NULL)
     abort ();
 
@@ -1216,7 +1153,7 @@ stmt_ends_bb_p (t)
 
 /* {{{ delete_cfg()
 
-   Remove all the nodes and edges that make up the flowgraph.  */
+   Remove all the blocks and edges that make up the flowgraph.  */
 
 void
 delete_cfg ()
@@ -1240,13 +1177,13 @@ delete_cfg ()
 }
 /* }}} */
 
-/* {{{ find_loop_parent()
+/* {{{ loop_parent()
 
    Returns the header block for the innermost loop containing BB.  It
    returns NULL if BB is not inside a loop.  */
 
 basic_block
-find_loop_parent (bb)
+loop_parent (bb)
     basic_block bb;
 {
   do
@@ -1255,16 +1192,15 @@ find_loop_parent (bb)
 
   return bb;
 }
-
 /* }}} */
 
-/* {{{ get_condition_block()
+/* {{{ condition_block()
 
    Returns the block containing the condition expression controlling the
    loop starting at LOOP_BB (i.e., the block containing DO_COND or
-   WHILE_COND or FOR_COND).
+   WHILE_COND or FOR_EXPR).
 
-   Since these nodes hold expressions, not statements, we cannot use
+   Since these blocks hold expressions, not statements, we cannot use
    BB_FOR_STMT() to determine their basic block.  Instead, we count from
    the basic block for the loop entry.
    
@@ -1273,36 +1209,104 @@ find_loop_parent (bb)
        this.  */
 
 basic_block
-get_condition_block (loop_bb)
+condition_block (loop_bb)
     basic_block loop_bb;
 {
-  basic_block cond_bb;
   int index;
+  enum tree_code code = TREE_CODE (loop_bb->head_tree);
 
-  /* Sanity check.  This is only valid on loop header nodes.  */
-  if (TREE_CODE (loop_bb->head_tree) != FOR_STMT
-      && TREE_CODE (loop_bb->head_tree) != WHILE_STMT
-      && TREE_CODE (loop_bb->head_tree) != DO_STMT)
+  if (code == FOR_STMT)
+    {
+      /* Usually, the loop expression in a FOR_STMT will be the second
+	 block after the loop entry block.  However, the FOR_EXPR block
+	 does not always exist.  */
+      if (FOR_EXPR (loop_bb->head_tree))
+	index = loop_bb->index + 2;
+      else
+	index = loop_bb->index + 1;
+    }
+  else if (code == DO_STMT)
+    index = loop_bb->index + 1;
+  else if (code == WHILE_STMT)
+    index = loop_bb->index;
+  else
     abort ();
 
-  index = loop_bb->index + 1;
-  if (TREE_CODE (loop_bb->head_tree) == FOR_STMT)
-    {
-      /* Usually, the loop expression in a FOR_STMT will be the third
-	 node after the loop entry block. However, a FOR_STMT may be
-	 missing both the INIT and COND expressions.  */
-      if (FOR_INIT_STMT (loop_bb->head_tree))
-	index++;
+  return BASIC_BLOCK (index);
+}
+/* }}} */
 
-      if (FOR_COND (loop_bb->head_tree))
-	index++;
+/* {{{ switch_parent()
+
+   Returns the header block for the innermost switch statement containing
+   BB.  It returns NULL if BB is not inside a switch statement.  */
+
+basic_block
+switch_parent (bb)
+     basic_block bb;
+{
+  do
+    bb = BB_PARENT (bb);
+  while (bb && TREE_CODE (bb->head_tree) != SWITCH_STMT);
+
+  return bb;
+}
+/* }}} */
+
+/* {{{ first_exec_stmt()
+
+   Return the first executable statement starting at T.  */
+
+tree
+first_exec_stmt (t)
+     tree t;
+{
+  tree chain;
+
+  if (t == NULL)
+    return NULL;
+
+  /* Common case.  T is already an executable statement.  */
+  if (is_exec_stmt (t))
+    return t;
+
+  /* If T is a compound statement T, try the first executable statement 
+     in T's body.  */
+  if (TREE_CODE (t) == COMPOUND_STMT)
+    {
+      chain = first_exec_stmt (COMPOUND_BODY (t));
+      if (chain)
+	return chain;
     }
 
-  cond_bb = BASIC_BLOCK (index);
+  /* If we still haven't found one and T is at the end of a tree chain, try
+     the successor of the enclosing compound statement.  */
+  if (TREE_CHAIN (t) == NULL)
+    {
+      chain = first_exec_stmt (TREE_CHAIN (TREE_COMPOUND_STMT (t)));
+      if (chain)
+	return chain;
+    }
 
-  return cond_bb;
+  /* Finally, recursively look for the first executable statement
+     starting with T's successor.  */
+  return first_exec_stmt (TREE_CHAIN (t));
 }
+/* }}} */
 
+/* {{{ is_exec_stmt()
+
+   Return 1 if T is an executable statement.  */
+
+int
+is_exec_stmt (t)
+     tree t;
+{
+  return (t
+          && statement_code_p (TREE_CODE (t))
+	  && TREE_CODE (t) != COMPOUND_STMT
+	  && TREE_CODE (t) != SCOPE_STMT);
+}
 /* }}} */
 
 
@@ -1479,5 +1483,4 @@ tree_cfg2dot (fname)
   fputc ('}', f);
   fclose (f);
 }
-
 /* }}} */

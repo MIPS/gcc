@@ -1,3 +1,116 @@
+2001-08-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (basic_block): Add new field 'reachable'.
+	(expunge_block): Declare.
+	* flow.c (ENTRY_BLOCK_PTR): Initialize field 'reachable'.
+	(EXIT_BLOCK_PTR): Ditto.
+	(expunge_block): Remove static declaration.
+	(cleanup_cfg): Clear bb->aux on every basic block.
+	(find_unreachable_blocks): Use field 'reachable' when computing
+	reachability.
+	(delete_unreachable_blocks): Use field 'reachable'. 
+
+	* tree-cfg.c: Rename all instance of 'node' with 'block.
+	(get_successor_block): Rename to successor_block.
+	(make_compound_stmt_edges): Remove.
+	(make_switch_stmt_edges): Remove.
+	(delete_unreachable_blocks): New.
+	(delete_block): New.
+	(make_blocks): Add new argument 'compound_stmt'.  Do not include
+	COMPOUND_STMT trees in the flowgraph.
+	(make_for_stmt_blocks): Include FOR_INIT_STMT in the entry block of
+	the loop.
+	If FOR_COND does not exist, create a tree holding the constant 1.
+	Add new argument 'compound_stmt'.
+	(make_while_stmt_blocks): Include WHILE_COND in the entry block of
+	the loop.
+	Add new argument 'compound_stmt'.
+	(make_do_stmt_blocks): Add new argument 'compound_stmt'.
+	(make_if_stmt_blocks): Add new argument 'compound_stmt'.
+	Include IF_COND in the IF header block.
+	(make_switch_stmt_blocks): Add new argument 'compound_stmt'.
+	Include SWITCH_COND in the SWITCH header block.
+	(create_maximal_bb): Remove argument 'is_loop_header'.
+	Add new argument 'compound_stmt'.
+	Update all callers.
+	Return the newly created basic block instead of its last statement.
+	Update comments.
+	Do not store control flow altering statements in bb->exit_stmt.
+	Only add executable statements to the block.
+	Annotate with 'compound_stmt' each tree added to the block.
+	(create_bb): Do not update annotation 'is_loop_header'.
+	(make_edges): Remove naive reachability analysis.
+	When a label node is found, add an edge from the immediately
+	enclosing switch statement.
+	Call delete_unreachable_blocks() after adding all the edges.
+	(make_ctrl_stmt_edges): Do not consider COMPOUND_STMT trees.
+	Do nothing for SWITCH_STMT trees.
+	(make_exit_edges): Use bb->end_tree instead of BB_EXIT_STMT.
+	(make_for_stmt_edges): Remove code that added edges for the block
+	holding FOR_INIT_STMT.
+	Update comments.
+	Do not consider the case where FOR_COND is NULL.
+	Call first_exec_stmt() to determine if FOR_BODY is empty.
+	Only create an edge from expr_bb to cond_bb if FOR_EXPR is
+	non-null.
+	(make_while_stmt_edges): Remove code that added edges for the block
+	holding WHILE_COND.
+	Update comments.
+	Call first_exec_stmt() to determine if WHILE_BODY is empty.
+	(make_do_stmt_edges): Call first_exec_stmt() to determine if
+	DO_BODY is empty.
+	(make_if_stmt_edges): Remove code that added edges for the block
+	holding IF_COND.
+	Call first_exec_stmt() to determine if THEN_CLAUSE or ELSE_CLAUSE
+	are empty.
+	(make_switch_stmt_edges): Remove.
+	(make_goto_stmt_edges): Use bb->end_tree instead of BB_EXIT_STMT.
+	(make_break_stmt_edges): Use bb->end_tree instead of BB_EXIT_STMT.
+	Call switch_parent() and loop_parent() to determine if the
+	statement is inside an appropriate control structure.
+	(make_continue_stmt_edges): Use bb->end_tree instead of
+	BB_EXIT_STMT.
+	(make_return_stmt_edges): Ditto.
+	(get_successor_block): Rename to successor_block.
+	Call first_exec_stmt() to find the first executable statement in
+	TREE_CHAIN.
+	(is_ctrl_stmt): Do not consider COMPOUND_STMT trees.
+	(stmt_starts_bb_p): Ditto.
+	(stmt_ends_bb_p): Reformat comments.
+	(delete_cfg): Reformat comments.
+	(find_loop_parent): Rename to loop_parent.
+	(get_condition_block): Rename to condition_block.
+	Update to use new index numbers for control structure header
+	blocks.
+	(switch_parent): New.
+	(first_exec_stmt): New.
+	(is_exec_stmt): New.
+	(tree_cfg2dot): Reformat comments.
+	* tree-dfa.c (find_refs): Remove.
+	(find_refs_in_stmt): New
+	(find_refs_in_stmt_expr): New.
+	(tree_find_varrefs): Look for variables doing a CFG traversal
+	instead of the trees.  Remove both arguments.
+	(find_refs_in_expr): Add new argument 'bb'.
+	Update all recursive calls.
+	(create_varref): Abort if the basic block 'bb' is NULL.
+	(add_ref_to_sym): Reformat comments.
+	(add_ref_symbol): Ditto.
+	(delete_varref_list): Ditto.
+	* tree-flow.h (struct tree_ann_def): Add 'compound_stmt'.
+	(TREE_COMPOUND_STMT): New macro.
+	(struct basic_block_ann_def): Remove 'exit_stmt' and
+	'is_loop_header'.
+	(BB_EXIT_STMT): Remove.
+	(BB_IS_LOOP_HEADER): Remove.
+	* tree-opt.c (optimize_tree): Call tree_find_varrefs() with no
+	arguments.
+	Only build DFA and SSA information if n_basic_blocks is greater
+	than zero.
+	* tree-ssa.c: Rename all instances of 'node' with 'block'.
+	(tree_build_ssa): Reformat comments.
+	(insert_phi_terms): Ditto.
+
 2001-08-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (USE_TREE_IL): Remove.

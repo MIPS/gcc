@@ -70,8 +70,10 @@ debug_tree_dfa (level, filename, line)
 
 /* {{{ Local declarations.  */
 
-static tree find_refs PARAMS ((tree *, int *, void *));
-static void find_refs_in_expr PARAMS ((tree, enum varref_type, tree, tree));
+static void find_refs_in_stmt PARAMS ((tree, basic_block));
+static tree find_refs_in_stmt_expr PARAMS ((tree *, int *, void *));
+static void find_refs_in_expr PARAMS ((tree, enum varref_type, basic_block,
+                                       tree, tree));
 static varref_node create_node PARAMS ((varref));
 
 /* }}} */
@@ -88,18 +90,34 @@ tree ref_symbols_list;
 
 /* {{{ tree_find_varrefs()
 
-   Main entry point. Walks T looking for variable references.  PARENT_STMT
-   is the statement that contains T (if any).  This is used to handle
-   expression statements, properly.  Specifically, we need to keep track
-   of which basic block holds the statement so that we can associate
-   variable references to it.  */
+   Look for variable references in every block of the flowgraph.  */
 
 void
-tree_find_varrefs (t, parent_stmt)
-    tree t;
-    tree parent_stmt;
+tree_find_varrefs ()
 {
-  walk_stmt_tree (&t, find_refs, (void *)parent_stmt);
+  int i;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      tree t = bb->head_tree;
+
+      while (t)
+	{
+	  /* The only non-statements that we can have in a block are the
+	     expressions in control header blocks (FOR_COND, DO_COND, etc).
+	     Those are handled when we process the associated control
+	     statement.  */
+	  if (statement_code_p (TREE_CODE (t)))
+	    {
+	      find_refs_in_stmt (t, bb);
+	      if (t == bb->end_tree || is_ctrl_stmt (t))
+		break;
+	    }
+
+	  t = TREE_CHAIN (t);
+	}
+    }
 
 #ifdef DEBUG_TREE_DFA
   if (DEBUG_TREE_DFA (1))
@@ -118,7 +136,9 @@ tree_find_varrefs (t, parent_stmt)
 	  print_node_brief (stderr, "\t", sym, 0);
 	  fputc ('\n', stderr);
 
-	  for (i = VARREF_LIST_FIRST (TREE_REFS (sym)); i; i = VARREF_NODE_NEXT (i))
+	  for (i = VARREF_LIST_FIRST (TREE_REFS (sym));
+	       i;
+	       i = VARREF_NODE_NEXT (i))
 	    {
 	      varref ref = VARREF_NODE_ELEM (i);
 	      fputs ("\t    ", stderr);
@@ -130,68 +150,121 @@ tree_find_varrefs (t, parent_stmt)
     }
 #endif
 }
-
 /* }}} */
 
-/* {{{ find_refs()
+/* {{{ find_refs_in_stmt()
 
-   Callback for walk_stmt_tree().  */
+   Walks T looking for variable references.  BB is the basic block that
+   contains T.  */
 
-static tree
-find_refs (tp, walk_subtrees, data)
-    tree *tp;
-    int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data;
+static void
+find_refs_in_stmt (t, bb)
+    tree t;
+    basic_block bb;
 {
   enum tree_code code;
-  tree t = *tp;
 
-  /* If T is contained within another tree, then use the parent tree
-     when calling find_refs_in_expr().  This is needed so that we can
-     obtain the basic block associated with T. This information is
-     stored in T's parent statement.  */
-  tree parent_stmt = (data) ? (tree)data : t;
-  
   if (t == NULL)
-    return NULL_TREE;
+    return;
 
   code = TREE_CODE (t);
 
   if (code == EXPR_STMT)
-    find_refs_in_expr (EXPR_STMT_EXPR (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (EXPR_STMT_EXPR (t), VARUSE, bb, t, t);
 
   else if (code == IF_STMT)
-    find_refs_in_expr (IF_COND (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (IF_COND (t), VARUSE, bb, t, t);
 
   else if (code == SWITCH_STMT)
-    find_refs_in_expr (SWITCH_COND (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (SWITCH_COND (t), VARUSE, bb, t, t);
 
   else if (code == FOR_STMT)
     {
-      find_refs_in_expr (FOR_COND (t), VARUSE, parent_stmt, parent_stmt);
-      find_refs_in_expr (FOR_EXPR (t), VARUSE, parent_stmt, parent_stmt);
+      find_refs_in_stmt (FOR_INIT_STMT (t), bb);
+      find_refs_in_expr (FOR_COND (t), VARUSE, bb, t, t);
+      find_refs_in_expr (FOR_EXPR (t), VARUSE, bb, t, t);
     }
 
   else if (code == WHILE_STMT)
-    find_refs_in_expr (WHILE_COND (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (WHILE_COND (t), VARUSE, bb, t, t);
 
   else if (code == DO_STMT)
-    find_refs_in_expr (DO_COND (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (DO_COND (t), VARUSE, bb, t, t);
 
   else if (code == ASM_STMT)
     {
-      find_refs_in_expr (ASM_INPUTS (t), VARUSE, parent_stmt, parent_stmt);
-      find_refs_in_expr (ASM_OUTPUTS (t), VARDEF, parent_stmt, parent_stmt);
-      find_refs_in_expr (ASM_CLOBBERS (t), VARDEF, parent_stmt, parent_stmt);
+      find_refs_in_expr (ASM_INPUTS (t), VARUSE, bb, t, t);
+      find_refs_in_expr (ASM_OUTPUTS (t), VARDEF, bb, t, t);
+      find_refs_in_expr (ASM_CLOBBERS (t), VARDEF, bb, t, t);
     }
 
   else if (code == RETURN_STMT)
-    find_refs_in_expr (RETURN_EXPR (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (RETURN_EXPR (t), VARUSE, bb, t, t);
 
   else if (code == GOTO_STMT)
-    find_refs_in_expr (GOTO_DESTINATION (t), VARUSE, parent_stmt, parent_stmt);
+    find_refs_in_expr (GOTO_DESTINATION (t), VARUSE, bb, t, t);
 
-  return NULL_TREE;
+  else if (code == DECL_STMT)
+    {
+      if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL)
+	find_refs_in_expr (DECL_INITIAL (DECL_STMT_DECL (t)), VARDEF, bb, t, t);
+    }
+
+  else if (code == LABEL_STMT)
+    find_refs_in_expr (LABEL_STMT_LABEL (t), VARUSE, bb, t, t);
+
+  else if (code == CONTINUE_STMT)
+    ; /* Nothing to do.  */
+
+  else if (code == CASE_LABEL)
+    ; /* Nothing to do.  */
+
+  else if (code == BREAK_STMT)
+    ; /* Nothing to do.  */
+
+  else if (code == COMPOUND_STMT)
+    /* FIXME - This is needed for C/C++ statement-expressions.  These
+	       should have their own subgraphs.  We are now considering
+	       all these references as if they have been made inside bb.  */
+    walk_stmt_tree (&t, find_refs_in_stmt_expr, (void *)bb);
+
+  else if (code == SCOPE_STMT)
+    ; /* Nothing to do.  FIXME - This should not be needed.  See the note
+	 for code == COMPOUND_STMT.  */
+
+  else
+    {
+      prep_stmt (t);
+      error ("Unhandled expression in find_refs_in_stmt():");
+      fprintf (stderr, "\n");
+      tree_debug_bb (bb);
+      fprintf (stderr, "\n");
+      debug_tree (t);
+      fprintf (stderr, "\n");
+      abort();
+    }
+}
+
+/* Temporary hack.  This should not be needed once we lower statement
+   expressions and treat them as proper sub-graphs of the main CFG.  */
+
+static tree find_refs_in_stmt_expr (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data;
+{
+  basic_block bb = (basic_block) data;
+  tree t = *tp;
+
+  if (t == NULL)
+    return NULL;
+
+  if (TREE_CODE (t) == COMPOUND_STMT)
+    find_refs_in_stmt (COMPOUND_BODY (t), bb);
+  else
+    find_refs_in_stmt (t, bb);
+
+  return NULL;
 }
 /* }}} */
 
@@ -199,14 +272,14 @@ find_refs (tp, walk_subtrees, data)
 
    Recursively scan the expression tree EXPR looking for variable
    references. REF_TYPE indicates what type of reference should be created,
-   PARENT_STMT and PARENT_EXPR are the statement and expression trees
-   containing EXPR.  The basic block holding EXPR is the one associated
-   with PARENT_STMT.  */
+   BB, PARENT_STMT and PARENT_EXPR are the block, statement and expression
+   trees containing EXPR.  */
 
 static void
-find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
+find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     tree expr;
     enum varref_type ref_type;
+    basic_block bb;
     tree parent_stmt;
     tree parent_expr;
 {
@@ -222,8 +295,7 @@ find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
       || code == PARM_DECL
       || code == FIELD_DECL)
     {
-      varref ref = create_varref (expr, ref_type, BB_FOR_STMT (parent_stmt),
-				  parent_stmt, parent_expr);
+      varref ref = create_varref (expr, ref_type, bb, parent_stmt, parent_expr);
 
 #ifdef DEBUG_TREE_DFA
       if (DEBUG_TREE_DFA (2))
@@ -263,21 +335,21 @@ find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
     case NOP_EXPR:
     case REALPART_EXPR:
     case REFERENCE_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt, expr);
       break;
 
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case VA_ARG_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, bb, parent_stmt, expr);
       break;
 
     case POSTDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, parent_stmt, expr);
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, bb, parent_stmt, expr);
       break;
 
 
@@ -329,23 +401,23 @@ find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
     case UNLE_EXPR:
     case UNLT_EXPR:
     case UNORDERED_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, parent_stmt, expr);
-      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, bb, parent_stmt, expr);
       break;
 
     case INIT_EXPR:
     case MODIFY_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, parent_stmt, expr);
-      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, bb, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARDEF, bb, parent_stmt, expr);
       break;
 
 
     /* Ternary operations.  */
     case BIT_FIELD_REF:
     case SAVE_EXPR:
-      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, parent_stmt, expr);
-      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, parent_stmt, expr);
-      find_refs_in_expr (TREE_OPERAND (expr, 2), VARUSE, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 1), VARUSE, bb, parent_stmt, expr);
+      find_refs_in_expr (TREE_OPERAND (expr, 2), VARUSE, bb, parent_stmt, expr);
       break;
 
     /* N-ary operations.  */
@@ -353,9 +425,9 @@ find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
       {
 	tree op;
 
-	find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, parent_stmt, expr);
+	find_refs_in_expr (TREE_OPERAND (expr, 0), VARUSE, bb, parent_stmt, expr);
 	for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-	  find_refs_in_expr (TREE_VALUE (op), VARUSE, parent_stmt, expr);
+	  find_refs_in_expr (TREE_VALUE (op), VARUSE, bb, parent_stmt, expr);
 	break;
       }
 
@@ -364,14 +436,14 @@ find_refs_in_expr (expr, ref_type, parent_stmt, parent_expr)
 	tree op;
 
 	for (op = expr; op; op = TREE_CHAIN (op))
-	  find_refs_in_expr (TREE_VALUE (op), ref_type, parent_stmt, expr);
+	  find_refs_in_expr (TREE_VALUE (op), ref_type, bb, parent_stmt, expr);
 	break;
       }
 
 
     /* C/C++ statement-expressions.  */
     case STMT_EXPR:
-      tree_find_varrefs (STMT_EXPR_STMT (expr), parent_stmt);
+      find_refs_in_stmt (STMT_EXPR_STMT (expr), bb);
       break;
 
     default:
@@ -409,19 +481,7 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
   int is_new;
   
   if (bb == NULL)
-    {
-      fputs ("Cannot determine basic block for variable reference:\n", stderr);
-      debug_tree (sym);
-
-      fputs ("\n\nReference made in expression:\n", stderr);
-      debug_tree (parent_expr);
-
-      fputs ("\n\nWhich is inside statement:\n", stderr);
-      debug_tree (parent_stmt);
-
-      fputs ("\n", stderr);
-      abort ();
-    }
+    abort ();
 
   ref = (varref) ggc_alloc (sizeof (*ref));
   memset ((void *)ref, 0, sizeof (*ref));
@@ -479,7 +539,6 @@ add_ref_to_sym (ref, sym, is_new)
       get_tree_ann (sym)->refs = create_varref_list (ref);
     }
 }
-
 /* }}} */
 
 /* {{{ add_ref_to_bb()
@@ -531,7 +590,6 @@ add_ref_symbol (sym, listp)
 
   return is_new;
 }
-
 /* }}} */
 
 /* {{{ remove_ann_from_sym()
@@ -673,7 +731,6 @@ delete_varref_list (symlist_p)
 
   *symlist_p = NULL;
 }
-
 /* }}} */
 
 
