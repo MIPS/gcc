@@ -1,3 +1,9 @@
+2005-01-03  Stuart Hastings <stuart@apple.com>
+
+	Radar 3830232, Bugzilla 17526
+	* tree-gimple.c (is_gimple_mem_rhs): Force a temp for every
+	register-candidate to prevent bad tailcalls.
+
 2004-12-21  Stuart Hastings <stuart@apple.com>
 
 	Radar 3905251
