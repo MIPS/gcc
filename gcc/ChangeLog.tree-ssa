@@ -1,3 +1,9 @@
+2003-08-23  Daniel Berlin  <dberlin@dberlin.org>
+	 
+	* tree-alias-common.c (get_alias_var): Remove REFERENCE_EXPR.
+	(find_func_aliases): Fix some not quite right predicates, add ARRAY_REF
+	handling.
+
 2003-08-22  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (compute_alias_sets): A memory tag used for stores can

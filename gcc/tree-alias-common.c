@@ -273,7 +273,6 @@ get_alias_var (tree expr)
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case ADDR_EXPR:
-    case REFERENCE_EXPR:
     case INDIRECT_REF:
       /* If it's a ref or cast or conversion of sometmhing, get the
          alias var of the something. */
@@ -469,7 +468,8 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = *y or x = foo->y */
-	  else if (TREE_CODE (op1) == INDIRECT_REF)
+	  else if (TREE_CODE (op1) == INDIRECT_REF 
+		   || TREE_CODE (op1) == ARRAY_REF)
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->ptr_assign (current_alias_ops, lhsAV,
@@ -561,6 +561,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 		    }
 		    break;
 		  default:
+        *walk_subtrees = 0;
 		    break;
 		  }
 	    }
@@ -569,16 +570,27 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       else
 	{
 	  /* x.f = y  or x->f = y */
-	  if (TREE_CODE (op0) == COMPONENT_REF)
+	  if (TREE_CODE (op0) == COMPONENT_REF 
+	      && is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						  rhsAV);
 	      *walk_subtrees = 0;
 	    }
+	  else if (TREE_CODE (op0) == COMPONENT_REF 
+		   && TREE_CODE (op1) == ADDR_EXPR)
+	    {
+	      if (rhsAV != NULL)
+		current_alias_ops->addr_assign (current_alias_ops, lhsAV,
+						rhsAV);
+	      *walk_subtrees = 0;
+	    }
 	  /* *x.f = y or *x->f = y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF)
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF
+		   && is_gimple_variable (op1))
 	    {
 	      if (rhsAV != NULL)
 		current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
@@ -586,9 +598,9 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      *walk_subtrees = 0;
 	    }
 	  /* *x = &y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && (TREE_CODE (op1) == ADDR_EXPR
-		       || TREE_CODE (op1) == REFERENCE_EXPR))
+	  else if ((TREE_CODE (op0) == INDIRECT_REF
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && TREE_CODE (op1) == ADDR_EXPR)
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
@@ -602,8 +614,10 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 
 	  /* *x = *y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && TREE_CODE (op1) == INDIRECT_REF)
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
+		   && (TREE_CODE (op1) == INDIRECT_REF
+		       || TREE_CODE (op1) == ARRAY_REF))
 	    {
 	      /* This becomes temp = *y and *x = temp . */
 	      alias_typevar tempvar;
@@ -618,7 +632,8 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 
 	  /* *x = (cast) y */
-	  else if (TREE_CODE (op0) == INDIRECT_REF
+	  else if ((TREE_CODE (op0) == INDIRECT_REF 
+		    || TREE_CODE (op0) == ARRAY_REF)
 		   && is_gimple_cast (op1))
 	    {
 	      if (rhsAV != NULL)
