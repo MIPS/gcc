@@ -1,3 +1,10 @@
+Tue Dec 31 11:39:47 CET 2002  Josef Zlomek <zlomekj@suse.cz>
+
+	* jump.c (next_nonnote_insn_in_loop): New function.
+	(copy_loop_headers): Use next_nonnote_insn_in_loop instead of
+	next_nonnote_insn.
+	(duplicate_loop_exit_test). Likewise.
+
 Sat Dec 28 17:08:26 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* params.def:  Early merge from mainline.
