@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -467,6 +467,9 @@ estimate_probability (struct loops *loops_info)
 		    - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
 		   / exits);
 	}
+      
+      /* Free basic blocks from get_loop_body.  */
+      free (bbs);
     }
 
   /* Attempt to predict conditional jumps using a number of heuristics.  */

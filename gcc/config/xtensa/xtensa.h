@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001,2002,2003 Free Software Foundation, Inc.
+   Copyright 2001,2002,2003,2004 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -106,6 +106,7 @@ extern unsigned xtensa_current_frame_size;
   do {									\
     builtin_assert ("cpu=xtensa");					\
     builtin_assert ("machine=xtensa");					\
+    builtin_define ("__xtensa__");					\
     builtin_define ("__XTENSA__");					\
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
@@ -763,23 +764,21 @@ extern enum reg_class xtensa_char_to_class[256];
 #define FUNCTION_ARG_REGNO_P(N)						\
   ((N) >= GP_OUTGOING_ARG_FIRST && (N) <= GP_OUTGOING_ARG_LAST)
 
-/* Define a data type for recording info about an argument list
-   during the scan of that argument list.  This data type should
-   hold all necessary information about the function itself
-   and about the args processed so far, enough to enable macros
-   such as FUNCTION_ARG to determine where the next arg should go.  */
-typedef struct xtensa_args {
-    int arg_words;		/* # total words the arguments take */
+/* Record the number of argument words seen so far, along with a flag to
+   indicate whether these are incoming arguments.  (FUNCTION_INCOMING_ARG
+   is used for both incoming and outgoing args, so a separate flag is
+   needed.  */
+typedef struct xtensa_args
+{
+  int arg_words;
+  int incoming;
 } CUMULATIVE_ARGS;
 
-/* Initialize a variable CUM of type CUMULATIVE_ARGS
-   for a call to a function whose data type is FNTYPE.
-   For a library call, FNTYPE is 0.  */
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)		\
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME)
+  init_cumulative_args (&CUM, 0)
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME)		\
-  init_cumulative_args (&CUM, FNTYPE, LIBNAME)
+  init_cumulative_args (&CUM, 1)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -806,7 +805,6 @@ typedef struct xtensa_args {
       ? PARM_BOUNDARY							\
       : GET_MODE_ALIGNMENT (MODE)))
 
-
 /* Nonzero if we do not know how to pass TYPE solely in registers.
    We cannot do so in the following cases:
 
@@ -822,6 +820,9 @@ typedef struct xtensa_args {
   ((TYPE) != 0								\
    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST			\
        || TREE_ADDRESSABLE (TYPE)))
+
+/* Pass complex arguments independently.  */
+#define SPLIT_COMPLEX_ARGS 1
 
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
@@ -1169,11 +1170,6 @@ typedef struct xtensa_args {
 
 /* Prefer word-sized loads.  */
 #define SLOW_BYTE_ACCESS 1
-
-/* ??? Xtensa doesn't have any instructions that set integer values
-   based on the results of comparisons, but the simplification code in
-   the combiner also uses STORE_FLAG_VALUE.  The default value (1) is
-   fine for us, but (-1) might be better.  */
 
 /* Shift instructions ignore all but the low-order few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1

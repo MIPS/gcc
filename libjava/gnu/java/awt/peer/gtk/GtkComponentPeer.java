@@ -48,6 +48,7 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.Image;
 import java.awt.Insets;
@@ -83,8 +84,9 @@ public class GtkComponentPeer extends GtkGenericPeer
   native int[] gtkWidgetGetForeground ();
   native int[] gtkWidgetGetBackground ();
   native void gtkWidgetSetVisible (boolean b);
-  native void gtkWidgetGetDimensions(int[] dim);
-  native void gtkWidgetGetLocationOnScreen(int[] point);
+  native void gtkWidgetGetDimensions (int[] dim);
+  native void gtkWidgetGetPreferredDimensions (int[] dim);
+  native void gtkWidgetGetLocationOnScreen (int[] point);
   native void gtkWidgetSetCursor (int type);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
@@ -94,11 +96,6 @@ public class GtkComponentPeer extends GtkGenericPeer
     throw new RuntimeException ();
   }
 
-  void initializeInsets ()
-  {
-    insets = new Insets (0, 0, 0, 0);
-  }
-
   native void connectJObject ();
   native void connectSignals ();
 
@@ -106,6 +103,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   {
     super (awtComponent);
     this.awtComponent = awtComponent;
+    insets = new Insets (0, 0, 0, 0);
 
     /* temporary try/catch block until all peers use this creation method */
     try {
@@ -124,8 +122,6 @@ public class GtkComponentPeer extends GtkGenericPeer
 	setBackground (awtComponent.getBackground ());
       if (awtComponent.getFont() != null)
 	setFont(awtComponent.getFont());
-
-      initializeInsets ();
 
       setCursor (awtComponent.getCursor ());
       Rectangle bounds = awtComponent.getBounds ();
@@ -148,7 +144,16 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Image createImage (int width, int height)
   {
-    GdkGraphics g = new GdkGraphics (width, height);
+    Graphics g;
+    if (GtkToolkit.useGraphics2D ())
+      {
+        Graphics2D g2 = new GdkGraphics2D (width, height);
+        g2.setBackground (getBackground ());
+        g = g2;
+      }
+    else
+      g = new GdkGraphics (width, height);
+
     return new GtkOffScreenImage (null, g, width, height);
   }
 
@@ -186,18 +191,12 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Dimension getMinimumSize () 
   {
-    int dim[]=new int[2];
-    gtkWidgetGetDimensions (dim);
-    Dimension d = new Dimension (dim[0],dim[1]);
-    return (d);
+    return minimumSize ();
   }
 
   public Dimension getPreferredSize ()
   {
-    int dim[]=new int[2];
-    gtkWidgetGetDimensions (dim);
-    Dimension d = new Dimension (dim[0],dim[1]);
-    return (d);
+    return preferredSize ();
   }
 
   public Toolkit getToolkit ()
@@ -216,7 +215,11 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Dimension minimumSize () 
   {
-    return getMinimumSize();
+    int dim[] = new int[2];
+
+    gtkWidgetGetPreferredDimensions (dim);
+
+    return new Dimension (dim[0], dim[1]);
   }
 
   public void paint (Graphics g)
@@ -224,9 +227,13 @@ public class GtkComponentPeer extends GtkGenericPeer
     awtComponent.paint (g);
   }
 
-  public Dimension preferredSize()
+  public Dimension preferredSize ()
   {
-    return getPreferredSize();
+    int dim[] = new int[2];
+
+    gtkWidgetGetPreferredDimensions (dim);
+
+    return new Dimension (dim[0], dim[1]);
   }
 
   public boolean prepareImage (Image image, int width, int height,

@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -976,7 +976,7 @@
 
 (define_insn "adddi3_internal_2"
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
-	(plus:DI (match_operand:DI 1 "register_operand" "%d,%d,%d")
+	(plus:DI (match_operand:DI 1 "register_operand" "%d,d,d")
 		 (match_operand:DI 2 "small_int" "P,J,N")))
    (clobber (match_operand:SI 3 "register_operand" "=d,d,d"))]
   "!TARGET_64BIT && !TARGET_DEBUG_G_MODE && !TARGET_MIPS16"
@@ -3841,7 +3841,7 @@ dsrl\t%3,%3,1\n\
 
   real_2expN (&offset, 31);
 
-  if (reg1)			/* turn off complaints about unreached code */
+  if (reg1)			/* Turn off complaints about unreached code.  */
     {
       emit_move_insn (reg1, CONST_DOUBLE_FROM_REAL_VALUE (offset, DFmode));
       do_pending_stack_adjust ();
@@ -3864,7 +3864,7 @@ dsrl\t%3,%3,1\n\
 
       emit_label (label2);
 
-      /* allow REG_NOTES to be set on last insn (labels don't have enough
+      /* Allow REG_NOTES to be set on last insn (labels don't have enough
 	 fields, and can't be used for REG_NOTES anyway).  */
       emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
       DONE;
@@ -3907,7 +3907,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -3949,7 +3949,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -3991,7 +3991,7 @@ dsrl\t%3,%3,1\n\
 
   emit_label (label2);
 
-  /* allow REG_NOTES to be set on last insn (labels don't have enough
+  /* Allow REG_NOTES to be set on last insn (labels don't have enough
      fields, and can't be used for REG_NOTES anyway).  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
   DONE;
@@ -4058,6 +4058,10 @@ dsrl\t%3,%3,1\n\
 ;; refers to just the first or the last byte (depending on endianness).
 ;; We therefore use two memory operands to each instruction, one to
 ;; describe the rtl effect and one to use in the assembly output.
+;;
+;; Operands 0 and 1 are the rtl-level target and source respectively.
+;; This allows us to use the standard length calculations for the "load"
+;; and "store" type attributes.
 
 (define_insn "mov_lwl"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -6868,7 +6872,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -6881,7 +6885,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 
@@ -6985,7 +6989,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -6998,7 +7002,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sne_si_zero"
@@ -7081,7 +7085,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7094,7 +7098,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) != 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgt_si"
@@ -7142,7 +7146,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7152,7 +7156,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sge_si"
@@ -7211,7 +7215,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7221,7 +7225,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "slt_si"
@@ -7279,7 +7283,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7292,7 +7296,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 32767)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sle_si_const"
@@ -7405,7 +7409,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7418,7 +7422,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) != 0)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgtu_si"
@@ -7466,7 +7470,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7476,7 +7480,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sgeu_si"
@@ -7535,7 +7539,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7545,7 +7549,7 @@ srl\t%M0,%M1,%2\n\
       DONE;
     }
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sltu_si"
@@ -7603,7 +7607,7 @@ srl\t%M0,%M1,%2\n\
   if (branch_type != CMP_SI && (!TARGET_64BIT || branch_type != CMP_DI))
     FAIL;
 
-  /* set up operands from compare.  */
+  /* Set up operands from compare.  */
   operands[1] = branch_cmp[0];
   operands[2] = branch_cmp[1];
 
@@ -7616,7 +7620,7 @@ srl\t%M0,%M1,%2\n\
   if (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 32767)
     operands[2] = force_reg (SImode, operands[2]);
 
-  /* fall through and generate default code */
+  /* Fall through and generate default code.  */
 })
 
 (define_insn "sleu_si_const"
@@ -8123,8 +8127,15 @@ srl\t%M0,%M1,%2\n\
    (clobber (match_operand:SI 2 "register_operand" "=d"))
    (clobber (reg:SI 31))]
   "TARGET_EMBEDDED_PIC"
-  "%(bal\t%S1\;sll\t%2,%0,2\n%~%S1:\;addu\t%2,%2,$31%)\;\
-lw\t%2,%1-%S1(%2)\;addu\t%2,%2,$31\;%*j\t%2%/"
+  {
+    if (set_nomacro)
+      return "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
+.set macro\;lw\\t%2,%1-%S1(%2)\;.set nomacro\;addu\\t%2,%2,$31\\n\\t%*j\\t%2%/";
+    return
+  "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
+lw\\t%2,%1-%S1(%2)\;addu\\t%2,%2,$31\\n\\t%*j\\t%2%/"
+    ;
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])
@@ -8140,8 +8151,15 @@ lw\t%2,%1-%S1(%2)\;addu\t%2,%2,$31\;%*j\t%2%/"
    (clobber (match_operand:DI 2 "register_operand" "=d"))
    (clobber (reg:DI 31))]
   "TARGET_EMBEDDED_PIC"
-  "%(bal\t%S1\;sll\t%2,%0,3\n%~%S1:\;daddu\t%2,%2,$31%)\;\
-ld\t%2,%1-%S1(%2)\;daddu\t%2,%2,$31\;%*j\t%2%/"
+  {
+    if (set_nomacro)
+      return "%(bal\\t%S1\;sll\\t%2,%0,3\\n%~%S1:\;daddu\\t%2,%2,$31%)\;\\
+.set macro\;ld\\t%2,%1-%S1(%2)\;.set nomacro\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2%/";
+    return
+  "%(bal\\t%S1\;sll\\t%2,%0,3\\n%~%S1:\;daddu\\t%2,%2,$31%)\;\\
+ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2%/"
+    ;
+  }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])

@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -599,23 +599,6 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    2: The version of the ABI first used in G++ 3.4.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-int flag_abi_version = 2;
-
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -1053,7 +1036,13 @@ finish_fname_decls (void)
       tree *p = &DECL_SAVED_TREE (current_function_decl);
       /* Skip the dummy EXPR_STMT and any EH_SPEC_BLOCK.  */
       while (TREE_CODE (*p) != COMPOUND_STMT)
-	p = &TREE_CHAIN (*p);
+       {
+         if (TREE_CODE (*p) == EXPR_STMT)
+           p = &TREE_CHAIN (*p);
+         else
+           p = &TREE_OPERAND(*p, 0);
+       }
+
       p = &COMPOUND_BODY (*p);
       if (TREE_CODE (*p) == SCOPE_STMT)
 	p = &TREE_CHAIN (*p);
@@ -4054,8 +4043,9 @@ finish_label_address_expr (tree label)
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 
 rtx
-c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
-     /* Actually enum_modifier.  */
+c_expand_expr (tree exp, rtx target, enum machine_mode tmode, 
+	       int modifier /* Actually enum_modifier.  */,
+	       rtx *alt_rtl)
 {
   switch (TREE_CODE (exp))
     {
@@ -4064,7 +4054,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
-	bool return_target = false;
 
 	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
 	  {
@@ -4112,30 +4101,18 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
-		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
-		  /* If the last expression is a variable whose RTL is the
-		     same as our target, just return the target; if it
-		     isn't valid expanding the decl would produce different
-		     RTL, and store_expr would try to do a copy.  */
-		  return_target = true;
-		else
-		  {
-		    /* Otherwise, note that we want the value from the last
-		       expression.  */
-		    TREE_ADDRESSABLE (expr) = 1;
-		    preserve_result = true;
-		  }
+		/* Otherwise, note that we want the value from the last
+		   expression.  */
+		TREE_ADDRESSABLE (expr) = 1;
+		preserve_result = true;
 	      }
 	  }
 
 	expand_stmt (STMT_EXPR_STMT (exp));
 	expand_end_stmt_expr (rtl_expr);
 
-	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (return_target)
-	  result = target;
-	else if (preserve_result && GET_CODE (result) == MEM)
+	result = expand_expr_real (rtl_expr, target, tmode, modifier, alt_rtl);
+	if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -4160,7 +4137,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	   literal, then return the variable.  */
 	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
 	emit_local_var (decl);
-	return expand_expr (decl, target, tmode, modifier);
+	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
       }
 
     default:
@@ -4292,21 +4269,6 @@ c_init_attributes (void)
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-}
-
-/* Output a -Wshadow warning MSGCODE about NAME, and give the location
-   of the previous declaration DECL.  */
-void
-shadow_warning (enum sw_kind msgcode, const char *name, tree decl)
-{
-  static const char *const msgs[] = {
-    /* SW_PARAM  */ N_("declaration of \"%s\" shadows a parameter"),
-    /* SW_LOCAL  */ N_("declaration of \"%s\" shadows a previous local"),
-    /* SW_GLOBAL */ N_("declaration of \"%s\" shadows a global declaration")
-  };
-
-  warning (msgs[msgcode], name);
-  warning ("%Jshadowed declaration is here", decl);
 }
 
 /* Attribute handlers common to C front ends.  */
@@ -5776,15 +5738,34 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MODIFY_EXPR:
     case CONSTRUCTOR:
       {
-	int size = int_size_in_bytes (TREE_TYPE (x));
+	HOST_WIDE_INT size;
 
-	if (!size || size > MOVE_MAX_PIECES)
+	size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
 	  *count += 10;
 	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
+	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     /* Few special cases of expensive operations.  This is usefull
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
@@ -5796,7 +5777,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
     /* Various containers that will produce no code themselves.  */

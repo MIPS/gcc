@@ -1,3 +1,20 @@
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_release (build_sources): Delete call to make f77.rebuilt.
+
+2004-01-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs: Create tarballs of documentation sources and
+	HTML docs.
+
+2004-01-02  Gerald Pfeifer  <gp@suse.de>
+
+	* update_version: Add some documentation.
+	
+2004-01-02  Pop Sébastian  <pop@gauvain.u-strasbg.fr>
+
+	* update_version (ADD_BRANCHES): Add lno-branch.
+
 2003-11-02  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* maintainer-addresses: New script.

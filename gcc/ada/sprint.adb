@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -90,7 +90,7 @@ package body Sprint is
    --  with a lower precedence than the operator (or equal precedence if
    --  appearing as the right operand), then parentheses are required.
 
-   Op_Prec : array (N_Subexpr) of Short_Short_Integer :=
+   Op_Prec : constant array (N_Subexpr) of Short_Short_Integer :=
                (N_Op_And          => 1,
                 N_Op_Or           => 1,
                 N_Op_Xor          => 1,
@@ -949,15 +949,19 @@ package body Sprint is
             Sprint_Node (Last_Bit (Node));
             Write_Char (';');
 
+         when N_Component_Definition =>
+            Set_Debug_Sloc;
+
+            if Aliased_Present (Node) then
+               Write_Str_With_Col_Check ("aliased ");
+            end if;
+
+            Sprint_Node (Subtype_Indication (Node));
+
          when N_Component_Declaration =>
             if Write_Indent_Identifiers_Sloc (Node) then
                Write_Str (" : ");
-
-               if Aliased_Present (Node) then
-                  Write_Str_With_Col_Check ("aliased ");
-               end if;
-
-               Sprint_Node (Subtype_Indication (Node));
+               Sprint_Node (Component_Definition (Node));
 
                if Present (Expression (Node)) then
                   Write_Str (" := ");
@@ -1010,11 +1014,7 @@ package body Sprint is
             Sprint_Paren_Comma_List (Discrete_Subtype_Definitions (Node));
             Write_Str (" of ");
 
-            if Aliased_Present (Node) then
-               Write_Str_With_Col_Check ("aliased ");
-            end if;
-
-            Sprint_Node (Subtype_Indication (Node));
+            Sprint_Node (Component_Definition (Node));
 
          when N_Decimal_Fixed_Point_Definition =>
             Write_Str_With_Col_Check_Sloc (" delta ");
@@ -2439,12 +2439,7 @@ package body Sprint is
             end;
 
             Write_Str (") of ");
-
-            if Aliased_Present (Node) then
-               Write_Str_With_Col_Check ("aliased ");
-            end if;
-
-            Sprint_Node (Subtype_Indication (Node));
+            Sprint_Node (Component_Definition (Node));
 
          when N_Unused_At_Start | N_Unused_At_End =>
             Write_Indent_Str ("***** Error, unused node encountered *****");

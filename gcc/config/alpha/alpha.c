@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -1219,9 +1219,10 @@ aligned_memory_operand (rtx op, enum machine_mode mode)
 	}
     }
 
-  if (GET_CODE (op) != MEM
-      || GET_MODE (op) != mode)
+  if (GET_CODE (op) != MEM)
     return 0;
+  if (MEM_ALIGN (op) >= 32)
+    return 1;
   op = XEXP (op, 0);
 
   /* LEGITIMIZE_RELOAD_ADDRESS creates (plus (plus reg const_hi) const_lo)
@@ -1261,8 +1262,9 @@ unaligned_memory_operand (rtx op, enum machine_mode mode)
 	}
     }
 
-  if (GET_CODE (op) != MEM
-      || GET_MODE (op) != mode)
+  if (GET_CODE (op) != MEM)
+    return 0;
+  if (MEM_ALIGN (op) >= 32)
     return 0;
   op = XEXP (op, 0);
 
@@ -2501,7 +2503,14 @@ alpha_emit_set_const_1 (rtx target, enum machine_mode mode,
 	}
       else if (n >= 2 + (extra != 0))
 	{
-	  temp = copy_to_suggested_reg (GEN_INT (high << 16), subtarget, mode);
+	  if (no_new_pseudos)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, target, GEN_INT (high << 16)));
+	      temp = target;
+	    }
+	  else
+	    temp = copy_to_suggested_reg (GEN_INT (high << 16),
+					  subtarget, mode);
 
 	  /* As of 2002-02-23, addsi3 is only available when not optimizing.
 	     This means that if we go through expand_binop, we'll try to
@@ -2876,13 +2885,24 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
 	    {
 	      rtx aligned_mem, bitnum;
 	      rtx scratch = gen_reg_rtx (SImode);
+	      rtx subtarget;
+	      bool copyout;
 
 	      get_aligned_mem (operands[1], &aligned_mem, &bitnum);
+
+	      subtarget = operands[0];
+	      if (GET_CODE (subtarget) == REG)
+		subtarget = gen_lowpart (DImode, subtarget), copyout = false;
+	      else
+		subtarget = gen_reg_rtx (DImode), copyout = true;
 
 	      emit_insn ((mode == QImode
 			  ? gen_aligned_loadqi
 			  : gen_aligned_loadhi)
-			 (operands[0], aligned_mem, bitnum, scratch));
+			 (subtarget, aligned_mem, bitnum, scratch));
+
+	      if (copyout)
+		emit_move_insn (operands[0], gen_lowpart (mode, subtarget));
 	    }
 	}
       else
@@ -2891,16 +2911,28 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
 	     code depend on parameter evaluation order which will cause
 	     bootstrap failures.  */
 
-	  rtx temp1 = gen_reg_rtx (DImode);
-	  rtx temp2 = gen_reg_rtx (DImode);
-	  rtx seq = ((mode == QImode
-		      ? gen_unaligned_loadqi
-		      : gen_unaligned_loadhi)
-		     (operands[0], get_unaligned_address (operands[1], 0),
-		      temp1, temp2));
+	  rtx temp1, temp2, seq, subtarget;
+	  bool copyout;
 
+	  temp1 = gen_reg_rtx (DImode);
+	  temp2 = gen_reg_rtx (DImode);
+
+	  subtarget = operands[0];
+	  if (GET_CODE (subtarget) == REG)
+	    subtarget = gen_lowpart (DImode, subtarget), copyout = false;
+	  else
+	    subtarget = gen_reg_rtx (DImode), copyout = true;
+
+	  seq = ((mode == QImode
+		  ? gen_unaligned_loadqi
+		  : gen_unaligned_loadhi)
+		 (subtarget, get_unaligned_address (operands[1], 0),
+		  temp1, temp2));
 	  alpha_set_memflags (seq, operands[1]);
 	  emit_insn (seq);
+
+	  if (copyout)
+	    emit_move_insn (operands[0], gen_lowpart (mode, subtarget));
 	}
       return true;
     }
@@ -7144,15 +7176,14 @@ alpha_expand_prologue (void)
 	     and subtract it to sp. 
 
 	     Yes, that's correct -- we have to reload the whole constant
-	     into a temporary via ldah+lda then subtract from sp.  To
-	     ensure we get ldah+lda, we use a special pattern.  */
+	     into a temporary via ldah+lda then subtract from sp.  */
 
 	  HOST_WIDE_INT lo, hi;
 	  lo = ((frame_size & 0xffff) ^ 0x8000) - 0x8000;
 	  hi = frame_size - lo;
 
 	  emit_move_insn (ptr, GEN_INT (hi));
-	  emit_insn (gen_nt_lda (ptr, GEN_INT (lo)));
+	  emit_insn (gen_adddi3 (ptr, ptr, GEN_INT (lo)));
 	  seq = emit_insn (gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx,
 				       ptr));
 	}
@@ -9736,7 +9767,7 @@ unicosmk_add_call_info_word (rtx x)
   ++machine->ciw_count;
 
   return GEN_INT (machine->ciw_count
-		  + strlen (current_function_name)/8 + 5);
+		  + strlen (current_function_name ())/8 + 5);
 }
 
 static char unicosmk_section_buf[100];

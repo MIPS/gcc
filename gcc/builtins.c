@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1128,8 +1128,11 @@ expand_builtin_apply_args_1 (void)
   tem = copy_to_reg (virtual_incoming_args_rtx);
 #ifdef STACK_GROWS_DOWNWARD
   /* We need the pointer as the caller actually passed them to us, not
-     as we might have pretended they were passed.  */
-  tem = plus_constant (tem, current_function_pretend_args_size);
+     as we might have pretended they were passed.  Make sure it's a valid
+     operand, as emit_move_insn isn't expected to handle a PLUS.  */
+  tem
+    = force_operand (plus_constant (tem, current_function_pretend_args_size),
+		     NULL_RTX);
 #endif
   emit_move_insn (adjust_address (registers, Pmode, 0), tem);
   
@@ -3987,10 +3990,32 @@ std_expand_builtin_va_arg (tree valist, tree type)
   tree align, alignm1;
   tree rounded_size;
   rtx addr;
+  HOST_WIDE_INT boundary;
 
   /* Compute the rounded size of the type.  */
   align = size_int (PARM_BOUNDARY / BITS_PER_UNIT);
   alignm1 = size_int (PARM_BOUNDARY / BITS_PER_UNIT - 1);
+  boundary = FUNCTION_ARG_BOUNDARY (TYPE_MODE (type), type);
+
+  /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
+     requires greater alignment, we must perform dynamic alignment.  */
+
+  if (boundary > PARM_BOUNDARY)
+    {
+      if (!PAD_VARARGS_DOWN)
+	{
+	  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		     build (PLUS_EXPR, TREE_TYPE (valist), valist,
+			    build_int_2 (boundary / BITS_PER_UNIT - 1, 0)));
+	  TREE_SIDE_EFFECTS (t) = 1;
+	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		 build (BIT_AND_EXPR, TREE_TYPE (valist), valist,
+			build_int_2 (~(boundary / BITS_PER_UNIT - 1), -1)));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
   if (type == error_mark_node
       || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
       || TREE_OVERFLOW (type_size))
@@ -4106,6 +4131,7 @@ expand_builtin_va_arg (tree valist, tree type)
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
       expand_builtin_trap ();
 
       /* This is dead code, but go ahead and finish so that the
@@ -4140,15 +4166,10 @@ expand_builtin_va_end (tree arglist)
 {
   tree valist = TREE_VALUE (arglist);
 
-#ifdef EXPAND_BUILTIN_VA_END
-  valist = stabilize_va_list (valist, 0);
-  EXPAND_BUILTIN_VA_END (arglist);
-#else
   /* Evaluate for side effects, if needed.  I hate macros that don't
      do that.  */
   if (TREE_SIDE_EFFECTS (valist))
     expand_expr (valist, const0_rtx, VOIDmode, EXPAND_NORMAL);
-#endif
 
   return const0_rtx;
 }
@@ -4351,7 +4372,7 @@ expand_builtin_fputs (tree arglist, rtx target, bool unlocked)
 	    break;
 	  }
       }
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1: /* length is greater than 1, call fwrite.  */
       {
 	tree string_arg;
@@ -4438,44 +4459,26 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   if (TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
       && (integer_zerop (arg1) || integer_onep (arg1)))
     {
-      int num_jumps = 0;
-      int save_pending_stack_adjust = pending_stack_adjust;
-      rtx insn;
-
-      /* If we fail to locate an appropriate conditional jump, we'll
-	 fall back to normal evaluation.  Ensure that the expression
-	 can be re-evaluated.  */
-      switch (unsafe_for_reeval (arg0))
-	{
-	case 0: /* Safe.  */
-	  break;
-
-	case 1: /* Mildly unsafe.  */
-	  arg0 = unsave_expr (arg0);
-	  break;
-
-	case 2: /* Wildly unsafe.  */
-	  return NULL_RTX;
-	}
+      rtx insn, drop_through_label, temp;
 
       /* Expand the jump insns.  */
       start_sequence ();
       do_jump (arg0, if_false_label, if_true_label);
       ret = get_insns ();
+
+      drop_through_label = get_last_insn ();
+      if (drop_through_label && GET_CODE (drop_through_label) == NOTE)
+	drop_through_label = prev_nonnote_insn (drop_through_label);
+      if (drop_through_label && GET_CODE (drop_through_label) != CODE_LABEL)
+	drop_through_label = NULL_RTX;
       end_sequence ();
 
-      /* For mildly unsafe builtin jump's, if unsave_expr_now
-	 creates a new tree instead of changing the old one
-	 TREE_VALUE (arglist) needs to be updated.  */
-      if (arg0 != TREE_VALUE (arglist)
-	  && TREE_CODE (arg0) == UNSAVE_EXPR
-	  && TREE_OPERAND (arg0, 0) != TREE_VALUE (arglist))
-	TREE_VALUE (arglist) = TREE_OPERAND (arg0, 0);
+      if (! if_true_label)
+	if_true_label = drop_through_label;
+      if (! if_false_label)
+	if_false_label = drop_through_label;
 
-      /* Now that the __builtin_expect has been validated, go through and add
-	 the expect's to each of the conditional jumps.  If we run into an
-	 error, just give up and generate the 'safe' code of doing a SCC
-	 operation and then doing a branch on that.  */
+      /* Go through and add the expect's to each of the conditional jumps.  */
       insn = ret;
       while (insn != NULL_RTX)
 	{
@@ -4484,64 +4487,70 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	  if (GET_CODE (insn) == JUMP_INSN && any_condjump_p (insn))
 	    {
 	      rtx ifelse = SET_SRC (pc_set (insn));
-	      rtx label;
-	      int taken;
+	      rtx then_dest = XEXP (ifelse, 1);
+	      rtx else_dest = XEXP (ifelse, 2);
+	      int taken = -1;
 
-	      if (GET_CODE (XEXP (ifelse, 1)) == LABEL_REF)
+	      /* First check if we recognize any of the labels.  */
+	      if (GET_CODE (then_dest) == LABEL_REF
+		  && XEXP (then_dest, 0) == if_true_label)
+		taken = 1;
+	      else if (GET_CODE (then_dest) == LABEL_REF
+		       && XEXP (then_dest, 0) == if_false_label)
+		taken = 0;
+	      else if (GET_CODE (else_dest) == LABEL_REF
+		       && XEXP (else_dest, 0) == if_false_label)
+		taken = 1;
+	      else if (GET_CODE (else_dest) == LABEL_REF
+		       && XEXP (else_dest, 0) == if_true_label)
+		taken = 0;
+	      /* Otherwise check where we drop through.  */
+	      else if (else_dest == pc_rtx)
 		{
-		  taken = 1;
-		  label = XEXP (XEXP (ifelse, 1), 0);
-		}
-	      /* An inverted jump reverses the probabilities.  */
-	      else if (GET_CODE (XEXP (ifelse, 2)) == LABEL_REF)
-		{
-		  taken = 0;
-		  label = XEXP (XEXP (ifelse, 2), 0);
-		}
-	      /* We shouldn't have to worry about conditional returns during
-		 the expansion stage, but handle it gracefully anyway.  */
-	      else if (GET_CODE (XEXP (ifelse, 1)) == RETURN)
-		{
-		  taken = 1;
-		  label = NULL_RTX;
-		}
-	      /* An inverted return reverses the probabilities.  */
-	      else if (GET_CODE (XEXP (ifelse, 2)) == RETURN)
-		{
-		  taken = 0;
-		  label = NULL_RTX;
-		}
-	      else
-		goto do_next_insn;
+		  if (next && GET_CODE (next) == NOTE)
+		    next = next_nonnote_insn (next);
 
-	      /* If the test is expected to fail, reverse the
-		 probabilities.  */
-	      if (integer_zerop (arg1))
-		taken = 1 - taken;
+		  if (next && GET_CODE (next) == JUMP_INSN
+		      && any_uncondjump_p (next))
+		    temp = XEXP (SET_SRC (pc_set (next)), 0);
+		  else
+		    temp = next;
 
-	      /* If we are jumping to the false label, reverse the
-		 probabilities.  */
-	      if (label == NULL_RTX)
-		;		/* conditional return */
-	      else if (label == if_false_label)
-		taken = 1 - taken;
-	      else if (label != if_true_label)
-		goto do_next_insn;
+		  /* TEMP is either a CODE_LABEL, NULL_RTX or something
+		     else that can't possibly match either target label.  */
+		  if (temp == if_false_label)
+		    taken = 1;
+		  else if (temp == if_true_label)
+		    taken = 0;
+		}
+	      else if (then_dest == pc_rtx)
+		{
+		  if (next && GET_CODE (next) == NOTE)
+		    next = next_nonnote_insn (next);
 
-	      num_jumps++;
-	      predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
+		  if (next && GET_CODE (next) == JUMP_INSN
+		      && any_uncondjump_p (next))
+		    temp = XEXP (SET_SRC (pc_set (next)), 0);
+		  else
+		    temp = next;
+
+		  if (temp == if_false_label)
+		    taken = 0;
+		  else if (temp == if_true_label)
+		    taken = 1;
+		}
+
+	      if (taken != -1)
+		{
+		  /* If the test is expected to fail, reverse the
+		     probabilities.  */
+		  if (integer_zerop (arg1))
+		    taken = 1 - taken;
+	          predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
+		}
 	    }
 
-	do_next_insn:
 	  insn = next;
-	}
-
-      /* If no jumps were modified, fail and do __builtin_expect the normal
-	 way.  */
-      if (num_jumps == 0)
-	{
-	  ret = NULL_RTX;
-	  pending_stack_adjust = save_pending_stack_adjust;
 	}
     }
 
@@ -5427,6 +5436,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EH_RETURN_DATA_REGNO:
       return expand_builtin_eh_return_data_regno (arglist);
 #endif
+    case BUILT_IN_EXTEND_POINTER:
+      return expand_builtin_extend_pointer (TREE_VALUE (arglist));
+
     case BUILT_IN_VA_START:
     case BUILT_IN_STDARG_START:
       return expand_builtin_va_start (arglist);

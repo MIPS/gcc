@@ -1,7 +1,7 @@
 /* Collect static initialization info into data structures that can be
    traversed by C++ initialization and finalization routines.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Chris Smith (csmith@convex.com).
    Heavily modified by Michael Meissner (meissner@cygnus.com),
    Per Bothner (bothner@cygnus.com), and John Gilmore (gnu@cygnus.com).
@@ -2409,7 +2409,7 @@ scan_libraries (const char *prog_name)
   if (debug)
     fprintf (stderr, "\n");
 
-  /* now iterate through the library list adding their symbols to
+  /* Now iterate through the library list adding their symbols to
      the list.  */
   for (list = libraries.first; list; list = list->next)
     scan_prog_file (list->name, PASS_LIB);
@@ -2515,7 +2515,7 @@ scan_libraries (const char *prog_name)
   do_wait (ldd_file_name);
 
   enable_break ();
-  /* now iterate through the library list adding their symbols to
+  /* Now iterate through the library list adding their symbols to
      the list.  */
   for (list = libraries.first; list; list = list->next)
     scan_prog_file (list->name, PASS_LIB);
@@ -2682,7 +2682,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 		      char *name;
 
 		      if ((name = ldgetname (ldptr, &symbol)) == NULL)
-			continue;		/* should never happen */
+			continue;		/* Should never happen.  */
 
 #ifdef XCOFF_DEBUGGING_INFO
 		      /* All AIX function names have a duplicate entry

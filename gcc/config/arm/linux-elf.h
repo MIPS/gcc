@@ -1,5 +1,5 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
@@ -33,6 +33,8 @@
 /* Default is to use APCS-32 mode.  */
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_MMU_TRAPS)
+
+#define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
 
 #define SUBTARGET_EXTRA_LINK_SPEC " -m armelf_linux -p"
 

@@ -989,30 +989,18 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 	    
 	if (widget && GTK_WIDGET_TOPLEVEL (widget))
 	  {
-	    gint top, left, right, bottom;
-
 	    /* Configure events are not posted to the AWT event
 	       queue, and as such, the gdk/gtk peer functions will
 	       be called back before postConfigureEvent
 	       returns. */
 	    gdk_threads_leave ();
 
-	    /* FIXME: hard-code these values for now. */
-	    top = 20;
-	    left = 6;
-	    bottom = 6;
-	    right = 6;
-
  	    (*gdk_env)->CallVoidMethod (gdk_env, peer,
 					postConfigureEventID,
 					(jint) event->configure.x,
 					(jint) event->configure.y,
 					(jint) event->configure.width,
-					(jint) event->configure.height,
-					(jint) top,
-					(jint) left,
-					(jint) bottom,
-					(jint) right);
+					(jint) event->configure.height);
 	    gdk_threads_enter ();
 	  }
       }

@@ -1,8 +1,23 @@
+2004-01-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* lib/libjava.exp: Add LD_LIBRARY_PATH_32/64 to get proper
+	path setting for Ssolaris 32/64-bit testing.
+	Reorganize LD_LIBRARY_PATH setting.
+
+2004-01-09  Andrew Haley  <aph@redhat.com>
+
+	* lib/libjava.exp (bytecompile_file): Log compile command.
+
+2004-01-07  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR libgcj/13011:
+	* libjava.jar/simple.jar: Add a working MANIFEST.MF.
+
 2003-12-03  Ralph Loader  <rcl@ihug.co.nz>
 
 	PR java/12374:
 	* libjava.compile/PR12374.java: New file.
-	
+
 2003-12-01  Jeff Sturm  <jsturm@one-point.com>
 
 	PR optimization/13024

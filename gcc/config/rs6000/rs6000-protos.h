@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -51,6 +52,7 @@ extern int reg_or_add_cint64_operand (rtx, enum machine_mode);
 extern int reg_or_sub_cint64_operand (rtx, enum machine_mode);
 extern int reg_or_logical_cint_operand (rtx, enum machine_mode);
 extern int got_operand (rtx, enum machine_mode);
+extern int word_offset_memref_operand (rtx, enum machine_mode);
 extern int got_no_const_operand (rtx, enum machine_mode);
 extern int num_insns_constant (rtx, enum machine_mode);
 extern int easy_fp_constant (rtx, enum machine_mode);
@@ -142,6 +144,7 @@ extern rtx rs6000_machopic_legitimize_pic_address (rtx orig,
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
+extern unsigned int rs6000_special_round_type_align (tree, int, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 					  tree, int);
 extern int function_arg_boundary (enum machine_mode, tree);
@@ -182,10 +185,10 @@ extern void private_data_section (void);
 extern void read_only_data_section (void);
 extern void read_only_private_data_section (void);
 extern int get_TOC_alias_set (void);
-extern int uses_TOC (void);
 extern void rs6000_emit_prologue (void);
 extern void rs6000_emit_load_toc_table (int);
 extern void rs6000_aix_emit_builtin_unwind_init (void);
+extern unsigned int rs6000_dbx_register_number (unsigned int);
 extern void rs6000_emit_epilogue (int);
 extern void rs6000_emit_eh_reg_restore (rtx, rtx);
 extern const char * output_isel (rtx *);

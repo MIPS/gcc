@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -864,6 +864,11 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
+
+      /* If on of the nodes is an error_mark or its type is then return early. */
+      if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
+	return;
+
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
 	  /* Omit fields whose position or size are variable or too large to
@@ -1673,8 +1678,10 @@ dbxout_type (tree type, int full)
 	    if (use_gnu_debug_info_extensions)
 	      {
 		have_used_extensions = 1;
-		putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-		putc (access == access_public_node ? '2' : '0', asmfile);
+                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
+                putc (access == access_public_node ? '2' :
+                      (access == access_protected_node ? '1' :'0'),
+                      asmfile);
 		CHARS (2);
 		if (TREE_VIA_VIRTUAL (child)
 		    && strcmp (lang_hooks.name, "GNU C++") == 0)
@@ -2042,11 +2049,6 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
   /* "Intercept" dbxout_symbol() calls like we do all debug_hooks.  */
   ++debug_nesting;
 
-  /* Cast avoids warning in old compilers.  */
-  current_sym_code = (STAB_CODE_TYPE) 0;
-  current_sym_value = 0;
-  current_sym_addr = 0;
-
   /* Ignore nameless syms, but don't ignore type tags.  */
 
   if ((DECL_NAME (decl) == 0 && TREE_CODE (decl) != TYPE_DECL)
@@ -2347,7 +2349,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		}
 	      else if (TREE_CODE (TREE_TYPE (decl)) == REAL_TYPE)
 		{
-		  /* don't know how to do this yet.  */
+		  /* Don't know how to do this yet.  */
 		}
 	      break;
 	    }
@@ -2573,10 +2575,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       else
 	dbxout_symbol_location (decl, subtype, "$real", XEXP (home, 0));
 
-      /* Cast avoids warning in old compilers.  */
-      current_sym_code = (STAB_CODE_TYPE) 0;
-      current_sym_value = 0;
-      current_sym_addr = 0;
       dbxout_prepare_symbol (decl);
 
       if (WORDS_BIG_ENDIAN)
@@ -2616,9 +2614,11 @@ dbxout_symbol_name (tree decl, const char *suffix, int letter)
 {
   const char *name;
 
-  if (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-    /* One slight hitch: if this is a VAR_DECL which is a static
-       class member, we must put out the mangled name instead of the
+  if (DECL_CONTEXT (decl) 
+      && (TYPE_P (DECL_CONTEXT (decl))
+	  || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL))
+    /* One slight hitch: if this is a VAR_DECL which is a class member
+       or a namespace member, we must put out the mangled name instead of the
        DECL_NAME.  Note also that static member (variable) names DO NOT begin
        with underscores in .stabs directives.  */
     name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -2644,6 +2644,14 @@ dbxout_prepare_symbol (tree decl ATTRIBUTE_UNUSED)
 
   dbxout_source_file (asmfile, filename);
 #endif
+
+  /* Initialize variables used to communicate each symbol's debug
+     information to dbxout_finish_symbol with zeroes.  */
+
+  /* Cast avoids warning in old compilers.  */
+  current_sym_code = (STAB_CODE_TYPE) 0;
+  current_sym_value = 0;
+  current_sym_addr = 0;
 }
 
 static void

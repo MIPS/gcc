@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com). 
 
@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ra.h"
 #include "cfglayout.h"
 #include "intl.h"
+#include "ggc.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -1095,7 +1096,7 @@ output_movedouble (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
 static void
 print_slot (rtx insn)
 {
-  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 0, 1);
+  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 0, 1, NULL);
 
   INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
 }
@@ -1336,7 +1337,7 @@ sh_file_start (void)
   if (TARGET_ELF)
     /* We need to show the text section with the proper
        attributes as in TEXT_SECTION_ASM_OP, before dwarf2out
-       emits it without attributes in TEXT_SECTION, else GAS
+       emits it without attributes in TEXT_SECTION_ASM_OP, else GAS
        will complain.  We can teach GAS specifically about the
        default attributes for our choice of text section, but
        then we would have to change GAS again if/when we change
@@ -2999,7 +3000,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 		 the limit is the same, but the alignment requirements
 		 are higher.  We may waste up to 4 additional bytes
 		 for alignment, and the DF/DI constant may have
-		 another SF/SI constant placed before it. */
+		 another SF/SI constant placed before it.  */
 	      if (TARGET_SHCOMPACT
 		  && ! found_di
 		  && (mode == DFmode || mode == DImode))
@@ -3368,6 +3369,14 @@ gen_block_redirect (rtx jump, int addr, int need_block)
       else if (recog_memoized (prev) == CODE_FOR_block_branch_redirect)
 	need_block = 0;
     }
+  if (GET_CODE (PATTERN (jump)) == RETURN)
+    {
+      if (! need_block)
+	return prev;
+      /* Reorg even does nasty things with return insns that cause branches
+	 to go out of range - see find_end_label and callers.  */
+      return emit_insn_before (gen_block_branch_redirect (GEN_INT (0)) , jump);
+    }
   /* We can't use JUMP_LABEL here because it might be undefined
      when not optimizing.  */
   dest = XEXP (SET_SRC (PATTERN (jump)), 0);
@@ -3535,11 +3544,16 @@ gen_far_branch (struct far_branch *bp)
   JUMP_LABEL (jump) = bp->far_label;
   if (! invert_jump (insn, label, 1))
     abort ();
-  (emit_insn_after
-   (gen_stuff_delay_slot
-    (GEN_INT (INSN_UID (XEXP (SET_SRC (PATTERN (jump)), 0))),
-     GEN_INT (recog_memoized (insn) == CODE_FOR_branch_false)),
-    insn));
+  /* If we are branching around a jump (rather than a return), prevent
+     reorg from using an insn from the jump target as the delay slot insn -
+     when reorg did this, it pessimized code (we rather hide the delay slot)
+     and it could cause branches to go out of range.  */
+  if (bp->far_label)
+    (emit_insn_after
+     (gen_stuff_delay_slot
+      (GEN_INT (INSN_UID (XEXP (SET_SRC (PATTERN (jump)), 0))),
+       GEN_INT (recog_memoized (insn) == CODE_FOR_branch_false)),
+      insn));
   /* Prevent reorg from undoing our splits.  */
   gen_block_redirect (jump, bp->address += 2, 2);
 }
@@ -4731,7 +4745,7 @@ shmedia_target_regs_stack_space (HARD_REG_SET *live_regs_mask)
     if ((! call_used_regs[reg] || interrupt_handler)
         && ! TEST_HARD_REG_BIT (*live_regs_mask, reg))
       /* Leave space to save this target register on the stack,
-	 in case target register allocation wants to use it. */
+	 in case target register allocation wants to use it.  */
       stack_space += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
   return stack_space;
 }
@@ -6390,7 +6404,7 @@ sh_function_arg_advance (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	     ca->call_cookie
 	       |= CALL_COOKIE_INT_REG (ca->arg_count[(int) SH_ARG_INT]
 				       - numregs, 1);
-	     /* N.B. We want this also for outgoing.   */
+	     /* N.B. We want this also for outgoing.  */
 	     ca->stack_regs += numregs;
 	   }
 	 else if (ca->byref)
@@ -8100,7 +8114,7 @@ sh_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED, rtx dep_insn, int cost)
   if (TARGET_SHMEDIA)
     {
       /* On SHmedia, if the dependence is an anti-dependence or
-         output-dependence, there is no cost. */              
+         output-dependence, there is no cost.  */
       if (REG_NOTE_KIND (link) != 0)
         cost = 0;
 
@@ -8519,10 +8533,10 @@ static const char signature_args[][4] =
 #define SH_BLTIN_PV 20
   { 0, 8 },
 };
-/* mcmv: operands considered unsigned. */
+/* mcmv: operands considered unsigned.  */
 /* mmulsum_wq, msad_ubq: result considered unsigned long long.  */
-/* mperm: control value considered unsigned int. */
-/* mshalds, mshard, mshards, mshlld, mshlrd: shift count is unsigned int. */
+/* mperm: control value considered unsigned int.  */
+/* mshalds, mshard, mshards, mshlld, mshlrd: shift count is unsigned int.  */
 /* mshards_q: returns signed short.  */
 /* nsb: takes long long arg, returns unsigned char.  */
 static const struct builtin_description bdesc[] =
@@ -9165,6 +9179,53 @@ sh_expand_t_scc (enum rtx_code code, rtx target)
   if (result != target)
     emit_move_insn (target, result);
   return 1;
+}
+
+/* INSN is an sfunc; return the rtx that describes the address used.  */
+static rtx
+extract_sfunc_addr (rtx insn)
+{
+  rtx pattern, part = NULL_RTX;
+  int len, i;
+
+  pattern = PATTERN (insn);
+  len = XVECLEN (pattern, 0);
+  for (i = 0; i < len; i++)
+    {
+      part = XVECEXP (pattern, 0, i);
+      if (GET_CODE (part) == USE && GET_MODE (XEXP (part, 0)) == Pmode
+	  && GENERAL_REGISTER_P (true_regnum (XEXP (part, 0))))
+	return XEXP (part, 0);
+    }
+  if (GET_CODE (XVECEXP (pattern, 0, 0)) == UNSPEC_VOLATILE)
+    return XVECEXP (XVECEXP (pattern, 0, 0), 0, 1);
+  abort ();
+}
+
+/* Verify that the register in use_sfunc_addr still agrees with the address
+   used in the sfunc.  This prevents fill_slots_from_thread from changing
+   use_sfunc_addr.
+   INSN is the use_sfunc_addr instruction, and REG is the register it
+   guards.  */
+int
+check_use_sfunc_addr (rtx insn, rtx reg)
+{
+  /* Search for the sfunc.  It should really come right after INSN.  */
+  while ((insn = NEXT_INSN (insn)))
+    {
+      if (GET_CODE (insn) == CODE_LABEL || GET_CODE (insn) == JUMP_INSN)
+	break;
+      if (! INSN_P (insn))
+	continue;
+	
+      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+	insn = XVECEXP (PATTERN (insn), 0, 0);
+      if (GET_CODE (PATTERN (insn)) != PARALLEL
+	  || get_attr_type (insn) != TYPE_SFUNC)
+	continue;
+      return rtx_equal_p (extract_sfunc_addr (insn), reg);
+    }
+  abort ();
 }
 
 #include "gt-sh.h"

@@ -1,9 +1,170 @@
+2004-02-26  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (check_interface_throws_clauses): Check for
+	!METHOD_INVISIBLE (iface_method).
+	* class.c (layout_class_methods): Check for CLASS_INTERFACE as
+	well as CLASS_ABSTRACT.
+	
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	Taken from mainline:
+
+	2004-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in: Install man pages under the same names
+	(possibly transformed) as the program they document.
+
+	2004-02-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (java.install-man): Add extra dependencies.
+
+2004-02-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Update copyright.
+
+2004-02-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	Make-lang.in (po-generated):  Delete.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gcj.dvi): Use $(abs_docdir).
+
+2004-01-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* expr.c (build_field_ref): Move variable
+	definition up.
+
+2004-01-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Widen field offset.
+
+2004-01-27  Andrew Haley  <aph@redhat.com>
+
+	java/13273
+	* parse.y (check_interface_throws_clauses): Make sure class_decl
+	has been loaded.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(java.info, java.srcinfo, java.man, java.srcman): New rules.
+	(java.install-man): Revamp rule.
+
+2004-01-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_TARGET_INSTALL_NAME,
+	GCJH_TARGET_INSTALL_NAME): Define via a immediate $(shell)
+	instead of deferred backquote.
+
+2004-01-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* typeck.c (find_method_in_interfaces): Move variable
+	definition up.
+
+2004-01-16  Andrew Haley  <aph@redhat.com>
+
+	PR java/13273:
+	* typeck.c (shallow_find_method): New.
+	(find_method_in_superclasses): New.
+	(find_method_in_interfaces): New.
+	(lookup_do): Rewrite.
+	* java-tree.h (SEARCH_ONLY_INTERFACE): Delete.
+
+	* jcf-parse.c (read_class): Save and restore output_class.
+	* decl.c (java_expand_body): Set output_class from fndecl.
+
+2004-01-15  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* class.c (gen_indirect_dispatch_tables): Fix string length
+	calculations.
+
+2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (parse.c, parse-scan.c): Always build in doc directory.
+	(java.srcextra): Copy above back to source directory if requested.
+	(po-generated): Delete reference to $(parsedir).
+	(java/parse.o, java/parse-scan.o): Delete reference to $(parsedir).
+	Use implicit rule.
+
+2004-01-14  Jan Hubicka  <jh@suse.cz>
+
+	* lang.c (java_estimate_num_insns_1): Fix bug in MODIFY_EXPR cost
+	estimation.
+
+2004-01-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* java-tree.h (java_expand_expr): Change prototype.
+	* expr.c (java_expand_expr): Add alt_rtl parameter.
+
+2004-01-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/12755:
+	* parse.y (java_fix_constructors):  Set output_class.
+	(java_reorder_fields): Likewise.
+	(java_layout_classes): Likewise.
+	(java_expand_classes): Generate indirect dispatch tables.
+	(java_expand_classes): Set output_class.
+	(java_finish_classes): Likewise.
+	* lang.c (java_init): Turn on always_initialize_class_p if we're
+	using indirect dis[atch.
+	(java_decl_ok_for_sibcall): Use output_class, not current_class.
+	(java_get_callee_fndecl): Use class local atable.
+	* jcf-parse.c
+	(always_initialize_class_p): Decl moved to java-tree.h.
+	(HANDLE_CLASS_INFO): Set output_class.
+	(read_class): Likewise.
+	(parse_class_file): Call gen_indirect_dispatch_tables.
+	(parse_zip_file_entries): Set output_class.
+	(java_parse_file): Set output_class.  Don't emit symbol tables.
+	* java-tree.h (output_class): New.
+	Remove global declarations for otable, atable, and ctable.
+	(always_initialize_class_p): moved here from decl.c.
+	(DECL_OWNER): New.
+	(TYPE_ATABLE_METHODS, TYPE_ATABLE_SYMS_DECL, TYPE_ATABLE_DECL,
+	TYPE_OTABLE_METHODS, TYPE_OTABLE_SYMS_DECL, TYPE_OTABLE_DECL,
+	TYPE_CTABLE_DECL, TYPE_CATCH_CLASSES): New.
+	(struct lang_type): Add otable_methods, otable_decl,
+	otable_syms_decl, atable_methods, atable_decl, atable_syms_decl,
+	ctable_decl, catch_classes, type_to_runtime_map.
+	* expr.c (build_field_ref): Make otable, atable, and ctable class
+	local rather than global.
+	(build_known_method_ref): Likewise.
+	(build_invokeinterface): Likewise.
+	(java_expand_expr): Pass runtime type (rather than actual type) to
+	expand_start_catch.
+	* except.c (prepare_eh_table_type): Create TYPE_TO_RUNTIME_MAP for
+	this class.  Look up each class in that map to delete duplicates.
+	(expand_end_java_handler): Pass runtime type (rather than actual
+	type) to expand_start_catch.
+	* decl.c: (always_initialize_class_p): Decl moved to java-tree.h.
+	(do_nothing): New.
+	(java_init_decl_processing): Rearrange things.  Remove global
+	declarations of otable, atable, and ctable.
+	(java_init_decl_processing): Make lang_eh_runtime_type do_nothing.
+	(java_expand_body): Set output_class.
+	* constants.c (build_constant_data_ref): Use output_class, not
+	current_class.
+	(alloc_name_constant): Likewise.
+	* class.c (gen_indirect_dispatch_tables): New.
+	(build_class_ref): Generate hard reference to superclass, even if
+	using indirect dispatch.
+	(build_static_field_ref): Use class local atable.
+	(make_class_data): Generate hard reference to superclass, even if
+	using indirect dispatch.
+	Generate symbolic references to interfaces when using indirect
+	dispatch.
+	(make_class_data): Emit otable, atable, and ctable.
+	Make otable, atable, and ctable class local rather than global.
+	(emit_catch_table): Make otable, atable, and ctable class local
+	rather than global.
+
 2003-12-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* parse.y (catch_clause_parameter): Fix typo.
 
 	PR java/13404
-	* parse.y: (catch_clause_parameter): Return early if $3, aka 
+	* parse.y: (catch_clause_parameter): Return early if $3, aka
 	formal_parameter, is null.
 
 2003-12-20  Kazu Hirata  <kazu@cs.umass.edu>

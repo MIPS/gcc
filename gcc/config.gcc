@@ -84,6 +84,9 @@
 #			the compiler proper (cc1, cc1obj, cc1plus)
 #			depending on target.
 #
+#  extra_gcc_objs	List of extra objects that should be linked into
+#			the compiler driver (gcc) depending on target.
+#
 #  extra_headers	List of used header files from the directory
 #			config/${cpu_type}.
 #
@@ -279,6 +282,9 @@ ia64-*-*)
 hppa*-*-* | parisc*-*-*)
 	cpu_type=pa
 	;;
+m32r*-*-*)
+        cpu_type=m32r
+        ;;
 m680[012]0-*-*)
 	cpu_type=m68k
 	extra_headers=math-68881.h
@@ -659,7 +665,7 @@ arm*-*-netbsd*)
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
-	tm_file="dbxelf.h elfos.h linux.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h"
+	tm_file="dbxelf.h elfos.h linux.h arm/elf.h  arm/linux-gas.h arm/linux-elf.h arm/aout.h arm/arm.h"
 	tmake_file="t-slibgcc-elf-ver t-linux arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -766,6 +772,11 @@ hppa*-*-linux* | parisc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux pa/t-linux"
+	# if not configured with --enable-sjlj-exceptions, bump the
+	# libgcc version number
+	if test x$sjlj != x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	fi
 	;;
 # port not yet contributed.
 #hppa*-*-openbsd*)
@@ -1133,10 +1144,11 @@ i[4567]86-wrs-vxworks)
 i[34567]86-*-pe | i[34567]86-*-cygwin*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h"
 	xm_file=i386/xm-cygwin.h
-	tmake_file="i386/t-cygming i386/t-cygwin"
+	tmake_file="i386/t-cygwin i386/t-cygming"
 	extra_objs=winnt.o
 	c_target_objs=cygwin2.o
 	cxx_target_objs=cygwin2.o
+	extra_gcc_objs=cygwin1.o
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
@@ -1279,6 +1291,31 @@ m32r-*-elf*)
 	extra_parts="crtinit.o crtfini.o"
 	use_fixproto=yes
  	;;
+m32rle-*-elf*)
+	tm_file="dbxelf.h elfos.h svr4.h m32r/little.h ${tm_file}"
+	extra_parts="crtinit.o crtfini.o m32rx/crtinit.o m32rx/crtfini.o"
+	use_fixproto=yes
+	;;
+m32r-*-linux*)
+	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} m32r/linux.h"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	tmake_file="m32r/t-linux"
+	gnu_ld=yes
+	use_fixproto=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+ 	;;
+m32rle-*-linux*)
+	tm_file="dbxelf.h elfos.h svr4.h linux.h m32r/little.h ${tm_file} m32r/linux.h"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	tmake_file="m32r/t-linux"
+	gnu_ld=yes
+	use_fixproto=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+	;;
 # m68hc11 and m68hc12 share the same machine description.
 m68hc11-*-*|m6811-*-*)
 	tm_file="dbxelf.h elfos.h m68hc11/m68hc11.h"
@@ -1396,6 +1433,11 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 	tm_file="m68k/m68k.h dbxelf.h elfos.h svr4.h linux.h m68k/linux.h"
 	tm_defines="MOTOROLA USE_GAS"
 	tmake_file="t-slibgcc-elf-ver t-linux"
+	# if not configured with --enable-sjlj-exceptions, bump the
+	# libgcc version number
+	if test x$sjlj != x1; then
+	    tmake_file="$tmake_file m68k/t-slibgcc-elf-ver"
+	fi
 	;;
 m68k-*-rtems*)
 	tmake_file="m68k/t-m68kbare m68k/t-crtstuff t-rtems m68k/t-rtems"
@@ -1413,34 +1455,6 @@ mcore-*-pe*)
 	tmake_file=mcore/t-mcore-pe
 	use_fixproto=yes
 	;;
-mips-sgi-irix6*o32)		# SGI System V.4., IRIX 6, O32 ABI
-	tm_file="${tm_file} mips/iris5.h"
-	if test x$gas = xyes
-	then
-		tm_file="${tm_file} mips/sdb.h mips/iris5gas.h mips/iris6-o32-gas.h"
-		if test x$stabs = xyes
-		then
-			tm_file="${tm_file} dbx.h mips/dbxmdebug.h"
-		fi
-		tmake_file=mips/t-iris5-gas
-	else
-		tm_file="${tm_file} mips/iris6-o32-as.h"
-		tmake_file=mips/t-iris5-as
-	fi
-	tm_file="${tm_file} mips/iris6-o32.h"
-	tmake_file="${tmake_file} mips/t-iris mips/t-iris5-6"
-	target_cpu_default="MASK_ABICALLS"
-	# mips-tfile doesn't work yet
-	# See comment in mips/iris5.h file.
-	if test x$gas = xno
-	then
-		use_collect2=yes
-	fi
-#	if test x$enable_threads = xyes; then
-#		thread_file='irix'
-#	fi
-	use_fixproto=yes
-	;;
 mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	tm_file="${tm_file} mips/iris5.h mips/iris6.h"
 	tmake_file="mips/t-iris mips/t-iris5-6 mips/t-iris6"
@@ -1451,7 +1465,7 @@ mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 	if test "x$gnu_ld" = xyes
 	then
 		tm_file="${tm_file} mips/iris6gld.h"
-		tmake_file="$tmake_file mips/t-iris6gld"
+		tmake_file="$tmake_file mips/t-irix-gld"
 	fi
 	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
@@ -1491,11 +1505,19 @@ mips-sgi-irix5*)		# SGI System V.4., IRIX 5
 	else
 		tmake_file=mips/t-iris5-as
 	fi
+	if test "x$gnu_ld" = xyes
+	then
+		tm_file="${tm_file} mips/iris5gld.h"
+		tmake_file="$tmake_file mips/t-irix-gld"
+	fi
 	tmake_file="${tmake_file} mips/t-iris mips/t-iris5-6"
 	target_cpu_default="MASK_ABICALLS"
 	# mips-tfile doesn't work yet
 	# See comment in mips/iris5.h file.
-	use_collect2=yes
+	if test x$gas = xno
+	then
+		use_collect2=yes
+	fi
 #	if test x$enable_threads = xyes; then
 #		thread_file='irix'
 #	fi
@@ -1975,7 +1997,7 @@ sparc-*-openbsd*)
 	use_collect2=yes
 	;;
 sparc64-*-openbsd*)
-	tm_file="sparc/openbsd1-64.h sparc/sparc.h elfos.h svr4.h sparc/sysv4.h sparc/sol2.h sparc/sp64-elf.h openbsd.h sparc/openbsd64.h"
+	tm_file="sparc/openbsd1-64.h sparc/sparc.h elfos.h svr4.h sparc/sysv4.h sparc/sp64-elf.h openbsd.h sparc/openbsd64.h"
 	gas=yes gnu_ld=yes
 	with_cpu=ultrasparc
 	;;
@@ -2312,7 +2334,7 @@ if test x$with_cpu = x ; then
       ;;
     i686-*-* | i786-*-*)
       case ${target_noncanonical} in
-        k8-*)
+        k8-*|opteron-*|athlon_64-*)
           with_cpu=k8
           ;;
         athlon_xp-*|athlon_mp-*|athlon_4-*)
@@ -2496,7 +2518,8 @@ fi
 			| i586 | pentium | pentium-mmx | winchip-c6 | winchip2 \
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
-			| athlon-4 | athlon-xp | athlon-mp | k8)
+			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
+			| athlon64 | athlon-fx)
 				# OK
 				;;
 			*)
@@ -2537,7 +2560,11 @@ fi
 		for which in cpu tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | default32 | default64 | common \
+			default32 | default64)
+				with_which="with_$which"
+				eval $with_which=
+				;;
+			"" | common \
 			| power | power2 | power3 | power4 \
 			| powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \

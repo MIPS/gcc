@@ -41,9 +41,9 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-JAVA_INSTALL_NAME = `echo gcj|sed '$(program_transform_name)'`
-JAVA_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo gcj|sed '$(program_transform_name)'`
-GCJH_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo gcjh|sed '$(program_transform_name)'`
+JAVA_INSTALL_NAME := $(shell echo gcj|sed '$(program_transform_name)')
+JAVA_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcj|sed '$(program_transform_name)')
+GCJH_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcjh|sed '$(program_transform_name)')
 
 GCJ = gcj
 
@@ -76,16 +76,14 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 	-rm -f $(GCJ)-cross$(exeext)
 	cp $(GCJ)$(exeext) $(GCJ)-cross$(exeext)
 
-po-generated: $(parsedir)/java/parse.c $(parsedir)/java/parse-scan.c
+java.srcextra: java/parse.c java/parse-scan.c
+	-cp -p $^ $(srcdir)/java
 
-$(parsedir)/java/parse.c: $(srcdir)/java/parse.y
-	$(BISON) -t --name-prefix=java_ $(BISONFLAGS) \
-	    -o p$$$$.c $(srcdir)/java/parse.y && \
-	mv -f p$$$$.c $(parsedir)/java/parse.c
+java/parse.c: java/parse.y
+	-$(BISON) -t --name-prefix=java_ $(BISONFLAGS) -o $@ $<
 
-$(parsedir)/java/parse-scan.c:  $(srcdir)/java/parse-scan.y
-	$(BISON) -t $(BISONFLAGS) -o ps$$$$.c $(srcdir)/java/parse-scan.y && \
-	mv -f ps$$$$.c $(parsedir)/java/parse-scan.c
+java/parse-scan.c: java/parse-scan.y
+	-$(BISON) -t $(BISONFLAGS) -o $@ $< 
 
 $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 	(cd $(srcdir)/java || exit 1; \
@@ -161,12 +159,19 @@ java.tags: force
 	etags --include TAGS.sub --include ../TAGS.sub
 
 
-info:: $(docobjdir)/gcj.info
-dvi:: $(docobjdir)/gcj.dvi
-generated-manpages:: $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 \
-	$(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1 \
-	$(docobjdir)/gij.1 $(docobjdir)/jv-convert.1 \
-	$(docobjdir)/rmic.1 $(docobjdir)/rmiregistry.1
+java.info: doc/gcj.info
+
+java.srcinfo: doc/gcj.info
+	-cp -p $^ $(srcdir)/doc
+
+dvi:: doc/gcj.dvi
+JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
+                doc/jv-convert.1 doc/rmic.1 doc/rmiregistry.1
+
+java.man: $(JAVA_MANFILES)
+
+java.srcman: $(JAVA_MANFILES)
+	-cp -p $^ $(srcdir)/doc
 
 check-java :
 
@@ -228,15 +233,15 @@ install-info:: $(DESTDIR)$(infodir)/gcj.info
 # We just have to delete files specific to us.
 
 java.mostlyclean:
+	-rm -f java/parse.c java/parse-scan.c
 	-rm -f java/*$(objext) $(DEMANGLER_PROG)
 	-rm -f java/*$(coverageexts)
 	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext) s-java
 java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
-	-rm -f java/parse.output
+	-rm -f java/parse.output java/y.tab.c
 java.maintainer-clean:
-	-rm -f $(parsedir)/java/parse.c $(parsedir)/java/parse-scan.c java/parse.output java/y.tab.c
 	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1
 	-rm -f $(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1
 	-rm -f $(docobjdir)/gij.1
@@ -325,18 +330,11 @@ java/xref.o: java/xref.c java/xref.h $(CONFIG_H) $(JAVA_TREE_H) toplev.h \
   $(SYSTEM_H) coretypes.h $(TM_H)
 java/zextract.o: java/zextract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   java/zipfile.h
-
-# parse-scan.o and parse.o compiled from $(parsedir)/java
-java/parse-scan.o: $(parsedir)/java/parse-scan.c $(CONFIG_H) $(SYSTEM_H) \
+java/parse-scan.o: java/parse-scan.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) toplev.h $(JAVA_LEX_C) java/parse.h java/lex.h input.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-		$(parsedir)/java/parse-scan.c $(OUTPUT_OPTION)
-
-java/parse.o: $(parsedir)/java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
+java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h $(TM_H) function.h $(JAVA_TREE_H) $(JAVA_LEX_C) java/parse.h \
   java/lex.h input.h $(GGC_H) debug.h gt-java-parse.h gtype-java.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-		$(parsedir)/java/parse.c $(OUTPUT_OPTION)
 
 # jcf-io.o needs $(ZLIBINC) added to cflags.
 java/jcf-io.o: java/jcf-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -362,17 +360,16 @@ java/java-tree-inline.o: tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(srcdir)/tree-inline.c -o $@
 
 # Documentation
-$(docobjdir)/gcj.info: java/gcj.texi $(docdir)/include/fdl.texi \
-  $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi stmp-docobjdir
+doc/gcj.info: java/gcj.texi $(docdir)/include/fdl.texi \
+  $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi
 	if test "x$(BUILD_INFO)" = xinfo; then \
 	  rm -f doc/gcj.info*; \
 	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<; \
 	else true; fi
 
-$(docobjdir)/gcj.dvi: java/gcj.texi $(docdir)/include/fdl.texi \
-	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi \
-	 stmp-docobjdir
-	$(TEXI2DVI) -I $(docdir)/include -o $@ $<
+doc/gcj.dvi: java/gcj.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi
+	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
 .INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
   jv-convert.pod rmic.pod rmiregistry.pod
@@ -395,30 +392,20 @@ rmiregistry.pod: java/gcj.texi
 	-$(TEXI2POD) -D rmiregistry < $< > $@
 
 # Install the man pages.
-java.install-man: installdirs $(GENERATED_JAVA_MANPAGES)
-	-if [ -f $(GCJ)$(exeext) ]; then \
-	  rm -f $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	  $(INSTALL_DATA) $(docobjdir)/gcj.1 $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	  chmod a-x $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
-	fi
-	-rm -f $(DESTDIR)$(man1dir)/gcjh$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/gcjh.1 $(DESTDIR)$(man1dir)/gcjh$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/gcjh$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/jv-scan.1 $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/jcf-dump.1 $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/gij$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/gij.1 $(DESTDIR)$(man1dir)/gij$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/gij$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/jv-convert$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/jv-convert.1 $(DESTDIR)$(man1dir)/jv-convert$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/jv-convert$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/rmic$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/rmic.1 $(DESTDIR)$(man1dir)/rmic$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/rmic$(man1ext)
-	-rm -f $(DESTDIR)$(man1dir)/rmiregistry$(man1ext)
-	-$(INSTALL_DATA) $(docobjdir)/rmiregistry.1 $(DESTDIR)$(man1dir)/rmiregistry$(man1ext)
-	-chmod a-x $(DESTDIR)$(man1dir)/rmiregistry$(man1ext)
+java.install-man: installdirs \
+                  $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext) \
+		  $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS:%=doc/%.1) \
+		  doc/gij.1 doc/jv-convert.1 doc/rmic.1 doc/rmiregistry.1
+	for tool in $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS) \
+		gij jv-convert rmic rmiregistry ; do \
+	  tool_transformed_name=`echo $$tool|sed '$(program_transform_name)'`; \
+	  man_name=$(DESTDIR)$(man1dir)/$${tool_transformed_name}$(man1ext); \
+	  rm -f $$man_name ; \
+	  $(INSTALL_DATA) doc/$${tool}.1 $$man_name; \
+	  chmod a-x $$man_name ; \
+	done
+
+$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1
+	-rm -f $@
+	-$(INSTALL_DATA) $< $@
+	-chmod a-x $@

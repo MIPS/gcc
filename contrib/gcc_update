@@ -29,7 +29,7 @@
 # contrib/gcc_update --list
 #
 #
-# (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation
+# (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 # Originally by Gerald Pfeifer <pfeifer@dbai.tuwien.ac.at>, August 1998.
 #
 # This script is Free Software, and it can be copied, distributed and
@@ -56,34 +56,23 @@ self=$0
 # colon is stripped from the output.
 files_and_dependencies () {
     sed -e 's/ *#.*//' -e '/^$/d' -e 's/://' <<\EOF
-# All automake dependencies within texinfo
-# In fact, not all, since we do not care about sub-directories that
-# we do not build.  In particular, *.po and *.gmo are not touched.
-texinfo/aclocal.m4: texinfo/configure.in texinfo/acinclude.m4
-texinfo/Makefile.in: texinfo/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/configure: texinfo/configure.in texinfo/aclocal.m4
-texinfo/stamp-h.in: texinfo/configure.in texinfo/aclocal.m4 texinfo/acconfig.h
-texinfo/lib/Makefile.in: texinfo/lib/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/makeinfo/Makefile.in: texinfo/makeinfo/Makefile.am texinfo/configure.in texinfo/aclocal.m4
-texinfo/util/Makefile.in: texinfo/util/Makefile.am texinfo/configure.in texinfo/aclocal.m4
 # intl library
 intl/plural.c: intl/plural.y
 intl/configure: intl/configure.in intl/aclocal.m4
 intl/config.h.in: intl/configure.in intl/aclocal.m4
 # Now, proceed to gcc automatically generated files
-gcc/configure: gcc/configure.in
-gcc/cstamp-h.in: gcc/configure.in
+gcc/configure: gcc/configure.ac
+gcc/cstamp-h.in: gcc/configure.ac
 gcc/config.in: gcc/cstamp-h.in
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
 # And then, language-specific files
 gcc/f/intdoc.texi: gcc/f/intdoc.in gcc/f/intdoc.c gcc/f/intrin.h gcc/f/intrin.def
 gcc/cp/cfns.h: gcc/cp/cfns.gperf
 gcc/java/keyword.h: gcc/java/keyword.gperf
-gcc/ada/stamp-xgnatug: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_unx.texi: gcc/ada/stamp-xgnatug
-gcc/ada/gnat_ug_vms.texi: gcc/ada/stamp-xgnatug
-gcc/ada/gnat_ug_vxw.texi: gcc/ada/stamp-xgnatug
-gcc/ada/gnat_ug_wnt.texi: gcc/ada/stamp-xgnatug
+gcc/ada/gnat_ug_unx.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+gcc/ada/gnat_ug_vms.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+gcc/ada/gnat_ug_vxw.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+gcc/ada/gnat_ug_wnt.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
 # testsuite
 # Without this, _Pragma3.c can have a false negative.
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
@@ -97,10 +86,9 @@ libf2c/libU77/configure: libf2c/libU77/configure.in
 libf2c/libU77/stamp-h.in: libf2c/libU77/configure.in libf2c/libU77/acconfig.h
 libobjc/configure: libobjc/configure.in
 # fastjar
-fastjar/aclocal.m4: fastjar/configure.in
-fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.in fastjar/aclocal.m4
-fastjar/configure: fastjar/configure.in fastjar/aclocal.m4
-fastjar/stamp-h.in: fastjar/configure.in fastjar/aclocal.m4
+fastjar/aclocal.m4: fastjar/configure.ac
+fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
+fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4
 boehm-gc/aclocal.m4: boehm-gc/configure.in boehm-gc/acinclude.m4
 boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.in boehm-gc/aclocal.m4
 boehm-gc/configure: boehm-gc/configure.in boehm-gc/aclocal.m4

@@ -1,6 +1,6 @@
 /* Perform various loop optimizations, including strength reduction.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-flags.h"
 #include "optabs.h"
 #include "cfgloop.h"
+#include "ggc.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -534,12 +535,18 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
       struct loop *loop = &loops->array[i];
 
       if (! loop->invalid && loop->end)
-	scan_loop (loop, flags);
+	{
+	  scan_loop (loop, flags);
+	  ggc_collect ();
+	}
     }
 
   end_alias_analysis ();
 
   /* Clean up.  */
+  for (i = 0; i < (int) loops->num; i++)
+    free (loops_info[i].mems);
+  
   free (uid_luid);
   free (uid_loop);
   free (loops_info);
@@ -1462,12 +1469,18 @@ force_movables (struct loop_movables *movables)
 	  m = 0;
 
 	/* Increase the priority of the moving the first insn
-	   since it permits the second to be moved as well.  */
+	   since it permits the second to be moved as well.
+	   Likewise for insns already forced by the first insn.  */
 	if (m != 0)
 	  {
+	    struct movable *m2;
+
 	    m->forces = m1;
-	    m1->lifetime += m->lifetime;
-	    m1->savings += m->savings;
+	    for (m2 = m1; m2; m2 = m2->forces)
+	      {
+		m2->lifetime += m->lifetime;
+		m2->savings += m->savings;
+	      }
 	  }
       }
 }
@@ -2640,7 +2653,7 @@ prescan_loop (struct loop *loop)
 		  loop_info->has_multiple_exit_targets = 1;
 		}
 	    }
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case INSN:
 	  if (volatile_refs_p (PATTERN (insn)))
@@ -6209,7 +6222,7 @@ update_giv_derive (const struct loop *loop, rtx p)
    *MULT_VAL to CONST0_RTX, and store the invariant into *INC_VAL.
 
    We also want to detect a BIV when it corresponds to a variable
-   whose mode was promoted via PROMOTED_MODE.  In that case, an increment
+   whose mode was promoted.  In that case, an increment
    of the variable may be a PLUS that adds a SUBREG of that variable to
    an invariant and then sign- or zero-extends the result of the PLUS
    into the variable.
@@ -8002,6 +8015,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
   struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
+  enum machine_mode mode;
   rtx jump_label;
   rtx final_value;
   rtx start_value;
@@ -8102,7 +8116,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	  && (INTVAL (bl->initial_value)
 	      % (-INTVAL (bl->biv->add_val))) == 0)
 	{
-	  /* register always nonnegative, add REG_NOTE to branch */
+	  /* Register always nonnegative, add REG_NOTE to branch.  */
 	  if (! find_reg_note (jump, REG_NONNEG, NULL_RTX))
 	    REG_NOTES (jump)
 	      = gen_rtx_EXPR_LIST (REG_NONNEG, bl->biv->dest_reg,
@@ -8422,6 +8436,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
+	      mode = GET_MODE (reg);
 	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
@@ -8433,12 +8448,12 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      if (initial_value == const0_rtx
 		  && GET_CODE (comparison_value) == CONST_INT)
 		{
-		  start_value = GEN_INT (comparison_val - add_adjust);
+		  start_value
+		    = gen_int_mode (comparison_val - add_adjust, mode);
 		  loop_insn_hoist (loop, gen_move_insn (reg, start_value));
 		}
 	      else if (GET_CODE (initial_value) == CONST_INT)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx offset = GEN_INT (-INTVAL (initial_value) - add_adjust);
 		  rtx add_insn = gen_add3_insn (reg, comparison_value, offset);
 
@@ -8454,7 +8469,6 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		}
 	      else if (! add_adjust)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx sub_insn = gen_sub3_insn (reg, comparison_value,
 						initial_value);
 
@@ -8512,7 +8526,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0,
+				       mode, 0,
 				       XEXP (jump_label, 0));
 	      tem = get_insns ();
 	      end_sequence ();
@@ -9558,6 +9572,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
   for (i = 0; i < loop_info->mems_idx; ++i)
     if (rtx_equal_p (m, loop_info->mems[i].mem))
       {
+	if (MEM_VOLATILE_P (m) && !MEM_VOLATILE_P (loop_info->mems[i].mem))
+	  loop_info->mems[i].mem = m;
 	if (GET_MODE (m) != GET_MODE (loop_info->mems[i].mem))
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just

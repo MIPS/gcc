@@ -1,6 +1,6 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,6 +35,7 @@
 #ifndef _MT_ALLOCATOR_H
 #define _MT_ALLOCATOR_H 1
 
+#include <bits/c++config.h>
 #include <new>
 #include <memory>
 #include <cstdlib>
@@ -122,7 +123,7 @@ namespace __gnu_cxx
 #ifdef __GTHREADS
       static __gthread_once_t _S_once_mt;
 #endif
-      static bool _S_initialized;
+      static bool volatile _S_initialized;
 
       /*
        * Using short int as type for the binmap implies we are never caching
@@ -151,7 +152,7 @@ namespace __gnu_cxx
        * memory we remove the first record in this list and stores the address
        * in a __gthread_key. When initializing the __gthread_key
        * we specify a destructor. When this destructor (i.e. the thread dies)
-       * is called, we return the thread id to the back of this list.
+       * is called, we return the thread id to the front of this list.
        */
 #ifdef __GTHREADS
       struct thread_record
@@ -159,7 +160,7 @@ namespace __gnu_cxx
         /*
          * Points to next free thread id record. NULL if last record in list.
          */
-        thread_record* next;
+        thread_record* volatile next;
 
         /*
          * Thread id ranging from 1 to _S_max_threads.
@@ -167,8 +168,7 @@ namespace __gnu_cxx
         size_t id;
       };
 
-      static thread_record* _S_thread_freelist_first;
-      static thread_record* _S_thread_freelist_last;
+      static thread_record* volatile _S_thread_freelist_first;
       static __gthread_mutex_t _S_thread_freelist_mutex;
       static void _S_thread_key_destr(void* freelist_pos);
       static __gthread_key_t _S_thread_key;
@@ -226,13 +226,13 @@ namespace __gnu_cxx
 
     public:
       pointer
-      allocate(size_t __n, std::allocator<void>::const_pointer __h = 0)
+      allocate(size_t __n, std::allocator<void>::const_pointer = 0)
       {
         /*
          * Requests larger than _S_max_bytes are handled by
          * new/delete directly
          */
-        if (__n > _S_max_bytes)
+        if (__n * sizeof(_Tp) > _S_max_bytes)
           {
             void* __ret = malloc(__n * sizeof(_Tp));
             if (!__ret)
@@ -263,7 +263,7 @@ namespace __gnu_cxx
         /*
          * Round up to power of 2 and figure out which bin to use
          */
-        size_t bin = _S_binmap[__n];
+        size_t bin = _S_binmap[__n * sizeof(_Tp)];
 
 #ifdef __GTHREADS
         size_t thread_id = _S_get_thread_id();
@@ -408,16 +408,16 @@ namespace __gnu_cxx
          * Requests larger than _S_max_bytes are handled by
          * malloc/free directly
          */
-        if (__n > _S_max_bytes)
+        if (__n * sizeof(_Tp) > _S_max_bytes)
           {
             free(__p);
             return;
-           }
+          }
 
         /*
          * Round up to power of 2 and figure out which bin to use
          */
-        size_t bin = _S_binmap[__n];
+        size_t bin = _S_binmap[__n * sizeof(_Tp)];
 
 #ifdef __GTHREADS
         size_t thread_id = _S_get_thread_id();
@@ -599,22 +599,15 @@ namespace __gnu_cxx
             }
 
           /*
-           * Set last record and pointer to this
+           * Set last record
            */
           _S_thread_freelist_first[i - 1].next = NULL;
           _S_thread_freelist_first[i - 1].id = i;
-          _S_thread_freelist_last = &_S_thread_freelist_first[i - 1];
 
           /*
            * Initialize per thread key to hold pointer to
-           * _S_thread_freelist NOTE! Here's an ugly workaround - if
-           * _S_thread_key_destr is not explicitly called at least
-           * once it won't be linked into the application. This is the
-           * behavior of template methods and __gthread_key_create()
-           * takes only a pointer to the function and does not cause
-           * the compiler to create an instance.
+           * _S_thread_freelist
            */
-          _S_thread_key_destr(NULL);
           __gthread_key_create(&_S_thread_key, _S_thread_key_destr);
         }
 #endif
@@ -647,7 +640,6 @@ namespace __gnu_cxx
 
           if (!_S_bin[bin].free)
             __throw_bad_alloc();
-
           _S_bin[bin].used = (size_t*) malloc(sizeof(size_t) * __n);
 
           if (!_S_bin[bin].used)
@@ -715,12 +707,11 @@ namespace __gnu_cxx
         }
 
       /*
-       * Return this thread id record to thread_freelist
+       * Return this thread id record to front of thread_freelist
        */
       __gthread_mutex_lock(&_S_thread_freelist_mutex);
-      _S_thread_freelist_last->next = (thread_record*)freelist_pos;
-      _S_thread_freelist_last = (thread_record*)freelist_pos;
-      _S_thread_freelist_last->next = NULL;
+      ((thread_record*)freelist_pos)->next = _S_thread_freelist_first;
+      _S_thread_freelist_first = (thread_record*)freelist_pos;
       __gthread_mutex_unlock(&_S_thread_freelist_mutex);
     }
 
@@ -737,7 +728,7 @@ namespace __gnu_cxx
        */
       if (__gthread_active_p())
         {
-          thread_record* freelist_pos;
+          thread_record* volatile freelist_pos;
 
           if ((freelist_pos =
               (thread_record*)__gthread_getspecific(_S_thread_key)) == NULL)
@@ -785,7 +776,7 @@ namespace __gnu_cxx
 #endif
 
   template<typename _Tp> bool
-  __mt_alloc<_Tp>::_S_initialized = false;
+  volatile __mt_alloc<_Tp>::_S_initialized = false;
 
   template<typename _Tp> typename __mt_alloc<_Tp>::binmap_type*
   __mt_alloc<_Tp>::_S_binmap = NULL;
@@ -836,10 +827,7 @@ namespace __gnu_cxx
    */
 #ifdef __GTHREADS
   template<typename _Tp> typename __mt_alloc<_Tp>::thread_record*
-  __mt_alloc<_Tp>::_S_thread_freelist_first = NULL;
-
-  template<typename _Tp> typename __mt_alloc<_Tp>::thread_record*
-  __mt_alloc<_Tp>::_S_thread_freelist_last = NULL;
+  volatile __mt_alloc<_Tp>::_S_thread_freelist_first = NULL;
 
   template<typename _Tp> __gthread_mutex_t
   __mt_alloc<_Tp>::_S_thread_freelist_mutex = __GTHREAD_MUTEX_INIT;

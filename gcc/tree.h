@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -259,6 +259,9 @@ struct tree_common GTY(())
 
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
+
+       TYPE_ALIGN_OK in
+	   ..._TYPE
 
    deprecated_flag:
 
@@ -798,6 +801,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -1349,12 +1353,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\
@@ -1628,13 +1627,6 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
   (! DECL_CONTEXT (EXP)						\
@@ -1824,6 +1816,10 @@ enum tree_index
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
 
+  TI_PUBLIC,
+  TI_PROTECTED,
+  TI_PRIVATE,
+
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
@@ -1909,9 +1905,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 /* Base access nodes.  */
-#define access_public_node		NULL_TREE
-#define access_protected_node		size_zero_node
-#define access_private_node		size_one_node
+#define access_public_node		global_trees[TI_PUBLIC]
+#define access_protected_node	        global_trees[TI_PROTECTED]
+#define access_private_node		global_trees[TI_PRIVATE]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 

@@ -1,5 +1,5 @@
 /* Definitions for Renesas M32R running Linux-based GNU systems using ELF.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -57,7 +57,7 @@
    When the -shared link option is used a final link is not being
    done.  */
 
-/* If ELF is the default format, we should not use /lib/elf.  */
+/* If ELF is the default format, we should not use /lib/elf. */
 
 #undef	LINK_SPEC
 #if TARGET_LITTLE_ENDIAN

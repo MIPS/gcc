@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -340,7 +340,7 @@ static void display_help (void);
 static void add_preprocessor_option (const char *, int);
 static void add_assembler_option (const char *, int);
 static void add_linker_option (const char *, int);
-static void process_command (int, const char *const *);
+static void process_command (int, const char **);
 static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
@@ -3074,7 +3074,7 @@ add_linker_option (const char *option, int len)
    Store its length in `n_switches'.  */
 
 static void
-process_command (int argc, const char *const *argv)
+process_command (int argc, const char **argv)
 {
   int i;
   const char *temp;
@@ -3312,10 +3312,10 @@ process_command (int argc, const char *const *argv)
     }
 
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, &argv);
+  translate_options (&argc, (const char *const **) &argv);
 
   /* Do language-specific adjustment/addition of flags.  */
-  lang_specific_driver (&argc, &argv, &added_libraries);
+  lang_specific_driver (&argc, (const char *const **) &argv, &added_libraries);
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
@@ -3347,8 +3347,8 @@ process_command (int argc, const char *const *argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"),
-		 stdout);
+	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 		 stdout);
@@ -5914,10 +5914,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char *const *);
+extern int main (int, const char **);
 
 int
-main (int argc, const char *const *argv)
+main (int argc, const char **argv)
 {
   size_t i;
   int value;

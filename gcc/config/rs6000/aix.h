@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -128,7 +128,7 @@
 #define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\
 %{p:-L/lib/profiled -L/usr/lib/profiled} %{!shared:%{g*:-lg}} -lc"
 
-/* This now supports a natural alignment mode. */
+/* This now supports a natural alignment mode.  */
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
@@ -139,14 +139,12 @@
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)				\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE						\
+    || TREE_CODE (STRUCT) == UNION_TYPE						\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)					\
+   && TARGET_ALIGN_NATURAL == 0							\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* The AIX ABI isn't explicit on whether aggregates smaller than a

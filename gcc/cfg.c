@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -334,7 +334,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
       if (flags == 0)
 	return NULL;
 
-      /* FALLTHRU */
+      /* Fall through.  */
     case 0:
       for (e = src->succ; e; e = e->succ_next)
 	if (e->dest == dst)
@@ -965,6 +965,10 @@ dump_bb (basic_block bb, FILE *outf)
   fprintf (outf, ";; Basic block %d, loop depth %d, count ",
 	   bb->index, bb->loop_depth);
   fprintf (outf, HOST_WIDEST_INT_PRINT_DEC, (HOST_WIDEST_INT) bb->count);
+  putc ('\n', outf);
+  fputs (";; Predecessors: ", outf);
+  for (e = bb->pred; e; e = e->pred_next)
+    dump_edge_info (outf, e, 0);
   putc ('\n', outf);
 
   cfg_hooks->dump_bb (bb, outf);

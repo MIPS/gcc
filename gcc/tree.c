@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1641,6 +1641,13 @@ unsafe_for_reeval (tree expr)
     case TARGET_EXPR:
       unsafeness = 1;
       break;
+
+    case EXIT_BLOCK_EXPR:
+      /* EXIT_BLOCK_LABELED_BLOCK, a.k.a. TREE_OPERAND (expr, 0), holds
+	 a reference to an ancestor LABELED_BLOCK, so we need to avoid
+	 unbounded recursion in the 'e' traversal code below.  */
+      exp = EXIT_BLOCK_RETURN (expr);
+      return exp ? unsafe_for_reeval (exp) : 0;
 
     default:
       tmp = (*lang_hooks.unsafe_for_reeval) (expr);
@@ -4123,10 +4130,10 @@ get_unwidened (tree op, tree for_type)
 	 The resulting extension to its nominal type (a fullword type)
 	 must fit the same conditions as for other extensions.  */
 
-      if (INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
+      if (type != 0
+	  && INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
-	  && (! uns || final_prec <= innerprec || unsignedp)
-	  && type != 0)
+	  && (! uns || final_prec <= innerprec || unsignedp))
 	{
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
 		       TREE_OPERAND (op, 1));
@@ -4849,6 +4856,10 @@ build_common_tree_nodes (int signed_char)
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+  
+  access_public_node = get_identifier ("public");
+  access_protected_node = get_identifier ("protected");
+  access_private_node = get_identifier ("private");
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.

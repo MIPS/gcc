@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
+#include "alloc-pool.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -94,6 +95,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
+#endif
+
+#ifndef HAVE_conditional_execution
+#define HAVE_conditional_execution 0
 #endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
@@ -276,9 +281,9 @@ enum dump_file_index
   DFI_postreload,
   DFI_flow2,
   DFI_peephole2,
+  DFI_ce3,
   DFI_rnreg,
   DFI_bbro,
-  DFI_ce3,
   DFI_branch_target_load,
   DFI_sched2,
   DFI_stack,
@@ -327,9 +332,9 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "postreload", 'o', 1, 0, 0 },
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
-  { "ce3",	'E', 1, 0, 0 },
   { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
@@ -835,11 +840,11 @@ int flag_schedule_speculative_load_dangerous = 0;
 
    flag_sched_stalled_insns means that insns can be moved prematurely from the queue
    of stalled insns into the ready list.
-  
+
    flag_sched_stalled_insns_dep controls how many insn groups will be examined
    for a dependency on a stalled insn that is candidate for premature removal
    from the queue of stalled insns into the ready list (has an effect only if
-   the flag 'sched_stalled_insns' is set).  */ 
+   the flag 'sched_stalled_insns' is set).  */
 
 int flag_sched_stalled_insns = 0;
 int flag_sched_stalled_insns_dep = 1;
@@ -993,6 +998,23 @@ int flag_evaluation_order = 0;
 
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    2: The version of the ABI first used in G++ 3.4.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+int flag_abi_version = 2;
 
 /* The user symbol prefix after having resolved same.  */
 const char *user_label_prefix;
@@ -1237,12 +1259,12 @@ randomize (void)
     {
       unsigned HOST_WIDE_INT value;
       static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
-      
+
       /* Get some more or less random data.  */
 #ifdef HAVE_GETTIMEOFDAY
       {
  	struct timeval tv;
- 	
+
  	gettimeofday (&tv, NULL);
 	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
@@ -1255,7 +1277,7 @@ randomize (void)
       }
 #endif
       value = local_tick ^ getpid ();
-      
+
       sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
       flag_random_seed = random_seed;
     }
@@ -1410,7 +1432,7 @@ output_file_directive (FILE *asm_file, const char *input_name)
 {
   int len;
   const char *na;
-  
+
   if (input_name == NULL)
     input_name = "<stdin>";
 
@@ -1425,16 +1447,12 @@ output_file_directive (FILE *asm_file, const char *input_name)
       na--;
     }
 
-#ifdef ASM_OUTPUT_MAIN_SOURCE_FILENAME
-  ASM_OUTPUT_MAIN_SOURCE_FILENAME (asm_file, na);
-#else
 #ifdef ASM_OUTPUT_SOURCE_FILENAME
   ASM_OUTPUT_SOURCE_FILENAME (asm_file, na);
 #else
   fprintf (asm_file, "\t.file\t");
   output_quoted_string (asm_file, na);
   fputc ('\n', asm_file);
-#endif
 #endif
 }
 
@@ -2104,7 +2122,7 @@ rest_of_handle_stack_regs (tree decl, rtx insns)
 #if defined (HAVE_ATTR_length)
   /* If flow2 creates new instructions which need splitting
      and scheduling after reload is not done, they might not be
-     splitten until final which doesn't allow splitting
+     split until final which doesn't allow splitting
      if HAVE_ATTR_length.  */
 #ifdef INSN_SCHEDULING
   if (optimize && !flag_schedule_insns_after_reload)
@@ -2298,12 +2316,14 @@ rest_of_handle_regrename (tree decl, rtx insns)
 static void
 rest_of_handle_reorder_blocks (tree decl, rtx insns)
 {
+  bool changed;
   open_dump_file (DFI_bbro, decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-	       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  changed = cleanup_cfg (CLEANUP_EXPENSIVE
+			 | (!HAVE_conditional_execution
+			    ? CLEANUP_UPDATE_LIFE : 0));
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     tracer ();
@@ -2311,8 +2331,16 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
     reorder_basic_blocks ();
   if (flag_reorder_blocks
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+    changed |= cleanup_cfg (CLEANUP_EXPENSIVE
+			    | (!HAVE_conditional_execution
+			       ? CLEANUP_UPDATE_LIFE : 0));
 
+  /* On conditional execution targets we can not update the life cheaply, so
+     we deffer the updating to after both cleanups.  This may lose some cases
+     but should not be terribly bad.  */
+  if (changed && HAVE_conditional_execution)
+    update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		      PROP_DEATH_NOTES | PROP_REG_INFO);
   close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
 }
 
@@ -2516,7 +2544,12 @@ rest_of_handle_cfg (tree decl, rtx insns)
      life_analysis rarely eliminates modification of external memory.
    */
   if (optimize)
-    mark_constant_function ();
+    {
+      /* Alias analysis depends on this information and mark_constant_function
+       depends on alias analysis.  */
+      reg_scan (insns, max_reg_num (), 1);
+      mark_constant_function ();
+    }
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 }
@@ -2677,7 +2710,13 @@ rest_of_handle_inlining (tree decl)
 
   if (inlinable
       || (DECL_INLINE (decl)
-	  && flag_inline_functions
+	  /* Egad.  This RTL deferral test conflicts with Fortran assumptions
+	     for unreferenced symbols.  See g77.f-torture/execute/980520-1.f.
+	     But removing this line from the check breaks all languages that
+	     use the call graph to output symbols.  This hard-coded check is
+	     the least invasive work-around.  */
+	  && (flag_inline_functions
+	      || strcmp (lang_hooks.name, "GNU F77") == 0)
 	  && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
 	       && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 	       && ! flag_keep_inline_functions)
@@ -2789,6 +2828,7 @@ rest_of_handle_life (tree decl, rtx insns)
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
+		 | CLEANUP_LOG_LINKS
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
@@ -2878,6 +2918,13 @@ rest_of_handle_cse2 (tree decl, rtx insns)
     dump_flow_info (rtl_dump_file);
   /* CFG is no longer maintained up-to-date.  */
   tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+
+  /* Run a pass to eliminate duplicated assignments to condition code
+     registers.  We have to run this after bypass_jumps, because it
+     makes it harder for that pass to determine whether a jump can be
+     bypassed safely.  */
+  cse_condition_code_reg ();
+
   purge_all_dead_edges (0);
   delete_trivially_dead_insns (insns, max_reg_num ());
 
@@ -3015,9 +3062,8 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
    sooner, but we want the profile feedback to work more
    efficiently.  */
 static void
-rest_of_handle_loop2 (tree decl ATTRIBUTE_UNUSED, rtx insns ATTRIBUTE_UNUSED)
+rest_of_handle_loop2 (tree decl, rtx insns)
 {
-#if 0
   struct loops *loops;
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
@@ -3049,7 +3095,6 @@ rest_of_handle_loop2 (tree decl ATTRIBUTE_UNUSED, rtx insns ATTRIBUTE_UNUSED)
   close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_LOOP);
   ggc_collect ();
-#endif
 }
 
 /* This is called from finish_function (within langhooks.parse_file)
@@ -3067,7 +3112,7 @@ rest_of_compilation (tree decl)
 
   /* Register rtl specific functions for cfg.  */
   rtl_register_cfg_hooks ();
-  
+
   /* Now that we're out of the frontend, we shouldn't have any more
      CONCATs anywhere.  */
   generating_concat_p = 0;
@@ -3387,6 +3432,10 @@ rest_of_compilation (tree decl)
     {
       timevar_push (TV_RELOAD_CSE_REGS);
       reload_cse_regs (insns);
+      /* reload_cse_regs can eliminate potentially-trapping MEMs.
+	 Remove any EH edges associated with them.  */
+      if (flag_non_call_exceptions)
+	purge_all_dead_edges (0);
       timevar_pop (TV_RELOAD_CSE_REGS);
     }
 
@@ -3429,7 +3478,7 @@ rest_of_compilation (tree decl)
 
   if (optimize)
     {
-      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      life_analysis (insns, rtl_dump_file, PROP_POSTRELOAD);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3463,6 +3512,23 @@ rest_of_compilation (tree decl)
     }
 #endif
 
+  open_dump_file (DFI_ce3, decl);
+  if (optimize)
+    /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+       splitting possibly introduced more crossjumping opportunities.  */
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | CLEANUP_UPDATE_LIFE 
+		 | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  if (flag_if_conversion2)
+    {
+      timevar_push (TV_IFCVT2);
+
+      if_convert (1);
+
+      timevar_pop (TV_IFCVT2);
+    }
+  close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
+
   if (optimize > 0)
     {
       if (flag_rename_registers || flag_cprop_registers)
@@ -3471,34 +3537,23 @@ rest_of_compilation (tree decl)
       rest_of_handle_reorder_blocks (decl, insns);
     }
 
-  if (flag_if_conversion2)
+  if (flag_branch_target_load_optimize2)
     {
-      timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce3, decl);
+      /* Leave this a warning for now so that it is possible to experiment
+	 with running this pass twice.  In 3.6, we should either make this
+	 an error, or use separate dump files.  */
+      if (flag_branch_target_load_optimize)
+	warning ("branch target register load optimization is not intended "
+		 "to be run twice");
 
-      if_convert (1);
+      open_dump_file (DFI_branch_target_load, decl);
 
-      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
-      timevar_pop (TV_IFCVT2);
+      branch_target_load_optimize (insns, true);
+
+      close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
-
-    if (flag_branch_target_load_optimize2)
-      {
-	/* Leave this a warning for now so that it is possible to experiment
-	   with running this pass twice.  In 3.6, we should either make this
-	   an error, or use separate dump files.  */
-	if (flag_branch_target_load_optimize)
-	  warning ("branch target register load optimization is not intended "
-		   "to be run twice");
-
-	open_dump_file (DFI_branch_target_load, decl);
-
-	branch_target_load_optimize (insns, true);
-
-	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, insns);
-
-	ggc_collect ();
-      }
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -3633,7 +3688,7 @@ rest_of_compilation (tree decl)
 }
 
 /* Display help for target options.  */
-void 
+void
 display_target_options (void)
 {
   int undoc, i;
@@ -4015,7 +4070,7 @@ default_get_pch_validity (size_t *len)
   size_t i;
 #endif
   char *result, *r;
-  
+
   *len = sizeof (target_flags) + 2;
 #ifdef TARGET_OPTIONS
   for (i = 0; i < ARRAY_SIZE (target_options); i++)
@@ -4032,7 +4087,7 @@ default_get_pch_validity (size_t *len)
   r += 2;
   memcpy (r, &target_flags, sizeof (target_flags));
   r += sizeof (target_flags);
-  
+
 #ifdef TARGET_OPTIONS
   for (i = 0; i < ARRAY_SIZE (target_options); i++)
     {
@@ -4057,7 +4112,7 @@ default_pch_valid_p (const void *data_p, size_t len)
   const char *data = (const char *)data_p;
   const char *flag_that_differs = NULL;
   size_t i;
-  
+
   /* -fpic and -fpie also usually make a PCH invalid.  */
   if (data[0] != flag_pic)
     return _("created and used with different settings of -fpic");
@@ -4088,7 +4143,7 @@ default_pch_valid_p (const void *data_p, size_t len)
     }
   data += sizeof (target_flags);
   len -= sizeof (target_flags);
-  
+
   /* Check string options.  */
 #ifdef TARGET_OPTIONS
   for (i = 0; i < ARRAY_SIZE (target_options); i++)
@@ -4109,7 +4164,7 @@ default_pch_valid_p (const void *data_p, size_t len)
 #endif
 
   return NULL;
-  
+
  make_message:
   {
     char *r;
@@ -4552,6 +4607,8 @@ finalize (void)
       stringpool_statistics ();
       dump_tree_statistics ();
       dump_rtx_statistics ();
+      dump_varray_statistics ();
+      dump_alloc_pool_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

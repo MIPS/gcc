@@ -1,6 +1,6 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -161,7 +161,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "function.h"
-#include "langhooks.h"
 #include "expr.h"
 #include "except.h"
 #include "ggc.h"
@@ -818,7 +817,7 @@ gcse_main (rtx f, FILE *file)
 	 partial redundancy elimination.  */
       free_gcse_mem ();
 
-      /* It does not make sense to run code hoisting unless we optimizing
+      /* It does not make sense to run code hoisting unless we are optimizing
 	 for code size -- it rarely makes programs faster, and can make
 	 them bigger if we did partial redundancy elimination (when optimizing
 	 for space, we use a classic gcse algorithm instead of partial
@@ -856,8 +855,7 @@ gcse_main (rtx f, FILE *file)
   if (file)
     {
       fprintf (file, "GCSE of %s: %d basic blocks, ",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       n_basic_blocks);
+	       current_function_name (), n_basic_blocks);
       fprintf (file, "%d pass%s, %d bytes\n\n",
 	       pass, pass > 1 ? "es" : "", max_pass_bytes);
     }
@@ -3383,8 +3381,11 @@ handle_avail_expr (rtx insn, struct expr *expr)
   if (insn_computes_expr == NULL)
     return 0;
   expr_set = single_set (insn_computes_expr);
+  /* The set might be in a parallel with multiple sets; we could
+     probably handle that, but there's currently no easy way to find
+     the relevant sub-expression.  */
   if (!expr_set)
-    abort ();
+    return 0;
 
   found_setting = 0;
   use_src = 0;
@@ -3616,8 +3617,7 @@ one_classic_gcse_pass (int pass)
     {
       fprintf (gcse_file, "\n");
       fprintf (gcse_file, "GCSE of %s, pass %d: %d bytes needed, %d substs,",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       pass, bytes_used, gcse_subst_count);
+	       current_function_name (), pass, bytes_used, gcse_subst_count);
       fprintf (gcse_file, "%d insns created\n", gcse_create_count);
     }
 
@@ -4689,8 +4689,7 @@ one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
   if (gcse_file)
     {
       fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       pass, bytes_used);
+	       current_function_name (), pass, bytes_used);
       fprintf (gcse_file, "%d const props, %d copy props\n\n",
 	       const_prop_count, copy_prop_count);
     }
@@ -4874,6 +4873,20 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else
 	    dest = NULL;
+
+	  /* Avoid unification of the edge with other edges from original
+	     branch.  We would end up emitting the instruction on "both"
+	     edges.  */
+	    
+	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
+	    {
+	      edge e2;
+	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+		if (e2->dest == dest)
+		  break;
+	      if (e2)
+		dest = NULL;
+	    }
 
 	  old_dest = e->dest;
 	  if (dest != NULL
@@ -5792,8 +5805,7 @@ one_pre_gcse_pass (int pass)
   if (gcse_file)
     {
       fprintf (gcse_file, "\nPRE GCSE of %s, pass %d: %d bytes needed, ",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       pass, bytes_used);
+	       current_function_name (), pass, bytes_used);
       fprintf (gcse_file, "%d substs, %d insns created\n",
 	       gcse_subst_count, gcse_create_count);
     }
@@ -5954,7 +5966,7 @@ delete_null_pointer_checks_1 (unsigned int *block_reg, sbitmap *nonnull_avin,
 
       /* Scan each insn in the basic block looking for memory references and
 	 register sets.  */
-      stop_insn = NEXT_INSN (BB_HEAD (current_block));
+      stop_insn = NEXT_INSN (BB_END (current_block));
       for (insn = BB_HEAD (current_block);
 	   insn != stop_insn;
 	   insn = NEXT_INSN (insn))
@@ -6056,8 +6068,10 @@ delete_null_pointer_checks_1 (unsigned int *block_reg, sbitmap *nonnull_avin,
 
       something_changed = 1;
       delete_insn (last_insn);
+#ifdef HAVE_cc0
       if (compare_and_branch == 2)
 	delete_insn (earliest);
+#endif
       purge_dead_edges (bb);
 
       /* Don't check this block again.  (Note that BB_END is
@@ -8022,8 +8036,7 @@ bypass_jumps (FILE *file)
   if (file)
     {
       fprintf (file, "BYPASS of %s: %d basic blocks, ",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       n_basic_blocks);
+	       current_function_name (), n_basic_blocks);
       fprintf (file, "%d bytes\n\n", bytes_used);
     }
 

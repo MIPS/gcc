@@ -20,9 +20,6 @@
 
 // 27.8.1.4 Overridden virtual functions
 
-// XXX cygwin does not support mkfifo
-// { dg-do run { xfail *-*-cygwin* } }
-
 #include <fstream>
 #include <unistd.h>
 #include <signal.h>
@@ -53,6 +50,7 @@ public:
 void test16()
 {
   using namespace std;
+  using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
 
   const char* name = "tmp_fifo1";
@@ -60,7 +58,7 @@ void test16()
   signal(SIGPIPE, SIG_IGN);
   unlink(name);
   
-  if (0 != mkfifo(name, S_IRWXU))
+  if (0 != try_mkfifo(name, S_IRWXU))
     {
       VERIFY( false );
     }
@@ -74,7 +72,8 @@ void test16()
   else if (fval == 0)
     {
       filebuf fbout;
-      fbout.open(name, ios_base::out);
+      fbout.open(name, ios_base::in|ios_base::out);
+      VERIFY ( fbout.is_open() );
       fbout.sputn("0123456789", 10);
       fbout.pubsync();
       sleep(2);

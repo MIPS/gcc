@@ -1,6 +1,6 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -634,6 +634,9 @@ extern void use_return_register (void);
 extern rtx get_arg_pointer_save_area (struct function *);
 
 extern void init_virtual_regs (struct emit_status *);
+
+/* Returns the name of the current function.  */
+extern const char *current_function_name (void);
 
 /* Called once, at initialization, to initialize function.c.  */
 extern void init_function_once (void);

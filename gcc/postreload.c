@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -388,6 +388,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
     {
       cselib_val *v;
       struct elt_loc_list *l;
+      rtx op;
+      enum machine_mode mode;
 
       CLEAR_HARD_REG_SET (equiv_regs[i]);
 
@@ -399,7 +401,61 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;
 
-      v = cselib_lookup (recog_data.operand[i], recog_data.operand_mode[i], 0);
+      op = recog_data.operand[i];
+      mode = GET_MODE (op);
+#ifdef LOAD_EXTEND_OP
+      if (GET_CODE (op) == MEM
+	  && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+	  && LOAD_EXTEND_OP (mode) != NIL)
+	{
+	  rtx set = single_set (insn);
+
+	  /* We might have multiple sets, some of which do implict
+	     extension.  Punt on this for now.  */
+	  if (! set)
+	    continue;
+	  /* If the destination is a also MEM or a STRICT_LOW_PART, no
+	     extension applies.
+	     Also, if there is an explicit extension, we don't have to
+	     worry about an implicit one.  */
+	  else if (GET_CODE (SET_DEST (set)) == MEM
+		   || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART
+		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
+		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
+	    ; /* Continue ordinary processing.  */
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	  /* If the register cannot change mode to word_mode, it follows that
+	     it cannot have been used in word_mode.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+						word_mode,
+						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
+	    ; /* Continue ordinary processing.  */
+#endif
+	  /* If this is a straight load, make the extension explicit.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && recog_data.n_operands == 2
+		   && SET_SRC (set) == op
+		   && SET_DEST (set) == recog_data.operand[1-i])
+	    {
+	      validate_change (insn, recog_data.operand_loc[i],
+			       gen_rtx_fmt_e (LOAD_EXTEND_OP (mode),
+					      word_mode, op),
+			       1);
+	      validate_change (insn, recog_data.operand_loc[1-i],
+			       gen_rtx_REG (word_mode, REGNO (SET_DEST (set))),
+			       1);
+	      if (! apply_change_group ())
+		return 0;
+	      return reload_cse_simplify_operands (insn, testreg);
+	    }
+	  else
+	    /* ??? There might be arithmetic operations with memory that are
+	       safe to optimize, but is it worth the trouble?  */
+	    continue;
+	}
+#endif /* LOAD_EXTEND_OP */
+      v = cselib_lookup (op, recog_data.operand_mode[i], 0);
       if (! v)
 	continue;
 

@@ -1,5 +1,5 @@
 /* Definitions of target machine for Mitsubishi D30V.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -1421,13 +1421,6 @@ typedef struct machine_function GTY(())
 
 #define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE)				\
 (d30v_expand_builtin_va_arg (VALIST, TYPE))
-
-/* Implement the stdarg/varargs va_end macro.
-   VALIST is the variable of type va_list as a tree.  */
-
-/* #define EXPAND_BUILTIN_VA_END(VALIST) */
-
-
 
 /* Trampolines for Nested Functions.  */
 

@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 (generic)
+   Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -86,7 +86,7 @@ extern const char * const *h8_reg_names;
 
 /* Print subsidiary information on the compiler version in use.  */
 
-#define TARGET_VERSION fprintf (stderr, " (Hitachi H8/300)");
+#define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -631,16 +631,6 @@ enum reg_class {
    On the H8, no registers are used in this way.  */
 
 #define FUNCTION_ARG_REGNO_P(N) (TARGET_QUICKCALL ? N < 3 : 0)
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-
-#define STRUCT_VALUE 0
-
-/* Return true if X should be returned in memory.  */
-#define RETURN_IN_MEMORY(X)					\
-  (TYPE_MODE (X) == BLKmode					\
-   || GET_MODE_SIZE (TYPE_MODE (X)) > (TARGET_H8300 ? 4 : 8))
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from

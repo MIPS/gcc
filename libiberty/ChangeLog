@@ -10,6 +10,135 @@
 	identifier.
 	(pwait): Expect a process HANDLE, not a process identifier.
 
+2004-02-25  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	Taken from mainline:
+
+	2004-02-24  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cp-demangle.h (enum d_builtin_type_print): Add D_PRINT_UNSIGNED,
+	D_PRINT_UNSIGNED_LONG, D_PRINT_LONG_LONG,
+	D_PRINT_UNSIGNED_LONG_LONG, D_PRINT_FLOAT.
+	* cp-demangle.c (cplus_demangle_builtin_types): Change char and
+	short types to D_PRINT_DEFAULT.  Change other integer types to use
+	new D_PRINT_* values where appropriate.  Change float types to
+	D_PRINT_FLOAT.
+	(d_print_comp) [LITERAL, LITERAL_NEG]: Handle new D_PRINT_*
+	values.
+	* testsuite/demangle-expected: Adjust two test cases.
+
+	* cp-demangle.c (d_print_function_type): Print a space before the
+	parenthesis around the function type in more cases.
+	* testsuite/demangle-expected: Adjust one test case.
+
+	* cp-demangle.c (d_print_comp) [UNARY]: Don't emit extra
+	parentheses around a cast.
+	* testsuite/demangle-expected: Adjust two test cases to match new
+	output.
+
+	* cp-demangle.c (__cxa_demangle): Pass DMGL_PARAMS to d_demangle.
+
+	* cp-demangle.c (d_print_comp) [RESTRICT, VOLATILE, CONST]: Don't
+	push more than one of the same CV-qualifier on the top of the
+	stack.
+	(d_print_comp) [ARRAY_TYPE]: If the array itself is CV-qualified,
+	move the CV-qualifiers to apply to the element type instead.
+	(d_print_array_type): When checking the modifiers, keep looking
+	past ones which have been printed already.
+	* testsuite/demangle-expected: Add three test cases.
+
+	2004-02-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cp-demangle.c (__cxa_demangle): Adjust last patch to handle
+	empty string correctly.
+
+	* cp-demangle.c (__cxa_demangle): It is not an error if status is
+	not NULL.  It is an error if the mangled name is the same as a
+	built-in type name.
+	(main): If IN_GLIBCPP_V3 is defined, test __cxa_demangle rather
+	than cplus_demangle_v3.
+
+2004-01-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* strdup.c (strdup): Constify the argument.
+
+2004-01-14  Loren J. Rittle  <ljrittle@acm.org>
+
+	* Makefile.in (distclean): Remove config.cache.
+
+2004-01-13  Daniel Jacobowitz  <drow@mvista.com>
+
+	* cp-demangle.c (d_make_comp): DEMANGLE_COMPONENT_CONSTRUCTION_VTABLE
+	takes two parameters.
+	* cp-demint.c (cplus_demangle_fill_component): Likewise.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cp-demangle.c: Include "cp-demangle.h".  If IN_GLIBCPP_V3 is
+	defined, rename some functions which are to become static via
+	#define.
+	(CP_STATIC_IF_GLIBCPP_V3): Define.
+	(struct d_operator_info): Move definition to cp-demangle.h, and
+	rename to demangle_operator_info.  Change all uses.
+	(enum d_builtin_type_print): Move definition to cp-demangle.h.
+	(struct d_builtin_type_info): Move definition to cp-demangle.h,
+	and rename to demangle_builtin_type_info.  Change all uses.
+	(enum d_comp_type): Move definition to include/demangle.h, and
+	rename to demangle_component_type, and change all enums to start
+	with DEMANGLE_COMPONENT_ instead of D_.  Change all uses.
+	(struct d_comp): Move definition to include/demangle.h, and rename
+	to demangle_component.  Change all uses.
+	(struct d_info): Move definition to cp-demangle.h.
+	(cplus_demangle_fill_name): New function.
+	(cplus_demangle_fill_extended_operator): New function.
+	(cplus_demangle_fill_ctor): New function.
+	(cplus_demangle_fill_dtor): New function.
+	(d_make_empty): Remove type parameter.  Change all callers.
+	(d_make_name): Use cplus_demangle_fill_name.
+	(d_make_extended_operator): Use
+	cplus_demangle_fill_extended_operator.
+	(d_make_ctor): Use cplus_demangle_fill_ctor.
+	(d_make_dtor): Use cplus_demangle_fill_dtor.
+	(cplus_demangle_mangled_name): Rename from d_mangled_name.  Make
+	non-static by default.  Change all callers.
+	(cplus_demangle_operators): Rename from d_operators.  Change all
+	uses.  Make non-static by default.  Add sentinel at end of array.
+	(d_operator_name): Adjust initialization of high for new sentinel
+	in cplus_demangle_operators.
+	(cplus_demangle_builtin_types): Rename from d_builtin_types.
+	Change all uses.  Make non-static by default.  Change initializer
+	to use D_BUILTIN_TYPE_COUNT instead of magic number 26.
+	(cplus_demangle_type): Rename from d_type.  Make non-static by
+	default.  Change all callers.
+	(cplus_demangle_init_info): Rename from d_init_info.  Make
+	non-static by default.  Change all callers.
+	* cp-demangle.h: New file.
+	* cp-demint.c: New file.
+	* Makefile.in: Rebuild dependencies.
+	(CFILES): Add cp-demint.c.
+	(REQUIRED_OFILES): Add cp-demint.o.
+
+2004-01-09  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in:  Rename file to ...
+	* configure.ac:  ... this.
+	* Makefile.in: Update a comment for above change.
+	* README: Likewise.
+	* config.in: Regenerate.
+
+2004-01-02  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* cp-demangle.c (d_encoding): When DMGL_PARAMS is not set, strip
+	CV-qualifiers from D_COMP_LOCAL_NAME right subtree.
+	* cplus-dem.c (demangle_arm_hp_template): Set DMGL_PARAMS when
+	demangling template parameters.
+	* testsuite/test-demangle.c (fail): New static function.
+	(main): Support new options in input file: --no-params,
+	--is-v3-ctor, and --is-v3-dtor.
+	* testsuite/demangle-expected: Add --no-params to most tests, and
+	add the correct result when parameters are not demangled.  Add
+	some simple tests for V3 constructor/destructor recognition.
+
 2003-12-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* cp-demangle.c (is_ctor_or_dtor): Fix error in last change.

@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -86,7 +86,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
    } while (0)
 #endif
 
-/* choose a reasonable default for ASM_OUTPUT_ASCII.  */
+/* Choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
@@ -677,12 +677,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef STACK_POINTER_OFFSET
 #define STACK_POINTER_OFFSET    0
-#endif
-
-/* How to print out a register name.  */
-#ifndef PRINT_REG
-#define PRINT_REG(RTX, CODE, FILE) \
-  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
 #endif
 
 #ifndef LOCAL_REGNO

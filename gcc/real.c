@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -1769,7 +1769,7 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
   else if (*str == '+')
     str++;
 
-  if (str[0] == '0' && str[1] == 'x')
+  if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
     {
       /* Hexadecimal floating point.  */
       int pos = SIGNIFICAND_BITS - 4, d;
@@ -3230,58 +3230,33 @@ static void
 encode_ibm_extended (const struct real_format *fmt, long *buf,
 		     const REAL_VALUE_TYPE *r)
 {
-  REAL_VALUE_TYPE u, v;
+  REAL_VALUE_TYPE u, normr, v;
   const struct real_format *base_fmt;
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
-  switch (r->class)
+  /* Renormlize R before doing any arithmetic on it.  */
+  normr = *r;
+  if (normr.class == rvc_normal)
+    normalize (&normr);
+
+  /* u = IEEE double precision portion of significand.  */
+  u = normr;
+  round_for_format (base_fmt, &u);
+  encode_ieee_double (base_fmt, &buf[0], &u);
+
+  if (u.class == rvc_normal)
     {
-    case rvc_zero:
-      /* Both doubles have sign bit set.  */
-      buf[0] = FLOAT_WORDS_BIG_ENDIAN ? r->sign << 31 : 0;
-      buf[1] = FLOAT_WORDS_BIG_ENDIAN ? 0 : r->sign << 31;
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      break;
-
-    case rvc_inf:
-    case rvc_nan:
-      /* Both doubles set to Inf / NaN.  */
-      encode_ieee_double (base_fmt, &buf[0], r);
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      return;
-
-    case rvc_normal:
-      /* u = IEEE double precision portion of significand.  */
-      u = *r;
-      clear_significand_below (&u, SIGNIFICAND_BITS - 53);
-
-      normalize (&u);
-      /* If the upper double is zero, we have a denormal double, so
-	 move it to the first double and leave the second as zero.  */
-      if (u.class == rvc_zero)
-	{
-	  v = u;
-	  u = *r;
-	  normalize (&u);
-	}
-      else
-	{
-	  /* v = remainder containing additional 53 bits of significand.  */
-	  do_add (&v, r, &u, 1);
-	  round_for_format (base_fmt, &v);
-	}
-
-      round_for_format (base_fmt, &u);
-
-      encode_ieee_double (base_fmt, &buf[0], &u);
+      do_add (&v, &normr, &u, 1);
+      round_for_format (base_fmt, &v);
       encode_ieee_double (base_fmt, &buf[2], &v);
-      break;
-
-    default:
-      abort ();
+    }
+  else
+    {
+      /* Inf, NaN, 0 are all representable as doubles, so the
+	 least-significant part can be 0.0.  */
+      buf[2] = 0;
+      buf[3] = 0;
     }
 }
 

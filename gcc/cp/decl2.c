@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -229,7 +229,7 @@ maybe_retrofit_in_chrg (tree fn)
 
   /* When processing templates we can't know, in general, whether or
      not we're going to have virtual baseclasses.  */
-  if (uses_template_parms (fn))
+  if (processing_template_decl)
     return;
 
   /* We don't need an in-charge parameter for constructors that don't
@@ -432,18 +432,14 @@ grok_array_decl (tree array_expr, tree index_exp)
 /* Given the cast expression EXP, checking out its validity.   Either return
    an error_mark_node if there was an unavoidable error, return a cast to
    void for trying to delete a pointer w/ the value 0, or return the
-   call to delete.  If DOING_VEC is 1, we handle things differently
-   for doing an array delete.  If DOING_VEC is 2, they gave us the
-   array size as an argument to delete.
+   call to delete.  If DOING_VEC is true, we handle things differently
+   for doing an array delete.
    Implements ARM $5.3.4.  This is called from the parser.  */
 
 tree
-delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
+delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
 {
   tree t, type;
-  /* For a regular vector delete (aka, no size argument) we will pass
-     this down as a NULL_TREE into build_vec_delete.  */
-  tree maxindex = NULL_TREE;
 
   if (exp == error_mark_node)
     return exp;
@@ -457,6 +453,12 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
     }
 
   exp = convert_from_reference (exp);
+
+  /* An array can't have been allocated by new, so complain.  */
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+    warning ("deleting array `%#D'", exp);
+
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
@@ -464,12 +466,6 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       error ("type `%#T' argument given to `delete', expected pointer",
 		TREE_TYPE (exp));
       return error_mark_node;
-    }
-
-  if (doing_vec == 2)
-    {
-      maxindex = cp_build_binary_op (MINUS_EXPR, size, integer_one_node);
-      pedwarn ("anachronistic use of array size in vector delete");
     }
 
   type = TREE_TYPE (t);
@@ -490,18 +486,13 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       doing_vec = 0;
     }
 
-  /* An array can't have been allocated by new, so complain.  */
-  if (TREE_CODE (t) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
-      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == ARRAY_TYPE)
-    warning ("deleting array `%#D'", TREE_OPERAND (t, 0));
-
   /* Deleting a pointer with the value zero is valid and has no effect.  */
   if (integer_zerop (t))
     return build1 (NOP_EXPR, void_type_node, t);
 
   if (doing_vec)
-    return build_vec_delete (t, maxindex, sfk_deleting_destructor,
+    return build_vec_delete (t, /*maxindex=*/NULL_TREE, 
+			     sfk_deleting_destructor,
 			     use_global_delete);
   else
     return build_delete (type, t, sfk_deleting_destructor,
@@ -661,9 +652,10 @@ check_classfn (tree ctype, tree function, bool template_header_p)
       tree methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
+      bool pop_p;
       const char *format = NULL;
       
-      push_scope (ctype);
+      pop_p = push_scope (ctype);
       for (fndecls = TREE_VEC_ELT (methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
@@ -699,7 +691,8 @@ check_classfn (tree ctype, tree function, bool template_header_p)
 		      == DECL_TI_TEMPLATE (fndecl))))
 	    break;
 	}
-      pop_scope (ctype);
+      if (pop_p)
+	pop_scope (ctype);
       if (fndecls)
 	return OVL_CURRENT (fndecls);
       error ("prototype for `%#D' does not match any in class `%T'",
@@ -1605,7 +1598,11 @@ maybe_emit_vtables (tree ctype)
 	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
-	store_init_value (vtbl, DECL_INITIAL (vtbl));
+	{
+	  /* It had better be all done at compile-time.  */
+	  if (store_init_value (vtbl, DECL_INITIAL (vtbl)))
+	    abort ();
+	}
 
       if (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG)
 	{
@@ -2576,6 +2573,7 @@ finish_file (void)
       /* If there are templates that we've put off instantiating, do
 	 them now.  */
       instantiate_pending_templates ();
+      ggc_collect ();
 
       /* Write out virtual tables as required.  Note that writing out
   	 the virtual table for a template class may cause the
@@ -3008,8 +3006,14 @@ mark_used (tree decl)
 
 	 However, if instantiating this function might help us mark
 	 the current function TREE_NOTHROW, we go ahead and
-	 instantiate it now.  */
+	 instantiate it now.  
+	 
+	 This is not needed for unit-at-a-time since we reorder the functions
+	 in topological order anyway.
+	 */
       defer = (!flag_exceptions
+	       || flag_unit_at_a_time
+	       || !optimize
 	       || TREE_CODE (decl) != FUNCTION_DECL
 	       /* If the called function can't throw, we don't need to
 		  generate its body to find that out.  */

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -579,44 +579,30 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 /* List the order in which to allocate registers.  Each register must be
-   listed once, even those in FIXED_REGISTERS.
+   listed once, even those in FIXED_REGISTERS.  */
 
-   We allocate in the following order:
-   $f10-$f15		(nonsaved floating-point register)
-   $f22-$f30		(likewise)
-   $f21-$f16		(likewise, but input args)
-   $f0			(nonsaved, but return value)
-   $f1			(nonsaved, but immediate before saved)
-   $f2-$f9		(saved floating-point registers)
-   $1-$8		(nonsaved integer registers)
-   $22-$25		(likewise)
-   $28			(likewise)
-   $0			(likewise, but return value)
-   $21-$16		(likewise, but input args)
-   $27			(procedure value in OSF, nonsaved in NT)
-   $9-$14		(saved integer registers)
-   $26			(return PC)
-   $15			(frame pointer)
-   $29			(global pointer)
-   $30, $31, $f31	(stack pointer and always zero/ap & fp)  */
-
-#define REG_ALLOC_ORDER		\
-  {42, 43, 44, 45, 46, 47,		\
-   54, 55, 56, 57, 58, 59, 60, 61, 62,	\
-   53, 52, 51, 50, 49, 48,		\
-   32, 33,				\
-   34, 35, 36, 37, 38, 39, 40, 41,	\
-   1, 2, 3, 4, 5, 6, 7, 8,		\
-   22, 23, 24, 25,			\
-   28,					\
-   0,					\
-   21, 20, 19, 18, 17, 16,		\
-   27,					\
-   9, 10, 11, 12, 13, 14,		\
-   26,					\
-   15,					\
-   29,					\
-   30, 31, 63 }
+#define REG_ALLOC_ORDER { \
+   1, 2, 3, 4, 5, 6, 7, 8,	/* nonsaved integer registers */	\
+   22, 23, 24, 25, 28,		/* likewise */				\
+   0,				/* likewise, but return value */	\
+   21, 20, 19, 18, 17, 16,	/* likewise, but input args */		\
+   27,				/* likewise, but OSF procedure value */	\
+									\
+   42, 43, 44, 45, 46, 47,	/* nonsaved floating-point registers */	\
+   54, 55, 56, 57, 58, 59,	/* likewise */				\
+   60, 61, 62,			/* likewise */				\
+   32, 33,			/* likewise, but return values */	\
+   53, 52, 51, 50, 49, 48,	/* likewise, but input args */		\
+									\
+   9, 10, 11, 12, 13, 14,	/* saved integer registers */		\
+   26,				/* return address */			\
+   15,				/* hard frame pointer */		\
+									\
+   34, 35, 36, 37, 38, 39,	/* saved floating-point registers */	\
+   40, 41,			/* likewise */				\
+									\
+   29, 30, 31, 63		/* gp, sp, ap, sfp */			\
+}
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -628,12 +614,11 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On Alpha, the integer registers can hold any mode.  The floating-point
-   registers can hold 32-bit and 64-bit integers as well, but not 16-bit
-   or 8-bit values.  */
+   registers can hold 64-bit integers as well, but not smaller values.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) 				\
   ((REGNO) >= 32 && (REGNO) <= 62 					\
-   ? GET_MODE_UNIT_SIZE (MODE) == 8 || GET_MODE_UNIT_SIZE (MODE) == 4	\
+   ? (MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode		\
    : 1)
 
 /* Value is 1 if MODE is a supported vector mode.  */
@@ -694,11 +679,6 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
    current_file functions.  Moreover, we do not expose the ldgp
    until after reload, so we're probably safe.  */
 /* #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED */
-
-/* Register in which address to store a structure value
-   arrives in the function.  On the Alpha, the address is passed
-   as a hidden argument.  */
-#define STRUCT_VALUE 0
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.

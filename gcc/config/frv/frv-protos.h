@@ -1,5 +1,5 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
 
-/* Define global data defined in frv.c */
+/* Define global data defined in frv.c.  */
 extern const char *frv_branch_cost_string;	/* -mbranch-cost option */
 extern int frv_branch_cost_int;			/* value of -mbranch_cost */
 

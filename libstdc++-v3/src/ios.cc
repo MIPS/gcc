@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -147,7 +147,7 @@ namespace std
 
   // 27.4.2.5  iword/pword storage
   ios_base::_Words&
-  ios_base::_M_grow_words(int ix)
+  ios_base::_M_grow_words(int ix, bool iword)
   {
     // Precondition: _M_word_size <= ix
     int newsize = _S_local_word_size;
@@ -163,8 +163,12 @@ namespace std
 	      {
 		_M_streambuf_state |= badbit;
 		if (_M_streambuf_state & _M_exception)
-		  __throw_ios_failure("ios_base::_M_grow_words "
-				      "allocation failed");
+		  __throw_ios_failure(__N("ios_base::_M_grow_words "
+				      "allocation failed"));
+		if (iword)
+		  _M_word_zero._M_iword = 0;
+		else
+		  _M_word_zero._M_pword = 0;
 		return _M_word_zero;
 	      }
 	    for (int i = 0; i < _M_word_size; i++) 
@@ -179,7 +183,11 @@ namespace std
 	  {
 	    _M_streambuf_state |= badbit;
 	    if (_M_streambuf_state & _M_exception)
-	      __throw_ios_failure("ios_base::_M_grow_words is not valid");
+	      __throw_ios_failure(__N("ios_base::_M_grow_words is not valid"));
+	    if (iword)
+	      _M_word_zero._M_iword = 0;
+	    else
+	      _M_word_zero._M_pword = 0;
 	    return _M_word_zero;
 	  }
       }

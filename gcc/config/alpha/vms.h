@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -51,9 +51,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (%s)", TARGET_NAME);           
 
-/* The structure return address arrives as an "argument" on VMS.  */
-#undef STRUCT_VALUE_REGNUM
-#define STRUCT_VALUE 0
 #undef PCC_STATIC_STRUCT_RETURN
 
 /* "long" is 32 bits, but 64 bits for Ada.  */

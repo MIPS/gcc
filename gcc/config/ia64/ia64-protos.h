@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for IA-64.
-   Copyright (C) 1999, 2000, 2002, 2003
+   Copyright (C) 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -80,7 +80,7 @@ extern int ia64_move_ok (rtx, rtx);
 extern int addp4_optimize_ok (rtx, rtx);
 extern void ia64_emit_cond_move (rtx, rtx, rtx);
 extern int ia64_depz_field_mask (rtx, rtx);
-extern rtx ia64_split_timode (rtx[], rtx, rtx);
+extern void ia64_split_tmode_move (rtx[]);
 extern rtx spill_xfmode_operand (rtx, int);
 extern rtx ia64_expand_compare (enum rtx_code, enum machine_mode);
 extern void ia64_expand_call (rtx, rtx, rtx, int);

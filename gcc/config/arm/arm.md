@@ -4792,8 +4792,8 @@
 )
 
 (define_insn "*thumb_movhi_insn"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=l,l, m,*r,*h,l")
-	(match_operand:HI 1 "general_operand"       "l,mn,l,*h,*r,I"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=l,l,m,*r,*h,l")
+	(match_operand:HI 1 "general_operand"       "l,m,l,*h,*r,I"))]
   "TARGET_THUMB
    && (   register_operand (operands[0], HImode)
        || register_operand (operands[1], HImode))"
@@ -4825,8 +4825,7 @@
       return \"ldrh	%0, %1\";
     }"
   [(set_attr "length" "2,4,2,2,2,2")
-   (set_attr "type" "*,load1,store1,*,*,*")
-   (set_attr "pool_range" "*,64,*,*,*,*")]
+   (set_attr "type" "*,load1,store1,*,*,*")]
 )
 
 

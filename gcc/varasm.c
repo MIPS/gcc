@@ -1,6 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -234,11 +234,7 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-#ifdef TEXT_SECTION
-      TEXT_SECTION ();
-#else
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-#endif
     }
 }
 
@@ -463,13 +459,7 @@ bss_section (void)
 {
   if (in_section != in_bss)
     {
-#ifdef SHARED_BSS_SECTION_ASM_OP
-      if (flag_shared_data)
-	fprintf (asm_out_file, "%s\n", SHARED_BSS_SECTION_ASM_OP);
-      else
-#endif
-	fprintf (asm_out_file, "%s\n", BSS_SECTION_ASM_OP);
-
+      fprintf (asm_out_file, "%s\n", BSS_SECTION_ASM_OP);
       in_section = in_bss;
     }
 }
@@ -2067,7 +2057,7 @@ struct rtx_const GTY(())
 
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
-   in `const_hash_table'.  */
+   in `const_desc_table'.  */
 
 struct constant_descriptor_tree GTY(())
 {
@@ -2114,9 +2104,18 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      if (flag_writable_strings)
+	{
+	  p = (char *) &exp;
+	  len = sizeof exp;
+	}
+      else
+	{
+	  p = TREE_STRING_POINTER (exp);
+	  len = TREE_STRING_LENGTH (exp);
+	}
       break;
+
     case COMPLEX_CST:
       return (const_hash_1 (TREE_REALPART (exp)) * 5
 	      + const_hash_1 (TREE_IMAGPART (exp)));
@@ -2231,7 +2230,7 @@ compare_constant (const tree t1, const tree t2)
 
     case STRING_CST:
       if (flag_writable_strings)
-	return 0;
+	return t1 == t2;
 
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
@@ -2435,7 +2434,10 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  desc->value = copy_constant (exp);
+  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
+    desc->value = exp;
+  else
+    desc->value = copy_constant (exp);
 
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
@@ -2476,7 +2478,7 @@ build_constant_desc (tree exp)
    If DEFER is nonzero, this constant can be deferred and output only
    if referenced in the function after all optimizations.
 
-   The const_hash_table records which constants already have label strings.  */
+   `const_desc_table' records which constants already have label strings.  */
 
 rtx
 output_constant_def (tree exp, int defer)
@@ -2704,7 +2706,7 @@ decode_rtx_const (enum machine_mode mode, rtx x, struct rtx_const *value)
 	      break;
 	    case rvc_normal:
 	      value->un.du.exp = r->exp;
-	      /* FALLTHRU */
+	      /* Fall through.  */
 	    case rvc_nan:
 	      memcpy (value->un.du.sig, r->sig, sizeof (r->sig));
 	      break;
@@ -2764,7 +2766,7 @@ decode_rtx_const (enum machine_mode mode, rtx x, struct rtx_const *value)
 	            break;
 	          case rvc_normal:
 	            d->exp = r->exp;
-	            /* FALLTHRU */
+	            /* Fall through.  */
 	          case rvc_nan:
 	            memcpy (d->sig, r->sig, sizeof (r->sig));
 	            break;
@@ -3132,7 +3134,7 @@ output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
 	      || GET_CODE (XEXP (XEXP (x, 0), 0)) != LABEL_REF)
 	    break;
 	  tmp = XEXP (XEXP (x, 0), 0);
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case LABEL_REF:
 	  tmp = XEXP (x, 0);
@@ -4411,14 +4413,26 @@ assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
 #endif
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
-  if (! DECL_WEAK (decl))
+  if (DECL_WEAK (decl))
+    {
+      tree *p, t;
+#ifdef ASM_WEAKEN_DECL
+      ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
+#else
+      ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
+#endif
+      /* Remove this function from the pending weak list so that
+	 we do not emit multiple .weak directives for it.  */
+      for (p = &weak_decls; (t = *p) ; )
+	if (DECL_ASSEMBLER_NAME (decl)
+	    == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
+	  *p = TREE_CHAIN (t);
+	else
+	  p = &TREE_CHAIN (t);
+    }
+  else
     warning ("only weak aliases are supported in this configuration");
 
-#ifdef ASM_WEAKEN_DECL
-  ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
-#else
-  ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
-#endif
 #else
   warning ("alias definitions not supported in this configuration; ignored");
 #endif

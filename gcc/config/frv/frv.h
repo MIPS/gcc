@@ -1,5 +1,6 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
    This file is part of GCC.
@@ -538,7 +539,7 @@ extern int target_flags;
 /* Define this macro if debugging can be performed even without a frame
    pointer.  If this macro is defined, GCC will turn on the
    `-fomit-frame-pointer' option whenever `-O' is specified.  */
-/* Frv needs a specific frame layout that includes the frame pointer */
+/* Frv needs a specific frame layout that includes the frame pointer.  */
 
 #define CAN_DEBUG_WITHOUT_FP
 
@@ -2423,7 +2424,7 @@ __asm__("\n"								\
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
 
 /* On frv, don't consider floating point comparisons to be reversible.  In
-   theory, fp equality comparisons can be reversible */
+   theory, fp equality comparisons can be reversible.  */
 #define REVERSIBLE_CC_MODE(MODE) ((MODE) == CCmode || (MODE) == CC_UNSmode)
 
 /* Frv CCR_MODE's are not reversible.  */

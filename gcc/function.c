@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5221,14 +5221,28 @@ assign_parms (tree fndecl)
 	{
 	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
 	    {
-	      SET_DECL_RTL (parm,
-			    gen_rtx_CONCAT (DECL_MODE (parm),
-					    DECL_RTL (fnargs),
-					    DECL_RTL (TREE_CHAIN (fnargs))));
-	      DECL_INCOMING_RTL (parm)
-		= gen_rtx_CONCAT (DECL_MODE (parm),
-				  DECL_INCOMING_RTL (fnargs),
-				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      rtx tmp, real, imag;
+	      enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
+
+	      real = DECL_RTL (fnargs);
+	      imag = DECL_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      SET_DECL_RTL (parm, tmp);
+
+	      real = DECL_INCOMING_RTL (fnargs);
+	      imag = DECL_INCOMING_RTL (TREE_CHAIN (fnargs));
+	      if (inner != GET_MODE (real))
+		{
+		  real = gen_lowpart_SUBREG (inner, real);
+		  imag = gen_lowpart_SUBREG (inner, imag);
+		}
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+	      DECL_INCOMING_RTL (parm) = tmp;
 	      fnargs = TREE_CHAIN (fnargs);
 	    }
 	  else
@@ -6394,9 +6408,6 @@ allocate_struct_function (tree fndecl)
 
   init_stmt_for_function ();
   init_eh_for_function ();
-  init_emit ();
-  init_expr ();
-  init_varasm_status (cfun);
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
@@ -6434,6 +6445,9 @@ prepare_function_start (tree fndecl)
     cfun = DECL_SAVED_INSNS (fndecl);
   else
     allocate_struct_function (fndecl);
+  init_emit ();
+  init_varasm_status (cfun);
+  init_expr ();
 
   cse_not_expected = ! optimize;
 
@@ -7254,7 +7268,7 @@ record_insns (rtx insns, varray_type *vecp)
     }
 }
 
-/* Set the specified locator to the insn chain.  */
+/* Set the locator of the insn chain starting at INSN to LOC.  */
 static void
 set_insn_locators (rtx insn, int loc)
 {
@@ -7895,6 +7909,7 @@ epilogue_done:
 #endif
 
 #ifdef HAVE_prologue
+  /* This is probably all useless now that we use locators.  */
   if (prologue_end)
     {
       rtx insn, prev;
@@ -8066,6 +8081,13 @@ init_function_once (void)
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
+}
+
+/* Returns the name of the current function.  */
+const char *
+current_function_name (void)
+{
+  return (*lang_hooks.decl_printable_name) (cfun->decl, 2);
 }
 
 #include "gt-function.h"

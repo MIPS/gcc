@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -985,7 +985,8 @@ build_exception_variant (tree type, tree raises)
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
     if (TYPE_QUALS (v) == type_quals
-        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
+        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1)
+	&& (*targetm.comp_type_attributes) (type, v))
       return v;
 
   /* Need to build a new variant.  */
@@ -1956,6 +1957,23 @@ make_ptrmem_cst (tree type, tree member)
   return ptrmem_cst;
 }
 
+/* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
+   return an existing type of an appropriate type already exists.  */
+
+tree
+cp_build_type_attribute_variant (tree type, tree attributes)
+{
+  tree new_type;
+
+  new_type = build_type_attribute_variant (type, attributes);
+  if (TREE_CODE (new_type) == FUNCTION_TYPE
+      && (TYPE_RAISES_EXCEPTIONS (new_type) 
+	  != TYPE_RAISES_EXCEPTIONS (type)))
+    new_type = build_exception_variant (new_type,
+					TYPE_RAISES_EXCEPTIONS (type));
+  return new_type;
+}
+
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
    traversal.  Called from walk_tree().  */
 
@@ -2411,7 +2429,7 @@ stabilize_expr (tree exp, tree* initp)
 
   if (!TREE_SIDE_EFFECTS (exp))
     {
-      init_expr = void_zero_node;
+      init_expr = NULL_TREE;
     }
   else if (!real_lvalue_p (exp)
 	   || !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (exp)))
@@ -2430,6 +2448,73 @@ stabilize_expr (tree exp, tree* initp)
   *initp = init_expr;
   return exp;
 }
+
+/* Like stabilize_expr, but for a call whose args we want to
+   pre-evaluate.  */
+
+void
+stabilize_call (tree call, tree *initp)
+{
+  tree inits = NULL_TREE;
+  tree t;
+
+  if (call == error_mark_node)
+    return;
+
+  if (TREE_CODE (call) != CALL_EXPR
+      && TREE_CODE (call) != AGGR_INIT_EXPR)
+    abort ();
+
+  for (t = TREE_OPERAND (call, 1); t; t = TREE_CHAIN (t))
+    if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
+      {
+	tree init;
+	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
+	if (!init)
+	  /* Nothing.  */;
+	else if (inits)
+	  inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	else
+	  inits = init;
+      }
+
+  *initp = inits;
+}
+
+/* Like stabilize_expr, but for an initialization.  If we are initializing
+   an object of class type, we don't want to introduce an extra temporary,
+   so we look past the TARGET_EXPR and stabilize the arguments of the call
+   instead.  */
+
+void
+stabilize_init (tree init, tree *initp)
+{
+  tree t = init;
+
+  if (t == error_mark_node)
+    return;
+
+  if (TREE_CODE (t) == INIT_EXPR
+      && TREE_CODE (TREE_OPERAND (t, 1)) != TARGET_EXPR)
+    TREE_OPERAND (t, 1) = stabilize_expr (TREE_OPERAND (t, 1), initp);
+  else
+    {
+      if (TREE_CODE (t) == INIT_EXPR)
+	t = TREE_OPERAND (t, 1);
+      if (TREE_CODE (t) == TARGET_EXPR)
+	t = TARGET_EXPR_INITIAL (t);
+      if (TREE_CODE (t) == CONSTRUCTOR
+	  && CONSTRUCTOR_ELTS (t) == NULL_TREE)
+	{
+	  /* Default-initialization.  */
+	  *initp = NULL_TREE;
+	  return;
+	}
+
+      stabilize_call (t, initp);
+    }
+}
+
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 /* Complain that some language-specific thing hanging off a tree

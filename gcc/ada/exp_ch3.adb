@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1527,7 +1527,7 @@ package body Exp_Ch3 is
          --  aggregate that will be expanded inline
 
          if Kind = N_Qualified_Expression then
-            Kind := Nkind (Parent (N));
+            Kind := Nkind (Expression (N));
          end if;
 
          if Controlled_Type (Typ)
@@ -1937,7 +1937,8 @@ package body Exp_Ch3 is
          Decl := First_Non_Pragma (Component_Items (Comp_List));
          while Present (Decl) loop
             Loc := Sloc (Decl);
-            Build_Record_Checks (Subtype_Indication (Decl), Check_List);
+            Build_Record_Checks
+              (Subtype_Indication (Component_Definition (Decl)), Check_List);
 
             Id := Defining_Identifier (Decl);
             Typ := Etype (Id);
@@ -2725,7 +2726,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier => Parent_N,
-          Subtype_Indication  => New_Reference_To (Par_Subtype, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Par_Subtype, Loc)));
 
       if Null_Present (Rec_Ext_Part) then
          Set_Component_List (Rec_Ext_Part,
@@ -2882,7 +2886,7 @@ package body Exp_Ch3 is
 
    begin
       --  Don't do anything for deferred constants. All proper actions will
-      --  be expanded during the redeclaration.
+      --  be expanded during the full declaration.
 
       if No (Expr) and Constant_Present (N) then
          return;
@@ -3018,7 +3022,7 @@ package body Exp_Ch3 is
          --  When we have the appropriate type of aggregate in the
          --  expression (it has been determined during analysis of the
          --  aggregate by setting the delay flag), let's perform in
-         --  place assignment and thus avoid creating a temporay.
+         --  place assignment and thus avoid creating a temporary.
 
          if Is_Delayed_Aggregate (Expr_Q) then
             Convert_Aggr_In_Object_Decl (N);
@@ -3302,7 +3306,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier =>  Ent,
-          Subtype_Indication  => New_Reference_To (Controller_Type, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Controller_Type, Loc)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3393,8 +3400,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Sloc_N,
           Defining_Identifier => Tag_Component (T),
-          Subtype_Indication  =>
-            New_Reference_To (RTE (RE_Tag), Sloc_N));
+          Component_Definition =>
+            Make_Component_Definition (Sloc_N,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (RTE (RE_Tag), Sloc_N)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3410,7 +3419,7 @@ package body Exp_Ch3 is
       --  already been analyzed previously. Here we just insure that the
       --  tree is coherent with the semantic decoration
 
-      Find_Type (Subtype_Indication (Comp_Decl));
+      Find_Type (Subtype_Indication (Component_Definition (Comp_Decl)));
 
    exception
       when RE_Not_Available =>
@@ -3579,7 +3588,10 @@ package body Exp_Ch3 is
                           High_Bound =>
                             Make_Integer_Literal (Loc, Num - 1))))),
 
-              Subtype_Indication => New_Reference_To (Typ, Loc)),
+              Component_Definition =>
+                Make_Component_Definition (Loc,
+                  Aliased_Present => False,
+                  Subtype_Indication => New_Reference_To (Typ, Loc))),
 
           Expression =>
             Make_Aggregate (Loc,

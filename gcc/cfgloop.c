@@ -1,5 +1,5 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -883,8 +883,6 @@ flow_loops_find (struct loops *loops, int flags)
 	  loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
 	}
 
-      sbitmap_free (headers);
-
       /* Assign the loop nesting depth and enclosed loop level for each
 	 loop.  */
       loops->levels = flow_loops_level_compute (loops);
@@ -899,6 +897,8 @@ flow_loops_find (struct loops *loops, int flags)
     {
       free_dominance_info (CDI_DOMINATORS);
     }
+
+  sbitmap_free (headers);
 
   loops->state = 0;
 #ifdef ENABLE_CHECKING

@@ -1,7 +1,7 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -488,6 +488,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       t = nreverse (t);
       t = build_call (alias, t);
       CALL_FROM_THUNK_P (t) = 1;
+      t = force_target_expr (TREE_TYPE (t), t);
       if (!this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/0,
 			  fixed_offset, virtual_offset);

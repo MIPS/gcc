@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -332,6 +332,9 @@ struct cpp_options
   /* Holds the name of the target wide character set.  */
   const char *wide_charset;
 
+  /* Holds the name of the input character set.  */
+  const char *input_charset;
+
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
 
@@ -370,11 +373,6 @@ struct cpp_options
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
-
-  /* Nonzero means output a directory line marker right after the
-     initial file name line marker, and before a duplicate initial
-     line marker.  */
-  bool working_directory;
 };
 
 /* Call backs to cpplib client.  */
@@ -417,7 +415,7 @@ struct cpp_dir
   /* Mapping of file names for this directory for MS-DOS and related
      platforms.  A NULL-terminated array of (from, to) pairs.  */
   const char **name_map;
-    
+
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
   ino_t ino;
@@ -481,7 +479,7 @@ struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
-  unsigned int directive_index : 7;	/* If is_directive, 
+  unsigned int directive_index : 7;	/* If is_directive,
 					   then index into directive table.
 					   Otherwise, a NODE_OPERATOR.  */
   unsigned char rid_code;		/* Rid code - for front ends.  */
@@ -528,18 +526,16 @@ extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options (cpp_reader *);
-extern const struct line_maps *cpp_get_line_maps (cpp_reader *);
+extern struct line_maps *cpp_get_line_maps (cpp_reader *);
 extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
 
-/* This function finds the main file, but does not start reading it.
-   Returns true iff the file was found.  */
-extern bool cpp_find_main_file (cpp_reader *, const char *);
-
-/* This function reads the file, but does not start preprocessing.
-   This will generate at least one file change callback, and possibly
-   a line change callback.  */
-extern void cpp_push_main_file (cpp_reader *);
+/* This function reads the file, but does not start preprocessing.  It
+   returns the name of the original file; this is the same as the
+   input file, except for preprocessed input.  This will generate at
+   least one file change callback, and possibly a line change callback
+   too.  If there was an error opening the file, it returns NULL. */
+extern const char *cpp_read_main_file (cpp_reader *, const char *);
 
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);

@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
 
-extern int mips_reg_mode_ok_for_base_p (rtx, enum machine_mode, int);
+extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, int);
 extern int mips_address_insns (rtx, enum machine_mode);
 extern int mips_const_insns (rtx);
 extern int mips_fetch_insns (rtx);
@@ -103,11 +103,14 @@ extern void irix_output_external_libcall (rtx);
 #endif
 extern void mips_output_filename (FILE *, const char *);
 extern void mips_output_lineno (FILE *, int);
-extern void mips_output_ascii (FILE *, const char *, size_t);
+extern void mips_output_ascii (FILE *, const char *, size_t, const char *);
 extern void mips_output_aligned_bss (FILE *, tree, const char *,
 				     unsigned HOST_WIDE_INT, int);
+extern void mips_output_aligned_decl_common (FILE *, tree, const char *,
+					     unsigned HOST_WIDE_INT,
+					     unsigned int);
 extern void mips_declare_object (FILE *, const char *, const char *,
-				 const char *, int);
+				 const char *, ...);
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
 
@@ -124,6 +127,8 @@ extern int function_arg_pass_by_reference (const CUMULATIVE_ARGS *,
 
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
+extern bool mips_dangerous_for_la25_p (rtx);
+extern enum reg_class mips_preferred_reload_class (rtx, enum reg_class);
 extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, int);

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -474,12 +474,13 @@ comptypes (tree type1, tree type2, int flags)
       && TYPE_DOMAIN (t2) != 0)
     t2 = TYPE_DOMAIN (t2);
 
-  /* Treat an enum type as the integer type of the same width and
-     signedness.  */
+  /* Enumerated types are compatible with integer types, but this is
+     not transitive: two enumerated types in the same translation unit
+     are compatible with each other only if they are the same type.  */
 
-  if (TREE_CODE (t1) == ENUMERAL_TYPE)
+  if (TREE_CODE (t1) == ENUMERAL_TYPE && TREE_CODE (t2) != ENUMERAL_TYPE)
     t1 = c_common_type_for_size (TYPE_PRECISION (t1), TREE_UNSIGNED (t1));
-  if (TREE_CODE (t2) == ENUMERAL_TYPE)
+  else if (TREE_CODE (t2) == ENUMERAL_TYPE && TREE_CODE (t1) != ENUMERAL_TYPE)
     t2 = c_common_type_for_size (TYPE_PRECISION (t2), TREE_UNSIGNED (t2));
 
   if (t1 == t2)
@@ -1709,6 +1710,10 @@ build_function_call (tree function, tree params)
 	 executions of the program must execute the code.  */
       warning ("function called through a non-compatible type");
 
+      /* We can, however, treat "undefined" any way we please.
+	 Call abort to encourage the user to fix the program.  */
+      inform ("if this code is reached, the program will abort");
+
       if (VOID_TYPE_P (return_type))
 	return trap;
       else
@@ -2419,10 +2424,10 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
 	/* Report a read-only lvalue.  */
 	if (TREE_READONLY (arg))
-	  readonly_warning (arg,
-			    ((code == PREINCREMENT_EXPR
-			      || code == POSTINCREMENT_EXPR)
-			     ? "increment" : "decrement"));
+	  readonly_error (arg,
+			  ((code == PREINCREMENT_EXPR
+			    || code == POSTINCREMENT_EXPR)
+			   ? "increment" : "decrement"));
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -2644,21 +2649,21 @@ pedantic_lvalue_warning (enum tree_code code)
 /* Warn about storing in something that is `const'.  */
 
 void
-readonly_warning (tree arg, const char *msgid)
+readonly_error (tree arg, const char *msgid)
 {
   if (TREE_CODE (arg) == COMPONENT_REF)
     {
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
-	readonly_warning (TREE_OPERAND (arg, 0), msgid);
+	readonly_error (TREE_OPERAND (arg, 0), msgid);
       else
-	pedwarn ("%s of read-only member `%s'", _(msgid),
-		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
+	error ("%s of read-only member `%s'", _(msgid),
+	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    pedwarn ("%s of read-only variable `%s'", _(msgid),
-	     IDENTIFIER_POINTER (DECL_NAME (arg)));
+    error ("%s of read-only variable `%s'", _(msgid),
+	   IDENTIFIER_POINTER (DECL_NAME (arg)));
   else
-    pedwarn ("%s of read-only location", _(msgid));
+    error ("%s of read-only location", _(msgid));
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -3124,6 +3129,25 @@ build_c_cast (tree type, tree expr)
 	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
 	}
 
+      /* If pedantic, warn for conversions between function and object
+	 pointer types, except for converting a null pointer constant
+	 to function pointer type.  */
+      if (pedantic
+	  && TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (TREE_TYPE (otype)) == FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (type)) != FUNCTION_TYPE)
+	pedwarn ("ISO C forbids conversion of function pointer to object pointer type");
+
+      if (pedantic
+	  && TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
+	  && !(integer_zerop (value) && TREE_TYPE (otype) == void_type_node
+	       && TREE_CODE (expr) != NOP_EXPR))
+	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
+
       ovalue = value;
       /* Replace a nonvolatile const static variable with its value.  */
       if (optimize && TREE_CODE (value) == VAR_DECL)
@@ -3289,7 +3313,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       || ((TREE_CODE (lhstype) == RECORD_TYPE
 	   || TREE_CODE (lhstype) == UNION_TYPE)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
-    readonly_warning (lhs, "assignment");
+    readonly_error (lhs, "assignment");
 
   /* If storing into a structure or union member,
      it has probably been given type `int'.
@@ -4087,9 +4111,12 @@ digest_init (tree type, tree init, int require_constant)
 	  || (code == VECTOR_TYPE
 	      && comptypes (TREE_TYPE (inside_init), type, COMPARE_STRICT))
 	  || (code == POINTER_TYPE
-	      && (TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE
-		  || TREE_CODE (TREE_TYPE (inside_init)) == FUNCTION_TYPE)
+	      && TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE
 	      && comptypes (TREE_TYPE (TREE_TYPE (inside_init)),
+			    TREE_TYPE (type), COMPARE_STRICT))
+	  || (code == POINTER_TYPE
+	      && TREE_CODE (TREE_TYPE (inside_init)) == FUNCTION_TYPE
+	      && comptypes (TREE_TYPE (inside_init),
 			    TREE_TYPE (type), COMPARE_STRICT))))
     {
       if (code == POINTER_TYPE)
@@ -4450,6 +4477,8 @@ finish_init (void)
     abort ();
 
   /* Pop back to the data of the outer initializer (if any).  */
+  free (spelling_base);
+  
   constructor_decl = p->decl;
   constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
@@ -6308,7 +6337,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs,
 	      || ((TREE_CODE (type) == RECORD_TYPE
 		   || TREE_CODE (type) == UNION_TYPE)
 		  && C_TYPE_FIELDS_READONLY (type)))
-	    readonly_warning (o[i], "modification by `asm'");
+	    readonly_error (o[i], "modification by `asm'");
 	}
     }
 

@@ -330,7 +330,7 @@ AC_SUBST(warn_cflags)
 # Change the default to "no" on release branches.
 AC_ARG_ENABLE(werror, 
 [  --enable-werror         enable -Werror in bootstrap stage2 and later], [],
-[enable_werror=yes])
+[enable_werror=no])
 if test x$enable_werror = xyes ; then
   WERROR=-Werror
 fi
@@ -342,7 +342,7 @@ AC_ARG_ENABLE(checking,
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
 			  Categories are: misc,tree,rtl,rtlflag,gc,gcac,fold;
-			  default is misc,tree,gc,rtlflag],
+			  default is no checking],
 [ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
@@ -374,8 +374,8 @@ no)	;;
 	;;
 esac
 ], 
-# Enable some checks by default for development versions of GCC
-[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;])
+# By default, disable all checks for release versions of GCC.
+[ac_checking=; ac_tree_checking=; ac_gc_checking=; ac_rtlflag_checking=;])
 nocommon_flag=""
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
@@ -1118,10 +1118,6 @@ if test "$host_xm_file" != "$build_xm_file"; then
 	fi
 fi
 
-# ---------
-# Threading
-# ---------
-
 # Check if a valid thread package
 case ${enable_threads_flag} in
   "" | no)
@@ -1147,19 +1143,6 @@ if test x${thread_file} = x; then
   # so use file chosen by default logic above
   thread_file=${target_thread_file}
 fi
-
-# Make gthr-default.h if we have a thread file.
-gthread_flags=
-if test $thread_file != single; then
-  rm -f gthr-default.h
-  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
-  gthread_flags=-DHAVE_GTHR_DEFAULT
-fi
-AC_SUBST(gthread_flags)
-
-# --------
-# UNSORTED
-# --------
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
@@ -1206,7 +1189,6 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
-		--enable-languages=${enable_languages} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -1577,10 +1559,6 @@ case $use_collect2 in
     ;;
 esac
 
-# ---------------------------
-# Assembler & linker features
-# ---------------------------
-
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
 # which will be driven by the driver program.
@@ -1645,7 +1623,7 @@ if test "x$gcc_cv_as" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$host_exeext
 	else
-		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
 	fi
 
 	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
@@ -1701,9 +1679,7 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD_FOR_TARGET"; then
-        gcc_cv_ld="$LD_FOR_TARGET"
-elif test -x "$LD" && test x$host = x$target; then
+elif test -x "$LD"; then
 	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
@@ -1763,7 +1739,7 @@ if test "x$gcc_cv_ld" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$host_exeext
 	else
-		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
 	fi
 
 	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
@@ -1819,7 +1795,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
-	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
+	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
 fi
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1843,7 +1819,7 @@ elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$host_exeext
+		sed ${program_transform_name}`$host_exeext
 fi
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
@@ -2643,10 +2619,6 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
-# --------
-# UNSORTED
-# --------
-
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
@@ -2778,12 +2750,21 @@ The following requested languages were not found:${missing_languages}
 The following languages were available: c${found_languages}])
 fi
 
+# Make gthr-default.h if we have a thread file.
+gthread_flags=
+if test $thread_file != single; then
+    rm -f gthr-default.h
+    echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+    gthread_flags=-DHAVE_GTHR_DEFAULT
+fi
+AC_SUBST(gthread_flags)
+
 # Find out what GC implementation we want, or may, use.
 AC_ARG_WITH(gc,
-[  --with-gc={page,zone}   choose the garbage collection mechanism to use
+[  --with-gc={simple,page,zone} choose the garbage collection mechanism to use
                           with the compiler],
 [case "$withval" in
-  page | zone)
+  simple | page | zone)
     GGC=ggc-$withval
     ;;
   *)
@@ -2824,10 +2805,6 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
-
-# --------------
-# Language hooks
-# --------------
 
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
@@ -2944,10 +2921,6 @@ do
 	done
 	echo "lang.$t: $x" >> Make-hooks
 done
-
-# --------
-# UNSORTED
-# --------
 
 # Create .gdbinit.
 

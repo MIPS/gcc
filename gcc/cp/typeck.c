@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -666,9 +666,9 @@ merge_types (tree t1, tree t2)
 
 	/* Save space: see if the result is identical to one of the args.  */
 	if (valtype == TREE_TYPE (t1) && ! p2)
-	  return build_type_attribute_variant (t1, attributes);
+	  return cp_build_type_attribute_variant (t1, attributes);
 	if (valtype == TREE_TYPE (t2) && ! p1)
-	  return build_type_attribute_variant (t2, attributes);
+	  return cp_build_type_attribute_variant (t2, attributes);
 
 	/* Simple way if one arg fails to specify argument types.  */
 	if (p1 == NULL_TREE || TREE_VALUE (p1) == void_type_node)
@@ -676,7 +676,7 @@ merge_types (tree t1, tree t2)
 	    rval = build_function_type (valtype, p2);
 	    if ((raises = TYPE_RAISES_EXCEPTIONS (t2)))
 	      rval = build_exception_variant (rval, raises);
-	    return build_type_attribute_variant (rval, attributes);
+	    return cp_build_type_attribute_variant (rval, attributes);
 	  }
 	raises = TYPE_RAISES_EXCEPTIONS (t1);
 	if (p2 == NULL_TREE || TREE_VALUE (p2) == void_type_node)
@@ -684,7 +684,7 @@ merge_types (tree t1, tree t2)
 	    rval = build_function_type (valtype, p1);
 	    if (raises)
 	      rval = build_exception_variant (rval, raises);
-	    return build_type_attribute_variant (rval, attributes);
+	    return cp_build_type_attribute_variant (rval, attributes);
 	  }
 
 	rval = build_function_type (valtype, commonparms (p1, p2));
@@ -714,9 +714,15 @@ merge_types (tree t1, tree t2)
 	break;
       }
 
+    case TYPENAME_TYPE:
+      /* There is no need to merge attributes into a TYPENAME_TYPE.
+	 When the type is instantiated it will have whatever
+	 attributes result from the instantiation.  */
+      return t1;
+
     default:;
     }
-  return build_type_attribute_variant (t1, attributes);
+  return cp_build_type_attribute_variant (t1, attributes);
 }
 
 /* Return the common type of two types.
@@ -963,8 +969,10 @@ comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return false;
 
-  /* Qualifiers must match.  */
-  if (cp_type_quals (t1) != cp_type_quals (t2))
+  /* Qualifiers must match.  For array types, we will check when we
+     recur on the array element types.  */
+  if (TREE_CODE (t1) != ARRAY_TYPE
+      && TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return false;
   if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
     return false;
@@ -973,7 +981,8 @@ comptypes (tree t1, tree t2, int strict)
      definition.  Note that we already checked for equality of the type
      qualifiers (just above).  */
 
-  if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+  if (TREE_CODE (t1) != ARRAY_TYPE
+      && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
 
   if (!(*targetm.comp_type_attributes) (t1, t2))
@@ -1362,14 +1371,9 @@ decay_conversion (tree exp)
 
       if (TREE_CODE (exp) == VAR_DECL)
 	{
-	  /* ??? This is not really quite correct
-	     in that the type of the operand of ADDR_EXPR
-	     is not the target type of the type of the ADDR_EXPR itself.
-	     Question is, can this lossage be avoided?  */
-	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!cxx_mark_addressable (exp))
 	    return error_mark_node;
-	  TREE_CONSTANT (adr) = staticp (exp);
+	  adr = build_nop (ptrtype, build_address (exp));
 	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
 	  return adr;
 	}
@@ -1570,7 +1574,8 @@ build_class_member_access_expr (tree object, tree member,
      The type of the first expression shall be "class object" (of a
      complete type).  */
   object_type = TREE_TYPE (object);
-  if (!complete_type_or_else (object_type, object))
+  if (!currently_open_class (object_type) 
+      && !complete_type_or_else (object_type, object))
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {
@@ -1791,8 +1796,8 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
     }
   if (!same_type_p (dtor_type, TYPE_MAIN_VARIANT (object_type)))
     {
-      error ("destructor name `%T' does not match type `%T' of expression",
-	     dtor_type, object_type);
+      error ("the type being destroyed is `%T', but the destructor refers to `%T'",
+	     TYPE_MAIN_VARIANT (object_type), dtor_type);
       return error_mark_node;
     }
   if (!TYPE_HAS_DESTRUCTOR (object_type))
@@ -1856,7 +1861,8 @@ finish_class_member_access_expr (tree object, tree name)
 
      The type of the first expression shall be "class object" (of a
      complete type).  */
-  if (!complete_type_or_else (object_type, object))
+  if (!currently_open_class (object_type) 
+      && !complete_type_or_else (object_type, object))
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {
@@ -5010,7 +5016,9 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	  return cond;
 	/* Make sure the code to compute the rhs comes out
 	   before the split.  */
-	return build (COMPOUND_EXPR, TREE_TYPE (lhs), preeval, cond);
+	if (preeval)
+	  cond = build (COMPOUND_EXPR, TREE_TYPE (lhs), preeval, cond);
+	return cond;
       }
       
     default:
@@ -5630,8 +5638,6 @@ convert_for_assignment (tree type, tree rhs,
     return error_mark_node;
   if (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node)
     return error_mark_node;
-
-  rhs = dubious_conversion_warnings (type, rhs, errtype, fndecl, parmnum);
 
   /* The RHS of an assignment cannot have void type.  */
   if (coder == VOID_TYPE)

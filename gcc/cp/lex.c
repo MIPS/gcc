@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -726,7 +726,8 @@ retrofit_lang_decl (tree t)
     ld->u.f.u3sel = TREE_CODE (t) == FUNCTION_DECL ? 1 : 0;
 
   DECL_LANG_SPECIFIC (t) = ld;
-  if (current_lang_name == lang_name_cplusplus)
+  if (current_lang_name == lang_name_cplusplus
+      || decl_linkage (t) == lk_none)
     SET_DECL_LANGUAGE (t, lang_cplusplus);
   else if (current_lang_name == lang_name_c)
     SET_DECL_LANGUAGE (t, lang_c);

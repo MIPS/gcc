@@ -1,5 +1,6 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
 
 This file is part of GCC.
@@ -25,11 +26,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 
 #include "rtl.h"
-#include "tree.h"
 #include "flags.h"
 #include "output.h"
 #include "function.h"
-#include "langhooks.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "toplev.h"
@@ -57,8 +56,7 @@ start_fct (FILE *fp)
     case vcg:
       fprintf (fp, "\
 graph: { title: \"%s\"\nfolding: 1\nhidden: 2\nnode: { title: \"%s.0\" }\n",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       current_function_name (), current_function_name ());
       break;
     case no_graph:
       break;
@@ -74,8 +72,7 @@ start_bb (FILE *fp, int bb)
       fprintf (fp, "\
 graph: {\ntitle: \"%s.BB%d\"\nfolding: 1\ncolor: lightblue\n\
 label: \"basic block %d",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       bb, bb);
+	       current_function_name (), bb, bb);
       break;
     case no_graph:
       break;
@@ -117,9 +114,8 @@ node_data (FILE *fp, rtx tmp_rtx)
 	case vcg:
 	  fprintf (fp, "\
 edge: { sourcename: \"%s.0\" targetname: \"%s.%d\" }\n",
-		   (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-		   (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-		   XINT (tmp_rtx, 0));
+		   current_function_name (),
+		   current_function_name (), XINT (tmp_rtx, 0));
 	  break;
 	case no_graph:
 	  break;
@@ -131,8 +127,7 @@ edge: { sourcename: \"%s.0\" targetname: \"%s.%d\" }\n",
     case vcg:
       fprintf (fp, "node: {\n  title: \"%s.%d\"\n  color: %s\n  \
 label: \"%s %d\n",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       XINT (tmp_rtx, 0),
+	       current_function_name (), XINT (tmp_rtx, 0),
 	       GET_CODE (tmp_rtx) == NOTE ? "lightgrey"
 	       : GET_CODE (tmp_rtx) == INSN ? "green"
 	       : GET_CODE (tmp_rtx) == JUMP_INSN ? "darkgreen"
@@ -184,11 +179,8 @@ draw_edge (FILE *fp, int from, int to, int bb_edge, int class)
 	color = "color: green ";
       fprintf (fp,
 	       "edge: { sourcename: \"%s.%d\" targetname: \"%s.%d\" %s",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       from,
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2),
-	       to,
-	       color);
+	       current_function_name (), from,
+	       current_function_name (), to, color);
       if (class)
 	fprintf (fp, "class: %d ", class);
       fputs ("}\n", fp);
@@ -218,7 +210,7 @@ end_fct (FILE *fp)
     {
     case vcg:
       fprintf (fp, "node: { title: \"%s.999999\" label: \"END\" }\n}\n",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       current_function_name ());
       break;
     case no_graph:
       break;

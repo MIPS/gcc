@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -576,7 +576,7 @@ do {									\
 #define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
 
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
-   longer. */
+   longer.  */
 #define INT_TYPE_SIZE 32
 
 /* Width in bits of a `long'.  */

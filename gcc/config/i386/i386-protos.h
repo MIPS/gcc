@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,7 +59,6 @@ extern int x86_64_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_szext_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_immediate_operand (rtx, enum machine_mode);
 extern int x86_64_zext_immediate_operand (rtx, enum machine_mode);
-extern int const_int_1_operand (rtx, enum machine_mode);
 extern int symbolic_operand (rtx, enum machine_mode);
 extern int tls_symbolic_operand (rtx, enum machine_mode);
 extern int global_dynamic_symbolic_operand (rtx, enum machine_mode);
@@ -179,7 +178,6 @@ extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
-extern void ix86_set_move_mem_attrs (rtx, rtx, rtx, rtx, rtx);
 extern void emit_i387_cw_initialization (rtx, rtx);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);
@@ -218,6 +216,7 @@ extern int x86_field_alignment (tree, int);
 extern rtx ix86_tls_get_addr (void);
 extern bool ix86_must_pass_in_stack (enum machine_mode mode, tree);
 
+extern void ix86_expand_vector_init (rtx, rtx);
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);

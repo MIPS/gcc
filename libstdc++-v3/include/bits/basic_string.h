@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -129,9 +129,8 @@ namespace std
     private:
       // _Rep: string representation
       //   Invariants:
-      //   1. String really contains _M_length + 1 characters; last is set
-      //      to 0 only on call to c_str().  We avoid instantiating
-      //      _CharT() where the interface does not require it.
+      //   1. String really contains _M_length + 1 characters: due to 21.3.4
+      //      must be kept null-terminated.
       //   2. _M_capacity >= _M_length
       //      Allocated memory is always _M_capacity + (1 * sizeof(_CharT)).
       //   3. _M_refcount has three states:
@@ -198,10 +197,6 @@ namespace std
 	_M_refdata() throw()
 	{ return reinterpret_cast<_CharT*>(this + 1); }
 
-	_CharT&
-	operator[](size_t __s) throw()
-	{ return _M_refdata() [__s]; }
-
 	_CharT*
 	_M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2)
 	{
@@ -211,7 +206,7 @@ namespace std
 
 	// Create & Destroy
 	static _Rep*
-	_S_create(size_t, const _Alloc&);
+	_S_create(size_type, size_type, const _Alloc&);
 
 	void
 	_M_dispose(const _Alloc& __a)
@@ -379,10 +374,13 @@ namespace std
 		   size_type __n, const _Alloc& __a);
 
       /**
-       *  @brief  Construct string as copy of a C substring.
-       *  @param  s  Source C string.
+       *  @brief  Construct string initialized by a character array.
+       *  @param  s  Source character array.
        *  @param  n  Number of characters to copy.
        *  @param  a  Allocator to use (default is default allocator).
+       *  
+       *  NB: s must have at least n characters, '\0' has no special
+       *  meaning.
        */
       basic_string(const _CharT* __s, size_type __n,
 		   const _Alloc& __a = _Alloc());
@@ -1209,11 +1207,7 @@ namespace std
       */
       basic_string&
       replace(iterator __i1, iterator __i2, const basic_string& __str)
-      { 
-	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				 && __i2 <= _M_iend());
-	return this->replace(__i1, __i2, __str._M_data(), __str.size()); 
-      }
+      { return this->replace(__i1, __i2, __str._M_data(), __str.size()); }
 
       /**
        *  @brief  Replace range of characters with C substring.
@@ -1230,9 +1224,12 @@ namespace std
        *  change if an error is thrown.
       */
       basic_string&
-      replace(iterator __i1, iterator __i2,
-	      const _CharT* __s, size_type __n)
-      { return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n); }
+      replace(iterator __i1, iterator __i2, const _CharT* __s, size_type __n)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());	
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n);
+      }
 
       /**
        *  @brief  Replace range of characters with C string.
@@ -1250,8 +1247,6 @@ namespace std
       basic_string&
       replace(iterator __i1, iterator __i2, const _CharT* __s)
       { 
-	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				 && __i2 <= _M_iend());
 	__glibcxx_requires_string(__s);
 	return this->replace(__i1, __i2, __s, traits_type::length(__s)); 
       }
@@ -1457,21 +1452,17 @@ namespace std
       */
       const _CharT*
       c_str() const
-      {
-	// MT: This assumes concurrent writes are OK.
-	const size_type __n = this->size();
-	traits_type::assign(_M_data()[__n], _Rep::_S_terminal);
-        return _M_data();
-      }
+      { return _M_data(); }
 
       /**
        *  @brief  Return const pointer to contents.
        *
-       *  This is a handle to internal data.  It may not be null-terminated.
-       *  Do not modify or dire things may happen.
+       *  This is a handle to internal data. Do not modify or dire things may
+       *  happen.
       */
       const _CharT*
-      data() const { return _M_data(); }
+      data() const
+      { return _M_data(); }
 
       /**
        *  @brief  Return copy of allocator used to construct this string.
@@ -1955,21 +1946,23 @@ namespace std
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
 
       /**
-       *  @brief  Compare substring against a C substring.
+       *  @brief  Compare substring against a character array.
        *  @param pos1  Index of first character of substring.
        *  @param n1  Number of characters in substring.
-       *  @param s  C string to compare against.
-       *  @param n2  Number of characters in substring of s.
+       *  @param s  character array to compare against.
+       *  @param n2  Number of characters of s.
        *  @return  Integer < 0, 0, or > 0.
        *
        *  Form the substring of this string from the @a n1 characters starting
-       *  at @a pos1.  Form the substring of @a s from the first @a n
-       *  characters of @a s.  Returns an integer < 0 if this substring is
-       *  ordered before the substring of @a s, 0 if their values are
-       *  equivalent, or > 0 if this substring is ordered after the substring
-       *  of @a s.  If the lengths of this substring and @a n are different,
-       *  the shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(substring.data(),s,size());
+       *  at @a pos1.  Form a string from the first @a n2 characters of @a s.
+       *  Returns an integer < 0 if this substring is ordered before the string
+       *  from @a s, 0 if their values are equivalent, or > 0 if this substring
+       *  is ordered after the string from @a s. If the lengths of this substring
+       *  and @a n2 are different, the shorter one is ordered first.  If they are
+       *  the same, returns the result of traits::compare(substring.data(),s,size());
+       *
+       *  NB: s must have at least n2 characters, '\0' has no special
+       *  meaning.
       */
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s,

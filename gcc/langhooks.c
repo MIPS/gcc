@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -266,7 +266,8 @@ hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
 rtx
 lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
 		 enum machine_mode mm ATTRIBUTE_UNUSED,
-		 int em ATTRIBUTE_UNUSED)
+		 int em ATTRIBUTE_UNUSED,
+		 rtx *a ATTRIBUTE_UNUSED)
 {
   abort ();
 }

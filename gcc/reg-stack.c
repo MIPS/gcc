@@ -1,6 +1,6 @@
 /* Register to Stack convert for GNU compiler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1769,7 +1769,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		if (GET_CODE (pat_src) != UNSPEC
 		    || XINT (pat_src, 1) != UNSPEC_FNSTSW)
 		  abort ();
-		/* FALLTHRU */
+		/* Fall through.  */
 
 	      case UNSPEC_FNSTSW:
 		/* Combined fcomp+fnstsw generated for doing well with

@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -538,7 +538,7 @@ equiv_init_varies_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -603,7 +603,7 @@ equiv_init_movable_p (rtx x, int regno)
       if (MEM_VOLATILE_P (x))
 	return 0;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -2412,7 +2412,7 @@ requires_inout (const char *p)
 	  if (REG_CLASS_FROM_CONSTRAINT (c, p) == NO_REGS
 	      && !EXTRA_ADDRESS_CONSTRAINT (c, p))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 	case 'p':
 	case 'g': case 'r':
 	  reg_allowed = 1;

@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -283,7 +283,7 @@ struct lang_hooks
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int);
+  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.

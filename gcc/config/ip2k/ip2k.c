@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on Ubicom IP2022
    Communications Controller.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
    This file is part of GCC.
@@ -202,7 +202,7 @@ function_prologue (FILE *file, HOST_WIDE_INT size)
     }
 
   leaf_func_p = leaf_function_p ();
-  main_p = ! strcmp ("main", current_function_name);
+  main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
 
   /* For now, we compute all these facts about the function, but don't
      take any action based on the information.  */

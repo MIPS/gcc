@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -213,12 +213,6 @@ struct diagnostic_context;
 #define BOUND_TEMPLATE_TEMPLATE_PARM_TYPE_CHECK(NODE)	(NODE)
 
 #endif
-
-/* Returns TRUE if generated code should match ABI version N or
-   greater is in use.  */
-
-#define abi_version_at_least(N) \
-  (flag_abi_version == 0 || flag_abi_version >= (N))
 
 
 /* Language-dependent contents of an identifier.  */
@@ -794,7 +788,7 @@ struct language_function GTY(())
   int in_base_initializer;
 
   /* True if this function can throw an exception.  */
-  bool can_throw : 1;
+  BOOL_BITFIELD can_throw : 1;
 
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
@@ -1013,15 +1007,15 @@ enum languages { lang_c, lang_cplusplus, lang_java };
    are put in this structure to save space.  */
 struct lang_type_header GTY(())
 {
-  CHAR_BITFIELD is_lang_type_class : 1;
+  BOOL_BITFIELD is_lang_type_class : 1;
 
-  CHAR_BITFIELD has_type_conversion : 1;
-  CHAR_BITFIELD has_init_ref : 1;
-  CHAR_BITFIELD has_default_ctor : 1;
-  CHAR_BITFIELD uses_multiple_inheritance : 1;
-  CHAR_BITFIELD const_needs_init : 1;
-  CHAR_BITFIELD ref_needs_init : 1;
-  CHAR_BITFIELD has_const_assign_ref : 1;
+  BOOL_BITFIELD has_type_conversion : 1;
+  BOOL_BITFIELD has_init_ref : 1;
+  BOOL_BITFIELD has_default_ctor : 1;
+  BOOL_BITFIELD uses_multiple_inheritance : 1;
+  BOOL_BITFIELD const_needs_init : 1;
+  BOOL_BITFIELD ref_needs_init : 1;
+  BOOL_BITFIELD has_const_assign_ref : 1;
 };
 
 /* This structure provides additional information above and beyond
@@ -2720,13 +2714,20 @@ struct lang_decl GTY(())
 #define DECL_TEMPLATE_TEMPLATE_PARM_P(NODE) \
   (TREE_CODE (NODE) == TEMPLATE_DECL && DECL_TEMPLATE_PARM_P (NODE))
 
+/* Nonzero if NODE is a TEMPLATE_DECL representing an
+   UNBOUND_CLASS_TEMPLATE tree node.  */
+#define DECL_UNBOUND_CLASS_TEMPLATE_P(NODE) \
+  (TREE_CODE (NODE) == TEMPLATE_DECL && !DECL_TEMPLATE_RESULT (NODE))
+
 #define DECL_FUNCTION_TEMPLATE_P(NODE)  \
   (TREE_CODE (NODE) == TEMPLATE_DECL \
+   && !DECL_UNBOUND_CLASS_TEMPLATE_P (NODE) \
    && TREE_CODE (DECL_TEMPLATE_RESULT (NODE)) == FUNCTION_DECL)
 
 /* Nonzero for a DECL that represents a template class.  */
 #define DECL_CLASS_TEMPLATE_P(NODE) \
   (TREE_CODE (NODE) == TEMPLATE_DECL \
+   && !DECL_UNBOUND_CLASS_TEMPLATE_P (NODE) \
    && TREE_CODE (DECL_TEMPLATE_RESULT (NODE)) == TYPE_DECL \
    && !DECL_TEMPLATE_TEMPLATE_PARM_P (NODE))
 
@@ -3292,7 +3293,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define B_CLR(A,X) ((A)[(X)>>3] &= ~(1 << ((X)&7)))
 #define B_TST(A,X) ((A)[(X)>>3] &   (1 << ((X)&7)))
 
-/* These are uses as bits in flags passed to build_method_call
+/* These are uses as bits in flags passed to build_new_method_call
    to control its error reporting behavior.
 
    LOOKUP_PROTECT means flag access violations.
@@ -3505,7 +3506,6 @@ extern tree build_vfield_ref			(tree, tree);
 extern tree build_conditional_expr		(tree, tree, tree);
 extern tree build_addr_func (tree);
 extern tree build_call (tree, tree);
-extern tree build_method_call (tree, tree, tree, tree, int);
 extern bool null_ptr_cst_p (tree);
 extern bool sufficient_parms_p (tree);
 extern tree type_decays_to (tree);
@@ -3715,7 +3715,7 @@ extern void maybe_retrofit_in_chrg (tree);
 extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
-extern tree delete_sanity (tree, tree, int, int);
+extern tree delete_sanity (tree, tree, bool, int);
 extern tree check_classfn (tree, tree, bool);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
@@ -3778,8 +3778,8 @@ extern tree eh_type_info			(tree);
 
 /* in expr.c */
 extern rtx cxx_expand_expr			(tree, rtx,
-							 enum machine_mode,
-							 int);
+						 enum machine_mode,
+						 int, rtx *);
 extern tree cplus_expand_constant               (tree);
 
 /* friend.c */
@@ -3921,6 +3921,7 @@ extern tree template_for_substitution           (tree);
 extern tree build_non_dependent_expr            (tree);
 extern tree build_non_dependent_args            (tree);
 extern bool reregister_specialization           (tree, tree, tree);
+extern tree fold_non_dependent_expr             (tree);
 
 /* in repo.c */
 extern void repo_template_used (tree);
@@ -4055,7 +4056,6 @@ extern tree perform_koenig_lookup               (tree, tree);
 extern tree finish_call_expr                    (tree, tree, bool, bool);
 extern tree finish_increment_expr               (tree, enum tree_code);
 extern tree finish_this_expr                    (void);
-extern tree finish_object_call_expr             (tree, tree, tree);
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_unary_op_expr                (enum tree_code, tree);
 extern tree finish_compound_literal             (tree, tree);
@@ -4099,6 +4099,8 @@ extern void simplify_aggr_init_expr		(tree *);
 extern void lang_check_failed			(const char *, int,
 							 const char *);
 extern tree stabilize_expr			(tree, tree *);
+extern void stabilize_call			(tree, tree *);
+extern void stabilize_init			(tree, tree *);
 extern tree cxx_unsave_expr_now			(tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree			        (void);
@@ -4149,6 +4151,7 @@ extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst                     (tree, tree);
+extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
