@@ -65,6 +65,9 @@ definitions and other extensions.  */
 #include "function.h"
 #include "except.h"
 #include "ggc.h"
+#ifdef __GNUC__
+#define YYMALLOC nonexistent
+#endif
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'

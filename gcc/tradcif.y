@@ -27,6 +27,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "tradcpp.h"
 #include <setjmp.h>
+#ifdef __GNUC__
+#define YYMALLOC nonexistent
+#endif
 
   static int yylex PARAMS ((void));
   static void yyerror PARAMS ((const char *msgid)) ATTRIBUTE_NORETURN;

@@ -43,6 +43,10 @@ definitions and other extensions.  */
 #include "obstack.h"
 #include "toplev.h"
 
+#ifdef __GNUC__
+#define YYMALLOC nonexistent
+#endif
+
 extern char *input_filename;
 extern FILE *finput, *out;
 

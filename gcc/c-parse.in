@@ -47,6 +47,9 @@ end ifc
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
+#ifdef __GNUC__
+#define YYMALLOC nonexistent
+#endif
   
 #ifdef MULTIBYTE_CHARS
 #include <locale.h>

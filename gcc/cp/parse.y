@@ -44,6 +44,9 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "ggc.h"
+#ifdef __GNUC__
+#define YYMALLOC nonexistent
+#endif
 
 extern struct obstack permanent_obstack;
 
