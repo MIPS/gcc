@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "diagnostic.h"
 #include "real.h"
+#include "hashtab.h"
 
 static int op_prio              PARAMS ((tree));
 static const char *op_symbol    PARAMS ((tree));
@@ -129,9 +130,21 @@ dump_c_tree (buffer, t, spc)
      HOST_WIDE_INT spc;
 {
   tree node = t;
+  htab_t htab;
+  int circularity_p = 0;
+
+  htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   while (node && node != error_mark_node)
     {
+      void **slot;
+      slot = htab_find_slot (htab, node, INSERT);
+      *slot = (void *) node;
+
       spc = dump_c_node (buffer, node, spc, 0);
+
+      if (circularity_p)
+	break;
+
       switch (TREE_CODE (node))
 	{
 	case TYPE_DECL:
@@ -140,12 +153,21 @@ dump_c_tree (buffer, t, spc)
 	case PARM_DECL:
 	  /* Some nodes on which we need to stop the recursive printing,
 	     otherwise we print all declared vars in the scope.  */
-	  return;
+	  {
+	    htab_delete (htab);
+	    return;
+	  }
 	default:
 	  break;
 	}
       node = TREE_CHAIN (node);
+      if (htab_find (htab, node))
+	{
+	  output_add_string (buffer, "/* circularity detected! */\n");
+	  circularity_p = 1; /* Allow one final loop iteration.  */
+	}
     }
+  htab_delete (htab);
 }
 
 /* Dump the node NODE on the output_buffer BUFFER, SPC spaces of indent.  */
