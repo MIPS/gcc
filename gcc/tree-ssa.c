@@ -3850,19 +3850,19 @@ replace_immediate_uses (tree var, tree repl)
 	  uses = STMT_USE_OPS (stmt);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
-	      *USE_OP_PTR (uses, j) = repl;
+	      propagate_value (USE_OP_PTR (uses, j), repl);
 	}
       else
 	{
 	  vuses = STMT_VUSE_OPS (stmt);
 	  for (j = 0; j < (int) NUM_VUSES (vuses); j++)
 	    if (VUSE_OP (vuses, j) == var)
-	      *VUSE_OP_PTR (vuses, j) = repl;
+	      propagate_value (VUSE_OP_PTR (vuses, j), repl);
 
 	  vdefs = STMT_VDEF_OPS (stmt);
 	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
 	    if (VDEF_OP (vdefs, j) == var)
-	      *VDEF_OP_PTR (vdefs, j) = repl;
+	      propagate_value (VDEF_OP_PTR (vdefs, j), repl);
 	}
 
       modify_stmt (stmt);
