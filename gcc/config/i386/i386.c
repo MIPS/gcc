@@ -981,7 +981,8 @@ override_options ()
 	  PTA_MMX = 8,
 	  PTA_PREFETCH_SSE = 16,
 	  PTA_3DNOW = 32,
-	  PTA_3DNOW_A = 64
+	  PTA_3DNOW_A = 64,
+	  PTA_64BIT = 128
 	} flags;
     }
   const processor_alias_table[] =
@@ -1002,7 +1003,7 @@ override_options ()
 				       | PTA_MMX | PTA_PREFETCH_SSE},
       {"prescott", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 | PTA_SSE3
 				       | PTA_MMX | PTA_PREFETCH_SSE},
-      {"nocona", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 | PTA_SSE3
+      {"nocona", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_64BIT
 				     | PTA_MMX | PTA_PREFETCH_SSE},
       {"k6", PROCESSOR_K6, PTA_MMX},
       {"k6-2", PROCESSOR_K6, PTA_MMX | PTA_3DNOW},
@@ -1011,13 +1012,22 @@ override_options ()
 				   | PTA_3DNOW_A},
       {"athlon-tbird", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE
 					 | PTA_3DNOW | PTA_3DNOW_A},
-      {"x86-64", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_SSE},
       {"athlon-4", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				    | PTA_3DNOW_A | PTA_SSE},
       {"athlon-xp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				      | PTA_3DNOW_A | PTA_SSE},
       {"athlon-mp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				      | PTA_3DNOW_A | PTA_SSE},
+      {"x86-64", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+				   | PTA_SSE | PTA_SSE2},
+      {"k8", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+			       | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+      {"opteron", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+				    | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+      {"athlon64", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+				     | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+      {"athlon-fx", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
+				      | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2}
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
@@ -1126,6 +1136,8 @@ override_options ()
 	  target_flags |= MASK_SSE3;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
+        if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you selected does not support x86-64 instruction set");
 	break;
       }
 
@@ -1136,12 +1148,10 @@ override_options ()
     if (! strcmp (ix86_cpu_string, processor_alias_table[i].name))
       {
 	ix86_cpu = processor_alias_table[i].processor;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you selected does not support x86-64 instruction set");
 	break;
       }
-
-  if (TARGET_64BIT
-      && (ix86_arch != PROCESSOR_ATHLON || ix86_cpu != PROCESSOR_ATHLON))
-    error ("CPU you selected does not support x86-64 instruction set");
 
   if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
     x86_prefetch_sse = true;

@@ -2829,15 +2829,12 @@ i686-*-* | i786-*-*)
 	esac
 	;;
 x86_64-*-*)
-	# We should have hammer chip here, but it does not exist yet and
-	# thus it is not supported.  Athlon_SSE is probably equivalent feature
-	# wise to hammer from our point of view except for 64bit mode.
 	case "x$with_cpu" in
 		x)
-			target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
+			target_cpu_default2=TARGET_CPU_DEFAULT_x86_64
 			;;
 		xnocona)
-			target_cpu_default2=TARGET_CPU_DEFAULT_pentium4
+			target_cpu_default2=TARGET_CPU_DEFAULT_nocona
 			;;
 		xyes|xno)
 			echo "--with-cpu must be passed a value" 1>&2
