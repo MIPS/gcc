@@ -1399,6 +1399,8 @@ add_prefixed_path (const char *suffix, size_t chain)
 static void
 finish_options (const char *tif)
 {
+  cpp_find_main_file (parse_in, tif);
+
   if (!cpp_opts->preprocessed)
     {
       size_t i;
@@ -1433,8 +1435,6 @@ finish_options (const char *tif)
     }
 
   include_cursor = 0;
-
-  cpp_find_main_file (parse_in, tif);
   push_command_line_include ();
 }
 

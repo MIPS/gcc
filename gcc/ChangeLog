@@ -1,5 +1,10 @@
 2003-11-07  Per Bothner  <pbothner@apple.com>
 
+	* c-opts.c (finish_options):  Move cpp_find_main_file earlier, so
+	parse_in's main_file is set.
+
+2003-11-07  Per Bothner  <pbothner@apple.com>
+
 	* c-decl.c (duplicate_decls):  Don't modify olddecl.  Instead, merge
 	olddecl's info into newdecl.
 	(pushdecl):  Return (except for PARM_DECL) the new decl.
