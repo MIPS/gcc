@@ -3756,7 +3756,7 @@ static tree *
 handle_switch_split (basic_block src, basic_block dest)
 {
   block_stmt_iterator bsi, tmp;
-  tree_stmt_iterator tsi;
+  tree_stmt_iterator tsi, end_tsi;
   tree stmt, label, goto_stmt;
   tree tmp_tree;
   basic_block new_bb;
@@ -3811,11 +3811,15 @@ handle_switch_split (basic_block src, basic_block dest)
      We know at least one statement will need it's block changed, so a
      "do" loop is appropriate here.
 
-     Note that if BSI is at the end of a basic block, then its container
-     will be be NULL.  We want to just change the block for one statement
-     in that case (not all the statements until TSI's container is
-     NULL!).  */
+     After the above loop, 'tmp' will be the last BSI stmt that should be in 
+     the new block. We end our loop with the next tsi_stmt after that. Note
+     that 'bsi' is not the correct place to end the loop because block 
+     iterators ignore certain stmts, like BIND_EXPR. These can have local
+     automatics, and we dont want to copy these stmts into the new block.  */
+
   tsi = tsi_start (dest->head_tree_p);
+  end_tsi = tsi_from_bsi (tmp);
+  tsi_next (&end_tsi);  
   do
     {
       append_stmt_to_bb (tsi_container (tsi),
@@ -3823,10 +3827,7 @@ handle_switch_split (basic_block src, basic_block dest)
 			 parent_stmt (tsi_stmt (tsi)));
       tsi_next (&tsi);
     }
-  while (! bsi_end_p (bsi)
-	 && ! tsi_end_p (tsi)
-	 && (tsi_container (tsi) != bsi_container (bsi)));
-
+  while (!tsi_end_p (tsi) && (tsi_container (tsi) != tsi_container (end_tsi)));
 
   /* Issue the label at the beginning of DEST, and update DEST's head
      and end pointers.  */

@@ -1,3 +1,8 @@
+2003-06-26  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (handle_switch_split): Use a tree iterator to find the
+	real split point rather than a block iterator.
+
 2003-06-26  Jason Merrill  <jason@redhat.com>
 
 	* tree-simple.c (is_gimple_stmt): Complete.
