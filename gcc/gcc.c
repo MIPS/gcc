@@ -5861,8 +5861,10 @@ retry_ice (const char *prog, const char **argv)
     return;
 
   memset (temp_filenames, '\0', sizeof (temp_filenames));
-  new_argv = alloca ((nargs + 2) * sizeof (const char *));
+  new_argv = alloca ((nargs + 3) * sizeof (const char *));
   memcpy (new_argv, argv, (nargs + 1) * sizeof (const char *));
+  new_argv[nargs++] = "-frandom-seed=0";
+  new_argv[nargs] = NULL;
   if (new_argv[out_arg][2] == '\0')
     new_argv[out_arg + 1] = "-";
   else
