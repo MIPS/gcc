@@ -1,37 +1,60 @@
-/* PR target/14209.  Bug in cris.md, shrinking access size of
-   postincrement.
-   Origin: <hp@axis.com>.  */
+#include <stdarg.h>
+extern void abort (void);
+extern void exit (int);
 
-long int xb (long int *y) __attribute__ ((__noinline__));
-long int xw (long int *y) __attribute__ ((__noinline__));
-short int yb (short int *y) __attribute__ ((__noinline__));
-
-long int xb (long int *y)
+void
+test1 (int i, ...)
 {
-  long int xx = *y & 255;
-  return xx + y[1];
 }
 
-long int xw (long int *y)
+void
+test2 (int i, int j, ...)
 {
-  long int xx = *y & 65535;
-  return xx + y[1];
 }
 
-short int yb (short int *y)
+void
+test3 (int i, int j, int k, ...)
 {
-  short int xx = *y & 255;
-  return xx + y[1];
 }
+
+void
+test4 (int i, ...)
+{
+  va_list v;
+  va_start (v, i);
+  if (va_arg (v, double) != 1.2)
+    abort ();
+  va_end (v);
+}
+
+void
+test5 (int i, int j, ...)
+{
+  va_list v;
+  va_start (v, j);
+  if (va_arg (v, double) != 1.2)
+    abort ();
+  va_end (v);
+}
+
+void
+test6 (int i, int j, int k, ...)
+{
+  va_list v;
+  va_start (v, k);
+  if (va_arg (v, double) != 1.2)
+    abort ();
+  va_end (v);
+}
+
 
 int main (void)
 {
-  long int y[] = {-1, 16000};
-  short int yw[] = {-1, 16000};
-
-  if (xb (y) != 16255
-      || xw (y) != 81535
-      || yb (yw) != 16255)
-    abort ();
+  test1 (1, 1.2);
+  test2 (1, 2, 1.2);
+  test3 (1, 2, 3, 1.2);
+  test4 (1, 1.2);
+  test5 (1, 2, 1.2);
+  test6 (1, 2, 3, 1.2);
   exit (0);
 }
