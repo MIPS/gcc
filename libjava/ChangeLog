@@ -1,5 +1,16 @@
 2004-09-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JComponent.java
+	(JComponent): Added javadoc comment.
+	(setBorder): Fire property change eventr.
+	(setEnabled): Likewise.
+	(setMaximumSize): Likewise.
+	(setMinimumSize): Likewise.
+	(setPreferredSize): Likewise.
+	(setOpaque): Likewise.
+
+2004-09-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTextField.java
 	(action): New field.
 	(actionCommand): Likewise.

@@ -379,6 +379,9 @@ public abstract class JComponent extends Container implements Serializable
   public static final int WHEN_IN_FOCUSED_WINDOW = 2;
 
 
+  /**
+   * Creates a new <code>JComponent</code> instance.
+   */
   public JComponent()
   {
     super();
@@ -796,13 +799,15 @@ public abstract class JComponent extends Container implements Serializable
    * Set the value of the {@link #border} property, revalidate
    * and repaint this component.
    *   
-   * @param border The new value of the property
+   * @param newBorder The new value of the property
    *
    * @see #getBorder
    */
-  public void setBorder(Border border)
+  public void setBorder(Border newBorder)
   {
-    this.border = border;
+    Border oldBorder = border;
+    border = newBorder;
+    firePropertyChange("border", oldBorder, newBorder);
     revalidate();
     repaint();
   }
@@ -1907,11 +1912,13 @@ public abstract class JComponent extends Container implements Serializable
    * Set the value of the {@link #enabled} property, revalidate
    * and repaint this component.
    *
-   * @param e The new value of the property
+   * @param enable The new value of the property
    */
-  public void setEnabled(boolean e)
+  public void setEnabled(boolean enable)
   {
-    super.setEnabled(e);
+    boolean oldEnabled = isEnabled();
+    super.setEnabled(enable);
+    firePropertyChange("enabeld", oldEnabled, enable);
     revalidate();
     repaint();
   }
@@ -1963,7 +1970,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setMaximumSize(Dimension max)
   {
+    Dimension oldMaximumSize = maximumSize;
     maximumSize = max;
+    firePropertyChange("maximumSize", oldMaximumSize, maximumSize);
     revalidate();
     repaint();
   }
@@ -1976,7 +1985,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setMinimumSize(Dimension min)
   {
+    Dimension oldMinimumSize = minimumSize;
     minimumSize = min;
+    firePropertyChange("minimumSize", oldMinimumSize, minimumSize);
     revalidate();
     repaint();
   }
@@ -1989,7 +2000,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setPreferredSize(Dimension pref)
   {
+    Dimension oldPreferredSize = preferredSize;
     preferredSize = pref;
+    firePropertyChange("preferredSize", oldPreferredSize, preferredSize);
   }
 
   /**
@@ -2025,7 +2038,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setOpaque(boolean isOpaque)
   {
+    boolean oldOpaque = opaque;
     opaque = isOpaque;
+    firePropertyChange("opaque", oldOpaque, opaque);
     revalidate();
     repaint();
   }
