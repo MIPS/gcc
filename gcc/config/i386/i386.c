@@ -217,10 +217,14 @@ static rtx gen_push PROTO ((rtx));
 static int memory_address_length PROTO ((rtx addr));
 static int ix86_flags_dependant PROTO ((rtx, rtx, enum attr_type));
 static int ix86_agi_dependant PROTO ((rtx, rtx, enum attr_type));
+static int ix86_safe_length PROTO ((rtx));
+static enum attr_memory ix86_safe_memory PROTO ((rtx));
 static enum attr_pent_pair ix86_safe_pent_pair PROTO ((rtx));
 static enum attr_ppro_uops ix86_safe_ppro_uops PROTO ((rtx));
 static void ix86_dump_ppro_packet PROTO ((FILE *));
 static void ix86_reorder_insn PROTO ((rtx *, rtx *));
+static rtx * ix86_pent_find_pair PROTO ((rtx *, rtx *, enum attr_pent_pair,
+					 rtx));
 
 struct ix86_address
 {
@@ -5222,6 +5226,26 @@ static union
   } ppro;
 } ix86_sched_data;
 
+static int
+ix86_safe_length (insn)
+     rtx insn;
+{
+  if (recog_memoized (insn) >= 0)
+    return get_attr_length(insn);
+  else
+    return 128;
+}
+
+static enum attr_memory
+ix86_safe_memory (insn)
+     rtx insn;
+{
+  if (recog_memoized (insn) >= 0)
+    return get_attr_memory(insn);
+  else
+    return MEMORY_UNKNOWN;
+}
+
 static enum attr_pent_pair
 ix86_safe_pent_pair (insn)
      rtx insn;
@@ -5284,6 +5308,60 @@ ix86_reorder_insn (insnp, slot)
     }
 }
 
+/* Find an instruction with given pairability and minimal amount of cycles
+   lost by the fact that the CPU waits for both pipelines to finish before
+   reading next instructions.  Also take care that both instructions together
+   can not exceed 7 bytes.  */
+
+static rtx *
+ix86_pent_find_pair (e_ready, ready, type, first)
+     rtx *e_ready;
+     rtx *ready;
+     enum attr_pent_pair type;
+     rtx first;
+{
+  int maxlength, mincycles, cycles;
+  enum attr_pent_pair tmp;
+  enum attr_memory memory;
+  rtx *insnp, *bestinsnp = NULL;
+
+  maxlength = 7 - ix86_safe_length (first);
+  memory = ix86_safe_memory (first);
+  cycles = result_ready_cost (first);
+  mincycles = INT_MAX;
+
+  for (insnp = e_ready; insnp >= ready && mincycles; --insnp)
+    if ((tmp = ix86_safe_pent_pair (*insnp)) == type
+	&& ix86_safe_length (*insnp) <= maxlength)
+      {
+	enum attr_memory second_memory;
+	int secondcycles, currentcycles;
+
+	second_memory = ix86_safe_memory (*insnp);
+	secondcycles = result_ready_cost (*insnp);
+	currentcycles = abs (cycles - secondcycles);
+
+	if (secondcycles >= 1 && cycles >= 1)
+	  {
+	    /* Two read/modify/write instructions together takes two
+	       cycles longer.  */
+	    if (memory == MEMORY_BOTH && second_memory == MEMORY_BOTH)
+	      currentcycles += 2;
+  
+	    /* Read modify/write instruction followed by read/modify
+	       takes one cycle longer.  */
+	    if (memory == MEMORY_BOTH && second_memory == MEMORY_LOAD
+	        && tmp != PENT_PAIR_UV
+	        && ix86_safe_pent_pair (first) != PENT_PAIR_UV)
+	      currentcycles += 1;
+	  }
+	if (currentcycles < mincycles)
+	  bestinsnp = insnp, mincycles = currentcycles;
+      }
+
+  return bestinsnp;
+}
+
 /* We are about to being issuing insns for this clock cycle.  
    Override the default sort algorithm to better slot instructions.  */
 
@@ -5311,7 +5389,7 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
 	 is important to which pipe an insn is issued to.  So we have to make
 	 some minor rearrangements.  */
       {
-	enum attr_pent_pair pair1, pair2, tmp;
+	enum attr_pent_pair pair1, pair2;
 
 	pair1 = ix86_safe_pent_pair (*e_ready);
 
@@ -5324,12 +5402,10 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
 	   insn to go with.  */
 	if (pair1 == PENT_PAIR_UV || pair1 == PENT_PAIR_PV)
 	  {
-	    for (insnp = e_ready - 1; insnp >= ready; --insnp)
-	      if ((tmp = ix86_safe_pent_pair (*insnp)) == PENT_PAIR_PU)
-		{
-		  pair2 = tmp;
-		  break;
-		}
+	    insnp = ix86_pent_find_pair (e_ready-1, ready,
+					 PENT_PAIR_PU, *e_ready);
+	    if (insnp)
+	      pair2 = PENT_PAIR_PU;
 	  }
 
 	/* If the first insn is PU or UV pairable, search for a PV
@@ -5337,31 +5413,30 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready)
 	if (pair2 == PENT_PAIR_NP
 	    && (pair1 == PENT_PAIR_PU || pair1 == PENT_PAIR_UV))
 	  {
-	    for (insnp = e_ready - 1; insnp >= ready; --insnp)
-	      if ((tmp = ix86_safe_pent_pair (*insnp)) == PENT_PAIR_PV)
-		{
-		  pair2 = tmp;
-		  break;
-		}
+	    insnp = ix86_pent_find_pair (e_ready-1, ready,
+					 PENT_PAIR_PV, *e_ready);
+	    if (insnp)
+	      pair2 = PENT_PAIR_PV;
 	  }
 
 	/* If the first insn is pairable, search for a UV
 	   insn to go with.  */
 	if (pair2 == PENT_PAIR_NP)
 	  {
-	    for (insnp = e_ready - 1; insnp >= ready; --insnp)
-	      if ((tmp = ix86_safe_pent_pair (*insnp)) == PENT_PAIR_UV)
-		{
-		  pair2 = tmp;
-		  break;
-		}
+	    insnp = ix86_pent_find_pair (e_ready-1, ready,
+					 PENT_PAIR_UV, *e_ready);
+	    if (insnp)
+	      pair2 = PENT_PAIR_UV;
 	  }
 
 	if (pair2 == PENT_PAIR_NP)
 	  return;
 
 	/* Found something!  Decide if we need to swap the order.  */
-	if (pair1 == PENT_PAIR_PV || pair2 == PENT_PAIR_PU)
+	if (pair1 == PENT_PAIR_PV || pair2 == PENT_PAIR_PU
+	    || (pair1 == PENT_PAIR_UV && pair2 == PENT_PAIR_UV
+		&& ix86_safe_memory (*e_ready) == MEMORY_BOTH
+		&& ix86_safe_memory (*insnp) == MEMORY_LOAD))
 	  ix86_reorder_insn (insnp, e_ready);
 	else
 	  ix86_reorder_insn (insnp, e_ready - 1);

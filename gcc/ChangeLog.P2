@@ -1,3 +1,13 @@
+1999-07-01  Jan Hubicka  <hubicka@freesoft.cz>
+
+	* i386.md (memory attribute): New "both" value.
+	(imm_disp attribute): New.
+	(Pentium scheduling definitions): More exact model.
+	* i386.c (ix86_safe_length): New.
+	(ix86_safe_memory): New.
+	(ix86_pent_find_pair): New.
+	(ix86_sched_reorder): Use it.
+
 1999-07-01  Richard Henderson  <rth@cygnus.com>
 
 	* i386.c: Prototype all static functions.
