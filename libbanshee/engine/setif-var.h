@@ -47,7 +47,7 @@ setif_var sv_fresh(region r, const char *name);
 setif_var sv_fresh_large(region r, const char *name);
 setif_var sv_fresh_small(region r, const char *name);
 stamp sv_get_stamp(setif_var v);
-char *sv_get_name(setif_var v);
+const char *sv_get_name(setif_var v);
 void sv_unify(setif_var v,setif_var_list vars);
 gen_e_list sv_get_lbs(setif_var v);
 gen_e_list sv_get_ubs(setif_var v);

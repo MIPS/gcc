@@ -109,7 +109,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I$(srcdir)/.. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= @ac_libbanshee_warn_cflags@
+AM_CFLAGS = -I$(top_srcdir)/../include -I$(srcdir)/../libcompat -I$(srcdir)/../include -I$(srcdir)/.. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= @ac_libbanshee_warn_cflags@
 noinst_LIBRARIES = libandersen.a
 libandersen_a_SOURCES = andersen_terms.c
 subdir = points-to

@@ -36,7 +36,7 @@
 
 EXTERN_C_BEGIN
 
-typedef int stamp;
+typedef long stamp;
 
 stamp stamp_fresh(void);
 stamp stamp_fresh_small(void);

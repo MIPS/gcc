@@ -41,16 +41,17 @@ EXTERN_C_BEGIN
 typedef void *hash_key;
 typedef void *hash_data;
 
-typedef int (*hash_fn)(hash_key k); /* Function to hash a key */
+/* Function to hash a key */
+typedef int (*hash_fn)(hash_key k);
+
+/* Function returning true iff k1 and k2 are equal */
 typedef bool (*keyeq_fn)(hash_key k1, hash_key k2);
-                                         /* Function returning true iff
-					     k1 and k2 are equal */
+
+/* Function applied to elts in the hash table */
 typedef void (*hash_apply_fn)(hash_key k, hash_data d, void *arg);
-                                          /* Function applied to
-					     elts in the hash table */
+
+/* Function mapped to elts in the hash table */
 typedef hash_data (*hash_map_fn)(hash_key k, hash_data d, void *arg);
-                                          /* Function mapped to
-					     elts in the hash table */
 
 typedef struct Hash_table *hash_table;
 
@@ -85,6 +86,9 @@ bool hash_table_remove(hash_table ht, hash_key k);
 
 /* Return a copy of ht, allocated in rhash */
 hash_table hash_table_copy(region rhash, hash_table ht);
+
+/* Apply f to all elements of ht, in some arbitrary order */
+void hash_table_apply(hash_table ht, hash_apply_fn f, void *arg);
 
 /* Map f to all elements on ht, creating a new hash table */
 hash_table hash_table_map(hash_table ht, hash_map_fn f, void *arg);

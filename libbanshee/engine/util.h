@@ -87,7 +87,7 @@ char *rvsprintf(region r, const char *fmt, va_list args);
 char *ptr_to_ascii(void *ptr);
 
 /* Convert a pointer to an integer */
-int ptr_hash(void *ptr);
+long ptr_hash(void *ptr);
 
 /* Return TRUE iff ptr1 == ptr2 */
 bool ptr_eq(void *ptr1, void *ptr2);

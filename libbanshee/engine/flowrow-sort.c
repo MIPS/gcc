@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <ansidecl.h>
 #include "flowrow-sort.h"
 #include "termhash.h"
 
@@ -355,7 +356,7 @@ static gen_e contour_instantiate(fresh_fn_ptr fresh,
 }
 
 static contour get_contour(fresh_fn_ptr fresh,get_stamp_fn_ptr get_stamp, 
-			   gen_e zero_elem,gen_e e)
+			   gen_e zero_elem ATTRIBUTE_UNUSED,gen_e e)
 {
   if (flowrow_is_row(e))
     {
@@ -466,7 +467,7 @@ static  void update_upper_bound(fresh_fn_ptr fresh,get_stamp_fn_ptr get_stamp,
 				incl_fn_ptr field_incl, gen_e zero_elem,
 				flow_var v,gen_e e) deletes
 {
-  if (fv_has_contour(v)) // v isn't aliased, and we discovered a contour
+  if (fv_has_contour(v)) /* v isn't aliased, and we discovered a contour*/
     {
       gen_e shape = fv_instantiate_contour(v);
       
@@ -922,7 +923,7 @@ sort_kind flowrow_base_sort(gen_e e)
 gen_e flowrow_extract_field(const char *name, gen_e e)
 {
   
-  bool field_eq(const flowrow_field f)
+  static bool field_eq(const flowrow_field f)
     {
       return (! strcmp(f->label,name));
     }
