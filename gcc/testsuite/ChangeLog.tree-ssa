@@ -3,7 +3,9 @@
 	* gcc.dg/tree-ssa/20030807-1.c: New test.
 	* gcc.dg/tree-ssa/20030807-2.c: New test.
 	* gcc.dg/tree-ssa/20030807-3.c: New test.
+	* gcc.dg/tree-ssa/20030807-4.c: New test.
 	* gcc.dg/tree-ssa/20030807-5.c: New test.
+	* gcc.dg/tree-ssa/20030807-10.c: New test.
 
 2003-08-10  Paul Brook  <paul@nowt.org>
 
