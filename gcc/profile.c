@@ -1134,6 +1134,18 @@ compute_branch_probabilities ()
 	{
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
+		/* Function may return twice in the cased the called fucntion is
+		   setjmp or calls fork, but we can't represent this by extra edge
+		   from the entry, since extra edge from the exit is already
+		   present.  We get negative frequency from the entry point.  */
+		if (e->count < 0
+		    && e->dest == EXIT_BLOCK_PTR
+		    && GET_CODE (e->src->end) == CALL_INSN)
+		  e->count = 0;
+		if (e->count > total
+		    && GET_CODE (e->src->end) == CALL_INSN)
+		  e->count = total;
+
 		e->probability = (e->count * REG_BR_PROB_BASE + total / 2) / total;
 		if (e->probability < 0 || e->probability > REG_BR_PROB_BASE)
 		  {
@@ -1333,33 +1345,11 @@ branch_prob ()
       rtx insn;
       edge e;
 
-      /* Add fake edges from entry block to the call insns that may return
-	 twice.  The CFG is not quite correct then, as call insn plays more
-	 role of CODE_LABEL, but for our purposes, everything should be OK,
-	 as we never insert code to the beggining of basic block.  */
-      for (insn = bb->head; insn != NEXT_INSN (bb->end);
-	   insn = NEXT_INSN (insn))
-	{
-	  if (GET_CODE (insn) == CALL_INSN
-	      && find_reg_note (insn, REG_SETJMP, NULL))
-	    {
-	      if (GET_CODE (bb->head) == CODE_LABEL
-		  || insn != NEXT_INSN (bb->head))
-		{
-		  e = split_block (bb, PREV_INSN (insn));
-		  make_edge (ENTRY_BLOCK_PTR, e->dest, EDGE_FAKE);
-		  break;
-		}
-	      else
-		{
-		  /* We should not get abort here, as call to setjmp should not
-		     be the very first instruction of function.  */
-		  if (bb == ENTRY_BLOCK_PTR)
-		    abort ();
-		  make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
-		}
-	    }
-	}
+      /* Functions returning multiple times are not handled by extra edges.
+         Instead we simply allow negative counts on edges from exit to the
+         block past call and corresponding probabilities.  We can't go
+         with the extra edges because that would result in flowgraph that
+	 needs to have fake edges outside the spanning tree.  */
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
