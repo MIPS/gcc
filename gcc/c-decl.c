@@ -6320,6 +6320,15 @@ finish_function (void)
      info for the epilogue.  */
   cfun->function_end_locus = input_location;
 
+  /* If we don't have ctors/dtors sections, and this is a static
+     constructor or destructor, it must be recorded now.  */
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
@@ -6371,23 +6380,14 @@ c_expand_body_1 (tree fndecl, int nested_p)
     /* Return to the enclosing function.  */
     pop_function_context ();
 
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
-				     DEFAULT_INIT_PRIORITY);
-      else
-	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
-    }
-
-  if (DECL_STATIC_DESTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
-				    DEFAULT_INIT_PRIORITY);
-      else
-	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
-    }
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
+				 DEFAULT_INIT_PRIORITY);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
+				DEFAULT_INIT_PRIORITY);
 }
 
 /* Like c_expand_body_1 but only for unnested functions.  */
