@@ -157,7 +157,7 @@ DEFPARAM(PARAM_MAX_UNROLL_TIMES,
 	8)
 /* The ratio of iterations that should end in peeled part of a loop.  */
 DEFPARAM(PARAM_HISTOGRAM_PEEL_RATIO,
-	"histogram-peel-radtio",
+	"histogram-peel-ratio",
 	"The ratio of iterations that should end in peeled part of a loop",
 	9000)
 /* The maximum number of insns of a peeled loop.  */

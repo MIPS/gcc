@@ -1,5 +1,9 @@
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* params.def (HISTOGRAM_PEEL_RATIO): Fix typo.
+
+2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-unroll.c (decide_unrolling_and_peeling): Fix.
 
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
