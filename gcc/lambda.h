@@ -182,7 +182,6 @@ static inline void lambda_vector_clear (lambda_vector, int);
 static inline bool lambda_vector_equal (lambda_vector, lambda_vector, int);
 static inline int lambda_vector_min_nz (lambda_vector, int, int);
 static inline int lambda_vector_first_nz (lambda_vector, int, int);
-/* APPLE LOCAL end lno */
 static inline void print_lambda_vector (FILE *, lambda_vector, int);
 
 /* Allocate a new vector of given SIZE.  */
@@ -192,6 +191,8 @@ lambda_vector_new (int size)
 {
   return ggc_alloc_cleared (size * sizeof(int));
 }
+
+
 
 /* Multiply vector VEC1 of length SIZE by a constant CONST1,
    and store the result in VEC2.  */
