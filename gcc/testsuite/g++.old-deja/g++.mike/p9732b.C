@@ -3,6 +3,8 @@
 int count;
 int bail = 0;
 
+extern "C" void _exit (int);
+
 struct base {
   base () { ++count; }
   ~base () { --count; }
@@ -21,8 +23,8 @@ public:
     else
       {
 	if (count != 0)
-	  exit (1);
-	exit (0);
+	  _exit (1);
+	_exit (0);
       }
   }
 } d;

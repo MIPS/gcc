@@ -198,9 +198,6 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 #
 # Other keywords: "Build don't link:", "Build don't run:".
 
-    # FIXME: none of the current test cases use this, so It's not implemented
-    # set tmp [grep $prog "remove -sanitize"]
-
     set name "[file tail [file dirname $prog]]/[file tail $prog]"
 
     set tmp [grep $prog "FIXME -.*"]
@@ -230,7 +227,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 
     lappend cflags "compiler=$compiler"
 
-    set output "$tmpdir/a.out"
+    regsub -all "\[./\]" "$name" "-" output;
+    set output "$tmpdir/$output";
     set compile_type "executable"
 
     set tmp [lindex [grep $prog "Build don.t link:"] 0]
@@ -360,9 +358,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set message [concat $message $tmp]
     }
 
-    set tmp [process-option $prog "execution test fails" "an execution failure" EXEC $text]
+    set tmp [process-option $prog "execution test fails" "an execution failure" EXECO $text]
     if ![string match "" $tmp] then {
 	set execbug_flag 1
+	set message [concat $message $tmp]
+	warning "please use execution test - XFAIL *-*-* in $prog instead"
+    }
+
+    set tmp [process-option $prog "execution test - " "an excess error failure" EXEC $text]
+    if ![string match "" $tmp] then {
 	set message [concat $message $tmp]
     }
 
@@ -471,7 +475,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    "XBADASM" {
 		x$uhoh "$name $pattern (test for bad assembler, line $line)"
 	    }
-	    "XEXEC" { }
+	    "XEXEC" {
+		set execbug_flag 1
+	    }
 	    "XEXCESS" {
 		set excessbug_flag 1
 	    }
@@ -522,7 +528,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    set result [eval [format "%s_load %s" $tool $executable]]
 	    set status [lindex $result 0];
 	    set output [lindex $result 1];
-	    remote_file build delete $executable;
+	    if { $status == "pass" } {
+		remote_file build delete $executable;
+	    }
 	    if { $execbug_flag || $excessbug_flag } then {
 		setup_xfail "*-*-*"
 	    }

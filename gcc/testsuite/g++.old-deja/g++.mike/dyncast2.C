@@ -1,5 +1,5 @@
 // Special g++ Options: -fexceptions -w
-// excess errors test - XFAIL a29k-*-* sparc64-*-elf sh-*-* arm-*-pe powerpc-*-eabi
+// excess errors test - XFAIL a29k-*-* sparc64-*-elf sh-*-* arm-*-pe
 
 // Ensure reference handling works.
 
