@@ -1,3 +1,10 @@
+2003-08-19  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-cfg (bsi_move_after): New function.
+	(bsi_move_before): New function.
+	(bsi_move_to_bb_end): New function.
+	* tree-flow.h: Prototype new functions.
+
 2003-08-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c: Remove doxygen markers.

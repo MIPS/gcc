@@ -416,6 +416,9 @@ extern int call_expr_flags (tree);
 extern int remove_useless_stmts_and_vars (tree *, int);
 extern int could_trap_p (tree);
 extern basic_block tree_split_edge (edge);
+extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
+extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
+extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);

@@ -2116,6 +2116,44 @@ bsi_remove (block_stmt_iterator *i)
   remove_bsi_from_block (i, true);
 }
 
+/* Move the statement at FROM so it comes right after the statement at
+   TO.  */
+void 
+bsi_move_after (block_stmt_iterator from, block_stmt_iterator to)
+{
+  tree stmt = bsi_stmt (from);
+  remove_bsi_from_block (&from, false);
+  bsi_insert_after (&to, stmt, BSI_SAME_STMT);
+} 
+
+/* Move the statement at FROM so it comes right before the statement
+   at TO.  */
+void 
+bsi_move_before (block_stmt_iterator from, block_stmt_iterator to)
+{
+  tree stmt = bsi_stmt (from);
+  remove_bsi_from_block (&from, false);
+  bsi_insert_before (&to, stmt, BSI_SAME_STMT);
+}
+
+/* Move the statement at FROM to the end of basic block BB, */
+void
+bsi_move_to_bb_end (block_stmt_iterator from, basic_block bb)
+{
+  block_stmt_iterator last = bsi_last (bb);
+  
+  /* Have to check bsi_end_p because it could be an empty block.  */
+  if (!bsi_end_p (last) 
+      && (is_ctrl_altering_stmt (bsi_stmt (last)) 
+	  || is_ctrl_stmt (bsi_stmt (last))))
+    {
+      bsi_move_before (from, last);
+    }
+  else
+    {
+      bsi_move_after (from, last);
+    }
+}
 
 /* Replace the contents of a stmt with another. The replacement cannot be
    a COMPOUND_EXPR node, only a gimple stmt.  */
