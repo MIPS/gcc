@@ -1,3 +1,8 @@
+2004-01-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_xform_derefs): Restore instrumentation of 
+	RETURN_EXPRs.
+
 2004-01-11  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (remove_usless_stmts_cond):  Fold statement.
