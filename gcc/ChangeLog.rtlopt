@@ -1,3 +1,7 @@
+2003-01-24  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (MEM_HASH_VAL): Change hash function.
+
 2003-01-23  Josef Zlomek  <zlomekj@suse.cz>
 
 	* bb-reorder.c: Remove whitespaces on the end of lines.

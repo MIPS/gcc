@@ -177,7 +177,7 @@ typedef struct variable_def
 static htab_t variable_htab;
 
 /* Hash function for MEM_IN and MEM_OUT.  */
-#define MEM_HASH_VAL(mem) ((size_t) MEM_ALIAS_SET (mem))
+#define MEM_HASH_VAL(mem) ((size_t) DECL_RTL ((tree) MEM_EXPR (mem)))
 
 /* Hash function for VARIABLE_HTAB.  */
 #define VARIABLE_HASH_VAL(decl) ((size_t) decl)
