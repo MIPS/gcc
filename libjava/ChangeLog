@@ -1,3 +1,12 @@
+2004-10-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/font/TextAttribute.java
+	(RUN_DIRECTION_LTR): Initialie with static value instead of
+	calculating it.
+	(RUN_DIRECTION_RTL): Likewise.
+	(STRIKETHROUGH_ON): Likewise.
+	(SWAP_COLORS_ON): Likewise.
+
 2004-10-28  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/ColorConvertOp.java: New class.
