@@ -1017,11 +1017,6 @@ extern void emit_push_insn PARAMS ((rtx, enum machine_mode, tree, rtx,
 				    unsigned int, int, rtx, int, rtx, rtx,
 				    int, rtx));
 
-/* Emit library call.  */
-extern void emit_library_call PARAMS ((rtx, int, enum machine_mode, int, ...));
-extern rtx emit_library_call_value PARAMS ((rtx, rtx, int, enum machine_mode,
-					    int, ...));
-
 /* Expand an assignment that stores the value of FROM into TO. */
 extern rtx expand_assignment PARAMS ((tree, tree, int, int));
 
@@ -1257,6 +1252,17 @@ extern rtx (*lang_expand_expr) PARAMS ((union tree_node *, rtx,
    such codes that output_constant needs to know about.  Returns a
    language-independent constant equivalent to its input.  */
 extern tree (*lang_expand_constant) PARAMS ((tree));
+
+extern int safe_from_p PARAMS ((rtx, tree, int));
+
+/* Hook called by safe_from_p for language-specific tree codes.  It is
+   up to the language front-end to install a hook if it has any such
+   codes that safe_from_p needs to know about.  Since same_from_p will
+   recursively explore the TREE_OPERANDs of an expression, this hook
+   should not reexamine those pieces.  This routine may recursively
+   call safe_from_p; it should always pass `0' as the TOP_P
+   parameter.  */
+extern int (*lang_safe_from_p) PARAMS ((rtx, tree));
 #endif
 
 extern void init_all_optabs			PARAMS ((void));

@@ -1,3 +1,57 @@
+2000-09-15  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* src/locale.cc (locale::locale(const char* __name)): Consolidate
+	name setting. Add checks for NULL __name pointers. Remove calls to
+	_S_initialize() as initial locale initialization can either be
+	assumed, or needs to be made consistent throughout locale
+	constructors.
+	(locale::locale(const locale& __other, const char* __name,
+	category __cat): Add checks for NULL name. Add checks for
+	assignment to self.
+	* src/localename.cc (locale::_Impl:: _Impl(const _Impl& __other,
+	const string& __name, category __cat, size_t __refs)): Set correct
+	name, has_name values.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test01): More tests.
+	* docs/22_locale/locale.html: New file, more unfinished docs...
+	
+2000-09-14  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* src/locale.cc (locale::name()): Implement.
+	(_Impl(size_t __numfacets, size_t __refs, bool __namep = false,
+	string __name = "*")): Change signature.
+	(locale::classic): Initialize the "C" locale as a named locale.
+	* bits/localefwd.h (locale): Change _M_num_references to
+	_M_references. Eliminate _M_cached_name_ok. Rename _M_cached_name
+	to _M_name.
+	* bits/localefwd.h: Tweaks.
+	* src/localename.cc: Tweaks.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test01): Add tests.
+	(test01): Fix.
+
+	* bits/basic_string.h: Consistency check, change _M_state ->
+	_M_references.
+
+2000-09-14  Brendan Kehoe  <brendan@zen.org>
+
+        * bits/string.tcc (_Rep::_S_max_size): Use typename for its size_type
+        return type.
+
+        * src/Makefile.an (headers): Also install backward/fstream.h.
+        * src/Makefile.in: Regenerate.	
+
+        * bits/char_traits.h (char_traits<_CharT>::get_state,
+        char_traits<char>::get_state, char_traits<wchar_t>::get_state): Pass
+        argument in by reference, not by value. Uglify to _S_get_state.
+	(char_traits<*>::__eos): Uglify to _S_eos.
+	* bits/std_ostream.h (ends(basic_ostream<_CharT, _Traits>& __os)):
+	Change __eos to _S_eos.
+	
+2000-09-13  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* testsuite/22_locale/static_members.cc: New file.
+	* testsuite/22_locale/ctor_copy_dtor.cc: New file.
+	* src/locale.cc: Minor formatting tweaks.
+
 2000-09-12  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
 
 	* testsuite/22_locale/global_templates.cc (test01): Add negative

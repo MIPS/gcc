@@ -220,7 +220,8 @@ static rtx rtx_for_function_call		PARAMS ((tree, tree));
 static void load_register_parameters		PARAMS ((struct arg_data *,
 							 int, rtx *, int));
 static int libfunc_nothrow			PARAMS ((rtx));
-static rtx emit_library_call_value_1 		PARAMS ((int, rtx, rtx, int,
+static rtx emit_library_call_value_1 		PARAMS ((int, rtx, rtx,
+							 enum libcall_type,
 							 enum machine_mode,
 							 int, va_list));
 static int special_function_p			PARAMS ((tree, int));
@@ -865,7 +866,7 @@ precompute_register_parameters (num_actuals, args, reg_parm_seen)
 		|| (GET_CODE (args[i].value) == SUBREG
 		    && GET_CODE (SUBREG_REG (args[i].value)) == REG)))
 	    && args[i].mode != BLKmode
-	    && rtx_cost (args[i].value, SET) > 2
+	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
 	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
 		|| preserve_subexpressions_p ()))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
@@ -1679,9 +1680,8 @@ rtx_for_function_call (fndecl, exp)
 	     that this seems safer.  */
 	  funaddr = convert_memory_address (Pmode, funexp);
 #endif
-	  emit_library_call (chkr_check_exec_libfunc, 1,
-			     VOIDmode, 1,
-			     funaddr, Pmode);
+	  emit_library_call (chkr_check_exec_libfunc, LCT_CONST_MAKE_BLOCK,
+			     VOIDmode, 1, funaddr, Pmode);
 	}
       emit_queue ();
     }
@@ -3029,7 +3029,7 @@ expand_call (exp, target, ignore)
 
 	  /* Mark the memory for the aggregate as write-only.  */
 	  if (current_function_check_memory_usage)
-	    emit_library_call (chkr_set_right_libfunc, 1,
+	    emit_library_call (chkr_set_right_libfunc, LCT_CONST_MAKE_BLOCK,
 			       VOIDmode, 3,
 			       structure_value_addr, ptr_mode,
 			       GEN_INT (struct_value_size),
@@ -3468,7 +3468,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      int retval;
      rtx orgfun;
      rtx value;
-     int fn_type;
+     enum libcall_type fn_type;
      enum machine_mode outmode;
      int nargs;
      va_list p;
@@ -3524,9 +3524,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #endif
 #endif
 
-  if (fn_type == 1)
+  if (fn_type == LCT_CONST_MAKE_BLOCK)
     flags |= ECF_CONST;
-  else if (fn_type == 2)
+  else if (fn_type == LCT_PURE_MAKE_BLOCK)
     flags |= ECF_PURE;
   fun = orgfun;
 
@@ -4145,8 +4145,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
    (use (memory (scratch)).  */
 
 void
-emit_library_call VPARAMS((rtx orgfun, int fn_type, enum machine_mode outmode,
-			   int nargs, ...))
+emit_library_call VPARAMS((rtx orgfun, enum libcall_type fn_type,
+			   enum machine_mode outmode, int nargs, ...))
 {
 #ifndef ANSI_PROTOTYPES
   rtx orgfun;
@@ -4179,7 +4179,8 @@ emit_library_call VPARAMS((rtx orgfun, int fn_type, enum machine_mode outmode,
    If VALUE is nonzero, VALUE is returned.  */
 
 rtx
-emit_library_call_value VPARAMS((rtx orgfun, rtx value, int fn_type,
+emit_library_call_value VPARAMS((rtx orgfun, rtx value,
+				 enum libcall_type fn_type,
 				 enum machine_mode outmode, int nargs, ...))
 {
 #ifndef ANSI_PROTOTYPES
@@ -4423,8 +4424,8 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
       /* If the value is already in the stack slot, we are done.  */
       if (current_function_check_memory_usage && GET_CODE (arg->stack) == MEM)
 	{
-	  emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
-			     XEXP (arg->stack, 0), Pmode,
+	  emit_library_call (chkr_set_right_libfunc, LCT_CONST_MAKE_BLOCK,
+			     VOIDmode, 3, XEXP (arg->stack, 0), Pmode,
 			     ARGS_SIZE_RTX (arg->size),
 			     TYPE_MODE (sizetype),
 			     GEN_INT (MEMORY_USE_RW),

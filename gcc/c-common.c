@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
-#include "c-common.h"
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
@@ -30,7 +29,9 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "ggc.h"
 #include "expr.h"
+#include "c-common.h"
 #include "tm_p.h"
+#include "intl.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -149,6 +150,10 @@ tree (*make_fname_decl)                PARAMS ((tree, const char *, int));
    returns 1 for language-specific statement codes.  */
 int (*lang_statement_code_p)           PARAMS ((enum tree_code));
 
+/* If non-NULL, the address of a language-specific function that takes
+   any action required right before expand_function_end is called.  */
+void (*lang_expand_function_end)       PARAMS ((void));
+
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
@@ -181,6 +186,7 @@ typedef struct
   int line;
   const char *file;
   int needs_warning;
+  tree if_stmt;
 } if_elt;
 static void tfaff			PARAMS ((void));
 
@@ -192,15 +198,16 @@ static int if_stack_space = 0;
 /* Stack pointer.  */
 static int if_stack_pointer = 0;
 
-/* Generate RTL for the start of an if-then, and record the start of it
+/* Record the start of an if-then, and record the start of it
    for ambiguous else detection.  */
 
 void
-c_expand_start_cond (cond, exitflag, compstmt_count)
+c_expand_start_cond (cond, compstmt_count)
      tree cond;
-     int exitflag;
      int compstmt_count;
 {
+  tree if_stmt;
+
   /* Make sure there is enough space on the stack.  */
   if (if_stack_space == 0)
     {
@@ -213,17 +220,29 @@ c_expand_start_cond (cond, exitflag, compstmt_count)
       if_stack = (if_elt *)xrealloc (if_stack, if_stack_space * sizeof (if_elt));
     }
 
+  if_stmt = build_stmt (IF_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
+  IF_COND (if_stmt) = cond;
+  add_stmt (if_stmt);
+
   /* Record this if statement.  */
   if_stack[if_stack_pointer].compstmt_count = compstmt_count;
   if_stack[if_stack_pointer].file = input_filename;
   if_stack[if_stack_pointer].line = lineno;
   if_stack[if_stack_pointer].needs_warning = 0;
+  if_stack[if_stack_pointer].if_stmt = if_stmt;
   if_stack_pointer++;
-
-  expand_start_cond (cond, exitflag);
 }
 
-/* Generate RTL for the end of an if-then.  Optionally warn if a nested
+/* Called after the then-clause for an if-statement is processed.  */
+
+void
+c_finish_then ()
+{
+  tree if_stmt = if_stack[if_stack_pointer - 1].if_stmt;
+  RECHAIN_STMTS (if_stmt, THEN_CLAUSE (if_stmt));
+}
+
+/* Record the end of an if-then.  Optionally warn if a nested
    if statement had an ambiguous else clause.  */
 
 void
@@ -234,10 +253,10 @@ c_expand_end_cond ()
     warning_with_file_and_line (if_stack[if_stack_pointer].file,
 				if_stack[if_stack_pointer].line,
 				"suggest explicit braces to avoid ambiguous `else'");
-  expand_end_cond ();
+  last_expr_type = NULL_TREE;
 }
 
-/* Generate RTL between the then-clause and the else-clause
+/* Called between the then-clause and the else-clause
    of an if-then-else.  */
 
 void
@@ -256,8 +275,15 @@ c_expand_start_else ()
      case.  Also don't warn for any if statements nested in this else.  */
   if_stack[if_stack_pointer - 1].needs_warning = 0;
   if_stack[if_stack_pointer - 1].compstmt_count--;
+}
 
-  expand_start_else ();
+/* Called after the else-clause for an if-statement is processed.  */
+
+void
+c_finish_else ()
+{
+  tree if_stmt = if_stack[if_stack_pointer - 1].if_stmt;
+  RECHAIN_STMTS (if_stmt, ELSE_CLAUSE (if_stmt));
 }
 
 /* Make bindings for __FUNCTION__, __PRETTY_FUNCTION__, and __func__.  */
@@ -1327,6 +1353,38 @@ typedef struct
 } format_kind_info;
 
 
+/* Structure describing details of a type expected in format checking,
+   and the type to check against it.  */
+typedef struct format_wanted_type
+{
+  /* The type wanted.  */
+  tree wanted_type;
+  /* The name of this type to use in diagnostics.  */
+  const char *wanted_type_name;
+  /* The level of indirection through pointers at which this type occurs.  */
+  int pointer_count;
+  /* Whether, when pointer_count is 1, to allow any character type when
+     pedantic, rather than just the character or void type specified.  */
+  int char_lenient_flag;
+  /* Whether the argument, dereferenced once, is written into and so the
+     argument must not be a pointer to a const-qualified type.  */
+  int writing_in_flag;
+  /* If warnings should be of the form "field precision is not type int",
+     the name to use (in this case "field precision"), otherwise NULL,
+     for "%s format, %s arg" type messages.  If (in an extension), this
+     is a pointer type, wanted_type_name should be set to include the
+     terminating '*' characters of the type name to give a correct
+     message.  */
+  const char *name;
+  /* The actual parameter to check against the wanted type.  */
+  tree param;
+  /* The argument number of that parameter.  */
+  int arg_num;
+  /* The next type to check for this format conversion, or NULL if none.  */
+  struct format_wanted_type *next;
+} format_wanted_type;
+
+
 static const format_length_info printf_length_specs[] =
 {
   { "h", FMT_LEN_h, STD_C89, "hh", FMT_LEN_hh, STD_C99 },
@@ -1518,6 +1576,8 @@ static void init_dollar_format_checking		PARAMS ((int, tree));
 static int maybe_read_dollar_number		PARAMS ((const char **, int,
 							 tree, tree *));
 static void finish_dollar_format_checking	PARAMS ((void));
+
+static void check_format_types	PARAMS ((format_wanted_type *));
 
 /* Initialize the table of functions to perform format checking on.
    The ISO C functions are always checked (whether <stdio.h> is
@@ -1878,10 +1938,14 @@ check_format_info (info, params)
   int format_length;
   tree format_tree;
   tree cur_param;
-  tree cur_type;
   tree wanted_type;
   enum format_std_version wanted_type_std;
   const char *wanted_type_name;
+  format_wanted_type width_wanted_type;
+  format_wanted_type precision_wanted_type;
+  format_wanted_type main_wanted_type;
+  format_wanted_type *first_wanted_type;
+  format_wanted_type *last_wanted_type;
   tree first_fillin_param;
   const char *format_chars;
   const format_kind_info *fki = NULL;
@@ -1999,8 +2063,8 @@ check_format_info (info, params)
   while (1)
     {
       int aflag;
-      int char_type_flag = 0;
-      int writing_in_flag = 0;
+      first_wanted_type = NULL;
+      last_wanted_type = NULL;
       if (*format_chars == 0)
 	{
 	  if (format_chars - TREE_STRING_POINTER (format_tree) != format_length)
@@ -2172,16 +2236,20 @@ check_format_info (info, params)
 		      params = TREE_CHAIN (params);
 		      ++arg_num;
 		    }
-		  /* size_t is generally not valid here.
-		     It will work on most machines, because size_t and int
-		     have the same mode.  But might as well warn anyway,
-		     since it will fail on other machines.  */
-		  if ((TYPE_MAIN_VARIANT (TREE_TYPE (cur_param))
-		       != integer_type_node)
-		      &&
-		      (TYPE_MAIN_VARIANT (TREE_TYPE (cur_param))
-		       != unsigned_type_node))
-		    warning ("field width is not type int (arg %d)", arg_num);
+		  width_wanted_type.wanted_type = integer_type_node;
+		  width_wanted_type.wanted_type_name = NULL;
+		  width_wanted_type.pointer_count = 0;
+		  width_wanted_type.char_lenient_flag = 0;
+		  width_wanted_type.writing_in_flag = 0;
+		  width_wanted_type.name = _("field width");
+		  width_wanted_type.param = cur_param;
+		  width_wanted_type.arg_num = arg_num;
+		  width_wanted_type.next = NULL;
+		  if (last_wanted_type != 0)
+		    last_wanted_type->next = &width_wanted_type;
+		  if (first_wanted_type == 0)
+		    first_wanted_type = &width_wanted_type;
+		  last_wanted_type = &width_wanted_type;
 		}
 	    }
 	  else
@@ -2225,13 +2293,20 @@ check_format_info (info, params)
 			  params = TREE_CHAIN (params);
 			  ++arg_num;
 			}
-		      if ((TYPE_MAIN_VARIANT (TREE_TYPE (cur_param))
-			   != integer_type_node)
-			  &&
-			  (TYPE_MAIN_VARIANT (TREE_TYPE (cur_param))
-			   != unsigned_type_node))
-			warning ("field precision is not type int (arg %d)",
-				 arg_num);
+		      precision_wanted_type.wanted_type = integer_type_node;
+		      precision_wanted_type.wanted_type_name = NULL;
+		      precision_wanted_type.pointer_count = 0;
+		      precision_wanted_type.char_lenient_flag = 0;
+		      precision_wanted_type.writing_in_flag = 0;
+		      precision_wanted_type.name = _("field precision");
+		      precision_wanted_type.param = cur_param;
+		      precision_wanted_type.arg_num = arg_num;
+		      precision_wanted_type.next = NULL;
+		      if (last_wanted_type != 0)
+			last_wanted_type->next = &precision_wanted_type;
+		      if (first_wanted_type == 0)
+			first_wanted_type = &precision_wanted_type;
+		      last_wanted_type = &precision_wanted_type;
 		    }
 		}
 	      else
@@ -2397,8 +2472,20 @@ check_format_info (info, params)
       wanted_type_name = fci->types[length_chars_val].name;
       wanted_type_std = fci->types[length_chars_val].std;
       if (wanted_type == 0)
-	warning ("use of `%s' length modifier with `%c' type character",
-		 length_chars, format_char);
+	{
+	  warning ("use of `%s' length modifier with `%c' type character",
+		   length_chars, format_char);
+	  /* Heuristic: skip one argument when an invalid length/type
+	     combination is encountered.  */
+	  arg_num++;
+	  if (params == 0)
+	    {
+	      tfaff ();
+	      return;
+	    }
+	  params = TREE_CHAIN (params);
+	  continue;
+	}
       else if (pedantic
 	       /* Warn if non-standard, provided it is more non-standard
 		  than the length and type characters that may already
@@ -2418,30 +2505,70 @@ check_format_info (info, params)
       /* Finally. . .check type of argument against desired type!  */
       if (info->first_arg_num == 0)
 	continue;
-      if (fci->pointer_count == 0 && wanted_type == void_type_node)
-	/* This specifier takes no argument.  */
-	continue;
-      if (params == 0)
+      if (!(fci->pointer_count == 0 && wanted_type == void_type_node))
 	{
-	  tfaff ();
-	  return;
+	  if (params == 0)
+	    {
+	      tfaff ();
+	      return;
+	    }
+	  cur_param = TREE_VALUE (params);
+	  params = TREE_CHAIN (params);
+	  ++arg_num;
+	  main_wanted_type.wanted_type = wanted_type;
+	  main_wanted_type.wanted_type_name = wanted_type_name;
+	  main_wanted_type.pointer_count = fci->pointer_count + aflag;
+	  main_wanted_type.char_lenient_flag = 0;
+	  if (index (fci->flag_chars, 'c') != 0)
+	    main_wanted_type.char_lenient_flag = 1;
+	  main_wanted_type.writing_in_flag = 0;
+	  if (info->format_type == scanf_format_type
+	       || (info->format_type == printf_format_type
+		   && format_char == 'n'))
+	    main_wanted_type.writing_in_flag = 1;
+	  main_wanted_type.name = NULL;
+	  main_wanted_type.param = cur_param;
+	  main_wanted_type.arg_num = arg_num;
+	  main_wanted_type.next = NULL;
+	  if (last_wanted_type != 0)
+	    last_wanted_type->next = &main_wanted_type;
+	  if (first_wanted_type == 0)
+	    first_wanted_type = &main_wanted_type;
+	  last_wanted_type = &main_wanted_type;
 	}
-      cur_param = TREE_VALUE (params);
-      params = TREE_CHAIN (params);
-      ++arg_num;
+
+      if (first_wanted_type != 0)
+	check_format_types (first_wanted_type);
+
+    }
+}
+
+
+/* Check the argument types from a single format conversion (possibly
+   including width and precision arguments).  */
+static void
+check_format_types (types)
+     format_wanted_type *types;
+{
+  for (; types != 0; types = types->next)
+    {
+      tree cur_param;
+      tree cur_type;
+      tree wanted_type;
+      int arg_num;
+      int i;
+      int char_type_flag;
+      cur_param = types->param;
       cur_type = TREE_TYPE (cur_param);
+      char_type_flag = 0;
+      wanted_type = types->wanted_type;
+      arg_num = types->arg_num;
 
       STRIP_NOPS (cur_param);
 
-      if ((info->format_type == scanf_format_type
-	   || (info->format_type == printf_format_type
-	       && format_char == 'n'))
-	  && wanted_type != 0)
-	writing_in_flag = 1;
-
       /* Check the types of any additional pointer arguments
 	 that precede the "real" argument.  */
-      for (i = 0; i < fci->pointer_count + aflag; ++i)
+      for (i = 0; i < types->pointer_count; ++i)
 	{
 	  if (MAYBE_BOUNDED_POINTER_TYPE_P (cur_type))
 	    {
@@ -2457,7 +2584,7 @@ check_format_info (info, params)
 		 at the first indirection only, if for example
 		 void * const * is passed to scanf %p; passing
 		 const void ** is simply passing an incompatible type.  */
-	      if (writing_in_flag
+	      if (types->writing_in_flag
 		  && i == 0
 		  && TREE_CODE (cur_type) != ERROR_MARK
 		  && (TYPE_READONLY (cur_type)
@@ -2483,7 +2610,7 @@ check_format_info (info, params)
 	    }
 	  if (TREE_CODE (cur_type) != ERROR_MARK)
 	    {
-	      if (fci->pointer_count + aflag == 1)
+	      if (types->pointer_count == 1)
 		warning ("format argument is not a pointer (arg %d)", arg_num);
 	      else
 		warning ("format argument is not a pointer to a pointer (arg %d)", arg_num);
@@ -2494,13 +2621,13 @@ check_format_info (info, params)
       /* Check whether the argument type is a character type.  This leniency
 	 only applies to certain formats, flagged with 'c'.
       */
-      if (TREE_CODE (cur_type) != ERROR_MARK && index (fci->flag_chars, 'c') != 0)
+      if (TREE_CODE (cur_type) != ERROR_MARK && types->char_lenient_flag)
 	char_type_flag = (TYPE_MAIN_VARIANT (cur_type) == char_type_node
 			  || TYPE_MAIN_VARIANT (cur_type) == signed_char_type_node
 			  || TYPE_MAIN_VARIANT (cur_type) == unsigned_char_type_node);
 
       /* Check the type of the "real" argument, if there's a type we want.  */
-      if (i == fci->pointer_count + aflag && wanted_type != 0
+      if (i == types->pointer_count && wanted_type != 0
 	  && TREE_CODE (cur_type) != ERROR_MARK
 	  && wanted_type != TYPE_MAIN_VARIANT (cur_type)
 	  /* If we want `void *', allow any pointer type.
@@ -2509,7 +2636,7 @@ check_format_info (info, params)
 	     types.
 	  */
 	  && ! (wanted_type == void_type_node
-		&& fci->pointer_count > 0
+		&& types->pointer_count > 0
 		&& (! pedantic
 		    || TYPE_MAIN_VARIANT (cur_type) == void_type_node
 		    || (i == 1 && char_type_flag)))
@@ -2573,10 +2700,14 @@ check_format_info (info, params)
 		 but we should allow for programs with a perverse typedef
 		 making size_t something other than what the compiler
 		 thinks.  */
-	      if (wanted_type_name != 0
-		  && strcmp (wanted_type_name, that) != 0)
-		this = wanted_type_name;
-	      warning ("%s format, %s arg (arg %d)", this, that, arg_num);
+	      if (types->wanted_type_name != 0
+		  && strcmp (types->wanted_type_name, that) != 0)
+		this = types->wanted_type_name;
+	      if (types->name != 0)
+		warning ("%s is not type %s (arg %d)", types->name, this,
+			 arg_num);
+	      else
+		warning ("%s format, %s arg (arg %d)", this, that, arg_num);
 	    }
 	}
     }
@@ -2704,7 +2835,8 @@ c_expand_expr_stmt (expr)
       && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
     error ("expression statement has incomplete type");
 
-  expand_expr_stmt (expr);
+  last_expr_type = TREE_TYPE (expr); 
+  add_stmt (build_stmt (EXPR_STMT, expr));
 }
 
 /* Validate the expression after `case' and apply default promotions.  */
@@ -4492,6 +4624,7 @@ statement_code_p (code)
     case RETURN_STMT:
     case BREAK_STMT:
     case CONTINUE_STMT:
+    case SCOPE_STMT:
     case SWITCH_STMT:
     case GOTO_STMT:
     case LABEL_STMT:
@@ -4577,6 +4710,286 @@ walk_stmt_tree (tp, func, data)
   return walk_stmt_tree (&TREE_CHAIN (*tp), func, data);
 
 #undef WALK_SUBTREE
+}
+
+/* Used to compare case labels.  K1 and K2 are actually tree nodes
+   representing case labels, or NULL_TREE for a `default' label.
+   Returns -1 if K1 is ordered before K2, -1 if K1 is ordered after
+   K2, and 0 if K1 and K2 are equal.  */
+
+int
+case_compare (k1, k2)
+     splay_tree_key k1;
+     splay_tree_key k2;
+{
+  /* Consider a NULL key (such as arises with a `default' label) to be
+     smaller than anything else.  */
+  if (!k1)
+    return k2 ? -1 : 0;
+  else if (!k2)
+    return k1 ? 1 : 0;
+
+  return tree_int_cst_compare ((tree) k1, (tree) k2);
+}
+
+/* Process a case label for the range LOW_VALUE ... HIGH_VALUE.  If
+   LOW_VALUE and HIGH_VALUE are both NULL_TREE then this case label is
+   actually a `default' label.  If only HIGH_VALUE is NULL_TREE, then
+   case label was declared using the usual C/C++ syntax, rather than
+   the GNU case range extension.  CASES is a tree containing all the
+   case ranges processed so far; COND is the condition for the
+   switch-statement itself.  Returns the CASE_LABEL created, or
+   ERROR_MARK_NODE if no CASE_LABEL is created.  */
+
+tree
+c_add_case_label (cases, cond, low_value, high_value)
+     splay_tree cases;
+     tree cond;
+     tree low_value;
+     tree high_value;
+{
+  tree type;
+  tree label;
+  tree case_label;
+  splay_tree_node node;
+
+  /* Create the LABEL_DECL itself.  */
+  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_CONTEXT (label) = current_function_decl;
+
+  /* If there was an error processing the switch condition, bail now
+     before we get more confused.  */
+  if (!cond || cond == error_mark_node)
+    {
+      /* Add a label anyhow so that the back-end doesn't think that
+	 the beginning of the switch is unreachable.  */
+      if (!cases->root)
+	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
+      return error_mark_node;
+    }
+
+  if ((low_value && TREE_TYPE (low_value) 
+       && POINTER_TYPE_P (TREE_TYPE (low_value))) 
+      || (high_value && TREE_TYPE (high_value)
+	  && POINTER_TYPE_P (TREE_TYPE (high_value))))
+    error ("pointers are not permitted as case values");
+
+  /* Case ranges are a GNU extension.  */
+  if (high_value && pedantic)
+    {
+      if (c_language == clk_cplusplus)
+	pedwarn ("ISO C++ forbids range expressions in switch statements");
+      else
+	pedwarn ("ISO C forbids range expressions in switch statements");
+    }
+
+  type = TREE_TYPE (cond);
+  if (low_value)
+    {
+      low_value = check_case_value (low_value);
+      low_value = convert_and_check (type, low_value);
+    }
+  if (high_value)
+    {
+      high_value = check_case_value (high_value);
+      high_value = convert_and_check (type, high_value);
+    }
+
+  /* If an error has occurred, bail out now.  */
+  if (low_value == error_mark_node || high_value == error_mark_node)
+    {
+      if (!cases->root)
+	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
+      return error_mark_node;
+    }
+
+  /* If the LOW_VALUE and HIGH_VALUE are the same, then this isn't
+     really a case range, even though it was written that way.  Remove
+     the HIGH_VALUE to simplify later processing.  */
+  if (tree_int_cst_equal (low_value, high_value))
+    high_value = NULL_TREE;
+  if (low_value && high_value 
+      && !tree_int_cst_lt (low_value, high_value)) 
+    warning ("empty range specified");
+
+  /* Look up the LOW_VALUE in the table of case labels we already
+     have.  */
+  node = splay_tree_lookup (cases, (splay_tree_key) low_value);
+  /* If there was not an exact match, check for overlapping ranges.
+     There's no need to do this if there's no LOW_VALUE or HIGH_VALUE;
+     that's a `default' label and the only overlap is an exact match.  */
+  if (!node && (low_value || high_value))
+    {
+      splay_tree_node low_bound;
+      splay_tree_node high_bound;
+
+      /* Even though there wasn't an exact match, there might be an
+	 overlap between this case range and another case range.
+	 Since we've (inductively) not allowed any overlapping case
+	 ranges, we simply need to find the greatest low case label
+	 that is smaller that LOW_VALUE, and the smallest low case
+	 label that is greater than LOW_VALUE.  If there is an overlap
+	 it will occur in one of these two ranges.  */
+      low_bound = splay_tree_predecessor (cases,
+					  (splay_tree_key) low_value);
+      high_bound = splay_tree_successor (cases,
+					 (splay_tree_key) low_value);
+
+      /* Check to see if the LOW_BOUND overlaps.  It is smaller than
+	 the LOW_VALUE, so there is no need to check unless the
+	 LOW_BOUND is in fact itself a case range.  */
+      if (low_bound
+	  && CASE_HIGH ((tree) low_bound->value)
+	  && tree_int_cst_compare (CASE_HIGH ((tree) low_bound->value),
+				    low_value) >= 0)
+	node = low_bound;
+      /* Check to see if the HIGH_BOUND overlaps.  The low end of that
+	 range is bigger than the low end of the current range, so we
+	 are only interested if the current range is a real range, and
+	 not an ordinary case label.  */
+      else if (high_bound 
+	       && high_value
+	       && (tree_int_cst_compare ((tree) high_bound->key,
+					 high_value)
+		   <= 0))
+	node = high_bound;
+    }
+  /* If there was an overlap, issue an error.  */
+  if (node)
+    {
+      tree duplicate = CASE_LABEL_DECL ((tree) node->value);
+
+      if (high_value)
+	{
+	  error ("duplicate (or overlapping) case value");
+	  error_with_decl (duplicate, 
+			   "this is the first entry overlapping that value");
+	}
+      else if (low_value)
+	{
+	  error ("duplicate case value") ;
+	  error_with_decl (duplicate, "previously used here");
+	}
+      else
+	{
+	  error ("multiple default labels in one switch");
+	  error_with_decl (duplicate, "this is the first default label");
+	}
+      if (!cases->root)
+	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
+    }
+
+  /* Add a CASE_LABEL to the statement-tree.  */
+  case_label = add_stmt (build_case_label (low_value, high_value, label));
+  /* Register this case label in the splay tree.  */
+  splay_tree_insert (cases, 
+		     (splay_tree_key) low_value,
+		     (splay_tree_value) case_label);
+
+  return case_label;
+}
+
+/* Mark P (a stmt_tree) for GC.  The use of a `void *' for the
+   parameter allows this function to be used as a GC-marking
+   function.  */
+
+void
+mark_stmt_tree (p)
+     void *p;
+{
+  stmt_tree st = (stmt_tree) p;
+
+  ggc_mark_tree (st->x_last_stmt);
+  ggc_mark_tree (st->x_last_expr_type);
+}
+
+/* Mark LD for GC.  */
+
+void
+c_mark_lang_decl (c)
+     struct c_lang_decl *c;
+{
+  ggc_mark_tree (c->saved_tree);
+}
+
+/* Mark F for GC.  */
+
+void
+mark_c_language_function (f)
+     struct language_function *f;
+{
+  if (!f)
+    return;
+
+  mark_stmt_tree (&f->x_stmt_tree);
+  ggc_mark_tree (f->x_scope_stmt_stack);
+}
+
+/* Hook used by expand_expr to expand language-specific tree codes.  */
+
+rtx
+c_expand_expr (exp, target, tmode, modifier)
+     tree exp;
+     rtx target;
+     enum machine_mode tmode;
+     enum expand_modifier modifier;
+{
+  switch (TREE_CODE (exp))
+    {
+    case STMT_EXPR:
+      {
+	tree rtl_expr;
+	rtx result;
+
+	/* Since expand_expr_stmt calls free_temp_slots after every
+	   expression statement, we must call push_temp_slots here.
+	   Otherwise, any temporaries in use now would be considered
+	   out-of-scope after the first EXPR_STMT from within the
+	   STMT_EXPR.  */
+	push_temp_slots ();
+	rtl_expr = expand_start_stmt_expr ();
+	expand_stmt (STMT_EXPR_STMT (exp));
+	expand_end_stmt_expr (rtl_expr);
+	result = expand_expr (rtl_expr, target, tmode, modifier);
+	pop_temp_slots ();
+	return result;
+      }
+      break;
+      
+    default:
+      abort ();
+    }
+
+  abort ();
+  return NULL;
+}
+
+/* Hook used by safe_from_p to handle language-specific tree codes.  */
+
+int
+c_safe_from_p (target, exp)
+     rtx target;
+     tree exp;
+{
+  /* We can see statements here when processing the body of a
+     statement-expression.  For a declaration statement declaring a
+     variable, look at the variable's initializer.  */
+  if (TREE_CODE (exp) == DECL_STMT) 
+    {
+      tree decl = DECL_STMT_DECL (exp);
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && DECL_INITIAL (decl)
+	  && !safe_from_p (target, DECL_INITIAL (decl), /*top_p=*/0))
+	return 0;
+    }
+
+  /* For any statement, we must follow the statement-chain.  */
+  if (statement_code_p (TREE_CODE (exp)) && TREE_CHAIN (exp))
+    return safe_from_p (target, TREE_CHAIN (exp), /*top_p=*/0);
+
+  /* Assume everything else is safe.  */
+  return 1;
 }
 
 /* Tree code classes. */

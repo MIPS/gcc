@@ -1403,8 +1403,8 @@ expand_builtin_strlen (exp, target, mode)
 
       /* Check the string is readable and has an end.  */
       if (current_function_check_memory_usage)
-	emit_library_call (chkr_check_str_libfunc, 1, VOIDmode, 2,
-			   src_reg, Pmode,
+	emit_library_call (chkr_check_str_libfunc, LCT_CONST_MAKE_BLOCK,
+			   VOIDmode, 2, src_reg, Pmode,
 			   GEN_INT (MEMORY_USE_RO),
 			   TYPE_MODE (integer_type_node));
 
@@ -1525,8 +1525,8 @@ expand_builtin_memcpy (exp, target)
 
       /* Just copy the rights of SRC to the rights of DEST.  */
       if (current_function_check_memory_usage)
-	emit_library_call (chkr_copy_bitmap_libfunc, 1, VOIDmode, 3,
-			   XEXP (dest_mem, 0), Pmode,
+	emit_library_call (chkr_copy_bitmap_libfunc, LCT_CONST_MAKE_BLOCK,
+			   VOIDmode, 3, XEXP (dest_mem, 0), Pmode,
 			   XEXP (src_mem, 0), Pmode,
 			   len_rtx, TYPE_MODE (sizetype));
 
@@ -1651,8 +1651,8 @@ expand_builtin_memset (exp, target)
 	   
       /* Just check DST is writable and mark it as readable.  */
       if (current_function_check_memory_usage)
-	emit_library_call (chkr_check_addr_libfunc, 1, VOIDmode, 3,
-			   XEXP (dest_mem, 0), Pmode,
+	emit_library_call (chkr_check_addr_libfunc, LCT_CONST_MAKE_BLOCK,
+			   VOIDmode, 3, XEXP (dest_mem, 0), Pmode,
 			   len_rtx, TYPE_MODE (sizetype),
 			   GEN_INT (MEMORY_USE_WO),
 			   TYPE_MODE (integer_type_node));
@@ -1779,7 +1779,7 @@ expand_builtin_memcmp (exp, target)
     if (insn)
       emit_insn (insn);
     else
-      emit_library_call_value (memcmp_libfunc, result, 2,
+      emit_library_call_value (memcmp_libfunc, result, LCT_PURE_MAKE_BLOCK,
 			       TYPE_MODE (integer_type_node), 3,
 			       XEXP (arg1_rtx, 0), Pmode,
 			       XEXP (arg2_rtx, 0), Pmode,

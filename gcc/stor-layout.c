@@ -652,6 +652,9 @@ place_field (rli, field)
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
  
+  if (TREE_CODE (field) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
+      return;
+
   /* Pointer depth of rec is the maximum pointer depth of its fields.  */
   rli->pointer_depth = MAX (rli->pointer_depth, TYPE_POINTER_DEPTH (type));
   rli->bounded_flag |= TYPE_BOUNDED (type);

@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #endif
 
+#include <stdio.h>
+
 #include "libiberty.h"
 #include "splay-tree.h"
 
@@ -390,7 +392,7 @@ splay_tree_predecessor (sp, key)
   if (comparison < 0)
     return sp->root;
 
-  /* Otherwise, find the rightmost element of the left subtree.  */
+  /* Otherwise, find the leftmost element of the right subtree.  */
   node = sp->root->left;
   if (node)
     while (node->right)

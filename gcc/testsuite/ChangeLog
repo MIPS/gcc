@@ -1,3 +1,29 @@
+2000-09-17  Greg McGary  <greg@mcgary.org>
+
+	* gcc.c-torture/execute/20000917-1.x: Remove.
+
+2000-09-17  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-complex-1.c, gcc.dg/c99-complex-1.c: New tests.
+
+2000-09-17  Greg McGary  <greg@mcgary.org>
+
+	* gcc.c-torture/execute/20000917-1.c: New test.
+	* gcc.c-torture/execute/20000917-1.x: XFAIL.
+
+Sat 16-Sep-2000 08:14:58 BST  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/macro2.c: Testcase for multi-context arguments
+	in nested macro bug.
+
+Fri 15-Sep-2000 06:50:11 BST  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/paste10.c: Testcase for PASTE_LEFT buglet.
+
+Thu Sep 14 16:48:49 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000914-1.c: New test.
+
 2000-09-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* g++.other/inline13.C: New test.
@@ -77,8 +103,8 @@ Tue Sep 12 18:32:07 2000  J"orn Rennecke <amylaar@redhat.co.uk>
 
 2000-09-06  Greg McGary  <greg@mcgary.org>
 
-	* gcc.c-torture/20000906.c: New test.
-	* gcc.c-torture/20000906.x: Expect failure for ix86 at `-O2'.
+	* gcc.c-torture/execute/20000906-1.c: New test.
+	* gcc.c-torture/execute/20000906-1.x: Expect failure for ix86 at `-O2'.
 
 2000-09-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 
 #include "rtl.h"
+#include "expr.h"
 #include "tree.h"
 #include "input.h"
 #include "output.h"
@@ -1008,7 +1009,7 @@ readescape (p, limit, cptr)
   if (ISGRAPH (c))
     pedwarn ("unknown escape sequence '\\%c'", c);
   else
-    pedwarn ("unknown escape sequence: '\\' followed by char 0x%.2x", c);
+    pedwarn ("unknown escape sequence: '\\' followed by char 0x%x", c);
 
   *cptr = c;
   return p;

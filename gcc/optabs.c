@@ -635,11 +635,11 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
   /* If we are inside an appropriately-short loop and one operand is an
      expensive constant, force it into a register.  */
   if (CONSTANT_P (op0) && preserve_subexpressions_p ()
-      && rtx_cost (op0, binoptab->code) > 2)
+      && rtx_cost (op0, binoptab->code) > COSTS_N_INSNS (1))
     op0 = force_reg (mode, op0);
 
   if (CONSTANT_P (op1) && preserve_subexpressions_p ()
-      && ! shift_op && rtx_cost (op1, binoptab->code) > 2)
+      && ! shift_op && rtx_cost (op1, binoptab->code) > COSTS_N_INSNS (1))
     op1 = force_reg (mode, op1);
 
   /* Record where to delete back to if we backtrack.  */
@@ -1692,7 +1692,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       /* Pass 1 for NO_QUEUE so we don't lose any increments
 	 if the libcall is cse'd or moved.  */
       value = emit_library_call_value (binoptab->handlers[(int) mode].libfunc,
-				       NULL_RTX, 1, mode, 2,
+				       NULL_RTX, LCT_CONST, mode, 2,
 				       op0, mode, op1x, op1_mode);
 
       insns = get_insns ();
@@ -1876,11 +1876,11 @@ expand_twoval_binop (binoptab, op0, op1, targ0, targ1, unsignedp)
   /* If we are inside an appropriately-short loop and one operand is an
      expensive constant, force it into a register.  */
   if (CONSTANT_P (op0) && preserve_subexpressions_p ()
-      && rtx_cost (op0, binoptab->code) > 2)
+      && rtx_cost (op0, binoptab->code) > COSTS_N_INSNS (1))
     op0 = force_reg (mode, op0);
 
   if (CONSTANT_P (op1) && preserve_subexpressions_p ()
-      && rtx_cost (op1, binoptab->code) > 2)
+      && rtx_cost (op1, binoptab->code) > COSTS_N_INSNS (1))
     op1 = force_reg (mode, op1);
 
   if (targ0)
@@ -2175,7 +2175,7 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
       /* Pass 1 for NO_QUEUE so we don't lose any increments
 	 if the libcall is cse'd or moved.  */
       value = emit_library_call_value (unoptab->handlers[(int) mode].libfunc,
-				       NULL_RTX, 1, mode, 1, op0, mode);
+				       NULL_RTX, LCT_CONST, mode, 1, op0, mode);
       insns = get_insns ();
       end_sequence ();
 
@@ -2493,7 +2493,7 @@ expand_complex_abs (mode, op0, target, unsignedp)
       /* Pass 1 for NO_QUEUE so we don't lose any increments
 	 if the libcall is cse'd or moved.  */
       value = emit_library_call_value (abs_optab->handlers[(int) mode].libfunc,
-				       NULL_RTX, 1, submode, 1, op0, mode);
+				       NULL_RTX, LCT_CONST, submode, 1, op0, mode);
       insns = get_insns ();
       end_sequence ();
 
@@ -2756,7 +2756,13 @@ emit_libcall_block (insns, target, result, equiv)
      rtx result;
      rtx equiv;
 {
+  rtx final_dest = target;
   rtx prev, next, first, last, insn;
+
+  /* If this is a reg with REG_USERVAR_P set, then it could possibly turn
+     into a MEM later.  Protect the libcall block from this change.  */
+  if (! REG_P (target) || REG_USERVAR_P (target))
+    target = gen_reg_rtx (GET_MODE (target));
 
   /* look for any CALL_INSNs in this sequence, and attach a REG_EH_REGION
      reg note to indicate that this call cannot throw or execute a nonlocal
@@ -2832,6 +2838,9 @@ emit_libcall_block (insns, target, result, equiv)
 	 "last".  */
       remove_note (last, find_reg_note (last, REG_EQUAL, NULL_RTX));
     }
+
+  if (final_dest != target)
+    emit_move_insn (final_dest, target);
 
   if (prev == 0)
     first = get_insns ();
@@ -2956,11 +2965,11 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
   /* If we are inside an appropriately-short loop and one operand is an
      expensive constant, force it into a register.  */
   if (CONSTANT_P (x) && preserve_subexpressions_p ()
-      && rtx_cost (x, COMPARE) > 2)
+      && rtx_cost (x, COMPARE) > COSTS_N_INSNS (1))
     x = force_reg (mode, x);
 
   if (CONSTANT_P (y) && preserve_subexpressions_p ()
-      && rtx_cost (y, COMPARE) > 2)
+      && rtx_cost (y, COMPARE) > COSTS_N_INSNS (1))
     y = force_reg (mode, y);
 
 #ifdef HAVE_cc0
@@ -3024,14 +3033,14 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
 #endif
 	{
 #ifdef TARGET_MEM_FUNCTIONS
-	  emit_library_call (memcmp_libfunc, 2,
+	  emit_library_call (memcmp_libfunc, LCT_PURE_MAKE_BLOCK,
 			     TYPE_MODE (integer_type_node), 3,
 			     XEXP (x, 0), Pmode, XEXP (y, 0), Pmode,
 			     convert_to_mode (TYPE_MODE (sizetype), size,
 					      TREE_UNSIGNED (sizetype)),
 			     TYPE_MODE (sizetype));
 #else
-	  emit_library_call (bcmp_libfunc, 2,
+	  emit_library_call (bcmp_libfunc, LCT_PURE_MAKE_BLOCK,
 			     TYPE_MODE (integer_type_node), 3,
 			     XEXP (x, 0), Pmode, XEXP (y, 0), Pmode,
 			     convert_to_mode (TYPE_MODE (integer_type_node),
@@ -3478,7 +3487,8 @@ prepare_float_lib_cmp (px, py, pcomparison, pmode, punsignedp)
   if (libfunc == 0)
     abort ();
 
-  emit_library_call (libfunc, 1, word_mode, 2, x, mode, y, mode);
+  emit_library_call (libfunc, LCT_CONST_MAKE_BLOCK, word_mode, 2, x, mode, y,
+		     mode);
 
   /* Immediately move the result of the libcall into a pseudo
      register so reload doesn't clobber the value if it needs
@@ -4102,9 +4112,9 @@ expand_float (to, from, unsignedp)
 
       start_sequence ();
 
-      value = emit_library_call_value (libfcn, NULL_RTX, 1,
-				       GET_MODE (to),
-				       1, from, GET_MODE (from));
+      value = emit_library_call_value (libfcn, NULL_RTX, LCT_CONST,
+				       GET_MODE (to), 1, from,
+				       GET_MODE (from));
       insns = get_insns ();
       end_sequence ();
 
@@ -4336,9 +4346,9 @@ expand_fix (to, from, unsignedp)
 
       start_sequence ();
 
-      value = emit_library_call_value (libfcn, NULL_RTX, 1, GET_MODE (to),
-
-				       1, from, GET_MODE (from));
+      value = emit_library_call_value (libfcn, NULL_RTX, LCT_CONST,
+				       GET_MODE (to), 1, from,
+				       GET_MODE (from));
       insns = get_insns ();
       end_sequence ();
 

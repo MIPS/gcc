@@ -48,7 +48,7 @@ extern int code_for_indirect_jump_scratch;
 %{m3e:-D__SH3E__} \
 %{m4-single-only:-D__SH4_SINGLE_ONLY__} \
 %{m4-single:-D__SH4_SINGLE__} \
-%{m4-nofpu:-D__sh3__} \
+%{m4-nofpu:-D__sh3__ -D__SH4_NOFPU__} \
 %{m4:-D__SH4__} \
 %{!m1:%{!m2:%{!m3:%{!m3e:%{!m4:%{!m4-single:%{!m4-single-only:%{!m4-nofpu:-D__sh1__}}}}}}}} \
 %{mnomacsave:-D__NOMACSAVE__} \
@@ -822,6 +822,7 @@ extern enum reg_class reg_class_from_letter[];
       && (GET_CODE (X) == MEM						\
 	  || (GET_CODE (X) == REG					\
 	      && (REGNO (X) >= FIRST_PSEUDO_REGISTER			\
+		  || REGNO (X) == T_REG					\
 		  || system_reg_operand (X, VOIDmode)))))		\
    ? GENERAL_REGS							\
    : (((CLASS) == MAC_REGS || (CLASS) == PR_REGS)			\
@@ -835,6 +836,11 @@ extern enum reg_class reg_class_from_letter[];
     && ! ((fp_zero_operand (X) || fp_one_operand (X))			\
 	  && (MODE) == SFmode && fldi_ok ()))				\
    ? R0_REGS								\
+   : (CLASS == FPUL_REGS						\
+      && ((GET_CODE (X) == REG						\
+          && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
+	      || REGNO (X) == T_REG))))					\
+   ? GENERAL_REGS							\
    : CLASS == FPUL_REGS && immediate_operand ((X), (MODE))		\
    ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I (INTVAL (X))		\
       ? GENERAL_REGS							\
@@ -2341,19 +2347,6 @@ do {									\
   fpscr_set_from_mem ((MODE), (HARD_REGS_LIVE))
 
 #define DWARF_LINE_MIN_INSTR_LENGTH 2
-
-#undef INIT_SECTION_ASM_OP
-#define INIT_SECTION_ASM_OP	".section\t.init"
-#undef FINI_SECTION_ASM_OP
-#define FINI_SECTION_ASM_OP	".section\t.fini"
-
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC \
-  "crt1.o%s crti.o%s crtbegin.o%s"
-
-#undef ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  "crtend.o%s crtn.o%s"
 
 /* SH constant pool breaks the devices in crtstuff.c to control section
    in where code resides.  We have to write it as asm code.  */

@@ -70,6 +70,7 @@ enum alpha_fp_trap_mode alpha_fptm;
 /* Strings decoded into the above options.  */
 
 const char *alpha_cpu_string;	/* -mcpu= */
+const char *alpha_tune_string;	/* -mtune= */
 const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
 const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
 const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
@@ -146,6 +147,31 @@ static rtx alpha_emit_xfloating_compare
 void
 override_options ()
 {
+  int i;
+  static struct cpu_table {
+    const char *name;
+    enum processor_type processor;
+    int flags;
+  } cpu_table[] = {
+#define EV5_MASK (MASK_CPU_EV5)
+#define EV6_MASK (MASK_CPU_EV6|MASK_BWX|MASK_MAX|MASK_FIX)
+    { "ev4",	PROCESSOR_EV4, 0 },
+    { "ev45",	PROCESSOR_EV4, 0 },
+    { "21064",	PROCESSOR_EV4, 0 },
+    { "ev5",	PROCESSOR_EV5, EV5_MASK },
+    { "21164",	PROCESSOR_EV5, EV5_MASK },
+    { "ev56",	PROCESSOR_EV5, EV5_MASK|MASK_BWX },
+    { "21164a",	PROCESSOR_EV5, EV5_MASK|MASK_BWX },
+    { "pca56",	PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
+    { "21164PC",PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
+    { "21164pc",PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
+    { "ev6",	PROCESSOR_EV6, EV6_MASK },
+    { "21264",	PROCESSOR_EV6, EV6_MASK },
+    { "ev67",	PROCESSOR_EV6, EV6_MASK|MASK_CIX },
+    { "21264a",	PROCESSOR_EV6, EV6_MASK|MASK_CIX },
+    { 0, 0, 0 }
+  };
+                  
   alpha_tp = ALPHA_TP_PROG;
   alpha_fprm = ALPHA_FPRM_NORM;
   alpha_fptm = ALPHA_FPTM_N;
@@ -209,61 +235,41 @@ override_options ()
 
   if (alpha_cpu_string)
     {
-      if (! strcmp (alpha_cpu_string, "ev4")
-	  || ! strcmp (alpha_cpu_string, "ev45")
-	  || ! strcmp (alpha_cpu_string, "21064"))
-	{
-	  alpha_cpu = PROCESSOR_EV4;
-	  target_flags &= ~ (MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX);
-	}
-      else if (! strcmp (alpha_cpu_string, "ev5")
-	       || ! strcmp (alpha_cpu_string, "21164"))
-	{
-	  alpha_cpu = PROCESSOR_EV5;
-	  target_flags &= ~ (MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX);
-	}
-      else if (! strcmp (alpha_cpu_string, "ev56")
-	       || ! strcmp (alpha_cpu_string, "21164a"))
-	{
-	  alpha_cpu = PROCESSOR_EV5;
-	  target_flags |= MASK_BWX;
-	  target_flags &= ~ (MASK_MAX | MASK_FIX | MASK_CIX);
-	}
-      else if (! strcmp (alpha_cpu_string, "pca56")
-	       || ! strcmp (alpha_cpu_string, "21164PC")
-	       || ! strcmp (alpha_cpu_string, "21164pc"))
-	{
-	  alpha_cpu = PROCESSOR_EV5;
-	  target_flags |= MASK_BWX | MASK_MAX;
-	  target_flags &= ~ (MASK_FIX | MASK_CIX);
-	}
-      else if (! strcmp (alpha_cpu_string, "ev6")
-	       || ! strcmp (alpha_cpu_string, "21264"))
-	{
-	  alpha_cpu = PROCESSOR_EV6;
-	  target_flags |= MASK_BWX | MASK_MAX | MASK_FIX;
-	  target_flags &= ~ (MASK_CIX);
-	}
-      else if (! strcmp (alpha_cpu_string, "ev67")
-	       || ! strcmp (alpha_cpu_string, "21264a"))
-	{
-	  alpha_cpu = PROCESSOR_EV6;
-	  target_flags |= MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX;
-	}
-      else
+      for (i = 0; cpu_table [i].name; i++)
+	if (! strcmp (alpha_cpu_string, cpu_table [i].name))
+	  {
+	    alpha_cpu = cpu_table [i].processor;
+	    target_flags &= ~ (MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX
+			       | MASK_CPU_EV5 | MASK_CPU_EV6);
+	    target_flags |= cpu_table [i].flags;
+	    break;
+	  }
+      if (! cpu_table [i].name)
 	error ("bad value `%s' for -mcpu switch", alpha_cpu_string);
+    }
+
+  if (alpha_tune_string)
+    {
+      for (i = 0; cpu_table [i].name; i++)
+	if (! strcmp (alpha_tune_string, cpu_table [i].name))
+	  {
+	    alpha_cpu = cpu_table [i].processor;
+	    break;
+	  }
+      if (! cpu_table [i].name)
+	error ("bad value `%s' for -mcpu switch", alpha_tune_string);
     }
 
   /* Do some sanity checks on the above options. */
 
   if ((alpha_fptm == ALPHA_FPTM_SU || alpha_fptm == ALPHA_FPTM_SUI)
-      && alpha_tp != ALPHA_TP_INSN && alpha_cpu != PROCESSOR_EV6)
+      && alpha_tp != ALPHA_TP_INSN && ! TARGET_CPU_EV6)
     {
       warning ("fp software completion requires -mtrap-precision=i");
       alpha_tp = ALPHA_TP_INSN;
     }
 
-  if (alpha_cpu == PROCESSOR_EV6)
+  if (TARGET_CPU_EV6)
     {
       /* Except for EV6 pass 1 (not released), we always have precise
 	 arithmetic traps.  Which means we can do software completion
@@ -303,11 +309,11 @@ override_options ()
 	{
 	  { 3, 30, -1 },	/* ev4 -- Bcache is a guess */
 	  { 2, 12, 38 },	/* ev5 -- Bcache from PC164 LMbench numbers */
-	  { 3, 13, -1 },	/* ev6 -- Ho hum, doesn't exist yet */
+	  { 3, 12, 30 },	/* ev6 -- Bcache from DS20 LMbench. */
 	};
 
 	lat = alpha_mlat_string[1] - '0';
-	if (lat < 0 || lat > 3 || cache_latency[alpha_cpu][lat-1] == -1)
+	if (lat <= 0 || lat > 3 || cache_latency[alpha_cpu][lat-1] == -1)
 	  {
 	    warning ("L%d cache latency unknown for %s",
 		     lat, alpha_cpu_name[alpha_cpu]);
@@ -2292,7 +2298,7 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
      HOST_WIDE_INT size, ofs;
      int sign;
 {
-  rtx meml, memh, addr, extl, exth;
+  rtx meml, memh, addr, extl, exth, tmp;
   enum machine_mode mode;
 
   meml = gen_reg_rtx (DImode);
@@ -2301,19 +2307,24 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
   extl = gen_reg_rtx (DImode);
   exth = gen_reg_rtx (DImode);
 
-  emit_move_insn (meml,
-		  change_address (mem, DImode,
-				  gen_rtx_AND (DImode, 
-					       plus_constant (XEXP (mem, 0),
-							      ofs),
-					       GEN_INT (-8))));
+  /* AND addresses cannot be in any alias set, since they may implicitly
+     alias surrounding code.  Ideally we'd have some alias set that 
+     covered all types except those with alignment 8 or higher.  */
 
-  emit_move_insn (memh,
-		  change_address (mem, DImode,
-				  gen_rtx_AND (DImode, 
-					       plus_constant (XEXP (mem, 0),
-							      ofs + size - 1),
-					       GEN_INT (-8))));
+  tmp = change_address (mem, DImode,
+			gen_rtx_AND (DImode, 
+				     plus_constant (XEXP (mem, 0), ofs),
+				     GEN_INT (-8)));
+  MEM_ALIAS_SET (tmp) = 0;
+  emit_move_insn (meml, tmp);
+
+  tmp = change_address (mem, DImode,
+			gen_rtx_AND (DImode, 
+				     plus_constant (XEXP (mem, 0),
+						    ofs + size - 1),
+				     GEN_INT (-8)));
+  MEM_ALIAS_SET (tmp) = 0;
+  emit_move_insn (memh, tmp);
 
   if (sign && size == 2)
     {
@@ -2377,15 +2388,22 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
   insl = gen_reg_rtx (DImode);
   insh = gen_reg_rtx (DImode);
 
+  /* AND addresses cannot be in any alias set, since they may implicitly
+     alias surrounding code.  Ideally we'd have some alias set that 
+     covered all types except those with alignment 8 or higher.  */
+
   meml = change_address (dst, DImode,
 			 gen_rtx_AND (DImode, 
 				      plus_constant (XEXP (dst, 0), ofs),
 				      GEN_INT (-8)));
+  MEM_ALIAS_SET (meml) = 0;
+
   memh = change_address (dst, DImode,
 			 gen_rtx_AND (DImode, 
 				      plus_constant (XEXP (dst, 0),
 						     ofs+size-1),
 				      GEN_INT (-8)));
+  MEM_ALIAS_SET (memh) = 0;
 
   emit_move_insn (dsth, memh);
   emit_move_insn (dstl, meml);
@@ -2462,7 +2480,7 @@ alpha_expand_unaligned_load_words (out_regs, smem, words, ofs)
   rtx const im8 = GEN_INT (-8);
   rtx const i64 = GEN_INT (64);
   rtx ext_tmps[MAX_MOVE_WORDS], data_regs[MAX_MOVE_WORDS+1];
-  rtx sreg, areg;
+  rtx sreg, areg, tmp;
   HOST_WIDE_INT i;
 
   /* Generate all the tmp registers we need.  */
@@ -2480,19 +2498,20 @@ alpha_expand_unaligned_load_words (out_regs, smem, words, ofs)
   /* Load up all of the source data.  */
   for (i = 0; i < words; ++i)
     {
-      emit_move_insn (data_regs[i],
-		      change_address (smem, DImode,
-				      gen_rtx_AND (DImode,
-						   plus_constant (XEXP(smem,0),
-								  8*i),
-						   im8)));
+      tmp = change_address (smem, DImode,
+			    gen_rtx_AND (DImode,
+					 plus_constant (XEXP(smem,0), 8*i),
+					 im8));
+      MEM_ALIAS_SET (tmp) = 0;
+      emit_move_insn (data_regs[i], tmp);
     }
-  emit_move_insn (data_regs[words],
-		  change_address (smem, DImode,
-				  gen_rtx_AND (DImode,
-					       plus_constant (XEXP(smem,0),
-							      8*words - 1),
-					       im8)));
+
+  tmp = change_address (smem, DImode,
+			gen_rtx_AND (DImode,
+				     plus_constant (XEXP(smem,0), 8*words - 1),
+				     im8));
+  MEM_ALIAS_SET (tmp) = 0;
+  emit_move_insn (data_regs[words], tmp);
 
   /* Extract the half-word fragments.  Unfortunately DEC decided to make
      extxh with offset zero a noop instead of zeroing the register, so 
@@ -2559,10 +2578,13 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
 					   plus_constant (XEXP(dmem,0),
 							  words*8 - 1),
 				       im8));
+  MEM_ALIAS_SET (st_addr_2) = 0;
+
   st_addr_1 = change_address (dmem, DImode,
 			      gen_rtx_AND (DImode, 
 					   XEXP (dmem, 0),
 					   im8));
+  MEM_ALIAS_SET (st_addr_1) = 0;
 
   /* Load up the destination end bits.  */
   emit_move_insn (st_tmp_2, st_addr_2);
@@ -2601,12 +2623,12 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
   emit_move_insn (st_addr_2, st_tmp_2);
   for (i = words-1; i > 0; --i)
     {
-      emit_move_insn (change_address (dmem, DImode,
-				      gen_rtx_AND (DImode,
-						   plus_constant(XEXP (dmem,0),
-								 i*8),
-					       im8)),
-		      data_regs ? ins_tmps[i-1] : const0_rtx);
+      rtx tmp = change_address (dmem, DImode,
+				gen_rtx_AND (DImode,
+					     plus_constant(XEXP (dmem,0), i*8),
+					     im8));
+      MEM_ALIAS_SET (tmp) = 0;
+      emit_move_insn (tmp, data_regs ? ins_tmps[i-1] : const0_rtx);
     }
   emit_move_insn (st_addr_1, st_tmp_1);
 }
