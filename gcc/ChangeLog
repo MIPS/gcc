@@ -1,13 +1,15 @@
 2003-10-08  Jason Merrill  <jason@redhat.com>
 
-	* gimplify.c (gimplify_asm_expr): Call parse_input_constraint
-	directly.  A mem operand has allows_mem set.
-
 	* stmt.c (resolve_asm_operand_names): Call check_unique_operand_names 
 	here.
 	(expand_asm_operands): Not here.
 	(parse_input_constraint): No longer static.
 	* tree.h: Declare it.
+
+2003-10-08  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (pp_c_postfix_expression)
+	<COMPOUND_LITERAL_EXPR>: Fix thinko.
 
 2003-10-07  Jason Merrill  <jason@redhat.com>
 
