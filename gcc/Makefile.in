@@ -67,7 +67,7 @@ XCFLAGS =
 TCFLAGS =
 CFLAGS = -g
 STAGE1_CFLAGS = -g @stage1_cflags@
-BOOT_CFLAGS = -g -O2
+BOOT_CFLAGS = -g -O2 -ftree-ssa
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to
 # override optimization flags and we'd like them to still have warnings

@@ -1,3 +1,7 @@
+2002-05-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in: Add -ftree-ssa to BOOT_CFLAGS.
+
 2002-05-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-decl.c (c_expand_body): Close dump file before simplifying the
