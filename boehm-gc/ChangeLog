@@ -1,4 +1,7 @@
-2004-02-29  H.J. Lu  <hongjiu.lu@intel.com>
+2004-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14326
+	Backport from mainline:
 
 	* include/private/gcconfig.h (PREFETCH): Use __builtin_prefetch
 	for gcc >= 3.0.

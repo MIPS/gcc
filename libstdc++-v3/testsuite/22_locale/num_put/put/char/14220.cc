@@ -1,6 +1,6 @@
-// 2004-03-02  Petur Runolfsson  <peturr02@ru.is>
+// 2004-04-30  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,22 +18,28 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 27.4.3 fpos
+// 22.2.2.2.1  num_put members
 
-#include <iterator>
+#include <locale>
+#include <sstream>
 #include <testsuite_hooks.h>
 
-// libstdc++/14320
+// libstdc++/14220
 void test01()
 {
   using namespace std;
   bool test __attribute__((unused)) = true;
 
-  typedef std::istreambuf_iterator<char>::difference_type Distance;
-  Distance d = 2;
-  Distance e = 3;
-  d *= e;
-  VERIFY( static_cast<int>(d) == 6 );
+  ostringstream oss;
+  const num_put<char>& np = use_facet<num_put<char> >(oss.getloc());
+
+  int precision = 10;
+
+  oss.precision(precision);
+  oss.setf(ios_base::fixed);
+  np.put(oss.rdbuf(), oss, '+', 1.0);
+  string result = oss.str();
+  VERIFY( result.size() > precision );
 }
 
 int main()

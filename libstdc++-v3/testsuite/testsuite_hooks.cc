@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,7 @@
 
 #include <testsuite_hooks.h>
 
-#ifdef _GLIBCXX_MEM_LIMITS
+#ifdef _GLIBCXX_RES_LIMITS
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -44,7 +44,7 @@
 
 namespace __gnu_test
 {
-#ifdef _GLIBCXX_MEM_LIMITS
+#ifdef _GLIBCXX_RES_LIMITS
   void 
   set_memory_limits(float size)
   {
@@ -53,21 +53,21 @@ namespace __gnu_test
     __typeof__ (r.rlim_cur) limit = (__typeof__ (r.rlim_cur))(size * 1048576);
 
     // Heap size, seems to be common.
-#if _GLIBCXX_HAVE_MEMLIMIT_DATA
+#if _GLIBCXX_HAVE_LIMIT_DATA
     getrlimit(RLIMIT_DATA, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_DATA, &r);
 #endif
 
     // Resident set size.
-#if _GLIBCXX_HAVE_MEMLIMIT_RSS
+#if _GLIBCXX_HAVE_LIMIT_RSS
     getrlimit(RLIMIT_RSS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_RSS, &r);
 #endif
 
     // Mapped memory (brk + mmap).
-#if _GLIBCXX_HAVE_MEMLIMIT_VMEM
+#if _GLIBCXX_HAVE_LIMIT_VMEM
     getrlimit(RLIMIT_VMEM, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_VMEM, &r);
@@ -77,7 +77,7 @@ namespace __gnu_test
     // On HP-UX 11.23, a trivial C++ program that sets RLIMIT_AS to
     // anything less than 128MB cannot "malloc" even 1K of memory.
     // Therefore, we skip RLIMIT_AS on HP-UX.
-#if _GLIBCXX_HAVE_MEMLIMIT_AS && !defined(__hpux__)
+#if _GLIBCXX_HAVE_LIMIT_AS && !defined(__hpux__)
     getrlimit(RLIMIT_AS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_AS, &r);
@@ -89,6 +89,25 @@ namespace __gnu_test
   set_memory_limits(float) { }
 #endif 
 
+#ifdef _GLIBCXX_RES_LIMITS
+  void 
+  set_file_limit(unsigned long size)
+  {
+#if _GLIBCXX_HAVE_LIMIT_FSIZE
+    struct rlimit r;
+    // Cater to the absence of rlim_t.
+    __typeof__ (r.rlim_cur) limit = (__typeof__ (r.rlim_cur))(size);
+
+    getrlimit(RLIMIT_FSIZE, &r);
+    r.rlim_cur = limit;
+    setrlimit(RLIMIT_FSIZE, &r);
+#endif
+  }
+
+#else
+  void
+  set_file_limit(unsigned long) { }
+#endif 
 
   void 
   verify_demangle(const char* mangled, const char* wanted)
@@ -354,8 +373,8 @@ namespace std
 	}
       _M_data->_M_atoms_out[__num_base::_S_oend] = pod_type();
       
-      for (size_t i = 0; i < __num_base::_S_iend; ++i)
-	_M_data->_M_atoms_in[i].value = value_type(__num_base::_S_atoms_in[i]);
+      for (size_t j = 0; j < __num_base::_S_iend; ++j)
+	_M_data->_M_atoms_in[j].value = value_type(__num_base::_S_atoms_in[j]);
       _M_data->_M_atoms_in[__num_base::_S_iend] = pod_type();
 
       // "true"
