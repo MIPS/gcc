@@ -1,3 +1,7 @@
+2003-06-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/20030612-1.c: New test.
+
 2003-06-25  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/noncompile/920507-1.c: Return a value so that the

@@ -962,26 +962,39 @@ gimplify_stmt_expr (expr_p)
     c_gimplify_stmt (&body);
   else
     {
-      tree substmt, last_expr_stmt, last_expr, bind;
+      tree substmt, last_stmt, last_expr, bind;
 
       bind = NULL_TREE;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
       /* Splice the last expression out of the STMT chain.  */
-      last_expr_stmt = NULL_TREE;
+      last_stmt = NULL_TREE;
       for (substmt = COMPOUND_BODY (body); substmt;
 	   substmt = TREE_CHAIN (substmt))
+	if (TREE_CODE (substmt) != SCOPE_STMT)
+	  last_stmt = substmt;
+
+      if (TREE_CODE (last_stmt) != EXPR_STMT
+	  || (TREE_TYPE (last_stmt)
+	      && VOID_TYPE_P (TREE_TYPE (last_stmt))))
 	{
-	  if (TREE_CODE (substmt) == EXPR_STMT)
-	    last_expr_stmt = substmt;
+	  location_t loc;
+	  loc.file = input_filename;
+	  loc.line = STMT_LINENO (last_stmt);
+	  warning ("%Hstatement-expressions should end with a non-void expression", &loc);
+	  last_expr = NULL_TREE;
+	}
+      else
+	{
+	  last_expr = EXPR_STMT_EXPR (last_stmt);
+
+	  if (stmts_are_full_exprs_p ())
+	    last_expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (last_expr),
+				last_expr);
+	  EXPR_STMT_EXPR (last_stmt) = NULL_TREE;
 	}
 
-      last_expr = EXPR_STMT_EXPR (last_expr_stmt);
-      if (stmts_are_full_exprs_p ())
-	last_expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (last_expr),
-			    last_expr);
-      EXPR_STMT_EXPR (last_expr_stmt) = build_empty_stmt ();
 #if defined ENABLE_CHECKING
-      if (!is_last_stmt_of_scope (last_expr_stmt))
+      if (!is_last_stmt_of_scope (last_stmt))
 	abort ();
 #endif
 
@@ -989,27 +1002,30 @@ gimplify_stmt_expr (expr_p)
       c_gimplify_stmt (&body);
 
       /* Now retrofit that last expression into the BIND_EXPR.  */
-      if (!STMT_EXPR_NO_SCOPE (*expr_p))
+      if (last_expr)
 	{
-	  bind = body;
-	  substmt = BIND_EXPR_BODY (bind);
-	}
-      else
-	substmt = body;
+	  if (!STMT_EXPR_NO_SCOPE (*expr_p))
+	    {
+	      bind = body;
+	      substmt = BIND_EXPR_BODY (bind);
+	    }
+	  else
+	    substmt = body;
 
-      if (IS_EMPTY_STMT (substmt))
-	substmt = last_expr;
-      else
-	substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
-			 substmt, last_expr);
+	  if (IS_EMPTY_STMT (substmt))
+	    substmt = last_expr;
+	  else
+	    substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
+			    substmt, last_expr);
 
-      if (!STMT_EXPR_NO_SCOPE (*expr_p))
-	{
-	  BIND_EXPR_BODY (bind) = substmt;
-	  TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
+	  if (!STMT_EXPR_NO_SCOPE (*expr_p))
+	    {
+	      BIND_EXPR_BODY (bind) = substmt;
+	      TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
+	    }
+	  else
+	    body = substmt;
 	}
-      else
-	body = substmt;
     }
 
   *expr_p = body;
