@@ -785,6 +785,7 @@ C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
 OBJS = tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o tree-simple.o      \
  tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
+ tree-ssa-pre.o                                                            \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	           \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o		   \

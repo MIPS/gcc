@@ -1,3 +1,7 @@
+2003-02-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (OBJS): Add tree-ssa-pre.o.
+
 2003-02-13  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (create_stmt_ann): Do stmt part of common annotation.
