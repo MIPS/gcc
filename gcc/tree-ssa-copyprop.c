@@ -79,7 +79,7 @@ tree_ssa_copyprop (tree fndecl, enum tree_dump_index phase)
 
   if (dump_file)
     {
-      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 

@@ -539,7 +539,7 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       print_stats ();
       dump_end (phase, dump_file);
     }

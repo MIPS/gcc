@@ -1,3 +1,50 @@
+2003-11-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (brief_dump_cfg): Declare.
+	* cfg.c (dump_cfg_bb_info, brief_dump_cfg): New.
+	* diagnostic.h (dump_generic_node): Declaration changed.
+	(print_generic_stmt_indented): Declare.
+	* gimple-low.c (expand_var_p): New.
+	(expand_used_vars): Use it.
+	* tree-cfg.c (struct cfg_stats_d): Remove num_failed_bind_expr_merges
+	field.
+	(remove_bb): Only dump whole block with TDF_DETAILS.
+	(tree_dump_bb): Use dump_generic_bb.
+	(dump_tree_cfg): Use brief_dump_cfg and dump_function_to_file.
+	(dump_cfg_function_to_file): Merged into dump_function_to_file,
+	removed.
+	(dump_cfg_stats): Do not dump cfg_stats.num_failed_bind_expr_merges.
+	(dump_function_to_file): Moved from tree-dump.c, merged with
+	dump_cfg_function_to_file.
+	* tree-dump.c (dump_function_to_file): Removed.
+	* tree-flow.h (dump_cfg_function_to_file): Declaration removed.
+	(dump_generic_bb, expand_var_p): Declare.
+	* tree-must-alias.c (tree_compute_must_alias): Replace
+	dump_cfg_function_to_file by dump_function_to_file.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Ditto.
+	* tree-ssa-copyprop.c (tree_ssa_copyprop): Ditto.
+	* tree-ssa-dce.c (tree_ssa_dce): Ditto.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize_1): Ditto.
+	* tree-ssa-pre.c (tree_perform_ssapre): Ditto.
+	* tree-ssa.c (rewrite_into_ssa, rewrite_out_of_ssa): Ditto.
+	* tree-tailcall.c (tree_optimize_tail_calls): Ditto.
+	* tree-pretty-print.c (print_declaration, print_generic_decl): Don't
+	use flags argument, change spacing.
+	(dump_block_info): Removed.
+	(dump_generic_bb_buff, dump_generic_bb, print_generic_stmt_indented,
+	dump_bb_header, dump_bb_end, dump_phi_nodes): New functions.
+	(dump_vops): Change spacing, don't dump phi nodes.
+	(do_niy, print_generic_stmt, print_generic_expr, print_declaration,
+	print_struct_decl, print_call_name): Add argument to
+	the dump_generic_node calls.
+	(last_bb): Removed.
+	(dump_generic_node): Print semicolons at end of statements correctly.
+	Don't print bb related stuff.
+	(maybe_init_pretty_print): Don't initialize last_bb.
+	* tree-ssa.c (rewrite_out_of_ssa): Do not allow virtual operands to
+	be shown in the .optimized dump.
+
 2003-11-11  Daniel Berlin  <dberlin@dberlin.org>
 
 	PR optimization/12936

@@ -63,7 +63,6 @@ static varray_type label_to_block_map;
 struct cfg_stats_d
 {
   long num_merged_labels;
-  long num_failed_bind_expr_merges;
 };
 
 static dominance_info pdom_info = NULL;
@@ -1335,8 +1334,11 @@ remove_bb (basic_block bb)
   if (dump_file)
     {
       fprintf (dump_file, "Removing basic block %d\n", bb->index);
-      dump_bb (bb, dump_file, 0);
-      fprintf (dump_file, "\n");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  dump_bb (bb, dump_file, 0);
+	  fprintf (dump_file, "\n");
+	}
       dump_end (TDI_cfg, dump_file);
       dump_file = NULL;
     }
@@ -1994,31 +1996,8 @@ insert_bb_before (basic_block new_bb, basic_block bb)
 void
 tree_dump_bb (basic_block bb, FILE *outf, int indent)
 {
-  char *s_indent;
-  block_stmt_iterator si;
-  tree phi;
-
-  s_indent = (char *) alloca ((size_t) indent + 1);
-  memset ((void *) s_indent, ' ', (size_t) indent);
-  s_indent[indent] = '\0';
-
-  if (bb->tree_annotations)
-    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-      {
-	fprintf (outf, "%s# ", s_indent);
-	print_generic_stmt (outf, phi, 0);
-      }
-
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    {
-      fprintf (outf, "%s%d  ", s_indent, get_lineno (bsi_stmt (si)));
-      print_generic_stmt (outf, bsi_stmt (si),
-			  (TREE_CODE (bsi_stmt (si)) == BIND_EXPR
-			   ? TDF_SLIM
-			   : 0));
-    }
+  dump_generic_bb (outf, bb, indent, TDF_VOPS);
 }
-
 
 /* Dump a basic block on stderr.  */
 
@@ -2057,8 +2036,6 @@ debug_tree_cfg (int flags)
 void
 dump_tree_cfg (FILE *file, int flags)
 {
-  basic_block bb;
-
   if (flags & TDF_DETAILS)
     {
       const char *funcname
@@ -2066,96 +2043,17 @@ dump_tree_cfg (FILE *file, int flags)
 
       fputc ('\n', file);
       fprintf (file, ";; Function %s\n\n", funcname);
-      fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n",
+      fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n\n",
 	       n_basic_blocks, n_edges, last_basic_block);
 
-      FOR_EACH_BB (bb)
-	{
-	  dump_bb (bb, file, 0);
-	  fputc ('\n', file);
-	}
+      brief_dump_cfg (file);
+      fprintf (file, "\n");
     }
 
   if (flags & TDF_STATS)
     dump_cfg_stats (file);
 
-  if (n_basic_blocks > 0)
-    dump_cfg_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
-}
-
-/* Dumps function FN to FILE, with details given by FLAGS.  Function body is
-   taken from cfg.  */
-
-void
-dump_cfg_function_to_file (tree fn, FILE *file, int flags)
-{
-  basic_block bb;
-  tree arg, phi;
-  block_stmt_iterator si;
-  edge e;
-  int show_bb_headers = flags & TDF_BLOCKS;
-
-  flags &= ~TDF_BLOCKS;
-
-  fprintf (file, "\n;; Function %s",
-	    (*lang_hooks.decl_printable_name) (fn, 2));
-  fprintf (file, " (%s)\n",
-	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
-  fprintf (file, "\n");
-
-  fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
-
-  arg = DECL_ARGUMENTS (fn);
-  while (arg)
-    {
-      print_generic_expr (file, arg, 0);
-      if (TREE_CHAIN (arg))
-	fprintf (file, ", ");
-      arg = TREE_CHAIN (arg);
-    }
-  fprintf (file, ")\n");
-
-  fprintf (file, "{\n");
-  if (cfun->unexpanded_var_list)
-    {
-      for (arg = cfun->unexpanded_var_list; arg; arg = TREE_CHAIN (arg))
-	print_generic_decl (file, TREE_VALUE (arg), flags | TDF_SLIM);
-      fprintf (file, "\n");
-    }
-
-  FOR_EACH_BB (bb)
-    {
-      if (show_bb_headers)
-	{
-	  fprintf (file, "# BLOCK %d\n ", bb->index);
-	  fprintf (file, "# PRED");
-	  for (e = bb->pred; e; e = e->pred_next)
-	    dump_edge_info (file, e, 0);
-	  putc ('\n', file);
-	}
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	{
-	  fprintf (file, "\t# ");
-	  print_generic_stmt (file, phi, flags);
-	  fprintf (file, "\n");
-	}
-
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	{
-	  fprintf (file, "%d\t", get_lineno (bsi_stmt (si)));
-	  print_generic_stmt (file, bsi_stmt (si), flags);
-	  fprintf (file, "\n");
-	}
-
-      if (show_bb_headers)
-	{
-	  fprintf (file, "# SUCC");
-	  for (e = bb->succ; e; e = e->succ_next)
-	    dump_edge_info (file, e, 1);
-	  fprintf (file, "\n\n");
-	}
-    }
-  fprintf (file, "}\n\n");
+  dump_function_to_file (current_function_decl, file, flags | TDF_BLOCKS);
 }
 
 /* Dump CFG statistics on FILE.  */
@@ -2213,11 +2111,6 @@ dump_cfg_stats (FILE *file)
 
   fprintf (file, "Coalesced label blocks: %ld (Max so far: %ld)\n",
 	   cfg_stats.num_merged_labels, max_num_merged_labels);
-
-
-  fprintf (file, "Number of unnecessary blocks created due to lexical scopes: %ld (%.0f%%)\n",
-	   cfg_stats.num_failed_bind_expr_merges,
-	   PERCENT (cfg_stats.num_failed_bind_expr_merges, n_basic_blocks));
 
   fprintf (file, "\n");
 }
@@ -4043,6 +3936,118 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
   if (!e)
     abort ();
   return e->src == old ? NULL : old;
+}
+
+/* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
+
+void
+dump_function_to_file (tree fn, FILE *file, int flags)
+{
+  tree arg, vars, var;
+  bool ignore_topmost_bind = false, any_var = false;
+  basic_block bb;
+  tree chain;
+
+  fprintf (file, "\n;; Function %s",
+	    (*lang_hooks.decl_printable_name) (fn, 2));
+  fprintf (file, " (%s)\n",
+	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
+  fprintf (file, "\n");
+
+  fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
+
+  arg = DECL_ARGUMENTS (fn);
+  while (arg)
+    {
+      print_generic_expr (file, arg, 0);
+      if (TREE_CHAIN (arg))
+	fprintf (file, ", ");
+      arg = TREE_CHAIN (arg);
+    }
+  fprintf (file, ")\n");
+
+  if (flags & TDF_RAW)
+    {
+      dump_node (fn, TDF_SLIM | flags, file);
+      return;
+    }
+
+  /* When gimple is lowered, the variables are no longer available in the
+     bind_exprs, so display them separately.  */
+  if (cfun->unexpanded_var_list)
+    {
+      ignore_topmost_bind = true;
+
+      fprintf (file, "{\n");
+      for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
+	{
+	  var = TREE_VALUE (vars);
+
+	  print_generic_decl (file, var, flags);
+	  if (flags & TDF_DETAILS)
+	    {
+	      /* Mention if the variable will be eliminated.  Only valid in
+		 the TDI_optimized dump, but still useful, and we cannot
+		 recognize it here; so just mention it if details are
+		 requested, and hope it won't be too missleading.  */
+	      if (!expand_var_p (var))
+		fprintf (file, "    # removed");
+	    }
+	  fprintf (file, "\n");
+
+	  any_var = true;
+	}
+    }
+
+  if (basic_block_info)
+    {
+      /* Make a cfg based dump.  */
+      if (!ignore_topmost_bind)
+	fprintf (file, "{\n");
+
+      if (any_var && n_basic_blocks)
+	fprintf (file, "\n");
+
+      FOR_EACH_BB (bb)
+	{
+	  dump_generic_bb (file, bb, 2, flags);
+	}
+	
+      fprintf (file, "}\n");
+    }
+  else
+    {
+      int indent;
+
+      /* Make a tree based dump.  */
+      chain = DECL_SAVED_TREE (fn);
+
+      if (TREE_CODE (chain) == BIND_EXPR)
+	{
+	  if (ignore_topmost_bind)
+	    {
+	      chain = BIND_EXPR_BODY (chain);
+	      indent = 2;
+	    }
+	  else
+	    indent = 0;
+	}
+      else
+	{
+	  if (!ignore_topmost_bind)
+	    fprintf (file, "{\n");
+	  indent = 2;
+	}
+
+      if (any_var)
+	fprintf (file, "\n");
+
+      print_generic_stmt_indented (file, chain, flags, indent);
+      if (ignore_topmost_bind)
+	fprintf (file, "}\n");
+    }
+
+  fprintf (file, "\n\n");
 }
 
 /* FIXME These need to be filled in with appropriate pointers.  But this

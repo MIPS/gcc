@@ -185,8 +185,9 @@ extern char *file_name_as_prefix (const char *);
 extern void debug_output_buffer (pretty_printer *);
 
 /* In tree-pretty-print.c  */
-extern int dump_generic_node (pretty_printer *, tree, int, int);
+extern int dump_generic_node (pretty_printer *, tree, int, int, bool);
 extern void print_generic_stmt (FILE *, tree, int);
+extern void print_generic_stmt_indented (FILE *, tree, int, int);
 extern void print_generic_expr (FILE *, tree, int);
 extern void print_generic_decl (FILE *, tree, int);
 

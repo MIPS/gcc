@@ -3309,7 +3309,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 	  fprintf (dump_file, "Expressions generated for rename2:%d\n",
 		   pre_stats.exprs_generated);
 	}
-      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 

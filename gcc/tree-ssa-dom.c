@@ -470,7 +470,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
     {
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
-      dump_cfg_function_to_file (fndecl, dump_file, dump_flags);
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
 

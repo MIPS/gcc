@@ -1014,3 +1014,55 @@ debug_bb_n (int n)
   dump_bb (bb, stderr, 0);
   return bb;
 }
+
+/* Dumps cfg related information about basic block BB to FILE.  */
+
+static void
+dump_cfg_bb_info (FILE *file, basic_block bb)
+{
+  unsigned i;
+  bool first = true;
+  static const char * const bb_bitnames[] =
+    {
+      "dirty", "new", "reachable", "visited", "irreducible_loop", "superblock"
+    };
+  const unsigned n_bitnames = sizeof (bb_bitnames) / sizeof (char *);
+  edge e;
+
+  fprintf (file, "Basic block %d", bb->index);
+  for (i = 0; i < n_bitnames; i++)
+    if (bb->flags & (1 << i))
+      {
+	if (first)
+	  fprintf (file, " (");
+	else
+	  fprintf (file, ", ");
+	first = false;
+	fprintf (file, bb_bitnames[i]);
+      }
+  if (!first)
+    fprintf (file, ")");
+  fprintf (file, "\n");
+
+  fprintf (file, "Predecessors: ");
+  for (e = bb->pred; e; e = e->pred_next)
+    dump_edge_info (file, e, 0);
+
+  fprintf (file, "\nSuccessors: ");
+  for (e = bb->succ; e; e = e->succ_next)
+    dump_edge_info (file, e, 1);
+  fprintf (file, "\n\n");
+}
+
+/* Dumps a brief description of cfg to FILE.  */
+
+void
+brief_dump_cfg (FILE *file)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      dump_cfg_bb_info (file, bb);
+    }
+}

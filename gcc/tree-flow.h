@@ -461,7 +461,9 @@ extern bool cleanup_cond_expr_graph (basic_block, block_stmt_iterator);
 extern bool cleanup_switch_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (void);
 extern basic_block tree_block_forwards_to (basic_block bb);
-extern void dump_cfg_function_to_file (tree, FILE *, int);
+
+/* In tree-pretty-print.c.  */
+extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
@@ -506,6 +508,7 @@ extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In gimple-low.c  */
 void lower_function_body (tree *);
+bool expand_var_p (tree);
 void expand_used_vars (void);
 void record_vars (tree);
 
