@@ -1,3 +1,7 @@
+2003-05-02  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/fail27-frag.c: Add more volatile flags.
+
 2002-04-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am (HOOKOBJS): Add *time related hooks.
