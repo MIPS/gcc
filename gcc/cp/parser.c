@@ -11058,7 +11058,7 @@ cp_parser_member_declaration (parser)
 	      if (cp_parser_allow_gnu_extensions_p (parser))
 		attributes = cp_parser_attributes_opt (parser);
 
-	      /* Great the bitfield declaration.  */
+	      /* Create the bitfield declaration.  */
 	      decl = grokbitfield (identifier, 
 				   decl_specifiers,
 				   width);
@@ -12489,7 +12489,7 @@ cp_parser_check_template_parameters (parser, num_templates)
   /* If there are more, but only one more, then we are referring to a
      member template.  That's OK too.  */
   if (parser->num_template_parameter_lists == num_templates + 1)
-    return true;
+      return true;
   /* Otherwise, there are too many template parameter lists.  We have
      something like:
 
