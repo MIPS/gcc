@@ -83,11 +83,12 @@ void add_tree (tree, tree *);
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {
   fb_none = 0,
-  fb_rvalue=1,
-  fb_lvalue=2,
-  fb_either=1|2
+  fb_rvalue = 1,
+  fb_lvalue = 2,
+  fb_mayfail = 4,
+  fb_either= fb_rvalue | fb_lvalue
 } fallback_t;
-int gimplify_expr (tree *, tree *, tree *, int (*) (tree), fallback_t);
+bool gimplify_expr (tree *, tree *, tree *, int (*) (tree), fallback_t);
 int gimplify_stmt (tree *);
 int gimplify_body (tree *, tree);
 

@@ -58,7 +58,7 @@ static void gimplify_return_expr (tree, tree *);
 static tree build_addr_expr (tree);
 static tree build_addr_expr_with_type (tree, tree);
 static tree add_stmt_to_compound (tree, tree);
-static void gimplify_asm_expr (tree, tree *, tree *);
+static void gimplify_asm_expr (tree *, tree *, tree *);
 static void gimplify_bind_expr (tree *, tree *);
 static inline void remove_suffix (char *, int);
 static void push_gimplify_context (void);
@@ -326,7 +326,7 @@ gimplify_stmt (tree *stmt_p)
         bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
         If both are set, either is OK, but an lvalue is preferable.  */
 
-int
+bool
 gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	       int (* gimple_test_f) (tree), fallback_t fallback)
 {
@@ -337,9 +337,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   int is_statement = (pre_p == NULL);
   location_t *locus;
   location_t saved_location;
+  bool ret_ok = true;
 
   if (*expr_p == NULL_TREE)
-    return 1;
+    return true;
 
   /* Go ahead and strip type nops before we test our predicate.  */
   STRIP_MAIN_TYPE_NOPS (*expr_p);
@@ -582,7 +583,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case ASM_EXPR:
-	  gimplify_asm_expr (*expr_p, pre_p, post_p);
+	  gimplify_asm_expr (expr_p, pre_p, post_p);
 	  break;
 
 	case TRY_FINALLY_EXPR:
@@ -744,6 +745,13 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       else
 	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
     }
+  else if (fallback & fb_mayfail)
+    {
+      /* If this is an asm statement, and the user asked for the impossible,
+	 don't abort.  Fail and let gimplify_asm_expr issue an error.  */
+      ret_ok = false;
+      goto out;
+    }
   else
     {
       fprintf (stderr, "gimplification failed:\n");
@@ -766,7 +774,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
  out:
   input_location = saved_location;
-  return 1;
+  return ret_ok;
 }
 
 /* WRAPPER is a code such as BIND_EXPR or CLEANUP_POINT_EXPR which can both
@@ -2219,20 +2227,22 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
    value; output operands should be a gimple lvalue.  */
 
 static void
-gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
+gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
+  tree expr = *expr_p;
   int noutputs = list_length (ASM_OUTPUTS (expr));
   const char **oconstraints
     = (const char **) alloca ((noutputs) * sizeof (const char *));
   int i;
   tree link;
   const char *constraint;
-  bool allows_mem, allows_reg, is_inout;
+  bool allows_mem, allows_reg, is_inout, success;
 
   ASM_STRING (expr)
     = resolve_asm_operand_names (ASM_STRING (expr), ASM_OUTPUTS (expr),
 				 ASM_INPUTS (expr));
 
+  success = true;
   for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
       oconstraints[i] = constraint
@@ -2244,8 +2254,12 @@ gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
       if (!allows_reg && allows_mem)
 	(*lang_hooks.mark_addressable) (TREE_VALUE (link));
 
-      gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-		     is_gimple_lvalue, fb_lvalue);
+      if (!gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
+			  is_gimple_lvalue, fb_lvalue | fb_mayfail))
+	{
+	  error ("invalid lvalue in asm output %d", i);
+	  success = false;
+	}
 
       if (is_inout && allows_reg)
 	{
@@ -2269,7 +2283,7 @@ gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
 	}
     }
 
-  for (link = ASM_INPUTS (expr); link; link = TREE_CHAIN (link))
+  for (link = ASM_INPUTS (expr); link; ++i, link = TREE_CHAIN (link))
     {
       constraint
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
@@ -2280,13 +2294,21 @@ gimplify_asm_expr (tree expr, tree *pre_p, tree *post_p)
       if (!allows_reg && allows_mem)
 	{
 	  (*lang_hooks.mark_addressable) (TREE_VALUE (link));
-	  gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-			 is_gimple_lvalue, fb_lvalue);
+	  if (!gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
+			      is_gimple_lvalue, fb_lvalue | fb_mayfail))
+	    {
+	      error ("memory input %d is not directly addressable", i);
+	      success = false;
+	    }
 	}
       else
 	gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 		       is_gimple_val, fb_rvalue);
     }
+
+  /* If we encountered an invalid asm, don't hork the optimizers.  */
+  if (!success)
+    *expr_p = build_empty_stmt ();
 }
 
 /* If EXPR is a boolean expression, make sure it has BOOLEAN_TYPE.  */

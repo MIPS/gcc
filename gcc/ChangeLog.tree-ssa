@@ -1,5 +1,14 @@
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_expr): Return bool.  Bail gracefully if
+	fb_mayfail is set.
+	(gimplify_asm_expr): Take pointer-to-expr.  Allow gimplify_expr
+	to fail for lvalues, and issue appropriate error messages.  Zap
+	the entire asm statement on failure.
+	* tree-simple.h (enum fallback_t): Add fb_mayfail.
+
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
 	* c-tree.h (C_LANG_TREE_NODE_CHAIN_NEXT): New.
 	(union lang_tree_node): Use it for chain_next annotation.
 
