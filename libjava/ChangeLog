@@ -1,3 +1,8 @@
+2004-07-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/LookAndFeel.java
+	(provideErrorFeedback): New method.
+
 2004-07-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkPanelPeer.java (handleEvent): Handle

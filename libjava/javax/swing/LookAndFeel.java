@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.awt.Component;
+import java.awt.Toolkit;
 import javax.swing.text.JTextComponent;
 
 
@@ -152,6 +154,18 @@ public abstract class LookAndFeel
   public static JTextComponent.KeyBinding[] makeKeyBindings(Object[] keyBindingList)
   {
     return null;
+  }
+
+  /**
+   * Invoked when the user attempts an invalid operation. The default implement
+   * just beeps. Subclasses that wish to change this need to override this
+   * method.
+   *
+   * @param component the component the error occured in
+   */
+  public void provideErrorFeedback(Component component)
+  {
+    Toolkit.getDefaultToolkit().beep();
   }
 
   /**
