@@ -899,9 +899,10 @@ gcse_main (f)
   /* We are finished with alias.  */
   end_alias_analysis ();
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
-
+#if 0
   if (!optimize_size && flag_gcse_sm)
     store_motion ();
+#endif
   /* Record where pseudo-registers are set.  */
   return run_jump_opt_after_gcse;
 }
@@ -6042,11 +6043,9 @@ simple_mem (x)
   
   if (GET_MODE (x) == BLKmode)
     return 0;
-#if 0
-  /* See comment in find_moveable_store */
+  
   if (!rtx_addr_varies_p (XEXP (x, 0), 0))
     return 1;
-#endif
   return 0;
 }
 

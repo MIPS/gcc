@@ -4220,10 +4220,10 @@ reg_alloc (void)
     print_rtl_with_bb (rtl_dump_file, get_insns ()); */
   no_new_pseudos = 1;
   compute_bb_for_insn (get_max_uid ());
-  no_new_pseudos = 0;
-  store_motion();
-  allocate_reg_info (max_reg_num (), 0, 1);
-  no_new_pseudos = 1;
+  /*  no_new_pseudos = 0;
+      store_motion();
+      allocate_reg_info (max_reg_num (), 0, 1);
+      no_new_pseudos = 1;*/
   cleanup_cfg (CLEANUP_EXPENSIVE);
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);

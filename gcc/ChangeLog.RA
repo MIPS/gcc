@@ -1,3 +1,12 @@
+2001-08-06  Daniel Berlin  <dan@cgsoftware.com>
+
+	* gcse.c (gcse_main): Disable store motion, it's completely broken
+	in it's current state.
+	(simple_mem): Undo #if 0'ing, since we never seem to move loads who
+	address varies *anyway*.
+
+	* ra.c (reg_alloc): Ditto.
+	
 Sun Aug  5 14:16:46 2001  Denis Chertykov  <denisc@overta.ru>
 
         Restore ra.c version 1.1.2.28
