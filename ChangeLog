@@ -1,3 +1,18 @@
+2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* ltcf-c.sh, ltcf-gcj.sh, Makefile.tpl: Correct BUILD/HOST confusion.
+
+	* configure.in: Produce lists of subdir targets we're actually 
+	configuring.  Remove references to "dosrel".
+	* Makefile.tpl: Let configure set which subdir targets are hit.
+	Remove install-cross; clean up install; remove ALL.  Remove 
+	references to "dosrel".  Remove "EXTRA_TARGET_HOST" hackery.
+	Autogenerate host module targets.  Remove empty dependency lines 
+	and redundant dependency; rearrange slightly.
+	* Makefile.def: Add host-side libtermcap, utils.
+
+	* Makefile.in: Regenerate.
+
 2002-11-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* MAINTAINERS (Write After Approval): Add myself.
