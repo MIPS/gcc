@@ -577,16 +577,14 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
       if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
 	TREE_READONLY (var) = 0;
 
-      /* Initialize this VAR_DECL from the equivalent argument.  If
-	 the argument is an object, created via a constructor or copy,
-	 this will not result in an extra copy: the TARGET_EXPR
-	 representing the argument will be bound to VAR, and the
-	 object will be constructed in VAR.  */
+      /* Initialize this VAR_DECL from the equivalent argument.  Convert
+	 the argument to the proper type in case it was promoted.  */
       if (value)
 	{
 	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	     keep our trees in gimple form.  */
-	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (p), var, value);
+	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var,
+			     convert (TREE_TYPE (var), value));
 	  init_stmts = add_stmt_to_compound (init_stmts, void_type_node,
 					     init_stmt);
 	}

@@ -155,7 +155,12 @@ cp_simplify_expr (expr_p, pre_p, post_p)
       break;
 
     case EMPTY_CLASS_EXPR:
-      *expr_p = integer_zero_node;
+      {
+	/* Yes, an INTEGER_CST with RECORD_TYPE.  */
+	tree i = build_int_2 (0, 0);
+	TREE_TYPE (i) = TREE_TYPE (*expr_p);
+	*expr_p = i;
+      }
       return 1;
 
     case BASELINK:

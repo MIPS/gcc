@@ -1,3 +1,11 @@
+2003-04-02  Jason Merrill  <jason@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-inline.c (initialize_inlined_parameters): Cast argument
+        types appropriately when emitting initialization assignments.
+	* cp/cp-simplify.c (cp_simplify_expr) <case EMPTY_CLASS_EXPR>:
+	Change type of constant to RECORD_TYPE.
+
 2003-04-01  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (PENDING_STMT, SET_PENDING_STMT): New Macros.
