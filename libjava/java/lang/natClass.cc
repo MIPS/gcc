@@ -1172,28 +1172,6 @@ _Jv_IsAssignableFromSlow (jclass target, jclass source)
   return false;
 }
 
-// Check that SOURCE is assignment compatible with DEST.  Both are
-// loaded with the indicated class loader.  Neither is prepared.
-// Throws appropriate exception, usually VerifyError, on failure.
-void
-_Jv_CheckAssignment (java::lang::ClassLoader *loader,
-                    _Jv_Utf8Const *source_name,
-                    _Jv_Utf8Const *dest_name)
-{
-  jclass source = _Jv_FindClassFromSignature (source_name->chars(), loader);
-  jclass dest = _Jv_FindClassFromSignature (dest_name->chars(), loader);
-
-  if (! _Jv_IsAssignableFromSlow (dest, source))
-    {
-      using namespace java::lang;
-      StringBuffer *sb = new StringBuffer();
-      sb->append(dest->getName());
-      sb->append(JvNewStringLatin1(" isn't assignable from "));
-      sb->append(source->getName());
-      throw new VerifyError(sb->toString());
-    }
-}
-
 // Lookup an interface method by name.  This is very similar to
 // purpose to _getMethod, but the interfaces are quite different.  It
 // might be a good idea for _getMethod to call this function.
