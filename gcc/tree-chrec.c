@@ -1158,6 +1158,7 @@ chrec_evaluate (unsigned var,
 		tree n,
 		tree k)
 {
+  tree type = chrec_type (chrec);
   tree binomial_n_k = tree_fold_binomial (n, k);
   
   if (TREE_CODE (chrec) == EXPONENTIAL_CHREC
@@ -1171,18 +1172,15 @@ chrec_evaluate (unsigned var,
       
       if (CHREC_VARIABLE (chrec) == var)
 	return chrec_fold_plus 
-	  (chrec_type (chrec), 
-	   chrec_fold_multiply (chrec_type (CHREC_LEFT (chrec)),
-				binomial_n_k,
-				CHREC_LEFT (chrec)),
+	  (type, 
+	   chrec_fold_multiply (type, binomial_n_k, CHREC_LEFT (chrec)),
 	   chrec_evaluate (var, CHREC_RIGHT (chrec), n, 
-			   tree_fold_plus (integer_type_node, 
-					   k, integer_one_node)));
+			   tree_fold_plus (type, k, integer_one_node)));
       
-      return chrec_fold_multiply (chrec_type (chrec), binomial_n_k, chrec);
+      return chrec_fold_multiply (type, binomial_n_k, chrec);
     }
   else
-    return chrec_fold_multiply (chrec_type (chrec), binomial_n_k, chrec);
+    return chrec_fold_multiply (type, binomial_n_k, chrec);
 }
 
 /* Evaluates "CHREC (X)" when the varying variable is VAR.  
@@ -1201,6 +1199,7 @@ chrec_apply (unsigned var,
 	     tree chrec, 
 	     tree x)
 {
+  tree type = chrec_type (chrec);
   tree res = chrec_top;
 
   if (automatically_generated_chrec_p (chrec)
@@ -1221,14 +1220,12 @@ chrec_apply (unsigned var,
       /* "{a, +, b} (x)"  ->  "a + b*x".  */
       if (TREE_CODE (CHREC_LEFT (chrec)) == INTEGER_CST
 	  && integer_zerop (CHREC_LEFT (chrec)))
-	res = chrec_fold_multiply 
-	  (chrec_type (chrec), CHREC_RIGHT (chrec), x);
+	res = chrec_fold_multiply (type, CHREC_RIGHT (chrec), x);
       
       else
-	res = chrec_fold_plus (chrec_type (chrec), 
-			       CHREC_LEFT (chrec), 
-			       chrec_fold_multiply 
-			       (chrec_type (chrec), CHREC_RIGHT (chrec), x));
+	res = chrec_fold_plus (type, CHREC_LEFT (chrec), 
+			       chrec_fold_multiply (type, 
+						    CHREC_RIGHT (chrec), x));
     }
   
   else if (TREE_CODE (chrec) != POLYNOMIAL_CHREC
@@ -1474,52 +1471,6 @@ reset_evolution_in_loop (unsigned loop_num,
     chrec = CHREC_LEFT (chrec);
   
   return build_polynomial_chrec (loop_num, chrec, new_evol);
-}
-
-
-/* Returns the value of the variable after one execution of the loop
-   LOOP_NB, supposing that CHREC is the evolution function of the
-   variable.
-   
-   Example:  
-   chrec_eval_next_init_cond (4, {{1, +, 3}_2, +, 10}_4) = 11.  */
-
-tree 
-chrec_eval_next_init_cond (unsigned loop_nb, 
-			   tree chrec)
-{
-  tree init_cond;
-  
-  init_cond = initial_condition (chrec);
-
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      || TREE_CODE (chrec) == EXPONENTIAL_CHREC)
-    {
-      if (CHREC_VARIABLE (chrec) < loop_nb)
-	/* There is no evolution in this dimension.  */
-	return init_cond;
-      
-      while ((TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
-	      || TREE_CODE (CHREC_LEFT (chrec)) == EXPONENTIAL_CHREC)
-	     && CHREC_VARIABLE (CHREC_LEFT (chrec)) >= loop_nb)
-	chrec = CHREC_LEFT (chrec);
-      
-      if (CHREC_VARIABLE (chrec) != loop_nb)
-	/* There is no evolution in this dimension.  */
-	return init_cond;
-      
-      if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
-	/* testsuite/.../ssa-chrec-14.c */
-	return chrec_fold_plus (chrec_type (init_cond), init_cond, 
-				initial_condition (CHREC_RIGHT (chrec)));
-      
-      else
-	return chrec_fold_multiply (chrec_type (init_cond), init_cond, 
-				    initial_condition (CHREC_RIGHT (chrec)));
-    }
-  
-  else
-    return init_cond;
 }
 
 /* Determine the type of the result after the merge of types TYPE0 and
@@ -2001,7 +1952,15 @@ chrec_convert (tree type,
 	 chrec_convert (type, CHREC_UP (chrec)));
       
     default:
-      return convert (type, chrec);
+      {
+	tree res = convert (type, chrec);
+
+	/* Don't propagate overflows.  */
+	TREE_OVERFLOW (res) = 0;
+	if (TREE_CODE_CLASS (TREE_CODE (res)) == 'c')
+	  TREE_CONSTANT_OVERFLOW (res) = 0;
+	return res;
+      }
     }
 }
 
