@@ -1234,6 +1234,7 @@ javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
 javax/swing/text/DefaultHighlighter.java \
+javax/swing/text/DefaultStyledDocument.java \
 javax/swing/text/Document.java \
 javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
@@ -3399,7 +3400,8 @@ javax/swing/text/AbstractDocument.lo javax/swing/text/AttributeSet.lo \
 javax/swing/text/BadLocationException.lo javax/swing/text/Caret.lo \
 javax/swing/text/ComponentView.lo javax/swing/text/DefaultCaret.lo \
 javax/swing/text/DefaultEditorKit.lo \
-javax/swing/text/DefaultHighlighter.lo javax/swing/text/Document.lo \
+javax/swing/text/DefaultHighlighter.lo \
+javax/swing/text/DefaultStyledDocument.lo javax/swing/text/Document.lo \
 javax/swing/text/DocumentFilter.lo javax/swing/text/EditorKit.lo \
 javax/swing/text/Element.lo javax/swing/text/FieldView.lo \
 javax/swing/text/GapContent.lo javax/swing/text/Highlighter.lo \
@@ -5572,6 +5574,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/DefaultCaret.P \
 .deps/javax/swing/text/DefaultEditorKit.P \
 .deps/javax/swing/text/DefaultHighlighter.P \
+.deps/javax/swing/text/DefaultStyledDocument.P \
 .deps/javax/swing/text/Document.P \
 .deps/javax/swing/text/DocumentFilter.P \
 .deps/javax/swing/text/EditorKit.P .deps/javax/swing/text/Element.P \
