@@ -2013,6 +2013,7 @@ purge_dead_edges (bb)
 
       for (e = bb->succ; e; e = next)
 	{
+	  rtx note;
 	  next = e->succ_next;
 
 	  /* Avoid abnormal flags to leak from computed jumps turned
@@ -2031,6 +2032,11 @@ purge_dead_edges (bb)
 		   && returnjump_p (insn))
 	    continue;
 
+	  note = find_reg_note (insn, REG_BR_PROB, NULL);
+	  if (note)
+	    remove_note (insn, note);
+	  while ((note = find_reg_note (insn, REG_BR_PRED, NULL)))
+	    remove_note (insn, note);
 	  purged = true;
 	  remove_edge (e);
 	}

@@ -177,6 +177,7 @@ try_simplify_condjump (cbranch_block)
 						    jump_dest_block);
   cbranch_jump_edge->flags |= EDGE_FALLTHRU;
   cbranch_fallthru_edge->flags &= ~EDGE_FALLTHRU;
+  update_br_prob_note (cbranch_block);
 
   /* Delete the block with the unconditional jump, and clean up the mess.  */
   flow_delete_block (jump_block);
@@ -541,7 +542,7 @@ try_forward_edges (mode, b)
 		    prob = 0;
 		  t->probability -= prob;
 		  prob = REG_BR_PROB_BASE - prob;
-		  if (prob == 0)
+		  if (prob <= 0)
 		    {
 		      first->succ->probability = REG_BR_PROB_BASE;
 		      first->succ->succ_next->probability = 0;
@@ -550,6 +551,7 @@ try_forward_edges (mode, b)
 		    for (e = first->succ; e; e = e->succ_next)
 		      e->probability = ((e->probability * REG_BR_PROB_BASE)
 					/ (double) prob);
+		  update_br_prob_note (first);
 		}
 	      else
 		{
