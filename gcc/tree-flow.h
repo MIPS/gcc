@@ -90,8 +90,11 @@ struct var_ann_d GTY(())
      seen yet or not.  */
   unsigned out_of_ssa_tag : 1;
 
+  /* Used when building root_var structures in tree_ssa_live.[ch].  */
+  unsigned root_var_processed : 1;
+
   /* Unused bits.  */
-  unsigned unused : 25;
+  unsigned unused : 24;
 
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences
@@ -107,6 +110,9 @@ struct var_ann_d GTY(())
   /* Used when going out of SSA form to indicate which partition this 
      variable represents storage for.  */
   unsigned partition;
+
+  /* Used by the root-var object in tree-ssa-live.[ch].  */
+  unsigned root_index;
 };
 
 
@@ -323,6 +329,7 @@ extern void bsi_insert_before	PARAMS ((block_stmt_iterator *, tree, enum bsi_ite
 extern void bsi_insert_after	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
 extern void bsi_insert_on_edge	PARAMS ((edge, tree));
 extern int bsi_commit_edge_inserts	PARAMS ((int, int *));
+extern void bsi_replace		PARAMS ((block_stmt_iterator, tree));
 
 /* Stmt list insertion routines.  */
 

@@ -1,3 +1,41 @@
+2003-05-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (pdom_info): New file level static.
+	(cleanup_tree_cfg): Free dominance info, if it was used.
+	(bsi_replace): New. Replace a stmt with a new one.
+	(linearize_cond_expr): Use post dominator info to determine is a 
+	conditional can be safely removed.
+	(find_insert_location): New. Determine where to insert a new stmt that 
+	is placed on a split edge.
+	(bsi_commit_first_edge_insert): Use find_insert_location to determine
+	where to link a stmt when splitting an edge.
+	(merge_tree_blocks): When deleting a basic block, remove it from the
+	dominance structure if it exists.
+	* tree-dfa.c (add_stmt_operand): Don't rename local statics. Treat 
+	them just like globals.
+	* tree-flow.h (struct var_ann_d): Add root_var_processed bit and 
+	root_index fields.
+	* tree-ssa-dce.c (process_worklist): Mark conditions feeding PHI's as
+	necessary as well.
+	(remove_dead_phis): Add missing debug information.
+	* tree-ssa-live.c (var_union): Handle combining partitions when one
+	has a root_variable as a representative.
+	(compact_var_map): Add comments and use flags.
+	(init_root_var): Use new root_var fields in struct var_ann_d.
+	(dump_root_var): Send output to specified file, not stderr.
+	(dump_var_map): Remove dump_flag parameter & some grotesque debug info.
+	* tree-ssa-live.h (VAR_ANN_ROOT_INDEX): Define.
+	(VARMAP_NORMAL, VARMAP_NO_SINGLE_DEFS): Define flags for compact_var_map.
+	(var_to_partition_to_var): Return NULL if not in a partition.
+	(find_root_var): Use VAR_ANN_ROOT_INDEX.
+	* tree-ssa.c (insert_copy_on_edge): Add listing info.
+	(coalesce_ssa_name): Coalesce live-on-entry variables to their root.
+	Coalesce partitions across abnormal edges.
+	(assign_vars): Remove redundant initialization code. Handle root_vars
+	which have already been coalesced to a partition. 
+	(rewrite_out_of_ssa): Add debug info & remove PHI nodes when processed.
+	(rewrite_stmt): Don't redefine redundant expressions.
+
 2003-05-08  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (simplify_expr_stmt): Make sure to

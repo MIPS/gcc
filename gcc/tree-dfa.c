@@ -595,6 +595,9 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0)
     flags |= opf_force_vop;
 
+  if (TREE_STATIC ((!DECL_P (var) ? get_base_symbol (var) : var)))
+    flags |= opf_force_vop;
+
   ann = stmt_ann (stmt);
 
   aliases = may_aliases (var);

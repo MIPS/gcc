@@ -44,12 +44,18 @@ typedef struct _var_map
 } *var_map;
 
 #define VAR_ANN_PARTITION(ann) (ann->partition)
+#define VAR_ANN_ROOT_INDEX(ann) (ann->root_index)
 
 #define NO_PARTITION		-1
 
+/* Flags to pass to compact_var_map  */
+
+#define VARMAP_NORMAL		0
+#define VARMAP_NO_SINGLE_DEFS	1
+
 extern var_map init_var_map		PARAMS ((int));
 extern void delete_var_map		PARAMS ((var_map));
-extern void dump_var_map		PARAMS ((FILE *, var_map, int));
+extern void dump_var_map		PARAMS ((FILE *, var_map));
 extern int var_union			PARAMS ((var_map, tree, tree));
 extern void change_partition_var	PARAMS ((var_map, tree, int));
 extern var_map create_ssa_var_map	PARAMS ((void));
@@ -123,6 +129,8 @@ var_to_partition_to_var (map, var)
   int part;
 
   part = var_to_partition (map, var);
+  if (part == NO_PARTITION)
+    return NULL_TREE;
   return partition_to_var (map, part);
 }
 
@@ -308,7 +316,7 @@ find_root_var (rv, i)
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
   ann = var_ann (t);
-  return (VAR_ANN_PARTITION (ann));
+  return (VAR_ANN_ROOT_INDEX (ann));
 }
 
 #endif /* _TREE_SSA_LIVE_H  */

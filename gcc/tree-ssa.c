@@ -920,6 +920,15 @@ insert_copy_on_edge (e, dest, src)
   tree copy;
 
   copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_ssa_dump_file,
+	       "Inserting a copy on edge BB%d->BB%d :",
+	       e->src->index,
+	       e->dest->index);
+      print_generic_expr (tree_ssa_dump_file, copy, tree_ssa_dump_flags);
+      fprintf (tree_ssa_dump_file, "\n");
+    }
   bsi_insert_on_edge (e, copy);
 }
 
@@ -1231,8 +1240,10 @@ add_conflicts_if_valid (rv, graph, map, vec, var)
     }
 }
 
-/* Reduce the number of live ranges in the var_map. We don't associate any
-   actual variables with partitions yet, its still left in SSA form.  */
+/* Reduce the number of live ranges in the var_map. The only partitions
+   which are associated with actual variables are those which are forced
+   to be coalesced for various reason. (live on entry, live across abnormal 
+   edges, etc.)  */
 
 static void
 coalesce_ssa_name (map)
@@ -1244,21 +1255,22 @@ coalesce_ssa_name (map)
   varray_type stmt_stack, ops;
   tree stmt;
   sbitmap live;
-  tree *var_p, var;
+  tree *var_p, var, tmp, phi;
   root_var_p rv;
   tree_live_info_p liveinfo;
+  edge e;
+  var_ann_t ann;
 
   if (num_var_partitions (map) <= 1)
     return;
   
   liveinfo = calculate_live_on_entry (map);
   calculate_live_on_exit (liveinfo);
-
   graph = conflict_graph_new (num_var_partitions (map));
-
   live = sbitmap_alloc (num_var_partitions (map));
-
   rv = init_root_var (map);
+
+  /* Build a conflict graph.  */
 
   FOR_EACH_BB (bb)
     {
@@ -1324,10 +1336,121 @@ coalesce_ssa_name (map)
 	});
     }
 
+  /* First, coalesce all live on entry variables to their root variable. 
+     This will ensure the first use is coming from the right memory location. */
+
+  sbitmap_zero (live);
+
+  /* Set 'live' vector to indicate live on entry partitions.  */
+
+  num = num_var_partitions (map);
+  for (x = 0 ; x < num; x++)
+    for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+      if (e->dest != EXIT_BLOCK_PTR)
+	{
+	  if (TEST_BIT (live_entry_blocks (liveinfo, x), e->dest->index))
+	    SET_BIT (live, x);
+	}
   delete_tree_live_info (liveinfo);
+
+  /* Assign root variable as partition representative for each live on entry
+     partition.  */
+  EXECUTE_IF_SET_IN_SBITMAP (live, 0, x, 
+    {
+      var = root_var (rv, find_root_var (rv, x));
+      ann = var_ann (var);
+      /* If these aren't already coalesced...  */
+      if (partition_to_var (map, x) != var)
+	{
+	  if (ann->out_of_ssa_tag)
+	    {
+	      /* This root variable has already been assigned to another
+		 partition which is not coalesced with this one.  */
+	      abort ();
+	    }
+
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "Must coalesce ");
+	      print_generic_expr (tree_ssa_dump_file, 
+				  partition_to_var (map, x), 
+				  TDF_SLIM);
+	      fprintf (tree_ssa_dump_file, " with the root variable ");
+	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
+	      fprintf (tree_ssa_dump_file, ".\n");
+	    }
+
+	  change_partition_var (map, var, x);
+	}
+    });
+
   sbitmap_free (live);
 
-  VARRAY_INT_INIT (ops, num_var_partitions (map), "ops");
+  /* Code cannot be inserted on abnormal edges. Look for all abnormal 
+     edges, and coalesce any PHI results with their arguments across 
+     that edge.  */
+
+  FOR_EACH_BB (bb)
+    for (e = bb->succ; e; e = e->succ_next)
+      if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
+	for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	  {
+	    /* Visit each PHI on the destination side of this abnormal
+	       edge, and attempt to coalesce the argument with the result.  */
+	    var = PHI_RESULT (phi);
+	    x = var_to_partition (map, var);
+	    y = phi_arg_from_edge (phi, e);
+	    if (y == -1)
+	      abort ();
+	    tmp = PHI_ARG_DEF (phi, y);
+	    y = var_to_partition (map, tmp);
+	    if (x == NO_PARTITION || y == NO_PARTITION)
+	      abort ();
+	    if (find_root_var (rv, x) != find_root_var (rv, y))
+	      {
+		/* FIXME. If the root variables are not the same, we 
+		   can't coalesce the partitions, but maybe we can create
+		   a new version of the PHI_RESULT variable, issue 
+		   a copy in the DEST block instead, and use it in the 
+		   PHI node. Adding a new partition/version at this point
+		   is really a bad idea, so for now, PUNT!.  */
+		error ("Different root vars across an abnormal edge\n");
+	      }
+
+	    if (x != y)
+	      {
+		if (!conflict_graph_conflict_p (graph, x, y))
+		  {
+		    /* NOw map the partitions back to their real variables.  */
+		    var = partition_to_var (map, x);
+		    tmp = partition_to_var (map, y);
+		    if (tree_ssa_dump_file 
+			&& (tree_ssa_dump_flags & TDF_DETAILS))
+		      {
+			fprintf (tree_ssa_dump_file , "ABNORMAL: Coalescing ");
+			print_generic_expr (tree_ssa_dump_file, 
+					    var, 
+					    TDF_SLIM);
+			fprintf (tree_ssa_dump_file , " and ");
+			print_generic_expr (tree_ssa_dump_file, 
+					    tmp, 
+					    TDF_SLIM);
+			fprintf (tree_ssa_dump_file , " over abnormal edge.\n");
+		      }
+		    var_union (map, var, tmp);
+		    conflict_graph_merge_regs (graph, x, y);
+		  }
+		else
+		  error ("Vars Conflict across an abnormal edge\n");
+	      }
+	  }
+
+    if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+      {
+        dump_var_map (tree_ssa_dump_file, map);
+      }
+
+
   for (x = 0; x < num_root_vars (rv); x++)
     {
       while (first_root_var_partition (rv, x) != ROOT_VAR_NONE)
@@ -1340,12 +1463,17 @@ coalesce_ssa_name (map)
 	       z != ROOT_VAR_NONE; 
 	       z = next_root_var_partition (rv, z))
 	    {
-	      if (!conflict_graph_conflict_p (graph, y, z))
-	        {
-		  var_union (map, var, partition_to_var (map, z));
-		  remove_root_var_partition (rv, x, z);
-		  conflict_graph_merge_regs (graph, y, z);
-		}
+	      tmp = partition_to_var (map, z);
+	      /* If partitions are already merged, don't check for conflict.  */
+	      if (tmp == var)
+	        remove_root_var_partition (rv, x, z);
+	      else
+		if (!conflict_graph_conflict_p (graph, y, z))
+		  {
+		    var_union (map, var, tmp);
+		    remove_root_var_partition (rv, x, z);
+		    conflict_graph_merge_regs (graph, y, z);
+		  }
 	    }
 	}
     }
@@ -1354,14 +1482,13 @@ coalesce_ssa_name (map)
   conflict_graph_delete (graph);
 }
 
-/* Take the ssa-name var_map, and make real variables out of each partition.
-   This will be used to make each SSA-version varaiable to a real variable.  */
+/* Take the ssa-name var_map, and assign real variables to each partition.  */
 
 static void
 assign_vars (map)
      var_map map;
 {
-  int x, i;
+  int x, i, num;
   tree t, var;
   var_ann_t ann;
   root_var_p rv;
@@ -1370,14 +1497,32 @@ assign_vars (map)
   if (!rv) 
     return;
 
-  for (x = 0; x < num_root_vars (rv); x++)
+  /* Coalescing may already have forced some partitions to their root 
+     variable. Find these and tag them.  */
+
+  num = num_var_partitions (map);
+  for (x = 0; x < num; x++)
     {
-      var = root_var (rv, x);
-      ann = var_ann (var);
-      ann->out_of_ssa_tag = 0;
+      var = partition_to_var (map, x);
+      if (TREE_CODE (var) != SSA_NAME)
+	{
+	  /* Coalescing will already have verified that more than one
+	     partition doesn't have the same root variable. Simply marked
+	     the variable as assigned.  */
+	  ann = var_ann (var);
+	  ann->out_of_ssa_tag = 1;
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf(tree_ssa_dump_file, "partition %d has variable ", x);
+	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
+	      fprintf(tree_ssa_dump_file, " assigned to it.\n");
+	    }
+
+	}
     }
 
-  for (x = 0; x < num_root_vars (rv); x++)
+  num = num_root_vars (rv);
+  for (x = 0; x < num; x++)
     {
       var = root_var (rv, x);
       ann = var_ann (var);
@@ -1387,7 +1532,7 @@ assign_vars (map)
 	{
 	  t = partition_to_var (map, i);
 
-	  if (t == var)
+	  if (t == var || TREE_CODE (t) != SSA_NAME)
 	    continue;
 	  
 	  if (!ann->out_of_ssa_tag)
@@ -1396,15 +1541,29 @@ assign_vars (map)
 	      continue;
 	    }
 
-	  /* Since we still don't have passes that create overlapping live
-	     ranges, the code above should've coalesced all the versions of
-	     the variable together.  */
-	  abort();
-#if 0
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "Overlap :  '");
+	      print_generic_expr (tree_ssa_dump_file, t, TDF_SLIM);
+	      fprintf (tree_ssa_dump_file, "'  conflicts with  '");
+	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
+	    }
+
+	  /* FIXME. Since we still don't have passes that create overlapping 
+	  live ranges, the code above should've coalesced all the versions of
+	  the variable together.  */
+	  abort ();
+
 	  var = create_temp (t);
 	  change_partition_var (map, var, i);
 	  ann = var_ann (var);
-#endif
+
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "'     New temp:  '");
+	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
+	      fprintf (tree_ssa_dump_file, "'\n");
+	    }
 	}
     }
 
@@ -1430,24 +1589,42 @@ rewrite_out_of_ssa (fndecl)
   block_stmt_iterator si;
   edge e;
   var_map map;
-  tree phi;
+  tree phi, next;
   elim_graph g;
   int repeat;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
+  tree_ssa_dump_file = dump_begin (TDI_optimized, &tree_ssa_dump_flags);
+
   map = create_ssa_var_map ();
 
   /* Shrink the map to include only referenced variables.  Exclude variables
      which have only one SSA version since there is nothing to coalesce.  */
-  compact_var_map (map, 1);
+  compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
+
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    dump_var_map (tree_ssa_dump_file, map);
 
   coalesce_ssa_name (map);
 
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    {
+      fprintf(tree_ssa_dump_file, "After Coalescing:\n");
+      dump_var_map (tree_ssa_dump_file, map);
+    }
+
   /* This is the final var list, so assign real variables to the different
      partitions.  Include single reference vars this time. */
-  compact_var_map (map, 0);
+
+  compact_var_map (map, VARMAP_NORMAL);
   assign_vars (map);
+
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    {
+      fprintf(tree_ssa_dump_file, "After Root variable replacement:\n");
+      dump_var_map (tree_ssa_dump_file, map);
+    }
 
   g = new_elim_graph (map->num_partitions);
   g->map = map;
@@ -1494,8 +1671,16 @@ rewrite_out_of_ssa (fndecl)
 
       phi = phi_nodes (bb);
       if (phi)
-	for (e = bb->pred; e; e = e->pred_next)
-	  eliminate_phi (e, phi_arg_from_edge (phi, e), g);
+        {
+	  for (e = bb->pred; e; e = e->pred_next)
+	    eliminate_phi (e, phi_arg_from_edge (phi, e), g);
+	  for ( ; phi; phi = next)
+	    {
+	      next = TREE_CHAIN (phi);
+	      remove_phi_node (phi, NULL_TREE, bb);
+	    }
+	}
+
     }
 
   delete_elim_graph (g);
@@ -1516,6 +1701,9 @@ rewrite_out_of_ssa (fndecl)
   delete_tree_cfg ();
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
+
+  if (tree_ssa_dump_file)
+    dump_end (TDI_optimized, tree_ssa_dump_file);
 }
 
 
@@ -2038,10 +2226,9 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	     a point where more than one version of the LHS is live at the
 	     same time.  */
 #if 0
-	  register_new_def (*def_p, cached_lhs, block_defs_p);
 	  ssa_stats.num_re++;
-	  bsi_remove (si);
-	  return;
+	  TREE_OPERAND (stmt, 1) = cached_lhs;
+	  ann->modified = 1;
 #else
 	  if (var_is_live (cached_lhs, ann->bb))
 	    {

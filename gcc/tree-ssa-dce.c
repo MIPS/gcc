@@ -359,7 +359,32 @@ process_worklist ()
 	  /* All the statements feeding this PHI node's arguments are
 	     necessary.  */
 	  for (k = 0; k < PHI_NUM_ARGS (i); k++)
-	    mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+	    {
+	      mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+
+	      /* Look at all the predecessors, and if this PHI is being fed
+	         from a conditional expression, mark that conditional
+		 as necessary.   Copies may be needed on an edge later.  */
+	      for (e = bb->pred; e; e = e->pred_next)
+	        {
+		  basic_block pred, par;
+		  pred = e->src;
+		  if (pred != ENTRY_BLOCK_PTR)
+		    {
+		      par = parent_block (pred);
+		      if (par)
+		        {
+			  tree last = last_stmt (par);
+			  if (last && (TREE_CODE (last) == COND_EXPR
+				       || TREE_CODE (last) == SWITCH_EXPR))
+			    {
+			      mark_necessary (last);
+			    }
+			}
+		    }
+		}
+
+	    }
 	}
       else
 	{
@@ -457,6 +482,14 @@ remove_dead_phis (bb)
       if (!necessary_p (phi))
 	{
 	  tree next = TREE_CHAIN (phi);
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Deleting : ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+
 	  remove_phi_node (phi, prev, bb);
 	  stats.removed_phis++;
 	  phi = next;

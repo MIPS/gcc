@@ -71,6 +71,8 @@ struct cfg_stats_d
   long num_failed_bind_expr_merges;
 };
 
+static dominance_info pdom_info = NULL;
+
 static struct cfg_stats_d cfg_stats;
 
 /* Basic blocks and flowgraphs.  */
@@ -136,6 +138,7 @@ static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
 static inline void bsi_update_from_tsi	PARAMS (( block_stmt_iterator *, tree_stmt_iterator));
 static tree_stmt_iterator bsi_link_after	PARAMS ((tree_stmt_iterator *, tree, basic_block, tree));
 static block_stmt_iterator bsi_commit_first_edge_insert	PARAMS ((edge, tree));
+static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, int *));
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -1361,9 +1364,15 @@ void
 cleanup_tree_cfg ()
 {
   timevar_push (TV_TREE_CLEANUP_CFG);
+  pdom_info = NULL;
   cleanup_control_flow ();
   remove_unreachable_blocks ();
   linearize_control_structures ();
+  if (pdom_info != NULL)
+    {
+      free_dominance_info (pdom_info);
+      pdom_info = NULL;
+    }
   compact_blocks ();
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
@@ -1789,6 +1798,23 @@ bsi_remove (i)
 }
 
 
+/* Replace the contents of a stmt with another. The replacement cannot be 
+   a COMPOUND_EXPR node, only a simple stmt.  */
+
+void
+bsi_replace (bsi, stmt)
+     block_stmt_iterator bsi;
+     tree stmt;
+{
+  if (TREE_CODE (stmt) == COMPOUND_EXPR)
+    abort ();
+  
+  replace_stmt (bsi.tp, &stmt);
+  modify_stmt (bsi_stmt (bsi));
+}
+
+
+
 /* Remove statement *STMT_P.
 
    Update all references associated with it.  Note that this function will
@@ -2174,6 +2200,7 @@ linearize_control_structures ()
 static bool
 linearize_cond_expr (tree *entry_p, basic_block bb)
 {
+  basic_block pdom_bb;
   tree entry = *entry_p;
   tree pred = COND_EXPR_COND (entry);
   tree then_clause = COND_EXPR_THEN (entry);
@@ -2182,8 +2209,15 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
   /* Remove the conditional if both branches have been removed.  */
   if (body_is_empty (then_clause) && body_is_empty (else_clause))
     {
-      remove_stmt (entry_p);
-      return true;
+      /* Calculate dominance info, if it hasn't been computed yet.  */
+      if (pdom_info == NULL)
+	pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
+      pdom_bb = get_immediate_dominator (pdom_info, bb);
+      if (!phi_nodes (pdom_bb))
+        {
+	  remove_stmt (entry_p);
+	  return true;
+	}
     }
 
   /* Linearize 'if (1)'.  */
@@ -3464,6 +3498,44 @@ bsi_insert_before (curr_bsi, t, mode)
 }
 
 
+/* Given an edge between src and dest, return a TSI representing the location
+   that any instructions on this edge should be inserted.  
+   A flag indicating whether to insert the new stmt before or after the 
+   iterator is returned in the 'after' parameter.  */
+
+static tree_stmt_iterator
+find_insert_location (src, dest, after)
+     basic_block src;
+     basic_block dest;
+     int *after;
+{
+  block_stmt_iterator bsi;
+  tree *ret, stmt;
+
+  *after = 0;
+  bsi = bsi_last (src);
+  if (!bsi_end_p (bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      switch (TREE_CODE (stmt))
+        {
+	  case COND_EXPR:
+	  case LOOP_EXPR:
+	    ret = src->end_tree_p;
+	    *after = 1;
+	    break;
+	  
+	  default:
+	    ret = dest->head_tree_p;
+	    break;
+	}
+    }
+  else
+    ret = src->end_tree_p;
+  
+ return tsi_start (ret);
+     
+}
 /* This routine inserts a stmt on an edge. Every attempt is made to place the
    stmt in an existing basic block, but sometimes that isn't possible.  When
    it isn't possible, a new basic block is created, edges updated, and the 
@@ -3477,8 +3549,8 @@ bsi_commit_first_edge_insert (e, stmt)
   basic_block src, dest, new_bb;
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
-  int single_exit, single_entry;
-  tree first, last, inserted_stmt;
+  int single_exit, single_entry, after;
+  tree first, last, inserted_stmt, parent;
   bb_ann_t bb_ann;
 
   first = last = NULL_TREE;
@@ -3517,7 +3589,7 @@ bsi_commit_first_edge_insert (e, stmt)
 	}
 
       /* If the last stmt is a GOTO, the we can simply insert before it.  */
-      if (TREE_CODE (last) == GOTO_EXPR)
+      if (TREE_CODE (last) == GOTO_EXPR || TREE_CODE (last) == LOOP_EXPR)
         {
 	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 	  return bsi;
@@ -3572,18 +3644,14 @@ bsi_commit_first_edge_insert (e, stmt)
   bb_ann->ephi_nodes = NULL_TREE;
   bb_ann->dom_children = (bitmap) NULL;
 
-  /* The new stmt needs to be linked in somewhere, link it in before
-     the first statement in the destination block. This will help position
-     the stmt properly if it is a child tree, as well as if it is a fallthru.
-     stmt.  Not to mention, this also has the least effect on other basic
-     block pointers.  */
+  tsi = find_insert_location (src, dest, &after);
+  parent = parent_stmt (tsi_stmt (tsi));
+  if (after)
+    tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
+  else
+    tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
 
-  tsi = tsi_start (dest->head_tree_p);
-  tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
-
-  append_stmt_to_bb (tsi_container (tsi), 
-		     new_bb, 
-		     parent_stmt (*dest->head_tree_p));
+  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
   inserted_stmt = tsi_stmt (tsi);
   bsi = bsi_from_tsi (tsi);
 
@@ -3874,6 +3942,8 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
     bb2->end_tree_p = NULL;
     bb2->pred = NULL;
     bb2->succ = NULL;
+    if (pdom_info != NULL)
+      delete_from_dominance_info (pdom_info, bb2);
     remove_bb (bb2, 0);
   }
 }

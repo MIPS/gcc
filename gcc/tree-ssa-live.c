@@ -117,13 +117,36 @@ var_union (map, var1, var2)
      tree var1, var2;
 {
   int p1, p2, p3;
+  tree root_var = NULL_TREE;
 
   /* This is independant of partition_to_compact. If partition_to_compact is 
      on, then whichever one of these partitions is absorbed will never have a
      dereference into the partition_to_compact array any more.  */
 
-  p1 = partition_find (map->var_partition, SSA_NAME_VERSION (var1));
-  p2 = partition_find (map->var_partition, SSA_NAME_VERSION (var2));
+  if (TREE_CODE (var1) == SSA_NAME)
+    p1 = partition_find (map->var_partition, SSA_NAME_VERSION (var1));
+  else
+    {
+      p1 = var_to_partition (map, var1);
+      if (map->compact_to_partition)
+        p1 = map->compact_to_partition[p1];
+      root_var = var1;
+    }
+  
+  if (TREE_CODE (var2) == SSA_NAME)
+    p2 = partition_find (map->var_partition, SSA_NAME_VERSION (var2));
+  else
+    {
+      p2 = var_to_partition (map, var2);
+      if (map->compact_to_partition)
+        p2 = map->compact_to_partition[p2];
+      if (root_var != NULL_TREE)
+        return -1;
+      root_var = var2;
+    }
+
+  if (p1 == NO_PARTITION || p2 == NO_PARTITION)
+    abort ();
 
   if (p1 == p2)
     p3 = p1;
@@ -133,6 +156,9 @@ var_union (map, var1, var2)
   if (map->partition_to_compact)
     p3 = map->partition_to_compact[p3];
 
+  if (root_var)
+    change_partition_var (map, root_var, p3);
+
   return p3;
 }
 
@@ -141,12 +167,23 @@ var_union (map, var1, var2)
    0..(num_partitions-1) instead of whereever they turned out during
    the partitioning exercise. This removes any references to unused
    partitions, thereby allowing bitmaps and other vectors to be much
-   denser.  */
+   denser.
+
+   This is implemented such that compaction doesn't affect partitioning.
+   That is, once partitions are created and possibly merged, running one
+   or more different kind of compaction will not affect the partitions
+   themselves. Their index might change, but all the same variables will
+   still be members of the same partition group. This allows work on reduced
+   sets, and no lose of information when a larger set is desired.
+
+   In partiticular, coalescing can work on partitions which have 2 or more
+   definitions, and then 'recompact' later to include all the single
+   definitions for assignment to program variables.  */
 
 void 
-compact_var_map (map, use_singles)
+compact_var_map (map, flags)
      var_map map;
-     int use_singles;
+     int flags;
 {
   sbitmap used;
   int x, limit, count, tmp, root, root_i;
@@ -169,7 +206,7 @@ compact_var_map (map, use_singles)
       map->partition_to_compact = NULL;
     }
 
-  if (use_singles)
+  if (flags & VARMAP_NO_SINGLE_DEFS)
     rv = init_root_var (map);
 
   map->partition_to_compact = (int *)xmalloc (limit * sizeof (int));
@@ -604,16 +641,16 @@ init_root_var (map)
       if (TREE_CODE (t) == SSA_NAME)
 	t = SSA_NAME_VAR (t);
       ann = var_ann (t);
-      if (ann->out_of_ssa_tag)
+      if (ann->root_var_processed)
         {
 	  rv->next_partition[x] = VARRAY_INT (rv->first_partition, 
-					      VAR_ANN_PARTITION (ann));
-	  VARRAY_INT (rv->first_partition, VAR_ANN_PARTITION (ann)) = x;
+					      VAR_ANN_ROOT_INDEX (ann));
+	  VARRAY_INT (rv->first_partition, VAR_ANN_ROOT_INDEX (ann)) = x;
 	}
       else
         {
-	  ann->out_of_ssa_tag = 1;
-	  VAR_ANN_PARTITION (ann) = rv->num_root_vars++;
+	  ann->root_var_processed = 1;
+	  VAR_ANN_ROOT_INDEX (ann) = rv->num_root_vars++;
 	  VARRAY_PUSH_TREE (rv->root_var, t);
 	  VARRAY_PUSH_INT (rv->first_partition, x);
 	}
@@ -623,7 +660,7 @@ init_root_var (map)
   for (x = 0; x < rv->num_root_vars; x++)
     {
       t = VARRAY_TREE (rv->root_var, x);
-      var_ann (t)->out_of_ssa_tag = 0;
+      var_ann (t)->root_var_processed = 0;
     }
 
   return rv;
@@ -683,13 +720,13 @@ dump_root_var (f, rv)
   fprintf (f, "Root Var dump\n");
   for (x = 0; x < num_root_vars (rv); x++)
     {
-      print_generic_expr (stderr, root_var (rv, x), TDF_SLIM);
+      print_generic_expr (f, root_var (rv, x), TDF_SLIM);
       fprintf (f, " : (");
       for (i = first_root_var_partition (rv, x); 
 	   i != ROOT_VAR_NONE;
 	   i = next_root_var_partition (rv, i))
 	{
-	  print_generic_expr (stderr, partition_to_var (rv->map, i), TDF_SLIM);
+	  print_generic_expr (f, partition_to_var (rv->map, i), TDF_SLIM);
 	  fprintf (f, " ");
 	}
       fprintf (f, ")\n");
@@ -702,37 +739,15 @@ dump_root_var (f, rv)
 /* Output a partition.  */
 
 void
-dump_var_map (f, map, dump_flags)
+dump_var_map (f, map)
      FILE *f;
      var_map map;
-     int dump_flags;
 {
   int t;
   unsigned x, y;
   int p;
 
   fprintf (f, "\nPartition map \n\n");
-  if (dump_flags & TDF_DETAILS)
-    {
-      for (x = 1; x <= next_ssa_version; x++)
-	{
-	  p = partition_find (map->var_partition, x);
-	  if (map->partition_to_compact)
-	    p = map->partition_to_compact[p];
-	  fprintf (f, "ver %3d -> partition %3d  (", x, p);
-	  if (p >= 0)
-	    {
-	      print_generic_expr (f, partition_to_var (map, p), TDF_SLIM);
-	      if (TREE_CODE (partition_to_var (map, p)) == SSA_NAME)
-	        {
-	          fprintf (f, "  -  \n");
-		  print_generic_stmt (f, SSA_NAME_DEF_STMT (partition_to_var (map, p)), TDF_SLIM);
-		}
-	    }
-	  fprintf (f, ")\n");
-	}
-      fprintf (f, "\n\n");
-    }
 
   for (x = 0; x < map->num_partitions; x++)
     {
@@ -743,6 +758,7 @@ dump_var_map (f, map, dump_flags)
 
       if (map->partition_to_var[p] == NULL_TREE)
         continue;
+
       t = 0;
       for (y = 1; y < next_ssa_version; y++)
         {
@@ -753,15 +769,15 @@ dump_var_map (f, map, dump_flags)
 	    {
 	      if (t++ == 0)
 	        {
-		  fprintf(stderr, "Partition %d (", x);
+		  fprintf(f, "Partition %d (", x);
 		  print_generic_expr (f, partition_to_var (map, p), TDF_SLIM);
-		  fprintf (stderr, " - ");
+		  fprintf (f, " - ");
 		}
-	      fprintf (stderr, "%d ", y);
+	      fprintf (f, "%d ", y);
 	    }
 	}
       if (t != 0)
-	fprintf (stderr, ")\n");
+	fprintf (f, ")\n");
     }
   fprintf (f, "\n");
 }
