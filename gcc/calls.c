@@ -2911,9 +2911,12 @@ expand_call (tree exp, rtx target, int ignore)
 	      tree nt = build_qualified_type (TREE_TYPE (exp),
 					      (TYPE_QUALS (TREE_TYPE (exp))
 					       | TYPE_QUAL_CONST));
-
+	      /* APPLE LOCAL FSF candidate */
+	      push_temp_slots ();
 	      target = assign_temp (nt, 0, 1, 1);
 	      preserve_temp_slots (target);
+	      /* APPLE LOCAL FSF candidate */
+	      pop_temp_slots ();
 	    }
 
 	  if (! rtx_equal_p (target, valreg))
