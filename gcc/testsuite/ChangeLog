@@ -1,3 +1,42 @@
+2003-07-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11513
+	* g++.dg/template/crash8.C: New test.
+
+2003-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11645
+	* g++.dg/inherit/access4.C: New test.
+
+2003-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11282
+	* g++.dg/parse/crash7.C: New test.
+
+2003-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/10679
+	* g++.dg/opt/inline4.C: New test.
+
+2003-07-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+        PR optimization/11536
+	* gcc.dg/20030721-1.c: New test.
+
+2003-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11546
+	* g++.dg/template/lookup1.C: New test.
+
+2003-07-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/cfg1.C: New test.
+
+2003-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/11557
+	* gcc.dg/20030717-1.c: New test.
+
 2003-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/11087

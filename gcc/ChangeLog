@@ -1,3 +1,160 @@
+2003-07-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport the folling patch.
+
+	2003-04-01  Aldy Hernandez  <aldyh@redhat.com>
+         
+        PR/8878
+        * expr.c (expand_expr): Handle VECTOR_CST.
+        (const_vector_from_tree): New.
+         
+        * varasm.c (output_constant): Handle VECTOR_CST.
+         
+        * c-typeck.c (digest_init): Build a vector constant from a
+        VECTOR_TYPE.
+
+2003-07-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/11607 and PR target/11516
+	* pa.md (extzv, extv, insv): Revert latter half of last patch.
+
+2003-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/10679
+	* tree-inline.c (inlinable_function_p): Honor MIN_INLINE_INSNS.
+	
+2003-07-22  Bob Wilson  <bob.wilson@acm.org>
+	
+	* unwind-c.c (PERSONALITY_FUNCTION): Delete duplicate define.
+	
+2003-07-23  Dave Fluri  <dave.fluri@onlink.net>
+
+	* doc/extend.texi: Fixes to spelling, grammar, and diction.
+
+2003-07-21  H.J. Lu <hongjiu.lu@intel.com>
+
+	PR optimization/11599
+	* config/ia64/ia64.md (prefetch): Support predicate.
+
+2003-07-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+        PR optimization/11536
+	* unroll.c (loop_iterations): Do not replace a register holding
+	the final value by its equivalent before the loop if it is not
+	invariant.
+
+2003-07-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/loop-16.c: New test.
+
+2003-07-21  Ben Elliston  <bje@wasabisystems.com>
+
+	* doc/invoke.texi (V850 Options): Spelling fixes.
+
+2003-07-21  Lisa M. Goldstein  <opus@gnu.org>
+
+	* doc/invoke.texi: Fixes to style, grammar and diction.
+
+2003-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/11279
+	* dwarf2out.c (gen_enumeration_type_die): Remember that
+	enumerators can be unsigned.
+
+2003-07-19  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* c-tree.texi: Backport changes from mainline.
+	* c-tree.texi: Ditto.
+	* collect2.texi: Ditto.
+	* cpp.texi: Ditto.
+	* cppopts.texi: Ditto.
+	* extend.texi: Ditto.
+	* fragments.texi: Ditto.
+	* headerdirs.texi: Ditto.
+	* install.texi: Ditto.
+	* invoke.texi: Ditto.
+	* md.texi: Ditto.
+	* portability.texi: Ditto.
+	* rtl.texi: Ditto.
+	* sourcebuild.texi: Ditto.
+	* trouble.texi: Ditto.
+
+2003-07-19  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	PR optimization/4490
+	* doc/invoke.texi (m96bit-long-double, m128bit-long-double):  Reword
+	documentation to accurately reflect what these options do.
+
+2003-07-18  Richard Henderson  <rth@redhat.com>
+	    David S. Miller  <davem@redhat.com>
+
+	PR target/11556
+	* optabs.c (prepare_operand): Fail gracefully instead of abort
+	if the predicate doesn't satisfy.
+	(gen_cond_trap): Allow prepare_operand to fail.
+	Pass correct opnum argument to prepare_operand.
+	
+2003-07-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11083
+	* toplev.c (rest_of_compilation): Delete unreachable blocks
+	if dead edges were purged after the addressof pass.
+
+2003-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/11557
+	* calls.c (flags_from_decl_or_type): Do not set ECF_LIBCALL_BLOCK
+	unless we know which function is being called.
+
+2003-07-17  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/11043
+	* config/arc/t-arc: Replace bogus references to "x-crtinit.o", 
+	"x-crtfini.o" with "crtinit.o", "crtfini.o".
+
+2003-07-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/11466
+	* doc/invoke.texi (SPARC Options): Document "-mlittle-endian"
+	and its restrictions for the SPARC64 port.
+
+	Backport from mainline:
+	2003-06-13  Florian Weimer  <fw@deneb.enyo.de>
+
+	* doc/invoke.texi (SPARC Options): Document "-mimpure-text".
+
+2003-07-17  Eric Botcazou <ebotcazou@libertysurf.fr>
+            Phil Edwards <phil@jaj.com>
+
+	* doc/install.texi (*-*-solaris2*): Document the step-by-step
+	procedure to bootstrap and install.
+	Document the preference for the legacy Sun tools in /usr/bin
+	over the POSIX tools in /usr/xpg4/bin for the build process.
+
+2003-07-16  Richard Henderson  <rth@redhat.com>
+
+	PR target/10907
+        * config/ia64/ia64.c (ia64_epilogue_uses): GP is live at end
+        even with !TARGET_CONST_GP.
+        (ia64_function_ok_for_sibcall): Reject non-local functions.
+
+2003-07-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.c (machopic_select_section): Use decl_readonly_section
+	to do most of the work.
+
+2003-07-15  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.c (sparc_nonflat_function_epilogue): Only
+	emit nop if the last real insn is CALL_INSN.
+
+2003-07-15  Loren James Rittle  <ljrittle@acm.org>
+
+	* config/i386/freebsd.h (SET_ASM_OP): Remove.
+	(SUBTARGET_OVERRIDE_OPTIONS): Handle TARGET_64BIT case.
+	(ASM_COMMENT_START, ASM_APP_ON, ASM_APP_OFF, DBX_REGISTER_NUMBER
+	 MCOUNT_NAME, SIZE_TYPE, PTRDIFF_TYPE, WCHAR_TYPE_SIZE): Whitespace.
+
 2003-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/11087

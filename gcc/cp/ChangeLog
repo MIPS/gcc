@@ -1,3 +1,27 @@
+2003-07-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11513
+	* cp-tree.h (PROCESSING_REAL_TEMPLATE_DECL_P): Use current_scope.
+
+2003-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11645
+	* cp-tree.h (accessible_base_p): Declare.
+	* call.c (build_over_call): Use it.
+	* search.c (accessible_base_p): New function, split out from ...
+	(lookup_base): ... here.
+
+2003-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11282
+	* decl.c: (reshape_init): Always advance *INITP.
+
+2003-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11546
+	* pt.c (lookup_template_class): Treat TYPE_DECLs as TEMPLATE_DECLs
+	where appropriate.
+
 2003-07-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/7053

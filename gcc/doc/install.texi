@@ -394,8 +394,7 @@ data files referenced by GCC@.  The default is @file{@var{prefix}/share}.
 @item --mandir=@var{dirname}
 Specify the installation directory for manual pages.  The default is
 @file{@var{prefix}/man}.  (Note that the manual pages are only extracts from
-the full GCC manuals, which are provided in Texinfo format.  The
-@command{g77} manpage is unmaintained and may be out of date; the others
+the full GCC manuals, which are provided in Texinfo format.  The manpages
 are derived by an automatic conversion process from parts of the full
 manual.)
 
@@ -1709,8 +1708,6 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#powerpcle-*-eabi,,powerpcle-*-eabi}
 @item
-@uref{#powerpcle-*-winnt,,powerpcle-*-winnt, powerpcle-*-pe}
-@item
 @uref{#s390-*-linux*,,s390-*-linux*}
 @item
 @uref{#s390x-*-linux*,,s390x-*-linux*}
@@ -2048,7 +2045,7 @@ The version of binutils installed in @file{/usr/bin} is known to work unless
 otherwise specified in any per-architecture notes.  However, binutils
 2.12.1 or greater is known to improve overall testsuite results.
 
-FreeBSD 1 is no longer supported in GCC 3.2.
+Support for FreeBSD 1 was discontinued in GCC 3.2.
 
 For FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
 configuration support and files as shipped with GCC 2.95 are still in
@@ -3059,12 +3056,6 @@ Embedded PowerPC system in little endian mode.
 @html
 <hr />
 @end html
-@heading @anchor{powerpcle-*-winnt}powerpcle-*-winnt, powerpcle-*-pe
-PowerPC system in little endian mode running Windows NT@.
-
-@html
-<hr />
-@end html
 @heading @anchor{s390-*-linux*}s390-*-linux*
 S/390 system running Linux for S/390@.
 
@@ -3089,8 +3080,20 @@ GCC you first have to install a pre-built compiler, see our
 
 The Solaris 2 @command{/bin/sh} will often fail to configure
 @file{libstdc++-v3}, @file{boehm-gc} or @file{libjava}.  We therefore
-recommend to set @env{CONFIG_SHELL} to @command{/bin/ksh} in your
-environment.
+recommend to use the following sequence of commands to bootstrap and
+install GCC:
+
+@smallexample
+   % CONFIG_SHELL=/bin/ksh
+   % export CONFIG_SHELL
+   % @var{srcdir}/configure [@var{options}] [@var{target}]
+   % gmake bootstrap
+   % gmake install
+@end smallexample
+
+As explained in the @uref{build.html,,build} instructions, we recommend
+to use GNU make, which we call @command{gmake} here to distinguish it
+from Sun make.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
 are needed to use GCC fully, namely @code{SUNWarc},
@@ -3108,6 +3111,10 @@ Trying to use the linker and other tools in
 @file{/usr/ucb} to install GCC has been observed to cause trouble.
 For example, the linker may hang indefinitely.  The fix is to remove
 @file{/usr/ucb} from your @env{PATH}.
+
+The build process works more smoothly with the legacy Sun tools so, if you
+have @file{/usr/xpg4/bin} in your @env{PATH}, we recommend that you place
+@file{/usr/bin} before @file{/usr/xpg4/bin} for the duration of the build.
 
 All releases of GNU binutils prior to 2.11.2 have known bugs on this
 platform.  We recommend the use of GNU binutils 2.11.2 or the vendor
