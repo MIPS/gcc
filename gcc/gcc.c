@@ -1010,7 +1010,7 @@ static const struct compiler default_compilers[] =
        %{!combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
-		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
+		    cc1 -fpreprocessed %<fpredictive-compilation* %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
@@ -1032,7 +1032,7 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
-		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
+		    cc1 -fpreprocessed %<fpredictive-compilation* %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)\
   "/* APPLE LOCAL symbol separation */"\
                         %(dbg_ss) %(pch)}\
@@ -1042,7 +1042,7 @@ static const struct compiler default_compilers[] =
                     %(dbg_ss) %(pch)}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
-   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
+   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %<fpredictive-compilation* %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
   /* APPLE LOCAL preprocess .s files 2001-07-24 --sts */
   /* This is kind of lame; the purpose of having .s and .S be treated
      differently is so that we can control whether to run the

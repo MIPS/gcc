@@ -1,3 +1,8 @@
+2004-06-26  Fariborz Jahanian <fjahanian@apple.com>
+
+	* gcc.c: Don't use -fpredictive-compilation when 
+	-fpreprocessed appears on command line.
+
 2004-07-01  Devang Patel  <dpatel@apple.com>
 
 	* tree-if-conv.c (mark_vdefs_vuses_for_rename): New function.
