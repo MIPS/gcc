@@ -1,5 +1,9 @@
 2004-12-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JPasswordField.java: Updated javadocs.
+
+2004-12-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JLayeredPane.java
 	(getLayer): Fixed return type, made public.
 	(getPosition): Use new getLayer().
