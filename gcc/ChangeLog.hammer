@@ -1,6 +1,25 @@
 2003-11-10  Andreas Jaeger  <aj@suse.de>
 
 	Backport from mainline:
+	2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+        * config/i386/i386.c (x86_output_mi_thunk): Don't pass MEM to %P0,
+        just SYMBOL_REF.
+
+        * varasm.c (resolve_unique_section): Remove prototype.  No longer
+        static.
+        * tree.h (resolve_unique_section): New prototype.
+
+        * cp/method.c (thunk_labelno): New variable.
+        (make_alias_for_thunk): New function.
+        (use_thunk): Use it if defined ASM_OUTPUT_DEF.  Put the thunk
+        into the same section as the function it is calling.
+        Include gt-cp-method.h.
+        * cp/Make-lang.in (gt-cp-method.h): Depend on s-gtype.
+        (cp/method.o): Depend on gt-cp-method.h.
+        * cp/config-lang.in (gtfiles): Add $(srcdir)/cp/method.c.
+
+	Backport from mainline:
 	2003-06-12  Richard Henderson  <rth@redhat.com>
 
         * config/i386/i386.c (legitimate_constant_p): Handle UNSPEC_NTPOFF
