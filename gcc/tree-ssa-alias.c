@@ -1713,6 +1713,7 @@ create_global_var (void)
   TREE_ADDRESSABLE (global_var) = 0;
 
   add_referenced_tmp_var (global_var);
+  bitmap_set_bit (vars_to_rename, var_ann (global_var)->uid);
 }
 
 
