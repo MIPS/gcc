@@ -1,5 +1,12 @@
 2004-11-15  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Menu.java (AccessibleAWTMenu, getAccessibleContext):
+	Implement.
+	* java/awt/PopupMenu.java (AccessibleAWTMenu, getAccessibleContext):
+	Implement.
+
+2004-11-15  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/print/PrinterJob.java (lookupPrintServices,
 	getPrintService, setPrintService): Implement.
 	(lookupStreamPrintServices): Add commented out implementation.
