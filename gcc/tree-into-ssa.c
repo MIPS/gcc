@@ -1035,9 +1035,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	  {
 	    edge_iterator ei;
 	    FOR_EACH_EDGE (e, ei, bb->preds)
-	      {
-		add_phi_arg (&phi, var, e);
-	      }
+	      add_phi_arg (&phi, var, e);
 	  }
       }
     while (0));

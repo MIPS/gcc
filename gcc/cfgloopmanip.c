@@ -269,10 +269,8 @@ fix_irreducible_loops (basic_block from)
       RESET_BIT (on_stack, bb->index);
 
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
-	    break;
-	}
+	if (e->flags & EDGE_IRREDUCIBLE_LOOP)
+	  break;
       if (e)
 	continue;
 
@@ -284,9 +282,7 @@ fix_irreducible_loops (basic_block from)
 	  n_edges = EDGE_COUNT (bb->succs);
 	  edges = xmalloc (n_edges * sizeof (edge));
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      edges[ei.index] = e;
-	    }
+	    edges[ei.index] = e;
 	}
 
       for (i = 0; i < n_edges; i++)
@@ -361,13 +357,11 @@ remove_path (struct loops *loops, edge e)
       edge_iterator ei;
       bb = rem_bbs[i];
       FOR_EACH_EDGE (ae, ei, rem_bbs[i]->succs)
-	{
-	  if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
-	    {
-	      SET_BIT (seen, ae->dest->index);
-	      bord_bbs[n_bord_bbs++] = ae->dest;
-	    }
-	}
+	if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
+	  {
+	    SET_BIT (seen, ae->dest->index);
+	    bord_bbs[n_bord_bbs++] = ae->dest;
+	  }
     }
 
   /* Remove the path.  */
@@ -468,9 +462,7 @@ scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
       bbs[i]->frequency = (bbs[i]->frequency * num) / den;
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	{
-	  e->count = (e->count * num) /den;
-	}
+	e->count = (e->count * num) /den;
     }
 }
 
@@ -544,9 +536,7 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   switch_bb->frequency = freq;
   switch_bb->count = cnt;
   FOR_EACH_EDGE (e, ei, switch_bb->succs)
-    {
-      e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
-    }
+    e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
   scale_loop_frequencies (loop, prob, tot_prob);
   scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
 
@@ -656,14 +646,12 @@ fix_loop_placement (struct loop *loop)
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
-      {
-	if (!flow_bb_inside_loop_p (loop, e->dest))
-	  {
-	    act = find_common_loop (loop, e->dest->loop_father);
-	    if (flow_loop_nested_p (father, act))
-	      father = act;
-	  }
-      }
+      if (!flow_bb_inside_loop_p (loop, e->dest))
+	{
+	  act = find_common_loop (loop, e->dest->loop_father);
+	  if (flow_loop_nested_p (father, act))
+	    father = act;
+	}
   free (body);
 
   if (father != loop->outer)
@@ -1021,12 +1009,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 		new_bb->flags |= BB_IRREDUCIBLE_LOOP;
 
 	      FOR_EACH_EDGE (ae, ei, new_bb->succs)
-		{
-		  if (ae->dest->rbi->duplicated
-		      && (ae->src->loop_father == target
-			  || ae->dest->loop_father == target))
-		    ae->flags |= EDGE_IRREDUCIBLE_LOOP;
-		}
+		if (ae->dest->rbi->duplicated
+		    && (ae->src->loop_father == target
+			|| ae->dest->loop_father == target))
+		  ae->flags |= EDGE_IRREDUCIBLE_LOOP;
 	    }
 	  for (i = 0; i < n; i++)
 	    new_bbs[i]->rbi->duplicated = 0;
@@ -1160,15 +1146,13 @@ create_preheader (struct loop *loop, int flags)
       irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
     }
-
   gcc_assert (nentry);
   if (nentry == 1)
     {
       FOR_EACH_EDGE (e, ei, loop->header->preds)
-	{
-	  if (e->src != loop->latch)
-	    break;
-	}
+	if (e->src != loop->latch)
+	  break;
+
       if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
 	return NULL;
     }
@@ -1188,10 +1172,8 @@ create_preheader (struct loop *loop, int flags)
   /* Reorganize blocks so that the preheader is not stuck in the middle of the
      loop.  */
   FOR_EACH_EDGE (e, ei, dummy->preds)
-    {
-      if (e->src != loop->latch)
-	break;
-    }
+    if (e->src != loop->latch)
+      break;
   move_block_after (dummy, e->src);
 
   loop->header->loop_father = loop;
@@ -1238,10 +1220,8 @@ force_single_succ_latches (struct loops *loops)
 	continue;
 
       FOR_EACH_EDGE (e, ei, loop->header->preds)
-	{
-	  if (e->src == loop->latch)
-	    break;
-	}
+	if (e->src == loop->latch)
+	  break;
 
       loop_split_edge_with (e, NULL_RTX);
     }

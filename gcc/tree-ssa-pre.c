@@ -1130,13 +1130,11 @@ compute_antic_aux (basic_block block)
     {
       edge_iterator ei;
       FOR_EACH_EDGE (e, ei, block->preds)
-	{
-	  if (e->flags & EDGE_ABNORMAL)
-	    {
-	      block->flags |= BB_VISITED;
-	      break;
-	    }
-	}
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    block->flags |= BB_VISITED;
+	    break;
+	  }
     }
   if (block->flags & BB_VISITED)
     {
@@ -1172,9 +1170,7 @@ compute_antic_aux (basic_block block)
 
       VARRAY_BB_INIT (worklist, 1, "succ");
       FOR_EACH_EDGE (e, ei, block->succs)
-	{
-	  VARRAY_PUSH_BB (worklist, e->dest);
-	}
+	VARRAY_PUSH_BB (worklist, e->dest);
 
       first = VARRAY_BB (worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
@@ -1449,9 +1445,8 @@ insert_aux (basic_block block)
 			    fprintf (dump_file, "Found fully redundant value\n");
 			  continue;
 			}
-		    		    
+					      
 		      avail = xcalloc (last_basic_block, sizeof (tree));
-
 		      FOR_EACH_EDGE (pred, ei, block->preds)
 			{
 			  tree vprime;
@@ -1507,7 +1502,6 @@ insert_aux (basic_block block)
 					      (first_s, edoubleprime, 0));
 			    }
 			}
-
 		      /* If we can insert it, it's not the same value
 			 already existing along every predecessor, and
 			 it's defined by some predecessor, it is
@@ -1541,7 +1535,6 @@ insert_aux (basic_block block)
 				  avail[bprime->index] = builtexpr;
 				}			      
 			    }
-
 			  /* Now build a phi for the new variable.  */
 			  temp = create_tmp_var (type, "prephitmp");
 			  add_referenced_tmp_var (temp);
@@ -1556,13 +1549,11 @@ insert_aux (basic_block block)
 #endif
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
-
 			  FOR_EACH_EDGE (pred, ei, block->preds)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);
 			    }
-
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
 			      fprintf (dump_file, "Created phi ");

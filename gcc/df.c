@@ -3812,6 +3812,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 			       IN_SET[i], IN_SET[i],			\
 			       OUT_SET[e->E_ANTI_BB->index]);		\
 	}								\
+									\
       (*dataflow->transfun)(i, &changed,				\
 			    dataflow->in[i], dataflow->out[i],		\
 			    dataflow->gen[i], dataflow->kill[i],	\

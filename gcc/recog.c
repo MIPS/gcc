@@ -3119,10 +3119,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		      edge_iterator ei;
 
 		      FOR_EACH_EDGE (eh_edge, ei, bb->succs)
-			{
-			  if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
-			    break;
-			}
+			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
+			  break;
 
 		      for (x = try ; x != before_try ; x = PREV_INSN (x))
 			if (CALL_P (x)

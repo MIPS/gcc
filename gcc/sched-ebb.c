@@ -178,19 +178,17 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, b->succs)
-    {
-      if (e->flags & EDGE_FALLTHRU)
-	/* The jump may be a by-product of a branch that has been merged
-	   in the main codepath after being conditionalized.  Therefore
-	   it may guard the fallthrough block from using a value that has
-	   conditionally overwritten that of the main codepath.  So we
-	   consider that it restores the value of the main codepath.  */
-	bitmap_operation (set, e->dest->global_live_at_start, cond_set,
-			  BITMAP_AND);
-      else
-	bitmap_operation (used, used, e->dest->global_live_at_start,
-			  BITMAP_IOR);
-    }
+    if (e->flags & EDGE_FALLTHRU)
+      /* The jump may be a by-product of a branch that has been merged
+	 in the main codepath after being conditionalized.  Therefore
+	 it may guard the fallthrough block from using a value that has
+	 conditionally overwritten that of the main codepath.  So we
+	 consider that it restores the value of the main codepath.  */
+      bitmap_operation (set, e->dest->global_live_at_start, cond_set,
+			BITMAP_AND);
+    else
+      bitmap_operation (used, used, e->dest->global_live_at_start,
+			BITMAP_IOR);
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -298,10 +296,8 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	         trigger problem.  */
 
 	      FOR_EACH_EDGE (f, ei, bb->prev_bb->succs)
-		{
-		  if (f->flags & EDGE_FALLTHRU)
-		    break;
-		}
+		if (f->flags & EDGE_FALLTHRU)
+		  break;
 
 	      if (f)
 		{
@@ -602,10 +598,8 @@ schedule_ebbs (FILE *dump_file)
 	      || LABEL_P (BB_HEAD (bb->next_bb)))
 	    break;
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if ((e->flags & EDGE_FALLTHRU) != 0)
-		break;
-	    }
+	    if ((e->flags & EDGE_FALLTHRU) != 0)
+	      break;
 	  if (! e)
 	    break;
 	  if (e->probability <= probability_cutoff)

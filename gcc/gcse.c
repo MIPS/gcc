@@ -3582,15 +3582,12 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
     find_used_regs (&XEXP (note, 0), NULL);
 
   may_be_loop_header = false;
-
   FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->flags & EDGE_DFS_BACK)
-	{
-	  may_be_loop_header = true;
-	  break;
-	}
-    }
+    if (e->flags & EDGE_DFS_BACK)
+      {
+	may_be_loop_header = true;
+	break;
+      }
 
   change = 0;
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
@@ -3667,13 +3664,11 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
 	      FOR_EACH_EDGE (edest, ei2, bb->succs)
-		{
-		  if (edest->dest == dest && edest->insns.r)
-		    {
-		      dest = NULL;
-		      break;
-		    }
-		}
+		if (edest->dest == dest && edest->insns.r)
+		  {
+		    dest = NULL;
+		    break;
+		  }
 	    }
 	  else
 	    dest = NULL;
@@ -3688,13 +3683,11 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	      edge_iterator ei2;
 
 	      FOR_EACH_EDGE (e2, ei2, e->src->succs)
-		{
-		  if (e2->dest == dest)
-		    {
-		      dest = NULL;
-		      break;
-		    }
-		}
+		if (e2->dest == dest)
+		  {
+		    dest = NULL;
+		    break;
+		  }
 	    }
 
 	  old_dest = e->dest;
@@ -3915,15 +3908,13 @@ compute_pre_data (void)
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (e->flags & EDGE_ABNORMAL)
-	    {
-	      sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
-	      sbitmap_difference (transp[bb->index], transp[bb->index], trapping_expr);
-	      break;
-	    }
-	}
-      
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
+	    sbitmap_difference (transp[bb->index], transp[bb->index], trapping_expr);
+	    break;
+	  }
+
       sbitmap_a_or_b (ae_kill[bb->index], transp[bb->index], comp[bb->index]);
       sbitmap_not (ae_kill[bb->index], ae_kill[bb->index]);
     }
@@ -4839,6 +4830,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
   edge pred;
   edge_iterator ei;
   int visited_allocated_locally = 0;
+
 
   if (visited == NULL)
     {
@@ -6233,15 +6225,14 @@ insert_store (struct ls_expr * expr, edge e)
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
   FOR_EACH_EDGE (tmp, ei, e->dest->preds)
-    {
-      if (!(tmp->flags & EDGE_FAKE))
-	{
-	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-	  gcc_assert (index != EDGE_INDEX_NO_EDGE);
-	  if (! TEST_BIT (pre_insert_map[index], expr->index))
-	    break;
-	}
-    }
+    if (!(tmp->flags & EDGE_FAKE))
+      {
+	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
+	
+	gcc_assert (index != EDGE_INDEX_NO_EDGE);
+	if (! TEST_BIT (pre_insert_map[index], expr->index))
+	  break;
+      }
 
   /* If tmp is NULL, we found an insertion on every edge, blank the
      insertion vector for these edges, and insert at the start of the BB.  */

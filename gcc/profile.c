@@ -243,10 +243,8 @@ get_exec_counts (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
-	    num_edges++;
-	}
+	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
+	  num_edges++;
     }
 
   counts = get_coverage_counts (GCOV_COUNTER_ARCS, num_edges, &profile_info);
@@ -303,16 +301,11 @@ compute_branch_probabilities (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (!EDGE_INFO (e)->ignore)
-	    BB_INFO (bb)->succ_count++;
-	}
-
+	if (!EDGE_INFO (e)->ignore)
+	  BB_INFO (bb)->succ_count++;
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (!EDGE_INFO (e)->ignore)
-	    BB_INFO (bb)->pred_count++;
-	}
+	if (!EDGE_INFO (e)->ignore)
+	  BB_INFO (bb)->pred_count++;
     }
 
   /* Avoid predicting entry on exit nodes.  */
@@ -331,34 +324,32 @@ compute_branch_probabilities (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
-	    {
-	      num_edges++;
-	      if (exec_counts)
-		{
-		  e->count = exec_counts[exec_counts_pos++];
-		  if (e->count > profile_info->sum_max)
-		    {
-		      error ("corrupted profile info: edge from %i to %i exceeds maximal count",
-			     bb->index, e->dest->index);
-		    }
-		}
-	      else
-		e->count = 0;
-
-	      EDGE_INFO (e)->count_valid = 1;
-	      BB_INFO (bb)->succ_count--;
-	      BB_INFO (e->dest)->pred_count--;
-	      if (dump_file)
-		{
-		  fprintf (dump_file, "\nRead edge from %i to %i, count:",
+	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
+	  {
+	    num_edges++;
+	    if (exec_counts)
+	      {
+		e->count = exec_counts[exec_counts_pos++];
+		if (e->count > profile_info->sum_max)
+		  {
+		    error ("corrupted profile info: edge from %i to %i exceeds maximal count",
 			   bb->index, e->dest->index);
-		  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
-			   (HOST_WIDEST_INT) e->count);
-		}
-	    }
-	}
+		  }
+	      }
+	    else
+	      e->count = 0;
+
+	    EDGE_INFO (e)->count_valid = 1;
+	    BB_INFO (bb)->succ_count--;
+	    BB_INFO (e->dest)->pred_count--;
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "\nRead edge from %i to %i, count:",
+			 bb->index, e->dest->index);
+		fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
+			 (HOST_WIDEST_INT) e->count);
+	      }
+	  }
     }
 
   if (dump_file)
@@ -432,10 +423,8 @@ compute_branch_probabilities (void)
 
 		  /* Seedgeh for the invalid edge, and set its count.  */
 		  FOR_EACH_EDGE (e, ei, bb->succs)
-		    {
-		      if (! EDGE_INFO (e)->count_valid && ! EDGE_INFO (e)->ignore)
-			break;
-		    }
+		    if (! EDGE_INFO (e)->count_valid && ! EDGE_INFO (e)->ignore)
+		      break;
 
 		  /* Calculate count for remaining edge by conservation.  */
 		  total = bb->count - total;
@@ -462,10 +451,8 @@ compute_branch_probabilities (void)
 
 		  /* Search for the invalid edge, and set its count.  */
 		  FOR_EACH_EDGE (e, ei, bb->preds)
-		    {
-		      if (!EDGE_INFO (e)->count_valid && !EDGE_INFO (e)->ignore)
-			break;
-		    }
+		    if (!EDGE_INFO (e)->count_valid && !EDGE_INFO (e)->ignore)
+		      break;
 
 		  /* Calculate count for remaining edge by conservation.  */
 		  total = bb->count - total + e->count;
@@ -540,14 +527,10 @@ compute_branch_probabilities (void)
 	      e->count = bb->count / 2;
 	    }
 	}
-
       if (bb->count)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
-	    }
-
+	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
@@ -559,10 +542,8 @@ compute_branch_probabilities (void)
 	      /* Find the branch edge.  It is possible that we do have fake
 		 edges here.  */
 	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  if (!(e->flags & (EDGE_FAKE | EDGE_FALLTHRU)))
-		    break;
-		}
+		if (!(e->flags & (EDGE_FAKE | EDGE_FALLTHRU)))
+		  break;
 
 	      prob = e->probability;
 	      index = prob * 20 / REG_BR_PROB_BASE;
@@ -597,27 +578,21 @@ compute_branch_probabilities (void)
 	  int total = 0;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
-		total ++;
-	    }
+	    if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
+	      total ++;
 	  if (total)
 	    {
 	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
-		    e->probability = REG_BR_PROB_BASE / total;
-		  else
-		    e->probability = 0;
-		}
+		if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
+		  e->probability = REG_BR_PROB_BASE / total;
+		else
+		  e->probability = 0;
 	    }
 	  else
 	    {
 	      total += EDGE_COUNT (bb->succs);
 	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  e->probability = REG_BR_PROB_BASE / total;
-		}
+		e->probability = REG_BR_PROB_BASE / total;
 	    }
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
@@ -827,7 +802,6 @@ branch_prob (void)
 	  if (e->dest == EXIT_BLOCK_PTR)
 	    have_exit_edge = 1;
 	}
-
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))

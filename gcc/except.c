@@ -1455,12 +1455,10 @@ emit_to_new_bb_before (rtx seq, rtx insn)
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
   for (ei = ei_start (BLOCK_FOR_INSN (insn)->preds); (e = ei_safe_edge (ei)); )
-    {
-      if (e->flags & EDGE_FALLTHRU)
-	force_nonfallthru (e);
-      else
-	ei_next (&ei);
-    }
+    if (e->flags & EDGE_FALLTHRU)
+      force_nonfallthru (e);
+    else
+      ei_next (&ei);
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
@@ -2038,10 +2036,8 @@ sjlj_emit_function_exit (void)
      the last possible moment.  */
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
-    {
-      if (e->flags & EDGE_FALLTHRU)
-	break;
-    }
+    if (e->flags & EDGE_FALLTHRU)
+      break;
   if (e)
     {
       rtx insn;
@@ -2209,7 +2205,6 @@ finish_eh_generation (void)
       edge e;
       edge_iterator ei;
       bool eh = false;
-
       for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
 	  if (e->flags & EDGE_EH)

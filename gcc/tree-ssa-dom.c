@@ -604,10 +604,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       if (!e->flags & EDGE_DFS_BACK)
 	{
 	  FOR_EACH_EDGE (e1, ei, e->dest->preds)
-	    {
-	      if (e1->flags & EDGE_DFS_BACK)
-		break;
-	    }
+	    if (e1->flags & EDGE_DFS_BACK)
+	      break;
 	  if (e1)
 	    return;
 	}
@@ -2217,7 +2215,6 @@ cprop_into_successor_phis (basic_block bb,
 
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
-
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;

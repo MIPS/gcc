@@ -843,12 +843,9 @@ find_rgns (struct edge_list *edge_list)
 
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
-
 	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  if (e->dest != EXIT_BLOCK_PTR)
-		    --degree[e->dest->index];
-		}
+		if (e->dest != EXIT_BLOCK_PTR)
+		  --degree[e->dest->index];
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
@@ -994,10 +991,8 @@ find_rgns (struct edge_list *edge_list)
 			  queue[head] = queue[tail--];
 
 			  FOR_EACH_EDGE (e, ei, BASIC_BLOCK (child)->succs)
-			    {
-			      if (e->dest != EXIT_BLOCK_PTR)
-				--degree[e->dest->index];
-			    }
+			    if (e->dest != EXIT_BLOCK_PTR)
+			      --degree[e->dest->index];
 			}
 		      else
 			--head;

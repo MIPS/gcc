@@ -492,15 +492,13 @@ if_convertable_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
 
   /* Be less adventurous and handle only normal edges.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->flags &
-	  (EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_ABNORMAL | EDGE_IRREDUCIBLE_LOOP))
-        {
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,"Difficult to handle edges\n");
-	  return false;
-        }
-    }
+    if (e->flags &
+	(EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_ABNORMAL | EDGE_IRREDUCIBLE_LOOP))
+      {
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file,"Difficult to handle edges\n");
+	return false;
+      }
 
   return true;
 }
@@ -558,10 +556,8 @@ if_convertable_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
   /* If one of the loop header's edge is exit edge then do not apply
      if-conversion.  */
   FOR_EACH_EDGE (e, ei, loop->header->succs)
-    {
-      if (e->flags & EDGE_LOOP_EXIT)
-         return false;
-    }
+    if ( e->flags & EDGE_LOOP_EXIT)
+      return false;
 
   compute_immediate_uses (TDFA_USE_OPS|TDFA_USE_VOPS, NULL);
 
@@ -687,7 +683,7 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (p1 == NULL)
-	  p1 = e->src;
+	p1 = e->src;
       else 
 	{
 	  gcc_assert (!p2);
@@ -883,13 +879,11 @@ combine_blocks (struct loop *loop)
 	    {
 	      /* Redirect non-exit edge to loop->latch.  */
 	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  if (!(e->flags & EDGE_LOOP_EXIT))
-		    {
-		      redirect_edge_and_branch (e, loop->latch);
-		      set_immediate_dominator (CDI_DOMINATORS, loop->latch, bb);
-		    }
-		}
+		if (!(e->flags & EDGE_LOOP_EXIT))
+		  {
+		    redirect_edge_and_branch (e, loop->latch);
+		    set_immediate_dominator (CDI_DOMINATORS, loop->latch, bb);
+		  }
 	    }
 	  continue;
 	}
@@ -967,10 +961,9 @@ pred_blocks_visited_p (basic_block bb, bitmap *visited)
   edge e;
   edge_iterator ei;
   FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (!bitmap_bit_p (*visited, e->src->index))
-        return false;
-    }
+    if (!bitmap_bit_p (*visited, e->src->index))
+      return false;
+
   return true;
 }
 
@@ -1042,13 +1035,11 @@ bb_with_exit_edge_p (basic_block bb)
   bool exit_edge_found = false;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->flags & EDGE_LOOP_EXIT)
-	{
-	  exit_edge_found = true;
-	  break;
-	}
-    }
+    if (e->flags & EDGE_LOOP_EXIT)
+      {
+	exit_edge_found = true;
+	break;
+      }
 
   return exit_edge_found;
 }

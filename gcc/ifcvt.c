@@ -253,10 +253,8 @@ block_fallthru (basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->flags & EDGE_FALLTHRU)
-	break;
-    }
+    if (e->flags & EDGE_FALLTHRU)
+      break;
 
   return (e) ? e->dest : NULL_BLOCK;
 }
@@ -2986,7 +2984,7 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* ELSE has one predecessor.  */
   if (EDGE_COUNT (else_bb->preds) != 1)
     return FALSE;
-  
+
   /* THEN is not EXIT.  */
   if (then_bb->index < 0)
     return FALSE;

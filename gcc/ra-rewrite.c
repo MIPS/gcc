@@ -1348,7 +1348,6 @@ rewrite_program2 (bitmap new_deaths)
 
 	  HARD_REG_SET cum_colors, colors;
 	  CLEAR_HARD_REG_SET (cum_colors);
-
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      int j;
@@ -1366,7 +1365,6 @@ rewrite_program2 (bitmap new_deaths)
 	      IOR_HARD_REG_SET (cum_colors, colors);
 	      num++;
 	    }
-
 	  if (num == 5)
 	    in_ir = 1;
 

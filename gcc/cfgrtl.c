@@ -486,9 +486,7 @@ rtl_split_block (basic_block bb, void *insnp)
   new_bb->succs = bb->succs;
   bb->succs = NULL;
   FOR_EACH_EDGE (e, ei, new_bb->succs)
-    {
-      e->src = new_bb;
-    }
+    e->src = new_bb;
 
   if (bb->global_live_at_start)
     {
@@ -609,7 +607,7 @@ rtl_merge_blocks (basic_block a, basic_block b)
 
 /* Return true when block A and B can be merged.  */
 static bool
-rtl_can_merge_blocks (basic_block a, basic_block b)
+rtl_can_merge_blocks (basic_block a,basic_block b)
 {
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -692,10 +690,8 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 
   /* Verify that all targets will be TARGET.  */
   FOR_EACH_EDGE (tmp, ei, src->succs)
-    {
-      if (tmp->dest != target && tmp != e)
-	break;
-    }
+    if (tmp->dest != target && tmp != e)
+      break;
 
   if (tmp || !onlyjump_p (insn))
     return NULL;
@@ -1214,10 +1210,8 @@ rtl_tidy_fallthru_edge (edge e)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e2, ei, b->succs)
-    {
-      if (e == e2)
-	break;
-    }
+    if (e == e2)
+      break;
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
@@ -1331,10 +1325,8 @@ rtl_split_edge (edge edge_in)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, edge_in->dest->preds)
-	{
-	  if (e->flags & EDGE_FALLTHRU)
-	    break;
-	}
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
 
       if (e)
 	force_nonfallthru (e);
@@ -1710,13 +1702,11 @@ commit_edge_insertions (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->insns.r)
-	    {
-	      changed = true;
-	      commit_one_edge_insertion (e, false);
-	    }
-	}
+	if (e->insns.r)
+	  {
+	    changed = true;
+	    commit_one_edge_insertion (e, false);
+	  }
     }
 
   if (!changed)
@@ -1757,13 +1747,11 @@ commit_edge_insertions_watch_calls (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->insns.r)
-	    {
-	      changed = true;
-	      commit_one_edge_insertion (e, true);
-	    }
-	}
+	if (e->insns.r)
+	  {
+	    changed = true;
+	    commit_one_edge_insertion (e, true);
+	  }
     }
 
   if (!changed)
@@ -2176,10 +2164,8 @@ rtl_verify_flow_info (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->flags & EDGE_FALLTHRU)
-	    break;
-	}
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
       if (!e)
 	{
 	  rtx insn;
@@ -2460,13 +2446,11 @@ purge_dead_edges (basic_block bb)
      remove all non-fallthru edges.  */
   found = false;
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (! (e->flags & (EDGE_COMPLEX | EDGE_FALLTHRU)))
-	{
-	  found = true;
-	  break;
-	}
-    }
+    if (! (e->flags & (EDGE_COMPLEX | EDGE_FALLTHRU)))
+      {
+	found = true;
+	break;
+      }
 
   if (!found)
     return purged;
@@ -2610,14 +2594,12 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  edge_iterator ei;
 
 	  FOR_EACH_EDGE (tmp, ei, src->succs)
-	    {
-	      if (e == tmp)
-		{
-		  found = true;
-		  ix = ei.index;
-		  break;
-		}
-	    }
+	    if (e == tmp)
+	      {
+		found = true;
+		ix = ei.index;
+		break;
+	      }
 
 	  gcc_assert (found);
 
@@ -2990,14 +2972,12 @@ rtl_flow_call_edges_add (sbitmap blocks)
 	  edge_iterator ei;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (e->dest == EXIT_BLOCK_PTR)
-		{
-		  insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
-		  commit_edge_insertions ();
-		  break;
-		}
-	    }
+	    if (e->dest == EXIT_BLOCK_PTR)
+	      {
+		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
+		commit_edge_insertions ();
+		break;
+	      }
 	}
     }
 
@@ -3042,9 +3022,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 		{
 		  edge_iterator ei;
 		  FOR_EACH_EDGE (e, ei, bb->succs)
-		    {
-		      gcc_assert (e->dest != EXIT_BLOCK_PTR);
-		    }
+		    gcc_assert (e->dest != EXIT_BLOCK_PTR);
 		}
 #endif
 

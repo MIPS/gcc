@@ -232,11 +232,8 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	}
 
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (e->src->aux)
-	    break;
-	}
-
+	if (e->src->aux)
+	  break;
       gcc_assert (e);
 
       expr = PHI_ARG_DEF_FROM_EDGE (at, e);
@@ -419,9 +416,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       edge_iterator ei;
       /* Recurse to the predecessors.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  find_tail_calls (e->src, ret);
-	}
+	find_tail_calls (e->src, ret);
+
       return;
     }
 

@@ -531,12 +531,6 @@ struct edge_list
 #define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
 					 && EDGE_COUNT ((e)->dest->preds) >= 2)
 
-#if defined ENABLE_CHECKING
-#define ENABLE_VEC_CHECKING 1
-#else
-#define ENABLE_VEC_CHECKING 0
-#endif
-
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
 #define EDGE_I(ev,i)			VEC_index  (edge, (ev), (i))
 #define EDGE_PRED(bb,i)			VEC_index  (edge, (bb)->preds, (i))

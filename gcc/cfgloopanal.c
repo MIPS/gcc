@@ -280,9 +280,7 @@ mark_irreducible_loops (struct loops *loops)
     {
       act->flags &= ~BB_IRREDUCIBLE_LOOP;
       FOR_EACH_EDGE (e, ei, act->succs)
-	{
-	  e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-	}
+	e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
     }
 
   /* Create the edge lists.  */
@@ -428,12 +426,10 @@ expected_loop_iterations (const struct loop *loop)
       count_latch = 0;
 
       FOR_EACH_EDGE (e, ei, loop->header->preds)
-	{
-	  if (e->src == loop->latch)
-	    count_latch = e->count;
-	  else
-	    count_in += e->count;
-	}
+	if (e->src == loop->latch)
+	  count_latch = e->count;
+	else
+	  count_in += e->count;
 
       if (count_in == 0)
         expected = count_latch * 2;
@@ -451,12 +447,10 @@ expected_loop_iterations (const struct loop *loop)
       freq_latch = 0;
 
       FOR_EACH_EDGE (e, ei, loop->header->preds)
-	{
-	  if (e->src == loop->latch)
-	    freq_latch = EDGE_FREQUENCY (e);
-	  else
-	    freq_in += EDGE_FREQUENCY (e);
-	}
+	if (e->src == loop->latch)
+	  freq_latch = EDGE_FREQUENCY (e);
+	else
+	  freq_in += EDGE_FREQUENCY (e);
 
       if (freq_in == 0)
 	return freq_latch * 2;

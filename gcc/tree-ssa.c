@@ -282,9 +282,7 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 
   /* Mark all the incoming edges.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      e->aux = (void *) 1;
-    }
+    e->aux = (void *) 1;
 
   for (i = 0; i < phi_num_args; i++)
     {

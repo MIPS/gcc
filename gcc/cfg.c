@@ -310,13 +310,11 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
       /* Fall through.  */
     case 0:
       FOR_EACH_EDGE (e, ei, src->succs)
-	{
-	  if (e->dest == dst)
-	    {
-	      e->flags |= flags;
-	      return NULL;
-	    }
-	}
+	if (e->dest == dst)
+	  {
+	    e->flags |= flags;
+	    return NULL;
+	  }
       break;
     }
 
@@ -434,10 +432,8 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 
   /* Check whether the edge is already present.  */
   FOR_EACH_EDGE (s, ei, e->src->succs)
-    {
-      if (s->dest == new_succ && s != e)
-	break;
-    }
+    if (s->dest == new_succ && s != e)
+      break;
 
   if (s)
     {

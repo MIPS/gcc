@@ -559,11 +559,9 @@ vt_stack_adjustments (void)
 	  bb_stack_adjust_offset (dest);
 
 	  if (EDGE_COUNT (dest->succs) > 0)
-	    {
-	      /* Since the DEST node has been visited for the first
-		 time, check its successors.  */
-	      stack[sp++] = ei_start (dest->succs);
-	    }
+	    /* Since the DEST node has been visited for the first
+	       time, check its successors.  */
+	    stack[sp++] = ei_start (dest->succs);
 	}
       else
 	{

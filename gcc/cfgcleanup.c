@@ -646,10 +646,8 @@ try_forward_edges (int mode, basic_block b)
 		    {
 		      edge_iterator ei;
 		      FOR_EACH_EDGE (e, ei, first->succs)
-			{
-			  e->probability = ((e->probability * REG_BR_PROB_BASE)
-					    / (double) prob);
-			}
+			e->probability = ((e->probability * REG_BR_PROB_BASE)
+					  / (double) prob);
 		    }
 		  update_br_prob_note (first);
 		}
@@ -877,18 +875,14 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 	 and leaving them there to lie.  Not ideal, but functional.  */
 
       FOR_EACH_EDGE (tmp_edge, ei, c->succs)
-	{
-	  if (tmp_edge->flags & EDGE_FALLTHRU)
-	    break;
-	}
+	if (tmp_edge->flags & EDGE_FALLTHRU)
+	  break;
 
       c_has_outgoing_fallthru = (tmp_edge != NULL);
 
       FOR_EACH_EDGE (tmp_edge, ei, b->preds)
-	{
-	  if (tmp_edge->flags & EDGE_FALLTHRU)
-	    break;
-	}
+	if (tmp_edge->flags & EDGE_FALLTHRU)
+	  break;
 
       b_has_incoming_fallthru = (tmp_edge != NULL);
       b_fallthru_edge = tmp_edge;

@@ -160,7 +160,6 @@ verify_flow_info (void)
 
 	  edge_checksum[e->dest->index + 2] += (size_t) e;
 	}
-
       if (n_fallthru > 1)
 	{
 	  error ("Wrong amount of branch edges after unconditional jump %i", bb->index);
@@ -189,14 +188,10 @@ verify_flow_info (void)
     edge_iterator ei;
 
     FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-      {
-	edge_checksum[e->dest->index + 2] += (size_t) e;
-      }
+      edge_checksum[e->dest->index + 2] += (size_t) e;
 
     FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
-      {
-	edge_checksum[e->dest->index + 2] -= (size_t) e;
-      }
+      edge_checksum[e->dest->index + 2] -= (size_t) e;
   }
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -254,16 +249,12 @@ dump_bb (basic_block bb, FILE *outf, int indent)
 
   fprintf (outf, ";;%s pred:      ", s_indent);
   FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      dump_edge_info (outf, e, 0);
-    }
+    dump_edge_info (outf, e, 0);
   putc ('\n', outf);
 
   fprintf (outf, ";;%s succ:      ", s_indent);
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      dump_edge_info (outf, e, 1);
-    }
+    dump_edge_info (outf, e, 1);
   putc ('\n', outf);
 
   if (cfg_hooks->dump_bb)
@@ -530,9 +521,7 @@ merge_blocks (basic_block a, basic_block b)
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
-    {
-      e->src = a;
-    }
+    e->src = a;
   a->succs = b->succs;
   a->flags |= b->flags;
 
@@ -679,10 +668,8 @@ can_duplicate_block_p (basic_block bb)
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	return false;
-    }
+    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+       return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
 }

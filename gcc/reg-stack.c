@@ -445,11 +445,9 @@ reg_to_stack (FILE *file)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (!(e->flags & EDGE_DFS_BACK)
-	      && e->src != ENTRY_BLOCK_PTR)
-	    BLOCK_INFO (bb)->predecessors++;
-	}
+	if (!(e->flags & EDGE_DFS_BACK)
+	    && e->src != ENTRY_BLOCK_PTR)
+	  BLOCK_INFO (bb)->predecessors++;
     }
 
   /* Create the replacement registers up front.  */
@@ -2939,7 +2937,6 @@ convert_regs_1 (FILE *file, basic_block block)
 	  inserted |= compensate_edge (e, file);
 	}
     }
-
   FOR_EACH_EDGE (e, ei, block->preds)
     {
       if (e != beste && !(e->flags & EDGE_DFS_BACK)
@@ -2992,14 +2989,12 @@ convert_regs_2 (FILE *file, basic_block block)
 	 fixing up the discrepancy to convert_regs_1.  */
 
       FOR_EACH_EDGE (e, ei, block->succs)
-	{
-	  if (! (e->flags & EDGE_DFS_BACK))
-	    {
-	      BLOCK_INFO (e->dest)->predecessors--;
-	      if (!BLOCK_INFO (e->dest)->predecessors)
-		*sp++ = e->dest;
-	    }
-	}
+	if (! (e->flags & EDGE_DFS_BACK))
+	  {
+	    BLOCK_INFO (e->dest)->predecessors--;
+	    if (!BLOCK_INFO (e->dest)->predecessors)
+	      *sp++ = e->dest;
+	  }
 
       inserted |= convert_regs_1 (file, block);
       BLOCK_INFO (block)->done = 1;
@@ -3033,11 +3028,8 @@ convert_regs (FILE *file)
      prevent double fxch that often appears at the head of a loop.  */
 
   /* Process all blocks reachable from all entry points.  */
-
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    {
-      inserted |= convert_regs_2 (file, e->dest);
-    }
+    inserted |= convert_regs_2 (file, e->dest);
 
   /* ??? Process all unreachable blocks.  Though there's no excuse
      for keeping these even when not optimizing.  */

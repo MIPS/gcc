@@ -112,10 +112,9 @@ can_fallthru (basic_block src, basic_block target)
   if (src->next_bb != target)
     return 0;
   FOR_EACH_EDGE (e, ei, src->succs)
-    {
-      if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	return 0;
-    }
+    if (e->dest == EXIT_BLOCK_PTR
+	&& e->flags & EDGE_FALLTHRU)
+      return 0;
 
   insn2 = BB_HEAD (target);
   if (insn2 && !active_insn_p (insn2))
@@ -137,10 +136,9 @@ could_fall_through (basic_block src, basic_block target)
   if (target == EXIT_BLOCK_PTR)
     return true;
   FOR_EACH_EDGE (e, ei, src->succs)
-    {
-      if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	return 0;
-    }
+    if (e->dest == EXIT_BLOCK_PTR
+	&& e->flags & EDGE_FALLTHRU)
+      return 0;
   return true;
 }
 
@@ -308,13 +306,11 @@ find_unreachable_blocks (void)
       basic_block b = *--tos;
 
       FOR_EACH_EDGE (e, ei, b->succs)
-	{
-	  if (!(e->dest->flags & BB_REACHABLE))
-	    {
-	      *tos++ = e->dest;
-	      e->dest->flags |= BB_REACHABLE;
-	    }
-	}
+	if (!(e->dest->flags & BB_REACHABLE))
+	  {
+	    *tos++ = e->dest;
+	    e->dest->flags |= BB_REACHABLE;
+	  }
     }
 
   free (worklist);
@@ -363,12 +359,9 @@ create_edge_list (void)
 
   /* Follow successors of blocks, and register these edges.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    {
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  elist->index_to_edge[num_edges++] = e;
-	}
-    }
+    FOR_EACH_EDGE (e, ei, bb->succs)
+      elist->index_to_edge[num_edges++] = e;
+
   return elist;
 }
 
@@ -452,22 +445,18 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 	int found_edge = 0;
 
 	FOR_EACH_EDGE (e, ei, p->succs)
-	  {
-	    if (e->dest == s)
-	      {
-		found_edge = 1;
-		break;
-	      }
-	  }
+	  if (e->dest == s)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
 
 	FOR_EACH_EDGE (e, ei, s->preds)
-	  {
-	    if (e->src == p)
-	      {
-		found_edge = 1;
-		break;
-	      }
-	  }
+	  if (e->src == p)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
 
 	if (EDGE_INDEX (elist, p, s)
 	    == EDGE_INDEX_NO_EDGE && found_edge != 0)
@@ -490,10 +479,8 @@ find_edge (basic_block pred, basic_block succ)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, pred->succs)
-    {
-      if (e->dest == succ)
-	return e;
-    }
+    if (e->dest == succ)
+      return e;
 
   return NULL;
 }
@@ -681,11 +668,9 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	  SET_BIT (visited, dest->index);
 
 	  if (EDGE_COUNT (dest->succs) > 0)
-	    {
-	      /* Since the DEST node has been visited for the first
-	         time, check its successors.  */
-	      stack[sp++] = ei_start (dest->succs);
-	    }
+	    /* Since the DEST node has been visited for the first
+	       time, check its successors.  */
+	    stack[sp++] = ei_start (dest->succs);
 	  else
 	    rts_order[postnum++] = dest->index;
 	}
@@ -757,11 +742,9 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	  dfsnum++;
 
 	  if (EDGE_COUNT (dest->succs) > 0)
-	    {
-	      /* Since the DEST node has been visited for the first
-	         time, check its successors.  */
-	      stack[sp++] = ei_start (dest->succs);
-	    }
+	    /* Since the DEST node has been visited for the first
+	       time, check its successors.  */
+	    stack[sp++] = ei_start (dest->succs);
 	  else if (rc_order)
 	    /* There are no successors for the DEST node so assign
 	       its reverse completion number.  */
@@ -769,7 +752,8 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	}
       else
 	{
-	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR && rc_order)
+	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR
+	      && rc_order)
 	    /* There are no more successors for the SRC node
 	       so assign its reverse completion number.  */
 	    rc_order[rcnum--] = src->index;
@@ -869,11 +853,9 @@ flow_preorder_transversal_compute (int *pot_order)
 	    }
 
 	  if (EDGE_COUNT (dest->succs) > 0)
-	    {
-	      /* Since the DEST node has been visited for the first
-	         time, check its successors.  */
-	      stack[sp++] = ei_start (dest->succs);
-	    }
+	    /* Since the DEST node has been visited for the first
+	       time, check its successors.  */
+	    stack[sp++] = ei_start (dest->succs);
 	}
 
       else if (! ei_one_before_end_p (ei))
@@ -988,11 +970,9 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
 
       /* Perform depth-first search on adjacent vertices.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
-	{
-	  if (!TEST_BIT (data->visited_blocks,
-			 e->src->index - (INVALID_BLOCK + 1)))
-	    flow_dfs_compute_reverse_add_bb (data, e->src);
-	}
+	if (!TEST_BIT (data->visited_blocks,
+		       e->src->index - (INVALID_BLOCK + 1)))
+	  flow_dfs_compute_reverse_add_bb (data, e->src);
     }
 
   /* Determine if there are unvisited basic blocks.  */
@@ -1035,26 +1015,22 @@ dfs_enumerate_from (basic_block bb, int reverse,
       if (reverse)
         {
 	  FOR_EACH_EDGE (e, ei, lbb->preds)
-	    {
-	      if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
-		{
-	          gcc_assert (tv != rslt_max);
-		  rslt[tv++] = st[sp++] = e->src;
-		  e->src->flags |= BB_VISITED;
-		}
-	    }
+	    if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
+	      {
+	        gcc_assert (tv != rslt_max);
+	        rslt[tv++] = st[sp++] = e->src;
+	        e->src->flags |= BB_VISITED;
+	      }
         }
       else
         {
 	  FOR_EACH_EDGE (e, ei, lbb->succs)
-	    {
-	      if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
-		{
-	          gcc_assert (tv != rslt_max);
-		  rslt[tv++] = st[sp++] = e->dest;
-		  e->dest->flags |= BB_VISITED;
-		}
-	    }
+	    if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
+	      {
+	        gcc_assert (tv != rslt_max);
+	        rslt[tv++] = st[sp++] = e->dest;
+	        e->dest->flags |= BB_VISITED;
+	      }
 	}
     }
   free (st);
@@ -1129,10 +1105,15 @@ void
 compute_dominance_frontiers (bitmap *frontiers)
 {
   sbitmap done = sbitmap_alloc (last_basic_block);
+
   timevar_push (TV_DOM_FRONTIERS);
+
   sbitmap_zero (done);
+
   compute_dominance_frontiers_1 (frontiers, EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest, done);
+
   sbitmap_free (done);
+
   timevar_pop (TV_DOM_FRONTIERS);
 }
 

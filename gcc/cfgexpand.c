@@ -1167,17 +1167,13 @@ construct_exit_block (void)
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
-
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
-    {
-      if (e2 != e)
-	{
-	  e->count -= e2->count;
-	  exit_block->count -= e2->count;
-	  exit_block->frequency -= EDGE_FREQUENCY (e2);
-	}
-    }
-    
+    if (e2 != e)
+      {
+        e->count -= e2->count;
+	exit_block->count -= e2->count;
+	exit_block->frequency -= EDGE_FREQUENCY (e2);
+      }
   if (e->count < 0)
     e->count = 0;
   if (exit_block->count < 0)

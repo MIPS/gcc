@@ -751,10 +751,8 @@ global_conflicts (void)
 	  edge_iterator ei;
 
 	  FOR_EACH_EDGE (e, ei, b->preds)
-	    {
-	      if (e->flags & EDGE_ABNORMAL)
-		break;
-	    }
+	    if (e->flags & EDGE_ABNORMAL)
+	      break;
 
 	  if (e != NULL)
 	    {
@@ -2343,12 +2341,11 @@ calculate_reg_pav (void)
       for (i = 0; i < nel; i++)
 	{
 	  edge_iterator ei;
+
 	  bb = bb_array [i];
 	  changed_p = 0;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    {
-	      changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
-	    }
+	    changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
 	  if (changed_p)
 	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {

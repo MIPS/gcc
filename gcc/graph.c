@@ -317,7 +317,6 @@ print_rtl_graph_with_bb (const char *base, rtx rtx_first)
 
 	      /* Now specify the edges to all the successors of this
 		 basic block.  */
-
 	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  if (e->dest != EXIT_BLOCK_PTR)

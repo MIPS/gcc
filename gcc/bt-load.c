@@ -900,11 +900,8 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  dump_hard_reg_set (*btrs_live_in_range);
 	  fprintf (dump_file, "\n");
 	}
-
       FOR_EACH_EDGE (e, ei, head_bb->preds)
-	{
-	  *tos++ = e->src;
-	}
+	*tos++ = e->src;
     }
 
   while (tos != worklist)
@@ -926,7 +923,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	      dump_hard_reg_set (*btrs_live_in_range);
 	      fprintf (dump_file, "\n");
 	    }
-	  
+
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      basic_block pred = e->src;

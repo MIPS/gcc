@@ -302,7 +302,6 @@ thread_block (basic_block bb)
      If this turns out to be a performance problem, then we could create
      a list of incoming edges associated with each entry in 
      REDIRECTION_DATA and walk over that list of edges instead.  */
-
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
       edge new_dest = e->aux;

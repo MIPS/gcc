@@ -526,7 +526,7 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (!e)
+  if (e == 0)
     sbitmap_ones (dst);
   else
     for (++ix; ix < EDGE_COUNT (b->succs); ix++)
@@ -566,7 +566,7 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (!e)
+  if (e == 0)
     sbitmap_ones (dst);
   else
     for (++ix; ix < EDGE_COUNT (b->preds); ix++)

@@ -48,12 +48,10 @@ loop_optimizer_init (FILE *dumpfile)
      block.  */
 
   for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
-    {
-      if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succs) > 1)
-	split_edge (e);
-      else
-	ei_next (&ei);
-    }
+    if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succs) > 1)
+      split_edge (e);
+    else
+      ei_next (&ei);
 
   /* Find the loops.  */
 

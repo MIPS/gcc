@@ -642,12 +642,10 @@ fixup_reorder_chain (void)
       e_taken = e_fall = NULL;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->flags & EDGE_FALLTHRU)
-	    e_fall = e;
-	  else if (! (e->flags & EDGE_EH))
-	    e_taken = e;
-	}
+	if (e->flags & EDGE_FALLTHRU)
+	  e_fall = e;
+	else if (! (e->flags & EDGE_EH))
+	  e_taken = e;
 
       bb_end_insn = BB_END (bb);
       if (JUMP_P (bb_end_insn))
@@ -867,10 +865,8 @@ fixup_reorder_chain (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->flags & EDGE_FALLTHRU)
-	    break;
-	}
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
 
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
@@ -935,10 +931,8 @@ fixup_fallthru_exit_predecessor (void)
   gcc_assert (reload_completed);
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
-    {
-      if (e->flags & EDGE_FALLTHRU)
-	bb = e->src;
-    }
+    if (e->flags & EDGE_FALLTHRU)
+      bb = e->src;
 
   if (bb && bb->rbi->next)
     {
@@ -1240,15 +1234,13 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
       /* In case we should redirect abnormal edge during duplication, fail.  */
       edge_iterator ei;
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
-	{
-	  if ((e->flags & EDGE_ABNORMAL)
-	      && e->dest->rbi->duplicated)
-	    {
-	      ret = false;
-	      goto end;
-	    }
-	}
-      
+	if ((e->flags & EDGE_ABNORMAL)
+	    && e->dest->rbi->duplicated)
+	  {
+	    ret = false;
+	    goto end;
+	  }
+
       if (!can_duplicate_block_p (bbs[i]))
 	{
 	  ret = false;

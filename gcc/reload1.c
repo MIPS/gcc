@@ -8045,19 +8045,14 @@ fixup_abnormal_edges (void)
 	      == (EDGE_ABNORMAL | EDGE_EH))
 	    break;
 	}
-
       if (e && !CALL_P (BB_END (bb))
 	  && !can_throw_internal (BB_END (bb)))
 	{
 	  rtx insn = BB_END (bb), stop = NEXT_INSN (BB_END (bb));
 	  rtx next;
-
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (e->flags & EDGE_FALLTHRU)
-		break;
-	    }
-
+	    if (e->flags & EDGE_FALLTHRU)
+	      break;
 	  /* Get past the new insns generated. Allow notes, as the insns may
 	     be already deleted.  */
 	  while ((NONJUMP_INSN_P (insn) || NOTE_P (insn))

@@ -254,10 +254,8 @@ make_edges (basic_block min, basic_block max, int update_p)
 	    edge_iterator ei;
 
 	    FOR_EACH_EDGE (e, ei, bb->succs)
-	      {
-		if (e->dest != EXIT_BLOCK_PTR)
-		  SET_BIT (edge_cache[bb->index], e->dest->index);
-	      }
+	      if (e->dest != EXIT_BLOCK_PTR)
+		SET_BIT (edge_cache[bb->index], e->dest->index);
 	  }
     }
 
@@ -393,14 +391,11 @@ make_edges (basic_block min, basic_block max, int update_p)
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
       FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	    {
-	      insn = 0;
-	      break;
-	    }
-	}
-
+	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+	  {
+	    insn = 0;
+	    break;
+	  }
       while (insn
 	     && NOTE_P (insn)
 	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
@@ -678,10 +673,8 @@ compute_outgoing_frequencies (basic_block b)
   guess_outgoing_edge_probabilities (b);
   if (b->count)
     FOR_EACH_EDGE (e, ei, b->succs)
-      {
-	e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
-		    / REG_BR_PROB_BASE);
-      }
+      e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
+		  / REG_BR_PROB_BASE);
 }
 
 /* Assume that someone emitted code with control flow instructions to the
