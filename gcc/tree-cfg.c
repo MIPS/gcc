@@ -3709,12 +3709,6 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   basic_block bb;
   tree chain;
 
-  fprintf (file, "\n;; Function %s",
-	    (*lang_hooks.decl_printable_name) (fn, 2));
-  fprintf (file, " (%s)\n",
-	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
-  fprintf (file, "\n");
-
   fprintf (file, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);

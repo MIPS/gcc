@@ -361,7 +361,17 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number)
-    tree_dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
+    {
+      tree_dump_file = dump_begin (pass->static_pass_number, &tree_dump_flags);
+      if (tree_dump_file)
+	{
+	  const char *dname, *aname;
+	  dname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	  aname = (IDENTIFIER_POINTER
+		   (DECL_ASSEMBLER_NAME (current_function_decl)));
+	  fprintf (tree_dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
+	}
+    }
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
