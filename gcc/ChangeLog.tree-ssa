@@ -1,3 +1,8 @@
+2003-11-14  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-pre.c (split_critical_edges): Reimplement.  Call
+	tree_split_edge directly.
+
 2003-11-14  Jason Merrill  <jason@redhat.com>
 
 	* tree-eh.c (do_return_redirection): Assign directly to the

@@ -3121,27 +3121,20 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
 static bool
 split_critical_edges (void)
 {
-  struct edge_list *el = create_edge_list ();
   bool did_something = false;
-  tree tempvar = create_tmp_var (integer_type_node, "critedgetmp");
-  int i;
+  basic_block bb;
   edge e;
-  add_referenced_tmp_var (tempvar);
-  for (i = 0; i < NUM_EDGES (el); i++)
-  {
-    e = INDEX_EDGE (el, i);
-    if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-      {
-        tree newexpr = build (MODIFY_EXPR, TREE_TYPE (tempvar), tempvar, 
-			      integer_zero_node);
-	tree newtemp = make_ssa_name (tempvar, newexpr);
-	TREE_OPERAND (newexpr, 0) = newtemp;
-	bsi_insert_on_edge (e, newexpr);
-	did_something = true;
-      }
-  }
-  bsi_commit_edge_inserts (0, 0);
-  free_edge_list (el);
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    {
+      for (e = bb->succ; e ; e = e->succ_next)
+	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
+	  {
+	    tree_split_edge (e);
+	    did_something = true;
+	  }
+    }
+
   return did_something;
 }
 
