@@ -69,6 +69,9 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_create
                                        GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                        NULL);
 
+  /* GtkFileChooser doesn't show hidden files by default. */
+  g_object_set(GTK_FILE_CHOOSER(widget), "show_hidden", TRUE);
+
   /* GtkFileSelect is not modal by default */
   gtk_window_set_modal (GTK_WINDOW (widget), TRUE);
 
@@ -136,9 +139,72 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeGetDirectory
   return (*env)->NewStringUTF(env, str);
 }
 
-/*
- * Set the filename in the file selection dialog.
- */
+
+/* This function interfaces with the Java callback method of the same name.
+   This function extracts the filename from the GtkFileFilterInfo object,
+   and passes it to the Java method.  The Java method will call the filter's
+   accept() method and will give back the return value. */
+gboolean filenameFilterCallback (const GtkFileFilterInfo *filter_info,
+                                 gpointer obj)
+{
+  gchar* dirname;
+  jclass cx;
+  jmethodID id;
+  jstring *filename;
+
+  cx = (*gdk_env)->GetObjectClass (gdk_env, (jobject) obj);
+  id = (*gdk_env)->GetMethodID (gdk_env, cx, "filenameFilterCallback",
+                                             "(Ljava/lang/String;)Z");
+
+  filename = (*gdk_env)->NewStringUTF(gdk_env, filter_info->filename);
+
+  gdk_threads_leave();
+  gboolean accepted = (*gdk_env)->CallBooleanMethod(gdk_env, obj, id, filename);
+  gdk_threads_enter();
+
+  return accepted;
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFilenameFilter
+    (JNIEnv *env, jobject obj, jobject filter_obj)
+{
+  void *ptr;
+  GtkFileFilter *filter;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  filter = gtk_file_filter_new();
+  gtk_file_filter_add_custom(filter,
+                             GTK_FILE_FILTER_FILENAME,
+                             G_CALLBACK(filenameFilterCallback),
+                             obj,
+                             NULL);
+
+  gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(ptr), filter);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetDirectory
+    (JNIEnv *env, jobject obj, jstring directory)
+{
+  void *ptr;
+  const char *str;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  str = (*env)->GetStringUTFChars (env, directory, 0);
+
+  gdk_threads_enter ();
+  gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(ptr), str);
+  gdk_threads_leave ();
+
+  (*env)->ReleaseStringUTFChars (env, directory, str);
+}
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFile 

@@ -1,3 +1,17 @@
+2004-07-20  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java:
+	Collect all native method declaration at the top.
+	(create): Set the filename filter if necessary.
+	(setDirectory): Call nativeSetDirectory().
+	(setFilenameFilter): Implement.
+	(filenameFilterCallback): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+	(create): Configure dialog to show hidden files.
+	(filenameFilterCallback): New function. 
+	(nativeSetFilenameFilter): New function.
+	(nativeSetDirectory): New function.
+
 2004-07-20  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JTextArea.java
