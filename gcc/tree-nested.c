@@ -1233,7 +1233,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   /* If a chain_decl was created, then it needs to be registered with
      struct function so that it gets initialized from the static chain
      register at the beginning of the function.  */
-  sf = DECL_SAVED_INSNS (root->context);
+  sf = DECL_STRUCT_FUNCTION (root->context);
   sf->static_chain_decl = root->chain_decl;
 
   /* Similarly for the non-local goto save area.  */

@@ -1964,8 +1964,9 @@ gfc_generate_function_code (gfc_namespace * ns)
      info for the epilogue.  */
   cfun->function_end_locus = input_location;
 
-  /* We're leaving the context of this function, so zap cfun.  It's still in
-     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
+  /* We're leaving the context of this function, so zap cfun.
+     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
+     tree_rest_of_compilation.  */
   cfun = NULL;
 
   if (old_context)

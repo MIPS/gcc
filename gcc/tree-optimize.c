@@ -633,7 +633,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (!nested_p && !flag_inline_trees)
     {
       DECL_SAVED_TREE (fndecl) = NULL;
-      if (DECL_SAVED_INSNS (fndecl) == 0
+      if (DECL_STRUCT_FUNCTION (fndecl) == 0
 	  && !cgraph_node (fndecl)->origin)
 	{
 	  /* Stop pointing to the local nodes about to be freed.

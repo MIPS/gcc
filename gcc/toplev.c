@@ -1691,8 +1691,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	  if (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_INITIAL (decl) != 0
-	      && DECL_SAVED_INSNS (decl) != 0
-	      && DECL_SAVED_INSNS (decl)->saved_for_inline
+	      && DECL_STRUCT_FUNCTION (decl) != 0
+	      && DECL_STRUCT_FUNCTION (decl)->saved_for_inline
 	      && (flag_keep_inline_functions
 		  || (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
 		  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
@@ -2741,7 +2741,8 @@ rest_of_handle_inlining (tree decl)
 
   if (open_dump_file (DFI_rtl, decl))
     {
-      if (DECL_SAVED_INSNS (decl) && DECL_SAVED_INSNS (decl)->saved_for_inline)
+      if (DECL_STRUCT_FUNCTION (decl)
+	  && DECL_STRUCT_FUNCTION (decl)->saved_for_inline)
 	fprintf (rtl_dump_file, ";; (integrable)\n\n");
       close_dump_file (DFI_rtl, print_rtl, insns);
     }
@@ -2811,7 +2812,7 @@ rest_of_handle_inlining (tree decl)
       timevar_push (TV_INTEGRATION);
       save_for_inline (decl);
       timevar_pop (TV_INTEGRATION);
-      DECL_SAVED_INSNS (decl)->inlinable = inlinable;
+      DECL_STRUCT_FUNCTION (decl)->inlinable = inlinable;
       return true;
     }
 

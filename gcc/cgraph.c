@@ -360,7 +360,7 @@ cgraph_remove_node (struct cgraph_node *node)
 	  if (!dump_enabled_p (TDI_all))
 	    {
               DECL_SAVED_TREE (node->decl) = NULL;
-	      DECL_SAVED_INSNS (node->decl) = NULL;
+	      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 	    }
 	  check_dead = false;
 	}
@@ -388,7 +388,7 @@ cgraph_remove_node (struct cgraph_node *node)
       if (!n && !dump_enabled_p (TDI_all))
 	{
 	  DECL_SAVED_TREE (node->decl) = NULL;
-	  DECL_SAVED_INSNS (node->decl) = NULL;
+	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
 	}
     }
   cgraph_n_nodes--;

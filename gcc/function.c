@@ -6144,7 +6144,7 @@ allocate_struct_function (tree fndecl)
   if (fndecl == NULL)
     return;
 
-  DECL_SAVED_INSNS (fndecl) = cfun;
+  DECL_STRUCT_FUNCTION (fndecl) = cfun;
   cfun->decl = fndecl;
 
   result = DECL_RESULT (fndecl);
@@ -6171,8 +6171,8 @@ allocate_struct_function (tree fndecl)
 static void
 prepare_function_start (tree fndecl)
 {
-  if (fndecl && DECL_SAVED_INSNS (fndecl))
-    cfun = DECL_SAVED_INSNS (fndecl);
+  if (fndecl && DECL_STRUCT_FUNCTION (fndecl))
+    cfun = DECL_STRUCT_FUNCTION (fndecl);
   else
     allocate_struct_function (fndecl);
   init_emit ();

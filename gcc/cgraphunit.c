@@ -791,7 +791,7 @@ cgraph_expand_function (struct cgraph_node *node)
       && !cgraph_preserve_function_body_p (node->decl))
     {
       DECL_SAVED_TREE (node->decl) = NULL;
-      DECL_SAVED_INSNS (node->decl) = NULL;
+      DECL_STRUCT_FUNCTION (node->decl) = NULL;
       DECL_ARGUMENTS (node->decl) = NULL;
       DECL_INITIAL (node->decl) = error_mark_node;
     }
@@ -924,7 +924,7 @@ cgraph_remove_unreachable_nodes (void)
 	  int local_insns;
 	  tree decl = node->decl;
 
-	  if (DECL_SAVED_INSNS (decl))
+	  if (DECL_STRUCT_FUNCTION (decl))
 	    local_insns = node->local.self_insns;
 	  else
 	    local_insns = 0;
@@ -950,7 +950,7 @@ cgraph_remove_unreachable_nodes (void)
 		  if (!clone)
 		    {
 		      DECL_SAVED_TREE (node->decl) = NULL;
-		      DECL_SAVED_INSNS (node->decl) = NULL;
+		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 		      DECL_ARGUMENTS (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
 		    }

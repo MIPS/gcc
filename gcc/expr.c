@@ -6951,7 +6951,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  {
 	    if (TREE_CODE (vars) == FUNCTION_DECL 
 		&& DECL_CONTEXT (vars) == current_function_decl
-		&& DECL_SAVED_INSNS (vars)
+		&& DECL_STRUCT_FUNCTION (vars)
 		&& !TREE_ASM_WRITTEN (vars)
 		&& TREE_ADDRESSABLE (vars))
 	      {
