@@ -1,3 +1,7 @@
+2003-04-02  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (update_regnos_mentioned): Handle all copy insns.
+
 2003-02-26  Denis Chertykov  <denisc@overta.ru>
 	    Michael Matz  <matz@suse.de>
 

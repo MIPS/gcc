@@ -1049,12 +1049,14 @@ update_regnos_mentioned ()
 	    struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
 	    bitmap mentioned = info->regnos_mentioned;
 	    struct df_link *link;
+	    int copy_type;
 	    if (last_changed_insns
 		&& bitmap_bit_p (last_changed_insns, INSN_UID (insn)))
 	      copy_cache[INSN_UID (insn)].seen = 0;
-	    if (copy_insn_p (insn, &source, NULL) == COPY_P_MOVE)
+	    if ((copy_type = copy_insn_p (insn, &source, NULL)) != 0)
 	      {
-		remember_move (insn);
+		if (copy_type == COPY_P_MOVE)
+		  remember_move (insn);
 		bitmap_set_bit (mentioned,
 				REGNO (GET_CODE (source) == SUBREG
 				       ? SUBREG_REG (source) : source));
