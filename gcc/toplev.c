@@ -2882,7 +2882,6 @@ rest_of_compilation (decl)
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
-      coalesce ();
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
