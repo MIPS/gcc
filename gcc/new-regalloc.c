@@ -641,17 +641,17 @@ reg_freedom (regNum)
 {
   HARD_REG_SET temp;
   unsigned int j=0;
-  
+
   if (reg_freedoms [regNum] >= 0)
     return reg_freedoms[regNum];
- 
+
 
   COPY_HARD_REG_SET (temp, reg_class_contents[reg_preferred_class (regNum)]);
   IOR_HARD_REG_SET (temp, reg_class_contents[reg_alternate_class (regNum)]);
   AND_COMPL_HARD_REG_SET(temp, fixed_reg_set);
   HARD_REG_SET_SIZE (temp, j);
   reg_freedoms[regNum] = j;
-  
+
   return j;
 }
 
@@ -859,12 +859,12 @@ float find_move_cost(move)
     rhs = REGNO_REG_CLASS (REGNO (SET_SRC (body)));
   else
     rhs = reg_preferred_class (REGNO (SET_SRC (body)));
-  
+
   return BLOCK_FOR_INSN(move)->loop_depth * REGISTER_MOVE_COST (GET_MODE (SET_SRC (body)), rhs, lhs);
 }
 
 /* Find the move with the maximum cost */
-static 
+static
 rtx find_costliest_move(moves)
      hset moves;
 {
@@ -873,25 +873,25 @@ rtx find_costliest_move(moves)
   float maxCost =(float) -1.0;
   rtx costliest = NULL_RTX;
 
-  HSET_TRAVERSAL(moves, i, entry, 
+  HSET_TRAVERSAL(moves, i, entry,
   {
     /* XXX: Do we have a better heuristic, or real move costs? I
-       didn't look very hard at all. 
+       didn't look very hard at all.
        Right now we assume move cost is based on loop depth, since the
        move gets done every iteration .
     */
     float cost;
     cost = find_move_cost((rtx) entry);
-    
+
     if (cost > maxCost)
       {
 	maxCost = cost;
 	costliest = entry;
       }
   });
-  
+
   return costliest;
-  
+
 }
 
 
@@ -920,7 +920,7 @@ precolored_OK (f, r)
 
   if (TEST_HARD_REG_BIT (fixed_reg_set, f) || TEST_HARD_REG_BIT (fixed_reg_set, r))
     return 0;
-  
+
   EXECUTE_IF_SET_IN_SBITMAP (adjacentSet, 0, entry,
     {
       if (! varray_contains (selectStack, entry) &&
@@ -1319,24 +1319,17 @@ assign_regs()
 
   if (biased_coloring)
     costs = ggc_alloc_cleared (sizeof(double) * FIRST_PSEUDO_REGISTER);
-  
+
   while (VARRAY_ACTIVE_SIZE(selectStack) != 0)
     {
-      /* Eliminate colors of neighbors */
       unsigned int currReg = VARRAY_TOP_UINT(selectStack);
-      enum reg_class pref_class, alt_class;
-      HARD_REG_SET okColors;
-      HARD_REG_SET avoid;
-      
+      enum reg_class pref;
+      HARD_REG_SET okColors, badColors, avoid;
+
       VARRAY_POP(selectStack);
 
-      pref_class = reg_preferred_class (currReg);
-      alt_class = reg_alternate_class (currReg);
-      COPY_HARD_REG_SET (okColors, reg_class_contents[pref_class]);
-      IOR_HARD_REG_SET (okColors, reg_class_contents[alt_class]);
-      AND_COMPL_HARD_REG_SET (okColors, fixed_reg_set);
-      
-      
+      /* Eliminate colors of neighbors.  Also exclude all fixed registers.  */
+      COPY_HARD_REG_SET (badColors, fixed_reg_set);
       EXECUTE_IF_SET_IN_SBITMAP (regInfo[currReg]->adjList, 0, entry,
         {
 	  unsigned int w = get_alias(entry);
@@ -1347,12 +1340,13 @@ assign_regs()
 		{
 		  /* If one is a superset of the other, this should already
 		     handle it, because we'll still clear the right bits.  */
-		  CLEAR_HARD_REG_BIT (okColors, index);
-		  AND_COMPL_HARD_REG_SET (okColors, excluded[w]);
+		  SET_HARD_REG_BIT (badColors, index);
+		  IOR_HARD_REG_SET (badColors, excluded[w]);
 		}
 	    }
 	});
-      /* Biased coloring, not finished yet by a long shot */
+
+      /* Biased coloring, not finished yet by a long shot.  */
       if (biased_coloring)
 	{
 	  unsigned int best_color;
@@ -1362,67 +1356,83 @@ assign_regs()
 	  for (l = 0; l < FIRST_PSEUDO_REGISTER; l++)
 	    costs[l] = 0.0;
 	  CLEAR_HARD_REG_SET(avoid);
-	  HSET_TRAVERSAL (regInfo[currReg]->moveList, l, move_node, 
-	  {
-	    rtx copy = (rtx) move_node;
-	    
-	    if (hset_member (frozenMoves, (void *)copy))
-	      {
-		unsigned int source = get_alias (REGNO (SET_SRC (copy)));
-		unsigned int dest = get_alias (REGNO (SET_DEST (copy)));
-		unsigned int partner = currReg == source ? dest : source;
-		unsigned int color = colors[partner];
-		if (0 < color && color < FIRST_PSEUDO_REGISTER)
-		  costs[color] += find_move_cost(copy);
-		else if (! TEST_BIT (spilledNodes, partner))
-		  {
-		    unsigned int m;
-		    EXECUTE_IF_SET_IN_SBITMAP (regInfo[partner]->adjList, 0, m, 
+	  HSET_TRAVERSAL (regInfo[currReg]->moveList, l, move_node,
+	    {
+	      rtx copy = (rtx) move_node;
+
+	      if (hset_member (frozenMoves, (void *)copy))
+		{
+		  unsigned int source = get_alias (REGNO (SET_SRC (copy)));
+		  unsigned int dest = get_alias (REGNO (SET_DEST (copy)));
+		  unsigned int partner = currReg == source ? dest : source;
+		  unsigned int color = colors[partner];
+		  if (0 < color && color < FIRST_PSEUDO_REGISTER)
+		    costs[color] += find_move_cost(copy);
+		  else if (! TEST_BIT (spilledNodes, partner))
 		    {
-		      unsigned int neighbor = get_alias(m);
-		      unsigned int color = colors[neighbor];
-		      if (0 < color && color < FIRST_PSEUDO_REGISTER)
-			SET_HARD_REG_BIT(avoid, color);
-		    });
-		  }
-	      }
-	  });	    
+		      unsigned int m;
+		      EXECUTE_IF_SET_IN_SBITMAP (regInfo[partner]->adjList,
+						 0, m,
+		        {
+			  unsigned int neighbor = get_alias(m);
+			  unsigned int color = colors[neighbor];
+			  if (0 < color && color < FIRST_PSEUDO_REGISTER)
+			    SET_HARD_REG_BIT(avoid, color);
+			});
+		    }
+		}
+	    });
 	}
-      /* Non-biased coloring stuff */
-      {
-	
-	firstOKBit = find_reg_given_constraints (okColors, currReg);
-	
-	if (firstOKBit == -1)
-	  {
-	    /* Couldn't find a color to set -- guess we have to spill.  */
-	    SET_BIT (spilledNodes, currReg);
-	    if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	      fprintf (rtl_dump_file, "Spilling register %d\n", currReg);
-	    reg_renumber[currReg] = -1;
-	  }
-	else
-	  {
-	    /* We can color it. Yay!  */
-	    int numRegs;
-	    int k;
-	    
-	    SET_BIT (coloredNodes, currReg);
-	    colors[currReg] = firstOKBit;
-	    numRegs = HARD_REGNO_NREGS (firstOKBit, PSEUDO_REGNO_MODE (currReg));
-	    
-	    /* Exclude the other regs this color is also using, from
-	       being used by this node's neighbors.  */
-	    for (k = 1; k < numRegs; k++)
-	    SET_HARD_REG_BIT (excluded[currReg], colors[currReg] + k);
-	    
-	    if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	      fprintf (rtl_dump_file, "Color of register %d is %d\n",
-		       currReg, colors[currReg]);
-	  }
-      }
+      else
+	{
+	  /* Non-biased coloring stuff.  */
+
+	  /* First try the preferred register class.  */
+	  pref = reg_preferred_class (currReg);
+	  COPY_HARD_REG_SET (okColors, reg_class_contents[pref]);
+	  AND_COMPL_HARD_REG_SET (okColors, badColors);
+	  firstOKBit = find_reg_given_constraints (okColors, currReg);
+
+	  /* If that fails, try the alternate register class, if any.  */
+	  if (firstOKBit == -1
+	      && (pref = reg_alternate_class (currReg)) != NO_REGS)
+	    {
+	      COPY_HARD_REG_SET (okColors, reg_class_contents[pref]);
+	      AND_COMPL_HARD_REG_SET (okColors, badColors);
+	      firstOKBit = find_reg_given_constraints (okColors, currReg);
+	    }
+
+	  if (firstOKBit == -1)
+	    {
+	      /* Couldn't find a color to set -- guess we have to spill.  */
+	      SET_BIT (spilledNodes, currReg);
+	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
+		fprintf (rtl_dump_file, "Spilling register %d\n", currReg);
+	      reg_renumber[currReg] = -1;
+	    }
+	  else
+	    {
+	      /* We can color it.  Yay!  */
+	      int numRegs;
+	      int k;
+
+	      SET_BIT (coloredNodes, currReg);
+	      colors[currReg] = firstOKBit;
+	      numRegs = HARD_REGNO_NREGS (firstOKBit,
+					  PSEUDO_REGNO_MODE (currReg));
+
+	      /* Exclude the other regs this color is also using, from
+		 being used by this node's neighbors.  */
+	      for (k = 1; k < numRegs; k++)
+		SET_HARD_REG_BIT (excluded[currReg], colors[currReg] + k);
+
+	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
+		fprintf (rtl_dump_file, "Color of register %d is %d\n",
+			 currReg, colors[currReg]);
+	    }
+	}
     }
-  
+
   /* Now take care of coalesced variables.  */
   EXECUTE_IF_SET_IN_SBITMAP (coalescedNodes, 0, entry,
     {
@@ -1546,7 +1556,7 @@ perform_new_regalloc_init ()
      graph nodes for them.  */
   for (i=0; i < max_reg_num(); i++)
     {
-      if ((HARD_REGISTER_NUM_P (i) && is_reg_candidate (i)) 
+      if ((HARD_REGISTER_NUM_P (i) && is_reg_candidate (i))
 	  || (HARD_REGISTER_NUM_P (i) && (DF_REGNO_LAST_USE (dataflowAnalyser, i) != 0))
 	  || (HARD_REGISTER_NUM_P (i) && fixed_regs[i]))
 	{
@@ -1697,7 +1707,7 @@ init_new_regalloc ()
       colors[i] = -1;
       reg_freedoms[i] = -1;
     }
-  
+
 
   VARRAY_UINT_INIT (selectStack, 1, "Interference graph stack");
   dataflowAnalyser = df_init ();

@@ -1,5 +1,11 @@
 2001-02-01  Richard Henderson  <rth@redhat.com>
 
+	* new-regalloc.c (assign_regs): Insert missing "else" between
+	biased and non-biased code.  Try the preferred register class
+	before the alternate register class, not at the same time.
+
+2001-02-01  Richard Henderson  <rth@redhat.com>
+
 	* toplev.c (NEW_REGISTER_ALLOCATOR): Remove.
 	(dump_file_index, dump_file): Remove lreg dump file.
 	(rest_of_compilation): Don't ifdef NEW_REGISTER_ALLOCATOR.
