@@ -122,7 +122,7 @@ class tree_generator : public visitor
   tree build_long (jlong);
   tree handle_float (jfloat);
   tree handle_double (jdouble);
-  tree build_ref_from_constant_pool (int);
+  tree build_ref_from_constant_pool (tree, int);
   tree build_new_array (model_type *, tree);
   tree build_new_object_array (model_type *, tree);
   model_type *find_model_class (const std::string &);

@@ -255,13 +255,13 @@ bc_abi::build_field_reference (tree_builtins *builtins,
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *, aot_class *current,
+bc_abi::build_class_reference (tree_builtins *builtins,
+			       aot_class *current,
 			       const std::string &classname)
 {
   // FIXME: handle primitive classes
   int index = current->add_class (classname);
-  // FIXME: find the constant pool
-  tree cpool = NULL_TREE;
+  tree cpool = builtins->get_constant_pool_decl (current->get ());
   return build4 (ARRAY_REF, type_class_ptr,
 		 cpool, build_int_cst (type_jint, index),
 		 NULL_TREE, NULL_TREE);
@@ -274,8 +274,7 @@ bc_abi::build_class_reference (tree_builtins *builtins,
 {
   // FIXME: handle primitive classes
   int index = current->add (assert_cast<model_class *> (klass));
-  // FIXME: find the constant pool
-  tree cpool = NULL_TREE;
+  tree cpool = builtins->get_constant_pool_decl (current->get ());
   return build4 (ARRAY_REF, type_class_ptr,
 		 cpool, build_int_cst (type_jint, index),
 		 NULL_TREE, NULL_TREE);

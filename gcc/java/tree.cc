@@ -230,13 +230,12 @@ tree_generator::build_jni_stub ()
   // exception if this function is not found at runtime.
   tem = build_tree_list (NULL_TREE, build_int_cst (NULL_TREE, args_size));
   tree method_sig
-    = build_ref_from_constant_pool (class_wrapper->add_utf (method->get_descriptor ()));
-  // FIXME: set TREE_TYPE on method_sig.
-  // FIXME: this should probably be done by build_ref_from_constant_pool?
-  TREE_CONSTANT (method_sig) = 1;
+    = build_ref_from_constant_pool (type_utf8const_ptr,
+				    class_wrapper->add_utf (method->get_descriptor ()));
   tree lookup_arg = tree_cons (NULL_TREE, method_sig, tem);
 
-  tem = build_ref_from_constant_pool (class_wrapper->add_utf (method->get_name ()));
+  tem = build_ref_from_constant_pool (type_utf8const_ptr,
+				      class_wrapper->add_utf (method->get_name ()));
   lookup_arg
     = tree_cons (NULL_TREE, klass,
 		 tree_cons (NULL_TREE, tem, lookup_arg));
@@ -1582,11 +1581,9 @@ tree
 tree_generator::handle_string_literal (const std::string &val)
 {
   int location = class_wrapper->add (val);
-  tree node = build_ref_from_constant_pool (location);
-  TREE_TYPE (node)
+  tree type
     = gcc_builtins->map_type (global->get_compiler ()->java_lang_String ());
-  TREE_CONSTANT (node) = 1;
-  return node;
+  return build_ref_from_constant_pool (type, location);
 }
 
 void
@@ -1899,9 +1896,14 @@ tree_generator::build_new_object_array (model_type *elt_type, tree size)
 }
 
 tree
-tree_generator::build_ref_from_constant_pool (int)
+tree_generator::build_ref_from_constant_pool (tree type, int index)
 {
-  abort ();			// FIXME
+  tree cpool = gcc_builtins->get_constant_pool_decl (class_wrapper->get ());
+  tree result = build4 (ARRAY_REF, ptr_type_node,
+			cpool, build_int_cst (type_jint, index),
+			NULL_TREE, NULL_TREE);
+  TREE_CONSTANT (result) = 1;
+  return build1 (NOP_EXPR, type, result);
 }
 
 // This comes directly from gcj.

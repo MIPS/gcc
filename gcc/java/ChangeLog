@@ -1,3 +1,22 @@
+2005-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* tree.hh (tree_generator::build_ref_from_constant_pool):
+	Updated.
+	* tree.cc (build_ref_from_constant_pool): Added 'type' argument.
+	(build_jni_stub): Updated.
+	(handle_string_literal): Updated.
+
+	* builtins.cc (HACK_WANT_OUTPUT_H): Define.
+	* glue.hh: Use HACK_WANT_OUTPUT_H.
+
+	* abi.cc (build_class_reference): Find constant pool.
+	* tree.cc (build_ref_from_constant_pool): Wrote.
+	* builtins.cc (get_constant_pool_decl): New method.
+	* builtins.hh (tree_builtins::cpool_map): New field.
+	(tree_builtins::get_constant_pool_decl): Declare.
+	* classobj.cc (create_constants): Handle "data" specially.
+	Correctly compute constructor contents.  Ignore zero'th entry.
+
 2005-02-25  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (add): Use build_function_type and

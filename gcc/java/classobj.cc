@@ -358,35 +358,58 @@ class_object_creator::create_constants ()
   if (pool.empty ())
     return null_pointer_node;
 
+  // The zero'th entry is unusable, as libgcj does not attempt to link
+  // it.
+  int size = pool.size () + 1;
+
   record_creator inst (type_constants);
-  inst.set_field ("size", build_int_cst (type_juint, pool.size ()));
+  inst.set_field ("size", build_int_cst (type_juint, size));
 
   tree type_tags
     = build_array_type (type_jbyte,
-			build_index_type (build_int_cst (type_jint,
-							 pool.size ())));
+			build_index_type (build_int_cst (type_jint, size)));
   tree type_data
     = build_array_type (ptr_type_node,
-			build_index_type (build_int_cst (type_jint,
-							 pool.size ())));
+			build_index_type (build_int_cst (type_jint, size)));
 
   tree tags_list = NULL_TREE;
   tree data_list = NULL_TREE;
+
+  {
+    // NULL the zero'th entry.
+    tags_list = tree_cons (integer_zero_node, build_int_cst (type_jbyte, 0),
+			   tags_list);
+    data_list = tree_cons (integer_zero_node, null_pointer_node, data_list);
+  }
+
+  int index = 1;
   for (std::vector<aot_class::pool_entry>::const_iterator i = pool.begin ();
        i != pool.end ();
-       ++i)
+       ++i, ++index)
     {
-      tags_list = tree_cons (NULL_TREE, build_int_cst (type_jbyte, (*i).tag),
+      tree index_tree = build_int_cst (type_jint, index);
+      tags_list = tree_cons (index_tree, build_int_cst (type_jbyte, (*i).tag),
 			     tags_list);
-      data_list = tree_cons (NULL_TREE, builtins->map_utf8const ((*i).value),
+      data_list = tree_cons (index_tree, builtins->map_utf8const ((*i).value),
 			     data_list);
     }
 
   tags_list = nreverse (tags_list);
   data_list = nreverse (data_list);
 
-  inst.set_field ("tags", make_decl (type_tags, tags_list));
-  inst.set_field ("data", make_decl (type_data, data_list));
+  inst.set_field ("tags",
+		  make_decl (type_tags, build_constructor (type_tags,
+							   tags_list)));
+
+  // We handle "data" differently since the underlying decl for this
+  // is used by other parts of the compiler when generating code.
+  tree data_decl = builtins->get_constant_pool_decl (klass->get ());
+  TREE_TYPE (data_decl) = type_data;
+  DECL_INITIAL (data_decl) = build_constructor (type_data, data_list);
+  rest_of_decl_compilation (data_decl, 1, 0);
+
+  inst.set_field ("data", build1 (ADDR_EXPR, build_pointer_type (type_data),
+				  data_decl));
 
   return inst.finish_record ();
 }

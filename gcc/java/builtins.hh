@@ -36,6 +36,9 @@ class tree_builtins : public aot_class_factory
   // This maps classes to their vtable decls
   std::map<model_class *, tree> vtable_map;
 
+  // This maps classes to their constant pool decls.
+  std::map<model_class *, tree> cpool_map;
+
   // This maps a method to its corresponding gcc tree.
   std::map<model_method *, tree> methodmap;
 
@@ -122,6 +125,9 @@ public:
 
   /// Return the decl for a given class' vtable.
   tree get_vtable_decl (model_class *);
+
+  /// Return the decl for a given class' constant pool.
+  tree get_constant_pool_decl (model_class *);
 };
 
 #endif // GCC_TREE_BUILTINS_HH

@@ -19,6 +19,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
+// FIXME: see glue.hh for why this is lame.
+#define HACK_WANT_OUTPUT_H
+
 // This include must come first.
 #include "java/glue.hh"
 #include "aot/mangle.hh"
@@ -491,6 +494,23 @@ tree_builtins::get_vtable_decl (model_class *klass)
       vtable_map[klass] = decl;
     }
   return vtable_map[klass];
+}
+
+tree
+tree_builtins::get_constant_pool_decl (model_class *klass)
+{
+  if (cpool_map.find (klass) == cpool_map.end ())
+    {
+      tree type = build_array_type (ptr_type_node,
+				    build_index_type (integer_zero_node));
+      tree decl = build_decl (VAR_DECL, get_symbol (), type);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+
+      cpool_map[klass] = decl;
+    }
+  return cpool_map[klass];
 }
 
 // FIXME: this whole method should probably migrate into the ABI or
