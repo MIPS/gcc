@@ -586,13 +586,16 @@ extern GTY(()) rtx aof_pic_label;
     by --with-arch.
    --with-tune is ignored if -mtune or -mcpu are specified (but not affected
      by -march).
-   --with-float is ignored if -mhard-float or -msoft-float are
-    specified.  */
+   --with-float is ignored if -mhard-float, -msoft-float or -mfloat-abi are
+   specified.
+   --with-fpu is ignored if -mfpu is specified.  */
 #define OPTION_DEFAULT_SPECS \
   {"arch", "%{!march=*:%{!mcpu=*:-march=%(VALUE)}}" }, \
   {"cpu", "%{!march=*:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
   {"tune", "%{!mcpu=*:%{!mtune=*:-mtune=%(VALUE)}}" }, \
-  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
+  {"float", \
+    "%{!msoft-float:%{!mhard-float:%{!mfloat-abi=*:-mfloat-abi=%(VALUE)}}}" }, \
+  {"fpu", "%{!mfpu=*:-mfpu=%(VALUE)}"},
 
 struct arm_cpu_select
 {

@@ -589,10 +589,10 @@ arm_override_options (void)
 	{ TARGET_CPU_xscale,    "xscale" },
 	{ TARGET_CPU_ep9312,    "ep9312" },
 	{ TARGET_CPU_iwmmxt,    "iwmmxt" },
-	{ TARGET_CPU_arm926ejs, "arm926ej-s" },
-	{ TARGET_CPU_arm1026ejs, "arm1026ej-s" },
-	{ TARGET_CPU_arm1136js, "arm1136j-s" },
-	{ TARGET_CPU_arm1136jfs, "arm1136jf-s" },
+	{ TARGET_CPU_arm926ejs, "arm926ejs" },
+	{ TARGET_CPU_arm1026ejs, "arm1026ejs" },
+	{ TARGET_CPU_arm1136js, "arm1136js" },
+	{ TARGET_CPU_arm1136jfs, "arm1136jfs" },
 	{ TARGET_CPU_generic,   "arm" },
 	{ 0, 0 }
       };
@@ -860,10 +860,13 @@ arm_override_options (void)
       for (i = 0; i < ARRAY_SIZE (all_float_abis); i++)
 	{
 	  if (streq (all_float_abis[i].name, target_float_abi_name))
-	    arm_float_abi = all_float_abis[i].abi_type;
+	    {
+	      arm_float_abi = all_float_abis[i].abi_type;
+	      break;
+	    }
 	}
       if (i == ARRAY_SIZE (all_float_abis))
-	error ("invalud floating point abi: -ffloat-abi=%s",
+	error ("invalid floating point abi: -mfloat-abi=%s",
 	       target_float_abi_name);
     }
   else

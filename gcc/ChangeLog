@@ -1,3 +1,12 @@
+2004-01-15  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Add with_fpu.  Allow with-float=softfp.
+	* config/arm/arm.c (arm_override_options): Rename *-s to *s.
+	Break out of loop when we find a float-abi.  Fix typo.
+	* config/arm/arm.h (OPTION_DEFAULT_SPECS): Add "fpu".
+	Set -mfloat-abi=.
+	* doc/install.texi: Document --with-fpu.
+
 2003-01-14  Paul Brook  <paul@codesourcery.com>
 
 	* config.gcc (with_arch): Add armv6.
