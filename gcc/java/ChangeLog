@@ -1,5 +1,45 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::binary_operator): Declare.
+	(tree_generator::arith_shift): Likewise.
+	* tree.cc (visit_block): Annotate result.
+	(visit_catch): Likewise.
+	(visit_for): Likewise.
+	(visit_synchronized): Likewise.
+	(visit_array_initializer): Likewise.
+	(visit_array_ref): Likewise.
+	(binary_operator): Added 'element' argument.  Annotate result.
+	(visit_arith_binary): Updated.
+	(visit_arith_binary): Likewise.
+	(visit_arith_binary): Annotate result.
+	(visit_arith_binary): Updated.
+	(arith_shift): Added 'element' argument.  Annotate result.
+	(visit_arith_shift): Updated.
+	(visit_assignment): Annotate result.
+	(handle_op_assignment): Added 'element' argument.  Annotate
+	result.
+	(visit_op_assignment): Updated.
+	(visit_cast): Annotate result.
+	(visit_class_ref): Likewise.
+	(visit_comparison): Likewise.
+	(visit_conditional): Likewise.
+	(visit_field_ref): Likewise.
+	(visit_field_initializer): Likewise.
+	(visit_instanceof): Likewise.
+	(visit_logical_binary): Likewise.
+	(visit_method_invocation): Likewise.
+	(visit_type_qualified_invocation): Likewise.
+	(visit_super_invocation): Likewise.
+	(visit_this_invocation): Likewise.
+	(visit_new): Likewise.
+	(visit_new_array): Likewise.
+	(handle_inc_dec): Added 'element' argument.  Annotate result.
+	(visit_prefix_side_effect): Updated.
+	(visit_prefix_simple): Annotate result.
+	(visit_postfix_side_effect): Updated.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* glue.hh: Include target.h.
 	* builtins.cc (add): Set DECL_ARG_TYPE on PARM_DECL.
 	(map_param_or_var): Likewise.

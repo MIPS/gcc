@@ -393,6 +393,7 @@ tree_generator::visit_block (model_block *block,
   current = build3 (BIND_EXPR, void_type_node,
 		    BLOCK_VARS (current_block),
 		    body, current_block);
+  annotate (current, block);
 }
 
 void
@@ -456,6 +457,7 @@ tree_generator::visit_catch (model_catch *stmt,
   vtype = build_address_of (TREE_OPERAND (vtype, 0));
 
   current = build2 (CATCH_EXPR, void_type_node, vtype, bind);
+  annotate (current, stmt);
 }
 
 void
@@ -615,6 +617,7 @@ tree_generator::visit_for (model_for *fstmt,
   // Now wrap the body in a loop and link it into the outer statement
   // list.
   body_tree = build1 (LOOP_EXPR, void_type_node, body_tree);
+  annotate (body_tree, fstmt);
   tsi_link_after (&result_out, body_tree, TSI_CONTINUE_LINKING);
 
   tsi_link_after (&result_out, build1 (LABEL_EXPR, void_type_node, done_tree),
@@ -812,6 +815,7 @@ tree_generator::visit_synchronized (model_synchronized *sync,
   tree body_tree = current;
 
   current = wrap_synchronized (expr_tree, body_tree);
+  annotate (current, sync);
 }
 
 void
@@ -973,10 +977,11 @@ tree_generator::visit_array_initializer (model_array_initializer *initx,
     }
 
   current = result;
+  annotate (current, initx);
 }
 
 void
-tree_generator::visit_array_ref (model_array_ref *,
+tree_generator::visit_array_ref (model_array_ref *aref,
 				 const ref_expression &array,
 				 const ref_expression &index)
 {
@@ -990,12 +995,13 @@ tree_generator::visit_array_ref (model_array_ref *,
   // FIXME: this should be handled more generically.
   gcc_builtins->lay_out_class (assert_cast<model_class *> (array->type ()));
 
-  current = build_array_reference (array_tree, index_tree,
-				   component_type);
+  current = build_array_reference (array_tree, index_tree, component_type);
+  annotate (current, aref);
 }
 
 void
-tree_generator::binary_operator (tree_code code,
+tree_generator::binary_operator (model_element *element,
+				 tree_code code,
 				 const ref_expression &lhs,
 				 const ref_expression &rhs)
 {
@@ -1007,22 +1013,23 @@ tree_generator::binary_operator (tree_code code,
 		    lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 || TREE_SIDE_EFFECTS (rhs_tree));
+  annotate (current, element);
 }
 
 void
-tree_generator::visit_arith_binary (model_minus *,
+tree_generator::visit_arith_binary (model_minus *elt,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  binary_operator (MINUS_EXPR, lhs, rhs);
+  binary_operator (elt, MINUS_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_arith_binary (model_mult *,
+tree_generator::visit_arith_binary (model_mult *elt,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  binary_operator (MULT_EXPR, lhs, rhs);
+  binary_operator (elt, MULT_EXPR, lhs, rhs);
 }
 
 void
@@ -1039,6 +1046,7 @@ tree_generator::visit_arith_binary (model_div *op,
 			  lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 | TREE_SIDE_EFFECTS (rhs_tree));
+  annotate (current, op);
 }
 
 void
@@ -1055,30 +1063,31 @@ tree_generator::visit_arith_binary (model_mod *op,
 		       lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 | TREE_SIDE_EFFECTS (rhs_tree));
+  annotate (current, op);
 }
 
 void
-tree_generator::visit_arith_binary (model_and *,
+tree_generator::visit_arith_binary (model_and *elt,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  binary_operator (BIT_AND_EXPR, lhs, rhs);
+  binary_operator (elt, BIT_AND_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_arith_binary (model_or *,
+tree_generator::visit_arith_binary (model_or *elt,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  binary_operator (BIT_IOR_EXPR, lhs, rhs);
+  binary_operator (elt, BIT_IOR_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_arith_binary (model_xor *,
+tree_generator::visit_arith_binary (model_xor *elt,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  binary_operator (BIT_XOR_EXPR, lhs, rhs);
+  binary_operator (elt, BIT_XOR_EXPR, lhs, rhs);
 }
 
 void
@@ -1087,11 +1096,12 @@ tree_generator::visit_arith_binary (model_plus *model,
 				    const ref_expression &rhs)
 {
   //  FIXME: String '+'.
-  binary_operator (PLUS_EXPR, lhs, rhs);
+  binary_operator (model, PLUS_EXPR, lhs, rhs);
 }
 
 tree
-tree_generator::arith_shift (tree_code kind,
+tree_generator::arith_shift (model_element *element,
+			     tree_code kind,
 			     const ref_expression &lhs,
 			     const ref_expression &rhs,
 			     bool is_unsigned)
@@ -1137,6 +1147,8 @@ tree_generator::arith_shift (tree_code kind,
   tree result = build2 (kind, TREE_TYPE (lhs_tree), lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (result) = (TREE_SIDE_EFFECTS (lhs_tree)
 				| TREE_SIDE_EFFECTS (rhs_tree));
+  annotate (result, element);
+
   if (is_unsigned)
     {
       tree conv = build1 (CONVERT_EXPR, saved_lhs_type, result);
@@ -1148,31 +1160,31 @@ tree_generator::arith_shift (tree_code kind,
 }
 
 void
-tree_generator::visit_arith_shift (model_left_shift *,
+tree_generator::visit_arith_shift (model_left_shift *elt,
 				   const ref_expression &lhs,
 				   const ref_expression &rhs)
 {
-  current = arith_shift (LSHIFT_EXPR, lhs, rhs, false);
+  current = arith_shift (elt, LSHIFT_EXPR, lhs, rhs, false);
 }
 
 void
-tree_generator::visit_arith_shift (model_right_shift *,
+tree_generator::visit_arith_shift (model_right_shift *elt,
 				   const ref_expression &lhs,
 				   const ref_expression &rhs)
 {
-  current = arith_shift (RSHIFT_EXPR, lhs, rhs, false);
+  current = arith_shift (elt, RSHIFT_EXPR, lhs, rhs, false);
 }
 
 void
-tree_generator::visit_arith_shift (model_unsigned_right_shift *,
+tree_generator::visit_arith_shift (model_unsigned_right_shift *elt,
 				   const ref_expression &lhs,
 				   const ref_expression &rhs)
 {
-  current = arith_shift (RSHIFT_EXPR, lhs, rhs, true);
+  current = arith_shift (elt, RSHIFT_EXPR, lhs, rhs, true);
 }
 
 void
-tree_generator::visit_assignment (model_assignment *,
+tree_generator::visit_assignment (model_assignment *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
@@ -1184,10 +1196,12 @@ tree_generator::visit_assignment (model_assignment *,
   current = build2 (MODIFY_EXPR, gcc_builtins->map_type (lhs->type ()),
 		    lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, elt);
 }
 
 void
-tree_generator::handle_op_assignment (tree_code op,
+tree_generator::handle_op_assignment (model_element *element,
+				      tree_code op,
 				      const ref_expression &lhs,
 				      const ref_expression &rhs)
 {
@@ -1200,6 +1214,7 @@ tree_generator::handle_op_assignment (tree_code op,
 		    build2 (op, gcc_builtins->map_type (lhs->type ()),
 			    lhs_tree, rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, element);
 
   model_type *lhs_type = lhs->type ();
   model_type *rhs_type = rhs->type ();
@@ -1209,19 +1224,19 @@ tree_generator::handle_op_assignment (tree_code op,
 }
 
 void
-tree_generator::visit_op_assignment (model_minus_equal *,
+tree_generator::visit_op_assignment (model_minus_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (MINUS_EXPR, lhs, rhs);
+  handle_op_assignment (elt, MINUS_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_op_assignment (model_mult_equal *,
+tree_generator::visit_op_assignment (model_mult_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (MULT_EXPR, lhs, rhs);
+  handle_op_assignment (elt, MULT_EXPR, lhs, rhs);
 }
 
 void
@@ -1241,30 +1256,31 @@ tree_generator::visit_op_assignment (model_div_equal *op,
 		    build_divide (div_type, lhs_tree,
 				  rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, op);
 }
 
 void
-tree_generator::visit_op_assignment (model_and_equal *,
+tree_generator::visit_op_assignment (model_and_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (BIT_AND_EXPR, lhs, rhs);
+  handle_op_assignment (elt, BIT_AND_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_op_assignment (model_or_equal *,
+tree_generator::visit_op_assignment (model_or_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (BIT_IOR_EXPR, lhs, rhs);
+  handle_op_assignment (elt, BIT_IOR_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_op_assignment (model_xor_equal *,
+tree_generator::visit_op_assignment (model_xor_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (BIT_XOR_EXPR, lhs, rhs);
+  handle_op_assignment (elt, BIT_XOR_EXPR, lhs, rhs);
 }
 
 void
@@ -1284,26 +1300,27 @@ tree_generator::visit_op_assignment (model_mod_equal *op,
 		    build_mod (div_type, lhs_tree,
 			       rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, op);
 }
 
 void
-tree_generator::visit_op_assignment (model_ls_equal *,
+tree_generator::visit_op_assignment (model_ls_equal *op,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (LSHIFT_EXPR, lhs, rhs);
+  handle_op_assignment (op, LSHIFT_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_op_assignment (model_rs_equal *,
+tree_generator::visit_op_assignment (model_rs_equal *op,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (RSHIFT_EXPR, lhs, rhs);
+  handle_op_assignment (op, RSHIFT_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_op_assignment (model_urs_equal *,
+tree_generator::visit_op_assignment (model_urs_equal *op,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
@@ -1330,18 +1347,19 @@ tree_generator::visit_op_assignment (model_urs_equal *,
 			    gcc_builtins->map_type (lhs->type ()),
 			    ulhs_tree, rhs_tree));
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, op);
 }
 
 void
-tree_generator::visit_op_assignment (model_plus_equal *,
+tree_generator::visit_op_assignment (model_plus_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (PLUS_EXPR, lhs, rhs);
+  handle_op_assignment (elt, PLUS_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_cast (model_cast *,
+tree_generator::visit_cast (model_cast *elt,
 			    const ref_forwarding_type &dest,
 			    const ref_expression &expr)
 {
@@ -1375,6 +1393,8 @@ tree_generator::visit_cast (model_cast *,
 	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
 	}
     }
+  // FIXME: might have a constant or DECL here.
+  // annotate (current, elt);
 }
 
 void
@@ -1382,54 +1402,55 @@ tree_generator::visit_class_ref (model_class_ref *ref,
 				 const ref_forwarding_type &req)
 {
   current = build_class_ref (req->type (), ref);
+  annotate (current, ref);
 }
 
 void
-tree_generator::visit_comparison (model_equal *,
+tree_generator::visit_comparison (model_equal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (EQ_EXPR, lhs, rhs);
+  binary_operator (elt, EQ_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_comparison (model_notequal *,
+tree_generator::visit_comparison (model_notequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (NE_EXPR, lhs, rhs);
+  binary_operator (elt, NE_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_comparison (model_lessthan *,
+tree_generator::visit_comparison (model_lessthan *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (LT_EXPR, lhs, rhs);
+  binary_operator (elt, LT_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_comparison (model_greaterthan *,
+tree_generator::visit_comparison (model_greaterthan *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (GT_EXPR, lhs, rhs);
+  binary_operator (elt, GT_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_comparison (model_lessthanequal *,
+tree_generator::visit_comparison (model_lessthanequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (LE_EXPR, lhs, rhs);
+  binary_operator (elt, LE_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_comparison (model_greaterthanequal *,
+tree_generator::visit_comparison (model_greaterthanequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (GE_EXPR, lhs, rhs);
+  binary_operator (elt, GE_EXPR, lhs, rhs);
 }
 
 void
@@ -1450,10 +1471,11 @@ tree_generator::visit_conditional (model_conditional *m_cond,
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (cond_tree)
 				 || TREE_SIDE_EFFECTS (true_tree)
 				 || TREE_SIDE_EFFECTS (false_tree));
+  annotate (current, m_cond);
 }
 
 void
-tree_generator::visit_field_ref (model_field_ref *,
+tree_generator::visit_field_ref (model_field_ref *elt,
 				 const ref_expression &expr,
 				 const model_field *field)
 {
@@ -1482,10 +1504,11 @@ tree_generator::visit_field_ref (model_field_ref *,
   gcc_builtins->lay_out_class (field->get_declaring_class ());
   current = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
 					 const_cast<model_field *> (field));
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_field_initializer (model_field_initializer *,
+tree_generator::visit_field_initializer (model_field_initializer *elt,
 					 model_field *field)
 {
   if ((field->static_p () && field->constant_p ())
@@ -1502,6 +1525,7 @@ tree_generator::visit_field_initializer (model_field_initializer *,
 
   field->get_initializer ()->visit (this);
   current = build2 (MODIFY_EXPR, TREE_TYPE (field_tree), field_tree, current);
+  annotate (current, elt);
 }
 
 tree
@@ -1534,22 +1558,23 @@ tree_generator::visit_instanceof (model_instanceof *stmt,
   tree expr_tree = save_expr (current);
   tree class_tree = build_class_ref (klass->type (), stmt);
   current = handle_instanceof (expr_tree, class_tree);
+  annotate (current, stmt);
 }
 
 void
-tree_generator::visit_logical_binary (model_lor *,
+tree_generator::visit_logical_binary (model_lor *elt,
 				      const ref_expression &lhs,
 				      const ref_expression &rhs)
 {
-  binary_operator (TRUTH_ORIF_EXPR, lhs, rhs);
+  binary_operator (elt, TRUTH_ORIF_EXPR, lhs, rhs);
 }
 
 void
-tree_generator::visit_logical_binary (model_land *,
+tree_generator::visit_logical_binary (model_land *elt,
 				      const ref_expression &lhs,
 				      const ref_expression &rhs)
 {
-  binary_operator (TRUTH_ANDIF_EXPR, lhs, rhs);
+  binary_operator (elt, TRUTH_ANDIF_EXPR, lhs, rhs);
 }
 
 void
@@ -1560,36 +1585,31 @@ tree_generator::visit_simple_literal (model_literal_base *,
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jbyte &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jbyte &val)
 {
   current = build_int (val, type_jbyte);
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jchar &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jchar &val)
 {
   current = build_int (val, type_jchar);
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jshort &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jshort &val)
 {
   current = build_int (val, type_jshort);
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jint &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jint &val)
 {
   current = build_int (val);
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jlong &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jlong &val)
 {
   current = build_long (val);
 }
@@ -1605,8 +1625,7 @@ tree_generator::handle_float (jfloat val)
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jfloat &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jfloat &val)
 {
   current = handle_float (val);
 }
@@ -1625,8 +1644,7 @@ tree_generator::handle_double (jdouble val)
 }
 
 void
-tree_generator::visit_simple_literal (model_literal_base *,
-				      const jdouble &val)
+tree_generator::visit_simple_literal (model_literal_base *, const jdouble &val)
 {
   current = handle_double (val);
 }
@@ -1680,7 +1698,7 @@ tree_generator::handle_invocation (const model_method *meth,
 }
 
 void
-tree_generator::visit_method_invocation (model_method_invocation *,
+tree_generator::visit_method_invocation (model_method_invocation *elt,
 					 const model_method *meth,
 					 const ref_expression &this_expr,
 					 const std::list<ref_expression> &args)
@@ -1696,6 +1714,8 @@ tree_generator::visit_method_invocation (model_method_invocation *,
 	side_effect = current;
     }
   handle_invocation (meth, expr_tree, args);
+  annotate (current, elt);
+
   // Handle the case where we evaluate the expression for side effects
   // but discard its value.
   if (side_effect != NULL_TREE)
@@ -1708,33 +1728,36 @@ tree_generator::visit_method_invocation (model_method_invocation *,
 
 void
 tree_generator::visit_type_qualified_invocation
-    (model_type_qualified_invocation *,
+    (model_type_qualified_invocation *elt,
      const model_method *meth,
      const std::list<ref_expression> &args,
      bool super)
 {
   handle_invocation (meth, meth->static_p () ? NULL_TREE : this_tree, args,
 		     super);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_super_invocation (model_super_invocation *,
+tree_generator::visit_super_invocation (model_super_invocation *elt,
 					const model_method *meth,
 					const std::list<ref_expression> &args)
 {
   handle_invocation (meth, this_tree, args, true);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_this_invocation (model_this_invocation *,
+tree_generator::visit_this_invocation (model_this_invocation *elt,
 				       const model_method *meth,
 				       const std::list<ref_expression> &args)
 {
   handle_invocation (meth, this_tree, args);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_new (model_new *,
+tree_generator::visit_new (model_new *elt,
 			   const model_method *constructor,
 			   const ref_forwarding_type &klass,
 			   const std::list<ref_expression> &args)
@@ -1756,6 +1779,7 @@ tree_generator::visit_new (model_new *,
     = gcc_builtins->map_new (class_wrapper, klassp,
 			     gcc_builtins->map_method (const_cast<model_method *>(constructor)),
 			     arg_tree);
+  annotate (current, elt);
 }
 
 void
@@ -1774,6 +1798,7 @@ tree_generator::visit_new_array (model_new_array *new_elt,
 	current = build_new_array (elt_type->type (), ind_tree, new_elt);
       else
 	current = build_new_object_array (elt_type->type (), ind_tree);
+      annotate (current, new_elt);
     }
   else if (indices.size () != 0)
     {
@@ -1790,6 +1815,7 @@ tree_generator::visit_new_array (model_new_array *new_elt,
       current = build3 (CALL_EXPR, array_type_tree,
 			builtin_Jv_NewMultiArray,
 			nreverse (args), NULL_TREE);
+      annotate (current, new_elt);
     }
   else
     {
@@ -1805,27 +1831,29 @@ tree_generator::visit_null_literal (model_null_literal *)
 }
 
 void
-tree_generator::handle_inc_dec (tree_code op, const ref_expression &expr)
+tree_generator::handle_inc_dec (model_element *element, tree_code op,
+				const ref_expression &expr)
 {
   expr->visit (this);
   tree expr_tree = current;
   current = build2 (op, gcc_builtins->map_type (expr->type ()), expr_tree,
 		    integer_one_node);
   TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, element);
 }
 
 void
-tree_generator::visit_prefix_side_effect (model_prefix_plusplus *,
+tree_generator::visit_prefix_side_effect (model_prefix_plusplus *elt,
 					  const ref_expression &expr)
 {
-  handle_inc_dec (PREINCREMENT_EXPR, expr);
+  handle_inc_dec (elt, PREINCREMENT_EXPR, expr);
 }
 
 void
-tree_generator::visit_prefix_side_effect (model_prefix_minusminus *,
+tree_generator::visit_prefix_side_effect (model_prefix_minusminus *elt,
 					  const ref_expression &expr)
 {
-  handle_inc_dec (PREDECREMENT_EXPR, expr);
+  handle_inc_dec (elt, PREDECREMENT_EXPR, expr);
 }
 
 void
@@ -1837,17 +1865,18 @@ tree_generator::visit_prefix_simple (model_prefix_plus *,
 }
 
 void
-tree_generator::visit_prefix_simple (model_prefix_minus *,
+tree_generator::visit_prefix_simple (model_prefix_minus *elt,
 				     const ref_expression &expr)
 {
   expr->visit (this);
   tree hold = current;
   current = build1 (NEGATE_EXPR, gcc_builtins->map_type (expr->type ()), hold);
   TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (hold);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_prefix_simple (model_bitwise_not *,
+tree_generator::visit_prefix_simple (model_bitwise_not *elt,
 				     const ref_expression &expr)
 {
   expr->visit (this);
@@ -1855,30 +1884,32 @@ tree_generator::visit_prefix_simple (model_bitwise_not *,
   current = build1 (BIT_NOT_EXPR, gcc_builtins->map_type (expr->type ()),
 		    hold);
   TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (hold);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_prefix_simple (model_logical_not *,
+tree_generator::visit_prefix_simple (model_logical_not *elt,
 				     const ref_expression &expr)
 {
   expr->visit (this);
   tree hold = current;
   current = build1 (TRUTH_NOT_EXPR, type_jboolean, hold);
   TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (hold);
+  annotate (current, elt);
 }
 
 void
-tree_generator::visit_postfix_side_effect (model_postfix_plusplus *,
+tree_generator::visit_postfix_side_effect (model_postfix_plusplus *elt,
 					   const ref_expression &expr)
 {
-  handle_inc_dec (POSTINCREMENT_EXPR, expr);
+  handle_inc_dec (elt, POSTINCREMENT_EXPR, expr);
 }
 
 void
-tree_generator::visit_postfix_side_effect (model_postfix_minusminus *,
+tree_generator::visit_postfix_side_effect (model_postfix_minusminus *elt,
 					   const ref_expression &expr)
 {
-  handle_inc_dec (POSTDECREMENT_EXPR, expr);
+  handle_inc_dec (elt, POSTDECREMENT_EXPR, expr);
 }
 
 void
@@ -1889,7 +1920,7 @@ tree_generator::visit_this (model_this *)
 }
 
 void
-tree_generator::visit_simple_variable_ref (model_simple_variable_ref *,
+tree_generator::visit_simple_variable_ref (model_simple_variable_ref *elt,
 					   const model_variable_decl *decl)
 {
   current

@@ -106,15 +106,15 @@ class tree_generator : public visitor
   tree build_class_ref (model_type *, model_element *);
   tree build_class_ref (const std::string &);
   tree handle_instanceof (tree, tree);
-  void handle_inc_dec (tree_code, const ref_expression &);
-  void handle_op_assignment (tree_code, const ref_expression &,
-			     const ref_expression &);
+  void handle_inc_dec (model_element *, tree_code, const ref_expression &);
+  void handle_op_assignment (model_element *, tree_code,
+			     const ref_expression &, const ref_expression &);
   void handle_invocation (const model_method *, tree,
 			  const std::list<ref_expression> &,
 			  bool = false);
-  tree arith_shift (tree_code, const ref_expression &, const ref_expression &,
-		    bool);
-  void binary_operator (tree_code, const ref_expression &,
+  tree arith_shift (model_element *, tree_code, const ref_expression &,
+		    const ref_expression &, bool);
+  void binary_operator (model_element *, tree_code, const ref_expression &,
 			const ref_expression &);
   tree build_jni_stub ();
   tree handle_string_literal (const std::string &);
