@@ -1,3 +1,9 @@
+Tue Apr 23 14:24:25 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (gen_load_of_final_value): New.
+	(loop_givs_rescan, strength_reduce, check_dbra_loop):
+	Use it.
+
 2003-09-23  David S. Miller  <davem@redhat.com>
 
 	* config/sparc/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Undefine
