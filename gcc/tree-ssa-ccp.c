@@ -823,7 +823,8 @@ def_to_undefined (var)
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
-      set_value (var, UNDEFINED, NULL_TREE);
+      value->lattice_val = UNDEFINED;
+      value->const_val = NULL_TREE;
     }
 
 }
@@ -843,7 +844,8 @@ def_to_varying (var)
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
-      set_value (var, VARYING, NULL_TREE);
+      value->lattice_val = VARYING;
+      value->const_val = NULL_TREE;
     }
 
 }
@@ -885,9 +887,15 @@ set_lattice_value (var, val)
 	  /* If the constant for VAR has changed, then this VAR is
 	     really varying.  */
 	  if (old_val->lattice_val == CONSTANT)
-	    set_value (var, VARYING, NULL_TREE);
+	    {
+	      old_val->lattice_val = VARYING;
+	      old_val->const_val = NULL_TREE;
+	    }
 	  else
-	    set_value (var, CONSTANT, val.const_val);
+	    {
+	      old_val->lattice_val = CONSTANT;
+	      old_val->const_val = val.const_val;
+	    }
 
 	  VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
 	}

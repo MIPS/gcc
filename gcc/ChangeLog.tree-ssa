@@ -1,5 +1,9 @@
 2002-02-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-ccp.c (def_to_undefined): Directly store the new
+	lattice values rather than call set_value.
+	(def_to_varying): Likewise.
+
 	* tree-ssa-ccp.c (def_to_undefined): Add some state transition
 	sanity checking.  Avoid calling set_value if nothing changed.
 	(def_to_varying): Avoid calling set_value if nothing changed.
