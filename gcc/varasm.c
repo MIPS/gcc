@@ -3534,16 +3534,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 
     case ADDR_EXPR:
     case FDESC_EXPR:
-      /* Go inside any operations that get_inner_reference can handle and
-	 see if what's inside is a constant.  */
-      for (value = TREE_OPERAND (value, 0);
-	   handled_component_p (value);
-	   value = TREE_OPERAND (value, 0))
-	if (TREE_CODE (value) == ARRAY_REF
-	    && TREE_CODE (TREE_OPERAND (value, 1)) != INTEGER_CST)
-	  break;
-
-      return staticp (value) ? value : 0;
+      return staticp (TREE_OPERAND (value, 0)) ? TREE_OPERAND (value, 0) : 0;
 
     case VIEW_CONVERT_EXPR:
     case NON_LVALUE_EXPR:
@@ -3624,71 +3615,74 @@ initializer_constant_valid_p (tree value, tree endtype)
       break;
 
     case MINUS_EXPR:
-      {
-	tree op0, op1, valid0, valid1;
+      if (! INTEGRAL_TYPE_P (endtype)
+	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
+	{
+	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						      endtype);
+	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
+						      endtype);
+	  /* Win if second argument is absolute.  */
+	  if (valid1 == null_pointer_node)
+	    return valid0;
+	  /* Win if both arguments have the same relocation.
+	     Then the value is absolute.  */
+	  if (valid0 == valid1 && valid0 != 0)
+	    return null_pointer_node;
 
-	op0 = TREE_OPERAND (value, 0);
-	op1 = TREE_OPERAND (value, 1);
+	  /* Since GCC guarantees that string constants are unique in the
+	     generated code, a subtraction between two copies of the same
+	     constant string is absolute.  */
+	  if (valid0 && TREE_CODE (valid0) == STRING_CST &&
+	      valid1 && TREE_CODE (valid1) == STRING_CST &&
+	      TREE_STRING_POINTER (valid0) == TREE_STRING_POINTER (valid1))
+	    return null_pointer_node;
+	}
 
-	/* Like STRIP_NOPS except allow the operand mode to widen.
-	   This works around a feature of fold that simplifies
-	   (short)(p1 - p2) to ((short)p1 - (short)p2) under the
-	   theory that the narrower operation is cheaper.  */
+      /* Support differences between labels.  */
+      if (INTEGRAL_TYPE_P (endtype))
+	{
+	  tree op0, op1;
+	  op0 = TREE_OPERAND (value, 0);
+	  op1 = TREE_OPERAND (value, 1);
 
-	while (TREE_CODE (op0) == NOP_EXPR
-	       || TREE_CODE (op0) == CONVERT_EXPR
-	       || TREE_CODE (op0) == NON_LVALUE_EXPR)
-	  {
-	    tree inner = TREE_OPERAND (op0, 0);
-	    if (inner == error_mark_node
-	        || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
-		|| (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))
-		    > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
-	      break;
-	    op0 = inner;
-	  }
+	  /* Like STRIP_NOPS except allow the operand mode to widen.
+	     This works around a feature of fold that simplifies
+	     (int)(p1 - p2) to ((int)p1 - (int)p2) under the theory
+	     that the narrower operation is cheaper.  */
 
-	while (TREE_CODE (op1) == NOP_EXPR
-	       || TREE_CODE (op1) == CONVERT_EXPR
-	       || TREE_CODE (op1) == NON_LVALUE_EXPR)
-	  {
-	    tree inner = TREE_OPERAND (op1, 0);
-	    if (inner == error_mark_node
-	        || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
-		|| (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))
-		    > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
-	      break;
-	    op1 = inner;
-	  }
+	  while (TREE_CODE (op0) == NOP_EXPR
+		 || TREE_CODE (op0) == CONVERT_EXPR
+		 || TREE_CODE (op0) == NON_LVALUE_EXPR)
+	    {
+	      tree inner = TREE_OPERAND (op0, 0);
+	      if (inner == error_mark_node
+	          || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
+		  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))
+		      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
+		break;
+	      op0 = inner;
+	    }
 
-	valid0 = initializer_constant_valid_p (op0, endtype);
-	valid1 = initializer_constant_valid_p (op1, endtype);
+	  while (TREE_CODE (op1) == NOP_EXPR
+		 || TREE_CODE (op1) == CONVERT_EXPR
+		 || TREE_CODE (op1) == NON_LVALUE_EXPR)
+	    {
+	      tree inner = TREE_OPERAND (op1, 0);
+	      if (inner == error_mark_node
+	          || ! INTEGRAL_MODE_P (TYPE_MODE (TREE_TYPE (inner)))
+		  || (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))
+		      > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (inner)))))
+		break;
+	      op1 = inner;
+	    }
 
-	/* Win if second argument is absolute.  */
-	if (valid1 == null_pointer_node)
-	  return valid0;
-
-	/* Other winning solutions require both valid.  */
-	if (valid0 && valid1)
-	  {
-	    /* If both arguments have the same relocation then the
-	       value is absolute.  */
-	    if (valid0 == valid1)
-	      return null_pointer_node;
-
-	    /* Since GCC guarantees that string constants are unique in the
-	       generated code, a subtraction between two copies of the same
-	       constant string is absolute.  */
-	    if (TREE_CODE (valid0) == STRING_CST
-	        && operand_equal_p (valid0, valid1, 0))
-	      return null_pointer_node;
-
-            /* Support differences between labels.  */
-	    if (TREE_CODE (valid0) == LABEL_DECL
-		&& TREE_CODE (valid1) == LABEL_DECL)
-	      return null_pointer_node;
-	  }
-      }
+	  if (TREE_CODE (op0) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
+	      && TREE_CODE (op1) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL)
+	    return null_pointer_node;
+	}
       break;
 
     default:

@@ -1287,7 +1287,6 @@ extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
 extern int c_tree_chain_matters_p (tree);
 
 extern void c_warn_unused_result (tree *);
-extern bool c_address_looks_like_offsetof (tree);
 
 /* In c-simplify.c  */
 extern void c_genericize (tree);

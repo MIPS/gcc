@@ -286,7 +286,7 @@ is_gimple_min_invariant (tree t)
 
     case PLUS_EXPR:
       {
-	tree op0, op1, op00;
+	tree op0, op1;
 
 	if (!TREE_INVARIANT (t))
 	  return false;
@@ -304,8 +304,7 @@ is_gimple_min_invariant (tree t)
 	   is doing something tricky or stupid, and the later case
 	   can result in constructs that we can't reassemble after
 	   we've already committed to the constant propagation.  */
-	op00 = TREE_OPERAND (op0, 0);
-	if (is_gimple_variable (op00) && is_gimple_reg_type (TREE_TYPE (op00)))
+	if (is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (op0, 0))))
 	  return false;
 
 	return true;
