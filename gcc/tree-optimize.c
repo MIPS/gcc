@@ -57,6 +57,47 @@ bitmap vars_to_rename;
 /* The root of the compilation pass tree, once constructed.  */
 static struct tree_opt_pass *all_passes;
 
+/* Pass: inline.  */
+
+static void
+execute_inline (void)
+{
+  struct cgraph_node *node;
+
+  node = cgraph_node (current_function_decl);
+
+  if (flag_inline_trees)
+    {
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	if (!e->inline_failed || warn_inline)
+	  break;
+      if (e)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  optimize_inline_calls (current_function_decl);
+	  timevar_pop (TV_INTEGRATION);
+	}
+    }
+
+}
+
+static struct tree_opt_pass pass_inline = 
+{
+  "inline",				/* name */
+  NULL,					/* gate */
+  execute_inline,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func			/* todo_flags_finish */
+};
+
 /* Pass: gimplify the function if it's not been done.  */
 
 static void
@@ -260,6 +301,7 @@ init_tree_optimization_passes (void)
 
   p = &all_passes;
   NEXT_PASS (pass_gimple);
+  NEXT_PASS (pass_inline);
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_cf);
@@ -481,37 +523,22 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
-  node = cgraph_node (fndecl);
-
   /* We might need the body of this function so that we can expand
      it inline somewhere else.  This means not lowering some constructs
      such as exception handling.  */
-  if (cgraph_preserve_function_body_p (fndecl))
+  if (cgraph_preserve_function_body_p (current_function_decl))
     {
       if (!flag_unit_at_a_time)
 	{
 	  struct cgraph_edge *e;
 
+	  node = cgraph_node (current_function_decl);
 	  saved_node = cgraph_clone_node (node);
 	  for (e = saved_node->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      cgraph_clone_inlined_nodes (e, true);
 	}
-      cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
-    }
-
-  if (flag_inline_trees)
-    {
-      struct cgraph_edge *e;
-      for (e = node->callees; e; e = e->next_callee)
-	if (!e->inline_failed || warn_inline)
-	  break;
-      if (e)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (fndecl);
-	  timevar_pop (TV_INTEGRATION);
-	}
+      cfun->saved_tree = save_body (current_function_decl, &cfun->saved_args);
     }
 
   /* Do not confuse backend by incorrect instruction chain.  */
@@ -576,6 +603,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       if (!flag_unit_at_a_time)
 	{
 	  struct cgraph_edge *e;
+	  node = cgraph_node (current_function_decl);
 	  while (node->callees)
 	    cgraph_remove_edge (node->callees);
 	  node->callees = saved_node->callees;

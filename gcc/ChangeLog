@@ -1,3 +1,7 @@
+2004-02-25  Stuart Hastings  <stuart@apple.com>
+	* tree-optimize.c (execute_inline) New.
+	Make inliner into a PASS, move after first gimplification step.
+	
 2004-02-19  Richard Henderson  <rth@redhat.com>
 
         * c-opts.c (warn_variadic_macros): New.
