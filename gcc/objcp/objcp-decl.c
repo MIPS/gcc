@@ -81,8 +81,8 @@ void
 objcp_finish_function (void)
 {
   /* The C++ flavor of 'finish_function' does not generate RTL -- one has
-     to call 'expand_body' to do that.  */
-  expand_body (finish_function (0));
+     to call 'expand_or_defer_fn' to do that.  */
+  expand_or_defer_fn (finish_function (0));
 }
 
 tree
