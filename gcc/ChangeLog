@@ -2193,6 +2193,108 @@ Fri Nov 13 11:02:11 1998  Stan Cox  <scox@cygnus.com>
 	* sparc.c (sparc_flat_compute_frame_size): Correctly calc args_size
 	in a leaf function.  Clarify total_size/extra_size relationship.
 
+=======
+I'm intentionally leaving the ChangeLogs conflicted during the merge.  robertl
+
+
+Mon Jan  4 11:19:58 PST 1999   Robert Lipe <robertlipe@usa.net>
+
+	* fixinc/Makefile.in : Remove RCS ident strings
+	* fixinc/fixincl.c: Likewise.
+	* fixinc/regex.h: Likewise.
+	* fixinc/hackshell.tpl: Likewise.
+	* fixinc/inclhack.tpl : Likewise.
+	* fixinc/regex.c: Likewise.
+	* fixinc/inclhack.def: Likewise.
+
+Tue Dec 15 07:26:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* fixinc/server.[ch]: lowercased variable names and
+	switched the copyright holder name to the FSF.
+
+1998-12-10  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* configure.in: Add new configure var. "fixinc_defs"; set it to
+	force usage of the fixincl.sh shell script on m68k-motorola-sysv
+	and m88k-motorola-sysv3.
+	* configure: Regenerate.
+	* fixinc/Makefile.in (FIXINC_DEFS): Add new macro to be defined
+	by gcc's configure script.
+	(.c.o): Add $(FIXINC_DEFS) for compilation.
+	(regex.o): Likewise.
+
+	* fixinc/fixincl.c: #include <sys/types.h> before any other file
+	from sys/.
+	(FIXINC_BROKEN): Add code to force a compile error triggered by
+	the new FIXINC_DEFS/fixinc_defs macros.
+
+Tue Dec  1 12:40:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* fixinc/fixincl.c (main): added retry count limit (10).
+	Also reduced BOGUS_LIMIT to 128.
+
+1998-11-25  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* fixinc/mkfixinc.sh (SHELL): Pass SHELL on the command line
+	when invoking $MAKE; this fixes a bug with SunOS' /bin/sh
+	not handling I/O redirection properly.
+
+	* fixinc/Makefile.in (LIBERTY): New macro where to find
+	libiberty.a.
+	(fixincl): Pass $(LIBERTY).
+
+Mon Nov 23 08:04:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* Makefile.in (fixinc.sh): corrected "srcdir" that gets passed
+	to fixinc/mkfixinc.sh;  dropped unnecessary "mkdir" code.
+
+	* configure.in & configure & Makefile.in & fixinc/*: restored
+	clobbered updates.
+
+	* fixinc/fixincl.c (main): added test to ensure the program can
+	talk to a server shell before exiting successfully on a
+	"-v"ersion option invocation.
+
+1998-11-20  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* Makefile.in (fixinc.sh): Add dependency upon $(srcdir)/fixinc/mkfixinc.sh;
+	add appropriate code to use the fixinc/* files in gcc instead
+	of the old ones in contrib.
+	(stmp-fixinc): Comment non fast-fixinc version and provide
+	a suitable one for using fast-fixinc.
+
+	* fixinc/fixinc.dgux (INSTALL_ASSERT_H): Remove trailing ';'; add error
+	exit if copying assert.h fails.
+	* fixinc/fixinc.irix (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.ptx (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.sco (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.svr4 (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.winnt (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.wrap (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixincl.sh (INSTALL_ASSERT_H): Likewise.
+	* fixinc/inclhack.tpl (INSTALL_ASSERT_H): Likewise.
+	* fixinc/inclhack.sh: Regenerate using autogen.
+
+1998-11-20  Bruce Korb <korb@datadesign.com>
+
+	* fixinc/mkfixinc.sh (srcdir): Look for source files in ${srcdir}
+	only; prefer "inclhack.sh" in the builddir over the srcdir
+	version.
+
+	* fixinc/fixincl.c (MINIMUM_MAXIMUM_LINES): Add definition.
+	(MAXPATHLEN): Add fallback definition for those systems that
+	don't define it.
+	(NAME_TABLE_SIZE): Add definition.
+	(pzFileNameBuf): Renamed from zFileNameBuf change it to
+	be a dynamically allocated pointer instead of a static array;
+	change all occurences of zFileNameBuf accordingly.
+	(main): Use BOGUS_LIMIT as an alias for MINIMUM_MAXIMUM_LINES.
+	* server.c (MAXPATHLEN): Add fallback definition for those systems
+	that don't define it.
+	(defArgs): Remove "-p" flag.
+
+### end fixinc hunk ###
+
 Thu Nov 12 19:20:57 1998  Geoffrey Noer  <noer@cygnus.com>
 
 	* i386/cygwin32.asm: Delete.
