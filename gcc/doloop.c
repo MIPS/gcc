@@ -185,8 +185,7 @@ doloop_valid_p (loops, loop)
   free (body);
 
   /* Check whether the loop is simple.  */
-  if (!loop->has_desc
-      || !loop->simple
+  if (!loop->simple
       || loop->desc.infinite != const0_rtx)
     {
       if (rtl_dump_file)

@@ -51,7 +51,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sreal.h"
 #include "params.h"
 #include "target.h"
-#include "loop.h"
 #include "cfgloop.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
@@ -440,13 +439,15 @@ estimate_probability (loops_info)
     {
       basic_block bb, *bbs;
       unsigned j;
-      int exits;
+      unsigned exits;
+      edge *es;
       struct loop *loop = loops_info->parray[i];
       struct loop_desc desc;
       unsigned HOST_WIDE_INT niter;
 
-      flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
-      exits = loop->num_exits;
+      es = get_loop_exit_edges (loop, &exits);
+      if (es)
+	free (es);
 
       if (simple_loop_p (loops_info, loop, &desc)
 	  && desc.const_iter)

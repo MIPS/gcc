@@ -75,8 +75,6 @@ rtx tail_recursion_label_list;
 static int can_delete_label_p		PARAMS ((rtx));
 static void commit_one_edge_insertion	PARAMS ((edge, int));
 static bool try_redirect_by_replacing_jump PARAMS ((edge, basic_block));
-static rtx last_loop_beg_note		PARAMS ((rtx));
-static bool back_edge_of_syntactic_loop_p PARAMS ((basic_block, basic_block));
 static basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
@@ -368,8 +366,7 @@ flow_delete_block_noexpunge (b)
     {
       if (GET_CODE (insn) != NOTE)
 	break;
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION
-	  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
 	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
     }
 
@@ -807,29 +804,6 @@ try_redirect_by_replacing_jump (e, target)
   return true;
 }
 
-/* Return last loop_beg note appearing after INSN, before start of next
-   basic block.  Return INSN if there are no such notes.
-
-   When emitting jump to redirect a fallthru edge, it should always appear
-   after the LOOP_BEG notes, as loop optimizer expect loop to either start by
-   fallthru edge or jump following the LOOP_BEG note jumping to the loop exit
-   test.  */
-
-static rtx
-last_loop_beg_note (insn)
-     rtx insn;
-{
-  rtx last = insn;
-
-  for (insn = NEXT_INSN (insn); insn && GET_CODE (insn) == NOTE
-       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK;
-       insn = NEXT_INSN (insn))
-    if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-      last = insn;
-
-  return last;
-}
-
 /* Attempt to change code to redirect edge E to TARGET.  Don't do that on
    expense of adding new instructions or reordering basic blocks.
 
@@ -995,8 +969,7 @@ force_nonfallthru_and_redirect (e, target)
       /* Create the new structures.  */
 
       /* Position the new block correctly relative to loop notes.  */
-      note = last_loop_beg_note (e->src->end);
-      note = NEXT_INSN (note);
+      note = NEXT_INSN (e->src->end);
 
       /* ... and ADDR_VECs.  */
       if (note != NULL
@@ -1148,41 +1121,6 @@ tidy_fallthru_edge (e, b, c)
   e->flags |= EDGE_FALLTHRU;
 }
 
-/* Helper function for split_edge.  Return true in case edge BB2 to BB1
-   is back edge of syntactic loop.  */
-
-static bool
-back_edge_of_syntactic_loop_p (bb1, bb2)
-	basic_block bb1, bb2;
-{
-  rtx insn;
-  int count = 0;
-  basic_block bb;
-
-  if (bb1 == bb2)
-    return true;
-
-  /* ??? Could we guarantee that bb indices are monotone, so that we could
-     just compare them?  */
-  for (bb = bb1; bb && bb != bb2; bb = bb->next_bb)
-    continue;
-
-  if (!bb)
-    return false;
-
-  for (insn = bb1->end; insn != bb2->head && count >= 0;
-       insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == NOTE)
-      {
-	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	  count++;
-	else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	  count--;
-      }
-
-  return count >= 0;
-}
-
 /* Split a (typically critical) edge.  Return the new block.
    Abort on abnormal edges.
 
@@ -1215,32 +1153,7 @@ split_edge (edge_in)
 	force_nonfallthru (e);
     }
 
-  /* Create the basic block note.
-
-     Where we place the note can have a noticeable impact on the generated
-     code.  Consider this cfg:
-
-		        E
-			|
-			0
-		       / \
-		   +->1-->2--->E
-                   |  |
-		   +--+
-
-      If we need to insert an insn on the edge from block 0 to block 1,
-      we want to ensure the instructions we insert are outside of any
-      loop notes that physically sit between block 0 and block 1.  Otherwise
-      we confuse the loop optimizer into thinking the loop is a phony.  */
-
-  if (edge_in->dest != EXIT_BLOCK_PTR
-      && PREV_INSN (edge_in->dest->head)
-      && GET_CODE (PREV_INSN (edge_in->dest->head)) == NOTE
-      && (NOTE_LINE_NUMBER (PREV_INSN (edge_in->dest->head))
-	  == NOTE_INSN_LOOP_BEG)
-      && !back_edge_of_syntactic_loop_p (edge_in->dest, edge_in->src))
-    before = PREV_INSN (edge_in->dest->head);
-  else if (edge_in->dest != EXIT_BLOCK_PTR)
+  if (edge_in->dest != EXIT_BLOCK_PTR)
     before = edge_in->dest->head;
   else
     before = NULL_RTX;
@@ -1370,11 +1283,7 @@ commit_one_edge_insertion (e, watch_calls)
 	     We know this block has a single successor, so we can just emit
 	     the queued insns before the jump.  */
 	  if (GET_CODE (bb->end) == JUMP_INSN)
-	    for (before = bb->end;
-		 GET_CODE (PREV_INSN (before)) == NOTE
-		 && NOTE_LINE_NUMBER (PREV_INSN (before)) ==
-		 NOTE_INSN_LOOP_BEG; before = PREV_INSN (before))
-	      ;
+	    before = bb->end;
 	  else
 	    {
 	      /* We'd better be fallthru, or we've lost track of what's what.  */

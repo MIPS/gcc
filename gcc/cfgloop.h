@@ -84,9 +84,6 @@ struct loop
   /* Basic block of loop latch.  */
   basic_block latch;
 
-  /* Basic block of loop preheader or NULL if it does not exist.  */
-  basic_block pre_header;
-
   /* Histogram for a loop.  */
   struct loop_histogram *histogram;
 
@@ -96,7 +93,6 @@ struct loop
   /* Simple loop description.  */
   int simple;
   struct loop_desc desc;
-  int has_desc;
 
   /* Various information about loop.  */
   struct loop_info *info;
@@ -110,52 +106,17 @@ struct loop
   /* Landing pad, if the loop has one.  */
   basic_block landing_pad;
 
-  /* Array of edges along the preheader extended basic block trace.
-     The source of the first edge is the root node of preheader
-     extended basic block, if it exists.  */
-  edge *pre_header_edges;
-
-  /* Number of edges along the pre_header extended basic block trace.  */
-  int num_pre_header_edges;
-
-  /* The first block in the loop.  This is not necessarily the same as
-     the loop header.  */
-  basic_block first;
-
-  /* The last block in the loop.  This is not necessarily the same as
-     the loop latch.  */
-  basic_block last;
-
-  /* Bitmap of blocks contained within the loop.  */
-  sbitmap nodes;
-
-  /* Number of blocks contained within the loop.  */
-  unsigned num_nodes;
-
-  /* Array of edges that enter the loop.  */
-  edge *entry_edges;
-
-  /* Number of edges that enter the loop.  */
-  int num_entries;
-
-  /* Array of edges that exit the loop.  */
-  edge *exit_edges;
-
-  /* Number of edges that exit the loop.  */
-  int num_exits;
-
-  /* Bitmap of blocks that dominate all exits of the loop.  */
-  sbitmap exits_doms;
-
   /* The loop nesting depth.  */
   int depth;
 
+  /* The level of loops inside it.  */
+  int level;
+
+  /* Number of blocks of the loop.  */
+  unsigned num_nodes;
+
   /* Superloops of the loop.  */
   struct loop **pred;
-
-  /* The height of the loop (enclosed loop levels) within the loop
-     hierarchy tree.  */
-  int level;
 
   /* The outer (parent) loop or NULL if outermost loop.  */
   struct loop *outer;
@@ -169,55 +130,34 @@ struct loop
   /* Loop that is copy of this loop.  */
   struct loop *copy;
 
-  /* Non-zero if the loop is invalid (e.g., contains setjmp.).  */
-  int invalid;
-
   /* Auxiliary info specific to a pass.  */
   void *aux;
+};
 
-  /* The following are currently used by loop.c but they are likely to
-     disappear as loop.c is converted to use the CFG.  */
+/* Information pertaining to a loop.  */
 
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
-  rtx vtop;
-
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
-     A continue statement will generate a branch to NEXT_INSN (cont).  */
-  rtx cont;
-
-  /* The dominator of cont.  */
-  rtx cont_dominator;
-
-  /* The NOTE_INSN_LOOP_BEG.  */
-  rtx start;
-
-  /* The NOTE_INSN_LOOP_END.  */
-  rtx end;
-
-  /* For a rotated loop that is entered near the bottom,
-     this is the label at the top.  Otherwise it is zero.  */
-  rtx top;
-
-  /* Place in the loop where control enters.  */
-  rtx scan_start;
-
-  /* The position where to sink insns out of the loop.  */
-  rtx sink;
-
-  /* List of all LABEL_REFs which refer to code labels outside the
-     loop.  Used by routines that need to know all loop exits, such as
-     final_biv_value and final_giv_value.
-
-     This does not include loop exits due to return instructions.
-     This is because all bivs and givs are pseudos, and hence must be
-     dead after a return, so the presence of a return does not affect
-     any of the optimizations that use this info.  It is simpler to
-     just not include return instructions on this list.  */
-  rtx exit_labels;
-
-  /* The number of LABEL_REFs on exit_labels for this loop and all
-     loops nested inside it.  */
-  int exit_count;
+struct loop_info
+{
+  /* Nonzero if there is a subroutine call in the current loop.  */
+  int has_call;
+  /* Body of the loop.  */
+  basic_block *body;
+  /* Bitmap of blocks that don't have to be reached because the control
+     may exit the loop without entering them.  */
+  sbitmap bb_after_exit;
+  /* Bitmap of blocks that don't have to be reached because they are after
+     call that does not have to return.  */
+  sbitmap bb_after_call;
+  /* List of MEMs that are stored in this loop.  */
+  rtx store_mems;
+  /* Nonzero if we don't know what MEMs were changed in the current
+     loop.  This happens if the loop contains a call (in which case
+     `has_call' will also be set) or if we store into more than
+     NUM_STORES MEMs.  */
+  int unknown_address_altered;
+  /* The above doesn't count any readonly memory locations that are
+     stored.  This does.  */
+  int unknown_constant_address_altered;
 };
 
 /* Histogram of a loop.  */
@@ -273,9 +213,6 @@ struct loops
        depth first search.  */
     int *rc_order;
   } cfg;
-
-  /* Headers shared by multiple loops that should be merged.  */
-  sbitmap shared_headers;
 
   /* State of loops.  */
   int state;
@@ -409,7 +346,6 @@ extern void flow_loops_dump (const struct loops *, FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
-extern int flow_loop_scan (struct loops *, struct loop *, int);
 extern void flow_loop_free (struct loop *);
 void mark_irreducible_loops (struct loops *);
 

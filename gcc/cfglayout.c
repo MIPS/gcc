@@ -103,21 +103,7 @@ skip_insns_after_block (bb)
 	  continue;
 
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_LOOP_END:
-	    case NOTE_INSN_BLOCK_END:
-	      last_insn = insn;
-	      continue;
-	    case NOTE_INSN_DELETED:
-	    case NOTE_INSN_DELETED_LABEL:
-	      continue;
-
-	    default:
-	      continue;
-	      break;
-	    }
-	  break;
+	  continue;
 
 	case CODE_LABEL:
 	  if (NEXT_INSN (insn)
@@ -154,7 +140,6 @@ skip_insns_after_block (bb)
       if (GET_CODE (insn) == NOTE)
 	switch (NOTE_LINE_NUMBER (insn))
 	  {
-	  case NOTE_INSN_LOOP_END:
 	  case NOTE_INSN_BLOCK_END:
 	  case NOTE_INSN_DELETED:
 	  case NOTE_INSN_DELETED_LABEL:
@@ -825,12 +810,6 @@ duplicate_insn_chain (from, to)
 	         in first BB, we may want to copy the block.  */
 	    case NOTE_INSN_PROLOGUE_END:
 
-	    case NOTE_INSN_LOOP_VTOP:
-	    case NOTE_INSN_LOOP_CONT:
-	    case NOTE_INSN_LOOP_BEG:
-	    case NOTE_INSN_LOOP_END:
-	      /* Strip down the loop notes - we don't really want to keep
-	         them consistent in loop copies.  */
 	    case NOTE_INSN_DELETED:
 	    case NOTE_INSN_DELETED_LABEL:
 	      /* No problem to strip these.  */

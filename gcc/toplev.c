@@ -59,7 +59,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
-#include "loop.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -564,18 +563,6 @@ int flag_thread_jumps;
 /* Nonzero enables strength-reduction in loop.c.  */
 
 int flag_strength_reduce = 0;
-
-/* Nonzero enables loop unrolling in unroll.c.  Only loops for which the
-   number of iterations can be calculated at compile-time (UNROLL_COMPLETELY,
-   UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
-   unrolled.  */
-
-int flag_old_unroll_loops;
-
-/* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
-   This is generally not a win.  */
-
-int flag_old_unroll_all_loops;
 
 /* Enables unrolling of simple loops in loop-unroll.c.  */
 int flag_unroll_loops;
@@ -1095,10 +1082,6 @@ static const lang_independent_options f_options[] =
    N_("Perform loop unrolling for all loops") },
   {"reroll-loops", &flag_reroll_loops, 1,
    N_("Reroll unoptimized unrolled loops") },
-  {"old-unroll-loops", &flag_old_unroll_loops, 1,
-   N_("Perform loop unrolling when iteration count is known") },
-  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1,
-   N_("Perform loop unrolling for all loops") },
   {"peel-loops", &flag_peel_loops, 1,
    N_("Perform loop peeling") },
   {"unswitch-loops", &flag_unswitch_loops, 1,
@@ -2625,7 +2608,7 @@ rest_of_compilation (decl)
 	      rebuild_jump_labels (insns);
 	      find_exception_handler_labels ();
 	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	      cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
+	      cleanup_cfg (CLEANUP_PRE_SIBCALL);
 	      optimize = saved_optimize;
 
 	      /* CFG is no longer maintained up-to-date.  */
@@ -2809,13 +2792,13 @@ rest_of_compilation (decl)
   delete_trivially_dead_insns (insns, max_reg_num ());
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   if (optimize)
     {
       copy_loop_headers ();
-      cleanup_cfg (CLEANUP_PRE_LOOP);
+      cleanup_cfg (0);
     }
   purge_line_number_notes (insns);
 
@@ -2838,7 +2821,7 @@ rest_of_compilation (decl)
       timevar_push (TV_TO_SSA);
       open_dump_file (DFI_ssa, decl);
 
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
       convert_to_ssa ();
 
       close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
@@ -2896,7 +2879,7 @@ rest_of_compilation (decl)
 
   timevar_push (TV_JUMP);
   if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* Try to identify useless null pointer tests and delete them.  */
   if (flag_delete_null_pointer_checks)
@@ -2906,7 +2889,7 @@ rest_of_compilation (decl)
 	dump_flow_info (rtl_dump_file);
 
       if (delete_null_pointer_checks (insns))
-        cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+        cleanup_cfg (CLEANUP_EXPENSIVE);
 
       close_dump_file (DFI_null, print_rtl_with_bb, insns);
     }
@@ -2949,14 +2932,14 @@ rest_of_compilation (decl)
       cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
       if (tem || optimize > 1)
-	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	cleanup_cfg (CLEANUP_EXPENSIVE);
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
 	{
 	  timevar_push (TV_JUMP);
 
 	  if (delete_null_pointer_checks (insns))
-	    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	    cleanup_cfg (CLEANUP_EXPENSIVE);
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -3017,7 +3000,7 @@ rest_of_compilation (decl)
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3045,53 +3028,6 @@ rest_of_compilation (decl)
   /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
   if (optimize > 0 && flag_gcse && current_function_calls_constant_p)
     purge_builtin_constant_p ();
-
-  /* Move constant computations out of loops.  */
-
-  if (0 && optimize > 0 && flag_loop_optimize)
-    {
-      int do_unroll;
-
-      timevar_push (TV_LOOP);
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-      open_dump_file (DFI_loop, decl);
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
-
-      if (flag_unroll_loops)
-	do_unroll = 0;		/* Having two unrollers is useless.  */
-      else
-	do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
-      if (flag_rerun_loop_opt)
-	{
-	  cleanup_barriers ();
-
-	  /* We only want to perform unrolling once.  */
-	  loop_optimize (insns, rtl_dump_file, do_unroll);
-	  do_unroll = 0;
-
-	  /* The first call to loop_optimize makes some instructions
-	     trivially dead.  We delete those instructions now in the
-	     hope that doing so will make the heuristics in loop work
-	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num ());
-
-	  /* The regscan pass is currently necessary as the alias
-		  analysis code depends on this information.  */
-	  reg_scan (insns, max_reg_num (), 1);
-	}
-      cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file, do_unroll);
-
-      /* Loop can create trivially dead instructions.  */
-      delete_trivially_dead_insns (insns, max_reg_num ());
-      close_dump_file (DFI_loop, print_rtl, insns);
-      timevar_pop (TV_LOOP);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-
-      ggc_collect ();
-    }
 
   /* Perform store motion.  */
   if (optimize > 0 && flag_gcse && !optimize_size && flag_gcse_sm)
@@ -5388,24 +5324,6 @@ process_options ()
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  if (flag_unroll_loops)
-    {
-      flag_old_unroll_loops = 0;
-      flag_old_unroll_all_loops = 0;
-    }
-
-  if (flag_old_unroll_all_loops)
-    flag_old_unroll_loops = 1;
-
-  /* Old loop unrolling requires that strength_reduction be on also.  Silently
-     turn on strength reduction here if it isn't already on.  Also, the loop
-     unrolling code assumes that cse will be run after loop, so that must
-     be turned on also.  */
-  if (flag_old_unroll_loops)
-    {
-      flag_strength_reduce = 1;
-      flag_rerun_cse_after_loop = 1;
-    }
   if (flag_unroll_loops || flag_peel_loops)
     flag_rerun_cse_after_loop = 1;
 
@@ -5584,7 +5502,6 @@ backend_init ()
 		    || warn_notreached);
   init_fake_stack_mems ();
   init_alias_once ();
-  init_loop ();
   init_reload ();
   init_function_once ();
   init_varasm_once ();

@@ -642,7 +642,6 @@ EXPR_H = expr.h
 OPTABS_H = optabs.h insn-codes.h
 REGS_H = regs.h varray.h $(MACHMODE_H)
 INTEGRATE_H = integrate.h varray.h
-LOOP_H = loop.h varray.h bitmap.h
 GCC_H = gcc.h version.h
 GGC_H = ggc.h gtype-desc.h
 TIMEVAR_H = timevar.h timevar.def
@@ -817,7 +816,7 @@ OBJS = algebraic.o alias.o bb-reorder.o bitmap.o builtins.o caller-save.o  \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
+ tree-inline.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
  alloc-pool.o xcoffout.o et-forest.o web.o var-tracking.o cgraph.o	   \
  cgraphunit.o								   \
  $(GGC) $(out_object_file) $(EXTRA_OBJS) $(host_hook_obj)
@@ -1471,7 +1470,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    function.h flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h algebraic.h el-rtx.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-   graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
+   graph.h except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h options.h cfglayout.h real.h cfgloop.h \
    hosthooks.h $(LANGHOOKS_DEF_H) cgraph.h
@@ -1508,7 +1507,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(T
    $(TM_P_H) langhooks.h gt-function.h
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
-   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
+   $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
    langhooks.h $(PREDICT_H) gt-stmt.h $(OPTABS_H)
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h except.h function.h $(EXPR_H) libfuncs.h integrate.h langhooks.h \
@@ -1568,7 +1567,7 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(T
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h $(TM_P_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h debug.h $(INTEGRATE_H) insn-config.h $(EXPR_H) real.h $(REGS_H) \
-   intl.h function.h output.h $(RECOG_H) except.h toplev.h $(LOOP_H) \
+   intl.h function.h output.h $(RECOG_H) except.h toplev.h \
    $(PARAMS_H) $(TM_P_H) $(TARGET_H) langhooks.h gt-integrate.h
 jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    hard-reg-set.h $(REGS_H) insn-config.h $(RECOG_H) $(EXPR_H) real.h except.h function.h \
@@ -1650,17 +1649,11 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TRE
    params.h  vpt.h
 vpt.o : vpt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) profile.h \
    hard-reg-set.h vpt.h $(EXPR_H) output.h $(TM_H)
-loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h $(LOOP_H) \
-   insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
-   real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h cfgloop.h \
-   toplev.h varray.h except.h cselib.h $(OPTABS_H) $(TM_P_H)
+loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   insn-config.h $(EXPR_H)
 doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) toplev.h \
    cfgloop.h output.h $(PARAMS_H)
-unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) insn-config.h \
-   function.h $(INTEGRATE_H) $(REGS_H) $(RECOG_H) flags.h $(EXPR_H) $(LOOP_H) toplev.h \
-   hard-reg-set.h varray.h $(BASIC_BLOCK_H) $(TM_P_H) $(PREDICT_H) $(PARAMS_H) \
-   cfgloop.h
 alloc-pool.o : alloc-pool.c $(CONFIG_H) $(SYSTEM_H) alloc-pool.h
 flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
@@ -1699,11 +1692,11 @@ loop-iv.o : loop-iv.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
 algebraic.o : algebraic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(EXPR_H) coretypes.h $(TM_H) algebraic.h sbitmap.h $(GGC_H) el-rtx.h
 loop-invariant.o: loop-invariant.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h loop.h cfglayout.h params.h \
+   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_P_H) $(RECOG_H) insn-config.h \
    $(REGS_H) function.h df.h flags.h  el-rtx.h algebraic.h
 loop-ivopts.o: loop-ivopts.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h loop.h cfglayout.h params.h \
+   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_P_H) $(RECOG_H) insn-config.h \
    $(REGS_H) function.h df.h flags.h el-rtx.h algebraic.h
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \

@@ -264,11 +264,7 @@ squeeze_notes (startp, endp)
       next = NEXT_INSN (insn);
       if (GET_CODE (insn) == NOTE
 	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP))
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG))
 	{
 	  if (insn == start)
 	    start = next;
@@ -1086,18 +1082,16 @@ follow_jumps (label)
 	&& GET_CODE (next) == BARRIER);
        depth++)
     {
-      /* Don't chain through the insn that jumps into a loop
-	 from outside the loop,
-	 since that would create multiple loop entry jumps
-	 and prevent loop optimization.  */
       rtx tem;
       if (!reload_completed)
 	for (tem = value; tem != insn; tem = NEXT_INSN (tem))
+	  /* ??? Optional.  Disables some optimizations, but makes
+	     gcov output more accurate with -O.  */
+	  /* We used to test here for loop notes, with rationale that
+	     following them would prevent loop optimization.  This is nonsense,
+	     as this function is only called far behind loop optimization.  */
 	  if (GET_CODE (tem) == NOTE
-	      && (NOTE_LINE_NUMBER (tem) == NOTE_INSN_LOOP_BEG
-		  /* ??? Optional.  Disables some optimizations, but makes
-		     gcov output more accurate with -O.  */
-		  || (flag_test_coverage && NOTE_LINE_NUMBER (tem) > 0)))
+	      && flag_test_coverage && NOTE_LINE_NUMBER (tem) > 0)
 	    return value;
 
       /* If we have found a cycle, make the insn jump to itself.  */

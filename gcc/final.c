@@ -1720,11 +1720,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
-	case NOTE_INSN_LOOP_BEG:
-	case NOTE_INSN_LOOP_END:
-	case NOTE_INSN_LOOP_END_TOP_COND:
-	case NOTE_INSN_LOOP_CONT:
-	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:

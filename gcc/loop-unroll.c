@@ -230,8 +230,7 @@ decide_peel_once_rolling (loops, loop, flags)
     }
 
   /* Check number of iterations.  */
-  if (!loop->has_desc
-      || !loop->simple
+  if (!loop->simple
       || loop->desc.assumptions
       || !loop->desc.const_iter
       || loop->desc.niter != 0)
@@ -298,8 +297,7 @@ decide_peel_completely (loops, loop, flags)
     }
 
   /* Check number of iterations.  */
-  if (!loop->has_desc
-      || !loop->simple
+  if (!loop->simple
       || loop->desc.assumptions
       || !loop->desc.const_iter)
     {
@@ -413,8 +411,7 @@ decide_unroll_constant_iterations (loops, loop, flags)
     }
 
   /* Check number of iterations.  */
-  if (!loop->has_desc
-      || !loop->simple
+  if (!loop->simple
       || loop->desc.assumptions
       || !loop->desc.const_iter)
     {
@@ -636,7 +633,6 @@ decide_unroll_runtime_iterations (loops, loop, flags)
 
   /* Check simpleness.  */
   if (!loop->simple
-      || !loop->has_desc
       || loop->desc.assumptions)
     {
       if (rtl_dump_file)
@@ -934,8 +930,7 @@ decide_peel_simple (loops, loop, flags)
     }
 
   /* Check number of iterations.  */
-  if (loop->has_desc
-      && loop->simple
+  if (loop->simple
       && !loop->desc.assumptions
       && loop->desc.const_iter)
     {
@@ -1034,7 +1029,7 @@ peel_loop_simple (loops, loop)
   
   free (wont_exit);
 
-  if (loop->has_desc && loop->simple)
+  if (loop->simple)
     {
       if (loop->desc.const_iter)
 	loop->desc.niter -= npeel;
@@ -1084,8 +1079,7 @@ decide_unroll_stupid (loops, loop, flags)
     }
 
   /* Check simpleness.  */
-  if (loop->has_desc
-      && loop->simple
+  if (loop->simple
       && !loop->desc.assumptions)
     {
       if (rtl_dump_file)
@@ -1136,7 +1130,7 @@ unroll_loop_stupid (loops, loop)
 
   free (wont_exit);
  
-  if (loop->has_desc && loop->simple)
+  if (loop->simple)
     {
       /* We indeed may get here provided that there are nontrivial assumptions
 	 for a loop to be really simple.  We could update the counts, but the

@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "cfgloop.h"
-#include "loop.h"
 #include "cfglayout.h"
 #include "params.h"
 #include "output.h"

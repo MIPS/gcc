@@ -509,11 +509,9 @@ enum update_life_extent
 					   to care REG_DEAD notes.  */
 #define CLEANUP_PRE_SIBCALL	8	/* Do not get confused by code hidden
 					   inside call_placeholders..  */
-#define CLEANUP_PRE_LOOP	16	/* Take care to preserve syntactic loop
-					   notes.  */
-#define CLEANUP_UPDATE_LIFE	32	/* Keep life information up to date.  */
-#define CLEANUP_THREADING	64	/* Do jump threading.  */
-#define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
+#define CLEANUP_UPDATE_LIFE	16	/* Keep life information up to date.  */
+#define CLEANUP_THREADING	32	/* Do jump threading.  */
+#define CLEANUP_NO_INSN_DEL	64	/* Do not try to delete trivially dead
 					   insns.  */
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern int update_life_info	PARAMS ((sbitmap, enum update_life_extent,

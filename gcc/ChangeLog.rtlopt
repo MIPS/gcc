@@ -1,5 +1,71 @@
 2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop.h: Removed.
+	* unroll.c: Removed.
+	* Makefile.in (loop.h, unroll.o): Removed.
+	* alias.c (init_alias_analysis): Remove reference to
+	flag_old_unroll_loops.
+	* basic-block.h (CLEANUP_PRE_LOOP): Removed.
+	* cfgcleanup.c (try_forward_edges): Remove handling of
+	CLEANUP_PRE_LOOP.
+	* except.c (finish_eh_generation): Do not use CLEANUP_PRE_LOOP.
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Ditto.
+	* cfglayout.c (skip_insns_after_block, duplicate_insn_chain):
+	Do not handle loop notes.
+	* cfgloop.c: Ansify.
+	* cfgloop.h (struct loop, struct loops, struct loop_info): Remove
+	fields used by old loop optimizer.
+	(flow_loop_scan): Remove.
+	* cfgloopanal.c (compute_simple_loop_info): Do not set (cancelled)
+	has_desc.
+	* cfgrtl.c (last_loop_beg_note, back_edge_of_syntactic_loop_p):
+	Removed.
+	(flow_delete_block_noexpunge, force_nonfallthru_and_redirect,
+	split_edge, commit_one_edge_insertion): Do not handle loop notes.
+	* cse.c (cse_check_loop_start, cse_set_around_loop, cse_around_loop):
+	Disabled.
+	(cse_end_of_basic_block, cse_basic_block): Do not handle loop notes.
+	* emit-rtl.c (remove_unnecessary_notes): Ditto.
+	* explow.c (probe_stack_range): Ditto.
+	* expr.c (emit_block_move_via_loop): Ditto.
+	* final.c (final_scan_insn): Ditto.
+	* haifa-sched.c (unlink_other_notes): Ditto.
+	* jump.c (squeeze_notes, follow_jumps): Ditto.
+	* rtl.c (note_insn_name): Ditto.
+	* sched-deps.c (sched_analyze_insn, sched_analyze): Ditto.
+	* rtl.h (NOTE_INSN_LOOP_BEG, NOTE_INSN_LOOP_END, NOTE_INSN_LOOP_CONT,
+	NOTE_INSN_LOOP_VTOP, NOTE_INSN_LOOP_END_TOP_COND): Removed.
+	(init_loop, libcall_other_reg, loop_optimize, record_excess_regs):
+	Declarations removed.
+	* integrate.c: Don't include loop.h.
+	* loop-ivopts.c: Ditto.
+	* loop-invariant.c: Ditto.
+	(prescan_loop): Don't compute has_nonconst_call.
+	* doloop.c (doloop_valid_p): Do not check has_desc.
+	* loop-prefetch.c (emit_prefetch_instructions): Ditto.
+	* loop-unroll.c (decide_peel_once_rolling, decide_peel_completely,
+	decide_unroll_constant_iterations, decide_unroll_runtime_iterations,
+	decide_peel_simple, peel_loop_simple, decide_unroll_stupid,
+	unroll_loop_stupid): Ditto.
+	* loop.c: Removed everything except canonicalize_condition
+	and get_condition.
+	* predict.c: Don't include loop.h.
+	(estimate_probability): Use get_loop_exit_edges instead of
+	flow_loop_scan.
+	* stmt.c: Don't include loop.h.
+	(expand_start_loop, expand_end_loop, expand_exit_loop_top_cond): Don't
+	establish loop notes.
+	* toplev.c: Don't include loop.h.
+	(flag_old_unroll_loops, flag_old_unroll_all_loops): Removed.
+	(lang_independent_options): Also from here.
+	(rest_of_compilation): Don't use CLEANUP_PRE_LOOP. Remove old loop
+	optimizer.
+	(process_options): Remove references to flag_old_unroll_loops
+	and flag_old_unroll_all_loops.
+	(backend_init): Remove call of init_loop.
+	
+2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* cfglayout.c (cleanup_unconditional_jumps): Work correctly
 	when there is no dominance info.
 	* cfgloop.c (flow_loops_cfg_dump): Ditto.

@@ -33,28 +33,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    considered to belong to inner loop with same header.  */
 #define HEAVY_EDGE_RATIO 8
 
-static void flow_loops_cfg_dump		PARAMS ((const struct loops *,
-						 FILE *));
-static void flow_loop_entry_edges_find	PARAMS ((struct loop *));
-static void flow_loop_exit_edges_find	PARAMS ((struct loop *));
-static int flow_loop_nodes_find		PARAMS ((basic_block, struct loop *));
-static void flow_loop_pre_header_scan	PARAMS ((struct loop *));
-static basic_block flow_loop_pre_header_find PARAMS ((basic_block,
-						      dominance_info));
-static int flow_loop_level_compute	PARAMS ((struct loop *));
-static int flow_loops_level_compute	PARAMS ((struct loops *));
-static void establish_preds		PARAMS ((struct loop *));
-static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
-						 edge, int));
-static void canonicalize_loop_headers   PARAMS ((void));
-static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
+static void flow_loops_cfg_dump	(const struct loops *, FILE *);
+static int flow_loop_nodes_find (basic_block, struct loop *);
+static int flow_loop_level_compute (struct loop *);
+static int flow_loops_level_compute (struct loops *);
+static void establish_preds (struct loop *);
+static basic_block make_forwarder_block (basic_block, int, int, edge, int);
+static void canonicalize_loop_headers (void);
+static void redirect_edge_with_latch_update (edge, basic_block);
 
 /* Dump loop related CFG information.  */
 
 static void
-flow_loops_cfg_dump (loops, file)
-     const struct loops *loops;
-     FILE *file;
+flow_loops_cfg_dump (const struct loops *loops, FILE *file)
 {
   int i;
   basic_block bb;
@@ -96,9 +87,7 @@ flow_loops_cfg_dump (loops, file)
 /* Return nonzero if the nodes of LOOP are a subset of OUTER.  */
 
 bool
-flow_loop_nested_p (outer, loop)
-     const struct loop *outer;
-     const struct loop *loop;
+flow_loop_nested_p (const struct loop *outer, const struct loop *loop)
 {
   return loop->depth > outer->depth
 	 && loop->pred[outer->depth] == outer;
@@ -108,11 +97,9 @@ flow_loop_nested_p (outer, loop)
    using auxiliary dump callback function LOOP_DUMP_AUX if non null.  */
 
 void
-flow_loop_dump (loop, file, loop_dump_aux, verbose)
-     const struct loop *loop;
-     FILE *file;
-     void (*loop_dump_aux) PARAMS((const struct loop *, FILE *, int));
-     int verbose;
+flow_loop_dump (const struct loop *loop, FILE *file,
+		void (*loop_dump_aux) (const struct loop *, FILE *, int),
+		int verbose)
 {
   basic_block *bbs;
   edge e;
@@ -122,12 +109,10 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
   if (! loop || ! loop->header)
     return;
 
-  fprintf (file, ";;\n;; Loop %d:%s\n", loop->num,
-	     loop->invalid ? " invalid" : "");
+  fprintf (file, ";;\n;; Loop %d:\n", loop->num);
 
-  fprintf (file, ";;  header %d, latch %d, pre-header %d\n",
-	   loop->header->index, loop->latch->index,
-	   loop->pre_header ? loop->pre_header->index : -1);
+  fprintf (file, ";;  header %d, latch %d\n",
+	   loop->header->index, loop->latch->index);
   fprintf (file, ";;  depth %d, level %d, outer %ld\n",
 	   loop->depth, loop->level,
 	   (long) (loop->outer ? loop->outer->num : -1));
@@ -156,20 +141,12 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
       fprintf (file, "\n");
     }
 
-  if (loop->pre_header_edges)
-    flow_edge_list_print (";;  pre-header edges", loop->pre_header_edges,
-			  loop->num_pre_header_edges, file);
-
-  flow_edge_list_print (";;  entry edges", loop->entry_edges,
-			loop->num_entries, file);
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     fprintf (file, " %d", bbs[i]->index);
   free (bbs);
   fprintf (file, "\n");
-  flow_edge_list_print (";;  exit edges", loop->exit_edges,
-			loop->num_exits, file);
 
   if (loop_dump_aux)
     loop_dump_aux (loop, file, verbose);
@@ -179,11 +156,9 @@ flow_loop_dump (loop, file, loop_dump_aux, verbose)
    using auxiliary dump callback function LOOP_DUMP_AUX if non null.  */
 
 void
-flow_loops_dump (loops, file, loop_dump_aux, verbose)
-     const struct loops *loops;
-     FILE *file;
-     void (*loop_dump_aux) PARAMS((const struct loop *, FILE *, int));
-     int verbose;
+flow_loops_dump (const struct loops *loops, FILE *file,
+		 void (*loop_dump_aux) (const struct loop *, FILE *, int),
+		 int verbose)
 {
   int i;
   int num_loops;
@@ -211,15 +186,8 @@ flow_loops_dump (loops, file, loop_dump_aux, verbose)
 
 /* Free data allocated for LOOP.  */
 void
-flow_loop_free (loop)
-     struct loop *loop;
+flow_loop_free (struct loop *loop)
 {
-  if (loop->pre_header_edges)
-    free (loop->pre_header_edges);
-  if (loop->entry_edges)
-    free (loop->entry_edges);
-  if (loop->exit_edges)
-    free (loop->exit_edges);
   if (loop->pred)
     free (loop->pred);
   if (loop->histogram)
@@ -230,8 +198,7 @@ flow_loop_free (loop)
 /* Free all the memory allocated for LOOPS.  */
 
 void
-flow_loops_free (loops)
-     struct loops *loops;
+flow_loops_free (struct loops *loops)
 {
   if (loops->parray)
     {
@@ -265,99 +232,11 @@ flow_loops_free (loops)
     }
 }
 
-/* Find the entry edges into the LOOP.  */
-
-static void 
-flow_loop_entry_edges_find (loop)
-     struct loop *loop;
-{
-  edge e;
-  int num_entries;
-
-  num_entries = 0;
-  for (e = loop->header->pred; e; e = e->pred_next)
-    {
-      if (flow_loop_outside_edge_p (loop, e))
-	num_entries++;
-    }
-
-  if (! num_entries)
-    abort ();
-
-  loop->entry_edges = (edge *) xmalloc (num_entries * sizeof (edge *));
-
-  num_entries = 0;
-  for (e = loop->header->pred; e; e = e->pred_next)
-    {
-      if (flow_loop_outside_edge_p (loop, e))
-	loop->entry_edges[num_entries++] = e;
-    }
-
-  loop->num_entries = num_entries;
-}
-
-/* Find the exit edges from the LOOP.  */
-
-static void
-flow_loop_exit_edges_find (loop)
-     struct loop *loop;
-{
-  edge e;
-  basic_block node, *bbs;
-  unsigned num_exits, i;
-
-  loop->exit_edges = NULL;
-  loop->num_exits = 0;
-
-  /* Check all nodes within the loop to see if there are any
-     successors not in the loop.  Note that a node may have multiple
-     exiting edges.  */
-  num_exits = 0;
-  bbs = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      node = bbs[i];
-      for (e = node->succ; e; e = e->succ_next)
-	{
-	  basic_block dest = e->dest;
-
-	  if (!flow_bb_inside_loop_p (loop, dest))
-	    num_exits++;
-	}
-    }
-
-  if (! num_exits)
-    {
-      free (bbs);
-      return;
-    }
-
-  loop->exit_edges = (edge *) xmalloc (num_exits * sizeof (edge *));
-
-  /* Store all exiting edges into an array.  */
-  num_exits = 0;
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      node = bbs[i];
-      for (e = node->succ; e; e = e->succ_next)
-	{
-	  basic_block dest = e->dest;
-
-	  if (!flow_bb_inside_loop_p (loop, dest))
-	    loop->exit_edges[num_exits++] = e;
-      }
-    }
-  free (bbs);
-  loop->num_exits = num_exits;
-}
-
 /* Find the nodes contained within the LOOP with header HEADER.
    Return the number of nodes within the loop.  */
 
 static int
-flow_loop_nodes_find (header, loop)
-     basic_block header;
-     struct loop *loop;
+flow_loop_nodes_find (basic_block header, struct loop *loop)
 {
   basic_block *stack;
   int sp;
@@ -401,82 +280,8 @@ flow_loop_nodes_find (header, loop)
   return num_nodes;
 }
 
-/* Find the root node of the loop pre-header extended basic block and
-   the edges along the trace from the root node to the loop header.  */
-
 static void
-flow_loop_pre_header_scan (loop)
-     struct loop *loop;
-{
-  int num;
-  basic_block ebb;
-  edge e;
-
-  loop->num_pre_header_edges = 0;
-  if (loop->num_entries != 1)
-    return;
-
-  ebb = loop->entry_edges[0]->src;
-  if (ebb == ENTRY_BLOCK_PTR)
-    return;
-
-  /* Count number of edges along trace from loop header to
-     root of pre-header extended basic block.  Usually this is
-     only one or two edges.  */
-  for (num = 1; ebb->pred->src != ENTRY_BLOCK_PTR && ! ebb->pred->pred_next;
-       num++)
-    ebb = ebb->pred->src;
-
-  loop->pre_header_edges = (edge *) xmalloc (num * sizeof (edge));
-  loop->num_pre_header_edges = num;
-
-  /* Store edges in order that they are followed.  The source of the first edge
-     is the root node of the pre-header extended basic block and the
-     destination of the last last edge is the loop header.  */
-  for (e = loop->entry_edges[0]; num; e = e->src->pred)
-    loop->pre_header_edges[--num] = e;
-}
-
-/* Return the block for the pre-header of the loop with header
-   HEADER where DOM specifies the dominator information.  Return NULL if
-   there is no pre-header.  */
-
-static basic_block
-flow_loop_pre_header_find (header, dom)
-     basic_block header;
-     dominance_info dom;
-{
-  basic_block pre_header;
-  edge e;
-
-  /* If block p is a predecessor of the header and is the only block
-     that the header does not dominate, then it is the pre-header.  */
-  pre_header = NULL;
-  for (e = header->pred; e; e = e->pred_next)
-    {
-      basic_block node = e->src;
-
-      if (node != ENTRY_BLOCK_PTR
-	  && ! dominated_by_p (dom, node, header))
-	{
-	  if (pre_header == NULL)
-	    pre_header = node;
-	  else
-	    {
-	      /* There are multiple edges into the header from outside
-		 the loop so there is no pre-header block.  */
-	      pre_header = NULL;
-	      break;
-	    }
-	}
-    }
-
-  return pre_header;
-}
-
-static void
-establish_preds (loop)
-     struct loop *loop;
+establish_preds (struct loop *loop)
 {
   struct loop *ploop, *father = loop->outer;
 
@@ -496,9 +301,7 @@ establish_preds (loop)
    pred field will be initialized correctly.  */
 
 void
-flow_loop_tree_node_add (father, loop)
-     struct loop *father;
-     struct loop *loop;
+flow_loop_tree_node_add (struct loop *father, struct loop *loop)
 {
   loop->next = father->inner;
   father->inner = loop;
@@ -510,8 +313,7 @@ flow_loop_tree_node_add (father, loop)
 /* Remove LOOP from the loop hierarchy tree.  */
 
 void
-flow_loop_tree_node_remove (loop)
-     struct loop *loop;
+flow_loop_tree_node_remove (struct loop *loop)
 {
   struct loop *prev, *father;
 
@@ -536,8 +338,7 @@ flow_loop_tree_node_remove (loop)
    for the natural loop specified by LOOP.  Returns the loop level.  */
 
 static int
-flow_loop_level_compute (loop)
-     struct loop *loop;
+flow_loop_level_compute (struct loop *loop)
 {
   struct loop *inner;
   int level = 1;
@@ -567,47 +368,9 @@ flow_loop_level_compute (loop)
    level.  */
 
 static int
-flow_loops_level_compute (loops)
-     struct loops *loops;
+flow_loops_level_compute (struct loops *loops)
 {
   return flow_loop_level_compute (loops->tree_root);
-}
-
-/* Scan a single natural loop specified by LOOP collecting information
-   about it specified by FLAGS.  */
-
-int
-flow_loop_scan (loops, loop, flags)
-     struct loops *loops;
-     struct loop *loop;
-     int flags;
-{
-  if (flags & LOOP_ENTRY_EDGES)
-    {
-      /* Find edges which enter the loop header.
-	 Note that the entry edges should only
-	 enter the header of a natural loop.  */
-      flow_loop_entry_edges_find (loop);
-    }
-
-  if (flags & LOOP_EXIT_EDGES)
-    {
-      /* Find edges which exit the loop.  */
-      flow_loop_exit_edges_find (loop);
-    }
-
-  if (flags & LOOP_PRE_HEADER)
-    {
-      /* Look to see if the loop has a pre-header node.  */
-      loop->pre_header
-	= flow_loop_pre_header_find (loop->header, loops->cfg.dom);
-
-      /* Find the blocks within the extended basic block of
-	 the loop pre-header.  */
-      flow_loop_pre_header_scan (loop);
-    }
-
-  return 1;
 }
 
 #define HEADER_BLOCK(B) (* (int *) (B)->aux)
@@ -615,9 +378,7 @@ flow_loop_scan (loops, loop, flags)
 
 /* Redirect edge and update latch and header info.  */
 static void
-redirect_edge_with_latch_update (e, to)
-     edge e;
-     basic_block to;
+redirect_edge_with_latch_update (edge e, basic_block to)
 {
   basic_block jump;
 
@@ -641,13 +402,8 @@ redirect_edge_with_latch_update (e, to)
    part.  */
 
 static basic_block
-make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
-		      conn_latch)
-     basic_block bb;
-     int redirect_latch;
-     int redirect_nonlatch;
-     edge except;
-     int conn_latch;
+make_forwarder_block (basic_block bb, int redirect_latch, int redirect_nonlatch,
+		      edge except, int conn_latch)
 {
   edge e, next_e, fallthru;
   basic_block dummy;
@@ -825,11 +581,8 @@ canonicalize_loop_headers ()
    loops found.  */
 
 int
-flow_loops_find (loops, flags)
-     struct loops *loops;
-     int flags;
+flow_loops_find (struct loops *loops, int flags)
 {
-  int i;
   int b;
   int num_loops;
   edge e;
@@ -984,11 +737,6 @@ flow_loops_find (loops, flags)
       /* Assign the loop nesting depth and enclosed loop level for each
 	 loop.  */
       loops->levels = flow_loops_level_compute (loops);
-
-      /* Scan the loops.  */
-      for (i = 1; i < num_loops; i++)
-	flow_loop_scan (loops, loops->parray[i], flags);
-
       loops->num = num_loops;
     }
   else
@@ -1010,9 +758,7 @@ flow_loops_find (loops, flags)
    specified by LOOPS.  */
 
 int
-flow_loops_update (loops, flags)
-     struct loops *loops;
-     int flags;
+flow_loops_update (struct loops *loops, int flags)
 {
   /* One day we may want to update the current loop data.  For now
      throw away the old stuff and rebuild what we need.  */
@@ -1024,9 +770,7 @@ flow_loops_update (loops, flags)
 
 /* Return nonzero if basic block BB belongs to LOOP.  */
 bool
-flow_bb_inside_loop_p (loop, bb)
-     const struct loop *loop;
-     const basic_block bb;
+flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
 {
   struct loop *source_loop;
 
@@ -1040,9 +784,7 @@ flow_bb_inside_loop_p (loop, bb)
 /* Return nonzero if edge E enters header of LOOP from outside of LOOP.  */
 
 bool
-flow_loop_outside_edge_p (loop, e)
-     const struct loop *loop;
-     edge e;
+flow_loop_outside_edge_p (const struct loop *loop, edge e)
 {
   if (e->dest != loop->header)
     abort ();
@@ -1051,17 +793,14 @@ flow_loop_outside_edge_p (loop, e)
 
 /* Enumeration predicate for get_loop_body.  */
 bool
-def_enum_to_p (bb, glb_header)
-     basic_block bb;
-     void *glb_header;
+def_enum_to_p (basic_block bb, void *glb_header)
 {
   return bb != (basic_block) glb_header;
 }
 
 /* Gets basic blocks of a loop.  */
 basic_block *
-get_loop_body (loop)
-     const struct loop *loop;
+get_loop_body (const struct loop *loop)
 {
   basic_block *tovisit, bb;
   unsigned tv = 0;
@@ -1095,9 +834,7 @@ get_loop_body (loop)
 
 /* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
 edge *
-get_loop_exit_edges (loop, n_edges)
-     const struct loop *loop;
-     unsigned *n_edges;
+get_loop_exit_edges (const struct loop *loop, unsigned *n_edges)
 {
   edge *edges, e;
   unsigned i, n;
@@ -1131,39 +868,34 @@ get_loop_exit_edges (loop, n_edges)
 
 /* Adds basic block BB to LOOP.  */
 void
-add_bb_to_loop (bb, loop)
-     basic_block bb;
-     struct loop *loop;
- {
-   int i;
- 
-   bb->loop_father = loop;
-   bb->loop_depth = loop->depth;
-   loop->num_nodes++;
-   for (i = 0; i < loop->depth; i++)
-     loop->pred[i]->num_nodes++;
- }
+add_bb_to_loop (basic_block bb, struct loop *loop)
+{
+  int i;
+
+  bb->loop_father = loop;
+  bb->loop_depth = loop->depth;
+  loop->num_nodes++;
+  for (i = 0; i < loop->depth; i++)
+    loop->pred[i]->num_nodes++;
+}
 
 /* Remove basic block BB from loops.  */
 void
-remove_bb_from_loops (bb)
-     basic_block bb;
- {
-   int i;
-   struct loop *loop = bb->loop_father;
+remove_bb_from_loops (basic_block bb)
+{
+  int i;
+  struct loop *loop = bb->loop_father;
 
-   loop->num_nodes--;
-   for (i = 0; i < loop->depth; i++)
-     loop->pred[i]->num_nodes--;
-   bb->loop_father = NULL;
-   bb->loop_depth = 0;
- }
+  loop->num_nodes--;
+  for (i = 0; i < loop->depth; i++)
+    loop->pred[i]->num_nodes--;
+  bb->loop_father = NULL;
+  bb->loop_depth = 0;
+}
 
 /* Finds nearest common ancestor in loop tree for given loops.  */
 struct loop *
-find_common_loop (loop_s, loop_d)
-    struct loop *loop_s;
-    struct loop *loop_d;
+find_common_loop (struct loop *loop_s, struct loop *loop_d)
 {
   if (!loop_s) return loop_d;
   if (!loop_d) return loop_s;
@@ -1183,9 +915,7 @@ find_common_loop (loop_s, loop_d)
 
 /* Cancels the LOOP; it must be innermost one.  */
 void
-cancel_loop (loops, loop)
-     struct loops *loops;
-     struct loop *loop;
+cancel_loop (struct loops *loops, struct loop *loop)
 {
   basic_block *bbs;
   unsigned i;
@@ -1210,9 +940,7 @@ cancel_loop (loops, loop)
 
 /* Cancels LOOP and all its subloops.  */
 void
-cancel_loop_tree (loops, loop)
-     struct loops *loops;
-     struct loop *loop;
+cancel_loop_tree (struct loops *loops, struct loop *loop)
 {
   while (loop->inner)
     cancel_loop_tree (loops, loop->inner);
@@ -1229,8 +957,7 @@ cancel_loop_tree (loops, loop)
      -- landing pads are correctly determined
   */
 void
-verify_loop_structure (loops)
-     struct loops *loops;
+verify_loop_structure (struct loops *loops)
 {
   unsigned *sizes, i, j;
   sbitmap irreds;
@@ -1440,8 +1167,7 @@ verify_loop_structure (loops)
 
 /* Move histograms for LOOPS from latch edges to loop datastructure.  */
 void
-move_histograms_to_loops (loops)
-     struct loops *loops;
+move_histograms_to_loops (struct loops *loops)
 {
   unsigned i;
 
@@ -1463,9 +1189,7 @@ move_histograms_to_loops (loops)
 
 /* Copies loop HISTOGRAM, scaling it by PROB.  */
 struct loop_histogram *
-copy_histogram (histogram, prob)
-     struct loop_histogram *histogram;
-     int prob;
+copy_histogram (struct loop_histogram *histogram, int prob)
 {
   int i, steps;
   struct loop_histogram *retval;
@@ -1482,10 +1206,8 @@ copy_histogram (histogram, prob)
 
 /* Add HISTOGRAM to TARGET, scaling it by PROB.  */
 void
-add_histogram (target, histogram, prob)
-     struct loop_histogram *target;
-     struct loop_histogram *histogram;
-     int prob;
+add_histogram (struct loop_histogram *target, struct loop_histogram *histogram,
+	       int prob)
 {
   unsigned i;
 
@@ -1504,8 +1226,7 @@ add_histogram (target, histogram, prob)
 
 /* Free the HISTOGRAM.  */
 void
-free_histogram (histogram)
-     struct loop_histogram *histogram;
+free_histogram (struct loop_histogram *histogram)
 {
   free (histogram->counts);
   free (histogram);
@@ -1513,8 +1234,7 @@ free_histogram (histogram)
 
 /* Returns latch edge of LOOP.  */
 edge
-loop_latch_edge (loop)
-     const struct loop *loop;
+loop_latch_edge (const struct loop *loop)
 {
   edge e;
 
@@ -1526,8 +1246,7 @@ loop_latch_edge (loop)
 
 /* Returns preheader edge of LOOP.  */
 edge
-loop_preheader_edge (loop)
-     const struct loop *loop;
+loop_preheader_edge (const struct loop *loop)
 {
   edge e;
 

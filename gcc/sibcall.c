@@ -582,7 +582,7 @@ optimize_sibling_and_tail_recursive_calls ()
 
   insns = get_insns ();
 
-  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
+  cleanup_cfg (CLEANUP_PRE_SIBCALL);
 
   /* If there are no basic blocks, then there is nothing to do.  */
   if (n_basic_blocks == 0)

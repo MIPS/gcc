@@ -936,9 +936,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       link = loop_notes;
       while (XEXP (link, 1))
 	{
-	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
+	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END)
 	    reg_pending_barrier = true;
 
@@ -1252,9 +1250,7 @@ sched_analyze (deps, head, tail)
 	 ??? Actually, the reemit_notes just say what is done, not why.  */
 
       if (GET_CODE (insn) == NOTE
-	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
+	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
 	{
 	  rtx rtx_region;

@@ -1774,7 +1774,6 @@ compute_simple_loop_info (loops)
 	continue;
       
       loop->simple = iv_simple_loop_p (loops, loop, &loop->desc);
-      loop->has_desc = 1;
     }
 }
 

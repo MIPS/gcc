@@ -503,39 +503,6 @@ try_forward_edges (mode, b)
 	  if (!new_target)
 	    break;
 
-	  /* Avoid killing of loop pre-headers, as it is the place loop
-	     optimizer wants to hoist code to.
-
-	     For fallthru forwarders, the LOOP_BEG note must appear between
-	     the header of block and CODE_LABEL of the loop, for non forwarders
-	     it must appear before the JUMP_INSN.  */
-	  if ((mode & CLEANUP_PRE_LOOP) && optimize)
-	    {
-	      rtx insn = (target->succ->flags & EDGE_FALLTHRU
-			  ? target->head : prev_nonnote_insn (target->end));
-
-	      if (GET_CODE (insn) != NOTE)
-		insn = NEXT_INSN (insn);
-
-	      for (; insn && GET_CODE (insn) != CODE_LABEL && !INSN_P (insn);
-		   insn = NEXT_INSN (insn))
-		if (GET_CODE (insn) == NOTE
-		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-		  break;
-
-	      if (GET_CODE (insn) == NOTE)
-		break;
-
-	      /* Do not clean up branches to just past the end of a loop
-		 at this time; it can mess up the loop optimizer's
-		 recognition of some patterns.  */
-
-	      insn = PREV_INSN (target->head);
-	      if (insn && GET_CODE (insn) == NOTE
-		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-		break;
-	    }
-
 	  counter++;
 	  target = new_target;
 	  threaded |= new_target_threaded;

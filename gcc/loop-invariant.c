@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "cfgloop.h"
-#include "loop.h"
 #include "cfglayout.h"
 #include "params.h"
 #include "output.h"
@@ -259,7 +258,7 @@ note_addr_stored (rtx x, rtx z ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
 }
 
 /* Scan a loop setting the elements `body', `bb_after_exit', `bb_after_call',
-   `has_call', `has_nonconst_call', `unknown_address_altered',
+   `has_call', `unknown_address_altered',
    `unknown_constant_address_altered'.  Fill in the list `store_mems'.  */
 static void
 prescan_loop (struct loop *loop)
@@ -282,7 +281,6 @@ prescan_loop (struct loop *loop)
   loop->ninsns = 0;
 
   loop->info->has_call = 0;
-  loop->info->has_nonconst_call = 0;
 
   loop->info->unknown_address_altered = 0;
   loop->info->unknown_constant_address_altered = 0;
@@ -308,13 +306,10 @@ prescan_loop (struct loop *loop)
 	      if (! CONST_OR_PURE_CALL_P (insn))
 		{
 		  loop->info->unknown_address_altered = 1;
-		  loop->info->has_nonconst_call = 1;
 		  if (!n_blocks_with_call
 		      || blocks_with_call[n_blocks_with_call - 1] != bb)
 		    blocks_with_call[n_blocks_with_call++] = bb;
 		}
-	      else if (pure_call_p (insn))
-		loop->info->has_nonconst_call = 1;
 	      loop->info->has_call = 1;
 	      break;
 

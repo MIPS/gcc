@@ -233,7 +233,6 @@ emit_prefetch_instructions (loops, loop)
 
   /* Don't prefetch in loops known to have few iterations.  */
   if (PREFETCH_NO_LOW_LOOPCNT
-      && loop->has_desc
       && loop->simple
       && loop->desc.const_iter
       && loop->desc.niter <= PREFETCH_LOW_LOOPCNT)
@@ -405,8 +404,7 @@ emit_prefetch_instructions (loops, loop)
 
       /* Attempt to calculate the total number of bytes fetched by all
 	 iterations of the loop.  Avoid overflow.  */
-      if (loop->has_desc
-	  && loop->simple
+      if (loop->simple
 	  && loop->desc.const_iter
 	  && ((unsigned HOST_WIDE_INT) (0xffffffff / info[i].stride)
 	      >= loop->desc.niter))

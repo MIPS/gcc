@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "toplev.h"
 #include "intl.h"
-#include "loop.h"
 #include "params.h"
 #include "ggc.h"
 #include "target.h"

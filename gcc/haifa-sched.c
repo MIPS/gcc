@@ -1408,9 +1408,7 @@ unlink_other_notes (insn, tail)
 	PREV_INSN (next) = prev;
 
       /* See sched_analyze to see how these are handled.  */
-      if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
+      if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
 	{

@@ -641,11 +641,13 @@ static void cse_insn		PARAMS ((rtx, rtx));
 static int addr_affects_sp_p	PARAMS ((rtx));
 static void invalidate_from_clobbers PARAMS ((rtx));
 static rtx cse_process_notes	PARAMS ((rtx, rtx));
+#if 0
 static void cse_around_loop	PARAMS ((rtx));
+static void cse_set_around_loop	PARAMS ((rtx, rtx, rtx));
+static void cse_check_loop_start PARAMS ((rtx, rtx, void *));
+#endif
 static void invalidate_skipped_set PARAMS ((rtx, rtx, void *));
 static void invalidate_skipped_block PARAMS ((rtx));
-static void cse_check_loop_start PARAMS ((rtx, rtx, void *));
-static void cse_set_around_loop	PARAMS ((rtx, rtx, rtx));
 static rtx cse_basic_block	PARAMS ((rtx, rtx, struct branch_path *, int));
 static void count_reg_usage	PARAMS ((rtx, int *, rtx, int));
 static int check_for_label_ref	PARAMS ((rtx *, void *));
@@ -6549,6 +6551,7 @@ cse_process_notes (x, object)
   return x;
 }
 
+#if 0
 /* Find common subexpressions between the end test of a loop and the beginning
    of the loop.  LOOP_START is the CODE_LABEL at the start of a loop.
 
@@ -6631,6 +6634,7 @@ cse_around_loop (loop_start)
 				 loop_start);
     }
 }
+#endif
 
 /* Process one SET of an insn that was skipped.  We ignore CLOBBERs
    since they are done elsewhere.  This function is called via note_stores.  */
@@ -6696,6 +6700,7 @@ invalidate_skipped_block (start)
     }
 }
 
+#if 0
 /* If modifying X will modify the value in *DATA (which is really an
    `rtx *'), indicate that fact by setting the pointed to value to
    NULL_RTX.  */
@@ -6829,6 +6834,7 @@ cse_set_around_loop (x, insn, loop_start)
 	   || GET_CODE (SET_DEST (x)) == ZERO_EXTRACT)
     invalidate (XEXP (SET_DEST (x), 0), GET_MODE (SET_DEST (x)));
 }
+#endif
 
 /* Find the end of INSN's basic block and return its range,
    the total number of SETs in all the insns of the block, the last insn of the
@@ -6849,7 +6855,7 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
      rtx insn;
      struct cse_basic_block_data *data;
      int follow_jumps;
-     int after_loop;
+     int after_loop ATTRIBUTE_UNUSED;
      int skip_blocks;
 {
   rtx p = insn, q;
@@ -6887,6 +6893,7 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
   /* Scan to end of this basic block.  */
   while (p && GET_CODE (p) != CODE_LABEL)
     {
+#if 0
       /* Don't cse out the end of a loop.  This makes a difference
 	 only for the unusual loops that always execute at least once;
 	 all other loops have labels there so we will stop in any case.
@@ -6903,6 +6910,7 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
       if (! after_loop && GET_CODE (p) == NOTE
 	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)
 	break;
+#endif
 
       /* Don't cse over a call to setjmp; on some machines (eg VAX)
 	 the regs restored by the longjmp come from
@@ -6957,7 +6965,9 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
 	{
 	  for (q = PREV_INSN (JUMP_LABEL (p)); q; q = PREV_INSN (q))
 	    if ((GET_CODE (q) != NOTE
+#if 0
 		 || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END
+#endif
 		 || (PREV_INSN (q) && GET_CODE (PREV_INSN (q)) == CALL_INSN
 		     && find_reg_note (PREV_INSN (q), REG_SETJMP, NULL)))
 		&& (GET_CODE (q) != CODE_LABEL || LABEL_NUSES (q) != 0))
@@ -7216,7 +7226,7 @@ static rtx
 cse_basic_block (from, to, next_branch, around_loop)
      rtx from, to;
      struct branch_path *next_branch;
-     int around_loop;
+     int around_loop ATTRIBUTE_UNUSED;
 {
   rtx insn;
   int to_usage = 0;
@@ -7402,6 +7412,7 @@ cse_basic_block (from, to, next_branch, around_loop)
   if (next_qty > max_qty)
     abort ();
 
+#if 0
   /* If we are running before loop.c, we stopped on a NOTE_INSN_LOOP_END, and
      the previous insn is the only insn that branches to the head of a loop,
      we can cse into the loop.  Don't do this if we changed the jump
@@ -7416,6 +7427,7 @@ cse_basic_block (from, to, next_branch, around_loop)
       && JUMP_LABEL (insn) != 0
       && LABEL_NUSES (JUMP_LABEL (insn)) == 1)
     cse_around_loop (JUMP_LABEL (insn));
+#endif
 
   free (qty_table + max_reg);
 
