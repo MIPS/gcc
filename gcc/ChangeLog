@@ -1,3 +1,30 @@
+1999-07-01  Bruce Korb  <ddsinc09@ix.netcom.com>
+
+	* fixinc/Makefile.in:  Made provision for several new files and
+	two new executables - fixfixes and fixtests
+	* fixinc/fixtests.c:  C routines for apply/don't apply fix tests
+	* fixinc/fixfixes.c:  C routines for fixing headers
+	* fixinc/fixlib.c:  Support routines used by all three executables
+	* fixinc/fixlib.h:  Header file for fixtests, fixfixes and fixlib
+	* fixinc/README:  Programmer information on inclhack.def usage
+	* fixinc/fixincl.c:  Revamped to use the above routines.  Define
+	HAVE_MMAP and NO_BOGOSITY for maximal efficiency (temporary)
+	* fixinc/fixincl.sh:  generated
+	* fixinc/fixincl.tpl:  Added provisioins for replacement text fixes
+	and C subroutine tests and fixes.
+	* fixinc/hackshell.tpl:  Ditto.
+	* fixinc/fixincl.x:  generated
+	* fixinc/inclhack.def:  Changed shell scripts that delete their
+	output or create static replacements into replacement fixes.
+	I also realphabatized the entries.
+	(no_double_slash):  Use the new C routines for need testing and
+	applying the fix
+	* fixinc/inclhack.sh:  generated
+	* fixinc/inclhack.tpl:  Added shell variables for the two new exes.
+	* fixinc/mkfixinc.sh:  Removed pointless entry for "mips-dec-bsd*"
+	* fixinc/server.c:  "bool" has become "t_bool" to reduce conflicts
+	* fixinc/server.h:  "bool" has become "t_bool" to reduce conflicts
+
 Wed Jun 30 03:31:54 1999  Jeffrey A Law  (law@cygnus.com)
 
 	* configure.in (hppa*-*-*): Add som.h or elf.h to tm_file as

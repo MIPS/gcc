@@ -72,6 +72,7 @@ typedef struct
 
 typedef char *t_pchar;
 
+#ifndef NOPROCESS
 #define NOPROCESS	((pid_t) -1)
 #define NULLPROCESS	((pid_t)0)
 
@@ -80,9 +81,10 @@ typedef char *t_pchar;
 typedef enum
 {
   BOOL_FALSE, BOOL_TRUE
-} bool;
+} t_bool;
 
 #define _P_(p)	()
+#endif
 
 char *run_shell   _P_ (( const char *pzCmd));
 pid_t proc2_fopen _P_ (( t_pf_pair * p_pair, t_pchar * pp_args));

@@ -54,6 +54,9 @@ else
   }
 fi
 
+FIXTESTS=$PWD/fixinc/fixtests
+FIXFIXES=$PWD/fixinc/fixfixes
+
 # Define what target system we're fixing.
 #
 if test -r ./Makefile; then
@@ -361,400 +364,92 @@ while [ $# != 0 ]; do
     DESTFILE=${DESTDIR}/`echo ${file} | sed "s;${FIND_BASE}/;;" `
 
     #
-    # Fix   1:  Aix_Syswait
+    # Fix   1:  Aaa_Ki_Iface
     #
-    case "${file}" in ./sys/wait.h )
-    if ( test -n "`egrep 'bos325,' ${file}`"
+    case "${file}" in ./sys/ki_iface.h )
+    if ( test -n "`egrep 'These definitions are for HP Internal developers' ${file}`"
        ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      aix_syswait"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
+    echo "aaa_ki_iface bypassing file ${file}"
+    continue
 
-    sed -e '/^extern pid_t wait3();$/i\
-struct rusage;
-' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix   2:  Aix_Volatile
+    # Fix   2:  Aaa_Ki
     #
-    case "${file}" in ./sys/signal.h )
-    if ( test -n "`egrep 'typedef volatile int sig_atomic_t' ${file}`"
+    case "${file}" in ./sys/ki.h )
+    if ( test -n "`egrep '11.00 HP-UX LP64' ${file}`"
        ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      aix_volatile"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
+    echo "aaa_ki bypassing file ${file}"
+    continue
 
-    sed -e 's/typedef volatile int sig_atomic_t/typedef int sig_atomic_t/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix   3:  Alpha_Getopt
+    # Fix   3:  Aaa_Ki_Calls
     #
-    case "${file}" in ./stdio.h | \
-	./stdlib.h )
-    if ( test -n "`egrep 'getopt\\(int, char \\*\\[' ${file}`"
+    case "${file}" in ./sys/ki_calls.h )
+    if ( test -n "`egrep 'kthread_create_caller_t' ${file}`"
        ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      alpha_getopt"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
+    echo "aaa_ki_calls bypassing file ${file}"
+    continue
 
-    sed -e 's/getopt(int, char \*\[\],[ ]*char \*)/getopt(int, char *const[], const char *)/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix   4:  Alpha_Parens
+    # Fix   4:  Aaa_Ki_Defs
     #
-    case "${file}" in ./sym.h )
-    if ( test -n "`egrep '#ifndef\\(__mips64\\)' ${file}`"
+    case "${file}" in ./sys/ki_defs.h )
+    if ( test -n "`egrep 'Kernel Instrumentation Definitions' ${file}`"
        ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      alpha_parens"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
+    echo "aaa_ki_defs bypassing file ${file}"
+    continue
 
-    sed -e 's/#ifndef(__mips64)/#ifndef __mips64/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix   5:  Alpha_Sbrk
+    # Fix   5:  Aaa_Bad_Fixes
     #
-    case "${file}" in ./unistd.h )
-    if ( test -n "`egrep 'char[ 	]*\\*[	 ]*sbrk[ 	]*\\(' ${file}`"
+    case "${file}" in ./sundev/ipi_error.h )
+    echo "aaa_bad_fixes bypassing file ${file}"
+    continue
+
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix   6:  Aaa_Time
+    #
+    case "${file}" in ./sys/time.h )
+    if ( test -n "`egrep '11.0 and later representation of ki time' ${file}`"
        ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      alpha_sbrk"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
+    echo "aaa_time bypassing file ${file}"
+    continue
 
-    sed -e 's/char\([ 	]*\*[	 ]*sbrk[ 	]*(\)/void\1/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix   6:  Arm_Norcroft_Hint
-    #
-    case "${file}" in ./X11/Intrinsic.h )
-    if ( test -n "`egrep '___type p_type' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      arm_norcroft_hint"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's/___type p_type/p_type/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix   7:  Arm_Wchar
-    #
-    case "${file}" in ./stdlib.h )
-    if ( test -n "`egrep '#[ 	]*define[ 	]*__wchar_t' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      arm_wchar"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's/\(#[ 	]*ifndef[ 	]*\)__wchar_t/\1_GCC_WCHAR_T/' \
-        -e 's/\(#[ 	]*define[ 	]*\)__wchar_t/\1_GCC_WCHAR_T/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix   8:  Aux_Asm
-    #
-    case "${file}" in ./sys/param.h )
-    if ( test -n "`egrep '#ifndef NOINLINE' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      aux_asm"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's|#ifndef NOINLINE|#if !defined(NOINLINE) \&\& !defined(__GNUC__)|' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix   9:  Avoid_Bool
-    #
-    case "${file}" in ./curses.h | \
-	./curses_colr/curses.h | \
-	./term.h | \
-	./tinfo.h )
-    fixlist="${fixlist}
-      avoid_bool"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e '/^#[ 	]*define[ 	][ 	]*bool[ 	][ 	]*char[ 	]*$/i\
-#ifndef __cplusplus
-' \
-        -e '/^#[ 	]*define[ 	][ 	]*bool[ 	][ 	]*char[ 	]*$/a\
-#endif
-' \
-        -e '/^typedef[ 	][ 	]*char[ 	][ 	]*bool[ 	]*;/i\
-#ifndef __cplusplus
-' \
-        -e '/^typedef[ 	][ 	]*char[ 	][ 	]*bool[ 	]*;/a\
-#endif
-' \
-        -e '/^[ ]*typedef[ 	][ 	]*unsigned char[ 	][ 	]*bool[ 	]*;/i\
-#ifndef __cplusplus
-' \
-        -e '/^[ ]*typedef[ 	][ 	]*unsigned char[ 	][ 	]*bool[ 	]*;/a\
-#endif
-' \
-        -e '/^typedef[ 	][ 	]*int[ 	][ 	]*bool[ 	]*;/i\
-#ifndef __cplusplus
-' \
-        -e '/^typedef[ 	][ 	]*int[ 	][ 	]*bool[ 	]*;/a\
-#endif
-' \
-        -e '/^[ ]*typedef[ 	][ 	]*unsigned int[ 	][ 	]*bool[ 	]*;/i\
-#ifndef __cplusplus
-' \
-        -e '/^[ ]*typedef[ 	][ 	]*unsigned int[ 	][ 	]*bool[ 	]*;/a\
-#endif
-' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  10:  Bad_Struct_Term
-    #
-    case "${file}" in ./curses.h )
-    if ( test -n "`egrep '^[ 	]*typedef[ 	]+struct[ 	]+term[ 	]*;' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      bad_struct_term"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's/^[ 	]*typedef[ 	][ 	]*\(struct[ 	][ 	]*term[ 	]*;[ 	]*\)$/\1/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  11:  Badquote
-    #
-    case "${file}" in ./sundev/vuid_event.h )
-    fixlist="${fixlist}
-      badquote"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's/doesn'\''t/does not/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  12:  Bad_Lval
-    #
-    case "${file}" in ./libgen.h | \
-	./dirent.h | \
-	./ftw.h | \
-	./grp.h | \
-	./ndbm.h | \
-	./pthread.h | \
-	./pwd.h | \
-	./signal.h | \
-	./standards.h | \
-	./stdlib.h | \
-	./string.h | \
-	./stropts.h | \
-	./time.h | \
-	./unistd.h )
-    fixlist="${fixlist}
-      bad_lval"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e 's/^[ 	]*#[ 	]*define[ 	]*\([^(]*\)\(([^)]*)\)[ 	]*\(_.\)\1\2[ 	]*$/#define \1 \3\1/' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  13:  Broken_Assert_Stdio
-    #
-    case "${file}" in ./assert.h )
-    if ( test -n "`egrep 'stderr' ${file}`" -a \
-              -z "`egrep 'include.*stdio.h' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      broken_assert_stdio"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e '1i\
-#include <stdio.h>
-' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  14:  Broken_Assert_Stdlib
-    #
-    case "${file}" in ./assert.h )
-    if ( test -n "`egrep 'exit *\\(|abort *\\(' ${file}`" -a \
-              -z "`egrep 'include.*stdlib.h' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      broken_assert_stdlib"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e '1i\
-#ifdef __cplusplus\
-#include <stdlib.h>\
-#endif
-' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  15:  Bsd43_Io_Macros
-    #
-    if ( test -n "`egrep 'BSD43__IO' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      bsd43_io_macros"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e '/[ 	]BSD43__IO[A-Z]*[ 	]*(/s/(\(.\),/('\''\1'\'',/' \
-        -e '/#[ 	]*define[ 	]*[ 	]BSD43__IO/s/'\''\([cgx]\)'\''/\1/g' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-
-
-    #
-    # Fix  16:  Dec_Intern_Asm
-    #
-    case "${file}" in ./c_asm.h )
-    fixlist="${fixlist}
-      dec_intern_asm"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-
-    sed -e '/^[ 	]*float[ 	]*fasm/i\
-#ifdef __DECC
-' \
-        -e '/^[ 	]*#[ 	]*pragma[ 	]*intrinsic([ 	]*dasm/a\
-#endif
-' \
-          < $infile > ${DESTDIR}/fixinc.tmp
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix  17:  Dgux_Int_Varargs
+    # Fix   7:  Aab_Dgux_Int_Varargs
     #
     case "${file}" in ./_int_varargs.h )
-    fixlist="${fixlist}
-      dgux_int_varargs"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( cat > /dev/null
-cat << '_EOF_'
+    echo "aab_dgux_int_varargs replacing file ${file}" >&2
+    cat > ${DESTFILE} << '_EOF_'
 #ifndef __INT_VARARGS_H
 #define __INT_VARARGS_H
 
@@ -817,14 +512,230 @@ typedef char * va_list;
 #endif /* __LINT__ */
 #endif /*  !(defined(_VA_LIST) || defined(_VA_LIST_)) */
 #endif /*  #ifndef __INT_VARARGS_H  */
-_EOF_
- ) < $infile > ${DESTDIR}/fixinc.tmp
 
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
+_EOF_
+    continue
+
+    ;; # case end for file name test
+    esac
+
+
     #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
+    # Fix   8:  Aix_Syswait
+    #
+    case "${file}" in ./sys/wait.h )
+    if ( test -n "`egrep 'bos325,' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      aix_syswait"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '/^extern pid_t wait3();$/i\
+struct rusage;
+' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix   9:  Aix_Volatile
+    #
+    case "${file}" in ./sys/signal.h )
+    if ( test -n "`egrep 'typedef volatile int sig_atomic_t' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      aix_volatile"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/typedef volatile int sig_atomic_t/typedef int sig_atomic_t/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  10:  Alpha_Getopt
+    #
+    case "${file}" in ./stdio.h | \
+	./stdlib.h )
+    if ( test -n "`egrep 'getopt\\(int, char \\*\\[' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      alpha_getopt"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/getopt(int, char \*\[\],[ ]*char \*)/getopt(int, char *const[], const char *)/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  11:  Alpha_Parens
+    #
+    case "${file}" in ./sym.h )
+    if ( test -n "`egrep '#ifndef\\(__mips64\\)' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      alpha_parens"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/#ifndef(__mips64)/#ifndef __mips64/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  12:  Alpha_Sbrk
+    #
+    case "${file}" in ./unistd.h )
+    if ( test -n "`egrep 'char[ 	]*\\*[	 ]*sbrk[ 	]*\\(' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      alpha_sbrk"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/char\([ 	]*\*[	 ]*sbrk[ 	]*(\)/void\1/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  13:  Arm_Norcroft_Hint
+    #
+    case "${file}" in ./X11/Intrinsic.h )
+    if ( test -n "`egrep '___type p_type' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      arm_norcroft_hint"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/___type p_type/p_type/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  14:  Arm_Wchar
+    #
+    case "${file}" in ./stdlib.h )
+    if ( test -n "`egrep '#[ 	]*define[ 	]*__wchar_t' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      arm_wchar"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/\(#[ 	]*ifndef[ 	]*\)__wchar_t/\1_GCC_WCHAR_T/' \
+        -e 's/\(#[ 	]*define[ 	]*\)__wchar_t/\1_GCC_WCHAR_T/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  15:  Aux_Asm
+    #
+    case "${file}" in ./sys/param.h )
+    if ( test -n "`egrep '#ifndef NOINLINE' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      aux_asm"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's|#ifndef NOINLINE|#if !defined(NOINLINE) \&\& !defined(__GNUC__)|' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  16:  Avoid_Bool
+    #
+    case "${file}" in ./curses.h | \
+	./curses_colr/curses.h | \
+	./term.h | \
+	./tinfo.h )
+    fixlist="${fixlist}
+      avoid_bool"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '/^#[ 	]*define[ 	][ 	]*bool[ 	][ 	]*char[ 	]*$/i\
+#ifndef __cplusplus
+' \
+        -e '/^#[ 	]*define[ 	][ 	]*bool[ 	][ 	]*char[ 	]*$/a\
+#endif
+' \
+        -e '/^typedef[ 	][ 	]*char[ 	][ 	]*bool[ 	]*;/i\
+#ifndef __cplusplus
+' \
+        -e '/^typedef[ 	][ 	]*char[ 	][ 	]*bool[ 	]*;/a\
+#endif
+' \
+        -e '/^[ ]*typedef[ 	][ 	]*unsigned char[ 	][ 	]*bool[ 	]*;/i\
+#ifndef __cplusplus
+' \
+        -e '/^[ ]*typedef[ 	][ 	]*unsigned char[ 	][ 	]*bool[ 	]*;/a\
+#endif
+' \
+        -e '/^typedef[ 	][ 	]*int[ 	][ 	]*bool[ 	]*;/i\
+#ifndef __cplusplus
+' \
+        -e '/^typedef[ 	][ 	]*int[ 	][ 	]*bool[ 	]*;/a\
+#endif
+' \
+        -e '/^[ ]*typedef[ 	][ 	]*unsigned int[ 	][ 	]*bool[ 	]*;/i\
+#ifndef __cplusplus
+' \
+        -e '/^[ ]*typedef[ 	][ 	]*unsigned int[ 	][ 	]*bool[ 	]*;/a\
+#endif
+' \
+          < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
     ;; # case end for file name test
@@ -832,27 +743,191 @@ _EOF_
 
 
     #
-    # Fix  18:  No_Double_Slash
+    # Fix  17:  Bad_Struct_Term
     #
-    if ( test -n "`egrep '(^|[^:])//[^\"*]' ${file}`" -a \
-              '('  -z "`echo ${file} | egrep '(CC|cxx|\+\+)/'`" ')'
+    case "${file}" in ./curses.h )
+    if ( test -n "`egrep '^[ 	]*typedef[ 	]+struct[ 	]+term[ 	]*;' ${file}`"
        ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      bad_struct_term"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/^[ 	]*typedef[ 	][ 	]*\(struct[ 	][ 	]*term[ 	]*;[ 	]*\)$/\1/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  18:  Badquote
+    #
+    case "${file}" in ./sundev/vuid_event.h )
+    fixlist="${fixlist}
+      badquote"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/doesn'\''t/does not/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  19:  Bad_Lval
+    #
+    case "${file}" in ./libgen.h | \
+	./dirent.h | \
+	./ftw.h | \
+	./grp.h | \
+	./ndbm.h | \
+	./pthread.h | \
+	./pwd.h | \
+	./signal.h | \
+	./standards.h | \
+	./stdlib.h | \
+	./string.h | \
+	./stropts.h | \
+	./time.h | \
+	./unistd.h )
+    fixlist="${fixlist}
+      bad_lval"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e 's/^[ 	]*#[ 	]*define[ 	]*\([^(]*\)\(([^)]*)\)[ 	]*\(_.\)\1\2[ 	]*$/#define \1 \3\1/' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  20:  Broken_Assert_Stdio
+    #
+    case "${file}" in ./assert.h )
+    if ( test -n "`egrep 'stderr' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test  -a \
+              -z "`egrep 'include.*stdio.h' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      broken_assert_stdio"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '1i\
+#include <stdio.h>
+' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of bypass 'if'
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  21:  Broken_Assert_Stdlib
+    #
+    case "${file}" in ./assert.h )
+    if ( test -n "`egrep 'exit *\\(|abort *\\(' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test  -a \
+              -z "`egrep 'include.*stdlib.h' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      broken_assert_stdlib"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '1i\
+#ifdef __cplusplus\
+#include <stdlib.h>\
+#endif
+' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of bypass 'if'
+    fi # end of select 'if'
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  22:  Bsd43_Io_Macros
+    #
+    if ( test -n "`egrep 'BSD43__IO' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    fixlist="${fixlist}
+      bsd43_io_macros"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '/[ 	]BSD43__IO[A-Z]*[ 	]*(/s/(\(.\),/('\''\1'\'',/' \
+        -e '/#[ 	]*define[ 	]*[ 	]BSD43__IO/s/'\''\([cgx]\)'\''/\1/g' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    fi # end of select 'if'
+
+
+    #
+    # Fix  23:  Dec_Intern_Asm
+    #
+    case "${file}" in ./c_asm.h )
+    fixlist="${fixlist}
+      dec_intern_asm"
+    if [ ! -r ${DESTFILE} ]
+    then infile=${file}
+    else infile=${DESTFILE} ; fi 
+
+    sed -e '/^[ 	]*float[ 	]*fasm/i\
+#ifdef __DECC
+' \
+        -e '/^[ 	]*#[ 	]*pragma[ 	]*intrinsic([ 	]*dasm/a\
+#endif
+' \
+          < $infile > ${DESTDIR}/fixinc.tmp
+    rm -f ${DESTFILE}
+    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
+    ;; # case end for file name test
+    esac
+
+
+    #
+    # Fix  24:  No_Double_Slash
+    #
+    if ${FIXTESTS} ${file} double_slash
+    then
     fixlist="${fixlist}
       no_double_slash"
     if [ ! -r ${DESTFILE} ]
     then infile=${file}
     else infile=${DESTFILE} ; fi 
-
-    sed -e 's,^//.*$,,' \
-        -e 's,[^:]//[^"].*$,,' \
-          < $infile > ${DESTDIR}/fixinc.tmp
+    ${FIXFIXES} ${file} no_double_slash < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of c_test 'if'
 
 
     #
-    # Fix  19:  Ecd_Cursor
+    # Fix  25:  Ecd_Cursor
     #
     case "${file}" in ./sunwindow/win_lock.h | \
 	./sunwindow/win_cursor.h )
@@ -871,7 +946,7 @@ _EOF_
 
 
     #
-    # Fix  20:  Sco5_Stat_Wrappers
+    # Fix  26:  Sco5_Stat_Wrappers
     #
     case "${file}" in ./sys/stat.h )
     case "$target_canonical" in i*86-*-sco3.2v5* )
@@ -902,7 +977,7 @@ extern "C"\
 
 
     #
-    # Fix  21:  End_Else_Label
+    # Fix  27:  End_Else_Label
     #
     if ( test -n "`egrep '^[ 	]*#[ 	]*(else|endif)[ 	]+([!-.0-z\\{\\|\\}\\~]|/[^\\*])' ${file}`"
        ) > /dev/null 2>&1 ; then
@@ -925,11 +1000,11 @@ s%^\([ 	]*#[ 	]*endif\)[ 	][ 	]*[^/* 	].*%\1%' \
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
 
 
     #
-    # Fix  22:  Hp_Inline
+    # Fix  28:  Hp_Inline
     #
     case "${file}" in ./sys/spinlock.h )
     if ( test -n "`egrep 'include.*\"\\.\\./machine/' ${file}`"
@@ -945,13 +1020,13 @@ s%^\([ 	]*#[ 	]*endif\)[ 	][ 	]*[^/* 	].*%\1%' \
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  23:  Hp_Sysfile
+    # Fix  29:  Hp_Sysfile
     #
     case "${file}" in ./sys/file.h )
     if ( test -n "`egrep 'HPUX_SOURCE' ${file}`"
@@ -966,17 +1041,18 @@ s%^\([ 	]*#[ 	]*endif\)[ 	][ 	]*[^/* 	].*%\1%' \
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  24:  Cxx_Unready
+    # Fix  30:  Cxx_Unready
     #
     case "${file}" in ./sys/mman.h | \
 	./rpc/types.h )
-    if ( test -z "`egrep '\"C\"|__BEGIN_DECLS' ${file}`"
+    if ( test  -a \
+              -z "`egrep '\"C\"|__BEGIN_DECLS' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       cxx_unready"
@@ -998,13 +1074,13 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  25:  Hpux_Maxint
+    # Fix  31:  Hpux_Maxint
     #
     case "${file}" in ./sys/param.h )
     fixlist="${fixlist}
@@ -1027,7 +1103,7 @@ extern "C" {\
 
 
     #
-    # Fix  26:  Hpux_Systime
+    # Fix  32:  Hpux_Systime
     #
     case "${file}" in ./sys/time.h )
     if ( test -n "`egrep '^extern struct sigevent;' ${file}`"
@@ -1042,13 +1118,13 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  27:  Interactv_Add1
+    # Fix  33:  Interactv_Add1
     #
     case "${file}" in ./stdio.h | \
 	./math.h | \
@@ -1069,13 +1145,13 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  28:  Interactv_Add2
+    # Fix  34:  Interactv_Add2
     #
     case "${file}" in ./math.h )
     if ( test '('  -d /etc/conf/kconfig.d ')' -a \
@@ -1091,13 +1167,13 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  29:  Interactv_Add3
+    # Fix  35:  Interactv_Add3
     #
     case "${file}" in ./sys/limits.h )
     if ( test '('  -d /etc/conf/kconfig.d ')' -a \
@@ -1114,13 +1190,13 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  30:  Io_Def_Quotes
+    # Fix  36:  Io_Def_Quotes
     #
     if ( test -n "`egrep '[ 	]*[ 	](_|DES)IO[A-Z]*[ 	]*\\( *[^,'\\'']' ${file}`"
        ) > /dev/null 2>&1 ; then
@@ -1137,11 +1213,11 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
 
 
     #
-    # Fix  31:  Ioctl_Fix_Ctrl
+    # Fix  37:  Ioctl_Fix_Ctrl
     #
     if ( test -n "`egrep 'CTRL[ 	]*\\(' ${file}`"
        ) > /dev/null 2>&1 ; then
@@ -1160,11 +1236,11 @@ extern "C" {\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
 
 
     #
-    # Fix  32:  Ip_Missing_Semi
+    # Fix  38:  Ip_Missing_Semi
     #
     case "${file}" in ./netinet/ip.h )
     fixlist="${fixlist}
@@ -1182,7 +1258,7 @@ extern "C" {\
 
 
     #
-    # Fix  33:  Irix_Multiline_Cmnt
+    # Fix  39:  Irix_Multiline_Cmnt
     #
     case "${file}" in ./sys/types.h )
     fixlist="${fixlist}
@@ -1201,7 +1277,7 @@ extern "C" {\
 
 
     #
-    # Fix  34:  Irix_Sockaddr
+    # Fix  40:  Irix_Sockaddr
     #
     case "${file}" in ./rpc/auth.h )
     if ( test -n "`egrep 'authdes_create.*struct sockaddr' ${file}`"
@@ -1218,13 +1294,13 @@ struct sockaddr;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  35:  Irix_Struct__File
+    # Fix  41:  Irix_Struct__File
     #
     case "${file}" in ./rpc/xdr.h )
     fixlist="${fixlist}
@@ -1244,7 +1320,7 @@ struct __file_s;
 
 
     #
-    # Fix  36:  Isc_Fmod
+    # Fix  42:  Isc_Fmod
     #
     case "${file}" in ./math.h )
     if ( test -n "`egrep 'fmod\\(double\\)' ${file}`"
@@ -1259,13 +1335,13 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  37:  Motorola_Nested
+    # Fix  43:  Motorola_Nested
     #
     case "${file}" in ./limits.h | \
 	./sys/limits.h )
@@ -1288,7 +1364,7 @@ struct __file_s;
 
 
     #
-    # Fix  38:  Isc_Sys_Limits
+    # Fix  44:  Isc_Sys_Limits
     #
     case "${file}" in ./sys/limits.h )
     if ( test -n "`egrep 'CHILD_MAX' ${file}`"
@@ -1304,13 +1380,13 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  39:  Kandr_Concat
+    # Fix  45:  Kandr_Concat
     #
     case "${file}" in ./sparc/asm_linkage.h | \
 	./sun3/asm_linkage.h | \
@@ -1342,17 +1418,18 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  40:  Limits_Ifndefs
+    # Fix  46:  Limits_Ifndefs
     #
     case "${file}" in ./limits.h | \
 	./sys/limits.h )
-    if ( test -z "`egrep 'ifndef[ 	]+FLT_MIN' ${file}`"
+    if ( test  -a \
+              -z "`egrep 'ifndef[ 	]+FLT_MIN' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       limits_ifndefs"
@@ -1400,13 +1477,13 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  41:  Lynx_Void_Int
+    # Fix  47:  Lynx_Void_Int
     #
     case "${file}" in ./curses.h )
     if ( test -n "`egrep '#[ 	]*define[ 	]+void[ 	]+int' ${file}`"
@@ -1421,13 +1498,13 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  42:  Lynxos_Fcntl_Proto
+    # Fix  48:  Lynxos_Fcntl_Proto
     #
     case "${file}" in ./fcntl.h )
     if ( test -n "`egrep 'fcntl.*\\(int, int, int\\)' ${file}`"
@@ -1442,13 +1519,13 @@ struct __file_s;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  43:  M88k_Bad_Hypot_Opt
+    # Fix  49:  M88k_Bad_Hypot_Opt
     #
     case "${file}" in ./math.h )
     case "$target_canonical" in m88k-motorola-sysv3* )
@@ -1483,7 +1560,7 @@ static __inline__ double fake_hypot (x, y)\
 
 
     #
-    # Fix  44:  M88k_Bad_S_If
+    # Fix  50:  M88k_Bad_S_If
     #
     case "${file}" in ./sys/stat.h )
     case "$target_canonical" in m88k-*-sysv3* )
@@ -1500,7 +1577,7 @@ static __inline__ double fake_hypot (x, y)\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for machine type test
     esac
     ;; # case end for file name test
@@ -1508,11 +1585,12 @@ static __inline__ double fake_hypot (x, y)\
 
 
     #
-    # Fix  45:  M88k_Multi_Incl
+    # Fix  51:  M88k_Multi_Incl
     #
     case "${file}" in ./time.h )
     case "$target_canonical" in m88k-tektronix-sysv3* )
-    if ( test -z "`egrep '#ifndef' ${file}`"
+    if ( test  -a \
+              -z "`egrep '#ifndef' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       m88k_multi_incl"
@@ -1533,7 +1611,7 @@ static __inline__ double fake_hypot (x, y)\
     then continue ; fi 
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for machine type test
     esac
     ;; # case end for file name test
@@ -1541,7 +1619,7 @@ static __inline__ double fake_hypot (x, y)\
 
 
     #
-    # Fix  46:  Machine_Name
+    # Fix  52:  Machine_Name
     #
     if ( test -n "`egrep '^#[ 	]*(if|elif).*[^a-zA-Z0-9_](_*[MSRrhim]|[Mbimnpstuv])[a-zA-Z0-9_]' ${file}`"
        ) > /dev/null 2>&1 ; then
@@ -1589,11 +1667,11 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
 
 
     #
-    # Fix  47:  Math_Exception
+    # Fix  53:  Math_Exception
     #
     case "${file}" in ./math.h )
     if ( test -n "`egrep 'struct exception' ${file}`"
@@ -1627,13 +1705,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  48:  Math_Gcc_Ifndefs
+    # Fix  54:  Math_Gcc_Ifndefs
     #
     case "${file}" in ./math.h )
     fixlist="${fixlist}
@@ -1667,7 +1745,7 @@ s/\\+++fixinc_eol+++/\\/g
 
 
     #
-    # Fix  49:  Nested_Comment
+    # Fix  55:  Nested_Comment
     #
     case "${file}" in ./rpc/rpc.h )
     fixlist="${fixlist}
@@ -1685,7 +1763,7 @@ s/\\+++fixinc_eol+++/\\/g
 
 
     #
-    # Fix  50:  News_Os_Recursion
+    # Fix  56:  News_Os_Recursion
     #
     case "${file}" in ./stdlib.h )
     if ( test -n "`egrep '#include <stdlib.h>' ${file}`"
@@ -1705,13 +1783,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  51:  Next_Math_Prefix
+    # Fix  57:  Next_Math_Prefix
     #
     case "${file}" in ./ansi/math.h )
     if ( test -n "`egrep '^extern.*double.*__const__.*' ${file}`"
@@ -1730,13 +1808,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  52:  Next_Template
+    # Fix  58:  Next_Template
     #
     case "${file}" in ./bsd/libc.h )
     if ( test -n "`egrep 'template' ${file}`"
@@ -1752,13 +1830,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  53:  Next_Volitile
+    # Fix  59:  Next_Volitile
     #
     case "${file}" in ./ansi/stdlib.h )
     if ( test -n "`egrep 'volatile' ${file}`"
@@ -1774,13 +1852,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  54:  Next_Wait_Union
+    # Fix  60:  Next_Wait_Union
     #
     case "${file}" in ./sys/wait.h )
     if ( test -n "`egrep 'wait\\(union wait' ${file}`"
@@ -1795,13 +1873,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  55:  Nodeent_Syntax
+    # Fix  61:  Nodeent_Syntax
     #
     case "${file}" in ./netdnet/dnetdb.h )
     fixlist="${fixlist}
@@ -1819,7 +1897,7 @@ s/\\+++fixinc_eol+++/\\/g
 
 
     #
-    # Fix  56:  Osf_Namespace_A
+    # Fix  62:  Osf_Namespace_A
     #
     case "${file}" in ./reg_types.h | \
 	./sys/lc_core.h )
@@ -1840,13 +1918,13 @@ s/\\+++fixinc_eol+++/\\/g
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  57:  Osf_Namespace_B
+    # Fix  63:  Osf_Namespace_B
     #
     case "${file}" in ./regex.h )
     if ( test '('  -r reg_types.h ')' -a \
@@ -1868,13 +1946,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  58:  Pthread_Page_Size
+    # Fix  64:  Pthread_Page_Size
     #
     case "${file}" in ./pthread.h )
     if ( test -n "`egrep '^int __page_size' ${file}`"
@@ -1889,13 +1967,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  59:  Read_Ret_Type
+    # Fix  65:  Read_Ret_Type
     #
     case "${file}" in ./stdio.h )
     if ( test -n "`egrep 'extern int	.*, fread\\(\\), fwrite\\(\\)' ${file}`"
@@ -1911,13 +1989,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  60:  Rs6000_Double
+    # Fix  66:  Rs6000_Double
     #
     case "${file}" in ./math.h )
     if ( test -n "`egrep '[^a-zA-Z_]class\\(' ${file}`"
@@ -1937,13 +2015,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  61:  Rs6000_Fchmod
+    # Fix  67:  Rs6000_Fchmod
     #
     case "${file}" in ./sys/stat.h )
     if ( test -n "`egrep 'fchmod\\(char' ${file}`"
@@ -1958,13 +2036,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  62:  Rs6000_Param
+    # Fix  68:  Rs6000_Param
     #
     case "${file}" in ./stdio.h | \
 	./unistd.h )
@@ -1983,7 +2061,7 @@ typedef __regmatch_t	regmatch_t;
 
 
     #
-    # Fix  63:  Sony_Include
+    # Fix  69:  Sony_Include
     #
     case "${file}" in ./machine/machparam.h )
     if ( test -n "`egrep '\"\\.\\./machine/endian.h\"' ${file}`"
@@ -1998,13 +2076,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  64:  Statsswtch
+    # Fix  70:  Statsswtch
     #
     case "${file}" in ./rpcsvc/rstat.h )
     if ( test -n "`egrep 'boottime$' ${file}`"
@@ -2019,13 +2097,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  65:  Stdio_Va_List
+    # Fix  71:  Stdio_Va_List
     #
     case "${file}" in ./stdio.h )
     fixlist="${fixlist}
@@ -2042,7 +2120,7 @@ typedef __regmatch_t	regmatch_t;
 
   sed -e 's@ va_list @ __gnuc_va_list @' \
       -e 's@ va_list)@ __gnuc_va_list)@' \
-      -e 's@ _BSD_VA_LIST_))@ __gnuc_va_list))@' \
+      -e 's@ _BSD_VA_LIST_));@ __gnuc_va_list));@' \
       -e 's@ _VA_LIST_));@ __gnuc_va_list));@' \
       -e 's@ va_list@ __va_list__@' \
       -e 's@\*va_list@*__va_list__@' \
@@ -2064,7 +2142,7 @@ typedef __regmatch_t	regmatch_t;
 
 
     #
-    # Fix  66:  Sun_Bogus_Ifdef
+    # Fix  72:  Sun_Bogus_Ifdef
     #
     case "${file}" in ./hsfs/hsfs_spec.h | \
 	./hsfs/iso_spec.h )
@@ -2080,13 +2158,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  67:  Sun_Bogus_Ifdef_Sun4c
+    # Fix  73:  Sun_Bogus_Ifdef_Sun4c
     #
     case "${file}" in ./hsfs/hsnode.h )
     if ( test -n "`egrep '#ifdef __i386__ || __sun4c__' ${file}`"
@@ -2101,13 +2179,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  68:  Sun_Catmacro
+    # Fix  74:  Sun_Catmacro
     #
     case "${file}" in ./pixrect/memvar.h )
     if ( test -n "`egrep '^#define[ 	]+CAT\\(a,b\\)' ${file}`"
@@ -2129,13 +2207,13 @@ typedef __regmatch_t	regmatch_t;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  69:  Sun_Malloc
+    # Fix  75:  Sun_Malloc
     #
     case "${file}" in ./malloc.h )
     fixlist="${fixlist}
@@ -2156,7 +2234,7 @@ typedef __regmatch_t	regmatch_t;
 
 
     #
-    # Fix  70:  Sun_Memcpy
+    # Fix  76:  Sun_Memcpy
     #
     case "${file}" in ./memory.h )
     if ( test -n "`egrep '/\\*	@\\(#\\)(head/memory.h	50.1	 |memory\\.h 1\\.[2-4] 8./../.. SMI; from S5R2 1\\.2	)\\*/' ${file}`"
@@ -2192,13 +2270,13 @@ extern int memcmp();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  71:  Sun_Rusers_Semi
+    # Fix  77:  Sun_Rusers_Semi
     #
     case "${file}" in ./rpcsvc/rusers.h )
     if ( test -n "`egrep '_cnt$' ${file}`"
@@ -2213,13 +2291,13 @@ extern int memcmp();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  72:  Sun_Signal
+    # Fix  78:  Sun_Signal
     #
     case "${file}" in ./sys/signal.h | \
 	./signal.h )
@@ -2242,13 +2320,13 @@ void	(*signal(...))(...);\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  73:  Sun_Auth_Proto
+    # Fix  79:  Sun_Auth_Proto
     #
     case "${file}" in ./rpc/auth.h | \
 	./rpc/clnt.h | \
@@ -2271,13 +2349,13 @@ void	(*signal(...))(...);\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  74:  Sunos_Matherr_Decl
+    # Fix  80:  Sunos_Matherr_Decl
     #
     case "${file}" in ./math.h )
     fixlist="${fixlist}
@@ -2298,7 +2376,7 @@ struct exception;
 
 
     #
-    # Fix  75:  Sunos_Strlen
+    # Fix  81:  Sunos_Strlen
     #
     case "${file}" in ./strings.h )
     fixlist="${fixlist}
@@ -2316,7 +2394,7 @@ struct exception;
 
 
     #
-    # Fix  76:  Systypes
+    # Fix  82:  Systypes
     #
     case "${file}" in ./sys/types.h | \
 	./stdlib.h | \
@@ -2364,16 +2442,18 @@ typedef __SIZE_TYPE__ size_t;\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  77:  Systypes_For_Aix
+    # Fix  83:  Systypes_For_Aix
     #
     case "${file}" in ./sys/types.h )
-    if ( test -n "`egrep 'typedef[ 	][ 	]*[A-Za-z_][ 	A-Za-z_]*[ 	]size_t' ${file}`" -a \
+    if ( test -n "`egrep 'typedef[ 	][ 	]*[A-Za-z_][ 	A-Za-z_]*[ 	]size_t' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test  -a \
               -z "`egrep '_GCC_SIZE_T' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
@@ -2392,13 +2472,14 @@ typedef __SIZE_TYPE__ size_t;\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  78:  Sysv68_String
+    # Fix  84:  Sysv68_String
     #
     case "${file}" in ./string.h )
     fixlist="${fixlist}
@@ -2426,7 +2507,7 @@ extern unsigned int\
 
 
     #
-    # Fix  79:  Sysz_Stdlib_For_Sun
+    # Fix  85:  Sysz_Stdlib_For_Sun
     #
     case "${file}" in ./stdlib.h )
     fixlist="${fixlist}
@@ -2456,7 +2537,7 @@ extern unsigned int\
 
 
     #
-    # Fix  80:  Sysz_Stdtypes_For_Sun
+    # Fix  86:  Sysz_Stdtypes_For_Sun
     #
     case "${file}" in ./sys/stdtypes.h )
     fixlist="${fixlist}
@@ -2494,7 +2575,7 @@ extern unsigned int\
 
 
     #
-    # Fix  81:  Tinfo_Cplusplus
+    # Fix  87:  Tinfo_Cplusplus
     #
     case "${file}" in ./tinfo.h )
     fixlist="${fixlist}
@@ -2512,7 +2593,7 @@ extern unsigned int\
 
 
     #
-    # Fix  82:  Ultrix_Ansi_Compat
+    # Fix  88:  Ultrix_Ansi_Compat
     #
     case "${file}" in ./ansi_compat.h )
     if ( test -n "`egrep 'ULTRIX' ${file}`"
@@ -2530,13 +2611,13 @@ extern unsigned int\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  83:  Ultrix_Fix_Fixproto
+    # Fix  89:  Ultrix_Fix_Fixproto
     #
     case "${file}" in ./sys/utsname.h )
     if ( test -n "`egrep 'ULTRIX' ${file}`"
@@ -2553,13 +2634,13 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  84:  Ultrix_Atof_Param
+    # Fix  90:  Ultrix_Atof_Param
     #
     case "${file}" in ./math.h )
     fixlist="${fixlist}
@@ -2581,7 +2662,7 @@ struct utsname;
 
 
     #
-    # Fix  85:  Ultrix_Const
+    # Fix  91:  Ultrix_Const
     #
     case "${file}" in ./stdio.h )
     fixlist="${fixlist}
@@ -2607,7 +2688,7 @@ struct utsname;
 
 
     #
-    # Fix  86:  Ultrix_Ifdef
+    # Fix  92:  Ultrix_Ifdef
     #
     case "${file}" in ./sys/file.h )
     if ( test -n "`egrep '#ifdef KERNEL' ${file}`"
@@ -2622,13 +2703,13 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  87:  Ultrix_Nested_Cmnt
+    # Fix  93:  Ultrix_Nested_Cmnt
     #
     case "${file}" in ./rpc/svc.h )
     fixlist="${fixlist}
@@ -2646,7 +2727,7 @@ struct utsname;
 
 
     #
-    # Fix  88:  Ultrix_Static
+    # Fix  94:  Ultrix_Static
     #
     case "${file}" in ./machine/cpu.h )
     if ( test -n "`egrep '#include \"r[34]_cpu' ${file}`"
@@ -2663,15 +2744,17 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  89:  Undefine_Null
+    # Fix  95:  Undefine_Null
     #
-    if ( test -n "`egrep '^#[ 	]*define[ 	]*[ 	]NULL[ 	]' ${file}`" -a \
+    if ( test -n "`egrep '^#[ 	]*define[ 	]*[ 	]NULL[ 	]' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test  -a \
               -z "`egrep '#[ 	]*(ifn|un)def[ 	]*[ 	]NULL($|[ 	])' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
@@ -2686,11 +2769,12 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
+    fi # end of select 'if'
 
 
     #
-    # Fix  90:  Va_I960_Macro
+    # Fix  96:  Va_I960_Macro
     #
     case "${file}" in ./arch/i960/archI960.h )
     if ( test -n "`egrep '__(vsiz|vali|vpad|alignof__)' ${file}`"
@@ -2708,13 +2792,13 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  91:  Void_Null
+    # Fix  97:  Void_Null
     #
     case "${file}" in ./curses.h | \
 	./dbm.h | \
@@ -2739,13 +2823,13 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  92:  Vxworks_Gcc_Problem
+    # Fix  98:  Vxworks_Gcc_Problem
     #
     case "${file}" in ./types/vxTypesBase.h )
     if ( test -n "`egrep '__GNUC_TYPEOF_FEATURE_BROKEN_USE_DEFAULT_UNTIL_FIXED__' ${file}`"
@@ -2781,13 +2865,13 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  93:  Vxworks_Needs_Vxtypes
+    # Fix  99:  Vxworks_Needs_Vxtypes
     #
     case "${file}" in ./time.h )
     if ( test -n "`egrep 'uint_t[ 	][ 	]*_clocks_per_sec' ${file}`"
@@ -2802,17 +2886,18 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  94:  Vxworks_Needs_Vxworks
+    # Fix 100:  Vxworks_Needs_Vxworks
     #
     case "${file}" in ./sys/stat.h )
-    if ( test -n "`egrep '#[ 	]define[ 	][ 	]*__INCstath' ${file}`" -a \
-              '('  -r types/vxTypesOld.h ')' -a \
+    if ( test -n "`egrep '#[ 	]define[ 	][ 	]*__INCstath' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test '('  -r types/vxTypesOld.h ')' -a \
               '('  -n "`egrep '#include' $file`" ')' -a \
               '('  -n "`egrep ULONG $file`" ')'
        ) > /dev/null 2>&1 ; then
@@ -2828,17 +2913,19 @@ struct utsname;
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  95:  Vxworks_Time
+    # Fix 101:  Vxworks_Time
     #
     case "${file}" in ./time.h )
-    if ( test -n "`egrep 'VOIDFUNCPTR' ${file}`" -a \
-              '('  -r vxWorks.h ')'
+    if ( test -n "`egrep 'VOIDFUNCPTR' ${file}`"
+       ) > /dev/null 2>&1 ; then
+    if ( test '('  -r vxWorks.h ')'
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       vxworks_time"
@@ -2860,16 +2947,18 @@ typedef void (*__gcc_VOIDFUNCPTR) ();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of test expression 'if'
+    fi # end of select 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  96:  X11_Class
+    # Fix 102:  X11_Class
     #
     case "${file}" in ./X11/ShellP.h )
-    if ( test -z "`egrep '__cplusplus' ${file}`"
+    if ( test  -a \
+              -z "`egrep '__cplusplus' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       x11_class"
@@ -2888,16 +2977,17 @@ typedef void (*__gcc_VOIDFUNCPTR) ();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  97:  X11_Class_Usage
+    # Fix 103:  X11_Class_Usage
     #
     case "${file}" in ./Xm/BaseClassI.h )
-    if ( test -z "`egrep '__cplusplus' ${file}`"
+    if ( test  -a \
+              -z "`egrep '__cplusplus' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       x11_class_usage"
@@ -2909,16 +2999,17 @@ typedef void (*__gcc_VOIDFUNCPTR) ();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  98:  X11_New
+    # Fix 104:  X11_New
     #
     case "${file}" in ./Xm/Traversal.h )
-    if ( test -z "`egrep '__cplusplus' ${file}`"
+    if ( test  -a \
+              -z "`egrep '__cplusplus' ${file}`"
        ) > /dev/null 2>&1 ; then
     fixlist="${fixlist}
       x11_new"
@@ -2938,13 +3029,13 @@ typedef void (*__gcc_VOIDFUNCPTR) ();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
+    fi # end of bypass 'if'
     ;; # case end for file name test
     esac
 
 
     #
-    # Fix  99:  X11_Sprintf
+    # Fix 105:  X11_Sprintf
     #
     case "${file}" in ./X11*/Xmu.h )
     fixlist="${fixlist}
@@ -2959,165 +3050,6 @@ extern char *	sprintf();\
           < $infile > ${DESTDIR}/fixinc.tmp
     rm -f ${DESTFILE}
     mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 100:  Zzz_Ki_Iface
-    #
-    case "${file}" in ./sys/ki_iface.h )
-    if ( test -n "`egrep 'These definitions are for HP Internal developers' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      zzz_ki_iface"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 101:  Zzz_Ki
-    #
-    case "${file}" in ./sys/ki.h )
-    if ( test -n "`egrep '11.00 HP-UX LP64' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      zzz_ki"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 102:  Zzz_Ki_Calls
-    #
-    case "${file}" in ./sys/ki_calls.h )
-    if ( test -n "`egrep 'kthread_create_caller_t' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      zzz_ki_calls"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 103:  Zzz_Ki_Defs
-    #
-    case "${file}" in ./sys/ki_defs.h )
-    if ( test -n "`egrep 'Kernel Instrumentation Definitions' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      zzz_ki_defs"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 104:  Zzz_Bad_Fixes
-    #
-    case "${file}" in ./sundev/ipi_error.h )
-    fixlist="${fixlist}
-      zzz_bad_fixes"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    ;; # case end for file name test
-    esac
-
-
-    #
-    # Fix 105:  Zzz_Time
-    #
-    case "${file}" in ./sys/time.h )
-    if ( test -n "`egrep '11.0 and later representation of ki time' ${file}`"
-       ) > /dev/null 2>&1 ; then
-    fixlist="${fixlist}
-      zzz_time"
-    if [ ! -r ${DESTFILE} ]
-    then infile=${file}
-    else infile=${DESTFILE} ; fi 
-    ( echo "Removing incorrect fix to <$file>" >&2
-rm -f ${DESTFILE} ${DESTDIR}/fixinc.tmp
-cat > /dev/null ) < $infile > ${DESTDIR}/fixinc.tmp
-
-    #  Shell scripts have the potential of removing the output
-    #  We interpret that to mean the file is not to be altered
-    #
-    if test ! -f ${DESTDIR}/fixinc.tmp
-    then continue ; fi 
-    rm -f ${DESTFILE}
-    mv -f ${DESTDIR}/fixinc.tmp ${DESTFILE}
-    fi # end of selection 'if'
     ;; # case end for file name test
     esac
     #  IF the output has been removed OR it is unchanged,

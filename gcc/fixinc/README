@@ -1,34 +1,4 @@
 
-The fast-fixincludes system now, to the best of our collective belief,
-correctly implements exactly the same functionality as the previous
-fixincludes and fixinc.* shell scripts.  On systems where many fixes
-are required, this is accomplished by putting most of the
-functionality into a binary executable.  On systems that had dedicated
-fixinc.* shell scripts, those scripts are still used by default until
-they can be converted.
-
-POSSIBLE PROBLEMS
-
-There may be some systems on which the fixinc binary program appears
-to be functional, but fails to work.  Current thinking is that this
-is due to some new process limitations (fork() calls) on those
-systems.  If you are experiencing this problem, then copy the script
-${src}/gcc/fixinc/inclhack.sh into ${builddir}/gcc/fixinc.sh and run
-make again.
-
-And, *please* also report the problem with a description of
-the failure mode (symptoms) and the output from:
-
-        egcs/config.guess
-
-to me:  Bruce Korb <fixincludes@autogen.freeservers.com>
-
-TO DO
-
-* fixincl needs to be converted to use gcc's system.h, libiberty, and
-  other portability frameworks.
-
-
 THEORY OF OPERATION
 
 See also:  http://autogen.freeservers.com
@@ -36,7 +6,7 @@ See also:  http://autogen.freeservers.com
 The set of fixes required was distilled down to just the data required
 to specify what needed to happen for each fix.  Those data were edited
 into a new file named gcc/fixinc/inclhack.def.  A program called
-AutoGen (http://autogen.freeservers.com) uses these definitions to
+AutoGen (http://autogen.linuxbox.com) uses these definitions to
 instantiate several different templates (gcc/fixinc/*.tpl) that then
 produces a fixincludes replacement shell script (inclhack.sh), a
 replacement binary program (fixincl.x) and a script to drive the
@@ -53,7 +23,82 @@ Usually, the mkfixinc.sh script will be able to detect when
 the binary is not runable.  If you do have problems, however,
 please see "POSSIBLE PROBLEMS" above.  Thank you.
 
-Regards,
-	Bruce <fixincludes@autogen.freeservers.com>
-	Robert <RobertLipe@usa.net>
-	Manfred <manfred@s-direktnet.de>
+MAKING CHANGES TO FIXINC
+
+Define all the fixes we know about for repairing damaged headers
+
+The rules for making fixes:
+
+A.  Every fix must have a "hackname" that is compatible with C syntax
+    for variable names and is unique without regard to alphabetic case.
+
+B.  If the problem is known to exist only in certain files,
+    then name each such file with a "files = " entry.
+
+C.  It is relatively expensive to fire off a process to fix a source
+    file, therefore write apply tests to avoid unnecessary fix
+    processes.  The preferred apply tests are "select" and "bypass"
+    because they are performed internally.  "test" sends a command
+    to a server shell that actually fires off one or more processes
+    to do the testing.  Avoid it, if you can, but it is still more
+    efficient than a fix process.
+
+    These tests are required to:
+
+    1.  Be positive for all header files that require the fix.
+
+    It is desireable to:
+
+    2.  Be negative as often as possible whenever the fix is not
+        required, avoiding the process overhead.
+
+    It is nice if:
+
+    3.  The expression is as simple as possible to both
+        process and uderstand by people.  :-)
+
+        Please take advantage of the fact AutoGen will glue
+        together string fragments.  It helps.  Also take note
+        that double quote strings and single quote strings have
+        different formation rules.  Double quote strings are
+        a tiny superset of C string syntax.  Single quote strings
+        follow shell single quote string formation rules, except
+        that the backslash is processed before '\\', '\'' and '#'
+        characters (using C character syntax).
+
+D.  There are currently four methods of fixing a file:
+
+    1.  a series of sed expressions.  Each will be an individual
+        "-e" argument to a single invocation of sed.
+
+    2.  a shell script.  These scripts are _required_ to read all
+        of stdin in order to avoid pipe stalls.  They may choose to
+        discard the input.
+
+    3.  A C language subroutine method for both tests and fixes.
+
+    4.  Replacement text.  If the replacement is empty, then
+        no fix is applied.  Otherwise, the replacement text is written
+        to the output file and no further fixes are applied.
+
+        Replacement text "fixes" must be first in this file!!
+
+
+POSSIBLE PROBLEMS
+
+There may be some systems on which the fixinc binary program appears
+to be functional, but fails to work.  If this happens to you, then
+copy the script ${src}/gcc/fixinc/inclhack.sh into
+${builddir}/gcc/fixinc.sh and run make again.
+
+And, *please* also report the problem with:
+
+1,  A description of the failure mode (symptoms)
+2.  The output from:     `sh   egcs/config.guess`
+3.  If it failed on a particular file, the original file,
+    the fixed file using the old fixincludes script and
+    any resulting output from this program.
+
+to me:  Bruce Korb <autogen@linuxbox.com>
+
+Thank you.
