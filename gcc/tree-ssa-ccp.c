@@ -834,14 +834,14 @@ def_to_undefined (var)
   value *value = get_value (var);
 
 #ifdef ENABLE_CHECKING
-  /* In theory VARYING -> UNDEFINED should also trigger an abort.
-     However, our implementation will claim that some objects initially
-     have a VARYING value (the first time we call get_value for them).
-     Thus, it can appear that we get a VARYING -> UNDEFINED transition
-     when all that is really happening is we are setting the initial
-     value for the object to UNDEFINED.  */
+  /* CONSTANT->UNDEFINED is never a valid state transition.  */
   if (value->lattice_val == CONSTANT)
     abort ();
+
+  /* VARYING->UNDEFINED is generally not a valid state transition,
+     except for values which are initialized to VARYING.  */
+  if (value->lattice_val == VARYING
+      && get_default_value (var).lattice_val != VARYING)
 #endif
 
   if (value->lattice_val != UNDEFINED)
@@ -908,8 +908,10 @@ set_lattice_value (var, val)
           add_var_to_ssa_edges_worklist (var);
 
 #ifdef ENABLE_CHECKING
-	  /* VARYING -> CONSTANT is an invalid state transition.  */
-	  if (old_val->lattice_val == VARYING)
+	  /* VARYING -> CONSTANT is an invalid state transition, except
+	     for objects which start off in a VARYING state.  */
+	  if (old_val->lattice_val == VARYING
+	      && get_default_value (var).lattice_val != VARYING)
 	    abort ();
 #endif
 

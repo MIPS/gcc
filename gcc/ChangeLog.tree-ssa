@@ -1,5 +1,10 @@
 2002-02-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-ccp.c (def_to_undefined): Improve sanity checking code
+	so that it can detect invalid VARYING->UNDEFINED transitions.
+	(set_lattice_value): Improve sanity checking code so that it
+	does not trip on valid VARYING->CONSTANT transitions.
+
 	* tree-flow.h (struct stmt_ann_d): Add new field in_ccp_worklist.
 	* tree-ssa-ccp.c (simulate_stmt): Renamed from simulate_def_use_edges.
 	(add_var_to_ssa_edges_worklist): New function.  Only add statements
