@@ -79,7 +79,7 @@ genericize_try_block (tree *stmt_p)
   c_gimplify_stmt (&body);
 
   if (CLEANUP_P (*stmt_p))
-    /* cleanup is an expression, so it doesn't need to be genericized.  */;
+    /* A cleanup is an expression, so it doesn't need to be genericized.  */;
   else
     c_gimplify_stmt (&cleanup);
 
