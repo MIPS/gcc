@@ -286,6 +286,8 @@ struct indirect_string_node GTY(())
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
 
+static GTY(()) int dw2_string_counter;
+
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
 /* Forward declarations for functions defined in this file.  */
@@ -4679,7 +4681,6 @@ AT_string_form (a)
     {
       struct indirect_string_node *node;
       unsigned int len;
-      extern int const_labelno;
       char label[32];
 
       node = a->dw_attr_val.v.val_str;
@@ -4700,8 +4701,8 @@ AT_string_form (a)
 	  && (len - DWARF_OFFSET_SIZE) * node->refcount <= len)
 	return node->form = DW_FORM_string;
 
-      ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
-      ++const_labelno;
+      ASM_GENERATE_INTERNAL_LABEL (label, "LASF", dw2_string_counter);
+      ++dw2_string_counter;
       node->label = xstrdup (label);
 
       return node->form = DW_FORM_strp;
@@ -5684,8 +5685,7 @@ same_dw_val_p (v1, v2, mark)
     case dw_val_class_flag:
       return v1->v.val_flag == v2->v.val_flag;
     case dw_val_class_str:
-      return !strcmp((const char *) HT_STR (&v1->v.val_str->id),
-		     (const char *) HT_STR (&v2->v.val_str->id));
+      return !strcmp(v1->v.val_str->str, v2->v.val_str->str);
 
     case dw_val_class_addr:
       r1 = v1->v.val_addr;
