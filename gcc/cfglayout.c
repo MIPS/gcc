@@ -323,24 +323,7 @@ remove_scope_notes ()
       if (GET_CODE (x) == NOTE
 	  && (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_BEG
 	      || NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END))
-	{
-	  /* Check if the scope note happens to be the end of a bb.  */
-	  if (currbb && x == currbb->end)
-	    currbb->end = PREV_INSN (x);
-	  if (currbb && x == currbb->head)
-	    abort ();
-
-	  if (PREV_INSN (x))
-	    {
-	      NEXT_INSN (PREV_INSN (x)) = next;
-	      PREV_INSN (next) = PREV_INSN (x);
-
-              NEXT_INSN (x) = NULL;
-              PREV_INSN (x) = NULL;
-	    }
-	  else
-	    abort ();
-	}
+	delete_insn (x);
     }
 }
 
