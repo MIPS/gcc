@@ -1,5 +1,18 @@
 2004-06-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GdkFontMetrics.java (initState): Add
+	style parameter.
+	(GdkFontMetrics): Add style argument to initState call.
+	(stringWidth(String,int,int,String)): Add style parameter.
+	(stringWidth(String)): Add style argument to stringWidth call.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c
+	(initState): Set pango font style and weight based on AWT style
+	parameter.  Pass default GTK language to
+	pango_context_get_metrics.  Use PANGO_PIXELS macro rather than
+	simply dividing by PANGO_SCALE.
+	(stringWidth): Set pango font style and weight based on AWT style
+	parameter.
+
 	* java/awt/Button.java (next_button_number): New field.
 	(paramString): Change output.
 	(generateName): New method.

@@ -47,7 +47,8 @@ exception statement from your version. */
 #define NUM_METRICS 5
 
 JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_initState
-  (JNIEnv *env, jobject obj __attribute__((unused)), jstring fname, jint size)
+  (JNIEnv *env, jobject obj __attribute__((unused)),
+   jstring fname, jint style, jint size)
 {
   jintArray array;
   jint *metrics;
@@ -66,19 +67,26 @@ JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_initState
   font_desc = pango_font_description_from_string (font_name);
   pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
+  if (style & AWT_STYLE_BOLD)
+    pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
+
+  if (style & AWT_STYLE_ITALIC)
+    pango_font_description_set_style (font_desc, PANGO_STYLE_OBLIQUE);
+
   context = gdk_pango_context_get();
   pango_context_set_font_description (context, font_desc);
 
-  pango_metrics = pango_context_get_metrics (context, font_desc, NULL);
+  pango_metrics = pango_context_get_metrics (context, font_desc,
+                                             gtk_get_default_language ());
 
   metrics[ASCENT] =
-    pango_font_metrics_get_ascent (pango_metrics) / PANGO_SCALE;
+    PANGO_PIXELS (pango_font_metrics_get_ascent (pango_metrics));
   metrics[MAX_ASCENT]  = metrics[ASCENT];
   metrics[DESCENT] =
-    pango_font_metrics_get_descent (pango_metrics) / PANGO_SCALE;
+    PANGO_PIXELS (pango_font_metrics_get_descent (pango_metrics));
   metrics[MAX_DESCENT] = metrics[DESCENT];
   metrics[MAX_ADVANCE] =
-    pango_font_metrics_get_approximate_char_width (pango_metrics) / PANGO_SCALE;
+    PANGO_PIXELS (pango_font_metrics_get_approximate_char_width (pango_metrics));
 
   pango_font_metrics_unref (pango_metrics);
 
@@ -94,7 +102,7 @@ JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_initState
 
 JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_stringWidth
   (JNIEnv *env, jobject obj __attribute__((unused)),
-   jstring fname, jint size, jstring str)
+   jstring fname, jint style, jint size, jstring str)
 {
   PangoFontDescription *font_desc;
   PangoContext *context;
@@ -111,12 +119,19 @@ JNIEXPORT jint JNICALL Java_gnu_java_awt_peer_gtk_GdkFontMetrics_stringWidth
   font_desc = pango_font_description_from_string (font_name);
   pango_font_description_set_size (font_desc, size * dpi_conversion_factor);
 
+  if (style & AWT_STYLE_BOLD)
+    pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
+
+  if (style & AWT_STYLE_ITALIC)
+    pango_font_description_set_style (font_desc, PANGO_STYLE_OBLIQUE);
+
   context = gdk_pango_context_get();
   pango_context_set_font_description (context, font_desc);
 
   layout = pango_layout_new (context);
 
   pango_layout_set_text (layout, cstr, -1);
+
   pango_layout_get_pixel_size (layout, &width, NULL);
 
   pango_font_description_free (font_desc);
