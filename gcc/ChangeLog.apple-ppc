@@ -1,3 +1,16 @@
+2004-11-17  Stuart Hastings <stuart@apple.com>
+
+	Radar 3837835
+	* cgraph.c: add "#include <function.h>".
+	(dump_cgraph_node) Add uses_vector bit to dump.
+	* cgraphunit.c:(altivec_infection, fndecl_uses_vector_p) New.
+	(record_call_1) Set uses_vector.
+	(cgraph_create_edges) Set uses_vector.
+	(cgraph_decide_inlining_of_small_functions, cgraph_decide_inlining,
+	cgraph_decide_inlining_incrementally) Check for altivec_infection.
+	* gcc/testsuite/lib/scantree.exp (diff-tree-dumps):
+	Expand globbing of 't??' dumpfile names to include 'ipa'.
+
 2004-11-16  Devang Patel  <dpatel@apple.com>
 
 	Merge stuff from autovect-branch.
@@ -149,7 +162,7 @@
 
 2004-11-11  Stuart Hastings <stuart@apple.com>
 
-	* i386.md (*movqi_1) Short-term fix for 3838108.
+	* i386.md (*movqi_1): Short-term fix for 3838108.
 
 2004-11-11  Stuart Hastings <stuart@apple.com>
 
