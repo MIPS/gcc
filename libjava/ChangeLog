@@ -1,3 +1,7 @@
+2004-11-03  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/AffineTransformOp.java: Add TYPE_BICUBIC.
+
 2004-11-02  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/AffineTransformOp.java (filter): Implement Raster

@@ -57,13 +57,15 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
 {
     public static final int TYPE_NEAREST_NEIGHBOR = 1;
     public static final int TYPE_BILINEAR = 2;
+    public static final int TYPE_BICUBIC = 3;
 
     private AffineTransform transform;
     private RenderingHints hints;
     
     /**
      * Construct AffineTransformOp with the given xform and interpolationType.
-     * Interpolation type can be either TYPE_BILINEAR or TYPE_NEAREST_NEIGHBOR.
+     * Interpolation type can be TYPE_BILINEAR, TYPE_BICUBIC or
+     * TYPE_NEAREST_NEIGHBOR.
      *
      * @param xform AffineTransform that will applied to the source image 
      * @param interpolationType type of interpolation used
@@ -74,14 +76,20 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
       if (xform.getDeterminant() == 0)
         throw new ImagingOpException(null);
 
-      if (interpolationType == 0) 
+      switch (interpolationType)
+      {
+      case TYPE_BILINEAR:
         hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION, 
                                     RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-				   
-      else
+        break;
+      case TYPE_BICUBIC:
+        hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION, 
+				    RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        break;
+      default:
         hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION,
                                     RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-
+      }
     }
 
     /**
