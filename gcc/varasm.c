@@ -4257,7 +4257,7 @@ static int
 output_addressed_constants (exp)
      tree exp;
 {
-  int reloc = 0;
+  int reloc = 0, reloc2;
   tree tem;
 
   /* Give the front-end a chance to convert VALUE to something that
@@ -4286,9 +4286,18 @@ output_addressed_constants (exp)
       break;
 
     case PLUS_EXPR:
-    case MINUS_EXPR:
       reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
       reloc |= output_addressed_constants (TREE_OPERAND (exp, 1));
+      break;
+
+    case MINUS_EXPR:
+      reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
+      reloc2 = output_addressed_constants (TREE_OPERAND (exp, 1));
+      /* The difference of two local labels is computable at link time.  */
+      if (reloc == 1 && reloc2 == 1)
+	reloc = 0;
+      else
+	reloc |= reloc2;
       break;
 
     case NOP_EXPR:

@@ -1,3 +1,8 @@
+2002-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021029-1.c: New test.
+	* gcc.dg/20021029-2.c: New test.
+
 2002-11-07  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	* gcc.dg/wint_t-1.c, gcc.dg/wchar_t-1.c: Remove excess-errors

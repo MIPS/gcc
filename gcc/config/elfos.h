@@ -395,7 +395,7 @@ const_section ()						\
 	named_section (NULL_TREE, ".data.rel.ro", RELOC);	\
       else if (flag_pic && (RELOC))				\
 	named_section (NULL_TREE, ".data.rel.ro.local", RELOC);	\
-      else if (flag_merge_constants < 2)			\
+      else if ((RELOC) || flag_merge_constants < 2)		\
 	/* C and C++ don't allow different variables to share	\
 	   the same location.  -fmerge-all-constants allows	\
 	   even that (at the expense of not conforming).  */	\

@@ -177,7 +177,7 @@ do {									\
 	     set flag_pic (yet?).  */					\
 	  else if (!DECL_READONLY_SECTION (DECL, RELOC) || (RELOC))	\
 	    SECNUM = 2;							\
-	  else if (flag_merge_constants < 2)				\
+	  else if ((RELOC) || flag_merge_constants < 2)			\
 	    /* C and C++ don't allow different variables to share	\
 	       the same location.  -fmerge-all-constants allows		\
 	       even that (at the expense of not conforming).  */	\

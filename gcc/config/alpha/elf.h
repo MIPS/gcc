@@ -329,12 +329,12 @@ void FN ()					\
 	   if (DECL_INITIAL (DECL) == NULL			\
 	       || DECL_INITIAL (DECL) == error_mark_node)	\
 	     SECNUM = 4;					\
-	   else if ((flag_pic && RELOC)				\
+	   else if ((flag_pic && (RELOC))			\
 		    || ! TREE_READONLY (DECL)			\
 		    || TREE_SIDE_EFFECTS (DECL)			\
 		    || ! TREE_CONSTANT (DECL_INITIAL (DECL)))	\
 	     SECNUM = 2;					\
-	  else if (flag_merge_constants >= 2)			\
+	  else if (! (RELOC) && flag_merge_constants >= 2)	\
 	    {							\
 	      /* C and C++ don't allow different variables to	\
 		 share the same location.  -fmerge-all-constants\

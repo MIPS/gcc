@@ -1,3 +1,12 @@
+2002-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (output_addressed_constants) [MINUS_EXPR]: Clear reloc if
+	both operands contain local relocations.
+	* config/elfos.h (SELECT_SECTION): Don't use mergeable sections if
+	initializer has any relocations.
+	* config/alpha/elf.h (SELECT_SECTION): Likewise.
+	* config/ia64/sysv4.h (DO_SELECT_SECTION): Likewise.
+
 2002-11-08  H.J. Lu <hjl@gnu.org>
 
 	Fix c/5351 and optimization/7591.
