@@ -17999,7 +17999,8 @@ toc_section (void)
 unsigned
 round_type_align (tree the_struct, unsigned computed, unsigned specified)
 {
-  if (TARGET_ALTIVEC && TREE_CODE (the_struct) == VECTOR_TYPE)
+  if (TREE_CODE (the_struct) == VECTOR_TYPE 
+      && ALTIVEC_VECTOR_MODE (TYPE_MODE (the_struct)))
     {
       /* All vectors are (at least) 16-byte aligned.  A struct or
 	 union with a vector element is also 16-byte aligned.  */
