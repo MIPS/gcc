@@ -1581,12 +1581,32 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	      *stmt_p = then_clause;
 	      repeat = 1;
 	    }
-	  else if (TREE_CODE (cond) == VAR_DECL)
+	  /* If the THEN/ELSE clause merely assigns a value to
+	     a variable/parameter which is already known to contain
+	     that value, then remove the useless THEN/ELSE clause.  */
+	  else if (TREE_CODE (cond) == VAR_DECL
+		   || TREE_CODE (cond) == PARM_DECL)
 	    {
 	      if (TREE_CODE (else_clause) == MODIFY_EXPR
 		  && TREE_OPERAND (else_clause, 0) == cond
 		  && integer_zerop (TREE_OPERAND (else_clause, 1)))
 		COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
+	    }
+	  else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+		   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+		       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+		   && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+	    {
+	      tree clause = (TREE_CODE (cond) == EQ_EXPR
+			     ? then_clause : else_clause);
+	      tree *location = (TREE_CODE (cond) == EQ_EXPR
+				? &COND_EXPR_THEN (*stmt_p)
+				: &COND_EXPR_ELSE (*stmt_p));
+
+	      if (TREE_CODE (clause) == MODIFY_EXPR
+		  && TREE_OPERAND (clause, 0) == TREE_OPERAND (cond, 0)
+		  && TREE_OPERAND (clause, 1) == TREE_OPERAND (cond, 1))
+		*location = build_empty_stmt ();
 	    }
 	}
       else if (code == SWITCH_EXPR)

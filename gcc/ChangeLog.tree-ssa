@@ -1,3 +1,8 @@
+2003-08-15  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (remove_useless_stmts_and_vars): Catch more
+	useless statements created during the out-of-ssa pass.
+
 2003-08-14  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_block): Record equivalences created by
