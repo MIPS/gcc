@@ -1,3 +1,12 @@
+2004-11-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3853429
+	* varasm.c (output_addressed_constants): For CONST_DECLs,
+	output the initializer if present.
+	* config/darwin.c (machopic_select_section): Ensure that
+	constant Objective-C strings and constant CFStrings get emitted
+	into correct sections.
+
 2004-11-05  Devang Patel  <dpatel@apple.com>
 
 	Radar 3853509.

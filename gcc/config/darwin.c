@@ -1119,8 +1119,14 @@ machopic_select_section (tree exp, int reloc,
       tree name = TYPE_NAME (TREE_TYPE (exp));
       if (TREE_CODE (name) == TYPE_DECL)
 	name = DECL_NAME (name);
+      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
+	objc_constant_string_object_section ();
+      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
+	objc_string_object_section ();
       /* APPLE LOCAL begin constant strings */
-      if (constant_string_class_name
+      else if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_CFString"))
+	cfstring_constant_object_section ();
+      else if (constant_string_class_name
 	  && !strcmp (IDENTIFIER_POINTER (name),
 		      constant_string_class_name))
 	{
@@ -1130,33 +1136,9 @@ machopic_select_section (tree exp, int reloc,
 	    objc_string_object_section ();
 	}
       /* APPLE LOCAL end constant strings */
-      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
-	objc_constant_string_object_section ();
-      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
-	objc_string_object_section ();
       else
 	base_function ();
     }
-  /* APPLE LOCAL begin constant cfstrings */
-  else if (TREE_CODE (exp) == CONSTRUCTOR
-	   && TREE_TYPE (exp)
-	   && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
-	   && TREE_OPERAND (exp, 0))
-    {
-      tree name = TREE_OPERAND (exp, 0);
-      if (TREE_CODE (name) == TREE_LIST && TREE_VALUE (name)
-	  && TREE_CODE (TREE_VALUE (name)) == NOP_EXPR
-	  && TREE_OPERAND (TREE_VALUE (name), 0)
-	  && TREE_OPERAND (TREE_OPERAND (TREE_VALUE (name), 0), 0))
-	name = TREE_OPERAND (TREE_OPERAND (TREE_VALUE (name), 0), 0);
-      if (TREE_CODE (name) == VAR_DECL
-	  && !strcmp (IDENTIFIER_POINTER (DECL_NAME (name)),
-		      "__CFConstantStringClassReference"))
-	cfstring_constant_object_section ();
-      else
-	base_function ();
-    }
-  /* APPLE LOCAL end constant cfstrings */
   else if (TREE_CODE (exp) == VAR_DECL &&
 	   DECL_NAME (exp) &&
 	   TREE_CODE (DECL_NAME (exp)) == IDENTIFIER_NODE &&

@@ -1,3 +1,10 @@
+2004-11-08  Ziemowit Laski  <zlaski@apple.com>
+
+        Radar 3853429
+	* objc.dg/const-str-8.m, objc.dg/const-str-9.m,
+	objc.dg/const-cfstring-3.m, objc.dg/const-cfstring-4.m:
+	New tests.
+
 2004-11-08  Devang Patel  <dpatel@apple.com>
 
 	Radar 3869007

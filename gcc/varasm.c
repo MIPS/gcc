@@ -3436,6 +3436,12 @@ output_addressed_constants (tree exp)
 	   tem = TREE_OPERAND (tem, 0))
 	;
 
+      /* APPLE LOCAL begin constant strings */
+      /* If we have an initialized CONST_DECL, retrieve the initializer.  */
+      if (TREE_CODE (tem) == CONST_DECL && DECL_INITIAL (tem))
+	tem = DECL_INITIAL (tem);
+      /* APPLE LOCAL end constant strings */
+
       if (CONSTANT_CLASS_P (tem) || TREE_CODE (tem) == CONSTRUCTOR)
 	output_constant_def (tem, 0);
       break;
