@@ -1288,7 +1288,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 					 low, cond_low)))
 	      || (lowequal 
 		  && integer_onep (fold (build (GT_EXPR, boolean_type_node,
-						high, cond_high)))))
+						cond_high, high)))))
 	    {
 	      tree temp;
 

@@ -1,5 +1,8 @@
 2003-09-30  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (simplify_cond_and_lookup_avail_expr): Fix thinko
+	in test for swapping ranges.
+
 	* tree-ssa-dom.c (record_range): New function.
 	(extract_range_from_cond): Likewise.
 	(tree_ssa_dominator_optimize): Initialize the vrp_data varray.
