@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O2 -fdump-tree-dce2" } */
   
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -35,17 +35,19 @@ get_alias_set (t)
   if (t->decl.rtl)
     return (t->decl.rtl->fld[1].rtmem 
 	    ? 0
-	    : (((t->decl.rtl ? t->decl.rtl : (make_decl_rtl (t, 0), t->decl.rtl)))->fld[1]).rtmem);
+	    : (((t->decl.rtl ? t->decl.rtl: (make_decl_rtl (t, 0), t->decl.rtl)))->fld[1]).rtmem);
+  return (void*)-1;
 }
 
 /* There should be precisely one load of ->decl.rtl.  If there is
    more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->decl\\.rtl" 1 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "->decl\\.rtl" 1 "dce2"} } */
   
-/* There should be precisely one load of .rtmem.  If there is
-   more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times ".rtmem" 1 "dom2"} } */
+/* There should be no loads of .rtmem since the complex return statement
+   is just "return 0".  */
+/* { dg-final { scan-tree-dump-times ".rtmem" 0 "dce2"} } */
   
-/* There should be two IF statements.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "dom2"} } */
+/* There should be one IF statement (the complex return statement should
+   collapse down to a simple return 0 without any conditionals).  */
+/* { dg-final { scan-tree-dump-times "if " 1 "dce2"} } */
 

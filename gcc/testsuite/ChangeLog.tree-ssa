@@ -1,3 +1,9 @@
+2004-01-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030709-2.c: Update test and expected
+	output to accomodate improvements in the optimizers.
+
 2004-01-02  Dan Nicolaescu  <dann@ics.uci.edu>
 
 	* gcc.dg/tree-ssa/sra-3.c: Replace test, old version was a
