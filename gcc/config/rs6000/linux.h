@@ -87,6 +87,9 @@ Boston, MA 02111-1307, USA.  */
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
 
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
 #define ASM_FILE_END(FILE) \
   do {									\
     named_section_flags (".note.GNU-stack",				\

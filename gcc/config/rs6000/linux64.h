@@ -567,6 +567,9 @@ while (0)
 			   | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
 
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
