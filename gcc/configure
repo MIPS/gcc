@@ -6766,6 +6766,11 @@ then
 	CROSS="-DCROSS_COMPILE"
 	ALL=all.cross
 	SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
+	case "$host","$target" in
+	    i?86-*-*,x86_64-*-* \
+	    | powerpc*-*-*,powerpc64*-*-*)
+		CROSS="$CROSS -DNATIVE_CROSS" ;;
+	esac
 fi
 
 # If this is a cross-compiler that does not
@@ -6854,7 +6859,7 @@ fi
 
 # Figure out what assembler we will be using.
 echo $ac_n "checking what assembler to use""... $ac_c" 1>&6
-echo "configure:6858: checking what assembler to use" >&5
+echo "configure:6863: checking what assembler to use" >&5
 gcc_cv_as=
 gcc_cv_gas_major_version=
 gcc_cv_gas_minor_version=
@@ -6948,7 +6953,7 @@ fi
 
 # Figure out what linker we will be using.
 echo $ac_n "checking what linker to use""... $ac_c" 1>&6
-echo "configure:6952: checking what linker to use" >&5
+echo "configure:6957: checking what linker to use" >&5
 gcc_cv_ld=
 gcc_cv_gld_major_version=
 gcc_cv_gld_minor_version=
@@ -7041,7 +7046,7 @@ fi
 
 # Figure out what nm we will be using.
 echo $ac_n "checking what nm to use""... $ac_c" 1>&6
-echo "configure:7045: checking what nm to use" >&5
+echo "configure:7050: checking what nm to use" >&5
 if test -x nm$host_exeext; then
 	gcc_cv_nm=./nm$host_exeext
 elif test "x$program_prefix" != xNONE; then
@@ -7053,7 +7058,7 @@ echo "$ac_t""$gcc_cv_nm" 1>&6
 
 # Figure out what objdump we will be using.
 echo $ac_n "checking what objdump to use""... $ac_c" 1>&6
-echo "configure:7057: checking what objdump to use" >&5
+echo "configure:7062: checking what objdump to use" >&5
 if test -x objdump$host_exeext; then
 	gcc_cv_objdump=./objdump$host_exeext
 elif test "x$program_prefix" != xNONE; then
@@ -7065,7 +7070,7 @@ echo "$ac_t""$gcc_cv_objdump" 1>&6
 
 # Figure out what assembler alignment features are present.
 echo $ac_n "checking assembler alignment features""... $ac_c" 1>&6
-echo "configure:7069: checking assembler alignment features" >&5
+echo "configure:7074: checking assembler alignment features" >&5
 gcc_cv_as_alignment_features=none
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
 	# Gas version 2.6 and later support for .balign and .p2align.
@@ -7113,7 +7118,7 @@ fi
 echo "$ac_t""$gcc_cv_as_alignment_features" 1>&6
 
 echo $ac_n "checking assembler subsection support""... $ac_c" 1>&6
-echo "configure:7117: checking assembler subsection support" >&5
+echo "configure:7122: checking assembler subsection support" >&5
 gcc_cv_as_subsections=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 9 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
@@ -7153,7 +7158,7 @@ fi
 echo "$ac_t""$gcc_cv_as_subsections" 1>&6
 
 echo $ac_n "checking assembler weak support""... $ac_c" 1>&6
-echo "configure:7157: checking assembler weak support" >&5
+echo "configure:7162: checking assembler weak support" >&5
 gcc_cv_as_weak=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 2 -o "$gcc_cv_gas_major_version" -gt 2; then
@@ -7176,7 +7181,7 @@ fi
 echo "$ac_t""$gcc_cv_as_weak" 1>&6
 
 echo $ac_n "checking assembler hidden support""... $ac_c" 1>&6
-echo "configure:7180: checking assembler hidden support" >&5
+echo "configure:7185: checking assembler hidden support" >&5
 gcc_cv_as_hidden=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2	\
@@ -7202,9 +7207,29 @@ elif test x$gcc_cv_as != x; then
 	# the date string after the version number.
 	ld_ver=`$gcc_cv_ld --version 2>/dev/null | head -1`
 	if echo "$ld_ver" | grep GNU > /dev/null; then
-		ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,;p'`
+		ld_vers=`echo $ld_ver | sed -n 's,^.*[ 	]\([0-9][0-9]*\.[0-9][0-9]*\(\|\.[0-9][0-9]*\)\)\([ 	].*\|\)$,\1,p'`
+		ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
 		if test 0"$ld_date" -lt 20020404; then
-			gcc_cv_as_hidden="no"
+			if test -n "$ld_date"; then
+				# If there was date string, but was earlier than 2002-04-04, fail
+				gcc_cv_as_hidden="no"
+			elif test -z "$ld_vers"; then
+				# If there was no date string nor ld version number, something is wrong
+				gcc_cv_as_hidden="no"
+			else
+				ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
+				ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
+				ld_vers_patch=`expr "$ld_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+				test -z "$ld_vers_patch" && ld_vers_patch=0
+				if test "$ld_vers_major" -lt 2; then
+					gcc_cv_as_hidden="no"
+				elif test "$ld_vers_major" -eq 2 -a "$ld_vers_minor" -lt 12; then
+					gcc_cv_as_hidden="no"
+				elif test "$ld_vers_major" -eq 2 -a "$ld_vers_minor" -eq 12 \
+					  -a "$ld_vers_patch" -eq 0; then
+					gcc_cv_as_hidden="no"
+				fi
+			fi
 		fi
 	fi
 fi
@@ -7219,7 +7244,7 @@ libgcc_visibility=$gcc_cv_as_hidden
 
 
 echo $ac_n "checking assembler leb128 support""... $ac_c" 1>&6
-echo "configure:7223: checking assembler leb128 support" >&5
+echo "configure:7248: checking assembler leb128 support" >&5
 gcc_cv_as_leb128=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 11 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
@@ -7264,7 +7289,7 @@ fi
 echo "$ac_t""$gcc_cv_as_leb128" 1>&6
 
 echo $ac_n "checking assembler eh_frame optimization""... $ac_c" 1>&6
-echo "configure:7268: checking assembler eh_frame optimization" >&5
+echo "configure:7293: checking assembler eh_frame optimization" >&5
 gcc_cv_as_eh_frame=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 12 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
@@ -7345,7 +7370,7 @@ fi
 echo "$ac_t""$gcc_cv_as_eh_frame" 1>&6
 
 echo $ac_n "checking assembler section merging support""... $ac_c" 1>&6
-echo "configure:7349: checking assembler section merging support" >&5
+echo "configure:7374: checking assembler section merging support" >&5
 gcc_cv_as_shf_merge=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
   if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 12 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
@@ -7367,11 +7392,61 @@ EOF
 fi
 echo "$ac_t""$gcc_cv_as_shf_merge" 1>&6
 
+echo $ac_n "checking assembler thread-local storage support""... $ac_c" 1>&6
+echo "configure:7397: checking assembler thread-local storage support" >&5
+gcc_cv_as_tls=no
+conftest_s=
+tls_first_major=
+tls_first_minor=
+case "$target" in
+  i[34567]86-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	movl	%gs:0, %eax
+	leal	foo@TLSGD(,%ebx,1), %eax
+	leal	foo@TLSLDM(%ebx), %eax
+	leal	foo@DTPOFF(%eax), %edx
+	movl	foo@GOTTPOFF(%ebx), %eax
+	subl	foo@GOTTPOFF(%ebx), %eax
+	movl	$foo@TPOFF, %eax
+	subl	$foo@TPOFF, %eax
+	leal	foo@NTPOFF(%ecx), %eax'
+	tls_first_major=2
+	tls_first_minor=13
+	;;
+esac
+if test -z "$tls_first_major"; then
+  :
+elif test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x
+then
+  if test "$gcc_cv_gas_major_version" -eq "$tls_first_major" \
+	  -a "$gcc_cv_gas_minor_version" -ge "$tls_first_minor" \
+	  -o "$gcc_cv_gas_major_version" -gt "$tls_first_major"; then
+    gcc_cv_as_tls=yes
+  fi
+elif test x$gcc_cv_as != x; then
+  echo "$conftest_s" > conftest.s
+  if $gcc_cv_as --fatal-warnings -o conftest.o conftest.s > /dev/null 2>&1
+  then
+    gcc_cv_as_tls=yes
+  fi
+  rm -f conftest.s conftest.o
+fi
+if test "$gcc_cv_as_tls" = yes; then
+  cat >> confdefs.h <<\EOF
+#define HAVE_AS_TLS 1
+EOF
+
+fi
+echo "$ac_t""$gcc_cv_as_tls" 1>&6
+
 case "$target" in
   # All TARGET_ABI_OSF targets.
   alpha*-*-osf* | alpha*-*-linux* | alpha*-*-*bsd*)
     echo $ac_n "checking assembler supports explicit relocations""... $ac_c" 1>&6
-echo "configure:7375: checking assembler supports explicit relocations" >&5
+echo "configure:7450: checking assembler supports explicit relocations" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_explicit_relocs'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7421,7 +7496,7 @@ EOF
     ;;
   sparc*-*-*)
     echo $ac_n "checking assembler .register pseudo-op support""... $ac_c" 1>&6
-echo "configure:7425: checking assembler .register pseudo-op support" >&5
+echo "configure:7500: checking assembler .register pseudo-op support" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_register_pseudo_op'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7449,7 +7524,7 @@ EOF
     fi
 
     echo $ac_n "checking assembler supports -relax""... $ac_c" 1>&6
-echo "configure:7453: checking assembler supports -relax" >&5
+echo "configure:7528: checking assembler supports -relax" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_relax_opt'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7477,7 +7552,7 @@ EOF
     fi
 
     echo $ac_n "checking assembler and linker support unaligned pc related relocs""... $ac_c" 1>&6
-echo "configure:7481: checking assembler and linker support unaligned pc related relocs" >&5
+echo "configure:7556: checking assembler and linker support unaligned pc related relocs" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_sparc_ua_pcrel'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7504,7 +7579,7 @@ EOF
     fi
 
     echo $ac_n "checking assembler and linker support unaligned pc related relocs against hidden symbols""... $ac_c" 1>&6
-echo "configure:7508: checking assembler and linker support unaligned pc related relocs against hidden symbols" >&5
+echo "configure:7583: checking assembler and linker support unaligned pc related relocs against hidden symbols" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_sparc_ua_pcrel_hidden'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7545,7 +7620,7 @@ EOF
 
     if test "x$gcc_cv_as_flags64" != xno; then
 	echo $ac_n "checking for assembler offsetable %lo() support""... $ac_c" 1>&6
-echo "configure:7549: checking for assembler offsetable %lo() support" >&5
+echo "configure:7624: checking for assembler offsetable %lo() support" >&5
 if eval "test \"`echo '$''{'gcc_cv_as_offsetable_lo10'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -7585,7 +7660,7 @@ EOF
 
   i[34567]86-*-* | x86_64-*-*)
     echo $ac_n "checking assembler instructions""... $ac_c" 1>&6
-echo "configure:7589: checking assembler instructions" >&5
+echo "configure:7664: checking assembler instructions" >&5
     gcc_cv_as_instructions=
     if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
       if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 9 -o "$gcc_cv_gas_major_version" -gt 2; then
@@ -7612,7 +7687,7 @@ EOF
     echo "$ac_t""$gcc_cv_as_instructions" 1>&6
 
     echo $ac_n "checking assembler GOTOFF in data directives""... $ac_c" 1>&6
-echo "configure:7616: checking assembler GOTOFF in data directives" >&5
+echo "configure:7691: checking assembler GOTOFF in data directives" >&5
     gcc_cv_as_gotoff_in_data=no
     if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x
     then
@@ -7642,7 +7717,7 @@ EOF
 esac
 
 echo $ac_n "checking assembler dwarf2 debug_line support""... $ac_c" 1>&6
-echo "configure:7646: checking assembler dwarf2 debug_line support" >&5
+echo "configure:7721: checking assembler dwarf2 debug_line support" >&5
 gcc_cv_as_dwarf2_debug_line=no
 # ??? Not all targets support dwarf2 debug_line, even within a version
 # of gas.  Moreover, we need to emit a valid instruction to trigger any
@@ -7698,7 +7773,7 @@ fi
 echo "$ac_t""$gcc_cv_as_dwarf2_debug_line" 1>&6
 
 echo $ac_n "checking assembler --gdwarf2 support""... $ac_c" 1>&6
-echo "configure:7702: checking assembler --gdwarf2 support" >&5
+echo "configure:7777: checking assembler --gdwarf2 support" >&5
 gcc_cv_as_gdwarf2_flag=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x;
 then
@@ -7727,7 +7802,7 @@ fi
 echo "$ac_t""$gcc_cv_as_gdwarf2_flag" 1>&6
 
 echo $ac_n "checking assembler --gstabs support""... $ac_c" 1>&6
-echo "configure:7731: checking assembler --gstabs support" >&5
+echo "configure:7806: checking assembler --gstabs support" >&5
 gcc_cv_as_gstabs_flag=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x;
 then
@@ -7755,7 +7830,7 @@ fi
 echo "$ac_t""$gcc_cv_as_gstabs_flag" 1>&6
 
 echo $ac_n "checking linker PT_GNU_EH_FRAME support""... $ac_c" 1>&6
-echo "configure:7759: checking linker PT_GNU_EH_FRAME support" >&5
+echo "configure:7834: checking linker PT_GNU_EH_FRAME support" >&5
 gcc_cv_ld_eh_frame_hdr=no
 if test x$gcc_cv_gld_major_version != x -a x$gcc_cv_gld_minor_version != x; then
   if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 12 -o "$gcc_cv_gld_major_version" -gt 2 && grep 'EMUL = elf' ../ld/Makefile > /dev/null; then
@@ -7918,7 +7993,7 @@ fi
 
 
 echo $ac_n "checking whether to enable maintainer-specific portions of Makefiles""... $ac_c" 1>&6
-echo "configure:7922: checking whether to enable maintainer-specific portions of Makefiles" >&5
+echo "configure:7997: checking whether to enable maintainer-specific portions of Makefiles" >&5
     # Check whether --enable-maintainer-mode or --disable-maintainer-mode was given.
 if test "${enable_maintainer_mode+set}" = set; then
   enableval="$enable_maintainer_mode"

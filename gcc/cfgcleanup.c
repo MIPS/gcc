@@ -1566,16 +1566,16 @@ static bool
 try_optimize_cfg (mode)
      int mode;
 {
-  int i;
   bool changed_overall = false;
   bool changed;
   int iterations = 0;
+  basic_block bb, b;
 
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
 
-  for (i = 0; i < n_basic_blocks; i++)
-    update_forwarder_flag (BASIC_BLOCK (i));
+  FOR_EACH_BB (bb)
+    update_forwarder_flag (bb);
 
   if (mode & CLEANUP_UPDATE_LIFE)
     clear_bb_flags ();
@@ -1595,9 +1595,9 @@ try_optimize_cfg (mode)
 		     "\n\ntry_optimize_cfg iteration %i\n\n",
 		     iterations);
 
-	  for (i = 0; i < n_basic_blocks;)
+	  for (b = ENTRY_BLOCK_PTR->next_bb; b != EXIT_BLOCK_PTR;)
 	    {
-	      basic_block c, b = BASIC_BLOCK (i);
+	      basic_block c;
 	      edge s;
 	      bool changed_here = false;
 
@@ -1710,7 +1710,7 @@ try_optimize_cfg (mode)
 	      /* Don't get confused by the index shift caused by
 		 deleting blocks.  */
 	      if (!changed_here)
-		i = b->index + 1;
+		b = b->next_bb;
 	      else
 		changed = true;
 	    }
@@ -1742,8 +1742,9 @@ try_optimize_cfg (mode)
 bool
 delete_unreachable_blocks ()
 {
-  int i, j;
   bool changed = false;
+  basic_block b, next_bb;
+  int j = 0;
 
   find_unreachable_blocks ();
 
@@ -1751,9 +1752,9 @@ delete_unreachable_blocks ()
      as otherwise we can wind up with O(N^2) behaviour here when we
      have oodles of dead code.  */
 
-  for (i = j = 0; i < n_basic_blocks; ++i)
+  for (b = ENTRY_BLOCK_PTR->next_bb; b != EXIT_BLOCK_PTR; b = next_bb)
     {
-      basic_block b = BASIC_BLOCK (i);
+      next_bb = b->next_bb;
 
       if (!(b->flags & BB_REACHABLE))
 	{
@@ -1789,7 +1790,8 @@ cleanup_cfg (mode)
       changed = true;
       /* We've possibly created trivially dead code.  Cleanup it right
 	 now to introduce more oppurtunities for try_optimize_cfg.  */
-      if (!(mode & (CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
+      if (!(mode & (CLEANUP_NO_INSN_DEL
+		    | CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
 	  && !reload_completed)
 	delete_trivially_dead_insns (get_insns(), max_reg_num ());
     }
@@ -1808,7 +1810,8 @@ cleanup_cfg (mode)
 						 | PROP_LOG_LINKS))
 	    break;
 	}
-      else if (!(mode & CLEANUP_PRE_SIBCALL) && !reload_completed)
+      else if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_PRE_SIBCALL))
+	       && !reload_completed)
 	{
 	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
 	    break;

@@ -612,6 +612,8 @@ enum update_life_extent
 
 #define CLEANUP_THREADING	64	/* Do jump threading.  */
 
+#define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
+					   insns.  */
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */

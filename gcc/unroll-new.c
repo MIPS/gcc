@@ -56,7 +56,7 @@ static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 static bool constant_iterations PARAMS ((struct loop_desc *,
 					 unsigned HOST_WIDE_INT *,
 					 bool *));
-static rtx count_loop_iterations PARAMS ((struct loop_desc *, bool));
+static rtx count_loop_iterations PARAMS ((struct loop_desc *, int));
 static void unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_completely PARAMS ((struct loops *, struct loop *,
@@ -518,7 +518,7 @@ simple_loop_exit_p (loops, loop, exit_edge, body, desc)
 static rtx
 count_loop_iterations (desc, initial)
      struct loop_desc *desc;
-     bool initial;
+     int initial;
 {
   enum rtx_code cond = desc->cond;
   rtx exp = initial && desc->init ? copy_rtx (desc->init) : desc->var;
@@ -738,7 +738,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
   sbitmap wont_exit;
   int n_remove_edges, i, n_copies;
   edge *remove_edges;
-  int best_copies, best_unroll;
+  int best_copies, best_unroll = -1;
 
   niter = desc->niter;
 
@@ -943,7 +943,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   loop_split_edge_with (loop_preheader_edge (loop), init_code, loops);
 
   /* Fake block, to record edges we need to redirect.  */
-  fake = create_basic_block (n_basic_blocks, NULL, NULL);
+  fake = create_basic_block (NULL, NULL, EXIT_BLOCK_PTR->prev_bb);
   loop_beg_label = block_label (fake);
 
   remove_edges = xcalloc (max_unroll + n_peel, sizeof (edge));

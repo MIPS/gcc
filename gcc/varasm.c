@@ -922,6 +922,10 @@ make_decl_rtl (decl, asmspec)
       && DECL_COMMON (decl))
     DECL_COMMON (decl) = 0;
 
+  /* Variables can't be both common and weak.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl))
+    DECL_COMMON (decl) = 0;
+
   /* Can't use just the variable's own name for a variable
      whose scope is less than the whole file, unless it's a member
      of a local class (which will already be unambiguous).
@@ -5105,17 +5109,23 @@ default_section_type_flags (decl, name, reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= SECTION_TLS | SECTION_WRITE;
+
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
-      || strcmp (name, ".tbss") == 0)
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_BSS;
 
   if (strcmp (name, ".tdata") == 0
-      || strcmp (name, ".tbss") == 0)
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_TLS;
 
   return flags;
@@ -5495,7 +5505,11 @@ default_unique_section (decl, reloc)
       prefix = one_only ? ".gnu.linkonce.sb." : ".sbss.";
       break;
     case SECCAT_TDATA:
+      prefix = one_only ? ".gnu.linkonce.td." : ".tdata.";
+      break;
     case SECCAT_TBSS:
+      prefix = one_only ? ".gnu.linkonce.tb." : ".tbss.";
+      break;
     default:
       abort ();
     }

@@ -221,7 +221,9 @@ toc_section ()						\
   rs6000_gen_section_name (&xcoff_read_only_section_name,	\
 			   main_input_filename, ".ro_");	\
 								\
-  fprintf (FILE, "\t.file\t\"%s\"\n", main_input_filename);	\
+  fputs ("\t.file\t", FILE);                                    \
+  output_quoted_string (FILE, main_input_filename);             \
+  fputc ('\n', FILE);                                           \
   if (TARGET_64BIT)						\
     fputs ("\t.machine\t\"ppc64\"\n", FILE);			\
   toc_section ();						\
@@ -381,6 +383,15 @@ toc_section ()						\
 
 /* This is how we tell the assembler that two symbols have the same value.  */
 #define SET_ASM_OP "\t.set "
+
+/* This is how we tell the assembler to equate two values.  */
+#define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
+ do {	fprintf ((FILE), "%s", SET_ASM_OP);				\
+	RS6000_OUTPUT_BASENAME (FILE, LABEL1);				\
+	fprintf (FILE, ",");						\
+	RS6000_OUTPUT_BASENAME (FILE, LABEL2);				\
+	fprintf (FILE, "\n");						\
+  } while (0)
 
 /* Used by rs6000_assemble_integer, among others.  */
 #define DOUBLE_INT_ASM_OP "\t.llong\t"

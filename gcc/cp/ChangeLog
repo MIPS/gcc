@@ -1,3 +1,20 @@
+2002-05-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* spew.c (yyungetc, snarf_block): Remove indent_level handling.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (obscure_complex_init): Check for VAR_DECL
+	before using DECL_THREAD_LOCAL.
+
+2002-05-22  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (check_tag_decl): Handle RID_THREAD.
+	(obscure_complex_init): Reject run-time init of tls.
+	(grokvardecl, grokdeclarator): Handle RID_THREAD.
+	* lex.c (reswords): Add __thread.
+	(rid_to_yy): Map RID_THREAD to SCSPEC.
+
 2002-05-22  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* cp-lang.c (LANG_HOOKS_POST_OPTIONS): Use c_common_post_options.
@@ -75,7 +92,7 @@
 2002-05-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* cp-tree.h (struct lang_type): Added non_zero_init.
-	(CLASS_NON_ZERO_INIT_P): New macro.
+	(CLASSTYPE_NON_ZERO_INIT_P): New macro.
 	(zero_init_p, force_store_init_value, build_forced_zero_init): Declare.
 	* class.c (check_field_decls): Test non_zero_init.
 	* cvt.c (convert_to_pointer_force): Use cp_convert_to_pointer for

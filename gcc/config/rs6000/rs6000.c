@@ -171,7 +171,7 @@ static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 static void rs6000_elf_encode_section_info PARAMS ((tree, int));
 static const char *rs6000_elf_strip_name_encoding PARAMS ((const char *));
 #endif
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
 static void rs6000_xcoff_select_section PARAMS ((tree, int,
 						 unsigned HOST_WIDE_INT));
@@ -267,7 +267,7 @@ static const char alt_reg_names[][8] =
 /* Default unaligned ops are only provided for ELF.  Find the ops needed
    for non-ELF systems.  */
 #ifndef OBJECT_FORMAT_ELF
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 /* For XCOFF.  rs6000_assemble_integer will handle unaligned DIs on
    64-bit targets.  */
 #undef TARGET_ASM_UNALIGNED_HI_OP
@@ -10259,8 +10259,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx%08lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
       else
@@ -10268,8 +10270,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FD_%lx_%lx[TC],", k[0], k[1]);
-	  fprintf (file, "0x%lx,0x%lx\n", k[0], k[1]);
+	    fprintf (file, "\t.tc FD_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff);
+	  fprintf (file, "0x%lx,0x%lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
     }
@@ -10286,8 +10290,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx00000000\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx00000000\n", l & 0xffffffff);
 	  return;
 	}
       else
@@ -10295,8 +10299,8 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs ("\t.long ", file);
 	  else
-	    fprintf (file, "\t.tc FS_%lx[TC],", l);
-	  fprintf (file, "0x%lx\n", l);
+	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
+	  fprintf (file, "0x%lx\n", l & 0xffffffff);
 	  return;
 	}
     }
@@ -10346,8 +10350,10 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long) high, (long) low);
-	  fprintf (file, "0x%lx%08lx\n", (long) high, (long) low);
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],",
+		     (long) high & 0xffffffff, (long) low & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx\n",
+		   (long) high & 0xffffffff, (long) low & 0xffffffff);
 	  return;
 	}
       else
@@ -10358,16 +10364,17 @@ output_toc (file, x, labelno, mode)
 		fputs ("\t.long ", file);
 	      else
 		fprintf (file, "\t.tc ID_%lx_%lx[TC],",
-			 (long) high, (long) low);
-	      fprintf (file, "0x%lx,0x%lx\n", (long) high, (long) low);
+			 (long) high & 0xffffffff, (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx,0x%lx\n",
+		       (long) high & 0xffffffff, (long) low & 0xffffffff);
 	    }
 	  else
 	    {
 	      if (TARGET_MINIMAL_TOC)
 		fputs ("\t.long ", file);
 	      else
-		fprintf (file, "\t.tc IS_%lx[TC],", (long) low);
-	      fprintf (file, "0x%lx\n", (long) low);
+		fprintf (file, "\t.tc IS_%lx[TC],", (long) low & 0xffffffff);
+	      fprintf (file, "0x%lx\n", (long) low & 0xffffffff);
 	    }
 	  return;
 	}
@@ -11646,7 +11653,7 @@ rs6000_elf_asm_out_destructor (symbol, priority)
 }
 #endif
 
-#ifdef OBJECT_FORMAT_COFF
+#if TARGET_XCOFF
 static void
 xcoff_asm_named_section (name, flags)
      const char *name;
@@ -11737,7 +11744,7 @@ rs6000_xcoff_strip_name_encoding (name)
     return name;
 }
 
-#endif /* OBJECT_FORMAT_COFF */
+#endif /* TARGET_XCOFF */
 
 /* Note that this is also used for ELF64.  */
 

@@ -98,6 +98,7 @@ static void path_include		PARAMS ((cpp_reader *,
 						 char *, int));
 static void init_library		PARAMS ((void));
 static void init_builtins		PARAMS ((cpp_reader *));
+static void mark_named_operators	PARAMS ((cpp_reader *));
 static void append_include_chain	PARAMS ((cpp_reader *,
 						 char *, int, int));
 static struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
@@ -303,7 +304,7 @@ remove_dup_dirs (pfile, head)
   for (cur = head; cur; cur = cur->next)
     {
       for (other = head; other != cur; other = other->next)
-        if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
+	if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
 	  {
 	    if (cur->sysp && !other->sysp)
 	      {
@@ -419,7 +420,7 @@ set_lang (pfile, lang)
      enum c_lang lang;
 {
   const struct lang_flags *l = &lang_defaults[(int) lang];
-  
+
   CPP_OPTION (pfile, lang) = lang;
 
   CPP_OPTION (pfile, c99)		 = l->c99;
@@ -664,6 +665,23 @@ static const struct builtin operator_array[] =
 };
 #undef B
 
+/* Mark the C++ named operators in the hash table.  */
+static void
+mark_named_operators (pfile)
+     cpp_reader *pfile;
+{
+  const struct builtin *b;
+
+  for (b = operator_array;
+       b < (operator_array + ARRAY_SIZE (operator_array));
+       b++)
+    {
+      cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
+      hp->flags |= NODE_OPERATOR;
+      hp->value.operator = b->value;
+    }
+}
+
 /* Subroutine of cpp_read_main_file; reads the builtins table above and
    enters them, and language-specific macros, into the hash table.  */
 static void
@@ -681,16 +699,6 @@ init_builtins (pfile)
       hp->flags |= NODE_BUILTIN | NODE_WARN;
       hp->value.builtin = b->value;
     }
-
-  if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
-    for (b = operator_array;
-	 b < (operator_array + ARRAY_SIZE (operator_array));
-	 b++)
-      {
-	cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
-	hp->flags |= NODE_OPERATOR;
-	hp->value.operator = b->value;
-      }
 
   if (CPP_OPTION (pfile, cplusplus))
     _cpp_define_builtin (pfile, "__cplusplus 1");
@@ -845,31 +853,31 @@ static void sanity_checks (pfile)
      type precisions made by cpplib.  */
   test--;
   if (test < 1)
-    cpp_error (pfile, DL_FATAL, "cppchar_t must be an unsigned type");
+    cpp_error (pfile, DL_ICE, "cppchar_t must be an unsigned type");
 
   if (CPP_OPTION (pfile, precision) > BITS_PER_HOST_WIDEST_INT)
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ICE,
 	       "preprocessor arithmetic has maximum precision of %lu bits; target requires %lu bits",
 	       (unsigned long)BITS_PER_HOST_WIDEST_INT,
 	       (unsigned long)CPP_OPTION (pfile, precision));
 
   if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ICE,
 	       "CPP arithmetic must be at least as precise as a target int");
 
   if (CPP_OPTION (pfile, char_precision) < 8)
-    cpp_error (pfile, DL_FATAL, "target char is less than 8 bits wide");
+    cpp_error (pfile, DL_ICE, "target char is less than 8 bits wide");
 
   if (CPP_OPTION (pfile, wchar_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ICE,
 	       "target wchar_t is narrower than target char");
 
   if (CPP_OPTION (pfile, int_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ICE,
 	       "target int is narrower than target char");
 
   if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ICE,
 	       "CPP on this host cannot handle wide character constants over %lu bits, but the target requires %lu bits",
 	       (unsigned long)BITS_PER_CPPCHAR_T,
 	       (unsigned long)CPP_OPTION (pfile, wchar_precision));
@@ -976,6 +984,10 @@ void
 cpp_finish_options (pfile)
      cpp_reader *pfile;
 {
+  /* Mark named operators before handling command line macros.  */
+  if (CPP_OPTION (pfile, cplusplus) && CPP_OPTION (pfile, operator_names))
+    mark_named_operators (pfile);
+
   /* Install builtins and process command line macros etc. in the order
      they appeared, but only if not already preprocessed.  */
   if (! CPP_OPTION (pfile, preprocessed))
@@ -1013,7 +1025,7 @@ _cpp_maybe_push_include_file (pfile)
   if (pfile->next_include_file)
     {
       struct pending_option *head = *pfile->next_include_file;
-  
+
       while (head && !push_include (pfile, head))
 	head = head->next;
 
@@ -1061,7 +1073,7 @@ output_deps (pfile)
   if (deps_stream != stdout)
     {
       if (ferror (deps_stream) || fclose (deps_stream) != 0)
-	cpp_error (pfile, DL_FATAL, "I/O error on output");
+	cpp_error (pfile, DL_ERROR, "I/O error on output");
     }
 }
 
@@ -1300,7 +1312,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
       else if (CPP_OPTION (pfile, out_fname) == NULL)
 	CPP_OPTION (pfile, out_fname) = argv[i];
       else
-	cpp_error (pfile, DL_FATAL,
+	cpp_error (pfile, DL_ERROR,
 		   "too many filenames. Type %s --help for usage info",
 		   progname);
     }
@@ -1328,7 +1340,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	      arg = argv[++i];
 	      if (!arg)
 		{
-		  cpp_error (pfile, DL_FATAL,
+		  cpp_error (pfile, DL_ERROR,
 			     cl_options[opt_index].msg, argv[i - 1]);
 		  return argc;
 		}
@@ -1373,10 +1385,10 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  CPP_OPTION (pfile, help_only) = 1;
 	  break;
 	case OPT_target__help:
-          /* Print if any target specific options. cpplib has none, but
+	  /* Print if any target specific options. cpplib has none, but
 	     make sure help_only gets set.  */
 	  CPP_OPTION (pfile, help_only) = 1;
-          break;
+	  break;
 
 	  /* --version inhibits compilation, -version doesn't. -v means
 	     verbose and -version.  Historical reasons, don't ask.  */
@@ -1415,11 +1427,11 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  CPP_OPTION (pfile, pedantic_errors) = 1;
 	  /* fall through */
 	case OPT_pedantic:
- 	  CPP_OPTION (pfile, pedantic) = 1;
+	  CPP_OPTION (pfile, pedantic) = 1;
 	  CPP_OPTION (pfile, warn_endif_labels) = 1;
 	  break;
 	case OPT_trigraphs:
- 	  CPP_OPTION (pfile, trigraphs) = 1;
+	  CPP_OPTION (pfile, trigraphs) = 1;
 	  break;
 	case OPT_remap:
 	  CPP_OPTION (pfile, remap) = 1;
@@ -1481,7 +1493,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	    CPP_OPTION (pfile, out_fname) = arg;
 	  else
 	    {
-	      cpp_error (pfile, DL_FATAL, "output filename specified twice");
+	      cpp_error (pfile, DL_ERROR, "output filename specified twice");
 	      return argc;
 	    }
 	  break;
@@ -1489,13 +1501,13 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  /* Args to -d specify what parts of macros to dump.
 	     Silently ignore unrecognised options; they may
 	     be aimed at the compiler proper.  */
- 	  {
+	  {
 	    char c;
 
 	    while ((c = *arg++) != '\0')
- 	      switch (c)
- 		{
- 		case 'M':
+	      switch (c)
+		{
+		case 'M':
 		  CPP_OPTION (pfile, dump_macros) = dump_only;
 		  break;
 		case 'N':
@@ -1529,7 +1541,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	case OPT_MF:
 	  CPP_OPTION (pfile, deps_file) = arg;
 	  break;
- 	case OPT_MP:
+	case OPT_MP:
 	  CPP_OPTION (pfile, deps_phony_targets) = 1;
 	  break;
 	case OPT_MQ:
@@ -1575,7 +1587,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  break;
 	case OPT_I:           /* Add directory to path for includes.  */
 	  if (!strcmp (arg, "-"))
- 	    {
+	    {
 	      /* -I- means:
 		 Use the preceding -I directories for #include "..."
 		 but not #include <...>.
@@ -1592,11 +1604,11 @@ cpp_handle_option (pfile, argc, argv, ignore)
 		}
 	      else
 		{
-		  cpp_error (pfile, DL_FATAL, "-I- specified twice");
+		  cpp_error (pfile, DL_ERROR, "-I- specified twice");
 		  return argc;
 		}
- 	    }
- 	  else
+	    }
+	  else
 	    append_include_chain (pfile, xstrdup (arg), BRACKET, 0);
 	  break;
 	case OPT_isystem:
@@ -1701,7 +1713,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  else if (! ignore)
 	    return i;
 	  break;
- 	}
+	}
     }
   return i + 1;
 }
@@ -1796,7 +1808,7 @@ cpp_post_options (pfile)
       (CPP_OPTION (pfile, print_deps_missing_files)
        || CPP_OPTION (pfile, deps_file)
        || CPP_OPTION (pfile, deps_phony_targets)))
-    cpp_error (pfile, DL_FATAL,
+    cpp_error (pfile, DL_ERROR,
 	       "you must additionally specify either -M or -MM");
 }
 

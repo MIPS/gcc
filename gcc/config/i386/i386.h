@@ -282,6 +282,9 @@ extern int x86_prefetch_sse;
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
 
+#define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
+#define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
+
 /* WARNING: Do not mark empty strings for translation, as calling
             gettext on an empty string does NOT return an empty
             string. */
@@ -389,31 +392,6 @@ extern int x86_prefetch_sse;
 #define TARGET_DEFAULT TARGET_SUBTARGET_DEFAULT
 #endif
 
-/* Which processor to schedule for. The cpu attribute defines a list that
-   mirrors this list, so changes to i386.md must be made at the same time.  */
-
-enum processor_type
-{
-  PROCESSOR_I386,			/* 80386 */
-  PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
-  PROCESSOR_PENTIUM,
-  PROCESSOR_PENTIUMPRO,
-  PROCESSOR_K6,
-  PROCESSOR_ATHLON,
-  PROCESSOR_PENTIUM4,
-  PROCESSOR_max
-};
-enum fpmath_unit
-{
-  FPMATH_387 = 1,
-  FPMATH_SSE = 2
-};
-
-extern enum processor_type ix86_cpu;
-extern enum fpmath_unit ix86_fpmath;
-
-extern int ix86_arch;
-
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
    initializer with a subgrouping for each command option.
@@ -451,6 +429,8 @@ extern int ix86_arch;
     "" /* Undocumented. */ },					\
   { "asm=", &ix86_asm_string,					\
     N_("Use given assembler dialect") },			\
+  { "tls-dialect=", &ix86_tls_dialect_string,			\
+    N_("Use given thread-local storage dialect") },		\
   SUBTARGET_OPTIONS						\
 }
 
@@ -1901,15 +1881,12 @@ do {									\
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#define CONSTANT_ADDRESS_P(X)					\
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF	\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST	\
-   || GET_CODE (X) == CONST_DOUBLE)
+#define CONSTANT_ADDRESS_P(X)  constant_address_p (X)
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) 1
+#define LEGITIMATE_CONSTANT_P(X)  legitimate_constant_p (X)
 
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
@@ -1972,9 +1949,7 @@ do {									\
    when generating PIC code.  It is given that flag_pic is on and 
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_PIC_OPERAND_P(X)		\
-  (! SYMBOLIC_CONST (X)				\
-   || legitimate_pic_address_disp_p (X))
+#define LEGITIMATE_PIC_OPERAND_P(X) legitimate_pic_operand_p (X)
 
 #define SYMBOLIC_CONST(X)	\
   (GET_CODE (X) == SYMBOL_REF						\
@@ -2417,7 +2392,20 @@ enum ix86_builtins
   IX86_BUILTIN_MAX
 };
 
-#define TARGET_ENCODE_SECTION_INFO  i386_encode_section_info
+#define TARGET_ENCODE_SECTION_INFO  ix86_encode_section_info
+#define TARGET_STRIP_NAME_ENCODING  ix86_strip_name_encoding
+
+#define ASM_OUTPUT_LABELREF(FILE,NAME)		\
+  do {						\
+    const char *xname = (NAME);			\
+    if (xname[0] == '%')			\
+      xname += 2;				\
+    if (xname[0] == '*')			\
+      xname += 1;				\
+    else					\
+      fputs (user_label_prefix, FILE);		\
+    fputs (xname, FILE);			\
+  } while (0)
 
 /* The `FINALIZE_PIC' macro serves as a hook to emit these special
    codes once the function is being compiled into assembly code, but
@@ -3072,7 +3060,7 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
    print_operand function.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) \
-  ((CODE) == '*' || (CODE) == '+')
+  ((CODE) == '*' || (CODE) == '+' || (CODE) == '&')
 
 /* Print the name of a register based on its machine mode and number.
    If CODE is 'w', pretend the mode is HImode.
@@ -3090,6 +3078,12 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
   print_operand_address ((FILE), (ADDR))
+
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
+do {						\
+  if (! output_addr_const_extra (FILE, (X)))	\
+    goto FAIL;					\
+} while (0);
 
 /* Print the name of a register for based on its machine mode and number.
    This macro is used to print debugging output.
@@ -3220,7 +3214,12 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
   {"memory_displacement_operand", {MEM}},				\
   {"cmpsi_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		     LABEL_REF, SUBREG, REG, MEM, AND}},		\
-  {"long_memory_operand", {MEM}},
+  {"long_memory_operand", {MEM}},					\
+  {"tls_symbolic_operand", {SYMBOL_REF}},				\
+  {"global_dynamic_symbolic_operand", {SYMBOL_REF}},			\
+  {"local_dynamic_symbolic_operand", {SYMBOL_REF}},			\
+  {"initial_exec_symbolic_operand", {SYMBOL_REF}},			\
+  {"local_exec_symbolic_operand", {SYMBOL_REF}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -3228,57 +3227,90 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 #define SPECIAL_MODE_PREDICATES \
   "ext_register_operand",
 
-/* CM_32 is used by 32bit ABI
-   CM_SMALL is small model assuming that all code and data fits in the first
-   31bits of address space.
-   CM_KERNEL is model assuming that all code and data fits in the negative
-   31bits of address space.
-   CM_MEDIUM is model assuming that code fits in the first 31bits of address
-   space.  Size of data is unlimited.
-   CM_LARGE is model making no assumptions about size of particular sections.
-  
-   CM_SMALL_PIC is model for PIC libraries assuming that code+data+got/plt
-   tables first in 31bits of address space.
- */
-enum cmodel {
-  CM_32,
-  CM_SMALL,
-  CM_KERNEL,
-  CM_MEDIUM,
-  CM_LARGE,
-  CM_SMALL_PIC
+/* Which processor to schedule for. The cpu attribute defines a list that
+   mirrors this list, so changes to i386.md must be made at the same time.  */
+
+enum processor_type
+{
+  PROCESSOR_I386,			/* 80386 */
+  PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
+  PROCESSOR_PENTIUM,
+  PROCESSOR_PENTIUMPRO,
+  PROCESSOR_K6,
+  PROCESSOR_ATHLON,
+  PROCESSOR_PENTIUM4,
+  PROCESSOR_max
 };
+
+extern enum processor_type ix86_cpu;
+extern const char *ix86_cpu_string;
+
+extern enum processor_type ix86_arch;
+extern const char *ix86_arch_string;
+
+enum fpmath_unit
+{
+  FPMATH_387 = 1,
+  FPMATH_SSE = 2
+};
+
+extern enum fpmath_unit ix86_fpmath;
+extern const char *ix86_fpmath_string;
+
+enum tls_dialect
+{
+  TLS_DIALECT_GNU,
+  TLS_DIALECT_SUN
+};
+
+extern enum tls_dialect ix86_tls_dialect;
+extern const char *ix86_tls_dialect_string;
+
+enum cmodel {
+  CM_32,	/* The traditional 32-bit ABI.  */
+  CM_SMALL,	/* Assumes all code and data fits in the low 31 bits.  */
+  CM_KERNEL,	/* Assumes all code and data fits in the high 31 bits.  */
+  CM_MEDIUM,	/* Assumes code fits in the low 31 bits; data unlimited.  */
+  CM_LARGE,	/* No assumptions.  */
+  CM_SMALL_PIC	/* Assumes code+data+got/plt fits in a 31 bit region.  */
+};
+
+extern enum cmodel ix86_cmodel;
+extern const char *ix86_cmodel_string;
 
 /* Size of the RED_ZONE area.  */
 #define RED_ZONE_SIZE 128
 /* Reserved area of the red zone for temporaries.  */
 #define RED_ZONE_RESERVE 8
-extern const char *ix86_debug_arg_string, *ix86_debug_addr_string;
 
 enum asm_dialect {
   ASM_ATT,
   ASM_INTEL
 };
+
 extern const char *ix86_asm_string;
 extern enum asm_dialect ix86_asm_dialect;
-/* Value of -mcmodel specified by user.  */
-extern const char *ix86_cmodel_string;
-extern enum cmodel ix86_cmodel;
-
-/* Variables in i386.c */
-extern const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
-extern const char *ix86_arch_string;		/* for -march=<xxx> */
-extern const char *ix86_fpmath_string;		/* for -mfpmath=<xxx> */
-extern const char *ix86_regparm_string;		/* # registers to use to pass args */
-extern const char *ix86_align_loops_string;	/* power of two alignment for loops */
-extern const char *ix86_align_jumps_string;	/* power of two alignment for non-loop jumps */
-extern const char *ix86_align_funcs_string;	/* power of two alignment for functions */
-extern const char *ix86_preferred_stack_boundary_string;/* power of two alignment for stack boundary */
-extern const char *ix86_branch_cost_string;	/* values 1-5: see jump.c */
-extern int ix86_regparm;			/* ix86_regparm_string as a number */
-extern int ix86_preferred_stack_boundary;	/* preferred stack boundary alignment in bits */
-extern int ix86_branch_cost;			/* values 1-5: see jump.c */
-extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled class containing REGNO */
+
+extern int ix86_regparm;
+extern const char *ix86_regparm_string;	
+
+extern int ix86_preferred_stack_boundary;
+extern const char *ix86_preferred_stack_boundary_string;
+
+extern int ix86_branch_cost;
+extern const char *ix86_branch_cost_string;
+
+extern const char *ix86_debug_arg_string;
+extern const char *ix86_debug_addr_string;
+
+/* Obsoleted by -f options.  Remove before 3.2 ships.  */
+extern const char *ix86_align_loops_string;
+extern const char *ix86_align_jumps_string;
+extern const char *ix86_align_funcs_string;
+
+/* Smallest class containing REGNO.  */
+extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER];
+
 extern rtx ix86_compare_op0;	/* operand 0 for comparisons */
 extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
 
