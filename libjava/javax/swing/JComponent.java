@@ -1108,7 +1108,11 @@ public abstract class JComponent extends Container implements Serializable
   public JToolTip createToolTip()
   {
     if (toolTip == null)
-      toolTip = new JToolTip(toolTipText);
+      {
+	toolTip = new JToolTip();
+	toolTip.setTipText(toolTipText);
+      }
+    
     return toolTip;
   }
 

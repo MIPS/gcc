@@ -1,5 +1,10 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JComponent.java
+	(createToolTip): Use official JToolTip API.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JToolTip.java
 	(JToolTip): No arguments in API.
 	(setTipText): New method.
