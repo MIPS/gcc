@@ -79,13 +79,15 @@ ffewhere_new (ffewhereLine l, ffewhereCol c)
 ffewhereFile ffewhere_file_new (char *name, size_t length);
 void ffewhere_file_set (ffewhereFile wf, bool have_num, ffewhereLineNumber ln);
 
-ffewhereIncl ffewhere_incl_line (ffewhereLine l);
+#define ffewhere_incl_file(i) ((i)->ffewhere_incl_file_)
+#define ffewhere_incl_line(i) ((i)->ffewhere_incl_line_)
 
 void ffewhere_initialize (void);
 
 #define ffewhere_line_file(l) ffewhere_file_incl (ffewhere_incl_line ((l)))
-#define ffewhere_line_filelinenum(l) \
+#define ffewhere_line_line(l) \
   ffewhere_line_incl (ffewhere_incl_line ((l)))
+ffewhereIncl ffewhere_line_incl (ffewhereLine l);
 
 #define ffewhere_terminate()
 
