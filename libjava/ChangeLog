@@ -1,5 +1,9 @@
 2004-11-16  Andrew Haley  <aph@redhat.com>
 
+	* gnu/gcj/util/Debug.java (print): Add RawDataManaged.
+
+2004-11-16  Andrew Haley  <aph@redhat.com>
+
 	* configure.ac (LIBGCJ_LD_SYMBOLIC): AC_SUBST this definition.
 	* configure.host: Define libgcj_ld_symbolic for Linux hosts.
 	* Makefile.am (lib_*_la_LDFLAGS): Add LIBGCJ_LD_SYMBOLIC.
