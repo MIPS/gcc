@@ -1,3 +1,10 @@
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 3970655
+
+	* g++.dg/asm-function-13.C: New.
+	* gcc.apple/asm-function-13.c: New.
+
 2005-02-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013 (Part 2)

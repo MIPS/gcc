@@ -612,6 +612,7 @@ static GTY(()) varray_type cw_asm_labels_uniq;
 static int cw_asm_expr_val (tree arg);
 static void print_cw_asm_operand (char *, tree, unsigned, bool, bool);
 static int cw_asm_get_register_var (tree, unsigned, bool);
+static tree cw_asm_identifier (tree expr);
 /* APPLE LOCAL end CW asm blocks */
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
@@ -6084,6 +6085,30 @@ cw_process_arg (const char *opcodename, tree var, unsigned argnum,
     *inputsp = chainon (*inputsp, one);
 }
 
+/* CW identifier may include '.', '+' or '-'. Except that an operator
+   can only end in a '.'. This routine creates a new valid operator
+   parsed as a CW identifier. */
+
+static tree
+cw_asm_identifier (tree expr)
+{
+  const char *opcodename = IDENTIFIER_POINTER (expr);
+  int len = IDENTIFIER_LENGTH (expr);
+  int i;
+  for (i = 0; i < len; i++)
+     if (opcodename[i] == '.')
+       break;
+  if (i+1 < len) /* operator. is ok */
+   {
+      char *buf = (char *) alloca (IDENTIFIER_LENGTH (expr) + 1);
+      strncpy (buf, opcodename, i);
+      buf[i] = ' ';
+      strcpy (buf+i+1, opcodename + i);
+      return get_identifier (buf);
+   }
+  return expr; 
+}
+
 /* Build an asm statement from CW-syntax bits.  */
 tree
 cw_asm_stmt (tree expr, tree args)
@@ -6106,6 +6131,8 @@ cw_asm_stmt (tree expr, tree args)
 
   if (TREE_CODE (expr) == ADDR_EXPR)
     expr = TREE_OPERAND (expr, 0);
+
+  expr = cw_asm_identifier (expr);
 
   opcodename = IDENTIFIER_POINTER (expr);
 
@@ -6413,7 +6440,7 @@ cw_asm_label (tree labid, int atsign)
   STRIP_NOPS (labid);
 
   if (atsign)
-    labid = get_atsign_identifier (labid);
+    labid = prepend_char_identifier (labid, '@');
 
   if (cw_asm_buffer == NULL)
     cw_asm_buffer = xmalloc (4000);
@@ -6431,13 +6458,13 @@ cw_asm_label (tree labid, int atsign)
   return stmt;
 }
 
-/* Create a new identifier with an '@' stuck on the front.  */
+/* Create a new identifier with an 'ch' stuck on the front.  */
 
 tree
-get_atsign_identifier (tree ident)
+prepend_char_identifier (tree ident, char ch)
 {
   char *buf = (char *) alloca (IDENTIFIER_LENGTH (ident) + 20);
-  buf[0] = '@';
+  buf[0] = ch;
   strcpy (buf + 1, IDENTIFIER_POINTER (ident));
   return get_identifier (buf);
 }

@@ -420,6 +420,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	{
 	  if ((tok->flags & BOL)
 	      && (tok->type == CPP_ATSIGN
+		  || tok->type == CPP_DOT
 		  || (tok->type == CPP_NAME
 		      && (*value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node)))
 		      && !cw_asm_typename_or_reserved (*value))))

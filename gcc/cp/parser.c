@@ -1895,6 +1895,12 @@ static tree cp_parser_cw_asm_operand
   (cp_parser *);
 static tree cp_parser_cw_asm_postfix_expression
   (cp_parser *, bool);
+static tree cp_parser_cw_identifier_or_number
+  (cp_parser* parser);
+static tree cw_build_identifier_string
+  (cp_parser* parser, const char* str);
+static tree cp_parser_cw_asm_relative_branch
+  (cp_parser *parser);
 /* APPLE LOCAL end CW asm blocks */
 
 /* Returns nonzero if we are parsing tentatively.  */
@@ -3019,7 +3025,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	/* APPLE LOCAL begin CW asm blocks */
 	/* Replace the id with an id prefixed with @.  */
 	if (atsignhack)
-	  id_expression = get_atsign_identifier (id_expression);
+	  id_expression = prepend_char_identifier (id_expression, '@');
 	/* APPLE LOCAL end CW asm blocks */
 	if (id_expression == error_mark_node)
 	  return error_mark_node;
@@ -16344,6 +16350,25 @@ cp_parser_cw_asm_statement_seq_opt (cp_parser* parser)
     }
 }
 
+/* Build an identifier comprising the string passed and the
+   next token. */
+
+static tree
+cw_build_identifier_string (cp_parser* parser, const char* str)
+{
+  char *buf;
+  int len;
+  tree id;
+
+  id = cp_parser_cw_identifier_or_number (parser);
+  len = strlen (str);
+  buf = (char *) alloca (IDENTIFIER_LENGTH (id) + len + 1);
+  memcpy (buf, str, len);
+  memcpy (buf+len, IDENTIFIER_POINTER (id), IDENTIFIER_LENGTH (id));
+  buf[IDENTIFIER_LENGTH (id) + len] = 0;
+  return get_identifier (buf);
+}
+
 /* Parse a CW asm identifier.  Returns an IDENTIFIER_NODE representing
    the identifier.  The CW asm identifieriers include [.+-] as part of
    the identifier.  */
@@ -16383,7 +16408,14 @@ cp_parser_cw_identifier (cp_parser* parser)
       t = get_identifier (s);
     }
   else
-    t = cp_parser_identifier (parser);
+    if (token->type == CPP_DOT)
+      {
+        /* .align */
+        cp_lexer_consume_token (parser->lexer);
+        t = cw_build_identifier_string (parser, ".");
+      }
+    else
+      t = cp_parser_identifier (parser);
 
   if (t == error_mark_node)
     return t;
@@ -16541,6 +16573,25 @@ cp_parser_cw_asm_operand (cp_parser *parser)
   return operand;
 }
 
+/* Need to handle case of relative branch using: .[+|-]number
+   syntax */
+static tree
+cp_parser_cw_asm_relative_branch (cp_parser *parser)
+{
+  cp_token *token;
+  token = cp_lexer_peek_nth_token (parser->lexer, 2);
+  if (token->type == CPP_PLUS || token->type == CPP_MINUS)
+    {
+      const char *str = (token->type == CPP_PLUS) ? ".+" : ".-";
+      /* consume '.' */
+      cp_lexer_consume_token (parser->lexer);
+      /* consume '-' or '+' */
+      cp_lexer_consume_token (parser->lexer);
+      return cw_build_identifier_string (parser, str);
+   }
+  return error_mark_node;
+}
+
 /* Parse a CW asm-style postfix-expression.
 
    postfix-expression:
@@ -16621,6 +16672,13 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	/* If that worked, we're done.  */
 	if (cp_parser_parse_definitely (parser))
 	  break;
+
+	if (token->type == CPP_DOT)
+	  {
+	    postfix_expression = cp_parser_cw_asm_relative_branch (parser);
+	    if (postfix_expression != error_mark_node)
+	      break;
+	  }
 
 	/* If the functional-cast didn't work out, try a
 	   compound-literal.  */
@@ -16767,6 +16825,14 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	  break;
 
 	case CPP_DOT:
+	  /* Disambiguation of asm's last operand followed by a '.'.
+	     This happens when an asm instruction is followed by a 
+	     directive, such as .align. Bail out early. */
+	  if (TREE_CODE (postfix_expression) == INTEGER_CST
+	      || TREE_CODE (postfix_expression) == IDENTIFIER_NODE
+	      || TREE_CODE (postfix_expression) == COMPOUND_EXPR)
+	    return postfix_expression;
+
 	case CPP_DEREF:
 	  /* postfix-expression . template [opt] id-expression
 	     postfix-expression . pseudo-destructor-name

@@ -1044,7 +1044,7 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern tree cw_asm_stmt (tree, tree);
 extern tree cw_asm_build_register_offset (tree, tree);
 extern tree cw_asm_label (tree, int);
-extern tree get_atsign_identifier (tree);
+extern tree prepend_char_identifier (tree, char);
 extern void clear_cw_asm_labels (void);
 extern tree cw_asm_reg_name (tree);
 extern tree get_cw_asm_label (tree);

@@ -1,3 +1,25 @@
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3970655
+
+	* c-common.c (prepend_char_identifier): Modified old
+	get_atsign_identifier to handle any character.
+	* c-common.h (prepend_char_identifier): New function declaration.
+	Removed get_atsign_identifier declaration.
+	* c-lex.c (c_lex_with_flags): Add '.' to those tokens which
+	can start a CW asm statement.
+	* c-parse.in (cw_identifier): New CW identifier syntax.
+	
+2005-02-15  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3970646
+	* c-common.c (cw_asm_identifier): New routine.
+	(cw_asm_stmt): call cw_asm_identifier on asm operator.
+	* cp/parser.c (cp_parser_cw_asm_relative_branch): New routine.
+	(cp_parser_cw_asm_postfix_expression): Call 
+	cp_parser_cw_asm_relative_branch to parse relative branch 
+	operand.
+
 2005-02-14  Devang Patel  <dpatel@apple.com>
 
 	Radar 4002184

@@ -2091,6 +2091,8 @@ cw_identifier:
 	  { $$ = cw_get_identifier ($1, "+"); }
 	| cw_identifier '-'
 	  { $$ = cw_get_identifier ($1, "-"); }
+	| '.' identifier
+	  { $$ = prepend_char_identifier ($2, '.'); }
 	;
 
 /* A single statement consists of one or more labels (identified by a
@@ -2666,7 +2668,7 @@ cw_asm_primary:
                 }
 	| '@' IDENTIFIER
 		{
-		  tree atsignid = get_atsign_identifier ($2);
+		  tree atsignid = prepend_char_identifier ($2, '@');
 		  if (yychar == YYEMPTY)
 		    yychar = YYLEX;
 		  $$.value = build_external_ref (atsignid, yychar == '(');
