@@ -244,7 +244,7 @@ done
 # will complain if we try to add two architectures into the same output.
 TARG0=`echo $TARGETS | cut -d ' ' -f 1`
 lipo -output .$DEST_ROOT/bin/gcov-$MAJ_VERS -create \
-  $DIR/dst-*-$TARG0$DEST_ROOT/bin/gcov-$MAJ_VERS || exit 1
+  $DIR/dst-*-$TARG0$DEST_ROOT/bin/*gcov* || exit 1
 # The fully-named drivers, which have the same target on every host.
 for t in $TARGETS ; do
   lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS -create \
