@@ -1033,7 +1033,7 @@ accessible_p (type, decl)
   int protected_ok = 0;
 
   /* If we're not checking access, everything is accessible.  */
-  if (!flag_access_control)
+  if (!scope_chain->check_access)
     return 1;
 
   /* If this declaration is in a block or namespace scope, there's no

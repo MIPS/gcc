@@ -664,15 +664,16 @@ note_template_header (specialization)
 void
 begin_explicit_instantiation ()
 {
-  ++processing_explicit_instantiation;
+  my_friendly_assert (!processing_explicit_instantiation, 20020913);
+  processing_explicit_instantiation = true;
 }
 
 
 void
 end_explicit_instantiation ()
 {
-  my_friendly_assert(processing_explicit_instantiation > 0, 0);
-  --processing_explicit_instantiation;
+  my_friendly_assert(processing_explicit_instantiation, 20020913);
+  processing_explicit_instantiation = false;
 }
 
 /* The TYPE is being declared.  If it is a template type, that means it
@@ -682,7 +683,7 @@ void
 maybe_process_partial_specialization (type)
      tree type;
 {
-  if (IS_AGGR_TYPE (type) && CLASSTYPE_USE_TEMPLATE (type))
+  if (CLASS_TYPE_P (type) && CLASSTYPE_USE_TEMPLATE (type))
     {
       if (CLASSTYPE_IMPLICIT_INSTANTIATION (type)
 	  && !COMPLETE_TYPE_P (type))

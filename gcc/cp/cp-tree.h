@@ -574,6 +574,7 @@ enum cp_tree_index
     CPTI_ABI,
     CPTI_TYPE_INFO_TYPE,
     CPTI_TYPE_INFO_PTR_TYPE,
+    CPTI_TYPE_INFO_REF_TYPE,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
     CPTI_AGGR_TAG,
@@ -661,6 +662,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define abi_node                        cp_global_trees[CPTI_ABI]
 #define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
 #define type_info_ptr_type		cp_global_trees[CPTI_TYPE_INFO_PTR_TYPE]
+#define type_info_ref_type              cp_global_trees[CPTI_TYPE_INFO_REF_TYPE]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
@@ -768,8 +770,9 @@ struct saved_scope GTY(())
 
   HOST_WIDE_INT x_processing_template_decl;
   int x_processing_specialization;
-  int x_processing_explicit_instantiation;
+  bool x_processing_explicit_instantiation;
   int need_pop_function_context;
+  int check_access;
 
   struct stmt_tree_s x_stmt_tree;
 
@@ -935,6 +938,12 @@ extern GTY(()) tree global_namespace;
   (operator_name_info[(int) (CODE)].identifier)
 #define ansi_assopname(CODE) \
   (assignment_operator_name_info[(int) (CODE)].identifier)
+
+/* True if NODE is an erroneous expression.  */
+
+#define error_operand_p(NODE)					\
+  ((NODE) == error_mark_node 					\
+   || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
 /* INTERFACE_ONLY nonzero means that we are in an "interface"
    section of the compiler.  INTERFACE_UNKNOWN nonzero means
@@ -4206,7 +4215,6 @@ extern tree make_binfo				PARAMS ((tree, tree, tree, tree));
 extern tree reverse_path			PARAMS ((tree));
 extern int count_functions			PARAMS ((tree));
 extern int is_overloaded_fn			PARAMS ((tree));
-extern tree get_overloaded_fn                   PARAMS ((tree));
 extern tree get_first_fn			PARAMS ((tree));
 extern int bound_pmf_p				PARAMS ((tree));
 extern tree ovl_cons                            PARAMS ((tree, tree));

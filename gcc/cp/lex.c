@@ -146,21 +146,6 @@ tree
 make_reference_declarator (cv_qualifiers, target)
      tree cv_qualifiers, target;
 {
-  if (target)
-    {
-      if (TREE_CODE (target) == ADDR_EXPR)
-	{
-	  error ("cannot declare references to references");
-	  return target;
-	}
-      if (TREE_CODE (target) == INDIRECT_REF)
-	{
-	  error ("cannot declare pointers to references");
-	  return target;
-	}
-      if (TREE_CODE (target) == IDENTIFIER_NODE && ANON_AGGRNAME_P (target))
-	  error ("type name expected before `&'");
-    }
   target = build_nt (ADDR_EXPR, target);
   TREE_TYPE (target) = cv_qualifiers;
   return target;

@@ -2389,6 +2389,7 @@ maybe_push_to_top_level (pseudo)
   s->need_pop_function_context = need_pop;
   s->function_decl = current_function_decl;
   s->last_parms = last_function_parms;
+  s->check_access = flag_access_control;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -6085,11 +6086,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
       else
 	binding = NULL_TREE;
 
-      /* Handle access control on types from enclosing or base classes.  */
-      if (binding && ! yylex
-	  && BINDING_LEVEL (t) && BINDING_LEVEL (t)->parm_flag == 2)
-	type_access_control (BINDING_LEVEL (t)->this_class, binding);
-
       if (binding
 	  && (!val || !IMPLICIT_TYPENAME_TYPE_DECL_P (binding)))
 	{
@@ -6956,6 +6952,7 @@ check_tag_decl (declspecs)
   tree ob_modifier = NULL_TREE;
   register tree link;
   register tree t = NULL_TREE;
+  bool error_p = false;
 
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
@@ -7004,12 +7001,14 @@ check_tag_decl (declspecs)
 	       || value == ridpointers[(int) RID_EXPLICIT]
 	       || value == ridpointers[(int) RID_THREAD])
 	ob_modifier = value;
+      else if (value == error_mark_node)
+	error_p = true;
     }
 
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  if (t == NULL_TREE && ! saw_friend)
+  if (t == NULL_TREE && ! saw_friend && !error_p)
     pedwarn ("declaration does not declare anything");
 
   /* Check for an anonymous union.  */
@@ -8481,7 +8480,6 @@ register_dtor_fn (decl)
   tree compound_stmt;
   tree args;
   tree fcall;
-
   int saved_flag_access_control;
 
   if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
@@ -8500,9 +8498,9 @@ register_dtor_fn (decl)
      will make the back-end think that nested functions are in use,
      which causes confusion.  */
   saved_flag_access_control = flag_access_control;
-  flag_access_control = 0;
+  scope_chain->check_access = flag_access_control = 0;
   fcall = build_cleanup (decl);
-  flag_access_control = saved_flag_access_control;
+  scope_chain->check_access = flag_access_control = saved_flag_access_control;
 
   /* Create the body of the anonymous function.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
@@ -9908,10 +9906,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		{
 		  ctype = NULL_TREE;
 		  in_namespace = TREE_OPERAND (decl, 0);
-		  TREE_OPERAND (decl, 0) = NULL_TREE;
 		}
 	      else if (! is_aggr_type (cname, 1))
-		TREE_OPERAND (decl, 0) = NULL_TREE;
+		ctype = NULL_TREE;
 	      /* Must test TREE_OPERAND (decl, 1), in case user gives
 		 us `typedef (class::memfunc)(int); memfunc *memfuncptr;'  */
 	      else if (TREE_OPERAND (decl, 1)
@@ -9928,18 +9925,34 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      else if (ctype == NULL_TREE)
 		ctype = cname;
 	      else if (TREE_COMPLEXITY (decl) == current_class_depth)
-		TREE_OPERAND (decl, 0) = ctype;
+		;
 	      else
 		{
 		  if (! UNIQUELY_DERIVED_FROM_P (cname, ctype))
 		    {
 		      error ("type `%T' is not derived from type `%T'",
 				cname, ctype);
-		      TREE_OPERAND (decl, 0) = NULL_TREE;
+		      ctype = NULL_TREE;
 		    }
 		  else
 		    ctype = cname;
 		}
+
+	      /* It is valid to write:
+
+		   class C { void f(); };
+		   typedef C D;
+		   void D::f();
+
+		 The standard is not clear about whether `typedef const C D' is
+		 legal; as of 2002-09-15 the committee is considering
+		 that question.  EDG 3.0 allows that syntax.
+		 Therefore, we do as well.  */
+	      if (ctype)
+		ctype = TYPE_MAIN_VARIANT (ctype);
+	      /* Update the declarator so that when we process it
+		 again the correct type is present.  */
+	      TREE_OPERAND (decl, 0) = ctype;
 
 	      if (ctype && TREE_CODE (TREE_OPERAND (decl, 1)) == TYPE_DECL
 		  && constructor_name_p (DECL_NAME (TREE_OPERAND (decl, 1)),

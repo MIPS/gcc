@@ -1,5 +1,39 @@
 *** Changes in GCC 3.4:
 
+* The C++ parser in G++ has been rewritten from scratch.  As a result, G++ 
+  is considerably more compliant to the C++ standard.  Many of the changes
+  below are a consequence of the new parser.
+
+* Friend declarations that refer to template specializations are rejected
+  if the template has not already been declared.
+
+  For example:
+
+    template <typename T>
+    class C {
+      friend void f<>(C&);
+    };
+
+  is rejected; you must first declare `f' as a template:
+
+    template <typename T>
+    void f(T);
+
+* You must use "template <>" to introduce template specializations, as 
+  required by the standard.  For example:
+
+    template <typename T>
+    struct S;
+    
+    struct S<int> { };
+
+  is rejected; you must write:
+
+    template <> struct S<int> {};
+
+* You must now use the `typename' and `template' keywords to disambiguate
+  dependent names, as required by the C++ standard.
+
 * The "named return value" extension has been removed.
 
 *** Changes in GCC 3.1:

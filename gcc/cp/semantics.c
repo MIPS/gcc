@@ -1340,6 +1340,19 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
   my_friendly_assert (!args || TREE_CODE (args) == TREE_LIST,
 		      20020712);
 
+  /* A reference to a member function will appear as an overloaded
+     function (rather than a BASELINK) if an unqualified name was used
+     to refer to it.  */
+  if (!BASELINK_P (fn)
+      && is_overloaded_fn (fn) 
+      && (DECL_FUNCTION_MEMBER_P 
+	  (get_first_fn (TREE_CODE (fn) == TEMPLATE_ID_EXPR
+			 ? get_first_fn (TREE_OPERAND (fn, 0))
+			 : get_first_fn (fn)))))
+    fn = build_baselink (TYPE_BINFO (current_class_type),
+			 TYPE_BINFO (current_class_type),
+			 fn, /*optype=*/NULL_TREE);
+
   if (BASELINK_P (fn))
     {
       tree object;
@@ -2258,9 +2271,6 @@ tree
 finish_sizeof (t)
      tree t;
 {
-  if (processing_template_decl)
-    return build_min_nt (SIZEOF_EXPR, t);
-
   return TYPE_P (t) ? cxx_sizeof (t) : expr_sizeof (t);
 }
 
@@ -2272,7 +2282,7 @@ finish_alignof (t)
      tree t;
 {
   if (processing_template_decl)
-    return build_min_nt (ALIGNOF_EXPR, t);
+    return build_min (ALIGNOF_EXPR, c_size_type_node, t);
 
   return TYPE_P (t) ? cxx_alignof (t) : c_alignof_expr (t);
 }
@@ -2371,12 +2381,10 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
 #ifdef PCC_STATIC_STRUCT_RETURN  
   if (!AGGR_INIT_VIA_CTOR_P (aggr_init_expr) && aggregate_value_p (type))
     {
-      int old_ac = flag_access_control;
-
-      flag_access_control = 0;
+      check_access_p = 0;
       call_expr = build_aggr_init (slot, call_expr,
 				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
-      flag_access_control = old_ac;
+      check_access_p = flag_access_control;
       copy_from_buffer_p = 1;
     }
 #endif

@@ -7,7 +7,7 @@ void f (int &i)
   i = 42;
 }
 
-int g () return r
+int g () return r // ERROR - 
 {
   f (r);
 }

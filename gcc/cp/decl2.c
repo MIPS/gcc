@@ -3352,22 +3352,48 @@ build_expr_from_tree (t)
     case COMPONENT_REF:
       {
 	tree object = build_expr_from_tree (TREE_OPERAND (t, 0));
+	tree member = TREE_OPERAND (t, 1);
 
 	if (!CLASS_TYPE_P (TREE_TYPE (object)))
 	  {
-	    if (TREE_CODE (TREE_OPERAND (t, 1)) == BIT_NOT_EXPR)
+	    if (TREE_CODE (member) == BIT_NOT_EXPR)
 	      return finish_pseudo_destructor_expr (object, 
 						    NULL_TREE,
 						    TREE_TYPE (object));
-	    else if (TREE_CODE (TREE_OPERAND (t, 1)) == SCOPE_REF
-		     && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (t, 1), 1))
-			 == BIT_NOT_EXPR))
+	    else if (TREE_CODE (member) == SCOPE_REF
+		     && (TREE_CODE (TREE_OPERAND (member, 1)) == BIT_NOT_EXPR))
 	      return finish_pseudo_destructor_expr (object, 
 						    TREE_OPERAND (t, 0),
 						    TREE_TYPE (object));
 	  }
-	return finish_class_member_access_expr (object, 
-						TREE_OPERAND (t, 1));
+	else if (TREE_CODE (member) == SCOPE_REF
+		 && TREE_CODE (TREE_OPERAND (member, 1)) == TEMPLATE_ID_EXPR)
+	  {
+	    tree tmpl;
+	    tree args;
+	
+	    /* Lookup the template functions now that we know what the
+	       scope is.  */
+	    tmpl = TREE_OPERAND (TREE_OPERAND (member, 1), 0);
+	    args = TREE_OPERAND (TREE_OPERAND (member, 1), 1);
+	    member = lookup_qualified_name (TREE_OPERAND (member, 0),
+					    tmpl, 
+					    /*is_type=*/0,
+					    /*flags=*/0);
+	    if (BASELINK_P (member))
+	      BASELINK_FUNCTIONS (member) 
+		= build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
+			    args);
+	    else
+	      {
+		error ("`%D' is not a member of `%T'",
+		       tmpl, TREE_TYPE (object));
+		return error_mark_node;
+	      }
+	  }
+
+
+	return finish_class_member_access_expr (object, member);
       }
 
     case THROW_EXPR:
@@ -4840,12 +4866,6 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
       if (*new_type_p)
 	push_scope (context);
 
-      if (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE)
-	/* It is valid to define a class with a different class key,
-	   and this changes the default member access.  */
-	CLASSTYPE_DECLARED_CLASS (TREE_TYPE (decl))
-	  = (tag_kind == class_type);
-	
       if (!xrefd_p 
 	  && PROCESSING_REAL_TEMPLATE_DECL_P ()
 	  && !CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (decl)))

@@ -101,6 +101,7 @@ static tree convert_class_to_reference PARAMS ((tree, tree, tree));
 static tree direct_reference_binding PARAMS ((tree, tree));
 static int promoted_arithmetic_type_p PARAMS ((tree));
 static tree conditional_conversion PARAMS ((tree, tree));
+static char *name_as_c_string (tree, tree, bool *);
 
 tree
 build_vfield_ref (datum, type)
@@ -2697,24 +2698,22 @@ build_new_function_call (fn, args)
       for (t1 = fn; t1; t1 = OVL_NEXT (t1))
 	{
 	  tree t = OVL_CURRENT (t1);
-	  tree access_path;
 
-	  if (DECL_STATIC_FUNCTION_P (t))
-	    access_path = TYPE_BINFO (DECL_CONTEXT (t));
-	  else
-	    access_path = NULL_TREE;
+	  my_friendly_assert (!DECL_FUNCTION_MEMBER_P (t), 20020913);
 
 	  if (TREE_CODE (t) == TEMPLATE_DECL)
 	    {
 	      templates = tree_cons (NULL_TREE, t, templates);
 	      candidates = add_template_candidate
 		(candidates, t, NULL_TREE, explicit_targs, args, 
-		 NULL_TREE, access_path, /*conversion_path=*/NULL_TREE,
+		 NULL_TREE, /*access_path=*/NULL_TREE, 
+		 /*conversion_path=*/NULL_TREE,
 		 LOOKUP_NORMAL, DEDUCE_CALL);  
 	    }
 	  else if (! template_only)
 	    candidates = add_function_candidate
-	      (candidates, t, NULL_TREE, args, access_path,
+	      (candidates, t, NULL_TREE, args, 
+	       /*access_path=*/NULL_TREE,
 	       /*conversion_path=*/NULL_TREE, LOOKUP_NORMAL);
 	}
 
@@ -3306,9 +3305,9 @@ build_new_op (code, flags, arg1, arg2, arg3)
   tree conv;
   bool viable_candidates;
 
-  if (arg1 == error_mark_node
-      || arg2 == error_mark_node
-      || arg3 == error_mark_node)
+  if (error_operand_p (arg1) 
+      || error_operand_p (arg2) 
+      || error_operand_p (arg3))
     return error_mark_node;
 
   /* This can happen if a template takes all non-type parameters, e.g.
@@ -4660,6 +4659,42 @@ build_special_member_call (tree instance, tree name, tree args,
   return build_new_method_call (instance, fns, args, binfo, flags);
 }
 
+/* Return the NAME, as a C string.  The NAME indicates a function that
+   is a member of TYPE.  *FREE_P is set to true if the caller must
+   free the memory returned.  
+
+   Rather than go through all of this, we should simply set the names
+   of constructors and destructors appropriately, and dispense with
+   ctor_identifier, dtor_identifier, etc.  */
+
+static char *
+name_as_c_string (tree name, tree type, bool *free_p)
+{
+  char *pretty_name;
+
+  /* Assume that we will not allocate memory.  */
+  *free_p = false;
+  /* Constructors and destructors are special.  */
+  if (IDENTIFIER_CTOR_OR_DTOR_P (name))
+    {
+      pretty_name 
+	= (char *) IDENTIFIER_POINTER (constructor_name (type));
+      /* For a destructor, add the '~'.  */
+      if (name == complete_dtor_identifier
+	  || name == base_dtor_identifier
+	  || name == deleting_dtor_identifier)
+	{
+	  pretty_name = concat ("~", pretty_name, NULL);
+	  /* Remember that we need to free the memory allocated.  */
+	  *free_p = true;
+	}
+    }
+  else
+    pretty_name = (char *) IDENTIFIER_POINTER (name);
+
+  return pretty_name;
+}
+
 /* Build a call to "INSTANCE.FN (ARGS)".  */
 
 tree
@@ -4672,15 +4707,18 @@ build_new_method_call (tree instance, tree fns, tree args,
   tree access_binfo;
   tree optype;
   tree mem_args = NULL_TREE, instance_ptr;
-  tree name, pretty_name;
+  tree name;
   tree user_args;
   tree templates = NULL_TREE;
   tree call;
+  tree fn;
+  tree class_type;
   int template_only = 0;
 
   my_friendly_assert (instance != NULL_TREE, 20020729);
 
-  if (instance == error_mark_node || fns == error_mark_node 
+  if (error_operand_p (instance) 
+      || error_operand_p (fns)
       || args == error_mark_node)
     return error_mark_node;
 
@@ -4734,7 +4772,8 @@ build_new_method_call (tree instance, tree fns, tree args,
       return error_mark_node;
     }
 
-  name = DECL_NAME (get_first_fn (fns));
+  fn = get_first_fn (fns);
+  name = DECL_NAME (fn);
 
   if (IDENTIFIER_CTOR_OR_DTOR_P (name))
     {
@@ -4743,61 +4782,55 @@ build_new_method_call (tree instance, tree fns, tree args,
       my_friendly_assert (name != ctor_identifier, 20000408);
       /* Similarly for destructors.  */
       my_friendly_assert (name != dtor_identifier, 20000408);
-      
-      if (name == complete_ctor_identifier
-	  || name == base_ctor_identifier)
-	pretty_name = constructor_name (basetype);
-      else
-	pretty_name = dtor_identifier;
     }
-  else
-    pretty_name = name;
 
-  if (fns)
+  /* It's OK to call destructors on cv-qualified objects.  Therefore,
+     convert the INSTANCE_PTR to the unqualified type, if necessary.  */
+  if (DECL_DESTRUCTOR_P (fn))
     {
-      tree fn;
-      tree class_type = (conversion_path 
-			 ? BINFO_TYPE (conversion_path)
-			 : NULL_TREE);
+      tree type = build_pointer_type (basetype);
+      if (!same_type_p (type, TREE_TYPE (instance_ptr)))
+	instance_ptr = build1 (NOP_EXPR, type, instance_ptr);
+    }
 
-      mem_args = tree_cons (NULL_TREE, instance_ptr, args);
-      for (fn = fns; fn; fn = OVL_NEXT (fn))
+  class_type = (conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE);
+  mem_args = tree_cons (NULL_TREE, instance_ptr, args);
+
+  for (fn = fns; fn; fn = OVL_NEXT (fn))
+    {
+      tree t = OVL_CURRENT (fn);
+      tree this_arglist;
+
+      /* We can end up here for copy-init of same or base class.  */
+      if ((flags & LOOKUP_ONLYCONVERTING)
+	  && DECL_NONCONVERTING_P (t))
+	continue;
+
+      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (t))
+	this_arglist = mem_args;
+      else
+	this_arglist = args;
+
+      if (TREE_CODE (t) == TEMPLATE_DECL)
 	{
-	  tree t = OVL_CURRENT (fn);
-	  tree this_arglist;
-
-	  /* We can end up here for copy-init of same or base class.  */
-	  if ((flags & LOOKUP_ONLYCONVERTING)
-	      && DECL_NONCONVERTING_P (t))
-	    continue;
-
-	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (t))
-	    this_arglist = mem_args;
-	  else
-	    this_arglist = args;
-
-	  if (TREE_CODE (t) == TEMPLATE_DECL)
-	    {
-	      /* A member template. */
-	      templates = tree_cons (NULL_TREE, t, templates);
-	      candidates = 
-		add_template_candidate (candidates, t, 
-					class_type,
-					explicit_targs,
-					this_arglist, optype,
-					access_binfo, 
-					conversion_path,
-					flags,
-					DEDUCE_CALL);
-	    }
-	  else if (! template_only)
-	    candidates = add_function_candidate (candidates, t, 
-						 class_type,
-						 this_arglist,
-						 access_binfo,
-						 conversion_path,
-						 flags);
+	  /* A member template. */
+	  templates = tree_cons (NULL_TREE, t, templates);
+	  candidates = add_template_candidate (candidates, t, 
+					       class_type,
+					       explicit_targs,
+					       this_arglist, optype,
+					       access_binfo, 
+					       conversion_path,
+					       flags,
+					       DEDUCE_CALL);
 	}
+      else if (! template_only)
+	candidates = add_function_candidate (candidates, t, 
+					     class_type,
+					     this_arglist,
+					     access_binfo,
+					     conversion_path,
+					     flags);
     }
 
   if (! any_viable (candidates))
@@ -4808,9 +4841,17 @@ build_new_method_call (tree instance, tree fns, tree args,
       if (!COMPLETE_TYPE_P (basetype))
 	cxx_incomplete_type_error (instance_ptr, basetype);
       else
-	error ("no matching function for call to `%T::%D(%A)%#V'",
-	       basetype, pretty_name, user_args,
-	       TREE_TYPE (TREE_TYPE (instance_ptr)));
+	{
+	  char *pretty_name;
+	  bool free_p;
+
+	  pretty_name = name_as_c_string (name, basetype, &free_p);
+	  error ("no matching function for call to `%T::%s(%A)%#V'",
+		 basetype, pretty_name, user_args,
+		 TREE_TYPE (TREE_TYPE (instance_ptr)));
+	  if (free_p)
+	    free (pretty_name);
+	}
       print_z_candidates (candidates);
       return error_mark_node;
     }
@@ -4819,9 +4860,15 @@ build_new_method_call (tree instance, tree fns, tree args,
 
   if (cand == 0)
     {
+      char *pretty_name;
+      bool free_p;
+
+      pretty_name = name_as_c_string (name, basetype, &free_p);
       error ("call of overloaded `%D(%A)' is ambiguous", pretty_name,
-		user_args);
+	     user_args);
       print_z_candidates (candidates);
+      if (free_p)
+	free (pretty_name);
       return error_mark_node;
     }
 
@@ -5739,7 +5786,7 @@ perform_implicit_conversion (type, expr)
 {
   tree conv;
   
-  if (expr == error_mark_node)
+  if (error_operand_p (expr))
     return error_mark_node;
   conv = implicit_conversion (type, TREE_TYPE (expr), expr,
 			      LOOKUP_NORMAL);
