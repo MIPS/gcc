@@ -3647,7 +3647,9 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	{
 	  /* -pipe has to go into the switches array as well as
 	     setting a flag.  */
-	  use_pipes = 1;
+	  /* -pipe doesn't work with server yet.  */
+	  if (use_server == 0)
+	    use_pipes = 1;
 	  n_switches++;
 	}
 #ifdef ENABLE_SERVER
