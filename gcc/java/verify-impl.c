@@ -15,6 +15,9 @@ details.  */
 
 #include "verify.h"
 
+/* Hack to work around namespace pollution from java-tree.h.  */
+#undef current_class
+
 #ifdef VERIFY_DEBUG
 #include <stdio.h>
 #endif /* VERIFY_DEBUG */
@@ -193,7 +196,7 @@ typedef struct verifier_context
   char *flags;
 
   /* The bytecode itself.  */
-  unsigned char *bytecode;
+  const unsigned char *bytecode;
   /* The exceptions.  */
   vfy_exception *exception;
 
@@ -238,8 +241,6 @@ int ref_count_dimensions (ref_intersection *ref);
 static void
 verify_fail_pc (const char *s, int pc)
 {
-  if (pc == -1)
-    pc = vfr->start_PC;
   vfy_fail (s, pc, vfr->current_class, vfr->current_method);  
 }
 
@@ -774,7 +775,13 @@ types_compatible (type *t, type *k)
 	return false;
     }
 
-  return ref_compatible (t->klass, k->klass);
+  /* Reference types are always compatible for the BC-ABI. We defer this test
+  till runtime. 
+  FIXME: 1. type assertion generation
+         2. implement real test for old ABI ?? */
+
+  return true;
+  /* return ref_compatible (t->klass, k->klass); */
 }
 
 static bool
@@ -2101,7 +2108,7 @@ check_constant (int index)
 {
   type t;
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (current_class);
+  vfy_constants *pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) == JV_CONSTANT_ResolvedString
       || vfy_tag (pool, index) == JV_CONSTANT_String)
     init_type_from_class (&t, vfy_string_type ());
@@ -2119,7 +2126,7 @@ check_wide_constant (int index)
 {
   type t;
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (current_class);
+  vfy_constants *pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) == JV_CONSTANT_Long)
     init_type_from_tag (&t, long_type);
   else if (vfy_tag (pool, index) == JV_CONSTANT_Double)
@@ -2136,7 +2143,7 @@ handle_field_or_method (int index, int expected,
 			vfy_string *name, vfy_string *fmtype)
 {
   check_pool_index (index);
-  vfy_constants *pool = vfy_get_constants (current_class);
+  vfy_constants *pool = vfy_get_constants (vfr->current_class);
   if (vfy_tag (pool, index) != expected)
     verify_fail_pc ("didn't see expected constant", vfr->start_PC);
   /* Once we know we have a Fieldref or Methodref we assume that it
@@ -2169,7 +2176,7 @@ check_field_constant (int index, type *class_type)
     *class_type = ct;
   typec = vfy_string_bytes (field_type);
   len = vfy_string_length (field_type);
-  if (typec[0] == '[' || typec[len - 1] == 'L')
+  if (typec[0] == '[' || typec[0] == 'L')
     init_type_from_string (&t, field_type);
   else
     init_type_from_tag (&t, get_type_val_for_signature (typec[0]));
@@ -2188,8 +2195,8 @@ check_method_constant (int index, bool is_interface,
 				 method_name, method_signature);
 }
 
-static type
-get_one_type (const char *p)
+static char *
+get_one_type (char *p, type *t)
 {
   const char *start = p;
 
@@ -2208,7 +2215,8 @@ get_one_type (const char *p)
 	++p;
       ++p;
       vfy_string name = vfy_get_string (start, p - start);
-      return make_type_from_string (name);
+      *t = make_type_from_string (name);
+      return p;
     }
 
   /* Casting to jchar here is ok since we are looking at an ASCII
@@ -2219,15 +2227,17 @@ get_one_type (const char *p)
     {
       /* Callers of this function eventually push their arguments on
          the stack.  So, promote them here.  */
-      type t = make_type (rt);
-      vfy_promote_type (&t);
-      return t;
+      type new_t = make_type (rt);
+      vfy_promote_type (&new_t);
+      *t = new_t;
+      return p;
     }
 
   vfy_jclass k = construct_primitive_array_type (rt);
   while (--arraycount > 0)
     k = vfy_get_array_class (k);
-  return make_type_from_class (k);
+  *t = make_type_from_class (k);
+  return p;
 }
 
 static void 
@@ -2240,17 +2250,19 @@ compute_argument_types (vfy_string signature, type *types)
 
   int i = 0;
   while (*p != ')')
-    types[i++] = get_one_type (p);
+    p = get_one_type (p, &types[i++]);
 }
 
 static type
 compute_return_type (vfy_string signature)
 {
   char *p = (char *) vfy_string_bytes (signature);
+  type t;
   while (*p != ')')
     ++p;
   ++p;
-  return get_one_type (p);
+  get_one_type (p, &t);
+  return t;
 }
 
 static void
@@ -3335,9 +3347,17 @@ _Jv_BytecodeVerifier (_Jv_InterpMethod *m)
   debug_print ("--------------------------------\n");
   debug_print ("-- Verifying method `%s'\n", m->self->name->chars());
 
+}
+#endif
+
+static void
+make_verifier_context (vfy_method *m)
+{
+  vfr = (verifier_context *) vfy_alloc (sizeof (struct verifier_context));
+
   vfr->current_method = m;
-  bytecode = m->bytecode ();
-  exception = m->exceptions ();
+  vfr->bytecode = vfy_get_bytecode (m);
+  vfr->exception = vfy_get_exceptions (m);
   vfr->current_class = m->defining_class;
 
   vfr->states = NULL;
@@ -3346,53 +3366,64 @@ _Jv_BytecodeVerifier (_Jv_InterpMethod *m)
   vfr->isect_list = NULL;
 }
 
-~_Jv_BytecodeVerifier ()
+static void
+free_verifier_context (void)
 {
-  if (flags)
-    _Jv_Free (flags);
+  vfy_string_list *utf8_list;
+  ref_intersection *isect_list;
 
+  if (vfr->flags)
+    vfy_free (vfr->flags);
+
+  utf8_list = vfr->utf8_list;
   while (utf8_list != NULL)
     {
-      linked<_Jv_Utf8Const> *n = utf8_list->next;
-      _Jv_Free (utf8_list);
+      vfy_string_list *n = utf8_list->next;
+      vfy_free (utf8_list);
       utf8_list = n;
     }
 
+  isect_list = vfr->isect_list;
   while (isect_list != NULL)
     {
       ref_intersection *next = isect_list->alloc_next;
-      delete isect_list;
+      vfy_free (isect_list);
       isect_list = next;
     }
 
-  if (vfr->states)
+  if (vfr->states != NULL)
     {
-      for (int i = 0; i < vfr->current_method->code_length; ++i)
+      int i;
+      for (i = 0; i < vfr->current_method->code_length; ++i)
 	{
-	  linked<state *> *iter = vfr->states[i];
+	  state_list *iter = vfr->states[i];
 	  while (iter != NULL)
 	    {
-	      linked<state *> *next = iter->next;
-	      delete iter->val;
+	      state_list *next = iter->next;
+	      vfy_free (iter->val);
 	      vfy_free (iter);
 	      iter = next;
 	    }
 	}
-      vfy_free (states);
+      vfy_free (vfr->states);
     }
+  
+  vfy_free (vfr);
 }
 
-#endif
-
 int
-verify_method (vfy_method *meth ATTRIBUTE_UNUSED)
+verify_method (vfy_method *meth)
 {
-  /* static verifier initialization .. init type_int etc */
+  printf ("verify_method (%s) %i\n", vfy_string_bytes (meth->name),
+    meth->code_length);
+  
+  if (vfr != NULL)
+    verify_fail ("verifier re-entered");
 
-  /* push_verifier_context () */
-  /* _Jv_BytecodeVerifier v (meth); */
-  /* init_verifier_context () */
+  make_verifier_context (meth);
   verify_instructions ();
-  /* pop_verifier_context () */
+  free_verifier_context ();
+  vfr = NULL;
+
   return 0;
 }

@@ -2872,8 +2872,16 @@ expand_byte_code (JCF *jcf, tree method)
 	}
     }  
 
-  if (! verify_jvm_instructions (jcf, byte_ops, length))
-    return;
+  if (flag_new_verifier)
+    {
+      if (! verify_jvm_instructions_new (jcf, byte_ops, length))
+        return;
+    }
+  else
+    {
+      if (! verify_jvm_instructions (jcf, byte_ops, length))
+	return;
+    }
 
   /* Translate bytecodes.  */
   linenumber_pointer = linenumber_table;

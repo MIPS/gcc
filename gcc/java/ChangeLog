@@ -1,3 +1,28 @@
+2004-10-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* expr.c (expand_bytecode): Use verify_jvm_instructions_new
+	if flag_new_verifier is set.
+	* java-tree.h (flag_new_verifier): Declare.
+	* lang.opt (fnew-verifier): New option.
+	* verify-impl.c: Work around namespace pollution by undef'ing 
+	'current_class'.
+	(struct verifier_context): Make 'bytecode' const.
+	(verify_fail_pc): Pass -1 PC argument to vfy_fail.
+	(types_compatible): For the BC-ABI, always consider reference types
+	compatible.
+	(check_class_constant): Use vfr->current_class.
+	(check_constant): Likewise.
+	(check_wide_constant): Likewise.
+	(check_field_constant): Check for 'L' at start of type name.
+	(get_one_type): Return pointer instead of type. Set type result in
+	caller via passed type pointer.
+	(compute_argument_types): Update to use new get_one_type arguments.
+	(compute_return_type): Likewise.
+	(make_verifier_context): New. Allocate and initialize 'vfr'.
+	(free_verifier_context): New. Free 'vfr' and its contents.
+	(verify_method): Remove ATTRIBUTE_UNUSED. Call make_verifier_context
+	and free_verifier_context.
+
 2004-10-15  Tom Tromey  <tromey@redhat.com>
 
 	* verify-glue.c (vfy_note_local_type): Mark argument as unused.

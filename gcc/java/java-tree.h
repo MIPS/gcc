@@ -227,6 +227,9 @@ extern int flag_indirect_dispatch;
 /* When zero, don't generate runtime array store checks. */
 extern int flag_store_check;
 
+/* When nonzero, use the new bytecode verifier.  */
+extern int flag_new_verifier;
+
 /* Encoding used for source files.  */
 extern const char *current_encoding;
 
