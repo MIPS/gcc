@@ -1175,9 +1175,7 @@ mudflap_enqueue_decl (obj, label)
      since the text would refer to variables that don't show up in the
      user's source code.
   */
-  if (DECL_P (obj) &&
-      DECL_EXTERNAL (obj) &&
-      DECL_ARTIFICIAL (obj))
+  if (DECL_P (obj) && DECL_EXTERNAL (obj) && DECL_ARTIFICIAL (obj))
     {
 #if 0
 	warning_with_decl (obj, "ignoring system extern decl `%s'",
