@@ -211,9 +211,9 @@ cd $DEST_DIR || exit 1
 rm -rf * || exit 1
 
 # HTML documentation
-HTMLDIR=/Developer/Documentation/DeveloperTools
-mkdir -p .$HTMLDIR || exit 1
-cp -rp $DIR/obj-$BUILD-$BUILD/gcc/doc/HTML/* .$HTMLDIR/ || exit 1
+HTMLDIR="/Developer/ADC Reference Library/documentation/DeveloperTools"
+mkdir -p ".$HTMLDIR" || exit 1
+cp -rp $DIR/obj-$BUILD-$BUILD/gcc/doc/HTML/* ".$HTMLDIR/" || exit 1
 
 # Manual pages
 mkdir -p .$DEST_ROOT/share || exit 1
