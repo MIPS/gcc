@@ -1018,6 +1018,7 @@ javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
 javax/swing/plaf/basic/BasicBorders.java \
 javax/swing/plaf/basic/BasicIconFactory.java \
+javax/swing/plaf/basic/ComboPopup.java \
 javax/swing/plaf/BorderUIResource.java \
 javax/swing/plaf/UIResource.java \
 javax/swing/plaf/ButtonUI.java \
@@ -1131,6 +1132,7 @@ javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
 javax/swing/ToolTipManager.java \
+javax/swing/TransferHandler.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -3159,6 +3161,7 @@ javax/swing/plaf/basic/BasicViewportUI.lo \
 javax/swing/plaf/basic/BasicLookAndFeel.lo \
 javax/swing/plaf/basic/BasicBorders.lo \
 javax/swing/plaf/basic/BasicIconFactory.lo \
+javax/swing/plaf/basic/ComboPopup.lo \
 javax/swing/plaf/BorderUIResource.lo javax/swing/plaf/UIResource.lo \
 javax/swing/plaf/ButtonUI.lo javax/swing/plaf/ComponentUI.lo \
 javax/swing/plaf/LabelUI.lo javax/swing/plaf/ListUI.lo \
@@ -3224,8 +3227,8 @@ javax/swing/LookAndFeel.lo javax/swing/Scrollable.lo \
 javax/swing/Spring.lo javax/swing/SpringLayout.lo \
 javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
 javax/swing/Timer.lo javax/swing/ToolTipManager.lo \
-javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
-javax/swing/UnsupportedLookAndFeelException.lo \
+javax/swing/TransferHandler.lo javax/swing/UIDefaults.lo \
+javax/swing/UIManager.lo javax/swing/UnsupportedLookAndFeelException.lo \
 javax/swing/event/AncestorEvent.lo \
 javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
 javax/swing/event/ChangeListener.lo javax/swing/event/DocumentEvent.lo \
@@ -5203,7 +5206,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/Spring.P .deps/javax/swing/SpringLayout.P \
 .deps/javax/swing/SwingConstants.P .deps/javax/swing/SwingUtilities.P \
 .deps/javax/swing/Timer.P .deps/javax/swing/ToolTipManager.P \
-.deps/javax/swing/UIDefaults.P .deps/javax/swing/UIManager.P \
+.deps/javax/swing/TransferHandler.P .deps/javax/swing/UIDefaults.P \
+.deps/javax/swing/UIManager.P \
 .deps/javax/swing/UnsupportedLookAndFeelException.P \
 .deps/javax/swing/ViewportLayout.P .deps/javax/swing/WindowConstants.P \
 .deps/javax/swing/border/AbstractBorder.P \
@@ -5339,6 +5343,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicToolTipUI.P \
 .deps/javax/swing/plaf/basic/BasicTreeUI.P \
 .deps/javax/swing/plaf/basic/BasicViewportUI.P \
+.deps/javax/swing/plaf/basic/ComboPopup.P \
 .deps/javax/swing/plaf/metal/MetalLookAndFeel.P \
 .deps/javax/swing/table/AbstractTableModel.P \
 .deps/javax/swing/table/DefaultTableCellRenderer.P \

@@ -1,3 +1,11 @@
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/TransferHandler.java,
+	javax/swing/plaf/basic/ComboPopup.java: New files
+	* Makefile.am: Added javax/swing/TransferHandler.java and
+	javax/swing/plaf/basic/ComboPopup.java
+	* Makefile.in: Regenerated.
+
 2004-08-11  Roman Kennke  <roman@ontographics.com>
 
 	* javax/swing/text/Utilities.java: New file.
