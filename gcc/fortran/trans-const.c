@@ -237,10 +237,9 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
   tree res;
   tree type;
   mp_exp_t exp;
-  char buff[128];
   char *p;
+  char *q;
   int n;
-  int digits;
   int edigits;
 
   for (n = 0; gfc_real_kinds[n].kind != 0; n++)
@@ -250,7 +249,6 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
     }
   assert (gfc_real_kinds[n].kind);
 
-  digits = gfc_real_kinds[n].precision + 1;
   assert (gfc_real_kinds[n].radix == 2);
 
   n = MAX (abs (gfc_real_kinds[n].min_exponent),
@@ -265,38 +263,39 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
       edigits += 3;
     }
 
-  /* We also have two minus signs, "e", "." and a null terminator.  */
-  if (digits + edigits + 5 > 128)
-    p = (char *) gfc_getmem (digits + edigits + 5);
-  else
-    p = buff;
 
-  mpf_get_str (&p[1], &exp, 10, digits, f);
-  if (p[1])
+  p = mpf_get_str (NULL, &exp, 10, 0, f);
+
+  /* We also have one minus sign, "e", "." and a null terminator.  */
+  q = (char *) gfc_getmem (strlen (p) + edigits + 4);
+
+  if (p[0])
     {
-      if (p[1] == '-')
+      if (p[0] == '-')
 	{
-	  p[0] = '-';
-	  p[1] = '.';
+	  strcpy (&q[2], &p[1]);
+	  q[0] = '-';
+	  q[1] = '.';
 	}
       else
 	{
-	  p[0] = '.';
+	  strcpy (&q[1], p);
+	  q[0] = '.';
 	}
-      strcat (p, "e");
-      sprintf (&p[strlen (p)], "%d", (int) exp);
+      strcat (q, "e");
+      sprintf (&q[strlen (q)], "%d", (int) exp);
     }
   else
     {
-      strcpy (p, "0");
+      strcpy (q, "0");
     }
 
   type = gfc_get_real_type (kind);
-  res = build_real (type, REAL_VALUE_ATOF (p, TYPE_MODE (type)));
-  if (p != buff)
-    gfc_free (p);
+  res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
+  gfc_free (q);
+  gfc_free (p);
 
-  return (res);
+  return res;
 }
 
 

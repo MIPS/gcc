@@ -1,5 +1,11 @@
 2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
 
+	PR 14394 
+	* trans-const.c (gfc_conv_mpf_to_tree): Loosen the maximum digits of
+	the real value when converting mpf to string.
+
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
 	PR 14395
 	* trans-intrinsic.c (gfc_conv_intrinsic_cmplx): Fix the imag part of
 	the result.
