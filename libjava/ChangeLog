@@ -1,3 +1,9 @@
+2004-11-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/IndexColorModel.java (IndexColorModel): Actually
+	use the provided colormap.  Throw documented exceptions.  Document
+	exceptions.
+
 2004-11-06  Paul Jenner  <psj.home@ntlworld.com>
 
 	* java/awt/image/IndexColorModel.java (IndexColorModel): Fix
