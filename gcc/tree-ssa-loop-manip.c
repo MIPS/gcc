@@ -106,7 +106,7 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 
 /* Constructs list of all ssa names defined inside LOOP.  */
 
-static tree
+tree
 collect_defs (struct loop *loop)
 {
   basic_block *body = get_loop_body (loop);
@@ -141,11 +141,17 @@ collect_defs (struct loop *loop)
   return ret;
 }
 
-/* For each definition in DEFINITIONS allocates NDUPL + 1 copies
-   (one for each duplicate of the loop body).  */
+/* For each definition in DEFINITIONS allocates:
 
-static void
-allocate_new_names (tree definitions, unsigned ndupl)
+   NDUPL + 1 copies if ORIGIN is true
+   NDUPL copies if ORIGIN is false
+
+   (one for each duplicate of the loop body).  
+   If ORIGIN is true, additional set of DEFINITIONS 
+   is allocated for initial loop copy. */
+
+void
+allocate_new_names (tree definitions, unsigned ndupl, bool origin)
 {
   tree def;
   unsigned i;
@@ -157,11 +163,11 @@ allocate_new_names (tree definitions, unsigned ndupl)
     {
       def = TREE_VALUE (definitions);
       ann = get_ssa_name_ann (def);
-      new_names = xmalloc (sizeof (tree) * (ndupl + 1));
+      new_names = xmalloc (sizeof (tree) * (ndupl + (origin ? 1 : 0)));
       ann->common.aux = new_names;
 
       abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
-      for (i = 0; i <= ndupl; i++)
+      for (i = (origin ? 0 : 1); i <= ndupl; i++)
 	{
 	  new_names[i] = duplicate_ssa_name (def, SSA_NAME_DEF_STMT (def));
 	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_names[i]) = abnormal;
@@ -173,11 +179,14 @@ allocate_new_names (tree definitions, unsigned ndupl)
    *OP_P is defined by the statement.  N_COPY is the number of the
    copy of the loop body we are renaming.  */
 
-static void
+void
 rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
 {
   ssa_name_ann_t ann;
   tree *new_names;
+
+  if(!op_p)
+    return;
 
   if (TREE_CODE (*op_p) != SSA_NAME)
     return;
@@ -198,7 +207,7 @@ rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
 
 /* Renames the variables in basic block BB.  */
 
-static void
+void
 rename_variables_in_bb (basic_block bb)
 {
   tree phi;
@@ -266,11 +275,12 @@ rename_variables (unsigned first_new_block)
     }
 }
 
-/* Releases the structures holding the new ssa names. The original ssa names
-   are released.  */
+/* Releases the structures holding the new ssa names. 
+   The original ssa names are released if ORIGIN is true.
+   Otherwise they are saved for initial loop copy.  */
 
-static void
-free_new_names (tree definitions)
+void
+free_new_names (tree definitions, bool origin)
 {
   tree def;
   ssa_name_ann_t ann;
@@ -283,7 +293,8 @@ free_new_names (tree definitions)
       free (ann->common.aux);
       ann->common.aux = NULL;
 
-      release_ssa_name (def);
+      if (origin)
+	 release_ssa_name (def);
     }
 }
 
@@ -366,7 +377,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 				      orig, to_remove, n_to_remove, flags))
     return false;
 
-  allocate_new_names (definitions, ndupl);
+  allocate_new_names (definitions, ndupl, true);
 
   /* Readd the removed phi args for e.  */
   latch = loop_latch_edge (loop);
@@ -394,7 +405,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   /* Rename the variables.  */
   rename_variables (first_new_block);
-  free_new_names (definitions);
+  free_new_names (definitions, true);
 
   /* For some time we have the identical ssa names as results in multiple phi
      nodes.  When phi node is resized, it sets SSA_NAME_DEF_STMT of its result

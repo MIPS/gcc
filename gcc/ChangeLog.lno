@@ -1,3 +1,32 @@
+2004-05-20  Olga Golovanevsky  <olga@il.ibm.com>
+            Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (vect_transform_loop): New parameter;
+        if bound is unknown, duplicates loop before vectorizing.
+        (vect_transfrom_loop_bound): New parameter; now deal with
+        symbolic loop bound.
+        (vect_analyze_loop_with_symbolic_num_of_iters)
+        (vect_duplicate_loop, vect_copy_phi_nodes)
+        (vect_rename_variables_in_loop, vect_tree_split_edge)
+        (vect_update_initial_conditions_of_duplicated_loop):
+        (vect_tree_duplicate_loop, vect_build_symbl_bound): New functions.
+        (new_loop_vec_info): Initialize the new field loop_vec_info:
+        symb_numb_of_iters.
+        * tree-vectorizer.h (loop_vec_info: symb_numb_of_iters): Added.
+        (LOOP_VINFO_SYMB_NUM_OF_ITERS): Added.
+        * cfgloopmanip.c (duplicate_loop): Made non-static.
+        * tree-ssa-loop-manip.c (collect_defs): Made non-static.
+        (allocate_new_names): Made non-static. Added option to allocate
+        for original loop or not.
+        (rename_op): Made non-static. Added input check.
+        (rename_variables_in_bb): Made mpm-static.
+        original loop were also renamed.
+        (free_new_names): release_ssa_name only if defs of original
+        loop were also renamed.
+        * cfgloop.h (duplicate_loop): Declare.
+        * tree-flow.h (collect_defs, allocate_new_names, rename_op)
+        (rename_variables_in_bb, free_new_names): Declare.
+
 2004-05-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (first_iteration_non_satisfying_noev_ev,
