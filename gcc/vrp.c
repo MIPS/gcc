@@ -1225,7 +1225,7 @@ find_operations_1 (store, pattern, data)
 	  oper = pool_alloc (operation_pool);
 	  oper->next = bbi->operation_list;
 	  oper->type = UNKNOWN_TO_REG;
-	  oper->dst = set_dst;
+	  oper->dst = store;
 	  bbi->operation_list = oper;
 	  return;
 	}

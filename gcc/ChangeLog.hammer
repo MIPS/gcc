@@ -1,3 +1,7 @@
+2003-07-13  Josef Zlomek  <zlomekj@suse.cz>
+
+	* vrp.c (find_operations_1): Fix bug: OPER->DST has to be a REG.
+
 Sat Jul 12 17:40:50 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	Merge from mainline:
