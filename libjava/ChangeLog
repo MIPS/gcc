@@ -1,3 +1,12 @@
+2004-07-22  Roman Kennke  <roman@ontographics.com>
+
+	* javax/swing/Box.java:
+	(createGlue): Implemented
+	(createHorizontalGlue): Implemented
+	(createHorizontalStrut): Implemented
+	(createVerticalGlue): Implemented
+	(createVerticalStrut): Implemented
+
 2004-07-26  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkChoicePeer.java
