@@ -1140,7 +1140,7 @@ static void cp_parser_delete
    attempted, even though a parse error occurrred.  So, to check
    whether or not a parse error ocurrred, you should always use
    cp_parser_error_ocurred.  If the construct is optional (indicated
-   either by an `_opt' in the anem of the function that does the
+   either by an `_opt' in the name of the function that does the
    parsing or via a FLAGS parameter), then NULL_TREE is returned if
    the construct is not present.  */
 
@@ -1815,7 +1815,7 @@ static void
 cp_parser_delete (parser)
      cp_parser *parser;
 {
-  /* When we're done parsing, we should be in the midst of any
+  /* When we're done parsing, we should not be in the midst of any
      tentative parsing.  */
   my_friendly_assert (!cp_parser_parsing_tentatively (parser),
 		      20010712);
@@ -5608,8 +5608,8 @@ cp_parser_linkage_specification (parser)
   cp_lexer_consume_token (parser->lexer);
 
   /* Transform the literal into an identifier.  If the literal is a
-     wide-character string, or contains embedded NULs, then we're
-     don't handle it correctly.  */
+     wide-character string, or contains embedded NULs, then we can't
+     handle it as the user wants.  */
   if (token->type == CPP_WSTRING
       || (strlen (TREE_STRING_POINTER (token->value))
 	  != (size_t) (TREE_STRING_LENGTH (token->value) - 1)))
