@@ -895,6 +895,7 @@ tree
 gfc_sym_type (gfc_symbol * sym)
 {
   tree type;
+  tree base_type;
   int byref;
 
   /* It's possible thet we never find out if a dummy procedure is a function
@@ -915,7 +916,7 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->attr.function && sym->result)
     sym = sym->result;
 
-  type = gfc_typenode_for_spec (&sym->ts);
+  base_type = type = gfc_typenode_for_spec (&sym->ts);
 
   if (sym->attr.dummy && !sym->attr.function)
     byref = 1;
@@ -950,9 +951,8 @@ gfc_sym_type (gfc_symbol * sym)
     {
       if (sym->attr.allocatable || sym->attr.pointer)
 	type = gfc_build_pointer_type (sym, type);
-
     }
-  else if (!(GFC_KNOWN_SIZE_STRING_TYPE (type) || sym->attr.dummy))
+  else if (!(GFC_KNOWN_SIZE_STRING_TYPE (base_type) || sym->attr.dummy))
     {
       type = build_pointer_type (type);
     }

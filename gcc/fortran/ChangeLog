@@ -1,3 +1,13 @@
+2003-12-12  Huang Chun <chunhuang73@hotmail.com>
+
+	* primary.c (match_substring): Fix substring bug for start point
+	or end point is NULL.
+	* trans-expr.c (gfc_conv_substring): Ditto
+	* trans-types.c (gfc_sym_type): Get correct type of scalar 
+	character variables.
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Handle character in 
+	derived type.
+
 2003-12-10  Richard Henderson  <rth@redhat.com>
 
 	* options.c (gfc_post_options): Don't ever use rtl inlining.

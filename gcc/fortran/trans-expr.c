@@ -192,9 +192,13 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
 
   /* Length = end + 1 - start.  */
   gfc_init_se (&end, se);
-  gfc_conv_expr_type (&end, ref->u.ss.end, gfc_strlen_type_node);
-  gfc_add_block_to_block (&se->pre, &end.pre);
-
+  if (ref->u.ss.end == NULL)
+    end.expr = se->string_length;
+  else
+    {
+      gfc_conv_expr_type (&end, ref->u.ss.end, gfc_strlen_type_node);
+      gfc_add_block_to_block (&se->pre, &end.pre);
+    }
   tmp =
     build (MINUS_EXPR, gfc_strlen_type_node, integer_one_node, start.expr);
   tmp = build (PLUS_EXPR, gfc_strlen_type_node, end.expr, tmp);

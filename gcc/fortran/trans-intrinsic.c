@@ -1857,31 +1857,32 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
   type = gfc_typenode_for_spec (&expr->ts);
   switch (arg->expr_type)
     {
-    case EXPR_VARIABLE:
-      sym = arg->symtree->n.sym;
-      decl = gfc_get_symbol_decl (sym);
-      if (decl == current_function_decl && sym->attr.function
-            && (sym->result == sym))
-        {
-          decl = gfc_get_fake_result_decl (sym);
-        }
-
-      assert (GFC_DECL_STRING (decl));
-      len = GFC_DECL_STRING_LENGTH (decl);
-      assert (len);
-      break;
-
     case EXPR_CONSTANT:
       len = build_int_2 (arg->value.character.length, 0);
       break;
 
     default:
-      /* Anybody stupid enough to do this deserves inefficient code.  */
-      gfc_init_se (&argse, se);
-      gfc_conv_expr (&argse, expr->value.function.actual->expr);
-      gfc_add_block_to_block (&se->pre, &argse.pre);
-      gfc_add_block_to_block (&se->post, &argse.post);
-      len = argse.string_length;
+	if (arg->expr_type == EXPR_VARIABLE && arg->ref == NULL)
+	  {
+	    sym = arg->symtree->n.sym;
+	    decl = gfc_get_symbol_decl (sym);
+	    if (decl == current_function_decl && sym->attr.function
+		&& (sym->result == sym))
+	      decl = gfc_get_fake_result_decl (sym);
+
+	    assert (GFC_DECL_STRING (decl));
+	    len = GFC_DECL_STRING_LENGTH (decl);
+	    assert (len);
+	  }
+	else
+	  {
+	    /* Anybody stupid enough to do this deserves inefficient code.  */
+	    gfc_init_se (&argse, se);
+	    gfc_conv_expr (&argse, arg);
+	    gfc_add_block_to_block (&se->pre, &argse.pre);
+	    gfc_add_block_to_block (&se->post, &argse.post);
+	    len = argse.string_length;
+	}
       break;
     }
   se->expr = convert (type, len);

@@ -554,7 +554,11 @@ match_substring (gfc_charlen * cl, int init, gfc_ref ** result)
       ref = gfc_get_ref ();
 
       ref->type = REF_SUBSTRING;
+      if (start == NULL)
+	start = gfc_int_expr (1);
       ref->u.ss.start = start;
+      if (end == NULL && cl)
+	end = gfc_copy_expr (cl->length);
       ref->u.ss.end = end;
       ref->u.ss.length = cl;
     }
