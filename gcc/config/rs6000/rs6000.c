@@ -14197,7 +14197,7 @@ rs6000_emit_prologue (void)
 	 R0 above -- into 8(R1).  SAVEFP/RESTOREFP should never be
 	 called to save or restore only F31.  */
 
-      if (info->lr_save_offset != 8 || info->first_fp_reg_save == 63)
+      if (info->lr_save_offset != (POINTER_SIZE / 4) || info->first_fp_reg_save == 63)
 	abort ();
 
       sprintf (rname, "*saveFP%s%.0d ; save f%d-f31",
@@ -14498,7 +14498,9 @@ rs6000_emit_prologue (void)
       /* APPLE LOCAL begin performance enhancement */
 #if TARGET_MACHO
       if (!lr_already_set_up_for_pic)
-	rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (lr, src)));
+	rs6000_maybe_dead (emit_insn ((TARGET_64BIT
+				       ? gen_load_macho_picbase_di (lr, src)
+				       : gen_load_macho_picbase (lr, src))));
 #endif
       /* APPLE LOCAL end performance enhancement */
 
@@ -15069,7 +15071,7 @@ rs6000_emit_epilogue (int sibcall)
 	     call (!!)  RESTFP also restores the caller's LR from 8(R1).
 	     RESTFP should *never* be called to restore only F31.  */
 
-	  if (info->lr_save_offset != 8 || info->first_fp_reg_save == 63)
+	  if (info->lr_save_offset != (POINTER_SIZE / 4) || info->first_fp_reg_save == 63)
 	    abort ();
 
 	  sprintf (rname, "*restFP%s%.0d ; restore f%d-f31",

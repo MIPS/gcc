@@ -1,3 +1,10 @@
+2004-08-23  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Add 64-bit
+	cases to optimizations for FP save and picbase setup.
+	(rs6000_emit_epilogue): Adjust the LR save offset to be correct
+	for 64-bit frames.
+
 2004-08-22  Stan Shebs  <shebs@apple.com>
 
 	* config/darwin-driver.c (arch_config): Add ppc64.
