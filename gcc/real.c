@@ -29,6 +29,7 @@
 #include "toplev.h"
 #include "real.h"
 #include "tm_p.h"
+#include "dfp.h"
 
 /* The floating point model used internally is not exactly IEEE 754
    compliant, and close to the description in the ISO C99 standard,
@@ -1949,6 +1950,17 @@ real_from_string2 (const char *s, enum machine_mode mode)
   return r;
 }
 
+/* Initialize r from a string and desired mode. */
+void 
+real_from_string3 (REAL_VALUE_TYPE *r, const char *s, enum machine_mode mode)
+{
+  /* Also handle decimal floats. If decimal float modes were not 
+     target specific, we could get rid of this wrapper. */
+  REAL_OR_DECIMAL_FROM_STRING (r, s, mode);
+  if (mode != VOIDmode)
+    real_convert (r, mode, r);  
+} 
+
 /* Initialize R from the integer pair HIGH+LOW.  */
 
 void
@@ -2236,6 +2248,12 @@ round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
   bool guard, lsb;
   int emin2m1, emax2;
 
+  if (fmt->b == 10) 
+    {
+    /* FIXME. decimal_round_for_format()  */
+      return;
+    }
+  
   p2 = fmt->p * fmt->log2_b;
   emin2m1 = (fmt->emin - 1) * fmt->log2_b;
   emax2 = fmt->emax * fmt->log2_b;
@@ -2368,6 +2386,11 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
 
   fmt = REAL_MODE_FORMAT (mode);
   gcc_assert (fmt);
+
+  /* FIXME: Fix real.c to be safe for other formats. For now, just
+     short-circuit.*/
+  if (fmt->b == 10)
+    return;
 
   *r = *a;
   round_for_format (fmt, r);
@@ -4197,59 +4220,108 @@ const struct real_format i370_double_format =
     false, /* ??? The encoding does allow for "unnormals".  */
     false
   };
+
+static void
+encode_decimal_single (const struct real_format *fmt ATTRIBUTE_UNUSED,
+                       long *buf ATTRIBUTE_UNUSED, 
+		       const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
+{
+  ENCODE_DECIMAL_SINGLE (fmt, buf, r);
+}
 
+static void 
+decode_decimal_single (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED, 
+		       const long *buf ATTRIBUTE_UNUSED)
+{
+  DECODE_DECIMAL_SINGLE (fmt, r, buf);
+}
+
+static void 
+encode_decimal_double (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		       long *buf ATTRIBUTE_UNUSED, 
+		       const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
+{
+  ENCODE_DECIMAL_DOUBLE (fmt, buf, r);
+}
+
+static void 
+decode_decimal_double (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED, 
+		       const long *buf ATTRIBUTE_UNUSED)
+{
+  DECODE_DECIMAL_DOUBLE(fmt, r, buf);
+}
+
+static void 
+encode_decimal_quad (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		     long *buf ATTRIBUTE_UNUSED,
+		     const REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED)
+{
+  ENCODE_DECIMAL_QUAD (fmt, buf, r);
+}
+
+static void 
+decode_decimal_quad (const struct real_format *fmt ATTRIBUTE_UNUSED,
+		     REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
+		     const long *buf ATTRIBUTE_UNUSED)
+{
+  DECODE_DECIMAL_QUAD (fmt, r, buf);
+}
+
+/* Proposed IEEE 754r decimal floating point. */
 const struct real_format decimal_single_format =
   {
-    encode_i370_single,
-    decode_i370_single,
-    16,
-    4,
-    6,
-    6,
-    -64,
-    63,
+    encode_decimal_single,
+    decode_decimal_single,
+    10, 
+    1,  /* log10 */
+    7,
+    7,
+    -95,
+    96,
     31,
-    false,
-    false,
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false
+    true,
+    true,
+    true,
+    true, 
+    true
   };
 
 const struct real_format decimal_double_format =
   {
-    encode_i370_double,
-    decode_i370_double,
+    encode_decimal_double,
+    decode_decimal_double,
+    10,
+    1,  /* log10 */
     16,
-    4,
-    14,
-    14,
-    -64,
+    16,
+    -383,
+    384,
     63,
-    63,
-    false,
-    false,
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false
+    true,
+    true,
+    true,
+    true,
+    true
   };
 
 const struct real_format decimal_quad_format =
   {
-    encode_i370_double,
-    decode_i370_double,
-    16,
-    4,
-    14,
-    14,
-    -64,
-    63,
-    63,
-    false,
-    false,
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false, /* ??? The encoding does allow for "unnormals".  */
-    false
+    encode_decimal_quad,
+    decode_decimal_quad,
+    10,
+    1,  /* log10 */
+    34,
+    34,
+    -6414,
+    6413,
+    127,
+    true,
+    true,
+    true, 
+    true, 
+    true
   };
 
 /* The "twos-complement" c4x format is officially defined as

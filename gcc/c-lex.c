@@ -675,8 +675,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
-  real_from_string (&real, copy);
-  real_convert (&real, TYPE_MODE (type), &real);
+  real_from_string3 (&real, copy, TYPE_MODE (type));
 
   /* Both C and C++ require a diagnostic for a floating constant
      outside the range of representable values of its type.  Since we

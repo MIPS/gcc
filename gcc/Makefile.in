@@ -935,6 +935,7 @@ OBJS-common = \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
+ $(DECNUMBER_OBJS)                                                         \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o
 
 OBJS-md = $(out_object_file)
@@ -1032,6 +1033,12 @@ ifneq ($(xmake_file),)
 include $(xmake_file)
 endif
 
+# Conditionally include decNumber
+ifeq ($(HAVE_DECNUMBER),1)
+DECNUMBER_DEFINES = -DHAVE_DECNUMBER
+DECNUMBER_OBJS = decNumber.o decimal128.o decimal64.o decimal32.o decContext.o dfp.o
+DECNUMBER_HEADERS = decNumber.h decimal128.h decimal64.h decimal32.h decDPD.h decContext.h
+endif
 #
 
 # -----------------------------
@@ -1917,7 +1924,17 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(T
    $(FLAGS_H) function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
    $(EXPR_H) $(OBSTACK_H) hard-reg-set.h bitmap.h toplev.h \
    $(HASHTAB_H) $(TM_P_H) debug.h langhooks.h gt-emit-rtl.h
-real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h $(TM_P_H)
+real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h $(TM_P_H) dfp.h $(DECNUMBER_HEADERS)
+	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(DECNUMBER_DEFINES) -c $(srcdir)/real.c $(OUTPUT_OPTION)
+decContext.o : decContext.c $(DECNUMBER_HEADERS)
+decNumber.o : decNumber.c $(DECNUMBER_HEADERS)
+decimal32.o : decimal32.c $(DECNUMBER_HEADERS)
+decimal64.o : decimal64.c $(DECNUMBER_HEADERS)
+decimal128.o : decimal128.c $(DECNUMBER_HEADERS)
+dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h $(TMP_P_H) $(DECNUMBER_HEADERS)
+	        $(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+          $(DECNUMBER_DEFINES) -c $(srcdir)/dfp.c $(OUTPUT_OPTION)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(FLAGS_H) debug.h $(INTEGRATE_H) insn-config.h $(EXPR_H) real.h $(REGS_H) \
    intl.h function.h output.h $(RECOG_H) except.h toplev.h \

@@ -1,3 +1,24 @@
+2005-03-23  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* Makefile.in: HAVE_DECNUMBER controls building in of decNumber
+	files.
+	* c-lex.c (interpret_float): real_from_string3 can handle binary
+	or decimal floats.
+	* defaults.h: Add SIZE macros for decimal float types.
+	* dfp.c: New file. Handle interfacing to decNumber routines.
+	* dfp.h: New file. 
+	* real.c (real_from_string3): Initialize real based on mode and
+	string.
+	(round_for_format): Short circuit decimal float case.
+	(real_convert): Short circuit for decimal float case.
+	(encode_decimal_single, decode_decimal_single,
+	encode_decimal_double, decode_decimal_double, encode_decimal_quad,
+	decode_decimal_quad): Conditionally call out to dfp based
+	function.  As decNumber enters source this could go away.
+	* real.h: Export real_from_string3.
+	* tree.c (build_common_tree_nodes_2): Override type chosen by
+	layout_type ().
+
 2005-03-15  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* c-pretty-print.c (pp_c_floating_constant): Print dfp suffixes.
