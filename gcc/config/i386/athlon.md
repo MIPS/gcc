@@ -18,7 +18,7 @@
 ;; communicates with all the execution units separately instead.
 
 (define_attr "athlon_decode" "direct,vector"
-  (cond [(eq_attr "type" "call,imul,idiv,other,multi,fcmov,fpspc,str,pop,cld")
+  (cond [(eq_attr "type" "call,imul,idiv,other,multi,fcmov,fpspc,str,pop,cld,leave")
 	   (const_string "vector")
          (and (eq_attr "type" "push")
               (match_operand 1 "memory_operand" ""))
@@ -102,11 +102,11 @@
 			 "athlon-direct,nothing,athlon-store")
 (define_insn_reservation "athlon_pop" 4
 			 (and (eq_attr "cpu" "athlon")
-			      (eq_attr "type" "push"))
+			      (eq_attr "type" "pop"))
 			 "athlon-vector,athlon-ieu,athlon-load")
 (define_insn_reservation "athlon_leave" 3
 			 (and (eq_attr "cpu" "athlon")
-			      (eq_attr "type" "push"))
+			      (eq_attr "type" "leave"))
 			 "athlon-vector,athlon-load")
 
 ;; Lea executes in AGU unit with 2 cycles latency.
