@@ -10631,7 +10631,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      tree dummy = build_decl (TYPE_DECL, NULL_TREE, type);
 	      grok_method_quals (ctype, dummy, quals);
 	      type = TREE_TYPE (dummy);
-	      ctype = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type)));
 	      quals = NULL_TREE;
 	    }
 	}

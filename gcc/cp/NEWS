@@ -1,8 +1,10 @@
 *** Changes in GCC 3.4:
 
 * The C++ parser in G++ has been rewritten from scratch.  As a result, G++ 
-  is considerably more compliant to the C++ standard.  Many of the changes
-  below are a consequence of the new parser.
+  is considerably more compliant to the C++ standard.  As a result, it 
+  accepts more valid programs, and rejects more invalid programs.  
+
+  Many of the changes below are a consequence of the new parser.
 
 * Friend declarations that refer to template specializations are rejected
   if the template has not already been declared.
@@ -36,6 +38,12 @@
 
 * The "named return value" extension has been removed.
 
+* When -pedantic is used, G++ now issues errors about spurious semicolons;
+  for example:
+
+    namespace N {}; // Invalid semicolon.
+    void f() {}; // Invalid semicolon.
+  
 *** Changes in GCC 3.1:
 
 * -fhonor-std and -fno-honor-std have been removed. -fno-honor-std was

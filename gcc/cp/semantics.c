@@ -962,12 +962,12 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 
 /* Finish a label with the indicated NAME.  */
 
-void
+tree
 finish_label_stmt (name)
      tree name;
 {
   tree decl = define_label (input_filename, lineno, name);
-  add_stmt (build_stmt (LABEL_STMT, decl));
+  return add_stmt (build_stmt (LABEL_STMT, decl));
 }
 
 /* Finish a series of declarations for local labels.  G++ allows users
@@ -1343,15 +1343,22 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
   /* A reference to a member function will appear as an overloaded
      function (rather than a BASELINK) if an unqualified name was used
      to refer to it.  */
-  if (!BASELINK_P (fn)
-      && is_overloaded_fn (fn) 
-      && (DECL_FUNCTION_MEMBER_P 
-	  (get_first_fn (TREE_CODE (fn) == TEMPLATE_ID_EXPR
-			 ? get_first_fn (TREE_OPERAND (fn, 0))
-			 : get_first_fn (fn)))))
-    fn = build_baselink (TYPE_BINFO (current_class_type),
-			 TYPE_BINFO (current_class_type),
-			 fn, /*optype=*/NULL_TREE);
+  if (!BASELINK_P (fn) && is_overloaded_fn (fn))
+    {
+      tree f;
+
+      if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+	f = get_first_fn (TREE_OPERAND (fn, 0));
+      else
+	f = get_first_fn (fn);
+      if (DECL_FUNCTION_MEMBER_P (f))
+	{
+	  tree type = currently_open_derived_class (DECL_CONTEXT (f));
+	  fn = build_baselink (TYPE_BINFO (type),
+			       TYPE_BINFO (type),
+			       fn, /*optype=*/NULL_TREE);
+	}
+    }
 
   if (BASELINK_P (fn))
     {

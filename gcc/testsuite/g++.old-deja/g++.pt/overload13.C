@@ -6,5 +6,5 @@ struct A {
 int main ()
 {
   A a;
-  return a.template f (0); // ERROR -
+  return a.template f (0); // ERROR - 
 }

@@ -2037,6 +2037,7 @@ build_class_member_access_expr (tree object, tree member,
     {
       /* The member is a (possibly overloaded) member function.  */
       tree functions;
+      tree type;
 
       /* If the MEMBER is exactly one static member function, then we
 	 know the type of the expression.  Otherwise, we must wait
@@ -2044,19 +2045,12 @@ build_class_member_access_expr (tree object, tree member,
       functions = BASELINK_FUNCTIONS (member);
       if (TREE_CODE (functions) == FUNCTION_DECL
 	  && DECL_STATIC_FUNCTION_P (functions))
-	{
-	  /* A static member function.  */
-	  result = functions;
-	  mark_used (result);
-	  /* If OBJECT has side-effects, they are supposed to occur.  */
-	  if (TREE_SIDE_EFFECTS (object))
-	    result = build (COMPOUND_EXPR, TREE_TYPE (result),
-			    object, result);
-	}
+	type = TREE_TYPE (functions);
       else
-	/* Note that we do not convert OBJECT to the BASELINK_BINFO
-	   base.  That will happen when the function is called.  */
-	result = build (COMPONENT_REF, unknown_type_node, object, member);
+	type = unknown_type_node;
+      /* Note that we do not convert OBJECT to the BASELINK_BINFO
+	 base.  That will happen when the function is called.  */
+      result = build (COMPONENT_REF, unknown_type_node, object, member);
     }
   else if (TREE_CODE (member) == CONST_DECL)
     {
