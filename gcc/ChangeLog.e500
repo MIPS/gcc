@@ -1,4 +1,10 @@
 2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
+  
+        * cp/call.c (standard_conversion): Opaque pointers interconvert.
+  
+        * testsuite/g++.dg/other/opaque-3.C: New.
+
+2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.c (spe_init_builtins): Handle evsplati and
 	evsplatfi here.
