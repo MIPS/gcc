@@ -1,5 +1,14 @@
 2004-06-11  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AbstractDocument.java,
+	javax/swing/text/Document.java,
+	javax/swing/text/GapContent.java,
+	javax/swing/text/JTextComponent.java,
+	javax/swing/text/PlainDocument.java:
+	Reformatted.
+
+2004-06-11  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JRootPane.java
 	(AccessibleJRootPane.serialVersionUID): New field.
 	(AccessibleJRootPane.AccessibleJRootPane): New constructor.

@@ -1,4 +1,4 @@
-/* PlainDocument.java -- 
+/* PlainDocument.java --
    Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -37,22 +37,20 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-
 public class PlainDocument extends AbstractDocument
 {
-    PlainDocument()
-    {
-	super(new GapContent());
-    }
+  PlainDocument()
+  {
+    super(new GapContent());
+  }
 
-    public Element getDefaultRootElement()
-    {
-	return null;
-    }
+  public Element getDefaultRootElement()
+  {
+    return null;
+  }
 
-    public Element getParagraphElement(int  pos)
-    {
-	return null;
-    }
+  public Element getParagraphElement(int pos)
+  {
+    return null;
+  }
 }
-
