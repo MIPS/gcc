@@ -179,8 +179,6 @@ static void set_scev                   (unsigned, tree, tree);
 static void set_scev_inner_value       (unsigned, tree, tree);
 static void set_scev_outer_value       (tree, tree);
 static tree get_scev                   (unsigned, tree);
-static bool loop_is_included_in        (unsigned, unsigned);
-static bool loop_is_included_in_rec    (unsigned, struct loop *);
 static tree merge_evolutions           (tree, varray_type);
 static void merge_branches_of_condition_phi_node_in_loop (tree, tree);
 static void merge_branches_of_condition_phi_node (tree);
@@ -283,6 +281,83 @@ static varray_type monev_info;
 /* Debugging dumps.  */
 static FILE *dump_file;
 static int dump_flags;
+
+
+
+/* Loop related functions.  */
+
+static bool loop_is_included_in_rec (unsigned, struct loop *);
+static inline bool stmt_is_in_loop (tree, unsigned);
+
+/* Determines whether STMT is in loop LOOP_NB.  */
+
+static inline bool
+stmt_is_in_loop (tree stmt, 
+		 unsigned loop_nb)
+{
+  if (loop_is_included_in (loop_num (loop_of_stmt (stmt)), loop_nb))
+    return true;
+  
+  else
+    return false;
+}
+
+/* Determines whether STMT is not contained by the loop LOOP_NB.  */
+
+static inline bool
+stmt_is_not_in_loop (tree stmt, 
+		     unsigned loop_nb)
+{
+  return !stmt_is_in_loop (stmt, loop_nb);
+}
+
+/* Determines whether loop A is contained in loop B.  
+   
+   FIXME: Maybe it would be better to record this information as a bit
+   matrix in the loops structure.  */
+
+bool
+loop_is_included_in (unsigned a, 
+		     unsigned b)
+{
+  struct loop *loop_b;
+  
+  if (a == b)
+    return true;
+  
+  /* That's a property of the loops->parray (see the comment in the
+     loops structure).  */
+  if (a < b)
+    return false;
+  
+  loop_b = loop_from_num (monev_loops, b);
+  
+  if (inner_loop (loop_b)
+      && loop_is_included_in_rec (a, inner_loop (loop_b)))
+    return true;
+  
+  return false;
+}
+
+/* Recursively determine whether A is contained in LOOP_B.  */
+
+static bool
+loop_is_included_in_rec (unsigned a, 
+			 struct loop *loop_b)
+{
+  if (loop_num (loop_b) == a)
+    return true;
+  
+  if (inner_loop (loop_b)
+      && loop_is_included_in_rec (a, inner_loop (loop_b)))
+    return true;
+  
+  if (next_loop (loop_b)
+      && loop_is_included_in_rec (a, next_loop (loop_b)))
+    return true;
+  
+  return false;
+}
 
 
 
@@ -1749,52 +1824,6 @@ get_scev (unsigned loop_num, tree var)
 
 	 fprintf (stderr, ")\n"));
   return res;
-}
-
-/* Determines whether loop A is contained in loop B.  
-   
-   FIXME: Maybe it would be better to record this information as a bit
-   matrix in the loops structure.  */
-
-static bool
-loop_is_included_in (unsigned a, unsigned b)
-{
-  struct loop *loop_b;
-  
-  if (a == b)
-    return true;
-  
-  /* That's a property of the loops->parray (see the comment in the
-     loops structure).  */
-  if (a < b)
-    return false;
-  
-  loop_b = loop_from_num (monev_loops, b);
-  
-  if (loop_b->inner
-      && loop_is_included_in_rec (a, loop_b->inner))
-    return true;
-  
-  return false;
-}
-
-/* Recursively determine whether A is contained in LOOP_B.  */
-
-static bool
-loop_is_included_in_rec (unsigned a, struct loop *loop_b)
-{
-  if (loop_b->num == (int) a)
-    return true;
-  
-  if (loop_b->inner
-      && loop_is_included_in_rec (a, loop_b->inner))
-    return true;
-  
-  if (loop_b->next
-      && loop_is_included_in_rec (a, loop_b->next))
-    return true;
-  
-  return false;
 }
 
 /* Merge the evolution functions from BRANCH_CHRECS with the

@@ -563,4 +563,12 @@ bsi_stmt_ptr (block_stmt_iterator i)
   return tsi_stmt_ptr (i.tsi);
 }
 
+/* Returns the loop of the statement STMT.  */
+
+static inline struct loop *
+loop_of_stmt (tree stmt)
+{
+  return bb_for_stmt (stmt)->loop_father;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

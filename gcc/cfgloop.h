@@ -345,8 +345,18 @@ enum
 
 extern void unroll_and_peel_loops (struct loops *, int);
 
-
+extern bool loop_is_included_in (unsigned, unsigned);
 static inline struct loop *loop_from_num (struct loops *, unsigned);
+static inline struct loop *outer_loop (struct loop *);
+static inline struct loop *inner_loop (struct loop *);
+static inline struct loop *next_loop (struct loop *);
+static inline unsigned loop_num (struct loop *);
+static inline unsigned loop_depth (struct loop *);
+static inline basic_block loop_header (struct loop *);
+static inline tree loop_nb_iterations (struct loop *);
+static inline unsigned loop_num_exits (struct loop *);
+static inline edge *loop_exit_edges (struct loop *);
+static inline edge loop_exit_edge (struct loop *, unsigned);
 
 static inline struct loop *
 loop_from_num (struct loops *loops, 
@@ -355,6 +365,88 @@ loop_from_num (struct loops *loops,
   return loops->parray[num];
 }
 
+/* Returns the outer loop.  */
+
+static inline struct loop *
+outer_loop (struct loop *loop)
+{
+  return loop->outer;
+}
+
+/* Returns the inner loop.  */
+
+static inline struct loop *
+inner_loop (struct loop *loop)
+{
+  return loop->inner;
+}
+
+/* Returns the next loop.  */
+
+static inline struct loop *
+next_loop (struct loop *loop)
+{
+  return loop->next;
+}
+
+/* Returns the number of a loop.  */
+
+static inline unsigned
+loop_num (struct loop *loop)
+{
+  return loop->num;
+}
+
+/* Returns the depth of a loop.  */
+
+static inline unsigned
+loop_depth (struct loop *loop)
+{
+  return loop->depth;
+}
+
+/* Returns the header basic block of the loop.  */
+
+static inline basic_block
+loop_header (struct loop *loop)
+{
+  return loop->header;
+}
+
+/* Returns the number of iterations in the loop.  */
+
+static inline tree
+loop_nb_iterations (struct loop *loop)
+{
+  return loop->nb_iterations;
+}
+
+/* Returns the number of exit edges of the loop.  */
+
+static inline unsigned
+loop_num_exits (struct loop *loop)
+{
+  return loop->num_exits;
+}
+
+/* Returns the exit edges of the loop.  */
+
+static inline edge *
+loop_exit_edges (struct loop *loop)
+{
+  return loop->exit_edges;
+}
+
+/* Returns the n-th exit edge of the loop.  */
+
+static inline edge 
+loop_exit_edge (struct loop *loop, unsigned n)
+{
+  return loop->exit_edges[n];
+}
+
+
 /* Loop optimizer dump file.  */
 extern FILE *loop_dump_file;
 extern int loop_dump_flags;
+
