@@ -1,6 +1,6 @@
 // Main program, at least for testing.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -294,6 +294,7 @@ public:
       comp->set_source_1_5 ();
     else
       die_unrecognized ("source", arg);
+    source_argument = arg;
   }
 
   void
@@ -307,6 +308,7 @@ public:
       comp->set_target_1_5 ();
     else
       die_unrecognized ("target", arg);
+    target_argument = arg;
   }
 
   void
@@ -477,6 +479,11 @@ public:
 	  die_unrecognized ("option", arg);
       }
 
+    // If -source was set, and -target was not, then -target defaults
+    // to -source.
+    if (! source_argument.empty () && target_argument.empty ())
+      set_target (source_argument);
+
     std::list<class_factory *> facs;
 
     if (! bootclasspath.empty ())
@@ -525,6 +532,13 @@ public:
   }
   
 private:
+
+  // The '-source' argument.  If not specified, the empty string.
+  std::string source_argument;
+
+  // Likewise for '-target'.
+  std::string target_argument;
+
   compiler *comp;
   std::deque<std::string> args;
 };

@@ -273,6 +273,9 @@ X must handle Miranda methods properly
 
 Tree generation
 
+we should factor out things like object layout, etc, so that
+we can reuse the bulk of this code with LLVM
+
 build_address_of() the functions we call
 document this in tree.def:call_expr ?
 

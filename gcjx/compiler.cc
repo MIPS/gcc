@@ -1,6 +1,6 @@
 // A single compilation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -133,7 +133,9 @@ compiler::compiler (const std::string &name)
     feature_annotations (true),
     target_assert (true),
     target_debug (false),
-    target_15 (false),		// FIXME: inconsistent with other defaults
+    target_15 (false),
+    // For now this is the default.
+    target_14 (true),
     target_verify (false)
 {
 }
@@ -327,6 +329,7 @@ void
 compiler::set_target_1_5 ()
 {
   target_15 = true;
+  target_14 = false;
   target_assert = true;
 }
 
@@ -334,6 +337,7 @@ void
 compiler::set_target_1_4 ()
 {
   target_15 = false;
+  target_14 = true;
   target_assert = true;
 }
 
@@ -341,6 +345,7 @@ void
 compiler::set_target_1_3 ()
 {
   target_15 = false;
+  target_14 = false;
   target_assert = false;
 }
 

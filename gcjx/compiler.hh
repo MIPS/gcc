@@ -1,6 +1,6 @@
 // A single compilation, perhaps of multiple files.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -276,6 +276,7 @@ public:
 
   // Flags used only when compiling to bytecode.
   compiler_flag target_15;
+  compiler_flag target_14;
   compiler_flag target_verify;
 
   void set_class_factory (classpath_class_factory *fac);

@@ -1490,6 +1490,7 @@ model_class::add_class_members ()
       class_->set_synthetic ();
       class_->set_return_type (new model_forwarding_resolved (loc,
 							      global->get_compiler ()->java_lang_Class ()));
+      class_->set_used ();
 
       // This method accepts a string and a boolean as arguments.  The
       // idea comes from jikes.  The boolean controls whether we want
@@ -1511,7 +1512,6 @@ model_class::add_class_members ()
 
       assert (! global->get_compiler ()->target_15 ());
 
-      // FIXME: pre-1.4, we can't use initCause().
       // FIXME: we could really clean up this code by adding some new
       // constructors and helper methods here and there.
       // FIXME: we have un-ref'd objects here, could be a memory
@@ -1540,17 +1540,25 @@ model_class::add_class_members ()
 								  global->get_compiler ()->java_lang_ClassNotFoundException ()),
 				   this);
 
-      ref_method_invocation initcause = new model_method_invocation (loc);
-      initcause->set_method ("initCause");
-      args.push_back (new model_simple_variable_ref (loc, exc.get ()));
-      initcause->set_arguments (args);
-      initcause->set_expression (new model_new (loc,
-						global->get_compiler ()->java_lang_NoClassDefFoundError ()));
+      ref_simple_variable_ref varref
+	= new model_simple_variable_ref (loc, exc.get ());
       ref_expression throw_expr
-	= new model_cast (loc,
-			  new model_forwarding_resolved (loc,
-							 global->get_compiler ()->java_lang_Error ()),
-			  initcause);
+	= new model_new (loc, global->get_compiler ()->java_lang_NoClassDefFoundError ());
+
+      if (global->get_compiler ()->target_14 ())
+	{
+	  // In 1.4 we can chain the exception.
+	  ref_method_invocation initcause = new model_method_invocation (loc);
+	  initcause->set_method ("initCause");
+	  args.push_back (varref);
+	  initcause->set_arguments (args);
+	  initcause->set_expression (throw_expr);
+	  throw_expr
+	    = new model_cast (loc,
+			      new model_forwarding_resolved (loc,
+							     global->get_compiler ()->java_lang_Error ()),
+			      initcause);
+	}
 
       ref_throw throw_stmt = new model_throw (loc);
       throw_stmt->set_expression (throw_expr);
