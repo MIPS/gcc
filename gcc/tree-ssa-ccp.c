@@ -57,6 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Possible lattice values.  */
 typedef enum
 {
+  UNINITIALIZED = 0,
   UNDEFINED,
   CONSTANT,
   VARYING
@@ -74,20 +75,6 @@ typedef struct
   tree const_val;
 } value;
 
-/* Hash table of constant values indexed by SSA name.   Each variable will
-   be assigned a value out of the constant lattice: UNDEFINED (top),
-   meaning that the variable has a constant of unknown value, CONSTANT,
-   meaning that the variable has a known constant value and VARYING
-   (bottom), meaning that the variable has a non-constant value.  */
-static htab_t const_values;
-
-/* Structure to map a variable to its constant value.  */
-struct value_map_d
-{
-  tree var;
-  value val;
-};
-
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
 
@@ -99,6 +86,11 @@ static int cfg_blocks_tail;
 static int cfg_blocks_head;
 
 static sbitmap bb_in_list;
+
+/* This is used to track the current value of each variable.  */
+static value *value_vector;
+
+extern unsigned long next_ssa_version;
 
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
@@ -129,10 +121,8 @@ static bool replace_uses_in (tree);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
 static void set_rhs (tree *, tree);
-static value *get_value (tree);
+static inline value *get_value (tree);
 static value get_default_value (tree);
-static hashval_t value_map_hash (const void *);
-static int value_map_eq (const void *, const void *);
 static tree ccp_fold_builtin (tree, tree);
 static tree get_strlen (tree);
 static inline bool cfg_blocks_empty_p (void);
@@ -216,6 +206,25 @@ tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
+}
+
+
+/* Get the constant value associated with variable VAR.  */
+
+static inline value *
+get_value (tree var)
+{
+  value *val;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  val = &(value_vector[SSA_NAME_VERSION (var)]);
+  if (val->lattice_val == UNINITIALIZED)
+    *val = get_default_value (var);
+    
+  return val;
 }
 
 
@@ -395,7 +404,7 @@ substitute_and_fold (sbitmap vars_to_rename)
 static void
 visit_phi_node (tree phi)
 {
-  int i;
+  int i, short_circuit = 0;
   value phi_val, *curr_val;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
@@ -410,20 +419,27 @@ visit_phi_node (tree phi)
     }
 
   curr_val = get_value (PHI_RESULT (phi));
-  if (curr_val->lattice_val != CONSTANT)
+  if (curr_val->lattice_val == VARYING)
     {
-      phi_val.lattice_val = UNDEFINED;
-      phi_val.const_val = NULL_TREE;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\n   Shortcircuit. Default of VARYING.");
+      short_circuit = 1;
     }
   else
-    {
-      phi_val.lattice_val = curr_val->lattice_val;
-      phi_val.const_val = curr_val->const_val;
-    }
+    if (curr_val->lattice_val != CONSTANT)
+      {
+	phi_val.lattice_val = UNDEFINED;
+	phi_val.const_val = NULL_TREE;
+      }
+    else
+      {
+	phi_val.lattice_val = curr_val->lattice_val;
+	phi_val.const_val = curr_val->const_val;
+      }
 
   /* If the variable is volatile or the variable is never referenced in a
      real operand, then consider the PHI node VARYING.  */
-  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
+  if (short_circuit || TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -1029,9 +1045,6 @@ initialize (void)
   edge e;
   basic_block bb;
 
-  /* Initialize the values array with everything as undefined.  */
-  const_values = htab_create (50, value_map_hash, value_map_eq, NULL);
-
   /* Compute immediate uses.  */
   compute_immediate_uses (TDFA_USE_OPS);
 
@@ -1046,6 +1059,9 @@ initialize (void)
 
   bb_in_list = sbitmap_alloc (last_basic_block);
   sbitmap_zero (bb_in_list);
+
+  value_vector = (value *) xmalloc (next_ssa_version * sizeof (value));
+  memset (value_vector, 0, next_ssa_version * sizeof (value));
 
   /* Initialize simulation flags for PHI nodes, statements and edges.  */
   FOR_EACH_BB (bb)
@@ -1084,9 +1100,9 @@ initialize (void)
 static void
 finalize (void)
 {
+  free (value_vector);
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);
-  htab_delete (const_values);
 }
 
 /* Is the block worklist empty.  */
@@ -1166,7 +1182,7 @@ add_var_to_ssa_edges_worklist (tree var)
     {
       tree use = immediate_use (df, i);
 
-      if (stmt_ann (use)->in_ccp_worklist == 0)
+      if (!DONT_SIMULATE_AGAIN (use) && stmt_ann (use)->in_ccp_worklist == 0)
 	{
 	  stmt_ann (use)->in_ccp_worklist = 1;
 	  VARRAY_PUSH_TREE (ssa_edges, use);
@@ -1497,38 +1513,6 @@ set_rhs (tree *stmt_p, tree expr)
 }
 
 
-/* Get the constant value associated with variable VAR.  */
-
-static value *
-get_value (tree var)
-{
-  void **slot;
-  struct value_map_d *vm_p, vm;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
-
-  vm.var = var;
-  slot = htab_find_slot (const_values, (void *) &vm, INSERT);
-  if (*slot == NULL)
-    {
-      /* If this is the first time that we need the value for VAR and we
-	 still have not seen a definition for it, assume a default value
-	 accordingly (see get_default_value).  */
-      vm_p = xmalloc (sizeof (*vm_p));
-      vm_p->var = var;
-      vm_p->val = get_default_value (var);
-      *slot = (void *) vm_p;
-    }
-  else
-    vm_p = (struct value_map_d *) *slot;
-
-  return &(vm_p->val);
-}
-
-
 /* Return a default value for variable VAR using the following rules:
 
    1- Global and static variables are considered VARYING, unless they are
@@ -1573,22 +1557,6 @@ get_default_value (tree var)
     }
 
   return val;
-}
-
-
-/* Hash and compare functions for CONST_VALUES.  */
-
-static hashval_t
-value_map_hash (const void *p)
-{
-  return htab_hash_pointer ((const void *)((const struct value_map_d *)p)->var);
-}
-
-static int
-value_map_eq (const void *p1, const void *p2)
-{
-  return ((const struct value_map_d *)p1)->var
-	 == ((const struct value_map_d *)p2)->var;
 }
 
 

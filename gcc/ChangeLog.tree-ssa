@@ -1,3 +1,16 @@
+2003-09-24  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-ccp.c (enum latticevalue): Add UNINITIALIZED.
+	(const_values, struct value_map_d): Remove hash table structures.
+	(value_vector): New array of values.
+	(get_value): Use value_vector instead of hash table. Mark inline.
+	(visit_phi_node): Ignore arguments if the PHI result is already VARYING.
+	(initialize): Initialize value vector instead of hash table.
+	(finalize): Free value vector instead of hash table.
+	(add_var_to_ssa_edges_worklist): Don't add to worklist if 
+	DONT_SIMULATE_AGAIN flag is set.
+	(value_map_hash, value_map_eq): Delete.
+
 2003-09-24  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (fold_read_from_constant_string): New function.
