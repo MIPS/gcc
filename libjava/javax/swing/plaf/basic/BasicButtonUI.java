@@ -59,13 +59,19 @@ import javax.swing.plaf.ComponentUI;
 
 public class BasicButtonUI extends ButtonUI
 {
-  /** A constant used to pad out elements in the button's layout and
-      preferred size calculations. */
-  int defaultTextIconGap = 4;
+  /**
+   * A constant used to pad out elements in the button's layout and
+   * preferred size calculations.
+   */
+  protected int defaultTextIconGap = 4;
 
-  /** A constant added to the defaultTextIconGap to adjust the text
-      within this particular button. */
-  int defaultTextShiftOffset = 0;
+  /**
+   * A constant added to the defaultTextIconGap to adjust the text
+   * within this particular button.
+   */
+  protected int defaultTextShiftOffset = 0;
+
+  private int textShiftOffset;
 
   /**
    * Factory method to create an instance of BasicButtonUI for a given
@@ -83,6 +89,21 @@ public class BasicButtonUI extends ButtonUI
   public int getDefaultTextIconGap(AbstractButton b)
   {
     return defaultTextIconGap;
+  }
+
+  protected void clearTextShiftOffset()
+  {
+    textShiftOffset = 0;
+  }
+  
+  protected int getTextShiftOffset()
+  {
+    return textShiftOffset;
+  }
+
+  protected void setTextShiftOffset()
+  {
+    textShiftOffset = defaultTextShiftOffset;
   }
 
   protected void installDefaults(AbstractButton b)

@@ -1,5 +1,15 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicButtonUI.java
+	(defaultTextIconGap): Made protected.
+	(defaultTextShiftOffset): Likewise.
+	(textShiftOffset): New field.
+	(clearTextShiftOffset): New method.
+	(getTextShiftOffset): Likewise.
+	(setTextShiftOffset): Likewise.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicTextUI.java
 	(installUI): Add eventHandler as property listener.
 	(uninstallUI): remove eventHandler as propert listener.
