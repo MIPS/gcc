@@ -1,3 +1,7 @@
+2003-12-16  Josef Zlomek  <zlomekj@suse.cz>
+
+	* flags.h: Really make flags_crossjumping extern.
+
 2003-12-14  Andreas Jaeger  <aj@suse.de>
 
 	* flags.h: Remove broken repgaram commit.

@@ -683,7 +683,7 @@ extern int flag_var_tracking;
 
 /* Nonzero means perform crossjumping.  */
 
-int flag_crossjumping;
+extern int flag_crossjumping;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */
