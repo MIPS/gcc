@@ -483,7 +483,7 @@ fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
 
-; APPLE LOCAL fast, fastf, fastcp
+; APPLE LOCAL -fast or -fastf or -fastcp
 fast
 C
 Used for c optimization

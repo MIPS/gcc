@@ -48,7 +48,7 @@ Boston, MA 02111-1307, USA.  */
 /* APPLE LOCAL dynamic-no-pic */
 /* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */
 /* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
-/* APPLE LOCAL gfull gused */
+/* APPLE LOCAL gdb only used symbols */
 #define CC1_SPEC "\
 %{gused: -g -feliminate-unused-debug-symbols %<gused }\
 %{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
@@ -59,7 +59,7 @@ Boston, MA 02111-1307, USA.  */
 /* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
-/* APPLE LOCAL begin 3492132 */
+/* APPLE LOCAL begin .machine assembler directive (radar 3492132) */
 
 #define ASM_SPEC "%(darwin_arch_asm_spec)\
   -force_cpusubtype_ALL \
@@ -94,7 +94,7 @@ Boston, MA 02111-1307, USA.  */
   { "darwin_arch_ld_spec", DARWIN_ARCH_LD_SPEC },     \
   { "darwin_arch", "i686" },
 
-/* APPLE LOCAL end 3492132 */
+/* APPLE LOCAL end .machine assembler directive */
 
 /* Use the following macro for any Darwin/x86-specific command-line option
    translation.  */

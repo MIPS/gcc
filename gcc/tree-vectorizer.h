@@ -42,11 +42,11 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
-  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   assignment_vec_info_type,
   select_vec_info_type,
   compare_vec_info_type
-  /* APPLE LOCAL end AV if-conversion -dpatel  */
+  /* APPLE LOCAL end AV if-conversion --dpatel  */
 };
 
 typedef struct _stmt_vec_info {
@@ -64,7 +64,7 @@ typedef struct _stmt_vec_info {
      indicates whether the stmt needs to be vectorized.  */
   bool relevant;
 
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   /* This stmt is part of some computation idiom.  */
   bool part_of_pattern;
 
@@ -72,12 +72,12 @@ typedef struct _stmt_vec_info {
      to this stmt. For example, stmts that are involved in the same 
      computation idiom.  */
   tree related_stmt;
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
 
   /* The vector type to be used.  */
   tree vectype;
 
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   union {
     /* The vectorized version of the stmt.  */
     tree vectorized_stmt;
@@ -86,7 +86,7 @@ typedef struct _stmt_vec_info {
     tree (* vect_target_hook_for_pattern) (tree, tree, tree, edge, 
 		block_stmt_iterator *);
   } v; 
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
 
   /* Relevant only for array accesses;
      A GIMPLE stmt is expected to have at most 1 array access.  */
@@ -99,13 +99,13 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_STMT(S)       	(S)->stmt
 #define STMT_VINFO_LOOP(S)       	(S)->loop
 #define STMT_VINFO_RELEVANT_P(S) 	(S)->relevant
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
 #define STMT_VINFO_IN_PATTERN_P(S)	(S)->part_of_pattern
 #define STMT_VINFO_VEC_HOOK(S)  	(S)->v.vect_target_hook_for_pattern
 #define STMT_VINFO_RELATED_STMT(S)	(S)->related_stmt
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 #define STMT_VINFO_VECTYPE(S)    	(S)->vectype
-/* APPLE LOCAL AV vmul_uch -haifa  */
+/* APPLE LOCAL AV vmul_uch --haifa  */
 #define STMT_VINFO_VEC_STMT(S)   	(S)->v.vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)   	(S)->data_ref_info
 
@@ -208,12 +208,12 @@ extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
    (for example, to exploit data reuse across loops?).  */
 #undef ANALYZE_ALL_THEN_VECTORIZE_ALL
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 extern bool default_vector_compare_p (void);
 extern bool default_vector_compare_for_p (tree, enum tree_code);
 extern tree default_vector_compare_stmt (tree, tree, tree, tree, enum tree_code);
 extern bool default_vector_select_p (void);
 extern bool default_vector_select_for_p (tree);
 extern tree default_vector_select_stmt (tree, tree, tree, tree, tree);
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 #endif  /* GCC_TREE_VECTORIZER_H  */

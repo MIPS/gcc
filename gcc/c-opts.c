@@ -482,7 +482,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Werror:
-      /* APPLE LOCAL begin -Werror 2002-21-01 --dpatel */
+      /* APPLE LOCAL begin QA_DISABLE_WERROR 2002-21-01 --dpatel */
       if (getenv ("QA_DISABLE_WERROR"))
 	{
 	  warning ("-Werror ignored because QA_DISABLE_WERROR is set.");
@@ -490,7 +490,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	}
       else
 	cpp_opts->warnings_are_errors = value;
-      /* APPLE LOCAL end -Werror 2002-21-01 --dpatel */
+      /* APPLE LOCAL end QA_DISABLE_WERROR 2002-21-01 --dpatel */
       break;
 
       /* APPLE LOCAL begin -Wextra-tokens */
@@ -1181,12 +1181,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       verbose = true;
       break;
 
-    /* APPLE LOCAL begin -fast, -fastf, -fastcp option */
+    /* APPLE LOCAL begin -fast or -fastf or -fastcp */
     case OPT_fast:
     case OPT_fastcp:
     case OPT_fastf:
       break;
-    /* APPLE LOCAL end -fast, -fastf, -fastcp option */
+    /* APPLE LOCAL end -fast or -fastf or -fastcp */
     }
 
   return result;
@@ -1694,10 +1694,10 @@ cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
 static void
 set_std_c89 (int c94, int iso)
 {
-  /* APPLE LOCAL begin 3191171 */
+  /* APPLE LOCAL begin preprocess .s files (radar #3191171) */
   /* Do not override CLK_ASM if set */
   if (cpp_opts->lang != CLK_ASM)
-  /* APPLE LOCAL end 3191171 */
+  /* APPLE LOCAL end */
     cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
   flag_iso = iso;
   flag_no_asm = iso;

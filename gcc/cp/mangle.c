@@ -1307,7 +1307,9 @@ write_identifier (const char *identifier)
                     ::= C3   # complete object allocating constructor
 
    Currently, allocating constructors are never used. 
+
    APPLE LOCAL decloning
+
 */
 
 static void

@@ -5579,7 +5579,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  && ! (GET_CODE (src_const) == CONST
 		&& GET_CODE (XEXP (src_const, 0)) == MINUS
 		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
-		/* APPLE LOCAL begin */	    
+		/* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */	    
 		&& (GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF
 		    || rtx_equal_p ((XEXP (XEXP (src_const, 0), 1)), 
 				     const0_rtx))))

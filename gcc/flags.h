@@ -902,10 +902,10 @@ extern int flag_debug_only_used_symbols;
 extern int flag_pch_preprocess;
 /* APPLE LOCAL END pch distcc --mrs */
 
-/* APPLE LOCAL begin loop transpose */
+/* APPLE LOCAL begin loop transposition */
 /* Nonzero if we should perform automatic loop transposition. */
 extern int flag_loop_transpose;
-/* APPLE LOCAL end loop transpose */
+/* APPLE LOCAL end loop transposition */
 
 /* APPLE LOCAL begin predictive compilation */
 extern int predictive_compilation;

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file -haifa  */
+/* APPLE LOCAL file AV --haifa  */
 /* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse" { target i?86-*-* } } */

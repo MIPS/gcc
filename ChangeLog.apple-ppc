@@ -1,3 +1,8 @@
+2004-06-25  Matthew Sachs  <msachs@apple.com>
+
+	Radar 3693177
+	* Clean up APPLE LOCAL markers.
+
 2004-06-17  Jon Ziegler  <jonz@apple.com>
 
 	Radar 3693664

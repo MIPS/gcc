@@ -1027,9 +1027,9 @@ extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
 
-/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
 extern bool builtin_function_disabled_p (const char *);
-/* APPLE LOCAL end fix radar 3645899, IMA problem  */
+/* APPLE LOCAL end */
 
 /* This function resets the parsers' state in preparation for parsing
    a new file.  */

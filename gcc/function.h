@@ -401,7 +401,7 @@ struct function GTY(())
      final flowgraph size.  */
   int max_jumptable_ents;
 
-  /* APPLE LOCAL sibcall 3007352 */
+  /* APPLE LOCAL sibcall optimization stomped CW frames (radar 3007352) */
   int unrounded_args_size;
 
   /* UIDs for LABEL_DECLs.  */

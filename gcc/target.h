@@ -45,9 +45,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    scattered throughout GCC.  */
 
 #include "tm.h"
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 #include "tree.h"
-/* APPLE LOCAL AV vmul_uch -haifa  */
+/* APPLE LOCAL AV vmul_uch --haifa  */
 #include "tree-flow.h"
 struct gcc_target
 {
@@ -437,8 +437,8 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
-  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
+  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   /* Functions relating to vectorization.  */
   struct vect
   {
@@ -477,7 +477,7 @@ struct gcc_target
        Return value is vector select statement.  */
     tree (* vector_select_stmt) (tree, tree, tree, tree, tree);
 
-    /* APPLE LOCAL begin AV vmul_uch -haifa  */
+    /* APPLE LOCAL begin AV vmul_uch --haifa  */
     /* True if vector "mult_uch" can be supported (see below).  */
     bool (* support_vmul_uch_p) (void);
 
@@ -499,9 +499,9 @@ struct gcc_target
        the last are inserted either at the preheader edge or at bsi; the last 
        stmt is returned.  */
     tree (* build_vmul_uch) (tree, tree, tree, edge, block_stmt_iterator *);
-    /* APPLE LOCAL end AV vmul_uch -haifa  */
+    /* APPLE LOCAL end AV vmul_uch --haifa  */
 
-    /* APPLE LOCAL begin AV vector_init -haifa  */
+    /* APPLE LOCAL begin AV vector_init --haifa  */
     /* True if the target supports vector initialization with a non-immediate 
        value, of a certain type (passed as argument).  */
     bool (* support_vector_init_p) (tree);
@@ -512,10 +512,10 @@ struct gcc_target
        edge pe - the preheader edge where this code sequence is to be inserted,
        struct bitmap_head_def - bitmap of variables to be renamed.  */
     tree (* build_vector_init) (tree, tree, edge, struct bitmap_head_def *);
-    /* APPLE LOCAL end AV vector_init -haifa  */
+    /* APPLE LOCAL end AV vector_init --haifa  */
   } vect;
-  /* APPLE LOCAL end AV if-conversion -dpatel  */
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV if-conversion --dpatel  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
 
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,

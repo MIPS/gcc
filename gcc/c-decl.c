@@ -378,7 +378,7 @@ static tree c_make_fname_decl (tree, int);
 static tree grokdeclarator (tree, tree, enum decl_context, int, tree *);
 static tree grokparms (tree, int);
 static void layout_array_type (tree);
-/* APPLE LOCAL loop transpose */
+/* APPLE LOCAL loop transposition */
 static void loop_transpose (tree);
 static tree perform_loop_transpose (tree *, int *, void *);
 static tree tree_contains_1 (tree *, int *, void *);
@@ -394,16 +394,16 @@ static tree find_pointer (tree);
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
-/* APPLE LOCAL begin unavailable */
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
 /* Also add an __attribute__((unavailable)).  An object declared as
    __attribute__((unavailable)) suppresses any reports of being
    declared with unavailable or deprecated items.  */
-/* APPLE LOCAL end unavailable */
+/* APPLE LOCAL end */
 
 enum deprecated_states {
   DEPRECATED_NORMAL,
   DEPRECATED_SUPPRESS
-  /* APPLE LOCAL unavailable */
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
   , DEPRECATED_UNAVAILABLE_SUPPRESS
 };
 
@@ -835,7 +835,7 @@ push_file_scope (void)
 {
   tree decl;
 
-/* APPLE LOCAL begin Fix PCH and structs -- pinskia */
+/* APPLE LOCAL begin Fix PCH and structs --pinskia */
 /* This is already in the mainline so when the next merge this might here.  */
   if (file_scope)
     return;
@@ -2665,7 +2665,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
   /* An object declared as __attribute__((deprecated)) suppresses
      warnings of uses of other deprecated items.  */
 
-  /* APPLE LOCAL begin unavailable */
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
   /* An object declared as __attribute__((unavailable)) suppresses
      any reports of being declared with unavailable or deprecated
      items.  An object declared as __attribute__((deprecated))
@@ -2694,7 +2694,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
 	  }
     }
 #endif
-  /* APPLE LOCAL end unavailable */
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL);
@@ -3519,7 +3519,7 @@ grokdeclarator (tree declarator, tree declspecs,
     {
       tree id = TREE_VALUE (spec);
 
-      /* APPLE LOCAL begin unavailable */
+      /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
       /* If the entire declaration is itself tagged as unavailable then
          suppress reports of unavailable/deprecated items.  If the
          entire declaration is tagged as only deprecated we still
@@ -3538,7 +3538,7 @@ grokdeclarator (tree declarator, tree declspecs,
               	warn_deprecated_use (id);
            }
         }
-      /* APPLE LOCAL end unavailable */
+      /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
       if (id == ridpointers[(int) RID_INT])
 	explicit_int = 1;
@@ -5736,9 +5736,9 @@ start_function (tree declspecs, tree declarator, tree attributes)
       return 0;
     }
 
-  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
+  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
   decl_attributes (&decl1, attributes, (int)ATTR_FLAG_FUNCTION_DEF);
-  /* APPLE LOCAL end weak_import --ilr */
+  /* APPLE LOCAL end weak import --ilr */
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
@@ -7464,6 +7464,6 @@ loop_transpose (tree fn)
   walk_tree (&DECL_SAVED_TREE (fn), perform_loop_transpose, NULL, NULL);
   /*timevar_pop (TV_LOOP_TRANSPOSE);*/
 }
-/* APPLE LOCAL end loop transposition */
+/* APPLE LOCAL end loop transposition (currently unsafe) */
 
 #include "gt-c-decl.h"

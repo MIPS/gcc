@@ -2262,9 +2262,10 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
 
-  /* APPLE LOCAL */
+  /* APPLE LOCAL begin aliasing improvement */
   if (overlapping_memrefs_p (mem, x))  
        return 1;
+  /* APPLE LOCAL end */
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2333,9 +2334,10 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 
   x_addr = get_addr (XEXP (x, 0));
 
-  /* APPLE LOCAL */
+  /* APPLE LOCAL begin aliasing improvement */
   if (overlapping_memrefs_p (mem, x))  
        return 1;
+  /* APPLE LOCAL end */
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;

@@ -960,7 +960,7 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (GET_CODE (op) == NEG)
 	    return XEXP (op, 0);
 
-	  /* APPLE LOCAL disallow generating NOT (sym) */
+	  /* APPLE LOCAL disallow generating (not (SYM)) */
 	  /* (neg (plus X 1)) can become (not X).  */
 	  if (GET_CODE (op) == PLUS
 	      && XEXP (op, 1) == const1_rtx
@@ -1615,7 +1615,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_unary (NEG, mode, op1, mode);
 
 	  /* (-1 - a) is ~a.  */
-	  /* APPLE LOCAL  disallow (not (SYM))
+	  /* APPLE LOCAL  disallow generating (not (SYM))
 	     But not when a is relocatable (this arises temporarily when
 	     pulling 386 global addresses out of a loop).  */
 	  if (trueop0 == constm1_rtx

@@ -188,7 +188,7 @@ objc++.distclean:
 	-rm -f objcp/config.status objcp/Makefile
 	-rm -f $(parsedir)/objcp/objcp-parse.output
 objc++.extraclean:
-# APPLE LOCAL: parsedir
+# APPLE LOCAL parsedir
 objc++.maintainer-clean:
 	-rm -f $(parsedir)/objcp/objcp-parse.y
 	-rm -f $(parsedir)/objcp/objcp-parse.c $(parsedir)/objcp/objcp-parse.output

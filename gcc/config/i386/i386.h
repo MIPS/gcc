@@ -788,7 +788,7 @@ extern int x86_prefetch_sse;
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-/* APPLE LOCAL 3232990 - compiler should obey -mpreferred-stack-boundary */
+/* APPLE LOCAL compiler should obey -mpreferred-stack-boundary (radar 3232990) */
 #define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary)
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be

@@ -2301,7 +2301,7 @@ remember_web_was_spilled (struct web *web)
 			reg_class_contents[reg_alternate_class (web->regno)]);
     }
   else
-/* APPLE LOCAL */
+/* APPLE LOCAL ? */
 #ifdef TARGET_POWERPC
     COPY_HARD_REG_SET (web->usable_regs,
 		       reg_class_contents[(int) NON_SPECIAL_REGS]);

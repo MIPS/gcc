@@ -105,7 +105,7 @@ fn_1( TREE_PRIVATE, int, tree )
 fn_1( TREE_PROTECTED, int, tree )
 fn_1( TREE_BOUNDED, int, tree )
 fn_1( TREE_DEPRECATED, int, tree )
-/* APPLE LOCAL unavailable (Radar 2809697) --ilr */
+/* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
 fn_1( TREE_UNAVAILABLE, int, tree )
 fn_1( TREE_LANG_FLAG_0, int, tree )
 fn_1( TREE_LANG_FLAG_1, int, tree )
@@ -318,7 +318,7 @@ fn_1( DECL_STATIC_CONSTRUCTOR, int, tree )
 fn_1( DECL_STATIC_DESTRUCTOR, int, tree )
 fn_1( DECL_ARTIFICIAL, int, tree )
 fn_1( DECL_WEAK, int, tree )
-/* APPLE LOCAL weak_import (Radar 2809704) --ilr */
+/* APPLE LOCAL weak import (Radar 2809704) --ilr */
 fn_1( DECL_WEAK_IMPORT, int, tree )
 fn_1( DECL_ONE_ONLY, int, tree )
 fn_1( DECL_COMDAT, int, tree )

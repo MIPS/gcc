@@ -4194,7 +4194,7 @@ merge_weak (tree newdecl, tree olddecl)
        weak.  Just update NEWDECL to indicate that it's weak too.  */
     mark_weak (newdecl);
 
-  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
+  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
   if (DECL_WEAK_IMPORT (olddecl) != DECL_WEAK_IMPORT (newdecl))
     {
       if (! DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl))
@@ -4202,7 +4202,7 @@ merge_weak (tree newdecl, tree olddecl)
 		 "%Jinconsistent weak_import attribute with previous declaration of `%D'", newdecl, olddecl);
       DECL_WEAK_IMPORT (newdecl) = 1;
     }
-  /* APPLE LOCAL end weak_import --ilr */
+  /* APPLE LOCAL end weak import --ilr */
 }
 
 /* Declare DECL to be a weak symbol.  */

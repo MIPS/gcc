@@ -63,10 +63,10 @@ and the Info entries for @file{gcc}, @file{cpp}, @file{as},
 @file{ld}, @file{binutils} and @file{gdb}.
 @c man end
 @c man begin BUGS
-@c APPLE LOCAL begin report bugs to Apple
+@c APPLE LOCAL begin Apple bug-report
 To report bugs to Apple, see
 @w{@uref{http://developer.apple.com/bugreporter}}.
-@c APPLE LOCAL end report bugs to Apple
+@c APPLE LOCAL end Apple bug-report
 @c man end
 @c man begin AUTHOR
 See the Info entry for @command{gcc}, or
@@ -337,7 +337,7 @@ in the following sections.
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
-@c APPLE LOCAL add fcreate-profile below
+@c APPLE LOCAL add fcreate-profile
 -fcaller-saves  -fcprop-registers -fcreate-profile @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
@@ -373,7 +373,7 @@ in the following sections.
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-loop-optimize -ftree-sra @gol
 -fscalar-evolutions -fall-data-deps @gol
-@c APPLE LOCAL add fuse-profile below
+@c APPLE LOCAL add fuse-profile
 -ftree-vectorize -fuse-profile @gol
 -ftree-sra -ftree-ter -ftree-lrs @gol
 --param @var{name}=@var{value}
@@ -2892,12 +2892,12 @@ would check to see whether the two values have ranges that overlap; and
 this is done with the relational operators, so equality comparisons are
 probably mistaken.
 
-@c APPLE LOCAL begin four char constants
+@c APPLE LOCAL begin -Wfour-char-constants
 @item -Wfour-char-constants
 @opindex Wfour-char-constants
 Warn about four char constants, e.g. OSType 'APPL'.  This warning is 
 disabled by default.
-@c APPLE LOCAL end four char constants
+@c APPLE LOCAL end
 
 @item -Wtraditional @r{(C only)}
 @opindex Wtraditional
@@ -4201,14 +4201,14 @@ optimizations designed to reduce code size.
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
 -falign-labels  -freorder-blocks  -freorder-blocks-and-partition -fprefetch-loop-arrays}
 
-@c APPLE LOCAL begin radar 3509006
+@c APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006)
 When compiling for Apple powerPC targets, -Os disables use of the string
 instructions even though they would usually be smaller, because
 the kernel can't emulate them correctly in some rare cases.
 This behavior is not portable to any other gcc environment, and will
 not affect most programs at all.  If you really want the string instructions,
 use -mstring.
-@c APPLE LOCAL end radar 3509006
+@c APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006)
 
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.

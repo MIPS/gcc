@@ -488,7 +488,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
 	  || h->type != NT_MACRO
 	  || h->flags & NODE_POISONED)
 	{
-          /* APPLE LOCAL Symbol Separtion */
+          /* APPLE LOCAL Symbol Separation */
           if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 		       "%s: not used because `%.*s' not defined",
@@ -501,7 +501,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
       if (m.definition_length != ustrlen (newdefn)
 	  || memcmp (namebuf, newdefn, m.definition_length) != 0)
 	{
-	  /* APPLE LOCAL Symbol Separtion */
+	  /* APPLE LOCAL Symbol Separation */
 	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 	       "%s: not used because `%.*s' defined as `%s' not `%.*s'",
@@ -551,7 +551,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
  	++i;
       else
 	{
-	  /* APPLE LOCAL Symbol Separtion */
+	  /* APPLE LOCAL Symbol Separation */
 	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR, 
 		       "%s: not used because `%s' is defined",

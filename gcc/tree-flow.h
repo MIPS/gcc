@@ -660,7 +660,7 @@ void estimate_numbers_of_iterations (struct loops *);
 tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
 
-/* APPLE LOCAL begin AV if-conversion  -dpatel */
+/* APPLE LOCAL begin AV if-conversion --dpatel */
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
 
@@ -676,7 +676,7 @@ extern enum move_pos movement_possibility (tree);
 /* In tree-if-conv.c  */
 void test_if_conversion (void);
 bool tree_if_conversion (struct loop *, bool);
-/* APPLE LOCAL end AV if-conversion  -dpatel */ 
+/* APPLE LOCAL end AV if-conversion  --dpatel */ 
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);

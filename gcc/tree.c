@@ -425,7 +425,7 @@ copy_list (tree list)
   return head;
 }
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Return base variable for the array ref.  */
 
 tree
@@ -441,7 +441,7 @@ get_array_base (tree expr)
 
   return expr1;
 }
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 
 /* Return a newly constructed INTEGER_CST node whose constant value

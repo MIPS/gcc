@@ -5365,7 +5365,7 @@ assign_parms (tree fndecl)
   /* We have aligned all the args, so add space for the pretend args.  */
   stack_args_size.constant += extra_pretend_bytes;
   current_function_args_size = stack_args_size.constant;
-  /* APPLE LOCAL sibcall 3007352 */
+  /* APPLE LOCAL sibcall optimization stomped CW frames (radar 3007352) */
   cfun->unrounded_args_size = stack_args_size.constant;
 
   /* Adjust function incoming argument size for alignment and

@@ -237,16 +237,16 @@ int function_depth;
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
    deprecated items.  */
-/* APPLE LOCAL begin unavailable */
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
 /* An object declared as __attribute__((unavailable)) suppresses
    any reports of being declared with unavailable or deprecated
    items.  */
-/* APPLE LOCAL end unavailable */
+/* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
    
 enum deprecated_states {
   DEPRECATED_NORMAL,
   DEPRECATED_SUPPRESS
-  /* APPLE LOCAL unavailable */
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
   , DEPRECATED_UNAVAILABLE_SUPPRESS
 };
 
@@ -3639,7 +3639,7 @@ start_decl (tree declarator,
   tree decl;
   tree type, tem;
   tree context;
-  /* APPLE LOCAL unavailable */
+  /* APPLE LOCAL "unavailable" attribute (radar 2809697) */
   tree a;
 
   /* This should only be done once on the top most decl.  */
@@ -3650,7 +3650,7 @@ start_decl (tree declarator,
       have_extern_spec = false;
     }
 
-  /* APPLE LOCAL begin unavailable */
+  /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
   /* An object declared as __attribute__((unavailable)) suppresses
      any reports of being declared with unavailable or deprecated
      items.  An object declared as __attribute__((deprecated))
@@ -3677,7 +3677,7 @@ start_decl (tree declarator,
 	  }
     }
 #endif
-  /* APPLE LOCAL end unavailable */
+  /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
   attributes = chainon (attributes, prefix_attributes);
 
@@ -6824,7 +6824,7 @@ grokdeclarator (tree declarator,
 
       /* If the entire declaration is itself tagged as deprecated then
          suppress reports of deprecated items.  */
-      /* APPLE LOCAL begin unavailable */
+      /* APPLE LOCAL begin "unavailable" attribute (radar 2809697) */
       /* If the entire declaration is itself tagged as unavailable then
          suppress reports of unavailable/deprecated items.  If the
          entire declaration is tagged as only deprecated we still
@@ -6855,7 +6855,7 @@ grokdeclarator (tree declarator,
  	      #endif
            }
         }
-      /* APPLE LOCAL end unavailable */
+      /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
       if (TREE_CODE (id) == IDENTIFIER_NODE)
 	{
@@ -10493,7 +10493,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   begin_scope (sk_function_parms, decl1);
 
-  /* APPLE LOCAL weak_import (Radar 2809704) --ilr */
+  /* APPLE LOCAL weak import (Radar 2809704) --ilr */
   cplus_decl_attributes (&decl1, attrs, (int)ATTR_FLAG_FUNCTION_DEF);
 
   ++function_depth;

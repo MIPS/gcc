@@ -651,11 +651,11 @@ dump_immediate_uses_for (FILE *file, tree stmt)
 
       for (i = 0; i < num_imm_uses; i++)
 	{
-	  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+	  /* APPLE LOCAL begin AV if-conversion --dpatel  */
 	  /* Print basic block number also.  */
 	  basic_block bb =  bb_for_stmt (immediate_use (df, i));
 	  fprintf (file, "\t[%d]\t", bb->index);
-	  /* APPLE LOCAL end AV if-conversion -dpatel  */
+	  /* APPLE LOCAL end AV if-conversion --dpatel  */
 	  print_generic_stmt (file, immediate_use (df, i), TDF_SLIM);
 	  fprintf (file, "\n");
 	}

@@ -379,9 +379,9 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
      and we don't want to load it into a register as an optimization,
      because prepare_call_address already did it if it should be done.  */
   if (GET_CODE (funexp) != SYMBOL_REF)
-/* APPLE LOCAL use R12 as register for indirect calls.  This improves
-   codegen (computation of value will be into R12) and makes
-   indirect sibcalls possible by ensuring a volatile reg is used. */
+/* APPLE LOCAL use R12 as register for indirect calls */
+/* This improves codegen (computation of value will be into R12) and
+   makes indirect sibcalls possible by ensuring a volatile reg is used. */
 #ifdef MAGIC_INDIRECT_CALL_REG
     funexp = gen_rtx_REG (SImode, MAGIC_INDIRECT_CALL_REG);
 #else
@@ -2043,7 +2043,7 @@ expand_call (tree exp, rtx target, int ignore)
   tree actparms = TREE_OPERAND (exp, 1);
   /* RTX for the function to be called.  */
   rtx funexp;
-  /* APPLE LOCAL use r12 for indirect calls */
+  /* APPLE LOCAL use R12 as register for indirect calls */
   /* A single rtx to be shared among multiple chains for indirect sibcalls */
   rtx funexp_keep = NULL_RTX;
   /* Sequence of insns to perform a normal "call".  */
@@ -3406,7 +3406,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    abort ();
 	}
 
-      /* APPLE LOCAL begin sibcall 3007352 */
+      /* APPLE LOCAL begin sibcall optimization stomped CW frames (radar 3007352) */
       /* GCC for PPC on Darwin has always rounded 'current_function_args_size' up to a multiple of 16.
 	 CodeWarrior doesn't.
 	 A father() that passes, say, 40 bytes of parameters to daughter() will have eight bytes of
@@ -3422,7 +3422,7 @@ expand_call (tree exp, rtx target, int ignore)
 	{
 	  sibcall_failure = 1;
 	}
-      /* APPLE LOCAL end sibcall 3007352 */
+      /* APPLE LOCAL end sibcall optimization stomped CW frames (radar 3007352) */
 
       /* If something prevents making this a sibling call,
 	 zero out the sequence.  */

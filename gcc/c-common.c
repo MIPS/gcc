@@ -643,13 +643,13 @@ int flag_terminated_vtables = 0;
 int flag_preprocessed = 0;
 /* APPLE LOCAL end private extern  Radar 2872481 --ilr */
 
-/* APPLE LOCAL begin apple-kext   (Radar #2849864) --ilr */
+/* APPLE LOCAL begin -fapple-kext   (Radar #2849864) --ilr */
 /* Nonzero if we're compiling in a gcc2.95-compatibility mode.
    Implies -fterminated-vtables and -findirect-virtual-calls,
    only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
    constructors-returning-this...  */
 int flag_apple_kext = 0;
-/* APPLE LOCAL end apple-kext --ilr */
+/* APPLE LOCAL end -fapple-kext --ilr */
 
 /* APPLE LOCAL begin structor thunks */
 /* Nonzero if we prefer to clone con/de/structors.  Alternative is to
@@ -833,12 +833,12 @@ static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_deprecated_attribute (tree *, tree, tree, int,
 					 bool *);
-/* APPLE LOCAL begin unavailable (Radar 2809697) --ilr */
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
 static tree handle_unavailable_attribute (tree *, tree, tree, int,  bool *);
-/* APPLE LOCAL end unavailable --ilr */
-/* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
+/* APPLE LOCAL end "unavailable" attribute --ilr */
+/* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
 static tree handle_weak_import_attribute (tree *, tree, tree, int, bool *);
-/* APPLE LOCAL end weak_import --ilr */
+/* APPLE LOCAL end weak import --ilr */
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
 					  bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
@@ -909,14 +909,14 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_pure_attribute },
   { "deprecated",             0, 0, false, false, false,
 			      handle_deprecated_attribute },
-  /* APPLE LOCAL begin unavailable (Radar 2809697) --ilr */
+  /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
   { "unavailable",            0, 0, false, false, false,
 			      handle_unavailable_attribute },
-  /* APPLE LOCAL end unavailable --ilr */
-  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
+  /* APPLE LOCAL end "unavailable" attribute --ilr */
+  /* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
   { "weak_import",            0, 0, true, false, false,
 			      handle_weak_import_attribute },
-  /* APPLE LOCAL end weak_import --ilr */
+  /* APPLE LOCAL end weak import --ilr */
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, true,  false, false,
@@ -3575,9 +3575,9 @@ typedef struct disabled_builtin
 } disabled_builtin;
 static disabled_builtin *disabled_builtins = NULL;
 
-/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
 bool builtin_function_disabled_p (const char *);
-/* APPLE LOCAL end fix radar 3645899, IMA problem  */
+/* APPLE LOCAL end */
 
 /* Disable a built-in function specified by -fno-builtin-NAME.  If NAME
    begins with "__builtin_", give an error.  */
@@ -3599,9 +3599,9 @@ disable_builtin_function (const char *name)
 
 /* Return true if the built-in function NAME has been disabled, false
    otherwise.  */
-/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+/* APPLE LOCAL begin IMA built-in decl merging fix (radar 3645899) */
 bool
-/* APPLE LOCAL end fix radar 3645899, IMA problem  */
+/* APPLE LOCAL end */
 builtin_function_disabled_p (const char *name)
 {
   disabled_builtin *p;
@@ -5289,7 +5289,7 @@ handle_deprecated_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
-/* APPLE LOCAL begin unavailable (Radar 2809697) --ilr */
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
 /* Handle a "unavailable" attribute; arguments as in
    struct attribute_spec.handler.  */
    
@@ -5351,9 +5351,9 @@ handle_unavailable_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
-/* APPLE LOCAL end unavailable --ilr */
+/* APPLE LOCAL end "unavailable" attribute --ilr */
 
-/* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
+/* APPLE LOCAL begin weak import (Radar 2809704) --ilr */
 /* Handle a "weak_import" attribute; arguments as in
    struct attribute_spec.handler.  If FLAGS contains
    ATTR_FLAG_FUNCTION_DEF then the attribute is on a
@@ -5378,7 +5378,7 @@ handle_weak_import_attribute (tree *node, tree name,
     
   return NULL_TREE;
 }
-/* APPLE LOCAL end weak_import --ilr */
+/* APPLE LOCAL end weak import --ilr */
 
 /* Keep a list of vector type nodes we created in handle_vector_size_attribute,
    to prevent us from duplicating type nodes unnecessarily.

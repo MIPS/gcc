@@ -1,7 +1,7 @@
 /* Copyright (C) 2000 Free Software Foundation, Inc.  */
 
 /* { dg-do preprocess } */
-/* APPLE LOCAL BEGIN Apple disable this warning by default */
+/* APPLE LOCAL BEGIN -Wextra-tokens */
 /* Tests that #include does not allow the terminating '>' or '"' to be
    escaped, as per the standard.  */
 /* { dg-options "-Wextra-tokens"  } */

@@ -135,7 +135,7 @@ DEFTIMEVAR (TV_SHORTEN_BRANCH        , "shorten branches")
 DEFTIMEVAR (TV_REG_STACK             , "reg stack")
 DEFTIMEVAR (TV_FINAL                 , "final")
 DEFTIMEVAR (TV_SYMOUT                , "symout")
-/* APPLE LOCAL */
+/* APPLE LOCAL overload resolution */
 DEFTIMEVAR (TV_OV_RESOLUTION	     , "overload resolution")
 DEFTIMEVAR (TV_VAR_TRACKING          , "variable tracking")
 

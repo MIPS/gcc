@@ -264,8 +264,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_BUBBLE,                                     \
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
-/* APPLE LOCAL begin AV misaligned -haifa  */
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV misaligned --haifa  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Vectorizer hooks.  All of these default to null pointers, which
    tree-vectorizer.c looks for and handles.  */
 #define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
@@ -279,8 +279,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTOR_SELECT_P 0
 #define TARGET_VECTOR_SELECT_FOR_P 0
 #define TARGET_VECTOR_SELECT_STMT 0
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
-/* APPLE LOCAL begin AV vector_init -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
+/* APPLE LOCAL begin AV vector_init --haifa  */
 #define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
 #define TARGET_VECT_BUILD_VMUL_UCH 0
 #define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
@@ -303,10 +303,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
    TARGET_VECT_BUILD_VECTOR_INIT}
 
-/* APPLE LOCAL end AV vmul_uch -haifa  */
-/* APPLE LOCAL end AV vector_init -haifa  */
-/* APPLE LOCAL end AV if-conversion -dpatel  */
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa  */
+/* APPLE LOCAL end AV vector_init --haifa  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
+/* APPLE LOCAL end AV misaligned --haifa  */
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -479,7 +479,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
-  /* APPLE LOCAL AV misaligned -haifa  */       \
+  /* APPLE LOCAL AV misaligned --haifa  */       \
   TARGET_VECT,                                  \
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\

@@ -133,7 +133,7 @@ maybe_thunk_body (tree fn)
   /* If we got this far, we've decided to turn the clones into thunks.  */
 
   /* We're going to generate code for fn, so it is no longer "abstract."  */
-  /* APPLE LOCAL begin 3271957 and 3262497 */
+  /* APPLE LOCAL begin fix -gused debug info (radar 3271957 3262497) */
   /* Leave 'abstract' bit set for unified constructs and destructors when 
      -gused is used.  */
   if (!(flag_debug_only_used_symbols
@@ -144,7 +144,7 @@ maybe_thunk_body (tree fn)
 	   && DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn))
       )
     DECL_ABSTRACT (fn) = 0;
-  /* APPLE LOCAL end 3271957 and 3262497 */
+  /* APPLE LOCAL end */
 
   /* Find the vtt_parm, if present.  */
   for (vtt_parmno = -1, parmno = 0, fn_parm = DECL_ARGUMENTS (fn);

@@ -1,4 +1,4 @@
-/* APPLE LOCAL PPC_INTRINSICS */
+/* APPLE LOCAL file PPC_INTRINSICS */
 
 /* Definitions for PowerPC intrinsic instructions
    Copyright (C) 2002 Free Software Foundation, Inc.

@@ -78,7 +78,7 @@ extern void announce_function (tree);
 extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
-/* APPLE LOCAL unavailable */
+/* APPLE LOCAL "unavailable" attribute (radar 2809697) */
 extern void warn_unavailable_use (tree);
 
 #ifdef BUFSIZ

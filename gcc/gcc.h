@@ -38,7 +38,7 @@ struct spec_function
    || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u' \
    || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x' \
    || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V' \
-   /* APPLE LOCAL framework headers */ \
+   /* APPLE LOCAL frameworks */ \
    || (CHAR) == 'F' \
    || (CHAR) == 'B' || (CHAR) == 'b')
 

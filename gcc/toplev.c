@@ -1689,7 +1689,7 @@ warn_deprecated_use (tree node)
     }
 }
 
-/* APPLE LOCAL begin unavailable --ilr */
+/* APPLE LOCAL begin "unavailable" attribute (radar 2809697) --ilr */
 /* Warn about a use of an identifier which was marked deprecated.  */
 void
 warn_unavailable_use (tree node)
@@ -1727,7 +1727,7 @@ warn_unavailable_use (tree node)
 	warning ("type is unavailable");
     }
 }
-/* APPLE LOCAL end unavailable --ilr */
+/* APPLE LOCAL end "unavailable" attribute (radar 2809697) --ilr */
 
 /* Save the current INPUT_LOCATION on the top entry in the
    INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
@@ -2131,7 +2131,7 @@ print_switch_values (FILE *file, int pos, int max,
 
   for (j = 0; j < ARRAY_SIZE (f_options); j++)
     if (*f_options[j].variable == f_options[j].on_value)
-      /* APPLE LOCAL begin 3372156 */
+      /* APPLE LOCAL begin -fverbose-asm print option values (radar 3372156) */
       /* FSF candidate */
       {
 	char value[256];
@@ -2139,7 +2139,7 @@ print_switch_values (FILE *file, int pos, int max,
 	pos = print_single_switch (file, pos, max, indent, sep, term,
 				   "", value);
       }
-      /* APPLE LOCAL end 3372156 */
+      /* APPLE LOCAL end */
 
   /* Print target specific options.  */
 

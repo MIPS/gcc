@@ -164,10 +164,10 @@ static bool vect_analyze_data_ref_accesses (loop_vec_info);
 static bool vect_analyze_data_refs_alignment (loop_vec_info);
 static void vect_compute_data_refs_alignment (loop_vec_info);
 static bool vect_analyze_operations (loop_vec_info);
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
 static void vect_pattern_recog (loop_vec_info);
 static void vect_recog_mul_uch_to_uch (loop_vec_info);
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 
 /* Main code transformation functions.  */
 static void vect_transform_loop (loop_vec_info, struct loops *);
@@ -177,24 +177,24 @@ static tree vect_transform_load (tree, block_stmt_iterator *);
 static tree vect_transform_store (tree, block_stmt_iterator *);
 static tree vect_transform_op (tree, block_stmt_iterator *);
 static tree vect_transform_assignment (tree, block_stmt_iterator *);
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 static tree vect_transform_select (tree, block_stmt_iterator *);
 static tree vect_transform_compare (tree, block_stmt_iterator *);
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 static void vect_align_data_ref (tree, tree);
 static void vect_enhance_data_refs_alignment (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool vect_is_supportable_op (tree);
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 static bool vect_is_supportable_operation (tree, tree, struct loop *);
 static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
 static bool vect_is_supportable_assignment (tree);
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 static bool vect_is_supportable_compare (tree);
 static bool vect_is_supportable_select (tree);
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 static bool vect_is_simple_use (tree , struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
@@ -213,25 +213,25 @@ static bool vect_analyze_loop_with_symbolic_num_of_iters
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
-/* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV misaligned --haifa  */
 static tree vect_create_data_ref (tree, tree, block_stmt_iterator *, bool,
                         tree *, bool);
 static tree vect_create_index_for_array_ref (tree, block_stmt_iterator *,
 					     tree *, bool);
 static void vect_finish_stmt_generation_in_preheader (tree, struct loop *);
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV misaligned --haifa  */
 static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
 static tree vect_init_vector (tree, tree);
-/* APPLE LOCAL begin -haifa  */
+/* APPLE LOCAL begin AV --haifa  */
 static tree vect_build_symbl_bound (tree n, int vf, struct loop * loop);
 static basic_block vect_gen_if_guard (edge, tree, basic_block, edge);
-/* APPLE LOCAL end -haifa  */
+/* APPLE LOCAL end --haifa  */
 
 /* Utility functions for loop duplication.  */
 static basic_block vect_tree_split_edge (edge);
-/* APPLE LOCAL -haifa  */
+/* APPLE LOCAL AV --haifa  */
 static void vect_update_initial_conditions_of_duplicated_loop 
 	(loop_vec_info, tree, basic_block, edge, edge);
 
@@ -243,11 +243,11 @@ stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 static void vect_debug_stats (struct loop *loop, const char *string);
 static void vect_debug_details (struct loop *loop, const char *string);
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 static void vect_loop_version (struct loops *, struct loop *, basic_block *);
 static bool second_loop_vers_available;
 static bool if_converted_loop;
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 /* Define number of arguments for each tree code.  */
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   NARGS,
@@ -272,11 +272,11 @@ new_stmt_vec_info (tree stmt, struct loop *loop)
   STMT_VINFO_TYPE (res) = undef_vec_info_type;
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP (res) = loop;
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   STMT_VINFO_RELEVANT_P (res) = false;
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
@@ -550,7 +550,7 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 
    FORNOW: We are only handling array accesses with step 1.  */
 
-/* APPLE LOCAL AV misaligned -haifa  */
+/* APPLE LOCAL AV misaligned --haifa  */
 /* Additional parameter: init_value  */
 /* Additional parameter: only_init  */
 static tree
@@ -563,7 +563,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
   tree expr = DR_REF (dr);
   varray_type access_fns = DR_ACCESS_FNS (dr);
   tree access_fn;
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   tree init0;
   tree step;
   int array_first_index;
@@ -576,7 +576,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   access_fn = DR_ACCESS_FN (dr, 0);
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, init, &step, 
       true))
     abort ();
@@ -586,7 +586,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   if (TREE_INT_CST_HIGH (step) != 0)
     abort ();
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
 
 
   /** Handle initialization.  **/
@@ -601,7 +601,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   array_first_index = vect_get_array_first_index (expr);
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   init0 = integer_zero_node;
   step = integer_one_node;
 
@@ -612,7 +612,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   create_iv (init0, step, NULL_TREE, loop, bsi, false, 
 	&indx_before_incr, &indx_after_incr); 
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
 
   return indx_before_incr;
 }
@@ -742,7 +742,7 @@ vect_align_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt)
 
    FORNOW: handle only simple array accesses (step 1).  */
 
-/* APPLE LOCAL AV misaligned -haifa  */
+/* APPLE LOCAL AV misaligned --haifa  */
 /* Three additional parameters.  */
 static tree
 vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt, 
@@ -759,19 +759,19 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   tree ptr_type;
   tree vect_ptr;
   tree addr_ref;
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   tree array_ref;
   vdef_optype vdefs = STMT_VDEF_OPS (stmt);
   vuse_optype vuses = STMT_VUSE_OPS (stmt);
   int nvuses = 0, nvdefs = 0;
   int i;
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   tree init_oval;
   tree dest, init_val;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree array_type;
   tree base_addr;
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -780,7 +780,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
       print_generic_expr (dump_file, vectype, TDF_SLIM);
     }
 
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   /* Moved to (relevant) callers of vect_create_data_ref
   vect_align_data_ref (ref, stmt);
   */
@@ -819,7 +819,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
     {
       tree symbl = SSA_NAME_VAR (addr_ref);
       tree tag = get_var_ann (symbl)->type_mem_tag;
-      /* APPLE LOCAL begin AV alias-set  -haifa */                           
+      /* APPLE LOCAL begin AV alias-set  --haifa */                           
       if (!tag)                                                              
         {                                                                    
           /* try to find the tag from the actual pointer used in the stmt  */
@@ -832,7 +832,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
           if (!tag)                                                          
             abort ();                                                        
         }                                                                    
-      /* APPLE LOCAL end AV alias-set  -haifa */                             
+      /* APPLE LOCAL end AV alias-set  --haifa */                             
       get_var_ann (vect_ptr)->type_mem_tag = tag;  /* CHECKME */
     }
 
@@ -870,7 +870,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
     }
 
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   idx = vect_create_index_for_array_ref (stmt, bsi, &init_oval, only_init);
 
   /*** init_oval may not be gimple.  Create: init_val = init_oval; ***/
@@ -900,7 +900,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
       vect_finish_stmt_generation_in_preheader (stmt, loop);
     }
 
-  /* APPLE LOCAL begin pointer support -haifa  */
+  /* APPLE LOCAL begin AV pointer support --haifa  */
   if (TREE_CODE (addr_ref) == VAR_DECL)
     {
       /* addr_ref is an array; create:
@@ -955,7 +955,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
     }
   else
     abort ();
-  /* APPLE LOCAL end pointer support -haifa  */
+  /* APPLE LOCAL end AV pointer support --haifa  */
 
   TREE_ADDRESSABLE (base_addr) = 1;
   new_temp = make_ssa_name (vect_ptr, vec_stmt);
@@ -963,7 +963,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   vect_finish_stmt_generation_in_preheader (vec_stmt, loop);
 
   *ptr = new_temp;
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
   
   /*** create data ref: '(*p)[idx]' ***/
 
@@ -971,12 +971,12 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   TYPE_ALIGN (array_type) = TYPE_ALIGN (TREE_TYPE (addr_ref));
   new_base = build1 (INDIRECT_REF, array_type, TREE_OPERAND (vec_stmt, 0)); 
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   if (only_init)
     data_ref = build (ARRAY_REF, vectype, new_base, integer_zero_node);
   else
     data_ref = build (ARRAY_REF, vectype, new_base, idx);
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     print_generic_expr (dump_file, data_ref, TDF_SLIM);
@@ -1140,7 +1140,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	  else
 	    def = TREE_OPERAND (def_stmt, 0);
 
-	  /* APPLE LOCAL begin AV vector_init -haifa  */
+	  /* APPLE LOCAL begin AV vector_init --haifa  */
 	  /* Let the target generated the vector initialization
              code, if such hook available.  */
 	  if (targetm.vect.support_vector_init_p (vectype))
@@ -1149,7 +1149,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	      return targetm.vect.build_vector_init (vectype, def, pe, 
 						     vars_to_rename);
 	    }
-          /* APPLE LOCAL begin AV vector_end -haifa  */
+          /* APPLE LOCAL end AV vector_init --haifa  */
   
 	  for (i = nunits - 1; i >= 0; --i)
 	    {
@@ -1255,7 +1255,7 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
   return vec_stmt;
 }
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Function vect_transfom_compare
 
    STMT performs comparison. Create a vectorized stmt to replace it,
@@ -1407,7 +1407,7 @@ vect_transform_select (tree stmt, block_stmt_iterator *bsi)
   return vec_stmt;
 }
  
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* Function vect_transfom_op.
 
@@ -1428,7 +1428,7 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
   enum tree_code code;
   tree new_temp;
   int op_type;
-  /* APPLE LOCAL AV vmul_uch -haifa  */
+  /* APPLE LOCAL AV vmul_uch --haifa  */
   tree (* hook) (tree, tree, tree, edge, block_stmt_iterator *);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1472,7 +1472,7 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 
   /** arguments are ready. create the new vector stmt.  **/
 
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   /* Is this a special pattern with target specific support?  */
   hook = STMT_VINFO_VEC_HOOK (stmt_info);
   if (hook)
@@ -1483,7 +1483,7 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 	(vinfo_for_stmt (STMT_VINFO_RELATED_STMT (stmt_info))) = vec_stmt;
     }
   else
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
     {
       code = TREE_CODE (operation);
       if (op_type == binary_op)
@@ -1523,7 +1523,7 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
   tree vec_oprnd1;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   tree t;
 
 
@@ -1537,10 +1537,10 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
 
   scalar_dest = TREE_OPERAND (stmt, 0);
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   vect_align_data_ref (scalar_dest, stmt);
   data_ref = vect_create_data_ref (scalar_dest, stmt, bsi, false, &t, false);
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
   if (!data_ref)
     abort ();
 
@@ -1592,7 +1592,7 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
   return vec_stmt;
 }
 
-/* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV misaligned --haifa  */
 static void
 vect_finish_stmt_generation_in_preheader (tree vec_stmt,
 					  struct loop *loop)
@@ -1658,7 +1658,7 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
   if (stmt != bsi_stmt (*bsi))
     abort ();
 }
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV misaligned --haifa  */
 
 /* Function vect_transform_load.
 
@@ -1676,7 +1676,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree new_temp;
-  /* APPLE LOCAL AV misaligned -haifa  */
+  /* APPLE LOCAL AV misaligned --haifa  */
   tree ptr;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1691,7 +1691,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     abort ();
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   /** Handle use.  **/
 
   op = TREE_OPERAND (stmt, 1);
@@ -1851,7 +1851,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
       vect_finish_stmt_generation (stmt, vec_stmt, bsi);
     }
 
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
   return vec_stmt;
 }
 
@@ -1886,7 +1886,7 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
       is_store = true;
       break;
 
-      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* APPLE LOCAL begin AV if-conversion --dpatel  */
     case select_vec_info_type:
       vec_stmt = vect_transform_select (stmt, bsi);
       break;
@@ -1894,7 +1894,7 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
     case compare_vec_info_type:
       vec_stmt = vect_transform_compare (stmt, bsi);
       break;
-      /* APPLE LOCAL end AV if-conversion -dpatel  */
+      /* APPLE LOCAL end AV if-conversion --dpatel  */
 
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1907,7 +1907,7 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   return is_store;
 }
 
-/* APPLE LOCAL begin -haifa */
+/* APPLE LOCAL begin AV --haifa */
 
 
 /* This function generate the following statements:
@@ -2107,7 +2107,7 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
 }
 
 
-/* APPLE LOCAL end -haifa  */
+/* APPLE LOCAL end AV --haifa */
 
 /* This function generates stmt 
    
@@ -2179,7 +2179,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
   edge pe;
   edge latch = loop_latch_edge (loop);
   tree phi;
-  /* APPLE LOCAL begin -haifa  */
+  /* APPLE LOCAL begin AV --haifa  */
   block_stmt_iterator interm_bb_last_bsi;
   basic_block intermediate_bb = loop->exit_edges[0]->dest;
   edge inter_bb_true_edge;
@@ -2189,17 +2189,17 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
   pe = find_edge (loop->exit_edges[0]->dest, new_loop_header);
   inter_bb_true_edge = find_edge (intermediate_bb, new_loop_exit->dest);
   exit_bb = new_loop_exit->dest;
-  /* APPLE LOCAL end -haifa  */
+  /* APPLE LOCAL end --haifa  */
   for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
     {
       tree access_fn = NULL;
       tree evolution_part;
       tree init_expr;
       tree step_expr;
-      /* APPLE LOCAL begin AV while -haifa  */
+      /* APPLE LOCAL begin AV while --haifa  */
       tree var, stmt, ni, ni_name;
       int i, j, k, m, num_elem1, num_elem2, num_elem3;
-      /* APPLE LOCAL end AV while -haifa  */
+      /* APPLE LOCAL end AV while --haifa  */
       tree phi1, phi2;
 
 
@@ -2226,7 +2226,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       step_expr = evolution_part;
       init_expr = initial_condition (access_fn);
 
-      /* APPLE LOCAL begin AV while -haifa  */
+      /* APPLE LOCAL begin AV while --haifa  */
       ni = build (PLUS_EXPR, TREE_TYPE (init_expr),
 		  build (MULT_EXPR, TREE_TYPE (niters),
 			 niters, step_expr), init_expr);
@@ -2282,7 +2282,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
               }
             break;
           }
-      /* APPLE LOCAL end AV while -haifa  */
+      /* APPLE LOCAL end AV while --haifa  */
     }
 }
 
@@ -2439,7 +2439,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
   if ( LOOP_VINFO_NITERS (loop_vinfo) == -1 && 
        LOOP_VINFO_SYMB_NUM_OF_ITERS (loop_vinfo) != NULL )
     {
-      /* APPLE LOCAL begin -haifa  */
+      /* APPLE LOCAL begin AV --haifa  */
       /* Lots of changes in this block.  */
       basic_block inter_bb, exit_bb, prolog_bb;
       tree ni_name, ratio_mult_vf_name;
@@ -2527,7 +2527,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	 bb befroe if stmt.  */
       vect_update_initial_conditions_of_duplicated_loop 
 	(loop_vinfo, ratio_mult_vf_name, new_loop_header, e, exit_ep);
-      /* APPLE LOCAL endn -haifa  */
+      /* APPLE LOCAL end --haifa  */
     }
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
@@ -2662,13 +2662,13 @@ vect_is_supportable_op (tree stmt)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree operation;
-  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* APPLE LOCAL AV if-conversion --dpatel  */
   /* Remove local variables: code, op, vec_mode, optab.  */
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
-  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* APPLE LOCAL AV if-conversion --dpatel  */
   /* Remove local variables: i, op_type.  */
-  /* APPLE LOCAL AV vmul_uch -haifa  */
+  /* APPLE LOCAL AV vmul_uch --haifa  */
   enum tree_code code;
 
   /* Is op? */
@@ -2680,11 +2680,11 @@ vect_is_supportable_op (tree stmt)
     return false;
 
   operation = TREE_OPERAND (stmt, 1);
-  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   /* This patch breaks this function into two function.
      So APPLE LOCAL markers are OK.  */
 
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   code = TREE_CODE (operation);
   switch (code)
     {
@@ -2707,7 +2707,7 @@ vect_is_supportable_op (tree stmt)
       else
         return false;
     }
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
 }
 
 
@@ -2723,7 +2723,7 @@ vect_is_supportable_operation (tree operation, tree vectype, struct loop *loop)
   enum machine_mode vec_mode;
   optab optab;
   int i,op_type;
-  /* APPLE LOCAL end AV if-conversion -dpatel  */ 
+  /* APPLE LOCAL end AV if-conversion --dpatel  */ 
 
   code = TREE_CODE (operation);
 
@@ -2912,7 +2912,7 @@ vect_is_supportable_assignment (tree stmt)
   return true;
 }
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Function vect_is_supportable_compare.
 
    Verify that STMT performs comparision, and can be vectorized.  */
@@ -3024,7 +3024,7 @@ vect_is_supportable_select (tree stmt)
   return true;
 }
 
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* Function vect_analyze_operations.
 
@@ -3136,11 +3136,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  ok = (vect_is_supportable_op (stmt)
 		|| vect_is_supportable_assignment (stmt)
 		|| vect_is_supportable_load (stmt)
-		/* APPLE LOCAL begin AV if-conversion -dpatel  */
+		/* APPLE LOCAL begin AV if-conversion --dpatel  */
  		|| vect_is_supportable_store (stmt)
  		|| vect_is_supportable_select (stmt)
  		|| vect_is_supportable_compare (stmt));
-	        /* APPLE LOCAL end AV if-conversion -dpatel  */
+	        /* APPLE LOCAL end AV if-conversion --dpatel  */
 
 	  if (!ok)
 	    {
@@ -3482,7 +3482,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 }
 
 
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 /* Move get_array_base in tree.c  */
 
 /* Function vect_analyze_data_ref_dependence.
@@ -3953,7 +3953,7 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 	}
     }
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* APPLE LOCAL begin AV misaligned --haifa  */
   if (!targetm.vect.support_misaligned_loads
       || !(*targetm.vect.support_misaligned_loads) ())
     for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
@@ -3966,7 +3966,7 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 	    return false;
 	  }
       }
-  /* APPLE LOCAL end AV misaligned -haifa  */
+  /* APPLE LOCAL end AV misaligned --haifa  */
 
   return true;
 }
@@ -4341,7 +4341,7 @@ vect_mark_relevant (varray_type worklist, tree stmt)
       return;
     }
 
-  /* APPLE LOCAL begin AV vmul_uch -haifa  */
+  /* APPLE LOCAL begin AV vmul_uch --haifa  */
   if (STMT_VINFO_IN_PATTERN_P (stmt_info))
     {
       /* leave as irrelevant, but add to worklist.  */
@@ -4350,7 +4350,7 @@ vect_mark_relevant (varray_type worklist, tree stmt)
       VARRAY_PUSH_TREE (worklist, stmt);
       return;
     }
-  /* APPLE LOCAL end AV vmul_uch -haifa  */
+  /* APPLE LOCAL end AV vmul_uch --haifa  */
 
   STMT_VINFO_RELEVANT_P (stmt_info) = 1;
   VARRAY_PUSH_TREE (worklist, stmt);
@@ -4464,7 +4464,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 	  stmt_info = vinfo_for_stmt (stmt);
 
-	  /* APPLE LOCAL AV vmul_uch -haifa  */
+	  /* APPLE LOCAL AV vmul_uch --haifa  */
 	  /* Not needed, done in new_stmt_vec_info.
 	  STMT_VINFO_RELEVANT_P (stmt_info) = 0; */
 
@@ -4603,7 +4603,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 }
 
 
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
 /* Function vect_recog_mul_uch_to_uch1
 
    Try to find a pattern of multiplication of two uchars, which product is 
@@ -4801,7 +4801,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo)
      possibly through target hooks, to allow targets to recognize
      patterns that have special architectural support.  */
 }
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 
 
 /* This function analyze number of iteration LOOP executes in case 
@@ -4827,7 +4827,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
   
   niters = number_of_iterations_in_loop (loop);
 
-  /* APPLE LOCAL begin -haifa  */
+  /* APPLE LOCAL begin AV --haifa  */
   if (niters == NULL_TREE || niters == chrec_top)
     {
       struct tree_niter_desc niter_desc;
@@ -4836,7 +4836,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
         niters = build (PLUS_EXPR, TREE_TYPE (niter_desc.niter), 
 		niter_desc.niter, integer_one_node);
     }
-  /* APPLE LOCAL end -haifa  */
+  /* APPLE LOCAL end AV --haifa  */
 
   if (niters == chrec_top)
     {
@@ -4936,15 +4936,15 @@ static tree
 vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
 {
   tree niters;
-  /* APPLE LOCAL begin -haifa  */
+  /* APPLE LOCAL begin AV --haifa  */
   tree loop_exit;
   bool analyzable_loop_bound = false;
-  /* APPLE LOCAL end -haifa  */
+  /* APPLE LOCAL end AV --haifa  */
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<get_loop_niters>>\n");
 
-  /* APPLE LOCAL begin -haifa  */
+  /* APPLE LOCAL begin AV --haifa  */
   loop_exit = get_loop_exit_condition (loop);
 
   /* First, use the scev information about the number of iterations.  */
@@ -4990,7 +4990,7 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
     }
 
   return loop_exit;
-  /* APPLE LOCAL end -haifa  */
+  /* APPLE LOCAL end --haifa  */
 }
 
 
@@ -5016,7 +5016,7 @@ vect_analyze_loop_form (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<vect_analyze_loop_form>>\n");
 
-  /* APPLE LOCAL AV if-conversion -dpatel  */
+  /* APPLE LOCAL AV if-conversion --dpatel  */
   /* Do not check loop->num_nodes here.  */
   if (loop->level > 1		/* FORNOW: inner-most loop (CHECKME)  */
       || loop->num_exits > 1 || loop->num_entries > 1 
@@ -5041,7 +5041,7 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
 
-  /* APPLE LOCAL begin AV if-conversion -dpatel  */
+  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   /* Do if-conversion, before checking num of nodes.  */
   if (number_of_iterations > 0 && second_loop_vers_available)
     if_converted_loop = tree_if_conversion (loop, true);
@@ -5057,7 +5057,7 @@ vect_analyze_loop_form (struct loop *loop)
       
       return NULL;
     }
-  /* APPLE LOCAL end AV if-conversion -dpatel  */
+  /* APPLE LOCAL end AV if-conversion --dpatel  */
 
   if (number_of_iterations < 0)
     {
@@ -5065,7 +5065,7 @@ vect_analyze_loop_form (struct loop *loop)
 	fprintf (dump_file, "Can't determine num iters.\n");
 
       /* Treat loops with unknown loop bounds.  */
-      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* APPLE LOCAL begin AV if-conversion --dpatel  */
       /* Do not handle if-converted loop.  */
       if (if_converted_loop)
  	{
@@ -5073,7 +5073,7 @@ vect_analyze_loop_form (struct loop *loop)
  	    fprintf (dump_file, "Can't handle unknown loop bound in if converted loop.\n");
  	  return NULL;
 	}
-      /* APPLE LOCAL end AV if-conversion -dpatel  */
+      /* APPLE LOCAL end AV if-conversion --dpatel  */
 
       if (!vect_analyze_loop_with_symbolic_num_of_iters 
 		(&symb_num_of_iters, loop))
@@ -5146,7 +5146,7 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
-  /* APPLE LOCAL AV vmul_uch -haifa  */
+  /* APPLE LOCAL AV vmul_uch --haifa  */
   vect_pattern_recog (loop_vinfo);
 
   /* Data-flow analysis to detect stmts that do not need to be vectorized.  */
@@ -5255,7 +5255,7 @@ need_imm_uses_for (tree var)
   return is_gimple_reg (var);
 }
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Create second version of the loop.  */
 
 static void
@@ -5273,7 +5273,7 @@ vect_loop_version (struct loops *loops, struct loop *loop, basic_block *bb)
   else
     second_loop_vers_available = false;
 }
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* Function vectorize_loops.
    Entry Point to loop vectorization phase.  */
@@ -5306,16 +5306,16 @@ vectorize_loops (struct loops *loops)
   for (i = 1; i < loops_num; i++)
     {
       loop_vec_info loop_vinfo;
-      /* APPLE LOCAL AV if-conversion -dpatel  */
+      /* APPLE LOCAL AV if-conversion --dpatel  */
       basic_block bb;
       struct loop *loop = loops->parray[i];
 
-      /* APPLE LOCAL begin AV if-conversion -dpatel  */
+      /* APPLE LOCAL begin AV if-conversion --dpatel  */
       /* Create second version of the loop in advance. This allows vectorizer
   	 to be more aggressive.  */
       vect_loop_version (loops, loop, &bb);
       if_converted_loop = false;
-      /* APPLE LOCAL end AV if-conversion -dpatel  */
+      /* APPLE LOCAL end AV if-conversion --dpatel  */
        
        flow_loop_scan (loop, LOOP_ALL);
 
@@ -5324,7 +5324,7 @@ vectorize_loops (struct loops *loops)
 
 #ifndef ANALYZE_ALL_THEN_VECTORIZE_ALL
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	/* APPLE LOCAL begin AV if-conversion -dpatel  */
+	/* APPLE LOCAL begin AV if-conversion --dpatel  */
   	{
   	  if (second_loop_vers_available)
   	    {
@@ -5351,7 +5351,7 @@ vectorize_loops (struct loops *loops)
   	  bitmap_clear (vars_to_rename);
  	  rewrite_into_loop_closed_ssa ();
   	}
-      /* APPLE LOCAL end AV if-conversion -dpatel  */
+      /* APPLE LOCAL end AV if-conversion --dpatel  */
 #endif
     }
 

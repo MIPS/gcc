@@ -246,9 +246,10 @@ static int use_constant_cfstrings = 0;
 static const char *macosx_deployment_target = 0;
 unsigned int macosx_version_min_required = 0;
 
-/* APPLE LOCAL 3313335 */
+/* APPLE LOCAL begin CC_PRINT_OPTIONS (radar 3313335) */
 static char *cc_print_options = 0;
 static char *cc_print_options_filename;
+/* APPLE LOCAL end CC_PRINT_OPTIONS */
 /* The following table should be NULL-terminated and kept in 
    lexicographic order. */
    
@@ -479,7 +480,7 @@ or with constant text in a single argument.
  %I	Substitute any of -iprefix (made from GCC_EXEC_PREFIX), -isysroot
 	(made from TARGET_SYSTEM_ROOT), and -isystem (made from COMPILER_PATH
 	and -B options) as necessary.
- APPLE LOCAL framework headers
+ APPLE LOCAL frameworks
  %Q	Substitute -iframework default paths.
  APPLE LOCAL constant cfstrings
  %yC	Emit '-mconstant-cfstrings' option, if needed.
@@ -809,7 +810,7 @@ static const char *dbg_ss= "%{fsave-repository*: -gfull %(invoke_as)}";
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
-"/* APPLE LOCAL framework headers */"\
+"/* APPLE LOCAL frameworks */"\
  %{!traditional:%{!ftraditional:%{!traditional-cpp:%Q}}} %{F*}\
  %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
  %{MD:-MD %{!o:%b.d}%{o*:%.d%*}}\
@@ -840,11 +841,11 @@ static const char *cc1_options =
 /* APPLE LOCAL Symbol Separation */
 /* Add fsave-repository construct for Symbol Separation */
 "%yC"
-/* APPLE LOCAL begin -fast option */
+/* APPLE LOCAL begin -fast */
 "%{fast:-O3}\
  %{fastf:-O3}\
  %{fastcp:-O3}"
-/* APPLE LOCAL end -fast option */
+/* APPLE LOCAL end -fast */
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %{fsave-repository*:-gfull}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
@@ -1488,12 +1489,12 @@ static struct path_prefix startfile_prefixes = { 0, 0, "startfile" };
 
 static struct path_prefix include_prefixes = { 0, 0, "include" };
 
-/* APPLE LOCAL begin framework headers */
+/* APPLE LOCAL begin frameworks */
 #ifdef FRAMEWORK_HEADERS
 /* A vector of the frameworks to search.  */
 static struct path_prefix default_framework_paths = {0, 0, "default_frameworks"};
 #endif /* FRAMEWORK_HEADERS */
-/* APPLE LOCAL end framework headers */
+/* APPLE LOCAL end frameworks */
 
 /* Suffix to attach to directories searched for commands.
    This looks like `MACHINE/VERSION/'.  */
@@ -1596,7 +1597,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
   INIT_STATIC_SPEC ("pch",	                &pch),
-  /* APPLE LOCAL Symbol Separtion */
+  /* APPLE LOCAL Symbol Separation */
   INIT_STATIC_SPEC ("dbg_ss",	                &dbg_ss),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
@@ -2816,7 +2817,7 @@ execute (void)
 
   /* If -v, print what we are about to do, and maybe query.  */
 
-  /* APPLE LOCAL 3313335 */
+  /* APPLE LOCAL begin CC_PRINT_OPTIONS (radar 3313335, 3360444) */
   if (verbose_flag || cc_print_options)
     {
       /* For help listings, put a blank line between sub-processes.  */
@@ -2828,7 +2829,6 @@ execute (void)
 	{
 	  const char *const *j;
 
-	  /* APPLE LOCAL begin 3313335 and 3360444 */
 	  FILE *f = stderr;
 	  if (cc_print_options)
 	    { 
@@ -2871,7 +2871,7 @@ execute (void)
 
 	  if (cc_print_options_filename)
 	    fclose (f);
-	  /* APPLE LOCAL end 3313335 and 3360444 */ 
+/* APPLE LOCAL end CC_PRINT_OPTIONS */
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
@@ -2930,7 +2930,7 @@ execute (void)
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
 
-      /* APPLE LOCAL begin 2920964 */
+      /* APPLE LOCAL begin verbose help (radar #2920964) */
       if (verbose_flag && print_help_list 
 	  && (!strcmp ("/usr/libexec/gcc/darwin/ppc/as", string)
 	      || !strcmp ("/usr/libexec/gcc/darwin/i386/as", string)
@@ -2940,7 +2940,7 @@ execute (void)
 	      as and ld do not entertain --help.  */
 	}
       else
-      /* APPLE LOCAL end 2920964 */
+      /* APPLE LOCAL end */
       /* For some bizarre reason, the second argument of execvp() is
 	 char *const *, not const char *const *.  */
       commands[i].pid = pexecute (string, (char *const *) commands[i].argv,
@@ -2980,7 +2980,7 @@ execute (void)
 	int status;
 	int pid;
 
-        /* APPLE LOCAL begin 2920964 */
+        /* APPLE LOCAL begin verbose help (radar #2920964) */
         if (verbose_flag && print_help_list 
 	    && (!strcmp ("as", commands[i].prog)
 	        || !strcmp ("ld", commands[i].prog)))
@@ -2989,7 +2989,7 @@ execute (void)
 	     i++;
 	     continue;
 	  }
-      /* APPLE LOCAL end 2920964 */
+      /* APPLE LOCAL end */
 	pid = pwait (commands[i].pid, &status, 0);
 	if (pid < 0)
 	  abort ();
@@ -3337,7 +3337,7 @@ process_command (int argc, const char **argv)
 	}
     }
 
-  /* APPLE LOCAL begin */
+  /* APPLE LOCAL begin translate_options */
   /* FSF patch pending. Move translate_options() call before -b processing
      so that -bundle like options can be translated, if required.  */
   /* Convert new-style -- options to old-style.  */
@@ -3619,15 +3619,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  /* CPP driver cannot obtain switch from cc1_options.  */
 	  if (is_cpp_driver)
 	    add_preprocessor_option ("--help", 6);
-          /* APPLE LOCAL begin 2920964 */
+          /* APPLE LOCAL begin verbose help (radar #2920964) */
 #if 0
 	  /* Our assembler and linkder do not support --help.  */
-          /* APPLE LOCAL end 2920964 */
+          /* APPLE LOCAL end */
 	  add_assembler_option ("--help", 6);
 	  add_linker_option ("--help", 6);
-          /* APPLE LOCAL begin 2920964 */
+          /* APPLE LOCAL begin verbose help (radar #2920964) */
 #endif
-          /* APPLE LOCAL end 2920964 */
+          /* APPLE LOCAL end */
 	}
       else if (strcmp (argv[i], "-ftarget-help") == 0)
 	{
@@ -3764,7 +3764,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
           n_switches++;
         }
       /* APPLE LOCAL end IMA */
-      /* APPLE LOCAL begin 3235250 */
+      /* APPLE LOCAL begin -weak_* (radar 3235250) */
       else if (strcmp (argv[i], "-weak_library") == 0)
 	{
 	  if (i + 1 == argc)
@@ -3781,7 +3781,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_infiles += 2;
 	  i++;
 	}
-      /* APPLE LOCAL end 3235250 */
+      /* APPLE LOCAL end -weak_* (radar 3235250) */
       /* APPLE LOCAL begin Symbol Separation */
       else if (strcmp (argv[i], "-save-repository") == 0)
 	{
@@ -3849,7 +3849,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
 	use_constant_cfstrings = 0;
       /* APPLE LOCAL end constant cfstrings */
-      /* APPLE LOCAL begin framework */
+      /* APPLE LOCAL begin frameworks */
       else if (strcmp (argv[i], "-framework") == 0)
 	{
 	  if (i + 1 == argc)
@@ -3858,7 +3858,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_infiles += 2;
 	  i++;
 	}
-      /* APPLE LOCAL end framework */
+      /* APPLE LOCAL end frameworks */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -4272,7 +4272,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[i];
 	}
-      /* APPLE LOCAL begin 3235250 */
+      /* APPLE LOCAL begin -weak_* (radar 3235250) */
       else if (strncmp (argv[i], "-weak-l", 7) == 0)
 	{
 	  infiles[n_infiles].language = "*";
@@ -4292,7 +4292,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
           infiles[n_infiles].language = "*";
           infiles[n_infiles++].name = argv[++i];
 	}
-      /* APPLE LOCAL end 3235250 */
+      /* APPLE LOCAL end -weak_* (radar #3235250) */
       else if (strcmp (argv[i], "-specs") == 0)
 	i++;
       else if (strncmp (argv[i], "-specs=", 7) == 0)
@@ -4319,7 +4319,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (strcmp (argv[i], "-fno-constant-cfstrings") == 0)
 	;
       /* APPLE LOCAL end constant cfstrings */
-      /* APPLE LOCAL begin framework */
+      /* APPLE LOCAL begin frameworks */
       else if (strcmp (argv[i], "-framework") == 0)
         {
           infiles[n_infiles].language = "*";
@@ -4327,7 +4327,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
           infiles[n_infiles].language = "*";
           infiles[n_infiles++].name = argv[++i];
         }
-      /* APPLE LOCAL end framework */
+      /* APPLE LOCAL end frameworks */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -4992,7 +4992,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    else if (this_is_library_file)
 	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL radar 2871891 - %b/%B & -save-temps can clobber input file --ilr */
+	    /* APPLE LOCAL radar 2871891 - %b/save-temps can clobber input file --ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
@@ -5348,7 +5348,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    }
 	    break;
 
-	    /* APPLE LOCAL begin framework headers */
+	    /* APPLE LOCAL begin frameworks */
 	  case 'Q':
 #ifdef FRAMEWORK_HEADERS
 	    {
@@ -5365,7 +5365,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    }
 #endif /* FRAMEWORK_HEADERS */
 	    break;
-	    /* APPLE LOCAL end framework headers */
+	    /* APPLE LOCAL end frameworks */
 
 	    /* APPLE LOCAL begin constant cfstrings */
 	  case 'y':
@@ -6491,10 +6491,10 @@ main (int argc, const char **argv)
   const char *p;
   struct user_specs *uptr;
 
-  /* APPLE LOCAL begin 3313335 */
+  /* APPLE LOCAL begin CC_PRINT_OPTIONS (radar 3313335, 3360444) */
   cc_print_options = getenv ("CC_PRINT_OPTIONS");
   cc_print_options_filename = getenv ("CC_PRINT_OPTIONS_FILE");
-  /* APPLE LOCAL end 3313335 */
+  /* APPLE LOCAL end */
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))

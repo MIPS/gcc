@@ -50,7 +50,7 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
-/* APPLE_LOCAL AV vector_init  -haifa */
+/* APPLE LOCAL AV vector_init  --haifa */
 #include "cfgloop.h"
 /* APPLE LOCAL why is this needed? */
 #include "insn-addr.h"
@@ -292,7 +292,7 @@ struct builtin_description
   const enum rs6000_builtins code;
 };
 
-/* APPLE LOCAL AV if-conversion -dpatel  */
+/* APPLE LOCAL AV if-conversion --dpatel  */
 static tree vector_builtin_fns[RS6000_BUILTIN_MAX];
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
@@ -455,7 +455,7 @@ static tree get_prev_label (tree);
 
 static tree rs6000_build_builtin_va_list (void);
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 static bool rs6000_vector_compare_p (void);
 static bool rs6000_vector_compare_for_p (tree, enum tree_code);
 static tree rs6000_vector_compare_stmt (tree, tree, tree, tree, enum tree_code);
@@ -466,28 +466,28 @@ static tree rs6000_vector_select_stmt (tree, tree, tree, tree, tree);
 
 static tree get_vector_compare_for (tree, enum tree_code);
 static tree get_vector_select_for (tree);
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
-/* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV misaligned --haifa  */
 static bool rs6000_support_misaligned_vloads (void);
 static bool rs6000_permute_misaligned_vloads (void);
 static tree rs6000_build_builtin_lvsl (void);
 static tree rs6000_build_builtin_lvsr (void);
 static tree rs6000_build_builtin_vperm (enum machine_mode);
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV misaligned --haifa  */
 
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
 static bool rs6000_support_vmul_uch_p (void);
 static tree rs6000_build_vmul_uch (tree, tree, tree, edge, 
 					block_stmt_iterator *);
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 
-/* APPLE LOCAL begin AV vector_init -haifa  */
+/* APPLE LOCAL begin AV vector_init --haifa  */
 static bool rs6000_support_vector_init_p (tree);
 static bool get_vector_init_fns_for_type (tree, tree *, tree *);
 static tree rs6000_build_vector_init (tree, tree, edge, 
 					struct bitmap_head_def *);
-/* APPLE LOCAL end AV vector_init -haifa  */
+/* APPLE LOCAL end AV vector_init --haifa  */
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -701,7 +701,7 @@ static const char alt_reg_names[][8] =
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Vector compare.  */
 #undef TARGET_VECTOR_COMPARE_P
 #define TARGET_VECTOR_COMPARE_P rs6000_vector_compare_p
@@ -717,9 +717,9 @@ static const char alt_reg_names[][8] =
 #define TARGET_VECTOR_SELECT_FOR_P rs6000_vector_select_for_p
 #undef TARGET_VECTOR_SELECT_STMT
 #define TARGET_VECTOR_SELECT_STMT rs6000_vector_select_stmt
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
-/* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV misaligned --haifa */
 #undef TARGET_VECT_SUPPORT_MISALIGNED_LOADS
 #define TARGET_VECT_SUPPORT_MISALIGNED_LOADS rs6000_support_misaligned_vloads
 
@@ -734,23 +734,23 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECT_BUILD_BUILTIN_VPERM
 #define TARGET_VECT_BUILD_BUILTIN_VPERM rs6000_build_builtin_vperm
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV misaligned --haifa */
 
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa */
 #undef TARGET_VECT_SUPPORT_VMUL_UCH_P
 #define TARGET_VECT_SUPPORT_VMUL_UCH_P rs6000_support_vmul_uch_p
 
 #undef TARGET_VECT_BUILD_VMUL_UCH
 #define TARGET_VECT_BUILD_VMUL_UCH rs6000_build_vmul_uch
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa */
 
-/* APPLE LOCAL begin AV vector_init -haifa  */
+/* APPLE LOCAL begin AV vector_init --haifa */
 #undef TARGET_VECT_SUPPORT_VECTOR_INIT_P
 #define TARGET_VECT_SUPPORT_VECTOR_INIT_P rs6000_support_vector_init_p
 
 #undef TARGET_VECT_BUILD_VECTOR_INIT
 #define TARGET_VECT_BUILD_VECTOR_INIT rs6000_build_vector_init
-/* APPLE LOCAL end AV vector_init -haifa  */
+/* APPLE LOCAL end AV vector_init --haifa */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1023,7 +1023,7 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_E500)
     rs6000_isel = 1;
 
-  /* APPLE LOCAL begin radar 3509006 */
+  /* APPLE LOCAL begin Disable string insns with -Os on Darwin (radar 3509006) */
   /* If we are optimizing big endian systems for space, use the load/store
      multiple instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
@@ -1037,7 +1037,7 @@ rs6000_override_options (const char *default_cpu)
      *extensive* discussion in Radar 3509006.  */
   if (BYTES_BIG_ENDIAN && optimize_size && DEFAULT_ABI != ABI_DARWIN)
     target_flags |= MASK_STRING;
-  /* APPLE LOCAL end radar 3509006 */
+  /* APPLE LOCAL end Disable string insns with -Os on Darwin (radar 3509006) */
 
   /* If -mmultiple or -mno-multiple was explicitly used, don't
      override with the processor default */
@@ -4833,7 +4833,7 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   return NULL_RTX;
 }
 
-/* APPLE LOCAL begin AV misaligned -haifa  */
+/* APPLE LOCAL begin AV misaligned --haifa */
 static bool
 rs6000_support_misaligned_vloads (void)
 {
@@ -4933,10 +4933,10 @@ rs6000_build_builtin_vperm (enum machine_mode mode)
   DECL_FUNCTION_CODE (decl) = function_code;
   return decl;
 }
-/* APPLE LOCAL end AV misaligned -haifa  */
+/* APPLE LOCAL end AV misaligned --haifa */
 
 
-/* APPLE LOCAL begin AV vmul_uch -haifa  */
+/* APPLE LOCAL begin AV vmul_uch --haifa */
 /* Target hook for vector_support_vmul_uch_p */
 static bool
 rs6000_support_vmul_uch_p (void)
@@ -5085,10 +5085,10 @@ rs6000_build_vmul_uch (tree vx, tree vy, tree vz, edge pe,
 
   return stmt;
 } 
-/* APPLE LOCAL end AV vmul_uch -haifa  */
+/* APPLE LOCAL end AV vmul_uch --haifa */
 
 
-/* APPLE LOCAL begin AV vector_init -haifa  */
+/* APPLE LOCAL begin AV vector_init --haifa */
 /* Target hook for vect_support_vector_init_p  */
 static bool
 rs6000_support_vector_init_p (tree type)
@@ -5246,7 +5246,7 @@ rs6000_build_vector_init (tree type, tree def, edge pe,
 
   return vy_name;
 }
-/* APPLE LOCAL end AV vector_init -haifa  */
+/* APPLE LOCAL end AV vector_init --haifa */
 
 
 /* Determine where to put an argument to a function.
@@ -6045,7 +6045,7 @@ rs6000_va_arg (tree valist, tree type)
 
 /* Builtins.  */
 
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Store builtin in vector_builtin_fns.  */
 #define def_builtin(MASK, NAME, TYPE, CODE)			           \
 do {								           \
@@ -6054,7 +6054,7 @@ do {								           \
                                                    BUILT_IN_MD, NULL,      \
                                                    NULL_TREE); 	           \
 } while (0)
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
 
@@ -13129,7 +13129,7 @@ rs6000_emit_prologue (void)
   int saving_FPRs_inline;
   int using_store_multiple;
   HOST_WIDE_INT sp_offset = 0;
-  /* APPLE LOCAL: callers_lr_already_saved */
+  /* APPLE LOCAL callers_lr_already_saved */
   int callers_lr_already_saved = 0;
 #if TARGET_MACHO
   int lr_already_set_up_for_pic = 0;
@@ -13329,7 +13329,7 @@ rs6000_emit_prologue (void)
 	      || VECTOR_SAVE_INLINE (info->first_altivec_reg_save)))
 	gen_following_label = lr_already_set_up_for_pic = 1;
 
-      /* APPLE LOCAL: +2 (could be conditionalized) */
+      /* APPLE LOCAL +2 (could be conditionalized) */
       p = rtvec_alloc (2 + 64 - info->first_fp_reg_save + 2
 			+ gen_following_label);
       
@@ -13375,7 +13375,7 @@ rs6000_emit_prologue (void)
 
 	  RTVEC_ELT (p, count++) = gen_rtx_SET (VOIDmode, mem, reg);
 	}
-      /* APPLE LOCAL begin fix 2866661 */
+      /* APPLE LOCAL begin C++ EH and setjmp (radar 2866661) */
 #if TARGET_MACHO
       /* Darwin version of these functions stores R0.  */
       RTVEC_ELT (p, count++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 0));
@@ -13392,11 +13392,11 @@ rs6000_emit_prologue (void)
 				gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 	}
 #endif
-      /* APPLE LOCAL end fix 2866661 */
+      /* APPLE LOCAL end C++ EH and setjmp (radar 2866661) */
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
 			    NULL_RTX, NULL_RTX);
-      /* APPLE LOCAL: callers_lr_already_saved */
+      /* APPLE LOCAL callers_lr_already_saved */
       callers_lr_already_saved = 1;
     }
 
@@ -13530,7 +13530,7 @@ rs6000_emit_prologue (void)
 			   gen_rtx_REG (Pmode, 12)));
 
   /* Save lr if we used it.  */
-  /* APPLE LOCAL: callers_lr_already_saved */
+  /* APPLE LOCAL callers_lr_already_saved */
   if (info->lr_save_p && !callers_lr_already_saved)
     {
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
@@ -14099,7 +14099,7 @@ rs6000_emit_epilogue (int sibcall)
 	  char rname[30];
 	  const char *alloc_rname;
 
-	  /* APPLE LOCAL begin code size reduction / performance enhancement */
+	  /* APPLE LOCAL begin Reduce code size / improve performance */
 #if TARGET_MACHO
 	  /* We have to calculate the offset into RESTFP to where we must
 	     call (!!)  RESTFP also restores the caller's LR from 8(R1).
@@ -14113,10 +14113,10 @@ rs6000_emit_epilogue (int sibcall)
 		   (info->first_fp_reg_save - 46) * 4,
 		   info->first_fp_reg_save - 32);
 #else
-	  /* APPLE LOCAL end code size reduction / performance enhancement */
+	  /* APPLE LOCAL end Reduce code size / improve performance */
 	  sprintf (rname, "%s%d%s", RESTORE_FP_PREFIX, 
 		   info->first_fp_reg_save - 32, RESTORE_FP_SUFFIX);
-	  /* APPLE LOCAL code size reduction / performance enhancement */
+	  /* APPLE LOCAL Reduce code size / improve performance */
 #endif /* TARGET_MACHO */
 	  alloc_rname = ggc_strdup (rname);
 	  RTVEC_ELT (p, 2) = gen_rtx_USE (VOIDmode,
@@ -17916,7 +17916,7 @@ rs6000_dbx_register_number (unsigned int regno)
 
   abort ();
 }
-/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* Target hook for vector_compare_p.  */
 
 static bool 
@@ -18117,6 +18117,6 @@ rs6000_vector_select_stmt (tree type, tree dest,
 
   return stmt;
 }
-/* APPLE LOCAL end AV if-conversion -dpatel  */
+/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 #include "gt-rs6000.h"

@@ -136,6 +136,6 @@ int main (void)
   return main1 ();
 }
 
-/* /* APPLE LOCAL AV if-conversion -dpatel  */
+/* /* APPLE LOCAL AV if-conversion --dpatel  */
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
 

@@ -1444,7 +1444,7 @@ compute_record_mode (tree type)
      RECORD_TYPE.  This does not apply to unions.  */
   if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode)
     TYPE_MODE (type) = mode;
-  /* APPLE LOCAL 8-byte-struct hack */
+  /* APPLE LOCAL begin 8-byte-struct hack */
 #if defined RS6000_VARARGS_AREA
   /* Make 8-byte structs BLKmode instead of DImode, which fixes both
      struct-return methods and attempts to use floats in kernel code.
@@ -1454,6 +1454,7 @@ compute_record_mode (tree type)
 	   && flag_pic)
     ;
 #endif
+/* APPLE LOCAL end */
   else
     TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
 

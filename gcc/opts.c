@@ -1079,7 +1079,7 @@ decode_options (unsigned int argc, const char **argv)
     }
     /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
-  /* APPLE LOCAL radar 2866081: Env. variable -O override  --ilr */
+  /* APPLE LOCAL radar 2866081: Env. variable override  --ilr */
   override_O_option ();
 
   if (!optimize)
@@ -1271,11 +1271,11 @@ common_handle_option (size_t scode, const char *arg,
     default:
       abort ();
 
-    /* APPLE LOCAL begin fat */
+    /* APPLE LOCAL begin fat builds */
     case OPT_arch:
       /* Ignore for now. */
       break;
-    /* APPLE LOCAL end fat */
+    /* APPLE LOCAL end fat builds */
 
     case OPT__help:
       print_help ();

@@ -94,16 +94,16 @@ do {									\
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-/* APPLE LOCAL begin gfull gused */
+/* APPLE LOCAL begin gdb only used symbols */
 #define CC1_SPEC "\
 %{gused: -g -feliminate-unused-debug-symbols %<gused }\
 %{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
 %{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
-/* APPLE LOCAL end gfull gused */
+/* APPLE LOCAL end gdb only used symbols */
 
-/* APPLE LOCAL begin 3492132 */
+/* APPLE LOCAL begin .machine assembler directive (radar 3492132) */
 
 /* It's virtually impossible to predict all the possible combinations
    of -mcpu and -maltivec and whatnot, so just supply
@@ -144,7 +144,7 @@ do {									\
   { "darwin_arch_ld_spec",	DARWIN_ARCH_LD_SPEC },     \
   { "darwin_arch", "ppc" },
 
-/* APPLE LOCAL end 3492132 */
+/* APPLE LOCAL end .machine assembler directive */
 
 /* The "-faltivec" option should have been called "-maltivec" all along.  */
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
@@ -208,17 +208,17 @@ do {									\
    otherwise we use unconditional branches (the macro below gets '1').  */
 #define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
 
-/* APPLE LOCAL begin long branch */
+/* APPLE LOCAL begin long-branch */
 /* Define cutoff for using external functions to save floating point.
    For Darwin, use the function for more than a few registers.  */
 
-/* APPLE LOCAL begin 3414605 */
+/* APPLE LOCAL begin inline FP save/restore (radar 3414605) */
 #undef FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) \
 (optimize >= 3   \
 || ((FIRST_REG) > 60 && (FIRST_REG) < 64) \
 || TARGET_LONG_BRANCH)
-/* APPLE LOCAL end 3414605 */
+/* APPLE LOCAL end */
 
 /* Define cutoff for using external functions to save vector registers.  */
 
@@ -226,7 +226,7 @@ do {									\
 #define VECTOR_SAVE_INLINE(FIRST_REG) \
   (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) \
    || TARGET_LONG_BRANCH)
-/* APPLE LOCAL end long branch */
+/* APPLE LOCAL end long-branch */
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */

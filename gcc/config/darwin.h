@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* APPLE LOCAL framework headers */
+/* APPLE LOCAL frameworks */
 /* Need to look for framework headers.  */
 #define FRAMEWORK_HEADERS
 
@@ -289,9 +289,10 @@ do {					\
 #define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} \
 		  %{precomp-trustfile} %{arch}"
 
-/* APPLE LOCAL cc1plus spec  */
+/* APPLE LOCAL begin private extern  */
 #undef CC1PLUS_SPEC
 #define CC1PLUS_SPEC "-D__private_extern__=extern"
+/* APPLE LOCAL end private extern */
 
 /* APPLE LOCAL begin fat builds */
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
@@ -302,7 +303,7 @@ do {					\
    instead of LINK_COMMAND_SPEC.  The command spec is better for
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
-/* APPLE LOCAL  add fcreate-profile to LINK_COMMAND_SPEC */
+/* APPLE LOCAL add fcreate-profile */
 #define LINK_COMMAND_SPEC "\
 %{!foutput-dbg*:%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
@@ -396,7 +397,7 @@ do {					\
 #undef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
 
-/* APPLE LOCAL begin radar 3554191 and 3127145 */
+/* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 #undef LIBGCC_SPEC
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC 					   \
@@ -404,7 +405,7 @@ do {					\
     %{!static:%{static-libgcc:-lgcc -lgcc_eh}			   \
 	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
 			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
-/* APPLE LOCAL end radar 3554191 and 3127145 */
+/* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 

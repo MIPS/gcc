@@ -7053,13 +7053,13 @@ continue_class (tree class)
 	{
 	  tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-          /* APPLE LOCAL begin 3261135 */
+          /* APPLE LOCAL begin NSFoundation classes not included in -gused (radar #3261135) */
           /* FSF Candidate */
           /* Set the TREE_USED bit for this struct, so that stab generator can emit
              stabs for this struct type.  */
           if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
             TREE_USED (TYPE_STUB_DECL (record)) = 1;
-          /* APPLE LOCAL end 3261135 */
+          /* APPLE LOCAL end */
 
 	  finish_struct (record, get_class_ivars (class, 0), NULL_TREE);
 	  CLASS_STATIC_TEMPLATE (class) = record;
@@ -9206,7 +9206,7 @@ lookup_objc_ivar (tree id)
     return 0;
 }
 
-/* APPLE LOCAL objective-C++ */
+/* APPLE LOCAL objc++ */
 #include "gt-objc-objc-act-h.h"
 #include "gt-objc-objc-act.h"
 #include "gtype-objc.h"
