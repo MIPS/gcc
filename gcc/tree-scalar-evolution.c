@@ -2586,9 +2586,7 @@ compute_scalar_evolution_in_loop (struct loop *wrto_loop,
   if (def_loop == wrto_loop)
     return ev;
 
-  while (def_loop->outer != wrto_loop)
-    def_loop = def_loop->outer;
-
+  def_loop = superloop_at_depth (def_loop, wrto_loop->depth + 1);
   return compute_scalar_evolution_after_loop (def_loop, ev);
 }
 
@@ -2734,6 +2732,9 @@ analyze_scalar_evolution (struct loop *loop, tree var)
     }
 
   res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var));
+
+  if (TREE_CODE (var) == SSA_NAME && res == chrec_top)
+    res = var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");

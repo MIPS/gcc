@@ -1,3 +1,11 @@
+2004-04-21  Sebastian Pop  <sebastian.pop@ensmp.fr>
+            Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (compute_scalar_evolution_in_loop):
+	Use superloop_at_depth.
+	(analyze_scalar_evolution): Keep a symbolic form instead of
+	chrec_top.
+
 2004-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (instantiate_parameters): Handle casts
