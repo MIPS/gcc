@@ -46,6 +46,9 @@
 	
 2003-06-11  Jeff Law  <law@redhat.com>
 
+	* tree-inline.c (expand_call_inline): Recalculate TREE_SIDE_EFFECTS
+	properly when inlining gimplified functions.
+
 	* fold-const.c (operand_equal_p): Handle CALL_EXPRs.
 
 	* tree-cfg.c (first_exec_block): Kill.

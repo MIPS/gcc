@@ -1177,6 +1177,20 @@ expand_call_inline (tp, walk_subtrees, data)
 	}
       else
 	*tp = expr;
+
+      /* When we gimplify a function call, we may clear TREE_SIDE_EFFECTS
+	 on the call if it is to a "const" function.  Thus the copy of
+	 TREE_SIDE_EFFECTS from the CALL_EXPR to the BIND_EXPR above
+	 with result in TREE_SIDE_EFFECTS not being set for the inlined
+	 copy of a "const" function.
+
+	 Unfortunately, that is wrong as inlining the function
+	 can create/expose interesting side effects (such as setting
+	 of a return value).
+
+	 The easiest solution is to simply recalculate TREE_SIDE_EFFECTS
+	 for the toplevel expression.  */
+      recalculate_side_effects (expr);
     }
   else
     *tp = expr;
