@@ -1,3 +1,12 @@
+2004-09-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (__aeabi_llsr): Define as alias.
+	(__aeabi_lasr): Likewise.
+	(__aeabi_llsl): Likewise.
+	* config/arm/bpabi.h (__aeabi_llsr): Do not define here.
+	(__aeabi_lasr): Likewise.
+	(__aeabi_llsl): Likewise.
+
 2004-09-07  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.

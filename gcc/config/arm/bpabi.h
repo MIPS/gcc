@@ -84,18 +84,6 @@
 #define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (floatdisf, l2f)
 #endif
 
-/* On the mainline, these functions are provided in lib1funcs.asm; on
-   the csl-arm-branch we still use the libgcc2.c versions.  */
-#ifdef L_lshrdi3
-#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (lshrdi3, llsr)
-#endif
-#ifdef L_ashrdi3
-#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (ashrdi3, lasr)
-#endif
-#ifdef L_ashldi3
-#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (ashldi3, llsl)
-#endif
-
 /* The BPABI requires that we always use an out-of-line implementation
    of RTTI comparison, even if the target supports weak symbols,
    because the same object file might be used on a target that does

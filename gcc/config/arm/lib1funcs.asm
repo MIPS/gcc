@@ -937,6 +937,7 @@ LSYM(Lover12):
 #ifdef L_lshrdi3
 
 	FUNC_START lshrdi3
+	ARM_FUNC_ALIAS aeabi_llsr lshrdi3
 
 #ifdef __thumb__
 	lsr	al, r2
@@ -960,6 +961,7 @@ LSYM(Lover12):
 	mov	ah, ah, lsr r2
 	RET
 #endif
+	FUNC_END aeabi_llsr
 	FUNC_END lshrdi3
 
 #endif
@@ -967,6 +969,8 @@ LSYM(Lover12):
 #ifdef L_ashrdi3
 	
 	FUNC_START ashrdi3
+	ARM_FUNC_ALIAS aeabi_lasr ashrdi3
+	
 #ifdef __thumb__
 	lsr	al, r2
 	mov	r3, ah
@@ -994,6 +998,7 @@ LSYM(Lover12):
 	RET
 #endif
 
+	FUNC_END aeabi_lasr
 	FUNC_END ashrdi3
 
 #endif
@@ -1001,6 +1006,8 @@ LSYM(Lover12):
 #ifdef L_ashldi3
 
 	FUNC_START ashldi3
+	ARM_FUNC_ALIAS aeabi_llsl ashldi3
+
 #ifdef __thumb__
 	lsl	ah, r2
 	mov	r3, al
@@ -1023,6 +1030,7 @@ LSYM(Lover12):
 	mov	al, al, lsl r2
 	RET
 #endif
+	FUNC_END aeabi_llsl
 	FUNC_END ashldi3
 
 #endif
