@@ -1032,7 +1032,7 @@ static const lang_independent_options f_options[] =
    N_("Optimize sibling and tail recursive calls") },
   {"tracer", &flag_tracer, 1,
    N_("Perform superblock formation via tail duplication") },
-  {"unit-at-time", &flag_unit_at_time, 1,
+  {"unit-at-a-time", &flag_unit_at_time, 1,
    N_("Compile whole compilation unit at time") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
@@ -5190,7 +5190,7 @@ process_options ()
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
 
-  /* Disable unit-at-time mode for frontends not supporting callgraph
+  /* Disable unit-at-a-time mode for frontends not supporting callgraph
      interface.  */
   if (flag_unit_at_time && ! lang_hooks.callgraph.expand_function)
     flag_unit_at_time = 0;

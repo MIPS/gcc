@@ -1,3 +1,8 @@
+Sun Feb 16 22:38:39 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c: Rename -funit-at-time to -funit-at-a-time
+	* doc/invoke.texi: Likewise.
+
 Sun Feb 16 19:55:18 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3 branch (hammer-3_3-merge-20030216)
