@@ -6582,7 +6582,7 @@ void
 finish_function (nested)
      int nested;
 {
-  register tree fndecl = current_function_decl;
+  tree fndecl = current_function_decl;
 
 /*  TREE_READONLY (fndecl) = 1;
     This caused &foo to be of type ptr-to-const-function
@@ -6628,6 +6628,12 @@ finish_function (nested)
 
   /* Tie off the statement tree for this function.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+    {
+      tree temp;
+      temp = read_tree ((tree) write_tree (&fndecl));
+      temp = temp+1;
+      temp = temp-1;
+    }
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -6960,49 +6966,21 @@ copy_lang_decl (decl)
   DECL_LANG_SPECIFIC (decl) = ld;
 }
 void
-lang_unpickle_tree (t, oldt)
+lang_unpickle_tree (t)
 	tree t;
-	tree oldt;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)
     {
       struct lang_identifier *i = (struct lang_identifier *) t;
-      i->global_value = (tree)write_tree (&i->global_value);
-      i->local_value = (tree) write_tree (&i->local_value);
-      i->label_value = (tree) write_tree (&i->label_value);
-      i->implicit_decl = (tree) write_tree (&i->implicit_decl);
-      i->error_locus = (tree) write_tree (&i->error_locus);
-      i->limbo_value = (tree) write_tree (&i->limbo_value);
-    }
-  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
-    {
-     struct lang_type *lt;
-     int id;
-     if (ggc_set_mark (TYPE_LANG_SPECIFIC (t)))
-       {
-	 lt = (struct lang_type *) xmalloc (sizeof (struct lang_type));
-	 memcpy (lt, TYPE_LANG_SPECIFIC (t), sizeof (struct lang_type));
-	 id = current_id++;
-	 store_to_db (&id, sizeof (int), lt, sizeof (struct lang_type));
-	 free (lt);
-	 TYPE_LANG_SPECIFIC (t) = (struct lang_type *)id;
-       }
-
-    }
-  else if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
-    {
-      struct lang_decl *ld;
-      int id;
-      ld = (struct lang_decl *) xmalloc (sizeof (struct lang_decl));
-      memcpy (ld, DECL_LANG_SPECIFIC (t), sizeof (struct lang_decl));
-      id = current_id++;
-      ld->base.saved_tree = (tree) write_tree (&ld->base.saved_tree); 
-      ld->pending_sizes = (tree) write_tree (&ld->pending_sizes);
-      store_to_db (&id, sizeof (int), ld, sizeof (struct lang_decl));
-      free (ld);
-      DECL_LANG_SPECIFIC (t) = (struct lang_decl *)id;
+      i->global_value = read_tree (i->global_value);
+      i->local_value = read_tree (i->local_value);
+      i->label_value = read_tree (i->label_value);
+      i->implicit_decl = read_tree (i->implicit_decl);
+      i->error_locus = read_tree (i->error_locus);
+      i->limbo_value = read_tree (i->limbo_value);
     }
 }
+
 void
 lang_pickle_tree (t, oldt)
 	tree t;

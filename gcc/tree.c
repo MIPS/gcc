@@ -5096,16 +5096,13 @@ unpickle_tree (id)
   if (TREE_CODE ((tree) data.dptr) == TREE_VEC)
     buffer = make_tree_vec (TREE_VEC_LENGTH ((tree) data.dptr));
   else
-    buffer = make_node (TREE_CODE ((tree) data.dptr));
+    buffer = make_lang_type (TREE_CODE ((tree) data.dptr));
   splay_tree_insert (read_trees, (splay_tree_key) id, 
 		     (splay_tree_value) buffer);
   memcpy (buffer, data.dptr, data.dsize);
   TREE_CHAIN (buffer) = read_tree (TREE_CHAIN (buffer));
   TREE_TYPE (buffer) = read_tree (TREE_TYPE (buffer));
-  if (TREE_CODE (buffer) == IDENTIFIER_NODE)
-    {
-      return buffer;
-    }
+  lang_unpickle_tree (buffer);
 
   switch (TREE_CODE_CLASS (TREE_CODE (buffer)))
     {
@@ -5229,6 +5226,7 @@ pickle_tree (t)
   if (TREE_CODE (buffer) == IDENTIFIER_NODE)
     {
       IDENTIFIER_POINTER (buffer) = (const char *)pickle_string (IDENTIFIER_POINTER (buffer));
+      lang_pickle_tree (buffer, t);
       return (char *)buffer;
     }
   else if (TREE_CODE (buffer) == TREE_LIST)
