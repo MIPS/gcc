@@ -1,3 +1,8 @@
+2004-12-13  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/table/TableColumn.java: Added/fixed javadocs over all.
+	(setHeaderValue): Simplified. Do nothing when old value == new value.
+
 2004-12-08  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics.java (setClip): Protect
