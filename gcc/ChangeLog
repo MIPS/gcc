@@ -1,3 +1,8 @@
+Fri Nov 29 19:57:10 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* expmed.c (store_bit_field): Use int_mode_for_mode to find
+	corresponding mode of non-integer mode.
+
 Thu Nov 28 23:56:24 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc): Add copy_rtx to avoid invalid RTX
