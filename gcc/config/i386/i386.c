@@ -4077,42 +4077,42 @@ ix86_asm_file_end (file)
 {
   rtx xops[2];
 
-  if (pic_label_name[0] == 0)
-    return;
-
-  /* The trick here is to create a linkonce section containing the
-     pic label thunk, but to refer to it with an internal label.
-     Because the label is internal, we don't have inter-dso name
-     binding issues on hosts that don't support ".hidden".
-
-     In order to use these macros, however, we must create a fake
-     function decl.  */
-  if (USE_HIDDEN_LINKONCE && targetm.have_named_sections)
+  if (pic_label_name[0] != 0)
     {
-      tree decl = build_decl (FUNCTION_DECL,
-			      get_identifier (pic_label_name),
-			      error_mark_node);
-      TREE_PUBLIC (decl) = 1;
-      TREE_STATIC (decl) = 1;
-      DECL_ONE_ONLY (decl) = 1;
-      UNIQUE_SECTION (decl, 0);
-      named_section (decl, NULL, 0);
-      ASM_GLOBALIZE_LABEL (file, pic_label_name);
-      fputs ("\t.hidden\t", file);
-      assemble_name (file, pic_label_name);
-      fputc ('\n', file);
-      ASM_DECLARE_FUNCTION_NAME (file, pic_label_name, decl);
-    }
-  else
-    {
-      text_section ();
-      ASM_OUTPUT_LABEL (file, pic_label_name);
-    }
+      /* The trick here is to create a linkonce section containing the
+	 pic label thunk, but to refer to it with an internal label.
+	 Because the label is internal, we don't have inter-dso name
+	 binding issues on hosts that don't support ".hidden".
 
-  xops[0] = pic_offset_table_rtx;
-  xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
-  output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
-  output_asm_insn ("ret", xops);
+	 In order to use these macros, however, we must create a fake
+	 function decl.  */
+      if (USE_HIDDEN_LINKONCE && targetm.have_named_sections)
+	{
+	  tree decl = build_decl (FUNCTION_DECL,
+				  get_identifier (pic_label_name),
+				  error_mark_node);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_ONE_ONLY (decl) = 1;
+	  UNIQUE_SECTION (decl, 0);
+	  named_section (decl, NULL, 0);
+	  ASM_GLOBALIZE_LABEL (file, pic_label_name);
+	  fputs ("\t.hidden\t", file);
+	  assemble_name (file, pic_label_name);
+	  fputc ('\n', file);
+	  ASM_DECLARE_FUNCTION_NAME (file, pic_label_name, decl);
+	}
+      else
+	{
+	  text_section ();
+	  ASM_OUTPUT_LABEL (file, pic_label_name);
+	}
+
+      xops[0] = pic_offset_table_rtx;
+      xops[1] = gen_rtx_MEM (SImode, stack_pointer_rtx);
+      output_asm_insn ("mov{l}\t{%1, %0|%0, %1}", xops);
+      output_asm_insn ("ret", xops);
+    }
 
 #ifdef SUBTARGET_FILE_END
   SUBTARGET_FILE_END (file);

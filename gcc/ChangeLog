@@ -1,3 +1,8 @@
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_asm_file_end): Call SUBTARGET_FILE_END
+	even if pic_label_name[0] is 0.
+
 2003-04-15  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* unwind.inc (_Unwind_Backtrace): New function.
