@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test function calls in asm functions.  */
 
-/* { dg-do run } */
+/* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-fasm-blocks -O2" } */
 
 void function_with_asm_stmts () {

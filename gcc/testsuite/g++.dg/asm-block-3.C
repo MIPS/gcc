@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test C++ keywords in asm-syntax blocks within functions.  */
 
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-fasm-blocks" } */
 
 void

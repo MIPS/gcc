@@ -1,7 +1,7 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test lo16(foo)(v) and ha16(foo).  */
 
-/* { dg-do assemble } */
+/* { dg-do assemble { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks" } */
 
 int foo;

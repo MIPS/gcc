@@ -1,5 +1,5 @@
 /* APPLE LOCAL file CW asm blocks */
-/* { dg-do assemble } */
+/* { dg-do assemble { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks" } */
 
 asm void foo()
