@@ -30,6 +30,8 @@
 #include "struct-reorg.h"
 #include "math.h"
 
+#define STRUCT_REORG_DISTANCE_THRESHOLD 256
+
 static void reorder_fields_of_struct (struct data_structure *);
 static void split_data_structure (struct data_structure *ds);
 
@@ -41,6 +43,9 @@ add_cp_relation (cpg_t *cpg, int f1, int f2, gcov_type count, int dist)
   struct cpg_cell *cell;
 
   if (count == 0)
+    return;
+
+  if (f1 < 0 || f2 < 0)
     return;
 
   i1 = MIN (f1,f2);
@@ -58,6 +63,118 @@ add_cp_relation (cpg_t *cpg, int f1, int f2, gcov_type count, int dist)
   cell->count += count;
 }
 
+/* Add CP relation between NEXT and all the fields in LAF (Lately Accessed Fields) 
+   until distance passes the threshold.  */
+static void
+update_cpg_for_lately_accessed_fields (cpg_t *cpg, struct bb_field_access *laf_start, 
+				       struct bb_field_access *laf_end, int f_indx, 
+				       gcov_type count)
+{
+  struct bb_field_access *laf;
+  int distance_to_latest = 0;
+
+  for (laf = laf_start; laf != laf_end; laf = laf->prev)
+    {
+      distance_to_latest += laf->distance_to_next;
+      /* We want the minimum count over the patch between 
+	 the two accesses.  */
+      if (count > laf->count)
+	count = laf->count;
+      if (distance_to_latest > STRUCT_REORG_DISTANCE_THRESHOLD)
+	break;
+      add_cp_relation (cpg, laf->f_indx, f_indx,
+           	       count, distance_to_latest);
+    }
+}
+
+/* Given that BB_INDEX is the basic block index that closes a loop 
+   while traversing the CFG, add CP relations for all the lately 
+   accessed fields that came after that block was traversed.  */
+static void
+update_cpg_for_loop (cpg_t *cpg, struct bb_field_access *laf, int  bb_index)
+{
+  bool last_bb_found = false;
+  struct bb_field_access *crr, *laf_last;
+
+  for (crr = laf; crr; crr = crr->prev)
+    {
+      if (last_bb_found && laf->bb_index != bb_index)
+	break;
+      if (laf->bb_index == bb_index)
+	last_bb_found = true;
+    }
+  laf_last = crr;
+  for (crr = laf; crr != laf_last; crr = crr->prev)
+   update_cpg_for_lately_accessed_fields (cpg, crr, laf_last, crr->f_indx, crr->count);
+}
+
+/* Go over the fields accesses inside the block BB (by traversing BBS_F_ACC_LISTS) of
+   the given block, add CP relations to the given CPG, and return an updated list
+   of lately accessed fields (creates a new one if its empty). The firs element 
+   of the list is the latest accessed one.  This function also removes fields from the
+   lately accessed list if their distance goes above the distance threshold.  */ 
+static void 
+update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited, 
+		   struct bb_field_access *lately_accessed_fields, struct function *f)
+{
+  struct bb_field_access *crr, *laf;
+  edge e;
+
+  if ( bb == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
+       || bb == EXIT_BLOCK_PTR_FOR_FUNCTION (f))
+    return;
+
+  if (TEST_BIT (visited, bb->index))
+    {
+      update_cpg_for_loop (cpg, lately_accessed_fields, bb->index);
+      return;
+    } 
+  SET_BIT (visited, bb->index);
+  laf = lately_accessed_fields;
+
+  for (crr = cpg->ds->bbs_f_acc_lists[bb->index]; crr; crr = crr->next)
+    {
+      struct bb_field_access *new = (struct bb_field_access *) 
+				    xcalloc (1, sizeof (struct bb_field_access));
+
+      new->f_indx = crr->f_indx;
+      new->distance_to_next = crr->distance_to_next;
+      new->count = bb->count;
+      new->bb_index = bb->index;
+      if (! laf) 
+	{
+	  laf = new; 
+	  continue;
+	}
+
+      if (new->f_indx >= 0)
+        update_cpg_for_lately_accessed_fields (cpg, laf, NULL, new->f_indx, bb->count); 
+
+      new->prev = laf;
+      laf->next = new;
+      laf = new;
+    } 
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      for (crr = laf; crr != lately_accessed_fields; crr = crr->prev)
+	crr->count = e->count;
+      update_cpg_for_bb (cpg, e->dest, visited, laf, f);
+    }
+  RESET_BIT (visited, bb->index);
+  
+  /* Remove the access of the block from the list of lately accessed
+     fields.  */
+  for (crr = laf; crr != lately_accessed_fields; )
+    {
+      laf = crr->prev;
+      free (crr);
+      if (laf)
+	laf->next = NULL;
+      crr = laf;
+    }
+}
+
+#if 0
 /* Given a basic block we search for possibly immediate field accesses
    for each one of the outgoing arcs (on the CFG). Once an access is found
    we add a CP relation with the appropriate disntance and count.  The
@@ -92,26 +209,13 @@ update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp,
   for (succ = e->dest->succ; succ; succ = succ->succ_next)
      update_cpg_for_bb (cpg, succ, visited, cp, f1_indx, f);
 }
-
-/* Create intra-block CP relations (edges).  */
-static void
-add_cp_relation_for_bb (cpg_t *cpg, basic_block bb)
-{
-  struct bb_field_access *crr = cpg->ds->bbs_f_acc_lists[bb->index];
-
-  for (crr = crr->next; crr && crr->next; crr = crr->next)
-    {
-      add_cp_relation (cpg, crr->f_indx, crr->next->f_indx,
-                       bb->count, crr->distance_to_next);
-    }
-}
-
+#endif
 
 /* Build the Close Proximity Graph for a given data structure.  */
 void
 update_cpg_for_structure (struct data_structure *ds, struct function *f)
 {
-  basic_block bb;
+  edge e;
   sbitmap visited;
   cpg_t *cpg;
 
@@ -119,6 +223,7 @@ update_cpg_for_structure (struct data_structure *ds, struct function *f)
     return;
 
   visited = sbitmap_alloc (n_basic_blocks_for_function (f));
+  sbitmap_zero (visited);
 
   if (! ds->cpg)
     {
@@ -132,31 +237,9 @@ update_cpg_for_structure (struct data_structure *ds, struct function *f)
   else
     cpg = ds->cpg;
 
-  /* Build the intra block close proximity relations for each
-     basic block and put it in the CPG.  */
-  FOR_EACH_BB_FN (bb, f)
+  for (e = ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->succ; e; e = e->succ_next)
     {
-      add_cp_relation_for_bb (cpg, bb);
-    }
-
-  /* Now handle the inter-block CP relations.  */
-  FOR_EACH_BB_FN (bb, f)
-    {
-      cpg_cell_t cp;
-      edge e;
-      struct bb_field_access *last = get_last_field_access (cpg->ds, bb);
-
-      /* No fields accessed in this block.  */
-      if (last->f_indx < 0)
-	continue;
-
-      sbitmap_zero (visited);
-      cp.distance = last->distance_to_next;
-      for (e = bb->succ; e; e = e->succ_next)
-        {
-          cp.count = e->count;
-          update_cpg_for_bb (cpg, e, visited, cp, last->f_indx, f);
-        }
+      update_cpg_for_bb (cpg, e->dest, visited, NULL, f);
     }
   sbitmap_free (visited);
 }
@@ -272,8 +355,6 @@ cache_aware_data_reorganization (ATTRIBUTE_UNUSED struct data_structure *ds,
 
 /* Following code implements field reordering algorithm based on the
    WCP heuristic.  */
-#define CACHE_LINE_SIZE 32
-#define DISTANCE_THRESHOLD 256
 
 static HOST_WIDE_INT
 field_size_in_bytes (tree decl)
@@ -303,7 +384,7 @@ cp_relation (struct data_structure *ds, int f1, int f2)
   i2 = MAX (f1, f2);
 
   cp = ds->cpg->matrix [i1 + i2 * ds->num_fields]; 
-  if (!cp || cp->distance > DISTANCE_THRESHOLD)
+  if (!cp || cp->distance > STRUCT_REORG_DISTANCE_THRESHOLD)
     return 0;
   else
     return cp->count;
@@ -616,13 +697,12 @@ average_cp_relation (struct data_structure *ds, sbitmap g, int f)
   12.   gi = gi + { f }
   13. end while.
 */
-#define STRUCT_REORG_DYNAMIC_THRESHOLD 1
 static void 
 split_data_structure (struct data_structure *ds)
 {
   int i, j;
   int max_size = STRUCT_REORG_CACHE_LINE_SIZE / 2; 
-
+  int dynamic_threshold_n_updates = 0;
   gcov_type cold_field_threshold = 0;
   sbitmap remaining_fields = sbitmap_alloc (ds->num_fields); 
   struct field_cluster *crr_cluster, *cold_cluster;
@@ -630,8 +710,9 @@ split_data_structure (struct data_structure *ds)
   sbitmap_ones (remaining_fields);
   /* Find the cold field threshold.  */
   for (i = 0; i < ds->num_fields; i++)
-    if (ds->fields[i].count > cold_field_threshold)
-      cold_field_threshold = ds->fields[i].count;
+    for (j = i; j < ds->num_fields; j++)
+      if (cp_relation (ds, i, j) > cold_field_threshold)
+        cold_field_threshold = cp_relation (ds, i, j);
   cold_field_threshold /= COLD_FIELD_RATIO;
 
   /* Build g[0] - cold group.  */
@@ -640,12 +721,14 @@ split_data_structure (struct data_structure *ds)
   cold_cluster->fields_in_cluster = sbitmap_alloc (ds->num_fields);
 
   /* Add to the cold group all the fields that have access counts less than the threshold.  */
+#if 0
   for (i = 0 ; i < ds->num_fields; i++)
     if (ds->fields[i].count < cold_field_threshold)
       {
 	SET_BIT (cold_cluster->fields_in_cluster, i);
 	RESET_BIT (remaining_fields, i);
       }
+#endif 
 
   crr_cluster = cold_cluster;
   while (sbitmap_first_set_bit (remaining_fields) >= 0)
@@ -671,17 +754,18 @@ split_data_structure (struct data_structure *ds)
 	    }
       /* If the maximum CP is less thanthe threshold, consider all the remianing
 	 fields as cold.  */
+      
+      while (max_cp < cold_field_threshold)
+	{
+	  if (++dynamic_threshold_n_updates > STRUCT_REORG_DYNAMIC_THRESHOLD)
+	    break;
+	  cold_field_threshold = cold_field_threshold / COLD_FIELD_RATIO; 
+	}
       if (max_cp < cold_field_threshold)
 	{
-	  if (! STRUCT_REORG_DYNAMIC_THRESHOLD
-	      || max_cp < (cold_field_threshold / COLD_FIELD_RATIO))
-	    {
-	      sbitmap_a_or_b (cold_cluster->fields_in_cluster, cold_cluster->fields_in_cluster, 
-			      remaining_fields);
-	      break;
-	    }
-	  else 
-	    cold_field_threshold = cold_field_threshold / COLD_FIELD_RATIO; 
+	  sbitmap_a_or_b (cold_cluster->fields_in_cluster, cold_cluster->fields_in_cluster, 
+			  remaining_fields);
+	  break;
 	}
 
       /* Create a new cluster that contains MAX_I, MAX_J fields.  */
@@ -697,16 +781,19 @@ split_data_structure (struct data_structure *ds)
       while (sbitmap_first_set_bit (remaining_fields) >= 0)
 	{
 	  gcov_type average_cp;
+	  HOST_WIDE_INT f_size, g_size;
 
 	  max_cp = 0;
 	  for (i = 0; i < ds->num_fields; i++)
 	    {
 	      if (! TEST_BIT (remaining_fields, i))
 		continue;
-	      if ((group_size_in_bytes (ds, crr_cluster->fields_in_cluster)
-		   + field_size_in_bytes (ds->fields[i].decl)) > max_size)
+	      f_size = field_size_in_bytes (ds->fields[i].decl);
+	      g_size = group_size_in_bytes (ds, crr_cluster->fields_in_cluster);
+	      if ((g_size + f_size) > max_size)
 		continue;
 	      average_cp = average_cp_relation (ds, crr_cluster->fields_in_cluster, i);
+	      average_cp = (average_cp * g_size)/(g_size + f_size);
 	      if (average_cp > max_cp)
 		{
 		  max_i = i;

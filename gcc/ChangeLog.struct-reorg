@@ -1,3 +1,18 @@
+2004-11-18  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* params.def (PARAM_COLD_FIELD_RATIO): Changed default to 5.
+	(PARAM_STRUCT_REORG_DYNAMIC_THRESHOLD): New.
+	* params.h (STRUCT_REORG_DYNAMIC_THRESHOLD): New.
+	* struct-reorg-cpg.c (update_cpg_for_lately_accessed_field,
+	update_cpg_for_loop): New. 
+	(update_cpg_for_bb): New implemenation that uses
+	update_cpg_for_lately_accessed_fieldss and update_cpg_for_loop.
+	(update_cpg_for_structure): Change the BB traversal to fit new
+	implementation.
+	(split_data_structure): Structure splitting heuristic tweaks.
+	* struct-reorg.h (bb_field_access): Added bb_index, prev. 
+
+
 2004-11-17  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* struct-reorg-cpg.c (field_size_in_bytes, cp_relation, field_wcp,

@@ -61,8 +61,10 @@ struct data_field_entry {
   predecessor blocks.  */
 struct bb_field_access {
   int f_indx;
+  int bb_index;
   int distance_to_next;
-  struct bb_field_access *next;
+  gcov_type count;
+  struct bb_field_access *next, *prev;
 };
 
 /* This structure describes the data structure clustering and field
