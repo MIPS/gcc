@@ -191,7 +191,7 @@ float (*heuristic) PARAMS((unsigned int));
 static float default_heuristic PARAMS((unsigned int));
 static void select_spill PARAMS((void));
 static void assign_regs PARAMS((void));
-static void rewrite_program PARAMS((void));
+static void rewrite_program PARAMS((int));
 static unsigned int get_alias PARAMS((unsigned int));
 static rtx find_costliest_move PARAMS((hset));
 static void add_worklist PARAMS((unsigned int));
@@ -1204,6 +1204,7 @@ break; \
 if (i == FIRST_PSEUDO_REGISTER) \
  VAR = -1; \
 } while(0)
+
 static 
 int x_okay_in_direction(okay, currReg, direction, numRegs)
      HARD_REG_SET okay;
@@ -1227,9 +1228,12 @@ int find_reg_given_constraints(okay, currReg)
     int notOK=0;
     int i,k;
     int prefReg=-1;
+    int alt_reg = -1;
     int prefRegOrder=INT_MAX;
     int direction=-1;
     unsigned int numRegs=0;
+    enum machine_mode reg_mode = PSEUDO_REGNO_MODE (currReg);
+      
     /* Watch as we attempt to handle the preference, and the
        number of hard registers needed for the pseudo, at the
        same time.
@@ -1244,10 +1248,10 @@ int find_reg_given_constraints(okay, currReg)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (TEST_HARD_REG_BIT(okay, i))
 	{
-	  if (HARD_REGNO_MODE_OK(i, PSEUDO_REGNO_MODE(currReg)))
+	  if (HARD_REGNO_MODE_OK(i, reg_mode))
 	    {
 	      /* May change on each register */
-	      numRegs = HARD_REGNO_NREGS(i, PSEUDO_REGNO_MODE(currReg));
+	      numRegs = HARD_REGNO_NREGS(i, reg_mode);
 	      if (numRegs > 1 && !x_okay_in_direction(okay, i, -1, numRegs-1) && !x_okay_in_direction(okay, i, 1, numRegs-1))
 		continue;
 	      
@@ -1261,9 +1265,14 @@ int find_reg_given_constraints(okay, currReg)
     if (notOK && prefReg == -1)
       return -1;
     /* Get right value for the preferred register */
-    numRegs = HARD_REGNO_NREGS(prefReg, PSEUDO_REGNO_MODE(currReg));
+    numRegs = HARD_REGNO_NREGS(prefReg, reg_mode);
     direction = x_okay_in_direction(okay, prefReg, -1, numRegs - 1) ? -1 : 1;
-    return  MIN(prefReg, prefReg + ((numRegs-1) * direction));
+    alt_reg = prefReg + (numRegs-1) * direction;
+    
+    if (HARD_REGNO_MODE_OK (alt_reg, reg_mode))
+      prefReg = MIN (prefReg, alt_reg);
+    
+    return prefReg;
 }
      
 /* Assign registers by coloring the graph. We handle both the
@@ -1360,7 +1369,8 @@ void assign_regs()
 
 static 
 void
-rewrite_program()
+rewrite_program(call_reload)
+     int call_reload;
 {
   unsigned int i;
   void *entry;
@@ -1372,9 +1382,10 @@ rewrite_program()
     /*XXX: Why does reload seem to turn this into a spill?*/
     df_insn_delete(dataflowAnalyser, BLOCK_FOR_INSN((rtx) entry), (rtx) entry);
   });
-  
+
   build_insn_chain(get_insns());
-  reload (get_insns(), 0);
+  if (call_reload)
+    reload (get_insns(), 0);
 }
 
 /* Perform iterated register coalescing */  
@@ -1427,15 +1438,17 @@ perform_new_regalloc()
   if (! (sbitmap_first_set_bit(spilledNodes) == -1))
     {
       /* FIXME: Insert spill code insertion here */
-      rewrite_program();
+      rewrite_program(1);
       ggc_collect();
       /* FIXME: Then iterate */
-      // finish_new_regalloc();
-      // init_new_regalloc();
+      /*  
+	  finish_new_regalloc();
+	  init_new_regalloc();
+      */
     }
   else
-    rewrite_program();
-  
+    rewrite_program(1);
+
   
   
 }
@@ -1544,8 +1557,8 @@ perform_new_regalloc_init()
 	    {
 	      if (debug_new_regalloc > 1)
 		fprintf(stderr, "Inserting edge from %d to %d\n", DF_REF_REGNO(currdef->ref), j);
-	      
-	      add_edge(DF_REF_REGNO(currdef->ref), j);
+
+	      add_edge (DF_REF_REGNO (currdef->ref), j);
 	    });
 	  for (currdef = DF_INSN_DEFS(dataflowAnalyser, currinsn); currdef; currdef = currdef->next)
 	      RESET_BIT(live, DF_REF_REGNO(currdef->ref));
