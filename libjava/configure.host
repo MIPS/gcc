@@ -125,6 +125,7 @@ case "${host}" in
   i[34567]86*-linux* | \
   powerpc*-linux* | \
   alpha*-linux* | \
+  s390*-linux* | \
   sparc*-linux* | \
   ia64-*)
   	can_unwind_signal=yes
@@ -134,6 +135,12 @@ case "${host}" in
 	slow_pthread_self=
 	;;
   *-*-freebsd*)
+	slow_pthread_self=
+	;;
+  *-cygwin*)
+  	# The cygwin linker doesn't do 8-byte alignment by default, so
+	# disable hash synchronization for now.
+	enable_hash_synchronization_default=no
 	slow_pthread_self=
 	;;
 esac
