@@ -1,3 +1,8 @@
+2003-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* mangle.c (hash_type): val is the TREE_LIST itself, not a pointer
+	to it.
+
 2003-06-17  Mark Mitchell  <mark@codesourcery.com>
 
 	* mangle.c (mangle_conv_op_name_for_type): Correct sprintf format
