@@ -56,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "cfglayout.h"
 #include "expr.h"
+#include "target.h"
 
 
 /* The labels mentioned in non-jump rtl.  Valid during find_basic_blocks.  */
@@ -312,7 +313,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   link_block (bb, after);
   BASIC_BLOCK (bb->index) = bb;
   update_bb_for_insn (bb);
-  bb->partition = UNPARTITIONED;
+  BB_SET_PARTITION (bb, BB_UNPARTITIONED);
 
   /* Tag the block so that we know it has been used when considering
      other basic block notes.  */
@@ -374,16 +375,6 @@ rtl_delete_block (basic_block b)
      We need to remove the label from the exception_handler_label list
      and remove the associated NOTE_INSN_EH_REGION_BEG and
      NOTE_INSN_EH_REGION_END notes.  */
-
-  /* Get rid of all NOTE_INSN_LOOP_CONTs hanging before the block.  */
-
-  for (insn = PREV_INSN (BB_HEAD (b)); insn; insn = PREV_INSN (insn))
-    {
-      if (!NOTE_P (insn))
-	break;
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
-	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-    }
 
   insn = BB_HEAD (b);
 
@@ -488,6 +479,7 @@ rtl_split_block (basic_block bb, void *insnp)
 
   /* Create the new basic block.  */
   new_bb = create_basic_block (NEXT_INSN (insn), BB_END (bb), bb);
+  BB_COPY_PARTITION (new_bb, bb);
   BB_END (bb) = insn;
 
   /* Redirect the outgoing edges.  */
@@ -617,24 +609,27 @@ rtl_merge_blocks (basic_block a, basic_block b)
 static bool
 rtl_can_merge_blocks (basic_block a,basic_block b)
 {
-  bool partitions_ok = true;
-
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
-  
+     and cold sections.
+
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See  the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
       && (find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)
 	  || find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
-	  || a->partition != b->partition))
-    partitions_ok = false;
+	  || BB_PARTITION (a) != BB_PARTITION (b)))
+    return false;
 
   /* There must be exactly one edge in between the blocks.  */
   return (a->succ && !a->succ->succ_next && a->succ->dest == b
 	  && !b->pred->pred_next && a != b
 	  /* Must be simple edge.  */
 	  && !(a->succ->flags & EDGE_COMPLEX)
-	  && partitions_ok
 	  && a->next_bb == b
 	  && a != ENTRY_BLOCK_PTR && b != EXIT_BLOCK_PTR
 	  /* If the jump insn has side effects,
@@ -678,10 +673,17 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
+     and cold sections.
+
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See  the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
   
   if (flag_reorder_blocks_and_partition
-      && find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX))
+      && (find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)
+	  || BB_PARTITION (src) != BB_PARTITION (target)))
     return NULL;
 
   /* Verify that all targets will be TARGET.  */
@@ -1091,10 +1093,11 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 
       /* Make sure new block ends up in correct hot/cold section.  */
 
-      jump_block->partition = e->src->partition;
-      if (flag_reorder_blocks_and_partition)
+      BB_COPY_PARTITION (jump_block, e->src);
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
-	  if (e->src->partition == COLD_PARTITION)
+	  if (BB_PARTITION (jump_block) == BB_COLD_PARTITION)
 	    {
 	      rtx bb_note, new_note;
 	      for (bb_note = BB_HEAD (jump_block); 
@@ -1106,11 +1109,10 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	      new_note = emit_note_after (NOTE_INSN_UNLIKELY_EXECUTED_CODE,
 					  bb_note);
 	      NOTE_BASIC_BLOCK (new_note) = jump_block; 
-	      jump_block->partition = COLD_PARTITION;
 	    }
 	  if (JUMP_P (BB_END (jump_block))
 	      && !any_condjump_p (BB_END (jump_block))
-	      && jump_block->succ->crossing_edge )
+	      && (jump_block->succ->flags & EDGE_CROSSING))
 	    REG_NOTES (BB_END (jump_block)) = gen_rtx_EXPR_LIST 
 	      (REG_CROSSING_JUMP, NULL_RTX, 
 	       REG_NOTES (BB_END (jump_block)));
@@ -1350,9 +1352,14 @@ rtl_split_edge (edge edge_in)
 	  && NOTE_LINE_NUMBER (before) == NOTE_INSN_LOOP_END)
 	before = NEXT_INSN (before);
       bb = create_basic_block (before, NULL, edge_in->src);
+      BB_COPY_PARTITION (bb, edge_in->src);
     }
   else
-    bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+    {
+      bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+      /* ??? Why not edge_in->dest->prev_bb here?  */
+      BB_COPY_PARTITION (bb, edge_in->dest);
+    }
 
   /* ??? This info is likely going to be out of date very soon.  */
   if (edge_in->dest->global_live_at_start)
@@ -1590,13 +1597,11 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	  bb = split_edge (e);
 	  after = BB_END (bb);
 
-	  /* If we are partitioning hot/cold basic blocks, we must make sure
-	     that the new basic block ends up in the correct section.  */
-
-	  bb->partition = e->src->partition;
 	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections
 	      && e->src != ENTRY_BLOCK_PTR
-	      && e->src->partition == COLD_PARTITION)
+	      && BB_PARTITION (e->src) == BB_COLD_PARTITION
+	      && !(e->flags & EDGE_CROSSING))
 	    {
 	      rtx bb_note, new_note, cur_insn;
 
@@ -1615,7 +1620,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	      NOTE_BASIC_BLOCK (new_note) = bb;
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && bb->succ->crossing_edge )
+		  && (bb->succ->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	      if (after == bb_note)
@@ -1980,8 +1985,11 @@ rtl_verify_flow_info_1 (void)
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
 	      n_fallthru++, fallthru = e;
-	      if (e->crossing_edge)
-		{ 
+	      if ((e->flags & EDGE_CROSSING)
+		  || (BB_PARTITION (e->src) != BB_PARTITION (e->dest)
+		      && e->src != ENTRY_BLOCK_PTR
+		      && e->dest != EXIT_BLOCK_PTR))
+	    { 
 		  error ("Fallthru edge crosses section boundary (bb %i)",
 			 e->src->index);
 		  err = 1;
@@ -2661,24 +2669,27 @@ cfg_layout_delete_block (basic_block bb)
 static bool
 cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 {
-  bool partitions_ok = true;
-
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
-     and cold sections.  */
-  
+     and cold sections.
+
+     Basic block partitioning may result in some jumps that appear to
+     be optimizable (or blocks that appear to be mergeable), but which really 
+     must be left untouched (they are required to make it safely across 
+     partition boundaries).  See  the comments at the top of 
+     bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
+
   if (flag_reorder_blocks_and_partition
       && (find_reg_note (BB_END (a), REG_CROSSING_JUMP, NULL_RTX)
 	  || find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
-	  || a->partition != b->partition))
-    partitions_ok = false;
+	  || BB_PARTITION (a) != BB_PARTITION (b)))
+    return false;
 
   /* There must be exactly one edge in between the blocks.  */
   return (a->succ && !a->succ->succ_next && a->succ->dest == b
 	  && !b->pred->pred_next && a != b
 	  /* Must be simple edge.  */
 	  && !(a->succ->flags & EDGE_COMPLEX)
-	  && partitions_ok
 	  && a != ENTRY_BLOCK_PTR && b != EXIT_BLOCK_PTR
 	  /* If the jump insn has side effects,
 	     we can't kill the edge.  */
@@ -2783,6 +2794,18 @@ cfg_layout_split_edge (edge e)
     create_basic_block (e->src != ENTRY_BLOCK_PTR
 			? NEXT_INSN (BB_END (e->src)) : get_insns (),
 			NULL_RTX, e->src);
+
+  /* ??? This info is likely going to be out of date very soon, but we must
+     create it to avoid getting an ICE later.  */
+  if (e->dest->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start,
+		    e->dest->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end,
+		    e->dest->global_live_at_start);
+    }
 
   new_e = make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   redirect_edge_and_branch_force (e, new_bb);

@@ -417,13 +417,14 @@ redirect_edge_pred (edge e, basic_block new_pred)
   e->src = new_pred;
 }
 
+/* Clear all basic block flags, with the exception of partitioning.  */
 void
 clear_bb_flags (void)
 {
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = 0;
+    bb->flags = BB_PARTITION (bb);
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -462,13 +463,13 @@ check_bb_profile (basic_block bb, FILE * file)
 	sum += EDGE_FREQUENCY (e);
       if (abs (sum - bb->frequency) > 100)
 	fprintf (file,
-		 "Invalid sum of incomming frequencies %i, should be %i\n",
+		 "Invalid sum of incoming frequencies %i, should be %i\n",
 		 sum, bb->frequency);
       lsum = 0;
       for (e = bb->pred; e; e = e->pred_next)
 	lsum += e->count;
       if (lsum - bb->count > 100 || lsum - bb->count < -100)
-	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
+	fprintf (file, "Invalid sum of incoming counts %i, should be %i\n",
 		 (int) lsum, (int) bb->count);
     }
 }

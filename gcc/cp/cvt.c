@@ -261,14 +261,16 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
 
       if (TYPE_PTRMEM_P (type))
-	/* A NULL pointer-to-member is represented by -1, not by
-	   zero.  */
-	expr = build_int_2 (-1, -1);
+	{
+	  /* A NULL pointer-to-member is represented by -1, not by
+	     zero.  */
+	  expr = build_int_cst (type, -1);
+	  /* Fix up the representation of -1 if appropriate.  */
+	  expr = force_fit_type (expr, 0, false, false);
+	}
       else
-	expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
-      /* Fix up the representation of -1 if appropriate.  */
-      force_fit_type (expr, 0);
+	expr = build_int_cst (type, 0);
+      
       return expr;
     }
   else if (TYPE_PTR_TO_MEMBER_P (type) && INTEGRAL_CODE_P (form))
@@ -364,7 +366,7 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
   tree argtype = TREE_TYPE (arg);
   tree target_type = TREE_TYPE (type);
 
-  my_friendly_assert (TREE_CODE (type) == REFERENCE_TYPE, 187);
+  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 
   if ((flags & DIRECT_BIND) && ! real_lvalue_p (arg))
     {
@@ -468,7 +470,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
   intype = TREE_TYPE (expr);
 
-  my_friendly_assert (TREE_CODE (intype) != REFERENCE_TYPE, 364);
+  gcc_assert (TREE_CODE (intype) != REFERENCE_TYPE);
 
   intype = TYPE_MAIN_VARIANT (intype);
 
@@ -802,8 +804,8 @@ convert_to_void (tree expr, const char *implicit)
 	  (op2, (implicit && !TREE_SIDE_EFFECTS (op1)
 		 ? "third operand of conditional" : NULL));
         
-	expr = build (COND_EXPR, TREE_TYPE (new_op1),
-		      TREE_OPERAND (expr, 0), new_op1, new_op2);
+	expr = build3 (COND_EXPR, TREE_TYPE (new_op1),
+		       TREE_OPERAND (expr, 0), new_op1, new_op2);
         break;
       }
     
@@ -817,8 +819,8 @@ convert_to_void (tree expr, const char *implicit)
         
         if (new_op1 != op1)
 	  {
-	    tree t = build (COMPOUND_EXPR, TREE_TYPE (new_op1),
-			    TREE_OPERAND (expr, 0), new_op1);
+	    tree t = build2 (COMPOUND_EXPR, TREE_TYPE (new_op1),
+			     TREE_OPERAND (expr, 0), new_op1);
 	    expr = t;
 	  }
 

@@ -773,6 +773,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_weak = value;
       break;
 
+    case OPT_fthreadsafe_statics:
+      flag_threadsafe_statics = value;
+      break;
+
     case OPT_fzero_link:
       flag_zero_link = value;
       break;
@@ -958,10 +962,12 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wsign-compare, but not if explicitly
-      overridden.  */
+  /* -Wextra implies -Wsign-compare and -Wmissing-field-initializers,
+     but not if explicitly overridden.  */
   if (warn_sign_compare == -1)
     warn_sign_compare = extra_warnings;
+  if (warn_missing_field_initializers == -1)
+    warn_missing_field_initializers = extra_warnings;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */

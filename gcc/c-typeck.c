@@ -1217,8 +1217,8 @@ default_function_array_conversion (tree exp)
       if (TREE_CODE (exp) == COMPOUND_EXPR)
 	{
 	  tree op1 = default_conversion (TREE_OPERAND (exp, 1));
-	  return build (COMPOUND_EXPR, TREE_TYPE (op1),
-			TREE_OPERAND (exp, 0), op1);
+	  return build2 (COMPOUND_EXPR, TREE_TYPE (op1),
+			 TREE_OPERAND (exp, 0), op1);
 	}
 
       lvalue_array_p = !not_lvalue && lvalue_p (exp);
@@ -1456,8 +1456,8 @@ build_component_ref (tree datum, tree component)
     case COMPOUND_EXPR:
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
-	return build (COMPOUND_EXPR, TREE_TYPE (value),
-		      TREE_OPERAND (datum, 0), non_lvalue (value));
+	return build2 (COMPOUND_EXPR, TREE_TYPE (value),
+		       TREE_OPERAND (datum, 0), non_lvalue (value));
       }
     default:
       break;
@@ -1495,8 +1495,8 @@ build_component_ref (tree datum, tree component)
 	  if (TREE_TYPE (subdatum) == error_mark_node)
 	    return error_mark_node;
 
-	  ref = build (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum,
-		       NULL_TREE);
+	  ref = build3 (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum,
+			NULL_TREE);
 	  if (TREE_READONLY (datum) || TREE_READONLY (subdatum))
 	    TREE_READONLY (ref) = 1;
 	  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (subdatum))
@@ -1649,7 +1649,7 @@ build_array_ref (tree array, tree index)
 	}
 
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
-      rval = build (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
+      rval = build4 (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
       /* Array ref is const/volatile if the array elements are
          or if the array is.  */
       TREE_READONLY (rval)
@@ -1869,7 +1869,7 @@ build_function_call (tree function, tree params)
 	  else
 	    rhs = fold (build1 (NOP_EXPR, return_type, integer_zero_node));
 
-	  return build (COMPOUND_EXPR, return_type, trap, rhs);
+	  return build2 (COMPOUND_EXPR, return_type, trap, rhs);
 	}
     }
 
@@ -1883,8 +1883,8 @@ build_function_call (tree function, tree params)
 
   check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params);
 
-  result = build (CALL_EXPR, TREE_TYPE (fntype),
-		  function, coerced_params, NULL_TREE);
+  result = build3 (CALL_EXPR, TREE_TYPE (fntype),
+		   function, coerced_params, NULL_TREE);
   TREE_SIDE_EFFECTS (result) = 1;
 
   if (require_constant_value)
@@ -2246,7 +2246,7 @@ pointer_diff (tree op0, tree op1)
   op1 = c_size_in_bytes (target_type);
 
   /* Divide by the size, in easiest possible way.  */
-  return fold (build (EXACT_DIV_EXPR, restype, op0, convert (restype, op1)));
+  return fold (build2 (EXACT_DIV_EXPR, restype, op0, convert (restype, op1)));
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -2395,8 +2395,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  arg = stabilize_reference (arg);
 	  real = build_unary_op (REALPART_EXPR, arg, 1);
 	  imag = build_unary_op (IMAGPART_EXPR, arg, 1);
-	  return build (COMPLEX_EXPR, TREE_TYPE (arg),
-			build_unary_op (code, real, 1), imag);
+	  return build2 (COMPLEX_EXPR, TREE_TYPE (arg),
+			 build_unary_op (code, real, 1), imag);
 	}
 
       /* Report invalid types.  */
@@ -2466,7 +2466,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
 	else
-	  val = build (code, TREE_TYPE (arg), arg, inc);
+	  val = build2 (code, TREE_TYPE (arg), arg, inc);
 	TREE_SIDE_EFFECTS (val) = 1;
 	val = convert (result_type, val);
 	if (TREE_CODE (val) != code)
@@ -2535,12 +2535,17 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 		return error_mark_node;
 	      }
 
-	    addr = fold (build (PLUS_EXPR, argtype,
-				convert (argtype, addr),
-				convert (argtype, byte_position (field))));
+	    addr = fold (build2 (PLUS_EXPR, argtype,
+				 convert (argtype, addr),
+				 convert (argtype, byte_position (field))));
+	    
+	    /* If the folded PLUS_EXPR is not a constant address, wrap
+               it in an ADDR_EXPR.  */
+	    if (!TREE_CONSTANT (addr))
+	      addr = build1 (ADDR_EXPR, argtype, arg);
 	  }
 	else
-	  addr = build1 (code, argtype, arg);
+	  addr = build1 (ADDR_EXPR, argtype, arg);
 
 	if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
 	  TREE_INVARIANT (addr) = TREE_CONSTANT (addr) = 1;
@@ -2867,7 +2872,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   if (TREE_CODE (ifexp) == INTEGER_CST)
     return non_lvalue (integer_zerop (ifexp) ? op2 : op1);
 
-  return fold (build (COND_EXPR, result_type, ifexp, op1, op2));
+  return fold (build3 (COND_EXPR, result_type, ifexp, op1, op2));
 }
 
 /* Return a compound expression that performs two expressions and
@@ -2901,7 +2906,7 @@ build_compound_expr (tree expr1, tree expr2)
   else if (warn_unused_value)
     warn_if_unused_value (expr1, input_location);
 
-  return build (COMPOUND_EXPR, TREE_TYPE (expr2), expr1, expr2);
+  return build2 (COMPOUND_EXPR, TREE_TYPE (expr2), expr1, expr2);
 }
 
 /* Build an expression representing a cast to type TYPE of expression EXPR.  */
@@ -2917,8 +2922,10 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_object_ptr (type))
-    type = TYPE_MAIN_VARIANT (type);
+  if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
+    return build1 (NOP_EXPR, type, expr);
+
+  type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -3108,9 +3115,16 @@ build_c_cast (tree type, tree expr)
       /* Ignore any integer overflow caused by the cast.  */
       if (TREE_CODE (value) == INTEGER_CST)
 	{
-	  TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
-
+	  if (EXPR_P (ovalue))
+	    /* If OVALUE had overflow set, then so will VALUE, so it
+	       is safe to overwrite.  */
+	    TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
+	  else
+	    TREE_OVERFLOW (value) = 0;
+	  
 	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	    /* Similarly, constant_overflow cannot have become
+	       cleared.  */
 	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }
@@ -3223,7 +3237,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   /* Scan operands */
 
-  result = build (MODIFY_EXPR, lhstype, lhs, newrhs);
+  result = build2 (MODIFY_EXPR, lhstype, lhs, newrhs);
   TREE_SIDE_EFFECTS (result) = 1;
 
   /* If we got the LHS in a different type for storing in,
@@ -4472,14 +4486,14 @@ really_start_incremental_init (tree type)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_2 (-1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_2 (-1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -4494,7 +4508,7 @@ really_start_incremental_init (tree type)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_2 (TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, bitsize_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4649,7 +4663,7 @@ push_init_level (int implicit)
     {
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
-	build_int_2 (TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
       constructor_index = convert (bitsizetype, integer_zero_node);
       constructor_unfilled_index = constructor_index;
     }
@@ -4663,14 +4677,14 @@ push_init_level (int implicit)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
-	    constructor_max_index = build_int_2 (-1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
 	     to initialize VLAs will cause a proper error; avoid tree
 	     checking errors as well by setting a safe value.  */
 	  if (constructor_max_index
 	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
-	    constructor_max_index = build_int_2 (-1, -1);
+	    constructor_max_index = build_int_cst (NULL_TREE, -1);
 
 	  constructor_index
 	    = convert (bitsizetype,
@@ -4763,7 +4777,7 @@ pop_init_level (int implicit)
     }
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
-  if (extra_warnings
+  if (warn_missing_field_initializers
       && constructor_type
       && TREE_CODE (constructor_type) == RECORD_TYPE
       && constructor_unfilled_fields)
@@ -5394,8 +5408,7 @@ set_nonincremental_init_from_string (tree str)
 		      << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
 
-      value = build_int_2 (val[1], val[0]);
-      TREE_TYPE (value) = type;
+      value = build_int_cst_wide (type, val[1], val[0]);
       add_pending_init (purpose, value);
     }
 
@@ -6217,7 +6230,7 @@ c_finish_goto_label (tree label)
     return NULL_TREE;
 
   TREE_USED (decl) = 1;
-  return add_stmt (build (GOTO_EXPR, void_type_node, decl));
+  return add_stmt (build1 (GOTO_EXPR, void_type_node, decl));
 }
 
 /* Generate a computed goto statement to EXPR.  */
@@ -6228,7 +6241,7 @@ c_finish_goto_ptr (tree expr)
   if (pedantic)
     pedwarn ("ISO C forbids `goto *expr;'");
   expr = convert (ptr_type_node, expr);
-  return add_stmt (build (GOTO_EXPR, void_type_node, expr));
+  return add_stmt (build1 (GOTO_EXPR, void_type_node, expr));
 }
 
 /* Generate a C `return' statement.  RETVAL is the expression for what
@@ -6302,7 +6315,8 @@ c_finish_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
+	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r'
+	             && TREE_CODE (inner) != INDIRECT_REF)
 		inner = TREE_OPERAND (inner, 0);
 
 	      if (DECL_P (inner)
@@ -6319,7 +6333,7 @@ c_finish_return (tree retval)
 	  break;
 	}
 
-      retval = build (MODIFY_EXPR, TREE_TYPE (res), res, t);
+      retval = build2 (MODIFY_EXPR, TREE_TYPE (res), res, t);
     }
 
   return add_stmt (build_stmt (RETURN_EXPR, retval));
@@ -6554,7 +6568,7 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
             }
  
 	  t = build_and_jump (&blab);
-          exit = build (COND_EXPR, void_type_node, cond, exit, t);
+          exit = build3 (COND_EXPR, void_type_node, cond, exit, t);
           exit = fold (exit);
 	  if (cond_is_first)
             SET_EXPR_LOCATION (exit, start_locus);
@@ -6595,7 +6609,7 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
       return NULL_TREE;
     }
 
-  return add_stmt (build (GOTO_EXPR, void_type_node, label));
+  return add_stmt (build1 (GOTO_EXPR, void_type_node, label));
 }
 
 /* A helper routine for c_process_expr_stmt and c_finish_stmt_expr.  */
@@ -6760,10 +6774,10 @@ c_finish_stmt_expr (tree body)
       && TREE_TYPE (val) == TREE_TYPE (TREE_OPERAND (val, 0)))
     val = TREE_OPERAND (val, 0);
 
-  *last_p = build (MODIFY_EXPR, void_type_node, tmp, val);
+  *last_p = build2 (MODIFY_EXPR, void_type_node, tmp, val);
   SET_EXPR_LOCUS (*last_p, EXPR_LOCUS (last));
 
-  return build (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
+  return build4 (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
 }
 
 /* Begin and end compound statements.  This is as simple as pushing
@@ -6802,7 +6816,7 @@ c_end_compound_stmt (tree stmt, bool do_scope)
       && STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
       && TREE_CODE (stmt) != BIND_EXPR)
     {
-      stmt = build (BIND_EXPR, void_type_node, NULL, stmt, NULL);
+      stmt = build3 (BIND_EXPR, void_type_node, NULL, stmt, NULL);
       TREE_SIDE_EFFECTS (stmt) = 1;
     }
 
@@ -7547,13 +7561,18 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	op0 = convert (result_type, op0);
       if (TREE_TYPE (op1) != result_type)
 	op1 = convert (result_type, op1);
+
+      /* This can happen if one operand has a vector type, and the other
+	 has a different type.  */
+      if (TREE_CODE (op0) == ERROR_MARK || TREE_CODE (op1) == ERROR_MARK)
+	return error_mark_node;
     }
 
   if (build_type == NULL_TREE)
     build_type = result_type;
 
   {
-    tree result = build (resultcode, build_type, op0, op1);
+    tree result = build2 (resultcode, build_type, op0, op1);
 
     /* Treat expressions in initializers specially as they can't trap.  */
     result = require_constant_value ? fold_initializer (result)
@@ -7563,32 +7582,4 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       result = convert (final_type, result);
     return result;
   }
-}
-
-/* Build the result of __builtin_offsetof.  TYPE is the first argument to
-   offsetof, i.e. a type.  LIST is a tree_list that encodes component and
-   array references; PURPOSE is set for the former and VALUE is set for
-   the later.  */
-
-tree
-build_offsetof (tree type, tree list)
-{
-  tree t;
-
-  /* Build "*(type *)0".  */
-  t = convert (build_pointer_type (type), null_pointer_node);
-  t = build_indirect_ref (t, "");
-
-  /* Build COMPONENT and ARRAY_REF expressions as needed.  */
-  for (list = nreverse (list); list ; list = TREE_CHAIN (list))
-    if (TREE_PURPOSE (list))
-      t = build_component_ref (t, TREE_PURPOSE (list));
-    else
-      t = build_array_ref (t, TREE_VALUE (list));
-
-  /* Finalize the offsetof expression.  For now all we need to do is take
-     the address of the expression we created, and cast that to an integer
-     type; this mirrors the traditional macro implementation of offsetof.  */
-  t = build_unary_op (ADDR_EXPR, t, 0);
-  return convert (size_type_node, t);
 }

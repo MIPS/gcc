@@ -299,16 +299,11 @@ struct lang_hooks
   bool (*mark_addressable) (tree);
 
   /* Hook called by staticp for language-specific tree codes.  */
-  bool (*staticp) (tree);
+  tree (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
-
-  /* Reset argument so that it can be expanded again.
-     Modify it in-place so that all the evaluate only once
-     things are cleared out.  */
-  tree (*unsave_expr_now) (tree);
 
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
@@ -324,9 +319,6 @@ struct lang_hooks
   /* Nonzero if operations on types narrower than their mode should
      have their results reduced to the precision of the type.  */
   bool reduce_bit_field_operations;
-
-  /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
-  bool honor_readonly;
 
   /* Nonzero if this front end does not generate a dummy BLOCK between
      the outermost scope of the function and the FUNCTION_DECL.  See
@@ -411,7 +403,7 @@ struct lang_hooks
      the name to be called if we can't opencode the function.  If
      ATTRS is nonzero, use that for the function's attribute list.  */
   tree (*builtin_function) (const char *name, tree type, int function_code,
-			    enum built_in_class class,
+			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h

@@ -117,7 +117,7 @@ kind_check (gfc_expr * k, int n, bt type)
     }
 
   if (gfc_extract_int (k, &kind) != NULL
-      || gfc_validate_kind (type, kind) == -1)
+      || gfc_validate_kind (type, kind, true) < 0)
     {
       gfc_error ("Invalid kind for %s at %L", gfc_basic_typename (type),
 		 &k->where);
@@ -133,11 +133,10 @@ kind_check (gfc_expr * k, int n, bt type)
 static try
 double_check (gfc_expr * d, int n)
 {
-
   if (type_check (d, n, BT_REAL) == FAILURE)
     return FAILURE;
 
-  if (d->ts.kind != gfc_default_double_kind ())
+  if (d->ts.kind != gfc_default_double_kind)
     {
       must_be (d, n, "double precision");
       return FAILURE;
@@ -515,6 +514,18 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
 
 
 try
+gfc_check_atan2 (gfc_expr * y, gfc_expr * x)
+{
+  if (type_check (y, 0, BT_REAL) == FAILURE)
+    return FAILURE;
+  if (same_type_check (y, 0, x, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+  
+try
 gfc_check_btest (gfc_expr * i, gfc_expr * pos)
 {
 
@@ -763,7 +774,7 @@ gfc_check_ibclr (gfc_expr * i, gfc_expr * pos)
 
   if (type_check (i, 0, BT_INTEGER) == FAILURE
       || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind ()) == FAILURE)
+      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -776,7 +787,7 @@ gfc_check_ibits (gfc_expr * i, gfc_expr * pos, gfc_expr * len)
 
   if (type_check (i, 0, BT_INTEGER) == FAILURE
       || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind ()) == FAILURE
+      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE
       || type_check (len, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -790,7 +801,7 @@ gfc_check_ibset (gfc_expr * i, gfc_expr * pos)
 
   if (type_check (i, 0, BT_INTEGER) == FAILURE
       || type_check (pos, 1, BT_INTEGER) == FAILURE
-      || kind_value_check (pos, 1, gfc_default_integer_kind ()) == FAILURE)
+      || kind_value_check (pos, 1, gfc_default_integer_kind) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1025,7 +1036,7 @@ try
 gfc_check_min_max_integer (gfc_actual_arglist * arg)
 {
 
-  return check_rest (BT_INTEGER, gfc_default_integer_kind (), arg);
+  return check_rest (BT_INTEGER, gfc_default_integer_kind, arg);
 }
 
 
@@ -1033,7 +1044,7 @@ try
 gfc_check_min_max_real (gfc_actual_arglist * arg)
 {
 
-  return check_rest (BT_REAL, gfc_default_real_kind (), arg);
+  return check_rest (BT_REAL, gfc_default_real_kind, arg);
 }
 
 
@@ -1041,7 +1052,7 @@ try
 gfc_check_min_max_double (gfc_actual_arglist * arg)
 {
 
-  return check_rest (BT_REAL, gfc_default_double_kind (), arg);
+  return check_rest (BT_REAL, gfc_default_double_kind, arg);
 }
 
 /* End of min/max family.  */
@@ -1135,23 +1146,72 @@ gfc_check_minloc_maxloc (gfc_actual_arglist * ap)
 }
 
 
-try
-gfc_check_minval_maxval (gfc_expr * array, gfc_expr * dim, gfc_expr * mask)
+/* Similar to minloc/maxloc, the argument list might need to be
+   reordered for the MINVAL, MAXVAL, PRODUCT, and SUM intrinsics.  The
+   difference is that MINLOC/MAXLOC take an additional KIND argument.
+   The possibilities are:
+
+         Arg #2     Arg #3
+         NULL       NULL
+         DIM        NULL
+         MASK       NULL
+         NULL       MASK             minval(array, mask=m)
+         DIM        MASK
+
+   I.e. in the case of minval(array,mask), mask will be in the second
+   position of the argument list and we'll have to fix that up.  */
+
+static try
+check_reduction (gfc_actual_arglist * ap)
 {
+  gfc_expr *m, *d;
 
-  if (array_check (array, 0) == FAILURE)
+  d = ap->next->expr;
+  m = ap->next->next->expr;
+
+  if (m == NULL && d != NULL && d->ts.type == BT_LOGICAL
+      && ap->next->name[0] == '\0')
+    {
+      m = d;
+      d = NULL;
+
+      ap->next->expr = NULL;
+      ap->next->next->expr = m;
+    }
+
+  if (d != NULL
+      && (scalar_check (d, 1) == FAILURE
+      || type_check (d, 1, BT_INTEGER) == FAILURE))
     return FAILURE;
 
-  if (int_or_real_check (array, 0) == FAILURE)
-    return FAILURE;
-
-  if (dim_check (dim, 1, 1) == FAILURE)
-    return FAILURE;
-
-  if (mask != NULL && logical_array_check (mask, 2) == FAILURE)
+  if (m != NULL && type_check (m, 2, BT_LOGICAL) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
+}
+
+
+try
+gfc_check_minval_maxval (gfc_actual_arglist * ap)
+{
+  
+  if (int_or_real_check (ap->expr, 0) == FAILURE
+      || array_check (ap->expr, 0) == FAILURE)
+    return FAILURE;
+  
+  return check_reduction (ap);
+}
+
+
+try
+gfc_check_product_sum (gfc_actual_arglist * ap)
+{
+  
+  if (numeric_check (ap->expr, 0) == FAILURE
+      || array_check (ap->expr, 0) == FAILURE)
+    return FAILURE;
+  
+  return check_reduction (ap);
 }
 
 
@@ -1271,26 +1331,6 @@ gfc_check_present (gfc_expr * a)
       must_be (a, 0, "an OPTIONAL dummy variable");
       return FAILURE;
     }
-
-  return SUCCESS;
-}
-
-
-try
-gfc_check_product (gfc_expr * array, gfc_expr * dim, gfc_expr * mask)
-{
-
-  if (array_check (array, 0) == FAILURE)
-    return FAILURE;
-
-  if (numeric_check (array, 0) == FAILURE)
-    return FAILURE;
-
-  if (dim_check (dim, 1, 1) == FAILURE)
-    return FAILURE;
-
-  if (mask != NULL && logical_array_check (mask, 2) == FAILURE)
-    return FAILURE;
 
   return SUCCESS;
 }
@@ -1505,7 +1545,7 @@ gfc_check_size (gfc_expr * array, gfc_expr * dim)
       if (type_check (dim, 1, BT_INTEGER) == FAILURE)
 	return FAILURE;
 
-      if (kind_value_check (dim, 1, gfc_default_integer_kind ()) == FAILURE)
+      if (kind_value_check (dim, 1, gfc_default_integer_kind) == FAILURE)
 	return FAILURE;
 
       if (dim_rank_check (dim, array, 0) == FAILURE)
@@ -1546,26 +1586,6 @@ gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
   if (type_check (ncopies, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
   if (scalar_check (ncopies, 2) == FAILURE)
-    return FAILURE;
-
-  return SUCCESS;
-}
-
-
-try
-gfc_check_sum (gfc_expr * array, gfc_expr * dim, gfc_expr * mask)
-{
-
-  if (array_check (array, 0) == FAILURE)
-    return FAILURE;
-
-  if (numeric_check (array, 0) == FAILURE)
-    return FAILURE;
-
-  if (dim_check (dim, 1, 1) == FAILURE)
-    return FAILURE;
-
-  if (mask != NULL && logical_array_check (mask, 2) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1814,7 +1834,7 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
       if (variable_check (size, 0) == FAILURE)
 	return FAILURE;
 
-      if (kind_value_check (size, 0, gfc_default_integer_kind ()) == FAILURE)
+      if (kind_value_check (size, 0, gfc_default_integer_kind) == FAILURE)
 	return FAILURE;
     }
 
@@ -1834,7 +1854,7 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
       if (type_check (put, 1, BT_INTEGER) == FAILURE)
 	return FAILURE;
 
-      if (kind_value_check (put, 1, gfc_default_integer_kind ()) == FAILURE)
+      if (kind_value_check (put, 1, gfc_default_integer_kind) == FAILURE)
 	return FAILURE;
     }
 
@@ -1857,7 +1877,7 @@ gfc_check_random_seed (gfc_expr * size, gfc_expr * put, gfc_expr * get)
       if (variable_check (get, 2) == FAILURE)
 	return FAILURE;
 
-      if (kind_value_check (get, 2, gfc_default_integer_kind ()) == FAILURE)
+      if (kind_value_check (get, 2, gfc_default_integer_kind) == FAILURE)
 	return FAILURE;
     }
 

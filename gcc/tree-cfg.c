@@ -714,10 +714,11 @@ make_goto_expr_edges (basic_block bb)
 
 /* Remove unreachable blocks and other miscellaneous clean up work.  */
 
-void
+bool
 cleanup_tree_cfg (void)
 {
   bool something_changed = true;
+  bool retval = false;
 
   timevar_push (TV_TREE_CLEANUP_CFG);
 
@@ -728,6 +729,7 @@ cleanup_tree_cfg (void)
       something_changed = cleanup_control_flow ();
       something_changed |= delete_unreachable_blocks ();
       something_changed |= thread_jumps ();
+      retval |= something_changed;
     }
 
   /* Merging the blocks creates no new opportunities for the other
@@ -740,6 +742,7 @@ cleanup_tree_cfg (void)
   verify_flow_info ();
 #endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
+  return retval;
 }
 
 
@@ -2165,84 +2168,6 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 }
 
 
-/* Computing the Dominance Frontier:
-
-   As described in Morgan, section 3.5, this may be done simply by
-   walking the dominator tree bottom-up, computing the frontier for
-   the children before the parent.  When considering a block B,
-   there are two cases:
-
-   (1) A flow graph edge leaving B that does not lead to a child
-   of B in the dominator tree must be a block that is either equal
-   to B or not dominated by B.  Such blocks belong in the frontier
-   of B.
-
-   (2) Consider a block X in the frontier of one of the children C
-   of B.  If X is not equal to B and is not dominated by B, it
-   is in the frontier of B.  */
-
-static void
-compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
-{
-  edge e;
-  basic_block c;
-
-  SET_BIT (done, bb->index);
-
-  /* Do the frontier of the children first.  Not all children in the
-     dominator tree (blocks dominated by this one) are children in the
-     CFG, so check all blocks.  */
-  for (c = first_dom_son (CDI_DOMINATORS, bb);
-       c;
-       c = next_dom_son (CDI_DOMINATORS, c))
-    {
-      if (! TEST_BIT (done, c->index))
-    	compute_dominance_frontiers_1 (frontiers, c, done);
-    }
-      
-  /* Find blocks conforming to rule (1) above.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      if (e->dest == EXIT_BLOCK_PTR)
-	continue;
-      if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
-	bitmap_set_bit (frontiers[bb->index], e->dest->index);
-    }
-
-  /* Find blocks conforming to rule (2).  */
-  for (c = first_dom_son (CDI_DOMINATORS, bb);
-       c;
-       c = next_dom_son (CDI_DOMINATORS, c))
-    {
-      int x;
-
-      EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
-	{
-	  if (get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (x)) != bb)
-	    bitmap_set_bit (frontiers[bb->index], x);
-	});
-    }
-}
-
-
-void
-compute_dominance_frontiers (bitmap *frontiers)
-{
-  sbitmap done = sbitmap_alloc (last_basic_block);
-
-  timevar_push (TV_DOM_FRONTIERS);
-
-  sbitmap_zero (done);
-
-  compute_dominance_frontiers_1 (frontiers, ENTRY_BLOCK_PTR->succ->dest, done);
-
-  sbitmap_free (done);
-
-  timevar_pop (TV_DOM_FRONTIERS);
-}
-
-
-
 /*---------------------------------------------------------------------------
 			      Debugging functions
 ---------------------------------------------------------------------------*/
@@ -2808,8 +2733,8 @@ void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  modify_stmt (t);
   tsi_link_before (&i->tsi, t, m);
+  modify_stmt (t);
 }
 
 
@@ -2821,8 +2746,8 @@ void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  modify_stmt (t);
   tsi_link_after (&i->tsi, t, m);
+  modify_stmt (t);
 }
 
 
@@ -2834,7 +2759,6 @@ bsi_remove (block_stmt_iterator *i)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
-  modify_stmt (t);
   tsi_delink (&i->tsi);
 }
 
@@ -2910,10 +2834,12 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
    In all cases, the returned *BSI points to the correct location.  The
    return value is true if insertion should be done after the location,
-   or false if it should be done before the location.  */
+   or false if it should be done before the location.  If new basic block
+   has to be created, it is stored in *NEW_BB.  */
 
 static bool
-tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
+tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
+			   basic_block *new_bb)
 {
   basic_block dest, src;
   tree tmp;
@@ -2990,6 +2916,8 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 
   /* Otherwise, create a new basic block, and split this edge.  */
   dest = split_edge (e);
+  if (new_bb)
+    *new_bb = dest;
   e = dest->pred;
   goto restart;
 }
@@ -3033,7 +2961,7 @@ bsi_commit_edge_inserts_1 (edge e)
 
       PENDING_STMT (e) = NULL_TREE;
 
-      if (tree_find_edge_insert_loc (e, &bsi))
+      if (tree_find_edge_insert_loc (e, &bsi, NULL))
 	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       else
 	bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
@@ -3050,6 +2978,25 @@ bsi_insert_on_edge (edge e, tree stmt)
   append_to_statement_list (stmt, &PENDING_STMT (e));
 }
 
+/* Similar to bsi_insert_on_edge+bsi_commit_edge_inserts.  If new block has to
+   be created, it is returned.  */
+
+basic_block
+bsi_insert_on_edge_immediate (edge e, tree stmt)
+{
+  block_stmt_iterator bsi;
+  basic_block new_bb = NULL;
+
+  if (PENDING_STMT (e))
+    abort ();
+
+  if (tree_find_edge_insert_loc (e, &bsi, &new_bb))
+    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+  else
+    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+
+  return new_bb;
+}
 
 /*---------------------------------------------------------------------------
 	     Tree specific functions for CFG manipulation
@@ -4313,8 +4260,16 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
+  tree phi, val;
+  ssa_op_iter op_iter;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    {
+      mark_for_rewrite (PHI_RESULT (phi));
+    }
+
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -4323,6 +4278,12 @@ tree_duplicate_bb (basic_block bb)
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* Record the definitions.  */
+      get_stmt_operands (stmt);
+
+      FOR_EACH_SSA_TREE_OPERAND (val, stmt, op_iter, SSA_OP_ALL_DEFS)
+	mark_for_rewrite (val);
 
       copy = unshare_expr (stmt);
 
@@ -5005,4 +4966,3 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
 };
-

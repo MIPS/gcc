@@ -96,9 +96,111 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "lambda.h"
 
-static unsigned int data_ref_id = 0;
-
 
+/* This is the simplest data dependence test: determines whether the
+   data references A and B access the same array/region. If can't determine -
+   return false; Otherwise, return true, and DIFFER_P will record
+   the result. This utility will not be necessary when alias_sets_conflict_p
+   will be less conservative.  */
+
+bool
+array_base_name_differ_p (struct data_reference *a,
+                          struct data_reference *b,
+                          bool *differ_p)
+{
+  tree base_a = DR_BASE_NAME (a);
+  tree base_b = DR_BASE_NAME (b);
+  tree ta = TREE_TYPE (base_a);
+  tree tb = TREE_TYPE (base_b);
+
+
+  /** Determine if same base  **/
+
+  /* array accesses: a[i],b[i] or pointer accesses: *a,*b. bases are a,b.  */
+  if (base_a == base_b)
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  /* pointer based accesses - (*p)[i],(*q)[j]. bases are (*p),(*q)  */
+  if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0))
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  /* record/union based accesses - s.a[i], t.b[j]. bases are s.a,t.b.  */ 
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0)
+      && TREE_OPERAND (base_a, 1) == TREE_OPERAND (base_b, 1))
+    {
+      *differ_p = false;
+      return true;
+    }
+
+
+  /** Determine if different bases  **/
+
+  /* at this point we know that base_a != base_b. However, pointer accesses
+     of the form x=(*p) and y=(*q), which bases are p and q, may still by pointing
+     to the same base. In SSAed GIMPLE p and q will be SSA_NAMES in this case.
+     Therefore, here we check if it's really two diferent declarations.  */
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL)
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* compare two record/union bases s.a and t.b: 
+     s != t or (a != b and s and t are not unions)  */
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
+           && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+           && TREE_OPERAND (base_a, 0) != TREE_OPERAND (base_b, 0))
+          || (TREE_CODE (TREE_TYPE (TREE_OPERAND (base_a, 0))) == RECORD_TYPE 
+              && TREE_CODE (TREE_TYPE (TREE_OPERAND (base_b, 0))) == RECORD_TYPE
+              && TREE_OPERAND (base_a, 1) != TREE_OPERAND (base_b, 1))))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* compare a record/union access and an array access.  */ 
+  if ((TREE_CODE (base_a) == VAR_DECL
+       && (TREE_CODE (base_b) == COMPONENT_REF
+           && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL))
+      || (TREE_CODE (base_b) == VAR_DECL
+       && (TREE_CODE (base_a) == COMPONENT_REF
+           && TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  if (!alias_sets_conflict_p (get_alias_set (base_a), get_alias_set (base_b)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  /* An insn writing through a restricted pointer is "independent" of any
+     insn reading or writing through a different pointer, in the same
+     block/scope.
+   */
+  if ((TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta)
+       && !DR_IS_READ(a))
+      || (TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)
+	  && !DR_IS_READ(b)))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  *differ_p = false; /* Don't know, but be conservative.  */
+  return false;
+}
 
 /* Returns true iff A divides B.  */
 
@@ -248,7 +350,7 @@ dump_data_reference (FILE *outf,
 {
   unsigned int i;
   
-  fprintf (outf, "(Data Ref %d: \n  stmt: ", DR_ID (dr));
+  fprintf (outf, "(Data Ref: \n  stmt: ");
   print_generic_stmt (outf, DR_STMT (dr), 0);
   fprintf (outf, "  ref: ");
   print_generic_stmt (outf, DR_REF (dr), 0);
@@ -276,7 +378,7 @@ dump_data_dependence_relation (FILE *outf,
   drb = DDR_B (ddr);
   
   if (dra && drb)
-    fprintf (outf, "(Data Dep (A = %d, B = %d):", DR_ID (dra), DR_ID (drb));
+    fprintf (outf, "(Data Dep:");
   else
     fprintf (outf, "(Data Dep:");
 
@@ -443,9 +545,8 @@ analyze_array (tree stmt, tree ref, bool is_read)
       fprintf (dump_file, ")\n");
     }
   
-  res = ggc_alloc (sizeof (struct data_reference));
+  res = xmalloc (sizeof (struct data_reference));
   
-  DR_ID (res) = data_ref_id++;
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
@@ -466,7 +567,8 @@ struct data_reference *
 init_data_ref (tree stmt, 
 	       tree ref,
 	       tree base,
-	       tree access_fn)
+	       tree access_fn,
+	       bool is_read)
 {
   struct data_reference *res;
 
@@ -478,14 +580,14 @@ init_data_ref (tree stmt,
       fprintf (dump_file, ")\n");
     }
   
-  res = ggc_alloc (sizeof (struct data_reference));
+  res = xmalloc (sizeof (struct data_reference));
   
-  DR_ID (res) = data_ref_id++;
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = base;
   VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
+  DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
@@ -532,8 +634,9 @@ initialize_data_dependence_relation (struct data_reference *a,
 				     struct data_reference *b)
 {
   struct data_dependence_relation *res;
+  bool differ_p;
   
-  res = ggc_alloc (sizeof (struct data_dependence_relation));
+  res = xmalloc (sizeof (struct data_dependence_relation));
   DDR_A (res) = a;
   DDR_B (res) = b;
 
@@ -545,7 +648,7 @@ initialize_data_dependence_relation (struct data_reference *a,
   /* When the dimensions of A and B differ, we directly initialize
      the relation to "there is no dependence": chrec_known.  */
   else if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-	   || array_base_name_differ_p (a, b))
+	   || (array_base_name_differ_p (a, b, &differ_p) && differ_p))
     DDR_ARE_DEPENDENT (res) = chrec_known;
   
   else
@@ -558,13 +661,12 @@ initialize_data_dependence_relation (struct data_reference *a,
 	{
 	  struct subscript *subscript;
 	  
-	  subscript = ggc_alloc (sizeof (struct subscript));
+	  subscript = xmalloc (sizeof (struct subscript));
 	  SUB_CONFLICTS_IN_A (subscript) = chrec_dont_know;
 	  SUB_CONFLICTS_IN_B (subscript) = chrec_dont_know;
 	  SUB_LAST_CONFLICT_IN_A (subscript) = chrec_dont_know;
 	  SUB_LAST_CONFLICT_IN_B (subscript) = chrec_dont_know;
 	  SUB_DISTANCE (subscript) = chrec_dont_know;
-	  SUB_DIRECTION (subscript) = dir_star;
 	  VARRAY_PUSH_GENERIC_PTR (DDR_SUBSCRIPTS (res), subscript);
 	}
     }
@@ -579,6 +681,13 @@ static inline void
 finalize_ddr_dependent (struct data_dependence_relation *ddr, 
 			tree chrec)
 {
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(dependence classified: ");
+      print_generic_expr (dump_file, chrec, 0);
+      fprintf (dump_file, ")\n");
+    }
+
   DDR_ARE_DEPENDENT (ddr) = chrec;  
   varray_clear (DDR_SUBSCRIPTS (ddr));
 }
@@ -1322,14 +1431,12 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
 
 /* Compute the classic per loop distance vector.
 
-   RES is the data dependence relation to build a vector from.
-   CLASSIC_DIST is the varray to place the vector in.
+   DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
    FIRST_LOOP is the loop->num of the first loop.  */
 
 static void
-build_classic_dist_vector (struct data_dependence_relation *res, 
-			   varray_type *classic_dist, 
+build_classic_dist_vector (struct data_dependence_relation *ddr, 
 			   int nb_loops, unsigned int first_loop)
 {
   unsigned i;
@@ -1340,12 +1447,12 @@ build_classic_dist_vector (struct data_dependence_relation *res,
   lambda_vector_clear (dist_v, nb_loops);
   lambda_vector_clear (init_v, nb_loops);
   
-  if (DDR_ARE_DEPENDENT (res) != NULL_TREE)
+  if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
     return;
   
-  for (i = 0; i < DDR_NUM_SUBSCRIPTS (res); i++)
+  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
-      struct subscript *subscript = DDR_SUBSCRIPT (res, i);
+      struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
 
       if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	return;
@@ -1372,7 +1479,7 @@ build_classic_dist_vector (struct data_dependence_relation *res,
 	  if (init_v[loop_nb] != 0
 	      && dist_v[loop_nb] != dist)
 	    {
-	      finalize_ddr_dependent (res, chrec_known);
+	      finalize_ddr_dependent (ddr, chrec_known);
 	      return;
 	    }
 
@@ -1390,8 +1497,8 @@ build_classic_dist_vector (struct data_dependence_relation *res,
   */
   {
     struct loop *lca, *loop_a, *loop_b;
-    struct data_reference *a = DDR_A (res);
-    struct data_reference *b = DDR_B (res);
+    struct data_reference *a = DDR_A (ddr);
+    struct data_reference *b = DDR_B (ddr);
     int lca_nb;
     loop_a = loop_containing_stmt (DR_STMT (a));
     loop_b = loop_containing_stmt (DR_STMT (b));
@@ -1428,19 +1535,17 @@ build_classic_dist_vector (struct data_dependence_relation *res,
       }
   }
   
-  VARRAY_PUSH_GENERIC_PTR (*classic_dist, dist_v);
+  DDR_DIST_VECT (ddr) = dist_v;
 }
 
 /* Compute the classic per loop direction vector.  
 
-   RES is the data dependence relation to build a vector from.
-   CLASSIC_DIR is the varray to place the vector in.
+   DDR is the data dependence relation to build a vector from.
    NB_LOOPS is the total number of loops we are considering.
    FIRST_LOOP is the loop->num of the first loop.  */
 
 static void
-build_classic_dir_vector (struct data_dependence_relation *res, 
-			  varray_type *classic_dir, 
+build_classic_dir_vector (struct data_dependence_relation *ddr, 
 			  int nb_loops, unsigned int first_loop)
 {
   unsigned i;
@@ -1451,12 +1556,12 @@ build_classic_dir_vector (struct data_dependence_relation *res,
   lambda_vector_clear (dir_v, nb_loops);
   lambda_vector_clear (init_v, nb_loops);
   
-  if (DDR_ARE_DEPENDENT (res) != NULL_TREE)
+  if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
     return;
   
-  for (i = 0; i < DDR_NUM_SUBSCRIPTS (res); i++)
+  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
-      struct subscript *subscript = DDR_SUBSCRIPT (res, i);
+      struct subscript *subscript = DDR_SUBSCRIPT (ddr, i);
 
       if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC
 	  && TREE_CODE (SUB_CONFLICTS_IN_B (subscript)) == POLYNOMIAL_CHREC)
@@ -1499,7 +1604,7 @@ build_classic_dir_vector (struct data_dependence_relation *res,
 	      && (enum data_dependence_direction) dir_v[loop_nb] != dir
 	      && (enum data_dependence_direction) dir_v[loop_nb] != dir_star)
 	    {
-	      finalize_ddr_dependent (res, chrec_known);
+	      finalize_ddr_dependent (ddr, chrec_known);
 	      return;
 	    }
 	  
@@ -1517,8 +1622,8 @@ build_classic_dir_vector (struct data_dependence_relation *res,
   */
   {
     struct loop *lca, *loop_a, *loop_b;
-    struct data_reference *a = DDR_A (res);
-    struct data_reference *b = DDR_B (res);
+    struct data_reference *a = DDR_A (ddr);
+    struct data_reference *b = DDR_B (ddr);
     int lca_nb;
     loop_a = loop_containing_stmt (DR_STMT (a));
     loop_b = loop_containing_stmt (DR_STMT (b));
@@ -1553,7 +1658,7 @@ build_classic_dir_vector (struct data_dependence_relation *res,
       }
   }
   
-  VARRAY_PUSH_GENERIC_PTR (*classic_dir, dir_v);
+  DDR_DIR_VECT (ddr) = dir_v;
 }
 
 /* Returns true when all the access functions of A are affine or
@@ -1590,8 +1695,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "(compute_affine_dependence (%d, %d)\n", 
-	       DR_ID (dra), DR_ID (drb));
+      fprintf (dump_file, "(compute_affine_dependence\n");
       fprintf (dump_file, "  (stmt_a = \n");
       print_generic_expr (dump_file, DR_STMT (dra), 0);
       fprintf (dump_file, ")\n  (stmt_b = \n");
@@ -1624,8 +1728,8 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
    in DEPENDENCE_RELATIONS.  */
 
 static void 
-compute_rw_wr_ww_dependences (varray_type datarefs, 
-			      varray_type *dependence_relations)
+compute_all_dependences (varray_type datarefs, 
+			 varray_type *dependence_relations)
 {
   unsigned int i, j, N;
 
@@ -1639,10 +1743,6 @@ compute_rw_wr_ww_dependences (varray_type datarefs,
 
 	a = VARRAY_GENERIC_PTR (datarefs, i);
 	b = VARRAY_GENERIC_PTR (datarefs, j);
-
-	/* Don't compute the "read-read" relations.  */
-	if (DR_IS_READ (a) && DR_IS_READ (b))
-	  continue;
 
 	ddr = initialize_data_dependence_relation (a, b);
 
@@ -1711,17 +1811,13 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 
 /* Given a loop nest LOOP, the following vectors are returned:
    *DATAREFS is initialized to all the array elements contained in this loop, 
-   *DEPENDENCE_RELATIONS contains the relations between the data references, 
-   *CLASSIC_DIST contains the set of distance vectors,
-   *CLASSIC_DIR contains the set of direction vectors.  */
+   *DEPENDENCE_RELATIONS contains the relations between the data references.  */
 
 void
 compute_data_dependences_for_loop (unsigned nb_loops, 
 				   struct loop *loop,
 				   varray_type *datarefs,
-				   varray_type *dependence_relations,
-				   varray_type *classic_dist, 
-				   varray_type *classic_dir)
+				   varray_type *dependence_relations)
 {
   unsigned int i;
 
@@ -1735,19 +1831,19 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 	 chrec_dont_know.  */
       ddr = initialize_data_dependence_relation (NULL, NULL);
       VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
-      build_classic_dist_vector (ddr, classic_dist, nb_loops, loop->num);
-      build_classic_dir_vector (ddr, classic_dir, nb_loops, loop->num);
+      build_classic_dist_vector (ddr, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, nb_loops, loop->num);
       return;
     }
 
-  compute_rw_wr_ww_dependences (*datarefs, dependence_relations);
+  compute_all_dependences (*datarefs, dependence_relations);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (*dependence_relations); i++)
     {
       struct data_dependence_relation *ddr;
       ddr = VARRAY_GENERIC_PTR (*dependence_relations, i);
-      build_classic_dist_vector (ddr, classic_dist, nb_loops, loop->num);
-      build_classic_dir_vector (ddr, classic_dir, nb_loops, loop->num);    
+      build_classic_dist_vector (ddr, nb_loops, loop->num);
+      build_classic_dir_vector (ddr, nb_loops, loop->num);    
     }
 }
 
@@ -1779,11 +1875,8 @@ analyze_all_data_dependences (struct loops *loops)
   unsigned int i;
   varray_type datarefs;
   varray_type dependence_relations;
-  varray_type classic_dist, classic_dir;
   int nb_data_refs = 10;
 
-  VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
-  VARRAY_GENERIC_PTR_INIT (classic_dir, 10, "classic_dir");
   VARRAY_GENERIC_PTR_INIT (datarefs, nb_data_refs, "datarefs");
   VARRAY_GENERIC_PTR_INIT (dependence_relations, 
 			   nb_data_refs * nb_data_refs,
@@ -1791,8 +1884,7 @@ analyze_all_data_dependences (struct loops *loops)
 
   /* Compute DDs on the whole function.  */
   compute_data_dependences_for_loop (loops->num, loops->parray[0], 
-				     &datarefs, &dependence_relations, 
-				     &classic_dist, &classic_dir);
+				     &datarefs, &dependence_relations);
 
   if (dump_file)
     {
@@ -1804,21 +1896,20 @@ analyze_all_data_dependences (struct loops *loops)
      testsuite.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (classic_dist); i++)
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
 	{
-	  fprintf (dump_file, "DISTANCE_V (");
-	  print_lambda_vector (dump_file, 
-			       VARRAY_GENERIC_PTR (classic_dist, i),
-			       loops->num);
-	  fprintf (dump_file, ")\n");
-	}
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (classic_dir); i++)
-	{
-	  fprintf (dump_file, "DIRECTION_V (");
-	  print_lambda_vector (dump_file, 
-			       VARRAY_GENERIC_PTR (classic_dir, i),
-			       loops->num);
-	  fprintf (dump_file, ")\n");
+	  struct data_dependence_relation *ddr = 
+	    (struct data_dependence_relation *) 
+	    VARRAY_GENERIC_PTR (dependence_relations, i);
+	  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+	    {
+	      fprintf (dump_file, "DISTANCE_V (");
+	      print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
+	      fprintf (dump_file, ")\n");
+	      fprintf (dump_file, "DIRECTION_V (");
+	      print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
+	      fprintf (dump_file, ")\n");
+	    }
 	}
       fprintf (dump_file, "\n\n");
     }
@@ -1842,9 +1933,10 @@ analyze_all_data_dependences (struct loops *loops)
 	    {
 	      struct data_reference *a = DDR_A (ddr);
 	      struct data_reference *b = DDR_B (ddr);
+	      bool differ_p;	
 	      
 	      if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-		  || array_base_name_differ_p (a, b))
+		  || (array_base_name_differ_p (a, b, &differ_p) && differ_p))
 		nb_basename_differ++;
 	      else
 		nb_bot_relations++;
@@ -1854,21 +1946,57 @@ analyze_all_data_dependences (struct loops *loops)
 	    nb_chrec_relations++;
 	}
       
-      fprintf (dump_file, "\n(\n");
-      fprintf (dump_file, "%d\tnb_top_relations\n", nb_top_relations);
-      fprintf (dump_file, "%d\tnb_bot_relations\n", nb_bot_relations);
-      fprintf (dump_file, "%d\tnb_basename_differ\n", nb_basename_differ);
-      fprintf (dump_file, "%d\tnb_distance_relations\n", (int) VARRAY_ACTIVE_SIZE (classic_dist));
-      fprintf (dump_file, "%d\tnb_chrec_relations\n", nb_chrec_relations);
-      fprintf (dump_file, "\n)\n");
-      
       gather_stats_on_scev_database ();
     }
-  
-  varray_clear (dependence_relations);
-  varray_clear (datarefs);
-  varray_clear (classic_dist);
-  varray_clear (classic_dir);
+
+  free_dependence_relations (dependence_relations);
+  free_data_refs (datarefs);
 }
 
+/* Free the memory used by a data dependence relation DDR.  */
 
+void
+free_dependence_relation (struct data_dependence_relation *ddr)
+{
+  if (ddr == NULL)
+    return;
+
+  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
+    varray_clear (DDR_SUBSCRIPTS (ddr));
+  free (ddr);
+}
+
+/* Free the memory used by the data dependence relations from
+   DEPENDENCE_RELATIONS.  */
+
+void 
+free_dependence_relations (varray_type dependence_relations)
+{
+  unsigned int i;
+  if (dependence_relations == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+    free_dependence_relation (VARRAY_GENERIC_PTR (dependence_relations, i));
+  varray_clear (dependence_relations);
+}
+
+/* Free the memory used by the data references from DATAREFS.  */
+
+void
+free_data_refs (varray_type datarefs)
+{
+  unsigned int i;
+  
+  if (datarefs == NULL)
+    return;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+    {
+      struct data_reference *dr = (struct data_reference *) 
+	VARRAY_GENERIC_PTR (datarefs, i);
+      if (dr && DR_ACCESS_FNS (dr))
+	varray_clear (DR_ACCESS_FNS (dr));
+    }
+  varray_clear (datarefs);
+}

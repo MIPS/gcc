@@ -1,3 +1,7 @@
+2004-09-09  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profile-merge-20040829)
+
 2004-08-29  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (predict_loops): Use number_of_iterations_exit.

@@ -225,11 +225,6 @@ tree current_function_decl;
    if none.  */
 tree current_function_func_begin_label;
 
-/* A DECL for the current file-scope context.  When using IMA, this heads a
-   chain of FILE_DECLs; currently only C uses it.  */
-
-tree current_file_decl;
-
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
@@ -344,6 +339,11 @@ enum pta_type flag_tree_points_to = PTA_NONE;
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
 int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+
+/* True if the user has tagged the function with the 'section'
+   attribute.  */
+
+bool user_defined_section_attribute = false;
 
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
@@ -598,6 +598,15 @@ static void
 crash_signal (int signo)
 {
   signal (signo, SIG_DFL);
+
+  /* If we crashed while processing an ASM statement, then be a little more
+     graceful.  It's most likely the user's fault.  */
+  if (this_is_asm_operands)
+    {
+      output_operand_lossage ("unrecoverable error");
+      exit (FATAL_EXIT_CODE);
+    }
+
   internal_error ("%s", strsignal (signo));
 }
 
@@ -788,7 +797,7 @@ wrapup_global_declarations (tree *vec, int len)
 	      if (needed)
 		{
 		  reconsider = 1;
-		  rest_of_decl_compilation (decl, NULL, 1, 1);
+		  rest_of_decl_compilation (decl, 1, 1);
 		}
 	    }
 	}

@@ -540,18 +540,25 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
   varray_type access_fns = DR_ACCESS_FNS (dr);
 
   /* FORNOW: handling only one dimensional arrays.  */
-  gcc_assert (VARRAY_ACTIVE_SIZE (access_fns) == 1);
-  gcc_assert (vectorization_factor);
+  if (VARRAY_ACTIVE_SIZE (access_fns) != 1)
+    abort ();
+
+  if (!vectorization_factor)
+    abort ();
 #endif
 
   access_fn = DR_ACCESS_FN (dr, 0);
   ok = vect_is_simple_iv_evolution (loopnum, access_fn, &init, &step, true)
        && vect_get_first_index (expr, &array_first_index);
 
-  gcc_assert (ok);
+#ifdef ENABLE_CHECKING
+  if (!ok)
+    abort ();
 
   /* FORNOW: Handling only constant 'init'.  */
-  gcc_assert (TREE_CODE (init) == INTEGER_CST);
+  if (TREE_CODE (init) != INTEGER_CST)
+    abort ();	
+#endif
 
   vf = build_int_cst (unsigned_type_node, vectorization_factor);
 
@@ -629,7 +636,8 @@ vect_align_data_ref (tree stmt)
 
   /* FORNOW: can't handle misaligned accesses; 
              all accesses expected to be aligned.  */
-  gcc_assert (aligned_access_p (dr));
+  if (!aligned_access_p (dr))
+    abort ();
 }
 
 
@@ -698,9 +706,12 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
 		get_name (addr_ref));
   add_referenced_tmp_var (vect_ptr);
 
-  gcc_assert (TREE_CODE (addr_ref) == VAR_DECL
-	      || TREE_CODE (addr_ref) == COMPONENT_REF
-	      || TREE_CODE (addr_ref) == SSA_NAME);
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (addr_ref) != VAR_DECL
+      && TREE_CODE (addr_ref) != COMPONENT_REF
+      && TREE_CODE (addr_ref) != SSA_NAME)
+    abort ();
+#endif
 
   if (vect_debug_details (NULL))
     {
@@ -721,7 +732,10 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
 
   /* Handle aliasing:  */ 
   tag = STMT_VINFO_MEMTAG (stmt_info);
-  gcc_assert (tag);
+#ifdef ENABLE_CHECKING
+  if (!tag)
+    abort ();
+#endif
   get_var_ann (vect_ptr)->type_mem_tag = tag;
   
   /* Mark for renaming all aliased variables
@@ -780,7 +794,10 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
   tree vec_dest;
   const char *new_name;
 
-  gcc_assert (TREE_CODE (scalar_dest) == SSA_NAME);
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (scalar_dest) != SSA_NAME)
+    abort ();
+#endif
 
   new_name = get_name (scalar_dest);
   if (!new_name)
@@ -890,7 +907,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       return vect_init_vector (stmt, vec_cst);
     }
 
-  gcc_assert (TREE_CODE (op) == SSA_NAME);
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (op) != SSA_NAME)
+    abort ();
+#endif
  
   /** ===> Case 2: operand is an SSA_NAME - find the stmt that defines it.  **/
 
@@ -911,7 +931,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       /* Get the def from the vectorized stmt.  */
 
       vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
-      gcc_assert (vec_stmt);
+#ifdef ENABLE_CHECKING
+      if (!vec_stmt)
+        abort ();
+#endif
       vec_oprnd = TREE_OPERAND (vec_stmt, 0);
       return vec_oprnd;
     }
@@ -925,7 +948,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
     {
       if (vect_debug_details (NULL))
 	fprintf (dump_file, "reduction/induction - unsupported.");
-      internal_error ("no support for reduction/induction"); /* FORNOW */
+      abort (); /* FORNOW no support for reduction/induction.  */
     }
 
 
@@ -942,7 +965,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       break;
     case NOP_EXPR:
       def = TREE_OPERAND (def_stmt, 0);
-      gcc_assert (IS_EMPTY_STMT (def_stmt));
+#ifdef ENABLE_CHECKING
+      if (!IS_EMPTY_STMT (def_stmt))
+	abort ();
+#endif
       def = op;
       break;
     default:
@@ -951,7 +977,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
           fprintf (dump_file, "unsupported defining stmt: ");
 	  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
 	}
-      internal_error ("unsupported defining stmt");
+      abort ();
     }
 
   /* Build a tree with vector elements. Create 'vec_inv = {inv,inv,..,inv}'  */
@@ -991,7 +1017,10 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
 
   while (stmt != bsi_stmt (*bsi) && !bsi_end_p (*bsi))
     bsi_next (bsi);
-  gcc_assert (stmt == bsi_stmt (*bsi));
+#ifdef ENABLE_CHECKING
+  if (stmt != bsi_stmt (*bsi))
+    abort ();
+#endif
 }
 
 
@@ -1323,34 +1352,33 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   bool is_store = false;
   tree vec_stmt = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  bool done;
 
   switch (STMT_VINFO_TYPE (stmt_info))
     {
     case op_vec_info_type:
-      done = vectorizable_operation (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
+      if (!vectorizable_operation (stmt, bsi, &vec_stmt))
+        abort ();
       break;
 
     case assignment_vec_info_type:
-      done = vectorizable_assignment (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
+      if (!vectorizable_assignment (stmt, bsi, &vec_stmt))
+	abort ();
       break;
 
     case load_vec_info_type:
-      done = vectorizable_load (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
+      if (!vectorizable_load (stmt, bsi, &vec_stmt))
+	abort ();
       break;
 
     case store_vec_info_type:
-      done = vectorizable_store (stmt, bsi, &vec_stmt);
-      gcc_assert (done);
+      if (!vectorizable_store (stmt, bsi, &vec_stmt))
+	abort ();
       is_store = true;
       break;
     default:
       if (vect_debug_details (NULL))
         fprintf (dump_file, "stmt not supported.");
-      gcc_unreachable ();
+      abort ();
     }
 
   STMT_VINFO_VEC_STMT (stmt_info) = vec_stmt;
@@ -1378,25 +1406,36 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   tree cond;
   tree lb_type;
 
-  gcc_assert (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo));
+#ifdef ENABLE_CHECKING
+  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+    abort ();
+#endif
   old_N = LOOP_VINFO_NITERS (loop_vinfo);
   vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 
+#ifdef ENABLE_CHECKING
   /* FORNOW: 
      assuming number-of-iterations divides by the vectorization factor.  */
-  gcc_assert (!(old_N % vf));
+  if (old_N % vf)
+    abort ();
+#endif
 
   orig_cond_expr = LOOP_VINFO_EXIT_COND (loop_vinfo);
-  gcc_assert (orig_cond_expr);
-  gcc_assert (orig_cond_expr == bsi_stmt (loop_exit_bsi));
+#ifdef ENABLE_CHECKING
+  if (!orig_cond_expr)
+    abort ();
+#endif
+  if (orig_cond_expr != bsi_stmt (loop_exit_bsi))
+    abort ();
 
   create_iv (integer_zero_node, integer_one_node, NULL_TREE, loop, 
 	     &loop_exit_bsi, false, &indx_before_incr, &indx_after_incr);
 
   /* bsi_insert is using BSI_NEW_STMT. We need to bump it back 
-     to point to the exit condition.  */
+     to point to the exit condition. */
   bsi_next (&loop_exit_bsi);
-  gcc_assert (bsi_stmt (loop_exit_bsi) == orig_cond_expr);
+  if (bsi_stmt (loop_exit_bsi) != orig_cond_expr)
+    abort ();
 
   /* new loop exit test:  */
   lb_type = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (orig_cond_expr, 0), 1));
@@ -1445,8 +1484,9 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */
 
-  gcc_assert (loop->header->pred->pred_next);
-  gcc_assert (!loop->header->pred->pred_next->pred_next);
+  if (!loop->header->pred->pred_next
+      || loop->header->pred->pred_next->pred_next)
+    abort ();
 
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
 
@@ -1475,7 +1515,10 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	      print_generic_expr (dump_file, stmt, TDF_SLIM);
 	    }	
 	  stmt_info = vinfo_for_stmt (stmt);
-	  gcc_assert (stmt_info);
+#ifdef ENABLE_CHECKING
+	  if (!stmt_info)
+	    abort ();
+#endif
 	  if (!STMT_VINFO_RELEVANT_P (stmt_info))
 	    {
 	      bsi_next (&si);
@@ -1485,8 +1528,8 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	  /* FORNOW: Verify that all stmts operate on the same number of
 	             units and no inner unrolling is necessary.  */
 	  vectype = STMT_VINFO_VECTYPE (stmt_info);
-	  gcc_assert (GET_MODE_NUNITS (TYPE_MODE (vectype))
-		      == vectorization_factor);
+	  if (GET_MODE_NUNITS (TYPE_MODE (vectype)) != vectorization_factor)
+	    abort ();
 #endif
 	  /* -------- vectorize statement ------------ */
 	  if (vect_debug_details (NULL))
@@ -1625,9 +1668,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      fprintf (dump_file, "==> examining statement: ");
 	      print_generic_expr (dump_file, stmt, TDF_SLIM);
 	    }
-
-	  gcc_assert (stmt_info);
-
+#ifdef ENABLE_CHECKING
+	  if (!stmt_info)
+	    abort ();
+#endif
 	  /* skip stmts which do not need to be vectorized.
 	     this is expected to include:
 	     - the COND_EXPR which is the loop exit condition
@@ -2843,7 +2887,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 }
 
 
-/* Utility functions used by vect_mark_stmts_to_be_vectorized.  */
+/* Utility functions used by vect_mark_stmts_to_be_vectorized. */
 
 /* Function vect_mark_relevant.
 

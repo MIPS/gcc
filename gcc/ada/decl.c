@@ -348,7 +348,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	 not a deferred constant but a constant whose value is built
 	 manually.  */
 
-      if (definition && !gnu_expr 
+      if (definition && !gnu_expr
 	  && !No_Initialization (Declaration_Node (gnat_entity))
 	  && No (Renamed_Object (gnat_entity)))
 	{
@@ -922,11 +922,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    used_by_ref = true;
 	    const_flag = true;
 
-	    /* Get the data part of GNU_EXPR in case this was a
-	       aliased object whose nominal subtype is unconstrained.
-	       In that case the pointer above will be a thin pointer and
-	       build_allocator will automatically make the template and
-	       constructor already made above.  */
+	    /* In case this was a aliased object whose nominal subtype is
+	       unconstrained, the pointer above will be a thin pointer and
+	       build_allocator will automatically make the template.
+
+	       If we have a template initializer only (that we made above),
+	       pretend there is none and rely on what build_allocator creates
+	       again anyway.  Otherwise (if we have a full initializer), get
+	       the data part and feed that to build_allocator.  */
 
 	    if (definition)
 	      {
@@ -937,11 +940,17 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  {
 		    gnu_alloc_type
 		      = TREE_TYPE (TREE_CHAIN (TYPE_FIELDS (gnu_alloc_type)));
-		    gnu_expr
-		      = build_component_ref
-			(gnu_expr, NULL_TREE,
-			 TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (gnu_expr))),
-			 false);
+
+                   if (TREE_CODE (gnu_expr) == CONSTRUCTOR
+                       &&
+                       TREE_CHAIN (CONSTRUCTOR_ELTS (gnu_expr)) == NULL_TREE)
+                     gnu_expr = 0;
+                   else
+                     gnu_expr
+                       = build_component_ref
+                         (gnu_expr, NULL_TREE,
+                          TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (gnu_expr))),
+			  false);
 		  }
 
 		if (TREE_CODE (TYPE_SIZE_UNIT (gnu_alloc_type)) == INTEGER_CST
@@ -1786,7 +1795,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		 does not overflow in SIZETYPE, ignore the overflow
 		 indications.  */
 	      if ((TYPE_PRECISION (gnu_index_subtype)
-		   > TYPE_PRECISION (sizetype))
+		   > TYPE_PRECISION (sizetype)
+		   || TYPE_UNSIGNED (gnu_index_subtype)
+		      != TYPE_UNSIGNED (sizetype))
 		  && TREE_CODE (gnu_min) == INTEGER_CST
 		  && TREE_CODE (gnu_max) == INTEGER_CST
 		  && TREE_OVERFLOW (gnu_min) && TREE_OVERFLOW (gnu_max)
@@ -1801,7 +1812,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      /* Similarly, if the range is null, use bounds of 1..0 for
 		 the sizetype bounds.  */
 	      else if ((TYPE_PRECISION (gnu_index_subtype)
-			> TYPE_PRECISION (sizetype))
+			> TYPE_PRECISION (sizetype)
+		       || TYPE_UNSIGNED (gnu_index_subtype)
+		          != TYPE_UNSIGNED (sizetype))
 		       && TREE_CODE (gnu_min) == INTEGER_CST
 		       && TREE_CODE (gnu_max) == INTEGER_CST
 		       && (TREE_OVERFLOW (gnu_min) || TREE_OVERFLOW (gnu_max))
@@ -5450,7 +5463,7 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
   else if (gnu_our_rep_list)
     {
       tree gnu_rep_type
-	= (gnu_field_list ? gnu_record_type : make_node (RECORD_TYPE));
+	= (gnu_field_list ? make_node (RECORD_TYPE) : gnu_record_type);
       int len = list_length (gnu_our_rep_list);
       tree *gnu_arr = (tree *) alloca (sizeof (tree) * len);
       int i;

@@ -193,8 +193,7 @@ present_gnu_tree (Entity_Id gnat_entity)
 int
 global_bindings_p (void)
 {
-  return (force_global || !current_binding_level
-	  || !current_binding_level->chain ? -1 : 0);
+  return ((force_global || !current_function_decl) ? -1 : 0);
 }
 
 /* Enter a new binding level. */
@@ -365,7 +364,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
     TYPE_NAME (TREE_TYPE (decl)) = decl;
 
   if (TREE_CODE (decl) != CONST_DECL)
-    rest_of_decl_compilation (decl, NULL, global_bindings_p (), 0);
+    rest_of_decl_compilation (decl, global_bindings_p (), 0);
 }
 
 /* Do little here.  Set up the standard declarations later after the
@@ -382,7 +381,7 @@ gnat_init_decl_processing (void)
   free_binding_level = 0;
   gnat_pushlevel ();
 
-  build_common_tree_nodes (0);
+  build_common_tree_nodes (false, true);
 
   /* In Ada, we use a signed type for SIZETYPE.  Use the signed type
      corresponding to the size of Pmode.  In most cases when ptr_mode and
@@ -425,7 +424,7 @@ gnat_define_builtin (const char *name, tree type,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   gnat_pushdecl (decl, Empty);
   DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -482,6 +481,9 @@ gnat_install_builtins ()
   gnat_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll",
 		       true);
 
+  /* The init_trampoline and adjust_trampoline builtins aren't used directly.
+     They are inserted during lowering of nested functions.  */
+
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
@@ -494,21 +496,24 @@ gnat_install_builtins ()
   gnat_define_builtin ("__builtin_adjust_trampoline", ftype,
 		       BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (ptr_void_type_node, tmp);
-  gnat_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
-		       "stack_alloc", false);
+  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
+     They are inserted during gimplification to implement variable sized stack
+     allocation.  */
 
-  /* The stack_save and stack_restore builtins aren't used directly.  They
-     are inserted during gimplification to implement stack_alloc calls.  */
   ftype = build_function_type (ptr_void_type_node, void_list_node);
   gnat_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 		       "stack_save", false);
+
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
   ftype = build_function_type (void_type_node, tmp);
   gnat_define_builtin ("__builtin_stack_restore", ftype,
 		       BUILT_IN_STACK_RESTORE, "stack_restore", false);
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (ptr_void_type_node, tmp);
+  gnat_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+		       "alloca", false);
+
 }
 
 /* Create the predefined scalar types such as `integer_type_node' needed
@@ -575,7 +580,7 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
   /* Make the types and functions used for exception processing.    */
   jmpbuf_type
     = build_array_type (gnat_type_for_mode (Pmode, 0),
-			build_index_type (build_int_2 (5, 0)));
+			build_index_type (build_int_cst (NULL_TREE, 5)));
   create_type_decl (get_identifier ("JMPBUF_T"), jmpbuf_type, NULL,
 		    false, true, Empty);
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);
@@ -1270,7 +1275,7 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
   else if (code != ENUMERAL_TYPE && code != RECORD_TYPE
       && !((code == POINTER_TYPE || code == REFERENCE_TYPE)
 	   && TYPE_IS_DUMMY_P (TREE_TYPE (type))))
-    rest_of_decl_compilation (type_decl, NULL, global_bindings_p (), 0);
+    rest_of_decl_compilation (type_decl, global_bindings_p (), 0);
 
   if (!TYPE_IS_DUMMY_P (type))
     gnat_pushdecl (type_decl, gnat_node);
@@ -1354,7 +1359,7 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
     TREE_ADDRESSABLE (var_decl) = 1;
 
   if (TREE_CODE (var_decl) != CONST_DECL)
-    rest_of_decl_compilation (var_decl, 0, global_bindings_p (), 0);
+    rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
 
   return var_decl;
 }
@@ -1707,7 +1712,7 @@ create_subprog_decl (tree subprog_name, tree asm_name,
   gnat_pushdecl (subprog_decl, gnat_node);
 
   /* Output the assembler code and/or RTL for the declaration.  */
-  rest_of_decl_compilation (subprog_decl, 0, global_bindings_p (), 0);
+  rest_of_decl_compilation (subprog_decl, global_bindings_p (), 0);
 
   return subprog_decl;
 }
@@ -1731,7 +1736,7 @@ begin_subprog_body (tree subprog_decl)
        param_decl = TREE_CHAIN (param_decl))
     DECL_CONTEXT (param_decl) = subprog_decl;
 
-  make_decl_rtl (subprog_decl, NULL);
+  make_decl_rtl (subprog_decl);
 
   /* We handle pending sizes via the elaboration of types, so we don't need to
      save them.  This causes them to be marked as part of the outer function
@@ -2542,7 +2547,7 @@ update_pointer_to (tree old_type, tree new_type)
 	    if (TYPE_NAME (ptr1)
 		&& TREE_CODE (TYPE_NAME (ptr1)) == TYPE_DECL
 		&& TREE_CODE (new_type) != ENUMERAL_TYPE)
-	      rest_of_decl_compilation (TYPE_NAME (ptr1), NULL,
+	      rest_of_decl_compilation (TYPE_NAME (ptr1),
 					global_bindings_p (), 0);
 	  }
 
@@ -2555,7 +2560,7 @@ update_pointer_to (tree old_type, tree new_type)
 	    if (TYPE_NAME (ref1)
 		&& TREE_CODE (TYPE_NAME (ref1)) == TYPE_DECL
 		&& TREE_CODE (new_type) != ENUMERAL_TYPE)
-	      rest_of_decl_compilation (TYPE_NAME (ref1), NULL,
+	      rest_of_decl_compilation (TYPE_NAME (ref1),
 					global_bindings_p (), 0);
 	  }
     }

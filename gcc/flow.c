@@ -1868,19 +1868,22 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	  rtx set_src = SET_SRC (pc_set (BB_END (bb)));
 	  rtx cond_true = XEXP (set_src, 0);
 	  rtx reg = XEXP (cond_true, 0);
+ 	  enum rtx_code inv_cond;
 
 	  if (GET_CODE (reg) == SUBREG)
 	    reg = SUBREG_REG (reg);
 
 	  /* We can only track conditional lifetimes if the condition is
-	     in the form of a comparison of a register against zero.  
-	     If the condition is more complex than that, then it is safe
-	     not to record any information.  */
-	  if (REG_P (reg)
+ 	     in the form of a reversible comparison of a register against
+ 	     zero.  If the condition is more complex than that, then it is
+ 	     safe not to record any information.  */
+ 	  inv_cond = reversed_comparison_code (cond_true, BB_END (bb));
+ 	  if (inv_cond != UNKNOWN
+ 	      && REG_P (reg)
 	      && XEXP (cond_true, 1) == const0_rtx)
 	    {
 	      rtx cond_false
-		= gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond_true)),
+		= gen_rtx_fmt_ee (inv_cond,
 				  GET_MODE (cond_true), XEXP (cond_true, 0),
 				  XEXP (cond_true, 1));
 	      if (GET_CODE (XEXP (set_src, 1)) == PC)
@@ -2123,7 +2126,7 @@ insn_dead_p (struct propagate_block_info *pbi, rtx x, int call_ok,
 	     rtx_equal_p does not check the alias set or flags, we also
 	     must have the potential for them to conflict (anti_dependence).  */
 	  for (temp = pbi->mem_set_list; temp != 0; temp = XEXP (temp, 1))
-	    if (unchanging_anti_dependence (r, XEXP (temp, 0)))
+	    if (anti_dependence (r, XEXP (temp, 0)))
 	      {
 		rtx mem = XEXP (temp, 0);
 
@@ -3756,7 +3759,7 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 	      while (temp)
 		{
 		  next = XEXP (temp, 1);
-		  if (unchanging_anti_dependence (XEXP (temp, 0), x))
+		  if (anti_dependence (XEXP (temp, 0), x))
 		    {
 		      /* Splice temp out of the list.  */
 		      if (prev)

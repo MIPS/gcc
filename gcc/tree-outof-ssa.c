@@ -48,6 +48,14 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 
+/* Flags to pass to remove_ssa_form.  */
+
+#define SSANORM_PERFORM_TER		0x1
+#define SSANORM_COMBINE_TEMPS		0x2
+#define SSANORM_REMOVE_ALL_PHIS		0x4
+#define SSANORM_COALESCE_PARTITIONS	0x8
+#define SSANORM_USE_COALESCE_LIST	0x10
+
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
    edges represented as pairs of nodes.
@@ -1453,8 +1461,9 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   def_optype defs;
   use_optype uses;
   tree var, def;
-  int num_use_ops, version, i;
+  int num_use_ops, version;
   var_map map = tab->map;
+  ssa_op_iter iter;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1504,9 +1513,8 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   version = SSA_NAME_VERSION (def);
 
   /* Add this expression to the dependency list for each use partition.  */
-  for (i = 0; i < num_use_ops; i++)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     {
-      var = USE_OP (uses, i);
       add_dependance (tab, version, var);
     }
 
@@ -1638,11 +1646,10 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
   block_stmt_iterator bsi;
   tree stmt, def;
   stmt_ann_t ann;
-  int partition, num, i;
-  use_optype uses;
-  def_optype defs;
+  int partition;
   var_map map = tab->map;
   value_expr_p p;
+  ssa_op_iter iter;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -1650,11 +1657,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       ann = stmt_ann (stmt);
 
       /* Determine if this stmt finishes an existing expression.  */
-      uses = USE_OPS (ann);
-      num = NUM_USES (uses);
-      for (i = 0; i < num; i++)
+      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_USE)
 	{
-	  def = USE_OP (uses, i);
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
 	    {
 	      /* Mark expression as replaceable unless stmt is volatile.  */
@@ -1666,11 +1670,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	}
       
       /* Next, see if this stmt kills off an active expression.  */
-      defs = DEF_OPS (ann);
-      num = NUM_DEFS (defs);
-      for (i = 0; i < num; i++)
+      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
 	{
-	  def = DEF_OP (defs, i);
 	  partition = var_to_partition (map, def);
 	  if (partition != NO_PARTITION && tab->partition_dep_list[partition])
 	    kill_expr (tab, partition, true);
@@ -1872,13 +1873,15 @@ rewrite_trees (var_map map, tree *values)
     {
       for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
-	  size_t i, num_uses, num_defs;
+	  size_t num_uses, num_defs;
 	  use_optype uses;
 	  def_optype defs;
 	  tree stmt = bsi_stmt (si);
 	  use_operand_p use_p;
+	  def_operand_p def_p;
 	  int remove = 0, is_copy = 0;
 	  stmt_ann_t ann;
+	  ssa_op_iter iter;
 
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
@@ -1890,10 +1893,8 @@ rewrite_trees (var_map map, tree *values)
 
 	  uses = USE_OPS (ann);
 	  num_uses = NUM_USES (uses);
-
-	  for (i = 0; i < num_uses; i++)
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
-	      use_p = USE_OP_PTR (uses, i);
 	      if (replace_use_variable (map, use_p, values))
 	        changed = true;
 	    }
@@ -1913,10 +1914,8 @@ rewrite_trees (var_map map, tree *values)
 	    }
 	  if (!remove)
 	    {
-	      for (i = 0; i < num_defs; i++)
+	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
 		{
-		  def_operand_p def_p = DEF_OP_PTR (defs, i);
-
 		  if (replace_def_variable (map, def_p, NULL))
 		    changed = true;
 
@@ -1927,7 +1926,7 @@ rewrite_trees (var_map map, tree *values)
 		      && (DEF_FROM_PTR (def_p) == USE_OP (uses, 0)))
 		    remove = 1;
 		}
-	      if (changed)
+	      if (changed & !remove)
 		modify_stmt (stmt);
 	    }
 
@@ -1956,7 +1955,7 @@ rewrite_trees (var_map map, tree *values)
 /* Remove the variables specified in MAP from SSA form.  Any debug information
    is sent to DUMP.  FLAGS indicate what options should be used.  */
 
-void
+static void
 remove_ssa_form (FILE *dump, var_map map, int flags)
 {
   tree_live_info_p liveinfo;
@@ -2038,122 +2037,6 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 
   dump_file = save;
 }
-
-
-/* Take a subset of the variables VARS in the current function out of SSA
-   form.  */
-
-void
-rewrite_vars_out_of_ssa (bitmap vars)
-{
-  if (bitmap_first_set_bit (vars) >= 0)
-    {
-      var_map map;
-      basic_block bb;
-      tree phi;
-      int i;
-      int ssa_flags;
-
-      /* Search for PHIs in which one of the PHI arguments is marked for
-	 translation out of SSA form, but for which the PHI result is not
-	 marked for translation out of SSA form.
-
-	 Our per-variable out of SSA translation can not handle that case;
-	 however we can easily handle it here by creating a new instance
-	 of the PHI result's underlying variable and initializing it to
-	 the offending PHI argument on the edge associated with the
-	 PHI argument.  We then change the PHI argument to use our new
-	 instead of the PHI's underlying variable.
-
-	 You might think we could register partitions for the out-of-ssa
-	 translation here and avoid a second walk of the PHI nodes.  No
-	 such luck since the size of the var map will change if we have
-	 to manually take variables out of SSA form here.  */
-      FOR_EACH_BB (bb)
-	{
-	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	    {
-	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-
-	      /* If the definition is marked for renaming, then we need
-		 to do nothing more for this PHI node.  */
-	      if (bitmap_bit_p (vars, var_ann (result)->uid))
-		continue;
-
-	      /* Look at all the arguments and see if any of them are
-		 marked for renaming.  If so, we need to handle them
-		 specially.  */
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		{
-		  tree arg = PHI_ARG_DEF (phi, i);
-
-		  /* If the argument is not an SSA_NAME, then we can ignore
-		     this argument.  */
-		  if (TREE_CODE (arg) != SSA_NAME)
-		    continue;
-
-		  /* If this argument is marked for renaming, then we need
-		     to undo the copy propagation so that we can take
-		     the argument out of SSA form without taking the
-		     result out of SSA form.  */
-		  arg = SSA_NAME_VAR (arg);
-		  if (bitmap_bit_p (vars, var_ann (arg)->uid))
-		    {
-		      tree new_name, copy;
-
-		      /* Get a new SSA_NAME for the copy, it is based on
-			 the result, not the argument!   We use the PHI
-			 as the definition since we haven't created the
-			 definition statement yet.  */
-		      new_name = make_ssa_name (result, phi);
-
-		      /* Now create the copy statement.  */
-		      copy = build (MODIFY_EXPR, TREE_TYPE (arg),
-				    new_name, PHI_ARG_DEF (phi, i));
-
-		      /* Now update SSA_NAME_DEF_STMT to point to the
-			 newly created statement.  */
-		      SSA_NAME_DEF_STMT (new_name) = copy;
-
-		      /* Now make the argument reference our new SSA_NAME.  */
-		      SET_PHI_ARG_DEF (phi, i, new_name);
-
-		      /* Queue the statement for insertion.  */
-		      bsi_insert_on_edge (PHI_ARG_EDGE (phi, i), copy);
-		      modify_stmt (copy);
-		    }
-		}
-	    }
-	}
-
-      /* If any copies were inserted on edges, actually insert them now.  */
-      bsi_commit_edge_inserts (NULL);
-                                                                                
-      /* Now register partitions for all instances of the variables we
-	 are taking out of SSA form.  */
-      map = init_var_map (num_ssa_names + 1);
-      register_ssa_partitions_for_vars (vars, map);
-
-      /* Now that we have all the partitions registered, translate the
-	 appropriate variables out of SSA form.  */
-      ssa_flags = SSANORM_COALESCE_PARTITIONS;
-      if (flag_tree_combine_temps)
-	ssa_flags |= SSANORM_COMBINE_TEMPS;
-      remove_ssa_form (dump_file, map, ssa_flags);
-
-      /* And finally, reset the out_of_ssa flag for each of the vars
-	 we just took out of SSA form.  */
-      EXECUTE_IF_SET_IN_BITMAP (vars, 0, i,
-	{
-	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
-	});
-
-     /* Free the map as we are done with it.  */
-     delete_var_map (map);
-
-    }
-}
-
 
 /* Take the current function out of SSA form, as described in
    R. Morgan, ``Building an Optimizing Compiler'',

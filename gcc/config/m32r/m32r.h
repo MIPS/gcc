@@ -1712,7 +1712,7 @@ extern char m32r_punct_chars[256];
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Max number of bytes we can move from memory
@@ -1773,7 +1773,6 @@ enum m32r_function_type
 				  CONST_DOUBLE }},			\
 { "two_insn_const_operand",	{ CONST_INT }},				\
 { "symbolic_operand",		{ SYMBOL_REF, LABEL_REF, CONST }},	\
-{ "seth_add3_operand",		{ SYMBOL_REF, LABEL_REF, CONST }},	\
 { "int8_operand",		{ CONST_INT }},				\
 { "uint16_operand",		{ CONST_INT }},				\
 { "reg_or_int16_operand",	{ REG, SUBREG, CONST_INT }},		\

@@ -315,7 +315,6 @@ free_after_parsing (struct function *f)
   /* f->eh->eh_return_stub_label is used by code generation.  */
 
   lang_hooks.function.final (f);
-  f->stmt = NULL;
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -589,10 +588,9 @@ make_slot_available (struct temp_slot *temp)
 
    KEEP is 1 if this slot is to be retained after a call to
    free_temp_slots.  Automatic variables for a block are allocated
-   with this flag.  KEEP is 2 if we allocate a longer term temporary,
-   whose lifetime is controlled by CLEANUP_POINT_EXPRs.  KEEP is 3
-   if we are to allocate something at an inner level to be treated as
-   a variable in the block (e.g., a SAVE_EXPR).
+   with this flag.  KEEP values of 2 or 3 were needed respectively
+   for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
+   or for SAVE_EXPRs, but they are now unused and will abort.
 
    TYPE is the type that will be used for the stack slot.  */
 
@@ -607,6 +605,10 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
   if (size == -1)
+    abort ();
+
+  /* These are now unused.  */
+  if (keep > 1)
     abort ();
 
   if (mode == BLKmode)
@@ -733,22 +735,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   p->in_use = 1;
   p->addr_taken = 0;
   p->type = type;
-
-  if (keep == 2)
-    {
-      p->level = target_temp_slot_level;
-      p->keep = 1;
-    }
-  else if (keep == 3)
-    {
-      p->level = var_temp_slot_level;
-      p->keep = 0;
-    }
-  else
-    {
-      p->level = temp_slot_level;
-      p->keep = keep;
-    }
+  p->level = temp_slot_level;
+  p->keep = keep;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -766,8 +754,6 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   /* If a type is specified, set the relevant flags.  */
   if (type != 0)
     {
-      RTX_UNCHANGING_P (slot) = (lang_hooks.honor_readonly
-				 && TYPE_READONLY (type));
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
       MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
     }
@@ -1190,8 +1176,6 @@ init_temp_slots (void)
   avail_temp_slots = 0;
   used_temp_slots = 0;
   temp_slot_level = 0;
-  var_temp_slot_level = 0;
-  target_temp_slot_level = 0;
 }
 
 /* These routines are responsible for converting virtual register references
@@ -1883,6 +1867,11 @@ aggregate_value_p (tree exp, tree fntype)
 
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
+  /* If the front end has decided that this needs to be passed by
+     reference, do so.  */
+  if ((TREE_CODE (exp) == PARM_DECL || TREE_CODE (exp) == RESULT_DECL)
+      && DECL_BY_REFERENCE (exp))
+    return 1;
   if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
@@ -2187,15 +2176,6 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
       data->passed_pointer = true;
       passed_mode = nominal_mode = Pmode;
     }
-  /* See if the frontend wants to pass this by invisible reference.  */
-  else if (passed_type != nominal_type
-	   && POINTER_TYPE_P (passed_type)
-	   && TREE_TYPE (passed_type) == nominal_type)
-    {
-      nominal_type = passed_type;
-      data->passed_pointer = 1;
-      passed_mode = nominal_mode = Pmode;
-    }
 
   /* Find mode as it is passed by the ABI.  */
   promoted_mode = passed_mode;
@@ -2360,7 +2340,7 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
-  /* Trivially true if we've no incomming register.  */
+  /* Trivially true if we've no incoming register.  */
   if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
@@ -2636,7 +2616,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	      rtx reg = gen_rtx_REG (word_mode, REGNO (data->entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg,
-				build_int_2 (by, 0), NULL_RTX, 1);
+				build_int_cst (NULL_TREE, by),
+				NULL_RTX, 1);
 	      tem = change_address (mem, word_mode, 0);
 	      emit_move_insn (tem, x);
 	    }
@@ -2684,10 +2665,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       SET_DECL_RTL (parm, x);
     }
   else
-    {
-      SET_DECL_RTL (parm, parmreg);
-      maybe_set_unchanging (DECL_RTL (parm), parm);
-    }
+    SET_DECL_RTL (parm, parmreg);
 
   /* Copy the value into the register.  */
   if (data->nominal_mode != data->passed_mode
@@ -3095,9 +3073,14 @@ assign_parms (tree fndecl)
       rtx addr = DECL_RTL (all.function_result_decl);
       rtx x;
 
-      addr = convert_memory_address (Pmode, addr);
-      x = gen_rtx_MEM (DECL_MODE (result), addr);
-      set_mem_attributes (x, result, 1);
+      if (DECL_BY_REFERENCE (result))
+	x = addr;
+      else
+	{
+	  addr = convert_memory_address (Pmode, addr);
+	  x = gen_rtx_MEM (DECL_MODE (result), addr);
+	  set_mem_attributes (x, result, 1);
+	}
       SET_DECL_RTL (result, x);
     }
 
@@ -3784,7 +3767,6 @@ allocate_struct_function (tree fndecl)
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
-  init_stmt_for_function ();
   init_eh_for_function ();
 
   lang_hooks.function.init (cfun);
@@ -4020,8 +4002,12 @@ expand_function_start (tree subr)
 	}
       if (value_address)
 	{
-	  rtx x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), value_address);
-	  set_mem_attributes (x, DECL_RESULT (subr), 1);
+	  rtx x = value_address;
+	  if (!DECL_BY_REFERENCE (DECL_RESULT (subr)))
+	    {
+	      x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), x);
+	      set_mem_attributes (x, DECL_RESULT (subr), 1);
+	    }
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
@@ -4066,7 +4052,6 @@ expand_function_start (tree subr)
 
       set_decl_incoming_rtl (parm, static_chain_incoming_rtx);
       SET_DECL_RTL (parm, local);
-      maybe_set_unchanging (local, parm);
       mark_reg_pointer (local, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
 
       emit_move_insn (local, static_chain_incoming_rtx);
@@ -4386,17 +4371,22 @@ expand_function_end (void)
   if (current_function_returns_struct
       || current_function_returns_pcc_struct)
     {
-      rtx value_address
-	= XEXP (DECL_RTL (DECL_RESULT (current_function_decl)), 0);
+      rtx value_address = DECL_RTL (DECL_RESULT (current_function_decl));
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
+      rtx outgoing;
+
+      if (DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
+	type = TREE_TYPE (type);
+      else
+	value_address = XEXP (value_address, 0);
+
 #ifdef FUNCTION_OUTGOING_VALUE
-      rtx outgoing
-	= FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
-				   current_function_decl);
+      outgoing = FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
+					  current_function_decl);
 #else
-      rtx outgoing
-	= FUNCTION_VALUE (build_pointer_type (type), current_function_decl);
-#endif
+      outgoing = FUNCTION_VALUE (build_pointer_type (type),
+				 current_function_decl);
+#endif 
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */

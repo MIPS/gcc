@@ -500,9 +500,27 @@ extern int snprintf (char *, size_t, const char *, ...);
 #define __builtin_expect(a, b) (a)
 #endif
 
+/* Redefine abort to report an internal error w/o coredump, and
+   reporting the location of the error in the source file.  */
+extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
+#define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
+
+/* Use gcc_assert(EXPR) to test invariants.  */
+#if ENABLE_ASSERT_CHECKING
+#define gcc_assert(EXPR) 						\
+   ((void)(!(EXPR) ? fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0 : 0))
+#else
+/* Include EXPR, so that unused variable warnings do not occur.  */
+#define gcc_assert(EXPR) ((void)(0 && (EXPR)))
+#endif
+
+/* Use gcc_unreachable() to mark unreachable locations (like an
+   unreachable default case of a switch.  Do not use gcc_assert(0).  */
+#define gcc_unreachable() (fancy_abort (__FILE__, __LINE__, __FUNCTION__))
+
 /* Provide a fake boolean type.  We make no attempt to use the
    C99 _Bool, as it may not be available in the bootstrap compiler,
-   and even if it is, it is liable to be buggy.  
+   and even if it is, it is liable to be buggy.
    This must be after all inclusion of system headers, as some of
    them will mess us up.  */
 
@@ -595,7 +613,8 @@ extern int snprintf (char *, size_t, const char *, ...);
 	SETUP_INCOMING_VARARGS EXPAND_BUILTIN_SAVEREGS			\
 	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS		\
 	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
-	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE
+	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE               \
+        VECTOR_MODE_SUPPORTED_P
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have

@@ -135,16 +135,6 @@ struct loop
   /* The following are currently used by loop.c but they are likely to
      disappear as loop.c is converted to use the CFG.  */
 
-  /* Nonzero if the loop has a NOTE_INSN_LOOP_VTOP.  */
-  rtx vtop;
-
-  /* Nonzero if the loop has a NOTE_INSN_LOOP_CONT.
-     A continue statement will generate a branch to NEXT_INSN (cont).  */
-  rtx cont;
-
-  /* The dominator of cont.  */
-  rtx cont_dominator;
-
   /* The NOTE_INSN_LOOP_BEG.  */
   rtx start;
 
@@ -185,6 +175,10 @@ struct loop
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
+
+  /* If not NULL, loop has just single exit edge stored here (edges to the
+     EXIT_BLOCK_PTR do not count.  */
+  edge single_exit;
 };
 
 /* Flags for state of loop structure.  */
@@ -192,7 +186,8 @@ enum
 {
   LOOPS_HAVE_PREHEADERS = 1,
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
-  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4
+  LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
+  LOOPS_HAVE_MARKED_SINGLE_EXITS = 8
 };
 
 /* Structure to hold CFG information about natural loops within a function.  */
@@ -258,6 +253,7 @@ extern void flow_loop_dump (const struct loop *, FILE *,
 extern int flow_loop_scan (struct loop *, int);
 extern void flow_loop_free (struct loop *);
 void mark_irreducible_loops (struct loops *);
+void mark_single_exit_loops (struct loops *);
 extern void create_loop_notes (void);
 
 /* Loop data structure manipulation/querying.  */
@@ -268,6 +264,7 @@ extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
+extern unsigned tree_num_loop_insns (struct loop *);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
@@ -330,7 +327,7 @@ extern edge split_loop_bb (basic_block, rtx);
    If first_special is true, the value in the first iteration is
      delta + mult * base
      
-   If extend = NIL, first_special must be false, delta 0, mult 1 and value is
+   If extend = UNKNOWN, first_special must be false, delta 0, mult 1 and value is
      subreg_{mode} (base + i * step)
 
    The get_iv_value function can be used to obtain these expressions.
@@ -345,7 +342,7 @@ struct rtx_iv
      see the description above).  */
   rtx base, step;
 
-  /* The type of extend applied to it (SIGN_EXTEND, ZERO_EXTEND or NIL).  */
+  /* The type of extend applied to it (SIGN_EXTEND, ZERO_EXTEND or UNKNOWN).  */
   enum rtx_code extend;
 
   /* Operations applied in the extended mode.  */

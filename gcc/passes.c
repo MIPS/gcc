@@ -320,18 +320,16 @@ close_dump_file (enum dump_file_index index,
    and TYPE_DECL nodes.
 
    This does nothing for local (non-static) variables, unless the
-   variable is a register variable with an ASMSPEC.  In that case, or
-   if the variable is not an automatic, it sets up the RTL and
-   outputs any assembler code (label definition, storage allocation
-   and initialization).
+   variable is a register variable with DECL_ASSEMBLER_NAME set.  In
+   that case, or if the variable is not an automatic, it sets up the
+   RTL and outputs any assembler code (label definition, storage
+   allocation and initialization).
 
-   DECL is the declaration.  If ASMSPEC is nonzero, it specifies
-   the assembler symbol name to be used.  TOP_LEVEL is nonzero
+   DECL is the declaration.  TOP_LEVEL is nonzero
    if this declaration is not within a function.  */
 
 void
 rest_of_decl_compilation (tree decl,
-			  const char *asmspec,
 			  int top_level,
 			  int at_end)
 {
@@ -348,15 +346,17 @@ rest_of_decl_compilation (tree decl,
       }
   }
 
+  /* Can't defer this, because it needs to happen before any
+     later function definitions are processed.  */
+  if (DECL_REGISTER (decl) && DECL_ASSEMBLER_NAME_SET_P (decl))
+    make_decl_rtl (decl);
+
   /* Forward declarations for nested functions are not "external",
      but we need to treat them as if they were.  */
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
       || TREE_CODE (decl) == FUNCTION_DECL)
     {
       timevar_push (TV_VARCONST);
-
-      if (asmspec)
-	make_decl_rtl (decl, asmspec);
 
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.
@@ -392,22 +392,6 @@ rest_of_decl_compilation (tree decl,
 #endif
 
       timevar_pop (TV_VARCONST);
-    }
-  else if (DECL_REGISTER (decl) && asmspec != 0)
-    {
-      if (decode_reg_name (asmspec) >= 0)
-	{
-	  SET_DECL_RTL (decl, NULL_RTX);
-	  make_decl_rtl (decl, asmspec);
-	}
-      else
-	{
-	  error ("%Hinvalid register name `%s' for register variable",
-		 &DECL_SOURCE_LOCATION (decl), asmspec);
-	  DECL_REGISTER (decl) = 0;
-	  if (!top_level)
-	    expand_decl (decl);
-	}
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -469,6 +453,8 @@ rest_of_handle_final (void)
     /* Otherwise, it feels unclean to switch sections in the middle.  */
     output_function_exception_table ();
 #endif
+
+    user_defined_section_attribute = false;
 
     if (! quiet_flag)
       fflush (asm_out_file);
@@ -855,10 +841,10 @@ rest_of_handle_sched2 (void)
 static void
 rest_of_handle_gcse2 (void)
 {
-  timevar_push (TV_RELOAD_CSE_REGS);
+  timevar_push (TV_GCSE_AFTER_RELOAD);
   open_dump_file (DFI_gcse2, current_function_decl);
 
-  gcse_after_reload_main (get_insns (), dump_file);
+  gcse_after_reload_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   close_dump_file (DFI_gcse2, print_rtl_with_bb, get_insns ());
@@ -869,7 +855,7 @@ rest_of_handle_gcse2 (void)
   verify_flow_info ();
 #endif
 
-  timevar_pop (TV_RELOAD_CSE_REGS);
+  timevar_pop (TV_GCSE_AFTER_RELOAD);
 }
 
 /* Register allocation pre-pass, to reduce number of moves necessary
@@ -1160,7 +1146,7 @@ rest_of_handle_cse (void)
 
   reg_scan (get_insns (), max_reg_num (), 1);
 
-  tem = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges (0))
@@ -1192,7 +1178,7 @@ rest_of_handle_cse2 (void)
   if (dump_file)
     dump_flow_info (dump_file);
   /* CFG is no longer maintained up-to-date.  */
-  tem = cse_main (get_insns (), max_reg_num (), 1, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -1241,7 +1227,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_CSE);
       reg_scan (get_insns (), max_reg_num (), 1);
-      tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
@@ -1262,7 +1248,7 @@ rest_of_handle_gcse (void)
 	{
 	  timevar_push (TV_CSE);
 	  reg_scan (get_insns (), max_reg_num (), 1);
-	  tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
 	  purge_all_dead_edges (0);
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  timevar_pop (TV_CSE);
@@ -1859,10 +1845,13 @@ rest_of_compilation (void)
     rest_of_handle_if_after_combine ();
 
   /* The optimization to partition hot/cold basic blocks into separate
-     sections of the .o file does not work well with exception handling.
-     Don't call it if there are exceptions.  */
+     sections of the .o file does not work well with linkonce or with
+     user defined section attributes.  Don't call it if either case
+     arises.  */
 
-  if (optimize > 0 && flag_reorder_blocks_and_partition && !flag_exceptions)
+  if (flag_reorder_blocks_and_partition 
+      && !DECL_ONE_ONLY (current_function_decl)
+      && !user_defined_section_attribute)
     rest_of_handle_partition_blocks ();
 
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))

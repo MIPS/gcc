@@ -735,7 +735,7 @@ dump_decl (tree t, int flags)
       if (DECL_NAME (t) && VTABLE_NAME_P (DECL_NAME (t)))
 	{
 	  pp_string (cxx_pp, "vtable for ");
-	  my_friendly_assert (TYPE_P (DECL_CONTEXT (t)), 20010720);
+	  gcc_assert (TYPE_P (DECL_CONTEXT (t)));
 	  dump_type (DECL_CONTEXT (t), flags);
 	  break;
 	}
@@ -1409,9 +1409,9 @@ dump_expr (tree t, int flags)
 	if (TREE_CODE (type) == ARRAY_REF)
 	  type = build_cplus_array_type
 	    (TREE_OPERAND (type, 0),
-	     build_index_type (fold (build (MINUS_EXPR, integer_type_node,
-					    TREE_OPERAND (type, 1),
-					    integer_one_node))));
+	     build_index_type (fold (build2 (MINUS_EXPR, integer_type_node,
+					     TREE_OPERAND (type, 1),
+					     integer_one_node))));
 	dump_type (type, flags);
 	if (init)
 	  {
@@ -1535,7 +1535,7 @@ dump_expr (tree t, int flags)
       if (TREE_HAS_CONSTRUCTOR (t))
 	{
 	  t = TREE_OPERAND (t, 0);
-	  my_friendly_assert (TREE_CODE (t) == CALL_EXPR, 237);
+	  gcc_assert (TREE_CODE (t) == CALL_EXPR);
 	  dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
 	  pp_cxx_left_paren (cxx_pp);
 	  dump_expr_list (TREE_CHAIN (TREE_OPERAND (t, 1)), flags);
@@ -1768,7 +1768,7 @@ dump_expr (tree t, int flags)
         pp_cxx_identifier (cxx_pp, "sizeof");
       else
 	{
-	  my_friendly_assert (TREE_CODE (t) == ALIGNOF_EXPR, 0);
+	  gcc_assert (TREE_CODE (t) == ALIGNOF_EXPR);
 	  pp_cxx_identifier (cxx_pp, "__alignof__");
 	}
       pp_cxx_whitespace (cxx_pp);

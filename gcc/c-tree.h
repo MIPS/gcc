@@ -163,7 +163,7 @@ extern void c_expand_body (tree);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
-extern tree build_array_declarator (tree, tree, int, int);
+extern tree build_array_declarator (tree, tree, bool, bool);
 extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void mark_forward_parm_decls (void);
@@ -180,6 +180,7 @@ extern tree get_parm_info (bool);
 extern tree grokfield (tree, tree, tree);
 extern tree groktypename (tree);
 extern tree groktypename_in_parm_context (tree);
+extern tree grokparm (tree);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
@@ -188,18 +189,21 @@ extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
-extern tree set_array_declarator_type (tree, tree, int);
+extern tree set_array_declarator_inner (tree, tree, bool);
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
 			      const char *, tree);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
 extern tree start_enum (tree);
 extern int  start_function (tree, tree, tree);
-extern tree start_decl (tree, tree, int, tree);
+extern tree start_decl (tree, tree, bool, tree);
 extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern int c_expand_decl (tree);
+extern tree build_c_parm (tree, tree, tree);
+extern tree build_attrs_declarator (tree, tree);
+extern tree build_function_declarator (tree, tree);
 extern tree make_pointer_declarator (tree, tree);
 
 /* in c-objc-common.c */
@@ -216,8 +220,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
   c_build_qualified_type ((TYPE),				  \
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
-
-#define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
 
 /* in c-typeck.c */
 extern struct c_switch *c_switch_stack;
@@ -275,7 +277,6 @@ extern tree c_finish_return (tree);
 extern tree c_finish_bc_stmt (tree *, bool);
 extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
-extern tree build_offsetof (tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -306,8 +307,6 @@ extern bool c_eh_initialized_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
 
 /* In order for the format checking to accept the C frontend

@@ -6,7 +6,7 @@ AM_CFLAGS = -std=gnu99
 
 toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm
 
 ## This should really go in the compiler lib dir, not the system lib dir.
 libgfortranbegin_la_SOURCES = fmain.c
@@ -43,9 +43,11 @@ intrinsics/c99_functions.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
 intrinsics/date_and_time.c \
+intrinsics/env.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
+intrinsics/getXid.c \
 intrinsics/ishftc.c \
 intrinsics/pack_generic.c \
 intrinsics/size.c \

@@ -417,6 +417,11 @@ extern int expand_twoval_unop (optab, rtx, rtx, rtx, int);
 /* Generate code to perform an operation on two operands with two results.  */
 extern int expand_twoval_binop (optab, rtx, rtx, rtx, rtx, int);
 
+/* Generate code to perform an operation on two operands with two
+   results, using a library function.  */
+extern bool expand_twoval_binop_libfunc (optab, rtx, rtx, rtx, rtx, 
+					 enum rtx_code);
+
 /* Expand a unary arithmetic operation given optab rtx operand.  */
 extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 
@@ -434,12 +439,6 @@ extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.  */
 extern rtx emit_no_conflict_block (rtx, rtx, rtx, rtx, rtx);
-
-/* Emit one rtl instruction to store zero in specified rtx.  */
-extern void emit_clr_insn (rtx);
-
-/* Emit one rtl insn to store 1 in specified rtx assuming it contains 0.  */
-extern void emit_0_to_1_insn (rtx);
 
 /* Emit one rtl insn to compare two rtx's.  */
 extern void emit_cmp_insn (rtx, rtx, enum rtx_code, rtx, enum machine_mode,

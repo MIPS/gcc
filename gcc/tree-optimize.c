@@ -116,18 +116,25 @@ static struct tree_opt_pass pass_gimple =
   TODO_dump_func			/* todo_flags_finish */
 };
 
+/* Do cleanup_cfg explicitely for first time.  */
+static void 
+execute_cleanup_cfg_pre_optimizing (void)
+{
+  cleanup_tree_cfg ();
+}
+
 /* Pass: cleanup the CFG.  */
 static struct tree_opt_pass pass_cleanup_cfg = 
 {
   "cleanupcfg",				/* name */
   NULL,					/* gate */
-  cleanup_tree_cfg,			/* execute */
+  execute_cleanup_cfg_pre_optimizing,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
   0,					/* properties_required */
-  0,					/* properties_provided */
+  PROP_cfg,				/* properties_required */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func			/* todo_flags_finish */
@@ -430,6 +437,9 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
+  NEXT_PASS (pass_iv_canon);
+  NEXT_PASS (pass_vectorize);
+  NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_loop_done);
   *p = NULL;
 

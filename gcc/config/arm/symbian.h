@@ -50,11 +50,6 @@
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "crti%O%s crtbegin%O%s"
 
-/* Do not link with any libraries by default.  On Symbian OS, the user
-   must supply all required libraries on the command line.  */
-#undef LIB_SPEC
-#define LIB_SPEC ""
-
 /* Support the "dllimport" attribute.  */
 #define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
 
@@ -69,18 +64,3 @@
 #define SUBTARGET_ASM_FLOAT_SPEC \
   "%{!mfpu=*:-mfpu=vfp} %{!mcpu=*:%{!march=*:-march=armv5t}}"
   
-/* SymbianOS provides the BPABI routines in a separate library.
-   Therefore, we do not need to define any of them in libgcc.  */
-#undef RENAME_LIBRARY
-#define RENAME_LIBRARY(GCC_NAME, AEABI_NAME) /* empty */
-
-/* Define the __symbian__ macro.  */
-#undef TARGET_OS_CPP_BUILTINS
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-      /* Include the default BPABI stuff.  */	\
-      TARGET_BPABI_CPP_BUILTINS ();		\
-      builtin_define ("__symbian__");		\
-    }						\
-  while (false)

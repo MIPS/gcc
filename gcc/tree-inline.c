@@ -135,6 +135,7 @@ static void remap_block (tree *, inline_data *);
 static tree remap_decls (tree, inline_data *);
 static void copy_bind_expr (tree *, int *, inline_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
+static void unsave_expr_1 (tree);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree bind_expr, tree vars);
 
@@ -573,33 +574,6 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		}
 	    }
 	}
-      else if (TREE_CODE (*tp) == ADDR_EXPR
-	       && (lang_hooks.tree_inlining.auto_var_in_fn_p
-		   (TREE_OPERAND (*tp, 0), fn)))
-	{
-	  /* Get rid of &* from inline substitutions.  It can occur when
-	     someone takes the address of a parm or return slot passed by
-	     invisible reference.  */
-	  tree decl = TREE_OPERAND (*tp, 0), value;
-	  splay_tree_node n;
-
-	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
-	  if (n)
-	    {
-	      value = (tree) n->value;
-	      if (TREE_CODE (value) == INDIRECT_REF)
-		{
-		  if  (!lang_hooks.types_compatible_p
-		       (TREE_TYPE (*tp), TREE_TYPE (TREE_OPERAND (value, 0))))
-		    *tp = fold_convert (TREE_TYPE (*tp),
-					TREE_OPERAND (value, 0));
-		  else
-		    *tp = TREE_OPERAND (value, 0);
-
-		  return copy_body_r (tp, walk_subtrees, data);
-		}
-	    }
-	}
       else if (TREE_CODE (*tp) == INDIRECT_REF)
 	{
 	  /* Get rid of *& from inline substitutions that can happen when a
@@ -861,7 +835,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
       return NULL_TREE;
     }
 
-  /* If there was a return slot, then the return value the the
+  /* If there was a return slot, then the return value is the
      dereferenced address of that object.  */
   if (return_slot_addr)
     {
@@ -869,7 +843,10 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 	 a modify expression.  */
       if (modify_dest)
 	abort ();
-      var = build_fold_indirect_ref (return_slot_addr);
+      if (DECL_BY_REFERENCE (result))
+	var = return_slot_addr;
+      else
+	var = build_fold_indirect_ref (return_slot_addr);
       use = NULL;
       goto done;
     }
@@ -1233,7 +1210,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case STATEMENT_LIST:
     case ERROR_MARK:
     case NON_LVALUE_EXPR:
-    case ENTRY_VALUE_EXPR:
     case FDESC_EXPR:
     case VA_ARG_EXPR:
     case TRY_CATCH_EXPR:
@@ -2395,6 +2371,31 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+/* Perform any modifications to EXPR required when it is unsaved.  Does
+   not recurse into EXPR's subtrees.  */
+
+static void
+unsave_expr_1 (tree expr)
+{
+  switch (TREE_CODE (expr))
+    {
+    case TARGET_EXPR:
+      /* Don't mess with a TARGET_EXPR that hasn't been expanded.
+         It's OK for this to happen if it was part of a subtree that
+         isn't immediately expanded, such as operand 2 of another
+         TARGET_EXPR.  */
+      if (TREE_OPERAND (expr, 1))
+	break;
+
+      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 3);
+      TREE_OPERAND (expr, 3) = NULL_TREE;
+      break;
+
+    default:
+      break;
+    }
+}
+
 /* Called via walk_tree when an expression is unsaved.  Using the
    splay_tree pointed to by ST (which is really a `splay_tree'),
    remaps all local declarations to appropriate replacements.  */
@@ -2436,11 +2437,11 @@ unsave_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-/* Default lang hook for "unsave_expr_now".  Copies everything in EXPR and
-   replaces variables, labels and SAVE_EXPRs local to EXPR.  */
+/* Copies everything in EXPR and replaces variables, labels
+   and SAVE_EXPRs local to EXPR.  */
 
 tree
-lhd_unsave_expr_now (tree expr)
+unsave_expr_now (tree expr)
 {
   inline_data id;
 

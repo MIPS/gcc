@@ -146,6 +146,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define STABS_GCC_MARKER "gcc2_compiled."
 #endif
 
+#ifndef NO_DBX_FUNCTION_END
+#define NO_DBX_FUNCTION_END 0
+#endif
+
 enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
 
 /* Structure recording information about a C data type.
@@ -372,6 +376,7 @@ static void dbxout_handle_pch (unsigned);
 #if defined (DBX_DEBUGGING_INFO)
 
 static void dbxout_source_line (unsigned int, const char *);
+static void dbxout_begin_prologue (unsigned int, const char *);
 static void dbxout_source_file (FILE *, const char *);
 static void dbxout_function_end (void);
 static void dbxout_begin_function (tree);
@@ -391,8 +396,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_block,
   debug_true_tree,		         /* ignore_block */
   dbxout_source_line,		         /* source_line */
-  dbxout_source_line,		         /* begin_prologue: just output 
-					    line info */
+  dbxout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
   debug_nothing_int_charstar,	         /* end_epilogue */
 #ifdef DBX_FUNCTION_FIRST
@@ -449,6 +453,8 @@ dbxout_function_end (void)
 {
   char lscope_label_name[100];
 
+  /* The Lscope label must be emitted even if we aren't doing anything
+     else; dbxout_block needs it.  */
   function_section (current_function_decl);
   
   /* Convert Ltext into the appropriate format for local labels in case
@@ -457,6 +463,14 @@ dbxout_function_end (void)
   ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
   targetm.asm_out.internal_label (asmfile, "Lscope", scope_labelno);
   scope_labelno++;
+
+  /* The N_FUN tag at the end of the function is a GNU extension,
+     which may be undesirable, and is unnecessary if we do not have
+     named sections.  */
+  if (!use_gnu_debug_info_extensions
+      || NO_DBX_FUNCTION_END
+      || !targetm.have_named_sections)
+    return;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
@@ -469,6 +483,9 @@ dbxout_function_end (void)
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
 #endif
+
+  if (!flag_debug_only_used_symbols)
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_ENSYM);
 }
 #endif /* DBX_DEBUGGING_INFO */
 
@@ -741,6 +758,19 @@ dbxout_source_file (FILE *file, const char *filename)
     }
 }
 
+/* Output N_BNSYM and line number symbol entry.  */
+
+static void
+dbxout_begin_prologue (unsigned int lineno, const char *filename)
+{
+  if (use_gnu_debug_info_extensions
+      && !NO_DBX_FUNCTION_END
+      && !flag_debug_only_used_symbols)
+    fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_BNSYM);
+
+  dbxout_source_line (lineno, filename);
+}
+
 /* Output a line number symbol entry for source file FILENAME and line
    number LINENO.  */
 
@@ -792,12 +822,7 @@ dbxout_function_decl (tree decl)
 #ifdef DBX_OUTPUT_FUNCTION_END
   DBX_OUTPUT_FUNCTION_END (asmfile, decl);
 #endif
-  if (use_gnu_debug_info_extensions
-#if defined(NO_DBX_FUNCTION_END)
-      && ! NO_DBX_FUNCTION_END
-#endif
-      && targetm.have_named_sections)
-    dbxout_function_end ();
+  dbxout_function_end ();
 }
 
 #endif /* DBX_DEBUGGING_INFO  */
@@ -3089,6 +3114,46 @@ dbxout_args (tree args)
     }
 }
 
+/* Subroutine of dbxout_block.  Emit an N_LBRAC stab referencing LABEL.
+   BEGIN_LABEL is the name of the beginning of the function, which may
+   be required.  */
+static void
+dbx_output_lbrac (const char *label,
+		  const char *begin_label ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_OUTPUT_LBRAC
+  DBX_OUTPUT_LBRAC (asmfile, label);
+#else
+  fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_LBRAC);
+  assemble_name (asmfile, label);
+#if DBX_BLOCKS_FUNCTION_RELATIVE
+  putc ('-', asmfile);
+  assemble_name (asmfile, begin_label);
+#endif
+  fprintf (asmfile, "\n");
+#endif
+}
+
+/* Subroutine of dbxout_block.  Emit an N_RBRAC stab referencing LABEL.
+   BEGIN_LABEL is the name of the beginning of the function, which may
+   be required.  */
+static void
+dbx_output_rbrac (const char *label,
+		  const char *begin_label ATTRIBUTE_UNUSED)
+{
+#ifdef DBX_OUTPUT_RBRAC
+  DBX_OUTPUT_RBRAC (asmfile, label);
+#else
+  fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_RBRAC);
+  assemble_name (asmfile, label);
+#if DBX_BLOCKS_FUNCTION_RELATIVE
+  putc ('-', asmfile);
+  assemble_name (asmfile, begin_label);
+#endif
+  fprintf (asmfile, "\n");
+#endif
+}
+
 /* Output everything about a symbol block (a BLOCK node
    that represents a scope level),
    including recursive output of contained blocks.
@@ -3109,15 +3174,11 @@ dbxout_args (tree args)
 static void
 dbxout_block (tree block, int depth, tree args)
 {
-  int blocknum = -1;
-
-#if DBX_BLOCKS_FUNCTION_RELATIVE
   const char *begin_label;
   if (current_function_func_begin_label != NULL_TREE)
     begin_label = IDENTIFIER_POINTER (current_function_func_begin_label);
   else
     begin_label = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
-#endif
 
   while (block)
     {
@@ -3125,6 +3186,7 @@ dbxout_block (tree block, int depth, tree args)
       if (TREE_USED (block) && TREE_ASM_WRITTEN (block))
 	{
 	  int did_output;
+	  int blocknum = BLOCK_NUMBER (block);
 
 	  /* In dbx format, the syms of a block come before the N_LBRAC.
 	     If nothing is output, we don't need the N_LBRAC, either.  */
@@ -3138,11 +3200,20 @@ dbxout_block (tree block, int depth, tree args)
 	     the block.  Use the block's tree-walk order to generate
 	     the assembler symbols LBBn and LBEn
 	     that final will define around the code in this block.  */
-	  if (depth > 0 && did_output)
+	  if (did_output)
 	    {
 	      char buf[20];
-	      blocknum = BLOCK_NUMBER (block);
-	      ASM_GENERATE_INTERNAL_LABEL (buf, "LBB", blocknum);
+	      const char *scope_start;
+
+	      if (depth == 0)
+		/* The outermost block doesn't get LBB labels; use
+		   the function symbol.  */
+		scope_start = begin_label;
+	      else
+		{
+		  ASM_GENERATE_INTERNAL_LABEL (buf, "LBB", blocknum);
+		  scope_start = buf;
+		}
 
 	      if (BLOCK_HANDLER_BLOCK (block))
 		{
@@ -3152,44 +3223,30 @@ dbxout_block (tree block, int depth, tree args)
 		    {
 		      fprintf (asmfile, "%s\"%s:C1\",%d,0,0,", ASM_STABS_OP,
 			       IDENTIFIER_POINTER (DECL_NAME (decl)), N_CATCH);
-		      assemble_name (asmfile, buf);
+		      assemble_name (asmfile, scope_start);
 		      fprintf (asmfile, "\n");
 		      decl = TREE_CHAIN (decl);
 		    }
 		}
-
-#ifdef DBX_OUTPUT_LBRAC
-	      DBX_OUTPUT_LBRAC (asmfile, buf);
-#else
-	      fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_LBRAC);
-	      assemble_name (asmfile, buf);
-#if DBX_BLOCKS_FUNCTION_RELATIVE
-	      putc ('-', asmfile);
-	      assemble_name (asmfile, begin_label);
-#endif
-	      fprintf (asmfile, "\n");
-#endif
+	      dbx_output_lbrac (scope_start, begin_label);
 	    }
 
 	  /* Output the subblocks.  */
 	  dbxout_block (BLOCK_SUBBLOCKS (block), depth + 1, NULL_TREE);
 
 	  /* Refer to the marker for the end of the block.  */
-	  if (depth > 0 && did_output)
+	  if (did_output)
 	    {
-	      char buf[20];
-	      ASM_GENERATE_INTERNAL_LABEL (buf, "LBE", blocknum);
-#ifdef DBX_OUTPUT_RBRAC
-	      DBX_OUTPUT_RBRAC (asmfile, buf);
-#else
-	      fprintf (asmfile, "%s%d,0,0,", ASM_STABN_OP, N_RBRAC);
-	      assemble_name (asmfile, buf);
-#if DBX_BLOCKS_FUNCTION_RELATIVE
-	      putc ('-', asmfile);
-	      assemble_name (asmfile, begin_label);
-#endif
-	      fprintf (asmfile, "\n");
-#endif
+	      char buf[100];
+	      if (depth == 0)
+		/* The outermost block doesn't get LBE labels;
+		   use the "scope" label which will be emitted
+		   by dbxout_function_end.  */
+		ASM_GENERATE_INTERNAL_LABEL (buf, "Lscope", scope_labelno);
+	      else
+		ASM_GENERATE_INTERNAL_LABEL (buf, "LBE", blocknum);
+
+	      dbx_output_rbrac (buf, begin_label);
 	    }
 	}
       block = BLOCK_CHAIN (block);

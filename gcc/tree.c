@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "basic-block.h"
 #include "tree-flow.h"
+#include "params.h"
 
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p (struct obstack *h, void *obj);
@@ -391,6 +392,13 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	 but the optimizer should catch that.  */
       TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
+      
+      /* Do not copy the values cache.  */
+      if (TYPE_CACHED_VALUES_P(t))
+	{
+	  TYPE_CACHED_VALUES_P (t) = 0;
+	  TYPE_CACHED_VALUES (t) = NULL_TREE;
+	}
     }
 
   return t;
@@ -420,18 +428,106 @@ copy_list (tree list)
 }
 
 
-/* Return a newly constructed INTEGER_CST node whose constant value
-   is specified by the two ints LOW and HI.
-   The TREE_TYPE is set to `int'.  */
+/* Create an INT_CST node with a LOW value sign extended.  */
+
+tree build_int_cst (tree type, HOST_WIDE_INT low)
+{
+  return build_int_cst_wide (type, low,
+			     low < 0 ? -1 : 0);
+}
+
+/* Create an INT_CST node with a LOW value zero extended.  */
+
+tree build_int_cstu (tree type, unsigned HOST_WIDE_INT low)
+{
+  return build_int_cst_wide (type, low, 0);
+}
+
+/* Create an INT_CST node of TYPE and value HI:LOW.  If TYPE is NULL,
+   integer_type_node is used.  */
 
 tree
-build_int_2 (unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
+build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 {
-  tree t = make_node (INTEGER_CST);
+  tree t;
+  int ix = -1;
+  int limit = 0;
+
+  if (!type)
+    type = integer_type_node;
+
+  switch (TREE_CODE (type))
+    {
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      /* Cache NULL pointer.  */
+      if (!hi && !low)
+	{
+	  limit = 1;
+	  ix = 0;
+	}
+      break;
+
+    case BOOLEAN_TYPE:
+      /* Cache false or true.  */
+      limit = 2;
+      if (!hi && low < 2)
+	ix = low;
+      break;
+
+    case INTEGER_TYPE:
+    case CHAR_TYPE:
+    case OFFSET_TYPE:
+      if (TYPE_UNSIGNED (type))
+	{
+	  /* Cache 0..N */
+	  limit = INTEGER_SHARE_LIMIT;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low;
+	}
+      else
+	{
+	  /* Cache -1..N */
+	  limit = INTEGER_SHARE_LIMIT + 1;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low + 1;
+	  else if (hi == -1 && low == -(unsigned HOST_WIDE_INT)1)
+	    ix = 0;
+	}
+      break;
+    default:
+      break;
+    }
+
+  if (ix >= 0)
+    {
+      if (!TYPE_CACHED_VALUES_P (type))
+	{
+	  TYPE_CACHED_VALUES_P (type) = 1;
+	  TYPE_CACHED_VALUES (type) = make_tree_vec (limit);
+	}
+
+      t = TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix);
+      if (t)
+	{
+	  /* Make sure no one is clobbering the shared constant.  */
+	  if (TREE_TYPE (t) != type)
+	    abort ();
+	  if (TREE_INT_CST_LOW (t) != low || TREE_INT_CST_HIGH (t) != hi)
+	    abort ();
+	  return t;
+	}
+    }
+
+  t = make_node (INTEGER_CST);
 
   TREE_INT_CST_LOW (t) = low;
   TREE_INT_CST_HIGH (t) = hi;
-  TREE_TYPE (t) = integer_type_node;
+  TREE_TYPE (t) = type;
+
+  if (ix >= 0)
+    TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
+
   return t;
 }
 
@@ -1130,7 +1226,7 @@ size_in_bytes (tree type)
     }
 
   if (TREE_CODE (t) == INTEGER_CST)
-    force_fit_type (t, 0);
+    t = force_fit_type (t, 0, false, false);
 
   return t;
 }
@@ -1267,10 +1363,11 @@ array_type_nelts (tree type)
 	  : fold (build2 (MINUS_EXPR, TREE_TYPE (max), max, min)));
 }
 
-/* Return true if arg is static -- a reference to an object in
-   static storage.  This is not the same as the C meaning of `static'.  */
+/* If arg is static -- a reference to an object in static storage -- then
+   return the object.  This is not the same as the C meaning of `static'.
+   If arg isn't static, return NULL.  */
 
-bool
+tree
 staticp (tree arg)
 {
   switch (TREE_CODE (arg))
@@ -1279,19 +1376,21 @@ staticp (tree arg)
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
       return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	      && ! DECL_NON_ADDR_CONST_P (arg));
+	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      ? arg : NULL);
 
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      && ! DECL_THREAD_LOCAL (arg)
-	      && ! DECL_NON_ADDR_CONST_P (arg));
+	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      ? arg : NULL);
 
     case CONSTRUCTOR:
-      return TREE_STATIC (arg);
+      return TREE_STATIC (arg) ? arg : NULL;
 
     case LABEL_DECL:
     case STRING_CST:
-      return true;
+      return arg;
 
     case COMPONENT_REF:
       /* If the thing being referenced is not a field, then it is
@@ -1302,20 +1401,15 @@ staticp (tree arg)
       /* If we are referencing a bitfield, we can't evaluate an
 	 ADDR_EXPR at compile time and so it isn't a constant.  */
       if (DECL_BIT_FIELD (TREE_OPERAND (arg, 1)))
-	return false;
+	return NULL;
 
       return staticp (TREE_OPERAND (arg, 0));
 
     case BIT_FIELD_REF:
-      return false;
+      return NULL;
 
-#if 0
-       /* This case is technically correct, but results in setting
-	  TREE_CONSTANT on ADDR_EXPRs that cannot be evaluated at
-	  compile time.  */
     case INDIRECT_REF:
-      return TREE_CONSTANT (TREE_OPERAND (arg, 0));
-#endif
+      return TREE_CONSTANT (TREE_OPERAND (arg, 0)) ? arg : NULL;
 
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
@@ -1330,7 +1424,7 @@ staticp (tree arg)
 	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
 	return lang_hooks.staticp (arg);
       else
-	return false;
+	return NULL;
     }
 }
 
@@ -1488,31 +1582,6 @@ tree_node_structure (tree t)
 
     default:
       abort ();
-    }
-}
-
-/* Perform any modifications to EXPR required when it is unsaved.  Does
-   not recurse into EXPR's subtrees.  */
-
-void
-unsave_expr_1 (tree expr)
-{
-  switch (TREE_CODE (expr))
-    {
-    case TARGET_EXPR:
-      /* Don't mess with a TARGET_EXPR that hasn't been expanded.
-         It's OK for this to happen if it was part of a subtree that
-         isn't immediately expanded, such as operand 2 of another
-         TARGET_EXPR.  */
-      if (TREE_OPERAND (expr, 1))
-	break;
-
-      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 3);
-      TREE_OPERAND (expr, 3) = NULL_TREE;
-      break;
-
-    default:
-      break;
     }
 }
 
@@ -2202,7 +2271,11 @@ do { tree _node = (NODE); \
      address of a volatile variable is not volatile.)  If it's a constant,
      the address is both invariant and constant.  Otherwise it's neither.  */
   if (TREE_CODE (node) == INDIRECT_REF)
-    UPDATE_TITCSE (node);
+    {
+      /* If this is &((T*)0)->field, then this is a form of addition.  */
+      if (TREE_CODE (TREE_OPERAND (node, 0)) != INTEGER_CST)
+	UPDATE_TITCSE (node);
+    }
   else if (DECL_P (node))
     {
       if (staticp (node))
@@ -2887,7 +2960,7 @@ merge_decl_attributes (tree olddecl, tree newdecl)
 			   DECL_ATTRIBUTES (newdecl));
 }
 
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
 /* Specialization of merge_decl_attributes for various Windows targets.
 
@@ -2938,6 +3011,81 @@ merge_dllimport_decl_attributes (tree old, tree new)
     }
 
   return a;
+}
+
+/* Handle a "dllimport" or "dllexport" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
+		      bool *no_add_attrs)
+{
+  tree node = *pnode;
+
+  /* These attributes may apply to structure and union types being created,
+     but otherwise should pass to the declaration involved.  */
+  if (!DECL_P (node))
+    {
+      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
+		   | (int) ATTR_FLAG_ARRAY_NEXT))
+	{
+	  *no_add_attrs = true;
+	  return tree_cons (name, args, NULL_TREE);
+	}
+      if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+	{
+	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
+
+      return NULL_TREE;
+    }
+
+  /* Report error on dllimport ambiguities seen now before they cause
+     any damage.  */
+  if (is_attribute_p ("dllimport", name))
+    {
+      /* Like MS, treat definition of dllimported variables and
+	 non-inlined functions on declaration as syntax errors.  We
+	 allow the attribute for function definitions if declared
+	 inline.  */
+      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
+          && !DECL_DECLARED_INLINE_P (node))
+	{
+	  error ("%Jfunction `%D' definition is marked dllimport.", node, node);
+	  *no_add_attrs = true;
+	}
+
+      else if (TREE_CODE (node) == VAR_DECL)
+	{
+	  if (DECL_INITIAL (node))
+	    {
+	      error ("%Jvariable `%D' definition is marked dllimport.",
+		     node, node);
+	      *no_add_attrs = true;
+	    }
+
+	  /* `extern' needn't be specified with dllimport.
+	     Specify `extern' now and hope for the best.  Sigh.  */
+	  DECL_EXTERNAL (node) = 1;
+	  /* Also, implicitly give dllimport'd variables declared within
+	     a function global scope, unless declared static.  */
+	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
+	    TREE_PUBLIC (node) = 1;
+	}
+    }
+
+  /*  Report error if symbol is not accessible at global scope.  */
+  if (!TREE_PUBLIC (node)
+      && (TREE_CODE (node) == VAR_DECL
+	  || TREE_CODE (node) == FUNCTION_DECL))
+    {
+      error ("%Jexternal linkage required for symbol '%D' because of "
+	     "'%s' attribute.", node, node, IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 #endif /* TARGET_DLLIMPORT_DECL_ATTRIBUTES  */
@@ -3002,10 +3150,28 @@ build_qualified_type (tree type, int type_quals)
   /* If not, build it.  */
   if (!t)
     {
-      t = build_type_copy (type);
+      t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
     }
 
+  return t;
+}
+
+/* Create a new distinct copy of TYPE.  The new type is made its own
+   MAIN_VARIANT.  */
+
+tree
+build_distinct_type_copy (tree type)
+{
+  tree t = copy_node (type);
+  
+  TYPE_POINTER_TO (t) = 0;
+  TYPE_REFERENCE_TO (t) = 0;
+
+  /* Make it its own variant.  */
+  TYPE_MAIN_VARIANT (t) = t;
+  TYPE_NEXT_VARIANT (t) = 0;
+  
   return t;
 }
 
@@ -3013,18 +3179,16 @@ build_qualified_type (tree type, int type_quals)
    This is so the caller can modify it.  */
 
 tree
-build_type_copy (tree type)
+build_variant_type_copy (tree type)
 {
   tree t, m = TYPE_MAIN_VARIANT (type);
 
-  t = copy_node (type);
-
-  TYPE_POINTER_TO (t) = 0;
-  TYPE_REFERENCE_TO (t) = 0;
-
-  /* Add this type to the chain of variants of TYPE.  */
+  t = build_distinct_type_copy (type);
+  
+  /* Add the new type to the chain of variants of TYPE.  */
   TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
   TYPE_NEXT_VARIANT (m) = t;
+  TYPE_MAIN_VARIANT (t) = m;
 
   return t;
 }
@@ -4563,7 +4727,8 @@ int_fits_type_p (tree c, tree type)
     {
       c = copy_node (c);
       TREE_TYPE (c) = type;
-      return !force_fit_type (c, 0);
+      c = force_fit_type (c, -1, false, false);
+      return !TREE_OVERFLOW (c);
     }
 }
 
@@ -5180,7 +5345,7 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   layout_type (t);
 
   {
-    tree index = build_int_2 (nunits - 1, 0);
+    tree index = build_int_cst (NULL_TREE, nunits - 1);
     tree array = build_array_type (innertype, build_index_type (index));
     tree rt = make_node (RECORD_TYPE);
 
@@ -5224,12 +5389,12 @@ make_or_reuse_type (unsigned size, int unsignedp)
    this function to select one of the types as sizetype.  */
 
 void
-build_common_tree_nodes (int signed_char)
+build_common_tree_nodes (bool signed_char, bool signed_sizetype)
 {
   error_mark_node = make_node (ERROR_MARK);
   TREE_TYPE (error_mark_node) = error_mark_node;
 
-  initialize_sizetypes ();
+  initialize_sizetypes (signed_sizetype);
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
@@ -5257,8 +5422,7 @@ build_common_tree_nodes (int signed_char)
      boolean_type_node before calling build_common_tree_nodes_2.  */
   boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
   TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
-  TYPE_MAX_VALUE (boolean_type_node) = build_int_2 (1, 0);
-  TREE_TYPE (TYPE_MAX_VALUE (boolean_type_node)) = boolean_type_node;
+  TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
   TYPE_PRECISION (boolean_type_node) = 1;
 
   /* Fill in the rest of the sized types.  Reuse existing type nodes
@@ -5287,9 +5451,9 @@ void
 build_common_tree_nodes_2 (int short_double)
 {
   /* Define these next since types below may used them.  */
-  integer_zero_node = build_int_2 (0, 0);
-  integer_one_node = build_int_2 (1, 0);
-  integer_minus_one_node = build_int_2 (-1, -1);
+  integer_zero_node = build_int_cst (NULL_TREE, 0);
+  integer_one_node = build_int_cst (NULL_TREE, 1);
+  integer_minus_one_node = build_int_cst (NULL_TREE, -1);
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
@@ -5308,8 +5472,7 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
-  null_pointer_node = build_int_2 (0, 0);
-  TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
+  null_pointer_node = build_int_cst (build_pointer_type (void_type_node), 0);
   layout_type (TREE_TYPE (null_pointer_node));
 
   ptr_type_node = build_pointer_type (void_type_node);
@@ -5362,7 +5525,7 @@ build_common_tree_nodes_2 (int short_double)
        don't copy record types and let c_common_nodes_and_builtins()
        declare the type to be __builtin_va_list.  */
     if (TREE_CODE (t) != RECORD_TYPE)
-      t = build_type_copy (t);
+      t = build_variant_type_copy (t);
 
     va_list_type_node = t;
   }
@@ -5548,15 +5711,22 @@ in_array_bounds_p (tree ref)
   return true;
 }
 
+/* Return true if T (assumed to be a DECL) is a global variable.  */
+
+bool
+is_global_var (tree t)
+{
+  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+}
+
 /* Return true if T (assumed to be a DECL) must be assigned a memory
    location.  */
 
 bool
 needs_to_live_in_memory (tree t)
 {
-  return (DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (t)
-	  || TREE_STATIC (t)
-          || DECL_EXTERNAL (t)
+  return (TREE_ADDRESSABLE (t)
+	  || is_global_var (t)
 	  || (TREE_CODE (t) == RESULT_DECL
 	      && aggregate_value_p (t, current_function_decl)));
 }

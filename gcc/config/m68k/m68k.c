@@ -1383,7 +1383,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			     gen_rtx_PLUS (Pmode,
 					   pic_offset_table_rtx, orig));
       current_function_uses_pic_offset_table = 1;
-      RTX_UNCHANGING_P (pic_ref) = 1;
+      MEM_READONLY_P (pic_ref) = 1;
       emit_move_insn (reg, pic_ref);
       return reg;
     }
@@ -3183,6 +3183,18 @@ memory_src_operand (rtx op, enum machine_mode mode)
 	  || GET_CODE (XEXP (op, 0)) == CONST))
     return 1;
   return memory_operand (op, mode);
+}
+
+int
+post_inc_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return MEM_P (op) && GET_CODE (XEXP (op, 0)) == POST_INC;
+}
+
+int
+pre_dec_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return MEM_P (op) && GET_CODE (XEXP (op, 0)) == PRE_DEC;
 }
 
 /* Predicate that accepts only a pc-relative address.  This is needed

@@ -1,6 +1,5 @@
-! { dg-do compile }
-! PR 16404 Nr. 8
-! IO of derived types containing pointers is not allowed
+! { dg-do run }
+! IO of derived types containing pointers
 program der_io_1
   type t
     integer, pointer :: p
@@ -11,7 +10,7 @@ program der_io_1
 
   v%p => i
   i = 42
-  write (unit=s, fmt='(I2)') v ! { dg-error "POINTER components" "" }
+  write (unit=s, fmt='(I2)') v
   if (s .ne. '42') call abort ()
 end program
 

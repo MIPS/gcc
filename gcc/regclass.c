@@ -427,6 +427,17 @@ init_reg_sets_1 (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
+#ifdef ENABLE_CHECKING
+      /* call_used_regs must include fixed_regs.  */
+      if (fixed_regs[i] && !call_used_regs[i])
+	abort ();
+#ifdef CALL_REALLY_USED_REGISTERS
+      /* call_used_regs must include call_really_used_regs.  */
+      if (call_really_used_regs[i] && !call_used_regs[i])
+	abort ();
+#endif
+#endif
+
       if (fixed_regs[i])
 	SET_HARD_REG_BIT (fixed_reg_set, i);
       else
@@ -799,6 +810,9 @@ globalize_reg (int i)
     return;
 
   fixed_regs[i] = call_used_regs[i] = call_fixed_regs[i] = 1;
+#ifdef CALL_REALLY_USED_REGISTERS
+  call_really_used_regs[i] = 1;
+#endif
   n_non_fixed_regs--;
 
   SET_HARD_REG_BIT (fixed_reg_set, i);
@@ -1614,10 +1628,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    break;
 		case 'i':
 		  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-		      )
+		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 		    win = 1;
 		  break;
 
@@ -1648,10 +1659,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case 'g':
 		  if (MEM_P (op)
 		      || (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-			  ))
+			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))))
 		    win = 1;
 		  allows_mem[i] = 1;
 		case 'r':

@@ -73,7 +73,7 @@ extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void sorry (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
-extern void rest_of_decl_compilation (tree, const char *, int, int);
+extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void rest_of_compilation (void);
 extern void tree_rest_of_compilation (tree, bool);
@@ -115,6 +115,11 @@ extern const char *asm_file_name;
 extern bool exit_after_options;
 
 extern int target_flags_explicit;
+
+/* True if the user has tagged the function with the 'section'
+   attribute.  */
+
+extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
 extern int flag_loop_optimize;

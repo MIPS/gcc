@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       STMT_IS_FULL_EXPR_P (in _STMT)
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
-   3: unused
+   3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
    4: unused
 */
 
@@ -571,6 +571,11 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
+/* Nonzero (the default) means to generate thread-safe code for
+   initializing local statics.  */
+
+extern int flag_threadsafe_statics;
+
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
@@ -654,6 +659,7 @@ extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
@@ -706,6 +712,10 @@ extern void finish_file	(void);
    if a statement expression.  */
 #define STATEMENT_LIST_STMT_EXPR(NODE) \
   TREE_LANG_FLAG_1 (STATEMENT_LIST_CHECK (NODE))
+
+/* Nonzero if a label has been added to the statement list.  */
+#define STATEMENT_LIST_HAS_LABEL(NODE) \
+  TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
 
 /* WHILE_STMT accessors. These give access to the condition of the
    while statement and the body of the while statement, respectively.  */
@@ -789,7 +799,6 @@ extern int anon_aggr_type_p (tree);
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
 extern void emit_local_var (tree);
-extern void make_rtl_for_local_static (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
@@ -836,7 +845,7 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
-extern bool c_staticp (tree);
+extern tree c_staticp (tree);
 
 extern int c_common_unsafe_for_reeval (tree);
 
@@ -866,6 +875,8 @@ extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
 
+extern tree fold_offsetof (tree);
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
@@ -885,20 +896,25 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
-/* The following have been moved here from c-tree.h, since they're needed
-   in the ObjC++ world, too.  What is more, stub-objc.c could use a few
-   prototypes.  */
+/* Objective-C / Objective-C++ entry points.  */
+
+/* The following ObjC/ObjC++ functions are called by the C and/or C++
+   front-ends; they all must have corresponding stubs in stub-objc.c.  */
 extern tree lookup_interface (tree);
 extern tree is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
+extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
 extern tree lookup_objc_ivar (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
 extern void objc_clear_super_receiver (void);
 extern int objc_is_public (tree, tree);
+
+/* The following are provided by the C and C++ front-ends, and called by
+   ObjC/ObjC++.  */
+extern void *get_current_scope (void);
+extern void objc_mark_locals_volatile (void *);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

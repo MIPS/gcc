@@ -295,6 +295,28 @@
 }"
   [(set_attr "type" "*")])
 
+(define_insn "*save_world"
+ [(match_parallel 0 "save_world_operation"
+                  [(clobber (match_operand:SI 1 "register_operand" "=l"))
+                   (use (match_operand:SI 2 "call_operand" "s"))])]
+ "TARGET_MACHO && (DEFAULT_ABI == ABI_DARWIN) && TARGET_32BIT"         
+ {
+    return "bl %z2";
+ }
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+(define_insn "*restore_world"
+ [(match_parallel 0 "restore_world_operation"
+                  [(return)
+                   (use (match_operand:SI 1 "register_operand" "l"))
+                   (use (match_operand:SI 2 "call_operand" "s"))
+                   (clobber (match_operand:SI 3 "gpc_reg_operand" "=r"))])]
+ "TARGET_MACHO && (DEFAULT_ABI == ABI_DARWIN) && TARGET_32BIT"
+ {
+    return "b %z2";
+ })
+
 ;; Simple binary operations.
 
 (define_insn "addv16qi3"
@@ -610,9 +632,9 @@
 ;; Fused multiply subtract 
 (define_insn "altivec_vnmsubfp"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
-	(minus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "v")
+	(neg:V4SF (minus:V4SF (mult:V4SF (match_operand:V4SF 1 "register_operand" "v")
 			       (match_operand:V4SF 2 "register_operand" "v"))
-	  	    (match_operand:V4SF 3 "register_operand" "v")))]
+	  	    (match_operand:V4SF 3 "register_operand" "v"))))]
   "TARGET_ALTIVEC"
   "vnmsubfp %0,%1,%2,%3"
   [(set_attr "type" "vecfloat")])

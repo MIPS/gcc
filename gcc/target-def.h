@@ -87,6 +87,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_UNIQUE_SECTION default_unique_section
 #endif
 
+#ifndef TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_function_rodata_section
+#endif
+
 #ifndef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION default_select_rtx_section
 #endif
@@ -179,6 +183,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
 #endif
 
+#ifndef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -212,13 +220,15 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_SELECT_SECTION,		\
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
+			TARGET_ASM_FUNCTION_RODATA_SECTION,	\
 			TARGET_ASM_CONSTRUCTOR,			\
 			TARGET_ASM_DESTRUCTOR,                  \
                         TARGET_ASM_OUTPUT_MI_THUNK,             \
                         TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
-			TARGET_ASM_EXTERNAL_LIBCALL}
+			TARGET_ASM_EXTERNAL_LIBCALL,            \
+                        TARGET_ASM_MARK_DECL_PRESERVED}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -263,6 +273,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
+/* In except.c */
+#define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
+
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
 #define TARGET_MERGE_TYPE_ATTRIBUTES merge_type_attributes
@@ -292,11 +305,19 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
 
+#ifndef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P hook_bool_mode_false
+#endif
+
 #ifndef TARGET_VECTOR_OPAQUE_P
 #define TARGET_VECTOR_OPAQUE_P hook_bool_tree_false
 #endif
 
-/* In hook.c.  */
+/* In hooks.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
 #define TARGET_BRANCH_TARGET_REGISTER_CLASS hook_int_void_no_regs
 #define TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED hook_bool_bool_false
@@ -412,13 +433,18 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_IMPORT_EXPORT_CLASS NULL
 #endif
 
+#ifndef TARGET_CXX_CDTOR_RETURNS_THIS
+#define TARGET_CXX_CDTOR_RETURNS_THIS hook_bool_void_false
+#endif
+
 #define TARGET_CXX		\
   {				\
     TARGET_CXX_GUARD_TYPE,	\
     TARGET_CXX_GUARD_MASK_BIT,	\
     TARGET_CXX_GET_COOKIE_SIZE,	\
     TARGET_CXX_COOKIE_HAS_SIZE,	\
-    TARGET_CXX_IMPORT_EXPORT_CLASS	\
+    TARGET_CXX_IMPORT_EXPORT_CLASS,	\
+    TARGET_CXX_CDTOR_RETURNS_THIS	\
   }
 
 /* The whole shebang.  */
@@ -426,6 +452,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 {						\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
+  TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\
@@ -452,6 +479,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_VALID_POINTER_MODE,                    \
+  TARGET_SCALAR_MODE_SUPPORTED_P,		\
+  TARGET_VECTOR_MODE_SUPPORTED_P,               \
   TARGET_VECTOR_OPAQUE_P,			\
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\

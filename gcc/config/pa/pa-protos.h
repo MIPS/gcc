@@ -152,6 +152,7 @@ extern int cmpib_comparison_operator (rtx, enum machine_mode);
 #endif
 
 
+/* Miscellaneous functions in pa.c.  */
 #ifdef TREE_CODE
 extern int reloc_needed (tree);
 #ifdef RTX_CODE
@@ -165,8 +166,18 @@ extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
 extern bool pa_return_in_memory (tree, tree);
 #endif /* TREE_CODE */
 
+extern void pa_asm_output_aligned_bss (FILE *, const char *,
+				       unsigned HOST_WIDE_INT,
+				       unsigned int);
+extern void pa_asm_output_aligned_common (FILE *, const char *,
+					  unsigned HOST_WIDE_INT,
+					  unsigned int);
+extern void pa_asm_output_aligned_local (FILE *, const char *,
+					 unsigned HOST_WIDE_INT,
+					 unsigned int);
+
 /* Functions in varasm.c used by pa.c.  */
-extern void readonly_data (void);
-extern void one_only_readonly_data_section (void);
-extern void one_only_data_section (void);
+extern void som_readonly_data_section (void);
+extern void som_one_only_readonly_data_section (void);
+extern void som_one_only_data_section (void);
 extern void forget_section (void);

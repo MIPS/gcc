@@ -267,12 +267,38 @@ insn_locators_initialize (void)
 
   for (insn = get_insns (); insn; insn = next)
     {
+      int active = 0;
+      
       next = NEXT_INSN (insn);
 
-      if ((active_insn_p (insn)
-	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
-	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
-	  || !NEXT_INSN (insn)
+      if (NOTE_P (insn))
+	{
+	  switch (NOTE_LINE_NUMBER (insn))
+	    {
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      abort ();
+	      
+	    default:
+	      if (NOTE_LINE_NUMBER (insn) > 0)
+		{
+		  expanded_location xloc;
+		  NOTE_EXPANDED_LOCATION (xloc, insn);
+		  line_number = xloc.line;
+		  file_name = xloc.file;
+		}
+	      break;
+	    }
+	}
+      else
+	active = (active_insn_p (insn)
+		  && GET_CODE (PATTERN (insn)) != ADDR_VEC
+		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC);
+      
+      check_block_change (insn, &block);
+
+      if (active
+	  || !next
 	  || (!prologue_locator && file_name))
 	{
 	  if (last_block != block)
@@ -296,34 +322,13 @@ insn_locators_initialize (void)
 	      VARRAY_PUSH_CHAR_PTR (file_locators_files, (char *) file_name);
 	      last_file_name = file_name;
 	    }
+	  if (!prologue_locator && file_name)
+	    prologue_locator = loc;
+	  if (!next)
+	    epilogue_locator = loc;
+	  if (active)
+	    INSN_LOCATOR (insn) = loc;
 	}
-      if (!prologue_locator && file_name)
-	prologue_locator = loc;
-      if (!NEXT_INSN (insn))
-	epilogue_locator = loc;
-      if (active_insn_p (insn))
-        INSN_LOCATOR (insn) = loc;
-      else if (NOTE_P (insn))
-	{
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_BLOCK_BEG:
-	    case NOTE_INSN_BLOCK_END:
-	      abort ();
-
-	    default:
-	      if (NOTE_LINE_NUMBER (insn) > 0)
-		{
-		  expanded_location xloc;
-		  NOTE_EXPANDED_LOCATION (xloc, insn);
-		  line_number = xloc.line;
-		  file_name = xloc.file;
-		}
-	      break;
-	    }
-	}
-
-      check_block_change (insn, &block);
     }
 
   /* Tag the blocks with a depth number so that change_scope can find
@@ -718,7 +723,8 @@ fixup_reorder_chain (void)
 
 	      /* If the "jumping" edge is a crossing edge, and the fall
 		 through edge is non-crossing, leave things as they are.  */
-	      else if (e_taken->crossing_edge && !e_fall->crossing_edge)
+	      else if ((e_taken->flags & EDGE_CROSSING)
+		       && !(e_fall->flags & EDGE_CROSSING))
 		continue;
 
 	      /* Otherwise we can try to invert the jump.  This will
@@ -788,11 +794,13 @@ fixup_reorder_chain (void)
 	  bb = nb;
 	  
 	  /* Make sure new bb is tagged for correct section (same as
-	     fall-thru source).  */
-	  e_fall->src->partition = bb->pred->src->partition;
-	  if (flag_reorder_blocks_and_partition)
+	     fall-thru source, since you cannot fall-throu across
+	     section boundaries).  */
+	  BB_COPY_PARTITION (e_fall->src, bb->pred->src);
+	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections)
 	    {
-	      if (bb->pred->src->partition == COLD_PARTITION)
+	      if (BB_PARTITION (bb->pred->src) == BB_COLD_PARTITION)
 		{
 		  rtx new_note;
 		  rtx note = BB_HEAD (e_fall->src);
@@ -808,7 +816,7 @@ fixup_reorder_chain (void)
 		}
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && bb->succ->crossing_edge )
+		  && (bb->succ->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }
@@ -1032,8 +1040,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	         in first BB, we may want to copy the block.  */
 	    case NOTE_INSN_PROLOGUE_END:
 
-	    case NOTE_INSN_LOOP_VTOP:
-	    case NOTE_INSN_LOOP_CONT:
 	    case NOTE_INSN_LOOP_BEG:
 	    case NOTE_INSN_LOOP_END:
 	      /* Strip down the loop notes - we don't really want to keep
@@ -1102,6 +1108,7 @@ cfg_layout_duplicate_bb (basic_block bb)
 			       insn ? get_last_insn () : NULL,
 			       EXIT_BLOCK_PTR->prev_bb);
 
+  BB_COPY_PARTITION (new_bb, bb);
   if (bb->rbi->header)
     {
       insn = bb->rbi->header;

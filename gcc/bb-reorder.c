@@ -197,17 +197,23 @@ push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
   bool there_exists_another_round;
   bool cold_block;
   bool block_not_hot_enough;
+  bool next_round_is_last;
 
   there_exists_another_round = round < number_of_rounds - 1;
+  next_round_is_last = round + 1 == number_of_rounds - 1;
 
   cold_block = (flag_reorder_blocks_and_partition 
-		&& bb->partition == COLD_PARTITION);
+		&& BB_PARTITION (bb) == BB_COLD_PARTITION);
 
   block_not_hot_enough = (bb->frequency < exec_th 
 			  || bb->count < count_th
 			  || probably_never_executed_bb_p (bb));
 
-  if (there_exists_another_round
+  if (flag_reorder_blocks_and_partition
+      && next_round_is_last
+      && BB_PARTITION (bb) != BB_COLD_PARTITION)
+    return false;
+  else if (there_exists_another_round
       && (cold_block || block_not_hot_enough))
     return true;
   else 
@@ -383,7 +389,9 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
-	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0))
+	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0)
+		  && !find_reg_note (BB_END (header), REG_CROSSING_JUMP, 
+				     NULL_RTX))
 		{
 		  copy_bb (header, prev_bb->succ, prev_bb, trace_n);
 		}
@@ -505,7 +513,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		  && e->dest->rbi->visited != *n_traces)
 		continue;
 
-	      if (e->dest->partition == COLD_PARTITION
+	      if (BB_PARTITION (e->dest) == BB_COLD_PARTITION
 		  && round < last_round)
 		continue;
 
@@ -680,7 +688,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			&& !(e->flags & EDGE_COMPLEX)
 			&& !e->dest->rbi->visited
 			&& !e->dest->pred->pred_next
-			&& !e->crossing_edge
+			&& !(e->flags & EDGE_CROSSING)
 			&& e->dest->succ
 			&& (e->dest->succ->flags & EDGE_CAN_FALLTHRU)
 			&& !(e->dest->succ->flags & EDGE_COMPLEX)
@@ -750,6 +758,8 @@ copy_bb (basic_block old_bb, edge e, basic_block bb, int trace)
   basic_block new_bb;
 
   new_bb = duplicate_block (old_bb, e);
+  BB_COPY_PARTITION (new_bb, old_bb);
+
   if (e->dest != new_bb)
     abort ();
   if (e->dest->rbi->visited)
@@ -801,7 +811,8 @@ bb_to_key (basic_block bb)
 
   /* Do not start in probably never executed blocks.  */
 
-  if (bb->partition == COLD_PARTITION || probably_never_executed_bb_p (bb))
+  if (BB_PARTITION (bb) == BB_COLD_PARTITION
+      || probably_never_executed_bb_p (bb))
     return BB_FREQ_MAX;
 
   /* Prefer blocks whose predecessor is an end of some trace
@@ -870,8 +881,8 @@ better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
   if (!is_better_edge
       && flag_reorder_blocks_and_partition 
       && cur_best_edge 
-      && cur_best_edge->crossing_edge
-      && !e->crossing_edge)
+      && (cur_best_edge->flags & EDGE_CROSSING)
+      && !(e->flags & EDGE_CROSSING))
     is_better_edge = true;
 
   return is_better_edge;
@@ -911,7 +922,7 @@ connect_traces (int n_traces, struct trace *traces)
   if (flag_reorder_blocks_and_partition)
     for (i = 0; i < n_traces; i++)
       {
-	if (traces[i].first->partition == COLD_PARTITION)
+	if (BB_PARTITION (traces[i].first) == BB_COLD_PARTITION)
 	  {
 	    connected[i] = true;
 	    cold_traces[i] = true;
@@ -1236,8 +1247,10 @@ add_unlikely_executed_notes (void)
 {
   basic_block bb;
 
+  /* Add the UNLIKELY_EXECUTED_NOTES to each cold basic block.  */
+
   FOR_EACH_BB (bb)
-    if (bb->partition == COLD_PARTITION)
+    if (BB_PARTITION (bb) == BB_COLD_PARTITION)
       mark_bb_for_unlikely_executed_section (bb);
 }
 
@@ -1251,6 +1264,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 						      int *max_idx)
 {
   basic_block bb;
+  bool has_hot_blocks = false;
   edge e;
   int i;
 
@@ -1259,34 +1273,51 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
   FOR_EACH_BB (bb)
     {
       if (probably_never_executed_bb_p (bb))
-	bb->partition = COLD_PARTITION;
+	BB_SET_PARTITION (bb, BB_COLD_PARTITION);
       else
-	bb->partition = HOT_PARTITION;
+	{
+	  BB_SET_PARTITION (bb, BB_HOT_PARTITION);
+	  has_hot_blocks = true;
+	}
     }
+
+  /* Since all "hot" basic blocks will eventually be scheduled before all
+     cold basic blocks, make *sure* the real function entry block is in
+     the hot partition (if there is one).  */
+  
+  if (has_hot_blocks)
+    for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+      if (e->dest->index >= 0)
+	{
+	  BB_SET_PARTITION (e->dest, BB_HOT_PARTITION);
+	  break;
+	}
 
   /* Mark every edge that crosses between sections.  */
 
   i = 0;
-  FOR_EACH_BB (bb)
-    for (e = bb->succ; e; e = e->succ_next)
-      {
-	if (e->src != ENTRY_BLOCK_PTR
-	    && e->dest != EXIT_BLOCK_PTR
-	    && e->src->partition != e->dest->partition)
+  if (targetm.have_named_sections)
+    {
+      FOR_EACH_BB (bb)
+	for (e = bb->succ; e; e = e->succ_next)
 	  {
-	    e->crossing_edge = true;
-	    if (i == *max_idx)
+	    if (e->src != ENTRY_BLOCK_PTR
+		&& e->dest != EXIT_BLOCK_PTR
+		&& BB_PARTITION (e->src) != BB_PARTITION (e->dest))
 	      {
-		*max_idx *= 2;
-		crossing_edges = xrealloc (crossing_edges,
-					   (*max_idx) * sizeof (edge));
+		e->flags |= EDGE_CROSSING;
+		if (i == *max_idx)
+		  {
+		    *max_idx *= 2;
+		    crossing_edges = xrealloc (crossing_edges,
+					       (*max_idx) * sizeof (edge));
+		  }
+		crossing_edges[i++] = e;
 	      }
-	    crossing_edges[i++] = e;
+	    else
+	      e->flags &= ~EDGE_CROSSING;
 	  }
-	else
-	  e->crossing_edge = false;
-      }
-
+    }
   *n_crossing_edges = i;
 }
 
@@ -1301,32 +1332,28 @@ mark_bb_for_unlikely_executed_section (basic_block bb)
   rtx insert_insn = NULL;
   rtx new_note;
   
-  /* Find first non-note instruction and insert new NOTE before it (as
-     long as new NOTE is not first instruction in basic block).  */
-  
-  for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb)); 
+  /* Insert new NOTE immediately after  BASIC_BLOCK note.  */
+
+  for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb));
        cur_insn = NEXT_INSN (cur_insn))
-    if (!NOTE_P (cur_insn)
-	&& !LABEL_P (cur_insn))
+    if (GET_CODE (cur_insn) == NOTE
+	&& NOTE_LINE_NUMBER (cur_insn) == NOTE_INSN_BASIC_BLOCK)
       {
 	insert_insn = cur_insn;
 	break;
       }
-  
+    
+  /* If basic block does not contain a NOTE_INSN_BASIC_BLOCK, there is
+     a major problem.  */
+
+  if (!insert_insn)
+    abort ();
+
   /* Insert note and assign basic block number to it.  */
   
-  if (insert_insn) 
-    {
-      new_note = emit_note_before (NOTE_INSN_UNLIKELY_EXECUTED_CODE, 
- 				   insert_insn);
-      NOTE_BASIC_BLOCK (new_note) = bb;
-    }
-  else
-    {
-      new_note = emit_note_after (NOTE_INSN_UNLIKELY_EXECUTED_CODE,
-				  BB_END (bb));
-      NOTE_BASIC_BLOCK (new_note) = bb;
-    }
+  new_note = emit_note_after (NOTE_INSN_UNLIKELY_EXECUTED_CODE, 
+			      insert_insn);
+  NOTE_BASIC_BLOCK (new_note) = bb;
 }
 
 /* If any destination of a crossing edge does not have a label, add label;
@@ -1446,7 +1473,7 @@ fix_up_fall_thru_edges (void)
   	{
   	  /* Check to see if the fall-thru edge is a crossing edge.  */
 	
-	  if (fall_thru->crossing_edge)
+	  if (fall_thru->flags & EDGE_CROSSING)
   	    {
 	      /* The fall_thru edge crosses; now check the cond jump edge, if
 	         it exists.  */
@@ -1459,7 +1486,7 @@ fix_up_fall_thru_edges (void)
 	      
  	      if (cond_jump)
  		{
-		  if (!cond_jump->crossing_edge)
+		  if (!(cond_jump->flags & EDGE_CROSSING))
  		    cond_jump_crosses = false;
 		  
  		  /* We know the fall-thru edge crosses; if the cond
@@ -1487,8 +1514,8 @@ fix_up_fall_thru_edges (void)
  			  e = fall_thru;
  			  fall_thru = cond_jump;
  			  cond_jump = e;
-			  cond_jump->crossing_edge = true;
-			  fall_thru->crossing_edge = false;
+			  cond_jump->flags |= EDGE_CROSSING;
+			  fall_thru->flags &= ~EDGE_CROSSING;
  			}
  		    }
  		}
@@ -1509,9 +1536,9 @@ fix_up_fall_thru_edges (void)
 		      
  		      /* Make sure new fall-through bb is in same 
 			 partition as bb it's falling through from.  */
- 		      
-		      new_bb->partition = cur_bb->partition;
-		      new_bb->succ->crossing_edge = true;
+
+		      BB_COPY_PARTITION (new_bb, cur_bb);
+		      new_bb->succ->flags |= EDGE_CROSSING;
  		    }
 		  
  		  /* Add barrier after new jump */
@@ -1548,7 +1575,7 @@ find_jump_block (basic_block jump_dest)
   rtx insn;
 
   for (e = jump_dest->pred; e; e = e->pred_next)
-    if (e->crossing_edge)
+    if (e->flags & EDGE_CROSSING)
       {
 	basic_block src = e->src;
 	
@@ -1617,9 +1644,9 @@ fix_crossing_conditional_branches (void)
       /* We already took care of fall-through edges, so only one successor
 	 can be a crossing edge.  */
       
-      if (succ1 && succ1->crossing_edge)
+      if (succ1 && (succ1->flags & EDGE_CROSSING))
 	crossing_edge = succ1;
-      else if (succ2 && succ2->crossing_edge)
+      else if (succ2 && (succ2->flags & EDGE_CROSSING))
  	crossing_edge = succ2;
       
       if (crossing_edge) 
@@ -1709,8 +1736,7 @@ fix_crossing_conditional_branches (void)
 		  
 		  /* Make sure new bb is in same partition as source
 		     of conditional branch.  */
-		  
-		  new_bb->partition = cur_bb->partition;
+		  BB_COPY_PARTITION (new_bb, cur_bb);
 		}
 	      
 	      /* Make old jump branch to new bb.  */
@@ -1732,8 +1758,8 @@ fix_crossing_conditional_branches (void)
 	      else
 		new_edge = new_bb->succ;
 	      
-	      crossing_edge->crossing_edge = false;
-	      new_edge->crossing_edge = true;
+	      crossing_edge->flags &= ~EDGE_CROSSING;
+	      new_edge->flags |= EDGE_CROSSING;
 	    }
  	}
     }
@@ -1754,7 +1780,7 @@ fix_crossing_unconditional_branches (void)
   rtx new_reg;
   rtx cur_insn;
   edge succ;
-  
+
   FOR_EACH_BB (cur_bb)
     {
       last_insn = BB_END (cur_bb);
@@ -1764,7 +1790,7 @@ fix_crossing_unconditional_branches (void)
          this point, no crossing jumps should be conditional.  */
 
       if (JUMP_P (last_insn)
-	  && succ->crossing_edge)
+	  && (succ->flags & EDGE_CROSSING))
 	{
 	  rtx label2, table;
 
@@ -1832,7 +1858,7 @@ add_reg_crossing_jump_notes (void)
 
   FOR_EACH_BB (bb)
     for (e = bb->succ; e; e = e->succ_next)
-      if (e->crossing_edge
+      if ((e->flags & EDGE_CROSSING)
 	  && JUMP_P (BB_END (e->src)))
 	REG_NOTES (BB_END (e->src)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP, 
 							 NULL_RTX, 
@@ -1886,26 +1912,36 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
   
   fix_up_fall_thru_edges ();
   
-  /* If the architecture does not have conditional branches that can
-     span all of memory, convert crossing conditional branches into
-     crossing unconditional branches.  */
-  
-  if (!HAS_LONG_COND_BRANCH)
-    fix_crossing_conditional_branches ();
-  
-  /* If the architecture does not have unconditional branches that
-     can span all of memory, convert crossing unconditional branches
-     into indirect jumps.  Since adding an indirect jump also adds
-     a new register usage, update the register usage information as
-     well.  */
-  
-  if (!HAS_LONG_UNCOND_BRANCH)
-    {
-      fix_crossing_unconditional_branches ();
-      reg_scan (get_insns(), max_reg_num (), 1);
-    }
+  /* Only do the parts necessary for writing separate sections if
+     the target architecture has the ability to write separate sections
+     (i.e. it has named sections).  Otherwise, the hot/cold partitioning
+     information will be used when reordering blocks to try to put all
+     the hot blocks together, then all the cold blocks, but no actual
+     section partitioning will be done.  */
 
-  add_reg_crossing_jump_notes ();
+  if (targetm.have_named_sections)
+    {
+      /* If the architecture does not have conditional branches that can
+	 span all of memory, convert crossing conditional branches into
+	 crossing unconditional branches.  */
+  
+      if (!HAS_LONG_COND_BRANCH)
+	fix_crossing_conditional_branches ();
+  
+      /* If the architecture does not have unconditional branches that
+	 can span all of memory, convert crossing unconditional branches
+	 into indirect jumps.  Since adding an indirect jump also adds
+	 a new register usage, update the register usage information as
+	 well.  */
+      
+      if (!HAS_LONG_UNCOND_BRANCH)
+	{
+	  fix_crossing_unconditional_branches ();
+	  reg_scan (get_insns(), max_reg_num (), 1);
+	}
+
+      add_reg_crossing_jump_notes ();
+    }
 }
 
 /* Reorder basic blocks.  The main entry point to this file.  FLAGS is
@@ -1957,7 +1993,8 @@ reorder_basic_blocks (unsigned int flags)
   if (dump_file)
     dump_flow_info (dump_file);
 
-  if (flag_reorder_blocks_and_partition)
+  if (flag_reorder_blocks_and_partition
+      && targetm.have_named_sections)
     add_unlikely_executed_notes ();
 
   cfg_layout_finalize ();
@@ -1972,20 +2009,57 @@ reorder_basic_blocks (unsigned int flags)
    been called.  However part of this optimization may introduce new
    register usage, so it must be called before register allocation has
    occurred.  This means that this optimization is actually called
-   well before the optimization that reorders basic blocks (see function
-   above).
+   well before the optimization that reorders basic blocks (see
+   function above).
 
    This optimization checks the feedback information to determine
-   which basic blocks are hot/cold and adds
-   NOTE_INSN_UNLIKELY_EXECUTED_CODE to non-hot basic blocks.  The
+   which basic blocks are hot/cold and causes reorder_basic_blocks to
+   add NOTE_INSN_UNLIKELY_EXECUTED_CODE to non-hot basic blocks.  The
    presence or absence of this note is later used for writing out
-   sections in the .o file.  This optimization must also modify the
-   CFG to make sure there are no fallthru edges between hot & cold
-   blocks, as those blocks will not necessarily be contiguous in the
-   .o (or assembly) file; and in those cases where the architecture
-   requires it, conditional and unconditional branches that cross
-   between sections are converted into unconditional or indirect
-   jumps, depending on what is appropriate.  */
+   sections in the .o file.  Because hot and cold sections can be
+   arbitrarily large (within the bounds of memory), far beyond the
+   size of a single function, it is necessary to fix up all edges that
+   cross section boundaries, to make sure the instructions used can
+   actually span the required distance.  The fixes are described
+   below.
+
+   Fall-through edges must be changed into jumps; it is not safe or
+   legal to fall through across a section boundary.  Whenever a
+   fall-through edge crossing a section boundary is encountered, a new
+   basic block is inserted (in the same section as the fall-through
+   source), and the fall through edge is redirected to the new basic
+   block.  The new basic block contains an unconditional jump to the
+   original fall-through target.  (If the unconditional jump is
+   insufficient to cross section boundaries, that is dealt with a
+   little later, see below).
+
+   In order to deal with architectures that have short conditional
+   branches (which cannot span all of memory) we take any conditional
+   jump that attempts to cross a section boundary and add a level of
+   indirection: it becomes a conditional jump to a new basic block, in
+   the same section.  The new basic block contains an unconditional
+   jump to the original target, in the other section.
+
+   For those architectures whose unconditional branch is also
+   incapable of reaching all of memory, those unconditional jumps are
+   converted into indirect jumps, through a register.
+
+   IMPORTANT NOTE: This optimization causes some messy interactions
+   with the cfg cleanup optimizations; those optimizations want to
+   merge blocks wherever possible, and to collapse indirect jump
+   sequences (change "A jumps to B jumps to C" directly into "A jumps
+   to C").  Those optimizations can undo the jump fixes that
+   partitioning is required to make (see above), in order to ensure
+   that jumps attempting to cross section boundaries are really able
+   to cover whatever distance the jump requires (on many architectures
+   conditional or unconditional jumps are not able to reach all of
+   memory).  Therefore tests have to be inserted into each such
+   optimization to make sure that it does not undo stuff necessary to
+   cross partition boundaries.  This would be much less of a problem
+   if we could perform this optimization later in the compilation, but
+   unfortunately the fact that we may need to create indirect jumps
+   (through registers) requires that this optimization be performed
+   before register allocation.  */
 
 void
 partition_hot_cold_basic_blocks (void)

@@ -50,7 +50,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	   block_stmt_iterator *incr_pos, bool after,
 	   tree *var_before, tree *var_after)
 {
-  tree stmt, initial, step1, stmts;
+  tree stmt, initial, step1;
   tree vb, va;
   enum tree_code incr_op = PLUS_EXPR;
 
@@ -100,13 +100,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   else
     bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
 
-  initial = force_gimple_operand (base, &stmts, true, var);
-  if (stmts)
-    {
-      edge pe = loop_preheader_edge (loop);
-
-      bsi_insert_on_edge_immediate_loop (pe, stmts);
-    }
+  initial = base;
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
@@ -310,7 +304,8 @@ rewrite_into_loop_closed_ssa (void)
   unsigned i;
   bitmap names_to_rename;
 
-  gcc_assert (!any_marked_for_rewrite_p ());
+  if (any_marked_for_rewrite_p ())
+    abort ();
 
   use_blocks = xcalloc (num_ssa_names, sizeof (bitmap));
 
@@ -345,8 +340,9 @@ check_loop_closed_ssa_use (basic_block bb, tree use)
 
   def = SSA_NAME_DEF_STMT (use);
   def_bb = bb_for_stmt (def);
-  gcc_assert (!def_bb
-	      || flow_bb_inside_loop_p (def_bb->loop_father, bb));
+  if (def_bb
+      && !flow_bb_inside_loop_p (def_bb->loop_father, bb))
+    abort ();
 }
 
 /* Checks invariants of loop closed ssa form in statement STMT in BB.  */
@@ -384,116 +380,5 @@ verify_loop_closed_ssa (void)
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	check_loop_closed_ssa_stmt (bb, bsi_stmt (bsi));
-    }
-}
-
-/* Split loop exit edge EXIT.  The things are a bit complicated by a need to
-   preserve the loop closed ssa form.  */
-
-void
-split_loop_exit_edge (edge exit)
-{
-  basic_block dest = exit->dest;
-  basic_block bb = loop_split_edge_with (exit, NULL);
-  tree phi, new_phi, new_name;
-  use_operand_p op_p;
-
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
-    {
-      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
-
-      new_name = duplicate_ssa_name (USE_FROM_PTR (op_p), NULL);
-      new_phi = create_phi_node (new_name, bb);
-      SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, USE_FROM_PTR (op_p), exit);
-      SET_USE (op_p, new_name);
-    }
-}
-
-/* Insert statement STMT to the edge E and update the loop structures.
-   Returns the newly created block (if any).  */
-
-basic_block
-bsi_insert_on_edge_immediate_loop (edge e, tree stmt)
-{
-  basic_block src, dest, new_bb;
-  struct loop *loop_c;
-
-  src = e->src;
-  dest = e->dest;
-
-  loop_c = find_common_loop (src->loop_father, dest->loop_father);
-
-  new_bb = bsi_insert_on_edge_immediate (e, stmt);
-
-  if (!new_bb)
-    return NULL;
-
-  add_bb_to_loop (new_bb, loop_c);
-  if (dest->loop_father->latch == src)
-    dest->loop_father->latch = new_bb;
-
-  return new_bb;
-}
-
-/* Returns the basic block in that statements should be emitted for induction
-   variables incremented at the end of the LOOP.  */
-
-basic_block
-ip_end_pos (struct loop *loop)
-{
-  return loop->latch;
-}
-
-/* Returns the basic block in that statements should be emitted for induction
-   variables incremented just before exit condition of a LOOP.  */
-
-basic_block
-ip_normal_pos (struct loop *loop)
-{
-  tree last;
-  basic_block bb;
-  edge exit;
-
-  if (loop->latch->pred->pred_next)
-    return NULL;
-
-  bb = loop->latch->pred->src;
-  last = last_stmt (bb);
-  if (TREE_CODE (last) != COND_EXPR)
-    return NULL;
-
-  exit = bb->succ;
-  if (exit->dest == loop->latch)
-    exit = exit->succ_next;
-
-  if (flow_bb_inside_loop_p (loop, exit->dest))
-    return NULL;
-
-  return bb;
-}
-
-/* Stores the standard position for induction variable increment in LOOP
-   (just before the exit condition if it is available and latch block is empty,
-   end of the latch block otherwise) to BSI.  INSERT_AFTER is set to true if
-   the increment should be inserted after *BSI.  */
-
-void
-standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
-				bool *insert_after)
-{
-  basic_block bb = ip_normal_pos (loop), latch = ip_end_pos (loop);
-  tree last = last_stmt (latch);
-
-  if (!bb
-      || (last && TREE_CODE (last) != LABEL_EXPR))
-    {
-      *bsi = bsi_last (latch);
-      *insert_after = true;
-    }
-  else
-    {
-      *bsi = bsi_last (bb);
-      *insert_after = false;
     }
 }

@@ -63,6 +63,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer is dereferenced.  */
   unsigned int is_dereferenced : 1;
 
+  /* Nonzero if this pointer points to a global variable.  */
+  unsigned int pt_global_mem : 1;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -246,11 +249,6 @@ struct stmt_ann_d GTY(())
      need to be scanned again).  */
   unsigned modified : 1;
 
-  /* Nonzero if the statement is in the CCP worklist and has not been
-     "cancelled".  If we ever need to use this bit outside CCP, then
-     it should be renamed.  */
-  unsigned in_ccp_worklist: 1;
-
   /* Nonzero if the statement makes aliased loads.  */
   unsigned makes_aliased_loads : 1;
 
@@ -267,14 +265,7 @@ struct stmt_ann_d GTY(())
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
 
-  /* Statement operands.  */
-  struct def_optype_d * GTY (()) def_ops;
-  struct use_optype_d * GTY (()) use_ops;
-
-  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
-  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
-  struct vuse_optype_d * GTY (()) vuse_ops;
-  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
+  struct stmt_operands_d operands;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -356,6 +347,10 @@ struct bb_ann_d GTY(())
 
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
+
+  /* Nonzero if one or more incoming edges to this block should be threaded
+     to an outgoing edge of this block.  */
+  unsigned incoming_edge_threaded : 1;
 
   struct edge_prediction *predictions;
 };
@@ -475,7 +470,7 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern void cleanup_tree_cfg (void);
+extern bool cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -487,10 +482,10 @@ extern basic_block label_to_block (tree);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
+extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
-extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
@@ -562,7 +557,6 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -582,7 +576,7 @@ extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
-extern void rewrite_ssa_into_ssa (bitmap);
+extern void rewrite_ssa_into_ssa (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
@@ -633,9 +627,17 @@ struct tree_niter_desc
 			   the loop), then the information would be lost.  */
 };
 
+/* In tree-vectorizer.c */
+void vectorize_loops (struct loops *);
+
+/* In tree-ssa-phiopt.c */
+bool empty_block_p (basic_block);
+
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);
+void canonicalize_induction_variables (struct loops *);
+void tree_unroll_loops_completely (struct loops *);
 
 void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
 				struct tree_niter_desc *);
@@ -646,8 +648,12 @@ tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
 tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
+void rewrite_into_loop_closed_ssa (void);
+void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
+		tree *, tree *);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
@@ -685,6 +691,10 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
+/* In tree-ssa-operands.c  */
+extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
+				stmt_operands_p);
 
 #include "tree-flow-inline.h"
 

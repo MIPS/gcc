@@ -179,7 +179,7 @@ complete_type_check_abstract (tree type)
   struct pending_abstract_type *pat;
   location_t cur_loc = input_location;
 
-  my_friendly_assert (COMPLETE_TYPE_P (type), 20040620_3);
+  gcc_assert (COMPLETE_TYPE_P (type));
 
   if (!abstract_pending_vars)
     return;
@@ -190,7 +190,7 @@ complete_type_check_abstract (tree type)
   if (!slot)
     return;
   pat = (struct pending_abstract_type*)*slot;
-  my_friendly_assert (pat, 20040620_2);
+  gcc_assert (pat);
 
   /* If the type is not abstract, do not do anything.  */
   if (CLASSTYPE_PURE_VIRTUALS (type))
@@ -210,7 +210,7 @@ complete_type_check_abstract (tree type)
 	element: it will issue a diagostic if the type is abstract.  */
       while (pat)
 	{
-	  my_friendly_assert (type == pat->type, 20040620_4);
+	  gcc_assert (type == pat->type);
 
 	  /* Tweak input_location so that the diagnostic appears at the correct
 	    location. Notice that this is only needed if the decl is an
@@ -252,9 +252,8 @@ abstract_virtuals_error (tree decl, tree type)
       void **slot;
       struct pending_abstract_type *pat;
 
-      my_friendly_assert (!decl || (DECL_P (decl) 
-				    || TREE_CODE (decl) == IDENTIFIER_NODE),
-			  20040620_1);
+      gcc_assert (!decl || DECL_P (decl) 
+		  || TREE_CODE (decl) == IDENTIFIER_NODE);
 
       if (!abstract_pending_vars)
 	abstract_pending_vars = htab_create_ggc (31, &pat_calc_hash, 
@@ -470,11 +469,11 @@ split_nonconstant_init_1 (tree dest, tree init)
 	  if (TREE_CODE (value) == CONSTRUCTOR)
 	    {
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index,
-			     NULL_TREE, NULL_TREE);
+	        sub = build4 (ARRAY_REF, inner_type, dest, field_index,
+			      NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
-			     NULL_TREE);
+	        sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
+			      NULL_TREE);
 
 	      split_nonconstant_init_1 (sub, value);
 	    }
@@ -483,13 +482,13 @@ split_nonconstant_init_1 (tree dest, tree init)
 	      *pelt = TREE_CHAIN (elt);
 
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index,
-			     NULL_TREE, NULL_TREE);
+	        sub = build4 (ARRAY_REF, inner_type, dest, field_index,
+			      NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
-			     NULL_TREE);
+	        sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
+			      NULL_TREE);
 
-	      code = build (MODIFY_EXPR, inner_type, sub, value);
+	      code = build2 (MODIFY_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
 	      add_stmt (code);
 	      continue;
@@ -503,7 +502,7 @@ split_nonconstant_init_1 (tree dest, tree init)
       if (!initializer_constant_valid_p (init, type))
 	{
 	  CONSTRUCTOR_ELTS (init) = NULL;
-	  code = build (MODIFY_EXPR, type, dest, init);
+	  code = build2 (MODIFY_EXPR, type, dest, init);
 	  code = build_stmt (EXPR_STMT, code);
 	  add_stmt (code);
 	}
@@ -533,7 +532,7 @@ split_nonconstant_init (tree dest, tree init)
       TREE_READONLY (dest) = 0;
     }
   else
-    code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
+    code = build2 (INIT_EXPR, TREE_TYPE (dest), dest, init);
 
   return code;
 }
@@ -609,7 +608,7 @@ store_init_value (tree decl, tree init)
      constructing never make it into DECL_INITIAL, and passes 'init' to
      build_aggr_init without checking DECL_INITIAL.  So just return.  */
   else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return build (INIT_EXPR, type, decl, value);
+    return build2 (INIT_EXPR, type, decl, value);
   else if (TREE_STATIC (decl)
 	   && (! TREE_CONSTANT (value)
 	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
@@ -888,12 +887,9 @@ process_init_constructor (tree type, tree init, tree* elts)
 				       TREE_VALUE (tail), &tail1);
 		  if (next1 == error_mark_node)
 		    return next1;
-		  my_friendly_assert
-		    (same_type_ignoring_top_level_qualifiers_p
-		     (TREE_TYPE (type), TREE_TYPE (next1)),
-		     981123);
-		  my_friendly_assert (tail1 == 0
-				      || TREE_CODE (tail1) == TREE_LIST, 319);
+		  gcc_assert (same_type_ignoring_top_level_qualifiers_p
+			      (TREE_TYPE (type), TREE_TYPE (next1)));
+		  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 		  if (tail == tail1 && len < 0)
 		    {
 		      error ("non-empty initializer for array of empty elements");
@@ -992,8 +988,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 		  next1 = digest_init (TREE_TYPE (field),
 				       TREE_VALUE (tail), &tail1);
-		  my_friendly_assert (tail1 == 0
-				      || TREE_CODE (tail1) == TREE_LIST, 320);
+		  gcc_assert (!tail1 || TREE_CODE (tail1) == TREE_LIST);
 		  tail = tail1;
 		}
 	      else
@@ -1022,7 +1017,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 	      next1 = digest_init (TREE_TYPE (field), next1, 0);
 
 	      /* Warn when some struct elements are implicitly initialized.  */
-	      if (extra_warnings
+	      if (warn_missing_field_initializers
 	          && (!init || BRACE_ENCLOSED_INITIALIZER_P (init)))
 		warning ("missing initializer for member `%D'", field);
 	    }
@@ -1038,7 +1033,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
 	      /* Warn when some struct elements are implicitly initialized
 		 to zero.  */
-	      if (extra_warnings
+	      if (warn_missing_field_initializers
 	          && (!init || BRACE_ENCLOSED_INITIALIZER_P (init)))
 		warning ("missing initializer for member `%D'", field);
 
@@ -1369,12 +1364,12 @@ build_m_component_ref (tree datum, tree component)
       
       /* Build an expression for "object + offset" where offset is the
 	 value stored in the pointer-to-data-member.  */
-      datum = build (PLUS_EXPR, build_pointer_type (type),
-		     datum, build_nop (ptrdiff_type_node, component));
+      datum = build2 (PLUS_EXPR, build_pointer_type (type),
+		      datum, build_nop (ptrdiff_type_node, component));
       return build_indirect_ref (datum, 0);
     }
   else
-    return build (OFFSET_REF, type, datum, component);
+    return build2 (OFFSET_REF, type, datum, component);
 }
 
 /* Return a tree node for the expression TYPENAME '(' PARMS ')'.  */
@@ -1463,7 +1458,7 @@ add_exception_specifier (tree list, tree spec, int complain)
   if (spec == error_mark_node)
     return list;
   
-  my_friendly_assert (spec && (!list || TREE_VALUE (list)), 19990317);
+  gcc_assert (spec && (!list || TREE_VALUE (list)));
   
   /* [except.spec] 1, type in an exception specifier shall not be
      incomplete, or pointer or ref to incomplete other than pointer

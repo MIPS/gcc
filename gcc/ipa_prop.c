@@ -896,7 +896,7 @@ ipcp_propagate_const (ipcp_method mt, int param, ipcp_int *cvalue)
 
   fndecl = mt->decl;
   parm_tree = ipcp_method_get_tree (mt, param);
-  const_val = build_int_2 (cvalue->low, cvalue->high);   
+  const_val = build_int_cst_wide (NULL_TREE, cvalue->low, cvalue->high);   
   if (parm_tree != NULL)
     if (const_val != NULL)
       if(fndecl != NULL)
@@ -972,7 +972,7 @@ static void
 ipcp_stage2 (void)
 {
   int i;
-  struct ipcp_formal cval1, cval;
+  struct ipcp_formal cval1 = {0, {0, 0}}, cval = {0, {0, 0}};
   struct ipcp_formal *cval2;
   ipcp_method mt,callee;
   ipcp_callsite cs;

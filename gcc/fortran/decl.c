@@ -186,7 +186,7 @@ get_proc_name (const char *name, gfc_symbol ** result)
   if (*result == NULL)
     return rc;
 
-  /* Deal with ENTRY problem */
+  /* ??? Deal with ENTRY problem */
 
   st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
 
@@ -632,7 +632,7 @@ gfc_match_old_kind_spec (gfc_typespec * ts)
   if (ts->type == BT_COMPLEX && ts->kind == 16)
     ts->kind = 8;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Old-style kind %d not supported for type %s at %C",
 		 ts->kind, gfc_basic_typename (ts->type));
@@ -692,7 +692,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
   gfc_free_expr (e);
   e = NULL;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Kind %d not supported for type %s at %C", ts->kind,
 		 gfc_basic_typename (ts->type));
@@ -727,7 +727,7 @@ match_char_spec (gfc_typespec * ts)
   gfc_expr *len;
   match m;
 
-  kind = gfc_default_character_kind ();
+  kind = gfc_default_character_kind;
   len = NULL;
   seen_length = 0;
 
@@ -790,7 +790,7 @@ match_char_spec (gfc_typespec * ts)
 
       gfc_match_small_int (&kind);
 
-      if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+      if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
 	{
 	  gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
 	  return MATCH_YES;
@@ -833,7 +833,7 @@ syntax:
   m = MATCH_ERROR;
 
 done:
-  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
       m = MATCH_ERROR;
@@ -891,7 +891,7 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" integer") == MATCH_YES)
     {
       ts->type = BT_INTEGER;
-      ts->kind = gfc_default_integer_kind ();
+      ts->kind = gfc_default_integer_kind;
       goto get_kind;
     }
 
@@ -907,35 +907,35 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" real") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_real_kind ();
+      ts->kind = gfc_default_real_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double precision") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_complex_kind ();
+      ts->kind = gfc_default_complex_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" logical") == MATCH_YES)
     {
       ts->type = BT_LOGICAL;
-      ts->kind = gfc_default_logical_kind ();
+      ts->kind = gfc_default_logical_kind;
       goto get_kind;
     }
 
@@ -1141,7 +1141,7 @@ gfc_match_implicit (void)
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.cl)
 		{
-		  ts.kind = gfc_default_character_kind ();
+		  ts.kind = gfc_default_character_kind;
 		  ts.cl = gfc_get_charlen ();
 		  ts.cl->next = gfc_current_ns->cl_list;
 		  gfc_current_ns->cl_list = ts.cl;
@@ -1871,43 +1871,58 @@ cleanup:
 match
 gfc_match_entry (void)
 {
-  gfc_symbol *function, *result, *entry;
+  gfc_symbol *proc;
+  gfc_symbol *result;
+  gfc_symbol *entry;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_compile_state state;
   match m;
+  gfc_entry_list *el;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
     return m;
 
+  state = gfc_current_state ();
+  if (state != COMP_SUBROUTINE
+      && state != COMP_FUNCTION)
+    {
+      gfc_error ("ENTRY statement at %C cannot appear within %s",
+		 gfc_state_name (gfc_current_state ()));
+      return MATCH_ERROR;
+    }
+
+  if (gfc_current_ns->parent != NULL
+      && gfc_current_ns->parent->proc_name
+      && gfc_current_ns->parent->proc_name->attr.flavor != FL_MODULE)
+    {
+      gfc_error("ENTRY statement at %C cannot appear in a "
+		"contained procedure");
+      return MATCH_ERROR;
+    }
+
   if (get_proc_name (name, &entry))
     return MATCH_ERROR;
 
-  gfc_enclosing_unit (&state);
-  switch (state)
+  proc = gfc_current_block ();
+
+  if (state == COMP_SUBROUTINE)
     {
-    case COMP_SUBROUTINE:
+      /* And entry in a subroutine.  */
       m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (gfc_current_state () != COMP_SUBROUTINE)
-	goto exec_construct;
-
       if (gfc_add_entry (&entry->attr, NULL) == FAILURE
 	  || gfc_add_subroutine (&entry->attr, NULL) == FAILURE)
 	return MATCH_ERROR;
-
-      break;
-
-    case COMP_FUNCTION:
+    }
+  else
+    {
+      /* An entry in a function.  */
       m = gfc_match_formal_arglist (entry, 0, 0);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
-
-      if (gfc_current_state () != COMP_FUNCTION)
-	goto exec_construct;
-      function = gfc_state_stack->sym;
 
       result = NULL;
 
@@ -1917,12 +1932,12 @@ gfc_match_entry (void)
 	      || gfc_add_function (&entry->attr, NULL) == FAILURE)
 	    return MATCH_ERROR;
 
-	  entry->result = function->result;
+	  entry->result = proc->result;
 
 	}
       else
 	{
-	  m = match_result (function, &result);
+	  m = match_result (proc, &result);
 	  if (m == MATCH_NO)
 	    gfc_syntax_error (ST_ENTRY);
 	  if (m != MATCH_YES)
@@ -1934,16 +1949,11 @@ gfc_match_entry (void)
 	    return MATCH_ERROR;
 	}
 
-      if (function->attr.recursive && result == NULL)
+      if (proc->attr.recursive && result == NULL)
 	{
 	  gfc_error ("RESULT attribute required in ENTRY statement at %C");
 	  return MATCH_ERROR;
 	}
-
-      break;
-
-    default:
-      goto exec_construct;
     }
 
   if (gfc_match_eos () != MATCH_YES)
@@ -1952,13 +1962,23 @@ gfc_match_entry (void)
       return MATCH_ERROR;
     }
 
+  entry->attr.recursive = proc->attr.recursive;
+  entry->attr.elemental = proc->attr.elemental;
+  entry->attr.pure = proc->attr.pure;
+
+  el = gfc_get_entry_list ();
+  el->sym = entry;
+  el->next = gfc_current_ns->entries;
+  gfc_current_ns->entries = el;
+  if (el->next)
+    el->id = el->next->id + 1;
+  else
+    el->id = 1;
+
+  new_st.op = EXEC_ENTRY;
+  new_st.ext.entry = el;
+
   return MATCH_YES;
-
-exec_construct:
-  gfc_error ("ENTRY statement at %C cannot appear within %s",
-	     gfc_state_name (gfc_current_state ()));
-
-  return MATCH_ERROR;
 }
 
 

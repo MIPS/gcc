@@ -148,7 +148,10 @@ typedef enum
 
   /* An intrinsic function call.  Many intrinsic functions which map directly
      to library calls are created as GFC_SS_FUNCTION nodes.  */
-  GFC_SS_INTRINSIC
+  GFC_SS_INTRINSIC,
+  
+  /* A component of a derived type.  */
+  GFC_SS_COMPONENT
 }
 gfc_ss_type;
 
@@ -158,13 +161,14 @@ typedef struct gfc_ss
 {
   gfc_ss_type type;
   gfc_expr *expr;
+  mpz_t *shape;
+  tree string_length;
   union
   {
     /* If type is GFC_SS_SCALAR or GFC_SS_REFERENCE.  */
     struct
     {
       tree expr;
-      tree string_length;
     }
     scalar;
 
@@ -175,7 +179,6 @@ typedef struct gfc_ss
          assigned expression.  */
       int dimen;
       tree type;
-      tree string_length;
     }
     temp;
     /* All other types.  */
@@ -390,7 +393,7 @@ void gfc_allocate_lang_decl (tree);
 tree gfc_advance_chain (tree, int);
 
 /* Create a decl for a function.  */
-void gfc_build_function_decl (gfc_symbol *);
+void gfc_create_function_decl (gfc_namespace *);
 /* Generate the code for a function.  */
 void gfc_generate_function_code (gfc_namespace *);
 /* Output a decl for a module variable.  */
@@ -461,10 +464,6 @@ gfc_powdecl_list;
 extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[3][2];
 extern GTY(()) tree gfor_fndecl_math_cpowf;
 extern GTY(()) tree gfor_fndecl_math_cpow;
-extern GTY(()) tree gfor_fndecl_math_cabsf;
-extern GTY(()) tree gfor_fndecl_math_cabs;
-extern GTY(()) tree gfor_fndecl_math_sign4;
-extern GTY(()) tree gfor_fndecl_math_sign8;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
 extern GTY(()) tree gfor_fndecl_math_exponent4;
@@ -557,7 +556,10 @@ struct lang_decl		GTY(())
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) build(code, void_type_node, arg)
-#define build_v(code, args...) build(code, void_type_node, args)
+#define build2_v(code, arg1, arg2) build2(code, void_type_node, \
+                                          arg1, arg2)
+#define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
+                                                arg1, arg2, arg3)
 
 /* flag for alternative return labels.  */
 extern int has_alternate_specifier;  /* for caller */

@@ -132,6 +132,10 @@ struct gcc_target
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
 
+    /* Tell assembler to switch to the readonly data section associated
+       with function DECL.  */
+    void (* function_rodata_section) (tree);
+
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
 
@@ -168,6 +172,11 @@ struct gcc_target
     /* Output an assembler pseudo-op to declare a library function name
        external.  */
     void (*external_libcall) (rtx);
+
+     /* Output an assembler directive to mark decl live. This instructs
+	linker to not dead code strip this symbol.  */
+    void (*mark_decl_preserved) (const char *);
+
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -261,16 +270,19 @@ struct gcc_target
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return true if there exists a
-       dependence which is considered costly by the target, between 
-       the insn passed as the first parameter, and the insn passed as 
-       the second parameter.  The third parameter is the INSN_DEPEND 
+       dependence which is considered costly by the target, between
+       the insn passed as the first parameter, and the insn passed as
+       the second parameter.  The third parameter is the INSN_DEPEND
        link that represents the dependence between the two insns.  The
        fourth argument is the cost of the dependence as estimated by
-       the scheduler.  The last argument is the distance in cycles 
+       the scheduler.  The last argument is the distance in cycles
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
+
+  /* Return machine mode for filter value. */
+  enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);
@@ -368,6 +380,16 @@ struct gcc_target
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
+
+  /* True if MODE is valid for the target.  By "valid", we mean able to
+     be manipulated in non-trivial ways.  In particular, this means all
+     the arithmetic is supported.  */
+  bool (* scalar_mode_supported_p) (enum machine_mode mode);
+
+  /* Similarly for vector modes.  "Supported" here is less strict.  At
+     least some operations are supported; need to check optabs or builtins
+     for further details.  */
+  bool (* vector_mode_supported_p) (enum machine_mode mode);
 
   /* True if a vector is opaque.  */
   bool (* vector_opaque_p) (tree);
@@ -492,6 +514,8 @@ struct gcc_target
     /* Allows backends to perform additional processing when
        deciding if a class should be exported or imported.  */
     int (*import_export_class) (tree, int);
+    /* Returns true if constructors and destructors return "this".  */
+    bool (*cdtor_returns_this) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

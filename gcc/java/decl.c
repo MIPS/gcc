@@ -506,7 +506,7 @@ builtin_function (const char *name,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -554,7 +554,7 @@ java_init_decl_processing (void)
   TREE_TYPE (error_mark_node) = error_mark_node;
 
   /* Create sizetype first - needed for other types. */
-  initialize_sizetypes ();
+  initialize_sizetypes (false);
 
   byte_type_node = make_signed_type (8);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("byte"), byte_type_node));
@@ -585,25 +585,23 @@ java_init_decl_processing (void)
 
   /* Define these next since types below may used them.  */
   integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
-  integer_zero_node = build_int_2 (0, 0);
-  integer_one_node = build_int_2 (1, 0);
-  integer_two_node = build_int_2 (2, 0);
-  integer_four_node = build_int_2 (4, 0);
-  integer_minus_one_node = build_int_2 (-1, -1);
+  integer_zero_node = build_int_cst (NULL_TREE, 0);
+  integer_one_node = build_int_cst (NULL_TREE, 1);
+  integer_two_node = build_int_cst (NULL_TREE, 2);
+  integer_four_node = build_int_cst (NULL_TREE, 4);
+  integer_minus_one_node = build_int_cst (NULL_TREE, -1);
 
   /* A few values used for range checking in the lexer.  */
-  decimal_int_max = build_int_2 (0x80000000, 0);
-  TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
+  decimal_int_max = build_int_cstu (unsigned_int_type_node, 0x80000000);
 #if HOST_BITS_PER_WIDE_INT == 64
-  decimal_long_max = build_int_2 (0x8000000000000000LL, 0);
-#else
-#if HOST_BITS_PER_WIDE_INT == 32
-  decimal_long_max = build_int_2 (0, 0x80000000);
+  decimal_long_max = build_int_cstu (unsigned_long_type_node,
+				     0x8000000000000000LL);
+#elif HOST_BITS_PER_WIDE_INT == 32
+  decimal_long_max = build_int_cst_wide (unsigned_long_type_node,
+					 0, 0x80000000);
 #else
  #error "unsupported size"
 #endif
-#endif
-  TREE_TYPE (decimal_long_max) = unsigned_long_type_node;
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
@@ -611,8 +609,7 @@ java_init_decl_processing (void)
   bitsize_one_node = bitsize_int (1);
   bitsize_unit_node = bitsize_int (BITS_PER_UNIT);
 
-  long_zero_node = build_int_2 (0, 0);
-  TREE_TYPE (long_zero_node) = long_type_node;
+  long_zero_node = build_int_cst (long_type_node, 0);
 
   void_type_node = make_node (VOID_TYPE);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("void"), void_type_node));
@@ -622,8 +619,7 @@ java_init_decl_processing (void)
   layout_type (t); /* Uses size_zero_node */
   return_address_type_node = build_pointer_type (t);
 
-  null_pointer_node = build_int_2 (0, 0);
-  TREE_TYPE (null_pointer_node) = ptr_type_node;
+  null_pointer_node = build_int_cst (ptr_type_node, 0);
 
 #if 0
   /* Make a type to be the domain of a few array types
@@ -1983,7 +1979,7 @@ java_mark_decl_local (tree decl)
   /* If we've already constructed DECL_RTL, give encode_section_info
      a second chance, now that we've changed the flags.  */
   if (DECL_RTL_SET_P (decl))
-    make_decl_rtl (decl, NULL);
+    make_decl_rtl (decl);
 }
 
 void
