@@ -6,7 +6,6 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.5 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -67,7 +66,7 @@ static tree build_simple_component_ref	PARAMS ((tree, tree, tree));
    the only possible operands will be things of Boolean type.  */
 
 tree
-truthvalue_conversion (expr)
+gnat_truthvalue_conversion (expr)
      tree expr;
 {
   tree type = TREE_TYPE (expr);
@@ -86,13 +85,14 @@ truthvalue_conversion (expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold (build (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			  truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			  truthvalue_conversion (TREE_OPERAND (expr, 2))));
+      return fold
+	(build (COND_EXPR, type, TREE_OPERAND (expr, 0),
+		gnat_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+		gnat_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case WITH_RECORD_EXPR:
       return build (WITH_RECORD_EXPR, type,
-		    truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		    gnat_truthvalue_conversion (TREE_OPERAND (expr, 0)),
 		    TREE_OPERAND (expr, 1));
 
     default:
@@ -512,7 +512,7 @@ nonbinary_modular_operation (op_code, type, lhs, rhs)
       || TREE_UNSIGNED (op_type) != unsignedp)
     {
       /* Copy the node so we ensure it can be modified to make it modular.  */
-      op_type = copy_node (type_for_size (precision, unsignedp));
+      op_type = copy_node (gnat_type_for_size (precision, unsignedp));
       modulus = convert (op_type, modulus);
       TYPE_MODULUS (op_type) = modulus;
       TYPE_MODULAR_P (op_type) = 1;
@@ -528,7 +528,7 @@ nonbinary_modular_operation (op_code, type, lhs, rhs)
      possible size.  */
   if (op_code == MULT_EXPR)
     {
-      tree div_type = copy_node (type_for_size (needed_precision, 1));
+      tree div_type = copy_node (gnat_type_for_size (needed_precision, 1));
       modulus = convert (div_type, modulus);
       TYPE_MODULUS (div_type) = modulus;
       TYPE_MODULAR_P (div_type) = 1;
@@ -818,7 +818,7 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
       if (! TREE_CONSTANT (right_operand)
 	  || ! TREE_CONSTANT (TYPE_MIN_VALUE (right_type))
 	  || op_code == ARRAY_RANGE_REF)
-	mark_addressable (left_operand);
+	gnat_mark_addressable (left_operand);
 
       modulus = 0;
       break;
@@ -984,8 +984,8 @@ build_binary_op (op_code, result_type, left_operand, right_operand)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
-      left_operand = truthvalue_conversion (left_operand);
-      right_operand = truthvalue_conversion (right_operand);
+      left_operand = gnat_truthvalue_conversion (left_operand);
+      right_operand = gnat_truthvalue_conversion (right_operand);
       goto common;
 
     case BIT_AND_EXPR:
@@ -1116,7 +1116,7 @@ build_unary_op (op_code, result_type, operand)
       if (result_type != base_type)
 	gigi_abort (508);
 
-      result = invert_truthvalue (truthvalue_conversion (operand));
+      result = invert_truthvalue (gnat_truthvalue_conversion (operand));
       break;
 
     case ATTR_ADDR_EXPR:
@@ -1239,7 +1239,7 @@ build_unary_op (op_code, result_type, operand)
 	  if (type != error_mark_node)
 	    operation_type = build_pointer_type (type);
 
-	  mark_addressable (operand);
+	  gnat_mark_addressable (operand);
 	  result = fold (build1 (ADDR_EXPR, operation_type, operand));
 	}
 
@@ -1992,7 +1992,7 @@ fill_vms_descriptor (expr, gnat_formal)
   tree const_list = 0;
 
   expr = maybe_unconstrained_array (expr);
-  mark_addressable (expr);
+  gnat_mark_addressable (expr);
 
   for (field = TYPE_FIELDS (record_type); field; field = TREE_CHAIN (field))
     {
@@ -2010,10 +2010,10 @@ fill_vms_descriptor (expr, gnat_formal)
 }
 
 /* Indicate that we need to make the address of EXPR_NODE and it therefore
-   should not be allocated in a register. Return 1 if successful.  */
+   should not be allocated in a register.  Returns true if successful.  */
 
-int
-mark_addressable (expr_node)
+bool
+gnat_mark_addressable (expr_node)
      tree expr_node;
 {
   while (1)
@@ -2031,24 +2031,24 @@ mark_addressable (expr_node)
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case VAR_DECL:
       case PARM_DECL:
       case RESULT_DECL:
 	put_var_into_stack (expr_node);
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (expr_node) = 1;
-	return 1;
+	return true;
 
       case CONST_DECL:
 	return (DECL_CONST_CORRESPONDING_VAR (expr_node) != 0
-		&& (mark_addressable
+		&& (gnat_mark_addressable
 		    (DECL_CONST_CORRESPONDING_VAR (expr_node))));
       default:
-	return 1;
+	return true;
     }
 }

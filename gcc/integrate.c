@@ -132,30 +132,22 @@ bool
 function_attribute_inlinable_p (fndecl)
      tree fndecl;
 {
-  bool has_machine_attr = false;
-  tree a;
-
-  for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
+  if (targetm.attribute_table)
     {
-      tree name = TREE_PURPOSE (a);
-      int i;
+      tree a;
 
-      for (i = 0; targetm.attribute_table[i].name != NULL; i++)
+      for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
 	{
-	  if (is_attribute_p (targetm.attribute_table[i].name, name))
-	    {
-	      has_machine_attr = true;
-	      break;
-	    }
+	  tree name = TREE_PURPOSE (a);
+	  int i;
+
+	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)
+	    if (is_attribute_p (targetm.attribute_table[i].name, name))
+	      return (*targetm.function_attribute_inlinable_p) (fndecl);
 	}
-      if (has_machine_attr)
-	break;
     }
 
-  if (has_machine_attr)
-    return (*targetm.function_attribute_inlinable_p) (fndecl);
-  else
-    return true;
+  return true;
 }
 
 /* Zero if the current function (whose FUNCTION_DECL is FNDECL)
@@ -595,7 +587,8 @@ process_reg_param (map, loc, copy)
 }
 
 /* Compare two BLOCKs for qsort.  The key we sort on is the
-   BLOCK_ABSTRACT_ORIGIN of the blocks.  */
+   BLOCK_ABSTRACT_ORIGIN of the blocks.  We cannot just subtract the
+   two pointers, because it may overflow sizeof(int).  */
 
 static int
 compare_blocks (v1, v2)
@@ -604,9 +597,12 @@ compare_blocks (v1, v2)
 {
   tree b1 = *((const tree *) v1);
   tree b2 = *((const tree *) v2);
+  char *p1 = (char *) BLOCK_ABSTRACT_ORIGIN (b1);
+  char *p2 = (char *) BLOCK_ABSTRACT_ORIGIN (b2);
 
-  return ((char *) BLOCK_ABSTRACT_ORIGIN (b1)
-	  - (char *) BLOCK_ABSTRACT_ORIGIN (b2));
+  if (p1 == p2)
+    return 0;
+  return p1 < p2 ? -1 : 1;
 }
 
 /* Compare two BLOCKs for bsearch.  The first pointer corresponds to
@@ -619,8 +615,12 @@ find_block (v1, v2)
 {
   const union tree_node *b1 = (const union tree_node *) v1;
   tree b2 = *((const tree *) v2);
+  char *p1 = (char *) b1;
+  char *p2 = (char *) BLOCK_ABSTRACT_ORIGIN (b2);
 
-  return ((const char *) b1 - (char *) BLOCK_ABSTRACT_ORIGIN (b2));
+  if (p1 == p2)
+    return 0;
+  return p1 < p2 ? -1 : 1;
 }
 
 /* Integrate the procedure defined by FNDECL.  Note that this function
@@ -1240,7 +1240,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
        this block to the list of blocks at this binding level.  We
        can't do it the way it's done for function-at-a-time mode the
        superblocks have not been created yet.  */
-    insert_block (block);
+    (*lang_hooks.decls.insert_block) (block);
   else
     {
       BLOCK_CHAIN (block)
@@ -1396,7 +1396,7 @@ copy_insn_list (insns, map, static_chain_value)
              memory references via that register can then be
              identified as static chain references.  We assume that
              the register is only assigned once, and that the static
-             chain address is only live in one register at a time. */
+             chain address is only live in one register at a time.  */
 
 	  else if (static_chain_value != 0
 		   && set != 0
@@ -2201,7 +2201,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
       if (map->orig_asm_operands_vector == ASM_OPERANDS_INPUT_VEC (orig))
 	{
 	  copy = rtx_alloc (ASM_OPERANDS);
-	  copy->volatil = orig->volatil;
+	  RTX_FLAG (copy, volatil) = RTX_FLAG (orig, volatil);
 	  PUT_MODE (copy, GET_MODE (orig));
 	  ASM_OPERANDS_TEMPLATE (copy) = ASM_OPERANDS_TEMPLATE (orig);
 	  ASM_OPERANDS_OUTPUT_CONSTRAINT (copy)
@@ -2320,9 +2320,9 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 
   copy = rtx_alloc (code);
   PUT_MODE (copy, mode);
-  copy->in_struct = orig->in_struct;
-  copy->volatil = orig->volatil;
-  copy->unchanging = orig->unchanging;
+  RTX_FLAG (copy, in_struct) = RTX_FLAG (orig, in_struct);
+  RTX_FLAG (copy, volatil) = RTX_FLAG (orig, volatil);
+  RTX_FLAG (copy, unchanging) = RTX_FLAG (orig, unchanging);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 

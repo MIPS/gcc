@@ -90,21 +90,21 @@ extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 
 #define ggc_mark_rtx(EXPR)                      \
   do {                                          \
-    rtx r__ = (EXPR);                           \
+    rtx const r__ = (EXPR);                     \
     if (ggc_test_and_set_mark (r__))            \
       ggc_mark_rtx_children (r__);              \
   } while (0)
 
 #define ggc_mark_tree(EXPR)				\
   do {							\
-    tree t__ = (EXPR);					\
+    tree const t__ = (EXPR);				\
     if (ggc_test_and_set_mark (t__))			\
       VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
   } while (0)
 
 #define ggc_mark(EXPR)				\
   do {						\
-    const void *a__ = (EXPR);			\
+    const void *const a__ = (EXPR);		\
     if (a__ != NULL)				\
       ggc_set_mark (a__);			\
   } while (0)
@@ -166,12 +166,6 @@ extern int ggc_set_mark			PARAMS ((const void *));
    P must have been allocated by the GC allocator; it mustn't point to
    static objects, stack variables, or memory allocated with malloc.  */
 extern int ggc_marked_p			PARAMS ((const void *));
-
-/* Callbacks to the languages.  */
-
-/* This is the language's opportunity to mark nodes held through
-   the lang_specific hooks in the tree.  */
-extern void lang_mark_tree		PARAMS ((union tree_node *));
 
 /* Statistics.  */
 

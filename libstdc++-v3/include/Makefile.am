@@ -143,6 +143,8 @@ ext_srcdir = ${glibcpp_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/enc_filebuf.h \
+	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/functional \
 	${ext_srcdir}/hash_map \
 	${ext_srcdir}/hash_set \
@@ -179,9 +181,6 @@ c_base_headers = \
 	${c_base_srcdir}/std_ctime.h \
 	${c_base_srcdir}/std_cwchar.h \
 	${c_base_srcdir}/std_cwctype.h 
-# Some of the "C" headers need extra files.
-c_base_headers_extra = \
-	${c_base_srcdir}/cmath.tcc 
 c_base_headers_rename = \
 	cassert \
 	cctype \
@@ -201,6 +200,15 @@ c_base_headers_rename = \
 	ctime \
 	cwchar \
 	cwctype 
+
+# Some of the different "C" header models need extra files.
+# For --enable-cheaders=c_std
+if GLIBCPP_C_HEADERS_C_STD
+c_base_headers_extra = \
+	${c_base_srcdir}/cmath.tcc 
+else
+c_base_headers_extra = 
+endif
 
 std_srcdir = ${glibcpp_srcdir}/include/std
 std_builddir = .
@@ -318,7 +326,7 @@ stamp-bits: ${bits_headers}
 	(cd ${bits_builddir} && @LN_S@ $? . || true) ;\
 	echo `date` > stamp-bits
 
-stamp-c_base: ${c_base_headers} ${c_base_headers_extra}
+stamp-c_base: ${c_base_headers} ${c_base_headers_extra} 
 	@if [ ! -d "${c_base_builddir}" ]; then \
 	  mkdir -p ${c_base_builddir} ;\
 	fi ;\
@@ -326,7 +334,9 @@ stamp-c_base: ${c_base_headers} ${c_base_headers_extra}
 	  official_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
 	  @LN_S@ $$h ./$${official_name} || true ;\
 	done) ;\
-	(cd ${c_base_builddir} && @LN_S@ ${c_base_headers_extra}  . || true) ;\
+	if [ ! -z "${c_base_headers_extra}" ]; then \
+	  (cd ${bits_builddir} && @LN_S@ ${c_base_headers_extra}  . || true) ;\
+	fi ;\
 	echo `date` > stamp-c_base
 
 stamp-backward: ${backward_headers}
@@ -409,32 +419,33 @@ ${target_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcpp_thread_h} \
 # tree using only the human-maintained file lists and directory
 # components.  Yes, with minor differences, this is sheer duplication
 # of the staging rules above using $(INSTALL_DATA) instead of LN_S and
-# `$(INSTALL) -d' instead of `mkdir -p'.  In particular,
+# `$(mkinstalldirs)' instead of `mkdir -p'.  In particular,
 # extra_target_headers are taken out of the build tree staging area;
 # the rest are taken from the original source tree.
 gxx_include_dir = @gxx_include_dir@
 install-data-local:
-	$(INSTALL) -d ${gxx_include_dir}
-	$(INSTALL) -d ${gxx_include_dir}/${bits_builddir}
+	$(mkinstalldirs) ${gxx_include_dir}
+	$(mkinstalldirs) ${gxx_include_dir}/${bits_builddir}
 	for file in ${bits_headers}; do \
 	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${bits_builddir}; done
-	$(INSTALL) -d ${gxx_include_dir}/${backward_builddir}
+	$(mkinstalldirs) ${gxx_include_dir}/${backward_builddir}
 	for file in ${backward_headers}; do \
 	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${backward_builddir}; done
-	$(INSTALL) -d ${gxx_include_dir}/${ext_builddir}
+	$(mkinstalldirs) ${gxx_include_dir}/${ext_builddir}
 	for file in ${ext_headers}; do \
 	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${ext_builddir}; done
-	$(INSTALL) -d ${gxx_include_dir}/${c_base_builddir}
+	$(mkinstalldirs) ${gxx_include_dir}/${c_base_builddir}
 	for file in ${c_base_headers_rename}; do \
 	  $(INSTALL_DATA) ${c_base_builddir}/$${file} \
 	    ${gxx_include_dir}/${c_base_builddir}; done
-	for file in ${c_base_headers_extra}; do \
-	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${c_base_builddir}; done
-	$(INSTALL) -d ${gxx_include_dir}/${std_builddir}
+	c_base_headers_extra_install=${c_base_headers_extra};\
+	for file in $$c_base_headers_extra_install; do \
+	  $(INSTALL_DATA) $$file ${gxx_include_dir}/${bits_builddir}; done
+	$(mkinstalldirs) ${gxx_include_dir}/${std_builddir}
 	for file in ${std_headers_rename}; do \
 	  $(INSTALL_DATA) ${std_builddir}/$${file} \
 	    ${gxx_include_dir}/${std_builddir}; done
-	$(INSTALL) -d ${gxx_include_dir}/${target_builddir}
+	$(mkinstalldirs) ${gxx_include_dir}/${target_builddir}
 	for file in ${target_headers} ${extra_target_headers} \
 	 ${thread_target_headers}; do \
 	  $(INSTALL_DATA) $${file} ${gxx_include_dir}/${target_builddir}; done

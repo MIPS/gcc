@@ -231,6 +231,8 @@ extern void mergeable_constant_section	PARAMS ((enum machine_mode,
 
 /* Declare DECL to be a weak symbol.  */
 extern void declare_weak		PARAMS ((tree));
+/* Merge weak status.  */
+extern void merge_weak			PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
 /* Emit any pending weak declarations.  */
@@ -346,7 +348,7 @@ extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
 #define assemble_aligned_integer(SIZE, VALUE) \
   assemble_integer (VALUE, SIZE, (SIZE) * BITS_PER_UNIT, 1)
 
-#ifdef REAL_VALUE_TYPE
+#ifdef REAL_VALUE_TYPE_SIZE
 /* Assemble the floating-point constant D into an object of size MODE.  */
 extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 					         enum machine_mode,
@@ -465,6 +467,11 @@ extern struct rtx_def *current_insn_predicate;
 /* Last insn processed by final_scan_insn.  */
 extern struct rtx_def *current_output_insn;
 
+/* Nonzero while outputting an `asm' with operands.
+   This means that inconsistencies are the user's fault, so don't abort.
+   The precise value is the insn being output, to pass to error_for_asm.  */
+extern rtx this_is_asm_operands;
+
 /* Decide whether DECL needs to be in a writable section.  RELOC is the same
    as for SELECT_SECTION.  */
 
@@ -486,9 +493,6 @@ extern const char *user_label_prefix;
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME) \
   (VAR) = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'))
 #endif
-/* Assign unique numbers to labels generated for profiling.  */
-
-extern int profile_label_no;
 
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));

@@ -906,8 +906,10 @@ set_nonzero_bits_and_sign_copies (x, set, data)
 			      << GET_MODE_BITSIZE (GET_MODE (x))));
 #endif
 
-	  reg_nonzero_bits[REGNO (x)]
-	    |= nonzero_bits (src, nonzero_bits_mode);
+	  /* Don't call nonzero_bits if it cannot change anything.  */
+	  if (reg_nonzero_bits[REGNO (x)] != ~(unsigned HOST_WIDE_INT) 0)
+	    reg_nonzero_bits[REGNO (x)]
+	      |= nonzero_bits (src, nonzero_bits_mode);
 	  num = num_sign_bit_copies (SET_SRC (set), GET_MODE (x));
 	  if (reg_sign_bit_copies[REGNO (x)] == 0
 	      || reg_sign_bit_copies[REGNO (x)] > num)
@@ -3062,8 +3064,8 @@ find_split_point (loc, insn)
 	    SUBST (SET_SRC (x),
 		   gen_binary (IOR, mode,
 			       gen_binary (AND, mode, dest,
-					   GEN_INT (~(mask << pos)
-						    & GET_MODE_MASK (mode))),
+					   gen_int_mode (~(mask << pos),
+							 mode)),
 			       GEN_INT (src << pos)));
 
 	  SUBST (SET_DEST (x), dest);
@@ -3536,6 +3538,9 @@ subst (x, from, to, in_dest, unique_copy)
 
 	      if (GET_CODE (new) == CONST_INT && GET_CODE (x) == SUBREG)
 		{
+		  if (VECTOR_MODE_P (GET_MODE (x)))
+		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
+
 		  x = simplify_subreg (GET_MODE (x), new,
 				       GET_MODE (SUBREG_REG (x)),
 				       SUBREG_BYTE (x));
@@ -3872,6 +3877,13 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	if (temp)
 	  return temp;
       }
+
+      /* Don't change the mode of the MEM if that would change the meaning
+	 of the address.  */
+      if (GET_CODE (SUBREG_REG (x)) == MEM
+	  && (MEM_VOLATILE_P (SUBREG_REG (x))
+	      || mode_dependent_address_p (XEXP (SUBREG_REG (x), 0))))
+	return gen_rtx_CLOBBER (mode, const0_rtx);
 
       /* Note that we cannot do any narrowing for non-constants since
 	 we might have been counting on using the fact that some bits were
@@ -6033,7 +6045,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	return new;
 
       if (GET_CODE (new) == CONST_INT)
-	return GEN_INT (trunc_int_for_mode (INTVAL (new), mode));
+	return gen_int_mode (INTVAL (new), mode);
 
       /* If we know that no extraneous bits are set, and that the high
 	 bit is not set, convert the extraction to the cheaper of
@@ -7373,7 +7385,7 @@ if_then_else_cond (x, ptrue, pfalse)
 	   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	   && exact_log2 (nz = nonzero_bits (x, mode)) >= 0)
     {
-      *ptrue = GEN_INT (nz), *pfalse = const0_rtx;
+      *ptrue = gen_int_mode (nz, mode), *pfalse = const0_rtx;
       return x;
     }
 
@@ -7838,13 +7850,22 @@ simplify_and_const_int (x, mode, varop, constop)
   int i;
 
   /* Simplify VAROP knowing that we will be only looking at some of the
-     bits in it.  */
+     bits in it.
+
+     Note by passing in CONSTOP, we guarantee that the bits not set in
+     CONSTOP are not significant and will never be examined.  We must
+     ensure that is the case by explicitly masking out those bits
+     before returning.  */
   varop = force_to_mode (varop, mode, constop, NULL_RTX, 0);
 
-  /* If VAROP is a CLOBBER, we will fail so return it; if it is a
-     CONST_INT, we are done.  */
-  if (GET_CODE (varop) == CLOBBER || GET_CODE (varop) == CONST_INT)
+  /* If VAROP is a CLOBBER, we will fail so return it.  */
+  if (GET_CODE (varop) == CLOBBER)
     return varop;
+
+  /* If VAROP is a CONST_INT, then we need to apply the mask in CONSTOP
+     to VAROP and return the new constant.  */
+  if (GET_CODE (varop) == CONST_INT)
+    return GEN_INT (trunc_int_for_mode (INTVAL (varop) & constop, mode));
 
   /* See what bits may be nonzero in VAROP.  Unlike the general case of
      a call to nonzero_bits, here we don't care about bits outside
@@ -8040,7 +8061,9 @@ nonzero_bits (x, mode)
 	 for this register.  */
 
       if (reg_last_set_value[REGNO (x)] != 0
-	  && reg_last_set_mode[REGNO (x)] == mode
+	  && (reg_last_set_mode[REGNO (x)] == mode
+	      || (GET_MODE_CLASS (reg_last_set_mode[REGNO (x)]) == MODE_INT
+		  && GET_MODE_CLASS (mode) == MODE_INT))
 	  && (reg_last_set_label[REGNO (x)] == label_tick
 	      || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 		  && REG_N_SETS (REGNO (x)) == 1
@@ -8182,8 +8205,14 @@ nonzero_bits (x, mode)
 
     case XOR:   case IOR:
     case UMIN:  case UMAX:  case SMIN:  case SMAX:
-      nonzero &= (nonzero_bits (XEXP (x, 0), mode)
-		  | nonzero_bits (XEXP (x, 1), mode));
+      {
+	unsigned HOST_WIDE_INT nonzero0 = nonzero_bits (XEXP (x, 0), mode);
+
+	/* Don't call nonzero_bits for the second time if it cannot change
+	   anything.  */
+	if ((nonzero & nonzero0) != nonzero)
+	  nonzero &= (nonzero0 | nonzero_bits (XEXP (x, 1), mode));
+      }
       break;
 
     case PLUS:  case MINUS:
@@ -9774,6 +9803,12 @@ gen_lowpart_for_combine (mode, x)
 	    || GET_MODE_SIZE (GET_MODE (x)) == GET_MODE_SIZE (mode)))
     return gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
 
+  /* simplify_gen_subreg does not know how to handle the case where we try
+     to convert an integer constant to a vector.
+     ??? We could try to teach it to generate CONST_VECTORs.  */
+  if (GET_MODE (x) == VOIDmode && VECTOR_MODE_P (mode))
+    return gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+
   /* X might be a paradoxical (subreg (mem)).  In that case, gen_lowpart
      won't know what to do.  So we will strip off the SUBREG here and
      process normally.  */
@@ -10792,7 +10827,7 @@ simplify_comparison (code, pop0, pop1)
 	      unsigned HOST_WIDE_INT temp = const_op & GET_MODE_MASK (mode);
 
 	      temp >>= INTVAL (XEXP (op0, 1));
-	      op1 = GEN_INT (trunc_int_for_mode (temp, mode));
+	      op1 = gen_int_mode (temp, mode);
 	      op0 = XEXP (op0, 0);
 	      continue;
 	    }
@@ -10843,9 +10878,9 @@ simplify_comparison (code, pop0, pop1)
 	      && XEXP (op0, 1) == XEXP (XEXP (op0, 0), 1)
 	      && (tmode = mode_for_size (mode_width - INTVAL (XEXP (op0, 1)),
 					 MODE_INT, 1)) != BLKmode
-	      && ((unsigned HOST_WIDE_INT) const_op <= GET_MODE_MASK (tmode)
-		  || ((unsigned HOST_WIDE_INT) -const_op
-		      <= GET_MODE_MASK (tmode))))
+	      && (((unsigned HOST_WIDE_INT) const_op
+		   + (GET_MODE_MASK (tmode) >> 1) + 1)
+		  <= GET_MODE_MASK (tmode)))
 	    {
 	      op0 = gen_lowpart_for_combine (tmode, XEXP (XEXP (op0, 0), 0));
 	      continue;
@@ -10862,9 +10897,9 @@ simplify_comparison (code, pop0, pop1)
 	      && XEXP (op0, 1) == XEXP (XEXP (XEXP (op0, 0), 0), 1)
 	      && (tmode = mode_for_size (mode_width - INTVAL (XEXP (op0, 1)),
 					 MODE_INT, 1)) != BLKmode
-	      && ((unsigned HOST_WIDE_INT) const_op <= GET_MODE_MASK (tmode)
-		  || ((unsigned HOST_WIDE_INT) -const_op
-		      <= GET_MODE_MASK (tmode))))
+	      && (((unsigned HOST_WIDE_INT) const_op
+		   + (GET_MODE_MASK (tmode) >> 1) + 1)
+		  <= GET_MODE_MASK (tmode)))
 	    {
 	      rtx inner = XEXP (XEXP (XEXP (op0, 0), 0), 0);
 	      rtx add_const = XEXP (XEXP (op0, 0), 1);
@@ -10889,9 +10924,12 @@ simplify_comparison (code, pop0, pop1)
 	      && mode_width <= HOST_BITS_PER_WIDE_INT
 	      && (nonzero_bits (XEXP (op0, 0), mode)
 		  & (((HOST_WIDE_INT) 1 << INTVAL (XEXP (op0, 1))) - 1)) == 0
-	      && (const_op == 0
-		  || (floor_log2 (const_op) + INTVAL (XEXP (op0, 1))
-		      < mode_width)))
+	      && (((unsigned HOST_WIDE_INT) const_op
+		   + (GET_CODE (op0) != LSHIFTRT
+		      ? ((GET_MODE_MASK (mode) >> INTVAL (XEXP (op0, 1)) >> 1)
+			 + 1)
+		      : 0))
+		  <= GET_MODE_MASK (mode) >> INTVAL (XEXP (op0, 1))))
 	    {
 	      /* If the shift was logical, then we must make the condition
 		 unsigned.  */
@@ -10926,38 +10964,56 @@ simplify_comparison (code, pop0, pop1)
 
   /* Now make any compound operations involved in this comparison.  Then,
      check for an outmost SUBREG on OP0 that is not doing anything or is
-     paradoxical.  The latter case can only occur when it is known that the
-     "extra" bits will be zero.  Therefore, it is safe to remove the SUBREG.
-     We can never remove a SUBREG for a non-equality comparison because the
-     sign bit is in a different place in the underlying object.  */
+     paradoxical.  The latter transformation must only be performed when
+     it is known that the "extra" bits will be the same in op0 and op1 or
+     that they don't matter.  There are three cases to consider:
+
+     1. SUBREG_REG (op0) is a register.  In this case the bits are don't
+     care bits and we can assume they have any convenient value.  So
+     making the transformation is safe.
+
+     2. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is not defined.
+     In this case the upper bits of op0 are undefined.  We should not make
+     the simplification in that case as we do not know the contents of
+     those bits.
+
+     3. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is defined and not
+     NIL.  In that case we know those bits are zeros or ones.  We must
+     also be sure that they are the same as the upper bits of op1.
+
+     We can never remove a SUBREG for a non-equality comparison because
+     the sign bit is in a different place in the underlying object.  */
 
   op0 = make_compound_operation (op0, op1 == const0_rtx ? COMPARE : SET);
   op1 = make_compound_operation (op1, SET);
 
   if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
+      /* Case 3 above, to sometimes allow (subreg (mem x)), isn't
+	 implemented.  */
+      && GET_CODE (SUBREG_REG (op0)) == REG
       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
       && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
-      && (code == NE || code == EQ)
-      && ((GET_MODE_SIZE (GET_MODE (op0))
-	   > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))))
+      && (code == NE || code == EQ))
     {
-      op0 = SUBREG_REG (op0);
-      op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
-    }
+      if (GET_MODE_SIZE (GET_MODE (op0))
+	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))
+	{
+	  op0 = SUBREG_REG (op0);
+	  op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	}
+      else if ((GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
+		<= HOST_BITS_PER_WIDE_INT)
+	       && (nonzero_bits (SUBREG_REG (op0),
+				 GET_MODE (SUBREG_REG (op0)))
+		   & ~GET_MODE_MASK (GET_MODE (op0))) == 0)
+	{
+	  tem = gen_lowpart_for_combine (GET_MODE (SUBREG_REG (op0)), op1);
 
-  else if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
-	   && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-	   && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
-	   && (code == NE || code == EQ)
-	   && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
-	       <= HOST_BITS_PER_WIDE_INT)
-	   && (nonzero_bits (SUBREG_REG (op0), GET_MODE (SUBREG_REG (op0)))
-	       & ~GET_MODE_MASK (GET_MODE (op0))) == 0
-	   && (tem = gen_lowpart_for_combine (GET_MODE (SUBREG_REG (op0)),
-					      op1),
-	       (nonzero_bits (tem, GET_MODE (SUBREG_REG (op0)))
-		& ~GET_MODE_MASK (GET_MODE (op0))) == 0))
-    op0 = SUBREG_REG (op0), op1 = tem;
+	  if ((nonzero_bits (tem, GET_MODE (SUBREG_REG (op0)))
+	       & ~GET_MODE_MASK (GET_MODE (op0))) == 0)
+	    op0 = SUBREG_REG (op0), op1 = tem;
+	}
+    }
 
   /* We now do the opposite procedure: Some machines don't have compare
      insns in all modes.  If OP0's mode is an integer mode smaller than a
@@ -10975,14 +11031,22 @@ simplify_comparison (code, pop0, pop1)
 	 tmode = GET_MODE_WIDER_MODE (tmode))
       if (have_insn_for (COMPARE, tmode))
 	{
+	  int zero_extended;
+
 	  /* If the only nonzero bits in OP0 and OP1 are those in the
 	     narrower mode and this is an equality or unsigned comparison,
 	     we can use the wider mode.  Similarly for sign-extended
 	     values, in which case it is true for all comparisons.  */
-	  if (((code == EQ || code == NE
-		|| code == GEU || code == GTU || code == LEU || code == LTU)
-	       && (nonzero_bits (op0, tmode) & ~GET_MODE_MASK (mode)) == 0
-	       && (nonzero_bits (op1, tmode) & ~GET_MODE_MASK (mode)) == 0)
+	  zero_extended = ((code == EQ || code == NE
+			    || code == GEU || code == GTU
+			    || code == LEU || code == LTU)
+			   && (nonzero_bits (op0, tmode)
+			       & ~GET_MODE_MASK (mode)) == 0
+			   && ((GET_CODE (op1) == CONST_INT
+				|| (nonzero_bits (op1, tmode)
+				    & ~GET_MODE_MASK (mode)) == 0)));
+
+	  if (zero_extended
 	      || ((num_sign_bit_copies (op0, tmode)
 		   > GET_MODE_BITSIZE (tmode) - GET_MODE_BITSIZE (mode))
 		  && (num_sign_bit_copies (op1, tmode)
@@ -10999,6 +11063,8 @@ simplify_comparison (code, pop0, pop1)
 							   XEXP (op0, 1)));
 
 	      op0 = gen_lowpart_for_combine (tmode, op0);
+	      if (zero_extended && GET_CODE (op1) == CONST_INT)
+		op1 = GEN_INT (INTVAL (op1) & GET_MODE_MASK (mode));
 	      op1 = gen_lowpart_for_combine (tmode, op1);
 	      break;
 	    }
@@ -11196,9 +11262,13 @@ record_value_for_reg (reg, insn, value)
 
   if (value)
     {
+      enum machine_mode mode = GET_MODE (reg);
       subst_low_cuid = INSN_CUID (insn);
-      reg_last_set_mode[regno] = GET_MODE (reg);
-      reg_last_set_nonzero_bits[regno] = nonzero_bits (value, GET_MODE (reg));
+      reg_last_set_mode[regno] = mode;
+      if (GET_MODE_CLASS (mode) == MODE_INT
+	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	mode = nonzero_bits_mode;
+      reg_last_set_nonzero_bits[regno] = nonzero_bits (value, mode);
       reg_last_set_sign_bit_copies[regno]
 	= num_sign_bit_copies (value, GET_MODE (reg));
     }

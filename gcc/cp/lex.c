@@ -23,9 +23,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* This file is the lexical analyzer for GNU C++.  */
 
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-
 #include "config.h"
 #include "system.h"
 #include "input.h"
@@ -642,17 +639,12 @@ const char *
 cxx_init (filename)
      const char *filename;
 {
-  decl_printable_name = lang_printable_name;
   input_filename = "<internal>";
 
   init_reswords ();
   init_spew ();
   init_tree ();
-  init_cplus_expand ();
   init_cp_semantics ();
-
-  lang_unsafe_for_reeval = c_unsafe_for_reeval;
-
   init_operators ();
   init_method ();
   init_error ();
@@ -679,13 +671,15 @@ cxx_init (filename)
 
   /* Create the built-in __null node.  */
   null_node = build_int_2 (0, 0);
-  TREE_TYPE (null_node) = type_for_size (POINTER_SIZE, 0);
+  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
   ridpointers[RID_NULL] = null_node;
 
   token_count = init_cpp_parse ();
   interface_unknown = 1;
 
   filename = c_common_init (filename);
+  if (filename == NULL)
+    return NULL;
 
   init_cp_pragma ();
 
@@ -846,22 +840,6 @@ print_parse_statistics ()
   fprintf (stderr, "\n");
 #endif
 #endif
-#endif
-}
-
-/* Sets the value of the 'yydebug' variable to VALUE.
-   This is a function so we don't have to have YYDEBUG defined
-   in order to build the compiler.  */
-
-void
-cxx_set_yydebug (value)
-     int value;
-{
-#if YYDEBUG != 0
-  extern int yydebug;
-  yydebug = value;
-#else
-  warning ("YYDEBUG not defined");
 #endif
 }
 
@@ -1199,6 +1177,9 @@ do_identifier (token, parsing, args)
     {
       if (current_template_parms)
 	return build_min_nt (LOOKUP_EXPR, token);
+      else if (IDENTIFIER_TYPENAME_P (token))
+	/* A templated conversion operator might exist.  */
+	return token;
       else if (IDENTIFIER_OPNAME_P (token))
 	{
 	  if (token != ansi_opname (ERROR_MARK))
@@ -1323,7 +1304,8 @@ do_scoped_id (token, parsing)
     id = IDENTIFIER_GLOBAL_VALUE (token);
   if (parsing && yychar == YYEMPTY)
     yychar = yylex ();
-  if (! id)
+  if (!id || (TREE_CODE (id) == FUNCTION_DECL
+	      && DECL_ANTICIPATED (id)))
     {
       if (processing_template_decl)
 	{
@@ -1556,7 +1538,7 @@ copy_type (type)
 }
 
 tree
-cp_make_lang_type (code)
+cxx_make_type (code)
      enum tree_code code;
 {
   register tree t = make_node (code);
@@ -1612,7 +1594,7 @@ tree
 make_aggr_type (code)
      enum tree_code code;
 {
-  tree t = cp_make_lang_type (code);
+  tree t = cxx_make_type (code);
 
   if (IS_AGGR_TYPE_CODE (code))
     SET_IS_AGGR_TYPE (t, 1);

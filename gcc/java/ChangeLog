@@ -56,6 +56,345 @@
 	* parse.y: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
 	Include gtype-java.h.
 
+2002-04-27  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6382:
+	* parse.y (string_convert_int_cst): New function.
+	(merge_string_cste): Use it.
+
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_parse_file): Update.
+	(java_set_yydebug): Remove.
+	* jcf-parse.c (yydebug): Remove.
+	(java_set_yydebug): Die.
+	(java_parse_file): Update.
+	* lang.c (LANG_HOOKS_SET_YYDEBUG): Remove.
+
+2002-04-24  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6425:
+	* parse.y (qualify_ambiguous_name) [case CALL_EXPR]: Always choose
+	EXPR_WFL_QUALIFICATION of qual_wfl.
+
+2002-04-23  Per Bothner  <per@bothner.com>
+
+	* expr.c (PRE_JSR):  Call NOTE_LABEL for return address.
+	* java-tree.h (BCODE_RETURN_TARGET):  Removed - never set.
+	(BCODE_TARGET):  Remove BCODE_RETURN_TARGET.
+
+2002-04-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6314:
+	* jvspec.c (lang_specific_driver): Use --resource, not -R.  Also
+	recognize `-fcompile-resource='.
+	* gcj.texi (Invoking gcj): Use --resource, not -R.  Expanded text
+	a bit.
+
+2002-04-22  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-parse.c: (yyparse): Don't prepend "./" to relative
+	paths. Fixes PR java/2791.
+
+2002-04-19  Andrew Haley  <aph@redhat.com>
+
+        * jcf-write.c (push_long_const): lo, hi: New variables.
+        Use rshift_double to extract the high part of a 64-bit long.
+        Use WORD_TO_INT to extract the low part.
+
+        * jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
+        HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
+        CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* typeck.c (incomplete_type_error): Remove.
+
+2002-04-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* class.c (make_class_data): Set DECL_ALIGN on static class data,
+	for hash synchronization.
+	* expr.c (java_expand_expr): Set DECL_ALIGN on static array objects.
+	* decl.c (java_init_decl_processing): Don't set TYPE_ALIGN for
+	class_type_node.
+
+2002-04-16  Mark Wielaard  <mark@klomp.org>
+
+	* jcf-write.c (generate_bytecode_insns): Only write const_0 if not
+	negative zero.
+
+2002-04-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6294:
+	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
+	interfaces.
+	
+2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6085:
+	* parse.y (patch_method_invocation): Always use build_access_to_thisn
+	to get enclosing "this" argument for inner-class constructor
+	invocation. Pass correct arguments to build_access_to_thisn.
+
+2002-04-10  Andreas Jaeger  <aj@suse.de>
+
+	* gcj.texi (Input Options): Fix extdirs patch.
+
+2002-04-10  Anthony Green  <green@redhat.com>
+
+	* jcf-path.c (jcf_path_init) : Clean up local extdirs declaration.
+
+2002-04-09  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Input Options): Add --extdirs documentation.
+	* jcf-dump.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* gjavah.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* jcf-path.c (jcf_path_init): Add extdirs support.
+	(jcf_path_extdirs_arg): New function.
+	(extensions): New variable to hold extensions path entries.
+	* jvspec.c: Remove -fextdirs= when compiling main().
+	* lang.c (java_decode_option): Handle -fextdirs=.
+	* jcf.h (jcf_path_extdirs_arg): Declare new function.
+	* Make-lang.in: Compile jcf-path with version info for use in
+	identifying the appropriate libgcj.jar.
+
+2002-04-08  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/5303:
+	* .cvsignore: Added rmic.1 and rmiregistry.1.
+	* gcj.texi (Top): Link to new nodes.
+	(Invoking rmic): New node.
+	(Invoking rmiregistry): Likewise.
+	* Make-lang.in (java.generated-manpages): Added rmic.1 and
+	rmiregistry.1.
+	(java.maintainer-clean): Likewise.
+	($(srcdir)/java/rmic.1): New target.
+	($(srcdir)/java/rmiregistry.1): Likewise.
+	(java.install-man): Handle rmic.1 and rmiregistry.1.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gcj.texi (Invocation): Update JvAttachCurrentThread documentation.
+	Add note about handling uncaught exceptions. Add an exception handler
+	to example.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (resolve_qualified_expression_name): Clear "from_super" flag
+	after using it to patch CALL_EXPR.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gcj.texi (Invocation): Document CNI invocation API.
+
+2002-04-04  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* expr.c (truthvalue_conversion): Rename.  Update.
+	(expand_compare): Update.
+	* java-tree.h (java_truthvalue_conversion): New.
+	* lang.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Redefine.
+
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_mark_addressable): New.
+	* lang.c (LANG_HOOKS_MARK_ADDRESSABLE): Redefine.
+	* typeck.c (mark_addressable): Rename, update.
+
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* expr.c (build_java_binop): Update.
+	* java-tree.h (java_signed_type, java_unsigned_type,
+	java_signed_or_unsigned_type): Update.
+	* lang.c (LANG_HOOKS_SIGNED_TYPE, LANG_HOOKS_UNSIGNED_TYPE,
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): New.
+	* parse.y (patch_binop): Update.
+	* typeck.c (signed_or_unsigned_type, unsigned_type,
+	signed_type): Update.
+
+2002-03-31  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* lang.c (LANG_HOOKS_PRINT_ERROR_FUNCTION): Redefine.
+	(java_dummy_print): Remove.
+	(lang_print_error): Rename.  Exit early if inhibiting output.
+	(inhibit_error_printing_function): New.
+	(java_init): Don't set hook.
+	(lang_init_source): Use new boolean.
+
+2002-03-29  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* parse.y (do_resolve_class): Fix infinite recursion.
+
+2002-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (check_inner_circular_reference): Ignore incomplete
+	types.
+
+2002-03-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Make-lang.in (builtins.o): Update.
+	* boehm.c (get_boehm_type_descriptor): Update.
+	* builtins.c: Include langhooks.h.
+	* decl.c (java_init_decl_processing): Update.
+	* java-tree.h (java_type_for_mode, java_type_for_size): New.
+	* lang.c (LANG_HOOKS_TYPE_FOR_MODE, LANG_HOOKS_TYPE_FOR_SIaZE):
+	Redefine.
+	* typeck.c (type_for_mode, type_for_size): Update.
+
+2002-03-29  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* lex.c (java_new_lexer): Alias "646" to DEFAULT_ENCODING.
+
+2002-03-28  Tom Tromey  <tromey@redhat.com>
+
+	* except.c (expand_end_java_handler): If the handler type is NULL,
+	use java.lang.Throwable.  Fixes PR java/5986.
+
+2002-03-28  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	Fix for PR java/4715:
+	* jcf-parse.c (parse_source_file_3): New function.
+	(read_class): Call it.
+	(java_parse_file): Likewise.
+
+Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* java/lang.c (java_init_options): Set flag_trapping_math to 0.
+
+2002-03-28  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (resolve_package): Initialize "decl".
+	(lookup_package_type): Remove unused function.
+
+2002-03-28  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/5993:
+	* parse.y (resolve_package): Return the decl if resolution was
+	successful. Don't special case "java.lang" and "java.lang.reflect" 
+	packages. Set type_name to the merged identifier.
+	(resolved_qualified_expression_name): Print error using "name" if
+	resolve_package returns NULL_TREE.
+
+2002-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (expand_invoke): Don't generate null pointer check if
+	we're calling <init>.
+
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* expr.c (java_lang_expand_expr): Rename java_expand_expr,
+	fix prototype.
+	* java-tree.h (java_lang_expand_expr): Similarly.
+	* lang.c (LANG_HOOKS_EXPAND_EXPR): Redefine.
+	(java_init): Don't set hook.
+
+2002-03-27  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/5850:
+	* parse.y (lookup_field_wrapper): Call itself recursively for enclosing
+	context if field was not found in the current scope.
+	* expr.c (lookup_field): Don't look in enclosing contexts.
+
+2002-03-26  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/5942:
+	* parse.y (init_src_parse): Added sanity check.
+	* parse.h (struct parser_ctxt) [modifier_ctx]: Array has 12
+	elements, not 11.
+
+2002-03-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (lang_mark_tree): Rename java_mark_tree.
+	* java-tree.h (java_mark_tree): New.
+	* java-lang.c (LANG_HOOKS_MARK_TREE): Redefine.
+
+2002-03-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* lex.c: Change java_perform_atof to take normal parameters
+	instead of a pointer to a parameter block.  Call it directly
+	from java_lex.
+
+2002-03-22  Mark Wielaard  <mark@klomp.org>
+
+	Fix for PR java/5368:
+	* parse.y (resolve_qualified_expression_name): Use decl not field_decl
+	when printing error message.
+
+2002-03-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (maybe_build_cleanup): Remove.
+
+2002-03-22  Tom Tromey  <tromey@redhat.com>
+
+	Andrew Haley  <aph@cambridge.redhat.com>
+
+	* expr.c (build_field_ref): Don't build a check if the field is a
+	member of `this'.
+
+2002-03-21  Eric Blake  <ebb9@email.byu.edu>
+
+	Fix for PR java/6026:
+	* lex.c (java_lex): Fix parsing of consecutive floats.
+
+2002-03-21  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (build_access_to_thisn): Stop when FROM is not an inner
+	class.
+
+2002-03-21  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (pushdecl, pushlevel, poplevel, set_block,
+	insert_block, getdecls, kept_level_p, global_bindings_p): New.
+
+2002-03-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
+
+       	* gcj.texi: @code{gcj} becomes @command{gcj}.
+	@code{gcc} becomes @command{gcc}.
+	GcjRaw changed to gnu.gcc.RawData.
+
+2002-03-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (start_java_method): Use new hook.
+	* lang.c (LANG_HOOKS_DECL_PRINTABLE_NAME): Redefine.
+	(java_init): Remove old hook.
+
+2002-03-18  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* builtins.c (define_builtin): Do nothing if `type' is null.
+	Fixes PR java/5876.
+
+2002-03-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (parser_check_super_interface): Fix error message
+	grammar/order.
+
+2002-03-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-parse.c (get_constant): Delete unused variables.
+
+2002-03-17  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_parse_file): New.
+	* jcf-parse.c (yyparse): Rename java_parse_file.
+	* lang.c (LANG_HOOKS_PARSE_FILE): Redefine.
+
+2002-03-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (craft_constructor): Return the constructor decl.
+	(java_expand_classes): Update comments.
+	(lookup_method_invoke): Call fix_constructors immediately for
+	anonymous class. Fixes PR java/5935.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* jcf-parse.c (yyparse): Don't emit class registration
+	constructor when compiling resource files.
+
 2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* lang.c (java_tree_code_type, java_tree_code_length,
@@ -108,9 +447,9 @@
 
 	Fix for PR java/5812.
 	* expr.c (build_java_jsr):  Take pc arguments, and do lookup_label
-	gere instead of in JSR macro.  Likewise with load_type_state call.
+	here instead of in JSR macro.  Likewise with load_type_state call.
 	Do the latter on if the return_pc has been verified (the jsr returns).
-	(JSR):  No just call build_java_jsr.
+	(JSR):  Now just call build_java_jsr.
 
 2002-03-07  Jeff Sturm  <jsturm@one-point.com>
 
@@ -239,18 +578,18 @@
 
 2002-02-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
 
-	* gcj.texi: Option `--classpath' becomes `--CLASSPATH.'Option 
-	`--CLASSPATH' becomes `--classpath.' 
-	* gjavah.c: Likewise. 
-	* jcf-dump.c: Likewise. 
-	* lang-options.h: Likewise. 
-	* lang.c: Likewise. 
-	* jcf-path.c: Updated comment. 
-	(jcf_path_classpath_arg): Renamed `jcf_path_CLASSPATH_arg.' 
-	(jcf_path_CLASSPATH_arg): Renamed `jcf_path_classpath_arg.' 
-	* jcf.h (jcf_path_CLASSPATH_arg): Ditto. 
-	(jcf_path_CLASSPATH_arg): Ditto. 
-	(classpath_u): Updated leading comment. 
+	* gcj.texi: Option `--classpath' becomes `--CLASSPATH.'Option
+	`--CLASSPATH' becomes `--classpath.'
+	* gjavah.c: Likewise.
+	* jcf-dump.c: Likewise.
+	* lang-options.h: Likewise.
+	* lang.c: Likewise.
+	* jcf-path.c: Updated comment.
+	(jcf_path_classpath_arg): Renamed `jcf_path_CLASSPATH_arg.'
+	(jcf_path_CLASSPATH_arg): Renamed `jcf_path_classpath_arg.'
+	* jcf.h (jcf_path_CLASSPATH_arg): Ditto.
+	(jcf_path_CLASSPATH_arg): Ditto.
+	(classpath_u): Updated leading comment.
 
 2002-02-20  Per Bothner  <per@bothner.com>
 
@@ -334,7 +673,7 @@
 	current_function_decl before building JNI stub.
 
 2002-01-26 Andreas Tobler <a.tobler@schweiz.ch>
-	
+
 	* gcc/java/builtins.c (sqrt_builtin): Use BUILT_IN_SQRT, not
 	BUILT_IN_SQRTF.
 

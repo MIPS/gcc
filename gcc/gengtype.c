@@ -1598,6 +1598,7 @@ main(argc, argv)
   set_gc_used_type (find_structure ("lang_type", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("lang_decl", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("lang_id2", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("ehl_map_entry", 0), GC_POINTED_TO);
 
   open_base_files ();
   write_gc_types (structures);

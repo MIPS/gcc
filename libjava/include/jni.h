@@ -16,7 +16,7 @@ details.  */
 
 #include <gcj/libgcj-config.h>
 
-// We include <stdio.h> for compatibility with Sun's <jni.h>.
+/* We include <stdio.h> for compatibility with Sun's <jni.h>.  */
 #include <stdio.h>
 
 #include <stdarg.h>
@@ -161,6 +161,7 @@ typedef void *jmethodID;
 /* Version numbers.  */
 #define JNI_VERSION_1_1 0x00010001
 #define JNI_VERSION_1_2 0x00010002
+#define JNI_VERSION_1_4 0x00010004
 
 /* Used when releasing array elements.  */
 #define JNI_COMMIT 1
@@ -171,6 +172,12 @@ typedef void *jmethodID;
 #define JNI_ERR          -1
 #define JNI_EDETACHED    -2
 #define JNI_EVERSION     -3
+
+/* Linkage and calling conventions.  This will need updating when we
+   support Windows DLLs.  */
+#define JNIIMPORT
+#define JNIEXPORT
+#define JNICALL
 
 #ifdef __cplusplus
 extern "C"
@@ -635,6 +642,10 @@ struct JNINativeInterface
   void   (*DeleteWeakGlobalRef)            (JNIEnv *, jweak);
 
   jboolean	(*ExceptionCheck)	   (JNIEnv *);
+
+  jobject (*NewDirectByteBuffer)           (JNIEnv *, void *, jlong);
+  void *  (*GetDirectBufferAddress)        (JNIEnv *, jobject);
+  jlong   (*GetDirectBufferCapacity)       (JNIEnv *, jobject);
 };
 
 #ifdef __cplusplus
@@ -1516,6 +1527,15 @@ public:
 
   jboolean ExceptionCheck ()
   { return p->ExceptionCheck (this); }
+
+  jobject NewDirectByteBuffer (void *addr, jlong capacity)
+  { return p->NewDirectByteBuffer (this, addr, capacity); }
+
+  void *GetDirectBufferAddress (jobject buf)
+  { return p->GetDirectBufferAddress (this, buf); }
+
+  jlong GetDirectBufferCapacity (jobject buf)
+  { return p->GetDirectBufferCapacity (this, buf); }
 };
 #endif /* __cplusplus */
 
@@ -1533,6 +1553,7 @@ struct JNIInvokeInterface
   jint (*AttachCurrentThread)   (JavaVM *, void **, void *);
   jint (*DetachCurrentThread)   (JavaVM *);
   jint (*GetEnv)                (JavaVM *, void **, jint);
+  jint (*AttachCurrentThreadAsDaemon) (JavaVM *, void **, void *);
 };
 
 #ifdef __cplusplus
@@ -1557,6 +1578,9 @@ public:
 
   jint GetEnv (void **penv, jint version)
   { return functions->GetEnv (this, penv, version); }
+
+  jint AttachCurrentThreadAsDaemon (void **penv, void *args)
+  { return functions->AttachCurrentThreadAsDaemon (this, penv, args); }
 };
 #endif /* __cplusplus */
 

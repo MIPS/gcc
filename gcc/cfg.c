@@ -223,6 +223,17 @@ alloc_block ()
 /* Remove block B from the basic block array and compact behind it.  */
 
 void
+expunge_block_nocompact (b)
+     basic_block b;
+{
+  /* Invalidate data to make bughunting easier.  */
+  memset (b, 0, sizeof *b);
+  b->index = -3;
+  b->succ = (edge) first_deleted_block;
+  first_deleted_block = (basic_block) b;
+}
+
+void
 expunge_block (b)
      basic_block b;
 {
@@ -235,13 +246,10 @@ expunge_block (b)
       x->index = i;
     }
 
-  /* Invalidate data to make bughunting easier.  */
-  memset (b, 0, sizeof *b);
-  b->index = -3;
-  basic_block_info->num_elements--;
   n_basic_blocks--;
-  b->succ = (edge) first_deleted_block;
-  first_deleted_block = (basic_block) b;
+  basic_block_info->num_elements--;
+
+  expunge_block_nocompact (b);
 }
 
 /* Create an edge connecting SRC and DST with FLAGS optionally using
@@ -472,7 +480,7 @@ dump_flow_info (file)
 	if (REG_N_SETS (i))
 	  fprintf (file, "; set %d time%s", REG_N_SETS (i),
 		   (REG_N_SETS (i) == 1) ? "" : "s");
-	if (REG_USERVAR_P (regno_reg_rtx[i]))
+	if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
 	  fprintf (file, "; user var");
 	if (REG_N_DEATHS (i) != 1)
 	  fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
@@ -480,7 +488,8 @@ dump_flow_info (file)
 	  fprintf (file, "; crosses 1 call");
 	else if (REG_N_CALLS_CROSSED (i))
 	  fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	if (PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	if (regno_reg_rtx[i] != NULL
+	    && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	  fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
 	class = reg_preferred_class (i);
@@ -497,7 +506,7 @@ dump_flow_info (file)
 		       reg_class_names[(int) altclass]);
 	  }
 
-	if (REG_POINTER (regno_reg_rtx[i]))
+	if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
 	  fprintf (file, "; pointer");
 	fprintf (file, ".\n");
       }

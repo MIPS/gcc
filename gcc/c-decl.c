@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "timevar.h"
 #include "c-common.h"
+#include "c-pragma.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -580,6 +581,8 @@ c_decode_option (argc, argv)
 	  flag_isoc99 = 1;
 	  flag_isoc94 = 1;
 	}
+      else if (!strcmp (argstart, "c++98"))
+	; /* Handled by cpplib.  */
       else
 	error ("unknown C standard `%s'", argstart);
     }
@@ -684,6 +687,8 @@ c_decode_option (argc, argv)
       /* Only warn about unknown pragmas that are not in system headers.  */
       warn_unknown_pragmas = 1;
     }
+  else if (!strcmp (p, "-E"))
+    flag_preprocess_only = 1;
   else
     {
       size_t i;
@@ -729,7 +734,7 @@ c_print_identifier (file, node, indent)
    for a top-level tentative array defn that wasn't complete before.  */
 
 void
-finish_incomplete_decl (decl)
+c_finish_incomplete_decl (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == VAR_DECL)
@@ -1537,7 +1542,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 		  break;
 		}
 
-	      if (simple_type_promotes_to (type) != NULL_TREE)
+	      if (c_type_promotes_to (type) != type)
 		{
 		  error ("an argument type that has a default promotion can't match an empty parameter name list declaration");
 		  break;
@@ -1830,7 +1835,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
     }
 
   /* Merge the storage class information.  */
-  DECL_WEAK (newdecl) |= DECL_WEAK (olddecl);
+  merge_weak (newdecl, olddecl);
+
   /* For functions, static overrides non-static.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
@@ -2899,61 +2905,10 @@ c_init_decl_processing ()
     = build_function_type (ptr_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
-  /* Types which are common to the fortran compiler and libf2c.  When
-     changing these, you also need to be concerned with f/com.h.  */
-
-  if (TYPE_PRECISION (float_type_node)
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_integer_type_node = long_integer_type_node;
-      g77_uinteger_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node)
-	   == TYPE_PRECISION (integer_type_node))
-    {
-      g77_integer_type_node = integer_type_node;
-      g77_uinteger_type_node = unsigned_type_node;
-    }
-  else
-    g77_integer_type_node = g77_uinteger_type_node = NULL_TREE;
-
-  if (g77_integer_type_node != NULL_TREE)
-    {
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_integer"),
-			    g77_integer_type_node));
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_uinteger"),
-			    g77_uinteger_type_node));
-    }
-
-  if (TYPE_PRECISION (float_type_node) * 2
-      == TYPE_PRECISION (long_integer_type_node))
-    {
-      g77_longint_type_node = long_integer_type_node;
-      g77_ulongint_type_node = long_unsigned_type_node;
-    }
-  else if (TYPE_PRECISION (float_type_node) * 2
-	   == TYPE_PRECISION (long_long_integer_type_node))
-    {
-      g77_longint_type_node = long_long_integer_type_node;
-      g77_ulongint_type_node = long_long_unsigned_type_node;
-    }
-  else
-    g77_longint_type_node = g77_ulongint_type_node = NULL_TREE;
-
-  if (g77_longint_type_node != NULL_TREE)
-    {
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_longint"),
-			    g77_longint_type_node));
-      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_ulongint"),
-			    g77_ulongint_type_node));
-    }
-
   pedantic_lvalues = pedantic;
 
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
-
-  incomplete_decl_finalize_hook = finish_incomplete_decl;
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the
@@ -3041,7 +2996,7 @@ builtin_function (name, type, function_code, class, library_name)
    attributes.  */
 
 void
-insert_default_attributes (decl)
+c_insert_default_attributes (decl)
      tree decl;
 {
   if (!TREE_PUBLIC (decl))
@@ -3362,6 +3317,10 @@ start_decl (declarator, declspecs, initialized, attributes)
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (&decl, attributes, 0);
 
+  /* If #pragma weak was used, mark the decl weak now.  */
+  if (current_binding_level == global_binding_level)
+    maybe_apply_pragma_weak (decl);
+
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
@@ -3407,6 +3366,8 @@ finish_decl (decl, init, asmspec_tree)
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
+  if (current_binding_level == global_binding_level)
+    asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
@@ -3603,17 +3564,6 @@ finish_decl (decl, init, asmspec_tree)
      computing them in the following function definition.  */
   if (current_binding_level == global_binding_level)
     get_pending_sizes ();
-}
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in C.  */
-  return NULL_TREE;
 }
 
 /* Given a parsed parameter declaration,
@@ -4121,7 +4071,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       else if (type == char_type_node)
 	type = unsigned_char_type_node;
       else if (typedef_decl)
-	type = unsigned_type (type);
+	type = c_common_unsigned_type (type);
       else
 	type = unsigned_type_node;
     }
@@ -4331,7 +4281,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  tree itype = NULL_TREE;
 	  tree size = TREE_OPERAND (declarator, 1);
 	  /* The index is a signed object `sizetype' bits wide.  */
-	  tree index_type = signed_type (sizetype);
+	  tree index_type = c_common_signed_type (sizetype);
 
 	  array_ptr_quals = TREE_TYPE (declarator);
 	  array_parm_static = TREE_STATIC (declarator);
@@ -4391,7 +4341,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		     even if it is (eg) a const variable with known value.  */
 		  size_varies = 1;
 
-		  if (pedantic)
+		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
 			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
@@ -4439,10 +4389,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    }
 	  else if (decl_context == FIELD)
 	    {
-	      /* ??? Need to check somewhere that this is a structure
-		 and not a union, that this field is last, and that
-		 this structure has at least one other named member.  */
-
 	      if (pedantic && !flag_isoc99 && !in_system_header)
 		pedwarn ("ISO C89 does not support flexible array members");
 
@@ -4803,11 +4749,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	if (type == error_mark_node)
 	  promoted_type = type;
 	else
-	  {
-	    promoted_type = simple_type_promotes_to (type);
-	    if (! promoted_type)
-	      promoted_type = type;
-	  }
+	  promoted_type = c_type_promotes_to (type);
 
 	DECL_ARG_TYPE (decl) = promoted_type;
 	DECL_ARG_TYPE_AS_WRITTEN (decl) = type_as_written;
@@ -4983,7 +4925,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
        Otherwise, the fact that those components are volatile
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
-      mark_addressable (decl);
+      c_mark_addressable (decl);
 
     decl_attributes (&decl, returned_attrs, 0);
 
@@ -5803,7 +5745,7 @@ finish_enum (enumtype, values, attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = type_for_size (precision, unsign);
+      tree narrowest = c_common_type_for_size (precision, unsign);
       if (narrowest == 0)
 	{
 	  warning ("enumeration values exceed range of largest integer");
@@ -5816,7 +5758,7 @@ finish_enum (enumtype, values, attributes)
     precision = TYPE_PRECISION (integer_type_node);
 
   if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = type_for_size (precision, 0);
+    enum_value_type = c_common_type_for_size (precision, 0);
   else
     enum_value_type = enumtype;
 
@@ -5944,10 +5886,11 @@ build_enumerator (name, value)
   /* Now create a declaration for the enum value name.  */
 
   type = TREE_TYPE (value);
-  type = type_for_size (MAX (TYPE_PRECISION (type),
-			     TYPE_PRECISION (integer_type_node)),
-			(TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node)
-			 && TREE_UNSIGNED (type)));
+  type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+				      TYPE_PRECISION (integer_type_node)),
+				 (TYPE_PRECISION (type)
+				  >= TYPE_PRECISION (integer_type_node)
+				  && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
   DECL_INITIAL (decl) = convert (type, value);
@@ -6000,6 +5943,10 @@ start_function (declspecs, declarator, attributes)
     }
 
   decl_attributes (&decl1, attributes, 0);
+
+  /* If #pragma weak was used, mark the decl weak now.  */
+  if (current_binding_level == global_binding_level)
+    maybe_apply_pragma_weak (decl1);
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
@@ -6642,17 +6589,21 @@ store_parm_decls ()
 
    This is called after parsing the body of the function definition.
 
-   NESTED is nonzero if the function being finished is nested in another.  */
+   NESTED is nonzero if the function being finished is nested in another.
+   CAN_DEFER_P is nonzero if the function may be deferred.  */
 
 void
-finish_function (nested)
+finish_function (nested, can_defer_p)
      int nested;
+     int can_defer_p;
 {
   tree fndecl = current_function_decl;
 
-/*  TREE_READONLY (fndecl) = 1;
-    This caused &foo to be of type ptr-to-const-function
-    which then got a warning when stored in a ptr-to-function variable.  */
+#if 0
+  /* This caused &foo to be of type ptr-to-const-function which then
+     got a warning when stored in a ptr-to-function variable.  */
+  TREE_READONLY (fndecl) = 1;
+#endif
 
   poplevel (1, 0, 1);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
@@ -6713,10 +6664,11 @@ finish_function (nested)
   if (! nested)
     {
       /* Generate RTL for the body of this function.  */
-      c_expand_body (fndecl, nested, 1);
+      c_expand_body (fndecl, nested, can_defer_p);
+
       /* Let the error reporting routines know that we're outside a
 	 function.  For a nested function, this value is used in
-	 pop_c_function_context and then reset via pop_function_context.  */
+	 c_pop_function_context and then reset via pop_function_context.  */
       current_function_decl = NULL;
     }
 }
@@ -6891,7 +6843,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       /* Stop pointing to the local nodes about to be freed.
 	 But DECL_INITIAL must remain nonzero so we know this
 	 was an actual function definition.
-	 For a nested function, this is done in pop_c_function_context.
+	 For a nested function, this is done in c_pop_function_context.
 	 If rest_of_compilation set this to 0, leave it 0.  */
       if (DECL_INITIAL (fndecl) != 0)
 	DECL_INITIAL (fndecl) = error_mark_node;
@@ -7002,7 +6954,7 @@ struct language_function GTY(())
    used during compilation of a C function.  */
 
 void
-push_c_function_context (f)
+c_push_function_context (f)
      struct function *f;
 {
   struct language_function *p;
@@ -7025,7 +6977,7 @@ push_c_function_context (f)
 /* Restore the variables used during compilation of a C function.  */
 
 void
-pop_c_function_context (f)
+c_pop_function_context (f)
      struct function *f;
 {
   struct language_function *p = f->language;
@@ -7081,7 +7033,7 @@ c_dup_lang_specific_decl (decl)
 /* Mark the language specific bits in T for GC.  */
 
 void
-lang_mark_tree (t)
+c_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)

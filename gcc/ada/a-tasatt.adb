@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.3 $
 --                                                                          --
 --             Copyright (C) 1991-2002 Florida State University             --
 --                                                                          --

@@ -46,9 +46,10 @@ through the macros defined in the @file{.h} file.
 * PIC::			Macros for position independent code.
 * Assembler Format::    Defining how to write insns and pseudo-ops to output.
 * Debugging Info::      Defining the format of debugging output.
-* Cross-compilation::   Handling floating point for cross-compilers.
+* Floating Point::      Handling floating point for cross-compilers.
 * Mode Switching::      Insertion of mode-switching instructions.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
+* MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * Misc::                Everything else.
 @end menu
 
@@ -377,6 +378,11 @@ the argument @option{-lgcc} to tell the linker to do the search.
 This macro is similar to @code{LINK_LIBGCC_SPECIAL}, except that it does
 not affect @option{-L} options.
 
+@findex LINK_GCC_C_SEQUENCE_SPEC
+@item LINK_GCC_C_SEQUENCE_SPEC
+The sequence in which libgcc and libc are specified to the linker.
+By default this is @code{%G %L %G}.
+
 @findex LINK_COMMAND_SPEC
 @item LINK_COMMAND_SPEC
 A C string constant giving the complete command line need to execute the
@@ -384,7 +390,8 @@ linker.  When you do this, you will need to update your port each time a
 change is made to the link command line within @file{gcc.c}.  Therefore,
 define this macro only if you need to completely redefine the command
 line for invoking the linker and there is no other way to accomplish
-the effect you need.
+the effect you need.  Overriding this macro may be avoidable by overriding
+@code{LINK_GCC_C_SEQUENCE_SPEC} instead.
 
 @findex LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
 @item LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
@@ -4030,6 +4037,12 @@ Define this macro as a C expression that is nonzero for registers that are
 used by the epilogue or the @samp{return} pattern.  The stack and frame
 pointer registers are already be assumed to be used as needed.
 
+@findex EH_USES
+@item EH_USES (@var{regno})
+Define this macro as a C expression that is nonzero for registers that are
+used by the exception handling mechanism, and so should be considered live
+on entry to an exception edge.
+
 @findex DELAY_SLOTS_FOR_EPILOGUE
 @item DELAY_SLOTS_FOR_EPILOGUE
 Define this macro if the function epilogue contains delay slots to which
@@ -5376,11 +5389,19 @@ hooks for this purpose.  It is usually enough to define just a few of
 them: try the first ones in this list first.
 
 @deftypefn {Target Hook} int TARGET_SCHED_ISSUE_RATE (void)
-This hook returns the maximum number of instructions that can ever issue
-at the same time on the target machine.  The default is one.  This value
-must be constant over the entire compilation.  If you need it to vary
-depending on what the instructions are, you must use
+This hook returns the maximum number of instructions that can ever
+issue at the same time on the target machine.  The default is one.
+Although the insn scheduler can define itself the possibility of issue
+an insn on the same cycle, the value can serve as an additional
+constraint to issue insns on the same simulated processor cycle (see
+hooks @samp{TARGET_SCHED_REORDER} and @samp{TARGET_SCHED_REORDER2}).
+This value must be constant over the entire compilation.  If you need
+it to vary depending on what the instructions are, you must use
 @samp{TARGET_SCHED_VARIABLE_ISSUE}.
+
+You could use the value of macro @samp{MAX_DFA_ISSUE_RATE} to return
+the value of the hook @samp{TARGET_SCHED_ISSUE_RATE} for the automaton
+based pipeline interface.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_VARIABLE_ISSUE (FILE *@var{file}, int @var{verbose}, rtx @var{insn}, int @var{more})
@@ -5396,12 +5417,18 @@ instruction that was scheduled.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_COST (rtx @var{insn}, rtx @var{link}, rtx @var{dep_insn}, int @var{cost})
-This function corrects the value of @var{cost} based on the relationship
-between @var{insn} and @var{dep_insn} through the dependence @var{link}.
-It should return the new value.  The default is to make no adjustment to
-@var{cost}.  This can be used for example to specify to the scheduler
+This function corrects the value of @var{cost} based on the
+relationship between @var{insn} and @var{dep_insn} through the
+dependence @var{link}.  It should return the new value.  The default
+is to make no adjustment to @var{cost}.  This can be used for example
+to specify to the scheduler using the traditional pipeline description
 that an output- or anti-dependence does not incur the same cost as a
-data-dependence.
+data-dependence.  If the scheduler using the automaton based pipeline
+description, the cost of anti-dependence is zero and the cost of
+output-dependence is maximum of one and the difference of latency
+times of the first and the second insns.  If these values are not
+acceptable, you could use the hook to modify them too.  See also
+@pxref{Automaton pipeline description}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_PRIORITY (rtx @var{insn}, int @var{priority})
@@ -5466,6 +5493,140 @@ over a basic block.  It should insert an insn into the chain after
 RTL dumps and assembly output.  Define this hook only if you need this
 level of detail about what the scheduler is doing.
 @end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE (void)
+This hook is called many times during insn scheduling.  If the hook
+returns nonzero, the automaton based pipeline description is used for
+insn scheduling.  Otherwise the traditional pipeline description is
+used.  The default is usage of the traditional pipeline description.
+
+You should also remember that to simplify the insn scheduler sources
+an empty traditional pipeline description interface is generated even
+if there is no a traditional pipeline description in the @file{.md}
+file.  The same is true for the automaton based pipeline description.
+That means that you should be accurate in defining the hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_DFA_PRE_CYCLE_INSN (void)
+The hook returns an RTL insn.  The automaton state used in the
+pipeline hazard recognizer is changed as if the insn were scheduled
+when the new simulated processor cycle starts.  Usage of the hook may
+simplify the automaton pipeline description for some @acronym{VLIW}
+processors.  If the hook is defined, it is used only for the automaton
+based pipeline description.  The default is not to change the state
+when the new simulated processor cycle starts.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN (void)
+The hook can be used to initialize data used by the previous hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_DFA_POST_CYCLE_INSN (void)
+The hook is analogous to @samp{TARGET_SCHED_DFA_PRE_CYCLE_INSN} but used
+to changed the state as if the insn were scheduled when the new
+simulated processor cycle finishes.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN (void)
+The hook is analogous to @samp{TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN} but
+used to initialize data used by the previous hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD (void)
+This hook controls better choosing an insn from the ready insn queue
+for the @acronym{DFA}-based insn scheduler.  Usually the scheduler
+chooses the first insn from the queue.  If the hook returns a positive
+value, an additional scheduler code tries all permutations of
+@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD ()}
+subsequent ready insns to choose an insn whose issue will result in
+maximal number of issued insns on the same cycle.  For the
+@acronym{VLIW} processor, the code could actually solve the problem of
+packing simple insns into the @acronym{VLIW} insn.  Of course, if the
+rules of @acronym{VLIW} packing are described in the automaton.
+
+This code also could be used for superscalar @acronym{RISC}
+processors.  Let us consider a superscalar @acronym{RISC} processor
+with 3 pipelines.  Some insns can be executed in pipelines @var{A} or
+@var{B}, some insns can be executed only in pipelines @var{B} or
+@var{C}, and one insn can be executed in pipeline @var{B}.  The
+processor may issue the 1st insn into @var{A} and the 2nd one into
+@var{B}.  In this case, the 3rd insn will wait for freeing @var{B}
+until the next cycle.  If the scheduler issues the 3rd insn the first,
+the processor could issue all 3 insns per cycle.
+
+Actually this code demonstrates advantages of the automaton based
+pipeline hazard recognizer.  We try quickly and easy many insn
+schedules to choose the best one.
+
+The default is no multipass scheduling.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_BUBBLES (void)
+The @acronym{DFA}-based scheduler could take the insertion of nop
+operations for better insn scheduling into account.  It can be done
+only if the multi-pass insn scheduling works (see hook
+@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD}).
+
+Let us consider a @acronym{VLIW} processor insn with 3 slots.  Each
+insn can be placed only in one of the three slots.  We have 3 ready
+insns @var{A}, @var{B}, and @var{C}.  @var{A} and @var{C} can be
+placed only in the 1st slot, @var{B} can be placed only in the 3rd
+slot.  We described the automaton which does not permit empty slot
+gaps between insns (usually such description is simpler).  Without
+this code the scheduler would place each insn in 3 separate
+@acronym{VLIW} insns.  If the scheduler places a nop insn into the 2nd
+slot, it could place the 3 insns into 2 @acronym{VLIW} insns.  What is
+the nop insn is returned by hook @samp{TARGET_SCHED_DFA_BUBBLE}.  Hook
+@samp{TARGET_SCHED_INIT_DFA_BUBBLES} can be used to initialize or
+create the nop insns.
+
+You should remember that the scheduler does not insert the nop insns.
+It is not wise because of the following optimizations.  The scheduler
+only considers such possibility to improve the result schedule.  The
+nop insns should be inserted lately, e.g. on the final phase.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_SCHED_DFA_BUBBLE (int @var{index})
+This hook @samp{FIRST_CYCLE_MULTIPASS_SCHEDULING} is used to insert
+nop operations for better insn scheduling when @acronym{DFA}-based
+scheduler makes multipass insn scheduling (see also description of
+hook @samp{TARGET_SCHED_INIT_DFA_BUBBLES}).  This hook
+returns a nop insn with given @var{index}.  The indexes start with
+zero.  The hook should return @code{NULL} if there are no more nop
+insns with indexes greater than given index.
+@end deftypefn
+
+Macros in the following table are generated by the program
+@file{genattr} and can be useful for writing the hooks.
+
+@table @code
+@findex TRADITIONAL_PIPELINE_INTERFACE
+@item TRADITIONAL_PIPELINE_INTERFACE
+The macro definition is generated if there is a traditional pipeline
+description in @file{.md} file. You should also remember that to
+simplify the insn scheduler sources an empty traditional pipeline
+description interface is generated even if there is no a traditional
+pipeline description in the @file{.md} file.  The macro can be used to
+distinguish the two types of the traditional interface.
+
+@findex DFA_PIPELINE_INTERFACE
+@item DFA_PIPELINE_INTERFACE
+The macro definition is generated if there is an automaton pipeline
+description in @file{.md} file.  You should also remember that to
+simplify the insn scheduler sources an empty automaton pipeline
+description interface is generated even if there is no an automaton
+pipeline description in the @file{.md} file.  The macro can be used to
+distinguish the two types of the automaton interface.
+
+@findex MAX_DFA_ISSUE_RATE
+@item MAX_DFA_ISSUE_RATE
+The macro definition is generated in the automaton based pipeline
+description interface.  Its value is calculated from the automaton
+based pipeline description and is equal to maximal number of all insns
+described in constructions @samp{define_insn_reservation} which can be
+issued on the same processor cycle.
+
+@end table
 
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
@@ -6033,12 +6194,14 @@ of @code{ASM_OUTPUT_DOUBLE} and the like:
 @findex REAL_VALUE_TO_TARGET_DOUBLE
 @findex REAL_VALUE_TO_TARGET_LONG_DOUBLE
 These translate @var{x}, of type @code{REAL_VALUE_TYPE}, to the target's
-floating point representation, and store its bit pattern in the array of
-@code{long int} whose address is @var{l}.  The number of elements in the
-output array is determined by the size of the desired target floating
-point data type: 32 bits of it go in each @code{long int} array
-element.  Each array element holds 32 bits of the result, even if
-@code{long int} is wider than 32 bits on the host machine.
+floating point representation, and store its bit pattern in the variable
+@var{l}.  For @code{REAL_VALUE_TO_TARGET_SINGLE}, this variable should
+be a simple @code{long int}.  For the others, it should be an array of
+@code{long int}.  The number of elements in this array is determined by
+the size of the desired target floating point data type: 32 bits of it
+go in each @code{long int} array element.  Each array element holds 32
+bits of the result, even if @code{long int} is wider than 32 bits on the
+host machine.
 
 The array element values are designed so that you can print them out
 using @code{fprintf} in the order they should appear in the target
@@ -7735,167 +7898,134 @@ behavior is controlled by @code{OPTIMIZATION_OPTIONS} and
 @code{OVERRIDE_OPTIONS}.
 @end table
 
-@node Cross-compilation
+@node Floating Point
 @section Cross Compilation and Floating Point
 @cindex cross compilation and floating point
 @cindex floating point and cross compilation
 
-While all modern machines use 2's complement representation for integers,
+While all modern machines use twos-complement representation for integers,
 there are a variety of representations for floating point numbers.  This
 means that in a cross-compiler the representation of floating point numbers
 in the compiled program may be different from that used in the machine
 doing the compilation.
 
-@findex atof
 Because different representation systems may offer different amounts of
-range and precision, the cross compiler cannot safely use the host
-machine's floating point arithmetic.  Therefore, floating point constants
-must be represented in the target machine's format.  This means that the
-cross compiler cannot use @code{atof} to parse a floating point constant;
-it must have its own special routine to use instead.  Also, constant
-folding must emulate the target machine's arithmetic (or must not be done
-at all).
+range and precision, all floating point constants must be represented in
+the target machine's format.  Therefore, the cross compiler cannot
+safely use the host machine's floating point arithmetic; it must emulate
+the target's arithmetic.  To ensure consistency, GCC always uses
+emulation to work with floating point values, even when the host and
+target floating point formats are identical.
 
-The macros in the following table are provided by @file{real.h} for the
-compiler to use.  All parts of the compiler which generate or optimize
+The following macros are provided by @file{real.h} for the compiler to
+use.  All parts of the compiler which generate or optimize
 floating-point calculations must use these macros.  They may evaluate
 their operands more than once, so operands must not have side effects.
 
-@table @code
-@findex REAL_VALUE_TYPE
-@item REAL_VALUE_TYPE
-A macro for the C data type to be used to hold a floating point value
-in the target machine's format.  Typically this would be a
-@code{struct} containing an array of @code{int}.
+@defmac REAL_VALUE_TYPE
+The C data type to be used to hold a floating point value in the target
+machine's format.  Typically this is a @code{struct} containing an
+array of @code{HOST_WIDE_INT}, but all code should treat it as an opaque
+quantity.
+@end defmac
 
-@findex REAL_VALUES_EQUAL
-@item REAL_VALUES_EQUAL (@var{x}, @var{y})
-A macro for a C expression which compares for equality the two values,
-@var{x} and @var{y}, both of type @code{REAL_VALUE_TYPE}.
+@deftypefn Macro int REAL_VALUES_EQUAL (REAL_VALUE_TYPE @var{x}, REAL_VALUE_TYPE @var{y})
+Compares for equality the two values, @var{x} and @var{y}.  If the target
+floating point format supports negative zeroes and/or NaNs,
+@samp{REAL_VALUES_EQUAL (-0.0, 0.0)} is true, and
+@samp{REAL_VALUES_EQUAL (NaN, NaN)} is false.
+@end deftypefn
 
-@findex REAL_VALUES_LESS
-@item REAL_VALUES_LESS (@var{x}, @var{y})
-A macro for a C expression which tests whether @var{x} is less than
-@var{y}, both values being of type @code{REAL_VALUE_TYPE} and
-interpreted as floating point numbers in the target machine's
-representation.
+@deftypefn Macro int REAL_VALUES_LESS (REAL_VALUE_TYPE @var{x}, REAL_VALUE_TYPE @var{y})
+Tests whether @var{x} is less than @var{y}.
+@end deftypefn
 
-@findex REAL_VALUE_LDEXP
 @findex ldexp
-@item REAL_VALUE_LDEXP (@var{x}, @var{scale})
-A macro for a C expression which performs the standard library
-function @code{ldexp}, but using the target machine's floating point
-representation.  Both @var{x} and the value of the expression have
-type @code{REAL_VALUE_TYPE}.  The second argument, @var{scale}, is an
-integer.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_LDEXP (REAL_VALUE_TYPE @var{x}, int @var{scale})
+Multiplies @var{x} by 2 raised to the power @var{scale}.
+@end deftypefn
 
-@findex REAL_VALUE_FIX
-@item REAL_VALUE_FIX (@var{x})
-A macro whose definition is a C expression to convert the target-machine
-floating point value @var{x} to a signed integer.  @var{x} has type
-@code{REAL_VALUE_TYPE}.
+@deftypefn Macro HOST_WIDE_INT REAL_VALUE_FIX (REAL_VALUE_TYPE @var{x})
+Truncates @var{x} to a signed integer, rounding toward zero.
+@end deftypefn
 
-@findex REAL_VALUE_UNSIGNED_FIX
-@item REAL_VALUE_UNSIGNED_FIX (@var{x})
-A macro whose definition is a C expression to convert the target-machine
-floating point value @var{x} to an unsigned integer.  @var{x} has type
-@code{REAL_VALUE_TYPE}.
+@deftypefn Macro {unsigned HOST_WIDE_INT} REAL_VALUE_UNSIGNED_FIX (REAL_VALUE_TYPE @var{x})
+Truncates @var{x} to an unsigned integer, rounding toward zero.  If
+@var{x} is negative, returns zero.
+@end deftypefn
 
-@findex REAL_VALUE_RNDZINT
-@item REAL_VALUE_RNDZINT (@var{x})
-A macro whose definition is a C expression to round the target-machine
-floating point value @var{x} towards zero to an integer value (but still
-as a floating point number).  @var{x} has type @code{REAL_VALUE_TYPE},
-and so does the value.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_RNDZINT (REAL_VALUE_TYPE @var{x})
+Rounds the target-machine floating point value @var{x} towards zero to an
+integer value, but leaves it represented as a floating point number.
+@end deftypefn
 
-@findex REAL_VALUE_UNSIGNED_RNDZINT
-@item REAL_VALUE_UNSIGNED_RNDZINT (@var{x})
-A macro whose definition is a C expression to round the target-machine
-floating point value @var{x} towards zero to an unsigned integer value
-(but still represented as a floating point number).  @var{x} has type
-@code{REAL_VALUE_TYPE}, and so does the value.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_UNSIGNED_RNDZINT (REAL_VALUE_TYPE @var{x})
+Rounds the target-machine floating point value @var{x} towards zero to an
+unsigned integer value, but leaves it represented as a floating point
+number.  If @var{x} is negative, returns (positive) zero.
+@end deftypefn
 
-@findex REAL_VALUE_ATOF
-@item REAL_VALUE_ATOF (@var{string}, @var{mode})
-A macro for a C expression which converts @var{string}, an expression of
-type @code{char *}, into a floating point number in the target machine's
-representation for mode @var{mode}.  The value has type
-@code{REAL_VALUE_TYPE}.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_ATOF (const char *@var{string}, enum machine_mode @var{mode})
+Converts @var{string} into a floating point number in the target machine's
+representation for mode @var{mode}.  This routine can handle both
+decimal and hexadecimal floating point constants, using the syntax
+defined by the C language for both.
+@end deftypefn
 
-@findex REAL_INFINITY
-@item REAL_INFINITY
-Define this macro if infinity is a possible floating point value, and
-therefore division by 0 is legitimate.
+@deftypefn Macro int REAL_VALUE_NEGATIVE (REAL_VALUE_TYPE @var{x})
+Returns 1 if @var{x} is negative (including negative zero), 0 otherwise.  
+@end deftypefn
 
-@findex REAL_VALUE_ISINF
-@findex isinf
-@item REAL_VALUE_ISINF (@var{x})
-A macro for a C expression which determines whether @var{x}, a floating
-point value, is infinity.  The value has type @code{int}.
-By default, this is defined to call @code{isinf}.
+@deftypefn Macro int REAL_VALUE_ISINF (REAL_VALUE_TYPE @var{x})
+Determines whether @var{x} represents infinity (positive or negative).
+@end deftypefn
 
-@findex REAL_VALUE_ISNAN
-@findex isnan
-@item REAL_VALUE_ISNAN (@var{x})
-A macro for a C expression which determines whether @var{x}, a floating
-point value, is a ``nan'' (not-a-number).  The value has type
-@code{int}.  By default, this is defined to call @code{isnan}.
+@deftypefn Macro int REAL_VALUE_ISNAN (REAL_VALUE_TYPE @var{x})
+Determines whether @var{x} represents a ``NaN'' (not-a-number).
+@end deftypefn
 
-@findex REAL_ARITHMETIC
-@item REAL_ARITHMETIC (@var{output}, @var{code}, @var{x}, @var{y})
-A macro for a C statement which calculates an arithmetic operation of
-the two floating point values @var{x} and @var{y}, both of type
-@code{REAL_VALUE_TYPE} in the target machine's representation, to
-produce a result of the same type and representation which is stored
-in @var{output} (which will be a variable).
+@deftypefn Macro void REAL_ARITHMETIC (REAL_VALUE_TYPE @var{output}, enum tree_code @var{code}, REAL_VALUE_TYPE @var{x}, REAL_VALUE_TYPE @var{y})
+Calculates an arithmetic operation on the two floating point values
+@var{x} and @var{y}, storing the result in @var{output} (which must be a
+variable).
 
-The operation to be performed is specified by @var{code}, a tree code
-which will always be one of the following: @code{PLUS_EXPR},
-@code{MINUS_EXPR}, @code{MULT_EXPR}, @code{RDIV_EXPR},
-@code{MAX_EXPR}, @code{MIN_EXPR}.
+The operation to be performed is specified by @var{code}.  Only the
+following codes are supported: @code{PLUS_EXPR}, @code{MINUS_EXPR},
+@code{MULT_EXPR}, @code{RDIV_EXPR}, @code{MAX_EXPR}, @code{MIN_EXPR}.
 
-@cindex overflow while constant folding
-If overflow happens, the macro expansion executes the statement
-@code{return 0;}, which indicates the inability to perform the
-arithmetic operation requested.
+If @code{REAL_ARITHMETIC} is asked to evaluate division by zero and the
+target's floating point format cannot represent infinity, it will call
+@code{abort}.  Callers should check for this situation first, using
+@code{MODE_HAS_INFINITIES}.  @xref{Storage Layout}.
+@end deftypefn
 
-@findex REAL_VALUE_NEGATE
-@item REAL_VALUE_NEGATE (@var{x})
-A macro for a C expression which returns the negative of the floating
-point value @var{x}.  Both @var{x} and the value of the expression
-have type @code{REAL_VALUE_TYPE} and are in the target machine's
-floating point representation.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_NEGATE (REAL_VALUE_TYPE @var{x})
+Returns the negative of the floating point value @var{x}.
+@end deftypefn
 
-There is no way for this macro to report overflow, since overflow
-can't happen in the negation operation.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_ABS (REAL_VALUE_TYPE @var{x})
+Returns the absolute value of @var{x}.
+@end deftypefn
 
-@findex REAL_VALUE_TRUNCATE
-@item REAL_VALUE_TRUNCATE (@var{mode}, @var{x})
-A macro for a C expression which converts the floating point value
-@var{x} to mode @var{mode}.
+@deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_TRUNCATE (REAL_VALUE_TYPE @var{mode}, enum machine_mode @var{x})
+Truncates the floating point value @var{x} to fit in @var{mode}.  The
+return value is still a full-size @code{REAL_VALUE_TYPE}, but it has an
+appropriate bit pattern to be output asa floating constant whose
+precision accords with mode @var{mode}.
+@end deftypefn
 
-Both @var{x} and the value of the expression are in the target machine's
-floating point representation and have type @code{REAL_VALUE_TYPE}.
-However, the value should have an appropriate bit pattern to be output
-properly as a floating constant whose precision accords with mode
-@var{mode}.
+@deftypefn Macro void REAL_VALUE_TO_INT (HOST_WIDE_INT @var{low}, HOST_WIDE_INT @var{high}, REAL_VALUE_TYPE @var{x})
+Converts a floating point value @var{x} into a double-precision integer
+which is then stored into @var{low} and @var{high}.  If the value is not
+integral, it is truncated.
+@end deftypefn
 
-There is no way for this macro to report overflow.
-
-@findex REAL_VALUE_TO_INT
-@item REAL_VALUE_TO_INT (@var{low}, @var{high}, @var{x})
-A macro for a C expression which converts a floating point value
-@var{x} into a double-precision integer which is then stored into
-@var{low} and @var{high}, two variables of type @var{int}.
-
-@item REAL_VALUE_FROM_INT (@var{x}, @var{low}, @var{high}, @var{mode})
+@deftypefn Macro void REAL_VALUE_FROM_INT (REAL_VALUE_TYPE @var{x}, HOST_WIDE_INT @var{low}, HOST_WIDE_INT @var{high}, enum machine_mode @var{mode})
 @findex REAL_VALUE_FROM_INT
-A macro for a C expression which converts a double-precision integer
-found in @var{low} and @var{high}, two variables of type @var{int},
-into a floating point value which is then stored into @var{x}.
-The value is in the target machine's representation for mode @var{mode}
-and has the type @code{REAL_VALUE_TYPE}.
-@end table
+Converts a double-precision integer found in @var{low} and @var{high},
+into a floating point value which is then stored into @var{x}.  The
+value is truncated to fit in mode @var{mode}.
+@end deftypefn
 
 @node Mode Switching
 @section Mode Switching Instructions
@@ -8045,6 +8175,50 @@ into the current function, despite its having target-specific
 attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
 @end deftypefn
+
+@node MIPS Coprocessors
+@section Defining coprocessor specifics for MIPS targets.
+@cindex MIPS coprocessor-definition macros
+
+The MIPS specification allows MIPS implementations to have as many as 4
+coprocessors, each with as many as 32 private registers.  gcc supports
+accessing these registers and transferring values between the registers
+and memory using asm-ized variables.  For example:
+
+@smallexample
+  register unsigned int cp0count asm ("c0r1");
+  unsigned int d;
+
+  d = cp0count + 3;
+@end smallexample
+
+(``c0r1'' is the default name of register 1 in coprocessor 0; alternate
+names may be added as described below, or the default names may be
+overridden entirely in @code{SUBTARGET_CONDITIONAL_REGISTER_USAGE}.)
+
+Coprocessor registers are assumed to be epilogue-used; sets to them will
+be preserved even if it does not appear that the register is used again
+later in the function.
+
+Another note: according to the MIPS spec, coprocessor 1 (if present) is
+the FPU.  One accesses COP1 registers through standard mips
+floating-point support; they are not included in this mechanism.
+
+There is one macro used in defining the MIPS coprocessor interface which
+you may want to override in subtargets; it is described below.
+
+@table @code
+
+@item ALL_COP_ADDITIONAL_REGISTER_NAMES
+@findex ALL_COP_ADDITIONAL_REGISTER_NAMES
+A comma-separated list (with leading comma) of pairs describing the
+alternate names of coprocessor registers.  The format of each entry should be
+@smallexample
+@{ @var{alternatename}, @var{register_number}@}
+@end smallexample
+Default: empty.
+
+@end table
 
 @node Misc
 @section Miscellaneous Parameters

@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "c-lex.h"
 #include "c-tree.h"
+#include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
 #include "cpplib.h"
@@ -38,13 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
-
-/* MULTIBYTE_CHARS support only works for native compilers.
-   ??? Ideally what we want is to model widechar support after
-   the current floating point support.  */
-#ifdef CROSS_COMPILE
-#undef MULTIBYTE_CHARS
-#endif
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -64,9 +58,6 @@ static unsigned int src_lineno;
 static int header_time, body_time;
 static splay_tree file_info_tree;
 
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-
 /* File used for outputting assembler code.  */
 extern FILE *asm_out_file;
 
@@ -83,7 +74,6 @@ int c_header_level;	 /* depth in C headers - C++ only */
 /* Nonzero tells yylex to ignore \ in string constants.  */
 static int ignore_escape_flag;
 
-static void parse_float		PARAMS ((PTR));
 static tree lex_number		PARAMS ((const char *, unsigned int));
 static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
 					 int));
@@ -155,13 +145,21 @@ init_c_lex (filename)
    Also, make sure the start_source_file debug hook gets called for
    the primary source file.  */
 
-int
-yyparse()
+void
+c_common_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
+#if YYDEBUG != 0
+  yydebug = set_yydebug;
+#else
+  warning ("YYDEBUG not defined");
+#endif
+
   (*debug_hooks->start_source_file) (lineno, input_filename);
   cpp_finish_options (parse_in);
 
-  return yyparse_1();
+  yyparse ();
+  free_parser_stacks ();
 }
 
 struct c_fileinfo *
@@ -272,10 +270,12 @@ cb_file_change (pfile, new_map)
 	main_input_filename = new_map->to_file;
       else
 	{
-	  lineno = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+          int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+
+	  lineno = included_at;
 	  push_srcloc (new_map->to_file, 1);
 	  input_file_stack->indent_level = indent_level;
-	  (*debug_hooks->start_source_file) (lineno, new_map->to_file);
+	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -700,67 +700,6 @@ struct try_type type_sequence[] =
 };
 #endif /* 0 */
 
-struct pf_args
-{
-  /* Input */
-  const char *str;
-  int fflag;
-  int lflag;
-  int base;
-  /* Output */
-  int conversion_errno;
-  REAL_VALUE_TYPE value;
-  tree type;
-};
- 
-static void
-parse_float (data)
-  PTR data;
-{
-  struct pf_args * args = (struct pf_args *) data;
-  const char *typename;
-
-  args->conversion_errno = 0;
-  args->type = double_type_node;
-  typename = "double";
-
-  /* The second argument, machine_mode, of REAL_VALUE_ATOF
-     tells the desired precision of the binary result
-     of decimal-to-binary conversion.  */
-
-  if (args->fflag)
-    {
-      if (args->lflag)
-	error ("both 'f' and 'l' suffixes on floating constant");
-
-      args->type = float_type_node;
-      typename = "float";
-    }
-  else if (args->lflag)
-    {
-      args->type = long_double_type_node;
-      typename = "long double";
-    }
-  else if (flag_single_precision_constant)
-    {
-      args->type = float_type_node;
-      typename = "float";
-    }
-
-  errno = 0;
-  if (args->base == 16)
-    args->value = REAL_VALUE_HTOF (args->str, TYPE_MODE (args->type));
-  else
-    args->value = REAL_VALUE_ATOF (args->str, TYPE_MODE (args->type));
-
-  args->conversion_errno = errno;
-  /* A diagnostic is required here by some ISO C testsuites.
-     This is not pedwarn, because some people don't want
-     an error for this.  */
-  if (REAL_VALUE_ISINF (args->value) && pedantic)
-    warning ("floating point number exceeds range of '%s'", typename);
-}
- 
 int
 c_lex (value)
      tree *value;
@@ -971,13 +910,10 @@ lex_number (str, len)
   if (floatflag != NOT_FLOAT)
     {
       tree type;
-      int imag, fflag, lflag, conversion_errno;
+      const char *typename;
+      int imag, fflag, lflag;
       REAL_VALUE_TYPE real;
-      struct pf_args args;
       char *copy;
-
-      if (base == 16 && pedantic && !flag_isoc99)
-	pedwarn ("floating constant may not be in radix 16");
 
       if (base == 16 && floatflag != AFTER_EXPON)
 	ERROR ("hexadecimal floating constant has no exponent");
@@ -1043,34 +979,45 @@ lex_number (str, len)
 	    ERROR ("invalid suffix on floating constant");
 	  }
 
-      /* Setup input for parse_float() */
-      args.str = copy;
-      args.fflag = fflag;
-      args.lflag = lflag;
-      args.base = base;
-
-      /* Convert string to a double, checking for overflow.  */
-      if (do_float_handler (parse_float, (PTR) &args))
+      type = double_type_node;
+      typename = "double";
+	
+      if (fflag)
 	{
-	  /* Receive output from parse_float() */
-	  real = args.value;
-	}
-      else
-	  /* We got an exception from parse_float() */
-	  ERROR ("floating constant out of range");
+	  if (lflag)
+	    ERROR ("both 'f' and 'l' suffixes on floating constant");
 
-      /* Receive output from parse_float() */
-      conversion_errno = args.conversion_errno;
-      type = args.type;
-	    
-#ifdef ERANGE
-      /* ERANGE is also reported for underflow,
-	 so test the value to distinguish overflow from that.  */
-      if (conversion_errno == ERANGE && pedantic
-	  && (REAL_VALUES_LESS (dconst1, real)
-	      || REAL_VALUES_LESS (real, dconstm1)))
+	  type = float_type_node;
+	  typename = "float";
+	}
+      else if (lflag)
+	{
+	  type = long_double_type_node;
+	  typename = "long double";
+	}
+      else if (flag_single_precision_constant)
+	{
+	  type = float_type_node;
+	  typename = "float";
+	}
+
+      /* Warn about this only after we know we're not issuing an error.  */
+      if (base == 16 && pedantic && !flag_isoc99)
+	pedwarn ("hexadecimal floating constants are only valid in C99");
+
+      /* The second argument, machine_mode, of REAL_VALUE_ATOF
+	 tells the desired precision of the binary result
+	 of decimal-to-binary conversion.  */
+      if (base == 16)
+	real = REAL_VALUE_HTOF (copy, TYPE_MODE (type));
+      else
+	real = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
+
+      /* A diagnostic is required here by some ISO C testsuites.
+	 This is not pedwarn, because some people don't want
+	 an error for this.  */
+      if (REAL_VALUE_ISINF (real) && pedantic)
 	warning ("floating point number exceeds range of 'double'");
-#endif
 
       /* Create a node with determined type and value.  */
       if (imag)
@@ -1333,8 +1280,8 @@ lex_string (str, len, wide)
 	  c = cpp_parse_escape (parse_in, &p, limit, mask);
 	}
 	
-      /* Add this single character into the buffer either as a wchar_t
-	 or as a single byte.  */
+      /* Add this single character into the buffer either as a wchar_t,
+	 a multibyte sequence, or as a single byte.  */
       if (wide)
 	{
 	  unsigned charwidth = TYPE_PRECISION (char_type_node);
@@ -1355,6 +1302,16 @@ lex_string (str, len, wide)
 	    }
 	  q += WCHAR_BYTES;
 	}
+#ifdef MULTIBYTE_CHARS
+      else if (char_len > 1)
+	{
+	  /* We're dealing with a multibyte character. */
+	  for ( ; char_len >0; --char_len)
+	    {
+	      *q++ = *(p - char_len);
+	    }
+	}
+#endif
       else
 	{
 	  *q++ = c;
@@ -1389,7 +1346,7 @@ lex_charconst (token)
      const cpp_token *token;
 {
   HOST_WIDE_INT result;
-  tree value;
+  tree type, value;
   unsigned int chars_seen;
  
   result = cpp_interpret_charconst (parse_in, token, warn_multichar,
@@ -1397,7 +1354,7 @@ lex_charconst (token)
   if (token->type == CPP_WCHAR)
     {
       value = build_int_2 (result, 0);
-      TREE_TYPE (value) = wchar_type_node;
+      type = wchar_type_node;
     }
   else
     {
@@ -1409,10 +1366,24 @@ lex_charconst (token)
       /* In C, a character constant has type 'int'.
  	 In C++ 'char', but multi-char charconsts have type 'int'.  */
       if (c_language == clk_cplusplus && chars_seen <= 1)
- 	TREE_TYPE (value) = char_type_node;
+	type = char_type_node;
       else
- 	TREE_TYPE (value) = integer_type_node;
+	type = integer_type_node;
     }
- 
+
+  /* cpp_interpret_charconst issues a warning if the constant
+     overflows, but if the number fits in HOST_WIDE_INT anyway, it
+     will return it un-truncated, which may cause problems down the
+     line.  So set the type to widest_integer_literal_type, call
+     convert to truncate it to the proper type, then clear
+     TREE_OVERFLOW so we don't get a second warning.
+
+     FIXME: cpplib's assessment of overflow may not be accurate on a
+     platform where the final type can change at (compiler's) runtime.  */
+
+  TREE_TYPE (value) = widest_integer_literal_type_node;
+  value = convert (type, value);
+  TREE_OVERFLOW (value) = 0;
+
   return value;
 }

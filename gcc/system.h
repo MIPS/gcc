@@ -604,7 +604,7 @@ typedef char _Bool;
 	MD_INIT_BUILTINS MD_EXPAND_BUILTIN ASM_OUTPUT_CONSTRUCTOR	\
 	ASM_OUTPUT_DESTRUCTOR SIGNED_CHAR_SPEC
 
-/* And other obsolete target macros, or macros that used to be in target
+/* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
    been used.  */
  #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG			   \
@@ -615,6 +615,9 @@ typedef char _Bool;
 	STDC_VALUE TRAMPOLINE_ALIGN ASM_IDENTIFY_GCC_AFTER_SOURCE	   \
 	SLOW_ZERO_EXTEND SUBREG_REGNO_OFFSET DWARF_LINE_MIN_INSTR_LENGTH   \
 	TRADITIONAL_RETURN_FLOAT free_machine_status
+
+/* Hooks that are no longer used.  */
+ #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE
 
 #endif /* IN_GCC */
 

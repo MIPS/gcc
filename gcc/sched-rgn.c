@@ -62,6 +62,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "target.h"
 
 /* Define when we want to do count REG_DEAD notes before and after scheduling
    for sanity checking.  We can't do that when conditional execution is used,
@@ -294,6 +295,8 @@ static int haifa_classify_insn PARAMS ((rtx));
 static int is_prisky PARAMS ((rtx, int, int));
 static int is_exception_free PARAMS ((rtx, int, int));
 
+static bool sets_likely_spilled PARAMS ((rtx));
+static void sets_likely_spilled_1 PARAMS ((rtx, rtx, void *));
 static void add_branch_dependences PARAMS ((rtx, rtx));
 static void compute_block_backward_dependences PARAMS ((int));
 void debug_dependencies PARAMS ((void));
@@ -337,7 +340,7 @@ is_cfg_nonregular ()
   /* If we have exception handlers, then we consider the cfg not well
      structured.  ?!?  We should be able to handle this now that flow.c
      computes an accurate cfg for EH.  */
-  if (get_exception_handler_labels ())
+  if (current_function_has_exception_handlers ())
     return 1;
 
   /* If we have non-jumping insns which refer to labels, then we consider
@@ -2055,7 +2058,14 @@ init_ready_list (ready)
 
 	    if (!CANT_MOVE (insn)
 		&& (!IS_SPECULATIVE_INSN (insn)
-		    || (insn_issue_delay (insn) <= 3
+		    || ((((!targetm.sched.use_dfa_pipeline_interface
+			   || !(*targetm.sched.use_dfa_pipeline_interface) ())
+			  && insn_issue_delay (insn) <= 3)
+			 || (targetm.sched.use_dfa_pipeline_interface
+			     && (*targetm.sched.use_dfa_pipeline_interface) ()
+			     && (recog_memoized (insn) < 0
+			         || min_insn_conflict_delay (curr_state,
+							     insn, insn) <= 3)))
 			&& check_live (insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
 	      {
@@ -2163,7 +2173,15 @@ new_ready (next)
       && (!IS_VALID (INSN_BB (next))
 	  || CANT_MOVE (next)
 	  || (IS_SPECULATIVE_INSN (next)
-	      && (insn_issue_delay (next) > 3
+	      && (0
+		  || (targetm.sched.use_dfa_pipeline_interface
+		      && (*targetm.sched.use_dfa_pipeline_interface) ()
+		      && recog_memoized (next) >= 0
+		      && min_insn_conflict_delay (curr_state, next,
+						  next) > 3)
+		  || ((!targetm.sched.use_dfa_pipeline_interface
+		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
+		      && insn_issue_delay (next) > 3)
 		  || !check_live (next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
     return 0;
@@ -2268,6 +2286,31 @@ static struct sched_info region_sched_info =
   0, 0
 };
 
+/* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
+
+static bool
+sets_likely_spilled (pat)
+     rtx pat;
+{
+  bool ret = false;
+  note_stores (pat, sets_likely_spilled_1, &ret);
+  return ret;
+}
+
+static void
+sets_likely_spilled_1 (x, pat, data)
+     rtx x, pat;
+     void *data;
+{
+  bool *ret = (bool *) data;
+
+  if (GET_CODE (pat) == SET
+      && REG_P (x)
+      && REGNO (x) < FIRST_PSEUDO_REGISTER
+      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (x))))
+    *ret = true;
+}
+
 /* Add dependences so that branches are scheduled to run last in their
    block.  */
 
@@ -2284,8 +2327,15 @@ add_branch_dependences (head, tail)
 
      Branches must obviously remain at the end.  Calls should remain at the
      end since moving them results in worse register allocation.  Uses remain
-     at the end to ensure proper register allocation.  cc0 setters remaim
-     at the end because they can't be moved away from their cc0 user.  */
+     at the end to ensure proper register allocation.
+
+     cc0 setters remaim at the end because they can't be moved away from
+     their cc0 user.
+
+     Insns setting CLASS_LIKELY_SPILLED_P registers (usually return values)
+     are not moved before reload because we can wind up with register
+     allocation failures.  */
+
   insn = tail;
   last = 0;
   while (GET_CODE (insn) == CALL_INSN
@@ -2297,7 +2347,8 @@ add_branch_dependences (head, tail)
 #ifdef HAVE_cc0
 		 || sets_cc0_p (PATTERN (insn))
 #endif
-	     ))
+		 || (!reload_completed
+		     && sets_likely_spilled (PATTERN (insn)))))
 	 || GET_CODE (insn) == NOTE)
     {
       if (GET_CODE (insn) != NOTE)
@@ -2554,14 +2605,27 @@ debug_dependencies ()
 	  fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 		   BB_TO_BLOCK (bb), bb);
 
-	  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
-	  "insn", "code", "bb", "dep", "prio", "cost", "blockage", "units");
-	  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
-	  "----", "----", "--", "---", "----", "----", "--------", "-----");
+	  if (targetm.sched.use_dfa_pipeline_interface
+	      && (*targetm.sched.use_dfa_pipeline_interface) ())
+	    {
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+		       "insn", "code", "bb", "dep", "prio", "cost",
+		       "reservation");
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+		       "----", "----", "--", "---", "----", "----",
+		       "-----------");
+	    }
+	  else
+	    {
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
+	      "insn", "code", "bb", "dep", "prio", "cost", "blockage", "units");
+	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%11s%6s\n",
+	      "----", "----", "--", "---", "----", "----", "--------", "-----");
+	    }
+
 	  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
 	    {
 	      rtx link;
-	      int unit, range;
 
 	      if (! INSN_P (insn))
 		{
@@ -2581,22 +2645,46 @@ debug_dependencies ()
 		  continue;
 		}
 
-	      unit = insn_unit (insn);
-	      range = (unit < 0
-		 || function_units[unit].blockage_range_function == 0) ? 0 :
-		function_units[unit].blockage_range_function (insn);
-	      fprintf (sched_dump,
-		       ";;   %s%5d%6d%6d%6d%6d%6d  %3d -%3d   ",
-		       (SCHED_GROUP_P (insn) ? "+" : " "),
-		       INSN_UID (insn),
-		       INSN_CODE (insn),
-		       INSN_BB (insn),
-		       INSN_DEP_COUNT (insn),
-		       INSN_PRIORITY (insn),
-		       insn_cost (insn, 0, 0),
-		       (int) MIN_BLOCKAGE_COST (range),
-		       (int) MAX_BLOCKAGE_COST (range));
-	      insn_print_units (insn);
+	      if (targetm.sched.use_dfa_pipeline_interface
+		  && (*targetm.sched.use_dfa_pipeline_interface) ())
+		{
+		  fprintf (sched_dump,
+			   ";;   %s%5d%6d%6d%6d%6d%6d   ",
+			   (SCHED_GROUP_P (insn) ? "+" : " "),
+			   INSN_UID (insn),
+			   INSN_CODE (insn),
+			   INSN_BB (insn),
+			   INSN_DEP_COUNT (insn),
+			   INSN_PRIORITY (insn),
+			   insn_cost (insn, 0, 0));
+		  
+		  if (recog_memoized (insn) < 0)
+		    fprintf (sched_dump, "nothing");
+		  else
+		    print_reservation (sched_dump, insn);
+		}
+	      else
+		{
+		  int unit = insn_unit (insn);
+		  int range
+		    = (unit < 0
+		       || function_units[unit].blockage_range_function == 0
+		       ? 0
+		       : function_units[unit].blockage_range_function (insn));
+		  fprintf (sched_dump,
+			   ";;   %s%5d%6d%6d%6d%6d%6d  %3d -%3d   ",
+			   (SCHED_GROUP_P (insn) ? "+" : " "),
+			   INSN_UID (insn),
+			   INSN_CODE (insn),
+			   INSN_BB (insn),
+			   INSN_DEP_COUNT (insn),
+			   INSN_PRIORITY (insn),
+			   insn_cost (insn, 0, 0),
+			   (int) MIN_BLOCKAGE_COST (range),
+			   (int) MAX_BLOCKAGE_COST (range));
+		  insn_print_units (insn);
+		}
+
 	      fprintf (sched_dump, "\t: ");
 	      for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
 		fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));

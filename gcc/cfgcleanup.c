@@ -1,6 +1,6 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -54,7 +54,8 @@ enum bb_flags
 {
     /* Set if BB is the forwarder block to avoid too many
        forwarder_block_p calls.  */
-    BB_FORWARDER_BLOCK = 1
+    BB_FORWARDER_BLOCK = 1,
+    BB_NONTHREADABLE_BLOCK = 2
 };
 
 #define BB_FLAGS(BB) (enum bb_flags) (BB)->aux
@@ -279,17 +280,28 @@ thread_jump (mode, e, b)
   regset nonequal;
   bool failed = false;
 
+  if (BB_FLAGS (b) & BB_NONTHREADABLE_BLOCK)
+    return NULL;
+
   /* At the moment, we do handle only conditional jumps, but later we may
      want to extend this code to tablejumps and others.  */
   if (!e->src->succ->succ_next || e->src->succ->succ_next->succ_next)
     return NULL;
   if (!b->succ || !b->succ->succ_next || b->succ->succ_next->succ_next)
-    return NULL;
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   /* Second branch must end with onlyjump, as we will eliminate the jump.  */
-  if (!any_condjump_p (e->src->end) || !any_condjump_p (b->end)
-      || !onlyjump_p (b->end))
+  if (!any_condjump_p (e->src->end))
     return NULL;
+  
+  if (!any_condjump_p (b->end) || !onlyjump_p (b->end))
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   set1 = pc_set (e->src->end);
   set2 = pc_set (b->end);
@@ -324,7 +336,10 @@ thread_jump (mode, e, b)
   for (insn = NEXT_INSN (b->head); insn != NEXT_INSN (b->end);
        insn = NEXT_INSN (insn))
     if (INSN_P (insn) && side_effects_p (PATTERN (insn)))
-      return NULL;
+      {
+	BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+	return NULL;
+      }
 
   cselib_init ();
 
@@ -363,7 +378,10 @@ thread_jump (mode, e, b)
   /* Later we should clear nonequal of dead registers.  So far we don't
      have life information in cfg_cleanup.  */
   if (failed)
-    goto failed_exit;
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      goto failed_exit;
+    }
 
   /* cond2 must not mention any register that is not equal to the
      former block.  */
@@ -1116,9 +1134,20 @@ outgoing_edges_match (mode, bb1, bb2)
 
       if (!bb2->succ
           || !bb2->succ->succ_next
-	  || bb1->succ->succ_next->succ_next
+	  || bb2->succ->succ_next->succ_next
 	  || !any_condjump_p (bb2->end)
-	  || !onlyjump_p (bb1->end))
+	  || !onlyjump_p (bb2->end))
+	return false;
+
+      /* Do not crossjump across loop boundaries.  This is a temporary
+	 workaround for the common scenario in which crossjumping results
+	 in killing the duplicated loop condition, making bb-reorder rotate
+	 the loop incorectly, leaving an extra unconditional jump inside
+	 the loop.
+
+	 This check should go away once bb-reorder knows how to duplicate
+	 code in this case or rotate the loops to avoid this scenario.  */
+      if (bb1->loop_depth != bb2->loop_depth)
 	return false;
 
       b1 = BRANCH_EDGE (bb1);
@@ -1194,9 +1223,10 @@ outgoing_edges_match (mode, bb1, bb2)
 	    /* Do not use f2 probability as f2 may be forwarded.  */
 	    prob2 = REG_BR_PROB_BASE - b2->probability;
 
-	  /* Fail if the difference in probabilities is
-	     greater than 5%.  */
-	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20)
+	  /* Fail if the difference in probabilities is greater than 50%.
+	     This rules out two well-predicted branches with opposite
+	     outcomes.  */
+	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 2)
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
@@ -1455,6 +1485,7 @@ try_crossjump_bb (mode, bb)
 {
   edge e, e2, nexte2, nexte, fallthru;
   bool changed;
+  int n = 0;
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (!bb->pred || !bb->pred->pred_next)
@@ -1463,9 +1494,13 @@ try_crossjump_bb (mode, bb)
   /* It is always cheapest to redirect a block that ends in a branch to
      a block that falls through into BB, as that adds no branches to the
      program.  We'll try that combination first.  */
-  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next)
-    if (fallthru->flags & EDGE_FALLTHRU)
-      break;
+  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next, n++)
+    {
+      if (fallthru->flags & EDGE_FALLTHRU)
+	break;
+      if (n > 100)
+	return false;
+    }
 
   changed = false;
   for (e = bb->pred; e; e = nexte)
@@ -1706,8 +1741,7 @@ try_optimize_cfg (mode)
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_edges ();
 
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->aux = NULL;
+  clear_aux_for_blocks ();
 
   return changed_overall;
 }
@@ -1717,22 +1751,33 @@ try_optimize_cfg (mode)
 static bool
 delete_unreachable_blocks ()
 {
-  int i;
+  int i, j;
   bool changed = false;
 
   find_unreachable_blocks ();
 
-  /* Delete all unreachable basic blocks.  Count down so that we
-     don't interfere with the block renumbering that happens in
-     flow_delete_block.  */
+  /* Delete all unreachable basic blocks.  Do compaction concurrently,
+     as otherwise we can wind up with O(N^2) behaviour here when we 
+     have oodles of dead code.  */
 
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  for (i = j = 0; i < n_basic_blocks; ++i)
     {
       basic_block b = BASIC_BLOCK (i);
 
       if (!(b->flags & BB_REACHABLE))
-	flow_delete_block (b), changed = true;
+	{
+	  flow_delete_block_noexpunge (b);
+	  expunge_block_nocompact (b);
+	  changed = true;
+	}
+      else
+	{
+	  BASIC_BLOCK (j) = b;
+	  b->index = j++;
+	}
     }
+  n_basic_blocks = j;
+  basic_block_info->num_elements = j;
 
   if (changed)
     tidy_fallthru_edges ();
@@ -1765,7 +1810,7 @@ cleanup_cfg (mode)
 	  /* Cleaning up CFG introduces more oppurtunities for dead code
 	     removal that in turn may introduce more oppurtunities for
 	     cleaning up the CFG.  */
-	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL,
+	  if (!update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
 						 PROP_DEATH_NOTES
 						 | PROP_SCAN_DEAD_CODE
 						 | PROP_KILL_DEAD_CODE

@@ -940,15 +940,18 @@ extern int rs6000_altivec_abi;
     for (i = 32; i < 64; i++)						\
       fixed_regs[i] = call_used_regs[i]					\
         = call_really_used_regs[i] = 1;					\
-  if (DEFAULT_ABI == ABI_V4 && flag_pic == 1)				\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM]					\
-      = call_used_regs[PIC_OFFSET_TABLE_REGNUM]				\
-      = call_really_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
-  if (DEFAULT_ABI == ABI_DARWIN && flag_pic)				\
-    global_regs[PIC_OFFSET_TABLE_REGNUM]				\
-      = fixed_regs[PIC_OFFSET_TABLE_REGNUM]				\
-      = call_used_regs[PIC_OFFSET_TABLE_REGNUM]				\
-      = call_really_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
+  if (DEFAULT_ABI == ABI_V4						\
+      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM			\
+      && flag_pic == 1)							\
+    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
+      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
+      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
+  if (DEFAULT_ABI == ABI_DARWIN						\
+      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
+    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
+      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
+      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
+      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
   if (! TARGET_ALTIVEC)							\
     {									\
       for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)	\
@@ -1464,7 +1467,7 @@ typedef struct rs6000_stack {
 #define RETURN_IN_MEMORY(TYPE) \
   (AGGREGATE_TYPE_P (TYPE) && \
    (TARGET_AIX_STRUCT_RET || \
-    (unsigned HOST_WIDEST_INT) int_size_in_bytes (TYPE) > 8))
+    (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 8))
 
 /* DRAFT_V4_STRUCT_RET defaults off.  */
 #define DRAFT_V4_STRUCT_RET 0
@@ -1577,8 +1580,7 @@ typedef struct rs6000_args
 #define RS6000_ARG_SIZE(MODE, TYPE)					\
 ((MODE) != BLKmode							\
  ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD	\
- : ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) 			\
-    + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+ : (int_size_in_bytes (TYPE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -2081,7 +2083,8 @@ do {									     \
    this macro is not defined, it is up to the machine-dependent files
    to allocate such a register (if necessary).  */
 
-#define PIC_OFFSET_TABLE_REGNUM 30
+#define RS6000_PIC_OFFSET_TABLE_REGNUM 30
+#define PIC_OFFSET_TABLE_REGNUM (flag_pic ? RS6000_PIC_OFFSET_TABLE_REGNUM : INVALID_REGNUM)
 
 #define TOC_REGISTER (TARGET_MINIMAL_TOC ? 30 : 2)
 
@@ -2731,7 +2734,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PREDICATE_CODES							   \
   {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM}},			   \
+		   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},		   \
   {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
 		    LABEL_REF, SUBREG, REG, MEM}},			   \
   {"short_cint_operand", {CONST_INT}},					   \
@@ -2769,6 +2772,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"mask64_operand", {CONST_INT, CONST_DOUBLE}},			   \
   {"count_register_operand", {REG}},					   \
   {"xer_operand", {REG}},						   \
+  {"symbol_ref_operand", {SYMBOL_REF}},					   \
   {"call_operand", {SYMBOL_REF, REG}},					   \
   {"current_file_function_operand", {SYMBOL_REF}},			   \
   {"input_operand", {SUBREG, MEM, REG, CONST_INT,			   \

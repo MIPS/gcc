@@ -4538,8 +4538,8 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));
-	  
+	  emit_move_insn (mem, gen_lowpart (QImode, part_bytes_reg));
+
 	  if (--last_bytes)
 	    {
 	      tmp = gen_reg_rtx (SImode);
@@ -4557,7 +4557,7 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (HImode, part_bytes_reg, 0));
+	  emit_move_insn (mem, gen_lowpart (HImode, part_bytes_reg));
 	  last_bytes -= 2;
 	  if (last_bytes)
 	    {
@@ -4575,7 +4575,7 @@ arm_gen_movstrqi (operands)
 	  RTX_UNCHANGING_P (mem) = dst_unchanging_p;
 	  MEM_IN_STRUCT_P (mem) = dst_in_struct_p;
 	  MEM_SCALAR_P (mem) = dst_scalar_p;
-	  emit_move_insn (mem, gen_rtx_SUBREG (QImode, part_bytes_reg, 0));	  
+	  emit_move_insn (mem, gen_lowpart (QImode, part_bytes_reg));
 	}
     }
 
@@ -5113,23 +5113,23 @@ arm_reload_out_hi (operands)
     {
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, 
 					 plus_constant (base, offset + 1)),
-			    gen_rtx_SUBREG (QImode, outval, 0)));
+			    gen_lowpart (QImode, outval)));
       emit_insn (gen_lshrsi3 (scratch,
 			      gen_rtx_SUBREG (SImode, outval, 0),
 			      GEN_INT (8)));
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, plus_constant (base, offset)),
-			    gen_rtx_SUBREG (QImode, scratch, 0)));
+			    gen_lowpart (QImode, scratch)));
     }
   else
     {
       emit_insn (gen_movqi (gen_rtx_MEM (QImode, plus_constant (base, offset)),
-			    gen_rtx_SUBREG (QImode, outval, 0)));
+			    gen_lowpart (QImode, outval)));
       emit_insn (gen_lshrsi3 (scratch,
 			      gen_rtx_SUBREG (SImode, outval, 0),
 			      GEN_INT (8)));
       emit_insn (gen_movqi (gen_rtx_MEM (QImode,
 					 plus_constant (base, offset + 1)),
-			    gen_rtx_SUBREG (QImode, scratch, 0)));
+			    gen_lowpart (QImode, scratch)));
     }
 }
 
@@ -5323,14 +5323,29 @@ is_jump_table (insn)
   return NULL_RTX;
 }
 
+#ifndef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 0
+#endif
+
 static HOST_WIDE_INT
 get_jump_table_size (insn)
      rtx insn;
 {
-  rtx body = PATTERN (insn);
-  int elt = GET_CODE (body) == ADDR_DIFF_VEC ? 1 : 0;
+  /* ADDR_VECs only take room if read-only data does into the text
+     section.  */
+  if (JUMP_TABLES_IN_TEXT_SECTION
+#if !defined(READONLY_DATA_SECTION)
+      || 1
+#endif
+      )
+    {
+      rtx body = PATTERN (insn);
+      int elt = GET_CODE (body) == ADDR_DIFF_VEC ? 1 : 0;
 
-  return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, elt);
+      return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, elt);
+    }
+
+  return 0;
 }
 
 /* Move a minipool fix MP from its current location to before MAX_MP.
@@ -6513,11 +6528,11 @@ output_move_double (operands)
 	{
 	  if (GET_MODE (operands[1]) == DFmode)
 	    {
+	      REAL_VALUE_TYPE r;
 	      long l[2];
-	      union real_extract u;
 
-	      memcpy (&u, &CONST_DOUBLE_LOW (operands[1]), sizeof (u));
-	      REAL_VALUE_TO_TARGET_DOUBLE (u.d, l);
+	      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
+	      REAL_VALUE_TO_TARGET_DOUBLE (r, l);
 	      otherops[1] = GEN_INT (l[1]);
 	      operands[1] = GEN_INT (l[0]);
 	    }
@@ -7188,7 +7203,6 @@ output_return_instruction (operand, really_return, reverse)
   if (current_function_calls_alloca && !really_return)
     abort ();
 
-  /* Construct the conditional part of the instruction(s) to be emitted.  */
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
   return_used_this_function = 1;
@@ -7461,8 +7475,9 @@ arm_output_epilogue (really_return)
   int reg;
   unsigned long saved_regs_mask;
   unsigned long func_type;
-  /* If we need this, then it will always be at least this much.  */
-  int floats_offset = 12;
+  /* Floats_offset is the offset from the "virtual" frame.  In an APCS 
+     frame that is $fp + 4 for a non-variadic function.  */
+  int floats_offset = 0;
   rtx operands[3];
   int frame_size = get_frame_size ();
   FILE * f = asm_out_file;
@@ -7499,6 +7514,9 @@ arm_output_epilogue (really_return)
   
   saved_regs_mask = arm_compute_save_reg_mask ();
   
+  /* XXX We should adjust floats_offset for any anonymous args, and then
+     re-adjust vfp_offset below to compensate.  */
+
   /* Compute how far away the floats will be.  */
   for (reg = 0; reg <= LAST_ARM_REGNUM; reg ++)
     if (saved_regs_mask & (1 << reg))
@@ -7506,6 +7524,8 @@ arm_output_epilogue (really_return)
   
   if (frame_pointer_needed)
     {
+      int vfp_offset = 4;
+
       if (arm_fpu_arch == FP_SOFT2)
 	{
 	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
@@ -7513,7 +7533,7 @@ arm_output_epilogue (really_return)
 	      {
 		floats_offset += 12;
 		asm_fprintf (f, "\tldfe\t%r, [%r, #-%d]\n", 
-			     reg, FP_REGNUM, floats_offset);
+			     reg, FP_REGNUM, floats_offset - vfp_offset);
 	      }
 	}
       else
@@ -7530,7 +7550,7 @@ arm_output_epilogue (really_return)
 		  if (start_reg - reg == 3)
 		    {
 		      asm_fprintf (f, "\tlfm\t%r, 4, [%r, #-%d]\n",
-			           reg, FP_REGNUM, floats_offset);
+			           reg, FP_REGNUM, floats_offset - vfp_offset);
 		      start_reg = reg - 1;
 		    }
 		}
@@ -7539,7 +7559,7 @@ arm_output_epilogue (really_return)
 		  if (reg != start_reg)
 		    asm_fprintf (f, "\tlfm\t%r, %d, [%r, #-%d]\n",
 				 reg + 1, start_reg - reg,
-				 FP_REGNUM, floats_offset);
+				 FP_REGNUM, floats_offset - vfp_offset);
 		  start_reg = reg - 1;
 		}
 	    }
@@ -7548,7 +7568,7 @@ arm_output_epilogue (really_return)
 	  if (reg != start_reg)
 	    asm_fprintf (f, "\tlfm\t%r, %d, [%r, #-%d]\n",
 			 reg + 1, start_reg - reg,
-			 FP_REGNUM, floats_offset);
+			 FP_REGNUM, floats_offset - vfp_offset);
 	}
 
       /* saved_regs_mask should contain the IP, which at the time of stack
@@ -7642,7 +7662,7 @@ arm_output_epilogue (really_return)
 	 to load use the LDR instruction - it is faster.  */
       if (saved_regs_mask == (1 << LR_REGNUM))
 	{
-	  /* The excpetion handler ignores the LR, so we do
+	  /* The exception handler ignores the LR, so we do
 	     not really need to load it off the stack.  */
 	  if (eh_ofs)
 	    asm_fprintf (f, "\tadd\t%r, %r, #4\n", SP_REGNUM, SP_REGNUM);
@@ -7668,7 +7688,10 @@ arm_output_epilogue (really_return)
 		 REGNO (eh_ofs));
 #endif
 
-  if (! really_return)
+  if (! really_return
+    || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	&& current_function_pretend_args_size == 0
+	&& saved_regs_mask & (1 << PC_REGNUM)))
     return "";
 
   /* Generate the return instruction.  */
@@ -8538,7 +8561,8 @@ arm_print_operand (stream, x, code)
       return;
 
     case 'd':
-      if (!x)
+      /* CONST_TRUE_RTX means always -- that's the default.  */
+      if (x == const_true_rtx)
 	return;
       
       if (TARGET_ARM)
@@ -8549,8 +8573,10 @@ arm_print_operand (stream, x, code)
       return;
 
     case 'D':
-      if (!x)
-	return;
+      /* CONST_TRUE_RTX means not always -- ie never.  We shouldn't ever
+	 want to do that.  */
+      if (x == const_true_rtx)
+	abort ();
 
       if (TARGET_ARM)
 	fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE

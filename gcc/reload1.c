@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "toplev.h"
 #include "except.h"
+#include "tree.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -2067,10 +2068,19 @@ alter_reg (i, from_reg)
 	 memory.  If this is a shared MEM, make a copy.  */
       if (REGNO_DECL (i))
 	{
-	  if (from_reg != -1 && spill_stack_slot[from_reg] == x)
-	    x = copy_rtx (x);
+	  rtx decl = DECL_RTL_IF_SET (REGNO_DECL (i));
 
-	  set_mem_expr (x, REGNO_DECL (i));
+	  /* We can do this only for the DECLs home pseudo, not for
+	     any copies of it, since otherwise when the stack slot
+	     is reused, nonoverlapping_memrefs_p might think they
+	     cannot overlap.  */
+	  if (decl && GET_CODE (decl) == REG && REGNO (decl) == (unsigned) i)
+	    {
+	      if (from_reg != -1 && spill_stack_slot[from_reg] == x)
+		x = copy_rtx (x);
+
+	      set_mem_expr (x, REGNO_DECL (i));
+	    }
 	}
 
       /* Save the stack slot for later.  */
@@ -2563,7 +2573,7 @@ eliminate_regs (x, mem_mode, insn)
 		   )
 		  || x_size == new_size)
 	      )
-	    return adjust_address_nv (x, GET_MODE (x), SUBREG_BYTE (x));
+	    return adjust_address_nv (new, GET_MODE (x), SUBREG_BYTE (x));
 	  else
 	    return gen_rtx_SUBREG (GET_MODE (x), new, SUBREG_BYTE (x));
 	}
@@ -5565,6 +5575,7 @@ choose_reload_regs (chain)
 				  && ! TEST_HARD_REG_BIT (reg_reloaded_dead, i))
 			      /* Don't clobber the frame pointer.  */
 			      || (i == HARD_FRAME_POINTER_REGNUM
+				  && frame_pointer_needed
 				  && rld[r].out)
 			      /* Don't really use the inherited spill reg
 				 if we need it wider than we've got it.  */
@@ -5735,7 +5746,9 @@ choose_reload_regs (chain)
 
 	      /* If we found an equivalent reg, say no code need be generated
 		 to load it, and use it as our reload reg.  */
-	      if (equiv != 0 && regno != HARD_FRAME_POINTER_REGNUM)
+	      if (equiv != 0 
+		  && (regno != HARD_FRAME_POINTER_REGNUM 
+		      || !frame_pointer_needed))
 		{
 		  int nr = HARD_REGNO_NREGS (regno, rld[r].mode);
 		  int k;
@@ -9517,8 +9530,19 @@ fixup_abnormal_edges ()
 	      next = NEXT_INSN (insn);
 	      if (INSN_P (insn))
 		{
-	          insert_insn_on_edge (PATTERN (insn), e);
+		  rtx seq;
+
 	          delete_insn (insn);
+
+		  /* We're not deleting it, we're moving it.  */
+		  INSN_DELETED_P (insn) = 0;
+
+		  /* Emit a sequence, rather than scarfing the pattern, so
+		     that we don't lose REG_NOTES etc.  */
+		  /* ??? Could copy the test from gen_sequence, but don't
+		     think it's worth the bother.  */
+		  seq = gen_rtx_SEQUENCE (VOIDmode, gen_rtvec (1, insn));
+	          insert_insn_on_edge (seq, e);
 		}
 	      insn = next;
 	    }

@@ -132,6 +132,7 @@ static int unregister_specialization PARAMS ((tree, tree));
 static tree reduce_template_parm_level PARAMS ((tree, tree, int));
 static tree build_template_decl PARAMS ((tree, tree));
 static int mark_template_parm PARAMS ((tree, void *));
+static int template_parm_this_level_p PARAMS ((tree, void *));
 static tree tsubst_friend_function PARAMS ((tree, tree));
 static tree tsubst_friend_class PARAMS ((tree, tree));
 static tree get_bindings_real PARAMS ((tree, tree, tree, int, int, int));
@@ -1569,7 +1570,8 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 
 	      methods = CLASSTYPE_METHOD_VEC (ctype);
 	      if (methods)
-		for (idx = 2; idx < TREE_VEC_LENGTH (methods); ++idx) 
+		for (idx = CLASSTYPE_FIRST_CONVERSION_SLOT;
+		     idx < TREE_VEC_LENGTH (methods); ++idx) 
 		  {
 		    tree ovl = TREE_VEC_ELT (methods, idx);
 
@@ -2486,6 +2488,26 @@ check_default_tmpl_args (decl, parms, is_primary, is_partial)
     }
 }
 
+/* Worker for push_template_decl_real, called via
+   for_each_template_parm.  DATA is really an int, indicating the
+   level of the parameters we are interested in.  If T is a template
+   parameter of that level, return non-zero.  */
+
+static int
+template_parm_this_level_p (t, data)
+     tree t;
+     void *data;
+{
+  int this_level = (int)data;
+  int level;
+
+  if (TREE_CODE (t) == TEMPLATE_PARM_INDEX)
+    level = TEMPLATE_PARM_LEVEL (t);
+  else
+    level = TEMPLATE_TYPE_LEVEL (t);
+  return level == this_level;
+}
+
 /* Creates a TEMPLATE_DECL for the indicated DECL using the template
    parameters given by current_template_args, or reuses a
    previously existing one, if appropriate.  Returns the DECL, or an
@@ -2708,7 +2730,20 @@ push_template_decl_real (decl, is_friend)
     tmpl = pushdecl_namespace_level (tmpl);
 
   if (primary)
-    DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
+    {
+      DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
+      if (DECL_CONV_FN_P (tmpl))
+	{
+	  /* It is a conversion operator. See if the type converted to
+	     depends on innermost template operands.  */
+	  
+	  if (for_each_template_parm
+	      (TREE_TYPE (TREE_TYPE (tmpl)),
+	       template_parm_this_level_p,
+	       (void *)TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (tmpl))))
+	    DECL_TEMPLATE_CONV_FN_P (tmpl) = 1;
+	}
+    }
 
   info = tree_cons (tmpl, args, NULL_TREE);
 
@@ -3109,7 +3144,7 @@ convert_nontype_argument (type, expr)
 	      return error_mark_node;
 	  }
 
-	mark_addressable (expr);
+	cxx_mark_addressable (expr);
 	return build1 (ADDR_EXPR, type, expr);
       }
       break;
@@ -4578,7 +4613,7 @@ tsubst_friend_function (decl, args)
       tree template_id, arglist, fns;
       tree new_args;
       tree tmpl;
-      tree ns = CP_DECL_CONTEXT (TYPE_MAIN_DECL (current_class_type));
+      tree ns = decl_namespace_context (TYPE_MAIN_DECL (current_class_type));
       
       /* Friend functions are looked up in the containing namespace scope.
          We must enter that scope, to avoid finding member functions of the
@@ -4786,16 +4821,27 @@ tsubst_friend_class (friend_tmpl, args)
 {
   tree friend_type;
   tree tmpl;
+  tree context;
+
+  context = DECL_CONTEXT (friend_tmpl);
+
+  if (context)
+    {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	push_nested_namespace (context);
+      else
+	push_nested_class (context, 2);
+    }
 
   /* First, we look for a class template.  */
   tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0); 
-  
+
   /* But, if we don't find one, it might be because we're in a
      situation like this:
 
        template <class T>
        struct S {
-         template <class U>
+	 template <class U>
 	 friend struct S;
        };
 
@@ -4815,12 +4861,15 @@ tsubst_friend_class (friend_tmpl, args)
 	 of course.  We only need the innermost template parameters
 	 because that is all that redeclare_class_template will look
 	 at.  */
-      tree parms 
-	= tsubst_template_parms (DECL_TEMPLATE_PARMS (friend_tmpl),
-				 args, tf_error | tf_warning);
-      if (!parms)
-        return error_mark_node;
-      redeclare_class_template (TREE_TYPE (tmpl), parms);
+      if (TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (friend_tmpl))
+	  > TMPL_ARGS_DEPTH (args))
+	{
+	  tree parms;
+	  parms = tsubst_template_parms (DECL_TEMPLATE_PARMS (friend_tmpl),
+					 args, tf_error | tf_warning);
+	  redeclare_class_template (TREE_TYPE (tmpl), parms);
+	}
+
       friend_type = TREE_TYPE (tmpl);
     }
   else
@@ -4840,6 +4889,14 @@ tsubst_friend_class (friend_tmpl, args)
 
       /* Inject this template into the global scope.  */
       friend_type = TREE_TYPE (pushdecl_top_level (tmpl));
+    }
+
+  if (context) 
+    {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	pop_nested_namespace (context);
+      else
+	pop_nested_class ();
     }
 
   return friend_type;
@@ -5514,7 +5571,11 @@ tsubst_default_argument (fn, type, arg)
        };
      
      we must be careful to do name lookup in the scope of S<T>,
-     rather than in the current class.  */
+     rather than in the current class.
+
+     ??? current_class_type affects a lot more than name lookup.  This is
+     very fragile.  Fortunately, it will go away when we do 2-phase name
+     binding properly.  */
   if (DECL_CLASS_SCOPE_P (fn))
     pushclass (DECL_CONTEXT (fn), 2);
 
@@ -6018,15 +6079,6 @@ tsubst_decl (t, args, type, complain)
 	DECL_INITIAL (r) = NULL_TREE;
 	SET_DECL_RTL (r, NULL_RTX);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
-
-	/* For __PRETTY_FUNCTION__ we have to adjust the initializer.  */
-	if (DECL_PRETTY_FUNCTION_P (r))
-	  {
-	    const char *const name = (*decl_printable_name)
-	      			(current_function_decl, 2);
-	    DECL_INITIAL (r) = cp_fname_init (name);
-	    TREE_TYPE (r) = TREE_TYPE (DECL_INITIAL (r));
-	  }
 
 	/* Even if the original location is out of scope, the newly
 	   substituted one is not.  */
@@ -6770,7 +6822,7 @@ tsubst (t, args, complain, in_decl)
 	    if (!COMPLETE_TYPE_P (ctx))
 	      {
 		if (complain & tf_error)
-		  incomplete_type_error (NULL_TREE, ctx);
+		  cxx_incomplete_type_error (NULL_TREE, ctx);
 		return error_mark_node;
 	      }
 	  }
@@ -7308,10 +7360,6 @@ tsubst_expr (t, args, complain, in_decl)
 	  {
 	    init = DECL_INITIAL (decl);
 	    decl = tsubst (decl, args, complain, in_decl);
-	    if (DECL_PRETTY_FUNCTION_P (decl))
-	      init = DECL_INITIAL (decl);
-	    else
-	      init = tsubst_expr (init, args, complain, in_decl);
 	    if (decl != error_mark_node)
 	      {
                 if (TREE_CODE (decl) != TYPE_DECL)
@@ -7327,6 +7375,17 @@ tsubst_expr (t, args, complain, in_decl)
 	        if (TREE_CODE (decl) == VAR_DECL)
 	          DECL_TEMPLATE_INSTANTIATED (decl) = 1;
 	        maybe_push_decl (decl);
+		if (DECL_PRETTY_FUNCTION_P (decl))
+		  {
+		    /* For __PRETTY_FUNCTION__ we have to adjust the
+		       initializer.  */
+		    const char *const name
+		      = cxx_printable_name (current_function_decl, 2);
+		    init = cp_fname_init (name);
+		    TREE_TYPE (decl) = TREE_TYPE (init);
+		  }
+		else
+		  init = tsubst_expr (init, args, complain, in_decl);
 	        cp_finish_decl (decl, init, NULL_TREE, 0);
 	      }
 	  }
@@ -7539,10 +7598,6 @@ tsubst_expr (t, args, complain, in_decl)
     case TAG_DEFN:
       prep_stmt (t);
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
-      break;
-
-    case CTOR_STMT:
-      add_stmt (copy_node (t));
       break;
 
     default:

@@ -334,6 +334,14 @@ gen_rtx_CONST_INT (mode, arg)
   return (rtx) *slot;
 }
 
+rtx
+gen_int_mode (c, mode)
+     HOST_WIDE_INT c;
+     enum machine_mode mode;
+{
+  return GEN_INT (trunc_int_for_mode (c, mode));
+}
+
 /* CONST_DOUBLEs needs special handling because their length is known
    only at run-time.  */
 
@@ -1837,8 +1845,9 @@ adjust_address_1 (memref, mode, offset, validate, adjust)
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
   if (offset != 0)
-    memalign = MIN (memalign,
-		    (unsigned int) (offset & -offset) * BITS_PER_UNIT);
+    memalign
+      = MIN (memalign,
+	     (unsigned HOST_WIDE_INT) (offset & -offset) * BITS_PER_UNIT);
 
   /* We can compute the size in a number of ways.  */
   if (GET_MODE (new) != BLKmode)
@@ -1908,7 +1917,7 @@ offset_address (memref, offset, pow2)
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
 		     MIN (MEM_ALIGN (memref),
-			  (unsigned int) pow2 * BITS_PER_UNIT),
+			  (unsigned HOST_WIDE_INT) pow2 * BITS_PER_UNIT),
 		     GET_MODE (new));
   return new;
 }
@@ -1957,7 +1966,7 @@ widen_memory_access (memref, mode, offset)
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
-  if (! memoffset && offset != 0)
+  if (! memoffset)
     expr = NULL_TREE;
 
   while (expr)
@@ -2241,11 +2250,11 @@ copy_most_rtx (orig, may_share)
 
   copy = rtx_alloc (code);
   PUT_MODE (copy, GET_MODE (orig));
-  copy->in_struct = orig->in_struct;
-  copy->volatil = orig->volatil;
-  copy->unchanging = orig->unchanging;
-  copy->integrated = orig->integrated;
-  copy->frame_related = orig->frame_related;
+  RTX_FLAG (copy, in_struct) = RTX_FLAG (orig, in_struct);
+  RTX_FLAG (copy, volatil) = RTX_FLAG (orig, volatil);
+  RTX_FLAG (copy, unchanging) = RTX_FLAG (orig, unchanging);
+  RTX_FLAG (copy, integrated) = RTX_FLAG (orig, integrated);
+  RTX_FLAG (copy, frame_related) = RTX_FLAG (orig, frame_related);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
@@ -2378,7 +2387,7 @@ copy_rtx_if_shared (orig)
   /* This rtx may not be shared.  If it has already been seen,
      replace it with a copy of itself.  */
 
-  if (x->used)
+  if (RTX_FLAG (x, used))
     {
       rtx copy;
 
@@ -2389,7 +2398,7 @@ copy_rtx_if_shared (orig)
       x = copy;
       copied = 1;
     }
-  x->used = 1;
+  RTX_FLAG (x, used) = 1;
 
   /* Now scan the subexpressions recursively.
      We can store any replaced subexpressions directly into X
@@ -2468,7 +2477,7 @@ reset_used_flags (x)
       break;
     }
 
-  x->used = 0;
+  RTX_FLAG (x, used) = 0;
 
   format_ptr = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++)
@@ -3040,7 +3049,7 @@ try_split (pat, trial, last)
 
 	  tem = emit_insn_after (seq, trial);
 
-	  delete_related_insns (trial);
+	  delete_insn (trial);
 	  if (has_barrier)
 	    emit_barrier_after (tem);
 
@@ -3206,7 +3215,7 @@ add_insn_after (insn, after)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3275,7 +3284,7 @@ add_insn_before (insn, before)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (before) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (before) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3355,15 +3364,15 @@ remove_insn (insn)
 	abort ();
     }
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (insn) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
         bb->flags |= BB_DIRTY;
       if (bb->head == insn)
 	{
-	  /* Never ever delete the basic block note without deleting whole basic
-	     block.  */
+	  /* Never ever delete the basic block note without deleting whole
+	     basic block.  */
 	  if (GET_CODE (insn) == NOTE)
 	    abort ();
 	  bb->head = next;
@@ -3433,14 +3442,15 @@ reorder_insns (from, to, after)
   reorder_insns_nobb (from, to, after);
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
-	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
+	  && ((unsigned int) INSN_UID (from)
+	      < basic_block_for_insn->num_elements)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (bb2->end == to)
@@ -3967,7 +3977,7 @@ emit_insns_after (first, after)
     return after;
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       bb->flags |= BB_DIRTY;
@@ -4432,8 +4442,8 @@ gen_sequence ()
      We only return the pattern of an insn if its code is INSN and it
      has no notes.  This ensures that no information gets lost.  */
   if (len == 1
-      && ! RTX_FRAME_RELATED_P (first_insn)
       && GET_CODE (first_insn) == INSN
+      && ! RTX_FRAME_RELATED_P (first_insn)
       /* Don't throw away any reg notes.  */
       && REG_NOTES (first_insn) == 0)
     return PATTERN (first_insn);
@@ -4557,14 +4567,14 @@ copy_insn_1 (orig)
 
   /* We do not copy the USED flag, which is used as a mark bit during
      walks over the RTL.  */
-  copy->used = 0;
+  RTX_FLAG (copy, used) = 0;
 
   /* We do not copy JUMP, CALL, or FRAME_RELATED for INSNs.  */
   if (GET_RTX_CLASS (code) == 'i')
     {
-      copy->jump = 0;
-      copy->call = 0;
-      copy->frame_related = 0;
+      RTX_FLAG (copy, jump) = 0;
+      RTX_FLAG (copy, call) = 0;
+      RTX_FLAG (copy, frame_related) = 0;
     }
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
@@ -4845,23 +4855,17 @@ init_emit_once (line_numbers)
 
   for (i = 0; i <= 2; i++)
     {
+      REAL_VALUE_TYPE *r =
+	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
+
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	{
 	  rtx tem = rtx_alloc (CONST_DOUBLE);
-	  union real_extract u;
-
-	  /* Zero any holes in a structure.  */
-	  memset ((char *) &u, 0, sizeof u);
-	  u.d = i == 0 ? dconst0 : i == 1 ? dconst1 : dconst2;
-
-	  /* Avoid trailing garbage in the rtx.  */
-	  if (sizeof (u) < sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_LOW (tem) = 0;
-	  if (sizeof (u) < 2 * sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_HIGH (tem) = 0;
-
-	  memcpy (&CONST_DOUBLE_LOW (tem), &u, sizeof u);
+ 
+	  /* Can't use CONST_DOUBLE_FROM_REAL_VALUE here; that uses the
+	     tables we're setting up right now.  */
+	  memcpy (&CONST_DOUBLE_LOW (tem), r, sizeof (REAL_VALUE_TYPE));
 	  CONST_DOUBLE_CHAIN (tem) = NULL_RTX;
 	  PUT_MODE (tem, mode);
 

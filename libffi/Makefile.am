@@ -15,7 +15,8 @@ EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/powerpc/ffi_darwin.c \
 		src/powerpc/darwin.S src/powerpc/aix.S \
 		src/powerpc/darwin_closure.S src/powerpc/aix_closures.S \
-		src/arm/ffi.c src/arm/sysv.S
+		src/arm/ffi.c src/arm/sysv.S \
+		src/s390/ffi.c src/s390/sysv.S
 
 VPATH = @srcdir@:@srcdir@/src:@srcdir@/src/@TARGETDIR@
 
@@ -83,11 +84,11 @@ toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
 toolexeclib_LTLIBRARIES = libffi.la
-noinst_LTLIBRARIES = libfficonvenience.la
+noinst_LTLIBRARIES = libffi_convenience.la
 
 noinst_PROGRAMS = ffitest
 
-ffitest_SOURCES = src/ffitest.c
+ffitest_OBJECTS = ffitest.lo
 ffitest_LDADD = libffi.la
 ffitest_LDFLAGS = -shared-libgcc
 
@@ -103,6 +104,7 @@ TARGET_SRC_POWERPC = src/powerpc/ffi.c src/powerpc/sysv.S src/powerpc/ppc_closur
 TARGET_SRC_POWERPC_AIX = src/powerpc/ffi_darwin.c src/powerpc/aix.S src/powerpc/aix_closures.S
 TARGET_SRC_POWERPC_DARWIN = src/powerpc/ffi_darwin.c src/powerpc/darwin.S src/powerpc/darwin_closure.S
 TARGET_SRC_ARM =  src/arm/sysv.S src/arm/ffi.c
+TARGET_SRC_S390 =  src/s390/sysv.S src/s390/ffi.c
 
 ##libffi_la_SOURCES = src/debug.c src/prep_cif.c src/types.c $(TARGET_SRC_@TARGET@)
 ## Work around automake deficiency
@@ -110,51 +112,55 @@ libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 		src/raw_api.c src/java_raw_api.c
 if MIPS_GCC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
 endif
 if MIPS_SGI
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
 endif
 if X86
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
 endif
 if X86_WIN32
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_WIN32)
 endif
 if SPARC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SPARC)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SPARC)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SPARC)
 endif
 if ALPHA
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ALPHA)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ALPHA)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ALPHA)
 endif
 if IA64
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_IA64)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_IA64)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_IA64)
 endif
 if M68K
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_M68K)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_M68K)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_M68K)
 endif
 if POWERPC
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC)
 endif
 if POWERPC_AIX
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_AIX)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_AIX)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_AIX)
 endif
 if POWERPC_DARWIN
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_DARWIN)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_DARWIN)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_POWERPC_DARWIN)
 endif
 if ARM
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_ARM)
+endif
+if S390
+libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_S390)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_S390)
 endif
 
 AM_CFLAGS = -fexceptions

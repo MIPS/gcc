@@ -54,7 +54,8 @@ typedef struct bitmap_head_def {
   bitmap_element *current;	/* Last element looked at.  */
   unsigned int indx;		/* Index of last element looked at.  */
 
-} bitmap_head, *bitmap;
+} bitmap_head;
+typedef struct bitmap_head_def *bitmap;
 
 /* Enumeration giving the various operations we support.  */
 enum bitmap_bits {

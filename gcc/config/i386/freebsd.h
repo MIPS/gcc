@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running FreeBSD with ELF format
-   Copyright (C) 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
    Adapted from GNU/Linux version by John Polstra.
@@ -22,7 +22,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef TARGET_VERSION
+
 #define TARGET_VERSION fprintf (stderr, " (i386 FreeBSD/ELF)");
 
 /* Override the default comment-starter of "/".  */
@@ -105,7 +105,7 @@ Boston, MA 02111-1307, USA.  */
    done.  */
 
 #undef	LINK_SPEC
-#define LINK_SPEC "-m elf_i386 \
+#define LINK_SPEC "\
   %{Wl,*:%*} \
   %{v:-V} \
   %{assert*} %{R*} %{rpath*} %{defsym*} \
@@ -130,3 +130,11 @@ Boston, MA 02111-1307, USA.  */
     else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
   }
 #endif
+
+/* Don't default to pcc-struct-return, we want to retain compatibility with
+   older gcc versions AND pcc-struct-return is nonreentrant.
+   (even though the SVR4 ABI for the i386 says that records and unions are
+   returned in memory).  */
+
+#undef  DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 0

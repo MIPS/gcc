@@ -167,6 +167,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef EPILOGUE_USES
 #define EPILOGUE_USES(REGNO)  0
 #endif
+#ifndef EH_USES
+#define EH_USES(REGNO)  0
+#endif
 
 #ifdef HAVE_conditional_execution
 #ifndef REVERSE_CONDEXEC_PREDICATES_P
@@ -634,6 +637,7 @@ update_life_info (blocks, extent, prop_flags)
   regset tmp;
   regset_head tmp_head;
   int i;
+  int stabilized_prop_flags = prop_flags;
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   ndead = 0;
@@ -674,8 +678,21 @@ update_life_info (blocks, extent, prop_flags)
 					      | PROP_KILL_DEAD_CODE));
 	    }
 
-	  if (! changed || ! cleanup_cfg (CLEANUP_EXPENSIVE))
+	  /* Don't pass PROP_SCAN_DEAD_CODE or PROP_KILL_DEAD_CODE to
+	     subsequent propagate_block calls, since removing or acting as
+	     removing dead code can affect global register liveness, which
+	     is supposed to be finalized for this call after this loop.  */
+	  stabilized_prop_flags
+	    &= ~(PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
+
+	  if (! changed)
 	    break;
+
+	  /* We repeat regardless of what cleanup_cfg says.  If there were
+	     instructions deleted above, that might have been only a
+	     partial improvement (see MAX_MEM_SET_LIST_LEN usage).
+	     Further improvement may be possible.  */
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	}
 
       /* If asked, remove notes from the blocks we'll update.  */
@@ -694,7 +711,7 @@ update_life_info (blocks, extent, prop_flags)
 	  basic_block bb = BASIC_BLOCK (i);
 
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
-	  propagate_block (bb, tmp, NULL, NULL, prop_flags);
+	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 
 	  if (extent == UPDATE_LIFE_LOCAL)
 	    verify_local_live_at_start (tmp, bb);
@@ -707,7 +724,8 @@ update_life_info (blocks, extent, prop_flags)
 	  basic_block bb = BASIC_BLOCK (i);
 
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
-	  propagate_block (bb, tmp, NULL, NULL, prop_flags);
+
+	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 
 	  if (extent == UPDATE_LIFE_LOCAL)
 	    verify_local_live_at_start (tmp, bb);
@@ -761,7 +779,7 @@ update_life_info_in_dirty_blocks (extent, prop_flags)
   sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
   int block_num;
   int n = 0;
-  int ndead;
+  int retval = 0;
 
   sbitmap_zero (update_life_blocks);
   for (block_num = 0; block_num < n_basic_blocks; block_num++)
@@ -772,10 +790,10 @@ update_life_info_in_dirty_blocks (extent, prop_flags)
       }
 
   if (n)
-    ndead = update_life_info (update_life_blocks, extent, prop_flags);
+    retval = update_life_info (update_life_blocks, extent, prop_flags);
 
   sbitmap_free (update_life_blocks);
-  return ndead;
+  return retval;
 }
 
 /* Free the variables allocated by find_basic_blocks.
@@ -1068,6 +1086,16 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   regset_head new_live_at_end_head;
   int i;
 
+  /* Some passes used to forget clear aux field of basic block causing
+     sick behaviour here.  */
+#ifdef ENABLE_CHECKING
+  if (ENTRY_BLOCK_PTR->aux || EXIT_BLOCK_PTR->aux)
+    abort ();
+  for (i = 0; i < n_basic_blocks; i++)
+    if (BASIC_BLOCK (i)->aux)
+      abort ();
+#endif
+
   tmp = INITIALIZE_REG_SET (tmp_head);
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
   call_used = INITIALIZE_REG_SET (call_used_head);
@@ -1110,6 +1138,11 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	}
     }
 
+  /* We clean aux when we remove the initially-enqueued bbs, but we
+     don't enqueue ENTRY and EXIT initially, so clean them upfront and
+     unconditionally.  */
+  ENTRY_BLOCK_PTR->aux = EXIT_BLOCK_PTR->aux = NULL;
+
   if (blocks_out)
     sbitmap_zero (blocks_out);
 
@@ -1144,21 +1177,40 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
       /* Begin by propagating live_at_start from the successor blocks.  */
       CLEAR_REG_SET (new_live_at_end);
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  basic_block sb = e->dest;
 
-	  /* Call-clobbered registers die across exception and call edges.  */
-	  /* ??? Abnormal call edges ignored for the moment, as this gets
-	     confused by sibling call edges, which crashes reg-stack.  */
-	  if (e->flags & EDGE_EH)
-	    {
-	      bitmap_operation (tmp, sb->global_live_at_start,
-				call_used, BITMAP_AND_COMPL);
-	      IOR_REG_SET (new_live_at_end, tmp);
-	    }
-	  else
-	    IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
+      if (bb->succ)
+	for (e = bb->succ; e; e = e->succ_next)
+	  {
+	    basic_block sb = e->dest;
+
+	    /* Call-clobbered registers die across exception and
+	       call edges.  */
+	    /* ??? Abnormal call edges ignored for the moment, as this gets
+	       confused by sibling call edges, which crashes reg-stack.  */
+	    if (e->flags & EDGE_EH)
+	      {
+		bitmap_operation (tmp, sb->global_live_at_start,
+				  call_used, BITMAP_AND_COMPL);
+		IOR_REG_SET (new_live_at_end, tmp);
+	      }
+	    else
+	      IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
+
+	    /* If a target saves one register in another (instead of on
+	       the stack) the save register will need to be live for EH.  */
+	    if (e->flags & EDGE_EH)
+	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+		if (EH_USES (i))
+		  SET_REGNO_REG_SET (new_live_at_end, i);
+	  }
+      else
+	{
+	  /* This might be a noreturn function that throws.  And
+	     even if it isn't, getting the unwind info right helps
+	     debugging.  */
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    if (EH_USES (i))
+	      SET_REGNO_REG_SET (new_live_at_end, i);
 	}
 
       /* The all-important stack pointer must always be live.  */
@@ -3573,6 +3625,10 @@ mark_used_reg (pbi, reg, cond, insn)
   /* Mark the register as being live.  */
   for (i = regno_first; i <= regno_last; ++i)
     {
+#ifdef HAVE_conditional_execution
+      int this_was_live = REGNO_REG_SET_P (pbi->reg_live, i);
+#endif
+
       SET_REGNO_REG_SET (pbi->reg_live, i);
 
 #ifdef HAVE_conditional_execution
@@ -3584,7 +3640,7 @@ mark_used_reg (pbi, reg, cond, insn)
 	  struct reg_cond_life_info *rcli;
 	  rtx ncond;
 
-	  if (some_was_live)
+	  if (this_was_live)
 	    {
 	      node = splay_tree_lookup (pbi->reg_cond_dead, i);
 	      if (node == NULL)
@@ -3626,7 +3682,7 @@ mark_used_reg (pbi, reg, cond, insn)
 	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 	    }
 	}
-      else if (some_was_live)
+      else if (this_was_live)
 	{
 	  /* The register may have been conditionally live previously, but
 	     is now unconditionally live.  Remove it from the conditionally

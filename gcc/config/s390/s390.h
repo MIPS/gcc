@@ -1270,6 +1270,10 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 
 #define TARGET_MEM_FUNCTIONS
 
+/* Either simplify a location expression, or return the original.  */
+
+#define ASM_SIMPLIFY_DWARF_ADDR(X) \
+  s390_simplify_dwarf_addr (X)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1386,8 +1390,8 @@ extern int s390_nr_constants;
       if (GET_CODE (EXP) != CONST_DOUBLE)				    \
 	abort ();							    \
 									    \
-      memcpy ((char *) &u, (char *) &CONST_DOUBLE_LOW (EXP), sizeof u);	    \
-      assemble_real (u.d, MODE, ALIGN);					    \
+      REAL_VALUE_FROM_CONST_DOUBLE (r, EXP);				    \
+      assemble_real (r, MODE, ALIGN);					    \
       break;								    \
 									    \
     case MODE_INT:							    \

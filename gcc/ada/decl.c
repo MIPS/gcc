@@ -6,7 +6,6 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.9.8.1 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -1056,7 +1055,7 @@ gnat_to_gnu_entity (gnat_entity, gnu_expr, definition)
 	if (Has_Nested_Block_With_Handler (Scope (gnat_entity))
 	    && Exception_Mechanism != GCC_ZCX)
 	  {
-	    mark_addressable (gnu_decl);
+	    gnat_mark_addressable (gnu_decl);
 	    flush_addressof (gnu_decl);
 	  }
 

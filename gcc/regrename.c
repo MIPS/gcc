@@ -764,7 +764,7 @@ build_def_use (bb)
 	  rtx note;
 	  rtx old_operands[MAX_RECOG_OPERANDS];
 	  rtx old_dups[MAX_DUP_OPERANDS];
-	  int i;
+	  int i, icode;
 	  int alt;
 	  int predicated;
 
@@ -784,6 +784,7 @@ build_def_use (bb)
 	     (6) For any write we find in an operand, make a new chain.
 	     (7) For any REG_UNUSED, close any chains we just opened.  */
 
+	  icode = recog_memoized (insn);
 	  extract_insn (insn);
 	  constrain_operands (1);
 	  preprocess_constraints ();
@@ -827,8 +828,16 @@ build_def_use (bb)
 	    }
 	  for (i = 0; i < recog_data.n_dups; i++)
 	    {
+	      int dup_num = recog_data.dup_num[i];
+
 	      old_dups[i] = *recog_data.dup_loc[i];
 	      *recog_data.dup_loc[i] = cc0_rtx;
+
+	      /* For match_dup of match_operator or match_parallel, share
+		 them, so that we don't miss changes in the dup.  */
+	      if (icode >= 0
+		  && insn_data[icode].operand[dup_num].eliminable == 0)
+		old_dups[i] = recog_data.operand[dup_num];
 	    }
 
 	  scan_rtx (insn, &PATTERN (insn), NO_REGS, terminate_all_read,
@@ -1099,7 +1108,7 @@ kill_value (x, vd)
   /* SUBREGS are supposed to have been eliminated by now.  But some
      ports, e.g. i386 sse, use them to smuggle vector type information
      through to instruction selection.  Each such SUBREG should simplify,
-     so if we get a NULL  we've done something wrong elsewhere. */
+     so if we get a NULL  we've done something wrong elsewhere.  */
 
   if (GET_CODE (x) == SUBREG)
     x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),

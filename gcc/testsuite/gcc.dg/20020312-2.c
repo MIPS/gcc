@@ -34,6 +34,8 @@
 /* No pic register.  */
 #elif defined(__H8300__) || defined(__H8300H__) || defined(__H8300S__)
 /* No pic register.  */
+#elif defined(_IBMR2)
+/* No pic register.  */
 #elif #cpu(i370)
 /* No pic register.  */
 #elif defined(__i386__)
@@ -56,6 +58,8 @@
 /* No pic register.  */
 #elif defined(__mips__)
 /* PIC register is $28, but is used even without -fpic.  */
+#elif defined(__MMIX__)
+/* No pic register.  */
 #elif defined(__mn10200__)
 /* No pic register.  */
 #elif defined(__mn10300__)
@@ -90,11 +94,13 @@
 /* No pic register.  */
 #elif defined(__XTENSA__)
 /* No pic register.  */
+#elif defined(__sh__)
+# define PIC_REG  "r12"
 #else
 # error "Modify the test for your target."
 #endif
 
-#ifdef PIC_REG
+#if defined PIC_REG && !defined __PIC__ && !defined __pic__
 register void *reg __asm__(PIC_REG);
 #else
 /* We really need a global register variable set to the PIC register
@@ -131,9 +137,17 @@ main()
 {
   void *old_reg = reg;
   reg = (void *) 1;
+
   f ();
+
+  /* Additionally test that the prologue/epilogue properly does *not*
+     save and restore global registers.  Not possible when the PIC
+     register is in a register window, of course.  */
+#ifndef __sparc__
   if (reg)
     abort ();
+#endif
+
   reg = old_reg;
   return 0;
 }

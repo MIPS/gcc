@@ -147,7 +147,7 @@ init_expr_processing()
 }
 
 tree
-truthvalue_conversion (expr)
+java_truthvalue_conversion (expr)
      tree expr;
 {
   /* It is simpler and generates better code to have only TRUTH_*_EXPR
@@ -178,19 +178,19 @@ truthvalue_conversion (expr)
     case FLOAT_EXPR:
     case FFS_EXPR:
       /* These don't change whether an object is non-zero or zero.  */
-      return truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold (build (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
-                          truthvalue_conversion (TREE_OPERAND (expr, 1)),
-                          truthvalue_conversion (TREE_OPERAND (expr, 2))));
+                          java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+                          java_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
           >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-        return truthvalue_conversion (TREE_OPERAND (expr, 0));
+        return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
       /* fall through to default */
 
     default:
@@ -1390,7 +1390,7 @@ build_java_binop (op, type, arg1, arg2)
     {
     case URSHIFT_EXPR:
       {
-	tree u_type = unsigned_type (type);
+	tree u_type = java_unsigned_type (type);
 	arg1 = convert (u_type, arg1);
 	arg1 = build_java_binop (RSHIFT_EXPR, u_type, arg1, arg2);
 	return convert (type, arg1);
@@ -1512,16 +1512,6 @@ lookup_field (typep, name)
 	if (DECL_NAME (field) == name)
 	  return field;
 
-      /* If *typep is an innerclass, lookup the field in its enclosing
-         contexts */
-      if (INNER_CLASS_TYPE_P (*typep))
-	{
-	  tree outer_type = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (*typep)));
-
-	  if ((field = lookup_field (&outer_type, name)))
-	    return field;
-	}
-
       /* Process implemented interfaces. */
       basetype_vec = TYPE_BINFO_BASETYPES (*typep);
       n = TREE_VEC_LENGTH (basetype_vec);
@@ -1577,6 +1567,10 @@ build_field_ref (self_value, self_class, name)
     }
   else
     {
+      int check = (flag_check_references
+		   && ! (DECL_P (self_value)
+			 && DECL_NAME (self_value) == this_identifier_node));
+
       tree base_handle_type = promote_type (base_class);
       if (base_handle_type != TREE_TYPE (self_value))
 	self_value = fold (build1 (NOP_EXPR, base_handle_type, self_value));
@@ -1584,7 +1578,7 @@ build_field_ref (self_value, self_class, name)
       self_value = unhand_expr (self_value);
 #endif
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
-					    self_value, flag_check_references);
+					    self_value, check);
       return fold (build (COMPONENT_REF, TREE_TYPE (field_decl),
 			  self_value, field_decl));
     }
@@ -1657,7 +1651,7 @@ expand_compare (condition, value1, value2, target_pc)
 {
   tree target = lookup_label (target_pc);
   tree cond = fold (build (condition, boolean_type_node, value1, value2));
-  expand_start_cond (truthvalue_conversion (cond), 0);
+  expand_start_cond (java_truthvalue_conversion (cond), 0);
   expand_goto (target);
   expand_end_cond ();
 }
@@ -2129,12 +2123,13 @@ expand_invoke (opcode, method_ref_index, nargs)
 	 method's `this'.  In other cases we just rely on an
 	 optimization pass to eliminate redundant checks.  FIXME:
 	 Unfortunately there doesn't seem to be a way to determine
-	 what the current method is right now.  */
+	 what the current method is right now.
+	 We do omit the check if we're calling <init>.  */
       /* We use a SAVE_EXPR here to make sure we only evaluate
 	 the new `self' expression once.  */
       tree save_arg = save_expr (TREE_VALUE (arg_list));
       TREE_VALUE (arg_list) = save_arg;
-      check = java_check_reference (save_arg, 1);
+      check = java_check_reference (save_arg, ! DECL_INIT_P (method));
       func = build_known_method_ref (method, method_type, self_type,
 				     method_signature, arg_list);
     }
@@ -2480,11 +2475,11 @@ get_primitive_array_vtable (tree elt)
 }
 
 struct rtx_def *
-java_lang_expand_expr (exp, target, tmode, modifier)
+java_expand_expr (exp, target, tmode, modifier)
      register tree exp;
      rtx target;
      enum machine_mode tmode;
-     enum expand_modifier modifier;
+     int modifier; /* Actually an enum expand_modifier.  */
 {
   tree current;
 
@@ -2525,6 +2520,9 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    DECL_INITIAL (init_decl) = value;
 	    DECL_IGNORED_P (init_decl) = 1;
 	    TREE_READONLY (init_decl) = 1;
+	    /* Hash synchronization requires at least 64-bit alignment. */
+	    if (flag_hash_synchronization && POINTER_SIZE < 64)
+	      DECL_ALIGN (init_decl) = 64;
 	    rest_of_decl_compilation (init_decl, NULL, 1, 0);
 	    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (init_decl)) = 1;
 	    init = build1 (ADDR_EXPR, TREE_TYPE (exp), init_decl);
@@ -2770,6 +2768,7 @@ note_instructions (jcf, method)
   if (!saw_index)  NOTE_LABEL(oldpc + INT_temp);
 #define PRE_JSR(OPERAND_TYPE, OPERAND_VALUE) \
   saw_index = 0;  INT_temp = (OPERAND_VALUE); \
+  NOTE_LABEL (PC); \
   if (!saw_index)  NOTE_LABEL(oldpc + INT_temp);
 
 #define PRE_RET(OPERAND_TYPE, OPERAND_VALUE)  (void)(OPERAND_VALUE)

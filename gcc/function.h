@@ -142,7 +142,7 @@ struct expr_status GTY(())
   int x_inhibit_defer_pop;
 
   /* If PREFERRED_STACK_BOUNDARY and PUSH_ROUNDING are defined, the stack
-     boundary can be momentairly unaligned while pushing the arguments.
+     boundary can be momentarily unaligned while pushing the arguments.
      Record the delta since last aligned boundary here in order to get
      stack alignment in the nested function calls working right.  */
   int x_stack_pointer_delta;
@@ -365,6 +365,9 @@ struct function GTY(())
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
+  /* Profile label number.  */
+  int profile_label_no;
+
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -509,6 +512,7 @@ extern int virtuals_instantiated;
 #define current_function_return_rtx (cfun->return_rtx)
 #define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
 #define current_function_profile (cfun->profile)
+#define current_function_profile_label_no (cfun->profile_label_no)
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
@@ -569,13 +573,6 @@ extern HOST_WIDE_INT get_func_frame_size	PARAMS ((struct function *));
 /* A pointer to a function to create target specific, per-function
    data structures.  */
 extern struct machine_function * (*init_machine_status)	PARAMS ((void));
-
-/* Likewise, but for language-specific data.  */
-extern void (*init_lang_status)         PARAMS ((struct function *));
-extern void (*save_lang_status)		PARAMS ((struct function *));
-extern void (*restore_lang_status)	PARAMS ((struct function *));
-/* This is obsolete.  Do not set it.  */
-extern void (*free_lang_status)         PARAMS ((struct function *));
 
 /* Save and restore status information for a nested function.  */
 extern void restore_emit_status		PARAMS ((struct function *));

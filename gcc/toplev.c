@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
 #include <signal.h>
-#include <setjmp.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -108,11 +107,8 @@ static void init_asm_output PARAMS ((const char *));
 static void finalize PARAMS ((void));
 
 static void set_target_switch PARAMS ((const char *));
-static const char *decl_name PARAMS ((tree, int));
 
-static void float_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
 static void crash_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
-static void set_float_handler PARAMS ((jmp_buf));
 static void compile_file PARAMS ((void));
 static void display_help PARAMS ((void));
 static void display_target_options PARAMS ((void));
@@ -129,6 +125,9 @@ static int print_single_switch PARAMS ((FILE *, int, int, const char *,
 				      const char *, const char *));
 static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 				       const char *, const char *));
+
+/* Nonzero to dump debug info whilst parsing (-dy option).  */
+static int set_yydebug;
 
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
@@ -352,29 +351,6 @@ tree current_function_decl;
 /* Set to the FUNC_BEGIN label of the current function, or NULL_TREE
    if none.  */
 tree current_function_func_begin_label;
-
-/* Pointer to function to compute the name to use to print a declaration.
-   DECL is the declaration in question.
-   VERBOSITY determines what information will be printed:
-     0: DECL_NAME, demangled as necessary.
-     1: and scope information.
-     2: and any other information that might be interesting, such as function
-        parameter types in C++.  */
-
-const char *(*decl_printable_name)	PARAMS ((tree, int));
-
-/* Pointer to function to compute rtl for a language-specific tree code.  */
-
-typedef rtx (*lang_expand_expr_t)
-  PARAMS ((union tree_node *, rtx, enum machine_mode,
-	  enum expand_modifier modifier));
-
-lang_expand_expr_t lang_expand_expr = 0;
-
-/* Pointer to function to finish handling an incomplete decl at the
-   end of compilation.  */
-
-void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
 /* Nonzero if doing dwarf2 duplicate elimination.  */
 
@@ -616,6 +592,22 @@ int flag_syntax_only = 0;
 
 static int flag_gcse;
 
+/* Nonzero means perform loop optimizer.  */
+
+static int flag_loop_optimize;
+
+/* Nonzero means perform crossjumping.  */
+
+static int flag_crossjumping;
+
+/* Nonzero means perform if conversion.  */
+
+static int flag_if_conversion;
+
+/* Nonzero means perform if conversion after reload.  */
+
+static int flag_if_conversion2;
+
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
 
@@ -655,7 +647,12 @@ int flag_keep_inline_functions;
 
 /* Nonzero means that functions will not be inlined.  */
 
-int flag_no_inline;
+int flag_no_inline = 2;
+
+/* Nonzero means that we don't want inlining by virtue of -fno-inline,
+   not just because the tree inliner turned us off.  */
+
+int flag_really_no_inline = 2;
 
 /* Nonzero means that we should emit static const variables
    regardless of whether or not optimization is turned on.  */
@@ -1023,6 +1020,14 @@ static const lang_independent_options f_options[] =
    N_("Perform enhanced load motion during global subexpression elimination") },
   {"gcse-sm", &flag_gcse_sm, 1,
    N_("Perform store motion after global subexpression elimination") },
+  {"loop-optimize", &flag_loop_optimize, 1,
+   N_("Perform the loop optimizations") },
+  {"crossjumping", &flag_crossjumping, 1,
+   N_("Perform cross-jumping optimization") },
+  {"if-conversion", &flag_if_conversion, 1,
+   N_("Perform conversion of conditional jumps to branchless equivalents") },
+  {"if-conversion2", &flag_if_conversion2, 1,
+   N_("Perform conversion of conditional jumps to conditional execution") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
    N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
@@ -1060,6 +1065,8 @@ static const lang_independent_options f_options[] =
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    N_("Use profiling information for branch probabilities") },
+  {"profile", &profile_flag, 1,
+   N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
@@ -1389,9 +1396,19 @@ int warn_uninitialized;
 
 int warn_shadow;
 
-/* Warn if a switch on an enum fails to have a case for every enum value.  */
+/* Warn if a switch on an enum, that does not have a default case,
+   fails to have a case for every enum value.  */
 
 int warn_switch;
+
+/* Warn if a switch does not have a default case.  */
+
+int warn_switch_default;
+
+/* Warn if a switch on an enum fails to have a case for every enum
+   value (regardless of the presence or otherwise of a default case).  */
+
+int warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -1462,7 +1479,11 @@ static const lang_independent_options W_options[] =
   {"shadow", &warn_shadow, 1,
    N_("Warn when one local variable shadows another") },
   {"switch", &warn_switch, 1,
-   N_("Warn about enumerated switches missing a specific case") },
+   N_("Warn about enumerated switches, with no default, missing a case") },
+  {"switch-default", &warn_switch_default, 1,
+   N_("Warn about enumerated switches missing a default case") },
+  {"switch-enum", &warn_switch_enum, 1,
+   N_("Warn about all enumerated switches missing a specific case") },
   {"aggregate-return", &warn_aggregate_return, 1,
    N_("Warn about returning structures, unions or arrays") },
   {"cast-align", &warn_cast_align, 1,
@@ -1559,19 +1580,7 @@ read_integral_parameter (p, pname, defval)
 
   return atoi (p);
 }
-
 
-/* This is the default decl_printable_name function.  */
-
-static const char *
-decl_name (decl, verbosity)
-     tree decl;
-     int verbosity ATTRIBUTE_UNUSED;
-{
-  return IDENTIFIER_POINTER (DECL_NAME (decl));
-}
-
-
 /* This calls abort and is used to avoid problems when abort if a macro.
    It is used when we need to pass the address of abort.  */
 
@@ -1623,73 +1632,6 @@ floor_log2_wide (x)
     log++,
     x >>= 1;
   return log;
-}
-
-static int float_handler_set;
-int float_handled;
-jmp_buf float_handler;
-
-/* Signals actually come here.  */
-
-static void
-float_signal (signo)
-     /* If this is missing, some compilers complain.  */
-     int signo ATTRIBUTE_UNUSED;
-{
-  if (float_handled == 0)
-    crash_signal (signo);
-  float_handled = 0;
-
-  /* On System-V derived systems, we must reinstall the signal handler.
-     This is harmless on BSD-derived systems.  */
-  signal (SIGFPE, float_signal);
-  longjmp (float_handler, 1);
-}
-
-/* Specify where to longjmp to when a floating arithmetic error happens.
-   If HANDLER is 0, it means don't handle the errors any more.  */
-
-static void
-set_float_handler (handler)
-     jmp_buf handler;
-{
-  float_handled = (handler != 0);
-  if (handler)
-    memcpy (float_handler, handler, sizeof (float_handler));
-
-  if (float_handled && ! float_handler_set)
-    {
-      signal (SIGFPE, float_signal);
-      float_handler_set = 1;
-    }
-}
-
-/* This is a wrapper function for code which might elicit an
-   arithmetic exception.  That code should be passed in as a function
-   pointer FN, and one argument DATA.  DATA is usually a struct which
-   contains the real input and output for function FN.  This function
-   returns 0 (failure) if longjmp was called (i.e. an exception
-   occurred.)  It returns 1 (success) otherwise.  */
-
-int
-do_float_handler (fn, data)
-     void (*fn) PARAMS ((PTR));
-     PTR data;
-{
-  jmp_buf buf;
-
-  if (setjmp (buf))
-    {
-      /* We got here via longjmp () caused by an exception in function
-         fn ().  */
-      set_float_handler (NULL);
-      return 0;
-    }
-
-  set_float_handler (buf);
-  (*fn)(data);
-  set_float_handler (NULL);
-  return 1;
 }
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
@@ -1829,7 +1771,7 @@ open_dump_file (index, decl)
 
   if (decl)
     fprintf (rtl_dump_file, "\n;; Function %s\n\n",
-	     decl_printable_name (decl, 2));
+	     (*lang_hooks.decl_printable_name) (decl, 2));
 
   timevar_pop (TV_DUMP);
   return 1;
@@ -1892,9 +1834,8 @@ wrapup_global_declarations (vec, len)
       /* We're not deferring this any longer.  */
       DECL_DEFER_OUTPUT (decl) = 0;
 
-      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0
-	  && incomplete_decl_finalize_hook != 0)
-	(*incomplete_decl_finalize_hook) (decl);
+      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+	(*lang_hooks.finish_incomplete_decl) (decl);
     }
 
   /* Now emit any global variables or functions that we have been
@@ -1935,16 +1876,24 @@ wrapup_global_declarations (vec, len)
 	     to force a constant to be written if and only if it is
 	     defined in a main file, as opposed to an include file.  */
 
-	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
-	      && (((! TREE_READONLY (decl) || TREE_PUBLIC (decl))
-		   && !DECL_COMDAT (decl))
-		  || (!optimize
-		      && flag_keep_static_consts
-		      && !DECL_ARTIFICIAL (decl))
-		  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
+	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
 	    {
-	      reconsider = 1;
-	      rest_of_decl_compilation (decl, NULL, 1, 1);
+	      bool needed = 1;
+
+	      if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+		/* needed */;
+	      else if (DECL_COMDAT (decl))
+		needed = 0;
+	      else if (TREE_READONLY (decl) && !TREE_PUBLIC (decl)
+		       && (optimize || !flag_keep_static_consts
+			   || DECL_ARTIFICIAL (decl)))
+		needed = 0;
+
+	      if (needed)
+		{
+		  reconsider = 1;
+		  rest_of_decl_compilation (decl, NULL, 1, 1);
+		}
 	    }
 
 	  if (TREE_CODE (decl) == FUNCTION_DECL
@@ -2013,22 +1962,19 @@ check_global_declarations (vec, len)
 	  assemble_external (decl);
 	}
 
-      /* Warn about static fns or vars defined but not used,
-	 but not about inline functions or static consts
-	 since defining those in header files is normal practice.  */
-      if (((warn_unused_function
-	    && TREE_CODE (decl) == FUNCTION_DECL && ! DECL_INLINE (decl))
-	   || (warn_unused_variable
-	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
+      /* Warn about static fns or vars defined but not used.  */
+      if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
+	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	  && ! TREE_USED (decl)
+	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
+	     to handle multiple external decls in different scopes.  */
+	  && ! TREE_USED (DECL_NAME (decl))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
-	  && ! TREE_USED (decl)
-	  && (TREE_CODE (decl) == FUNCTION_DECL || ! DECL_REGISTER (decl))
-	  /* The TREE_USED bit for file-scope decls
-	     is kept in the identifier, to handle multiple
-	     external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl)))
+	  /* Global register variables must be declared to reserve them.  */
+	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+	  /* Otherwise, ask the language.  */
+	  && (*lang_hooks.decls.warn_unused_global) (decl))
 	warning_with_decl (decl, "`%s' defined but not used");
 
       timevar_push (TV_SYMOUT);
@@ -2098,9 +2044,9 @@ compile_file ()
 
   timevar_push (TV_PARSE);
 
-  /* Call the parser, which parses the entire file
-     (calling rest_of_compilation for each function).  */
-  yyparse ();
+  /* Call the parser, which parses the entire file (calling
+     rest_of_compilation for each function).  */
+  (*lang_hooks.parse_file) (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
@@ -2108,13 +2054,12 @@ compile_file ()
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
-
   timevar_pop (TV_PARSE);
 
   if (flag_syntax_only)
     return;
 
-  globals = getdecls ();
+  globals = (*lang_hooks.decls.getdecls) ();
 
   /* Really define vars that have had only a tentative definition.
      Really output inline functions that must actually be callable
@@ -2331,7 +2276,7 @@ rest_of_type_compilation (type, toplev)
   timevar_pop (TV_SYMOUT);
 }
 
-/* This is called from finish_function (within yyparse)
+/* This is called from finish_function (within langhooks.parse_file)
    after each top-level definition is parsed.
    It is supposed to compile that function or variable
    and output the assembler code for it.
@@ -2446,6 +2391,7 @@ rest_of_compilation (decl)
       if (inlinable
 	  || (DECL_INLINE (decl)
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
+		   && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 		   && ! flag_keep_inline_functions)
 		  || DECL_EXTERNAL (decl))))
 	DECL_DEFER_OUTPUT (decl) = 1;
@@ -2538,7 +2484,6 @@ rest_of_compilation (decl)
      carry magic hard reg data throughout the function.  */
   rtx_equal_function_value_matters = 0;
   purge_hard_subreg_sets (get_insns ());
-  emit_initial_value_sets ();
 
   /* Early return if there were errors.  We can run afoul of our
      consistency checks, and there's not really much point in fixing them.
@@ -2572,6 +2517,10 @@ rest_of_compilation (decl)
       close_dump_file (DFI_eh, print_rtl, get_insns ());
       timevar_pop (TV_JUMP);
     }
+
+  /* Delay emitting hard_reg_initial_value sets until after EH landing pad
+     generation, which might create new sets.  */
+  emit_initial_value_sets ();
 
 #ifdef FINALIZE_PIC
   /* If we are doing position-independent code generation, now
@@ -2700,7 +2649,7 @@ rest_of_compilation (decl)
 
   timevar_push (TV_JUMP);
 
-  if (optimize > 0)
+  if (flag_delete_null_pointer_checks || flag_if_conversion)
     {
       open_dump_file (DFI_null, decl);
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
@@ -2713,7 +2662,8 @@ rest_of_compilation (decl)
 	delete_null_pointer_checks (insns);
 
       timevar_push (TV_IFCVT);
-      if_convert (0);
+      if (flag_if_conversion)
+        if_convert (0);
       timevar_pop (TV_IFCVT);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       close_dump_file (DFI_null, print_rtl_with_bb, insns);
@@ -2857,7 +2807,7 @@ rest_of_compilation (decl)
 
   /* Move constant computations out of loops.  */
 
-  if (optimize > 0)
+  if (optimize > 0 && flag_loop_optimize)
     {
       timevar_push (TV_LOOP);
       delete_dead_jumptables ();
@@ -2871,8 +2821,7 @@ rest_of_compilation (decl)
 	  cleanup_barriers ();
 
 	  /* We only want to perform unrolling once.  */
-
-	  loop_optimize (insns, rtl_dump_file, 0);
+	  loop_optimize (insns, rtl_dump_file, LOOP_FIRST_PASS);
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
@@ -2916,7 +2865,8 @@ rest_of_compilation (decl)
 
      life_analyzis rarely eliminates modification of external memory.
    */
-  mark_constant_function ();
+  if (optimize)
+    mark_constant_function ();
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 
@@ -2962,7 +2912,8 @@ rest_of_compilation (decl)
 
 	  timevar_push (TV_IFCVT);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
-	  if_convert (0);
+	  if (flag_if_conversion)
+	    if_convert (0);
 	  timevar_pop(TV_IFCVT);
 
 	  timevar_pop (TV_JUMP);
@@ -2999,7 +2950,7 @@ rest_of_compilation (decl)
 #endif
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   if (optimize)
-    cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
+    cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
@@ -3061,7 +3012,7 @@ rest_of_compilation (decl)
 
   /* Rerun if-conversion, as combine may have simplified things enough to
      now meet sequence length restrictions.  */
-  if (optimize > 0)
+  if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
       open_dump_file (DFI_ce, decl);
@@ -3255,7 +3206,8 @@ rest_of_compilation (decl)
   if (optimize)
     {
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP | CLEANUP_UPDATE_LIFE);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3287,7 +3239,7 @@ rest_of_compilation (decl)
     }
 #endif
 
-  if (flag_rename_registers || flag_cprop_registers)
+  if (optimize > 0 && (flag_rename_registers || flag_cprop_registers))
     {
       timevar_push (TV_RENAME_REGISTERS);
       open_dump_file (DFI_rnreg, decl);
@@ -3301,7 +3253,7 @@ rest_of_compilation (decl)
       timevar_pop (TV_RENAME_REGISTERS);
     }
 
-  if (optimize > 0)
+  if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
       open_dump_file (DFI_ce2, decl);
@@ -3361,7 +3313,7 @@ rest_of_compilation (decl)
 	 and insn splitting possibly introduced more crossjumping
 	 oppurtuntities.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-		   | CLEANUP_CROSSJUMP);
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
       if (flag_reorder_blocks)
 	{
 	  reorder_basic_blocks ();
@@ -3788,7 +3740,7 @@ decode_d_option (arg)
 	rtl_dump_and_exit = 1;
 	break;
       case 'y':
-	(*lang_hooks.set_yydebug) (1);
+	set_yydebug = 1;
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
@@ -4040,7 +3992,7 @@ ignoring option `%s' due to invalid debug level specification",
 
 	      if (da_len > 1 && strncmp (arg, "gdb", da_len) == 0)
 		{
-#if defined (DWARF2_DEBUGGING_INFO) && !defined (LINKER_DOES_NOT_WORK_WITH_DWARF2)
+#ifdef DWARF2_DEBUGGING_INFO
 		  type = DWARF2_DEBUG;
 #else
 #ifdef DBX_DEBUGGING_INFO
@@ -4556,10 +4508,6 @@ general_init (argv0)
 
   gcc_init_libintl ();
 
-  /* Install handler for SIGFPE, which may be received while we do
-     compile-time floating point arithmetic.  */
-  signal (SIGFPE, float_signal);
-
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -4575,6 +4523,9 @@ general_init (argv0)
 #endif
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
+#endif
+#ifdef SIGFPE
+  signal (SIGFPE, crash_signal);
 #endif
 
   /* Initialize the diagnostics reporting machinery, so option parsing
@@ -4656,6 +4607,10 @@ parse_options_and_default_flags (argc, argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
+      flag_loop_optimize = 1;
+      flag_crossjumping = 1;
+      flag_if_conversion = 1;
+      flag_if_conversion2 = 1;
     }
 
   if (optimize >= 2)
@@ -4783,6 +4738,11 @@ parse_options_and_default_flags (argc, argv)
 	}
     }
 
+  if (flag_no_inline == 2)
+    flag_no_inline = 0;
+  else
+    flag_really_no_inline = flag_no_inline;
+
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
      code should be lang-independent when all front ends use tree
@@ -4801,6 +4761,9 @@ parse_options_and_default_flags (argc, argv)
       if (warn_uninitialized == 1)
 	warning ("-Wuninitialized is not supported without -O");
     }
+
+  if (flag_really_no_inline == 2)
+    flag_really_no_inline = flag_no_inline;
 
   /* All command line options have been parsed; allow the front end to
      perform consistency checks, etc.  */
@@ -4995,9 +4958,6 @@ process_options ()
 static void
 lang_independent_init ()
 {
-  decl_printable_name = decl_name;
-  lang_expand_expr = (lang_expand_expr_t) do_abort;
-
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
 

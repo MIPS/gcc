@@ -126,9 +126,19 @@ extern int warn_unknown_pragmas;
 
 extern int warn_shadow;
 
-/* Warn if a switch on an enum fails to have a case for every enum value.  */
+/* Warn if a switch on an enum, that does not have a default case,
+   fails to have a case for every enum value.  */
 
 extern int warn_switch;
+
+/* Warn if a switch does not have a default case.  */
+
+extern int warn_switch_default;
+
+/* Warn if a switch on an enum fails to have a case for every enum
+   value (regardless of the presence or otherwise of a default case).  */
+
+extern int warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -379,6 +389,11 @@ extern int flag_keep_inline_functions;
    does the right thing with #pragma interface.  */
 
 extern int flag_no_inline;
+
+/* Nonzero means that we don't want inlining by virtue of -fno-inline,
+   not just because the tree inliner turned us off.  */
+
+extern int flag_really_no_inline;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 

@@ -4,7 +4,6 @@
  *                                                                          *
  *                                 I N I T                                  *
  *                                                                          *
- *                            $Revision: 1.9 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *

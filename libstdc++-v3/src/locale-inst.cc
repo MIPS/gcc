@@ -410,13 +410,6 @@ namespace std
     has_facet<messages<wchar_t> >(const locale&);
 #endif
 
-  // iterator
-  typedef vector<locale::facet*> vec_pfacet;
-  template class vector<locale::facet*>;
-  template class __normal_iterator<locale::facet**, vector<locale::facet*> >;
-  template class __normal_iterator<locale::facet* const*,
-                                   vector<locale::facet*> >;
-
   // locale
   template
     char*
@@ -461,43 +454,27 @@ namespace std
 
   template
     int
-    __convert_from_v(char*, const char*, double, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, double, const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const char*, long double, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long double, const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const char*, long, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long, const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const char*, unsigned long, 
+    __convert_from_v(char*, const int, const char*, unsigned long, 
 		     const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const char*, long long, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long long, const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const char*, unsigned long long, 
+    __convert_from_v(char*, const int, const char*, unsigned long long, 
 		     const __c_locale&, int);
-
-  template 
-    locale::facet** 
-    fill_n<locale::facet**, size_t, locale::facet*>
-    (locale::facet**, size_t, locale::facet* const&);
-
-  template
-    __normal_iterator<locale::facet**, vector<locale::facet*> >
-    fill_n(__normal_iterator<locale::facet**, vector<locale::facet*> >,
-	   size_t, locale::facet* const&);
-
-  template
-    void
-    fill(__normal_iterator<locale::facet**, vector<locale::facet*> >,
-         __normal_iterator<locale::facet**, vector<locale::facet*> >,
-         locale::facet* const&);
 } // namespace std

@@ -882,7 +882,7 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
-		--target=$target --host=$build --build=$build
+		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
 	# We just finished tests for the build machine, so rename
@@ -1226,8 +1226,7 @@ changequote(,)dnl
 changequote([,])dnl
 fi
 
-if test "x$gcc_cv_as" = x -a x$host = x$target; then
-	# Native build.
+if test "x$gcc_cv_as" = x; then
 	# Search the same directories that the installed compiler will
 	# search.  Else we may find the wrong assembler and lose.  If we
 	# do not find a suitable assembler binary, then try the user's
@@ -1252,14 +1251,21 @@ if test "x$gcc_cv_as" = x -a x$host = x$target; then
 	# If the loop below does not find an assembler, then use whatever
 	# one we can find in the users's path.
 	# user's path.
-	gcc_cv_as=as$host_exeext
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_as=${program_prefix}as$host_exeext
+	else
+		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
+	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target \
-		   /usr/lib/gcc/$target/$gcc_version \
-		   /usr/lib/gcc/$target \
-		   $test_prefix/$target/bin/$target/$gcc_version \
-		   $test_prefix/$target/bin \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_alias/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_alias \
+		   /usr/lib/gcc/$target_alias/$gcc_version \
+		   /usr/lib/gcc/$target_alias \
+		   $test_prefix/$target_alias/bin/$target_alias/$gcc_version \
+		   $test_prefix/$target_alias/bin"
+
+	if test x$host = x$target; then
+	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
 		   /usr/ccs/bin \
@@ -1270,9 +1276,10 @@ if test "x$gcc_cv_as" = x -a x$host = x$target; then
 		   /sysv/usr/lib/cmplrs/cc \
 		   /svr4/usr/lib/cmplrs/cc \
 		   /usr/bin"
+	fi
 
 	for dir in $test_dirs; do
-		if test -f $dir/as$host_exeext; then
+		if test -x $dir/as$host_exeext; then
 			gcc_cv_as=$dir/as$host_exeext
 			break;
 		fi
@@ -1315,8 +1322,7 @@ changequote(,)dnl
 changequote([,])dnl
 fi
 
-if test "x$gcc_cv_ld" = x -a x$host = x$target; then
-	# Native build.
+if test "x$gcc_cv_ld" = x; then
 	# Search the same directories that the installed compiler will
 	# search.  Else we may find the wrong linker and lose.  If we
 	# do not find a suitable linker binary, then try the user's
@@ -1341,14 +1347,21 @@ if test "x$gcc_cv_ld" = x -a x$host = x$target; then
 	# If the loop below does not find an linker, then use whatever
 	# one we can find in the users's path.
 	# user's path.
-	gcc_cv_ld=ld$host_exeext
+	if test "x$program_prefix" != xNONE; then
+		gcc_cv_ld=${program_prefix}ld$host_exeext
+	else
+		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
+	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target \
-		   /usr/lib/gcc/$target/$gcc_version \
-		   /usr/lib/gcc/$target \
-		   $test_prefix/$target/bin/$target/$gcc_version \
-		   $test_prefix/$target/bin \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_alias/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_alias \
+		   /usr/lib/gcc/$target_alias/$gcc_version \
+		   /usr/lib/gcc/$target_alias \
+		   $test_prefix/$target_alias/bin/$target_alias/$gcc_version \
+		   $test_prefix/$target_alias/bin"
+
+	if test x$host = x$target; then
+	    test_dirs="$test_dirs \
 		   /usr/libexec \
 		   /usr/ccs/gcc \
 		   /usr/ccs/bin \
@@ -1359,9 +1372,10 @@ if test "x$gcc_cv_ld" = x -a x$host = x$target; then
 		   /sysv/usr/lib/cmplrs/cc \
 		   /svr4/usr/lib/cmplrs/cc \
 		   /usr/bin"
+	fi
 
 	for dir in $test_dirs; do
-		if test -f $dir/ld$host_exeext; then
+		if test -x $dir/ld$host_exeext; then
 			gcc_cv_ld=$dir/ld$host_exeext
 			break;
 		fi
@@ -1377,9 +1391,10 @@ fi
 AC_MSG_CHECKING(what nm to use)
 if test -x nm$host_exeext; then
 	gcc_cv_nm=./nm$host_exeext
-elif test x$host = x$target; then
-	# Native build.
-	gcc_cv_nm=nm$host_exeext
+elif test "x$program_prefix" != xNONE; then
+	gcc_cv_nm=${program_prefix}nm$host_exeext
+else
+	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
 fi
 AC_MSG_RESULT($gcc_cv_nm)
 
@@ -1387,9 +1402,10 @@ AC_MSG_RESULT($gcc_cv_nm)
 AC_MSG_CHECKING(what objdump to use)
 if test -x objdump$host_exeext; then
 	gcc_cv_objdump=./objdump$host_exeext
-elif test x$host = x$target; then
-	# Native build.
-	gcc_cv_objdump=objdump$host_exeext
+elif test "x$program_prefix" != xNONE; then
+	gcc_cv_objdump=${program_prefix}objdump$host_exeext
+else
+	gcc_cv_objdump=`echo objdump | sed ${program_transform_name}`$host_exeext
 fi
 AC_MSG_RESULT($gcc_cv_objdump)
 
@@ -1739,10 +1755,9 @@ EOF
 	if test x$gcc_cv_as != x -a x$gcc_cv_ld != x; then
 	    gcc_cv_as_sparc_ua_pcrel=no
 	    echo ".text; foo: nop; .data; .align 4; .byte 0; .uaword %r_disp32(foo)" > conftest.s
-	    if $gcc_cv_as -K PIC -o conftest.o conftest.s > /dev/null 2>&1; then
-		if $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1; then
-		    gcc_cv_as_sparc_ua_pcrel=yes
-		fi
+	    if $gcc_cv_as -K PIC -o conftest.o conftest.s > /dev/null 2>&1 \
+	       && $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1; then
+		gcc_cv_as_sparc_ua_pcrel=yes
 	    fi
 	    rm -f conftest.s conftest.o conftest
 	fi
@@ -1752,42 +1767,36 @@ EOF
 		[Define if your assembler and linker support unaligned PC relative relocs.])
     fi
 
-    case "$tm_file" in
-    *64*)
-	AC_CACHE_CHECK([for 64 bit support in assembler ($gcc_cv_as)],
-	    gcc_cv_as_flags64, [
-		if test -n "$gcc_cv_as"; then
-		    echo ".xword foo" > conftest.s
-		    gcc_cv_as_flags64=no
-		    for flag in "-xarch=v9" "-64 -Av9"; do
-			if $gcc_cv_as $flag -o conftest.o conftest.s \
-			    > /dev/null 2>&1; then
-			    gcc_cv_as_flags64=$flag
-			    break
-			fi
-		    done
-		    rm -f conftest.s conftest.o
-		else
-		    if test "$gas" = yes; then
-			gcc_cv_as_flags64="-64 -Av9"
+    AC_CACHE_CHECK([assembler and linker support unaligned pc related relocs against hidden symbols],
+	gcc_cv_as_sparc_ua_pcrel_hidden, [
+	if test "x$gcc_cv_as_sparc_ua_pcrel" = xyes; then
+	    gcc_cv_as_sparc_ua_pcrel_hidden=unknown
+	    if test x$gcc_cv_objdump != x; then
+	        gcc_cv_as_sparc_ua_pcrel_hidden=no
+		echo ".data; .align 4; .byte 0x31; .uaword %r_disp32(foo)" > conftest.s
+		echo ".byte 0x32, 0x33, 0x34; .global foo; .hidden foo" >> conftest.s
+		echo "foo: .skip 4" >> conftest.s
+		if $gcc_cv_as -K PIC -o conftest.o conftest.s > /dev/null 2>&1 \
+		   && $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1 \
+		   && $gcc_cv_objdump -s -j .data conftest 2> /dev/null \
+		      | grep ' 31000000 07323334' > /dev/null 2>&1; then
+		    if $gcc_cv_objdump -R conftest 2> /dev/null \
+		       | grep 'DISP32' > /dev/null 2>&1; then
+			:
 		    else
-			gcc_cv_as_flags64="-xarch=v9"
+			gcc_cv_as_sparc_ua_pcrel_hidden=yes
 		    fi
 		fi
-	])
-	if test "x$gcc_cv_as_flags64" = xno; then
-changequote(, )
-	    tmake_file=`echo " $tmake_file " | sed -e 's, sparc/t-sol2-64 , ,' -e 's,^ ,,' -e 's, $,,'`
-	    dep_tmake_file=`echo " $dep_tmake_file " | sed -e 's, [^ ]*/config/sparc/t-sol2-64 , ,' -e 's,^ ,,' -e 's, $,,'`
-changequote([, ])
+	    fi
+	    rm -f conftest.s conftest.o conftest
 	else
-	    AC_DEFINE_UNQUOTED(AS_SPARC64_FLAG, "$gcc_cv_as_flags64",
-			[Define if the assembler supports 64bit sparc.])
+	    gcc_cv_as_sparc_ua_pcrel_hidden="$gcc_cv_as_sparc_ua_pcrel"
 	fi
-	;;
-    *) gcc_cv_as_flags64=${gcc_cv_as_flags64-no}
-	;;
-    esac
+    ])
+    if test "x$gcc_cv_as_sparc_ua_pcrel_hidden" = xyes; then
+	AC_DEFINE(HAVE_AS_SPARC_UA_PCREL_HIDDEN, 1,
+		[Define if your assembler and linker support unaligned PC relative relocs against hidden symbols.])
+    fi
 
     if test "x$gcc_cv_as_flags64" != xno; then
 	AC_CACHE_CHECK([for assembler offsetable %lo() support],
@@ -1883,7 +1892,7 @@ gcc_cv_as_dwarf2_debug_line=no
 # ??? Once 2.11 is released, probably need to add first known working
 # version to the per-target configury.
 case "$target" in
-  i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* | x86_64*-*-*)
+  i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* | x86_64*-*-* | hppa*-*-*)
     insn="nop"
     ;;
   ia64*-*-*)

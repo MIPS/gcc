@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
-#include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -46,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "target.h"
 #include "target-def.h"
+#include "tm_p.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -135,7 +135,6 @@ static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode, int,
 static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
-const struct attribute_spec ia64_attribute_table[];
 static bool ia64_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -153,6 +152,14 @@ static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
 static rtx ia64_cycle_display PARAMS ((int, rtx));
 
 
+/* Table of valid machine attributes.  */
+static const struct attribute_spec ia64_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "syscall_linkage", 0, 0, false, true,  true,  NULL },
+  { NULL,              0, 0, false, false, false, NULL }
+};
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ia64_attribute_table
@@ -854,6 +861,21 @@ tfreg_or_fp01_operand (op, mode)
     return 0;
   return fr_reg_or_fp01_operand (op, mode);
 }
+
+/* Return 1 if OP is valid as a base register in a reg + offset address.  */
+
+int
+basereg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* ??? Should I copy the flag_omit_frame_pointer and cse_not_expected
+     checks from pa.c basereg_operand as well?  Seems to be OK without them
+     in test runs.  */
+
+  return (register_operand (op, mode) &&
+	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
+}
 
 /* Return 1 if the operands of a move are ok.  */
 
@@ -1134,7 +1156,8 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
      rtx nextarg;
      int sibcall_p;
 {
-  rtx insn, b0, pfs, gp_save, narg_rtx;
+  rtx insn, b0, pfs, gp_save, narg_rtx, dest;
+  bool indirect_p;
   int narg;
 
   addr = XEXP (addr, 0);
@@ -1161,61 +1184,36 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
       return;
     }
 
-  if (sibcall_p)
+  indirect_p = ! symbolic_operand (addr, VOIDmode);
+
+  if (sibcall_p || (TARGET_CONST_GP && !indirect_p))
     gp_save = NULL_RTX;
   else
     gp_save = ia64_gp_save_reg (setjmp_operand (addr, VOIDmode));
 
+  if (gp_save)
+    emit_move_insn (gp_save, pic_offset_table_rtx);
+
   /* If this is an indirect call, then we have the address of a descriptor.  */
-  if (! symbolic_operand (addr, VOIDmode))
+  if (indirect_p)
     {
-      rtx dest;
-
-      if (! sibcall_p)
-	emit_move_insn (gp_save, pic_offset_table_rtx);
-
       dest = force_reg (DImode, gen_rtx_MEM (DImode, addr));
       emit_move_insn (pic_offset_table_rtx,
 		      gen_rtx_MEM (DImode, plus_constant (addr, 8)));
-
-      if (sibcall_p)
-	insn = gen_sibcall_pic (dest, narg_rtx, b0, pfs);
-      else if (! retval)
-	insn = gen_call_pic (dest, narg_rtx, b0);
-      else
-	insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
-      emit_call_insn (insn);
-
-      if (! sibcall_p)
-	emit_move_insn (pic_offset_table_rtx, gp_save);
-    }
-  else if (TARGET_CONST_GP)
-    {
-      if (sibcall_p)
-	insn = gen_sibcall_nopic (addr, narg_rtx, b0, pfs);
-      else if (! retval)
-	insn = gen_call_nopic (addr, narg_rtx, b0);
-      else
-	insn = gen_call_value_nopic (retval, addr, narg_rtx, b0);
-      emit_call_insn (insn);
     }
   else
-    {
-      if (sibcall_p)
-	emit_call_insn (gen_sibcall_pic (addr, narg_rtx, b0, pfs));
-      else
-	{
-	  emit_move_insn (gp_save, pic_offset_table_rtx);
+    dest = addr;
 
-	  if (! retval)
-	    insn = gen_call_pic (addr, narg_rtx, b0);
-	  else
-	    insn = gen_call_value_pic (retval, addr, narg_rtx, b0);
-	  emit_call_insn (insn);
+  if (sibcall_p)
+    insn = gen_sibcall_pic (dest, narg_rtx, b0, pfs);
+  else if (! retval)
+    insn = gen_call_pic (dest, narg_rtx, b0);
+  else
+    insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
+  emit_call_insn (insn);
 
-	  emit_move_insn (pic_offset_table_rtx, gp_save);
-	}
-    }
+  if (gp_save)
+    emit_move_insn (pic_offset_table_rtx, gp_save);
 }
 
 /* Begin the assembly file.  */
@@ -1661,9 +1659,10 @@ ia64_initial_elimination_offset (from, to)
       /* Arguments start above the 16 byte save area, unless stdarg
 	 in which case we store through the 16 byte save area.  */
       if (to == HARD_FRAME_POINTER_REGNUM)
-	offset = 16;
+	offset = 16 - current_function_pretend_args_size;
       else if (to == STACK_POINTER_REGNUM)
-	offset = current_frame_info.total_size + 16;
+	offset = (current_frame_info.total_size
+		  + 16 - current_function_pretend_args_size);
       else
 	abort ();
       break;
@@ -2036,7 +2035,7 @@ ia64_expand_prologue ()
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= current_function_args_info.words)
+      && current_frame_info.n_input_regs <= current_function_args_info.int_regs)
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -2869,7 +2868,7 @@ hfa_element_mode (type, nested)
 	return VOIDmode;
 
     case ARRAY_TYPE:
-      return TYPE_MODE (TREE_TYPE (type));
+      return hfa_element_mode (TREE_TYPE (type), 1);
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -3177,14 +3176,14 @@ ia64_function_arg_advance (cum, mode, type, named)
      FR registers, then FP values must also go in general registers.  This can
      happen when we have a SFmode HFA.  */
   else if (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS)
-    return;
+    cum->int_regs = cum->words;
 
   /* If there is a prototype, then FP values go in a FR register when
      named, and in a GR registeer when unnamed.  */
   else if (cum->prototype)
     {
       if (! named)
-	return;
+	cum->int_regs = cum->words;
       else
 	/* ??? Complex types should not reach here.  */
 	cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
@@ -3192,10 +3191,24 @@ ia64_function_arg_advance (cum, mode, type, named)
   /* If there is no prototype, then FP values go in both FR and GR
      registers.  */
   else
-    /* ??? Complex types should not reach here.  */
-    cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
+    { 
+      /* ??? Complex types should not reach here.  */
+      cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
+      cum->int_regs = cum->words;
+    }
+}
 
-  return;
+/* Variable sized types are passed by reference.  */
+/* ??? At present this is a GCC extension to the IA-64 ABI.  */
+
+int
+ia64_function_arg_pass_by_reference (cum, mode, type, named)
+     CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     tree type;
+     int named ATTRIBUTE_UNUSED;
+{
+  return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
 
 /* Implement va_start.  */
@@ -3216,7 +3229,7 @@ ia64_va_start (stdarg_p, valist, nextarg)
   else
     ofs = (arg_words >= MAX_ARGUMENT_SLOTS ? -UNITS_PER_WORD : 0);
 
-  nextarg = plus_constant (nextarg, ofs - current_function_pretend_args_size);
+  nextarg = plus_constant (nextarg, ofs);
   std_expand_builtin_va_start (1, valist, nextarg);
 }
 
@@ -3227,6 +3240,13 @@ ia64_va_arg (valist, type)
      tree valist, type;
 {
   tree t;
+
+  /* Variable sized types are passed by reference.  */
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    {
+      rtx addr = std_expand_builtin_va_arg (valist, build_pointer_type (type));
+      return gen_rtx_MEM (ptr_mode, force_reg (Pmode, addr));
+    }
 
   /* Arguments with alignment larger than 8 bytes start at the next even
      boundary.  */
@@ -4723,6 +4743,7 @@ group_barrier_needed_p (insn)
 	  /* We play dependency tricks with the epilogue in order
 	     to get proper schedules.  Undo this for dv analysis.  */
 	case CODE_FOR_epilogue_deallocate_stack:
+	case CODE_FOR_prologue_allocate_stack:
 	  pat = XVECEXP (pat, 0, 0);
 	  break;
 
@@ -5194,21 +5215,22 @@ ia64_single_set (insn)
     x = COND_EXEC_CODE (x);
   if (GET_CODE (x) == SET)
     return x;
-  ret = single_set_2 (insn, x);
-  if (ret == NULL && GET_CODE (x) == PARALLEL)
+
+  /* Special case here prologue_allocate_stack and epilogue_deallocate_stack.
+     Although they are not classical single set, the second set is there just
+     to protect it from moving past FP-relative stack accesses.  */
+  switch (recog_memoized (insn))
     {
-      /* Special case here prologue_allocate_stack and
-	 epilogue_deallocate_stack.  Although it is not a classical
-	 single set, the second set is there just to protect it
-	 from moving past FP-relative stack accesses.  */
-      if (XVECLEN (x, 0) == 2
-	  && GET_CODE (XVECEXP (x, 0, 0)) == SET
-	  && GET_CODE (XVECEXP (x, 0, 1)) == SET
-	  && GET_CODE (SET_DEST (XVECEXP (x, 0, 1))) == REG
-	  && SET_DEST (XVECEXP (x, 0, 1)) == SET_SRC (XVECEXP (x, 0, 1))
-	  && ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
-	ret = XVECEXP (x, 0, 0);
+    case CODE_FOR_prologue_allocate_stack:
+    case CODE_FOR_epilogue_deallocate_stack:
+      ret = XVECEXP (x, 0, 0);
+      break;
+
+    default:
+      ret = single_set_2 (insn, x);
+      break;
     }
+
   return ret;
 }
 
@@ -5437,32 +5459,6 @@ ia64_emit_insn_before (insn, before)
   emit_insn_before (insn, before);
 }
 
-#if 0
-/* Generate a nop insn of the given type.  Note we never generate L type
-   nops.  */
-
-static rtx
-gen_nop_type (t)
-     enum attr_type t;
-{
-  switch (t)
-    {
-    case TYPE_M:
-      return gen_nop_m ();
-    case TYPE_I:
-      return gen_nop_i ();
-    case TYPE_B:
-      return gen_nop_b ();
-    case TYPE_F:
-      return gen_nop_f ();
-    case TYPE_X:
-      return gen_nop_x ();
-    default:
-      abort ();
-    }
-}
-#endif
-
 /* When rotating a bundle out of the issue window, insert a bundle selector
    insn in front of it.  DUMP is the scheduling dump file or NULL.  START
    is either 0 or 3, depending on whether we want to emit a bundle selector
@@ -5527,8 +5523,8 @@ cycle_end_fill_slots (dump)
 	  if (slot > sched_data.split)
 	    abort ();
 	  if (dump)
-	    fprintf (dump, "// Packet needs %s, have %s\n", type_names[packet->t[slot]],
-		     type_names[t]);
+	    fprintf (dump, "// Packet needs %s, have %s\n",
+		     type_names[packet->t[slot]], type_names[t]);
 	  sched_data.types[slot] = packet->t[slot];
 	  sched_data.insns[slot] = 0;
 	  sched_data.stopbit[slot] = 0;
@@ -5540,15 +5536,22 @@ cycle_end_fill_slots (dump)
 
 	  slot++;
 	}
+
       /* Do _not_ use T here.  If T == TYPE_A, then we'd risk changing the
 	 actual slot type later.  */
       sched_data.types[slot] = packet->t[slot];
       sched_data.insns[slot] = tmp_insns[i];
       sched_data.stopbit[slot] = 0;
       slot++;
+
       /* TYPE_L instructions always fill up two slots.  */
       if (t == TYPE_L)
-	slot++;
+	{
+	  sched_data.types[slot] = packet->t[slot];
+	  sched_data.insns[slot] = 0;
+	  sched_data.stopbit[slot] = 0;
+	  slot++;
+	}
     }
 
   /* This isn't right - there's no need to pad out until the forced split;
@@ -6024,6 +6027,7 @@ static void
 maybe_rotate (dump)
      FILE *dump;
 {
+  cycle_end_fill_slots (dump);
   if (sched_data.cur == 6)
     rotate_two_bundles (dump);
   else if (sched_data.cur >= 3)
@@ -6074,7 +6078,7 @@ nop_cycles_until (clock_var, dump)
 	  for (i = sched_data.cur; i < split; i++)
 	    {
 	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
-	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
+	      sched_data.types[i] = sched_data.packet->t[i];
 	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
@@ -6088,7 +6092,7 @@ nop_cycles_until (clock_var, dump)
 	  for (i = sched_data.cur; i < 6; i++)
 	    {
 	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
-	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
+	      sched_data.types[i] = sched_data.packet->t[i];
 	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
@@ -6692,9 +6696,10 @@ ia64_reorg (insns)
   if (optimize == 0)
     split_all_insns_noflow ();
 
-  /* Make sure the CFG and global_live_at_start are correct
-     for emit_predicate_relation_info.  */
-  find_basic_blocks (insns, max_reg_num (), NULL);
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn (get_max_uid ());
+  /* update_life_info_in_dirty_blocks should be enought here.  */
   life_analysis (insns, NULL, PROP_DEATH_NOTES);
 
   if (ia64_flag_schedule_insns2)
@@ -6785,13 +6790,33 @@ ia64_epilogue_uses (regno)
     }
 }
 
-/* Table of valid machine attributes.  */
-const struct attribute_spec ia64_attribute_table[] =
+/* Return true if REGNO is used by the frame unwinder.  */
+
+int
+ia64_eh_uses (regno)
+     int regno;
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "syscall_linkage", 0, 0, false, true,  true,  NULL },
-  { NULL,              0, 0, false, false, false, NULL }
-};
+  if (! reload_completed)
+    return 0;
+
+  if (current_frame_info.reg_save_b0
+      && regno == current_frame_info.reg_save_b0)
+    return 1;
+  if (current_frame_info.reg_save_pr
+      && regno == current_frame_info.reg_save_pr)
+    return 1;
+  if (current_frame_info.reg_save_ar_pfs
+      && regno == current_frame_info.reg_save_ar_pfs)
+    return 1;
+  if (current_frame_info.reg_save_ar_unat
+      && regno == current_frame_info.reg_save_ar_unat)
+    return 1;
+  if (current_frame_info.reg_save_ar_lc
+      && regno == current_frame_info.reg_save_ar_lc)
+    return 1;
+
+  return 0;
+}
 
 /* For ia64, SYMBOL_REF_FLAG set means that it is a function.
 

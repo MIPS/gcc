@@ -130,11 +130,9 @@ struct rtx_def
   /* 1 in an INSN if it can alter flow of control
      within this function.
      MEM_KEEP_ALIAS_SET_P in a MEM.
-     LINK_COST_ZERO in an INSN_LIST.
      SET_IS_RETURN_P in a SET.  */
   unsigned int jump : 1;
-  /* 1 in an INSN if it can call another function.
-     LINK_COST_FREE in an INSN_LIST.  */
+  /* 1 in an INSN if it can call another function.  */
   unsigned int call : 1;
   /* 1 in a REG if value of this expression will never change during
      the current function, even though it is not manifestly constant.
@@ -211,6 +209,7 @@ struct rtx_def
 #define GET_MODE(RTX)	    ((enum machine_mode) (RTX)->mode)
 #define PUT_MODE(RTX, MODE) ((RTX)->mode = (ENUM_BITFIELD(machine_mode)) (MODE))
 
+#define RTX_FLAG(RTX,FLAG) ((RTX)->FLAG)
 #define RTX_INTEGRATED_P(RTX) ((RTX)->integrated)
 #define RTX_UNCHANGING_P(RTX) ((RTX)->unchanging)
 #define RTX_FRAME_RELATED_P(RTX) ((RTX)->frame_related)
@@ -264,8 +263,8 @@ struct rtvec_def GTY(()) {
 /* The bit with a star outside the statement expr and an & inside is
    so that N can be evaluated only once.  */
 #define RTL_CHECK1(RTX, N, C1) __extension__				\
-(*({ rtx _rtx = (RTX); int _n = (N);					\
-     enum rtx_code _code = GET_CODE (_rtx);				\
+(*({ rtx const _rtx = (RTX); const int _n = (N);			\
+     const enum rtx_code _code = GET_CODE (_rtx);			\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
        rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__,		\
 				__FUNCTION__);				\
@@ -275,8 +274,8 @@ struct rtvec_def GTY(()) {
      &_rtx->fld[_n]; }))
 
 #define RTL_CHECK2(RTX, N, C1, C2) __extension__			\
-(*({ rtx _rtx = (RTX); int _n = (N);					\
-     enum rtx_code _code = GET_CODE (_rtx);				\
+(*({ rtx const _rtx = (RTX); const int _n = (N);			\
+     const enum rtx_code _code = GET_CODE (_rtx);			\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
        rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__,		\
 				__FUNCTION__);				\
@@ -287,22 +286,22 @@ struct rtvec_def GTY(()) {
      &_rtx->fld[_n]; }))
 
 #define RTL_CHECKC1(RTX, N, C) __extension__				\
-(*({ rtx _rtx = (RTX); int _n = (N);					\
+(*({ rtx const _rtx = (RTX); const int _n = (N);			\
      if (GET_CODE (_rtx) != (C))					\
        rtl_check_failed_code1 (_rtx, (C), __FILE__, __LINE__,		\
 			       __FUNCTION__);				\
      &_rtx->fld[_n]; }))
 
 #define RTL_CHECKC2(RTX, N, C1, C2) __extension__			\
-(*({ rtx _rtx = (RTX); int _n = (N);					\
-     enum rtx_code _code = GET_CODE (_rtx);				\
+(*({ rtx const _rtx = (RTX); const int _n = (N);			\
+     const enum rtx_code _code = GET_CODE (_rtx);			\
      if (_code != (C1) && _code != (C2))				\
        rtl_check_failed_code2 (_rtx, (C1), (C2), __FILE__, __LINE__,	\
 			       __FUNCTION__); \
      &_rtx->fld[_n]; }))
 
 #define RTVEC_ELT(RTVEC, I) __extension__				\
-(*({ rtvec _rtvec = (RTVEC); int _i = (I);				\
+(*({ rtvec const _rtvec = (RTVEC); const int _i = (I);			\
      if (_i < 0 || _i >= GET_NUM_ELEM (_rtvec))				\
        rtvec_check_failed_bounds (_rtvec, _i, __FILE__, __LINE__,	\
 				  __FUNCTION__);			\
@@ -982,16 +981,6 @@ do {						\
    with the preceding insn.  */
 #define SCHED_GROUP_P(INSN) ((INSN)->in_struct)
 
-/* During sched, for the LOG_LINKS of an insn, these cache the adjusted
-   cost of the dependence link.  The cost of executing an instruction
-   may vary based on how the results are used.  LINK_COST_ZERO is 1 when
-   the cost through the link varies and is unchanged (i.e., the link has
-   zero additional cost).  LINK_COST_FREE is 1 when the cost through the
-   link is zero (i.e., the link makes the cost free).  In other cases,
-   the adjustment to the cost is recomputed each time it is needed.  */
-#define LINK_COST_ZERO(X) ((X)->jump)
-#define LINK_COST_FREE(X) ((X)->call)
-
 /* For a SET rtx, SET_DEST is the place that is set
    and SET_SRC is the value it is set to.  */
 #define SET_DEST(RTX) XC2EXP(RTX, 0, SET, CLOBBER)
@@ -1246,6 +1235,8 @@ extern rtx gen_rtx			PARAMS ((enum rtx_code,
 extern rtvec gen_rtvec			PARAMS ((int, ...));
 extern rtx copy_insn_1			PARAMS ((rtx));
 extern rtx copy_insn			PARAMS ((rtx));
+extern rtx gen_int_mode			PARAMS ((HOST_WIDE_INT,
+						 enum machine_mode));
 
 /* In rtl.c */
 extern rtx rtx_alloc			PARAMS ((RTX_CODE));
@@ -1459,6 +1450,7 @@ extern int rtx_addr_varies_p		PARAMS ((rtx, int));
 extern HOST_WIDE_INT get_integer_term	PARAMS ((rtx));
 extern rtx get_related_value		PARAMS ((rtx));
 extern rtx get_jump_table_offset	PARAMS ((rtx, rtx *));
+extern int global_reg_mentioned_p	PARAMS ((rtx));
 extern int reg_mentioned_p		PARAMS ((rtx, rtx));
 extern int count_occurrences		PARAMS ((rtx, rtx, int));
 extern int reg_referenced_p		PARAMS ((rtx, rtx));
@@ -1499,6 +1491,7 @@ extern rtx find_reg_equal_equiv_note	PARAMS ((rtx));
 extern int find_reg_fusage		PARAMS ((rtx, enum rtx_code, rtx));
 extern int find_regno_fusage		PARAMS ((rtx, enum rtx_code,
 						 unsigned int));
+extern int pure_call_p			PARAMS ((rtx));
 extern void remove_note			PARAMS ((rtx, rtx));
 extern int side_effects_p		PARAMS ((rtx));
 extern int volatile_refs_p		PARAMS ((rtx));

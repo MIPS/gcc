@@ -441,7 +441,7 @@ java_init_decl_processing ()
   set_sizetype (make_unsigned_type (POINTER_SIZE));
 
   /* Define these next since types below may used them.  */
-  integer_type_node = type_for_size (INT_TYPE_SIZE, 0);
+  integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
   integer_zero_node = build_int_2 (0, 0);
   integer_one_node = build_int_2 (1, 0);
   integer_two_node = build_int_2 (2, 0);
@@ -681,10 +681,6 @@ java_init_decl_processing ()
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
-
-  /* Hash synchronization requires at least double-word alignment. */
-  if (flag_hash_synchronization && POINTER_SIZE < 64)
-    TYPE_ALIGN (class_type_node) = 64;
 
   FINISH_RECORD (class_type_node);
   build_decl (TYPE_DECL, get_identifier ("Class"), class_type_node);
@@ -1557,17 +1553,6 @@ java_dup_lang_specific_decl (node)
   DECL_LANG_SPECIFIC (node) = x;
 }
 
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-  tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in Java (I think).  */
-  return NULL_TREE;
-}
-
 void
 give_name_to_locals (jcf)
      JCF *jcf;
@@ -1767,7 +1752,7 @@ start_java_method (fndecl)
   type_map = (tree *) xrealloc (type_map, i * sizeof (tree));
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
-  fprintf (stderr, "%s:\n", (*decl_printable_name) (fndecl, 2));
+  fprintf (stderr, "%s:\n", lang_printable_name (fndecl, 2));
   current_pc = 0;
 #endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
   pushlevel (1);  /* Push parameters. */
@@ -1838,7 +1823,7 @@ end_java_method ()
 /* Mark language-specific parts of T for garbage-collection.  */
 
 void
-lang_mark_tree (t)
+java_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)

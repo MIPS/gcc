@@ -154,25 +154,25 @@ print_rtx (in_rtx)
       
       if (! flag_simple)
 	{
-	  if (in_rtx->in_struct)
+	  if (RTX_FLAG (in_rtx, in_struct))
 	    fputs ("/s", outfile);
 
-	  if (in_rtx->volatil)
+	  if (RTX_FLAG (in_rtx, volatil))
 	    fputs ("/v", outfile);
 	  
-	  if (in_rtx->unchanging)
+	  if (RTX_FLAG (in_rtx, unchanging))
 	    fputs ("/u", outfile);
 	  
-	  if (in_rtx->integrated)
+	  if (RTX_FLAG (in_rtx, integrated))
 	    fputs ("/i", outfile);
 	  
-	  if (in_rtx->frame_related)
+	  if (RTX_FLAG (in_rtx, frame_related))
 	    fputs ("/f", outfile);
 	  
-	  if (in_rtx->jump)
+	  if (RTX_FLAG (in_rtx, jump))
 	    fputs ("/j", outfile);
 	  
-	  if (in_rtx->call)
+	  if (RTX_FLAG (in_rtx, call))
 	    fputs ("/c", outfile);
 
 	  if (GET_MODE (in_rtx) != VOIDmode)
@@ -502,13 +502,19 @@ print_rtx (in_rtx)
       fputc (']', outfile);
       break;
 
-#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT && MAX_LONG_DOUBLE_TYPE_SIZE == 64
+#if 0
+    /* It would be nice to do this, but it would require real.o to
+       be linked into the MD-generator programs.  Maybe we should
+       do that.  -zw 2002-03-03  */
     case CONST_DOUBLE:
       if (FLOAT_MODE_P (GET_MODE (in_rtx)))
 	{
-	  double val;
+	  REAL_VALUE_TYPE val;
+	  char s[30];
+
 	  REAL_VALUE_FROM_CONST_DOUBLE (val, in_rtx);
-	  fprintf (outfile, " [%.16g]", val);
+	  REAL_VALUE_TO_DECIMAL (val, "%.16g", s);
+	  fprintf (outfile, " [%s]", s);
 	}
       break;
 #endif

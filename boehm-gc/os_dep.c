@@ -84,7 +84,7 @@
 #   include <setjmp.h>
 #endif
 
-#ifdef FREEBSD
+#if defined(FREEBSD) && defined(I386)
 #  include <machine/trap.h>
 #endif
 
@@ -155,11 +155,11 @@
 
 # ifdef LINUX
 #   pragma weak __data_start
-    extern int __data_start;
+    extern int __data_start[];
 #   pragma weak data_start
-    extern int data_start;
+    extern int data_start[];
 # endif /* LINUX */
-  extern int _end;
+  extern int _end[];
 
   ptr_t GC_data_start;
 
@@ -169,16 +169,16 @@
 
 #   ifdef LINUX
       /* Try the easy approaches first:	*/
-      if (&__data_start != 0) {
-	  GC_data_start = (ptr_t)(&__data_start);
+      if (__data_start != 0) {
+	  GC_data_start = (ptr_t)__data_start;
 	  return;
       }
-      if (&data_start != 0) {
-	  GC_data_start = (ptr_t)(&data_start);
+      if (data_start != 0) {
+	  GC_data_start = (ptr_t)data_start;
 	  return;
       }
 #   endif /* LINUX */
-    GC_data_start = GC_find_limit((ptr_t)(&_end), FALSE);
+    GC_data_start = GC_find_limit((ptr_t)_end, FALSE);
   }
 #endif
 
@@ -747,14 +747,14 @@ ptr_t GC_get_stack_base()
 
   ptr_t GC_freebsd_stack_base(void)
   {
-    int nm[2] = { CTL_KERN, KERN_USRSTACK}, base, len, r;
-    
-    len = sizeof(int);
-    r = sysctl(nm, 2, &base, &len, NULL, 0);
+    int nm[2] = {CTL_KERN, KERN_USRSTACK};
+    ptr_t base;
+    size_t len = sizeof(ptr_t);
+    int r = sysctl(nm, 2, &base, &len, NULL, 0);
     
     if (r) ABORT("Error getting stack base");
 
-    return (ptr_t)base;
+    return base;
   }
 
 #endif /* FREEBSD_STACKBOTTOM */

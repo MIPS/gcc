@@ -67,6 +67,7 @@ AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
 AR = @AR@
 AS = @AS@
 CC = @CC@
+CHECKREFSPEC = @CHECKREFSPEC@
 COMPPATH = @COMPPATH@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
@@ -79,6 +80,7 @@ GCDEPS = @GCDEPS@
 GCINCS = @GCINCS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
+GCJVERSION = @GCJVERSION@
 GCLIBS = @GCLIBS@
 GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
@@ -107,21 +109,24 @@ RANLIB = @RANLIB@
 STRIP = @STRIP@
 SYSDEP_SOURCES = @SYSDEP_SOURCES@
 SYSTEMSPEC = @SYSTEMSPEC@
+SYS_ZLIBS = @SYS_ZLIBS@
 THREADDEPS = @THREADDEPS@
 THREADINCS = @THREADINCS@
+THREADLDFLAGS = @THREADLDFLAGS@
 THREADLIBS = @THREADLIBS@
 THREADOBJS = @THREADOBJS@
 THREADSPEC = @THREADSPEC@
 VERSION = @VERSION@
-ZDEPS = @ZDEPS@
 ZINCS = @ZINCS@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
+gcc_version = @gcc_version@
 glibjava_CXX = @glibjava_CXX@
 here = @here@
 libgcj_basedir = @libgcj_basedir@
 mkinstalldirs = @mkinstalldirs@
+tool_include_dir = @tool_include_dir@
 
 AUTOMAKE_OPTIONS = foreign
 @TESTSUBDIR_TRUE@SUBDIRS = \
@@ -140,7 +145,9 @@ AUTOMAKE_OPTIONS = foreign
 
 toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
-data_DATA = libgcj.jar
+
+jardir = $(datadir)/java
+jar_DATA = libgcj-@gcc_version@.jar
 
 secdir = $(libdir)/security
 
@@ -161,7 +168,7 @@ bin_SCRIPTS = addr2name.awk
 
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
-GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
+GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
@@ -174,6 +181,7 @@ GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 WARNINGS = -W -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 	-fdollars-in-identifiers \
+	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\""
 
@@ -208,8 +216,9 @@ EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 	win32-threads.cc posix.cc win32.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
 
-libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
-	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL)
+libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
+	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL) \
+	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 
 
 libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
@@ -217,15 +226,15 @@ libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
 
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
-libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
-	$(GCLIBS) $(ZLIBS) \
+libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
+	$(LIBLTDL) $(SYS_ZLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 libgcj_la_LINK = $(LIBLINK)
 
 libgcjx_la_SOURCES = $(x_nat_source_files)
 EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
-libgcjx_la_DEPENDENCIES = libgcj.jar $(x_javao_files)
+libgcjx_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
 libgcjx_la_LIBADD = $(x_javao_files)
 libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
@@ -234,7 +243,7 @@ libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
 libgcjx_la_LINK = $(LIBLINK)
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
-CLEANFILES = tmp-list libgcj.jar
+CLEANFILES = tmp-list libgcj-@gcc_version@.jar
 
 SUFFIXES = .class .java .h
 
@@ -262,37 +271,37 @@ CONVERT_DIR = gnu/gcj/convert
 jv_convert_SOURCES = 
 EXTRA_jv_convert_SOURCES = $(convert_source_files)
 jv_convert_LDFLAGS = --main=gnu.gcj.convert.Convert \
-	-rpath $(toolexeclibdir) -shared-libgcc
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 jv_convert_LINK = $(GCJLINK)
-jv_convert_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
+jv_convert_LDADD = libgcj.la -L$(here)/.libs
 jv_convert_DEPENDENCIES = $(convert_source_files:.java=.lo) \
-	$(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+	libgcj.la libgcj.spec
 
 
 gij_SOURCES = gij.cc
-gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc
+gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
-gij_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
-gij_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+gij_LDADD = libgcj.la -L$(here)/.libs
+gij_DEPENDENCIES = libgcj.la libgcj.spec
 
 rmic_SOURCES = 
 EXTRA_rmic_SOURCES = $(rmi_java_source_files)
 rmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
-	-rpath $(toolexeclibdir) -shared-libgcc
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 rmic_LINK = $(GCJLINK)
-rmic_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
-rmic_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+rmic_LDADD = libgcj.la -L$(here)/.libs
+rmic_DEPENDENCIES = libgcj.la libgcj.spec
 
 rmiregistry_SOURCES = 
 EXTRA_rmiregistry_SOURCES = $(rmi_java_source_files)
 rmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
-	-rpath $(toolexeclibdir) -shared-libgcc
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 
 rmiregistry_LINK = $(GCJLINK)
-rmiregistry_LDADD = libgcj.la $(GCLIBS) $(THREADLIBS) $(ZLIBS) -L$(here)/.libs
-rmiregistry_DEPENDENCIES = $(GCDEPS) $(THREADDEPS) $(ZDEPS) libgcj.la libgcj.spec
+rmiregistry_LDADD = libgcj.la -L$(here)/.libs
+rmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 
 gen_from_JIS_SOURCES = 
 EXTRA_gen_from_JIS_SOURCES = $(srcdir)/$(CONVERT_DIR)/gen-from-JIS.c \
@@ -1728,7 +1737,7 @@ COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CF
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-DATA =  $(data_DATA) $(toolexeclib_DATA)
+DATA =  $(jar_DATA) $(toolexeclib_DATA)
 
 DIST_COMMON =  README COPYING ChangeLog Makefile.am Makefile.in NEWS \
 THANKS acinclude.m4 aclocal.m4 configure configure.in \
@@ -2865,23 +2874,23 @@ uninstall-binSCRIPTS:
 .cc.lo:
 	$(LTCXXCOMPILE) -c $<
 
-install-dataDATA: $(data_DATA)
+install-jarDATA: $(jar_DATA)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(datadir)
-	@list='$(data_DATA)'; for p in $$list; do \
+	$(mkinstalldirs) $(DESTDIR)$(jardir)
+	@list='$(jar_DATA)'; for p in $$list; do \
 	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(datadir)/$$p"; \
-	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(datadir)/$$p; \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(jardir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(jardir)/$$p; \
 	  else if test -f $$p; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(datadir)/$$p"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(datadir)/$$p; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(jardir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(jardir)/$$p; \
 	  fi; fi; \
 	done
 
-uninstall-dataDATA:
+uninstall-jarDATA:
 	@$(NORMAL_UNINSTALL)
-	list='$(data_DATA)'; for p in $$list; do \
-	  rm -f $(DESTDIR)$(datadir)/$$p; \
+	list='$(jar_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(jardir)/$$p; \
 	done
 
 install-toolexeclibDATA: $(toolexeclib_DATA)
@@ -3120,14 +3129,14 @@ install-exec-am: install-toolexeclibLTLIBRARIES install-binPROGRAMS \
 	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 install-exec: install-exec-recursive
 
-install-data-am: install-dataDATA install-data-local
+install-data-am: install-jarDATA install-data-local
 install-data: install-data-recursive
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 install: install-recursive
 uninstall-am: uninstall-toolexeclibLTLIBRARIES uninstall-binPROGRAMS \
-		uninstall-binSCRIPTS uninstall-dataDATA \
+		uninstall-binSCRIPTS uninstall-jarDATA \
 		uninstall-toolexeclibDATA
 uninstall: uninstall-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
@@ -3137,7 +3146,7 @@ install-strip:
 installdirs: installdirs-recursive
 installdirs-am:
 	$(mkinstalldirs)  $(DESTDIR)$(toolexeclibdir) $(DESTDIR)$(bindir) \
-		$(DESTDIR)$(bindir) $(DESTDIR)$(datadir) \
+		$(DESTDIR)$(bindir) $(DESTDIR)$(jardir) \
 		$(DESTDIR)$(toolexeclibdir)
 
 
@@ -3197,7 +3206,7 @@ distclean-binPROGRAMS clean-binPROGRAMS maintainer-clean-binPROGRAMS \
 uninstall-binPROGRAMS install-binPROGRAMS mostlyclean-noinstPROGRAMS \
 distclean-noinstPROGRAMS clean-noinstPROGRAMS \
 maintainer-clean-noinstPROGRAMS uninstall-binSCRIPTS install-binSCRIPTS \
-uninstall-dataDATA install-dataDATA uninstall-toolexeclibDATA \
+uninstall-jarDATA install-jarDATA uninstall-toolexeclibDATA \
 install-toolexeclibDATA install-data-recursive uninstall-data-recursive \
 install-exec-recursive uninstall-exec-recursive installdirs-recursive \
 uninstalldirs-recursive all-recursive check-recursive \
@@ -3221,22 +3230,22 @@ install-exec-hook:
 	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
 	fi
 
-$(built_java_source_files:.java=.class): libgcj.jar
-$(java_source_files:.java=.class): libgcj.jar
+$(built_java_source_files:.java=.class): libgcj-@gcc_version@.jar
+$(java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
-$(x_java_source_files:.java=.class): libgcj.jar
+$(x_java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
-libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
+libgcj-@gcc_version@.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
 	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
 	javac="$(JAVAC)"; \
 	cat tmp-list | (while read f; do \
-	  echo $$javac $(JCFLAGS) -bootclasspath $(here):$(srcdir) -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -bootclasspath $(here):$(srcdir) -d $(here) $$f \
+	  echo $$javac $(JCFLAGS) -classpath \'\' -bootclasspath $(here):$(srcdir) -d $(here) $$f; \
+	  $$javac $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
 	test "$$fail" = no)
-	-@rm -f tmp-list libgcj.jar
+	-@rm -f tmp-list libgcj-@gcc_version@.jar
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
@@ -3270,7 +3279,7 @@ $(javao_files) $(x_javao_files): %.lo: %.java
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
 	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcj.objectlist || :) $(shell touch libgcj.objectlist) $(foreach object,$(libgcj_la_OBJECTS) $(libgcj_la_LIBADD),$(shell echo $(object) >> libgcj.objectlist))
 	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
-	@LIBFFI@ \
+	@GCLIBS@ @LIBFFI@ @ZLIBS@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
@@ -3279,18 +3288,18 @@ libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
 	-rpath $(toolexeclibdir) $(libgcjx_la_LDFLAGS) $(LIBS)
 
 .class.h:
-	$(GCJH) -bootclasspath $(top_builddir) $(basename $<)
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) $(basename $<)
 
 $(ordinary_nat_headers) $(x_nat_headers): %.h: %.class
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
 		-friend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
 		$(basename $<)
 
 java/lang/Thread.h: java/lang/Thread.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 		-prepend 'class _Jv_JNIEnv;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
@@ -3299,11 +3308,12 @@ java/lang/Thread.h: java/lang/Thread.class
 		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
 		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
 		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon(jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
 java/lang/String.h: java/lang/String.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	    -friend 'jchar* _Jv_GetStringChars (jstring str);' \
 	    -friend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
 	    -friend 'jstring* _Jv_StringGetSlot (jstring);' \
@@ -3313,21 +3323,21 @@ java/lang/String.h: java/lang/String.class
 	    $(basename $<)
 
 java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
 java/lang/reflect/Field.h: java/lang/reflect/Field.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	    -friend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
 	    -friend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    $(basename $<)
 
 java/lang/reflect/Method.h: java/lang/reflect/Method.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'class java::io::ObjectInputStream;' \
@@ -3335,16 +3345,16 @@ java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	    $(basename $<)
 
 gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	    -friend 'class ::java::lang::ClassLoader;' \
 	    $(basename $<)
 
 java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'java/io/ObjectInputStream$$GetField'
 
 java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
-	$(GCJH) -bootclasspath $(top_builddir) \
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
 
 $(extra_headers):
@@ -3352,13 +3362,15 @@ $(extra_headers):
 
 install-data-local:
 	$(PRE_INSTALL)
-	@for f in $(nat_headers) $(extra_headers); do \
+	@: $(shell echo Creating list of headers to install...) $(shell rm -f tmp-ilist || :) $(shell touch tmp-ilist) $(foreach hdr,$(nat_headers) $(extra_headers),$(shell echo $(hdr) >> tmp-ilist))
+	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
 	done
+	-@rm -f tmp-ilist
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
 	@for f in classpath.security libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
@@ -3371,14 +3383,14 @@ maintainer-check: libgcj.la
 	  | grep -v 'Jv' \
 	  | grep -v 'terminate__Fv' | grep -v 'unexpected__Fv'
 
-header-check: libgcj.jar $(nat_headers)
+header-check: libgcj-@gcc_version@.jar $(nat_headers)
 	rm -f htest.cc; \
 	for h in $(nat_headers); do \
 	  echo "#include \"$$h\"" >> htest.cc; \
 	done; \
 	$(CXXCOMPILE) -fsyntax-only htest.cc
 
-class-check: libgcj.jar
+class-check: libgcj-@gcc_version@.jar
 	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
 	while read f; do \
 	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \

@@ -44,10 +44,11 @@
 #ifndef _CPP_CWCTYPE
 #define _CPP_CWCTYPE 1
 
+#pragma GCC system_header
+
 #include <bits/c++config.h>
 
 #if _GLIBCPP_HAVE_WCTYPE_H
-#pragma GCC system_header
 #include <wctype.h>
 #endif
 

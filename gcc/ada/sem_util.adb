@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.8 $
 --                                                                          --
 --          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -188,14 +187,16 @@ package body Sem_Util is
 
             Lo :=
               Make_Attribute_Reference (Loc,
-                Prefix         => Duplicate_Subexpr (Obj, Name_Req => True),
+                Prefix         =>
+                  Duplicate_Subexpr_No_Checks (Obj, Name_Req => True),
                 Attribute_Name => Name_First,
                 Expressions    => New_List (
                   Make_Integer_Literal (Loc, J)));
 
             Hi :=
               Make_Attribute_Reference (Loc,
-                Prefix         => Duplicate_Subexpr (Obj, Name_Req => True),
+                Prefix         =>
+                  Duplicate_Subexpr_No_Checks (Obj, Name_Req => True),
                 Attribute_Name => Name_Last,
                 Expressions    => New_List (
                   Make_Integer_Literal (Loc, J)));
@@ -227,7 +228,8 @@ package body Sem_Util is
          while Present (Discr) loop
             Append_To (Constraints,
               Make_Selected_Component (Loc,
-                Prefix => Duplicate_Subexpr (Obj),
+                Prefix =>
+                  Duplicate_Subexpr_No_Checks (Obj),
                 Selector_Name => New_Occurrence_Of (Discr, Loc)));
             Next_Discriminant (Discr);
          end loop;
@@ -2057,7 +2059,7 @@ package body Sem_Util is
                           Make_Component_Association (Sloc (Typ),
                             New_List
                               (New_Occurrence_Of (D, Sloc (Typ))),
-                            Duplicate_Subexpr (Node (C)));
+                            Duplicate_Subexpr_No_Checks (Node (C)));
                         exit Find_Constraint;
                      end if;
 

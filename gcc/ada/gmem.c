@@ -4,7 +4,6 @@
  *                                                                          *
  *                                 G M E M                                  *
  *                                                                          *
- *                             $Revision: 1.4 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *

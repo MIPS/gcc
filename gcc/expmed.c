@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "real.h"
 #include "recog.h"
+#include "langhooks.h"
 
 static void store_fixed_bit_field	PARAMS ((rtx, unsigned HOST_WIDE_INT,
 						 unsigned HOST_WIDE_INT,
@@ -143,19 +144,18 @@ init_expmed ()
 
   for (m = 1; m < MAX_BITS_PER_WORD; m++)
     {
+      rtx c_int = GEN_INT ((HOST_WIDE_INT) 1 << m);
       shift_cost[m] = shiftadd_cost[m] = shiftsub_cost[m] = 32000;
 
       XEXP (SET_SRC (PATTERN (shift_insn)), 1) = GEN_INT (m);
       if (recog (PATTERN (shift_insn), shift_insn, &dummy) >= 0)
 	shift_cost[m] = rtx_cost (SET_SRC (PATTERN (shift_insn)), SET);
 
-      XEXP (XEXP (SET_SRC (PATTERN (shiftadd_insn)), 0), 1)
-	= GEN_INT ((HOST_WIDE_INT) 1 << m);
+      XEXP (XEXP (SET_SRC (PATTERN (shiftadd_insn)), 0), 1) = c_int;
       if (recog (PATTERN (shiftadd_insn), shiftadd_insn, &dummy) >= 0)
 	shiftadd_cost[m] = rtx_cost (SET_SRC (PATTERN (shiftadd_insn)), SET);
 
-      XEXP (XEXP (SET_SRC (PATTERN (shiftsub_insn)), 0), 1)
-	= GEN_INT ((HOST_WIDE_INT) 1 << m);
+      XEXP (XEXP (SET_SRC (PATTERN (shiftsub_insn)), 0), 1) = c_int;
       if (recog (PATTERN (shiftsub_insn), shiftsub_insn, &dummy) >= 0)
 	shiftsub_cost[m] = rtx_cost (SET_SRC (PATTERN (shiftsub_insn)), SET);
     }
@@ -656,7 +656,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
 		value1 = gen_lowpart (maxmode, value1);
 	    }
 	  else if (GET_CODE (value) == CONST_INT)
-	    value1 = GEN_INT (trunc_int_for_mode (INTVAL (value), maxmode));
+	    value1 = gen_int_mode (INTVAL (value), maxmode);
 	  else if (!CONSTANT_P (value))
 	    /* Parse phase is supposed to make VALUE's data type
 	       match that of the component reference, which is a type
@@ -1144,7 +1144,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 		/* Else we've got some float mode source being extracted into
 		   a different float mode destination -- this combination of
 		   subregs results in Severe Tire Damage.  */
-		abort ();
+		goto no_subreg_mode_swap;
 	    }
 	  if (GET_CODE (op0) == REG)
 	    op0 = gen_rtx_SUBREG (mode1, op0, byte_offset);
@@ -1155,6 +1155,7 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	return convert_to_mode (tmode, op0, unsignedp);
       return op0;
     }
+ no_subreg_mode_swap:
 
   /* Handle fields bigger than a word.  */
 
@@ -2789,7 +2790,7 @@ expand_mult_highpart (mode, op0, cnst1, target, unsignedp, max_cost)
   if (size > HOST_BITS_PER_WIDE_INT)
     abort ();
 
-  op1 = GEN_INT (trunc_int_for_mode (cnst1, mode));
+  op1 = gen_int_mode (cnst1, mode);
 
   wide_op1
     = immed_double_const (cnst1,
@@ -3273,7 +3274,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 		if (rem_flag && d < 0)
 		  {
 		    d = abs_d;
-		    op1 = GEN_INT (trunc_int_for_mode (abs_d, compute_mode));
+		    op1 = gen_int_mode (abs_d, compute_mode);
 		  }
 
 		if (d == 1)
@@ -3312,8 +3313,8 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 			t1 = copy_to_mode_reg (compute_mode, op0);
 			do_cmp_and_jump (t1, const0_rtx, GE,
 					 compute_mode, label);
-			expand_inc (t1, GEN_INT (trunc_int_for_mode
-						 (abs_d - 1, compute_mode)));
+			expand_inc (t1, gen_int_mode (abs_d - 1,
+						      compute_mode));
 			emit_label (label);
 			quotient = expand_shift (RSHIFT_EXPR, compute_mode, t1,
 						 build_int_2 (lgup, 0),
@@ -3853,8 +3854,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 	    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
 			       build_int_2 (pre_shift, 0), NULL_RTX, unsignedp);
 	    quotient = expand_mult (compute_mode, t1,
-				    GEN_INT (trunc_int_for_mode
-					     (ml, compute_mode)),
+				    gen_int_mode (ml, compute_mode),
 				    NULL_RTX, 0);
 
 	    insn = get_last_insn ();
@@ -4108,21 +4108,22 @@ make_tree (type, x)
 			  make_tree (type, XEXP (x, 1))));
 
     case LSHIFTRT:
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, unsigned_type (type),
-				   make_tree (unsigned_type (type),
-					      XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case ASHIFTRT:
+      t = (*lang_hooks.types.signed_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, signed_type (type),
-				   make_tree (signed_type (type), XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case DIV:
       if (TREE_CODE (type) != REAL_TYPE)
-	t = signed_type (type);
+	t = (*lang_hooks.types.signed_type) (type);
       else
 	t = type;
 
@@ -4131,7 +4132,7 @@ make_tree (type, x)
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
     case UDIV:
-      t = unsigned_type (type);
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
@@ -4169,9 +4170,10 @@ expand_mult_add (x, target, mult, add, mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
-  tree type = type_for_mode (mode, unsignedp);
+  tree type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
   tree add_type = (GET_MODE (add) == VOIDmode
-		   ? type : type_for_mode (GET_MODE (add), unsignedp));
+		   ? type: (*lang_hooks.types.type_for_mode) (GET_MODE (add),
+							      unsignedp));
   tree result =  fold (build (PLUS_EXPR, type,
 			      fold (build (MULT_EXPR, type,
 					   make_tree (type, x),

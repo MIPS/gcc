@@ -177,6 +177,9 @@ struct tree_common
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
+       CLEANUP_EH_ONLY in
+           TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
+	   TREE_LIST elements of a block's cleanup list.
 
    public_flag:
 
@@ -194,7 +197,7 @@ struct tree_common
        TREE_VIA_PRIVATE in
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
-           ??? unspecified nodes
+           ..._DECL
 
    protected_flag:
 
@@ -203,7 +206,7 @@ struct tree_common
 	   TREE_VEC
        TREE_PROTECTED in
            BLOCK
-	   ??? unspecified nodes
+	   ..._DECL
 
    side_effects_flag:
 
@@ -502,6 +505,11 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    In a FUNCTION_DECL, nonzero if function has been defined.
    In a CONSTRUCTOR, nonzero means allocate static storage.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
+
+/* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
+   block's cleanup list, means that the pertinent cleanup should only be
+   executed if an exception is thrown, not on normal exit of its scope.  */
+#define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
 /* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
    made implicitly and should not lead to an "unused value" warning.  */
@@ -1359,11 +1367,7 @@ struct tree_type
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
-#define DECL_ASSEMBLER_NAME(NODE)		\
-  ((DECL_ASSEMBLER_NAME_SET_P (NODE)		\
-    ? (void) 0					\
-    : (*lang_set_decl_assembler_name) (NODE)),	\
-   DECL_CHECK (NODE)->decl.assembler_name)
+#define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
 /* Returns non-zero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
@@ -1931,6 +1935,7 @@ enum tree_index
   TI_UV4HI_TYPE,
   TI_UV2SI_TYPE,
   TI_UV2SF_TYPE,
+  TI_UV2DI_TYPE,
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
@@ -1941,6 +1946,8 @@ enum tree_index
   TI_V4HI_TYPE,
   TI_V2SI_TYPE,
   TI_V2SF_TYPE,
+  TI_V2DF_TYPE,
+  TI_V2DI_TYPE,
   TI_V16QI_TYPE,
 
   TI_MAIN_IDENTIFIER,
@@ -2008,6 +2015,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
 #define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
 #define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
+#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
 
 #define V16QI_type_node			global_trees[TI_V16QI_TYPE]
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
@@ -2017,6 +2025,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
+#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
@@ -2064,6 +2074,7 @@ extern double approx_sqrt		PARAMS ((double));
 
 extern char *permalloc			PARAMS ((int));
 extern char *expralloc			PARAMS ((int));
+extern tree decl_assembler_name		PARAMS ((tree));
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -2075,8 +2086,6 @@ extern size_t tree_size			PARAMS ((tree));
    to zero except for a few of the common fields.  */
 
 extern tree make_node			PARAMS ((enum tree_code));
-extern tree make_lang_type		PARAMS ((enum tree_code));
-extern tree (*make_lang_type_fn)		PARAMS ((enum tree_code));
 
 /* Make a copy of a node, with all the same contents except
    for TREE_PERMANENT.  (The copy is permanent
@@ -2134,7 +2143,6 @@ extern tree make_signed_type		PARAMS ((int));
 extern tree make_unsigned_type		PARAMS ((int));
 extern void initialize_sizetypes	PARAMS ((void));
 extern void set_sizetype		PARAMS ((tree));
-extern tree signed_or_unsigned_type 	PARAMS ((int, tree));
 extern void fixup_unsigned_type		PARAMS ((tree));
 extern tree build_pointer_type		PARAMS ((tree));
 extern tree build_reference_type 	PARAMS ((tree));
@@ -2225,8 +2233,6 @@ struct attribute_spec
   tree (*const handler) PARAMS ((tree *node, tree name, tree args,
 				 int flags, bool *no_add_attrs));
 };
-
-extern const struct attribute_spec default_target_attribute_table[];
 
 /* Flags that may be passed in the third argument of decl_attributes, and
    to handler functions for attributes.  */
@@ -2562,10 +2568,6 @@ extern void unsave_expr_1               PARAMS ((tree));
    return 2 if it is completely unsafe.  */
 extern int unsafe_for_reeval		PARAMS ((tree));
 
-/* If non-null, these are language-specific helper functions for
-   unsafe_for_reeval.  Return negative to not handle some tree.  */
-extern int (*lang_unsafe_for_reeval)	PARAMS ((tree));
-
 /* Return 1 if EXP contains a PLACEHOLDER_EXPR; i.e., if it represents a size
    or offset that depends on a field within a record.
 
@@ -2619,40 +2621,6 @@ extern tree get_unwidened		PARAMS ((tree, tree));
    or 0 if the value should be sign-extended.  */
 
 extern tree get_narrower		PARAMS ((tree, int *));
-
-/* Given MODE and UNSIGNEDP, return a suitable type-tree
-   with that mode.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree type_for_mode		PARAMS ((enum machine_mode, int));
-
-/* Given PRECISION and UNSIGNEDP, return a suitable type-tree
-   for an integer type with at least that precision.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree type_for_size		PARAMS ((unsigned, int));
-
-/* Given an integer type T, return a type like T but unsigned.
-   If T is unsigned, the value is T.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree unsigned_type		PARAMS ((tree));
-
-/* Given an integer type T, return a type like T but signed.
-   If T is signed, the value is T.
-   The definition of this resides in language-specific code
-   as the repertoire of available types may vary.  */
-
-extern tree signed_type			PARAMS ((tree));
-
-/* This function must be defined in the language-specific files.
-   expand_expr calls it to build the cleanup-expression for a TARGET_EXPR.
-   This is defined in a language-specific file.  */
-
-extern tree maybe_build_cleanup		PARAMS ((tree));
 
 /* Given an expression EXP that may be a COMPONENT_REF or an ARRAY_REF,
    look for nested component-refs or array-refs at constant positions
@@ -2720,21 +2688,6 @@ extern GTY(()) tree current_function_func_begin_label;
 
 extern int all_types_permanent;
 
-/* Pointer to function to compute the name to use to print a declaration.
-   DECL is the declaration in question.
-   VERBOSITY determines what information will be printed:
-     0: DECL_NAME, demangled as necessary.
-     1: and scope information.
-     2: and any other information that might be interesting, such as function
-        parameter types in C++.  */
-
-extern const char *(*decl_printable_name)	PARAMS ((tree, int));
-
-/* Pointer to function to finish handling an incomplete decl at the
-   end of compilation.  */
-
-extern void (*incomplete_decl_finalize_hook)	PARAMS ((tree));
-
 /* Declare a predefined function.  Return the declaration.  This function is
    provided by each language frontend.  */
 extern tree builtin_function			PARAMS ((const char *, tree, int,
@@ -2758,7 +2711,7 @@ extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
 extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
-extern tree expand_start_stmt_expr		PARAMS ((void));
+extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
 extern void expand_expr_stmt			PARAMS ((tree));
 extern void expand_expr_stmt_value		PARAMS ((tree, int, int));
@@ -2857,39 +2810,8 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-/* In builtins.c.  Given a type, apply default promotions wrt unnamed
-   function arguments and return the new type.  Return NULL_TREE if no
-   change.  Required by any language that supports variadic arguments.  */
-
-extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
-/* The language front-end must define these functions.  */
-
-/* Function called with no arguments to parse and compile the input.  */
-extern int yyparse				PARAMS ((void));
-/* Functions for processing symbol declarations.  */
-/* Function to enter a new lexical scope.
-   Takes one argument: always zero when called from outside the front end.  */
-extern void pushlevel				PARAMS ((int));
-/* Function to exit a lexical scope.  It returns a BINDING for that scope.
-   Takes three arguments:
-     KEEP -- nonzero if there were declarations in this scope.
-     REVERSE -- reverse the order of decls before returning them.
-     FUNCTIONBODY -- nonzero if this level is the body of a function.  */
-extern tree poplevel				PARAMS ((int, int, int));
-/* Set the BLOCK node for the current scope level.  */
-extern void set_block				PARAMS ((tree));
-/* Function to add a decl to the current scope level.
-   Takes one argument, a decl to add.
-   Returns that decl, or, if the same symbol is already declared, may
-   return a different decl for that name.  */
-extern tree pushdecl				PARAMS ((tree));
-/* Function to return the chain of decls so far in the current scope level.  */
-extern tree getdecls				PARAMS ((void));
-/* Function to return the chain of structure tags in the current scope level.  */
-extern tree gettags				PARAMS ((void));
-
 extern tree build_range_type PARAMS ((tree, tree, tree));
 
 /* In alias.c */
@@ -2899,13 +2821,6 @@ extern int alias_sets_conflict_p		PARAMS ((HOST_WIDE_INT,
 							 HOST_WIDE_INT));
 extern int readonly_fields_p			PARAMS ((tree));
 extern int objects_must_conflict_p		PARAMS ((tree, tree));
-
-/* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of thing
-   that the assembler should talk about, set DECL_ASSEMBLER_NAME to an
-   appropriate IDENTIFIER_NODE.  Otherwise, set it to the
-   ERROR_MARK_NODE to ensure that the assembler does not talk about
-   it.  */
-extern void (*lang_set_decl_assembler_name)     PARAMS ((tree));
 
 struct obstack;
 
@@ -3021,30 +2936,6 @@ extern int setjmp_call_p		PARAMS ((tree));
    a decl attribute to the declaration rather than to its type).  */
 extern tree decl_attributes		PARAMS ((tree *, tree, int));
 
-/* The following function must be provided by front ends
-   using attribs.c.  */
-
-/* Possibly apply default attributes to a function (represented by
-   a FUNCTION_DECL).  */
-extern void insert_default_attributes PARAMS ((tree));
-
-/* Table of machine-independent attributes for checking formats, if used.  */
-extern const struct attribute_spec *format_attribute_table;
-
-/* Table of machine-independent attributes for a particular language.  */
-extern const struct attribute_spec *lang_attribute_table;
-
-/* Flag saying whether common language attributes are to be supported.  */
-extern int lang_attribute_common;
-
-/* In front end.  */
-
-extern int mark_addressable		PARAMS ((tree));
-extern void incomplete_type_error	PARAMS ((tree, tree));
-extern tree truthvalue_conversion	PARAMS ((tree));
-extern int global_bindings_p		PARAMS ((void));
-extern void insert_block		PARAMS ((tree));
-
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));
 extern void set_decl_abstract_flags	PARAMS ((tree, int));
@@ -3089,6 +2980,7 @@ extern void expand_elseif		PARAMS ((tree));
 extern void save_stack_pointer		PARAMS ((void));
 extern void expand_decl			PARAMS ((tree));
 extern int expand_decl_cleanup		PARAMS ((tree, tree));
+extern int expand_decl_cleanup_eh	PARAMS ((tree, tree, int));
 extern void expand_anon_union_decl	PARAMS ((tree, tree, tree));
 extern void move_cleanups_up		PARAMS ((void));
 extern void expand_start_case_dummy	PARAMS ((void));

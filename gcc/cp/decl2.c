@@ -700,6 +700,8 @@ cxx_decode_option (argc, argv)
 	}
       else return strings_processed;
     }
+  else if (!strcmp (p, "-E"))
+    flag_preprocess_only = 1;
   else if (!strcmp (p, "-ansi"))
     flag_no_nonansi_builtin = 1, flag_ansi = 1,
     flag_noniso_default_format_attributes = 0, flag_no_gnu_keywords = 1;
@@ -1142,21 +1144,8 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
     return build_vec_delete (t, maxindex, sfk_deleting_destructor,
 			     use_global_delete);
   else
-    {
-      if (IS_AGGR_TYPE (TREE_TYPE (type))
-	  && TYPE_GETS_REG_DELETE (TREE_TYPE (type)))
-	{
-	  /* Only do access checking here; we'll be calling op delete
-	     from the destructor.  */
-	  tree tmp = build_op_delete_call (DELETE_EXPR, t, size_zero_node,
-					   LOOKUP_NORMAL, NULL_TREE);
-	  if (tmp == error_mark_node)
-	    return error_mark_node;
-	}
-
-      return build_delete (type, t, sfk_deleting_destructor,
-			   LOOKUP_NORMAL, use_global_delete);
-    }
+    return build_delete (type, t, sfk_deleting_destructor,
+			 LOOKUP_NORMAL, use_global_delete);
 }
 
 /* Report an error if the indicated template declaration is not the
@@ -1364,7 +1353,7 @@ check_classfn (ctype, function)
     {
       methods = 0;
       if (!COMPLETE_TYPE_P (ctype))
-        incomplete_type_error (function, ctype);
+        cxx_incomplete_type_error (function, ctype);
       else
         error ("no `%#D' member function declared in class `%T'",
 		  function, ctype);
@@ -2210,8 +2199,12 @@ maybe_make_one_only (decl)
 
   make_decl_one_only (decl);
 
-  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl))
-    DECL_COMDAT (decl) = 1;
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      DECL_COMDAT (decl) = 1;
+      /* Mark it needed so we don't forget to emit it.  */
+      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = 1;
+    }
 }
 
 /* Returns the virtual function with which the vtable for TYPE is
@@ -2574,7 +2567,7 @@ build_cleanup (decl)
     temp = decl;
   else
     {
-      mark_addressable (decl);
+      cxx_mark_addressable (decl);
       temp = build1 (ADDR_EXPR, build_pointer_type (type), decl);
     }
   temp = build_delete (TREE_TYPE (temp), temp,
@@ -3440,7 +3433,11 @@ finish_file ()
 	 not defined when they really are.  This keeps these functions
 	 from being put out unnecessarily.  But, we must stop lying
 	 when the functions are referenced, or if they are not comdat
-	 since they need to be put out now.  */
+	 since they need to be put out now.
+	 This is done in a separate for cycle, because if some deferred
+	 function is contained in another deferred function later in
+	 deferred_fns varray, rest_of_compilation would skip this
+	 function and we really cannot expand the same function twice. */
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
@@ -3449,6 +3446,11 @@ finish_file ()
 	      && DECL_INITIAL (decl)
 	      && DECL_NEEDED_P (decl))
 	    DECL_EXTERNAL (decl) = 0;
+	}
+
+      for (i = 0; i < deferred_fns_used; ++i)
+	{
+	  tree decl = VARRAY_TREE (deferred_fns, i);
 
 	  /* If we're going to need to write this function out, and
 	     there's already a body for it, create RTL for it now.
@@ -4184,6 +4186,11 @@ ambiguous_decl (name, old, new, flags)
         break;
       case NAMESPACE_DECL:
         if (LOOKUP_TYPES_ONLY (flags))
+          val = NULL_TREE;
+        break;
+      case FUNCTION_DECL:
+        /* Ignore built-in functions that are still anticipated.  */
+        if (LOOKUP_QUALIFIERS_ONLY (flags) || DECL_ANTICIPATED (val))
           val = NULL_TREE;
         break;
       default:
@@ -4938,6 +4945,15 @@ do_nonmember_using_decl (scope, name, oldval, oldtype, newval, newtype)
 	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
 		  		  TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
 		{
+                  /* If this using declaration introduces a function
+                     recognized as a built-in, no longer mark it as
+                     anticipated in this scope.  */
+                  if (DECL_ANTICIPATED (old_fn))
+                    {
+                      DECL_ANTICIPATED (old_fn) = 0;
+                      break;
+                    }
+
 	          /* There was already a non-using declaration in
 		     this scope with the same parameter types. If both
 	             are the same extern "C" functions, that's ok.  */

@@ -6,7 +6,6 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                            $Revision: 1.3.8.1 $
  *                                                                          *
  *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -161,10 +160,6 @@ extern const char *ref_filename;
    of each gives the variable used for the setjmp buffer in the current
    block, if any.  */
 extern GTY(()) tree gnu_block_stack;
-
-/* For most front-ends, this is the parser for the language.  For us, we
-   process the GNAT tree.  */
-extern int yyparse		PARAMS ((void));
 
 /* This is the main program of the back-end.  It sets up all the table
    structures and then generates code.  */
@@ -428,32 +423,28 @@ extern void gnat_init_gcc_eh		PARAMS ((void));
 /* Return an integer type with the number of bits of precision given by  
    PRECISION.  UNSIGNEDP is nonzero if the type is unsigned; otherwise
    it is a signed type.  */
-extern tree type_for_size		PARAMS ((unsigned, int));
+extern tree gnat_type_for_size		PARAMS ((unsigned, int));
 
 /* Return a data type that has machine mode MODE.  UNSIGNEDP selects
    an unsigned type; otherwise a signed type is returned.  */
-extern tree type_for_mode		PARAMS ((enum machine_mode, int));
+extern tree gnat_type_for_mode		PARAMS ((enum machine_mode, int));
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
-extern tree unsigned_type		PARAMS ((tree));
+extern tree gnat_unsigned_type		PARAMS ((tree));
 
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
-extern tree signed_type			PARAMS ((tree));
+extern tree gnat_signed_type		PARAMS ((tree));
 
 /* Return a type the same as TYPE except unsigned or signed according to
    UNSIGNEDP.  */
-extern tree signed_or_unsigned_type	PARAMS ((int, tree));
-
-/* This routine is called in tree.c to print an error message for invalid use
-   of an incomplete type.  */
-extern void incomplete_type_error	PARAMS ((tree, tree));
+extern tree gnat_signed_or_unsigned_type PARAMS ((int, tree));
 
 /* This function is called indirectly from toplev.c to handle incomplete 
    declarations, i.e. VAR_DECL nodes whose DECL_SIZE is zero.  To be precise,
    compile_file in toplev.c makes an indirect call through the function pointer
    incomplete_decl_finalize_hook which is initialized to this routine in
    init_decl_processing.  */
-extern void finish_incomplete_decl	PARAMS ((tree));
+extern void gnat_finish_incomplete_decl	PARAMS ((tree));
 
 /* Create an expression whose value is that of EXPR,
    converted to type TYPE.  The TREE_TYPE of the value
@@ -659,7 +650,7 @@ extern tree unchecked_convert		PARAMS ((tree, tree));
    The resulting type should always be the same as the input type.
    This function is simpler than the corresponding C version since
    the only possible operands will be things of Boolean type.  */
-extern tree truthvalue_conversion      PARAMS((tree));
+extern tree gnat_truthvalue_conversion      PARAMS((tree));
 
 /* Return the base type of TYPE.  */
 extern tree get_base_type	PARAMS((tree));
@@ -732,8 +723,8 @@ extern tree build_allocator	PARAMS((tree, tree, tree, Entity_Id,
 extern tree fill_vms_descriptor PARAMS((tree, Entity_Id));
 
 /* Indicate that we need to make the address of EXPR_NODE and it therefore
-   should not be allocated in a register. Return 1 if successful.  */
-extern int mark_addressable	PARAMS((tree));
+   should not be allocated in a register.  Return true if successful.  */
+extern bool gnat_mark_addressable PARAMS((tree));
 
 /* These functions return the basic data type sizes and related parameters
    about the target machine.  */

@@ -27,6 +27,7 @@
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "except.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "expr.h"
@@ -104,6 +105,7 @@ static int find_if_block		PARAMS ((basic_block, edge, edge));
 static int find_if_case_1		PARAMS ((basic_block, edge, edge));
 static int find_if_case_2		PARAMS ((basic_block, edge, edge));
 static int find_cond_trap		PARAMS ((basic_block, edge, edge));
+static rtx block_has_only_trap		PARAMS ((basic_block));
 static int find_memory			PARAMS ((rtx *, void *));
 static int dead_or_predicable		PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block, int));
@@ -1554,35 +1556,6 @@ noce_operand_ok (op)
   if (side_effects_p (op))
     return FALSE;
 
-  /* ??? Unfortuantely may_trap_p can't look at flag_trapping_math, due to
-     being linked into the genfoo programs.  This is probably a mistake.
-     With finite operands, most fp operations don't trap.  */
-  if (!flag_trapping_math && FLOAT_MODE_P (GET_MODE (op)))
-    switch (GET_CODE (op))
-      {
-      case DIV:
-      case MOD:
-      case UDIV:
-      case UMOD:
-	/* ??? This is kinda lame -- almost every target will have forced
-	   the constant into a register first.  But given the expense of
-	   division, this is probably for the best.  */
-	return (CONSTANT_P (XEXP (op, 1))
-		&& XEXP (op, 1) != CONST0_RTX (GET_MODE (op))
-		&& ! may_trap_p (XEXP (op, 0)));
-
-      default:
-	switch (GET_RTX_CLASS (GET_CODE (op)))
-	  {
-	  case '1':
-	    return ! may_trap_p (XEXP (op, 0));
-	  case 'c':
-	  case '2':
-	    return ! may_trap_p (XEXP (op, 0)) && ! may_trap_p (XEXP (op, 1));
-	  }
-	break;
-      }
-
   return ! may_trap_p (op);
 }
 
@@ -1841,11 +1814,14 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
 
   /* First merge TEST block into THEN block.  This is a no-brainer since
      the THEN block did not have a code label to begin with.  */
-
-  if (combo_bb->global_live_at_end)
-    COPY_REG_SET (combo_bb->global_live_at_end, then_bb->global_live_at_end);
-  merge_blocks_nomove (combo_bb, then_bb);
-  num_removed_blocks++;
+  if (then_bb)
+    {
+      if (combo_bb->global_live_at_end)
+	COPY_REG_SET (combo_bb->global_live_at_end,
+		      then_bb->global_live_at_end);
+      merge_blocks_nomove (combo_bb, then_bb);
+      num_removed_blocks++;
+    }
 
   /* The ELSE block, if it existed, had a label.  That label count
      will almost always be zero, but odd things can happen when labels
@@ -1861,14 +1837,34 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
 
   if (! join_bb)
     {
+      rtx last = combo_bb->end;
+
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
       if (combo_bb->succ == NULL_EDGE)
-	abort ();
+	{
+	  if (find_reg_note (last, REG_NORETURN, NULL))
+	    ;
+	  else if (GET_CODE (last) == INSN
+		   && GET_CODE (PATTERN (last)) == TRAP_IF
+		   && TRAP_CONDITION (PATTERN (last)) == const_true_rtx)
+	    ;
+	  else
+	    abort ();
+	}
 
-      /* There should still be a branch at the end of the THEN or ELSE
+      /* There should still be something at the end of the THEN or ELSE
          blocks taking us to our final destination.  */
-      if (GET_CODE (combo_bb->end) != JUMP_INSN)
+      else if (GET_CODE (last) == JUMP_INSN)
+	;
+      else if (combo_bb->succ->dest == EXIT_BLOCK_PTR
+	       && GET_CODE (last) == CALL_INSN
+	       && SIBLING_CALL_P (last))
+	;
+      else if ((combo_bb->succ->flags & EDGE_EH)
+	       && can_throw_internal (last))
+	;
+      else
 	abort ();
     }
 
@@ -2084,68 +2080,27 @@ find_cond_trap (test_bb, then_edge, else_edge)
      basic_block test_bb;
      edge then_edge, else_edge;
 {
-  basic_block then_bb, else_bb, join_bb, trap_bb;
+  basic_block then_bb, else_bb, trap_bb, other_bb;
   rtx trap, jump, cond, cond_earliest, seq;
   enum rtx_code code;
 
   then_bb = then_edge->dest;
   else_bb = else_edge->dest;
-  join_bb = NULL;
 
   /* Locate the block with the trap instruction.  */
   /* ??? While we look for no successors, we really ought to allow
      EH successors.  Need to fix merge_if_block for that to work.  */
-  /* ??? We can't currently handle merging the blocks if they are not
-     already adjacent.  Prevent losage in merge_if_block by detecting
-     this now.  */
-  if (then_bb->succ == NULL)
-    {
-      trap_bb = then_bb;
-      if (else_bb->index != then_bb->index + 1)
-	return FALSE;
-      join_bb = else_bb;
-      else_bb = NULL;
-    }
-  else if (else_bb->succ == NULL)
-    {
-      trap_bb = else_bb;
-      if (else_bb->index != then_bb->index + 1)
-	else_bb = NULL;
-      else if (then_bb->succ
-	  && ! then_bb->succ->succ_next
-	  && ! (then_bb->succ->flags & EDGE_COMPLEX)
-	  && then_bb->succ->dest->index == else_bb->index + 1)
-	join_bb = then_bb->succ->dest;
-    }
+  if ((trap = block_has_only_trap (then_bb)) != NULL)
+    trap_bb = then_bb, other_bb = else_bb;
+  else if ((trap = block_has_only_trap (else_bb)) != NULL)
+    trap_bb = else_bb, other_bb = then_bb;
   else
-    return FALSE;
-
-  /* Don't confuse a conditional return with something we want to
-     optimize here.  */
-  if (trap_bb == EXIT_BLOCK_PTR)
-    return FALSE;
-
-  /* The only instruction in the THEN block must be the trap.  */
-  trap = first_active_insn (trap_bb);
-  if (! (trap == trap_bb->end
-	 && GET_CODE (PATTERN (trap)) == TRAP_IF
-         && TRAP_CONDITION (PATTERN (trap)) == const_true_rtx))
     return FALSE;
 
   if (rtl_dump_file)
     {
-      if (trap_bb == then_bb)
-	fprintf (rtl_dump_file,
-		 "\nTRAP-IF block found, start %d, trap %d",
-		 test_bb->index, then_bb->index);
-      else
-	fprintf (rtl_dump_file,
-		 "\nTRAP-IF block found, start %d, then %d, trap %d",
-		 test_bb->index, then_bb->index, trap_bb->index);
-      if (join_bb)
-	fprintf (rtl_dump_file, ", join %d\n", join_bb->index);
-      else
-	fputc ('\n', rtl_dump_file);
+      fprintf (rtl_dump_file, "\nTRAP-IF block found, start %d, trap %d\n",
+	       test_bb->index, trap_bb->index);
     }
 
   /* If this is not a standard conditional jump, we can't parse it.  */
@@ -2178,24 +2133,65 @@ find_cond_trap (test_bb, then_edge, else_edge)
   if (seq == NULL)
     return FALSE;
 
-  /* Emit the new insns before cond_earliest; delete the old jump
-     and trap insns.  */
-
+  /* Emit the new insns before cond_earliest.  */
   emit_insn_before (seq, cond_earliest);
 
-  delete_insn (jump);
-
-  delete_insn (trap);
-
-  /* Merge the blocks!  */
-  if (trap_bb != then_bb && ! else_bb)
+  /* Delete the trap block if possible.  */
+  remove_edge (trap_bb == then_bb ? then_edge : else_edge);
+  if (trap_bb->pred == NULL)
     {
       flow_delete_block (trap_bb);
       num_removed_blocks++;
     }
-  merge_if_block (test_bb, then_bb, else_bb, join_bb);
+
+  /* If the non-trap block and the test are now adjacent, merge them.
+     Otherwise we must insert a direct branch.  */
+  if (test_bb->index + 1 == other_bb->index)
+    {
+      delete_insn (jump);
+      merge_if_block (test_bb, NULL, NULL, other_bb);
+    }
+  else
+    {
+      rtx lab, newjump;
+
+      lab = JUMP_LABEL (jump);
+      newjump = emit_jump_insn_after (gen_jump (lab), jump);
+      LABEL_NUSES (lab) += 1;
+      JUMP_LABEL (newjump) = lab;
+      emit_barrier_after (newjump);
+
+      delete_insn (jump);
+    }
 
   return TRUE;
+}
+
+/* Subroutine of find_cond_trap: if BB contains only a trap insn, 
+   return it.  */
+
+static rtx
+block_has_only_trap (bb)
+     basic_block bb;
+{
+  rtx trap;
+
+  /* We're not the exit block.  */
+  if (bb == EXIT_BLOCK_PTR)
+    return NULL_RTX;
+
+  /* The block must have no successors.  */
+  if (bb->succ)
+    return NULL_RTX;
+
+  /* The only instruction in the THEN block must be the trap.  */
+  trap = first_active_insn (bb);
+  if (! (trap == bb->end
+	 && GET_CODE (PATTERN (trap)) == TRAP_IF
+         && TRAP_CONDITION (PATTERN (trap)) == const_true_rtx))
+    return NULL_RTX;
+
+  return trap;
 }
 
 /* Look for IF-THEN-ELSE cases in which one of THEN or ELSE is
@@ -2433,7 +2429,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
      basic_block new_dest;
      int reversep;
 {
-  rtx head, end, jump, earliest, old_dest, new_label;
+  rtx head, end, jump, earliest, old_dest, new_label = NULL_RTX;
 
   jump = test_bb->end;
 
@@ -2730,6 +2726,8 @@ if_convert (x_life_data_ok)
   if (rtl_dump_file)
     fflush (rtl_dump_file);
 
+  clear_aux_for_blocks ();
+
   /* Rebuild life info for basic blocks that require it.  */
   if (num_removed_blocks && life_data_ok)
     {
@@ -2743,7 +2741,6 @@ if_convert (x_life_data_ok)
 					PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
 					| PROP_KILL_DEAD_CODE);
     }
-  clear_aux_for_blocks ();
 
   /* Write the final stats.  */
   if (rtl_dump_file && num_possible_if_blocks > 0)

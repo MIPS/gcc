@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "obstack.h"
+#include "insn-config.h"
 
 /* Stubs in case we don't have a return insn.  */
 #ifndef HAVE_return
@@ -101,8 +102,7 @@ can_delete_label_p (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
 	  && !in_expr_list_p (forced_labels, label)
-	  && !in_expr_list_p (label_value_list, label)
-	  && !in_expr_list_p (get_exception_handler_labels (), label));
+	  && !in_expr_list_p (label_value_list, label));
 }
 
 /* Delete INSN by patching it out.  Return the next insn.  */
@@ -362,7 +362,7 @@ create_basic_block (index, head, end)
    to post-process the stream to remove empty blocks, loops, ranges, etc.  */
 
 int
-flow_delete_block (b)
+flow_delete_block_noexpunge (b)
      basic_block b;
 {
   int deleted_handler = 0;
@@ -411,6 +411,15 @@ flow_delete_block (b)
   b->pred = NULL;
   b->succ = NULL;
 
+  return deleted_handler;
+}
+
+int
+flow_delete_block (b)
+     basic_block b;
+{
+  int deleted_handler = flow_delete_block_noexpunge (b);
+  
   /* Remove the basic block from the array, and compact behind it.  */
   expunge_block (b);
 
@@ -546,6 +555,15 @@ split_block (bb, insn)
       propagate_block (new_bb, new_bb->global_live_at_start, NULL, NULL, 0);
       COPY_REG_SET (bb->global_live_at_end,
 		    new_bb->global_live_at_start);
+#ifdef HAVE_conditional_execution
+      /* In the presence of conditional execution we are not able to update
+	 liveness precisely.  */
+      if (reload_completed)
+	{
+	  bb->flags |= BB_DIRTY;
+	  new_bb->flags |= BB_DIRTY;
+	}
+#endif
     }
 
   return new_edge;
@@ -651,9 +669,9 @@ merge_blocks_nomove (a, b)
 	  rtx x;
 
 	  for (x = a_end; x != b_end; x = NEXT_INSN (x))
-	    BLOCK_FOR_INSN (x) = a;
+	    set_block_for_insn (x, a);
 
-	  BLOCK_FOR_INSN (b_end) = a;
+	  set_block_for_insn (b_end, a);
 	}
 
       a_end = b_end;
@@ -1086,8 +1104,9 @@ tidy_fallthru_edge (e, b, c)
      So search through a sequence of barriers, labels, and notes for
      the head of block C and assert that we really do fall through.  */
 
-  if (next_real_insn (b->end) != next_real_insn (PREV_INSN (c->head)))
-    return;
+  for (q = NEXT_INSN (b->end); q != c->head; q = NEXT_INSN (q))
+    if (INSN_P (q))
+      return;
 
   /* Remove what will soon cease being the jump insn from the source block.
      If block B consisted only of this single jump, turn it into a deleted
@@ -1745,14 +1764,9 @@ verify_flow_info ()
       rtx note;
 
       if (INSN_P (bb->end)
-	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX)))
+	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX))
+	  && any_condjump_p (bb->end))
 	{
-	  if (!any_condjump_p (bb->end))
-	    {
-	      error ("verify_flow_info: REG_BR_PROB on non-condjump",
-		     bb->index);
-	      err = 1;
-	    }
 	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
 	    {
 	      error ("verify_flow_info: REG_BR_PROB does not match cfg %i %i",

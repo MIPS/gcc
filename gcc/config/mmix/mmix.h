@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #define MMIX_HIMULT_REGNUM 258
 #define MMIX_REMAINDER_REGNUM 260
 #define MMIX_ARG_POINTER_REGNUM 261
-#define MMIX_LAST_REGISTER_FILE_REGNUM 31
+#define MMIX_LAST_STACK_REGISTER_REGNUM 31
 
 /* Four registers; "ideally, these registers should be call-clobbered", so
    just grab a bunch of the common clobbered registers.  FIXME: Last
@@ -91,6 +91,7 @@ extern GTY(()) rtx mmix_compare_op1;
 struct machine_function GTY(())
  {
    int has_landing_pad;
+   int highest_saved_stack_register;
  };
 
 /* For these target macros, there is no generic documentation here.  You
@@ -344,10 +345,6 @@ extern int target_flags;
 #define LONG_DOUBLE_TYPE_SIZE 64
 
 #define DEFAULT_SIGNED_CHAR 1
-
-/* I have no rationale for this other than pointing at Alpha.  */
-#define	WCHAR_TYPE "unsigned int"
-#define	WCHAR_TYPE_SIZE 32
 
 
 /* Node: Register Basics */
@@ -699,7 +696,7 @@ enum reg_class
 #define CAN_ELIMINATE(FROM, TO) 1
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
- (OFFSET) = mmix_initial_elimination_offset (FROM, TO);
+ (OFFSET) = mmix_initial_elimination_offset (FROM, TO)
 
 
 /* Node: Stack Arguments */
@@ -1200,7 +1197,6 @@ const_section ()						\
 
 #define FUNCTION_MODE QImode
 
-/* When in due time we *will* have some specific headers.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #define HANDLE_SYSV_PRAGMA
@@ -1209,6 +1205,10 @@ const_section ()						\
 #define DOLLARS_IN_IDENTIFIERS 0
 #define NO_DOLLAR_IN_LABEL
 #define NO_DOT_IN_LABEL
+
+/* Calculate the highest used supposed saved stack register.  */
+#define MACHINE_DEPENDENT_REORG(INSN) \
+ mmix_machine_dependent_reorg (INSN)
 
 #endif /* GCC_MMIX_H */
 /*

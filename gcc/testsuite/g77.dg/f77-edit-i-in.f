@@ -4,21 +4,19 @@ C
 C Origin: David Billinghurst <David.Billinghurst@riotinto.com>
 C
 C { dg-do run }
+
       integer i,j
+      character*10 buf
 
-      open(unit=10,status='SCRATCH')
-      write(10,'(A)') '1'
-      write(10,'(A)') ' '
-      write(10,'(A)') '   -1'
+      write(buf,'(A)') '1  -1'
 
-      rewind(10)
-
-      read(10,'(I1)') i
+      read(buf,'(I1)') i
       if ( i.ne.1 ) call abort()
-      read(10,'(I1)') i
+
+      read(buf,'(X,I1)') i
       if ( i.ne.0 ) call abort()
-      read(10,'(I2,X,I2)') i,j
-      if ( i.ne.0 ) call abort()
-      if ( j.ne.-1 ) call abort()
+
+      read(buf,'(X,I1,X,I2)') i,j
+      if ( i.ne.0 .and. j.ne.-1 ) call abort()
 
       end

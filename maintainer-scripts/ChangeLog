@@ -1,3 +1,20 @@
+2002-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_diffs): Remove reference to Chill.
+
+2002-04-21  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* update_web_docs (MANUALS): Remove chill.  Add gnat_rm.
+
+2002-04-19  Kelley R. Cook (kelly.r.cook@gm.com)
+
+	* gcc_release: Set TZ to UTC0.
+
+2002-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_tarfiles): Do not build Chill tarfiles.
+	(CHILL_DIRS): Remove.
+
 2002-03-10  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* gcc_release: Build diffs for ada and chill.  Make "bzip2" a new

@@ -28,8 +28,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "flags.h"
 
 /* Forward declarations */
+static int global_reg_mentioned_p_1 PARAMS ((rtx *, void *));
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
@@ -481,6 +483,82 @@ get_jump_table_offset (insn, earliest)
 
   /* Return the RTL expression representing the offset.  */
   return x;
+}
+
+/* A subroutine of global_reg_mentioned_p, returns 1 if *LOC mentions
+   a global register.  */
+
+static int
+global_reg_mentioned_p_1 (loc, data)
+     rtx *loc;
+     void *data ATTRIBUTE_UNUSED;
+{
+  int regno;
+  rtx x = *loc;
+
+  if (! x)
+    return 0;
+
+  switch (GET_CODE (x))
+    {
+    case SUBREG:
+      if (GET_CODE (SUBREG_REG (x)) == REG)
+	{
+	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
+	      && global_regs[subreg_regno (x)])
+	    return 1;
+	  return 0;
+	}
+      break;
+
+    case REG:
+      regno = REGNO (x);
+      if (regno < FIRST_PSEUDO_REGISTER && global_regs[regno])
+	return 1;
+      return 0;
+
+    case SCRATCH:
+    case PC:
+    case CC0:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST:
+    case LABEL_REF:
+      return 0;
+
+    case CALL:
+      /* A non-constant call might use a global register.  */
+      return 1;
+
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Returns non-zero if X mentions a global register.  */
+
+int
+global_reg_mentioned_p (x)
+     rtx x;
+{
+
+  if (INSN_P (x))
+    {
+      if (GET_CODE (x) == CALL_INSN)
+	{
+	  if (! CONST_OR_PURE_CALL_P (x))
+	    return 1;
+	  x = CALL_INSN_FUNCTION_USAGE (x);
+	  if (x == 0)
+	    return 0;
+        }
+      else
+        x = PATTERN (x);
+    }
+
+  return for_each_rtx (&x, global_reg_mentioned_p_1, NULL);
 }
 
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
@@ -1544,17 +1622,12 @@ note_stores (x, fun, data)
 	dest = XEXP (dest, 0);
 
       /* If we have a PARALLEL, SET_DEST is a list of EXPR_LIST expressions,
-	 each of whose first operand is a register.  We can't know what
-	 precisely is being set in these cases, so make up a CLOBBER to pass
-	 to the function.  */
+	 each of whose first operand is a register.  */
       if (GET_CODE (dest) == PARALLEL)
 	{
 	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
 	    if (XEXP (XVECEXP (dest, 0, i), 0) != 0)
-	      (*fun) (XEXP (XVECEXP (dest, 0, i), 0),
-		      gen_rtx_CLOBBER (VOIDmode,
-				       XEXP (XVECEXP (dest, 0, i), 0)),
-		      data);
+	      (*fun) (XEXP (XVECEXP (dest, 0, i), 0), x, data);
 	}
       else
 	(*fun) (dest, x, data);
@@ -1933,6 +2006,31 @@ find_regno_fusage (insn, code, regno)
 
   return 0;
 }
+
+/* Return true if INSN is a call to a pure function.  */
+
+int
+pure_call_p (insn)
+     rtx insn;
+{
+  rtx link;
+
+  if (GET_CODE (insn) != CALL_INSN || ! CONST_OR_PURE_CALL_P (insn))
+    return 0;
+
+  /* Look for the note that differentiates const and pure functions.  */
+  for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+    {
+      rtx u, m;
+
+      if (GET_CODE (u = XEXP (link, 0)) == USE
+	  && GET_CODE (m = XEXP (u, 0)) == MEM && GET_MODE (m) == BLKmode
+	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
+	return 1;
+    }
+
+  return 0;
+}
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
@@ -2271,7 +2369,8 @@ may_trap_p (x)
     case UDIV:
     case UMOD:
       if (! CONSTANT_P (XEXP (x, 1))
-	  || GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	  || (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
+	      && flag_trapping_math))
 	return 1;
       /* This was const0_rtx, but by not using that,
 	 we can link this file into other programs.  */
@@ -2290,6 +2389,8 @@ may_trap_p (x)
     case LT:
     case COMPARE:
       /* Some floating point comparisons may trap.  */
+      if (!flag_trapping_math)
+	break;
       /* ??? There is no machine independent way to check for tests that trap
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
@@ -2310,7 +2411,8 @@ may_trap_p (x)
 
     default:
       /* Any floating arithmetic may trap.  */
-      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
+	  && flag_trapping_math)
 	return 1;
     }
 

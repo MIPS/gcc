@@ -708,12 +708,8 @@ extern enum reg_class xtensa_char_to_class[256];
    : ((CODE) == 'U') ? !constantpool_mem_p (OP)				\
    : FALSE)
 
-/* Given an rtx X being reloaded into a reg required to be
-   in class CLASS, return the class of reg to actually use.  */
 #define PREFERRED_RELOAD_CLASS(X, CLASS)				\
-  (CONSTANT_P (X)							\
-   ? (GET_CODE (X) == CONST_DOUBLE) ? NO_REGS : (CLASS)			\
-   : (CLASS))
+  xtensa_preferred_reload_class (X, CLASS)
 
 #define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS)				\
   (CLASS)
@@ -1145,21 +1141,21 @@ typedef struct xtensa_args {
 #define MAX_REGS_PER_ADDRESS 1
 
 /* Identify valid Xtensa addresses.  */
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, ADDR, LABEL)			\
   do {									\
-    rtx xinsn = (X);							\
+    rtx xinsn = (ADDR);							\
 									\
     /* allow constant pool addresses */					\
     if ((MODE) != BLKmode && GET_MODE_SIZE (MODE) >= UNITS_PER_WORD	\
 	&& constantpool_address_p (xinsn))				\
-      goto ADDR;							\
+      goto LABEL;							\
 									\
     while (GET_CODE (xinsn) == SUBREG)					\
       xinsn = SUBREG_REG (xinsn);					\
 									\
     /* allow base registers */						\
     if (GET_CODE (xinsn) == REG && REG_OK_FOR_BASE_P (xinsn))		\
-      goto ADDR;							\
+      goto LABEL;							\
 									\
     /* check for "register + offset" addressing */			\
     if (GET_CODE (xinsn) == PLUS)					\
@@ -1190,7 +1186,7 @@ typedef struct xtensa_args {
 	    && code1 == CONST_INT					\
 	    && xtensa_mem_offset (INTVAL (xplus1), (MODE)))		\
 	  {								\
-	    goto ADDR;							\
+	    goto LABEL;							\
 	  }								\
       }									\
   } while (0)
@@ -1249,7 +1245,19 @@ typedef struct xtensa_args {
   } while (0)
 
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) {}
+/* Treat constant-pool references as "mode dependent" since they can
+   only be accessed with SImode loads.  This works around a bug in the
+   combiner where a constant pool reference is temporarily converted
+   to an HImode load, which is then assumed to zero-extend based on
+   our definition of LOAD_EXTEND_OP.  This is wrong because the high
+   bits of a 16-bit value in the constant pool are now sign-extended
+   by default.  */
+
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)			\
+  do {									\
+    if (constantpool_address_p (ADDR))					\
+      goto LABEL;							\
+  } while (0)
 
 /* If we are referencing a function that is static, make the SYMBOL_REF
    special so that we can generate direct calls to it even with -fpic.  */
@@ -1499,7 +1507,6 @@ typedef struct xtensa_args {
   {"add_operand",		{ REG, CONST_INT, SUBREG }},		\
   {"arith_operand",		{ REG, CONST_INT, SUBREG }},		\
   {"nonimmed_operand",		{ REG, SUBREG, MEM }},			\
-  {"non_acc_reg_operand",	{ REG, SUBREG }},			\
   {"mem_operand",		{ MEM }},				\
   {"mask_operand",		{ REG, CONST_INT, SUBREG }},		\
   {"extui_fldsz_operand",	{ CONST_INT }},				\
@@ -1656,7 +1663,10 @@ typedef struct xtensa_args {
 		 strcmp (fnsectname, ".text") ? fnsectname : "");	\
       }									\
     if ((SIZE) > 0)							\
-      function_section (FUNDECL);  					\
+      {									\
+	function_section (FUNDECL);  					\
+	fprintf (FILE, "\t.literal_position\n");			\
+      }									\
   } while (0)
 
 

@@ -30,7 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree.h"
 #include "ggc.h"
 #include "flags.h"
-
+#include "langhooks.h"
 #include "java-tree.h"
 
 enum builtin_type 
@@ -200,7 +200,7 @@ define_builtin (val, name, class, type, fallback_p)
 {
   tree decl;
 
-  if (! name)
+  if (! name || ! type)
     return;
 
   if (strncmp (name, "__builtin_", strlen ("__builtin_")) != 0)

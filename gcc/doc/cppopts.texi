@@ -110,6 +110,23 @@ Warn whenever an identifier which is not a macro is encountered in an
 @samp{#if} directive, outside of @samp{defined}.  Such identifiers are
 replaced with zero.
 
+@item -Wendif-labels
+@opindex Wendif-labels
+Warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
+This usually happens in code of the form
+
+@smallexample
+#if FOO
+@dots{}
+#else FOO
+@dots{}
+#endif FOO
+@end smallexample
+
+@noindent
+The second and third @code{FOO} should be in comments, but often are not
+in older programs.  This warning is on by default.
+
 @item -Werror
 @opindex Werror
 Make all warnings into hard errors.  Source code which triggers warnings
@@ -158,7 +175,7 @@ This option does not suppress the preprocessor's debug output, such as
 @option{-dM}.  To avoid mixing such debug output with the dependency
 rules you should explicitly specify the dependency output file with
 @option{-MF}, or use an environment variable like
-@env{DEPENDENCIES_OUTPUT} (@pxref{DEPENDENCIES_OUTPUT}).  Debug output
+@env{DEPENDENCIES_OUTPUT} (@pxref{Environment Variables}).  Debug output
 will still be sent to the regular output stream as normal.
 
 Passing @option{-M} to the driver implies @option{-E}.
@@ -509,6 +526,19 @@ causes the preprocessor to treat comments as tokens in their own right.
 For example, comments appearing at the start of what would be a
 directive line have the effect of turning that line into an ordinary
 source line, since the first token on the line is no longer a @samp{#}.
+
+@item -CC
+Do not discard comments, including during macro expansion.  This is
+like @option{-C}, except that comments contained within macros are
+also passed through to the output file where the macro is expanded.
+
+In addition to the side-effects of the @option{-C} option, the
+@option{-CC} option causes all C++-style comments inside a macro
+to be converted to C-style comments.  This is to prevent later use
+of that macro from inadvertently commenting out the remainer of
+the source line.
+
+The @option{-CC} option is generally used to support lint comments.
 
 @item -gcc
 @opindex gcc

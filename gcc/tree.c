@@ -122,7 +122,6 @@ struct type_hash GTY(())
 
 htab_t type_hash_table;
 
-static void build_real_from_int_cst_1 PARAMS ((PTR));
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
 static int type_hash_eq PARAMS ((const void*, const void*));
@@ -133,46 +132,8 @@ static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
 
-/* If non-null, these are language-specific helper functions for
-   unsafe_for_reeval.  Return negative to not handle some tree.  */
-int (*lang_unsafe_for_reeval) PARAMS ((tree));
-
-/* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of thing
-   that the assembler should talk about, set DECL_ASSEMBLER_NAME to an
-   appropriate IDENTIFIER_NODE.  Otherwise, set it to the
-   ERROR_MARK_NODE to ensure that the assembler does not talk about
-   it.  */
-void (*lang_set_decl_assembler_name)     PARAMS ((tree));
-
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
-
-/* Set the DECL_ASSEMBLER_NAME for DECL.  */
-void
-set_decl_assembler_name (decl)
-     tree decl;
-{
-  /* The language-independent code should never use the
-     DECL_ASSEMBLER_NAME for lots of DECLs.  Only FUNCTION_DECLs and
-     VAR_DECLs for variables with static storage duration need a real
-     DECL_ASSEMBLER_NAME.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL 
-	  && (TREE_STATIC (decl) 
-	      || DECL_EXTERNAL (decl) 
-	      || TREE_PUBLIC (decl))))
-    /* By default, assume the name to use in assembly code is the
-       same as that used in the source language.  (That's correct
-       for C, and GCC used to set DECL_ASSEMBLER_NAME to the same
-       value as DECL_NAME in build_decl, so this choice provides
-       backwards compatibility with existing front-ends.  */
-    SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
-  else
-    /* Nobody should ever be asking for the DECL_ASSEMBLER_NAME of
-       these DECLs -- unless they're in language-dependent code, in
-       which case lang_set_decl_assembler_name should handle things.  */
-    abort ();
-}
 
 /* Init the principal obstacks.  */
 
@@ -186,9 +147,6 @@ init_obstacks ()
 				 type_hash_eq, 0);
   ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
 			  gt_ggc_m_type_hash);
-
-  /* Set lang_set_decl_set_assembler_name to a default value.  */
-  lang_set_decl_assembler_name = set_decl_assembler_name;
 }
 
 
@@ -214,6 +172,18 @@ perm_calloc (nelem, size)
   char *rval = (char *) obstack_alloc (&permanent_obstack, nelem * size);
   memset (rval, 0, nelem * size);
   return rval;
+}
+
+/* The name of the object as the assembler will see it (but before any
+   translations made by ASM_OUTPUT_LABELREF).  Often this is the same
+   as DECL_NAME.  It is an IDENTIFIER_NODE.  */
+tree
+decl_assembler_name (decl)
+     tree decl;
+{
+  if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+    (*lang_hooks.set_decl_assembler_name) (decl);
+  return DECL_CHECK (decl)->decl.assembler_name;
 }
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -419,21 +389,6 @@ make_node (code)
 
   return t;
 }
-
-/* A front-end can reset this to an appropriate function if types need
-   special handling.  */
-
-tree (*make_lang_type_fn) PARAMS ((enum tree_code)) = make_node;
-
-/* Return a new type (with the indicated CODE), doing whatever
-   language-specific processing is required.  */
-
-tree
-make_lang_type (code)
-     enum tree_code code;
-{
-  return (*make_lang_type_fn) (code);
-}
 
 /* Return a new node with the same contents as NODE except that its
    TREE_CHAIN is zero and it has a fresh uid.  */
@@ -588,31 +543,8 @@ real_value_from_int_cst (type, i)
   return d;
 }
 
-/* Args to pass to and from build_real_from_int_cst_1.  */
-
-struct brfic_args
-{
-  tree type;			/* Input: type to conver to.  */
-  tree i;			/* Input: operand to convert.  */
-  REAL_VALUE_TYPE d;		/* Output: floating point value.  */
-};
-
-/* Convert an integer to a floating point value while protected by a floating
-   point exception handler.  */
-
-static void
-build_real_from_int_cst_1 (data)
-     PTR data;
-{
-  struct brfic_args *args = (struct brfic_args *) data;
-
-  args->d = real_value_from_int_cst (args->type, args->i);
-}
-
 /* Given a tree representing an integer constant I, return a tree
-   representing the same value as a floating-point constant of type TYPE.
-   We cannot perform this operation if there is no way of doing arithmetic
-   on floating-point values.  */
+   representing the same value as a floating-point constant of type TYPE.  */
 
 tree
 build_real_from_int_cst (type, i)
@@ -622,27 +554,13 @@ build_real_from_int_cst (type, i)
   tree v;
   int overflow = TREE_OVERFLOW (i);
   REAL_VALUE_TYPE d;
-  struct brfic_args args;
 
   v = make_node (REAL_CST);
   TREE_TYPE (v) = type;
 
-  /* Setup input for build_real_from_int_cst_1() */
-  args.type = type;
-  args.i = i;
-
-  if (do_float_handler (build_real_from_int_cst_1, (PTR) &args))
-    /* Receive output from build_real_from_int_cst_1() */
-    d = args.d;
-  else
-    {
-      /* We got an exception from build_real_from_int_cst_1() */
-      d = dconst0;
-      overflow = 1;
-    }
+  d = real_value_from_int_cst (type, i);
 
   /* Check for valid float value for this type on this target machine.  */
-
 #ifdef CHECK_FLOAT_VALUE
   CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
 #endif
@@ -1266,7 +1184,7 @@ size_in_bytes (type)
 
   if (t == 0)
     {
-      incomplete_type_error (NULL_TREE, type);
+      (*lang_hooks.types.incomplete_type_error) (NULL_TREE, type);
       return size_zero_node;
     }
 
@@ -1738,12 +1656,9 @@ unsafe_for_reeval (expr)
       break;
 
     default:
-      if (lang_unsafe_for_reeval != 0)
-	{
-	  tmp = (*lang_unsafe_for_reeval) (expr);
-	  if (tmp >= 0)
-	    return tmp;
-	}
+      tmp = (*lang_hooks.unsafe_for_reeval) (expr);
+      if (tmp >= 0)
+	return tmp;
       break;
     }
 
@@ -2652,12 +2567,6 @@ default_insert_attributes (decl, attr_ptr)
 {
 }
 
-/* Default value of targetm.attribute_table that is empty.  */
-const struct attribute_spec default_target_attribute_table[] =
-{
-  { NULL, 0, 0, false, false, false, NULL }
-};
-
 /* Default value of targetm.function_attribute_inlinable_p that always
    returns false.  */
 bool
@@ -3306,7 +3215,20 @@ tree_int_cst_lt (t1, t2)
   if (t1 == t2)
     return 0;
 
-  if (! TREE_UNSIGNED (TREE_TYPE (t1)))
+  if (TREE_UNSIGNED (TREE_TYPE (t1)) != TREE_UNSIGNED (TREE_TYPE (t2)))
+    {
+      int t1_sgn = tree_int_cst_sgn (t1);
+      int t2_sgn = tree_int_cst_sgn (t2);
+
+      if (t1_sgn < t2_sgn)
+	return 1;
+      else if (t1_sgn > t2_sgn)
+	return 0;
+      /* Otherwise, both are non-negative, so we compare them as
+	 unsigned just in case one of them would overflow a signed
+	 type.  */
+    }
+  else if (! TREE_UNSIGNED (TREE_TYPE (t1)))
     return INT_CST_LT (t1, t2);
 
   return INT_CST_LT_UNSIGNED (t1, t2);
@@ -4062,8 +3984,8 @@ get_unwidened (op, for_type)
     {
       unsigned int innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-
-      type = type_for_size (innerprec, TREE_UNSIGNED (TREE_OPERAND (op, 1)));
+      int unsignedp = TREE_UNSIGNED (TREE_OPERAND (op, 1));
+      type = (*lang_hooks.types.type_for_size) (innerprec, unsignedp);
 
       /* We can get this structure field in the narrowest type it fits in.
 	 If FOR_TYPE is 0, do this only for a field that matches the
@@ -4073,8 +3995,7 @@ get_unwidened (op, for_type)
 
       if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
-	  && (! uns || final_prec <= innerprec
-	      || TREE_UNSIGNED (TREE_OPERAND (op, 1)))
+	  && (! uns || final_prec <= innerprec || unsignedp)
 	  && type != 0)
 	{
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
@@ -4148,7 +4069,8 @@ get_narrower (op, unsignedp_ptr)
     {
       unsigned HOST_WIDE_INT innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      tree type = type_for_size (innerprec, TREE_UNSIGNED (op));
+      tree type = (*lang_hooks.types.type_for_size) (innerprec,
+						     TREE_UNSIGNED (op));
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)
@@ -4827,6 +4749,8 @@ build_common_tree_nodes_2 (short_double)
     = make_vector (V4SImode, unsigned_intSI_type_node, 1);
   unsigned_V2SI_type_node
     = make_vector (V2SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2DI_type_node
+    = make_vector (V2DImode, unsigned_intDI_type_node, 1);
   unsigned_V4HI_type_node
     = make_vector (V4HImode, unsigned_intHI_type_node, 1);
   unsigned_V8QI_type_node
@@ -4840,10 +4764,12 @@ build_common_tree_nodes_2 (short_double)
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
+  V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
   V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
   V8QI_type_node = make_vector (V8QImode, intQI_type_node, 0);
   V8HI_type_node = make_vector (V8HImode, intHI_type_node, 0);
   V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
+  V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
   V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
 }
 

@@ -28,9 +28,6 @@ Boston, MA 02111-1307, USA.  */
    is given.  Keep this in mind when reading the actions.  */
 
 %{
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-
 #include "config.h"
 
 #include "system.h"
@@ -40,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "cp-tree.h"
 #include "lex.h"
+#include "c-lex.h"		/* For YYDEBUG definition.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
@@ -49,6 +47,49 @@ extern struct obstack permanent_obstack;
 
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
+
+/* Like the default stack expander, except (1) use realloc when possible,
+   (2) impose no hard maxiumum on stack size, (3) REALLY do not use alloca.
+
+   Irritatingly, YYSTYPE is defined after this %{ %} block, so we cannot
+   give malloced_yyvs its proper type.  This is ok since all we need from
+   it is to be able to free it.  */
+
+static short *malloced_yyss;
+static void *malloced_yyvs;
+
+#define yyoverflow(MSG, SS, SSSIZE, VS, VSSIZE, YYSSZ)			\
+do {									\
+  size_t newsize;							\
+  short *newss;								\
+  YYSTYPE *newvs;							\
+  newsize = *(YYSSZ) *= 2;						\
+  if (malloced_yyss)							\
+    {									\
+      newss = (short *)							\
+	really_call_realloc (*(SS), newsize * sizeof (short));		\
+      newvs = (YYSTYPE *)						\
+	really_call_realloc (*(VS), newsize * sizeof (YYSTYPE));	\
+    }									\
+  else									\
+    {									\
+      newss = (short *) really_call_malloc (newsize * sizeof (short));	\
+      newvs = (YYSTYPE *) really_call_malloc (newsize * sizeof (YYSTYPE)); \
+      if (newss)							\
+        memcpy (newss, *(SS), (SSSIZE));				\
+      if (newvs)							\
+        memcpy (newvs, *(VS), (VSSIZE));				\
+    }									\
+  if (!newss || !newvs)							\
+    {									\
+      yyerror (MSG);							\
+      return 2;								\
+    }									\
+  *(SS) = newss;							\
+  *(VS) = newvs;							\
+  malloced_yyss = newss;						\
+  malloced_yyvs = (void *) newvs;					\
+} while (0)
 
 #define OP0(NODE) (TREE_OPERAND (NODE, 0))
 #define OP1(NODE) (TREE_OPERAND (NODE, 1))
@@ -214,14 +255,14 @@ check_class_key (key, aggr)
      tree key;
      tree aggr;
 {
+  if (TREE_CODE (key) == TREE_LIST)
+    key = TREE_VALUE (key);
   if ((key == union_type_node) != (TREE_CODE (aggr) == UNION_TYPE))
     pedwarn ("`%s' tag used in naming `%#T'",
 	     key == union_type_node ? "union"
 	     : key == record_type_node ? "struct" : "class", aggr);
 }
 
-/* Rename the "yyparse" function so that we can override it elsewhere.  */
-#define yyparse yyparse_1
 %}
 
 %start program
@@ -338,7 +379,7 @@ check_class_key (key, aggr)
 %type <ttype> PFUNCNAME maybe_identifier
 %type <ttype> paren_expr_or_null nontrivial_exprlist SELFNAME
 %type <ttype> expr_no_commas expr_no_comma_rangle
-%type <ttype> cast_expr unary_expr primary string STRING
+%type <ttype> cast_expr unary_expr primary STRING
 %type <ttype> reserved_declspecs boolean_literal
 %type <ttype> reserved_typespecquals
 %type <ttype> SCSPEC TYPESPEC CV_QUALIFIER maybe_cv_qualifier
@@ -503,9 +544,8 @@ extdef:
 		{ do_pending_inlines (); }
 	| template_def
 		{ do_pending_inlines (); }
-	| asm_keyword '(' string ')' ';'
-		{ if (TREE_CHAIN ($3)) $3 = combine_strings ($3);
-		  assemble_asm ($3); }
+	| asm_keyword '(' STRING ')' ';'
+		{ assemble_asm ($3); }
 	| extern_lang_string '{' extdefs_opt '}'
 		{ pop_lang_context (); }
 	| extern_lang_string .hush_warning fndef .warning_ok eat_saved_input
@@ -587,6 +627,7 @@ namespace_qualifier:
 		    $$ = lastiddecl;
 		  got_scope = $$;
 		}
+        ;
 
 any_id:
 	  unqualified_id
@@ -636,6 +677,7 @@ maybe_identifier:
 	  	{ $$ = $1; }
 	|	/* empty */
 		{ $$ = NULL_TREE; }
+        ;
 
 template_type_parm:
 	  aggr maybe_identifier
@@ -1033,9 +1075,11 @@ explicit_instantiation:
 
 begin_explicit_instantiation: 
       { begin_explicit_instantiation(); }
+        ;
 
 end_explicit_instantiation: 
       { end_explicit_instantiation(); }
+        ;
 
 /* The TYPENAME expansions are to deal with use of a template class name as
   a template within the class itself, where the template decl is hidden by
@@ -1056,6 +1100,7 @@ apparent_template_type:
 	| identifier '<' template_arg_list_opt '>'
 	    finish_template_type_
 		{ $$ = $5; }
+        ;
 
 self_template_type:
 	  SELFNAME  '<' template_arg_list_opt template_close_bracket
@@ -1071,6 +1116,7 @@ finish_template_type_:
 		  $$ = finish_template_type ($<ttype>-3, $<ttype>-1, 
 					     yychar == SCOPE);
 		}
+        ;
 
 template_close_bracket:
 	  '>'
@@ -1490,6 +1536,7 @@ do_id:
 		  else
 		    $$ = $<ttype>-1;
 		}
+        ;
 
 template_id:
           PFUNCNAME '<' do_id template_arg_list_opt template_close_bracket 
@@ -1561,10 +1608,10 @@ primary:
 		}		
 	| CONSTANT
 	| boolean_literal
-	| string
+	| STRING
 		{
-		  $$ = combine_strings ($$);
-		  /* combine_strings doesn't set up TYPE_MAIN_VARIANT of
+		  $$ = fix_string_type ($$);
+		  /* fix_string_type doesn't set up TYPE_MAIN_VARIANT of
 		     a const array the way we want, so fix it.  */
 		  if (flag_const_strings)
 		    TREE_TYPE ($$) = build_cplus_array_type
@@ -1763,13 +1810,6 @@ boolean_literal:
 		{ $$ = boolean_true_node; }
 	| CXX_FALSE
 		{ $$ = boolean_false_node; }
-	;
-
-/* Produces a STRING_CST with perhaps more STRING_CSTs chained onto it.  */
-string:
-	  STRING
-	| string STRING
-		{ $$ = chainon ($$, $2); }
 	;
 
 nodecls:
@@ -2051,8 +2091,8 @@ nomods_initdecls:
 maybeasm:
 	  /* empty */
 		{ $$ = NULL_TREE; }
-	| asm_keyword '(' string ')'
-		{ if (TREE_CHAIN ($3)) $3 = combine_strings ($3); $$ = $3; }
+	| asm_keyword '(' STRING ')'
+		{ $$ = $3; }
 	;
 
 initdcl:
@@ -2101,7 +2141,7 @@ notype_initdcl0:
 nomods_initdcl0:
           notype_declarator maybeasm
             { /* Set things up as initdcl0_innards expects.  */
-	      $<ttype>3 = $2;
+	      $<ttype>$ = $2;
 	      $2 = $1; 
               $<ftype>1.t = NULL_TREE;
 	      $<ftype>1.lookups = NULL_TREE; }
@@ -2176,6 +2216,7 @@ maybe_init:
 		{ $$ = NULL_TREE; }
 	| '=' init
 		{ $$ = $2; }
+        ;
 
 /* If we are processing a template, we don't want to expand this
    initializer yet.  */
@@ -2240,6 +2281,7 @@ defarg_again:
 		{ replace_defarg ($1, $2); }
 	| DEFARG_MARKER error END_OF_SAVED_INPUT
 		{ replace_defarg ($1, error_mark_node); }
+        ;
 
 pending_defargs:
 	  /* empty */ %prec EMPTY
@@ -2670,6 +2712,7 @@ component_decl_1:
 		{ $$ = grokfield ($$, NULL_TREE, $4, $2, $3); }
 	| using_decl
 		{ $$ = do_class_using_decl ($1); }
+        ;
 
 /* The case of exactly one component is handled directly by component_decl.  */
 /* ??? Huh? ^^^ */
@@ -3443,27 +3486,27 @@ simple_stmt:
                 { $$ = finish_return_stmt (NULL_TREE); }
 	| RETURN_KEYWORD expr ';'
                 { $$ = finish_return_stmt ($2); }
-	| asm_keyword maybe_cv_qualifier '(' string ')' ';'
+	| asm_keyword maybe_cv_qualifier '(' STRING ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, NULL_TREE,
 					NULL_TREE);
 		  ASM_INPUT_P ($$) = 1; }
 	/* This is the case with just output operands.  */
-	| asm_keyword maybe_cv_qualifier '(' string ':' asm_operands ')' ';'
+	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, $6, NULL_TREE, NULL_TREE); }
 	/* This is the case with input operands as well.  */
-	| asm_keyword maybe_cv_qualifier '(' string ':' asm_operands ':'
+	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ':'
 	  asm_operands ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, $6, $8, NULL_TREE); }
-	| asm_keyword maybe_cv_qualifier '(' string SCOPE asm_operands ')' ';'
+	| asm_keyword maybe_cv_qualifier '(' STRING SCOPE asm_operands ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, $6, NULL_TREE); }
 	/* This is the case with clobbered registers as well.  */
-	| asm_keyword maybe_cv_qualifier '(' string ':' asm_operands ':'
+	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ':'
 	  asm_operands ':' asm_clobbers ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, $6, $8, $10); }
-	| asm_keyword maybe_cv_qualifier '(' string SCOPE asm_operands ':'
+	| asm_keyword maybe_cv_qualifier '(' STRING SCOPE asm_operands ':'
 	  asm_clobbers ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, $6, $8); }
-	| asm_keyword maybe_cv_qualifier '(' string ':' asm_operands SCOPE
+	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands SCOPE
 	  asm_clobbers ')' ';'
 		{ $$ = finish_asm_stmt ($2, $4, $6, NULL_TREE, $8); }
 	| GOTO '*' expr ';'
@@ -3620,14 +3663,16 @@ asm_operand:
 	  STRING '(' expr ')'
 		{ $$ = build_tree_list (build_tree_list (NULL_TREE, $1), $3); }
 	| '[' identifier ']' STRING '(' expr ')'
-		{ $$ = build_tree_list (build_tree_list ($2, $4), $6); }
+		{ $2 = build_string (IDENTIFIER_LENGTH ($2),
+				     IDENTIFIER_POINTER ($2));
+		  $$ = build_tree_list (build_tree_list ($2, $4), $6); }
 	;
 
 asm_clobbers:
-	  string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($1), NULL_TREE);}
-	| asm_clobbers ',' string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($3), $1); }
+	  STRING
+		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);}
+	| asm_clobbers ',' STRING
+		{ $$ = tree_cons (NULL_TREE, $3, $1); }
 	;
 
 /* This is what appears inside the parens in a function declarator.
@@ -3959,7 +4004,18 @@ debug_yytranslate (value)
 {
   return yytname[YYTRANSLATE (value)];
 }
-
 #endif
+
+/* Free malloced parser stacks if necessary.  */
+
+void
+free_parser_stacks ()
+{
+  if (malloced_yyss)
+    {
+      free (malloced_yyss);
+      free (malloced_yyvs);
+    }
+}
 
 #include "gt-cp-parse.h"

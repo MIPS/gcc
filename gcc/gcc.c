@@ -609,6 +609,13 @@ proper position among the other output files.  */
 
 /* Here is the spec for running the linker, after compiling all files.  */
 
+/* This is overridable by the target in case they need to specify the
+   -lgcc and -lc order specially, yet not require them to override all
+   of LINK_COMMAND_SPEC.  */
+#ifndef LINK_GCC_C_SEQUENCE_SPEC
+#define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G"
+#endif
+
 /* -u* was put back because both BSD and SysV seem to support it.  */
 /* %{static:} simply prevents an error message if the target machine
    doesn't handle -static.  */
@@ -620,7 +627,7 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r} %{s} %{t}\
     %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%G %L %G}}\
+    %{static:} %{L*} %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -639,6 +646,7 @@ static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
+static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -658,13 +666,15 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
    appropriate -B options.  */
 
 static const char *trad_capable_cpp =
-"%{traditional|ftraditional|traditional-cpp:trad}cpp0";
+"%{traditional|ftraditional|traditional-cpp:tradcpp0}\
+ %{!traditional:%{!ftraditional:%{!traditional-cpp:cc1 -E}}}";
 
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
- %{nostdinc*} %{C} %{v} %{I*} %{P} %{$} %I\
- %{MD:-M -MF %W{!o: %b.d}%W{o*:%.d%*}}\
- %{MMD:-MM -MF %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{CC:%{!E:%eGNU C does not support -CC without using -E}}\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %{$} %I\
+ %{MD:-MD %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
@@ -680,7 +690,7 @@ static const char *cpp_unique_options =
 /* This contains cpp options which are common with cc1_options and are passed
    only when preprocessing only to avoid duplication.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{d*} %{W*} %{w} %{pedantic*}\
+"%(cpp_unique_options) %{std*} %{d*} %{W*&pedantic*} %{w}\
  %{fshow-column} %{fno-show-column}\
  %{fsigned-char&funsigned-char}\
  %{fleading-underscore} %{fno-leading-underscore}\
@@ -690,7 +700,7 @@ static const char *cpp_options =
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
+ %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
@@ -815,7 +825,6 @@ static const struct compiler default_compilers[] =
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
   {".r", "#Ratfor", 0},
   {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
-  {".ch", "#Chill", 0}, {".chi", "#Chill", 0},
   {".java", "#Java", 0}, {".class", "#Java", 0},
   {".zip", "#Java", 0}, {".jar", "#Java", 0},
   /* Next come the entries for C.  */
@@ -908,6 +917,7 @@ static const struct option_map option_map[] =
    {"--bootclasspath", "-fbootclasspath=", "aj"},
    {"--CLASSPATH", "-fclasspath=", "aj"},
    {"--comments", "-C", 0},
+   {"--comments-in-macros", "-CC", 0},
    {"--compile", "-c", 0},
    {"--debug", "-g", "oj"},
    {"--define-macro", "-D", "aj"},
@@ -956,6 +966,7 @@ static const struct option_map option_map[] =
    {"--profile", "-p", 0},
    {"--profile-blocks", "-a", 0},
    {"--quiet", "-q", 0},
+   {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
@@ -1363,6 +1374,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
+  INIT_STATIC_SPEC ("link_gcc_c_sequence",	&link_gcc_c_sequence_spec),
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
@@ -1851,8 +1863,9 @@ read_specs (filename, main_p)
 	    {
 	      int name_len;
 	      struct spec_list *sl;
+	      struct spec_list *newsl;
 
-	      /* Get original name */
+	      /* Get original name.  */
 	      p1 += sizeof "%rename";
 	      while (*p1 == ' ' || *p1 == '\t')
 		p1++;
@@ -1897,6 +1910,11 @@ read_specs (filename, main_p)
 
 	      if (strcmp (p1, p2) == 0)
 		continue;
+
+	      for (newsl = specs; newsl; newsl = newsl->next)
+		if (strcmp (newsl->name, p2) == 0)
+		  fatal ("%s: attempt to rename spec '%s' to already defined spec '%s'",
+		    filename, p1, p2);
 
 	      if (verbose_flag)
 		{

@@ -6,7 +6,6 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *                             $Revision: 1.21 $
  *                                                                          *
  *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -86,6 +85,10 @@ static void gnat_print_type		PARAMS ((FILE *, tree, int));
 static const char *gnat_printable_name	PARAMS  ((tree, int));
 static tree gnat_eh_runtime_type	PARAMS ((tree));
 static int gnat_eh_type_covers		PARAMS ((tree, tree));
+static void gnat_parse_file		PARAMS ((int));
+static void gnat_mark_tree		PARAMS ((tree));
+static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
+						 int));
 
 /* Structure giving our language-specific hooks.  */
 
@@ -99,14 +102,38 @@ static int gnat_eh_type_covers		PARAMS ((tree, tree));
 #define LANG_HOOKS_INIT_OPTIONS		gnat_init_options
 #undef  LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
+#undef LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE		gnat_parse_file
+#undef LANG_HOOKS_MARK_TREE
+#define LANG_HOOKS_MARK_TREE		gnat_mark_tree
 #undef LANG_HOOKS_HONOR_READONLY
 #define LANG_HOOKS_HONOR_READONLY	1
+#undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
+#define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR		gnat_expand_expr
+#undef LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE	gnat_mark_addressable
+#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION gnat_truthvalue_conversion
 #undef LANG_HOOKS_PRINT_DECL
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef LANG_HOOKS_PRINT_TYPE
 #define LANG_HOOKS_PRINT_TYPE		gnat_print_type
+#undef LANG_HOOKS_DECL_PRINTABLE_NAME
+#define LANG_HOOKS_DECL_PRINTABLE_NAME	gnat_printable_name
+#undef LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE	gnat_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
+#undef LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE		gnat_signed_type
+#undef LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE	gnat_unsigned_type
+#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gnat_signed_or_unsigned_type
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -154,13 +181,7 @@ const char *const tree_code_name[] = {
 extern int gnat_argc;
 extern char **gnat_argv;
 
-/* Global Variables Expected by gcc: */
-
-int ggc_p = 1;
-
 static void internal_error_function	PARAMS ((const char *, va_list *));
-static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
-						 enum expand_modifier));
 static void gnat_adjust_rli		PARAMS ((record_layout_info));
 
 /* Declare functions we use as part of startup.  */
@@ -168,11 +189,11 @@ extern void __gnat_initialize	PARAMS((void));
 extern void adainit		PARAMS((void));
 extern void _ada_gnat1drv	PARAMS((void));
 
-/* For most front-ends, this is the parser for the language.  For us, we
-   process the GNAT tree.  */
+/* The parser for the language.  For us, we process the GNAT tree.  */
 
-int
-yyparse ()
+static void
+gnat_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
   /* call the target specific initializations */
   __gnat_initialize();
@@ -184,8 +205,6 @@ yyparse ()
 
   /* Call the front end */
   _ada_gnat1drv ();
-
-  return 0;
 }
 
 /* Decode all the language specific options that cannot be decoded by GCC.
@@ -270,8 +289,8 @@ gnat_init_options ()
   gnat_argc = 1;
 }
 
-void
-lang_mark_tree (t)
+static void
+gnat_mark_tree (t)
      tree t;
 {
   switch (TREE_CODE (t))
@@ -358,9 +377,6 @@ gnat_init (filename)
      Define the additional tree codes here.  This isn't the best place to put
      it, but it's where g++ does it.  */
 
-  lang_expand_expr = gnat_expand_expr;
-  decl_printable_name = gnat_printable_name;
-
   gnat_init_decl_processing ();
 
   /* Add the input filename as the last argument.  */
@@ -372,9 +388,6 @@ gnat_init (filename)
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
-
-  /* Show we don't use the common language attributes.  */
-  lang_attribute_common = 0;
 
   set_lang_adjust_rli (gnat_adjust_rli);
   return filename;
@@ -404,18 +417,6 @@ gnat_init_gcc_eh ()
   if (dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif
-}
-
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in C.  */
-  return NULL_TREE;
 }
 
 /* Hooks for print-tree.c:  */
@@ -516,7 +517,7 @@ gnat_expand_expr (exp, target, tmode, modifier)
      tree exp;
      rtx target;
      enum machine_mode tmode;
-     enum expand_modifier modifier;
+     int modifier;  /* Actually an enum expand_modifier.  */
 {
   tree type = TREE_TYPE (exp);
   tree new;
@@ -812,14 +813,6 @@ gnat_get_alias_set (type)
 
 
   return -1;
-}
-
-/* Set default attributes for functions.  We do nothing.  */
-
-void
-insert_default_attributes (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
 }
 
 /* GNU_TYPE is a type. Determine if it should be passed by reference by

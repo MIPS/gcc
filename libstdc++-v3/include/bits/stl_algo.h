@@ -159,9 +159,9 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an overload used by find() for the Input Iterator case.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _Tp>
     inline _InputIter
@@ -175,9 +175,9 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an overload used by find_if() for the Input Iterator case.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _Predicate>
     inline _InputIter
@@ -191,9 +191,9 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an overload used by find() for the RAI case.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Tp>
     _RandomAccessIter
@@ -235,9 +235,9 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an overload used by find_if() for the RAI case.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Predicate>
     _RandomAccessIter
@@ -1087,10 +1087,10 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified unique_copy(_InputIter, _InputIter, _OutputIter)
    *  overloaded for output iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _OutputIter>
     _OutputIter
@@ -1110,10 +1110,10 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified unique_copy(_InputIter, _InputIter, _OutputIter)
    *  overloaded for forward iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _ForwardIter>
     _ForwardIter
@@ -1139,6 +1139,8 @@ namespace std
    *  Copies each element in the range @p [first,last) to the range
    *  beginning at @p result, except that only the first element is copied
    *  from groups of consecutive elements that compare equal.
+   *  unique_copy() is stable, so the relative order of elements that are
+   *  copied is unchanged.
   */
   template<typename _InputIter, typename _OutputIter>
     inline _OutputIter
@@ -1159,11 +1161,11 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified
    *  unique_copy(_InputIter, _InputIter, _OutputIter, _BinaryPredicate)
    *  overloaded for output iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _OutputIter, typename _BinaryPredicate>
     _OutputIter
@@ -1188,11 +1190,11 @@ namespace std
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified
    *  unique_copy(_InputIter, _InputIter, _OutputIter, _BinaryPredicate)
    *  overloaded for forward iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _InputIter, typename _ForwardIter, typename _BinaryPredicate>
     _ForwardIter
@@ -1301,10 +1303,10 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified reverse(_BidirectionalIter, _BidirectionalIter)
    *  overloaded for bidirectional iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _BidirectionalIter>
     void
@@ -1319,10 +1321,10 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is an uglified reverse(_BidirectionalIter, _BidirectionalIter)
    *  overloaded for bidirectional iterators.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     void
@@ -1389,9 +1391,10 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the rotate algorithm specialized on RAIs.
-   *  @endmaint
+   *  It returns the greatest common divisor of two integer values.
+   *  @endif
   */
   template<typename _EuclideanRingElement>
     _EuclideanRingElement
@@ -1406,9 +1409,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the rotate algorithm.
-   *  @endmaint
+   *  @endif
   */
   template<typename _ForwardIter>
     void
@@ -1439,9 +1442,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the rotate algorithm.
-   *  @endmaint
+   *  @endif
   */
   template<typename _BidirectionalIter>
     void
@@ -1472,9 +1475,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the rotate algorithm.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     void
@@ -1538,13 +1541,22 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Rotate the elements of a sequence.
    *  @param  first   A forward iterator.
    *  @param  middle  A forward iterator.
    *  @param  last    A forward iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Rotates the elements of the range @p [first,last) by @p (middle-first)
+   *  positions so that the element at @p middle is moved to @p first, the
+   *  element at @p middle+1 is moved to @first+1 and so on for each element
+   *  in the range @p [first,last).
+   *
+   *  This effectively swaps the ranges @p [first,middle) and
+   *  @p [middle,last).
+   *
+   *  Performs @p *(first+(n+(last-middle))%(last-first))=*(first+n) for
+   *  each @p n in the range @p [0,last-first).
   */
   template<typename _ForwardIter>
     inline void
@@ -1558,14 +1570,21 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Copy a sequence, rotating its elements.
    *  @param  first   A forward iterator.
    *  @param  middle  A forward iterator.
    *  @param  last    A forward iterator.
    *  @param  result  An output iterator.
-   *  @return  TODO
+   *  @return   An iterator designating the end of the resulting sequence.
    *
-   *  @doctodo
+   *  Copies the elements of the range @p [first,last) to the range
+   *  beginning at @result, rotating the copied elements by @p (middle-first)
+   *  positions so that the element at @p middle is moved to @p result, the
+   *  element at @p middle+1 is moved to @result+1 and so on for each element
+   *  in the range @p [first,last).
+   *
+   *  Performs @p *(result+(n+(last-middle))%(last-first))=*(first+n) for
+   *  each @p n in the range @p [0,last-first).
   */
   template<typename _ForwardIter, typename _OutputIter>
     _OutputIter
@@ -1582,13 +1601,13 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  Return a random number in the range [0, __n).  This function encapsulates
    *  whether we're using rand (part of the standard C library) or lrand48
    *  (not standard, but a much better choice whenever it's available).
    *
    *  XXX There is no corresponding encapsulation fn to seed the generator.
-   *  @endmaint
+   *  @endif
   */
   template<typename _Distance>
     inline _Distance
@@ -1603,12 +1622,14 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @brief TODO
+   *  @brief Randomly shuffle the elements of a sequence.
    *  @param  first   A forward iterator.
    *  @param  last    A forward iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Reorder the elements in the range @p [first,last) using a random
+   *  distribution, so that every possible ordering of the sequence is
+   *  equally likely.
   */
   template<typename _RandomAccessIter>
     inline void
@@ -1624,13 +1645,17 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Shuffle the elements of a sequence using a random number
+   *         generator.
    *  @param  first   A forward iterator.
    *  @param  last    A forward iterator.
    *  @param  rand    The RNG functor or function.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Reorders the elements in the range @p [first,last) using @p rand to
+   *  provide a random distribution. Calling @p rand(N) for a positive
+   *  integer @p N should return a randomly chosen integer from the
+   *  range [0,N).
   */
   template<typename _RandomAccessIter, typename _RandomNumberGenerator>
     void
@@ -1648,9 +1673,9 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _ForwardIter, typename _Predicate>
     _ForwardIter
@@ -1675,9 +1700,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _BidirectionalIter, typename _Predicate>
     _BidirectionalIter
@@ -1707,13 +1732,18 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Move elements for which a predicate is true to the beginning
+   *         of a sequence.
    *  @param  first   A forward iterator.
    *  @param  last    A forward iterator.
    *  @param  pred    A predicate functor.
-   *  @return  TODO
-   *
-   *  @doctodo
+   *  @return  An iterator @p middle such that @p pred(i) is true for each
+   *  iterator @p i in the range @p [first,middle) and false for each @p i
+   *  in the range @p [middle,last).
+   *  
+   *  @p pred must not modify its operand. @p partition() does not preserve
+   *  the relative ordering of elements in each group, use
+   *  @p stable_partition() if this is needed.
   */
   template<typename _ForwardIter, typename _Predicate>
     inline _ForwardIter
@@ -1730,9 +1760,9 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _ForwardIter, typename _Predicate, typename _Distance>
     _ForwardIter
@@ -1755,9 +1785,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _ForwardIter, typename _Pointer, typename _Predicate,
 	   typename _Distance>
@@ -1800,13 +1830,20 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Move elements for which a predicate is true to the beginning
+   *         of a sequence, preserving relative ordering.
    *  @param  first   A forward iterator.
    *  @param  last    A forward iterator.
    *  @param  pred    A predicate functor.
-   *  @return  TODO
-   *
-   *  @doctodo
+   *  @return  An iterator @p middle such that @p pred(i) is true for each
+   *  iterator @p i in the range @p [first,middle) and false for each @p i
+   *  in the range @p [middle,last).
+   *  
+   *  Performs the same function as @p partition() with the additional
+   *  guarantee that the relative ordering of elements in each group is
+   *  preserved, so any two elements @p x and @p y in the range
+   *  @p [first,last) such that @p pred(x)==pred(y) will have the same
+   *  relative ordering after calling @p stable_partition().
   */
   template<typename _ForwardIter, typename _Predicate>
     _ForwardIter
@@ -1837,9 +1874,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Tp>
     _RandomAccessIter
@@ -1860,9 +1897,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function...
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Tp, typename _Compare>
     _RandomAccessIter
@@ -1884,17 +1921,17 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  @doctodo
    *  This controls some aspect of the sort routines.
-   *  @endmaint
+   *  @endif
   */
   enum { _M_threshold = 16 };
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Tp>
     void
@@ -1911,9 +1948,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Tp, typename _Compare>
     void
@@ -1930,9 +1967,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     void
@@ -1953,9 +1990,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Compare>
     void
@@ -1977,9 +2014,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     inline void
@@ -1992,9 +2029,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Compare>
     inline void
@@ -2008,9 +2045,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     void
@@ -2025,9 +2062,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Compare>
     void
@@ -2043,9 +2080,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _Size>
     inline _Size
@@ -2057,9 +2094,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Size>
     void
@@ -2085,9 +2122,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the sort routine.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Size, typename _Compare>
     void
@@ -2114,12 +2151,17 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the elements of a sequence.
    *  @param  first   An iterator.
    *  @param  last    Another iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the elements in the range @p [first,last) in ascending order,
+   *  such that @p *(i+1)<*i is false for each iterator @p i in the range
+   *  @p [first,last-1).
+   *
+   *  The relative ordering of equivalent elements is not preserved, use
+   *  @p stable_sort() if this is needed.
   */
   template<typename _RandomAccessIter>
     inline void
@@ -2139,13 +2181,18 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the elements of a sequence using a predicate for comparison.
    *  @param  first   An iterator.
    *  @param  last    Another iterator.
    *  @param  comp    A comparison functor.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the elements in the range @p [first,last) in ascending order,
+   *  such that @p comp(*(i+1),*i) is false for every iterator @p i in the
+   *  range @p [first,last-1).
+   *
+   *  The relative ordering of equivalent elements is not preserved, use
+   *  @p stable_sort() if this is needed.
   */
   template<typename _RandomAccessIter, typename _Compare>
     inline void
@@ -2166,9 +2213,9 @@ __result, __binary_pred, _IterType());
 
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the stable sorting routines.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter>
     void
@@ -2187,9 +2234,9 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @maint
+   *  @if maint
    *  This is a helper function for the stable sorting routines.
-   *  @endmaint
+   *  @endif
   */
   template<typename _RandomAccessIter, typename _Compare>
     void
@@ -2365,12 +2412,20 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the elements of a sequence, preserving the relative order
+   *         of equivalent elements.
    *  @param  first   An iterator.
    *  @param  last    Another iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the elements in the range @p [first,last) in ascending order,
+   *  such that @p *(i+1)<*i is false for each iterator @p i in the range
+   *  @p [first,last-1).
+   *
+   *  The relative ordering of equivalent elements is preserved, so any two
+   *  elements @p x and @p y in the range @p [first,last) such that
+   *  @p x<y is false and @p y<x is false will have the same relative
+   *  ordering after calling @p stable_sort().
   */
   template<typename _RandomAccessIter>
     inline void
@@ -2392,13 +2447,21 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the elements of a sequence using a predicate for comparison,
+   *         preserving the relative order of equivalent elements.
    *  @param  first   An iterator.
    *  @param  last    Another iterator.
    *  @param  comp    A comparison functor.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the elements in the range @p [first,last) in ascending order,
+   *  such that @p comp(*(i+1),*i) is false for each iterator @p i in the
+   *  range @p [first,last-1).
+   *
+   *  The relative ordering of equivalent elements is preserved, so any two
+   *  elements @p x and @p y in the range @p [first,last) such that
+   *  @p comp(x,y) is false and @p comp(y,x) is false will have the same
+   *  relative ordering after calling @p stable_sort().
   */
   template<typename _RandomAccessIter, typename _Compare>
     inline void
@@ -2422,13 +2485,19 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the smallest elements of a sequence.
    *  @param  first   An iterator.
    *  @param  middle  Another iterator.
    *  @param  last    Another iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the smallest @p (middle-first) elements in the range
+   *  @p [first,last) and moves them to the range @p [first,middle). The
+   *  order of the remaining elements in the range @p [middle,last) is
+   *  undefined.
+   *  After the sort if @p i and @j are iterators in the range
+   *  @p [first,middle) such that @i precedes @j and @k is an iterator in
+   *  the range @p [middle,last) then @p *j<*i and @p *k<*i are both false.
   */
   template<typename _RandomAccessIter>
     void
@@ -2451,14 +2520,22 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort the smallest elements of a sequence using a predicate
+   *         for comparison.
    *  @param  first   An iterator.
    *  @param  middle  Another iterator.
    *  @param  last    Another iterator.
    *  @param  comp    A comparison functor.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Sorts the smallest @p (middle-first) elements in the range
+   *  @p [first,last) and moves them to the range @p [first,middle). The
+   *  order of the remaining elements in the range @p [middle,last) is
+   *  undefined.
+   *  After the sort if @p i and @j are iterators in the range
+   *  @p [first,middle) such that @i precedes @j and @k is an iterator in
+   *  the range @p [middle,last) then @p *comp(j,*i) and @p comp(*k,*i)
+   *  are both false.
   */
   template<typename _RandomAccessIter, typename _Compare>
     void
@@ -2483,14 +2560,21 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
-   *  @param  first   An input iterator.
-   *  @param  last    Another input iterator.
+   *  @brief Copy the smallest elements of a sequence.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
    *  @param  result_first   A random-access iterator.
    *  @param  result_last    Another random-access iterator.
-   *  @return  TODO
+   *  @return   An iterator indicating the end of the resulting sequence.
    *
-   *  @doctodo
+   *  Copies and sorts the smallest N values from the range @p [first,last)
+   *  to the range beginning at @p result_first, where the number of
+   *  elements to be copied, @p N, is the smaller of @p (last-first) and
+   *  @p (result_last-result_first).
+   *  After the sort if @p i and @j are iterators in the range
+   *  @p [result_first,result_first+N) such that @i precedes @j then
+   *  @p *j<*i is false.
+   *  The value returned is @p result_first+N.
   */
   template<typename _InputIter, typename _RandomAccessIter>
     _RandomAccessIter
@@ -2528,15 +2612,23 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Copy the smallest elements of a sequence using a predicate for
+   *         comparison.
    *  @param  first   An input iterator.
    *  @param  last    Another input iterator.
    *  @param  result_first   A random-access iterator.
    *  @param  result_last    Another random-access iterator.
    *  @param  comp    A comparison functor.
-   *  @return  TODO
+   *  @return   An iterator indicating the end of the resulting sequence.
    *
-   *  @doctodo
+   *  Copies and sorts the smallest N values from the range @p [first,last)
+   *  to the range beginning at @p result_first, where the number of
+   *  elements to be copied, @p N, is the smaller of @p (last-first) and
+   *  @p (result_last-result_first).
+   *  After the sort if @p i and @j are iterators in the range
+   *  @p [result_first,result_first+N) such that @i precedes @j then
+   *  @p comp(*j,*i) is false.
+   *  The value returned is @p result_first+N.
   */
   template<typename _InputIter, typename _RandomAccessIter, typename _Compare>
     _RandomAccessIter
@@ -2577,13 +2669,19 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort a sequence just enough to find a particular position.
    *  @param  first   An iterator.
    *  @param  nth     Another iterator.
    *  @param  last    Another iterator.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Rearranges the elements in the range @p [first,last) so that @p *nth
+   *  is the same element that would have been in that position had the
+   *  whole sequence been sorted. 
+   *  whole sequence been sorted. The elements either side of @p *nth are
+   *  not completely sorted, but for any iterator @i in the range
+   *  @p [first,nth) and any iterator @j in the range @p [nth,last) it
+   *  holds that @p *j<*i is false.
   */
   template<typename _RandomAccessIter>
     void
@@ -2612,14 +2710,20 @@ __result, __binary_pred, _IterType());
     }
 
   /**
-   *  @brief TODO
+   *  @brief Sort a sequence just enough to find a particular position
+   *         using a predicate for comparison.
    *  @param  first   An iterator.
    *  @param  nth     Another iterator.
    *  @param  last    Another iterator.
    *  @param  comp    A comparison functor.
    *  @return  Nothing.
    *
-   *  @doctodo
+   *  Rearranges the elements in the range @p [first,last) so that @p *nth
+   *  is the same element that would have been in that position had the
+   *  whole sequence been sorted. The elements either side of @p *nth are
+   *  not completely sorted, but for any iterator @i in the range
+   *  @p [first,nth) and any iterator @j in the range @p [nth,last) it
+   *  holds that @p comp(*j,*i) is false.
   */
   template<typename _RandomAccessIter, typename _Compare>
     void
@@ -2652,8 +2756,15 @@ __result, __binary_pred, _IterType());
     }
 
 
-  // Binary search (lower_bound, upper_bound, equal_range, binary_search).
-
+  /**
+   *  @brief Finds the first position in which @a val could be inserted
+   *         without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @return  An iterator pointing to the first element "not less than" @a val.
+   *  @ingroup binarysearch
+  */
   template<typename _ForwardIter, typename _Tp>
     _ForwardIter
     lower_bound(_ForwardIter __first, _ForwardIter __last, const _Tp& __val)
@@ -2689,6 +2800,19 @@ __result, __binary_pred, _IterType());
       return __first;
     }
 
+  /**
+   *  @brief Finds the first position in which @a val could be inserted
+   *         without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  An iterator pointing to the first element "not less than" @a val.
+   *  @ingroup binarysearch
+   *
+   *  The comparison function should have the same effects on ordering as
+   *  the function used for the initial sort.
+  */
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     _ForwardIter
     lower_bound(_ForwardIter __first, _ForwardIter __last,
@@ -2720,6 +2844,15 @@ __result, __binary_pred, _IterType());
       return __first;
     }
 
+  /**
+   *  @brief Finds the last position in which @a val could be inserted
+   *         without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @return  An iterator pointing to the first element greater than @a val.
+   *  @ingroup binarysearch
+  */
   template<typename _ForwardIter, typename _Tp>
     _ForwardIter
     upper_bound(_ForwardIter __first, _ForwardIter __last, const _Tp& __val)
@@ -2752,6 +2885,19 @@ __result, __binary_pred, _IterType());
       return __first;
     }
 
+  /**
+   *  @brief Finds the last position in which @a val could be inserted
+   *         without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  An iterator pointing to the first element greater than @a val.
+   *  @ingroup binarysearch
+   *
+   *  The comparison function should have the same effects on ordering as
+   *  the function used for the initial sort.
+  */
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     _ForwardIter
     upper_bound(_ForwardIter __first, _ForwardIter __last,
@@ -2783,6 +2929,22 @@ __result, __binary_pred, _IterType());
       return __first;
     }
 
+  /**
+   *  @brief Finds the largest subrange in which @a val could be inserted
+   *         at any place in it without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @return  An pair of iterators defining the subrange.
+   *  @ingroup binarysearch
+   *
+   *  This is equivalent to
+   *  @code
+   *    std::make_pair(lower_bound(first, last, val),
+   *                   upper_bound(first, last, val))
+   *  @endcode
+   *  but does not actually call those functions.
+  */
   template<typename _ForwardIter, typename _Tp>
     pair<_ForwardIter, _ForwardIter>
     equal_range(_ForwardIter __first, _ForwardIter __last, const _Tp& __val)
@@ -2821,6 +2983,23 @@ __result, __binary_pred, _IterType());
       return pair<_ForwardIter, _ForwardIter>(__first, __first);
     }
 
+  /**
+   *  @brief Finds the largest subrange in which @a val could be inserted
+   *         at any place in it without changing the ordering.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  An pair of iterators defining the subrange.
+   *  @ingroup binarysearch
+   *
+   *  This is equivalent to
+   *  @code
+   *    std::make_pair(lower_bound(first, last, val, comp),
+   *                   upper_bound(first, last, val, comp))
+   *  @endcode
+   *  but does not actually call those functions.
+  */
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     pair<_ForwardIter, _ForwardIter>
     equal_range(_ForwardIter __first, _ForwardIter __last, const _Tp& __val,
@@ -2859,6 +3038,17 @@ __result, __binary_pred, _IterType());
       return pair<_ForwardIter, _ForwardIter>(__first, __first);
     }
 
+  /**
+   *  @brief Determines whether an element exists in a range.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @return  True if @a val (or its equivelent) is in [@a first,@a last ].
+   *  @ingroup binarysearch
+   *
+   *  Note that this does not actually return an iterator to @a val.  For
+   *  that, use std::find or a container's specialized find member functions.
+  */
   template<typename _ForwardIter, typename _Tp>
     bool
     binary_search(_ForwardIter __first, _ForwardIter __last,
@@ -2875,6 +3065,21 @@ __result, __binary_pred, _IterType());
       return __i != __last && !(__val < *__i);
     }
 
+  /**
+   *  @brief Determines whether an element exists in a range.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  val     The search term.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  True if @a val (or its equivelent) is in [@a first,@a last ].
+   *  @ingroup binarysearch
+   *
+   *  Note that this does not actually return an iterator to @a val.  For
+   *  that, use std::find or a container's specialized find member functions.
+   *
+   *  The comparison function should have the same effects on ordering as
+   *  the function used for the initial sort.
+  */
   template<typename _ForwardIter, typename _Tp, typename _Compare>
     bool
     binary_search(_ForwardIter __first, _ForwardIter __last,
@@ -2891,8 +3096,22 @@ __result, __binary_pred, _IterType());
       return __i != __last && !__comp(__val, *__i);
     }
 
-  // merge, with and without an explicitly supplied comparison function.
-
+  /**
+   *  @brief Merges two sorted ranges.
+   *  @param  first1  An iterator.
+   *  @param  first2  Another iterator.
+   *  @param  last1   Another iterator.
+   *  @param  last2   Another iterator.
+   *  @param  result  An iterator pointing to the end of the merged range.
+   *  @return  An iterator pointing to the first element "not less than" @a val.
+   *
+   *  Merges the ranges [first1,last1) and [first2,last2) into the sorted range
+   *  [result, result + (last1-first1) + (last2-first2)).  Both input ranges
+   *  must be sorted, and the output range must not overlap with either of
+   *  the input ranges.  The sort is @e stable, that is, for equivalent
+   *  elements in the two ranges, elements from the first range will always
+   *  come before elements from the second.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _OutputIter>
     _OutputIter
     merge(_InputIter1 __first1, _InputIter1 __last1,
@@ -2924,6 +3143,26 @@ __result, __binary_pred, _IterType());
       return copy(__first2, __last2, copy(__first1, __last1, __result));
     }
 
+  /**
+   *  @brief Merges two sorted ranges.
+   *  @param  first1  An iterator.
+   *  @param  first2  Another iterator.
+   *  @param  last1   Another iterator.
+   *  @param  last2   Another iterator.
+   *  @param  result  An iterator pointing to the end of the merged range.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  An iterator pointing to the first element "not less than" @a val.
+   *
+   *  Merges the ranges [first1,last1) and [first2,last2) into the sorted range
+   *  [result, result + (last1-first1) + (last2-first2)).  Both input ranges
+   *  must be sorted, and the output range must not overlap with either of
+   *  the input ranges.  The sort is @e stable, that is, for equivalent
+   *  elements in the two ranges, elements from the first range will always
+   *  come before elements from the second.
+   *
+   *  The comparison function should have the same effects on ordering as
+   *  the function used for the initial sort.
+  */
   template<typename _InputIter1, typename _InputIter2, typename _OutputIter,
 	   typename _Compare>
     _OutputIter
@@ -2957,8 +3196,11 @@ __result, __binary_pred, _IterType());
       return copy(__first2, __last2, copy(__first1, __last1, __result));
     }
 
-  // inplace_merge and its auxiliary functions.
-
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter, typename _Distance>
     void
     __merge_without_buffer(_BidirectionalIter __first,
@@ -2998,6 +3240,11 @@ __result, __binary_pred, _IterType());
 			     __len1 - __len11, __len2 - __len22);
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter, typename _Distance, typename _Compare>
     void
     __merge_without_buffer(_BidirectionalIter __first,
@@ -3038,6 +3285,11 @@ __result, __binary_pred, _IterType());
 			     __len1 - __len11, __len2 - __len22, __comp);
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter1, typename _BidirectionalIter2,
 	   typename _Distance>
     _BidirectionalIter1
@@ -3066,6 +3318,11 @@ __result, __binary_pred, _IterType());
       }
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter1, typename _BidirectionalIter2,
 	   typename _BidirectionalIter3>
     _BidirectionalIter3
@@ -3095,6 +3352,11 @@ __result, __binary_pred, _IterType());
       }
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter1, typename _BidirectionalIter2,
 	   typename _BidirectionalIter3, typename _Compare>
     _BidirectionalIter3
@@ -3125,6 +3387,11 @@ __result, __binary_pred, _IterType());
       }
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter, typename _Distance, typename _Pointer>
     void
     __merge_adaptive(_BidirectionalIter __first,
@@ -3169,6 +3436,11 @@ __result, __binary_pred, _IterType());
 	  }
     }
 
+  /**
+   *  @if maint
+   *  This is a helper function for the merge routines.
+   *  @endif
+  */
   template<typename _BidirectionalIter, typename _Distance, typename _Pointer,
 	   typename _Compare>
     void
@@ -3216,6 +3488,23 @@ __result, __binary_pred, _IterType());
 	  }
     }
 
+  /**
+   *  @brief Merges two sorted ranges in place.
+   *  @param  first   An iterator.
+   *  @param  middle  Another iterator.
+   *  @param  last    Another iterator.
+   *  @return  Nothing.
+   *
+   *  Merges two sorted and consecutive ranges, [first,middle) and
+   *  [middle,last), and puts the result in [first,last).  The output will
+   *  be sorted.  The sort is @e stable, that is, for equivalent
+   *  elements in the two ranges, elements from the first range will always
+   *  come before elements from the second.
+   *
+   *  If enough additional memory is available, this takes (last-first)-1
+   *  comparisons.  Otherwise an NlogN algorithm is used, where N is
+   *  distance(first,last).
+  */
   template<typename _BidirectionalIter>
     void
     inplace_merge(_BidirectionalIter __first,
@@ -3246,6 +3535,27 @@ __result, __binary_pred, _IterType());
 			 __buf.begin(), _DistanceType(__buf.size()));
     }
 
+  /**
+   *  @brief Merges two sorted ranges in place.
+   *  @param  first   An iterator.
+   *  @param  middle  Another iterator.
+   *  @param  last    Another iterator.
+   *  @param  comp    A functor to use for comparisons.
+   *  @return  Nothing.
+   *
+   *  Merges two sorted and consecutive ranges, [first,middle) and
+   *  [middle,last), and puts the result in [first,last).  The output will
+   *  be sorted.  The sort is @e stable, that is, for equivalent
+   *  elements in the two ranges, elements from the first range will always
+   *  come before elements from the second.
+   *
+   *  If enough additional memory is available, this takes (last-first)-1
+   *  comparisons.  Otherwise an NlogN algorithm is used, where N is
+   *  distance(first,last).
+   *
+   *  The comparison function should have the same effects on ordering as
+   *  the function used for the initial sort.
+  */
   template<typename _BidirectionalIter, typename _Compare>
     void
     inplace_merge(_BidirectionalIter __first,

@@ -4,7 +4,6 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision: 1.4.8.1 $
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *

@@ -262,6 +262,13 @@ struct _ffecom_concat_list_
 
 /* Static functions (internal). */
 
+static tree ffe_type_for_mode PARAMS ((enum machine_mode, int));
+static tree ffe_type_for_size PARAMS ((unsigned int, int));
+static tree ffe_unsigned_type PARAMS ((tree));
+static tree ffe_signed_type PARAMS ((tree));
+static tree ffe_signed_or_unsigned_type PARAMS ((int, tree));
+static bool ffe_mark_addressable PARAMS ((tree));
+static tree ffe_truthvalue_conversion PARAMS ((tree));
 static void ffecom_init_decl_processing PARAMS ((void));
 static tree ffecom_arglist_expr_ (const char *argstring, ffebld args);
 static tree ffecom_widest_expr_type_ (ffebld list);
@@ -365,7 +372,8 @@ static void delete_block (tree block);
 static int duplicate_decls (tree newdecl, tree olddecl);
 static void finish_decl (tree decl, tree init, bool is_top_level);
 static void finish_function (int nested);
-static const char *lang_printable_name (tree decl, int v);
+static const char *ffe_printable_name (tree decl, int v);
+static void ffe_print_error_function (diagnostic_context *, const char *);
 static tree lookup_name_current_level (tree name);
 static struct f_binding_level *make_binding_level (void);
 static void pop_f_function_context (void);
@@ -849,7 +857,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 	return item;
 
       if (ffeinfo_where (ffebld_info (expr)) == FFEINFO_whereFLEETING
-	  && ! mark_addressable (item))
+	  && ! ffe_mark_addressable (item))
 	return error_mark_node;
     }
 
@@ -2257,8 +2265,13 @@ ffecom_check_size_overflow_ (ffesymbol s, tree type, bool dummy)
   if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
     return type;
 
+  /* An array is too large if size is negative or the type_size overflows
+     or its "upper half" is larger than 3 (which would make the signed
+     byte size and offset computations overflow).  */
+
   if ((tree_int_cst_sgn (TYPE_SIZE (type)) < 0)
-      || (!dummy && TREE_OVERFLOW (TYPE_SIZE (type))))
+      || (!dummy && (TREE_INT_CST_HIGH (TYPE_SIZE (type)) > 3
+	             || TREE_OVERFLOW (TYPE_SIZE (type)))))
     {
       ffebad_start (FFEBAD_ARRAY_LARGE);
       ffebad_string (ffesymbol_text (s));
@@ -5585,7 +5598,7 @@ ffecom_expr_power_integer_ (ffebld expr)
     basetypeof_l_is_int
       = build_int_2 ((TREE_CODE (ltype) == INTEGER_TYPE), 0);
 
-    se = expand_start_stmt_expr ();
+    se = expand_start_stmt_expr (/*has_scope=*/1);
 
     ffecom_start_compstmt ();
 
@@ -9497,7 +9510,7 @@ ffecom_1 (enum tree_code code, tree type, tree node)
 
   if (code == ADDR_EXPR)
     {
-      if (!mark_addressable (node))
+      if (!ffe_mark_addressable (node))
 	assert ("can't mark_addressable this node!" == NULL);
     }
 
@@ -12977,7 +12990,7 @@ ffecom_temp_label ()
 tree
 ffecom_truth_value (tree expr)
 {
-  return truthvalue_conversion (expr);
+  return ffe_truthvalue_conversion (expr);
 }
 
 /* Return the inversion of a truth value (the inversion of what
@@ -13607,7 +13620,7 @@ finish_function (int nested)
    nested function and all).  */
 
 static const char *
-lang_printable_name (tree decl, int v)
+ffe_printable_name (tree decl, int v)
 {
   /* Just to keep GCC quiet about the unused variable.
      In theory, differing values of V should produce different
@@ -13625,8 +13638,8 @@ lang_printable_name (tree decl, int v)
    an error.  */
 
 static void
-lang_print_error_function (diagnostic_context *context __attribute__((unused)),
-                           const char *file)
+ffe_print_error_function (diagnostic_context *context __attribute__((unused)),
+			  const char *file)
 {
   static ffeglobal last_g = NULL;
   static ffesymbol last_s = NULL;
@@ -13905,7 +13918,7 @@ start_decl (tree decl, bool is_top_level)
 
    Returns 1 on success.  If the DECLARATOR is not suitable for a function
    (it defines a datum instead), we return 0, which tells
-   yyparse to report a parse error.
+   ffe_parse_file to report a parse error.
 
    NESTED is nonzero for a function nested within another function.  */
 
@@ -14041,21 +14054,6 @@ global_bindings_p ()
   return current_binding_level == global_binding_level;
 }
 
-/* Print an error message for invalid use of an incomplete type.
-   VALUE is the expression that was used (or 0 if that isn't known)
-   and TYPE is the type that was invalid.  */
-
-void
-incomplete_type_error (value, type)
-     tree value UNUSED;
-     tree type;
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return;
-
-  assert ("incomplete type?!?" == NULL);
-}
-
 static void
 ffecom_init_decl_processing ()
 {
@@ -14102,6 +14100,7 @@ static const char *ffe_init PARAMS ((const char *));
 static void ffe_finish PARAMS ((void));
 static void ffe_init_options PARAMS ((void));
 static void ffe_print_identifier PARAMS ((FILE *, tree, int));
+static void ffe_mark_tree (tree);
 
 struct language_function GTY(())
 {
@@ -14118,8 +14117,31 @@ struct language_function GTY(())
 #define LANG_HOOKS_INIT_OPTIONS		ffe_init_options
 #undef  LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION	ffe_decode_option
+#undef  LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE		ffe_parse_file
+#undef  LANG_HOOKS_MARK_TREE
+#define LANG_HOOKS_MARK_TREE		ffe_mark_tree
+#undef  LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE	ffe_mark_addressable
 #undef  LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER	ffe_print_identifier
+#undef  LANG_HOOKS_DECL_PRINTABLE_NAME
+#define LANG_HOOKS_DECL_PRINTABLE_NAME	ffe_printable_name
+#undef  LANG_HOOKS_PRINT_ERROR_FUNCTION
+#define LANG_HOOKS_PRINT_ERROR_FUNCTION ffe_print_error_function
+#undef  LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION ffe_truthvalue_conversion
+
+#undef  LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE	ffe_type_for_mode
+#undef  LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE	ffe_type_for_size
+#undef  LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE		ffe_signed_type
+#undef  LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE	ffe_unsigned_type
+#undef  LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE ffe_signed_or_unsigned_type
 
 /* We do not wish to use alias-set based aliasing at all.  Used in the
    extreme (every object with its own set, with equivalences recorded) it
@@ -14182,8 +14204,6 @@ ffe_init (filename)
 #endif
 
   ffecom_init_decl_processing ();
-  decl_printable_name = lang_printable_name;
-  print_error_function = lang_print_error_function;
 
   /* If the file is output from cpp, it should contain a first line
      `# 1 "real-filename"', and the current design of gcc (toplev.c
@@ -14224,8 +14244,8 @@ ffe_init_options ()
   flag_complex_divide_method = 1;
 }
 
-int
-mark_addressable (exp)
+static bool
+ffe_mark_addressable (exp)
      tree exp;
 {
   register tree x = exp;
@@ -14240,7 +14260,7 @@ mark_addressable (exp)
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (x) = 1;
-	return 1;
+	return true;
 
       case VAR_DECL:
       case CONST_DECL:
@@ -14252,7 +14272,7 @@ mark_addressable (exp)
 	    if (TREE_PUBLIC (x))
 	      {
 		assert ("address of global register var requested" == NULL);
-		return 0;
+		return false;
 	      }
 	    assert ("address of register variable requested" == NULL);
 	  }
@@ -14261,7 +14281,7 @@ mark_addressable (exp)
 	    if (TREE_PUBLIC (x))
 	      {
 		assert ("address of global register var requested" == NULL);
-		return 0;
+		return false;
 	      }
 	    assert ("address of register var requested" == NULL);
 	  }
@@ -14276,19 +14296,8 @@ mark_addressable (exp)
 #endif
 
       default:
-	return 1;
+	return true;
       }
-}
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl UNUSED;
-{
-  /* There are no cleanups in Fortran.  */
-  return NULL_TREE;
 }
 
 /* Exit a binding level.
@@ -14644,8 +14653,8 @@ set_block (block)
 					   BLOCK_SUBBLOCKS (block));
 }
 
-tree
-signed_or_unsigned_type (unsignedp, type)
+static tree
+ffe_signed_or_unsigned_type (unsignedp, type)
      int unsignedp;
      tree type;
 {
@@ -14665,15 +14674,15 @@ signed_or_unsigned_type (unsignedp, type)
     return (unsignedp ? long_long_unsigned_type_node
 	    : long_long_integer_type_node);
 
-  type2 = type_for_size (TYPE_PRECISION (type), unsignedp);
+  type2 = ffe_type_for_size (TYPE_PRECISION (type), unsignedp);
   if (type2 == NULL_TREE)
     return type;
 
   return type2;
 }
 
-tree
-signed_type (type)
+static tree
+ffe_signed_type (type)
      tree type;
 {
   tree type1 = TYPE_MAIN_VARIANT (type);
@@ -14701,7 +14710,7 @@ signed_type (type)
     return intQI_type_node;
 #endif
 
-  type2 = type_for_size (TYPE_PRECISION (type1), 0);
+  type2 = ffe_type_for_size (TYPE_PRECISION (type1), 0);
   if (type2 != NULL_TREE)
     return type2;
 
@@ -14727,8 +14736,8 @@ signed_type (type)
 
    The resulting type should always be `integer_type_node'.  */
 
-tree
-truthvalue_conversion (expr)
+static tree
+ffe_truthvalue_conversion (expr)
      tree expr;
 {
   if (TREE_CODE (expr) == ERROR_MARK)
@@ -14805,15 +14814,15 @@ truthvalue_conversion (expr)
       return ffecom_2 ((TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1))
 			? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
 		       integer_type_node,
-		       truthvalue_conversion (TREE_OPERAND (expr, 0)),
-		       truthvalue_conversion (TREE_OPERAND (expr, 1)));
+		       ffe_truthvalue_conversion (TREE_OPERAND (expr, 0)),
+		       ffe_truthvalue_conversion (TREE_OPERAND (expr, 1)));
 
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
       /* These don't change whether an object is non-zero or zero.  */
-      return truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
@@ -14821,15 +14830,15 @@ truthvalue_conversion (expr)
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build (COMPOUND_EXPR, integer_type_node, TREE_OPERAND (expr, 1),
-		      truthvalue_conversion (TREE_OPERAND (expr, 0)));
+		      ffe_truthvalue_conversion (TREE_OPERAND (expr, 0)));
       else
-	return truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold (build (COND_EXPR, integer_type_node, TREE_OPERAND (expr, 0),
-			  truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			  truthvalue_conversion (TREE_OPERAND (expr, 2))));
+			  ffe_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+			  ffe_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case CONVERT_EXPR:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
@@ -14842,7 +14851,7 @@ truthvalue_conversion (expr)
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-	return truthvalue_conversion (TREE_OPERAND (expr, 0));
+	return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
       break;
 
     case MINUS_EXPR:
@@ -14887,20 +14896,20 @@ truthvalue_conversion (expr)
 	    ((TREE_SIDE_EFFECTS (expr)
 	      ? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
 	     integer_type_node,
-	     truthvalue_conversion (ffecom_1 (REALPART_EXPR,
-					      TREE_TYPE (TREE_TYPE (expr)),
-					      expr)),
-	     truthvalue_conversion (ffecom_1 (IMAGPART_EXPR,
-					      TREE_TYPE (TREE_TYPE (expr)),
-					      expr))));
+	     ffe_truthvalue_conversion (ffecom_1 (REALPART_EXPR,
+						  TREE_TYPE (TREE_TYPE (expr)),
+						  expr)),
+	     ffe_truthvalue_conversion (ffecom_1 (IMAGPART_EXPR,
+						  TREE_TYPE (TREE_TYPE (expr)),
+						  expr))));
 
   return ffecom_2 (NE_EXPR, integer_type_node,
 		   expr,
 		   convert (TREE_TYPE (expr), integer_zero_node));
 }
 
-tree
-type_for_mode (mode, unsignedp)
+static tree
+ffe_type_for_mode (mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
@@ -14956,8 +14965,8 @@ type_for_mode (mode, unsignedp)
   return 0;
 }
 
-tree
-type_for_size (bits, unsignedp)
+static tree
+ffe_type_for_size (bits, unsignedp)
      unsigned bits;
      int unsignedp;
 {
@@ -14992,8 +15001,8 @@ type_for_size (bits, unsignedp)
   return 0;
 }
 
-tree
-unsigned_type (type)
+static tree
+ffe_unsigned_type (type)
      tree type;
 {
   tree type1 = TYPE_MAIN_VARIANT (type);
@@ -15021,7 +15030,7 @@ unsigned_type (type)
     return unsigned_intQI_type_node;
 #endif
 
-  type2 = type_for_size (TYPE_PRECISION (type1), 1);
+  type2 = ffe_type_for_size (TYPE_PRECISION (type1), 1);
   if (type2 != NULL_TREE)
     return type2;
 
@@ -15036,9 +15045,9 @@ unsigned_type (type)
   return type;
 }
 
-void
-lang_mark_tree (t)
-     union tree_node *t ATTRIBUTE_UNUSED;
+static void
+ffe_mark_tree (t)
+     tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)
     {

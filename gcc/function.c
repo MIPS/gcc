@@ -59,6 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tm_p.h"
 #include "integrate.h"
+#include "langhooks.h"
 
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
@@ -123,16 +124,12 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* These variables hold pointers to functions to create
+/* Assign unique numbers to labels generated for profiling.  */
+static int profile_label_no;
+
+/* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) PARAMS ((void));
-
-/* Likewise, but for language-specific data.  */
-void (*init_lang_status) PARAMS ((struct function *));
-void (*save_lang_status) PARAMS ((struct function *));
-void (*restore_lang_status) PARAMS ((struct function *));
-/* This is obsolete; do not set it.  */
-void (*free_lang_status) PARAMS ((struct function *));
 
 /* The FUNCTION_DECL for an inline function currently being expanded.  */
 tree inline_function_decl;
@@ -247,8 +244,9 @@ static void fixup_var_refs_insn PARAMS ((rtx, rtx, enum machine_mode,
 					 int, int, rtx));
 static void fixup_var_refs_1	PARAMS ((rtx, enum machine_mode, rtx *, rtx,
 					 struct fixup_replacement **, rtx));
-static rtx fixup_memory_subreg	PARAMS ((rtx, rtx, int));
-static rtx walk_fixup_memory_subreg  PARAMS ((rtx, rtx, int));
+static rtx fixup_memory_subreg	PARAMS ((rtx, rtx, enum machine_mode, int));
+static rtx walk_fixup_memory_subreg  PARAMS ((rtx, rtx, enum machine_mode, 
+					      int));
 static rtx fixup_stack_1	PARAMS ((rtx, rtx));
 static void optimize_bit_field	PARAMS ((rtx, rtx, rtx *));
 static void instantiate_decls	PARAMS ((tree, int));
@@ -320,7 +318,7 @@ find_function_data (decl)
 
 /* Save the current context for compilation of a nested function.
    This is called from language-specific code.  The caller should use
-   the save_lang_status callback to save any language-specific state,
+   the enter_nested langhook to save any language-specific state,
    since this function knows only about language-independent
    variables.  */
 
@@ -349,8 +347,7 @@ push_function_context_to (context)
   outer_function_chain = p;
   p->fixup_var_refs_queue = 0;
 
-  if (save_lang_status)
-    (*save_lang_status) (p);
+  (*lang_hooks.function.enter_nested) (p);
 
   cfun = 0;
 }
@@ -379,8 +376,7 @@ pop_function_context_from (context)
 
   restore_emit_status (p);
 
-  if (restore_lang_status)
-    (*restore_lang_status) (p);
+  (*lang_hooks.function.leave_nested) (p);
 
   /* Finish doing put_var_into_stack for any of our variables which became
      addressable during the nested function.  If only one entry has to be
@@ -433,8 +429,7 @@ free_after_parsing (f)
   /* f->varasm is used by code generation.  */
   /* f->eh->eh_return_stub_label is used by code generation.  */
 
-  if (free_lang_status)
-    (*free_lang_status) (f);
+  (*lang_hooks.function.final) (f);
   f->stmt = NULL;
 }
 
@@ -543,7 +538,7 @@ assign_stack_local_1 (mode, size, align, function)
 
       /* Allow the target to (possibly) increase the alignment of this
 	 stack slot.  */
-      type = type_for_mode (mode, 0);
+      type = (*lang_hooks.types.type_for_mode) (mode, 0);
       if (type)
 	alignment = LOCAL_ALIGNMENT (type, alignment);
 
@@ -662,7 +657,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
     align = GET_MODE_ALIGNMENT (mode);
 
   if (! type)
-    type = type_for_mode (mode, 0);
+    type = (*lang_hooks.types.type_for_mode) (mode, 0);
 
   if (type)
     align = LOCAL_ALIGNMENT (type, align);
@@ -832,7 +827,10 @@ assign_stack_temp (mode, size, keep)
   return assign_stack_temp_for_type (mode, size, keep, NULL_TREE);
 }
 
-/* Assign a temporary of given TYPE.
+/* Assign a temporary.
+   If TYPE_OR_DECL is a decl, then we are doing it on behalf of the decl
+   and so that should be used in error messages.  In either case, we
+   allocate of the given type.
    KEEP is as for assign_stack_temp.
    MEMORY_REQUIRED is 1 if the result must be addressable stack memory;
    it is 0 if a register is OK.
@@ -840,15 +838,26 @@ assign_stack_temp (mode, size, keep)
    to wider modes.  */
 
 rtx
-assign_temp (type, keep, memory_required, dont_promote)
-     tree type;
+assign_temp (type_or_decl, keep, memory_required, dont_promote)
+     tree type_or_decl;
      int keep;
      int memory_required;
      int dont_promote ATTRIBUTE_UNUSED;
 {
-  enum machine_mode mode = TYPE_MODE (type);
+  tree type, decl;
+  enum machine_mode mode;
 #ifndef PROMOTE_FOR_CALL_ONLY
-  int unsignedp = TREE_UNSIGNED (type);
+  int unsignedp;
+#endif
+
+  if (DECL_P (type_or_decl))
+    decl = type_or_decl, type = TREE_TYPE (decl);
+  else
+    decl = NULL, type = type_or_decl;
+
+  mode = TYPE_MODE (type);
+#ifndef PROMOTE_FOR_CALL_ONLY
+  unsignedp = TREE_UNSIGNED (type);
 #endif
 
   if (mode == BLKmode || memory_required)
@@ -869,6 +878,17 @@ assign_temp (type, keep, memory_required, dont_promote)
 	  && TYPE_ARRAY_MAX_SIZE (type) != NULL_TREE
 	  && host_integerp (TYPE_ARRAY_MAX_SIZE (type), 1))
 	size = tree_low_cst (TYPE_ARRAY_MAX_SIZE (type), 1);
+
+      /* The size of the temporary may be too large to fit into an integer.  */
+      /* ??? Not sure this should happen except for user silliness, so limit
+	 this to things that aren't compiler-generated temporaries.  The 
+	 rest of the time we'll abort in assign_stack_temp_for_type.  */
+      if (decl && size == -1
+	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
+	{
+	  error_with_decl (decl, "size of variable `%s' is too large");
+	  size = 1;
+	}
 
       tmp = assign_stack_temp_for_type (mode, size, keep, type);
       return tmp;
@@ -1402,7 +1422,7 @@ put_var_into_stack (decl)
 	 to the whole CONCAT, lest we do double fixups for the latter
 	 references.  */
       enum machine_mode part_mode = GET_MODE (XEXP (reg, 0));
-      tree part_type = type_for_mode (part_mode, 0);
+      tree part_type = (*lang_hooks.types.type_for_mode) (part_mode, 0);
       rtx lopart = XEXP (reg, 0);
       rtx hipart = XEXP (reg, 1);
 #ifdef FRAME_GROWS_DOWNWARD
@@ -1831,7 +1851,8 @@ fixup_var_refs_insn (insn, var, promoted_mode, unsignedp, toplevel, no_share)
 	      /* OLD might be a (subreg (mem)).  */
 	      if (GET_CODE (replacements->old) == SUBREG)
 		replacements->old
-		  = fixup_memory_subreg (replacements->old, insn, 0);
+		  = fixup_memory_subreg (replacements->old, insn, 
+					 promoted_mode, 0);
 	      else
 		replacements->old
 		  = fixup_stack_1 (replacements->old, insn);
@@ -1871,7 +1892,8 @@ fixup_var_refs_insn (insn, var, promoted_mode, unsignedp, toplevel, no_share)
     {
       if (GET_CODE (note) != INSN_LIST)
 	XEXP (note, 0)
-	  = walk_fixup_memory_subreg (XEXP (note, 0), insn, 1);
+	  = walk_fixup_memory_subreg (XEXP (note, 0), insn,
+				      promoted_mode, 1);
       note = XEXP (note, 1);
     }
 }
@@ -2042,7 +2064,7 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 		  return;
 		}
 	      else
-		tem = fixup_memory_subreg (tem, insn, 0);
+		tem = fixup_memory_subreg (tem, insn, promoted_mode, 0);
 	    }
 	  else
 	    tem = fixup_stack_1 (tem, insn);
@@ -2157,7 +2179,8 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	      return;
 	    }
 
-	  replacement->new = *loc = fixup_memory_subreg (x, insn, 0);
+	  replacement->new = *loc = fixup_memory_subreg (x, insn, 
+							 promoted_mode, 0);
 
 	  INSN_CODE (insn) = -1;
 	  if (! flag_force_mem && recog_memoized (insn) >= 0)
@@ -2248,7 +2271,7 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	       This was legitimate when the MEM was a REG.  */
 	    if (GET_CODE (tem) == SUBREG
 		&& SUBREG_REG (tem) == var)
-	      tem = fixup_memory_subreg (tem, insn, 0);
+	      tem = fixup_memory_subreg (tem, insn, promoted_mode, 0);
 	    else
 	      tem = fixup_stack_1 (tem, insn);
 
@@ -2332,15 +2355,30 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	  {
 	    rtx pat, last;
 
-	    replacement = find_fixup_replacement (replacements, SET_SRC (x));
-	    if (replacement->new)
-	      SET_SRC (x) = replacement->new;
-	    else if (GET_CODE (SET_SRC (x)) == SUBREG)
-	      SET_SRC (x) = replacement->new
-		= fixup_memory_subreg (SET_SRC (x), insn, 0);
+	    if (GET_CODE (SET_SRC (x)) == SUBREG
+		&& (GET_MODE_SIZE (GET_MODE (SET_SRC (x)))
+		    > GET_MODE_SIZE (GET_MODE (var))))
+	      {
+		/* This (subreg VAR) is now a paradoxical subreg.  We need
+		   to replace VAR instead of the subreg.  */
+		replacement = find_fixup_replacement (replacements, var);
+		if (replacement->new == NULL_RTX)
+		  replacement->new = gen_reg_rtx (GET_MODE (var));
+		SUBREG_REG (SET_SRC (x)) = replacement->new;
+	      }
 	    else
-	      SET_SRC (x) = replacement->new
-		= fixup_stack_1 (SET_SRC (x), insn);
+	      {
+		replacement = find_fixup_replacement (replacements, SET_SRC (x));
+		if (replacement->new)
+		  SET_SRC (x) = replacement->new;
+		else if (GET_CODE (SET_SRC (x)) == SUBREG)
+		  SET_SRC (x) = replacement->new
+		    = fixup_memory_subreg (SET_SRC (x), insn, promoted_mode,
+					   0);
+		else
+		  SET_SRC (x) = replacement->new
+		    = fixup_stack_1 (SET_SRC (x), insn);
+	      }
 
 	    if (recog_memoized (insn) >= 0)
 	      return;
@@ -2389,7 +2427,8 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	    rtx pat, last;
 
 	    if (GET_CODE (SET_DEST (x)) == SUBREG)
-	      SET_DEST (x) = fixup_memory_subreg (SET_DEST (x), insn, 0);
+	      SET_DEST (x) = fixup_memory_subreg (SET_DEST (x), insn, 
+						  promoted_mode, 0);
 	    else
 	      SET_DEST (x) = fixup_stack_1 (SET_DEST (x), insn);
 
@@ -2434,6 +2473,7 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	  {
 	    rtx temp;
 	    rtx fixeddest = SET_DEST (x);
+	    enum machine_mode temp_mode;
 
 	    /* STRICT_LOW_PART can be discarded, around a MEM.  */
 	    if (GET_CODE (fixeddest) == STRICT_LOW_PART)
@@ -2441,13 +2481,17 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
 	    /* Convert (SUBREG (MEM)) to a MEM in a changed mode.  */
 	    if (GET_CODE (fixeddest) == SUBREG)
 	      {
-		fixeddest = fixup_memory_subreg (fixeddest, insn, 0);
-		promoted_mode = GET_MODE (fixeddest);
+		fixeddest = fixup_memory_subreg (fixeddest, insn, 
+						 promoted_mode, 0);
+		temp_mode = GET_MODE (fixeddest);
 	      }
 	    else
-	      fixeddest = fixup_stack_1 (fixeddest, insn);
+	      {
+		fixeddest = fixup_stack_1 (fixeddest, insn);
+		temp_mode = promoted_mode;
+	      }
 
-	    temp = gen_reg_rtx (promoted_mode);
+	    temp = gen_reg_rtx (temp_mode);
 
 	    emit_insn_after (gen_move_insn (fixeddest,
 					    gen_lowpart (GET_MODE (fixeddest),
@@ -2480,36 +2524,47 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements, no_share)
     }
 }
 
-/* Given X, an rtx of the form (SUBREG:m1 (MEM:m2 addr)),
-   return an rtx (MEM:m1 newaddr) which is equivalent.
-   If any insns must be emitted to compute NEWADDR, put them before INSN.
+/* Previously, X had the form (SUBREG:m1 (REG:PROMOTED_MODE ...)).
+   The REG  was placed on the stack, so X now has the form (SUBREG:m1
+   (MEM:m2 ...)). 
+
+   Return an rtx (MEM:m1 newaddr) which is equivalent.  If any insns
+   must be emitted to compute NEWADDR, put them before INSN.
 
    UNCRITICAL nonzero means accept paradoxical subregs.
    This is used for subregs found inside REG_NOTES.  */
 
 static rtx
-fixup_memory_subreg (x, insn, uncritical)
+fixup_memory_subreg (x, insn, promoted_mode, uncritical)
      rtx x;
      rtx insn;
+     enum machine_mode promoted_mode;
      int uncritical;
 {
-  int offset = SUBREG_BYTE (x);
-  rtx addr = XEXP (SUBREG_REG (x), 0);
+  int offset;
+  rtx mem = SUBREG_REG (x);
+  rtx addr = XEXP (mem, 0);
   enum machine_mode mode = GET_MODE (x);
   rtx result;
 
   /* Paradoxical SUBREGs are usually invalid during RTL generation.  */
-  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))
-      && ! uncritical)
+  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (mem)) && ! uncritical)
     abort ();
+
+  offset = SUBREG_BYTE (x);
+  if (BYTES_BIG_ENDIAN)
+    /* If the PROMOTED_MODE is wider than the mode of the MEM, adjust
+       the offset so that it points to the right location within the
+       MEM.  */
+    offset -= (GET_MODE_SIZE (promoted_mode) - GET_MODE_SIZE (GET_MODE (mem)));
 
   if (!flag_force_addr
       && memory_address_p (mode, plus_constant (addr, offset)))
     /* Shortcut if no insns need be emitted.  */
-    return adjust_address (SUBREG_REG (x), mode, offset);
+    return adjust_address (mem, mode, offset);
 
   start_sequence ();
-  result = adjust_address (SUBREG_REG (x), mode, offset);
+  result = adjust_address (mem, mode, offset);
   emit_insn_before (gen_sequence (), insn);
   end_sequence ();
   return result;
@@ -2520,14 +2575,14 @@ fixup_memory_subreg (x, insn, uncritical)
    If X itself is a (SUBREG (MEM ...) ...), return the replacement expression.
    Otherwise return X, with its contents possibly altered.
 
-   If any insns must be emitted to compute NEWADDR, put them before INSN.
-
-   UNCRITICAL is as in fixup_memory_subreg.  */
+   INSN, PROMOTED_MODE and UNCRITICAL are as for 
+   fixup_memory_subreg.  */
 
 static rtx
-walk_fixup_memory_subreg (x, insn, uncritical)
+walk_fixup_memory_subreg (x, insn, promoted_mode, uncritical)
      rtx x;
      rtx insn;
+     enum machine_mode promoted_mode;
      int uncritical;
 {
   enum rtx_code code;
@@ -2540,7 +2595,7 @@ walk_fixup_memory_subreg (x, insn, uncritical)
   code = GET_CODE (x);
 
   if (code == SUBREG && GET_CODE (SUBREG_REG (x)) == MEM)
-    return fixup_memory_subreg (x, insn, uncritical);
+    return fixup_memory_subreg (x, insn, promoted_mode, uncritical);
 
   /* Nothing special about this RTX; fix its operands.  */
 
@@ -2548,13 +2603,15 @@ walk_fixup_memory_subreg (x, insn, uncritical)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	XEXP (x, i) = walk_fixup_memory_subreg (XEXP (x, i), insn, uncritical);
+	XEXP (x, i) = walk_fixup_memory_subreg (XEXP (x, i), insn, 
+						promoted_mode, uncritical);
       else if (fmt[i] == 'E')
 	{
 	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    XVECEXP (x, i, j)
-	      = walk_fixup_memory_subreg (XVECEXP (x, i, j), insn, uncritical);
+	      = walk_fixup_memory_subreg (XVECEXP (x, i, j), insn, 
+					  promoted_mode, uncritical);
 	}
     }
   return x;
@@ -5093,6 +5150,35 @@ assign_parms (fndecl)
   current_function_return_rtx
     = (DECL_RTL_SET_P (DECL_RESULT (fndecl))
        ? DECL_RTL (DECL_RESULT (fndecl)) : NULL_RTX);
+
+  /* If scalar return value was computed in a pseudo-reg, or was a named
+     return value that got dumped to the stack, copy that to the hard
+     return register.  */
+  if (DECL_RTL_SET_P (DECL_RESULT (fndecl)))
+    {
+      tree decl_result = DECL_RESULT (fndecl);
+      rtx decl_rtl = DECL_RTL (decl_result);
+
+      if (REG_P (decl_rtl)
+	  ? REGNO (decl_rtl) >= FIRST_PSEUDO_REGISTER
+	  : DECL_REGISTER (decl_result))
+	{
+	  rtx real_decl_rtl;
+
+#ifdef FUNCTION_OUTGOING_VALUE
+	  real_decl_rtl = FUNCTION_OUTGOING_VALUE (TREE_TYPE (decl_result),
+						   fndecl);
+#else
+	  real_decl_rtl = FUNCTION_VALUE (TREE_TYPE (decl_result),
+					  fndecl);
+#endif
+	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
+	  /* The delay slot scheduler assumes that current_function_return_rtx
+	     holds the hard register containing the return value, not a
+	     temporary pseudo.  */
+	  current_function_return_rtx = real_decl_rtl;
+	}
+    }
 }
 
 /* Indicate whether REGNO is an incoming argument to the current function
@@ -6220,8 +6306,7 @@ prepare_function_start ()
 
   current_function_outgoing_args_size = 0;
 
-  if (init_lang_status)
-    (*init_lang_status) (cfun);
+  (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
     cfun->machine = (*init_machine_status) ();
 }
@@ -6247,7 +6332,7 @@ init_function_start (subr, filename, line)
 {
   prepare_function_start ();
 
-  current_function_name = (*decl_printable_name) (subr, 2);
+  current_function_name = (*lang_hooks.decl_printable_name) (subr, 2);
   cfun->decl = subr;
 
   /* Nonzero if this is a nested function that uses a static chain.  */
@@ -6590,10 +6675,13 @@ expand_function_start (subr, parms_have_cleanups)
 			 Pmode);
     }
 
-#ifdef PROFILE_HOOK
   if (current_function_profile)
-    PROFILE_HOOK (profile_label_no);
+    {
+      current_function_profile_label_no = profile_label_no++;
+#ifdef PROFILE_HOOK
+      PROFILE_HOOK (current_function_profile_label_no);
 #endif
+    }
 
   /* After the display initializations is where the tail-recursion label
      should go, if we end up needing one.   Ensure we have a NOTE here
@@ -6902,23 +6990,18 @@ expand_function_end (filename, line, end_bindings)
 	  ? REGNO (decl_rtl) >= FIRST_PSEUDO_REGISTER
 	  : DECL_REGISTER (decl_result))
 	{
-	  rtx real_decl_rtl;
+	  rtx real_decl_rtl = current_function_return_rtx;
 
-#ifdef FUNCTION_OUTGOING_VALUE
-	  real_decl_rtl = FUNCTION_OUTGOING_VALUE (TREE_TYPE (decl_result),
-						   current_function_decl);
-#else
-	  real_decl_rtl = FUNCTION_VALUE (TREE_TYPE (decl_result),
-					  current_function_decl);
-#endif
-	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
+	  /* This should be set in assign_parms.  */
+	  if (! REG_FUNCTION_VALUE_P (real_decl_rtl))
+	    abort ();
 
 	  /* If this is a BLKmode structure being returned in registers,
 	     then use the mode computed in expand_return.  Note that if
 	     decl_rtl is memory, then its mode may have been changed, 
 	     but that current_function_return_rtx has not.  */
 	  if (GET_MODE (real_decl_rtl) == BLKmode)
-	    PUT_MODE (real_decl_rtl, GET_MODE (current_function_return_rtx));
+	    PUT_MODE (real_decl_rtl, GET_MODE (decl_rtl));
 
 	  /* If a named return value dumped decl_return to memory, then
 	     we may need to re-do the PROMOTE_MODE signed/unsigned 
@@ -6939,11 +7022,6 @@ expand_function_end (filename, line, end_bindings)
 			     int_size_in_bytes (TREE_TYPE (decl_result)));
 	  else
 	    emit_move_insn (real_decl_rtl, decl_rtl);
-
-	  /* The delay slot scheduler assumes that current_function_return_rtx
-	     holds the hard register containing the return value, not a
-	     temporary pseudo.  */
-	  current_function_return_rtx = real_decl_rtl;
 	}
     }
 

@@ -165,7 +165,6 @@ static int check_methods_accessible		PARAMS ((tree, tree,
 static void encode_aggregate_within		PARAMS ((tree, int, int,
 					               int, int));
 static const char *objc_demangle		PARAMS ((const char *));
-static const char *objc_printable_name		PARAMS ((tree, int));
 static void objc_expand_function_end            PARAMS ((void));
 
 /* Hash tables to manage the global pool of method prototypes.  */
@@ -475,8 +474,6 @@ objc_init (filename)
      const char *filename;
 {
   filename = c_objc_common_init (filename);
-
-  decl_printable_name = objc_printable_name;
 
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
@@ -1203,21 +1200,7 @@ my_build_string (len, str)
      int len;
      const char *str;
 {
-  int wide_flag = 0;
-  tree a_string = build_string (len, str);
-
-  /* Some code from combine_strings, which is local to c-parse.y.  */
-  if (TREE_TYPE (a_string) == int_array_type_node)
-    wide_flag = 1;
-
-  TREE_TYPE (a_string)
-    = build_array_type (wide_flag ? integer_type_node : char_type_node,
-			build_index_type (build_int_2 (len - 1, 0)));
-
-  TREE_CONSTANT (a_string) = 1;	/* Puts string in the readonly segment */
-  TREE_STATIC (a_string) = 1;
-
-  return a_string;
+  return fix_string_type (build_string (len, str));
 }
 
 /* Given a chain of STRING_CST's, build a static instance of
@@ -1243,7 +1226,23 @@ build_objc_string_object (strings)
 
   add_class_reference (constant_string_id);
 
-  string = combine_strings (strings);
+  if (TREE_CHAIN (strings))
+    {
+      varray_type vstrings;
+      VARRAY_TREE_INIT (vstrings, 32, "strings");
+
+      for (; strings ; strings = TREE_CHAIN (strings))
+	VARRAY_PUSH_TREE (vstrings, strings);
+
+      string = combine_strings (vstrings);
+
+      VARRAY_FREE (vstrings);
+    }
+  else
+    string = strings;
+
+  string = fix_string_type (string);
+
   TREE_SET_CODE (string, STRING_CST);
   length = TREE_STRING_LENGTH (string) - 1;
 
@@ -1733,7 +1732,7 @@ build_module_descriptor ()
 
     c_expand_expr_stmt (decelerator);
 
-    finish_function (0);
+    finish_function (0, 0);
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -7267,7 +7266,7 @@ void
 finish_method_def ()
 {
   lang_expand_function_end = objc_expand_function_end;
-  finish_function (0);
+  finish_function (0, 1);
   lang_expand_function_end = NULL;
 
   /* Required to implement _msgSuper. This must be done AFTER finish_function,
@@ -8027,7 +8026,7 @@ objc_demangle (mangled)
     return mangled;             /* not an objc mangled name */
 }
 
-static const char *
+const char *
 objc_printable_name (decl, kind)
      tree decl;
      int kind ATTRIBUTE_UNUSED;
@@ -8308,7 +8307,7 @@ handle_impent (impent)
       tree decl, init;
 
       init = build_int_2 (0, 0);
-      TREE_TYPE (init) = type_for_size (BITS_PER_WORD, 1);
+      TREE_TYPE (init) = c_common_type_for_size (BITS_PER_WORD, 1);
       decl = build_decl (VAR_DECL, get_identifier (string), TREE_TYPE (init));
       TREE_PUBLIC (decl) = 1;
       TREE_READONLY (decl) = 1;

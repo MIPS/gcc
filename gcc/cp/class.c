@@ -290,12 +290,9 @@ build_base_path (code, expr, binfo, nonnull)
     }
 
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
-  if (fixed_type_p < 0)
-    /* Virtual base layout is not fixed, even in ctors and dtors. */
-    fixed_type_p = 0;
-  if (!fixed_type_p && TREE_SIDE_EFFECTS (expr))
+  if (fixed_type_p <= 0 && TREE_SIDE_EFFECTS (expr))
     expr = save_expr (expr);
-    
+
   if (!want_pointer)
     expr = build_unary_op (ADDR_EXPR, expr, 0);
   else if (!nonnull)
@@ -303,7 +300,7 @@ build_base_path (code, expr, binfo, nonnull)
   
   offset = BINFO_OFFSET (binfo);
   
-  if (v_binfo && !fixed_type_p)
+  if (v_binfo && fixed_type_p <= 0)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
@@ -324,7 +321,17 @@ build_base_path (code, expr, binfo, nonnull)
 			   size_diffop (offset, BINFO_OFFSET (v_binfo)));
 
       if (!integer_zerop (offset))
-	offset = build (code, ptrdiff_type_node, v_offset, offset);
+	v_offset = build (code, ptrdiff_type_node, v_offset, offset);
+
+      if (fixed_type_p < 0)
+	/* Negative fixed_type_p means this is a constructor or destructor;
+	   virtual base layout is fixed in in-charge [cd]tors, but not in
+	   base [cd]tors.  */
+	offset = build (COND_EXPR, ptrdiff_type_node,
+			build (EQ_EXPR, boolean_type_node,
+			       current_in_charge_parm, integer_zero_node),
+			v_offset,
+			BINFO_OFFSET (binfo));
       else
 	offset = v_offset;
     }
@@ -351,7 +358,7 @@ build_base_path (code, expr, binfo, nonnull)
     expr = build (COND_EXPR, target_type, null_test,
 		  build1 (NOP_EXPR, target_type, integer_zero_node),
 		  expr);
-  
+
   return expr;
 }
 
@@ -856,6 +863,8 @@ add_method (type, method, error_p)
   int len;
   int slot;
   tree method_vec;
+  int template_conv_p = (TREE_CODE (method) == TEMPLATE_DECL
+			 && DECL_TEMPLATE_CONV_FN_P (method));
 
   if (!CLASSTYPE_METHOD_VEC (type))
     /* Make a new method vector.  We start with 8 entries.  We must
@@ -880,14 +889,36 @@ add_method (type, method, error_p)
     slot = CLASSTYPE_DESTRUCTOR_SLOT;
   else
     {
+      int have_template_convs_p = 0;
+      
       /* See if we already have an entry with this name.  */
       for (slot = CLASSTYPE_FIRST_CONVERSION_SLOT; slot < len; ++slot)
-	if (!TREE_VEC_ELT (method_vec, slot)
-	    || (DECL_NAME (OVL_CURRENT (TREE_VEC_ELT (method_vec, 
-						      slot))) 
-		== DECL_NAME (method)))
-	  break;
-		
+	{
+	  tree m = TREE_VEC_ELT (method_vec, slot);
+
+	  if (!m)
+	    break;
+	  m = OVL_CURRENT (m);
+	  
+	  if (template_conv_p)
+	    {
+	      have_template_convs_p = (TREE_CODE (m) == TEMPLATE_DECL
+				       && DECL_TEMPLATE_CONV_FN_P (m));
+	      
+	      /* If we need to move things up, see if there's
+		 space. */
+	      if (!have_template_convs_p)
+		{
+		  slot = len - 1;
+		  if (TREE_VEC_ELT (method_vec, slot))
+		    slot++;
+		}
+	      break;
+	    }
+	  if (DECL_NAME (m) == DECL_NAME (method))
+	    break;
+	}
+      
       if (slot == len)
 	{
 	  /* We need a bigger method vector.  */
@@ -920,22 +951,27 @@ add_method (type, method, error_p)
 	     slide some of the vector elements up.  In theory, this
 	     makes this algorithm O(N^2) but we don't expect many
 	     conversion operators.  */
-	  for (slot = 2; slot < len; ++slot)
-	    {
-	      tree fn = TREE_VEC_ELT (method_vec, slot);
+	  if (template_conv_p)
+	    slot = CLASSTYPE_FIRST_CONVERSION_SLOT;
+	  else
+	    for (slot = CLASSTYPE_FIRST_CONVERSION_SLOT; slot < len; ++slot)
+	      {
+		tree fn = TREE_VEC_ELT (method_vec, slot);
   
-	      if (!fn)
-		/* There are no more entries in the vector, so we
-		   can insert the new conversion operator here.  */
-		break;
+		if (!fn)
+		  /* There are no more entries in the vector, so we
+		     can insert the new conversion operator here.  */
+		  break;
   		  
-	      if (!DECL_CONV_FN_P (OVL_CURRENT (fn)))
-		/* We can insert the new function right at the
-		   SLOTth position.  */
-		break;
-	    }
-  
-	  if (!TREE_VEC_ELT (method_vec, slot))
+		if (!DECL_CONV_FN_P (OVL_CURRENT (fn)))
+		  /* We can insert the new function right at the
+		     SLOTth position.  */
+		  break;
+	      }
+
+	  if (template_conv_p && have_template_convs_p)
+	    /*OK*/;
+	  else if (!TREE_VEC_ELT (method_vec, slot))
 	    /* There is nothing in the Ith slot, so we can avoid
 	       moving anything.  */
 		; 
@@ -1036,7 +1072,7 @@ add_method (type, method, error_p)
   TREE_VEC_ELT (method_vec, slot) 
     = build_overload (method, TREE_VEC_ELT (method_vec, slot));
 
-      /* Add the new binding.  */ 
+  /* Add the new binding.  */ 
   if (!DECL_CONSTRUCTOR_P (method)
       && !DECL_DESTRUCTOR_P (method))
     push_class_level_binding (DECL_NAME (method),
@@ -1843,15 +1879,16 @@ finish_struct_bits (t)
 	}
     }
 
-  /* If this type has a copy constructor, force its mode to be BLKmode, and
-     force its TREE_ADDRESSABLE bit to be nonzero.  This will cause it to
-     be passed by invisible reference and prevent it from being returned in
-     a register.
+  /* If this type has a copy constructor or a destructor, force its mode to
+     be BLKmode, and force its TREE_ADDRESSABLE bit to be nonzero.  This
+     will cause it to be passed by invisible reference and prevent it from
+     being returned in a register.
 
      Also do this if the class has BLKmode but can still be returned in
      registers, since function_cannot_inline_p won't let us inline
      functions returning such a type.  This affects the HP-PA.  */
   if (! TYPE_HAS_TRIVIAL_INIT_REF (t)
+      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t)
       || (TYPE_MODE (t) == BLKmode && ! aggregate_value_p (t)
 	  && CLASSTYPE_NON_AGGREGATE (t)))
     {
@@ -2518,6 +2555,10 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
   overrider = find_final_overrider (t, b, fn);
   if (overrider == error_mark_node)
     return;
+
+  /* Check for unsupported covariant returns again now that we've
+     calculated the base offsets.  */
+  check_final_overrider (TREE_PURPOSE (overrider), fn);
 
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
@@ -4606,8 +4647,7 @@ layout_virtual_bases (t, offsets)
      tree t;
      splay_tree offsets;
 {
-  tree vbases;
-  unsigned HOST_WIDE_INT dsize;
+  tree vbases, dsize;
   unsigned HOST_WIDE_INT eoc;
 
   if (CLASSTYPE_N_BASECLASSES (t) == 0)
@@ -4620,7 +4660,7 @@ layout_virtual_bases (t, offsets)
 #endif
 
   /* DSIZE is the size of the class without the virtual bases.  */
-  dsize = tree_low_cst (TYPE_SIZE (t), 1);
+  dsize = TYPE_SIZE (t);
 
   /* Make every class have alignment of at least one.  */
   TYPE_ALIGN (t) = MAX (TYPE_ALIGN (t), BITS_PER_UNIT);
@@ -4642,7 +4682,7 @@ layout_virtual_bases (t, offsets)
 	{
 	  /* This virtual base is not a primary base of any class in the
 	     hierarchy, so we have to add space for it.  */
-	  tree basetype;
+	  tree basetype, usize;
 	  unsigned int desired_align;
 
 	  basetype = BINFO_TYPE (vbase);
@@ -4652,19 +4692,21 @@ layout_virtual_bases (t, offsets)
 
 	  /* Add padding so that we can put the virtual base class at an
 	     appropriately aligned offset.  */
-	  dsize = CEIL (dsize, desired_align) * desired_align;
+	  dsize = round_up (dsize, desired_align);
+
+	  usize = size_binop (CEIL_DIV_EXPR, dsize, bitsize_unit_node);
 
 	  /* We try to squish empty virtual bases in just like
 	     ordinary empty bases.  */
 	  if (is_empty_class (basetype))
 	    layout_empty_base (vbase,
-			       size_int (CEIL (dsize, BITS_PER_UNIT)),
+			       convert (sizetype, usize),
 			       offsets, t);
 	  else
 	    {
 	      tree offset;
 
-	      offset = ssize_int (CEIL (dsize, BITS_PER_UNIT));
+	      offset = convert (ssizetype, usize);
 	      offset = size_diffop (offset, 
 				    convert (ssizetype, 
 					     BINFO_OFFSET (vbase)));
@@ -4674,8 +4716,9 @@ layout_virtual_bases (t, offsets)
 	      /* Every virtual baseclass takes a least a UNIT, so that
 		 we can take it's address and get something different
 		 for each base.  */
-	      dsize += MAX (BITS_PER_UNIT,
-			    tree_low_cst (CLASSTYPE_SIZE (basetype), 0));
+	      dsize = size_binop (PLUS_EXPR, dsize,
+				  size_binop (MAX_EXPR, bitsize_unit_node,
+					      CLASSTYPE_SIZE (basetype)));
 	    }
 
 	  /* Keep track of the offsets assigned to this virtual base.  */
@@ -4697,13 +4740,12 @@ layout_virtual_bases (t, offsets)
      class, we didn't update DSIZE above; we were hoping to overlay
      multiple such bases at the same location.  */
   eoc = end_of_class (t, /*include_virtuals_p=*/1);
-  if (eoc * BITS_PER_UNIT > dsize)
-    dsize = eoc * BITS_PER_UNIT;
+  dsize = size_binop (MAX_EXPR, dsize, bitsize_int (eoc * BITS_PER_UNIT));
 
   /* Now, make sure that the total size of the type is a multiple of
      its alignment.  */
-  dsize = CEIL (dsize, TYPE_ALIGN (t)) * TYPE_ALIGN (t);
-  TYPE_SIZE (t) = bitsize_int (dsize);
+  dsize = round_up (dsize, TYPE_ALIGN (t));
+  TYPE_SIZE (t) = dsize;
   TYPE_SIZE_UNIT (t) = convert (sizetype,
 				size_binop (CEIL_DIV_EXPR, TYPE_SIZE (t),
 					    bitsize_unit_node));
@@ -4862,6 +4904,18 @@ layout_class_type (t, empty_p, vfuns_p,
       if (TREE_CODE (field) != FIELD_DECL)
 	{
 	  place_field (rli, field);
+	  /* If the static data member has incomplete type, keep track
+	     of it so that it can be completed later.  (The handling 
+	     of pending statics in finish_record_layout is
+	     insufficient; consider:
+
+	       struct S1;
+	       struct S2 { static S1 s1; };
+	       
+             At this point, finish_record_layout will be called, but
+	     S1 is still incomplete.)  */
+	  if (TREE_CODE (field) == VAR_DECL)
+	    maybe_register_incomplete_var (field);
 	  continue;
 	}
 
@@ -5155,7 +5209,7 @@ finish_struct_1 (t)
      working on.  */
   for (x = TYPE_FIELDS (t); x; x = TREE_CHAIN (x))
     if (TREE_CODE (x) == VAR_DECL && TREE_STATIC (x)
-	&& TREE_TYPE (x) == t)
+	&& same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (x)), t))
       DECL_MODE (x) = TYPE_MODE (t);
 
   /* Done with FIELDS...now decide whether to sort these for
@@ -5204,7 +5258,7 @@ finish_struct_1 (t)
       && DECL_VINDEX (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1)) == NULL_TREE)
     warning ("`%#T' has virtual functions but non-virtual destructor", t);
 
-  hack_incomplete_structures (t);
+  complete_vars (t);
 
   if (warn_overloaded_virtual)
     warn_hidden (t);
@@ -6025,7 +6079,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
       /* The target must be a REFERENCE_TYPE.  Above, build_unary_op
 	 will mark the function as addressed, but here we must do it
 	 explicitly.  */
-      mark_addressable (fn);
+      cxx_mark_addressable (fn);
 
       return fn;
     }
@@ -6296,7 +6350,8 @@ get_vfield_name (type)
   type = BINFO_TYPE (binfo);
   buf = (char *) alloca (sizeof (VFIELD_NAME_FORMAT)
 			 + TYPE_NAME_LENGTH (type) + 2);
-  sprintf (buf, VFIELD_NAME_FORMAT, TYPE_NAME_STRING (type));
+  sprintf (buf, VFIELD_NAME_FORMAT,
+	   IDENTIFIER_POINTER (constructor_name (type)));
   return get_identifier (buf);
 }
 

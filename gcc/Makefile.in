@@ -344,6 +344,14 @@ LIBICONV = @LIBICONV@
 # List of internationalization subdirectories.
 INTL_SUBDIRS = intl
 
+# Change this to a null string if obstacks are installed in the
+# system library.
+OBSTACK=obstack.o
+
+# The following object files is used by genautomata.
+GETRUNTIME = getruntime.o
+HASHTAB = hashtab.o
+
 # The GC method to be used on this system.
 GGC=@GGC@.o
 
@@ -356,11 +364,8 @@ LIBGCC = libgcc.a
 INSTALL_LIBGCC = install-libgcc
 
 # Options to use when compiling libgcc2.a.
-# -g1 causes output of debug info only for file-scope entities.
-# we use this here because that should be enough, and also
-# so that -g1 will be tested.
 #
-LIBGCC2_DEBUG_CFLAGS = -g1
+LIBGCC2_DEBUG_CFLAGS = -g
 LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
@@ -453,7 +458,7 @@ COMPILERS = cc1$(exeext) @all_compilers@
 
 # List of things which should already be built whenever we try to use xgcc
 # to compile anything (without linking).
-GCC_PASSES=xgcc$(exeext) cc1$(exeext) cpp0$(exeext) specs $(EXTRA_PASSES)
+GCC_PASSES=xgcc$(exeext) cc1$(exeext) specs $(EXTRA_PASSES)
 
 # List of things which should already be built whenever we try to use xgcc
 # to link anything.
@@ -478,6 +483,12 @@ HOST_CFLAGS= @HOST_CFLAGS@ -DGENERATOR_FILE
 # Native linker and preprocessor flags.  For x-fragment overrides.
 HOST_LDFLAGS=$(LDFLAGS)
 HOST_CPPFLAGS=$(ALL_CPPFLAGS)
+HOST_OBSTACK=$(OBSTACK)
+HOST_VFPRINTF=$(VFPRINTF)
+HOST_DOPRINT=$(DOPRINT)
+HOST_GETRUNTIME=$(GETRUNTIME)
+HOST_HASHTAB=$(HASHTAB)
+HOST_STRSTR=$(STRSTR)
 
 # Actual name to use when installing a native compiler.
 GCC_INSTALL_NAME = `echo gcc|sed '$(program_transform_name)'`
@@ -601,8 +612,17 @@ ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = @FORBUILD@/libiberty/libiberty.a
 
-# Dependencies on the intl and portability libraries.
-LIBDEPS= $(INTLDEPS) $(LIBIBERTY)
+USE_HOST_OBSTACK= ` case "${HOST_OBSTACK}" in ?*) echo ${HOST_PREFIX}${HOST_OBSTACK} ;; esac `
+USE_HOST_VFPRINTF= ` case "${HOST_VFPRINTF}" in ?*) echo ${HOST_PREFIX}${HOST_VFPRINTF} ;; esac `
+USE_HOST_DOPRINT= ` case "${HOST_DOPRINT}" in ?*) echo ${HOST_PREFIX}${HOST_DOPRINT} ;; esac `
+USE_HOST_GETRUNTIME= ` case "${HOST_GETRUNTIME}" in ?*) echo ${HOST_PREFIX}${HOST_GETRUNTIME} ;; esac `
+USE_HOST_HASHTAB= ` case "${HOST_HASHTAB}" in ?*) echo ${HOST_PREFIX}${HOST_HASHTAB} ;; esac `
+USE_HOST_STRSTR= ` case "${HOST_STRSTR}" in ?*) echo ${HOST_PREFIX}${HOST_STRSTR} ;; esac `
+
+# Dependency on the intl, portability libraries, obstack or whatever
+# library facilities are not installed in the system libraries.
+# We don't use USE_* because backquote expansion doesn't work in deps.
+LIBDEPS= $(INTLLIBS) $(LIBIBERTY) $(OBSTACK) $(VFPRINTF) $(DOPRINT) $(STRSTR)
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
@@ -621,6 +641,7 @@ HOST_RTL = $(HOST_PREFIX)rtl.o read-rtl.o $(HOST_PREFIX)bitmap.o \
 
 HOST_PRINT = $(HOST_PREFIX)print-rtl.o
 HOST_ERRORS = $(HOST_PREFIX)errors.o
+HOST_VARRAY = $(HOST_PREFIX)varray.o
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -759,7 +780,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  gencheck$(build_exeext) genpreds$(build_exeext) genconstants$(build_exeext) \
  gengtype$(build_exeext) \
  genrtl.c genrtl.h \
- xgcc$(exeext) cpp$(exeext) cc1$(exeext) cpp0$(exeext) $(EXTRA_PASSES) \
+ xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  enquire$(exeext) protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) underscore.c tradcpp0$(exeext) \
@@ -1006,6 +1027,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_EXT='$(SHLIB_EXT)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)' \
 	SHLIB_MKMAP='$(SHLIB_MKMAP)' \
+	SHLIB_MKMAP_OPTS='$(SHLIB_MKMAP_OPTS)' \
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
 	mkinstalldirs='$(SHELL) $(srcdir)/mkinstalldirs' \
@@ -1041,14 +1063,18 @@ libgcc.a: $(LIBGCC_DEPS)
 # switches.
 multilib.h: s-mlib; @true
 s-mlib: $(srcdir)/genmultilib Makefile
-	$(SHELL) $(srcdir)/genmultilib \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_OPTIONS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_DIRNAMES)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_MATCHES)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXCEPTIONS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXTRA_OPTS)`" \
-	  "`test @enable_multilib@ != yes || echo $(MULTILIB_EXCLUSIONS)`" \
-		> tmp-mlib.h
+	if test @enable_multilib@ = yes; then \
+	  $(SHELL) $(srcdir)/genmultilib \
+	    "$(MULTILIB_OPTIONS)" \
+	    "$(MULTILIB_DIRNAMES)" \
+	    "$(MULTILIB_MATCHES)" \
+	    "$(MULTILIB_EXCEPTIONS)" \
+	    "$(MULTILIB_EXTRA_OPTS)" \
+	    "$(MULTILIB_EXCLUSIONS)" \
+	    > tmp-mlib.h; \
+	else \
+	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' > tmp-mlib.h; \
+	fi
 	$(SHELL) $(srcdir)/move-if-change tmp-mlib.h multilib.h
 	$(STAMP) s-mlib
 
@@ -1152,24 +1178,26 @@ $(srcdir)/c-parse.y: c-parse.in
 
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
     $(GGC_H) $(TARGET_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
-    debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) gt-c-decl.h
+    debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
+    gt-c-decl.h
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-    langhooks.h langhooks-def.h
+    langhooks.h langhooks-def.h c-common.h gtype-c.h
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
-    debug.h $(C_TREE_H) \
+    debug.h $(C_TREE_H) c-common.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h integrate.h $(EXPR_H) $(C_TREE_H) \
     flags.h toplev.h tree-inline.h diagnostic.h integrate.h $(VARRAY_H) \
-    $(GGC_H)
+    langhooks.h $(GGC_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
-c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h
+c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h \
+    $(C_COMMON_H)
 c-pragma.o: c-pragma.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) function.h \
-    c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) gt-c-pragma.h
+    c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H) gt-c-pragma.h
 mbchar.o: mbchar.c $(CONFIG_H) $(SYSTEM_H) mbchar.h
 graph.o: graph.c $(CONFIG_H) $(SYSTEM_H) toplev.h flags.h output.h $(RTL_H) \
     function.h hard-reg-set.h $(BASIC_BLOCK_H) graph.h
@@ -1220,9 +1248,9 @@ c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 
 attribs.o : attribs.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) flags.h \
 	toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) $(EXPR_H) $(TM_P_H) \
-	builtin-types.def $(TARGET_H)
+	builtin-types.def $(TARGET_H) langhooks.h
 
-c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) langhooks.h \
 	$(C_COMMON_H) flags.h toplev.h intl.h diagnostic.h
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
@@ -1306,7 +1334,7 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(TREE_H) \
 	libfuncs.h
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-	flags.h $(GGC_H) varray.h hash.h $(HASHTAB_H) $(TM_P_H)
+	flags.h $(GGC_H) varray.h hash.h $(HASHTAB_H) $(TM_P_H) langhooks.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	$(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
@@ -1324,12 +1352,24 @@ line-map.o: line-map.c line-map.h intl.h $(CONFIG_H) $(SYSTEM_H)
 ggc-none.o: ggc-none.c $(GCONFIG_H) $(SYSTEM_H) $(GGC_H)
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
+obstack.o: $(srcdir)/../libiberty/obstack.c $(GCONFIG_H)
+	rm -f obstack.c
+	$(LN_S) $(srcdir)/../libiberty/obstack.c obstack.c
+	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) \
+		obstack.c $(OUTPUT_OPTION)
+
+getruntime.o: $(srcdir)/../libiberty/getruntime.c $(CONFIG_H)
+	rm -f getruntime.c
+	$(LN_S) $(srcdir)/../libiberty/getruntime.c getruntime.c
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) getruntime.c
+
 prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) Makefile prefix.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	-DPREFIX=\"$(prefix)\" \
 	  -c $(srcdir)/prefix.c $(OUTPUT_OPTION)
 
-convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h convert.h toplev.h
+convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h convert.h \
+   toplev.h langhooks.h
 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h integrate.h langhooks.h \
@@ -1347,12 +1387,13 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
    langhooks.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
-   function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H)
+   function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H) \
+   langhooks.h
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
-   toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H)
+   toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H) langhooks.h
 diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_P_H) flags.h $(GGC_H) \
-   input.h toplev.h intl.h
+   input.h toplev.h intl.h langhooks.h langhooks-def.h
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
@@ -1376,7 +1417,7 @@ print-rtl.o : print-rtl.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) \
-   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H)
+   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) flags.h
 
 errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
@@ -1388,13 +1429,13 @@ varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) libfuncs.h $(REGS_H) hard-reg-set.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) \
-   $(TM_P_H) gt-function.h
+   $(TM_P_H) langhooks.h gt-function.h
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
    $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
-   gt-stmt.h
+   langhooks.h gt-stmt.h
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
-   except.h function.h $(EXPR_H) libfuncs.h integrate.h \
+   except.h function.h $(EXPR_H) libfuncs.h integrate.h langhooks.h \
    insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
    dwarf2asm.h dwarf2out.h toplev.h $(HASHTAB_H) intl.h $(GGC_H) \
    gt-except.h
@@ -1406,17 +1447,18 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h $(TM_P_H) $(PREDICT_H) libfuncs.h
-calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
+calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
+   $(EXPR_H) langhooks.h \
    libfuncs.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h  \
    insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) real.h \
-   toplev.h $(TM_P_H)
+   toplev.h $(TM_P_H) langhooks.h
 explow.o : explow.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    hard-reg-set.h insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) \
    toplev.h function.h ggc.h $(TM_P_H)
 optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h  \
    insn-config.h $(EXPR_H) $(OPTABS_H) libfuncs.h $(RECOG_H) reload.h \
-   toplev.h $(GGC_H) real.h $(TM_P_H) except.h
+   toplev.h $(GGC_H) real.h $(TM_P_H) except.h gt-optabs.h
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
     $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
    insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h
@@ -1424,7 +1466,7 @@ debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) real.h \
    insn-config.h $(OBSTACK_H) xcoffout.h c-pragma.h ggc.h \
-   sdbout.h toplev.h $(TM_P_H) except.h debug.h
+   sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
    debug.h langhooks.h
@@ -1462,7 +1504,7 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h 
    $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h \
    flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
-   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) gt-gcse.h
+   function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h gt-gcse.h
 sibcall.o : sibcall.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) function.h \
    hard-reg-set.h flags.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
@@ -1487,7 +1529,7 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
    gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H) \
-   gt-profile.h
+   langhooks.h gt-profile.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
@@ -1496,7 +1538,7 @@ doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) toplev.h
 unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h function.h \
    $(INTEGRATE_H) $(REGS_H) $(RECOG_H) flags.h $(EXPR_H) $(LOOP_H) toplev.h \
-   hard-reg-set.h varray.h $(BASIC_BLOCK_H) $(TM_P_H) $(PREDICT_H)
+   hard-reg-set.h varray.h $(BASIC_BLOCK_H) $(TM_P_H) $(PREDICT_H) $(PARAMS_H)
 flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(EXPR_H) ssa.h $(GGC_H) $(TM_P_H)
@@ -1505,7 +1547,7 @@ cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
    function.h except.h $(GGC_H) $(TM_P_H)
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
-   function.h except.h $(GGC_H) $(TM_P_H)
+   function.h except.h $(GGC_H) $(TM_P_H) insn-config.h
 cfganal.o : cfganal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) \
    hard-reg-set.h insn-config.h $(RECOG_H) $(GGC_H) $(TM_P_H)
 cfgbuild.o : cfgbuild.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
@@ -1541,7 +1583,7 @@ reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h output.h \
 reload1.o : reload1.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) real.h flags.h \
    $(EXPR_H) $(OPTABS_H) reload.h $(REGS_H) hard-reg-set.h insn-config.h \
    $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H) \
-   except.h
+   except.h $(TREE_H)
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h \
    $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) function.h \
    $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
@@ -1562,12 +1604,13 @@ sched-deps.o : sched-deps.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h cselib.h $(PARAMS_H) $(TM_P_H)
 sched-rgn.o : sched-rgn.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
-   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
+   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H) $(TARGET_H)
 sched-ebb.o : sched-ebb.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
 sched-vis.o : sched-vis.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
-   hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H)
+   hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H) \
+   $(TARGET_H)
 final.o : final.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h intl.h \
    $(REGS_H) $(RECOG_H) conditions.h insn-config.h $(INSN_ATTR_H) function.h \
    real.h output.h hard-reg-set.h except.h debug.h xcoffout.h \
@@ -1580,7 +1623,7 @@ reg-stack.o : reg-stack.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(RECOG_H) 
    varray.h function.h $(TM_P_H)
 predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
-   $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H)
+   $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H) real.h
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H)
@@ -1593,7 +1636,7 @@ regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h \
    resource.h $(OBSTACK_H) flags.h $(TM_P_H)
 ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) toplev.h \
    flags.h insn-config.h function.h $(RECOG_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   output.h $(TM_P_H)
+   output.h except.h $(TM_P_H)
 dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(C_COMMON_H) flags.h varray.h $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
@@ -1779,13 +1822,13 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(STAMP) s-preds
 
 GTFILES = $(GCONFIG_H) \
-  $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
+  $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/alias.c $(srcdir)/cselib.c $(srcdir)/emit-rtl.c \
   $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/fold-const.c $(srcdir)/function.c \
-  $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c \
+  $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/regclass.c $(srcdir)/sdbout.c \
   $(srcdir)/stmt.c $(srcdir)/stor-layout.c $(srcdir)/tree.c \
   $(srcdir)/varasm.c \
@@ -1798,7 +1841,7 @@ gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
-gt-expr.h gt-sdbout.h : s-gtype ; @true
+gt-expr.h gt-sdbout.h gt-optabs.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gtype-c.h : s-gtype ; @true
 
@@ -1900,13 +1943,17 @@ genattr$(build_exeext) : genattr.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HO
 genattr.o : genattr.c $(RTL_H) $(HCONFIG_H) $(SYSTEM_H) errors.h gensupport.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattr.c $(OUTPUT_OPTION)
 
-genattrtab$(build_exeext) : genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
+genattrtab$(build_exeext) : genattrtab.o genautomata.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(HOST_PREFIX)$(HOST_GETRUNTIME) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
-	 genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
+	 genattrtab.o genautomata.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_VARRAY) $(USE_HOST_GETRUNTIME) $(HOST_LIBS) -lm
 
 genattrtab.o : genattrtab.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
-  $(SYSTEM_H) errors.h $(GGC_H) gensupport.h
+  $(SYSTEM_H) errors.h $(GGC_H) gensupport.h genattrtab.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattrtab.c $(OUTPUT_OPTION)
+
+genautomata.o : genautomata.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
+  $(SYSTEM_H) errors.h varray.h hash.h genattrtab.h
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genautomata.c $(OUTPUT_OPTION)
 
 genoutput$(build_exeext) : genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
@@ -1980,10 +2027,46 @@ $(HOST_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(HCONFIG_H) $(SYSTEM_H) $(RTL_H) \
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/bitmap.c > $(HOST_PREFIX)bitmap.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)bitmap.c $(OUTPUT_OPTION)
 
+$(HOST_PREFIX_1)obstack.o: $(srcdir)/../libiberty/obstack.c $(HCONFIG_H)
+	rm -f $(HOST_PREFIX)obstack.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/obstack.c > $(HOST_PREFIX)obstack.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)obstack.c $(OUTPUT_OPTION)
+
+$(HOST_PREFIX_1)getruntime.o: $(srcdir)/../libiberty/getruntime.c
+	rm -f $(HOST_PREFIX)getruntime.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/getruntime.c > $(HOST_PREFIX)getruntime.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)getruntime.c $(OUTPUT_OPTION)
+
+$(HOST_PREFIX_1)hashtab.o: $(srcdir)/../libiberty/hashtab.c
+	rm -f $(HOST_PREFIX)hashtab.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/hashtab.c > $(HOST_PREFIX)hashtab.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)hashtab.c $(OUTPUT_OPTION)
+
+$(HOST_PREFIX_1)vfprintf.o: $(srcdir)/../libiberty/vfprintf.c $(HCONFIG_H)
+	rm -f $(HOST_PREFIX)vfprintf.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/vfprintf.c > $(HOST_PREFIX)vfprintf.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)vfprintf.c $(OUTPUT_OPTION)
+
+$(HOST_PREFIX_1)doprint.o: doprint.c $(HCONFIG_H)
+	rm -f $(HOST_PREFIX)doprint.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/doprint.c > $(HOST_PREFIX)doprint.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)doprint.c $(OUTPUT_OPTION)
+
+$(HOST_PREFIX_1)strstr.o: $(srcdir)/../libiberty/strstr.c $(HCONFIG_H)
+	rm -f $(HOST_PREFIX)strstr.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/../libiberty/strstr.c > $(HOST_PREFIX)strstr.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)strstr.c $(OUTPUT_OPTION)
+
 $(HOST_PREFIX_1)errors.o: errors.c $(HCONFIG_H) $(SYSTEM_H) errors.h
 	rm -f $(HOST_PREFIX)errors.c
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/errors.c > $(HOST_PREFIX)errors.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)errors.c $(OUTPUT_OPTION)
+
+
+# This satisfies the dependency that we get if you cross-compile a compiler
+# that does not need to compile doprint or whatever.
+$(HOST_PREFIX_1):
+	$(STAMP) $(HOST_PREFIX_1)
 
 $(HOST_PREFIX_1)ggc-none.o: ggc-none.c $(HCONFIG_H) $(SYSTEM_H) $(GCC_H)
 	rm -f $(HOST_PREFIX)ggc-none.c
@@ -2029,7 +2112,7 @@ PREPROCESSOR_DEFINES = \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\"
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o \
-		cpphash.o cpperror.o cppinit.o cppdefault.o \
+		cpphash.o cpperror.o cppinit.o cppdefault.o cppmain.o \
 		hashtable.o line-map.o mkdeps.o prefix.o version.o mbchar.o
 
 LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
@@ -2041,10 +2124,6 @@ libcpp.a: $(LIBCPP_OBJS)
 	-rm -rf libcpp.a
 	$(AR) $(AR_FLAGS) libcpp.a $(LIBCPP_OBJS)
 	-$(RANLIB) libcpp.a
-
-cpp0$(exeext): cppmain.o intl.o libcpp.a $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cpp0$(exeext) cppmain.o \
-	intl.o libcpp.a $(LIBS)
 
 cppmain.o:  cppmain.c  $(CONFIG_H) $(CPPLIB_H) intl.h $(SYSTEM_H)
 
@@ -2084,7 +2163,7 @@ $(srcdir)/tradcif.c: $(srcdir)/tradcif.y
 
 proto: config.status protoize$(exeext) unprotoize$(exeext) SYSCALLS.c.X
 
-PROTO_OBJS = intl.o version.o
+PROTO_OBJS = intl.o version.o cppdefault.o
 
 protoize$(exeext): protoize.o $(PROTO_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ protoize.o $(PROTO_OBJS) $(LIBS)
@@ -2097,16 +2176,16 @@ protoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) $(SYSTEM_H) \
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  $(DRIVER_DEFINES) $(PREPROCESSOR_DEFINES) \
+	  $(DRIVER_DEFINES) \
 	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
-unprotoize.o: unprotoize.c protoize.c $(srcdir)/../include/getopt.h \
+unprotoize.o: protoize.c $(srcdir)/../include/getopt.h \
    $(CONFIG_H) $(SYSTEM_H) Makefile version.h
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  $(DRIVER_DEFINES) $(PREPROCESSOR_DEFINES) \
-	  $(srcdir)/unprotoize.c $(OUTPUT_OPTION))
+	$(CC) -c -DUNPROTOIZE $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(DRIVER_DEFINES) \
+	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
 # This info describes the target machine, so compile with GCC just built.
 SYSCALLS.c.X: $(srcdir)/sys-types.h $(srcdir)/sys-protos.h $(GCC_PASSES) \
@@ -2545,7 +2624,7 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f testsuite/{gcc,g++}.{log,sum}
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
-	-rm -f mklibgcc libgcc.map gccbug .gdbinit configargs.h
+	-rm -f mklibgcc gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
 	-rm -f fixinc/Makefile
 	-rmdir ada cp f java objc fixinc intl po 2>/dev/null
@@ -2692,8 +2771,6 @@ install-common: native $(EXTRA_PARTS) lang.install-common
 	    $(INSTALL_DATA) SYSCALLS.c.X $(libsubdir)/SYSCALLS.c.X; \
 	    chmod a-x $(libsubdir)/SYSCALLS.c.X; \
 	fi
-	-rm -f $(libsubdir)/cpp0$(exeext)
-	$(INSTALL_PROGRAM) cpp0$(exeext) $(libsubdir)/cpp0$(exeext)
 	-rm -f $(libsubdir)/tradcpp0$(exeext)
 	$(INSTALL_PROGRAM) tradcpp0$(exeext) $(libsubdir)/tradcpp0$(exeext)
 # Install gcov if it was compiled.

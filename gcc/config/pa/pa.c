@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "except.h"
 #include "expr.h"
 #include "optabs.h"
 #include "libfuncs.h"
@@ -43,9 +44,21 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "recog.h"
+#include "predict.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+
+static int hppa_use_dfa_pipeline_interface PARAMS ((void));
+
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hppa_use_dfa_pipeline_interface
+
+static int
+hppa_use_dfa_pipeline_interface ()
+{
+  return 1;
+}
 
 #ifndef DO_FRAME_NOTES
 #ifdef INCOMING_RETURN_ADDR_RTX
@@ -53,22 +66,6 @@ Boston, MA 02111-1307, USA.  */
 #else
 #define DO_FRAME_NOTES 0
 #endif
-#endif
-
-#if DO_FRAME_NOTES
-#define FRP(INSN) \
-  do					\
-    {					\
-      rtx insn = INSN;			\
-      RTX_FRAME_RELATED_P (insn) = 1;	\
-    }					\
-  while (0)
-#else
-#define FRP(INSN) INSN
-#endif
-
-#ifndef FUNC_BEGIN_PROLOG_LABEL
-#define FUNC_BEGIN_PROLOG_LABEL        "LFBP"
 #endif
 
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
@@ -81,8 +78,9 @@ static int compute_movstrsi_length PARAMS ((rtx));
 static bool pa_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void remove_useless_addtr_insns PARAMS ((rtx, int));
 static void store_reg PARAMS ((int, int, int));
+static void store_reg_modify PARAMS ((int, int, int));
 static void load_reg PARAMS ((int, int, int));
-static void set_reg_plus_d PARAMS ((int, int, int));
+static void set_reg_plus_d PARAMS ((int, int, int, int));
 static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int pa_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int pa_adjust_priority PARAMS ((rtx, int));
@@ -109,11 +107,6 @@ const char *pa_arch_string;
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
-
-/* The number of the current function for which profile information
-   is to be collected.  These numbers are used to create unique label
-   id's for labels emitted at the beginning of profiled functions.  */
-static unsigned int current_function_number = 0;
 
 static rtx find_addr_reg PARAMS ((rtx));
 
@@ -168,7 +161,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 void
 override_options ()
 {
-  /* Default to 7100LC scheduling.  */
+  /* Default to 8000 scheduling.  */
   if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100"))
     {
       pa_cpu_string = "7100";
@@ -179,8 +172,7 @@ override_options ()
       pa_cpu_string = "700";
       pa_cpu = PROCESSOR_700;
     }
-  else if (pa_cpu_string == NULL
-         || ! strcmp (pa_cpu_string, "7100LC"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100LC"))
     {
       pa_cpu_string = "7100LC";
       pa_cpu = PROCESSOR_7100LC;
@@ -190,14 +182,20 @@ override_options ()
       pa_cpu_string = "7200";
       pa_cpu = PROCESSOR_7200;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "8000"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7300"))
+    {
+      pa_cpu_string = "7300";
+      pa_cpu = PROCESSOR_7300;
+    }
+  else if (pa_cpu_string == NULL
+	   || ! strcmp (pa_cpu_string, "8000"))
     {
       pa_cpu_string = "8000";
       pa_cpu = PROCESSOR_8000;
     }
   else
     {
-      warning ("unknown -mschedule= option (%s).\nValid options are 700, 7100, 7100LC, 7200, and 8000\n", pa_cpu_string);
+      warning ("unknown -mschedule= option (%s).\nValid options are 700, 7100, 7100LC, 7200, 7300, and 8000\n", pa_cpu_string);
     }
 
   /* Set the instruction set architecture.  */
@@ -2659,7 +2657,7 @@ output_ascii (file, p, size)
 	  fputs ("\"\n\t.STRING \"", file);
 	  chars_output = 0;
 	}
-      fwrite (partial_output, 1, co, file);
+      fwrite (partial_output, 1, (size_t) co, file);
       chars_output += co;
       co = 0;
     }
@@ -2930,15 +2928,60 @@ store_reg (reg, disp, base)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
-/* Emit RTL to set REG to the value specified by BASE+DISP.
-   Handle case where DISP > 8k by using the add_high_const patterns.
-
-   Note in DISP > 8k case, we will leave the high part of the address
-   in %r1.  There is code in expand_hppa_{prologue,epilogue} that knows this.*/
+/* Emit RTL to store REG at the memory location specified by BASE and then
+   add MOD to BASE.  MOD must be <= 8k.  */
 
 static void
-set_reg_plus_d (reg, base, disp)
-     int reg, base, disp;
+store_reg_modify (base, reg, mod)
+     int base, reg, mod;
+{
+  rtx insn, basereg, srcreg, delta;
+
+  if (! VAL_14_BITS_P (mod))
+    abort ();
+
+  basereg = gen_rtx_REG (Pmode, base);
+  srcreg = gen_rtx_REG (word_mode, reg);
+  delta = GEN_INT (mod);
+
+  insn = emit_insn (gen_post_store (basereg, srcreg, delta));
+  if (DO_FRAME_NOTES)
+    {
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      /* RTX_FRAME_RELATED_P must be set on each frame related set
+	 in a parallel with more than one element.  Don't set
+	 RTX_FRAME_RELATED_P in the first set if reg is temporary
+	 register 1. The effect of this operation is recorded in
+	 the initial copy.  */
+      if (reg != 1)
+	{
+	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 0)) = 1;
+	  RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
+	}
+      else
+	{
+	  /* The first element of a PARALLEL is always processed if it is
+	     a SET.  Thus, we need an expression list for this case.  */
+	  REG_NOTES (insn)
+	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+		gen_rtx_SET (VOIDmode, basereg,
+			     gen_rtx_PLUS (word_mode, basereg, delta)),
+                REG_NOTES (insn));
+	}
+    }
+}
+
+/* Emit RTL to set REG to the value specified by BASE+DISP.  Handle case
+   where DISP > 8k by using the add_high_const patterns.  NOTE indicates
+   whether to add a frame note or not.
+
+   In the DISP > 8k case, we leave the high part of the address in %r1.
+   There is code in expand_hppa_{prologue,epilogue} that knows about this.  */
+
+static void
+set_reg_plus_d (reg, base, disp, note)
+     int reg, base, disp, note;
 {
   rtx insn;
 
@@ -2960,7 +3003,7 @@ set_reg_plus_d (reg, base, disp)
 					     delta));
     }
 
-  if (DO_FRAME_NOTES && reg == STACK_POINTER_REGNUM)
+  if (DO_FRAME_NOTES && note)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
@@ -2977,6 +3020,18 @@ compute_frame_size (size, fregs_live)
      Similar code also appears in hppa_expand_prologue.  Change both
      of them at the same time.  */
   fsize = size + (size || frame_pointer_needed ? STARTING_FRAME_OFFSET : 0);
+
+  /* If the current function calls __builtin_eh_return, then we need
+     to allocate stack space for registers that will hold data for
+     the exception handler.  */
+  if (DO_FRAME_NOTES && current_function_calls_eh_return)
+    {
+      unsigned int i;
+
+      for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM; ++i)
+	continue;
+      fsize += i * UNITS_PER_WORD;
+    }
 
   /* Account for space used by the callee general register saves.  */
   for (i = 18; i >= 3; i--)
@@ -3068,19 +3123,11 @@ pa_output_function_prologue (file, size)
 
   fputs ("\n\t.ENTRY\n", file);
 
-  /* When profiling, we need a local label at the beginning of the
-     prologue because GAS can't handle the difference of a global symbol
-     and a local symbol.  */
-  if (current_function_profile)
-    {
-      ASM_OUTPUT_INTERNAL_LABEL (file, FUNC_BEGIN_PROLOG_LABEL,
-				 current_function_number);
-      current_function_number++;
-    }
-
-  /* If we're using GAS and not using the portable runtime model, then
-     we don't need to accumulate the total number of code bytes.  */
-  if (TARGET_GAS && ! TARGET_PORTABLE_RUNTIME)
+  /* If we're using GAS and SOM, and not using the portable runtime model,
+     then we don't need to accumulate the total number of code bytes.  */
+  if ((TARGET_GAS && TARGET_SOM && ! TARGET_PORTABLE_RUNTIME)
+      /* FIXME: we can't handle long calls for TARGET_64BIT.  */
+      || TARGET_64BIT)
     total_code_bytes = 0;
   else if (INSN_ADDRESSES_SET_P ())
     {
@@ -3105,7 +3152,7 @@ hppa_expand_prologue ()
   int size = get_frame_size ();
   int merge_sp_adjust_with_store = 0;
   int i, offset;
-  rtx tmpreg, size_rtx;
+  rtx insn, tmpreg;
 
   gr_saved = 0;
   fr_saved = 0;
@@ -3123,12 +3170,11 @@ hppa_expand_prologue ()
 
   /* Compute a few things we will use often.  */
   tmpreg = gen_rtx_REG (word_mode, 1);
-  size_rtx = GEN_INT (actual_fsize);
 
   /* Save RP first.  The calling conventions manual states RP will
      always be stored into the caller's frame at sp - 20 or sp - 16
      depending on which ABI is in use.  */
-  if (regs_ever_live[2])
+  if (regs_ever_live[2] || current_function_calls_eh_return)
     store_reg (2, TARGET_64BIT ? -16 : -20, STACK_POINTER_REGNUM);
 
   /* Allocate the local frame and set up the frame pointer if needed.  */
@@ -3138,36 +3184,30 @@ hppa_expand_prologue ()
 	{
 	  /* Copy the old frame pointer temporarily into %r1.  Set up the
 	     new stack pointer, then store away the saved old frame pointer
-	     into the stack at sp+actual_fsize and at the same time update
-	     the stack pointer by actual_fsize bytes.  Two versions, first
+	     into the stack at sp and at the same time update the stack
+	     pointer by actual_fsize bytes.  Two versions, first
 	     handles small (<8k) frames.  The second handles large (>=8k)
 	     frames.  */
-	  emit_move_insn (tmpreg, frame_pointer_rtx);
-	  FRP (emit_move_insn (frame_pointer_rtx, stack_pointer_rtx));
-	  if (VAL_14_BITS_P (actual_fsize))
+	  insn = emit_move_insn (tmpreg, frame_pointer_rtx);
+	  if (DO_FRAME_NOTES)
 	    {
-	      rtx insn = emit_insn (gen_post_store (stack_pointer_rtx, tmpreg,
-						    size_rtx));
-	      if (DO_FRAME_NOTES)
-		{
-		  rtvec vec;
-		  RTX_FRAME_RELATED_P (insn) = 1;
-		  vec = gen_rtvec (2,
-				   gen_rtx_SET (VOIDmode,
-						gen_rtx_MEM (word_mode,
-							     stack_pointer_rtx),
-						frame_pointer_rtx),
-				   gen_rtx_SET (VOIDmode,
-						stack_pointer_rtx,
-						gen_rtx_PLUS (word_mode,
-							      stack_pointer_rtx,
-							      size_rtx)));
-		  REG_NOTES (insn)
-		    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					 gen_rtx_SEQUENCE (VOIDmode, vec),
-					 REG_NOTES (insn));
-		}
+	      /* We need to record the frame pointer save here since the
+	         new frame pointer is set in the following insn.  */
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      REG_NOTES (insn)
+		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+		    gen_rtx_SET (VOIDmode,
+				 gen_rtx_MEM (word_mode, stack_pointer_rtx),
+			         frame_pointer_rtx),
+		    REG_NOTES (insn));
 	    }
+
+	  insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
+	  if (DO_FRAME_NOTES)
+	    RTX_FRAME_RELATED_P (insn) = 1;
+
+	  if (VAL_14_BITS_P (actual_fsize))
+	    store_reg_modify (STACK_POINTER_REGNUM, 1, actual_fsize);
 	  else
 	    {
 	      /* It is incorrect to store the saved frame pointer at *sp,
@@ -3178,32 +3218,12 @@ hppa_expand_prologue ()
 		 finish allocating the new frame.  */
 	      int adjust1 = 8192 - 64;
 	      int adjust2 = actual_fsize - adjust1;
-	      rtx delta = GEN_INT (adjust1);
-	      rtx insn = emit_insn (gen_post_store (stack_pointer_rtx, tmpreg,
-						    delta));
-	      if (DO_FRAME_NOTES)
-		{
-		  rtvec vec;
-		  RTX_FRAME_RELATED_P (insn) = 1;
-		  vec = gen_rtvec (2,
-				   gen_rtx_SET (VOIDmode,
-						gen_rtx_MEM (word_mode,
-							     stack_pointer_rtx),
-						frame_pointer_rtx),
-				   gen_rtx_SET (VOIDmode,
-						stack_pointer_rtx,
-						gen_rtx_PLUS (word_mode,
-							      stack_pointer_rtx,
-							      delta)));
-		  REG_NOTES (insn)
-		    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-					 gen_rtx_SEQUENCE (VOIDmode, vec),
-					 REG_NOTES (insn));
-		}
 
+	      store_reg_modify (STACK_POINTER_REGNUM, 1, adjust1);
 	      set_reg_plus_d (STACK_POINTER_REGNUM, STACK_POINTER_REGNUM,
-			      adjust2);
+			      adjust2, 1);
 	    }
+
 	  /* Prevent register spills from being scheduled before the
 	     stack pointer is raised.  Necessary as we will be storing
 	     registers using the frame pointer as a base register, and
@@ -3223,7 +3243,7 @@ hppa_expand_prologue ()
 	     bytes.  */
 	  else
 	    set_reg_plus_d (STACK_POINTER_REGNUM, STACK_POINTER_REGNUM,
-			    actual_fsize);
+			    actual_fsize, 1);
 	}
     }
 
@@ -3233,7 +3253,27 @@ hppa_expand_prologue ()
      was done earlier.  */
   if (frame_pointer_needed)
     {
-      for (i = 18, offset = local_fsize; i >= 4; i--)
+      offset = local_fsize;
+
+      /* Saving the EH return data registers in the frame is the simplest
+	 way to get the frame unwind information emitted.  We put them
+	 just before the general registers.  */
+      if (DO_FRAME_NOTES && current_function_calls_eh_return)
+	{
+	  unsigned int i, regno;
+
+	  for (i = 0; ; ++i)
+	    {
+	      regno = EH_RETURN_DATA_REGNO (i);
+	      if (regno == INVALID_REGNUM)
+		break;
+
+	      store_reg (regno, offset, FRAME_POINTER_REGNUM);
+	      offset += UNITS_PER_WORD;
+	    }
+	}
+
+      for (i = 18; i >= 4; i--)
 	if (regs_ever_live[i] && ! call_used_regs[i])
 	  {
 	    store_reg (i, offset, FRAME_POINTER_REGNUM);
@@ -3246,18 +3286,42 @@ hppa_expand_prologue ()
   /* No frame pointer needed.  */
   else
     {
-      for (i = 18, offset = local_fsize - actual_fsize; i >= 3; i--)
+      offset = local_fsize - actual_fsize;
+
+      /* Saving the EH return data registers in the frame is the simplest
+         way to get the frame unwind information emitted.  */
+      if (DO_FRAME_NOTES && current_function_calls_eh_return)
+	{
+	  unsigned int i, regno;
+
+	  for (i = 0; ; ++i)
+	    {
+	      regno = EH_RETURN_DATA_REGNO (i);
+	      if (regno == INVALID_REGNUM)
+		break;
+
+	      /* If merge_sp_adjust_with_store is nonzero, then we can
+		 optimize the first save.  */
+	      if (merge_sp_adjust_with_store)
+		{
+		  store_reg_modify (STACK_POINTER_REGNUM, regno, -offset);
+		  merge_sp_adjust_with_store = 0;
+		}
+	      else
+		store_reg (regno, offset, STACK_POINTER_REGNUM);
+	      offset += UNITS_PER_WORD;
+	    }
+	}
+
+      for (i = 18; i >= 3; i--)
       	if (regs_ever_live[i] && ! call_used_regs[i])
 	  {
 	    /* If merge_sp_adjust_with_store is nonzero, then we can
 	       optimize the first GR save.  */
 	    if (merge_sp_adjust_with_store)
 	      {
-		rtx delta = GEN_INT (-offset);
+		store_reg_modify (STACK_POINTER_REGNUM, i, -offset);
 		merge_sp_adjust_with_store = 0;
-	        FRP (emit_insn (gen_post_store (stack_pointer_rtx,
-						gen_rtx_REG (word_mode, i),
-						delta)));
 	      }
 	    else
 	      store_reg (i, offset, STACK_POINTER_REGNUM);
@@ -3269,7 +3333,7 @@ hppa_expand_prologue ()
 	 did any GR saves, then just emit the adjustment here.  */
       if (merge_sp_adjust_with_store)
 	set_reg_plus_d (STACK_POINTER_REGNUM, STACK_POINTER_REGNUM,
-			actual_fsize);
+			actual_fsize, 1);
     }
 
   /* The hppa calling conventions say that %r19, the pic offset
@@ -3287,12 +3351,20 @@ hppa_expand_prologue ()
   /* Floating point register store.  */
   if (save_fregs)
     {
+      rtx base;
+
       /* First get the frame or stack pointer to the start of the FP register
 	 save area.  */
       if (frame_pointer_needed)
-	set_reg_plus_d (1, FRAME_POINTER_REGNUM, offset);
+	{
+	  set_reg_plus_d (1, FRAME_POINTER_REGNUM, offset, 0);
+	  base = frame_pointer_rtx;
+	}
       else
-	set_reg_plus_d (1, STACK_POINTER_REGNUM, offset);
+	{
+	  set_reg_plus_d (1, STACK_POINTER_REGNUM, offset, 0);
+	  base = stack_pointer_rtx;
+	}
 
       /* Now actually save the FP registers.  */
       for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
@@ -3307,20 +3379,49 @@ hppa_expand_prologue ()
 	      if (DO_FRAME_NOTES)
 		{
 		  RTX_FRAME_RELATED_P (insn) = 1;
-		  REG_NOTES (insn)
-		    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode,
-			  gen_rtx_MEM (DFmode,
-				       plus_constant (stack_pointer_rtx,
-						      offset)),
-			  reg),
-			REG_NOTES (insn));
+		  if (TARGET_64BIT)
+		    {
+		      rtx mem = gen_rtx_MEM (DFmode,
+					     plus_constant (base, offset));
+		      REG_NOTES (insn)
+			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					     gen_rtx_SET (VOIDmode, mem, reg),
+					     REG_NOTES (insn));
+		    }
+		  else
+		    {
+		      rtx meml = gen_rtx_MEM (SFmode,
+					      plus_constant (base, offset));
+		      rtx memr = gen_rtx_MEM (SFmode,
+					      plus_constant (base, offset + 4));
+		      rtx regl = gen_rtx_REG (SFmode, i);
+		      rtx regr = gen_rtx_REG (SFmode, i + 1);
+		      rtx setl = gen_rtx_SET (VOIDmode, meml, regl);
+		      rtx setr = gen_rtx_SET (VOIDmode, memr, regr);
+		      rtvec vec;
+
+		      RTX_FRAME_RELATED_P (setl) = 1;
+		      RTX_FRAME_RELATED_P (setr) = 1;
+		      vec = gen_rtvec (2, setl, setr);
+		      REG_NOTES (insn)
+			= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					     gen_rtx_SEQUENCE (VOIDmode, vec),
+					     REG_NOTES (insn));
+		    }
 		}
 	      offset += GET_MODE_SIZE (DFmode);
 	      fr_saved++;
 	    }
 	}
     }
+
+  /* FIXME: expand_call and expand_millicode_call need to be fixed to
+     prevent insns with frame notes being scheduled in the delay slot
+     of calls.  This causes problems because the dwarf2 output code
+     processes the insn list serially.  For now, limit the migration
+     of prologue insns with a blockage.  */
+  if (DO_FRAME_NOTES)
+    emit_insn (gen_blockage ());
 }
 
 /* Emit RTL to load REG from the memory location specified by BASE+DISP.
@@ -3404,7 +3505,7 @@ hppa_expand_epilogue ()
   /* Try to restore RP early to avoid load/use interlocks when
      RP gets used in the return (bv) instruction.  This appears to still
      be necessary even when we schedule the prologue and epilogue.  */
-  if (regs_ever_live [2])
+  if (regs_ever_live [2] || current_function_calls_eh_return)
     {
       ret_off = TARGET_64BIT ? -16 : -20;
       if (frame_pointer_needed)
@@ -3426,7 +3527,26 @@ hppa_expand_epilogue ()
   /* General register restores.  */
   if (frame_pointer_needed)
     {
-      for (i = 18, offset = local_fsize; i >= 4; i--)
+      offset = local_fsize;
+
+      /* If the current function calls __builtin_eh_return, then we need
+         to restore the saved EH data registers.  */
+      if (DO_FRAME_NOTES && current_function_calls_eh_return)
+	{
+	  unsigned int i, regno;
+
+	  for (i = 0; ; ++i)
+	    {
+	      regno = EH_RETURN_DATA_REGNO (i);
+	      if (regno == INVALID_REGNUM)
+		break;
+
+	      load_reg (regno, offset, FRAME_POINTER_REGNUM);
+	      offset += UNITS_PER_WORD;
+	    }
+	}
+
+      for (i = 18; i >= 4; i--)
 	if (regs_ever_live[i] && ! call_used_regs[i])
 	  {
 	    load_reg (i, offset, FRAME_POINTER_REGNUM);
@@ -3435,7 +3555,34 @@ hppa_expand_epilogue ()
     }
   else
     {
-      for (i = 18, offset = local_fsize - actual_fsize; i >= 3; i--)
+      offset = local_fsize - actual_fsize;
+
+      /* If the current function calls __builtin_eh_return, then we need
+         to restore the saved EH data registers.  */
+      if (DO_FRAME_NOTES && current_function_calls_eh_return)
+	{
+	  unsigned int i, regno;
+
+	  for (i = 0; ; ++i)
+	    {
+	      regno = EH_RETURN_DATA_REGNO (i);
+	      if (regno == INVALID_REGNUM)
+		break;
+
+	      /* Only for the first load.
+	         merge_sp_adjust_with_load holds the register load
+	         with which we will merge the sp adjustment.  */
+	      if (merge_sp_adjust_with_load == 0
+		  && local_fsize == 0
+		  && VAL_14_BITS_P (-actual_fsize))
+	        merge_sp_adjust_with_load = regno;
+	      else
+		load_reg (regno, offset, STACK_POINTER_REGNUM);
+	      offset += UNITS_PER_WORD;
+	    }
+	}
+
+      for (i = 18; i >= 3; i--)
 	{
 	  if (regs_ever_live[i] && ! call_used_regs[i])
 	    {
@@ -3461,9 +3608,9 @@ hppa_expand_epilogue ()
     {
       /* Adjust the register to index off of.  */
       if (frame_pointer_needed)
-	set_reg_plus_d (1, FRAME_POINTER_REGNUM, offset);
+	set_reg_plus_d (1, FRAME_POINTER_REGNUM, offset, 0);
       else
-	set_reg_plus_d (1, STACK_POINTER_REGNUM, offset);
+	set_reg_plus_d (1, STACK_POINTER_REGNUM, offset, 0);
 
       /* Actually do the restores now.  */
       for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
@@ -3488,45 +3635,36 @@ hppa_expand_epilogue ()
   if (frame_pointer_needed)
     {
       rtx delta = GEN_INT (-64);
-      rtx insn;
-      set_reg_plus_d (STACK_POINTER_REGNUM, FRAME_POINTER_REGNUM, 64);
-      insn = emit_insn (gen_pre_load (frame_pointer_rtx, stack_pointer_rtx,
-				      delta));
-      if (DO_FRAME_NOTES)
-	{
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			     gen_rtx_PLUS (word_mode, stack_pointer_rtx,
-					   delta)),
-                REG_NOTES (insn));
-	}
+
+      set_reg_plus_d (STACK_POINTER_REGNUM, FRAME_POINTER_REGNUM, 64, 0);
+      emit_insn (gen_pre_load (frame_pointer_rtx, stack_pointer_rtx, delta));
     }
   /* If we were deferring a callee register restore, do it now.  */
   else if (merge_sp_adjust_with_load)
     {
       rtx delta = GEN_INT (-actual_fsize);
       rtx dest = gen_rtx_REG (word_mode, merge_sp_adjust_with_load);
-      rtx insn = emit_insn (gen_pre_load (dest, stack_pointer_rtx, delta));
-      if (DO_FRAME_NOTES)
-	{
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			     gen_rtx_PLUS (word_mode, stack_pointer_rtx,
-					   delta)),
-                REG_NOTES (insn));
-	}
+
+      emit_insn (gen_pre_load (dest, stack_pointer_rtx, delta));
     }
   else if (actual_fsize != 0)
-    set_reg_plus_d (STACK_POINTER_REGNUM, STACK_POINTER_REGNUM, - actual_fsize);
+    set_reg_plus_d (STACK_POINTER_REGNUM, STACK_POINTER_REGNUM,
+		    - actual_fsize, 0);
 
   /* If we haven't restored %r2 yet (no frame pointer, and a stack
      frame greater than 8k), do so now.  */
   if (ret_off != 0)
     load_reg (2, ret_off, STACK_POINTER_REGNUM);
+
+  if (DO_FRAME_NOTES && current_function_calls_eh_return)
+    {
+      rtx sa = EH_RETURN_STACKADJ_RTX;
+
+      emit_insn (gen_blockage ());
+      emit_insn (TARGET_64BIT
+		 ? gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx, sa)
+		 : gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx, sa));
+    }
 }
 
 rtx
@@ -3537,13 +3675,13 @@ hppa_pic_save_rtx ()
 
 void
 hppa_profile_hook (label_no)
-     int label_no ATTRIBUTE_UNUSED;
+     int label_no;
 {
   rtx begin_label_rtx, call_insn;
   char begin_label_name[16];
 
   ASM_GENERATE_INTERNAL_LABEL (begin_label_name, FUNC_BEGIN_PROLOG_LABEL,
-			       current_function_number);
+			       label_no);
   begin_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (begin_label_name));
 
   if (TARGET_64BIT)
@@ -3804,7 +3942,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		{
 		case TYPE_FPLOAD:
 		  /* This cost 3 cycles, not 2 as the md says for the
-		     700 and 7100.  */
+		     700 and 7100, 7100lc, 7200 and 7300.  */
 		  return cost + 1;
 
 		case TYPE_FPALU:
@@ -3822,6 +3960,11 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		  return cost;
 		}
 	    }
+
+	  /* A flop-flop true depenendency where the sizes of the operand
+	     carrying the dependency is difference causes an additional
+	     cycle stall on the 7100lc, 7200, and 7300.   Similarly for
+	     a fpload-flop true dependency.  */
 	}
 
       /* For other data dependencies, the default cost specified in the
@@ -3864,7 +4007,10 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding arithmetic operation has finished if
 		     the target of the fpload is any of the sources
 		     (or destination) of the arithmetic operation.  */
-		  return cost - 1;
+		  if (hppa_use_dfa_pipeline_interface ())
+		    return insn_default_latency (dep_insn) - 1;
+		  else
+		    return cost - 1;
 
 		default:
 		  return 0;
@@ -3899,7 +4045,10 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is any of the sources
 		     (or destination) of the divide or sqrt operation.  */
-		  return cost - 2;
+		  if (hppa_use_dfa_pipeline_interface ())
+		    return insn_default_latency (dep_insn) - 2;
+		  else
+		    return cost - 2;
 
 		default:
 		  return 0;
@@ -3944,8 +4093,15 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		  /* A fpload can't be issued until one cycle before a
 		     preceding arithmetic operation has finished if
 		     the target of the fpload is the destination of the
-		     arithmetic operation.  */
-		  return cost - 1;
+		     arithmetic operation. 
+
+		     Exception: For PA7100LC, PA7200 and PA7300, the cost
+		     is 3 cycles, unless they bundle together.   We also
+		     pay the penalty if the second insn is a fpload.  */
+		  if (hppa_use_dfa_pipeline_interface ())
+		    return insn_default_latency (dep_insn) - 1;
+		  else
+		    return cost - 1;
 
 		default:
 		  return 0;
@@ -3980,7 +4136,10 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is also the target of
 		     the divide or sqrt operation.  */
-		  return cost - 2;
+		  if (hppa_use_dfa_pipeline_interface ())
+		    return insn_default_latency (dep_insn) - 2;
+		  else
+		    return cost - 2;
 
 		default:
 		  return 0;
@@ -4040,6 +4199,7 @@ pa_issue_rate ()
     case PROCESSOR_7100:	return 2;
     case PROCESSOR_7100LC:	return 2;
     case PROCESSOR_7200:	return 2;
+    case PROCESSOR_7300:	return 2;
     case PROCESSOR_8000:	return 4;
 
     default:
@@ -4598,7 +4758,7 @@ output_deferred_plabels (file)
     {
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
       assemble_integer (gen_rtx_SYMBOL_REF (Pmode, deferred_plabels[i].name),
-			4, 32, 1);
+			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
     }
 }
 
@@ -5316,14 +5476,24 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  xoperands[1] = operands[1];
 	  xoperands[2] = operands[2];
 	  xoperands[3] = operands[3];
-	  xoperands[4] = gen_label_rtx ();
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    xoperands[4] = gen_label_rtx ();
 
-	  output_asm_insn ("{bl|b,l} .+8,%%r1\n\taddil L'%l0-%l4,%%r1",
-			   xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				     CODE_LABEL_NUMBER (xoperands[4]));
-	  output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1\n\tbv %%r0(%%r1)",
-			   xoperands);
+	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    {
+	      output_asm_insn ("addil L'%l0-%l4,%%r1", xoperands);
+	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[4]));
+	      output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1",
+			       xoperands);
+	    }
+	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
 	}
 
 	/* Now restore the value of %r1 in the delay slot.  We're not
@@ -5861,6 +6031,8 @@ output_millicode_call (insn, call_dest)
   rtx insn;
   rtx call_dest;
 {
+  int attr_length = get_attr_length (insn);
+  int seq_length = dbr_sequence_length ();
   int distance;
   rtx xoperands[4];
   rtx seq_insn;
@@ -5869,12 +6041,15 @@ output_millicode_call (insn, call_dest)
 
   /* Handle common case -- empty delay slot or no jump in the delay slot,
      and we're sure that the branch will reach the beginning of the $CODE$
-     subspace.  */
-  if ((dbr_sequence_length () == 0
-       && (get_attr_length (insn) == 8 || get_attr_length (insn) == 28))
-      || (dbr_sequence_length () != 0
+     subspace.  The within reach form of the $$sh_func_adrs call has
+     a length of 28 and attribute type of multi.  This length is the
+     same as the maximum length of an out of reach PIC call to $$div.  */
+  if ((seq_length == 0
+       && (attr_length == 8
+	   || (attr_length == 28 && get_attr_type (insn) == TYPE_MULTI)))
+      || (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
-	  && get_attr_length (insn) == 4))
+	  && attr_length == 4))
     {
       xoperands[0] = call_dest;
       output_asm_insn ("{bl|b,l} %0,%3%#", xoperands);
@@ -5882,12 +6057,12 @@ output_millicode_call (insn, call_dest)
     }
 
   /* This call may not reach the beginning of the $CODE$ subspace.  */
-  if (get_attr_length (insn) > 4)
+  if (attr_length > 8)
     {
       int delay_insn_deleted = 0;
 
       /* We need to emit an inline long-call branch.  */
-      if (dbr_sequence_length () != 0
+      if (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN)
 	{
 	  /* A non-jump insn in the delay slot.  By definition we can
@@ -5905,15 +6080,26 @@ output_millicode_call (insn, call_dest)
       if (flag_pic)
 	{
 	  xoperands[0] = call_dest;
-	  xoperands[1] = gen_label_rtx ();
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    xoperands[1] = gen_label_rtx ();
+
 	  /* Get our address + 8 into %r1.  */
 	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
-	  /* Add %r1 to the offset of our target from the next insn.  */
-	  output_asm_insn ("addil L%%%0-%1,%%r1", xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				     CODE_LABEL_NUMBER (xoperands[1]));
-	  output_asm_insn ("ldo R%%%0-%1(%%r1),%%r1", xoperands);
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    {
+	      /* Add %r1 to the offset of our target from the next insn.  */
+	      output_asm_insn ("addil L%%%0-%1,%%r1", xoperands);
+	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("ldo R%%%0-%1(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      output_asm_insn ("addil L%%%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R%%%0-$PIC_pcrel$0+8(%%r1),%%r1",
+			       xoperands);
+	    }
 
 	  /* Get the return address into %r31.  */
 	  output_asm_insn ("blr 0,%3", xoperands);
@@ -5955,8 +6141,7 @@ output_millicode_call (insn, call_dest)
 	}
 
       /* If we had a jump in the call's delay slot, output it now.  */
-      if (dbr_sequence_length () != 0
-	  && !delay_insn_deleted)
+      if (seq_length != 0 && !delay_insn_deleted)
 	{
 	  xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 	  output_asm_insn ("b,n %0", xoperands);
@@ -6018,6 +6203,8 @@ output_call (insn, call_dest, sibcall)
   rtx call_dest;
   int sibcall;
 {
+  int attr_length = get_attr_length (insn);
+  int seq_length = dbr_sequence_length ();
   int distance;
   rtx xoperands[4];
   rtx seq_insn;
@@ -6025,11 +6212,10 @@ output_call (insn, call_dest, sibcall)
   /* Handle common case -- empty delay slot or no jump in the delay slot,
      and we're sure that the branch will reach the beginning of the $CODE$
      subspace.  */
-  if ((dbr_sequence_length () == 0
-       && get_attr_length (insn) == 8)
-      || (dbr_sequence_length () != 0
+  if ((seq_length == 0 && attr_length == 12)
+      || (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
-	  && get_attr_length (insn) == 4))
+	  && attr_length == 8))
     {
       xoperands[0] = call_dest;
       xoperands[1] = gen_rtx_REG (word_mode, sibcall ? 0 : 2);
@@ -6038,7 +6224,7 @@ output_call (insn, call_dest, sibcall)
     }
 
   /* This call may not reach the beginning of the $CODE$ subspace.  */
-  if (get_attr_length (insn) > 8)
+  if (attr_length > 12)
     {
       int delay_insn_deleted = 0;
       rtx xoperands[2];
@@ -6051,7 +6237,7 @@ output_call (insn, call_dest, sibcall)
 	 and FP registers.  Also, we need move any delay slot insn
 	 out of the delay slot.  And finally, we can't rely on the linker
 	 being able to fix the call to $$dyncall!  -- Yuk!.  */
-      if (dbr_sequence_length () != 0
+      if (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN)
 	{
 	  /* A non-jump insn in the delay slot.  By definition we can
@@ -6151,7 +6337,8 @@ output_call (insn, call_dest, sibcall)
 	  if (flag_pic)
 	    {
 	      xoperands[0] = deferred_plabels[i].internal_label;
-	      xoperands[1] = gen_label_rtx ();
+	      if (TARGET_SOM || ! TARGET_GAS)
+		xoperands[1] = gen_label_rtx ();
 
 	      output_asm_insn ("addil LT%%%0,%%r19", xoperands);
 	      output_asm_insn ("ldw RT%%%0(%%r1),%%r22", xoperands);
@@ -6160,11 +6347,21 @@ output_call (insn, call_dest, sibcall)
 	      /* Get our address + 8 into %r1.  */
 	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
-	      /* Add %r1 to the offset of dyncall from the next insn.  */
-	      output_asm_insn ("addil L%%$$dyncall-%1,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-					 CODE_LABEL_NUMBER (xoperands[1]));
-	      output_asm_insn ("ldo R%%$$dyncall-%1(%%r1),%%r1", xoperands);
+	      if (TARGET_SOM || ! TARGET_GAS)
+		{
+		  /* Add %r1 to the offset of dyncall from the next insn.  */
+		  output_asm_insn ("addil L%%$$dyncall-%1,%%r1", xoperands);
+		  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					     CODE_LABEL_NUMBER (xoperands[1]));
+		  output_asm_insn ("ldo R%%$$dyncall-%1(%%r1),%%r1", xoperands);
+	        }
+	      else
+		{
+		  output_asm_insn ("addil L%%$$dyncall-$PIC_pcrel$0+4,%%r1",
+				   xoperands);
+		  output_asm_insn ("ldo R%%$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
+				   xoperands);
+		}
 
 	      /* Get the return address into %r31.  */
 	      output_asm_insn ("blr %%r0,%%r31", xoperands);
@@ -6213,8 +6410,7 @@ output_call (insn, call_dest, sibcall)
 	}
 
       /* If we had a jump in the call's delay slot, output it now.  */
-      if (dbr_sequence_length () != 0
-	  && !delay_insn_deleted)
+      if (seq_length != 0 && !delay_insn_deleted)
 	{
 	  xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 	  output_asm_insn ("b,n %0", xoperands);
@@ -6238,14 +6434,16 @@ output_call (insn, call_dest, sibcall)
 	       - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8;
 
   /* If the branch was too far away, emit a normal call followed
-     by a nop, followed by the unconditional branch.
+     by a nop, followed by the unconditional branch.  We also don't
+     adjust %r2 when generating dwarf2 frame or unwind info since
+     the adjustment confuses the dwarf2 output.
 
      If the branch is close, then adjust %r2 from within the
      call's delay slot.  */
 
   xoperands[0] = call_dest;
   xoperands[1] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
-  if (! VAL_14_BITS_P (distance))
+  if (DO_FRAME_NOTES || ! VAL_14_BITS_P (distance))
     output_asm_insn ("{bl|b,l} %0,%%r2\n\tnop\n\tb,n %1", xoperands);
   else
     {
@@ -7083,7 +7281,7 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
   INSN_CODE (new) = -1;
   insn_code_number = recog_memoized (new);
   if (insn_code_number < 0
-      || !constrain_operands (1))
+      || (extract_insn (new), ! constrain_operands (1)))
     return 0;
 
   if (reversed)

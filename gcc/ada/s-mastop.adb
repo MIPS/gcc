@@ -7,7 +7,6 @@
 --                                 B o d y                                  --
 --                             (Dummy version)                              --
 --                                                                          --
---                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1999-2001 Free Software Foundation, Inc.          --
 --                                                                          --

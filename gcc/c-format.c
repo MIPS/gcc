@@ -27,7 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "diagnostic.h"
-
+#include "langhooks.h"
 
 /* Command line options and their associated flags.  */
 
@@ -2258,7 +2258,6 @@ check_format_types (status, types)
       tree cur_type;
       tree orig_cur_type;
       tree wanted_type;
-      tree promoted_type;
       int arg_num;
       int i;
       int char_type_flag;
@@ -2277,11 +2276,7 @@ check_format_types (status, types)
 	abort ();
 
       if (types->pointer_count == 0)
-	{
-	  promoted_type = simple_type_promotes_to (wanted_type);
-	  if (promoted_type != NULL_TREE)
-	    wanted_type = promoted_type;
-	}
+	wanted_type = (*lang_hooks.types.type_promotes_to) (wanted_type);
 
       STRIP_NOPS (cur_param);
 
@@ -2386,8 +2381,8 @@ check_format_types (status, types)
 	  && TREE_CODE (cur_type) == INTEGER_TYPE
 	  && (! pedantic || i == 0 || (i == 1 && char_type_flag))
 	  && (TREE_UNSIGNED (wanted_type)
-	      ? wanted_type == unsigned_type (cur_type)
-	      : wanted_type == signed_type (cur_type)))
+	      ? wanted_type == c_common_unsigned_type (cur_type)
+	      : wanted_type == c_common_signed_type (cur_type)))
 	continue;
       /* Likewise, "signed char", "unsigned char" and "char" are
 	 equivalent but the above test won't consider them equivalent.  */

@@ -7,7 +7,6 @@
 --                                 S p e c                                  --
 --                          (VXWORKS Version PPC)                           --
 --                                                                          --
---                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --

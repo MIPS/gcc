@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "tree.h"
 #include "c-tree.h"
+#include "c-common.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 
@@ -49,14 +50,40 @@ static void c_post_options PARAMS ((void));
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#undef LANG_HOOKS_MARK_TREE
+#define LANG_HOOKS_MARK_TREE c_mark_tree
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR c_expand_expr
+#undef LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
+#undef LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE c_common_parse_file
+#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
+#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES c_insert_default_attributes
+#undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
+#define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
+#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
+#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
+#undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL c_warn_unused_global_decl
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER c_print_identifier
-#undef LANG_HOOKS_SET_YYDEBUG
-#define LANG_HOOKS_SET_YYDEBUG c_set_yydebug
+#undef LANG_HOOKS_FUNCTION_ENTER_NESTED
+#define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
+#undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
+#define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
+
+/* Attribute hooks.  */
+#undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
+#define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table
+#undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
+#define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
@@ -67,6 +94,24 @@ static void c_post_options PARAMS ((void));
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   anon_aggr_type_p
+#undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
+#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
+  c_convert_parm_for_inlining
+
+#undef LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
+#undef LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
+#undef LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
+#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
+#undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR
+#define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
+#undef LANG_HOOKS_TYPE_PROMOTES_TO
+#define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 

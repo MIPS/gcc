@@ -1593,6 +1593,7 @@ TOOLS_FLAGS_TO_PASS=		\
 	"libsubdir=$(libsubdir)"	\
 	"exeext=$(exeext)"	\
 	"srcdir=$(fsrcdir)"	\
+	"VPATH=$(fsrcdir)"      \
         "TOOLS_LIBS=$(TOOLS_LIBS) $(TGT_LIB)"	\
 	"GNATMAKE=$(GNATMAKE)"	\
 	"GNATLINK=$(GNATLINK)"	\
@@ -1660,9 +1661,9 @@ gnattools2: ../stamp-tools
 
 # These tools are only built for the native version.
 gnattools3: ../stamp-tools
-	$(MAKE) -C tools -f ../Makefile $(TOOLS_FLAGS_TO_PASS) \
-	  TOOLSCASE=native \
-	  top_builddir=../.. ../../gnatmem$(exeext) $(EXTRA_GNATTOOLS)
+#	$(MAKE) -C tools -f ../Makefile $(TOOLS_FLAGS_TO_PASS) \
+#	  TOOLSCASE=native \
+#	  top_builddir=../.. ../../gnatmem$(exeext) $(EXTRA_GNATTOOLS)
 
 ../../gnatchop$(exeext):
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatchop --GCC="$(CC) $(ALL_ADAFLAGS)"
@@ -1874,7 +1875,7 @@ gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 	        ADA_INCLUDES="$(ADA_INCLUDES_FOR_SUBDIR)" \
                 CFLAGS="$(GNATLIBCFLAGS)" ADA_CFLAGS="$(GNATLIBCFLAGS)" \
 	        ADAFLAGS="$(GNATLIBFLAGS)" \
-		srcdir=$(fsrcdir) \
+		srcdir=$(fsrcdir) VPATH=$(fsrcdir) \
 	        -f ../Makefile \
 	        $(GNATRTL_OBJS)
 	$(RM) rts/libgnat$(arext) rts/libgnarl$(arext)
@@ -1951,7 +1952,7 @@ internal-hielib: ../stamp-gnatlib1
 	  ADA_INCLUDES="$(ADA_INCLUDES_FOR_SUBDIR)" \
 	  CFLAGS="$(GNATLIBCFLAGS)" \
 	  ADAFLAGS="$(GNATLIBFLAGS)" \
-	  srcdir=$(fsrcdir) \
+	  srcdir=$(fsrcdir) VPATH=$(fsrcdir) \
 	  -f ../Makefile \
 	  $(HIE_OBJS)
 	$(CHMOD) a-wx rts/*.ali
@@ -1974,7 +1975,7 @@ internal-ravenlib: ../stamp-gnatlib1
 	  ADA_INCLUDES="$(ADA_INCLUDES_FOR_SUBDIR)" \
 	  CFLAGS="$(GNATLIBCFLAGS)" \
 	  ADAFLAGS="$(GNATLIBFLAGS)" \
-	  srcdir=$(fsrcdir) \
+	  srcdir=$(fsrcdir) VPATH=$(fsrcdir) \
 	  -f ../Makefile \
 	  $(RAVEN_OBJS)
 	$(CHMOD) a-wx rts/*.ali
@@ -2139,6 +2140,42 @@ nmake.ads :  sinfo.ads nmake.adt xnmake.adb
 	$(CP) $^ bldtools
 	(cd bldtools; gnatmake -q xnmake ; ./xnmake -s ../nmake.ads )
 
+# We remove the generated .texi files to force regeneration.
+doctools/xgnatug : xgnatug.adb
+	-$(MKDIR) doctools
+	$(CP) $^ doctools
+	(cd doctools ; gnatmake -q xgnatug)
+	-rm gnat_ug_*.texi
+
+# We cannot list the dependency on the xgnatug binary here because we
+# have to (a) use the VPATH feature, and (b) include the target flag.
+gnat_ug_vms.texi : gnat_ug.texi ug_words
+	doctools/xgnatug vms $^
+
+gnat_ug_wnt.texi : gnat_ug.texi ug_words
+	doctools/xgnatug wnt $^
+
+gnat_ug_unx.texi : gnat_ug.texi ug_words
+	doctools/xgnatug unx $^
+
+gnat_ug_vxw.texi : gnat_ug.texi ug_words
+	doctools/xgnatug vxworks $^
+
+%.info : %.texi
+	$(MAKEINFO) -I $(srcdir)/../doc/include -o $@ $<
+
+%.dvi : %.texi
+	$(TEXI2DVI) -I $(srcdir)/../doc/include $<
+
+# List the dependency on the xgnatug binary explicitly (see above).
+doc : doctools/xgnatug \
+	gnat_ug_vms.info gnat_ug_wnt.info gnat_ug_unx.info gnat_ug_vxw.info \
+	gnat_rm.info gnat-style.info
+
+dvi : doctools/xgnatug \
+	gnat_ug_vms.dvi gnat_ug_wnt.dvi gnat_ug_unx.dvi gnat_ug_vxw.dvi \
+	gnat_rm.dvi gnat-style.dvi
+
 update-sources : treeprs.ads einfo.h sinfo.h nmake.adb nmake.ads
 	$(CP) $^ $(srcdir)
 
@@ -2150,7 +2187,7 @@ ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
 #  these -- there are no default locations.
 sdefault.adb: stamp-sdefault ; @true
 stamp-sdefault : $(srcdir)/../version.c $(srcdir)/../move-if-change \
- Makefile
+ ../Makefile
 	$(ECHO) "pragma Style_Checks (Off);" >tmp-sdefault.adb
 	$(ECHO) "package body Sdefault is" >>tmp-sdefault.adb
 	$(ECHO) "   S1 : aliased constant String := \"$(ADA_INCLUDE_DIR)/\";" >>tmp-sdefault.adb

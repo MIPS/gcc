@@ -375,7 +375,7 @@ read_include_file (pfile, inc)
      struct include_file *inc;
 {
   ssize_t size, offset, count;
-  U_CHAR *buf;
+  uchar *buf;
 #if MMAP_THRESHOLD
   static int pagesize = -1;
 #endif
@@ -392,7 +392,7 @@ read_include_file (pfile, inc)
 	 does not bite us.  */
       if (inc->st.st_size > INTTYPE_MAXIMUM (ssize_t))
 	{
-	  cpp_error (pfile, "%s is too large", inc->name);
+	  cpp_error (pfile, DL_ERROR, "%s is too large", inc->name);
 	  goto fail;
 	}
       size = inc->st.st_size;
@@ -404,15 +404,15 @@ read_include_file (pfile, inc)
 
       if (SHOULD_MMAP (size, pagesize))
 	{
-	  buf = (U_CHAR *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
-	  if (buf == (U_CHAR *)-1)
+	  buf = (uchar *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
+	  if (buf == (uchar *)-1)
 	    goto perror_fail;
 	  inc->mapped = 1;
 	}
       else
 #endif
 	{
-	  buf = (U_CHAR *) xmalloc (size + 1);
+	  buf = (uchar *) xmalloc (size + 1);
 	  offset = 0;
 	  while (offset < size)
 	    {
@@ -422,8 +422,8 @@ read_include_file (pfile, inc)
 	      if (count == 0)
 		{
 		  if (!STAT_SIZE_TOO_BIG (inc->st))
-		    cpp_warning
-		      (pfile, "%s is shorter than expected", inc->name);
+		    cpp_error (pfile, DL_WARNING,
+			       "%s is shorter than expected", inc->name);
 		  size = offset;
 		  buf = xrealloc (buf, size + 1);
 		  inc->st.st_size = size;
@@ -437,7 +437,7 @@ read_include_file (pfile, inc)
     }
   else if (S_ISBLK (inc->st.st_mode))
     {
-      cpp_error (pfile, "%s is a block device", inc->name);
+      cpp_error (pfile, DL_ERROR, "%s is a block device", inc->name);
       goto fail;
     }
   else
@@ -447,7 +447,7 @@ read_include_file (pfile, inc)
 	 bigger than the majority of C source files.  */
       size = 8 * 1024;
 
-      buf = (U_CHAR *) xmalloc (size + 1);
+      buf = (uchar *) xmalloc (size + 1);
       offset = 0;
       while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
 	{
@@ -473,7 +473,7 @@ read_include_file (pfile, inc)
   return 0;
 
  perror_fail:
-  cpp_error_from_errno (pfile, inc->name);
+  cpp_errno (pfile, DL_ERROR, inc->name);
  fail:
   return 1;
 }
@@ -563,7 +563,8 @@ find_include_file (pfile, header, type)
 
   if (path == NULL)
     {
-      cpp_error (pfile, "no include path in which to find %s", fname);
+      cpp_error (pfile, DL_ERROR, "no include path in which to find %s",
+		 fname);
       return NO_INCLUDE_PATH;
     }
 
@@ -685,12 +686,10 @@ handle_missing_header (pfile, fname, angle_brackets)
      we can still produce correct output.  Otherwise, we can't produce
      correct output, because there may be dependencies we need inside
      the missing file, and we don't know what directory this missing
-     file exists in.  FIXME: Use a future cpp_diagnostic_with_errno ()
-     for both of these cases.  */
-  else if (CPP_PRINT_DEPS (pfile) && ! print_dep)
-    cpp_warning (pfile, "%s: %s", fname, xstrerror (errno));
+     file exists in.  */
   else
-    cpp_error_from_errno (pfile, fname);
+    cpp_errno (pfile, CPP_PRINT_DEPS (pfile) && ! print_dep
+	       ? DL_WARNING: DL_ERROR, fname);
 }
 
 /* Handles #include-family directives (distinguished by TYPE),
@@ -754,7 +753,7 @@ _cpp_read_file (pfile, fname)
 
   if (f == NULL)
     {
-      cpp_error_from_errno (pfile, fname);
+      cpp_errno (pfile, DL_ERROR, fname);
       return false;
     }
 
@@ -762,14 +761,12 @@ _cpp_read_file (pfile, fname)
 }
 
 /* Do appropriate cleanup when a file INC's buffer is popped off the
-   input stack.  Push the next -include file, if any remain.  */
-bool
+   input stack.  */
+void
 _cpp_pop_file_buffer (pfile, inc)
      cpp_reader *pfile;
      struct include_file *inc;
 {
-  bool pushed = false;
-
   /* Record the inclusion-preventing macro, which could be NULL
      meaning no controlling macro.  */
   if (pfile->mi_valid && inc->cmacro == NULL)
@@ -781,18 +778,6 @@ _cpp_pop_file_buffer (pfile, inc)
   inc->refcnt--;
   if (inc->refcnt == 0 && DO_NOT_REREAD (inc))
     purge_cache (inc);
-
-  /* Don't generate a callback for popping the main file.  */
-  if (pfile->buffer)
-    {
-      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
-
-      /* Finally, push the next -included file, if any.  */
-      if (!pfile->buffer->prev)
-	pushed = _cpp_push_next_buffer (pfile);
-    }
-
-  return pushed;
 }
 
 /* Returns the first place in the include chain to start searching for
@@ -1026,7 +1011,7 @@ remap_filename (pfile, name, loc)
 
   /* We know p != name as absolute paths don't call remap_filename.  */
   if (p == name)
-    cpp_ice (pfile, "absolute file name in remap_filename");
+    cpp_error (pfile, DL_ICE, "absolute file name in remap_filename");
 
   dir = (char *) alloca (p - name + 1);
   memcpy (dir, name, p - name);

@@ -53,6 +53,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
@@ -877,7 +878,7 @@ expand_fixup (tree_label, rtl_label, last_insn)
 	TREE_USED (block) = 1;
 
 	if (!cfun->x_whole_function_mode_p)
-	  insert_block (block);
+	  (*lang_hooks.decls.insert_block) (block);
 	else
 	  {
 	    BLOCK_CHAIN (block)
@@ -998,8 +999,8 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	     logically be inserting the fixup code.  We do this for the
 	     sake of getting the debugging information right.  */
 
-	  pushlevel (0);
-	  set_block (f->context);
+	  (*lang_hooks.decls.pushlevel) (0);
+	  (*lang_hooks.decls.set_block) (f->context);
 
 	  /* Expand the cleanups for blocks this jump exits.  */
 	  if (f->cleanup_list_list)
@@ -1038,7 +1039,7 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	     destructed are still "in scope".  */
 
 	  cleanup_insns = get_insns ();
-	  poplevel (1, 0, 0);
+	  (*lang_hooks.decls.poplevel) (1, 0, 0);
 
 	  end_sequence ();
 	  emit_insns_after (cleanup_insns, f->before_jump);
@@ -1072,12 +1073,12 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	  if (TREE_CHAIN (lists) == thisblock->data.block.outer_cleanups)
 	    {
 	      start_sequence ();
-	      pushlevel (0);
-	      set_block (f->context);
+	      (*lang_hooks.decls.pushlevel) (0);
+	      (*lang_hooks.decls.set_block) (f->context);
 	      expand_cleanups (TREE_VALUE (lists), NULL_TREE, 1, 1);
 	      do_pending_stack_adjust ();
 	      cleanup_insns = get_insns ();
-	      poplevel (1, 0, 0);
+	      (*lang_hooks.decls.poplevel) (1, 0, 0);
 	      end_sequence ();
 	      if (cleanup_insns != 0)
 		f->before_jump
@@ -1500,7 +1501,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	      || (DECL_P (val)
 		  && GET_CODE (DECL_RTL (val)) == REG
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
-	mark_addressable (val);
+	(*lang_hooks.mark_addressable) (val);
 
       if (is_inout)
 	ninout++;
@@ -1529,7 +1530,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	return;
 
       if (! allows_reg && allows_mem)
-	mark_addressable (TREE_VALUE (tail));
+	(*lang_hooks.mark_addressable) (TREE_VALUE (tail));
     }
 
   /* Second pass evaluates arguments.  */
@@ -1856,7 +1857,7 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -1867,10 +1868,10 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
       for (j = outputs; j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -1878,7 +1879,7 @@ check_unique_operand_names (outputs, inputs)
 
  failure:
   error ("duplicate asm operand name '%s'",
-	 IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
+	 TREE_STRING_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
   return false;
 }
 
@@ -1972,20 +1973,20 @@ resolve_operand_name_1 (p, outputs, inputs)
   /* Resolve the name to a number.  */
   for (op = 0, t = outputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
     }
   for (t = inputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
@@ -2228,12 +2229,16 @@ clear_last_expr ()
   last_expr_value = NULL_RTX;
 }
 
-/* Begin a statement which will return a value.
-   Return the RTL_EXPR for this statement expr.
-   The caller must save that value and pass it to expand_end_stmt_expr.  */
+/* Begin a statement-expression, i.e., a series of statements which
+   may return a value.  Return the RTL_EXPR for this statement expr.
+   The caller must save that value and pass it to
+   expand_end_stmt_expr.  If HAS_SCOPE is nonzero, temporaries created
+   in the statement-expression are deallocated at the end of the
+   expression.  */
 
 tree
-expand_start_stmt_expr ()
+expand_start_stmt_expr (has_scope)
+     int has_scope;
 {
   tree t;
 
@@ -2241,7 +2246,10 @@ expand_start_stmt_expr ()
      so that rtl_expr_chain doesn't become garbage.  */
   t = make_node (RTL_EXPR);
   do_pending_stack_adjust ();
-  start_sequence_for_rtl_expr (t);
+  if (has_scope)
+    start_sequence_for_rtl_expr (t);
+  else
+    start_sequence ();
   NO_DEFER_POP;
   expr_stmts_for_value++;
   return t;
@@ -3492,9 +3500,7 @@ expand_nl_goto_receivers (thisblock)
   if (any_invalid)
     {
       expand_nl_goto_receiver ();
-      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "abort"), LCT_NORETURN,
-			 VOIDmode, 0);
-      emit_barrier ();
+      expand_builtin_trap ();
     }
 
   nonlocal_goto_handler_labels = label_list;
@@ -3796,7 +3802,7 @@ expand_decl (decl)
 			   : GET_MODE_BITSIZE (DECL_MODE (decl)));
       DECL_USER_ALIGN (decl) = 0;
 
-      x = assign_temp (TREE_TYPE (decl), 1, 1, 1);
+      x = assign_temp (decl, 1, 1, 1);
       set_mem_attributes (x, decl, 1);
       SET_DECL_RTL (decl, x);
 
@@ -3940,12 +3946,13 @@ expand_decl_cleanup (decl, cleanup)
 
 	  emit_move_insn (flag, const1_rtx);
 
-	  cond = build_decl (VAR_DECL, NULL_TREE, type_for_mode (word_mode, 1));
+	  cond = build_decl (VAR_DECL, NULL_TREE,
+			     (*lang_hooks.types.type_for_mode) (word_mode, 1));
 	  SET_DECL_RTL (cond, flag);
 
 	  /* Conditionalize the cleanup.  */
 	  cleanup = build (COND_EXPR, void_type_node,
-			   truthvalue_conversion (cond),
+			   (*lang_hooks.truthvalue_conversion) (cond),
 			   cleanup, integer_zero_node);
 	  cleanup = fold (cleanup);
 
@@ -3993,6 +4000,23 @@ expand_decl_cleanup (decl, cleanup)
 	}
     }
   return 1;
+}
+
+/* Like expand_decl_cleanup, but maybe only run the cleanup if an exception
+   is thrown.  */
+
+int
+expand_decl_cleanup_eh (decl, cleanup, eh_only)
+     tree decl, cleanup;
+     int eh_only;
+{
+  int ret = expand_decl_cleanup (decl, cleanup);
+  if (cleanup && ret)
+    {
+      tree node = block_stack->data.block.cleanups;
+      CLEANUP_EH_ONLY (node) = eh_only;
+    }
+  return ret;
 }
 
 /* DECL is an anonymous union.  CLEANUP is a cleanup for DECL.
@@ -4102,7 +4126,7 @@ expand_cleanups (list, dont_do, in_fixup, reachable)
 	    if (! in_fixup && using_eh_for_cleanups_p)
 	      expand_eh_region_end_cleanup (TREE_VALUE (tail));
 
-	    if (reachable)
+	    if (reachable && !CLEANUP_EH_ONLY (tail))
 	      {
 		/* Cleanups may be run multiple times.  For example,
 		   when exiting a binding contour, we expand the
@@ -4920,16 +4944,23 @@ mark_seen_cases (type, cases_seen, count, sparseness)
     }
 }
 
-/* Called when the index of a switch statement is an enumerated type
-   and there is no default label.
+/* Given a switch statement with an expression that is an enumeration
+   type, warn if any of the enumeration type's literals are not
+   covered by the case expressions of the switch.  Also, warn if there
+   are any extra switch cases that are *not* elements of the
+   enumerated type.
 
-   Checks that all enumeration literals are covered by the case
-   expressions of a switch.  Also, warn if there are any extra
-   switch cases that are *not* elements of the enumerated type.
+   Historical note:
 
-   If all enumeration literals were covered by the case expressions,
-   turn one of the expressions into the default expression since it should
-   not be possible to fall through such a switch.  */
+   At one stage this function would: ``If all enumeration literals
+   were covered by the case expressions, turn one of the expressions
+   into the default expression since it should not be possible to fall
+   through such a switch.''
+
+   That code has since been removed as: ``This optimization is
+   disabled because it causes valid programs to fail.  ANSI C does not
+   guarantee that an expression with enum type will have a value that
+   is the same as one of the enumeration literals.''  */
 
 void
 check_for_full_enumeration_handling (type)
@@ -4950,9 +4981,6 @@ check_for_full_enumeration_handling (type)
 
   /* The allocated size of cases_seen, in chars.  */
   HOST_WIDE_INT bytes_needed;
-
-  if (! warn_switch)
-    return;
 
   size = all_cases_count (type, &sparseness);
   bytes_needed = (size + HOST_BITS_PER_CHAR) / HOST_BITS_PER_CHAR;
@@ -4991,49 +5019,48 @@ check_for_full_enumeration_handling (type)
       && case_stack->data.case_stmt.case_list->left)
     case_stack->data.case_stmt.case_list
       = case_tree2list (case_stack->data.case_stmt.case_list, 0);
-  if (warn_switch)
-    for (n = case_stack->data.case_stmt.case_list; n; n = n->right)
-      {
-	for (chain = TYPE_VALUES (type);
-	     chain && !tree_int_cst_equal (n->low, TREE_VALUE (chain));
-	     chain = TREE_CHAIN (chain))
-	  ;
-
-	if (!chain)
-	  {
-	    if (TYPE_NAME (type) == 0)
-	      warning ("case value `%ld' not in enumerated type",
-		       (long) TREE_INT_CST_LOW (n->low));
-	    else
-	      warning ("case value `%ld' not in enumerated type `%s'",
-		       (long) TREE_INT_CST_LOW (n->low),
-		       IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
-					    == IDENTIFIER_NODE)
-					   ? TYPE_NAME (type)
-					   : DECL_NAME (TYPE_NAME (type))));
-	  }
-	if (!tree_int_cst_equal (n->low, n->high))
-	  {
-	    for (chain = TYPE_VALUES (type);
-		 chain && !tree_int_cst_equal (n->high, TREE_VALUE (chain));
-		 chain = TREE_CHAIN (chain))
-	      ;
-
-	    if (!chain)
-	      {
-		if (TYPE_NAME (type) == 0)
-		  warning ("case value `%ld' not in enumerated type",
-			   (long) TREE_INT_CST_LOW (n->high));
-		else
-		  warning ("case value `%ld' not in enumerated type `%s'",
-			   (long) TREE_INT_CST_LOW (n->high),
-			   IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
-						== IDENTIFIER_NODE)
-					       ? TYPE_NAME (type)
-					       : DECL_NAME (TYPE_NAME (type))));
-	      }
-	  }
-      }
+  for (n = case_stack->data.case_stmt.case_list; n; n = n->right)
+    {
+      for (chain = TYPE_VALUES (type);
+	   chain && !tree_int_cst_equal (n->low, TREE_VALUE (chain));
+	   chain = TREE_CHAIN (chain))
+	;
+      
+      if (!chain)
+	{
+	  if (TYPE_NAME (type) == 0)
+	    warning ("case value `%ld' not in enumerated type",
+		     (long) TREE_INT_CST_LOW (n->low));
+	  else
+	    warning ("case value `%ld' not in enumerated type `%s'",
+		     (long) TREE_INT_CST_LOW (n->low),
+		     IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
+					  == IDENTIFIER_NODE)
+					 ? TYPE_NAME (type)
+					 : DECL_NAME (TYPE_NAME (type))));
+	}
+      if (!tree_int_cst_equal (n->low, n->high))
+	{
+	  for (chain = TYPE_VALUES (type);
+	       chain && !tree_int_cst_equal (n->high, TREE_VALUE (chain));
+	       chain = TREE_CHAIN (chain))
+	    ;
+	  
+	  if (!chain)
+	    {
+	      if (TYPE_NAME (type) == 0)
+		warning ("case value `%ld' not in enumerated type",
+			 (long) TREE_INT_CST_LOW (n->high));
+	      else
+		warning ("case value `%ld' not in enumerated type `%s'",
+			 (long) TREE_INT_CST_LOW (n->high),
+			 IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
+					      == IDENTIFIER_NODE)
+					     ? TYPE_NAME (type)
+					     : DECL_NAME (TYPE_NAME (type))));
+	    }
+	}
+    }
 }
 
 
@@ -5087,14 +5114,18 @@ expand_end_case_type (orig_index, orig_type)
   /* An ERROR_MARK occurs for various reasons including invalid data type.  */
   if (index_type != error_mark_node)
     {
-      /* If switch expression was an enumerated type, check that all
-	 enumeration literals are covered by the cases.
-	 No sense trying this if there's a default case, however.  */
-
-      if (!thiscase->data.case_stmt.default_label
+      /* If the switch expression was an enumerated type, check that
+	 exactly all enumeration literals are covered by the cases.
+	 The check is made when -Wswitch was specified and there is no
+	 default case, or when -Wswitch-enum was specified.  */
+      if (((warn_switch && !thiscase->data.case_stmt.default_label)
+	   || warn_switch_enum)
 	  && TREE_CODE (orig_type) == ENUMERAL_TYPE
 	  && TREE_CODE (index_expr) != INTEGER_CST)
 	check_for_full_enumeration_handling (orig_type);
+
+      if (warn_switch_default && !thiscase->data.case_stmt.default_label)
+	warning ("switch missing default case");
 
       /* If we don't have a default-label, create one here,
 	 after the body of the switch.  */
@@ -6114,7 +6145,7 @@ emit_case_nodes (index, node, default_label, index_type)
 	  else if (!low_bound && !high_bound)
 	    {
 	      /* Widen LOW and HIGH to the same width as INDEX.  */
-	      tree type = type_for_mode (mode, unsignedp);
+	      tree type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
 	      tree low = build1 (CONVERT_EXPR, type, node->low);
 	      tree high = build1 (CONVERT_EXPR, type, node->high);
 	      rtx low_rtx, new_index, new_bound;

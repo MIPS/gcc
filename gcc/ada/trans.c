@@ -6,7 +6,6 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.10.8.2 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -419,7 +418,7 @@ tree_transform (gnat_node)
 	 right now.  */
       if (TREE_VALUE (gnu_except_ptr_stack) != 0)
 	{
-	  mark_addressable (gnu_result);
+	  gnat_mark_addressable (gnu_result);
 	  flush_addressof (gnu_result);
 	}
 
@@ -1346,7 +1345,7 @@ tree_transform (gnat_node)
 		/* 'Length or 'Range_Length.  */
 		{
 		  tree gnu_compute_type
-		    = signed_or_unsigned_type
+		    = gnat_signed_or_unsigned_type
 		      (0, get_base_type (gnu_result_type));
 
 		  gnu_result
@@ -1768,7 +1767,7 @@ tree_transform (gnat_node)
 	   we need to make sure it gets executed after the LHS.  */
 	gnu_lhs = gnat_to_gnu (Left_Opnd (gnat_node));
 	clear_last_expr ();
-	gnu_rhs_side = expand_start_stmt_expr ();
+	gnu_rhs_side = expand_start_stmt_expr (/*has_scope=*/1);
 	gnu_rhs = gnat_to_gnu (Right_Opnd (gnat_node));
 	expand_end_stmt_expr (gnu_rhs_side);
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
@@ -1865,10 +1864,10 @@ tree_transform (gnat_node)
 	   so we may need to choose a different type.  */
 	if (Nkind (gnat_node) == N_Op_Shift_Right
 	    && ! TREE_UNSIGNED (gnu_type))
-	  gnu_type = unsigned_type (gnu_type);
+	  gnu_type = gnat_unsigned_type (gnu_type);
 	else if (Nkind (gnat_node) == N_Op_Shift_Right_Arithmetic
 		 && TREE_UNSIGNED (gnu_type))
-	  gnu_type = signed_type (gnu_type);
+	  gnu_type = gnat_signed_type (gnu_type);
 
 	if (gnu_type != gnu_result_type)
 	  {
@@ -1905,7 +1904,7 @@ tree_transform (gnat_node)
 
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	gnu_result = build_cond_expr (gnu_result_type,
-				      truthvalue_conversion (gnu_cond),
+				      gnat_truthvalue_conversion (gnu_cond),
 				      gnu_true, gnu_false);
       }
       break;
@@ -2409,9 +2408,8 @@ tree_transform (gnat_node)
 	      TREE_LOOP_ID (get_gnu_tree (Entity (Name (gnat_node))));
 
 	if (Present (Condition (gnat_node)))
-	  gnu_cond
-	    = invert_truthvalue
-	      (truthvalue_conversion (gnat_to_gnu (Condition (gnat_node))));
+	  gnu_cond = invert_truthvalue (gnat_truthvalue_conversion
+					(gnat_to_gnu (Condition (gnat_node))));
 
 	set_lineno (gnat_node, 1);
 	expand_exit_loop_if_false (loop_id, gnu_cond);
@@ -2992,7 +2990,7 @@ tree_transform (gnat_node)
 		  gnu_actual
 		    = unchecked_convert
 		      (DECL_ARG_TYPE (get_gnu_tree (gnat_formal)),
-		       convert (type_for_size
+		       convert (gnat_type_for_size
 				(tree_low_cst (gnu_actual_size, 1), 1),
 				integer_zero_node));
 		else
@@ -4672,17 +4670,17 @@ convert_with_check (gnat_type, gnu_expr, overflow_p, range_p, truncate_p)
 	 comparing them properly.  Likewise, convert the upper bounds
 	 to unsigned types.  */
       if (INTEGRAL_TYPE_P (gnu_in_basetype) && TREE_UNSIGNED (gnu_in_basetype))
-	gnu_in_lb = convert (signed_type (gnu_in_basetype), gnu_in_lb);
+	gnu_in_lb = convert (gnat_signed_type (gnu_in_basetype), gnu_in_lb);
 
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
 	  && ! TREE_UNSIGNED (gnu_in_basetype))
-	gnu_in_ub = convert (unsigned_type (gnu_in_basetype), gnu_in_ub);
+	gnu_in_ub = convert (gnat_unsigned_type (gnu_in_basetype), gnu_in_ub);
 
       if (INTEGRAL_TYPE_P (gnu_base_type) && TREE_UNSIGNED (gnu_base_type))
-	gnu_out_lb = convert (signed_type (gnu_base_type), gnu_out_lb);
+	gnu_out_lb = convert (gnat_signed_type (gnu_base_type), gnu_out_lb);
 
       if (INTEGRAL_TYPE_P (gnu_base_type) && ! TREE_UNSIGNED (gnu_base_type))
-	gnu_out_ub = convert (unsigned_type (gnu_base_type), gnu_out_ub);
+	gnu_out_ub = convert (gnat_unsigned_type (gnu_base_type), gnu_out_ub);
 
       /* Check each bound separately and only if the result bound
 	 is tighter than the bound on the input type.  Note that all the
@@ -4762,9 +4760,10 @@ convert_with_check (gnat_type, gnu_expr, overflow_p, range_p, truncate_p)
   return convert (gnu_type, gnu_result);
 }
 
-/* Return 1 if GNU_EXPR can be directly addressed.  This is the case unless
-   it is an expression involving computation or if it involves a bitfield
-   reference.  This returns the same as mark_addressable in most cases.  */
+/* Return 1 if GNU_EXPR can be directly addressed.  This is the case
+   unless it is an expression involving computation or if it involves
+   a bitfield reference.  This returns the same as
+   gnat_mark_addressable in most cases.  */
 
 static int
 addressable_p (gnu_expr)

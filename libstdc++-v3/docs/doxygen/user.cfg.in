@@ -222,9 +222,7 @@ GENERATE_BUGLIST       = YES
 # will result in a user defined paragraph with heading "Side Effects:". 
 # You can put \n's in the value part of an alias to insert newlines.
 
-ALIASES                = "maint=@if maint" \
-                         "endmaint=@endif" \
-	"doctodo=@todo\nDoc me!  See docs/doxygen/TODO and http://gcc.gnu.org/ml/libstdc++/2002-02/msg00003.html for more."
+ALIASES                = "doctodo=@todo\nDoc me!  See docs/doxygen/TODO and http://gcc.gnu.org/ml/libstdc++/2002-02/msg00003.html for more."
 
 # The ENABLED_SECTIONS tag can be used to enable conditional 
 # documentation sections, marked by \if sectionname ... \endif.
@@ -273,7 +271,7 @@ WARNINGS               = NO
 # for undocumented members. If EXTRACT_ALL is set to YES then this flag will 
 # automatically be disabled.
 
-WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_UNDOCUMENTED   = NO
 
 # The WARN_FORMAT tag determines the format of the warning messages that 
 # doxygen can produce. The string should contain the $file, $line, and $text 

@@ -45,24 +45,33 @@ extern void		mips_output_lineno PARAMS ((FILE *, int));
 extern void		mips_output_ascii PARAMS ((FILE *, const char *,
 						   size_t));
 extern void		mips_order_regs_for_local_alloc PARAMS ((void));
+extern struct rtx_def * embedded_pic_fnaddr_reg PARAMS ((void));
 extern struct rtx_def *	mips16_gp_pseudo_reg PARAMS ((void));
 #ifdef ASM_OUTPUT_UNDEF_FUNCTION
 extern int		mips_output_external_libcall PARAMS ((FILE *, const char *));
 #endif /* ASM_OUTPUT_UNDEF_FUNCTION */
-extern struct rtx_def  *mips_function_value PARAMS ((tree, tree));
+extern struct rtx_def  *mips_function_value PARAMS ((tree, tree,
+						     enum machine_mode));
 
 extern unsigned int	mips_hard_regno_nregs PARAMS ((int,
 						       enum machine_mode));
-extern struct rtx_def  *function_arg PARAMS ((CUMULATIVE_ARGS *,
+extern int              mips_return_in_memory PARAMS ((tree));
+
+extern struct rtx_def  *function_arg PARAMS ((const CUMULATIVE_ARGS *,
 					      enum machine_mode, tree, int));
 extern void		function_arg_advance PARAMS ((CUMULATIVE_ARGS *,
 						      enum machine_mode,
 						      tree, int));
-extern int		function_arg_partial_nregs PARAMS ((CUMULATIVE_ARGS *,
-							    enum machine_mode,
-							    tree, int));
+extern int		function_arg_partial_nregs
+				PARAMS ((const CUMULATIVE_ARGS *,
+					 enum machine_mode,
+					 tree, int));
+extern int		mips_setup_incoming_varargs
+				PARAMS ((const CUMULATIVE_ARGS *,
+					 enum machine_mode,
+					 tree, int));
 extern int		function_arg_pass_by_reference
-				PARAMS ((CUMULATIVE_ARGS *,
+				PARAMS ((const CUMULATIVE_ARGS *,
 					 enum machine_mode, tree, int));
 extern int		mips16_constant_after_function_p PARAMS ((tree));
 extern int		mips_output_external PARAMS ((FILE *, tree,
@@ -108,6 +117,11 @@ extern int              mips_adjust_insn_length PARAMS ((rtx, int));
 extern enum reg_class	mips_secondary_reload_class PARAMS ((enum reg_class,
 							     enum machine_mode,
 							     rtx, int));
+extern int              mips_class_max_nregs PARAMS ((enum reg_class,
+						      enum machine_mode));
+extern int              mips_register_move_cost PARAMS ((enum machine_mode,
+							 enum reg_class,
+							 enum reg_class));
 extern void		mips_select_rtx_section PARAMS ((enum machine_mode,
 							 rtx));
 

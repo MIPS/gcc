@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GNU CC.
@@ -390,22 +390,6 @@ cp_dump_tree (dump_info, t)
       dump_child ("decl", TREE_OPERAND (t, 2));
       break;
       
-    case CLEANUP_STMT:
-      dump_stmt (di, t);
-      dump_child ("decl", CLEANUP_DECL (t));
-      dump_child ("expr", CLEANUP_EXPR (t));
-      dump_next_stmt (di, t);
-      break;
-
-    case CTOR_STMT:
-      dump_stmt (di, t);
-      if (CTOR_BEGIN_P (t))
-	dump_string (di, "begn");
-      else
-	dump_string (di, "end");
-      dump_next_stmt (di, t);
-      break;
-
     case HANDLER:
       dump_stmt (di, t);
       dump_child ("parm", HANDLER_PARMS (t));
@@ -416,12 +400,6 @@ cp_dump_tree (dump_info, t)
     case MUST_NOT_THROW_EXPR:
       dump_stmt (di, t);
       dump_child ("body", TREE_OPERAND (t, 0));
-      dump_next_stmt (di, t);
-      break;
-
-    case SUBOBJECT:
-      dump_stmt (di, t);
-      dump_child ("clnp", TREE_OPERAND (t, 0));
       dump_next_stmt (di, t);
       break;
 
