@@ -6091,6 +6091,9 @@ eval libltdl_cv_shlibext=$shrext
 if test -n "$libltdl_cv_shlibext"; then
   AC_DEFINE_UNQUOTED(LTDL_SHLIB_EXT, "$libltdl_cv_shlibext",
     [Define to the extension used for shared libraries, say, ".so".])
+  libltdl_cv_shlibversionext=.so.`grep -v '^\#' ${srcdir}/../libtool-version | cut -d: -f1`
+  AC_DEFINE_UNQUOTED(LTDL_SHLIB_VERSION_EXT, "$libltdl_cv_shlibversionext",
+    [Define to the versioned extension used for shared libraries, say, ".so.5".])
 fi
 ])# AC_LTDL_SHLIBEXT
 

@@ -1,3 +1,12 @@
+2004-08-21  Thomas Fitzsimmons <fitzsim@redhat.com>
+
+	* acinclude.m4 (LTDL_SHLIB_VERSION_EXT): Add.
+	* aclocal.m4, config-h.in, configure: Rebuilt.
+	* ltdl.c (shlib_version_ext): New variable.
+	(tryall_dlopen): Uncomment access check.
+	(lt_dlopenext): Try first versioned extension (like .so.5) before
+	version-less one.
+
 2004-07-01  Release Manager
 
 	* GCC 3.4.1 released.

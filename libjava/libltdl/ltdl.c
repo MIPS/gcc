@@ -859,6 +859,7 @@ struct lt_dlhandle_struct {
 static	const char	objdir[]		= LTDL_OBJDIR;
 static	const char	archive_ext[]		= LTDL_ARCHIVE_EXT;
 #ifdef	LTDL_SHLIB_EXT
+static	const char	shlib_version_ext[]	= LTDL_SHLIB_VERSION_EXT;
 static	const char	shlib_ext[]		= LTDL_SHLIB_EXT;
 #endif
 #ifdef	LTDL_SYSSEARCHPATH
@@ -2388,17 +2389,14 @@ tryall_dlopen (handle, filename)
   cur = *handle;
   if (filename)
     {
-      /* Comment out the check of file permissions using access.
-	 This call seems to always return -1 with error EACCES.
-      */
       /* We need to catch missing file errors early so that
-	 file_not_found() can detect what happened.
+	 file_not_found() can detect what happened. */
       if (access (filename, R_OK) != 0)
 	{
 	  LT_DLMUTEX_SETERROR (LT_DLSTRERROR (FILE_NOT_FOUND));
 	  ++errors;
 	  goto done;
-	} */
+	}
 
       cur->info.filename = lt_estrdup (filename);
       if (!cur->info.filename)
@@ -3425,10 +3423,11 @@ file_not_found ()
   return 0;
 }
 
-/* If FILENAME has an ARCHIVE_EXT or SHLIB_EXT extension, try to
-   open the FILENAME as passed.  Otherwise try appending ARCHIVE_EXT,
-   and if a file is still not found try again with SHLIB_EXT appended
-   instead.  */
+/* If FILENAME has an ARCHIVE_EXT, SHLIB_VERSION_EXT or SHLIB_EXT
+   extension, try to open the FILENAME as passed.  Otherwise try
+   appending ARCHIVE_EXT, and if a file is still not found try again
+   with SHLIB_VERSION_EXT appended.  If the file is still not found,
+   try again with SHLIB_EXT appended.  */
 lt_dlhandle
 lt_dlopenext (filename)
      const char *filename;
@@ -3453,6 +3452,7 @@ lt_dlopenext (filename)
      to try appending additional extensions.  */
   if (ext && ((strcmp (ext, archive_ext) == 0)
 #ifdef LTDL_SHLIB_EXT
+	      || (strcmp (ext, shlib_version_ext) == 0)
 	      || (strcmp (ext, shlib_ext) == 0)
 #endif
       ))
@@ -3481,8 +3481,34 @@ lt_dlopenext (filename)
     }
 
 #ifdef LTDL_SHLIB_EXT
+  /* Try appending SHLIB_VERSION_EXT.   */
+  if (LT_STRLEN (shlib_version_ext) > LT_STRLEN (archive_ext))
+    {
+      LT_DLFREE (tmp);
+      tmp = LT_EMALLOC (char, len + LT_STRLEN (shlib_version_ext) + 1);
+      if (!tmp)
+	return 0;
+
+      strcpy (tmp, filename);
+    }
+  else
+    {
+      tmp[len] = LT_EOS_CHAR;
+    }
+
+  strcat(tmp, shlib_version_ext);
+  errors = try_dlopen (&handle, tmp);
+
+  /* As before, if the file was found but loading failed, return now
+     with the current error message.  */
+  if (handle || ((errors > 0) && !file_not_found ()))
+    {
+      LT_DLFREE (tmp);
+      return handle;
+    }
+
   /* Try appending SHLIB_EXT.   */
-  if (LT_STRLEN (shlib_ext) > LT_STRLEN (archive_ext))
+  if (LT_STRLEN (shlib_ext) > LT_STRLEN (shlib_version_ext))
     {
       LT_DLFREE (tmp);
       tmp = LT_EMALLOC (char, len + LT_STRLEN (shlib_ext) + 1);
