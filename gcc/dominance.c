@@ -45,6 +45,7 @@ struct dominance_info
 {
   et_forest_t forest;
   varray_type varray;
+  basic_block *idom;
 };
 
 #define BB_NODE(info, bb) \
@@ -565,6 +566,8 @@ calculate_dominance_info (reverse)
   /* allocate structure for dominance information.  */
   info = xmalloc (sizeof (struct dominance_info));
   info->forest = et_forest_create ();
+  info->idom = xcalloc (last_basic_block, sizeof (basic_block));
+
   VARRAY_GENERIC_PTR_INIT (info->varray, last_basic_block + 3, "dominance info");
 
   /* Add the two well-known basic blocks.  */
@@ -609,6 +612,7 @@ free_dominance_info (info)
   delete_from_dominance_info (info, EXIT_BLOCK_PTR);
   et_forest_delete (info->forest);
   VARRAY_GROW (info->varray, 0);
+  free (info->idom);
   free (info);
 }
 
@@ -618,9 +622,16 @@ get_immediate_dominator (dom, bb)
      dominance_info dom;
      basic_block bb;
 {
-  return et_forest_node_value (dom->forest,
-			       et_forest_parent (dom->forest,
-						 BB_NODE (dom, bb)));
+  basic_block answer;
+  if (bb->index >= 0 && dom->idom[bb->index] != NULL)
+    return dom->idom[bb->index];
+  answer =  et_forest_node_value (dom->forest,
+				  et_forest_parent (dom->forest,
+						    BB_NODE (dom, bb)));
+  if (bb->index >= 0)
+    dom->idom[bb->index] = answer;
+  return answer;
+
 }
 
 /* Set the immediate dominator of the block possibly removing
@@ -643,6 +654,8 @@ set_immediate_dominator (dom, bb, dominated_by)
       if (!et_forest_add_edge (dom->forest, BB_NODE (dom, dominated_by), bb_node))
 	abort ();
     }
+  if (bb->index >= 0)
+    dom->idom[bb->index] = dominated_by;
 }
 
 /* Store all basic blocks dominated by BB into BBS and return their number.  */
@@ -673,7 +686,8 @@ redirect_immediate_dominators (dom, bb, to)
   et_forest_node_t node2 = BB_NODE (dom, to);
   int n = et_forest_enumerate_sons (dom->forest, node, bbs);
   int i;
-
+  
+  memset (dom->idom, 0, last_basic_block * sizeof (basic_block));
   for (i = 0; i < n; i++)
     {
       et_forest_remove_edge (dom->forest, node, bbs[i]);
@@ -785,11 +799,14 @@ add_to_dominance_info (dom, bb)
      basic_block bb;
 {
   VARRAY_GROW (dom->varray, last_basic_block + 3);
+  dom->idom = xrealloc (dom->idom, last_basic_block * sizeof (basic_block));
 #ifdef ENABLE_CHECKING
   if (BB_NODE (dom, bb))
     abort ();
 #endif
   SET_BB_NODE (dom, bb, et_forest_add_node (dom->forest, bb));
+  if (bb->index >= 0)
+    dom->idom[bb->index] = NULL;
 }
 
 void
@@ -798,6 +815,8 @@ delete_from_dominance_info (dom, bb)
      basic_block bb;
 {
   et_forest_remove_node (dom->forest, BB_NODE (dom, bb));
+  if (bb->index >= 0)
+    dom->idom[bb->index]  = NULL;
   SET_BB_NODE (dom, bb, NULL);
 }
 
