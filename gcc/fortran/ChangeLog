@@ -1,3 +1,7 @@
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* Makefile.in: Add build dependencies on files common with rest of gcc.
+
 2003-07-26  Lifang Zeng  <zlf605@hotmail.com>
 
 	* trans.h: Declare g95_trans_pointer_assignment.

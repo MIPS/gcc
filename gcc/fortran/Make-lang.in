@@ -121,6 +121,7 @@ f951$(exeext): $(F95_OBJS) $(F95_ADDITIONAL_OBJS) \
 gt-fortran-f95-lang.h gtype-fortran.h	      : s-gtype; @true
 gt-fortran-trans-decl.h gt-fortran-trans.h    : s-gtype; @true
 gt-fortran-trans-io.h gt-fortran-trans-types.h: s-gtype; @true
+gt-fortran-trans-intrinsic.h		      : s-gtype; @true
 
 #
 # Build hooks:
@@ -257,7 +258,8 @@ $(F95_PARSER_OBJS): fortran/gfortran.h fortran/intrinsic.h fortran/match.h \
 
 G95_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array.h \
     fortran/trans-const.h fortran/trans-const.h fortran/trans.h \
-    fortran/trans-stmt.h fortran/trans-types.h
+    fortran/trans-stmt.h fortran/trans-types.h \
+    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) coretypes.h
 
 fortran/f95-lang.o: $(G95_TRANS_DEPS) gt-fortran-f95-lang.h gtype-fortran.h
 fortran/convert.o: $(G95_TRANS_DEPS)
@@ -271,5 +273,5 @@ fortran/trans-io.o: $(G95_TRANS_DEPS) gt-fortran-trans-io.h
 fortran/trans-array.o: $(G95_TRANS_DEPS)
 fortran/trans-intrinsic.o: $(G95_TRANS_DEPS) gt-fortran-trans-intrinsic.h
 fortran/dependency.o: fortran/gfortran.h fortran/dependency.h
-fortran/trans-common.o: fortran/gfortran.h fortran/trans.h
-fortran/trans-equivalence.o: fortran/gfortran.h fortran/trans.h
+fortran/trans-common.o: $(G95_TRANS_DEPS) fortran/gfortran.h
+fortran/trans-equivalence.o: $(G95_TRANS_DEPS) fortran/gfortran.h
