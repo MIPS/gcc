@@ -1,3 +1,109 @@
+Wed Nov 13 12:08:08 CET 2002  Jan Hubicka  <jh@suse.cz>
+	Merge i386 specific optimizations for 3.4-BIB branch.
+
+	Sat Nov  9 00:10:54 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_machine_dependent_reorg): Fix even more side cases.
+
+	Fri Nov  8 13:33:58 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (sse_loadss, sse2_loadsd): Fix expander.
+
+	Fri Nov  8 13:25:41 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_machine_dependent_reorg): Fix handling of empty functions.
+
+	Fri Nov  8 11:36:11 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (sse_movdfcc, sse_movsfcc): Fix typo in previous patch.
+
+	Thu Nov  7 21:54:22 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (sse_movdfcc, sse_movsfcc): Avoid overactive matching.
+		* i386.c (ix86_expand_fp_movcc): Match the reversed cases.
+
+	Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (float_truncate SSE splitter): Ensure that operand is not
+		stack register.
+		(float SSE splitters): Reorder conditional.
+
+	Thu Oct 31 18:20:50 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (sse_loadss, sse_loadsd):  Canonicalize; add expander
+		(movps, movpd splitters): Use canonical form.
+		(movv2di): Fix merge problem.
+
+	Wed Nov  6 17:16:48 CET 2002  Jan Hubicka  <jh@.suse.cz>
+
+		* i386.md (negsf splitter): Accept memory operand in second register.
+		(abssf/absdf splitters): Simplify
+		(sse_loadss, sse_loadsd): Turn into expander.
+
+	Thu Oct 31 16:09:44 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (negdf2_ifs_rex64): Don't allow GPR operand.
+
+	Tue Oct 29 23:28:10 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (negdf splitter): Fix construction of the constant.
+
+	Tue Oct 29 20:47:06 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (negsf, negdf): Reorganize to use vector modes
+		for SSE variants.
+		(abssf, absdf): Use force_reg.
+		(movv4sf, movv2df): New splitters.
+		* i386.h (PREDICATE_CODES): add zero_extended_scalar_load_operand
+		* i386.c (zero_extended_scalar_load_operand
+
+	Wed Oct 23 22:48:44 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (abs splitters): Do not produce nested subregs.
+
+	Wed Oct 23 12:42:32 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (movti_rex64): Fix constraints.
+
+	Wed Oct 23 12:01:21 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (abssf,absdf): Use vector operands for SSE
+		(abssf2_ifs, absdf2_ifs, absdf2_ifs_rex64 and splitters): Update for
+		vector operand.
+
+	Wed Oct  9 21:18:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (*_cost): Add branch costs.
+		(override_options): set ix86_branch_cost.
+		(ix86_expand_int_movcc): Use BRANCH_COST.
+		* i386.h (costs): Add branch_cost.
+
+	Tue Oct  8 01:24:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.c (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+		x86_sse_typeless_stores, x86_sse_load0_by_pxor): New global
+		variables.
+		(safe_vector_operand): Update sse_clrv4sf call.
+		(ix86_expand_buildin): Likewise
+		* i386.h (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+		x86_sse_typeless_stores, x86_sse_load0_by_pxor): Declare.
+		(TARGET_SSE_PARTIAL_REG_DEPENDENCY, TARGET_SSE_PARTIAL_REGS,
+		TARGET_SSE_TYPELESS_STORES, TARGET_SSE_TYPELESS_LOAD0): New
+		macros.
+		* i386.md (movsf*, movdf*, movti, movv4sf, movv2df, movv16qi, movv8hi,
+		movv4si):  Obey the new flags.
+		(floatsi2sf, floatdi2sf, truncatedf2sf): Emit extra load of 0 to avoid
+		reformating penalty.
+		(anddf, cmov patterns): Avoid reformating by first converting.
+		(sse_cvtsd2ss): Fix predicate.
+		(sse2_clrti): Fix mode,
+		(sse_clrv4sf): Avoid unspec.
+
+	Sat Oct  5 22:48:06 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+		* athlon.md: rewrite to DFA.
+		* i386 (ix86_adjust_cost): Drop memory latency code.
+		(ia32_use_dfa_pipeline_interface): Return true for Athlon.
 Thu Nov  7 11:18:01 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* reg-stack.c (compensate_edge): Fix sanity check.

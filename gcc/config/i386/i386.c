@@ -84,6 +84,7 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
   2,					/* cost of FADD and FSUB insns.  */
   2,					/* cost of FMUL instruction.  */
   2,					/* cost of FDIV instruction.  */
@@ -128,6 +129,7 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
   23,					/* cost of FADD and FSUB insns.  */
   27,					/* cost of FMUL instruction.  */
   88,					/* cost of FDIV instruction.  */
@@ -171,6 +173,7 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
   8,					/* cost of FADD and FSUB insns.  */
   16,					/* cost of FMUL instruction.  */
   73,					/* cost of FDIV instruction.  */
@@ -214,6 +217,7 @@ struct processor_costs pentium_cost = {
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  2,					/* Branch cost */
   3,					/* cost of FADD and FSUB insns.  */
   3,					/* cost of FMUL instruction.  */
   39,					/* cost of FDIV instruction.  */
@@ -257,6 +261,7 @@ struct processor_costs pentiumpro_cost = {
   3,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
   3,					/* cost of FADD and FSUB insns.  */
   5,					/* cost of FMUL instruction.  */
   56,					/* cost of FDIV instruction.  */
@@ -300,6 +305,7 @@ struct processor_costs k6_cost = {
   6,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
+  1,					/* Branch cost */
   2,					/* cost of FADD and FSUB insns.  */
   2,					/* cost of FMUL instruction.  */
   56,					/* cost of FDIV instruction.  */
@@ -343,6 +349,7 @@ struct processor_costs athlon_cost = {
   5,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
   4,					/* cost of FADD and FSUB insns.  */
   4,					/* cost of FMUL instruction.  */
   24,					/* cost of FDIV instruction.  */
@@ -355,11 +362,11 @@ static const
 struct processor_costs pentium4_cost = {
   1,					/* cost of an add instruction */
   1,					/* cost of a lea instruction */
-  8,					/* variable shift costs */
-  8,					/* constant shift costs */
-  30,					/* cost of starting a multiply */
+  4,					/* variable shift costs */
+  4,					/* constant shift costs */
+  15,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
-  112,					/* cost of a divide/mod */
+  56,					/* cost of a divide/mod */
   1,					/* cost of movsx */
   1,					/* cost of movzx */
   16,					/* "large" insn */
@@ -386,6 +393,7 @@ struct processor_costs pentium4_cost = {
   10,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
   5,					/* cost of FADD and FSUB insns.  */
   7,					/* cost of FMUL instruction.  */
   43,					/* cost of FDIV instruction.  */
@@ -445,6 +453,13 @@ const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON | m_PENT4;
+const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
+/* Set for machines where the type and dependencies are resolved on SSE register
+   parts insetad of whole registers, so we may maintain just lower part of
+   scalar values in proper format leaving the upper part undefined.  */
+const int x86_sse_partial_regs = m_ATHLON;
+const int x86_sse_typeless_stores = m_ATHLON;
+const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -934,17 +949,16 @@ override_options ()
       const int align_jump;
       const int align_jump_max_skip;
       const int align_func;
-      const int branch_cost;
     }
   const processor_target_table[PROCESSOR_max] =
     {
-      {&i386_cost, 0, 0, 4, 3, 4, 3, 4, 1},
-      {&i486_cost, 0, 0, 16, 15, 16, 15, 16, 1},
-      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16, 1},
-      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16, 1},
-      {&k6_cost, 0, 0, 32, 7, 32, 7, 32, 1},
-      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16, 1},
-      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0, 1}
+      {&i386_cost, 0, 0, 4, 3, 4, 3, 4},
+      {&i486_cost, 0, 0, 16, 15, 16, 15, 16},
+      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
+      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
+      {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
+      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16},
+      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -1212,7 +1226,7 @@ override_options ()
     }
 
   /* Validate -mbranch-cost= value, or provide default.  */
-  ix86_branch_cost = processor_target_table[ix86_cpu].branch_cost;
+  ix86_branch_cost = processor_target_table[ix86_cpu].cost->branch_cost;
   if (ix86_branch_cost_string)
     {
       i = atoi (ix86_branch_cost_string);
@@ -3400,6 +3414,34 @@ non_q_regs_operand (op, mode)
     op = SUBREG_REG (op);
   return NON_QI_REG_P (op);
 }
+
+/* Return 1 if OP is a comparison that can be used in the CMPSS/CMPPS
+   insns.  */
+int
+zero_extended_scalar_load_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  unsigned n_elts;
+  if (GET_CODE (op) != MEM)
+    return 0;
+  op = maybe_get_pool_constant (op);
+  if (!op)
+    return 0;
+  if (GET_CODE (op) != CONST_VECTOR)
+    return 0;
+  n_elts =
+    (GET_MODE_SIZE (GET_MODE (op)) /
+     GET_MODE_SIZE (GET_MODE_INNER (GET_MODE (op))));
+  for (n_elts--; n_elts > 0; n_elts--)
+    {
+      rtx elt = CONST_VECTOR_ELT (op, n_elts);
+      if (elt != CONST0_RTX (GET_MODE_INNER (GET_MODE (op))))
+	return 0;
+    }
+  return 1;
+}
+
 
 /* Return 1 if OP is a comparison that can be used in the CMPSS/CMPPS
    insns.  */
@@ -9296,12 +9338,9 @@ ix86_expand_int_movcc (operands)
        * This is reasonably steep, but branch mispredict costs are
        * high on modern cpus, so consider failing only if optimizing
        * for space.
-       *
-       * %%% Parameterize branch_cost on the tuning architecture, then
-       * use that.  The 80386 couldn't care less about mispredicts.
        */
 
-      if (!optimize_size && !TARGET_CMOVE)
+      if (!TARGET_CMOVE && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -9379,7 +9418,7 @@ ix86_expand_int_movcc (operands)
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (optimize_size)
+      if (BRANCH_COST >= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -9514,8 +9553,14 @@ ix86_expand_fp_movcc (operands)
       if (rtx_equal_p (operands[2], op0) && rtx_equal_p (operands[3], op1))
 	{
 	  /* Check for min operation.  */
-	  if (code == LT)
+	  if (code == LT || code == UNLE)
 	    {
+	       if (code == UNLE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);
@@ -9526,8 +9571,14 @@ ix86_expand_fp_movcc (operands)
 	       return 1;
 	    }
 	  /* Check for max operation.  */
-	  if (code == GT)
+	  if (code == GT || code == UNGE)
 	    {
+	       if (code == UNGE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);
@@ -11305,13 +11356,6 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	{
-	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
-	    cost += 2;
-	  else
-	    cost += 3;
-        }
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
@@ -11585,7 +11629,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 static int
 ia32_use_dfa_pipeline_interface ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM)
+  if (ix86_cpu == PROCESSOR_PENTIUM || ix86_cpu == PROCESSOR_ATHLON)
     return 1;
   return 0;
 }
@@ -12795,7 +12839,8 @@ safe_vector_operand (x, mode)
 			      : gen_rtx_SUBREG (DImode, x, 0)));
   else
     emit_insn (gen_sse_clrv4sf (mode == V4SFmode ? x
-				: gen_rtx_SUBREG (V4SFmode, x, 0)));
+				: gen_rtx_SUBREG (V4SFmode, x, 0),
+				CONST0_RTX (V4SFmode)));
   return x;
 }
 
@@ -13465,7 +13510,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 
     case IX86_BUILTIN_SSE_ZERO:
       target = gen_reg_rtx (V4SFmode);
-      emit_insn (gen_sse_clrv4sf (target));
+      emit_insn (gen_sse_clrv4sf (target, CONST0_RTX (V4SFmode)));
       return target;
 
     case IX86_BUILTIN_MMX_ZERO:
@@ -14319,20 +14364,26 @@ x86_machine_dependent_reorg (first)
 
     if (!returnjump_p (ret) || !maybe_hot_bb_p (bb))
       continue;
-    prev = prev_nonnote_insn (ret);
+    for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
+      if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
+	break;
     if (prev && GET_CODE (prev) == CODE_LABEL)
       {
 	edge e;
 	for (e = bb->pred; e; e = e->pred_next)
-	  if (EDGE_FREQUENCY (e) && e->src->index > 0
+	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
 	      && !(e->flags & EDGE_FALLTHRU))
 	    insert = 1;
       }
     if (!insert)
       {
-	prev = prev_real_insn (ret);
+	prev = prev_active_insn (ret);
 	if (prev && GET_CODE (prev) == JUMP_INSN
 	    && any_condjump_p (prev))
+	  insert = 1;
+	/* Empty functions get branch misspredict even when the jump destination
+	   is not visible to us.  */
+	if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
 	  insert = 1;
       }
     if (insert)
