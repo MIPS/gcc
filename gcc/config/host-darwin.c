@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline 2005-04-06 4071679 */
 /* Darwin host-specific hook definitions.
    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
@@ -79,3 +80,4 @@ darwin_gt_pch_use_address (void *addr, size_t sz, int fd, size_t off)
 
   return ret;
 }
+/* APPLE LOCAL end mainline 2005-04-06 4071679 */
