@@ -1,3 +1,12 @@
+2004-08-08  Andreas Tobler  <a.tobler@schweiz.ch>
+	    Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c: Move
+	NSA_PB macros to gtkpeer.h.  Include gtkpeer.h.
+	* jni/gtk-peer/gtkpeer.h: Move NSA_PB macros here.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(nativeSetIconImageFromDecoder): Use NSA_GET_PB_PTR macro.
+
 2004-08-08  Mark Wielaard  <mark@klomp.org>
 
 	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c:
