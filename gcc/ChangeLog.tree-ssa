@@ -1,3 +1,13 @@
+2003-09-11  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-pre.c: s/#if ENABLE_CHECKING/#ifdef ENABLE_CHECKING/g.
+	Add more comments to DFS searching functions.
+	(cba_search_reach_from_to): Remove empty function.
+	(code_motion): Remove #if 0'd code.
+	(pre_expression): Ditto.
+	* tree.h (tree_dump_index): Remove TDI_predot.
+	* tree-dump.c (dump_files): Ditto.
+
 2003-09-11  Jason Merrill  <jason@redhat.com>
 
 	Make EDGE_FALLTHRU meaningful for tree-cfg.

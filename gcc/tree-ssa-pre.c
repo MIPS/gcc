@@ -142,7 +142,7 @@ static void insert_occ_in_preorder_dt_order (struct expr_info *, fibheap_t);
 static void insert_euse_in_preorder_dt_order_1 (struct expr_info *,
 						basic_block);
 static void insert_euse_in_preorder_dt_order (struct expr_info *);
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 static int count_stmts_in_bb (basic_block);
 #endif
 static bool ephi_has_unsafe_arg (tree);
@@ -157,10 +157,15 @@ static void require_phi (struct expr_info *, basic_block);
 /* Functions used for an EPHI based depth first search.  */
 struct ephi_df_search 
 {
+  /* Return true if the ephi has been seen.  */
   bool (*seen) (tree);
+  /* Mark the ephi as seen.  */
   void (*set_seen) (tree);
+  /* Note that the search reaches from one ephi to it's use.  */
   void (*reach_from_to) (tree, int, tree);
+  /* Return true if we should start a search from this PHI.  */
   bool (*start_from) (tree);
+  /* Return true if we should continue the search to this use.  */
   bool (*continue_from_to) (tree, int, tree);
 };
 static bool repl_search_seen (tree);
@@ -175,13 +180,12 @@ static bool stops_search_start_from (tree);
 static bool stops_search_continue_from_to (tree, int, tree);
 static bool cba_search_seen (tree);
 static void cba_search_set_seen (tree);
-static void cba_search_reach_from_to (tree, int, tree);
 static bool cba_search_start_from (tree);
 static bool cba_search_continue_from_to (tree, int, tree);
 struct ephi_df_search cant_be_avail_search = {
   cba_search_seen,
   cba_search_set_seen,
-  cba_search_reach_from_to, 
+  NULL,
   cba_search_start_from,
   cba_search_continue_from_to
 };
@@ -604,7 +608,8 @@ set_var_phis (struct expr_info *ei, tree phi)
 static bool
 expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 {
-  size_t i;
+  size_t i, j;
+  varray_type uses;
   bool retval = true;
 
   dfphis = BITMAP_XMALLOC ();
@@ -627,7 +632,7 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
       tree left = leftp ? leftp : NULL;
       bitmap temp;
 
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
       if ((kill && occur) || (left && occur) || (kill && left))
 	abort();
 #endif
@@ -639,24 +644,19 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
       if (kill != NULL)
 	continue;
       occur = TREE_OPERAND (occur, 1);
-      {
-	  varray_type uses;
-	  size_t j;
-
-	  get_stmt_operands (occurp);
-	  uses = use_ops (occurp);
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (uses); j ++)
-	    {
-	      tree *usep = VARRAY_TREE_PTR (uses, j);
-	      tree use = *usep;
-	      if (ei->strred_cand)
-		use = factor_through_injuries (ei, use, SSA_NAME_VAR (use),
-					       NULL);
-	      if (TREE_CODE (SSA_NAME_DEF_STMT (use)) != PHI_NODE)
-		continue;
-	      set_var_phis (ei, SSA_NAME_DEF_STMT (use));
-	    }
-      }
+      get_stmt_operands (occurp);
+      uses = use_ops (occurp);
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (uses); j ++)
+	{
+	  tree *usep = VARRAY_TREE_PTR (uses, j);
+	  tree use = *usep;
+	  if (ei->strred_cand)
+	    use = factor_through_injuries (ei, use, SSA_NAME_VAR (use),
+					   NULL);
+	  if (TREE_CODE (SSA_NAME_DEF_STMT (use)) != PHI_NODE)
+	    continue;
+	  set_var_phis (ei, SSA_NAME_DEF_STMT (use));
+	}
     }
   /* Union the results of the dfphis and the varphis to get the
      answer to everywhere we need EPHIS. */
@@ -697,13 +697,15 @@ insert_occ_in_preorder_dt_order_1 (struct expr_info *ei, fibheap_t fh,
   size_t i;
   edge succ;
   tree curr_phi_pred = NULL_TREE;
-
+  
+  /* The ordering for a given BB is EPHI's, real/left/kill
+     occurrences, phi preds, exit occurrences.   */
   if (ephi_at_block (block) != NULL_TREE)
     {
       VARRAY_PUSH_TREE (ei->euses_dt_order, ephi_at_block (block));
       fibheap_insert (fh, preorder_count++, ephi_at_block (block));
     }
-
+  
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->occurs); i++)
     {
       tree newref;
@@ -750,6 +752,7 @@ insert_occ_in_preorder_dt_order_1 (struct expr_info *ei, fibheap_t fh,
 	}
     }
 
+
   /* Insert the phi operand occurrences's in the heap at the
      successors.*/
   for (succ = block->succ; succ; succ = succ->succ_next)
@@ -777,7 +780,7 @@ insert_occ_in_preorder_dt_order_1 (struct expr_info *ei, fibheap_t fh,
             }
 	  else if (ephi_at_block (succ->dest) != NULL)
 	    {
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      if (curr_phi_pred == NULL_TREE)
 		abort();
 #endif
@@ -981,7 +984,6 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
   get_stmt_operands (stmt_copy);
   return q;
 }
-
 
 static inline
 bool same_e_version_real_occ_phi_opnd (struct expr_info *ei, tree def,
@@ -1411,7 +1413,7 @@ compute_du_info (struct expr_info *ei)
 	    {
 	      if (TREE_CODE (def) == EPHI_NODE)
 		add_ephi_use (def, ephi, j);
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      else
 		if (! (TREE_CODE (def) == EUSE_NODE && !EUSE_PHIOP (def)))
 		  abort();
@@ -1649,7 +1651,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   edge e = NULL;
   basic_block createdbb = NULL;
   block_stmt_iterator bsi;
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   bool insert_done = false;
 #endif
   
@@ -1721,7 +1723,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   bsi = bsi_start (bb);
   if (bsi_end_p (bsi_start (bb)))
     {
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
       insert_done = true;
 #endif
       bsi_insert_on_edge_immediate (e, expr, NULL, NULL);
@@ -1732,7 +1734,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
 	{
 	  if (bsi_stmt (bsi) == endtree)
 	    {
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      insert_done = true;
 #endif
 	      bsi_insert_on_edge_immediate (e, expr, &bsi,
@@ -1758,7 +1760,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
 	    }
 	}
     }
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   if (!insert_done)
     abort ();
 #endif
@@ -1821,7 +1823,7 @@ finalize_1 (struct expr_info *ei)
 	      EREF_RELOAD (x) = true;
 	      made_a_reload = true;
 	      EUSE_DEF (x) = avdefs[nx];
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      if (EREF_CLASS (x) != EREF_CLASS (avdefs[nx]))
 		abort ();
 #endif
@@ -1839,7 +1841,7 @@ finalize_1 (struct expr_info *ei)
 	      if (ephi_will_be_avail (ephi))
 		{
 		  int opnd_indx = opnum_of_ephi (ephi, bb_for_stmt (x)->index);
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 		  if (EPHI_ARG_PRED (ephi, opnd_indx) != x)
 		    abort ();
 #endif
@@ -1883,25 +1885,22 @@ set_save (struct expr_info *ei, tree X)
     }
 }
 
+/* DFS Search function: Return true if PHI is can't be available.  */
 static bool
 cba_search_seen (tree phi)
 {
   return EPHI_CANT_BE_AVAIL (phi);
 }
 
+/* DFS Search function: Mark PHI as can't be available when seen.  */
 static void
 cba_search_set_seen (tree phi)
 {
   EPHI_CANT_BE_AVAIL (phi) = true;
 }
 
-static void
-cba_search_reach_from_to (tree def_phi ATTRIBUTE_UNUSED,
-			  int opnd_indx ATTRIBUTE_UNUSED,
-			  tree use_phi ATTRIBUTE_UNUSED)
-{
-}
-
+/* DFS Search function: Return true if PHI should be marked can't be
+   available due to a NULL operand.  */
 static bool 
 cba_search_start_from (tree phi)
 {
@@ -1915,6 +1914,8 @@ cba_search_start_from (tree phi)
   return false;
 }
 
+/* DFS Search function: Return true if the used PHI is not downsafe,
+   unless we have a real use for the operand.  */
 static bool
 cba_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED,
 			     int opnd_indx, 
@@ -1927,6 +1928,8 @@ cba_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED,
   return false;
 }
       
+/* DFS Search function: Return true if this PHI stops forward
+   movement.  */
 
 static bool
 stops_search_seen (tree phi)
@@ -1934,12 +1937,15 @@ stops_search_seen (tree phi)
   return EPHI_STOPS (phi);
 }
 
+/* DFS Search function:  Mark the PHI as stopping forward movement.  */
 static void
 stops_search_set_seen (tree phi)
 {
   EPHI_STOPS (phi) = true;
 }
 
+/* DFS Search function:  Note that the used phi argument stops forward
+   movement.  */
 static void
 stops_search_reach_from_to (tree def_phi ATTRIBUTE_UNUSED, 
 			    int opnd_indx,
@@ -1948,6 +1954,8 @@ stops_search_reach_from_to (tree def_phi ATTRIBUTE_UNUSED,
   EPHI_ARG_STOPS (use_phi, opnd_indx) = true;
 }
 
+/* DFS Search function: Return true if the PHI has any arguments
+   stopping forward movement.  */
 static bool
 stops_search_start_from (tree phi)
 {
@@ -1958,6 +1966,8 @@ stops_search_start_from (tree phi)
   return false;
 }
 
+/* DFS Search function:  Return true if the PHI has any arguments
+   stopping forward movement.  */
 static bool
 stops_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED, 
 			       int opnd_indx ATTRIBUTE_UNUSED,
@@ -1966,26 +1976,28 @@ stops_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED,
   return stops_search_start_from (use_phi);
 }
 
+/* DFS Search function:  Return true if the replacing occurrence is
+   known.  */
 static bool 
 repl_search_seen (tree phi)
 {
   return EPHI_REP_OCCUR_KNOWN (phi);
 }
 
+/* DFS Search function:  Set the identical_to field and note the
+   replacing occurrence is now known.  */
 static void 
 repl_search_set_seen (tree phi)
 {
   int i;
   
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   if (!ephi_will_be_avail (phi))
     abort ();
 #endif
   
-#if !ENABLE_CHECKING
   if (EPHI_IDENTICAL_TO (phi) == NULL_TREE)
     {
-#endif
       for (i = 0; i < EPHI_NUM_ARGS (phi); i++)
 	{
 	  tree identical_to = occ_identical_to (EPHI_ARG_DEF (phi, i));
@@ -1997,13 +2009,12 @@ repl_search_set_seen (tree phi)
 		EPHI_IDENT_INJURED (phi) = true;
 	    }
 	}
-#if !ENABLE_CHECKING
     }
-#endif
   EPHI_REP_OCCUR_KNOWN (phi) = true;
 }
 
-	      
+/* Helper function.  Return true if any argument in the PHI is
+   injured.  */	      
 static inline bool
 any_operand_injured (tree ephi)
 {
@@ -2015,6 +2026,9 @@ any_operand_injured (tree ephi)
   
 }
 
+/* DFS Search function:  Note the identity of the used phi operand is
+   the same as it's defining phi operand, if that phi will be
+   available, and it's known.  */
 static void
 repl_search_reach_from_to (tree def_phi, int opnd_indx ATTRIBUTE_UNUSED,
 			   tree use_phi)
@@ -2031,7 +2045,9 @@ repl_search_reach_from_to (tree def_phi, int opnd_indx ATTRIBUTE_UNUSED,
     }
 }
 
-
+/* DFS Search function:  Return true if the PHI will be available,
+   it's an identity PHI, and it's arguments are identical to
+   something.  */
 static bool 
 repl_search_start_from (tree phi)
 {
@@ -2045,7 +2061,8 @@ repl_search_start_from (tree phi)
   return false;
 }
 
-  
+/* DFS Search function:  Return true if the using PHI is will be available,
+   and identity.  */
 static bool
 repl_search_continue_from_to (tree def_phi ATTRIBUTE_UNUSED,
 			      int opnd_indx ATTRIBUTE_UNUSED,
@@ -2112,6 +2129,7 @@ finalize_2 (struct expr_info *ei)
 	    set_save (ei, EUSE_DEF (ref));
 	}
     }
+
   /* ESSA Minimization.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
@@ -2145,6 +2163,7 @@ finalize_2 (struct expr_info *ei)
 	}
     }
   do_ephi_df_search (ei, replacing_search);
+
 }
 
 /* Perform a DFS on EPHI using the functions in SEARCH. */
@@ -2161,7 +2180,8 @@ do_ephi_df_search_1 (struct ephi_df_search search, tree ephi)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       struct ephi_use_entry *use = VARRAY_GENERIC_PTR (uses, i);
-      search.reach_from_to (ephi, use->opnd_indx, use->phi);
+      if (search.reach_from_to)
+	search.reach_from_to (ephi, use->opnd_indx, use->phi);
       if (!search.seen (use->phi) &&
 	  search.continue_from_to (ephi, use->opnd_indx, use->phi))
 	{
@@ -2214,7 +2234,7 @@ calculate_increment (struct expr_info *ei, tree expr)
 #endif
 
 
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 static int
 count_stmts_in_bb (basic_block bb)
 {
@@ -2305,7 +2325,7 @@ code_motion (struct expr_info *ei)
   tree use;
   tree newtemp;
   size_t euse_iter;
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   int before, after;
 #endif
   tree temp = ei->temp;
@@ -2339,25 +2359,6 @@ code_motion (struct expr_info *ei)
 	      fprintf (dump_file, "Pointless EPHI in block %d\n",
 		       bb_for_stmt (use)->index);
 	    }
-#if 0
-	  if (EPHI_IDENTICAL_TO (use))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, 
-			 "Temporary for EPHI in block %d is now set to ", 
-			 bb_for_stmt (use)->index);
-	      EREF_TEMP (use) = EREF_TEMP (EPHI_IDENTICAL_TO (use));
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  if (TREE_CODE (EREF_TEMP (use)) == PHI_NODE)
-		    print_generic_expr (dump_file, 
-					PHI_RESULT (EREF_TEMP (use)), 0);
-		  else
-		    print_generic_expr (dump_file, EREF_TEMP (use), 0);
-		  fprintf (dump_file, "\n");
-		}
-	    }
-#endif
 	}
     }
   /* Now do the actual saves and reloads, plus repairs. */
@@ -2366,7 +2367,7 @@ code_motion (struct expr_info *ei)
        euse_iter++)
     {
       use = VARRAY_TREE (ei->euses_dt_order, euse_iter);
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
       if (TREE_CODE (use) == EUSE_NODE && EUSE_PHIOP (use)
 	  && (EREF_RELOAD (use) || EREF_SAVE (use)))
 	abort ();
@@ -2403,11 +2404,11 @@ code_motion (struct expr_info *ei)
 	  modify_stmt (newexpr);
 	  modify_stmt (use_stmt);
 	  set_bb_for_stmt (newexpr, bb_for_stmt (use));
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	  before = count_stmts_in_bb (bb_for_stmt (use));
 #endif
 	  EREF_STMT (use) = do_proper_save (use_stmt, newexpr, true);
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	  after = count_stmts_in_bb (bb_for_stmt (use));
 	  if (before + 1 != after)
 	    abort ();
@@ -2470,7 +2471,7 @@ code_motion (struct expr_info *ei)
 		rdef = get_temp (argdef);
 	      else
 		{
-#if ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 		  /* All the operands should be real, inserted, or
 		     other phis.  */
 		  if (TREE_CODE (argdef) != EPHI_NODE)
@@ -2707,71 +2708,6 @@ pre_expression (struct expr_info *slot, void *data)
 	      fprintf (dump_file, "\n");
 	    }
     }
-  graph_dump_file = dump_begin (TDI_predot, &graph_dump_flags);
-  if (graph_dump_file)
-    {
-#if 0
-      splay_tree ids;
-      size_t i;
-      size_t firstid, secondid;
-
-      ids = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-
-      fprintf (graph_dump_file, "digraph \"");
-      print_generic_expr (graph_dump_file, ei->expr, 0);
-      fprintf (graph_dump_file, "\" \n{\n");
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->erefs); i++)
-	{
-	  tree ref = VARRAY_TREE (ei->erefs, i);
-	  splay_tree_insert (ids, (splay_tree_key) ref, i);
-	  switch (TREE_CODE (ref))
-	    {
-	    case EEXIT_NODE:
-	      fprintf (graph_dump_file, "\t%ud [label=\"exit node\"];\n", i);
-	      break;
-	    case EUSE_NODE:
-	      fprintf (graph_dump_file,
-		       "\t%ud [label=\"use node\\nbb #%d\"];\n", i,
-		       bb_for_stmt (ref)->index);
-	      break;
-	    case EPHI_NODE:
-	      fprintf (graph_dump_file,
-		       "\t%ud [label=\"phi node\\nbb #%d\"];\n", i,
-		       bb_for_stmt (ref)->index);
-	      break;
-	    case ELEFT_NODE:
-	      fprintf (graph_dump_file,
-		       "\t%ud [label=\"left occurrence\\nbb #%d\"];\n",i,
-		       bb_for_stmt (ref)->index);
-	      break;
-	    case EKILL_NODE:
-	      fprintf (graph_dump_file,
-		       "\t%ud [label=\"kill node\\nbb #%d\"];\n", i,
-		       bb_for_stmt (ref)->index);
-	      break;
-	    default:
-	      break;
-	    }
-	}
-      firstid =
-	splay_tree_lookup (ids,
-			   (splay_tree_key) VARRAY_TREE (ei->euses_dt_order, 0))->value;
-      for (i = 1; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
-	{
-	  tree ref = VARRAY_TREE (ei->euses_dt_order, i);
-	  secondid = splay_tree_lookup (ids, (splay_tree_key) ref)->value;
-	  fprintf (graph_dump_file, "%ud -> %ud;\n", firstid, secondid);
-	  firstid = secondid;
-	}
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
-
-	fprintf (graph_dump_file, " \n}\n\n");
-
-      dump_end (TDI_predot, graph_dump_file);
-      splay_tree_delete (ids);
-#endif
-    }
-
   compute_down_safety (ei);
   compute_du_info (ei);
   compute_will_be_avail (ei);
@@ -2877,12 +2813,9 @@ tree_perform_ssapre (tree fndecl)
 		  {
 		    slot = ggc_alloc (sizeof (struct expr_info));
 		    slot->expr = expr;
-		    VARRAY_GENERIC_PTR_INIT (slot->occurs, 1,
-					     "Occurrence");
-		    VARRAY_GENERIC_PTR_INIT (slot->kills, 1,
-					     "Kills");
-		    VARRAY_GENERIC_PTR_INIT (slot->lefts, 1,
-					     "Left occurrences");
+		    VARRAY_TREE_INIT (slot->occurs, 1, "Occurrence");
+		    VARRAY_TREE_INIT (slot->kills, 1, "Kills");
+		    VARRAY_TREE_INIT (slot->lefts, 1, "Left occurrences");
 		    VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
 		    VARRAY_TREE_INIT (slot->erefs, 1, "EREFs");
 		    VARRAY_TREE_INIT (slot->euses_dt_order, 1, "EUSEs");

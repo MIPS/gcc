@@ -3445,7 +3445,6 @@ enum tree_dump_index
 				   for each function.  */
   TDI_mustalias,		/* dump must-alias information for each
 				   function.  */
-  TDI_predot,
   TDI_pre,                      /* dump SSA PRE information for each
 				   function.  */
   TDI_ccp,			/* dump SSA CCP information for each
