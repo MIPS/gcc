@@ -807,8 +807,7 @@ tree_generator::wrap_synchronized (tree expr, tree body)
 
   tsi_link_after (&out, body, TSI_CONTINUE_LINKING);
 
-  return build2 (TRY_FINALLY_EXPR, void_type_node,
-		 body_tree, exit_tree);
+  return build2 (TRY_FINALLY_EXPR, NULL_TREE, body_tree, exit_tree);
 }
 
 void

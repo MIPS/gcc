@@ -1,5 +1,10 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (wrap_synchronized): Don't put a type on a
+	TRY_FINALLY_EXPR.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_try): Don't create TRY_CATCH_EXPR if there are no
 	catch blocks.
 
