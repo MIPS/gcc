@@ -293,6 +293,7 @@ int easy_vector_constant PARAMS ((rtx, enum machine_mode));
 static int easy_vector_same PARAMS ((rtx, enum machine_mode));
 static bool is_ev64_opaque_type PARAMS ((tree));
 static rtx rs6000_dwarf_register_span PARAMS ((rtx));
+static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree);
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -3070,6 +3071,10 @@ init_cumulative_args (cum, fntype, libname, incoming)
   cum->prototype = (fntype && TYPE_ARG_TYPES (fntype));
   cum->call_cookie = CALL_NORMAL;
   cum->sysv_gregno = GP_ARG_MIN_REG;
+  cum->stdarg = fntype
+    && (TYPE_ARG_TYPES (fntype) != 0
+	&& (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
+	    != void_type_node));
 
   if (incoming)
     cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
@@ -3177,7 +3182,8 @@ function_arg_advance (cum, mode, type, named)
 	cum->words += RS6000_ARG_SIZE (mode, type);
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode)
-	   && named && cum->sysv_gregno <= GP_ARG_MAX_REG)
+	   && !cum->stdarg
+	   && cum->sysv_gregno <= GP_ARG_MAX_REG)
     cum->sysv_gregno++;
   else if (DEFAULT_ABI == ABI_V4)
     {
@@ -3256,7 +3262,43 @@ function_arg_advance (cum, mode, type, named)
 	}
     }
 }
-
+
+/* Determine where to put a SIMD argument on the SPE.  */
+static rtx
+rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type)
+{
+  if (cum->stdarg)
+    {
+      int gregno = cum->sysv_gregno;
+      int n_words = RS6000_ARG_SIZE (mode, type);
+
+      /* SPE vectors are put in odd registers.  */
+      if (n_words == 2 && (gregno & 1) == 0)
+	gregno += 1;
+
+      if (gregno + n_words - 1 <= GP_ARG_MAX_REG)
+	{
+	  rtx r1, r2;
+	  enum machine_mode m = SImode;
+
+	  r1 = gen_rtx_REG (m, gregno);
+	  r1 = gen_rtx_EXPR_LIST (m, r1, const0_rtx);
+	  r2 = gen_rtx_REG (m, gregno + 1);
+	  r2 = gen_rtx_EXPR_LIST (m, r2, GEN_INT (4));
+	  return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
+	}
+      else
+	return NULL;
+    }
+  else
+    {
+      if (cum->sysv_gregno <= GP_ARG_MAX_REG)
+	return gen_rtx_REG (mode, cum->sysv_gregno);
+      else
+	return NULL;
+    }
+}
+
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -3319,13 +3361,8 @@ function_arg (cum, mode, type, named)
       else
 	return NULL;
     }
-  else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode) && named)
-    {
-      if (cum->sysv_gregno <= GP_ARG_MAX_REG)
-	return gen_rtx_REG (mode, cum->sysv_gregno);
-      else
-	return NULL;
-    }
+  else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode))
+    return rs6000_spe_function_arg (cum, mode, type);
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -3341,6 +3378,14 @@ function_arg (cum, mode, type, named)
 	  int n_words;
 	  int gregno = cum->sysv_gregno;
 
+	  if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode)
+	      && !cum->stdarg
+	      && cum->sysv_gregno <= GP_ARG_MAX_REG)
+	    {
+	      cum->sysv_gregno++;
+	      return;
+	    }
+
 	  /* Aggregates and IEEE quad get passed by reference.  */
 	  if ((type && AGGREGATE_TYPE_P (type))
 	      || mode == TFmode)
@@ -3352,25 +3397,9 @@ function_arg (cum, mode, type, named)
 	  if (n_words == 2 && (gregno & 1) == 0)
 	    gregno += 1;
 
-	  /* Long long and SPE vectors are not split between registers
-	     and stack.  */
+	  /* Long long do not split between registers and stack.  */
 	  if (gregno + n_words - 1 <= GP_ARG_MAX_REG)
-	    {
-	      /* SPE vectors in ... get split into 2 registers.  */
-	      if (TARGET_SPE && TARGET_SPE_ABI
-		  && SPE_VECTOR_MODE (mode) && !named)
-		{
-		  rtx r1, r2;
-		  enum machine_mode m = SImode;
-
-		  r1 = gen_rtx_REG (m, gregno);
-		  r1 = gen_rtx_EXPR_LIST (m, r1, const0_rtx);
-		  r2 = gen_rtx_REG (m, gregno + 1);
-		  r2 = gen_rtx_EXPR_LIST (m, r2, GEN_INT (4));
-		  return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
-		}
-	      return gen_rtx_REG (mode, gregno);
-	    }
+	    return gen_rtx_REG (mode, gregno);
 	  else
 	    return NULL;
 	}
