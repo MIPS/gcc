@@ -2050,7 +2050,7 @@ insert_coalesced_conflicts ()
 		     web conflicts with it's alias (see
 		     non_conflicting_for_combine).  In that case we come here
 		     with tweb and wl->t being equal.  */
-		  && tweb->id != wl->t->id
+		  && tweb->id != alias (wl->t)->id
 		  && hard_regs_intersect_p (&tweb->usable_regs,
 					    &wl->t->usable_regs))
 		{

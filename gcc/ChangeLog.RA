@@ -1,4 +1,8 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-colorize.c (insert_coalesced_conflicts): Correctly handle
+	self-conflicts.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-build.c (determine_web_costs): Use copy_cost instead assuming
 	memory move cost or constant cost.  Adjust heuristics to deal with
 	spill temps and zero frequencies.  Penalize webs used in compares.
