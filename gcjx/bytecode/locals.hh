@@ -66,11 +66,15 @@ class locals
   // appear several times here, due to how we emit 'finally' clauses.
   std::list<debug_info> var_descriptions;
 
+  // Number of variables that survived updating.
+  int valid;
+
 public:
 
   locals (bytecode_generator *g)
     : gen (g),
-      max (0)
+      max (0),
+      valid (-1)
   {
     scope.push_back (NULL);
   }
@@ -115,6 +119,12 @@ public:
   /// information.  If the writer is NULL, just enter information into
   /// the constant pool.
   void emit (output_constant_pool *, bytecode_stream *);
+
+  /// Return the size of the local variable table attribute.
+  int size ()
+  {
+    return 2 + 10 * valid;
+  }
 };
 
 /// This is an class for allocating a temporary local variable.  Usage

@@ -1,6 +1,6 @@
 // A constant pool being generated.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -333,7 +333,6 @@ output_constant_pool::write_inner_classes ()
 {
   // Here we freely use 'add', assuming that the entries have all been
   // added already.
-  bytes.put4 (2 + 8 * nested_classes.size ());
   bytes.put2 (nested_classes.size ());
 
   for (std::set<model_class *>::const_iterator i = nested_classes.begin ();
@@ -354,6 +353,12 @@ output_constant_pool::write_inner_classes ()
 		     | ACC_ABSTRACT));
       bytes.put2 (mods);
     }
+}
+
+int
+output_constant_pool::size ()
+{
+  return 2 + 8 * nested_classes.size ();
 }
 
 void

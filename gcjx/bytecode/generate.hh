@@ -179,6 +179,11 @@ class bytecode_generator : public visitor
       bytecode_attribute::emit (writer);
       gen->write_line_table (&writer);
     }
+
+    int size ()
+    {
+      return 2 + 4 * gen->line_count;
+    }
   };
 
   /// This class is used to handle the LocalVariableTable attribute.
@@ -200,6 +205,11 @@ class bytecode_generator : public visitor
     {
       bytecode_attribute::emit (writer);
       vars->emit (pool, &writer);
+    }
+
+    int size ()
+    {
+      return vars->size ();
     }
   };
 
@@ -283,6 +293,8 @@ class bytecode_generator : public visitor
   bytecode_block *new_bytecode_block ();
   void note_line (model_element *);
 
+  int count_exception_handlers ();
+
   // Used to push a new expression target.
   class push_expr_target
   {
@@ -350,6 +362,13 @@ public:
 
   /// Write the bytecode for this method.
   void write (bytecode_stream *);
+
+  /// Compute the overall length used by the Code attribute.
+  int bytecode_size ()
+  {
+    int count = count_exception_handlers ();
+    return 8 + bytecode_length + 2 + 8 * count + attributes.size ();
+  }
 
   /// Used to keep track of lifetimes of local variables.
   bytecode_block *get_current () const

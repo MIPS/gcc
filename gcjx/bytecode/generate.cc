@@ -183,8 +183,8 @@ bytecode_generator::generate ()
     }
 }
 
-void
-bytecode_generator::write (bytecode_stream *out)
+int
+bytecode_generator::count_exception_handlers ()
 {
   // Count the number of exception handlers we have.
   int count = 0;
@@ -204,6 +204,13 @@ bytecode_generator::write (bytecode_stream *out)
 				 "past 65535 bytes");
 	}
     }
+  return count;
+}
+
+void
+bytecode_generator::write (bytecode_stream *out)
+{
+  int count = count_exception_handlers ();
 
   if (count > 65535)
     throw method->error ("method requires more than 65535 exception regions");
@@ -214,12 +221,6 @@ bytecode_generator::write (bytecode_stream *out)
   if (vars.get_max () > 65535)
     throw method->error ("bytecode uses more than 65535 local variable slots");
 
-  // Compute the total length of the Code section.
-  int length = 8 + bytecode_length + 2 + 8 * count + 2;
-  if (global->get_compiler ()->target_debug () && line_count > 0)
-    length += 6 + 2 + 4 * line_count;
-
-  out->put4 (length);
   out->put2 (max_stack);
   out->put2 (vars.get_max ());
   out->put4 (bytecode_length);
@@ -295,7 +296,6 @@ bytecode_generator::write (bytecode_stream *out)
 void
 bytecode_generator::write_line_table (bytecode_stream *out)
 {
-  out->put4 (2 + 4 * line_count);
   out->put2 (line_count);
   int last_line = -1;
   for (bytecode_block *work = first_block; work; work = work->next ())

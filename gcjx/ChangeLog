@@ -1,5 +1,36 @@
 2005-01-15  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/locals.cc (emit): Updated.
+	(update): Update 'valid'.
+	* bytecode/locals.hh (locals::valid): New field.
+	(locals): Updated.
+	(locals::size): New method.
+	* bytecode/generate.cc (write): Don't emit the size.
+	(write_line_table): Likewise.
+	(count_exception_handlers): New method.
+	* bytecode/outpool.hh (output_constant_pool::size): Declare.
+	* bytecode/outpool.cc (size): New method.
+	(write_inner_classes): Don't emit the size.
+	* bytecode/attribute.cc (size): New methods.
+	(emit): Write the size.  Update all other emit methods.
+	* bytecode/generate.hh (line_table_attribute::size): New method.
+	(local_variable_table_attribute::size): Likewise.
+	(bytecode_generator::count_exception_handlers): Declare.
+	(bytecode_generator::bytecode_size): New method.
+	* bytecode/attribute.hh (bytecode_attribute_list::size): Declare.
+	(bytecode_attribute::size): Likewise.
+	(simple_name_attribute::size): New method.
+	(utf8_attribute::size): New method.
+	(inner_classes_attribute::size): Declare.
+	(exceptions_attribute::size): New method.
+	(code_attribute::size): Declare.
+	(field_value_attribute::size): New method.
+	(annotation_attribute::size): Likewise.
+	(parameter_attribute::size): Likewise.
+	(annotation_default_attribute::size): Likewise.
+
+2005-01-15  Tom Tromey  <tromey@redhat.com>
+
 	* model/fieldref.cc (resolve): Reverted earlier patch, with
 	commentary.
 

@@ -1,6 +1,6 @@
 // Attribute for bytecode output.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -47,6 +47,9 @@ public:
   /// attribute; subclasses must emit the size of the attribute and
   /// its contents.
   virtual void emit (bytecode_stream &);
+
+  /// Compute the size of this attribute.
+  virtual int size () = 0;
 };
 
 /// An attribute which is just a tag.
@@ -60,6 +63,11 @@ public:
   }
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return 0;
+  }
 };
 
 /// An attribute that consists of a name and a utf8 value.
@@ -74,6 +82,11 @@ public:
 		  const std::string &);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return 2;
+  }
 };
 
 /// An attribute that handles InnerClasses for the constant pool.  It
@@ -85,6 +98,8 @@ public:
   inner_classes_attribute (output_constant_pool *);
 
   void emit (bytecode_stream &);
+
+  int size ();
 };
 
 /// An attribute that handles exceptions for a method.
@@ -99,6 +114,11 @@ public:
 			const std::set<model_type *> &);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return 2 + 2 * excs.size ();
+  }
 };
 
 /// An attribute that handles the code for a method.
@@ -112,6 +132,8 @@ public:
   code_attribute (output_constant_pool *, bytecode_generator *);
 
   void emit (bytecode_stream &);
+
+  int size ();
 };
 
 /// An attribute that handles the constant value of a field.
@@ -125,6 +147,11 @@ public:
   field_value_attribute (output_constant_pool *, model_field *);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return 2;
+  }
 };
 
 /// This represents annotations that are attached to a class, field,
@@ -144,6 +171,11 @@ public:
 			const std::list<model_annotation *> &);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return len;
+  }
 };
 
 /// This represents annotations attached to method parameters.
@@ -162,6 +194,11 @@ public:
 		       const std::list< std::list<model_annotation *> > &);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return len;
+  }
 };
 
 /// This represents an annotation default value.
@@ -178,6 +215,11 @@ public:
   annotation_default_attribute (output_constant_pool *, model_expression *);
 
   void emit (bytecode_stream &);
+
+  int size ()
+  {
+    return len;
+  }
 };
 
 /// This holds a list of attributes.  It owns each attribute object
@@ -199,6 +241,9 @@ public:
   }
 
   void emit (bytecode_stream &);
+
+  // Compute the size needed by all attributes.
+  int size ();
 };
 
 #endif // GCJX_BYTECODE_ATTRIBUTE_HH

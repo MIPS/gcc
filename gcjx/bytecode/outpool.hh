@@ -1,6 +1,6 @@
 // A constant pool being generated.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -108,6 +108,9 @@ public:
 
   /// Write the inner classes attribute.
   void write_inner_classes ();
+
+  /// Return the number of bytes used by this attribute.
+  int size ();
 
   /// Create a fake compilation unit object from this outgoing
   /// constant pool.  This can only be called after finish().  This is

@@ -1,6 +1,6 @@
 // Attribute for bytecode output.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -43,6 +43,7 @@ void
 bytecode_attribute::emit (bytecode_stream &writer)
 {
   writer.put2 (pool->add_utf (name));
+  writer.put4 (size ());
 }
 
 
@@ -51,7 +52,6 @@ void
 simple_name_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (0);
 }
 
 
@@ -70,7 +70,6 @@ void
 utf8_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (2);
   writer.put2 (pool->add_utf (value));
 }
 
@@ -87,6 +86,12 @@ inner_classes_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
   pool->write_inner_classes ();
+}
+
+int
+inner_classes_attribute::size ()
+{
+  return pool->size ();
 }
 
 
@@ -107,7 +112,6 @@ void
 exceptions_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (2 + 2 * excs.size ());
   writer.put2 (excs.size ());
   for (std::set<model_type *>::const_iterator i = excs.begin ();
        i != excs.end ();
@@ -128,6 +132,12 @@ code_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
   gen->write (&writer);
+}
+
+int
+code_attribute::size ()
+{
+  return gen->bytecode_size ();
 }
 
 
@@ -165,7 +175,6 @@ void
 field_value_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (2);
   writer.put2 (index);
 }
 
@@ -322,7 +331,6 @@ void
 annotation_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (len);
   writer.put2 (annos.size ());
   for (std::list<model_annotation *>::const_iterator i = annos.begin ();
        i != annos.end ();
@@ -356,7 +364,6 @@ void
 parameter_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (len);
   writer.put2 (annos.size ());
   for (std::list< std::list<model_annotation *> >::const_iterator j
 	 = annos.begin ();
@@ -385,7 +392,6 @@ void
 annotation_default_attribute::emit (bytecode_stream &writer)
 {
   bytecode_attribute::emit (writer);
-  writer.put4 (len);
   emit_annotation_value (&writer, pool, expr);
 }
 
@@ -411,4 +417,18 @@ bytecode_attribute_list::emit (bytecode_stream &writer)
        i != attrs.end ();
        ++i)
     (*i)->emit (writer);
+}
+
+int
+bytecode_attribute_list::size ()
+{
+  int result = 2;
+  for (std::list<bytecode_attribute *>::const_iterator i = attrs.begin ();
+       i != attrs.end ();
+       ++i)
+    {
+      // '6' is 2 byte for the name and 4 for the length.
+      result += 6 + (*i)->size ();
+    }
+  return result;
 }

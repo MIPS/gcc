@@ -139,7 +139,7 @@ locals::remove (const model_stmt *stmt)
 bool
 locals::update ()
 {
-  bool any = false;
+  valid = 0;
   for (std::list<debug_info>::iterator i = var_descriptions.begin ();
        i != var_descriptions.end ();
        ++i)
@@ -153,10 +153,10 @@ locals::update ()
 	  assert (info.end->live_p ());
 	  // Don't emit debug info for a zero-length range.
 	  if (info.start != info.end)
-	    any = true;
+	    ++valid;
 	}
     }
-  return any;
+  return valid > 0;
 }
 
 void
@@ -180,10 +180,12 @@ locals::emit (output_constant_pool *pool, bytecode_stream *out)
 	}
     }
 
+  assert (count == valid);
+  assert (count > 0);
+
   if (! out)
     return;
 
-  out->put4 (2 + 10 * count);
   out->put2 (count);
   for (std::list<debug_info>::const_iterator i = var_descriptions.begin ();
        i != var_descriptions.end ();
