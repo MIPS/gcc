@@ -3192,7 +3192,8 @@ rest_of_compilation (decl)
 #endif
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+    cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
   no_new_pseudos = 1;
@@ -3203,6 +3204,7 @@ rest_of_compilation (decl)
       if (extra_warnings)
 	setjmp_args_warning ();
     }
+  close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
   /* Rerun if-conversion, as life information allows more transformations
      to be done.  */
@@ -3232,7 +3234,6 @@ rest_of_compilation (decl)
 	}
     }
 
-  close_dump_file (DFI_life, print_rtl_with_bb, insns);
   ggc_collect ();
 
 
@@ -3247,10 +3248,6 @@ rest_of_compilation (decl)
 
       rebuild_jump_labels_after_combine
 	= combine_instructions (insns, max_reg_num ());
-
-      /* Always purge dead edges, as we may eliminate an insn throwing
-         exception.  */
-      rebuild_jump_labels_after_combine |= purge_all_dead_edges (true);
 
       /* Combining insns may have turned an indirect jump into a
 	 direct jump.  Rebuid the JUMP_LABEL fields of jumping

@@ -1844,7 +1844,7 @@ verify_flow_info ()
 	  if (e->flags & EDGE_FALLTHRU)
 	    n_fallthru++;
 
-	  if ((e->flags & ~EDGE_DFS_BACK) == 0)
+	  if ((e->flags & ~(EDGE_DFS_BACK | EDGE_CAN_FALLTHRU)) == 0)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)
@@ -2153,6 +2153,7 @@ purge_dead_edges (bb)
 	if (e->flags & EDGE_EH)
 	  {
 	    remove_edge (e);
+	    bb->flags |= BB_DIRTY;
 	    purged = true;
 	  }
       }
@@ -2166,7 +2167,7 @@ purge_dead_edges (bb)
       if (!any_condjump_p (insn)
 	  && !returnjump_p (insn)
 	  && !simplejump_p (insn))
-	return false;
+	return purged;
 
       /* Branch probability/prediction notes are defined only for
 	 condjumps.  We've possibly turned condjump into simplejump.  */
@@ -2199,12 +2200,13 @@ purge_dead_edges (bb)
 		   && returnjump_p (insn))
 	    continue;
 
+	  bb->flags |= BB_DIRTY;
 	  purged = true;
 	  remove_edge (e);
 	}
 
       if (!bb->succ || !purged)
-	return false;
+	return purged;
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Purged edges from bb %i\n", bb->index);
@@ -2251,7 +2253,11 @@ purge_dead_edges (bb)
     {
       next = e->succ_next;
       if (!(e->flags & EDGE_FALLTHRU))
-	remove_edge (e), purged = true;
+	{
+	  bb->flags |= BB_DIRTY;
+	  remove_edge (e);
+	  purged = true;
+	}
     }
 
   if (!bb->succ || bb->succ->succ_next)
