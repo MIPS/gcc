@@ -272,12 +272,12 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-          assignment = build (MODIFY_EXPR, ptr_type_node,
+	  assignment = build (MODIFY_EXPR, ptr_type_node,
 			      var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
-          GOTO_DESTINATION (last) = factored_label_decl;
+	  GOTO_DESTINATION (last) = factored_label_decl;
 	}
     }
 }
@@ -419,7 +419,7 @@ make_edges (void)
       tree last = last_stmt (bb);
 
       if (first)
-        {
+	{
 	  /* Edges for statements that always alter flow control.  */
 	  if (is_ctrl_stmt (last))
 	    make_ctrl_stmt_edges (bb);
@@ -969,7 +969,7 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 	  && TREE_CODE (then_stmt) == GOTO_EXPR
 	  && TREE_CODE (else_stmt) == GOTO_EXPR
 	  && (GOTO_DESTINATION (then_stmt) == GOTO_DESTINATION (else_stmt)))
-        {
+	{
 	  *stmt_p = then_stmt;
 	  data->repeat = true;
 	}
@@ -984,7 +984,7 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 	      && TREE_OPERAND (else_stmt, 0) == cond
 	      && integer_zerop (TREE_OPERAND (else_stmt, 1)))
 	    COND_EXPR_ELSE (*stmt_p) = alloc_stmt_list ();
-        }
+	}
       else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
 	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
 		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
@@ -992,7 +992,7 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 	{
 	  tree stmt = (TREE_CODE (cond) == EQ_EXPR
 		       ? then_stmt : else_stmt);
-          tree *location = (TREE_CODE (cond) == EQ_EXPR
+	  tree *location = (TREE_CODE (cond) == EQ_EXPR
 			    ? &COND_EXPR_THEN (*stmt_p)
 			    : &COND_EXPR_ELSE (*stmt_p));
 
@@ -1271,7 +1271,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       notice_special_calls (t);
       update_call_expr_flags (t);
       if (tree_could_throw_p (t))
-        data->may_throw = true;
+	data->may_throw = true;
       break;
 
     case MODIFY_EXPR:
@@ -1288,7 +1288,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 
     case STATEMENT_LIST:
       {
-        tree_stmt_iterator i = tsi_start (t);
+	tree_stmt_iterator i = tsi_start (t);
 	while (!tsi_end_p (i))
 	  {
 	    t = tsi_stmt (i);
@@ -1861,7 +1861,7 @@ compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
       if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
-        bitmap_set_bit (frontiers[bb->index], e->dest->index);
+	bitmap_set_bit (frontiers[bb->index], e->dest->index);
     }
 
   /* Find blocks conforming to rule (2).  */
@@ -2068,22 +2068,22 @@ tree_cfg2dot (FILE *file)
       tree last = last_stmt (bb);
 
       if (first)
-        {
+	{
 	  head_code = TREE_CODE (first);
 	  head_name = tree_code_name[head_code];
 	  head_line = get_lineno (first);
 	}
       else
-        head_name = "no-statement";
+	head_name = "no-statement";
 
       if (last)
-        {
+	{
 	  end_code = TREE_CODE (last);
 	  end_name = tree_code_name[end_code];
 	  end_line = get_lineno (last);
 	}
       else
-        end_name = "no-statement";
+	end_name = "no-statement";
 
       fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
@@ -2152,7 +2152,7 @@ is_ctrl_altering_stmt (tree t)
 
     case CALL_EXPR:
       /* A non-pure/const CALL_EXPR alters flow control if the current function
-         has nonlocal labels.  */
+	 has nonlocal labels.  */
       if (TREE_SIDE_EFFECTS (t)
 	  && current_function_has_nonlocal_label)
 	return true;
@@ -2176,7 +2176,7 @@ bool
 computed_goto_p (tree t)
 {
   return (TREE_CODE (t) == GOTO_EXPR
-          && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
+	  && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
 }
 
 /* Return true when GOTO is an non-local goto.  */
@@ -2306,7 +2306,7 @@ disband_implicit_edges (void)
 	}
 
       /* There can be no fallthru edge if the last statement is a control
-         one.  */
+	 one.  */
       if (stmt && is_ctrl_stmt (stmt))
 	continue;
 
@@ -2800,8 +2800,8 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	return NULL;
       if (!TREE_ADDRESSABLE (x))
 	{
-          error ("address taken, but ADDRESABLE bit not set");
-          return x;
+	  error ("address taken, but ADDRESABLE bit not set");
+	  return x;
 	}
       break;
 
@@ -2860,7 +2860,7 @@ tree_node_shared_p (tree t)
   while ((TREE_CODE (t) == ARRAY_REF
 	  /* We check for constants explicitly since they are not considered
 	     gimple invariants if they overflowed.  */
-          && (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c'
+	  && (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c'
 	      || is_gimple_min_invariant (TREE_OPERAND (t, 1))))
 	 || (TREE_CODE (t) == COMPONENT_REF
 	     || TREE_CODE (t) == REALPART_EXPR
@@ -2920,7 +2920,7 @@ verify_stmts (void)
 	      tree addr;
 
 	      /* Addressable variables do have SSA_NAMEs but they
-	         are not considered gimple values.  */
+		 are not considered gimple values.  */
 	      if (TREE_CODE (t) != SSA_NAME
 		  && TREE_CODE (t) != FUNCTION_DECL
 		  && !is_gimple_val (t))
@@ -3115,7 +3115,7 @@ tree_verify_flow_info (void)
 	  else
 	    {
 	      /* We shall double check that the labels in destination blocks have
-	         address taken.  */
+		 address taken.  */
 
 	      for (e = bb->succ; e; e = e->succ_next)
 		if ((e->flags & (EDGE_FALLTHRU | EDGE_TRUE_VALUE | EDGE_FALSE_VALUE))
@@ -3126,7 +3126,7 @@ tree_verify_flow_info (void)
 		  }
 	      if (nonlocal_goto_p (stmt))
 		{
-	          for (e = bb->succ; e; e = e->succ_next)
+		  for (e = bb->succ; e; e = e->succ_next)
 		    if (e->dest == EXIT_BLOCK_PTR)
 		      break;
 		  if (!e)
