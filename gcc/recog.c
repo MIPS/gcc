@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "ra.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -58,6 +59,7 @@ static void validate_replace_rtx_1	PARAMS ((rtx *, rtx, rtx, rtx));
 static rtx *find_single_use_1		PARAMS ((rtx, rtx *));
 static void validate_replace_src_1 	PARAMS ((rtx *, void *));
 static rtx split_insn			PARAMS ((rtx));
+static int does_contain_spill_pseudos   PARAMS ((rtx));
 
 /* Nonzero means allow operands to be volatile.
    This should be 0 if you are generating rtl, such as if you are calling
@@ -268,7 +270,8 @@ insn_invalid_p (insn)
      clobbers.  */
   int icode = recog (pat, insn,
 		     (GET_CODE (pat) == SET
-		      && ! reload_completed && ! reload_in_progress)
+		      && ! reload_completed && ! reload_in_progress
+		      && ! newra_in_progress)
 		     ? &num_clobbers : 0);
   int is_asm = icode < 0 && asm_noperands (PATTERN (insn)) >= 0;
 
@@ -296,7 +299,7 @@ insn_invalid_p (insn)
     }
 
   /* After reload, verify that all constraints are satisfied.  */
-  if (reload_completed)
+  if (reload_completed || newra_in_progress)
     {
       extract_insn (insn);
 
@@ -1123,9 +1126,6 @@ pmode_register_operand (op, mode)
   return register_operand (op, Pmode);
 }
 
-/* Return 1 if OP should match a MATCH_SCRATCH, i.e., if it is a SCRATCH
-   or a hard register.  */
-
 /* XXX gross hack, because pre-reload also allocates SCRATCHes,
    which might make some clobbers, which only should be scratch_operands
    be registers (pseudos, which then got a hardreg, but were not substituted
@@ -1135,6 +1135,9 @@ pmode_register_operand (op, mode)
    also recognize pseudos as scratch_operands for that timeframe.
    This variable is 1 in that case.  */
 int while_newra = 0;
+
+/* Return 1 if OP should match a MATCH_SCRATCH, i.e., if it is a SCRATCH
+   or a hard register.  */
 
 int
 scratch_operand (op, mode)
@@ -1146,7 +1149,8 @@ scratch_operand (op, mode)
 
   return (GET_CODE (op) == SCRATCH
 	  || (GET_CODE (op) == REG
-	      && (REGNO (op) < FIRST_PSEUDO_REGISTER || while_newra)));
+	      && (REGNO (op) < FIRST_PSEUDO_REGISTER || while_newra
+	          || (newra_in_progress && !SPILL_SLOT_P (REGNO (op))))));
 }
 
 /* Return 1 if OP is a valid immediate operand for mode MODE.
@@ -2074,6 +2078,32 @@ mode_independent_operand (op, mode)
  lose: ATTRIBUTE_UNUSED_LABEL
   return 0;
 }
+
+static int
+does_contain_spill_pseudos (x)
+     rtx x;
+{
+  int i;
+  const char *fmt;
+  if (GET_CODE (x) == REG && SPILL_SLOT_P (REGNO (x)))
+    return 1;
+  fmt = GET_RTX_FORMAT (GET_CODE (x));
+  for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
+    if (fmt[i] == 'e')
+      {
+	if (does_contain_spill_pseudos (XEXP (x, i)))
+	  return 1;
+      }
+    else if (fmt[i] == 'E')
+      {
+	int j;
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  if (does_contain_spill_pseudos (XVECEXP (x, i, j)))
+	    return 1;
+      }
+  return 0;
+}
+
 
 /* Like extract_insn, but save insn extracted and don't extract again, when
    called again for the same insn expecting that recog_data still contain the
@@ -2496,10 +2526,14 @@ constrain_operands (strict)
 		/* p is used for address_operands.  When we are called by
 		   gen_reload, no one will have checked that the address is
 		   strictly valid, i.e., that all pseudos requiring hard regs
-		   have gotten them.  */
-		if (strict <= 0
-		    || (strict_memory_address_p (recog_data.operand_mode[opno],
-						 op)))
+                   have gotten them.  While the new ra is running pre reload
+                   will have ensured, that this is basically of a form of
+                   an address.  */
+		if (newra_in_progress && does_contain_spill_pseudos (op))
+		  ;
+		else if (strict <= 0 || newra_in_progress
+		         || (strict_memory_address_p (recog_data.operand_mode[opno],
+						      op)))
 		  win = 1;
 		break;
 
@@ -2511,7 +2545,7 @@ constrain_operands (strict)
 		if (strict < 0
 		    || GENERAL_REGS == ALL_REGS
 		    || GET_CODE (op) != REG
-		    || (reload_in_progress
+		    || ((reload_in_progress || newra_in_progress)
 			&& REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		    || reg_fits_class_p (op, GENERAL_REGS, offset, mode))
 		  win = 1;
@@ -2530,7 +2564,11 @@ constrain_operands (strict)
 		    || (strict < 0 && CONSTANT_P (op))
 		    /* During reload, accept a pseudo  */
 		    || (reload_in_progress && GET_CODE (op) == REG
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
+                        && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+                    /* With the graph coloring allocator only accept stack
+                       pseudos, but not normal ones.  */
+                    || (newra_in_progress && GET_CODE (op) == REG
+                        && SPILL_SLOT_P (REGNO (op))))
 		  win = 1;
 		break;
 
@@ -2595,7 +2633,12 @@ constrain_operands (strict)
 
 	      case 'V':
 		if (GET_CODE (op) == MEM
-		    && ((strict > 0 && ! offsettable_memref_p (op))
+                    /* Bah.  We can't call the memref checkers if the addresses
+                       contain pseudos, which they do while the new ra is
+                       running.  */
+                    && ((newra_in_progress && !offsettable_nonstrict_memref_p (op))
+                        || (!newra_in_progress && strict > 0
+                            && ! offsettable_memref_p (op))
 			|| (strict < 0
 			    && !(CONSTANT_P (op) || GET_CODE (op) == MEM))
 			|| (reload_in_progress
@@ -2605,14 +2648,18 @@ constrain_operands (strict)
 		break;
 
 	      case 'o':
-		if ((strict > 0 && offsettable_memref_p (op))
+                if ((newra_in_progress && offsettable_nonstrict_memref_p (op))
+                    || (!newra_in_progress && strict > 0
+                        && offsettable_memref_p (op))
 		    || (strict == 0 && offsettable_nonstrict_memref_p (op))
 		    /* Before reload, accept what reload can handle.  */
 		    || (strict < 0
 			&& (CONSTANT_P (op) || GET_CODE (op) == MEM))
 		    /* During reload, accept a pseudo  */
 		    || (reload_in_progress && GET_CODE (op) == REG
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
+                        && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+                    || (newra_in_progress && GET_CODE (op) == REG
+                        && SPILL_SLOT_P (REGNO (op))))
 		  win = 1;
 		break;
 
@@ -2621,15 +2668,26 @@ constrain_operands (strict)
 		  enum reg_class class;
 
 		  class = (c == 'r' ? GENERAL_REGS : REG_CLASS_FROM_LETTER (c));
+                  /* In the new ra handle all REGs first.  We accept all
+                     normal pseudos, but no stack pseudos, as they represent
+                     memory slots.  */
 		  if (class != NO_REGS)
 		    {
+                      /* If we accept any reg at all, then accept everything
+                         if we do extra lax checking, accept all pseudo regs
+                         and scratches if we do nonstrict checking, accept
+                         registers which fit the needed class, and if the new
+                         ra is running also accept non stack pseudos.  */
 		      if (strict < 0
 			  || (strict == 0
 			      && GET_CODE (op) == REG
 			      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 			  || (strict == 0 && GET_CODE (op) == SCRATCH)
 			  || (GET_CODE (op) == REG
-			      && reg_fits_class_p (op, class, offset, mode)))
+                              && ((newra_in_progress
+                                   && REGNO (op) >= FIRST_PSEUDO_REGISTER
+                                   && !SPILL_SLOT_P (REGNO (op)))
+                                  || reg_fits_class_p (op, class, offset, mode))))
 		        win = 1;
 		    }
 #ifdef EXTRA_CONSTRAINT
@@ -2677,13 +2735,15 @@ constrain_operands (strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
+	  if (strict > 0 && !newra_in_progress)
 	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
 	      if (earlyclobber[eopno]
-		  && GET_CODE (recog_data.operand[eopno]) == REG)
+                  && GET_CODE (recog_data.operand[eopno]) == REG
+                  && !(newra_in_progress
+                       && SPILL_SLOT_P (REGNO (recog_data.operand[eopno]))))
 		for (opno = 0; opno < recog_data.n_operands; opno++)
 		  if ((GET_CODE (recog_data.operand[opno]) == MEM
 		       || recog_data.operand_type[opno] != OP_OUT)

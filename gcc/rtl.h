@@ -250,6 +250,11 @@ struct rtvec_def GTY(()) {
 /* Predicate yielding nonzero iff X is an rtl for a register.  */
 #define REG_P(X) (GET_CODE (X) == REG)
 
+/* Predicate yielding nonzero iff X is an rtl for a register or a subreg
+   of a register.  */
+#define REG_OR_SUBREG_P(X) (REG_P (X) || (GET_CODE (X) == SUBREG \
+                                          && REG_P (SUBREG_REG (X))))
+
 /* Predicate yielding nonzero iff X is a label insn.  */
 #define LABEL_P(X) (GET_CODE (X) == CODE_LABEL)
 
@@ -1614,6 +1619,9 @@ extern void note_stores			PARAMS ((rtx,
 extern void note_uses			PARAMS ((rtx *,
 						 void (*) (rtx *, void *),
 						 void *));
+extern void note_uses_partial          PARAMS ((rtx *,
+                                                void (*) (rtx *, void *),
+                                                void *));
 extern rtx reg_set_last			PARAMS ((rtx, rtx));
 extern int dead_or_set_p		PARAMS ((rtx, rtx));
 extern int dead_or_set_regno_p		PARAMS ((rtx, unsigned int));
@@ -1883,6 +1891,12 @@ extern int reload_completed;
 
 extern int reload_in_progress;
 
+/* Set to 1 while the graph coloring register allocator is in progress.
+   In that case only certain pseudo register can be replaced by stack
+   references.  */
+
+extern int newra_in_progress;
+
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
    output indirect addresses.  If cse is to follow, we reject
@@ -2110,6 +2124,8 @@ extern void regclass			PARAMS ((rtx, int, FILE *));
 extern void reg_scan			PARAMS ((rtx, unsigned int, int));
 extern void reg_scan_update		PARAMS ((rtx, rtx, unsigned int));
 extern void fix_register		PARAMS ((const char *, int, int));
+extern int copy_cost                   PARAMS ((rtx, enum machine_mode,
+                                                enum reg_class, int));
 #ifdef HARD_CONST
 extern void cannot_change_mode_set_regs PARAMS ((HARD_REG_SET *,
 						 enum machine_mode,

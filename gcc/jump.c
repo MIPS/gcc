@@ -2395,7 +2395,8 @@ true_regnum (x)
 {
   if (GET_CODE (x) == REG)
     {
-      if (REGNO (x) >= FIRST_PSEUDO_REGISTER && reg_renumber[REGNO (x)] >= 0)
+      if (REGNO (x) >= FIRST_PSEUDO_REGISTER
+          && reg_renumber && reg_renumber[REGNO (x)] >= 0)
 	return reg_renumber[REGNO (x)];
       return REGNO (x);
     }

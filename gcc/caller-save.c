@@ -399,6 +399,17 @@ save_call_clobbered_regs ()
 		{
 		  CLEAR_HARD_REG_SET (referenced_regs);
 		  mark_referenced_regs (PATTERN (insn));
+		  /* In the case of rmw regs, whose "read" part is
+		     uninitialized (this can happen if the was a
+		     (set (subreg:SMALL (reg:BIG))) just before calculating
+		     liveness; this doesn't fill the whole reg, and it
+		     happens that this pseudo is marked live over calls,
+		     where in reality (after changing it to hardregs) it
+		     isn't.  We simply detect such situations by also
+		     restoring before defines of saved hard regs.  */
+		  CLEAR_HARD_REG_SET (this_insn_sets);
+		  note_stores (PATTERN (insn), mark_set_regs, NULL);
+		  IOR_HARD_REG_SET (referenced_regs, this_insn_sets);
 		  AND_HARD_REG_SET (referenced_regs, hard_regs_saved);
 		}
 

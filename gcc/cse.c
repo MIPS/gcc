@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "output.h"
+#include "df.h"
 #include "ggc.h"
 #include "timevar.h"
 
@@ -701,6 +702,8 @@ static void flush_hash_table	PARAMS ((void));
 static bool insn_live_p		PARAMS ((rtx, int *));
 static bool set_live_p		PARAMS ((rtx, rtx, int *));
 static bool dead_libcall_p	PARAMS ((rtx, int *));
+static int delete_trivially_dead_insns_1 PARAMS ((rtx, int, struct df *));
+
 
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
@@ -7685,6 +7688,30 @@ delete_trivially_dead_insns (insns, nreg)
      rtx insns;
      int nreg;
 {
+  return delete_trivially_dead_insns_1 (insns, nreg, NULL);
+}
+
+/* Like delete_trivially_dead_insns(), but update also the DF structure
+   plus automatically preserves basic blocks.  */
+
+void
+delete_trivially_dead_insns_df (insns, nreg, df)
+     rtx insns;
+     int nreg;
+     struct df *df;
+{
+  delete_trivially_dead_insns_1 (insns, nreg, df);
+}
+
+/* Subroutine of delete_trivially_dead_insns() and
+   delete_trivially_dead_insns_df() doing the real work.  */
+
+static int
+delete_trivially_dead_insns_1 (insns, nreg, df)
+     rtx insns;
+     int nreg;
+     struct df *df;
+{
   int *counts;
   rtx insn, prev;
   int in_libcall = 0, dead_libcall = 0;
@@ -7740,6 +7767,8 @@ delete_trivially_dead_insns (insns, nreg)
 	    {
 	      count_reg_usage (insn, counts, NULL_RTX, -1);
 	      delete_insn_and_edges (insn);
+	      if (df && BLOCK_FOR_INSN (insn))
+		df_insn_modify (df, BLOCK_FOR_INSN (insn), insn);
 	      ndead++;
 	    }
 

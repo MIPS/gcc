@@ -1861,12 +1861,12 @@ verify_flow_info ()
 	  edge_checksum[e->dest->index + 2] += (size_t) e;
 	}
 
-      /*if (n_eh && GET_CODE (PATTERN (bb->end)) != RESX
+      if (n_eh && GET_CODE (PATTERN (bb->end)) != RESX
 	  && !find_reg_note (bb->end, REG_EH_REGION, NULL_RTX))
 	{
 	  error ("Missing REG_EH_REGION note in the end of bb %i", bb->index);
 	  err = 1;
-	}*/
+	}
       if (n_branch
 	  && (GET_CODE (bb->end) != JUMP_INSN
 	      || (n_branch > 1 && (any_uncondjump_p (bb->end)
@@ -2118,7 +2118,8 @@ purge_dead_edges (bb)
       else if (e->flags & EDGE_ABNORMAL_CALL)
 	{
 	  if (GET_CODE (bb->end) == CALL_INSN
-	      && (! (note = find_reg_note (insn, REG_EH_REGION, NULL))
+	      && (SIBLING_CALL_P (bb->end)
+		  || ! (note = find_reg_note (insn, REG_EH_REGION, NULL))
 		  || INTVAL (XEXP (note, 0)) >= 0))
 	    continue;
 	}

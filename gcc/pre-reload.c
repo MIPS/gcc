@@ -78,6 +78,7 @@ static int pseudo_clobbered_p    PARAMS ((unsigned int, rtx, enum machine_mode,
 					  int));
 static void pre_reload_collect   PARAMS ((struct ra_info *, bitmap));
 static int pre_operands_match_p  PARAMS ((rtx, rtx));
+static int prefer_swapped PARAMS ((rtx, rtx, rtx));
 static void collect_insn_info    PARAMS ((struct ra_info *, rtx,
 					  ra_ref **, ra_ref **,
 					  int *, int *));
@@ -1442,14 +1443,27 @@ push_pre_reload (in, out, inloc, outloc, class,
   if (in != 0 && GET_CODE (in) == SUBREG && GET_CODE (SUBREG_REG (in)) == REG
       && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER
       && ! dont_remove_subreg)
-    in = gen_rtx_REG (GET_MODE (in), subreg_regno (in));
+    {
+      rtx sub = SUBREG_REG (in);
+      /* But only do this, if this is not one of the special reg rtx's,
+         as elimination relies on them being there, instead of relying on
+	 the reg number.  */
+      if (sub != frame_pointer_rtx && sub != hard_frame_pointer_rtx
+	  && sub != arg_pointer_rtx && sub != stack_pointer_rtx)
+        in = gen_rtx_REG (GET_MODE (in), subreg_regno (in));
+    }
 
   /* Similarly for OUT.  */
   if (out != 0 && GET_CODE (out) == SUBREG
       && GET_CODE (SUBREG_REG (out)) == REG
       && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
       && ! dont_remove_subreg)
-    out = gen_rtx_REG (GET_MODE (out), subreg_regno (out));
+    {
+      rtx sub = SUBREG_REG (out);
+      if (sub != frame_pointer_rtx && sub != hard_frame_pointer_rtx
+	  && sub != arg_pointer_rtx && sub != stack_pointer_rtx)
+        out = gen_rtx_REG (GET_MODE (out), subreg_regno (out));
+    }
 
   /* Narrow down the class of register wanted if that is
      desirable on this machine for efficiency.  */
@@ -2102,6 +2116,39 @@ pre_operands_match_p (x, y)
   return operands_match_p (x, y);
 }
 
+/* OP0 and OP1 are two commutative operands in INSN, where OP0 has to
+   match a former operand.  Return non-zero if we would prefer the insn
+   with both operands swapped and then reloaded.  Currently this checks
+   for OP0 and OP1 being registers, and prefers swapping if OP1 dies
+   before OP0.  This avoids to create live ranges longer than necessary.
+   It also ensures, that the conflicts of the matching operand (after possibly
+   swapping) are a subset of the conflicts of the other one.  */
+
+static int
+prefer_swapped (insn, op0, op1)
+     rtx insn, op0, op1;
+{
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  if (GET_CODE (op0) == SUBREG)
+    op0 = SUBREG_REG (op0);
+  if (GET_CODE (op1) == SUBREG)
+    op1 = SUBREG_REG (op1);
+  if (!bb || !REG_P (op0) || !REG_P (op1))
+    return 0;
+  while (insn && bb == BLOCK_FOR_INSN (insn))
+    {
+      /* The way it's written (first testing OP0, then OP1) ensures,
+         that we do not prefer swapping if both ops die in the same insn.  */
+      if (find_reg_note (insn, REG_DEAD, op0))
+        return 0;
+      if (find_reg_note (insn, REG_DEAD, op1))
+        return 1;
+      insn = NEXT_INSN (insn);
+    }
+  return 0;
+}
+
+extern int ra_pass;
 
 struct alternative_info
 {
@@ -2123,13 +2170,13 @@ static int scan_alternative PARAMS ((struct alternative_info [], char *[],
 				     enum reload_usage [], int [],
 				     char [MAX_RECOG_OPERANDS]
 				     [MAX_RECOG_OPERANDS],
-				     int, int *));
+				     int, int *, int *, int *));
 
 /* Scan one alternative and fill alternative info.  */
 
 static int
 scan_alternative (this_alt, constraints, modified, address_reloaded,
-		  operands_match, swapped, commut)
+		  operands_match, swapped, commut, pfree, prej)
      struct alternative_info this_alt[];
      char *constraints[];
      enum reload_usage modified[];
@@ -2137,6 +2184,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
      char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
      int swapped;
      int *commut;
+     int *pfree;
+     int *prej;
 {
   int i;
   int j;
@@ -2152,6 +2201,9 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
      ? counts three times here since we want the disparaging caused by
      a bad register class to only count 1/3 as much.  */
   int reject = 0;
+  /* Number of hardregs in the alternative, for those operands, which
+     accept registers.  */
+  int freeness = 0;
   enum machine_mode *operand_mode = recog_data.operand_mode;
   int commutative = *commut;
     
@@ -2395,6 +2447,13 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 		  if (this_alt[j].matches
 		      == op_alt->matches)
 		    badop = 1;
+
+              /* Possibly prefer the swapped variant, by slightly penalizing
+                 the non-swapped form.  */
+              if (!swapped && i == commutative
+                  && prefer_swapped (this_insn, operand,
+                                     recog_data.operand[i + 1]))
+                reject++;
 
 	      if (REG_P (operand))
 		{
@@ -2664,8 +2723,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	     it will then win since we don't want to have a different
 	     alternative match then.  */
 	  if (! (REG_P (operand)
-		 && (0
-		     && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
+		 /*&& (0
+		     && REGNO (operand) >= FIRST_PSEUDO_REGISTER)*/)
 	      && GET_CODE (operand) != SCRATCH
 	      && ! (const_to_mem && constmemok))
 	    reject += 2;
@@ -2676,6 +2735,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	      && GET_CODE (operand) != SCRATCH)
 	    reject++;
 	}
+      freeness += reg_class_size[op_alt->class];
     }
 
   /* Now see if any output operands that are marked "earlyclobber"
@@ -2760,8 +2820,11 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
      a register would be reloaded into a non-preferred class, discourages
      the use of this alternative for a reload goal.  REJECT is incremented
      by six for each ? and two for each non-preferred class.  */
-  losers = losers * 6 + reject;
+  if (losers)
+    losers = losers * 6 + reject;
 
+  *pfree = freeness;
+  *prej = reject;
   return bad ? -1 : losers;
 }
 
@@ -2808,6 +2871,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   int operand_reloadnum[MAX_RECOG_OPERANDS];
   int goal_alternative_swapped;
   int best;
+  int best_num_regs;
+  int best_reject;
   int commutative;
   char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx substed_operand[MAX_RECOG_OPERANDS];
@@ -3017,6 +3082,9 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
      all the operands together against the register constraints.  */
 
   best = MAX_RECOG_OPERANDS * 2 + 600;
+  best_num_regs = 0;
+  best_reject = MAX_RECOG_OPERANDS * 2 + 600;
+  
 
   swapped = 0;
   goal_alternative_swapped = 0;
@@ -3037,20 +3105,40 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       /* LOSERS counts those that don't fit this alternative
 	 and would require loading.  */
 
+      int reject = 0;
+      int freeness = 0;
       int losers = scan_alternative (this_alt, constraints, modified,
 				     address_reloaded, operands_match,
-				     swapped, &commutative);
+				     swapped, &commutative, &freeness, &reject);
       
       /* If this alternative can be made to work by reloading,
 	 and it needs less reloading than the others checked so far,
 	 record it as the chosen goal for reloading.  */
-      if (losers >= 0 && best > losers)
+      if (losers >= 0
+         && (best > losers
+             /* XXX Ugh.  Ugly hack to prefer the swapped variant of
+                an alternative if it's otherwise as good as the non-swapped
+                one.  This simulates behaviour in local-alloc when tieing
+                two regs, in a no-conflict block equivalent to a commutative
+                operation.  What we want here is select which of the two
+                operands to make matching based on how far the death of the
+                ops is away.  We want to make the one with the nearer dead
+                matching.  */
+             /* || (best == losers && swapped) */
+             /* If we have a strictly matching alternative which accepts a
+                wider range of hardregs, choose that.  But only if it's
+                reject value isn't larger than the last strictly matching
+                alternative.  */
+             || (losers == 0 && freeness > best_num_regs
+                 && reject <= best_reject)))
 	{
 	  for (i = 0; i < noperands; i++)
 	    memcpy (&goal_alt[i], &this_alt[i], sizeof (this_alt[0]));
 	  goal_alternative_swapped = swapped;
 	  goal_alternative_number = this_alternative_number;
 	  best = losers;
+          best_num_regs = freeness;
+          best_reject = reject;
 	}
     }
 
@@ -3116,6 +3204,12 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 
   for (i = 0; i < noperands; i++)
     goal_alt[i].win |= goal_alt[i].match_win;
+
+  /* In the later passes we don't want to create new reload insns, but just
+     record register classes.  */
+  if (ra_pass > 1)
+    for (i = 0; i < noperands; i++)
+      goal_alt[i].win = 1;
 
   /* If the best alternative is with operands 1 and 2 swapped,
      consider them swapped before reporting the reloads.  Update the
@@ -3677,9 +3771,11 @@ ra_check_constraints (insn)
       /* LOSERS counts those that don't fit this alternative
 	 and would require loading.  */
 
+      int freeness = 0;
+      int reject = 0;
       int losers = scan_alternative (this_alt, constraints, modified,
 				     address_reloaded, operands_match,
-				     swapped, &commutative);
+				     swapped, &commutative, &freeness, &reject);
 
       if (losers == 0)
 	return 1;

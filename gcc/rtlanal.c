@@ -40,6 +40,7 @@ static int computed_jump_p_1	PARAMS ((rtx));
 static void parms_set 		PARAMS ((rtx, rtx, void *));
 static bool hoist_test_store		PARAMS ((rtx, rtx, regset));
 static void hoist_update_store		PARAMS ((rtx, rtx *, rtx, rtx));
+static void note_uses_1         PARAMS ((rtx *, void (*fun) PARAMS ((rtx *, void*)), void *, int));
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -1657,6 +1658,25 @@ note_uses (pbody, fun, data)
      void (*fun) PARAMS ((rtx *, void *));
      void *data;
 {
+  note_uses_1 (pbody, fun, data, 0);
+}
+
+void
+note_uses_partial (pbody, fun, data)
+     rtx *pbody;
+     void (*fun) PARAMS ((rtx *, void *));
+     void *data;
+{
+  note_uses_1 (pbody, fun, data, 1);
+}
+
+static void
+note_uses_1 (pbody, fun, data, partial)
+     rtx *pbody;
+     void (*fun) PARAMS ((rtx *, void *));
+     void *data;
+     int partial;
+{
   rtx body = *pbody;
   int i;
 
@@ -1703,6 +1723,7 @@ note_uses (pbody, fun, data)
     case SET:
       {
 	rtx dest = SET_DEST (body);
+	rtx *loc = NULL;
 
 	/* For sets we replace everything in source plus registers in memory
 	   expression in store and operands of a ZERO_EXTRACT.  */
@@ -1710,15 +1731,22 @@ note_uses (pbody, fun, data)
 
 	if (GET_CODE (dest) == ZERO_EXTRACT)
 	  {
+	    loc = &XEXP (dest, 0);
 	    (*fun) (&XEXP (dest, 1), data);
 	    (*fun) (&XEXP (dest, 2), data);
 	  }
 
 	while (GET_CODE (dest) == SUBREG || GET_CODE (dest) == STRICT_LOW_PART)
-	  dest = XEXP (dest, 0);
+          {
+            if (!loc && GET_CODE (dest) == STRICT_LOW_PART)
+              loc = &XEXP (dest, 0);
+            dest = XEXP (dest, 0);
+          }
 
 	if (GET_CODE (dest) == MEM)
 	  (*fun) (&XEXP (dest, 0), data);
+        else if (partial && loc)
+          (*fun) (loc, data);
       }
       return;
 

@@ -1,3 +1,44 @@
+2003-06-23  Michael Matz  <matz@suse.de>
+	* Makefile.in (ra-build.o): Depend on OBSTACK_H.
+	(ra-rewrite.o): Depend on pre-reload.h.
+
+	* caller-save.c (save_call_clobbered_regs): Handle uninitialized rmw
+	regs.
+	* cfgrtl.c (verify_flow_info): Barf again on missing REG_EH_REGION.
+	(purge_dead_edges): Also ignore sibling calls.
+	* cse.c (delete_trivially_dead_insns_1): Break out from ... plus
+	updates a df structure.
+	(delete_trivially_dead_insns): ... here.  Call the above.
+	(delete_trivially_dead_insns_df): New.
+	* df.c (df_uid_refs_remove): New.
+	(df_refs_update): Handle deleted insns.
+	* df.h (delete_trivially_dead_insns_df): Prototype.
+	* jump.c (true_regnum): Avoid segfault.
+	* loop.c (copy_cost_for_loop): Renamed from ...
+	(copy_cost): ... this.  Updated all accesses.
+	* pre-reload.c (prefer_swapped): New.
+	(push_pre_reload): Don't subreg special reg rtx's.
+	(scan_alternative): New arguments pfree and prej.  Use prefer_swapped.
+	(collect_insn_info): Better heuristics for choosing alternative.
+	Don't add reloads in later ra passes.
+	* ra.c (newra_in_progress): New.
+	(reg_alloc): Set/reset it.
+	* recog.c (toplevel): Include ra.h.
+	(insn_invalid_p): Check for newra_in_progress.
+	(scratch_operand): Ditto, plus only accept non-spill pseudos.
+	(does_contain_spill_pseudos): New.
+	(constrain_operands): Call it.  Check newra_in_progress.  Accept
+	stack pseudos where MEM is accepted.
+	* reg-stack.c (move_for_stack_reg): Use delete_insn_and_edges.
+	* regclass.c (may_move_in_cost, may_move_out_cost, copy_cost):
+	Make global.
+	* regs.h (may_move_in_cost, may_move_out_cost): Declare.
+	* rtl.h (REG_OR_SUBREG_P): New.
+	(note_uses_partial, newra_in_progress, copy_cost): Declare.
+	* rtlanal.c (note_uses_1, note_uses_partial): New.
+	(note_uses): Call note_uses_1.
+	* version.c (version_string): Add "(new RA)" designator.
+
 2003-04-10  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-rewrite.c (find_move, init_find_move, insn2move):

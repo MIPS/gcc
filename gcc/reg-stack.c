@@ -1095,7 +1095,11 @@ move_for_stack_reg (insn, regstack, pat)
 	    {
 	      emit_pop_insn (insn, regstack, src, EMIT_AFTER);
 
-	      delete_insn (insn);
+	      /*  There might still be some stray REG_EH_REGION notes
+		  on the insn, _although_ it can't possibly trap anymore
+		  (otherwise we wouldn't try to delete it).  Simply remove
+		  the edges then too.  */
+	      delete_insn_and_edges (insn);
 	      return;
 	    }
 
@@ -1104,7 +1108,7 @@ move_for_stack_reg (insn, regstack, pat)
 	  SET_HARD_REG_BIT (regstack->reg_set, REGNO (dest));
 	  CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (src));
 
-	  delete_insn (insn);
+	  delete_insn_and_edges (insn);
 
 	  return;
 	}
@@ -1121,7 +1125,7 @@ move_for_stack_reg (insn, regstack, pat)
 	  if (find_regno_note (insn, REG_UNUSED, REGNO (dest)))
 	    emit_pop_insn (insn, regstack, dest, EMIT_AFTER);
 
-	  delete_insn (insn);
+	  delete_insn_and_edges (insn);
 	  return;
 	}
 

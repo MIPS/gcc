@@ -200,6 +200,7 @@ static struct df_link *df_ref_unlink PARAMS((struct df_link **, struct ref *));
 static void df_def_unlink PARAMS((struct df *, struct ref *));
 static void df_use_unlink PARAMS((struct df *, struct ref *));
 static void df_insn_refs_mark_deleted PARAMS ((struct df *, basic_block, rtx));
+static void df_uid_refs_remove PARAMS ((struct df *, unsigned int));
 static void df_insn_refs_unlink PARAMS ((struct df *, basic_block, rtx));
 #if 0
 static void df_bb_refs_unlink PARAMS ((struct df *, basic_block));
@@ -903,7 +904,8 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
      (subreg:SI (reg:M A) N), with size(SImode) > size(Mmode).
      XXX Is that true?  We could also use the global word_mode variable.  */
   if (GET_CODE (reg) == SUBREG
-      && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
+      /* && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode) */
+      && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (SImode)
 	  || GET_MODE_SIZE (GET_MODE (reg))
 	       >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))))
     {
@@ -2328,17 +2330,30 @@ df_refs_update (df)
      struct df *df;
 {
   basic_block bb;
+  bitmap b = BITMAP_XMALLOC ();
+  rtx insn;
   int count = 0;
+  unsigned int uid;
 
-  if ((unsigned int) max_reg_num () >= df->reg_size)
+  if ((unsigned int)max_reg_num () >= df->reg_size)
     df_reg_table_realloc (df, 0);
 
   df_refs_queue (df);
+ 
+  /* Collect insns which were really deleted from the chain, but at least
+     got marked in the modified bitmap.  */
+  bitmap_copy (b, df->insns_modified);
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    bitmap_clear_bit (b, INSN_UID (insn));
+  EXECUTE_IF_SET_IN_BITMAP (b, 0, uid,
+    df_uid_refs_remove (df, uid););
 
   FOR_EACH_BB_IN_BITMAP (df->bbs_modified, 0, bb,
     {
       count += df_bb_refs_update (df, bb);
     });
+
+  BITMAP_XFREE (b);
 
   df_refs_process (df);
   return count;
@@ -2427,6 +2442,23 @@ df_finish (df)
   free (df);
 }
 
+/* Unlink all refs which are associated with UID.  This should
+   correspond to a deleted insn (which was removed from the chain).  */
+static void
+df_uid_refs_remove (df, uid)
+     struct df *df;
+     unsigned int uid;
+{
+  struct df_link *link;
+
+  for (link = df->insns[uid].defs; link; link = link->next)
+    df_def_unlink (df, link->ref);
+  for (link = df->insns[uid].uses; link; link = link->next)
+    df_use_unlink (df, link->ref);
+
+  df->insns[uid].defs = 0;
+  df->insns[uid].uses = 0;
+}
 
 /* Unlink INSN from its reference information.  */
 static void

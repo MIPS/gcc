@@ -206,12 +206,12 @@ static int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 /* Similar, but here we don't have to move if the first index is a subset
    of the second so in that case the cost is zero.  */
 
-static int may_move_in_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int may_move_in_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 /* Similar, but here we don't have to move if the first index is a superset
    of the second so in that case the cost is zero.  */
 
-static int may_move_out_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int may_move_out_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 
@@ -858,8 +858,6 @@ static void dump_regclass	PARAMS ((FILE *));
 static void record_reg_classes	PARAMS ((int, int, rtx *, enum machine_mode *,
 				       const char **, rtx,
 				       struct costs *, struct reg_pref *));
-static int copy_cost		PARAMS ((rtx, enum machine_mode,
-				       enum reg_class, int));
 static void record_address_regs	PARAMS ((rtx, enum reg_class, int));
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p	PARAMS ((rtx, enum machine_mode));
@@ -1869,7 +1867,7 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 
    X must not be a pseudo.  */
 
-static int
+int
 copy_cost (x, mode, class, to_p)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;

@@ -100,6 +100,9 @@ static void init_ra PARAMS ((void));
 
 void reg_alloc PARAMS ((void));
 
+/* See rtl.h.  */
+int newra_in_progress;
+
 /* These global variables are "internal" to the register allocator.
    They are all documented at their declarations in ra.h.  */
 
@@ -948,6 +951,8 @@ reg_alloc ()
   if (flag_ra_pre_reload)
     ra_info = ra_info_init (max_reg_num ());
   
+  newra_in_progress = 1;
+
   /* This is the main loop, calling one_pass as long as there are still
      some spilled webs.  */
   do
@@ -1114,6 +1119,7 @@ reg_alloc ()
   /*compute_bb_for_insn ();*/
   /*store_motion ();*/
   no_new_pseudos = 1;
+  newra_in_progress = 0;
   rtl_dump_file = ra_dump_file;
 
   /* Some spill insns could've been inserted after trapping calls, i.e.

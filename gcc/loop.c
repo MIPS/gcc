@@ -392,7 +392,7 @@ static int biv_elimination_giv_has_0_offset PARAMS ((struct induction *,
 
 /* Benefit penalty, if a giv is not replaceable, i.e. must emit an insn to
    copy the value of the strength reduced giv to its original register.  */
-static int copy_cost;
+static int copy_cost_for_loop;
 
 /* Cost of using a register, to normalize the benefits of a giv.  */
 static int reg_address_cost;
@@ -404,7 +404,7 @@ init_loop ()
 
   reg_address_cost = address_cost (reg, SImode);
 
-  copy_cost = COSTS_N_INSNS (1);
+  copy_cost_for_loop = COSTS_N_INSNS (1);
 }
 
 /* Compute the mapping from uids to luids.
@@ -4962,7 +4962,7 @@ loop_giv_reduce_benefit (loop, bl, v, test_reg)
      necessary.  */
   if (! v->replaceable && ! bl->eliminable
       && REG_USERVAR_P (v->dest_reg))
-    benefit -= copy_cost;
+    benefit -= copy_cost_for_loop;
 
   /* Decrease the benefit to count the add-insns that we will insert
      to increment the reduced reg for the giv.  ??? This can
@@ -7697,7 +7697,7 @@ restart:
 		 of finding replaceable giv's, and hence this code may no
 		 longer be necessary.  */
 	      if (! g2->replaceable && REG_USERVAR_P (g2->dest_reg))
-		g1_add_benefit -= copy_cost;
+		g1_add_benefit -= copy_cost_for_loop;
 
 	      /* To help optimize the next set of combinations, remove
 		 this giv from the benefits of other potential mates.  */

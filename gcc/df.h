@@ -348,3 +348,5 @@ extern void iterative_dataflow_bitmap PARAMS ((bitmap *, bitmap *, bitmap *,
 					       enum df_confluence_op, 
 					       transfer_function_bitmap, 
 					       int *, void *));
+/* In cse.c  */
+extern void delete_trivially_dead_insns_df     PARAMS ((rtx, int, struct df *));
