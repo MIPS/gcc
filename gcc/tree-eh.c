@@ -534,23 +534,33 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	}
       else if (TREE_CODE (ret_expr) == MODIFY_EXPR)
 	{
+	  tree result = TREE_OPERAND (ret_expr, 0);
 	  tree new, old = TREE_OPERAND (ret_expr, 1);
 
 	  if (!*return_value_p)
 	    {
-	      new = create_tmp_var (TREE_TYPE (old), "rettmp");
+	      if (aggregate_value_p (TREE_TYPE (result),
+				     TREE_TYPE (current_function_decl)))
+		/* If this function returns in memory, copy the argument
+		   into the return slot now.  Otherwise, we might need to
+		   worry about magic return semantics, so we need to use a
+		   temporary to hold the value until we're actually ready
+		   to return.  */
+		new = result;
+	      else
+		new = create_tmp_var (TREE_TYPE (old), "rettmp");
 	      *return_value_p = new;
 	    }
-	  else if (TREE_CODE (*return_value_p) == RESULT_DECL)
-	    abort ();
 	  else
 	    new = *return_value_p;
 
 	  x = build (MODIFY_EXPR, TREE_TYPE (new), new, old);
 	  append_to_statement_list (x, &q->repl_stmt);
 
-	  x = build (MODIFY_EXPR, TREE_TYPE (new),
-		     TREE_OPERAND (ret_expr, 0), new);
+	  if (new == result)
+	    x = result;
+	  else
+	    x = build (MODIFY_EXPR, TREE_TYPE (result), result, new);
 	  q->cont_stmt = build1 (RETURN_EXPR, void_type_node, x);
 	}
       else

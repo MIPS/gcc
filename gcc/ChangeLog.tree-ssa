@@ -1,3 +1,8 @@
+2003-11-14  Jason Merrill  <jason@redhat.com>
+
+	* tree-eh.c (do_return_redirection): Assign directly to the
+	RESULT_DECL of a function which returns in memory.
+
 2003-11-14  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (pre_stats): Add ephis_current member.
