@@ -1,3 +1,21 @@
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* decl.c (decls_match): Compare context of VAR_DECL.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
+	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20186
+	* pt.c (contains_dependent_cast_p): Remove.
+	(fold_non_dependent_expr): Don't use it.
+	(value_dependent_expression_p): Reference_exprs can be dependent.
+
 2005-03-13  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/20157

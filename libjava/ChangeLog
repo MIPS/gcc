@@ -1,3 +1,37 @@
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (ensure_class_linked): Removed #ifdef.
+	(print_class_loaded): Likewise.
+	(wait_for_state): Likewise.
+	* java/lang/Class.h (_Jv_IsInterpretedClass): Always declare.
+	* include/jvm.h (_Jv_IsInterpretedClass): Moved from...
+	* include/java-interp.h: ... here.
+
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/lang/MainThread.java (run): Load main class using
+	system class loader.
+
+2005-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/20251
+	* Makefile.am (libjawt_la_LIBADD): Add -L$(here)/.libs.
+	* Makefile.in: Rebuilt.
+
+2005-03-15  David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (read_helper): Handle
+	count == 0 case.
+
+2005-03-15  David Daney  <ddaney@avtrex.com>
+
+	* java/io/BufferedInputStream.java (available): Use 'in' instead
+	of 'super' for underlying stream access.
+	(close): Ditto.
+	(read(byte[], int, int)): Ditto.
+	(refill): Ditto.
+	(skip): Call skip on underlying stream when possible. 
+
 2005-03-14  David Daney  <ddaney@avtrex.com>
 
 	* configure.host: Don't use -mxgot for MIPS builds.

@@ -1,3 +1,60 @@
+2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/bitfld-14.c, gcc.dg/enum3.c: New tests.
+
+2005-03-19  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18525
+	* gfortran.dg/nesting_1.f90: New test.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* g++.dg/lookup/using13.C: New test.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* g++.dg/template/crash36.C: New test.
+
+2005-03-16  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/15700
+        * gcc.c-torture/compile/20040323-1.c: Don't xfail for solaris.
+        (_rtld_global): New.
+        * gcc.dg/weak/weak-3.c (ffoox1f, ffoox1g): Define.
+        * gcc.dg/weak/weak-9.c (notf1, notf2, notf3, notf4): Define.
+
+        * gcc.dg/alias-3.c: New.
+        * gcc.dg/alias-4.c: New.
+        * gcc.dg/alias-5.c: New.
+        * gcc.dg/alias-6.c: New.
+
+2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20257
+	* pr20257.f90: New test.
+	
+2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20480
+	* pr20480.f90: New test.
+
+2005-03-15  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/18827
+	* gfortran.dg/assign_2.f90: New test.
+	* gfortran.dg/assign_3.f90: New test.
+	* gfortran.dg/assign.f90: New test.
+
+2005-03-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/other/cv_func.C, g++.dg/other/offsetof3.C,
+	g++.dg/parse/error11.C, g++.dg/tc1/dr108.C,
+	g++.dg/template/local4.C, g++.dg/template/nontype6.C,
+	g++.dg/warn/deprecated.C: Ensure uniqueness of test assertion
+	names.
+
 2005-03-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR c++/20280

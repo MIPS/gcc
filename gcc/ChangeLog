@@ -1,3 +1,124 @@
+2005-03-20  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	PR target/18551
+	* config/avr/avr.c (avr_output_function_prologue): Do not use
+	current_function_name() in a label, use a local label instead.
+
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+            Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/20474
+	* tree-vect-analyze.c (vect_analyze_pointer_ref_access): Check the
+	size_type of the relevant pointer. Check for COMPLETE_TYPE_P.
+
+2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (check_bitfield_type_and_width): Require bit-field
+	width to have integer type.
+	(build_enumerator): Require enumerator value to have integer type.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/extend.texi (__builtin_inf): Move statement about INFINITY
+	to __builtin_inff.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c.opt (ansi, std=iso9899:1990, std=iso9899:1999,
+	std=iso9899:199x): Correct descriptions.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config.gcc: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+
+2005-03-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/20493
+	* fold-const.c (fold_widened_comparison): Don't optimize casts of
+	function pointers on targets that require function pointer
+	canonicalization.
+	(fold_sign_changed_comparison): Likewise.
+
+2005-03-19  Andy Hutchinson  <HutchinsonAndy@netscape.net>
+
+	PR target/18251
+	* config/avr/avr.md (movmemhi): Rewrite as RTL loop.
+	(*movmemqi_insn): Delete.
+	(*movmemhi): Delete.
+
+2005-03-18  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/20225
+	* cgraph.c (cgraph_mark_reachable_node): Assert that it is not called
+	too late.
+	* varasm.c (find_decl_and_mark_needed): Mark needed only when not
+	called too late.
+
+2005-03-18  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/i386/t-rtems-i386 (MULTILIBS): Remove k6, athlon,
+	mno-fp-ret-in-387 multilib variants.
+
+2005-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/18380
+	* config/ia64/unwind-ia64.c (_Unwind_FindTableEntry): Removed.
+
+2005-03-17  Richard Henderson  <rth@redhat.com>
+
+	* doc/extend.texi (Weak Pragmas): New section.
+	(attribute alias): Clarify that target must be in the same
+	translation unit.
+
+2005-03-16  James E. Wilson  <wilson@specifixinc.com>
+
+	* config/ia64/ia64.c (issue_nops_and_insn): Check first_insn attribute,
+	and return without creating new state if before_nops_num is nonzero.
+	* config/ia64/ia64.md (first_insn): New attribute.
+	(alloc): Set it to yes.
+
+2005-03-16  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/15700
+	* varasm.c (struct alias_pair): Rename from struct output_def_pair.
+	(alias_pairs): Rename from output_defs.
+	(find_decl_and_mark_needed): Split out from assemble_alias.
+	(do_assemble_alias): New.
+	(assemble_output_def): Remove.
+	(finish_aliases_1, finish_aliases_2): New.
+	(process_pending_assemble_output_defs): Remove.
+	(assemble_alias): Defer aliases for which we don't yet have a
+	non-external decl for the target symbol.
+	* passes.c (rest_of_decl_compilation): Register variables with cgraph.
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Use finish_aliases_1.
+	* toplev.c (compile_file): Use finish_aliases_2 instead of
+	process_pending_assemble_output_defs.
+	* tree.h (finish_aliases_1, finish_aliases_2): Declare.
+	(process_pending_assemble_output_defs): Remove.
+
+2005-03-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/i386/emmintrin.h (_mm_extract_epi16): Correct the number
+	of closing parenthesis.
+
+2005-03-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/17454
+	* tree.c (tree_size): Add case for TREE_BINFO.
+	* fold-const.c (fold_checksum_tree): Only clear the overloaded
+	field TYPE_CACHED_VALUES if TYPE_CACHED_VALUES_P is set.
+
+2005-03-15  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.h (DWARF_CIE_DATA_ALIGNMENT): Change for
+	STACK_GROWS_DOWNWARD.
+
+2005-03-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.h (CONDITIONAL_REGISTER_USAGE): Don't clear
+	call_used_regs for wCG registers.
+
 2005-03-15  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config/s390/s390.c (s390_secondary_output_reload_class): Adapt check
@@ -206,11 +327,11 @@
 	* doc/tree-ssa.texi
 
 2005-03-04  Devang Patel  <dpatel@apple.com>
-	
+
 	PR tree-optimization/18815
 	* tree-if-conv.c (combine_blocks): Adjust loop header edges for
 	loops with zero exit edges.
-	
+
 2005-03-05  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* config.gcc (hppa*64*-*-hpux11*): Use pa/pa-hpux1111.h for
@@ -247,7 +368,7 @@
 	(frame_hdr_cache): New.
 	(_Unwind_IteratePhdrCallback): Add ext_dl_phdr_info.
 	Cache frame header info.
-	
+
 2005-03-04  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	2005-03-02  Daniel Jacobowitz  <dan@codesourcery.com>
@@ -258,7 +379,7 @@
 2005-03-04  Daniel Berlin <dberlin@dbrelin.org>
 
 	Fix PR debug/20253
-	
+
 	* c-opts.c (c_common_parse_file): Call start_source_file
 	and end_source_file at the approriate times.
 
