@@ -1,3 +1,11 @@
+2004-03-23  Dorit Naishlos  <dorit@il.ibm.com>
+
+        * tree-vectorizer.c: (vect_align_data_ref): Check for DECL_ALIGN
+        instead of TYPE_ALIGN. Check for DECL_EXTERNAL.
+        (vect_analyze_data_refs): Check for DECL_EXTERNAL. 
+
+        Add documentation for functions.
+
 2004-03-22  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in (OBJS-common):  Remove duplicate loop-iv.o.

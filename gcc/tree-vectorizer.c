@@ -592,7 +592,10 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function get_vectype_for_scalar_type  */
+/* Function get_vectype_for_scalar_type.
+
+   Return the vector type corresponding to SCALAR_TYPE as supported
+   by the target.  */
 
 static tree
 get_vectype_for_scalar_type (tree scalar_type)
@@ -661,20 +664,26 @@ vect_align_data_ref (tree ref, tree stmt)
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree array_base = get_array_base (ref);
 
+  /* The following two restrictions are in place until we can support
+     vectorization of references which alignment can't be forced.  */
+
   if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE)
     abort ();
 
-  if (TYPE_ALIGN (TREE_TYPE (array_base)) < TYPE_ALIGN (vectype))
+  if (TREE_CODE (array_base) != VAR_DECL || DECL_EXTERNAL (array_base))
+    abort ();
+
+  if (DECL_ALIGN (array_base) < TYPE_ALIGN (vectype))
     {
       /* CHECKME: is this the way to force the alignment of an array base?  */
+      /* CHECKME: will it also work for extern decls?  */
 
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file,
-		  "\nforce alignment. before: scalar/vec type_align = %d/%d\n",
-		  TYPE_ALIGN (TREE_TYPE (array_base)),
-		  TYPE_ALIGN (vectype));
+                  "\nforce alignment. before: scalar/vec type_align = %d/%d\n",
+                  DECL_ALIGN (array_base), TYPE_ALIGN (vectype));
 
-      TYPE_ALIGN (TREE_TYPE (array_base)) = TYPE_ALIGN (vectype);
+      DECL_ALIGN (array_base) = TYPE_ALIGN (vectype);
     }
 }
 
@@ -849,7 +858,11 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 }
 
 
-/* Function vect_init_vector.  */
+/* Function vect_init_vector.
+
+   Insert a new stmt (INIT_STMT) that initializes a new vector veriable with
+   the vector elements of VECTOR_VAR. Return the DEF of INIT_STMT. It will be
+   used in the vectorization of STMT.  */
 
 static tree
 vect_init_vector (tree stmt, tree vector_var)
@@ -897,7 +910,16 @@ vect_init_vector (tree stmt, tree vector_var)
   return vec_oprnd;
 }
 
-/* Function vect_get_vec_def_for_operand.  */
+/* Function vect_get_vec_def_for_operand.
+
+   OP is an operand in STMT. This function returns a (vector) def that will be
+   used in the vectorized counterpart of STMT.
+
+   In the case that OP is an SSA_NAME which is defined in the loop, then
+   STMT_VINFO_VEC_STMT of the defining stmt holds the relevant def.
+
+   In case OP is an invariant or constant, a new stmt that creates a vector def
+   needs to be introduced.  */
 
 static tree
 vect_get_vec_def_for_operand (tree op, tree stmt)
@@ -1014,7 +1036,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 }
 
 
-/* Function vect_transfom_assignment.  */
+/* Function vect_transfom_assignment.
+
+   STMT performs an assignment (copy). Create a vectorized stmt to replace it,
+   and insert it at BSI.  */
 
 static tree
 vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
@@ -1066,7 +1091,10 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
 }
 
 
+/* Function vect_transfom_op.
 
+   STMT performs a binary or unary operation. Create a vectorized stmt to
+   replace it, and insert it at BSI.  */
 
 static tree
 vect_transform_op (tree stmt, block_stmt_iterator *bsi)
@@ -1146,7 +1174,10 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transfom_store.  */
+/* Function vect_transfom_store.
+
+   STMT is a store to memory. Create a vectorized stmt to replace it,
+   and insert it at BSI.  */
 
 static tree
 vect_transform_store (tree stmt, block_stmt_iterator *bsi)
@@ -1225,7 +1256,10 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transform_load.  */
+/* Function vect_transform_load.
+
+   STMT is a load from memory. Create a vectorized stmt to replace it,
+   and insert it at BSI.  */
 
 static tree
 vect_transform_load (tree stmt, block_stmt_iterator *bsi)
@@ -1310,7 +1344,9 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transform_stmt.  */
+/* Function vect_transform_stmt.
+
+   Create a vectorized stmt to replace STMT, and insert it at BSI.  */
 
 static bool
 vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
@@ -1350,7 +1386,9 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transform_loop_bound  */
+/* Function vect_transform_loop_bound.
+
+   Create a new exit condition for the loop.  */
 
 static void
 vect_transform_loop_bound (loop_vec_info loop_vinfo)
@@ -1421,7 +1459,11 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_transform_loop.  */
+/* Function vect_transform_loop.
+
+   The analysis phase has determined that the loop is vectorizable.
+   Vectorize the loop - created vectorized stmts to replace the scalar
+   stmts in the loop, and update the loop exit condition.  */
 
 static void
 vect_transform_loop (loop_vec_info loop_vinfo)
@@ -1503,7 +1545,13 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_is_simple_use.  */
+/* Function vect_is_simple_use.
+
+   Return whether the vectorization of a stmt, in LOOP, that uses OPERAND is
+   supportable. OPERANDS that can't be vectorized yet are those defined
+   by a reduction operation or some other form of recurrence. 
+   Other OPERANDS - defined in the loop, constants and invariants - 
+   are supported.  */
 
 static bool
 vect_is_simple_use (tree operand, struct loop *loop)
@@ -1555,7 +1603,7 @@ vect_is_simple_use (tree operand, struct loop *loop)
 
 /* Function vect_is_supportable_op.
 
-   Verify that STMT performs a binary operation and can be vectorized.  */
+   Verify that STMT performs an operation that can be vectorized.  */
 
 static bool
 vect_is_supportable_op (tree stmt)
@@ -1767,6 +1815,7 @@ vect_is_supportable_assignment (tree stmt)
 
   return true;
 }
+
 
 /* Function vect_analyze_operations.
 
@@ -2207,7 +2256,9 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 }
 
 
-/* Function get_array_base.  */
+/* Function get_array_base.
+
+   Return the base of the array_ref EXPR.  */
 
 static tree
 get_array_base (tree expr)
@@ -2224,7 +2275,10 @@ get_array_base (tree expr)
 }
 
 
-/* Function vect_analyze_data_ref_dependence  */
+/* Function vect_analyze_data_ref_dependence.
+
+   Return TRUE if there (might) exist a dependence between a memory-reference
+   DRA and a memory-reference DRB.  */
 
 static bool
 vect_analyze_data_ref_dependence (struct data_reference *dra,
@@ -2316,7 +2370,14 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_get_array_first_index.  */
+/* Function vect_get_array_first_index.
+
+   REF is an array reference. Find the lower bound of the array dimension and
+   return it in ARRAY_FIRST_INDEX (e.g, 0 in C arrays, 1 in Fortran arrays 
+   (unless defined otherwise). At the moment, gfortran arrays are represented
+   with a poiner which points to one element lower than the array base, so
+   ARRAY_FIRST_INDEX is currently 0 also for Fortran arrays).
+   Return TRUE if such lower bound was found, and FLASE otherwise.  */
 
 static bool
 vect_get_array_first_index (tree ref, int *array_first_index)
@@ -2367,7 +2428,10 @@ vect_get_array_first_index (tree ref, int *array_first_index)
 }
 
 
-/* Function vect_analyze_data_ref_access.  */
+/* Function vect_analyze_data_ref_access.
+
+   Analyze the access pattern of the data-reference DR. For now, a data access
+   has to consecutive and aligned to be considered vectorizable.  */
 
 static bool
 vect_analyze_data_ref_access (struct data_reference *dr)
@@ -2504,7 +2568,8 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
    Find all the data references in the loop.
 
    FORNOW: Handle only one dimensional ARRAY_REFs which base is really an
-           array (not a pointer).  */
+           array (not a pointer) which alignment can be forced. This
+	   restriction will be relaxed.   */
 
 static bool
 vect_analyze_data_refs (loop_vec_info loop_vinfo)
@@ -2626,14 +2691,19 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	     handle misalignment yet. 
 	     CHECKME: Is this a correct check for this purpose?
 	     CHECKME: This is a very strict check.  
+	     CHECKME: Can we force the alignment of external decls?
 	   */
 
-	  if ( TREE_CODE (array_base) != VAR_DECL 
-	       || TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE)
+	  if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE
+	      || TREE_CODE (array_base) != VAR_DECL 
+	      || DECL_EXTERNAL (array_base))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "unhandled ptr-based array ref\n");
+		  if (TREE_CODE (array_base) == VAR_DECL 
+		      && DECL_EXTERNAL (array_base))
+		    fprintf (dump_file,"\nextern decl.\n");
 		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
@@ -2942,10 +3012,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 /* Function vect_get_loop_niters.
 
-   Determine How many iterations the loop is executed.
-
-   FORNOW: Handling a simple limited set of loop forms. In the future - use
-           a more general implementation.  */
+   Determine how many iterations the loop is executed.  */
 
 static tree
 vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
@@ -2973,7 +3040,8 @@ vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
 
 /* Function vect_analyze_loop_form.
 
-   FORNOW: Verify the following restrictions:
+   Verify the following restrictions:
+   Some of these maybe relaxed in the future.
 
    - it's an inner-most loop
    - number of BBs = 2 (which are the loop header and the latch)
