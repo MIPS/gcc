@@ -868,6 +868,11 @@ struct tree_vec
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
 
+/* In a TARGET_EXPR node.  */
+#define TARGET_EXPR_SLOT(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 0)
+#define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 1)
+#define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 2)
+
 struct tree_exp
 {
   struct tree_common common;
@@ -2489,6 +2494,11 @@ extern int list_length			PARAMS ((tree));
 /* Returns the number of FIELD_DECLs in a type.  */
 
 extern int fields_length		PARAMS ((tree));
+
+/* Given an initializer INIT, return TRUE if INIT is zero or some
+   aggregate of zeros.  Otherwise return FALSE.  */
+
+extern bool initializer_zerop		PARAMS ((tree));
 
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
 

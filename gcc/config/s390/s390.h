@@ -78,7 +78,7 @@ extern int target_flags;
 #define OVERRIDE_OPTIONS override_options ()
 
 
-/* Defines for REAL_ARITHMETIC.  */
+/* Defines for real.c.  */
 #define IEEE_FLOAT 1
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1 
@@ -106,13 +106,6 @@ extern int current_function_outgoing_args_size;
 
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit.  */
-
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
@@ -207,10 +200,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    unaligned data.  */
 
 #define STRICT_ALIGNMENT 0
-
-/* real arithmetic */
-
-#define REAL_ARITHMETIC
 
 /* Define target floating point format.  */
 
@@ -413,7 +402,7 @@ do								\
    On s390, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)                               \
+#define ENCODE_SECTION_INFO(DECL, FIRST)                        \
 do                                                              \
   {                                                             \
     if (flag_pic)                                               \

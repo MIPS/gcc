@@ -339,7 +339,6 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    sizeof(int) = sizeof(long) = sizeof(float) = sizeof(double) = 1.  */
 
 #define BITS_PER_UNIT		32
-#define BITS_PER_WORD		32
 #define UNITS_PER_WORD		1
 #define POINTER_SIZE		32
 #define PARM_BOUNDARY	        32
@@ -360,11 +359,6 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    load of an immediate constant.  */
 #define BITS_PER_HIGH 16
 #define BITS_PER_LO_SUM 16
-
-/* Use the internal floating point stuff in the compiler and not the
-   host floating point stuff.  */
-
-#define REAL_ARITHMETIC
 
 /* Define register numbers.  */
 
@@ -1540,7 +1534,7 @@ CUMULATIVE_ARGS;
    On the C4x we use this to indicate if a symbol is in text or
    data space.  */
 
-#define ENCODE_SECTION_INFO(DECL) c4x_encode_section_info (DECL);
+#define ENCODE_SECTION_INFO(DECL, FIRST) c4x_encode_section_info (DECL, FIRST);
 
 /* Descripting Relative Cost of Operations.  */
 
@@ -2294,6 +2288,8 @@ if (final_sequence != NULL_RTX)				\
   {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
   {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"tsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
+  {"nonimmediate_src_operand", {SUBREG, REG, MEM}}, 		\
+  {"nonimmediate_lsrc_operand", {SUBREG, REG, MEM}}, 		\
   {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"par_ind_operand", {MEM}},					\
   {"parallel_operand", {SUBREG, REG, MEM}},			\

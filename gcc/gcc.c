@@ -858,8 +858,7 @@ static const struct compiler default_compilers[] =
 
 /* Number of elements in default_compilers, not counting the terminator.  */
 
-static int n_default_compilers
-  = (sizeof default_compilers / sizeof (struct compiler)) - 1;
+static const int n_default_compilers = ARRAY_SIZE (default_compilers) - 1;
 
 /* A vector of options to give to the linker.
    These options are accumulated by %x,
@@ -906,7 +905,8 @@ static const struct option_map option_map[] =
    {"--assemble", "-S", 0},
    {"--assert", "-A", "a"},
    {"--classpath", "-fclasspath=", "aj"},
-   {"--CLASSPATH", "-fCLASSPATH=", "aj"},
+   {"--bootclasspath", "-fbootclasspath=", "aj"},
+   {"--CLASSPATH", "-fclasspath=", "aj"},
    {"--comments", "-C", 0},
    {"--compile", "-c", 0},
    {"--debug", "-g", "oj"},
@@ -1414,18 +1414,18 @@ init_gcc_specs (obstack, shared_name, static_name, eh_name)
 {
   char *buf;
 
-  buf = concat ("%{!shared:%{!shared-libgcc:", static_name, " ",
+  buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
+		"}%{!static:%{!static-libgcc:",
+		"%{!shared:%{!shared-libgcc:", static_name, " ",
 		eh_name, "}%{shared-libgcc:", shared_name, " ",
-		static_name, "}}",
-		"%{shared:%{static-libgcc:", static_name, " ",
-		eh_name, "}%{!static-libgcc:",
+		static_name, "}}%{shared:",
 #ifdef LINK_EH_SPEC
 		"%{shared-libgcc:", shared_name,
 		"}%{!shared-libgcc:", static_name, "}",
 #else
 		shared_name,
 #endif
-		"}}", NULL);
+		"}}}", NULL);
 
   obstack_grow (obstack, buf, strlen (buf));
   free (buf);
@@ -3685,8 +3685,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 #ifdef MODIFY_TARGET_NAME
 	      is_modify_target_name = 0;
 
-	      for (j = 0;
-		   j < sizeof modify_target / sizeof modify_target[0]; j++)
+	      for (j = 0; j < ARRAY_SIZE (modify_target); j++)
 		if (! strcmp (argv[i], modify_target[j].sw))
 		  {
 		    char *new_name
@@ -3821,7 +3820,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 #ifdef MODIFY_TARGET_NAME
       is_modify_target_name = 0;
 
-      for (j = 0; j < sizeof modify_target / sizeof modify_target[0]; j++)
+      for (j = 0; j < ARRAY_SIZE (modify_target); j++)
 	if (! strcmp (argv[i], modify_target[j].sw))
 	  is_modify_target_name = 1;
 

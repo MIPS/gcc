@@ -228,15 +228,6 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
    This is not true on the NEC V850.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		4
 
@@ -1369,10 +1360,6 @@ do {									\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? SImode : HImode)
@@ -1508,10 +1495,10 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL)				\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
   do								\
     {								\
-      if (TREE_CODE (DECL) == VAR_DECL				\
+      if ((FIRST) && TREE_CODE (DECL) == VAR_DECL		\
           && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
 	v850_encode_data_area (DECL);				\
     }								\

@@ -54,6 +54,7 @@ static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
 static void pop PARAMS ((FILE *, int));
 static const char *cond_string PARAMS ((enum rtx_code));
+static unsigned int h8300_asm_insn_count PARAMS ((const char *));
 const struct attribute_spec h8300_attribute_table[];
 static tree h8300_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
@@ -270,7 +271,7 @@ pop (file, rn)
   fprintf (file, "\t%s\t%s\n", h8_pop_op, h8_reg_names[rn]);
 }
 
-/* This is what the stack looks like after the prolog of 
+/* This is what the stack looks like after the prolog of
    a function with a frame has been set up:
 
    <args>
@@ -1206,23 +1207,42 @@ print_operand (file, x, code)
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
+	    int eightbit_ok = ((GET_CODE (addr) == SYMBOL_REF
+				&& SYMBOL_REF_FLAG (addr))
+			       || EIGHTBIT_CONSTANT_ADDRESS_P (addr));
+	    int tiny_ok = ((GET_CODE (addr) == SYMBOL_REF
+			    && TINY_DATA_NAME_P (XSTR (addr, 0)))
+			   || TINY_CONSTANT_ADDRESS_P (addr));
 
 	    fprintf (file, "@");
 	    output_address (addr);
 
-	    /* If this is an 'R' operand (reference into the 8-bit
-	       area), then specify a symbolic address as "foo:8",
-	       otherwise if operand is still in eight bit section, use
-	       "foo:16".  */
-	    if (GET_CODE (addr) == SYMBOL_REF
-		&& SYMBOL_REF_FLAG (addr))
-	      fprintf (file, (code == 'R' ? ":8" : ":16"));
-	    else if (GET_CODE (addr) == SYMBOL_REF
-		     && TINY_DATA_NAME_P (XSTR (addr, 0)))
-	      fprintf (file, ":16");
-	    else if ((code == 'R')
-		     && EIGHTBIT_CONSTANT_ADDRESS_P (addr))
-	      fprintf (file, ":8");
+	    /* We fall back from smaller addressing to larger
+	       addressing in various ways depending on CODE.  */
+	    switch (code)
+	      {
+	      case 'R':
+		/* Used for mov.b and bit operations.  */
+		if (eightbit_ok)
+		  {
+		    fprintf (file, ":8");
+		    break;
+		  }
+
+		/* Fall through.  We should not get here if we are
+		   processing bit operations on H8/300 or H8/300H
+		   because 'U' constraint does not allow bit
+		   operations on the tiny area on these machines.  */
+
+	      case 'T':
+	      case 'S':
+		/* Used for mov.w and mov.l.  */
+		if (tiny_ok)
+		  fprintf (file, ":16");
+		break;
+	      default:
+		break;
+	      }
 	  }
 	  break;
 
@@ -1823,7 +1843,7 @@ compute_logical_op_cc (mode, operands)
    Below, a trailing '*' after the shift count indicates the "best"
    mode isn't implemented.  We only describe SHIFT_SPECIAL cases to
    simplify the table.  For other cases, refer to shift_alg_[qhs]i.
-   
+
    H8/300 QImode shifts
    7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
 
@@ -2569,7 +2589,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
       else if (TARGET_H8300 && 24 <= count && count <= 28)
 	{
 	  info->remainder = count - 24;
- 
+
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
@@ -2583,9 +2603,9 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.b\t%z0,%w0\n\tbld\t#7,%w0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0";
 	      info->shift1  = "shar.b\t%w0";
- 	      goto end;
- 	    }
- 	}
+	      goto end;
+	    }
+	}
       else if ((TARGET_H8300H && count == 24)
 	       || (TARGET_H8300S && 24 <= count && count <= 25))
 	{
@@ -2838,6 +2858,160 @@ output_a_shift (operands)
 	      fprintf (asm_out_file, "\tbne	.Llt%d\n", loopend_lab);
 	    }
 	  return "";
+
+	default:
+	  abort ();
+	}
+    }
+}
+
+static unsigned int
+h8300_asm_insn_count (const char *template)
+{
+  unsigned int count = 1;
+
+  for (; *template; template++)
+    if (*template == '\n')
+      count++;
+
+  return count;
+}
+
+unsigned int
+compute_a_shift_length (insn, operands)
+     rtx insn ATTRIBUTE_UNUSED;
+     rtx *operands;
+{
+  rtx shift = operands[3];
+  enum machine_mode mode = GET_MODE (shift);
+  enum rtx_code code = GET_CODE (shift);
+  enum shift_type shift_type;
+  enum shift_mode shift_mode;
+  struct shift_info info;
+  unsigned int wlength = 0;
+
+  switch (mode)
+    {
+    case QImode:
+      shift_mode = QIshift;
+      break;
+    case HImode:
+      shift_mode = HIshift;
+      break;
+    case SImode:
+      shift_mode = SIshift;
+      break;
+    default:
+      abort ();
+    }
+
+  switch (code)
+    {
+    case ASHIFTRT:
+      shift_type = SHIFT_ASHIFTRT;
+      break;
+    case LSHIFTRT:
+      shift_type = SHIFT_LSHIFTRT;
+      break;
+    case ASHIFT:
+      shift_type = SHIFT_ASHIFT;
+      break;
+    default:
+      abort ();
+    }
+
+  if (GET_CODE (operands[2]) != CONST_INT)
+    {
+      /* Get the assembler code to do one shift.  */
+      get_shift_alg (shift_type, shift_mode, 1, &info);
+
+      return (4 + h8300_asm_insn_count (info.shift1)) * 2;
+    }
+  else
+    {
+      int n = INTVAL (operands[2]);
+
+      /* If the count is negative, make it 0.  */
+      if (n < 0)
+	n = 0;
+      /* If the count is too big, truncate it.
+         ANSI says shifts of GET_MODE_BITSIZE are undefined - we choose to
+	 do the intuitive thing.  */
+      else if ((unsigned int) n > GET_MODE_BITSIZE (mode))
+	n = GET_MODE_BITSIZE (mode);
+
+      get_shift_alg (shift_type, shift_mode, n, &info);
+
+      switch (info.alg)
+	{
+	case SHIFT_SPECIAL:
+	  wlength += h8300_asm_insn_count (info.special);
+	  /* Fall through.  */
+
+	case SHIFT_INLINE:
+	  n = info.remainder;
+
+	  if (info.shift2 != NULL)
+	    {
+	      wlength += h8300_asm_insn_count (info.shift2) * (n / 2);
+	      n = n % 2;
+	    }
+
+	  wlength += h8300_asm_insn_count (info.shift1) * n;
+	    
+	  return 2 * wlength;
+
+	case SHIFT_ROT_AND:
+	  {
+	    int m = GET_MODE_BITSIZE (mode) - n;
+
+	    /* Not all possibilities of rotate are supported.  They shouldn't
+	       be generated, but let's watch for 'em.  */
+	    if (info.shift1 == 0)
+	      abort ();
+
+	    if (info.shift2 != NULL)
+	      {
+		wlength += h8300_asm_insn_count (info.shift2) * (m / 2);
+		m = m % 2;
+	      }
+
+	    wlength += h8300_asm_insn_count (info.shift1) * m;
+	    
+	    /* Now mask off the high bits.  */
+	    switch (mode)
+	      {
+	      case QImode:
+		wlength += 1;
+		break;
+	      case HImode:
+		wlength += 2;
+		break;
+	      case SImode:
+		if (TARGET_H8300)
+		  abort ();
+		wlength += 3;
+		break;
+	      default:
+		abort ();
+	      }
+	    return 2 * wlength;
+	  }
+
+	case SHIFT_LOOP:
+	  /* A loop to shift by a "large" constant value.
+	     If we have shift-by-2 insns, use them.  */
+	  if (info.shift2 != NULL)
+	    {
+	      wlength += 3 + h8300_asm_insn_count (info.shift2);
+	      if (n % 2)
+		wlength += h8300_asm_insn_count (info.shift1);
+	    }
+	  else
+	    {
+	      wlength += 3 + h8300_asm_insn_count (info.shift1);
+	    }
+	  return 2 * wlength;
 
 	default:
 	  abort ();
@@ -3348,34 +3522,38 @@ h8300_adjust_insn_length (insn, length)
       else
 	addr = XEXP (SET_DEST (pat), 0);
 
-      /* On the H8/300, only one adjustment is necessary; if the
-	 address mode is register indirect, then this insn is two
-	 bytes shorter than indicated in the machine description.  */
-      if (TARGET_H8300 && GET_CODE (addr) == REG)
-	return -2;
+      if (TARGET_H8300)
+	{
+	  /* On the H8/300, we subtract the difference between the
+             actual length and the longest one, which is @(d:16,ERs).  */
 
-      /* On the H8/300H and H8/S, register indirect is 6 bytes shorter than
-	 indicated in the machine description.  */
-      if ((TARGET_H8300H || TARGET_H8300S)
-          && GET_CODE (addr) == REG)
-	return -6;
+	  /* @Rs is 2 bytes shorter than the longest.  */
+	  if (GET_CODE (addr) == REG)
+	    return -2;
+	}
+      else
+	{
+	  /* On the H8/300H and H8/S, we subtract the difference
+             between the actual length and the longest one, which is
+             @(d:24,ERs).  */
 
-      /* On the H8/300H and H8/S, reg + d, for small displacements is
-	 4 bytes shorter than indicated in the machine description.  */
-      if ((TARGET_H8300H || TARGET_H8300S)
-	  && GET_CODE (addr) == PLUS
-	  && GET_CODE (XEXP (addr, 0)) == REG
-	  && GET_CODE (XEXP (addr, 1)) == CONST_INT
-	  && INTVAL (XEXP (addr, 1)) > -32768
-	  && INTVAL (XEXP (addr, 1)) < 32767)
-	return -4;
+	  /* @ERs is 6 bytes shorter than the longest.  */
+	  if (GET_CODE (addr) == REG)
+	    return -6;
 
-      /* On the H8/300H and H8/S, abs:16 is two bytes shorter than the
-	 more general abs:24.  */
-      if ((TARGET_H8300H || TARGET_H8300S)
-	  && GET_CODE (addr) == SYMBOL_REF
-	  && TINY_DATA_NAME_P (XSTR (addr, 0)))
-	return -2;
+	  /* @(d:16,ERs) is 6 bytes shorter than the longest.  */
+	  if (GET_CODE (addr) == PLUS
+	      && GET_CODE (XEXP (addr, 0)) == REG
+	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
+	      && INTVAL (XEXP (addr, 1)) > -32768
+	      && INTVAL (XEXP (addr, 1)) < 32767)
+	    return -4;
+
+	  /* @aa:16 is 2 bytes shorter than the longest.  */
+	  if (GET_CODE (addr) == SYMBOL_REF
+	      && TINY_DATA_NAME_P (XSTR (addr, 0)))
+	    return -2;
+	}
     }
 
   /* Loading some constants needs adjustment.  */
@@ -3411,50 +3589,6 @@ h8300_adjust_insn_length (insn, length)
 	      return 4 - 6;
 	    }
 	}
-    }
-
-  /* Shifts need various adjustments.  */
-  if (GET_CODE (pat) == PARALLEL
-      && GET_CODE (XVECEXP (pat, 0, 0)) == SET
-      && (GET_CODE (SET_SRC (XVECEXP (pat, 0, 0))) == ASHIFTRT
-	  || GET_CODE (SET_SRC (XVECEXP (pat, 0, 0))) == LSHIFTRT
-	  || GET_CODE (SET_SRC (XVECEXP (pat, 0, 0))) == ASHIFT))
-    {
-      rtx src = SET_SRC (XVECEXP (pat, 0, 0));
-      enum machine_mode mode = GET_MODE (src);
-      int shift;
-
-      if (GET_CODE (XEXP (src, 1)) != CONST_INT)
-	return 0;
-
-      shift = INTVAL (XEXP (src, 1));
-      /* According to ANSI, negative shift is undefined.  It is
-         considered to be zero in this case (see function
-         output_a_shift above).  */
-      if (shift < 0)
-	shift = 0;
-
-      /* QImode shifts by small constants take one insn
-	 per shift.  So the adjustment is 20 (md length) -
-	 # shifts * 2.  */
-      if (mode == QImode && shift <= 4)
-	return -(20 - shift * 2);
-
-      /* Similarly for HImode and SImode shifts by small constants on
-	 the H8/300H and H8/S.  */
-      if ((TARGET_H8300H || TARGET_H8300S)
-	  && (mode == HImode || mode == SImode) && shift <= 4)
-	return -(20 - shift * 2);
-
-      /* HImode shifts by small constants for the H8/300.  */
-      if (mode == HImode && shift <= 4)
-	return -(20 - (shift * (GET_CODE (src) == ASHIFT ? 2 : 4)));
-
-      /* SImode shifts by small constants for the H8/300.  */
-      if (mode == SImode && shift <= 2)
-	return -(20 - (shift * (GET_CODE (src) == ASHIFT ? 6 : 8)));
-
-      /* XXX ??? Could check for more shift/rotate cases here.  */
     }
 
   /* Rotations need various adjustments.  */

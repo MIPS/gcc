@@ -687,10 +687,6 @@ extern struct sparc_cpu_select sparc_select[];
 
 /* target machine storage layout */
 
-/* Define for cross-compilation to a sparc target with no TFmode from a host
-   with a different float format (e.g. VAX).  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -710,14 +706,6 @@ extern struct sparc_cpu_select sparc_select[];
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		(TARGET_ARCH64 ? 64 : 32)
 #define MAX_BITS_PER_WORD	64
 
 /* Width of a word, in units (bytes).  */
@@ -740,7 +728,7 @@ extern struct sparc_cpu_select sparc_select[];
 #if 0
 /* ??? This does not work in SunOS 4.x, so it is not enabled here.
    Instead, it is enabled in sol2.h, because it does work under Solaris.  */
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 #endif
@@ -2386,10 +2374,10 @@ do {                                                                    \
    In the Embedded Medium/Anywhere code model, %g4 points to the data segment
    so we must not add it to function addresses.  */
 
-#define ENCODE_SECTION_INFO(DECL) \
-  do {							\
-    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL) \
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
+  do {									\
+    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL)	\
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
   } while (0)
 
 /* Specify the machine mode that this machine uses

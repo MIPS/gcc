@@ -409,18 +409,6 @@ extern int target_flags;
 
 #define LINK_LIBGCC_SPECIAL_1
 
-/* Since IEEE support was added to gcc, most things seem to like it
-   better if we disable exceptions and check afterward for infinity.  */
-
-#if __convex__
-#if _IEEE_FLOAT_
-#define REAL_VALUE_ISNAN(x) 0
-#define REAL_VALUE_ISINF(x) ((*(short *) &(x) & 0x7ff0) == 0x7ff0)
-#else
-#define REAL_VALUE_ISNAN(x) 0
-#define REAL_VALUE_ISINF(x) ((*(short *) &(x) & 0xfff0) == 0x8000)
-#endif
-#endif
 
 /* Target machine storage layout */
 
@@ -433,15 +421,6 @@ extern int target_flags;
 
 /* Define this if most significant word of a multiword number is numbered.  */
 #define WORDS_BIG_ENDIAN 1
-
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 8
@@ -478,7 +457,6 @@ extern int target_flags;
 
 /* Define sizes of basic C types to conform to ordinary usage -- these
    types depend on BITS_PER_WORD otherwise.  */
-#define CHAR_TYPE_SIZE		8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		32
 #define LONG_TYPE_SIZE		(TARGET_LONG64 ? 64 : 32)
@@ -1098,9 +1076,6 @@ enum reg_class {
 /* Convex uses VAX or IEEE floats.
    Follow the host format.  */
 #define TARGET_FLOAT_FORMAT HOST_FLOAT_FORMAT
-
-/* But must prevent real.c from constructing VAX dfloats */
-#define REAL_VALUE_ATOF(X,S) atof (X)
 
 /* Check a `double' value for validity for a particular machine mode.  */
 #define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \

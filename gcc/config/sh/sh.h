@@ -406,10 +406,6 @@ do {									\
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 
@@ -430,14 +426,6 @@ do {									\
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT  8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD  (TARGET_SHMEDIA ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 
 #define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
@@ -2691,31 +2679,33 @@ while (0)
    On SH, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it using GOTOFF instead of GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL) \
-do									\
-  {									\
-    if (flag_pic)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));		\
-									\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0)) =				\
-	  (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'			\
-	   || ! TREE_PUBLIC (DECL));					\
-      }									\
-    if (TARGET_SH5)							\
-      {									\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-		   ? TREE_CST_RTL (DECL)				\
-		   : TREE_CODE (DECL) != VAR_DECL			\
-		   ? NULL_RTX						\
- 		   : DECL_RTL (DECL));					\
-									\
-        if (rtl && GET_CODE (rtl) == MEM				\
- 	    && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)			\
-	  XEXP (rtl, 0) = gen_datalabel_ref (XEXP (rtl, 0));		\
-      }									\
-  }									\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
+do								\
+  {								\
+    if (!(FIRST))						\
+      break;							\
+    if (flag_pic)						\
+      {								\
+	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
+		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
+								\
+	SYMBOL_REF_FLAG (XEXP (rtl, 0)) =			\
+	  (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
+	   || ! TREE_PUBLIC (DECL));				\
+      }								\
+    if (TARGET_SH5)						\
+      {								\
+	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
+		   ? TREE_CST_RTL (DECL)			\
+		   : TREE_CODE (DECL) != VAR_DECL		\
+		   ? NULL_RTX					\
+ 		   : DECL_RTL (DECL));				\
+								\
+        if (rtl && GET_CODE (rtl) == MEM			\
+ 	    && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)		\
+	  XEXP (rtl, 0) = gen_datalabel_ref (XEXP (rtl, 0));	\
+      }								\
+  }								\
 while (0)
 
 /* The prefix used to mark SYMBOL_REFs that refer to data symbols.  */

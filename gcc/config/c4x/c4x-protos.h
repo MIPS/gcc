@@ -53,7 +53,7 @@ extern struct rtx_def *c4x_function_arg PARAMS ((CUMULATIVE_ARGS *,
 						 enum machine_mode, tree,
 						 int));
 
-extern void c4x_encode_section_info PARAMS ((tree));
+extern void c4x_encode_section_info PARAMS ((tree, int));
 
 #endif /* TREE_CODE */
 
@@ -156,6 +156,10 @@ extern int src_hi_operand PARAMS ((rtx, enum machine_mode));
 extern int lsrc_operand PARAMS ((rtx, enum machine_mode));
 
 extern int tsrc_operand PARAMS ((rtx, enum machine_mode));
+
+extern int nonimmediate_src_operand PARAMS ((rtx, enum machine_mode));
+
+extern int nonimmediate_lsrc_operand PARAMS ((rtx, enum machine_mode));
 
 extern int addr_reg_operand PARAMS ((rtx, enum machine_mode));
 

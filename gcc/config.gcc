@@ -323,7 +323,7 @@ case $machine in
 	fi
 	;;
 *-*-netbsd*)
-	tmake_file="t-libc-ok t-netbsd"
+	tmake_file="t-slibgcc-elf-ver t-libc-ok t-netbsd"
 	xm_defines=POSIX
 	gas=yes
 	gnu_ld=yes
@@ -2734,7 +2734,7 @@ powerpc-*-eabiaix*)
 powerpc-*-eabisimaltivec*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabisim.h rs6000/eabialtivec.h"
-	tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+	tmake_file="rs6000/t-ppcendian rs6000/t-ppccomm"
 	;;
 powerpc-*-eabisim*)
 	xm_defines=POSIX
@@ -2749,7 +2749,7 @@ powerpc-*-elf*)
 powerpc-*-eabialtivec*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabialtivec.h"
-	tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+	tmake_file="rs6000/t-ppcendian rs6000/t-ppccomm"
 	;;
 powerpc-*-eabi*)
 	xm_defines=POSIX
@@ -3229,6 +3229,7 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 	tm_file="${tm_file} ${fbsd_tm_file} dbxelf.h elfos.h sparc/sysv4.h sparc/freebsd.h"
 	xmake_file=none
 	case "x$with_cpu" in
+		xultrasparc) ;;
 		x) with_cpu=ultrasparc ;;
 		*) echo "$with_cpu not supported for freebsd target"; exit 1 ;;
 	esac

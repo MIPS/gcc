@@ -362,10 +362,6 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-/* Define for cross-compilation from a host with a different float format
-   or endianness (e.g. VAX, x86).  */
-#define REAL_ARITHMETIC
-
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases, 
    the value is constrained to be within the bounds of the declared
@@ -389,14 +385,6 @@ extern int target_flags;
    numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 #define MAX_LONG_TYPE_SIZE 32
 #define MAX_WCHAR_TYPE_SIZE 32
@@ -1489,9 +1477,9 @@ do { 									\
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 
-#define ENCODE_SECTION_INFO(DECL)\
+#define ENCODE_SECTION_INFO(DECL, FIRST)		\
 do							\
-  { if (TEXT_SPACE_P (DECL))				\
+  { if (FIRST && TEXT_SPACE_P (DECL))			\
       {	rtx _rtl;					\
 	if (TREE_CODE (DECL) == FUNCTION_DECL		\
 	    || TREE_CODE (DECL) == VAR_DECL)		\

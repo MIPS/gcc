@@ -1695,15 +1695,16 @@ mmix_select_section (decl, reloc, align)
 /* ENCODE_SECTION_INFO.  */
 
 void
-mmix_encode_section_info (decl)
+mmix_encode_section_info (decl, first)
      tree decl;
+     int first;
 {
   /* Test for an external declaration, and do nothing if it is one.  */
   if ((TREE_CODE (decl) == VAR_DECL
        && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl)))
       || (TREE_CODE (decl) == FUNCTION_DECL && TREE_PUBLIC (decl)))
     ;
-  else if (DECL_P (decl))
+  else if (first && DECL_P (decl))
     {
       /* For non-visible declarations, add a "@" prefix, which we skip
 	 when the label is output.  If the label does not have this
@@ -3087,13 +3088,13 @@ mmix_output_condition (stream, x, reversed)
        {CCmode, cc_signed_convs},
        {DImode, cc_di_convs}};
 
-  unsigned int i;
+  size_t i;
   int j;
 
   enum machine_mode mode = GET_MODE (XEXP (x, 0));
   RTX_CODE cc = GET_CODE (x);
 
-  for (i = 0; i < sizeof (cc_convs)/sizeof(*cc_convs); i++)
+  for (i = 0; i < ARRAY_SIZE (cc_convs); i++)
     {
       if (mode == cc_convs[i].cc_mode)
 	{

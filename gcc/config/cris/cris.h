@@ -475,10 +475,6 @@ extern int target_flags;
    post-increment on DImode indirect.  */
 #define WORDS_BIG_ENDIAN 0
 
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 32
-
 #define UNITS_PER_WORD 4
 
 #define POINTER_SIZE 32
@@ -1448,7 +1444,7 @@ struct cum_args {int regs;};
 
 /* We need to code in PIC-specific flags into SYMBOL_REF_FLAG.  */
 
-#define ENCODE_SECTION_INFO(EXP) cris_encode_section_info (EXP)
+#define ENCODE_SECTION_INFO(EXP, FIRST) cris_encode_section_info (EXP, FIRST)
 
 /* We pull a little trick to register the _fini function with atexit,
    after (presumably) registering the eh frame info, since we don't handle
@@ -1749,10 +1745,6 @@ call_ ## FUNC (void)						\
 
 /* Node: SDB and DWARF */
 /* (no definitions) */
-
-/* Node: Cross-compilation */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 

@@ -83,10 +83,6 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 1
 
-#define BITS_PER_UNIT 	8
-
-#define BITS_PER_WORD 	32
-
 #define UNITS_PER_WORD 	4
 
 #define POINTER_SIZE 	32
@@ -127,7 +123,6 @@ extern int target_flags;
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
 
-#define CHAR_TYPE_SIZE 		 8
 #define SHORT_TYPE_SIZE 	16
 #define INT_TYPE_SIZE 		32
 #define LONG_TYPE_SIZE 		32

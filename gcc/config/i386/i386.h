@@ -669,8 +669,6 @@ extern int ix86_arch;
 /* target machine storage layout */
 
 /* Define for XFmode or TFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.
- 
    The XFmode is specified by i386 ABI, while TFmode may be faster
    due to alignment and simplifications in the address calculations.
  */
@@ -702,11 +700,6 @@ extern int ix86_arch;
 #define MAX_LONG_TYPE_SIZE 32
 #endif
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
-
 /* Define this if most significant byte of a word is the lowest numbered.  */
 /* That is true on the 80386.  */
 
@@ -720,15 +713,6 @@ extern int ix86_arch;
    numbered.  */
 /* Not true for 80386 */
 #define WORDS_BIG_ENDIAN 0
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 80386, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
@@ -2247,7 +2231,7 @@ enum ix86_builtins
    On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)				\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
 do {								\
     if (flag_pic)						\
       {								\
@@ -2267,8 +2251,7 @@ do {								\
 	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
 	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
 		 || ! TREE_PUBLIC (DECL)			\
-		 || (TREE_CODE (DECL) == VAR_DECL		\
-		     && MODULE_LOCAL_P (DECL)));		\
+		 || MODULE_LOCAL_P (DECL));			\
 	  }							\
       }								\
 } while (0)

@@ -4221,8 +4221,6 @@ expand_float (to, from, unsignedp)
 	  }
     }
 
-#if !defined (REAL_IS_NOT_DOUBLE) || defined (REAL_ARITHMETIC)
-
   /* Unsigned integer, and no way to convert directly.
      Convert as signed, then conditionally adjust the result.  */
   if (unsignedp)
@@ -4337,7 +4335,6 @@ expand_float (to, from, unsignedp)
       emit_label (label);
       goto done;
     }
-#endif
 
   /* No hardware instruction available; call a library routine to convert from
      SImode, DImode, or TImode into SFmode, DFmode, XFmode, or TFmode.  */
@@ -4488,7 +4485,6 @@ expand_fix (to, from, unsignedp)
 	  }
       }
 
-#if !defined (REAL_IS_NOT_DOUBLE) || defined (REAL_ARITHMETIC)
   /* For an unsigned conversion, there is one more way to do it.
      If we have a signed conversion, we generate code that compares
      the real value to the largest representable positive number.  If if
@@ -4568,7 +4564,6 @@ expand_fix (to, from, unsignedp)
 
 	  return;
 	}
-#endif
 
   /* We can't do it with an insn, so use a library call.  But first ensure
      that the mode of TO is at least as wide as SImode, since those are the

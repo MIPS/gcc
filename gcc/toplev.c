@@ -745,12 +745,6 @@ int flag_asynchronous_unwind_tables = 0;
 
 int flag_no_common;
 
-/* Nonzero means pretend it is OK to examine bits of target floats,
-   even if that isn't true.  The resulting code will have incorrect constants,
-   but the same series of instructions that the native compiler would make.  */
-
-int flag_pretend_float;
-
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
 
@@ -821,6 +815,9 @@ int flag_gnu_linker = 0;
 #else
 int flag_gnu_linker = 1;
 #endif
+
+/* Nonzero means put zero initialized data in the bss section.  */
+int flag_zero_initialized_in_bss = 1;
 
 /* Enable SSA.  */
 int flag_ssa = 0;
@@ -1081,8 +1078,6 @@ static const lang_independent_options f_options[] =
    N_("Run the loop optimizer twice") },
   {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1,
    N_("Delete useless null pointer checks") },
-  {"pretend-float", &flag_pretend_float, 1,
-   N_("Pretend that host and target use the same FP format") },
   {"schedule-insns", &flag_schedule_insns, 1,
    N_("Reschedule instructions before register allocation") },
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
@@ -1166,6 +1161,8 @@ static const lang_independent_options f_options[] =
    N_("Suppress output of instruction numbers and line number notes in debugging dumps") },
   {"instrument-functions", &flag_instrument_function_entry_exit, 1,
    N_("Instrument function entry/exit with profiling calls") },
+  {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1,
+   N_("Put zero initialized data in the bss section") },
   {"ssa", &flag_ssa, 1,
    N_("Enable SSA optimizations") },
   {"ssa-ccp", &flag_ssa_ccp, 1,
@@ -1265,7 +1262,6 @@ documented_lang_options[] =
   { "-Wbad-function-cast",
     N_("Warn about casting functions to incompatible types") },
   { "-Wno-bad-function-cast", "" },
-  { "-Wno-missing-noreturn", "" },
   { "-Wmissing-format-attribute",
     N_("Warn about functions which might be candidates for format attributes") },
   { "-Wno-missing-format-attribute", "" },
@@ -1284,12 +1280,15 @@ documented_lang_options[] =
   { "-Wconversion", 
     N_("Warn about possibly confusing type conversions") },
   { "-Wno-conversion", "" },
+  { "-Wdiv-by-zero", "" },
+  { "-Wno-div-by-zero", 
+    N_("Do not warn about compile-time integer division by zero") },
+  { "-Wfloat-equal", 
+    N_("Warn about testing equality of floating point numbers") },
+  { "-Wno-float-equal", "" },
   { "-Wformat", 
     N_("Warn about printf/scanf/strftime/strfmon format anomalies") },
   { "-Wno-format", "" },
-  { "-Wformat-y2k", "" },
-  { "-Wno-format-y2k",
-    N_("Don't warn about strftime formats yielding 2 digit years") },
   { "-Wformat-extra-args", "" },
   { "-Wno-format-extra-args",
     N_("Don't warn about too many arguments to format functions") },
@@ -1299,6 +1298,9 @@ documented_lang_options[] =
   { "-Wformat-security",
     N_("Warn about possible security problems with format functions") },
   { "-Wno-format-security", "" },
+  { "-Wformat-y2k", "" },
+  { "-Wno-format-y2k",
+    N_("Don't warn about strftime formats yielding 2 digit years") },
   { "-Wimplicit-function-declaration",
     N_("Warn about implicit function declarations") },
   { "-Wno-implicit-function-declaration", "" },
@@ -1335,24 +1337,21 @@ documented_lang_options[] =
   { "-Wparentheses", 
     N_("Warn about possible missing parentheses") },
   { "-Wno-parentheses", "" },
-  { "-Wsequence-point",
-    N_("Warn about possible violations of sequence point rules") },
-  { "-Wno-sequence-point", "" },
   { "-Wpointer-arith", 
     N_("Warn about function pointer arithmetic") },
   { "-Wno-pointer-arith", "" },
   { "-Wredundant-decls",
     N_("Warn about multiple declarations of the same object") },
   { "-Wno-redundant-decls", "" },
+  { "-Wreturn-type",
+    N_("Warn whenever a function's return-type defaults to int") },
+  { "-Wno-return-type", "" },
+  { "-Wsequence-point",
+    N_("Warn about possible violations of sequence point rules") },
+  { "-Wno-sequence-point", "" },
   { "-Wsign-compare", 
     N_("Warn about signed/unsigned comparisons") },
   { "-Wno-sign-compare", "" },
-  { "-Wfloat-equal", 
-    N_("Warn about testing equality of floating point numbers") },
-  { "-Wno-float-equal", "" },
-  { "-Wunknown-pragmas", 
-    N_("Warn about unrecognized pragmas") },
-  { "-Wno-unknown-pragmas", "" },
   { "-Wstrict-prototypes", 
     N_("Warn about non-prototyped function decls") },
   { "-Wno-strict-prototypes", "" },
@@ -1364,6 +1363,9 @@ documented_lang_options[] =
   { "-Wno-trigraphs", "" },
   { "-Wundef", "" },
   { "-Wno-undef", "" },
+  { "-Wunknown-pragmas", 
+    N_("Warn about unrecognized pragmas") },
+  { "-Wno-unknown-pragmas", "" },
   { "-Wwrite-strings", 
     N_("Mark strings as 'const char *'") },
   { "-Wno-write-strings", "" },
@@ -2280,17 +2282,31 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP, END)
 #endif
 
+  /* We deferred calling assemble_alias so that we could collect
+     other attributes such as visibility.  Emit the alias now.  */
+  {
+    tree alias;
+    alias = lookup_attribute ("alias", DECL_ATTRIBUTES (decl));
+    if (alias)
+      {
+	alias = TREE_VALUE (TREE_VALUE (alias));
+	alias = get_identifier (TREE_STRING_POINTER (alias));
+        assemble_alias (decl, alias);
+      }
+  }
+
   /* Forward declarations for nested functions are not "external",
      but we need to treat them as if they were.  */
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
       || TREE_CODE (decl) == FUNCTION_DECL)
     {
       timevar_push (TV_VARCONST);
+
       if (asmspec)
-	make_decl_rtl (decl, asmspec);
-      /* Don't output anything
-	 when a tentative file-scope definition is seen.
-	 But at end of compilation, do output code for them.  */
+        make_decl_rtl (decl, asmspec);
+
+      /* Don't output anything when a tentative file-scope definition
+	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
 	assemble_variable (decl, top_level, at_end, 0);
       if (decl == last_assemble_variable_decl)
@@ -2298,6 +2314,7 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 	  ASM_FINISH_DECLARE_OBJECT (asm_out_file, decl,
 				     top_level, at_end);
 	}
+
       timevar_pop (TV_VARCONST);
     }
   else if (DECL_REGISTER (decl) && asmspec != 0)
@@ -2936,6 +2953,8 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       timevar_push (TV_LOOP);
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       open_dump_file (DFI_loop, decl);
       /* CFG is no longer maintained up-to-date.  */
       free_bb_for_insn ();

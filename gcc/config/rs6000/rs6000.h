@@ -483,9 +483,6 @@ extern int rs6000_altivec_abi;
 
 /* target machine storage layout */
 
-/* Define to support cross compilation to an RS6000 target.  */
-#define REAL_ARITHMETIC
-
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
@@ -522,14 +519,6 @@ extern int rs6000_altivec_abi;
    instructions for them.  Might as well be consistent with bits and bytes.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (! TARGET_POWERPC64 ? 32 : 64)
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
@@ -571,12 +560,6 @@ extern int rs6000_altivec_abi;
    target machine.  If you don't define this, the default is two
    words.  */
 #define LONG_LONG_TYPE_SIZE 64
-
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
 
 /* A C expression for the size in bits of the type `float' on the
    target machine.  If you don't define this, the default is one
@@ -625,9 +608,6 @@ extern int rs6000_altivec_abi;
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 : ALIGN)
-
-/* Handle #pragma pack.  */
-#define HANDLE_PRAGMA_PACK 1
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -762,7 +742,7 @@ extern int rs6000_altivec_abi;
 #define XER_REGNO    76
 #define FIRST_ALTIVEC_REGNO	77
 #define LAST_ALTIVEC_REGNO	108
-#define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO)
+#define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO + 1)
 #define VRSAVE_REGNO		109
 
 /* List the order in which to allocate registers.  Each register must be
@@ -2422,43 +2402,71 @@ extern int toc_initialized;
 #define RS6000_WEAK 0
 #endif
 
-/* This implementes the `alias' attribute.  */
-#define ASM_OUTPUT_DEF_FROM_DECLS(FILE,decl,target)	\
-do {							\
-  const char * alias = XSTR (XEXP (DECL_RTL (decl), 0), 0); \
-  const char * name = IDENTIFIER_POINTER (target);	\
-  if (TREE_CODE (decl) == FUNCTION_DECL			\
-      && DEFAULT_ABI == ABI_AIX)			\
-    {							\
-      if (TREE_PUBLIC (decl))				\
-	{						\
-	  if (RS6000_WEAK && DECL_WEAK (decl))		\
-	    {						\
-	      fputs ("\t.weak .", FILE);		\
-	      assemble_name (FILE, alias);		\
-	      putc ('\n', FILE);			\
-	    }						\
-	  else						\
-	    {						\
-	      fputs ("\t.globl .", FILE);		\
-	      assemble_name (FILE, alias);		\
-	      putc ('\n', FILE);			\
-	    }						\
-	}						\
-      else						\
-	{						\
-	  fputs ("\t.lglobl .", FILE);			\
-	  assemble_name (FILE, alias);			\
-	  putc ('\n', FILE);				\
-	}						\
-      fputs ("\t.set .", FILE);				\
-      assemble_name (FILE, alias);			\
-      fputs (",.", FILE);				\
-      assemble_name (FILE, name);			\
-      fputc ('\n', FILE);				\
-    }							\
-  ASM_OUTPUT_DEF (FILE, alias, name);			\
-} while (0)
+#if RS6000_WEAK
+/* Used in lieu of ASM_WEAKEN_LABEL.  */
+#define	ASM_WEAKEN_DECL(FILE, DECL, NAME, VAL)			 	\
+  do									\
+    {									\
+      fputs ("\t.weak\t", (FILE));					\
+      assemble_name ((FILE), (NAME)); 					\
+      if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
+	  && DEFAULT_ABI == ABI_AIX)					\
+	{								\
+	  fputs ("\n\t.weak\t.", (FILE));				\
+	  assemble_name ((FILE), (NAME)); 				\
+	}								\
+      fputc ('\n', (FILE));						\
+      if (VAL)								\
+	{								\
+	  ASM_OUTPUT_DEF ((FILE), (NAME), (VAL));			\
+	  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL		\
+	      && DEFAULT_ABI == ABI_AIX)				\
+	    {								\
+	      fputs ("\t.set\t.", (FILE));				\
+	      assemble_name ((FILE), (NAME));				\
+	      fputs (",.", (FILE));					\
+	      assemble_name ((FILE), (VAL));				\
+	      fputc ('\n', (FILE));					\
+	    }								\
+	}								\
+    }									\
+  while (0)
+#endif
+
+/* This implements the `alias' attribute.  */
+#undef	ASM_OUTPUT_DEF_FROM_DECLS
+#define	ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL, TARGET)			\
+  do									\
+    {									\
+      const char *alias = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		\
+      const char *name = IDENTIFIER_POINTER (TARGET);			\
+      if (TREE_CODE (DECL) == FUNCTION_DECL				\
+	  && DEFAULT_ABI == ABI_AIX)					\
+	{								\
+	  if (TREE_PUBLIC (DECL))					\
+	    {								\
+	      if (!RS6000_WEAK || !DECL_WEAK (DECL))			\
+		{							\
+		  fputs ("\t.globl\t.", FILE);				\
+		  assemble_name (FILE, alias);				\
+		  putc ('\n', FILE);					\
+		}							\
+	    }								\
+	  else if (TARGET_XCOFF)					\
+	    {								\
+	      fputs ("\t.lglobl\t.", FILE);				\
+	      assemble_name (FILE, alias);				\
+	      putc ('\n', FILE);					\
+	    }								\
+	  fputs ("\t.set\t.", FILE);					\
+	  assemble_name (FILE, alias);					\
+	  fputs (",.", FILE);						\
+	  assemble_name (FILE, name);					\
+	  fputc ('\n', FILE);						\
+	}								\
+      ASM_OUTPUT_DEF (FILE, alias, name);				\
+    }									\
+   while (0)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */

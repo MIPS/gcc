@@ -126,13 +126,6 @@ extern int avr_enhanced_p;
    numbered.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';  */
-#define BITS_PER_WORD 8
-
 #ifdef IN_LIBGCC2
 /* This is to get correct SI and DI modes in libgcc2.c (32 and 64 bits).  */
 #define UNITS_PER_WORD 4
@@ -196,12 +189,6 @@ extern int avr_enhanced_p;
    words.  If you want to support GNU Ada on your machine, the value
    of macro must be at least 64.  */
 
-
-#define  CHAR_TYPE_SIZE 8
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
 
 #define FLOAT_TYPE_SIZE 32
 /* A C expression for the size in bits of the type `float' on the
@@ -1833,7 +1820,7 @@ progmem_section (void)							      \
    This macro is irrelevant if there is no separate readonly data
    section.  */
 
-#define ENCODE_SECTION_INFO(DECL)  encode_section_info(DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST)  encode_section_info(DECL, FIRST)
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or function
    named by the symbol (such as what section it is in).
@@ -2927,10 +2914,6 @@ extern struct rtx_def *zero_reg_rtx;
 extern struct rtx_def *ldi_reg_rtx;
 
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 

@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "hashtab.h"
 #include "c-pragma.h"
+#include "c-tree.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
@@ -166,9 +167,11 @@ static unsigned HOST_WIDE_INT array_size_for_constructor PARAMS ((tree));
 static unsigned min_align		PARAMS ((unsigned, unsigned));
 static void output_constructor		PARAMS ((tree, HOST_WIDE_INT,
 						 unsigned int));
-#ifdef ASM_WEAKEN_LABEL
+static void mark_weak_decls		PARAMS ((void *));
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
 static void remove_from_pending_weak_list	PARAMS ((const char *));
 #endif
+static void maybe_assemble_visibility	PARAMS ((tree));
 static int in_named_entry_eq		PARAMS ((const PTR, const PTR));
 static hashval_t in_named_entry_hash	PARAMS ((const PTR));
 #ifdef ASM_OUTPUT_BSS
@@ -907,14 +910,11 @@ make_decl_rtl (decl, asmspec)
 
       /* ??? Another way to do this would be to do what halfpic.c does
 	 and maintain a hashed table of such critters.  */
-      /* ??? Another way to do this would be to pass a flag bit to
-	 ENCODE_SECTION_INFO saying whether this is a new decl or not.  */
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-#ifdef REDO_SECTION_INFO_P
-      if (REDO_SECTION_INFO_P (decl))
-	ENCODE_SECTION_INFO (decl);
+#ifdef ENCODE_SECTION_INFO
+      ENCODE_SECTION_INFO (decl, false);
 #endif
       return;
     }
@@ -1040,7 +1040,7 @@ make_decl_rtl (decl, asmspec)
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
 #ifdef ENCODE_SECTION_INFO
-  ENCODE_SECTION_INFO (decl);
+  ENCODE_SECTION_INFO (decl, true);
 #endif
 }
 
@@ -1295,10 +1295,14 @@ assemble_start_function (decl, fnname)
 	    weak_global_object_name = name;
 	}
 
-#ifdef ASM_WEAKEN_LABEL
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
       if (DECL_WEAK (decl))
 	{
+#ifdef ASM_WEAKEN_DECL
+	  ASM_WEAKEN_DECL (asm_out_file, decl, fnname, 0);
+#else
 	  ASM_WEAKEN_LABEL (asm_out_file, fnname);
+#endif
 	  /* Remove this function from the pending weak list so that
 	     we do not emit multiple .weak directives for it.  */
 	  remove_from_pending_weak_list
@@ -1307,6 +1311,8 @@ assemble_start_function (decl, fnname)
       else
 #endif
       ASM_GLOBALIZE_LABEL (asm_out_file, fnname);
+
+      maybe_assemble_visibility (decl);
     }
 
   /* Do any machine/system dependent processing of the function name */
@@ -1658,9 +1664,17 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   DECL_ALIGN (decl) = align;
   set_mem_align (decl_rtl, align);
 
+  if (TREE_PUBLIC (decl))
+    maybe_assemble_visibility (decl);
+
   /* Handle uninitialized definitions.  */
 
-  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node)
+  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node
+#if defined ASM_EMIT_BSS
+       || (flag_zero_initialized_in_bss
+	   && initializer_zerop (DECL_INITIAL (decl)))
+#endif
+       )
       /* If the target can't output uninitialized but not common global data
 	 in .bss, then we have to use .data.  */
 #if ! defined ASM_EMIT_BSS
@@ -1702,10 +1716,14 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   /* First make the assembler name(s) global if appropriate.  */
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     {
-#ifdef ASM_WEAKEN_LABEL
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
       if (DECL_WEAK (decl))
 	{
+#ifdef ASM_WEAKEN_DECL
+	  ASM_WEAKEN_DECL (asm_out_file, decl, name, 0);
+#else
 	  ASM_WEAKEN_LABEL (asm_out_file, name);
+#endif
 	   /* Remove this variable from the pending weak list so that
 	      we do not emit multiple .weak directives for it.  */
 	  remove_from_pending_weak_list
@@ -3363,7 +3381,7 @@ output_constant_def (exp, defer)
      encoded in it.  */
   if (! found)
     {
-      ENCODE_SECTION_INFO (exp);
+      ENCODE_SECTION_INFO (exp, true);
       desc->rtl = rtl;
       desc->label = XSTR (XEXP (desc->rtl, 0), 0);
     }
@@ -5070,17 +5088,31 @@ output_constructor (exp, size, align)
 struct weak_syms
 {
   struct weak_syms * next;
+  tree decl;
   const char * name;
   const char * value;
 };
 
 static struct weak_syms * weak_decls;
 
+/* Mark weak_decls for garbage collection.  */
+
+static void
+mark_weak_decls (arg)
+     void *arg;
+{
+  struct weak_syms *t;
+
+  for (t = *(struct weak_syms **) arg; t != NULL; t = t->next)
+    ggc_mark_tree (t->decl);
+}
+
 /* Add function NAME to the weak symbols list.  VALUE is a weak alias
    associated with NAME.  */
 
 int
-add_weak (name, value)
+add_weak (decl, name, value)
+     tree decl;
      const char *name;
      const char *value;
 {
@@ -5092,6 +5124,7 @@ add_weak (name, value)
     return 0;
 
   weak->next = weak_decls;
+  weak->decl = decl;
   weak->name = name;
   weak->value = value;
   weak_decls = weak;
@@ -5110,7 +5143,7 @@ declare_weak (decl)
   else if (TREE_ASM_WRITTEN (decl))
     error_with_decl (decl, "weak declaration of `%s' must precede definition");
   else if (SUPPORTS_WEAK)
-    add_weak (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), NULL);
+    add_weak (decl, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), NULL);
   else
     warning_with_decl (decl, "weak declaration of `%s' not supported");
 
@@ -5125,8 +5158,18 @@ weak_finish ()
   if (SUPPORTS_WEAK)
     {
       struct weak_syms *t;
-      for (t = weak_decls; t; t = t->next)
+      for (t = weak_decls; t != NULL; t = t->next)
 	{
+#ifdef ASM_WEAKEN_DECL
+	  tree decl = t->decl;
+	  if (decl == NULL_TREE)
+	    {
+	      tree name = get_identifier (t->name);
+	      if (name)
+		decl = lookup_name (name);
+	    }
+	  ASM_WEAKEN_DECL (asm_out_file, decl, t->name, t->value);
+#else
 #ifdef ASM_OUTPUT_WEAK_ALIAS
 	  ASM_OUTPUT_WEAK_ALIAS (asm_out_file, t->name, t->value);
 #else
@@ -5136,6 +5179,7 @@ weak_finish ()
 	  ASM_WEAKEN_LABEL (asm_out_file, t->name);
 #endif
 #endif
+#endif
 	}
     }
 }
@@ -5143,7 +5187,7 @@ weak_finish ()
 /* Remove NAME from the pending list of weak symbols.  This prevents
    the compiler from emitting multiple .weak directives which confuses
    some assemblers.  */
-#ifdef ASM_WEAKEN_LABEL
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
 static void
 remove_from_pending_weak_list (name)
      const char *name;
@@ -5163,7 +5207,7 @@ remove_from_pending_weak_list (name)
         p = &(t->next);
     }
 }
-#endif /* ASM_WEAKEN_LABEL */
+#endif /* defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL) */
 
 /* Emit an assembler directive to make the symbol for DECL an alias to
    the symbol for TARGET.  */
@@ -5185,10 +5229,14 @@ assemble_alias (decl, target)
 
   if (TREE_PUBLIC (decl))
     {
-#ifdef ASM_WEAKEN_LABEL
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
       if (DECL_WEAK (decl))
- 	{
+	{
+#ifdef ASM_WEAKEN_DECL
+	  ASM_WEAKEN_DECL (asm_out_file, decl, name, 0);
+#else
 	  ASM_WEAKEN_LABEL (asm_out_file, name);
+#endif
 	  /* Remove this function from the pending weak list so that
 	     we do not emit multiple .weak directives for it.  */
 	  remove_from_pending_weak_list
@@ -5197,6 +5245,8 @@ assemble_alias (decl, target)
       else
 #endif
 	ASM_GLOBALIZE_LABEL (asm_out_file, name);
+
+      maybe_assemble_visibility (decl);
     }
 
 #ifdef ASM_OUTPUT_DEF_FROM_DECLS
@@ -5205,12 +5255,16 @@ assemble_alias (decl, target)
   ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
 #endif
   TREE_ASM_WRITTEN (decl) = 1;
-#else
-#ifdef ASM_OUTPUT_WEAK_ALIAS
+#else /* !ASM_OUTPUT_DEF */
+#if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
   if (! DECL_WEAK (decl))
     warning ("only weak aliases are supported in this configuration");
 
+#ifdef ASM_WEAKEN_DECL
+  ASM_WEAKEN_DECL (asm_out_file, decl, name, IDENTIFIER_POINTER (target));
+#else
   ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
+#endif
   TREE_ASM_WRITTEN (decl) = 1;
 #else
   warning ("alias definitions not supported in this configuration; ignored");
@@ -5235,6 +5289,21 @@ assemble_visibility (decl, visibility_type)
 #else
   warning ("visibility attribute not supported in this configuration; ignored");
 #endif
+}
+
+/* A helper function to call assemble_visibility when needed for a decl.  */
+
+static void
+maybe_assemble_visibility (decl)
+     tree decl;
+{
+  tree visibility = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
+  if (visibility)
+    {
+      const char *type
+	= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (visibility)));
+      assemble_visibility (decl, type);
+    }
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -5290,6 +5359,7 @@ init_varasm_once ()
 		mark_const_hash_entry);
   ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
 		mark_const_str_htab);
+  ggc_add_root (&weak_decls, 1, sizeof weak_decls, mark_weak_decls);
 
   const_alias_set = new_alias_set ();
 }

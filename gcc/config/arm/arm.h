@@ -647,8 +647,6 @@ extern int arm_is_6_or_7;
 /* This is required to ensure that push insns always push a word.  */
 #define PROMOTE_FUNCTION_ARGS
 
-/* Define for XFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.  */
 /* For the ARM:
    I think I have added all the code to make this work.  Unfortunately,
    early releases of the floating point emulation code on RISCiX used a
@@ -662,12 +660,6 @@ extern int arm_is_6_or_7;
 
 /* Disable XFmode patterns in md file */
 #define ENABLE_XF_PATTERNS 0
-
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-/* See comment above */
-#define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -695,11 +687,6 @@ extern int arm_is_6_or_7;
 /* Define this if most significant word of doubles is the lowest numbered.
    This is always true, even when in little-endian mode.  */
 #define FLOAT_WORDS_BIG_ENDIAN 1
-
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT  8
-
-#define BITS_PER_WORD  32
 
 #define UNITS_PER_WORD	4
 
@@ -1915,7 +1902,7 @@ typedef struct
 /* This doesn't work with AOF syntax, since the string table may be in
    a different AREA.  */
 #ifndef AOF_ASSEMBLER
-#define ENCODE_SECTION_INFO(decl)					\
+#define ENCODE_SECTION_INFO(decl, first)				\
 {									\
   if (optimize > 0 && TREE_CONSTANT (decl)				\
       && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))	\
@@ -1924,12 +1911,14 @@ typedef struct
                  ? TREE_CST_RTL (decl) : DECL_RTL (decl));		\
       SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;				\
     }									\
-  ARM_ENCODE_CALL_TYPE (decl)						\
+  if (first)								\
+    ARM_ENCODE_CALL_TYPE (decl)						\
 }
 #else
-#define ENCODE_SECTION_INFO(decl)					\
+#define ENCODE_SECTION_INFO(decl, first)				\
 {									\
-  ARM_ENCODE_CALL_TYPE (decl)						\
+  if (first)								\
+    ARM_ENCODE_CALL_TYPE (decl)						\
 }
 #endif
 

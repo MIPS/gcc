@@ -119,13 +119,15 @@ struct machine_function
 
 /* Pass on -mset-program-start=N and -mset-data-start=M to the linker.
    Provide default program start 0x100 unless -mno-set-program-start.
-   Link to ELF if requested.  */
+   Don't do this if linking relocatably, with -r.  For a final link,
+   produce mmo, unless ELF is requested or when linking relocatably.  */
 #define LINK_SPEC \
  "%{mset-program-start=*:--defsym __.MMIX.start..text=%*}\
   %{mset-data-start=*:--defsym __.MMIX.start..data=%*}\
   %{!mset-program-start=*:\
-    %{!mno-set-program-start:--defsym __.MMIX.start..text=0x100}}\
-  %{!melf:-m mmo}%{melf:-m elf64mmix}"
+    %{!mno-set-program-start:\
+     %{!r:--defsym __.MMIX.start..text=0x100}}}\
+  %{!melf:%{!r:-m mmo}}%{melf|r:-m elf64mmix}"
 
 /* Put unused option values here.  */
 extern const char *mmix_cc1_ignored_option;
@@ -251,8 +253,6 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
 #define FLOAT_WORDS_BIG_ENDIAN 1
-#define BITS_PER_UNIT 8
-#define BITS_PER_WORD 64
 #define UNITS_PER_WORD 8
 #define POINTER_SIZE 64
 
@@ -939,8 +939,8 @@ const_section ()						\
 #define SELECT_SECTION(DECL, RELOC, ALIGN) \
  mmix_select_section (DECL, RELOC, ALIGN)
 
-#define ENCODE_SECTION_INFO(DECL) \
- mmix_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+ mmix_encode_section_info (DECL, FIRST)
 
 #define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
  (VAR) = mmix_strip_name_encoding (SYM_NAME)
@@ -1155,17 +1155,6 @@ const_section ()						\
 /* Node: SDB and DWARF */
 #define DWARF2_DEBUGGING_INFO
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-/* Node: Cross-compilation */
-
-/* FIXME: I don't know whether it is best to tweak emit-rtl.c to handle
-   the case where sizeof (float) == word_size / 2 on the target, or to fix
-   real.h to define REAL_ARITHMETIC in that case.  Anyway, it should be
-   documented that a target can define this to force emulation.  Note that
-   we don't check #ifdef CROSS_COMPILE here; not even if mmix gets
-   self-hosted must we do that.  Case gcc.c-torture/compile/930611-1.c.  */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 

@@ -294,14 +294,8 @@ extern int target_flags;
 
 /* target machine storage layout */
 
-/* Define for XFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.  */
+/* Define for XFmode extended real floating point support.  */
 #define LONG_DOUBLE_TYPE_SIZE 96
-
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -320,15 +314,6 @@ extern int target_flags;
    since there are no machine instructions for them.
    So let's be consistent.  */
 #define WORDS_BIG_ENDIAN 1
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4

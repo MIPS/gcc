@@ -876,7 +876,16 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
    when assigning to SUBREG_REG.  */
 
 #define SUBREG_PROMOTED_VAR_P(RTX) ((RTX)->in_struct)
-#define SUBREG_PROMOTED_UNSIGNED_P(RTX) ((RTX)->unchanging)
+#define SUBREG_PROMOTED_UNSIGNED_SET(RTX, VAL)	\
+do {						\
+  if ((VAL) < 0)				\
+    (RTX)->volatil = 1;				\
+  else {					\
+    (RTX)->volatil = 0;				\
+    (RTX)->unchanging = (VAL);			\
+  }						\
+} while (0)
+#define SUBREG_PROMOTED_UNSIGNED_P(RTX) ((RTX)->volatil ? -1 : (RTX)->unchanging)
 
 /* Access various components of an ASM_OPERANDS rtx.  */
 
@@ -1967,6 +1976,7 @@ extern void move_by_pieces		PARAMS ((rtx, rtx,
 /* In flow.c */
 extern void recompute_reg_usage			PARAMS ((rtx, int));
 extern int initialize_uninitialized_subregs	PARAMS ((void));
+extern void delete_dead_jumptables		PARAMS ((void));
 #ifdef BUFSIZ
 extern void print_rtl_with_bb			PARAMS ((FILE *, rtx));
 extern void dump_flow_info			PARAMS ((FILE *));

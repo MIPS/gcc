@@ -1546,10 +1546,6 @@ do {							\
 
 /* Target machine storage layout */
 
-/* Define in order to support both big and little endian float formats
-   in the same gcc binary.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
 */
@@ -1569,14 +1565,6 @@ do {							\
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
@@ -1614,12 +1602,6 @@ do {							\
    target machine.  If you don't define this, the default is two
    words.  */
 #define LONG_LONG_TYPE_SIZE 64
-
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
 
 /* A C expression for the size in bits of the type `float' on the
    target machine.  If you don't define this, the default is one
@@ -3346,12 +3328,12 @@ typedef struct mips_args {
    If you are changing this macro, you should look at
    mips_select_section and see if it needs a similar change.  */
 
-#define ENCODE_SECTION_INFO(DECL)					\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
 do									\
   {									\
     if (TARGET_MIPS16)							\
       {									\
-	if (TREE_CODE (DECL) == STRING_CST				\
+	if ((FIRST) && TREE_CODE (DECL) == STRING_CST			\
 	    && ! flag_writable_strings					\
 	    /* If this string is from a function, and the function will	\
 	       go in a gnu linkonce section, then we can't directly	\
@@ -3418,7 +3400,8 @@ do									\
 									\
     else if (HALF_PIC_P ())						\
       {									\
-        HALF_PIC_ENCODE (DECL);						\
+	if (FIRST)							\
+          HALF_PIC_ENCODE (DECL);					\
       }									\
   }									\
 while (0)

@@ -924,11 +924,12 @@ multi-word integers.
 @findex BITS_PER_UNIT
 @item BITS_PER_UNIT
 Define this macro to be the number of bits in an addressable storage
-unit (byte); normally 8.
+unit (byte).  If you do not define this macro the default is 8.
 
 @findex BITS_PER_WORD
 @item BITS_PER_WORD
-Number of bits in a word; normally 32.
+Number of bits in a word.  If you do not define this macro, the default
+is @code{BITS_PER_UNIT * UNITS_PER_WORD}.
 
 @findex MAX_BITS_PER_WORD
 @item MAX_BITS_PER_WORD
@@ -5545,25 +5546,31 @@ readonly data section is used.
 This macro is irrelevant if there is no separate readonly data section.
 
 @findex ENCODE_SECTION_INFO
-@item ENCODE_SECTION_INFO (@var{decl})
+@item ENCODE_SECTION_INFO (@var{decl}, @var{new_decl_p})
 Define this macro if references to a symbol or a constant must be
 treated differently depending on something about the variable or
 function named by the symbol (such as what section it is in).
 
 The macro definition, if any, is executed under two circumstances.  One
 is immediately after the rtl for @var{decl} that represents a variable
-or a function has been created and stored in @code{DECL_RTL
-(@var{decl})}.  The value of the rtl will be a @code{mem} whose address
-is a @code{symbol_ref}.  The other is immediately after the rtl for
-@var{decl} that represents a constant has been created and stored in
-@code{TREE_CST_RTL (@var{decl})}.  The macro is called once for each
-distinct constant in a source file.
+or a function has been created and stored in @code{DECL_RTL(@var{decl})}.
+The value of the rtl will be a @code{mem} whose address is a @code{symbol_ref}.
+The other is immediately after the rtl for @var{decl} that represents a
+constant has been created and stored in @code{TREE_CST_RTL (@var{decl})}.
+The macro is called once for each distinct constant in a source file.
+
+The @var{new_decl_p} argument will be true if this is the first time that
+@code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
+be false for subsequent invocations, which will happen for duplicate
+declarations.  Whether or not anything must be done for the duplicate
+declaration depends on whether @code{ENCODE_SECTION_INFO} examines
+@code{DECL_ATTRIBUTES}.
 
 @cindex @code{SYMBOL_REF_FLAG}, in @code{ENCODE_SECTION_INFO}
 The usual thing for this macro to do is to record a flag in the
 @code{symbol_ref} (such as @code{SYMBOL_REF_FLAG}) or to store a
-modified name string in the @code{symbol_ref} (if one bit is not enough
-information).
+modified name string in the @code{symbol_ref} (if one bit is not
+enough information).
 
 @findex STRIP_NAME_ENCODING
 @item STRIP_NAME_ENCODING (@var{var}, @var{sym_name})
@@ -6169,7 +6176,7 @@ itself; before and after that, output the additional assembler syntax
 for making that name global, and a newline.
 
 @findex ASM_WEAKEN_LABEL
-@item ASM_WEAKEN_LABEL
+@item ASM_WEAKEN_LABEL (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} some commands that will make the label @var{name} weak;
 that is, available for reference from other files but only used if
@@ -6178,18 +6185,29 @@ no other definition is available.  Use the expression
 itself; before and after that, output the additional assembler syntax
 for making that name weak, and a newline.
 
-If you don't define this macro, GCC will not support weak
-symbols and you should not define the @code{SUPPORTS_WEAK} macro.
+If you don't define this macro or @code{ASM_WEAKEN_DECL}, GCC will not
+support weak symbols and you should not define the @code{SUPPORTS_WEAK}
+macro.
+
+@findex ASM_WEAKEN_DECL
+@item ASM_WEAKEN_DECL (@var{stream}, @var{decl}, @var{name}, @var{value})
+Combines (and replaces) the function of @code{ASM_WEAKEN_LABEL} and
+@code{ASM_OUTPUT_WEAK_ALIAS}, allowing access to the associated function
+or variable decl.  If @var{value} is not @code{NULL}, this C statement
+should output to the stdio stream @var{stream} assembler code which
+defines (equates) the weak symbol @var{name} to have the value
+@var{value}.  If @var{value} is @code{NULL}, it should output commands
+to make @var{name} weak.
 
 @findex SUPPORTS_WEAK
 @item SUPPORTS_WEAK
 A C expression which evaluates to true if the target supports weak symbols.
 
 If you don't define this macro, @file{defaults.h} provides a default
-definition.  If @code{ASM_WEAKEN_LABEL} is defined, the default
-definition is @samp{1}; otherwise, it is @samp{0}.  Define this macro if
-you want to control weak symbol support with a compiler flag such as
-@option{-melf}.
+definition.  If either @code{ASM_WEAKEN_LABEL} or @code{ASM_WEAKEN_DECL}
+is defined, the default definition is @samp{1}; otherwise, it is
+@samp{0}.  Define this macro if you want to control weak symbol support
+with a compiler flag such as @option{-melf}.
 
 @findex MAKE_DECL_ONE_ONLY (@var{decl})
 @item MAKE_DECL_ONE_ONLY
@@ -7660,14 +7678,10 @@ it must have its own special routine to use instead.  Also, constant
 folding must emulate the target machine's arithmetic (or must not be done
 at all).
 
-The macros in the following table should be defined only if you are cross
-compiling between different floating point formats.
-
-Otherwise, don't define them.  Then default definitions will be set up which
-use @code{double} as the data type, @code{==} to test for equality, etc.
-
-You don't need to worry about how many times you use an operand of any
-of these macros.  The compiler never uses operands which have side effects.
+The macros in the following table are provided by @file{real.h} for the
+compiler to use.  All parts of the compiler which generate or optimize
+floating-point calculations must use these macros.  They may evaluate
+their operands more than once, so operands must not have side effects.
 
 @table @code
 @findex REAL_VALUE_TYPE
@@ -7748,15 +7762,7 @@ By default, this is defined to call @code{isinf}.
 A macro for a C expression which determines whether @var{x}, a floating
 point value, is a ``nan'' (not-a-number).  The value has type
 @code{int}.  By default, this is defined to call @code{isnan}.
-@end table
 
-@cindex constant folding and floating point
-Define the following additional macros if you want to make floating
-point constant folding work while cross compiling.  If you don't
-define them, cross compilation is still possible, but constant folding
-will not happen for floating point values.
-
-@table @code
 @findex REAL_ARITHMETIC
 @item REAL_ARITHMETIC (@var{output}, @var{code}, @var{x}, @var{y})
 A macro for a C statement which calculates an arithmetic operation of
@@ -7771,8 +7777,7 @@ which will always be one of the following: @code{PLUS_EXPR},
 @code{MAX_EXPR}, @code{MIN_EXPR}.
 
 @cindex overflow while constant folding
-The expansion of this macro is responsible for checking for overflow.
-If overflow happens, the macro expansion should execute the statement
+If overflow happens, the macro expansion executes the statement
 @code{return 0;}, which indicates the inability to perform the
 arithmetic operation requested.
 

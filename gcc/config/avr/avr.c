@@ -4741,12 +4741,14 @@ avr_progmem_p (decl)
 /* Encode section information about tree DECL */
   
 void
-encode_section_info (decl)
+encode_section_info (decl, first)
      tree decl;
+     int first;
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
-  else if ((TREE_STATIC (decl) || DECL_EXTERNAL (decl))
+  else if (first
+	   && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	   && TREE_CODE (decl) == VAR_DECL
 	   && avr_progmem_p (decl))
     {
@@ -5210,6 +5212,13 @@ avr_hard_regno_mode_ok (regno, mode)
      int regno;
      enum machine_mode mode;
 {
+  /* Bug workaround: recog.c (peep2_find_free_register) and probably
+     a few other places assume that the frame pointer is a single hard
+     register, so r29 may be allocated and overwrite the high byte of
+     the frame pointer.  Do not allow any value to start in r29.  */
+  if (regno == REG_Y + 1)
+    return 0;
+
   if (mode == QImode)
     return 1;
   /*  if (regno < 24 && !AVR_ENHANCED)

@@ -312,7 +312,6 @@ extern int flag_pic;				/* -fpic */
 /*** Storage Layout ***/
 
 /* Sizes in bits of the various types.  */
-#define CHAR_TYPE_SIZE		 8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		32
 #define LONG_TYPE_SIZE		32
@@ -335,15 +334,6 @@ extern int flag_pic;				/* -fpic */
    For the m88000 we can decide arbitrarily since there are no machine
    instructions for them.  */
 #define WORDS_BIG_ENDIAN 1
-
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -2417,7 +2407,7 @@ sdata_section ()							\
    rtl will be a `mem' whose address is a `symbol_ref'.
 
    For the m88k, determine if the item should go in the global pool.  */
-#define ENCODE_SECTION_INFO(DECL)					\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
   do {									\
     if (m88k_gp_threshold > 0)						\
     {									\
