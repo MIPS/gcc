@@ -47,6 +47,7 @@ typedef struct {
 static inline tree_stmt_iterator tsi_start 	PARAMS ((tree *));
 static inline tree_stmt_iterator tsi_last 	PARAMS ((tree *));
 static inline bool tsi_end_p			PARAMS ((tree_stmt_iterator));
+static inline bool tsi_one_before_end_p		PARAMS ((tree_stmt_iterator));
 static inline void tsi_next			PARAMS ((tree_stmt_iterator *));
 static inline void tsi_prev			PARAMS ((tree_stmt_iterator *));
 static inline tree tsi_stmt			PARAMS ((tree_stmt_iterator));
@@ -101,6 +102,14 @@ tsi_prev (i)
 {
   printf (" tsi_prev (%p) is not implemented yet\n",(void *)i);
   abort();
+}
+
+static inline bool
+tsi_one_before_end_p (i)
+     tree_stmt_iterator i;
+{
+  tsi_next (&i);
+  return tsi_end_p (i);
 }
 
 static inline tree *

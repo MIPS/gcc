@@ -1,3 +1,12 @@
+2003-06-30  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Check PUSH_ARGS_REVERSED.
+
+	* gimplify.c (gimplify_modify_expr): Also force a call with a
+	possible nonlocal goto into a temporary.
+	(gimplify_return_expr): Don't duplicate the MODIFY_EXPR.
+	* tree-iterator.h (tsi_one_before_end_p): New fn.
+
 2003-06-29  Jeff Sturm   <jsturm@one-point.com>
 
 	* fold-const.c (fold): Don't save_expr unless TREE_SIDE_EFFECTS.

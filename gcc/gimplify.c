@@ -957,29 +957,32 @@ gimplify_return_expr (tree stmt, tree *pre_p)
       if (result)
 	{
 	  tree ret = NULL_TREE;
-	  tree last = NULL_TREE;
 
 	  for (si = tsi_start (&ret_expr); !tsi_end_p (si); tsi_next (&si))
 	    {
-	      last = tsi_stmt (si);
-	      if (TREE_CODE (last) == MODIFY_EXPR
-		  && TREE_OPERAND (last, 0) == result)
-		ret = last;
-	      else if (ret)
-		break;
+	      tree sub = tsi_stmt (si);
+	      if (TREE_CODE (sub) == MODIFY_EXPR
+		  && TREE_OPERAND (sub, 0) == result)
+		{
+		  ret = sub;
+		  break;
+		}
 	    }
 
-	  /* If there were posteffects after the MODIFY_EXPR, we need a
-	     temporary.  We also copy the result of a CALL_EXPR into a
-	     temporary; apparently this simplifies dealing with
-	     TRY_FINALLY_EXPR somehow.  */
-	  if (ret
-	      && (ret != last
-		  || TREE_CODE (TREE_OPERAND (ret, 1)) == CALL_EXPR))
+	  if (ret)
 	    {
-	      tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
-	      TREE_OPERAND (ret, 0) = tmp;
-	      ret = build (MODIFY_EXPR, TREE_TYPE (result), result, tmp);
+	      if (tsi_one_before_end_p (si))
+		/* If the MODIFY_EXPR was the last thing in the GIMPLE
+		   form, pull it out.  */
+		tsi_delink (&si);
+	      else
+		{
+		  /* If there were posteffects after the MODIFY_EXPR, we
+		     need a temporary.  */
+		  tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
+		  TREE_OPERAND (ret, 0) = tmp;
+		  ret = build (MODIFY_EXPR, TREE_TYPE (result), result, tmp);
+		}
 	    }
 
 	  if (ret)
@@ -1489,8 +1492,13 @@ gimplify_call_expr (expr_p, pre_p, post_p, gimple_test_f)
 
   gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 		 is_gimple_id, fb_rvalue);
+
+  if (PUSH_ARGS_REVERSED)
+    TREE_OPERAND (*expr_p, 1) = nreverse (TREE_OPERAND (*expr_p, 1));
   gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
 		 is_gimple_arglist, fb_rvalue);
+  if (PUSH_ARGS_REVERSED)
+    TREE_OPERAND (*expr_p, 1) = nreverse (TREE_OPERAND (*expr_p, 1));
 
   /* If the function is "const", then clear TREE_SIDE_EFFECTS on its
      decl.  This allows us to eliminate redundant or useless
@@ -1923,18 +1931,18 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
       return;
     }
 
-  /* If the RHS of the MODIFY_EXPR may throw and the LHS is a user
-     variable, then we need to introduce a temporary.
+  /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto and
+     the LHS is a user variable, then we need to introduce a temporary.
      ie temp = RHS; LHS = temp.
 
      This way the optimizers can determine that the user variable is
      only modified if evaluation of the RHS does not throw.
 
      FIXME this should be handled by the is_gimple_rhs predicate.  */
-  if (flag_exceptions
-      && ! (DECL_P (*to_p) && DECL_ARTIFICIAL (*to_p))
+  if (! is_gimple_tmp_var (*to_p)
       && ((TREE_CODE (*from_p) == CALL_EXPR
-	   && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
+	   && ((flag_exceptions && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
+	       || FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)))
 	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
     pred = is_gimple_val;
   else

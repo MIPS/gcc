@@ -1,3 +1,8 @@
+2003-06-30  Jason Merrill  <jason@redhat.com>
+
+	* defaults.h (PUSH_ARGS_REVERSED): Define default here.
+	* calls.c: Not here.
+
 2003-06-09  Jason Merrill  <jason@redhat.com>
 
 	* fold-const.c (operand_equal_p): Handle ADDR_EXPR and TRUTH_NOT_EXPR.
