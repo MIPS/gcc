@@ -329,7 +329,6 @@ enum reachable_code
   RNL_BLOCKED
 };
 
-static int check_handled			PARAMS ((tree, tree));
 static void add_reachable_handler
      PARAMS ((struct reachable_info *, struct eh_region *,
 	      struct eh_region *));
@@ -2602,7 +2601,7 @@ struct reachable_info GTY(())
 /* A subroutine of reachable_next_level.  Return true if TYPE, or a
    base class of TYPE, is in HANDLED.  */
 
-static int
+int
 check_handled (handled, type)
      tree handled, type;
 {

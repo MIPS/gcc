@@ -1,5 +1,8 @@
 2003-04-21  Jeff Law  <law@redhat.com>
 
+	* except.c (check_handled): No longer static.
+	* except.h (check_handled): Prototype.
+
 	* c-simplify.c (c_build_bind_expr): Revert change from earlier today.
 
 	* c-common.h (find_reachable_label): Prototype.

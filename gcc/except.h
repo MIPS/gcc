@@ -119,6 +119,8 @@ extern void expand_eh_return			PARAMS ((void));
 extern rtx get_exception_pointer		PARAMS ((struct function *));
 extern int duplicate_eh_regions			PARAMS ((struct function *,
 						 struct inline_remap *));
+extern int check_handled			PARAMS ((tree, tree));
+
 
 extern void sjlj_emit_function_exit_after	PARAMS ((rtx));
 
