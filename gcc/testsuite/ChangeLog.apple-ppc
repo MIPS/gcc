@@ -1,3 +1,10 @@
+2005-02-25  Stan Shebs  <shebs@apple.com>
+
+	Radar 4020219
+	* gcc.dg/pragma-darwin.c: Avoid mac68k align stuff if 64-bit.
+	* g++.dg/expr/align68k-1.C: Stub out for 64-bit.
+	* g++.dg/expr/align68k-2.C: Stub out for 64-bit.
+
 2005-02-23  Devang Patel  <dpatel@apple.com>
 
 	Radar 4021019
