@@ -11453,14 +11453,9 @@ cp_parser_class_head (parser,
      issuing an error about it later if this really is a
      class-header.  If it turns out just to be an elaborated type
      specifier, remain silent.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
-    {
-      qualified_p = true;
-      cp_lexer_consume_token (parser->lexer);
-    }
+  if (cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false))
+    qualified_p = true;
 
-  /* There is no explicit qualification at this point.  */
-  parser->scope = NULL_TREE;
   /* Determine the name of the class.  Begin by looking for an
      optional nested-name-specifier.  */
   nested_name_specifier 
