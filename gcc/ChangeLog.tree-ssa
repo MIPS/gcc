@@ -1,3 +1,9 @@
+2003-06-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (get_stmt_operands): Abort if the statement is a
+	variable.
+	(create_var_ann): Abort if the variable is not a _DECL node.
+
 2003-06-13  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mudflap_c_function): Change calling conventions so

@@ -194,6 +194,13 @@ get_stmt_operands (tree stmt)
   stmt_ann_t ann;
   voperands_t prev_vops = NULL;
 
+#if defined ENABLE_CHECKING
+  /* The optimizers cannot handle statements that are nothing but a
+     _DECL.  This indicates a bug in the gimplifier.  */
+  if (SSA_VAR_P (stmt))
+    abort ();
+#endif
+
   if (IS_EMPTY_STMT (stmt) || stmt == error_mark_node)
     return;
 
@@ -1035,7 +1042,7 @@ create_var_ann (tree t)
   var_ann_t ann;
 
 #if defined ENABLE_CHECKING
-  if (t == NULL_TREE || !SSA_VAR_P (t))
+  if (t == NULL_TREE || !DECL_P (t))
     abort ();
 #endif
 
