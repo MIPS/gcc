@@ -303,7 +303,7 @@ find_defs (struct loop *loop, basic_block *body, struct df *df)
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
-  df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_HARD_REGS);
+  df_analyze_subcfg (df, blocks, DF_UD_CHAIN | DF_HARD_REGS | DF_EQUIV_NOTES);
   BITMAP_XFREE (blocks);
 }
 

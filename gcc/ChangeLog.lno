@@ -1,3 +1,6 @@
+2004-05-24  Dale Johannesen  <dalej@apple.com>
+	* loop-invariant.c (find_defs):  Add DF_EQUIV_NOTES.
+
 2004-05-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (tree-ssa-loop-manip.o): Add cfglayout.h dependency.
